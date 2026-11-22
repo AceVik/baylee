@@ -91,6 +91,8 @@ pub mod ben_ben_akki_hermit;
 pub mod blasting_station;
 #[path = "chk/blessed_breath.rs"]
 pub mod blessed_breath;
+#[path = "5dn/blind_creeper.rs"]
+pub mod blind_creeper;
 #[path = "chk/blind_with_anger.rs"]
 pub mod blind_with_anger;
 #[path = "5dn/blinkmoth_infusion.rs"]
@@ -163,6 +165,8 @@ pub mod cruel_deceiver;
 pub mod crushing_pain;
 #[path = "chk/cursed_ronin.rs"]
 pub mod cursed_ronin;
+#[path = "chk/cut_the_tethers.rs"]
+pub mod cut_the_tethers;
 #[path = "chk/dampen_thought.rs"]
 pub mod dampen_thought;
 #[path = "chk/dance_of_shadows.rs"]
@@ -197,6 +201,8 @@ pub mod devour_in_shadow;
 pub mod distress;
 #[path = "dst/dragon_s_claw.rs"]
 pub mod dragon_s_claw;
+#[path = "dst/drill_skimmer.rs"]
+pub mod drill_skimmer;
 #[path = "dst/drooling_ogre.rs"]
 pub mod drooling_ogre;
 #[path = "5dn/dross_crocodile.rs"]
@@ -207,6 +213,8 @@ pub mod dross_golem;
 pub mod early_frost;
 #[path = "chk/earthshaker.rs"]
 pub mod earthshaker;
+#[path = "5dn/ebon_drake.rs"]
+pub mod ebon_drake;
 #[path = "chk/eerie_procession.rs"]
 pub mod eerie_procession;
 #[path = "chk/eiganjo_castle.rs"]
@@ -241,6 +249,8 @@ pub mod ferocious_charge;
 pub mod field_of_reality;
 #[path = "5dn/fill_with_fright.rs"]
 pub mod fill_with_fright;
+#[path = "5dn/fist_of_suns.rs"]
+pub mod fist_of_suns;
 #[path = "5dn/fleshgrafter.rs"]
 pub mod fleshgrafter;
 #[path = "chk/forbidden_orchard.rs"]
@@ -347,6 +357,8 @@ pub mod infested_roothold;
 pub mod innocence_kami;
 #[path = "5dn/into_thin_air.rs"]
 pub mod into_thin_air;
+#[path = "5dn/ion_storm.rs"]
+pub mod ion_storm;
 #[path = "5dn/iron_barb_hellion.rs"]
 pub mod iron_barb_hellion;
 #[path = "chk/isamaru_hound_of_konda.rs"]
@@ -583,6 +595,8 @@ pub mod quicksilver_behemoth;
 pub mod quiet_purity;
 #[path = "5dn/qumulox.rs"]
 pub mod qumulox;
+#[path = "chk/rag_dealer.rs"]
+pub mod rag_dealer;
 #[path = "chk/ragged_veins.rs"]
 pub mod ragged_veins;
 #[path = "5dn/rain_of_rust.rs"]
@@ -609,6 +623,8 @@ pub mod reshape;
 pub mod retract;
 #[path = "5dn/reversal_of_fortune.rs"]
 pub mod reversal_of_fortune;
+#[path = "5dn/rite_of_passage.rs"]
+pub mod rite_of_passage;
 #[path = "dst/ritual_of_restoration.rs"]
 pub mod ritual_of_restoration;
 #[path = "chk/river_kaijin.rs"]
@@ -781,6 +797,8 @@ pub mod thermal_navigator;
 pub mod thief_of_hope;
 #[path = "5dn/thought_courier.rs"]
 pub mod thought_courier;
+#[path = "dst/thought_dissector.rs"]
+pub mod thought_dissector;
 #[path = "chk/thoughtbind.rs"]
 pub mod thoughtbind;
 #[path = "chk/thousand_legged_kami.rs"]
@@ -797,6 +815,8 @@ pub mod tranquil_garden;
 pub mod trinket_mage;
 #[path = "5dn/tyrranax.rs"]
 pub mod tyrranax;
+#[path = "chk/uncontrollable_anger.rs"]
+pub mod uncontrollable_anger;
 #[path = "chk/unnatural_speed.rs"]
 pub mod unnatural_speed;
 #[path = "chk/untaidake_the_cloud_keeper.rs"]

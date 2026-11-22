@@ -131,6 +131,8 @@ pub mod creosote_heath;
 pub mod cunning_coyote;
 #[path = "mh3/cursed_wombat.rs"]
 pub mod cursed_wombat;
+#[path = "otj/dance_of_the_tumbleweeds.rs"]
+pub mod dance_of_the_tumbleweeds;
 #[path = "otj/daring_thunder_thief.rs"]
 pub mod daring_thunder_thief;
 #[path = "otj/deadeye_duelist.rs"]
@@ -167,6 +169,8 @@ pub mod drossclaw;
 pub mod drowner_of_truth;
 #[path = "mh3/drownyard_lurker.rs"]
 pub mod drownyard_lurker;
+#[path = "m3c/eldrazi_confluence.rs"]
+pub mod eldrazi_confluence;
 #[path = "mh3/eldrazi_linebreaker.rs"]
 pub mod eldrazi_linebreaker;
 #[path = "mh3/eldrazi_ravager.rs"]
@@ -179,6 +183,8 @@ pub mod elemental_eruption;
 pub mod embrace_the_unknown;
 #[path = "mh3/emrakul_s_messenger.rs"]
 pub mod emrakul_s_messenger;
+#[path = "mh3/envoy_of_the_ancestors.rs"]
+pub mod envoy_of_the_ancestors;
 #[path = "otj/eriette_s_lullaby.rs"]
 pub mod eriette_s_lullaby;
 #[path = "otj/eroded_canyon.rs"]
@@ -191,6 +197,8 @@ pub mod etherium_pteramander;
 pub mod eviscerator_s_insight;
 #[path = "mh3/evolution_witness.rs"]
 pub mod evolution_witness;
+#[path = "mh3/expanding_ooze.rs"]
+pub mod expanding_ooze;
 #[path = "mh3/expel_the_unworthy.rs"]
 pub mod expel_the_unworthy;
 #[path = "otj/explosive_derailment.rs"]
@@ -217,6 +225,8 @@ pub mod flare_of_cultivation;
 pub mod flare_of_denial;
 #[path = "mh3/flare_of_duplication.rs"]
 pub mod flare_of_duplication;
+#[path = "mh3/flare_of_fortitude.rs"]
+pub mod flare_of_fortitude;
 #[path = "big/fomori_vault.rs"]
 pub mod fomori_vault;
 #[path = "mh3/foreboding_landscape.rs"]
@@ -237,6 +247,8 @@ pub mod freestrider_lookout;
 pub mod frogmyr_enforcer;
 #[path = "otj/frontier_seeker.rs"]
 pub mod frontier_seeker;
+#[path = "otj/full_steam_ahead.rs"]
+pub mod full_steam_ahead;
 #[path = "mh3/furnace_hellkite.rs"]
 pub mod furnace_hellkite;
 #[path = "mh3/galvanic_discharge.rs"]
@@ -245,6 +257,8 @@ pub mod galvanic_discharge;
 pub mod geyser_drake;
 #[path = "otj/ghired_mirror_of_the_wilds.rs"]
 pub mod ghired_mirror_of_the_wilds;
+#[path = "mh3/ghostfire_slice.rs"]
+pub mod ghostfire_slice;
 #[path = "mh3/glaring_fleshraker.rs"]
 pub mod glaring_fleshraker;
 #[path = "mh3/glasswing_grace.rs"]
@@ -255,6 +269,8 @@ pub mod glyph_elemental;
 pub mod gold_pan;
 #[path = "otj/gold_rush.rs"]
 pub mod gold_rush;
+#[path = "mh3/golden_tail_trainer.rs"]
+pub mod golden_tail_trainer;
 #[path = "otj/goldvein_hydra.rs"]
 pub mod goldvein_hydra;
 #[path = "mh3/gravedig.rs"]
@@ -263,6 +279,8 @@ pub mod gravedig;
 pub mod greed_s_gambit;
 #[path = "mh3/grist_voracious_larva.rs"]
 pub mod grist_voracious_larva;
+#[path = "mh3/guardian_of_the_forgotten.rs"]
+pub mod guardian_of_the_forgotten;
 #[path = "mh3/harbinger_of_the_seas.rs"]
 pub mod harbinger_of_the_seas;
 #[path = "otj/hardbristle_bandit.rs"]
@@ -271,6 +289,8 @@ pub mod hardbristle_bandit;
 pub mod harrier_strix;
 #[path = "big/harvester_of_misery.rs"]
 pub mod harvester_of_misery;
+#[path = "otj/hell_to_pay.rs"]
+pub mod hell_to_pay;
 #[path = "otj/hellspur_brute.rs"]
 pub mod hellspur_brute;
 #[path = "otj/hellspur_posse_boss.rs"]
@@ -337,6 +357,8 @@ pub mod legion_extruder;
 pub mod legion_leadership;
 #[path = "otc/leyline_dowser.rs"]
 pub mod leyline_dowser;
+#[path = "mh3/lion_umbra.rs"]
+pub mod lion_umbra;
 #[path = "otj/lonely_arroyo.rs"]
 pub mod lonely_arroyo;
 #[path = "otj/longhorn_sharpshooter.rs"]
@@ -403,8 +425,12 @@ pub mod nyxborn_hydra;
 pub mod nyxborn_unicorn;
 #[path = "otj/oasis_gardener.rs"]
 pub mod oasis_gardener;
+#[path = "mh3/obstinate_gargoyle.rs"]
+pub mod obstinate_gargoyle;
 #[path = "otj/omenport_vigilante.rs"]
 pub mod omenport_vigilante;
+#[path = "mh3/ondu_knotmaster.rs"]
+pub mod ondu_knotmaster;
 #[path = "otj/outcaster_greenblade.rs"]
 pub mod outcaster_greenblade;
 #[path = "otj/outcaster_trailblazer.rs"]
@@ -603,6 +629,8 @@ pub mod stingerback_terror;
 pub mod stoic_sphinx;
 #[path = "m3c/stone_idol_generator.rs"]
 pub mod stone_idol_generator;
+#[path = "otj/stop_cold.rs"]
+pub mod stop_cold;
 #[path = "mh3/strength_of_the_harvest.rs"]
 pub mod strength_of_the_harvest;
 #[path = "mh3/strix_serenade.rs"]
@@ -623,8 +651,12 @@ pub mod talon_gates_of_madara;
 pub mod tamiyo_inquisitive_student;
 #[path = "big/tarnation_vista.rs"]
 pub mod tarnation_vista;
+#[path = "mh3/temperamental_oozewagg.rs"]
+pub mod temperamental_oozewagg;
 #[path = "mh3/tempest_harvester.rs"]
 pub mod tempest_harvester;
+#[path = "mh3/thief_of_existence.rs"]
+pub mod thief_of_existence;
 #[path = "otj/three_steps_ahead.rs"]
 pub mod three_steps_ahead;
 #[path = "otj/thunder_lasso.rs"]

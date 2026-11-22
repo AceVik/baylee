@@ -61,6 +61,8 @@ pub mod chill_of_the_grave;
 pub mod courier_bat;
 #[path = "vow/cradle_of_safety.rs"]
 pub mod cradle_of_safety;
+#[path = "pvow/creepy_puppeteer.rs"]
+pub mod creepy_puppeteer;
 #[path = "voc/crossway_troublemakers.rs"]
 pub mod crossway_troublemakers;
 #[path = "vow/cruel_witness.rs"]
@@ -85,6 +87,8 @@ pub mod diver_skaab;
 pub mod doom_weaver;
 #[path = "vow/dormant_grove.rs"]
 pub mod dormant_grove;
+#[path = "pvow/dorothea_vengeful_victim.rs"]
+pub mod dorothea_vengeful_victim;
 #[path = "pvow/dreadfeast_demon.rs"]
 pub mod dreadfeast_demon;
 #[path = "pvow/dreamroot_cascade.rs"]
@@ -117,6 +121,8 @@ pub mod forsaken_crossroads;
 pub mod frenzied_devils;
 #[path = "vow/geistlight_snare.rs"]
 pub mod geistlight_snare;
+#[path = "pvow/geralf_visionary_stitcher.rs"]
+pub mod geralf_visionary_stitcher;
 #[path = "vow/gift_of_fangs.rs"]
 pub mod gift_of_fangs;
 #[path = "pvow/glorious_sunrise.rs"]
@@ -155,6 +161,8 @@ pub mod hookhand_mariner;
 pub mod hopeful_initiate;
 #[path = "pvow/howling_moon.rs"]
 pub mod howling_moon;
+#[path = "vow/hungry_ridgewolf.rs"]
+pub mod hungry_ridgewolf;
 #[path = "pvow/ill_tempered_loner.rs"]
 pub mod ill_tempered_loner;
 #[path = "voc/imperious_mindbreaker.rs"]
@@ -171,6 +179,8 @@ pub mod kessig_flamebreather;
 pub mod kessig_wolfrider;
 #[path = "vow/kindly_ancestor.rs"]
 pub mod kindly_ancestor;
+#[path = "vow/lacerate_flesh.rs"]
+pub mod lacerate_flesh;
 #[path = "vow/laid_to_rest.rs"]
 pub mod laid_to_rest;
 #[path = "vow/lambholt_raconteur.rs"]
@@ -217,6 +227,8 @@ pub mod olivia_s_wrath;
 pub mod ollenbock_escort;
 #[path = "pvow/overcharged_amalgam.rs"]
 pub mod overcharged_amalgam;
+#[path = "vow/packsong_pup.rs"]
+pub mod packsong_pup;
 #[path = "vow/panicked_bystander.rs"]
 pub mod panicked_bystander;
 #[path = "vow/persistent_specimen.rs"]
@@ -235,6 +247,8 @@ pub mod reclusive_taxidermist;
 pub mod rending_flame;
 #[path = "vow/repository_skaab.rs"]
 pub mod repository_skaab;
+#[path = "vow/resistance_squad.rs"]
+pub mod resistance_squad;
 #[path = "vow/restless_bloodseeker.rs"]
 pub mod restless_bloodseeker;
 #[path = "vow/rot_tide_gargantua.rs"]

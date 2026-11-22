@@ -105,6 +105,8 @@ pub mod bellows_lizard;
 pub mod black_cat;
 #[path = "avr/bladed_bracers.rs"]
 pub mod bladed_bracers;
+#[path = "avr/blessings_of_nature.rs"]
+pub mod blessings_of_nature;
 #[path = "rtr/blistercoil_weird.rs"]
 pub mod blistercoil_weird;
 #[path = "avr/blood_artist.rs"]
@@ -475,6 +477,8 @@ pub mod growing_ranks;
 pub mod gryff_vanguard;
 #[path = "m13/guardian_lions.rs"]
 pub mod guardian_lions;
+#[path = "avr/guise_of_fire.rs"]
+pub mod guise_of_fire;
 #[path = "rtr/guttersnipe.rs"]
 pub mod guttersnipe;
 #[path = "avr/hanweir_lancer.rs"]
@@ -609,6 +613,8 @@ pub mod liliana_s_shade;
 pub mod lingering_souls;
 #[path = "rtr/lobber_crew.rs"]
 pub mod lobber_crew;
+#[path = "avr/lone_revenant.rs"]
+pub mod lone_revenant;
 #[path = "rtr/lotleth_troll.rs"]
 pub mod lotleth_troll;
 #[path = "avr/lunar_mystic.rs"]
@@ -711,6 +717,8 @@ pub mod nivix_guildmage;
 pub mod oak_street_innkeeper;
 #[path = "rtr/ogre_jailbreaker.rs"]
 pub mod ogre_jailbreaker;
+#[path = "m13/omniscience.rs"]
+pub mod omniscience;
 #[path = "avr/otherworld_atlas.rs"]
 pub mod otherworld_atlas;
 #[path = "rtr/pack_rat.rs"]
@@ -749,6 +757,8 @@ pub mod raging_poltergeist;
 pub mod rain_of_thorns;
 #[path = "rtr/rakdos_cackler.rs"]
 pub mod rakdos_cackler;
+#[path = "rtr/rakdos_charm.rs"]
+pub mod rakdos_charm;
 #[path = "rtr/rakdos_guildgate.rs"]
 pub mod rakdos_guildgate;
 #[path = "rtr/rakdos_keyrune.rs"]
@@ -781,6 +791,8 @@ pub mod restoration_angel;
 pub mod revenge_of_the_hunted;
 #[path = "avr/riders_of_gavony.rs"]
 pub mod riders_of_gavony;
+#[path = "rtr/righteous_authority.rs"]
+pub mod righteous_authority;
 #[path = "avr/righteous_blow.rs"]
 pub mod righteous_blow;
 #[path = "avr/riot_ringleader.rs"]
@@ -891,6 +903,8 @@ pub mod skyline_predator;
 pub mod skymark_roc;
 #[path = "avr/slayers_stronghold.rs"]
 pub mod slayers_stronghold;
+#[path = "rtr/slime_molding.rs"]
+pub mod slime_molding;
 #[path = "rtr/slitherhead.rs"]
 pub mod slitherhead;
 #[path = "rtr/sluiceway_scorpion.rs"]
@@ -935,6 +949,8 @@ pub mod staff_of_nin;
 pub mod stealer_of_secrets;
 #[path = "avr/stern_mentor.rs"]
 pub mod stern_mentor;
+#[path = "avr/stolen_goods.rs"]
+pub mod stolen_goods;
 #[path = "rtr/stonefare_crocodile.rs"]
 pub mod stonefare_crocodile;
 #[path = "avr/stonewright.rs"]
@@ -973,6 +989,8 @@ pub mod tenement_crasher;
 pub mod terrus_wurm;
 #[path = "dka/thalia_guardian_of_thraben.rs"]
 pub mod thalia_guardian_of_thraben;
+#[path = "avr/thatcher_revolt.rs"]
+pub mod thatcher_revolt;
 #[path = "dka/thought_scour.rs"]
 pub mod thought_scour;
 #[path = "rtr/thoughtflare.rs"]
@@ -999,6 +1017,8 @@ pub mod timberland_guide;
 pub mod timberpack_wolf;
 #[path = "dka/torch_fiend.rs"]
 pub mod torch_fiend;
+#[path = "avr/tormentor_s_trident.rs"]
+pub mod tormentor_s_trident;
 #[path = "m13/touch_of_the_eternal.rs"]
 pub mod touch_of_the_eternal;
 #[path = "dka/tower_geist.rs"]

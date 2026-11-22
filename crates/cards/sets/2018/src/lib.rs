@@ -13,6 +13,8 @@
 // What a card file names as `crate::…`.
 pub use baylee_cards_base::{filters, generated_tokens, tokens};
 
+#[path = "m19/abnormal_endurance.rs"]
+pub mod abnormal_endurance;
 #[path = "dom/academy_drake.rs"]
 pub mod academy_drake;
 #[path = "dom/academy_journeymage.rs"]
@@ -241,6 +243,8 @@ pub mod charnel_troll;
 pub mod cheering_fanatic;
 #[path = "grn/chemister_s_insight.rs"]
 pub mod chemister_s_insight;
+#[path = "m19/chromium_the_mutable.rs"]
+pub mod chromium_the_mutable;
 #[path = "grn/circuitous_route.rs"]
 pub mod circuitous_route;
 #[path = "grn/citywatch_sphinx.rs"]
@@ -403,6 +407,8 @@ pub mod elvish_clancaller;
 pub mod elvish_rejuvenator;
 #[path = "grn/emmara_soul_of_the_accord.rs"]
 pub mod emmara_soul_of_the_accord;
+#[path = "rix/enter_the_unknown.rs"]
+pub mod enter_the_unknown;
 #[path = "c18/entreat_the_dead.rs"]
 pub mod entreat_the_dead;
 #[path = "m19/epicure_of_blood.rs"]
@@ -505,6 +511,8 @@ pub mod geode_golem;
 pub mod ghastbark_twins;
 #[path = "dom/ghitu_chronicler.rs"]
 pub mod ghitu_chronicler;
+#[path = "dom/ghitu_journeymage.rs"]
+pub mod ghitu_journeymage;
 #[path = "dom/ghitu_lavarunner.rs"]
 pub mod ghitu_lavarunner;
 #[path = "med/gideon_blackblade.rs"]
@@ -565,6 +573,8 @@ pub mod gruesome_fate;
 pub mod guardians_of_koilos;
 #[path = "grn/guildmages_forum.rs"]
 pub mod guildmages_forum;
+#[path = "grn/haazda_marshal.rs"]
+pub mod haazda_marshal;
 #[path = "prix/hadana_s_climb.rs"]
 pub mod hadana_s_climb;
 #[path = "dom/hallar_the_firefletcher.rs"]
@@ -667,6 +677,8 @@ pub mod jhoira_s_familiar;
 pub mod jhoira_weatherlight_captain;
 #[path = "gs1/jiang_yanggu.rs"]
 pub mod jiang_yanggu;
+#[path = "dom/jodah_archmage_eternal.rs"]
+pub mod jodah_archmage_eternal;
 #[path = "grn/join_shields.rs"]
 pub mod join_shields;
 #[path = "dom/josu_vess_lich_knight.rs"]
@@ -757,6 +769,8 @@ pub mod light_of_the_legion;
 pub mod liliana_s_contract;
 #[path = "m19/liliana_s_spoils.rs"]
 pub mod liliana_s_spoils;
+#[path = "m19/liliana_the_necromancer.rs"]
+pub mod liliana_the_necromancer;
 #[path = "dom/lingering_phantom.rs"]
 pub mod lingering_phantom;
 #[path = "dom/llanowar_envoy.rs"]
@@ -817,6 +831,8 @@ pub mod memorial_to_war;
 pub mod mephitic_vapors;
 #[path = "rix/merfolk_mistbinder.rs"]
 pub mod merfolk_mistbinder;
+#[path = "dom/merfolk_trickster.rs"]
+pub mod merfolk_trickster;
 #[path = "dom/mesa_unicorn.rs"]
 pub mod mesa_unicorn;
 #[path = "m19/meteor_golem.rs"]
@@ -1131,6 +1147,8 @@ pub mod siren_reaver;
 pub mod skalla_wolf;
 #[path = "m19/skeleton_archer.rs"]
 pub mod skeleton_archer;
+#[path = "m19/skilled_animator.rs"]
+pub mod skilled_animator;
 #[path = "dom/skittering_surveyor.rs"]
 pub mod skittering_surveyor;
 #[path = "grn/skyline_scout.rs"]
@@ -1153,6 +1171,8 @@ pub mod smelt_ward_minotaur;
 pub mod snubhorn_sentry;
 #[path = "bbd/soaring_show_off.rs"]
 pub mod soaring_show_off;
+#[path = "dom/song_of_freyalise.rs"]
+pub mod song_of_freyalise;
 #[path = "grn/sonic_assault.rs"]
 pub mod sonic_assault;
 #[path = "dom/sorcerer_s_wand.rs"]
@@ -1187,6 +1207,8 @@ pub mod sporecrown_thallid;
 pub mod sprouting_renewal;
 #[path = "rix/squire_s_devotion.rs"]
 pub mod squire_s_devotion;
+#[path = "rix/stampeding_horncrest.rs"]
+pub mod stampeding_horncrest;
 #[path = "m19/star_crowned_stag.rs"]
 pub mod star_crowned_stag;
 #[path = "grn/status.rs"]
@@ -1195,6 +1217,8 @@ pub mod status;
 pub mod steel_leaf_champion;
 #[path = "m19/stitcher_s_supplier.rs"]
 pub mod stitcher_s_supplier;
+#[path = "bbd/stolen_strategy.rs"]
+pub mod stolen_strategy;
 #[path = "rix/storm_fleet_sprinter.rs"]
 pub mod storm_fleet_sprinter;
 #[path = "rix/storm_fleet_swashbuckler.rs"]
@@ -1215,6 +1239,8 @@ pub mod stronghold_confessor;
 pub mod sumala_woodshaper;
 #[path = "rix/sun_collared_raptor.rs"]
 pub mod sun_collared_raptor;
+#[path = "rix/sun_crested_pterodon.rs"]
+pub mod sun_crested_pterodon;
 #[path = "rix/sun_sentinel.rs"]
 pub mod sun_sentinel;
 #[path = "grn/sunhome_stalwart.rs"]
@@ -1239,6 +1265,8 @@ pub mod swiftblade_vindicator;
 pub mod sworn_companions;
 #[path = "rix/sworn_guardian.rs"]
 pub mod sworn_guardian;
+#[path = "dom/sylvan_awakening.rs"]
+pub mod sylvan_awakening;
 #[path = "oana/tactical_advantage.rs"]
 pub mod tactical_advantage;
 #[path = "grn/tajic_legion_s_edge.rs"]
@@ -1347,6 +1375,8 @@ pub mod vampire_neonate;
 pub mod vampire_revenant;
 #[path = "m19/vampire_sovereign.rs"]
 pub mod vampire_sovereign;
+#[path = "c18/vedalken_humiliator.rs"]
+pub mod vedalken_humiliator;
 #[path = "grn/vedalken_mesmerist.rs"]
 pub mod vedalken_mesmerist;
 #[path = "grn/veiled_shade.rs"]
@@ -1397,6 +1427,8 @@ pub mod vraska_s_stoneglare;
 pub mod wall_of_mist;
 #[path = "grn/wand_of_vertebrae.rs"]
 pub mod wand_of_vertebrae;
+#[path = "prix/warkite_marauder.rs"]
+pub mod warkite_marauder;
 #[path = "dom/warlord_s_fury.rs"]
 pub mod warlord_s_fury;
 #[path = "grn/wary_okapi.rs"]

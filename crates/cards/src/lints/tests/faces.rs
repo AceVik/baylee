@@ -216,11 +216,11 @@ fn a_rooms_card_list_is_its_doors_lists_end_to_end() {
         "these Rooms' card-level `abilities` are not their halves' lists \
          end to end: {wrong:?}"
     );
-    // Measured 29.09.2026: one Room in the pool, Walk-In Closet. A
-    // reader of the shared type line that found none would pass the
-    // sweep above with nothing in it.
+    // Measured 29.09.2026: one Room in the pool (Walk-In Closet); updated
+    // to 18 Rooms after Wave 23c / Pass E14. A reader of the shared type line
+    // that found none would pass the sweep above with nothing in it.
     assert!(
-        (1..=8).contains(&rooms),
+        (1..=32).contains(&rooms),
         "{rooms} Rooms; `has_shared_type_line` is not reading the pool"
     );
 }

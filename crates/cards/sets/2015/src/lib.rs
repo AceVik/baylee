@@ -103,6 +103,8 @@ pub mod atarka_efreet;
 pub mod atarka_monument;
 #[path = "dtk/atarka_pummeler.rs"]
 pub mod atarka_pummeler;
+#[path = "dtk/atarka_s_command.rs"]
+pub mod atarka_s_command;
 #[path = "frf/atarka_world_render.rs"]
 pub mod atarka_world_render;
 #[path = "ori/avaricious_dragon.rs"]
@@ -263,6 +265,8 @@ pub mod coralhelm_guide;
 pub mod corpse_augur;
 #[path = "bfz/courier_griffin.rs"]
 pub mod courier_griffin;
+#[path = "dtk/crater_elemental.rs"]
+pub mod crater_elemental;
 #[path = "frf/crucible_of_the_spirit_dragon.rs"]
 pub mod crucible_of_the_spirit_dragon;
 #[path = "frf/crux_of_fate.rs"]
@@ -275,6 +279,8 @@ pub mod custodian_of_the_trove;
 pub mod damnable_pact;
 #[path = "bfz/dampening_pulse.rs"]
 pub mod dampening_pulse;
+#[path = "dtk/dance_of_the_skywise.rs"]
+pub mod dance_of_the_skywise;
 #[path = "c15/daxos_s_torment.rs"]
 pub mod daxos_s_torment;
 #[path = "ori/deadbridge_shaman.rs"]
@@ -337,6 +343,8 @@ pub mod dragonscale_general;
 pub mod drana_liberator_of_malakir;
 #[path = "bfz/drana_s_emissary.rs"]
 pub mod drana_s_emissary;
+#[path = "c15/dread_summons.rs"]
+pub mod dread_summons;
 #[path = "c15/dream_pillager.rs"]
 pub mod dream_pillager;
 #[path = "dtk/dromoka_captain.rs"]
@@ -353,10 +361,14 @@ pub mod dromoka_the_eternal;
 pub mod dromoka_warrior;
 #[path = "bfz/drowner_of_hope.rs"]
 pub mod drowner_of_hope;
+#[path = "bfz/dust_stalker.rs"]
+pub mod dust_stalker;
 #[path = "dtk/dutiful_attendant.rs"]
 pub mod dutiful_attendant;
 #[path = "ori/dwynen_gilt_leaf_daen.rs"]
 pub mod dwynen_gilt_leaf_daen;
+#[path = "ori/dwynen_s_elite.rs"]
+pub mod dwynen_s_elite;
 #[path = "bfz/earthen_arms.rs"]
 pub mod earthen_arms;
 #[path = "dtk/echoes_of_the_kin_tree.rs"]
@@ -399,6 +411,8 @@ pub mod eyeblight_assassin;
 pub mod eyeblight_massacre;
 #[path = "bfz/eyeless_watcher.rs"]
 pub mod eyeless_watcher;
+#[path = "ori/faerie_miscreant.rs"]
+pub mod faerie_miscreant;
 #[path = "frf/fascination.rs"]
 pub mod fascination;
 #[path = "dtk/fate_forgotten.rs"]
@@ -411,6 +425,8 @@ pub mod feral_krushok;
 pub mod fertile_thicket;
 #[path = "ori/fetid_imp.rs"]
 pub mod fetid_imp;
+#[path = "c15/fiery_confluence.rs"]
+pub mod fiery_confluence;
 #[path = "ori/fiery_impulse.rs"]
 pub mod fiery_impulse;
 #[path = "ori/firefiend_elemental.rs"]
@@ -505,6 +521,8 @@ pub mod hand_of_silumgar;
 pub mod hangarback_walker;
 #[path = "dtk/harbinger_of_the_hunt.rs"]
 pub mod harbinger_of_the_hunt;
+#[path = "dtk/hardened_berserker.rs"]
+pub mod hardened_berserker;
 #[path = "frf/harsh_sustenance.rs"]
 pub mod harsh_sustenance;
 #[path = "dtk/haven_of_the_spirit_dragon.rs"]
@@ -559,6 +577,10 @@ pub mod illusory_gains;
 pub mod impact_tremors;
 #[path = "bfz/incubator_drone.rs"]
 pub mod incubator_drone;
+#[path = "ori/infectious_bloodlust.rs"]
+pub mod infectious_bloodlust;
+#[path = "ori/infernal_scarring.rs"]
+pub mod infernal_scarring;
 #[path = "dtk/inspiring_call.rs"]
 pub mod inspiring_call;
 #[path = "dtk/ire_shaman.rs"]
@@ -717,6 +739,10 @@ pub mod monastery_mentor;
 pub mod mortuary_mire;
 #[path = "bfz/murasa_ranger.rs"]
 pub mod murasa_ranger;
+#[path = "c15/mystic_confluence.rs"]
+pub mod mystic_confluence;
+#[path = "dtk/myth_realized.rs"]
+pub mod myth_realized;
 #[path = "bfz/natural_connection.rs"]
 pub mod natural_connection;
 #[path = "dtk/necromaster_dragon.rs"]
@@ -815,12 +841,16 @@ pub mod radiant_purge;
 pub mod rakshasa_gravecaller;
 #[path = "frf/rakshasa_s_disdain.rs"]
 pub mod rakshasa_s_disdain;
+#[path = "ori/ramroller.rs"]
+pub mod ramroller;
 #[path = "frf/reach_of_shadows.rs"]
 pub mod reach_of_shadows;
 #[path = "ugin/reality_shift.rs"]
 pub mod reality_shift;
 #[path = "ori/reave_soul.rs"]
 pub mod reave_soul;
+#[path = "bfz/reckless_cohort.rs"]
+pub mod reckless_cohort;
 #[path = "dtk/reckless_imp.rs"]
 pub mod reckless_imp;
 #[path = "bfz/reclaiming_vines.rs"]
@@ -853,6 +883,8 @@ pub mod retreat_to_valakut;
 pub mod return_to_the_earth;
 #[path = "ori/rhox_maulers.rs"]
 pub mod rhox_maulers;
+#[path = "c15/righteous_confluence.rs"]
+pub mod righteous_confluence;
 #[path = "ori/ringwarden_owl.rs"]
 pub mod ringwarden_owl;
 #[path = "bfz/rising_miasma.rs"]
@@ -1147,6 +1179,8 @@ pub mod vampiric_rites;
 pub mod vandalize;
 #[path = "frf/vaultbreaker.rs"]
 pub mod vaultbreaker;
+#[path = "c15/verdant_confluence.rs"]
+pub mod verdant_confluence;
 #[path = "bfz/vestige_of_emrakul.rs"]
 pub mod vestige_of_emrakul;
 #[path = "ori/veteran_s_sidearm.rs"]
@@ -1205,6 +1239,8 @@ pub mod will_of_the_naga;
 pub mod windrider_patrol;
 #[path = "ori/woodland_bellower.rs"]
 pub mod woodland_bellower;
+#[path = "c15/wretched_confluence.rs"]
+pub mod wretched_confluence;
 #[path = "dtk/youthful_scholar.rs"]
 pub mod youthful_scholar;
 #[path = "ori/zendikar_incarnate.rs"]

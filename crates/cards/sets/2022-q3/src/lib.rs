@@ -187,6 +187,8 @@ pub mod keldon_strike_team;
 pub mod king_darien_xlviii;
 #[path = "dmu/knight_of_dusk_s_shadow.rs"]
 pub mod knight_of_dusk_s_shadow;
+#[path = "dmu/lagomos_hand_of_hatred.rs"]
+pub mod lagomos_hand_of_hatred;
 #[path = "dmu/leaf_crowned_visionary.rs"]
 pub mod leaf_crowned_visionary;
 #[path = "dmu/leyline_binding.rs"]
@@ -251,6 +253,8 @@ pub mod ratadrabik_of_urborg;
 pub mod relic_of_legends;
 #[path = "dmu/resolute_reinforcements.rs"]
 pub mod resolute_reinforcements;
+#[path = "dmc/robaran_mercenaries.rs"]
+pub mod robaran_mercenaries;
 #[path = "dmc/rohgahh_kher_keep_overlord.rs"]
 pub mod rohgahh_kher_keep_overlord;
 #[path = "dmu/rona_s_vortex.rs"]
@@ -353,6 +357,8 @@ pub mod tura_kennerud_skyknight;
 pub mod twinferno;
 #[path = "dmc/two_headed_hellkite.rs"]
 pub mod two_headed_hellkite;
+#[path = "dmc/unite_the_coalition.rs"]
+pub mod unite_the_coalition;
 #[path = "p30a/urza_prince_of_kroog.rs"]
 pub mod urza_prince_of_kroog;
 #[path = "dmu/uurg_spawn_of_turg.rs"]

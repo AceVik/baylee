@@ -55,12 +55,16 @@ pub mod asha_s_favor;
 pub mod aven_squire;
 #[path = "con_/aven_trailblazer.rs"]
 pub mod aven_trailblazer;
+#[path = "m10/awakener_druid.rs"]
+pub mod awakener_druid;
 #[path = "zen/baloth_woodcrasher.rs"]
 pub mod baloth_woodcrasher;
 #[path = "m10/baneslayer_angel.rs"]
 pub mod baneslayer_angel;
 #[path = "arb/bant_sojourners.rs"]
 pub mod bant_sojourners;
+#[path = "arb/bant_sureblade.rs"]
+pub mod bant_sureblade;
 #[path = "con_/beacon_behemoth.rs"]
 pub mod beacon_behemoth;
 #[path = "hop/beast_hunt.rs"]
@@ -159,6 +163,8 @@ pub mod convincing_mirage;
 pub mod corrupted_roots;
 #[path = "con_/countersquall.rs"]
 pub mod countersquall;
+#[path = "con_/court_homunculus.rs"]
+pub mod court_homunculus;
 #[path = "zen/crypt_of_agadeem.rs"]
 pub mod crypt_of_agadeem;
 #[path = "zen/crypt_ripper.rs"]
@@ -247,6 +253,8 @@ pub mod entangling_vines;
 pub mod esper_cormorants;
 #[path = "arb/esper_sojourners.rs"]
 pub mod esper_sojourners;
+#[path = "arb/esper_stormblade.rs"]
+pub mod esper_stormblade;
 #[path = "con_/esperzoa.rs"]
 pub mod esperzoa;
 #[path = "m10/essence_scatter.rs"]
@@ -363,6 +371,8 @@ pub mod greenweaver_druid;
 pub mod griffin_sentinel;
 #[path = "zen/grim_discovery.rs"]
 pub mod grim_discovery;
+#[path = "arb/grixis_grimblade.rs"]
+pub mod grixis_grimblade;
 #[path = "con_/grixis_slavedriver.rs"]
 pub mod grixis_slavedriver;
 #[path = "arb/grixis_sojourners.rs"]
@@ -397,6 +407,8 @@ pub mod highland_berserker;
 pub mod honor_of_the_pure;
 #[path = "m10/howling_banshee.rs"]
 pub mod howling_banshee;
+#[path = "m10/ice_cage.rs"]
+pub mod ice_cage;
 #[path = "arb/igneous_pouncer.rs"]
 pub mod igneous_pouncer;
 #[path = "m10/illusionary_servant.rs"]
@@ -427,6 +439,8 @@ pub mod jhessian_zombies;
 pub mod joraga_bard;
 #[path = "zen/journey_to_nowhere.rs"]
 pub mod journey_to_nowhere;
+#[path = "arb/jund_hackblade.rs"]
+pub mod jund_hackblade;
 #[path = "arb/jund_sojourners.rs"]
 pub mod jund_sojourners;
 #[path = "zen/jwar_isle_refuge.rs"]
@@ -457,6 +471,8 @@ pub mod kederekt_parasite;
 pub mod kelinore_bat;
 #[path = "zen/khalni_heart_expedition.rs"]
 pub mod khalni_heart_expedition;
+#[path = "purl/kirk_enterprising_captain.rs"]
+pub mod kirk_enterprising_captain;
 #[path = "con_/knight_of_the_reliquary.rs"]
 pub mod knight_of_the_reliquary;
 #[path = "con_/knotvine_mystic.rs"]
@@ -549,6 +565,8 @@ pub mod master_transmuter;
 pub mod matca_rioters;
 #[path = "arb/mayael_s_aria.rs"]
 pub mod mayael_s_aria;
+#[path = "con_/meglonoth.rs"]
+pub mod meglonoth;
 #[path = "zen/merfolk_seastalkers.rs"]
 pub mod merfolk_seastalkers;
 #[path = "m10/merfolk_sovereign.rs"]
@@ -561,6 +579,8 @@ pub mod messenger_falcons;
 pub mod might_of_alara;
 #[path = "m10/mind_control.rs"]
 pub mod mind_control;
+#[path = "arb/mind_funeral.rs"]
+pub mod mind_funeral;
 #[path = "zen/mindless_null.rs"]
 pub mod mindless_null;
 #[path = "zen/mire_blight.rs"]
@@ -597,6 +617,8 @@ pub mod nacatl_savage;
 pub mod narrow_escape;
 #[path = "m10/nature_s_spiral.rs"]
 pub mod nature_s_spiral;
+#[path = "arb/naya_hushblade.rs"]
+pub mod naya_hushblade;
 #[path = "arb/naya_sojourners.rs"]
 pub mod naya_sojourners;
 #[path = "arb/nemesis_of_reason.rs"]
@@ -857,6 +879,8 @@ pub mod talon_trooper;
 pub mod tanglesap;
 #[path = "zen/teetering_peaks.rs"]
 pub mod teetering_peaks;
+#[path = "con_/telemin_performance.rs"]
+pub mod telemin_performance;
 #[path = "zen/tempest_owl.rs"]
 pub mod tempest_owl;
 #[path = "zen/terra_stomper.rs"]

@@ -251,6 +251,8 @@ pub mod eternity_snare;
 pub mod evil_eye_of_urborg;
 #[path = "dis/evolution_vat.rs"]
 pub mod evolution_vat;
+#[path = "dis/experiment_kraj.rs"]
+pub mod experiment_kraj;
 #[path = "tsp/faceless_devourer.rs"]
 pub mod faceless_devourer;
 #[path = "tsp/fallen_ideal.rs"]
@@ -303,6 +305,8 @@ pub mod freyalise_s_radiance;
 pub mod frost_marsh;
 #[path = "csp/frost_raptor.rs"]
 pub mod frost_raptor;
+#[path = "csp/frostweb_spider.rs"]
+pub mod frostweb_spider;
 #[path = "tsp/fungal_reaches.rs"]
 pub mod fungal_reaches;
 #[path = "tsp/fungus_sliver.rs"]
@@ -969,6 +973,8 @@ pub mod whiptail_moloch;
 pub mod white_shield_crusader;
 #[path = "gpt/wild_cantor.rs"]
 pub mod wild_cantor;
+#[path = "csp/wilderness_elemental.rs"]
+pub mod wilderness_elemental;
 #[path = "gpt/wildsize.rs"]
 pub mod wildsize;
 #[path = "dis/windreaver.rs"]
@@ -989,6 +995,8 @@ pub mod wormwood_dryad;
 pub mod wreak_havoc;
 #[path = "dis/wrecking_ball.rs"]
 pub mod wrecking_ball;
+#[path = "tsp/wurmcalling.rs"]
+pub mod wurmcalling;
 #[path = "gpt/wurmweaver_coil.rs"]
 pub mod wurmweaver_coil;
 #[path = "tsp/zealot_il_vec.rs"]

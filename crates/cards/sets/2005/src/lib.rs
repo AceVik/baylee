@@ -379,6 +379,8 @@ pub mod ire_of_kaminari;
 pub mod isao_enlightened_bushi;
 #[path = "bok/ishi_ishi_akki_crackshot.rs"]
 pub mod ishi_ishi_akki_crackshot;
+#[path = "sok/ivory_crane_netsuke.rs"]
+pub mod ivory_crane_netsuke;
 #[path = "rav/ivy_dancer.rs"]
 pub mod ivy_dancer;
 #[path = "psal/jedit_ojanen_of_efrava.rs"]
@@ -397,6 +399,8 @@ pub mod kagemaro_first_to_suffer;
 pub mod kagemaro_s_clutch;
 #[path = "sok/kaho_minamo_historian.rs"]
 pub mod kaho_minamo_historian;
+#[path = "bok/kaijin_of_the_vanishing_touch.rs"]
+pub mod kaijin_of_the_vanishing_touch;
 #[path = "sok/kami_of_empty_graves.rs"]
 pub mod kami_of_empty_graves;
 #[path = "bok/kami_of_false_hope.rs"]
@@ -519,6 +523,8 @@ pub mod oboro_breezecaller;
 pub mod oboro_envoy;
 #[path = "sok/oboro_palace_in_the_clouds.rs"]
 pub mod oboro_palace_in_the_clouds;
+#[path = "bok/ogre_recluse.rs"]
+pub mod ogre_recluse;
 #[path = "bok/okiba_gang_shinobi.rs"]
 pub mod okiba_gang_shinobi;
 #[path = "sok/one_with_nothing.rs"]
@@ -673,6 +679,8 @@ pub mod shinen_of_stars_light;
 pub mod shinka_gatekeeper;
 #[path = "bok/shirei_shizo_s_caretaker.rs"]
 pub mod shirei_shizo_s_caretaker;
+#[path = "rav/shred_memory.rs"]
+pub mod shred_memory;
 #[path = "bok/shuko.rs"]
 pub mod shuko;
 #[path = "rav/siege_wurm.rs"]

@@ -21,6 +21,8 @@ pub mod abzan_ascendancy;
 pub mod abzan_banner;
 #[path = "ktk/abzan_battle_priest.rs"]
 pub mod abzan_battle_priest;
+#[path = "ktk/abzan_charm.rs"]
+pub mod abzan_charm;
 #[path = "ktk/abzan_falconer.rs"]
 pub mod abzan_falconer;
 #[path = "ktk/abzan_guide.rs"]
@@ -47,6 +49,8 @@ pub mod agent_of_erebos;
 pub mod ainok_bond_kin;
 #[path = "ktk/ainok_tracker.rs"]
 pub mod ainok_tracker;
+#[path = "jou/ajani_mentor_of_heroes.rs"]
+pub mod ajani_mentor_of_heroes;
 #[path = "jou/ajani_s_presence.rs"]
 pub mod ajani_s_presence;
 #[path = "bng/akroan_conscriptor.rs"]
@@ -79,6 +83,16 @@ pub mod ankle_shanker;
 pub mod arcane_lighthouse;
 #[path = "ktk/archers_parapet.rs"]
 pub mod archers_parapet;
+#[path = "bng/archetype_of_aggression.rs"]
+pub mod archetype_of_aggression;
+#[path = "bng/archetype_of_courage.rs"]
+pub mod archetype_of_courage;
+#[path = "bng/archetype_of_endurance.rs"]
+pub mod archetype_of_endurance;
+#[path = "bng/archetype_of_finality.rs"]
+pub mod archetype_of_finality;
+#[path = "bng/archetype_of_imagination.rs"]
+pub mod archetype_of_imagination;
 #[path = "jou/armament_of_nyx.rs"]
 pub mod armament_of_nyx;
 #[path = "jou/armory_of_iroas.rs"]
@@ -357,6 +371,8 @@ pub mod feast_of_dreams;
 pub mod feat_of_resistance;
 #[path = "c14/feldon_of_the_third_path.rs"]
 pub mod feldon_of_the_third_path;
+#[path = "bng/felhide_brawler.rs"]
+pub mod felhide_brawler;
 #[path = "jou/felhide_petrifier.rs"]
 pub mod felhide_petrifier;
 #[path = "bng/felhide_spiritbinder.rs"]
@@ -367,6 +383,8 @@ pub mod feral_incarnation;
 pub mod festergloom;
 #[path = "ktk/firehoof_cavalry.rs"]
 pub mod firehoof_cavalry;
+#[path = "bng/flame_wreathed_phoenix.rs"]
+pub mod flame_wreathed_phoenix;
 #[path = "c14/flamekin_village.rs"]
 pub mod flamekin_village;
 #[path = "jou/flamespeaker_s_will.rs"]
@@ -375,6 +393,8 @@ pub mod flamespeaker_s_will;
 pub mod flamewright;
 #[path = "jou/fleetfeather_cockatrice.rs"]
 pub mod fleetfeather_cockatrice;
+#[path = "c14/flesh_carver.rs"]
+pub mod flesh_carver;
 #[path = "m15/flesh_to_dust.rs"]
 pub mod flesh_to_dust;
 #[path = "bng/flitterstep_eidolon.rs"]
@@ -427,6 +447,8 @@ pub mod glacial_stalker;
 pub mod glimpse_the_sun_god;
 #[path = "jou/gluttonous_cyclops.rs"]
 pub mod gluttonous_cyclops;
+#[path = "jou/gnarled_scarhide.rs"]
+pub mod gnarled_scarhide;
 #[path = "m15/goblin_kaboomist.rs"]
 pub mod goblin_kaboomist;
 #[path = "pm15/goblin_rabblemaster.rs"]
@@ -505,6 +527,8 @@ pub mod humbler_of_mortals;
 pub mod hunter_s_ambush;
 #[path = "bng/hunter_s_prowess.rs"]
 pub mod hunter_s_prowess;
+#[path = "jou/hydra_broodmaster.rs"]
+pub mod hydra_broodmaster;
 #[path = "jou/hypnotic_siren.rs"]
 pub mod hypnotic_siren;
 #[path = "ktk/icefeather_aven.rs"]
@@ -555,10 +579,14 @@ pub mod kheru_dreadmaw;
 pub mod kill_shot;
 #[path = "ktk/kin_tree_warden.rs"]
 pub mod kin_tree_warden;
+#[path = "jou/king_macar_the_gold_cursed.rs"]
+pub mod king_macar_the_gold_cursed;
 #[path = "jou/kiora_s_dismissal.rs"]
 pub mod kiora_s_dismissal;
 #[path = "pbng/kiora_s_follower.rs"]
 pub mod kiora_s_follower;
+#[path = "bng/kiora_the_crashing_wave.rs"]
+pub mod kiora_the_crashing_wave;
 #[path = "m15/kird_chieftain.rs"]
 pub mod kird_chieftain;
 #[path = "jou/knowledge_and_power.rs"]
@@ -689,6 +717,8 @@ pub mod necropolis_fiend;
 pub mod nessian_demolok;
 #[path = "jou/nessian_game_warden.rs"]
 pub mod nessian_game_warden;
+#[path = "m15/netcaster_spider.rs"]
+pub mod netcaster_spider;
 #[path = "m15/nightfire_giant.rs"]
 pub mod nightfire_giant;
 #[path = "jou/nightmarish_end.rs"]
@@ -721,6 +751,8 @@ pub mod nyxborn_triton;
 pub mod nyxborn_wolf;
 #[path = "jou/oakheart_dryads.rs"]
 pub mod oakheart_dryads;
+#[path = "c14/ob_nixilis_of_the_black_oath.rs"]
+pub mod ob_nixilis_of_the_black_oath;
 #[path = "m15/obelisk_of_urd.rs"]
 pub mod obelisk_of_urd;
 #[path = "bng/odunos_river_trawler.rs"]
@@ -787,6 +819,8 @@ pub mod pinnacle_of_rage;
 pub mod plea_for_guidance;
 #[path = "cns/plea_for_power.rs"]
 pub mod plea_for_power;
+#[path = "m15/polymorphist_s_jest.rs"]
+pub mod polymorphist_s_jest;
 #[path = "ktk/ponyback_brigade.rs"]
 pub mod ponyback_brigade;
 #[path = "jou/prophetic_flamespeaker.rs"]
@@ -997,6 +1031,8 @@ pub mod spite_of_mogis;
 pub mod spiteful_blow;
 #[path = "cns/split_decision.rs"]
 pub mod split_decision;
+#[path = "c14/spoils_of_blood.rs"]
+pub mod spoils_of_blood;
 #[path = "pjou/squelching_leeches.rs"]
 pub mod squelching_leeches;
 #[path = "jou/starfall.rs"]

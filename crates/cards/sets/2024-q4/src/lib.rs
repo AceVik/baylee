@@ -63,6 +63,8 @@ pub mod claws_out;
 pub mod cleon_merry_champion;
 #[path = "fdn/clinquant_skymage.rs"]
 pub mod clinquant_skymage;
+#[path = "fdn/courageous_goblin.rs"]
+pub mod courageous_goblin;
 #[path = "fdn/crackling_cyclops.rs"]
 pub mod crackling_cyclops;
 #[path = "fdn/crypt_feaster.rs"]
@@ -127,6 +129,8 @@ pub mod gilded_scuttler;
 pub mod go_forth;
 #[path = "fdn/goblin_boarders.rs"]
 pub mod goblin_boarders;
+#[path = "fdn/goblin_negotiation.rs"]
+pub mod goblin_negotiation;
 #[path = "fdn/goblin_surprise.rs"]
 pub mod goblin_surprise;
 #[path = "fdn/gorehorn_raider.rs"]

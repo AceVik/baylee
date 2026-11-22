@@ -6533,6 +6533,398 @@ pub static REFLECTION_X_X_WHITE: TokenDef = TokenDef {
     ..TokenDef::DEFAULT
 };
 
+/// 2/2 white blue black red green Citizen.
+pub static CITIZEN_2_2_WHITE_BLUE_BLACK_RED_GREEN: TokenDef = TokenDef {
+    name: "Citizen",
+    colors: ColorSet::from_slice(&[
+        Color::White,
+        Color::Blue,
+        Color::Black,
+        Color::Red,
+        Color::Green,
+    ]),
+    types: TypeSet::CREATURE,
+    subtypes: &[creature::CITIZEN],
+    power: Some(2),
+    toughness: Some(2),
+    ..TokenDef::DEFAULT
+};
+
+/// 2/2 black enchantment Horror.
+pub static HORROR_ENCHANTMENT_2_2_BLACK: TokenDef = TokenDef {
+    name: "Horror",
+    colors: ColorSet::from_slice(&[Color::Black]),
+    types: TypeSet::ENCHANTMENT.union(TypeSet::CREATURE),
+    subtypes: &[creature::HORROR],
+    power: Some(2),
+    toughness: Some(2),
+    ..TokenDef::DEFAULT
+};
+
+/// 3/1 black Mindless-One.
+pub static MINDLESS_ONE_3_1_BLACK: TokenDef = TokenDef {
+    name: "Mindless-One",
+    colors: ColorSet::from_slice(&[Color::Black]),
+    types: TypeSet::CREATURE,
+    subtypes: &[creature::MINDLESS_ONE],
+    power: Some(3),
+    toughness: Some(1),
+    ..TokenDef::DEFAULT
+};
+
+/// 6/6 black Demon with flying.
+pub static DEMON_6_6_BLACK_FLYING: TokenDef = TokenDef {
+    name: "Demon",
+    colors: ColorSet::from_slice(&[Color::Black]),
+    types: TypeSet::CREATURE,
+    subtypes: &[creature::DEMON],
+    power: Some(6),
+    toughness: Some(6),
+    keywords: KeywordSet::FLYING,
+    ..TokenDef::DEFAULT
+};
+
+/// */* black Demon with flying.
+pub static DEMON_X_X_BLACK_FLYING: TokenDef = TokenDef {
+    name: "Demon",
+    colors: ColorSet::from_slice(&[Color::Black]),
+    types: TypeSet::CREATURE,
+    subtypes: &[creature::DEMON],
+    keywords: KeywordSet::FLYING,
+    ..TokenDef::DEFAULT
+};
+
+/// */* black Horror.
+pub static HORROR_X_X_BLACK: TokenDef = TokenDef {
+    name: "Horror",
+    colors: ColorSet::from_slice(&[Color::Black]),
+    types: TypeSet::CREATURE,
+    subtypes: &[creature::HORROR],
+    ..TokenDef::DEFAULT
+};
+
+/// */* black green Hydra.
+pub static HYDRA_X_X_BLACK_GREEN: TokenDef = TokenDef {
+    name: "Hydra",
+    colors: ColorSet::from_slice(&[Color::Black, Color::Green]),
+    types: TypeSet::CREATURE,
+    subtypes: &[creature::HYDRA],
+    ..TokenDef::DEFAULT
+};
+
+/// 1/1 red legendary Boo with haste and trample.
+pub static BOO_LEGENDARY_1_1_RED_HASTE_TRAMPLE: TokenDef = TokenDef {
+    name: "Boo",
+    colors: ColorSet::from_slice(&[Color::Red]),
+    types: TypeSet::CREATURE,
+    supertypes: SupertypeSet::LEGENDARY,
+    subtypes: &[creature::HAMSTER],
+    power: Some(1),
+    toughness: Some(1),
+    keywords: KeywordSet::HASTE.union(KeywordSet::TRAMPLE),
+    ..TokenDef::DEFAULT
+};
+
+/// 3/1 black red Vampire with haste and lifelink and trample.
+pub static VAMPIRE_3_1_BLACK_RED_HASTE_LIFELINK_TRAMPLE: TokenDef = TokenDef {
+    name: "Vampire",
+    colors: ColorSet::from_slice(&[Color::Black, Color::Red]),
+    types: TypeSet::CREATURE,
+    subtypes: &[creature::VAMPIRE],
+    power: Some(3),
+    toughness: Some(1),
+    keywords: KeywordSet::HASTE
+        .union(KeywordSet::LIFELINK)
+        .union(KeywordSet::TRAMPLE),
+    ..TokenDef::DEFAULT
+};
+
+/// 4/3 colorless artifact Spacecraft Illusion with flying.
+pub static SPACECRAFT_ILLUSION_ARTIFACT_4_3_FLYING: TokenDef = TokenDef {
+    name: "Spacecraft Illusion",
+    types: TypeSet::ARTIFACT.union(TypeSet::CREATURE),
+    subtypes: &[artifact::SPACECRAFT, creature::ILLUSION],
+    power: Some(4),
+    toughness: Some(3),
+    keywords: KeywordSet::FLYING,
+    ..TokenDef::DEFAULT
+};
+
+/// */* colorless artifact Construct.
+pub static CONSTRUCT_ARTIFACT_X_X: TokenDef = TokenDef {
+    name: "Construct",
+    types: TypeSet::ARTIFACT.union(TypeSet::CREATURE),
+    subtypes: &[creature::CONSTRUCT],
+    ..TokenDef::DEFAULT
+};
+
+/// */* colorless artifact Golem.
+pub static GOLEM_ARTIFACT_X_X: TokenDef = TokenDef {
+    name: "Golem",
+    types: TypeSet::ARTIFACT.union(TypeSet::CREATURE),
+    subtypes: &[creature::GOLEM],
+    ..TokenDef::DEFAULT
+};
+
+/// */* colorless artifact Golem with haste.
+pub static GOLEM_ARTIFACT_X_X_HASTE: TokenDef = TokenDef {
+    name: "Golem",
+    types: TypeSet::ARTIFACT.union(TypeSet::CREATURE),
+    subtypes: &[creature::GOLEM],
+    keywords: KeywordSet::HASTE,
+    ..TokenDef::DEFAULT
+};
+
+/// */* colorless artifact Phyrexian Horror.
+pub static PHYREXIAN_HORROR_ARTIFACT_X_X: TokenDef = TokenDef {
+    name: "Phyrexian Horror",
+    types: TypeSet::ARTIFACT.union(TypeSet::CREATURE),
+    subtypes: &[creature::PHYREXIAN, creature::HORROR],
+    ..TokenDef::DEFAULT
+};
+
+/// */* colorless Shapeshifter with changeling and deathtouch.
+pub static SHAPESHIFTER_X_X_CHANGELING_DEATHTOUCH: TokenDef = TokenDef {
+    name: "Shapeshifter",
+    types: TypeSet::CREATURE,
+    subtypes: &[creature::SHAPESHIFTER],
+    keywords: KeywordSet::CHANGELING.union(KeywordSet::DEATHTOUCH),
+    ..TokenDef::DEFAULT
+};
+
+/// colorless Etherium Cell.
+pub static ETHERIUM_CELL_A852C8CC6: TokenDef = TokenDef {
+    name: "Etherium Cell",
+    types: TypeSet::ARTIFACT,
+    abilities: &[mana_ability!(
+        cost!(TapSelf, SacrificeSelf),
+        &[Effect::mana_of_any_color()]
+    )],
+    ..TokenDef::DEFAULT
+};
+
+/// 3/3 green Elk.
+pub static ELK_3_3_GREEN: TokenDef = TokenDef {
+    name: "Elk",
+    colors: ColorSet::from_slice(&[Color::Green]),
+    types: TypeSet::CREATURE,
+    subtypes: &[creature::ELK],
+    power: Some(3),
+    toughness: Some(3),
+    ..TokenDef::DEFAULT
+};
+
+/// */* green Dinosaur Beast with trample.
+pub static DINOSAUR_BEAST_X_X_GREEN_TRAMPLE: TokenDef = TokenDef {
+    name: "Dinosaur Beast",
+    colors: ColorSet::from_slice(&[Color::Green]),
+    types: TypeSet::CREATURE,
+    subtypes: &[creature::DINOSAUR, creature::BEAST],
+    keywords: KeywordSet::TRAMPLE,
+    ..TokenDef::DEFAULT
+};
+
+/// */* green Elemental.
+pub static ELEMENTAL_X_X_GREEN: TokenDef = TokenDef {
+    name: "Elemental",
+    colors: ColorSet::from_slice(&[Color::Green]),
+    types: TypeSet::CREATURE,
+    subtypes: &[creature::ELEMENTAL],
+    ..TokenDef::DEFAULT
+};
+
+/// */* green Hydra.
+pub static HYDRA_X_X_GREEN: TokenDef = TokenDef {
+    name: "Hydra",
+    colors: ColorSet::from_slice(&[Color::Green]),
+    types: TypeSet::CREATURE,
+    subtypes: &[creature::HYDRA],
+    ..TokenDef::DEFAULT
+};
+
+/// */* green Ooze.
+pub static OOZE_X_X_GREEN: TokenDef = TokenDef {
+    name: "Ooze",
+    colors: ColorSet::from_slice(&[Color::Green]),
+    types: TypeSet::CREATURE,
+    subtypes: &[creature::OOZE],
+    ..TokenDef::DEFAULT
+};
+
+/// */* green Spirit.
+pub static SPIRIT_X_X_GREEN: TokenDef = TokenDef {
+    name: "Spirit",
+    colors: ColorSet::from_slice(&[Color::Green]),
+    types: TypeSet::CREATURE,
+    subtypes: &[creature::SPIRIT],
+    ..TokenDef::DEFAULT
+};
+
+/// */* green Treefolk.
+pub static TREEFOLK_X_X_GREEN: TokenDef = TokenDef {
+    name: "Treefolk",
+    colors: ColorSet::from_slice(&[Color::Green]),
+    types: TypeSet::CREATURE,
+    subtypes: &[creature::TREEFOLK],
+    ..TokenDef::DEFAULT
+};
+
+/// */* green Wurm.
+pub static WURM_X_X_GREEN: TokenDef = TokenDef {
+    name: "Wurm",
+    colors: ColorSet::from_slice(&[Color::Green]),
+    types: TypeSet::CREATURE,
+    subtypes: &[creature::WURM],
+    ..TokenDef::DEFAULT
+};
+
+/// 1/1 red Human with haste.
+pub static HUMAN_1_1_RED_HASTE: TokenDef = TokenDef {
+    name: "Human",
+    colors: ColorSet::from_slice(&[Color::Red]),
+    types: TypeSet::CREATURE,
+    subtypes: &[creature::HUMAN],
+    power: Some(1),
+    toughness: Some(1),
+    keywords: KeywordSet::HASTE,
+    ..TokenDef::DEFAULT
+};
+
+/// 2/1 red Elemental with haste and trample.
+pub static ELEMENTAL_2_1_RED_HASTE_TRAMPLE: TokenDef = TokenDef {
+    name: "Elemental",
+    colors: ColorSet::from_slice(&[Color::Red]),
+    types: TypeSet::CREATURE,
+    subtypes: &[creature::ELEMENTAL],
+    power: Some(2),
+    toughness: Some(1),
+    keywords: KeywordSet::HASTE.union(KeywordSet::TRAMPLE),
+    ..TokenDef::DEFAULT
+};
+
+/// 2/2 red Spirit with menace.
+pub static SPIRIT_2_2_RED_MENACE: TokenDef = TokenDef {
+    name: "Spirit",
+    colors: ColorSet::from_slice(&[Color::Red]),
+    types: TypeSet::CREATURE,
+    subtypes: &[creature::SPIRIT],
+    power: Some(2),
+    toughness: Some(2),
+    keywords: KeywordSet::MENACE,
+    ..TokenDef::DEFAULT
+};
+
+/// */1 red Elemental with haste and trample.
+pub static ELEMENTAL_X_1_RED_HASTE_TRAMPLE: TokenDef = TokenDef {
+    name: "Elemental",
+    colors: ColorSet::from_slice(&[Color::Red]),
+    types: TypeSet::CREATURE,
+    subtypes: &[creature::ELEMENTAL],
+    toughness: Some(1),
+    keywords: KeywordSet::HASTE.union(KeywordSet::TRAMPLE),
+    ..TokenDef::DEFAULT
+};
+
+/// */1 red Phyrexian Horror with haste and trample.
+pub static PHYREXIAN_HORROR_X_1_RED_HASTE_TRAMPLE: TokenDef = TokenDef {
+    name: "Phyrexian Horror",
+    colors: ColorSet::from_slice(&[Color::Red]),
+    types: TypeSet::CREATURE,
+    subtypes: &[creature::PHYREXIAN, creature::HORROR],
+    toughness: Some(1),
+    keywords: KeywordSet::HASTE.union(KeywordSet::TRAMPLE),
+    ..TokenDef::DEFAULT
+};
+
+/// */* red Elemental.
+pub static ELEMENTAL_X_X_RED: TokenDef = TokenDef {
+    name: "Elemental",
+    colors: ColorSet::from_slice(&[Color::Red]),
+    types: TypeSet::CREATURE,
+    subtypes: &[creature::ELEMENTAL],
+    ..TokenDef::DEFAULT
+};
+
+/// 2/1 red legendary Ragavan.
+pub static RAGAVAN_LEGENDARY_2_1_RED: TokenDef = TokenDef {
+    name: "Ragavan",
+    colors: ColorSet::from_slice(&[Color::Red]),
+    types: TypeSet::CREATURE,
+    supertypes: SupertypeSet::LEGENDARY,
+    subtypes: &[creature::MONKEY],
+    power: Some(2),
+    toughness: Some(1),
+    ..TokenDef::DEFAULT
+};
+
+/// 3/2 white red Warrior.
+pub static WARRIOR_3_2_WHITE_RED_A7C32C14A: TokenDef = TokenDef {
+    name: "Warrior",
+    colors: ColorSet::from_slice(&[Color::White, Color::Red]),
+    types: TypeSet::CREATURE,
+    subtypes: &[creature::WARRIOR],
+    power: Some(3),
+    toughness: Some(2),
+    abilities: &[triggered!(
+        Trigger::Attacks(&Filter::This),
+        &[Effect::AddCounter {
+            kind: CounterKind::P1P1,
+            amount: Amount::Fixed(1)
+        }],
+        condition = Some(Condition::TriggerOnly(&Condition::BattlefieldCount(
+            &Filter::And(&[
+                Filter::CREATURE,
+                Filter::Attacking,
+                Filter::IsToken,
+                Filter::Another
+            ]),
+            1
+        )))
+    )],
+    ..TokenDef::DEFAULT
+};
+
+/// 3/2 blue Reflection.
+pub static REFLECTION_3_2_BLUE: TokenDef = TokenDef {
+    name: "Reflection",
+    colors: ColorSet::from_slice(&[Color::Blue]),
+    types: TypeSet::CREATURE,
+    subtypes: &[creature::REFLECTION],
+    power: Some(3),
+    toughness: Some(2),
+    ..TokenDef::DEFAULT
+};
+
+/// */* blue Zombie.
+pub static ZOMBIE_X_X_BLUE: TokenDef = TokenDef {
+    name: "Zombie",
+    colors: ColorSet::from_slice(&[Color::Blue]),
+    types: TypeSet::CREATURE,
+    subtypes: &[creature::ZOMBIE],
+    ..TokenDef::DEFAULT
+};
+
+/// */* blue red Weird.
+pub static WEIRD_X_X_BLUE_RED: TokenDef = TokenDef {
+    name: "Weird",
+    colors: ColorSet::from_slice(&[Color::Blue, Color::Red]),
+    types: TypeSet::CREATURE,
+    subtypes: &[creature::WEIRD],
+    ..TokenDef::DEFAULT
+};
+
+/// 4/4 white Spirit with flying.
+pub static SPIRIT_4_4_WHITE_FLYING: TokenDef = TokenDef {
+    name: "Spirit",
+    colors: ColorSet::from_slice(&[Color::White]),
+    types: TypeSet::CREATURE,
+    subtypes: &[creature::SPIRIT],
+    power: Some(4),
+    toughness: Some(4),
+    keywords: KeywordSet::FLYING,
+    ..TokenDef::DEFAULT
+};
+
 /// Every token there is, in the order ids were assigned.
 pub static ALL: &[&TokenDef] = &[
     &tokens::ALLY_1_1_WHITE,
@@ -7821,6 +8213,42 @@ pub static ALL: &[&TokenDef] = &[
     &ILLUSION_X_X_BLUE,
     &ORB_X_X_BLUE_FLYING,
     &REFLECTION_X_X_WHITE,
+    &CITIZEN_2_2_WHITE_BLUE_BLACK_RED_GREEN,
+    &HORROR_ENCHANTMENT_2_2_BLACK,
+    &MINDLESS_ONE_3_1_BLACK,
+    &DEMON_6_6_BLACK_FLYING,
+    &DEMON_X_X_BLACK_FLYING,
+    &HORROR_X_X_BLACK,
+    &HYDRA_X_X_BLACK_GREEN,
+    &BOO_LEGENDARY_1_1_RED_HASTE_TRAMPLE,
+    &VAMPIRE_3_1_BLACK_RED_HASTE_LIFELINK_TRAMPLE,
+    &SPACECRAFT_ILLUSION_ARTIFACT_4_3_FLYING,
+    &CONSTRUCT_ARTIFACT_X_X,
+    &GOLEM_ARTIFACT_X_X,
+    &GOLEM_ARTIFACT_X_X_HASTE,
+    &PHYREXIAN_HORROR_ARTIFACT_X_X,
+    &SHAPESHIFTER_X_X_CHANGELING_DEATHTOUCH,
+    &ETHERIUM_CELL_A852C8CC6,
+    &ELK_3_3_GREEN,
+    &DINOSAUR_BEAST_X_X_GREEN_TRAMPLE,
+    &ELEMENTAL_X_X_GREEN,
+    &HYDRA_X_X_GREEN,
+    &OOZE_X_X_GREEN,
+    &SPIRIT_X_X_GREEN,
+    &TREEFOLK_X_X_GREEN,
+    &WURM_X_X_GREEN,
+    &HUMAN_1_1_RED_HASTE,
+    &ELEMENTAL_2_1_RED_HASTE_TRAMPLE,
+    &SPIRIT_2_2_RED_MENACE,
+    &ELEMENTAL_X_1_RED_HASTE_TRAMPLE,
+    &PHYREXIAN_HORROR_X_1_RED_HASTE_TRAMPLE,
+    &ELEMENTAL_X_X_RED,
+    &RAGAVAN_LEGENDARY_2_1_RED,
+    &WARRIOR_3_2_WHITE_RED_A7C32C14A,
+    &REFLECTION_3_2_BLUE,
+    &ZOMBIE_X_X_BLUE,
+    &WEIRD_X_X_BLUE_RED,
+    &SPIRIT_4_4_WHITE_FLYING,
 ];
 
 /// The entries a reader wrote, as a subset of [`ALL`] — never a second
@@ -8321,6 +8749,42 @@ pub static GENERATED: &[&TokenDef] = &[
     &ILLUSION_X_X_BLUE,
     &ORB_X_X_BLUE_FLYING,
     &REFLECTION_X_X_WHITE,
+    &CITIZEN_2_2_WHITE_BLUE_BLACK_RED_GREEN,
+    &HORROR_ENCHANTMENT_2_2_BLACK,
+    &MINDLESS_ONE_3_1_BLACK,
+    &DEMON_6_6_BLACK_FLYING,
+    &DEMON_X_X_BLACK_FLYING,
+    &HORROR_X_X_BLACK,
+    &HYDRA_X_X_BLACK_GREEN,
+    &BOO_LEGENDARY_1_1_RED_HASTE_TRAMPLE,
+    &VAMPIRE_3_1_BLACK_RED_HASTE_LIFELINK_TRAMPLE,
+    &SPACECRAFT_ILLUSION_ARTIFACT_4_3_FLYING,
+    &CONSTRUCT_ARTIFACT_X_X,
+    &GOLEM_ARTIFACT_X_X,
+    &GOLEM_ARTIFACT_X_X_HASTE,
+    &PHYREXIAN_HORROR_ARTIFACT_X_X,
+    &SHAPESHIFTER_X_X_CHANGELING_DEATHTOUCH,
+    &ETHERIUM_CELL_A852C8CC6,
+    &ELK_3_3_GREEN,
+    &DINOSAUR_BEAST_X_X_GREEN_TRAMPLE,
+    &ELEMENTAL_X_X_GREEN,
+    &HYDRA_X_X_GREEN,
+    &OOZE_X_X_GREEN,
+    &SPIRIT_X_X_GREEN,
+    &TREEFOLK_X_X_GREEN,
+    &WURM_X_X_GREEN,
+    &HUMAN_1_1_RED_HASTE,
+    &ELEMENTAL_2_1_RED_HASTE_TRAMPLE,
+    &SPIRIT_2_2_RED_MENACE,
+    &ELEMENTAL_X_1_RED_HASTE_TRAMPLE,
+    &PHYREXIAN_HORROR_X_1_RED_HASTE_TRAMPLE,
+    &ELEMENTAL_X_X_RED,
+    &RAGAVAN_LEGENDARY_2_1_RED,
+    &WARRIOR_3_2_WHITE_RED_A7C32C14A,
+    &REFLECTION_3_2_BLUE,
+    &ZOMBIE_X_X_BLUE,
+    &WEIRD_X_X_BLUE_RED,
+    &SPIRIT_4_4_WHITE_FLYING,
 ];
 
 /// Legacy duplicate ids and the canonical ids they now resolve to.

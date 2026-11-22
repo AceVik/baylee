@@ -393,3 +393,59 @@ fn every_layer_in_the_pool_is_the_one_its_modifier_derives() {
         wrong.join("\n")
     );
 }
+
+#[test]
+fn divided_counters_beside_team_pump_is_allowed_but_lone_team_pump_is_caught() {
+    use crate::dsl::prelude::*;
+
+    static DIVIDED_AND_PUMP: [Effect; 2] = [
+        Effect::PutCountersDivided {
+            kind: CounterKind::P1P1,
+            amount: Amount::Fixed(4),
+        },
+        Effect::PumpFilter {
+            filter: &Filter::YOUR_CREATURE,
+            controlled_by: None,
+            power: Amount::Fixed(0),
+            toughness: Amount::Fixed(0),
+            keywords: KeywordSet::VIGILANCE,
+            duration: Duration::UntilEndOfTurn,
+        },
+    ];
+    static LONE_TEAM_PUMP: [Effect; 1] = [Effect::PumpFilter {
+        filter: &Filter::YOUR_CREATURE,
+        controlled_by: None,
+        power: Amount::Fixed(1),
+        toughness: Amount::Fixed(1),
+        keywords: KeywordSet::EMPTY,
+        duration: Duration::UntilEndOfTurn,
+    }];
+    let allowed = AbilityDef::Spell {
+        effects: &DIVIDED_AND_PUMP,
+        targets: Some(TargetReq::up_to(
+            TargetSpec::Object(&Filter::YOUR_CREATURE),
+            4,
+        )),
+        second_targets: None,
+        condition: None,
+    };
+    assert!(
+        target_reuse(&allowed).is_none(),
+        "a team pump following divided counters uses both Clauses legitimately"
+    );
+
+    let broken = AbilityDef::Spell {
+        effects: &LONE_TEAM_PUMP,
+        targets: Some(TargetReq::up_to(
+            TargetSpec::Object(&Filter::YOUR_CREATURE),
+            4,
+        )),
+        second_targets: None,
+        condition: None,
+    };
+    assert_eq!(
+        target_reuse(&broken),
+        Some(&Filter::YOUR_CREATURE),
+        "a lone sweep without divided counters is still caught"
+    );
+}

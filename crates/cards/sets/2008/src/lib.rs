@@ -49,6 +49,8 @@ pub mod archdemon_of_unx;
 pub mod archon_of_justice;
 #[path = "shm/armored_ascension.rs"]
 pub mod armored_ascension;
+#[path = "shm/ashenmoor_cohort.rs"]
+pub mod ashenmoor_cohort;
 #[path = "shm/ashenmoor_gouger.rs"]
 pub mod ashenmoor_gouger;
 #[path = "shm/ashenmoor_liege.rs"]
@@ -59,6 +61,8 @@ pub mod augury_adept;
 pub mod auntie_s_snitch;
 #[path = "eve/balefire_liege.rs"]
 pub mod balefire_liege;
+#[path = "shm/ballynock_cohort.rs"]
+pub mod ballynock_cohort;
 #[path = "eve/ballynock_trapper.rs"]
 pub mod ballynock_trapper;
 #[path = "mor/ballyrush_banneret.rs"]
@@ -135,6 +139,8 @@ pub mod borderland_behemoth;
 pub mod bosk_banneret;
 #[path = "ala/branching_bolt.rs"]
 pub mod branching_bolt;
+#[path = "shm/briarberry_cohort.rs"]
+pub mod briarberry_cohort;
 #[path = "mor/brighthearth_banneret.rs"]
 pub mod brighthearth_banneret;
 #[path = "ala/broodmate_dragon.rs"]
@@ -207,6 +213,8 @@ pub mod corrosive_mentor;
 pub mod courier_s_capsule;
 #[path = "ala/court_archers.rs"]
 pub mod court_archers;
+#[path = "shm/crabapple_cohort.rs"]
+pub mod crabapple_cohort;
 #[path = "ala/cradle_of_vitality.rs"]
 pub mod cradle_of_vitality;
 #[path = "eve/crag_puca.rs"]
@@ -711,6 +719,8 @@ pub mod mosquito_guard;
 pub mod mosstodon;
 #[path = "mor/mothdust_changeling.rs"]
 pub mod mothdust_changeling;
+#[path = "shm/mudbrawler_cohort.rs"]
+pub mod mudbrawler_cohort;
 #[path = "shm/mudbrawler_raiders.rs"]
 pub mod mudbrawler_raiders;
 #[path = "mor/mudbutton_clanger.rs"]
@@ -791,6 +801,8 @@ pub mod onyx_goblet;
 pub mod oona_s_gatewarden;
 #[path = "eve/oona_s_grace.rs"]
 pub mod oona_s_grace;
+#[path = "ala/ooze_garden.rs"]
+pub mod ooze_garden;
 #[path = "shm/oracle_of_nectars.rs"]
 pub mod oracle_of_nectars;
 #[path = "mor/orchard_warden.rs"]
@@ -849,6 +861,8 @@ pub mod pyre_charger;
 pub mod pyroclast_consul;
 #[path = "ala/quietus_spike.rs"]
 pub mod quietus_spike;
+#[path = "eve/quillspike.rs"]
+pub mod quillspike;
 #[path = "ala/rafiq_of_the_many.rs"]
 pub mod rafiq_of_the_many;
 #[path = "mor/rage_forger.rs"]
@@ -873,6 +887,8 @@ pub mod razorfin_abolisher;
 pub mod reach_of_branches;
 #[path = "shm/reaper_king.rs"]
 pub mod reaper_king;
+#[path = "mor/recross_the_paths.rs"]
+pub mod recross_the_paths;
 #[path = "eve/recumbent_bliss.rs"]
 pub mod recumbent_bliss;
 #[path = "mor/redeem_the_lost.rs"]
@@ -1029,6 +1045,8 @@ pub mod silkbind_faerie;
 pub mod sinking_feeling;
 #[path = "ala/skeletal_kathari.rs"]
 pub mod skeletal_kathari;
+#[path = "ala/skill_borrower.rs"]
+pub mod skill_borrower;
 #[path = "ala/skullmulcher.rs"]
 pub mod skullmulcher;
 #[path = "shm/slinking_giant.rs"]
@@ -1041,6 +1059,8 @@ pub mod smash_to_smithereens;
 pub mod smolder_initiate;
 #[path = "eve/smoldering_butcher.rs"]
 pub mod smoldering_butcher;
+#[path = "eve/snakeform.rs"]
+pub mod snakeform;
 #[path = "shm/somnomancer.rs"]
 pub mod somnomancer;
 #[path = "eve/soot_imp.rs"]
@@ -1095,6 +1115,8 @@ pub mod steel_of_the_godhead;
 pub mod stenchskipper;
 #[path = "ala/steward_of_valeron.rs"]
 pub mod steward_of_valeron;
+#[path = "eve/stigma_lasher.rs"]
+pub mod stigma_lasher;
 #[path = "eve/stillmoon_cavalier.rs"]
 pub mod stillmoon_cavalier;
 #[path = "mor/stingmoggie.rs"]
@@ -1133,6 +1155,8 @@ pub mod syphon_life;
 pub mod talonrend;
 #[path = "ala/tar_fiend.rs"]
 pub mod tar_fiend;
+#[path = "shm/tatterkite.rs"]
+pub mod tatterkite;
 #[path = "shm/tattermunge_duo.rs"]
 pub mod tattermunge_duo;
 #[path = "shm/tattermunge_maniac.rs"]

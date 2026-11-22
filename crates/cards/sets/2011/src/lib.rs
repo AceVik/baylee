@@ -43,6 +43,8 @@ pub mod angelic_destiny;
 pub mod angelic_overseer;
 #[path = "cmd/animar_soul_of_elements.rs"]
 pub mod animar_soul_of_elements;
+#[path = "m12/arachnus_web.rs"]
+pub mod arachnus_web;
 #[path = "m12/arbalest_elite.rs"]
 pub mod arbalest_elite;
 #[path = "mbs/ardent_recruit.rs"]
@@ -63,6 +65,8 @@ pub mod ashmouth_hound;
 pub mod avacyn_s_pilgrim;
 #[path = "isd/avacynian_priest.rs"]
 pub mod avacynian_priest;
+#[path = "cmd/avatar_of_slaughter.rs"]
+pub mod avatar_of_slaughter;
 #[path = "m12/aven_fleetwing.rs"]
 pub mod aven_fleetwing;
 #[path = "m12/azure_mage.rs"]
@@ -305,6 +309,8 @@ pub mod frightful_delusion;
 pub mod frost_breath;
 #[path = "mbs/fuel_for_the_cause.rs"]
 pub mod fuel_for_the_cause;
+#[path = "isd/furor_of_the_bitten.rs"]
+pub mod furor_of_the_bitten;
 #[path = "m12/furyborn_hellkite.rs"]
 pub mod furyborn_hellkite;
 #[path = "isd/gallows_warden.rs"]
@@ -319,6 +325,8 @@ pub mod gatstaf_shepherd;
 pub mod gavony_township;
 #[path = "isd/geist_honored_monk.rs"]
 pub mod geist_honored_monk;
+#[path = "isd/geist_of_saint_traft.rs"]
+pub mod geist_of_saint_traft;
 #[path = "isd/geistcatcher_s_rig.rs"]
 pub mod geistcatcher_s_rig;
 #[path = "isd/geistflame.rs"]
@@ -327,6 +335,8 @@ pub mod geistflame;
 pub mod geosurge;
 #[path = "nph/geth_s_verdict.rs"]
 pub mod geth_s_verdict;
+#[path = "cmd/ghave_guru_of_spores.rs"]
+pub mod ghave_guru_of_spores;
 #[path = "isd/ghoulcaller_s_bell.rs"]
 pub mod ghoulcaller_s_bell;
 #[path = "isd/ghoulraiser.rs"]
@@ -535,6 +545,10 @@ pub mod mausoleum_guard;
 pub mod maw_of_the_mire;
 #[path = "pisd/mayor_of_avabruck.rs"]
 pub mod mayor_of_avabruck;
+#[path = "mbs/melira_s_keepers.rs"]
+pub mod melira_s_keepers;
+#[path = "nph/melira_sylvok_outcast.rs"]
+pub mod melira_sylvok_outcast;
 #[path = "nph/mental_misstep.rs"]
 pub mod mental_misstep;
 #[path = "isd/mentor_of_the_meek.rs"]
@@ -583,6 +597,8 @@ pub mod mycosynth_wellspring;
 pub mod myr_sire;
 #[path = "mbs/myr_turbine.rs"]
 pub mod myr_turbine;
+#[path = "mbs/myr_welder.rs"]
+pub mod myr_welder;
 #[path = "nph/necropouncer.rs"]
 pub mod necropouncer;
 #[path = "isd/nephalia_drownyard.rs"]
@@ -591,6 +607,8 @@ pub mod nephalia_drownyard;
 pub mod neurok_commando;
 #[path = "isd/nevermore.rs"]
 pub mod nevermore;
+#[path = "isd/night_revelers.rs"]
+pub mod night_revelers;
 #[path = "isd/nightbird_s_clutches.rs"]
 pub mod nightbird_s_clutches;
 #[path = "cmd/nin_the_pain_artist.rs"]
@@ -643,6 +661,8 @@ pub mod phyrexian_digester;
 pub mod phyrexian_juggernaut;
 #[path = "pnph/phyrexian_metamorph.rs"]
 pub mod phyrexian_metamorph;
+#[path = "mbs/phyrexian_rebirth.rs"]
+pub mod phyrexian_rebirth;
 #[path = "mbs/phyrexian_vatmother.rs"]
 pub mod phyrexian_vatmother;
 #[path = "mbs/pierce_strider.rs"]
@@ -711,6 +731,8 @@ pub mod riku_of_two_reflections;
 pub mod riot_devils;
 #[path = "isd/rolling_temblor.rs"]
 pub mod rolling_temblor;
+#[path = "isd/rooftop_storm.rs"]
+pub mod rooftop_storm;
 #[path = "mbs/rot_wolf.rs"]
 pub mod rot_wolf;
 #[path = "nph/rotted_hystrix.rs"]
@@ -817,6 +839,8 @@ pub mod spectral_flight;
 pub mod spectral_rider;
 #[path = "mbs/sphere_of_the_suns.rs"]
 pub mod sphere_of_the_suns;
+#[path = "m12/sphinx_of_uthuun.rs"]
+pub mod sphinx_of_uthuun;
 #[path = "isd/spider_spawning.rs"]
 pub mod spider_spawning;
 #[path = "isd/spidery_grasp.rs"]
@@ -883,6 +907,8 @@ pub mod taste_of_blood;
 pub mod tectonic_rift;
 #[path = "nph/tezzeret_s_gambit.rs"]
 pub mod tezzeret_s_gambit;
+#[path = "pmbs/thopter_assembly.rs"]
+pub mod thopter_assembly;
 #[path = "isd/thraben_purebloods.rs"]
 pub mod thraben_purebloods;
 #[path = "isd/thraben_sentry.rs"]
@@ -923,6 +949,8 @@ pub mod triumph_of_the_hordes;
 pub mod trollhide;
 #[path = "mbs/turn_the_tide.rs"]
 pub mod turn_the_tide;
+#[path = "m12/turn_to_frog.rs"]
+pub mod turn_to_frog;
 #[path = "isd/typhoid_rats.rs"]
 pub mod typhoid_rats;
 #[path = "isd/ulvenwald_mystics.rs"]

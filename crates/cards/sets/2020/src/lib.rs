@@ -37,6 +37,8 @@ pub mod alchemist_s_gift;
 pub mod alert_heedbonder;
 #[path = "cmr/alharu_solemn_ritualist.rs"]
 pub mod alharu_solemn_ritualist;
+#[path = "thb/alirios_enraptured.rs"]
+pub mod alirios_enraptured;
 #[path = "iko/almighty_brushwagg.rs"]
 pub mod almighty_brushwagg;
 #[path = "m21/alpine_watchdog.rs"]
@@ -359,6 +361,8 @@ pub mod elvish_dreadlord;
 pub mod emeria_s_call;
 #[path = "jmp/emiel_the_blessed.rs"]
 pub mod emiel_the_blessed;
+#[path = "thb/enemy_of_enlightenment.rs"]
+pub mod enemy_of_enlightenment;
 #[path = "znc/enigma_thief.rs"]
 pub mod enigma_thief;
 #[path = "iko/escape_protocol.rs"]
@@ -371,6 +375,16 @@ pub mod eutropia_the_twice_favored;
 pub mod everquill_phoenix;
 #[path = "iko/excavation_mole.rs"]
 pub mod excavation_mole;
+#[path = "znr/expedition_champion.rs"]
+pub mod expedition_champion;
+#[path = "znr/expedition_diviner.rs"]
+pub mod expedition_diviner;
+#[path = "znr/expedition_healer.rs"]
+pub mod expedition_healer;
+#[path = "znr/expedition_skulker.rs"]
+pub mod expedition_skulker;
+#[path = "m21/experimental_overload.rs"]
+pub mod experimental_overload;
 #[path = "cmr/exquisite_huntmaster.rs"]
 pub mod exquisite_huntmaster;
 #[path = "cmr/eyeblight_cullers.rs"]
@@ -455,6 +469,8 @@ pub mod garruk_s_gorehorn;
 pub mod garruk_s_uprising;
 #[path = "m21/garruk_s_warsteed.rs"]
 pub mod garruk_s_warsteed;
+#[path = "m21/garruk_savage_herald.rs"]
+pub mod garruk_savage_herald;
 #[path = "iko/gemrazer.rs"]
 pub mod gemrazer;
 #[path = "iko/general_kudro_of_drannith.rs"]
@@ -485,6 +501,8 @@ pub mod go_for_blood;
 pub mod goblin_gang_leader;
 #[path = "m21/goblin_wizardry.rs"]
 pub mod goblin_wizardry;
+#[path = "pznr/grakmaw_skyclave_ravager.rs"]
+pub mod grakmaw_skyclave_ravager;
 #[path = "m21/griffin_aerie.rs"]
 pub mod griffin_aerie;
 #[path = "thb/grim_physician.rs"]
@@ -551,6 +569,8 @@ pub mod ichthyomorphosis;
 pub mod igneous_cur;
 #[path = "jmp/immolating_gyre.rs"]
 pub mod immolating_gyre;
+#[path = "thb/impending_doom.rs"]
+pub mod impending_doom;
 #[path = "iko/imposing_vantasaur.rs"]
 pub mod imposing_vantasaur;
 #[path = "cmr/impulsive_pilferer.rs"]
@@ -657,6 +677,8 @@ pub mod light_of_hope;
 pub mod light_of_promise;
 #[path = "jmp/lightning_core_excavator.rs"]
 pub mod lightning_core_excavator;
+#[path = "jmp/lightning_phoenix.rs"]
+pub mod lightning_phoenix;
 #[path = "jmp/lightning_visionary.rs"]
 pub mod lightning_visionary;
 #[path = "m21/liliana_death_mage.rs"]
@@ -783,6 +805,8 @@ pub mod nadir_kraken;
 pub mod nahiri_s_binding;
 #[path = "thb/naiad_of_hidden_coves.rs"]
 pub mod naiad_of_hidden_coves;
+#[path = "c20/nascent_metamorph.rs"]
+pub mod nascent_metamorph;
 #[path = "cmr/natural_reclamation.rs"]
 pub mod natural_reclamation;
 #[path = "iko/necropanther.rs"]
@@ -791,6 +815,8 @@ pub mod necropanther;
 pub mod necrotic_hex;
 #[path = "pznr/needleverge_pathway.rs"]
 pub mod needleverge_pathway;
+#[path = "thb/nessian_hornbeetle.rs"]
+pub mod nessian_hornbeetle;
 #[path = "thb/nessian_wanderer.rs"]
 pub mod nessian_wanderer;
 #[path = "c20/nesting_grounds.rs"]
@@ -843,6 +869,8 @@ pub mod nyxborn_seaguard;
 pub mod oblivion_s_hunger;
 #[path = "m21/obsessive_stitcher.rs"]
 pub mod obsessive_stitcher;
+#[path = "znc/obuun_mul_daya_ancestor.rs"]
+pub mod obuun_mul_daya_ancestor;
 #[path = "iko/of_one_mind.rs"]
 pub mod of_one_mind;
 #[path = "thb/omen_of_the_dead.rs"]
@@ -873,6 +901,8 @@ pub mod ornery_dilophosaur;
 pub mod ox_of_agonas;
 #[path = "m21/pack_leader.rs"]
 pub mod pack_leader;
+#[path = "znr/paired_tactician.rs"]
+pub mod paired_tactician;
 #[path = "c20/parasitic_impetus.rs"]
 pub mod parasitic_impetus;
 #[path = "iko/patagia_tiger.rs"]
@@ -919,10 +949,14 @@ pub mod protean_thaumaturge;
 pub mod prowling_felidar;
 #[path = "c20/psychic_impetus.rs"]
 pub mod psychic_impetus;
+#[path = "pthb/purphoros_s_intervention.rs"]
+pub mod purphoros_s_intervention;
 #[path = "m21/pursued_whale.rs"]
 pub mod pursued_whale;
 #[path = "iko/pyroceratops.rs"]
 pub mod pyroceratops;
+#[path = "iko/quartzwood_crasher.rs"]
+pub mod quartzwood_crasher;
 #[path = "m21/radha_heart_of_keld.rs"]
 pub mod radha_heart_of_keld;
 #[path = "cmr/radiant_serra_archangel.rs"]
@@ -1461,6 +1495,8 @@ pub mod woe_strider;
 pub mod wolfwillow_haven;
 #[path = "cmr/wyleth_soul_of_steel.rs"]
 pub mod wyleth_soul_of_steel;
+#[path = "c20/xyris_the_writhing_storm.rs"]
+pub mod xyris_the_writhing_storm;
 #[path = "iko/zagoth_crystal.rs"]
 pub mod zagoth_crystal;
 #[path = "iko/zagoth_mamba.rs"]

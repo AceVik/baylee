@@ -254,6 +254,7 @@ fn acts_on_target(effect: &Effect) -> bool {
     matches!(
         effect,
         Effect::PumpTarget { .. }
+            | Effect::PutCountersDivided { .. }
             | Effect::CreateContinuousEffect {
                 filter: Filter::This,
                 ..
@@ -272,13 +273,22 @@ pub(super) fn target_reuse(ability: &AbilityDef) -> Option<&'static Filter> {
             continue;
         };
         let has_target_effect = branch.effects.iter().any(acts_on_target);
+        let has_divided_counters = branch
+            .effects
+            .iter()
+            .any(|e| matches!(e, Effect::PutCountersDivided { .. }));
         for effect in branch.effects {
             // A sibling conditional upgrade ("up to one target creature
             // can't block; if you're the monarch, creatures can't block")
+            // or a team keyword/pump grant following divided counters
+            // ("Distribute four +1/+1 counters among up to four target
+            // creatures you control. Creatures you control gain vigilance...")
             // is intentional when another top-level effect already uses
-            // the target. A lone conditional sweep without a targeted
+            // the target. A lone conditional or pump sweep without a targeted
             // effect is still caught.
-            if has_target_effect && matches!(effect, Effect::IfCondition { .. }) {
+            if (has_target_effect && matches!(effect, Effect::IfCondition { .. }))
+                || (has_divided_counters && matches!(effect, Effect::PumpFilter { .. }))
+            {
                 continue;
             }
             for swept in swept_filters(effect) {

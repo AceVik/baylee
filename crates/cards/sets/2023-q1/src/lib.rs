@@ -43,6 +43,8 @@ pub mod basilica_shepherd;
 pub mod basilica_skullbomb;
 #[path = "one/bilious_skulldweller.rs"]
 pub mod bilious_skulldweller;
+#[path = "one/black_sun_s_twilight.rs"]
+pub mod black_sun_s_twilight;
 #[path = "one/bladed_ambassador.rs"]
 pub mod bladed_ambassador;
 #[path = "one/bladehold_war_whip.rs"]
@@ -129,6 +131,8 @@ pub mod gitaxian_anatomist;
 pub mod gitaxian_raptor;
 #[path = "one/gleeful_demolition.rs"]
 pub mod gleeful_demolition;
+#[path = "onc/glimmer_lens.rs"]
+pub mod glimmer_lens;
 #[path = "one/glissa_sunslayer.rs"]
 pub mod glissa_sunslayer;
 #[path = "one/glistener_seer.rs"]
@@ -175,6 +179,8 @@ pub mod kemba_s_banner;
 pub mod kuldotha_cackler;
 #[path = "one/leonin_lightbringer.rs"]
 pub mod leonin_lightbringer;
+#[path = "yone/magmatic_scorchwing.rs"]
+pub mod magmatic_scorchwing;
 #[path = "one/malcator_s_watcher.rs"]
 pub mod malcator_s_watcher;
 #[path = "one/mandible_justiciar.rs"]
@@ -197,6 +203,8 @@ pub mod minor_misstep;
 pub mod mirage_mockery;
 #[path = "one/mirran_bardiche.rs"]
 pub mod mirran_bardiche;
+#[path = "one/mirran_safehouse.rs"]
+pub mod mirran_safehouse;
 #[path = "one/mirrex.rs"]
 pub mod mirrex;
 #[path = "one/mite_overseer.rs"]
@@ -285,6 +293,8 @@ pub mod surgical_metamorph;
 pub mod surgical_skullbomb;
 #[path = "one/swooping_lookout.rs"]
 pub mod swooping_lookout;
+#[path = "one/sword_of_forge_and_frontier.rs"]
+pub mod sword_of_forge_and_frontier;
 #[path = "one/sylvok_battle_chair.rs"]
 pub mod sylvok_battle_chair;
 #[path = "one/tablet_of_compleation.rs"]
@@ -331,10 +341,14 @@ pub mod tyrranax_rex;
 pub mod tyvar_s_stand;
 #[path = "one/unctus_grand_metatect.rs"]
 pub mod unctus_grand_metatect;
+#[path = "one/unctus_s_retrofitter.rs"]
+pub mod unctus_s_retrofitter;
 #[path = "one/unnatural_restoration.rs"]
 pub mod unnatural_restoration;
 #[path = "one/urabrask_s_anointer.rs"]
 pub mod urabrask_s_anointer;
+#[path = "one/urabrask_s_forge.rs"]
+pub mod urabrask_s_forge;
 #[path = "onc/urtet_remnant_of_memnarch.rs"]
 pub mod urtet_remnant_of_memnarch;
 #[path = "one/vat_emergence.rs"]
@@ -355,6 +369,8 @@ pub mod vivisurgeon_s_insight;
 pub mod vraan_executioner_thane;
 #[path = "one/vraska_s_fall.rs"]
 pub mod vraska_s_fall;
+#[path = "onc/vulshok_factory.rs"]
+pub mod vulshok_factory;
 #[path = "one/vulshok_splitter.rs"]
 pub mod vulshok_splitter;
 #[path = "one/watchful_blisterzoa.rs"]

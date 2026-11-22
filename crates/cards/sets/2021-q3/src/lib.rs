@@ -43,6 +43,8 @@ pub mod baleful_beholder;
 pub mod baneblade_scoundrel;
 #[path = "afr/bar_the_gate.rs"]
 pub mod bar_the_gate;
+#[path = "afr/barrowin_of_clan_undurr.rs"]
+pub mod barrowin_of_clan_undurr;
 #[path = "mid/bat_whisperer.rs"]
 pub mod bat_whisperer;
 #[path = "mid/beloved_beggar.rs"]
@@ -127,6 +129,8 @@ pub mod croaking_counterpart;
 pub mod crossroads_candleguide;
 #[path = "mic/curse_of_obsession.rs"]
 pub mod curse_of_obsession;
+#[path = "mic/curse_of_unbinding.rs"]
+pub mod curse_of_unbinding;
 #[path = "afr/dawnbringer_cleric.rs"]
 pub mod dawnbringer_cleric;
 #[path = "mid/dawnhart_rejuvenator.rs"]
@@ -137,6 +141,8 @@ pub mod deadly_dispute;
 pub mod death_priest_of_myrkul;
 #[path = "afc/death_tyrant.rs"]
 pub mod death_tyrant;
+#[path = "mid/defend_the_celestus.rs"]
+pub mod defend_the_celestus;
 #[path = "mid/defenestrate.rs"]
 pub mod defenestrate;
 #[path = "afr/delver_s_torch.rs"]
@@ -181,6 +187,8 @@ pub mod dwarfhold_champion;
 pub mod earth_cult_elemental;
 #[path = "mid/eaten_alive.rs"]
 pub mod eaten_alive;
+#[path = "afc/ebony_fly.rs"]
+pub mod ebony_fly;
 #[path = "afr/eccentric_apprentice.rs"]
 pub mod eccentric_apprentice;
 #[path = "mid/eccentric_farmer.rs"]
@@ -245,6 +253,8 @@ pub mod gavony_trapper;
 pub mod gloom_stalker;
 #[path = "afr/goblin_morningstar.rs"]
 pub mod goblin_morningstar;
+#[path = "mid/grafted_identity.rs"]
+pub mod grafted_identity;
 #[path = "afr/grazilaxx_illithid_scholar.rs"]
 pub mod grazilaxx_illithid_scholar;
 #[path = "afr/greataxe.rs"]
@@ -293,8 +303,12 @@ pub mod homestead_courage;
 pub mod hostile_hostel;
 #[path = "mid/hound_tamer.rs"]
 pub mod hound_tamer;
+#[path = "mid/howl_of_the_hunt.rs"]
+pub mod howl_of_the_hunt;
 #[path = "afr/hulking_bugbear.rs"]
 pub mod hulking_bugbear;
+#[path = "mid/hungry_for_more.rs"]
+pub mod hungry_for_more;
 #[path = "afc/hurl_through_hell.rs"]
 pub mod hurl_through_hell;
 #[path = "afr/icingdeath_frost_tyrant.rs"]
@@ -313,6 +327,8 @@ pub mod ingenious_smith;
 pub mod inspiring_bard;
 #[path = "afr/iymrith_desert_doom.rs"]
 pub mod iymrith_desert_doom;
+#[path = "mid/jack_o_lantern.rs"]
+pub mod jack_o_lantern;
 #[path = "mid/jerren_corrupted_bishop.rs"]
 pub mod jerren_corrupted_bishop;
 #[path = "mid/join_the_dance.rs"]
@@ -353,6 +369,8 @@ pub mod midnight_pathlighter;
 pub mod mimic;
 #[path = "afr/mind_flayer.rs"]
 pub mod mind_flayer;
+#[path = "afr/minsc_beloved_ranger.rs"]
+pub mod minsc_beloved_ranger;
 #[path = "afr/monk_of_the_open_hand.rs"]
 pub mod monk_of_the_open_hand;
 #[path = "afr/moon_blessed_cleric.rs"]
@@ -439,6 +457,8 @@ pub mod radiant_solar;
 pub mod ranger_s_hawk;
 #[path = "afr/ranger_s_longbow.rs"]
 pub mod ranger_s_longbow;
+#[path = "afr/ray_of_frost.rs"]
+pub mod ray_of_frost;
 #[path = "mid/raze_the_effigy.rs"]
 pub mod raze_the_effigy;
 #[path = "afr/reaper_s_talisman.rs"]
@@ -535,6 +555,8 @@ pub mod tavern_ruffian;
 pub mod teleportation_circle;
 #[path = "afr/temple_of_the_dragon_queen.rs"]
 pub mod temple_of_the_dragon_queen;
+#[path = "afr/the_blackstaff_of_waterdeep.rs"]
+pub mod the_blackstaff_of_waterdeep;
 #[path = "mid/the_meathook_massacre.rs"]
 pub mod the_meathook_massacre;
 #[path = "afr/thieves_tools.rs"]
@@ -549,6 +571,8 @@ pub mod tovolar_s_huntmaster;
 pub mod treasure_vault;
 #[path = "afr/trelasarra_moon_dancer.rs"]
 pub mod trelasarra_moon_dancer;
+#[path = "mid/triskaidekaphile.rs"]
+pub mod triskaidekaphile;
 #[path = "afr/triumphant_adventurer.rs"]
 pub mod triumphant_adventurer;
 #[path = "afr/true_polymorph.rs"]

@@ -136,6 +136,9 @@ Main deck:
     When Slinn Voda enters, if it was kicked, return all creatures to their owners' hands except for Merfolk, Krakens, Leviathans, Octopuses, and Serpents.
   1× Sol Ring {1} · Artifact
     {T}: Add {C}{C}.
+  1× Sphinx of Uthuun {5}{U}{U} · Creature — Sphinx · 5/6
+    Flying
+    When this creature enters, reveal the top five cards of your library. An opponent separates those cards into two piles. Put one pile into your hand and the other into your graveyard.
   1× Spitting Image {4}{G/U}{G/U} · Sorcery
     Create a token that's a copy of target creature.
     Retrace
@@ -150,6 +153,8 @@ Main deck:
     This land enters tapped.
     When this land enters, you gain 1 life.
     {T}: Add {G} or {U}.
+  1× Urban Evolution {3}{U}{G} · Sorcery
+    Draw three cards. You may play an additional land this turn.
   1× Verdant Sun's Avatar {5}{G}{G} · Creature — Dinosaur Avatar · 5/5
     Whenever this creature or another creature you control enters, you gain life equal to that creature's toughness.
   1× Vivid Creek · Land
@@ -244,9 +249,3 @@ Main deck:
   1× Ingot Chewer {4}{R} · Creature — Elemental · 3/3
     When this creature enters, destroy target artifact.
     Evoke {R} (You may cast this spell for its evoke cost. If you do, it's sacrificed when it enters.)
-  1× Jubilation {5}{G} · Creature — Elemental Incarnation · 5/5
-    When this creature enters, creatures you control get +2/+2 and gain trample until end of turn.
-    Encore {7}{G}{G} ({7}{G}{G}, Exile this card from your graveyard: For each opponent, create a token copy that attacks that opponent this turn if able. They gain haste. Sacrifice them at the beginning of the next end step. Activate only as a sorcery.)
-  1× Jungle Shrine · Land
-    This land enters tapped.
-    {T}: Add {R}, {G}, or {W}.

@@ -29,6 +29,8 @@ pub mod bard_the_bowman;
 pub mod bejeweled_warg;
 #[path = "hob/beorn_reluctant_host.rs"]
 pub mod beorn_reluctant_host;
+#[path = "hob/beorn_s_hospitality.rs"]
+pub mod beorn_s_hospitality;
 #[path = "hob/bilbo_baggins_burglar.rs"]
 pub mod bilbo_baggins_burglar;
 #[path = "hob/bilbo_s_deadly_slice.rs"]
@@ -39,6 +41,8 @@ pub mod bilbo_s_gambit;
 pub mod bofur_reliable_guardian;
 #[path = "hoc/bolg_erebor_s_reckoning.rs"]
 pub mod bolg_erebor_s_reckoning;
+#[path = "hob/bolg_s_company.rs"]
+pub mod bolg_s_company;
 #[path = "hob/bothersome_noisemaker.rs"]
 pub mod bothersome_noisemaker;
 #[path = "hob/boughside_wanderers.rs"]
@@ -53,6 +57,8 @@ pub mod confusticate_and_bebother;
 pub mod crude_bent_blade;
 #[path = "hoc/dain_of_the_ancient_halls.rs"]
 pub mod dain_of_the_ancient_halls;
+#[path = "hob/dain_s_company.rs"]
+pub mod dain_s_company;
 #[path = "hob/dancing_from_dark_to_dawn.rs"]
 pub mod dancing_from_dark_to_dawn;
 #[path = "hob/desolation_of_smaug.rs"]
@@ -103,6 +109,8 @@ pub mod fili_and_kili_joyous;
 pub mod fili_the_pathfinder;
 #[path = "hob/front_porch_sentries.rs"]
 pub mod front_porch_sentries;
+#[path = "hoc/gandalf_shadow_s_foe.rs"]
+pub mod gandalf_shadow_s_foe;
 #[path = "hob/gathering_of_darkness.rs"]
 pub mod gathering_of_darkness;
 #[path = "hob/giant_s_boulder.rs"]
@@ -167,6 +175,8 @@ pub mod my_precious;
 pub mod nasty_little_rabbit;
 #[path = "hoc/necklace_of_girion.rs"]
 pub mod necklace_of_girion;
+#[path = "hob/nighthowl_pursuer.rs"]
+pub mod nighthowl_pursuer;
 #[path = "hob/nori_teller_of_tales.rs"]
 pub mod nori_teller_of_tales;
 #[path = "hob/oin_the_brave.rs"]
@@ -193,6 +203,8 @@ pub mod rage_into_the_valley;
 pub mod ragged_short_spear;
 #[path = "hob/ravenhill_flock.rs"]
 pub mod ravenhill_flock;
+#[path = "hob/ravening_warg.rs"]
+pub mod ravening_warg;
 #[path = "hob/reverent_howl.rs"]
 pub mod reverent_howl;
 #[path = "hob/rhovanion_rampager.rs"]
@@ -217,6 +229,8 @@ pub mod stone_giant_of_high_pass;
 pub mod stony_voiced_goblins;
 #[path = "hob/the_arkenstone.rs"]
 pub mod the_arkenstone;
+#[path = "hob/the_chief_warg.rs"]
+pub mod the_chief_warg;
 #[path = "hob/the_lonely_mountain.rs"]
 pub mod the_lonely_mountain;
 #[path = "hob/the_notary_hobbits.rs"]
@@ -229,6 +243,8 @@ pub mod thorin_king_of_durin_s_folk;
 pub mod thorin_oakenshield;
 #[path = "hob/thorin_s_last_stand.rs"]
 pub mod thorin_s_last_stand;
+#[path = "hob/thranduil_the_elvenking.rs"]
+pub mod thranduil_the_elvenking;
 #[path = "hoc/thranduil_the_strategist.rs"]
 pub mod thranduil_the_strategist;
 #[path = "hob/thror_s_map.rs"]
@@ -239,8 +255,12 @@ pub mod troll_negotiations;
 pub mod troop_of_ponies;
 #[path = "hob/warg_tactics.rs"]
 pub mod warg_tactics;
+#[path = "hob/wargling.rs"]
+pub mod wargling;
 #[path = "hob/well_worn_spatula.rs"]
 pub mod well_worn_spatula;
+#[path = "hob/wilderland_scrounger.rs"]
+pub mod wilderland_scrounger;
 #[path = "hob/wizard_s_staff.rs"]
 pub mod wizard_s_staff;
 #[path = "hob/woodland_weavemaster.rs"]

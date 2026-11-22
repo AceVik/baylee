@@ -27,6 +27,10 @@ pub mod archmage_of_echoes;
 pub mod archon_s_glory;
 #[path = "woe/ashiok_s_reaper.rs"]
 pub mod ashiok_s_reaper;
+#[path = "woe/barrow_naughty.rs"]
+pub mod barrow_naughty;
+#[path = "woe/beanstalk_wurm.rs"]
+pub mod beanstalk_wurm;
 #[path = "woe/bellowing_bruiser.rs"]
 pub mod bellowing_bruiser;
 #[path = "woe/beluna_s_gatekeeper.rs"]
@@ -67,6 +71,10 @@ pub mod court_of_ardenvale;
 pub mod court_of_embereth;
 #[path = "pwoe/cruel_somnophage.rs"]
 pub mod cruel_somnophage;
+#[path = "cmm/darksteel_monolith.rs"]
+pub mod darksteel_monolith;
+#[path = "cmm/demon_of_fate_s_design.rs"]
+pub mod demon_of_fate_s_design;
 #[path = "woe/dream_spoilers.rs"]
 pub mod dream_spoilers;
 #[path = "woe/dutiful_griffin.rs"]
@@ -189,6 +197,8 @@ pub mod ogre_chitterlord;
 pub mod old_flitterfang;
 #[path = "woc/ox_drover.rs"]
 pub mod ox_drover;
+#[path = "woe/picnic_ruiner.rs"]
+pub mod picnic_ruiner;
 #[path = "woe/plunge_into_winter.rs"]
 pub mod plunge_into_winter;
 #[path = "pwoe/pollen_shield_hare.rs"]
@@ -231,6 +241,8 @@ pub mod return_from_the_wilds;
 pub mod rimefur_reindeer;
 #[path = "woe/rootrider_faun.rs"]
 pub mod rootrider_faun;
+#[path = "woe/ruby_daring_tracker.rs"]
+pub mod ruby_daring_tracker;
 #[path = "woe/savior_of_the_sleeping.rs"]
 pub mod savior_of_the_sleeping;
 #[path = "pwoe/scalding_viper.rs"]
@@ -239,6 +251,8 @@ pub mod scalding_viper;
 pub mod scarecrow_guide;
 #[path = "woe/scream_puff.rs"]
 pub mod scream_puff;
+#[path = "woc/shadow_puppeteers.rs"]
+pub mod shadow_puppeteers;
 #[path = "woe/shrouded_shepherd.rs"]
 pub mod shrouded_shepherd;
 #[path = "woe/skewer_slinger.rs"]
@@ -277,6 +291,8 @@ pub mod stroke_of_midnight;
 pub mod sugar_rush;
 #[path = "woe/sweettooth_witch.rs"]
 pub mod sweettooth_witch;
+#[path = "pwoe/syr_ginger_the_meal_ender.rs"]
+pub mod syr_ginger_the_meal_ender;
 #[path = "woe/taken_by_nightmares.rs"]
 pub mod taken_by_nightmares;
 #[path = "pwoe/talion_s_messenger.rs"]
@@ -293,6 +309,8 @@ pub mod tegwyll_duke_of_splendor;
 pub mod tempest_hart;
 #[path = "woe/tenacious_tomeseeker.rs"]
 pub mod tenacious_tomeseeker;
+#[path = "woe/territorial_witchstalker.rs"]
+pub mod territorial_witchstalker;
 #[path = "pwoe/the_goose_mother.rs"]
 pub mod the_goose_mother;
 #[path = "woe/threadbind_clique.rs"]

@@ -15,3 +15,5 @@ pub use baylee_cards_base::{filters, generated_tokens, tokens};
 
 #[path = "mdd/penance_stare.rs"]
 pub mod penance_stare;
+#[path = "mdd/rise_from_the_nether.rs"]
+pub mod rise_from_the_nether;

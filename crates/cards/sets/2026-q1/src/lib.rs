@@ -81,6 +81,8 @@ pub mod bot_bashing_time;
 pub mod brambleback_brute;
 #[path = "ecl/brigid_s_command.rs"]
 pub mod brigid_s_command;
+#[path = "ecl/bristlebane_battler.rs"]
+pub mod bristlebane_battler;
 #[path = "ecl/burdened_stoneback.rs"]
 pub mod burdened_stoneback;
 #[path = "tmt/buzz_bots.rs"]
@@ -115,6 +117,8 @@ pub mod creakwood_safewright;
 pub mod crossroads_watcher;
 #[path = "tmt/crustacean_commando.rs"]
 pub mod crustacean_commando;
+#[path = "ecl/curious_colossus.rs"]
+pub mod curious_colossus;
 #[path = "tmt/dark_leo_shredder.rs"]
 pub mod dark_leo_shredder;
 #[path = "ecl/darkness_descends.rs"]
@@ -175,6 +179,8 @@ pub mod elder_auntie;
 pub mod elemental_spectacle;
 #[path = "pf26/encounter_the_unknown.rs"]
 pub mod encounter_the_unknown;
+#[path = "ecl/encumbered_reejerey.rs"]
+pub mod encumbered_reejerey;
 #[path = "ecl/enraged_flamecaster.rs"]
 pub mod enraged_flamecaster;
 #[path = "tmt/epf_point_squad.rs"]
@@ -229,6 +235,8 @@ pub mod genghis_frog;
 pub mod giantfall;
 #[path = "ecl/gilt_leaf_s_embrace.rs"]
 pub mod gilt_leaf_s_embrace;
+#[path = "ecl/glamer_gifter.rs"]
+pub mod glamer_gifter;
 #[path = "ecl/glamermite.rs"]
 pub mod glamermite;
 #[path = "ecl/glen_elendra_guardian.rs"]
@@ -389,6 +397,8 @@ pub mod moon_vigil_adherents;
 pub mod moonglove_extractor;
 #[path = "ecl/moonlit_lamenter.rs"]
 pub mod moonlit_lamenter;
+#[path = "ecl/moonshadow.rs"]
+pub mod moonshadow;
 #[path = "ecl/morcant_s_eyes.rs"]
 pub mod morcant_s_eyes;
 #[path = "ecl/morcant_s_loyalist.rs"]
@@ -425,6 +435,8 @@ pub mod noggle_the_mind;
 pub mod northampton_farm;
 #[path = "tmt/null_group_biological_assets.rs"]
 pub mod null_group_biological_assets;
+#[path = "ecl/oko_lorwyn_liege.rs"]
+pub mod oko_lorwyn_liege;
 #[path = "tmt/omni_cheese_pizza.rs"]
 pub mod omni_cheese_pizza;
 #[path = "tmt/ooze_spill.rs"]
@@ -473,12 +485,16 @@ pub mod raphael_tough_turtle;
 pub mod rat_king_pale_piper;
 #[path = "tmt/ravenous_robots.rs"]
 pub mod ravenous_robots;
+#[path = "tmt/ray_fillet_man_ray.rs"]
+pub mod ray_fillet_man_ray;
 #[path = "tmc/ray_fillet_wave_warrior.rs"]
 pub mod ray_fillet_wave_warrior;
 #[path = "ecl/reaping_willow.rs"]
 pub mod reaping_willow;
 #[path = "ecl/reckless_ransacking.rs"]
 pub mod reckless_ransacking;
+#[path = "ecl/reluctant_dounguard.rs"]
+pub mod reluctant_dounguard;
 #[path = "tmt/renet_temporal_apprentice.rs"]
 pub mod renet_temporal_apprentice;
 #[path = "tmt/retro_mutation.rs"]
@@ -673,3 +689,5 @@ pub mod wingnut_bat_on_the_belfry;
 pub mod wooden_cane;
 #[path = "tmt/zog_triceraton_castaway.rs"]
 pub mod zog_triceraton_castaway;
+#[path = "tmt/zoo_escapees.rs"]
+pub mod zoo_escapees;

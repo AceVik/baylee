@@ -103,6 +103,8 @@ pub mod brazen_upstart;
 pub mod breath_weapon;
 #[path = "snc/brokers_charm.rs"]
 pub mod brokers_charm;
+#[path = "ncc/brokers_confluence.rs"]
+pub mod brokers_confluence;
 #[path = "snc/brokers_hideout.rs"]
 pub mod brokers_hideout;
 #[path = "snc/brokers_initiate.rs"]
@@ -115,6 +117,8 @@ pub mod bronze_walrus;
 pub mod buy_your_silence;
 #[path = "snc/cabaretti_charm.rs"]
 pub mod cabaretti_charm;
+#[path = "ncc/cabaretti_confluence.rs"]
+pub mod cabaretti_confluence;
 #[path = "snc/cabaretti_courtyard.rs"]
 pub mod cabaretti_courtyard;
 #[path = "snc/cabaretti_initiate.rs"]
@@ -171,6 +175,8 @@ pub mod clockwork_fox;
 pub mod colossal_badger;
 #[path = "clb/contraband_livestock.rs"]
 pub mod contraband_livestock;
+#[path = "snc/cormela_glamour_thief.rs"]
+pub mod cormela_glamour_thief;
 #[path = "clb/coronation_of_chaos.rs"]
 pub mod coronation_of_chaos;
 #[path = "snc/courier_s_briefcase.rs"]
@@ -257,6 +263,8 @@ pub mod explore_the_underdark;
 pub mod extraction_specialist;
 #[path = "ncc/extravagant_replication.rs"]
 pub mod extravagant_replication;
+#[path = "snc/fake_your_own_death.rs"]
+pub mod fake_your_own_death;
 #[path = "clb/fang_dragon.rs"]
 pub mod fang_dragon;
 #[path = "clb/far_traveler.rs"]
@@ -335,6 +343,8 @@ pub mod hammers_of_moradin;
 pub mod haunted_one;
 #[path = "clb/heap_gate.rs"]
 pub mod heap_gate;
+#[path = "snc/high_rise_sawjack.rs"]
+pub mod high_rise_sawjack;
 #[path = "clb/horn_of_valhalla.rs"]
 pub mod horn_of_valhalla;
 #[path = "snc/hypnotic_grifter.rs"]
@@ -403,6 +413,8 @@ pub mod lurking_green_dragon;
 pub mod luxurious_libation;
 #[path = "snc/maestros_charm.rs"]
 pub mod maestros_charm;
+#[path = "ncc/maestros_confluence.rs"]
+pub mod maestros_confluence;
 #[path = "psnc/maestros_diabolist.rs"]
 pub mod maestros_diabolist;
 #[path = "snc/maestros_initiate.rs"]
@@ -563,6 +575,8 @@ pub mod run_out_of_town;
 pub mod saddle_of_the_cavalier;
 #[path = "clb/sapphire_dragon.rs"]
 pub mod sapphire_dragon;
+#[path = "clb/sarevok_s_tome.rs"]
+pub mod sarevok_s_tome;
 #[path = "ncc/scepter_of_celebration.rs"]
 pub mod scepter_of_celebration;
 #[path = "clb/scouting_hawk.rs"]
@@ -685,6 +699,8 @@ pub mod writ_of_return;
 pub mod wyrm_s_crossing_patrol;
 #[path = "psnc/xander_s_lounge.rs"]
 pub mod xander_s_lounge;
+#[path = "clb/you_look_upon_the_tarrasque.rs"]
+pub mod you_look_upon_the_tarrasque;
 #[path = "clb/you_re_confronted_by_robbers.rs"]
 pub mod you_re_confronted_by_robbers;
 #[path = "clb/young_blue_dragon.rs"]

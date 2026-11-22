@@ -297,6 +297,8 @@ pub mod rune_of_mortality;
 pub mod rune_of_speed;
 #[path = "khm/rune_of_sustenance.rs"]
 pub mod rune_of_sustenance;
+#[path = "khm/runeforge_champion.rs"]
+pub mod runeforge_champion;
 #[path = "khc/ruthless_winnower.rs"]
 pub mod ruthless_winnower;
 #[path = "khm/sarulf_s_packmate.rs"]

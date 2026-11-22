@@ -27,6 +27,8 @@ pub mod abigale_poet_laureate;
 pub mod abomination_irradiated_brute;
 #[path = "msc/absorbing_man_and_titania.rs"]
 pub mod absorbing_man_and_titania;
+#[path = "sos/abstract_paintmage.rs"]
+pub mod abstract_paintmage;
 #[path = "msc/accelerated_evolution.rs"]
 pub mod accelerated_evolution;
 #[path = "sos/additive_evolution.rs"]
@@ -47,6 +49,8 @@ pub mod agents_of_hydra;
 pub mod agents_of_s_h_i_e_l_d;
 #[path = "ysos/algorithmic_ferocity.rs"]
 pub mod algorithmic_ferocity;
+#[path = "msc/ancestral_communion.rs"]
+pub mod ancestral_communion;
 #[path = "msc/ant_man_reformed_rogue.rs"]
 pub mod ant_man_reformed_rogue;
 #[path = "msc/ant_man_s_air_force.rs"]
@@ -149,6 +153,8 @@ pub mod captain_america_liberator;
 pub mod captain_america_s_motorcycle;
 #[path = "msh/captain_america_s_shield.rs"]
 pub mod captain_america_s_shield;
+#[path = "msc/captain_america_skybound.rs"]
+pub mod captain_america_skybound;
 #[path = "msc/captain_america_steve_rogers.rs"]
 pub mod captain_america_steve_rogers;
 #[path = "msh/captain_america_super_soldier.rs"]
@@ -285,6 +291,8 @@ pub mod eternal_student;
 pub mod experimental_armor;
 #[path = "msc/falcon_and_redwing.rs"]
 pub mod falcon_and_redwing;
+#[path = "msc/falcon_joaquin_torres.rs"]
+pub mod falcon_joaquin_torres;
 #[path = "msh/falcon_s_wing_harness.rs"]
 pub mod falcon_s_wing_harness;
 #[path = "msh/falcon_winged_wonder.rs"]
@@ -327,6 +335,8 @@ pub mod forum_necroscribe;
 pub mod forum_of_amity;
 #[path = "sos/fractal_mascot.rs"]
 pub mod fractal_mascot;
+#[path = "sos/fractalize.rs"]
+pub mod fractalize;
 #[path = "msc/furious_strength.rs"]
 pub mod furious_strength;
 #[path = "msh/futurist_forge.rs"]
@@ -335,6 +345,8 @@ pub mod futurist_forge;
 pub mod garrison_excavator;
 #[path = "msh/gathering_place.rs"]
 pub mod gathering_place;
+#[path = "msc/general_thunderbolt_ross.rs"]
+pub mod general_thunderbolt_ross;
 #[path = "msc/gert_and_old_lace_runaways.rs"]
 pub mod gert_and_old_lace_runaways;
 #[path = "msh/ghost_spectral_saboteur.rs"]
@@ -461,8 +473,14 @@ pub mod iron_fist_living_weapon;
 pub mod iron_lad_diverging_destiny;
 #[path = "msc/iron_lad_young_avenger.rs"]
 pub mod iron_lad_young_avenger;
+#[path = "msh/iron_man_armor.rs"]
+pub mod iron_man_armor;
+#[path = "msc/iron_man_armored_avenger.rs"]
+pub mod iron_man_armored_avenger;
 #[path = "msc/iron_man_futurist_paragon.rs"]
 pub mod iron_man_futurist_paragon;
+#[path = "msc/iron_man_modern_marvel.rs"]
+pub mod iron_man_modern_marvel;
 #[path = "msc/iron_man_tony_stark.rs"]
 pub mod iron_man_tony_stark;
 #[path = "msc/iron_suitcase.rs"]
@@ -585,12 +603,18 @@ pub mod mockingbird_ace_agent;
 pub mod mockingbird_bobbi_morse;
 #[path = "sos/molten_note.rs"]
 pub mod molten_note;
+#[path = "psos/moment_of_reckoning.rs"]
+pub mod moment_of_reckoning;
 #[path = "msh/monica_rambeau.rs"]
 pub mod monica_rambeau;
+#[path = "msc/moon_boy_dino_rider.rs"]
+pub mod moon_boy_dino_rider;
 #[path = "msh/moon_girl_and_devil_dinosaur.rs"]
 pub mod moon_girl_and_devil_dinosaur;
 #[path = "msh/moonstone_harsh_mistress.rs"]
 pub mod moonstone_harsh_mistress;
+#[path = "msh/ms_marvel_kamala_khan.rs"]
+pub mod ms_marvel_kamala_khan;
 #[path = "msc/multiversal_recruitment.rs"]
 pub mod multiversal_recruitment;
 #[path = "sos/muse_s_encouragement.rs"]
@@ -599,6 +623,8 @@ pub mod muse_s_encouragement;
 pub mod nakia_wakandan_operative;
 #[path = "msc/namor_scourge_of_the_seas.rs"]
 pub mod namor_scourge_of_the_seas;
+#[path = "msc/nico_minoru_runaway.rs"]
+pub mod nico_minoru_runaway;
 #[path = "msh/night_nurse_healer_of_heroes.rs"]
 pub mod night_nurse_healer_of_heroes;
 #[path = "msc/nighthawk_dark_defender.rs"]
@@ -685,6 +711,8 @@ pub mod quicksilver_speedster;
 pub mod quill_blade_laureate;
 #[path = "soc/quintorius_history_chaser.rs"]
 pub mod quintorius_history_chaser;
+#[path = "sos/rabid_attack.rs"]
+pub mod rabid_attack;
 #[path = "msc/radioactive_man.rs"]
 pub mod radioactive_man;
 #[path = "msh/rapid_rescue.rs"]
@@ -707,6 +735,8 @@ pub mod repulsor_bots;
 pub mod repulsor_rays;
 #[path = "msc/rescue_pepper_potts.rs"]
 pub mod rescue_pepper_potts;
+#[path = "psos/resonating_lute.rs"]
+pub mod resonating_lute;
 #[path = "soc/ribtruss_roaster.rs"]
 pub mod ribtruss_roaster;
 #[path = "msh/rick_jones_destined_sidekick.rs"]
@@ -775,6 +805,8 @@ pub mod sneering_shadewriter;
 pub mod snooping_page;
 #[path = "sos/soaring_stoneglider.rs"]
 pub mod soaring_stoneglider;
+#[path = "sos/social_snub.rs"]
+pub mod social_snub;
 #[path = "msc/soldier_on.rs"]
 pub mod soldier_on;
 #[path = "msc/songbird_sonic_screamer.rs"]
@@ -877,6 +909,8 @@ pub mod the_howling_commandos;
 pub mod the_immortal_weapons;
 #[path = "msh/the_masters_of_evil.rs"]
 pub mod the_masters_of_evil;
+#[path = "msh/the_mighty_thor_jane_foster.rs"]
+pub mod the_mighty_thor_jane_foster;
 #[path = "msh/the_scarlet_witch.rs"]
 pub mod the_scarlet_witch;
 #[path = "msh/the_sentry_golden_guardian.rs"]
@@ -985,6 +1019,8 @@ pub mod villainous_hideout;
 pub mod virtuous_variant;
 #[path = "msh/vision_of_love.rs"]
 pub mod vision_of_love;
+#[path = "msc/vision_spectral_synthezoid.rs"]
+pub mod vision_spectral_synthezoid;
 #[path = "sos/visionary_s_dance.rs"]
 pub mod visionary_s_dance;
 #[path = "msh/visions_of_villainy.rs"]
@@ -1005,8 +1041,12 @@ pub mod wakandan_shield_guard;
 pub mod wakandan_tusker;
 #[path = "msc/wall_off.rs"]
 pub mod wall_off;
+#[path = "msc/wanda_s_vision.rs"]
+pub mod wanda_s_vision;
 #[path = "sos/wander_off.rs"]
 pub mod wander_off;
+#[path = "msc/war_machine_avenging_arsenal.rs"]
+pub mod war_machine_avenging_arsenal;
 #[path = "msc/war_machine_james_rhodes.rs"]
 pub mod war_machine_james_rhodes;
 #[path = "msh/war_machine_legacy_of_iron.rs"]
@@ -1043,6 +1083,8 @@ pub mod wondrous_revival;
 pub mod x_23_deadly_weapon;
 #[path = "msh/yellowjacket_heartless_marauder.rs"]
 pub mod yellowjacket_heartless_marauder;
+#[path = "psos/zaffai_and_the_tempests.rs"]
+pub mod zaffai_and_the_tempests;
 #[path = "sos/zealous_lorecaster.rs"]
 pub mod zealous_lorecaster;
 #[path = "msc/zuri_warrior_of_wakanda.rs"]

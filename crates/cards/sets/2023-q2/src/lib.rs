@@ -29,6 +29,8 @@ pub mod aragorn_and_arwen_wed;
 pub mod aragorn_king_of_gondor;
 #[path = "ltr/aragorn_the_uniter.rs"]
 pub mod aragorn_the_uniter;
+#[path = "ltc/arboreal_alliance.rs"]
+pub mod arboreal_alliance;
 #[path = "mom/archangel_elspeth.rs"]
 pub mod archangel_elspeth;
 #[path = "ltc/archivist_of_gondor.rs"]
@@ -45,6 +47,8 @@ pub mod assault_on_osgiliath;
 pub mod astral_wingspan;
 #[path = "mom/atraxa_s_fall.rs"]
 pub mod atraxa_s_fall;
+#[path = "mom/axgard_artisan.rs"]
+pub mod axgard_artisan;
 #[path = "mat/ayara_s_oathsworn.rs"]
 pub mod ayara_s_oathsworn;
 #[path = "ltr/bag_end_porter.rs"]
@@ -87,6 +91,8 @@ pub mod boon_bringer_valkyrie;
 pub mod borne_upon_a_wind;
 #[path = "ltc/boromir_gondor_s_hope.rs"]
 pub mod boromir_gondor_s_hope;
+#[path = "mom/botanical_brawler.rs"]
+pub mod botanical_brawler;
 #[path = "ltr/brandywine_farmer.rs"]
 pub mod brandywine_farmer;
 #[path = "moc/bright_palm_soul_awakener.rs"]
@@ -287,6 +293,8 @@ pub mod goblin_fireleaper;
 pub mod gold_forged_thopteryx;
 #[path = "mom/golden_scale_aeronaut.rs"]
 pub mod golden_scale_aeronaut;
+#[path = "ltr/gollum_patient_plotter.rs"]
+pub mod gollum_patient_plotter;
 #[path = "ltr/gollum_s_bite.rs"]
 pub mod gollum_s_bite;
 #[path = "moc/goro_goro_and_satoru.rs"]
@@ -365,12 +373,18 @@ pub mod invasion_of_ixalan;
 pub mod invasion_of_kaladesh;
 #[path = "mom/invasion_of_karsus.rs"]
 pub mod invasion_of_karsus;
+#[path = "mom/invasion_of_kylem.rs"]
+pub mod invasion_of_kylem;
 #[path = "mom/invasion_of_mercadia.rs"]
 pub mod invasion_of_mercadia;
 #[path = "mom/invasion_of_moag.rs"]
 pub mod invasion_of_moag;
+#[path = "mom/invasion_of_muraganda.rs"]
+pub mod invasion_of_muraganda;
 #[path = "mom/invasion_of_shandalar.rs"]
 pub mod invasion_of_shandalar;
+#[path = "mom/invasion_of_theros.rs"]
+pub mod invasion_of_theros;
 #[path = "mom/invasion_of_tolvada.rs"]
 pub mod invasion_of_tolvada;
 #[path = "mom/invasion_of_ulgrotha.rs"]
@@ -459,6 +473,8 @@ pub mod meeting_of_minds;
 pub mod meneldor_swift_savior;
 #[path = "mom/merciless_repurposing.rs"]
 pub mod merciless_repurposing;
+#[path = "ltr/merry_esquire_of_rohan.rs"]
+pub mod merry_esquire_of_rohan;
 #[path = "ltc/merry_warden_of_isengard.rs"]
 pub mod merry_warden_of_isengard;
 #[path = "mat/metropolis_reformer.rs"]
@@ -479,12 +495,16 @@ pub mod mirran_banesplitter;
 pub mod mirrodin_avenged;
 #[path = "ltr/mirror_of_galadriel.rs"]
 pub mod mirror_of_galadriel;
+#[path = "moc/mirror_style_master.rs"]
+pub mod mirror_style_master;
 #[path = "ltr/mirrormere_guardian.rs"]
 pub mod mirrormere_guardian;
 #[path = "ltr/mithril_coat.rs"]
 pub mod mithril_coat;
 #[path = "ltr/mordor_muster.rs"]
 pub mod mordor_muster;
+#[path = "ltr/mordor_trebuchet.rs"]
+pub mod mordor_trebuchet;
 #[path = "ltr/morgul_knife_wound.rs"]
 pub mod morgul_knife_wound;
 #[path = "ltr/moria_marauder.rs"]
@@ -519,6 +539,8 @@ pub mod old_man_willow;
 pub mod oliphaunt;
 #[path = "ltr/olog_hai_crusher.rs"]
 pub mod olog_hai_crusher;
+#[path = "mom/omen_hawker.rs"]
+pub mod omen_hawker;
 #[path = "mom/onakke_javelineer.rs"]
 pub mod onakke_javelineer;
 #[path = "mom/oracle_of_tragedy.rs"]
@@ -699,6 +721,8 @@ pub mod stern_scolding;
 pub mod stew_the_coneys;
 #[path = "ltr/storm_of_saruman.rs"]
 pub mod storm_of_saruman;
+#[path = "mom/storm_the_seedcore.rs"]
+pub mod storm_the_seedcore;
 #[path = "mom/stormclaw_rager.rs"]
 pub mod stormclaw_rager;
 #[path = "mom/streetwise_negotiator.rs"]
@@ -741,6 +765,8 @@ pub mod the_grey_havens;
 pub mod the_mouth_of_sauron;
 #[path = "ltr/the_one_ring.rs"]
 pub mod the_one_ring;
+#[path = "ltr/the_ring_goes_south.rs"]
+pub mod the_ring_goes_south;
 #[path = "ltr/the_shire.rs"]
 pub mod the_shire;
 #[path = "ltr/the_torment_of_gollum.rs"]
@@ -771,6 +797,8 @@ pub mod tribute_to_the_world_tree;
 pub mod troll_of_khazad_dum;
 #[path = "moc/uncivil_unrest.rs"]
 pub mod uncivil_unrest;
+#[path = "mat/undercity_upheaval.rs"]
+pub mod undercity_upheaval;
 #[path = "mom/unseal_the_necropolis.rs"]
 pub mod unseal_the_necropolis;
 #[path = "mom/urn_of_godfire.rs"]

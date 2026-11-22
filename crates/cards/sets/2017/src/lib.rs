@@ -83,6 +83,8 @@ pub mod arahbo_roar_of_the_world;
 pub mod archfiend_of_ifnir;
 #[path = "pxln/arguel_s_blood_fast.rs"]
 pub mod arguel_s_blood_fast;
+#[path = "akh/as_foretold.rs"]
+pub mod as_foretold;
 #[path = "xln/atzocan_archer.rs"]
 pub mod atzocan_archer;
 #[path = "aer/audacious_infiltrator.rs"]
@@ -341,6 +343,8 @@ pub mod desert_of_the_indomitable;
 pub mod desert_of_the_mindful;
 #[path = "hou/desert_of_the_true.rs"]
 pub mod desert_of_the_true;
+#[path = "hou/desert_s_hold.rs"]
+pub mod desert_s_hold;
 #[path = "akh/desiccated_naga.rs"]
 pub mod desiccated_naga;
 #[path = "xln/desperate_castaways.rs"]
@@ -387,6 +391,8 @@ pub mod dowsing_dagger;
 pub mod drake_haven;
 #[path = "akh/dread_wanderer.rs"]
 pub mod dread_wanderer;
+#[path = "pxln/dreamcaller_siren.rs"]
+pub mod dreamcaller_siren;
 #[path = "hou/dreamstealer.rs"]
 pub mod dreamstealer;
 #[path = "hou/driven.rs"]
@@ -449,6 +455,8 @@ pub mod fan_bearer;
 pub mod farm;
 #[path = "f17/fatal_push.rs"]
 pub mod fatal_push;
+#[path = "pxln/fathom_fleet_captain.rs"]
+pub mod fathom_fleet_captain;
 #[path = "xln/fathom_fleet_cutthroat.rs"]
 pub mod fathom_fleet_cutthroat;
 #[path = "xln/fathom_fleet_firebrand.rs"]
@@ -523,6 +531,8 @@ pub mod gideon_s_resolve;
 pub mod gift_of_strength;
 #[path = "aer/gifted_aetherborn.rs"]
 pub mod gifted_aetherborn;
+#[path = "hou/gilded_cerodon.rs"]
+pub mod gilded_cerodon;
 #[path = "xln/gilded_sentinel.rs"]
 pub mod gilded_sentinel;
 #[path = "pxln/gishath_sun_s_avatar.rs"]
@@ -579,6 +589,8 @@ pub mod haze_of_pollen;
 pub mod hazoret_s_monument;
 #[path = "akh/hazoret_the_fervent.rs"]
 pub mod hazoret_the_fervent;
+#[path = "xln/headstrong_brute.rs"]
+pub mod headstrong_brute;
 #[path = "xln/headwater_sentries.rs"]
 pub mod headwater_sentries;
 #[path = "akh/heart_piercer_manticore.rs"]
@@ -699,6 +711,8 @@ pub mod jade_guardian;
 pub mod jungle_delver;
 #[path = "aer/kari_zev_s_expertise.rs"]
 pub mod kari_zev_s_expertise;
+#[path = "aer/kari_zev_skyship_raider.rs"]
+pub mod kari_zev_skyship_raider;
 #[path = "hou/kefnet_s_last_word.rs"]
 pub mod kefnet_s_last_word;
 #[path = "akh/kefnet_s_monument.rs"]
@@ -713,10 +727,14 @@ pub mod khenra_eternal;
 pub mod khenra_scrapper;
 #[path = "c17/kindred_discovery.rs"]
 pub mod kindred_discovery;
+#[path = "c17/kindred_summons.rs"]
+pub mod kindred_summons;
 #[path = "xln/kinjalli_s_caller.rs"]
 pub mod kinjalli_s_caller;
 #[path = "pxln/kinjalli_s_sunwing.rs"]
 pub mod kinjalli_s_sunwing;
+#[path = "xln/kumena_s_speaker.rs"]
+pub mod kumena_s_speaker;
 #[path = "aer/lathnu_sailback.rs"]
 pub mod lathnu_sailback;
 #[path = "akh/lay_claim.rs"]
@@ -733,6 +751,8 @@ pub mod legion_s_judgment;
 pub mod legion_s_landing;
 #[path = "c17/licia_sanguine_tribune.rs"]
 pub mod licia_sanguine_tribune;
+#[path = "aer/lifecraft_awakening.rs"]
+pub mod lifecraft_awakening;
 #[path = "aer/lifecraft_cavalry.rs"]
 pub mod lifecraft_cavalry;
 #[path = "aer/lifecrafter_s_bestiary.rs"]
@@ -767,6 +787,8 @@ pub mod makeshift_munitions;
 pub mod manglehorn;
 #[path = "hou/manticore_eternal.rs"]
 pub mod manticore_eternal;
+#[path = "hou/marauding_boneslasher.rs"]
+pub mod marauding_boneslasher;
 #[path = "xln/marauding_looter.rs"]
 pub mod marauding_looter;
 #[path = "aer/maverick_thopterist.rs"]
@@ -937,6 +959,10 @@ pub mod queen_s_agent;
 pub mod queen_s_bay_soldier;
 #[path = "xln/queen_s_commission.rs"]
 pub mod queen_s_commission;
+#[path = "aer/quicksmith_rebel.rs"]
+pub mod quicksmith_rebel;
+#[path = "aer/quicksmith_spy.rs"]
+pub mod quicksmith_spy;
 #[path = "xln/raging_swordtooth.rs"]
 pub mod raging_swordtooth;
 #[path = "xln/raiders_wake.rs"]
@@ -1049,8 +1075,12 @@ pub mod salvage_scuttler;
 pub mod samut_voice_of_dissent;
 #[path = "pxln/sanctum_seeker.rs"]
 pub mod sanctum_seeker;
+#[path = "hou/sand_strangler.rs"]
+pub mod sand_strangler;
 #[path = "akh/scaled_behemoth.rs"]
 pub mod scaled_behemoth;
+#[path = "akh/scarab_feast.rs"]
+pub mod scarab_feast;
 #[path = "akh/scattered_groves.rs"]
 pub mod scattered_groves;
 #[path = "hou/scavenger_grounds.rs"]
@@ -1079,6 +1109,10 @@ pub mod servo_schematic;
 pub mod settle_the_wreckage;
 #[path = "akh/shadowstorm_vizier.rs"]
 pub mod shadowstorm_vizier;
+#[path = "xln/shaper_apprentice.rs"]
+pub mod shaper_apprentice;
+#[path = "xln/shapers_of_nature.rs"]
+pub mod shapers_of_nature;
 #[path = "pxln/shapers_sanctuary.rs"]
 pub mod shapers_sanctuary;
 #[path = "hou/shefet_dunes.rs"]
@@ -1101,6 +1135,8 @@ pub mod shipwreck_looter;
 pub mod shipwreck_moray;
 #[path = "xln/shore_keeper.rs"]
 pub mod shore_keeper;
+#[path = "hou/sidewinder_naga.rs"]
+pub mod sidewinder_naga;
 #[path = "aer/siege_modification.rs"]
 pub mod siege_modification;
 #[path = "aer/silkweaver_elite.rs"]
@@ -1133,6 +1169,10 @@ pub mod sly_requisitioner;
 pub mod snapping_sailback;
 #[path = "aer/solemn_recruit.rs"]
 pub mod solemn_recruit;
+#[path = "hou/solemnity.rs"]
+pub mod solemnity;
+#[path = "hou/solitary_camel.rs"]
+pub mod solitary_camel;
 #[path = "akh/soulstinger.rs"]
 pub mod soulstinger;
 #[path = "akh/sparring_mummy.rs"]
@@ -1145,6 +1185,8 @@ pub mod spike_tailed_ceratops;
 pub mod spire_of_industry;
 #[path = "aer/spire_patrol.rs"]
 pub mod spire_patrol;
+#[path = "akh/splendid_agony.rs"]
+pub mod splendid_agony;
 #[path = "xln/spreading_rot.rs"]
 pub mod spreading_rot;
 #[path = "akh/spring.rs"]
@@ -1189,6 +1231,8 @@ pub mod sunrise_seeker;
 pub mod sunscorched_desert;
 #[path = "hou/sunscourge_champion.rs"]
 pub mod sunscourge_champion;
+#[path = "akh/supernatural_stamina.rs"]
+pub mod supernatural_stamina;
 #[path = "akh/supply_caravan.rs"]
 pub mod supply_caravan;
 #[path = "hou/supreme_will.rs"]
@@ -1227,6 +1271,8 @@ pub mod territorial_hammerskull;
 pub mod tezzeret_s_betrayal;
 #[path = "aer/tezzeret_s_touch.rs"]
 pub mod tezzeret_s_touch;
+#[path = "aer/tezzeret_the_schemer.rs"]
+pub mod tezzeret_the_schemer;
 #[path = "pxln/thaumatic_compass.rs"]
 pub mod thaumatic_compass;
 #[path = "mp2/the_locust_god.rs"]
@@ -1239,6 +1285,8 @@ pub mod thopter_arrest;
 pub mod thorned_moloch;
 #[path = "akh/those_who_serve.rs"]
 pub mod those_who_serve;
+#[path = "xln/thrash_of_raptors.rs"]
+pub mod thrash_of_raptors;
 #[path = "akh/thresher_lizard.rs"]
 pub mod thresher_lizard;
 #[path = "akh/throne_of_the_god_pharaoh.rs"]
@@ -1275,10 +1323,14 @@ pub mod trueheart_twins;
 pub mod unclaimed_territory;
 #[path = "hou/unconventional_tactics.rs"]
 pub mod unconventional_tactics;
+#[path = "hou/unesh_criosphinx_sovereign.rs"]
+pub mod unesh_criosphinx_sovereign;
 #[path = "xln/unfriendly_fire.rs"]
 pub mod unfriendly_fire;
 #[path = "aer/universal_solvent.rs"]
 pub mod universal_solvent;
+#[path = "hou/unquenchable_thirst.rs"]
+pub mod unquenchable_thirst;
 #[path = "hou/unraveling_mummy.rs"]
 pub mod unraveling_mummy;
 #[path = "aer/untethered_express.rs"]
@@ -1297,6 +1349,8 @@ pub mod vanquisher_s_banner;
 pub mod vengeful_rebel;
 #[path = "aer/verdant_automaton.rs"]
 pub mod verdant_automaton;
+#[path = "xln/verdant_rebirth.rs"]
+pub mod verdant_rebirth;
 #[path = "pxln/verdant_sun_s_avatar.rs"]
 pub mod verdant_sun_s_avatar;
 #[path = "xln/vicious_conquistador.rs"]
@@ -1329,6 +1383,8 @@ pub mod waker_of_the_wilds;
 pub mod walk_the_plank;
 #[path = "aer/walking_ballista.rs"]
 pub mod walking_ballista;
+#[path = "hou/wall_of_forgotten_pharaohs.rs"]
+pub mod wall_of_forgotten_pharaohs;
 #[path = "akh/wander_in_death.rs"]
 pub mod wander_in_death;
 #[path = "xln/wanted_scoundrels.rs"]
@@ -1375,6 +1431,8 @@ pub mod winged_shepherd;
 pub mod without_weakness;
 #[path = "aer/wrangle.rs"]
 pub mod wrangle;
+#[path = "hou/wretched_camel.rs"]
+pub mod wretched_camel;
 #[path = "aer/yahenni_s_expertise.rs"]
 pub mod yahenni_s_expertise;
 #[path = "aer/yahenni_undying_partisan.rs"]

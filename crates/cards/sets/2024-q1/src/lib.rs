@@ -53,6 +53,8 @@ pub mod billiard_room;
 pub mod bolrac_clan_basher;
 #[path = "pip/boomer_scrapper.rs"]
 pub mod boomer_scrapper;
+#[path = "pip/bottle_cap_blast.rs"]
+pub mod bottle_cap_blast;
 #[path = "mkm/branch_of_vitu_ghazi.rs"]
 pub mod branch_of_vitu_ghazi;
 #[path = "pip/break_down.rs"]
@@ -213,6 +215,8 @@ pub mod homicide_investigator;
 pub mod hotshot_investigators;
 #[path = "mkm/hunted_bonebrute.rs"]
 pub mod hunted_bonebrute;
+#[path = "pip/ian_the_reckless.rs"]
+pub mod ian_the_reckless;
 #[path = "pip/idolized.rs"]
 pub mod idolized;
 #[path = "clu/incriminating_impetus.rs"]
@@ -245,8 +249,12 @@ pub mod lavinia_foil_to_conspiracy;
 pub mod lead_pipe;
 #[path = "mkm/leering_onlooker.rs"]
 pub mod leering_onlooker;
+#[path = "mkm/leyline_of_the_guildpact.rs"]
+pub mod leyline_of_the_guildpact;
 #[path = "clu/library.rs"]
 pub mod library;
+#[path = "mkm/living_conundrum.rs"]
+pub mod living_conundrum;
 #[path = "mkm/long_goodbye.rs"]
 pub mod long_goodbye;
 #[path = "clu/lounge.rs"]
@@ -321,6 +329,8 @@ pub mod pip_boy_3000;
 pub mod piper_wright_publick_reporter;
 #[path = "pip/powder_ganger.rs"]
 pub mod powder_ganger;
+#[path = "mkm/presumed_dead.rs"]
+pub mod presumed_dead;
 #[path = "mkm/private_eye.rs"]
 pub mod private_eye;
 #[path = "mkm/public_thoroughfare.rs"]
@@ -395,6 +405,8 @@ pub mod sunscorched_divide;
 pub mod super_mutant_scavenger;
 #[path = "clu/syndicate_heavy.rs"]
 pub mod syndicate_heavy;
+#[path = "mkc/take_the_bait.rs"]
+pub mod take_the_bait;
 #[path = "mkc/tangletrove_kelp.rs"]
 pub mod tangletrove_kelp;
 #[path = "mkc/tesak_judith_s_hellhound.rs"]
@@ -411,6 +423,8 @@ pub mod thrill_kill_disciple;
 pub mod thundering_falls;
 #[path = "mkm/topiary_panther.rs"]
 pub mod topiary_panther;
+#[path = "mkm/torch_the_witness.rs"]
+pub mod torch_the_witness;
 #[path = "mkm/toxin_analysis.rs"]
 pub mod toxin_analysis;
 #[path = "clu/tribune_of_rot.rs"]
@@ -427,6 +441,8 @@ pub mod undercity_sewers;
 pub mod underground_mortuary;
 #[path = "mkm/undergrowth_recon.rs"]
 pub mod undergrowth_recon;
+#[path = "clu/unruly_krasis.rs"]
+pub mod unruly_krasis;
 #[path = "mkc/unshakable_tail.rs"]
 pub mod unshakable_tail;
 #[path = "pip/vault_11_voter_s_dilemma.rs"]

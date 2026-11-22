@@ -868,6 +868,9 @@ mod tests {
     /// (Innistrad/Shadows over Innistrad transforming creatures and
     /// planeswalkers, March of the Machine incubators and transforming cards,
     /// The Legend of Roku, and Bruce Banner).
+    /// Pass E14 adds Invasion of Muraganda, Invasion of Theros, Huatli, Poet of
+    /// Unity, thirteen Wave 23c Duskmourn Rooms (Bottomless Pool through
+    /// Unholy Annex), and Oko, Lorwyn Liege.
     #[test]
     fn the_back_of_a_card_is_a_rarity() {
         let named: Vec<&str> = crate::generated::BY_INDEX
@@ -999,7 +1002,9 @@ mod tests {
         "Invasion of Karsus",
         "Invasion of Mercadia",
         "Invasion of Moag",
+        "Invasion of Muraganda",
         "Invasion of Shandalar",
+        "Invasion of Theros",
         "Invasion of Tolvada",
         "Invasion of Ulgrotha",
         "Khenra Spellspear",
@@ -1013,6 +1018,7 @@ mod tests {
         "Clay-Fired Bricks",
         "Dowsing Device",
         "Grasping Shadows",
+        "Huatli, Poet of Unity",
         "Idol of the Deep King",
         "Lodestone Needle",
         "Ojer Axonil, Deepest Might",
@@ -1028,6 +1034,19 @@ mod tests {
         "Twists and Turns",
         "Grist, Voracious Larva",
         "Tamiyo, Inquisitive Student",
+        "Bottomless Pool",
+        "Defiled Crypt",
+        "Derelict Attic",
+        "Funeral Room",
+        "Glassworks",
+        "Grand Entryway",
+        "Meat Locker",
+        "Painter's Studio",
+        "Roaring Furnace",
+        "Secret Arcade",
+        "Surgical Suite",
+        "Ticket Booth",
+        "Unholy Annex",
         "Walk-In Closet",
         "Balamb Garden, SeeD Academy",
         "Cecil, Dark Knight",
@@ -1040,6 +1059,7 @@ mod tests {
         "Venat, Heart of Hydaelyn",
         "Vincent Valentine",
         "The Legend of Roku",
+        "Oko, Lorwyn Liege",
         "Trystan, Callous Cultivator",
         "Bruce Banner",
         "King T'Challa",

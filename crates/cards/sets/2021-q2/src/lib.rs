@@ -55,6 +55,8 @@ pub mod archon_of_cruelty;
 pub mod archway_commons;
 #[path = "stx/arrogant_poet.rs"]
 pub mod arrogant_poet;
+#[path = "c21/audacious_reshapers.rs"]
+pub mod audacious_reshapers;
 #[path = "pstx/baleful_mastery.rs"]
 pub mod baleful_mastery;
 #[path = "mh2/bannerhide_krushok.rs"]
@@ -121,6 +123,8 @@ pub mod burdened_aerialist;
 pub mod burrog_befuddler;
 #[path = "mh2/cabal_initiate.rs"]
 pub mod cabal_initiate;
+#[path = "pmh2/calibrated_blast.rs"]
+pub mod calibrated_blast;
 #[path = "pstx/callous_bloodmage.rs"]
 pub mod callous_bloodmage;
 #[path = "stx/campus_guide.rs"]
@@ -185,6 +189,8 @@ pub mod deekah_fractal_theorist;
 pub mod defend_the_campus;
 #[path = "stx/detention_vortex.rs"]
 pub mod detention_vortex;
+#[path = "pmh2/diamond_lion.rs"]
+pub mod diamond_lion;
 #[path = "c21/digsite_engineer.rs"]
 pub mod digsite_engineer;
 #[path = "stx/dina_soul_steeper.rs"]
@@ -461,6 +467,8 @@ pub mod perplexing_test;
 pub mod persist;
 #[path = "stx/pest_summoning.rs"]
 pub mod pest_summoning;
+#[path = "pstx/pestilent_cauldron.rs"]
+pub mod pestilent_cauldron;
 #[path = "mh2/phantasmal_dreadmaw.rs"]
 pub mod phantasmal_dreadmaw;
 #[path = "stx/pilgrim_of_the_ages.rs"]
@@ -645,10 +653,14 @@ pub mod subtlety;
 pub mod sudden_breakthrough;
 #[path = "mh2/sudden_edict.rs"]
 pub mod sudden_edict;
+#[path = "pmh2/svyelun_of_sea_and_sky.rs"]
+pub mod svyelun_of_sea_and_sky;
 #[path = "pmh2/sword_of_hearth_and_home.rs"]
 pub mod sword_of_hearth_and_home;
 #[path = "pmh2/sylvan_anthem.rs"]
 pub mod sylvan_anthem;
+#[path = "stx/symmetry_sage.rs"]
+pub mod symmetry_sage;
 #[path = "pmh2/sythis_harvest_s_hand.rs"]
 pub mod sythis_harvest_s_hand;
 #[path = "mh2/tanglepool_bridge.rs"]
@@ -683,6 +695,8 @@ pub mod thornglint_bridge;
 pub mod thought_monitor;
 #[path = "mh2/thraben_watcher.rs"]
 pub mod thraben_watcher;
+#[path = "mh2/tide_shaper.rs"]
+pub mod tide_shaper;
 #[path = "pmh2/timeless_dragon.rs"]
 pub mod timeless_dragon;
 #[path = "mh2/timeless_witness.rs"]

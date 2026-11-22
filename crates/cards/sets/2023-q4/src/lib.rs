@@ -67,14 +67,20 @@ pub mod brackish_blunder;
 pub mod braided_net;
 #[path = "lci/brass_s_tunnel_grinder.rs"]
 pub mod brass_s_tunnel_grinder;
+#[path = "lci/brazen_blademaster.rs"]
+pub mod brazen_blademaster;
 #[path = "lcc/broadside_bombardiers.rs"]
 pub mod broadside_bombardiers;
 #[path = "lci/broodrage_mycoid.rs"]
 pub mod broodrage_mycoid;
 #[path = "lci/buried_treasure.rs"]
 pub mod buried_treasure;
+#[path = "lci/burning_sun_cavalry.rs"]
+pub mod burning_sun_cavalry;
 #[path = "lcc/bygone_marvels.rs"]
 pub mod bygone_marvels;
+#[path = "lci/calamitous_cave_in.rs"]
+pub mod calamitous_cave_in;
 #[path = "lci/canonized_in_blood.rs"]
 pub mod canonized_in_blood;
 #[path = "lci/captain_storm_cosmium_raider.rs"]
@@ -117,6 +123,8 @@ pub mod compy_swarm;
 pub mod confounding_riddle;
 #[path = "lci/cosmium_blast.rs"]
 pub mod cosmium_blast;
+#[path = "lci/cosmium_confluence.rs"]
+pub mod cosmium_confluence;
 #[path = "lci/council_of_echoes.rs"]
 pub mod council_of_echoes;
 #[path = "who/crack_in_time.rs"]
@@ -151,6 +159,8 @@ pub mod delete;
 pub mod diamond_pick_axe;
 #[path = "lci/didact_echo.rs"]
 pub mod didact_echo;
+#[path = "lci/digsite_conservator.rs"]
+pub mod digsite_conservator;
 #[path = "lcc/dinosaur_egg.rs"]
 pub mod dinosaur_egg;
 #[path = "lci/dinotomaton.rs"]
@@ -199,6 +209,8 @@ pub mod first_little_pig;
 pub mod five_hundred_year_diary;
 #[path = "who/flaming_tyrannosaurus.rs"]
 pub mod flaming_tyrannosaurus;
+#[path = "who/flatline.rs"]
+pub mod flatline;
 #[path = "lci/forgotten_monument.rs"]
 pub mod forgotten_monument;
 #[path = "who/four_knocks.rs"]
@@ -211,6 +223,8 @@ pub mod from_the_rubble;
 pub mod frost_fair_lure_fish;
 #[path = "who/gallifrey_council_chamber.rs"]
 pub mod gallifrey_council_chamber;
+#[path = "lci/gargantuan_leech.rs"]
+pub mod gargantuan_leech;
 #[path = "lci/geological_appraiser.rs"]
 pub mod geological_appraiser;
 #[path = "lci/get_lost.rs"]
@@ -251,6 +265,8 @@ pub mod hidden_volcano;
 pub mod hotfoot_gnome;
 #[path = "lci/hoverstone_pilgrim.rs"]
 pub mod hoverstone_pilgrim;
+#[path = "lci/huatli_poet_of_unity.rs"]
+pub mod huatli_poet_of_unity;
 #[path = "lci/huatli_s_final_strike.rs"]
 pub mod huatli_s_final_strike;
 #[path = "lci/hulking_raptor.rs"]
@@ -281,6 +297,8 @@ pub mod kaslem_s_stonetree;
 pub mod kinjalli_s_dawnrunner;
 #[path = "who/laser_screwdriver.rs"]
 pub mod laser_screwdriver;
+#[path = "who/leela_sevateem_warrior.rs"]
+pub mod leela_sevateem_warrior;
 #[path = "rex/life_finds_a_way.rs"]
 pub mod life_finds_a_way;
 #[path = "lci/lodestone_needle.rs"]
@@ -357,6 +375,8 @@ pub mod poison_dart_frog;
 pub mod primordial_gnawer;
 #[path = "lci/promising_vein.rs"]
 pub mod promising_vein;
+#[path = "lci/pugnacious_hammerskull.rs"]
+pub mod pugnacious_hammerskull;
 #[path = "who/quantum_misalignment.rs"]
 pub mod quantum_misalignment;
 #[path = "ylci/radiant_smite.rs"]

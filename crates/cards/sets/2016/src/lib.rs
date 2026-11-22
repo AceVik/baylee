@@ -69,6 +69,8 @@ pub mod angel_of_invention;
 pub mod angelic_purge;
 #[path = "psoi/anguished_unmaking.rs"]
 pub mod anguished_unmaking;
+#[path = "soi/apothecary_geist.rs"]
+pub mod apothecary_geist;
 #[path = "kld/appetite_for_the_unnatural.rs"]
 pub mod appetite_for_the_unnatural;
 #[path = "kld/aradara_express.rs"]
@@ -135,6 +137,8 @@ pub mod blinding_drone;
 pub mod blood_mist;
 #[path = "emn/bloodbriar.rs"]
 pub mod bloodbriar;
+#[path = "emn/bloodhall_priest.rs"]
+pub mod bloodhall_priest;
 #[path = "soi/bloodmad_vampire.rs"]
 pub mod bloodmad_vampire;
 #[path = "kld/blooming_marsh.rs"]
@@ -381,6 +385,12 @@ pub mod dynavolt_tower;
 pub mod eerie_interlude;
 #[path = "emn/elder_deep_fiend.rs"]
 pub mod elder_deep_fiend;
+#[path = "ogw/eldrazi_aggressor.rs"]
+pub mod eldrazi_aggressor;
+#[path = "ogw/eldrazi_displacer.rs"]
+pub mod eldrazi_displacer;
+#[path = "ogw/eldrazi_mimic.rs"]
+pub mod eldrazi_mimic;
 #[path = "ogw/eldrazi_obligator.rs"]
 pub mod eldrazi_obligator;
 #[path = "emn/eldritch_evolution.rs"]
@@ -539,6 +549,8 @@ pub mod ghoulsteed;
 pub mod giant_spectacle;
 #[path = "soi/gibbering_fiend.rs"]
 pub mod gibbering_fiend;
+#[path = "ogw/gift_of_tusks.rs"]
+pub mod gift_of_tusks;
 #[path = "soi/gisa_s_bidding.rs"]
 pub mod gisa_s_bidding;
 #[path = "emn/gisela_the_broken_blade.rs"]
@@ -637,6 +649,8 @@ pub mod hope_against_hope;
 pub mod hound_of_the_farbogs;
 #[path = "soi/howlpack_resurgence.rs"]
 pub mod howlpack_resurgence;
+#[path = "soi/howlpack_wolf.rs"]
+pub mod howlpack_wolf;
 #[path = "soi/hulking_devil.rs"]
 pub mod hulking_devil;
 #[path = "soi/humble_the_brute.rs"]
@@ -677,6 +691,8 @@ pub mod inventor_s_apprentice;
 pub mod inventor_s_goggles;
 #[path = "kld/inventors_fair.rs"]
 pub mod inventors_fair;
+#[path = "psoi/invocation_of_saint_traft.rs"]
+pub mod invocation_of_saint_traft;
 #[path = "ogw/iona_s_blessing.rs"]
 pub mod iona_s_blessing;
 #[path = "kld/iron_league_steed.rs"]
@@ -739,6 +755,8 @@ pub mod kujar_seedsculptor;
 pub mod laboratory_brute;
 #[path = "soi/lambholt_pacifist.rs"]
 pub mod lambholt_pacifist;
+#[path = "soi/lamplighter_of_selhoff.rs"]
+pub mod lamplighter_of_selhoff;
 #[path = "kld/larger_than_life.rs"]
 pub mod larger_than_life;
 #[path = "emn/lashweed_lurker.rs"]
@@ -777,6 +795,8 @@ pub mod longtusk_cub;
 pub mod lunarch_mantle;
 #[path = "emn/lupine_prototype.rs"]
 pub mod lupine_prototype;
+#[path = "kld/madcap_experiment.rs"]
+pub mod madcap_experiment;
 #[path = "soi/magnifying_glass.rs"]
 pub mod magnifying_glass;
 #[path = "ogw/make_a_stand.rs"]
@@ -797,6 +817,8 @@ pub mod malfunction;
 pub mod manic_scribe;
 #[path = "kld/marionette_master.rs"]
 pub mod marionette_master;
+#[path = "emn/markov_crusader.rs"]
+pub mod markov_crusader;
 #[path = "psoi/markov_dreadknight.rs"]
 pub mod markov_dreadknight;
 #[path = "kld/master_trinketeer.rs"]
@@ -815,6 +837,8 @@ pub mod menagerie_liberator;
 pub mod merciless_resolve;
 #[path = "emn/mercurial_geists.rs"]
 pub mod mercurial_geists;
+#[path = "kld/metallurgic_summonings.rs"]
+pub mod metallurgic_summonings;
 #[path = "kld/metalspinner_s_puzzleknot.rs"]
 pub mod metalspinner_s_puzzleknot;
 #[path = "c16/migratory_route.rs"]
@@ -911,6 +935,8 @@ pub mod ovalchase_daredevil;
 pub mod ovalchase_dragster;
 #[path = "ogw/overwhelming_denial.rs"]
 pub mod overwhelming_denial;
+#[path = "kld/oviya_pashiri_sage_lifecrafter.rs"]
+pub mod oviya_pashiri_sage_lifecrafter;
 #[path = "soi/pack_guardian.rs"]
 pub mod pack_guardian;
 #[path = "kld/padeem_consul_of_innovation.rs"]
@@ -1063,6 +1089,8 @@ pub mod sea_gate_wreckage;
 pub mod seagraf_skaab;
 #[path = "ogw/searing_light.rs"]
 pub mod searing_light;
+#[path = "ogw/seed_guardian.rs"]
+pub mod seed_guardian;
 #[path = "ogw/seer_s_lantern.rs"]
 pub mod seer_s_lantern;
 #[path = "kld/select_for_inspection.rs"]
@@ -1249,6 +1277,8 @@ pub mod tajuru_pathwarden;
 pub mod take_down;
 #[path = "emn/take_inventory.rs"]
 pub mod take_inventory;
+#[path = "emn/tamiyo_field_researcher.rs"]
+pub mod tamiyo_field_researcher;
 #[path = "psoi/tamiyo_s_journal.rs"]
 pub mod tamiyo_s_journal;
 #[path = "c16/tana_the_bloodsower.rs"]

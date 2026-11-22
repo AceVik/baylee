@@ -17,6 +17,8 @@ pub use baylee_cards_base::{filters, generated_tokens, tokens};
 pub mod adder_staff_boggart;
 #[path = "ppro/aerith_gainsborough.rs"]
 pub mod aerith_gainsborough;
+#[path = "plc/aether_membrane.rs"]
+pub mod aether_membrane;
 #[path = "lrw/aethersnipe.rs"]
 pub mod aethersnipe;
 #[path = "lrw/ajani_goldmane.rs"]
@@ -47,6 +49,8 @@ pub mod aven_riftwatcher;
 pub mod avian_changeling;
 #[path = "lrw/axegrinder_giant.rs"]
 pub mod axegrinder_giant;
+#[path = "fut/barren_glory.rs"]
+pub mod barren_glory;
 #[path = "plc/battering_sliver.rs"]
 pub mod battering_sliver;
 #[path = "lrw/battle_mastery.rs"]
@@ -61,6 +65,8 @@ pub mod big_game_hunter;
 pub mod black_poplar_shaman;
 #[path = "fut/blade_of_the_sixth_pride.rs"]
 pub mod blade_of_the_sixth_pride;
+#[path = "lrw/blades_of_velis_vel.rs"]
+pub mod blades_of_velis_vel;
 #[path = "plc/blightspeaker.rs"]
 pub mod blightspeaker;
 #[path = "fut/blind_phantasm.rs"]
@@ -213,6 +219,8 @@ pub mod emberwilde_augur;
 pub mod emblem_of_the_warmind;
 #[path = "lrw/epic_proportions.rs"]
 pub mod epic_proportions;
+#[path = "plc/erratic_mutation.rs"]
+pub mod erratic_mutation;
 #[path = "plc/essence_warden.rs"]
 pub mod essence_warden;
 #[path = "lrw/ethereal_whiskergill.rs"]
@@ -239,6 +247,8 @@ pub mod fallowsage;
 pub mod familiar_s_ruse;
 #[path = "fut/fatal_attraction.rs"]
 pub mod fatal_attraction;
+#[path = "lrw/fathom_trawl.rs"]
+pub mod fathom_trawl;
 #[path = "lrw/faultgrinder.rs"]
 pub mod faultgrinder;
 #[path = "lrw/final_revels.rs"]
@@ -411,10 +421,14 @@ pub mod knight_of_sursi;
 pub mod knucklebone_witch;
 #[path = "lrw/lace_with_moonglove.rs"]
 pub mod lace_with_moonglove;
+#[path = "lrw/lairwatch_giant.rs"]
+pub mod lairwatch_giant;
 #[path = "lrw/lash_out.rs"]
 pub mod lash_out;
 #[path = "plc/lavacore_elemental.rs"]
 pub mod lavacore_elemental;
+#[path = "fut/leaden_fists.rs"]
+pub mod leaden_fists;
 #[path = "lrw/leaf_gilder.rs"]
 pub mod leaf_gilder;
 #[path = "plc/life_and_limb.rs"]
@@ -447,6 +461,8 @@ pub mod mad_auntie;
 pub mod magus_of_the_bazaar;
 #[path = "plc/magus_of_the_coffers.rs"]
 pub mod magus_of_the_coffers;
+#[path = "plc/magus_of_the_library.rs"]
+pub mod magus_of_the_library;
 #[path = "fut/magus_of_the_moat.rs"]
 pub mod magus_of_the_moat;
 #[path = "fut/magus_of_the_moon.rs"]
@@ -491,6 +507,8 @@ pub mod minions_murmurs;
 pub mod mire_boa;
 #[path = "plc/mirri_the_cursed.rs"]
 pub mod mirri_the_cursed;
+#[path = "lrw/mirror_entity.rs"]
+pub mod mirror_entity;
 #[path = "fut/mistmeadow_skulk.rs"]
 pub mod mistmeadow_skulk;
 #[path = "lrw/moonglove_extract.rs"]
@@ -547,6 +565,8 @@ pub mod oblivion_ring;
 pub mod oona_s_prowler;
 #[path = "pplc/oros_the_avenger.rs"]
 pub mod oros_the_avenger;
+#[path = "plc/ovinize.rs"]
+pub mod ovinize;
 #[path = "fut/pact_of_negation.rs"]
 pub mod pact_of_negation;
 #[path = "fut/pact_of_the_titan.rs"]
@@ -641,6 +661,8 @@ pub mod seedguide_ash;
 pub mod sentinels_of_glen_elendra;
 #[path = "lrw/sentry_oak.rs"]
 pub mod sentry_oak;
+#[path = "plc/serendib_sorcerer.rs"]
+pub mod serendib_sorcerer;
 #[path = "plc/serra_s_boon.rs"]
 pub mod serra_s_boon;
 #[path = "plc/serra_sphinx.rs"]
@@ -649,6 +671,8 @@ pub mod serra_sphinx;
 pub mod shade_of_trokair;
 #[path = "lrw/shelldock_isle.rs"]
 pub mod shelldock_isle;
+#[path = "lrw/shields_of_velis_vel.rs"]
+pub mod shields_of_velis_vel;
 #[path = "lrw/shimmering_grotto.rs"]
 pub mod shimmering_grotto;
 #[path = "plc/shivan_meteor.rs"]
@@ -657,6 +681,8 @@ pub mod shivan_meteor;
 pub mod shriekmaw;
 #[path = "lrw/silvergill_douser.rs"]
 pub mod silvergill_douser;
+#[path = "plc/simian_spirit_guide.rs"]
+pub mod simian_spirit_guide;
 #[path = "plc/sinew_sliver.rs"]
 pub mod sinew_sliver;
 #[path = "lrw/skeletal_changeling.rs"]
@@ -683,6 +709,8 @@ pub mod soultether_golem;
 pub mod sower_of_temptation;
 #[path = "fut/sparkspitter.rs"]
 pub mod sparkspitter;
+#[path = "plc/spellshift.rs"]
+pub mod spellshift;
 #[path = "fut/spellwild_ouphe.rs"]
 pub mod spellwild_ouphe;
 #[path = "lrw/spiderwig_boggart.rs"]
@@ -827,6 +855,8 @@ pub mod whip_spine_drake;
 pub mod wild_ricochet;
 #[path = "lrw/windbrisk_heights.rs"]
 pub mod windbrisk_heights;
+#[path = "lrw/wings_of_velis_vel.rs"]
+pub mod wings_of_velis_vel;
 #[path = "lrw/wispmare.rs"]
 pub mod wispmare;
 #[path = "plc/wistful_thinking.rs"]

@@ -723,8 +723,12 @@ pub mod primal_whisperer;
 pub mod primitive_etchings;
 #[path = "lgn/primoc_escapee.rs"]
 pub mod primoc_escapee;
+#[path = "mrd/promise_of_power.rs"]
+pub mod promise_of_power;
 #[path = "scg/proteus_machine.rs"]
 pub mod proteus_machine;
+#[path = "mrd/proteus_staff.rs"]
+pub mod proteus_staff;
 #[path = "mrd/psychic_membrane.rs"]
 pub mod psychic_membrane;
 #[path = "scg/putrid_raptor.rs"]
@@ -1013,6 +1017,8 @@ pub mod vorrac_battlehorns;
 pub mod vulshok_battlegear;
 #[path = "mrd/vulshok_berserker.rs"]
 pub mod vulshok_berserker;
+#[path = "mrd/vulshok_gauntlets.rs"]
+pub mod vulshok_gauntlets;
 #[path = "mrd/wall_of_blood.rs"]
 pub mod wall_of_blood;
 #[path = "lgn/wall_of_deceit.rs"]
@@ -1021,6 +1027,8 @@ pub mod wall_of_deceit;
 pub mod wall_of_hope;
 #[path = "mrd/wanderguard_sentry.rs"]
 pub mod wanderguard_sentry;
+#[path = "mrd/war_elemental.rs"]
+pub mod war_elemental;
 #[path = "lgn/warbreak_trumpeter.rs"]
 pub mod warbreak_trumpeter;
 #[path = "lgn/ward_sliver.rs"]

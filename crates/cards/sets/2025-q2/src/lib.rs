@@ -99,6 +99,8 @@ pub mod bone_cairn_butcher;
 pub mod bone_devourer;
 #[path = "tdm/boulderborn_dragon.rs"]
 pub mod boulderborn_dragon;
+#[path = "tdm/breaching_dragonstorm.rs"]
+pub mod breaching_dragonstorm;
 #[path = "fic/brilliant_wings.rs"]
 pub mod brilliant_wings;
 #[path = "fic/bugenhagen_wise_elder.rs"]
@@ -195,6 +197,8 @@ pub mod devoted_duelist;
 pub mod diamond_weapon;
 #[path = "tdc/diviner_of_mist.rs"]
 pub mod diviner_of_mist;
+#[path = "ptdm/dracogenesis.rs"]
+pub mod dracogenesis;
 #[path = "tdm/dragon_sniper.rs"]
 pub mod dragon_sniper;
 #[path = "ptdm/dragonback_assault.rs"]
@@ -277,6 +281,8 @@ pub mod g_raha_tia;
 pub mod gaelicat;
 #[path = "fin/gaius_van_baelsar.rs"]
 pub mod gaius_van_baelsar;
+#[path = "fin/galuf_s_final_act.rs"]
+pub mod galuf_s_final_act;
 #[path = "fin/garland_knight_of_cornelia.rs"]
 pub mod garland_knight_of_cornelia;
 #[path = "fic/general_leo_cristophe.rs"]
@@ -413,6 +419,8 @@ pub mod magic_damper;
 pub mod magic_pot;
 #[path = "fin/magitek_armor.rs"]
 pub mod magitek_armor;
+#[path = "fin/magitek_infantry.rs"]
+pub mod magitek_infantry;
 #[path = "fin/malboro.rs"]
 pub mod malboro;
 #[path = "tdm/mardu_devotee.rs"]
@@ -473,6 +481,8 @@ pub mod queen_brahne;
 pub mod quina_qu_gourmet;
 #[path = "fin/quistis_trepe.rs"]
 pub mod quistis_trepe;
+#[path = "fin/qutrub_forayer.rs"]
+pub mod qutrub_forayer;
 #[path = "fin/rabanastre_royal_city.rs"]
 pub mod rabanastre_royal_city;
 #[path = "tdm/rakshasa_s_bargain.rs"]
@@ -485,6 +495,8 @@ pub mod rampart_architect;
 pub mod rebellious_strike;
 #[path = "fin/red_mage_s_rapier.rs"]
 pub mod red_mage_s_rapier;
+#[path = "fic/red_xiii_proud_warrior.rs"]
+pub mod red_xiii_proud_warrior;
 #[path = "ptdm/rediscover_the_way.rs"]
 pub mod rediscover_the_way;
 #[path = "tdm/reigning_victor.rs"]
@@ -527,6 +539,8 @@ pub mod sage_of_the_fang;
 pub mod sage_s_nouliths;
 #[path = "tdm/salt_road_packbeast.rs"]
 pub mod salt_road_packbeast;
+#[path = "tdm/salt_road_skirmish.rs"]
+pub mod salt_road_skirmish;
 #[path = "fin/samurai_s_katana.rs"]
 pub mod samurai_s_katana;
 #[path = "tdm/sandskitter_outrider.rs"]
@@ -671,12 +685,16 @@ pub mod teval_the_balanced_scale;
 pub mod thancred_waters;
 #[path = "fin/the_crystal_s_chosen.rs"]
 pub mod the_crystal_s_chosen;
+#[path = "fin/the_earth_crystal.rs"]
+pub mod the_earth_crystal;
 #[path = "fic/the_falcon_airship_restored.rs"]
 pub mod the_falcon_airship_restored;
 #[path = "fin/the_fire_crystal.rs"]
 pub mod the_fire_crystal;
 #[path = "fin/the_gold_saucer.rs"]
 pub mod the_gold_saucer;
+#[path = "fin/the_regalia.rs"]
+pub mod the_regalia;
 #[path = "fin/the_wandering_minstrel.rs"]
 pub mod the_wandering_minstrel;
 #[path = "fin/thief_s_knife.rs"]
@@ -765,6 +783,8 @@ pub mod xho_cai_flickering_talon;
 pub mod yathan_tombguard;
 #[path = "fin/yuna_hope_of_spira.rs"]
 pub mod yuna_hope_of_spira;
+#[path = "fic/yuna_s_whistle.rs"]
+pub mod yuna_s_whistle;
 #[path = "fin/zanarkand_ancient_metropolis.rs"]
 pub mod zanarkand_ancient_metropolis;
 #[path = "tdm/zurgo_s_vanguard.rs"]

@@ -1419,6 +1419,8 @@ pub mod wishmonger;
 pub mod wolf_pack;
 #[path = "mmq/worry_beads.rs"]
 pub mod worry_beads;
+#[path = "ptk/wu_admiral.rs"]
+pub mod wu_admiral;
 #[path = "ptk/wu_elite_cavalry.rs"]
 pub mod wu_elite_cavalry;
 #[path = "ptk/wu_infantry.rs"]

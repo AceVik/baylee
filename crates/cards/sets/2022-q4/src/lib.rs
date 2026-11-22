@@ -333,6 +333,8 @@ pub mod magnus_the_red;
 pub mod malanthrope;
 #[path = "40k/marneus_calgar.rs"]
 pub mod marneus_calgar;
+#[path = "bro/mask_of_the_jadecrafter.rs"]
+pub mod mask_of_the_jadecrafter;
 #[path = "bro/mass_production.rs"]
 pub mod mass_production;
 #[path = "40k/mawloc.rs"]
@@ -395,6 +397,8 @@ pub mod pink_horror;
 pub mod planar_atlas;
 #[path = "40k/plasmancer.rs"]
 pub mod plasmancer;
+#[path = "bro/platoon_dispenser.rs"]
+pub mod platoon_dispenser;
 #[path = "j22/plundering_predator.rs"]
 pub mod plundering_predator;
 #[path = "bro/powerstone_engineer.rs"]
@@ -431,6 +435,8 @@ pub mod resurrection_orb;
 pub mod retrieval_agent;
 #[path = "bro/roc_hunter.rs"]
 pub mod roc_hunter;
+#[path = "bro/rootwire_amalgam.rs"]
+pub mod rootwire_amalgam;
 #[path = "40k/royal_warden.rs"]
 pub mod royal_warden;
 #[path = "bro/rust_goliath.rs"]
@@ -581,6 +587,8 @@ pub mod towering_gibbon;
 pub mod transmogrant_altar;
 #[path = "bro/transmogrant_s_crown.rs"]
 pub mod transmogrant_s_crown;
+#[path = "40k/trazyn_the_infinite.rs"]
+pub mod trazyn_the_infinite;
 #[path = "40k/triarch_praetorian.rs"]
 pub mod triarch_praetorian;
 #[path = "40k/trygon_prime.rs"]

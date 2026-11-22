@@ -55,11 +55,13 @@ Main deck:
   1× Simic Sky Swallower
   1× Slinn Voda, the Rising Deep
   1× Sol Ring
+  1× Sphinx of Uthuun
   1× Spitting Image
   1× Sporemound
   1× Swiftfoot Boots
   1× Terramorphic Expanse
   1× Thornwood Falls
+  1× Urban Evolution
   1× Verdant Sun's Avatar
   1× Vivid Creek
   1× Vivid Grove
@@ -92,5 +94,3 @@ Main deck:
   1× Horde of Notions
   1× Impulsivity
   1× Ingot Chewer
-  1× Jubilation
-  1× Jungle Shrine

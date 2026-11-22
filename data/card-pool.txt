@@ -22936,3 +22936,510 @@ Test of Identity
 The Sword of Kahless
 The Traveler
 Shimmering Citadel
+Wu Admiral
+Promise of Power
+Proteus Staff
+Vulshok Gauntlets
+War Elemental
+Drill-Skimmer
+Thought Dissector
+Blind Creeper
+Ebon Drake
+Fist of Suns
+Ion Storm
+Rite of Passage
+Cut the Tethers
+Rag Dealer
+Uncontrollable Anger
+Kaijin of the Vanishing Touch
+Ogre Recluse
+Ivory Crane Netsuke
+Shred Memory
+Experiment Kraj
+Frostweb Spider
+Wilderness Elemental
+Wurmcalling
+Aether Membrane
+Erratic Mutation
+Magus of the Library
+Ovinize
+Serendib Sorcerer
+Simian Spirit Guide
+Spellshift
+Barren Glory
+Leaden Fists
+Blades of Velis Vel
+Fathom Trawl
+Lairwatch Giant
+Mirror Entity
+Shields of Velis Vel
+Wings of Velis Vel
+Recross the Paths
+Ashenmoor Cohort
+Ballynock Cohort
+Briarberry Cohort
+Crabapple Cohort
+Mudbrawler Cohort
+Tatterkite
+Quillspike
+Snakeform
+Stigma Lasher
+Ooze Garden
+Skill Borrower
+Court Homunculus
+Meglonoth
+Telemin Performance
+Bant Sureblade
+Esper Stormblade
+Grixis Grimblade
+Jund Hackblade
+Mind Funeral
+Naya Hushblade
+Awakener Druid
+Ice Cage
+Devastating Summons
+Domestication
+Explosive Revelation
+Gelatinous Genesis
+Diminish
+Chimeric Mass
+Ezuri's Archers
+Necrotic Ooze
+Volition Reins
+Thopter Assembly
+Melira's Keepers
+Myr Welder
+Phyrexian Rebirth
+Melira, Sylvok Outcast
+Avatar of Slaughter
+Ghave, Guru of Spores
+Arachnus Web
+Sphinx of Uthuun
+Turn to Frog
+Furor of the Bitten
+Geist of Saint Traft
+Night Revelers
+Rooftop Storm
+Blessings of Nature
+Guise of Fire
+Lone Revenant
+Stolen Goods
+Thatcher Revolt
+Tormentor's Trident
+Omniscience
+Rakdos Charm
+Righteous Authority
+Slime Molding
+Firemane Avenger
+Zameck Guildmage
+Biomass Mutation
+Bomber Corps
+Boros Elite
+Coerced Confession
+Daring Skyjek
+Firefist Striker
+Hellraiser Goblin
+Legion Loyalist
+Nav Squad Commandos
+Ordruun Veteran
+Urban Evolution
+Warmind Infantry
+Wojek Halberdiers
+Boros Mastiff
+Korozda Gorgon
+Mirko Vosk, Mind Drinker
+Showstopper
+Tajic, Blade of the Legion
+Turn // Burn
+Illusionary Armor
+Sealock Monster
+Archetype of Aggression
+Archetype of Courage
+Archetype of Endurance
+Archetype of Finality
+Archetype of Imagination
+Felhide Brawler
+Flame-Wreathed Phoenix
+Kiora, the Crashing Wave
+Ajani, Mentor of Heroes
+Gnarled Scarhide
+Hydra Broodmaster
+King Macar, the Gold-Cursed
+Netcaster Spider
+Polymorphist's Jest
+Abzan Charm
+Flesh Carver
+Ob Nixilis of the Black Oath
+Spoils of Blood
+Atarka's Command
+Crater Elemental
+Dance of the Skywise
+Hardened Berserker
+Myth Realized
+Dwynen's Elite
+Faerie Miscreant
+Infectious Bloodlust
+Infernal Scarring
+Ramroller
+Dust Stalker
+Reckless Cohort
+Dread Summons
+Fiery Confluence
+Mystic Confluence
+Righteous Confluence
+Verdant Confluence
+Wretched Confluence
+Eldrazi Aggressor
+Eldrazi Displacer
+Eldrazi Mimic
+Gift of Tusks
+Seed Guardian
+Apothecary Geist
+Howlpack Wolf
+Invocation of Saint Traft
+Lamplighter of Selhoff
+Bloodhall Priest
+Markov Crusader
+Tamiyo, Field Researcher
+Madcap Experiment
+Metallurgic Summonings
+Oviya Pashiri, Sage Lifecrafter
+Kari Zev, Skyship Raider
+Lifecraft Awakening
+Quicksmith Rebel
+Quicksmith Spy
+Tezzeret the Schemer
+As Foretold
+Scarab Feast
+Splendid Agony
+Supernatural Stamina
+Desert's Hold
+Gilded Cerodon
+Marauding Boneslasher
+Sand Strangler
+Sidewinder Naga
+Solemnity
+Solitary Camel
+Unesh, Criosphinx Sovereign
+Unquenchable Thirst
+Wall of Forgotten Pharaohs
+Wretched Camel
+Kindred Summons
+Dreamcaller Siren
+Fathom Fleet Captain
+Headstrong Brute
+Kumena's Speaker
+Shaper Apprentice
+Shapers of Nature
+Thrash of Raptors
+Verdant Rebirth
+Enter the Unknown
+Stampeding Horncrest
+Sun-Crested Pterodon
+Warkite Marauder
+Ghitu Journeymage
+Jodah, Archmage Eternal
+Merfolk Trickster
+Song of Freyalise
+Sylvan Awakening
+Stolen Strategy
+Abnormal Endurance
+Chromium, the Mutable
+Liliana, the Necromancer
+Skilled Animator
+Vedalken Humiliator
+Haazda Marshal
+Bolrac-Clan Crusher
+Dovin, Grand Arbiter
+Zegana, Utopian Speaker
+Makeshift Battalion
+Planewide Celebration
+Snarespinner
+Turret Ogre
+Blizzard Strix
+Ice-Fang Coatl
+Volatile Claws
+Winter's Rest
+Blightbeetle
+Mass Diminish
+Acclaimed Contender
+Escape to the Wilds
+Fires of Invention
+Oakhame Adversary
+Opportunistic Dragon
+Wildwood Tracker
+Alirios, Enraptured
+Enemy of Enlightenment
+Impending Doom
+Nessian Hornbeetle
+Purphoros's Intervention
+Nascent Metamorph
+Xyris, the Writhing Storm
+Quartzwood Crasher
+Experimental Overload
+Garruk, Savage Herald
+Lightning Phoenix
+Expedition Champion
+Expedition Diviner
+Expedition Healer
+Expedition Skulker
+Grakmaw, Skyclave Ravager
+Obuun, Mul Daya Ancestor
+Paired Tactician
+Runeforge Champion
+Audacious Reshapers
+Pestilent Cauldron // Restorative Burst
+Symmetry Sage
+Calibrated Blast
+Diamond Lion
+Svyelun of Sea and Sky
+Tide Shaper
+Barrowin of Clan Undurr
+Ebony Fly
+Minsc, Beloved Ranger
+Ray of Frost
+The Blackstaff of Waterdeep
+Curse of Unbinding
+Defend the Celestus
+Grafted Identity
+Howl of the Hunt
+Hungry for More
+Jack-o'-Lantern
+Triskaidekaphile
+Creepy Puppeteer
+Dorothea, Vengeful Victim // Dorothea's Retribution
+Geralf, Visionary Stitcher
+Hungry Ridgewolf
+Lacerate Flesh
+Packsong Pup
+Resistance Squad
+Akki Battle Squad
+Akki Ember-Keeper
+Ambitious Assault
+Chishiro, the Shattered Blade
+Circuit Mender
+Experimental Synthesizer
+Gift of Wrath
+Goro-Goro, Disciple of Ryusei
+Guardians of Oboro
+Invigorating Hot Spring
+Junji, the Midnight Sky
+Kami of Terrible Secrets
+Kami's Flare
+Katsumasa, the Animator
+Kodama of the West Tree
+Kura, the Boundless Sky
+Myojin of Towering Might
+Naomi, Pillar of Order
+One with the Kami
+Orochi Merge-Keeper
+Papercraft Decoy
+Peerless Samurai
+Thundering Raiju
+Towashi Guide-Bot
+Upriser Renegade
+Walking Skyscraper
+Brokers Confluence
+Cabaretti Confluence
+Cormela, Glamour Thief
+Fake Your Own Death
+High-Rise Sawjack
+Maestros Confluence
+Sarevok's Tome
+You Look Upon the Tarrasque
+Lagomos, Hand of Hatred
+Robaran Mercenaries
+Unite the Coalition
+Trazyn the Infinite
+Mask of the Jadecrafter
+Platoon Dispenser
+Rootwire Amalgam
+Black Sun's Twilight
+Glimmer Lens
+Mirran Safehouse
+Sword of Forge and Frontier
+Unctus's Retrofitter
+Urabrask's Forge
+Vulshok Factory
+Magmatic Scorchwing
+Axgard Artisan
+Botanical Brawler
+Invasion of Kylem // Valor's Reach Tag Team
+Invasion of Muraganda // Primordial Plasm
+Invasion of Theros // Ephara, Ever-Sheltering
+Mirror-Style Master
+Omen Hawker
+Storm the Seedcore
+Undercity Upheaval
+Gollum, Patient Plotter
+Merry, Esquire of Rohan
+Mordor Trebuchet
+The Ring Goes South
+Darksteel Monolith
+Demon of Fate's Design
+Barrow Naughty
+Beanstalk Wurm // Plant Beans
+Picnic Ruiner // Stolen Goodies
+Ruby, Daring Tracker
+Shadow Puppeteers
+Syr Ginger, the Meal Ender
+Territorial Witchstalker
+Flatline
+Leela, Sevateem Warrior
+Arboreal Alliance
+Brazen Blademaster
+Burning Sun Cavalry
+Calamitous Cave-In
+Cosmium Confluence
+Digsite Conservator
+Gargantuan Leech
+Huatli, Poet of Unity // Roar of the Fifth People
+Pugnacious Hammerskull
+The Meep
+Leyline of the Guildpact
+Living Conundrum
+Presumed Dead
+Take the Bait
+Torch the Witness
+Unruly Krasis
+Bottle-Cap Blast
+Ian the Reckless
+Dance of the Tumbleweeds
+Full Steam Ahead
+Hell to Pay
+Stop Cold
+Eldrazi Confluence
+Envoy of the Ancestors
+Expanding Ooze
+Flare of Fortitude
+Ghostfire Slice
+Golden-Tail Trainer
+Guardian of the Forgotten
+Lion Umbra
+Obstinate Gargoyle
+Ondu Knotmaster // Throw a Line
+Temperamental Oozewagg
+Thief of Existence
+Azure Beastbinder
+Clifftop Lookout
+Rootcast Apprenticeship
+Seasoned Warrenguard
+Wrenn and One
+Bottomless Pool // Locker Room
+Charred Foyer // Warped Space
+Defiled Crypt // Cadaver Lab
+Derelict Attic // Widow's Walk
+Formless Genesis
+Funeral Room // Awakening Hall
+Glassworks // Shattered Yard
+Grand Entryway // Elegant Rotunda
+Hand That Feeds
+Leyline of Mutation
+Meat Locker // Drowned Diner
+Mirror Room // Fractured Realm
+Painter's Studio // Defaced Gallery
+Restricted Office // Lecture Hall
+Roaring Furnace // Steaming Sauna
+Secret Arcade // Dusty Parlor
+Spiked Corridor // Torture Pit
+Surgical Suite // Hospital Room
+Ticket Booth // Tunnel of Hate
+Unholy Annex // Ritual Chamber
+Courageous Goblin
+Goblin Negotiation
+Count on Luck
+Endrider Spikespitter
+Flood the Engine
+Sita Varma, Masked Racer
+Skyserpent Seeker
+Breaching Dragonstorm
+Dracogenesis
+Salt Road Skirmish
+Galuf's Final Act
+Magitek Infantry
+Qutrub Forayer
+Red XIII, Proud Warrior
+The Earth Crystal
+The Regalia
+Yuna's Whistle
+Kavaron Harrier
+Lashwhip Predator
+Orbital Plunge
+Perigee Beckoner
+Skystinger
+Sunstar Chaplain
+Araña, Heart of the Spider
+Biorganic Carapace
+Costume Closet
+Doc Ock, Sinister Scientist
+Hydro-Man, Fluid Felon
+SP//dr, Piloted by Peni
+Silver Sable, Mercenary Leader
+Skyward Spider
+Fire Lord Azula
+Hei Bai, Forest Guardian
+Overwhelming Victory
+Razor Rings
+Sokka, Lateral Strategist
+The Blue Spirit
+Turtle-Duck
+Bristlebane Battler
+Curious Colossus
+Encumbered Reejerey
+Glamer Gifter
+Moonshadow
+Oko, Lorwyn Liege // Oko, Shadowmoor Scion
+Reluctant Dounguard
+Ray Fillet, Man Ray
+Zoo Escapees
+Abstract Paintmage
+Fractalize
+Moment of Reckoning
+Rabid Attack
+Resonating Lute
+Social Snub
+Zaffai and the Tempests
+Ancestral Communion
+Captain America, Skybound
+Falcon, Joaquin Torres
+General Thunderbolt Ross
+Iron Man Armor
+Iron Man, Armored Avenger
+Iron Man, Modern Marvel
+Moon-Boy, Dino Rider
+Ms. Marvel, Kamala Khan
+Nico Minoru, Runaway
+The Mighty Thor, Jane Foster
+Vision, Spectral Synthezoid
+Wanda's Vision
+War Machine, Avenging Arsenal
+Kirk, Enterprising Captain
+Beorn's Hospitality
+Bolg's Company
+Dáin's Company
+Gandalf, Shadow's Foe
+Nighthowl Pursuer
+Ravening Warg
+The Chief Warg
+Thranduil, the Elvenking
+Wargling
+Wilderland Scrounger
+Darksteel Angel
+Perfected Theory
+Dragon's Smile
+La'An Noonien-Singh, Security
+Tactical Officer
+Jhoira, Weatherlight Corsair
+Multiply by Zero
+Omnipresence
+Asymmetry Sage
+D-7 Battle Cruiser
+Hologram Janeway
+Janice Rand, Essential Aide
+Kirk, Commanding Officer
+L'Rell, Fierce Visionary
+Q, Your Illustrious Host
+U.S.S. Stargazer, Here and There
+U.S.S. Voyager, Lone Wanderer
+Una Chin-Riley, Number One
+Rise from the Nether

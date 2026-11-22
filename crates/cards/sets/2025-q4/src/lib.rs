@@ -151,6 +151,8 @@ pub mod enter_the_avatar_state;
 pub mod explosive_shot;
 #[path = "tla/fatal_fissure.rs"]
 pub mod fatal_fissure;
+#[path = "ptla/fire_lord_azula.rs"]
+pub mod fire_lord_azula;
 #[path = "tle/fire_nation_ambushers.rs"]
 pub mod fire_nation_ambushers;
 #[path = "tle/fire_nation_archers.rs"]
@@ -215,6 +217,8 @@ pub mod great_divide_guide;
 pub mod guru_pathik;
 #[path = "tla/haru_hidden_talent.rs"]
 pub mod haru_hidden_talent;
+#[path = "tle/hei_bai_forest_guardian.rs"]
+pub mod hei_bai_forest_guardian;
 #[path = "tla/hermitic_herbalist.rs"]
 pub mod hermitic_herbalist;
 #[path = "tle/hippo_cows.rs"]
@@ -325,6 +329,8 @@ pub mod omashu_city;
 pub mod origin_of_metalbending;
 #[path = "tla/otter_penguin.rs"]
 pub mod otter_penguin;
+#[path = "tle/overwhelming_victory.rs"]
+pub mod overwhelming_victory;
 #[path = "tla/ozai_s_cruelty.rs"]
 pub mod ozai_s_cruelty;
 #[path = "tla/path_to_redemption.rs"]
@@ -349,6 +355,8 @@ pub mod rabaroo_troop;
 pub mod ran_and_shaw;
 #[path = "ptla/raven_eagle.rs"]
 pub mod raven_eagle;
+#[path = "tla/razor_rings.rs"]
+pub mod razor_rings;
 #[path = "ptla/realm_of_koh.rs"]
 pub mod realm_of_koh;
 #[path = "tla/rebellious_captives.rs"]
@@ -381,6 +389,8 @@ pub mod serpent_s_pass;
 pub mod shared_roots;
 #[path = "tle/sledding_otter_penguin.rs"]
 pub mod sledding_otter_penguin;
+#[path = "tla/sokka_lateral_strategist.rs"]
+pub mod sokka_lateral_strategist;
 #[path = "tle/sokka_s_charge.rs"]
 pub mod sokka_s_charge;
 #[path = "tla/sokka_s_haiku.rs"]
@@ -419,6 +429,8 @@ pub mod team_avatar;
 pub mod teo_spirited_glider;
 #[path = "tle/the_art_of_tea.rs"]
 pub mod the_art_of_tea;
+#[path = "tle/the_blue_spirit.rs"]
+pub mod the_blue_spirit;
 #[path = "tle/the_cabbage_merchant.rs"]
 pub mod the_cabbage_merchant;
 #[path = "tla/the_cave_of_two_lovers.rs"]
@@ -455,6 +467,8 @@ pub mod true_ancestry;
 pub mod tui_and_la_moon_and_ocean;
 #[path = "tle/tundra_wall.rs"]
 pub mod tundra_wall;
+#[path = "tla/turtle_duck.rs"]
+pub mod turtle_duck;
 #[path = "tle/turtle_seals.rs"]
 pub mod turtle_seals;
 #[path = "tla/twin_blades.rs"]
