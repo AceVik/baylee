@@ -511,6 +511,14 @@ fn restricted_triggers_use_stack_modal_choices() {
         m.contains("restriction = ModalRestriction::OncePerTurn"),
         "{m}"
     );
+
+    assert!(refused_w26c(
+        "Name:Unbound Restricted Charm\nManaCost:2\nTypes:Artifact\n\
+         A:AB$ Draw | Cost$ T | NumCards$ 1 | SubAbility$ Restricted\n\
+         SVar:Restricted:DB$ Charm | Choices$ ModeA,ModeB | ChoiceRestriction$ ThisTurn\n\
+         SVar:ModeA:DB$ Draw | NumCards$ 2\n\
+         SVar:ModeB:DB$ GainLife | Defined$ You | LifeAmount$ 2"
+    ));
 }
 
 // ---------------------------------------------------------------------------
