@@ -204,6 +204,7 @@ fn copied_spell_riders(riders: &[crate::object::Rider]) -> Vec<crate::object::Ri
                     | R::Spliced { .. }
                     | R::Awakened(_)
                     | R::RepeatedModes(_)
+                    | R::OptionalCostPaid
             )
         })
         .collect()

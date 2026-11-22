@@ -4104,6 +4104,7 @@ pub(super) fn exec_immediate(
         | Effect::MayBehold { .. }
         | Effect::ChooseCardName { .. }
         | Effect::ChooseCreatureType { .. }
+        | Effect::PutCounterChoice { .. }
         | Effect::GuessChosenNameInHand { .. }
         | Effect::RevealHandForGuess
         | Effect::DrawIfGuessWrong
@@ -4436,7 +4437,7 @@ pub(super) fn any_player_sac_or_damage_advance(
 pub(crate) const REPEAT_CAP: u32 = 4096;
 
 #[allow(clippy::too_many_lines)]
-fn resolution_condition(
+pub(super) fn resolution_condition(
     state: &GameState,
     res: &Resolution,
     condition: baylee_cards_dsl::Condition,
@@ -4505,6 +4506,16 @@ fn resolution_condition(
             .or_else(|| state.damage_source(res.source, source_version(state, res)))
             .or_else(|| state.object(res.on_stack))
             .is_some_and(|object| object.kicked_with(index)),
+        Condition::OptionalCostPaid => state
+            .object(res.on_stack)
+            .filter(|object| object.kind == crate::object::ObjectKind::Spell)
+            .or_else(|| state.damage_source(res.source, source_version(state, res)))
+            .or_else(|| state.object(res.on_stack))
+            .is_some_and(|object| {
+                object
+                    .riders
+                    .contains(&crate::object::Rider::OptionalCostPaid)
+            }),
         Condition::IsRenowned => state
             .damage_source(res.source, source_version(state, res))
             .is_some_and(|object| object.riders.contains(&crate::object::Rider::Renowned)),

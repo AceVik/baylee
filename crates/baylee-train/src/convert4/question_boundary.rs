@@ -72,6 +72,7 @@ fn answers_a_question(action: &PlayerAction) -> bool {
             | PlayerAction::ChooseTargetBatch { .. }
             | PlayerAction::Arrange { .. }
             | PlayerAction::ChooseCardType(_)
+            | PlayerAction::ChooseCounterKind(_)
             | PlayerAction::ChooseColor(_)
             | PlayerAction::ChooseSubtype(_)
             | PlayerAction::ChooseCardName { .. }

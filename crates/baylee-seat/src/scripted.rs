@@ -159,6 +159,7 @@ impl Mind for ScriptedMind {
 /// Not a strategy. It is what a test seat plays, and the bridge's last
 /// answer when even the house's was refused.
 #[must_use]
+#[allow(clippy::too_many_lines)] // exhaustive over every Pending variant
 pub fn least_answer(
     context: &GameContext,
     view: &PlayerView,
@@ -232,6 +233,9 @@ pub fn least_answer(
         }
         Pending::ChooseSubtype { options, .. } => PlayerAction::ChooseSubtype(*options.first()?),
         Pending::ChooseCardType { options, .. } => PlayerAction::ChooseCardType(*options.first()?),
+        Pending::ChooseCounterKind { choices, .. } => {
+            PlayerAction::ChooseCounterKind(*choices.first()?)
+        }
         Pending::ChooseColor { options, .. } => PlayerAction::ChooseColor(*options.first()?),
         Pending::ChoosePlayer { options, .. } => PlayerAction::ChoosePlayer(*options.first()?),
         Pending::ChooseCastMode { .. } | Pending::ChoosePile { .. } => PlayerAction::ChooseMode(0),
@@ -308,6 +312,7 @@ pub const fn kind(pending: &Pending) -> &'static str {
         Pending::ChooseTargets { .. } => "ChooseTargets",
         Pending::ChooseSubtype { .. } => "ChooseSubtype",
         Pending::ChooseCardType { .. } => "ChooseCardType",
+        Pending::ChooseCounterKind { .. } => "ChooseCounterKind",
         Pending::ChooseCardName { .. } => "ChooseCardName",
         Pending::ChooseColor { .. } => "ChooseColor",
         Pending::YesNo { .. } => "YesNo",

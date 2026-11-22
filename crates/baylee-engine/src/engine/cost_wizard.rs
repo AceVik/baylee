@@ -75,6 +75,8 @@ pub(crate) const fn needs_an_answer(part: &CostPart) -> bool {
             | CostPart::CraftMaterials { .. }
             | CostPart::PutCounterOnOther { .. }
             | CostPart::Forage
+            | CostPart::Behold(_)
+            | CostPart::CollectEvidence(_)
     )
 }
 
@@ -280,6 +282,46 @@ pub(crate) fn options_with_context(
         CostPart::CraftMaterials { filter, .. } => {
             return craft_material_options(state, player, context, filter);
         }
+        CostPart::Behold(filter) => {
+            let mut out: Vec<ObjectId> = state
+                .battlefield_view()
+                .into_iter()
+                .filter(|&id| {
+                    state.object(id).is_some_and(|o| {
+                        o.controller == player
+                            && eval::matches_with_context(filter, state, o, player, context)
+                    })
+                })
+                .collect();
+            out.extend(
+                state
+                    .zones
+                    .list(ZoneLocation::Hand(player))
+                    .iter()
+                    .copied()
+                    .filter(|&id| {
+                        id != source
+                            && state.object(id).is_some_and(|o| {
+                                eval::matches_with_context(filter, state, o, player, context)
+                            })
+                    }),
+            );
+            return out;
+        }
+        CostPart::CollectEvidence(_) => {
+            return state
+                .zones
+                .list(ZoneLocation::Graveyard(player))
+                .iter()
+                .copied()
+                .filter(|&id| {
+                    id != source
+                        && state
+                            .object(id)
+                            .is_some_and(crate::object::GameObject::is_card)
+                })
+                .collect();
+        }
         CostPart::RemoveAnyCounter {
             count,
             kind,
@@ -450,6 +492,7 @@ const fn spends_the_source_as(own: &CostPart, part: &CostPart) -> bool {
                 | CostPart::ExilePermanent(_)
                 | CostPart::Forage
                 | CostPart::CraftMaterials { .. }
+                | CostPart::CollectEvidence(_)
         )
     )
 }
@@ -471,6 +514,10 @@ pub(crate) const fn prompt(part: &CostPart) -> ChoicePrompt {
         CostPart::RemoveAnyCounter { .. } | CostPart::RemoveAnyCounterX { .. } => {
             ChoicePrompt::CostRemoveCounter
         }
+        CostPart::Behold(_) => ChoicePrompt::Behold,
+        CostPart::CollectEvidence(mana_value) => ChoicePrompt::CollectEvidence {
+            mana_value: *mana_value,
+        },
         CostPart::PutCounterOnOther { .. } => ChoicePrompt::Generic,
         _ => ChoicePrompt::CostSacrifice,
     }
@@ -564,6 +611,18 @@ pub(crate) fn pay(
         state.sacrifice_object(chosen, Cause::Cost)?;
         return Ok(());
     }
+    if matches!(part, CostPart::Behold(_)) {
+        if state
+            .object(chosen)
+            .is_some_and(|o| o.zone == crate::zone::Zone::Hand)
+        {
+            state.journal.record(crate::event::GameEvent::Revealed {
+                player,
+                cards: vec![chosen],
+            });
+        }
+        return Ok(());
+    }
     let owner = state.object(chosen).map_or(player, |o| o.owner);
     // Owner's hand, never the payer's: CR 400.3 puts a returned card in the
     // zone of the player who owns it, and a Forest borrowed off somebody
@@ -576,7 +635,8 @@ pub(crate) fn pay(
         | CostPart::ExileFromSingleGraveyard { .. }
         | CostPart::ExilePermanent(_)
         | CostPart::Forage
-        | CostPart::CraftMaterials { .. } => ZoneLocation::Exile(owner),
+        | CostPart::CraftMaterials { .. }
+        | CostPart::CollectEvidence(_) => ZoneLocation::Exile(owner),
         _ => ZoneLocation::Graveyard(owner),
     };
     if matches!(part, CostPart::Discard(_) | CostPart::DiscardX(_)) {

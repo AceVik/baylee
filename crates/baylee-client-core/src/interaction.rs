@@ -244,6 +244,11 @@ pub enum Prompt {
         /// The types on offer, in the engine's order.
         options: Vec<baylee_core::types::TypeSet>,
     },
+    /// Choose one of several counter kinds to place (CR 122.1).
+    ChooseCounterKind {
+        /// The counter kinds on offer, in the engine's order.
+        choices: Vec<baylee_cards_dsl::CounterKind>,
+    },
     /// Choose a card name (Pithing Needle).
     ///
     /// No list rides with it: any card's name may be chosen (CR 201.4), so
@@ -458,6 +463,10 @@ enum Mode {
     /// One of a fixed set of card types.
     CardType {
         options: Vec<baylee_core::types::TypeSet>,
+    },
+    /// One of a fixed set of counter kinds.
+    CounterKind {
+        choices: Vec<baylee_cards_dsl::CounterKind>,
     },
     /// A card name: the card and the face whose name it is, once one is
     /// picked.
@@ -718,6 +727,9 @@ impl Interaction {
             Pending::ChooseCardType { options, .. } => Mode::CardType {
                 options: options.clone(),
             },
+            Pending::ChooseCounterKind { choices, .. } => Mode::CounterKind {
+                choices: choices.clone(),
+            },
             Pending::ChooseCardName { .. } => Mode::CardName { named: None },
             Pending::GameOver(_) => Mode::GameOver,
         }
@@ -795,6 +807,9 @@ impl Interaction {
             },
             Pending::ChooseCardType { options, .. } => Prompt::ChooseCardType {
                 options: options.clone(),
+            },
+            Pending::ChooseCounterKind { choices, .. } => Prompt::ChooseCounterKind {
+                choices: choices.clone(),
             },
             Pending::ChooseCardName {
                 types,
@@ -1909,6 +1924,7 @@ impl Interaction {
             Mode::Player { options } => options.len(),
             Mode::Subtype { options } => options.len(),
             Mode::CardType { options } => options.len(),
+            Mode::CounterKind { choices } => choices.len(),
             _ => 0,
         };
         if index >= count {
@@ -1972,7 +1988,8 @@ impl Interaction {
             | Mode::Source { .. }
             | Mode::DamageEffect { .. }
             | Mode::Subtype { .. }
-            | Mode::CardType { .. } => self.choice_index.is_some(),
+            | Mode::CardType { .. }
+            | Mode::CounterKind { .. } => self.choice_index.is_some(),
             Mode::TextReplacement(draft) => draft.answer().is_some(),
             Mode::CardName { named } => named.is_some(),
             Mode::Mulligan | Mode::YesNo | Mode::Idle | Mode::GameOver => false,
@@ -2082,6 +2099,10 @@ impl Interaction {
                 .get(self.choice_index?)
                 .copied()
                 .map(PlayerAction::ChooseCardType),
+            Mode::CounterKind { choices } => choices
+                .get(self.choice_index?)
+                .copied()
+                .map(PlayerAction::ChooseCounterKind),
             Mode::CardName { named } => {
                 named.map(|(card, face)| PlayerAction::ChooseCardName { card, face })
             }
@@ -2222,6 +2243,7 @@ pub fn pending_player(pending: &Pending) -> Option<PlayerId> {
         | Pending::ChooseTargets { player, .. }
         | Pending::ChooseSubtype { player, .. }
         | Pending::ChooseCardType { player, .. }
+        | Pending::ChooseCounterKind { player, .. }
         | Pending::ChooseCardName { player, .. }
         | Pending::ChooseColor { player, .. }
         | Pending::ChooseManaAbility { player, .. }

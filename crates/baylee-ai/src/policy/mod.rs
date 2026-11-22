@@ -448,6 +448,14 @@ impl HeuristicAgent {
             | K::Deathtouch
             | K::Flying
             | K::Indestructible
+            | K::FirstStrike
+            | K::DoubleStrike
+            | K::Haste
+            | K::Hexproof
+            | K::Menace
+            | K::Reach
+            | K::Trample
+            | K::Vigilance
             | K::Hone
             | K::Shadow
             | K::Shield => {
@@ -3960,6 +3968,9 @@ fn aim(
     }) {
         return (net, true);
     }
+    if let Some(net) = optional_cost_price(view, Some(card), face, effects, cost).filter(fits) {
+        return (net, true);
+    }
     if let Some(net) = buyback_price(view, legal, card, face, cost, budget).filter(fits) {
         return (net, true);
     }
@@ -4061,7 +4072,7 @@ fn buyback_parts_worth(view: &PlayerView, parts: &[CostPart], card: CardIdentity
         .sum();
     seat.life - life >= BUYBACK_LIFE_FLOOR.min(seat.life)
         && parts.iter().all(|part| match part {
-            CostPart::PayLife(_) => true,
+            CostPart::PayLife(_) | CostPart::Behold(_) => true,
             CostPart::Sacrifice(_) => lands > BUYBACK_LANDS_KEPT,
             CostPart::Discard(_) => spare >= discards,
             CostPart::DiscardRandom => !others.is_empty() && 2 * spare >= others.len(),
@@ -4546,6 +4557,7 @@ fn spell_effects(card: CardIdentity) -> &'static [Effect] {
 /// read as `{7}{U}{U}` less eight; the engine takes six, and a yes over
 /// `{U}{U}` floating lost the whole cast. A cost with a non-mana part is never
 /// paid: nothing reads one yet.
+#[allow(clippy::too_many_lines)] // per-part worth checks across optional additional costs
 fn kicker_parts_worth(view: &PlayerView, parts: &[CostPart], card: Option<CardIdentity>) -> bool {
     if parts.is_empty() {
         return true;
@@ -4592,7 +4604,7 @@ fn kicker_parts_worth(view: &PlayerView, parts: &[CostPart], card: Option<CardId
         .sum();
     seat.life - life >= BUYBACK_LIFE_FLOOR.min(seat.life)
         && parts.iter().all(|part| match part {
-            CostPart::PayLife(_) => true,
+            CostPart::PayLife(_) | CostPart::Behold(_) => true,
             CostPart::Sacrifice(filter) => {
                 let matching = view
                     .battlefield_of(player)
@@ -4637,8 +4649,87 @@ fn kicker_parts_worth(view: &PlayerView, parts: &[CostPart], card: Option<CardId
             }
             CostPart::Discard(_) => spare >= discards,
             CostPart::DiscardRandom => !others.is_empty() && 2 * spare >= others.len(),
+            CostPart::CollectEvidence(mv) => view
+                .graveyards
+                .get(usize::from(player.get()))
+                .is_some_and(|gy| {
+                    gy.iter()
+                        .map(|o| o.mana_value)
+                        .fold(0u32, u32::saturating_add)
+                        >= u32::from(*mv)
+                }),
             _ => false,
         })
+}
+
+fn optional_cost_price(
+    view: &PlayerView,
+    card: Option<CardIdentity>,
+    face: &FaceDef,
+    effects: &[Effect],
+    cost: baylee_core::mana::ManaCost,
+) -> Option<baylee_core::mana::ManaCost> {
+    let opt = face.optional_cost?;
+    if !kicker_parts_worth(view, opt.parts, card) {
+        return None;
+    }
+    let library = view.seat(resource_player(view))?.library_count;
+    let draws: u32 = effects
+        .iter()
+        .map(|effect| match effect {
+            Effect::IfCondition {
+                condition: baylee_cards_dsl::Condition::OptionalCostPaid,
+                then,
+                ..
+            } => crate::tactics::meaning(then, 0).draws(view),
+            other => crate::tactics::meaning(std::slice::from_ref(other), 0).draws(view),
+        })
+        .sum();
+    if draws >= library {
+        return None;
+    }
+    let extra_mana = if opt.mana.has_variable() {
+        opt.mana.with_x(1)
+    } else {
+        opt.mana
+    };
+    Some(cost.combine(&extra_mana))
+}
+
+pub(crate) fn optional_option_payable_and_worth(
+    view: &PlayerView,
+    object: ObjectId,
+    option_cost: baylee_core::mana::ManaCost,
+) -> bool {
+    let Some(seat) = view.seat(resource_player(view)) else {
+        return false;
+    };
+    if manaplan::plan_frozen(&option_cost, &seat.mana_pool, &[]).is_none() {
+        return false;
+    }
+    let card = identity(view, object);
+    let Some(f) = card.and_then(face) else {
+        return false;
+    };
+    let Some(opt) = f.optional_cost else {
+        return false;
+    };
+    if !kicker_parts_worth(view, opt.parts, card) {
+        return false;
+    }
+    let effects = card.map_or(&[][..], spell_effects);
+    let draws: u32 = effects
+        .iter()
+        .map(|effect| match effect {
+            Effect::IfCondition {
+                condition: baylee_cards_dsl::Condition::OptionalCostPaid,
+                then,
+                ..
+            } => crate::tactics::meaning(then, 0).draws(view),
+            other => crate::tactics::meaning(std::slice::from_ref(other), 0).draws(view),
+        })
+        .sum();
+    draws < seat.library_count
 }
 
 fn kicked_price(

@@ -64,6 +64,22 @@ pub enum CounterKind {
     Defense,
     /// Deathtouch keyword counter.
     Deathtouch,
+    /// First strike keyword counter (CR 122.1b).
+    FirstStrike,
+    /// Double strike keyword counter (CR 122.1b).
+    DoubleStrike,
+    /// Haste keyword counter (CR 122.1b).
+    Haste,
+    /// Hexproof keyword counter (CR 122.1b).
+    Hexproof,
+    /// Menace keyword counter (CR 122.1b).
+    Menace,
+    /// Reach keyword counter (CR 122.1b).
+    Reach,
+    /// Trample keyword counter (CR 122.1b).
+    Trample,
+    /// Vigilance keyword counter (CR 122.1b).
+    Vigilance,
 }
 
 impl CounterKind {
@@ -118,6 +134,14 @@ impl CounterKind {
             Self::Shield => Cow::Borrowed("SHIELD"),
             Self::Defense => Cow::Borrowed("DEF"),
             Self::Deathtouch => Cow::Borrowed("DT"),
+            Self::FirstStrike => Cow::Borrowed("FS"),
+            Self::DoubleStrike => Cow::Borrowed("DS"),
+            Self::Haste => Cow::Borrowed("HST"),
+            Self::Hexproof => Cow::Borrowed("HEX"),
+            Self::Menace => Cow::Borrowed("MEN"),
+            Self::Reach => Cow::Borrowed("RCH"),
+            Self::Trample => Cow::Borrowed("TRMP"),
+            Self::Vigilance => Cow::Borrowed("VIG"),
         }
     }
 }

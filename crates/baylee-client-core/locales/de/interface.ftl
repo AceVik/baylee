@@ -1204,6 +1204,7 @@ TapToHelpPay = Tappe Permanents, um mitzubezahlen – jedes bezahlt ein Mana
 DelveToHelpPay = Schicke Karten aus deinem Friedhof ins Exil, um mitzubezahlen – jede bezahlt ein Mana
 CrewWithPower = Bemannen { $power }: Tappe beliebig viele deiner anderen ungetappten Kreaturen mit einer Gesamtstärke von { $power } oder mehr
 SaddleWithPower = Aufsatteln { $power }: Tappe beliebig viele deiner anderen ungetappten Kreaturen mit einer Gesamtstärke von { $power } oder mehr
+CollectEvidenceWithManaValue = Beweise sichern { $mv }: Schicke beliebig viele Karten mit einem Gesamtmanabetrag von { $mv } oder mehr aus deinem Friedhof ins Exil
 ChooseUpTo = Wähle bis zu { $count } { $noun }
 ChooseNewTarget = Wähle ein neues Ziel
 ChooseNewTargetOrKeep = Neues Ziel wählen oder ohne Auswahl dieses Ziel behalten
@@ -1483,6 +1484,7 @@ TargetingShowFrom = Ziele zeigen von
 TargetingTargets = Ziele
 TargetingPage = Ziele { $first }–{ $last } von { $total }. Auswahl auch direkt am Tisch möglich.
 CastKicked = Mit Bonuskosten
+CastOptionalCost = Mit Zusatzkosten
 CastDisguise = Verkleidung – 2/2, Abwehr {"{"}2{"}"}
 CastMorph = Morph – 2/2 verdeckt
 TurnFaceUp = Aufdecken
@@ -1989,6 +1991,46 @@ LogCountersIndestructible =
     { $count ->
         [one] Unzerstörbar-Marke
        *[other] Unzerstörbar-Marken
+    }
+LogCountersFirstStrike =
+    { $count ->
+        [one] Erstschlag-Marke
+       *[other] Erstschlag-Marken
+    }
+LogCountersDoubleStrike =
+    { $count ->
+        [one] Doppelschlag-Marke
+       *[other] Doppelschlag-Marken
+    }
+LogCountersHaste =
+    { $count ->
+        [one] Eile-Marke
+       *[other] Eile-Marken
+    }
+LogCountersHexproof =
+    { $count ->
+        [one] Fluchsicher-Marke
+       *[other] Fluchsicher-Marken
+    }
+LogCountersMenace =
+    { $count ->
+        [one] Bedrohlich-Marke
+       *[other] Bedrohlich-Marken
+    }
+LogCountersReach =
+    { $count ->
+        [one] Reichweite-Marke
+       *[other] Reichweite-Marken
+    }
+LogCountersTrample =
+    { $count ->
+        [one] Trampelschaden-Marke
+       *[other] Trampelschaden-Marken
+    }
+LogCountersVigilance =
+    { $count ->
+        [one] Wachsamkeit-Marke
+       *[other] Wachsamkeit-Marken
     }
 LogCountersHone =
     { $count ->

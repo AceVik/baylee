@@ -228,6 +228,30 @@ pub(super) fn mask_non_priority_single_choice(
                 }
             }
         }
+        Pending::ChooseCounterKind { .. } => {
+            let scores: Vec<i32> = cands
+                .candidates
+                .iter()
+                .map(|c| match c.action {
+                    Some(PlayerAction::ChooseCounterKind(kind)) => {
+                        counter_kind_demand_score(view, actor, kind)
+                    }
+                    _ => i32::MIN / 2,
+                })
+                .collect();
+            let max_score = scores.iter().copied().max().unwrap_or(0);
+            if scores.iter().any(|&s| s < max_score) {
+                let mut trial = masked_logits.to_vec();
+                for (i, &s) in scores.iter().enumerate() {
+                    if s < max_score {
+                        trial[i] = f32::NEG_INFINITY;
+                    }
+                }
+                if trial.iter().any(|l| l.is_finite()) {
+                    masked_logits.copy_from_slice(&trial);
+                }
+            }
+        }
         Pending::YesNo { prompt, source, .. } => {
             if let YesNoPrompt::RevealHandForGuess {
                 card,
@@ -3471,3 +3495,52 @@ fn is_draw_spell_card(view: &PlayerView, oid: ObjectId) -> bool {
 
 #[allow(dead_code)]
 fn _unused_mana_source_marker(_: ManaSource) {}
+
+fn counter_kind_demand_score(
+    view: &PlayerView,
+    actor: PlayerId,
+    kind: baylee_cards_dsl::CounterKind,
+) -> i32 {
+    use baylee_cards_dsl::CounterKind as K;
+    let base = match kind {
+        K::Plus { power, toughness } => i32::from(power) * 110 + i32::from(toughness) * 30,
+        K::Minus { power, toughness } => -(i32::from(power) * 80 + i32::from(toughness) * 80),
+        K::Indestructible | K::DoubleStrike => 120,
+        K::Shield | K::Hexproof => 100,
+        K::Flying | K::Deathtouch | K::FirstStrike | K::Shadow => 80,
+        K::Hone => 70,
+        K::Menace | K::Trample | K::Vigilance => 65,
+        K::Haste | K::Reach => 50,
+        K::Lifelink | K::Energy | K::Charge | K::Level | K::Loyalty | K::Defense => 40,
+        K::Finality => -40,
+        K::Poison | K::Rad => -50,
+        K::Stun => -60,
+        K::Time | K::Lore | K::Bore | K::Custom(_) => 0,
+    };
+    let Some(top) = view.stack.last() else {
+        return base;
+    };
+    let mut obj_targets = Vec::new();
+    for t in &top.targets {
+        if let baylee_view::TargetRef::Object(r) = *t
+            && let Some(obj) = view.object(r.object)
+        {
+            obj_targets.push(obj);
+        }
+    }
+    if obj_targets.is_empty() {
+        return base;
+    }
+    obj_targets
+        .into_iter()
+        .map(|obj| {
+            let sign = if obj.controller == actor { 1 } else { -1 };
+            if let Some(kw) = kind.keyword()
+                && (obj.keywords & kw.bits()) != 0
+            {
+                return 0;
+            }
+            sign * base
+        })
+        .sum()
+}

@@ -645,6 +645,13 @@ impl HeuristicAgent {
         }) {
             return bonus_alt;
         }
+        if let Some(opt_pos) = options
+            .iter()
+            .position(|option| matches!(option.kind, CastModeKind::OptionalCost))
+            && crate::policy::optional_option_payable_and_worth(view, object, options[opt_pos].cost)
+        {
+            return opt_pos;
+        }
         if let Some(normal) = options
             .iter()
             .position(|option| matches!(option.kind, CastModeKind::Normal))
@@ -694,6 +701,102 @@ impl HeuristicAgent {
 
     /// Chooses the highest-scoring Undercity room when the cast-mode menu is
     /// venturing into the Undercity (`CR 309.4c`).
+    pub(crate) fn choose_counter_kind(
+        &self,
+        view: &PlayerView,
+        choices: &[baylee_cards_dsl::CounterKind],
+        context: &baylee_engine::engine::DecisionContext<'_>,
+    ) -> baylee_cards_dsl::CounterKind {
+        choices
+            .iter()
+            .copied()
+            .enumerate()
+            .max_by_key(|&(pos, kind)| {
+                (
+                    self.counter_kind_score(view, kind, context),
+                    std::cmp::Reverse(pos),
+                )
+            })
+            .map_or_else(
+                || {
+                    choices
+                        .first()
+                        .copied()
+                        .expect("counter choice has options")
+                },
+                |(_, kind)| kind,
+            )
+    }
+
+    pub(crate) fn counter_kind_score(
+        &self,
+        view: &PlayerView,
+        kind: baylee_cards_dsl::CounterKind,
+        context: &baylee_engine::engine::DecisionContext<'_>,
+    ) -> i64 {
+        use baylee_cards_dsl::CounterKind as K;
+        let stack_top = view.stack.last();
+        let mut obj_targets = Vec::new();
+        let mut player_targets = Vec::new();
+        if let Some(top) = stack_top {
+            for t in &top.targets {
+                match *t {
+                    baylee_view::TargetRef::Object(r) => {
+                        if let Some(obj) = view.object(r.object) {
+                            obj_targets.push(obj);
+                        }
+                    }
+                    baylee_view::TargetRef::Player(p) => player_targets.push(p),
+                }
+            }
+        }
+        if obj_targets.is_empty()
+            && player_targets.is_empty()
+            && let Some(src) = context.source.and_then(|id| view.object(id))
+        {
+            obj_targets.push(src);
+        }
+        if !obj_targets.is_empty() {
+            return obj_targets
+                .into_iter()
+                .map(|obj| {
+                    let hostile = self.hostile(obj.controller, view.seat);
+                    let sign = if hostile { -1 } else { 1 };
+                    if kind == K::Lifelink
+                        && (obj.keywords & baylee_cards_dsl::KeywordSet::LIFELINK.bits()) != 0
+                    {
+                        return 0;
+                    }
+                    self.counters(view, obj, kind, 1).unwrap_or(match kind {
+                        K::Shield => sign * 100,
+                        K::Defense => sign * 40,
+                        _ => 0,
+                    })
+                })
+                .sum();
+        }
+        let sign = if player_targets.iter().any(|p| self.hostile(*p, view.seat)) {
+            -1
+        } else {
+            1
+        };
+        sign * match kind {
+            K::Plus { power, toughness } => i64::from(power) * 110 + i64::from(toughness) * 30,
+            K::Minus { power, toughness } => -(i64::from(power) * 80 + i64::from(toughness) * 80),
+            K::Indestructible | K::DoubleStrike => 120,
+            K::Shield | K::Hexproof => 100,
+            K::Flying | K::Deathtouch | K::FirstStrike | K::Shadow => 80,
+            K::Hone => 70,
+            K::Menace | K::Trample | K::Vigilance => 65,
+            K::Haste | K::Reach => 50,
+            K::Lifelink | K::Energy | K::Charge | K::Level | K::Loyalty | K::Defense => 40,
+            K::Finality => -40,
+            K::Poison | K::Rad => -50,
+            K::Stun => -60,
+            K::Time | K::Lore | K::Bore | K::Custom(_) => 0,
+        }
+    }
+
     fn undercity_room_mode(&self, view: &PlayerView, options: &[CastModeDesc]) -> Option<usize> {
         options
             .first()

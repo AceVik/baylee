@@ -523,6 +523,15 @@ pub enum Pending {
     },
     /// The game is over.
     GameOver(GameResult),
+    /// Choose one counter kind from `choices` during effect resolution
+    /// (`Effect::PutCounterChoice`, CR 122.1, CR 608.2d), answered with
+    /// [`PlayerAction::ChooseCounterKind`].
+    ChooseCounterKind {
+        /// Choosing player.
+        player: PlayerId,
+        /// Eligible counter kinds offered by the resolving effect.
+        choices: Vec<baylee_cards_dsl::CounterKind>,
+    },
 }
 impl Pending {
     /// The seat this question is asked of; `None` once the game is over.
@@ -550,6 +559,7 @@ impl Pending {
             | Self::ChooseCardName { player, .. }
             | Self::ChooseCardType { player, .. }
             | Self::ChooseColor { player, .. }
+            | Self::ChooseCounterKind { player, .. }
             | Self::YesNo { player, .. }
             | Self::ChooseCastMode { player, .. }
             | Self::ChooseNumber { player, .. }
@@ -1206,6 +1216,8 @@ pub enum PlayerAction {
         /// The mana abilities and their answers, in the order applied.
         steps: Vec<PaymentStep>,
     },
+    /// Choose one counter kind offered by [`Pending::ChooseCounterKind`] (`CR 122.1`).
+    ChooseCounterKind(baylee_cards_dsl::CounterKind),
 }
 
 /// One step of a [`PlayerAction::PayWindow`]: making mana, or answering what

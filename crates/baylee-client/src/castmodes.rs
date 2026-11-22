@@ -165,6 +165,14 @@ pub fn reachable_modes(
             || !crate::targeting::ordinary_targetless(view, hand.card))
     {
         offer(CastModeKind::Normal, face.mana_cost);
+        if let Some(opt_cost) = face.optional_cost
+            && parts_payable(view, card, opt_cost.parts)
+        {
+            offer(
+                CastModeKind::OptionalCost,
+                face.mana_cost.combine(&opt_cost.mana),
+            );
+        }
     }
 
     // "Choose one" with a mode that costs something else (overload, CR
@@ -705,12 +713,70 @@ fn parts_payable(view: &PlayerView, card: ObjectId, parts: &[CostPart]) -> bool 
         | CostPart::ExileFromGraveyardX(_)
         | CostPart::Forage
         | CostPart::CraftMaterials { .. } => false,
+        CostPart::Behold(filter) => behold_payable(view, card, filter),
+        CostPart::CollectEvidence(mv) => {
+            let payer = resource_player(view);
+            view.graveyards
+                .get(usize::from(payer.get()))
+                .is_some_and(|gy| {
+                    gy.iter()
+                        .filter(|o| o.id != card)
+                        .map(|o| o.mana_value)
+                        .fold(0u32, u32::saturating_add)
+                        >= u32::from(*mv)
+                })
+        }
         CostPart::Either(a, b) => {
             (a.mana == baylee_core::mana::ManaCost::ZERO && parts_payable(view, card, a.parts))
                 || (b.mana == baylee_core::mana::ManaCost::ZERO
                     && parts_payable(view, card, b.parts))
         }
     })
+}
+
+fn behold_payable(view: &PlayerView, card: ObjectId, filter: &Filter) -> bool {
+    let payer = resource_player(view);
+    let on_bf = view.battlefield_of(payer).any(|o| {
+        o.id != card
+            && !o.status.is_phased_out()
+            && crate::targeting::matches(view, o, filter) == Some(true)
+    });
+    on_bf
+        || baylee_client_core::decision::hand(view)
+            .iter()
+            .any(|h| h.id != card && hand_matches_behold(h, filter))
+}
+
+fn hand_matches_behold(hand: &baylee_view::HandObject, filter: &Filter) -> bool {
+    match filter {
+        Filter::Any | Filter::Another => true,
+        Filter::And(parts) => parts.iter().all(|part| hand_matches_behold(hand, part)),
+        Filter::Or(parts) => parts.iter().any(|part| hand_matches_behold(hand, part)),
+        Filter::Not(inner) => !hand_matches_behold(hand, inner),
+        Filter::HasType(types) => hand.types.intersects(*types),
+        Filter::LacksType(types) => !hand.types.intersects(*types),
+        Filter::HasColor(colors) => hand.colors.intersects(*colors),
+        Filter::IsColorless => hand.colors.is_colorless(),
+        Filter::Monocolored => hand.colors.len() == 1,
+        Filter::IsCommander => hand.commander,
+        Filter::HasSubtype(sub) => baylee_cards::by_index(hand.card.index).is_some_and(|def| {
+            let face_idx = usize::from(hand.card.face);
+            def.faces.get(face_idx).is_some_and(|face| {
+                face.subtypes.contains(sub)
+                    || (def
+                        .keywords
+                        .union(face.keywords)
+                        .contains(baylee_cards_dsl::KeywordSet::CHANGELING)
+                        && baylee_core::generated::subtypes::ALL_CREATURE_TYPES.contains(*sub))
+            })
+        }),
+        Filter::HasSupertype(sup) => baylee_cards::by_index(hand.card.index).is_some_and(|def| {
+            def.faces
+                .get(usize::from(hand.card.face))
+                .is_some_and(|face| face.supertypes.contains(*sup))
+        }),
+        _ => false,
+    }
 }
 
 /// Match sacrifices, returns and nonsymbol taps to distinct permanents this seat

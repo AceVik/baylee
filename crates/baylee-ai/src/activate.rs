@@ -397,15 +397,22 @@ fn consumes(cost: &Cost) -> bool {
             | CostPart::ExileFromGraveyard(_)
             | CostPart::ExileFromSingleGraveyard { .. }
             | CostPart::Forage
+            | CostPart::CollectEvidence(_)
             | CostPart::CraftMaterials { .. }
             | CostPart::PutCounterOnOther { .. } => true,
             CostPart::ExileTopOfLibrary(n) => *n > 0,
             CostPart::TapN { count, .. } => *count > 0,
             CostPart::Either(a, b) => consumes(a) && consumes(b),
             // Exerting again is legal and adds no further untap penalty.
-            CostPart::ExertSelf | CostPart::PayLifeX | CostPart::PayCommanderColors
-            | CostPart::PayAttachedManaCost | CostPart::TapX(_) | CostPart::SacrificeX(_)
-            | CostPart::DiscardX(_) | CostPart::ExileFromGraveyardX(_)
+            CostPart::ExertSelf
+            | CostPart::Behold(_)
+            | CostPart::PayLifeX
+            | CostPart::PayCommanderColors
+            | CostPart::PayAttachedManaCost
+            | CostPart::TapX(_)
+            | CostPart::SacrificeX(_)
+            | CostPart::DiscardX(_)
+            | CostPart::ExileFromGraveyardX(_)
             | CostPart::DealDamageToYou(_)
             | CostPart::SacrificeAll(_) => false,
         })

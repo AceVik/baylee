@@ -851,6 +851,12 @@ pub struct FaceDef {
     /// beginning of the next end step, and its owner may cast it from exile on
     /// a later turn.
     pub warp: Option<crate::cost::Cost>,
+    /// Non-kicker optional additional spell cost (`"As an additional cost to
+    /// cast this spell, you may [cost]"`, CR 118.8b). Distinct from
+    /// [`Self::additional_costs`] so paying it sets
+    /// [`crate::Condition::OptionalCostPaid`] without kicking the spell or
+    /// triggering kicker synergies.
+    pub optional_cost: Option<crate::cost::Cost>,
 }
 
 impl FaceDef {
@@ -947,6 +953,7 @@ impl FaceDef {
         impending: None,
         gift: None,
         warp: None,
+        optional_cost: None,
     };
 }
 

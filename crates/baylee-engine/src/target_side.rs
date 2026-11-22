@@ -67,38 +67,65 @@ pub const fn acts_elsewhere(effect: &Effect) -> bool {
     )
 }
 
+const fn counter_benefit(kind: CounterKind) -> Option<i32> {
+    match kind {
+        CounterKind::Minus { .. }
+        | CounterKind::Poison
+        | CounterKind::Rad
+        | CounterKind::Stun
+        | CounterKind::Finality => Some(-1),
+        CounterKind::Plus { .. }
+        | CounterKind::Loyalty
+        | CounterKind::Lifelink
+        | CounterKind::Deathtouch
+        | CounterKind::Flying
+        | CounterKind::Indestructible
+        | CounterKind::Hone
+        | CounterKind::Shadow
+        | CounterKind::FirstStrike
+        | CounterKind::DoubleStrike
+        | CounterKind::Haste
+        | CounterKind::Hexproof
+        | CounterKind::Menace
+        | CounterKind::Reach
+        | CounterKind::Trample
+        | CounterKind::Vigilance
+        | CounterKind::Energy
+        | CounterKind::Charge
+        | CounterKind::Shield
+        | CounterKind::Level => Some(1),
+        // A lore or a time counter has no sign of its own, and a custom
+        // one means whatever the card that prints it says.
+        CounterKind::Time
+        | CounterKind::Lore
+        | CounterKind::Bore
+        | CounterKind::Defense
+        | CounterKind::Custom(_) => None,
+    }
+}
+
 /// What `effect` itself does to what it names: `1` helps, `-1` hurts, `0` has
 /// no sign of its own; `None` where this reading has no row, and what the
 /// effect runs inside itself ([`Effect::branches`]) keeps its word.
 #[must_use]
 pub fn effect_benefit(effect: &Effect, x: u32) -> Option<i32> {
     match effect {
-        Effect::AddCounter { kind, .. } | Effect::PutCountersDivided { kind, .. } => match kind {
-            CounterKind::Minus { .. }
-            | CounterKind::Poison
-            | CounterKind::Rad
-            | CounterKind::Stun
-            | CounterKind::Finality => Some(-1),
-            CounterKind::Plus { .. }
-            | CounterKind::Loyalty
-            | CounterKind::Lifelink
-            | CounterKind::Deathtouch
-            | CounterKind::Flying
-            | CounterKind::Indestructible
-            | CounterKind::Hone
-            | CounterKind::Shadow
-            | CounterKind::Energy
-            | CounterKind::Charge
-            | CounterKind::Shield
-            | CounterKind::Level => Some(1),
-            // A lore or a time counter has no sign of its own, and a custom
-            // one means whatever the card that prints it says.
-            CounterKind::Time
-            | CounterKind::Lore
-            | CounterKind::Bore
-            | CounterKind::Defense
-            | CounterKind::Custom(_) => None,
-        },
+        Effect::AddCounter { kind, .. } | Effect::PutCountersDivided { kind, .. } => {
+            counter_benefit(*kind)
+        }
+        Effect::PutCounterChoice { choices, .. } => {
+            let mut sign: Option<i32> = None;
+            for &kind in *choices {
+                if let Some(s) = counter_benefit(kind) {
+                    match sign {
+                        None => sign = Some(s),
+                        Some(prev) if prev == s => {}
+                        Some(_) => return None,
+                    }
+                }
+            }
+            sign
+        }
         Effect::PumpTarget {
             power,
             toughness,

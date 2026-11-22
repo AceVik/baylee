@@ -131,6 +131,12 @@ impl HeuristicAgent {
             } => self
                 .mode_against(theirs, *object, options)
                 .map(PlayerAction::ChooseMode),
+            Pending::ChooseCounterKind { choices, .. } => choices
+                .iter()
+                .copied()
+                .enumerate()
+                .min_by_key(|&(pos, kind)| (self.counter_kind_score(theirs, kind, context), pos))
+                .map(|(_, kind)| PlayerAction::ChooseCounterKind(kind)),
             Pending::ChooseNumber {
                 min, max, reason, ..
             } => self
@@ -381,6 +387,15 @@ impl HeuristicAgent {
     ) -> Option<usize> {
         if let Some(ending) = crate::endings::against(theirs, object, options) {
             return Some(ending);
+        }
+        if options
+            .iter()
+            .any(|option| matches!(option.kind, CastModeKind::OptionalCost))
+            && let Some(normal) = options
+                .iter()
+                .position(|option| matches!(option.kind, CastModeKind::Normal))
+        {
+            return Some(normal);
         }
         let modes = Self::modal_modes(theirs, object)?;
         let origin = Origin::of(theirs, object);

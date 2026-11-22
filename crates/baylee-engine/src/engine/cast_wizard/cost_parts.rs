@@ -87,6 +87,16 @@ fn raw_mandatory_parts(
     } else {
         &[]
     };
+    let optional_parts: &'static [CostPart] = match face.optional_cost {
+        Some(cost)
+            if !disguised
+                && (choice.optional_cost_paid
+                    || choice.option == Some(CastModeKind::OptionalCost)) =>
+        {
+            cost.parts
+        }
+        _ => &[],
+    };
     let offspring_parts: &'static [CostPart] = match face.offspring {
         Some(cost) if !disguised && choice.offspring => cost.parts,
         _ => &[],
@@ -108,6 +118,7 @@ fn raw_mandatory_parts(
         .chain(retrace_parts.iter())
         .chain(entwine_parts.iter())
         .chain(bargain_parts.iter())
+        .chain(optional_parts.iter())
         .chain(offspring_parts.iter())
         .chain(casualty_parts.iter())
         .chain(std::iter::repeat_n(squad_parts, usize::from(choice.squad)).flatten())
@@ -288,6 +299,8 @@ pub(crate) struct CostChoice {
     pub buyback: bool,
     /// Whether the bargain additional cost is paid (`CR 702.166a`).
     pub bargained: bool,
+    /// Whether `FaceDef::optional_cost` is paid (`CR 118.8b`).
+    pub optional_cost_paid: bool,
     /// Whether the offspring additional cost is paid (`CR 702.175a`).
     pub offspring: bool,
     /// Whether the casualty additional cost is paid (`CR 702.153a`).
@@ -326,6 +339,7 @@ impl From<Option<CastModeKind>> for CostChoice {
             alternative_cost: None,
             buyback: false,
             bargained: false,
+            optional_cost_paid: option == Some(CastModeKind::OptionalCost),
             offspring: false,
             casualty: false,
             squad: 0,
@@ -473,6 +487,7 @@ pub(crate) fn additional_card_costs_for_x(
                 | CostPart::TapOther(_)
                 | CostPart::TapN { .. }
                 | CostPart::Forage
+                | CostPart::Behold(_)
         )
     });
     let add_iter = wizard_mandatory_parts(face, choice)
@@ -494,6 +509,7 @@ pub(crate) fn additional_card_costs_for_x(
                     | CostPart::TapX(_)
                     | CostPart::TapN { .. }
                     | CostPart::Forage
+                    | CostPart::Behold(_)
             )
         });
     let mut parts: SmallVec<[CostPart; 4]> = alt_iter

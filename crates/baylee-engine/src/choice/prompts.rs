@@ -168,6 +168,11 @@ pub enum CastModeKind {
     /// than once (`CR 700.2d`): nibble `i` (`(packed >> (4 * i)) & 0xF`, `i < 8`)
     /// holds the multiplicity of mode `i`, carried out in printed order (`CR 608.2c`).
     RepeatedModes(u32),
+    /// Cast paying this face's non-kicker [`baylee_cards_dsl::FaceDef::optional_cost`]
+    /// (`"As an additional cost to cast this spell, you may [cost]"`, CR 118.8b).
+    /// Sets `Rider::OptionalCostPaid` / `Condition::OptionalCostPaid` without
+    /// kicking the spell.
+    OptionalCost,
 }
 
 /// One way a resolved instant or sorcery can leave the stack in place of the
@@ -494,6 +499,12 @@ pub enum ChoicePrompt {
     /// Choose a permanent you control from which to remove a counter to pay a
     /// cost (`CostPart::RemoveAnyCounter` / `RemoveAnyCounterX`, CR 118.3).
     CostRemoveCounter,
+    /// Exile any number of cards from your graveyard with total mana value
+    /// `mana_value` or greater (`CostPart::CollectEvidence`, CR 701.59a).
+    CollectEvidence {
+        /// Minimum combined mana value required (`N` of `"collect evidence N"`).
+        mana_value: u8,
+    },
 }
 
 /// What a [`Pending::ChooseNumber`] counts (UI hint).

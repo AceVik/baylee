@@ -91,6 +91,12 @@ pub fn walk_to_own_main(engine: &mut Engine<RegistryLookup>, seat: PlayerId) -> 
                     .is_err(),
                 None => return false,
             },
+            Pending::ChooseCounterKind { player, choices } => match choices.first().copied() {
+                Some(first) => engine
+                    .apply(player, PlayerAction::ChooseCounterKind(first))
+                    .is_err(),
+                None => return false,
+            },
             Pending::ChooseColor { player, options } => match options.first().copied() {
                 Some(first) => engine
                     .apply(player, PlayerAction::ChooseColor(first))

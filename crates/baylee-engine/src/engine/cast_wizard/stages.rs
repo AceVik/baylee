@@ -851,7 +851,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                     || wizard.option == Some(CastModeKind::Kicked)
                 {
                     let mut wizard = wizard;
-                    wizard.stage = WizardStage::Buyback;
+                    wizard.stage = WizardStage::OptionalCost;
                     self.cast_wizard = Some(wizard);
                     return WizardStep::Continue;
                 }
@@ -895,7 +895,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                     wizard.stage = if self.wizard_needs_kicker_x(&wizard) {
                         WizardStage::KickerX
                     } else {
-                        WizardStage::Buyback
+                        WizardStage::OptionalCost
                     };
                     self.cast_wizard = Some(wizard);
                     return WizardStep::Continue;
@@ -904,7 +904,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 probe.kicked = true;
                 if !self.announced_cost_payable(&probe) {
                     let mut wizard = wizard;
-                    wizard.stage = WizardStage::Buyback;
+                    wizard.stage = WizardStage::OptionalCost;
                     self.cast_wizard = Some(wizard);
                     return WizardStep::Continue;
                 }
@@ -925,7 +925,10 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                         (wizard.kicked_mask == 0
                             || (idx < 8 && (wizard.kicked_mask & (1_u8 << idx)) != 0))
                             && add.mana.has_variable()
-                    });
+                    }) || (wizard.optional_cost_paid
+                        && face
+                            .optional_cost
+                            .is_some_and(|opt| opt.mana.has_variable()));
                 let mut max = if more_mana || !kicker_has_mana_x {
                     u32::MAX
                 } else {
@@ -993,6 +996,57 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                     min: 0,
                     max,
                     reason: NumberPrompt::X,
+                };
+                self.awaiting_answer = true;
+                WizardStep::Yield(Ok(()))
+            }
+            WizardStage::OptionalCost => {
+                let face = self.wizard_face(&wizard);
+                if wizard.optional_cost_decided
+                    || wizard.optional_cost_paid
+                    || wizard.option == Some(CastModeKind::Disguise)
+                    || wizard.masked
+                    || face.optional_cost.is_none()
+                {
+                    let mut wizard = wizard;
+                    wizard.optional_cost_decided = true;
+                    wizard.stage = WizardStage::Buyback;
+                    self.cast_wizard = Some(wizard);
+                    return WizardStep::Continue;
+                }
+                let mut paying = wizard.clone();
+                paying.optional_cost_paid = true;
+                if !self.announced_cost_payable(&paying) {
+                    let mut wizard = wizard;
+                    wizard.optional_cost_decided = true;
+                    wizard.stage = WizardStage::Buyback;
+                    self.cast_wizard = Some(wizard);
+                    return WizardStep::Continue;
+                }
+                let base_cost = if wizard.free
+                    || wizard.option == Some(CastModeKind::Plot)
+                    || wizard.alternative_cost == Some(CastModeKind::Plot)
+                {
+                    ManaCost::ZERO
+                } else {
+                    wizard_total_cost(face, &wizard)
+                };
+                let paid_cost = wizard_total_cost(face, &paying);
+                self.pending = Pending::ChooseCastMode {
+                    player: wizard.player,
+                    object: wizard.card,
+                    options: vec![
+                        CastModeDesc {
+                            index: 0,
+                            kind: CastModeKind::Normal,
+                            cost: base_cost,
+                        },
+                        CastModeDesc {
+                            index: 1,
+                            kind: CastModeKind::OptionalCost,
+                            cost: paid_cost,
+                        },
+                    ],
                 };
                 self.awaiting_answer = true;
                 WizardStep::Yield(Ok(()))
@@ -1493,7 +1547,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                     )
                 }) {
                     let mut wizard = wizard;
-                    wizard.stage = WizardStage::Done;
+                    wizard.stage = WizardStage::CollectEvidence;
                     self.cast_wizard = Some(wizard);
                     return WizardStep::Continue;
                 }
@@ -1600,7 +1654,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 ) {
                     super::super::cost_wizard::counter_remove::CounterStep::Complete => {
                         let mut wizard = wizard;
-                        wizard.stage = WizardStage::Done;
+                        wizard.stage = WizardStage::CollectEvidence;
                         self.cast_wizard = Some(wizard);
                         WizardStep::Continue
                     }
@@ -1641,6 +1695,76 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                     }
                 }
             }
+            WizardStage::CollectEvidence => {
+                let face = self.wizard_face(&wizard);
+                let evidence_parts: SmallVec<[u8; 2]> =
+                    super::wizard_cost_parts(face, wizard.cost_choice())
+                        .filter_map(|p| match p {
+                            CostPart::CollectEvidence(mv) => Some(*mv),
+                            _ => None,
+                        })
+                        .collect();
+                let mut wizard = wizard;
+                while wizard.evidence_exiles.len() < evidence_parts.len() {
+                    let mv = evidence_parts[wizard.evidence_exiles.len()];
+                    if mv == 0 {
+                        wizard.evidence_exiles.push(Vec::new());
+                        continue;
+                    }
+                    let options: Vec<ObjectId> = self
+                        .state
+                        .zones
+                        .list(ZoneLocation::Graveyard(wizard.player))
+                        .iter()
+                        .copied()
+                        .filter(|&id| {
+                            id != wizard.card
+                                && !wizard.delve_exiles.contains(&id)
+                                && !wizard.cost_objects.contains(&id)
+                                && !wizard.evidence_exiles.iter().any(|grp| grp.contains(&id))
+                                && self
+                                    .state
+                                    .object(id)
+                                    .is_some_and(crate::object::GameObject::is_card)
+                        })
+                        .collect();
+                    let weights: Vec<i32> = options
+                        .iter()
+                        .map(|&id| {
+                            self.state.object(id).map_or(0, |o| {
+                                i32::try_from(o.characteristics().mana_value()).unwrap_or(i32::MAX)
+                            })
+                        })
+                        .collect();
+                    let avail_mv: i64 = weights.iter().map(|&w| i64::from(w)).sum();
+                    if avail_mv < i64::from(mv) {
+                        self.cast_wizard = None;
+                        return WizardStep::Yield(Err(EngineError::IllegalAction(
+                            "nothing can pay this collect evidence cost",
+                        )));
+                    }
+                    let max = u8::try_from(options.len()).unwrap_or(u8::MAX);
+                    self.pending = Pending::ChooseCards {
+                        player: wizard.player,
+                        options,
+                        min: 1,
+                        max,
+                        prompt: ChoicePrompt::CollectEvidence { mana_value: mv },
+                        total: Some(crate::choice::CardTotal {
+                            of: crate::choice::Measure::ManaValue,
+                            weights,
+                            at_least: Some(i32::from(mv)),
+                            at_most: None,
+                        }),
+                    };
+                    self.cast_wizard = Some(wizard);
+                    self.awaiting_answer = true;
+                    return WizardStep::Yield(Ok(()));
+                }
+                wizard.stage = WizardStage::Done;
+                self.cast_wizard = Some(wizard);
+                WizardStep::Continue
+            }
             WizardStage::Done => WizardStep::Yield(self.cast_or_make_miracle_mana(wizard)),
         }
     }
@@ -1669,5 +1793,20 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
             (wizard.kicked_mask == 0 || (idx < 8 && (wizard.kicked_mask & (1_u8 << idx)) != 0))
                 && (add.mana.has_variable() || add.parts.iter().any(part_scales_with_x))
         })
+    }
+
+    pub(in crate::engine) fn wizard_needs_optional_cost_x(&self, wizard: &CastWizard) -> bool {
+        if !wizard.optional_cost_paid || wizard.option == Some(CastModeKind::OptionalCost) {
+            return false;
+        }
+        let face = self.wizard_face(wizard);
+        let disguised = wizard.option == Some(CastModeKind::Disguise) || wizard.masked;
+        if (chosen_option_cost(wizard).has_variable() && !wizard.free)
+            || (!disguised && mandatory_scales_with_x(face))
+        {
+            return false;
+        }
+        face.optional_cost
+            .is_some_and(|opt| opt.mana.has_variable() || opt.parts.iter().any(part_scales_with_x))
     }
 }

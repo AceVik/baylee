@@ -353,6 +353,17 @@ pub enum Amount {
     /// Number of distinct opponents currently being attacked directly by
     /// creatures you control (CR 506.3–4, CR 508.4).
     OpponentsYouAreAttacking,
+    /// Evaluates `then` when `condition` holds, otherwise `otherwise`
+    /// (`"deals 2 damage … if this spell's additional cost was paid, it deals 4
+    /// damage instead"`). Appended to preserve replay identities.
+    IfCondition {
+        /// Condition tested when the amount is evaluated.
+        condition: &'static crate::Condition,
+        /// Amount evaluated when `condition` holds.
+        then: &'static Amount,
+        /// Amount evaluated when `condition` does not hold.
+        otherwise: &'static Amount,
+    },
 }
 
 /// The recipient [`Amount::DamageThisTurn`] counts.
@@ -483,6 +494,9 @@ impl Amount {
         match self {
             Self::NegX | Self::NegXFixed(_) => true,
             Self::Negated(inner) => !inner.is_negative(),
+            Self::IfCondition {
+                then, otherwise, ..
+            } => then.is_negative() && otherwise.is_negative(),
             _ => false,
         }
     }

@@ -321,6 +321,14 @@ pub(crate) fn meaning(effects: &[Effect], x: u32) -> Meaning {
                 | CounterKind::Deathtouch
                 | CounterKind::Flying
                 | CounterKind::Indestructible
+                | CounterKind::FirstStrike
+                | CounterKind::DoubleStrike
+                | CounterKind::Haste
+                | CounterKind::Hexproof
+                | CounterKind::Menace
+                | CounterKind::Reach
+                | CounterKind::Trample
+                | CounterKind::Vigilance
                 | CounterKind::Hone
                 | CounterKind::Shadow
                 | CounterKind::Energy
@@ -344,6 +352,19 @@ pub(crate) fn meaning(effects: &[Effect], x: u32) -> Meaning {
                 // means whatever that card says; there is no rule to read.
                 CounterKind::Bore | CounterKind::Defense | CounterKind::Custom(_) => {}
             },
+            Effect::PutCounterChoice { choices, .. } => {
+                if m.benefit > 0 {
+                    m.size_counter = choices
+                        .iter()
+                        .copied()
+                        .find(|k| matches!(k, CounterKind::Plus { .. }));
+                } else if m.benefit < 0 {
+                    m.size_counter = choices
+                        .iter()
+                        .copied()
+                        .find(|k| matches!(k, CounterKind::Minus { .. }));
+                }
+            }
             Effect::Destroy { .. } | Effect::DestroyTargetSlots { .. } => {
                 m.removal = true;
                 m.destroy = true;

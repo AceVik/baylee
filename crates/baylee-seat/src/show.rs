@@ -367,6 +367,15 @@ pub fn describe(action: &PlayerAction) -> String {
         PlayerAction::ChooseColor(color) => {
             format!("choose {}", crate::narrator::color_name(*color))
         }
+        PlayerAction::ChooseCounterKind(kind) => {
+            format!(
+                "choose {}",
+                baylee_client_core::interaction::counter_label(
+                    *kind,
+                    baylee_client_core::i18n::Lang::En,
+                )
+            )
+        }
         PlayerAction::ChooseMode(i) => format!("choose option {}", i + 1),
         PlayerAction::ChooseNumber(n) => format!("choose {n}"),
         PlayerAction::ChoosePlayer(p) => format!("choose {}", player(*p)),

@@ -61,6 +61,7 @@ question_vocabulary!(
     ChooseSubtype,
     ChooseCardName,
     ChooseCardType,
+    ChooseCounterKind,
     ChooseColor,
     YesNo,
     ChooseCastMode,
@@ -1485,6 +1486,7 @@ const UNREACHED: &[&str] = &[
     // Serra's Emissary and Iona have focused chooser tests; none of this
     // file's deterministic spellbook scenarios casts either card.
     "ChooseCardType",
+    "ChooseCounterKind",
     "ChooseDamageEffect",
     "AllocatePrevention",
     "ChooseDamageSource",

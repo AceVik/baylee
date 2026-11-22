@@ -548,6 +548,23 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                     self.continue_cast_wizard();
                     return Ok(());
                 }
+                if self
+                    .cast_wizard
+                    .as_ref()
+                    .is_some_and(|w| w.stage == cast_wizard::WizardStage::OptionalCost)
+                {
+                    let mut wizard = self.cast_wizard.take().expect("wizard active");
+                    wizard.optional_cost_decided = true;
+                    wizard.optional_cost_paid = kind == CastModeKind::OptionalCost;
+                    wizard.stage = if self.wizard_needs_optional_cost_x(&wizard) {
+                        cast_wizard::WizardStage::KickerX
+                    } else {
+                        cast_wizard::WizardStage::Buyback
+                    };
+                    self.cast_wizard = Some(wizard);
+                    self.continue_cast_wizard();
+                    return Ok(());
+                }
                 if let Some(wizard) = self.cast_wizard.as_mut()
                     && wizard.stage == cast_wizard::WizardStage::Permission
                 {
@@ -702,7 +719,11 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 } else {
                     wizard.x = n;
                     wizard.stage = if wizard.stage == cast_wizard::WizardStage::KickerX {
-                        cast_wizard::WizardStage::Buyback
+                        if wizard.optional_cost_decided {
+                            cast_wizard::WizardStage::Buyback
+                        } else {
+                            cast_wizard::WizardStage::OptionalCost
+                        }
                     } else {
                         cast_wizard::WizardStage::Kicker
                     };
@@ -1787,6 +1808,27 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 self.state.invalidate_projections();
                 Ok(())
             }
+            (
+                Pending::ChooseCounterKind { player: p, choices },
+                PlayerAction::ChooseCounterKind(kind),
+            ) if *p == player && choices.contains(&kind) => {
+                let Some(mut res) = self.resolution.take() else {
+                    return Err(EngineError::IllegalAction("no counter-kind choice pending"));
+                };
+                match resolve::resume_with_counter_kind(&mut self.state, &mut res, kind) {
+                    resolve::Flow::Enter => {
+                        self.resolution = Some(res);
+                        self.awaiting_answer = false;
+                    }
+                    resolve::Flow::Wait(pending) => {
+                        self.resolution = Some(res);
+                        self.pending = pending;
+                        self.awaiting_answer = true;
+                    }
+                    resolve::Flow::Complete => self.finish_resolution(&res),
+                }
+                Ok(())
+            }
             // Two questions wear one `Pending`. This arm is the entering
             // permanent's — "as this enters, choose a color" — and it is
             // guarded on the plan rather than ordered by luck: the arm below
@@ -2237,7 +2279,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                         wizard.stage = if self.wizard_needs_kicker_x(&wizard) {
                             cast_wizard::WizardStage::KickerX
                         } else {
-                            cast_wizard::WizardStage::Buyback
+                            cast_wizard::WizardStage::OptionalCost
                         };
                     }
                     self.cast_wizard = Some(wizard);
@@ -2560,6 +2602,17 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 {
                     let mut wizard = self.cast_wizard.take().expect("wizard active");
                     wizard.pending_counter_object = objects.first().copied();
+                    self.cast_wizard = Some(wizard);
+                    self.continue_cast_wizard();
+                    return Ok(());
+                }
+                if self
+                    .cast_wizard
+                    .as_ref()
+                    .is_some_and(|w| w.stage == cast_wizard::WizardStage::CollectEvidence)
+                {
+                    let mut wizard = self.cast_wizard.take().expect("wizard active");
+                    wizard.evidence_exiles.push(objects);
                     self.cast_wizard = Some(wizard);
                     self.continue_cast_wizard();
                     return Ok(());

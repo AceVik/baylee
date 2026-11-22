@@ -185,6 +185,7 @@ impl Prompt {
             }
             Self::ChooseSubtype { .. } => Phrase::ChooseCreatureType.text(lang).to_string(),
             Self::ChooseCardType { .. } => Phrase::ChooseCardType.text(lang).to_string(),
+            Self::ChooseCounterKind { .. } => Phrase::ChooseCounterKind.text(lang).to_string(),
             Self::ChooseCardName { .. } => Phrase::ChooseCardName.text(lang).to_string(),
             Self::ChooseColor { .. } => Phrase::ChooseColour.text(lang).to_string(),
             Self::ChooseNumber { min, max, reason } => {
@@ -238,6 +239,9 @@ fn choose_cards_line(
         ChoicePrompt::CostCrew { power } => Phrase::CrewWithPower.fill(lang, &[&power.to_string()]),
         ChoicePrompt::CostSaddle { power } => {
             Phrase::SaddleWithPower.fill(lang, &[&power.to_string()])
+        }
+        ChoicePrompt::CollectEvidence { mana_value } => {
+            Phrase::CollectEvidenceWithManaValue.fill(lang, &[&mana_value.to_string()])
         }
         // One card type at a time, and the type is the whole question:
         // the menu is that type's cards, and the next question is the
@@ -392,7 +396,7 @@ fn choice_noun(reason: ChoicePrompt) -> Phrase {
         | ChoicePrompt::CostCrew { .. }
         | ChoicePrompt::CostSaddle { .. } => Phrase::NounPermanentsToTap,
         ChoicePrompt::CostReturn => Phrase::NounPermanentsToReturn,
-        ChoicePrompt::CostExile => Phrase::NounCardsToExile,
+        ChoicePrompt::CostExile | ChoicePrompt::CollectEvidence { .. } => Phrase::NounCardsToExile,
         ChoicePrompt::CostRemoveCounter => Phrase::NounPermanentsToRemoveCounter,
         ChoicePrompt::LeaveTapped => Phrase::NounPermanentsToLeaveTapped,
         ChoicePrompt::Untap => Phrase::NounPermanentsToUntap,
@@ -772,6 +776,14 @@ fn counters_named(
         CounterKind::Flying => say(Phrase::LogCountersFlying, &[]),
         CounterKind::Shadow => say(Phrase::LogCountersShadow, &[]),
         CounterKind::Indestructible => say(Phrase::LogCountersIndestructible, &[]),
+        CounterKind::FirstStrike => say(Phrase::LogCountersFirstStrike, &[]),
+        CounterKind::DoubleStrike => say(Phrase::LogCountersDoubleStrike, &[]),
+        CounterKind::Haste => say(Phrase::LogCountersHaste, &[]),
+        CounterKind::Hexproof => say(Phrase::LogCountersHexproof, &[]),
+        CounterKind::Menace => say(Phrase::LogCountersMenace, &[]),
+        CounterKind::Reach => say(Phrase::LogCountersReach, &[]),
+        CounterKind::Trample => say(Phrase::LogCountersTrample, &[]),
+        CounterKind::Vigilance => say(Phrase::LogCountersVigilance, &[]),
         CounterKind::Custom(id) => {
             let noun = say(Phrase::LogCountersOther, &[]);
             baylee_cards_dsl::counters::ASSIGNED

@@ -283,6 +283,88 @@ fn a_card_type_choice_is_answerable() {
     );
 }
 
+#[test]
+fn a_counter_kind_choice_is_answerable_and_localized() {
+    use crate::i18n::Lang;
+    use crate::interaction::{Turn, counter_label};
+    use baylee_cards_dsl::CounterKind;
+
+    let choices = vec![
+        CounterKind::Flying,
+        CounterKind::FirstStrike,
+        CounterKind::Lifelink,
+        CounterKind::Vigilance,
+    ];
+    let pending = Pending::ChooseCounterKind {
+        player: me(),
+        choices: choices.clone(),
+    };
+    let encoded = baylee_core::wire::encode(&pending);
+    let decoded: Pending = baylee_core::wire::decode(&encoded).expect("decode ChooseCounterKind");
+    assert!(matches!(
+        &decoded,
+        Pending::ChooseCounterKind { player, choices: got }
+            if *player == me() && got == &choices
+    ));
+
+    let mut i = interaction(decoded);
+    assert_eq!(
+        i.prompt().headline(Lang::En, Turn::Mine, None, false),
+        "Choose a counter kind"
+    );
+    assert_eq!(
+        i.prompt().headline(Lang::De, Turn::Mine, None, false),
+        "Wähle eine Markensorte"
+    );
+    assert!(!i.can_confirm());
+    assert!(!i.choose_index(choices.len()));
+    assert!(i.choose_index(1));
+    assert_eq!(i.chosen_index(), Some(1));
+    let action = i.confirm().expect("picked counter kind confirms");
+    assert_eq!(
+        action,
+        PlayerAction::ChooseCounterKind(CounterKind::FirstStrike)
+    );
+    let action_bytes = baylee_core::wire::encode(&action);
+    let action_decoded: PlayerAction =
+        baylee_core::wire::decode(&action_bytes).expect("decode ChooseCounterKind action");
+    assert_eq!(action_decoded, action);
+
+    for (kind, en, de) in [
+        (
+            CounterKind::FirstStrike,
+            "first strike counters",
+            "Erstschlag-Marken",
+        ),
+        (
+            CounterKind::DoubleStrike,
+            "double strike counters",
+            "Doppelschlag-Marken",
+        ),
+        (CounterKind::Haste, "haste counters", "Eile-Marken"),
+        (
+            CounterKind::Hexproof,
+            "hexproof counters",
+            "Fluchsicher-Marken",
+        ),
+        (CounterKind::Menace, "menace counters", "Bedrohlich-Marken"),
+        (CounterKind::Reach, "reach counters", "Reichweite-Marken"),
+        (
+            CounterKind::Trample,
+            "trample counters",
+            "Trampelschaden-Marken",
+        ),
+        (
+            CounterKind::Vigilance,
+            "vigilance counters",
+            "Wachsamkeit-Marken",
+        ),
+    ] {
+        assert_eq!(counter_label(kind, Lang::En), en);
+        assert_eq!(counter_label(kind, Lang::De), de);
+    }
+}
+
 /// Every choice answered by position answers the same way, which is what
 /// lets one chooser row in the renderer serve all four.
 #[test]
@@ -299,6 +381,13 @@ fn every_indexed_choice_reports_the_row_it_picked() {
         Pending::ChooseSubtype {
             player: me(),
             options: vec![SubtypeId::new(0), SubtypeId::new(1)],
+        },
+        Pending::ChooseCounterKind {
+            player: me(),
+            choices: vec![
+                baylee_cards_dsl::CounterKind::P1P1,
+                baylee_cards_dsl::CounterKind::Trample,
+            ],
         },
     ];
     for pending in cases {

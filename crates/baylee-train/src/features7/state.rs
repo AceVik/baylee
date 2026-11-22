@@ -576,6 +576,38 @@ fn push_public_object7(
                 f[80] += raw_unit(amt, 4.0);
                 f[104] += 4.0;
             }
+            CounterKind::FirstStrike => {
+                f[80] += raw_unit(amt, 4.0);
+                f[104] += 64.0;
+            }
+            CounterKind::DoubleStrike => {
+                f[80] += raw_unit(amt, 4.0);
+                f[104] += 128.0;
+            }
+            CounterKind::Haste => {
+                f[80] += raw_unit(amt, 4.0);
+                f[104] += 256.0;
+            }
+            CounterKind::Hexproof => {
+                f[80] += raw_unit(amt, 4.0);
+                f[104] += 512.0;
+            }
+            CounterKind::Menace => {
+                f[80] += raw_unit(amt, 4.0);
+                f[104] += 1024.0;
+            }
+            CounterKind::Reach => {
+                f[80] += raw_unit(amt, 4.0);
+                f[104] += 2048.0;
+            }
+            CounterKind::Trample => {
+                f[80] += raw_unit(amt, 4.0);
+                f[104] += 4096.0;
+            }
+            CounterKind::Vigilance => {
+                f[80] += raw_unit(amt, 4.0);
+                f[104] += 8192.0;
+            }
             CounterKind::Poison => {
                 f[81] += raw_unit(amt, 6.0);
                 f[104] += 8.0;

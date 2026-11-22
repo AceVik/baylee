@@ -100,7 +100,7 @@ pub fn ability_slot(index: u32) -> i16 {
 pub fn mode_kind(kind: &CastModeKind) -> i16 {
     match kind {
         CastModeKind::Normal => 0,
-        CastModeKind::Kicked => 1,
+        CastModeKind::Kicked | CastModeKind::OptionalCost => 1,
         // Foretell and madness are alternative costs (CR 702.143a, 702.35b);
         // the trained heads have no number of their own for them.
         CastModeKind::Alternative(_)
@@ -562,6 +562,7 @@ pub fn options(
         | Pending::Arrange { .. }
         | Pending::ChooseCardName { .. }
         | Pending::ChooseCardType { .. }
+        | Pending::ChooseCounterKind { .. }
         | Pending::ChoosePile { .. } => {
             return Err(Unscored::Unsupported);
         }
@@ -906,6 +907,7 @@ pub fn assemble(pending: &Pending, picks: &[Choice]) -> Result<PlayerAction, Unm
         | Pending::Arrange { .. }
         | Pending::ChooseCardName { .. }
         | Pending::ChooseCardType { .. }
+        | Pending::ChooseCounterKind { .. }
         | Pending::ChoosePile { .. } => {
             return Err(Unmatched::Unscored(Unscored::Unsupported));
         }

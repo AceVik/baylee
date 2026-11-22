@@ -462,6 +462,23 @@ pub fn encode_candidates4(
             }
         }
 
+        Pending::ChooseCounterKind { choices, .. } => {
+            for (i, &kind) in choices.iter().enumerate() {
+                if out.candidates.len() >= MAX_CANDIDATES {
+                    break;
+                }
+                let mut c = Candidate4::default();
+                encode_cast_mode_kind_into(
+                    &CastModeKind::Counter(kind),
+                    &ManaCost::ZERO,
+                    u8::try_from(i).unwrap_or(u8::MAX),
+                    &mut c.feat,
+                );
+                c.action = Some(PlayerAction::ChooseCounterKind(kind));
+                out.candidates.push(c);
+            }
+        }
+
         Pending::ChooseCardName {
             types,
             excluded_types,
@@ -1299,7 +1316,7 @@ fn encode_cast_mode_kind_into(kind: &CastModeKind, cost: &ManaCost, index: u8, f
 
     let kind_slot = match kind {
         CastModeKind::Normal => 26,
-        CastModeKind::Kicked => 27,
+        CastModeKind::Kicked | CastModeKind::OptionalCost => 27,
         // Foretell and madness are alternative costs (CR 702.143a, 702.35b):
         // their slot, so the candidate width the trained nets read stays the
         // same.

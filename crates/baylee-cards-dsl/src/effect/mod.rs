@@ -5512,6 +5512,18 @@ pub enum Effect {
         /// `SubjectContext::found` and `EventObject` bound to its objects.
         unchosen_pile: &'static [Effect],
     },
+    /// Choose one counter kind from `choices` on resolution and put `amount`
+    /// counters of the chosen kind on `target` (`"put your choice of … counter
+    /// on …"`, CR 122.1, CR 608.2d; *Elspeth Resplendent*, *Kayla's Command*,
+    /// *Indominus Rex*). Appended to preserve replay identities.
+    PutCounterChoice {
+        /// Object(s) or player(s) receiving the chosen counter kind.
+        target: TargetSpec,
+        /// Eligible counter kinds offered to the resolving ability's controller.
+        choices: &'static [CounterKind],
+        /// Number of counters of the chosen kind to place.
+        amount: Amount,
+    },
 }
 
 #[cfg(test)]

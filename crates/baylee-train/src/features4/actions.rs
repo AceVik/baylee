@@ -88,7 +88,9 @@ impl PendingKind4 {
             Pending::MulliganBottom { .. } => Self::MulliganBottom,
             Pending::DiscardChoice { .. } => Self::DiscardChoice,
             Pending::YesNo { .. } => Self::YesNo,
-            Pending::ChooseCastMode { .. } => Self::ChooseCastMode,
+            Pending::ChooseCastMode { .. } | Pending::ChooseCounterKind { .. } => {
+                Self::ChooseCastMode
+            }
             Pending::ChooseNumber { .. } => Self::ChooseNumber,
             Pending::ChooseColor { .. } => Self::ChooseColor,
             // A card type is a type choice too; a bucket of its own would change

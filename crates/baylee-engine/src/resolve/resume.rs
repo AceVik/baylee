@@ -1700,6 +1700,7 @@ pub(super) fn resume_inner(
         | AwaitingOp::ChooseCreatureType { .. }
         | AwaitingOp::Colors { .. }
         | AwaitingOp::MoveCounter { .. }
+        | AwaitingOp::PutCounterChoice { .. }
         | AwaitingOp::Counters { .. }
         | AwaitingOp::RemoveUpToCountersTarget { .. }
         | AwaitingOp::ContinueRemovingCounters { .. }

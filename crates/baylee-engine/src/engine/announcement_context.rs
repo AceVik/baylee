@@ -15,6 +15,7 @@ fn settled_x(wizard: &CastWizard) -> Option<u32> {
         | WizardStage::XValue
         | WizardStage::KickerX => None,
         WizardStage::Kicker
+        | WizardStage::OptionalCost
         | WizardStage::Buyback
         | WizardStage::Bargain
         | WizardStage::Offspring
@@ -38,6 +39,7 @@ fn settled_x(wizard: &CastWizard) -> Option<u32> {
         | WizardStage::Convoke
         | WizardStage::Sacrifice
         | WizardStage::RemoveCounters
+        | WizardStage::CollectEvidence
         | WizardStage::Escape
         | WizardStage::Done => Some(wizard.x),
     }

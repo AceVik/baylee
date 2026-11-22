@@ -101,6 +101,7 @@ pub(crate) const fn is_sheet(prompt: &Prompt) -> bool {
             | Prompt::DeclareBlockers { .. }
             | Prompt::ChooseSubtype { .. }
             | Prompt::ChooseCardType { .. }
+            | Prompt::ChooseCounterKind { .. }
             | Prompt::ChooseCardName { .. }
             | Prompt::ChooseColor { .. }
             | Prompt::ChooseNumber { .. }

@@ -1277,6 +1277,11 @@ pub enum Rider {
     /// attacked defender for `Trigger::AttackersDeclaredAtTarget`). Appended
     /// to preserve replay identities.
     EventFoundObject(baylee_core::ids::DamageSourceRef),
+    /// Non-kicker [`baylee_cards_dsl::FaceDef::optional_cost`] paid as an
+    /// additional cost when cast (`CR 118.8b`), preserved onto the permanent it
+    /// becomes (`CR 400.7d`) and onto spell copies (`CR 707.10`). Appended to
+    /// preserve replay identities.
+    OptionalCostPaid,
 }
 
 /// What ends an "exile … until …" (CR 610.3), as [`Rider::Linked`] carries
@@ -1435,7 +1440,8 @@ impl Rider {
             | Self::Awakened(_)
             | Self::ConspirePaid(_)
             | Self::TributePaid
-            | Self::RepeatedModes(_) => false,
+            | Self::RepeatedModes(_)
+            | Self::OptionalCostPaid => false,
         }
     }
 }

@@ -293,6 +293,18 @@ pub fn amount_with_context(
                     .fold(0u32, |acc, &p| acc.saturating_add(state.per_turn.mana_expended_by(p)))
             })
         }
+        Amount::IfCondition {
+            condition,
+            then,
+            otherwise,
+        } => {
+            let branch = if super::condition_holds_with_context(state, you, context, **condition) {
+                then
+            } else {
+                otherwise
+            };
+            self::amount_with_context(branch, state, you, context, x)
+        }
     }
 }
 

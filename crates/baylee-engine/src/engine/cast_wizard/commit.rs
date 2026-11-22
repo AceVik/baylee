@@ -165,6 +165,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
         // and any mandatory additional costs. No object can pay two parts.
         let mut cost_objects = wizard.cost_objects.iter();
         let mut counter_removals = wizard.counter_removals.iter();
+        let mut evidence_groups = wizard.evidence_exiles.iter();
         let mut sacrificed_lki = None;
         let mut sacrificed_object = None;
         // Each selected card pays exactly one exile-from-hand part.
@@ -240,7 +241,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                         }
                     }
                 }
-                CostPart::Sacrifice(_) | CostPart::ReturnToHand(_) => {
+                CostPart::Sacrifice(_) | CostPart::ReturnToHand(_) | CostPart::Behold(_) => {
                     let chosen = cost_objects
                         .next()
                         .copied()
@@ -257,6 +258,32 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                             .map(crate::object::SacrificedLki::of);
                     }
                     super::super::cost_wizard::pay(&mut self.state, player, part, chosen)?;
+                }
+                CostPart::CollectEvidence(mv) => {
+                    let chosen = evidence_groups.next().ok_or(EngineError::IllegalAction(
+                        "unanswered collect evidence cost",
+                    ))?;
+                    let mut total_mv = 0u32;
+                    for &card in chosen {
+                        let Some(obj) = self.state.object(card).filter(|o| {
+                            o.zone == crate::zone::Zone::Graveyard
+                                && o.zone_owner == Some(player)
+                                && o.is_card()
+                        }) else {
+                            return Err(EngineError::IllegalAction(
+                                "collect evidence card is not in your graveyard",
+                            ));
+                        };
+                        total_mv = total_mv.saturating_add(obj.characteristics().mana_value());
+                    }
+                    if total_mv < u32::from(*mv) {
+                        return Err(EngineError::IllegalAction(
+                            "insufficient mana value for collect evidence",
+                        ));
+                    }
+                    for &card in chosen {
+                        super::super::cost_wizard::pay(&mut self.state, player, part, card)?;
+                    }
                 }
                 CostPart::TapN { count, .. } => {
                     for _ in 0..*count {
@@ -505,7 +532,8 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 | CostPart::TapOther(_)
                 | CostPart::ExileFromGraveyard(_)
                 | CostPart::ExileFromHand(_)
-                | CostPart::Discard(_) => {
+                | CostPart::Discard(_)
+                | CostPart::Behold(_) => {
                     let chosen = cost_objects
                         .next()
                         .copied()
@@ -513,6 +541,32 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                             "an object cost the cast never asked about",
                         ))?;
                     super::super::cost_wizard::pay(&mut self.state, player, part, chosen)?;
+                }
+                CostPart::CollectEvidence(mv) => {
+                    let chosen = evidence_groups.next().ok_or(EngineError::IllegalAction(
+                        "unanswered collect evidence cost",
+                    ))?;
+                    let mut total_mv = 0u32;
+                    for &card in chosen {
+                        let Some(obj) = self.state.object(card).filter(|o| {
+                            o.zone == crate::zone::Zone::Graveyard
+                                && o.zone_owner == Some(player)
+                                && o.is_card()
+                        }) else {
+                            return Err(EngineError::IllegalAction(
+                                "collect evidence card is not in your graveyard",
+                            ));
+                        };
+                        total_mv = total_mv.saturating_add(obj.characteristics().mana_value());
+                    }
+                    if total_mv < u32::from(*mv) {
+                        return Err(EngineError::IllegalAction(
+                            "insufficient mana value for collect evidence",
+                        ));
+                    }
+                    for &card in chosen {
+                        super::super::cost_wizard::pay(&mut self.state, player, part, card)?;
+                    }
                 }
                 CostPart::SacrificeX(_) => {
                     for _ in 0..wizard.x {
@@ -903,6 +957,11 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
             obj.riders.retain(|r| *r != crate::object::Rider::Bargained);
             if wizard.bargained {
                 obj.riders.push(crate::object::Rider::Bargained);
+            }
+            obj.riders
+                .retain(|r| *r != crate::object::Rider::OptionalCostPaid);
+            if wizard.optional_cost_paid {
+                obj.riders.push(crate::object::Rider::OptionalCostPaid);
             }
             obj.riders
                 .retain(|r| !matches!(r, crate::object::Rider::SquadPaid(_)));

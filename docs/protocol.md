@@ -250,6 +250,18 @@ Actual level counters remain in `counters`. `LogEvent::ClassLevel` reports the
 change while the same permanent remains on the battlefield, using a blank
 object name where the permanent was or is face down.
 
+## Optional spell costs and counter-kind choices (protocol 69, view 112)
+
+`baylee_view::CounterKind` appends the remaining eight CR 122.1b keyword
+counters (`FirstStrike`, `DoubleStrike`, `Haste`, `Hexproof`, `Menace`,
+`Reach`, `Trample`, `Vigilance`), moving `VIEW_VERSION` to 112.
+`CastModeKind::OptionalCost` names a non-kicker optional additional spell cost
+(CR 118.8b), `ChoicePrompt::CollectEvidence { mana_value }` heads a collect
+evidence graveyard selection (CR 701.59a), and
+`Pending::ChooseCounterKind { player, choices }` /
+`PlayerAction::ChooseCounterKind(CounterKind)` ask and answer a choice among
+offered counter kinds on resolution, moving `PROTOCOL_VERSION` to 69.
+
 ## Composed ability origins (compatible addition)
 
 `PublicObject.ability_sources` maps runtime indices in composed ability lists

@@ -324,6 +324,7 @@ fn moved_permanents_for_counter_costs(
     moved_permanents
 }
 
+#[allow(clippy::too_many_lines)] // exhaustive over additional-payment CostPart kinds
 fn settled_additional_payment_capacity(
     state: &GameState,
     player: PlayerId,
@@ -402,6 +403,26 @@ fn settled_additional_payment_capacity(
             continue;
         }
         let mut paid: Vec<_> = chosen.iter().copied().chain(assignments).collect();
+        let evidence_needed: u32 = crate::engine::cast_wizard::wizard_cost_parts(face, choice)
+            .filter_map(|part| match part {
+                CostPart::CollectEvidence(mv) => Some(u32::from(*mv)),
+                _ => None,
+            })
+            .sum();
+        if evidence_needed > 0 {
+            let avail_mv: u32 = state
+                .zones
+                .list(ZoneLocation::Graveyard(player))
+                .iter()
+                .filter(|&&id| id != card && !paid.contains(&id))
+                .filter_map(|&id| state.object(id).filter(|o| o.is_card()))
+                .fold(0u32, |acc, o| {
+                    acc.saturating_add(o.characteristics().mana_value())
+                });
+            if avail_mv < evidence_needed {
+                continue;
+            }
+        }
         if random > 0 {
             let left = state
                 .zones

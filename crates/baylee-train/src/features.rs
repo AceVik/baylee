@@ -270,6 +270,7 @@ pub fn question(pending: &Pending, hand: usize) -> (i16, u32) {
         Pending::ChooseColor { options, .. } => (10, n(options.len())),
         Pending::YesNo { .. } => (11, 2),
         Pending::ChooseCastMode { options, .. } => (12, n(options.len())),
+        Pending::ChooseCounterKind { choices, .. } => (12, n(choices.len())),
         Pending::ChooseNumber { min, max, .. } => (13, max.saturating_sub(*min).saturating_add(1)),
         Pending::ChoosePlayer { options, .. } => (14, n(options.len())),
         Pending::Arrange { cards, .. } => (15, n(cards.len())),

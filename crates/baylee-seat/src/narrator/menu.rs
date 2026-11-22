@@ -1909,6 +1909,9 @@ fn cast_mode_label(card: Option<baylee_view::CardIdentity>, option: &CastModeDes
         ),
         CastModeKind::Normal => format!("Cast it normally for {cost}"),
         CastModeKind::Kicked => format!("Cast it kicked for {cost}"),
+        CastModeKind::OptionalCost => {
+            format!("Cast it with its optional additional cost for {cost}")
+        }
         CastModeKind::Alternative(i) => {
             let words = card
                 .and_then(|c| sentence(baylee_cards::lines::alternative_line(c.index, face, i)));

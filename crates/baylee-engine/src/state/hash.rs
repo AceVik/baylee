@@ -1080,6 +1080,9 @@ fn hash_spell_source_decisions(h: &mut Hasher, source: &crate::object::GameObjec
             h.u8(255);
             h.u16(306);
             h.u32(*packed);
+        } else if matches!(rider, crate::object::Rider::OptionalCostPaid) {
+            h.u8(255);
+            h.u16(307);
         }
     }
     source.replicated.hash(h);
@@ -1783,6 +1786,10 @@ fn hash_cast_keyword_rider(h: &mut Hasher, rider: &crate::object::Rider) {
             h.u8(255);
             h.u16(306);
             h.u32(*packed);
+        }
+        crate::object::Rider::OptionalCostPaid => {
+            h.u8(255);
+            h.u16(307);
         }
         _ => {}
     }
@@ -2655,6 +2662,10 @@ fn hash_object(h: &mut Hasher, obj: &GameObject) {
                 h.u16(317);
                 reference.hash(h);
             }
+            Rider::OptionalCostPaid => {
+                h.u8(255);
+                h.u16(307);
+            }
         }
     }
     // What the spell or ability on the stack was cast or put there with:
@@ -2992,6 +3003,14 @@ fn hash_counter(h: &mut Hasher, kind: CounterKind) {
         CounterKind::Finality => h.u8(18),
         CounterKind::Shield => h.u8(20),
         CounterKind::Defense => h.u8(21),
+        CounterKind::FirstStrike => h.u8(23),
+        CounterKind::DoubleStrike => h.u8(24),
+        CounterKind::Haste => h.u8(25),
+        CounterKind::Hexproof => h.u8(26),
+        CounterKind::Menace => h.u8(27),
+        CounterKind::Reach => h.u8(28),
+        CounterKind::Trample => h.u8(29),
+        CounterKind::Vigilance => h.u8(30),
         // The id is hashed whole. Folding it modulo 100 was safe while every
         // tag was one byte and is not worth keeping now that the function
         // writes as many as it likes.

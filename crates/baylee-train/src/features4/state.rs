@@ -514,6 +514,14 @@ fn push_public_object(
             | CounterKind::Deathtouch
             | CounterKind::Lifelink
             | CounterKind::Shadow
+            | CounterKind::FirstStrike
+            | CounterKind::DoubleStrike
+            | CounterKind::Haste
+            | CounterKind::Hexproof
+            | CounterKind::Menace
+            | CounterKind::Reach
+            | CounterKind::Trample
+            | CounterKind::Vigilance
             | CounterKind::Hone => f[80] = unit(amt, 4.0),
             CounterKind::Poison | CounterKind::Rad | CounterKind::Custom(_) => {
                 f[81] = (f[81] + unit(amt, 6.0)).min(1.0);

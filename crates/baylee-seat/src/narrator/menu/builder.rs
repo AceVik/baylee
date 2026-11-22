@@ -331,6 +331,21 @@ impl Builder<'_, '_> {
                 self.list_options();
                 self.answer_pick("pick=[one card type id]");
             }
+            Pending::ChooseCounterKind { choices, .. } => {
+                self.line("QUESTION: Choose a counter kind.");
+                for (index, kind) in choices.iter().enumerate() {
+                    self.option(
+                        format!("counter{index}"),
+                        baylee_client_core::interaction::counter_label(
+                            *kind,
+                            baylee_client_core::i18n::Lang::En,
+                        ),
+                        Act::Now(PlayerAction::ChooseCounterKind(*kind)),
+                    );
+                }
+                self.list_options();
+                self.answer_pick("pick=[one counter kind id]");
+            }
             Pending::ChooseCardName {
                 types,
                 excluded_types,

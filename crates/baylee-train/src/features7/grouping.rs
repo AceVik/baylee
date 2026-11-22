@@ -403,5 +403,13 @@ const fn counter_sort_key(kind: CounterKind) -> (u8, u8, u8, u32) {
         CounterKind::Custom(id) => (20, 0, 0, id),
         // Appended so every pre-existing counter keeps its canonical order.
         CounterKind::Deathtouch => (21, 0, 0, 0),
+        CounterKind::FirstStrike => (22, 0, 0, 0),
+        CounterKind::DoubleStrike => (23, 0, 0, 0),
+        CounterKind::Haste => (24, 0, 0, 0),
+        CounterKind::Hexproof => (25, 0, 0, 0),
+        CounterKind::Menace => (26, 0, 0, 0),
+        CounterKind::Reach => (27, 0, 0, 0),
+        CounterKind::Trample => (28, 0, 0, 0),
+        CounterKind::Vigilance => (29, 0, 0, 0),
     }
 }

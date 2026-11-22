@@ -209,6 +209,14 @@ pub fn counter(kind: CounterKind) -> String {
         CounterKind::Flying => "flying".into(),
         CounterKind::Shadow => "shadow".into(),
         CounterKind::Indestructible => "indestructible".into(),
+        CounterKind::FirstStrike => "first strike".into(),
+        CounterKind::DoubleStrike => "double strike".into(),
+        CounterKind::Haste => "haste".into(),
+        CounterKind::Hexproof => "hexproof".into(),
+        CounterKind::Menace => "menace".into(),
+        CounterKind::Reach => "reach".into(),
+        CounterKind::Trample => "trample".into(),
+        CounterKind::Vigilance => "vigilance".into(),
         CounterKind::Hone => "hone".into(),
         CounterKind::Stun => "stun".into(),
         CounterKind::Finality => "finality".into(),
@@ -438,6 +446,11 @@ pub fn choice_prompt(prompt: ChoicePrompt) -> String {
         }
         ChoicePrompt::CostCrew { power } => {
             format!("Choose creatures to tap to crew (total power {power} or more)")
+        }
+        ChoicePrompt::CollectEvidence { mana_value } => {
+            format!(
+                "Collect evidence {mana_value}: exile cards from your graveyard with total mana value {mana_value} or more"
+            )
         }
         ChoicePrompt::LookAtLibrary => "Inspect the library cards, then confirm without selecting any".into(),
         ChoicePrompt::Behold => "Behold: choose a matching permanent you control or reveal a matching hand card; choose none to decline".into(),

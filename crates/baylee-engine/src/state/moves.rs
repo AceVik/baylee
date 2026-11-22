@@ -869,6 +869,7 @@ impl GameState {
                             | crate::object::Rider::Awakened(_)
                             | crate::object::Rider::ConspirePaid(_)
                             | crate::object::Rider::RepeatedModes(_)
+                            | crate::object::Rider::OptionalCostPaid
                     )
                 });
             }

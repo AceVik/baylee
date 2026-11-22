@@ -617,6 +617,7 @@ pub fn condition_holds_with_context(
         Condition::Bargained => state
             .object(source)
             .is_some_and(|object| object_was_bargained(state, object)),
+        Condition::OptionalCostPaid => state.object(source).is_some_and(object_optional_cost_paid),
         Condition::Prototyped => state
             .object(source)
             .is_some_and(|object| object_is_prototyped(state, object)),
@@ -938,6 +939,9 @@ pub(crate) fn intervening_if_for_incarnation(
         Some(Condition::Bargained) => state
             .damage_source(source, version)
             .is_some_and(|object| object_was_bargained(state, object)),
+        Some(Condition::OptionalCostPaid) => state
+            .damage_source(source, version)
+            .is_some_and(object_optional_cost_paid),
         Some(Condition::GiftWasPromised) => state
             .damage_source(source, version)
             .is_some_and(object_gift_was_promised),
@@ -1102,6 +1106,9 @@ pub(crate) fn condition_with_event(
         }),
         Condition::EvolveFromEvent => evolve_holds(state, context.source, source_version, event),
         Condition::TributeWasNotPaid => tribute_was_not_paid(state, context.source, source_version),
+        Condition::OptionalCostPaid => state
+            .damage_source(context.source, source_version)
+            .is_some_and(object_optional_cost_paid),
         _ => condition_holds_with_context(state, you, context, condition),
     }
 }
@@ -1271,6 +1278,12 @@ pub(crate) fn graveyard_card_types(
 
 fn object_was_bargained(_state: &GameState, object: &crate::object::GameObject) -> bool {
     object.riders.contains(&crate::object::Rider::Bargained)
+}
+
+fn object_optional_cost_paid(object: &crate::object::GameObject) -> bool {
+    object
+        .riders
+        .contains(&crate::object::Rider::OptionalCostPaid)
 }
 
 fn object_gift_was_promised(object: &crate::object::GameObject) -> bool {

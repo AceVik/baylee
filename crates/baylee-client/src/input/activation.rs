@@ -424,6 +424,7 @@ pub(super) fn cast_menu_for(duel: &Duel, object: ObjectId) -> Option<crate::Cast
             matches!(
                 m.kind,
                 baylee_engine::choice::CastModeKind::Kicked
+                    | baylee_engine::choice::CastModeKind::OptionalCost
                     | baylee_engine::choice::CastModeKind::Prototype
                     | baylee_engine::choice::CastModeKind::Disguise
                     | baylee_engine::choice::CastModeKind::Dash

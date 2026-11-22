@@ -822,6 +822,9 @@ impl HeuristicAgent {
                     .expect("a card-type choice has options");
                 PlayerAction::ChooseCardType(chosen)
             }
+            Pending::ChooseCounterKind { choices, .. } => {
+                PlayerAction::ChooseCounterKind(self.choose_counter_kind(view, &choices, context))
+            }
             Pending::ChooseCardName {
                 types,
                 excluded_types,
@@ -1781,6 +1784,7 @@ pub fn pending_player(pending: &Pending) -> Option<PlayerId> {
         | Pending::ChooseTargets { player, .. }
         | Pending::ChooseSubtype { player, .. }
         | Pending::ChooseCardType { player, .. }
+        | Pending::ChooseCounterKind { player, .. }
         | Pending::ChooseCardName { player, .. }
         | Pending::ChooseColor { player, .. }
         | Pending::ChooseDamageSource { player, .. }

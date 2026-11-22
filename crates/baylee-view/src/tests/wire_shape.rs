@@ -475,7 +475,12 @@ fn the_shape_on_the_wire_and_the_number_that_names_it_move_together() {
     // and `Dungeon::Undercity` (CR 725; protocol 67 on binary frames).
     // 111: `CastModeKind::RepeatedModes` (CR 700.2d) and
     // `NumberPrompt::DivideCounters` (CR 601.2d; protocol 68 on binary frames).
-    const RECORDED: (u32, u64) = (111, 12_258_879_866_033_056_955);
+    // 112: `CounterKind::{FirstStrike, DoubleStrike, Haste, Hexproof, Menace,
+    // Reach, Trample, Vigilance}` (CR 122.1b), `CastModeKind::OptionalCost`
+    // (CR 118.8b), `ChoicePrompt::CollectEvidence` (CR 701.59a), and
+    // `Pending/PlayerAction::ChooseCounterKind` (CR 122.1; protocol 69 on
+    // binary frames).
+    const RECORDED: (u32, u64) = (112, 7_989_785_976_964_826_993);
 
     let samples = core_samples();
     let sampled: std::collections::BTreeSet<String> =

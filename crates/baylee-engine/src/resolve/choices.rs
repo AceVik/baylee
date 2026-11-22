@@ -37,6 +37,90 @@ fn offer_life_payment(
     })
 }
 
+fn counter_choice_recipients(
+    state: &GameState,
+    res: &Resolution,
+    you: PlayerId,
+    target: TargetSpec,
+) -> (Vec<baylee_core::ids::DamageSourceRef>, Vec<PlayerId>) {
+    let valid_targets = |list: &[ObjectId]| -> Vec<baylee_core::ids::DamageSourceRef> {
+        list.iter()
+            .filter_map(|&id| {
+                subjects::target(state, res, id).filter(|&r| subjects::is_current(state, r))
+            })
+            .collect()
+    };
+    let live_players = |set: baylee_core::ids::SeatSet| -> Vec<PlayerId> {
+        set.iter().filter(|&p| !state.has_left(p)).collect()
+    };
+    match target {
+        TargetSpec::Player(rel) => (
+            Vec::new(),
+            players_of(rel, state, you, res)
+                .into_iter()
+                .filter(|&p| !state.has_left(p))
+                .collect(),
+        ),
+        TargetSpec::AnyPlayer
+        | TargetSpec::AnyOpponent
+        | TargetSpec::PlayerWhoAttackedThisTurn
+        | TargetSpec::OpponentWithMoreThanActivePlayer(_)
+        | TargetSpec::OpponentWithMoreThanPlayer(..) => {
+            (Vec::new(), live_players(res.target_players))
+        }
+        TargetSpec::AnyTarget | TargetSpec::OpponentOrObject(_) | TargetSpec::PlayerOrObject(_) => {
+            (
+                valid_targets(&res.targets),
+                live_players(res.target_players),
+            )
+        }
+        TargetSpec::ThisObject => (
+            subjects::this(state, res)
+                .filter(|r| subjects::is_current(state, *r))
+                .into_iter()
+                .collect(),
+            Vec::new(),
+        ),
+        TargetSpec::EventObject => {
+            let objs = if res.targets.is_empty() {
+                subjects::event(state, res)
+                    .filter(|r| subjects::is_current(state, *r))
+                    .into_iter()
+                    .collect()
+            } else {
+                valid_targets(&res.targets)
+            };
+            (objs, Vec::new())
+        }
+        TargetSpec::ObjectOfFirstTargetsPlayer(_) | TargetSpec::CardInFirstTargetsGraveyard(_) => {
+            (valid_targets(&res.second_targets), Vec::new())
+        }
+        TargetSpec::Object(_)
+        | TargetSpec::ObjectOfEachOpponent(_)
+        | TargetSpec::ObjectControlledBy(..)
+        | TargetSpec::ObjectOfEventPlayer(_)
+        | TargetSpec::Spell(_)
+        | TargetSpec::StackOrBattlefield(_)
+        | TargetSpec::ObjectOrCardInAnyGraveyard(_)
+        | TargetSpec::CardInGraveyard(..)
+        | TargetSpec::CardInPlayersGraveyard(..)
+        | TargetSpec::CardInGraveyardBelowEvent(..)
+        | TargetSpec::CardInGraveyardBelowValue(..)
+        | TargetSpec::AbilityOnStack(_)
+        | TargetSpec::SpellOrAbility(_) => {
+            let objs = if subjects::names_targets(state, res) {
+                valid_targets(&res.targets)
+            } else {
+                subjects::this(state, res)
+                    .filter(|r| subjects::is_current(state, *r))
+                    .into_iter()
+                    .collect()
+            };
+            (objs, Vec::new())
+        }
+    }
+}
+
 /// Operations that suspend on a player choice.
 #[allow(clippy::too_many_lines)] // the choice-op dispatch table is naturally flat
 pub(super) fn exec_choice(
@@ -61,6 +145,35 @@ pub(super) fn exec_choice(
             })
         }
         Effect::ChooseCreatureType { exclude } => Some(super::creature_type::choose(res, exclude)),
+        Effect::PutCounterChoice {
+            target,
+            choices,
+            amount,
+        } => {
+            let n = u16::try_from(amount2(&amount, state, you, res)).unwrap_or(u16::MAX);
+            if n == 0 || choices.is_empty() {
+                return None;
+            }
+            let (objects, players) = counter_choice_recipients(state, res, you, target);
+            if objects.is_empty() && players.is_empty() {
+                return None;
+            }
+            let mut unique_choices = Vec::with_capacity(choices.len());
+            for &kind in choices {
+                if !unique_choices.contains(&kind) {
+                    unique_choices.push(kind);
+                }
+            }
+            res.awaiting = Some(AwaitingOp::PutCounterChoice {
+                objects,
+                players,
+                amount: n,
+            });
+            Some(Pending::ChooseCounterKind {
+                player: you,
+                choices: unique_choices,
+            })
+        }
         Effect::GuessChosenNameInHand { who, guesser } => {
             let hand_owner = players_of(who, state, you, res).first().copied()?;
             let guesser = players_of(guesser, state, you, res).first().copied()?;

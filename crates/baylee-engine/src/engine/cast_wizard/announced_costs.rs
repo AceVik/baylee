@@ -352,6 +352,7 @@ impl CastWizard {
             alternative_cost: self.alternative_cost,
             buyback: self.buyback.is_some(),
             bargained: self.bargained,
+            optional_cost_paid: self.optional_cost_paid,
             offspring: self.offspring,
             casualty: self.casualty,
             squad: self.squad,

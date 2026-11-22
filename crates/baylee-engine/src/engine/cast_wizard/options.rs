@@ -441,6 +441,30 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                     cost: price(normal_cost),
                 },
             );
+            if let Some(opt_cost) = face.optional_cost {
+                let opt_mana = normal_cost.combine(&opt_cost.mana);
+                let min_opt_mana = min_normal_cost.combine(&opt_cost.mana);
+                if afford_normal(&min_opt_mana.with_x(0))
+                    && casting::additional_payment_capacity_for(
+                        &self.state,
+                        player,
+                        card,
+                        face,
+                        Some(CastModeKind::OptionalCost),
+                        &[],
+                    )
+                    .is_some()
+                {
+                    options.insert(
+                        1,
+                        CastModeDesc {
+                            index: 1,
+                            kind: CastModeKind::OptionalCost,
+                            cost: price(opt_mana),
+                        },
+                    );
+                }
+            }
         }
         if front_timing_ok
             && !face.additional_costs.is_empty()

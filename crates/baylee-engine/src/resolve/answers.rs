@@ -1568,6 +1568,57 @@ pub fn resume_effect_choice(state: &mut GameState, res: &mut Resolution, index: 
     flow
 }
 
+/// Resume a counter-kind choice (`Effect::PutCounterChoice`, CR 122.1).
+///
+/// # Panics
+/// Panics if `res.awaiting` is not `Some(AwaitingOp::PutCounterChoice { .. })`.
+pub fn resume_with_counter_kind(
+    state: &mut GameState,
+    res: &mut Resolution,
+    kind: baylee_cards_dsl::CounterKind,
+) -> Flow {
+    subjects::begin_resume(state, res);
+    let Some(AwaitingOp::PutCounterChoice {
+        objects,
+        players,
+        amount,
+    }) = res.awaiting.take()
+    else {
+        panic!("counter-kind choice suspended");
+    };
+    let plans: Vec<_> = objects
+        .into_iter()
+        .filter_map(|reference| {
+            subjects::is_current(state, reference).then_some(())?;
+            crate::replacement::counter_order::plan(
+                state,
+                res.controller,
+                reference.object,
+                vec![(kind, amount)],
+                true,
+                None,
+            )
+        })
+        .collect();
+    let player_counters: Vec<_> = players
+        .into_iter()
+        .filter(|&p| !state.has_left(p))
+        .filter_map(|p| {
+            let replaced =
+                state.replaced_player_counters(res.controller, p, kind, u32::from(amount));
+            let delta = i32::try_from(replaced).unwrap_or(i32::MAX);
+            (delta > 0).then_some((p, kind, delta))
+        })
+        .collect();
+    if !plans.is_empty() || !player_counters.is_empty() {
+        crate::replacement::counter_order::enqueue_batch(state, plans, player_counters);
+    }
+    res.pc += 1;
+    let flow = run(state, res);
+    subjects::flush(state, res);
+    flow
+}
+
 /// Resume an already-made selection after all CR 903.9b answers are known.
 fn resume_selected_commander(
     state: &mut GameState,

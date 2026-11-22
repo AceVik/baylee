@@ -340,7 +340,9 @@ fn encode_cost_into(cost: &Cost, dst: &mut [f32]) {
             | CostPart::ExilePermanent(_)
             | CostPart::ExileFromSingleGraveyard { .. }
             | CostPart::CraftMaterials { .. }
-            | CostPart::ExileTopOfLibrary(_) => dst[6] = 1.0,
+            | CostPart::ExileTopOfLibrary(_)
+            | CostPart::CollectEvidence(_) => dst[6] = 1.0,
+            CostPart::Behold(_) => {}
             CostPart::Forage => {
                 dst[3] = 1.0;
                 dst[6] = 1.0;

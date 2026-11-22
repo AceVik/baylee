@@ -158,6 +158,9 @@ fn least(
         Pending::ChooseCardType { options, .. } => options
             .first()
             .map(|card_type| PlayerAction::ChooseCardType(*card_type)),
+        Pending::ChooseCounterKind { choices, .. } => choices
+            .first()
+            .map(|kind| PlayerAction::ChooseCounterKind(*kind)),
         Pending::ChooseColor { options, .. } => {
             options.first().map(|c| PlayerAction::ChooseColor(*c))
         }

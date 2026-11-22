@@ -114,6 +114,14 @@ fn counter_index(kind: CounterKind) -> usize {
         CounterKind::Shield => 19,
         CounterKind::Defense => 20,
         CounterKind::Deathtouch => 21,
+        CounterKind::FirstStrike => 22,
+        CounterKind::DoubleStrike => 23,
+        CounterKind::Haste => 24,
+        CounterKind::Hexproof => 25,
+        CounterKind::Menace => 26,
+        CounterKind::Reach => 27,
+        CounterKind::Trample => 28,
+        CounterKind::Vigilance => 29,
     }
 }
 
@@ -151,6 +159,14 @@ fn every_counter_prints_a_badge_of_its_own_and_two_of_them_are_free() {
         CounterKind::Shield,
         CounterKind::Defense,
         CounterKind::Deathtouch,
+        CounterKind::FirstStrike,
+        CounterKind::DoubleStrike,
+        CounterKind::Haste,
+        CounterKind::Hexproof,
+        CounterKind::Menace,
+        CounterKind::Reach,
+        CounterKind::Trample,
+        CounterKind::Vigilance,
     ];
     let printed: Vec<String> = every.iter().map(|k| k.badge().into_owned()).collect();
     assert_eq!(
@@ -158,6 +174,7 @@ fn every_counter_prints_a_badge_of_its_own_and_two_of_them_are_free() {
         vec![
             "+1/+1", "-1/-1", "LOY", "LORE", "TIME", "CHG", "PSN", "NRG", "RAD", "LL", "LVL",
             "FLY", "SHDW", "IND", "HONE", "STUN", "FINAL", "•", "BORE", "SHIELD", "DEF", "DT",
+            "FS", "DS", "HST", "HEX", "MEN", "RCH", "TRMP", "VIG",
         ]
     );
     assert_eq!(
@@ -170,7 +187,7 @@ fn every_counter_prints_a_badge_of_its_own_and_two_of_them_are_free() {
     );
     assert_eq!(
         every.iter().map(|k| counter_index(*k)).collect::<Vec<_>>(),
-        (0..22).collect::<Vec<_>>(),
+        (0..30).collect::<Vec<_>>(),
         "the list is every kind exactly once, in declaration order"
     );
 
@@ -235,6 +252,14 @@ fn only_a_counter_that_changes_a_body_is_drawn_on_the_body() {
         CounterKind::Shield,
         CounterKind::Defense,
         CounterKind::Deathtouch,
+        CounterKind::FirstStrike,
+        CounterKind::DoubleStrike,
+        CounterKind::Haste,
+        CounterKind::Hexproof,
+        CounterKind::Menace,
+        CounterKind::Reach,
+        CounterKind::Trample,
+        CounterKind::Vigilance,
     ] {
         assert!(!kind.is_power_toughness(), "{kind:?}");
     }

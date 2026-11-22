@@ -728,6 +728,7 @@ fn text_options(draft: &baylee_client_core::text_choice::Draft, lang: Lang) -> V
 /// The overlay and the click handler call this same function, so a button can
 /// only ever send an answer the current prompt is still offering.
 #[must_use]
+#[allow(clippy::too_many_lines)] // one arm per indexed Prompt chooser kind
 pub fn options<'a>(
     prompt: &Prompt,
     lang: Lang,
@@ -817,6 +818,18 @@ pub fn options<'a>(
         ),
         Prompt::ChooseSubtype { options } => Some(subtype_rows(options, filter, lang)),
         Prompt::ChooseCardType { options } => Some(card_type_rows(options, lang)),
+        Prompt::ChooseCounterKind { choices } => Some(
+            choices
+                .iter()
+                .enumerate()
+                .map(|(index, kind)| {
+                    ChoiceOption::text(
+                        index,
+                        baylee_client_core::interaction::counter_label(*kind, lang),
+                    )
+                })
+                .collect(),
+        ),
         // A pile is its cards: the row names them, in the order the
         // separation gave them, and an empty pile says so rather than
         // drawing a blank row, because it is a pile that may be taken.
@@ -1251,6 +1264,7 @@ fn cast_label(
             ),
         K::Normal => String::new(),
         K::Kicked => Phrase::CastKicked.text(lang).to_string(),
+        K::OptionalCost => Phrase::CastOptionalCost.text(lang).to_string(),
         K::Alternative(i) => {
             printed_sentence(names, object, baylee_cards::lines::alternative_line, i)
                 .unwrap_or_default()

@@ -486,6 +486,27 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                         return false;
                     }
                 }
+                CostPart::CollectEvidence(_) => {
+                    let needed: u32 = parts
+                        .iter()
+                        .filter_map(|other| match other {
+                            CostPart::CollectEvidence(mv) => Some(u32::from(*mv)),
+                            _ => None,
+                        })
+                        .sum();
+                    if needed > 0 {
+                        let menu = cost_wizard::menu(&self.state, player, source, parts, part);
+                        let avail: u32 = menu
+                            .iter()
+                            .filter_map(|&id| self.state.object(id))
+                            .fold(0u32, |acc, o| {
+                                acc.saturating_add(o.characteristics().mana_value())
+                            });
+                        if avail < needed {
+                            return false;
+                        }
+                    }
+                }
                 // A cost that has to ask a question, asked of the board
                 // instead of refused outright. `cost_wizard::options` is the
                 // one reader of "what may pay this", and it is the same list
@@ -499,7 +520,8 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 | CostPart::ReturnToHand(_)
                 | CostPart::ReturnUnblockedAttacker
                 | CostPart::ExileFromGraveyard(_)
-                | CostPart::PutCounterOnOther { .. } => {
+                | CostPart::PutCounterOnOther { .. }
+                | CostPart::Behold(_) => {
                     // **As many candidates as the cost asks questions.** A
                     // cost may print the same one more than once — Time
                     // Sieve's "Sacrifice five artifacts" is five
@@ -1218,6 +1240,35 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                         cost_wizard::pay(&mut self.state, player, part, creature)?;
                     }
                 }
+                CostPart::CollectEvidence(mv) => {
+                    let Some(cards) = answers.next() else {
+                        return Err(EngineError::IllegalAction(
+                            "unanswered collect evidence cost",
+                        ));
+                    };
+                    let options = cost_wizard::menu(&self.state, player, source, &cost.parts, part);
+                    if cards
+                        .iter()
+                        .enumerate()
+                        .any(|(i, id)| cards[..i].contains(id) || !options.contains(id))
+                    {
+                        return Err(EngineError::IllegalAction("invalid collect evidence cards"));
+                    }
+                    let total: u32 = cards
+                        .iter()
+                        .filter_map(|&id| self.state.object(id))
+                        .fold(0u32, |acc, o| {
+                            acc.saturating_add(o.characteristics().mana_value())
+                        });
+                    if total < u32::from(*mv) {
+                        return Err(EngineError::IllegalAction(
+                            "insufficient mana value for collect evidence",
+                        ));
+                    }
+                    for &card in cards {
+                        cost_wizard::pay(&mut self.state, player, part, card)?;
+                    }
+                }
                 // The parts that had to ask, paid with the answers in the
                 // order they were asked for, through the same doors as the
                 // `SacrificeSelf`, `DiscardSelf` and `TapSelf` arms above —
@@ -1231,7 +1282,8 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 | CostPart::ReturnToHand(_)
                 | CostPart::ReturnUnblockedAttacker
                 | CostPart::ExileFromGraveyard(_)
-                | CostPart::PutCounterOnOther { .. } => {
+                | CostPart::PutCounterOnOther { .. }
+                | CostPart::Behold(_) => {
                     let Some(&[card]) = answers.next().map(Vec::as_slice) else {
                         return Err(EngineError::IllegalAction(
                             "a cost that has to ask reached the payer unanswered",

@@ -20,6 +20,19 @@ use super::*;
 /// tokens to make or life to gain, where a negative number has no meaning to
 /// give.
 fn signed(a: &Amount, state: &GameState, you: PlayerId, res: &Resolution) -> i16 {
+    if let Amount::IfCondition {
+        condition,
+        then,
+        otherwise,
+    } = a
+    {
+        let branch = if immediate::resolution_condition(state, res, **condition) {
+            then
+        } else {
+            otherwise
+        };
+        return signed(branch, state, you, res);
+    }
     if matches!(a, Amount::TargetPower) {
         return target_chars(res, state).and_then(|c| c.power).unwrap_or(0);
     }

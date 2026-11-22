@@ -287,6 +287,9 @@ fn raw_option_cost(
     };
     let raw = match wizard.option {
         Some(CastModeKind::Normal | CastModeKind::Face(_)) | None => normal,
+        Some(CastModeKind::OptionalCost) => {
+            normal.combine(&face.optional_cost.expect("optional cost").mana)
+        }
         // Only kicker's additional mana survives the alternative zero base.
         Some(CastModeKind::Kicked) if library_top || wizard.override_mana_cost.is_some() => face
             .additional_costs

@@ -462,3 +462,34 @@ fn stun_recipient_choice_avoids_friendly_permanents_and_unnecessary_energy_overp
     };
     assert_eq!(agent().act(&view, &payment), PlayerAction::ChooseNumber(2));
 }
+
+#[test]
+fn choose_counter_kind_skips_redundant_keywords_on_targeted_friendly_creature() {
+    use baylee_cards_dsl::{CounterKind, KeywordSet};
+    let mine = PlayerId::new(0);
+    let mut flyer = permanent(obj(1), mine, 2);
+    flyer.keywords = KeywordSet::FLYING.bits();
+    let mut stack_spell = permanent(obj(99), mine, 0);
+    stack_spell.targets = vec![baylee_view::TargetRef::Object(
+        baylee_core::ids::DamageSourceRef {
+            object: obj(1),
+            version: 0,
+        },
+    )];
+    let mut v = view(0, &[20, 20], vec![flyer]);
+    v.stack.push(stack_spell);
+
+    let pending = Pending::ChooseCounterKind {
+        player: mine,
+        choices: vec![
+            CounterKind::Flying,
+            CounterKind::FirstStrike,
+            CounterKind::Vigilance,
+        ],
+    };
+    assert_eq!(
+        agent().act(&v, &pending),
+        PlayerAction::ChooseCounterKind(CounterKind::FirstStrike),
+        "creature already has Flying, so AI picks FirstStrike instead of redundant Flying"
+    );
+}

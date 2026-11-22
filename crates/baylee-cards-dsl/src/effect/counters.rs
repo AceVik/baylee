@@ -75,6 +75,22 @@ pub enum CounterKind {
     Custom(u16),
     /// Bore counters (Brass's Tunnel-Grinder).
     Bore,
+    /// First strike keyword counter (CR 122.1b).
+    FirstStrike,
+    /// Double strike keyword counter (CR 122.1b).
+    DoubleStrike,
+    /// Haste keyword counter (CR 122.1b).
+    Haste,
+    /// Hexproof keyword counter (CR 122.1b).
+    Hexproof,
+    /// Menace keyword counter (CR 122.1b).
+    Menace,
+    /// Reach keyword counter (CR 122.1b).
+    Reach,
+    /// Trample keyword counter (CR 122.1b).
+    Trample,
+    /// Vigilance keyword counter (CR 122.1b).
+    Vigilance,
 }
 
 impl CounterKind {
@@ -88,6 +104,14 @@ impl CounterKind {
             Self::Flying => Some(KeywordSet::FLYING),
             Self::Shadow => Some(KeywordSet::SHADOW),
             Self::Indestructible => Some(KeywordSet::INDESTRUCTIBLE),
+            Self::FirstStrike => Some(KeywordSet::FIRST_STRIKE),
+            Self::DoubleStrike => Some(KeywordSet::DOUBLE_STRIKE),
+            Self::Haste => Some(KeywordSet::HASTE),
+            Self::Hexproof => Some(KeywordSet::HEXPROOF),
+            Self::Menace => Some(KeywordSet::MENACE),
+            Self::Reach => Some(KeywordSet::REACH),
+            Self::Trample => Some(KeywordSet::TRAMPLE),
+            Self::Vigilance => Some(KeywordSet::VIGILANCE),
             _ => None,
         }
     }
@@ -114,6 +138,14 @@ impl CounterKind {
             "flying" => Some(Self::Flying),
             "shadow" => Some(Self::Shadow),
             "indestructible" => Some(Self::Indestructible),
+            "first strike" | "first_strike" | "firststrike" => Some(Self::FirstStrike),
+            "double strike" | "double_strike" | "doublestrike" => Some(Self::DoubleStrike),
+            "haste" => Some(Self::Haste),
+            "hexproof" => Some(Self::Hexproof),
+            "menace" => Some(Self::Menace),
+            "reach" => Some(Self::Reach),
+            "trample" => Some(Self::Trample),
+            "vigilance" => Some(Self::Vigilance),
             "hone" => Some(Self::Hone),
             value => {
                 if let Some(id) = value.strip_prefix("custom:") {

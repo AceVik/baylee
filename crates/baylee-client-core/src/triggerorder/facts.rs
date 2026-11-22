@@ -324,6 +324,9 @@ const fn counted(amount: Amount) -> Stuff {
         Amount::HandSize(..) => Stuff::HAND,
         Amount::LifeTotal(..) => Stuff::LIFE,
         Amount::SourcePower | Amount::TargetPower | Amount::EventPower => Stuff::POWER,
+        Amount::IfCondition {
+            then, otherwise, ..
+        } => Stuff(counted(*then).0 | counted(*otherwise).0),
         _ => Stuff(0),
     }
 }
@@ -655,6 +658,17 @@ fn read_one(effect: &Effect, certain: bool, reading: &Reading<'_>, facts: &mut F
         }
         Effect::AddCounter { amount, .. } | Effect::PutCountersDivided { amount, .. } => {
             facts.reads.add(counted(amount));
+            facts.deeds.add(Deeds::PUMPS);
+            facts.makes.add(Stuff::COUNTERS);
+            facts.makes.add(Stuff::POWER);
+        }
+        Effect::PutCounterChoice {
+            choices, amount, ..
+        } => {
+            facts.reads.add(counted(amount));
+            if choices.len() > 1 {
+                facts.deeds.add(Deeds::ASKS);
+            }
             facts.deeds.add(Deeds::PUMPS);
             facts.makes.add(Stuff::COUNTERS);
             facts.makes.add(Stuff::POWER);

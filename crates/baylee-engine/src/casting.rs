@@ -2933,6 +2933,23 @@ fn alternative_parts_payable(
         | CostPart::DealDamageToYou(_)
         | CostPart::Forage
         | CostPart::PayLifeX => true,
+        CostPart::Behold(filter) => !behold_options(state, player, card, filter).is_empty(),
+        CostPart::CollectEvidence(mv) => {
+            if *mv == 0 {
+                true
+            } else {
+                let total: u32 = state
+                    .zones
+                    .list(ZoneLocation::Graveyard(player))
+                    .iter()
+                    .filter(|&&id| id != card)
+                    .filter_map(|&id| state.object(id).filter(|o| o.is_card()))
+                    .fold(0u32, |acc, o| {
+                        acc.saturating_add(o.characteristics().mana_value())
+                    });
+                total >= u32::from(*mv)
+            }
+        }
         CostPart::Either(a, b) => {
             alternative_parts_payable(state, player, card, a.parts)
                 || alternative_parts_payable(state, player, card, b.parts)

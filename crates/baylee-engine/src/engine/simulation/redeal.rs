@@ -702,6 +702,7 @@ const fn rider_object(rider: &Rider) -> Option<ObjectId> {
         | Rider::Awakened(_)
         | Rider::ConspirePaid(_)
         | Rider::TributePaid
-        | Rider::RepeatedModes(_) => None,
+        | Rider::RepeatedModes(_)
+        | Rider::OptionalCostPaid => None,
     }
 }

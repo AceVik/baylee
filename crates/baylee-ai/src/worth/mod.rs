@@ -61,6 +61,14 @@ pub(crate) fn counter_view(kind: CounterKind) -> baylee_view::CounterKind {
         CounterKind::Flying => V::Flying,
         CounterKind::Shadow => V::Shadow,
         CounterKind::Indestructible => V::Indestructible,
+        CounterKind::FirstStrike => V::FirstStrike,
+        CounterKind::DoubleStrike => V::DoubleStrike,
+        CounterKind::Haste => V::Haste,
+        CounterKind::Hexproof => V::Hexproof,
+        CounterKind::Menace => V::Menace,
+        CounterKind::Reach => V::Reach,
+        CounterKind::Trample => V::Trample,
+        CounterKind::Vigilance => V::Vigilance,
         CounterKind::Hone => V::Hone,
         CounterKind::Stun => V::Stun,
         CounterKind::Finality => V::Finality,
@@ -857,6 +865,9 @@ impl HeuristicAgent {
             Amount::TargetPower => i64::from(target?.power?),
             Amount::TargetToughness => i64::from(target?.toughness?),
             Amount::TargetCmc => i64::from(target?.mana_value),
+            Amount::IfCondition { otherwise, .. } => {
+                return self.count(view, origin, *otherwise, aim, x);
+            }
             _ => return None,
         };
         Some(if amount.is_negative() {
@@ -1606,16 +1617,31 @@ impl HeuristicAgent {
             CounterKind::Flying
             | CounterKind::Deathtouch
             | CounterKind::Shadow
-            | CounterKind::Indestructible => {
+            | CounterKind::Indestructible
+            | CounterKind::FirstStrike
+            | CounterKind::DoubleStrike
+            | CounterKind::Haste
+            | CounterKind::Hexproof
+            | CounterKind::Menace
+            | CounterKind::Reach
+            | CounterKind::Trample
+            | CounterKind::Vigilance => {
                 let keyword = kind.keyword()?;
                 if n <= 0 || has(o, keyword) {
                     0
                 } else {
-                    sign * if kind == CounterKind::Indestructible {
-                        120
-                    } else {
-                        80
-                    }
+                    let worth = match kind {
+                        CounterKind::Indestructible | CounterKind::DoubleStrike => 120,
+                        CounterKind::Hexproof => 100,
+                        CounterKind::Flying
+                        | CounterKind::Deathtouch
+                        | CounterKind::Shadow
+                        | CounterKind::FirstStrike => 80,
+                        CounterKind::Menace | CounterKind::Trample | CounterKind::Vigilance => 65,
+                        CounterKind::Haste | CounterKind::Reach => 50,
+                        _ => 60,
+                    };
+                    sign * worth
                 }
             }
             CounterKind::Hone => sign * n * 70,
@@ -2723,6 +2749,19 @@ impl HeuristicAgent {
                     None => 0,
                 }
             }
+            Effect::PutCounterChoice {
+                choices, amount, ..
+            } => match subject {
+                Some(o) => {
+                    let n = count(*amount)?;
+                    choices
+                        .iter()
+                        .filter_map(|kind| self.counters(view, o, *kind, n))
+                        .max()
+                        .unwrap_or(0)
+                }
+                None => 0,
+            },
             Effect::AddCounterSource { kind, amount } => match origin.object {
                 Some(o) => self.counters(view, o, *kind, count(*amount)?)?,
                 None => 0,
@@ -3252,7 +3291,8 @@ impl HeuristicAgent {
                 | CostPart::TapX(_)
                 | CostPart::SacrificeX(_)
                 | CostPart::DiscardX(_)
-                | CostPart::ExileFromGraveyardX(_) => 0,
+                | CostPart::ExileFromGraveyardX(_)
+                | CostPart::Behold(_) => 0,
                 CostPart::PayCommanderColors => {
                     if !crate::activate::life_ok(view, cost) {
                         return None;
@@ -3366,6 +3406,7 @@ impl HeuristicAgent {
                 CostPart::TapN { .. } => return None,
                 CostPart::Crew(_) | CostPart::Saddle(_) => 80,
                 CostPart::CraftMaterials { min, .. } => i64::from(*min) * 80,
+                CostPart::CollectEvidence(mv) => i64::from(*mv) * 5,
                 CostPart::ReturnToHand(filter) => own(filter, &|_| true)
                     .into_iter()
                     .map(|o| i64::from(o.mana_value) * 60 + 50)

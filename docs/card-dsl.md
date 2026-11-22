@@ -453,6 +453,15 @@ express at all yet.
   `additional_costs[index]`, CR 702.33f), both read on the spell itself and on
   the permanent that spell became as it resolved (CR 400.7d), including its
   `Trigger::ETB` intervening `if` clauses (CR 603.4) and `EnterModifier::IfKicked`.
+- `FaceDef.optional_cost: Option<Cost>` — non-kicker optional additional spell
+  cost ("As an additional cost to cast this spell, you may …", CR 118.8b).
+  Offered as `CastModeKind::OptionalCost` alongside `Normal` (and on top of
+  alternative costs per CR 118.9d), stamping `Rider::OptionalCostPaid` (preserved
+  on spell copies per CR 707.10) without setting `times_kicked` or triggering any
+  kicker checks (`Filter::Kicked`, `Effect::IfKicked`, `Condition::KickedWith`,
+  `Amount::TimesKicked`). Read by `Condition::OptionalCostPaid` (both during
+  spell resolution via `Effect::IfCondition` / `Amount::IfCondition` and on
+  `Trigger::ETB` / LKI of the permanent the spell became, CR 400.7d).
 - `waterbend = true` — "you may waterbend {N}": the additional cost above is
   a waterbend cost, so once it is paid, artifacts and creatures may be tapped
   for its generic mana and nothing else (CR 701.67b). It is not
@@ -721,7 +730,11 @@ express at all yet.
   and `CastModeKind::Counter` when ambiguous),
   `RemoveAnyCounterX { kind, filter }` (announce X and remove X counters of
   `kind` or any kind from among permanents you control matching `filter`,
-  binding `Amount::X`).
+  binding `Amount::X`),
+  `Behold(filter)` (CR 701.4a: choose a permanent you control matching `filter`
+  or reveal a card matching `filter` from your hand via `ChoicePrompt::Behold`),
+  `CollectEvidence(n)` (CR 701.59a: exile cards with total mana value `n` or
+  greater from your graveyard via `ChoicePrompt::CollectEvidence`).
 
   `CostPart::ExertSelf` exerts the source as an activation cost. It does not
   tap the permanent, require it to be untapped, or impose summoning sickness;
@@ -766,8 +779,11 @@ express at all yet.
 
   **Which counter** is a `CounterKind`, and there are three ways to name one.
   Rules-aware counters have dedicated variants: `Loyalty`, `Lore`, `Time`,
-  `Charge`, `Poison`, `Energy`, `Rad`, `Level`, `Hone`, `Stun`, and the keyword
-  counters `Lifelink`, `Flying`, `Shadow`, `Indestructible`. Every counter that changes power and toughness is
+  `Charge`, `Poison`, `Energy`, `Rad`, `Level`, `Hone`, `Stun`, `Finality`, `Shield`, and the CR 122.1b keyword
+  counters `Lifelink`, `Flying`, `Shadow`, `Indestructible`, `Deathtouch`,
+  `FirstStrike`, `DoubleStrike`, `Haste`, `Hexproof`, `Menace`, `Reach`,
+  `Trample`, `Vigilance` (`Effect::PutCounterChoice { target, choices, amount }`
+  offers a runtime choice among `choices` via `Pending::ChooseCounterKind`). Every counter that changes power and toughness is
   `Plus { power, toughness }` or `Minus { power, toughness }`, one variant
   for each of CR 122.1a's two forms, because the rule is one rule over an
   open-ended set of pairs — Magic prints eleven of them and a name apiece
@@ -5927,3 +5943,7 @@ Each triggers once per keyword instance (`layers::keyword_instances`):
 - **Relative Cast Cost Adjustments and `OnePerPlayer` Targets (`CR 115.1`, `CR 115.7`, `CR 601.2f`, `CR 608.2b`):**
   - `Modifier::AdjustSpellCostByCast { who, filter, delta_per_unit, metric }` (`SpellCastMetric::{DistinctTargets, XPaid, CardsDiscardedThisTurn, PermanentsSacrificedThisTurn(&'static Filter), LifeGainedThisTurn, LifeLostByOpponentsThisTurn, SpellsCastThisTurn, CardsDrawnThisTurn}`, `Layer::Text`, `CR 601.2f`): adjusts the generic mana cost of matching spells cast by `who` by `delta_per_unit * units` (negative reduces, positive taxes) both during castability preview and when finalizing total cost after `X` and targets are chosen — supporting self-statics (`Filter::This`, `ZoneRef::Stack`, e.g. *Hollow One*, *Dargo, the Shipwrecker*, *Hierophant Bio-Titan*) and board statics (e.g. *Hinata, Dawn-Crowned*, *Damping Sphere*).
   - `TargetConstraint::OnePerPlayer` (`TargetReq::with_constraint(TargetConstraint::OnePerPlayer)`, `CR 115.1`): requires choosing 1 legal target controlled by (or in a zone owned by) each living player in turn order starting with the active player (skipping players with no legal target when `min == 0`, or failing cast/activation/trigger stacking when `min > 0` and any required player has none — *Vaevictis Asmadi, the Dire*, *Decimate*), across spells, activated/loyalty abilities, triggered abilities, `CR 115.7` retargeting (each slot may only redirect within its bound player group), and `CR 608.2b` resolution re-checks (partial illegality leaves surviving players' targets legal).
+
+- **Non-Kicker Optional Additional Costs (`FaceDef::optional_cost`) and Choice of Counter Kind (`Effect::PutCounterChoice`) (`CR 118.8b`, `CR 118.9d`, `CR 122.1`, `CR 122.1b`, `CR 614.16`, `CR 701.4a`, `CR 701.59a`, `CR 707.10`):**
+  - `FaceDef::optional_cost: Option<Cost>` (`CR 118.8b`, including `CostPart::Behold(&Filter)` per `CR 701.4a` and `CostPart::CollectEvidence(u8)` per `CR 701.59a` with `ChoicePrompt::CollectEvidence { mana_value }`): offers `CastModeKind::OptionalCost` alongside `Normal` and composes with alternative costs (`CR 118.9d`), stamping `Rider::OptionalCostPaid` (preserved on spell copies per `CR 707.10`) without triggering any Kicker checks (`Filter::Kicked`, `Effect::IfKicked`, `Condition::KickedWith`, `Amount::TimesKicked`), and queried by `Condition::OptionalCostPaid` across spell resolution (`Effect::IfCondition`, `Amount::IfCondition { condition, then, otherwise }`) and permanent `Trigger::ETB` triggers (*Voltage Surge*, *Piercing Exhale*, *Vitu-Ghazi Inspector*).
+  - `Effect::PutCounterChoice { target, choices, amount }` (`CR 122.1`, `CR 122.1b`, `Pending::ChooseCounterKind`, `PlayerAction::ChooseCounterKind`): prompts the resolving controller to pick one `CounterKind` from `choices` (including all standard `CR 122.1b` keyword counters `FirstStrike`, `DoubleStrike`, `Haste`, `Hexproof`, `Menace`, `Reach`, `Trample`, `Vigilance` alongside `P1P1` and other counter kinds) and places `amount` counters of that kind onto `target` through counter-placement replacement effects (`CR 614.16`, *Doubling Season*, *Hardened Scales*, *Solemnity*) and `Trigger::CounterPlaced` (*Elspeth Resplendent*, *Kayla's Command*, *Boon of Boseiju*).

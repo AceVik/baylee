@@ -344,6 +344,14 @@ pub enum CostPart {
         /// Filter that permanents losing counters must match (evaluated under the payer's control).
         filter: &'static Filter,
     },
+    /// Behold a [quality] (CR 701.4a): choose a matching permanent you control
+    /// on the battlefield or reveal a matching card from your hand. Appended
+    /// to preserve replay identities.
+    Behold(&'static Filter),
+    /// Collect evidence N (CR 701.59a): exile any number of cards from your
+    /// graveyard with total mana value N or greater. Appended to preserve
+    /// replay identities.
+    CollectEvidence(u8),
 }
 
 /// A cost reduction printed on a card (Surgical Metamorph) or on one of its

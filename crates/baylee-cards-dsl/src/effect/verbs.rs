@@ -1446,7 +1446,8 @@ impl Effect {
             | Effect::Play { .. }
             | Effect::CreateTokenSized { .. }
             | Effect::PutCountersDivided { .. }
-            | Effect::MoveAndModify { .. } => (NONE, NONE),
+            | Effect::MoveAndModify { .. }
+            | Effect::PutCounterChoice { .. } => (NONE, NONE),
             Effect::VoteObjects { if_no_votes, .. } => (NONE, if_no_votes),
         }
     }

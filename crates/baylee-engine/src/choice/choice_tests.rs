@@ -366,6 +366,13 @@ fn a_timed_out_seat_does_nothing_wherever_the_question_allows_it() {
             None,
         ),
         (
+            Pending::ChooseCounterKind {
+                player: p,
+                choices: vec![baylee_cards_dsl::CounterKind::Flying],
+            },
+            None,
+        ),
+        (
             Pending::ChooseCardName {
                 player: p,
                 types: baylee_core::types::TypeSet::EMPTY,
@@ -475,7 +482,7 @@ fn a_timed_out_seat_does_nothing_wherever_the_question_allows_it() {
 }
 
 /// How many kinds [`kind_of`] tells apart.
-const KINDS: usize = 70;
+const KINDS: usize = 71;
 
 /// Which kind of question this is, numbered without gaps. No wildcard
 /// arm: a new `Pending` variant or yes/no prompt does not compile here
@@ -497,6 +504,7 @@ fn kind_of(pending: &Pending) -> usize {
         Pending::ChooseTargets { .. } => 8,
         Pending::ChooseSubtype { .. } => 9,
         Pending::ChooseCardType { .. } => 50,
+        Pending::ChooseCounterKind { .. } => 70,
         Pending::ChooseColor { .. } => 10,
         Pending::ChooseCastMode { .. } => 11,
         Pending::ChooseNumber { .. } => 12,

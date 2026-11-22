@@ -993,6 +993,18 @@ pub(super) fn amount2(amount: &Amount, state: &GameState, you: PlayerId, res: &R
         Amount::Difference { left, right } => {
             amount2(left, state, you, res).saturating_sub(amount2(right, state, you, res))
         }
+        Amount::IfCondition {
+            condition,
+            then,
+            otherwise,
+        } => {
+            let branch = if immediate::resolution_condition(state, res, **condition) {
+                then
+            } else {
+                otherwise
+            };
+            amount2(branch, state, you, res)
+        }
         Amount::Players(who) => {
             u32::try_from(players_of(*who, state, you, res).len()).unwrap_or(u32::MAX)
         }
@@ -1153,6 +1165,18 @@ pub(super) fn amount_for_player(
         Amount::Times { base, factor } => each(base).saturating_mul(*factor),
         Amount::Sum { left, right } => each(left).saturating_add(each(right)),
         Amount::Difference { left, right } => each(left).saturating_sub(each(right)),
+        Amount::IfCondition {
+            condition,
+            then,
+            otherwise,
+        } => {
+            let branch = if immediate::resolution_condition(state, res, **condition) {
+                then
+            } else {
+                otherwise
+            };
+            each(branch)
+        }
         other => amount2(other, state, you, res),
     }
 }
@@ -1918,6 +1942,7 @@ fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> Option<Pendi
         | Effect::MayBehold { .. }
         | Effect::ChooseCardName { .. }
         | Effect::ChooseCreatureType { .. }
+        | Effect::PutCounterChoice { .. }
         | Effect::GuessChosenNameInHand { .. }
         | Effect::RevealHandForGuess
         | Effect::DrawIfGuessWrong

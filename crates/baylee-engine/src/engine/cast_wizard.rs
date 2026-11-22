@@ -133,6 +133,11 @@ pub(crate) enum WizardStage {
     Conspire,
     /// Choosing `(permanent, counter_kind)` pairs for `RemoveAnyCounter` / `RemoveAnyCounterX`.
     RemoveCounters,
+    /// Non-kicker optional additional cost (`FaceDef::optional_cost`, CR 118.8b,
+    /// CR 118.9d) when not already settled at `ChooseMode`.
+    OptionalCost,
+    /// Choosing graveyard cards to exile for `CostPart::CollectEvidence` (`CR 701.59a`).
+    CollectEvidence,
 }
 
 /// A spell being cast step by step.
@@ -203,6 +208,12 @@ pub struct CastWizard {
     pub buyback: Option<u32>,
     /// Whether the spell's bargain additional cost was announced (`CR 702.166a`).
     pub bargained: bool,
+    /// Whether `FaceDef::optional_cost` was announced (`CR 118.8b`).
+    pub optional_cost_paid: bool,
+    /// Whether the caster has already decided `FaceDef::optional_cost` on this cast.
+    pub optional_cost_decided: bool,
+    /// Chosen graveyard card groups for `CostPart::CollectEvidence` (`CR 701.59a`).
+    pub evidence_exiles: SmallVec<[Vec<ObjectId>; 2]>,
     /// Whether the spell's offspring additional cost was announced (`CR 702.175a`).
     pub offspring: bool,
     /// Whether the spell's casualty additional cost was announced (`CR 702.153a`).
@@ -428,6 +439,9 @@ impl CastWizard {
             multikicked: 0,
             buyback: None,
             bargained: false,
+            optional_cost_paid: false,
+            optional_cost_decided: false,
+            evidence_exiles: SmallVec::new(),
             offspring: false,
             casualty: false,
             gift_promised: false,
@@ -500,11 +514,20 @@ impl CastWizard {
         let option = desc.kind;
         self.option = Some(option);
         self.kicked = option == CastModeKind::Kicked;
+        self.optional_cost_paid = option == CastModeKind::OptionalCost;
         let matched_route = self
             .alt_cast
             .as_deref()
             .and_then(|s| s.routes.iter().find(|(i, _)| *i == index))
             .map(|(_, route)| *route);
+        if matched_route.is_none()
+            && !self.free
+            && self.override_mana_cost.is_none()
+            && self.by_effect.is_none()
+            && matches!(option, CastModeKind::Normal | CastModeKind::OptionalCost)
+        {
+            self.optional_cost_decided = true;
+        }
         if let Some(route) = matched_route {
             if let Some(state) = self.alt_cast.as_deref_mut() {
                 state.selected = Some(route);
@@ -679,6 +702,15 @@ impl CastWizard {
                     &self.target_group_bindings,
                 )));
         }
+        if self.optional_cost_paid || !self.evidence_exiles.is_empty() {
+            hash = hash
+                .wrapping_mul(31)
+                .wrapping_add(crate::state::structural_fingerprint(&(
+                    283u16,
+                    self.optional_cost_paid,
+                    &self.evidence_exiles,
+                )));
+        }
         hash = hash
             .wrapping_mul(2)
             .wrapping_add(u64::from(self.reduction.is_some()));
@@ -777,7 +809,9 @@ pub(crate) fn paid_as_an_alternative_cost(part: &CostPart) -> bool {
         | CostPart::ReturnToHand(_)
         | CostPart::TapN { .. }
         | CostPart::RemoveAnyCounter { .. }
-        | CostPart::Forage => true,
+        | CostPart::Forage
+        | CostPart::Behold(_)
+        | CostPart::CollectEvidence(_) => true,
         CostPart::Either(a, b) => {
             a.parts.iter().all(paid_as_an_alternative_cost)
                 && b.parts.iter().all(paid_as_an_alternative_cost)
@@ -813,7 +847,9 @@ pub(crate) fn paid_as_a_mandatory_additional_cost(part: &CostPart) -> bool {
         | CostPart::TapN { .. }
         | CostPart::RemoveAnyCounter { .. }
         | CostPart::RemoveAnyCounterX { .. }
-        | CostPart::Forage => true,
+        | CostPart::Forage
+        | CostPart::Behold(_)
+        | CostPart::CollectEvidence(_) => true,
         CostPart::Either(a, b) => {
             a.parts.iter().all(paid_as_a_mandatory_additional_cost)
                 && b.parts.iter().all(paid_as_a_mandatory_additional_cost)
@@ -2525,6 +2561,12 @@ fn wizard_total_before_reduction(
     {
         total = total.combine(&offspring.mana.with_x(wizard.x));
     }
+    if wizard.optional_cost_paid
+        && wizard.option != Some(CastModeKind::OptionalCost)
+        && let Some(opt_cost) = face.optional_cost
+    {
+        total = total.combine(&opt_cost.mana.with_x(wizard.x));
+    }
     if wizard.squad > 0
         && let Some(squad) = face.squad
     {
@@ -2559,6 +2601,7 @@ fn pays_mana(wizard: &CastWizard) -> bool {
         || wizard.buyback.is_some()
         || wizard.replicated > 0
         || wizard.offspring
+        || wizard.optional_cost_paid
         || wizard.squad > 0
         || wizard.behold_paid_mana
         || wizard.either_pays_mana

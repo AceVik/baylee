@@ -208,6 +208,16 @@ pub enum AwaitingOp {
         /// Kinds that could legally be moved when asked.
         kinds: Vec<baylee_cards_dsl::CounterKind>,
     },
+    /// Recipients waiting for the controller to pick one counter kind
+    /// (`Effect::PutCounterChoice`, CR 122.1).
+    PutCounterChoice {
+        /// Exact permanent/object incarnations receiving counters.
+        objects: Vec<baylee_core::ids::DamageSourceRef>,
+        /// Players receiving counters, if any.
+        players: Vec<PlayerId>,
+        /// Evaluated counter count to place of the chosen kind.
+        amount: u16,
+    },
     /// Counter-bearing permanent and player selections, committed together.
     Proliferate(Box<super::proliferate::Selection>),
     /// Optional energy payment, with unpaid fallback.
@@ -1904,6 +1914,11 @@ impl AwaitingOp {
                 crate::state::structural_fingerprint(&(222_u8, spec))
             }
             Self::TwoPilesChoosePile(spec) => crate::state::structural_fingerprint(&(223_u8, spec)),
+            Self::PutCounterChoice {
+                objects,
+                players,
+                amount,
+            } => crate::state::structural_fingerprint(&(224_u8, objects, players, amount)),
             _ => 0,
         }
     }

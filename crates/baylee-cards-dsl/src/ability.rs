@@ -747,6 +747,11 @@ pub enum Condition {
     /// May sit at top level or inside [`Self::All`] alongside a genuine
     /// intervening `if` clause. Appended to preserve replay identities.
     TriggerOnly(&'static Self),
+    /// The source spell (or the permanent that spell became on resolving from
+    /// the stack, CR 400.7d, or a copy of that spell, CR 707.10) had its
+    /// non-kicker [`crate::FaceDef::optional_cost`] paid (`CR 118.8b`).
+    /// Appended to preserve replay identities.
+    OptionalCostPaid,
 }
 
 /// Trigger conditions for triggered abilities.

@@ -69,6 +69,11 @@ fn reads_amount(value: Amount) -> bool {
         | Amount::Plus { base, .. }
         | Amount::Negated(base)
         | Amount::SaturatingSub { base, .. } => reads_amount(*base),
+        Amount::IfCondition {
+            condition,
+            then,
+            otherwise,
+        } => reads_condition(condition) || reads_amount(*then) || reads_amount(*otherwise),
         _ => false,
     }
 }
@@ -101,7 +106,8 @@ fn reads_event(effect: &Effect) -> bool {
         Effect::CopyResolvingSpell { controller } => reads_player(*controller),
         Effect::DealDamageEvenly { amount, target, .. }
         | Effect::DealDamage { amount, target, .. }
-        | Effect::DealDamageWithoutPreventionOrRedirection { amount, target, .. } => {
+        | Effect::DealDamageWithoutPreventionOrRedirection { amount, target, .. }
+        | Effect::PutCounterChoice { amount, target, .. } => {
             reads_amount(*amount) || reads_target(*target)
         }
         Effect::DamagePermanentAndController {
@@ -418,7 +424,7 @@ fn reads_condition(condition: &baylee_cards_dsl::Condition) -> bool {
         C::AmountCompare { left, right, .. } => reads_amount(**left) || reads_amount(**right),
         C::SoulbondEventCanPair => true,
         C::All(parts) | C::Any(parts) => parts.iter().any(reads_condition),
-        C::Not(inner) => reads_condition(inner),
+        C::Not(inner) | C::TriggerOnly(inner) => reads_condition(inner),
         _ => false,
     }
 }

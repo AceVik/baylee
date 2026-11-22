@@ -333,7 +333,12 @@ pub use turn::{DayNight, Phase, Step};
 /// Version 111 adds repeating modal choices (`CastModeKind::RepeatedModes`,
 /// CR 700.2d) and divided counter distribution (`NumberPrompt::DivideCounters`,
 /// CR 601.2d).
-pub const VIEW_VERSION: u32 = 111;
+/// Version 112 adds non-kicker optional additional spell costs
+/// (`CastModeKind::OptionalCost`, CR 118.8; `ChoicePrompt::CollectEvidence`,
+/// CR 701.59) and counter-kind choices (`Pending::ChooseCounterKind`,
+/// `PlayerAction::ChooseCounterKind`, and the remaining CR 122.1b keyword
+/// counters on [`CounterKind`]).
+pub const VIEW_VERSION: u32 = 112;
 
 // ------------------------------------------------------------------- targets
 

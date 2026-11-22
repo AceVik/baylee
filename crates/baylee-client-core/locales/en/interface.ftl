@@ -3469,6 +3469,10 @@ CrewWithPower = Crew { $power }: tap any number of your other untapped creatures
 # Arguments: power
 SaddleWithPower = Saddle { $power }: tap any number of your other untapped creatures with total power { $power } or more
 
+# Collect evidence N (CR 701.59a): exile cards from your graveyard with total mana value $mv or greater.
+# Arguments: mv
+CollectEvidenceWithManaValue = Collect evidence { $mv }: exile any number of cards with total mana value { $mv } or greater from your graveyard
+
 # Choose up to $count $noun
 # Arguments: count, noun
 ChooseUpTo = Choose up to { $count } { $noun }
@@ -4408,6 +4412,9 @@ TargetingPage = Choices { $first }–{ $last } of { $total }. You can also selec
 
 # Cast with its optional additional kicker cost paid.
 CastKicked = With kicker
+
+# Cast with its optional additional cost paid (CR 118.8b).
+CastOptionalCost = With additional cost
 
 # Cast face down using disguise.
 CastDisguise = Disguise — 2/2, ward {"{"}2{"}"}
@@ -6010,6 +6017,70 @@ LogCountersIndestructible =
     { $count ->
         [one] indestructible counter
        *[other] indestructible counters
+    }
+
+# One first strike counter.
+# Arguments: count
+LogCountersFirstStrike =
+    { $count ->
+        [one] first strike counter
+       *[other] first strike counters
+    }
+
+# One double strike counter.
+# Arguments: count
+LogCountersDoubleStrike =
+    { $count ->
+        [one] double strike counter
+       *[other] double strike counters
+    }
+
+# One haste counter.
+# Arguments: count
+LogCountersHaste =
+    { $count ->
+        [one] haste counter
+       *[other] haste counters
+    }
+
+# One hexproof counter.
+# Arguments: count
+LogCountersHexproof =
+    { $count ->
+        [one] hexproof counter
+       *[other] hexproof counters
+    }
+
+# One menace counter.
+# Arguments: count
+LogCountersMenace =
+    { $count ->
+        [one] menace counter
+       *[other] menace counters
+    }
+
+# One reach counter.
+# Arguments: count
+LogCountersReach =
+    { $count ->
+        [one] reach counter
+       *[other] reach counters
+    }
+
+# One trample counter.
+# Arguments: count
+LogCountersTrample =
+    { $count ->
+        [one] trample counter
+       *[other] trample counters
+    }
+
+# One vigilance counter.
+# Arguments: count
+LogCountersVigilance =
+    { $count ->
+        [one] vigilance counter
+       *[other] vigilance counters
     }
 
 # One hone counter.

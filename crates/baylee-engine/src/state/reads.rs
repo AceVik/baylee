@@ -258,8 +258,39 @@ fn condition_reads_crime(cond: &baylee_cards_dsl::Condition) -> bool {
     use baylee_cards_dsl::Condition;
     match cond {
         Condition::CommittedCrimeThisTurn(_) => true,
+        Condition::AmountAtLeast(amount, _) | Condition::AmountIsEven(amount) => {
+            amount_reads_crime(amount)
+        }
+        Condition::AmountCompare { left, right, .. } => {
+            amount_reads_crime(left) || amount_reads_crime(right)
+        }
         Condition::Not(inner) | Condition::TriggerOnly(inner) => condition_reads_crime(inner),
         Condition::All(parts) | Condition::Any(parts) => parts.iter().any(condition_reads_crime),
+        _ => false,
+    }
+}
+
+fn amount_reads_crime(amount: &baylee_cards_dsl::Amount) -> bool {
+    use baylee_cards_dsl::Amount;
+    match amount {
+        Amount::IfCondition {
+            condition,
+            then,
+            otherwise,
+        } => {
+            condition_reads_crime(condition)
+                || amount_reads_crime(then)
+                || amount_reads_crime(otherwise)
+        }
+        Amount::Negated(a)
+        | Amount::Plus { base: a, .. }
+        | Amount::SaturatingSub { base: a, .. }
+        | Amount::Half { base: a, .. }
+        | Amount::Divided { base: a, .. }
+        | Amount::Times { base: a, .. } => amount_reads_crime(a),
+        Amount::Sum { left: a, right: b } | Amount::Difference { left: a, right: b } => {
+            amount_reads_crime(a) || amount_reads_crime(b)
+        }
         _ => false,
     }
 }
@@ -390,6 +421,9 @@ fn condition_reads_expend(cond: &baylee_cards_dsl::Condition) -> bool {
     use baylee_cards_dsl::Condition;
     match cond {
         Condition::ExpendedThisTurn(_) => true,
+        Condition::AmountAtLeast(amount, _) | Condition::AmountIsEven(amount) => {
+            amount_reads_expend(amount)
+        }
         Condition::AmountCompare { left, right, .. } => {
             amount_reads_expend(left) || amount_reads_expend(right)
         }
@@ -403,6 +437,15 @@ fn amount_reads_expend(amount: &baylee_cards_dsl::Amount) -> bool {
     use baylee_cards_dsl::Amount;
     match amount {
         Amount::ManaExpendedOnSpellsThisTurn(_) => true,
+        Amount::IfCondition {
+            condition,
+            then,
+            otherwise,
+        } => {
+            condition_reads_expend(condition)
+                || amount_reads_expend(then)
+                || amount_reads_expend(otherwise)
+        }
         Amount::Negated(a)
         | Amount::Plus { base: a, .. }
         | Amount::SaturatingSub { base: a, .. }
@@ -473,6 +516,7 @@ fn effects_read_expend(effects: &'static [baylee_cards_dsl::Effect]) -> bool {
             | Effect::DealDamage { amount, .. }
             | Effect::AddCounter { amount, .. }
             | Effect::PutCountersDivided { amount, .. }
+            | Effect::PutCounterChoice { amount, .. }
             | Effect::AddCounterSource { amount, .. }
             | Effect::CreateTokenN { amount, .. }
             | Effect::NextSpellThisTurnCostsLess(amount)

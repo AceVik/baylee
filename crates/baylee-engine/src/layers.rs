@@ -1164,11 +1164,37 @@ fn apply(
             }
         }
         Modifier::ModifyPTByAmount { power, toughness } => {
-            *read_board = true;
-            let signed = |amount: &baylee_cards_dsl::Amount| {
-                let n = crate::eval::amount_with_context(amount, state, fx.controller, context, None);
+            fn eval_signed(
+                amount: &baylee_cards_dsl::Amount,
+                state: &GameState,
+                controller: PlayerId,
+                context: crate::text_changes::RuleContext,
+            ) -> i16 {
+                if let baylee_cards_dsl::Amount::IfCondition {
+                    condition,
+                    then,
+                    otherwise,
+                } = amount
+                {
+                    let branch = if crate::eval::condition_holds_with_context(
+                        state,
+                        controller,
+                        context,
+                        **condition,
+                    ) {
+                        then
+                    } else {
+                        otherwise
+                    };
+                    return eval_signed(branch, state, controller, context);
+                }
+                let n = crate::eval::amount_with_context(amount, state, controller, context, None);
                 let n = i16::try_from(n).unwrap_or(i16::MAX);
                 if amount.is_negative() { -n } else { n }
+            }
+            *read_board = true;
+            let signed = |amount: &baylee_cards_dsl::Amount| {
+                eval_signed(amount, state, fx.controller, context)
             };
             if let Some(p) = &mut c.power { *p = p.saturating_add(signed(power)); }
             if let Some(t) = &mut c.toughness { *t = t.saturating_add(signed(toughness)); }

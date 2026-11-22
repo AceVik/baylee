@@ -781,6 +781,7 @@ impl GameState {
             })
     }
 
+    #[allow(clippy::too_many_lines)] // exhaustive over every Rider variant
     pub(crate) fn copy_source_references(&mut self, original: DamageSourceRef, copy: ObjectId) {
         if self
             .source_object(original)
@@ -812,11 +813,12 @@ impl GameState {
             impending_paid,
             gift_recipient,
             was_fused,
+            optional_cost_paid,
         ) = self
             .source_object(original)
             .filter(|object| object.kind == crate::object::ObjectKind::Spell)
             .map_or(
-                (false, false, None, false, false, false, None, false),
+                (false, false, None, false, false, false, None, false, false),
                 |object| {
                     (
                         object.riders.contains(&crate::object::Rider::Bargained),
@@ -833,6 +835,9 @@ impl GameState {
                             _ => None,
                         }),
                         object.riders.contains(&crate::object::Rider::Fused),
+                        object
+                            .riders
+                            .contains(&crate::object::Rider::OptionalCostPaid),
                     )
                 },
             );
@@ -843,7 +848,8 @@ impl GameState {
             || casualty_paid
             || impending_paid
             || gift_recipient.is_some()
-            || was_fused)
+            || was_fused
+            || optional_cost_paid)
             && let Some(copied) = self.object_mut(copy)
         {
             if was_bargained && !copied.riders.contains(&crate::object::Rider::Bargained) {
@@ -876,6 +882,13 @@ impl GameState {
             }
             if was_fused && !copied.riders.contains(&crate::object::Rider::Fused) {
                 copied.riders.push(crate::object::Rider::Fused);
+            }
+            if optional_cost_paid
+                && !copied
+                    .riders
+                    .contains(&crate::object::Rider::OptionalCostPaid)
+            {
+                copied.riders.push(crate::object::Rider::OptionalCostPaid);
             }
             if was_prototyped {
                 copied.prototyped = true;

@@ -109,7 +109,7 @@ pub(crate) fn mana_cost_mode(
     kind: CastModeKind,
 ) -> bool {
     match kind {
-        CastModeKind::Normal | CastModeKind::Kicked => true,
+        CastModeKind::Normal | CastModeKind::Kicked | CastModeKind::OptionalCost => true,
         CastModeKind::Prototype => def.faces[face].prototype.is_some(),
         CastModeKind::Face(index) => {
             index == face && !def.faces[face].disturb && !def.faces[face].aftermath

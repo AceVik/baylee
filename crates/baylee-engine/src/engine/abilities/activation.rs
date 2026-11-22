@@ -982,6 +982,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                             )
                             .is_empty())
                 }
+                Some(CostPart::CollectEvidence(0)) => true,
                 _ => false,
             }
         {
@@ -1015,7 +1016,12 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
             // can be in. Refusing rather than asserting all the same: this
             // is a rules path, and one process per game is the panic
             // boundary.
-            if options.is_empty() && !matches!(part, CostPart::Crew(0) | CostPart::Saddle(0)) {
+            if options.is_empty()
+                && !matches!(
+                    part,
+                    CostPart::Crew(0) | CostPart::Saddle(0) | CostPart::CollectEvidence(0)
+                )
+            {
                 self.activation_cost_choices.clear();
                 self.activation_x = None;
                 return Err(EngineError::IllegalAction("nothing can pay this cost"));
@@ -1052,6 +1058,24 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                         of: crate::choice::Measure::Power,
                         weights,
                         at_least: Some(i32::from(*power)),
+                        at_most: None,
+                    }),
+                )
+            } else if let CostPart::CollectEvidence(mv) = part {
+                let weights = options
+                    .iter()
+                    .map(|&id| {
+                        self.state.object(id).map_or(0, |o| {
+                            i32::try_from(o.characteristics().mana_value()).unwrap_or(i32::MAX)
+                        })
+                    })
+                    .collect();
+                (
+                    u8::try_from(options.len()).unwrap_or(u8::MAX),
+                    Some(crate::choice::CardTotal {
+                        of: crate::choice::Measure::ManaValue,
+                        weights,
+                        at_least: Some(i32::from(*mv)),
                         at_most: None,
                     }),
                 )
@@ -1112,7 +1136,10 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 ) {
                     max
                 } else {
-                    u8::from(!matches!(part, CostPart::Crew(0) | CostPart::Saddle(0)))
+                    u8::from(!matches!(
+                        part,
+                        CostPart::Crew(0) | CostPart::Saddle(0) | CostPart::CollectEvidence(0)
+                    ))
                 },
                 max,
                 prompt,

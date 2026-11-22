@@ -378,6 +378,11 @@ pub(super) fn offered(
                 out.push(PlayerAction::ChooseCardType(card_type));
             }
         }
+        Pending::ChooseCounterKind { choices, .. } => {
+            for &kind in &dice.pick(choices, choices.len()) {
+                out.push(PlayerAction::ChooseCounterKind(kind));
+            }
+        }
         Pending::ChooseColor { options, .. } => {
             for &c in &dice.pick(options, options.len()) {
                 out.push(PlayerAction::ChooseColor(c));

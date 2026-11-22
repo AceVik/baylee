@@ -174,6 +174,7 @@ impl Pending {
             Self::ChooseSubtype { options, .. } => !options.is_empty(),
             Self::ChooseCardType { options, .. } => !options.is_empty(),
             Self::ChooseColor { options, .. } => !options.is_empty(),
+            Self::ChooseCounterKind { choices, .. } => !choices.is_empty(),
             Self::ChooseCastMode { options, .. } => !options.is_empty(),
             Self::ChoosePlayer { options, .. } => !options.is_empty(),
             // One of the piles, and a pile may be empty.
@@ -376,6 +377,9 @@ impl Pending {
             (Self::ChooseColor { options, .. }, A::ChooseColor(color)) => {
                 (!options.contains(color)).then_some(AnswerFault::NotOffered)
             }
+            (Self::ChooseCounterKind { choices, .. }, A::ChooseCounterKind(kind)) => {
+                (!choices.contains(kind)).then_some(AnswerFault::NotOffered)
+            }
             // The position in the list, not the option's `index` field: a
             // modal trigger lists only the modes it may choose (CR 603.3c).
             (Self::ChooseCastMode { options, .. }, A::ChooseMode(at)) => {
@@ -415,6 +419,7 @@ impl Pending {
                 | Self::ChooseCardType { .. }
                 | Self::ChooseCardName { .. }
                 | Self::ChooseColor { .. }
+                | Self::ChooseCounterKind { .. }
                 | Self::YesNo { .. }
                 | Self::ChooseCastMode { .. }
                 | Self::ChooseNumber { .. }
@@ -702,6 +707,7 @@ pub fn timeout_answer(pending: &Pending) -> Option<PlayerAction> {
         | Pending::ChooseCardType { .. }
         | Pending::ChooseCardName { .. }
         | Pending::ChooseColor { .. }
+        | Pending::ChooseCounterKind { .. }
         | Pending::ChooseCastMode { .. }
         | Pending::ChooseNumber { .. }
         | Pending::ChoosePlayer { .. }

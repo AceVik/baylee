@@ -97,7 +97,11 @@ pub mod tape;
 /// positional binary frames.
 /// Version 68 carries `CastModeKind::RepeatedModes` (CR 700.2d) and
 /// `NumberPrompt::DivideCounters` (CR 601.2d) on positional binary frames.
-pub const PROTOCOL_VERSION: u32 = 68;
+/// Version 69 carries `CastModeKind::OptionalCost` (CR 118.8),
+/// `ChoicePrompt::CollectEvidence` (CR 701.59), `Pending::ChooseCounterKind`,
+/// `PlayerAction::ChooseCounterKind`, and the remaining CR 122.1b keyword
+/// counters on positional binary frames.
+pub const PROTOCOL_VERSION: u32 = 69;
 
 /// Duration of the shared portal flight; clocks start after arrival.
 pub const TABLE_ENTRANCE_MS: u64 = 1_650;
@@ -436,7 +440,10 @@ mod tests {
         // 67: `PlayerView/SpectatorView::initiative`, `LogEvent::TookInitiative`,
         // and `Dungeon::Undercity`.
         // 68: `CastModeKind::RepeatedModes` and `NumberPrompt::DivideCounters`.
-        assert_eq!(PROTOCOL_VERSION, 68);
+        // 69: `CastModeKind::OptionalCost`, `ChoicePrompt::CollectEvidence`,
+        // `Pending::ChooseCounterKind`, `PlayerAction::ChooseCounterKind`, and
+        // CR 122.1b keyword counters.
+        assert_eq!(PROTOCOL_VERSION, 69);
     }
 
     #[test]
