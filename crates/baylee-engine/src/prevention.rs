@@ -175,7 +175,7 @@ pub enum ShieldKind {
         /// Restrict to combat damage (`true`) or any damage (`false`).
         combat_only: bool,
         /// Rider effects executed after damage commits when prevented > 0.
-        then: &'static [baylee_cards_dsl::Effect],
+        then: baylee_cards_dsl::DamageRider,
         /// Creating spell/ability source object ID.
         origin_source: ObjectId,
         /// Creating spell/ability source version (for `AddCounterSource` etc.).

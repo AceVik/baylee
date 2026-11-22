@@ -24,10 +24,10 @@ card!(
             recipients: DamageRecipients::Players(PlayerRel::You),
             combat: Some(true),
             is_replacement: false,
-            then: &[Effect::CreateTokenN {
+            then: DamageRider::new(&[Effect::CreateTokenN {
                 token: &generated_tokens::INKLING_2_1_WHITE_BLACK_FLYING,
                 amount: Amount::ThisWay(ThisWay::DamagePrevented)
-            }]
+            }])
         },
         duration: Duration::UntilEndOfTurn
     }]),],

@@ -59,8 +59,8 @@ fn wave26f_prevention_replace_or_prevent_with_then() {
             "static_ability!(Filter::Any, Modifier::ReplaceOrPreventDamageWithThen { \
              sources: &Filter::Any, recipients: DamageRecipients::Permanents(&Filter::This), \
              combat: None, is_replacement: true, \
-             then: &[Effect::AddCounterSource { kind: CounterKind::P1P1, \
-             amount: Amount::ThisWay(ThisWay::DamagePrevented) }] })"
+             then: DamageRider::new(&[Effect::AddCounterSource { kind: CounterKind::P1P1, \
+             amount: Amount::ThisWay(ThisWay::DamagePrevented) }]) })"
         ]
     );
 
@@ -78,8 +78,8 @@ fn wave26f_prevention_replace_or_prevent_with_then() {
             "static_ability!(Filter::Any, Modifier::ReplaceOrPreventDamageWithThen { \
              sources: &Filter::Any, recipients: DamageRecipients::Permanents(&Filter::This), \
              combat: Some(true), is_replacement: false, \
-             then: &[Effect::ExileTop { who: PlayerRel::You, \
-             count: Amount::ThisWay(ThisWay::DamagePrevented) }] })"
+             then: DamageRider::new(&[Effect::ExileTop { who: PlayerRel::You, \
+             count: Amount::ThisWay(ThisWay::DamagePrevented) }]) })"
         ]
     );
 
@@ -143,8 +143,8 @@ fn wave26f_prevention_effects_with_then_and_temp_uncounterable() {
         ["spell!(&[Effect::PreventNextDamageWithThen { \
              sources: TargetSpec::Object(&Filter::CREATURE), \
              recipients: TargetSpec::AnyTarget, combat_only: false, \
-             then: &[Effect::GainLife { \
-             amount: Amount::ThisWay(ThisWay::DamagePrevented) }] }], \
+             then: DamageRider::new(&[Effect::GainLife { \
+             amount: Amount::ThisWay(ThisWay::DamagePrevented) }]) }], \
              targets = Some(TargetReq::one(TargetSpec::Object(&Filter::CREATURE))))"]
     );
 

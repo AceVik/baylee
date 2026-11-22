@@ -2153,6 +2153,27 @@ fn owner_is(state: &GameState, rel: PlayerRel, owner: PlayerId, you: PlayerId) -
     }
 }
 
+/// Commit a printed damage rider within its damage event (CR 615.5). A life
+/// gain, counter placement, token entry or mill can enqueue a replacement
+/// choice. The enclosing engine or resolution presents it to the player.
+pub(crate) fn commit_damage_rider(
+    state: &mut GameState,
+    res: &mut Resolution,
+    rider: baylee_cards_dsl::DamageRider,
+) {
+    state.capture_entry_history();
+    state.refresh_characteristics();
+    let since = state.journal.last_seq();
+    state.entries.begin_event(since, Some(res.controller));
+    let choice = exec(state, res, rider.instruction()[0]);
+    assert!(
+        choice.is_none(),
+        "damage riders commit one immediate instruction"
+    );
+    crate::graveyard_order::capture(state, since);
+    state.refresh_characteristics();
+}
+
 /// Executes one operation; returns `Some(pending)` when it suspends.
 fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> Option<Pending> {
     let before = subjects::before(state, res);

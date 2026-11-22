@@ -27,9 +27,9 @@ card!(
             recipients: DamageRecipients::Any,
             combat: None,
             is_replacement: false,
-            then: &[Effect::GainLife {
+            then: DamageRider::new(&[Effect::GainLife {
                 amount: Amount::ThisWay(ThisWay::DamagePrevented)
-            }]
+            }])
         },
         duration: Duration::UntilEndOfTurn
     }]),],

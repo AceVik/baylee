@@ -356,6 +356,62 @@ fn result_counter_replacements(state: &mut GameState, additions: usize) {
 }
 
 #[test]
+fn prevention_counter_rider_leaves_the_replacement_order_to_the_affected_player() {
+    use crate::prevention::ShieldSourceFilter;
+    use baylee_cards_dsl::{Amount, CounterKind, Effect, ThisWay};
+    for (add_first, expected) in [(true, 6), (false, 5)] {
+        let mut state = state();
+        result_counter_replacements(&mut state, 1);
+        let protected = creature(&mut state, A, KeywordSet::EMPTY);
+        let attacker = creature(&mut state, B, KeywordSet::EMPTY);
+        let attacker_ref = state.source_identity(attacker).unwrap();
+        let chosen = ChosenSource::new(&state, attacker_ref, &Filter::Any, A, protected).unwrap();
+        state.shields.push(Shield {
+            protects: Shielded::Player(A),
+            controller: A,
+            kind: ShieldKind::NextWithThen {
+                source: ShieldSourceFilter::Exact(chosen),
+                combat_only: false,
+                then: baylee_cards_dsl::DamageRider::new(&[Effect::AddCounterSource {
+                    kind: CounterKind::P1P1,
+                    amount: Amount::ThisWay(ThisWay::DamagePrevented),
+                }]),
+                origin_source: protected,
+                origin_version: Some(state.object(protected).unwrap().version),
+                text: crate::text_changes::TextChangeMap::IDENTITY,
+                chosen_color: None,
+                chosen_subtype: None,
+            },
+        });
+        let work = deal(
+            &mut state,
+            vec![assignment(attacker, DamageTarget::Player(A), 2)],
+        );
+        assert_eq!(work.dealt(), 0);
+        let question = crate::replacement::counter_order::pending(&mut state).unwrap();
+        assert_eq!(question.asked(), Some(A));
+        assert_eq!(
+            state
+                .object(protected)
+                .unwrap()
+                .counters
+                .get(CounterKind::P1P1),
+            0
+        );
+        crate::replacement::counter_order::answer(&mut state, add_first);
+        assert!(crate::replacement::counter_order::pending(&mut state).is_none());
+        assert_eq!(
+            state
+                .object(protected)
+                .unwrap()
+                .counters
+                .get(CounterKind::P1P1),
+            expected
+        );
+    }
+}
+
+#[test]
 fn infect_result_orders_wait_for_every_recipient_before_any_damage_result() {
     use crate::choice::PlayerAction;
     use baylee_cards_dsl::CounterKind;

@@ -246,9 +246,6 @@ impl DamageWork {
 }
 
 fn run_prevent_then(state: &mut GameState, rider: &super::PreventThenRider) {
-    if rider.prevented == 0 || rider.then.is_empty() {
-        return;
-    }
     let mut subject =
         crate::resolve::SubjectContext::default().with_source_version(rider.source_version);
     subject.damage_prevented = rider.prevented;
@@ -262,7 +259,7 @@ fn run_prevent_then(state: &mut GameState, rider: &super::PreventThenRider) {
         source: rider.source,
         on_stack: ObjectId::NO_SOURCE,
         controller: rider.controller,
-        effects: rider.then.to_vec(),
+        effects: Vec::new(),
         pc: 0,
         targets: smallvec::SmallVec::new(),
         second_targets: smallvec::SmallVec::new(),
@@ -284,22 +281,7 @@ fn run_prevent_then(state: &mut GameState, rider: &super::PreventThenRider) {
         this_way_from: None,
         coin_stake: None,
     };
-    let mut flow = crate::resolve::run(state, &mut res);
-    let mut steps = 0_u32;
-    while !matches!(flow, crate::resolve::Flow::Complete) && steps < 64 {
-        steps += 1;
-        match flow {
-            crate::resolve::Flow::Enter => {
-                let _ = crate::entry::advance(state);
-                flow = crate::resolve::resume_entries(state, &mut res);
-            }
-            crate::resolve::Flow::Wait(crate::choice::Pending::YesNo { .. }) => {
-                flow = crate::resolve::resume_yes_no(state, &mut res, false);
-            }
-            crate::resolve::Flow::Wait(_) | crate::resolve::Flow::Complete => break,
-        }
-    }
-    state.refresh_characteristics();
+    crate::resolve::commit_damage_rider(state, &mut res, rider.then);
 }
 
 impl Part {

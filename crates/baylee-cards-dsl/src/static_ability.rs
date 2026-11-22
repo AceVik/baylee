@@ -1557,7 +1557,7 @@ pub enum Modifier {
         is_replacement: bool,
         /// Rider effects executed immediately after damage commits, with
         /// [`crate::ThisWay::DamagePrevented`] bound to the amount prevented/replaced.
-        then: &'static [crate::Effect],
+        then: crate::DamageRider,
     },
 }
 
@@ -3034,7 +3034,7 @@ mod tests {
                 recipients: DamageRecipients::Any,
                 combat: None,
                 is_replacement: false,
-                then: &[],
+                then: crate::DamageRider::new(&[crate::Effect::gain_life(1)]),
             },
         ] {
             assert_eq!(

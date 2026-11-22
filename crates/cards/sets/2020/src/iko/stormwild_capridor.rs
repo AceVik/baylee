@@ -29,10 +29,10 @@ card!(
             recipients: DamageRecipients::Permanents(&Filter::This),
             combat: Some(false),
             is_replacement: false,
-            then: &[Effect::AddCounterSource {
+            then: DamageRider::new(&[Effect::AddCounterSource {
                 kind: CounterKind::P1P1,
                 amount: Amount::ThisWay(ThisWay::DamagePrevented)
-            }]
+            }])
         }
     ),],
 );

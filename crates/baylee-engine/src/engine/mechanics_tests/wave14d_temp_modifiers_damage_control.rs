@@ -23,8 +23,8 @@ use crate::turn::Step;
 use baylee_cards_dsl::counters;
 use baylee_cards_dsl::prelude::{spell, static_ability, triggered};
 use baylee_cards_dsl::{
-    Amount, DamageAmountReplacement, DamageRecipients, Duration, Filter, Modifier, PlayerRel,
-    TargetSpec, ThisWay, Trigger,
+    Amount, DamageAmountReplacement, DamageRecipients, DamageRider, Duration, Filter, Modifier,
+    PlayerRel, TargetSpec, ThisWay, Trigger,
 };
 use baylee_core::ids::Defender;
 use baylee_core::mana::ManaColor;
@@ -1018,9 +1018,9 @@ fn awe_strike_prevent_next_damage_with_then_gains_life_once_and_hashes_shield() 
         sources: TargetSpec::Object(&Filter::CREATURE),
         recipients: TargetSpec::AnyTarget,
         combat_only: false,
-        then: &[Effect::GainLife {
+        then: DamageRider::new(&[Effect::GainLife {
             amount: Amount::ThisWay(ThisWay::DamagePrevented),
-        }],
+        }]),
     }];
     static AWE_STRIKE_AB: &[AbilityDef] = &[spell!(
         AWE_STRIKE_EFFECTS,
@@ -1162,10 +1162,10 @@ fn awe_strike_prevent_next_damage_with_then_gains_life_once_and_hashes_shield() 
 
 #[test]
 fn gloom_surgeon_and_force_bubble_prevention_vs_replacement_with_then() {
-    static GLOOM_THEN: &[Effect] = &[Effect::ExileTop {
+    static GLOOM_THEN: DamageRider = DamageRider::new(&[Effect::ExileTop {
         who: PlayerRel::You,
         count: Amount::ThisWay(ThisWay::DamagePrevented),
-    }];
+    }]);
     static GLOOM_AB: &[AbilityDef] = &[static_ability!(
         Filter::This,
         Modifier::ReplaceOrPreventDamageWithThen {
@@ -1176,10 +1176,10 @@ fn gloom_surgeon_and_force_bubble_prevention_vs_replacement_with_then() {
             then: GLOOM_THEN,
         }
     )];
-    static FORCE_THEN: &[Effect] = &[Effect::AddCounterSource {
+    static FORCE_THEN: DamageRider = DamageRider::new(&[Effect::AddCounterSource {
         kind: counters::DEPLETION,
         amount: Amount::ThisWay(ThisWay::DamagePrevented),
-    }];
+    }]);
     static FORCE_BUBBLE_AB: &[AbilityDef] = &[
         static_ability!(
             Filter::Any,

@@ -5671,7 +5671,7 @@ pub enum Effect {
         combat_only: bool,
         /// Rider effects executed after damage commits with
         /// [`ThisWay::DamagePrevented`] bound to the prevented amount.
-        then: &'static [Effect],
+        then: DamageRider,
     },
     /// Generalized multi-permanent control change (`CR 613.1b`, `CR 611.2b–c`;
     /// *Broadcast Takeover*, *Ashiok, Sculptor of Fears*, *Call for Aid*).

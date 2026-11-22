@@ -27,10 +27,10 @@ card!(
             recipients: DamageRecipients::Permanents(&Filter::This),
             combat: Some(true),
             is_replacement: false,
-            then: &[Effect::ExileTop {
+            then: DamageRider::new(&[Effect::ExileTop {
                 who: PlayerRel::You,
                 count: Amount::ThisWay(ThisWay::DamagePrevented)
-            }]
+            }])
         }
     ),],
 );

@@ -1291,9 +1291,9 @@ fn prevent_next_damage_with_then_body_is_visited() {
         sources: TargetSpec::AnyTarget,
         recipients: TargetSpec::AnyTarget,
         combat_only: false,
-        then: &[Effect::GainLife {
+        then: crate::DamageRider::new(&[Effect::GainLife {
             amount: Amount::ThisWay(crate::ThisWay::DamagePrevented),
-        }],
+        }]),
     }];
     let mut seen = 0;
     let mut gained = false;

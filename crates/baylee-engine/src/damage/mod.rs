@@ -93,7 +93,7 @@ struct PreventThenRider {
     text: crate::text_changes::TextChangeMap,
     chosen_subtype: Option<baylee_core::ids::SubtypeId>,
     chosen_color: Option<baylee_core::mana::ManaColor>,
-    then: &'static [baylee_cards_dsl::Effect],
+    then: baylee_cards_dsl::DamageRider,
 }
 
 /// A damage event suspended only on its own replacement decisions.
@@ -1044,7 +1044,7 @@ impl DamageWork {
     }
 
     fn record_then_rider(&mut self, rider: PreventThenRider) {
-        if rider.prevented == 0 || rider.then.is_empty() {
+        if rider.prevented == 0 {
             return;
         }
         if let Some(existing) = self.then_riders.iter_mut().find(|r| r.key == rider.key) {

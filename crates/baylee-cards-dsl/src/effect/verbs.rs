@@ -830,12 +830,6 @@ impl Effect {
                 max: _,
                 if_revealed: then,
             }
-            | Effect::PreventNextDamageWithThen {
-                sources: _,
-                recipients: _,
-                combat_only: _,
-                then,
-            }
             | Effect::RevealUntilThen {
                 library: _,
                 filter: _,
@@ -867,6 +861,7 @@ impl Effect {
                 optional: _,
                 then_if_moved: then,
             } => (then, NONE),
+            Effect::PreventNextDamageWithThen { then, .. } => (then.instruction(), NONE),
             Effect::PlayerMayPayThenElse { player: _, mana: _, paid: then, unpaid: otherwise }
             | Effect::PlayerMayPayManaAndLifeEachThenElse { paid: then, unpaid: otherwise, .. }
             | Effect::PlayerMayPayManaEachThenElse {

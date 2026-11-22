@@ -32,10 +32,10 @@ card!(
                 recipients: DamageRecipients::Players(PlayerRel::Opponent),
                 combat: None,
                 is_replacement: false,
-                then: &[Effect::Mill {
+                then: DamageRider::new(&[Effect::Mill {
                     amount: Amount::ThisWay(ThisWay::DamagePrevented),
                     target: PlayerRel::EachOpponent
-                }]
+                }])
             }
         ),
     ],

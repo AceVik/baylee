@@ -2213,7 +2213,7 @@ mod tests {
                 recipients: baylee_cards_dsl::DamageRecipients::Any,
                 combat: None,
                 is_replacement: false,
-                then: &[],
+                then: baylee_cards_dsl::DamageRider::new(&[baylee_cards_dsl::Effect::gain_life(1)]),
             },
         ]
     }

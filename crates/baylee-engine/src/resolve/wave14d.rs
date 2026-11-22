@@ -2,9 +2,7 @@
 //! `AddGlobalTempModifier`), prevention-with-rider shields (`PreventNextDamageWithThen`),
 //! and generalized control changes (`GainControlEx` / `GainControlAllEx`).
 
-use baylee_cards_dsl::{
-    Duration, Effect, Filter, KeywordSet, Layer, Modifier, PlayerRel, TargetSpec,
-};
+use baylee_cards_dsl::{Duration, Filter, KeywordSet, Layer, Modifier, PlayerRel, TargetSpec};
 use baylee_core::ids::{DamageSourceRef, EffectId, ObjectId, PlayerId, SeatSet};
 use smallvec::SmallVec;
 
@@ -76,7 +74,7 @@ fn resolve_player_spec(
     }
 }
 
-/// Resolve [`Effect::AddTempModifier`].
+/// Resolve [`baylee_cards_dsl::Effect::AddTempModifier`].
 pub(super) fn exec_add_temp_modifier(
     state: &mut GameState,
     res: &Resolution,
@@ -165,7 +163,7 @@ pub(super) fn exec_add_temp_modifier(
     None
 }
 
-/// Resolve [`Effect::AddGlobalTempModifier`].
+/// Resolve [`baylee_cards_dsl::Effect::AddGlobalTempModifier`].
 pub(super) fn exec_add_global_temp_modifier(
     state: &mut GameState,
     res: &Resolution,
@@ -270,14 +268,14 @@ fn register_temp_effects(
     }
 }
 
-/// Resolve [`Effect::PreventNextDamageWithThen`].
+/// Resolve [`baylee_cards_dsl::Effect::PreventNextDamageWithThen`].
 pub(super) fn exec_prevent_next_damage_with_then(
     state: &mut GameState,
     res: &Resolution,
     sources: TargetSpec,
     recipients: TargetSpec,
     combat_only: bool,
-    then: &'static [Effect],
+    then: baylee_cards_dsl::DamageRider,
 ) -> Option<Pending> {
     let you = res.controller;
     let context = res.rule_context();
@@ -531,7 +529,7 @@ fn resolve_shield_recipients(
     shielded
 }
 
-/// Resolve [`Effect::GainControlEx`].
+/// Resolve [`baylee_cards_dsl::Effect::GainControlEx`].
 pub(super) fn exec_gain_control_ex(
     state: &mut GameState,
     res: &mut Resolution,
@@ -613,7 +611,7 @@ pub(super) fn exec_gain_control_ex(
     )
 }
 
-/// Resolve [`Effect::GainControlAllEx`].
+/// Resolve [`baylee_cards_dsl::Effect::GainControlAllEx`].
 pub(super) fn exec_gain_control_all_ex(
     state: &mut GameState,
     res: &mut Resolution,

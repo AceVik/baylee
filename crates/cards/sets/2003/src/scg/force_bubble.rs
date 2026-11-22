@@ -28,10 +28,10 @@ card!(
                 recipients: DamageRecipients::Players(PlayerRel::You),
                 combat: None,
                 is_replacement: true,
-                then: &[Effect::AddCounterSource {
+                then: DamageRider::new(&[Effect::AddCounterSource {
                     kind: counters::DEPLETION,
                     amount: Amount::ThisWay(ThisWay::DamagePrevented)
-                }]
+                }])
             }
         ),
         triggered!(Trigger::State(&STATE1), &[Effect::SacrificeSelf]),

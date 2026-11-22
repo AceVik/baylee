@@ -511,7 +511,7 @@ impl Tx<'_> {
         self.body.abilities.push(format!(
             "static_ability!(Filter::Any, Modifier::ReplaceOrPreventDamageWithThen {{ \
              sources: {source_ref}, recipients: {recipients}, combat: {combat}, \
-             is_replacement: {is_replacement}, then: &[{then_eff}] }}{zone_arg}{cond})"
+             is_replacement: {is_replacement}, then: DamageRider::new(&[{then_eff}]) }}{zone_arg}{cond})"
         ));
         Some(())
     }
@@ -2015,7 +2015,7 @@ impl Tx<'_> {
             return Some(vec![format!(
                 "Effect::PreventNextDamageWithThen {{ sources: {sources_spec}, \
                  recipients: {recipients_spec}, combat_only: {combat_only}, \
-                 then: &[{then_eff}] }}"
+                 then: DamageRider::new(&[{then_eff}]) }}"
             )]);
         }
 
@@ -2048,7 +2048,7 @@ impl Tx<'_> {
             "Effect::AddGlobalTempModifier {{ filter: &Filter::Any, \
              modifier: Modifier::ReplaceOrPreventDamageWithThen {{ \
              sources: {source_ref}, recipients: {recipients}, combat: {combat}, \
-             is_replacement: false, then: &[{then_eff}] }}, \
+             is_replacement: false, then: DamageRider::new(&[{then_eff}]) }}, \
              duration: Duration::UntilEndOfTurn }}"
         )])
     }
