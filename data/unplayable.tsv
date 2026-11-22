@@ -17,9 +17,9 @@
 #                rules (owner, 13.10.2026): fractional or infinite mana
 #                (City of Ass, Urza's Fun House; CR 107.1a allows neither),
 #                printed text in place of Oracle errata (R&D's Secret Lair),
-#                a website (Urza's Fun House). Only the Un-cards whose
-#                printed text cannot be played go here; an Un-card the
-#                rules can play is built like any other.
+#                a website (Urza's Fun House); plus (owner, 22.11.2026) all
+#                unbuilt Un-set, Acorn, and Sticker cards (including unbuilt
+#                Unfinity rows).
 #
 # A card is listed here after its oracle text was read, never from its name.
 # It is never added to data/card-pool.txt, and a set is counted complete
@@ -39,3 +39,103 @@ e043a795-6936-4d7e-9a77-e0175a27c8f5	City of Ass	un-set
 6538fb05-7cc6-4bb9-9b57-11f4f07b5e59	Urza's Fun House	un-set
 a06f8476-0a23-413a-bc28-8dc2427fdc2a	Amulet of Quoz	ante
 2d2fab27-8793-4212-a512-c4f0c8c55eeb	Timmerian Fiends	ante
+7bf6f13a-3c90-4bda-bc84-e026828bf4d1	"Lifetime" Pass Holder	un-set
+acee1d16-1651-4e2c-8138-cc6456c4ee71	"Name Sticker" Goblin	un-set
+92de7cf0-ac3e-46ae-86b2-7d8ebb0276e4	A Good Day to Pie	un-set
+20046568-b067-49fb-93b4-2ee86421f14b	Aerialephant	un-set
+183a9488-e21f-448b-8b69-e53b56fa0a56	Ambassador Blorpityblorpboop	un-set
+0e9551ef-8aee-46ed-b21f-162c64213437	Atomwheel Acrobats	un-set
+89e90361-822f-42b6-9ed9-d94e6d24fb95	Attempted Murder	un-set
+3bf3e503-0628-4550-84a9-7c1dd0a97457	Baaallerina	un-set
+b8645fe4-884b-4511-b138-ea4ba2eee943	Bamboozling Beeble	un-set
+b181f5f7-d857-4ed0-996c-bb65b37bfb1b	Big Winner	un-set
+fb8b8c58-7bdc-4daa-b48b-728a26e174dd	Bioluminary	un-set
+25783439-9b22-4882-a7c2-e0b1fc2f7ec6	Black Hole	un-set
+ebd06311-4aa6-4db9-a90a-666cc4e744d1	Blorbian Buddy	un-set
+8b1fc306-0d8f-4edb-b197-2e99f10c599e	Boing!	un-set
+984adc49-421b-488f-b316-ed7323c5735b	Captain Rex Nebula	un-set
+ba5bc14b-db2c-4561-a6a4-a02443791260	Carnival Carnivore	un-set
+058f74f6-eeed-4ee8-8574-f95fea8d8f14	Celebr-8000	un-set
+d9590455-974f-4b7c-a1ec-fd52e3ba0618	Centaur of Attention	un-set
+68982532-c0c8-477b-9dd4-180c6d22731e	Chicken Troupe	un-set
+14421f6a-2cd6-4438-9ac9-dc06d2c7befb	Circuits Act	un-set
+886e00ab-c694-4839-b3fb-7a72048db4b2	Clandestine Chameleon	un-set
+e0a6947f-3d52-45e0-8fd7-0bc07cc8c784	Clown Car	un-set
+9ae778b4-f8dd-4dec-b949-5b8c29120512	Clowning Around	un-set
+e7c67480-1816-4071-9eab-a1d1b535a344	Comet, Stellar Pup	un-set
+5d9c7ca4-f735-4bee-b03f-4c0c76ee48ed	Coming Attraction	un-set
+f6c079cd-69c2-4da4-ba41-91844a4d2f06	Command Performance	un-set
+018627e1-ba32-4452-b3d1-6c2a39759aff	Complaints Clerk	un-set
+8b1796d2-5b19-48ab-8699-01f45d427498	Croakid Amphibonaut	un-set
+ae4b00ab-25ad-4177-8b86-af8b84d67ef3	Deadbeat Attendant	un-set
+e4a338d5-8cd5-4583-893b-ebbede2280c6	Dee Kay, Finder of the Lost	un-set
+0aafaef7-4827-4c80-87db-060f5be803f9	Discourtesy Clerk	un-set
+15cea1c7-2c11-4e33-9b71-9ed94091bcac	Dissatisfied Customer	un-set
+2a248d6a-aa83-4e59-848b-46de8204b538	Done for the Day	un-set
+455dc001-3f6d-4d44-afa7-0f83a2520baf	Down for Repairs	un-set
+f73ba6ae-87c1-4e5d-ae52-59d11d7d6ba6	Draconian Gate-Bot	un-set
+8c56530b-098a-4afd-9022-76bfaa1f6a7c	Eelectrocute	un-set
+8b7335e2-0e79-4406-84c1-d6b707cb72c3	Embiggen	un-set
+a55ef412-257b-4ecd-9440-4545521be938	Exchange of Words	un-set
+5f589a11-1601-4a17-92d6-58e9dd9b00f2	Fight the _____ Fight	un-set
+d41dc3a5-58e4-444a-b388-5a32ccbed0eb	Finishing Move	un-set
+3786047e-f136-49f8-81d6-08beb3f9bcfd	Glitterflitter	un-set
+906881da-6bb3-4a0e-9bd1-d1a5bc484144	Goblin Airbrusher	un-set
+67ee367c-e346-48b6-8694-01c8d5f020cb	Grabby Tabby	un-set
+54ddf766-b528-488d-9b98-8a101bdb5de9	Last Voyage of the _____	un-set
+a43d9793-b2ee-427c-95ca-285611aa1a4d	Line Cutter	un-set
+71433aef-5a06-449e-93b1-9565cb0afd93	Lineprancers	un-set
+f6fee76b-5c34-4e95-962d-d2b38fcef540	Magar of the Magic Strings	un-set
+fe2601a4-cbd5-4866-92a2-5586f737c9af	Make a _____ Splash	un-set
+67151297-3d25-4882-b562-56025ee81f48	Minotaur de Force	un-set
+f59fe075-f507-4a2c-a65c-725ff3084bd0	Monitor Monitor	un-set
+d0bb7a44-f93b-4acb-b69f-81efe0a3ae2d	Motion Sickness	un-set
+4f0c3154-1917-4bb5-9ba2-446943a88808	Myra the Magnificent	un-set
+d758fd82-7ccb-441d-a948-0abaf0311892	Night Shift of the Living Dead	un-set
+d4f3d013-d9e3-47bc-a615-b25f2c932b7c	Non-Human Cannonball	un-set
+6562ab6b-6f18-42fd-9365-f058a71465cc	Pair o' Dice Lost	un-set
+02f31e00-646d-4971-8704-1583bbfcddd6	Park Bleater	un-set
+ad6dd363-e1b7-4df4-b9b6-4f5c1fae3bc6	Petting Zookeeper	un-set
+69fedfbb-5d88-4fe0-81e1-1e97a56c6aca	Pin Collection	un-set
+68a9565e-0000-49c9-8036-bc242d6d465e	Priority Boarding	un-set
+41b05346-8531-4086-96a5-e973aff150cb	Prize Wall	un-set
+ddd3f530-1ea4-4b1e-9f9b-5d34fa626529	Proficient Pyrodancer	un-set
+a4f50771-4a10-4d5d-a7c4-0e24c873a0ae	Quick Fixer	un-set
+66d4a218-5404-4389-b495-eaeda9a34401	Rad Rascal	un-set
+9b0607d6-1f24-441f-b310-aa2c148726a7	Resolute Veggiesaur	un-set
+8772e5cc-d3f3-4d68-86e7-6c105f39930a	Ride Guide	un-set
+9ce17fde-71ec-482a-b9f9-78681bc894d8	Robo-Piñata	un-set
+5e24a352-7c90-458b-9bb2-bd4bc22bc748	Roxi, Publicist to the Stars	un-set
+ea787e29-5e24-4136-bdf6-bee338899e34	Sanguine Sipper	un-set
+64dbed80-b3a2-4a0f-afe4-c3d968173e50	Scampire	un-set
+4a5d8acd-a460-43b2-816a-70f61d7831af	Scared Stiff	un-set
+6048a682-f218-4039-8d5e-3e5156817fb2	Seasoned Buttoneer	un-set
+82185e99-903d-4b18-8ff9-fb4f95ff17fc	Six-Sided Die	un-set
+d1f36c19-ef39-4204-b126-8ea051bde0d2	Slight Malfunction	un-set
+52d90fc8-bd72-432b-a6f8-d4bf6398c50d	Soul Swindler	un-set
+cfca44cb-8ca5-4ebb-bd5c-b621eca41944	Space Beleren	un-set
+9372f286-5ea6-4abb-b695-1ad5f46efe34	Spinnerette, Arachnobat	un-set
+7af6b952-9e53-4f5d-ba6f-d31b42e91bbe	Squirrel Squatters	un-set
+5c4e9401-537c-4bf6-bd07-d2abc43612c9	Starlight Spectacular	un-set
+aaf6b3ed-2396-46d7-a32d-7d24cc2eb449	Step Right Up	un-set
+9c0d7d7d-5513-4e2b-b834-1ff999ab24f5	Stiltstrider	un-set
+4548d471-e78a-473e-84d4-cd2af64c9d28	Strength-Testing Hammer	un-set
+01efde9a-a20d-4972-b17f-c2d9eb024b0b	Sword-Swallowing Seraph	un-set
+dcb9337b-d5fd-4cd2-a41f-900d170a5ded	The Most Dangerous Gamer	un-set
+63132b61-a684-4900-baf2-818904805208	The Space Family Goblinson	un-set
+85abdc70-6fab-4d44-b286-b044eb839c5e	Ticket Turbotubes	un-set
+dc8290d7-83b0-49ef-b0de-7ebb3633a149	Ticketomaton	un-set
+de45de7e-5bba-4612-8bb7-755710d93ecf	Tusk and Whiskers	un-set
+898ee071-dd37-4a02-895d-a41b568d7eef	Unlawful Entry	un-set
+af1779f8-790e-4606-a02d-9eb4589d58cf	Vedalken Squirrel-Whacker	un-set
+ad8b90c0-4c66-4fc6-a749-cd10e6deabdb	Wee Champion	un-set
+15a71d11-da00-4c1a-bf64-ec3f627ed6a3	Wicker Picker	un-set
+786b0b50-adc7-4d58-b578-1e80680b89bd	Wizards of the _____	un-set
+58c9454b-7027-48f4-9e17-310e27b916d1	Wolf in _____ Clothing	un-set
+d5c54df9-437e-46e1-94cf-91d9f1d343b6	Xenosquirrels	un-set
+82c2a58b-0ee2-454b-9ddd-670c1e788166	_____ Balls of Fire	un-set
+2ce375c8-7c37-40b3-95cf-e0aa958bb317	_____ Bird Gets the Worm	un-set
+88222fd2-8316-426c-8218-64f6be5ca0f8	_____ Goblin	un-set
+1009f979-b1fa-4427-bf9e-2a533a4ca19b	_____ _____ Rocketship	un-set
+75854e14-5f15-443d-b342-b27fc3ab4b6e	_____ _____ _____ Trespasser	un-set
+32921952-8846-418d-8689-c42dbc24a7b8	_____-o-saurus	un-set
