@@ -1,4 +1,8 @@
-use crate::league::{self, CHAMPION_LIMIT, POLICIES, Policy, Record, SEASON};
+use crate::divisions::Comparison;
+use crate::league::{
+    self, CHAMPION, CHAMPION_LIMIT, DIAMOND, GOLD, GRANDMASTER, MASTER, POLICIES, Policy, REVISED,
+    Record, SEASON,
+};
 use rand::{RngExt, SeedableRng, seq::SliceRandom};
 use rand_chacha::ChaCha8Rng;
 use rand_distr::StandardNormal;
@@ -112,6 +116,8 @@ fn play_day(
 }
 
 struct History {
+    first_ten_gold: Vec<Option<u16>>,
+    first_ten_diamond: Vec<Option<u16>>,
     first_master: Vec<Option<u16>>,
     ever_gm: Vec<bool>,
     last_week: Vec<usize>,
@@ -119,19 +125,37 @@ struct History {
 impl History {
     fn new(n: usize) -> Self {
         Self {
+            first_ten_gold: vec![None; n],
+            first_ten_diamond: vec![None; n],
             first_master: vec![None; n],
             ever_gm: vec![false; n],
             last_week: vec![0; n],
         }
     }
-    fn update(&mut self, tiers: &[usize], records: &[Record], day: u16) {
+    fn update(
+        &mut self,
+        tiers: &[usize],
+        records: &[Record],
+        players: &[Pilot],
+        policy: Policy,
+        day: u16,
+    ) {
         for (id, &tier) in tiers.iter().enumerate() {
-            if tier >= 7 {
+            if players[id].daily == 10 && tier >= GOLD {
                 let elapsed = day - records[id].first;
-                assert!(elapsed >= league::MASTER_AGE && records[id].games >= league::MASTER_GAMES);
+                self.first_ten_gold[id].get_or_insert(elapsed);
+                if tier >= DIAMOND {
+                    self.first_ten_diamond[id].get_or_insert(elapsed);
+                }
+            }
+            if tier >= MASTER {
+                let elapsed = day - records[id].first;
+                assert!(
+                    elapsed >= league::MASTER_AGE && records[id].games >= policy.gate(MASTER).1
+                );
                 self.first_master[id].get_or_insert(elapsed);
             }
-            self.ever_gm[id] |= tier >= 8;
+            self.ever_gm[id] |= tier >= GRANDMASTER;
             if day == DAYS - 8 {
                 self.last_week[id] = tier;
             }
@@ -141,7 +165,7 @@ impl History {
 
 pub fn header() -> String {
     format!(
-        "scenario,seed,population,day,policy,matches,{},champ_candidates,ever_master,ever_gm,ten_daily,ten_master,ten_first_min,ten_first_p50,ten_first_p90,champ_last_week,champ_retained,master_true_top1,master_last_week,master_retained,gm_last_week,gm_retained",
+        "scenario,seed,population,day,policy,matches,{},champ_candidates,ever_master,ever_gm,ten_daily,ten_master,ten_first_min,ten_first_p50,ten_first_p90,champ_last_week,champ_retained,master_true_top1,master_last_week,master_retained,gm_last_week,gm_retained,ten_gold,ten_gold_p50,ten_diamond,ten_diamond_p50",
         league::NAMES.join(",")
     )
 }
@@ -164,7 +188,7 @@ fn row(
     pilots: &[Pilot],
     top_one: i32,
 ) -> String {
-    let mut counts = [0; 10];
+    let mut counts = [0; league::NAMES.len()];
     let mut first = Vec::new();
     let mut ten = 0;
     let mut retained = 0;
@@ -177,10 +201,10 @@ fn row(
                 first.push(age);
             }
         }
-        retained += usize::from(tier == 9 && history.last_week[id] == 9);
-        strong += usize::from(tier >= 7 && pilots[id].skill >= top_one);
+        retained += usize::from(tier == CHAMPION && history.last_week[id] == CHAMPION);
+        strong += usize::from(tier >= MASTER && pilots[id].skill >= top_one);
     }
-    assert!(counts[9] <= CHAMPION_LIMIT);
+    assert!(counts[CHAMPION] <= CHAMPION_LIMIT);
     first.sort_unstable();
     let counts = counts.map(|n| n.to_string()).join(",");
     let ever_master = history.first_master.iter().flatten().count();
@@ -200,11 +224,18 @@ fn row(
                 .count(),
         )
     };
-    let (last_week, _) = retention(9);
-    let (last_master, held_master) = retention(7);
-    let (last_gm, held_gm) = retention(8);
+    let (last_week, _) = retention(CHAMPION);
+    let (last_master, held_master) = retention(MASTER);
+    let (last_gm, held_gm) = retention(GRANDMASTER);
+    let cohort = |ages: &[Option<u16>]| {
+        let mut observed: Vec<_> = ages.iter().flatten().copied().collect();
+        observed.sort_unstable();
+        (observed.len(), percentile(&observed, 50))
+    };
+    let (gold, gold_age) = cohort(&history.first_ten_gold);
+    let (diamond, diamond_age) = cohort(&history.first_ten_diamond);
     format!(
-        "{},{},{},{},{},{matches},{counts},{},{ever_master},{ever_gm},{ten},{},{},{},{},{last_week},{retained},{strong},{last_master},{held_master},{last_gm},{held_gm}",
+        "{},{},{},{},{},{matches},{counts},{},{ever_master},{ever_gm},{ten},{},{},{},{},{last_week},{retained},{strong},{last_master},{held_master},{last_gm},{held_gm},{gold},{gold_age},{diamond},{diamond_age}",
         cfg.label,
         cfg.seed,
         cfg.population,
@@ -218,7 +249,7 @@ fn row(
     )
 }
 
-pub fn simulate(cfg: Scenario) -> Vec<String> {
+pub fn simulate(cfg: Scenario, divisions: bool) -> Vec<String> {
     let mut rng = ChaCha8Rng::seed_from_u64(cfg.seed);
     let mut players = pilots(cfg, &mut rng);
     let mut skill: Vec<_> = players.iter().map(|p| p.skill).collect();
@@ -226,6 +257,7 @@ pub fn simulate(cfg: Scenario) -> Vec<String> {
     let top_one = *skill.select_nth_unstable(idx).1;
     let mut records = vec![Record::default(); players.len()];
     let mut history = POLICIES.map(|_| History::new(players.len()));
+    let mut comparisons = divisions.then(|| Comparison::variants(players.len()));
     let odds = Odds::new();
     let mut matches = 0;
     let mut rows = Vec::new();
@@ -236,15 +268,25 @@ pub fn simulate(cfg: Scenario) -> Vec<String> {
             }
         }
         matches += play_day(day, &players, &mut records, &odds, &mut rng);
+        if let Some(variants) = &mut comparisons {
+            let table = league::standings(&records, REVISED, day);
+            for variant in variants {
+                variant.update(&table.tiers, &records, day);
+            }
+            continue;
+        }
         for (policy, hist) in POLICIES.into_iter().zip(&mut history) {
             let table = league::standings(&records, policy, day);
-            hist.update(&table.tiers, &records, day);
+            hist.update(&table.tiers, &records, &players, policy, day);
             if (day + 1) % SEASON == 0 {
                 rows.push(row(
                     cfg, policy, day, matches, &table, hist, &players, top_one,
                 ));
             }
         }
+    }
+    if let Some(variants) = comparisons {
+        return variants.into_iter().flat_map(|v| v.rows(cfg)).collect();
     }
     rows
 }

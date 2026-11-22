@@ -4,50 +4,61 @@ Offline Rust prototype, 22 November 2026. The league experiment runs a global 1v
 
 ## Proposed player leagues
 
-Every account opens at 1500 player Elo in Papier. Queue pairing uses player Elo. Each match transfers the rounded value of `24 × (score − expected)` points between the two players. The expected score uses the usual 400-point Elo scale. The highest tier for which the account meets all conditions becomes its daily title. Rating, match count and date of first ranked match carry across seasons.
+The global 1v1 ladder publishes the highest earned rank once a day. Accounts start in Papier with 1500 player Elo. Matchmaking and Elo updates use the player's rating. Match count, rating and the date of the first ranked match carry across seasons. A win or loss transfers the rounded value of `24 × (score − expected)` points between the two accounts.
 
-| League | Minimum player Elo | Lifetime ranked matches | Additional requirement |
+| League | Entry Elo | Lifetime ranked matches | Divisions in ascending order |
 | --- | ---: | ---: | --- |
-| Papier | Entry | 0 | |
-| Holz | 1150 | 10 | |
-| Eisen | 1275 | 30 | |
-| Bronze | 1400 | 60 | |
-| Silber | 1500 | 120 | |
-| Gold | 1625 | 260 | |
-| Diamant | 1775 | 600 | |
-| Master | 2200 | 1840 | At least 184 full days since first ranked match |
-| Grandmaster | 2350 | 2500 | Master age and activity requirements |
-| Champion | 2490 | 3000 | Same age and activity requirements, globally in the first 100 eligible accounts |
+| Papier | Entry | 0 | Single placement rank |
+| Holz | 1200 | 20 | III, II, I |
+| Eisen | 1320 | 60 | III, II, I |
+| Bronze | 1440 | 120 | III, II, I |
+| Silber | 1560 | 240 | III, II, I |
+| Gold | 1680 | 440 | IV, III, II, I |
+| Platin | 1840 | 800 | IV, III, II, I |
+| Diamant | 2000 | 1240 | IV, III, II, I |
+| Master | 2240 | 2000 | Single title |
+| Grandmaster | 2350 | 2500 | Single title |
+| Champion | 2490 | 3000 | Up to 100 eligible accounts worldwide |
 
-Master and above require a ranked match in the last 14 elapsed days. Age is measured in elapsed days. Season, region and format share one Champion allocation. The prototype publishes one complete standings snapshot per day. Champions are ordered by descending integer Elo with stable account ID breaking an exact tie. Replacing the snapshot replaces the titles, so the outgoing and incoming holders never occupy the same seat at once. Production would need one authoritative atomic publication for all queues. A historical season badge could display its season separately from a current title.
+Gold opens the middle ranks. Platin is the climb from there to high Elo, which begins at Diamant. Each division splits the gap to the next named league into equal steps in Elo and games, rounded up. A player must meet both thresholds. For example, Gold IV starts at 1680/440, Gold III at 1720/530, Gold II at 1760/620 and Gold I at 1800/710. Platin IV then opens at 1840/800. `ladder` prints all 28 ranks.
+
+A demotion buffer of 15 Elo applies only within the same named league. Someone who has earned Gold III can hold it at 1705 Elo. At 1704 they fall to Gold IV. Promotion to Gold III still requires the full 1720 Elo. At 1679 they fall below Gold. Division changes have no effect on queue pairing. Each daily publication can move through multiple divisions if the conditions warrant it.
+
+Master and above additionally require 184 full days since the first ranked match and a ranked match in the last 14 elapsed days. At ten matches per day, even a perfect season-spanning streak reaches 2000 matches on playing day 200. Champions are the first 100 eligible accounts across queues, ordered by descending integer Elo and then by stable account ID. One authoritative snapshot is required for a global production allocation.
 
 ## League simulation
 
-Each of the 25 independent populations plays 364 days in four 91-day seasons. Pilots draw persistent normally distributed skill centred at 1500 Elo. Each gets an independent deck-strength offset every season (standard deviation 60 Elo). A win is drawn with probability `1 / (1 + 10^((strength_B − strength_A)/400))`. Elo updates use the public ratings before the result. Skill and activity are sampled independently. About 35% play two, 35% six and 30% ten matches per available day. One eighth join 14–59 days late and one tenth retire between days 240 and 329. Randomly shifted 200-point queue bands widen to 600 in one fifth of rounds. An unmatched player carries into the next occupied band. At most one player receives a bye per round.
+We replayed the previous ladder and the revised one on identical results in 33 independent populations, including eight new seeds (610–617) of 12,000 accounts each. The combined suite covers **474,498,228 distinct simulated matches** with 465,200 accounts over four 91-day seasons. Alternative scoring or division policies reuse those results. Each account draws persistent normally distributed skill around 1500 and an independent deck effect each season (SD 60 Elo). Wins follow the 400-point Elo logistic curve on actual strength. Published Elo updates use ratings before the match. About 35% play two, 35% six and 30% ten matches per available day. An eighth join 14–59 days late, a tenth retire between days 240 and 329. The randomly offset 200-point queue bands widen to 600 for one fifth of rounds. Up to one player has a bye per round.
 
-Six 8000-account calibration seeds compared the three policies on identical matches. The higher thresholds were selected to put roughly 1% of accounts in Master or above and around 0.1–0.2% in Grandmaster or above after a year. These are design targets with fixed Elo thresholds. Population size and the spread of skill can change the percentages.
+### How hard is the climb?
 
-| Master / GM / Champion Elo | Master or higher at day 364 | GM or higher at day 364 |
-| --- | ---: | ---: |
-| 2060 / 2190 / 2340 | 2.70% | 0.55% |
-| 2140 / 2290 / 2420 | 1.60% | 0.28% |
-| **2200 / 2350 / 2490** | **1.06%** | **0.17%** |
+The eight new reference populations (skill SD 210) generated **97,597,962 matches**. Shares below count all 96,000 accounts at day 364, including retirees and late arrivals. Each row includes the leagues above it.
 
-### Independent verification and stress tests
+| Milestone | Previous ladder | Revised ladder | Revised count |
+| --- | ---: | ---: | ---: |
+| Gold or higher | 35.01% | 29.09% | 27,928 |
+| Platin or higher | — | 9.75% | 9357 |
+| Diamant or higher | 19.79% | 4.21% | 4038 |
+| Master or higher | 1.04% | 0.73% | 702 |
+| Grandmaster or higher | 0.14% | 0.14% | 135 |
 
-| Population experiment | Accounts per run × seeds | Skill SD | Master or higher | GM or higher | Champions held at final snapshot |
-| --- | ---: | ---: | ---: | ---: | ---: |
-| Verification | 12,000 × 8 | 210 | 1.04% | 0.136% | 2–6 per run |
-| Small population | 800 × 4 | 210 | 0.84% | 0.22% | 0 per run |
-| Narrow skill distribution | 12,000 × 3 | 165 | 0.34% | 0.031% | 2 across 3 runs |
-| Broad skill distribution | 12,000 × 3 | 255 | 1.98% | 0.342% | 45 across 3 runs |
-| Global cap stress | 150,000 × 1 | 255 | 1.98% | 0.356% | 100 of 198 eligible |
+Among the 28,590 ten-a-day accounts, 14,999 reached Gold at some point, 4432 reached Diamant and 962 (3.36%) reached Master. For those who attained the respective milestone, the eight within-run medians ranged from 46–49 elapsed days for Gold, 146–161 for Diamant and 218–235 for Master. The previous ranges on the same matches were 26–28, 72–78 and 203–222 days. The earliest Master promotion in each new field was after 199 elapsed days.
 
-Together the calibration, verification and stress runs contain **376,900,266 matches and 369,200 accounts**. Alternative thresholds and quarterly snapshots reuse the matches and count once in this total. Percentages use all accounts in each population, including late arrivals and retirees.
+The separate 150,000-player stress field filled all 100 Champion seats from 198 candidates. The four 800-player fields each finished with an empty Champion list. Varying the population's skill SD from 165 to 255 put 2.30% to 6.07% of accounts in Diamant or higher and 0.21% to 1.48% in Master or higher at day 364. Shares are simulation outcomes. Both skill spread and participation would need measurement after launch.
 
-In verification, **998 of 96,000** held Master or higher at day 364, **131** held GM or higher and **34** held Champion across the eight independent populations. The seed ranges for Master and GM or higher were 0.98–1.13% and 0.092–0.183%. At some point during the year 2394 accounts reached Master and 398 reached GM. Of the 28,921 accounts assigned ten daily matches, 1359 reached Master within the observation period (4.70%). The first promotion happened after 184 elapsed days in every verification run. Among successful ten-a-day players the eight within-run medians were **205–227 days** and the corresponding 90th percentiles were 287–315 days. An inactive or late entrant can have fewer opportunities. These timing summaries exclude players who never qualified.
+### Three or four divisions?
 
-Of the verification holders seven days before the end, 790/990 (79.8%) still had Master or higher, 92/124 (74.2%) still had GM or higher and 22/31 (71.0%) still had Champion. The six-month climb leads to a title that can be lost at the next daily publication. In the large stress test 76 of 100 Champions held their title a week later. Only 449 of the 998 final Master-or-higher holders were in the top 1% of underlying player skill in verification. Deck strength, attendance and recent results also affect who qualifies. The model assumes stable pilot skill and synthetic activity. Actual Baylee participation and skill dispersion would be needed to forecast live occupancy.
+Five configurations replayed the same matches in six calibration and eight new reference fields. We measured daily publications over the last 28 days. An eligible observation is a day on which the account played and finished in the same named league as the previous day. A change counts one promotion or demotion independent of the number of divisions crossed. A reversal returns to the exact division held two publications earlier after one day away. League-boundary crossings are outside this measurement.
+
+| Divisions and buffer | Holz–Silber | Gold–Platin | Diamant |
+| --- | ---: | ---: | ---: |
+| Three, no buffer | 36.43 | 23.31 | 22.46 |
+| Four, no buffer | 48.49 | 31.01 | 32.74 |
+| Three, 15 Elo | 25.49 | 17.40 | 17.20 |
+| Four, 15 Elo | 33.55 | 22.97 | 25.03 |
+| **Three below Gold, four from Gold, 15 Elo** | **25.49** | **22.97** | **25.03** |
+
+Values are division changes per 100 eligible account-days in the eight new fields. In Gold and Platin, four divisions with the buffer still give more visible steps than three (22.97 versus 17.40 changes), while next-day reversals drop from 8.27 to 3.78 compared with four unbuffered divisions. In Holz through Silber, three buffered divisions avoid about eight extra changes per 100 days. The selected ladder has 28 ranks including Papier and the three elite titles. The experiment measures pacing and volatility. Whether players enjoy that cadence needs playtesting.
 
 ## Deck changes
 
@@ -86,10 +97,12 @@ From this directory, using the pinned lockfile:
 
 ```sh
 cargo run --release --locked -- all > leagues.csv
+cargo run --release --locked -- divisions > divisions.csv
+cargo run --release --locked -- ladder
 cargo run --release --locked -- decks > decks.csv
 cargo run --release --locked -- edit 1680 60 7
 cargo test --locked
 cargo clippy --all-targets --locked -- -D warnings
 ```
 
-`all` runs the player suite. Each row of [leagues.csv](leagues.csv) covers one policy, seed and quarterly snapshot. Match counts are cumulative. The three rows per seed and day share a match history. The last-week retention columns describe day 364. [decks.csv](decks.csv) contains counts, mean losses, control advantages and recovery times per curve and edit band. The PoC uses fixture account indices as stable tie breakers. Full-scale indexing and persistent, concurrent standings publication belong to a production implementation.
+`all` runs the player suite. Each row of [leagues.csv](leagues.csv) covers one policy, seed and quarterly snapshot. Match counts are cumulative. The two rows per seed and day share a match history. The last-week retention columns describe day 364. [divisions.csv](divisions.csv) gives the account-day denominators, promotions, demotions and reversals for each configuration and league band. [decks.csv](decks.csv) contains counts, mean losses, control advantages and recovery times per curve and edit band. The PoC uses fixture account indices as stable tie breakers. Full-scale indexing and persistent, concurrent standings publication belong to a production implementation.

@@ -1,17 +1,19 @@
 mod deck;
 mod deck_sim;
+mod divisions;
 mod league;
 mod sim;
 
 use sim::Scenario;
 
-const SUITES: [&str; 6] = ["tune", "verify", "small", "narrow", "wide", "cap"];
+const SUITES: [&str; 7] = ["tune", "verify", "fresh", "small", "narrow", "wide", "cap"];
 
 fn suite(name: &'static str) -> Vec<Scenario> {
     let (n, spread, seeds) = match name {
         "pilot" => (4000, 210.0, 0..1),
         "tune" => (8000, 210.0, 10..16),
         "verify" => (12000, 210.0, 100..108),
+        "fresh" => (12000, 210.0, 610..618),
         "small" => (800, 210.0, 200..204),
         "narrow" => (12000, 165.0, 300..303),
         "wide" => (12000, 255.0, 400..403),
@@ -32,7 +34,7 @@ fn main() {
     let args: Vec<_> = std::env::args().skip(1).collect();
     let usage = || -> ! {
         eprintln!(
-            "Usage: baylee-league-lab all|pilot|tune|verify|small|narrow|wide|cap|decks\n       baylee-league-lab edit REFERENCE_ELO REGISTERED_COPIES CHANGED_COPIES"
+            "Usage: baylee-league-lab all|pilot|tune|verify|fresh|small|narrow|wide|cap|ladder|divisions|decks\n       baylee-league-lab edit REFERENCE_ELO REGISTERED_COPIES CHANGED_COPIES"
         );
         std::process::exit(2)
     };
@@ -54,8 +56,14 @@ fn main() {
         deck_sim::run();
         return;
     }
+    if action == "ladder" {
+        divisions::print_ladder();
+        return;
+    }
+    let divisions = action == "divisions";
     let names = match action.as_str() {
         "all" => SUITES.to_vec(),
+        "divisions" => vec!["tune", "fresh"],
         name => vec![
             SUITES
                 .into_iter()
@@ -64,13 +72,19 @@ fn main() {
                 .unwrap_or_else(|| usage()),
         ],
     };
-    println!("{}", sim::header());
+    if divisions {
+        println!(
+            "scenario,seed,population,below_gold,from_gold,buffer,band,active_days,up,down,reversals"
+        );
+    } else {
+        println!("{}", sim::header());
+    }
     let cases: Vec<_> = names.into_iter().flat_map(suite).collect();
     for batch in cases.chunks(4) {
         std::thread::scope(|scope| {
             let runs: Vec<_> = batch
                 .iter()
-                .map(|&case| scope.spawn(move || sim::simulate(case)))
+                .map(|&case| scope.spawn(move || sim::simulate(case, divisions)))
                 .collect();
             for run in runs {
                 for row in run.join().expect("simulation thread") {
