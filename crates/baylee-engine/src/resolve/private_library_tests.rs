@@ -1,6 +1,7 @@
 use super::*;
 use crate::engine::synthetic::{SyntheticLookup, preset};
 use baylee_core::ids::SeatSet;
+use std::sync::Arc;
 
 fn table(count: usize) -> (GameState, ObjectId, Vec<ObjectId>) {
     let mut state =
@@ -37,6 +38,90 @@ fn no_reveal(state: &GameState) {
             .any(|entry| matches!(entry.event, GameEvent::CardsDrawn { .. })),
         "putting a card in hand is not drawing it"
     );
+}
+
+#[test]
+fn library_or_graveyard_search_requires_consent_before_inspection_or_shuffle() {
+    let you = PlayerId::new(0);
+    for (graveyard_match, accept) in [(false, false), (false, true), (true, false)] {
+        let (mut state, source, _) = table(3);
+        let mut res = resolution(
+            source,
+            &[Effect::SearchLibraryOrGraveyard {
+                filter: &baylee_cards_dsl::Filter::CREATURE,
+                find: &baylee_cards_dsl::Find::BATTLEFIELD,
+            }],
+            you,
+        );
+        let before = state.journal.last_seq();
+        let first = if graveyard_match {
+            let name = state.names.intern("graveyard creature");
+            let card = state.create_bare(you, ObjectKind::Card, name, ZoneLocation::Graveyard(you));
+            let object = state.object_mut(card).unwrap();
+            Arc::make_mut(&mut object.base).types = baylee_cards_dsl::TypeSet::CREATURE;
+            let Flow::Wait(Pending::ChooseCards {
+                prompt: ChoicePrompt::FromGraveyard,
+                options,
+                min: 0,
+                ..
+            }) = run(&mut state, &mut res)
+            else {
+                panic!("expected an optional graveyard find");
+            };
+            assert_eq!(options, [card]);
+            resume(&mut state, &mut res, &[])
+        } else {
+            run(&mut state, &mut res)
+        };
+        assert!(matches!(
+            first,
+            Flow::Wait(Pending::YesNo {
+                player,
+                prompt: YesNoPrompt::SearchLibrary,
+                ..
+            }) if player == you
+        ));
+        assert_eq!(state.journal.last_seq(), before);
+        let flow = resume_yes_no(&mut state, &mut res, accept);
+        if accept {
+            assert!(matches!(
+                flow,
+                Flow::Wait(Pending::ChooseCards {
+                    player,
+                    prompt: ChoicePrompt::SearchLibrary,
+                    max: 0,
+                    ..
+                }) if player == you
+            ));
+            assert!(matches!(resume(&mut state, &mut res, &[]), Flow::Complete));
+        } else {
+            assert!(matches!(flow, Flow::Complete));
+        }
+        assert_eq!(
+            state
+                .journal
+                .entries()
+                .iter()
+                .filter(|entry| matches!(
+                    entry.event,
+                    GameEvent::LibrarySearched { player } if entry.seq > before && player == you
+                ))
+                .count(),
+            usize::from(accept)
+        );
+        assert_eq!(
+            state
+                .journal
+                .entries()
+                .iter()
+                .filter(|entry| matches!(
+                    entry.event,
+                    GameEvent::Shuffled { player, .. } if entry.seq > before && player == you
+                ))
+                .count(),
+            usize::from(accept)
+        );
+    }
 }
 
 #[test]

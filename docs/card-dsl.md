@@ -2589,8 +2589,9 @@ hashes, layers and does nothing. This paragraph said THREE until
   The graveyard is public, so its matches come first: a `ChooseCards` with
   `min: 0`, `max: 1`, prompt `FromGraveyard`. A card named there is the whole
   search, and nothing is shuffled. Naming none, or a graveyard with no match,
-  is the one-card library search `SearchLibrary` makes, shuffle and all, so a
-  library that was seen is always shuffled.
+  offers `YesNoPrompt::SearchLibrary` before any library cards are inspected.
+  Accepting makes the one-card library search `SearchLibrary` makes and
+  shuffles even if no card is found. Declining ends the search.
 - **`Condition::XAtLeast(n)`** is "if X is `n` or more", read off the
   announced X on the source, where `Filter::CmcAtMostX` reads it. A source
   that is gone or announced no X counts as X = 0. Finale of Devastation puts

@@ -1062,6 +1062,8 @@ pub enum YesNoPrompt {
     /// Vote an additional time while voting (`Modifier::AdditionalVotes { optional: true }`,
     /// CR 701.38c; Ballot Broker, Tivit, Seller of Secrets)?
     AdditionalVote,
+    /// Search your library now, and shuffle after the search?
+    SearchLibrary,
 }
 
 impl YesNoPrompt {
@@ -1142,6 +1144,7 @@ impl YesNoPrompt {
             | Self::Conspire
             | Self::Tribute { .. }
             | Self::AdditionalVote
+            | Self::SearchLibrary
             | Self::Generic => true,
             // Declining discover moves the card into the hand: a card for
             // the player, but not nothing, and a free spell is not a

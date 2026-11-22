@@ -107,7 +107,7 @@ pub(super) fn basic_land(
     )
 }
 
-fn search_matches(
+pub(super) fn search_matches(
     state: &GameState,
     res: &Resolution,
     searcher: PlayerId,
@@ -447,32 +447,25 @@ pub(super) fn bottom_in_random_order(state: &mut GameState, you: PlayerId, cards
     state.put_on_bottom_in_random_order(you, cards);
 }
 
-/// The library half of `SearchLibraryOrGraveyard`: the search
-/// `Effect::SearchLibrary` makes for one card, shuffle and all. `find` stays
-/// a reference: the search keeps a `&'static [Find]`, borrowed from the card.
+/// Ask before inspecting any part of the library, even if there were no
+/// graveyard matches. The answer controls the conditional shuffle.
 #[allow(clippy::trivially_copy_pass_by_ref)]
-pub(super) fn search_library_for_one(
-    state: &mut GameState,
+pub(super) fn ask_library_search(
+    state: &GameState,
     res: &mut Resolution,
     filter: &'static baylee_cards_dsl::Filter,
     find: &'static baylee_cards_dsl::effect::Find,
 ) -> Option<Pending> {
     let you = res.controller;
-    begin_search(
-        state,
-        res,
-        Search {
-            library: you,
-            searcher: you,
-            filter,
-            bound: None,
-            finds: core::slice::from_ref(find),
-            count: None,
-            distinct_names: false,
-            split: None,
-            optional: false,
-        },
-    )
+    if !allowed(state, res, you, you) {
+        return None;
+    }
+    res.awaiting = Some(AwaitingOp::ConfirmLibrarySearch { filter, find });
+    Some(Pending::YesNo {
+        player: you,
+        prompt: YesNoPrompt::SearchLibrary,
+        source: resolving_ability(state, res),
+    })
 }
 
 /// A few spells explicitly postpone the shuffle past another instruction.
@@ -495,12 +488,42 @@ pub(super) fn resume_consent(
     res: &mut Resolution,
     answer: bool,
 ) -> Option<Flow> {
-    let Some(AwaitingOp::MaySearchBasicLand { player, count }) = res.awaiting else {
-        return None;
-    };
-    res.awaiting = None;
     let since = state.journal.last_seq();
-    if answer && let Some(pending) = basic_land(state, res, player, count) {
+    let pending = match res.awaiting {
+        Some(AwaitingOp::MaySearchBasicLand { player, count }) => {
+            res.awaiting = None;
+            if answer {
+                basic_land(state, res, player, count)
+            } else {
+                None
+            }
+        }
+        Some(AwaitingOp::ConfirmLibrarySearch { filter, find }) => {
+            res.awaiting = None;
+            let you = res.controller;
+            if answer && allowed(state, res, you, you) {
+                begin_search(
+                    state,
+                    res,
+                    Search {
+                        library: you,
+                        searcher: you,
+                        filter,
+                        bound: None,
+                        finds: core::slice::from_ref(find),
+                        count: None,
+                        distinct_names: false,
+                        split: None,
+                        optional: false,
+                    },
+                )
+            } else {
+                None
+            }
+        }
+        _ => return None,
+    };
+    if let Some(pending) = pending {
         return Some(next_choice(state, res, since, pending));
     }
     Some(finish_choice(state, res, since))

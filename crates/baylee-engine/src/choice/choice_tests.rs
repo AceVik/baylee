@@ -239,6 +239,24 @@ fn a_timed_out_seat_does_nothing_wherever_the_question_allows_it() {
             no.clone(),
         ),
         (yes_no(YesNoPrompt::Generic), no.clone()),
+        (yes_no(YesNoPrompt::Conspire), no.clone()),
+        (
+            yes_no(YesNoPrompt::Tribute {
+                permanent: object(),
+                counters: 2,
+            }),
+            no.clone(),
+        ),
+        (yes_no(YesNoPrompt::AdditionalVote), no.clone()),
+        (yes_no(YesNoPrompt::SearchLibrary), no.clone()),
+        (
+            yes_no(YesNoPrompt::GuessNamedCardInHand {
+                holder: p,
+                card: baylee_core::ids::CardIndex::new(0),
+                face: 0,
+            }),
+            None,
+        ),
         (
             yes_no(YesNoPrompt::ClashBottom { card: object() }),
             no.clone(),
@@ -482,17 +500,17 @@ fn a_timed_out_seat_does_nothing_wherever_the_question_allows_it() {
 }
 
 /// How many kinds [`kind_of`] tells apart.
-const KINDS: usize = 71;
+const KINDS: usize = 79;
 
 /// Which kind of question this is, numbered without gaps. No wildcard
 /// arm: a new `Pending` variant or yes/no prompt does not compile here
 /// until it has a number, and then the table above is missing it.
 fn kind_of(pending: &Pending) -> usize {
     match pending {
-        Pending::ChooseDamageSource { .. } => 37,
-        Pending::ChooseManaAbility { .. } => 38,
-        Pending::ChooseDamageEffect { .. } => 35,
-        Pending::AllocatePrevention { .. } => 36,
+        Pending::ChooseDamageSource { .. } => 17,
+        Pending::ChooseManaAbility { .. } => 18,
+        Pending::ChooseDamageEffect { .. } => 19,
+        Pending::AllocatePrevention { .. } => 20,
         Pending::Mulligan { .. } => 0,
         Pending::MulliganBottom { .. } => 1,
         Pending::Priority { .. } => 2,
@@ -503,8 +521,8 @@ fn kind_of(pending: &Pending) -> usize {
         Pending::ChooseCards { .. } => 7,
         Pending::ChooseTargets { .. } => 8,
         Pending::ChooseSubtype { .. } => 9,
-        Pending::ChooseCardType { .. } => 50,
-        Pending::ChooseCounterKind { .. } => 70,
+        Pending::ChooseCardType { .. } => 21,
+        Pending::ChooseCounterKind { .. } => 22,
         Pending::ChooseColor { .. } => 10,
         Pending::ChooseCastMode { .. } => 11,
         Pending::ChooseNumber { .. } => 12,
@@ -513,7 +531,7 @@ fn kind_of(pending: &Pending) -> usize {
         Pending::GameOver(_) => 15,
         Pending::ChooseCardName { .. } => 16,
         Pending::YesNo { prompt, .. } => {
-            17 + match prompt {
+            24 + match prompt {
                 YesNoPrompt::SacrificeToEnter { .. } => 25,
                 YesNoPrompt::EnterTappedForCounters { .. } => 24,
                 YesNoPrompt::PayEnergy { .. } => 22,
@@ -563,9 +581,10 @@ fn kind_of(pending: &Pending) -> usize {
                 YesNoPrompt::Conspire => 51,
                 YesNoPrompt::Tribute { .. } => 52,
                 YesNoPrompt::AdditionalVote => 53,
+                YesNoPrompt::SearchLibrary => 54,
             }
         }
-        Pending::ChoosePile { .. } => 17 + 17,
+        Pending::ChoosePile { .. } => 23,
     }
 }
 
@@ -816,6 +835,7 @@ fn expected_automatable(prompt: YesNoPrompt) -> bool {
         | YesNoPrompt::Conspire
         | YesNoPrompt::Tribute { .. }
         | YesNoPrompt::AdditionalVote
+        | YesNoPrompt::SearchLibrary
         | YesNoPrompt::Generic => false,
     }
 }
@@ -909,6 +929,7 @@ fn only_the_questions_whose_answer_cannot_go_stale_are_automatable() {
         YesNoPrompt::ClashBottom { card: object() },
         YesNoPrompt::Conspire,
         YesNoPrompt::AdditionalVote,
+        YesNoPrompt::SearchLibrary,
         YesNoPrompt::Tribute {
             permanent: object(),
             counters: 2,

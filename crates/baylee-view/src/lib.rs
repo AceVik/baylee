@@ -338,7 +338,8 @@ pub use turn::{DayNight, Phase, Step};
 /// CR 701.59; `ChoicePrompt::BeholdOrPay`, CR 701.60) and counter-kind choices
 /// (`Pending::ChooseCounterKind`,
 /// `PlayerAction::ChooseCounterKind`, and the remaining CR 122.1b keyword
-/// counters on [`CounterKind`]).
+/// counters on [`CounterKind`]). `YesNoPrompt::SearchLibrary` asks
+/// whether to inspect and then shuffle the library.
 pub const VIEW_VERSION: u32 = 112;
 
 // ------------------------------------------------------------------- targets

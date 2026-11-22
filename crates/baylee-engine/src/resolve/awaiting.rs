@@ -689,8 +689,15 @@ pub enum AwaitingOp {
         any_mana: bool,
     },
     /// After `SearchLibraryOrGraveyard` offered its graveyard matches: the
-    /// card named goes where `find` says; none named searches the library.
+    /// card named goes where `find` says; none named offers the library search.
     GraveyardOrLibrary {
+        /// What may be found in the library.
+        filter: &'static baylee_cards_dsl::Filter,
+        /// Where the card goes.
+        find: &'static baylee_cards_dsl::effect::Find,
+    },
+    /// Whether to inspect the library after resolving the graveyard option.
+    ConfirmLibrarySearch {
         /// What may be found in the library.
         filter: &'static baylee_cards_dsl::Filter,
         /// Where the card goes.
@@ -1643,6 +1650,9 @@ impl AwaitingOp {
                 continuation,
             } => crate::state::structural_fingerprint(&(63_u8, player, outcomes, continuation)),
             Self::RevealLibrarySearch => 66,
+            Self::ConfirmLibrarySearch { filter, find } => {
+                crate::state::structural_fingerprint(&("confirm-library-search", filter, find))
+            }
             Self::GuessNamedCardInHand {
                 guesser,
                 card,

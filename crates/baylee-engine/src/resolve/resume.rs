@@ -668,7 +668,7 @@ pub(super) fn resume_inner(
                 }
                 Some(_) => {}
                 None => {
-                    if let Some(question) = search_library_for_one(state, res, filter, find) {
+                    if let Some(question) = search::ask_library_search(state, res, filter, find) {
                         return next_choice(state, res, since, question);
                     }
                 }
@@ -1751,6 +1751,7 @@ pub(super) fn resume_inner(
         | AwaitingOp::PlayerMayMill { .. }
         | AwaitingOp::PayEnergy { .. }
         | AwaitingOp::MaySearchBasicLand { .. }
+        | AwaitingOp::ConfirmLibrarySearch { .. }
         | AwaitingOp::MayDo { .. }
         | AwaitingOp::RepeatCoinLifeStake(_)
         | AwaitingOp::ChooseCoinRepeatPlayer(_)

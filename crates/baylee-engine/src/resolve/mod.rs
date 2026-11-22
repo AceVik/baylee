@@ -166,8 +166,7 @@ use immediate::exec_immediate;
 pub use piles::*;
 pub use resume::*;
 use search::{
-    Search, begin_search, bottom_in_random_order, find_for, put_found, reveal_until,
-    search_library_for_one, within,
+    Search, begin_search, bottom_in_random_order, find_for, put_found, reveal_until, within,
 };
 
 /// "Untap enchanted creature", "regenerate enchanted creature": what an

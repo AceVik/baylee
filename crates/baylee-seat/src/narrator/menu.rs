@@ -1252,6 +1252,11 @@ fn yes_no_words(table: &Table<'_>, prompt: &YesNoPrompt) -> (String, String, Str
             "vote an additional time".into(),
             "do not vote an additional time".into(),
         ),
+        YesNoPrompt::SearchLibrary => (
+            "Search your library? If you do, you'll shuffle it afterward.".into(),
+            "search the library".into(),
+            "skip the library search".into(),
+        ),
         YesNoPrompt::OpeningHandBattlefield => (
             "Begin the game with this card from your opening hand on the battlefield?".into(),
             "begin with it on the battlefield".into(),

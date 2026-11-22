@@ -1342,6 +1342,7 @@ LevelLong = Stufe { $level }
 ClassLevel = Klassenstufe { $level }
 LogClassLevel = { $object } hat Klassenstufe { $level } erreicht
 AdditionalVoteAsk = Ein weiteres Mal abstimmen?
+SearchLibraryAsk = Deine Bibliothek durchsuchen? Falls du das tust, mische sie danach.
 FilterPlaceholder = zum Suchen tippen…
 PutInOrder = Bringe diese in eine Reihenfolge
 OrderGraveyard = Friedhof ordnen: erste Karte oben

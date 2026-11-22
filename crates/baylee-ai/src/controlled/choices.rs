@@ -569,6 +569,7 @@ impl HeuristicAgent {
             | YesNoPrompt::EnterTappedForCounters { .. }
             | YesNoPrompt::SacrificeToEnter { .. }
             | YesNoPrompt::AdditionalVote
+            | YesNoPrompt::SearchLibrary
             | YesNoPrompt::Generic => false,
             YesNoPrompt::Endure(_) => !self.endures_counters(theirs, context.source),
             YesNoPrompt::Tribute {

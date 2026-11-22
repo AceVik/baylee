@@ -981,6 +981,7 @@ fn yes_no_line(
             Phrase::ChooseFirstCostBranchAsk.text(lang).to_string()
         }
         YesNoPrompt::AdditionalVote => Phrase::AdditionalVoteAsk.text(lang).to_string(),
+        YesNoPrompt::SearchLibrary => Phrase::SearchLibraryAsk.text(lang).to_string(),
         YesNoPrompt::OpeningHandBattlefield => {
             Phrase::OpeningHandBattlefieldAsk.text(lang).to_string()
         }

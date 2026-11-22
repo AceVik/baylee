@@ -1074,7 +1074,8 @@ impl HeuristicAgent {
                 }
                 YesNoPrompt::OpeningHandBattlefield
                 | YesNoPrompt::OpeningHandReveal
-                | YesNoPrompt::AdditionalVote => {
+                | YesNoPrompt::AdditionalVote
+                | YesNoPrompt::SearchLibrary => {
                     PlayerAction::YesNo(true)
                 }
                 YesNoPrompt::Endure(_) => {

@@ -265,6 +265,11 @@ when the minimum is zero (CR 701.60a).
 `PlayerAction::ChooseCounterKind(CounterKind)` ask and answer a choice among
 offered counter kinds on resolution, moving `PROTOCOL_VERSION` to 69.
 
+`YesNoPrompt::SearchLibrary` asks whether to search the library when the
+same effect offers a graveyard search. The seat receives a private card
+selection only after accepting. Accepting shuffles the library even if
+the search finds no card.
+
 ## Composed ability origins (compatible addition)
 
 `PublicObject.ability_sources` maps runtime indices in composed ability lists

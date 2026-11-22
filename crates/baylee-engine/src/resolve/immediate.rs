@@ -2742,19 +2742,16 @@ pub(super) fn exec_immediate(
             optional,
         } => graveyard_choice::start(state, res, filter, destination, tapped, optional),
         Effect::SearchLibraryOrGraveyard { filter, find } => {
+            res.subject.found.clear();
             let buried: Vec<ObjectId> = state
                 .zones
                 .list(ZoneLocation::Graveyard(you))
                 .iter()
                 .copied()
-                .filter(|id| {
-                    state.object(*id).is_some_and(|o| {
-                        eval::matches_with_context(filter, state, o, you, res.rule_context())
-                    })
-                })
+                .filter(|&id| search::search_matches(state, res, you, filter, None, id))
                 .collect();
             if buried.is_empty() {
-                return search_library_for_one(state, res, filter, find);
+                return search::ask_library_search(state, res, filter, find);
             }
             res.awaiting = Some(AwaitingOp::GraveyardOrLibrary { filter, find });
             Some(Pending::ChooseCards {
