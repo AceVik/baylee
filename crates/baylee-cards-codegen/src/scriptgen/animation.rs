@@ -40,13 +40,23 @@ impl Tx<'_> {
         p: &mut Params,
         target: Option<&str>,
     ) -> Option<Vec<String>> {
-        if target.is_some() || p.take("Defined").is_some() {
+        if p.take("Defined").is_some() {
             return None;
         }
-        let valid = p.take("ValidCards")?;
+        let controlled_by = match target {
+            None => None,
+            Some("TargetSpec::Player(PlayerRel::Chosen)") => Some("PlayerRel::Chosen"),
+            Some(_) => return None,
+        };
+        let valid_raw = p.take("ValidCards")?;
+        let valid = if controlled_by.is_some() {
+            strip_targeted_player_ctrl(&valid_raw)?
+        } else {
+            valid_raw
+        };
         let expr = self.filter_expr(&valid)?;
         let filter = format!("&{}", self.body.filter_static("ANIMATE_ALL", &expr));
-        self.animate_for_filter(p, &filter, false, false)
+        self.animate_for_filter(p, &filter, controlled_by, false, false)
     }
 
     pub(super) fn animate_effect(
@@ -71,7 +81,7 @@ impl Tx<'_> {
                 return None;
             }
         };
-        self.animate_for_filter(p, filter, target.is_some(), source_only)
+        self.animate_for_filter(p, filter, None, target.is_some(), source_only)
     }
 
     fn animate_triggered_subject(&self, def: &str) -> bool {
@@ -109,59 +119,169 @@ impl Tx<'_> {
         &mut self,
         p: &mut Params,
         filter: &str,
+        controlled_by: Option<&str>,
         has_target: bool,
         source_only: bool,
     ) -> Option<Vec<String>> {
+        let _ = self.take_true_flag(p, "IsCurse")?;
+        let optional = self.take_true_flag(p, "Optional")?;
+        if optional {
+            p.take("OptionQuestion");
+        }
         let duration = match p.take("Duration").as_deref() {
-            None => "Duration::UntilEndOfTurn",
+            None | Some("UntilEndOfTurn") => "Duration::UntilEndOfTurn",
             Some("Permanent") => "Duration::Indefinitely",
             Some("UntilEndOfCombat") => "Duration::UntilEndOfCombat",
-            Some("UntilHostLeavesPlay") => "Duration::WhileSourceOnBattlefield",
+            Some("UntilYourNextTurn") => "Duration::UntilYourNextTurn",
+            Some("UntilHostLeavesPlay" | "AsLongAsInPlay") => "Duration::WhileSourceOnBattlefield",
+            Some("AsLongAsControl") => "Duration::WhileYouControlSource",
+            Some("UntilUntaps") => {
+                "Duration::WhileSourceTapped { control: false, power_limited: false }"
+            }
             Some(other) => {
                 self.note(format!("`Animate` lasting `{other}`"));
                 return None;
             }
         };
         let mut out = Vec::new();
-        self.animate_types_block(p, filter, duration, &mut out)?;
-        out.extend(self.animate_regeneration_grant(p, source_only, duration)?);
-        self.animate_colors_and_keywords(p, filter, duration, &mut out)?;
-        // Layer 7b: the printed P/T it takes on. Both halves or neither —
-        // `SetPT` sets both, and half a set would invent the other.
+        self.animate_types_block(p, filter, controlled_by, duration, &mut out)?;
+        // Emit `LoseAllAbilities` before granted statics/keywords/abilities/triggers so
+        // each resolving instruction gets a strictly later timestamp (CR 613.7).
+        if self.take_true_flag(p, "RemoveAllAbilities")? {
+            if p.has("RemoveKeywords") || p.has("DamagedThisWayCantBeRegenerated") {
+                return self.deny(
+                    "`RemoveAllAbilities$` combined with another ability-removal flag".to_string(),
+                );
+            }
+            out.push(Self::animate_modifier_expr(
+                filter,
+                controlled_by,
+                "Modifier::LoseAllAbilities",
+                duration,
+            ));
+        }
+        if controlled_by.is_none() {
+            out.extend(self.animate_regeneration_grant(p, source_only, duration)?);
+        }
+        self.animate_colors_and_keywords(p, filter, controlled_by, duration, &mut out)?;
+        // Layer 7b: the printed P/T it takes on. Fixed single-sided P or T maps
+        // cleanly to `Modifier::SetPower` / `Modifier::SetToughness`; dynamic
+        // two-sided values lock on resolution via `Effect::SetPTFilter` (CR 608.2h).
         match (p.take("Power"), p.take("Toughness")) {
-            (Some(power), Some(toughness))
-                if power == "X"
-                    && toughness == "X"
-                    && has_target
-                    && self
-                        .svars
-                        .get("X")
-                        .is_some_and(|s| s.trim() == "Targeted$CardManaCost") =>
-            {
-                out.push(format!(
-                    "Effect::SetPTFilter {{ filter: {filter}, power: Amount::TargetCmc, toughness: Amount::TargetCmc, duration: {duration} }}"
+            (Some(power), Some(toughness)) => {
+                if let (Ok(p_val), Ok(t_val)) =
+                    (power.trim().parse::<i16>(), toughness.trim().parse::<i16>())
+                {
+                    out.push(Self::animate_modifier_expr(
+                        filter,
+                        controlled_by,
+                        &format!("Modifier::SetPT({p_val}, {t_val})"),
+                        duration,
+                    ));
+                } else if controlled_by.is_none()
+                    && let (Some(p_amt), Some(t_amt)) = (
+                        self.animate_pt_amount(&power, has_target),
+                        self.animate_pt_amount(&toughness, has_target),
+                    )
+                {
+                    out.push(format!(
+                        "Effect::SetPTFilter {{ filter: {filter}, power: {p_amt}, toughness: {t_amt}, duration: {duration} }}"
+                    ));
+                } else {
+                    return None;
+                }
+            }
+            (Some(power), None) => {
+                let Ok(p_val) = power.trim().parse::<i16>() else {
+                    self.note("`Animate` setting only one of power and toughness".to_string());
+                    return None;
+                };
+                out.push(Self::animate_modifier_expr(
+                    filter,
+                    controlled_by,
+                    &format!("Modifier::SetPower({p_val})"),
+                    duration,
                 ));
             }
-            (Some(power), Some(toughness)) => {
-                let power: i16 = power.parse().ok()?;
-                let toughness: i16 = toughness.parse().ok()?;
-                out.push(Self::animate_expr_for(
+            (None, Some(toughness)) => {
+                let Ok(t_val) = toughness.trim().parse::<i16>() else {
+                    self.note("`Animate` setting only one of power and toughness".to_string());
+                    return None;
+                };
+                out.push(Self::animate_modifier_expr(
                     filter,
-                    &format!("Modifier::SetPT({power}, {toughness})"),
+                    controlled_by,
+                    &format!("Modifier::SetToughness({t_val})"),
                     duration,
                 ));
             }
             (None, None) => {}
-            _ => {
-                self.note("`Animate` setting only one of power and toughness".to_string());
-                return None;
-            }
         }
         if out.is_empty() {
             self.note("`Animate` that changes nothing".to_string());
             return None;
         }
+        if optional {
+            return Some(vec![format!("Effect::May(&[{}])", out.join(", "))]);
+        }
         Some(out)
+    }
+
+    fn animate_pt_amount(&mut self, raw: &str, has_target: bool) -> Option<String> {
+        let trimmed = raw.trim();
+        if let Ok(n) = trimmed.parse::<u32>() {
+            return Some(format!("Amount::Fixed({n})"));
+        }
+        if trimmed == "Count$LastDieRoll" {
+            return Some("Amount::LastDieRoll".to_string());
+        }
+        let def = if trimmed.starts_with("Count$") {
+            trimmed.to_string()
+        } else {
+            self.svars.get(trimmed)?.trim().to_string()
+        };
+        let can_read_x =
+            self.has_x || (self.is_etb_self_trigger && self.has_x_mana_cost && !self.in_delayed);
+        if let Some((lhs, rhs)) = def.rsplit_once("/Plus.")
+            && let Ok(offset) = rhs.trim().parse::<u32>()
+            && let Some(var) = lhs.trim().strip_prefix("SVar$")
+            && let Some(base) = self.animate_pt_amount(var.trim(), has_target)
+        {
+            return Some(format!(
+                "Amount::Plus {{ base: &{base}, offset: {offset} }}"
+            ));
+        }
+        match def.as_str() {
+            "Count$xPaid" if can_read_x => Some("Amount::X".to_string()),
+            "Count$xPaid/Twice" | "Count$xPaid/Times.2" if can_read_x => {
+                Some("Amount::DoubleX".to_string())
+            }
+            "Count$LastDieRoll" => Some("Amount::LastDieRoll".to_string()),
+            "Count$CardPower" => Some("Amount::SourcePower".to_string()),
+            "Count$ValidAll Card.IsCommander+YouOwn$GreatestCardManaCost" => {
+                Some("Amount::GreatestCommanderManaValue".to_string())
+            }
+            "Targeted$CardManaCost" if has_target => Some("Amount::TargetCmc".to_string()),
+            "Targeted$CardPower" if has_target => Some("Amount::TargetPower".to_string()),
+            "Targeted$CardToughness" if has_target => Some("Amount::TargetToughness".to_string()),
+            "TriggeredCard$CardPower" if self.trigger_mode.as_deref() == Some("ChangesZone") => {
+                Some("Amount::EventPower".to_string())
+            }
+            "TriggeredCard$CardToughness"
+                if self.trigger_mode.as_deref() == Some("ChangesZone") =>
+            {
+                Some("Amount::EventLastToughness".to_string())
+            }
+            "TriggeredSpellAbility$CardManaCostLKI" | "TriggeredSpellAbility$CardManaCost"
+                if self.trigger_mode.as_deref() == Some("SpellCast") =>
+            {
+                Some("Amount::EventManaValue".to_string())
+            }
+            "Sacrificed$CardManaCost" => Some("Amount::SacrificedManaValue".to_string()),
+            "Sacrificed$CardPower" => Some("Amount::SacrificedPower".to_string()),
+            "Sacrificed$CardToughness" => Some("Amount::SacrificedToughness".to_string()),
+            _ => None,
+        }
     }
 
     fn take_true_flag(&mut self, p: &mut Params, key: &str) -> Option<bool> {
@@ -279,24 +399,25 @@ impl Tx<'_> {
         &mut self,
         p: &mut Params,
         filter: &str,
+        controlled_by: Option<&str>,
         duration: &str,
         out: &mut Vec<String>,
     ) -> Option<()> {
         if self.take_true_flag(p, "RemoveCardTypes")? {
             let types = p.take("Types").unwrap_or_default();
             for modifier in self.become_types_modifiers(p, &types, &[',', '&'])? {
-                out.push(Self::animate_expr_for(filter, &modifier, duration));
-            }
-            if !p.has("Keywords")
-                && !p.has("Abilities")
-                && !p.has("Triggers")
-                && !p.has("StaticAbilities")
-                && !p.has("DamagedThisWayCantBeRegenerated")
-                && self.take_true_flag(p, "RemoveAllAbilities")?
-            {
-                out.push(Self::animate_expr_for(
+                out.push(Self::animate_modifier_expr(
                     filter,
-                    "Modifier::LoseAllAbilities",
+                    controlled_by,
+                    &modifier,
+                    duration,
+                ));
+            }
+            if self.take_true_flag(p, "AddAllCreatureTypes")? {
+                out.push(Self::animate_modifier_expr(
+                    filter,
+                    controlled_by,
+                    "Modifier::AllCreatureTypes",
                     duration,
                 ));
             }
@@ -309,17 +430,27 @@ impl Tx<'_> {
             &types,
             (replace_creature_types, set_land_type),
             filter,
+            controlled_by,
             duration,
             out,
         )?;
+        if self.take_true_flag(p, "AddAllCreatureTypes")? {
+            out.push(Self::animate_modifier_expr(
+                filter,
+                controlled_by,
+                "Modifier::AllCreatureTypes",
+                duration,
+            ));
+        }
         if let Some(removed) = p.take("RemoveTypes") {
             for word in removed.split(',') {
                 let word = word.trim();
                 let Some(supertype) = supertype_const(word) else {
                     return self.deny(format!("`Animate` removing type `{word}`"));
                 };
-                out.push(Self::animate_expr_for(
+                out.push(Self::animate_modifier_expr(
                     filter,
+                    controlled_by,
                     &format!("Modifier::RemoveSupertype({supertype})"),
                     duration,
                 ));
@@ -333,6 +464,7 @@ impl Tx<'_> {
         &mut self,
         p: &mut Params,
         filter: &str,
+        controlled_by: Option<&str>,
         duration: &str,
         out: &mut Vec<String>,
     ) -> Option<()> {
@@ -341,8 +473,9 @@ impl Tx<'_> {
         if let Some(raw) = p.take("Colors") {
             let overwrite = p.take("OverwriteColors").as_deref() == Some("True");
             if raw.trim() == "Colorless" && overwrite {
-                out.push(Self::animate_expr_for(
+                out.push(Self::animate_modifier_expr(
                     filter,
+                    controlled_by,
                     "Modifier::SetColor(ColorSet::EMPTY)",
                     duration,
                 ));
@@ -354,8 +487,9 @@ impl Tx<'_> {
                     return None;
                 };
                 let which = if overwrite { "SetColor" } else { "AddColor" };
-                out.push(Self::animate_expr_for(
+                out.push(Self::animate_modifier_expr(
                     filter,
+                    controlled_by,
                     &format!(
                         "Modifier::{which}(ColorSet::from_slice(&[{}]))",
                         colors.join(", ")
@@ -373,9 +507,19 @@ impl Tx<'_> {
             };
             let joined =
                 each.join(".union(") + &")".repeat(raw.split('&').count().saturating_sub(1));
-            out.push(Self::animate_expr_for(
+            out.push(Self::animate_modifier_expr(
                 filter,
+                controlled_by,
                 &format!("Modifier::AddKeyword({joined})"),
+                duration,
+            ));
+        }
+        if let Some(raw) = p.take("HiddenKeywords") {
+            let modifier = self.animate_hidden_keywords(&raw)?;
+            out.push(Self::animate_modifier_expr(
+                filter,
+                controlled_by,
+                &modifier,
                 duration,
             ));
         }
@@ -387,8 +531,9 @@ impl Tx<'_> {
             };
             let joined =
                 each.join(".union(") + &")".repeat(raw.split('&').count().saturating_sub(1));
-            out.push(Self::animate_expr_for(
+            out.push(Self::animate_modifier_expr(
                 filter,
+                controlled_by,
                 &format!("Modifier::RemoveKeyword({joined})"),
                 duration,
             ));
@@ -400,16 +545,53 @@ impl Tx<'_> {
                 else {
                     unreachable!("for_static_this is false");
                 };
-                out.push(Self::animate_expr_for(filter, &modifier, duration));
+                out.push(Self::animate_modifier_expr(
+                    filter,
+                    controlled_by,
+                    &modifier,
+                    duration,
+                ));
             }
         }
         if let Some(raw) = p.take("Triggers") {
             for name in raw.split(',').map(str::trim).filter(|s| !s.is_empty()) {
                 let modifier = self.build_grant_triggered_modifier(name, "Triggers$")?;
-                out.push(Self::animate_expr_for(filter, &modifier, duration));
+                out.push(Self::animate_modifier_expr(
+                    filter,
+                    controlled_by,
+                    &modifier,
+                    duration,
+                ));
             }
         }
         Some(())
+    }
+
+    fn animate_hidden_keywords(&self, raw: &str) -> Option<String> {
+        let mut bits = Vec::new();
+        for clause in raw.split('&').map(str::trim).filter(|s| !s.is_empty()) {
+            let bit = match clause {
+                "CARDNAME can't block." => "KeywordSet::CANT_BLOCK",
+                "CARDNAME can't attack." => "KeywordSet::CANT_ATTACK",
+                "CARDNAME can't attack or block." => {
+                    "KeywordSet::CANT_ATTACK.union(KeywordSet::CANT_BLOCK)"
+                }
+                _ => {
+                    self.note(format!("`Animate` granting hidden keyword `{clause}`"));
+                    return None;
+                }
+            };
+            bits.push(bit);
+        }
+        if bits.is_empty() {
+            self.note("`Animate` granting empty hidden keywords".to_string());
+            return None;
+        }
+        let joined = bits
+            .iter()
+            .skip(1)
+            .fold(bits[0].to_string(), |acc, b| format!("{acc}.union({b})"));
+        Some(format!("Modifier::AddKeyword({joined})"))
     }
 
     /// Layer 4 of an [`Self::animate_effect`]: the types it becomes. A word
@@ -421,6 +603,7 @@ impl Tx<'_> {
         types: &str,
         remove: (bool, bool),
         filter: &str,
+        controlled_by: Option<&str>,
         duration: &str,
         out: &mut Vec<String>,
     ) -> Option<()> {
@@ -463,7 +646,12 @@ impl Tx<'_> {
                     format!("Modifier::AddSubtype({path})")
                 }
             };
-            out.push(Self::animate_expr_for(filter, &modifier, duration));
+            out.push(Self::animate_modifier_expr(
+                filter,
+                controlled_by,
+                &modifier,
+                duration,
+            ));
         }
         if replace_creature_types && !replaced {
             return self.deny("`RemoveCreatureTypes$` naming no creature type".to_string());
@@ -486,6 +674,64 @@ impl Tx<'_> {
     pub(super) fn animate_expr_for(filter: &str, modifier: &str, duration: &str) -> String {
         format!("Effect::continuous({filter}, {modifier}, {duration})")
     }
+
+    fn animate_modifier_expr(
+        filter: &str,
+        controlled_by: Option<&str>,
+        modifier: &str,
+        duration: &str,
+    ) -> String {
+        match controlled_by {
+            None => Self::animate_expr_for(filter, modifier, duration),
+            Some(who) => format!(
+                "Effect::ModifyFilter {{ filter: {filter}, controlled_by: Some({who}), modifier: {modifier}, duration: {duration} }}"
+            ),
+        }
+    }
+}
+
+/// Strips `TargetedPlayerCtrl` from every comma-separated alternative of a
+/// player-targeted `AnimateAll` filter, or accepts a controller-agnostic filter
+/// when the `AnimateAll` line itself declares `ValidTgts$ Player`/`Opponent`.
+fn strip_targeted_player_ctrl(valid: &str) -> Option<String> {
+    let mut saw_targeted = false;
+    let mut saw_plain = false;
+    let mut out = Vec::new();
+    for raw_alt in valid.split(',') {
+        let alt = raw_alt.trim();
+        if alt.is_empty() {
+            return None;
+        }
+        let (base, qual) = alt.split_once('.').unwrap_or((alt, ""));
+        if base.contains("Ctrl") || base.contains("Own") {
+            return None;
+        }
+        let mut has_targeted = false;
+        let mut kept = Vec::new();
+        for atom in qual.split('+').map(str::trim).filter(|a| !a.is_empty()) {
+            if atom == "TargetedPlayerCtrl" {
+                has_targeted = true;
+            } else if atom.contains("Ctrl") || atom.contains("Own") {
+                return None;
+            } else {
+                kept.push(atom);
+            }
+        }
+        if has_targeted {
+            saw_targeted = true;
+        } else {
+            saw_plain = true;
+        }
+        if kept.is_empty() {
+            out.push(base.trim().to_string());
+        } else {
+            out.push(format!("{}.{}", base.trim(), kept.join("+")));
+        }
+    }
+    if saw_targeted && saw_plain {
+        return None;
+    }
+    (!out.is_empty()).then(|| out.join(","))
 }
 
 /// A printed supertype's existing core constant, not a subtype catalog entry.

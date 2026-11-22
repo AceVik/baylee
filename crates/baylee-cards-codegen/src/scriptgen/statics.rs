@@ -171,6 +171,7 @@ impl Tx<'_> {
         {
             p.take("AddSVar");
         }
+        let condition = self.static_conditions(p, "a `doesn't untap` with `CheckSVar`")?;
         if !p.exhausted() {
             self.note(format!(
                 "a `doesn't untap` with `{}`",
@@ -178,9 +179,9 @@ impl Tx<'_> {
             ));
             return None;
         }
-        self.body
-            .abilities
-            .push(Self::static_expr(&filter, "Modifier::DoesNotUntap"));
+        self.body.abilities.push(format!(
+            "static_ability!({filter}, Modifier::DoesNotUntap{condition})"
+        ));
         Some(())
     }
 
@@ -245,6 +246,7 @@ impl Tx<'_> {
             "CanAttackIfHaste" => return self.attack_as_though("AttacksAsThoughHaste", p),
             "CantPlayLand" => return self.cant_play_land(p),
             "CantPhaseOut" => return self.cant_phase_out(p),
+            "CantPutCounter" => return self.cant_put_counter(p),
             "OptionalAttackCost" => return self.optional_attack_cost(p),
             "IgnoreLandWalk" => return self.ignore_landwalk(p),
             _ => {}
@@ -725,6 +727,7 @@ impl Tx<'_> {
         if let Some(state_cond) = self.take_self_state_present(p).ok()? {
             clauses.push(state_cond);
         }
+        self.take_extended_present_clauses(p, &mut clauses)?;
         if let Some(base) = self
             .condition(p)?
             .strip_prefix(", condition = Some(")
@@ -737,6 +740,7 @@ impl Tx<'_> {
             let Some(first) = self
                 .svar_condition_clause(&var, &cmp)
                 .or_else(|| self.promised_gift_svar_condition(&var, &cmp))
+                .or_else(|| self.reduce_cost_svar_condition(&var, &cmp))
             else {
                 return self.deny(check_svar_denial.to_string());
             };
@@ -748,6 +752,7 @@ impl Tx<'_> {
                 let Some(second) = self
                     .svar_condition_clause(&var2, &cmp2)
                     .or_else(|| self.promised_gift_svar_condition(&var2, &cmp2))
+                    .or_else(|| self.reduce_cost_svar_condition(&var2, &cmp2))
                 else {
                     return self.deny(check_svar_denial.to_string());
                 };
@@ -1546,8 +1551,25 @@ impl Tx<'_> {
         if valid.contains('/') || valid.contains('$') {
             return self.deny(format!("count `{count}`"));
         }
-        let yours = valid.split(['.', '+']).any(|atom| atom == "YouCtrl");
-        if !yours && (valid.contains("Ctrl") || valid.contains("Own")) {
+        let yours = valid
+            .split(',')
+            .all(|alt| alt.split(['.', '+']).any(|atom| atom.trim() == "YouCtrl"));
+        let opps = valid
+            .split(',')
+            .all(|alt| alt.split(['.', '+']).any(|atom| atom.trim() == "OppCtrl"));
+        let other_ctrl_or_own =
+            valid
+                .split(',')
+                .flat_map(|alt| alt.split(['.', '+']))
+                .any(|atom| {
+                    let atom = atom.trim();
+                    (atom.contains("Ctrl") || atom.contains("Own"))
+                        && !matches!(atom, "YouCtrl" | "OppCtrl")
+                });
+        if other_ctrl_or_own
+            || (yours && opps)
+            || (!yours && !opps && (valid.contains("Ctrl") || valid.contains("Own")))
+        {
             return self.deny(format!("count `{count}`"));
         }
         let filter = self.filter_expr(valid)?;
@@ -1760,6 +1782,10 @@ impl Tx<'_> {
     pub(super) fn must_attack(&mut self, mut p: Params) -> Option<()> {
         p.drop_prose();
         let zone = self.take_static_effect_zone(&mut p, "MustAttack")?;
+        match p.take("Secondary").as_deref() {
+            None | Some("True") => {}
+            Some(other) => return self.deny(format!("`MustAttack.Secondary$ {other}`")),
+        }
         let Some(valid) = p.take("ValidCreature") else {
             return self.deny("`MustAttack` naming no creature".to_string());
         };
@@ -1923,6 +1949,20 @@ impl Tx<'_> {
             let mut emitted_pt = false;
             if let (Some(var_p), Some(var_t)) = (add_p.as_deref(), add_t.as_deref())
                 && var_p == var_t
+                && let Some(neg_var) = var_p.trim().strip_prefix('-')
+                && neg_var.parse::<i16>().is_err()
+                && let Some(count) = self.svars.get(neg_var).cloned()
+                && count.trim() == "PlayerCountOpponents$CardsInHand"
+            {
+                out.push(Self::static_expr(
+                    filter,
+                    "Modifier::ReducePTByCount { count: PtCount::CardsInHand(PlayerRel::EachOpponent), minimum_toughness: None }",
+                ));
+                emitted_pt = true;
+            }
+            if !emitted_pt
+                && let (Some(var_p), Some(var_t)) = (add_p.as_deref(), add_t.as_deref())
+                && var_p == var_t
                 && var_p.trim().parse::<i16>().is_err()
                 && let Some(count) = self.svars.get(var_p.trim()).cloned()
             {
@@ -1941,6 +1981,7 @@ impl Tx<'_> {
                     && !valid.contains("Ctrl")
                     && !valid.contains("Own")
                     && !valid.contains('/')
+                    && !valid.contains('$')
                     && let Some(counted_filter) = self.filter_expr(valid)
                 {
                     let name = self.body.filter_static("COUNTED", &counted_filter);
@@ -1954,6 +1995,16 @@ impl Tx<'_> {
                         filter,
                         "Modifier::ModifyPTByAmount { power: Amount::HandSize(PlayerRel::You), \
                          toughness: Amount::HandSize(PlayerRel::You) }",
+                    ));
+                    emitted_pt = true;
+                } else if matches!(
+                    trimmed,
+                    "Count$ValidHand Card.OwnedBy EnchantedController"
+                        | "Count$ValidHand Card.OwnedBy AttachedController"
+                ) {
+                    out.push(Self::static_expr(
+                        filter,
+                        "Modifier::ModifyPTByCount(PtCount::CardsInHand(PlayerRel::ControllerOfAttached))",
                     ));
                     emitted_pt = true;
                 } else if let Some(color_valid) = trimmed
@@ -2122,7 +2173,7 @@ impl Tx<'_> {
         Some(())
     }
 
-    fn computed_set_pt_modifier(
+    pub(super) fn computed_set_pt_modifier(
         &mut self,
         filter: &str,
         set_p: Option<&str>,
@@ -2272,6 +2323,27 @@ impl Tx<'_> {
                 &format!("Modifier::{modifier}({set})"),
             ));
         }
+        if let Some(raw) = p.take("CantHaveKeyword") {
+            let mut bits = Vec::new();
+            for word in raw.split(" & ").map(str::trim).filter(|w| !w.is_empty()) {
+                let Some(bit) = keyword_const(word) else {
+                    self.note(format!("static ability forbidding keyword `{word}`"));
+                    return None;
+                };
+                bits.push(bit.to_string());
+            }
+            let Some(set) = bits.split_first().map(|(head, tail)| {
+                tail.iter()
+                    .fold(head.clone(), |acc, b| format!("{acc}.union({b})"))
+            }) else {
+                self.note("static ability forbidding empty keyword list".to_string());
+                return None;
+            };
+            out.push(Self::static_expr(
+                filter,
+                &format!("Modifier::CantHaveKeywords({set})"),
+            ));
+        }
         Some(())
     }
 
@@ -2305,12 +2377,21 @@ impl Tx<'_> {
             }
             out.push(Self::static_expr(filter, "Modifier::CanBlockAnyNumber"));
         }
-        if p.peek("AddHiddenKeyword").map(str::trim) == Some(LURED) {
-            p.take("AddHiddenKeyword");
-            out.push(Self::static_expr(
-                filter,
-                "Modifier::MustBeBlockedByAllAble",
-            ));
+        if let Some(hidden) = p.peek("AddHiddenKeyword").map(str::trim) {
+            let modifier = match hidden {
+                LURED => Some("Modifier::MustBeBlockedByAllAble"),
+                "CARDNAME can only attack alone." => Some("Modifier::AttacksAloneOnly"),
+                "CARDNAME can't block." => Some("Modifier::AddKeyword(KeywordSet::CANT_BLOCK)"),
+                "CARDNAME can't attack." => Some("Modifier::AddKeyword(KeywordSet::CANT_ATTACK)"),
+                "CARDNAME can't attack or block." => Some(
+                    "Modifier::AddKeyword(KeywordSet::CANT_ATTACK.union(KeywordSet::CANT_BLOCK))",
+                ),
+                _ => None,
+            };
+            if let Some(modifier) = modifier {
+                p.take("AddHiddenKeyword");
+                out.push(Self::static_expr(filter, modifier));
+            }
         }
         Some(())
     }
@@ -2751,21 +2832,42 @@ impl Tx<'_> {
     ) -> Option<()> {
         for (key, modifier) in [("AddColor", "AddColor"), ("SetColor", "SetColor")] {
             let Some(raw) = p.take(key) else { continue };
+            let trimmed = raw.trim();
+            if key == "SetColor" && trimmed == "Colorless" {
+                out.push(Self::static_expr(
+                    filter,
+                    "Modifier::SetColor(ColorSet::EMPTY)",
+                ));
+                continue;
+            }
+            if trimmed == "All" {
+                out.push(Self::static_expr(
+                    filter,
+                    &format!(
+                        "Modifier::{modifier}(ColorSet::from_slice(&[Color::White, Color::Blue, Color::Black, Color::Red, Color::Green]))"
+                    ),
+                ));
+                continue;
+            }
             let mut colors = Vec::new();
-            for word in raw.split_whitespace().filter(|&w| w != "&") {
+            for word in trimmed.split_whitespace().filter(|&w| w != "&") {
                 colors.push(match word {
                     "White" => "Color::White",
                     "Blue" => "Color::Blue",
                     "Black" => "Color::Black",
                     "Red" => "Color::Red",
                     "Green" => "Color::Green",
-                    // `Colorless` is the empty set rather than a colour, and
-                    // `ChosenColor` is a choice this rule cannot make.
+                    // `Colorless` on `AddColor` is meaningless and `ChosenColor`
+                    // is a choice this rule cannot make.
                     other => {
                         self.note(format!("static ability setting colour `{other}`"));
                         return None;
                     }
                 });
+            }
+            if colors.is_empty() {
+                self.note(format!("static ability setting colour `{raw}`"));
+                return None;
             }
             out.push(Self::static_expr(
                 filter,
@@ -2788,6 +2890,7 @@ impl Tx<'_> {
         if !p.has("Secondary")
             && !p.has("PlayerTurn")
             && !p.has("Affected")
+            && !p.has("ForEachShard")
             && !matches!(
                 p.peek("Activator"),
                 Some("Player.!Active" | "Player.Active")
@@ -2810,6 +2913,9 @@ impl Tx<'_> {
             None | Some("True") => {}
             Some(_) => return self.deny("static ability `S: Mode$ RaiseCost`".into()),
         }
+        if p.has("ForEachShard") {
+            return self.raise_cost_shard_sacrifice(p);
+        }
         if p.peek("Type") == Some("Ability")
             && p.peek("ValidSpell") == Some("Activated.ManaAbility")
         {
@@ -2828,6 +2934,68 @@ impl Tx<'_> {
             return self.raise_cost_spell(p);
         }
         self.deny("static ability `S: Mode$ RaiseCost`".into())
+    }
+
+    fn raise_cost_shard_sacrifice(&mut self, mut p: Params) -> Option<()> {
+        let Some(ty) = p.take("Type") else {
+            return self.deny("static ability `S: Mode$ RaiseCost`".into());
+        };
+        let modifier_name = match ty.as_str() {
+            "Spell" => "SpellsCostSacrificePerManaSymbol",
+            "Ability" => "AbilitiesCostSacrificePerManaSymbol",
+            _ => return self.deny("static ability `S: Mode$ RaiseCost`".into()),
+        };
+        let zone = match p.take("EffectZone").as_deref() {
+            None | Some("Battlefield" | "All") => StaticEffectZone::Battlefield,
+            other => match Self::static_effect_zone(other, false) {
+                Some(z) => z,
+                None => return self.deny("static ability `S: Mode$ RaiseCost`".into()),
+            },
+        };
+        let Some(shard_raw) = p.take("ForEachShard") else {
+            return self.deny("static ability `S: Mode$ RaiseCost`".into());
+        };
+        let Some(color) = super::color_const(shard_raw.trim()) else {
+            return self.deny("static ability `S: Mode$ RaiseCost`".into());
+        };
+        let Some(cost_raw) = p.take("Cost") else {
+            return self.deny("static ability `S: Mode$ RaiseCost`".into());
+        };
+        let Some(inner) = cost_raw
+            .trim()
+            .strip_prefix("Sac<")
+            .and_then(|s| s.strip_suffix('>'))
+        else {
+            return self.deny("static ability `S: Mode$ RaiseCost`".into());
+        };
+        let mut parts = inner.split('/');
+        let (Some(count), Some(sac_valid)) = (parts.next(), parts.next()) else {
+            return self.deny("static ability `S: Mode$ RaiseCost`".into());
+        };
+        let _desc = parts.next();
+        if count.trim() != "1" || parts.next().is_some() || sac_valid.trim().is_empty() {
+            return self.deny("static ability `S: Mode$ RaiseCost`".into());
+        }
+        let raw_card = p.take("ValidCard").unwrap_or_else(|| "Card".to_string());
+        let Some(valid_card) =
+            Self::apply_reduce_activator(&raw_card, p.take("Activator").as_deref())
+        else {
+            return self.deny("static ability `S: Mode$ RaiseCost`".into());
+        };
+        let cond = self.reduce_cost_condition(&mut p)?;
+        if !p.exhausted() {
+            return self.deny("static ability `S: Mode$ RaiseCost`".into());
+        }
+        let sac_expr = self.filter_expr(sac_valid.trim())?;
+        let sac_static = self.body.filter_static("SAC_COST", &sac_expr);
+        let filter = self.filter_expr(&valid_card)?;
+        self.body.abilities.push(Self::format_static_expr(
+            &filter,
+            &format!("Modifier::{modifier_name} {{ color: {color}, sacrifice: &{sac_static} }}"),
+            zone,
+            &cond,
+        ));
+        Some(())
     }
 
     fn raise_cost_mana_life(&mut self, mut p: Params) -> Option<()> {
@@ -2960,6 +3128,13 @@ impl Tx<'_> {
             };
             resolved
         };
+        if self_stack_tax
+            && !p.has("Amount")
+            && p.peek("Cost")
+                .is_some_and(|cost| super::printed_mana(cost).is_none())
+        {
+            return self.raise_cost_self_mandatory_non_mana(p);
+        }
         let modifier = match (p.take("Amount"), p.take("Cost")) {
             (Some(amount), None) => {
                 let Some(amount) = amount.trim().parse::<u8>().ok().filter(|&n| n > 0) else {
@@ -2994,6 +3169,34 @@ impl Tx<'_> {
             .abilities
             .push(Self::format_static_expr(&filter, &modifier, zone, &cond));
         Some(())
+    }
+
+    fn raise_cost_self_mandatory_non_mana(&mut self, mut p: Params) -> Option<()> {
+        let cost = p.take("Cost")?;
+        if !p.exhausted() || !self.body.mandatory_additional_costs.is_empty() {
+            return self.deny("static ability `S: Mode$ RaiseCost`".into());
+        }
+        let has_mana_token = super::cost_parts(&cost).iter().any(|token| {
+            token.chars().all(|c| c.is_ascii_digit())
+                || matches!(
+                    token.as_str(),
+                    "W" | "U" | "B" | "R" | "G" | "C" | "S" | "X"
+                )
+                || super::hybrid_pair(token).is_some()
+                || super::mana::special_mana_symbol(token).is_some()
+        });
+        if has_mana_token {
+            return self.deny("static ability `S: Mode$ RaiseCost`".into());
+        }
+        let saved_unclaimed = self.unclaimed.borrow().clone();
+        let saved_statics_len = self.body.statics.len();
+        if let Some(parts) = self.parse_spell_cost_parts(&cost) {
+            self.body.mandatory_additional_costs.extend(parts);
+            return Some(());
+        }
+        *self.unclaimed.borrow_mut() = saved_unclaimed;
+        self.body.statics.truncate(saved_statics_len);
+        self.deny("static ability `S: Mode$ RaiseCost`".into())
     }
 
     fn is_plain_battlefield_reduce_cost(p: &Params) -> bool {
@@ -3459,6 +3662,7 @@ impl Tx<'_> {
         if let Some(state_cond) = self.take_self_state_present(p).ok()? {
             clauses.push(state_cond);
         }
+        self.take_extended_present_clauses(p, &mut clauses)?;
         if let Some(valid) = p.take("IsPresent") {
             let clause = if matches!(p.peek("PresentZone"), Some("Hand" | "Graveyard"))
                 && matches!(p.peek("PresentPlayer"), None | Some("You"))
@@ -3509,6 +3713,43 @@ impl Tx<'_> {
         } else {
             self.svars.get(trimmed)?.trim().to_string()
         };
+        if def == "Count$StartingPlayer.0.1" {
+            return match cmp.trim() {
+                "GE1" | "EQ1" => Some("Condition::NotStartingPlayer".to_string()),
+                "EQ0" | "LT1" => Some("Condition::Not(&Condition::NotStartingPlayer)".to_string()),
+                _ => None,
+            };
+        }
+        if let Some(sub) = def.strip_prefix("PlayerCountPropertyYou$SacrificedThisTurn ") {
+            let bound = super::count_bound(cmp)?;
+            if let Some(path) = self.cats.const_path(sub.trim()) {
+                return match bound {
+                    super::Bound::AtLeast(n) if n >= 1 => Some(format!(
+                        "Condition::SacrificedSubtypeThisTurn {{ subtype: {path}, count: {n} }}"
+                    )),
+                    super::Bound::AtMost(n) => {
+                        let threshold = u32::from(n).saturating_add(1);
+                        Some(format!(
+                            "Condition::Not(&Condition::SacrificedSubtypeThisTurn {{ subtype: {path}, count: {threshold} }})"
+                        ))
+                    }
+                    super::Bound::AtLeast(_) => None,
+                };
+            }
+            return None;
+        }
+        if let Some(valid) = def.strip_prefix("Count$Valid ")
+            && !valid.is_empty()
+            && !valid.contains('/')
+            && !valid.contains('$')
+        {
+            if Self::is_relative_you_ctrl_present(valid) {
+                return self.relative_you_ctrl_present_clause(valid, cmp);
+            }
+            if Self::is_opp_ctrl_present(valid) {
+                return self.opp_ctrl_present_clause(valid, cmp);
+            }
+        }
         let bound = super::count_bound(cmp)?;
         if def == "PlayerCountOpponents$HighestCardsInGraveyard" {
             return match bound {
@@ -3775,6 +4016,281 @@ impl Tx<'_> {
         Some(())
     }
 
+    /// `S: Mode$ CantPutCounter` (`Blightbeetle`, `Melira, Sylvok Outcast`,
+    /// `Solemnity`, `Melira's Keepers`, `Tatterkite`): permanent or player
+    /// counter prohibition lowered to `ReplacementRule::ModifyCounterPlacement`
+    /// or `ModifyPlayerCounterPlacement` with `CounterReplaceOp::Sub(u16::MAX)`.
+    fn cant_put_counter(&mut self, mut p: Params) -> Option<()> {
+        p.drop_prose();
+        if !matches!(p.take("Secondary").as_deref(), None | Some("True"))
+            || !matches!(p.take("EffectZone").as_deref(), None | Some("Battlefield"))
+            || !matches!(
+                p.take("AffectedZone").as_deref(),
+                None | Some("Battlefield")
+            )
+        {
+            return self.deny("static ability `S: Mode$ CantPutCounter`".to_string());
+        }
+        let kind_opt = match p.take("CounterType") {
+            None => "None".to_string(),
+            Some(raw) => {
+                let Some(kind) = super::counter_kind(raw.trim()) else {
+                    return self.deny("static ability `S: Mode$ CantPutCounter`".to_string());
+                };
+                format!("Some({kind})")
+            }
+        };
+        let valid_card = p.take("ValidCard");
+        let valid_player = p.take("ValidPlayer");
+        if !p.exhausted() {
+            return self.deny("static ability `S: Mode$ CantPutCounter`".to_string());
+        }
+        match (valid_card, valid_player) {
+            (Some(raw_card), None) => {
+                let Some(cleaned) = strip_in_zone_battlefield(&raw_card) else {
+                    return self.deny("static ability `S: Mode$ CantPutCounter`".to_string());
+                };
+                let filter_ref = if cleaned == "Card.Self" {
+                    "&Filter::This".to_string()
+                } else {
+                    let expr = self.filter_expr(&cleaned)?;
+                    format!("&{}", self.body.filter_static("COUNTER_TARGET", &expr))
+                };
+                self.body.abilities.push(format!(
+                    "AbilityDef::Replacement(ReplacementRule::ModifyCounterPlacement {{ \
+                     object_filter: {filter_ref}, kind: {kind_opt}, placer: None, \
+                     effect_only: false, op: CounterReplaceOp::Sub(u16::MAX) }})"
+                ));
+                Some(())
+            }
+            (None, Some(raw_player)) => {
+                let who = match raw_player.trim() {
+                    "You" => "PlayerRel::You",
+                    "Opponent" | "Player.Opponent" => "PlayerRel::EachOpponent",
+                    "Player" => "PlayerRel::EachPlayer",
+                    "EnchantedPlayer" | "Player.EnchantedBy" | "Player.EnchantedPlayer" => {
+                        "PlayerRel::EnchantedPlayer"
+                    }
+                    _ => return self.deny("static ability `S: Mode$ CantPutCounter`".to_string()),
+                };
+                self.body.abilities.push(format!(
+                    "AbilityDef::Replacement(ReplacementRule::ModifyPlayerCounterPlacement {{ \
+                     recipient: {who}, kind: {kind_opt}, placer: None, \
+                     op: CounterReplaceOp::Sub(u16::MAX) }})"
+                ));
+                Some(())
+            }
+            _ => self.deny("static ability `S: Mode$ CantPutCounter`".to_string()),
+        }
+    }
+
+    fn is_relative_you_ctrl_present(valid: &str) -> bool {
+        let mut saw_other = false;
+        for alt in valid.split(',') {
+            let mut has_you_ctrl = false;
+            for atom in alt
+                .split(['.', '+'])
+                .map(str::trim)
+                .filter(|a| !a.is_empty())
+            {
+                match atom {
+                    "YouCtrl" => has_you_ctrl = true,
+                    "Other" | "StrictlyOther" => saw_other = true,
+                    "Self" | "EnchantedBy" | "EquippedBy" | "AttachedBy" | "Attached" => {
+                        return false;
+                    }
+                    other if other.contains("Ctrl") || other.contains("Own") => return false,
+                    _ => {}
+                }
+            }
+            if !has_you_ctrl {
+                return false;
+            }
+        }
+        saw_other
+    }
+
+    fn relative_you_ctrl_present_clause(&mut self, valid: &str, compare: &str) -> Option<String> {
+        let compare = compare.trim();
+        let expr = self.filter_expr(valid)?;
+        let name = self.body.filter_static("CHECK", &expr);
+        let count = format!("Amount::CountOf {{ filter: &{name}, zone: ZoneSel::Battlefield }}");
+        if compare == "EQ1" {
+            let at_least_two = format!("Condition::AmountAtLeast({count}, 2)");
+            let two_name = self.body.condition_static("CHECK", &at_least_two);
+            return Some(format!(
+                "Condition::All(&[Condition::AmountAtLeast({count}, 1), Condition::Not(&{two_name})])"
+            ));
+        }
+        match count_bound(compare)? {
+            Bound::AtLeast(n) if n >= 1 => Some(format!("Condition::AmountAtLeast({count}, {n})")),
+            Bound::AtMost(n) => {
+                let threshold = u32::from(n).checked_add(1)?;
+                Some(format!(
+                    "Condition::Not(&Condition::AmountAtLeast({count}, {threshold}))"
+                ))
+            }
+            Bound::AtLeast(_) => None,
+        }
+    }
+
+    fn is_opp_ctrl_present(valid: &str) -> bool {
+        let mut saw_alt = false;
+        for raw_alt in valid.split(',') {
+            let alt = raw_alt.trim();
+            if alt.is_empty() {
+                return false;
+            }
+            saw_alt = true;
+            let mut has_opp_ctrl = false;
+            for atom in alt
+                .split(['.', '+'])
+                .map(str::trim)
+                .filter(|a| !a.is_empty())
+            {
+                if matches!(
+                    atom,
+                    "Self"
+                        | "Other"
+                        | "StrictlyOther"
+                        | "EnchantedBy"
+                        | "EquippedBy"
+                        | "AttachedBy"
+                        | "Attached"
+                ) {
+                    return false;
+                }
+                if atom == "OppCtrl" {
+                    has_opp_ctrl = true;
+                } else if atom.contains("Ctrl") || atom.contains("Own") {
+                    return false;
+                }
+            }
+            if !has_opp_ctrl {
+                return false;
+            }
+        }
+        saw_alt
+    }
+
+    fn opp_ctrl_present_clause(&mut self, valid: &str, compare: &str) -> Option<String> {
+        let bound = count_bound(compare)?;
+        let expr = self.filter_expr(valid)?;
+        let name = self.body.filter_static("CHECK", &expr);
+        match bound {
+            Bound::AtLeast(n) if n >= 1 => {
+                Some(format!("Condition::BattlefieldCount(&{name}, {n})"))
+            }
+            Bound::AtMost(n) => Some(format!("Condition::BattlefieldCountAtMost(&{name}, {n})")),
+            Bound::AtLeast(_) => None,
+        }
+    }
+
+    /// Consumes source-relative `Other+YouCtrl` and opponent-controlled
+    /// battlefield `IsPresent$` clauses, `PresentZone$ Hand` clauses, and
+    /// paired `IsPresent2$` clauses before falling back to `present_clause`.
+    fn take_extended_present_clauses(
+        &mut self,
+        p: &mut Params,
+        clauses: &mut Vec<String>,
+    ) -> Option<()> {
+        if p.has("NoResolvingCheck") || !p.has("IsPresent") {
+            return Some(());
+        }
+        let second = Self::extract_second_present(p);
+        if let Some(clause) = self
+            .try_take_extended_present(p, "PresentCompare$", false)
+            .ok()?
+        {
+            clauses.push(clause);
+        }
+        if let Some(mut p2) = second {
+            if let Some(state_cond) = self.take_self_state_present(&mut p2).ok()? {
+                clauses.push(state_cond);
+            } else if let Some(clause) = self
+                .try_take_extended_present(&mut p2, "PresentCompare2$", true)
+                .ok()?
+            {
+                clauses.push(clause);
+            } else if let Some(valid2) = p2.take("IsPresent") {
+                clauses.push(self.present_clause(&mut p2, &valid2)?);
+            }
+            if !p2.exhausted() {
+                return self.deny("a second `IsPresent2$` clause".to_string());
+            }
+        }
+        Some(())
+    }
+
+    fn extract_second_present(p: &mut Params) -> Option<Params> {
+        if !p.has("IsPresent2") {
+            return None;
+        }
+        let mut entries = Vec::new();
+        for (src_key, dst_key) in [
+            ("IsPresent2", "IsPresent"),
+            ("PresentCompare2", "PresentCompare"),
+            ("PresentZone2", "PresentZone"),
+            ("PresentPlayer2", "PresentPlayer"),
+            ("PresentDefined2", "PresentDefined"),
+        ] {
+            if let Some(val) = p.take(src_key) {
+                entries.push((dst_key.to_string(), val));
+            }
+        }
+        Some(Params { entries })
+    }
+
+    fn try_take_extended_present(
+        &mut self,
+        p: &mut Params,
+        cmp_label: &str,
+        allow_graveyard: bool,
+    ) -> Result<Option<String>, ()> {
+        let Some(valid) = p.peek("IsPresent").map(str::to_string) else {
+            return Ok(None);
+        };
+        if matches!(p.peek("PresentZone"), None | Some("Battlefield"))
+            && p.peek("PresentPlayer").is_none()
+            && p.peek("PresentDefined").is_none()
+        {
+            if Self::is_relative_you_ctrl_present(&valid) {
+                p.take("IsPresent");
+                p.take("PresentZone");
+                let compare = p
+                    .take("PresentCompare")
+                    .unwrap_or_else(|| "GE1".to_string());
+                let Some(clause) = self.relative_you_ctrl_present_clause(&valid, &compare) else {
+                    self.note(format!("`{cmp_label} {compare}`"));
+                    return Err(());
+                };
+                return Ok(Some(clause));
+            }
+            if Self::is_opp_ctrl_present(&valid) {
+                p.take("IsPresent");
+                p.take("PresentZone");
+                let compare = p
+                    .take("PresentCompare")
+                    .unwrap_or_else(|| "GE1".to_string());
+                let Some(clause) = self.opp_ctrl_present_clause(&valid, &compare) else {
+                    self.note(format!("`{cmp_label} {compare}`"));
+                    return Err(());
+                };
+                return Ok(Some(clause));
+            }
+        }
+        let zone_matches = p.peek("PresentZone") == Some("Hand")
+            || (allow_graveyard && p.peek("PresentZone") == Some("Graveyard"));
+        if zone_matches
+            && matches!(p.peek("PresentPlayer"), None | Some("You"))
+            && !matches!(valid.as_str(), "Card.StrictlySelf" | "Card.Self")
+        {
+            p.take("IsPresent");
+            return self.reduce_cost_zone_present(p, &valid).map(Some).ok_or(());
+        }
+        Ok(None)
+    }
+
     /// `S: Mode$ IgnoreLandWalk` without `ValidBlocker$` (`Modifier::BlockableWithoutAnyLandwalk`
     /// or `Modifier::BlockableWithoutLandwalk`).
     fn ignore_landwalk(&mut self, mut p: Params) -> Option<()> {
@@ -3837,6 +4353,36 @@ impl Tx<'_> {
         }
         any
     }
+}
+
+fn strip_in_zone_battlefield(valid: &str) -> Option<String> {
+    let mut out = Vec::new();
+    for raw_alt in valid.split(',') {
+        let alt = raw_alt.trim();
+        if alt.is_empty() {
+            return None;
+        }
+        let Some((base, qual)) = alt.split_once('.') else {
+            out.push(alt.to_string());
+            continue;
+        };
+        let mut kept = Vec::new();
+        for atom in qual.split('+').map(str::trim).filter(|a| !a.is_empty()) {
+            if atom == "inZoneBattlefield" {
+                continue;
+            }
+            if atom.starts_with("inZone") {
+                return None;
+            }
+            kept.push(atom);
+        }
+        if kept.is_empty() {
+            out.push(base.trim().to_string());
+        } else {
+            out.push(format!("{}.{}", base.trim(), kept.join("+")));
+        }
+    }
+    (!out.is_empty()).then(|| out.join(","))
 }
 
 fn stack_live_keyword_const(word: &str) -> Option<&'static str> {

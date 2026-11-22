@@ -368,3 +368,131 @@ fn counter_damage_prevention_and_refusals() {
         assert!(refused(bad), "must refuse:\n{bad}");
     }
 }
+
+#[test]
+fn wave22d_prevention_and_static_effect_unlocks() {
+    let wish_ring = read(
+        "Name:Wish Band\nManaCost:5\nTypes:Artifact\n\
+         A:AB$ Effect | Cost$ 5 T Exile<1/CARDNAME> | ReplacementEffects$ NextDraw\n\
+         SVar:NextDraw:Event$ Draw | ActiveZones$ Command | ValidPlayer$ You | ReplaceWith$ WishDraw\n\
+         SVar:WishDraw:DB$ ChangeZone | Origin$ Sideboard | Destination$ Hand | ChangeType$ Card.YouOwn | ChangeNum$ 1 | Hidden$ True | Mandatory$ True | SubAbility$ Clean\n\
+         SVar:Clean:DB$ ChangeZone | Defined$ Self | Origin$ Command | Destination$ Exile",
+    );
+    assert!(
+        wish_ring.abilities[0].contains(
+            "Effect::continuous(&Filter::Any, Modifier::NextDrawWish, Duration::UntilEndOfTurn)"
+        ),
+        "{:?}",
+        wish_ring.abilities
+    );
+
+    let etb_bonus = read(
+        "Name:Simic Graftmage\nManaCost:G U\nTypes:Creature Wizard\nPT:2/2\n\
+         A:AB$ Effect | Cost$ 1 G | ReplacementEffects$ BonusCounter\n\
+         SVar:BonusCounter:Event$ Moved | Destination$ Battlefield | ValidCard$ Creature.YouCtrl | ReplaceWith$ AddOne | ReplacementResult$ Updated | ActiveZones$ Command\n\
+         SVar:AddOne:DB$ PutCounter | Defined$ ReplacedCard | CounterType$ P1P1 | CounterNum$ 1 | ETB$ True",
+    );
+    assert!(
+        etb_bonus.abilities[0].contains(
+            "Modifier::AdditionalCounterOnEntryByCount { kind: CounterKind::P1P1, count: PtCount::Fixed(1) }"
+        ),
+        "{:?}",
+        etb_bonus.abilities
+    );
+
+    let guard_redirect = read(
+        "Name:Royal Shield\nManaCost:3 W W\nTypes:Creature\nPT:2/5\n\
+         A:AB$ Effect | Cost$ T | ReplacementEffects$ RedirectAll\n\
+         SVar:RedirectAll:Event$ DamageDone | ActiveZones$ Command | IsCombat$ True | ValidSource$ Creature.unblocked | ValidTarget$ You | DamageTarget$ EffectSource | ReplaceWith$ RedirectToSelf\n\
+         SVar:RedirectToSelf:DB$ ReplaceEffect | VarName$ Affected | VarValue$ EffectSource | VarType$ Card",
+    );
+    assert!(
+        guard_redirect.abilities[0].contains(
+            "Effect::RedirectCombatDamageToYouThisTurn { by: &SOURCE1, to: DamageRedirectTo::ThisObject }"
+        ) && guard_redirect.statics.contains("Filter::Unblocked"),
+        "{}\n{:?}",
+        guard_redirect.statics,
+        guard_redirect.abilities
+    );
+
+    let you_and_yours = read(
+        "Name:Forest Aegis\nManaCost:2 G\nTypes:Instant\n\
+         A:SP$ Effect | ReplacementEffects$ ShieldCombat\n\
+         SVar:ShieldCombat:Event$ DamageDone | ActiveZones$ Command | IsCombat$ True | ValidTarget$ You,Creature.YouCtrl | Prevent$ True",
+    );
+    assert!(
+        you_and_yours.abilities[0].contains(
+            "Effect::PreventAllDamageFromMatchingThisTurn { target: Some(TargetSpec::Player(PlayerRel::You)), sources: &Filter::Any, combat_only: true }"
+        ) && you_and_yours.abilities[0].contains(
+            "Effect::continuous(&Filter::YOUR_CREATURE, Modifier::PreventDamageToIt, Duration::UntilEndOfTurn)"
+        ),
+        "{:?}",
+        you_and_yours.abilities
+    );
+
+    let source_pacify = read(
+        "Name:Trial Shield\nManaCost:1 W W\nTypes:Sorcery\n\
+         A:SP$ Effect | ValidTgts$ Permanent | RememberObjects$ Targeted | Duration$ UntilYourNextTurn | ReplacementEffects$ StopDmg\n\
+         SVar:StopDmg:Event$ DamageDone | ActiveZones$ Command | ValidSource$ Card.IsRemembered | Prevent$ True",
+    );
+    assert!(
+        source_pacify.abilities[0].contains(
+            "Effect::continuous(&Filter::This, Modifier::PreventAllDamageFromIt, Duration::UntilYourNextTurn)"
+        ),
+        "{:?}",
+        source_pacify.abilities
+    );
+
+    let chosen_with_remembered = read(
+        "Name:Sanctum Ward\nManaCost:1 W\nTypes:Enchantment\n\
+         A:AB$ ChooseSource | Cost$ W PayLife<2> | Choices$ Card,Emblem | SubAbility$ Shield\n\
+         SVar:Shield:DB$ Effect | RememberObjects$ Remembered | ReplacementEffects$ StopNext | SubAbility$ Clean | ConditionDefined$ ChosenCard | ConditionPresent$ Card,Emblem\n\
+         SVar:StopNext:Event$ DamageDone | ValidSource$ Card.ChosenCardStrict,Emblem.ChosenCard | ValidTarget$ You | ReplaceWith$ EndShield | PreventionEffect$ True\n\
+         SVar:EndShield:DB$ ChangeZone | Defined$ Self | Origin$ Command | Destination$ Exile\n\
+         SVar:Clean:DB$ Cleanup | ClearChosenCard$ True",
+    );
+    assert!(
+        chosen_with_remembered.abilities[0].contains(
+            "Effect::PreventNextFromChosenSource { sources: &Filter::Any, combat_only: false, all_but: 0, gain_life: false }"
+        ),
+        "{:?}",
+        chosen_with_remembered.abilities
+    );
+}
+
+#[test]
+fn wave22d_defender_extra_land_emblem_and_prevention_refusals() {
+    let defender_and_land = read(
+        "Name:Watchful Scout\nManaCost:2 G\nTypes:Creature\nPT:0/4\nK:Defender\n\
+         A:AB$ Effect | Cost$ 1 | StaticAbilities$ AttackOk | ExileOnMoved$ Battlefield\n\
+         A:AB$ Effect | Cost$ 2 | Name$ Extra Land Drop | StaticAbilities$ MoreLand\n\
+         SVar:AttackOk:Mode$ CanAttackDefender | ValidCard$ Card.EffectSource\n\
+         SVar:MoreLand:Mode$ Continuous | Affected$ You | AdjustLandPlays$ 1",
+    );
+    assert!(
+        defender_and_land.abilities[0].contains("Modifier::AttacksDespiteDefender")
+            && defender_and_land.abilities[1].contains("Modifier::ExtraLandDrops(1)"),
+        "{:?}",
+        defender_and_land.abilities
+    );
+
+    let emblem_land = read(
+        "Name:EmblemLand\nManaCost:2 G\nTypes:Sorcery\n\
+         A:SP$ Effect | Name$ Emblem — Extra Land | StaticAbilities$ MoreLand | Duration$ Permanent\n\
+         SVar:MoreLand:Mode$ Continuous | Affected$ You | AdjustLandPlays$ 1",
+    );
+    assert!(
+        emblem_land.abilities[0].contains("Effect::CreateEmblem"),
+        "Emblem extra-land effect must reach CreateEmblem, not UntilEndOfTurn: {:?}",
+        emblem_land.abilities
+    );
+
+    for bad in [
+        "Name:BadLandAllPlayers\nManaCost:2 G\nTypes:Sorcery\nA:SP$ Effect | Name$ Extra Land Drop | StaticAbilities$ MoreLand\nSVar:MoreLand:Mode$ Continuous | Affected$ Player | AdjustLandPlays$ 1",
+        "Name:BadEtbGraveyard\nManaCost:G U\nTypes:Creature\nPT:2/2\nA:AB$ Effect | Cost$ 1 | ReplacementEffects$ BonusCounter\nSVar:BonusCounter:Event$ Moved | Destination$ Graveyard | ValidCard$ Creature.YouCtrl | ReplaceWith$ AddOne | ReplacementResult$ Updated | ActiveZones$ Command\nSVar:AddOne:DB$ PutCounter | Defined$ ReplacedCard | CounterType$ P1P1 | CounterNum$ 1 | ETB$ True",
+        "Name:BadRedirectOnSpell\nManaCost:2 W\nTypes:Instant\nA:SP$ Effect | ReplacementEffects$ RedirectAll\nSVar:RedirectAll:Event$ DamageDone | ActiveZones$ Command | IsCombat$ True | ValidSource$ Creature.unblocked | ValidTarget$ You | DamageTarget$ EffectSource | ReplaceWith$ RedirectToSelf\nSVar:RedirectToSelf:DB$ ReplaceEffect | VarName$ Affected | VarValue$ EffectSource | VarType$ Card",
+        "Name:BadWishNoSelfExile\nManaCost:5\nTypes:Artifact\nA:AB$ Effect | Cost$ 5 T | ReplacementEffects$ NextDraw\nSVar:NextDraw:Event$ Draw | ActiveZones$ Command | ValidPlayer$ You | ReplaceWith$ WishDraw\nSVar:WishDraw:DB$ ChangeZone | Origin$ Sideboard | Destination$ Hand | ChangeType$ Card.YouOwn | ChangeNum$ 1 | Hidden$ True | Mandatory$ True",
+    ] {
+        assert!(refused(bad), "must refuse:\n{bad}");
+    }
+}

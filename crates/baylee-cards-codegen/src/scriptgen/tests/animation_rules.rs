@@ -159,7 +159,8 @@ fn supertype_removal_refuses_subtypes_card_types_and_unread_semantics() {
         "Types$ Snow,UnknownType",
         "Types$ Snow | Duration$ NextUpkeep",
         "Types$ Snow | RememberObjects$ Self",
-        "RemoveTypes$ Snow | RemoveAllAbilities$ True",
+        "RemoveTypes$ Snow | SetName$ Foo",
+        "RemoveTypes$ Snow | RemoveAllAbilities$ False",
     ] {
         assert!(refused(&land_animation(change)), "accepted {change}");
     }
@@ -375,9 +376,168 @@ fn animate_remove_card_types_emits_become_types_and_preserves_cr_guards() {
         "Name:KeepSuperFalse\nManaCost:1 U\nTypes:Instant\n\
          A:SP$ Animate | ValidTgts$ Creature | Types$ Enchantment | \
          RemoveCardTypes$ True | KeepSupertypes$ False",
-        "Name:RemoveAllPlusKw\nManaCost:1 U\nTypes:Instant\n\
+        "Name:RemoveAllPlusRemoveKw\nManaCost:1 U\nTypes:Instant\n\
+         A:SP$ Animate | ValidTgts$ Creature | Types$ Enchantment | \
+         RemoveCardTypes$ True | RemoveAllAbilities$ True | RemoveKeywords$ Flying",
+    ] {
+        assert!(refused(bad), "must refuse:\n{bad}");
+    }
+
+    let strip_then_grant = read(
+        "Name:RemoveAllThenGrant\nManaCost:1 U\nTypes:Instant\n\
          A:SP$ Animate | ValidTgts$ Creature | Types$ Enchantment | \
          RemoveCardTypes$ True | RemoveAllAbilities$ True | Keywords$ Flying",
+    );
+    let lose_pos = strip_then_grant.abilities[0]
+        .find("Modifier::LoseAllAbilities")
+        .expect("LoseAllAbilities emitted");
+    let kw_pos = strip_then_grant.abilities[0]
+        .find("Modifier::AddKeyword(KeywordSet::FLYING)")
+        .expect("AddKeyword emitted");
+    assert!(
+        lose_pos < kw_pos,
+        "LoseAllAbilities must precede granted keywords (CR 613.7): {}",
+        strip_then_grant.abilities[0]
+    );
+}
+
+#[test]
+fn wave22d_animate_durations_flags_dynamic_pt_player_all_and_static_grants() {
+    let flags_and_durations = read(
+        "Name:Shifting Relic\nManaCost:2 U\nTypes:Artifact\n\
+         A:AB$ Animate | Cost$ 1 | ValidTgts$ Creature | IsCurse$ True | Optional$ True | OptionQuestion$ Shrink? | \
+         Duration$ UntilYourNextTurn | Power$ 1 | HiddenKeywords$ CARDNAME can't block.\n\
+         A:AB$ Animate | Cost$ 2 T | ValidTgts$ Artifact.YouCtrl | Duration$ UntilUntaps | Toughness$ 5 | AddAllCreatureTypes$ True\n\
+         A:AB$ Animate | Cost$ 3 | ValidTgts$ Land.YouCtrl | Duration$ AsLongAsControl | Types$ Creature | Power$ 2 | Toughness$ 2\n\
+         A:AB$ Animate | Cost$ 4 | ValidTgts$ Land.YouCtrl | Duration$ AsLongAsInPlay | Types$ Creature | Power$ 3 | Toughness$ 3",
+    );
+    assert!(
+        flags_and_durations.abilities[0].contains("Effect::May(&[")
+            && flags_and_durations.abilities[0].contains("Duration::UntilYourNextTurn")
+            && flags_and_durations.abilities[0].contains("Modifier::SetPower(1)")
+            && flags_and_durations.abilities[0]
+                .contains("Modifier::AddKeyword(KeywordSet::CANT_BLOCK)"),
+        "{:?}",
+        flags_and_durations.abilities[0]
+    );
+    assert!(
+        flags_and_durations.abilities[1]
+            .contains("Duration::WhileSourceTapped { control: false, power_limited: false }")
+            && flags_and_durations.abilities[1].contains("Modifier::SetToughness(5)")
+            && flags_and_durations.abilities[1].contains("Modifier::AllCreatureTypes"),
+        "{:?}",
+        flags_and_durations.abilities[1]
+    );
+    assert!(
+        flags_and_durations.abilities[2].contains("Duration::WhileYouControlSource"),
+        "{:?}",
+        flags_and_durations.abilities[2]
+    );
+    assert!(
+        flags_and_durations.abilities[3].contains("Duration::WhileSourceOnBattlefield"),
+        "{:?}",
+        flags_and_durations.abilities[3]
+    );
+
+    let dynamic_pt = read(
+        "Name:Adaptive Golem\nManaCost:3\nTypes:Artifact\n\
+         A:AB$ Animate | Cost$ X | Defined$ Self | Types$ Creature | Power$ X | Toughness$ Y\n\
+         A:AB$ Animate | Cost$ 2 | ValidTgts$ Artifact | Types$ Creature | Power$ P | Toughness$ P\n\
+         SVar:X:Count$xPaid\n\
+         SVar:Y:SVar$X/Plus.1\n\
+         SVar:P:Targeted$CardManaCost",
+    );
+    assert!(
+        dynamic_pt.abilities[0].contains(
+            "Effect::SetPTFilter { filter: &Filter::This, power: Amount::X, toughness: Amount::Plus { base: &Amount::X, offset: 1 }, duration: Duration::UntilEndOfTurn }"
+        ),
+        "{:?}",
+        dynamic_pt.abilities[0]
+    );
+    assert!(
+        dynamic_pt.abilities[1].contains(
+            "Effect::SetPTFilter { filter: &Filter::This, power: Amount::TargetCmc, toughness: Amount::TargetCmc, duration: Duration::UntilEndOfTurn }"
+        ),
+        "{:?}",
+        dynamic_pt.abilities[1]
+    );
+
+    let player_sweep = read(
+        "Name:Mass Metamorph\nManaCost:1 U U\nTypes:Instant\n\
+         A:SP$ AnimateAll | ValidTgts$ Player | ValidCards$ Creature.TargetedPlayerCtrl | \
+         Types$ Goblin | RemoveCreatureTypes$ True | RemoveAllAbilities$ True | Colors$ Blue | OverwriteColors$ True | Power$ 1 | Toughness$ 1",
+    );
+    assert!(
+        player_sweep.abilities[0].contains(
+            "Effect::ModifyFilter { filter: &Filter::CREATURE, controlled_by: Some(PlayerRel::Chosen), modifier: Modifier::LoseAllAbilities, duration: Duration::UntilEndOfTurn }"
+        ) && player_sweep.abilities[0].contains(
+            "Effect::ModifyFilter { filter: &Filter::CREATURE, controlled_by: Some(PlayerRel::Chosen), modifier: Modifier::SetPT(1, 1), duration: Duration::UntilEndOfTurn }"
+        ),
+        "{:?}",
+        player_sweep.abilities[0]
+    );
+
+    let player_sweep_implicit = read(
+        "Name:Sudden Shrink\nManaCost:1 B B\nTypes:Instant\n\
+         A:SP$ AnimateAll | ValidTgts$ Player | ValidCards$ Creature | \
+         RemoveAllAbilities$ True | Power$ 0 | Toughness$ 2",
+    );
+    assert!(
+        player_sweep_implicit.abilities[0].contains(
+            "Effect::ModifyFilter { filter: &Filter::CREATURE, controlled_by: Some(PlayerRel::Chosen), modifier: Modifier::LoseAllAbilities, duration: Duration::UntilEndOfTurn }"
+        ) && player_sweep_implicit.abilities[0].contains(
+            "Effect::ModifyFilter { filter: &Filter::CREATURE, controlled_by: Some(PlayerRel::Chosen), modifier: Modifier::SetPT(0, 2), duration: Duration::UntilEndOfTurn }"
+        ),
+        "{:?}",
+        player_sweep_implicit.abilities[0]
+    );
+}
+
+#[test]
+fn wave22d_animate_static_grants_and_refusals() {
+    let granted_statics = read(
+        "Name:Living Engine\nManaCost:2 U\nTypes:Artifact\n\
+         A:AB$ Animate | Cost$ 1 | Defined$ Self | Types$ Creature | staticAbilities$ UnblockableST\n\
+         A:AB$ Animate | Cost$ 2 | Defined$ Self | Types$ Creature | Power$ 4 | Toughness$ 4 | staticAbilities$ IslandhomeST\n\
+         A:AB$ Animate | Cost$ 3 | Defined$ Self | Types$ Creature | staticAbilities$ CounterPtST\n\
+         A:AB$ Animate | Cost$ 4 | Defined$ Self | Types$ Creature | Power$ 2 | Toughness$ 2 | staticAbilities$ AuraTapST\n\
+         SVar:UnblockableST:Mode$ CantBlockBy | ValidAttacker$ Creature.Self\n\
+         SVar:IslandhomeST:Mode$ CantAttack | ValidCard$ Card.Self | UnlessDefender$ controlsIsland\n\
+         SVar:CounterPtST:Mode$ Continuous | AffectedDefined$ Self | SetPower$ C | SetToughness$ C\n\
+         SVar:C:Count$CardCounters.CHARGE\n\
+         SVar:AuraTapST:Mode$ Continuous | Affected$ Goblin.YouCtrl | AddAbility$ TapPing\n\
+         SVar:TapPing:AB$ Mana | Cost$ T | Produced$ R",
+    );
+    assert!(
+        granted_statics.abilities[0].contains("Modifier::AddKeyword(KeywordSet::UNBLOCKABLE)"),
+        "{:?}",
+        granted_statics.abilities[0]
+    );
+    assert!(
+        granted_statics.abilities[1].contains("Modifier::CantAttackUnlessDefenderControls(&"),
+        "{:?}",
+        granted_statics.abilities[1]
+    );
+    assert!(
+        granted_statics.abilities[2]
+            .contains("Modifier::SetPTToCount(PtCount::CountersOnThis(CounterKind::Charge))"),
+        "{:?}",
+        granted_statics.abilities[2]
+    );
+    assert!(
+        granted_statics.abilities[3].contains("Modifier::GrantStatic { filter: &GRANTED_STATIC")
+            && granted_statics.abilities[3].contains("Modifier::GrantActivated"),
+        "{:?}",
+        granted_statics.abilities[3]
+    );
+
+    for bad in [
+        "Name:BadSingleDynamic\nManaCost:X U\nTypes:Instant\nA:SP$ Animate | ValidTgts$ Creature | Power$ X\nSVar:X:Count$xPaid",
+        "Name:BadHiddenMustBlock\nManaCost:1 R\nTypes:Instant\nA:SP$ Animate | ValidTgts$ Creature | HiddenKeywords$ CARDNAME must be blocked if able.",
+        "Name:BadSweepMixedCtrl\nManaCost:2 U\nTypes:Instant\nA:SP$ AnimateAll | ValidTgts$ Player | ValidCards$ Creature.TargetedPlayerCtrl,Artifact | Power$ 1 | Toughness$ 1",
+        "Name:BadSweepWrongCtrl\nManaCost:2 U\nTypes:Instant\nA:SP$ AnimateAll | ValidTgts$ Player | ValidCards$ Creature.YouCtrl | Power$ 1 | Toughness$ 1",
+        "Name:BadTargetedStaticGrant\nManaCost:1 U\nTypes:Instant\nA:SP$ Animate | ValidTgts$ Creature | staticAbilities$ U\nSVar:U:Mode$ CantBlockBy | ValidAttacker$ Creature.Self",
+        "Name:BadUnlessMonarch\nManaCost:2 U\nTypes:Artifact\nA:AB$ Animate | Cost$ 1 | Defined$ Self | Types$ Creature | Power$ 2 | Toughness$ 2 | staticAbilities$ M\nSVar:M:Mode$ CantAttack | ValidCard$ Card.Self | UnlessDefender$ isMonarch",
     ] {
         assert!(refused(bad), "must refuse:\n{bad}");
     }

@@ -1824,3 +1824,141 @@ fn wave21d_computed_pt_counts_graveyard_self_grant_and_honest_refusals() {
         assert!(refused(bad), "must refuse:\n{bad}");
     }
 }
+
+#[test]
+fn wave22d_static_conditions_raise_cost_and_computed_pt() {
+    let conditions = read(
+        "Name:Border Scout\nManaCost:2 U\nTypes:Creature Wizard\nPT:2/2\n\
+         S:Mode$ Continuous | AffectedDefined$ Self | AddPower$ 1 | AddToughness$ 1 | IsPresent$ Wizard.Other+YouCtrl\n\
+         S:Mode$ Continuous | AffectedDefined$ Self | AddKeyword$ Flying | IsPresent$ Island.OppCtrl\n\
+         S:Mode$ Continuous | AffectedDefined$ Self | AddKeyword$ Vigilance | IsPresent$ Island.YouCtrl | IsPresent2$ Mountain.OppCtrl\n\
+         S:Mode$ Continuous | AffectedDefined$ Self | AddKeyword$ Haste | CheckSVar$ SecondSeat | SVarCompare$ GE1\n\
+         S:Mode$ Continuous | AffectedDefined$ Self | AddKeyword$ Lifelink | CheckSVar$ SacClue | SVarCompare$ GE1\n\
+         S:Mode$ Continuous | AffectedDefined$ Self | AddKeyword$ Trample | CheckSVar$ OtherGob | SVarCompare$ GE2\n\
+         S:Mode$ ReduceCost | ValidCard$ Card.Self | Type$ Spell | Amount$ 2 | EffectZone$ All | IsPresent$ Creature.OppCtrl | PresentCompare$ GE3\n\
+         SVar:SecondSeat:Count$StartingPlayer.0.1\n\
+         SVar:SacClue:PlayerCountPropertyYou$SacrificedThisTurn Clue\n\
+         SVar:OtherGob:Count$Valid Goblin.Other+YouCtrl",
+    );
+    assert_eq!(conditions.abilities.len(), 7);
+    assert!(
+        conditions.abilities[0]
+            .contains("Condition::AmountAtLeast(Amount::CountOf { filter: &CHECK")
+            && conditions.statics.contains("Filter::Another"),
+        "{}\n{:?}",
+        conditions.statics,
+        conditions.abilities[0]
+    );
+    assert!(
+        conditions.abilities[1].contains("Condition::BattlefieldCount(&CHECK")
+            && conditions.statics.contains("Filter::ControlledByOpponent"),
+        "{}\n{:?}",
+        conditions.statics,
+        conditions.abilities[1]
+    );
+    assert!(
+        conditions.abilities[2].contains("Condition::All(&[")
+            && conditions.abilities[2].contains("Condition::ControlCount(")
+            && conditions.abilities[2].contains("Condition::BattlefieldCount("),
+        "{:?}",
+        conditions.abilities[2]
+    );
+    assert!(
+        conditions.abilities[3].contains("Condition::NotStartingPlayer"),
+        "{:?}",
+        conditions.abilities[3]
+    );
+    assert!(
+        conditions.abilities[4].contains(
+            "Condition::SacrificedSubtypeThisTurn { subtype: subtypes::artifact::CLUE, count: 1 }"
+        ),
+        "{:?}",
+        conditions.abilities[4]
+    );
+    assert!(
+        conditions.abilities[5].contains("Condition::AmountAtLeast(Amount::CountOf { filter: &")
+            && conditions.abilities[5].contains(", 2)"),
+        "{:?}",
+        conditions.abilities[5]
+    );
+    assert!(
+        conditions.abilities[6].contains(
+            "zone = ZoneRef::Stack, condition = Some(Condition::BattlefieldCount(&Filter::OPPONENT_CREATURE, 3))"
+        ),
+        "{:?}",
+        conditions.abilities[6]
+    );
+
+    let shard_tax = read(
+        "Name:Ashen Tithe\nManaCost:2 W W\nTypes:Enchantment\n\
+         S:Mode$ RaiseCost | Type$ Spell | ForEachShard$ Black | Cost$ Sac<1/Mountain>\n\
+         S:Mode$ RaiseCost | Type$ Ability | ForEachShard$ Black | Cost$ Sac<1/Mountain>",
+    );
+    assert!(
+        shard_tax.abilities[0].contains(
+            "Modifier::SpellsCostSacrificePerManaSymbol { color: Color::Black, sacrifice: &SAC_COST1 }"
+        ) && shard_tax.abilities[1].contains(
+            "Modifier::AbilitiesCostSacrificePerManaSymbol { color: Color::Black, sacrifice: &SAC_COST1 }"
+        ),
+        "{:?}",
+        shard_tax.abilities
+    );
+
+    let mandatory_self = read(
+        "Name:Soul Graft\nManaCost:2 U U\nTypes:Sorcery\n\
+         S:Mode$ RaiseCost | ValidCard$ Card.Self | Type$ Spell | Cost$ Sac<1/Creature.YouCtrl> | EffectZone$ All\n\
+         A:SP$ Draw | NumCards$ 2",
+    );
+    assert_eq!(
+        mandatory_self.mandatory_additional_costs,
+        ["CostPart::Sacrifice(&Filter::YOUR_CREATURE)"]
+    );
+}
+
+#[test]
+fn wave22d_computed_pt_and_static_refusals() {
+    let opp_hand_and_cda = read(
+        "Name:Dread Mirror\nManaCost:3 B\nTypes:Creature\nPT:*/3\n\
+         S:Mode$ Continuous | Affected$ Card.Self | CharacteristicDefining$ True | SetPower$ OppLand\n\
+         S:Mode$ Continuous | AffectedDefined$ Self | AddPower$ -OppHand | AddToughness$ -OppHand\n\
+         SVar:OppLand:Count$Valid Land.nonBasic+OppCtrl\n\
+         SVar:OppHand:PlayerCountOpponents$CardsInHand",
+    );
+    assert!(
+        opp_hand_and_cda.abilities[0].contains("Modifier::CharacteristicPTSeparate { power: PtCount::OnBattlefield(&COUNTED1), toughness: PtCount::Fixed(3) }"),
+        "{}\n{:?}",
+        opp_hand_and_cda.statics,
+        opp_hand_and_cda.abilities
+    );
+    assert!(
+        opp_hand_and_cda.abilities[1].contains("Modifier::ReducePTByCount { count: PtCount::CardsInHand(PlayerRel::EachOpponent), minimum_toughness: None }"),
+        "{:?}",
+        opp_hand_and_cda.abilities
+    );
+
+    let attached_hand = read(
+        "Name:Mind Crown\nManaCost:2 W U\nTypes:Enchantment Aura\nK:Enchant:Creature\n\
+         A:SP$ Attach | ValidTgts$ Creature\n\
+         S:Mode$ Continuous | Affected$ Creature.EnchantedBy | AddPower$ X | AddToughness$ X\n\
+         SVar:X:Count$ValidHand Card.OwnedBy EnchantedController",
+    );
+    assert!(
+        attached_hand.abilities.iter().any(|a| a.contains(
+            "Modifier::ModifyPTByCount(PtCount::CardsInHand(PlayerRel::ControllerOfAttached))"
+        )),
+        "{:?}",
+        attached_hand.abilities
+    );
+
+    for bad in [
+        "Name:BadDevotion\nTypes:Enchantment\nS:Mode$ Continuous | AffectedDefined$ Self | AddKeyword$ Flying | CheckSVar$ D | SVarCompare$ GE5\nSVar:D:Count$DevotionDual.White.Blue",
+        "Name:BadSacCardType\nTypes:Enchantment\nS:Mode$ Continuous | AffectedDefined$ Self | AddKeyword$ Flying | CheckSVar$ S | SVarCompare$ GE1\nSVar:S:PlayerCountPropertyYou$SacrificedThisTurn Artifact",
+        "Name:BadOppEq2\nTypes:Enchantment\nS:Mode$ Continuous | AffectedDefined$ Self | AddKeyword$ Flying | IsPresent$ Island.OppCtrl | PresentCompare$ EQ2",
+        "Name:BadShardTwo\nTypes:Enchantment\nS:Mode$ RaiseCost | Type$ Spell | ForEachShard$ Black | Cost$ Sac<2/Mountain>",
+        "Name:BadSelfMixedCost\nManaCost:1 U\nTypes:Sorcery\nS:Mode$ RaiseCost | ValidCard$ Card.Self | Type$ Spell | Cost$ 1 Sac<1/Creature.YouCtrl> | EffectZone$ All\nA:SP$ Draw | NumCards$ 1",
+        "Name:BadSelfCondCost\nManaCost:1 U\nTypes:Sorcery\nS:Mode$ RaiseCost | ValidCard$ Card.Self | Type$ Spell | Cost$ Sac<1/Creature.YouCtrl> | EffectZone$ All | IsPresent$ Island.YouCtrl\nA:SP$ Draw | NumCards$ 1",
+        "Name:BadMixedPtCtrl\nTypes:Creature\nPT:*/*\nS:Mode$ Continuous | Affected$ Card.Self | CharacteristicDefining$ True | SetPower$ X | SetToughness$ X\nSVar:X:Count$Valid Creature.YouCtrl+OppCtrl",
+    ] {
+        assert!(refused(bad), "must refuse:\n{bad}");
+    }
+}

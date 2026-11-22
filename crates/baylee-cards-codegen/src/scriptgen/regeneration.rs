@@ -26,8 +26,8 @@ impl Tx<'_> {
         Some(true)
     }
 
-    /// A temporary source ability forbidding regeneration of creatures it damaged.
-    /// The referenced static is read as a rule, not an ignored animation label.
+    /// A temporary source static ability grant on `Animate`.
+    /// Every referenced static is read as an exact rule, never as an ignored label.
     pub(super) fn animate_regeneration_grant(
         &mut self,
         p: &mut Params,
@@ -45,15 +45,119 @@ impl Tx<'_> {
                 );
             }
         };
-        let valid = self.no_regeneration_filter(name.trim())?;
-        if valid != "Creature.DamagedBy" {
-            return self.deny(format!("a granted regeneration rule on `{valid}`"));
+        let trimmed = name.trim();
+        if trimmed.is_empty() || trimmed.contains(',') {
+            return self.deny("a regeneration restriction naming multiple or no statics".into());
         }
+        let body = self.svars.get(trimmed)?.clone();
+        let (mode, mut st) = Params::parse(&body)?;
+        st.drop_prose();
+        match mode.as_str() {
+            "CantRegenerate" => {
+                let valid = st.take("ValidCard")?;
+                if !st.exhausted() {
+                    return self.deny(
+                        "a referenced static other than an unconditional regeneration restriction"
+                            .into(),
+                    );
+                }
+                if valid != "Creature.DamagedBy" {
+                    return self.deny(format!("a granted regeneration rule on `{valid}`"));
+                }
+                Some(vec![Self::animate_expr(
+                    "Modifier::GrantStatic { filter: &Filter::And(&[Filter::CREATURE, \
+                     Filter::DealtDamageBySourceThisTurn]), modifier: &Modifier::CantBeRegenerated }",
+                    duration,
+                )])
+            }
+            "CantBlockBy" => {
+                let attacker = st.take("ValidAttacker")?;
+                if !matches!(attacker.as_str(), "Creature.Self" | "Card.Self") || !st.exhausted() {
+                    return self.deny(
+                        "a referenced static other than an unconditional regeneration restriction"
+                            .into(),
+                    );
+                }
+                Some(vec![Self::animate_expr(
+                    "Modifier::AddKeyword(KeywordSet::UNBLOCKABLE)",
+                    duration,
+                )])
+            }
+            "CantAttack" => self.animate_cant_attack_grant(st, duration),
+            "Continuous" => self.animate_continuous_grant(st, duration),
+            _ => self.deny(
+                "a referenced static other than an unconditional regeneration restriction".into(),
+            ),
+        }
+    }
+
+    fn animate_cant_attack_grant(&mut self, mut st: Params, duration: &str) -> Option<Vec<String>> {
+        let valid = st.take("ValidCard")?;
+        let unless = st.take("UnlessDefender")?;
+        if !matches!(valid.as_str(), "Card.Self" | "Creature.Self") || !st.exhausted() {
+            return self.deny(
+                "a referenced static other than an unconditional regeneration restriction".into(),
+            );
+        }
+        let (modifier, wanted) = if let Some(wanted) = unless.strip_prefix("controls") {
+            ("CantAttackUnlessDefenderControls", wanted)
+        } else if let Some(wanted) = unless.strip_prefix("!controls")
+            && wanted.starts_with("Creature")
+        {
+            ("CantAttackIfDefenderControls", wanted)
+        } else {
+            return self.deny(format!("`UnlessDefender$ {unless}`"));
+        };
+        let wanted_expr = self.filter_expr(wanted)?;
+        let name = self.body.filter_static("DEFENDER_CONTROLS", &wanted_expr);
         Some(vec![Self::animate_expr(
-            "Modifier::GrantStatic { filter: &Filter::And(&[Filter::CREATURE, \
-             Filter::DealtDamageBySourceThisTurn]), modifier: &Modifier::CantBeRegenerated }",
+            &format!("Modifier::{modifier}(&{name})"),
             duration,
         )])
+    }
+
+    fn animate_continuous_grant(&mut self, mut st: Params, duration: &str) -> Option<Vec<String>> {
+        if !matches!(st.take("EffectZone").as_deref(), None | Some("Battlefield")) {
+            return self.deny(
+                "a referenced static other than an unconditional regeneration restriction".into(),
+            );
+        }
+        if st.peek("AffectedDefined") == Some("Self")
+            && (st.has("SetPower") || st.has("SetToughness"))
+        {
+            st.take("AffectedDefined");
+            let set_p = st.take("SetPower");
+            let set_t = st.take("SetToughness");
+            if !st.exhausted() {
+                return self.deny(
+                    "a referenced static other than an unconditional regeneration restriction"
+                        .into(),
+                );
+            }
+            let modifier =
+                self.computed_set_pt_modifier("Filter::This", set_p.as_deref(), set_t.as_deref())?;
+            return Some(vec![Self::animate_expr(&modifier, duration)]);
+        }
+        if let Some(affected) = st.take("Affected")
+            && let Some(ab_name) = st.take("AddAbility")
+            && !ab_name.contains(',')
+            && st.exhausted()
+        {
+            let filter_expr = self.filter_expr(&affected)?;
+            let filter_static = self.body.filter_static("GRANTED_STATIC", &filter_expr);
+            let super::statics::GrantedActivated::Modifier(grant_mod) =
+                self.build_grant_activated_modifier(ab_name.trim(), "AddAbility$", false)?
+            else {
+                unreachable!("for_static_this is false");
+            };
+            return Some(vec![Self::animate_expr(
+                &format!(
+                    "Modifier::GrantStatic {{ filter: &{filter_static}, modifier: &{grant_mod} }}"
+                ),
+                duration,
+            )]);
+        }
+        self.deny("a referenced static other than an unconditional regeneration restriction".into())
     }
 
     /// Validate the complete remembered-recipient consumer and optional cleanup.
@@ -122,17 +226,47 @@ impl Tx<'_> {
                     .svars
                     .get(rep_name.trim())
                     .and_then(|s| Params::parse(s))
-                    && event == "AddCounter"
                 {
-                    return self.add_counter_turn_effect(p);
+                    match event.as_str() {
+                        "AddCounter" => return self.add_counter_turn_effect(p),
+                        "Draw" => {
+                            let saved_params = p.clone();
+                            let saved_unclaimed = self.unclaimed.borrow().clone();
+                            if let Some(fx) = self.next_draw_wish_effect(p) {
+                                return Some(fx);
+                            }
+                            *p = saved_params;
+                            *self.unclaimed.borrow_mut() = saved_unclaimed;
+                        }
+                        "Moved" => {
+                            let saved_params = p.clone();
+                            let saved_unclaimed = self.unclaimed.borrow().clone();
+                            let saved_statics_len = self.body.statics.len();
+                            if let Some(fx) = self.etb_additional_counter_turn_effect(p) {
+                                return Some(fx);
+                            }
+                            *p = saved_params;
+                            *self.unclaimed.borrow_mut() = saved_unclaimed;
+                            self.body.statics.truncate(saved_statics_len);
+                        }
+                        _ => {}
+                    }
                 }
                 let saved_params = p.clone();
                 let saved_unclaimed = self.unclaimed.borrow().clone();
+                let saved_statics_len = self.body.statics.len();
+                if let Some(fx) = self.redirect_combat_damage_to_source_effect(p) {
+                    return Some(fx);
+                }
+                p.clone_from(&saved_params);
+                (*self.unclaimed.borrow_mut()).clone_from(&saved_unclaimed);
+                self.body.statics.truncate(saved_statics_len);
                 if let Some(fx) = self.prevent_combat_damage_from_effect(p) {
                     return Some(fx);
                 }
                 *p = saved_params;
                 *self.unclaimed.borrow_mut() = saved_unclaimed;
+                self.body.statics.truncate(saved_statics_len);
                 if let Some(fx) =
                     self.prevention_effect_shield(p.clone(), &mut super::Chain::default())
                 {
@@ -143,6 +277,13 @@ impl Tx<'_> {
                 }
                 return None;
             }
+            let saved_params = p.clone();
+            let saved_unclaimed = self.unclaimed.borrow().clone();
+            if let Some(fx) = self.prevent_target_source_damage_effect(p, target) {
+                return Some(fx);
+            }
+            *p = saved_params;
+            *self.unclaimed.borrow_mut() = saved_unclaimed;
             return self.replace_target_white_mana(p, target);
         }
         if p.peek("Triggers").is_some() {
@@ -197,6 +338,12 @@ impl Tx<'_> {
         if valid == "Card.EffectSource" && !self.on_a_spell && target.is_none() {
             p.take("StaticAbilities");
             p.take("Duration");
+            if p.peek("ExileOnMoved") == Some("Battlefield") {
+                p.take("ExileOnMoved");
+            }
+            if p.peek("ForgetOnMoved") == Some("Battlefield") {
+                p.take("ForgetOnMoved");
+            }
             return Some(vec![
                 "Effect::ModifySource { modifier: Modifier::AttacksDespiteDefender, \
                  duration: Duration::UntilEndOfTurn }"
@@ -536,11 +683,14 @@ impl Tx<'_> {
         if !st.exhausted()
             || !matches!(p.peek("AILogic"), None | Some("Always"))
             || p.peek("Duration").is_some()
+            || p.peek("Name")
+                .is_some_and(|n| n.trim_start().starts_with("Emblem"))
         {
             return None;
         }
         p.take("StaticAbilities");
         p.take("AILogic");
+        p.take("Name");
         Some(vec![format!(
             "Effect::continuous(&Filter::Any, Modifier::ExtraLandDrops({amount}), Duration::UntilEndOfTurn)"
         )])
@@ -641,11 +791,214 @@ impl Tx<'_> {
         ])
     }
 
+    /// "The next time you would draw a card this turn, instead put a card you own
+    /// from outside the game into your hand" (`Ring of Ma'rûf` -> `Modifier::NextDrawWish`).
+    fn next_draw_wish_effect(&mut self, p: &mut Params) -> Option<Vec<String>> {
+        if !matches!(p.take("Duration").as_deref(), None | Some("UntilEndOfTurn")) {
+            return None;
+        }
+        let name = p.take("ReplacementEffects")?;
+        if !p.exhausted() {
+            return None;
+        }
+        let (event, mut r) = Params::parse(self.svars.get(name.trim())?)?;
+        r.drop_prose();
+        if event != "Draw"
+            || r.take("ValidPlayer").as_deref() != Some("You")
+            || !matches!(r.take("ActiveZones").as_deref(), None | Some("Command"))
+        {
+            return None;
+        }
+        let rw = r.take("ReplaceWith")?;
+        if !r.exhausted() {
+            return None;
+        }
+        let (api, mut body) = Params::parse(self.svars.get(rw.trim())?)?;
+        body.drop_prose();
+        if api != "ChangeZone"
+            || body.take("Origin").as_deref() != Some("Sideboard")
+            || body.take("Destination").as_deref() != Some("Hand")
+            || body.take("ChangeType").as_deref() != Some("Card.YouOwn")
+            || body.take("ChangeNum").as_deref() != Some("1")
+            || !matches!(body.take("Hidden").as_deref(), None | Some("True"))
+            || !matches!(body.take("Mandatory").as_deref(), None | Some("True"))
+        {
+            return None;
+        }
+        let sub = body.take("SubAbility")?;
+        if !body.exhausted() || !self.exiles_itself(sub.trim()) {
+            return None;
+        }
+        Some(vec![
+            "Effect::continuous(&Filter::Any, Modifier::NextDrawWish, Duration::UntilEndOfTurn)"
+                .to_string(),
+        ])
+    }
+
+    /// "This turn, each [matching] creature you control enters with N additional
+    /// <kind> counter(s) on it" (`Combine Guildmage`, `Zameck Guildmage` ->
+    /// `Modifier::AdditionalCounterOnEntryByCount`).
+    fn etb_additional_counter_turn_effect(&mut self, p: &mut Params) -> Option<Vec<String>> {
+        if !matches!(p.take("Duration").as_deref(), None | Some("UntilEndOfTurn")) {
+            return None;
+        }
+        let name = p.take("ReplacementEffects")?;
+        if !p.exhausted() {
+            return None;
+        }
+        let (event, mut r) = Params::parse(self.svars.get(name.trim())?)?;
+        r.drop_prose();
+        if event != "Moved"
+            || r.take("ReplacementResult").as_deref() != Some("Updated")
+            || !matches!(r.take("ActiveZones").as_deref(), None | Some("Command"))
+            || r.take("Destination").as_deref() != Some("Battlefield")
+        {
+            return None;
+        }
+        let valid_card = r.take("ValidCard")?;
+        let rw = r.take("ReplaceWith")?;
+        if !r.exhausted() {
+            return None;
+        }
+        let (api, mut body) = Params::parse(self.svars.get(rw.trim())?)?;
+        body.drop_prose();
+        if api != "PutCounter"
+            || body.take("ETB").as_deref() != Some("True")
+            || body.take("Defined").as_deref() != Some("ReplacedCard")
+        {
+            return None;
+        }
+        let kind_raw = body.take("CounterType")?;
+        let kind = super::counter_kind(kind_raw.trim())?;
+        let n: u16 = body
+            .take("CounterNum")?
+            .trim()
+            .parse::<u16>()
+            .ok()
+            .filter(|&v| v > 0)?;
+        if !body.exhausted() {
+            return None;
+        }
+        let expr = self.filter_expr(&valid_card)?;
+        let filter_static = self.body.filter_static("EFFECT", &expr);
+        Some(vec![format!(
+            "Effect::continuous(&{filter_static}, \
+             Modifier::AdditionalCounterOnEntryByCount {{ kind: {kind}, count: PtCount::Fixed({n}) }}, \
+             Duration::UntilEndOfTurn)"
+        )])
+    }
+
+    /// "All combat damage that would be dealt to you by [sources] this turn is
+    /// dealt to [this creature] instead" (`Kjeldoran Royal Guard` ->
+    /// `Effect::RedirectCombatDamageToYouThisTurn`).
+    fn redirect_combat_damage_to_source_effect(&mut self, p: &mut Params) -> Option<Vec<String>> {
+        if self.on_a_spell
+            || !matches!(p.take("Duration").as_deref(), None | Some("UntilEndOfTurn"))
+        {
+            return None;
+        }
+        let name = p.take("ReplacementEffects")?;
+        if !p.exhausted() {
+            return None;
+        }
+        let (event, mut r) = Params::parse(self.svars.get(name.trim())?)?;
+        r.drop_prose();
+        if event != "DamageDone"
+            || r.take("IsCombat").as_deref() != Some("True")
+            || r.take("ValidTarget").as_deref() != Some("You")
+            || r.take("DamageTarget").as_deref() != Some("EffectSource")
+            || !matches!(r.take("ActiveZones").as_deref(), None | Some("Command"))
+        {
+            return None;
+        }
+        let valid_source = r.take("ValidSource");
+        let rw = r.take("ReplaceWith")?;
+        if !r.exhausted() {
+            return None;
+        }
+        let (api, mut rep) = Params::parse(self.svars.get(rw.trim())?)?;
+        rep.drop_prose();
+        if api != "ReplaceEffect"
+            || rep.take("VarName").as_deref() != Some("Affected")
+            || rep.take("VarValue").as_deref() != Some("EffectSource")
+            || rep.take("VarType").as_deref() != Some("Card")
+            || !rep.exhausted()
+        {
+            return None;
+        }
+        let src_expr = match valid_source.as_deref() {
+            None => "Filter::Any".to_string(),
+            Some(vs) => self.prevention_source_filter(vs)?,
+        };
+        let src_ref = self.body.filter_static("SOURCE", &src_expr);
+        Some(vec![format!(
+            "Effect::RedirectCombatDamageToYouThisTurn {{ by: &{src_ref}, to: DamageRedirectTo::ThisObject }}"
+        )])
+    }
+
+    /// "Until your next turn / until end of turn, prevent all [combat] damage
+    /// target permanent would deal" (`Gideon of the Trials` `+1` ->
+    /// `Effect::continuous(&Filter::This, Modifier::PreventAllDamageFromIt, ...)`).
+    fn prevent_target_source_damage_effect(
+        &mut self,
+        p: &mut Params,
+        target: Option<&str>,
+    ) -> Option<Vec<String>> {
+        if !target.is_some_and(|t| t.starts_with("TargetSpec::Object(")) {
+            return None;
+        }
+        let duration = match p.take("Duration").as_deref() {
+            None | Some("UntilEndOfTurn") => "Duration::UntilEndOfTurn",
+            Some("UntilYourNextTurn") => "Duration::UntilYourNextTurn",
+            Some(_) => return None,
+        };
+        if p.take("RememberObjects").as_deref() != Some("Targeted") {
+            return None;
+        }
+        if let Some(forget) = p.peek("ForgetOnMoved")
+            && forget == "Battlefield"
+        {
+            p.take("ForgetOnMoved");
+        }
+        if let Some(exile) = p.peek("ExileOnMoved")
+            && exile == "Battlefield"
+        {
+            p.take("ExileOnMoved");
+        }
+        let name = p.take("ReplacementEffects")?;
+        if !p.exhausted() {
+            return None;
+        }
+        let (event, mut r) = Params::parse(self.svars.get(name.trim())?)?;
+        r.drop_prose();
+        if event != "DamageDone"
+            || r.take("Prevent").as_deref() != Some("True")
+            || !matches!(r.take("ActiveZones").as_deref(), None | Some("Command"))
+            || r.take("ValidSource").as_deref() != Some("Card.IsRemembered")
+        {
+            return None;
+        }
+        let modifier = match r.take("IsCombat").as_deref() {
+            None => "Modifier::PreventAllDamageFromIt",
+            Some("True") => "Modifier::PreventDamageFromIt",
+            Some(_) => return None,
+        };
+        if !r.exhausted() {
+            return None;
+        }
+        Some(vec![format!(
+            "Effect::continuous(&Filter::This, {modifier}, {duration})"
+        )])
+    }
+
     fn prevent_combat_damage_from_effect(&mut self, p: &mut Params) -> Option<Vec<String>> {
         if !matches!(p.take("Duration").as_deref(), None | Some("UntilEndOfTurn")) {
             return None;
         }
         let name = p.take("ReplacementEffects")?;
+        if !p.exhausted() {
+            return None;
+        }
         let (event, mut r) = Params::parse(self.svars.get(name.trim())?)?;
         r.drop_prose();
         if event != "DamageDone"
@@ -659,16 +1012,58 @@ impl Tx<'_> {
             Some("True") => true,
             Some(_) => return None,
         };
-        let (valid, modifier) = match (r.take("ValidSource"), r.take("ValidTarget"), is_combat) {
+        let valid_source = r.take("ValidSource");
+        let valid_target = r.take("ValidTarget");
+        if !r.exhausted() {
+            return None;
+        }
+        if let Some(tgt) = valid_target.as_deref()
+            && tgt.contains(',')
+        {
+            let parts: Vec<&str> = tgt
+                .split(',')
+                .map(str::trim)
+                .filter(|s| !s.is_empty())
+                .collect();
+            let has_you = parts.contains(&"You");
+            let perm_parts: Vec<&str> = parts.into_iter().filter(|&s| s != "You").collect();
+            if has_you
+                && !perm_parts.is_empty()
+                && !perm_parts
+                    .iter()
+                    .any(|s| matches!(*s, "Player" | "Opponent" | "Player.Opponent"))
+            {
+                let src_expr = match valid_source.as_deref() {
+                    None => "Filter::Any".to_string(),
+                    Some(vs) => self.prevention_source_filter(vs)?,
+                };
+                let src_ref = self.body.filter_static("SOURCE", &src_expr);
+                let perm_filter = self.filter_expr(&perm_parts.join(","))?;
+                let perm_static = self.body.filter_static("EFFECT", &perm_filter);
+                let perm_mod = match (is_combat, valid_source.is_some()) {
+                    (true, false) => "Modifier::PreventDamageToIt".to_string(),
+                    (true, true) => format!("Modifier::PreventCombatDamageFrom(&{src_ref})"),
+                    (false, _) => format!("Modifier::PreventDamageFrom(&{src_ref})"),
+                };
+                return Some(vec![
+                    format!(
+                        "Effect::PreventAllDamageFromMatchingThisTurn {{ \
+                         target: Some(TargetSpec::Player(PlayerRel::You)), \
+                         sources: &{src_ref}, combat_only: {is_combat} }}"
+                    ),
+                    format!(
+                        "Effect::continuous(&{perm_static}, {perm_mod}, Duration::UntilEndOfTurn)"
+                    ),
+                ]);
+            }
+        }
+        let (valid, modifier) = match (valid_source, valid_target, is_combat) {
             (Some(src), None, true) => (src, "Modifier::PreventDamageFromIt"),
             (Some(src), None, false) => (src, "Modifier::PreventAllDamageFromIt"),
             (None, Some(tgt), true) => (tgt, "Modifier::PreventDamageToIt"),
             (None, Some(tgt), false) => (tgt, "Modifier::PreventDamageFrom(&Filter::Any)"),
             _ => return None,
         };
-        if !r.exhausted() {
-            return None;
-        }
         let filter = self.filter_expr(&valid)?;
         let filter_static = self.body.filter_static("EFFECT", &filter);
         Some(vec![format!(

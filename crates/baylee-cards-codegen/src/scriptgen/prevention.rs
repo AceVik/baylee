@@ -878,7 +878,7 @@ impl Tx<'_> {
         self.filter_expr(valid)
     }
 
-    fn prevention_source_filter(&self, valid: &str) -> Option<String> {
+    pub(super) fn prevention_source_filter(&self, valid: &str) -> Option<String> {
         let normalized = match valid {
             "Card.OppCtrl,Emblem.OppCtrl" | "Emblem.OppCtrl,Card.OppCtrl" => "Card.OppCtrl",
             "Card.YouDontCtrl,Emblem.YouDontCtrl" | "Emblem.YouDontCtrl,Card.YouDontCtrl" => {
@@ -1334,8 +1334,12 @@ impl Tx<'_> {
         } else {
             "ChosenCard"
         };
-        if remember_chosen && effect.take("RememberObjects").as_deref() != Some("Remembered") {
-            return self.deny("a chosen-source shield on another condition".to_string());
+        if remember_chosen {
+            if effect.take("RememberObjects").as_deref() != Some("Remembered") {
+                return self.deny("a chosen-source shield on another condition".to_string());
+            }
+        } else if effect.peek("RememberObjects") == Some("Remembered") {
+            effect.take("RememberObjects");
         }
         let condition_holds = effect.take("ConditionDefined").as_deref() == Some(expected_defined)
             && matches!(
