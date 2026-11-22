@@ -4111,6 +4111,9 @@ components:
         listing:
           type: boolean
           description: The token keeps this gateway's directory entry.
+        ranked:
+          type: boolean
+          description: The token may host ranked games on a verified gateway.
         expires_at:
           type: string
           description: When the token stops working.
@@ -4121,6 +4124,7 @@ components:
       - state
       - sso
       - listing
+      - ranked
       - expires_at
       description: What Baylee Central says about the token.
     ConsoleTerms:

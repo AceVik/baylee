@@ -2,7 +2,7 @@
 //! only be reused for the same account, destination, assignment and queue entry.
 use super::{Account, Error};
 use crate::{
-    Admission, CentralHttp, Endpoint, GatewayHttp, RankedDeck, RankedSeat,
+    CentralHttp, Endpoint, GatewayHttp, RankedDeck, RankedSeat,
     ranked::{Assignment, Id, QueueState, Request, Response},
 };
 
@@ -21,7 +21,66 @@ pub struct RankedHost {
     key: Id,
     assignment: Assignment,
     gateway: GatewayHttp,
-    admission: Admission,
+    bearer: zeroize::Zeroizing<String>,
+    consent: Option<RankedConsent>,
+    renew_at: std::time::Instant,
+}
+
+/// A specific unclaimed ranked seat's published gateway terms. The document
+/// and destination come from Central and acceptance uses the same account.
+#[derive(Clone)]
+pub struct RankedConsent {
+    key: Id,
+    assignment: Assignment,
+    document: crate::terms::TermsDocument,
+}
+
+impl RankedHost {
+    /// This host requires a decision before the frozen deck may be submitted.
+    #[must_use]
+    pub fn consent(&self) -> Option<&RankedConsent> {
+        self.consent.as_ref()
+    }
+}
+
+impl RankedConsent {
+    /// Central-verified translations and digest of the document shown.
+    #[must_use]
+    pub fn document(&self) -> &crate::terms::TermsDocument {
+        &self.document
+    }
+
+    /// The verified match host whose terms would be accepted.
+    #[must_use]
+    pub fn origin(&self) -> &str {
+        &self.assignment.origin
+    }
+
+    /// Whether the same authenticated queue entry still needs this decision.
+    #[must_use]
+    pub fn matches(&self, state: &QueueState) -> bool {
+        matches!(state, QueueState::Assigned{key, assignment} if *key == self.key && same_match(assignment, &self.assignment))
+    }
+
+    /// Accept the displayed version after a deliberate player decision.
+    ///
+    /// # Errors
+    /// A changed assignment, account, document, or unavailable authority.
+    pub fn accept(&self, account: &Account) -> Result<(), Error> {
+        let selected = account.ranked_assignment(self.key)?;
+        if selected.account != account.session.identity().account
+            || !same_match(&selected, &self.assignment)
+        {
+            return Err(Error::Conflict);
+        }
+        account.session.accept_terms(
+            &account.http,
+            crate::terms::TermsSubject::Gateway {
+                origin: selected.origin,
+            },
+            &self.document.version,
+        )
+    }
 }
 
 /// A seated 1v1 whose gateway response was confirmed by a second Central read.
@@ -30,9 +89,23 @@ pub struct RankedPlay {
     pub assignment: Assignment,
     /// Private game seat at that gateway.
     pub seat: RankedSeat,
+    /// Monotonic instant to refresh the host's live session during a long duel.
+    pub renew_at: std::time::Instant,
 }
 
 impl Account {
+    /// Read the private Elo projection for the deck pool the owner selected.
+    ///
+    /// # Errors
+    /// Invalid pools, refusal by Central or an unavailable account session.
+    pub fn preview_ranked_deck(
+        &self,
+        format: crate::ranked::Format,
+        pool: Vec<crate::ranked::PoolEntry>,
+    ) -> Result<crate::ranked::DeckPreview, Error> {
+        self.session.preview_ranked_deck(&self.http, format, pool)
+    }
+
     /// Work on this account's queue entry, or query the authoritative status.
     ///
     /// # Errors
@@ -42,7 +115,9 @@ impl Account {
     }
 
     /// Submit a frozen snapshot using an account-scoped gateway admission.
-    /// `None` means the host has accepted the deck and is waiting for its peer.
+    /// `None` means a pending host needs consent or is waiting for its peer.
+    /// When [`RankedHost::consent`] is present, show its document. Drop the
+    /// pending admission after successful acceptance to acquire fresh standing.
     /// Keep `pending` and the same snapshot when polling again.
     ///
     /// # Errors
@@ -71,31 +146,47 @@ impl Account {
                 && same_match(&selected, &host.assignment)
         }) {
             *pending = None;
-            let (gateway, ticket) = self.gateway_token(&selected.origin)?;
-            let admission = gateway.admit(&ticket).map_err(|e| gateway_error(e.error))?;
-            if admission.terms_stale == Some(true) {
-                return Err(Error::Rejected);
-            }
+            let (gateway, ticket) =
+                self.gateway_token_for(&selected.origin, crate::wire::GatewayPurpose::Ranked)?;
+            let (bearer, stale, renew_in) = gateway.ranked_admit(&ticket).map_err(gateway_error)?;
+            let consent = if stale {
+                let document = central_client::gateway_terms(&self.http, &selected.origin)?
+                    .ok_or(Error::Conflict)?;
+                if !same_match(&selected, &self.ranked_assignment(key)?) {
+                    return Err(Error::Conflict);
+                }
+                Some(RankedConsent {
+                    key,
+                    assignment: selected.clone(),
+                    document,
+                })
+            } else {
+                None
+            };
             *pending = Some(RankedHost {
                 endpoint: self.http.endpoint().clone(),
                 key,
                 assignment: selected.clone(),
                 gateway,
-                admission,
+                bearer,
+                consent,
+                renew_at: std::time::Instant::now() + renew_in,
             });
         }
         let host = pending.as_ref().ok_or(Error::Conflict)?;
+        if host.consent.is_some() {
+            return Ok(None);
+        }
         // The live game already holds the frozen decks. Account-bound seat
         // recovery works on another device even if the shelf has since changed.
         let reply = if let Some((_, deck)) = snapshot
             .filter(|(digest, deck)| selected.deck == *digest && selected.format == deck.format)
         {
             host.gateway
-                .ranked_play(&host.admission.token, selected.match_id, deck)
+                .ranked_play(&host.bearer, selected.match_id, deck)
         } else if let Some(game) = selected.game {
             host.gateway
-                .ranked_reclaim(&host.admission.token, game)
-                .map(Some)
+                .ranked_reclaim(&host.bearer, selected.match_id, game)
         } else {
             return Err(Error::Conflict);
         };
@@ -114,11 +205,38 @@ impl Account {
             *pending = None;
             return Err(Error::Conflict);
         }
+        let renew_at = host.renew_at;
         *pending = None;
         Ok(Some(RankedPlay {
             assignment: after,
             seat,
+            renew_at,
         }))
+    }
+
+    /// Extend the live game's ranked SID without rotating its seat or opening a lobby.
+    ///
+    /// # Errors
+    /// Refuses to renew a changed assignment, closed game or changed standing.
+    pub fn renew_ranked_game(
+        &self,
+        key: Id,
+        game: &Assignment,
+    ) -> Result<std::time::Instant, Error> {
+        let current = self.ranked_assignment(key)?;
+        if game.game.is_none()
+            || current != *game
+            || current.account != self.session.identity().account
+        {
+            return Err(Error::Conflict);
+        }
+        let (gateway, ticket) =
+            self.gateway_token_for(&current.origin, crate::wire::GatewayPurpose::Ranked)?;
+        let (_, stale, renew_in) = gateway.ranked_admit(&ticket).map_err(gateway_error)?;
+        if stale {
+            return Err(Error::Rejected);
+        }
+        Ok(std::time::Instant::now() + renew_in)
     }
 
     fn ranked_assignment(&self, key: Id) -> Result<Assignment, Error> {
@@ -249,5 +367,57 @@ mod tests {
             deck: [1; 32],
         };
         assert_eq!(ranked_read(&endpoint, request), Err(Error::Rejected));
+    }
+
+    #[test]
+    fn gateway_terms_stay_bound_to_one_queue_entry_host_and_account() {
+        use crate::terms::{TermsDocument, TermsVersion};
+        let key = id();
+        let assignment = Assignment {
+            match_id: id(),
+            host_id: id(),
+            origin: "https://playing.invalid".into(),
+            format: Format::Commander,
+            account: id(),
+            seat: 0,
+            deck: [7; 32],
+            game: None,
+        };
+        let consent = RankedConsent {
+            key,
+            assignment: assignment.clone(),
+            document: TermsDocument {
+                version: TermsVersion {
+                    version: "v1".into(),
+                    digest: [0; 32],
+                },
+                texts: Vec::new(),
+            },
+        };
+        let matches = |key, a| consent.matches(&QueueState::Assigned { key, assignment: a });
+        assert!(matches(key, assignment.clone()));
+        assert!(!matches(id(), assignment.clone()));
+        assert!(!matches(
+            key,
+            Assignment {
+                origin: "https://home.invalid".into(),
+                ..assignment.clone()
+            }
+        ));
+        assert!(!matches(
+            key,
+            Assignment {
+                account: id(),
+                ..assignment.clone()
+            }
+        ));
+        assert!(!matches(
+            key,
+            Assignment {
+                match_id: id(),
+                ..assignment
+            }
+        ));
+        assert!(!consent.matches(&QueueState::Idle));
     }
 }

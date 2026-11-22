@@ -23,7 +23,26 @@ pub struct Registration {
     /// effects, so their UUID and per-copy choices must also be committed.
     pub digest: [u8; 32],
     /// Oracle identity, commander role, and multiplicity, in canonical order.
-    pub pool: BTreeMap<(Uuid, bool), u16>,
+    pool: BTreeMap<(Uuid, bool), u16>,
+}
+
+/// The ordered pool consumed by Central's deck-rating history and previews.
+/// Each key identifies an Oracle card and its commander role across gateways.
+#[must_use]
+pub fn rating_pool(registration: &Registration) -> Vec<([u8; 32], u16)> {
+    let mut pool: Vec<_> = registration
+        .pool
+        .iter()
+        .map(|(&(oracle, leader), &copies)| {
+            let mut hash = Sha256::new();
+            hash.update(b"baylee-ranked-pool-card-v1\0");
+            hash.update(oracle.as_bytes());
+            hash.update([u8::from(leader)]);
+            (hash.finalize().into(), copies)
+        })
+        .collect();
+    pool.sort_unstable_by_key(|&(card, _)| card);
+    pool
 }
 
 /// Loads the three lists in the form returned by the gateway's deck route.
@@ -89,7 +108,7 @@ pub fn registration(
         // submitted rows must not select a different shuffle for the same seed.
         copies.sort_by_cached_key(|copy| {
             (
-                crate::by_index(copy.index).map(|def| def.oracle_id),
+                crate::by_index(copy.index).and_then(|def| Uuid::parse_str(def.oracle_id).ok()),
                 copy.print.scryfall_id,
                 copy.choices.colors().bits(),
             )

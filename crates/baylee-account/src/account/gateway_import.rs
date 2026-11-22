@@ -2,7 +2,7 @@
 //! changed only once a complete source deck has been read consistently.
 use super::Account;
 use crate::decks::{DeckSource, ImportedDeck, ImportedVersion, gateway_export::GatewayDeckVersion};
-use crate::{Admission, Endpoint, Error, GatewayHttp};
+use crate::{Endpoint, Error, GatewayHttp};
 use sha2::{Digest, Sha256};
 use uuid::Uuid;
 
@@ -10,8 +10,8 @@ use uuid::Uuid;
 /// Restarting skips already published source generations.
 #[derive(Default)]
 pub struct GatewayDeckImport {
-    binding: Option<(Endpoint, Uuid, String)>,
-    connection: Option<(GatewayHttp, Admission)>,
+    binding: Option<(Endpoint, Uuid, String, u64)>,
+    connection: Option<GatewayHttp>,
     local: Option<Uuid>,
     after: Option<Uuid>,
     current: Option<Reading>,
@@ -34,7 +34,7 @@ impl GatewayDeckImport {
     pub const fn scanned_decks(&self) -> usize {
         self.scanned
     }
-    /// Newly processed source generations published in the Central library.
+    /// Decks created or advanced in the Central library.
     #[must_use]
     pub const fn imported_decks(&self) -> usize {
         self.imported
@@ -54,8 +54,9 @@ fn marker(origin: &str, page: &GatewayDeckVersion) -> [u8; 32] {
 }
 
 impl Account {
-    /// Advance one migration page or publish one completed source deck. Returns
-    /// true on reaching the end of the authenticated owner's shelf.
+    /// Advance one migration page or publish one completed source deck. Pass the
+    /// active gateway session's origin, raw local bearer and connection epoch
+    /// together. Returns true on reaching the end of the authenticated shelf.
     ///
     /// # Errors
     /// An edited source or divergent local library returns a conflict. Transient
@@ -63,10 +64,17 @@ impl Account {
     pub fn gateway_deck_import_step(
         &mut self,
         gateway: &str,
+        bearer: &str,
+        gateway_epoch: u64,
         progress: &mut GatewayDeckImport,
     ) -> Result<bool, Error> {
         let own = Uuid::from_bytes(self.session.identity().account);
-        let binding = (self.http.endpoint().clone(), own, gateway.to_owned());
+        let binding = (
+            self.http.endpoint().clone(),
+            own,
+            gateway.to_owned(),
+            gateway_epoch,
+        );
         if progress
             .binding
             .as_ref()
@@ -77,13 +85,20 @@ impl Account {
         if progress.done {
             return Ok(true);
         }
+        if bearer.len() != 64
+            || !bearer
+                .bytes()
+                .all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b))
+        {
+            return Err(Error::Rejected);
+        }
         if progress.connection.is_none() {
-            let (source, token) = self.gateway_token(gateway)?;
-            let admission = source.admit(&token).map_err(|why| why.error)?;
-            if admission.terms_stale == Some(true) {
-                return Err(Error::TermsRequired);
-            }
-            progress.connection = Some((source, admission));
+            let source = if self.http.endpoint().legacy_origin().is_some() {
+                GatewayHttp::live(gateway)?
+            } else {
+                GatewayHttp::development(gateway)?
+            };
+            progress.connection = Some(source);
             progress.binding = Some(binding);
         }
         if progress
@@ -92,7 +107,7 @@ impl Account {
             .is_some_and(|r| r.versions.last().is_some_and(|v| v.revision == r.head))
         {
             let reading = progress.current.take().ok_or(Error::Conflict)?;
-            self.import_decks(
+            let changed = self.import_decks_count(
                 reading.marker,
                 vec![ImportedDeck {
                     versions: reading.versions,
@@ -100,15 +115,15 @@ impl Account {
             )?;
             progress.after = Some(reading.id);
             progress.scanned += 1;
-            progress.imported += 1;
+            progress.imported += changed;
             return Ok(false);
         }
         let cursor = progress
             .current
             .as_ref()
             .and_then(|r| r.versions.last().map(|v| (r.id, v.revision)));
-        let (source, admission) = progress.connection.as_ref().ok_or(Error::Conflict)?;
-        let reply = source.private_deck_save(&admission.token, progress.after, cursor);
+        let source = progress.connection.as_ref().ok_or(Error::Conflict)?;
+        let reply = source.private_deck_save(bearer, progress.after, cursor);
         let page = match reply {
             Ok(Some(page)) => page,
             Ok(None) if cursor.is_none() => {
@@ -140,7 +155,7 @@ impl Account {
     ) -> Result<(), Error> {
         if progress.scanned >= 1000
             || page.central != own
-            || page.deck.get_version_num() != 7
+            || page.deck.is_nil()
             || page.owner.is_nil()
             || progress.local.is_some_and(|local| page.owner != local)
             || progress.after.is_some_and(|last| page.deck <= last)

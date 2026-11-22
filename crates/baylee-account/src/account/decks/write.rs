@@ -3,6 +3,13 @@ use super::{
     ROOT_LIMIT, Uuid, now,
 };
 
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum History {
+    Archive,
+    Coalesce,
+    Revert,
+}
+
 impl Account {
     /// Save a conditional edit, retaining the prior snapshot in history.
     ///
@@ -28,6 +35,24 @@ impl Account {
         draft: DeckDraft,
         archive: bool,
     ) -> Result<DeckSummary, Error> {
+        self.save_draft(
+            id,
+            expected,
+            draft,
+            if archive {
+                History::Archive
+            } else {
+                History::Coalesce
+            },
+        )
+    }
+    fn save_draft(
+        &mut self,
+        id: Option<Uuid>,
+        expected: Option<u64>,
+        draft: DeckDraft,
+        history: History,
+    ) -> Result<DeckSummary, Error> {
         self.ensure_legacy_decks()?;
         draft.validate()?;
         if id.is_none() && expected.is_some() {
@@ -44,7 +69,7 @@ impl Account {
             let mut log = if let Some(head) = root.heads.get(&id) {
                 let log = account.deck_log(head)?;
                 let cur = log.history.last().ok_or(Error::Rejected)?;
-                if (Some(head.summary.revision) == expected
+                if ((history != History::Revert && Some(head.summary.revision) == expected)
                     || expected.unwrap_or(0).checked_add(1) == Some(head.summary.revision))
                     && account.read_revision(id, cur)?.draft == draft
                 {
@@ -81,7 +106,7 @@ impl Account {
                 date,
                 stage,
             )?;
-            if archive {
+            if history != History::Coalesce {
                 if let Some(old) = log.history.last_mut() {
                     old.save.superseded_at = date;
                     old.save.summary = summary_text;
@@ -114,7 +139,7 @@ impl Account {
         if original != source {
             return Err(Error::Conflict);
         }
-        let mut draft = original.draft;
+        let mut draft = source.draft;
         draft.copied_from = Some(DeckSource {
             gateway: None,
             account: None,
@@ -137,7 +162,7 @@ impl Account {
     ) -> Result<DeckSummary, Error> {
         let mut draft = self.deck_version(id, revision)?.draft;
         draft.source = self.load_deck(id)?.draft.source;
-        self.save_deck(Some(id), Some(expected), draft)
+        self.save_draft(Some(id), Some(expected), draft, History::Revert)
     }
     /// Publish a durable tombstone before removing unreferenced snapshots.
     ///
@@ -146,8 +171,12 @@ impl Account {
     pub fn delete_deck(&mut self, id: Uuid, expected: u64) -> Result<(), Error> {
         self.ensure_legacy_decks()?;
         self.change_library(|account, root, _, expired| {
-            if root.removed.contains_key(&id) {
-                return Ok(Change::Unchanged(()));
+            if let Some((deleted, _)) = root.removed.get(&id) {
+                return if *deleted == expected {
+                    Ok(Change::Unchanged(()))
+                } else {
+                    Err(Error::Conflict)
+                };
             }
             let head = root.heads.remove(&id).ok_or(Error::Rejected)?;
             if head.summary.revision != expected {
@@ -155,7 +184,7 @@ impl Account {
             }
             expired.extend(account.deck_log(&head)?.history.into_iter().map(|r| r.blob));
             expired.push(head.log);
-            root.removed.insert(id, head.source);
+            root.removed.insert(id, (expected, head.source));
             Ok(Change::Saved(()))
         })?;
         let _ = self.session.delete_object(&self.http, *id.as_bytes(), 1);

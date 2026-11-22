@@ -316,7 +316,7 @@ impl RoomList {
 /// A lobby game.
 pub struct LobbyGame {
     /// Present only on a two-account table admitted by Central.
-    pub(crate) ranked: Option<uuid::Uuid>,
+    pub(crate) ranked: Option<crate::ranked::Binding>,
     /// Private Central attempt; never included in room listings or game views.
     pub(crate) challenge: Option<[u8; 16]>,
     /// Public task identity, carried only in its player's authenticated seat grant.
@@ -1060,7 +1060,7 @@ impl Lobby {
     pub fn resumable(&self, account: &str) -> Vec<ResumableSeat> {
         const LIMIT: usize = 32;
         let mut games: Vec<(&LobbyGame, usize)> = Vec::with_capacity(LIMIT + 1);
-        for game in self.games.values() {
+        for game in self.games.values().filter(|game| game.ranked.is_none()) {
             let Some(seat) = game.resumable_seat(account) else {
                 continue;
             };

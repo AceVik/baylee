@@ -298,9 +298,11 @@ mod tests {
             nbf: NOW,
             exp: NOW + 3600,
             purpose: Purpose::Admit,
+            ranked_match: None,
             name: None,
             tag: None,
             legacy_id: None,
+            legacy_deck_source: None,
             terms: None,
         }
     }

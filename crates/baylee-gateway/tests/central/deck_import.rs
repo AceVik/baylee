@@ -37,18 +37,18 @@ pub(super) fn run(owner: &mut Account, other: &Account, port: u16, origin: &str)
     let mut progress = GatewayDeckImport::default();
     assert!(
         !owner
-            .gateway_deck_import_step(origin, &mut progress)
+            .gateway_deck_import_step(origin, &admission.token, 7, &mut progress)
             .unwrap()
     );
     let (status, _) = common::http(port, "PUT", &path, token, &body(5, "Renamed before import"));
     assert_eq!(status, 200);
     assert!(matches!(
-        owner.gateway_deck_import_step(origin, &mut progress),
+        owner.gateway_deck_import_step(origin, &admission.token, 7, &mut progress),
         Err(Error::Conflict)
     ));
     for _ in 0..10 {
         if owner
-            .gateway_deck_import_step(origin, &mut progress)
+            .gateway_deck_import_step(origin, &admission.token, 7, &mut progress)
             .unwrap()
         {
             break;
@@ -69,8 +69,16 @@ pub(super) fn run(owner: &mut Account, other: &Account, port: u16, origin: &str)
         );
     }
     let mut again = GatewayDeckImport::default();
-    assert!(!owner.gateway_deck_import_step(origin, &mut again).unwrap());
-    assert!(owner.gateway_deck_import_step(origin, &mut again).unwrap());
+    assert!(
+        !owner
+            .gateway_deck_import_step(origin, &admission.token, 7, &mut again)
+            .unwrap()
+    );
+    assert!(
+        owner
+            .gateway_deck_import_step(origin, &admission.token, 7, &mut again)
+            .unwrap()
+    );
     assert_eq!(again.imported_decks(), 0);
     let (status, original) = common::http(port, "GET", &path, token, "");
     assert_eq!(status, 200);

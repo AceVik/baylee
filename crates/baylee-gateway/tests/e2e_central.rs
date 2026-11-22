@@ -9,6 +9,8 @@ use server::{Served, serve};
 mod chat;
 #[path = "e2e_central/private_decks.rs"]
 mod private_decks;
+#[path = "e2e_central/ranked.rs"]
+mod ranked;
 #[path = "central/tower_awards.rs"]
 mod tower_awards;
 #[path = "central/tower_native/mod.rs"]
@@ -175,7 +177,7 @@ fn synthetic_signed_in(
     panic!("the synthetic player's sign-in stayed busy for 90 seconds");
 }
 
-fn database(role: &str, password: &str) -> DevConfig {
+fn fixture_database(name: &str, role: &str, password: &str) -> DevConfig {
     assert_eq!(
         std::env::var("CENTRAL_TEST_FIXTURE").as_deref(),
         Ok("isolated-v1")
@@ -184,7 +186,7 @@ fn database(role: &str, password: &str) -> DevConfig {
         std::env::var("CENTRAL_TEST_PORT").unwrap().parse().unwrap(),
         role,
         std::env::var(password).unwrap(),
-        "central_native_test",
+        name,
     )
     .unwrap()
 }
@@ -230,9 +232,19 @@ fn auth_config_says_whether_the_gateway_takes_central_sign_ins() {
 #[test]
 #[ignore = "requires owned PostgreSQL fixture from cargo dev central integration"]
 fn central_login_migrates_then_restores_and_admits_without_the_legacy_password() {
+    integration(false);
+}
+
+fn integration(ranked_only: bool) {
     let runtime = Runtime::new().unwrap();
+    let name = if ranked_only {
+        "central_ranked_test"
+    } else {
+        "central_native_test"
+    };
     let operator = runtime
-        .block_on(central_postgres::connect_dev(database(
+        .block_on(central_postgres::connect_dev(fixture_database(
+            name,
             "central_migrator",
             "CENTRAL_TEST_MIGRATOR_PASSWORD",
         )))
@@ -242,19 +254,25 @@ fn central_login_migrates_then_restores_and_admits_without_the_legacy_password()
         operator.execute_unprepared(GRANTS).await.unwrap();
     });
     let store = runtime
-        .block_on(AccountStore::connect_dev(database(
+        .block_on(AccountStore::connect_dev(fixture_database(
+            name,
             "central_runtime",
             "CENTRAL_TEST_RUNTIME_PASSWORD",
         )))
         .unwrap();
     let legacy = runtime
-        .block_on(LegacyStore::connect_dev(database(
+        .block_on(LegacyStore::connect_dev(fixture_database(
+            name,
             "central_legacy",
             "CENTRAL_TEST_LEGACY_PASSWORD",
         )))
         .unwrap();
     let served = serve(&runtime, &store, &legacy, "central", None);
     let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+        if ranked_only {
+            ranked::run(&runtime, &served, &store, &operator);
+            return;
+        }
         let (gateway, endpoint, origin) = (&served.gateway, &served.endpoint, &served.origin);
         if tower_awards::enabled() {
             tower_awards::run(&runtime, &served, &operator);

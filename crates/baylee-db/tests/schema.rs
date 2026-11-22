@@ -285,10 +285,7 @@ async fn a_moved_account_is_linked_at_its_first_admission_and_only_once() {
     sandbox.close().await;
 }
 
-/// An account whose source is over the first snapshot format's bound
-/// (`docs/central-login.md` §"Legacy migration") is not linked: Central's
-/// legacy store never took such an account, so Central never names it, and
-/// a link made anyway would be to a source nobody holds.
+/// Without a signed large-source receipt the first snapshot format's bound applies.
 #[tokio::test]
 async fn an_account_over_the_snapshot_bound_is_not_linked() {
     use baylee_db::central;
@@ -326,6 +323,85 @@ async fn an_account_over_the_snapshot_bound_is_not_linked() {
         central::adopt(&sandbox.db, &large_id.to_string(), central_id)
             .await
             .unwrap()
+    );
+    sandbox.close().await;
+}
+
+/// A verified archived source binds all old versions, including versions with equal heads.
+#[tokio::test]
+async fn closed_archive_binds_the_large_original_deck_history() {
+    let sandbox = Sandbox::open("central_archive_history").await;
+    let owner = Account::insert(an_account("archive@example.invalid"))
+        .exec(&sandbox.db)
+        .await
+        .unwrap()
+        .last_insert_id;
+    let mut head = a_deck(Some(owner), "Archived");
+    head.version = Set(51);
+    let deck = Deck::insert(head)
+        .exec(&sandbox.db)
+        .await
+        .unwrap()
+        .last_insert_id;
+    let cards = vec!["4 Archmage's Charm"; 240];
+    for version in 1..=50 {
+        DeckVersion::insert(a_version(deck, version, &cards))
+            .exec(&sandbox.db)
+            .await
+            .unwrap();
+    }
+    let exported = sandbox
+        .db
+        .query_one_raw(Statement::from_sql_and_values(
+            DbBackend::Postgres,
+            "SELECT jsonb_build_object('preferences','{}'::jsonb,'decks',jsonb_agg(to_jsonb(d) ||
+          jsonb_build_object('history',(SELECT jsonb_agg(to_jsonb(v) ORDER BY v.version)
+             FROM deck_version v WHERE v.deck_id=d.id)) ORDER BY d.id))::text AS source
+         FROM deck d WHERE d.account_id=$1",
+            [owner.into()],
+        ))
+        .await
+        .unwrap()
+        .unwrap()
+        .try_get::<String>("", "source")
+        .unwrap();
+    assert!(exported.len() > baylee_db::central::MAX_SNAPSHOT_BYTES);
+    use sha2::{Digest, Sha256};
+    let digest: [u8; 32] = Sha256::digest(exported.as_bytes()).into();
+    let central = *Uuid::now_v7().as_bytes();
+    let owner = owner.to_string();
+    assert!(
+        baylee_db::central::adopt(&sandbox.db, &owner, central)
+            .await
+            .is_err()
+    );
+    assert!(
+        baylee_db::central::adopt_archived(&sandbox.db, &owner, central, [0; 32])
+            .await
+            .is_err()
+    );
+    assert!(
+        !baylee_db::central::linked(&sandbox.db, &owner)
+            .await
+            .unwrap()
+    );
+    assert!(
+        baylee_db::central::adopt_archived(&sandbox.db, &owner, central, digest)
+            .await
+            .unwrap()
+    );
+    assert!(
+        !baylee_db::central::adopt_archived(&sandbox.db, &owner, central, digest)
+            .await
+            .unwrap()
+    );
+    assert_eq!(
+        DeckVersion::find()
+            .filter(deck_version::Column::DeckId.eq(deck))
+            .count(&sandbox.db)
+            .await
+            .unwrap(),
+        50
     );
     sandbox.close().await;
 }

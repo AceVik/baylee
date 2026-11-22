@@ -221,13 +221,14 @@ fn all_passed(output: &str) -> bool {
 }
 
 /// `integration`: builds first, so the bounded handoff to a UI run is spent
-/// on the test and not the compile; then bootstraps Central's two roles and
-/// runs the one ignored end-to-end test. `cancel` ends it early when it exists.
+/// on the test and not the compile; then bootstraps Central's roles and runs
+/// the selected end-to-end scenarios. `cancel` ends it early when it exists.
 pub fn integration(
     config: Option<&Path>,
     cancel: Option<&Path>,
     failure: bool,
     challenges_only: bool,
+    ranked_only: bool,
 ) -> Result<i32> {
     let options = cargo_options(config)?;
     let publisher = if std::env::var_os("BAYLEE_CENTRAL_TOWER_EVIDENCE").is_some() {
@@ -274,6 +275,24 @@ pub fn integration(
             "Testing real PostgreSQL {} with isolated migration and runtime roles.",
             pg.version()?
         );
+        let special = challenges_only
+            || publisher.is_some()
+            || std::env::var_os("BAYLEE_CENTRAL_UI_READY").is_some()
+            || std::env::var_os("BAYLEE_CENTRAL_TOWER_AWARDS_ONLY").is_some()
+            || std::env::var_os("BAYLEE_CENTRAL_DEMO").is_some();
+        let (selector, expected) = if ranked_only {
+            (
+                "e2e_central::ranked::ranked_two_gateways_settle_and_restore_home",
+                1,
+            )
+        } else if special {
+            (
+                "e2e_central::central_login_migrates_then_restores_and_admits_without_the_legacy_password",
+                1,
+            )
+        } else {
+            ("e2e_central::", 2)
+        };
         let mut test = test_command(
             &options,
             &[
@@ -282,7 +301,7 @@ pub fn integration(
                 "--test",
                 "e2e",
                 "--",
-                "e2e_central::",
+                selector,
                 "--ignored",
                 "--test-threads=1",
             ],
@@ -310,7 +329,8 @@ pub fn integration(
         } else {
             0
         };
-        let done = Owned::spawn(&mut test)?.wait(Duration::from_secs(300 + ui_hold), cancel)?;
+        let done =
+            Owned::spawn(&mut test)?.wait(Duration::from_secs(300 * expected + ui_hold), cancel)?;
         println!("{}", done.stdout);
         if !done.status.success() {
             println!("{}", done.stderr);
@@ -318,7 +338,7 @@ pub fn integration(
         }
         ensure!(
             done.stdout
-                .matches("test result: ok. 1 passed; 0 failed")
+                .matches(&format!("test result: ok. {expected} passed; 0 failed"))
                 .count()
                 == 1,
             "the expected gateway and Central integration test did not run"
@@ -327,7 +347,7 @@ pub fn integration(
     })
 }
 
-/// Central's roles as its own fixture makes them: a migrator owning the two
+/// Central's roles as its own fixture makes them: a migrator owning the
 /// test databases, a runtime role, the legacy store's role, and a NOINHERIT
 /// member of the migrator the store must refuse.
 fn bootstrap(migrator: &str, runtime: &str, legacy: &str) -> String {
@@ -337,7 +357,11 @@ fn bootstrap(migrator: &str, runtime: &str, legacy: &str) -> String {
         "CREATE ROLE central_inherited LOGIN NOINHERIT NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS PASSWORD '{runtime}';\n\
          GRANT central_migrator TO central_inherited;\n"
     );
-    sql.push_str(&databases(&["central_test", "central_native_test"]));
+    sql.push_str(&databases(&[
+        "central_test",
+        "central_native_test",
+        "central_ranked_test",
+    ]));
     sql
 }
 

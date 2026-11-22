@@ -12,7 +12,8 @@ GRANT SELECT, INSERT ON central_identity.migration_archives TO central_runtime;
 GRANT SELECT, INSERT, UPDATE ON central_identity.gateways TO central_runtime;
 -- Administrators approve, enable and disable gateways on the website
 -- (docs/administration.md §"Gateways"); an approval is never deleted.
-GRANT SELECT, INSERT, UPDATE (enabled, ranked_verified) ON central_identity.gateway_approvals TO central_runtime;
+REVOKE INSERT ON central_identity.gateway_approvals FROM central_runtime;
+GRANT SELECT, INSERT (gateway_id, enabled), UPDATE (enabled, ranked_verified) ON central_identity.gateway_approvals TO central_runtime;
 -- Gateway tokens (docs/gateway-registry.md §"Gateway tokens"): stored by
 -- digest; afterwards only their revocation and last use change.
 GRANT SELECT, INSERT, UPDATE (revoked_at, last_used_at) ON central_identity.gateway_tokens TO central_runtime;
@@ -126,7 +127,7 @@ GRANT SELECT ON central_identity.ranked_seasons, central_identity.ranked_hosts,
 GRANT INSERT (host_id, ranked_epoch, capacity, seen_at), UPDATE (ranked_epoch, capacity, seen_at, continuity_since)
   ON central_identity.ranked_hosts TO central_runtime;
 GRANT INSERT (season_id, format, account_a, account_b, commitment_a, commitment_b, host_id, ranked_epoch, origin),
-  UPDATE (claimed_a, claimed_b, game_id, deck_a, deck_b, state, outcome, finished_at, lease_until)
+  UPDATE (claimed_a, claimed_b, game_id, start_fingerprint, deck_a, deck_b, state, outcome, finished_at, lease_until)
   ON central_identity.ranked_matches TO central_runtime;
 GRANT INSERT (account_id, request_id, season_id, format, commitment, queue_elo), UPDATE (state, match_id)
   ON central_identity.ranked_tickets TO central_runtime;
@@ -139,3 +140,6 @@ GRANT SELECT, INSERT ON central_identity.ranked_receipts TO central_runtime;
 GRANT SELECT, INSERT, UPDATE (published_on, finalized) ON central_identity.ranked_publications TO central_runtime;
 GRANT SELECT, INSERT, DELETE ON central_identity.ranked_champions TO central_runtime;
 GRANT SELECT, INSERT, UPDATE (place) ON central_identity.ranked_badge_peaks TO central_runtime;
+
+-- Only the operator stages a legacy source. The authenticated transfer advances or retires it.
+GRANT SELECT, DELETE, UPDATE (next_page) ON central_identity.legacy_deck_transfers TO central_runtime;

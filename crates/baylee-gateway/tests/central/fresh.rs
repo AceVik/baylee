@@ -19,7 +19,7 @@ use std::sync::{Arc, OnceLock};
 use tokio::runtime::Runtime;
 
 /// The plaintext the website seals as object 1, byte for byte.
-const DOCUMENT: &[u8] = br#"{"version":1,"gateways":["https://baylee.acevik.de"],"preferences":{},"legacy":null,"chat":{"devices":[],"installations":[]}}"#;
+pub(super) const DOCUMENT: &[u8] = br#"{"version":1,"gateways":["https://baylee.acevik.de"],"preferences":{},"legacy":null,"chat":{"devices":[],"installations":[]}}"#;
 
 /// Kept only in memory so later fixture checks can sign in to the same account.
 pub(super) fn password() -> &'static str {

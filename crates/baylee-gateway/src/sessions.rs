@@ -74,6 +74,9 @@ pub(crate) struct Signed {
     pub(crate) central: [u8; 16],
     /// An `admin` session, which works on the admin listener and nowhere else.
     pub(crate) admin: bool,
+    /// Present only for a signed game-host admission. Such a bearer is
+    /// invisible to every ordinary gateway and admin auth lookup.
+    pub(crate) ranked_match: Option<[u8; 16]>,
     /// The newest terms of this gateway the account accepted.
     terms: Mutex<Option<central_crypto::jwt::TermsClaim>>,
 }
@@ -87,6 +90,7 @@ impl Signed {
         Self {
             central,
             admin,
+            ranked_match: None,
             terms: Mutex::new(terms),
         }
     }
@@ -261,7 +265,9 @@ impl Index {
         }
         let token = crate::auth::new_token();
         let digest = crate::auth::token_digest(&token);
-        let lasting = live.signed().is_some_and(|signed| signed.admin);
+        let lasting = live
+            .signed()
+            .is_some_and(|signed| signed.admin || signed.ranked_match.is_some());
         let expires_at = if lasting {
             live.expires_at()
         } else {
@@ -386,6 +392,10 @@ impl Book {
         let mut index = self.index.lock();
         if let Some(live) = index.by_key.get(&key).cloned() {
             if live.stands(now) && live.account() == account {
+                let scope = |s: &Signed| (s.central, s.admin, s.ranked_match);
+                if live.signed().map(scope) != signed.as_ref().map(scope) {
+                    return Err(Full);
+                }
                 live.extend(expires_at);
                 return Ok(live);
             }
@@ -470,12 +480,25 @@ impl Book {
 
     /// The session a bearer reaches, while both stand.
     pub(crate) fn by_bearer(&self, digest: &[u8], now: i64) -> Option<Arc<Live>> {
+        self.scoped_bearer(digest, now, None)
+    }
+
+    /// Exact scope matching keeps a game-host bearer out of every other game
+    /// and ordinary gateway route, including a general lobby socket ticket.
+    pub(crate) fn scoped_bearer(
+        &self,
+        digest: &[u8],
+        now: i64,
+        match_id: Option<[u8; 16]>,
+    ) -> Option<Arc<Live>> {
         let index = self.index.lock();
         let bearer = index.bearers.get(digest).filter(|b| now < b.expires_at)?;
         index
             .by_key
             .get(&bearer.key)
-            .filter(|live| live.stands(now))
+            .filter(|live| {
+                live.stands(now) && live.signed().and_then(|s| s.ranked_match) == match_id
+            })
             .cloned()
     }
 
@@ -493,7 +516,9 @@ impl Book {
         let live = index
             .by_key
             .get(&bearer.key)
-            .filter(|live| live.stands(now))
+            .filter(|live| {
+                live.stands(now) && live.signed().is_none_or(|s| s.ranked_match.is_none())
+            })
             .cloned()?;
         Some(index.issue(&live, now))
     }
@@ -787,6 +812,34 @@ mod tests {
         assert!(book.by_bearer(&digest(&bearer), NOW).is_none());
         let index = book.index.lock();
         assert!(index.bearers.is_empty() && index.bearers_of.is_empty());
+    }
+
+    #[test]
+    fn ranked_admission_extends_its_socket_and_never_grants_another_scope() {
+        let book = Book::default();
+        let ranked = |id| {
+            let mut scope = signed();
+            scope.ranked_match = Some(id);
+            scope
+        };
+        let id = [3; 16];
+        let seat = book.open(key(1), "a", LATER, NOW, ranked(id)).unwrap();
+        let issued = book.issue(&seat, NOW).unwrap();
+        let token = digest(&issued);
+        assert_eq!(issued.expires_at, LATER);
+        assert!(book.by_bearer(&token, NOW).is_none());
+        assert!(book.renew(&token, NOW).is_none());
+        assert!(book.scoped_bearer(&token, NOW, Some([4; 16])).is_none());
+        assert!(book.scoped_bearer(&token, NOW, Some(id)).is_some());
+        assert!(book.open(key(1), "a", LATER, NOW, signed()).is_err());
+        assert!(book.open(key(1), "a", LATER, NOW, ranked([4; 16])).is_err());
+        let refreshed = book
+            .open(key(1), "a", LATER + 60, LATER - 1, ranked(id))
+            .unwrap();
+        assert!(Arc::ptr_eq(&seat, &refreshed));
+        assert!(seat.stands(LATER));
+        book.end(&key(1), Ended::Revoked);
+        assert!(!seat.stands(LATER));
     }
 
     #[test]

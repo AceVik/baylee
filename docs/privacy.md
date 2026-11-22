@@ -10,6 +10,13 @@ the pointers, because line numbers move.
 
 ## Global ranked games and private decks
 
+The desktop client looks up the full public handles on visible player portraits
+at its configured Central endpoint. It uses the public ranking response to
+decorate the portrait and retains up to 512 profiles in memory. A leaderboard
+row already carries its own rank. Challenge, weekly Tower and Tower Echoes medal
+progress on the owner's profile is read separately over the authenticated
+account connection. Changing accounts clears these in-memory collections.
+
 Competitive Ranked games publish the participating account's public handle, league, division and seasonal results. Deck leaderboard rows use an opaque ID. Central stores the match and seat identities, confirmed result, rating changes, timestamps and card-identity digests with copy counts for version restoration and edit calculation. Those digests can be compared with the known card catalogue. The assigned host receives the selected playable deck. The private deck library uses Central's client-encrypted account objects. Personal chat keys and account vault keys stay on the client. A ranked account's private queue and rating rows are removed by account-deletion foreign-key cascades.
 
 ## Tower authority personal bests

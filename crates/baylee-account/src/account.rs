@@ -12,6 +12,7 @@ mod challenges;
 mod decks;
 mod gateway_import;
 mod legacy_decks;
+mod paged_decks;
 mod pairing;
 mod ranked;
 mod social;
@@ -19,7 +20,7 @@ mod tower;
 
 pub use gateway_import::GatewayDeckImport;
 pub use pairing::{PairedSession, PairingClaim};
-pub use ranked::{RankedHost, RankedPlay, ranked_read};
+pub use ranked::{RankedConsent, RankedHost, RankedPlay, ranked_read};
 pub use tower::TowerPlay;
 
 /// Restored native account. All network operations are blocking and belong on a worker.
@@ -157,6 +158,12 @@ impl Account {
         self.http.endpoint().origin()
     }
 
+    /// Central's stable public profile identifier for the authenticated account.
+    #[must_use]
+    pub fn public_id(&self) -> crate::ranked::Id {
+        self.session.identity().account
+    }
+
     /// Active `Authorization: Bearer ...` header for opening the Central `/v1/ws` push stream.
     #[must_use]
     pub fn bearer_header(&self) -> Option<Zeroizing<String>> {
@@ -176,28 +183,21 @@ impl Account {
     }
 
     fn resume_migration(&mut self) -> Result<(), Error> {
-        let Some(legacy) = &self.data.legacy else {
+        if self.data.legacy.is_none() {
             return Ok(());
-        };
-        if legacy.complete {
-            if self.session.migration_closed(&self.http)? {
-                return Ok(());
-            }
-            // Old clients marked cutover complete before Central had a separate close gate;
-            // Central closes it now, without another export or account-document rewrite.
-            return self.session.legacy_link(&self.http, legacy.digest);
         }
-        // The close is idempotent: a lost answer is retried with the same digest. Only a
-        // source that is not the stored one asks for the stored snapshot again.
-        for _ in 0..2 {
-            let digest = self.data.legacy.as_ref().ok_or(Error::Rejected)?.digest;
-            match self.session.legacy_link(&self.http, digest) {
-                Ok(()) => {
-                    if let Some(legacy) = &mut self.data.legacy {
-                        legacy.complete = true;
-                    }
-                    return self.session.save(&self.http, &self.data.write()?);
-                }
+        for _ in 0..3 {
+            let legacy = self.data.legacy.as_ref().ok_or(Error::Rejected)?;
+            let digest = legacy.digest;
+            let result = if legacy.paged.is_some() {
+                self.finish_paged_move()
+            } else if legacy.complete && self.session.migration_closed(&self.http)? {
+                Ok(())
+            } else {
+                self.session.legacy_link(&self.http, digest)
+            };
+            match result {
+                Ok(()) => return self.confirm_legacy_closed(digest),
                 Err(Error::Conflict) => {
                     let snapshot = self.session.legacy_export(&self.http)?;
                     self.restore_source(snapshot)?;
@@ -209,14 +209,26 @@ impl Account {
     }
 
     fn restore_source(&mut self, snapshot: LegacySnapshot) -> Result<(), Error> {
-        let previous = self.data.legacy.as_ref().ok_or(Error::Rejected)?;
+        self.session.refresh(&self.http)?;
+        let mut current = AccountData::read(self.session.document())?;
+        let previous = current.legacy.as_ref().ok_or(Error::Rejected)?;
         if previous.account_id != snapshot.legacy_id {
             return Err(Error::Rejected);
         }
-        let mut next = from_source(self.data.gateways.clone(), &previous.gateway, snapshot)?;
-        next.chat = std::mem::take(&mut self.data.chat);
-        self.data = next;
-        self.session.save(&self.http, &self.data.write()?)?;
+        if previous.digest == snapshot.digest {
+            self.data = current;
+            return self.session.confirm_restored(&self.http);
+        }
+        let next = from_source(current.gateways.clone(), &previous.gateway, snapshot)?;
+        if next
+            .legacy
+            .as_ref()
+            .is_some_and(|source| source.paged.is_none())
+        {
+            current.preferences = next.preferences;
+        }
+        current.legacy = next.legacy;
+        self.session.save(&self.http, &current.write()?)?;
         self.session.refresh(&self.http)?;
         self.data = AccountData::read(self.session.document())?;
         self.session.confirm_restored(&self.http)
@@ -290,14 +302,22 @@ impl Account {
 
     /// A token for `gateway`, with the transport to present it there.
     fn gateway_token(&self, gateway: &str) -> Result<(GatewayHttp, crate::SignedToken), Error> {
+        self.gateway_token_for(gateway, GatewayPurpose::Admit)
+    }
+
+    fn gateway_token_for(
+        &self,
+        gateway: &str,
+        purpose: GatewayPurpose,
+    ) -> Result<(GatewayHttp, crate::SignedToken), Error> {
         let source = if self.http.endpoint().legacy_origin().is_some() {
             GatewayHttp::live(gateway)?
         } else {
             GatewayHttp::development(gateway)?
         };
-        let (token, _) =
-            self.session
-                .gateway_token(&self.http, gateway.into(), GatewayPurpose::Admit)?;
+        let (token, _) = self
+            .session
+            .gateway_token(&self.http, gateway.into(), purpose)?;
         Ok((source, token))
     }
 
@@ -505,10 +525,24 @@ fn from_source(
     origin: &str,
     snapshot: LegacySnapshot,
 ) -> Result<AccountData, Error> {
-    let source: Source = serde_json::from_slice(&snapshot.document).map_err(|_| Error::Rejected)?;
-    if !source.preferences.is_object() || !source.decks.is_array() {
-        return Err(Error::Rejected);
-    }
+    let (source, paged) = match serde_json::from_slice::<Source>(&snapshot.document) {
+        Ok(s) if s.preferences.is_object() && s.decks.is_array() => (s, None),
+        Ok(_) => return Err(Error::Rejected),
+        Err(_) => {
+            let compact: central_api::legacy::ArchiveSource =
+                central_api::decode(&snapshot.document)?;
+            if !compact.paged_deck_source.valid() {
+                return Err(Error::Rejected);
+            }
+            (
+                Source {
+                    preferences: serde_json::json!({}),
+                    decks: serde_json::json!([]),
+                },
+                Some(compact.paged_deck_source),
+            )
+        }
+    };
     Ok(AccountData {
         version: 1,
         gateways,
@@ -520,6 +554,9 @@ fn from_source(
             account_id: snapshot.legacy_id,
             username: snapshot.username,
             decks: source.decks,
+            paged,
+            restored_digest: None,
+            restored_root: None,
         }),
         chat: crate::chat::ChatArchive::default(),
         deck_library: None,

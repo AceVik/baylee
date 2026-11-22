@@ -33,7 +33,7 @@ fn console(port: u16, method: &str, path: &str, body: &str) -> (u16, String) {
     (status, body)
 }
 
-fn paste(admin: u16, token: &str) -> (u16, String) {
+pub(super) fn paste(admin: u16, token: &str) -> (u16, String) {
     console(
         admin,
         "PUT",
@@ -44,7 +44,7 @@ fn paste(admin: u16, token: &str) -> (u16, String) {
 
 /// A gateway with a console and no operator file, talking to `endpoint`;
 /// its console's port.
-fn spawn(endpoint: &Endpoint) -> (common::Gateway, u16) {
+pub(super) fn spawn(endpoint: &Endpoint) -> (common::Gateway, u16) {
     let port_file = std::env::temp_dir().join(format!(
         "baylee-central-token-console-{}.port",
         uuid::Uuid::now_v7()
@@ -76,12 +76,13 @@ fn spawn(endpoint: &Endpoint) -> (common::Gateway, u16) {
 /// At Central: the owner registers `origin` on the website, an administrator
 /// approves it (the operator's SQL stands in), the owner mints a token. The
 /// owner's browser session, the token and the gateway's id.
-fn minted(
+pub(super) fn minted(
     runtime: &Runtime,
     store: &AccountStore,
     operator: &DatabaseConnection,
     identity: baylee_account::wire::Identity,
     origin: &str,
+    ranked: bool,
 ) -> (Token, Token, [u8; 16]) {
     let token = Token::generate().unwrap();
     let browser = Token::generate().unwrap();
@@ -98,14 +99,15 @@ fn minted(
         operator
             .execute_raw(Statement::from_sql_and_values(
                 DbBackend::Postgres,
-                "INSERT INTO central_identity.gateway_approvals (gateway_id) VALUES ($1)",
-                [uuid::Uuid::from_bytes(id).into()],
+                "INSERT INTO central_identity.gateway_approvals (gateway_id, ranked_verified) VALUES ($1,$2)",
+                [uuid::Uuid::from_bytes(id).into(),ranked.into()],
             ))
             .await
             .unwrap();
         let scopes = owner::GatewayScopes {
             sso: true,
             listing: true,
+            ranked,
         };
         store
             .create_gateway_token(&browser, id, "e2e", scopes, 30, &token)
@@ -171,7 +173,7 @@ pub(super) fn run(
     let mut player = super::synthetic_signed_in(&http, identity);
     // as the client does after its sign-in, before it asks for tickets
     player.confirm_restored(&http).unwrap();
-    let (browser, token, id) = minted(runtime, store, operator, identity, &origin);
+    let (browser, token, id) = minted(runtime, store, operator, identity, &origin, false);
     links(admin, &token, &origin, id);
     let (_, config) = common::http(gateway.port, "GET", "/auth/config", None, "");
     assert!(config.contains("\"central\":true"), "{config}");

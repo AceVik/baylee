@@ -6,6 +6,7 @@ use uuid::Uuid;
 
 /// Exactly one save from an owned deck. Historical rows use the head's
 /// metadata because the old store only versioned the card lists.
+/// @openapi
 #[derive(Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct GatewayDeckVersion {

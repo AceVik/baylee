@@ -33,7 +33,18 @@ fn registration_binds_physical_choices_and_zones_but_elo_ignores_sideboarding() 
     let swapped = register("standard", &["59 Island", "1 Swamp"], &["1 Forest"], &[]);
     assert_eq!(a.digest, b.digest);
     assert_eq!(a.deck.main, b.deck.main);
-    assert_eq!(a.pool, swapped.pool);
+    let pool = rating_pool(&a);
+    // The v1 rating identity for an ordinary (non-commander)
+    // Forest stays readable after registry, worker or client upgrades.
+    let forest = [
+        0x01, 0xba, 0xc6, 0xa8, 0xc3, 0x54, 0x54, 0x8a, 0x12, 0x6a, 0x9e, 0xe0, 0xdc, 0x73, 0xf0,
+        0x3c, 0xbf, 0xa8, 0xa9, 0x5a, 0x3a, 0xb8, 0x14, 0x98, 0xc1, 0x0c, 0x13, 0x16, 0x9c, 0xc2,
+        0x78, 0x8b,
+    ];
+    assert!(pool.contains(&(forest, 1)));
+    assert!(pool.windows(2).all(|pair| pair[0].0 < pair[1].0));
+    assert_eq!(pool.iter().map(|entry| entry.1).sum::<u16>(), 61);
+    assert_eq!(pool, rating_pool(&swapped));
     assert_ne!(a.digest, swapped.digest);
     let alt = register(
         "standard",
@@ -44,12 +55,12 @@ fn registration_binds_physical_choices_and_zones_but_elo_ignores_sideboarding() 
         &["1 Swamp"],
         &[],
     );
-    assert_eq!(a.pool, alt.pool);
+    assert_eq!(pool, rating_pool(&alt));
     assert_ne!(a.digest, alt.digest);
     let wu = register("highlander", &["1 Cryptic Spires circles=WU"], &[], &[]);
     let wr = register("highlander", &["1 Cryptic Spires circles=WR"], &[], &[]);
     assert_ne!(wu.digest, wr.digest);
-    assert_eq!(wu.pool, wr.pool);
+    assert_eq!(rating_pool(&wu), rating_pool(&wr));
 }
 
 #[test]
@@ -109,7 +120,7 @@ fn designated_commanders_have_a_distinct_role_and_are_taken_once() {
     let plain = register("commander", &["99 Forest", &marked], &[], &[]);
     assert_eq!(a.digest, b.digest);
     assert_eq!(a.deck.main.len(), 99);
-    assert_ne!(a.pool, plain.pool);
+    assert_ne!(rating_pool(&a), rating_pool(&plain));
     let catalog = facts("commander", &[("Forest", "legal"), (name, "legal")]);
     assert!(admit("commander", &a.deck, &catalog).is_ok());
     assert!(admit("commander", &plain.deck, &catalog).is_err());

@@ -55,7 +55,67 @@ enum Change<T> {
     Saved(T),
     Unchanged(T),
 }
+type SourceChecks = std::collections::BTreeMap<(String, u64), [u8; 32]>;
+
+fn save_digest(draft: &DeckDraft, saved_at: i64) -> Result<[u8; 32], Error> {
+    use sha2::{Digest, Sha256};
+    serde_json::to_vec(&(draft, saved_at))
+        .map(|bytes| Sha256::digest(bytes).into())
+        .map_err(|_| Error::Rejected)
+}
+pub(super) fn source_checks(decks: &[crate::decks::ImportedDeck]) -> Result<SourceChecks, Error> {
+    let mut checks = SourceChecks::new();
+    for version in decks.iter().flat_map(|deck| &deck.versions) {
+        let source = version.draft.source.as_ref().ok_or(Error::Rejected)?;
+        if checks
+            .insert(
+                (source.deck.clone(), source.revision),
+                save_digest(&version.draft, version.saved_at)?,
+            )
+            .is_some()
+        {
+            return Err(Error::Rejected);
+        }
+    }
+    Ok(checks)
+}
+
 impl Account {
+    pub(super) fn verify_prelink_decks(
+        &mut self,
+        root_digest: [u8; 32],
+        marker: [u8; 32],
+        origin: &str,
+        owner: &str,
+        mut expected: Option<SourceChecks>,
+    ) -> Result<(), Error> {
+        let (root, book) = self.read_root()?;
+        if root.as_ref().map(|r| r.blob.digest) != Some(root_digest)
+            || !book.imports.contains(&marker)
+        {
+            return Err(Error::Conflict);
+        }
+        for head in book.heads.values().filter(|h| {
+            h.source.as_ref().is_some_and(|s| {
+                s.gateway.as_deref() == Some(origin) && s.account.as_deref() == Some(owner)
+            })
+        }) {
+            for version in self.deck_log(head)?.history {
+                let snapshot = self.read_revision(head.summary.id, &version)?;
+                if let Some(checks) = expected.as_mut()
+                    && let Some(source) = &snapshot.draft.source
+                    && let Some(original) = checks.remove(&(source.deck.clone(), source.revision))
+                    && original != save_digest(&snapshot.draft, version.save.superseded_at)?
+                {
+                    return Err(Error::Conflict);
+                }
+            }
+        }
+        if expected.is_some_and(|checks| !checks.is_empty()) {
+            return Err(Error::Conflict);
+        }
+        Ok(())
+    }
     fn change_library<T>(
         &mut self,
         run: impl FnOnce(&Self, &mut Root, &mut Staged, &mut Vec<Blob>) -> Result<Change<T>, Error>,
@@ -148,18 +208,38 @@ impl Account {
         rows.sort_by_key(|s| (std::cmp::Reverse(s.updated_at), s.id));
         Ok(rows)
     }
-    fn snapshot_at(&mut self, id: Uuid, requested: Option<u64>) -> Result<DeckSnapshot, Error> {
+    fn read_head<T>(
+        &mut self,
+        id: Uuid,
+        read: impl Fn(&Self, &Head, &Log) -> Result<T, Error>,
+    ) -> Result<T, Error> {
         self.ensure_legacy_decks()?;
-        let (_, root) = self.read_root()?;
-        let head = root.heads.get(&id).ok_or(Error::Rejected)?;
-        let log = self.deck_log(head)?;
-        let rev = requested.unwrap_or(head.summary.revision);
-        let entry = log
-            .history
-            .iter()
-            .find(|e| e.save.revision == rev)
-            .ok_or(Error::Rejected)?;
-        self.read_revision(id, entry)
+        for _ in 0..3 {
+            let (pointer, root) = self.read_root()?;
+            let head = root.heads.get(&id).ok_or(Error::Rejected)?;
+            match self.deck_log(head).and_then(|log| read(self, head, &log)) {
+                Ok(value) => return Ok(value),
+                Err(error) => {
+                    // A concurrent replacement can reclaim the old log between
+                    // the two reads. Retry only after authenticating a newer root.
+                    if self.refresh_library()? == pointer {
+                        return Err(error);
+                    }
+                }
+            }
+        }
+        Err(Error::Conflict)
+    }
+    fn snapshot_at(&mut self, id: Uuid, requested: Option<u64>) -> Result<DeckSnapshot, Error> {
+        self.read_head(id, |account, head, log| {
+            let rev = requested.unwrap_or(head.summary.revision);
+            let entry = log
+                .history
+                .iter()
+                .find(|e| e.save.revision == rev)
+                .ok_or(Error::Rejected)?;
+            account.read_revision(id, entry)
+        })
     }
     /// Restore the current private deck and its original printing choices.
     ///
@@ -180,18 +260,16 @@ impl Account {
     /// # Errors
     /// Unavailable decks and damaged histories are refused.
     pub fn deck_history_page(&mut self, id: Uuid) -> Result<(DeckSummary, Vec<DeckSave>), Error> {
-        self.ensure_legacy_decks()?;
-        let (_, root) = self.read_root()?;
-        let head = root.heads.get(&id).ok_or(Error::Rejected)?;
-        let history = self
-            .deck_log(head)?
-            .history
-            .into_iter()
-            .rev()
-            .skip(1)
-            .map(|r| r.save)
-            .collect();
-        Ok((head.summary.clone(), history))
+        self.read_head(id, |_, head, log| {
+            let history = log
+                .history
+                .iter()
+                .rev()
+                .skip(1)
+                .map(|r| r.save.clone())
+                .collect();
+            Ok((head.summary.clone(), history))
+        })
     }
     /// Read superseded saves, newest first.
     ///

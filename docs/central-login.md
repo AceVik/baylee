@@ -402,8 +402,10 @@ fixes the link (`central_account_link`), makes the account Central-only and
 ends its old sessions in one transaction (`baylee_db::central::adopt`), and
 lobby and chat sockets are asked to reconnect. A link is immutable, and a
 Central identity is linked to one account; the same admission again changes
-nothing. An account whose source is over the snapshot bound below is not
-linked. The gateway holds no password hash: the column is gone (§"Cutover"),
+nothing. An oversized staged move includes Central's signed digest of the
+verified original. The official gateway compares that digest to the complete
+source it holds under its mutation barrier before fixing a new link. The
+gateway holds no password hash: the column is gone (§"Cutover"),
 and the migrations do not step back past its drop while an account that is
 neither a guest nor Central's is left, since the older schema holds such an
 account to a password it no longer has.
@@ -422,11 +424,17 @@ confirmed backup, so a new installation can replay outstanding messages. See
 [encrypted chat synchronization](central-chat-sync.md) for the manifest
 protocol, recovery checks and remaining limits.
 
-The first snapshot format is deliberately bounded: at most 192 KiB and 2,048
-source rows. The cutover's export refused an account over it, and with it the
-whole export, so that the operator decided about it; chunked large-object
-migration is still required before admitting such accounts. Never work around
-this by dropping history or truncating a snapshot.
+The first snapshot format permits 192 KiB and 2,048 source rows. A complete
+operator-staged legacy deck export above 192 KiB and up to 8 MiB uses a small
+enrollment manifest. After native sign-in, restore and terms acceptance the
+client reads consecutive 64 KiB pages, verifies their original digest against
+the manifest, and transfers the full authored history to the encrypted
+operational library. Central verifies the published object inventory and root
+revision before closing the move. A changed gateway source causes the
+admission to fail before the link is written. Previously linked accounts
+import their retained gateway decks through their existing authenticated
+account. The historical export procedure and credential availability limits
+are described below.
 
 ### Cutover
 
@@ -899,6 +907,12 @@ play, recovery and evaluation pipeline. The runner sets the test-process-only
 `BAYLEE_CENTRAL_CHALLENGES_ONLY=1`; neither production server reads it. The default
 integration mode still runs every existing scenario.
 
+`cargo dev central integration --ranked-only` plays a synthetic Standard duel on
+the sole verified host using two registered gateways. It checks both players'
+original lobby sessions after seat recovery, the engine result, the personal
+receipts, public standings and idempotent host delivery. The default integration
+run includes this scenario in a separate fixture database.
+
 For an explicitly requested interactive demo, set `BAYLEE_CENTRAL_DEMO=1`
 with `--challenges-only`, an owned `BAYLEE_CENTRAL_UI_READY` path and
 `BAYLEE_CENTRAL_UI_HOLD_SECS` (maximum 7200). This adds a real browser listener
@@ -989,9 +1003,11 @@ and perform staging migration/restore checks before any real-account cutover.
 See Central's `docs/status.md`, `docs/native-login.md`, `docs/postgresql.md` and
 `docs/gateway-registry.md` for the existing boundaries and exact grants.
 
-The private deck/replay library is a separate unfinished requirement; the
-encrypted legacy deck snapshot is not a replacement for its operational CRUD.
-The next implementation contract and source-size migration gap are recorded in
+The native client now reads and writes its private deck library through encrypted
+Central objects. A fresh login restores deck heads, card rows and saved versions.
+Compatible gateway rows can be imported with their original source identities.
+Durable Central replay archives remain planned. The implementation, source
+migration boundaries and replay design are recorded in
 [the private library plan](proposals/central-private-library-plan.md).
 
 ## Follow-up review, 19 October 2026

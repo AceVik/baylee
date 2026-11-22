@@ -1,11 +1,49 @@
-# Private deck library and replay archive: remaining work
+# Private deck library and replay archive
 
-Status: design only, 19 October 2026. These requirements are **not implemented**
-by the Central authentication/chat security milestone. The existing gateway
-deck and replay features continue to work; a new device does not yet receive a
-working private deck library or durable replay archive from Central.
+## Private decks, 22 November 2026
 
-## Current boundary
+Signed-in native clients keep private decks in Central's encrypted objects.
+A fresh installation reads a library generation from its authenticated account
+document. Only its owner can read its names, saved card rows, printings, notes,
+commanders, descriptions, scoped cosmetics and copy provenance. The gameplay
+gateway receives the selected list when the owner plays it. Shared house
+catalogues and gateway-specific legality remain at the gateway.
+
+The Rust API is in `crates/baylee-account/src/decks/` and
+`crates/baylee-account/src/account/decks/`. Every changed save advances its
+logical revision. The first change in a builder visit retains the prior save.
+Later autosaves can coalesce the working copy. Reverting keeps the intervening
+history. An authenticated account CAS publishes the new root only after writing
+all its chunks. Retrying a create can reuse its Central-issued reservation.
+A lost publication acknowledgement is checked against the full immutable root
+reference, including its digest. Removing a deck publishes a tombstone before
+reclaiming its objects. If Central and the network both fail during publication,
+an unconfirmed write can leave private objects allocated.
+
+The client validates the account backup converted by `account/legacy_decks.rs`.
+The owner-scoped gateway export and `account/gateway_import.rs` can also recover
+pre-existing gateway rows and their history. Imports preserve the source origin,
+account, deck ID and original revisions. Import markers and matching scoped
+source rows make retries idempotent. Conflicting changes keep the current
+private copy intact. Before the initial account link, an operator-staged
+source larger than 192 KiB and at most 8 MiB can restore through 64 KiB pages.
+The client verifies the source generation, reads back each imported save and
+its original timestamp, then persists a source digest and exact private root.
+Central verifies its final-link receipt against the document revision and
+private-object inventory. Local receipt recovery covers a lost acknowledgement.
+
+The fixture in `crates/baylee-gateway/tests/e2e_central/private_decks.rs`
+covers successive device logins, historical cards, stale writes, session
+revocation and deletion. Its large-history case imports more than 256 KiB,
+replays the source generation, advances it and checks recovery of the oldest
+save. The publication tests in `baylee-account` exercise lost acknowledgements
+and competing roots with the same generation number.
+
+Central replay archiving remains planned. The design below records the
+original October requirements, including the authorized-perspective boundary
+that the replay implementation must preserve.
+
+## Boundary at the October design review
 
 - `baylee-client/src/lobby/http.rs` sends private deck list/load/save/delete,
   history/copy/revert to the selected gateway. Central login does not intercept

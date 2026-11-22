@@ -337,6 +337,8 @@ and cleanup rules are unchanged (`../tower.md`).
 
 ## Client (`baylee-client`)
 
+- `BAYLEE_E2E_RANKED_FIXTURE=1` enables the renderer-only private ranked examples in a passive `dev-control` harness. The fixture paints a synthetic queue and promotion without installing credentials or a game host.
+
 - `BAYLEE_GATEWAY` + `BAYLEE_GAME`, `BAYLEE_SEAT_TOKEN`, optional `BAYLEE_SEAT`; in a browser `?game=…&token=…`.
 - `BAYLEE_CENTRAL_DEV_ENDPOINT` (local desktop debug and `dev-control` builds only; ignored in shipped release builds): numeric loopback `http://127.0.0.1:<port>` Central native endpoint (`Endpoint::development`; remote hosts or invalid URLs refuse sign-in instead of falling back to live). `BAYLEE_CENTRAL_WEB_ORIGIN` (same build scope): numeric loopback `http://127.0.0.1:<port>` origin for the front door's website and create-account links (defaults to `http://127.0.0.1:28794` when `BAYLEE_CENTRAL_DEV_ENDPOINT` is `http://127.0.0.1:28790`).
 - At build time `BAYLEE_FEEDBACK_PUBLIC_URL` (`option_env!`) names the feedback service (the offline count); `feedback_url` in the settings file overrides it (`""` = off). `BAYLEE_REPORT_PUBLIC_URL` names where a client signed in nowhere sends reports (the official gateway's `POST /client/reports`), `report_url` in the settings file overrides it (`""` = off, and `feedback_url = ""` without a `report_url` is off too, as before there was one); without either, that service; none of them = such a client sends nothing. A `LocalHost` game is recorded and the last 20 kept in `records/` beside the settings (native); a report carries one only when ticked for that report, never remembered.

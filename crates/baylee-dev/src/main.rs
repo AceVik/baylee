@@ -173,6 +173,9 @@ enum Central {
         /// Exercise only challenge generation, play, recovery and evaluation.
         #[arg(long)]
         challenges_only: bool,
+        /// Only the cross-gateway ranked queue, game and settlement.
+        #[arg(long, conflicts_with = "challenges_only")]
+        ranked_only: bool,
         #[arg(long)]
         cargo_config: Option<PathBuf>,
         /// End early once this file exists.
@@ -313,6 +316,7 @@ fn central_task(check: Central) -> (&'static str, anyhow::Result<i32>) {
         ),
         Central::Integration {
             challenges_only,
+            ranked_only,
             cargo_config,
             cancel_file,
             exercise_failure,
@@ -323,6 +327,7 @@ fn central_task(check: Central) -> (&'static str, anyhow::Result<i32>) {
                 cancel_file.as_deref(),
                 exercise_failure,
                 challenges_only,
+                ranked_only,
             ),
         ),
         Central::Client {

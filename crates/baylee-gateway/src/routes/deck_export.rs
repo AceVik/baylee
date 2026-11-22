@@ -33,10 +33,11 @@ pub(crate) struct DeckExportCursor {
 /// @security bearer
 /// @insert `SessionRefusals`
 /// @query-params `$DeckExportCursor`
-/// @return 200: { type: [object, "null"] } application/json
+/// @return 200: `{ anyOf: [{ $ref: $GatewayDeckVersion }, { type: "null" }] }` "One owned deck revision. A null page ends the scan."
 /// @return 400: `$ErrorBody` "Invalid cursor"
 /// @return 403: `$ErrorBody` "A linked Central session is required"
 /// @return 409: `$ErrorBody` "The source deck changed or was removed"
+/// @return 429: `$ErrorBody` "The gateway is already reading its available private-library pages"
 pub(crate) async fn read(
     State(state): State<Shared>,
     headers: HeaderMap,
@@ -63,6 +64,10 @@ pub(crate) async fn read(
     {
         return Err(err(StatusCode::BAD_REQUEST, "invalid export cursor"));
     }
+    let _permit = state
+        .shelf_turns
+        .try_acquire()
+        .map_err(|_| err(StatusCode::TOO_MANY_REQUESTS, "private deck export is busy"))?;
     let Some((head, old)) =
         store::deck_export::read(&state.db, owner, cursor.after, cursor.deck, cursor.version)
             .await

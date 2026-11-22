@@ -11,6 +11,7 @@ pub use manifest::LibraryRef;
 pub(crate) use manifest::{Blob, Chunk, Head, Log, Revision, Root};
 
 /// Identity of a source deck, scoped to its originating gateway or Central account.
+/// @openapi
 #[derive(Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct DeckSource {
@@ -25,6 +26,7 @@ pub struct DeckSource {
 }
 
 /// Complete editable content of a private deck.
+/// @openapi
 #[derive(Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct DeckDraft {
@@ -124,8 +126,28 @@ pub struct ImportedDeck {
     pub versions: Vec<ImportedVersion>,
 }
 
+#[cfg(test)]
+mod tests;
+
 fn valid_origin(text: &str) -> bool {
     central_api::gateway::validate_origin(text, text.starts_with("http://")).is_ok()
+}
+
+impl DeckSource {
+    fn valid(&self) -> bool {
+        !self.deck.is_empty()
+            && self.deck.len() <= 128
+            && self.revision > 0
+            && self
+                .account
+                .as_ref()
+                .is_none_or(|s| !s.is_empty() && s.len() <= 128)
+            && self.gateway.as_deref().is_none_or(valid_origin)
+    }
+    #[cfg(feature = "client")]
+    pub(crate) fn scope(&self) -> (Option<&str>, Option<&str>, &str) {
+        (self.gateway.as_deref(), self.account.as_deref(), &self.deck)
+    }
 }
 
 impl DeckDraft {
@@ -169,15 +191,7 @@ impl DeckDraft {
             return Err(Error::Rejected);
         }
         for src in [&self.source, &self.copied_from].into_iter().flatten() {
-            if src.deck.is_empty()
-                || src.deck.len() > 128
-                || src.revision == 0
-                || src
-                    .account
-                    .as_ref()
-                    .is_some_and(|s| s.is_empty() || s.len() > 128)
-                || src.gateway.as_deref().is_some_and(|s| !valid_origin(s))
-            {
+            if !src.valid() {
                 return Err(Error::Rejected);
             }
         }

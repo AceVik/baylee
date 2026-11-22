@@ -33,37 +33,64 @@ pub struct RankedSeat {
 }
 
 impl GatewayHttp {
+    pub(crate) fn ranked_admit(
+        &self,
+        ticket: &crate::SignedToken,
+    ) -> Result<(zeroize::Zeroizing<String>, bool, std::time::Duration), Error> {
+        let mut admission = self
+            .present("/auth/ranked/login", ticket)
+            .map_err(|e| e.error)?;
+        Ok((
+            zeroize::Zeroizing::new(std::mem::take(&mut admission.token)),
+            admission.terms_stale == Some(true),
+            std::time::Duration::from_secs(admission.renew_in.unwrap_or(300).clamp(1, 1800)),
+        ))
+    }
+
     pub(crate) fn ranked_play(
         &self,
         bearer: &str,
         id: Id,
         deck: &RankedDeck,
     ) -> Result<Option<RankedSeat>, Error> {
-        let id = Uuid::from_bytes(id);
         let body = central_api::encode(deck)?;
+        self.ranked_exchange(bearer, id, &body)
+    }
+
+    pub(crate) fn ranked_reclaim(
+        &self,
+        bearer: &str,
+        id: Id,
+        game: Id,
+    ) -> Result<Option<RankedSeat>, Error> {
+        #[derive(Serialize)]
+        struct Resume {
+            game: Uuid,
+        }
+        let body = central_api::encode(&Resume {
+            game: Uuid::from_bytes(game),
+        })?;
+        self.ranked_exchange(bearer, id, &body)
+    }
+
+    fn ranked_exchange(
+        &self,
+        bearer: &str,
+        id: Id,
+        body: &[u8],
+    ) -> Result<Option<RankedSeat>, Error> {
+        let id = Uuid::from_bytes(id);
         let response = self
             .agent
             .post(format!("{}/ranked/{id}/play", self.origin))
             .header("Authorization", &format!("Bearer {bearer}"))
             .header("Content-Type", "application/json")
-            .send(body.as_slice())
+            .send(body)
             .map_err(|_| Error::Unavailable)?;
         if response.status().as_u16() == 202 {
             return Ok(None);
         }
         Self::read_seat(response).map(Some)
-    }
-
-    pub(crate) fn ranked_reclaim(&self, bearer: &str, game: Id) -> Result<RankedSeat, Error> {
-        let game = Uuid::from_bytes(game);
-        let response = self
-            .agent
-            .post(format!("{}/lobby/games/{game}/seat", self.origin))
-            .header("Authorization", &format!("Bearer {bearer}"))
-            .header("Content-Type", "application/json")
-            .send(b"{}".as_slice())
-            .map_err(|_| Error::Unavailable)?;
-        Self::read_seat(response)
     }
 
     fn read_seat(response: ureq::http::Response<ureq::Body>) -> Result<RankedSeat, Error> {

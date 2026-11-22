@@ -38,6 +38,15 @@ pub struct LegacyData {
     pub username: String,
     /// Full owned-deck export, including its original identifiers and version history.
     pub decks: serde_json::Value,
+    /// Source manifest for an export fetched in authenticated, bounded pages.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub paged: Option<central_api::legacy::ArchiveManifest>,
+    /// Verified hash of the fully restored paged source, retained across a lost close reply.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub restored_digest: Option<[u8; 32]>,
+    /// Digest of the verified immutable deck root used to finish a paged cutover.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub restored_root: Option<[u8; 32]>,
 }
 
 impl AccountData {
@@ -85,6 +94,28 @@ impl AccountData {
             }
         }
         if let Some(legacy) = &self.legacy {
+            if let Some(manifest) = legacy.paged {
+                if !manifest.valid()
+                    || legacy
+                        .decks
+                        .as_array()
+                        .is_none_or(|decks| !decks.is_empty())
+                    || legacy.restored_digest.is_some_and(|digest| {
+                        central_api::legacy::source_generation(
+                            &legacy.account_id,
+                            digest,
+                            manifest.bytes,
+                        ) != manifest.generation
+                    })
+                    || legacy.restored_digest.is_some() != legacy.restored_root.is_some()
+                    || (legacy.complete
+                        && (legacy.restored_digest.is_none() || self.deck_library.is_none()))
+                {
+                    return Err(Error::Rejected);
+                }
+            } else if legacy.restored_digest.is_some() || legacy.restored_root.is_some() {
+                return Err(Error::Rejected);
+            }
             if legacy.account_id.is_empty()
                 || legacy.account_id.len() > 64
                 || legacy.username.len() > 96

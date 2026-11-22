@@ -1,6 +1,6 @@
 //! Admission on the host Central selected. Waiting for the second player is private:
 //! no mutable lobby room, chair ticket or client-supplied result exists for a reservation.
-use crate::{ErrorBody, HeaderMap, Json, Path, Shared, State, StatusCode, auth, authed, err};
+use crate::{ErrorBody, HeaderMap, Json, Path, Shared, State, StatusCode, auth, err};
 use axum::response::{IntoResponse, Response};
 use baylee_cards::decks::LoadedDeck;
 use central_api::ranked::{Format, HostAssignment, HostRequest, HostResponse, Id, PoolEntry};
@@ -78,6 +78,22 @@ struct Arrival {
     pool: Vec<PoolEntry>,
 }
 
+/// Frozen local evidence for reclaiming an already-running game without
+/// uploading either deck a second time.
+#[derive(Clone, Copy)]
+pub(crate) struct Binding {
+    pub(crate) id: Uuid,
+    format: Format,
+    decks: [[u8; 32]; 2],
+}
+
+#[derive(serde::Deserialize)]
+#[serde(untagged, deny_unknown_fields)]
+pub(crate) enum RankedPlay {
+    Submit(RankedDeck),
+    Resume { game: Uuid },
+}
+
 /// @description The exact source deck version selected for this ranked entry.
 /// @openapi
 #[derive(serde::Deserialize)]
@@ -113,7 +129,7 @@ impl RankedDeck {
 /// @security bearer
 /// @insert `SessionRefusals`
 /// @path-param match_id: String "Central match UUIDv7"
-/// @body `$RankedDeck` "Frozen registered deck"
+/// @body `$RankedPlay` "Frozen registered deck or previously bound game"
 /// @return 200: `$SeatGrant` "Assigned player's seat capability"
 /// @return 202: "Waiting for the other player"
 /// @return 400: `$ErrorBody` "Invalid deck, format or assignment ID"
@@ -125,9 +141,8 @@ pub(crate) async fn play(
     State(state): State<Shared>,
     headers: HeaderMap,
     Path(id): Path<Uuid>,
-    Json(body): Json<RankedDeck>,
+    Json(body): Json<RankedPlay>,
 ) -> Result<Response, Failure> {
-    let local = authed(&state, &headers).await?;
     if id.get_version_num() != 7 || id.get_variant() != uuid::Variant::RFC4122 {
         return Err(err(StatusCode::BAD_REQUEST, "invalid ranked match ID"));
     }
@@ -135,11 +150,15 @@ pub(crate) async fn play(
         .ok_or_else(|| err(StatusCode::UNAUTHORIZED, "missing session"))?;
     let live = state
         .sessions
-        .by_bearer(&auth::token_digest(bearer), crate::sessions::now())
+        .scoped_bearer(
+            &auth::token_digest(bearer),
+            crate::sessions::now(),
+            Some(*id.as_bytes()),
+        )
         .ok_or_else(|| err(StatusCode::UNAUTHORIZED, "invalid session"))?;
     let account = live
         .signed()
-        .filter(|s| !s.admin && live.account() == local)
+        .filter(|s| !s.admin)
         .map(|s| s.central)
         .ok_or_else(|| {
             err(
@@ -147,7 +166,7 @@ pub(crate) async fn play(
                 "a Central player session is required",
             )
         })?;
-    if !state.ranked.limiter.allow(&local) {
+    if !state.ranked.limiter.allow(live.account()) {
         return Err(err(
             StatusCode::TOO_MANY_REQUESTS,
             "too many ranked seat requests",
@@ -163,30 +182,38 @@ pub(crate) async fn play(
         .central
         .get()
         .ok_or_else(|| err(StatusCode::SERVICE_UNAVAILABLE, "Central unavailable"))?;
+    // The stable session key is internal. Ordinary authorization never
+    // resolves the restricted bearer to this key.
+    let session = crate::central::resolve_digest(&state, live.key().to_vec())
+        .await
+        .map_err(|s| err(s, "ranked authorization unavailable"))?
+        .ok_or_else(|| err(StatusCode::UNAUTHORIZED, "ranked session expired"))?;
+    crate::moderation::admit(&session)?;
+    crate::terms_admit(&session)?;
+    match body {
+        RankedPlay::Submit(deck) => register(&state, &bridge, id, live, account, deck).await,
+        RankedPlay::Resume { game } => resume(&state, &bridge, id, game, &live, account).await,
+    }
+}
+
+async fn register(
+    state: &Shared,
+    bridge: &crate::central::Bridge,
+    id: Uuid,
+    live: Arc<crate::sessions::Live>,
+    account: Id,
+    body: RankedDeck,
+) -> Result<Response, Failure> {
     let format = body.format()?;
     let (deck, digest, pool) = deck::validate(
-        &state,
+        state,
         format,
         &body.cards,
         &body.sideboard,
         &body.commanders,
     )
     .await?;
-    let request = HostRequest::Claim {
-        match_id: *id.as_bytes(),
-        account,
-        deck: digest,
-    };
-    let HostResponse::Assignment { assignment } = bridge
-        .ranked(request)
-        .await
-        .map_err(|code| err(code, "ranked seat claim refused"))?
-    else {
-        return Err(err(
-            StatusCode::SERVICE_UNAVAILABLE,
-            "unexpected ranked assignment",
-        ));
-    };
+    let assignment = claim(bridge, id, account, digest).await?;
     let seat = assigned_seat(&assignment, id, format, account, digest)?;
     let table = state.ranked.table(id)?;
     let mut arrivals = table.lock().await;
@@ -196,15 +223,13 @@ pub(crate) async fn play(
         .lobby
         .lock()
         .running()
-        .find(|g| g.ranked == Some(id))
+        .find(|g| g.ranked.is_some_and(|b| b.id == id))
         .map(|g| g.id.clone());
     if let Some(game) = running {
-        return crate::routes::take_seat(State(state.clone()), headers, Path(game))
-            .await
-            .map(IntoResponse::into_response);
+        return grant(state, &live, id, game);
     }
     arrivals[seat] = Some(Arrival {
-        live,
+        live: live.clone(),
         digest,
         deck,
         pool,
@@ -221,12 +246,78 @@ pub(crate) async fn play(
             return Err(err(StatusCode::CONFLICT, "ranked registration expired"));
         }
     }
-    let game = launch(&state, &bridge, &assignment, id, players).await?;
+    let game = launch(state, bridge, &assignment, id, players).await?;
     *arrivals = [None, None];
     state.ranked.waiting.lock().remove(&id);
-    crate::routes::take_seat(State(state.clone()), headers, Path(game))
-        .await
-        .map(IntoResponse::into_response)
+    grant(state, &live, id, game)
+}
+
+async fn claim(
+    bridge: &crate::central::Bridge,
+    id: Uuid,
+    account: Id,
+    digest: [u8; 32],
+) -> Result<HostAssignment, Failure> {
+    let request = HostRequest::Claim {
+        match_id: *id.as_bytes(),
+        account,
+        deck: digest,
+    };
+    match bridge.ranked(request).await {
+        Ok(HostResponse::Assignment { assignment }) => Ok(assignment),
+        Err(code) => Err(err(code, "ranked seat claim refused")),
+        Ok(_) => Err(err(
+            StatusCode::SERVICE_UNAVAILABLE,
+            "unexpected ranked assignment",
+        )),
+    }
+}
+
+async fn resume(
+    state: &Shared,
+    bridge: &crate::central::Bridge,
+    id: Uuid,
+    game: Uuid,
+    live: &crate::sessions::Live,
+    account: Id,
+) -> Result<Response, Failure> {
+    let game_id = game.to_string();
+    let (seat, binding) = {
+        let lobby = state.lobby.lock();
+        lobby
+            .games
+            .get(&game_id)
+            .and_then(|game| Some((game.resumable_seat(live.account())?, game.ranked?)))
+            .filter(|(_, b)| b.id == id)
+            .ok_or_else(|| err(StatusCode::FORBIDDEN, "no matching ranked seat"))?
+    };
+    let digest = binding.decks[seat];
+    let a = claim(bridge, id, account, digest).await?;
+    if assigned_seat(&a, id, binding.format, account, digest)? != seat
+        || a.game != Some(*game.as_bytes())
+    {
+        return Err(err(StatusCode::FORBIDDEN, "ranked seat no longer assigned"));
+    }
+    grant(state, live, id, game_id)
+}
+
+fn grant(
+    state: &Shared,
+    live: &crate::sessions::Live,
+    id: Uuid,
+    game: String,
+) -> Result<Response, Failure> {
+    if !live.stands(crate::sessions::now()) {
+        return Err(err(StatusCode::UNAUTHORIZED, "ranked session expired"));
+    }
+    crate::routes::claim_seat(
+        state,
+        live.account(),
+        Some(live.key().to_vec()),
+        game,
+        Some(id),
+    )
+    .map(IntoResponse::into_response)
 }
 
 fn assigned_seat(
@@ -320,7 +411,11 @@ async fn launch(
     let rules = preset.house_rules.clone();
     let mut game =
         crate::lobby::LobbyGame::playing(game_id.clone(), seats, preset, auth::now_secs());
-    game.ranked = Some(id);
+    game.ranked = Some(Binding {
+        id,
+        format: assignment.format,
+        decks: assignment.decks,
+    });
     game.house_rules = rules;
     game.allow_spectators = false;
     {

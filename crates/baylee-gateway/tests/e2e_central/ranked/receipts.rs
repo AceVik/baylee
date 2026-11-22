@@ -1,0 +1,197 @@
+//! Wait for the gateway's own outbox before exercising replay against Central.
+use super::{
+    Assignment, CentralHttp, Format, Outcome, Player, QueueState, Registered, Request, Response,
+    Served, Uuid, sdk,
+};
+use baylee_account::ranked::{HostRequest, HostResponse, League, ProfileTarget, Record, Track};
+use std::time::{Duration, Instant};
+
+fn receipt(player: &Player) -> QueueState {
+    let deadline = Instant::now() + Duration::from_secs(45);
+    loop {
+        match player.account.ranked(Request::Status).unwrap() {
+            Response::Queue {
+                state: state @ QueueState::Finished { .. },
+            } => return state,
+            Response::Queue {
+                state: QueueState::Assigned { .. },
+            } if Instant::now() < deadline => {
+                std::thread::sleep(Duration::from_millis(250));
+            }
+            _ => panic!("the host outbox must settle the assigned match"),
+        }
+    }
+}
+
+fn profile(served: &Served, assignment: &Assignment) -> Response {
+    baylee_account::ranked_read(
+        &served.endpoint,
+        Request::Profile {
+            target: ProfileTarget::Account(assignment.account),
+            season: None,
+        },
+    )
+    .unwrap()
+}
+
+fn verify_boards(served: &Served, profiles: &[Response; 2]) {
+    for track in [Track::Player, Track::Deck] {
+        let reply = baylee_account::ranked_read(
+            &served.endpoint,
+            Request::Board {
+                season: None,
+                format: Format::Standard,
+                track,
+                league: League::Unranked,
+                division: None,
+                after: None,
+            },
+        )
+        .unwrap();
+        let Response::Board { entries, next, .. } = reply else {
+            panic!("public placement ladder")
+        };
+        assert_eq!(entries.len(), 2);
+        assert!(next.is_none());
+        for profile in profiles {
+            let Response::Profile {
+                account, formats, ..
+            } = profile
+            else {
+                unreachable!()
+            };
+            let row = entries
+                .iter()
+                .find(|row| row.account == *account)
+                .expect("both players appear publicly");
+            assert!(formats.contains(&row.standing));
+        }
+    }
+}
+
+pub(super) fn verify(
+    served: &Served,
+    home: &Registered,
+    host: &Registered,
+    players: &[Player; 2],
+    assignments: &[Assignment; 2],
+    game: Uuid,
+    outcome: Outcome,
+) {
+    let receipts = players.each_ref().map(receipt);
+    let profiles = assignments.each_ref().map(|a| profile(served, a));
+    for i in 0..2 {
+        let QueueState::Finished {
+            key,
+            match_id,
+            seat,
+            format,
+            elo,
+            delta,
+            before,
+            after,
+            outcome: confirmed,
+            deck,
+        } = &receipts[i]
+        else {
+            unreachable!()
+        };
+        let assignment = &assignments[i];
+        assert_eq!(
+            (*key, *match_id, *seat, *format, *confirmed),
+            (
+                players[i].key,
+                assignment.match_id,
+                assignment.seat,
+                Format::Standard,
+                outcome
+            )
+        );
+        assert_eq!(
+            (
+                before.league,
+                after.league,
+                deck.before.league,
+                deck.after.league
+            ),
+            (
+                League::Unranked,
+                League::Unranked,
+                League::Unranked,
+                League::Unranked
+            )
+        );
+        let won = i == 1;
+        assert_eq!(delta.signum(), if won { 1 } else { -1 });
+        assert_eq!(deck.delta.signum(), delta.signum());
+        assert_eq!(deck.placement_games, 1);
+        let Response::Profile {
+            account,
+            formats,
+            awards,
+            ..
+        } = &profiles[i]
+        else {
+            panic!("published profile")
+        };
+        assert_eq!(*account, assignment.account);
+        assert!(awards.is_empty(), "no badge before placements finish");
+        let expected = Record {
+            games: 1,
+            wins: u32::from(won),
+            losses: u32::from(!won),
+            draws: 0,
+        };
+        for (track, rating) in [(Track::Player, *elo), (Track::Deck, deck.elo)] {
+            let row = formats
+                .iter()
+                .find(|s| s.format == Format::Standard && s.track == track)
+                .expect("settled ladder standing");
+            assert_eq!(
+                (row.placement_games, row.rank.league, row.elo),
+                (1, League::Unranked, rating)
+            );
+            assert_eq!(row.career, expected);
+            assert_eq!(
+                (row.games, row.wins, row.losses, row.draws),
+                (
+                    expected.games,
+                    expected.wins,
+                    expected.losses,
+                    expected.draws
+                )
+            );
+            assert_eq!(row.deck.is_some(), track == Track::Deck);
+            assert_ne!(
+                row.deck,
+                Some(players[i].commitment),
+                "a public deck identifier is opaque"
+            );
+        }
+        assert!(
+            formats
+                .iter()
+                .filter(|s| s.format != Format::Standard)
+                .all(|s| s.career.games == 0)
+        );
+        let public = serde_json::to_string(&profiles[i]).unwrap();
+        assert!(!public.contains("Forest") && !public.contains("Private forest"));
+    }
+    assert!(baylee_account::ranked_read(&served.endpoint, Request::Status).is_err());
+    let http = CentralHttp::new(served.endpoint.clone());
+    let finish = HostRequest::Finish {
+        match_id: assignments[0].match_id,
+        game: *game.as_bytes(),
+        outcome,
+    };
+    assert!(sdk::ranked::host(&http, &home.token, finish.clone()).is_err());
+    assert_eq!(
+        sdk::ranked::host(&http, &host.token, finish).unwrap(),
+        HostResponse::Done
+    );
+    verify_boards(served, &profiles);
+    for i in 0..2 {
+        assert_eq!(receipt(&players[i]), receipts[i]);
+        assert_eq!(profile(served, &assignments[i]), profiles[i]);
+    }
+}

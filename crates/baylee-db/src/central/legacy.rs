@@ -24,9 +24,35 @@ pub async fn adopt(
     account: &str,
     central: [u8; 16],
 ) -> Result<bool, DbErr> {
+    adopt_inner(db, account, central, None).await
+}
+
+/// Adopt a larger archived source only when Central signed the digest of the
+/// same complete account data that this gateway still holds under its barrier.
+///
+/// # Errors
+/// Refuses mismatched data, unknown accounts, conflicting links and database failures.
+pub async fn adopt_archived(
+    db: &DatabaseConnection,
+    account: &str,
+    central: [u8; 16],
+    expected: [u8; 32],
+) -> Result<bool, DbErr> {
+    adopt_inner(db, account, central, Some(expected)).await
+}
+
+async fn adopt_inner(
+    db: &DatabaseConnection,
+    account: &str,
+    central: [u8; 16],
+    expected: Option<[u8; 32]>,
+) -> Result<bool, DbErr> {
     let account = super::id(account)?;
     let central = central_id(central)?;
-    let transaction = db.begin().await?;
+    // Size preflight and exact content digest must observe the same rows.
+    let transaction = db
+        .begin_with_config(Some(sea_orm::IsolationLevel::RepeatableRead), None)
+        .await?;
     transaction
         .execute_unprepared("SET LOCAL statement_timeout = '3s'; SET LOCAL lock_timeout = '2s'")
         .await?;
@@ -81,12 +107,17 @@ pub async fn adopt(
     // What the gateway holds at the link: the source Central's store was
     // given, since nothing here changes it while the account cannot sign in.
     let digest = Sha256::digest(
-        source(&transaction, account)
+        source(&transaction, account, expected.is_some())
             .await?
             .ok_or_else(|| DbErr::Custom("migration snapshot exceeds supported size".into()))?
             .as_bytes(),
     )
     .to_vec();
+    if expected.is_some_and(|expected| expected.as_slice() != digest) {
+        return Err(DbErr::Custom(
+            "legacy source changed since verified archive".into(),
+        ));
+    }
     transaction
         .execute_raw(Statement::from_sql_and_values(
             DbBackend::Postgres,

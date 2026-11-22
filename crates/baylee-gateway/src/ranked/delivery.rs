@@ -69,7 +69,10 @@ async fn monitor(state: &Shared, owner: &mut baylee_db::challenges::Owner) {
 
 /// Occupied ranked games plus spare engine capacity, excluding casual/replay jobs.
 fn capacity(state: &Shared) -> u8 {
-    if state.admission.held() {
+    if state.admission.held()
+        || !state.auth_mode.current().central()
+        || state.registration != crate::registration::Registration::Open
+    {
         return 0;
     }
     let active = state
@@ -90,11 +93,16 @@ async fn advertise(state: &Shared) {
         let Some(bridge) = state.central.get() else {
             return;
         };
-        let capacity = if state.pool_table().await.is_some() {
-            capacity(state)
-        } else {
-            0
-        };
+        let complete_catalog = timeout(Duration::from_secs(4), state.pool_table())
+            .await
+            .ok()
+            .flatten()
+            .is_some_and(|facts| {
+                ["standard", "vintage", "commander"]
+                    .iter()
+                    .all(|key| facts.formats().iter().any(|available| available == key))
+            });
+        let capacity = if complete_catalog { capacity(state) } else { 0 };
         // A lost connection can recover; explicit revocation stops rated games.
         let ready = bridge.ranked(HostRequest::Ready { capacity }).await;
         if matches!(
@@ -120,7 +128,7 @@ async fn reconcile(state: &Shared) {
         for run in batch {
             let id = run.game.to_string();
             let living = state.lobby.lock().games.get(&id).is_some_and(|g| {
-                g.ranked == Some(run.match_id)
+                g.ranked.is_some_and(|b| b.id == run.match_id)
                     && (g.state == crate::LobbyState::Playing || g.record_finalizing)
             });
             let request = if let Some(outcome) = run.outcome {

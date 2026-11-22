@@ -451,6 +451,18 @@ pub(crate) async fn take_seat(
 ) -> Result<Json<SeatGrant>, (StatusCode, Json<ErrorBody>)> {
     let account_id = authed(&state, &headers).await?;
     let central_session = crate::central::seat_binding(&state, &headers)?;
+    claim_seat(&state, &account_id, central_session, id, None)
+}
+
+/// Issue a seat capability after the caller authenticated the matching
+/// ordinary or ranked admission. A ranked proof cannot reach any other game.
+pub(crate) fn claim_seat(
+    state: &Shared,
+    account_id: &str,
+    central_session: Option<Vec<u8>>,
+    id: String,
+    ranked: Option<uuid::Uuid>,
+) -> Result<Json<SeatGrant>, (StatusCode, Json<ErrorBody>)> {
     let seat_token = auth::new_token();
     let (seat, challenge) = {
         let mut lobby = state.lobby.lock();
@@ -458,6 +470,12 @@ pub(crate) async fn take_seat(
             .games
             .get_mut(&id)
             .ok_or_else(|| err(StatusCode::NOT_FOUND, "no such game"))?;
+        if game.ranked.map(|binding| binding.id) != ranked {
+            return Err(err(
+                StatusCode::FORBIDDEN,
+                "a matching game admission is required",
+            ));
+        }
         // A finished game has nothing left to answer for. The other two
         // states both do: before the start the seat screen waits for the
         // room, after it there is a game to catch up on.
@@ -467,12 +485,12 @@ pub(crate) async fn take_seat(
         if !game
             .seats
             .iter()
-            .any(|seat| seat.account_id.as_ref() == Some(&account_id))
+            .any(|seat| seat.account_id.as_deref() == Some(account_id))
         {
             return Err(err(StatusCode::FORBIDDEN, "you are not at this table"));
         }
         let seat = game
-            .resumable_seat(&account_id)
+            .resumable_seat(account_id)
             .ok_or_else(|| err(StatusCode::CONFLICT, "that chair cannot be resumed"))?;
         let chair = game
             .seats

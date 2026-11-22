@@ -476,6 +476,37 @@ paths:
             No Baylee Central is configured, this gateway has not caught up with Central
             since it started, the database is unavailable, or the account is new here and this
             gateway's registration is not open
+  /auth/ranked/login:
+    post:
+      summary: Exchange a ranked game admission
+      description: >-
+        Exchanges Central's origin- and match-bound game token for a local bearer
+        accepted only on that game's ranked play endpoint.
+      operationId: rankedHostLogin
+      tags:
+      - Ranked
+      security: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CentralSignIn"
+        required: true
+      responses:
+        "200":
+          description: Bearer restricted to this match
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RankedHostSession"
+        "401":
+          description: Invalid, expired, revoked or wrong-purpose admission
+        "403":
+          description: Player or ranked admission refused
+        "429":
+          description: Too many admissions
+        "503":
+          description: Central or host unavailable
   /auth/central/admin:
     post:
       summary: Sign in to the admin console with Baylee Central
@@ -1145,10 +1176,10 @@ paths:
       description: |-
         What a client sends when its player leaves on purpose (never
         when the application merely closes). The caller stands up from every
-        waiting room at once, and every running game it sits in is told the
+        waiting room at once, and every running casual game it sits in is told the
         player left: the house takes the chair if another player is at the
         table, and the game ends if none is. `204` whether or not there was
-        anything to leave.
+        anything to leave. Ranked games use their own game connection for departure.
       operationId: depart
       tags:
       - Lobby
@@ -1363,9 +1394,9 @@ paths:
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/RankedDeck"
+              $ref: "#/components/schemas/RankedPlay"
         required: true
-        description: Frozen registered deck
+        description: Frozen registered deck or previously bound game
       responses:
         "200":
           description: Assigned player's seat capability
@@ -1951,13 +1982,13 @@ paths:
       - bearer: []
       responses:
         "200":
-          description: OK
+          description: One owned deck revision. A null page ends the scan.
           content:
             application/json:
               schema:
-                type:
-                - object
-                - "null"
+                anyOf:
+                - $ref: "#/components/schemas/GatewayDeckVersion"
+                - type: "null"
         "400":
           description: Invalid cursor
           content:
@@ -1980,6 +2011,12 @@ paths:
                 $ref: "#/components/schemas/ErrorBody"
         "409":
           description: The source deck changed or was removed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+        "429":
+          description: The gateway is already reading its available private-library pages
           content:
             application/json:
               schema:
@@ -7153,6 +7190,72 @@ components:
       - sleeve
       - playmat
       description: "`GET /decks/{id}`."
+    DeckDraft:
+      type: object
+      properties:
+        name:
+          type: string
+          description: Display name.
+        format:
+          type: string
+          description: Format key.
+        cards:
+          type: array
+          items:
+            type: string
+          description: Main-deck rows, including group/printing/notes.
+        sideboard:
+          type: array
+          items:
+            type: string
+          description: Sideboard rows in the same representation.
+        commanders:
+          type: array
+          items:
+            type: string
+          description: Commander names, in presentation order.
+        description:
+          type: string
+          description: Description supplied by the owner.
+        summary:
+          type:
+          - string
+          - "null"
+          description: Optional message describing this edit.
+        sleeve:
+          type:
+          - string
+          - "null"
+          description: Gateway-owned sleeve identifier.
+        playmat:
+          type:
+          - string
+          - "null"
+          description: Gateway-owned playmat identifier.
+        cosmetic_origin:
+          type:
+          - string
+          - "null"
+          description: Gateway origin that owns both cosmetic references.
+        source:
+          anyOf:
+          - $ref: "#/components/schemas/DeckSource"
+          - type: "null"
+          description: Original private row on a migrated gateway.
+        copied_from:
+          anyOf:
+          - $ref: "#/components/schemas/DeckSource"
+          - type: "null"
+          description: Source of an explicit deck copy.
+      required:
+      - name
+      - format
+      - cards
+      - sideboard
+      - commanders
+      - description
+      additionalProperties: false
+      description: Complete editable content of a private deck.
     DeckHistory:
       type: object
       properties:
@@ -7420,6 +7523,32 @@ components:
       - sleeve
       - playmat
       description: One row of `GET /decks`.
+    DeckSource:
+      type: object
+      properties:
+        gateway:
+          type:
+          - string
+          - "null"
+          description: Gateway origin for a gateway source; absent for a Central private copy.
+        account:
+          type:
+          - string
+          - "null"
+          description: Source account, when known.
+        deck:
+          type: string
+          description: Original deck identifier at that origin.
+        revision:
+          type: integer
+          format: int64
+          minimum: 0
+          description: Original logical save number.
+      required:
+      - deck
+      - revision
+      additionalProperties: false
+      description: Identity of a source deck, scoped to its originating gateway or Central account.
     DeckState:
       anyOf:
       - $ref: "#/components/schemas/DeckStateNow"
@@ -7784,6 +7913,75 @@ components:
       - waiting
       - seats_awaiting_engine
       description: "`GET /health`'s games."
+    GatewayDeckVersion:
+      type: object
+      properties:
+        central:
+          type: string
+          format: uuid
+          description: Central account authenticated by the gateway session.
+        owner:
+          type: string
+          format: uuid
+          description: Linked local account whose rows were selected.
+        deck:
+          type: string
+          format: uuid
+          description: Existing source deck.
+        generation:
+          type: array
+          items:
+            type: integer
+            format: int32
+            minimum: 0
+            maximum: 255
+          minItems: 32
+          maxItems: 32
+          description: Commit to the complete head to detect in-place saves and renames.
+        head_revision:
+          type: integer
+          format: int64
+          minimum: 0
+          description: Head and returned revision numbers.
+        revision:
+          type: integer
+          format: int64
+          minimum: 0
+          description: Returned historical revision or the head itself.
+        saved_at:
+          type: integer
+          format: int64
+          description: Source timestamp in Unix seconds.
+        copied:
+          type:
+          - array
+          - "null"
+          prefixItems:
+          - type: string
+            format: uuid
+          - type: integer
+            format: int64
+            minimum: 0
+          items: false
+          minItems: 2
+          maxItems: 2
+          description: Source of a copy at this gateway, when recorded.
+        draft:
+          $ref: "#/components/schemas/DeckDraft"
+          description: Contents. The client supplies the authenticated source origin.
+      required:
+      - central
+      - owner
+      - deck
+      - generation
+      - head_revision
+      - revision
+      - saved_at
+      - draft
+      additionalProperties: false
+      description: >-
+        Exactly one save from an owned deck. Historical rows use the head's metadata
+        because the old store only versioned the card lists.
     GroupName:
       type: object
       properties:
@@ -9434,6 +9632,33 @@ components:
       - commanders
       additionalProperties: false
       description: The exact source deck version selected for this ranked entry.
+    RankedHostSession:
+      type: object
+      required:
+      - token
+      - renew_in
+      properties:
+        token:
+          type: string
+          description: Bearer restricted to the assigned ranked match.
+        renew_in:
+          type: integer
+          format: int64
+          description: Seconds until a fresh signed ranked admission should extend the game session.
+        terms_stale:
+          type: boolean
+          description: The assigned host requires an updated terms acceptance at Central.
+    RankedPlay:
+      oneOf:
+      - $ref: "#/components/schemas/RankedDeck"
+      - type: object
+        additionalProperties: false
+        properties:
+          game:
+            type: string
+            format: uuid
+        required:
+        - game
     ReadyBody:
       type: object
       properties:

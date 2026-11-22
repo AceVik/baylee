@@ -11,6 +11,32 @@ pub struct Reservation {
 }
 
 impl Stub {
+    pub fn game_bearer(&self, port: u16, account: u8, id: Uuid) -> String {
+        let mut claims = self.claims(port, account);
+        claims.sid = super::sid_of(account + 64);
+        claims.purpose = central_crypto::jwt::Purpose::Ranked;
+        claims.ranked_match = Some(*id.as_bytes());
+        let signed = self.shared.key.sign(&claims).unwrap();
+        let body = serde_json::json!({"token":signed.as_str()}).to_string();
+        assert_eq!(
+            super::common::http(port, "POST", "/auth/central/login", None, &body).0,
+            401
+        );
+        let (status, response) =
+            super::common::http(port, "POST", "/auth/ranked/login", None, &body);
+        assert_eq!(status, 200, "ranked login");
+        let session: serde_json::Value = serde_json::from_str(&response).unwrap();
+        assert!(
+            session["renew_in"]
+                .as_i64()
+                .is_some_and(|s| s > 0 && s <= 1800)
+        );
+        assert_eq!(
+            super::common::http(port, "POST", "/auth/central/refresh", None, &body).0,
+            401
+        );
+        super::common::json_field(&response, "token").to_owned()
+    }
     pub fn ranked_capacity(&self) -> u64 {
         self.shared
             .ranked_capacity

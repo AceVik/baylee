@@ -31,16 +31,25 @@ impl Staged {
     pub(super) fn abort(self, account: &Account) {
         if !self.publication_attempted {
             for (id, revision) in self.chunks {
-                let _ = account
-                    .session
-                    .delete_object(&account.http, *id.as_bytes(), revision);
+                let removed =
+                    account
+                        .session
+                        .delete_object(&account.http, *id.as_bytes(), revision);
+                if revision == 0 && removed == Err(Error::Conflict) {
+                    // A timed-out chunk write can reach Central after we last
+                    // observed the reservation. Only our first write can exist
+                    // at this never-published freshly reserved identity.
+                    let _ = account
+                        .session
+                        .delete_object(&account.http, *id.as_bytes(), 1);
+                }
             }
         }
     }
 }
 
 impl Account {
-    pub(super) fn refresh_library(&mut self) -> Result<Option<LibraryRef>, Error> {
+    pub(in crate::account) fn refresh_library(&mut self) -> Result<Option<LibraryRef>, Error> {
         self.session.refresh(&self.http)?;
         self.data = AccountData::read(self.session.document())?;
         Ok(self.data.deck_library.clone())

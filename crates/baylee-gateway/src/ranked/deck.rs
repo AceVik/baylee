@@ -3,19 +3,10 @@
 use baylee_cards::decks::LoadedDeck;
 use baylee_core::preset::{FormatId, GamePreset, HouseRules, LoopPolicy, SeatController};
 use central_api::ranked::{Format, PoolEntry};
-use sha2::{Digest, Sha256};
 
 use crate::{ErrorBody, Json, Shared, StatusCode, db_down, err, err_saying};
 
 type Failure = (StatusCode, Json<ErrorBody>);
-
-fn key(format: Format) -> &'static str {
-    match format {
-        Format::Standard => "standard",
-        Format::Highlander => "highlander",
-        Format::Commander => "commander",
-    }
-}
 
 async fn legal(state: &Shared, format: Format, deck: &LoadedDeck) -> Result<(), Failure> {
     state
@@ -34,7 +25,7 @@ async fn legal(state: &Shared, format: Format, deck: &LoadedDeck) -> Result<(), 
         .await
         .map_err(|e| db_down(&e))?;
     let facts = held.table.as_deref().ok_or_else(unavailable)?;
-    baylee_cards::ranked::admit(key(format), deck, facts)
+    baylee_cards::ranked::admit(format.as_str(), deck, facts)
         .map_err(|why| err_saying(StatusCode::BAD_REQUEST, why))
 }
 
@@ -46,27 +37,16 @@ pub(super) async fn validate(
     sideboard: &[String],
     commanders: &[String],
 ) -> Result<(LoadedDeck, [u8; 32], Vec<PoolEntry>), Failure> {
-    let reg = baylee_cards::ranked::registration(key(format), cards, sideboard, commanders)
+    let reg = baylee_cards::ranked::registration(format.as_str(), cards, sideboard, commanders)
         .map_err(|why| err_saying(StatusCode::BAD_REQUEST, why))?;
     legal(state, format, &reg.deck).await?;
     // Verify alternate physical printings before accepting even the first seat.
     let mut single = baylee_cards::decks::preset_for_all(0, &[&reg.deck]);
     crate::routes::hydrate_rules(state, &mut single).await?;
-    let mut pool: Vec<_> = reg
-        .pool
+    let pool = baylee_cards::ranked::rating_pool(&reg)
         .into_iter()
-        .map(|((oracle, leader), copies)| {
-            let mut hash = Sha256::new();
-            hash.update(b"baylee-ranked-pool-card-v1\0");
-            hash.update(oracle.as_bytes());
-            hash.update([u8::from(leader)]);
-            PoolEntry {
-                card: hash.finalize().into(),
-                copies,
-            }
-        })
+        .map(|(card, copies)| PoolEntry { card, copies })
         .collect();
-    pool.sort_unstable_by_key(|entry| entry.card);
     Ok((reg.deck, reg.digest, pool))
 }
 

@@ -1,9 +1,11 @@
 //! A real gateway export, Central's encrypted objects and two successive native logins.
 use super::{Account, common};
 use uuid::Uuid;
+#[path = "private_decks/large.rs"]
 mod large;
 
 pub(super) fn seed_gateway(port: u16, token: &str) {
+    large::seed_paged_source(port, token);
     let draft = |cards: &str| {
         serde_json::json!({
             "name":"Before Central","format":"freeform","cards":[cards],"sideboard":["1 Plains"],
@@ -80,7 +82,23 @@ pub(super) fn second_device(first: &mut Account, second: &mut Account, id: Uuid)
     let latest = second.load_deck(id).unwrap();
     assert_eq!(latest.draft.cards, initial.draft.cards);
     assert_eq!(latest.draft.description, "Preserve this description");
-    second.delete_deck(id, latest.revision).unwrap();
+    let same = second
+        .revert_deck(id, latest.revision, initial.revision)
+        .unwrap();
+    assert_eq!(
+        same.revision,
+        latest.revision + 1,
+        "an explicit revert always retains the prior head"
+    );
+    assert_eq!(
+        second
+            .revert_deck(id, latest.revision, initial.revision)
+            .unwrap()
+            .revision,
+        same.revision
+    );
+    second.delete_deck(id, same.revision).unwrap();
+    assert!(second.delete_deck(id, latest.revision).is_err());
     assert!(second.load_deck(id).is_err());
     assert!(
         second

@@ -177,7 +177,7 @@ fn opened_around(
 async fn sign_in(state: &Shared, token: &str, purpose: Purpose) -> Result<Json<Value>, Turned> {
     let bridge = bridge(state)?;
     let claims = checked(&bridge, token).await?;
-    if claims.purpose != purpose {
+    if claims.purpose != purpose || (purpose == Purpose::Ranked) != claims.ranked_match.is_some() {
         return Err(StatusCode::UNAUTHORIZED.into());
     }
     let central = claims.account().ok_or(StatusCode::UNAUTHORIZED)?;
@@ -209,7 +209,13 @@ async fn sign_in(state: &Shared, token: &str, purpose: Purpose) -> Result<Json<V
         // §"Legacy login"); the first admission fixes the link here, ends the
         // account's old sessions, and asks its sockets to sign in again.
         (true, Some(legacy)) => {
-            match baylee_db::central::adopt(&state.db, &legacy, central).await {
+            let adopted = match claims.legacy_deck_source {
+                Some(expected) => {
+                    baylee_db::central::adopt_archived(&state.db, &legacy, central, expected).await
+                }
+                None => baylee_db::central::adopt(&state.db, &legacy, central).await,
+            };
+            match adopted {
                 Ok(true) => {
                     state.sessions.end_account(&legacy, Ended::SignedOut);
                     let _ = state.departed.send(legacy.clone());
@@ -237,7 +243,8 @@ async fn sign_in(state: &Shared, token: &str, purpose: Purpose) -> Result<Json<V
         account = allowed(state, &account_id).await?;
     }
     let now = sessions::now();
-    let signed = Signed::new(central, admin, claims.terms.clone());
+    let mut signed = Signed::new(central, admin, claims.terms.clone());
+    signed.ranked_match = claims.ranked_match;
     let live = opened(
         &state.sessions,
         &bridge.trust,
@@ -250,6 +257,14 @@ async fn sign_in(state: &Shared, token: &str, purpose: Purpose) -> Result<Json<V
         .sessions
         .issue(&live, now)
         .ok_or(StatusCode::UNAUTHORIZED)?;
+    if purpose == Purpose::Ranked {
+        let mut answer = json!({
+            "token": issued.token,
+            "renew_in": ((live.expires_at() - now) / 2).max(1),
+        });
+        crate::routes::mark_standing(state, super::standing(state, &live), &mut answer);
+        return Ok(Json(answer));
+    }
     let mut answer = json!({
         "token": issued.token,
         "expires_at": issued.expires_at,
@@ -329,6 +344,37 @@ async fn login(
     }
 }
 
+/// @route POST /auth/ranked/login
+/// @scope public
+/// @operation-id `rankedHostLogin`
+/// @summary Exchange a ranked game admission
+/// @description Exchanges Central's origin- and match-bound game token for a local bearer accepted only on that game's ranked play endpoint.
+/// @tag Ranked
+/// @security none
+/// @body `$CentralSignIn`
+/// @return 200: `$RankedHostSession` "Bearer restricted to this match"
+/// @return 401: "Invalid, expired, revoked or wrong-purpose admission"
+/// @return 403: "Player or ranked admission refused"
+/// @return 429: "Too many admissions"
+/// @return 503: "Central or host unavailable"
+async fn ranked_login(
+    State(state): State<Shared>,
+    ConnectInfo(addr): ConnectInfo<SocketAddr>,
+    headers: HeaderMap,
+    body: Bytes,
+) -> Response {
+    if !within_budget(&state, addr, &headers) {
+        return StatusCode::TOO_MANY_REQUESTS.into_response();
+    }
+    if !state.auth_mode.current().central() {
+        return StatusCode::FORBIDDEN.into_response();
+    }
+    match read_token(&body) {
+        Ok(token) => answered(sign_in(&state, &token, Purpose::Ranked).await),
+        Err(refused) => *refused,
+    }
+}
+
 /// `POST /auth/central/admin`: a gateway admin, by Baylee Central.
 ///
 /// @route POST /auth/central/admin
@@ -382,7 +428,12 @@ async fn refreshed(state: &Shared, token: &str) -> Result<Json<Value>, StatusCod
         .ok_or(StatusCode::UNAUTHORIZED)?;
     let signed = live.signed().ok_or(StatusCode::UNAUTHORIZED)?;
     let admin = claims.purpose == Purpose::Admin;
-    if claims.account() != Some(signed.central) || admin != signed.admin {
+    if claims.purpose == Purpose::Ranked
+        || claims.ranked_match.is_some()
+        || signed.ranked_match.is_some()
+        || claims.account() != Some(signed.central)
+        || admin != signed.admin
+    {
         return Err(StatusCode::UNAUTHORIZED);
     }
     live.extend(claims.exp);
@@ -576,6 +627,30 @@ async fn invalidate(
 ///         refusal:
 ///           $ref: '#/components/schemas/WireRefusal'
 ///       required: [refusal]
+///     RankedHostSession:
+///       type: object
+///       required: [token, renew_in]
+///       properties:
+///         token:
+///           type: string
+///           description: Bearer restricted to the assigned ranked match.
+///         renew_in:
+///           type: integer
+///           format: int64
+///           description: Seconds until a fresh signed ranked admission should extend the game session.
+///         terms_stale:
+///           type: boolean
+///           description: The assigned host requires an updated terms acceptance at Central.
+///     RankedPlay:
+///       oneOf:
+///         - $ref: '#/components/schemas/RankedDeck'
+///         - type: object
+///           additionalProperties: false
+///           properties:
+///             game:
+///               type: string
+///               format: uuid
+///           required: [game]
 ///     CentralAdminSession:
 ///       type: object
 ///       description: 'A bearer for the admin listener.'
@@ -663,6 +738,7 @@ async fn invalidate(
 pub(crate) fn router() -> Router<Shared> {
     let sign_in = Router::new()
         .route("/auth/central/login", post(login))
+        .route("/auth/ranked/login", post(ranked_login))
         .route("/auth/central/admin", post(admin_login))
         .route("/auth/central/refresh", post(refresh))
         .route("/auth/session/renew", post(renew))
@@ -756,9 +832,11 @@ mod tests {
                 nbf: NOW,
                 exp: NOW + 3600,
                 purpose: Purpose::Admit,
+                ranked_match: None,
                 name: None,
                 tag: None,
                 legacy_id: None,
+                legacy_deck_source: None,
                 terms: None,
             }
         }

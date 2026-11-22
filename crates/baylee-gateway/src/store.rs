@@ -186,7 +186,8 @@ pub struct Deck {
     /// Owning account id — empty for a deck nobody owns, which is every
     /// kind but `account`.
     pub account_id: String,
-    /// Which kind of deck this is: `account`, `preconstructed` or `house`.
+    /// Stored rows are `account`, `preconstructed` or `house`. A private
+    /// snapshot attached only to a room uses `submitted` and a room-local ID.
     pub kind: String,
     /// Deck name.
     pub name: String,

@@ -69,7 +69,7 @@ pub(crate) fn leave_waiting_rooms(state: &Shared, account_id: &str) -> usize {
 
 /// `POST /lobby/depart`: the client is quitting on purpose.
 ///
-/// Every waiting room it sits in is left at once, and every running game it
+/// Every waiting room it sits in is left at once, and every running casual game it
 /// has a chair in is told the player left (`SeatDetached { left: true }`):
 /// the house takes the chair now if another player is at the table, and the
 /// game ends if none is. A crash says none of this and is waited for
@@ -80,10 +80,10 @@ pub(crate) fn leave_waiting_rooms(state: &Shared, account_id: &str) -> usize {
 /// @summary Leave every table on purpose
 /// @description What a client sends when its player leaves on purpose (never
 /// when the application merely closes). The caller stands up from every
-/// waiting room at once, and every running game it sits in is told the
+/// waiting room at once, and every running casual game it sits in is told the
 /// player left: the house takes the chair if another player is at the
 /// table, and the game ends if none is. `204` whether or not there was
-/// anything to leave.
+/// anything to leave. Ranked games use their own game connection for departure.
 /// @tag Lobby
 /// @security bearer
 /// @insert `SessionRefusals`
@@ -98,6 +98,7 @@ pub(crate) async fn depart(
         let lobby = state.lobby.lock();
         lobby
             .running()
+            .filter(|game| game.ranked.is_none())
             .filter_map(|game| {
                 let link = game.engine.clone()?;
                 let seat = game

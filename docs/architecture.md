@@ -121,6 +121,25 @@ information is unrepresentable in a view, and the gateway runs no rules.
 - An away chair keeps `is_ai` false (`SeatIdentity.away`). The roster rides in `GameStatic`; any chair change marks every seat's roster stale.
 - Engine-server harness: `JoinGame.seat_token` is a seat number; joining an AI chair takes it over, disconnecting returns it. Each socket sends only its own seat's envelopes.
 
+## Cross-gateway ranked duels
+
+The home gateway keeps the player's lobby connection throughout a ranked
+duel. Central owns the queue, the season, the account's encrypted deck
+library and the public standings. A host advertises capacity under an
+administrator's ranked verification. Central reserves two players and selects
+one such host. Each client opens a separate, match-scoped connection to that
+host, even when its home gateway also hosts the duel.
+
+The selected host checks the two frozen deck commitments and assigns one
+engine session. The engine sends the terminal outcome to the seated clients
+through the host. The host also queues the outcome for delivery to Central,
+which applies the two player and two deck ratings in one transaction. Leaving
+the table returns each player to the existing lobby session. The client
+shows the confirmed rating changes when Central's receipt becomes available.
+
+See [the host protocol](protocol.md#gateway-hosted-ranked-duels) and
+[ranked play in the desktop client](client-lobby.md#ranked-play).
+
 ## The gateway runs no rules
 
 `docs/protocol.md` is normative.

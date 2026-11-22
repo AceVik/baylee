@@ -170,6 +170,8 @@ pub(crate) struct ConsoleStatus {
     sso: bool,
     /// @description The token keeps this gateway's directory entry.
     listing: bool,
+    /// @description The token may host ranked games on a verified gateway.
+    ranked: bool,
     /// @description When the token stops working.
     expires_at: String,
 }
@@ -201,6 +203,7 @@ fn status_of(
                 state: state_word(state),
                 sso: scopes.sso,
                 listing: scopes.listing,
+                ranked: scopes.ranked,
                 expires_at: OffsetDateTime::from_unix_timestamp(expires_at)
                     .map_or_else(|_| String::new(), iso),
             }),
@@ -492,6 +495,7 @@ mod tests {
             scopes: owner::GatewayScopes {
                 sso: true,
                 listing: false,
+                ranked: false,
             },
             expires_at: 1_800_000_000,
         }));

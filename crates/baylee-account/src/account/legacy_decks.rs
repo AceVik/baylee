@@ -9,7 +9,7 @@ use time::{OffsetDateTime, format_description::well_known::Rfc3339};
 use uuid::Uuid;
 
 #[derive(Deserialize)]
-struct Cards {
+struct SourceLists {
     cards: Vec<String>,
     sideboard: Vec<String>,
     commanders: Vec<String>,
@@ -20,7 +20,7 @@ struct Historical {
     deck_id: Uuid,
     version: u64,
     #[serde(flatten)]
-    lists: Cards,
+    lists: SourceLists,
     summary: Option<String>,
     superseded_at: String,
 }
@@ -39,14 +39,14 @@ struct Head {
     sleeve: Option<String>,
     playmat: Option<String>,
     #[serde(flatten)]
-    lists: Cards,
+    lists: SourceLists,
     updated_at: String,
     history: Vec<Historical>,
 }
 
 fn timestamp(value: &str) -> Result<i64, Error> {
     OffsetDateTime::parse(value, &Rfc3339)
-        .map(|time| time.unix_timestamp())
+        .map(OffsetDateTime::unix_timestamp)
         .map_err(|_| Error::Rejected)
 }
 
@@ -69,7 +69,7 @@ fn convert(origin: &str, account: Uuid, head: Head) -> Result<ImportedDeck, Erro
         _ => return Err(Error::Rejected),
     };
     let cosmetic_origin = (head.sleeve.is_some() || head.playmat.is_some()).then(|| origin.into());
-    let snapshot = |revision, lists: Cards, summary| DeckDraft {
+    let snapshot = |revision, lists: SourceLists, summary| DeckDraft {
         name: head.name.clone(),
         format: head.format.clone(),
         description: head.description.clone().unwrap_or_default(),
@@ -105,7 +105,7 @@ fn convert(origin: &str, account: Uuid, head: Head) -> Result<ImportedDeck, Erro
     Ok(ImportedDeck { versions })
 }
 
-fn import_key(legacy: &LegacyData) -> [u8; 32] {
+pub(super) fn import_key(legacy: &LegacyData) -> [u8; 32] {
     let mut hash = Sha256::new();
     hash.update(b"baylee:legacy-deck-library:v1\0");
     hash.update(legacy.gateway.as_bytes());
@@ -114,6 +114,27 @@ fn import_key(legacy: &LegacyData) -> [u8; 32] {
     hash.update([0]);
     hash.update(legacy.digest);
     hash.finalize().into()
+}
+
+pub(super) fn decode_heads(
+    origin: &str,
+    account_id: &str,
+    rows: &[serde_json::Value],
+) -> Result<Vec<ImportedDeck>, Error> {
+    if rows.len() > 1000 {
+        return Err(Error::Rejected);
+    }
+    let account = Uuid::parse_str(account_id).map_err(|_| Error::Rejected)?;
+    let mut decks = Vec::with_capacity(rows.len());
+    let mut ids = BTreeSet::new();
+    for row in rows {
+        let head: Head = Head::deserialize(row).map_err(|_| Error::Rejected)?;
+        if !ids.insert(head.id) {
+            return Err(Error::Rejected);
+        }
+        decks.push(convert(origin, account, head)?);
+    }
+    Ok(decks)
 }
 
 impl Account {
@@ -136,16 +157,11 @@ impl Account {
         if import_key(legacy) != key {
             return Err(Error::Conflict);
         }
-        let account = Uuid::parse_str(&legacy.account_id).map_err(|_| Error::Rejected)?;
-        let mut decks = Vec::new();
-        let mut ids = BTreeSet::new();
-        for row in legacy.decks.as_array().ok_or(Error::Rejected)? {
-            let head: Head = Head::deserialize(row).map_err(|_| Error::Rejected)?;
-            if !ids.insert(head.id) {
-                return Err(Error::Rejected);
-            }
-            decks.push(convert(&legacy.gateway, account, head)?);
-        }
+        let decks = decode_heads(
+            &legacy.gateway,
+            &legacy.account_id,
+            legacy.decks.as_array().ok_or(Error::Rejected)?,
+        )?;
         self.import_decks(key, decks)
     }
 }

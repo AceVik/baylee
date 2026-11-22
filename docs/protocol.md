@@ -6434,18 +6434,26 @@ The public gateway lifecycle/seat-start path and visible client flow remain pend
 A player keeps their original lobby and social connection. Central matches two
 accounts in one format (Standard, Highlander or Commander), chooses a currently
 verified host and returns its origin. The game connection authenticates
-separately to that origin with a gateway-specific Central admission. Only the
-selected host receives its own credential and the private deck registrations.
+separately to that origin with a Central admission signed for that match,
+host and dedicated session. `POST /auth/ranked/login` exchanges the signed
+token for a bearer scoped to `/ranked/{match_id}/play` and a relative `renew_in`
+interval in seconds. During a long game, the client obtains a fresh signed
+admission at that interval and presents it to the same endpoint. The original
+seat socket observes the extended session immediately. Ordinary auth, lobby
+routes and account endpoints reject this bearer. The home gateway session
+and chat remain active throughout the duel.
 
-On that host, `POST /ranked/{match_id}/play` takes its local session bearer and
+On that host, `POST /ranked/{match_id}/play` takes its match-scoped bearer and
 a JSON object with `format`, `cards`, `sideboard` and `commanders` in the same
 row notation as the deck shelf. Each player submits only their own frozen deck.
 The host checks legality and computes the registered deck commitment before
 asking Central to confirm the caller's account, seat, format and commitment.
 It returns `202` while waiting for the second registration. Both players retry
 the same request until it returns a normal `200` seat grant. The player then
-uses the selected host's seat ticket and game socket. An account may resume its
-own running seat on that host through `POST /lobby/games/{game}/seat`.
+uses the selected host's seat ticket and game socket. To resume, it uses a fresh
+ranked admission and sends `{"game":"<bound game UUID>"}` to the same ranked
+play endpoint. The host rechecks the exact assignment, commitment and account
+with Central before reissuing the game seat.
 
 No waiting room is exposed. The host freezes two human seats, both decks and
 the preset, binds one PostgreSQL game UUID at Central, and orders at most one

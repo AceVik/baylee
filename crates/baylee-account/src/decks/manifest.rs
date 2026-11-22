@@ -76,7 +76,7 @@ pub(crate) struct Root {
     pub(crate) kind: String,
     pub(crate) generation: u64,
     pub(crate) heads: BTreeMap<Uuid, Head>,
-    pub(crate) removed: BTreeMap<Uuid, Option<DeckSource>>,
+    pub(crate) removed: BTreeMap<Uuid, (u64, Option<DeckSource>)>,
     pub(crate) imports: BTreeSet<[u8; 32]>,
 }
 #[cfg(feature = "client")]
@@ -96,8 +96,22 @@ impl Root {
             || self.heads.len() > 1000
             || self.removed.len() > 16_384
             || self.imports.len() > 8192
+            || self
+                .removed
+                .iter()
+                .any(|(id, (revision, _))| id.get_version_num() != 7 || *revision == 0)
         {
             return Err(Error::Rejected);
+        }
+        let mut scopes = BTreeSet::new();
+        for source in self.heads.values().filter_map(|h| h.source.as_ref()).chain(
+            self.removed
+                .values()
+                .filter_map(|(_, source)| source.as_ref()),
+        ) {
+            if source.account.is_none() || !source.valid() || !scopes.insert(source.scope()) {
+                return Err(Error::Rejected);
+            }
         }
         for (id, head) in &self.heads {
             let s = &head.summary;
@@ -105,13 +119,16 @@ impl Root {
                 || id.get_version_num() != 7
                 || self.removed.contains_key(id)
                 || s.revision == 0
-                || s.name.is_empty()
+                || s.name.trim().is_empty()
+                || !s.name.chars().all(central_api::gateway::shown_char)
                 || s.name.len() > 64
                 || s.format.len() > 64
                 || s.commanders.len() > 2
                 || s.commanders.iter().any(|s| s.len() > 512)
                 || s.cards > 250
                 || s.sideboard > 250
+                || s.copies > 250
+                || s.side_copies > 250
             {
                 return Err(Error::Rejected);
             }

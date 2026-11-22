@@ -10,7 +10,7 @@ use std::time::Duration;
 async fn ranked_duel_claims_both_seats_and_delivers_after_retry() {
     let stub = stub_central::Stub::serve(Duration::ZERO);
     let (gw, _settings) = stub_central::gateway(&stub, "ranked_duel");
-    let accounts = [1, 2, 3].map(|key| stub_central::linked(&gw, &stub, key));
+    let home = [1, 2, 3].map(|key| stub_central::linked(&gw, &stub, key));
     let catalog = Catalog::connect(&gw.database_url()).await.unwrap();
     let forest = baylee_cards::by_index(baylee_cards::decks::by_name("Forest").unwrap()).unwrap();
     catalog
@@ -22,7 +22,9 @@ async fn ranked_duel_claims_both_seats_and_delivers_after_retry() {
             collector_number: "1".into(),
             name: "Forest".into(),
             type_line: Some("Basic Land — Forest".into()),
-            legalities: [("standard".into(), "legal".into())].into(),
+            legalities: ["standard", "vintage", "commander"]
+                .map(|key| (key.into(), "legal".into()))
+                .into(),
             ..Default::default()
         }])
         .await
@@ -39,6 +41,40 @@ async fn ranked_duel_claims_both_seats_and_delivers_after_retry() {
     let reg =
         baylee_cards::ranked::registration("standard", &["60 Forest".into()], &[], &[]).unwrap();
     let id = stub.reserve_ranked([1, 2], [reg.digest; 2]);
+    let accounts = [1, 2, 3].map(|key| stub.game_bearer(gw.port, key, id));
+    for path in ["/me", "/decks", "/lobby/games"] {
+        assert_eq!(
+            common::http(gw.port, "GET", path, Some(&accounts[0]), "").0,
+            401
+        );
+    }
+    assert_eq!(
+        common::http(
+            gw.port,
+            "POST",
+            "/auth/session/renew",
+            Some(&accounts[0]),
+            "{}"
+        )
+        .0,
+        401
+    );
+    let other = format!("/ranked/{}/play", uuid::Uuid::now_v7());
+    assert_eq!(
+        common::http(
+            gw.port,
+            "POST",
+            &other,
+            Some(&accounts[0]),
+            r#"{"game":"019afcb6-1234-7001-8421-000000000000"}"#
+        )
+        .0,
+        401
+    );
+    assert_eq!(
+        common::http(gw.port, "GET", "/me", Some(&home[0]), "").0,
+        200
+    );
     let path = format!("/ranked/{id}/play");
     let body=serde_json::json!({"format":"standard","cards":["60 Forest"],"sideboard":[],"commanders":[]}).to_string();
     let claim =
@@ -55,6 +91,12 @@ async fn ranked_duel_claims_both_seats_and_delivers_after_retry() {
     assert_eq!(out, 200, "{a}");
     let game = common::json_field(&a, "game_id");
     assert_eq!(game, common::json_field(&b, "game_id"));
+    let (status, chairs) = common::http(gw.port, "GET", "/lobby/seats", Some(&home[0]), "");
+    assert_eq!(status, 200);
+    assert!(
+        !chairs.contains(game),
+        "ranked recovery belongs to Central status"
+    );
     assert_eq!(
         gw.scalar("SELECT count(*) FROM ranked_run WHERE launched"),
         1
@@ -64,13 +106,19 @@ async fn ranked_duel_claims_both_seats_and_delivers_after_retry() {
             gw.port,
             "POST",
             &format!("/lobby/games/{game}/seat"),
-            Some(&accounts[2]),
+            Some(&home[2]),
             "{}"
         )
         .0,
         403
     );
-    let mut first = common::dial_seat(gw.port, game, common::json_field(&a, "seat_token")).await;
+    let (out, reissued) = claim(0, &serde_json::json!({"game":game}).to_string());
+    assert_eq!(
+        out, 200,
+        "the same dedicated host session can reclaim its own game"
+    );
+    let mut first =
+        common::dial_seat(gw.port, game, common::json_field(&reissued, "seat_token")).await;
     let mut second = common::dial_seat(gw.port, game, common::json_field(&b, "seat_token")).await;
     for socket in [&mut first, &mut second] {
         common::send(
@@ -91,8 +139,22 @@ async fn ranked_duel_claims_both_seats_and_delivers_after_retry() {
     })
     .await
     .unwrap();
-    let (out, message) = common::http(gw.port, "POST", "/lobby/depart", Some(&accounts[0]), "{}");
-    assert_eq!(out, 204, "{message}");
+    assert_eq!(
+        common::http(gw.port, "POST", "/lobby/depart", Some(&home[1]), "").0,
+        204,
+        "leaving the home lobby must preserve the second ranked seat"
+    );
+    common::send(
+        &mut first,
+        &Envelope {
+            msg: Some(Msg::PlayerAction(v1::PlayerActionMsg {
+                game_id: String::new(),
+                seat_token: String::new(),
+                action: baylee_core::wire::encode(&baylee_engine::choice::PlayerAction::Concede),
+            })),
+        },
+    )
+    .await;
     tokio::time::timeout(Duration::from_secs(40), async {
         while stub.ranked_result().is_none() || gw.scalar("SELECT count(*) FROM ranked_run") != 0 {
             tokio::time::sleep(Duration::from_millis(150)).await;
@@ -101,4 +163,11 @@ async fn ranked_duel_claims_both_seats_and_delivers_after_retry() {
     .await
     .expect("the outbox retries after a refused delivery");
     assert_eq!(stub.ranked_result(), Some((Outcome::SecondWins, 2)));
+    stub.revoke(65);
+    stub.push(gw.port);
+    assert_eq!(claim(0, &body).0, 401);
+    assert_eq!(
+        common::http(gw.port, "GET", "/me", Some(&home[0]), "").0,
+        200
+    );
 }
