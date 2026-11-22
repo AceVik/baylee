@@ -666,7 +666,10 @@ pub(super) fn resume_inner(
         AwaitingOp::GraveyardFind { find } => {
             let you = res.controller;
             if let Some(&card) = chosen.first()
-                && state.zones.list(ZoneLocation::Graveyard(you)).contains(&card)
+                && state
+                    .zones
+                    .list(ZoneLocation::Graveyard(you))
+                    .contains(&card)
             {
                 let find = search::resolve_find(state, res, you, *find, card);
                 state.entries.set_putter(you);
