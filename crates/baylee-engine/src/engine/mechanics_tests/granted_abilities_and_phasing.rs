@@ -345,6 +345,7 @@ fn granted_triggered_definition_enforces_intervening_if_both_checks_and_once_per
 fn until_eot_animation_grants_modal_triggered_definition_and_expires_at_cleanup() {
     static MODAL_ATTACK: AbilityDef = AbilityDef::ModalTriggered {
         trigger: Trigger::Attacks(&Filter::This),
+        restriction: baylee_cards_dsl::ModalRestriction::None,
         modes: &[
             SpellMode {
                 effects: &[Effect::DealDamage {

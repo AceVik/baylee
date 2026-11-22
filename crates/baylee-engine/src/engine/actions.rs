@@ -525,6 +525,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                             "the modal plan and the queue's front are the same trigger",
                         );
                         front.chosen_mode = Some(mode as u8);
+                        self.record_modal_trigger_mode(mode);
                         return Ok(());
                     }
                     // Its controller said which "instead" applies (CR 616.1e).

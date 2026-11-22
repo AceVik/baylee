@@ -261,11 +261,7 @@ impl Tx<'_> {
             return self.chain_sub_ability(sub, chain);
         }
         if api == "Charm" && p.has("ChoiceRestriction") {
-            if targets_here || chain.target.is_some() || chain.second_target.is_some() {
-                return self
-                    .deny("`Charm` `ChoiceRestriction$` beside an existing target".to_string());
-            }
-            return self.wave26c_restricted_charm_chain(p, sub, chain);
+            return self.deny("a restricted modal choice outside a modal trigger".to_string());
         }
         if api == "RepeatEach" {
             let saved_p = p.clone();
@@ -9253,86 +9249,6 @@ impl Tx<'_> {
             }
             _ => None,
         }
-    }
-
-    /// Wave 26c: inline restricted modal choice (`DB$ Charm | ChoiceRestriction$ ThisGame/ThisTurn`,
-    /// CR 700.2i / CR 400.7; *Henrika Domnathi*, *Monument to Endurance*, *Gala Greeters*,
-    /// *Galadriel, Light of Valinor*, *Genku, Future Shaper*, *Kimoyo Beads*, *The Vision*).
-    /// Strictly refuses targeted modes (since `ChooseOneRestricted` resolves inline) and
-    /// non-Paper restrictions (e.g. Alchemy `YourLastCombat`).
-    fn wave26c_restricted_charm_chain(
-        &mut self,
-        mut p: Params,
-        sub: Option<String>,
-        chain: &mut Chain,
-    ) -> Option<()> {
-        if self.on_a_spell {
-            return self.deny("`Charm` `ChoiceRestriction$` on a spell".to_string());
-        }
-        let restriction = match p.take("ChoiceRestriction").as_deref() {
-            Some("ThisTurn") => "ModalRestriction::OncePerTurn",
-            Some("ThisGame") => "ModalRestriction::OncePerPermanent",
-            Some(other) => {
-                return self.deny(format!("`Charm` with `ChoiceRestriction$ {other}`"));
-            }
-            None => return None,
-        };
-        match p.take("Defined").as_deref() {
-            None | Some("You") => {}
-            Some(who) => {
-                return self.deny(format!("restricted `Charm` with `Defined$ {who}`"));
-            }
-        }
-        match p.take("CharmNum").as_deref() {
-            None | Some("1") => {}
-            Some(n) => {
-                return self.deny(format!("restricted `Charm` choosing `{n}`"));
-            }
-        }
-        match p.take("MinCharmNum").as_deref() {
-            None | Some("1") => {}
-            Some(n) => {
-                return self.deny(format!("restricted `Charm` with `MinCharmNum$ {n}`"));
-            }
-        }
-        let Some(raw_choices) = p.take("Choices") else {
-            return self.deny("a restricted `Charm` with no `Choices$`".to_string());
-        };
-        if let Some(key) = p.first_key() {
-            return self.deny(format!("unclaimed parameter `Charm.{key}`"));
-        }
-        let mut choices = Vec::new();
-        for name in raw_choices
-            .split(',')
-            .map(str::trim)
-            .filter(|s| !s.is_empty())
-        {
-            let Some(body) = self.svars.get(name).cloned() else {
-                return self.deny(format!("charm choice `{name}` with no `SVar`"));
-            };
-            let mut branch = Chain::default();
-            self.chain(&body, &mut branch)?;
-            if branch.target.is_some() || branch.second_target.is_some() {
-                return self.deny("a restricted modal choice with a targeted mode".to_string());
-            }
-            if branch.effects.is_empty() {
-                return self.deny("an empty restricted modal choice".to_string());
-            }
-            chain.moves_library |= branch.moves_library;
-            let one = match branch.effects.as_slice() {
-                [only] => only.clone(),
-                many => format!("Effect::Sequence(&[{}])", many.join(", ")),
-            };
-            choices.push(one);
-        }
-        if choices.len() < 2 || choices.len() > 64 {
-            return self.deny("a restricted `Charm` with fewer than two modes".to_string());
-        }
-        chain.effects.push(format!(
-            "Effect::ChooseOneRestricted {{ choices: &[{}], restriction: {restriction} }}",
-            choices.join(", ")
-        ));
-        self.chain_sub_ability(sub, chain)
     }
 
     /// Wave 26c: 2nd-target `ChangeZone` acting on `TargetSpec::CardInFirstTargetsGraveyard`

@@ -33,6 +33,7 @@ enum Body {
     /// A choice of them (CR 603.3c).
     Modes {
         modes: &'static [SpellMode],
+        restriction: baylee_cards_dsl::ModalRestriction,
         condition: Option<baylee_cards_dsl::Condition>,
     },
     /// Anything else that can reach the queue, which is the same as only
@@ -68,9 +69,13 @@ impl Body {
                 condition: None,
             },
             Some(AbilityDef::ModalTriggered {
-                modes, condition, ..
+                modes,
+                restriction,
+                condition,
+                ..
             }) => Self::Modes {
                 modes,
+                restriction: *restriction,
                 condition: *condition,
             },
             other => Self::Opaque(index, other.copied().map(Box::new)),

@@ -1699,6 +1699,8 @@ pub enum AbilityDef {
         zone: TriggerZone,
         /// The modes to choose from.
         modes: &'static [SpellMode],
+        /// Which previously chosen modes are unavailable (CR 700.2i).
+        restriction: crate::ModalRestriction,
         /// Fires at most once each turn.
         once_per_turn: bool,
         /// The intervening-`if` clause, as on [`AbilityDef::Triggered`].
@@ -1951,6 +1953,7 @@ impl core::hash::Hash for AbilityDef {
                 trigger,
                 zone,
                 modes,
+                restriction,
                 once_per_turn,
                 condition,
             } => {
@@ -1959,6 +1962,9 @@ impl core::hash::Hash for AbilityDef {
                 modes.hash(state);
                 once_per_turn.hash(state);
                 condition.hash(state);
+                if *restriction != crate::ModalRestriction::None {
+                    restriction.hash(state);
+                }
             }
             Self::Unearth { cost } | Self::Encore { cost } => cost.hash(state),
             Self::Splice { onto, cost } => {
@@ -2790,6 +2796,7 @@ mod tests {
             AbilityDef::ModalTriggered {
                 trigger: Trigger::ETB,
                 modes: &[],
+                restriction: crate::ModalRestriction::None,
                 zone: TriggerZone::Battlefield,
                 once_per_turn: false,
                 condition: None,

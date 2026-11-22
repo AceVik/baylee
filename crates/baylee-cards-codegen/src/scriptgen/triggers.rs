@@ -2796,9 +2796,16 @@ impl Tx<'_> {
             && self.block_line.is_none()
             && let Some((api, mut cp)) = Params::parse(&body)
             && api == "Charm"
-            && !cp.has("ChoiceRestriction")
         {
             cp.drop_prose();
+            let restriction = match cp.take("ChoiceRestriction").as_deref() {
+                None => "",
+                Some("ThisTurn") => ", restriction = ModalRestriction::OncePerTurn",
+                Some("ThisGame") => ", restriction = ModalRestriction::OncePerPermanent",
+                Some(other) => {
+                    return self.deny(format!("a modal trigger with `ChoiceRestriction$ {other}`"));
+                }
+            };
             let Some(choices) = cp.take("Choices") else {
                 return self.deny("a modal trigger with no `Choices$`".to_string());
             };
@@ -2815,12 +2822,13 @@ impl Tx<'_> {
             self.trigger_is_self = false;
             self.is_etb_self_trigger = false;
             let parsed = parsed?;
-            if parsed.len() < 2 {
-                return self.deny("a charm with fewer than two modes".to_string());
+            if parsed.len() < 2 || (!restriction.is_empty() && parsed.len() > 64) {
+                return self
+                    .deny("a modal trigger with an unsupported number of modes".to_string());
             }
             let modes: Vec<String> = parsed.into_iter().map(|(m, _, _, _)| m).collect();
             self.body.abilities.push(format!(
-                "modal_triggered!({trigger}, &[{}]{zone}{once_per_turn}{condition})",
+                "modal_triggered!({trigger}, &[{}]{zone}{once_per_turn}{condition}{restriction})",
                 modes.join(", ")
             ));
             return Some(());

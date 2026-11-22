@@ -334,6 +334,8 @@ pub struct ModalTriggeredParts {
     pub zone: TriggerZone,
     /// The modes to choose from (CR 700.2).
     pub modes: &'static [SpellMode],
+    /// Which previously chosen modes are unavailable (CR 700.2i).
+    pub restriction: crate::ModalRestriction,
     /// Whether it fires at most once each turn.
     pub once_per_turn: bool,
     /// The intervening-`if` clause, if the card prints one (CR 603.4).
@@ -350,6 +352,7 @@ impl ModalTriggeredParts {
             trigger,
             zone: TriggerZone::Battlefield,
             modes,
+            restriction: crate::ModalRestriction::None,
             once_per_turn: false,
             condition: None,
         }
@@ -362,6 +365,7 @@ impl ModalTriggeredParts {
             trigger: self.trigger,
             zone: self.zone,
             modes: self.modes,
+            restriction: self.restriction,
             once_per_turn: self.once_per_turn,
             condition: self.condition,
         }
@@ -1225,7 +1229,7 @@ pub mod prelude {
     pub use crate::counters;
     pub use crate::effect::{
         Amount, ChooseMove, ChooseZone, ColorSubject, CombatWatchEvent, CopyCleanup, CounterKind,
-        DamageRedirectTo, DamageTo, DelayedDuration, DelayedObservation, DelayedStep,
+        DamageRedirectTo, DamageRider, DamageTo, DelayedDuration, DelayedObservation, DelayedStep,
         DelayedTriggerWhen, DivisionAmount, Effect, ExileMana, ExilePermission, ExilePlay,
         ExileUntil, Find, LookRest, ManaDistribution, ManaRestriction, ManaSource, ManaUse,
         ManaValueBound, ManaValueCmp, ModalRestriction, MoveSubject, NumberChoiceKind,

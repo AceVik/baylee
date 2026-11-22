@@ -75,6 +75,80 @@ fn add_pool(engine: &mut Bench, player: PlayerId, color: ManaColor, amount: u32)
     refresh_offer(engine);
 }
 
+#[test]
+fn restricted_modal_triggers_reserve_modes_before_any_trigger_resolves() {
+    use crate::zone::ZonePosition;
+    use baylee_cards_dsl::ModalRestriction;
+    use baylee_cards_dsl::prelude::{modal_triggered, mode};
+
+    static MODES: &[SpellMode] = &[
+        mode!(&[Effect::GainLife {
+            amount: Amount::Fixed(2)
+        }]),
+        mode!(&[Effect::GainLife {
+            amount: Amount::Fixed(3)
+        }]),
+    ];
+    static ABILITIES: &[AbilityDef] = &[modal_triggered!(
+        Trigger::EntersBattlefield(&Filter::CREATURE),
+        MODES,
+        restriction = ModalRestriction::OncePerTurn
+    )];
+    let cards = vec![
+        card(
+            BEAR_QUEEN,
+            creature_face("Modal source", "{1}{G}", 2, 2),
+            KeywordSet::EMPTY,
+            ABILITIES,
+        ),
+        card(
+            CUB_BEAR,
+            creature_face("Entrant", "{G}", 2, 2),
+            KeywordSet::EMPTY,
+            &[],
+        ),
+    ];
+    let mut game = bench(
+        603,
+        cards,
+        [
+            Seat::with(&[BEAR_QUEEN]).holding(&[CUB_BEAR, CUB_BEAR, CUB_BEAR]),
+            Seat::default(),
+        ],
+    );
+    to_main(&mut game, me());
+    let entrants = game.state.zones.list(ZoneLocation::Hand(me())).clone();
+    for entrant in entrants.into_iter().take(3) {
+        game.state
+            .move_object(
+                entrant,
+                ZoneLocation::Battlefield,
+                ZonePosition::Top,
+                crate::event::Cause::Effect,
+            )
+            .unwrap();
+    }
+    game.collect_triggers();
+    let Pending::ChooseCastMode { options, .. } = game.pending() else {
+        panic!("first trigger must ask for its mode before it stacks");
+    };
+    assert_eq!(
+        options.iter().map(|o| o.kind).collect::<Vec<_>>(),
+        [CastModeKind::Mode(0), CastModeKind::Mode(1)]
+    );
+    game.apply(me(), PlayerAction::ChooseMode(1)).unwrap();
+    let Pending::ChooseCastMode { options, .. } = game.pending() else {
+        panic!("second trigger must ask for its mode before resolution");
+    };
+    assert_eq!(options.len(), 1);
+    assert_eq!(options[0].kind, CastModeKind::Mode(0));
+    assert_eq!(game.state.zones.list(ZoneLocation::Stack).len(), 1);
+    game.apply(me(), PlayerAction::ChooseMode(0)).unwrap();
+    assert_eq!(game.state.zones.list(ZoneLocation::Stack).len(), 2);
+    drain_stack(&mut game);
+    assert_eq!(life(&game, me()), 25);
+}
+
 fn drain_stack(engine: &mut Bench) {
     for _ in 0..64 {
         if engine.state.zones.stack_is_empty()
@@ -166,6 +240,7 @@ fn modal_trigger_second_targets_fights_and_suppresses_untargetable_mode() {
     static QUEEN_ABILS: [AbilityDef; 1] = [AbilityDef::ModalTriggered {
         trigger: Trigger::EntersBattlefield(&YOUR_BEAR),
         modes: &MODES,
+        restriction: baylee_cards_dsl::ModalRestriction::None,
         zone: TriggerZone::Battlefield,
         once_per_turn: false,
         condition: None,

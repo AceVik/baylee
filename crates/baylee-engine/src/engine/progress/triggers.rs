@@ -366,13 +366,68 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
     fn modal_trigger_modes(
         &self,
         t: &crate::trigger::PendingTrigger,
-    ) -> Option<&'static [baylee_cards_dsl::SpellMode]> {
+    ) -> Option<(
+        &'static [baylee_cards_dsl::SpellMode],
+        baylee_cards_dsl::ModalRestriction,
+    )> {
         self.trigger_abilities(t)
             .get(t.ability_index as usize)
             .and_then(|a| match a {
-                AbilityDef::ModalTriggered { modes, .. } => Some(*modes),
+                AbilityDef::ModalTriggered {
+                    modes, restriction, ..
+                } => Some((*modes, *restriction)),
                 _ => None,
             })
+    }
+
+    fn modal_trigger_mask(
+        &self,
+        t: &crate::trigger::PendingTrigger,
+        restriction: baylee_cards_dsl::ModalRestriction,
+    ) -> u64 {
+        use baylee_cards_dsl::ModalRestriction;
+        let Some(version) = t.source_version else {
+            return 0;
+        };
+        let key = (
+            baylee_core::ids::DamageSourceRef {
+                object: t.source,
+                version,
+            },
+            t.fire_key(),
+        );
+        match restriction {
+            ModalRestriction::None => None,
+            ModalRestriction::OncePerTurn => self.state.per_turn.modal_modes_this_turn.0.get(&key),
+            ModalRestriction::OncePerPermanent => self.state.modal_modes_used.get(&key),
+        }
+        .copied()
+        .unwrap_or_default()
+    }
+
+    pub(in crate::engine) fn record_modal_trigger_mode(&mut self, mode: usize) {
+        use baylee_cards_dsl::ModalRestriction;
+        let Some(t) = self.trigger_queue.front() else {
+            return;
+        };
+        if let Some((_, restriction)) = self.modal_trigger_modes(t)
+            && let Some(version) = t.source_version
+            && mode < 64
+        {
+            let key = (
+                baylee_core::ids::DamageSourceRef {
+                    object: t.source,
+                    version,
+                },
+                t.fire_key(),
+            );
+            let used = match restriction {
+                ModalRestriction::None => return,
+                ModalRestriction::OncePerTurn => &mut self.state.per_turn.modal_modes_this_turn.0,
+                ModalRestriction::OncePerPermanent => &mut self.state.modal_modes_used,
+            };
+            *used.entry(key).or_default() |= 1 << mode;
+        }
     }
 
     fn trigger_second_depends_on_first(spec: baylee_cards_dsl::TargetSpec) -> bool {
@@ -1138,7 +1193,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
             // ordinary path below with its mode's own target requirement.
             if t.ability_index != baylee_core::ids::AbilityRef::SYNTHETIC
                 && t.chosen_mode.is_none()
-                && let Some(modes) = self.modal_trigger_modes(&t)
+                && let Some((modes, restriction)) = self.modal_trigger_modes(&t)
             {
                 // "If one of the modes would be illegal (due to an inability
                 // to choose legal targets, for example), that mode can't be
@@ -1146,10 +1201,14 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 // can be met. The option's `kind` carries the mode number
                 // because this filtering breaks the identity between a
                 // position in the list and the mode it names.
+                let used = self.modal_trigger_mask(&t, restriction);
                 let options: Vec<CastModeDesc> = modes
                     .iter()
                     .enumerate()
-                    .filter(|(_, mode)| self.mode_is_choosable(&t, mode))
+                    .filter(|(index, mode)| {
+                        (*index >= 64 || used & (1 << index) == 0)
+                            && self.mode_is_choosable(&t, mode)
+                    })
                     .enumerate()
                     .map(|(position, (mode_index, _))| CastModeDesc {
                         index: position as u32,

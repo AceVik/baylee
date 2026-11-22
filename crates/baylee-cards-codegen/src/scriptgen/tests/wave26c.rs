@@ -2,7 +2,7 @@
 //! - Wave 14c generalized 2nd-target chains via `Effect::WithSecondTarget`,
 //!   multi-count `second_target_up_to`, `CardInFirstTargetsGraveyard` non-shuffling moves,
 //!   and `Effect::AttachSlot` (`First -> Second`, `Second -> First`, `First -> This`, `This -> First`, `This -> Second`).
-//! - Wave 14e restricted inline modal choices via `Effect::ChooseOneRestricted` with
+//! - Restricted modal triggers with
 //!   `ModalRestriction::{OncePerTurn, OncePerPermanent}`.
 //! - Strict Paper-MTG & soundness refusal boundaries (including keeping `TargetUnique$ True`
 //!   refused on new APIs until `TargetConstraint::DistinctFromPriorTargetGroups` is wired).
@@ -479,104 +479,37 @@ fn attach_slot_single_target_self_real_paper_cards() {
     );
 }
 
-// ---------------------------------------------------------------------------
-// 5. Effect::ChooseOneRestricted — OncePerPermanent & OncePerTurn
-// ---------------------------------------------------------------------------
-
 #[test]
-fn choose_one_restricted_once_per_permanent_and_once_per_turn() {
-    // Henrika Domnathi modes (OncePerPermanent / ChoiceRestriction$ ThisGame).
-    let henrika_opt = read_w26c(
+fn restricted_triggers_use_stack_modal_choices() {
+    let henrika = read_w26c(
         "Name:Henrika Proxy\nManaCost:2 B B\nTypes:Legendary Creature Vampire\nPT:1/3\n\
-         T:Mode$ Phase | Phase$ BeginCombat | ValidPlayer$ You | OptionalDecider$ You | Execute$ TrigCharm | TriggerZones$ Battlefield\n\
-         SVar:TrigCharm:DB$ Charm | Choices$ SacDom,DrawDom,TransDom | ChoiceRestriction$ ThisGame\n\
-         SVar:SacDom:DB$ Sacrifice | Amount$ 1 | SacValid$ Creature | Defined$ Player\n\
+         T:Mode$ Phase | Phase$ BeginCombat | ValidPlayer$ You | Execute$ TrigCharm | TriggerZones$ Battlefield\n\
+         SVar:TrigCharm:DB$ Charm | Choices$ DrawDom,TransDom | ChoiceRestriction$ ThisGame\n\
          SVar:DrawDom:DB$ Draw | Defined$ You | NumCards$ 1 | SubAbility$ DBLoseLife\n\
          SVar:DBLoseLife:DB$ LoseLife | Defined$ You | LifeAmount$ 1\n\
          SVar:TransDom:DB$ SetState | Defined$ Self | Mode$ Transform",
     );
-    let h = &henrika_opt.abilities[0];
+    let h = &henrika.abilities[0];
+    assert!(h.starts_with("modal_triggered!("), "{h}");
+    assert!(h.contains("Effect::draw(1)"), "{h}");
+    assert!(h.contains("Effect::TransformSource"), "{h}");
     assert!(
-        h.contains("Effect::ChooseOneRestricted { choices: &[")
-            && h.contains("Effect::Sequence(&[Effect::draw(1), Effect::LoseLife { amount: Amount::Fixed(1), target: PlayerRel::You }])")
-            && h.contains("Effect::TransformSource")
-            && h.contains("restriction: ModalRestriction::OncePerPermanent"),
+        h.contains("restriction = ModalRestriction::OncePerPermanent"),
         "{h}"
     );
 
-    // Monument to Endurance modes (OncePerTurn / ChoiceRestriction$ ThisTurn).
-    let monument_chain = read_w26c(
+    let monument = read_w26c(
         "Name:Monument Proxy\nManaCost:3\nTypes:Artifact\n\
-         T:Mode$ Discarded | ValidCard$ Card.YouOwn | OptionalDecider$ You | TriggerZones$ Battlefield | Execute$ TrigCharm\n\
-         SVar:TrigCharm:DB$ Charm | Choices$ DBDraw,DBToken,DBLoseLife | ChoiceRestriction$ ThisTurn\n\
+         T:Mode$ Discarded | ValidCard$ Card.YouOwn | TriggerZones$ Battlefield | Execute$ TrigCharm\n\
+         SVar:TrigCharm:DB$ Charm | Choices$ DBDraw,DBLoseLife | ChoiceRestriction$ ThisTurn\n\
          SVar:DBDraw:DB$ Draw\n\
-         SVar:DBToken:DB$ Token | TokenScript$ c_a_treasure_sac\n\
          SVar:DBLoseLife:DB$ LoseLife | Defined$ Player.Opponent | LifeAmount$ 3",
     );
-    let m = &monument_chain.abilities[0];
+    let m = &monument.abilities[0];
+    assert!(m.starts_with("modal_triggered!("), "{m}");
     assert!(
-        m.contains("Effect::ChooseOneRestricted { choices: &[")
-            && m.contains("Effect::draw(1)")
-            && m.contains(
-                "Effect::LoseLife { amount: Amount::Fixed(3), target: PlayerRel::Opponent }"
-            )
-            && m.contains("restriction: ModalRestriction::OncePerTurn"),
+        m.contains("restriction = ModalRestriction::OncePerTurn"),
         "{m}"
-    );
-
-    // Galadriel, Light of Valinor modes (OncePerTurn: mana + counter-all + scry-then-draw).
-    let galadriel_script = parse(
-        "Name:Galadriel, Light of Valinor\nManaCost:2 G W U\nTypes:Legendary Creature Elf Noble\nPT:3/3\n\
-         SVar:TrigCharm:DB$ Charm | Choices$ DBRamp,DBPutCounterAll,DBScry | ChoiceRestriction$ ThisTurn\n\
-         SVar:DBRamp:DB$ Mana | Produced$ G | Amount$ 3\n\
-         SVar:DBPutCounterAll:DB$ PutCounterAll | ValidCards$ Creature.YouCtrl | CounterType$ P1P1 | CounterNum$ 1\n\
-         SVar:DBScry:DB$ Scry | ScryNum$ 2 | SubAbility$ DBDraw\n\
-         SVar:DBDraw:DB$ Draw",
-    );
-    let cats = w26c_cats();
-    let mut tx = Tx::new(&galadriel_script, &cats, None);
-    let mut chain = Chain::default();
-    assert!(
-        tx.chain(galadriel_script.svars.get("TrigCharm").unwrap(), &mut chain)
-            .is_some(),
-        "Galadriel TrigCharm should lower cleanly in chains.rs"
-    );
-    assert_eq!(chain.effects.len(), 1);
-    assert!(
-        chain.effects[0].contains("Effect::ChooseOneRestricted { choices: &[")
-            && chain.effects[0].contains("Effect::mana(ManaColor::Green, 3)")
-            && chain.effects[0].contains("Effect::Sequence(&[Effect::scry(2), Effect::draw(1)])")
-            && chain.effects[0].contains("restriction: ModalRestriction::OncePerTurn"),
-        "{}",
-        chain.effects[0]
-    );
-    assert!(chain.moves_library, "Scry/Draw propagates moves_library");
-    assert!(
-        !chain.could_add_mana,
-        "ChooseOneRestricted must never be classified as a mana ability"
-    );
-
-    // The Vision modes (OncePerTurn) via direct Tx::chain check.
-    let vision_script = parse(
-        "Name:The Vision\nManaCost:4\nTypes:Legendary Artifact Creature Robot\nPT:2/5\n\
-         SVar:TrigCharm:DB$ Charm | Choices$ DBSolarBeam,DBDensityControl,DBTechnopathy | ChoiceRestriction$ ThisTurn\n\
-         SVar:DBSolarBeam:DB$ Pump | Defined$ Self | KW$ Double Strike\n\
-         SVar:DBDensityControl:DB$ Pump | Defined$ Self | KW$ Indestructible\n\
-         SVar:DBTechnopathy:DB$ Draw",
-    );
-    let mut tx = Tx::new(&vision_script, &cats, None);
-    let mut chain = Chain::default();
-    assert!(
-        tx.chain(vision_script.svars.get("TrigCharm").unwrap(), &mut chain)
-            .is_some()
-    );
-    assert!(
-        chain.effects[0].contains("Effect::ChooseOneRestricted")
-            && chain.effects[0].contains("KeywordSet::DOUBLE_STRIKE")
-            && chain.effects[0].contains("KeywordSet::INDESTRUCTIBLE")
-            && chain.effects[0].contains("ModalRestriction::OncePerTurn"),
-        "{}",
-        chain.effects[0]
     );
 }
 
