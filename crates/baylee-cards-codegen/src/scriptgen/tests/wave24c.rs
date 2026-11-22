@@ -563,10 +563,10 @@ fn choose_color_animate_or_colors_attached_and_subability() {
 #[test]
 fn strict_refusals_for_ambiguous_atoms_and_non_paper_scripts() {
     for bad in [
-        // `YouCtrl$GreatestCardPower` has no max-power `Filter`/`Amount`.
+        // `YouCtrl$GreatestCardToughness` has no max-toughness `Filter`/`Amount`.
         "Name:BadGreatest\nManaCost:2 G\nTypes:Sorcery\n\
          A:SP$ Draw | Defined$ You | NumCards$ X\n\
-         SVar:X:Count$Valid Creature.YouCtrl$GreatestCardPower\n",
+         SVar:X:Count$Valid Creature.YouCtrl$GreatestCardToughness\n",
         // `wasCast` on stack static or ETB trigger has no `Filter::WasCast`.
         "Name:BadWasCastStatic\nManaCost:3 U\nTypes:Creature\nPT:2/2\n\
          S:Mode$ Continuous | Affected$ Instant.wasCast | AffectedZone$ Stack | AddKeyword$ Flash\n",

@@ -435,7 +435,7 @@ fn etb_counter_graveyard_each_and_refusals() {
     assert!(refused(
         "Name:PropEtb\nTypes:Creature\nPT:0/0\n\
          K:etbCounter:P1P1:X\n\
-         SVar:X:Count$Valid Creature.YouCtrl$CardPower"
+         SVar:X:Count$Valid Creature.YouCtrl$GreatestCardToughness"
     ));
     assert!(refused(
         "Name:MixedGy\nTypes:Creature\nPT:0/0\n\

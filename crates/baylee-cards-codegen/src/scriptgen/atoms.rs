@@ -24,6 +24,17 @@ pub(super) fn amount(raw: &str, svars: &BTreeMap<String, String>, has_x: bool) -
     // number, so `Amount::X` would evaluate to `x.unwrap_or(0)` — a card
     // that compiles, claims `Implemented` and makes nothing at all, which
     // is exactly the outcome the honest-stub rule exists to prevent.
+    if raw == "PreventedDamage" {
+        return Some("Amount::ThisWay(ThisWay::DamagePrevented)".to_string());
+    }
+    if raw == "Count$ChosenNumber" {
+        return resolution_chosen_number_expr(svars, true);
+    }
+    if raw.starts_with("Count$")
+        && let Some(expr) = static_wave14_amount_depth(raw, svars, 0)
+    {
+        return Some(expr);
+    }
     // "For each creature that died this turn" (Scavenging Ghoul), counted as
     // the effect applies. Asked before the `X` rule, because `X` is the
     // letter the reference writes it under.
@@ -85,6 +96,11 @@ pub(super) fn amount(raw: &str, svars: &BTreeMap<String, String>, has_x: bool) -
     if svars.get(raw).map(|def| def.trim()) == Some("Targeted$CardManaCost") {
         return Some("Amount::TargetCmc".to_string());
     }
+    if let Some(def) = svars.get(raw).map(|def| def.trim())
+        && let Some(expr) = wave14_svar_amount_depth(def, svars, has_x, 0)
+    {
+        return Some(expr);
+    }
     if raw == "X" {
         return (has_x && svars.get("X").map(String::as_str) == Some("Count$xPaid"))
             .then(|| "Amount::X".to_string());
@@ -111,6 +127,344 @@ fn scaled_svar_amount(base: &str, suffix: Option<&str>) -> Option<String> {
     } else {
         format!("Amount::Times {{ base: &{base}, factor: {factor} }}")
     })
+}
+
+fn apply_wave14_suffix(base: &str, suffix: Option<&str>) -> Option<String> {
+    let Some(rest) = suffix else {
+        return Some(base.to_string());
+    };
+    match rest {
+        "Twice" => Some(format!("Amount::Times {{ base: &{base}, factor: 2 }}")),
+        "Thrice" => Some(format!("Amount::Times {{ base: &{base}, factor: 3 }}")),
+        "HalfDown" => Some(format!("Amount::Half {{ base: &{base}, round_up: false }}")),
+        "HalfUp" => Some(format!("Amount::Half {{ base: &{base}, round_up: true }}")),
+        _ => {
+            if let Some(n) = rest
+                .strip_prefix("Times.")
+                .and_then(|s| s.trim().parse::<u32>().ok())
+            {
+                return (n > 0).then(|| {
+                    if n == 1 {
+                        base.to_string()
+                    } else {
+                        format!("Amount::Times {{ base: &{base}, factor: {n} }}")
+                    }
+                });
+            }
+            if let Some(n) = rest
+                .strip_prefix("Plus.")
+                .and_then(|s| s.trim().parse::<u32>().ok())
+            {
+                return Some(if n == 0 {
+                    base.to_string()
+                } else {
+                    format!("Amount::Plus {{ base: &{base}, offset: {n} }}")
+                });
+            }
+            if let Some(n) = rest
+                .strip_prefix("Minus.")
+                .and_then(|s| s.trim().parse::<u32>().ok())
+            {
+                return Some(if n == 0 {
+                    base.to_string()
+                } else {
+                    format!("Amount::SaturatingSub {{ base: &{base}, subtract: {n} }}")
+                });
+            }
+            if let Some(n) = rest
+                .strip_prefix("Div.")
+                .or_else(|| rest.strip_prefix("DivideEvenlyDown."))
+                .and_then(|s| s.trim().parse::<u32>().ok())
+                .filter(|&n| n >= 2)
+            {
+                return Some(format!("Amount::divided(&{base}, {n}, false)"));
+            }
+            if let Some(n) = rest
+                .strip_prefix("DivideEvenlyUp.")
+                .and_then(|s| s.trim().parse::<u32>().ok())
+                .filter(|&n| n >= 2)
+            {
+                return Some(format!("Amount::divided(&{base}, {n}, true)"));
+            }
+            None
+        }
+    }
+}
+
+fn resolution_chosen_number_expr(
+    svars: &BTreeMap<String, String>,
+    require_svar_choose_number: bool,
+) -> Option<String> {
+    if svars.values().any(|v| v.contains("SetChosenNumber$")) {
+        return None;
+    }
+    if require_svar_choose_number && !svars.values().any(|v| v.contains("ChooseNumber")) {
+        return None;
+    }
+    Some("Amount::ResolutionChosenNumber".to_string())
+}
+
+fn greatest_power_filter(valid: &str) -> Option<&'static str> {
+    Some(match valid.trim() {
+        "Creature.YouCtrl" => "Filter::YOUR_CREATURE",
+        "Creature.YouCtrl+Other" | "Creature.Other+YouCtrl" => {
+            "Filter::ANOTHER_CREATURE_YOU_CONTROL"
+        }
+        "Creature.OppCtrl" => "Filter::OPPONENT_CREATURE",
+        "Creature.YouDontCtrl" => {
+            "Filter::And(&[Filter::CREATURE, Filter::Not(&Filter::ControlledByYou)])"
+        }
+        "Creature" => "Filter::CREATURE",
+        "Creature.Other" => "Filter::ANOTHER_CREATURE",
+        "Creature.attacking" => "Filter::ATTACKING_CREATURE",
+        "Creature.attacking+YouCtrl" | "Creature.YouCtrl+attacking" => {
+            "Filter::And(&[Filter::CREATURE, Filter::ControlledByYou, Filter::Attacking])"
+        }
+        "Creature.YouCtrl+Other+attacking" | "Creature.Other+YouCtrl+attacking" => {
+            "Filter::And(&[Filter::CREATURE, Filter::ControlledByYou, Filter::Another, Filter::Attacking])"
+        }
+        "Creature.YouCtrl+nonToken"
+        | "Creature.nonToken+YouCtrl"
+        | "Creature.YouCtrl+!token"
+        | "Creature.!token+YouCtrl" => {
+            "Filter::And(&[Filter::CREATURE, Filter::ControlledByYou, Filter::Not(&Filter::IsToken)])"
+        }
+        "Creature.YouCtrl+ThisTurnEntered" | "Creature.ThisTurnEntered+YouCtrl" => {
+            "Filter::And(&[Filter::CREATURE, Filter::ControlledByYou, Filter::EnteredThisTurn])"
+        }
+        "Creature.tapped+OppCtrl" | "Creature.OppCtrl+tapped" => {
+            "Filter::And(&[Filter::CREATURE, Filter::ControlledByOpponent, Filter::Tapped])"
+        }
+        "Creature.Legendary+YouCtrl" | "Creature.YouCtrl+Legendary" => {
+            "Filter::And(&[Filter::LEGENDARY_CREATURE, Filter::ControlledByYou])"
+        }
+        "Creature.YouCtrl+withFlying" | "Creature.withFlying+YouCtrl" => {
+            "Filter::And(&[Filter::CREATURE, Filter::ControlledByYou, Filter::HasKeyword(KeywordSet::FLYING)])"
+        }
+        _ => return None,
+    })
+}
+
+fn greatest_mana_value_filter(valid: &str) -> Option<&'static str> {
+    Some(match valid.trim() {
+        "Permanent.YouCtrl" | "Card.YouCtrl" => "Filter::ControlledByYou",
+        "Permanent.YouCtrl+Other" | "Permanent.Other+YouCtrl" => {
+            "Filter::And(&[Filter::ControlledByYou, Filter::Another])"
+        }
+        "Permanent.nonLand+YouCtrl"
+        | "Permanent.YouCtrl+nonLand"
+        | "Card.nonLand+YouCtrl"
+        | "Card.YouCtrl+nonLand" => "Filter::And(&[Filter::NONLAND, Filter::ControlledByYou])",
+        "Artifact.YouCtrl" => "Filter::YOUR_ARTIFACT",
+        "Artifact.Other+YouCtrl" | "Artifact.YouCtrl+Other" => {
+            "Filter::And(&[Filter::ARTIFACT, Filter::ControlledByYou, Filter::Another])"
+        }
+        "Creature.YouCtrl" => "Filter::YOUR_CREATURE",
+        "Creature.Other+YouCtrl" | "Creature.YouCtrl+Other" => {
+            "Filter::ANOTHER_CREATURE_YOU_CONTROL"
+        }
+        "Enchantment.YouCtrl" => "Filter::And(&[Filter::ENCHANTMENT, Filter::ControlledByYou])",
+        "Permanent.Historic+YouCtrl" | "Permanent.YouCtrl+Historic" => {
+            "Filter::And(&[Filter::Historic, Filter::ControlledByYou])"
+        }
+        "Permanent.IsCommander+YouCtrl"
+        | "Permanent.YouCtrl+IsCommander"
+        | "Card.IsCommander+YouCtrl"
+        | "Card.YouCtrl+IsCommander" => "Filter::COMMANDER_YOU_CONTROL",
+        "Permanent" | "Card" => "Filter::Any",
+        "Permanent.nonLand" | "Card.nonLand" => "Filter::NONLAND",
+        "Creature" => "Filter::CREATURE",
+        "Artifact" => "Filter::ARTIFACT",
+        "Enchantment" => "Filter::ENCHANTMENT",
+        "Permanent.OppCtrl" | "Card.OppCtrl" => "Filter::ControlledByOpponent",
+        "Creature.OppCtrl" => "Filter::OPPONENT_CREATURE",
+        _ => return None,
+    })
+}
+
+fn total_power_filter(valid: &str) -> Option<&'static str> {
+    Some(match valid.trim() {
+        "Creature.YouCtrl" => "Filter::YOUR_CREATURE",
+        "Creature.attacking" => "Filter::ATTACKING_CREATURE",
+        "Creature.attacking+YouCtrl" | "Creature.YouCtrl+attacking" => {
+            "Filter::And(&[Filter::CREATURE, Filter::ControlledByYou, Filter::Attacking])"
+        }
+        "Creature.YouCtrl+Other" | "Creature.Other+YouCtrl" => {
+            "Filter::ANOTHER_CREATURE_YOU_CONTROL"
+        }
+        "Creature.OppCtrl" => "Filter::OPPONENT_CREATURE",
+        "Creature.YouDontCtrl" => {
+            "Filter::And(&[Filter::CREATURE, Filter::Not(&Filter::ControlledByYou)])"
+        }
+        "Creature.YouCtrl+withFlying" | "Creature.withFlying+YouCtrl" => {
+            "Filter::And(&[Filter::CREATURE, Filter::ControlledByYou, Filter::HasKeyword(KeywordSet::FLYING)])"
+        }
+        "Creature" => "Filter::CREATURE",
+        "Card.IsCommander+YouCtrl"
+        | "Card.YouCtrl+IsCommander"
+        | "Creature.IsCommander+YouCtrl"
+        | "Creature.YouCtrl+IsCommander" => "Filter::COMMANDER_YOU_CONTROL",
+        "Creature.YouCtrl+IsRingbearer" | "Creature.IsRingbearer+YouCtrl" => {
+            "Filter::YOUR_RING_BEARER"
+        }
+        _ => return None,
+    })
+}
+
+fn static_wave14_base(head: &str) -> Option<String> {
+    match head {
+        "Count$Party" | "Count$PartySize" => {
+            return Some("Amount::PartySize(PlayerRel::You)".to_string());
+        }
+        "Count$ThisTurnCast_Card.YouCtrl" => {
+            return Some("Amount::SpellsCastThisTurn(PlayerRel::You)".to_string());
+        }
+        "Count$ThisTurnCast_Card.OppCtrl" => {
+            return Some("Amount::SpellsCastThisTurn(PlayerRel::Opponent)".to_string());
+        }
+        "Count$ThisTurnCast_Card" => {
+            return Some("Amount::SpellsCastThisTurn(PlayerRel::EachPlayer)".to_string());
+        }
+        "Count$YouDrewThisTurn" => {
+            return Some("Amount::CardsDrawnThisTurn(PlayerRel::You)".to_string());
+        }
+        "PlayerCountOpponents$CardsDrawn" => {
+            return Some("Amount::CardsDrawnThisTurn(PlayerRel::Opponent)".to_string());
+        }
+        "Count$ValidGraveyard Creature.YouOwn$GreatestCardPower" => {
+            return Some(
+                "Amount::GreatestPowerAmong(&Filter::And(&[Filter::CREATURE, Filter::OwnedByYou, Filter::InZone(ZoneRef::Graveyard)]))"
+                    .to_string(),
+            );
+        }
+        "Count$ValidGraveyard Creature$GreatestCardPower" => {
+            return Some(
+                "Amount::GreatestPowerAmong(&Filter::And(&[Filter::CREATURE, Filter::InZone(ZoneRef::Graveyard)]))"
+                    .to_string(),
+            );
+        }
+        "Count$ValidGraveyard Card.YouOwn$GreatestCardManaCost" => {
+            return Some(
+                "Amount::GreatestManaValueAmong(&Filter::And(&[Filter::OwnedByYou, Filter::InZone(ZoneRef::Graveyard)]))"
+                    .to_string(),
+            );
+        }
+        "Count$ValidGraveyard Creature.YouOwn$GreatestCardManaCost" => {
+            return Some(
+                "Amount::GreatestManaValueAmong(&Filter::And(&[Filter::CREATURE, Filter::OwnedByYou, Filter::InZone(ZoneRef::Graveyard)]))"
+                    .to_string(),
+            );
+        }
+        "Count$ValidBattlefield,Command Card.IsCommander+YouOwn$GreatestCardManaCost"
+        | "Count$ValidBattlefield,Command Card.YouOwn+IsCommander$GreatestCardManaCost" => {
+            return Some(
+                "Amount::GreatestManaValueAmong(&Filter::And(&[Filter::IsCommander, Filter::OwnedByYou, Filter::InZone(ZoneRef::BattlefieldOrCommand)]))"
+                    .to_string(),
+            );
+        }
+        _ => {}
+    }
+    if let Some(rest) = head.strip_prefix("Count$Valid ") {
+        if let Some(valid) = rest.strip_suffix("$GreatestCardPower") {
+            let filter = greatest_power_filter(valid)?;
+            return Some(format!("Amount::GreatestPowerAmong(&{filter})"));
+        }
+        if let Some(valid) = rest.strip_suffix("$GreatestCardManaCost") {
+            let filter = greatest_mana_value_filter(valid)?;
+            return Some(format!("Amount::GreatestManaValueAmong(&{filter})"));
+        }
+        if let Some(valid) = rest.strip_suffix("$CardPower") {
+            let filter = total_power_filter(valid)?;
+            return Some(format!("Amount::TotalPowerAmong(&{filter})"));
+        }
+    }
+    if let Some(valid) = head.strip_prefix("Count$TotalPower ") {
+        let filter = total_power_filter(valid)?;
+        return Some(format!("Amount::TotalPowerAmong(&{filter})"));
+    }
+    None
+}
+
+/// Static-safe Wave 14 `Amount::` `SVar` reader usable from activation limits,
+/// activation cost reductions, and non-resolution conditions.
+pub(super) fn static_wave14_amount(def: &str, svars: &BTreeMap<String, String>) -> Option<String> {
+    static_wave14_amount_depth(def, svars, 0)
+}
+
+fn static_wave14_amount_depth(
+    def: &str,
+    svars: &BTreeMap<String, String>,
+    depth: u8,
+) -> Option<String> {
+    if depth >= 4 {
+        return None;
+    }
+    let def = def.trim();
+    let (head, suffix) = match def.rsplit_once('/') {
+        Some((h, s)) => (h.trim(), Some(s.trim())),
+        None => (def, None),
+    };
+    let base = if let Some(var) = head.strip_prefix("SVar$") {
+        let inner = svars.get(var.trim())?;
+        static_wave14_amount_depth(inner, svars, depth + 1)?
+    } else {
+        static_wave14_base(head)?
+    };
+    apply_wave14_suffix(&base, suffix)
+}
+
+fn wave14_svar_amount_depth(
+    def: &str,
+    svars: &BTreeMap<String, String>,
+    has_x: bool,
+    depth: u8,
+) -> Option<String> {
+    if depth >= 4 {
+        return None;
+    }
+    let def = def.trim();
+    let (head, suffix) = match def.rsplit_once('/') {
+        Some((h, s)) => (h.trim(), Some(s.trim())),
+        None => (def, None),
+    };
+    let base = if let Some(var) = head.strip_prefix("SVar$") {
+        let inner = svars.get(var.trim())?;
+        wave14_svar_amount_depth(inner, svars, has_x, depth + 1)?
+    } else if let Some(static_base) = static_wave14_base(head) {
+        static_base
+    } else {
+        match head {
+            "TargetedPlayer$CardsDrawn" | "ThisTargetedPlayer$CardsDrawn" => {
+                "Amount::CardsDrawnThisTurn(PlayerRel::Chosen)".to_string()
+            }
+            "Sacrificed$TotalCardPower" => "Amount::SacrificedTotalPower".to_string(),
+            "Sacrificed$TotalCardToughness" => "Amount::SacrificedTotalToughness".to_string(),
+            "Sacrificed$TotalCardManaCost" => "Amount::SacrificedTotalManaValue".to_string(),
+            "Sacrificed$CardManaCost" if suffix.is_some() => {
+                "Amount::SacrificedManaValue".to_string()
+            }
+            "Sacrificed$CardNumColors" | "Sacrificed$Colors" | "Sacrificed$TotalCardColors" => {
+                "Amount::SacrificedDistinctColors".to_string()
+            }
+            "Count$ChosenNumber" => resolution_chosen_number_expr(svars, false)?,
+            "PreventedDamage" | "Count$PreventedDamage" => {
+                "Amount::ThisWay(ThisWay::DamagePrevented)".to_string()
+            }
+            "Count$SacrificedThisWay" | "Count$SacrificedCount" => {
+                "Amount::ThisWay(ThisWay::SacrificedCount)".to_string()
+            }
+            // `Sacrificed$Amount` maps to `ThisWay::SacrificedCount` only for
+            // resolution sacrifices (not `Cost$ ... Sac<X/...>` where `X` is
+            // `Count$xPaid`, since `ThisWay::SacrificedCount` counts `Cause::Effect`).
+            "Sacrificed$Amount"
+                if !(has_x && svars.get("X").map(String::as_str) == Some("Count$xPaid")) =>
+            {
+                "Amount::ThisWay(ThisWay::SacrificedCount)".to_string()
+            }
+            _ => return None,
+        }
+    };
+    apply_wave14_suffix(&base, suffix)
 }
 
 /// `W` as `ManaColor::White`, for a reader that is not inside a closure.
@@ -169,31 +523,64 @@ pub(super) fn pump_amount(
     // no number at all: there `Amount::X` is `x.unwrap_or(0)`.
     match raw {
         "X" | "+X" | "-X" => {
-            if !has_x || svars.get("X").map(String::as_str) != Some("Count$xPaid") {
-                return None;
+            if has_x && svars.get("X").map(String::as_str) == Some("Count$xPaid") {
+                return Some(
+                    if raw == "-X" {
+                        "Amount::NegX"
+                    } else {
+                        "Amount::X"
+                    }
+                    .to_string(),
+                );
             }
-            return Some(
-                if raw == "-X" {
-                    "Amount::NegX"
+            if let Some(def) = svars.get("X")
+                && let Some(inner) = wave14_svar_amount_depth(def, svars, has_x, 0)
+            {
+                return Some(if raw == "-X" {
+                    format!("Amount::Negated(&{inner})")
                 } else {
-                    "Amount::X"
-                }
-                .to_string(),
-            );
+                    inner
+                });
+            }
+            return None;
         }
         _ => {}
     }
-    let n = raw.parse::<i64>().ok().or_else(|| {
-        svars
-            .get(raw.trim_start_matches('+'))?
-            .trim()
-            .parse::<i64>()
-            .ok()
-    })?;
-    Some(if n < 0 {
-        format!("Amount::NegXFixed({})", n.unsigned_abs())
+    if let Ok(n) = raw.parse::<i64>() {
+        return Some(if n < 0 {
+            format!("Amount::NegXFixed({})", n.unsigned_abs())
+        } else {
+            format!("Amount::Fixed({n})")
+        });
+    }
+    let (neg, var) = if let Some(rest) = raw.strip_prefix('-') {
+        (true, rest.trim())
+    } else if let Some(rest) = raw.strip_prefix('+') {
+        (false, rest.trim())
     } else {
-        format!("Amount::Fixed({n})")
+        (false, raw)
+    };
+    if var == "PreventedDamage" {
+        let inner = "Amount::ThisWay(ThisWay::DamagePrevented)";
+        return Some(if neg {
+            format!("Amount::Negated(&{inner})")
+        } else {
+            inner.to_string()
+        });
+    }
+    if !neg && let Some(n) = svars.get(var).and_then(|s| s.trim().parse::<i64>().ok()) {
+        return Some(if n < 0 {
+            format!("Amount::NegXFixed({})", n.unsigned_abs())
+        } else {
+            format!("Amount::Fixed({n})")
+        });
+    }
+    let resolved = svars.get(var)?;
+    let inner = wave14_svar_amount_depth(resolved, svars, has_x, 0)?;
+    Some(if neg {
+        format!("Amount::Negated(&{inner})")
+    } else {
+        inner
     })
 }
 

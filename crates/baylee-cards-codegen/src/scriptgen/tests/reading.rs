@@ -2746,7 +2746,7 @@ fn wave23c_trigger_only_composition_and_refusals() {
         "Name:PackTacticsUnmodelled\nManaCost:1 G\nTypes:Creature\nPT:2/2\n\
          T:Mode$ Attacks | ValidCard$ Card.Self | CheckSVar$ PackTactics | SVarCompare$ GE6 | NoResolvingCheck$ True | Execute$ D\n\
          SVar:D:DB$ Draw | NumCards$ 1\n\
-         SVar:PackTactics:Count$Valid Creature.attacking$CardPower",
+         SVar:PackTactics:Count$Valid Creature.attacking$CardToughness",
     ] {
         assert!(refused(bad), "must refuse:\n{bad}");
     }

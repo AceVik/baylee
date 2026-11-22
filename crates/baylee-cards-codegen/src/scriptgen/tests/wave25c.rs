@@ -189,7 +189,7 @@ fn second_main_refuses_unsound_phase_and_phase_count_shapes() {
         // Unmodeled `Phase.CheckSVar` (never silently dropped).
         "Name:BadCheckSVar\nTypes:Enchantment\n\
          T:Mode$ Phase | Phase$ Main2 | ValidPlayer$ You | CheckSVar$ X | TriggerZones$ Battlefield | Execute$ D\n\
-         SVar:D:DB$ Draw\nSVar:X:Count$YouDrewThisTurn",
+         SVar:D:DB$ Draw\nSVar:X:Count$YouDrewLastTurn",
     ] {
         assert!(refused_w25c(bad), "must refuse: {bad}");
     }

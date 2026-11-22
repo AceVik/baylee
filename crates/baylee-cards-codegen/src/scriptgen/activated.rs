@@ -56,6 +56,7 @@ enum ParsedLimit {
     PerTurnRaw(String),
     Exhaust,
     Boast,
+    OncePerPermanent,
 }
 
 struct StrippedXMin {
@@ -285,6 +286,7 @@ impl Tx<'_> {
         let exhaust_raw = probe.take("Exhaust");
         let game_limit_raw = probe.take("GameActivationLimit");
         let boast_raw = probe.take("Boast");
+        let power_up_raw = probe.take("PowerUp");
         if !is_activated {
             if limit_raw.is_some() {
                 return self.deny("`ActivationLimit$` on a spell line".to_string());
@@ -298,12 +300,16 @@ impl Tx<'_> {
             if boast_raw.is_some() {
                 return self.deny("`Boast$` on a spell line".to_string());
             }
+            if power_up_raw.is_some() {
+                return self.deny("`PowerUp$` on a spell line".to_string());
+            }
             return Some((ParsedLimit::Unlimited, Vec::new()));
         }
         let count = usize::from(limit_raw.is_some())
             + usize::from(exhaust_raw.is_some())
             + usize::from(game_limit_raw.is_some())
-            + usize::from(boast_raw.is_some());
+            + usize::from(boast_raw.is_some())
+            + usize::from(power_up_raw.is_some());
         if count > 1 {
             return self.deny("multiple activation limits on one ability".to_string());
         }
@@ -326,6 +332,13 @@ impl Tx<'_> {
                 Some((ParsedLimit::Boast, vec!["Boast$"]))
             } else {
                 self.deny(format!("`Boast$ {raw}`"))
+            };
+        }
+        if let Some(raw) = power_up_raw {
+            return if raw == "True" {
+                Some((ParsedLimit::OncePerPermanent, vec!["PowerUp$"]))
+            } else {
+                self.deny(format!("`PowerUp$ {raw}`"))
             };
         }
         match limit_raw {
@@ -360,11 +373,16 @@ impl Tx<'_> {
             ParsedLimit::Unlimited => String::new(),
             ParsedLimit::Exhaust => ", limit = ActivationLimit::Exhaust".to_string(),
             ParsedLimit::Boast => ", limit = ActivationLimit::Boast".to_string(),
+            ParsedLimit::OncePerPermanent => {
+                ", limit = ActivationLimit::OncePerPermanent".to_string()
+            }
             ParsedLimit::PerTurnRaw(raw) => {
                 if let Ok(n) = raw.parse::<u8>() {
                     format!(", limit = ActivationLimit::PerTurn({n})")
                 } else if let Some(def) = self.svars.get(raw.trim()).cloned()
-                    && let Some(expr) = self.static_count_expr(&def)
+                    && let Some(expr) = self
+                        .static_count_expr(&def)
+                        .or_else(|| super::atoms::static_wave14_amount(&def, self.svars))
                 {
                     format!(", limit = ActivationLimit::PerTurnAmount({expr})")
                 } else {
@@ -599,7 +617,19 @@ impl Tx<'_> {
         probe: &mut Params,
         is_activated: bool,
         activation_zone: Option<&str>,
+        is_power_up: bool,
     ) -> Option<String> {
+        if is_power_up {
+            if activation_zone.is_some_and(|zone| zone != "Battlefield") {
+                return self.deny("`PowerUp$` outside the battlefield".to_string());
+            }
+            if probe.has("ReduceCost") || probe.has("ReduceAmount") {
+                return self.deny("`PowerUp$` beside `ReduceCost$`".to_string());
+            }
+            return Some(
+                ", cost_reduction = Some(CostReduction::OwnManaCostIfEnteredThisTurn)".to_string(),
+            );
+        }
         let Some(raw) = probe.take("ReduceCost") else {
             return Some(String::new());
         };
@@ -645,8 +675,12 @@ impl Tx<'_> {
         if !is_activated && let Some(zone) = activation_zone.as_deref() {
             return self.deny(format!("a spell in `ActivationZone$ {zone}`"));
         }
-        let cost_reduction =
-            self.take_reduce_cost(&mut probe, is_activated, activation_zone.as_deref())?;
+        let cost_reduction = self.take_reduce_cost(
+            &mut probe,
+            is_activated,
+            activation_zone.as_deref(),
+            limit == ParsedLimit::OncePerPermanent,
+        )?;
         let (non_battlefield_zone, zone_suffix) = if is_activated {
             self.activation_zone_expr(activation_zone.as_deref(), activator, false)?
         } else {
@@ -1053,6 +1087,9 @@ impl Tx<'_> {
             }
             ParsedLimit::Boast => {
                 return self.deny("`Boast$` on a loyalty ability".to_string());
+            }
+            ParsedLimit::OncePerPermanent => {
+                return self.deny("`PowerUp$` on a loyalty ability".to_string());
             }
         }
         if spec.non_battlefield_zone
@@ -1664,7 +1701,7 @@ impl Tx<'_> {
             .trim()
             .to_ascii_lowercase();
         let once_each_turn = matches!(limit, ParsedLimit::PerTurnRaw(s) if s == "1");
-        let is_exhaust = *limit == ParsedLimit::Exhaust;
+        let is_exhaust = matches!(*limit, ParsedLimit::Exhaust | ParsedLimit::OncePerPermanent);
         let pure_restatement = match norm.as_str() {
             "activate only as a sorcery" => sorcery_speed,
             "activate only once each turn" | "activate this ability only once each turn" => {
@@ -1735,7 +1772,12 @@ impl Tx<'_> {
         let x_min_param = self.take_x_min_param(&mut p, true, false)?;
         let activator = self.parse_activator(p.take("Activator").as_deref(), true)?;
         let activation_zone = p.take("ActivationZone");
-        let cost_reduction = self.take_reduce_cost(&mut p, true, activation_zone.as_deref())?;
+        let cost_reduction = self.take_reduce_cost(
+            &mut p,
+            true,
+            activation_zone.as_deref(),
+            limit == ParsedLimit::OncePerPermanent,
+        )?;
         let sorcery_speed = match p.take("SorcerySpeed").as_deref() {
             None => false,
             Some("True") => true,
@@ -2096,7 +2138,10 @@ impl Tx<'_> {
             }
             return self.deny(format!("unsupported `ReduceCost$ {raw}`"));
         }
-        let Some(amt) = self.static_count_expr(&def) else {
+        let Some(amt) = self
+            .static_count_expr(&def)
+            .or_else(|| super::atoms::static_wave14_amount(&def, self.svars))
+        else {
             return self.deny(format!("unsupported `ReduceCost$ {raw}`"));
         };
         if amt.starts_with("Amount::Fixed(")
@@ -2282,7 +2327,9 @@ impl Tx<'_> {
             return Some(cond);
         }
         if def.starts_with("Count$")
-            && let Some(amt) = self.static_count_expr(def)
+            && let Some(amt) = self
+                .static_count_expr(def)
+                .or_else(|| self.static_wave14_condition_amount(def))
         {
             return match count_bound(cmp)? {
                 Bound::AtLeast(n) if n > 0 => Some(format!("Condition::AmountAtLeast({amt}, {n})")),
@@ -2765,8 +2812,23 @@ impl Tx<'_> {
                 }
             }
         }
-        let amt = self.static_count_expr(&raw)?;
+        let amt = self
+            .static_count_expr(&raw)
+            .or_else(|| self.static_wave14_condition_amount(&raw))?;
         self.amount_bound_condition(&amt, bound, eq_num)
+    }
+
+    fn static_wave14_condition_amount(&self, raw: &str) -> Option<String> {
+        let trimmed = raw.trim();
+        // Preserve pre-existing canonical condition spellings tested outside this module:
+        // `Count$TotalPower Creature.YouCtrl` (`saga_ward_convoke` -> `ControlledCreaturePowerAtLeast`)
+        // and `Count$ThisTurnCast_Card.YouCtrl` (`costs_and_refusals` -> `YouCastNoSpellThisTurn`).
+        if trimmed == "Count$TotalPower Creature.YouCtrl"
+            || trimmed == "Count$ThisTurnCast_Card.YouCtrl"
+        {
+            return None;
+        }
+        super::atoms::static_wave14_amount(trimmed, self.svars)
     }
 
     fn amount_bound_condition(
