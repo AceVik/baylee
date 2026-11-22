@@ -1907,6 +1907,8 @@ impl Builder<'_, '_> {
                  {preventable_damage} damage; paying more is allowed but prevents no more"
             ),
             NumberPrompt::VariableManaPayment => "How much mana will you pay?".to_string(),
+            NumberPrompt::VariableEnergyPayment => "How much energy will you pay?".to_string(),
+            NumberPrompt::VariableLifePayment => "How much life will you pay?".to_string(),
             NumberPrompt::Replicate { cost } => {
                 format!("How many times do you replicate it? Each copy costs {cost} more")
             }

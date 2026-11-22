@@ -879,9 +879,12 @@ impl HeuristicAgent {
                         min
                     }
                 }
-                baylee_engine::choice::NumberPrompt::EnergyPayment { candidates } => self
+                baylee_engine::choice::NumberPrompt::EnergyPayment { candidates } => {
+                    candidates.clamp(min, max)
+                }
+                baylee_engine::choice::NumberPrompt::VariableEnergyPayment => self
                     .choose_number_ex_answer(view, min, max, context)
-                    .unwrap_or_else(|| candidates.clamp(min, max)),
+                    .unwrap_or(max),
                 baylee_engine::choice::NumberPrompt::Sacrifices => 3u32.clamp(min, max),
                 baylee_engine::choice::NumberPrompt::Choice => self
                     .choose_number_ex_answer(view, min, max, context)
@@ -890,7 +893,8 @@ impl HeuristicAgent {
                 baylee_engine::choice::NumberPrompt::ManaPayment { preventable_damage } => {
                     preventable_damage.clamp(min, max)
                 }
-                baylee_engine::choice::NumberPrompt::VariableManaPayment => self
+                baylee_engine::choice::NumberPrompt::VariableManaPayment
+                | baylee_engine::choice::NumberPrompt::VariableLifePayment => self
                     .choose_number_ex_answer(view, min, max, context)
                     .unwrap_or(min),
                 // Every payment the engine offers: it bounded the count by

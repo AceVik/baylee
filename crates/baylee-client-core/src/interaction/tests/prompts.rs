@@ -1734,20 +1734,39 @@ fn optional_payment_keeps_zero_and_overpayment_reachable() {
 }
 
 #[test]
-fn bounded_mana_payment_names_the_amount_without_damage() {
-    let mut i = interaction(Pending::ChooseNumber {
-        player: me(),
-        min: 1,
-        max: 4,
-        reason: baylee_engine::choice::NumberPrompt::VariableManaPayment,
-    });
-    assert_eq!(i.confirm(), Some(PlayerAction::ChooseNumber(1)));
-    assert_eq!(i.set_number(4), 4);
-    assert_eq!(i.confirm(), Some(PlayerAction::ChooseNumber(4)));
-    assert_eq!(
-        i.prompt().headline(Lang::En, Turn::Mine, None, false),
-        "How much mana will you pay? (1–4)"
-    );
+fn bounded_resource_payments_name_the_resource_and_range() {
+    use baylee_engine::choice::NumberPrompt;
+
+    for (reason, english, german) in [
+        (
+            NumberPrompt::VariableManaPayment,
+            "How much mana will you pay? (1–4)",
+            "Wie viel Mana zahlen? (1–4)",
+        ),
+        (
+            NumberPrompt::VariableEnergyPayment,
+            "How much energy will you pay? (1–4)",
+            "Wie viel Energie zahlen? (1–4)",
+        ),
+        (
+            NumberPrompt::VariableLifePayment,
+            "How much life will you pay? (1–4)",
+            "Wie viele Lebenspunkte zahlen? (1–4)",
+        ),
+    ] {
+        let mut i = interaction(Pending::ChooseNumber {
+            player: me(),
+            min: 1,
+            max: 4,
+            reason,
+        });
+        assert_eq!(i.confirm(), Some(PlayerAction::ChooseNumber(1)));
+        assert_eq!(i.set_number(4), 4);
+        assert_eq!(i.confirm(), Some(PlayerAction::ChooseNumber(4)));
+        for (lang, expected) in [(Lang::En, english), (Lang::De, german)] {
+            assert_eq!(i.prompt().headline(lang, Turn::Mine, None, false), expected);
+        }
+    }
     assert_eq!(
         super::super::headline::payment_line(
             Lang::De,

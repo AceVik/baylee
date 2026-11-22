@@ -68,6 +68,8 @@ const fn number_prompt_code(reason: &NumberPrompt) -> u8 {
         NumberPrompt::Squad { .. } => 13,
         NumberPrompt::DivideCounters { .. } => 14,
         NumberPrompt::VariableManaPayment => 15,
+        NumberPrompt::VariableEnergyPayment => 16,
+        NumberPrompt::VariableLifePayment => 17,
     }
 }
 

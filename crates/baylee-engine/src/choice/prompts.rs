@@ -650,6 +650,10 @@ pub enum NumberPrompt {
     },
     /// Choose how much generic mana to pay for the resolving effect.
     VariableManaPayment,
+    /// Choose how much energy to pay for the resolving effect.
+    VariableEnergyPayment,
+    /// Choose how much life to pay for the resolving effect.
+    VariableLifePayment,
 }
 
 /// Why a [`Pending::ChooseTargets`] is presented (UI hint).

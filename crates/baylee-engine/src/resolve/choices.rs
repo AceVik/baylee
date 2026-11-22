@@ -234,12 +234,10 @@ pub(super) fn exec_choice(
             chooser,
             min,
             max,
-            prompt,
             pay_cost,
             then,
-        } => super::wave14f::choose_number_ex_start(
-            state, res, chooser, min, max, prompt, pay_cost, then,
-        ),
+            ..
+        } => super::wave14f::choose_number_ex_start(state, res, chooser, min, max, pay_cost, then),
         Effect::MoveAttachment {
             attachment,
             recipient_filter,

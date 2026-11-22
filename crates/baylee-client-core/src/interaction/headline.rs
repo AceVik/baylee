@@ -644,6 +644,10 @@ fn number_line(
             Phrase::ChooseManaPayment.fill(lang, &[&min, &max, &preventable_damage.to_string()])
         }
         NumberPrompt::VariableManaPayment => Phrase::ChooseVariableMana.fill(lang, &[&min, &max]),
+        NumberPrompt::VariableEnergyPayment => {
+            Phrase::ChooseVariableEnergy.fill(lang, &[&min, &max])
+        }
+        NumberPrompt::VariableLifePayment => Phrase::ChooseVariableLife.fill(lang, &[&min, &max]),
         NumberPrompt::Replicate { cost } => {
             Phrase::ReplicateHowOften.fill(lang, &[&cost.to_string(), &min, &max])
         }

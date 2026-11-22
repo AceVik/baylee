@@ -54,7 +54,7 @@ fn choose_number_ex_sizes_lethal_energy_and_symmetric_sacrifice_count() {
         player: me,
         min: 0,
         max: 5,
-        reason: NumberPrompt::EnergyPayment { candidates: 5 },
+        reason: NumberPrompt::VariableEnergyPayment,
     };
     assert_eq!(
         agent.act_with_context(

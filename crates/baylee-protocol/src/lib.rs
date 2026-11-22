@@ -105,7 +105,8 @@ pub mod tape;
 /// whether to inspect the library before a conditional shuffle.
 /// `ChoicePrompt::SearchLibraryOrGraveyard` offers both zones after acceptance.
 /// Bounded generic mana payments use `ManaPayment::Variable` during mana
-/// generation and `NumberPrompt::VariableManaPayment` for the payment amount.
+/// generation. `NumberPrompt` has bounded payment amounts for mana, energy
+/// and life.
 pub const PROTOCOL_VERSION: u32 = 69;
 
 /// Duration of the shared portal flight; clocks start after arrival.
@@ -449,7 +450,8 @@ mod tests {
         // `Pending::ChooseCounterKind`, `PlayerAction::ChooseCounterKind`, and
         // CR 122.1b keyword counters, `YesNoPrompt::SearchLibrary`,
         // `ChoicePrompt::SearchLibraryOrGraveyard`,
-        // `ManaPayment::Variable`, and `NumberPrompt::VariableManaPayment`.
+        // `ManaPayment::Variable`, `NumberPrompt::VariableManaPayment`,
+        // `NumberPrompt::VariableEnergyPayment`, and `NumberPrompt::VariableLifePayment`.
         assert_eq!(PROTOCOL_VERSION, 69);
     }
 

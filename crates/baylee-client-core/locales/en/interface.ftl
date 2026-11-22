@@ -2802,6 +2802,10 @@ ChooseManaPayment = How much mana will you pay? ({ $min }–{ $max }; prevent up
 PrepareVariableMana = You may generate mana. Pass to choose how much to pay ({ $min }–{ $max }).
 # Arguments: min, max
 ChooseVariableMana = How much mana will you pay? ({ $min }–{ $max })
+# Arguments: min, max
+ChooseVariableEnergy = How much energy will you pay? ({ $min }–{ $max })
+# Arguments: min, max
+ChooseVariableLife = How much life will you pay? ({ $min }–{ $max })
 
 # One non-targeted, exact source selection.
 ChooseDamageSource = Choose a damage source

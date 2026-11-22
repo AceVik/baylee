@@ -342,7 +342,8 @@ pub use turn::{DayNight, Phase, Step};
 /// whether to inspect and then shuffle the library.
 /// `ChoicePrompt::SearchLibraryOrGraveyard` offers both zones after acceptance.
 /// Bounded generic mana payments use `ManaPayment::Variable` during mana
-/// generation and `NumberPrompt::VariableManaPayment` for the payment amount.
+/// generation. `NumberPrompt` has bounded payment amounts for mana, energy
+/// and life.
 pub const VIEW_VERSION: u32 = 112;
 
 // ------------------------------------------------------------------- targets

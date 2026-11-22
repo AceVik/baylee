@@ -160,13 +160,7 @@ fn galvanic_discharge_clamps_energy_pays_chosen_and_zero_emits_no_counter_event(
 
     // After gaining 3 {E}, max is clamped from u32::MAX down to 3.
     assert_eq!(energy_of(&engine, me()), 3);
-    expect_choose_number(
-        &engine,
-        me(),
-        0,
-        3,
-        NumberPrompt::EnergyPayment { candidates: 3 },
-    );
+    expect_choose_number(&engine, me(), 0, 3, NumberPrompt::VariableEnergyPayment);
     assert_eq!(
         engine
             .pending()
@@ -450,13 +444,7 @@ fn aether_refinery_skips_prompt_and_then_when_min_exceeds_affordable_energy() {
     activate(&mut engine, me(), ref_id, 0);
     engine.apply(me(), PlayerAction::PassPriority).unwrap();
     engine.apply(them(), PlayerAction::PassPriority).unwrap();
-    expect_choose_number(
-        &engine,
-        me(),
-        1,
-        4,
-        NumberPrompt::EnergyPayment { candidates: 4 },
-    );
+    expect_choose_number(&engine, me(), 1, 4, NumberPrompt::VariableEnergyPayment);
     assert_eq!(
         engine
             .pending()
@@ -615,7 +603,7 @@ fn variable_generic_mana_and_life_payment_respect_spend_restrictions_and_cant_lo
     activate(&mut engine, me(), life_sink_id, 0);
     engine.apply(me(), PlayerAction::PassPriority).unwrap();
     engine.apply(them(), PlayerAction::PassPriority).unwrap();
-    expect_choose_number(&engine, me(), 1, 7, NumberPrompt::Choice);
+    expect_choose_number(&engine, me(), 1, 7, NumberPrompt::VariableLifePayment);
     engine.apply(me(), PlayerAction::ChooseNumber(4)).unwrap();
     settle(&mut engine, me());
     assert_eq!(life(&engine, me()), 3);
