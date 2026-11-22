@@ -529,10 +529,7 @@ impl Tx<'_> {
                 &extracted.limit,
                 &extracted.condition,
                 &effects,
-                extracted.chain.target.as_deref(),
-                extracted.chain.target_is_x,
-                extracted.chain.target_up_to,
-                extracted.chain.target_exact,
+                &extracted.chain,
                 extracted.target_req_override.as_deref(),
                 extracted.same_controller_targets,
                 &second_targets,
@@ -673,21 +670,25 @@ impl Tx<'_> {
         let present_player_read = had_present_player && !probe.has("PresentPlayer");
         let defined_player_read = had_defined_player && !probe.has("CheckDefinedPlayer");
         let restrictions = self.activation_restriction(&mut probe, is_activated, &mut condition)?;
-        let same_controller_targets = match probe.take("TargetsWithSameController").as_deref() {
-            None | Some("False") => false,
-            Some("True") => {
-                if !probe.has("ValidTgts") {
-                    return self
-                        .deny("`TargetsWithSameController$` without `ValidTgts$`".to_string());
-                }
-                true
-            }
-            Some(other) => {
-                return self.deny(format!("`TargetsWithSameController$ {other}`"));
-            }
-        };
         let is_divided_counters = api == "PutCounter" && probe.has("DividedAsYouChoose");
         let is_excess_damage = api == "DealDamage" && probe.has("ExcessSVar");
+        let same_controller_targets = if is_divided_counters {
+            match probe.take("TargetsWithSameController").as_deref() {
+                None | Some("False") => false,
+                Some("True") => {
+                    if !probe.has("ValidTgts") {
+                        return self
+                            .deny("`TargetsWithSameController$` without `ValidTgts$`".to_string());
+                    }
+                    true
+                }
+                Some(other) => {
+                    return self.deny(format!("`TargetsWithSameController$ {other}`"));
+                }
+            }
+        } else {
+            false
+        };
         let mut drop_keys: Vec<&'static str> = [
             (true, "Cost$"),
             (is_planeswalker, "Planeswalker$"),
@@ -934,15 +935,6 @@ impl Tx<'_> {
             };
             Some(format!(", targets = Some({req})"))
         } else if let Some(req) = Self::target_req_expr(&spec.chain) {
-            let req = if spec.same_controller_targets {
-                let t = spec.chain.target.as_deref()?;
-                let multi = spec.chain.target_up_to.is_some_and(|m| m > 1)
-                    || spec.chain.target_exact.is_some_and(|n| n > 1)
-                    || spec.chain.target_is_x;
-                self.apply_same_controller_target_req(&req, t, multi)?
-            } else {
-                req
-            };
             Some(format!(", targets = Some({req})"))
         } else if spec.same_controller_targets {
             self.deny(
@@ -982,7 +974,10 @@ impl Tx<'_> {
         if spec.chain.target_is_x {
             return self.deny("`TargetMin$/TargetMax$ X` on an activated ability".to_string());
         }
-        let target = if spec.target_req_override.is_some() || spec.same_controller_targets {
+        let target = if spec.target_req_override.is_some()
+            || spec.same_controller_targets
+            || spec.chain.target_constraint.is_some()
+        {
             self.resolve_spec_target_suffix(spec)?
         } else {
             Self::activated_target_suffix(&spec.chain)
@@ -1023,6 +1018,7 @@ impl Tx<'_> {
             && spec.cost_reduction.is_empty()
             && spec.target_req_override.is_none()
             && !spec.same_controller_targets
+            && spec.chain.target_constraint.is_none()
             && spec.chain.second_target.is_none()
             && spec.chain.target_up_to.is_none()
             && spec.chain.target_exact.is_none()
@@ -1205,10 +1201,7 @@ impl Tx<'_> {
         limit: &ParsedLimit,
         condition: &str,
         effects: &str,
-        target: Option<&str>,
-        target_is_x: bool,
-        target_up_to: Option<u8>,
-        target_exact: Option<u8>,
+        chain: &Chain,
         target_req_override: Option<&str>,
         same_controller_targets: bool,
         second_targets: &str,
@@ -1225,31 +1218,13 @@ impl Tx<'_> {
         let target_req = if let Some(req) = target_req_override {
             let mut req = req.to_string();
             if same_controller_targets {
-                let t = target?;
+                let t = chain.target.as_deref()?;
                 let multi = !req.starts_with("TargetReq::one(")
                     && !req.starts_with("TargetReq::up_to_one(");
                 req = self.apply_same_controller_target_req(&req, t, multi)?;
             }
             Some(req)
-        } else if let Some(t) = target {
-            let mut req = if let Some(max) = target_up_to {
-                if max == 1 {
-                    format!("TargetReq::up_to_one({t})")
-                } else {
-                    format!("TargetReq::up_to({t}, {max})")
-                }
-            } else if let Some(n) = target_exact {
-                format!("TargetReq::exactly({t}, {n})")
-            } else {
-                let req_fn = if target_is_x { "x_targets" } else { "one" };
-                format!("TargetReq::{req_fn}({t})")
-            };
-            if same_controller_targets {
-                let multi = target_up_to.is_some_and(|m| m > 1)
-                    || target_exact.is_some_and(|n| n > 1)
-                    || target_is_x;
-                req = self.apply_same_controller_target_req(&req, t, multi)?;
-            }
+        } else if let Some(req) = Self::target_req_expr(chain) {
             Some(req)
         } else {
             if same_controller_targets {
@@ -1348,6 +1323,8 @@ impl Tx<'_> {
                 || part.starts_with("TapN {")
                 || part.starts_with("RemoveAnyCounter {")
                 || part.starts_with("RemoveAnyCounterX {")
+                || part.starts_with("Behold(")
+                || part.starts_with("CollectEvidence(")
         });
         if !all_supported {
             let head = extra[0].split('<').next().unwrap_or(&extra[0]);
@@ -1366,7 +1343,7 @@ impl Tx<'_> {
     /// Formats a `TargetReq` from a chain's target fields.
     pub(super) fn target_req_expr(chain: &Chain) -> Option<String> {
         let t = chain.target.as_deref()?;
-        Some(if let Some(max) = chain.target_up_to {
+        let base = if let Some(max) = chain.target_up_to {
             if max == 1 {
                 format!("TargetReq::up_to_one({t})")
             } else {
@@ -1378,6 +1355,10 @@ impl Tx<'_> {
             format!("TargetReq::x_targets({t})")
         } else {
             format!("TargetReq::one({t})")
+        };
+        Some(match chain.target_constraint {
+            Some(constraint) => format!("{base}.with_constraint({constraint})"),
+            None => base,
         })
     }
 
@@ -1417,6 +1398,9 @@ impl Tx<'_> {
             let line_has_valid_tgts = line
                 .split(" | ")
                 .any(|part| part.trim_start().starts_with("ValidTgts$"));
+            let mode_is_divided_counters = allow_divided_counters
+                && Params::parse(&line)
+                    .is_some_and(|(api, dp)| api == "PutCounter" && dp.has("DividedAsYouChoose"));
             let mut kept_parts: Vec<String> = Vec::new();
             for part in line.split(" | ") {
                 let trimmed = part.trim_start();
@@ -1425,7 +1409,9 @@ impl Tx<'_> {
                         return self.deny(format!("multiple `ModeCost$` keys in mode `{name}`"));
                     }
                     mode_cost_raw = Some(val.trim().to_string());
-                } else if let Some(val) = trimmed.strip_prefix("TargetsWithSameController$") {
+                } else if mode_is_divided_counters
+                    && let Some(val) = trimmed.strip_prefix("TargetsWithSameController$")
+                {
                     match val.trim() {
                         "True" if line_has_valid_tgts => mode_same_controller = true,
                         "False" => {}
@@ -1493,25 +1479,8 @@ impl Tx<'_> {
             if chain.effects.is_empty() {
                 return self.deny("a charm mode that reads as no effect at all".to_string());
             }
-            let target_req = if let Some(mut req) = Self::target_req_expr(&chain) {
-                if mode_same_controller {
-                    let t = chain.target.as_deref()?;
-                    let multi = chain.target_up_to.is_some_and(|m| m > 1)
-                        || chain.target_exact.is_some_and(|n| n > 1)
-                        || chain.target_is_x;
-                    req = self.apply_same_controller_target_req(&req, t, multi)?;
-                }
-                Some(req)
-            } else {
-                if mode_same_controller {
-                    return self.deny(
-                        "`TargetsWithSameController$` on a non-multi-object target requirement"
-                            .into(),
-                    );
-                }
-                None
-            };
-            let targets = target_req.map_or_default(|req| format!(", targets = Some({req})"));
+            let targets = Self::target_req_expr(&chain)
+                .map_or_default(|req| format!(", targets = Some({req})"));
             let has_second = chain.second_target.is_some();
             let second = Self::second_target_req_expr(&chain)
                 .map_or_default(|req| format!(", second_targets = Some({req})"));
@@ -1907,13 +1876,69 @@ impl Tx<'_> {
     }
 
     fn is_wave14a_cost_token(token: &str) -> bool {
-        if token == "Forage" || token.starts_with("DamageYou<") {
+        if token == "Forage"
+            || token.starts_with("DamageYou<")
+            || token.starts_with("Behold<")
+            || token.starts_with("CollectEvidence<")
+        {
             return true;
         }
         matches!(
             super::object_cost(token),
             Some(("Discard" | "ExileFromGrave", body)) if body.split('/').next() == Some("X")
         )
+    }
+
+    /// Parses `Behold<1/<valid>[/<desc>]>` into `Behold(&<filter>)` (`CR 701.4a`).
+    pub(super) fn parse_behold_cost_token(&mut self, token: &str) -> Option<String> {
+        let Some(inner) = token
+            .strip_prefix("Behold<")
+            .and_then(|t| t.strip_suffix('>'))
+        else {
+            return self.deny(format!("cost `{token}`"));
+        };
+        let mut fields = inner.splitn(3, '/');
+        let (Some(count_str), Some(valid)) = (fields.next(), fields.next()) else {
+            return self.deny(format!("cost `{token}`"));
+        };
+        if count_str.trim() != "1" {
+            return self.deny(format!("cost `{token}`"));
+        }
+        let valid = valid.trim();
+        if valid.is_empty()
+            || valid.split(',').any(|alt| {
+                alt.split(['.', '+']).any(|atom| {
+                    let atom = atom.trim();
+                    matches!(
+                        atom,
+                        "CARDNAME" | "NICKNAME" | "Self" | "Other" | "StrictlyOther"
+                    ) || atom.contains("Ctrl")
+                        || atom.contains("Own")
+                })
+            })
+        {
+            return self.deny(format!("cost `{token}`"));
+        }
+        let expr = self.filter_expr(valid)?;
+        let filter_name = self.body.filter_static("COST", &expr);
+        Some(format!("Behold(&{filter_name})"))
+    }
+
+    /// Parses `CollectEvidence<N>` (`1..=255`) into `CollectEvidence(N)` (`CR 701.59a`).
+    pub(super) fn parse_collect_evidence_cost_token(&self, token: &str) -> Option<String> {
+        let Some(raw_n) = token
+            .strip_prefix("CollectEvidence<")
+            .and_then(|t| t.strip_suffix('>'))
+        else {
+            return self.deny(format!("cost `{token}`"));
+        };
+        let Ok(n) = raw_n.trim().parse::<u8>() else {
+            return self.deny(format!("cost `{token}`"));
+        };
+        if n == 0 {
+            return self.deny(format!("cost `{token}`"));
+        }
+        Some(format!("CollectEvidence({n})"))
     }
 
     fn damage_you_cost_token(token: &str) -> Option<Result<String, String>> {
@@ -1927,6 +1952,18 @@ impl Tx<'_> {
     fn wave14a_cost_part(&mut self, token: &str, for_mandatory_spell: bool) -> Wave14aCost {
         if token == "Forage" {
             return Wave14aCost::Matched("Forage".to_string());
+        }
+        if token.starts_with("Behold<") {
+            return match self.parse_behold_cost_token(token) {
+                Some(part) => Wave14aCost::Matched(part),
+                None => Wave14aCost::Denied,
+            };
+        }
+        if token.starts_with("CollectEvidence<") {
+            return match self.parse_collect_evidence_cost_token(token) {
+                Some(part) => Wave14aCost::Matched(part),
+                None => Wave14aCost::Denied,
+            };
         }
         if let Some(res) = Self::damage_you_cost_token(token) {
             return match res {
@@ -2192,9 +2229,48 @@ impl Tx<'_> {
             .or_else(|| self.inline_svar_condition(var, cmp))
     }
 
+    fn optional_cost_svar_condition(&self, def: &str, cmp: &str) -> Option<String> {
+        if self.in_delayed {
+            return None;
+        }
+        if self.body.optional_cost.is_some()
+            && matches!(
+                def,
+                "Count$OptionalGenericCostPaid.1.0" | "CastSA>Count$OptionalGenericCostPaid.1.0"
+            )
+        {
+            return match cmp {
+                "GE1" | "EQ1" | "GT0" | "NE0" => Some("Condition::OptionalCostPaid".to_string()),
+                "EQ0" | "LE0" | "LT1" | "NE1" => {
+                    Some("Condition::Not(&Condition::OptionalCostPaid)".to_string())
+                }
+                _ => None,
+            };
+        }
+        if self
+            .body
+            .optional_cost
+            .as_deref()
+            .is_some_and(|c| c.contains("CollectEvidence("))
+            && matches!(def, "Collected$Amount" | "CastSA>Collected$Amount")
+        {
+            return match cmp {
+                "GE1" | "GT0" | "NE0" => Some("Condition::OptionalCostPaid".to_string()),
+                "EQ0" | "LE0" | "LT1" => {
+                    Some("Condition::Not(&Condition::OptionalCostPaid)".to_string())
+                }
+                _ => None,
+            };
+        }
+        None
+    }
+
     fn inline_svar_condition(&mut self, var: &str, cmp: &str) -> Option<String> {
         let def = var.trim();
         let cmp = cmp.trim();
+        if let Some(cond) = self.optional_cost_svar_condition(def, cmp) {
+            return Some(cond);
+        }
         if def == "PlayerCountPropertyYou$HasPropertyMaxSpeed" {
             return match cmp {
                 "GE1" | "EQ1" => Some("Condition::MaxSpeed".to_string()),
@@ -2345,6 +2421,9 @@ impl Tx<'_> {
                 "EQ0" | "NE1" | "LT1" => Some("Condition::Not(&Condition::Bargained)".to_string()),
                 _ => None,
             };
+        }
+        if let Some(cond) = self.optional_cost_svar_condition(&raw, cmp) {
+            return Some(cond);
         }
         if raw == "PlayerCountPropertyYou$HasPropertyActive" {
             return match cmp {
@@ -3344,6 +3423,9 @@ impl Tx<'_> {
         let saved_unclaimed = self.unclaimed.borrow().clone();
         let parsed = if cost == "Forage" {
             Some((String::new(), vec!["Forage".to_string()]))
+        } else if cost.starts_with("Behold<") {
+            self.parse_behold_cost_token(cost)
+                .map(|part| (String::new(), vec![part]))
         } else if let Some(dmg) = Self::damage_you_cost_token(cost) {
             dmg.ok().map(|part| (String::new(), vec![part]))
         } else {
@@ -3366,6 +3448,7 @@ impl Tx<'_> {
                     Some(OptionalTriggerPrice::Life(format!("Amount::Fixed({n})")))
                 } else if asks_for_an_object(one)
                     || one == "Forage"
+                    || one.starts_with("Behold(")
                     || one.starts_with("DealDamageToYou(")
                 {
                     Some(OptionalTriggerPrice::CostPart(one.clone()))

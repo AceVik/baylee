@@ -112,6 +112,9 @@ pub struct CardBody {
     pub gift: Option<String>,
     /// `warp` (`cost!(...)`) expression for the face, when present.
     pub warp: Option<String>,
+    /// `optional_cost` (`Some(cost!(...))`) expression for the face, when present
+    /// (`S: Mode$ OptionalCost`, CR 118.8b).
+    pub optional_cost: Option<String>,
     /// `cost_reduction` expression for the front face, when present.
     pub cost_reduction: Option<String>,
     /// `entwine` expression for the front face, when present.
@@ -185,6 +188,7 @@ impl CardBody {
             && self.impending.is_none()
             && self.gift.is_none()
             && self.warp.is_none()
+            && self.optional_cost.is_none()
             && self.additional_costs.is_empty()
             && self.kicked_targets.is_none()
             && self.keywords.is_empty()
@@ -358,6 +362,7 @@ impl CardBody {
             &self.impending,
             &self.gift,
             &self.warp,
+            &self.optional_cost,
             &self.cost_reduction,
             &self.kicked_targets,
         ] {

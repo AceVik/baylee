@@ -3339,13 +3339,23 @@ fn wave10b_targets_for_each_opponent_and_phase_svar_sweeps() {
         low_hand_and_life.statics
     );
 
-    // `PlayerCountPlayers$Amount` includes controller, so must NOT use ObjectOfEachOpponent.
-    assert!(refused(
+    // `PlayerCountPlayers$Amount` includes controller, so it must NOT use
+    // `ObjectOfEachOpponent`; it lowers to `TargetConstraint::OnePerPlayer`.
+    let all_players = read(
         "Name:AllPlayersExile\nManaCost:3 W\nTypes:Enchantment\n\
          T:Mode$ ChangesZone | Origin$ Any | Destination$ Battlefield | ValidCard$ Card.Self | Execute$ Ex\n\
          SVar:Ex:DB$ ChangeZone | Origin$ Battlefield | Destination$ Exile | ValidTgts$ Creature.Other | TargetMin$ 0 | TargetMax$ OneEach | TargetsForEachPlayer$ True | Duration$ UntilHostLeavesPlay\n\
-         SVar:OneEach:PlayerCountPlayers$Amount"
-    ));
+         SVar:OneEach:PlayerCountPlayers$Amount",
+    );
+    assert!(
+        !all_players.abilities[0].contains("ObjectOfEachOpponent")
+            && all_players.abilities[0].contains(
+                "TargetReq::up_to_one(TargetSpec::Object(&Filter::ANOTHER_CREATURE))\
+                 .with_constraint(TargetConstraint::OnePerPlayer)"
+            ),
+        "{}",
+        all_players.abilities[0]
+    );
 }
 
 #[test]

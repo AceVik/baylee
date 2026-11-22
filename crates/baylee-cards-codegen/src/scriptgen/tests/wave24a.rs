@@ -429,15 +429,23 @@ fn excess_damage_bite_fight_and_single_chains_plus_refusals() {
 }
 
 #[test]
-fn triggered_targets_with_same_controller_remains_refused() {
-    // Triggered `TargetsWithSameController$ True` requires
-    // `TargetConstraint::SameController` on `Chain` (`mod.rs`/`activated.rs`),
-    // so it must never silently drop the constraint.
-    assert!(refused(
+fn triggered_targets_with_same_controller_emits_constraint() {
+    // Triggered `TargetsWithSameController$ True` lowers through
+    // `Chain.target_constraint` (`mod.rs`/`chains.rs`/`activated.rs`) into
+    // `TargetConstraint::SameController`.
+    let zombie = read(
         "Name:Soul-Shackled Zombie\nManaCost:2 B\nTypes:Creature\nPT:3/2\n\
          T:Mode$ ChangesZone | Origin$ Any | Destination$ Battlefield | ValidCard$ Card.Self | Execute$ TrigExile\n\
          SVar:TrigExile:DB$ ChangeZone | Origin$ Graveyard | Destination$ Exile | ValidTgts$ Card | TargetMin$ 0 | TargetMax$ 2 | TargetsWithSameController$ True",
-    ));
+    );
+    assert!(
+        zombie.abilities[0].contains(
+            "TargetReq::up_to(TargetSpec::CardInGraveyard(&Filter::Any, PlayerRel::EachPlayer), 2)\
+             .with_constraint(TargetConstraint::SameController)"
+        ),
+        "{:?}",
+        zombie.abilities
+    );
 }
 
 // -----------------------------------------------------------------------------

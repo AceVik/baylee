@@ -496,6 +496,216 @@ impl Tx<'_> {
         Ok(None)
     }
 
+    /// Whether a line is gated on a non-kicker `FaceDef::optional_cost`
+    /// condition (`Condition$ OptionalCost`, `ConditionDefined$ Collected`,
+    /// `Count$OptionalGenericCostPaid`, etc.).
+    pub(super) fn line_is_gated_on_optional_cost(&self, p: &Params) -> bool {
+        if matches!(
+            p.peek("Condition"),
+            Some("OptionalCost" | "OptionalCostPaid" | "EvidenceCollected" | "Beheld")
+        ) {
+            return true;
+        }
+        if matches!(
+            p.peek("ConditionDefined"),
+            Some("Collected" | "CastSA>Collected")
+        ) && p.peek("ConditionPresent") == Some("Card")
+        {
+            return true;
+        }
+        if let Some(var) = p.peek("ConditionCheckSVar") {
+            let def = self
+                .svars
+                .get(var.trim())
+                .map_or(var.trim(), String::as_str)
+                .trim();
+            if def.starts_with("Count$OptionalGenericCostPaid")
+                || def.starts_with("CastSA>Count$OptionalGenericCostPaid")
+                || matches!(def, "Collected$Amount" | "CastSA>Collected$Amount")
+            {
+                return true;
+            }
+        }
+        false
+    }
+
+    /// Reads non-kicker optional-cost line conditions inside `wrap_line_condition`:
+    /// - `Condition$ OptionalCost` (`ConditionOptionalPaid$ True | False`)
+    /// - `Condition$ OptionalCostPaid` / `EvidenceCollected` / `Beheld`
+    /// - `ConditionDefined$ Collected | CastSA>Collected | ConditionPresent$ Card`
+    /// - `ConditionCheckSVar$` over `Count$OptionalGenericCostPaid.1.0`,
+    ///   `CastSA>Count$OptionalGenericCostPaid.1.0`, `Collected$Amount`, or
+    ///   `CastSA>Collected$Amount`
+    pub(super) fn wrap_optional_cost_condition(
+        &mut self,
+        api: &str,
+        p: &mut Params,
+        effects: &[String],
+    ) -> Result<Option<Vec<String>>, ()> {
+        let has_collect_evidence = self
+            .body
+            .optional_cost
+            .as_deref()
+            .is_some_and(|c| c.contains("CollectEvidence("));
+        let has_behold = self
+            .body
+            .optional_cost
+            .as_deref()
+            .is_some_and(|c| c.contains("Behold("));
+
+        // 1. `ConditionDefined$ Collected | CastSA>Collected | ConditionPresent$ Card`
+        if matches!(
+            p.peek("ConditionDefined"),
+            Some("Collected" | "CastSA>Collected")
+        ) && p.peek("ConditionPresent") == Some("Card")
+            && !p.has("ConditionZone")
+            && !p.has("PresentZone")
+            && !p.has("PresentPlayer")
+        {
+            if !self.can_check_optional_cost() || !has_collect_evidence {
+                self.note(
+                    "collected-evidence condition without `CollectEvidence` optional cost".into(),
+                );
+                return Err(());
+            }
+            let paid = match p.peek("ConditionCompare").map(str::trim) {
+                None | Some("GE1" | "GT0" | "NE0") => true,
+                Some("EQ0" | "LE0" | "LT1") => false,
+                Some(other) => {
+                    self.note(format!("collected-evidence comparison `{other}`"));
+                    return Err(());
+                }
+            };
+            p.take("ConditionDefined");
+            p.take("ConditionPresent");
+            p.take("ConditionCompare");
+            p.take("ConditionDescription");
+            return self.finish_if_optional_cost(api, p, effects, paid);
+        }
+
+        if p.has("ConditionPresent") {
+            return Ok(None);
+        }
+
+        // 2. `Condition$ OptionalCost | OptionalCostPaid | EvidenceCollected | Beheld`
+        if let Some(cond) = p.peek("Condition").map(str::trim)
+            && matches!(
+                cond,
+                "OptionalCost" | "OptionalCostPaid" | "EvidenceCollected" | "Beheld"
+            )
+        {
+            if !self.can_check_optional_cost() {
+                self.note(format!(
+                    "`Condition$ {cond}` without `FaceDef::optional_cost`"
+                ));
+                return Err(());
+            }
+            if cond == "EvidenceCollected" && !has_collect_evidence {
+                self.note("`Condition$ EvidenceCollected` without `CollectEvidence` cost".into());
+                return Err(());
+            }
+            if cond == "Beheld" && !has_behold {
+                self.note("`Condition$ Beheld` without `Behold` cost".into());
+                return Err(());
+            }
+            let paid = match p.peek("ConditionOptionalPaid").map(str::trim) {
+                None | Some("True") => true,
+                Some("False") => false,
+                Some(other) => {
+                    self.note(format!("`ConditionOptionalPaid$ {other}`"));
+                    return Err(());
+                }
+            };
+            p.take("Condition");
+            p.take("ConditionOptionalPaid");
+            p.take("ConditionDescription");
+            return self.finish_if_optional_cost(api, p, effects, paid);
+        }
+
+        // 3. `ConditionCheckSVar$` over `OptionalGenericCostPaid` or `Collected$Amount`
+        self.wrap_optional_cost_svar_condition(api, p, effects, has_collect_evidence)
+    }
+
+    fn wrap_optional_cost_svar_condition(
+        &self,
+        api: &str,
+        p: &mut Params,
+        effects: &[String],
+        has_collect_evidence: bool,
+    ) -> Result<Option<Vec<String>>, ()> {
+        let Some(var) = p.peek("ConditionCheckSVar").map(str::to_string) else {
+            return Ok(None);
+        };
+        let def = self
+            .svars
+            .get(var.trim())
+            .map_or(var.trim(), String::as_str)
+            .trim();
+        let cmp = p.peek("ConditionSVarCompare").map_or("GE1", str::trim);
+        let paid = if matches!(
+            def,
+            "Count$OptionalGenericCostPaid.1.0" | "CastSA>Count$OptionalGenericCostPaid.1.0"
+        ) {
+            if !self.can_check_optional_cost() {
+                self.note("optional-cost condition without `FaceDef::optional_cost`".into());
+                return Err(());
+            }
+            match cmp {
+                "GE1" | "EQ1" | "GT0" | "NE0" => true,
+                "EQ0" | "LE0" | "LT1" | "NE1" => false,
+                other => {
+                    self.note(format!("optional-cost comparison `{def}` `{other}`"));
+                    return Err(());
+                }
+            }
+        } else if matches!(def, "Collected$Amount" | "CastSA>Collected$Amount") {
+            if !self.can_check_optional_cost() || !has_collect_evidence {
+                self.note(
+                    "collected-evidence condition without `CollectEvidence` optional cost".into(),
+                );
+                return Err(());
+            }
+            match cmp {
+                "GE1" | "GT0" | "NE0" => true,
+                "EQ0" | "LE0" | "LT1" => false,
+                other => {
+                    self.note(format!("collected-evidence comparison `{def}` `{other}`"));
+                    return Err(());
+                }
+            }
+        } else {
+            return Ok(None);
+        };
+        p.take("ConditionCheckSVar");
+        p.take("ConditionSVarCompare");
+        p.take("ConditionDescription");
+        self.finish_if_optional_cost(api, p, effects, paid)
+    }
+
+    fn finish_if_optional_cost(
+        &self,
+        api: &str,
+        p: &Params,
+        effects: &[String],
+        paid: bool,
+    ) -> Result<Option<Vec<String>>, ()> {
+        if let Some(key) = p.first_key() {
+            self.note(format!("unclaimed parameter `{api}.{key}`"));
+            return Err(());
+        }
+        let body = effects.join(", ");
+        let expr = if paid {
+            format!(
+                "Effect::IfCondition {{ condition: Condition::OptionalCostPaid, then: &[{body}], otherwise: &[] }}"
+            )
+        } else {
+            format!(
+                "Effect::IfCondition {{ condition: Condition::OptionalCostPaid, then: &[], otherwise: &[{body}] }}"
+            )
+        };
+        Ok(Some(vec![expr]))
+    }
+
     fn finish_if_kicked(
         &self,
         api: &str,
@@ -517,20 +727,23 @@ impl Tx<'_> {
     }
 
     /// Appends `new_effects` to `effects`, merging two adjacent complementary
-    /// one-armed `Effect::IfKicked` nodes (`then`-only + `otherwise`-only, in
-    /// either order) into a single `Effect::IfKicked { then, otherwise }`.
+    /// one-armed `Effect::IfKicked` or `Condition::OptionalCostPaid`
+    /// `Effect::IfCondition` nodes (`then`-only + `otherwise`-only, in either
+    /// order) into a single two-armed node.
     pub(super) fn push_effects_merging_kicked(effects: &mut Vec<String>, new_effects: Vec<String>) {
         if let ([incoming], Some(prev)) = (new_effects.as_slice(), effects.last_mut()) {
-            fn split_only(s: &str) -> Option<(bool, &str)> {
+            fn split_only<'a>(s: &'a str, head: &str) -> Option<(bool, &'a str)> {
+                let else_prefix = format!("{head}then: &[], otherwise: &[");
                 if let Some(inner) = s
-                    .strip_prefix("Effect::IfKicked { then: &[], otherwise: &[")
+                    .strip_prefix(&else_prefix)
                     .and_then(|r| r.strip_suffix("] }"))
                     && !inner.contains("], otherwise: &[")
                 {
                     return Some((false, inner));
                 }
+                let then_prefix = format!("{head}then: &[");
                 if let Some(inner) = s
-                    .strip_prefix("Effect::IfKicked { then: &[")
+                    .strip_prefix(&then_prefix)
                     .and_then(|r| r.strip_suffix("], otherwise: &[] }"))
                     && !inner.contains("], otherwise: &[")
                 {
@@ -538,19 +751,22 @@ impl Tx<'_> {
                 }
                 None
             }
-            if let (Some((prev_kicked, prev_body)), Some((next_kicked, next_body))) =
-                (split_only(prev), split_only(incoming))
-                && prev_kicked != next_kicked
-            {
-                let (then_body, else_body) = if prev_kicked {
-                    (prev_body, next_body)
-                } else {
-                    (next_body, prev_body)
-                };
-                *prev = format!(
-                    "Effect::IfKicked {{ then: &[{then_body}], otherwise: &[{else_body}] }}"
-                );
-                return;
+            for head in [
+                "Effect::IfKicked { ",
+                "Effect::IfCondition { condition: Condition::OptionalCostPaid, ",
+            ] {
+                if let (Some((prev_then, prev_body)), Some((next_then, next_body))) =
+                    (split_only(prev, head), split_only(incoming, head))
+                    && prev_then != next_then
+                {
+                    let (then_body, else_body) = if prev_then {
+                        (prev_body, next_body)
+                    } else {
+                        (next_body, prev_body)
+                    };
+                    *prev = format!("{head}then: &[{then_body}], otherwise: &[{else_body}] }}");
+                    return;
+                }
             }
         }
         effects.extend(new_effects);
@@ -780,6 +996,7 @@ impl Tx<'_> {
             || chain.target_up_to.is_some()
             || chain.target_exact.is_some()
             || chain.target_is_x
+            || chain.target_constraint.is_some()
         {
             return self.deny("a granted trigger with unsupported effects or targets".to_string());
         }
@@ -911,6 +1128,12 @@ impl Tx<'_> {
     fn parse_spell_cost_token(&mut self, token: &str) -> Option<Vec<String>> {
         if token == "DiscardHand" {
             return Some(vec!["DiscardHand".to_string()]);
+        }
+        if token.starts_with("Behold<") {
+            return Some(vec![self.parse_behold_cost_token(token)?]);
+        }
+        if token.starts_with("CollectEvidence<") {
+            return Some(vec![self.parse_collect_evidence_cost_token(token)?]);
         }
         if let Some(amt) = token
             .strip_prefix("PayLife<")

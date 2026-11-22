@@ -351,6 +351,7 @@ struct Chain {
     target_up_to: Option<u8>,
     target_exact: Option<u8>,
     target_unique: bool,
+    target_constraint: Option<&'static str>,
     second_target: Option<String>,
     second_target_up_to: Option<u8>,
     could_add_mana: bool,
@@ -623,6 +624,49 @@ impl<'a> Tx<'a> {
         !self.in_delayed && (self.on_a_spell || self.is_etb_self_trigger)
     }
 
+    /// Whether `Condition::OptionalCostPaid` can read a live optional-cost flag
+    /// for this face (`FaceDef::optional_cost`, CR 118.8b).
+    pub(super) fn can_check_optional_cost(&self) -> bool {
+        !self.in_delayed && self.body.optional_cost.is_some()
+    }
+
+    /// Lowers a self-spell `S: Mode$ OptionalCost` static ability into
+    /// `FaceDef::optional_cost` (`CR 118.8b`).
+    fn lower_optional_cost_static(&mut self, spec: &str, is_land: bool) -> Option<()> {
+        if is_land {
+            return self.deny("`S: Mode$ OptionalCost` on a land".to_string());
+        }
+        if self.body.optional_cost.is_some() {
+            return self.deny("a second `S: Mode$ OptionalCost` on one face".to_string());
+        }
+        let Some((mode, mut p)) = Params::parse(spec) else {
+            return self.deny("an `S:` line with no `$` in it".to_string());
+        };
+        if mode != "OptionalCost" {
+            return self.deny(format!("static ability `S: Mode$ {mode}`"));
+        }
+        p.drop_prose();
+        if p.take("EffectZone").as_deref() != Some("All")
+            || p.take("ValidCard").as_deref() != Some("Card.Self")
+            || p.take("ValidSA").as_deref() != Some("Spell")
+        {
+            return self.deny("static ability `S: Mode$ OptionalCost`".to_string());
+        }
+        let Some(cost_raw) = p.take("Cost") else {
+            return self.deny("`S: Mode$ OptionalCost` without `Cost$`".to_string());
+        };
+        if let Some(key) = p.first_key() {
+            return self.deny(format!("unclaimed parameter `OptionalCost.{key}`"));
+        }
+        let (cost_expr, uses_x) = self.parse_kicker_cost_expr(&cost_raw)?;
+        if uses_x {
+            return self.deny("a variable-X `S: Mode$ OptionalCost`".to_string());
+        }
+        self.body.optional_cost = Some(format!("Some({cost_expr})"));
+        self.body.notes.push("optional additional cost".to_string());
+        Some(())
+    }
+
     /// Parses `SVar:<name>:Count$Kicked.<when_kicked>.<when_unkicked>` when
     /// both arms are plain non-negative whole numbers.
     pub(super) fn kicked_pair(&self, raw: &str) -> Option<(u32, u32)> {
@@ -801,6 +845,10 @@ pub(super) fn is_vanilla_face(script: &CardScript) -> bool {
         && script.oracle.trim().is_empty()
 }
 
+fn is_optional_cost_static(spec: &str) -> bool {
+    Params::parse(spec).is_some_and(|(mode, _)| mode == "OptionalCost")
+}
+
 fn transcode_face(
     script: &CardScript,
     cats: &SubtypeCatalogs,
@@ -848,7 +896,17 @@ fn transcode_face(
     {
         tx.keyword(line)?;
     }
+    // Read `S: Mode$ OptionalCost` before other rules so `self.body.optional_cost`
+    // is established before `A:`/`T:` lines check `Condition::OptionalCostPaid`.
     for (kind, spec) in &script.rules {
+        if *kind == 'S' && is_optional_cost_static(spec) {
+            tx.lower_optional_cost_static(spec, script.is_land)?;
+        }
+    }
+    for (kind, spec) in &script.rules {
+        if *kind == 'S' && is_optional_cost_static(spec) {
+            continue;
+        }
         tx.rule(*kind, spec)?;
     }
     tx.block_halves_paired()?;
