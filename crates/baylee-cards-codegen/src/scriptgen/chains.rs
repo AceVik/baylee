@@ -339,11 +339,9 @@ impl Tx<'_> {
         } else if api == "ChangeZone"
             && p.peek("Origin") == Some("Battlefield")
             && p.peek("Destination") == Some("Exile")
-            && (p.has("RememberChanged")
-                || (p.has("RememberTargets")
-                    && (self.sub_is_api(sub.as_deref(), "ChangeZone")
-                        || self.sub_is_api(sub.as_deref(), "DelayedTrigger"))))
-            && !self.sub_is_api(sub.as_deref(), "ImmediateTrigger")
+            && (p.has("RememberChanged") || p.has("RememberTargets"))
+            && (self.sub_is_api(sub.as_deref(), "ChangeZone")
+                || self.sub_is_api(sub.as_deref(), "DelayedTrigger"))
             && (targets_here
                 || (self.sub_is_api(sub.as_deref(), "ChangeZone")
                     && (matches!(p.peek("Defined"), Some("Targeted" | "ParentTarget"))
@@ -526,10 +524,13 @@ impl Tx<'_> {
             && p.peek("Origin") == Some("Library")
             && p.peek("Destination") == Some("Exile")
             && p.has("RememberChanged")
+            && self.sub_is_api(sub.as_deref(), "Effect")
         {
             self.exile_top_to_play_effect(&mut p, &mut sub)?
         } else if api == "Dig"
-            && p.peek("ChangeNum") == Some("All")
+            && (p.peek("ChangeNum") == Some("All")
+                || (p.peek("DigNum") == Some("1")
+                    && matches!(p.peek("ChangeNum"), None | Some("1"))))
             && p.peek("DestinationZone") == Some("Exile")
             && p.has("RememberChanged")
             && self.sub_is_api(sub.as_deref(), "Effect")
@@ -1821,9 +1822,7 @@ impl Tx<'_> {
                     && p.peek("TargetMin") == Some("0")
                     && spec.starts_with("TargetSpec::Object(")
                     && p.peek("TargetMax")
-                        .and_then(|v| self.svars.get(v.trim()))
-                        .map(String::as_str)
-                        .map(str::trim)
+                        .map(|v| self.svars.get(v.trim()).map_or(v.trim(), |s| s.trim()))
                         == Some("PlayerCountOpponents$Amount")
                     && let Some(stripped) = Self::strip_opp_ctrl_from_valid(valid)
                 {
@@ -1912,6 +1911,9 @@ impl Tx<'_> {
                     && self.svars.get(max_var.trim()).is_some_and(|def| {
                         let def = def.trim();
                         def == format!("Count$Valid {valid}")
+                            || def
+                                .strip_prefix("Count$Valid ")
+                                .is_some_and(|cv| Self::same_valid_atoms(cv, valid))
                             || (spec.starts_with("TargetSpec::Object(")
                                 && matches!(def, "Count$Valid Card" | "Count$Valid Permanent"))
                             || (api == "ChangeZone"
@@ -1919,11 +1921,13 @@ impl Tx<'_> {
                                 && def.strip_prefix("Count$ValidGraveyard ").is_some_and(|cv| {
                                     cv == valid
                                         || cv == "Card"
-                                        || (cv == "Card.YouOwn"
+                                        || (matches!(cv, "Card.YouOwn" | "Card.YouCtrl")
                                             && (valid.contains("YouOwn")
                                                 || valid.contains("YouCtrl")))
-                                        || cv.replace("YouOwn", "YouCtrl")
-                                            == valid.replace("YouOwn", "YouCtrl")
+                                        || Self::same_valid_atoms(
+                                            &cv.replace("YouOwn", "YouCtrl"),
+                                            &valid.replace("YouOwn", "YouCtrl"),
+                                        )
                                 }))
                     })
                 {
@@ -2718,22 +2722,42 @@ impl Tx<'_> {
             // is still refused.
             "GainLife" => {
                 let n = self.amount_or_count_ext(&p.take("LifeAmount")?)?;
-                match (
-                    self.wave11_player_of_line(
-                        p.take("Defined").as_deref(),
-                        target,
-                        targets_a_player,
-                    )?,
-                    n.strip_prefix("Amount::Fixed(")
-                        .and_then(|r| r.strip_suffix(')')),
-                ) {
-                    ("PlayerRel::You", Some(fixed)) => vec![format!("Effect::gain_life({fixed})")],
-                    ("PlayerRel::You", None) => vec![format!("Effect::GainLife {{ amount: {n} }}")],
-                    (who, _) => vec![format!("Effect::GainLifeFor {{ amount: {n}, who: {who} }}")],
+                let fixed = n
+                    .strip_prefix("Amount::Fixed(")
+                    .and_then(|r| r.strip_suffix(')'));
+                let you_gain = match fixed {
+                    Some(k) => format!("Effect::gain_life({k})"),
+                    None => format!("Effect::GainLife {{ amount: {n} }}"),
+                };
+                if let Some(other_rel) =
+                    self.split_you_and_player(p.peek("Defined"), target, targets_a_player)
+                {
+                    p.take("Defined");
+                    return Some(vec![
+                        you_gain,
+                        format!("Effect::GainLifeFor {{ amount: {n}, who: {other_rel} }}"),
+                    ]);
+                }
+                match self.wave11_player_of_line(
+                    p.take("Defined").as_deref(),
+                    target,
+                    targets_a_player,
+                )? {
+                    "PlayerRel::You" => vec![you_gain],
+                    who => vec![format!("Effect::GainLifeFor {{ amount: {n}, who: {who} }}")],
                 }
             }
             "LoseLife" => {
                 let n = self.amount_or_count_ext(&p.take("LifeAmount")?)?;
+                if let Some(other_rel) =
+                    self.split_you_and_player(p.peek("Defined"), target, targets_a_player)
+                {
+                    p.take("Defined");
+                    return Some(vec![
+                        format!("Effect::LoseLife {{ amount: {n}, target: PlayerRel::You }}"),
+                        format!("Effect::LoseLife {{ amount: {n}, target: {other_rel} }}"),
+                    ]);
+                }
                 let who = self.wave11_player_of_line(
                     p.take("Defined").as_deref(),
                     target,
@@ -2820,35 +2844,8 @@ impl Tx<'_> {
                     p.take("Optional");
                     may = true;
                 }
-                if p.peek("Defined") == Some("TargetedAndYou") && targets_a_player {
-                    p.take("Defined");
-                    let you_draw = if let Some(fixed) = n
-                        .strip_prefix("Amount::Fixed(")
-                        .and_then(|r| r.strip_suffix(')'))
-                    {
-                        format!("Effect::draw({fixed})")
-                    } else {
-                        format!("Effect::DrawCards {{ amount: {n} }}")
-                    };
-                    let other_draw =
-                        format!("Effect::DrawCardsFor {{ amount: {n}, who: PlayerRel::Chosen }}");
-                    return Some(if may {
-                        vec![format!(
-                            "Effect::MayDo {{ effects: &[{you_draw}, {other_draw}] }}"
-                        )]
-                    } else {
-                        vec![you_draw, other_draw]
-                    });
-                }
-                if target.is_none()
-                    && let Some(def) = p.peek("Defined")
-                    && let Some((lhs, rhs)) = def.split_once('&')
-                    && let Some(other_raw) = match (lhs.trim(), rhs.trim()) {
-                        ("You", other) | (other, "You") => Some(other),
-                        _ => None,
-                    }
-                    && let Some(other_rel) = self.player_rel(Some(other_raw))
-                    && other_rel != "PlayerRel::You"
+                if let Some(other_rel) =
+                    self.split_you_and_player(p.peek("Defined"), target, targets_a_player)
                 {
                     p.take("Defined");
                     let you_draw = if let Some(fixed) = n
@@ -3199,8 +3196,10 @@ impl Tx<'_> {
                         return Some(emit_filter("&Filter::Reference"));
                     }
                     Some("TriggeredTargetLKICopy" | "TriggeredTarget")
-                        if self.trigger_mode.as_deref() == Some("DamageDone")
-                            && target.is_none() =>
+                        if matches!(
+                            self.trigger_mode.as_deref(),
+                            Some("DamageDone" | "DamageDoneOnce")
+                        ) && target.is_none() =>
                     {
                         return Some(emit_filter("&Filter::Reference"));
                     }
@@ -5312,7 +5311,7 @@ impl Tx<'_> {
             let mut saw_opp = false;
             let mut kept = Vec::new();
             for atom in rest.split('+').map(str::trim).filter(|a| !a.is_empty()) {
-                if atom == "OppCtrl" {
+                if matches!(atom, "OppCtrl" | "YouDontCtrl") {
                     saw_opp = true;
                 } else {
                     kept.push(atom);
@@ -5328,6 +5327,29 @@ impl Tx<'_> {
             }
         }
         (!out.is_empty()).then(|| out.join(","))
+    }
+
+    fn same_valid_atoms(a: &str, b: &str) -> bool {
+        let normalize = |s: &str| -> Vec<(String, Vec<String>)> {
+            let mut alts: Vec<(String, Vec<String>)> = s
+                .split(',')
+                .map(|alt| {
+                    let alt = alt.trim();
+                    let (base, rest) = alt.split_once('.').unwrap_or((alt, ""));
+                    let mut atoms: Vec<String> = rest
+                        .split('+')
+                        .map(str::trim)
+                        .filter(|x| !x.is_empty())
+                        .map(str::to_string)
+                        .collect();
+                    atoms.sort();
+                    (base.trim().to_string(), atoms)
+                })
+                .collect();
+            alts.sort();
+            alts
+        };
+        normalize(a) == normalize(b)
     }
 
     /// Reads `Draw<N/You>` used as a loot cost or switched `UnlessCost$`.
@@ -5468,6 +5490,23 @@ impl Tx<'_> {
             return Some(rel);
         }
         self.player_rel(defined)
+    }
+
+    fn split_you_and_player(
+        &self,
+        defined: Option<&str>,
+        target: Option<&str>,
+        targets_a_player: bool,
+    ) -> Option<&'static str> {
+        if defined == Some("TargetedAndYou") && targets_a_player {
+            return Some("PlayerRel::Chosen");
+        }
+        let (lhs, rhs) = defined?.split_once('&')?;
+        let (("You", other_raw) | (other_raw, "You")) = (lhs.trim(), rhs.trim()) else {
+            return None;
+        };
+        let other_rel = self.wave11_player_of_line(Some(other_raw), target, false)?;
+        (other_rel != "PlayerRel::You").then_some(other_rel)
     }
 
     pub(super) fn wave11_player_of_line(

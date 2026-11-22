@@ -3109,12 +3109,21 @@ fn wave9b_effect_cost_handsize_permanent_pump_and_if_moved() {
         "{a}"
     );
 
-    // One-shot "next spell" discount (`ForgetOnCast$`) must stay refused.
-    assert!(refused(
+    // One-shot "next spell" fixed discount (`ForgetOnCast$ Card.YouCtrl`) lowers to `Effect::ReduceNextSpellCost`.
+    let one_shot = read(
         "Name:OneShotDiscount\nManaCost:R\nTypes:Instant\n\
          A:SP$ Effect | StaticAbilities$ Disc | ForgetOnCast$ Card.YouCtrl\n\
-         SVar:Disc:Mode$ ReduceCost | ValidCard$ Card | Activator$ You | Type$ Spell | Amount$ 1"
-    ));
+         SVar:Disc:Mode$ ReduceCost | ValidCard$ Card | Activator$ You | Type$ Spell | Amount$ 1",
+    );
+    assert!(
+        one_shot.abilities[0].contains(
+            "Effect::ReduceNextSpellCost { who: PlayerRel::You, filter: &Filter::Any, \
+             generic: Amount::Fixed(1), mana: ManaCost::ZERO, colored_only: false, \
+             next_only: true, duration: Duration::UntilEndOfTurn }"
+        ),
+        "{}",
+        one_shot.abilities[0]
+    );
 }
 
 #[test]

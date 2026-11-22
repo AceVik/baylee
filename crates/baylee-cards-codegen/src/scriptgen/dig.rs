@@ -172,7 +172,7 @@ impl Tx<'_> {
                 return self
                     .deny("a `Dig` inspection on a line that targets an object".to_string());
             }
-            let who = self.player_of_line(defined.as_deref(), target, targets_a_player)?;
+            let who = self.wave11_player_of_line(defined.as_deref(), target, targets_a_player)?;
             if !Self::is_single_player_rel(who) {
                 return self.deny("a `Dig` inspection of more than one library".to_string());
             }
@@ -185,7 +185,9 @@ impl Tx<'_> {
         // put anywhere, and nothing is revealed first (exile is public by
         // itself, CR 406.3). Face-down linked exile on a permanent
         // (`Bomat Courier`, `Expert-Level Safe`) uses `ExileTopFaceDownLinked`.
-        if take == Take::All && first == First::Exile {
+        if (take == Take::All || (take == Take::Exactly(1) && count_raw.trim() == "1"))
+            && first == First::Exile
+        {
             if exile_face_down {
                 if self.on_a_spell
                     || !your_library
@@ -224,7 +226,7 @@ impl Tx<'_> {
             if targets_here && !targets_a_player {
                 return self.deny("a `Dig` exile on a line that targets an object".to_string());
             }
-            let who = self.player_of_line(defined.as_deref(), target, targets_a_player)?;
+            let who = self.wave11_player_of_line(defined.as_deref(), target, targets_a_player)?;
             let count = self.dig_count(&count_raw)?;
             return Some(vec![format!(
                 "Effect::ExileTop {{ who: {who}, count: {count} }}"
@@ -248,7 +250,7 @@ impl Tx<'_> {
             if targets_here && !targets_a_player {
                 return self.deny("a `Dig` on a line that targets an object".to_string());
             }
-            let who = self.player_of_line(defined.as_deref(), target, targets_a_player)?;
+            let who = self.wave11_player_of_line(defined.as_deref(), target, targets_a_player)?;
             if !Self::is_single_player_rel(who) {
                 return self.deny("a `Dig` of more than one library".to_string());
             }

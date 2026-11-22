@@ -810,6 +810,20 @@ impl Tx<'_> {
                         }
                     }
                     other
+                        if self.on_a_spell
+                            && other
+                                .strip_prefix("cmcLE")
+                                .and_then(|var| self.svars.get(var.trim()))
+                                .is_some_and(|def| {
+                                    matches!(
+                                        def.trim(),
+                                        "Count$Converge" | "Count$ColorsOfManaSpentToCast"
+                                    )
+                                }) =>
+                    {
+                        "Filter::CmcAtMostColorsSpent".to_string()
+                    }
+                    other
                         if (self.has_x
                             || (self.is_etb_self_trigger
                                 && self.has_x_mana_cost

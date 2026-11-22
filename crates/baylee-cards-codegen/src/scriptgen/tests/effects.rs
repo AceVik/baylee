@@ -1272,8 +1272,17 @@ fn player_protection_life_lock_and_simultaneous_phase_chain_are_read_exactly() {
     ] {
         assert!(emitted.contains(expected), "missing {expected}: {emitted}");
     }
+    let opp_lock = read(&text.replace("ValidPlayer$ You", "ValidPlayer$ Opponent"));
+    assert!(
+        opp_lock
+            .abilities
+            .join("\n")
+            .contains("Modifier::LifeTotalCantChange { who: PlayerRel::EachOpponent }"),
+        "{:?}",
+        opp_lock.abilities
+    );
     assert!(refused(
-        &text.replace("ValidPlayer$ You", "ValidPlayer$ Opponent")
+        &text.replace("ValidPlayer$ You", "ValidPlayer$ TriggeredPlayer")
     ));
     assert!(refused(
         &text.replace("Valid Permanent.YouCtrl", "Valid Permanent")
@@ -3136,12 +3145,18 @@ fn wave5_effect_choose_one_phase_conditions_and_event_zones() {
         a.contains("Modifier::SpellsHaveFlash(Some(TypeSet::ARTIFACT.union(TypeSet::CREATURE)))"),
         "{a}"
     );
-    // CantGainLife is a CR 101.2 prohibition, never conflated with LifeGainNoLifeInstead.
-    assert!(refused(
+    // CantGainLife is a CR 101.2 prohibition (`PlayersCantGainLife`), never conflated with LifeGainNoLifeInstead.
+    let no_life = read(
         "Name:No life\nTypes:Instant\n\
          A:SP$ Effect | StaticAbilities$ NoGain | Duration$ UntilEndOfTurn\n\
-         SVar:NoGain:Mode$ CantGainLife | ValidPlayer$ Player\n"
-    ));
+         SVar:NoGain:Mode$ CantGainLife | ValidPlayer$ Player\n",
+    );
+    assert!(
+        no_life.abilities[0].contains("Modifier::PlayersCantGainLife(PlayerRel::EachPlayer)")
+            && !no_life.abilities[0].contains("LifeGainNoLifeInstead"),
+        "{}",
+        no_life.abilities[0]
+    );
 
     let phase_cond = "Name:Descend scout\nTypes:Creature Goblin\nPT:2/2\n\
          T:Mode$ Phase | Phase$ End of Turn | ValidPlayer$ You.descended | TriggerZones$ Battlefield | Execute$ Draw | CheckSVar$ X | SVarCompare$ GE1\n\
@@ -3970,11 +3985,25 @@ fn wave18b_remember_this_way_chains() {
         sac_strict.abilities
     );
 
-    // Refusals: multi-player mill/discard Remember*, EQ1 on multi-mill, TargetOnly -> GraveyardToTop multi.
-    for bad in [
-        "Name:BadMultiMill\nManaCost:2 U\nTypes:Sorcery\n\
+    // Multi-player mill -> total cards milled across all players (`ThisWay::Milled`).
+    let multi_mill = read(
+        "Name:SharedMill\nManaCost:2 U\nTypes:Sorcery\n\
          A:SP$ Mill | Defined$ Player | NumCards$ 3 | RememberMilled$ True | SubAbility$ G\n\
          SVar:G:DB$ GainLife | Defined$ You | LifeAmount$ X\nSVar:X:Remembered$Amount",
+    );
+    assert!(
+        multi_mill.abilities[0]
+            .contains("Effect::Mill { amount: Amount::Fixed(3), target: PlayerRel::EachPlayer }")
+            && multi_mill.abilities[0].contains("Amount::ThisWay(ThisWay::Milled(&Filter::Any))"),
+        "{:?}",
+        multi_mill.abilities
+    );
+
+    // Refusals: multi-player mill EQ1, multi-player discard Remember*, EQ1 on multi-mill, TargetOnly -> GraveyardToTop multi.
+    for bad in [
+        "Name:BadMultiMillEq1\nManaCost:2 U\nTypes:Sorcery\n\
+         A:SP$ Mill | Defined$ Player | NumCards$ 1 | RememberMilled$ True | SubAbility$ G\n\
+         SVar:G:DB$ GainLife | Defined$ You | LifeAmount$ 2 | ConditionDefined$ Remembered | ConditionPresent$ Creature | ConditionCompare$ EQ1",
         "Name:BadMultiDiscard\nManaCost:2 R\nTypes:Sorcery\n\
          A:SP$ Discard | Defined$ Player | Mode$ Hand | RememberDiscarded$ True | SubAbility$ D\n\
          SVar:D:DB$ Draw | Defined$ Player | NumCards$ X\nSVar:X:Remembered$Amount",
@@ -4970,11 +4999,25 @@ fn wave21b_reduce_next_spell_cost_and_refusals() {
         colored.statics
     );
 
+    // Fixed-amount `ForgetOnCast$ Card.YouCtrl` without `SetChosenNumber$` lowers in Wave 22b.
+    let fixed_next = read(
+        "Name:FixedNextDiscount\nManaCost:1 R\nTypes:Sorcery\n\
+         A:SP$ Effect | StaticAbilities$ Disc | ForgetOnCast$ Card.YouCtrl\n\
+         SVar:Disc:Mode$ ReduceCost | ValidCard$ Card | Type$ Spell | Activator$ You | Amount$ 1",
+    );
+    assert!(
+        fixed_next.abilities[0].contains(
+            "Effect::ReduceNextSpellCost { who: PlayerRel::You, filter: &Filter::Any, \
+             generic: Amount::Fixed(1), mana: ManaCost::ZERO, colored_only: false, \
+             next_only: true, duration: Duration::UntilEndOfTurn }"
+        ),
+        "{:?}",
+        fixed_next.abilities
+    );
+
     for bad in [
         // Mismatched ForgetOnCast$ vs ValidCard$
         "Name:BadMismatch\nManaCost:1 R\nTypes:Sorcery\nA:SP$ Effect | StaticAbilities$ Disc | ForgetOnCast$ Instant.YouCtrl\nSVar:Disc:Mode$ ReduceCost | ValidCard$ Sorcery | Type$ Spell | Activator$ You | Amount$ 2",
-        // Fixed-amount ForgetOnCast$ Card.YouCtrl without SetChosenNumber$ stays deferred to Wave 22
-        "Name:BadDeferred\nManaCost:1 R\nTypes:Sorcery\nA:SP$ Effect | StaticAbilities$ Disc | ForgetOnCast$ Card.YouCtrl\nSVar:Disc:Mode$ ReduceCost | ValidCard$ Card | Type$ Spell | Activator$ You | Amount$ 1",
         // SetChosenNumber$ without Count$ChosenNumber
         "Name:BadUnusedChosen\nManaCost:1 R\nTypes:Sorcery\nA:SP$ Effect | StaticAbilities$ Disc | SetChosenNumber$ X\nSVar:Disc:Mode$ ReduceCost | ValidCard$ Card | Type$ Spell | Activator$ You | Amount$ 2\nSVar:X:Count$Valid Goblin.YouCtrl",
         // Remembered card filter refused
@@ -5069,4 +5112,402 @@ fn wave21b_initiative_set_pt_and_conditions() {
     ] {
         assert!(refused(bad), "must refuse: {bad}");
     }
+}
+
+#[test]
+fn wave22b_effect_static_modes_and_one_shot_spells() {
+    // Player-rule Effect statics: CantGainLife (including DamageDone TriggeredTarget),
+    // CantChangeLife, CantLoseLife, CantSearchLibrary, CantPlayLand, EffectZone$ Command, Stackable$ False.
+    let scar = read(
+        "Name:ScarLasher\nManaCost:R R\nTypes:Creature Goblin\nPT:2/2\n\
+         T:Mode$ DamageDone | ValidSource$ Card.Self | ValidTarget$ Player | Execute$ TrigLock | TriggerZones$ Battlefield\n\
+         SVar:TrigLock:DB$ Effect | RememberObjects$ TriggeredTarget | StaticAbilities$ NoGain | Duration$ Permanent | Stackable$ False\n\
+         SVar:NoGain:Mode$ CantGainLife | ValidPlayer$ Player.IsRemembered | EffectZone$ Command",
+    );
+    assert!(
+        scar.abilities[0].contains("Modifier::PlayersCantGainLife(PlayerRel::DamagedPlayer)"),
+        "{:?}",
+        scar.abilities
+    );
+    let locks = read(
+        "Name:QuietWard\nManaCost:2 W\nTypes:Instant\n\
+         A:SP$ Effect | StaticAbilities$ S1,S2,S3,S4 | Duration$ UntilEndOfTurn\n\
+         SVar:S1:Mode$ CantChangeLife | ValidPlayer$ Player\n\
+         SVar:S2:Mode$ CantLoseLife | ValidPlayer$ Opponent\n\
+         SVar:S3:Mode$ CantSearchLibrary | ValidPlayer$ Opponent\n\
+         SVar:S4:Mode$ CantPlayLand | Player$ Player",
+    );
+    let lock_out = locks.abilities.join("\n");
+    for expected in [
+        "Modifier::LifeTotalCantChange { who: PlayerRel::EachPlayer }",
+        "Modifier::CantLoseLife { who: PlayerRel::EachOpponent }",
+        "Modifier::OpponentsCantSearch",
+        "Modifier::PlayersCantPlay(&Filter::LAND)",
+    ] {
+        assert!(
+            lock_out.contains(expected),
+            "missing {expected}: {lock_out}"
+        );
+    }
+
+    // One-shot ForgetOnCast$ specials: Improvise and mana-any-type.
+    let improvise = read(
+        "Name:VaultArch\nTypes:Land\n\
+         A:AB$ Effect | Cost$ U T | StaticAbilities$ GrantImp | ForgetOnCast$ Card.YouCtrl\n\
+         SVar:GrantImp:Mode$ Continuous | Affected$ Card.YouCtrl | AffectedZone$ Stack | AddKeyword$ Improvise",
+    );
+    assert!(
+        improvise.abilities[0].contains("Effect::NextSpellThisTurnHasImprovise"),
+        "{:?}",
+        improvise.abilities
+    );
+    let star = read(
+        "Name:PolarStar\nManaCost:4\nTypes:Artifact\n\
+         A:AB$ Effect | Cost$ 4 T | StaticAbilities$ AnyMana | ForgetOnCast$ Card.YouCtrl\n\
+         SVar:AnyMana:Mode$ ManaConvert | ValidPlayer$ You | ValidSA$ Spell | Optional$ True | ManaConversion$ AnyType->AnyType",
+    );
+    assert!(
+        star.abilities[0].contains("Modifier::OneSpellManaAnyType"),
+        "{:?}",
+        star.abilities
+    );
+
+    // Refusals: per-player CantPlayLand, resolution-pinned CantChangeLife/CantLoseLife,
+    // all-player CantSearchLibrary, non-combat CantPreventDamage, Mode$ MustBlock.
+    for bad in [
+        "Name:BadLandLock\nManaCost:1 R\nTypes:Sorcery\nA:SP$ Effect | StaticAbilities$ S\nSVar:S:Mode$ CantPlayLand | Player$ You",
+        "Name:BadRemChange\nManaCost:2 W\nTypes:Instant\nA:SP$ Effect | ValidTgts$ Player | RememberObjects$ Targeted | StaticAbilities$ S\nSVar:S:Mode$ CantChangeLife | ValidPlayer$ Player.IsRemembered",
+        "Name:BadRemLose\nManaCost:2 W\nTypes:Instant\nA:SP$ Effect | ValidTgts$ Player | RememberObjects$ Targeted | StaticAbilities$ S\nSVar:S:Mode$ CantLoseLife | ValidPlayer$ Player.IsRemembered",
+        "Name:BadAllSearch\nManaCost:2 U\nTypes:Instant\nA:SP$ Effect | StaticAbilities$ S\nSVar:S:Mode$ CantSearchLibrary | ValidPlayer$ Player",
+        "Name:BadNoPrev\nManaCost:1 R\nTypes:Instant\nA:SP$ Effect | StaticAbilities$ S\nSVar:S:Mode$ CantPreventDamage",
+        "Name:BadMustBlock\nManaCost:1 G\nTypes:Instant\nA:SP$ Effect | ValidTgts$ Creature | RememberObjects$ Targeted | StaticAbilities$ S\nSVar:S:Mode$ MustBlock | ValidCreature$ Creature.IsRemembered",
+    ] {
+        assert!(refused(bad), "must refuse: {bad}");
+    }
+}
+
+#[test]
+fn wave22b_effect_continuous_modifiers_and_player_protection() {
+    // Player.IsRemembered Hexproof & Protection from everything, plus permanent
+    // RemoveKeyword$, CantHaveKeyword$, MayAssignDamageAsUnblocked$, hidden keywords.
+    let hex_player = read(
+        "Name:AegisTouch\nManaCost:1 W\nTypes:Instant\n\
+         A:SP$ Effect | ValidTgts$ Player | RememberObjects$ Targeted | StaticAbilities$ S1,S2 | Duration$ UntilEndOfTurn\n\
+         SVar:S1:Mode$ Continuous | Affected$ Player.IsRemembered | AddKeyword$ Hexproof\n\
+         SVar:S2:Mode$ Continuous | Affected$ Player.IsRemembered | AddKeyword$ Protection from everything",
+    );
+    let hp_out = hex_player.abilities.join("\n");
+    assert!(
+        hp_out.contains("Modifier::PlayerHexproof { who: PlayerRel::Chosen }")
+            && hp_out
+                .contains("Modifier::PlayerProtectionFromEverything { who: PlayerRel::Chosen }"),
+        "{hp_out}"
+    );
+
+    let perm_mods = read(
+        "Name:ShearLight\nManaCost:2 G\nTypes:Sorcery\n\
+         A:SP$ Effect | ValidTgts$ Creature | RememberObjects$ Targeted | StaticAbilities$ S1,S2,S3\n\
+         SVar:S1:Mode$ Continuous | Affected$ Card.IsRemembered | RemoveKeyword$ Flying & Haste | CantHaveKeyword$ Hexproof\n\
+         SVar:S2:Mode$ Continuous | Affected$ Card.IsRemembered | MayAssignDamageAsUnblocked$ True\n\
+         SVar:S3:Mode$ Continuous | Affected$ Card.IsRemembered | AddHiddenKeyword$ CARDNAME can't be blocked.",
+    );
+    let pm_out = perm_mods.abilities.join("\n");
+    for expected in [
+        "Modifier::RemoveKeyword(KeywordSet::FLYING.union(KeywordSet::HASTE))",
+        "Modifier::CantHaveKeywords(KeywordSet::HEXPROOF)",
+        "Modifier::MayAssignCombatDamageAsThoughUnblocked",
+        "Modifier::AddKeyword(KeywordSet::UNBLOCKABLE)",
+    ] {
+        assert!(pm_out.contains(expected), "missing {expected}: {pm_out}");
+    }
+
+    let alone = read(
+        "Name:LoneDuel\nManaCost:W\nTypes:Instant\n\
+         A:SP$ Effect | ValidTgts$ Creature | RememberObjects$ Targeted | StaticAbilities$ S1\n\
+         SVar:S1:Mode$ Continuous | Affected$ Card.IsRemembered | AddHiddenKeyword$ CARDNAME can only attack alone.",
+    );
+    assert!(
+        alone.abilities[0].contains("Modifier::AttacksAloneOnly"),
+        "{:?}",
+        alone.abilities
+    );
+}
+
+#[test]
+fn wave22b_remember_changed_dig_mill_and_exile_play_unlocks() {
+    // Fixed chains.rs early-exit: targeted BF->Exile RememberChanged$ True chained to GainLife/Token.
+    let exile_gain = read(
+        "Name:SoulReap\nManaCost:2 W\nTypes:Instant\n\
+         A:SP$ ChangeZone | ValidTgts$ Creature | Origin$ Battlefield | Destination$ Exile | RememberChanged$ True | SubAbility$ DBGain\n\
+         SVar:DBGain:DB$ GainLife | Defined$ You | LifeAmount$ X | SubAbility$ DBClean\n\
+         SVar:DBClean:DB$ Cleanup | ClearRemembered$ True\n\
+         SVar:X:Remembered$Amount",
+    );
+    assert!(
+        exile_gain.abilities[0].contains("Effect::exile(TargetSpec::Object(&Filter::CREATURE))")
+            && exile_gain.abilities[0]
+                .contains("Amount::ThisWay(ThisWay::ExiledFromBattlefield(&Filter::Any))"),
+        "{:?}",
+        exile_gain.abilities
+    );
+
+    // TopOfLibrary Library->Exile standalone and RememberChanged$ True.
+    let top_exile = read(
+        "Name:TopBanish\nManaCost:1 B\nTypes:Sorcery\n\
+         A:SP$ ChangeZone | Defined$ TopOfLibrary | Origin$ Library | Destination$ Exile | ChangeNum$ 2 | RememberChanged$ True | SubAbility$ DBGain\n\
+         SVar:DBGain:DB$ GainLife | Defined$ You | LifeAmount$ X\n\
+         SVar:X:Remembered$Amount",
+    );
+    assert!(
+        top_exile.abilities[0]
+            .contains("Effect::ExileTop { who: PlayerRel::You, count: Amount::Fixed(2) }")
+            && top_exile.abilities[0].contains("Amount::ThisWay(ThisWay::Exiled(&Filter::Any))"),
+        "{:?}",
+        top_exile.abilities
+    );
+
+    // Dig | DigNum$ 1 | DestinationZone$ Exile without ChangeNum$ All (both standalone & impulse play).
+    let dig1_play = read(
+        "Name:QuickSpark\nManaCost:1 R\nTypes:Sorcery\n\
+         A:SP$ Dig | DigNum$ 1 | DestinationZone$ Exile | RememberChanged$ True | SubAbility$ DBEffect\n\
+         SVar:DBEffect:DB$ Effect | Name$ QuickSpark MayPlay | RememberObjects$ Remembered | ForgetOnMoved$ Exile | ForgetOnCast$ False | Stackable$ False | StaticAbilities$ STPlay | SubAbility$ DBClean\n\
+         SVar:STPlay:Mode$ Continuous | Affected$ Card.IsRemembered | AffectedZone$ Exile | MayPlay$ True | EffectZone$ Command\n\
+         SVar:DBClean:DB$ Cleanup | ClearRemembered$ True",
+    );
+    assert!(
+        dig1_play.abilities[0].contains("Effect::ExileTopToPlay"),
+        "{:?}",
+        dig1_play.abilities
+    );
+    let dig1_plain = read(
+        "Name:PlainTopEx\nManaCost:R\nTypes:Instant\nA:SP$ Dig | DigNum$ 1 | DestinationZone$ Exile",
+    );
+    assert!(
+        dig1_plain.abilities[0]
+            .contains("Effect::ExileTop { who: PlayerRel::You, count: Amount::Fixed(1) }"),
+        "{:?}",
+        dig1_plain.abilities
+    );
+
+    // Multi-player Mill + redundant `.inZoneGraveyard` on Remembered$Valid, plus "you may return" MillMayTakeOne.
+    let dread_shape = read_with_tokens(
+        "Name:GraveCall\nManaCost:X B B\nTypes:Sorcery\n\
+         A:SP$ Mill | Defined$ Player | NumCards$ X | RememberMilled$ True | SubAbility$ DBTok\n\
+         SVar:DBTok:DB$ Token | TokenScript$ r_1_1_goblin | TokenAmount$ Y | SubAbility$ DBClean\n\
+         SVar:DBClean:DB$ Cleanup | ClearRemembered$ True\n\
+         SVar:X:Count$xPaid\n\
+         SVar:Y:Remembered$Valid Creature.inZoneGraveyard",
+    );
+    assert!(
+        dread_shape.abilities[0]
+            .contains("Effect::Mill { amount: Amount::X, target: PlayerRel::EachPlayer }")
+            && dread_shape.abilities[0]
+                .contains("Amount::ThisWay(ThisWay::Milled(&Filter::CREATURE))"),
+        "{:?}",
+        dread_shape.abilities
+    );
+    let till_shape = read(
+        "Name:NightTill\nManaCost:2 G\nTypes:Sorcery\n\
+         A:SP$ Mill | NumCards$ 4 | Defined$ You | RememberMilled$ True | SubAbility$ DBTake\n\
+         SVar:DBTake:DB$ ChangeZone | Origin$ Graveyard | Destination$ Hand | ChangeType$ Permanent.IsRemembered\n\
+         Oracle:Mill four cards, then you may return a permanent card from among them to your hand.",
+    );
+    assert!(
+        till_shape.abilities[0].contains("Effect::MillMayTakeOne"),
+        "{:?}",
+        till_shape.abilities
+    );
+
+    for bad in [
+        "Name:BadZonePlay\nManaCost:1 R\nTypes:Sorcery\nA:SP$ Dig | DigNum$ 1 | DestinationZone$ Exile | RememberChanged$ True | SubAbility$ E\nSVar:E:DB$ Effect | RememberObjects$ Remembered | StaticAbilities$ S\nSVar:S:Mode$ Continuous | Affected$ Card.IsRemembered | AffectedZone$ Exile | MayPlay$ True | EffectZone$ Graveyard",
+        "Name:BadStackable\nManaCost:1 R\nTypes:Sorcery\nA:SP$ Dig | DigNum$ 1 | DestinationZone$ Exile | RememberChanged$ True | SubAbility$ E\nSVar:E:DB$ Effect | RememberObjects$ Remembered | Stackable$ True | StaticAbilities$ S\nSVar:S:Mode$ Continuous | Affected$ Card.IsRemembered | AffectedZone$ Exile | MayPlay$ True",
+        "Name:BadOptDigEx\nManaCost:R\nTypes:Instant\nA:SP$ Dig | DigNum$ 1 | DestinationZone$ Exile | Optional$ True",
+    ] {
+        assert!(refused(bad), "must refuse: {bad}");
+    }
+}
+
+#[test]
+fn wave22b_hand_exile_targetmin_and_zone_all() {
+    // Hand -> Exile (mandatory & optional), self Hand->Exile, self Exile->Hand, spell Stack->Hand.
+    let hand_ex = read(
+        "Name:MindDrain\nManaCost:B\nTypes:Sorcery\n\
+         A:SP$ ChangeZone | Origin$ Hand | Destination$ Exile | ChangeType$ Card | ChangeNum$ 1 | Hidden$ True | Mandatory$ True",
+    );
+    assert!(
+        hand_ex.abilities[0].contains("Effect::ExileChosenFromHandWithSource(&Filter::Any)"),
+        "{:?}",
+        hand_ex.abilities
+    );
+    let opt_hand_ex = read(
+        "Name:OptDrain\nManaCost:B\nTypes:Sorcery\n\
+         A:SP$ ChangeZone | Origin$ Hand | Destination$ Exile | ChangeType$ Card | ChangeNum$ 1 | Hidden$ True | Optional$ True",
+    );
+    assert!(
+        opt_hand_ex.abilities[0].contains(
+            "Effect::MayDo { effects: &[Effect::ExileChosenFromHandWithSource(&Filter::Any)] }"
+        ),
+        "{:?}",
+        opt_hand_ex.abilities
+    );
+    let self_hand_ex = read(
+        "Name:SelfBanish\nManaCost:1 W\nTypes:Creature Goblin\nPT:2/2\n\
+         A:AB$ ChangeZone | Cost$ 1 | Defined$ Self | Origin$ Hand | Destination$ Exile | ActivationZone$ Hand",
+    );
+    assert!(
+        self_hand_ex.abilities[0].contains("Effect::ExileSource"),
+        "{:?}",
+        self_hand_ex.abilities
+    );
+    let self_zones = read(
+        "Name:LoopSpell\nManaCost:1 U\nTypes:Instant\n\
+         A:SP$ Draw | NumCards$ 1 | SubAbility$ DBRet\n\
+         SVar:DBRet:DB$ ChangeZone | Origin$ Stack | Destination$ Hand",
+    );
+    assert!(
+        self_zones.abilities[0].contains("Effect::bounce(TargetSpec::ThisObject)"),
+        "{:?}",
+        self_zones.abilities
+    );
+
+    // TargetMin: OneEach + YouDontCtrl, and reordered-atom Count$Valid.
+    let each_opp = read(
+        "Name:EachExile\nManaCost:2 W B\nTypes:Sorcery\n\
+         A:SP$ ChangeZone | ValidTgts$ Creature.YouDontCtrl | TargetMin$ 0 | TargetMax$ OneEach | TargetsForEachPlayer$ True | Origin$ Battlefield | Destination$ Exile\n\
+         SVar:OneEach:PlayerCountOpponents$Amount",
+    );
+    assert!(
+        each_opp.abilities[0].contains("TargetSpec::ObjectOfEachOpponent("),
+        "{:?}",
+        each_opp.abilities
+    );
+    let reorder_max = read(
+        "Name:GravePurge\nManaCost:B\nTypes:Sorcery\n\
+         A:SP$ ChangeZone | ValidTgts$ Creature.YouOwn+Goblin | TgtZone$ Graveyard | TargetMin$ 0 | TargetMax$ X | Origin$ Graveyard | Destination$ Exile\n\
+         SVar:X:Count$ValidGraveyard Creature.Goblin+YouOwn",
+    );
+    assert!(
+        reorder_max.abilities[0].contains("Effect::exile(TargetSpec::CardInGraveyard("),
+        "{:?}",
+        reorder_max.abilities
+    );
+
+    // ChangeZoneAll GY->Exile Card.YouCtrl & GY->BF GainControl$ True.
+    let cza_ex = read(
+        "Name:ClearYard\nManaCost:1 W\nTypes:Sorcery\n\
+         A:SP$ ChangeZoneAll | ChangeType$ Card.YouCtrl | Origin$ Graveyard | Destination$ Exile",
+    );
+    assert!(
+        cza_ex.abilities[0].contains("Effect::ExileGraveyard { player: PlayerRel::You }"),
+        "{:?}",
+        cza_ex.abilities
+    );
+    let cza = read(
+        "Name:MassRaise\nManaCost:4 B B\nTypes:Sorcery\n\
+         A:SP$ ChangeZoneAll | ChangeType$ Creature.YouOwn | Origin$ Graveyard | Destination$ Battlefield | GainControl$ True",
+    );
+    assert!(
+        cza.abilities[0].contains(
+            "Effect::YourGraveyardToBattlefield { filter: &Filter::CREATURE, tapped: false }"
+        ),
+        "{:?}",
+        cza.abilities
+    );
+
+    for bad in [
+        "Name:BadOppHandEx\nManaCost:B\nTypes:Sorcery\nA:SP$ ChangeZone | Origin$ Hand | Destination$ Exile | DefinedPlayer$ Opponent | ChangeType$ Card | ChangeNum$ 1 | Hidden$ True",
+        "Name:BadTwoHandEx\nManaCost:B\nTypes:Sorcery\nA:SP$ ChangeZone | Origin$ Hand | Destination$ Exile | ChangeType$ Card | ChangeNum$ 2 | Hidden$ True",
+        "Name:BadFaceDownHandEx\nManaCost:B\nTypes:Sorcery\nA:SP$ ChangeZone | Origin$ Hand | Destination$ Exile | ChangeType$ Card | ChangeNum$ 1 | Hidden$ True | ExileFaceDown$ True",
+        "Name:BadMaxMismatch\nManaCost:B\nTypes:Sorcery\nA:SP$ ChangeZone | ValidTgts$ Creature.YouOwn | TgtZone$ Graveyard | TargetMin$ 0 | TargetMax$ X | Origin$ Graveyard | Destination$ Exile\nSVar:X:Count$ValidGraveyard Artifact.YouOwn",
+    ] {
+        assert!(refused(bad), "must refuse: {bad}");
+    }
+}
+
+#[test]
+fn wave22b_filters_pump_counters_and_multiplayer_effects() {
+    // filter atom cmcLE<ColorsOfManaSpentToCast>.
+    let conv_filter = read(
+        "Name:PrismSnare\nManaCost:2 U\nTypes:Sorcery\n\
+         A:SP$ ChangeZone | ValidTgts$ Creature.cmcLEX | Origin$ Battlefield | Destination$ Hand\n\
+         SVar:X:Count$ColorsOfManaSpentToCast",
+    );
+    assert!(
+        conv_filter.statics.contains("Filter::CmcAtMostColorsSpent"),
+        "{}",
+        conv_filter.statics
+    );
+
+    // Pump (Taps TriggeredCard, DamageDone TriggeredTarget, Self & Targeted) & PutCounter DamageDoneOnce.
+    let self_and_tgt = read(
+        "Name:PairBoost\nManaCost:2 G\nTypes:Creature Goblin\nPT:2/2\n\
+         A:AB$ Pump | Cost$ 1 G | ValidTgts$ Creature | Defined$ Self & Targeted | NumAtt$ +1 | NumDef$ +1",
+    );
+    assert!(
+        self_and_tgt.abilities[0].contains("Effect::PumpTarget {")
+            && self_and_tgt.abilities[0].contains("Effect::PumpFilter { filter: &Filter::This"),
+        "{:?}",
+        self_and_tgt.abilities
+    );
+    let tap_pump = read(
+        "Name:TapBoost\nManaCost:1 G\nTypes:Enchantment\n\
+         T:Mode$ Taps | ValidCard$ Creature.YouCtrl | Execute$ TrigPump | TriggerZones$ Battlefield\n\
+         SVar:TrigPump:DB$ Pump | Defined$ TriggeredCard | NumAtt$ +1 | NumDef$ +1",
+    );
+    assert!(
+        tap_pump.abilities[0].contains("Effect::PumpEventObject {"),
+        "{:?}",
+        tap_pump.abilities
+    );
+    let dmg_cnt = read(
+        "Name:VenomMark\nManaCost:2 B\nTypes:Creature Goblin\nPT:2/2\n\
+         T:Mode$ DamageDoneOnce | ValidTarget$ Creature | Execute$ TrigCnt | TriggerZones$ Battlefield\n\
+         SVar:TrigCnt:DB$ PutCounter | Defined$ TriggeredTarget | CounterType$ M1M1 | CounterNum$ 1",
+    );
+    assert!(
+        dmg_cnt.abilities[0].contains("Effect::AddCounterFilter { filter: &Filter::Reference"),
+        "{:?}",
+        dmg_cnt.abilities
+    );
+
+    // Multi-player Draw, GainLife, LoseLife (`TargetedAndYou`, `You & <rel>`).
+    let shared = read(
+        "Name:SharedGift\nManaCost:2 W\nTypes:Sorcery\n\
+         A:SP$ GainLife | ValidTgts$ Opponent | Defined$ TargetedAndYou | LifeAmount$ 3",
+    );
+    assert!(
+        shared.abilities[0].contains("Effect::gain_life(3)")
+            && shared.abilities[0].contains(
+                "Effect::GainLifeFor { amount: Amount::Fixed(3), who: PlayerRel::Chosen }"
+            ),
+        "{:?}",
+        shared.abilities
+    );
+    let shared_loss = read(
+        "Name:SharedPain\nManaCost:2 B\nTypes:Enchantment\n\
+         T:Mode$ AttackersDeclared | AttackingPlayer$ Opponent | Execute$ TrigLoss | TriggerZones$ Battlefield\n\
+         SVar:TrigLoss:DB$ LoseLife | Defined$ TriggeredAttackingPlayer & You | LifeAmount$ 1",
+    );
+    assert!(
+        shared_loss.abilities[0]
+            .contains("Effect::LoseLife { amount: Amount::Fixed(1), target: PlayerRel::You }")
+            && shared_loss.abilities[0].contains(
+                "Effect::LoseLife { amount: Amount::Fixed(1), target: PlayerRel::EventPlayer }"
+            ),
+        "{:?}",
+        shared_loss.abilities
+    );
+    let dmg_draw = read(
+        "Name:SharedSight\nManaCost:2 U\nTypes:Creature Wizard\nPT:2/2\n\
+         T:Mode$ DamageDone | ValidSource$ Card.Self | ValidTarget$ Player | CombatDamage$ True | Execute$ TrigDraw | TriggerZones$ Battlefield\n\
+         SVar:TrigDraw:DB$ Draw | Defined$ You & TriggeredTarget | NumCards$ 2",
+    );
+    assert!(
+        dmg_draw.abilities[0].contains("Effect::draw(2)")
+            && dmg_draw.abilities[0].contains(
+                "Effect::DrawCardsFor { amount: Amount::Fixed(2), who: PlayerRel::DamagedPlayer }"
+            ),
+        "{:?}",
+        dmg_draw.abilities
+    );
 }
