@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="de"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Baylee · Rangabzeichen im Licht</title>
+<style>
+:root{color-scheme:dark;--gold:#e9c993;--paper:#f6eddc;--muted:#b8b9b8;--line:#45423e;font-family:system-ui,sans-serif;background:#111416;color:var(--paper)}
+*{box-sizing:border-box}body{max-width:1220px;margin:auto;padding:clamp(16px,4vw,48px);background:radial-gradient(ellipse at 77% 25%,#252826 0,transparent 65%)}
+h1,h2,figcaption{font-family:Georgia,serif;font-weight:400}h1{font-size:clamp(28px,4vw,49px);margin:0 0 22px;letter-spacing:-.04em}
+button,select,input{font:inherit}button,select{color:inherit;background:#1b2024;border:1px solid var(--line);border-radius:5px;padding:8px 12px;cursor:pointer}button:focus-visible,select:focus-visible,input:focus-visible{outline:2px solid #fae7b7;outline-offset:2px}
+button[aria-pressed=true]{color:var(--gold);border-color:var(--gold);background:#322e26}button:disabled,input:disabled{opacity:.55;cursor:default}
+#leagues{display:grid;grid-template-columns:repeat(11,minmax(0,1fr));gap:5px;margin:0 0 18px}
+.league{display:grid;justify-items:center;gap:3px;padding:7px 2px 8px;font-size:clamp(10px,1.05vw,14px);color:#d0d1ce}
+.league img{width:clamp(32px,4.3vw,52px);height:auto;display:block}
+.picker,.motion{display:flex;align-items:center;gap:9px;flex-wrap:wrap}.picker{border-block:1px solid var(--line);padding:13px 0}.groups{display:flex;gap:4px}.picker label{margin-left:auto;color:var(--muted)}select{min-width:136px}
+.scene{display:grid;grid-template-columns:1fr 1fr;gap:12px}figure{margin:0;text-align:center;padding:10px 0 14px;background:radial-gradient(ellipse at 50% 47%,#313637,#191e24 74%);border:1px solid #424447;border-radius:7px}
+.surface{width:min(100%,348px);aspect-ratio:1;margin:auto;position:relative}.surface img,canvas{height:100%;width:100%;display:block;object-fit:contain}.surface canvas{position:absolute;inset:0}figcaption{color:#e6d8c0;font-size:19px}
+h2{margin:18px 0 4px;font-size:clamp(24px,3.1vw,39px);letter-spacing:-.025em}p{line-height:1.5;margin:5px 0 16px;color:var(--muted)}.motion{margin-top:14px}.motion label{color:var(--muted)}input{accent-color:var(--gold)}input[type=range]{width:min(280px,39vw)}output{font-variant-numeric:tabular-nums;font-size:14px;color:var(--muted)}[hidden]{display:none!important}
+@media(max-width:740px){#leagues{display:flex;overflow:auto;scroll-snap-type:x proximity;padding-bottom:6px}.league{min-width:68px;scroll-snap-align:center}.league img{width:40px}.scene{gap:5px}figure{padding:4px 0 10px}figcaption{font-size:15px}.picker{gap:7px}.picker label{margin-left:0;font-size:13px}.picker button,.picker select{padding:7px 9px}.motion{gap:7px}h2{margin-top:13px}}
+</style>
+<main><h1>Rangabzeichen im Licht</h1>
+<nav id="leagues" aria-label="Liga"></nav>
+<div class="picker"><div class="groups" role="group" aria-label="Wertung"><button id="player" type="button">Spieler</button><button id="deck" type="button">Deck</button></div>
+<label for="variant">Abzeichen</label><select id="variant"></select></div>
+<h2 id="title"></h2><p id="description"></p>
+<div class="scene"><figure><div class="surface"><img id="original" alt=""></div><figcaption>Original</figcaption></figure>
+<figure><div class="surface"><img id="fallback" alt=""><canvas id="canvas" width="384" height="384" aria-label="Abzeichen mit Materialeffekt"></canvas></div><figcaption id="finishLabel">Mit Shader</figcaption></figure></div>
+<div class="motion"><button type="button" id="play">Anhalten</button><label for="phase">Lichtphase</label><input id="phase" type="range" min="0" max="1000" value="0" aria-label="Lichtphase"><output id="cycle"></output></div>
+<p role="status" id="status" hidden></p></main>
+<script type="application/json" id="catalog">__CATALOG__</script><script type="module">/*__APP__*/</script></html>

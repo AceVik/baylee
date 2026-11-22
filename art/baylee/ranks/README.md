@@ -34,6 +34,38 @@ Beide Reihen enthalten je elf Ligaabzeichen und 24 Divisionsabzeichen. Drei Sond
 
 Die 28 spielbaren Rangstufen und die Vergabe der weltweit höchstens 100 Champion-Plätze beziehen sich im [PoC](../../../tools/league-lab/README.md) auf Spielerkonten. Deckversionen besitzen eigene Elo-Werte. Die Zuordnung dieser Werte zu Deckligen ist offen.
 
+## Material und Bewegung
+
+Der [Materialshader](finish.wgsl) legt Licht auf die gemalten Oberflächen. Auf dem Helm biegt sich ein Reflex über die Stirn. Die seitlichen Karten des Deckfächers fangen ihn in anderen Winkeln als die mittlere Karte. Außenkontur und Durchbrüche behalten ihre ursprüngliche Transparenz.
+
+| Liga | Materialwirkung | Umlauf |
+| --- | --- | --- |
+| Papier | Warmes, mattes Streiflicht auf den Falzen | Ruhend |
+| Holz | Ein schmaler Wachsfilm folgt der geschnitzten Maserung | Ruhend |
+| Eisen | Ein breiter, gebrochener Reflex auf gebürstetem Eisen | 10 s |
+| Bronze | Kupferfarbener Glanz wandert über erhabene Partien, Patina bleibt in den Vertiefungen | 9 s |
+| Silber | Eine helle Linie zieht einen weicheren zweiten Reflex hinter sich her | 8 s |
+| Gold | Ein breiter, honigfarbener Lichtzug trifft die gravierten Sonnenstrahlen | 8 s |
+| Platin | Versetzte silberweiße und mintfarbene Kanten betonen das Email | 9 s |
+| Diamant | Blaue und weißblaue Reflexe springen zeitversetzt zwischen Facetten über | 7 s |
+| Master | Im Amethyst steigt ein violettes Leuchten auf, die Goldfassung fängt einen feinen Reflex | 10 s |
+| Grandmaster | Zwei rubinrote Lichtbögen laufen durch den Stein, sein Roségold antwortet versetzt | 9 s |
+| Champion | Auf hellem Perlmutt wandert ein Opalschimmer zwischen Rosé, Eisblau und Grün | 12 s |
+
+Ein Divisionsaufstieg verstärkt den Reflex am Rand der Spange um einen kleinen Schritt. Die Mitte mit der römischen Zahl bleibt lesbar. Alle Divisionen einer Liga teilen deren Tempo. Die drei Champion-Spielerhelme behalten den gemeinsamen Opalschimmer. Platz 3 fängt einen einzelnen warmen Reflex am Lorbeerreif. Bei Platz 2 trifft das Licht beide Schläfenflügel und den Saphir. Bei Platz 1 laufen vom Stirnopal goldene Reflexe in die Strahlen des Diadems.
+
+### Vorschau öffnen
+
+Der Rust-Exporter übersetzt den WGSL-Shader mit Naga für WebGL 2 und bettet Shader und PNGs in eine lokale HTML-Datei ein. Der Export verwendet Deno 2 mit `deno bundle`. Die fertige Vorschau läuft offline im Browser. Man kann Liga, Bildreihe und Variante wechseln, das Original daneben betrachten und die Lichtphase von Hand einstellen. Bei reduzierter Bewegung startet die Ansicht mit ruhendem Licht. Ohne WebGL 2 zeigt sie die Originale.
+
+```sh
+mkdir -p target
+cargo run --locked -- ladder > target/ladder.csv
+cargo run --locked -p baylee-rank-art -- shaders target/ladder.csv target/rangabzeichen-shader.html
+```
+
+Die Vorschau nutzt eine RGBA8-Unorm-Textur und ein Unorm-Ausgabeziel mit sRGB-kodierten Farben und geradem Alpha. Der Shader rechnet das Licht in linearem RGB. Bei späterer Client-Anbindung mit sRGB-Hardwaredekodierung und -kodierung gehören die beiden Transferfunktionen an die jeweilige Pipelinegrenze. Die Phase ist ein normalisierter Umlauf von 0 bis 1. Der veröffentlichte Rang bestimmt Liga, Divisionsschritt und Podiumsplatz.
+
 ## Herkunft und Reproduktion
 
 Die 22 Grundmotive wurden am 22. November 2026 mit ImageGen einzeln für Baylee gestaltet. Die Vorgaben waren ein freigestelltes Relief in Frontalansicht, Licht von links oben, ein geschlossener Helm auf einem spitzen Schild für Spieler und ein Fächer aus Kartenrücken mit Rautenschließe für Decks. Die Materialreihe reicht von Papier und Holz über Metall bis zu blauem Kristall, Amethyst, Rubin und gekröntem Opal. Eingaben waren ausschließlich Textbeschreibungen. Für die Beschriftung verwendet der Export die vorhandenen Schriften Faustina und Alegreya Sans aus dem Client. Ihre Lizenzen liegen [bei den Schriften](../../../crates/baylee-client/assets/fonts/licenses).
