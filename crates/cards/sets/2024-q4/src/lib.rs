@@ -13,6 +13,8 @@
 // What a card file names as `crate::…`.
 pub use baylee_cards_base::{filters, generated_tokens, tokens};
 
+#[path = "fdn/alesha_who_laughs_at_fate.rs"]
+pub mod alesha_who_laughs_at_fate;
 #[path = "fdn/ambush_wolf.rs"]
 pub mod ambush_wolf;
 #[path = "j25/anep_vizier_of_hazoret.rs"]
@@ -115,6 +117,8 @@ pub mod faithful_pikemaster;
 pub mod felidar_savior;
 #[path = "fdn/felling_blow.rs"]
 pub mod felling_blow;
+#[path = "fdn/fiendish_panda.rs"]
+pub mod fiendish_panda;
 #[path = "fdn/firespitter_whelp.rs"]
 pub mod firespitter_whelp;
 #[path = "fdn/fleeting_flight.rs"]
@@ -189,6 +193,10 @@ pub mod koma_world_eater;
 pub mod kykar_zephyr_awakener;
 #[path = "fdn/leyline_axe.rs"]
 pub mod leyline_axe;
+#[path = "fdn/loot_exuberant_explorer.rs"]
+pub mod loot_exuberant_explorer;
+#[path = "fdn/luminous_rebuke.rs"]
+pub mod luminous_rebuke;
 #[path = "fdn/midnight_snack.rs"]
 pub mod midnight_snack;
 #[path = "fdn/mischievous_mystic.rs"]
@@ -219,6 +227,8 @@ pub mod ravenous_amulet;
 pub mod refute;
 #[path = "fdn/revenge_of_the_rats.rs"]
 pub mod revenge_of_the_rats;
+#[path = "j25/revoke_demise.rs"]
+pub mod revoke_demise;
 #[path = "fdn/rite_of_the_dragoncaller.rs"]
 pub mod rite_of_the_dragoncaller;
 #[path = "fdn/rune_sealed_wall.rs"]

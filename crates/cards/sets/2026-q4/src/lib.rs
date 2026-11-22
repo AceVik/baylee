@@ -71,6 +71,8 @@ pub mod autumn_willow_harmony;
 pub mod avacyn_angel_of_horror;
 #[path = "yfra/avoided_stairwurm.rs"]
 pub mod avoided_stairwurm;
+#[path = "fra/awaken_the_inferno.rs"]
+pub mod awaken_the_inferno;
 #[path = "trc/badgey_malicious_glitch.rs"]
 pub mod badgey_malicious_glitch;
 #[path = "trk/bajor.rs"]
@@ -165,6 +167,8 @@ pub mod cold_blooded_crew;
 pub mod collation_trimatrix;
 #[path = "trk/collective_drone.rs"]
 pub mod collective_drone;
+#[path = "trc/command_chair.rs"]
+pub mod command_chair;
 #[path = "trk/command_decision.rs"]
 pub mod command_decision;
 #[path = "trk/command_subadjunct.rs"]
@@ -329,6 +333,8 @@ pub mod gaseous_anomaly;
 pub mod geist_of_saint_thalia;
 #[path = "fra/generous_revival.rs"]
 pub mod generous_revival;
+#[path = "trk/genesis_device.rs"]
+pub mod genesis_device;
 #[path = "trk/genesis_effect.rs"]
 pub mod genesis_effect;
 #[path = "trc/geordi_la_forge_innovator.rs"]
@@ -337,6 +343,8 @@ pub mod geordi_la_forge_innovator;
 pub mod georgiou_terran_emperor;
 #[path = "fra/germinate_recruits.rs"]
 pub mod germinate_recruits;
+#[path = "fra/ghalta_the_unstoppable.rs"]
+pub mod ghalta_the_unstoppable;
 #[path = "trk/ghost_of_illyria.rs"]
 pub mod ghost_of_illyria;
 #[path = "fra/gideon_s_memorial.rs"]
@@ -357,6 +365,8 @@ pub mod grand_nagus_zek;
 pub mod greenhouse_propagator;
 #[path = "trc/grilka_widowed_warrior.rs"]
 pub mod grilka_widowed_warrior;
+#[path = "trk/guidance_failure.rs"]
+pub mod guidance_failure;
 #[path = "trc/gumato.rs"]
 pub mod gumato;
 #[path = "mbc/gustha_ebbasdotter.rs"]
@@ -419,6 +429,8 @@ pub mod istvan_butcher_of_eln;
 pub mod jabs_mistress_of_mockery;
 #[path = "trc/janice_rand_essential_aide.rs"]
 pub mod janice_rand_essential_aide;
+#[path = "trc/jean_luc_picard_luminary.rs"]
+pub mod jean_luc_picard_luminary;
 #[path = "trc/jefferies_tube.rs"]
 pub mod jefferies_tube;
 #[path = "frc/jhoira_weatherlight_corsair.rs"]
@@ -429,6 +441,8 @@ pub mod jiang_yanggu_never_alone;
 pub mod join_the_collective;
 #[path = "mbc/joven_and_chandler.rs"]
 pub mod joven_and_chandler;
+#[path = "trc/julian_bashir_frontier_doctor.rs"]
+pub mod julian_bashir_frontier_doctor;
 #[path = "trc/jurati_cordial_queen.rs"]
 pub mod jurati_cordial_queen;
 #[path = "trc/k_vort_class_raider.rs"]
@@ -441,6 +455,8 @@ pub mod kes_evolving_telepath;
 pub mod khaaaaaaaaaaaannn;
 #[path = "trk/khan_despot_by_design.rs"]
 pub mod khan_despot_by_design;
+#[path = "trk/khan_vengeful_heart.rs"]
+pub mod khan_vengeful_heart;
 #[path = "fra/kiora_of_fire_and_ashes.rs"]
 pub mod kiora_of_fire_and_ashes;
 #[path = "trk/kirk_commanding_officer.rs"]
@@ -505,12 +521,16 @@ pub mod lt_cmdr_geordi_la_forge;
 pub mod lyna_veil_of_vengeance;
 #[path = "fra/lyra_archangel_of_dawn.rs"]
 pub mod lyra_archangel_of_dawn;
+#[path = "fra/lyra_tolarian_archangel.rs"]
+pub mod lyra_tolarian_archangel;
 #[path = "trc/m_ress_crew_coordinator.rs"]
 pub mod m_ress_crew_coordinator;
 #[path = "fra/mabel_valley_hero.rs"]
 pub mod mabel_valley_hero;
 #[path = "trk/maco_strike_team.rs"]
 pub mod maco_strike_team;
+#[path = "trk/make_it_so.rs"]
+pub mod make_it_so;
 #[path = "trk/malfunctioning_holodeck.rs"]
 pub mod malfunctioning_holodeck;
 #[path = "fra/marwyn_the_clearcutter.rs"]
@@ -591,6 +611,8 @@ pub mod pia_aether_ascetic;
 pub mod pia_determined_rebuilder;
 #[path = "trk/picard_leading_by_example.rs"]
 pub mod picard_leading_by_example;
+#[path = "trc/planet_killer.rs"]
+pub mod planet_killer;
 #[path = "trk/planetary_patrol.rs"]
 pub mod planetary_patrol;
 #[path = "trk/plasma_cascade.rs"]
@@ -601,6 +623,8 @@ pub mod pompous_battlemage;
 pub mod potential_horizon;
 #[path = "fra/precise_redaction.rs"]
 pub mod precise_redaction;
+#[path = "fra/primal_witchstalker.rs"]
+pub mod primal_witchstalker;
 #[path = "trk/primary_unimatrix_adjunct.rs"]
 pub mod primary_unimatrix_adjunct;
 #[path = "fra/proft_sinister_mastermind.rs"]
@@ -833,6 +857,8 @@ pub mod the_doctor_emh;
 pub mod the_duras_sisters;
 #[path = "fra/the_echoverse_fulcrum.rs"]
 pub mod the_echoverse_fulcrum;
+#[path = "trk/the_inner_light.rs"]
+pub mod the_inner_light;
 #[path = "trk/the_measure_of_a_man.rs"]
 pub mod the_measure_of_a_man;
 #[path = "trk/the_naked_time.rs"]

@@ -99,6 +99,8 @@ pub mod bootleggers_stash;
 pub mod boss_s_chauffeur;
 #[path = "snc/botanical_plaza.rs"]
 pub mod botanical_plaza;
+#[path = "snc/bouncer_s_beatdown.rs"]
+pub mod bouncer_s_beatdown;
 #[path = "snc/brazen_upstart.rs"]
 pub mod brazen_upstart;
 #[path = "clb/breath_weapon.rs"]
@@ -115,6 +117,8 @@ pub mod brokers_initiate;
 pub mod brokers_veteran;
 #[path = "clb/bronze_walrus.rs"]
 pub mod bronze_walrus;
+#[path = "clb/burakos_party_leader.rs"]
+pub mod burakos_party_leader;
 #[path = "snc/buy_your_silence.rs"]
 pub mod buy_your_silence;
 #[path = "snc/cabaretti_charm.rs"]
@@ -175,6 +179,8 @@ pub mod cloak_of_the_bat;
 pub mod cloakwood_swarmkeeper;
 #[path = "clb/clockwork_fox.rs"]
 pub mod clockwork_fox;
+#[path = "clb/cloudkill.rs"]
+pub mod cloudkill;
 #[path = "clb/colossal_badger.rs"]
 pub mod colossal_badger;
 #[path = "clb/contraband_livestock.rs"]
@@ -215,6 +221,8 @@ pub mod dapper_shieldmate;
 pub mod daring_escape;
 #[path = "snc/darling_of_the_masses.rs"]
 pub mod darling_of_the_masses;
+#[path = "snc/deal_gone_bad.rs"]
+pub mod deal_gone_bad;
 #[path = "clb/decanter_of_endless_water.rs"]
 pub mod decanter_of_endless_water;
 #[path = "snc/demon_s_due.rs"]
@@ -255,6 +263,8 @@ pub mod eldritch_pact;
 pub mod elegant_entourage;
 #[path = "clb/elturel_survivors.rs"]
 pub mod elturel_survivors;
+#[path = "clb/endless_evil.rs"]
+pub mod endless_evil;
 #[path = "clb/erinis_gloom_stalker.rs"]
 pub mod erinis_gloom_stalker;
 #[path = "clb/ettercap.rs"]
@@ -271,6 +281,8 @@ pub mod extraction_specialist;
 pub mod extravagant_replication;
 #[path = "snc/fake_your_own_death.rs"]
 pub mod fake_your_own_death;
+#[path = "psnc/falco_spara_pactweaver.rs"]
+pub mod falco_spara_pactweaver;
 #[path = "ncc/false_floor.rs"]
 pub mod false_floor;
 #[path = "clb/fang_dragon.rs"]
@@ -295,6 +307,8 @@ pub mod flawless_forgery;
 pub mod fleetfoot_dancer;
 #[path = "snc/forge_boss.rs"]
 pub mod forge_boss;
+#[path = "psnc/gala_greeters.rs"]
+pub mod gala_greeters;
 #[path = "clb/gale_waterdeep_prodigy.rs"]
 pub mod gale_waterdeep_prodigy;
 #[path = "clb/ganax_astral_hunter.rs"]
@@ -355,6 +369,8 @@ pub mod haunted_one;
 pub mod heap_gate;
 #[path = "snc/high_rise_sawjack.rs"]
 pub mod high_rise_sawjack;
+#[path = "psnc/hoard_hauler.rs"]
+pub mod hoard_hauler;
 #[path = "clb/horn_of_valhalla.rs"]
 pub mod horn_of_valhalla;
 #[path = "snc/hypnotic_grifter.rs"]
@@ -403,6 +419,10 @@ pub mod join_the_maestros;
 pub mod juvenile_mist_dragon;
 #[path = "clb/kenku_artificer.rs"]
 pub mod kenku_artificer;
+#[path = "snc/knockout_blow.rs"]
+pub mod knockout_blow;
+#[path = "clb/korlessa_scale_singer.rs"]
+pub mod korlessa_scale_singer;
 #[path = "clb/lae_zel_vlaakith_s_champion.rs"]
 pub mod lae_zel_vlaakith_s_champion;
 #[path = "clb/lapis_orb_of_dragonkind.rs"]
@@ -437,6 +457,8 @@ pub mod maestros_theater;
 pub mod mage_s_attendant;
 #[path = "clb/mahadi_emporium_master.rs"]
 pub mod mahadi_emporium_master;
+#[path = "clb/majestic_genesis.rs"]
+pub mod majestic_genesis;
 #[path = "snc/majestic_metamorphosis.rs"]
 pub mod majestic_metamorphosis;
 #[path = "snc/make_disappear.rs"]
@@ -465,12 +487,16 @@ pub mod mold_folk;
 pub mod most_wanted;
 #[path = "snc/mr_orfeo_the_boulder.rs"]
 pub mod mr_orfeo_the_boulder;
+#[path = "clb/multiclass_baldric.rs"]
+pub mod multiclass_baldric;
 #[path = "clb/myconid_spore_tender.rs"]
 pub mod myconid_spore_tender;
 #[path = "clb/myrkul_s_invoker.rs"]
 pub mod myrkul_s_invoker;
 #[path = "clb/mystery_key.rs"]
 pub mod mystery_key;
+#[path = "clb/nalia_de_arnise.rs"]
+pub mod nalia_de_arnise;
 #[path = "clb/navigation_orb.rs"]
 pub mod navigation_orb;
 #[path = "clb/nefarious_imp.rs"]
@@ -485,6 +511,8 @@ pub mod nimbleclaw_adept;
 pub mod nimblewright_schematic;
 #[path = "clb/nothic.rs"]
 pub mod nothic;
+#[path = "psnc/obscura_ascendancy.rs"]
+pub mod obscura_ascendancy;
 #[path = "snc/obscura_charm.rs"]
 pub mod obscura_charm;
 #[path = "snc/obscura_initiate.rs"]
@@ -501,6 +529,8 @@ pub mod ognis_the_dragon_s_lash;
 pub mod oji_the_exquisite_blade;
 #[path = "snc/ominous_parcel.rs"]
 pub mod ominous_parcel;
+#[path = "snc/out_of_the_way.rs"]
+pub mod out_of_the_way;
 #[path = "clb/overwhelming_encounter.rs"]
 pub mod overwhelming_encounter;
 #[path = "clb/owlbear_shepherd.rs"]
@@ -563,6 +593,8 @@ pub mod recruitment_drive;
 pub mod recruitment_officer;
 #[path = "snc/refuse_to_yield.rs"]
 pub mod refuse_to_yield;
+#[path = "clb/renari_merchant_of_marvels.rs"]
+pub mod renari_merchant_of_marvels;
 #[path = "clb/rescuer_chwinga.rs"]
 pub mod rescuer_chwinga;
 #[path = "snc/revel_ruiner.rs"]
@@ -621,6 +653,8 @@ pub mod shameless_charlatan;
 pub mod sharpshooter_elf;
 #[path = "gdy/shivan_devastator.rs"]
 pub mod shivan_devastator;
+#[path = "clb/sigil_of_myrkul.rs"]
+pub mod sigil_of_myrkul;
 #[path = "clb/silvanus_s_invoker.rs"]
 pub mod silvanus_s_invoker;
 #[path = "snc/sky_crier.rs"]
@@ -667,12 +701,16 @@ pub mod tabaxi_toucaneers;
 pub mod take_to_the_streets;
 #[path = "clb/taunting_kobold.rs"]
 pub mod taunting_kobold;
+#[path = "clb/tavern_brawler.rs"]
+pub mod tavern_brawler;
 #[path = "clb/tiamat_s_fanatics.rs"]
 pub mod tiamat_s_fanatics;
 #[path = "clb/topaz_dragon.rs"]
 pub mod topaz_dragon;
 #[path = "psnc/topiary_stomper.rs"]
 pub mod topiary_stomper;
+#[path = "snc/torch_breath.rs"]
+pub mod torch_breath;
 #[path = "snc/tramway_station.rs"]
 pub mod tramway_station;
 #[path = "clb/tymora_s_invoker.rs"]
@@ -703,6 +741,8 @@ pub mod warehouse_thief;
 pub mod warm_welcome;
 #[path = "snc/waterfront_district.rs"]
 pub mod waterfront_district;
+#[path = "snc/whack.rs"]
+pub mod whack;
 #[path = "clb/white_plume_adventurer.rs"]
 pub mod white_plume_adventurer;
 #[path = "psnc/widespread_thieving.rs"]

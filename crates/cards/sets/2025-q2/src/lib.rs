@@ -35,6 +35,8 @@ pub mod aerith_last_ancient;
 pub mod aettir_and_priwen;
 #[path = "tdm/agent_of_kotis.rs"]
 pub mod agent_of_kotis;
+#[path = "tdm/aggressive_negotiations.rs"]
+pub mod aggressive_negotiations;
 #[path = "fin/ahriman.rs"]
 pub mod ahriman;
 #[path = "fin/airship_crash.rs"]
@@ -81,6 +83,8 @@ pub mod balamb_t_rexaur;
 pub mod bard_s_bow;
 #[path = "fin/baron_airship_kingdom.rs"]
 pub mod baron_airship_kingdom;
+#[path = "fic/barret_avalanche_leader.rs"]
+pub mod barret_avalanche_leader;
 #[path = "fin/barret_wallace.rs"]
 pub mod barret_wallace;
 #[path = "fin/battle_menu.rs"]
@@ -107,8 +111,12 @@ pub mod boulderborn_dragon;
 pub mod breaching_dragonstorm;
 #[path = "fic/brilliant_wings.rs"]
 pub mod brilliant_wings;
+#[path = "tdc/broodcaller_scourge.rs"]
+pub mod broodcaller_scourge;
 #[path = "fic/bugenhagen_wise_elder.rs"]
 pub mod bugenhagen_wise_elder;
+#[path = "fin/buster_sword.rs"]
+pub mod buster_sword;
 #[path = "fin/cactuar.rs"]
 pub mod cactuar;
 #[path = "tdc/caldera_pyremaw.rs"]
@@ -141,6 +149,8 @@ pub mod circle_of_power;
 pub mod clarion_conqueror;
 #[path = "fin/clive_s_hideaway.rs"]
 pub mod clive_s_hideaway;
+#[path = "fic/cloud_ex_soldier.rs"]
+pub mod cloud_ex_soldier;
 #[path = "fin/cloud_of_darkness.rs"]
 pub mod cloud_of_darkness;
 #[path = "fin/cloudbound_moogle.rs"]
@@ -149,6 +159,8 @@ pub mod cloudbound_moogle;
 pub mod coeurl;
 #[path = "fin/coliseum_behemoth.rs"]
 pub mod coliseum_behemoth;
+#[path = "fin/combat_tutorial.rs"]
+pub mod combat_tutorial;
 #[path = "fin/commune_with_beavers.rs"]
 pub mod commune_with_beavers;
 #[path = "fic/conformer_shuriken.rs"]
@@ -237,6 +249,8 @@ pub mod dwarven_castle_guard;
 pub mod edea_possessed_sorceress;
 #[path = "fin/eden_seat_of_the_sanctum.rs"]
 pub mod eden_seat_of_the_sanctum;
+#[path = "tdm/effortless_master.rs"]
+pub mod effortless_master;
 #[path = "fin/eject.rs"]
 pub mod eject;
 #[path = "fic/elena_turk_recruit.rs"]
@@ -263,6 +277,8 @@ pub mod excalibur_ii;
 pub mod exdeath_void_warlock;
 #[path = "ptdm/fangkeeper_s_familiar.rs"]
 pub mod fangkeeper_s_familiar;
+#[path = "fin/fate_of_the_sun_cryst.rs"]
+pub mod fate_of_the_sun_cryst;
 #[path = "ptdm/felothar_dawn_of_the_abzan.rs"]
 pub mod felothar_dawn_of_the_abzan;
 #[path = "tdc/felothar_the_steadfast.rs"]
@@ -329,6 +345,8 @@ pub mod gurmag_nightwatch;
 pub mod gurmag_rakshasa;
 #[path = "fin/gysahl_greens.rs"]
 pub mod gysahl_greens;
+#[path = "tdc/hammerhead_tyrant.rs"]
+pub mod hammerhead_tyrant;
 #[path = "tdm/hardened_tactician.rs"]
 pub mod hardened_tactician;
 #[path = "fin/hecteyes.rs"]
@@ -383,6 +401,8 @@ pub mod jeskai_brushmaster;
 pub mod jeskai_devotee;
 #[path = "tdm/jeskai_monument.rs"]
 pub mod jeskai_monument;
+#[path = "ptdm/jeskai_revelation.rs"]
+pub mod jeskai_revelation;
 #[path = "tdm/jeskai_shrinekeeper.rs"]
 pub mod jeskai_shrinekeeper;
 #[path = "fin/jidoor_aristocratic_capital.rs"]
@@ -445,6 +465,8 @@ pub mod malboro;
 pub mod mardu_devotee;
 #[path = "tdm/marshal_of_the_lost.rs"]
 pub mod marshal_of_the_lost;
+#[path = "fic/mega_flare.rs"]
+pub mod mega_flare;
 #[path = "tdm/meticulous_artisan.rs"]
 pub mod meticulous_artisan;
 #[path = "fin/midgar_city_of_mako.rs"]
@@ -513,6 +535,8 @@ pub mod rakshasa_s_bargain;
 pub mod rally_the_monastery;
 #[path = "tdc/rampart_architect.rs"]
 pub mod rampart_architect;
+#[path = "fin/raubahn_bull_of_ala_mhigo.rs"]
+pub mod raubahn_bull_of_ala_mhigo;
 #[path = "tdm/rebellious_strike.rs"]
 pub mod rebellious_strike;
 #[path = "fin/red_mage_s_rapier.rs"]
@@ -533,6 +557,8 @@ pub mod reputable_merchant;
 pub mod rescue_leopard;
 #[path = "fin/resentful_revelation.rs"]
 pub mod resentful_revelation;
+#[path = "tdm/reverberating_summons.rs"]
+pub mod reverberating_summons;
 #[path = "fin/ride_the_shoopuf.rs"]
 pub mod ride_the_shoopuf;
 #[path = "fin/ring_of_the_lucii.rs"]
@@ -621,6 +647,8 @@ pub mod sidequest_card_collection;
 pub mod sidequest_catch_a_fish;
 #[path = "fin/sidequest_raise_a_chocobo.rs"]
 pub mod sidequest_raise_a_chocobo;
+#[path = "ptdm/sidisi_regent_of_the_mire.rs"]
+pub mod sidisi_regent_of_the_mire;
 #[path = "fic/siegfried_famed_swordsman.rs"]
 pub mod siegfried_famed_swordsman;
 #[path = "ptdm/sinkhole_surveyor.rs"]
@@ -685,6 +713,8 @@ pub mod summon_primal_garuda;
 pub mod summon_shiva;
 #[path = "fin/summon_titan.rs"]
 pub mod summon_titan;
+#[path = "fic/summoning_materia.rs"]
+pub mod summoning_materia;
 #[path = "tdm/sunpearl_kirin.rs"]
 pub mod sunpearl_kirin;
 #[path = "tdm/sunset_strikemaster.rs"]
@@ -709,6 +739,8 @@ pub mod temur_monument;
 pub mod temur_tawnyback;
 #[path = "fic/terra_herald_of_hope.rs"]
 pub mod terra_herald_of_hope;
+#[path = "tdc/teval_s_judgment.rs"]
+pub mod teval_s_judgment;
 #[path = "tdc/teval_the_balanced_scale.rs"]
 pub mod teval_the_balanced_scale;
 #[path = "fic/thancred_waters.rs"]
@@ -723,6 +755,8 @@ pub mod the_falcon_airship_restored;
 pub mod the_fire_crystal;
 #[path = "fin/the_gold_saucer.rs"]
 pub mod the_gold_saucer;
+#[path = "fin/the_lunar_whale.rs"]
+pub mod the_lunar_whale;
 #[path = "fin/the_regalia.rs"]
 pub mod the_regalia;
 #[path = "fin/the_wandering_minstrel.rs"]

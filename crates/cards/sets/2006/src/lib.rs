@@ -107,6 +107,8 @@ pub mod boreal_druid;
 pub mod boreal_griffin;
 #[path = "csp/boreal_shelf.rs"]
 pub mod boreal_shelf;
+#[path = "dis/bound.rs"]
+pub mod bound;
 #[path = "tsp/brass_gnat.rs"]
 pub mod brass_gnat;
 #[path = "dis/breeding_pool.rs"]
@@ -131,6 +133,8 @@ pub mod cavalry_master;
 pub mod celestial_ancient;
 #[path = "tsp/celestial_crusader.rs"]
 pub mod celestial_crusader;
+#[path = "gpt/cerebral_vortex.rs"]
+pub mod cerebral_vortex;
 #[path = "tsp/chameleon_blur.rs"]
 pub mod chameleon_blur;
 #[path = "csp/chill_to_the_bone.rs"]
@@ -419,6 +423,8 @@ pub mod helium_squirter;
 pub mod highland_weald;
 #[path = "gpt/hissing_miasma.rs"]
 pub mod hissing_miasma;
+#[path = "dis/hit.rs"]
+pub mod hit;
 #[path = "tsp/hivestone.rs"]
 pub mod hivestone;
 #[path = "gpt/hypervolt_grasp.rs"]
@@ -473,6 +479,8 @@ pub mod krovikan_scoundrel;
 pub mod leafdrake_roost;
 #[path = "gpt/leap_of_flame.rs"]
 pub mod leap_of_flame;
+#[path = "gpt/leyline_of_lifeforce.rs"]
+pub mod leyline_of_lifeforce;
 #[path = "gpt/leyline_of_lightning.rs"]
 pub mod leyline_of_lightning;
 #[path = "gpt/leyline_of_singularity.rs"]
@@ -777,6 +785,8 @@ pub mod skred;
 pub mod skulking_knight;
 #[path = "dis/skullmead_cauldron.rs"]
 pub mod skullmead_cauldron;
+#[path = "gpt/sky_swallower.rs"]
+pub mod sky_swallower;
 #[path = "dis/slaughterhouse_bouncer.rs"]
 pub mod slaughterhouse_bouncer;
 #[path = "tsp/slipstream_serpent.rs"]
@@ -989,6 +999,8 @@ pub mod watcher_sliver;
 pub mod weatherseed_totem;
 #[path = "pal06/wee_dragonauts.rs"]
 pub mod wee_dragonauts;
+#[path = "dis/weight_of_spires.rs"]
+pub mod weight_of_spires;
 #[path = "tsp/wheel_of_fate.rs"]
 pub mod wheel_of_fate;
 #[path = "dis/whiptail_moloch.rs"]

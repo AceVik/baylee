@@ -23,6 +23,8 @@ pub mod accorder_s_shield;
 pub mod acid_web_spider;
 #[path = "m11/aether_adept.rs"]
 pub mod aether_adept;
+#[path = "wwk/aether_tradewinds.rs"]
+pub mod aether_tradewinds;
 #[path = "roe/affa_guard_hound.rs"]
 pub mod affa_guard_hound;
 #[path = "wwk/agadeem_occultist.rs"]
@@ -73,6 +75,8 @@ pub mod assault_griffin;
 pub mod assault_strobe;
 #[path = "m11/augury_owl.rs"]
 pub mod augury_owl;
+#[path = "roe/aura_finesse.rs"]
+pub mod aura_finesse;
 #[path = "roe/aura_gnarlid.rs"]
 pub mod aura_gnarlid;
 #[path = "som/auriok_edgewright.rs"]
@@ -191,6 +195,8 @@ pub mod cloud_crusader;
 pub mod conquering_manticore;
 #[path = "roe/consume_the_meek.rs"]
 pub mod consume_the_meek;
+#[path = "roe/consuming_vapors.rs"]
+pub mod consuming_vapors;
 #[path = "ddf/contagion_clasp.rs"]
 pub mod contagion_clasp;
 #[path = "som/contagious_nim.rs"]
@@ -703,6 +709,8 @@ pub mod origin_spellbomb;
 pub mod oust;
 #[path = "roe/overgrown_battlement.rs"]
 pub mod overgrown_battlement;
+#[path = "m11/overwhelming_stampede.rs"]
+pub mod overwhelming_stampede;
 #[path = "som/oxidda_daredevil.rs"]
 pub mod oxidda_daredevil;
 #[path = "som/oxidda_scrapmelter.rs"]
@@ -931,6 +939,8 @@ pub mod stoic_rebuttal;
 pub mod stomper_cub;
 #[path = "m11/stone_golem.rs"]
 pub mod stone_golem;
+#[path = "wwk/stone_idol_trap.rs"]
+pub mod stone_idol_trap;
 #[path = "wwk/stoneforge_mystic.rs"]
 pub mod stoneforge_mystic;
 #[path = "m11/stormtide_leviathan.rs"]
@@ -1029,6 +1039,8 @@ pub mod twisted_image;
 pub mod ulamog_s_crusher;
 #[path = "roe/umbra_mystic.rs"]
 pub mod umbra_mystic;
+#[path = "roe/unified_will.rs"]
+pub mod unified_will;
 #[path = "som/untamed_might.rs"]
 pub mod untamed_might;
 #[path = "roe/valakut_fireboar.rs"]

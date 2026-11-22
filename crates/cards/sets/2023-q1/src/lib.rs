@@ -47,6 +47,8 @@ pub mod bilious_skulldweller;
 pub mod black_sun_s_twilight;
 #[path = "one/bladed_ambassador.rs"]
 pub mod bladed_ambassador;
+#[path = "one/bladegraft_aspirant.rs"]
+pub mod bladegraft_aspirant;
 #[path = "one/bladehold_war_whip.rs"]
 pub mod bladehold_war_whip;
 #[path = "one/blazing_crescendo.rs"]

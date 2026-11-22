@@ -57,6 +57,10 @@ pub mod bloodvial_purveyor;
 pub mod bloody_betrayal;
 #[path = "vow/bramble_wurm.rs"]
 pub mod bramble_wurm;
+#[path = "voc/breath_of_the_sleepless.rs"]
+pub mod breath_of_the_sleepless;
+#[path = "pvow/by_invitation_only.rs"]
+pub mod by_invitation_only;
 #[path = "vow/ceremonial_knife.rs"]
 pub mod ceremonial_knife;
 #[path = "vow/child_of_the_pack.rs"]
@@ -91,6 +95,8 @@ pub mod disorder_in_the_court;
 pub mod distracting_geist;
 #[path = "vow/diver_skaab.rs"]
 pub mod diver_skaab;
+#[path = "pvow/dominating_vampire.rs"]
+pub mod dominating_vampire;
 #[path = "voc/doom_weaver.rs"]
 pub mod doom_weaver;
 #[path = "vow/dormant_grove.rs"]
@@ -155,6 +161,8 @@ pub mod hamlet_vanguard;
 pub mod haunted_library;
 #[path = "pvow/headless_rider.rs"]
 pub mod headless_rider;
+#[path = "pvow/henrika_domnathi.rs"]
+pub mod henrika_domnathi;
 #[path = "vow/heron_blessed_geist.rs"]
 pub mod heron_blessed_geist;
 #[path = "voc/hollowhenge_overlord.rs"]
@@ -261,6 +269,8 @@ pub mod repository_skaab;
 pub mod resistance_squad;
 #[path = "vow/restless_bloodseeker.rs"]
 pub mod restless_bloodseeker;
+#[path = "vow/retrieve.rs"]
+pub mod retrieve;
 #[path = "vow/rot_tide_gargantua.rs"]
 pub mod rot_tide_gargantua;
 #[path = "vow/runebound_wolf.rs"]
@@ -287,8 +297,12 @@ pub mod sheltering_boughs;
 pub mod sigarda_s_imprisonment;
 #[path = "pvow/sigarda_s_summons.rs"]
 pub mod sigarda_s_summons;
+#[path = "vow/skulking_killer.rs"]
+pub mod skulking_killer;
 #[path = "vow/skull_skaab.rs"]
 pub mod skull_skaab;
+#[path = "voc/spectral_arcanist.rs"]
+pub mod spectral_arcanist;
 #[path = "vow/spiked_ripsaw.rs"]
 pub mod spiked_ripsaw;
 #[path = "vow/spore_crawler.rs"]

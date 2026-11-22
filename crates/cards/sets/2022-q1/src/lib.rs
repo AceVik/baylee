@@ -55,6 +55,8 @@ pub mod blade_blizzard_kitsune;
 pub mod blade_of_the_oni;
 #[path = "neo/blossom_prancer.rs"]
 pub mod blossom_prancer;
+#[path = "neo/boon_of_boseiju.rs"]
+pub mod boon_of_boseiju;
 #[path = "neo/boseiju_reaches_skyward.rs"]
 pub mod boseiju_reaches_skyward;
 #[path = "neo/boseiju_who_endures.rs"]
@@ -83,6 +85,8 @@ pub mod colossal_skyturtle;
 pub mod commune_with_spirits;
 #[path = "neo/containment_construct.rs"]
 pub mod containment_construct;
+#[path = "neo/covert_technician.rs"]
+pub mod covert_technician;
 #[path = "nec/cyberdrive_awakener.rs"]
 pub mod cyberdrive_awakener;
 #[path = "neo/disruption_protocol.rs"]
@@ -93,6 +97,8 @@ pub mod dockside_chef;
 pub mod dokuchi_shadow_walker;
 #[path = "neo/dragonfly_suit.rs"]
 pub mod dragonfly_suit;
+#[path = "neo/dragonspark_reactor.rs"]
+pub mod dragonspark_reactor;
 #[path = "neo/ecologist_s_terrarium.rs"]
 pub mod ecologist_s_terrarium;
 #[path = "neo/eiganjo_exemplar.rs"]
@@ -105,6 +111,8 @@ pub mod enthusiastic_mechanaut;
 pub mod era_of_enlightenment;
 #[path = "neo/experimental_synthesizer.rs"]
 pub mod experimental_synthesizer;
+#[path = "neo/explosive_entry.rs"]
+pub mod explosive_entry;
 #[path = "neo/fable_of_the_mirror_breaker.rs"]
 pub mod fable_of_the_mirror_breaker;
 #[path = "neo/fang_of_shigeki.rs"]
@@ -181,6 +189,8 @@ pub mod junji_the_midnight_sky;
 pub mod kaito_s_pursuit;
 #[path = "neo/kaito_shizuki.rs"]
 pub mod kaito_shizuki;
+#[path = "neo/kami_of_industry.rs"]
+pub mod kami_of_industry;
 #[path = "neo/kami_of_restless_shadows.rs"]
 pub mod kami_of_restless_shadows;
 #[path = "neo/kami_of_terrible_secrets.rs"]
@@ -307,8 +317,12 @@ pub mod roadside_reliquary;
 pub mod roaring_earth;
 #[path = "neo/runaway_trash_bot.rs"]
 pub mod runaway_trash_bot;
+#[path = "nec/ruthless_technomancer.rs"]
+pub mod ruthless_technomancer;
 #[path = "neo/saiba_trespassers.rs"]
 pub mod saiba_trespassers;
+#[path = "neo/scrap_welder.rs"]
+pub mod scrap_welder;
 #[path = "neo/scrapyard_steelbreaker.rs"]
 pub mod scrapyard_steelbreaker;
 #[path = "neo/searchlight_companion.rs"]
@@ -361,6 +375,8 @@ pub mod tempered_in_solitude;
 pub mod the_long_reach_of_night;
 #[path = "neo/the_modern_age.rs"]
 pub mod the_modern_age;
+#[path = "neo/the_reality_chip.rs"]
+pub mod the_reality_chip;
 #[path = "neo/the_restoration_of_eiganjo.rs"]
 pub mod the_restoration_of_eiganjo;
 #[path = "neo/the_shattered_states_era.rs"]
@@ -385,6 +401,8 @@ pub mod twisted_embrace;
 pub mod uncharted_haven;
 #[path = "neo/undercity_scrounger.rs"]
 pub mod undercity_scrounger;
+#[path = "neo/unforgiving_one.rs"]
+pub mod unforgiving_one;
 #[path = "nec/universal_surveillance.rs"]
 pub mod universal_surveillance;
 #[path = "nec/unquenchable_fury.rs"]

@@ -23,6 +23,8 @@ pub mod alrund_s_epiphany;
 pub mod arachnoform;
 #[path = "khm/arctic_treeline.rs"]
 pub mod arctic_treeline;
+#[path = "khm/arni_slays_the_troll.rs"]
+pub mod arni_slays_the_troll;
 #[path = "khm/ascendant_spirit.rs"]
 pub mod ascendant_spirit;
 #[path = "khm/augury_raven.rs"]
@@ -87,6 +89,8 @@ pub mod cosmos_elixir;
 pub mod crippling_fear;
 #[path = "khc/crown_of_skemfar.rs"]
 pub mod crown_of_skemfar;
+#[path = "khm/crush_the_weak.rs"]
+pub mod crush_the_weak;
 #[path = "khm/cyclone_summoner.rs"]
 pub mod cyclone_summoner;
 #[path = "khm/darkbore_pathway.rs"]
@@ -121,6 +125,8 @@ pub mod dread_rider;
 pub mod dual_strike;
 #[path = "khm/duskwielder.rs"]
 pub mod duskwielder;
+#[path = "khm/dwarven_hammer.rs"]
+pub mod dwarven_hammer;
 #[path = "khm/dwarven_reinforcements.rs"]
 pub mod dwarven_reinforcements;
 #[path = "khm/elderfang_disciple.rs"]
@@ -133,6 +139,8 @@ pub mod elderfang_venom;
 pub mod elderleaf_mentor;
 #[path = "khm/elven_ambush.rs"]
 pub mod elven_ambush;
+#[path = "khm/elven_bow.rs"]
+pub mod elven_bow;
 #[path = "khm/elvish_warmaster.rs"]
 pub mod elvish_warmaster;
 #[path = "khm/esika_god_of_the_tree.rs"]
@@ -163,6 +171,8 @@ pub mod funeral_longboat;
 pub mod fynn_the_fangbearer;
 #[path = "khm/gates_of_istfell.rs"]
 pub mod gates_of_istfell;
+#[path = "khm/giant_s_amulet.rs"]
+pub mod giant_s_amulet;
 #[path = "khm/giant_s_grasp.rs"]
 pub mod giant_s_grasp;
 #[path = "khm/gilded_assault_cart.rs"]
@@ -195,6 +205,8 @@ pub mod guardian_gladewalker;
 pub mod hagi_mob;
 #[path = "khm/hailstorm_valkyrie.rs"]
 pub mod hailstorm_valkyrie;
+#[path = "khm/halvar_god_of_battle.rs"]
+pub mod halvar_god_of_battle;
 #[path = "khm/harald_king_of_skemfar.rs"]
 pub mod harald_king_of_skemfar;
 #[path = "khm/hengegate_pathway.rs"]
@@ -259,8 +271,12 @@ pub mod mists_of_littjara;
 pub mod mistwalker;
 #[path = "khm/narfi_betrayer_king.rs"]
 pub mod narfi_betrayer_king;
+#[path = "khm/niko_aris.rs"]
+pub mod niko_aris;
 #[path = "khc/pact_of_the_serpent.rs"]
 pub mod pact_of_the_serpent;
+#[path = "khm/path_to_the_world_tree.rs"]
+pub mod path_to_the_world_tree;
 #[path = "khm/pilfering_hawk.rs"]
 pub mod pilfering_hawk;
 #[path = "khm/port_of_karfell.rs"]
@@ -281,6 +297,8 @@ pub mod raven_wings;
 pub mod ravenform;
 #[path = "khm/ravenous_lindwurm.rs"]
 pub mod ravenous_lindwurm;
+#[path = "khm/realmwalker.rs"]
+pub mod realmwalker;
 #[path = "khm/reflections_of_littjara.rs"]
 pub mod reflections_of_littjara;
 #[path = "khm/renegade_reaper.rs"]
@@ -381,6 +399,8 @@ pub mod undersea_invader;
 pub mod usher_of_the_fallen;
 #[path = "khm/valkyrie_harbinger.rs"]
 pub mod valkyrie_harbinger;
+#[path = "khm/valkyrie_s_sword.rs"]
+pub mod valkyrie_s_sword;
 #[path = "khm/valor_of_the_worthy.rs"]
 pub mod valor_of_the_worthy;
 #[path = "khm/varragoth_bloodsky_sire.rs"]

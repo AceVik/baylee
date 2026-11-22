@@ -33,6 +33,8 @@ pub mod artillery_blast;
 pub mod astor_bearer_of_blades;
 #[path = "dmu/automatic_librarian.rs"]
 pub mod automatic_librarian;
+#[path = "dmc/ayesha_tanaka_armorer.rs"]
+pub mod ayesha_tanaka_armorer;
 #[path = "dmu/balduvian_berserker.rs"]
 pub mod balduvian_berserker;
 #[path = "dmu/balmor_battlemage_captain.rs"]
@@ -101,6 +103,8 @@ pub mod electrostatic_infantry;
 pub mod elfhame_wurm;
 #[path = "dmu/elvish_hydromancer.rs"]
 pub mod elvish_hydromancer;
+#[path = "dmc/emperor_mihail_ii.rs"]
+pub mod emperor_mihail_ii;
 #[path = "dmu/ertai_resurrected.rs"]
 pub mod ertai_resurrected;
 #[path = "dmu/evolved_sleeper.rs"]
@@ -157,6 +161,8 @@ pub mod haughty_djinn;
 pub mod haunted_mire;
 #[path = "dmu/haunting_figment.rs"]
 pub mod haunting_figment;
+#[path = "dmc/hazezon_shaper_of_sand.rs"]
+pub mod hazezon_shaper_of_sand;
 #[path = "dmu/herd_migration.rs"]
 pub mod herd_migration;
 #[path = "dmu/hero_s_heirloom.rs"]
@@ -217,6 +223,8 @@ pub mod meria_scholar_of_antiquity;
 pub mod mesa_cavalier;
 #[path = "dmu/micromancer.rs"]
 pub mod micromancer;
+#[path = "dmu/molten_monstrosity.rs"]
+pub mod molten_monstrosity;
 #[path = "dmu/molten_tributary.rs"]
 pub mod molten_tributary;
 #[path = "dmu/mossbeard_ancient.rs"]
@@ -269,8 +277,12 @@ pub mod robaran_mercenaries;
 pub mod rohgahh_kher_keep_overlord;
 #[path = "dmu/rona_s_vortex.rs"]
 pub mod rona_s_vortex;
+#[path = "dmu/rona_sheoldred_s_faithful.rs"]
+pub mod rona_sheoldred_s_faithful;
 #[path = "dmc/rosnakht_heir_of_rohgahh.rs"]
 pub mod rosnakht_heir_of_rohgahh;
+#[path = "dmu/rundvelt_hordemaster.rs"]
+pub mod rundvelt_hordemaster;
 #[path = "dmu/runic_shot.rs"]
 pub mod runic_shot;
 #[path = "dmu/sacred_peaks.rs"]
@@ -337,6 +349,8 @@ pub mod tatyova_steward_of_tides;
 pub mod tear_asunder;
 #[path = "dmu/territorial_maro.rs"]
 pub mod territorial_maro;
+#[path = "dmc/tetsuo_imperial_champion.rs"]
+pub mod tetsuo_imperial_champion;
 #[path = "dmu/the_cruelty_of_gix.rs"]
 pub mod the_cruelty_of_gix;
 #[path = "dmu/the_elder_dragon_war.rs"]
@@ -353,6 +367,8 @@ pub mod thran_portal;
 pub mod tidepool_turtle;
 #[path = "dmu/timeless_lotus.rs"]
 pub mod timeless_lotus;
+#[path = "dmu/timely_interference.rs"]
+pub mod timely_interference;
 #[path = "dmu/tolarian_geyser.rs"]
 pub mod tolarian_geyser;
 #[path = "dmu/tolarian_terror.rs"]

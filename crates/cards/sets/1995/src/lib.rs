@@ -117,6 +117,8 @@ pub mod battle_cry;
 pub mod battle_frenzy;
 #[path = "hml/beast_walkers.rs"]
 pub mod beast_walkers;
+#[path = "pmei/benjamin_sisko_besieged.rs"]
+pub mod benjamin_sisko_besieged;
 #[path = "ice/binding_grasp.rs"]
 pub mod binding_grasp;
 #[path = "hml/black_carriage.rs"]

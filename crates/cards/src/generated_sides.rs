@@ -24,7 +24,7 @@
 use baylee_core::ids::CardIndex;
 
 /// Cards whose pinned printing has a second picture.
-pub static BACK_IMAGE: [CardIndex; 303] = [
+pub static BACK_IMAGE: [CardIndex; 310] = [
     CardIndex::new(11948),
     CardIndex::new(11949),
     CardIndex::new(11968),
@@ -54,6 +54,7 @@ pub static BACK_IMAGE: [CardIndex; 303] = [
     CardIndex::new(12300),
     CardIndex::new(12335),
     CardIndex::new(14927),
+    CardIndex::new(15575),
     CardIndex::new(15585),
     CardIndex::new(15586),
     CardIndex::new(15590),
@@ -151,6 +152,7 @@ pub static BACK_IMAGE: [CardIndex; 303] = [
     CardIndex::new(20823),
     CardIndex::new(20851),
     CardIndex::new(20882),
+    CardIndex::new(20923),
     CardIndex::new(20927),
     CardIndex::new(20955),
     CardIndex::new(21204),
@@ -200,6 +202,7 @@ pub static BACK_IMAGE: [CardIndex; 303] = [
     CardIndex::new(22427),
     CardIndex::new(22433),
     CardIndex::new(22446),
+    CardIndex::new(22473),
     CardIndex::new(22480),
     CardIndex::new(22486),
     CardIndex::new(22489),
@@ -230,6 +233,7 @@ pub static BACK_IMAGE: [CardIndex; 303] = [
     CardIndex::new(23003),
     CardIndex::new(23004),
     CardIndex::new(23012),
+    CardIndex::new(25446),
     CardIndex::new(25454),
     CardIndex::new(25458),
     CardIndex::new(25466),
@@ -245,6 +249,7 @@ pub static BACK_IMAGE: [CardIndex; 303] = [
     CardIndex::new(25581),
     CardIndex::new(25584),
     CardIndex::new(25585),
+    CardIndex::new(25586),
     CardIndex::new(25587),
     CardIndex::new(25588),
     CardIndex::new(25589),
@@ -260,6 +265,7 @@ pub static BACK_IMAGE: [CardIndex; 303] = [
     CardIndex::new(25673),
     CardIndex::new(25706),
     CardIndex::new(25710),
+    CardIndex::new(25721),
     CardIndex::new(25730),
     CardIndex::new(26816),
     CardIndex::new(26843),
@@ -319,6 +325,7 @@ pub static BACK_IMAGE: [CardIndex; 303] = [
     CardIndex::new(30486),
     CardIndex::new(30582),
     CardIndex::new(30583),
+    CardIndex::new(30955),
     CardIndex::new(31493),
     CardIndex::new(31597),
     CardIndex::new(31763),
@@ -331,7 +338,7 @@ pub static BACK_IMAGE: [CardIndex; 303] = [
 ];
 
 /// Cards that are double-faced cards under CR 712.1.
-pub static DOUBLE_FACED: [CardIndex; 308] = [
+pub static DOUBLE_FACED: [CardIndex; 315] = [
     CardIndex::new(11948),
     CardIndex::new(11949),
     CardIndex::new(11968),
@@ -361,6 +368,7 @@ pub static DOUBLE_FACED: [CardIndex; 308] = [
     CardIndex::new(12300),
     CardIndex::new(12335),
     CardIndex::new(14927),
+    CardIndex::new(15575),
     CardIndex::new(15585),
     CardIndex::new(15586),
     CardIndex::new(15590),
@@ -462,6 +470,7 @@ pub static DOUBLE_FACED: [CardIndex; 308] = [
     CardIndex::new(20823),
     CardIndex::new(20851),
     CardIndex::new(20882),
+    CardIndex::new(20923),
     CardIndex::new(20927),
     CardIndex::new(20955),
     CardIndex::new(21204),
@@ -511,6 +520,7 @@ pub static DOUBLE_FACED: [CardIndex; 308] = [
     CardIndex::new(22427),
     CardIndex::new(22433),
     CardIndex::new(22446),
+    CardIndex::new(22473),
     CardIndex::new(22480),
     CardIndex::new(22486),
     CardIndex::new(22489),
@@ -542,6 +552,7 @@ pub static DOUBLE_FACED: [CardIndex; 308] = [
     CardIndex::new(23004),
     CardIndex::new(23012),
     CardIndex::new(24715),
+    CardIndex::new(25446),
     CardIndex::new(25454),
     CardIndex::new(25458),
     CardIndex::new(25466),
@@ -557,6 +568,7 @@ pub static DOUBLE_FACED: [CardIndex; 308] = [
     CardIndex::new(25581),
     CardIndex::new(25584),
     CardIndex::new(25585),
+    CardIndex::new(25586),
     CardIndex::new(25587),
     CardIndex::new(25588),
     CardIndex::new(25589),
@@ -572,6 +584,7 @@ pub static DOUBLE_FACED: [CardIndex; 308] = [
     CardIndex::new(25673),
     CardIndex::new(25706),
     CardIndex::new(25710),
+    CardIndex::new(25721),
     CardIndex::new(25730),
     CardIndex::new(26816),
     CardIndex::new(26843),
@@ -631,6 +644,7 @@ pub static DOUBLE_FACED: [CardIndex; 308] = [
     CardIndex::new(30486),
     CardIndex::new(30582),
     CardIndex::new(30583),
+    CardIndex::new(30955),
     CardIndex::new(31493),
     CardIndex::new(31597),
     CardIndex::new(31763),
@@ -643,7 +657,7 @@ pub static DOUBLE_FACED: [CardIndex; 308] = [
 ];
 
 /// Cards whose reference printing is uncommon.
-pub static UNCOMMON: [CardIndex; 7564] = [
+pub static UNCOMMON: [CardIndex; 7727] = [
     CardIndex::new(0),
     CardIndex::new(2),
     CardIndex::new(3),
@@ -2784,6 +2798,8 @@ pub static UNCOMMON: [CardIndex; 7564] = [
     CardIndex::new(6688),
     CardIndex::new(6693),
     CardIndex::new(6695),
+    CardIndex::new(6705),
+    CardIndex::new(6706),
     CardIndex::new(6712),
     CardIndex::new(6713),
     CardIndex::new(6714),
@@ -2816,6 +2832,7 @@ pub static UNCOMMON: [CardIndex; 7564] = [
     CardIndex::new(6828),
     CardIndex::new(6838),
     CardIndex::new(6847),
+    CardIndex::new(6848),
     CardIndex::new(6850),
     CardIndex::new(6851),
     CardIndex::new(6852),
@@ -2841,6 +2858,7 @@ pub static UNCOMMON: [CardIndex; 7564] = [
     CardIndex::new(6906),
     CardIndex::new(6907),
     CardIndex::new(6908),
+    CardIndex::new(6909),
     CardIndex::new(6918),
     CardIndex::new(6921),
     CardIndex::new(6922),
@@ -2937,6 +2955,7 @@ pub static UNCOMMON: [CardIndex; 7564] = [
     CardIndex::new(7338),
     CardIndex::new(7340),
     CardIndex::new(7341),
+    CardIndex::new(7344),
     CardIndex::new(7350),
     CardIndex::new(7354),
     CardIndex::new(7368),
@@ -2966,6 +2985,7 @@ pub static UNCOMMON: [CardIndex; 7564] = [
     CardIndex::new(7474),
     CardIndex::new(7475),
     CardIndex::new(7478),
+    CardIndex::new(7479),
     CardIndex::new(7480),
     CardIndex::new(7481),
     CardIndex::new(7482),
@@ -2986,6 +3006,7 @@ pub static UNCOMMON: [CardIndex; 7564] = [
     CardIndex::new(7541),
     CardIndex::new(7547),
     CardIndex::new(7560),
+    CardIndex::new(7562),
     CardIndex::new(7570),
     CardIndex::new(7575),
     CardIndex::new(7578),
@@ -3018,6 +3039,7 @@ pub static UNCOMMON: [CardIndex; 7564] = [
     CardIndex::new(7682),
     CardIndex::new(7683),
     CardIndex::new(7689),
+    CardIndex::new(7692),
     CardIndex::new(7713),
     CardIndex::new(7715),
     CardIndex::new(7716),
@@ -3130,6 +3152,7 @@ pub static UNCOMMON: [CardIndex; 7564] = [
     CardIndex::new(8112),
     CardIndex::new(8114),
     CardIndex::new(8115),
+    CardIndex::new(8126),
     CardIndex::new(8130),
     CardIndex::new(8133),
     CardIndex::new(8140),
@@ -3156,6 +3179,7 @@ pub static UNCOMMON: [CardIndex; 7564] = [
     CardIndex::new(8210),
     CardIndex::new(8212),
     CardIndex::new(8213),
+    CardIndex::new(8227),
     CardIndex::new(8235),
     CardIndex::new(8236),
     CardIndex::new(8240),
@@ -3358,6 +3382,7 @@ pub static UNCOMMON: [CardIndex; 7564] = [
     CardIndex::new(9096),
     CardIndex::new(9107),
     CardIndex::new(9110),
+    CardIndex::new(9111),
     CardIndex::new(9119),
     CardIndex::new(9125),
     CardIndex::new(9127),
@@ -3421,6 +3446,7 @@ pub static UNCOMMON: [CardIndex; 7564] = [
     CardIndex::new(9412),
     CardIndex::new(9416),
     CardIndex::new(9418),
+    CardIndex::new(9425),
     CardIndex::new(9426),
     CardIndex::new(9430),
     CardIndex::new(9432),
@@ -3606,6 +3632,7 @@ pub static UNCOMMON: [CardIndex; 7564] = [
     CardIndex::new(10149),
     CardIndex::new(10153),
     CardIndex::new(10158),
+    CardIndex::new(10167),
     CardIndex::new(10175),
     CardIndex::new(10177),
     CardIndex::new(10181),
@@ -3796,6 +3823,7 @@ pub static UNCOMMON: [CardIndex; 7564] = [
     CardIndex::new(11087),
     CardIndex::new(11091),
     CardIndex::new(11092),
+    CardIndex::new(11100),
     CardIndex::new(11101),
     CardIndex::new(11106),
     CardIndex::new(11107),
@@ -3868,6 +3896,7 @@ pub static UNCOMMON: [CardIndex; 7564] = [
     CardIndex::new(11483),
     CardIndex::new(11491),
     CardIndex::new(11496),
+    CardIndex::new(11506),
     CardIndex::new(11509),
     CardIndex::new(11514),
     CardIndex::new(11515),
@@ -3921,6 +3950,7 @@ pub static UNCOMMON: [CardIndex; 7564] = [
     CardIndex::new(11724),
     CardIndex::new(11726),
     CardIndex::new(11732),
+    CardIndex::new(11739),
     CardIndex::new(11741),
     CardIndex::new(11753),
     CardIndex::new(11755),
@@ -3936,6 +3966,7 @@ pub static UNCOMMON: [CardIndex; 7564] = [
     CardIndex::new(11789),
     CardIndex::new(11791),
     CardIndex::new(11793),
+    CardIndex::new(11834),
     CardIndex::new(11838),
     CardIndex::new(11846),
     CardIndex::new(11857),
@@ -3978,6 +4009,7 @@ pub static UNCOMMON: [CardIndex; 7564] = [
     CardIndex::new(12054),
     CardIndex::new(12057),
     CardIndex::new(12059),
+    CardIndex::new(12060),
     CardIndex::new(12061),
     CardIndex::new(12068),
     CardIndex::new(12069),
@@ -4004,6 +4036,7 @@ pub static UNCOMMON: [CardIndex; 7564] = [
     CardIndex::new(12143),
     CardIndex::new(12145),
     CardIndex::new(12158),
+    CardIndex::new(12162),
     CardIndex::new(12164),
     CardIndex::new(12166),
     CardIndex::new(12174),
@@ -4099,15 +4132,18 @@ pub static UNCOMMON: [CardIndex; 7564] = [
     CardIndex::new(12627),
     CardIndex::new(12635),
     CardIndex::new(12636),
+    CardIndex::new(12637),
     CardIndex::new(12640),
     CardIndex::new(12647),
     CardIndex::new(12653),
     CardIndex::new(12655),
+    CardIndex::new(12656),
     CardIndex::new(12661),
     CardIndex::new(12662),
     CardIndex::new(12666),
     CardIndex::new(12667),
     CardIndex::new(12675),
+    CardIndex::new(12680),
     CardIndex::new(12682),
     CardIndex::new(12692),
     CardIndex::new(12706),
@@ -4203,6 +4239,7 @@ pub static UNCOMMON: [CardIndex; 7564] = [
     CardIndex::new(13062),
     CardIndex::new(13066),
     CardIndex::new(13069),
+    CardIndex::new(13072),
     CardIndex::new(13075),
     CardIndex::new(13087),
     CardIndex::new(13095),
@@ -4364,6 +4401,7 @@ pub static UNCOMMON: [CardIndex; 7564] = [
     CardIndex::new(13780),
     CardIndex::new(13781),
     CardIndex::new(13786),
+    CardIndex::new(13796),
     CardIndex::new(13797),
     CardIndex::new(13800),
     CardIndex::new(13802),
@@ -4420,11 +4458,13 @@ pub static UNCOMMON: [CardIndex; 7564] = [
     CardIndex::new(13969),
     CardIndex::new(13970),
     CardIndex::new(13975),
+    CardIndex::new(13983),
     CardIndex::new(13984),
     CardIndex::new(13989),
     CardIndex::new(13990),
     CardIndex::new(13993),
     CardIndex::new(14002),
+    CardIndex::new(14007),
     CardIndex::new(14008),
     CardIndex::new(14009),
     CardIndex::new(14013),
@@ -4571,10 +4611,13 @@ pub static UNCOMMON: [CardIndex; 7564] = [
     CardIndex::new(14636),
     CardIndex::new(14639),
     CardIndex::new(14641),
+    CardIndex::new(14649),
     CardIndex::new(14650),
     CardIndex::new(14651),
+    CardIndex::new(14660),
     CardIndex::new(14663),
     CardIndex::new(14668),
+    CardIndex::new(14677),
     CardIndex::new(14680),
     CardIndex::new(14681),
     CardIndex::new(14693),
@@ -4712,6 +4755,7 @@ pub static UNCOMMON: [CardIndex; 7564] = [
     CardIndex::new(15162),
     CardIndex::new(15173),
     CardIndex::new(15178),
+    CardIndex::new(15187),
     CardIndex::new(15188),
     CardIndex::new(15189),
     CardIndex::new(15193),
@@ -4783,11 +4827,13 @@ pub static UNCOMMON: [CardIndex; 7564] = [
     CardIndex::new(15481),
     CardIndex::new(15486),
     CardIndex::new(15493),
+    CardIndex::new(15501),
     CardIndex::new(15502),
     CardIndex::new(15503),
     CardIndex::new(15504),
     CardIndex::new(15510),
     CardIndex::new(15511),
+    CardIndex::new(15513),
     CardIndex::new(15520),
     CardIndex::new(15531),
     CardIndex::new(15533),
@@ -4804,6 +4850,7 @@ pub static UNCOMMON: [CardIndex; 7564] = [
     CardIndex::new(15563),
     CardIndex::new(15573),
     CardIndex::new(15574),
+    CardIndex::new(15575),
     CardIndex::new(15587),
     CardIndex::new(15590),
     CardIndex::new(15591),
@@ -4886,6 +4933,7 @@ pub static UNCOMMON: [CardIndex; 7564] = [
     CardIndex::new(15917),
     CardIndex::new(15921),
     CardIndex::new(15927),
+    CardIndex::new(15932),
     CardIndex::new(15934),
     CardIndex::new(15939),
     CardIndex::new(15941),
@@ -4901,6 +4949,7 @@ pub static UNCOMMON: [CardIndex; 7564] = [
     CardIndex::new(15971),
     CardIndex::new(15973),
     CardIndex::new(15976),
+    CardIndex::new(15978),
     CardIndex::new(15979),
     CardIndex::new(15984),
     CardIndex::new(15985),
@@ -4982,6 +5031,8 @@ pub static UNCOMMON: [CardIndex; 7564] = [
     CardIndex::new(16354),
     CardIndex::new(16355),
     CardIndex::new(16359),
+    CardIndex::new(16382),
+    CardIndex::new(16384),
     CardIndex::new(16386),
     CardIndex::new(16396),
     CardIndex::new(16411),
@@ -5013,9 +5064,11 @@ pub static UNCOMMON: [CardIndex; 7564] = [
     CardIndex::new(16533),
     CardIndex::new(16538),
     CardIndex::new(16539),
+    CardIndex::new(16541),
     CardIndex::new(16549),
     CardIndex::new(16550),
     CardIndex::new(16553),
+    CardIndex::new(16557),
     CardIndex::new(16558),
     CardIndex::new(16560),
     CardIndex::new(16561),
@@ -5200,6 +5253,7 @@ pub static UNCOMMON: [CardIndex; 7564] = [
     CardIndex::new(17264),
     CardIndex::new(17269),
     CardIndex::new(17274),
+    CardIndex::new(17278),
     CardIndex::new(17281),
     CardIndex::new(17285),
     CardIndex::new(17287),
@@ -5222,6 +5276,7 @@ pub static UNCOMMON: [CardIndex; 7564] = [
     CardIndex::new(17362),
     CardIndex::new(17363),
     CardIndex::new(17367),
+    CardIndex::new(17369),
     CardIndex::new(17375),
     CardIndex::new(17379),
     CardIndex::new(17384),
@@ -5247,6 +5302,8 @@ pub static UNCOMMON: [CardIndex; 7564] = [
     CardIndex::new(17467),
     CardIndex::new(17468),
     CardIndex::new(17469),
+    CardIndex::new(17470),
+    CardIndex::new(17473),
     CardIndex::new(17474),
     CardIndex::new(17476),
     CardIndex::new(17482),
@@ -5263,6 +5320,7 @@ pub static UNCOMMON: [CardIndex; 7564] = [
     CardIndex::new(17536),
     CardIndex::new(17538),
     CardIndex::new(17543),
+    CardIndex::new(17544),
     CardIndex::new(17546),
     CardIndex::new(17557),
     CardIndex::new(17564),
@@ -5287,6 +5345,7 @@ pub static UNCOMMON: [CardIndex; 7564] = [
     CardIndex::new(17658),
     CardIndex::new(17659),
     CardIndex::new(17670),
+    CardIndex::new(17682),
     CardIndex::new(17691),
     CardIndex::new(17693),
     CardIndex::new(17698),
@@ -5323,6 +5382,7 @@ pub static UNCOMMON: [CardIndex; 7564] = [
     CardIndex::new(17780),
     CardIndex::new(17781),
     CardIndex::new(17783),
+    CardIndex::new(17795),
     CardIndex::new(17796),
     CardIndex::new(17797),
     CardIndex::new(17804),
@@ -5433,6 +5493,7 @@ pub static UNCOMMON: [CardIndex; 7564] = [
     CardIndex::new(18278),
     CardIndex::new(18282),
     CardIndex::new(18290),
+    CardIndex::new(18296),
     CardIndex::new(18300),
     CardIndex::new(18302),
     CardIndex::new(18307),
@@ -5459,6 +5520,7 @@ pub static UNCOMMON: [CardIndex; 7564] = [
     CardIndex::new(18406),
     CardIndex::new(18410),
     CardIndex::new(18411),
+    CardIndex::new(18413),
     CardIndex::new(18414),
     CardIndex::new(18415),
     CardIndex::new(18421),
@@ -5467,6 +5529,7 @@ pub static UNCOMMON: [CardIndex; 7564] = [
     CardIndex::new(18432),
     CardIndex::new(18436),
     CardIndex::new(18441),
+    CardIndex::new(18442),
     CardIndex::new(18453),
     CardIndex::new(18455),
     CardIndex::new(18458),
@@ -5485,9 +5548,11 @@ pub static UNCOMMON: [CardIndex; 7564] = [
     CardIndex::new(18508),
     CardIndex::new(18511),
     CardIndex::new(18519),
+    CardIndex::new(18523),
     CardIndex::new(18528),
     CardIndex::new(18532),
     CardIndex::new(18534),
+    CardIndex::new(18536),
     CardIndex::new(18549),
     CardIndex::new(18553),
     CardIndex::new(18556),
@@ -5560,6 +5625,7 @@ pub static UNCOMMON: [CardIndex; 7564] = [
     CardIndex::new(18788),
     CardIndex::new(18790),
     CardIndex::new(18792),
+    CardIndex::new(18800),
     CardIndex::new(18802),
     CardIndex::new(18804),
     CardIndex::new(18831),
@@ -5615,6 +5681,7 @@ pub static UNCOMMON: [CardIndex; 7564] = [
     CardIndex::new(19031),
     CardIndex::new(19033),
     CardIndex::new(19036),
+    CardIndex::new(19038),
     CardIndex::new(19041),
     CardIndex::new(19045),
     CardIndex::new(19048),
@@ -5711,6 +5778,7 @@ pub static UNCOMMON: [CardIndex; 7564] = [
     CardIndex::new(19437),
     CardIndex::new(19439),
     CardIndex::new(19442),
+    CardIndex::new(19454),
     CardIndex::new(19455),
     CardIndex::new(19456),
     CardIndex::new(19466),
@@ -5746,9 +5814,12 @@ pub static UNCOMMON: [CardIndex; 7564] = [
     CardIndex::new(19608),
     CardIndex::new(19609),
     CardIndex::new(19610),
+    CardIndex::new(19618),
+    CardIndex::new(19621),
     CardIndex::new(19625),
     CardIndex::new(19628),
     CardIndex::new(19637),
+    CardIndex::new(19639),
     CardIndex::new(19642),
     CardIndex::new(19643),
     CardIndex::new(19644),
@@ -5784,6 +5855,7 @@ pub static UNCOMMON: [CardIndex; 7564] = [
     CardIndex::new(19791),
     CardIndex::new(19793),
     CardIndex::new(19797),
+    CardIndex::new(19808),
     CardIndex::new(19823),
     CardIndex::new(19898),
     CardIndex::new(19902),
@@ -5792,6 +5864,7 @@ pub static UNCOMMON: [CardIndex; 7564] = [
     CardIndex::new(19909),
     CardIndex::new(19912),
     CardIndex::new(19913),
+    CardIndex::new(19919),
     CardIndex::new(19923),
     CardIndex::new(19934),
     CardIndex::new(19941),
@@ -5826,6 +5899,7 @@ pub static UNCOMMON: [CardIndex; 7564] = [
     CardIndex::new(20079),
     CardIndex::new(20081),
     CardIndex::new(20084),
+    CardIndex::new(20086),
     CardIndex::new(20095),
     CardIndex::new(20097),
     CardIndex::new(20099),
@@ -5895,6 +5969,7 @@ pub static UNCOMMON: [CardIndex; 7564] = [
     CardIndex::new(20347),
     CardIndex::new(20348),
     CardIndex::new(20358),
+    CardIndex::new(20359),
     CardIndex::new(20370),
     CardIndex::new(20371),
     CardIndex::new(20372),
@@ -5903,9 +5978,13 @@ pub static UNCOMMON: [CardIndex; 7564] = [
     CardIndex::new(20380),
     CardIndex::new(20383),
     CardIndex::new(20387),
+    CardIndex::new(20394),
+    CardIndex::new(20410),
     CardIndex::new(20418),
     CardIndex::new(20422),
+    CardIndex::new(20430),
     CardIndex::new(20433),
+    CardIndex::new(20445),
     CardIndex::new(20446),
     CardIndex::new(20448),
     CardIndex::new(20450),
@@ -5922,6 +6001,7 @@ pub static UNCOMMON: [CardIndex; 7564] = [
     CardIndex::new(20488),
     CardIndex::new(20508),
     CardIndex::new(20509),
+    CardIndex::new(20514),
     CardIndex::new(20517),
     CardIndex::new(20518),
     CardIndex::new(20520),
@@ -5932,23 +6012,30 @@ pub static UNCOMMON: [CardIndex; 7564] = [
     CardIndex::new(20532),
     CardIndex::new(20541),
     CardIndex::new(20542),
+    CardIndex::new(20545),
     CardIndex::new(20549),
     CardIndex::new(20552),
     CardIndex::new(20553),
     CardIndex::new(20554),
+    CardIndex::new(20555),
     CardIndex::new(20559),
     CardIndex::new(20562),
     CardIndex::new(20563),
     CardIndex::new(20566),
+    CardIndex::new(20568),
     CardIndex::new(20573),
     CardIndex::new(20580),
     CardIndex::new(20581),
     CardIndex::new(20589),
+    CardIndex::new(20590),
+    CardIndex::new(20591),
     CardIndex::new(20596),
     CardIndex::new(20597),
     CardIndex::new(20601),
     CardIndex::new(20602),
+    CardIndex::new(20604),
     CardIndex::new(20612),
+    CardIndex::new(20624),
     CardIndex::new(20625),
     CardIndex::new(20628),
     CardIndex::new(20629),
@@ -5980,7 +6067,10 @@ pub static UNCOMMON: [CardIndex; 7564] = [
     CardIndex::new(20761),
     CardIndex::new(20774),
     CardIndex::new(20775),
+    CardIndex::new(20780),
+    CardIndex::new(20783),
     CardIndex::new(20791),
+    CardIndex::new(20800),
     CardIndex::new(20804),
     CardIndex::new(20805),
     CardIndex::new(20810),
@@ -5992,18 +6082,21 @@ pub static UNCOMMON: [CardIndex; 7564] = [
     CardIndex::new(20832),
     CardIndex::new(20838),
     CardIndex::new(20841),
+    CardIndex::new(20849),
     CardIndex::new(20856),
     CardIndex::new(20860),
     CardIndex::new(20865),
     CardIndex::new(20868),
     CardIndex::new(20874),
     CardIndex::new(20877),
+    CardIndex::new(20878),
     CardIndex::new(20886),
     CardIndex::new(20891),
     CardIndex::new(20892),
     CardIndex::new(20894),
     CardIndex::new(20899),
     CardIndex::new(20900),
+    CardIndex::new(20902),
     CardIndex::new(20903),
     CardIndex::new(20904),
     CardIndex::new(20906),
@@ -6020,6 +6113,7 @@ pub static UNCOMMON: [CardIndex; 7564] = [
     CardIndex::new(20961),
     CardIndex::new(20963),
     CardIndex::new(20972),
+    CardIndex::new(20979),
     CardIndex::new(20982),
     CardIndex::new(20990),
     CardIndex::new(20999),
@@ -6038,13 +6132,16 @@ pub static UNCOMMON: [CardIndex; 7564] = [
     CardIndex::new(21052),
     CardIndex::new(21055),
     CardIndex::new(21073),
+    CardIndex::new(21076),
     CardIndex::new(21080),
     CardIndex::new(21081),
     CardIndex::new(21085),
     CardIndex::new(21093),
     CardIndex::new(21097),
+    CardIndex::new(21100),
     CardIndex::new(21132),
     CardIndex::new(21140),
+    CardIndex::new(21141),
     CardIndex::new(21149),
     CardIndex::new(21152),
     CardIndex::new(21162),
@@ -6059,10 +6156,12 @@ pub static UNCOMMON: [CardIndex; 7564] = [
     CardIndex::new(21232),
     CardIndex::new(21254),
     CardIndex::new(21257),
+    CardIndex::new(21259),
     CardIndex::new(21266),
     CardIndex::new(21269),
     CardIndex::new(21271),
     CardIndex::new(21272),
+    CardIndex::new(21281),
     CardIndex::new(21284),
     CardIndex::new(21289),
     CardIndex::new(21293),
@@ -6150,6 +6249,7 @@ pub static UNCOMMON: [CardIndex; 7564] = [
     CardIndex::new(21700),
     CardIndex::new(21703),
     CardIndex::new(21722),
+    CardIndex::new(21723),
     CardIndex::new(21726),
     CardIndex::new(21727),
     CardIndex::new(21739),
@@ -6173,7 +6273,10 @@ pub static UNCOMMON: [CardIndex; 7564] = [
     CardIndex::new(21824),
     CardIndex::new(21826),
     CardIndex::new(21841),
+    CardIndex::new(21842),
     CardIndex::new(21849),
+    CardIndex::new(21852),
+    CardIndex::new(21853),
     CardIndex::new(21865),
     CardIndex::new(21871),
     CardIndex::new(21885),
@@ -6183,10 +6286,12 @@ pub static UNCOMMON: [CardIndex; 7564] = [
     CardIndex::new(21908),
     CardIndex::new(21914),
     CardIndex::new(21915),
+    CardIndex::new(21917),
     CardIndex::new(21922),
     CardIndex::new(21923),
     CardIndex::new(21925),
     CardIndex::new(21932),
+    CardIndex::new(21940),
     CardIndex::new(21945),
     CardIndex::new(21963),
     CardIndex::new(21975),
@@ -6272,8 +6377,10 @@ pub static UNCOMMON: [CardIndex; 7564] = [
     CardIndex::new(22554),
     CardIndex::new(22556),
     CardIndex::new(22557),
+    CardIndex::new(22558),
     CardIndex::new(22561),
     CardIndex::new(22565),
+    CardIndex::new(22580),
     CardIndex::new(22581),
     CardIndex::new(22586),
     CardIndex::new(22608),
@@ -6291,12 +6398,15 @@ pub static UNCOMMON: [CardIndex; 7564] = [
     CardIndex::new(22745),
     CardIndex::new(22748),
     CardIndex::new(22749),
+    CardIndex::new(22750),
     CardIndex::new(22752),
     CardIndex::new(22756),
     CardIndex::new(22761),
     CardIndex::new(22766),
     CardIndex::new(22769),
+    CardIndex::new(22770),
     CardIndex::new(22776),
+    CardIndex::new(22780),
     CardIndex::new(22789),
     CardIndex::new(22801),
     CardIndex::new(22804),
@@ -6334,6 +6444,7 @@ pub static UNCOMMON: [CardIndex; 7564] = [
     CardIndex::new(23009),
     CardIndex::new(23010),
     CardIndex::new(23013),
+    CardIndex::new(23017),
     CardIndex::new(23021),
     CardIndex::new(23025),
     CardIndex::new(23028),
@@ -6342,6 +6453,7 @@ pub static UNCOMMON: [CardIndex; 7564] = [
     CardIndex::new(23106),
     CardIndex::new(23108),
     CardIndex::new(23112),
+    CardIndex::new(23133),
     CardIndex::new(23136),
     CardIndex::new(23139),
     CardIndex::new(23146),
@@ -6358,6 +6470,7 @@ pub static UNCOMMON: [CardIndex; 7564] = [
     CardIndex::new(23196),
     CardIndex::new(23219),
     CardIndex::new(23243),
+    CardIndex::new(23266),
     CardIndex::new(23276),
     CardIndex::new(23278),
     CardIndex::new(23283),
@@ -6366,6 +6479,7 @@ pub static UNCOMMON: [CardIndex; 7564] = [
     CardIndex::new(23301),
     CardIndex::new(23302),
     CardIndex::new(23305),
+    CardIndex::new(23313),
     CardIndex::new(23327),
     CardIndex::new(23329),
     CardIndex::new(23331),
@@ -6379,8 +6493,10 @@ pub static UNCOMMON: [CardIndex; 7564] = [
     CardIndex::new(23396),
     CardIndex::new(23401),
     CardIndex::new(23405),
+    CardIndex::new(23414),
     CardIndex::new(23422),
     CardIndex::new(23427),
+    CardIndex::new(23434),
     CardIndex::new(23436),
     CardIndex::new(23481),
     CardIndex::new(23484),
@@ -6388,6 +6504,7 @@ pub static UNCOMMON: [CardIndex; 7564] = [
     CardIndex::new(23523),
     CardIndex::new(23525),
     CardIndex::new(23531),
+    CardIndex::new(23550),
     CardIndex::new(23554),
     CardIndex::new(23556),
     CardIndex::new(23557),
@@ -6412,6 +6529,7 @@ pub static UNCOMMON: [CardIndex; 7564] = [
     CardIndex::new(23644),
     CardIndex::new(23647),
     CardIndex::new(23656),
+    CardIndex::new(23660),
     CardIndex::new(23666),
     CardIndex::new(23669),
     CardIndex::new(23671),
@@ -6422,12 +6540,14 @@ pub static UNCOMMON: [CardIndex; 7564] = [
     CardIndex::new(23711),
     CardIndex::new(23714),
     CardIndex::new(23716),
+    CardIndex::new(23731),
     CardIndex::new(23732),
     CardIndex::new(23733),
     CardIndex::new(23737),
     CardIndex::new(23739),
     CardIndex::new(23740),
     CardIndex::new(23752),
+    CardIndex::new(23753),
     CardIndex::new(23764),
     CardIndex::new(23767),
     CardIndex::new(23775),
@@ -6475,6 +6595,7 @@ pub static UNCOMMON: [CardIndex; 7564] = [
     CardIndex::new(24235),
     CardIndex::new(24236),
     CardIndex::new(24241),
+    CardIndex::new(24242),
     CardIndex::new(24246),
     CardIndex::new(24251),
     CardIndex::new(24256),
@@ -6504,6 +6625,7 @@ pub static UNCOMMON: [CardIndex; 7564] = [
     CardIndex::new(24528),
     CardIndex::new(24560),
     CardIndex::new(24571),
+    CardIndex::new(24573),
     CardIndex::new(24576),
     CardIndex::new(24586),
     CardIndex::new(24588),
@@ -6520,6 +6642,7 @@ pub static UNCOMMON: [CardIndex; 7564] = [
     CardIndex::new(24709),
     CardIndex::new(24711),
     CardIndex::new(24714),
+    CardIndex::new(24718),
     CardIndex::new(24721),
     CardIndex::new(24724),
     CardIndex::new(24727),
@@ -6530,6 +6653,7 @@ pub static UNCOMMON: [CardIndex; 7564] = [
     CardIndex::new(24754),
     CardIndex::new(24755),
     CardIndex::new(24759),
+    CardIndex::new(24767),
     CardIndex::new(24772),
     CardIndex::new(24773),
     CardIndex::new(24774),
@@ -6540,6 +6664,7 @@ pub static UNCOMMON: [CardIndex; 7564] = [
     CardIndex::new(24795),
     CardIndex::new(24800),
     CardIndex::new(24801),
+    CardIndex::new(24802),
     CardIndex::new(24807),
     CardIndex::new(24808),
     CardIndex::new(24809),
@@ -6548,11 +6673,13 @@ pub static UNCOMMON: [CardIndex; 7564] = [
     CardIndex::new(24819),
     CardIndex::new(24821),
     CardIndex::new(24825),
+    CardIndex::new(24829),
     CardIndex::new(24831),
     CardIndex::new(24835),
     CardIndex::new(24839),
     CardIndex::new(24840),
     CardIndex::new(24853),
+    CardIndex::new(24861),
     CardIndex::new(24862),
     CardIndex::new(24880),
     CardIndex::new(24887),
@@ -6672,6 +6799,7 @@ pub static UNCOMMON: [CardIndex; 7564] = [
     CardIndex::new(25575),
     CardIndex::new(25581),
     CardIndex::new(25585),
+    CardIndex::new(25586),
     CardIndex::new(25587),
     CardIndex::new(25588),
     CardIndex::new(25589),
@@ -6700,6 +6828,7 @@ pub static UNCOMMON: [CardIndex; 7564] = [
     CardIndex::new(25717),
     CardIndex::new(25718),
     CardIndex::new(25719),
+    CardIndex::new(25721),
     CardIndex::new(25729),
     CardIndex::new(25747),
     CardIndex::new(25780),
@@ -6715,9 +6844,12 @@ pub static UNCOMMON: [CardIndex; 7564] = [
     CardIndex::new(25830),
     CardIndex::new(25839),
     CardIndex::new(25855),
+    CardIndex::new(25857),
+    CardIndex::new(25859),
     CardIndex::new(25861),
     CardIndex::new(25867),
     CardIndex::new(25892),
+    CardIndex::new(25906),
     CardIndex::new(25910),
     CardIndex::new(25925),
     CardIndex::new(25952),
@@ -6727,6 +6859,7 @@ pub static UNCOMMON: [CardIndex; 7564] = [
     CardIndex::new(25967),
     CardIndex::new(25970),
     CardIndex::new(25975),
+    CardIndex::new(25978),
     CardIndex::new(25989),
     CardIndex::new(25993),
     CardIndex::new(26013),
@@ -6756,6 +6889,7 @@ pub static UNCOMMON: [CardIndex; 7564] = [
     CardIndex::new(26152),
     CardIndex::new(26153),
     CardIndex::new(26160),
+    CardIndex::new(26171),
     CardIndex::new(26187),
     CardIndex::new(26231),
     CardIndex::new(26235),
@@ -6783,6 +6917,7 @@ pub static UNCOMMON: [CardIndex; 7564] = [
     CardIndex::new(26339),
     CardIndex::new(26349),
     CardIndex::new(26353),
+    CardIndex::new(26355),
     CardIndex::new(26360),
     CardIndex::new(26361),
     CardIndex::new(26371),
@@ -6902,6 +7037,7 @@ pub static UNCOMMON: [CardIndex; 7564] = [
     CardIndex::new(27280),
     CardIndex::new(27282),
     CardIndex::new(27285),
+    CardIndex::new(27290),
     CardIndex::new(27291),
     CardIndex::new(27292),
     CardIndex::new(27293),
@@ -6918,6 +7054,7 @@ pub static UNCOMMON: [CardIndex; 7564] = [
     CardIndex::new(27343),
     CardIndex::new(27348),
     CardIndex::new(27351),
+    CardIndex::new(27352),
     CardIndex::new(27355),
     CardIndex::new(27369),
     CardIndex::new(27379),
@@ -6981,6 +7118,7 @@ pub static UNCOMMON: [CardIndex; 7564] = [
     CardIndex::new(27773),
     CardIndex::new(27784),
     CardIndex::new(27787),
+    CardIndex::new(27790),
     CardIndex::new(27792),
     CardIndex::new(27793),
     CardIndex::new(27797),
@@ -6993,6 +7131,7 @@ pub static UNCOMMON: [CardIndex; 7564] = [
     CardIndex::new(27835),
     CardIndex::new(27836),
     CardIndex::new(27862),
+    CardIndex::new(27865),
     CardIndex::new(27869),
     CardIndex::new(27870),
     CardIndex::new(27874),
@@ -7013,6 +7152,7 @@ pub static UNCOMMON: [CardIndex; 7564] = [
     CardIndex::new(27957),
     CardIndex::new(27964),
     CardIndex::new(27968),
+    CardIndex::new(27971),
     CardIndex::new(27980),
     CardIndex::new(27983),
     CardIndex::new(27990),
@@ -7031,9 +7171,11 @@ pub static UNCOMMON: [CardIndex; 7564] = [
     CardIndex::new(28024),
     CardIndex::new(28025),
     CardIndex::new(28027),
+    CardIndex::new(28030),
     CardIndex::new(28031),
     CardIndex::new(28038),
     CardIndex::new(28054),
+    CardIndex::new(28061),
     CardIndex::new(28064),
     CardIndex::new(28069),
     CardIndex::new(28072),
@@ -7064,6 +7206,7 @@ pub static UNCOMMON: [CardIndex; 7564] = [
     CardIndex::new(28239),
     CardIndex::new(28242),
     CardIndex::new(28243),
+    CardIndex::new(28245),
     CardIndex::new(28247),
     CardIndex::new(28253),
     CardIndex::new(28255),
@@ -7143,6 +7286,7 @@ pub static UNCOMMON: [CardIndex; 7564] = [
     CardIndex::new(28541),
     CardIndex::new(28543),
     CardIndex::new(28564),
+    CardIndex::new(28570),
     CardIndex::new(28572),
     CardIndex::new(28579),
     CardIndex::new(28580),
@@ -7210,6 +7354,7 @@ pub static UNCOMMON: [CardIndex; 7564] = [
     CardIndex::new(28976),
     CardIndex::new(29002),
     CardIndex::new(29007),
+    CardIndex::new(29008),
     CardIndex::new(29012),
     CardIndex::new(29017),
     CardIndex::new(29021),
@@ -7279,6 +7424,7 @@ pub static UNCOMMON: [CardIndex; 7564] = [
     CardIndex::new(29421),
     CardIndex::new(29427),
     CardIndex::new(29434),
+    CardIndex::new(29435),
     CardIndex::new(29437),
     CardIndex::new(29442),
     CardIndex::new(29447),
@@ -7358,6 +7504,7 @@ pub static UNCOMMON: [CardIndex; 7564] = [
     CardIndex::new(29760),
     CardIndex::new(29764),
     CardIndex::new(29765),
+    CardIndex::new(29766),
     CardIndex::new(29767),
     CardIndex::new(29768),
     CardIndex::new(29769),
@@ -7374,6 +7521,7 @@ pub static UNCOMMON: [CardIndex; 7564] = [
     CardIndex::new(29818),
     CardIndex::new(29824),
     CardIndex::new(29826),
+    CardIndex::new(29833),
     CardIndex::new(29834),
     CardIndex::new(29840),
     CardIndex::new(29858),
@@ -7395,6 +7543,7 @@ pub static UNCOMMON: [CardIndex; 7564] = [
     CardIndex::new(29944),
     CardIndex::new(29947),
     CardIndex::new(29950),
+    CardIndex::new(29951),
     CardIndex::new(29955),
     CardIndex::new(29956),
     CardIndex::new(29966),
@@ -7417,6 +7566,7 @@ pub static UNCOMMON: [CardIndex; 7564] = [
     CardIndex::new(30042),
     CardIndex::new(30051),
     CardIndex::new(30052),
+    CardIndex::new(30061),
     CardIndex::new(30067),
     CardIndex::new(30070),
     CardIndex::new(30073),
@@ -7544,6 +7694,7 @@ pub static UNCOMMON: [CardIndex; 7564] = [
     CardIndex::new(30716),
     CardIndex::new(30717),
     CardIndex::new(30718),
+    CardIndex::new(30726),
     CardIndex::new(30737),
     CardIndex::new(30743),
     CardIndex::new(30744),
@@ -7555,8 +7706,10 @@ pub static UNCOMMON: [CardIndex; 7564] = [
     CardIndex::new(30761),
     CardIndex::new(30765),
     CardIndex::new(30767),
+    CardIndex::new(30768),
     CardIndex::new(30769),
     CardIndex::new(30771),
+    CardIndex::new(30790),
     CardIndex::new(30791),
     CardIndex::new(30796),
     CardIndex::new(30798),
@@ -7579,6 +7732,7 @@ pub static UNCOMMON: [CardIndex; 7564] = [
     CardIndex::new(30845),
     CardIndex::new(30846),
     CardIndex::new(30850),
+    CardIndex::new(30860),
     CardIndex::new(30870),
     CardIndex::new(30872),
     CardIndex::new(30876),
@@ -7586,6 +7740,7 @@ pub static UNCOMMON: [CardIndex; 7564] = [
     CardIndex::new(30882),
     CardIndex::new(30885),
     CardIndex::new(30887),
+    CardIndex::new(30929),
     CardIndex::new(30935),
     CardIndex::new(30947),
     CardIndex::new(30948),
@@ -7673,6 +7828,7 @@ pub static UNCOMMON: [CardIndex; 7564] = [
     CardIndex::new(31343),
     CardIndex::new(31344),
     CardIndex::new(31346),
+    CardIndex::new(31347),
     CardIndex::new(31350),
     CardIndex::new(31355),
     CardIndex::new(31360),
@@ -7702,6 +7858,7 @@ pub static UNCOMMON: [CardIndex; 7564] = [
     CardIndex::new(31455),
     CardIndex::new(31458),
     CardIndex::new(31460),
+    CardIndex::new(31461),
     CardIndex::new(31463),
     CardIndex::new(31471),
     CardIndex::new(31472),
@@ -7802,12 +7959,14 @@ pub static UNCOMMON: [CardIndex; 7564] = [
     CardIndex::new(31960),
     CardIndex::new(31970),
     CardIndex::new(31971),
+    CardIndex::new(31972),
     CardIndex::new(31978),
     CardIndex::new(31979),
     CardIndex::new(31990),
     CardIndex::new(31992),
     CardIndex::new(32004),
     CardIndex::new(32012),
+    CardIndex::new(32014),
     CardIndex::new(32015),
     CardIndex::new(32017),
     CardIndex::new(32020),
@@ -7838,6 +7997,7 @@ pub static UNCOMMON: [CardIndex; 7564] = [
     CardIndex::new(32171),
     CardIndex::new(32172),
     CardIndex::new(32182),
+    CardIndex::new(32184),
     CardIndex::new(32187),
     CardIndex::new(32191),
     CardIndex::new(32194),
@@ -7850,6 +8010,7 @@ pub static UNCOMMON: [CardIndex; 7564] = [
     CardIndex::new(32248),
     CardIndex::new(32250),
     CardIndex::new(32252),
+    CardIndex::new(32254),
     CardIndex::new(32257),
     CardIndex::new(32259),
     CardIndex::new(32265),
@@ -7894,6 +8055,7 @@ pub static UNCOMMON: [CardIndex; 7564] = [
     CardIndex::new(32464),
     CardIndex::new(32476),
     CardIndex::new(32491),
+    CardIndex::new(32511),
     CardIndex::new(32519),
     CardIndex::new(32530),
     CardIndex::new(32534),
@@ -7909,8 +8071,10 @@ pub static UNCOMMON: [CardIndex; 7564] = [
     CardIndex::new(32576),
     CardIndex::new(32580),
     CardIndex::new(32582),
+    CardIndex::new(32587),
     CardIndex::new(32589),
     CardIndex::new(32590),
+    CardIndex::new(32603),
     CardIndex::new(32614),
     CardIndex::new(32616),
     CardIndex::new(32624),
@@ -7934,13 +8098,16 @@ pub static UNCOMMON: [CardIndex; 7564] = [
     CardIndex::new(32701),
     CardIndex::new(32702),
     CardIndex::new(32703),
+    CardIndex::new(32710),
     CardIndex::new(32711),
     CardIndex::new(32720),
     CardIndex::new(32723),
     CardIndex::new(32731),
     CardIndex::new(32738),
+    CardIndex::new(32741),
     CardIndex::new(32743),
     CardIndex::new(32755),
+    CardIndex::new(32763),
     CardIndex::new(32765),
     CardIndex::new(32768),
     CardIndex::new(32769),
@@ -7957,6 +8124,7 @@ pub static UNCOMMON: [CardIndex; 7564] = [
     CardIndex::new(32822),
     CardIndex::new(32825),
     CardIndex::new(32826),
+    CardIndex::new(32828),
     CardIndex::new(32837),
     CardIndex::new(32842),
     CardIndex::new(32844),
@@ -7966,6 +8134,7 @@ pub static UNCOMMON: [CardIndex; 7564] = [
     CardIndex::new(32871),
     CardIndex::new(32872),
     CardIndex::new(32876),
+    CardIndex::new(32884),
     CardIndex::new(32889),
     CardIndex::new(32890),
     CardIndex::new(32893),
@@ -7987,6 +8156,8 @@ pub static UNCOMMON: [CardIndex; 7564] = [
     CardIndex::new(32955),
     CardIndex::new(32961),
     CardIndex::new(32964),
+    CardIndex::new(32969),
+    CardIndex::new(32970),
     CardIndex::new(32971),
     CardIndex::new(32973),
     CardIndex::new(32976),
@@ -7994,6 +8165,7 @@ pub static UNCOMMON: [CardIndex; 7564] = [
     CardIndex::new(32982),
     CardIndex::new(32987),
     CardIndex::new(32991),
+    CardIndex::new(32997),
     CardIndex::new(32998),
     CardIndex::new(32999),
     CardIndex::new(33003),
@@ -8018,6 +8190,7 @@ pub static UNCOMMON: [CardIndex; 7564] = [
     CardIndex::new(33097),
     CardIndex::new(33102),
     CardIndex::new(33103),
+    CardIndex::new(33113),
     CardIndex::new(33114),
     CardIndex::new(33117),
     CardIndex::new(33124),
@@ -8026,6 +8199,7 @@ pub static UNCOMMON: [CardIndex; 7564] = [
     CardIndex::new(33134),
     CardIndex::new(33135),
     CardIndex::new(33136),
+    CardIndex::new(33137),
     CardIndex::new(33138),
     CardIndex::new(33140),
     CardIndex::new(33154),
@@ -8051,6 +8225,7 @@ pub static UNCOMMON: [CardIndex; 7564] = [
     CardIndex::new(33257),
     CardIndex::new(33264),
     CardIndex::new(33270),
+    CardIndex::new(33271),
     CardIndex::new(33273),
     CardIndex::new(33284),
     CardIndex::new(33285),
@@ -8074,6 +8249,7 @@ pub static UNCOMMON: [CardIndex; 7564] = [
     CardIndex::new(33412),
     CardIndex::new(33415),
     CardIndex::new(33416),
+    CardIndex::new(33418),
     CardIndex::new(33424),
     CardIndex::new(33435),
     CardIndex::new(33439),
@@ -8137,6 +8313,7 @@ pub static UNCOMMON: [CardIndex; 7564] = [
     CardIndex::new(33759),
     CardIndex::new(33761),
     CardIndex::new(33768),
+    CardIndex::new(33770),
     CardIndex::new(33775),
     CardIndex::new(33776),
     CardIndex::new(33781),
@@ -8211,7 +8388,7 @@ pub static UNCOMMON: [CardIndex; 7564] = [
 ];
 
 /// Cards whose reference printing is rare.
-pub static RARE: [CardIndex; 6104] = [
+pub static RARE: [CardIndex; 6300] = [
     CardIndex::new(5),
     CardIndex::new(7),
     CardIndex::new(8),
@@ -10158,6 +10335,7 @@ pub static RARE: [CardIndex; 6104] = [
     CardIndex::new(6812),
     CardIndex::new(6826),
     CardIndex::new(6827),
+    CardIndex::new(6829),
     CardIndex::new(6834),
     CardIndex::new(6840),
     CardIndex::new(6841),
@@ -10208,6 +10386,7 @@ pub static RARE: [CardIndex; 6104] = [
     CardIndex::new(7075),
     CardIndex::new(7080),
     CardIndex::new(7082),
+    CardIndex::new(7086),
     CardIndex::new(7100),
     CardIndex::new(7102),
     CardIndex::new(7108),
@@ -10220,6 +10399,7 @@ pub static RARE: [CardIndex; 6104] = [
     CardIndex::new(7126),
     CardIndex::new(7129),
     CardIndex::new(7131),
+    CardIndex::new(7143),
     CardIndex::new(7150),
     CardIndex::new(7155),
     CardIndex::new(7161),
@@ -10266,8 +10446,10 @@ pub static RARE: [CardIndex; 6104] = [
     CardIndex::new(7433),
     CardIndex::new(7435),
     CardIndex::new(7436),
+    CardIndex::new(7440),
     CardIndex::new(7443),
     CardIndex::new(7486),
+    CardIndex::new(7488),
     CardIndex::new(7494),
     CardIndex::new(7496),
     CardIndex::new(7499),
@@ -10285,6 +10467,7 @@ pub static RARE: [CardIndex; 6104] = [
     CardIndex::new(7550),
     CardIndex::new(7557),
     CardIndex::new(7559),
+    CardIndex::new(7571),
     CardIndex::new(7574),
     CardIndex::new(7580),
     CardIndex::new(7581),
@@ -10307,6 +10490,8 @@ pub static RARE: [CardIndex; 6104] = [
     CardIndex::new(7718),
     CardIndex::new(7745),
     CardIndex::new(7747),
+    CardIndex::new(7752),
+    CardIndex::new(7757),
     CardIndex::new(7758),
     CardIndex::new(7760),
     CardIndex::new(7763),
@@ -10326,6 +10511,7 @@ pub static RARE: [CardIndex; 6104] = [
     CardIndex::new(7813),
     CardIndex::new(7819),
     CardIndex::new(7820),
+    CardIndex::new(7825),
     CardIndex::new(7828),
     CardIndex::new(7829),
     CardIndex::new(7835),
@@ -10340,6 +10526,7 @@ pub static RARE: [CardIndex; 6104] = [
     CardIndex::new(7920),
     CardIndex::new(7928),
     CardIndex::new(7931),
+    CardIndex::new(7934),
     CardIndex::new(7940),
     CardIndex::new(7942),
     CardIndex::new(7947),
@@ -10350,6 +10537,7 @@ pub static RARE: [CardIndex; 6104] = [
     CardIndex::new(7970),
     CardIndex::new(7972),
     CardIndex::new(7976),
+    CardIndex::new(7983),
     CardIndex::new(7984),
     CardIndex::new(7985),
     CardIndex::new(7986),
@@ -10359,6 +10547,7 @@ pub static RARE: [CardIndex; 6104] = [
     CardIndex::new(8009),
     CardIndex::new(8020),
     CardIndex::new(8034),
+    CardIndex::new(8035),
     CardIndex::new(8038),
     CardIndex::new(8040),
     CardIndex::new(8042),
@@ -10370,6 +10559,7 @@ pub static RARE: [CardIndex; 6104] = [
     CardIndex::new(8060),
     CardIndex::new(8067),
     CardIndex::new(8081),
+    CardIndex::new(8083),
     CardIndex::new(8086),
     CardIndex::new(8090),
     CardIndex::new(8093),
@@ -10463,6 +10653,7 @@ pub static RARE: [CardIndex; 6104] = [
     CardIndex::new(8659),
     CardIndex::new(8664),
     CardIndex::new(8669),
+    CardIndex::new(8690),
     CardIndex::new(8700),
     CardIndex::new(8705),
     CardIndex::new(8707),
@@ -10487,6 +10678,7 @@ pub static RARE: [CardIndex; 6104] = [
     CardIndex::new(8863),
     CardIndex::new(8865),
     CardIndex::new(8870),
+    CardIndex::new(8895),
     CardIndex::new(8896),
     CardIndex::new(8897),
     CardIndex::new(8898),
@@ -10495,6 +10687,7 @@ pub static RARE: [CardIndex; 6104] = [
     CardIndex::new(8915),
     CardIndex::new(8916),
     CardIndex::new(8922),
+    CardIndex::new(8923),
     CardIndex::new(8932),
     CardIndex::new(8936),
     CardIndex::new(8945),
@@ -10744,6 +10937,7 @@ pub static RARE: [CardIndex; 6104] = [
     CardIndex::new(10268),
     CardIndex::new(10274),
     CardIndex::new(10293),
+    CardIndex::new(10294),
     CardIndex::new(10296),
     CardIndex::new(10297),
     CardIndex::new(10300),
@@ -10752,6 +10946,7 @@ pub static RARE: [CardIndex; 6104] = [
     CardIndex::new(10314),
     CardIndex::new(10318),
     CardIndex::new(10326),
+    CardIndex::new(10345),
     CardIndex::new(10353),
     CardIndex::new(10354),
     CardIndex::new(10362),
@@ -10846,6 +11041,7 @@ pub static RARE: [CardIndex; 6104] = [
     CardIndex::new(10857),
     CardIndex::new(10860),
     CardIndex::new(10868),
+    CardIndex::new(10869),
     CardIndex::new(10870),
     CardIndex::new(10877),
     CardIndex::new(10891),
@@ -10854,6 +11050,7 @@ pub static RARE: [CardIndex; 6104] = [
     CardIndex::new(10906),
     CardIndex::new(10919),
     CardIndex::new(10920),
+    CardIndex::new(10921),
     CardIndex::new(10923),
     CardIndex::new(10930),
     CardIndex::new(10933),
@@ -10893,6 +11090,7 @@ pub static RARE: [CardIndex; 6104] = [
     CardIndex::new(11218),
     CardIndex::new(11219),
     CardIndex::new(11228),
+    CardIndex::new(11233),
     CardIndex::new(11242),
     CardIndex::new(11247),
     CardIndex::new(11250),
@@ -10949,6 +11147,7 @@ pub static RARE: [CardIndex; 6104] = [
     CardIndex::new(11565),
     CardIndex::new(11566),
     CardIndex::new(11573),
+    CardIndex::new(11575),
     CardIndex::new(11577),
     CardIndex::new(11579),
     CardIndex::new(11587),
@@ -10980,10 +11179,12 @@ pub static RARE: [CardIndex; 6104] = [
     CardIndex::new(11811),
     CardIndex::new(11813),
     CardIndex::new(11814),
+    CardIndex::new(11817),
     CardIndex::new(11818),
     CardIndex::new(11822),
     CardIndex::new(11826),
     CardIndex::new(11848),
+    CardIndex::new(11849),
     CardIndex::new(11850),
     CardIndex::new(11851),
     CardIndex::new(11879),
@@ -11078,6 +11279,7 @@ pub static RARE: [CardIndex; 6104] = [
     CardIndex::new(12403),
     CardIndex::new(12411),
     CardIndex::new(12418),
+    CardIndex::new(12428),
     CardIndex::new(12437),
     CardIndex::new(12442),
     CardIndex::new(12445),
@@ -11109,6 +11311,7 @@ pub static RARE: [CardIndex; 6104] = [
     CardIndex::new(12620),
     CardIndex::new(12632),
     CardIndex::new(12643),
+    CardIndex::new(12644),
     CardIndex::new(12663),
     CardIndex::new(12669),
     CardIndex::new(12673),
@@ -11119,6 +11322,7 @@ pub static RARE: [CardIndex; 6104] = [
     CardIndex::new(12708),
     CardIndex::new(12711),
     CardIndex::new(12712),
+    CardIndex::new(12723),
     CardIndex::new(12730),
     CardIndex::new(12735),
     CardIndex::new(12759),
@@ -11168,12 +11372,14 @@ pub static RARE: [CardIndex; 6104] = [
     CardIndex::new(13001),
     CardIndex::new(13010),
     CardIndex::new(13055),
+    CardIndex::new(13057),
     CardIndex::new(13059),
     CardIndex::new(13068),
     CardIndex::new(13078),
     CardIndex::new(13088),
     CardIndex::new(13096),
     CardIndex::new(13104),
+    CardIndex::new(13115),
     CardIndex::new(13123),
     CardIndex::new(13131),
     CardIndex::new(13153),
@@ -11184,6 +11390,7 @@ pub static RARE: [CardIndex; 6104] = [
     CardIndex::new(13189),
     CardIndex::new(13194),
     CardIndex::new(13204),
+    CardIndex::new(13210),
     CardIndex::new(13227),
     CardIndex::new(13228),
     CardIndex::new(13233),
@@ -11233,6 +11440,7 @@ pub static RARE: [CardIndex; 6104] = [
     CardIndex::new(13456),
     CardIndex::new(13458),
     CardIndex::new(13461),
+    CardIndex::new(13462),
     CardIndex::new(13465),
     CardIndex::new(13467),
     CardIndex::new(13469),
@@ -11240,6 +11448,7 @@ pub static RARE: [CardIndex; 6104] = [
     CardIndex::new(13487),
     CardIndex::new(13491),
     CardIndex::new(13495),
+    CardIndex::new(13499),
     CardIndex::new(13511),
     CardIndex::new(13518),
     CardIndex::new(13521),
@@ -11386,6 +11595,7 @@ pub static RARE: [CardIndex; 6104] = [
     CardIndex::new(14413),
     CardIndex::new(14420),
     CardIndex::new(14434),
+    CardIndex::new(14445),
     CardIndex::new(14451),
     CardIndex::new(14469),
     CardIndex::new(14470),
@@ -11424,6 +11634,7 @@ pub static RARE: [CardIndex; 6104] = [
     CardIndex::new(14593),
     CardIndex::new(14615),
     CardIndex::new(14625),
+    CardIndex::new(14630),
     CardIndex::new(14635),
     CardIndex::new(14654),
     CardIndex::new(14656),
@@ -11456,6 +11667,7 @@ pub static RARE: [CardIndex; 6104] = [
     CardIndex::new(14841),
     CardIndex::new(14864),
     CardIndex::new(14877),
+    CardIndex::new(14881),
     CardIndex::new(14894),
     CardIndex::new(14897),
     CardIndex::new(14898),
@@ -11516,6 +11728,7 @@ pub static RARE: [CardIndex; 6104] = [
     CardIndex::new(15290),
     CardIndex::new(15291),
     CardIndex::new(15298),
+    CardIndex::new(15313),
     CardIndex::new(15338),
     CardIndex::new(15340),
     CardIndex::new(15342),
@@ -11531,6 +11744,7 @@ pub static RARE: [CardIndex; 6104] = [
     CardIndex::new(15369),
     CardIndex::new(15374),
     CardIndex::new(15375),
+    CardIndex::new(15377),
     CardIndex::new(15378),
     CardIndex::new(15382),
     CardIndex::new(15384),
@@ -11592,6 +11806,7 @@ pub static RARE: [CardIndex; 6104] = [
     CardIndex::new(15711),
     CardIndex::new(15726),
     CardIndex::new(15741),
+    CardIndex::new(15748),
     CardIndex::new(15757),
     CardIndex::new(15760),
     CardIndex::new(15776),
@@ -11612,7 +11827,9 @@ pub static RARE: [CardIndex; 6104] = [
     CardIndex::new(15884),
     CardIndex::new(15889),
     CardIndex::new(15890),
+    CardIndex::new(15895),
     CardIndex::new(15909),
+    CardIndex::new(15913),
     CardIndex::new(15923),
     CardIndex::new(15924),
     CardIndex::new(15928),
@@ -11640,6 +11857,7 @@ pub static RARE: [CardIndex; 6104] = [
     CardIndex::new(16103),
     CardIndex::new(16105),
     CardIndex::new(16110),
+    CardIndex::new(16121),
     CardIndex::new(16122),
     CardIndex::new(16132),
     CardIndex::new(16135),
@@ -11682,10 +11900,12 @@ pub static RARE: [CardIndex; 6104] = [
     CardIndex::new(16344),
     CardIndex::new(16357),
     CardIndex::new(16362),
+    CardIndex::new(16364),
     CardIndex::new(16367),
     CardIndex::new(16368),
     CardIndex::new(16373),
     CardIndex::new(16380),
+    CardIndex::new(16381),
     CardIndex::new(16385),
     CardIndex::new(16390),
     CardIndex::new(16399),
@@ -11711,6 +11931,7 @@ pub static RARE: [CardIndex; 6104] = [
     CardIndex::new(16547),
     CardIndex::new(16548),
     CardIndex::new(16551),
+    CardIndex::new(16559),
     CardIndex::new(16563),
     CardIndex::new(16574),
     CardIndex::new(16576),
@@ -11740,6 +11961,7 @@ pub static RARE: [CardIndex; 6104] = [
     CardIndex::new(16694),
     CardIndex::new(16702),
     CardIndex::new(16704),
+    CardIndex::new(16707),
     CardIndex::new(16709),
     CardIndex::new(16710),
     CardIndex::new(16715),
@@ -11751,6 +11973,7 @@ pub static RARE: [CardIndex; 6104] = [
     CardIndex::new(16748),
     CardIndex::new(16764),
     CardIndex::new(16766),
+    CardIndex::new(16768),
     CardIndex::new(16769),
     CardIndex::new(16773),
     CardIndex::new(16775),
@@ -11803,13 +12026,16 @@ pub static RARE: [CardIndex; 6104] = [
     CardIndex::new(17074),
     CardIndex::new(17079),
     CardIndex::new(17081),
+    CardIndex::new(17083),
     CardIndex::new(17094),
     CardIndex::new(17101),
+    CardIndex::new(17104),
     CardIndex::new(17110),
     CardIndex::new(17112),
     CardIndex::new(17113),
     CardIndex::new(17119),
     CardIndex::new(17124),
+    CardIndex::new(17130),
     CardIndex::new(17132),
     CardIndex::new(17133),
     CardIndex::new(17140),
@@ -11853,6 +12079,7 @@ pub static RARE: [CardIndex; 6104] = [
     CardIndex::new(17345),
     CardIndex::new(17354),
     CardIndex::new(17355),
+    CardIndex::new(17357),
     CardIndex::new(17361),
     CardIndex::new(17364),
     CardIndex::new(17372),
@@ -11860,6 +12087,7 @@ pub static RARE: [CardIndex; 6104] = [
     CardIndex::new(17388),
     CardIndex::new(17391),
     CardIndex::new(17395),
+    CardIndex::new(17414),
     CardIndex::new(17419),
     CardIndex::new(17422),
     CardIndex::new(17431),
@@ -11893,10 +12121,12 @@ pub static RARE: [CardIndex; 6104] = [
     CardIndex::new(17631),
     CardIndex::new(17632),
     CardIndex::new(17634),
+    CardIndex::new(17635),
     CardIndex::new(17638),
     CardIndex::new(17653),
     CardIndex::new(17661),
     CardIndex::new(17668),
+    CardIndex::new(17677),
     CardIndex::new(17678),
     CardIndex::new(17686),
     CardIndex::new(17697),
@@ -11909,6 +12139,7 @@ pub static RARE: [CardIndex; 6104] = [
     CardIndex::new(17731),
     CardIndex::new(17732),
     CardIndex::new(17737),
+    CardIndex::new(17761),
     CardIndex::new(17774),
     CardIndex::new(17775),
     CardIndex::new(17801),
@@ -11945,6 +12176,7 @@ pub static RARE: [CardIndex; 6104] = [
     CardIndex::new(17969),
     CardIndex::new(17970),
     CardIndex::new(17980),
+    CardIndex::new(17986),
     CardIndex::new(17987),
     CardIndex::new(17989),
     CardIndex::new(17992),
@@ -11991,16 +12223,20 @@ pub static RARE: [CardIndex; 6104] = [
     CardIndex::new(18193),
     CardIndex::new(18195),
     CardIndex::new(18197),
+    CardIndex::new(18200),
     CardIndex::new(18205),
     CardIndex::new(18226),
+    CardIndex::new(18229),
     CardIndex::new(18236),
     CardIndex::new(18242),
     CardIndex::new(18243),
     CardIndex::new(18247),
     CardIndex::new(18260),
+    CardIndex::new(18264),
     CardIndex::new(18268),
     CardIndex::new(18279),
     CardIndex::new(18283),
+    CardIndex::new(18289),
     CardIndex::new(18297),
     CardIndex::new(18299),
     CardIndex::new(18303),
@@ -12015,6 +12251,7 @@ pub static RARE: [CardIndex; 6104] = [
     CardIndex::new(18367),
     CardIndex::new(18370),
     CardIndex::new(18372),
+    CardIndex::new(18388),
     CardIndex::new(18389),
     CardIndex::new(18390),
     CardIndex::new(18391),
@@ -12046,8 +12283,10 @@ pub static RARE: [CardIndex; 6104] = [
     CardIndex::new(18633),
     CardIndex::new(18647),
     CardIndex::new(18656),
+    CardIndex::new(18674),
     CardIndex::new(18675),
     CardIndex::new(18676),
+    CardIndex::new(18683),
     CardIndex::new(18699),
     CardIndex::new(18722),
     CardIndex::new(18730),
@@ -12081,6 +12320,7 @@ pub static RARE: [CardIndex; 6104] = [
     CardIndex::new(18908),
     CardIndex::new(18912),
     CardIndex::new(18913),
+    CardIndex::new(18914),
     CardIndex::new(18915),
     CardIndex::new(18916),
     CardIndex::new(18927),
@@ -12131,6 +12371,7 @@ pub static RARE: [CardIndex; 6104] = [
     CardIndex::new(19251),
     CardIndex::new(19253),
     CardIndex::new(19259),
+    CardIndex::new(19260),
     CardIndex::new(19261),
     CardIndex::new(19262),
     CardIndex::new(19268),
@@ -12200,6 +12441,7 @@ pub static RARE: [CardIndex; 6104] = [
     CardIndex::new(19626),
     CardIndex::new(19627),
     CardIndex::new(19633),
+    CardIndex::new(19638),
     CardIndex::new(19661),
     CardIndex::new(19686),
     CardIndex::new(19691),
@@ -12243,6 +12485,7 @@ pub static RARE: [CardIndex; 6104] = [
     CardIndex::new(19881),
     CardIndex::new(19882),
     CardIndex::new(19884),
+    CardIndex::new(19886),
     CardIndex::new(19887),
     CardIndex::new(19891),
     CardIndex::new(19911),
@@ -12254,6 +12497,7 @@ pub static RARE: [CardIndex; 6104] = [
     CardIndex::new(19963),
     CardIndex::new(19967),
     CardIndex::new(19990),
+    CardIndex::new(19992),
     CardIndex::new(20000),
     CardIndex::new(20002),
     CardIndex::new(20003),
@@ -12273,6 +12517,8 @@ pub static RARE: [CardIndex; 6104] = [
     CardIndex::new(20138),
     CardIndex::new(20144),
     CardIndex::new(20150),
+    CardIndex::new(20159),
+    CardIndex::new(20162),
     CardIndex::new(20183),
     CardIndex::new(20186),
     CardIndex::new(20197),
@@ -12296,6 +12542,7 @@ pub static RARE: [CardIndex; 6104] = [
     CardIndex::new(20286),
     CardIndex::new(20292),
     CardIndex::new(20298),
+    CardIndex::new(20299),
     CardIndex::new(20309),
     CardIndex::new(20310),
     CardIndex::new(20314),
@@ -12305,10 +12552,12 @@ pub static RARE: [CardIndex; 6104] = [
     CardIndex::new(20331),
     CardIndex::new(20351),
     CardIndex::new(20365),
+    CardIndex::new(20366),
     CardIndex::new(20377),
     CardIndex::new(20378),
     CardIndex::new(20385),
     CardIndex::new(20389),
+    CardIndex::new(20397),
     CardIndex::new(20398),
     CardIndex::new(20399),
     CardIndex::new(20400),
@@ -12337,6 +12586,7 @@ pub static RARE: [CardIndex; 6104] = [
     CardIndex::new(20544),
     CardIndex::new(20551),
     CardIndex::new(20556),
+    CardIndex::new(20570),
     CardIndex::new(20578),
     CardIndex::new(20588),
     CardIndex::new(20592),
@@ -12353,6 +12603,7 @@ pub static RARE: [CardIndex; 6104] = [
     CardIndex::new(20669),
     CardIndex::new(20670),
     CardIndex::new(20683),
+    CardIndex::new(20687),
     CardIndex::new(20695),
     CardIndex::new(20701),
     CardIndex::new(20710),
@@ -12399,6 +12650,7 @@ pub static RARE: [CardIndex; 6104] = [
     CardIndex::new(20966),
     CardIndex::new(20978),
     CardIndex::new(20989),
+    CardIndex::new(20995),
     CardIndex::new(20997),
     CardIndex::new(21003),
     CardIndex::new(21015),
@@ -12441,12 +12693,15 @@ pub static RARE: [CardIndex; 6104] = [
     CardIndex::new(21202),
     CardIndex::new(21206),
     CardIndex::new(21207),
+    CardIndex::new(21216),
     CardIndex::new(21220),
     CardIndex::new(21222),
     CardIndex::new(21229),
     CardIndex::new(21233),
     CardIndex::new(21242),
+    CardIndex::new(21249),
     CardIndex::new(21250),
+    CardIndex::new(21268),
     CardIndex::new(21278),
     CardIndex::new(21288),
     CardIndex::new(21292),
@@ -12468,6 +12723,7 @@ pub static RARE: [CardIndex; 6104] = [
     CardIndex::new(21422),
     CardIndex::new(21428),
     CardIndex::new(21429),
+    CardIndex::new(21431),
     CardIndex::new(21434),
     CardIndex::new(21436),
     CardIndex::new(21440),
@@ -12512,6 +12768,7 @@ pub static RARE: [CardIndex; 6104] = [
     CardIndex::new(21758),
     CardIndex::new(21764),
     CardIndex::new(21772),
+    CardIndex::new(21777),
     CardIndex::new(21782),
     CardIndex::new(21792),
     CardIndex::new(21799),
@@ -12528,6 +12785,7 @@ pub static RARE: [CardIndex; 6104] = [
     CardIndex::new(21870),
     CardIndex::new(21877),
     CardIndex::new(21879),
+    CardIndex::new(21882),
     CardIndex::new(21889),
     CardIndex::new(21897),
     CardIndex::new(21899),
@@ -12541,6 +12799,7 @@ pub static RARE: [CardIndex; 6104] = [
     CardIndex::new(21977),
     CardIndex::new(21978),
     CardIndex::new(21991),
+    CardIndex::new(21994),
     CardIndex::new(21995),
     CardIndex::new(22001),
     CardIndex::new(22007),
@@ -12571,6 +12830,7 @@ pub static RARE: [CardIndex; 6104] = [
     CardIndex::new(22256),
     CardIndex::new(22259),
     CardIndex::new(22263),
+    CardIndex::new(22266),
     CardIndex::new(22268),
     CardIndex::new(22275),
     CardIndex::new(22286),
@@ -12585,10 +12845,13 @@ pub static RARE: [CardIndex; 6104] = [
     CardIndex::new(22362),
     CardIndex::new(22363),
     CardIndex::new(22377),
+    CardIndex::new(22381),
+    CardIndex::new(22385),
     CardIndex::new(22406),
     CardIndex::new(22407),
     CardIndex::new(22414),
     CardIndex::new(22419),
+    CardIndex::new(22423),
     CardIndex::new(22425),
     CardIndex::new(22427),
     CardIndex::new(22429),
@@ -12621,6 +12884,7 @@ pub static RARE: [CardIndex; 6104] = [
     CardIndex::new(22569),
     CardIndex::new(22574),
     CardIndex::new(22577),
+    CardIndex::new(22585),
     CardIndex::new(22592),
     CardIndex::new(22593),
     CardIndex::new(22597),
@@ -12660,6 +12924,8 @@ pub static RARE: [CardIndex; 6104] = [
     CardIndex::new(22933),
     CardIndex::new(22941),
     CardIndex::new(22944),
+    CardIndex::new(22950),
+    CardIndex::new(22954),
     CardIndex::new(22973),
     CardIndex::new(22978),
     CardIndex::new(22982),
@@ -12667,6 +12933,7 @@ pub static RARE: [CardIndex; 6104] = [
     CardIndex::new(22985),
     CardIndex::new(22991),
     CardIndex::new(22993),
+    CardIndex::new(23002),
     CardIndex::new(23003),
     CardIndex::new(23007),
     CardIndex::new(23012),
@@ -12693,8 +12960,10 @@ pub static RARE: [CardIndex; 6104] = [
     CardIndex::new(23214),
     CardIndex::new(23216),
     CardIndex::new(23217),
+    CardIndex::new(23221),
     CardIndex::new(23225),
     CardIndex::new(23232),
+    CardIndex::new(23240),
     CardIndex::new(23247),
     CardIndex::new(23250),
     CardIndex::new(23257),
@@ -12705,6 +12974,7 @@ pub static RARE: [CardIndex; 6104] = [
     CardIndex::new(23287),
     CardIndex::new(23294),
     CardIndex::new(23296),
+    CardIndex::new(23304),
     CardIndex::new(23308),
     CardIndex::new(23310),
     CardIndex::new(23315),
@@ -12735,6 +13005,7 @@ pub static RARE: [CardIndex; 6104] = [
     CardIndex::new(23575),
     CardIndex::new(23583),
     CardIndex::new(23587),
+    CardIndex::new(23589),
     CardIndex::new(23599),
     CardIndex::new(23608),
     CardIndex::new(23620),
@@ -12744,6 +13015,7 @@ pub static RARE: [CardIndex; 6104] = [
     CardIndex::new(23652),
     CardIndex::new(23662),
     CardIndex::new(23679),
+    CardIndex::new(23688),
     CardIndex::new(23725),
     CardIndex::new(23734),
     CardIndex::new(23741),
@@ -12765,14 +13037,17 @@ pub static RARE: [CardIndex; 6104] = [
     CardIndex::new(24064),
     CardIndex::new(24068),
     CardIndex::new(24073),
+    CardIndex::new(24075),
     CardIndex::new(24088),
     CardIndex::new(24094),
     CardIndex::new(24108),
     CardIndex::new(24122),
+    CardIndex::new(24128),
     CardIndex::new(24129),
     CardIndex::new(24131),
     CardIndex::new(24150),
     CardIndex::new(24151),
+    CardIndex::new(24154),
     CardIndex::new(24155),
     CardIndex::new(24166),
     CardIndex::new(24184),
@@ -12790,6 +13065,7 @@ pub static RARE: [CardIndex; 6104] = [
     CardIndex::new(24239),
     CardIndex::new(24240),
     CardIndex::new(24243),
+    CardIndex::new(24245),
     CardIndex::new(24253),
     CardIndex::new(24255),
     CardIndex::new(24279),
@@ -12816,6 +13092,7 @@ pub static RARE: [CardIndex; 6104] = [
     CardIndex::new(24460),
     CardIndex::new(24461),
     CardIndex::new(24462),
+    CardIndex::new(24467),
     CardIndex::new(24473),
     CardIndex::new(24475),
     CardIndex::new(24482),
@@ -12824,6 +13101,7 @@ pub static RARE: [CardIndex; 6104] = [
     CardIndex::new(24488),
     CardIndex::new(24492),
     CardIndex::new(24494),
+    CardIndex::new(24504),
     CardIndex::new(24505),
     CardIndex::new(24507),
     CardIndex::new(24508),
@@ -12831,6 +13109,7 @@ pub static RARE: [CardIndex; 6104] = [
     CardIndex::new(24513),
     CardIndex::new(24515),
     CardIndex::new(24524),
+    CardIndex::new(24525),
     CardIndex::new(24530),
     CardIndex::new(24531),
     CardIndex::new(24536),
@@ -12843,6 +13122,7 @@ pub static RARE: [CardIndex; 6104] = [
     CardIndex::new(24551),
     CardIndex::new(24554),
     CardIndex::new(24557),
+    CardIndex::new(24566),
     CardIndex::new(24567),
     CardIndex::new(24568),
     CardIndex::new(24584),
@@ -12890,6 +13170,7 @@ pub static RARE: [CardIndex; 6104] = [
     CardIndex::new(24782),
     CardIndex::new(24785),
     CardIndex::new(24791),
+    CardIndex::new(24793),
     CardIndex::new(24803),
     CardIndex::new(24804),
     CardIndex::new(24805),
@@ -12903,6 +13184,7 @@ pub static RARE: [CardIndex; 6104] = [
     CardIndex::new(24868),
     CardIndex::new(24885),
     CardIndex::new(24889),
+    CardIndex::new(24896),
     CardIndex::new(24897),
     CardIndex::new(24902),
     CardIndex::new(24909),
@@ -12967,6 +13249,7 @@ pub static RARE: [CardIndex; 6104] = [
     CardIndex::new(25392),
     CardIndex::new(25407),
     CardIndex::new(25416),
+    CardIndex::new(25446),
     CardIndex::new(25450),
     CardIndex::new(25452),
     CardIndex::new(25455),
@@ -12979,11 +13262,15 @@ pub static RARE: [CardIndex; 6104] = [
     CardIndex::new(25492),
     CardIndex::new(25494),
     CardIndex::new(25500),
+    CardIndex::new(25506),
+    CardIndex::new(25510),
     CardIndex::new(25512),
     CardIndex::new(25516),
     CardIndex::new(25520),
+    CardIndex::new(25534),
     CardIndex::new(25539),
     CardIndex::new(25545),
+    CardIndex::new(25546),
     CardIndex::new(25547),
     CardIndex::new(25553),
     CardIndex::new(25555),
@@ -13012,12 +13299,14 @@ pub static RARE: [CardIndex; 6104] = [
     CardIndex::new(25764),
     CardIndex::new(25777),
     CardIndex::new(25786),
+    CardIndex::new(25792),
     CardIndex::new(25795),
     CardIndex::new(25800),
     CardIndex::new(25801),
     CardIndex::new(25805),
     CardIndex::new(25807),
     CardIndex::new(25818),
+    CardIndex::new(25823),
     CardIndex::new(25838),
     CardIndex::new(25843),
     CardIndex::new(25844),
@@ -13030,13 +13319,16 @@ pub static RARE: [CardIndex; 6104] = [
     CardIndex::new(25878),
     CardIndex::new(25880),
     CardIndex::new(25884),
+    CardIndex::new(25886),
     CardIndex::new(25897),
+    CardIndex::new(25901),
     CardIndex::new(25915),
     CardIndex::new(25919),
     CardIndex::new(25923),
     CardIndex::new(25924),
     CardIndex::new(25928),
     CardIndex::new(25929),
+    CardIndex::new(25937),
     CardIndex::new(25939),
     CardIndex::new(25944),
     CardIndex::new(25954),
@@ -13065,7 +13357,9 @@ pub static RARE: [CardIndex; 6104] = [
     CardIndex::new(26041),
     CardIndex::new(26049),
     CardIndex::new(26051),
+    CardIndex::new(26055),
     CardIndex::new(26056),
+    CardIndex::new(26058),
     CardIndex::new(26073),
     CardIndex::new(26074),
     CardIndex::new(26078),
@@ -13076,6 +13370,7 @@ pub static RARE: [CardIndex; 6104] = [
     CardIndex::new(26089),
     CardIndex::new(26096),
     CardIndex::new(26098),
+    CardIndex::new(26113),
     CardIndex::new(26138),
     CardIndex::new(26144),
     CardIndex::new(26148),
@@ -13088,6 +13383,7 @@ pub static RARE: [CardIndex; 6104] = [
     CardIndex::new(26172),
     CardIndex::new(26173),
     CardIndex::new(26177),
+    CardIndex::new(26184),
     CardIndex::new(26185),
     CardIndex::new(26191),
     CardIndex::new(26193),
@@ -13099,6 +13395,8 @@ pub static RARE: [CardIndex; 6104] = [
     CardIndex::new(26205),
     CardIndex::new(26210),
     CardIndex::new(26217),
+    CardIndex::new(26218),
+    CardIndex::new(26220),
     CardIndex::new(26222),
     CardIndex::new(26223),
     CardIndex::new(26225),
@@ -13110,6 +13408,7 @@ pub static RARE: [CardIndex; 6104] = [
     CardIndex::new(26280),
     CardIndex::new(26295),
     CardIndex::new(26296),
+    CardIndex::new(26301),
     CardIndex::new(26304),
     CardIndex::new(26308),
     CardIndex::new(26316),
@@ -13120,6 +13419,7 @@ pub static RARE: [CardIndex; 6104] = [
     CardIndex::new(26359),
     CardIndex::new(26367),
     CardIndex::new(26372),
+    CardIndex::new(26373),
     CardIndex::new(26392),
     CardIndex::new(26394),
     CardIndex::new(26399),
@@ -13164,6 +13464,7 @@ pub static RARE: [CardIndex; 6104] = [
     CardIndex::new(26623),
     CardIndex::new(26624),
     CardIndex::new(26626),
+    CardIndex::new(26627),
     CardIndex::new(26628),
     CardIndex::new(26631),
     CardIndex::new(26642),
@@ -13181,6 +13482,7 @@ pub static RARE: [CardIndex; 6104] = [
     CardIndex::new(26707),
     CardIndex::new(26729),
     CardIndex::new(26737),
+    CardIndex::new(26767),
     CardIndex::new(26768),
     CardIndex::new(26775),
     CardIndex::new(26780),
@@ -13224,6 +13526,7 @@ pub static RARE: [CardIndex; 6104] = [
     CardIndex::new(26964),
     CardIndex::new(26980),
     CardIndex::new(26983),
+    CardIndex::new(26994),
     CardIndex::new(26996),
     CardIndex::new(26998),
     CardIndex::new(27005),
@@ -13241,9 +13544,11 @@ pub static RARE: [CardIndex; 6104] = [
     CardIndex::new(27064),
     CardIndex::new(27067),
     CardIndex::new(27073),
+    CardIndex::new(27075),
     CardIndex::new(27077),
     CardIndex::new(27082),
     CardIndex::new(27085),
+    CardIndex::new(27088),
     CardIndex::new(27090),
     CardIndex::new(27098),
     CardIndex::new(27099),
@@ -13265,6 +13570,7 @@ pub static RARE: [CardIndex; 6104] = [
     CardIndex::new(27228),
     CardIndex::new(27231),
     CardIndex::new(27232),
+    CardIndex::new(27233),
     CardIndex::new(27239),
     CardIndex::new(27272),
     CardIndex::new(27276),
@@ -13280,12 +13586,14 @@ pub static RARE: [CardIndex; 6104] = [
     CardIndex::new(27357),
     CardIndex::new(27360),
     CardIndex::new(27378),
+    CardIndex::new(27380),
     CardIndex::new(27383),
     CardIndex::new(27391),
     CardIndex::new(27397),
     CardIndex::new(27407),
     CardIndex::new(27408),
     CardIndex::new(27426),
+    CardIndex::new(27441),
     CardIndex::new(27449),
     CardIndex::new(27453),
     CardIndex::new(27454),
@@ -13314,12 +13622,14 @@ pub static RARE: [CardIndex; 6104] = [
     CardIndex::new(27616),
     CardIndex::new(27618),
     CardIndex::new(27619),
+    CardIndex::new(27622),
     CardIndex::new(27623),
     CardIndex::new(27625),
     CardIndex::new(27626),
     CardIndex::new(27631),
     CardIndex::new(27633),
     CardIndex::new(27636),
+    CardIndex::new(27644),
     CardIndex::new(27645),
     CardIndex::new(27652),
     CardIndex::new(27653),
@@ -13330,6 +13640,7 @@ pub static RARE: [CardIndex; 6104] = [
     CardIndex::new(27667),
     CardIndex::new(27669),
     CardIndex::new(27673),
+    CardIndex::new(27676),
     CardIndex::new(27677),
     CardIndex::new(27680),
     CardIndex::new(27687),
@@ -13363,6 +13674,7 @@ pub static RARE: [CardIndex; 6104] = [
     CardIndex::new(27780),
     CardIndex::new(27782),
     CardIndex::new(27789),
+    CardIndex::new(27811),
     CardIndex::new(27814),
     CardIndex::new(27821),
     CardIndex::new(27824),
@@ -13452,6 +13764,7 @@ pub static RARE: [CardIndex; 6104] = [
     CardIndex::new(28457),
     CardIndex::new(28459),
     CardIndex::new(28468),
+    CardIndex::new(28471),
     CardIndex::new(28472),
     CardIndex::new(28473),
     CardIndex::new(28481),
@@ -13474,6 +13787,7 @@ pub static RARE: [CardIndex; 6104] = [
     CardIndex::new(28624),
     CardIndex::new(28634),
     CardIndex::new(28645),
+    CardIndex::new(28650),
     CardIndex::new(28653),
     CardIndex::new(28664),
     CardIndex::new(28674),
@@ -13490,10 +13804,12 @@ pub static RARE: [CardIndex; 6104] = [
     CardIndex::new(28759),
     CardIndex::new(28763),
     CardIndex::new(28767),
+    CardIndex::new(28769),
     CardIndex::new(28773),
     CardIndex::new(28780),
     CardIndex::new(28796),
     CardIndex::new(28813),
+    CardIndex::new(28815),
     CardIndex::new(28829),
     CardIndex::new(28830),
     CardIndex::new(28841),
@@ -13501,6 +13817,7 @@ pub static RARE: [CardIndex; 6104] = [
     CardIndex::new(28843),
     CardIndex::new(28859),
     CardIndex::new(28875),
+    CardIndex::new(28878),
     CardIndex::new(28880),
     CardIndex::new(28886),
     CardIndex::new(28893),
@@ -13511,6 +13828,7 @@ pub static RARE: [CardIndex; 6104] = [
     CardIndex::new(28919),
     CardIndex::new(28924),
     CardIndex::new(28925),
+    CardIndex::new(28926),
     CardIndex::new(28927),
     CardIndex::new(28928),
     CardIndex::new(28930),
@@ -13534,6 +13852,7 @@ pub static RARE: [CardIndex; 6104] = [
     CardIndex::new(29117),
     CardIndex::new(29118),
     CardIndex::new(29133),
+    CardIndex::new(29144),
     CardIndex::new(29153),
     CardIndex::new(29157),
     CardIndex::new(29158),
@@ -13550,12 +13869,14 @@ pub static RARE: [CardIndex; 6104] = [
     CardIndex::new(29266),
     CardIndex::new(29267),
     CardIndex::new(29268),
+    CardIndex::new(29271),
     CardIndex::new(29273),
     CardIndex::new(29276),
     CardIndex::new(29277),
     CardIndex::new(29293),
     CardIndex::new(29297),
     CardIndex::new(29303),
+    CardIndex::new(29374),
     CardIndex::new(29377),
     CardIndex::new(29380),
     CardIndex::new(29383),
@@ -13579,6 +13900,7 @@ pub static RARE: [CardIndex; 6104] = [
     CardIndex::new(29476),
     CardIndex::new(29477),
     CardIndex::new(29478),
+    CardIndex::new(29479),
     CardIndex::new(29484),
     CardIndex::new(29495),
     CardIndex::new(29502),
@@ -13609,12 +13931,15 @@ pub static RARE: [CardIndex; 6104] = [
     CardIndex::new(29702),
     CardIndex::new(29706),
     CardIndex::new(29710),
+    CardIndex::new(29713),
     CardIndex::new(29715),
     CardIndex::new(29722),
+    CardIndex::new(29729),
     CardIndex::new(29735),
     CardIndex::new(29743),
     CardIndex::new(29750),
     CardIndex::new(29752),
+    CardIndex::new(29754),
     CardIndex::new(29763),
     CardIndex::new(29780),
     CardIndex::new(29783),
@@ -13637,6 +13962,7 @@ pub static RARE: [CardIndex; 6104] = [
     CardIndex::new(29897),
     CardIndex::new(29900),
     CardIndex::new(29905),
+    CardIndex::new(29909),
     CardIndex::new(29910),
     CardIndex::new(29916),
     CardIndex::new(29920),
@@ -13649,6 +13975,7 @@ pub static RARE: [CardIndex; 6104] = [
     CardIndex::new(29967),
     CardIndex::new(29977),
     CardIndex::new(29978),
+    CardIndex::new(29981),
     CardIndex::new(29983),
     CardIndex::new(29991),
     CardIndex::new(29995),
@@ -13660,11 +13987,13 @@ pub static RARE: [CardIndex; 6104] = [
     CardIndex::new(30053),
     CardIndex::new(30055),
     CardIndex::new(30081),
+    CardIndex::new(30090),
     CardIndex::new(30091),
     CardIndex::new(30098),
     CardIndex::new(30114),
     CardIndex::new(30119),
     CardIndex::new(30120),
+    CardIndex::new(30125),
     CardIndex::new(30129),
     CardIndex::new(30142),
     CardIndex::new(30150),
@@ -13676,6 +14005,7 @@ pub static RARE: [CardIndex; 6104] = [
     CardIndex::new(30225),
     CardIndex::new(30227),
     CardIndex::new(30231),
+    CardIndex::new(30238),
     CardIndex::new(30249),
     CardIndex::new(30256),
     CardIndex::new(30262),
@@ -13707,6 +14037,7 @@ pub static RARE: [CardIndex; 6104] = [
     CardIndex::new(30407),
     CardIndex::new(30413),
     CardIndex::new(30426),
+    CardIndex::new(30436),
     CardIndex::new(30440),
     CardIndex::new(30453),
     CardIndex::new(30464),
@@ -13722,10 +14053,12 @@ pub static RARE: [CardIndex; 6104] = [
     CardIndex::new(30513),
     CardIndex::new(30516),
     CardIndex::new(30521),
+    CardIndex::new(30526),
     CardIndex::new(30533),
     CardIndex::new(30536),
     CardIndex::new(30538),
     CardIndex::new(30540),
+    CardIndex::new(30542),
     CardIndex::new(30545),
     CardIndex::new(30546),
     CardIndex::new(30566),
@@ -13737,13 +14070,19 @@ pub static RARE: [CardIndex; 6104] = [
     CardIndex::new(30601),
     CardIndex::new(30605),
     CardIndex::new(30617),
+    CardIndex::new(30623),
+    CardIndex::new(30625),
     CardIndex::new(30629),
     CardIndex::new(30631),
     CardIndex::new(30635),
     CardIndex::new(30649),
+    CardIndex::new(30662),
+    CardIndex::new(30678),
     CardIndex::new(30680),
+    CardIndex::new(30688),
     CardIndex::new(30689),
     CardIndex::new(30693),
+    CardIndex::new(30696),
     CardIndex::new(30707),
     CardIndex::new(30712),
     CardIndex::new(30713),
@@ -13786,6 +14125,7 @@ pub static RARE: [CardIndex; 6104] = [
     CardIndex::new(30962),
     CardIndex::new(30970),
     CardIndex::new(30973),
+    CardIndex::new(30978),
     CardIndex::new(30986),
     CardIndex::new(30989),
     CardIndex::new(30999),
@@ -13804,6 +14144,7 @@ pub static RARE: [CardIndex; 6104] = [
     CardIndex::new(31116),
     CardIndex::new(31118),
     CardIndex::new(31121),
+    CardIndex::new(31123),
     CardIndex::new(31130),
     CardIndex::new(31137),
     CardIndex::new(31154),
@@ -13829,9 +14170,11 @@ pub static RARE: [CardIndex; 6104] = [
     CardIndex::new(31284),
     CardIndex::new(31293),
     CardIndex::new(31315),
+    CardIndex::new(31317),
     CardIndex::new(31340),
     CardIndex::new(31366),
     CardIndex::new(31372),
+    CardIndex::new(31375),
     CardIndex::new(31377),
     CardIndex::new(31380),
     CardIndex::new(31406),
@@ -13862,6 +14205,7 @@ pub static RARE: [CardIndex; 6104] = [
     CardIndex::new(31564),
     CardIndex::new(31567),
     CardIndex::new(31569),
+    CardIndex::new(31575),
     CardIndex::new(31578),
     CardIndex::new(31585),
     CardIndex::new(31586),
@@ -13871,6 +14215,7 @@ pub static RARE: [CardIndex; 6104] = [
     CardIndex::new(31597),
     CardIndex::new(31605),
     CardIndex::new(31610),
+    CardIndex::new(31620),
     CardIndex::new(31621),
     CardIndex::new(31623),
     CardIndex::new(31641),
@@ -13881,8 +14226,10 @@ pub static RARE: [CardIndex; 6104] = [
     CardIndex::new(31685),
     CardIndex::new(31688),
     CardIndex::new(31696),
+    CardIndex::new(31699),
     CardIndex::new(31703),
     CardIndex::new(31710),
+    CardIndex::new(31712),
     CardIndex::new(31717),
     CardIndex::new(31719),
     CardIndex::new(31721),
@@ -13896,6 +14243,7 @@ pub static RARE: [CardIndex; 6104] = [
     CardIndex::new(31808),
     CardIndex::new(31814),
     CardIndex::new(31821),
+    CardIndex::new(31824),
     CardIndex::new(31828),
     CardIndex::new(31841),
     CardIndex::new(31850),
@@ -13915,6 +14263,7 @@ pub static RARE: [CardIndex; 6104] = [
     CardIndex::new(31951),
     CardIndex::new(31958),
     CardIndex::new(31973),
+    CardIndex::new(31980),
     CardIndex::new(31982),
     CardIndex::new(31987),
     CardIndex::new(31994),
@@ -13930,6 +14279,7 @@ pub static RARE: [CardIndex; 6104] = [
     CardIndex::new(32046),
     CardIndex::new(32050),
     CardIndex::new(32059),
+    CardIndex::new(32061),
     CardIndex::new(32078),
     CardIndex::new(32079),
     CardIndex::new(32081),
@@ -13967,6 +14317,7 @@ pub static RARE: [CardIndex; 6104] = [
     CardIndex::new(32247),
     CardIndex::new(32268),
     CardIndex::new(32271),
+    CardIndex::new(32275),
     CardIndex::new(32280),
     CardIndex::new(32285),
     CardIndex::new(32288),
@@ -13976,6 +14327,7 @@ pub static RARE: [CardIndex; 6104] = [
     CardIndex::new(32316),
     CardIndex::new(32319),
     CardIndex::new(32323),
+    CardIndex::new(32324),
     CardIndex::new(32346),
     CardIndex::new(32350),
     CardIndex::new(32380),
@@ -14002,12 +14354,16 @@ pub static RARE: [CardIndex; 6104] = [
     CardIndex::new(32518),
     CardIndex::new(32521),
     CardIndex::new(32529),
+    CardIndex::new(32533),
     CardIndex::new(32536),
     CardIndex::new(32538),
+    CardIndex::new(32540),
     CardIndex::new(32552),
     CardIndex::new(32554),
     CardIndex::new(32556),
     CardIndex::new(32559),
+    CardIndex::new(32568),
+    CardIndex::new(32570),
     CardIndex::new(32573),
     CardIndex::new(32575),
     CardIndex::new(32577),
@@ -14019,6 +14375,7 @@ pub static RARE: [CardIndex; 6104] = [
     CardIndex::new(32608),
     CardIndex::new(32610),
     CardIndex::new(32625),
+    CardIndex::new(32635),
     CardIndex::new(32638),
     CardIndex::new(32645),
     CardIndex::new(32661),
@@ -14031,6 +14388,7 @@ pub static RARE: [CardIndex; 6104] = [
     CardIndex::new(32684),
     CardIndex::new(32688),
     CardIndex::new(32690),
+    CardIndex::new(32699),
     CardIndex::new(32700),
     CardIndex::new(32704),
     CardIndex::new(32707),
@@ -14048,6 +14406,7 @@ pub static RARE: [CardIndex; 6104] = [
     CardIndex::new(32787),
     CardIndex::new(32790),
     CardIndex::new(32794),
+    CardIndex::new(32795),
     CardIndex::new(32796),
     CardIndex::new(32809),
     CardIndex::new(32815),
@@ -14066,16 +14425,19 @@ pub static RARE: [CardIndex; 6104] = [
     CardIndex::new(32879),
     CardIndex::new(32880),
     CardIndex::new(32883),
+    CardIndex::new(32901),
     CardIndex::new(32903),
     CardIndex::new(32911),
     CardIndex::new(32917),
     CardIndex::new(32924),
     CardIndex::new(32926),
+    CardIndex::new(32927),
     CardIndex::new(32929),
     CardIndex::new(32934),
     CardIndex::new(32941),
     CardIndex::new(32952),
     CardIndex::new(32954),
+    CardIndex::new(32967),
     CardIndex::new(32972),
     CardIndex::new(32975),
     CardIndex::new(33002),
@@ -14085,12 +14447,14 @@ pub static RARE: [CardIndex; 6104] = [
     CardIndex::new(33025),
     CardIndex::new(33034),
     CardIndex::new(33036),
+    CardIndex::new(33037),
     CardIndex::new(33039),
     CardIndex::new(33042),
     CardIndex::new(33043),
     CardIndex::new(33044),
     CardIndex::new(33049),
     CardIndex::new(33052),
+    CardIndex::new(33053),
     CardIndex::new(33056),
     CardIndex::new(33061),
     CardIndex::new(33064),
@@ -14125,6 +14489,7 @@ pub static RARE: [CardIndex; 6104] = [
     CardIndex::new(33223),
     CardIndex::new(33232),
     CardIndex::new(33233),
+    CardIndex::new(33236),
     CardIndex::new(33243),
     CardIndex::new(33278),
     CardIndex::new(33288),
@@ -14132,8 +14497,10 @@ pub static RARE: [CardIndex; 6104] = [
     CardIndex::new(33299),
     CardIndex::new(33311),
     CardIndex::new(33314),
+    CardIndex::new(33323),
     CardIndex::new(33326),
     CardIndex::new(33334),
+    CardIndex::new(33335),
     CardIndex::new(33339),
     CardIndex::new(33341),
     CardIndex::new(33345),
@@ -14150,6 +14517,7 @@ pub static RARE: [CardIndex; 6104] = [
     CardIndex::new(33444),
     CardIndex::new(33445),
     CardIndex::new(33446),
+    CardIndex::new(33447),
     CardIndex::new(33460),
     CardIndex::new(33478),
     CardIndex::new(33479),
@@ -14223,6 +14591,7 @@ pub static RARE: [CardIndex; 6104] = [
     CardIndex::new(33902),
     CardIndex::new(33907),
     CardIndex::new(33908),
+    CardIndex::new(33912),
     CardIndex::new(33916),
     CardIndex::new(33920),
     CardIndex::new(33923),
@@ -14237,6 +14606,7 @@ pub static RARE: [CardIndex; 6104] = [
     CardIndex::new(33961),
     CardIndex::new(33963),
     CardIndex::new(33966),
+    CardIndex::new(33969),
     CardIndex::new(33971),
     CardIndex::new(33976),
     CardIndex::new(33977),
@@ -14249,6 +14619,7 @@ pub static RARE: [CardIndex; 6104] = [
     CardIndex::new(34001),
     CardIndex::new(34004),
     CardIndex::new(34006),
+    CardIndex::new(34007),
     CardIndex::new(34008),
     CardIndex::new(34009),
     CardIndex::new(34013),
@@ -14266,6 +14637,7 @@ pub static RARE: [CardIndex; 6104] = [
     CardIndex::new(34053),
     CardIndex::new(34054),
     CardIndex::new(34055),
+    CardIndex::new(34066),
     CardIndex::new(34068),
     CardIndex::new(34070),
     CardIndex::new(34072),
@@ -14296,6 +14668,7 @@ pub static RARE: [CardIndex; 6104] = [
     CardIndex::new(34127),
     CardIndex::new(34135),
     CardIndex::new(34140),
+    CardIndex::new(34156),
     CardIndex::new(34159),
     CardIndex::new(34161),
     CardIndex::new(34163),
@@ -14319,7 +14692,7 @@ pub static RARE: [CardIndex; 6104] = [
 ];
 
 /// Cards whose reference printing is mythic rare.
-pub static MYTHIC: [CardIndex; 925] = [
+pub static MYTHIC: [CardIndex; 992] = [
     CardIndex::new(6),
     CardIndex::new(10),
     CardIndex::new(14),
@@ -14401,7 +14774,9 @@ pub static MYTHIC: [CardIndex; 925] = [
     CardIndex::new(6750),
     CardIndex::new(6788),
     CardIndex::new(6856),
+    CardIndex::new(6972),
     CardIndex::new(7101),
+    CardIndex::new(7235),
     CardIndex::new(7620),
     CardIndex::new(7714),
     CardIndex::new(7727),
@@ -14420,6 +14795,7 @@ pub static MYTHIC: [CardIndex; 925] = [
     CardIndex::new(9118),
     CardIndex::new(9136),
     CardIndex::new(9268),
+    CardIndex::new(9370),
     CardIndex::new(9397),
     CardIndex::new(9699),
     CardIndex::new(9864),
@@ -14435,6 +14811,7 @@ pub static MYTHIC: [CardIndex; 925] = [
     CardIndex::new(10207),
     CardIndex::new(10251),
     CardIndex::new(10285),
+    CardIndex::new(10289),
     CardIndex::new(10298),
     CardIndex::new(10346),
     CardIndex::new(10358),
@@ -14492,10 +14869,12 @@ pub static MYTHIC: [CardIndex; 925] = [
     CardIndex::new(11854),
     CardIndex::new(11867),
     CardIndex::new(11882),
+    CardIndex::new(11883),
     CardIndex::new(11890),
     CardIndex::new(11913),
     CardIndex::new(11955),
     CardIndex::new(11957),
+    CardIndex::new(11962),
     CardIndex::new(11968),
     CardIndex::new(12028),
     CardIndex::new(12031),
@@ -14506,16 +14885,20 @@ pub static MYTHIC: [CardIndex; 925] = [
     CardIndex::new(12112),
     CardIndex::new(12138),
     CardIndex::new(12197),
+    CardIndex::new(12201),
     CardIndex::new(12284),
     CardIndex::new(12285),
     CardIndex::new(12331),
     CardIndex::new(12356),
+    CardIndex::new(12364),
     CardIndex::new(12374),
     CardIndex::new(12380),
     CardIndex::new(12408),
     CardIndex::new(12432),
+    CardIndex::new(12470),
     CardIndex::new(12506),
     CardIndex::new(12521),
+    CardIndex::new(12527),
     CardIndex::new(12583),
     CardIndex::new(12611),
     CardIndex::new(12615),
@@ -14535,6 +14918,7 @@ pub static MYTHIC: [CardIndex; 925] = [
     CardIndex::new(13022),
     CardIndex::new(13029),
     CardIndex::new(13040),
+    CardIndex::new(13041),
     CardIndex::new(13080),
     CardIndex::new(13190),
     CardIndex::new(13218),
@@ -14546,17 +14930,27 @@ pub static MYTHIC: [CardIndex; 925] = [
     CardIndex::new(13402),
     CardIndex::new(13405),
     CardIndex::new(13506),
+    CardIndex::new(13509),
+    CardIndex::new(13531),
     CardIndex::new(13538),
+    CardIndex::new(13566),
+    CardIndex::new(13587),
     CardIndex::new(13620),
+    CardIndex::new(13630),
     CardIndex::new(13668),
     CardIndex::new(13677),
     CardIndex::new(13682),
     CardIndex::new(13696),
     CardIndex::new(13743),
     CardIndex::new(13771),
+    CardIndex::new(13793),
     CardIndex::new(13794),
+    CardIndex::new(13803),
+    CardIndex::new(13871),
     CardIndex::new(13886),
+    CardIndex::new(13949),
     CardIndex::new(13982),
+    CardIndex::new(14074),
     CardIndex::new(14098),
     CardIndex::new(14100),
     CardIndex::new(14101),
@@ -14572,6 +14966,7 @@ pub static MYTHIC: [CardIndex; 925] = [
     CardIndex::new(14399),
     CardIndex::new(14407),
     CardIndex::new(14418),
+    CardIndex::new(14427),
     CardIndex::new(14464),
     CardIndex::new(14487),
     CardIndex::new(14520),
@@ -14627,6 +15022,7 @@ pub static MYTHIC: [CardIndex; 925] = [
     CardIndex::new(16090),
     CardIndex::new(16106),
     CardIndex::new(16127),
+    CardIndex::new(16153),
     CardIndex::new(16172),
     CardIndex::new(16177),
     CardIndex::new(16256),
@@ -14638,6 +15034,7 @@ pub static MYTHIC: [CardIndex; 925] = [
     CardIndex::new(16369),
     CardIndex::new(16370),
     CardIndex::new(16389),
+    CardIndex::new(16391),
     CardIndex::new(16401),
     CardIndex::new(16407),
     CardIndex::new(16412),
@@ -14650,13 +15047,17 @@ pub static MYTHIC: [CardIndex; 925] = [
     CardIndex::new(16612),
     CardIndex::new(16690),
     CardIndex::new(16706),
+    CardIndex::new(16724),
     CardIndex::new(16732),
     CardIndex::new(16733),
+    CardIndex::new(16751),
     CardIndex::new(16783),
     CardIndex::new(16816),
     CardIndex::new(16818),
     CardIndex::new(16899),
     CardIndex::new(16974),
+    CardIndex::new(16975),
+    CardIndex::new(16980),
     CardIndex::new(16998),
     CardIndex::new(17038),
     CardIndex::new(17052),
@@ -14725,6 +15126,7 @@ pub static MYTHIC: [CardIndex; 925] = [
     CardIndex::new(18435),
     CardIndex::new(18439),
     CardIndex::new(18500),
+    CardIndex::new(18516),
     CardIndex::new(18555),
     CardIndex::new(18568),
     CardIndex::new(18569),
@@ -14773,13 +15175,19 @@ pub static MYTHIC: [CardIndex; 925] = [
     CardIndex::new(19462),
     CardIndex::new(19475),
     CardIndex::new(19480),
+    CardIndex::new(19494),
     CardIndex::new(19529),
     CardIndex::new(19534),
     CardIndex::new(19535),
+    CardIndex::new(19536),
     CardIndex::new(19574),
     CardIndex::new(19575),
     CardIndex::new(19577),
+    CardIndex::new(19593),
     CardIndex::new(19635),
+    CardIndex::new(19641),
+    CardIndex::new(19663),
+    CardIndex::new(19683),
     CardIndex::new(19729),
     CardIndex::new(19736),
     CardIndex::new(19811),
@@ -14804,6 +15212,7 @@ pub static MYTHIC: [CardIndex; 925] = [
     CardIndex::new(20184),
     CardIndex::new(20216),
     CardIndex::new(20242),
+    CardIndex::new(20307),
     CardIndex::new(20315),
     CardIndex::new(20316),
     CardIndex::new(20355),
@@ -14815,6 +15224,7 @@ pub static MYTHIC: [CardIndex; 925] = [
     CardIndex::new(20504),
     CardIndex::new(20538),
     CardIndex::new(20546),
+    CardIndex::new(20584),
     CardIndex::new(20595),
     CardIndex::new(20621),
     CardIndex::new(20623),
@@ -14829,7 +15239,9 @@ pub static MYTHIC: [CardIndex; 925] = [
     CardIndex::new(20794),
     CardIndex::new(20811),
     CardIndex::new(20882),
+    CardIndex::new(20923),
     CardIndex::new(20957),
+    CardIndex::new(20973),
     CardIndex::new(20986),
     CardIndex::new(21045),
     CardIndex::new(21083),
@@ -14858,16 +15270,19 @@ pub static MYTHIC: [CardIndex; 925] = [
     CardIndex::new(21517),
     CardIndex::new(21844),
     CardIndex::new(21854),
+    CardIndex::new(21861),
     CardIndex::new(21883),
     CardIndex::new(21895),
     CardIndex::new(22064),
     CardIndex::new(22143),
     CardIndex::new(22187),
     CardIndex::new(22195),
+    CardIndex::new(22204),
     CardIndex::new(22313),
     CardIndex::new(22341),
     CardIndex::new(22364),
     CardIndex::new(22468),
+    CardIndex::new(22473),
     CardIndex::new(22519),
     CardIndex::new(22527),
     CardIndex::new(22736),
@@ -14887,15 +15302,19 @@ pub static MYTHIC: [CardIndex; 925] = [
     CardIndex::new(23101),
     CardIndex::new(23128),
     CardIndex::new(23130),
+    CardIndex::new(23210),
     CardIndex::new(23258),
     CardIndex::new(23339),
     CardIndex::new(23491),
     CardIndex::new(23492),
     CardIndex::new(23493),
     CardIndex::new(23522),
+    CardIndex::new(23530),
     CardIndex::new(23544),
     CardIndex::new(23635),
     CardIndex::new(23665),
+    CardIndex::new(23672),
+    CardIndex::new(23695),
     CardIndex::new(23766),
     CardIndex::new(24149),
     CardIndex::new(24172),
@@ -14904,6 +15323,7 @@ pub static MYTHIC: [CardIndex; 925] = [
     CardIndex::new(24265),
     CardIndex::new(24270),
     CardIndex::new(24271),
+    CardIndex::new(24292),
     CardIndex::new(24297),
     CardIndex::new(24308),
     CardIndex::new(24315),
@@ -14917,6 +15337,7 @@ pub static MYTHIC: [CardIndex; 925] = [
     CardIndex::new(24702),
     CardIndex::new(24703),
     CardIndex::new(24704),
+    CardIndex::new(24712),
     CardIndex::new(24726),
     CardIndex::new(24760),
     CardIndex::new(24817),
@@ -14928,6 +15349,7 @@ pub static MYTHIC: [CardIndex; 925] = [
     CardIndex::new(24895),
     CardIndex::new(24899),
     CardIndex::new(24911),
+    CardIndex::new(25025),
     CardIndex::new(25027),
     CardIndex::new(25029),
     CardIndex::new(25100),
@@ -14958,6 +15380,7 @@ pub static MYTHIC: [CardIndex; 925] = [
     CardIndex::new(25834),
     CardIndex::new(25836),
     CardIndex::new(25837),
+    CardIndex::new(25959),
     CardIndex::new(26042),
     CardIndex::new(26072),
     CardIndex::new(26095),
@@ -14967,6 +15390,7 @@ pub static MYTHIC: [CardIndex; 925] = [
     CardIndex::new(26130),
     CardIndex::new(26136),
     CardIndex::new(26154),
+    CardIndex::new(26158),
     CardIndex::new(26190),
     CardIndex::new(26197),
     CardIndex::new(26219),
@@ -14980,7 +15404,10 @@ pub static MYTHIC: [CardIndex; 925] = [
     CardIndex::new(26508),
     CardIndex::new(26509),
     CardIndex::new(26518),
+    CardIndex::new(26794),
     CardIndex::new(26816),
+    CardIndex::new(26860),
+    CardIndex::new(26867),
     CardIndex::new(26869),
     CardIndex::new(26905),
     CardIndex::new(26934),
@@ -15058,6 +15485,7 @@ pub static MYTHIC: [CardIndex; 925] = [
     CardIndex::new(29202),
     CardIndex::new(29270),
     CardIndex::new(29275),
+    CardIndex::new(29288),
     CardIndex::new(29306),
     CardIndex::new(29314),
     CardIndex::new(29378),
@@ -15088,6 +15516,7 @@ pub static MYTHIC: [CardIndex; 925] = [
     CardIndex::new(29952),
     CardIndex::new(29953),
     CardIndex::new(29961),
+    CardIndex::new(30001),
     CardIndex::new(30032),
     CardIndex::new(30038),
     CardIndex::new(30086),
@@ -15099,6 +15528,8 @@ pub static MYTHIC: [CardIndex; 925] = [
     CardIndex::new(30206),
     CardIndex::new(30210),
     CardIndex::new(30216),
+    CardIndex::new(30250),
+    CardIndex::new(30272),
     CardIndex::new(30304),
     CardIndex::new(30472),
     CardIndex::new(30514),
@@ -15124,6 +15555,7 @@ pub static MYTHIC: [CardIndex; 925] = [
     CardIndex::new(30865),
     CardIndex::new(30877),
     CardIndex::new(30946),
+    CardIndex::new(30955),
     CardIndex::new(30968),
     CardIndex::new(31105),
     CardIndex::new(31119),
@@ -15135,6 +15567,7 @@ pub static MYTHIC: [CardIndex; 925] = [
     CardIndex::new(31185),
     CardIndex::new(31195),
     CardIndex::new(31320),
+    CardIndex::new(31456),
     CardIndex::new(31493),
     CardIndex::new(31501),
     CardIndex::new(31525),
@@ -15151,6 +15584,7 @@ pub static MYTHIC: [CardIndex; 925] = [
     CardIndex::new(31763),
     CardIndex::new(31833),
     CardIndex::new(31866),
+    CardIndex::new(31919),
     CardIndex::new(31933),
     CardIndex::new(31946),
     CardIndex::new(31999),
@@ -15172,10 +15606,12 @@ pub static MYTHIC: [CardIndex; 925] = [
     CardIndex::new(32588),
     CardIndex::new(32599),
     CardIndex::new(32600),
+    CardIndex::new(32605),
     CardIndex::new(32646),
     CardIndex::new(32649),
     CardIndex::new(32651),
     CardIndex::new(32756),
+    CardIndex::new(32770),
     CardIndex::new(32784),
     CardIndex::new(32789),
     CardIndex::new(32813),
@@ -15209,6 +15645,7 @@ pub static MYTHIC: [CardIndex; 925] = [
     CardIndex::new(33347),
     CardIndex::new(33368),
     CardIndex::new(33369),
+    CardIndex::new(33370),
     CardIndex::new(33373),
     CardIndex::new(33375),
     CardIndex::new(33380),
@@ -15229,6 +15666,8 @@ pub static MYTHIC: [CardIndex; 925] = [
     CardIndex::new(33891),
     CardIndex::new(33940),
     CardIndex::new(33972),
+    CardIndex::new(34002),
+    CardIndex::new(34015),
     CardIndex::new(34021),
     CardIndex::new(34026),
     CardIndex::new(34030),
@@ -15244,6 +15683,7 @@ pub static MYTHIC: [CardIndex; 925] = [
     CardIndex::new(34225),
     CardIndex::new(34226),
     CardIndex::new(34228),
+    CardIndex::new(34229),
     CardIndex::new(34231),
 ];
 
@@ -15339,7 +15779,9 @@ pub static TURNS: &[(CardIndex, &[u8])] = &[
     (CardIndex::new(5030), &[1, 1]),
     (CardIndex::new(5031), &[1, 1]),
     (CardIndex::new(7650), &[1, 1]),
+    (CardIndex::new(8083), &[1, 1]),
     (CardIndex::new(8093), &[1, 1]),
+    (CardIndex::new(8126), &[1, 1]),
     (CardIndex::new(8167), &[1, 1]),
     (CardIndex::new(8658), &[1, 1]),
     (CardIndex::new(8673), &[1, 1]),
@@ -15380,10 +15822,12 @@ pub static TURNS: &[(CardIndex, &[u8])] = &[
     (CardIndex::new(17024), &[0, 3]),
     (CardIndex::new(18136), &[1, 1]),
     (CardIndex::new(18169), &[1, 1]),
+    (CardIndex::new(18200), &[1, 1]),
     (CardIndex::new(18207), &[1, 1]),
     (CardIndex::new(18239), &[1, 1]),
     (CardIndex::new(18303), &[1, 1]),
     (CardIndex::new(18321), &[1, 1]),
+    (CardIndex::new(18388), &[1, 1]),
     (CardIndex::new(18402), &[1, 1]),
     (CardIndex::new(18415), &[1, 1]),
     (CardIndex::new(18426), &[1, 1]),
@@ -15404,6 +15848,7 @@ pub static TURNS: &[(CardIndex, &[u8])] = &[
     (CardIndex::new(25581), &[1, 0]),
     (CardIndex::new(25584), &[1, 0]),
     (CardIndex::new(25585), &[1, 0]),
+    (CardIndex::new(25586), &[1, 0]),
     (CardIndex::new(25587), &[1, 0]),
     (CardIndex::new(25588), &[1, 0]),
     (CardIndex::new(25589), &[1, 0]),
@@ -15413,6 +15858,7 @@ pub static TURNS: &[(CardIndex, &[u8])] = &[
     (CardIndex::new(25600), &[1, 0]),
     (CardIndex::new(25602), &[1, 0]),
     (CardIndex::new(25603), &[1, 0]),
+    (CardIndex::new(26627), &[1, 1]),
     (CardIndex::new(27338), &[1, 1]),
     (CardIndex::new(29021), &[1, 1]),
     (CardIndex::new(29030), &[1, 1]),
@@ -60681,6 +61127,20 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
         },
     ),
     (
+        CardIndex::new(6705),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
+        CardIndex::new(6706),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
         CardIndex::new(6707),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
@@ -61283,6 +61743,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
         },
     ),
     (
+        CardIndex::new(6829),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
         CardIndex::new(6831),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
@@ -61368,6 +61835,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
     ),
     (
         CardIndex::new(6847),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
+        CardIndex::new(6848),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
             is_un: false,
@@ -61703,6 +62177,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
         },
     ),
     (
+        CardIndex::new(6909),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
         CardIndex::new(6910),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
@@ -61802,6 +62283,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
     ),
     (
         CardIndex::new(6928),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
+        CardIndex::new(6929),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
             is_un: false,
@@ -62054,6 +62542,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
     ),
     (
         CardIndex::new(6971),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
+        CardIndex::new(6972),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
             is_un: false,
@@ -62641,6 +63136,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
         },
     ),
     (
+        CardIndex::new(7086),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
         CardIndex::new(7088),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
@@ -62936,6 +63438,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
     ),
     (
         CardIndex::new(7142),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
+        CardIndex::new(7143),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
             is_un: false,
@@ -63411,6 +63920,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
         },
     ),
     (
+        CardIndex::new(7235),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
         CardIndex::new(7238),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
@@ -63503,6 +64019,20 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
     ),
     (
         CardIndex::new(7254),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
+        CardIndex::new(7256),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
+        CardIndex::new(7257),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
             is_un: false,
@@ -63874,6 +64404,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
     ),
     (
         CardIndex::new(7343),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
+        CardIndex::new(7344),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
             is_un: false,
@@ -64293,6 +64830,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
         },
     ),
     (
+        CardIndex::new(7440),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
         CardIndex::new(7441),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
@@ -64315,6 +64859,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
     ),
     (
         CardIndex::new(7447),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
+        CardIndex::new(7449),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
             is_un: false,
@@ -64440,6 +64991,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
         },
     ),
     (
+        CardIndex::new(7479),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
         CardIndex::new(7480),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
@@ -64476,6 +65034,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
     ),
     (
         CardIndex::new(7486),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
+        CardIndex::new(7488),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
             is_un: false,
@@ -64853,6 +65418,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
         },
     ),
     (
+        CardIndex::new(7562),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
         CardIndex::new(7564),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
@@ -64889,6 +65461,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
     ),
     (
         CardIndex::new(7570),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
+        CardIndex::new(7571),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
             is_un: false,
@@ -65532,6 +66111,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
         },
     ),
     (
+        CardIndex::new(7692),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
         CardIndex::new(7693),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
@@ -65812,6 +66398,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
         },
     ),
     (
+        CardIndex::new(7752),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
         CardIndex::new(7753),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
@@ -65829,6 +66422,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
         CardIndex::new(7755),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[Some("selesnya")],
+            is_un: false,
+        },
+    ),
+    (
+        CardIndex::new(7757),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
             is_un: false,
         },
     ),
@@ -66183,6 +66783,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
         },
     ),
     (
+        CardIndex::new(7821),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
         CardIndex::new(7822),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
@@ -66193,6 +66800,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
         CardIndex::new(7823),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
+        CardIndex::new(7825),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[Some("selesnya")],
             is_un: false,
         },
     ),
@@ -66701,6 +67315,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
         },
     ),
     (
+        CardIndex::new(7934),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[Some("izzet")],
+            is_un: false,
+        },
+    ),
+    (
         CardIndex::new(7936),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
@@ -66960,6 +67581,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
         },
     ),
     (
+        CardIndex::new(7983),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
         CardIndex::new(7984),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
@@ -67212,6 +67840,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
         },
     ),
     (
+        CardIndex::new(8035),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
         CardIndex::new(8036),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
@@ -67457,6 +68092,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
         },
     ),
     (
+        CardIndex::new(8083),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[Some("golgari"), Some("simic")],
+            is_un: false,
+        },
+    ),
+    (
         CardIndex::new(8086),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
@@ -67642,6 +68284,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
         CardIndex::new(8123),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[Some("simic")],
+            is_un: false,
+        },
+    ),
+    (
+        CardIndex::new(8126),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[Some("rakdos"), Some("gruul")],
             is_un: false,
         },
     ),
@@ -68076,6 +68725,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
         CardIndex::new(8225),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[Some("azorius")],
+            is_un: false,
+        },
+    ),
+    (
+        CardIndex::new(8227),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
             is_un: false,
         },
     ),
@@ -70390,6 +71046,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
         },
     ),
     (
+        CardIndex::new(8690),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
         CardIndex::new(8691),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
@@ -71370,6 +72033,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
         },
     ),
     (
+        CardIndex::new(8895),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
         CardIndex::new(8896),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
@@ -71483,6 +72153,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
     ),
     (
         CardIndex::new(8922),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
+        CardIndex::new(8923),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
             is_un: false,
@@ -72427,6 +73104,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
         },
     ),
     (
+        CardIndex::new(9111),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
         CardIndex::new(9114),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
@@ -72568,6 +73252,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
     ),
     (
         CardIndex::new(9136),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
+        CardIndex::new(9137),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
             is_un: false,
@@ -72946,6 +73637,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
     ),
     (
         CardIndex::new(9205),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
+        CardIndex::new(9206),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
             is_un: false,
@@ -73869,6 +74567,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
         },
     ),
     (
+        CardIndex::new(9370),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
         CardIndex::new(9371),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
@@ -74192,6 +74897,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
     ),
     (
         CardIndex::new(9424),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
+        CardIndex::new(9425),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
             is_un: false,
@@ -78412,6 +79124,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
         },
     ),
     (
+        CardIndex::new(10167),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
         CardIndex::new(10168),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
@@ -79119,6 +79838,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
         },
     ),
     (
+        CardIndex::new(10289),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
         CardIndex::new(10290),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
@@ -79134,6 +79860,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
     ),
     (
         CardIndex::new(10293),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
+        CardIndex::new(10294),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
             is_un: false,
@@ -79400,6 +80133,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
     ),
     (
         CardIndex::new(10341),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
+        CardIndex::new(10345),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
             is_un: false,
@@ -80792,6 +81532,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
         },
     ),
     (
+        CardIndex::new(10625),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
         CardIndex::new(10626),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
@@ -81541,6 +82288,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
         },
     ),
     (
+        CardIndex::new(10753),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
         CardIndex::new(10754),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
@@ -82185,6 +82939,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
         },
     ),
     (
+        CardIndex::new(10869),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
         CardIndex::new(10870),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
@@ -82332,6 +83093,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
         },
     ),
     (
+        CardIndex::new(10900),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
         CardIndex::new(10901),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
@@ -82445,6 +83213,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
     ),
     (
         CardIndex::new(10920),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
+        CardIndex::new(10921),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
             is_un: false,
@@ -83403,6 +84178,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
         },
     ),
     (
+        CardIndex::new(11100),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
         CardIndex::new(11101),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
@@ -83866,6 +84648,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
     ),
     (
         CardIndex::new(11231),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
+        CardIndex::new(11233),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
             is_un: false,
@@ -85412,6 +86201,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
         },
     ),
     (
+        CardIndex::new(11506),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
         CardIndex::new(11507),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[Some("mirran")],
@@ -85805,6 +86601,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
     ),
     (
         CardIndex::new(11574),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[Some("phyrexian")],
+            is_un: false,
+        },
+    ),
+    (
+        CardIndex::new(11575),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[Some("phyrexian")],
             is_un: false,
@@ -86658,6 +87461,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
         },
     ),
     (
+        CardIndex::new(11739),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[Some("phyrexian")],
+            is_un: false,
+        },
+    ),
+    (
         CardIndex::new(11741),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[Some("phyrexian")],
@@ -87050,6 +87860,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
         },
     ),
     (
+        CardIndex::new(11817),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
         CardIndex::new(11818),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
@@ -87078,6 +87895,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
         },
     ),
     (
+        CardIndex::new(11834),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
         CardIndex::new(11838),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
@@ -87093,6 +87917,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
     ),
     (
         CardIndex::new(11848),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
+        CardIndex::new(11849),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
             is_un: false,
@@ -87289,6 +88120,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
     ),
     (
         CardIndex::new(11882),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
+        CardIndex::new(11883),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
             is_un: false,
@@ -87737,6 +88575,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
     ),
     (
         CardIndex::new(11960),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
+        CardIndex::new(11962),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
             is_un: false,
@@ -88282,6 +89127,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
         },
     ),
     (
+        CardIndex::new(12060),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
         CardIndex::new(12061),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
@@ -88339,6 +89191,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
     ),
     (
         CardIndex::new(12069),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
+        CardIndex::new(12071),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
             is_un: false,
@@ -88870,6 +89729,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
         },
     ),
     (
+        CardIndex::new(12162),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
         CardIndex::new(12163),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[Some("sultai")],
@@ -89003,6 +89869,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
         },
     ),
     (
+        CardIndex::new(12188),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
         CardIndex::new(12189),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
@@ -89060,6 +89933,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
     ),
     (
         CardIndex::new(12200),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
+        CardIndex::new(12201),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
             is_un: false,
@@ -89920,6 +90800,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
         },
     ),
     (
+        CardIndex::new(12364),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
         CardIndex::new(12365),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
@@ -90165,6 +91052,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
         },
     ),
     (
+        CardIndex::new(12409),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
         CardIndex::new(12410),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
@@ -90277,6 +91171,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
         },
     ),
     (
+        CardIndex::new(12428),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
         CardIndex::new(12429),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
@@ -90285,6 +91186,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
     ),
     (
         CardIndex::new(12430),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
+        CardIndex::new(12431),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
             is_un: false,
@@ -90530,6 +91438,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
     ),
     (
         CardIndex::new(12469),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
+        CardIndex::new(12470),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
             is_un: false,
@@ -90859,6 +91774,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
     ),
     (
         CardIndex::new(12526),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
+        CardIndex::new(12527),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
             is_un: false,
@@ -91250,6 +92172,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
         },
     ),
     (
+        CardIndex::new(12634),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
         CardIndex::new(12635),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
@@ -91258,6 +92187,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
     ),
     (
         CardIndex::new(12636),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
+        CardIndex::new(12637),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
             is_un: false,
@@ -91300,6 +92236,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
     ),
     (
         CardIndex::new(12643),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
+        CardIndex::new(12644),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
             is_un: false,
@@ -91363,6 +92306,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
     ),
     (
         CardIndex::new(12655),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
+        CardIndex::new(12656),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
             is_un: false,
@@ -91503,6 +92453,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
     ),
     (
         CardIndex::new(12679),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
+        CardIndex::new(12680),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
             is_un: false,
@@ -91719,6 +92676,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
         },
     ),
     (
+        CardIndex::new(12723),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
         CardIndex::new(12724),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
@@ -91776,6 +92740,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
     ),
     (
         CardIndex::new(12732),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
+        CardIndex::new(12733),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
             is_un: false,
@@ -93441,6 +94412,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
         },
     ),
     (
+        CardIndex::new(13016),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
         CardIndex::new(13018),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
@@ -93560,6 +94538,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
         },
     ),
     (
+        CardIndex::new(13041),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
         CardIndex::new(13042),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
@@ -93651,6 +94636,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
         },
     ),
     (
+        CardIndex::new(13057),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
         CardIndex::new(13058),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
@@ -93729,6 +94721,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
     ),
     (
         CardIndex::new(13071),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
+        CardIndex::new(13072),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
             is_un: false,
@@ -93847,6 +94846,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
         },
     ),
     (
+        CardIndex::new(13093),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
         CardIndex::new(13095),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
@@ -93955,6 +94961,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
         CardIndex::new(13114),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[Some("gruul")],
+            is_un: false,
+        },
+    ),
+    (
+        CardIndex::new(13115),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
             is_un: false,
         },
     ),
@@ -94179,6 +95192,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
         CardIndex::new(13153),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[Some("boros")],
+            is_un: false,
+        },
+    ),
+    (
+        CardIndex::new(13154),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
             is_un: false,
         },
     ),
@@ -94466,6 +95486,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
         CardIndex::new(13205),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[Some("simic")],
+            is_un: false,
+        },
+    ),
+    (
+        CardIndex::new(13210),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[Some("boros")],
             is_un: false,
         },
     ),
@@ -94830,6 +95857,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
         CardIndex::new(13277),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[Some("azorius"), Some("azorius")],
+            is_un: false,
+        },
+    ),
+    (
+        CardIndex::new(13278),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
             is_un: false,
         },
     ),
@@ -95898,6 +96932,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
         },
     ),
     (
+        CardIndex::new(13462),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
         CardIndex::new(13463),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
@@ -96122,6 +97163,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
         },
     ),
     (
+        CardIndex::new(13499),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
         CardIndex::new(13500),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
@@ -96165,6 +97213,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
     ),
     (
         CardIndex::new(13508),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
+        CardIndex::new(13509),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
             is_un: false,
@@ -96277,6 +97332,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
     ),
     (
         CardIndex::new(13530),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
+        CardIndex::new(13531),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
             is_un: false,
@@ -96486,6 +97548,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
         },
     ),
     (
+        CardIndex::new(13566),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
         CardIndex::new(13567),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
@@ -96599,6 +97668,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
     ),
     (
         CardIndex::new(13586),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
+        CardIndex::new(13587),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
             is_un: false,
@@ -96858,6 +97934,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
     ),
     (
         CardIndex::new(13629),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
+        CardIndex::new(13630),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
             is_un: false,
@@ -97361,6 +98444,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
         },
     ),
     (
+        CardIndex::new(13747),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
         CardIndex::new(13748),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
@@ -97599,6 +98689,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
         },
     ),
     (
+        CardIndex::new(13793),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
         CardIndex::new(13794),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
@@ -97613,7 +98710,21 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
         },
     ),
     (
+        CardIndex::new(13796),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
         CardIndex::new(13797),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
+        CardIndex::new(13799),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
             is_un: false,
@@ -97628,6 +98739,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
     ),
     (
         CardIndex::new(13802),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
+        CardIndex::new(13803),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
             is_un: false,
@@ -98034,6 +99152,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
     ),
     (
         CardIndex::new(13869),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
+        CardIndex::new(13871),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
             is_un: false,
@@ -98495,6 +99620,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
         },
     ),
     (
+        CardIndex::new(13949),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
         CardIndex::new(13951),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
@@ -98691,6 +99823,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
         },
     ),
     (
+        CardIndex::new(13983),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
         CardIndex::new(13984),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
@@ -98804,6 +99943,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
     ),
     (
         CardIndex::new(14005),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
+        CardIndex::new(14007),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
             is_un: false,
@@ -99105,6 +100251,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
     ),
     (
         CardIndex::new(14072),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
+        CardIndex::new(14074),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
             is_un: false,
@@ -101036,6 +102189,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
         },
     ),
     (
+        CardIndex::new(14427),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
         CardIndex::new(14428),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
@@ -101137,6 +102297,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
         CardIndex::new(14444),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
+        CardIndex::new(14445),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[Some("temur")],
             is_un: false,
         },
     ),
@@ -101729,6 +102896,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
         },
     ),
     (
+        CardIndex::new(14576),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
         CardIndex::new(14579),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
@@ -102023,6 +103197,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
         },
     ),
     (
+        CardIndex::new(14630),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
         CardIndex::new(14631),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
@@ -102114,6 +103295,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
         },
     ),
     (
+        CardIndex::new(14649),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[Some("sultai")],
+            is_un: false,
+        },
+    ),
+    (
         CardIndex::new(14650),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
@@ -102159,6 +103347,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
         CardIndex::new(14658),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
+        CardIndex::new(14660),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[Some("kolaghan")],
             is_un: false,
         },
     ),
@@ -102236,6 +103431,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
         CardIndex::new(14676),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[Some("temur")],
+            is_un: false,
+        },
+    ),
+    (
+        CardIndex::new(14677),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
             is_un: false,
         },
     ),
@@ -103361,6 +104563,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
     ),
     (
         CardIndex::new(14880),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
+        CardIndex::new(14881),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
             is_un: false,
@@ -104991,6 +106200,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
         },
     ),
     (
+        CardIndex::new(15187),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
         CardIndex::new(15188),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
@@ -105628,6 +106844,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
         },
     ),
     (
+        CardIndex::new(15309),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
         CardIndex::new(15310),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
@@ -105643,6 +106866,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
     ),
     (
         CardIndex::new(15312),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
+        CardIndex::new(15313),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
             is_un: false,
@@ -105874,6 +107104,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
     ),
     (
         CardIndex::new(15375),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
+        CardIndex::new(15377),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
             is_un: false,
@@ -106370,6 +107607,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
         },
     ),
     (
+        CardIndex::new(15468),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
         CardIndex::new(15469),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
@@ -106545,6 +107789,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
         },
     ),
     (
+        CardIndex::new(15501),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
         CardIndex::new(15502),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
@@ -106581,6 +107832,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
     ),
     (
         CardIndex::new(15511),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
+        CardIndex::new(15513),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
             is_un: false,
@@ -106940,6 +108198,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
         CardIndex::new(15574),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
+        CardIndex::new(15575),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None, None],
             is_un: false,
         },
     ),
@@ -107889,6 +109154,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
         },
     ),
     (
+        CardIndex::new(15748),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
         CardIndex::new(15749),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
@@ -108673,6 +109945,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
         },
     ),
     (
+        CardIndex::new(15895),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
         CardIndex::new(15896),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None, None],
@@ -108778,6 +110057,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
         },
     ),
     (
+        CardIndex::new(15913),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
         CardIndex::new(15914),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
@@ -108856,6 +110142,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
     ),
     (
         CardIndex::new(15930),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
+        CardIndex::new(15932),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
             is_un: false,
@@ -109101,6 +110394,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
     ),
     (
         CardIndex::new(15977),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
+        CardIndex::new(15978),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
             is_un: false,
@@ -109695,6 +110995,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
         },
     ),
     (
+        CardIndex::new(16121),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
         CardIndex::new(16122),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
@@ -109864,6 +111171,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
     ),
     (
         CardIndex::new(16151),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
+        CardIndex::new(16153),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
             is_un: false,
@@ -111067,6 +112381,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
         },
     ),
     (
+        CardIndex::new(16364),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
         CardIndex::new(16365),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
@@ -111123,6 +112444,27 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
         },
     ),
     (
+        CardIndex::new(16381),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
+        CardIndex::new(16382),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
+        CardIndex::new(16384),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
         CardIndex::new(16385),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
@@ -111145,6 +112487,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
     ),
     (
         CardIndex::new(16390),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
+        CardIndex::new(16391),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
             is_un: false,
@@ -111641,6 +112990,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
         },
     ),
     (
+        CardIndex::new(16501),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
         CardIndex::new(16502),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
@@ -111865,6 +113221,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
         },
     ),
     (
+        CardIndex::new(16541),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
         CardIndex::new(16542),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
@@ -111956,7 +113319,21 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
         },
     ),
     (
+        CardIndex::new(16557),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
         CardIndex::new(16558),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
+        CardIndex::new(16559),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
             is_un: false,
@@ -112796,6 +114173,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
         },
     ),
     (
+        CardIndex::new(16707),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
         CardIndex::new(16708),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
@@ -112901,6 +114285,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
         },
     ),
     (
+        CardIndex::new(16724),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
         CardIndex::new(16725),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
@@ -112971,6 +114362,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
         },
     ),
     (
+        CardIndex::new(16738),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
         CardIndex::new(16739),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
@@ -113035,6 +114433,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
     ),
     (
         CardIndex::new(16750),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
+        CardIndex::new(16751),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
             is_un: false,
@@ -113133,6 +114538,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
     ),
     (
         CardIndex::new(16767),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
+        CardIndex::new(16768),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
             is_un: false,
@@ -114245,6 +115657,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
         },
     ),
     (
+        CardIndex::new(16975),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
         CardIndex::new(16977),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
@@ -114253,6 +115672,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
     ),
     (
         CardIndex::new(16978),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
+        CardIndex::new(16980),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
             is_un: false,
@@ -114784,6 +116210,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
         },
     ),
     (
+        CardIndex::new(17083),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
         CardIndex::new(17087),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
@@ -114813,6 +116246,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
     ),
     (
         CardIndex::new(17101),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
+        CardIndex::new(17104),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
             is_un: false,
@@ -114939,6 +116379,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
     ),
     (
         CardIndex::new(17129),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
+        CardIndex::new(17130),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
             is_un: false,
@@ -115834,6 +117281,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
         },
     ),
     (
+        CardIndex::new(17268),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
         CardIndex::new(17269),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
@@ -115870,6 +117324,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
     ),
     (
         CardIndex::new(17276),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
+        CardIndex::new(17278),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
             is_un: false,
@@ -116324,6 +117785,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
         },
     ),
     (
+        CardIndex::new(17357),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
         CardIndex::new(17359),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
@@ -116374,6 +117842,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
     ),
     (
         CardIndex::new(17367),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
+        CardIndex::new(17369),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
             is_un: false,
@@ -116612,6 +118087,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
     ),
     (
         CardIndex::new(17413),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
+        CardIndex::new(17414),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
             is_un: false,
@@ -116947,7 +118429,21 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
         },
     ),
     (
+        CardIndex::new(17470),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
         CardIndex::new(17471),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
+        CardIndex::new(17473),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
             is_un: false,
@@ -117340,6 +118836,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
     ),
     (
         CardIndex::new(17543),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
+        CardIndex::new(17544),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
             is_un: false,
@@ -117822,6 +119325,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
         },
     ),
     (
+        CardIndex::new(17635),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
         CardIndex::new(17637),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
@@ -118053,6 +119563,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
         },
     ),
     (
+        CardIndex::new(17677),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
         CardIndex::new(17678),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
@@ -118068,6 +119585,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
     ),
     (
         CardIndex::new(17680),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
+        CardIndex::new(17682),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
             is_un: false,
@@ -118110,6 +119634,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
     ),
     (
         CardIndex::new(17691),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
+        CardIndex::new(17692),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
             is_un: false,
@@ -118515,6 +120046,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
         },
     ),
     (
+        CardIndex::new(17761),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
         CardIndex::new(17762),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
@@ -118586,6 +120124,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
     ),
     (
         CardIndex::new(17783),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
+        CardIndex::new(17795),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
             is_un: false,
@@ -119545,6 +121090,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
     ),
     (
         CardIndex::new(17985),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
+        CardIndex::new(17986),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
             is_un: false,
@@ -120601,6 +122153,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
         },
     ),
     (
+        CardIndex::new(18200),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None, None],
+            is_un: false,
+        },
+    ),
+    (
         CardIndex::new(18202),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
@@ -120751,6 +122310,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
         CardIndex::new(18228),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[Some("boros")],
+            is_un: false,
+        },
+    ),
+    (
+        CardIndex::new(18229),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[Some("golgari")],
             is_un: false,
         },
     ),
@@ -120965,6 +122531,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
         },
     ),
     (
+        CardIndex::new(18264),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[Some("golgari")],
+            is_un: false,
+        },
+    ),
+    (
         CardIndex::new(18265),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[Some("izzet")],
@@ -121105,6 +122678,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
         },
     ),
     (
+        CardIndex::new(18289),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
         CardIndex::new(18290),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
@@ -121134,6 +122714,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
     ),
     (
         CardIndex::new(18295),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
+        CardIndex::new(18296),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
             is_un: false,
@@ -121644,6 +123231,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
         },
     ),
     (
+        CardIndex::new(18388),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[Some("rakdos"), None],
+            is_un: false,
+        },
+    ),
+    (
         CardIndex::new(18389),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
@@ -121778,6 +123372,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
     ),
     (
         CardIndex::new(18412),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
+        CardIndex::new(18413),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
             is_un: false,
@@ -121925,6 +123526,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
     ),
     (
         CardIndex::new(18441),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
+        CardIndex::new(18442),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
             is_un: false,
@@ -122309,6 +123917,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
         },
     ),
     (
+        CardIndex::new(18516),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[Some("simic")],
+            is_un: false,
+        },
+    ),
+    (
         CardIndex::new(18517),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
@@ -122340,6 +123955,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
         CardIndex::new(18522),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
+        CardIndex::new(18523),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[Some("rakdos")],
             is_un: false,
         },
     ),
@@ -122396,6 +124018,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
         CardIndex::new(18535),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[Some("orzhov"), None],
+            is_un: false,
+        },
+    ),
+    (
+        CardIndex::new(18536),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[Some("gruul")],
             is_un: false,
         },
     ),
@@ -122730,6 +124359,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
     ),
     (
         CardIndex::new(18595),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
+        CardIndex::new(18596),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
             is_un: false,
@@ -123177,6 +124813,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
         },
     ),
     (
+        CardIndex::new(18674),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
         CardIndex::new(18675),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
@@ -123227,6 +124870,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
     ),
     (
         CardIndex::new(18682),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
+        CardIndex::new(18683),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
             is_un: false,
@@ -123835,6 +125485,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
         },
     ),
     (
+        CardIndex::new(18800),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
         CardIndex::new(18801),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
@@ -124395,6 +126052,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
         },
     ),
     (
+        CardIndex::new(18902),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
         CardIndex::new(18904),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
@@ -124444,6 +126108,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
         },
     ),
     (
+        CardIndex::new(18911),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[Some("firenation")],
+            is_un: false,
+        },
+    ),
+    (
         CardIndex::new(18912),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
@@ -124452,6 +126123,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
     ),
     (
         CardIndex::new(18913),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
+        CardIndex::new(18914),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
             is_un: false,
@@ -125067,6 +126745,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
         },
     ),
     (
+        CardIndex::new(19017),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
         CardIndex::new(19018),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
@@ -125166,6 +126851,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
     ),
     (
         CardIndex::new(19036),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
+        CardIndex::new(19038),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
             is_un: false,
@@ -126320,6 +128012,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
         },
     ),
     (
+        CardIndex::new(19260),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
         CardIndex::new(19261),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
@@ -127258,6 +128957,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
         },
     ),
     (
+        CardIndex::new(19454),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
         CardIndex::new(19455),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
@@ -127441,6 +129147,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
     ),
     (
         CardIndex::new(19493),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
+        CardIndex::new(19494),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
             is_un: false,
@@ -127665,6 +129378,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
     ),
     (
         CardIndex::new(19535),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
+        CardIndex::new(19536),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
             is_un: false,
@@ -127951,6 +129671,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
         },
     ),
     (
+        CardIndex::new(19593),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
         CardIndex::new(19594),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
@@ -128035,6 +129762,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
         },
     ),
     (
+        CardIndex::new(19614),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
         CardIndex::new(19616),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
@@ -128049,7 +129783,21 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
         },
     ),
     (
+        CardIndex::new(19618),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
         CardIndex::new(19620),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
+        CardIndex::new(19621),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
             is_un: false,
@@ -128127,6 +129875,27 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
     ),
     (
         CardIndex::new(19637),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
+        CardIndex::new(19638),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
+        CardIndex::new(19639),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
+        CardIndex::new(19641),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
             is_un: false,
@@ -128218,6 +129987,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
     ),
     (
         CardIndex::new(19661),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
+        CardIndex::new(19663),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
             is_un: false,
@@ -128316,6 +130092,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
     ),
     (
         CardIndex::new(19680),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
+        CardIndex::new(19683),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
             is_un: false,
@@ -128980,6 +130763,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
         },
     ),
     (
+        CardIndex::new(19808),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
         CardIndex::new(19809),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
@@ -129246,6 +131036,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
         },
     ),
     (
+        CardIndex::new(19886),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
         CardIndex::new(19887),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
@@ -129380,6 +131177,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
     ),
     (
         CardIndex::new(19918),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
+        CardIndex::new(19919),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
             is_un: false,
@@ -129709,6 +131513,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
     ),
     (
         CardIndex::new(19990),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
+        CardIndex::new(19992),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
             is_un: false,
@@ -130156,6 +131967,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
         },
     ),
     (
+        CardIndex::new(20086),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
         CardIndex::new(20087),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
@@ -130471,6 +132289,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
         },
     ),
     (
+        CardIndex::new(20159),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
         CardIndex::new(20160),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
@@ -130479,6 +132304,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
     ),
     (
         CardIndex::new(20161),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
+        CardIndex::new(20162),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
             is_un: false,
@@ -130598,6 +132430,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
     ),
     (
         CardIndex::new(20186),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
+        CardIndex::new(20188),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
             is_un: false,
@@ -131164,6 +133003,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
         },
     ),
     (
+        CardIndex::new(20289),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
         CardIndex::new(20291),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
@@ -131220,6 +133066,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
         },
     ),
     (
+        CardIndex::new(20299),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
         CardIndex::new(20300),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
@@ -131263,6 +133116,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
     ),
     (
         CardIndex::new(20306),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
+        CardIndex::new(20307),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
             is_un: false,
@@ -131528,6 +133388,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
         },
     ),
     (
+        CardIndex::new(20359),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
         CardIndex::new(20362),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
@@ -131550,6 +133417,20 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
     ),
     (
         CardIndex::new(20365),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
+        CardIndex::new(20366),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
+        CardIndex::new(20367),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
             is_un: false,
@@ -131661,6 +133542,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
         },
     ),
     (
+        CardIndex::new(20384),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
         CardIndex::new(20385),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
@@ -131717,6 +133605,20 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
         },
     ),
     (
+        CardIndex::new(20394),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
+        CardIndex::new(20397),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
         CardIndex::new(20398),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None, None],
@@ -131759,6 +133661,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
         },
     ),
     (
+        CardIndex::new(20404),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
         CardIndex::new(20405),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
@@ -131773,7 +133682,21 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
         },
     ),
     (
+        CardIndex::new(20407),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
         CardIndex::new(20409),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
+        CardIndex::new(20410),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
             is_un: false,
@@ -131906,7 +133829,21 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
         },
     ),
     (
+        CardIndex::new(20430),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
         CardIndex::new(20431),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
+        CardIndex::new(20432),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
             is_un: false,
@@ -131962,9 +133899,23 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
         },
     ),
     (
+        CardIndex::new(20445),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
         CardIndex::new(20446),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None, None],
+            is_un: false,
+        },
+    ),
+    (
+        CardIndex::new(20447),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
             is_un: false,
         },
     ),
@@ -132084,6 +134035,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
         CardIndex::new(20472),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None, None],
+            is_un: false,
+        },
+    ),
+    (
+        CardIndex::new(20473),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
             is_un: false,
         },
     ),
@@ -132291,7 +134249,21 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
         },
     ),
     (
+        CardIndex::new(20511),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
         CardIndex::new(20512),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
+        CardIndex::new(20514),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
             is_un: false,
@@ -132417,9 +134389,23 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
         },
     ),
     (
+        CardIndex::new(20537),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
         CardIndex::new(20538),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None, None],
+            is_un: false,
+        },
+    ),
+    (
+        CardIndex::new(20540),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
             is_un: false,
         },
     ),
@@ -132445,6 +134431,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
         },
     ),
     (
+        CardIndex::new(20545),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
         CardIndex::new(20546),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None, None],
@@ -132453,6 +134446,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
     ),
     (
         CardIndex::new(20547),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
+        CardIndex::new(20548),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
             is_un: false,
@@ -132495,6 +134495,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
     ),
     (
         CardIndex::new(20554),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
+        CardIndex::new(20555),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
             is_un: false,
@@ -132571,6 +134578,20 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
         },
     ),
     (
+        CardIndex::new(20568),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
+        CardIndex::new(20570),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
         CardIndex::new(20571),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
@@ -132578,7 +134599,21 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
         },
     ),
     (
+        CardIndex::new(20572),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
         CardIndex::new(20573),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
+        CardIndex::new(20575),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
             is_un: false,
@@ -132627,6 +134662,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
         },
     ),
     (
+        CardIndex::new(20584),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
         CardIndex::new(20585),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
@@ -132649,6 +134691,20 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
     ),
     (
         CardIndex::new(20589),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
+        CardIndex::new(20590),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
+        CardIndex::new(20591),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
             is_un: false,
@@ -132725,6 +134781,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
         },
     ),
     (
+        CardIndex::new(20604),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
         CardIndex::new(20608),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
@@ -132754,6 +134817,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
     ),
     (
         CardIndex::new(20623),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
+        CardIndex::new(20624),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
             is_un: false,
@@ -132971,6 +135041,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
     ),
     (
         CardIndex::new(20683),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
+        CardIndex::new(20687),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
             is_un: false,
@@ -133327,6 +135404,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
         },
     ),
     (
+        CardIndex::new(20780),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
         CardIndex::new(20781),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
@@ -133335,6 +135419,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
     ),
     (
         CardIndex::new(20782),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
+        CardIndex::new(20783),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
             is_un: false,
@@ -133384,6 +135475,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
     ),
     (
         CardIndex::new(20797),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
+        CardIndex::new(20800),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
             is_un: false,
@@ -133614,6 +135712,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
         },
     ),
     (
+        CardIndex::new(20849),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[Some("foretell")],
+            is_un: false,
+        },
+    ),
+    (
         CardIndex::new(20850),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
@@ -133733,6 +135838,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
         },
     ),
     (
+        CardIndex::new(20870),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
         CardIndex::new(20871),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[Some("foretell")],
@@ -133769,6 +135881,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
     ),
     (
         CardIndex::new(20877),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
+        CardIndex::new(20878),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
             is_un: false,
@@ -133874,6 +135993,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
     ),
     (
         CardIndex::new(20900),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
+        CardIndex::new(20902),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
             is_un: false,
@@ -133988,6 +136114,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
         CardIndex::new(20922),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
+        CardIndex::new(20923),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None, None],
             is_un: false,
         },
     ),
@@ -134216,7 +136349,21 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
         },
     ),
     (
+        CardIndex::new(20973),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
         CardIndex::new(20978),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
+        CardIndex::new(20979),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
             is_un: false,
@@ -134287,6 +136434,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
     ),
     (
         CardIndex::new(20994),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
+        CardIndex::new(20995),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
             is_un: false,
@@ -134643,6 +136797,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
         },
     ),
     (
+        CardIndex::new(21076),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
         CardIndex::new(21077),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
@@ -134758,6 +136919,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
         CardIndex::new(21099),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
+        CardIndex::new(21100),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[Some("quandrix")],
             is_un: false,
         },
     ),
@@ -134937,6 +137105,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
         },
     ),
     (
+        CardIndex::new(21136),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
         CardIndex::new(21137),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[Some("witherbloom")],
@@ -134961,6 +137136,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
         CardIndex::new(21140),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
+        CardIndex::new(21141),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[Some("silverquill")],
             is_un: false,
         },
     ),
@@ -135238,6 +137420,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
         },
     ),
     (
+        CardIndex::new(21216),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[Some("quandrix")],
+            is_un: false,
+        },
+    ),
+    (
         CardIndex::new(21217),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[Some("quandrix")],
@@ -135350,6 +137539,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
         },
     ),
     (
+        CardIndex::new(21249),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[Some("silverquill")],
+            is_un: false,
+        },
+    ),
+    (
         CardIndex::new(21250),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
@@ -135385,6 +137581,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
         },
     ),
     (
+        CardIndex::new(21259),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[Some("silverquill")],
+            is_un: false,
+        },
+    ),
+    (
         CardIndex::new(21261),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
@@ -135414,6 +137617,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
     ),
     (
         CardIndex::new(21267),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[Some("lorehold")],
+            is_un: false,
+        },
+    ),
+    (
+        CardIndex::new(21268),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[Some("lorehold")],
             is_un: false,
@@ -135465,6 +137675,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
         CardIndex::new(21278),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[Some("quandrix")],
+            is_un: false,
+        },
+    ),
+    (
+        CardIndex::new(21281),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
             is_un: false,
         },
     ),
@@ -136039,6 +138256,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
         CardIndex::new(21429),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
+        CardIndex::new(21431),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[Some("lorehold")],
             is_un: false,
         },
     ),
@@ -136646,6 +138870,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
     ),
     (
         CardIndex::new(21556),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
+        CardIndex::new(21557),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
             is_un: false,
@@ -137541,6 +139772,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
         },
     ),
     (
+        CardIndex::new(21723),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
         CardIndex::new(21726),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
@@ -137751,6 +139989,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
         },
     ),
     (
+        CardIndex::new(21777),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
         CardIndex::new(21778),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
@@ -137891,6 +140136,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
         },
     ),
     (
+        CardIndex::new(21813),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
         CardIndex::new(21814),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
@@ -138017,7 +140269,21 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
         },
     ),
     (
+        CardIndex::new(21839),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
         CardIndex::new(21841),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
+        CardIndex::new(21842),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
             is_un: false,
@@ -138073,6 +140339,20 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
         },
     ),
     (
+        CardIndex::new(21852),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
+        CardIndex::new(21853),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
         CardIndex::new(21854),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
@@ -138081,6 +140361,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
     ),
     (
         CardIndex::new(21859),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
+        CardIndex::new(21861),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
             is_un: false,
@@ -138144,6 +140431,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
     ),
     (
         CardIndex::new(21879),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
+        CardIndex::new(21882),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
             is_un: false,
@@ -138311,6 +140605,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
         },
     ),
     (
+        CardIndex::new(21917),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
         CardIndex::new(21919),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
@@ -138403,6 +140704,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
     ),
     (
         CardIndex::new(21938),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
+        CardIndex::new(21940),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
             is_un: false,
@@ -138585,6 +140893,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
     ),
     (
         CardIndex::new(21991),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
+        CardIndex::new(21994),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
             is_un: false,
@@ -138948,6 +141263,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
         },
     ),
     (
+        CardIndex::new(22108),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
         CardIndex::new(22109),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
@@ -139305,6 +141627,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
         },
     ),
     (
+        CardIndex::new(22204),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
         CardIndex::new(22205),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
@@ -139523,6 +141852,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
     ),
     (
         CardIndex::new(22263),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
+        CardIndex::new(22266),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
             is_un: false,
@@ -139900,6 +142236,20 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
         },
     ),
     (
+        CardIndex::new(22381),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
+        CardIndex::new(22385),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
         CardIndex::new(22393),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
@@ -140013,6 +142363,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
     ),
     (
         CardIndex::new(22421),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
+        CardIndex::new(22423),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
             is_un: false,
@@ -140232,6 +142589,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
         CardIndex::new(22472),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
+        CardIndex::new(22473),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None, None],
             is_un: false,
         },
     ),
@@ -140607,6 +142971,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
         },
     ),
     (
+        CardIndex::new(22558),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
         CardIndex::new(22560),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
@@ -140698,7 +143069,21 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
         },
     ),
     (
+        CardIndex::new(22580),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
         CardIndex::new(22581),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
+        CardIndex::new(22585),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
             is_un: false,
@@ -141118,6 +143503,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
         },
     ),
     (
+        CardIndex::new(22750),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
         CardIndex::new(22752),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None, None],
@@ -141216,6 +143608,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
         },
     ),
     (
+        CardIndex::new(22770),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
         CardIndex::new(22772),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
@@ -141245,6 +143644,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
     ),
     (
         CardIndex::new(22779),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
+        CardIndex::new(22780),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
             is_un: false,
@@ -141287,6 +143693,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
     ),
     (
         CardIndex::new(22791),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
+        CardIndex::new(22792),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
             is_un: false,
@@ -141546,6 +143959,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
     ),
     (
         CardIndex::new(22854),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
+        CardIndex::new(22856),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
             is_un: false,
@@ -141986,7 +144406,21 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
         },
     ),
     (
+        CardIndex::new(22950),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
         CardIndex::new(22951),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
+        CardIndex::new(22954),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
             is_un: false,
@@ -142175,6 +144609,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
         },
     ),
     (
+        CardIndex::new(23002),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
         CardIndex::new(23003),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None, None],
@@ -142253,6 +144694,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
     ),
     (
         CardIndex::new(23016),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
+        CardIndex::new(23017),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
             is_un: false,
@@ -142491,6 +144939,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
     ),
     (
         CardIndex::new(23132),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
+        CardIndex::new(23133),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
             is_un: false,
@@ -142756,6 +145211,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
         },
     ),
     (
+        CardIndex::new(23184),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
         CardIndex::new(23185),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
@@ -142840,6 +145302,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
         },
     ),
     (
+        CardIndex::new(23210),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[Some("brokers")],
+            is_un: false,
+        },
+    ),
+    (
         CardIndex::new(23211),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
@@ -142871,6 +145340,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
         CardIndex::new(23219),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
+        CardIndex::new(23221),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[Some("cabaretti")],
             is_un: false,
         },
     ),
@@ -142932,6 +145408,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
     ),
     (
         CardIndex::new(23239),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
+        CardIndex::new(23240),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
             is_un: false,
@@ -143004,6 +145487,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
         CardIndex::new(23261),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[Some("maestros")],
+            is_un: false,
+        },
+    ),
+    (
+        CardIndex::new(23266),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
             is_un: false,
         },
     ),
@@ -143162,6 +145652,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
         },
     ),
     (
+        CardIndex::new(23304),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[Some("obscura")],
+            is_un: false,
+        },
+    ),
+    (
         CardIndex::new(23305),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[Some("obscura")],
@@ -143198,6 +145695,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
     ),
     (
         CardIndex::new(23311),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
+        CardIndex::new(23313),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
             is_un: false,
@@ -143526,6 +146030,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
         },
     ),
     (
+        CardIndex::new(23414),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
         CardIndex::new(23415),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
@@ -143569,6 +146080,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
     ),
     (
         CardIndex::new(23431),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
+        CardIndex::new(23434),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
             is_un: false,
@@ -143820,6 +146338,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
         },
     ),
     (
+        CardIndex::new(23530),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
         CardIndex::new(23531),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
@@ -143905,6 +146430,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
     ),
     (
         CardIndex::new(23549),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
+        CardIndex::new(23550),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
             is_un: false,
@@ -144038,6 +146570,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
     ),
     (
         CardIndex::new(23587),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
+        CardIndex::new(23589),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
             is_un: false,
@@ -144359,6 +146898,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
         },
     ),
     (
+        CardIndex::new(23660),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
         CardIndex::new(23662),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
@@ -144408,6 +146954,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
         },
     ),
     (
+        CardIndex::new(23672),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
         CardIndex::new(23673),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
@@ -144436,6 +146989,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
         },
     ),
     (
+        CardIndex::new(23688),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
         CardIndex::new(23689),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
@@ -144451,6 +147011,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
     ),
     (
         CardIndex::new(23693),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
+        CardIndex::new(23695),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
             is_un: false,
@@ -144590,6 +147157,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
         },
     ),
     (
+        CardIndex::new(23731),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
         CardIndex::new(23732),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
@@ -144688,6 +147262,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
         },
     ),
     (
+        CardIndex::new(23753),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
         CardIndex::new(23754),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
@@ -144745,6 +147326,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
     ),
     (
         CardIndex::new(23775),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
+        CardIndex::new(23776),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
             is_un: false,
@@ -145038,6 +147626,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
         },
     ),
     (
+        CardIndex::new(24075),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
         CardIndex::new(24078),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
@@ -145269,6 +147864,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
         },
     ),
     (
+        CardIndex::new(24128),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
         CardIndex::new(24129),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
@@ -145403,6 +148005,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
     ),
     (
         CardIndex::new(24153),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
+        CardIndex::new(24154),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
             is_un: false,
@@ -145619,6 +148228,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
         },
     ),
     (
+        CardIndex::new(24202),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
         CardIndex::new(24203),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
@@ -145801,7 +148417,21 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
         },
     ),
     (
+        CardIndex::new(24242),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
         CardIndex::new(24243),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
+        CardIndex::new(24245),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
             is_un: false,
@@ -146039,6 +148669,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
         },
     ),
     (
+        CardIndex::new(24292),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
         CardIndex::new(24293),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
@@ -146089,6 +148726,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
     ),
     (
         CardIndex::new(24308),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
+        CardIndex::new(24309),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
             is_un: false,
@@ -146403,6 +149047,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
         },
     ),
     (
+        CardIndex::new(24467),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
         CardIndex::new(24471),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
@@ -146460,6 +149111,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
     ),
     (
         CardIndex::new(24494),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
+        CardIndex::new(24504),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
             is_un: false,
@@ -146530,6 +149188,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
     ),
     (
         CardIndex::new(24524),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
+        CardIndex::new(24525),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
             is_un: false,
@@ -146676,6 +149341,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
         },
     ),
     (
+        CardIndex::new(24566),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
         CardIndex::new(24567),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
@@ -146691,6 +149363,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
     ),
     (
         CardIndex::new(24571),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
+        CardIndex::new(24573),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
             is_un: false,
@@ -147110,6 +149789,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
         },
     ),
     (
+        CardIndex::new(24712),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
         CardIndex::new(24714),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
@@ -147132,6 +149818,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
     ),
     (
         CardIndex::new(24717),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
+        CardIndex::new(24718),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
             is_un: false,
@@ -147383,6 +150076,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
         },
     ),
     (
+        CardIndex::new(24767),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
         CardIndex::new(24768),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
@@ -147516,6 +150216,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
         },
     ),
     (
+        CardIndex::new(24793),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
         CardIndex::new(24794),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
@@ -147552,6 +150259,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
     ),
     (
         CardIndex::new(24801),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
+        CardIndex::new(24802),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
             is_un: false,
@@ -147684,6 +150398,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
         },
     ),
     (
+        CardIndex::new(24829),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
         CardIndex::new(24831),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
@@ -147804,6 +150525,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
     ),
     (
         CardIndex::new(24859),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
+        CardIndex::new(24861),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
             is_un: false,
@@ -147965,6 +150693,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
     ),
     (
         CardIndex::new(24895),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
+        CardIndex::new(24896),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
             is_un: false,
@@ -148307,6 +151042,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
         },
     ),
     (
+        CardIndex::new(24972),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
         CardIndex::new(24973),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
@@ -148525,6 +151267,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
     ),
     (
         CardIndex::new(25024),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
+        CardIndex::new(25025),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
             is_un: false,
@@ -148756,6 +151505,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
     ),
     (
         CardIndex::new(25124),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
+        CardIndex::new(25125),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
             is_un: false,
@@ -150015,6 +152771,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
         },
     ),
     (
+        CardIndex::new(25446),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None, None],
+            is_un: false,
+        },
+    ),
+    (
         CardIndex::new(25450),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
@@ -150267,6 +153030,27 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
         },
     ),
     (
+        CardIndex::new(25506),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
+        CardIndex::new(25509),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
+        CardIndex::new(25510),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
         CardIndex::new(25512),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
@@ -150323,6 +153107,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
         },
     ),
     (
+        CardIndex::new(25523),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
         CardIndex::new(25525),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
@@ -150352,6 +153143,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
     ),
     (
         CardIndex::new(25533),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
+        CardIndex::new(25534),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
             is_un: false,
@@ -150408,6 +153206,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
     ),
     (
         CardIndex::new(25545),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
+        CardIndex::new(25546),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
             is_un: false,
@@ -150562,6 +153367,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
     ),
     (
         CardIndex::new(25585),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None, None],
+            is_un: false,
+        },
+    ),
+    (
+        CardIndex::new(25586),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None, None],
             is_un: false,
@@ -151051,6 +153863,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
         },
     ),
     (
+        CardIndex::new(25721),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None, None],
+            is_un: false,
+        },
+    ),
+    (
         CardIndex::new(25723),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
@@ -151275,6 +154094,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
         },
     ),
     (
+        CardIndex::new(25792),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
         CardIndex::new(25793),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
@@ -151394,6 +154220,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
         },
     ),
     (
+        CardIndex::new(25823),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
         CardIndex::new(25830),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
@@ -151471,6 +154304,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
         },
     ),
     (
+        CardIndex::new(25846),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
         CardIndex::new(25847),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
@@ -151513,7 +154353,21 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
         },
     ),
     (
+        CardIndex::new(25857),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
         CardIndex::new(25858),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
+        CardIndex::new(25859),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
             is_un: false,
@@ -151625,6 +154479,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
         },
     ),
     (
+        CardIndex::new(25886),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
         CardIndex::new(25889),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
@@ -151681,6 +154542,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
         },
     ),
     (
+        CardIndex::new(25901),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
         CardIndex::new(25904),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
@@ -151689,6 +154557,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
     ),
     (
         CardIndex::new(25905),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
+        CardIndex::new(25906),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
             is_un: false,
@@ -151793,6 +154668,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
         },
     ),
     (
+        CardIndex::new(25937),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
         CardIndex::new(25939),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
@@ -151863,6 +154745,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
         },
     ),
     (
+        CardIndex::new(25959),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
         CardIndex::new(25962),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
@@ -151920,6 +154809,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
     ),
     (
         CardIndex::new(25975),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
+        CardIndex::new(25978),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
             is_un: false,
@@ -152325,6 +155221,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
         },
     ),
     (
+        CardIndex::new(26055),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
         CardIndex::new(26056),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
@@ -152333,6 +155236,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
     ),
     (
         CardIndex::new(26057),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
+        CardIndex::new(26058),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
             is_un: false,
@@ -152577,6 +155487,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
         },
     ),
     (
+        CardIndex::new(26113),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
         CardIndex::new(26115),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
@@ -152801,6 +155718,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
         },
     ),
     (
+        CardIndex::new(26158),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
         CardIndex::new(26159),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
@@ -152844,6 +155768,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
     ),
     (
         CardIndex::new(26170),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
+        CardIndex::new(26171),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
             is_un: false,
@@ -152900,6 +155831,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
     ),
     (
         CardIndex::new(26181),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
+        CardIndex::new(26184),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
             is_un: false,
@@ -153004,7 +155942,21 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
         },
     ),
     (
+        CardIndex::new(26218),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
         CardIndex::new(26219),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
+        CardIndex::new(26220),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
             is_un: false,
@@ -153277,6 +156229,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
         },
     ),
     (
+        CardIndex::new(26301),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
         CardIndex::new(26302),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
@@ -153480,6 +156439,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
         },
     ),
     (
+        CardIndex::new(26355),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
         CardIndex::new(26356),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
@@ -153544,6 +156510,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
     ),
     (
         CardIndex::new(26372),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
+        CardIndex::new(26373),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
             is_un: false,
@@ -154068,6 +157041,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
         },
     ),
     (
+        CardIndex::new(26490),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
         CardIndex::new(26491),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
@@ -154418,6 +157398,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
         },
     ),
     (
+        CardIndex::new(26627),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None, None],
+            is_un: false,
+        },
+    ),
+    (
         CardIndex::new(26628),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
@@ -154586,6 +157573,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
         },
     ),
     (
+        CardIndex::new(26767),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
         CardIndex::new(26768),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
@@ -154636,6 +157630,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
     ),
     (
         CardIndex::new(26792),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
+        CardIndex::new(26794),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
             is_un: false,
@@ -154922,6 +157923,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
         },
     ),
     (
+        CardIndex::new(26860),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
         CardIndex::new(26861),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
@@ -154951,6 +157959,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
     ),
     (
         CardIndex::new(26866),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
+        CardIndex::new(26867),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
             is_un: false,
@@ -155545,6 +158560,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
         },
     ),
     (
+        CardIndex::new(26994),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
         CardIndex::new(26996),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
@@ -155671,6 +158693,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
         },
     ),
     (
+        CardIndex::new(27020),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
         CardIndex::new(27021),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
@@ -155763,6 +158792,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
     ),
     (
         CardIndex::new(27041),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
+        CardIndex::new(27042),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
             is_un: false,
@@ -155937,6 +158973,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
         },
     ),
     (
+        CardIndex::new(27075),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
         CardIndex::new(27076),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
@@ -155994,6 +159037,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
     ),
     (
         CardIndex::new(27087),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
+        CardIndex::new(27088),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
             is_un: false,
@@ -156329,6 +159379,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
         },
     ),
     (
+        CardIndex::new(27233),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
         CardIndex::new(27237),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
@@ -156484,6 +159541,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
     ),
     (
         CardIndex::new(27286),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
+        CardIndex::new(27290),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
             is_un: false,
@@ -156735,6 +159799,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
         },
     ),
     (
+        CardIndex::new(27352),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
         CardIndex::new(27354),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
@@ -156792,6 +159863,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
     ),
     (
         CardIndex::new(27379),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
+        CardIndex::new(27380),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
             is_un: false,
@@ -157030,6 +160108,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
     ),
     (
         CardIndex::new(27440),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
+        CardIndex::new(27441),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
             is_un: false,
@@ -157589,6 +160674,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
         },
     ),
     (
+        CardIndex::new(27622),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
         CardIndex::new(27623),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
@@ -157660,6 +160752,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
     ),
     (
         CardIndex::new(27643),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
+        CardIndex::new(27644),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
             is_un: false,
@@ -157800,6 +160899,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
     ),
     (
         CardIndex::new(27675),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
+        CardIndex::new(27676),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
             is_un: false,
@@ -158114,6 +161220,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
         },
     ),
     (
+        CardIndex::new(27790),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
         CardIndex::new(27792),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
@@ -158178,6 +161291,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
     ),
     (
         CardIndex::new(27810),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
+        CardIndex::new(27811),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
             is_un: false,
@@ -158402,6 +161522,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
     ),
     (
         CardIndex::new(27864),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
+        CardIndex::new(27865),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
             is_un: false,
@@ -158667,6 +161794,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
         },
     ),
     (
+        CardIndex::new(27929),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
         CardIndex::new(27931),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
@@ -158815,6 +161949,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
     ),
     (
         CardIndex::new(27970),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
+        CardIndex::new(27971),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
             is_un: false,
@@ -159094,6 +162235,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
         },
     ),
     (
+        CardIndex::new(28030),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
         CardIndex::new(28031),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
@@ -159220,6 +162368,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
         },
     ),
     (
+        CardIndex::new(28061),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
         CardIndex::new(28062),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
@@ -159263,6 +162418,20 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
     ),
     (
         CardIndex::new(28073),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
+        CardIndex::new(28074),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
+        CardIndex::new(28075),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
             is_un: false,
@@ -159823,6 +162992,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
     ),
     (
         CardIndex::new(28244),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
+        CardIndex::new(28245),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
             is_un: false,
@@ -160774,6 +163950,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
         },
     ),
     (
+        CardIndex::new(28471),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
         CardIndex::new(28472),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
@@ -161166,6 +164349,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
         },
     ),
     (
+        CardIndex::new(28570),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
         CardIndex::new(28572),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
@@ -161313,6 +164503,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
         },
     ),
     (
+        CardIndex::new(28612),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
         CardIndex::new(28615),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
@@ -161349,6 +164546,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
     ),
     (
         CardIndex::new(28624),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
+        CardIndex::new(28628),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
             is_un: false,
@@ -161412,6 +164616,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
     ),
     (
         CardIndex::new(28649),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
+        CardIndex::new(28650),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
             is_un: false,
@@ -161824,6 +165035,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
         },
     ),
     (
+        CardIndex::new(28769),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
         CardIndex::new(28773),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
@@ -161930,6 +165148,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
     ),
     (
         CardIndex::new(28813),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
+        CardIndex::new(28815),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
             is_un: false,
@@ -162167,6 +165392,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
         },
     ),
     (
+        CardIndex::new(28878),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
         CardIndex::new(28879),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
@@ -162342,6 +165574,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
         },
     ),
     (
+        CardIndex::new(28926),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
         CardIndex::new(28927),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
@@ -162462,6 +165701,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
     ),
     (
         CardIndex::new(29007),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
+        CardIndex::new(29008),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
             is_un: false,
@@ -162972,6 +166218,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
         },
     ),
     (
+        CardIndex::new(29144),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
         CardIndex::new(29145),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
@@ -163301,6 +166554,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
         },
     ),
     (
+        CardIndex::new(29243),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
         CardIndex::new(29244),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
@@ -163420,6 +166680,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
         },
     ),
     (
+        CardIndex::new(29271),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
         CardIndex::new(29273),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
@@ -163486,6 +166753,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
         CardIndex::new(29286),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
+        CardIndex::new(29288),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[Some("desparked")],
             is_un: false,
         },
     ),
@@ -163617,6 +166891,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
     ),
     (
         CardIndex::new(29338),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
+        CardIndex::new(29374),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
             is_un: false,
@@ -163973,6 +167254,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
         },
     ),
     (
+        CardIndex::new(29435),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
         CardIndex::new(29437),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
@@ -164232,6 +167520,20 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
         },
     ),
     (
+        CardIndex::new(29479),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
+        CardIndex::new(29480),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
         CardIndex::new(29482),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
@@ -164331,6 +167633,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
     ),
     (
         CardIndex::new(29507),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
+        CardIndex::new(29508),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
             is_un: false,
@@ -165331,6 +168640,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
         },
     ),
     (
+        CardIndex::new(29713),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
         CardIndex::new(29714),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[Some("desparked")],
@@ -165408,6 +168724,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
         },
     ),
     (
+        CardIndex::new(29729),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
         CardIndex::new(29733),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
@@ -165478,6 +168801,20 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
         },
     ),
     (
+        CardIndex::new(29754),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
+        CardIndex::new(29756),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
         CardIndex::new(29757),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
@@ -165520,6 +168857,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
         },
     ),
     (
+        CardIndex::new(29766),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
         CardIndex::new(29767),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
@@ -165535,6 +168879,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
     ),
     (
         CardIndex::new(29769),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
+        CardIndex::new(29770),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
             is_un: false,
@@ -165856,6 +169207,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
         },
     ),
     (
+        CardIndex::new(29833),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
         CardIndex::new(29834),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
@@ -165950,6 +169308,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
         CardIndex::new(29881),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[Some("sultai")],
+            is_un: false,
+        },
+    ),
+    (
+        CardIndex::new(29882),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
             is_un: false,
         },
     ),
@@ -166060,6 +169425,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
     ),
     (
         CardIndex::new(29908),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
+        CardIndex::new(29909),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
             is_un: false,
@@ -166269,6 +169641,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
         },
     ),
     (
+        CardIndex::new(29951),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
         CardIndex::new(29952),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
@@ -166423,6 +169802,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
         },
     ),
     (
+        CardIndex::new(29981),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
         CardIndex::new(29982),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
@@ -166508,6 +169894,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
     ),
     (
         CardIndex::new(30000),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[Some("jeskai")],
+            is_un: false,
+        },
+    ),
+    (
+        CardIndex::new(30001),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[Some("jeskai")],
             is_un: false,
@@ -166745,6 +170138,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
         },
     ),
     (
+        CardIndex::new(30061),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
         CardIndex::new(30064),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
@@ -166844,6 +170244,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
     ),
     (
         CardIndex::new(30089),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
+        CardIndex::new(30090),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
             is_un: false,
@@ -167007,6 +170414,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
         CardIndex::new(30123),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[Some("temur")],
+            is_un: false,
+        },
+    ),
+    (
+        CardIndex::new(30125),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
             is_un: false,
         },
     ),
@@ -167326,6 +170740,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
         },
     ),
     (
+        CardIndex::new(30238),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
         CardIndex::new(30240),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
@@ -167355,6 +170776,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
     ),
     (
         CardIndex::new(30249),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
+        CardIndex::new(30250),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
             is_un: false,
@@ -167445,6 +170873,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
         },
     ),
     (
+        CardIndex::new(30272),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
         CardIndex::new(30274),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
@@ -167460,6 +170895,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
     ),
     (
         CardIndex::new(30277),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
+        CardIndex::new(30278),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
             is_un: false,
@@ -167637,6 +171079,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
         CardIndex::new(30311),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None, None],
+            is_un: false,
+        },
+    ),
+    (
+        CardIndex::new(30315),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
             is_un: false,
         },
     ),
@@ -168117,6 +171566,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
         },
     ),
     (
+        CardIndex::new(30436),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
         CardIndex::new(30439),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
@@ -168474,6 +171930,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
         },
     ),
     (
+        CardIndex::new(30526),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
         CardIndex::new(30527),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
@@ -168531,6 +171994,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
     ),
     (
         CardIndex::new(30541),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
+        CardIndex::new(30542),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
             is_un: false,
@@ -168761,6 +172231,20 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
         },
     ),
     (
+        CardIndex::new(30623),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
+        CardIndex::new(30625),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
         CardIndex::new(30626),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
@@ -168825,6 +172309,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
     ),
     (
         CardIndex::new(30637),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
+        CardIndex::new(30638),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
             is_un: false,
@@ -168901,6 +172392,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
         },
     ),
     (
+        CardIndex::new(30655),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
         CardIndex::new(30656),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
@@ -168923,6 +172421,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
     ),
     (
         CardIndex::new(30659),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
+        CardIndex::new(30662),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
             is_un: false,
@@ -169006,6 +172511,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
         },
     ),
     (
+        CardIndex::new(30678),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
         CardIndex::new(30680),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
@@ -169048,6 +172560,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
         },
     ),
     (
+        CardIndex::new(30688),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
         CardIndex::new(30689),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
@@ -169084,6 +172603,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
     ),
     (
         CardIndex::new(30695),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
+        CardIndex::new(30696),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
             is_un: false,
@@ -169245,6 +172771,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
     ),
     (
         CardIndex::new(30725),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
+        CardIndex::new(30726),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
             is_un: false,
@@ -169475,6 +173008,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
         },
     ),
     (
+        CardIndex::new(30768),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
         CardIndex::new(30769),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
@@ -169574,6 +173114,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
     ),
     (
         CardIndex::new(30787),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
+        CardIndex::new(30790),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
             is_un: false,
@@ -169930,6 +173477,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
         },
     ),
     (
+        CardIndex::new(30860),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
         CardIndex::new(30863),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
@@ -170077,6 +173631,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
         },
     ),
     (
+        CardIndex::new(30929),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
         CardIndex::new(30931),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
@@ -170189,6 +173750,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
         },
     ),
     (
+        CardIndex::new(30955),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None, None],
+            is_un: false,
+        },
+    ),
+    (
         CardIndex::new(30956),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
@@ -170218,6 +173786,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
     ),
     (
         CardIndex::new(30963),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
+        CardIndex::new(30965),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
             is_un: false,
@@ -170267,6 +173842,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
     ),
     (
         CardIndex::new(30975),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
+        CardIndex::new(30978),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
             is_un: false,
@@ -170323,6 +173905,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
     ),
     (
         CardIndex::new(30990),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
+        CardIndex::new(30992),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
             is_un: false,
@@ -170770,6 +174359,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
         },
     ),
     (
+        CardIndex::new(31095),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
         CardIndex::new(31096),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
@@ -170918,6 +174514,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
     ),
     (
         CardIndex::new(31122),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
+        CardIndex::new(31123),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
             is_un: false,
@@ -171680,6 +175283,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
         },
     ),
     (
+        CardIndex::new(31299),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[Some("watertribe")],
+            is_un: false,
+        },
+    ),
+    (
         CardIndex::new(31300),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
@@ -171751,6 +175361,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
     ),
     (
         CardIndex::new(31316),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
+        CardIndex::new(31317),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
             is_un: false,
@@ -171890,6 +175507,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
         },
     ),
     (
+        CardIndex::new(31347),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
         CardIndex::new(31350),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[Some("watertribe")],
@@ -172023,6 +175647,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
         },
     ),
     (
+        CardIndex::new(31375),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
         CardIndex::new(31376),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
@@ -172080,6 +175711,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
     ),
     (
         CardIndex::new(31384),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
+        CardIndex::new(31385),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
             is_un: false,
@@ -172408,6 +176046,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
         },
     ),
     (
+        CardIndex::new(31456),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
         CardIndex::new(31457),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
@@ -172432,6 +176077,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
         CardIndex::new(31460),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[Some("earthkingdom")],
+            is_un: false,
+        },
+    ),
+    (
+        CardIndex::new(31461),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[Some("firenation")],
             is_un: false,
         },
     ),
@@ -172493,6 +176145,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
     ),
     (
         CardIndex::new(31474),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
+        CardIndex::new(31475),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
             is_un: false,
@@ -172884,6 +176543,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
         },
     ),
     (
+        CardIndex::new(31575),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
         CardIndex::new(31578),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
@@ -173046,6 +176712,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
     ),
     (
         CardIndex::new(31619),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
+        CardIndex::new(31620),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
             is_un: false,
@@ -173395,6 +177068,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
         },
     ),
     (
+        CardIndex::new(31699),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
         CardIndex::new(31700),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
@@ -173438,6 +177118,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
     ),
     (
         CardIndex::new(31711),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
+        CardIndex::new(31712),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
             is_un: false,
@@ -173969,6 +177656,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
         },
     ),
     (
+        CardIndex::new(31824),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
         CardIndex::new(31825),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
@@ -174249,6 +177943,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
         },
     ),
     (
+        CardIndex::new(31919),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
         CardIndex::new(31920),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
@@ -174480,7 +178181,21 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
         },
     ),
     (
+        CardIndex::new(31972),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
         CardIndex::new(31973),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
+        CardIndex::new(31974),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
             is_un: false,
@@ -174516,6 +178231,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
     ),
     (
         CardIndex::new(31979),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
+        CardIndex::new(31980),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
             is_un: false,
@@ -174656,6 +178378,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
     ),
     (
         CardIndex::new(32012),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
+        CardIndex::new(32014),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
             is_un: false,
@@ -174880,6 +178609,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
     ),
     (
         CardIndex::new(32060),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
+        CardIndex::new(32061),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
             is_un: false,
@@ -175355,6 +179091,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
         },
     ),
     (
+        CardIndex::new(32164),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
         CardIndex::new(32171),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[Some("witherbloom")],
@@ -175400,6 +179143,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
         CardIndex::new(32182),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[Some("lorehold")],
+            is_un: false,
+        },
+    ),
+    (
+        CardIndex::new(32184),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
             is_un: false,
         },
     ),
@@ -175491,6 +179241,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
         CardIndex::new(32201),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[Some("silverquill")],
+            is_un: false,
+        },
+    ),
+    (
+        CardIndex::new(32202),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
             is_un: false,
         },
     ),
@@ -175691,6 +179448,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
         },
     ),
     (
+        CardIndex::new(32254),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[Some("quandrix")],
+            is_un: false,
+        },
+    ),
+    (
         CardIndex::new(32255),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[Some("quandrix")],
@@ -175776,6 +179540,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
     ),
     (
         CardIndex::new(32274),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
+        CardIndex::new(32275),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
             is_un: false,
@@ -175971,6 +179742,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
         },
     ),
     (
+        CardIndex::new(32324),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[Some("witherbloom")],
+            is_un: false,
+        },
+    ),
+    (
         CardIndex::new(32327),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[Some("prismari")],
@@ -176153,6 +179931,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
         },
     ),
     (
+        CardIndex::new(32378),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[Some("silverquill")],
+            is_un: false,
+        },
+    ),
+    (
         CardIndex::new(32380),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[Some("prismari")],
@@ -176175,6 +179960,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
     ),
     (
         CardIndex::new(32385),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
+        CardIndex::new(32386),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
             is_un: false,
@@ -176608,6 +180400,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
         },
     ),
     (
+        CardIndex::new(32511),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
         CardIndex::new(32514),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
@@ -176616,6 +180415,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
     ),
     (
         CardIndex::new(32515),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
+        CardIndex::new(32517),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
             is_un: false,
@@ -176685,6 +180491,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
         },
     ),
     (
+        CardIndex::new(32533),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
         CardIndex::new(32534),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
@@ -176714,6 +180527,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
     ),
     (
         CardIndex::new(32539),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
+        CardIndex::new(32540),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
             is_un: false,
@@ -176839,7 +180659,21 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
         },
     ),
     (
+        CardIndex::new(32568),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
         CardIndex::new(32569),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
+        CardIndex::new(32570),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
             is_un: false,
@@ -176909,6 +180743,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
         },
     ),
     (
+        CardIndex::new(32583),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
         CardIndex::new(32584),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
@@ -176917,6 +180758,20 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
     ),
     (
         CardIndex::new(32585),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
+        CardIndex::new(32586),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
+        CardIndex::new(32587),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
             is_un: false,
@@ -177001,6 +180856,20 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
     ),
     (
         CardIndex::new(32601),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
+        CardIndex::new(32603),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
+        CardIndex::new(32605),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
             is_un: false,
@@ -177119,6 +180988,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
         },
     ),
     (
+        CardIndex::new(32635),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
         CardIndex::new(32637),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
@@ -177155,6 +181031,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
     ),
     (
         CardIndex::new(32643),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
+        CardIndex::new(32644),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
             is_un: false,
@@ -177266,6 +181149,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
         },
     ),
     (
+        CardIndex::new(32673),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
         CardIndex::new(32674),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
@@ -177295,6 +181185,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
     ),
     (
         CardIndex::new(32678),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
+        CardIndex::new(32679),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
             is_un: false,
@@ -177385,6 +181282,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
         },
     ),
     (
+        CardIndex::new(32699),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
         CardIndex::new(32700),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
@@ -177435,6 +181339,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
     ),
     (
         CardIndex::new(32707),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
+        CardIndex::new(32710),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
             is_un: false,
@@ -177518,6 +181429,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
         },
     ),
     (
+        CardIndex::new(32728),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
         CardIndex::new(32729),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
@@ -177554,6 +181472,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
     ),
     (
         CardIndex::new(32738),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
+        CardIndex::new(32741),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
             is_un: false,
@@ -177637,6 +181562,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
         },
     ),
     (
+        CardIndex::new(32763),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
         CardIndex::new(32764),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
@@ -177666,6 +181598,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
     ),
     (
         CardIndex::new(32769),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
+        CardIndex::new(32770),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
             is_un: false,
@@ -177777,6 +181716,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
         },
     ),
     (
+        CardIndex::new(32795),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
         CardIndex::new(32796),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
@@ -177876,6 +181822,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
     ),
     (
         CardIndex::new(32826),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
+        CardIndex::new(32828),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
             is_un: false,
@@ -178064,6 +182017,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
         },
     ),
     (
+        CardIndex::new(32867),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
         CardIndex::new(32869),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None, None],
@@ -178127,6 +182087,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
         },
     ),
     (
+        CardIndex::new(32884),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
         CardIndex::new(32888),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
@@ -178142,6 +182109,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
     ),
     (
         CardIndex::new(32890),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
+        CardIndex::new(32891),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
             is_un: false,
@@ -178176,6 +182150,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
         },
     ),
     (
+        CardIndex::new(32901),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
         CardIndex::new(32903),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
@@ -178198,6 +182179,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
     ),
     (
         CardIndex::new(32906),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
+        CardIndex::new(32907),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
             is_un: false,
@@ -178281,6 +182269,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
         },
     ),
     (
+        CardIndex::new(32927),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
         CardIndex::new(32928),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
@@ -178351,6 +182346,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
         },
     ),
     (
+        CardIndex::new(32944),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
         CardIndex::new(32948),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
@@ -178408,6 +182410,34 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
     ),
     (
         CardIndex::new(32964),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
+        CardIndex::new(32965),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
+        CardIndex::new(32967),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
+        CardIndex::new(32969),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
+        CardIndex::new(32970),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
             is_un: false,
@@ -178548,6 +182578,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
     ),
     (
         CardIndex::new(32995),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
+        CardIndex::new(32997),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
             is_un: false,
@@ -178736,6 +182773,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
         },
     ),
     (
+        CardIndex::new(33037),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
         CardIndex::new(33038),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
@@ -178779,6 +182823,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
     ),
     (
         CardIndex::new(33052),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
+        CardIndex::new(33053),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
             is_un: false,
@@ -178925,6 +182976,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
         },
     ),
     (
+        CardIndex::new(33084),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
         CardIndex::new(33088),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
@@ -178940,6 +182998,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
     ),
     (
         CardIndex::new(33091),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
+        CardIndex::new(33092),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
             is_un: false,
@@ -179037,7 +183102,21 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
         },
     ),
     (
+        CardIndex::new(33113),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
         CardIndex::new(33114),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
+        CardIndex::new(33115),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
             is_un: false,
@@ -179157,6 +183236,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
     ),
     (
         CardIndex::new(33136),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
+        CardIndex::new(33137),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
             is_un: false,
@@ -179604,6 +183690,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
         },
     ),
     (
+        CardIndex::new(33236),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
         CardIndex::new(33237),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
@@ -179667,6 +183760,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
         },
     ),
     (
+        CardIndex::new(33253),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None, None],
+            is_un: false,
+        },
+    ),
+    (
         CardIndex::new(33254),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
@@ -179723,6 +183823,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
         },
     ),
     (
+        CardIndex::new(33265),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
         CardIndex::new(33268),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
@@ -179740,6 +183847,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
         CardIndex::new(33270),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None, None],
+            is_un: false,
+        },
+    ),
+    (
+        CardIndex::new(33271),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
             is_un: false,
         },
     ),
@@ -179773,6 +183887,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
     ),
     (
         CardIndex::new(33278),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
+        CardIndex::new(33279),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
             is_un: false,
@@ -179982,6 +184103,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
         },
     ),
     (
+        CardIndex::new(33323),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
         CardIndex::new(33324),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
@@ -180025,6 +184153,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
     ),
     (
         CardIndex::new(33334),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
+        CardIndex::new(33335),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
             is_un: false,
@@ -180101,6 +184236,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
         },
     ),
     (
+        CardIndex::new(33358),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
         CardIndex::new(33361),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
@@ -180158,6 +184300,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
     ),
     (
         CardIndex::new(33369),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
+        CardIndex::new(33370),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
             is_un: false,
@@ -180325,6 +184474,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
         },
     ),
     (
+        CardIndex::new(33418),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
         CardIndex::new(33420),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
@@ -180440,6 +184596,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
         CardIndex::new(33446),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
+        CardIndex::new(33447),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[Some("echoverse")],
             is_un: false,
         },
     ),
@@ -181137,6 +185300,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
         },
     ),
     (
+        CardIndex::new(33634),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
         CardIndex::new(33635),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
@@ -181543,6 +185713,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
         },
     ),
     (
+        CardIndex::new(33702),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
         CardIndex::new(33703),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
@@ -181831,6 +186008,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
     ),
     (
         CardIndex::new(33768),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
+        CardIndex::new(33770),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
             is_un: false,
@@ -182320,6 +186504,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
         },
     ),
     (
+        CardIndex::new(33912),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
         CardIndex::new(33913),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
@@ -182551,6 +186742,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
         },
     ),
     (
+        CardIndex::new(33969),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
         CardIndex::new(33970),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
@@ -182677,6 +186875,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
         },
     ),
     (
+        CardIndex::new(34002),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
         CardIndex::new(34004),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
@@ -182685,6 +186890,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
     ),
     (
         CardIndex::new(34006),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
+        CardIndex::new(34007),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
             is_un: false,
@@ -182713,6 +186925,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
     ),
     (
         CardIndex::new(34014),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
+        CardIndex::new(34015),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
             is_un: false,
@@ -182824,6 +187043,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
         },
     ),
     (
+        CardIndex::new(34038),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
         CardIndex::new(34040),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
@@ -182902,6 +187128,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
     ),
     (
         CardIndex::new(34065),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
+        CardIndex::new(34066),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
             is_un: false,
@@ -183321,6 +187554,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
         },
     ),
     (
+        CardIndex::new(34156),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
         CardIndex::new(34157),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
@@ -183609,6 +187849,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
     ),
     (
         CardIndex::new(34228),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
+        CardIndex::new(34229),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
             is_un: false,

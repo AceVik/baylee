@@ -7028,6 +7028,148 @@ pub static TOY_ARTIFACT_1_1_WHITE: TokenDef = TokenDef {
     ..TokenDef::DEFAULT
 };
 
+/// colorless Shard.
+pub static SHARD_A4E3EA5DB: TokenDef = TokenDef {
+    name: "Shard",
+    types: TypeSet::ENCHANTMENT,
+    subtypes: &[enchantment::SHARD],
+    abilities: &[activated!(
+        cost!("{2}", SacrificeSelf),
+        &[Effect::scry(1), Effect::draw(1)]
+    )],
+    ..TokenDef::DEFAULT
+};
+
+/// */* green Dinosaur with trample.
+pub static DINOSAUR_X_X_GREEN_TRAMPLE: TokenDef = TokenDef {
+    name: "Dinosaur",
+    colors: ColorSet::from_slice(&[Color::Green]),
+    types: TypeSet::CREATURE,
+    subtypes: &[creature::DINOSAUR],
+    keywords: KeywordSet::TRAMPLE,
+    ..TokenDef::DEFAULT
+};
+
+/// 4/1 green legendary Guenhwyvar with trample.
+pub static GUENHWYVAR_LEGENDARY_4_1_GREEN_TRAMPLE: TokenDef = TokenDef {
+    name: "Guenhwyvar",
+    colors: ColorSet::from_slice(&[Color::Green]),
+    types: TypeSet::CREATURE,
+    supertypes: SupertypeSet::LEGENDARY,
+    subtypes: &[creature::CAT],
+    power: Some(4),
+    toughness: Some(1),
+    keywords: KeywordSet::TRAMPLE,
+    ..TokenDef::DEFAULT
+};
+
+/// 1/2 blue Storm Crow with flying.
+pub static STORM_CROW_1_2_BLUE_FLYING: TokenDef = TokenDef {
+    name: "Storm Crow",
+    colors: ColorSet::from_slice(&[Color::Blue]),
+    types: TypeSet::CREATURE,
+    subtypes: &[creature::BIRD],
+    power: Some(1),
+    toughness: Some(2),
+    keywords: KeywordSet::FLYING,
+    ..TokenDef::DEFAULT
+};
+
+/// colorless Sword with equip 2.
+pub static SWORD_EQUIP_2_A837D70E1: TokenDef = TokenDef {
+    name: "Sword",
+    types: TypeSet::ARTIFACT,
+    subtypes: &[artifact::EQUIPMENT],
+    abilities: &[
+        equip!(cost!("{2}")),
+        static_ability!(
+            Filter::And(&[Filter::CREATURE, Filter::AttachedToBySource]),
+            Modifier::ModifyPT(1, 1)
+        ),
+    ],
+    ..TokenDef::DEFAULT
+};
+
+/// 4/4 green legendary The Tiger God.
+pub static THE_TIGER_GOD_LEGENDARY_4_4_GREEN_AE516C47A: TokenDef = TokenDef {
+    name: "The Tiger God",
+    colors: ColorSet::from_slice(&[Color::Green]),
+    types: TypeSet::CREATURE,
+    supertypes: SupertypeSet::LEGENDARY,
+    subtypes: &[creature::CAT, creature::GOD],
+    power: Some(4),
+    toughness: Some(4),
+    abilities: &[static_ability!(Filter::This, Modifier::MaxBlockers(1))],
+    ..TokenDef::DEFAULT
+};
+
+/// 1/1 blue Illusion.
+pub static ILLUSION_1_1_BLUE_AF5F23524: TokenDef = TokenDef {
+    name: "Illusion",
+    colors: ColorSet::from_slice(&[Color::Blue]),
+    types: TypeSet::CREATURE,
+    subtypes: &[creature::ILLUSION],
+    power: Some(1),
+    toughness: Some(1),
+    abilities: &[static_ability!(
+        Filter::This,
+        Modifier::ModifyPTPerCount {
+            filter: &Filter::And(&[
+                Filter::And(&[Filter::HasSubtype(creature::ILLUSION), Filter::Another]),
+                Filter::ControlledByYou
+            ]),
+            p: 1,
+            t: 0
+        }
+    )],
+    ..TokenDef::DEFAULT
+};
+
+/// 3/3 blue Angel with flying.
+pub static ANGEL_3_3_BLUE_FLYING: TokenDef = TokenDef {
+    name: "Angel",
+    colors: ColorSet::from_slice(&[Color::Blue]),
+    types: TypeSet::CREATURE,
+    subtypes: &[creature::ANGEL],
+    power: Some(3),
+    toughness: Some(3),
+    keywords: KeywordSet::FLYING,
+    ..TokenDef::DEFAULT
+};
+
+/// 4/4 blue Giant Wizard.
+pub static GIANT_WIZARD_4_4_BLUE: TokenDef = TokenDef {
+    name: "Giant Wizard",
+    colors: ColorSet::from_slice(&[Color::Blue]),
+    types: TypeSet::CREATURE,
+    subtypes: &[creature::GIANT, creature::WIZARD],
+    power: Some(4),
+    toughness: Some(4),
+    ..TokenDef::DEFAULT
+};
+
+/// 1/1 white Kor Warrior.
+pub static KOR_WARRIOR_1_1_WHITE: TokenDef = TokenDef {
+    name: "Kor Warrior",
+    colors: ColorSet::from_slice(&[Color::White]),
+    types: TypeSet::CREATURE,
+    subtypes: &[creature::KOR, creature::WARRIOR],
+    power: Some(1),
+    toughness: Some(1),
+    ..TokenDef::DEFAULT
+};
+
+/// 2/1 white enchantment Cleric.
+pub static CLERIC_ENCHANTMENT_2_1_WHITE: TokenDef = TokenDef {
+    name: "Cleric",
+    colors: ColorSet::from_slice(&[Color::White]),
+    types: TypeSet::ENCHANTMENT.union(TypeSet::CREATURE),
+    subtypes: &[creature::CLERIC],
+    power: Some(2),
+    toughness: Some(1),
+    ..TokenDef::DEFAULT
+};
+
 /// Every token there is, in the order ids were assigned.
 pub static ALL: &[&TokenDef] = &[
     &tokens::ALLY_1_1_WHITE,
@@ -8359,6 +8501,17 @@ pub static ALL: &[&TokenDef] = &[
     &TREEFOLK_X_X_GREEN_REACH_AC1FE3DC7,
     &ILLUSION_0_2_BLUE_A820721BF,
     &TOY_ARTIFACT_1_1_WHITE,
+    &SHARD_A4E3EA5DB,
+    &DINOSAUR_X_X_GREEN_TRAMPLE,
+    &GUENHWYVAR_LEGENDARY_4_1_GREEN_TRAMPLE,
+    &STORM_CROW_1_2_BLUE_FLYING,
+    &SWORD_EQUIP_2_A837D70E1,
+    &THE_TIGER_GOD_LEGENDARY_4_4_GREEN_AE516C47A,
+    &ILLUSION_1_1_BLUE_AF5F23524,
+    &ANGEL_3_3_BLUE_FLYING,
+    &GIANT_WIZARD_4_4_BLUE,
+    &KOR_WARRIOR_1_1_WHITE,
+    &CLERIC_ENCHANTMENT_2_1_WHITE,
 ];
 
 /// The entries a reader wrote, as a subset of [`ALL`] — never a second
@@ -8902,6 +9055,17 @@ pub static GENERATED: &[&TokenDef] = &[
     &TREEFOLK_X_X_GREEN_REACH_AC1FE3DC7,
     &ILLUSION_0_2_BLUE_A820721BF,
     &TOY_ARTIFACT_1_1_WHITE,
+    &SHARD_A4E3EA5DB,
+    &DINOSAUR_X_X_GREEN_TRAMPLE,
+    &GUENHWYVAR_LEGENDARY_4_1_GREEN_TRAMPLE,
+    &STORM_CROW_1_2_BLUE_FLYING,
+    &SWORD_EQUIP_2_A837D70E1,
+    &THE_TIGER_GOD_LEGENDARY_4_4_GREEN_AE516C47A,
+    &ILLUSION_1_1_BLUE_AF5F23524,
+    &ANGEL_3_3_BLUE_FLYING,
+    &GIANT_WIZARD_4_4_BLUE,
+    &KOR_WARRIOR_1_1_WHITE,
+    &CLERIC_ENCHANTMENT_2_1_WHITE,
 ];
 
 /// Legacy duplicate ids and the canonical ids they now resolve to.

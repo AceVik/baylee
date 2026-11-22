@@ -179,6 +179,8 @@ pub mod brazen_buccaneers;
 pub mod bright_reprisal;
 #[path = "hou/burning_fist_minotaur.rs"]
 pub mod burning_fist_minotaur;
+#[path = "pxln/burning_sun_s_avatar.rs"]
+pub mod burning_sun_s_avatar;
 #[path = "akh/by_force.rs"]
 pub mod by_force;
 #[path = "xln/call_to_the_feast.rs"]
@@ -593,6 +595,8 @@ pub mod harvest_season;
 pub mod hashep_oasis;
 #[path = "akh/haze_of_pollen.rs"]
 pub mod haze_of_pollen;
+#[path = "akh/hazoret_s_favor.rs"]
+pub mod hazoret_s_favor;
 #[path = "akh/hazoret_s_monument.rs"]
 pub mod hazoret_s_monument;
 #[path = "akh/hazoret_the_fervent.rs"]
@@ -657,6 +661,8 @@ pub mod hour_of_revelation;
 pub mod huatli_dinosaur_knight;
 #[path = "xln/huatli_s_snubhorn.rs"]
 pub mod huatli_s_snubhorn;
+#[path = "aer/hungry_flames.rs"]
+pub mod hungry_flames;
 #[path = "c17/hungry_lynx.rs"]
 pub mod hungry_lynx;
 #[path = "akh/hyena_pack.rs"]
@@ -731,6 +737,8 @@ pub mod kari_zev_skyship_raider;
 pub mod kefnet_s_last_word;
 #[path = "akh/kefnet_s_monument.rs"]
 pub mod kefnet_s_monument;
+#[path = "akh/kefnet_the_mindful.rs"]
+pub mod kefnet_the_mindful;
 #[path = "c17/kess_dissident_mage.rs"]
 pub mod kess_dissident_mage;
 #[path = "akh/khenra_charioteer.rs"]
@@ -797,12 +805,16 @@ pub mod lord_of_the_accursed;
 pub mod lurching_rotbeast;
 #[path = "hou/magmaroth.rs"]
 pub mod magmaroth;
+#[path = "c17/magus_of_the_mind.rs"]
+pub mod magus_of_the_mind;
 #[path = "xln/makeshift_munitions.rs"]
 pub mod makeshift_munitions;
 #[path = "akh/manglehorn.rs"]
 pub mod manglehorn;
 #[path = "hou/manticore_eternal.rs"]
 pub mod manticore_eternal;
+#[path = "akh/manticore_of_the_gauntlet.rs"]
+pub mod manticore_of_the_gauntlet;
 #[path = "hou/marauding_boneslasher.rs"]
 pub mod marauding_boneslasher;
 #[path = "xln/marauding_looter.rs"]
@@ -861,6 +873,8 @@ pub mod neheb_the_worthy;
 pub mod nest_robber;
 #[path = "akh/never.rs"]
 pub mod never;
+#[path = "hou/nicol_bolas_god_pharaoh.rs"]
+pub mod nicol_bolas_god_pharaoh;
 #[path = "aer/night_market_aeronaut.rs"]
 pub mod night_market_aeronaut;
 #[path = "aer/night_market_guard.rs"]
@@ -869,8 +883,12 @@ pub mod night_market_guard;
 pub mod nimble_blade_khenra;
 #[path = "hou/nimble_obstructionist.rs"]
 pub mod nimble_obstructionist;
+#[path = "hou/nissa_genesis_mage.rs"]
+pub mod nissa_genesis_mage;
 #[path = "hou/nissa_s_defeat.rs"]
 pub mod nissa_s_defeat;
+#[path = "akh/nissa_steward_of_elements.rs"]
+pub mod nissa_steward_of_elements;
 #[path = "akh/oashra_cultivator.rs"]
 pub mod oashra_cultivator;
 #[path = "hou/oasis_ritualist.rs"]
@@ -923,6 +941,8 @@ pub mod path_of_ancestry;
 pub mod pathmaker_initiate;
 #[path = "aer/peacewalker_colossus.rs"]
 pub mod peacewalker_colossus;
+#[path = "aer/peema_aether_seer.rs"]
+pub mod peema_aether_seer;
 #[path = "aer/pendulum_of_patterns.rs"]
 pub mod pendulum_of_patterns;
 #[path = "xln/perilous_voyage.rs"]
@@ -959,6 +979,8 @@ pub mod prosperous_pirates;
 pub mod protection_of_the_hekma;
 #[path = "hou/proven_combatant.rs"]
 pub mod proven_combatant;
+#[path = "akh/prowling_serpopard.rs"]
+pub mod prowling_serpopard;
 #[path = "xln/prying_blade.rs"]
 pub mod prying_blade;
 #[path = "xln/pterodon_knight.rs"]
@@ -1045,6 +1067,8 @@ pub mod resilient_khenra;
 pub mod resolute_survivors;
 #[path = "aer/resourceful_return.rs"]
 pub mod resourceful_return;
+#[path = "aer/restoration_specialist.rs"]
+pub mod restoration_specialist;
 #[path = "pxln/revel_in_riches.rs"]
 pub mod revel_in_riches;
 #[path = "f17/reverse_engineer.rs"]
@@ -1069,8 +1093,12 @@ pub mod rile;
 pub mod ripjaw_raptor;
 #[path = "aer/rishkar_peema_renegade.rs"]
 pub mod rishkar_peema_renegade;
+#[path = "aer/rishkar_s_expertise.rs"]
+pub mod rishkar_s_expertise;
 #[path = "xln/ritual_of_rejuvenation.rs"]
 pub mod ritual_of_rejuvenation;
+#[path = "xln/river_heralds_boon.rs"]
+pub mod river_heralds_boon;
 #[path = "hou/river_hoopoe.rs"]
 pub mod river_hoopoe;
 #[path = "akh/river_serpent.rs"]
@@ -1101,6 +1129,8 @@ pub mod samut_voice_of_dissent;
 pub mod sanctum_seeker;
 #[path = "hou/sand_strangler.rs"]
 pub mod sand_strangler;
+#[path = "xln/savage_stomp.rs"]
+pub mod savage_stomp;
 #[path = "akh/scaled_behemoth.rs"]
 pub mod scaled_behemoth;
 #[path = "akh/scarab_feast.rs"]
@@ -1325,6 +1355,8 @@ pub mod tilonalli_s_knight;
 pub mod tishana_s_wayfinder;
 #[path = "pxln/tishana_voice_of_thunder.rs"]
 pub mod tishana_voice_of_thunder;
+#[path = "c17/traverse_the_outlands.rs"]
+pub mod traverse_the_outlands;
 #[path = "pxln/treasure_map.rs"]
 pub mod treasure_map;
 #[path = "akh/trespasser_s_curse.rs"]

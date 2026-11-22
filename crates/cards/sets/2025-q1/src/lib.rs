@@ -209,6 +209,8 @@ pub mod midnight_mangler;
 pub mod migrating_ketradon;
 #[path = "dft/mindspring_merfolk.rs"]
 pub mod mindspring_merfolk;
+#[path = "dft/monument_to_endurance.rs"]
+pub mod monument_to_endurance;
 #[path = "dft/mu_yanling_wind_rider.rs"]
 pub mod mu_yanling_wind_rider;
 #[path = "dft/muraganda_raceway.rs"]
@@ -231,6 +233,8 @@ pub mod pacesetter_paragon;
 pub mod pactdoll_terror;
 #[path = "dft/pedal_to_the_metal.rs"]
 pub mod pedal_to_the_metal;
+#[path = "drc/peema_trailblazer.rs"]
+pub mod peema_trailblazer;
 #[path = "dft/plow_through.rs"]
 pub mod plow_through;
 #[path = "dft/possession_engine.rs"]
@@ -251,6 +255,10 @@ pub mod redshift_rocketeer_chief;
 pub mod reef_roads;
 #[path = "dft/regal_imperiosaur.rs"]
 pub mod regal_imperiosaur;
+#[path = "dft/repurposing_bay.rs"]
+pub mod repurposing_bay;
+#[path = "dft/ride_s_end.rs"]
+pub mod ride_s_end;
 #[path = "dft/ripclaw_wrangler.rs"]
 pub mod ripclaw_wrangler;
 #[path = "dft/risen_necroregent.rs"]
@@ -265,12 +273,16 @@ pub mod riverpyre_verge;
 pub mod road_rage;
 #[path = "dft/roadside_assistance.rs"]
 pub mod roadside_assistance;
+#[path = "dft/roadside_blowout.rs"]
+pub mod roadside_blowout;
 #[path = "dft/rocketeer_boostbuggy.rs"]
 pub mod rocketeer_boostbuggy;
 #[path = "dft/rocky_roads.rs"]
 pub mod rocky_roads;
 #[path = "dft/rover_blades.rs"]
 pub mod rover_blades;
+#[path = "dft/run_over.rs"]
+pub mod run_over;
 #[path = "dft/sab_sunen_luxa_embodied.rs"]
 pub mod sab_sunen_luxa_embodied;
 #[path = "dft/salvation_engine.rs"]
@@ -367,6 +379,8 @@ pub mod walking_sarcophagus;
 pub mod wastewood_verge;
 #[path = "dft/waxen_shapethief.rs"]
 pub mod waxen_shapethief;
+#[path = "dft/wickerfolk_indomitable.rs"]
+pub mod wickerfolk_indomitable;
 #[path = "dft/wild_roads.rs"]
 pub mod wild_roads;
 #[path = "dft/willowrush_verge.rs"]

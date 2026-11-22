@@ -239,6 +239,8 @@ pub mod cruel_feeding;
 pub mod crypsis;
 #[path = "jou/crystalline_nautilus.rs"]
 pub mod crystalline_nautilus;
+#[path = "bng/culling_mark.rs"]
+pub mod culling_mark;
 #[path = "cns/custodi_soulbinders.rs"]
 pub mod custodi_soulbinders;
 #[path = "cns/custodi_squire.rs"]
@@ -553,6 +555,8 @@ pub mod in_garruk_s_wake;
 pub mod inferno_fist;
 #[path = "m15/invasive_species.rs"]
 pub mod invasive_species;
+#[path = "jou/iroas_god_of_victory.rs"]
+pub mod iroas_god_of_victory;
 #[path = "ps14/jace_the_living_guildpact.rs"]
 pub mod jace_the_living_guildpact;
 #[path = "m15/jalira_master_polymorphist.rs"]
@@ -581,6 +585,8 @@ pub mod jungle_hollow;
 pub mod kalonian_twingrove;
 #[path = "m15/kapsho_kitefins.rs"]
 pub mod kapsho_kitefins;
+#[path = "bng/karametra_god_of_harvests.rs"]
+pub mod karametra_god_of_harvests;
 #[path = "ktk/kheru_bloodsucker.rs"]
 pub mod kheru_bloodsucker;
 #[path = "ktk/kheru_dreadmaw.rs"]
@@ -603,6 +609,8 @@ pub mod kird_chieftain;
 pub mod knowledge_and_power;
 #[path = "bng/kragma_butcher.rs"]
 pub mod kragma_butcher;
+#[path = "bng/kraken_of_the_straits.rs"]
+pub mod kraken_of_the_straits;
 #[path = "m15/krenko_s_enforcer.rs"]
 pub mod krenko_s_enforcer;
 #[path = "ktk/krumar_bond_kin.rs"]
@@ -669,6 +677,8 @@ pub mod mardu_skullhunter;
 pub mod mardu_warshrieker;
 #[path = "m15/marked_by_honor.rs"]
 pub mod marked_by_honor;
+#[path = "bng/marshmist_titan.rs"]
+pub mod marshmist_titan;
 #[path = "ktk/master_of_pearls.rs"]
 pub mod master_of_pearls;
 #[path = "jou/master_of_the_feast.rs"]
@@ -695,6 +705,8 @@ pub mod miner_s_bane;
 pub mod mischief_and_mayhem;
 #[path = "ktk/mistfire_weaver.rs"]
 pub mod mistfire_weaver;
+#[path = "bng/mogis_god_of_slaughter.rs"]
+pub mod mogis_god_of_slaughter;
 #[path = "jou/mogis_s_warhound.rs"]
 pub mod mogis_s_warhound;
 #[path = "ktk/molting_snakeskin.rs"]
@@ -711,6 +723,8 @@ pub mod mortal_s_ardor;
 pub mod mortal_s_resolve;
 #[path = "ktk/murderous_cut.rs"]
 pub mod murderous_cut;
+#[path = "cns/muzzio_visionary_architect.rs"]
+pub mod muzzio_visionary_architect;
 #[path = "c14/myriad_landscape.rs"]
 pub mod myriad_landscape;
 #[path = "ddn/mystic_monastery.rs"]
@@ -835,6 +849,8 @@ pub mod polymorphist_s_jest;
 pub mod ponyback_brigade;
 #[path = "jou/prophetic_flamespeaker.rs"]
 pub mod prophetic_flamespeaker;
+#[path = "jou/pull_from_the_deep.rs"]
+pub mod pull_from_the_deep;
 #[path = "jou/quarry_colossus.rs"]
 pub mod quarry_colossus;
 #[path = "ktk/quiet_contemplation.rs"]
@@ -1035,6 +1051,8 @@ pub mod soul_of_zendikar;
 pub mod spawn_of_thraxes;
 #[path = "bng/sphinx_s_disciple.rs"]
 pub mod sphinx_s_disciple;
+#[path = "jou/spirespine.rs"]
+pub mod spirespine;
 #[path = "m15/spirit_bonds.rs"]
 pub mod spirit_bonds;
 #[path = "bng/spirit_of_the_labyrinth.rs"]
@@ -1089,6 +1107,8 @@ pub mod sunbond;
 pub mod sungrace_pegasus;
 #[path = "jou/supply_line_cranes.rs"]
 pub mod supply_line_cranes;
+#[path = "ktk/surrak_dragonclaw.rs"]
+pub mod surrak_dragonclaw;
 #[path = "ktk/suspension_field.rs"]
 pub mod suspension_field;
 #[path = "ktk/swarm_of_bloodflies.rs"]
@@ -1149,6 +1169,8 @@ pub mod tormented_thoughts;
 pub mod tormenting_voice;
 #[path = "ktk/tranquil_cove.rs"]
 pub mod tranquil_cove;
+#[path = "ktk/trap_essence.rs"]
+pub mod trap_essence;
 #[path = "cns/treasonous_ogre.rs"]
 pub mod treasonous_ogre;
 #[path = "ktk/treasure_cruise.rs"]
@@ -1251,6 +1273,8 @@ pub mod witness_of_the_ages;
 pub mod woolly_loxodon;
 #[path = "m15/xathrid_slyblade.rs"]
 pub mod xathrid_slyblade;
+#[path = "bng/xenagos_god_of_revels.rs"]
+pub mod xenagos_god_of_revels;
 #[path = "m15/yisan_the_wanderer_bard.rs"]
 pub mod yisan_the_wanderer_bard;
 #[path = "ddn/zurgo_helmsmasher.rs"]

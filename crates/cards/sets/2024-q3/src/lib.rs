@@ -45,6 +45,8 @@ pub mod artist_s_talent;
 pub mod assassin_den;
 #[path = "acr/assassin_initiate.rs"]
 pub mod assassin_initiate;
+#[path = "dsk/attack_in_the_box.rs"]
+pub mod attack_in_the_box;
 #[path = "acr/aya_of_alexandria.rs"]
 pub mod aya_of_alexandria;
 #[path = "blb/azure_beastbinder.rs"]
@@ -77,6 +79,8 @@ pub mod bello_bard_of_the_brambles;
 pub mod bellowing_crier;
 #[path = "dsk/betrayer_s_bargain.rs"]
 pub mod betrayer_s_bargain;
+#[path = "blb/blacksmith_s_talent.rs"]
+pub mod blacksmith_s_talent;
 #[path = "dsk/blazemire_verge.rs"]
 pub mod blazemire_verge;
 #[path = "dsk/bleeding_woods.rs"]
@@ -157,12 +161,16 @@ pub mod clockwork_percussionist;
 pub mod coiling_rebirth;
 #[path = "dsk/commune_with_evil.rs"]
 pub mod commune_with_evil;
+#[path = "blb/conduct_electricity.rs"]
+pub mod conduct_electricity;
 #[path = "blb/coruscation_mage.rs"]
 pub mod coruscation_mage;
 #[path = "dsc/cramped_vents.rs"]
 pub mod cramped_vents;
 #[path = "blb/crumb_and_get_it.rs"]
 pub mod crumb_and_get_it;
+#[path = "acr/crystal_skull_isu_spyglass.rs"]
+pub mod crystal_skull_isu_spyglass;
 #[path = "blb/curious_forager.rs"]
 pub mod curious_forager;
 #[path = "dsk/cursed_recording.rs"]
@@ -193,6 +201,8 @@ pub mod desmond_miles;
 pub mod desynchronization;
 #[path = "acr/detained_by_legionnaires.rs"]
 pub mod detained_by_legionnaires;
+#[path = "blb/dire_downdraft.rs"]
+pub mod dire_downdraft;
 #[path = "blb/diresight.rs"]
 pub mod diresight;
 #[path = "acr/distract_the_guards.rs"]
@@ -261,6 +271,8 @@ pub mod feather_of_flight;
 pub mod feed_the_cycle;
 #[path = "blb/fell.rs"]
 pub mod fell;
+#[path = "blb/festival_of_embers.rs"]
+pub mod festival_of_embers;
 #[path = "dsk/final_vengeance.rs"]
 pub mod final_vengeance;
 #[path = "blb/finch_formation.rs"]
@@ -393,6 +405,8 @@ pub mod innkeeper_s_talent;
 pub mod innocuous_rat;
 #[path = "dsk/insidious_fungus.rs"]
 pub mod insidious_fungus;
+#[path = "dsc/into_the_pit.rs"]
+pub mod into_the_pit;
 #[path = "blb/intrepid_rabbit.rs"]
 pub mod intrepid_rabbit;
 #[path = "dsk/intruding_soulrager.rs"]
@@ -503,6 +517,8 @@ pub mod mudflat_village;
 pub mod muerra_trash_tactician;
 #[path = "dsk/murky_sewer.rs"]
 pub mod murky_sewer;
+#[path = "blc/murmuration.rs"]
+pub mod murmuration;
 #[path = "dsk/neglected_manor.rs"]
 pub mod neglected_manor;
 #[path = "mb2/new_master_of_arms.rs"]
@@ -569,6 +585,8 @@ pub mod popular_egotist;
 pub mod possessed_goat;
 #[path = "blc/prosperous_bandit.rs"]
 pub mod prosperous_bandit;
+#[path = "blc/pyreswipe_hawk.rs"]
+pub mod pyreswipe_hawk;
 #[path = "blb/quaketusk_boar.rs"]
 pub mod quaketusk_boar;
 #[path = "blb/rabbit_response.rs"]
@@ -643,6 +661,8 @@ pub mod seasoned_warrenguard;
 pub mod secret_arcade;
 #[path = "blb/seedpod_squire.rs"]
 pub mod seedpod_squire;
+#[path = "dsk/seized_from_slumber.rs"]
+pub mod seized_from_slumber;
 #[path = "acr/settlement_blacksmith.rs"]
 pub mod settlement_blacksmith;
 #[path = "acr/shao_jun.rs"]
@@ -703,6 +723,8 @@ pub mod steampath_charger;
 pub mod steelburr_champion;
 #[path = "blb/stickytongue_sentinel.rs"]
 pub mod stickytongue_sentinel;
+#[path = "mb2/stone_drake.rs"]
+pub mod stone_drake;
 #[path = "blb/stormcatch_mentor.rs"]
 pub mod stormcatch_mentor;
 #[path = "blb/stormchaser_s_talent.rs"]
@@ -739,6 +761,8 @@ pub mod tender_wildguide;
 pub mod the_jolly_balloon_man;
 #[path = "dsc/the_master_of_keys.rs"]
 pub mod the_master_of_keys;
+#[path = "dsk/the_mindskinner.rs"]
+pub mod the_mindskinner;
 #[path = "blc/the_odd_acorn_gang.rs"]
 pub mod the_odd_acorn_gang;
 #[path = "acr/the_revelations_of_ezio.rs"]
@@ -791,6 +815,8 @@ pub mod tunnel_surveyor;
 pub mod turn_inside_out;
 #[path = "dsk/twist_reality.rs"]
 pub mod twist_reality;
+#[path = "dsk/tyvar_the_pummeler.rs"]
+pub mod tyvar_the_pummeler;
 #[path = "mb2/under_construction_skyscraper.rs"]
 pub mod under_construction_skyscraper;
 #[path = "dsk/under_the_skin.rs"]
@@ -811,6 +837,8 @@ pub mod valgavoth_s_lair;
 pub mod valgavoth_terror_eater;
 #[path = "blb/valley_flamecaller.rs"]
 pub mod valley_flamecaller;
+#[path = "blb/valley_floodcaller.rs"]
+pub mod valley_floodcaller;
 #[path = "blb/valley_mightcaller.rs"]
 pub mod valley_mightcaller;
 #[path = "blb/valley_questcaller.rs"]

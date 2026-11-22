@@ -27,6 +27,8 @@ pub mod accomplished_alchemist;
 pub mod adrix_and_nev_twincasters;
 #[path = "mh2/aeromoeba.rs"]
 pub mod aeromoeba;
+#[path = "stx/aether_helix.rs"]
+pub mod aether_helix;
 #[path = "pmh2/aeve_progenitor_ooze.rs"]
 pub mod aeve_progenitor_ooze;
 #[path = "stx/ageless_guardian.rs"]
@@ -125,6 +127,8 @@ pub mod bronze_guardian;
 pub mod burdened_aerialist;
 #[path = "stx/burrog_befuddler.rs"]
 pub mod burrog_befuddler;
+#[path = "stx/bury_in_books.rs"]
+pub mod bury_in_books;
 #[path = "mh2/cabal_initiate.rs"]
 pub mod cabal_initiate;
 #[path = "pmh2/calibrated_blast.rs"]
@@ -145,10 +149,14 @@ pub mod charge_through;
 pub mod chatterfang_squirrel_general;
 #[path = "mh2/chatterstorm.rs"]
 pub mod chatterstorm;
+#[path = "mh2/chrome_courier.rs"]
+pub mod chrome_courier;
 #[path = "mh2/clattering_augur.rs"]
 pub mod clattering_augur;
 #[path = "stx/clever_lumimancer.rs"]
 pub mod clever_lumimancer;
+#[path = "stx/closing_statement.rs"]
+pub mod closing_statement;
 #[path = "stx/cogwork_archivist.rs"]
 pub mod cogwork_archivist;
 #[path = "stx/combat_professor.rs"]
@@ -285,6 +293,8 @@ pub mod fortifying_draught;
 pub mod foul_watcher;
 #[path = "mh2/foundation_breaker.rs"]
 pub mod foundation_breaker;
+#[path = "c21/fractal_harness.rs"]
+pub mod fractal_harness;
 #[path = "stx/fractal_summoning.rs"]
 pub mod fractal_summoning;
 #[path = "stx/fracture.rs"]
@@ -353,6 +363,8 @@ pub mod illustrious_historian;
 pub mod infuse_with_vitality;
 #[path = "stx/inkling_summoning.rs"]
 pub mod inkling_summoning;
+#[path = "c21/inkshield.rs"]
+pub mod inkshield;
 #[path = "c21/inspiring_refrain.rs"]
 pub mod inspiring_refrain;
 #[path = "stx/introduction_to_annihilation.rs"]
@@ -369,6 +381,8 @@ pub mod kaldra_compleat;
 pub mod karok_wrangler;
 #[path = "stx/kelpie_guide.rs"]
 pub mod kelpie_guide;
+#[path = "stx/killian_ink_duelist.rs"]
+pub mod killian_ink_duelist;
 #[path = "mh2/kitchen_imp.rs"]
 pub mod kitchen_imp;
 #[path = "mh2/knighted_myr.rs"]
@@ -399,6 +413,8 @@ pub mod loathsome_curator;
 pub mod lorehold_apprentice;
 #[path = "stx/lorehold_campus.rs"]
 pub mod lorehold_campus;
+#[path = "pstx/lorehold_command.rs"]
+pub mod lorehold_command;
 #[path = "stx/lorehold_excavation.rs"]
 pub mod lorehold_excavation;
 #[path = "stx/lorehold_pledgemage.rs"]
@@ -417,6 +433,8 @@ pub mod make_your_mark;
 pub mod manifestation_sage;
 #[path = "mh2/marble_gargoyle.rs"]
 pub mod marble_gargoyle;
+#[path = "stx/mascot_interception.rs"]
+pub mod mascot_interception;
 #[path = "pmh2/master_of_death.rs"]
 pub mod master_of_death;
 #[path = "mh2/mental_journey.rs"]
@@ -761,6 +779,8 @@ pub mod vectis_gloves;
 pub mod vedalken_infiltrator;
 #[path = "c21/veinwitch_coven.rs"]
 pub mod veinwitch_coven;
+#[path = "pstx/venerable_warsinger.rs"]
+pub mod venerable_warsinger;
 #[path = "mh2/vermin_gorger.rs"]
 pub mod vermin_gorger;
 #[path = "mh2/viashino_lashclaw.rs"]

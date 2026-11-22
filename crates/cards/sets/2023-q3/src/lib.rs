@@ -99,6 +99,8 @@ pub mod elusive_otter;
 pub mod elvish_archivist;
 #[path = "woe/eriette_s_tempting_apple.rs"]
 pub mod eriette_s_tempting_apple;
+#[path = "pwoe/expel_the_interlopers.rs"]
+pub mod expel_the_interlopers;
 #[path = "woe/experimental_confectioner.rs"]
 pub mod experimental_confectioner;
 #[path = "woc/faerie_bladecrafter.rs"]
@@ -161,6 +163,8 @@ pub mod imodane_s_recruiter;
 pub mod into_the_fae_court;
 #[path = "woe/intrepid_trufflesnout.rs"]
 pub mod intrepid_trufflesnout;
+#[path = "woe/johann_apprentice_sorcerer.rs"]
+pub mod johann_apprentice_sorcerer;
 #[path = "woe/kellan_s_lightblades.rs"]
 pub mod kellan_s_lightblades;
 #[path = "pwoe/kellan_the_fae_blooded.rs"]
@@ -183,6 +187,8 @@ pub mod likeness_looter;
 pub mod lord_skitter_s_butcher;
 #[path = "pwoe/lord_skitter_sewer_king.rs"]
 pub mod lord_skitter_sewer_king;
+#[path = "woe/malevolent_witchkite.rs"]
+pub mod malevolent_witchkite;
 #[path = "woe/merfolk_coralsmith.rs"]
 pub mod merfolk_coralsmith;
 #[path = "woe/minecart_daredevil.rs"]
@@ -253,6 +259,8 @@ pub mod restless_vinestalk;
 pub mod return_from_the_wilds;
 #[path = "woe/rimefur_reindeer.rs"]
 pub mod rimefur_reindeer;
+#[path = "cmm/rise_of_the_eldrazi.rs"]
+pub mod rise_of_the_eldrazi;
 #[path = "woe/rootrider_faun.rs"]
 pub mod rootrider_faun;
 #[path = "woe/ruby_daring_tracker.rs"]
@@ -273,6 +281,8 @@ pub mod shadow_puppeteers;
 pub mod shrouded_shepherd;
 #[path = "woe/skewer_slinger.rs"]
 pub mod skewer_slinger;
+#[path = "cmm/skittering_cicada.rs"]
+pub mod skittering_cicada;
 #[path = "woe/skybeast_tracker.rs"]
 pub mod skybeast_tracker;
 #[path = "pwoe/sleep_cursed_faerie.rs"]
@@ -341,6 +351,8 @@ pub mod timber_paladin;
 pub mod titan_of_littjara;
 #[path = "woe/toadstool_admirer.rs"]
 pub mod toadstool_admirer;
+#[path = "woe/torch_the_tower.rs"]
+pub mod torch_the_tower;
 #[path = "woe/totentanz_swarm_piper.rs"]
 pub mod totentanz_swarm_piper;
 #[path = "woe/tough_cookie.rs"]

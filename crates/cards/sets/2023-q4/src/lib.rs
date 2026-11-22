@@ -91,6 +91,8 @@ pub mod captain_storm_cosmium_raider;
 pub mod captivating_cave;
 #[path = "lci/careening_mine_cart.rs"]
 pub mod careening_mine_cart;
+#[path = "lcc/carmen_cruel_skymarcher.rs"]
+pub mod carmen_cruel_skymarcher;
 #[path = "lci/cartographer_s_companion.rs"]
 pub mod cartographer_s_companion;
 #[path = "lci/cavern_stomper.rs"]
@@ -101,6 +103,8 @@ pub mod cavernous_maw;
 pub mod cenote_scout;
 #[path = "lci/child_of_the_volcano.rs"]
 pub mod child_of_the_volcano;
+#[path = "lcc/chimil_the_inner_sun.rs"]
+pub mod chimil_the_inner_sun;
 #[path = "lci/chupacabra_echo.rs"]
 pub mod chupacabra_echo;
 #[path = "who/city_of_death.rs"]
@@ -235,6 +239,8 @@ pub mod from_the_rubble;
 pub mod frost_fair_lure_fish;
 #[path = "who/gallifrey_council_chamber.rs"]
 pub mod gallifrey_council_chamber;
+#[path = "who/gallifrey_falls.rs"]
+pub mod gallifrey_falls;
 #[path = "who/gallifrey_stands.rs"]
 pub mod gallifrey_stands;
 #[path = "lci/gargantuan_leech.rs"]
@@ -333,6 +339,8 @@ pub mod malamet_veteran;
 pub mod malamet_war_scribe;
 #[path = "lci/marauding_brinefang.rs"]
 pub mod marauding_brinefang;
+#[path = "lcc/march_of_the_canonized.rs"]
+pub mod march_of_the_canonized;
 #[path = "lcc/master_of_dark_rites.rs"]
 pub mod master_of_dark_rites;
 #[path = "lci/matzalantli_the_great_door.rs"]
@@ -373,6 +381,8 @@ pub mod orazca_puzzle_door;
 pub mod order_of_sacred_dusk;
 #[path = "lci/oteclan_landmark.rs"]
 pub mod oteclan_landmark;
+#[path = "lci/out_of_air.rs"]
+pub mod out_of_air;
 #[path = "lci/over_the_edge.rs"]
 pub mod over_the_edge;
 #[path = "lci/palani_s_hatcher.rs"]
@@ -403,6 +413,8 @@ pub mod pugnacious_hammerskull;
 pub mod quantum_misalignment;
 #[path = "lci/queen_s_bay_paladin.rs"]
 pub mod queen_s_bay_paladin;
+#[path = "lci/quicksand_whirlpool.rs"]
+pub mod quicksand_whirlpool;
 #[path = "ylci/radiant_smite.rs"]
 pub mod radiant_smite;
 #[path = "lci/rampaging_ceratops.rs"]
@@ -463,6 +475,8 @@ pub mod self_reflection;
 pub mod sentinel_of_the_nameless_city;
 #[path = "who/sergeant_john_benton.rs"]
 pub mod sergeant_john_benton;
+#[path = "lcc/singer_of_swift_rivers.rs"]
+pub mod singer_of_swift_rivers;
 #[path = "lci/sinuous_benthisaur.rs"]
 pub mod sinuous_benthisaur;
 #[path = "who/sisterhood_of_karn.rs"]
@@ -485,6 +499,8 @@ pub mod spitting_dilophosaurus;
 pub mod spring_loaded_sawblades;
 #[path = "lci/spyglass_siren.rs"]
 pub mod spyglass_siren;
+#[path = "lci/squirming_emergence.rs"]
+pub mod squirming_emergence;
 #[path = "lci/staggering_size.rs"]
 pub mod staggering_size;
 #[path = "lci/stalactite_stalker.rs"]
@@ -537,6 +553,8 @@ pub mod tinker_s_tote;
 pub mod tishana_s_tidebinder;
 #[path = "lci/tithing_blade.rs"]
 pub mod tithing_blade;
+#[path = "who/traverse_eternity.rs"]
+pub mod traverse_eternity;
 #[path = "who/trenzalore_clocktower.rs"]
 pub mod trenzalore_clocktower;
 #[path = "lcc/tributary_instructor.rs"]

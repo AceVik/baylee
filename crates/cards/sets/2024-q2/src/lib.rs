@@ -51,6 +51,8 @@ pub mod arid_archway;
 pub mod at_knifepoint;
 #[path = "otc/back_in_town.rs"]
 pub mod back_in_town;
+#[path = "otj/badlands_revival.rs"]
+pub mod badlands_revival;
 #[path = "otj/baron_bertram_graywater.rs"]
 pub mod baron_bertram_graywater;
 #[path = "m3c/barrowgoyf.rs"]
@@ -91,6 +93,8 @@ pub mod bristling_backwoods;
 pub mod bristly_bill_spine_sower;
 #[path = "m3c/broodmate_tyrant.rs"]
 pub mod broodmate_tyrant;
+#[path = "otj/bruse_tarl_roving_rancher.rs"]
+pub mod bruse_tarl_roving_rancher;
 #[path = "otj/bucolic_ranch.rs"]
 pub mod bucolic_ranch;
 #[path = "otj/cactarantula.rs"]
@@ -231,6 +235,8 @@ pub mod flare_of_denial;
 pub mod flare_of_duplication;
 #[path = "mh3/flare_of_fortitude.rs"]
 pub mod flare_of_fortitude;
+#[path = "otj/fleeting_reflection.rs"]
+pub mod fleeting_reflection;
 #[path = "big/fomori_vault.rs"]
 pub mod fomori_vault;
 #[path = "mh3/foreboding_landscape.rs"]
@@ -283,6 +289,8 @@ pub mod goldvein_hydra;
 pub mod gravedig;
 #[path = "big/greed_s_gambit.rs"]
 pub mod greed_s_gambit;
+#[path = "mh3/grim_servant.rs"]
+pub mod grim_servant;
 #[path = "mh3/grist_voracious_larva.rs"]
 pub mod grist_voracious_larva;
 #[path = "mh3/guardian_of_the_forgotten.rs"]
@@ -371,6 +379,8 @@ pub mod legion_leadership;
 pub mod leyline_dowser;
 #[path = "mh3/lion_umbra.rs"]
 pub mod lion_umbra;
+#[path = "otj/loan_shark.rs"]
+pub mod loan_shark;
 #[path = "otj/lonely_arroyo.rs"]
 pub mod lonely_arroyo;
 #[path = "otj/longhorn_sharpshooter.rs"]
@@ -449,6 +459,8 @@ pub mod outcaster_greenblade;
 pub mod outcaster_trailblazer;
 #[path = "otj/outlaw_medic.rs"]
 pub mod outlaw_medic;
+#[path = "otj/outlaw_stitcher.rs"]
+pub mod outlaw_stitcher;
 #[path = "otj/overzealous_muscle.rs"]
 pub mod overzealous_muscle;
 #[path = "mh3/path_of_annihilation.rs"]
@@ -601,6 +613,8 @@ pub mod sink_into_stupor;
 pub mod six;
 #[path = "mh3/skittering_precursor.rs"]
 pub mod skittering_precursor;
+#[path = "otj/slick_sequence.rs"]
+pub mod slick_sequence;
 #[path = "otj/slickshot_lockpicker.rs"]
 pub mod slickshot_lockpicker;
 #[path = "otj/slickshot_show_off.rs"]
@@ -679,6 +693,8 @@ pub mod tempest_harvester;
 pub mod thief_of_existence;
 #[path = "otc/thieving_varmint.rs"]
 pub mod thieving_varmint;
+#[path = "otj/this_town_ain_t_big_enough.rs"]
+pub mod this_town_ain_t_big_enough;
 #[path = "otj/three_steps_ahead.rs"]
 pub mod three_steps_ahead;
 #[path = "otj/thunder_lasso.rs"]
@@ -699,10 +715,14 @@ pub mod trash_the_town;
 pub mod treasure_dredger;
 #[path = "m3c/trenchpost.rs"]
 pub mod trenchpost;
+#[path = "otj/trick_shot.rs"]
+pub mod trick_shot;
 #[path = "mh3/trickster_s_elk.rs"]
 pub mod trickster_s_elk;
 #[path = "mh3/triton_wavebreaker.rs"]
 pub mod triton_wavebreaker;
+#[path = "otj/tumbleweed_rising.rs"]
+pub mod tumbleweed_rising;
 #[path = "mh3/tune_the_narrative.rs"]
 pub mod tune_the_narrative;
 #[path = "mh3/twisted_landscape.rs"]

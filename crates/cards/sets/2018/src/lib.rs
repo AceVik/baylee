@@ -69,6 +69,8 @@ pub mod angelic_reward;
 pub mod angler_turtle;
 #[path = "rix/angrath_s_ambusher.rs"]
 pub mod angrath_s_ambusher;
+#[path = "rix/angrath_s_fury.rs"]
+pub mod angrath_s_fury;
 #[path = "prix/angrath_the_flame_chained.rs"]
 pub mod angrath_the_flame_chained;
 #[path = "rix/aquatic_incursion.rs"]
@@ -97,6 +99,8 @@ pub mod artful_takedown;
 pub mod artificer_s_assistant;
 #[path = "dom/arvad_the_cursed.rs"]
 pub mod arvad_the_cursed;
+#[path = "dom/aryel_knight_of_windgrace.rs"]
+pub mod aryel_knight_of_windgrace;
 #[path = "grn/assassin_s_trophy.rs"]
 pub mod assassin_s_trophy;
 #[path = "grn/assure.rs"]
@@ -149,6 +153,8 @@ pub mod blade_instructor;
 pub mod blaring_captain;
 #[path = "bbd/blaring_recruiter.rs"]
 pub mod blaring_recruiter;
+#[path = "rix/blazing_hope.rs"]
+pub mod blazing_hope;
 #[path = "dom/blessed_light.rs"]
 pub mod blessed_light;
 #[path = "dom/blessing_of_belzenlok.rs"]
@@ -433,6 +439,8 @@ pub mod eviscerate;
 pub mod excavation_elephant;
 #[path = "m19/exclusion_mage.rs"]
 pub mod exclusion_mage;
+#[path = "grn/expansion.rs"]
+pub mod expansion;
 #[path = "rix/exultant_skymarcher.rs"]
 pub mod exultant_skymarcher;
 #[path = "rix/famished_paladin.rs"]
@@ -517,6 +525,8 @@ pub mod gearsmith_prodigy;
 pub mod generous_stray;
 #[path = "c18/geode_golem.rs"]
 pub mod geode_golem;
+#[path = "prix/ghalta_primal_hunger.rs"]
+pub mod ghalta_primal_hunger;
 #[path = "m19/ghastbark_twins.rs"]
 pub mod ghastbark_twins;
 #[path = "dom/ghitu_chronicler.rs"]
@@ -595,6 +605,8 @@ pub mod hammer_dropper;
 pub mod hardened_scale_armor;
 #[path = "rix/hardy_veteran.rs"]
 pub mod hardy_veteran;
+#[path = "grn/hatchery_spider.rs"]
+pub mod hatchery_spider;
 #[path = "m19/havoc_devils.rs"]
 pub mod havoc_devils;
 #[path = "grn/healer_s_hawk.rs"]
@@ -643,6 +655,8 @@ pub mod impale;
 pub mod imperial_ceratops;
 #[path = "grn/impervious_greatwurm.rs"]
 pub mod impervious_greatwurm;
+#[path = "bbd/impetuous_protege.rs"]
+pub mod impetuous_protege;
 #[path = "dom/in_bolas_s_clutches.rs"]
 pub mod in_bolas_s_clutches;
 #[path = "grn/inescapable_blaze.rs"]
@@ -711,6 +725,8 @@ pub mod justice_strike;
 pub mod kamahl_s_druidic_vow;
 #[path = "m19/kargan_dragonrider.rs"]
 pub mod kargan_dragonrider;
+#[path = "dom/karn_s_temporal_sundering.rs"]
+pub mod karn_s_temporal_sundering;
 #[path = "dom/karplusan_hound.rs"]
 pub mod karplusan_hound;
 #[path = "dom/kazarov_sengir_pureblood.rs"]
@@ -829,6 +845,8 @@ pub mod martyr_of_dusk;
 pub mod marwyn_the_nurturer;
 #[path = "rix/mausoleum_harpy.rs"]
 pub mod mausoleum_harpy;
+#[path = "grn/mausoleum_secrets.rs"]
+pub mod mausoleum_secrets;
 #[path = "grn/maximize_altitude.rs"]
 pub mod maximize_altitude;
 #[path = "grn/maximize_velocity.rs"]
@@ -929,6 +947,8 @@ pub mod omnispell_adept;
 pub mod on_serra_s_wings;
 #[path = "m19/onakke_ogre.rs"]
 pub mod onakke_ogre;
+#[path = "m19/one_with_the_machine.rs"]
+pub mod one_with_the_machine;
 #[path = "m19/open_the_graves.rs"]
 pub mod open_the_graves;
 #[path = "rix/orazca_frillback.rs"]
@@ -961,6 +981,8 @@ pub mod patient_rebuilding;
 pub mod pause_for_reflection;
 #[path = "dom/pegasus_courser.rs"]
 pub mod pegasus_courser;
+#[path = "grn/pelt_collector.rs"]
+pub mod pelt_collector;
 #[path = "dom/phyrexian_scriptures.rs"]
 pub mod phyrexian_scriptures;
 #[path = "dom/pierce_the_sky.rs"]
@@ -987,6 +1009,10 @@ pub mod portcullis_vine;
 pub mod powerstone_shard;
 #[path = "grn/precision_bolt.rs"]
 pub mod precision_bolt;
+#[path = "dom/precognition_field.rs"]
+pub mod precognition_field;
+#[path = "grn/price_of_fame.rs"]
+pub mod price_of_fame;
 #[path = "dom/primevals_glorious_rebirth.rs"]
 pub mod primevals_glorious_rebirth;
 #[path = "dom/primordial_wurm.rs"]
@@ -1013,6 +1039,8 @@ pub mod quasiduplicate;
 pub mod radiant_destiny;
 #[path = "grn/radical_idea.rs"]
 pub mod radical_idea;
+#[path = "dom/raff_capashen_ship_s_mage.rs"]
+pub mod raff_capashen_ship_s_mage;
 #[path = "rix/raging_regisaur.rs"]
 pub mod raging_regisaur;
 #[path = "grn/ral_s_dispersal.rs"]
@@ -1033,10 +1061,14 @@ pub mod ravenous_harpy;
 pub mod reaver_ambush;
 #[path = "gs1/reckless_pangolin.rs"]
 pub mod reckless_pangolin;
+#[path = "rix/reckless_rage.rs"]
+pub mod reckless_rage;
 #[path = "m19/regal_bloodlord.rs"]
 pub mod regal_bloodlord;
 #[path = "prix/rekindling_phoenix.rs"]
 pub mod rekindling_phoenix;
+#[path = "rix/relentless_raptor.rs"]
+pub mod relentless_raptor;
 #[path = "m19/remorseful_cleric.rs"]
 pub mod remorseful_cleric;
 #[path = "m19/resplendent_angel.rs"]
@@ -1123,6 +1155,8 @@ pub mod seafloor_oracle;
 pub mod seal_away;
 #[path = "rix/see_red.rs"]
 pub mod see_red;
+#[path = "dom/seismic_shift.rs"]
+pub mod seismic_shift;
 #[path = "grn/selesnya_locket.rs"]
 pub mod selesnya_locket;
 #[path = "dom/sentinel_of_the_pearl_trident.rs"]
@@ -1499,6 +1533,8 @@ pub mod worldsoul_colossus;
 pub mod yargle_glutton_of_urborg;
 #[path = "dom/yavimaya_sapherd.rs"]
 pub mod yavimaya_sapherd;
+#[path = "dom/yawgmoth_s_vile_offering.rs"]
+pub mod yawgmoth_s_vile_offering;
 #[path = "c18/yuriko_the_tiger_s_shadow.rs"]
 pub mod yuriko_the_tiger_s_shadow;
 #[path = "prix/zacama_primal_calamity.rs"]

@@ -71,6 +71,8 @@ pub mod avatar_of_slaughter;
 pub mod aven_fleetwing;
 #[path = "m12/azure_mage.rs"]
 pub mod azure_mage;
+#[path = "isd/balefire_dragon.rs"]
+pub mod balefire_dragon;
 #[path = "mbs/banishment_decree.rs"]
 pub mod banishment_decree;
 #[path = "cmd/basandra_battle_seraph.rs"]
@@ -121,6 +123,8 @@ pub mod boneyard_wurm;
 pub mod brain_weevil;
 #[path = "isd/bramblecrush.rs"]
 pub mod bramblecrush;
+#[path = "mbs/brass_squire.rs"]
+pub mod brass_squire;
 #[path = "nph/brutalizer_exarch.rs"]
 pub mod brutalizer_exarch;
 #[path = "isd/bump_in_the_night.rs"]
@@ -321,8 +325,12 @@ pub mod furyborn_hellkite;
 pub mod gallows_warden;
 #[path = "isd/galvanic_juggernaut.rs"]
 pub mod galvanic_juggernaut;
+#[path = "m12/garruk_primal_hunter.rs"]
+pub mod garruk_primal_hunter;
 #[path = "isd/garruk_relentless.rs"]
 pub mod garruk_relentless;
+#[path = "pm12/garruk_s_horde.rs"]
+pub mod garruk_s_horde;
 #[path = "isd/gatstaf_shepherd.rs"]
 pub mod gatstaf_shepherd;
 #[path = "isd/gavony_township.rs"]
@@ -469,6 +477,8 @@ pub mod instigator_gang;
 pub mod intangible_virtue;
 #[path = "mbs/into_the_core.rs"]
 pub mod into_the_core;
+#[path = "isd/into_the_maw_of_hell.rs"]
+pub mod into_the_maw_of_hell;
 #[path = "isd/invisible_stalker.rs"]
 pub mod invisible_stalker;
 #[path = "isd/isolated_chapel.rs"]
@@ -479,6 +489,8 @@ pub mod isolation_cell;
 pub mod jade_mage;
 #[path = "nph/jor_kadeen_the_prevailer.rs"]
 pub mod jor_kadeen_the_prevailer;
+#[path = "cmd/karador_ghost_chieftain.rs"]
+pub mod karador_ghost_chieftain;
 #[path = "isd/kessig_cagebreakers.rs"]
 pub mod kessig_cagebreakers;
 #[path = "isd/kessig_wolf.rs"]
@@ -513,6 +525,8 @@ pub mod leonin_relic_warder;
 pub mod life_s_finale;
 #[path = "m12/lord_of_the_unreal.rs"]
 pub mod lord_of_the_unreal;
+#[path = "isd/lost_in_the_mist.rs"]
+pub mod lost_in_the_mist;
 #[path = "nph/lost_leonin.rs"]
 pub mod lost_leonin;
 #[path = "nph/loxodon_convert.rs"]
@@ -671,6 +685,8 @@ pub mod phyrexia_s_core;
 pub mod phyrexian_crusader;
 #[path = "mbs/phyrexian_digester.rs"]
 pub mod phyrexian_digester;
+#[path = "mbs/phyrexian_hydra.rs"]
+pub mod phyrexian_hydra;
 #[path = "mbs/phyrexian_juggernaut.rs"]
 pub mod phyrexian_juggernaut;
 #[path = "pnph/phyrexian_metamorph.rs"]
@@ -695,6 +711,8 @@ pub mod plague_myr;
 pub mod plaguemaw_beast;
 #[path = "nph/porcelain_legionnaire.rs"]
 pub mod porcelain_legionnaire;
+#[path = "nph/postmortem_lunge.rs"]
+pub mod postmortem_lunge;
 #[path = "mbs/praetor_s_counsel.rs"]
 pub mod praetor_s_counsel;
 #[path = "isd/prey_upon.rs"]
@@ -913,6 +931,8 @@ pub mod suture_priest;
 pub mod swiftfoot_boots;
 #[path = "mbs/sword_of_feast_and_famine.rs"]
 pub mod sword_of_feast_and_famine;
+#[path = "cmd/syphon_flesh.rs"]
+pub mod syphon_flesh;
 #[path = "mbs/tangle_hulk.rs"]
 pub mod tangle_hulk;
 #[path = "mbs/tangle_mantis.rs"]
@@ -957,6 +977,8 @@ pub mod traveler_s_amulet;
 pub mod treasure_mage;
 #[path = "nph/trespassing_souleater.rs"]
 pub mod trespassing_souleater;
+#[path = "isd/tribute_to_hunger.rs"]
+pub mod tribute_to_hunger;
 #[path = "cmd/tribute_to_the_wild.rs"]
 pub mod tribute_to_the_wild;
 #[path = "nph/triumph_of_the_hordes.rs"]

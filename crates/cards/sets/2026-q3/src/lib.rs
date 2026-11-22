@@ -115,6 +115,8 @@ pub mod fili_and_kili_joyous;
 pub mod fili_the_pathfinder;
 #[path = "hob/front_porch_sentries.rs"]
 pub mod front_porch_sentries;
+#[path = "hoc/gandalf_party_guest.rs"]
+pub mod gandalf_party_guest;
 #[path = "hoc/gandalf_shadow_s_foe.rs"]
 pub mod gandalf_shadow_s_foe;
 #[path = "hob/gathering_of_darkness.rs"]
@@ -131,6 +133,8 @@ pub mod gnashing_of_teeth;
 pub mod goblin_town;
 #[path = "hob/goblin_town_flunkies.rs"]
 pub mod goblin_town_flunkies;
+#[path = "hob/gollum_silent_slinker.rs"]
+pub mod gollum_silent_slinker;
 #[path = "hob/gollum_the_abandoned.rs"]
 pub mod gollum_the_abandoned;
 #[path = "hob/great_fierce_bee.rs"]
@@ -149,12 +153,16 @@ pub mod hobbit_hole;
 pub mod iron_hills;
 #[path = "hob/iron_hills_blacksmith.rs"]
 pub mod iron_hills_blacksmith;
+#[path = "hob/iron_hills_stalwart.rs"]
+pub mod iron_hills_stalwart;
 #[path = "hob/lake_town.rs"]
 pub mod lake_town;
 #[path = "hob/lake_town_lookout.rs"]
 pub mod lake_town_lookout;
 #[path = "hob/lake_town_mariners.rs"]
 pub mod lake_town_mariners;
+#[path = "hob/lake_town_toymaker.rs"]
+pub mod lake_town_toymaker;
 #[path = "hob/lakeshore_apothecary.rs"]
 pub mod lakeshore_apothecary;
 #[path = "hob/large_bear.rs"]
@@ -165,6 +173,8 @@ pub mod little_bear;
 pub mod long_bodied_grey_dog;
 #[path = "hoc/long_lost_lances.rs"]
 pub mod long_lost_lances;
+#[path = "hob/magnificent_end.rs"]
+pub mod magnificent_end;
 #[path = "hob/mirkwood.rs"]
 pub mod mirkwood;
 #[path = "hob/mirkwood_meditator.rs"]
@@ -225,6 +235,8 @@ pub mod smaug_the_great_calamity;
 pub mod smaug_the_magnificent;
 #[path = "hob/snowslope_hunter.rs"]
 pub mod snowslope_hunter;
+#[path = "hob/sting_bilbo_s_sword.rs"]
+pub mod sting_bilbo_s_sword;
 #[path = "hob/stir_up_trouble.rs"]
 pub mod stir_up_trouble;
 #[path = "hob/stone_by_sunlight.rs"]
@@ -239,6 +251,8 @@ pub mod the_arkenstone;
 pub mod the_chief_warg;
 #[path = "hob/the_lonely_mountain.rs"]
 pub mod the_lonely_mountain;
+#[path = "hob/the_lord_of_the_eagles.rs"]
+pub mod the_lord_of_the_eagles;
 #[path = "hob/the_notary_hobbits.rs"]
 pub mod the_notary_hobbits;
 #[path = "hob/the_sackville_bagginses.rs"]
@@ -259,6 +273,8 @@ pub mod thror_s_map;
 pub mod troll_negotiations;
 #[path = "hob/troop_of_ponies.rs"]
 pub mod troop_of_ponies;
+#[path = "hob/uneasy_partings.rs"]
+pub mod uneasy_partings;
 #[path = "hob/warg_tactics.rs"]
 pub mod warg_tactics;
 #[path = "hob/wargling.rs"]

@@ -83,8 +83,12 @@ pub mod caregiver;
 pub mod carrion_howler;
 #[path = "rav/carven_caryatid.rs"]
 pub mod carven_caryatid;
+#[path = "sok/celestial_kirin.rs"]
+pub mod celestial_kirin;
 #[path = "rav/centaur_safeguard.rs"]
 pub mod centaur_safeguard;
+#[path = "rav/chant_of_vitu_ghazi.rs"]
+pub mod chant_of_vitu_ghazi;
 #[path = "rav/char.rs"]
 pub mod char;
 #[path = "sok/charge_across_the_araba.rs"]
@@ -135,6 +139,8 @@ pub mod darkblast;
 pub mod day_of_destiny;
 #[path = "sok/death_denied.rs"]
 pub mod death_denied;
+#[path = "sok/deathknell_kami.rs"]
+pub mod deathknell_kami;
 #[path = "sok/deathmask_nezumi.rs"]
 pub mod deathmask_nezumi;
 #[path = "sok/dense_canopy.rs"]
@@ -217,6 +223,8 @@ pub mod flight_of_fancy;
 pub mod floodbringer;
 #[path = "rav/flow_of_ideas.rs"]
 pub mod flow_of_ideas;
+#[path = "rav/followed_footsteps.rs"]
+pub mod followed_footsteps;
 #[path = "sok/freed_from_the_real.rs"]
 pub mod freed_from_the_real;
 #[path = "psal/freewind_equenaut.rs"]
@@ -259,6 +267,8 @@ pub mod ghost_lit_redeemer;
 pub mod ghost_lit_stalker;
 #[path = "sok/ghost_lit_warder.rs"]
 pub mod ghost_lit_warder;
+#[path = "rav/ghosts_of_the_innocent.rs"]
+pub mod ghosts_of_the_innocent;
 #[path = "rav/glare_of_subdual.rs"]
 pub mod glare_of_subdual;
 #[path = "rav/glass_golem.rs"]
@@ -307,6 +317,8 @@ pub mod gruul_nodorog;
 pub mod guardian_of_vitu_ghazi;
 #[path = "psal/guardian_s_magemark.rs"]
 pub mod guardian_s_magemark;
+#[path = "sok/hail_of_arrows.rs"]
+pub mod hail_of_arrows;
 #[path = "rav/halcyon_glaze.rs"]
 pub mod halcyon_glaze;
 #[path = "rav/hammerfist_giant.rs"]
@@ -361,6 +373,8 @@ pub mod indentured_oaf;
 pub mod indrik_stomphowler;
 #[path = "rav/infectious_host.rs"]
 pub mod infectious_host;
+#[path = "sok/infernal_kirin.rs"]
+pub mod infernal_kirin;
 #[path = "psal/infiltrator_s_magemark.rs"]
 pub mod infiltrator_s_magemark;
 #[path = "pbok/ink_eyes_servant_of_oni.rs"]
@@ -487,6 +501,8 @@ pub mod meishin_the_mind_cage;
 pub mod mending_hands;
 #[path = "sok/mikokoro_center_of_the_sea.rs"]
 pub mod mikokoro_center_of_the_sea;
+#[path = "bok/minamo_sightbender.rs"]
+pub mod minamo_sightbender;
 #[path = "sok/miren_the_moaning_well.rs"]
 pub mod miren_the_moaning_well;
 #[path = "bok/mistblade_shinobi.rs"]
@@ -561,10 +577,14 @@ pub mod oyobi_who_split_the_heavens;
 pub mod pariah_s_shield;
 #[path = "sok/path_of_anger_s_flame.rs"]
 pub mod path_of_anger_s_flame;
+#[path = "rav/peel_from_reality.rs"]
+pub mod peel_from_reality;
 #[path = "rav/peregrine_mask.rs"]
 pub mod peregrine_mask;
 #[path = "rav/perilous_forays.rs"]
 pub mod perilous_forays;
+#[path = "rav/phytohydra.rs"]
+pub mod phytohydra;
 #[path = "sok/pithing_needle.rs"]
 pub mod pithing_needle;
 #[path = "psal/plagued_rusalka.rs"]
@@ -683,6 +703,8 @@ pub mod sell_sword_brute;
 pub mod sewerdreg;
 #[path = "rav/shambling_shell.rs"]
 pub mod shambling_shell;
+#[path = "sok/shape_stealer.rs"]
+pub mod shape_stealer;
 #[path = "sok/shinen_of_fear_s_chill.rs"]
 pub mod shinen_of_fear_s_chill;
 #[path = "sok/shinen_of_flight_s_wings.rs"]
@@ -713,6 +735,8 @@ pub mod sisters_of_stone_death;
 pub mod skarrg_the_rage_pits;
 #[path = "sok/skull_collector.rs"]
 pub mod skull_collector;
+#[path = "sok/skyfire_kirin.rs"]
+pub mod skyfire_kirin;
 #[path = "pal05/skyknight_legionnaire.rs"]
 pub mod skyknight_legionnaire;
 #[path = "psal/skyrider_trainee.rs"]

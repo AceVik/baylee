@@ -35,6 +35,8 @@ pub mod angel_of_serenity;
 pub mod angel_s_tomb;
 #[path = "avr/angelic_armaments.rs"]
 pub mod angelic_armaments;
+#[path = "rtr/annihilating_fire.rs"]
+pub mod annihilating_fire;
 #[path = "avr/appetite_for_brains.rs"]
 pub mod appetite_for_brains;
 #[path = "rtr/aquus_steed.rs"]
@@ -103,6 +105,8 @@ pub mod battleflight_eagle;
 pub mod bazaar_krovod;
 #[path = "pc2/beetleback_chief.rs"]
 pub mod beetleback_chief;
+#[path = "dka/beguiler_of_wills.rs"]
+pub mod beguiler_of_wills;
 #[path = "rtr/bellows_lizard.rs"]
 pub mod bellows_lizard;
 #[path = "dka/black_cat.rs"]
@@ -127,6 +131,8 @@ pub mod blustersquall;
 pub mod bond_beetle;
 #[path = "dka/bone_to_ash.rs"]
 pub mod bone_to_ash;
+#[path = "avr/bonfire_of_the_damned.rs"]
+pub mod bonfire_of_the_damned;
 #[path = "m13/boundless_realms.rs"]
 pub mod boundless_realms;
 #[path = "avr/bower_passage.rs"]
@@ -179,6 +185,8 @@ pub mod centaur_s_herald;
 pub mod chalice_of_life;
 #[path = "avr/champion_of_lambholt.rs"]
 pub mod champion_of_lambholt;
+#[path = "m13/chandra_s_fury.rs"]
+pub mod chandra_s_fury;
 #[path = "dka/chant_of_the_skifsang.rs"]
 pub mod chant_of_the_skifsang;
 #[path = "rtr/chaos_imps.rs"]
@@ -221,6 +229,8 @@ pub mod corpse_traders;
 pub mod corpsejack_menace;
 #[path = "rtr/coursers_accord.rs"]
 pub mod coursers_accord;
+#[path = "m13/courtly_provocateur.rs"]
+pub mod courtly_provocateur;
 #[path = "m13/cower_in_fear.rs"]
 pub mod cower_in_fear;
 #[path = "avr/craterhoof_behemoth.rs"]
@@ -293,6 +303,8 @@ pub mod diabolic_revelation;
 pub mod diregraf_captain;
 #[path = "avr/diregraf_escort.rs"]
 pub mod diregraf_escort;
+#[path = "m13/disciple_of_bolas.rs"]
+pub mod disciple_of_bolas;
 #[path = "rtr/doorkeeper.rs"]
 pub mod doorkeeper;
 #[path = "m13/downpour.rs"]
@@ -361,6 +373,8 @@ pub mod entreat_the_angels;
 pub mod erdwal_ripper;
 #[path = "rtr/essence_backlash.rs"]
 pub mod essence_backlash;
+#[path = "avr/essence_harvest.rs"]
+pub mod essence_harvest;
 #[path = "rtr/ethereal_armor.rs"]
 pub mod ethereal_armor;
 #[path = "pc2/etherium_horn_sorcerer.rs"]
@@ -413,6 +427,8 @@ pub mod flowering_lumberknot;
 pub mod forge_devil;
 #[path = "rtr/frostburn_weird.rs"]
 pub mod frostburn_weird;
+#[path = "m13/fungal_sprouting.rs"]
+pub mod fungal_sprouting;
 #[path = "avr/gallows_at_willow_hill.rs"]
 pub mod gallows_at_willow_hill;
 #[path = "avr/galvanic_alchemist.rs"]
@@ -439,6 +455,8 @@ pub mod ghostly_touch;
 pub mod ghoulflesh;
 #[path = "dka/ghoultree.rs"]
 pub mod ghoultree;
+#[path = "avr/gloom_surgeon.rs"]
+pub mod gloom_surgeon;
 #[path = "rtr/gobbling_ooze.rs"]
 pub mod gobbling_ooze;
 #[path = "m13/goblin_battle_jester.rs"]
@@ -463,6 +481,8 @@ pub mod golgari_longlegs;
 pub mod gore_house_chainwalker;
 #[path = "rtr/grave_betrayal.rs"]
 pub mod grave_betrayal;
+#[path = "avr/grave_exchange.rs"]
+pub mod grave_exchange;
 #[path = "pdka/gravecrawler.rs"]
 pub mod gravecrawler;
 #[path = "dka/gravetiller_wurm.rs"]
@@ -683,6 +703,8 @@ pub mod mindclaw_shaman;
 pub mod minotaur_aggressor;
 #[path = "avr/mist_raven.rs"]
 pub mod mist_raven;
+#[path = "avr/misthollow_griffin.rs"]
+pub mod misthollow_griffin;
 #[path = "rtr/mizzium_mortars.rs"]
 pub mod mizzium_mortars;
 #[path = "rtr/mizzium_skin.rs"]
@@ -747,6 +769,8 @@ pub mod pathbreaker_wurm;
 pub mod perilous_shadow;
 #[path = "rtr/phantom_general.rs"]
 pub mod phantom_general;
+#[path = "f12/pillar_of_flame.rs"]
+pub mod pillar_of_flame;
 #[path = "avr/polluted_dead.rs"]
 pub mod polluted_dead;
 #[path = "rtr/precinct_captain.rs"]
@@ -755,6 +779,8 @@ pub mod precinct_captain;
 pub mod predator_ooze;
 #[path = "avr/predator_s_gambit.rs"]
 pub mod predator_s_gambit;
+#[path = "m13/predatory_rampage.rs"]
+pub mod predatory_rampage;
 #[path = "pc2/preyseizer_dragon.rs"]
 pub mod preyseizer_dragon;
 #[path = "m13/primal_huntbeast.rs"]
@@ -1037,6 +1063,8 @@ pub mod thromok_the_insatiable;
 pub mod thundermaw_hellkite;
 #[path = "avr/thunderous_wrath.rs"]
 pub mod thunderous_wrath;
+#[path = "avr/tibalt_the_fiend_blooded.rs"]
+pub mod tibalt_the_fiend_blooded;
 #[path = "avr/timberland_guide.rs"]
 pub mod timberland_guide;
 #[path = "m13/timberpack_wolf.rs"]
@@ -1161,6 +1189,8 @@ pub mod wolfir_avenger;
 pub mod wolfir_silverheart;
 #[path = "dka/wrack_with_madness.rs"]
 pub mod wrack_with_madness;
+#[path = "m13/yeva_nature_s_herald.rs"]
+pub mod yeva_nature_s_herald;
 #[path = "m13/yeva_s_forcemage.rs"]
 pub mod yeva_s_forcemage;
 #[path = "avr/yew_spirit.rs"]

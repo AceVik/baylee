@@ -47,6 +47,8 @@ pub mod bar_the_gate;
 pub mod barrowin_of_clan_undurr;
 #[path = "mid/bat_whisperer.rs"]
 pub mod bat_whisperer;
+#[path = "afr/battle_cry_goblin.rs"]
+pub mod battle_cry_goblin;
 #[path = "mid/beloved_beggar.rs"]
 pub mod beloved_beggar;
 #[path = "mid/bird_admirer.rs"]
@@ -129,6 +131,8 @@ pub mod consider;
 pub mod contact_other_plane;
 #[path = "mid/covert_cutpurse.rs"]
 pub mod covert_cutpurse;
+#[path = "mid/crawl_from_the_cellar.rs"]
+pub mod crawl_from_the_cellar;
 #[path = "mid/croaking_counterpart.rs"]
 pub mod croaking_counterpart;
 #[path = "mid/crossroads_candleguide.rs"]
@@ -177,6 +181,8 @@ pub mod djinni_windseer;
 pub mod dragon_turtle;
 #[path = "afr/drider.rs"]
 pub mod drider;
+#[path = "afr/drizzt_do_urden.rs"]
+pub mod drizzt_do_urden;
 #[path = "mid/drownyard_amalgam.rs"]
 pub mod drownyard_amalgam;
 #[path = "afr/druid_class.rs"]
@@ -259,6 +265,8 @@ pub mod gavony_silversmith;
 pub mod gavony_trapper;
 #[path = "afr/gloom_stalker.rs"]
 pub mod gloom_stalker;
+#[path = "afr/gnoll_hunter.rs"]
+pub mod gnoll_hunter;
 #[path = "afr/goblin_javelineer.rs"]
 pub mod goblin_javelineer;
 #[path = "afr/goblin_morningstar.rs"]
@@ -309,6 +317,8 @@ pub mod hive_of_the_eye_tyrant;
 pub mod hoard_robber;
 #[path = "afr/hoarding_ogre.rs"]
 pub mod hoarding_ogre;
+#[path = "afr/hobgoblin_captain.rs"]
+pub mod hobgoblin_captain;
 #[path = "mid/homestead_courage.rs"]
 pub mod homestead_courage;
 #[path = "mid/hostile_hostel.rs"]
@@ -321,6 +331,8 @@ pub mod howl_of_the_hunt;
 pub mod hulking_bugbear;
 #[path = "mid/hungry_for_more.rs"]
 pub mod hungry_for_more;
+#[path = "afr/hunter_s_mark.rs"]
+pub mod hunter_s_mark;
 #[path = "afc/hurl_through_hell.rs"]
 pub mod hurl_through_hell;
 #[path = "afr/icingdeath_frost_tyrant.rs"]
@@ -337,6 +349,10 @@ pub mod infernal_grasp;
 pub mod ingenious_smith;
 #[path = "afr/inspiring_bard.rs"]
 pub mod inspiring_bard;
+#[path = "afr/intrepid_outlander.rs"]
+pub mod intrepid_outlander;
+#[path = "afr/iron_golem.rs"]
+pub mod iron_golem;
 #[path = "afr/iymrith_desert_doom.rs"]
 pub mod iymrith_desert_doom;
 #[path = "mid/jack_o_lantern.rs"]
@@ -349,6 +365,8 @@ pub mod join_the_dance;
 pub mod kessig_naturalist;
 #[path = "afr/kick_in_the_door.rs"]
 pub mod kick_in_the_door;
+#[path = "afc/klauth_unrivaled_ancient.rs"]
+pub mod klauth_unrivaled_ancient;
 #[path = "mic/kurbis_harvest_celebrant.rs"]
 pub mod kurbis_harvest_celebrant;
 #[path = "afr/lair_of_the_hydra.rs"]
@@ -359,6 +377,8 @@ pub mod lambholt_harrier;
 pub mod larder_zombie;
 #[path = "afr/leather_armor.rs"]
 pub mod leather_armor;
+#[path = "mid/lier_disciple_of_the_drowned.rs"]
+pub mod lier_disciple_of_the_drowned;
 #[path = "mid/liesa_forgotten_archangel.rs"]
 pub mod liesa_forgotten_archangel;
 #[path = "afr/lightfoot_rogue.rs"]
@@ -383,6 +403,8 @@ pub mod midnight_pathlighter;
 pub mod mimic;
 #[path = "afr/mind_flayer.rs"]
 pub mod mind_flayer;
+#[path = "afc/minn_wily_illusionist.rs"]
+pub mod minn_wily_illusionist;
 #[path = "afr/minsc_beloved_ranger.rs"]
 pub mod minsc_beloved_ranger;
 #[path = "afr/monk_of_the_open_hand.rs"]
@@ -469,6 +491,8 @@ pub mod prosperous_innkeeper;
 pub mod purple_worm;
 #[path = "afc/radiant_solar.rs"]
 pub mod radiant_solar;
+#[path = "afr/rally_maneuver.rs"]
+pub mod rally_maneuver;
 #[path = "afr/ranger_s_hawk.rs"]
 pub mod ranger_s_hawk;
 #[path = "afr/ranger_s_longbow.rs"]
@@ -499,6 +523,8 @@ pub mod rite_of_oblivion;
 pub mod robe_of_stars;
 #[path = "mid/rockfall_vale.rs"]
 pub mod rockfall_vale;
+#[path = "mic/ruinous_intrusion.rs"]
+pub mod ruinous_intrusion;
 #[path = "afr/rust_monster.rs"]
 pub mod rust_monster;
 #[path = "mid/sacred_fire.rs"]
@@ -519,6 +545,8 @@ pub mod shadowbeast_sighting;
 pub mod shady_traveler;
 #[path = "afr/shambling_ghast.rs"]
 pub mod shambling_ghast;
+#[path = "afr/shessra_death_s_whisper.rs"]
+pub mod shessra_death_s_whisper;
 #[path = "mid/shipwreck_marsh.rs"]
 pub mod shipwreck_marsh;
 #[path = "afr/shocking_grasp.rs"]
@@ -619,6 +647,8 @@ pub mod voldaren_ambusher;
 pub mod voldaren_stinger;
 #[path = "afc/wand_of_orcus.rs"]
 pub mod wand_of_orcus;
+#[path = "afr/werewolf_pack_leader.rs"]
+pub mod werewolf_pack_leader;
 #[path = "afr/westgate_regent.rs"]
 pub mod westgate_regent;
 #[path = "afr/white_dragon.rs"]

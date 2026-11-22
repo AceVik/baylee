@@ -31,6 +31,8 @@ pub mod ambush_paratrooper;
 pub mod and_they_shall_know_no_fear;
 #[path = "bro/arbalest_engineers.rs"]
 pub mod arbalest_engineers;
+#[path = "bro/arcane_proxy.rs"]
+pub mod arcane_proxy;
 #[path = "40k/arco_flagellant.rs"]
 pub mod arco_flagellant;
 #[path = "j22/ardoz_cobbler_of_war.rs"]
@@ -43,6 +45,8 @@ pub mod argoth_sanctum_of_nature;
 pub mod argothian_opportunist;
 #[path = "bro/argothian_sprite.rs"]
 pub mod argothian_sprite;
+#[path = "bro/arms_race.rs"]
+pub mod arms_race;
 #[path = "bro/artificer_s_dragon.rs"]
 pub mod artificer_s_dragon;
 #[path = "bro/ashnod_flesh_mechanist.rs"]
@@ -107,6 +111,8 @@ pub mod canoptek_spyder;
 pub mod canoptek_tomb_sentinel;
 #[path = "bro/carrion_locust.rs"]
 pub mod carrion_locust;
+#[path = "40k/celestine_the_living_saint.rs"]
+pub mod celestine_the_living_saint;
 #[path = "j22/chains_of_custody.rs"]
 pub mod chains_of_custody;
 #[path = "40k/chaos_terminator_lord.rs"]
@@ -177,6 +183,10 @@ pub mod dwarven_forge_chanter;
 pub mod emergency_weld;
 #[path = "bro/energy_refractor.rs"]
 pub mod energy_refractor;
+#[path = "40k/epistolary_librarian.rs"]
+pub mod epistolary_librarian;
+#[path = "bro/evangel_of_synthesis.rs"]
+pub mod evangel_of_synthesis;
 #[path = "40k/exalted_flamer_of_tzeentch.rs"]
 pub mod exalted_flamer_of_tzeentch;
 #[path = "bro/excavation_explosion.rs"]
@@ -231,6 +241,8 @@ pub mod gixian_infiltrator;
 pub mod gixian_puppeteer;
 #[path = "bro/gixian_skullflayer.rs"]
 pub mod gixian_skullflayer;
+#[path = "brc/glint_raker.rs"]
+pub mod glint_raker;
 #[path = "bro/gnarlroot_pallbearer.rs"]
 pub mod gnarlroot_pallbearer;
 #[path = "bro/gnawing_vermin.rs"]
@@ -247,6 +259,8 @@ pub mod great_desert_prospector;
 pub mod grey_knight_paragon;
 #[path = "bro/gruesome_realization.rs"]
 pub mod gruesome_realization;
+#[path = "bro/gurgling_anointer.rs"]
+pub mod gurgling_anointer;
 #[path = "bro/gwenna_eyes_of_gaea.rs"]
 pub mod gwenna_eyes_of_gaea;
 #[path = "bro/hajar_loyal_bodyguard.rs"]
@@ -261,6 +275,8 @@ pub mod haruspex;
 pub mod haywire_mite;
 #[path = "bro/heavyweight_demolisher.rs"]
 pub mod heavyweight_demolisher;
+#[path = "40k/helbrute.rs"]
+pub mod helbrute;
 #[path = "40k/herald_of_slaanesh.rs"]
 pub mod herald_of_slaanesh;
 #[path = "40k/heralds_of_tzeentch.rs"]
@@ -299,6 +315,8 @@ pub mod instruments_of_war;
 pub mod involuntary_cooldown;
 #[path = "bro/iron_craw_crusher.rs"]
 pub mod iron_craw_crusher;
+#[path = "j22/isu_the_abominable.rs"]
+pub mod isu_the_abominable;
 #[path = "bro/junkyard_genius.rs"]
 pub mod junkyard_genius;
 #[path = "40k/keeper_of_secrets.rs"]
@@ -319,6 +337,8 @@ pub mod koilos_roc;
 pub mod lat_nam_adept;
 #[path = "j22/launch_mishap.rs"]
 pub mod launch_mishap;
+#[path = "bro/lay_down_arms.rs"]
+pub mod lay_down_arms;
 #[path = "40k/let_the_galaxy_burn.rs"]
 pub mod let_the_galaxy_burn;
 #[path = "bro/levitating_statue.rs"]
@@ -381,14 +401,20 @@ pub mod moment_of_defiance;
 pub mod monoxa_midway_manager;
 #[path = "unf/nearby_planet.rs"]
 pub mod nearby_planet;
+#[path = "40k/necron_deathmark.rs"]
+pub mod necron_deathmark;
 #[path = "40k/necron_monolith.rs"]
 pub mod necron_monolith;
 #[path = "40k/necron_overlord.rs"]
 pub mod necron_overlord;
 #[path = "40k/night_scythe.rs"]
 pub mod night_scythe;
+#[path = "bro/no_one_left_behind.rs"]
+pub mod no_one_left_behind;
 #[path = "gn3/nogi_draco_zealot.rs"]
 pub mod nogi_draco_zealot;
+#[path = "40k/noise_marine.rs"]
+pub mod noise_marine;
 #[path = "40k/nurgle_s_rot.rs"]
 pub mod nurgle_s_rot;
 #[path = "bro/obliterating_bolt.rs"]
@@ -465,6 +491,8 @@ pub mod rust_goliath;
 pub mod saheeli_filigree_master;
 #[path = "40k/sanguinary_priest.rs"]
 pub mod sanguinary_priest;
+#[path = "brc/sanwell_avenger_ace.rs"]
+pub mod sanwell_avenger_ace;
 #[path = "brc/sardian_avenger.rs"]
 pub mod sardian_avenger;
 #[path = "bro/sardian_cliffstomper.rs"]
@@ -617,6 +645,8 @@ pub mod transmogrant_altar;
 pub mod transmogrant_s_crown;
 #[path = "40k/trazyn_the_infinite.rs"]
 pub mod trazyn_the_infinite;
+#[path = "bro/trench_stalker.rs"]
+pub mod trench_stalker;
 #[path = "40k/triarch_praetorian.rs"]
 pub mod triarch_praetorian;
 #[path = "40k/trygon_prime.rs"]

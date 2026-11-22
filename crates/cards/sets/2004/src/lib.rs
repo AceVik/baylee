@@ -71,6 +71,8 @@ pub mod auriok_champion;
 pub mod auriok_glaivemaster;
 #[path = "5dn/auriok_salvagers.rs"]
 pub mod auriok_salvagers;
+#[path = "5dn/auriok_windwalker.rs"]
+pub mod auriok_windwalker;
 #[path = "chk/azami_lady_of_scrolls.rs"]
 pub mod azami_lady_of_scrolls;
 #[path = "chk/azusa_lost_but_seeking.rs"]
@@ -127,6 +129,8 @@ pub mod cage_of_hands;
 pub mod call_to_glory;
 #[path = "5dn/channel_the_suns.rs"]
 pub mod channel_the_suns;
+#[path = "5dn/chimeric_coils.rs"]
+pub mod chimeric_coils;
 #[path = "dst/chimeric_egg.rs"]
 pub mod chimeric_egg;
 #[path = "dst/chittering_rats.rs"]
@@ -223,6 +227,10 @@ pub mod eerie_procession;
 pub mod eiganjo_castle;
 #[path = "chk/eight_and_a_half_tails.rs"]
 pub mod eight_and_a_half_tails;
+#[path = "dst/emissary_of_despair.rs"]
+pub mod emissary_of_despair;
+#[path = "dst/emissary_of_hope.rs"]
+pub mod emissary_of_hope;
 #[path = "5dn/energy_chamber.rs"]
 pub mod energy_chamber;
 #[path = "5dn/ensouled_scimitar.rs"]
@@ -381,6 +389,8 @@ pub mod journeyer_s_kite;
 pub mod joyous_respite;
 #[path = "chk/jukai_messenger.rs"]
 pub mod jukai_messenger;
+#[path = "chk/junkyo_bell.rs"]
+pub mod junkyo_bell;
 #[path = "chk/kabuto_moth.rs"]
 pub mod kabuto_moth;
 #[path = "chk/kami_of_ancient_law.rs"]
@@ -487,6 +497,8 @@ pub mod machinate;
 pub mod magma_jet;
 #[path = "dst/magnetic_flux.rs"]
 pub mod magnetic_flux;
+#[path = "5dn/magnetic_theft.rs"]
+pub mod magnetic_theft;
 #[path = "5dn/mana_geyser.rs"]
 pub mod mana_geyser;
 #[path = "chk/marrow_gnawer.rs"]
@@ -529,6 +541,8 @@ pub mod myr_servitor;
 pub mod mystic_restraints;
 #[path = "chk/nagao_bound_by_honor.rs"]
 pub mod nagao_bound_by_honor;
+#[path = "chk/nature_s_will.rs"]
+pub mod nature_s_will;
 #[path = "dst/nemesis_mask.rs"]
 pub mod nemesis_mask;
 #[path = "dst/neurok_prodigy.rs"]
@@ -627,6 +641,8 @@ pub mod rain_of_rust;
 pub mod raksha_golden_cub;
 #[path = "dst/razor_golem.rs"]
 pub mod razor_golem;
+#[path = "5dn/razorgrass_screen.rs"]
+pub mod razorgrass_screen;
 #[path = "5dn/razormane_masticore.rs"]
 pub mod razormane_masticore;
 #[path = "chk/reach_through_mists.rs"]
@@ -829,6 +845,8 @@ pub mod thought_dissector;
 pub mod thoughtbind;
 #[path = "chk/thousand_legged_kami.rs"]
 pub mod thousand_legged_kami;
+#[path = "chk/through_the_breach.rs"]
+pub mod through_the_breach;
 #[path = "dst/thunderstaff.rs"]
 pub mod thunderstaff;
 #[path = "chk/time_of_need.rs"]
@@ -859,6 +877,8 @@ pub mod vedalken_engineer;
 pub mod vedalken_mastermind;
 #[path = "5dn/vedalken_orrery.rs"]
 pub mod vedalken_orrery;
+#[path = "5dn/vedalken_shackles.rs"]
+pub mod vedalken_shackles;
 #[path = "chk/venerable_kumo.rs"]
 pub mod venerable_kumo;
 #[path = "chk/vigilance.rs"]
@@ -901,5 +921,9 @@ pub mod whispersilk_cloak;
 pub mod wirefly_hive;
 #[path = "dst/wurm_s_tooth.rs"]
 pub mod wurm_s_tooth;
+#[path = "chk/yamabushi_s_flame.rs"]
+pub mod yamabushi_s_flame;
+#[path = "chk/yamabushi_s_storm.rs"]
+pub mod yamabushi_s_storm;
 #[path = "chk/zo_zu_the_punisher.rs"]
 pub mod zo_zu_the_punisher;

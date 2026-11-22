@@ -95,6 +95,8 @@ pub mod beckon_apparition;
 pub mod behemoth_s_herald;
 #[path = "eve/belligerent_hatchling.rs"]
 pub mod belligerent_hatchling;
+#[path = "shm/beseech_the_queen.rs"]
+pub mod beseech_the_queen;
 #[path = "shm/biting_tether.rs"]
 pub mod biting_tether;
 #[path = "mor/bitterblossom.rs"]
@@ -1003,6 +1005,8 @@ pub mod savage_conception;
 pub mod savage_hunger;
 #[path = "ala/savage_lands.rs"]
 pub mod savage_lands;
+#[path = "mor/scapeshift.rs"]
+pub mod scapeshift;
 #[path = "shm/scar.rs"]
 pub mod scar;
 #[path = "mor/scarblade_elite.rs"]

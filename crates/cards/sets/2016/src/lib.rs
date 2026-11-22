@@ -15,6 +15,8 @@ pub use baylee_cards_base::{filters, generated_tokens, tokens};
 
 #[path = "emn/abandon_reason.rs"]
 pub mod abandon_reason;
+#[path = "soi/aberrant_researcher.rs"]
+pub mod aberrant_researcher;
 #[path = "ogw/abstruse_interference.rs"]
 pub mod abstruse_interference;
 #[path = "emn/abundant_maw.rs"]
@@ -35,6 +37,8 @@ pub mod aether_hub;
 pub mod aether_meltdown;
 #[path = "kld/aether_theorist.rs"]
 pub mod aether_theorist;
+#[path = "kld/aetherflux_reservoir.rs"]
+pub mod aetherflux_reservoir;
 #[path = "kld/aethersquall_ancient.rs"]
 pub mod aethersquall_ancient;
 #[path = "kld/aethertorch_renegade.rs"]
@@ -87,6 +91,8 @@ pub mod architect_of_the_untamed;
 pub mod arlinn_kord;
 #[path = "kld/armorcraft_judge.rs"]
 pub mod armorcraft_judge;
+#[path = "c16/armory_automaton.rs"]
+pub mod armory_automaton;
 #[path = "c16/ash_barrens.rs"]
 pub mod ash_barrens;
 #[path = "emn/assembled_alphas.rs"]
@@ -209,6 +215,8 @@ pub mod cathartic_reunion;
 pub mod ceremonious_rejection;
 #[path = "emn/certain_death.rs"]
 pub mod certain_death;
+#[path = "kld/chandra_pyrogenius.rs"]
+pub mod chandra_pyrogenius;
 #[path = "soi/chaplain_s_blessing.rs"]
 pub mod chaplain_s_blessing;
 #[path = "emn/chilling_grasp.rs"]
@@ -427,6 +435,8 @@ pub mod engineered_might;
 pub mod enlightened_maniac;
 #[path = "cn2/entourage_of_trest.rs"]
 pub mod entourage_of_trest;
+#[path = "c16/entrapment_maneuver.rs"]
+pub mod entrapment_maneuver;
 #[path = "psoi/epiphany_at_the_drownyard.rs"]
 pub mod epiphany_at_the_drownyard;
 #[path = "soi/epitaph_golem.rs"]
@@ -439,8 +449,12 @@ pub mod era_of_innovation;
 pub mod essence_depleter;
 #[path = "kld/essence_extraction.rs"]
 pub mod essence_extraction;
+#[path = "emn/eternal_scourge.rs"]
+pub mod eternal_scourge;
 #[path = "soi/ethereal_guidance.rs"]
 pub mod ethereal_guidance;
+#[path = "c16/evolutionary_escalation.rs"]
+pub mod evolutionary_escalation;
 #[path = "ogw/expedite.rs"]
 pub mod expedite;
 #[path = "ogw/expedition_raptor.rs"]
@@ -509,6 +523,8 @@ pub mod foundry_inspector;
 pub mod foundry_screecher;
 #[path = "kld/fragmentize.rs"]
 pub mod fragmentize;
+#[path = "c16/frenzied_fugue.rs"]
+pub mod frenzied_fugue;
 #[path = "kld/fretwork_colony.rs"]
 pub mod fretwork_colony;
 #[path = "kld/fumigate.rs"]
@@ -557,6 +573,8 @@ pub mod giant_spectacle;
 pub mod gibbering_fiend;
 #[path = "ogw/gift_of_tusks.rs"]
 pub mod gift_of_tusks;
+#[path = "emn/gisa_and_geralf.rs"]
+pub mod gisa_and_geralf;
 #[path = "soi/gisa_s_bidding.rs"]
 pub mod gisa_s_bidding;
 #[path = "emn/gisela_the_broken_blade.rs"]
@@ -669,6 +687,8 @@ pub mod immolating_glare;
 pub mod impeccable_timing;
 #[path = "emn/impetuous_devils.rs"]
 pub mod impetuous_devils;
+#[path = "emn/incendiary_flow.rs"]
+pub mod incendiary_flow;
 #[path = "kld/incendiary_sabotage.rs"]
 pub mod incendiary_sabotage;
 #[path = "psoi/incorrigible_youths.rs"]
@@ -733,6 +753,8 @@ pub mod just_the_wind;
 pub mod jwar_isle_avenger;
 #[path = "kld/kambal_consul_of_allocation.rs"]
 pub mod kambal_consul_of_allocation;
+#[path = "ogw/kazuul_s_toll_collector.rs"]
+pub mod kazuul_s_toll_collector;
 #[path = "cn2/keeper_of_keys.rs"]
 pub mod keeper_of_keys;
 #[path = "soi/kessig_dire_swine.rs"]
@@ -759,6 +781,8 @@ pub mod kozilek_the_great_distortion;
 pub mod kraum_ludevic_s_opus;
 #[path = "kld/kujar_seedsculptor.rs"]
 pub mod kujar_seedsculptor;
+#[path = "c16/kydele_chosen_of_kruphix.rs"]
+pub mod kydele_chosen_of_kruphix;
 #[path = "emn/laboratory_brute.rs"]
 pub mod laboratory_brute;
 #[path = "soi/lambholt_pacifist.rs"]
@@ -989,6 +1013,8 @@ pub mod prakhata_club_security;
 pub mod prakhata_pillar_bug;
 #[path = "soi/press_for_answers.rs"]
 pub mod press_for_answers;
+#[path = "ogw/press_into_service.rs"]
+pub mod press_into_service;
 #[path = "emn/primal_druid.rs"]
 pub mod primal_druid;
 #[path = "c16/primeval_protector.rs"]
@@ -1023,6 +1049,8 @@ pub mod quilled_wolf;
 pub mod rabid_bite;
 #[path = "soi/rancid_rats.rs"]
 pub mod rancid_rats;
+#[path = "psoi/rattlechains.rs"]
+pub mod rattlechains;
 #[path = "psoi/ravenous_bloodseeker.rs"]
 pub mod ravenous_bloodseeker;
 #[path = "c16/ravos_soultender.rs"]
@@ -1057,6 +1085,8 @@ pub mod restoration_gearsmith;
 pub mod revolutionary_rebuff;
 #[path = "f16/rise_from_the_tides.rs"]
 pub mod rise_from_the_tides;
+#[path = "ogw/roiling_waters.rs"]
+pub mod roiling_waters;
 #[path = "soi/root_out.rs"]
 pub mod root_out;
 #[path = "soi/rottenheart_ghoul.rs"]
@@ -1127,6 +1157,8 @@ pub mod servo_exhibition;
 pub mod shamble_back;
 #[path = "ogw/shoulder_to_shoulder.rs"]
 pub mod shoulder_to_shoulder;
+#[path = "emn/shreds_of_sanity.rs"]
+pub mod shreds_of_sanity;
 #[path = "kld/shrewd_negotiation.rs"]
 pub mod shrewd_negotiation;
 #[path = "emn/shrill_howler.rs"]

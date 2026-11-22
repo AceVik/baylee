@@ -22,9 +22,9 @@ card!(
     ),],
     abilities = &[activated!(
         cost!("{B}", Sacrifice(&Filter::YOUR_CREATURE)),
-        &[Effect::DestroyAllWithManaValue {
-            filter: &Filter::CREATURE,
-            value: Amount::SacrificedManaValue
-        }]
+        &[Effect::destroy_all(&Filter::And(&[
+            Filter::CREATURE,
+            Filter::CmcEqualsAmount(&Amount::SacrificedManaValue)
+        ]))]
     ),],
 );

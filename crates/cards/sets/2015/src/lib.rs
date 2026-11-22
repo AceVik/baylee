@@ -277,6 +277,8 @@ pub mod crucible_of_the_spirit_dragon;
 pub mod crux_of_fate;
 #[path = "dtk/cunning_breezedancer.rs"]
 pub mod cunning_breezedancer;
+#[path = "frf/cunning_strike.rs"]
+pub mod cunning_strike;
 #[path = "dtk/custodian_of_the_trove.rs"]
 pub mod custodian_of_the_trove;
 #[path = "dtk/damnable_pact.rs"]
@@ -505,6 +507,8 @@ pub mod graveblade_marauder;
 pub mod great_horn_krushok;
 #[path = "dtk/great_teacher_s_decree.rs"]
 pub mod great_teacher_s_decree;
+#[path = "bfz/grip_of_desolation.rs"]
+pub mod grip_of_desolation;
 #[path = "bfz/grove_rumbler.rs"]
 pub mod grove_rumbler;
 #[path = "bfz/grovetender_druids.rs"]
@@ -739,6 +743,8 @@ pub mod mistfire_adept;
 pub mod misthoof_kirin;
 #[path = "c15/mizzix_s_mastery.rs"]
 pub mod mizzix_s_mastery;
+#[path = "frf/mob_rule.rs"]
+pub mod mob_rule;
 #[path = "bfz/molten_nursery.rs"]
 pub mod molten_nursery;
 #[path = "ori/molten_vortex.rs"]
@@ -809,6 +815,8 @@ pub mod outnumber;
 pub mod palace_familiar;
 #[path = "bfz/part_the_waterveil.rs"]
 pub mod part_the_waterveil;
+#[path = "c15/pathbreaker_ibex.rs"]
+pub mod pathbreaker_ibex;
 #[path = "ori/patron_of_the_valiant.rs"]
 pub mod patron_of_the_valiant;
 #[path = "ori/pharika_s_disciple.rs"]
@@ -907,6 +915,8 @@ pub mod righteous_confluence;
 pub mod ringwarden_owl;
 #[path = "bfz/rising_miasma.rs"]
 pub mod rising_miasma;
+#[path = "frf/rite_of_undoing.rs"]
+pub mod rite_of_undoing;
 #[path = "f15/roast.rs"]
 pub mod roast;
 #[path = "bfz/roil_s_retribution.rs"]
@@ -1011,6 +1021,8 @@ pub mod sheer_drop;
 pub mod shielded_by_faith;
 #[path = "dtk/shieldhide_dragon.rs"]
 pub mod shieldhide_dragon;
+#[path = "frf/shockmaw_dragon.rs"]
+pub mod shockmaw_dragon;
 #[path = "bfz/shrine_of_the_forsaken_gods.rs"]
 pub mod shrine_of_the_forsaken_gods;
 #[path = "frf/sibsig_host.rs"]
@@ -1031,6 +1043,8 @@ pub mod sight_of_the_scalelords;
 pub mod silent_skimmer;
 #[path = "dtk/silkwrap.rs"]
 pub mod silkwrap;
+#[path = "dtk/silumgar_assassin.rs"]
+pub mod silumgar_assassin;
 #[path = "dtk/silumgar_butcher.rs"]
 pub mod silumgar_butcher;
 #[path = "dtk/silumgar_monument.rs"]
@@ -1145,6 +1159,8 @@ pub mod temporal_trespass;
 pub mod temur_battle_rage;
 #[path = "frf/temur_runemark.rs"]
 pub mod temur_runemark;
+#[path = "frf/temur_sabertooth.rs"]
+pub mod temur_sabertooth;
 #[path = "dtk/territorial_roc.rs"]
 pub mod territorial_roc;
 #[path = "c15/thief_of_blood.rs"]
@@ -1167,6 +1183,8 @@ pub mod tide_drifter;
 pub mod tightening_coils;
 #[path = "ori/topan_freeblade.rs"]
 pub mod topan_freeblade;
+#[path = "bfz/touch_of_the_void.rs"]
+pub mod touch_of_the_void;
 #[path = "bfz/transgress_the_mind.rs"]
 pub mod transgress_the_mind;
 #[path = "dtk/tread_upon.rs"]
@@ -1177,6 +1195,8 @@ pub mod tunneling_geopede;
 pub mod turn_against;
 #[path = "ugin/ugin_s_construct.rs"]
 pub mod ugin_s_construct;
+#[path = "bfz/ugin_s_insight.rs"]
+pub mod ugin_s_insight;
 #[path = "dtk/ukud_cobra.rs"]
 pub mod ukud_cobra;
 #[path = "bfz/ulamog_the_ceaseless_hunger.rs"]

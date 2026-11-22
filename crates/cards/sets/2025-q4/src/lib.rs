@@ -199,6 +199,8 @@ pub mod flopsie_bumi_s_buddy;
 pub mod flying_dolphin_fish;
 #[path = "tla/foggy_bottom_swamp.rs"]
 pub mod foggy_bottom_swamp;
+#[path = "tla/foggy_swamp_hunters.rs"]
+pub mod foggy_swamp_hunters;
 #[path = "tla/foggy_swamp_spirit_keeper.rs"]
 pub mod foggy_swamp_spirit_keeper;
 #[path = "tla/forecasting_fortune_teller.rs"]
@@ -221,6 +223,8 @@ pub mod glider_kids;
 pub mod great_divide_guide;
 #[path = "tla/guru_pathik.rs"]
 pub mod guru_pathik;
+#[path = "ptla/hakoda_selfless_commander.rs"]
+pub mod hakoda_selfless_commander;
 #[path = "tla/haru_hidden_talent.rs"]
 pub mod haru_hidden_talent;
 #[path = "tle/hei_bai_forest_guardian.rs"]
@@ -259,6 +263,8 @@ pub mod jet_freedom_fighter;
 pub mod jet_s_brainwashing;
 #[path = "tla/joo_dee_one_of_many.rs"]
 pub mod joo_dee_one_of_many;
+#[path = "tla/june_bounty_hunter.rs"]
+pub mod june_bounty_hunter;
 #[path = "tle/katara_heroic_healer.rs"]
 pub mod katara_heroic_healer;
 #[path = "tle/kindly_customer.rs"]
@@ -297,6 +303,8 @@ pub mod lost_in_memories;
 pub mod lost_in_the_spirit_world;
 #[path = "tle/loyal_fire_sage.rs"]
 pub mod loyal_fire_sage;
+#[path = "tle/mai_and_zuko.rs"]
+pub mod mai_and_zuko;
 #[path = "tla/mai_jaded_edge.rs"]
 pub mod mai_jaded_edge;
 #[path = "ptla/mai_scornful_striker.rs"]
@@ -315,6 +323,8 @@ pub mod mechanical_glider;
 pub mod meditation_pools;
 #[path = "tla/merchant_of_many_hats.rs"]
 pub mod merchant_of_many_hats;
+#[path = "tla/messenger_hawk.rs"]
+pub mod messenger_hawk;
 #[path = "tla/meteor_sword.rs"]
 pub mod meteor_sword;
 #[path = "tla/misty_palms_oasis.rs"]
@@ -407,6 +417,8 @@ pub mod sokka_s_charge;
 pub mod sokka_s_haiku;
 #[path = "tle/sokka_s_sword_training.rs"]
 pub mod sokka_s_sword_training;
+#[path = "tle/sokka_swordmaster.rs"]
+pub mod sokka_swordmaster;
 #[path = "ptla/sokka_tenacious_tactician.rs"]
 pub mod sokka_tenacious_tactician;
 #[path = "tle/sokka_wolf_cove_s_protector.rs"]
@@ -415,6 +427,8 @@ pub mod sokka_wolf_cove_s_protector;
 pub mod sold_out;
 #[path = "tle/solid_ground.rs"]
 pub mod solid_ground;
+#[path = "tla/solstice_revelations.rs"]
+pub mod solstice_revelations;
 #[path = "tla/southern_air_temple.rs"]
 pub mod southern_air_temple;
 #[path = "ptla/spirit_water_revival.rs"]
@@ -433,6 +447,8 @@ pub mod sun_blessed_peak;
 pub mod sun_warriors;
 #[path = "tle/swampbenders.rs"]
 pub mod swampbenders;
+#[path = "tla/swampsnare_trap.rs"]
+pub mod swampsnare_trap;
 #[path = "tla/team_avatar.rs"]
 pub mod team_avatar;
 #[path = "tla/teo_spirited_glider.rs"]

@@ -457,6 +457,8 @@ pub mod kabira_evangel;
 pub mod kaleidostone;
 #[path = "m10/kalonian_behemoth.rs"]
 pub mod kalonian_behemoth;
+#[path = "arb/karrthus_tyrant_of_jund.rs"]
+pub mod karrthus_tyrant_of_jund;
 #[path = "purl/katara_the_fearless.rs"]
 pub mod katara_the_fearless;
 #[path = "arb/kathari_bomber.rs"]
@@ -491,6 +493,8 @@ pub mod kor_cartographer;
 pub mod kor_duelist;
 #[path = "zen/kor_hookmaster.rs"]
 pub mod kor_hookmaster;
+#[path = "zen/kor_outfitter.rs"]
+pub mod kor_outfitter;
 #[path = "hop/kor_sanctifiers.rs"]
 pub mod kor_sanctifiers;
 #[path = "zen/kor_skyfisher.rs"]
@@ -501,6 +505,8 @@ pub mod kraken_hatchling;
 pub mod kranioceros;
 #[path = "zen/landbind_ritual.rs"]
 pub mod landbind_ritual;
+#[path = "arb/lavalanche.rs"]
+pub mod lavalanche;
 #[path = "arb/leonin_armorguard.rs"]
 pub mod leonin_armorguard;
 #[path = "zen/lethargy_trap.rs"]
@@ -615,6 +621,8 @@ pub mod morbid_bloom;
 pub mod murasa_pyromancer;
 #[path = "arb/mycoid_shepherd.rs"]
 pub mod mycoid_shepherd;
+#[path = "con_/nacatl_hunt_pride.rs"]
+pub mod nacatl_hunt_pride;
 #[path = "con_/nacatl_outlander.rs"]
 pub mod nacatl_outlander;
 #[path = "con_/nacatl_savage.rs"]
@@ -845,6 +853,8 @@ pub mod soul_s_majesty;
 pub mod soul_stair_expedition;
 #[path = "zen/spell_pierce.rs"]
 pub mod spell_pierce;
+#[path = "arb/spellbreaker_behemoth.rs"]
+pub mod spellbreaker_behemoth;
 #[path = "zen/sphinx_of_jwar_isle.rs"]
 pub mod sphinx_of_jwar_isle;
 #[path = "zen/sphinx_of_lost_truths.rs"]

@@ -19,6 +19,8 @@ pub mod abyssal_lotus;
 pub mod calmwater_mentor;
 #[path = "nau/ring_of_unity.rs"]
 pub mod ring_of_unity;
+#[path = "nau/salinae_the_ocean_mother.rs"]
+pub mod salinae_the_ocean_mother;
 #[path = "nau/shimmering_citadel.rs"]
 pub mod shimmering_citadel;
 #[path = "nau/tecton_malignant_ruin.rs"]

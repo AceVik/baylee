@@ -255,6 +255,8 @@ pub mod fallowsage;
 pub mod familiar_s_ruse;
 #[path = "fut/fatal_attraction.rs"]
 pub mod fatal_attraction;
+#[path = "plc/fatal_frenzy.rs"]
+pub mod fatal_frenzy;
 #[path = "lrw/fathom_trawl.rs"]
 pub mod fathom_trawl;
 #[path = "lrw/faultgrinder.rs"]
@@ -391,6 +393,8 @@ pub mod immaculate_magistrate;
 pub mod imp_s_mischief;
 #[path = "lrw/imperious_perfect.rs"]
 pub mod imperious_perfect;
+#[path = "lrw/incandescent_soulstoke.rs"]
+pub mod incandescent_soulstoke;
 #[path = "fut/infiltrator_il_kor.rs"]
 pub mod infiltrator_il_kor;
 #[path = "lrw/ingot_chewer.rs"]
@@ -463,6 +467,8 @@ pub mod llanowar_mentor;
 pub mod llanowar_reborn;
 #[path = "fut/logic_knot.rs"]
 pub mod logic_knot;
+#[path = "lrw/lowland_oaf.rs"]
+pub mod lowland_oaf;
 #[path = "fut/lucent_liminid.rs"]
 pub mod lucent_liminid;
 #[path = "fut/lumithread_field.rs"]
@@ -477,6 +483,8 @@ pub mod mad_auntie;
 pub mod magus_of_the_bazaar;
 #[path = "plc/magus_of_the_coffers.rs"]
 pub mod magus_of_the_coffers;
+#[path = "fut/magus_of_the_future.rs"]
+pub mod magus_of_the_future;
 #[path = "plc/magus_of_the_library.rs"]
 pub mod magus_of_the_library;
 #[path = "fut/magus_of_the_moat.rs"]
@@ -627,6 +635,8 @@ pub mod psychotrope_thallid;
 pub mod pyrohemia;
 #[path = "fut/pyromancer_s_swath.rs"]
 pub mod pyromancer_s_swath;
+#[path = "fut/quagnoth.rs"]
+pub mod quagnoth;
 #[path = "lrw/quill_slinger_boggart.rs"]
 pub mod quill_slinger_boggart;
 #[path = "plc/radha_heir_to_keld.rs"]
@@ -733,6 +743,8 @@ pub mod sower_of_temptation;
 pub mod sparkspitter;
 #[path = "plc/spellshift.rs"]
 pub mod spellshift;
+#[path = "lrw/spellstutter_sprite.rs"]
+pub mod spellstutter_sprite;
 #[path = "fut/spellwild_ouphe.rs"]
 pub mod spellwild_ouphe;
 #[path = "lrw/spiderwig_boggart.rs"]

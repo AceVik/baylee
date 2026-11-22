@@ -137,6 +137,8 @@ pub mod battlefield_promotion;
 pub mod bazaar_trademage;
 #[path = "eld/beanstalk_giant.rs"]
 pub mod beanstalk_giant;
+#[path = "prna/bedeck.rs"]
+pub mod bedeck;
 #[path = "prna/bedevil.rs"]
 pub mod bedevil;
 #[path = "eld/belle_of_the_brawl.rs"]
@@ -303,6 +305,8 @@ pub mod clamor_shaman;
 pub mod clan_guildmage;
 #[path = "rna/clear_the_mind.rs"]
 pub mod clear_the_mind;
+#[path = "rna/clear_the_stage.rs"]
+pub mod clear_the_stage;
 #[path = "mh1/cleaving_sliver.rs"]
 pub mod cleaving_sliver;
 #[path = "m20/cloudkin_seer.rs"]
@@ -427,6 +431,8 @@ pub mod dovin_s_veto;
 pub mod drawn_from_dreams;
 #[path = "m20/dread_presence.rs"]
 pub mod dread_presence;
+#[path = "pwar/dreadhorde_arcanist.rs"]
+pub mod dreadhorde_arcanist;
 #[path = "pwar/dreadhorde_butcher.rs"]
 pub mod dreadhorde_butcher;
 #[path = "pwar/dreadhorde_invasion.rs"]
@@ -457,6 +463,8 @@ pub mod elite_arrester;
 pub mod elite_guardmage;
 #[path = "eld/elite_headhunter.rs"]
 pub mod elite_headhunter;
+#[path = "c19/elsha_of_the_infinite.rs"]
+pub mod elsha_of_the_infinite;
 #[path = "m20/elvish_reclaimer.rs"]
 pub mod elvish_reclaimer;
 #[path = "eld/embercleave.rs"]
@@ -489,6 +497,8 @@ pub mod enforcer_griffin;
 pub mod engulfing_eruption;
 #[path = "rna/enraged_ceratok.rs"]
 pub mod enraged_ceratok;
+#[path = "pwar/enter_the_god_eternals.rs"]
+pub mod enter_the_god_eternals;
 #[path = "mh1/ephemerate.rs"]
 pub mod ephemerate;
 #[path = "eld/epic_downfall.rs"]
@@ -497,6 +507,8 @@ pub mod epic_downfall;
 pub mod erratic_visionary;
 #[path = "eld/escape_to_the_wilds.rs"]
 pub mod escape_to_the_wilds;
+#[path = "rna/essence_capture.rs"]
+pub mod essence_capture;
 #[path = "mh1/etchings_of_the_chosen.rs"]
 pub mod etchings_of_the_chosen;
 #[path = "m20/eternal_isolation.rs"]
@@ -517,6 +529,8 @@ pub mod excavating_anurid;
 pub mod expose_to_daylight;
 #[path = "eld/eye_collector.rs"]
 pub mod eye_collector;
+#[path = "mh1/eyekite.rs"]
+pub mod eyekite;
 #[path = "eld/fabled_passage.rs"]
 pub mod fabled_passage;
 #[path = "eld/faeburrow_elder.rs"]
@@ -573,6 +587,8 @@ pub mod fires_of_invention;
 pub mod first_sliver_s_chosen;
 #[path = "mh1/first_sphere_gargantua.rs"]
 pub mod first_sphere_gargantua;
+#[path = "mh1/fists_of_flame.rs"]
+pub mod fists_of_flame;
 #[path = "m20/flame_sweep.rs"]
 pub mod flame_sweep;
 #[path = "eld/flaxen_intruder.rs"]
@@ -591,6 +607,8 @@ pub mod forbidding_spirit;
 pub mod force_of_despair;
 #[path = "mh1/force_of_negation.rs"]
 pub mod force_of_negation;
+#[path = "mh1/force_of_rage.rs"]
+pub mod force_of_rage;
 #[path = "mh1/force_of_vigor.rs"]
 pub mod force_of_vigor;
 #[path = "mh1/force_of_virtue.rs"]
@@ -1055,6 +1073,8 @@ pub mod murderous_rider;
 pub mod mystic_forge;
 #[path = "eld/mystic_sanctuary.rs"]
 pub mod mystic_sanctuary;
+#[path = "eld/mystical_dispute.rs"]
+pub mod mystical_dispute;
 #[path = "war/naga_eternal.rs"]
 pub mod naga_eternal;
 #[path = "war/nahiri_s_stoneblades.rs"]
@@ -1173,6 +1193,8 @@ pub mod pondering_mage;
 pub mod pouncing_lynx;
 #[path = "prna/precognitive_perception.rs"]
 pub mod precognitive_perception;
+#[path = "rna/prime_speaker_vannifar.rs"]
+pub mod prime_speaker_vannifar;
 #[path = "sld/princess_irulan_corrino.rs"]
 pub mod princess_irulan_corrino;
 #[path = "mh1/prismatic_vista.rs"]
@@ -1211,6 +1233,8 @@ pub mod ragefire;
 pub mod raging_redcap;
 #[path = "mh1/rain_of_revelation.rs"]
 pub mod rain_of_revelation;
+#[path = "prna/rakdos_firewheeler.rs"]
+pub mod rakdos_firewheeler;
 #[path = "rna/rakdos_locket.rs"]
 pub mod rakdos_locket;
 #[path = "rna/rakdos_trumpeter.rs"]
@@ -1269,6 +1293,8 @@ pub mod reverend_mother_jessica;
 pub mod revival;
 #[path = "mh1/rhox_veteran.rs"]
 pub mod rhox_veteran;
+#[path = "rna/rhythm_of_the_wild.rs"]
+pub mod rhythm_of_the_wild;
 #[path = "m20/rienne_angel_of_rebirth.rs"]
 pub mod rienne_angel_of_rebirth;
 #[path = "mh1/rime_tender.rs"]
@@ -1293,6 +1319,8 @@ pub mod rotting_regisaur;
 pub mod rotwidow_pack;
 #[path = "eld/roving_keep.rs"]
 pub mod roving_keep;
+#[path = "eld/rowan_fearless_sparkmage.rs"]
+pub mod rowan_fearless_sparkmage;
 #[path = "eld/rowan_s_battleguard.rs"]
 pub mod rowan_s_battleguard;
 #[path = "eld/rowan_s_stalwarts.rs"]
@@ -1303,6 +1331,8 @@ pub mod rubble_reading;
 pub mod rubble_slinger;
 #[path = "rna/rubblebelt_recluse.rs"]
 pub mod rubblebelt_recluse;
+#[path = "war/rubblebelt_rioters.rs"]
+pub mod rubblebelt_rioters;
 #[path = "rna/rubblebelt_runner.rs"]
 pub mod rubblebelt_runner;
 #[path = "mh1/ruination_rioter.rs"]
@@ -1495,6 +1525,8 @@ pub mod sphinx_of_new_prahv;
 pub mod sphinx_s_insight;
 #[path = "rna/spikewheel_acrobat.rs"]
 pub mod spikewheel_acrobat;
+#[path = "mh1/spinehorn_minotaur.rs"]
+pub mod spinehorn_minotaur;
 #[path = "eld/spinning_wheel.rs"]
 pub mod spinning_wheel;
 #[path = "rna/spire_mangler.rs"]
@@ -1601,6 +1633,8 @@ pub mod teyo_the_shieldmage;
 pub mod the_cauldron_of_eternity;
 #[path = "eld/the_circle_of_loyalty.rs"]
 pub mod the_circle_of_loyalty;
+#[path = "eld/the_great_henge.rs"]
+pub mod the_great_henge;
 #[path = "sld/the_meep.rs"]
 pub mod the_meep;
 #[path = "pwar/the_wanderer.rs"]
@@ -1629,6 +1663,8 @@ pub mod throatseeker;
 pub mod thunder_drake;
 #[path = "war/thundering_ceratok.rs"]
 pub mod thundering_ceratok;
+#[path = "mh1/thundering_djinn.rs"]
+pub mod thundering_djinn;
 #[path = "eld/thunderous_snapper.rs"]
 pub mod thunderous_snapper;
 #[path = "pwar/tibalt_rakish_instigator.rs"]
@@ -1637,6 +1673,8 @@ pub mod tibalt_rakish_instigator;
 pub mod tibalt_s_rager;
 #[path = "rna/tin_street_dodger.rs"]
 pub mod tin_street_dodger;
+#[path = "rna/titanic_brawl.rs"]
+pub mod titanic_brawl;
 #[path = "war/tithebearer_giant.rs"]
 pub mod tithebearer_giant;
 #[path = "war/toll_of_the_invasion.rs"]

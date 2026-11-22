@@ -83,10 +83,14 @@ pub mod boneclub_berserker;
 pub mod bot_bashing_time;
 #[path = "ecl/brambleback_brute.rs"]
 pub mod brambleback_brute;
+#[path = "ecl/bre_of_clan_stoutarm.rs"]
+pub mod bre_of_clan_stoutarm;
 #[path = "ecl/brigid_s_command.rs"]
 pub mod brigid_s_command;
 #[path = "ecl/bristlebane_battler.rs"]
 pub mod bristlebane_battler;
+#[path = "tmt/broadcast_takeover.rs"]
+pub mod broadcast_takeover;
 #[path = "ecl/burdened_stoneback.rs"]
 pub mod burdened_stoneback;
 #[path = "tmt/buzz_bots.rs"]
@@ -249,8 +253,12 @@ pub mod glamermite;
 pub mod glen_elendra_guardian;
 #[path = "ecl/glister_bairn.rs"]
 pub mod glister_bairn;
+#[path = "ecl/gloom_ripper.rs"]
+pub mod gloom_ripper;
 #[path = "ecl/gnarlbark_elm.rs"]
 pub mod gnarlbark_elm;
+#[path = "tmt/go_ninja_go.rs"]
+pub mod go_ninja_go;
 #[path = "ecl/goldmeadow_nomad.rs"]
 pub mod goldmeadow_nomad;
 #[path = "ecc/grave_venerations.rs"]
@@ -261,6 +269,8 @@ pub mod gravelgill_scoundrel;
 pub mod great_forest_druid;
 #[path = "tmt/groundchuck_dirtbag.rs"]
 pub mod groundchuck_dirtbag;
+#[path = "tmt/grounded_for_life.rs"]
+pub mod grounded_for_life;
 #[path = "tmt/guac_marshmallow_pizza.rs"]
 pub mod guac_marshmallow_pizza;
 #[path = "tmt/hamato_guardian_stance.rs"]
@@ -275,6 +285,10 @@ pub mod harmonized_crescendo;
 pub mod heirloom_auntie;
 #[path = "tmt/henchbots.rs"]
 pub mod henchbots;
+#[path = "tmc/here_comes_a_new_hero.rs"]
+pub mod here_comes_a_new_hero;
+#[path = "ecl/hexing_squelcher.rs"]
+pub mod hexing_squelcher;
 #[path = "tmc/hidden_hideout.rs"]
 pub mod hidden_hideout;
 #[path = "tmt/high_flying_ace.rs"]
@@ -343,6 +357,8 @@ pub mod leonardo_worldly_warrior;
 pub mod lessons_from_life;
 #[path = "ecl/liminal_hold.rs"]
 pub mod liminal_hold;
+#[path = "tmt/lita_little_orphan_amphibian.rs"]
+pub mod lita_little_orphan_amphibian;
 #[path = "ecl/loch_mare.rs"]
 pub mod loch_mare;
 #[path = "ecl/lofty_dreams.rs"]
@@ -461,6 +477,8 @@ pub mod personify;
 pub mod pestered_wellguard;
 #[path = "tmt/pizza_face_gastromancer.rs"]
 pub mod pizza_face_gastromancer;
+#[path = "tmt/prehistoric_pet.rs"]
+pub mod prehistoric_pet;
 #[path = "tmc/prehistoric_turtlesaurus.rs"]
 pub mod prehistoric_turtlesaurus;
 #[path = "ecl/prideful_feastling.rs"]
@@ -605,6 +623,8 @@ pub mod subterfuge;
 pub mod summit_sentinel;
 #[path = "ecl/sun_dappled_celebrant.rs"]
 pub mod sun_dappled_celebrant;
+#[path = "ecl/sunderflock.rs"]
+pub mod sunderflock;
 #[path = "tmc/super_combo.rs"]
 pub mod super_combo;
 #[path = "ecl/surly_farrier.rs"]

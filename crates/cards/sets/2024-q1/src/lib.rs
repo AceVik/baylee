@@ -33,12 +33,16 @@ pub mod alquist_proft_master_sleuth;
 pub mod analyze_the_pollen;
 #[path = "clu/apothecary_white.rs"]
 pub mod apothecary_white;
+#[path = "pip/arcade_gannon.rs"]
+pub mod arcade_gannon;
 #[path = "mkm/archdruid_s_charm.rs"]
 pub mod archdruid_s_charm;
 #[path = "mkc/armed_with_proof.rs"]
 pub mod armed_with_proof;
 #[path = "pip/armory_paladin.rs"]
 pub mod armory_paladin;
+#[path = "mkm/assemble_the_players.rs"]
+pub mod assemble_the_players;
 #[path = "pip/atomize.rs"]
 pub mod atomize;
 #[path = "mkm/auspicious_arrival.rs"]
@@ -93,6 +97,8 @@ pub mod chalk_outline;
 pub mod charisma_bobblehead;
 #[path = "mkc/charnel_serenade.rs"]
 pub mod charnel_serenade;
+#[path = "pip/codsworth_handy_helper.rs"]
+pub mod codsworth_handy_helper;
 #[path = "mkm/coerced_to_kill.rs"]
 pub mod coerced_to_kill;
 #[path = "mkm/cold_case_cracker.rs"]
@@ -129,6 +135,8 @@ pub mod crime_novelist;
 pub mod crimestopper_sprite;
 #[path = "pip/crimson_caravaneer.rs"]
 pub mod crimson_caravaneer;
+#[path = "mkm/culvert_ambusher.rs"]
+pub mod culvert_ambusher;
 #[path = "mkm/curious_cadaver.rs"]
 pub mod curious_cadaver;
 #[path = "mkm/curious_inquiry.rs"]
@@ -231,6 +239,8 @@ pub mod haazda_vigilante;
 pub mod hall;
 #[path = "mkm/hard_hitting_question.rs"]
 pub mod hard_hitting_question;
+#[path = "mkm/harried_dronesmith.rs"]
+pub mod harried_dronesmith;
 #[path = "mkm/hedge_maze.rs"]
 pub mod hedge_maze;
 #[path = "mkm/hedge_whisperer.rs"]
@@ -255,6 +265,8 @@ pub mod inside_source;
 pub mod insidious_roots;
 #[path = "pip/intelligence_bobblehead.rs"]
 pub mod intelligence_bobblehead;
+#[path = "pip/inventory_management.rs"]
+pub mod inventory_management;
 #[path = "pip/james_wandering_dad.rs"]
 pub mod james_wandering_dad;
 #[path = "pip/junktown.rs"]
@@ -265,6 +277,8 @@ pub mod kellan_inquisitive_prodigy;
 pub mod kitchen;
 #[path = "mkm/knife.rs"]
 pub mod knife;
+#[path = "mkc/knowledge_is_power.rs"]
+pub mod knowledge_is_power;
 #[path = "mkm/kraul_whipcracker.rs"]
 pub mod kraul_whipcracker;
 #[path = "mkm/krenko_baron_of_tin_street.rs"]
@@ -365,6 +379,8 @@ pub mod pre_war_formalwear;
 pub mod presumed_dead;
 #[path = "mkm/private_eye.rs"]
 pub mod private_eye;
+#[path = "mkm/proft_s_eidetic_memory.rs"]
+pub mod proft_s_eidetic_memory;
 #[path = "mkm/public_thoroughfare.rs"]
 pub mod public_thoroughfare;
 #[path = "pip/radstorm.rs"]
