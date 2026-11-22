@@ -5,6 +5,7 @@
 
 #[allow(clippy::wildcard_imports)]
 use super::*;
+use crate::choice::NumberPrompt;
 use crate::object::Status;
 use crate::zone::Zone;
 use baylee_cards_dsl::{Filter, VariablePayKind};
@@ -63,7 +64,6 @@ pub(super) fn choose_number_ex_start(
     if raw_min > effective_max {
         return None;
     }
-    use crate::choice::NumberPrompt;
     let reason = match pay_cost {
         None => NumberPrompt::Choice,
         Some(VariablePayKind::Energy) => NumberPrompt::VariableEnergyPayment,
