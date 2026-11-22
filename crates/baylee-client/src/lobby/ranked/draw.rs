@@ -369,21 +369,24 @@ pub(super) fn patch(
     };
     let net = &state.ranked_net;
     let ui = &state.ranked;
-    let own = book.as_ref().and_then(|book| {
-        let format = queue::effective_format(&state);
-        if let Some(s) = book.own_player(format) {
-            return Some((s.rank, s.placement_games, Some(s.elo)));
-        }
-        book.own_loaded().then_some((
-            api::Rank {
-                league: League::Unranked,
-                division: None,
-                champion_place: None,
-            },
-            0,
-            None,
-        ))
-    });
+    let own = book
+        .as_ref()
+        .filter(|_| state.has_central_account())
+        .and_then(|book| {
+            let format = queue::effective_format(&state);
+            if let Some(s) = book.own_player(format) {
+                return Some((s.rank, s.placement_games, Some(s.elo)));
+            }
+            book.own_loaded().then_some((
+                api::Rank {
+                    league: League::Unranked,
+                    division: None,
+                    champion_place: None,
+                },
+                0,
+                None,
+            ))
+        });
     let key = (page, ui.revision, net.revision, own);
     if painted.key == Some(key) && !state.is_changed() {
         return;

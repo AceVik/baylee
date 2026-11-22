@@ -1009,6 +1009,9 @@ enum Reply {
         deck_id: Option<String>,
         archived: bool,
     },
+    /// Persist this new private deck's reservation before the first cloud write.
+    #[cfg(not(target_arch = "wasm32"))]
+    PrivateDeckReserved(Box<client_core::deckbuilder::saves::DeckSave>, uuid::Uuid),
     /// An auto-save did not reach the gateway, or was refused; `why` is
     /// `None` where another reply says what happened.
     AutoSaveFailed {

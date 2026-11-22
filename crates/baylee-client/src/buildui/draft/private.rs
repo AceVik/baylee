@@ -22,6 +22,13 @@ pub(crate) struct Private {
     file: String,
 }
 
+/// Stored only inside the account's authenticated local recovery envelope.
+#[derive(Clone, serde::Serialize, serde::Deserialize)]
+pub(crate) struct ReservedCreate {
+    pub(crate) id: uuid::Uuid,
+    pub(crate) first: baylee_account::decks::DeckDraft,
+}
+
 impl Private {
     pub(crate) fn for_account(account: &Account) -> Result<Self, Error> {
         let scope = Sha256::digest(b"baylee/local-builder-drafts/v1").into();
@@ -33,7 +40,13 @@ impl Private {
         let mut name = Sha256::new();
         name.update(b"baylee/local-builder-drafts/filename/v1");
         name.update(&*key);
-        let file = format!("builder-drafts-{:x}.sealed", name.finalize());
+        let digest = name.finalize();
+        let mut file = String::from("builder-drafts-");
+        use std::fmt::Write as _;
+        for byte in digest.as_slice() {
+            let _ = write!(file, "{byte:02x}");
+        }
+        file.push_str(".sealed");
         Self {
             key: Arc::new(key),
             file,
@@ -82,19 +95,76 @@ impl Private {
     }
 
     pub(super) fn write(&self, decks: &Drafts) {
-        if decks.decks.is_empty() {
+        if decks.decks.is_empty() && decks.creates.is_empty() {
             crate::settings::store::remove_named(&self.file);
-        } else if let Some(path) = crate::settings::store::path(&self.file)
-            && let Some(bytes) = self.seal(decks)
-        {
-            crate::settings::store::write_at(&path, bytes);
+        } else {
+            let _ = self.write_checked(decks);
         }
+    }
+
+    pub(super) fn write_checked(&self, decks: &Drafts) -> Result<(), Error> {
+        let path = crate::settings::store::path(&self.file).ok_or(Error::Unavailable)?;
+        let bytes = self.seal(decks).ok_or(Error::Unavailable)?;
+        crate::settings::store::write_at_checked(&path, bytes).map_err(|_| Error::Unavailable)
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn lost_cloud_create_reply_reopens_the_same_anchor_but_a_clone_gets_a_new_intent() {
+        let vault = Private::new(Zeroizing::new([9; 32]));
+        let id = uuid::Uuid::now_v7();
+        let draft = Draft {
+            name: "First build".into(),
+            main: vec!["1 Island".into()],
+            ..Draft::default()
+        };
+        let initial = baylee_account::decks::DeckDraft {
+            name: draft.name.clone(),
+            cards: draft.main.clone(),
+            format: "freeform".into(),
+            ..Default::default()
+        };
+        let mut before = Drafts {
+            epoch: 1,
+            read: true,
+            ..Drafts::default()
+        };
+        before.keep_visit(7, &draft);
+        before.record_create(
+            7,
+            ReservedCreate {
+                id,
+                first: initial.clone(),
+            },
+        );
+        // The cloud committed this ID. The application died before the response.
+        let envelope = vault.seal(&before).unwrap();
+        let mut after = Drafts {
+            epoch: 2,
+            read: true,
+            ..vault.open(&envelope).unwrap()
+        };
+        let (recovered, fork) = after.recover(&Draft::default()).unwrap();
+        assert!(!fork && recovered == draft);
+        after.resume_create(12);
+        let retry = after.create_for(12).unwrap();
+        assert_eq!(retry.id, id);
+        assert!(retry.first == initial);
+        // A populated import and another actual new visit may have the same contents.
+        assert!(after.recover(&draft).is_none());
+        after.keep_visit(13, &draft);
+        assert!(after.create_for(13).is_none());
+        assert_eq!(after.create_for(12).unwrap().id, id);
+        assert!(
+            Private::new(Zeroizing::new([8; 32]))
+                .open(&envelope)
+                .is_err()
+        );
+    }
 
     #[test]
     fn a_new_deck_draft_is_recoverable_only_by_its_original_account() {

@@ -5,7 +5,7 @@ use central_crypto::proof::{self, Work};
 pub(super) fn request(
     call: impl FnOnce(&Request) -> Response,
     username: &str,
-    display_name: &str,
+    display_name: Option<&str>,
 ) -> Request {
     let Response::RegisterWork {
         nonce,
@@ -30,7 +30,7 @@ pub(super) fn request(
     .unwrap();
     Request::Register {
         username: username.into(),
-        display_name: Some(display_name.into()),
+        display_name: display_name.map(str::to_owned),
         nonce,
         counters,
     }

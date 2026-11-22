@@ -34,6 +34,54 @@ fn profile(served: &Served, assignment: &Assignment) -> Response {
     .unwrap()
 }
 
+pub(super) fn before(served: &Served, players: &[Player; 2]) {
+    assert!(
+        baylee_account::ranked_read(&served.endpoint, Request::OwnProfile { season: None })
+            .is_err()
+    );
+    let first = players[0].account.public_id();
+    assert!(
+        baylee_account::ranked_read(
+            &served.endpoint,
+            Request::Profile {
+                target: ProfileTarget::Account(first),
+                season: None,
+            }
+        )
+        .is_err(),
+        "a new unnamed account has no public profile before playing"
+    );
+    for player in players {
+        let reply = player
+            .account
+            .ranked(Request::OwnProfile { season: None })
+            .unwrap();
+        let Response::Profile {
+            account,
+            formats,
+            name,
+            awards,
+            ..
+        } = reply
+        else {
+            panic!("private initial standing")
+        };
+        assert_eq!(account, player.account.public_id());
+        assert_eq!(name.is_none(), account == first);
+        assert!(awards.is_empty());
+        for format in Format::ALL {
+            let row = formats
+                .iter()
+                .find(|s| s.format == format && s.track == Track::Player)
+                .expect("every format has a placement baseline");
+            assert_eq!(
+                (row.rank.league, row.placement_games, row.career),
+                (League::Unranked, 0, Record::default())
+            );
+        }
+    }
+}
+
 fn verify_boards(served: &Served, profiles: &[Response; 2]) {
     for track in [Track::Player, Track::Deck] {
         let reply = baylee_account::ranked_read(
@@ -193,5 +241,12 @@ pub(super) fn verify(
     for i in 0..2 {
         assert_eq!(receipt(&players[i]), receipts[i]);
         assert_eq!(profile(served, &assignments[i]), profiles[i]);
+        assert_eq!(
+            players[i]
+                .account
+                .ranked(Request::OwnProfile { season: None })
+                .unwrap(),
+            profiles[i]
+        );
     }
 }

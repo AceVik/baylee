@@ -56,6 +56,13 @@ pub struct SaveLine {
 }
 
 impl SaveLine {
+    /// Whether this reservation still belongs to the outstanding private create.
+    #[must_use]
+    pub fn creating(&self, visit: u64, epoch: u64) -> bool {
+        self.out.as_ref().is_some_and(|out| {
+            out.epoch == epoch && out.save.visit == visit && out.save.draft.editing.is_none()
+        })
+    }
     /// Takes a save, answering it if it is to be sent now. `epoch` names the
     /// gateway: a save out to one since left will never be answered, so it
     /// and those behind it are forgotten, and their drafts stay on the device.

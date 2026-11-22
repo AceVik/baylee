@@ -113,7 +113,7 @@ fn read_save(lang: Lang, result: &ehttp::Result<ehttp::Response>) -> Vec<Reply> 
 
 /// Sends a save the line let out, its answer coming back through the
 /// mailbox.
-fn send_save(state: &LobbyState, mailbox: &Mailbox, save: &DeckSave) {
+fn send_save(state: &mut LobbyState, mailbox: &Mailbox, save: &DeckSave) {
     #[cfg(not(target_arch = "wasm32"))]
     if state.has_central_account() {
         super::central::decks::autosave(state, mailbox, save);
@@ -174,7 +174,7 @@ pub(super) fn save_landed(
             if library.visit() == sent.visit {
                 library.mark_auto_saved(&sent.draft, deck_id.as_deref(), archived);
             }
-            state.drafts.forget_landed(&sent.draft);
+            state.drafts.forget_landed(sent.visit, &sent.draft);
         }
     }
     if let Some(next) = next {

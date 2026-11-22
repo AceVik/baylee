@@ -52,6 +52,18 @@ pub(crate) struct Drafts {
     #[cfg(not(target_arch = "wasm32"))]
     #[serde(skip)]
     forks: BTreeMap<u64, (String, [u8; 32])>,
+    #[cfg(not(target_arch = "wasm32"))]
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    creates: BTreeMap<uuid::Uuid, private::ReservedCreate>,
+    #[cfg(not(target_arch = "wasm32"))]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    new_anchor: Option<uuid::Uuid>,
+    #[cfg(not(target_arch = "wasm32"))]
+    #[serde(skip)]
+    create_visits: BTreeMap<u64, uuid::Uuid>,
+    #[cfg(not(target_arch = "wasm32"))]
+    #[serde(skip)]
+    new_visit: Option<u64>,
     #[serde(default)]
     decks: BTreeMap<String, Draft>,
     /// Whether the document has been read.
@@ -88,6 +100,8 @@ impl Drafts {
                         Ok(kept) => {
                             self.decks = kept.decks;
                             self.bases = kept.bases;
+                            self.creates = kept.creates;
+                            self.new_anchor = kept.new_anchor;
                         }
                         Err(()) => self.unreadable = true,
                     }
@@ -132,9 +146,90 @@ impl Drafts {
         self.write();
     }
 
+    pub(crate) fn keep_visit(&mut self, visit: u64, draft: &Draft) {
+        #[cfg(not(target_arch = "wasm32"))]
+        if self.epoch != 0 && draft.editing.is_none() {
+            self.decks();
+            self.new_visit = Some(visit);
+            self.new_anchor = self.create_visits.get(&visit).copied();
+        }
+        self.keep(draft);
+    }
+
+    #[cfg(not(target_arch = "wasm32"))]
+    pub(crate) fn create_for(&mut self, visit: u64) -> Option<private::ReservedCreate> {
+        self.decks();
+        self.create_visits
+            .get(&visit)
+            .and_then(|id| self.creates.get(id))
+            .cloned()
+    }
+
+    #[cfg(not(target_arch = "wasm32"))]
+    pub(crate) fn reserve(
+        &mut self,
+        visit: u64,
+        registration: private::ReservedCreate,
+    ) -> Result<(), baylee_account::Error> {
+        self.decks();
+        if self.unreadable {
+            return Err(baylee_account::Error::Unavailable);
+        }
+        self.record_create(visit, registration);
+        self.persist_create()
+    }
+
+    #[cfg(not(target_arch = "wasm32"))]
+    fn record_create(&mut self, visit: u64, registration: private::ReservedCreate) {
+        let id = registration.id;
+        self.creates.insert(id, registration);
+        self.create_visits.insert(visit, id);
+        if self.new_visit == Some(visit) {
+            self.new_anchor = Some(id);
+        }
+    }
+
+    #[cfg(not(target_arch = "wasm32"))]
+    pub(crate) fn persist_create(&self) -> Result<(), baylee_account::Error> {
+        if self.unreadable {
+            return Err(baylee_account::Error::Unavailable);
+        }
+        self.private
+            .as_ref()
+            .ok_or(baylee_account::Error::Unavailable)?
+            .write_checked(self)
+    }
+
+    #[cfg(not(target_arch = "wasm32"))]
+    fn resume_create(&mut self, visit: u64) {
+        self.new_visit = Some(visit);
+        if let Some(id) = self.new_anchor
+            && self.creates.contains_key(&id)
+        {
+            self.create_visits.insert(visit, id);
+        }
+    }
+
+    #[cfg(not(target_arch = "wasm32"))]
+    pub(crate) fn bind_private_owner(state: &mut LobbyState) {
+        if let Some(handle) = state
+            .central_handle()
+            .filter(|_| state.has_central_account())
+        {
+            state
+                .drafts
+                .bind(handle.library_epoch(), handle.draft_store());
+        }
+    }
+
     /// A recovered edit of an older head opens as a separate draft, so it
     /// cannot overwrite a save made on another device while this one was down.
     fn recover(&mut self, current: &Draft) -> Option<(Draft, bool)> {
+        #[cfg(not(target_arch = "wasm32"))]
+        if self.epoch != 0 && current.editing.is_none() && !current.is_empty() {
+            // A populated import or clone is a distinct creation.
+            return None;
+        }
         let desired = self.of(current.editing.as_deref()).cloned();
         #[cfg(not(target_arch = "wasm32"))]
         if self.epoch != 0
@@ -161,6 +256,23 @@ impl Drafts {
         if self.epoch != 0
             && let Some(id) = created.or(sent.editing.as_deref())
         {
+            let mut current = sent.clone();
+            current.editing = Some(id.to_owned());
+            self.bases
+                .insert(id.to_owned(), private::fingerprint(&current));
+            if let Some(anchor) = self.create_visits.remove(&visit) {
+                self.creates.remove(&anchor);
+                if self.new_anchor == Some(anchor) {
+                    self.new_anchor = None;
+                    if let Some(latest) = self.decks.get("new").filter(|d| *d != sent) {
+                        let mut latest = latest.clone();
+                        latest.editing = Some(id.to_owned());
+                        self.decks.insert(id.to_owned(), latest);
+                    }
+                    self.decks.remove("new");
+                }
+                self.write();
+            }
             if created.is_some()
                 && let Some((old, fingerprint)) = self.forks.remove(&visit)
                 && self
@@ -172,10 +284,6 @@ impl Drafts {
                 self.bases.remove(&old);
                 self.write();
             }
-            let mut current = sent.clone();
-            current.editing = Some(id.to_owned());
-            self.bases
-                .insert(id.to_owned(), private::fingerprint(&current));
         }
     }
 
@@ -184,6 +292,14 @@ impl Drafts {
         let before = self.decks().len();
         for deck in decks {
             self.decks.remove(&key(*deck));
+            #[cfg(not(target_arch = "wasm32"))]
+            if deck.is_none() {
+                if let Some(anchor) = self.new_anchor.take() {
+                    self.creates.remove(&anchor);
+                    self.create_visits.retain(|_, id| *id != anchor);
+                }
+                self.new_visit = None;
+            }
         }
         if self.decks.len() != before {
             self.write();
@@ -194,7 +310,11 @@ impl Drafts {
     /// deck left the builder, and nothing else: the deck's place may hold a
     /// newer edit by now, and "new" the next new deck. A deck created on its
     /// way out left its draft under "new" and landed under its id.
-    pub(crate) fn forget_landed(&mut self, sent: &Draft) {
+    pub(crate) fn forget_landed(&mut self, _visit: u64, sent: &Draft) {
+        #[cfg(not(target_arch = "wasm32"))]
+        if self.epoch != 0 && sent.editing.is_none() && self.new_visit != Some(_visit) {
+            return;
+        }
         let same = |kept: &Draft| {
             Draft {
                 editing: sent.editing.clone(),
@@ -256,11 +376,14 @@ fn finish_visit(
     prefs: Option<&mut crate::prefs::Prefs>,
     mailbox: Option<&crate::lobby::Mailbox>,
 ) {
+    #[cfg(not(target_arch = "wasm32"))]
+    Drafts::bind_private_owner(state);
     let deck = state.lobby.builder();
     if deck.dirty() {
         let draft = deck.draft();
         if !draft.is_empty() {
-            state.drafts.keep(&draft);
+            let visit = state.lobby.builder().visit();
+            state.drafts.keep_visit(visit, &draft);
         }
         if let Some(mailbox) = mailbox {
             save(state, prefs, mailbox);
@@ -359,6 +482,11 @@ pub(crate) fn keep_the_draft(
         {
             state.lobby.builder_mut().restore(&draft);
             #[cfg(not(target_arch = "wasm32"))]
+            if !fork && draft.editing.is_none() {
+                let visit = state.lobby.builder().visit();
+                state.drafts.resume_create(visit);
+            }
+            #[cfg(not(target_arch = "wasm32"))]
             if fork && let Some(old) = clean.editing.as_deref() {
                 let visit = state.lobby.builder().visit();
                 if let Some(kept) = state.drafts.of(Some(old)) {
@@ -411,7 +539,8 @@ pub(crate) fn keep_the_draft(
     };
     let since = *since;
     if at - since >= SETTLE_SECS && written.as_ref() != Some(draft) {
-        state.drafts.keep(draft);
+        let visit = state.lobby.builder().visit();
+        state.drafts.keep_visit(visit, draft);
         *written = Some(draft.clone());
     }
     if at - since < SAVE_SETTLE_SECS || offered.as_ref() == Some(draft) || !state.saves_decks() {

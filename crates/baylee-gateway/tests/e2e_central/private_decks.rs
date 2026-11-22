@@ -29,7 +29,16 @@ pub(super) fn seed_gateway(port: u16, token: &str) {
     );
 }
 
-pub(super) fn first_device(account: &mut Account) -> Uuid {
+fn uncertain_create() -> baylee_account::decks::DeckDraft {
+    baylee_account::decks::DeckDraft {
+        name: "Lost create receipt".into(),
+        format: "freeform".into(),
+        cards: vec!["1 Island".into()],
+        ..Default::default()
+    }
+}
+
+pub(super) fn first_device(account: &mut Account) -> (Uuid, Uuid) {
     large::check(account);
     let entries = account.list_decks().unwrap();
     let imported = entries
@@ -47,11 +56,30 @@ pub(super) fn first_device(account: &mut Account) -> Uuid {
         .copy_deck(snapshot, "Across devices".into())
         .unwrap();
     assert_ne!(copied.id, imported.id);
-    copied.id
+    let anchor = account.reserve_deck_id().unwrap();
+    // The client already saved the reservation locally. Drop the first cloud reply.
+    drop(
+        account
+            .save_deck_visit(Some(anchor), None, uncertain_create(), false)
+            .unwrap(),
+    );
+    (copied.id, anchor)
 }
 
-pub(super) fn second_device(first: &mut Account, second: &mut Account, id: Uuid) {
+pub(super) fn second_device(first: &mut Account, second: &mut Account, (id, anchor): (Uuid, Uuid)) {
     let entries = second.list_decks().unwrap();
+    let confirmed = second
+        .save_deck_visit(Some(anchor), None, uncertain_create(), false)
+        .unwrap();
+    assert_eq!((confirmed.id, confirmed.revision), (anchor, 1));
+    assert_eq!(second.list_decks().unwrap().len(), entries.len());
+    let independent = second.reserve_deck_id().unwrap();
+    let copy = second
+        .save_deck_visit(Some(independent), None, uncertain_create(), false)
+        .unwrap();
+    assert_ne!(copy.id, anchor);
+    second.delete_deck(copy.id, copy.revision).unwrap();
+    second.delete_deck(anchor, confirmed.revision).unwrap();
     assert_eq!(
         entries
             .iter()

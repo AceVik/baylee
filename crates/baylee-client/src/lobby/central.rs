@@ -1340,11 +1340,13 @@ pub(super) fn back_from_a_session(state: &mut LobbyState) {
 }
 
 pub(super) fn logout(state: &mut LobbyState, prefs: &mut crate::prefs::Prefs) {
+    crate::buildui::draft::Drafts::bind_private_owner(state);
     let builder = state.lobby.builder();
     if state.has_central_account() && builder.dirty() && !state.lobby.scoped_builder() {
         let draft = builder.draft();
         if !draft.is_empty() {
-            state.drafts.keep(&draft);
+            let visit = state.lobby.builder().visit();
+            state.drafts.keep_visit(visit, &draft);
         }
     }
     state.gateway_epoch = state.gateway_epoch.wrapping_add(1);

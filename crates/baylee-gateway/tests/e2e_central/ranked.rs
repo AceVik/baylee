@@ -163,13 +163,27 @@ pub(super) fn run(
     operator: &DatabaseConnection,
 ) {
     let names = ["ranked_one", "ranked_two"];
-    let [one, two] = names
-        .map(|name| fresh::register(rt, &served.service, &served.endpoint, name, fresh::DOCUMENT));
+    let one = fresh::register_as(
+        rt,
+        &served.service,
+        &served.endpoint,
+        names[0],
+        None,
+        fresh::DOCUMENT,
+    );
+    let two = fresh::register(
+        rt,
+        &served.service,
+        &served.endpoint,
+        names[1],
+        fresh::DOCUMENT,
+    );
     let home = registered(rt, served, store, operator, names[0], false);
     let host = registered(rt, served, store, operator, names[1], true);
     let agent = rt.block_on(game::provision(&host.gateway));
     capacity(rt, operator, &host);
     let players = [player(one, &home, 60), player(two, &host, 61)];
+    receipts::before(served, &players);
     let original = [&home, &host].map(|g| g.gateway.port);
     let me = std::array::from_fn::<_, 2, _>(|i| {
         common::http(original[i], "GET", "/me", Some(&players[i].home.token), "").1

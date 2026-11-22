@@ -10780,7 +10780,6 @@ RankPromotionElite = Elite rank earned
 RankedPlayerProfile = Player profile
 ProfileReadAgain = Refresh profile
 ProfileReadFailed = Central could not refresh this profile.
-ProfileNoPublicHandle = Public standings appear here once your account has a public name and tag.
 ProfileRankedAwards = Ranked honours
 ProfileNoAwards = No honours earned yet.
 ProfilePeak = Rank earned

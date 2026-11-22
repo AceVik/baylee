@@ -3597,13 +3597,16 @@ pub(super) fn flush_on_exit(mut exits: MessageReader<AppExit>, mut state: ResMut
     if exits.read().next().is_none() {
         return;
     }
+    #[cfg(not(target_arch = "wasm32"))]
+    crate::buildui::draft::Drafts::bind_private_owner(&mut state);
     // An edit younger than its save's wait has no copy but this one, and no
     // save will go out for it now: it comes back with the deck.
     let deck = state.lobby.builder();
     if deck.dirty() {
         let draft = deck.draft();
         if !draft.is_empty() {
-            state.drafts.keep(&draft);
+            let visit = state.lobby.builder().visit();
+            state.drafts.keep_visit(visit, &draft);
         }
     }
     let Some(request) = state.lobby.flush_delete() else {

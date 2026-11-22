@@ -1,7 +1,7 @@
 //! Explicit, owner-only projection for the selected shelf deck.
 use super::{
-    Action, Kit, Lang, League, Live, LobbyState, ORDER, Phrase, Press, Weight, api, controls, draw,
-    league_name, orders, parts, queue, rank_name, tokens,
+    Action, Kit, Lang, League, Live, LobbyState, ORDER, Phrase, Press, Weight, api, controls,
+    draw::label, league_name, orders, parts, queue, rank_name, tokens,
 };
 use api::{DeckPreview, PreviewSource};
 use bevy::prelude::*;
@@ -55,7 +55,7 @@ pub(super) fn draw(commands: &mut Commands, parent: Entity, kit: Kit, look: &Loo
         }
         let rank = rank_name(result.rank, lang);
         let score = Phrase::RankedElo.fill(lang, &[&result.elo.to_string()]);
-        draw::label(
+        label(
             commands,
             row,
             kit,
@@ -66,7 +66,7 @@ pub(super) fn draw(commands: &mut Commands, parent: Entity, kit: Kit, look: &Loo
         if result.rank.league == League::Unranked {
             let progress =
                 Phrase::RankedPlacements.fill(lang, &[&result.placement_games.to_string()]);
-            draw::label(commands, row, kit, &progress, kit.m.small, tokens::MUTED);
+            label(commands, row, kit, &progress, kit.m.small, tokens::MUTED);
         }
         let reason = match result.source {
             PreviewSource::New => Phrase::RankedPreviewNew.text(lang).to_string(),
@@ -80,9 +80,9 @@ pub(super) fn draw(commands: &mut Commands, parent: Entity, kit: Kit, look: &Loo
                 ],
             ),
         };
-        draw::label(commands, parent, kit, &reason, kit.m.small, tokens::MUTED);
+        label(commands, parent, kit, &reason, kit.m.small, tokens::MUTED);
     } else {
-        draw::label(
+        label(
             commands,
             parent,
             kit,
@@ -92,7 +92,7 @@ pub(super) fn draw(commands: &mut Commands, parent: Entity, kit: Kit, look: &Loo
         );
     }
     if look.failed {
-        draw::label(
+        label(
             commands,
             parent,
             kit,

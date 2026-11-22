@@ -18,6 +18,7 @@ use std::{
 };
 use uuid::Uuid;
 
+pub(in crate::lobby) mod create;
 mod history;
 mod play;
 pub(crate) use play::{play_commanders, play_rows};
@@ -30,8 +31,6 @@ pub(super) struct Versions {
     /// advance the base of a draft that was opened on another revision.
     edited: BTreeMap<Uuid, u64>,
     history: Option<(Uuid, u64)>,
-    /// One server-issued create anchor per outstanding builder visit.
-    create: Option<(u64, Uuid)>,
 }
 
 pub(super) fn new_epoch() -> u64 {
@@ -199,7 +198,7 @@ pub(in crate::lobby) fn dispatch(
                 format,
             };
             submit(state, mailbox, Target::Event, move |account, versions| {
-                let saved = versions.save(account, deck_id.as_deref(), draft, true, None)?;
+                let saved = versions.save(account, deck_id.as_deref(), draft, true)?;
                 Ok(Reply::Event(LobbyEvent::DeckSaved {
                     deck_id: deck_id.is_none().then(|| saved.id.to_string()),
                 }))
@@ -291,7 +290,6 @@ impl Versions {
         identity: Option<&str>,
         edits: Updated,
         archive: bool,
-        visit: Option<u64>,
     ) -> Result<DeckSummary, Error> {
         let deck = identity.map(id).transpose()?;
         let (expected, mut draft) = if let Some(id) = deck {
@@ -318,27 +316,18 @@ impl Versions {
             }
             .into();
         }
-        let anchor = if let (None, Some(visit)) = (deck, visit) {
-            if self.create.is_none_or(|(key, _)| key != visit) {
-                self.create = Some((visit, account.reserve_deck_id()?));
-            }
-            self.create.map(|(_, id)| id)
-        } else {
-            deck
-        };
-        let saved = account.save_deck_visit(anchor, expected, draft, archive)?;
+        let saved = account.save_deck_visit(deck, expected, draft, archive)?;
         self.edited.insert(saved.id, saved.revision);
         self.listed.insert(saved.id, saved.revision);
-        if let Some(visit) = visit
-            && self.create.is_some_and(|(key, _)| key == visit)
-        {
-            self.create = None;
-        }
         Ok(saved)
     }
 }
 
-pub(in crate::lobby) fn autosave(state: &LobbyState, mailbox: &Mailbox, save: &DeckSave) {
+pub(in crate::lobby) fn autosave(state: &mut LobbyState, mailbox: &Mailbox, save: &DeckSave) {
+    if save.draft.editing.is_none() {
+        create::start(state, mailbox, save);
+        return;
+    }
     let save = save.clone();
     submit(
         state,
@@ -353,13 +342,7 @@ pub(in crate::lobby) fn autosave(state: &LobbyState, mailbox: &Mailbox, save: &D
                 sideboard: save.draft.side,
                 commanders: save.draft.commanders,
             };
-            let saved = versions.save(
-                account,
-                existing.as_deref(),
-                edits,
-                save.versioned,
-                Some(save.visit),
-            )?;
+            let saved = versions.save(account, existing.as_deref(), edits, save.versioned)?;
             Ok(Reply::AutoSaved {
                 deck_id: existing.is_none().then(|| saved.id.to_string()),
                 archived: existing.is_some() && save.versioned,

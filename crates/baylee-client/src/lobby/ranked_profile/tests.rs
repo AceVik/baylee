@@ -86,6 +86,28 @@ fn published_account_id_resolves_an_unnamed_row_only_for_that_account() {
 }
 
 #[test]
+fn an_owner_without_a_public_name_opens_by_the_authenticated_id() {
+    let id = uuid::Uuid::now_v7().into_bytes();
+    let mut state = LobbyState::new();
+    central::enable(&mut state);
+    let (mut owner, _jobs) = central::Handle::queued_for_test();
+    owner.public_id = Some(id);
+    state.central.as_mut().unwrap().handle = Some(owner);
+    let (mut book, mut page) = (Book::default(), Page::default());
+    session(&mut book, &state, &mut page);
+    page.open_own(&state);
+    assert_eq!(
+        page.handle.as_deref(),
+        Some(model::account_key(id).as_str())
+    );
+    assert_eq!(page.handle, book.mine);
+    assert!(
+        !book.own_loaded(),
+        "the UI waits for Central's placement record"
+    );
+}
+
+#[test]
 fn frame_uses_the_best_confirmed_player_rank_across_formats() {
     let mut p = profile();
     assert_eq!(p.best(), None);

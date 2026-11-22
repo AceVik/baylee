@@ -2,7 +2,6 @@
 use super::{Action, Book, Collection, ORDER, Page, Profile, Stop, model};
 use crate::hud::UiFonts;
 use crate::insignia::Insignia;
-use crate::rank_art::RankArt;
 use crate::shellkit::{
     InputClass, ShellMetrics, avatar,
     controls::{self, Kit, Live, Weight},
@@ -150,17 +149,6 @@ pub(super) fn draw(
             content,
             kit,
             Phrase::ProfileReadFailed.text(lang),
-            tokens::MUTED,
-        );
-    } else if own
-        && !model::valid_handle(handle)
-        && book.owner.as_ref().is_none_or(|h| h.public_id.is_none())
-    {
-        label(
-            &mut commands,
-            content,
-            kit,
-            Phrase::ProfileNoPublicHandle.text(lang),
             tokens::MUTED,
         );
     } else if entry.and_then(|e| e.profile.as_ref()).is_none() {

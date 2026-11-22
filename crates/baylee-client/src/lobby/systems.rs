@@ -362,6 +362,10 @@ pub(super) fn poll(
                 Reply::AutoSaveFailed { why } => {
                     super::decksave::save_failed(&mut state, &mailbox, why);
                 }
+                #[cfg(not(target_arch = "wasm32"))]
+                Reply::PrivateDeckReserved(save, id) => {
+                    super::central::decks::create::reserved(&mut state, &mailbox, &save, id);
+                }
                 Reply::Clocks(clocks) => {
                     if state.lobby.clocks() != clocks {
                         state.lobby.set_clocks(clocks);

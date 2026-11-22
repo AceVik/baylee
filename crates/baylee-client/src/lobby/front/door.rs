@@ -1416,9 +1416,8 @@ pub(super) fn full(commands: &mut Commands, state: &LobbyState, kit: Kit) -> Ent
 /// notice in two lines at 1920 px.
 const COLOPHON_MEASURE: f32 = 760.0;
 
-/// The community & web pill row below the front-door card: `WhatsApp`, Discord,
-/// GitHub, and `baylee.app`. Clicking any pill opens a compact QR-code dialog
-/// with details and a button to open the link in the browser.
+/// Community links below the front-door card open a QR-code dialog. The
+/// adjacent leaderboard button opens public standings inside the client.
 pub(super) fn community_row(
     commands: &mut Commands,
     state: &LobbyState,
@@ -1516,15 +1515,13 @@ pub(super) fn community_row(
     commands.entity(row).add_child(website);
     #[cfg(not(target_arch = "wasm32"))]
     {
-        let ranked = community_pill(
+        let ranked = controls::button_compact(
             commands,
             kit,
+            Some(crate::hud::glyph::TROPHY),
             Phrase::RankedBoard.text(lang),
-            crate::hud::glyph::TROPHY,
-            tokens::GOLD,
-            WEBSITE_PILL_BG,
-            WEBSITE_PILL_HOT,
-            tokens::GOLD.with_alpha(0.55),
+            Weight::Secondary,
+            Live::Yes,
             (
                 Press::Ranked(crate::lobby::ranked::Action::Open),
                 Stop::new(table, "ranked"),

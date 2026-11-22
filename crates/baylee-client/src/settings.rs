@@ -471,27 +471,33 @@ pub(crate) mod store {
     /// again when one was left behind, since opening an existing file keeps
     /// its mode; the rename carries it over whatever mode the old file had.
     pub(crate) fn write_at(path: &std::path::Path, text: impl AsRef<[u8]>) {
+        let _ = write_at_checked(path, text);
+    }
+
+    /// Persist before a network operation that depends on recovering this record.
+    pub(crate) fn write_at_checked(
+        path: &std::path::Path,
+        text: impl AsRef<[u8]>,
+    ) -> std::io::Result<()> {
         use std::io::Write as _;
         if let Some(dir) = path.parent() {
-            let _ = std::fs::create_dir_all(dir);
+            std::fs::create_dir_all(dir)?;
         }
         let temporary = path.with_extension("tmp");
         let mut options = std::fs::OpenOptions::new();
         options.write(true).create(true).truncate(true);
         #[cfg(unix)]
         std::os::unix::fs::OpenOptionsExt::mode(&mut options, 0o600);
-        let Ok(mut file) = options.open(&temporary) else {
-            return;
-        };
+        let mut file = options.open(&temporary)?;
         #[cfg(unix)]
         {
             use std::os::unix::fs::PermissionsExt as _;
-            let _ = file.set_permissions(std::fs::Permissions::from_mode(0o600));
+            file.set_permissions(std::fs::Permissions::from_mode(0o600))?;
         }
-        if file.write_all(text.as_ref()).is_ok() && file.sync_all().is_ok() {
-            drop(file);
-            let _ = std::fs::rename(&temporary, path);
-        }
+        file.write_all(text.as_ref())?;
+        file.sync_all()?;
+        drop(file);
+        std::fs::rename(&temporary, path)
     }
 
     /// Removes one named document, if it is there.

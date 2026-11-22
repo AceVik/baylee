@@ -4259,7 +4259,6 @@ RankPromotionElite = Eliterang erreicht
 RankedPlayerProfile = Spielerprofil
 ProfileReadAgain = Profil aktualisieren
 ProfileReadFailed = Central konnte dieses Profil nicht aktualisieren.
-ProfileNoPublicHandle = Öffentliche Ranglistenstände erscheinen hier, sobald dein Konto einen öffentlichen Namen und Tag hat.
 ProfileRankedAwards = Ranglisten-Auszeichnungen
 ProfileNoAwards = Bisher keine Auszeichnungen erspielt.
 ProfilePeak = Rang erreicht

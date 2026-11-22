@@ -57,7 +57,7 @@ impl Website<'_> {
         let register = super::registration::request(
             |request| self.answer(request, None).unwrap(),
             USERNAME,
-            "Pair_Player",
+            Some("Pair_Player"),
         );
         let Ok(Response::Enrollment { identity, ticket }) = self.answer(&register, None) else {
             panic!("a valid proof registers a free name");

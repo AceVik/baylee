@@ -5370,6 +5370,10 @@ Offline and local gateway sessions use `builder-drafts.json`. Each Central
 account has a separate, authenticated encrypted recovery file. Signing back
 in unlocks that account's edits. If another device has since changed the
 saved deck, the builder opens the recovered edit as a new private copy.
+Before the first cloud save, the client persists the server-issued deck ID
+and its initial contents with the recovery draft. After a crash it can
+confirm that same creation, including when the server saved it before the
+client received its answer. A separate import or copy receives its own ID.
 Saving or discarding resolves the draft.
 
 **Every change saves itself, and only an answer says it did** (`lobby::decksave`,

@@ -89,6 +89,25 @@ pub(super) fn register(
     username: &str,
     document: &[u8],
 ) -> Account {
+    register_as(
+        runtime,
+        service,
+        endpoint,
+        username,
+        Some(username),
+        document,
+    )
+}
+
+/// The website also permits a fresh account to keep its display name unset.
+pub(super) fn register_as(
+    runtime: &Runtime,
+    service: &Arc<IdentityService>,
+    endpoint: &Endpoint,
+    username: &str,
+    display_name: Option<&str>,
+    document: &[u8],
+) -> Account {
     let website = |request: &Request| {
         let request = serde_json::from_slice(&serde_json::to_vec(request).unwrap()).unwrap();
         runtime
@@ -97,7 +116,7 @@ pub(super) fn register(
             .response
     };
     let password = password().to_owned();
-    let register = super::registration::request(website, username, username);
+    let register = super::registration::request(website, username, display_name);
     let Response::Enrollment { identity, ticket } = website(&register) else {
         panic!("a valid proof registers a free name");
     };

@@ -331,16 +331,30 @@ fn tick(now: f64, state: &LobbyState, page: &mut Page, book: &mut Book, discs: &
         page.refresh = false;
     }
     receive(book, now);
-    if page.handle.is_some() && page.handle == book.mine && !state.central_terms_pending() {
+    if page.handle.is_some()
+        && page.handle == book.mine
+        && !state.central_terms_pending()
+        && (book
+            .reading
+            .as_ref()
+            .is_some_and(|(key, _)| Some(key) == book.mine.as_ref())
+            || book
+                .mine
+                .as_ref()
+                .is_some_and(|key| book.known.contains_key(key)))
+    {
         read_private(book, now);
     }
     if book.reading.is_some() || now < book.next_poll {
         return;
     }
     book.next_poll = now + 0.5;
-    let due = |h: &str| book.known.get(h).is_none_or(|e| now >= e.retry_at);
     let owner_id = book.owner.as_ref().and_then(|owner| owner.public_id);
     let is_owner = |key: &str| book.mine.as_deref() == Some(key) && owner_id.is_some();
+    let due = |h: &str| {
+        !(is_owner(h) && state.central_terms_pending())
+            && book.known.get(h).is_none_or(|e| now >= e.retry_at)
+    };
     let priority = page
         .handle
         .iter()
@@ -378,14 +392,7 @@ fn tick(now: f64, state: &LobbyState, page: &mut Page, book: &mut Book, discs: &
         })
         .map(str::to_owned);
     let Some(handle) = wanted else { return };
-    // A header may contain a private sign-in name if the account has no display
-    // name. Its public lookup always uses the account ID from the live session.
-    let target = if is_owner(&handle) {
-        owner_id.map(model::account_key)
-    } else {
-        None
-    }
-    .unwrap_or_else(|| handle.clone());
+    let own = is_owner(&handle);
     if !book.known.contains_key(&handle) && book.known.len() >= CAPACITY {
         // Prefer outdated records. Never evict the open subject or current owner.
         let victim = book
@@ -400,6 +407,23 @@ fn tick(now: f64, state: &LobbyState, page: &mut Page, book: &mut Book, discs: &
         }
     }
     let (worker, mailbox) = mpsc::sync_channel(1);
+    if own && let Some(owner) = book.owner.as_ref() {
+        // The authority resolves the owner from its native session, even before
+        // a public name or a first ranked game exists.
+        if owner.submit(move |account| {
+            let verified = model::account_key(account.public_id());
+            let profile = account
+                .ranked(Request::OwnProfile { season: None })
+                .and_then(|response| {
+                    Profile::accept(&verified, response).ok_or(baylee_account::Error::Rejected)
+                });
+            let _ = worker.send(profile);
+        }) {
+            book.reading = Some((handle, Mutex::new(mailbox)));
+        }
+        return;
+    }
+    let target = handle.clone();
     let _thread = std::thread::Builder::new()
         .name("ranked-public-read".into())
         .spawn(move || {
