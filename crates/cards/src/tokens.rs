@@ -256,6 +256,8 @@ pub static FEATHER_RED_A49C2DBA7: TokenDef = TokenDef {
         }],
         target = Some(PHOENIX_IN_YOUR_GRAVEYARD)
     )],
+    // TIKO #9 — the Feather printed for Everquill Phoenix in Ikoria.
+    scryfall_id: "a9cc7c63-5d13-4fd6-af9d-4a26c2bab8e6",
     ..TokenDef::DEFAULT
 };
 
