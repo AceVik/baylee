@@ -6,6 +6,8 @@
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes;
 
+static LANDWALK1: Filter = Filter::HasSubtype(subtypes::land::ISLAND);
+
 card!(
     index = index::LORD_OF_ATLANTIS,
     oracle_id = "cc7f290f-ca00-4285-9bdb-4b4402444f30",
@@ -33,7 +35,7 @@ card!(
                 Filter::HasSubtype(subtypes::creature::MERFOLK),
                 Filter::Another
             ]),
-            Modifier::AddKeyword(KeywordSet::ISLANDWALK)
+            Modifier::LandwalkMatching(&LANDWALK1)
         ),
     ],
 );

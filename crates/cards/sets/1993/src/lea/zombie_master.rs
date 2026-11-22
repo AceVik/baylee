@@ -7,6 +7,8 @@
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes;
 
+static LANDWALK1: Filter = Filter::HasSubtype(subtypes::land::SWAMP);
+
 card!(
     index = index::ZOMBIE_MASTER,
     oracle_id = "5446c92f-ff22-4e9b-a2f6-e64c8560c1e0",
@@ -28,7 +30,7 @@ card!(
                 Filter::HasSubtype(subtypes::creature::ZOMBIE),
                 Filter::Another
             ]),
-            Modifier::AddKeyword(KeywordSet::SWAMPWALK)
+            Modifier::LandwalkMatching(&LANDWALK1)
         ),
         static_ability!(
             Filter::And(&[

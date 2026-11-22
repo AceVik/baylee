@@ -7,6 +7,10 @@
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes;
 
+static LANDWALK1: Filter = Filter::HasSubtype(subtypes::land::FOREST);
+
+static LANDWALK2: Filter = Filter::HasSubtype(subtypes::land::SWAMP);
+
 card!(
     index = index::WORMWOOD_TREEFOLK,
     oracle_id = "2a014ef1-0450-4485-8a8c-8210a985be4c",
@@ -25,12 +29,8 @@ card!(
         activated!(
             cost!("{G}{G}"),
             &[
-                Effect::PumpFilter {
-                    filter: &Filter::This,
-                    controlled_by: None,
-                    power: Amount::Fixed(0),
-                    toughness: Amount::Fixed(0),
-                    keywords: KeywordSet::FORESTWALK,
+                Effect::ModifySource {
+                    modifier: Modifier::LandwalkMatching(&LANDWALK1),
                     duration: Duration::UntilEndOfTurn
                 },
                 Effect::DealDamage {
@@ -42,12 +42,8 @@ card!(
         activated!(
             cost!("{B}{B}"),
             &[
-                Effect::PumpFilter {
-                    filter: &Filter::This,
-                    controlled_by: None,
-                    power: Amount::Fixed(0),
-                    toughness: Amount::Fixed(0),
-                    keywords: KeywordSet::SWAMPWALK,
+                Effect::ModifySource {
+                    modifier: Modifier::LandwalkMatching(&LANDWALK2),
                     duration: Duration::UntilEndOfTurn
                 },
                 Effect::DealDamage {

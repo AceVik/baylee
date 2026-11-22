@@ -12,6 +12,8 @@ static CHECK1: Filter = Filter::And(&[
     Filter::ControlledByYou,
 ]);
 
+static LANDWALK2: Filter = Filter::HasSubtype(subtypes::land::SWAMP);
+
 card!(
     index = index::FILTH,
     oracle_id = "411484ac-a87d-49e8-a7ef-0cd055a872b6",
@@ -29,7 +31,7 @@ card!(
     ),],
     abilities = &[static_ability!(
         Filter::YOUR_CREATURE,
-        Modifier::AddKeyword(KeywordSet::SWAMPWALK),
+        Modifier::LandwalkMatching(&LANDWALK2),
         zone = ZoneRef::Graveyard,
         condition = Some(Condition::ControlCount(&CHECK1, 1))
     ),],

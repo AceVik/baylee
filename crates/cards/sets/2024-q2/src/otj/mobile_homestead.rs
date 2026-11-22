@@ -44,7 +44,7 @@ card!(
                 min_pick: 0,
                 max_pick: 1,
                 picked: PeekPickDest::Battlefield { tapped: true },
-                rest: PeekRestDest::TopAnyOrder,
+                rest: PeekRestDest::StayInOrder,
                 if_picked: &[]
             }]
         ),

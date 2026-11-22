@@ -33,7 +33,7 @@ card!(
                 min_pick: u8::MAX,
                 max_pick: u8::MAX,
                 picked: PeekPickDest::Hand,
-                rest: PeekRestDest::TopAnyOrder,
+                rest: PeekRestDest::StayInOrder,
                 if_picked: &[]
             }
         ]

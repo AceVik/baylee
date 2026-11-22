@@ -11,6 +11,8 @@ static TARGET1: Filter = Filter::And(&[
     Filter::HasSubtype(subtypes::creature::DWARF),
 ]);
 
+static LANDWALK2: Filter = Filter::HasSubtype(subtypes::land::MOUNTAIN);
+
 card!(
     index = index::DWARVEN_PONY,
     oracle_id = "f47f1c96-0b09-4277-8d61-cffa56d81be7",
@@ -27,10 +29,8 @@ card!(
     ),],
     abilities = &[activated!(
         cost!("{1}{R}", TapSelf),
-        &[Effect::PumpTarget {
-            power: Amount::Fixed(0),
-            toughness: Amount::Fixed(0),
-            keywords: KeywordSet::MOUNTAINWALK,
+        &[Effect::ModifyTargets {
+            modifier: Modifier::LandwalkMatching(&LANDWALK2),
             duration: Duration::UntilEndOfTurn
         }],
         target = Some(TargetSpec::Object(&TARGET1))

@@ -11,6 +11,8 @@ static TARGET1: Filter = Filter::And(&[
     Filter::HasSubtype(subtypes::creature::ELF),
 ]);
 
+static LANDWALK2: Filter = Filter::HasSubtype(subtypes::land::FOREST);
+
 card!(
     index = index::ELVISH_PATHCUTTER,
     oracle_id = "0bb860c5-41af-494e-9b0f-d05d6fa8255c",
@@ -27,10 +29,8 @@ card!(
     ),],
     abilities = &[activated!(
         cost!("{2}{G}"),
-        &[Effect::PumpTarget {
-            power: Amount::Fixed(0),
-            toughness: Amount::Fixed(0),
-            keywords: KeywordSet::FORESTWALK,
+        &[Effect::ModifyTargets {
+            modifier: Modifier::LandwalkMatching(&LANDWALK2),
             duration: Duration::UntilEndOfTurn
         }],
         target = Some(TargetSpec::Object(&TARGET1))

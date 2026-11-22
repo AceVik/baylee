@@ -7,6 +7,8 @@
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes;
 
+static LANDWALK1: Filter = Filter::HasSubtype(subtypes::land::MOUNTAIN);
+
 card!(
     index = index::CAVE_PEOPLE,
     oracle_id = "6a4e8d44-e6ee-40f7-8df4-52fa4cb346aa",
@@ -35,10 +37,8 @@ card!(
         ),
         activated!(
             cost!("{1}{R}{R}", TapSelf),
-            &[Effect::PumpTarget {
-                power: Amount::Fixed(0),
-                toughness: Amount::Fixed(0),
-                keywords: KeywordSet::MOUNTAINWALK,
+            &[Effect::ModifyTargets {
+                modifier: Modifier::LandwalkMatching(&LANDWALK1),
                 duration: Duration::UntilEndOfTurn
             }],
             target = Some(TargetSpec::Object(&Filter::CREATURE))

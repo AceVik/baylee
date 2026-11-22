@@ -5,7 +5,7 @@
 
 use baylee_cards_dsl::prelude::*;
 
-static SOURCE1: Filter = Filter::Or(&[
+static EFFECT1: Filter = Filter::Or(&[
     Filter::HasColor(ColorSet::from_slice(&[Color::Black])),
     Filter::HasColor(ColorSet::from_slice(&[Color::Red])),
 ]);
@@ -21,9 +21,9 @@ card!(
         mana_cost = mana!("{W}"),
         types = TypeSet::INSTANT,
     ),],
-    abilities = &[spell!(&[Effect::PreventAllDamageFromMatchingThisTurn {
-        target: None,
-        sources: &SOURCE1,
-        combat_only: false
-    }]),],
+    abilities = &[spell!(&[Effect::continuous(
+        &EFFECT1,
+        Modifier::PreventAllDamageFromIt,
+        Duration::UntilEndOfTurn
+    )]),],
 );

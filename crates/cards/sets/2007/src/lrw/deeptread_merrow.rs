@@ -6,6 +6,8 @@
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes;
 
+static LANDWALK1: Filter = Filter::HasSubtype(subtypes::land::ISLAND);
+
 card!(
     index = index::DEEPTREAD_MERROW,
     oracle_id = "b301b371-e99e-43cc-af7f-dbd7b2abe5f8",
@@ -22,12 +24,8 @@ card!(
     ),],
     abilities = &[activated!(
         cost!("{U}"),
-        &[Effect::PumpFilter {
-            filter: &Filter::This,
-            controlled_by: None,
-            power: Amount::Fixed(0),
-            toughness: Amount::Fixed(0),
-            keywords: KeywordSet::ISLANDWALK,
+        &[Effect::ModifySource {
+            modifier: Modifier::LandwalkMatching(&LANDWALK1),
             duration: Duration::UntilEndOfTurn
         }]
     ),],
