@@ -189,6 +189,13 @@ impl SubjectContext {
         self.event_player = player;
         self
     }
+
+    /// Pre-populate `SubjectContext::found` with exact incarnations captured
+    /// by a resolving triggered ability (`Rider::EventFoundObject`).
+    pub(crate) fn with_found(mut self, found: Vec<DamageSourceRef>) -> Self {
+        self.found = found;
+        self
+    }
     pub(super) fn set_event_player(&mut self, player: Option<baylee_core::ids::PlayerId>) {
         self.event_player = player;
     }

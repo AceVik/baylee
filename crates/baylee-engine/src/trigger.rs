@@ -40,8 +40,8 @@ use emblems::collect_emblems;
 #[cfg(test)]
 use events::event_damage_of;
 use events::{
-    event_amount_for, event_identity_for, event_object_for, event_player_for, event_subject_for,
-    object_moves, source_at_event, source_at_event_with_moves, targeting,
+    event_amount_for, event_found_for, event_identity_for, event_object_for, event_player_for,
+    event_subject_for, object_moves, source_at_event, source_at_event_with_moves, targeting,
 };
 pub(crate) use matching::times_triggered;
 use matching::{
@@ -85,6 +85,10 @@ pub struct PendingTrigger {
     /// Immutable exact-object group for one delayed trigger. Shared on
     /// checkpoints; ordinary triggers allocate nothing and carry one pointer.
     pub related_objects: Option<std::sync::Arc<Vec<baylee_core::ids::DamageSourceRef>>>,
+    /// Exact object incarnations bound into `SubjectContext::found` when this
+    /// trigger resolves (e.g. matching attackers toward a defender for
+    /// [`Trigger::AttackersDeclaredAtTarget`]). Shared on checkpoints.
+    pub found_objects: Option<std::sync::Arc<Vec<baylee_core::ids::DamageSourceRef>>>,
     /// Exact incarnation of the permanent whose continuous effect granted
     /// this triggered ability. `None` for printed and engine-native triggers.
     pub grantor: Option<baylee_core::ids::DamageSourceRef>,
@@ -517,6 +521,7 @@ fn build_off_battlefield_trigger(
         text: TextChangeMap::IDENTITY,
         source_version: Some(object.version),
         related_objects: None,
+        found_objects: event_found_for(firing.trigger, &entry.event, events, state, owner, context),
         grantor: None,
         event_subject: None,
         event_ability: activated_stack_ability(&entry.event),
@@ -714,10 +719,14 @@ fn begins_step(
     began: crate::turn::Step,
     expected: baylee_cards_dsl::StepKind,
 ) -> bool {
-    if expected == baylee_cards_dsl::StepKind::FirstMain {
-        began == crate::turn::Step::Main && state.per_turn.main_phases_begun == 1
-    } else {
-        began.kind() == Some(expected)
+    match expected {
+        baylee_cards_dsl::StepKind::FirstMain => {
+            began == crate::turn::Step::Main && state.per_turn.main_phases_begun == 1
+        }
+        baylee_cards_dsl::StepKind::SecondMain => {
+            began == crate::turn::Step::Main && state.per_turn.main_phases_begun == 2
+        }
+        other => began.kind() == Some(other),
     }
 }
 
@@ -799,6 +808,7 @@ fn cast_this_spell_triggers(
                 text: TextChangeMap::IDENTITY,
                 source_version: Some(spell.version),
                 related_objects: None,
+                found_objects: None,
                 grantor: None,
                 event_subject: None,
                 event_ability: None,
@@ -1053,6 +1063,7 @@ fn collect_for_objects(
                             text: TextChangeMap::IDENTITY,
                             source_version: Some(source.version),
                             related_objects: None,
+                            found_objects: None,
                             grantor: None,
                             event_subject: None,
                             event_ability: None,
@@ -1120,6 +1131,7 @@ fn collect_for_objects(
                         text: TextChangeMap::IDENTITY,
                         source_version: Some(source.version),
                         related_objects: None,
+                        found_objects: None,
                         grantor: None,
                         event_subject: None,
                         event_ability: None,
@@ -1368,6 +1380,8 @@ fn collect_for_objects(
                     let event_player = event_player_for(trigger, entry, state);
                     let event_amount =
                         event_amount_for(trigger, &entry.event, events, state, controller, context);
+                    let found_objects =
+                        event_found_for(trigger, &entry.event, events, state, controller, context);
                     let grantor = fx.source.and_then(|id| state.source_identity(id));
                     for _ in 0..times {
                         let (ability_index, abilities, synthetic_effects, synthetic_target) =
@@ -1398,6 +1412,7 @@ fn collect_for_objects(
                             text,
                             source_version: Some(source.version),
                             related_objects: None,
+                            found_objects: found_objects.clone(),
                             grantor,
                             event_subject,
                             event_ability,
@@ -1521,6 +1536,7 @@ fn collect_for_objects(
                             text: TextChangeMap::IDENTITY,
                             source_version: Some(departed.version),
                             related_objects: None,
+                            found_objects: None,
                             grantor: None,
                             event_subject: None,
                             event_ability: None,
@@ -1602,6 +1618,7 @@ fn collect_for_objects(
                             text: TextChangeMap::IDENTITY,
                             source_version: Some(source.version),
                             related_objects: None,
+                            found_objects: None,
                             grantor: None,
                             event_subject: None,
                             event_ability: None,
@@ -1793,11 +1810,14 @@ fn collect_for_objects(
                         .as_ref()
                         .map(|d| (d.controller, d.toughness));
                     let event_player = event_player_for(trigger, entry, state);
+                    let found_objects =
+                        event_found_for(trigger, &entry.event, events, state, controller, context);
                     for _ in 0..times {
                         triggers.push(PendingTrigger {
                             text: TextChangeMap::IDENTITY,
                             source_version: Some(source.version),
                             related_objects: None,
+                            found_objects: found_objects.clone(),
                             grantor: None,
                             event_subject,
                             event_ability,

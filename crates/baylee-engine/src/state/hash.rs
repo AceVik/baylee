@@ -1505,6 +1505,9 @@ fn hash_rider_situation(
                 h.u8(75);
                 hash_live_stack_reference(h, state, *reference);
             }
+            crate::object::Rider::EventFoundObject(reference) => {
+                hash_event_found_object(h, state, *reference, position);
+            }
             crate::object::Rider::EventObjectIdentity(version, power) => {
                 h.u8(22);
                 let still_here = obj
@@ -1553,6 +1556,21 @@ fn hash_rider_situation(
             _ => hash_acquired_rider(h, rider),
         }
     }
+}
+
+fn hash_event_found_object(
+    h: &mut Hasher,
+    state: &GameState,
+    reference: baylee_core::ids::DamageSourceRef,
+    position: &impl Fn(ObjectId) -> u32,
+) {
+    h.u8(255);
+    h.u16(317);
+    h.u32(position(reference.object));
+    h.u8(moves_since(
+        state.object(reference.object),
+        reference.version,
+    ));
 }
 
 fn hash_acquired_rider(h: &mut Hasher, rider: &crate::object::Rider) {
@@ -2609,6 +2627,11 @@ fn hash_object(h: &mut Hasher, obj: &GameObject) {
                 h.u8(255);
                 h.u16(306);
                 h.u32(*packed);
+            }
+            Rider::EventFoundObject(reference) => {
+                h.u8(255);
+                h.u16(317);
+                reference.hash(h);
             }
         }
     }

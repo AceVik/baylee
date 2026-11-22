@@ -85,6 +85,7 @@ pub(super) fn collect(
                 source_version: Some(source.version),
                 counter_source_version: None,
                 related_objects: None,
+                found_objects: None,
                 grantor: None,
                 event_subject: None,
                 event_ability: None,

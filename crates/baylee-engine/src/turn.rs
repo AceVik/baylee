@@ -102,14 +102,15 @@ impl Step {
 #[must_use]
 pub const fn position_of(kind: StepKind) -> u8 {
     match kind {
-        StepKind::FirstMain => 3,
         StepKind::Upkeep => 1,
         StepKind::Draw => 2,
+        StepKind::FirstMain => 3,
         StepKind::CombatBegin => 4,
         StepKind::DeclareAttackers => 5,
         StepKind::DeclareBlockers => 6,
         StepKind::CombatDamage => 7,
         StepKind::CombatEnd => 9,
+        StepKind::SecondMain => 10,
         StepKind::End => 11,
     }
 }
@@ -307,5 +308,13 @@ mod tests {
                 .expect("a step of every kind a card names");
             assert_eq!(at(*first).position(), position_of(kind), "{kind:?}");
         }
+        assert_eq!(
+            at((Step::Main, Phase::FirstMain)).position(),
+            position_of(StepKind::FirstMain)
+        );
+        assert_eq!(
+            at((Step::Main, Phase::SecondMain)).position(),
+            position_of(StepKind::SecondMain)
+        );
     }
 }

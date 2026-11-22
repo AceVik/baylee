@@ -459,6 +459,10 @@ pub fn aura_side(abilities: &[AbilityDef]) -> Option<TargetSide> {
                 if matches!(
                     trigger,
                     baylee_cards_dsl::Trigger::PlayerAttacked(PlayerRel::EnchantedPlayer)
+                        | baylee_cards_dsl::Trigger::AttackersDeclaredAtTarget {
+                            attacked: baylee_cards_dsl::AttackedTargetKind::EnchantedPlayer,
+                            ..
+                        }
                 ) {
                     sign -= 1;
                 }

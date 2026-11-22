@@ -335,6 +335,13 @@ pub(super) fn trigger_count(
             destination: Some(baylee_cards_dsl::ZoneRef::Battlefield),
             ..
         } => baylee_cards_dsl::TriggerEventKind::EntersBattlefield,
+        Trigger::Attacks(_)
+        | Trigger::OneOrMoreAttack(_)
+        | Trigger::AttackWithAtLeast(_)
+        | Trigger::AttackWithAtLeastMatching { .. }
+        | Trigger::AttacksAlone(_)
+        | Trigger::PlayerAttacked(_)
+        | Trigger::AttackersDeclaredAtTarget { .. } => baylee_cards_dsl::TriggerEventKind::Attack,
         _ => baylee_cards_dsl::TriggerEventKind::Any,
     };
     let _ = controller;
@@ -1422,6 +1429,24 @@ fn matches(
                 .is_some_and(|seats| seats.contains(attacked))
                 && event_groups::player_attacked_count(event, batch, *attacked) > 0
         }
+        (
+            Trigger::AttackersDeclaredAtTarget {
+                attackers,
+                attacked,
+                exact_count,
+            },
+            GameEvent::BecameAttacker { .. },
+        ) => event_groups::attackers_at_target(
+            event,
+            batch,
+            state,
+            you,
+            context,
+            attackers,
+            *attacked,
+            *exact_count,
+        )
+        .is_some(),
         (Trigger::Exerted(filter), GameEvent::PermanentExerted { object, .. }) => state
             .object(*object)
             .is_some_and(|o| eval::matches_with_context(filter, state, o, you, context)),

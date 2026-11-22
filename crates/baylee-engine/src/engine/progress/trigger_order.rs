@@ -347,6 +347,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
         if a.text != b.text
             || a.chosen_mode != b.chosen_mode
             || a.related_objects != b.related_objects
+            || a.found_objects != b.found_objects
             || aim(a) != aim(b)
             || !self.twin_sources(a, b)
         {

@@ -140,6 +140,34 @@ pub enum StepKind {
     End,
     /// First actual main phase reached this turn (not necessarily precombat).
     FirstMain,
+    /// Second actual main phase reached this turn (CR 505.1a; postcombat main
+    /// phase or the second main phase under extra combat/main phases).
+    /// Appended to preserve replay identities.
+    SecondMain,
+}
+
+/// Which kind of attacked defender [`Trigger::AttackersDeclaredAtTarget`] listens
+/// for (`CR 508.3`, `AttackersDeclaredOneTarget`).
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
+pub enum AttackedTargetKind {
+    /// Any attacked player, planeswalker, or battle.
+    Any,
+    /// Any attacked player.
+    Player,
+    /// An opponent of the trigger's controller (player only).
+    Opponent,
+    /// The trigger's controller (player only).
+    You,
+    /// Any attacked planeswalker.
+    Planeswalker,
+    /// Any attacked battle.
+    Battle,
+    /// The trigger's controller or a planeswalker they control.
+    YouOrYourPlaneswalker,
+    /// An opponent of the trigger's controller or a planeswalker an opponent controls.
+    OpponentOrTheirPlaneswalker,
+    /// The player enchanted by this Aura (`Player.EnchantedBy`).
+    EnchantedPlayer,
 }
 
 /// Relational comparison operator between two [`crate::Amount`] expressions.
@@ -1312,6 +1340,24 @@ pub enum Trigger {
     /// can choose its own targets after the level ability has resolved.
     /// Appended to preserve replay identities.
     ClassLevelGained(u8),
+    /// One or more attackers matching `attackers` are declared attacking a
+    /// single defender matching `attacked` (`CR 508.3`, `AttackersDeclaredOneTarget`),
+    /// firing once per qualifying attacked defender. When `exact_count` is `Some(n)`,
+    /// requires that exactly `n` total creatures were declared attacking that
+    /// defender (e.g. `Some(1)` for "attacks a player alone" / "no other creatures
+    /// are attacking that player"). Binds `EventPlayer` to the attacked player (or
+    /// attacked planeswalker/battle's defending player/controller), `EventObject`
+    /// to the first matching attacker, `EventAmount` to the count of matching
+    /// attackers toward that defender, and `SubjectContext::found` to all matching
+    /// attackers toward that defender. Appended to preserve replay identities.
+    AttackersDeclaredAtTarget {
+        /// Filter matched against each attacking creature declared at that defender.
+        attackers: &'static Filter,
+        /// Which kind of defender must be attacked.
+        attacked: AttackedTargetKind,
+        /// Optional exact total attacker count declared attacking that defender.
+        exact_count: Option<u8>,
+    },
 }
 
 impl Trigger {
@@ -2267,6 +2313,9 @@ pub enum TriggerEventKind {
     EntersBattlefield,
     /// Any event.
     Any,
+    /// One or more creatures being declared as attackers (*Wulfgar of Icewind
+    /// Dale*, *Isshin, Two Heavens as One*). Appended to preserve replay identities.
+    Attack,
 }
 
 #[cfg(test)]

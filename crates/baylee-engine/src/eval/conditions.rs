@@ -633,10 +633,28 @@ pub fn condition_holds_with_context(
             .iter()
             .all(|c| condition_holds_with_context(state, you, context, *c)),
         Condition::OpponentsTurn => state.is_opponent(state.turn.active, you),
-        Condition::DuringStep(kind) => state.turn.step.kind() == Some(kind),
+        Condition::DuringStep(kind) => match kind {
+            baylee_cards_dsl::StepKind::FirstMain => {
+                state.turn.step == crate::turn::Step::Main && state.per_turn.main_phases_begun == 1
+            }
+            baylee_cards_dsl::StepKind::SecondMain => {
+                state.turn.step == crate::turn::Step::Main && state.per_turn.main_phases_begun == 2
+            }
+            other => state.turn.step.kind() == Some(other),
+        },
         // CR 506.8: "before" a point of the turn is before that point's
         // place in it, whether or not the step itself happens (506.7e).
-        Condition::BeforeStep(kind) => state.turn.position() < crate::turn::position_of(kind),
+        Condition::BeforeStep(kind) => match kind {
+            baylee_cards_dsl::StepKind::FirstMain => {
+                state.per_turn.main_phases_begun == 0
+                    && state.turn.position() < crate::turn::position_of(kind)
+            }
+            baylee_cards_dsl::StepKind::SecondMain => {
+                state.per_turn.main_phases_begun < 2
+                    && state.turn.position() < crate::turn::position_of(kind)
+            }
+            other => state.turn.position() < crate::turn::position_of(other),
+        },
         Condition::CanSacrifice(filter) => {
             controlled_matching_with_context(state, you, filter, you, context)
                 .into_iter()

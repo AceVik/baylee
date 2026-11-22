@@ -235,6 +235,14 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                         .map(crate::object::Rider::DelayedReturnObject),
                 );
             }
+            if let Some(found) = &trigger.found_objects {
+                object.riders.extend(
+                    found
+                        .iter()
+                        .copied()
+                        .map(crate::object::Rider::EventFoundObject),
+                );
+            }
             if let Some((version, power)) = identity {
                 object
                     .riders
@@ -601,6 +609,11 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 subject: crate::resolve::SubjectContext::default()
                     .with_event_player(t.event_player)
                     .with_source_version(t.source_version)
+                    .with_found(
+                        t.found_objects
+                            .as_ref()
+                            .map_or_default(|f| f.as_ref().clone()),
+                    )
                     .with_event_identity(t.event_object.zip(t.event_object_identity).map(
                         |(object, (version, power))| {
                             (baylee_core::ids::DamageSourceRef { object, version }, power)
@@ -1849,6 +1862,7 @@ fn synthetic_copy_etb_trigger(
         text: crate::text_changes::TextChangeMap::IDENTITY,
         source_version: Some(entrant.version),
         related_objects: None,
+        found_objects: None,
         grantor: None,
         event_subject: None,
         event_ability: None,

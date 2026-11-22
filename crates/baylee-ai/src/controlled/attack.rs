@@ -264,6 +264,9 @@ impl HeuristicAgent {
                 match trigger {
                     Trigger::Attacks(filter)
                     | Trigger::OneOrMoreAttack(filter)
+                    | Trigger::AttackersDeclaredAtTarget {
+                        attackers: filter, ..
+                    }
                     | Trigger::AttacksAndIsntBlocked(filter)
                     | Trigger::AttacksAlone(filter) => {
                         self.filter_matches(filter, view, a, ZoneRef::Battlefield, Some(o.id))

@@ -248,6 +248,18 @@ pub(crate) fn collect_general(
         } else {
             None
         };
+        let found_objects = if spec.remembered.is_none() {
+            events::event_found_for(
+                trigger,
+                &entry.event,
+                events,
+                state,
+                delayed.controller,
+                context,
+            )
+        } else {
+            None
+        };
         if crate::eval::intervening_if_for_incarnation(
             state,
             spec.condition.copied(),
@@ -262,6 +274,7 @@ pub(crate) fn collect_general(
                     text: spec.text,
                     source_version: Some(spec.source_version),
                     related_objects: None,
+                    found_objects: found_objects.clone(),
                     grantor: None,
                     event_subject,
                     event_ability,

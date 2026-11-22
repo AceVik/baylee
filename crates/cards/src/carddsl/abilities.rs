@@ -383,6 +383,7 @@ fn encode_trigger_into(trigger: &Trigger, dst: &mut [f32]) {
         | Trigger::LinkedCreatureLeaves => dst[2] = 1.0,
         Trigger::Attacks(_)
         | Trigger::OneOrMoreAttack(_)
+        | Trigger::AttackersDeclaredAtTarget { .. }
         | Trigger::AttackWithAtLeast(_)
         | Trigger::AttackWithAtLeastMatching { .. }
         | Trigger::AttacksAndIsntBlocked(_)
@@ -567,7 +568,8 @@ fn encode_replacement_into(rule: &ReplacementRule, ch: &mut EffectChannels) {
             ch.tokens_create += 1.0;
         }
         ReplacementRule::ExileSelfInsteadOfGraveyard
-        | ReplacementRule::ExileOpponentsGraveyard { .. } => {
+        | ReplacementRule::ExileOpponentsGraveyard { .. }
+        | ReplacementRule::ExileInsteadOfGraveyard { .. } => {
             ch.exile_all_or_gy += 1.5;
         }
         ReplacementRule::OpeningHandOnBattlefield => {

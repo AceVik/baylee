@@ -2246,6 +2246,50 @@ pub enum ReplacementRule {
         /// Whether the drawing player may play the card exiled this way this turn (Uba Mask).
         may_play_this_turn: bool,
     },
+    /// LKI graveyard-exile replacement (`Moved.ValidLKI`, CR 603.10a, CR 614.6):
+    /// "If [an object matching `filter`] [from `origin`] [dealt damage by `damaged_by`]
+    /// would be put into [owner's] graveyard [while controlled by `controller_lki`],
+    /// exile it instead [linked to source / with `counter`]" (*Etching of Kumano*,
+    /// *Incendiary Oracle*, *Valgavoth, Terror Eater*, *Gisa, Glorious Resurrector*).
+    /// Evaluates `filter`, `controller_lki`, and `damaged_by` against last-known
+    /// information immediately prior to the zone change. Appended to preserve
+    /// replay identities.
+    ExileInsteadOfGraveyard {
+        /// Characteristic filter evaluated against pre-move LKI (use
+        /// `&Filter::Not(&Filter::IsToken)` for cards only, `&Filter::CREATURE`
+        /// to include tokens).
+        filter: &'static Filter,
+        /// Required origin zone (`Some(ZoneRef::Battlefield)` for "would die"),
+        /// or `None` for "from anywhere".
+        origin: Option<crate::filter::ZoneRef>,
+        /// Required graveyard owner relative to the replacement source's controller,
+        /// or `None` for any graveyard.
+        owner: Option<crate::effect::PlayerRel>,
+        /// Required last-known controller relative to the replacement source's
+        /// controller (CR 109.4: off-battlefield/off-stack objects use their owner),
+        /// or `None` for any controller.
+        controller_lki: Option<crate::effect::PlayerRel>,
+        /// Damage-history requirement against the departing permanent this turn.
+        damaged_by: DamagedByScope,
+        /// Whether to link the exiled card to the replacement source (`Rider::Linked` /
+        /// `Rider::ExiledWith` / `Rider::LinkedExile`).
+        link_to_source: bool,
+        /// Optional counter placed on the exiled card.
+        counter: Option<crate::CounterKind>,
+    },
+}
+
+/// Which turn-local damage history [`ReplacementRule::ExileInsteadOfGraveyard`]
+/// requires on the departing permanent (`CR 614.6`).
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
+pub enum DamagedByScope {
+    /// No damage requirement.
+    Any,
+    /// Dealt damage this turn by the replacement source itself (*Incendiary Oracle*).
+    SourceThisTurn,
+    /// Dealt damage this turn by any source controlled by the replacement's
+    /// controller at the time damage was dealt (*Etching of Kumano*).
+    SourceControllerThisTurn,
 }
 
 #[cfg(test)]

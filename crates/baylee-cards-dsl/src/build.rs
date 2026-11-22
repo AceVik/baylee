@@ -1137,7 +1137,8 @@ macro_rules! eternalize {
 pub mod prelude {
     pub use crate::ability::{
         AbilityDef, ActivationLimit, ActivationTiming, ActivationX, ActivationZone, AmountCmp,
-        Condition, CopyMod, ModeCount, SpellMode, StepKind, Trigger, TriggerEventKind, TriggerZone,
+        AttackedTargetKind, Condition, CopyMod, ModeCount, SpellMode, StepKind, Trigger,
+        TriggerEventKind, TriggerZone,
     };
     pub use crate::build::{
         ActivatedParts, EQUIP_TARGET, LoyaltyParts, ModalTriggeredParts, SagaChapterParts,
@@ -1165,8 +1166,8 @@ pub mod prelude {
     pub use crate::filter::{Filter, OriginalExpansion, ZoneRef, ZoneRef as ZoneKind};
     pub use crate::static_ability::{
         AbilityDonorZone, AltCastPrice, AltCastZones, CounterReplaceOp, DamageAmountReplacement,
-        DamageRecipients, Duration, LAYERS, Layer, Modifier, PtCount, ReplacementRule,
-        StaticAbility,
+        DamageRecipients, DamagedByScope, Duration, LAYERS, Layer, Modifier, PtCount,
+        ReplacementRule, StaticAbility,
     };
     pub use crate::{
         ALL_MANA_COLORS, ANY_COLOR_MANA, BeholdOrPay, CardDef, CommanderRule, Coverage,

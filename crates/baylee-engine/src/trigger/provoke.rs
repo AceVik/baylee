@@ -53,13 +53,14 @@ pub(super) fn collect(
         let instances = crate::layers::keyword_instances(state, source, KeywordSet::PROVOKE);
         for _ in 0..instances.saturating_mul(times_triggered(
             state,
-            baylee_cards_dsl::TriggerEventKind::Any,
+            baylee_cards_dsl::TriggerEventKind::Attack,
             permanent,
         )) {
             triggers.push(PendingTrigger {
                 text: TextChangeMap::IDENTITY,
                 source_version: Some(source.version),
                 related_objects: None,
+                found_objects: None,
                 grantor: None,
                 event_subject: None,
                 event_ability: None,

@@ -271,6 +271,103 @@ pub(super) fn player_attacked_count(
     if first_idx == Some(idx) { count } else { 0 }
 }
 
+/// Whether `defending` satisfies [`baylee_cards_dsl::AttackedTargetKind`] relative
+/// to the trigger's controller `you` and `source` (`CR 508.3`).
+pub(super) fn defender_matches(
+    kind: baylee_cards_dsl::AttackedTargetKind,
+    defending: baylee_core::ids::Defender,
+    state: &GameState,
+    you: PlayerId,
+    source: baylee_core::ids::ObjectId,
+) -> bool {
+    use baylee_cards_dsl::AttackedTargetKind as K;
+    use baylee_core::ids::Defender as D;
+    match kind {
+        K::Any => true,
+        K::Player => matches!(defending, D::Player(_)),
+        K::Opponent => matches!(defending, D::Player(p) if state.is_opponent(p, you)),
+        K::You => matches!(defending, D::Player(p) if p == you),
+        K::Planeswalker => matches!(defending, D::Planeswalker(_)),
+        K::Battle => matches!(defending, D::Battle(_)),
+        K::YouOrYourPlaneswalker => match defending {
+            D::Player(p) => p == you,
+            D::Planeswalker(id) => state.last_known_controller(id) == Some(you),
+            D::Battle(_) => false,
+        },
+        K::OpponentOrTheirPlaneswalker => match defending {
+            D::Player(p) => state.is_opponent(p, you),
+            D::Planeswalker(id) => state
+                .last_known_controller(id)
+                .is_some_and(|c| state.is_opponent(c, you)),
+            D::Battle(_) => false,
+        },
+        K::EnchantedPlayer => match defending {
+            D::Player(p) => crate::eval::enchanted_player(state, source) == Some(p),
+            D::Planeswalker(_) | D::Battle(_) => false,
+        },
+    }
+}
+
+/// Returns all matching attackers declared attacking the same defender as
+/// `event` in `batch` (`CR 508.3`), returning `Some` ONLY on the first
+/// matching `BecameAttacker` toward that defender when `attacked` and optional
+/// `exact_count` (total attackers declared at that defender) hold.
+#[allow(clippy::too_many_arguments)]
+pub(super) fn attackers_at_target(
+    event: &GameEvent,
+    batch: &[JournalEntry],
+    state: &GameState,
+    you: PlayerId,
+    context: RuleContext,
+    attackers: &Filter,
+    attacked: baylee_cards_dsl::AttackedTargetKind,
+    exact_count: Option<u8>,
+) -> Option<Vec<baylee_core::ids::DamageSourceRef>> {
+    let GameEvent::BecameAttacker { defending, .. } = *event else {
+        return None;
+    };
+    if !defender_matches(attacked, defending, state, you, context.source) {
+        return None;
+    }
+    let idx = index_of_event(event, batch)?;
+    let mut total_at_defender = 0_usize;
+    let mut first_matching_idx = None;
+    let mut matched = Vec::new();
+    for (i, entry) in batch.iter().enumerate() {
+        let GameEvent::BecameAttacker {
+            object,
+            defending: entry_def,
+        } = entry.event
+        else {
+            continue;
+        };
+        if entry_def != defending {
+            continue;
+        }
+        total_at_defender += 1;
+        if let Some(obj) = state.object(object)
+            && crate::eval::matches_with_context(attackers, state, obj, you, context)
+        {
+            if first_matching_idx.is_none() {
+                first_matching_idx = Some(i);
+            }
+            matched.push(baylee_core::ids::DamageSourceRef {
+                object,
+                version: obj.version,
+            });
+        }
+    }
+    if first_matching_idx != Some(idx) || matched.is_empty() {
+        return None;
+    }
+    if let Some(exact) = exact_count
+        && total_at_defender != usize::from(exact)
+    {
+        return None;
+    }
+    Some(matched)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

@@ -590,6 +590,7 @@ fn references(object: &GameObject) -> SmallVec<[ObjectId; 4]> {
 const fn rider_object(rider: &Rider) -> Option<ObjectId> {
     match *rider {
         Rider::DelayedReturnObject(source)
+        | Rider::EventFoundObject(source)
         | Rider::EventSubject(source)
         | Rider::EventAbility(source)
         | Rider::CreatedBy(source)

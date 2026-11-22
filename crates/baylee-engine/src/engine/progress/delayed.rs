@@ -518,6 +518,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 text,
                 source_version,
                 related_objects: None,
+                found_objects: None,
                 grantor: None,
                 event_subject: None,
                 event_ability: None,

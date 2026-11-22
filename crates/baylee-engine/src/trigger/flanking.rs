@@ -62,6 +62,7 @@ pub(super) fn collect(
                         text: TextChangeMap::IDENTITY,
                         source_version: Some(source.version),
                         related_objects: None,
+                        found_objects: None,
                         grantor: None,
                         event_subject: None,
                         event_ability: None,

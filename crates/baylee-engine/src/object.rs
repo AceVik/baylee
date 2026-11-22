@@ -1272,6 +1272,11 @@ pub enum Rider {
     /// spell cast with `can_repeat_modes: true` (`CR 700.2d`). Appended to
     /// preserve replay identities.
     RepeatedModes(u32),
+    /// Exact object incarnation bound into `SubjectContext::found` when a
+    /// triggered ability resolves (e.g. all matching attackers toward an
+    /// attacked defender for `Trigger::AttackersDeclaredAtTarget`). Appended
+    /// to preserve replay identities.
+    EventFoundObject(baylee_core::ids::DamageSourceRef),
 }
 
 /// What ends an "exile … until …" (CR 610.3), as [`Rider::Linked`] carries
@@ -1339,6 +1344,7 @@ impl Rider {
             | Self::ActivationManaNote { .. } => true,
             // About the stack or the battlefield, not exile.
             Self::DelayedReturnObject(_)
+            | Self::EventFoundObject(_)
             | Self::GrantedSource(_)
             | Self::PhasedOutUntilHostLeaves { .. }
             | Self::CreatedBy(_)

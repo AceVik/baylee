@@ -137,6 +137,47 @@ impl GameState {
             .any(|d| d.recipient == recipient)
     }
 
+    /// Whether `recipient` (at `recipient_version`) was dealt positive damage
+    /// this turn by exact source incarnation `(source, source_version)`
+    /// (`CR 614.6`, *Incendiary Oracle*).
+    pub(crate) fn was_damaged_by_source_this_turn(
+        &self,
+        recipient: ObjectId,
+        recipient_version: u32,
+        source: ObjectId,
+        source_version: u32,
+    ) -> bool {
+        self.per_turn.permanent_damage.iter().any(|d| {
+            d.source == source
+                && d.source_version == source_version
+                && d.recipient == recipient
+                && d.recipient_version == recipient_version
+        }) || self.per_turn.damage_log.iter().any(|log| {
+            log.amount > 0
+                && log.source.object == source
+                && log.source.version == source_version
+                && log.to == DamageTarget::Object(recipient)
+                && log.to_version == Some(recipient_version)
+        })
+    }
+
+    /// Whether `recipient` (at `recipient_version`) was dealt positive damage
+    /// this turn by any source controlled by `controller` at the time the
+    /// damage was dealt (`CR 614.6`, *Etching of Kumano*).
+    pub(crate) fn was_damaged_by_controller_this_turn(
+        &self,
+        recipient: ObjectId,
+        recipient_version: u32,
+        controller: baylee_core::ids::PlayerId,
+    ) -> bool {
+        self.per_turn.damage_log.iter().any(|log| {
+            log.amount > 0
+                && log.to == DamageTarget::Object(recipient)
+                && log.to_version == Some(recipient_version)
+                && log.snapshot.controller == controller
+        })
+    }
+
     pub(crate) fn live_damage_pairs(&self, position: &impl Fn(ObjectId) -> u32) -> Vec<(u32, u32)> {
         let mut pairs: Vec<_> = self
             .per_turn
@@ -468,6 +509,7 @@ fn pending(death: &DamageDeath, source: &GameObject) -> PendingTrigger {
         source_version: Some(source.version),
         text: crate::text_changes::TextChangeMap::IDENTITY,
         related_objects: None,
+        found_objects: None,
         grantor: None,
         event_subject: Some(baylee_core::ids::DamageSourceRef {
             object: death.victim.id,

@@ -584,7 +584,16 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
             countered_source: None,
             target_lki: None,
             subject: crate::resolve::SubjectContext::default()
-                .with_second_players(obj.second_target_players()),
+                .with_second_players(obj.second_target_players())
+                .with_found(
+                    obj.riders
+                        .iter()
+                        .filter_map(|r| match *r {
+                            crate::object::Rider::EventFoundObject(reference) => Some(reference),
+                            _ => None,
+                        })
+                        .collect(),
+                ),
             text: crate::text_changes::TextChangeMap::IDENTITY,
             event_mana: None,
             retarget_left: None,
@@ -893,7 +902,18 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                     countered_source: None,
                     target_lki: None,
                     subject: crate::resolve::SubjectContext::default()
-                        .with_second_players(obj.second_target_players()),
+                        .with_second_players(obj.second_target_players())
+                        .with_found(
+                            obj.riders
+                                .iter()
+                                .filter_map(|r| match *r {
+                                    crate::object::Rider::EventFoundObject(reference) => {
+                                        Some(reference)
+                                    }
+                                    _ => None,
+                                })
+                                .collect(),
+                        ),
                     text: crate::text_changes::TextChangeMap::IDENTITY,
                     event_mana: None,
                     retarget_left: None,
@@ -938,7 +958,18 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 countered_source: None,
                 target_lki: None,
                 subject: crate::resolve::SubjectContext::default()
-                    .with_second_players(obj.second_target_players()),
+                    .with_second_players(obj.second_target_players())
+                    .with_found(
+                        obj.riders
+                            .iter()
+                            .filter_map(|r| match *r {
+                                crate::object::Rider::EventFoundObject(reference) => {
+                                    Some(reference)
+                                }
+                                _ => None,
+                            })
+                            .collect(),
+                    ),
                 text: crate::text_changes::TextChangeMap::IDENTITY,
                 event_mana: None,
                 retarget_left: None,
@@ -1622,7 +1653,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
         // move itself finds the replacement.
         let graveyard = ZoneLocation::Graveyard(obj.owner);
         if !endings.is_empty()
-            && crate::replacement::graveyard_destination(&self.state, spell, graveyard).0
+            && crate::replacement::graveyard_destination(&self.state, spell, graveyard).destination
                 != graveyard
         {
             endings.push(SpellEnding::Exile);

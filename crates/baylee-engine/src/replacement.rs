@@ -39,27 +39,64 @@ use crate::event::GameEvent;
 use crate::state::GameState;
 use baylee_core::ids::{ObjectId, PlayerId};
 
-/// Replaces a card's arrival in an opponent's graveyard. Registered rules
-/// survive the current simultaneous event even if their source moves first.
-/// Tokens and spell copies are not cards; their deaths still happen.
+/// Outcome of checking graveyard-arrival replacement rules (`CR 614.6`).
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub(crate) struct GraveyardReplacement {
+    /// Final destination zone (unchanged if no replacement applied).
+    pub destination: crate::zone::ZoneLocation,
+    /// Optional counter placed on the card in exile (e.g. Dauthi Voidwalker's void counter).
+    pub exile_counter: Option<baylee_cards_dsl::CounterKind>,
+    /// Firestorm Phoenix: returned to hand revealed and unplayable until owner's next turn.
+    pub revealed_in_hand: bool,
+    /// Optional replacement source `(id, version, acquisition)` to link the exiled
+    /// card to (`Rider::Linked` / `Rider::ExiledWith` / `Rider::LinkedExile`).
+    pub link_source: Option<(ObjectId, u32, u64)>,
+}
+
+impl GraveyardReplacement {
+    const fn unchanged(destination: crate::zone::ZoneLocation) -> Self {
+        Self {
+            destination,
+            exile_counter: None,
+            revealed_in_hand: false,
+            link_source: None,
+        }
+    }
+}
+
+/// Active or just-departed battlefield version of a registered replacement
+/// source (CR 614.6: inside a simultaneous wipe, a source that moved earlier in
+/// the same batch still retains its battlefield version in `ltb_versions`).
+fn replacement_source_version(state: &GameState, source: ObjectId) -> Option<u32> {
+    let obj = state.object(source)?;
+    if obj.zone == crate::zone::Zone::Battlefield {
+        Some(obj.version)
+    } else {
+        state
+            .ltb_versions
+            .iter()
+            .find(|(id, _)| *id == source)
+            .map(|(_, version)| *version)
+    }
+}
+
+/// Replaces an object's arrival in a graveyard. Registered rules survive the
+/// current simultaneous event even if their source moves first.
+#[allow(clippy::too_many_lines)] // Flat replacement priority chain (self -> effect -> board rules).
 pub(crate) fn graveyard_destination(
     state: &GameState,
     id: ObjectId,
     to: crate::zone::ZoneLocation,
-) -> (
-    crate::zone::ZoneLocation,
-    Option<baylee_cards_dsl::CounterKind>,
-    bool,
-) {
+) -> GraveyardReplacement {
     use crate::{
-        object::{Rider, Status},
-        zone::ZoneLocation,
+        object::{ObjectKind, Rider, Status},
+        zone::{Zone, ZoneLocation},
     };
     let ZoneLocation::Graveyard(player) = to else {
-        return (to, None, false);
+        return GraveyardReplacement::unchanged(to);
     };
     let Some(card) = state.object(id) else {
-        return (to, None, false);
+        return GraveyardReplacement::unchanged(to);
     };
     // "If this creature would die, return Firestorm Phoenix to its owner's
     // hand instead. Until that player's next turn, that player plays with
@@ -69,7 +106,7 @@ pub(crate) fn graveyard_destination(
             && entry.rule
                 == baylee_cards_dsl::ReplacementRule::ReturnSelfToHandRevealedCantPlayUntilOwnersNextTurn
     };
-    if card.zone == crate::zone::Zone::Battlefield
+    if card.zone == Zone::Battlefield
         && card.is_card()
         && card
             .characteristics()
@@ -84,59 +121,196 @@ pub(crate) fn graveyard_destination(
         if let Some(entry) = state.replacement_rules.iter().find(return_hand_rule) {
             crate::ability_log::replaced(entry);
         }
-        return (ZoneLocation::Hand(card.owner), None, true);
+        return GraveyardReplacement {
+            destination: ZoneLocation::Hand(card.owner),
+            exile_counter: None,
+            revealed_in_hand: true,
+            link_source: None,
+        };
     }
     // "If that creature would die this turn, exile it instead" (Mawloc),
     // for that object only. Before the token test below: a token is exiled
     // instead as well, and so does not die.
-    if card.zone == crate::zone::Zone::Battlefield
+    if card.zone == Zone::Battlefield
         && (state.per_turn.exile_if_dies.contains(&(id, card.version))
             || card.counters.get(baylee_cards_dsl::CounterKind::Finality) != 0)
     {
-        return (ZoneLocation::Exile(card.owner), None, false);
+        return GraveyardReplacement::unchanged(ZoneLocation::Exile(card.owner));
     }
-    if !card.is_card() {
-        return (to, None, false);
-    }
-    // Its own "exile it instead": on the stack as a rider, on the
-    // battlefield as the rule its face registered.
-    let own_rule = |entry: &&crate::state::ReplacementEntry| {
-        entry.source == id
-            && entry.rule == baylee_cards_dsl::ReplacementRule::ExileSelfInsteadOfGraveyard
-    };
-    if (card.zone == crate::zone::Zone::Stack
-        && card.riders.contains(&Rider::ExileInsteadOfGraveyard))
-        || state.replacement_rules.iter().any(|entry| own_rule(&entry))
-    {
-        #[cfg(any(test, feature = "test-support"))]
-        if let Some(entry) = state.replacement_rules.iter().find(own_rule) {
-            crate::ability_log::replaced(entry);
-        }
-        return (ZoneLocation::Exile(card.owner), None, false);
-    }
-    // "If a card would be put into your graveyard from anywhere this turn,
-    // exile it instead" (Forgotten Cellar): a replacement a resolving ability
-    // made, so an effect with a duration rather than a rule a permanent
-    // registered (CR 614.1a, 611.2a), and the graveyard's owner's.
-    if state.effects.iter().any(|fx| {
-        fx.controller == player
-            && fx.modifier == baylee_cards_dsl::Modifier::ExileInsteadOfYourGraveyard
-    }) {
-        return (ZoneLocation::Exile(card.owner), None, false);
-    }
-    for entry in &state.replacement_rules {
-        if let baylee_cards_dsl::ReplacementRule::ExileOpponentsGraveyard { counter } = entry.rule
-            && state.is_opponent(player, entry.controller)
-            && !state
-                .object(entry.source)
-                .is_some_and(|o| o.status.contains(Status::PHASED_OUT))
+    if card.is_card() {
+        // Its own "exile it instead": on the stack as a rider, on the
+        // battlefield as the rule its face registered.
+        let own_rule = |entry: &&crate::state::ReplacementEntry| {
+            entry.source == id
+                && entry.rule == baylee_cards_dsl::ReplacementRule::ExileSelfInsteadOfGraveyard
+        };
+        if (card.zone == Zone::Stack && card.riders.contains(&Rider::ExileInsteadOfGraveyard))
+            || state.replacement_rules.iter().any(|entry| own_rule(&entry))
         {
             #[cfg(any(test, feature = "test-support"))]
-            crate::ability_log::replaced(entry);
-            return (ZoneLocation::Exile(card.owner), counter, false);
+            if let Some(entry) = state.replacement_rules.iter().find(own_rule) {
+                crate::ability_log::replaced(entry);
+            }
+            return GraveyardReplacement::unchanged(ZoneLocation::Exile(card.owner));
+        }
+        // "If a card would be put into your graveyard from anywhere this turn,
+        // exile it instead" (Forgotten Cellar): a replacement a resolving ability
+        // made, so an effect with a duration rather than a rule a permanent
+        // registered (CR 614.1a, 611.2a), and the graveyard's owner's.
+        if state.effects.iter().any(|fx| {
+            fx.controller == player
+                && fx.modifier == baylee_cards_dsl::Modifier::ExileInsteadOfYourGraveyard
+        }) {
+            return GraveyardReplacement::unchanged(ZoneLocation::Exile(card.owner));
         }
     }
-    (to, None, false)
+    for entry in &state.replacement_rules {
+        match entry.rule {
+            baylee_cards_dsl::ReplacementRule::ExileOpponentsGraveyard { counter }
+                if card.is_card()
+                    && state.is_opponent(player, entry.controller)
+                    && !state
+                        .object(entry.source)
+                        .is_some_and(|o| o.status.contains(Status::PHASED_OUT)) =>
+            {
+                #[cfg(any(test, feature = "test-support"))]
+                crate::ability_log::replaced(entry);
+                return GraveyardReplacement {
+                    destination: ZoneLocation::Exile(card.owner),
+                    exile_counter: counter,
+                    revealed_in_hand: false,
+                    link_source: None,
+                };
+            }
+            baylee_cards_dsl::ReplacementRule::ExileInsteadOfGraveyard {
+                filter,
+                origin,
+                owner,
+                controller_lki,
+                damaged_by,
+                link_to_source,
+                counter,
+            } => {
+                // Spell copies and stack abilities are neither cards nor tokens.
+                if card.riders.contains(&Rider::SpellCopy)
+                    || card.kind == ObjectKind::AbilityOnStack
+                {
+                    continue;
+                }
+                // Phased-out sources and live sources whose abilities/text are
+                // currently lost do not apply (CR 702.26b, CR 613.1f).
+                if state.object(entry.source).is_some_and(|o| {
+                    o.zone == Zone::Battlefield
+                        && (o.status.contains(Status::PHASED_OUT)
+                            || o.characteristics().abilities_lost.is_some()
+                            || o.characteristics().rules_text_lost)
+                }) {
+                    continue;
+                }
+                if let Some(req_origin) = origin
+                    && !card.zone.matches_ref(req_origin)
+                {
+                    continue;
+                }
+                if let Some(req_owner) = owner
+                    && !eval::players_for_source(
+                        req_owner,
+                        state,
+                        entry.controller,
+                        Some(entry.source),
+                    )
+                    .is_some_and(|seats| seats.contains(&player))
+                {
+                    continue;
+                }
+                // CR 109.4: only objects on the battlefield or stack have a
+                // controller; elsewhere, use the object's owner.
+                let effective_controller = if matches!(card.zone, Zone::Battlefield | Zone::Stack) {
+                    card.controller
+                } else {
+                    card.owner
+                };
+                if let Some(req_controller) = controller_lki
+                    && !eval::players_for_source(
+                        req_controller,
+                        state,
+                        entry.controller,
+                        Some(entry.source),
+                    )
+                    .is_some_and(|seats| seats.contains(&effective_controller))
+                {
+                    continue;
+                }
+                match damaged_by {
+                    baylee_cards_dsl::DamagedByScope::Any => {}
+                    baylee_cards_dsl::DamagedByScope::SourceThisTurn => {
+                        let Some(source_version) = replacement_source_version(state, entry.source)
+                        else {
+                            continue;
+                        };
+                        if !state.was_damaged_by_source_this_turn(
+                            id,
+                            card.version,
+                            entry.source,
+                            source_version,
+                        ) {
+                            continue;
+                        }
+                    }
+                    baylee_cards_dsl::DamagedByScope::SourceControllerThisTurn => {
+                        if !state.was_damaged_by_controller_this_turn(
+                            id,
+                            card.version,
+                            entry.controller,
+                        ) {
+                            continue;
+                        }
+                    }
+                }
+                let filter_ok = if !matches!(card.zone, Zone::Battlefield | Zone::Stack)
+                    && card.controller != card.owner
+                {
+                    let mut normalized = card.clone();
+                    normalized.controller = card.owner;
+                    eval::matches(filter, state, &normalized, entry.controller, entry.source)
+                } else {
+                    eval::matches(filter, state, card, entry.controller, entry.source)
+                };
+                if !filter_ok {
+                    continue;
+                }
+                #[cfg(any(test, feature = "test-support"))]
+                crate::ability_log::replaced(entry);
+                let link_source = link_to_source
+                    .then(|| {
+                        let version = replacement_source_version(state, entry.source)?;
+                        let acquisition = state
+                            .source_object(baylee_core::ids::DamageSourceRef {
+                                object: entry.source,
+                                version,
+                            })
+                            .map_or_else(
+                                || {
+                                    state
+                                        .object(entry.source)
+                                        .map_or(0, crate::object::GameObject::rules_acquisition)
+                                },
+                                crate::object::GameObject::rules_acquisition,
+                            );
+                        Some((entry.source, version, acquisition))
+                    })
+                    .flatten();
+                return GraveyardReplacement {
+                    destination: ZoneLocation::Exile(card.owner),
+                    exile_counter: counter,
+                    revealed_in_hand: false,
+                    link_source,
+                };
+            }
+            _ => {}
+        }
+    }
+    GraveyardReplacement::unchanged(to)
 }
 
 /// Drops the rules of every source that is no longer on the battlefield, at

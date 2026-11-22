@@ -114,6 +114,7 @@ fn saga_trigger(
         source: source.id,
         counter_source_version: Some(version),
         related_objects: None,
+        found_objects: None,
         grantor: None,
         event_subject: None,
         event_ability: None,

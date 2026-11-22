@@ -94,7 +94,7 @@ pub(super) fn collect(
         if (kws.bits() & COMBAT_ATTACK_KEYWORDS.bits()) == 0 {
             continue;
         }
-        let multiplier = times_triggered(state, TriggerEventKind::Any, permanent);
+        let multiplier = times_triggered(state, TriggerEventKind::Attack, permanent);
         if multiplier == 0 {
             continue;
         }
@@ -238,6 +238,7 @@ pub(super) fn collect_enlist(
                 text: TextChangeMap::IDENTITY,
                 source_version: Some(source.version),
                 related_objects: None,
+                found_objects: None,
                 grantor: None,
                 event_subject: None,
                 event_ability: None,
@@ -365,6 +366,7 @@ fn push_synthetic(
             text: TextChangeMap::IDENTITY,
             source_version: Some(source.version),
             related_objects: None,
+            found_objects: None,
             grantor: None,
             event_subject: None,
             event_ability: None,

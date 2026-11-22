@@ -96,7 +96,56 @@ pub(super) fn event_amount_for(
         );
         return (count > 0).then_some(count);
     }
+    if let Trigger::AttackersDeclaredAtTarget {
+        attackers,
+        attacked,
+        exact_count,
+    } = trigger
+    {
+        return super::event_groups::attackers_at_target(
+            event,
+            batch,
+            state,
+            you,
+            context,
+            attackers,
+            *attacked,
+            *exact_count,
+        )
+        .map(|matched| u32::try_from(matched.len()).unwrap_or(u32::MAX));
+    }
     event_damage_of(trigger, event, batch)
+}
+
+/// Exact object incarnations bound into `SubjectContext::found` for a
+/// multi-object trigger (currently [`Trigger::AttackersDeclaredAtTarget`]).
+pub(super) fn event_found_for(
+    trigger: &Trigger,
+    event: &GameEvent,
+    batch: &[crate::event::JournalEntry],
+    state: &GameState,
+    you: PlayerId,
+    context: crate::text_changes::RuleContext,
+) -> Option<std::sync::Arc<Vec<baylee_core::ids::DamageSourceRef>>> {
+    let Trigger::AttackersDeclaredAtTarget {
+        attackers,
+        attacked,
+        exact_count,
+    } = trigger
+    else {
+        return None;
+    };
+    super::event_groups::attackers_at_target(
+        event,
+        batch,
+        state,
+        you,
+        context,
+        attackers,
+        *attacked,
+        *exact_count,
+    )
+    .map(std::sync::Arc::new)
 }
 
 /// The player a triggering event is about: "that player" or "they" of the
@@ -175,6 +224,16 @@ pub(super) fn event_player_for(
             .object_or_departed(*object)
             .map(|o| o.controller)
             .or(Some(state.turn.active));
+    }
+    if let (
+        Trigger::AttackersDeclaredAtTarget { .. },
+        GameEvent::BecameAttacker { defending, .. },
+    ) = (trigger, &entry.event)
+    {
+        return crate::combat::blocking_player(state, *defending).or_else(|| match *defending {
+            baylee_core::ids::Defender::Battle(id) => state.last_known_controller(id),
+            _ => None,
+        });
     }
     event_player_of(&entry.event)
 }

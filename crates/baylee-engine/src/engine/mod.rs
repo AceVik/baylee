@@ -1610,6 +1610,11 @@ impl<L: CardLookup, D: LoopDetection> Engine<L, D> {
                 .wrapping_add(crate::state::structural_fingerprint(
                     &trigger.related_objects,
                 ));
+            if let Some(found) = &trigger.found_objects {
+                extra = extra
+                    .wrapping_mul(31)
+                    .wrapping_add(crate::state::structural_fingerprint(found));
+            }
             extra = extra
                 .wrapping_mul(31)
                 .wrapping_add(crate::state::structural_fingerprint(&trigger.event_subject));

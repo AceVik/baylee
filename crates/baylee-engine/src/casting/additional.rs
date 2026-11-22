@@ -59,7 +59,8 @@ pub(crate) fn additional_card_enters_graveyard(
     state
         .object(card)
         .is_some_and(|object| object.is_card() && object.owner == player)
-        && crate::replacement::graveyard_destination(state, card, destination).0 == destination
+        && crate::replacement::graveyard_destination(state, card, destination).destination
+            == destination
 }
 
 /// Whether every exile-from-hand part can be paid with a distinct card.

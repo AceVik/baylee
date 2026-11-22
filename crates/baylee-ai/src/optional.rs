@@ -121,6 +121,7 @@ fn during(view: &PlayerView, step: StepKind) -> bool {
         StepKind::CombatEnd => now == Step::CombatEnd,
         StepKind::End => now == Step::End,
         StepKind::FirstMain => now == Step::Main && view.phase == baylee_view::Phase::FirstMain,
+        StepKind::SecondMain => now == Step::Main && view.phase == baylee_view::Phase::SecondMain,
     }
 }
 

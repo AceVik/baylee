@@ -124,7 +124,8 @@ pub static SPIRIT_X_X_WHITE: TokenDef = TokenDef {
 
 pub use ability::{
     AbilityDef, ActivationLimit, ActivationTiming, ActivationX, ActivationZone, AmountCmp,
-    Condition, CopyMod, ModeCount, SpellMode, StepKind, Trigger, TriggerEventKind, TriggerZone,
+    AttackedTargetKind, Condition, CopyMod, ModeCount, SpellMode, StepKind, Trigger,
+    TriggerEventKind, TriggerZone,
 };
 pub use build::prelude;
 pub use build::{
@@ -158,7 +159,8 @@ pub use baylee_core::mana::{ManaColor, ManaCost};
 pub use baylee_core::types::{SupertypeSet, TypeSet};
 pub use static_ability::{
     AbilityDonorZone, AltCastPrice, AltCastZones, CounterReplaceOp, DamageAmountReplacement,
-    DamageRecipients, Duration, LAYERS, Layer, Modifier, PtCount, ReplacementRule, StaticAbility,
+    DamageRecipients, DamagedByScope, Duration, LAYERS, Layer, Modifier, PtCount, ReplacementRule,
+    StaticAbility,
 };
 
 /// A compiled card definition: zero-cost, `'static`, registry-resident.

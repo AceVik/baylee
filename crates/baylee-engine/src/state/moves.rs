@@ -576,8 +576,11 @@ impl GameState {
         let requested = to;
         let to = self.take_commander_redirect(id, to);
         let commander_redirected = to != requested;
-        let (to, exile_counter, revealed_in_hand) =
-            crate::replacement::graveyard_destination(self, id, to);
+        let replacement = crate::replacement::graveyard_destination(self, id, to);
+        let to = replacement.destination;
+        let exile_counter = replacement.exile_counter;
+        let revealed_in_hand = replacement.revealed_in_hand;
+        let exile_link_source = replacement.link_source;
         let component_destination = if commander_redirected { requested } else { to };
         let from_loc = ZoneLocation::of(from_zone, from_player);
         // A creature dies when it is put into a graveyard from the
@@ -985,7 +988,7 @@ impl GameState {
                 None
             };
         if to.zone() != Zone::Battlefield {
-            for comp in merged_components {
+            for &comp in &merged_components {
                 if let Some(comp_owner) = self.object(comp).map(|o| o.owner) {
                     if let Some(comp_obj) = self.object_mut(comp) {
                         comp_obj.kind = ObjectKind::Card;
@@ -1244,8 +1247,46 @@ impl GameState {
             },
             departure,
         );
+        if to.zone() == Zone::Exile
+            && let Some((host, host_version, host_acquisition)) = exile_link_source
+        {
+            let source_ref = baylee_core::ids::DamageSourceRef {
+                object: host,
+                version: host_version,
+            };
+            let link = crate::object::Rider::Linked { host, until: None };
+            let with = crate::object::Rider::ExiledWith {
+                host,
+                version: u16::try_from(host_version).unwrap_or(u16::MAX),
+            };
+            let linked_exile = crate::object::Rider::LinkedExile {
+                source: source_ref,
+                acquisition: host_acquisition,
+            };
+            for exiled in std::iter::once(id).chain(merged_components.iter().copied()) {
+                if self
+                    .object(exiled)
+                    .is_some_and(|o| o.zone == Zone::Exile && o.is_card())
+                {
+                    if let Some(obj) = self.object_mut(exiled) {
+                        obj.kind = ObjectKind::Card;
+                        for rider in [link, with, linked_exile] {
+                            if !obj.riders.contains(&rider) {
+                                obj.riders.push(rider);
+                            }
+                        }
+                    }
+                    self.remember_link(exiled, source_ref);
+                }
+            }
+        }
         if let Some(kind) = exile_counter {
             crate::replacement::put_counters(self, id, kind, 1);
+            for &comp in &merged_components {
+                if self.object(comp).is_some_and(|o| o.zone == Zone::Exile) {
+                    crate::replacement::put_counters(self, comp, kind, 1);
+                }
+            }
         }
         if revealed_in_hand && let ZoneLocation::Hand(owner) = to {
             self.journal.record(GameEvent::Revealed {
