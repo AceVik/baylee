@@ -105,6 +105,17 @@ pub fn line_shape(line: &str) -> LineShape {
     };
     let (head, body) = line.split_at(colon);
     let body = body[':'.len_utf8()..].trim();
+    // A loyalty cost is the whole of what precedes the colon, and the minus
+    // a card prints is U+2212, not a hyphen. Checked before the mana test
+    // below because a loyalty ability that adds mana (Koth, Chandra) is
+    // still a loyalty ability under CR 605.1a, never a mana ability.
+    if !head.is_empty()
+        && head
+            .chars()
+            .all(|c| c.is_ascii_digit() || c == '+' || c == '-' || c == '\u{2212}' || c == 'X')
+    {
+        return LineShape::Loyalty;
+    }
     // A line that makes mana is its own shape, and the reasons are on
     // [`LineShape::Mana`] — including why it has to be said here as well as
     // in `ability_shape`.
@@ -134,15 +145,6 @@ pub fn line_shape(line: &str) -> LineShape {
         .any(|word| matches!(word, "draw" | "draws" | "mill" | "mills"));
     if (adds_first || adds_later) && !targets_directly && !moves_library {
         return LineShape::Mana;
-    }
-    // A loyalty cost is the whole of what precedes the colon, and the minus
-    // a card prints is U+2212, not a hyphen.
-    if !head.is_empty()
-        && head
-            .chars()
-            .all(|c| c.is_ascii_digit() || c == '+' || c == '-' || c == '\u{2212}' || c == 'X')
-    {
-        return LineShape::Loyalty;
     }
     // An activation cost is mana, a tap, a sacrifice — never a sentence, so
     // the head is length-bounded rather than merely non-empty. The bound is

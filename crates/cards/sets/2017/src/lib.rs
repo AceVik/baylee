@@ -887,8 +887,6 @@ pub mod nimble_obstructionist;
 pub mod nissa_genesis_mage;
 #[path = "hou/nissa_s_defeat.rs"]
 pub mod nissa_s_defeat;
-#[path = "akh/nissa_steward_of_elements.rs"]
-pub mod nissa_steward_of_elements;
 #[path = "akh/oashra_cultivator.rs"]
 pub mod oashra_cultivator;
 #[path = "hou/oasis_ritualist.rs"]

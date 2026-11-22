@@ -126,7 +126,6 @@ pub struct CardScript {
 /// Line prefixes whose content this project takes from Scryfall instead, or
 /// that are the corpus's own deckbuilding/AI hints and carry no rules.
 const IGNORED_PREFIXES: &[&str] = &[
-    "Loyalty",
     "Defense",
     "Colors",
     "DeckHas",
@@ -196,6 +195,7 @@ fn parse_face(lines: &[&str]) -> CardScript {
                 }
             }
             "Variant" if rest.starts_with("UniversesWithin:FlavorName:") => {}
+            "Loyalty" if rest.trim().parse::<u32>().is_ok() => {}
             "Text" if rest.trim() == "CARDNAME can be your commander." => {
                 out.has_commander_text = true;
             }

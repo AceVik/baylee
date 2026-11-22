@@ -288,6 +288,7 @@ pub(super) fn target_reuse(ability: &AbilityDef) -> Option<&'static Filter> {
             // effect is still caught.
             if (has_target_effect && matches!(effect, Effect::IfCondition { .. }))
                 || (has_divided_counters && matches!(effect, Effect::PumpFilter { .. }))
+                || matches!(effect, Effect::WithSecondTarget(_))
             {
                 continue;
             }

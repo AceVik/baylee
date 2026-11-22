@@ -14692,7 +14692,7 @@ pub static RARE: [CardIndex; 6300] = [
 ];
 
 /// Cards whose reference printing is mythic rare.
-pub static MYTHIC: [CardIndex; 992] = [
+pub static MYTHIC: [CardIndex; 991] = [
     CardIndex::new(6),
     CardIndex::new(10),
     CardIndex::new(14),
@@ -15050,7 +15050,6 @@ pub static MYTHIC: [CardIndex; 992] = [
     CardIndex::new(16724),
     CardIndex::new(16732),
     CardIndex::new(16733),
-    CardIndex::new(16751),
     CardIndex::new(16783),
     CardIndex::new(16816),
     CardIndex::new(16818),
@@ -114433,13 +114432,6 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
     ),
     (
         CardIndex::new(16750),
-        baylee_core::card_metadata::ReferencePrintRules {
-            watermarks: &[None],
-            is_un: false,
-        },
-    ),
-    (
-        CardIndex::new(16751),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
             is_un: false,

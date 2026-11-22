@@ -1669,3 +1669,17 @@ fn a_later_if_sentence_on_the_line_is_not_the_alternative_costs_condition() {
         "nor does the next sentence lend it one"
     );
 }
+
+#[test]
+fn loyalty_mana_and_outlast_keyword_headers_keep_their_printed_lines() {
+    use baylee_cards_dsl::cost;
+    assert_eq!(line_shape("\u{2212}1: Add {R}{R}."), LineShape::Loyalty);
+    assert_eq!(
+        line_shape("\u{2212}2: Add {R} for each Mountain you control."),
+        LineShape::Loyalty
+    );
+    assert!(cost_fits(
+        &cost!("{W}", TapSelf),
+        "Outlast {W} ({W}, {T}: Put a +1/+1 counter on this creature. Outlast only as a sorcery.)"
+    ));
+}

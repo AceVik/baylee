@@ -414,7 +414,10 @@ fn cost_branch_fits(
     let has_part =
         |wanted: &CostPart| outer_parts.contains(wanted) || branch_parts.contains(wanted);
     let printed = braced(head);
-    let taps = printed.iter().any(|s| s == "T");
+    let head_lower = head.trim_start().to_ascii_lowercase();
+    let is_outlast_header =
+        head_lower.starts_with("outlast ") || head_lower.starts_with("outlast\u{2014}");
+    let taps = printed.iter().any(|s| s == "T") || is_outlast_header;
     let untaps = printed.iter().any(|s| s == "Q");
     if taps != has_part(&CostPart::TapSelf) || untaps != has_part(&CostPart::UntapSelf) {
         return false;

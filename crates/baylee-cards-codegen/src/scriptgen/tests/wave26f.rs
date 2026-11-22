@@ -689,3 +689,12 @@ fn wave26f_token_found_goad_and_peer_refusals() {
          SVar:TrigDraw:DB$ Draw | NumCards$ 1"
     ));
 }
+
+#[test]
+fn non_numeric_loyalty_walker_is_refused() {
+    assert!(refused(
+        "Name:NonNumericLoyaltyWalker\nManaCost:X G U\nTypes:Legendary Planeswalker Nissa\n\
+         Loyalty:X\n\
+         A:AB$ Scry | Cost$ AddCounter<2/LOYALTY> | Planeswalker$ True | ScryNum$ 2"
+    ));
+}
