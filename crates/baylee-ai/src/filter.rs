@@ -609,6 +609,18 @@ impl HeuristicAgent {
             .iter()
             .find(|o| matches!(o.kind, CastModeKind::Normal))
             .map(|o| o.cost.cmc());
+        if let Some(cmc) = normal_cmc
+            && let Some(cheaper_perm) = options
+                .iter()
+                .enumerate()
+                .filter(|(_, o)| {
+                    matches!(o.kind, CastModeKind::Permission(_)) && o.cost.cmc() < cmc
+                })
+                .min_by_key(|&(pos, o)| (o.cost.cmc(), pos))
+                .map(|(pos, _)| pos)
+        {
+            return cheaper_perm;
+        }
         if let Some(bonus_alt) = options.iter().position(|option| match option.kind {
             CastModeKind::Alternative(i) => {
                 Self::is_upside_turn_alt(view, object, i)
@@ -624,27 +636,8 @@ impl HeuristicAgent {
         {
             return normal;
         }
-        if options.first().is_some_and(|option| {
-            matches!(
-                option.kind,
-                CastModeKind::DungeonRoom {
-                    dungeon: baylee_core::dungeon::Dungeon::Undercity,
-                    ..
-                }
-            )
-        }) {
-            return options
-                .iter()
-                .enumerate()
-                .filter_map(|(position, option)| match option.kind {
-                    CastModeKind::DungeonRoom {
-                        dungeon: baylee_core::dungeon::Dungeon::Undercity,
-                        room,
-                    } => Some((position, self.undercity_room_score(view, room))),
-                    _ => None,
-                })
-                .max_by_key(|&(position, score)| (score, std::cmp::Reverse(position)))
-                .map_or(0, |(position, _)| position);
+        if let Some(room_choice) = self.undercity_room_mode(view, options) {
+            return room_choice;
         }
         let Some(modes) = Self::modal_modes(view, object) else {
             return 0;
@@ -682,6 +675,36 @@ impl HeuristicAgent {
                 (reach, worth, std::cmp::Reverse(*position))
             })
             .map_or(0, |(position, _)| position)
+    }
+
+    /// Chooses the highest-scoring Undercity room when the cast-mode menu is
+    /// venturing into the Undercity (`CR 309.4c`).
+    fn undercity_room_mode(&self, view: &PlayerView, options: &[CastModeDesc]) -> Option<usize> {
+        options
+            .first()
+            .is_some_and(|option| {
+                matches!(
+                    option.kind,
+                    CastModeKind::DungeonRoom {
+                        dungeon: baylee_core::dungeon::Dungeon::Undercity,
+                        ..
+                    }
+                )
+            })
+            .then(|| {
+                options
+                    .iter()
+                    .enumerate()
+                    .filter_map(|(position, option)| match option.kind {
+                        CastModeKind::DungeonRoom {
+                            dungeon: baylee_core::dungeon::Dungeon::Undercity,
+                            room,
+                        } => Some((position, self.undercity_room_score(view, room))),
+                        _ => None,
+                    })
+                    .max_by_key(|&(position, score)| (score, std::cmp::Reverse(position)))
+                    .map_or(0, |(position, _)| position)
+            })
     }
 
     /// Which set of modes to cast a spell that chooses several with

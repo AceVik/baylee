@@ -446,6 +446,18 @@ fn this_way_entry_context(
             amount: Some(old.abs_diff(*new)),
             ..RememberedContext::default()
         }),
+        (
+            GameEvent::DamageDealt {
+                target: crate::event::DamageTarget::Object(target),
+                is_combat: false,
+                ..
+            },
+            ThisWay::ExcessDamage,
+        ) if entry.excess_damage > 0 => {
+            let mut ctx = super::delayed_general::context_from_object(state, *target, None);
+            ctx.amount = Some(entry.excess_damage);
+            Some(ctx)
+        }
         _ => None,
     }
 }

@@ -4,13 +4,25 @@ use super::*;
 
 impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
     /// All legal ways to cast `card` right now.
-    #[allow(clippy::too_many_lines)] // one branch per printed way to cast; splitting hides the list
     pub(in crate::engine) fn cast_options(
         &self,
         player: PlayerId,
         card: ObjectId,
         pay_in_window: bool,
     ) -> Result<Vec<CastModeDesc>, EngineError> {
+        self.cast_options_with_routes(player, card, pay_in_window)
+            .map(|(options, _)| options)
+    }
+
+    /// All legal ways to cast `card` right now, paired with any continuous
+    /// `MayCastWithAltCost` routes indexed by position in the returned slice.
+    #[allow(clippy::too_many_lines, clippy::type_complexity)] // one branch per printed way to cast; splitting hides the list
+    pub(in crate::engine) fn cast_options_with_routes(
+        &self,
+        player: PlayerId,
+        card: ObjectId,
+        pay_in_window: bool,
+    ) -> Result<(Vec<CastModeDesc>, Vec<(usize, casting::AltCastGrantRoute)>), EngineError> {
         let obj = self
             .state
             .object(card)
@@ -25,18 +37,38 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
             .ok_or(EngineError::IllegalAction("unknown card"))?;
         let face = &def.faces[0];
         if obj.zone == crate::zone::Zone::Library {
-            return casting::library_top_life_options(
-                &self.state,
-                &self.lookup,
-                player,
-                card,
-                if pay_in_window {
-                    casting::Paying::DuringTheCast
-                } else {
-                    casting::Paying::FromThePool
-                },
-            )
-            .map_err(|error| EngineError::Cast(crate::casting::CastFailure::Legality(error)));
+            let paying = if pay_in_window {
+                casting::Paying::DuringTheCast
+            } else {
+                casting::Paying::FromThePool
+            };
+            if casting::library_top_life_open(&self.state, player, card) {
+                return casting::library_top_life_options(
+                    &self.state,
+                    &self.lookup,
+                    player,
+                    card,
+                    paying,
+                )
+                .map(|opts| (opts, Vec::new()))
+                .map_err(|error| EngineError::Cast(crate::casting::CastFailure::Legality(error)));
+            }
+            let (alt_pairs, diag) =
+                casting::alt_cast_grant_options(&self.state, &self.lookup, player, card, paying);
+            if alt_pairs.is_empty() {
+                let err = diag.unwrap_or(casting::CastError::NotInHand);
+                return Err(EngineError::Cast(crate::casting::CastFailure::Legality(
+                    err,
+                )));
+            }
+            let mut opts = Vec::with_capacity(alt_pairs.len());
+            let mut routes = Vec::with_capacity(alt_pairs.len());
+            for (i, (mut desc, route)) in alt_pairs.into_iter().enumerate() {
+                desc.index = u32::try_from(i).expect("bounded cast options");
+                opts.push(desc);
+                routes.push((i, route));
+            }
+            return Ok((opts, routes));
         }
         let commanded = self.commanded_card(card);
         // Each way of casting is asked as the spell it makes: what a lock on
@@ -173,8 +205,8 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                         .contains(baylee_cards_dsl::KeywordSet::RETRACE)
                     || face.escape.is_some()
             });
-            if !front_too {
-                return Ok(options);
+            if !front_too && !casting::has_alt_cast_grant(&self.state, &self.lookup, player, card) {
+                return Ok((options, Vec::new()));
             }
         }
         // Printed flashback (CR 702.34a) from the graveyard: its own cost,
@@ -1242,6 +1274,16 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
         // another would have been played, and a card no mode pays is not
         // played at all. The exact reader only: where it cannot tell, the
         // mode stays.
+        let mut alt_routes: Vec<(usize, casting::AltCastGrantRoute)> = Vec::new();
+        if !commanded {
+            let (alt_pairs, _) =
+                casting::alt_cast_grant_options(&self.state, &self.lookup, player, card, paying);
+            for (desc, route) in alt_pairs {
+                let idx = options.len();
+                options.push(desc);
+                alt_routes.push((idx, route));
+            }
+        }
         if commanded {
             options.retain(|o| {
                 matches!(o.kind, CastModeKind::PlayLandFace(_))
@@ -1255,6 +1297,6 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
         if options.is_empty() {
             return Err(EngineError::IllegalAction("no way to cast this spell"));
         }
-        Ok(options)
+        Ok((options, alt_routes))
     }
 }

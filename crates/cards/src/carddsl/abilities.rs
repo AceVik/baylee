@@ -515,7 +515,7 @@ fn encode_static_into(sa: &StaticAbility, ch: &mut EffectChannels) {
         Modifier::SpellsCostLessMana { cost, .. } => {
             ch.mana_add += (cost.cmc() as f32).max(1.0) * 0.5;
         }
-        Modifier::SpellsCostLessByAmount(_) => {
+        Modifier::SpellsCostLessByAmount(_) | Modifier::GainActivatedAbilitiesOf { .. } => {
             ch.mana_add += 0.5;
         }
         Modifier::SpellsCostMore(_)
@@ -544,6 +544,9 @@ fn encode_static_into(sa: &StaticAbility, ch: &mut EffectChannels) {
         }
         Modifier::MultiplyDamageFrom { .. } | Modifier::AddDamageFrom { .. } => {
             ch.damage_any += 1.5;
+        }
+        Modifier::MayCastWithAltCost { .. } => {
+            ch.mana_add += 1.0;
         }
         _ => {}
     }

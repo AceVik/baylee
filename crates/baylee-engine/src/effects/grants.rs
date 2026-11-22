@@ -5,10 +5,50 @@ use crate::copiable_abilities::AbilityProvenance;
 use crate::object::Rider;
 use crate::state::{CardLookup, GameState};
 use crate::text_changes::TextChangeMap;
-use crate::zone::Zone;
-use baylee_cards_dsl::{AbilityDef, ActivatedParts, Cost, Effect, Modifier};
+use crate::zone::{Zone, ZoneLocation};
+use baylee_cards_dsl::{
+    AbilityDef, AbilityDonorZone, ActivatedParts, Cost, Effect, Filter, Modifier,
+};
 use baylee_core::ids::{DamageSourceRef, EffectId, ObjectId};
+use baylee_core::mana::ManaColor;
 use std::collections::BTreeMap;
+
+static BASIC_WHITE: AbilityDef = ActivatedParts {
+    mana_ability: true,
+    ..ActivatedParts::new(Cost::TAP, &[Effect::mana(ManaColor::White, 1)])
+}
+.build();
+static BASIC_BLUE: AbilityDef = ActivatedParts {
+    mana_ability: true,
+    ..ActivatedParts::new(Cost::TAP, &[Effect::mana(ManaColor::Blue, 1)])
+}
+.build();
+static BASIC_BLACK: AbilityDef = ActivatedParts {
+    mana_ability: true,
+    ..ActivatedParts::new(Cost::TAP, &[Effect::mana(ManaColor::Black, 1)])
+}
+.build();
+static BASIC_RED: AbilityDef = ActivatedParts {
+    mana_ability: true,
+    ..ActivatedParts::new(Cost::TAP, &[Effect::mana(ManaColor::Red, 1)])
+}
+.build();
+static BASIC_GREEN: AbilityDef = ActivatedParts {
+    mana_ability: true,
+    ..ActivatedParts::new(Cost::TAP, &[Effect::mana(ManaColor::Green, 1)])
+}
+.build();
+
+fn basic_mana_definition(color: ManaColor) -> Option<(u32, &'static AbilityDef)> {
+    match color {
+        ManaColor::White => Some((10_000, &BASIC_WHITE)),
+        ManaColor::Blue => Some((10_001, &BASIC_BLUE)),
+        ManaColor::Black => Some((10_002, &BASIC_BLACK)),
+        ManaColor::Red => Some((10_003, &BASIC_RED)),
+        ManaColor::Green => Some((10_004, &BASIC_GREEN)),
+        ManaColor::Colorless => None,
+    }
+}
 
 /// A complete granted ability; convenience fields are derived from its definition.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
@@ -25,6 +65,8 @@ pub struct GrantedAbility {
     pub mana_ability: bool,
     /// Source of the granting continuous effect.
     pub source: Option<ObjectId>,
+    /// Original donor object from which this ability was copied, if any.
+    pub origin_donor: Option<ObjectId>,
     /// Printed clause of the donor, when this is a copied definition.
     pub provenance: Option<AbilityProvenance>,
     /// Wording of the granted definition.
@@ -48,6 +90,7 @@ impl GrantedAbility {
             cost,
             effects,
             source,
+            origin_donor: None,
             mana_ability: definition.is_mana_ability(),
             provenance: None,
             text: TextChangeMap::default(),
@@ -139,6 +182,150 @@ impl GrantRegistry {
     }
 }
 
+fn linked_exile_donors(
+    state: &GameState,
+    effect: &ContinuousEffect,
+    filter: &Filter,
+) -> Vec<ObjectId> {
+    let Some(source) = effect.source.and_then(|id| state.object(id)) else {
+        return Vec::new();
+    };
+    let link = Rider::LinkedExile {
+        source: DamageSourceRef {
+            object: source.id,
+            version: source.version,
+        },
+        acquisition: source.rules_acquisition(),
+    };
+    let with = Rider::ExiledWith {
+        host: source.id,
+        version: u16::try_from(source.version).unwrap_or(u16::MAX),
+    };
+    state
+        .arena
+        .iter()
+        .filter_map(|(_, donor)| {
+            (donor.zone == Zone::Exile
+                && (donor.riders.contains(&link) || donor.riders.contains(&with))
+                && crate::eval::matches(filter, state, donor, effect.controller, source.id))
+            .then_some(donor.id)
+        })
+        .collect()
+}
+
+fn zone_donors(
+    state: &GameState,
+    effect: &ContinuousEffect,
+    filter: &Filter,
+    zone: AbilityDonorZone,
+) -> Vec<ObjectId> {
+    let this = effect
+        .source
+        .or(match effect.filter {
+            super::EffectFilter::ObjectIs(id, _) => Some(id),
+            _ => None,
+        })
+        .unwrap_or(ObjectId::NO_SOURCE);
+    let raw: Vec<ObjectId> = match zone {
+        AbilityDonorZone::LinkedExile => return linked_exile_donors(state, effect, filter),
+        AbilityDonorZone::Battlefield => state.battlefield_seen().collect(),
+        AbilityDonorZone::Graveyard(who) => {
+            crate::eval::players_for_source(who, state, effect.controller, effect.source)
+                .into_iter()
+                .flatten()
+                .flat_map(|p| state.zones.list(ZoneLocation::Graveyard(p)).iter().copied())
+                .collect()
+        }
+        AbilityDonorZone::Exile(who) => {
+            let Some(owners) =
+                crate::eval::players_for_source(who, state, effect.controller, effect.source)
+            else {
+                return Vec::new();
+            };
+            state
+                .arena
+                .iter()
+                .filter_map(|(_, o)| {
+                    (o.zone == Zone::Exile && owners.contains(&o.owner)).then_some(o.id)
+                })
+                .collect()
+        }
+        AbilityDonorZone::TopOfYourLibrary => state
+            .zones
+            .list(ZoneLocation::Library(effect.controller))
+            .last()
+            .copied()
+            .into_iter()
+            .collect(),
+    };
+    raw.into_iter()
+        .filter(|&id| {
+            state
+                .object(id)
+                .is_some_and(|o| crate::eval::matches(filter, state, o, effect.controller, this))
+        })
+        .collect()
+}
+
+fn push_donor_own_abilities(
+    state: &GameState,
+    lookup: &impl CardLookup,
+    effect: &ContinuousEffect,
+    donor_id: ObjectId,
+    discovered: &mut Vec<(Key, GrantedAbility)>,
+) {
+    let Some(donor) = state.object(donor_id) else {
+        return;
+    };
+    let chars = donor.characteristics();
+    if chars.abilities_lost.is_some() || chars.rules_text_lost {
+        return;
+    }
+    let donor_ref = Some(DamageSourceRef {
+        object: donor.id,
+        version: donor.version,
+    });
+    let list = donor.ability_list(lookup);
+    for (index, &definition) in list.abilities.iter().enumerate() {
+        if definition.is_intrinsic_mana_ability() {
+            continue;
+        }
+        let Some(mut ability) = GrantedAbility::new(&definition, effect.source) else {
+            continue;
+        };
+        ability.origin_donor = Some(donor.id);
+        ability.provenance = Some(list.origin(index));
+        ability.text = state.ability_text(donor.id, u32::try_from(index).expect("ability index"));
+        let key = Key {
+            effect: effect.id,
+            donor: donor_ref,
+            acquisition: list.acquisition,
+            index: u32::try_from(index).expect("ability index"),
+        };
+        if !discovered.iter().any(|(k, _)| *k == key) {
+            discovered.push((key, ability));
+        }
+    }
+    for color in crate::casting::intrinsic_mana_colors(state, donor.id) {
+        let Some((synth_idx, def)) = basic_mana_definition(color) else {
+            continue;
+        };
+        let Some(mut ability) = GrantedAbility::new(def, effect.source) else {
+            continue;
+        };
+        ability.origin_donor = Some(donor.id);
+        let key = Key {
+            effect: effect.id,
+            donor: donor_ref,
+            acquisition: list.acquisition,
+            index: synth_idx,
+        };
+        if !discovered.iter().any(|(k, _)| *k == key) {
+            discovered.push((key, ability));
+        }
+    }
+}
+
 /// Refresh dynamic donors with the registry lookup before offers or public views.
 /// The parent effect is shared by all recipients; donor definitions are stored once.
 ///
@@ -151,7 +338,7 @@ pub fn sync_granted_activated(state: &mut GameState, lookup: &impl CardLookup) {
     }
     // Even a lone granted clause cannot borrow the recipient's original
     // linked choices (CR 607.5a). Assign its family on the same clock as copies.
-    let mut discovered: smallvec::SmallVec<[(Key, GrantedAbility); 4]> = state
+    let mut discovered: Vec<(Key, GrantedAbility)> = state
         .effects
         .grants
         .entries
@@ -162,52 +349,24 @@ pub fn sync_granted_activated(state: &mut GameState, lookup: &impl CardLookup) {
     if !state.effects.may_grant_from_linked_exile() && discovered.is_empty() {
         return;
     }
+    let mut has_battlefield_grant = false;
     for effect in state.effects.iter() {
-        let Modifier::GrantActivatedFromLinkedExile(filter) = effect.modifier else {
-            continue;
-        };
-        let Some(source) = effect.source.and_then(|id| state.object(id)) else {
-            continue;
-        };
-        let link = Rider::LinkedExile {
-            source: DamageSourceRef {
-                object: source.id,
-                version: source.version,
-            },
-            acquisition: source.rules_acquisition(),
-        };
-        for donor in state
-            .arena
-            .iter()
-            .map(|(_, object)| object)
-            .filter(|donor| {
-                donor.zone == Zone::Exile
-                    && donor.riders.contains(&link)
-                    && crate::eval::matches(filter, state, donor, effect.controller, source.id)
-            })
-        {
-            let list = donor.ability_list(lookup);
-            for (index, &definition) in list.abilities.iter().enumerate() {
-                let Some(mut ability) = GrantedAbility::new(&definition, effect.source) else {
-                    continue;
-                };
-                ability.provenance = Some(list.origin(index));
-                ability.text =
-                    state.ability_text(donor.id, u32::try_from(index).expect("ability index"));
-                discovered.push((
-                    Key {
-                        effect: effect.id,
-                        donor: Some(DamageSourceRef {
-                            object: donor.id,
-                            version: donor.version,
-                        }),
-                        acquisition: list.acquisition,
-                        index: u32::try_from(index).expect("ability index"),
-                    },
-                    ability,
-                ));
+        let (filter, zone) = match effect.modifier {
+            Modifier::GrantActivatedFromLinkedExile(filter) => {
+                (filter, AbilityDonorZone::LinkedExile)
             }
+            Modifier::GainActivatedAbilitiesOf { filter, zone } => (filter, zone),
+            _ => continue,
+        };
+        if zone == AbilityDonorZone::Battlefield {
+            has_battlefield_grant = true;
         }
+        for donor_id in zone_donors(state, effect, filter, zone) {
+            push_donor_own_abilities(state, lookup, effect, donor_id, &mut discovered);
+        }
+    }
+    if has_battlefield_grant {
+        propagate_battlefield_grants(state, &mut discovered);
     }
     for entry in &mut state.effects.grants.entries {
         if entry.key.donor.is_some() {
@@ -227,6 +386,85 @@ pub fn sync_granted_activated(state: &mut GameState, lookup: &impl CardLookup) {
         };
         ability.acquisition = Some(acquisition);
         state.effects.grants.insert(key, ability);
+    }
+}
+
+/// Bounded cycle-guarded transitive propagation for `AbilityDonorZone::Battlefield`
+/// (`CR 613.8`, e.g. *Myr Welder* -> *Experiment Kraj* or mutual *Kraj* pairs).
+fn propagate_battlefield_grants(state: &GameState, discovered: &mut Vec<(Key, GrantedAbility)>) {
+    for _ in 0..8 {
+        let before = discovered.len();
+        for effect in state.effects.iter() {
+            let Modifier::GainActivatedAbilitiesOf {
+                filter,
+                zone: AbilityDonorZone::Battlefield,
+            } = effect.modifier
+            else {
+                continue;
+            };
+            for donor_id in zone_donors(state, effect, filter, AbilityDonorZone::Battlefield) {
+                let Some(donor) = state.object(donor_id) else {
+                    continue;
+                };
+                for prev_fx in state.effects.iter() {
+                    if prev_fx.id == effect.id || !super::applies_to(state, prev_fx, donor) {
+                        continue;
+                    }
+                    let inherited: Vec<(Key, GrantedAbility)> = if matches!(
+                        prev_fx.modifier,
+                        Modifier::GrantActivated { .. } | Modifier::GrantActivatedDefinition(_)
+                    ) {
+                        state
+                            .effects
+                            .grants
+                            .for_effect(prev_fx.id)
+                            .enumerate()
+                            .map(|(idx, mut ab)| {
+                                ab.source = effect.source;
+                                ab.origin_donor = Some(donor.id);
+                                (
+                                    Key {
+                                        effect: effect.id,
+                                        donor: Some(DamageSourceRef {
+                                            object: donor.id,
+                                            version: donor.version,
+                                        }),
+                                        acquisition: u64::from(prev_fx.id.get()),
+                                        index: 20_000 + u32::try_from(idx).unwrap_or(0),
+                                    },
+                                    ab,
+                                )
+                            })
+                            .collect()
+                    } else {
+                        discovered
+                            .iter()
+                            .filter(|(k, ab)| {
+                                k.effect == prev_fx.id && ab.origin_donor != Some(donor.id)
+                            })
+                            .map(|&(k, mut ab)| {
+                                ab.source = effect.source;
+                                (
+                                    Key {
+                                        effect: effect.id,
+                                        ..k
+                                    },
+                                    ab,
+                                )
+                            })
+                            .collect()
+                    };
+                    for (new_key, new_ab) in inherited {
+                        if !discovered.iter().any(|(k, _)| *k == new_key) {
+                            discovered.push((new_key, new_ab));
+                        }
+                    }
+                }
+            }
+        }
+        if discovered.len() == before {
+            break;
+        }
     }
 }
 

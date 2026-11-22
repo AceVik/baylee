@@ -179,6 +179,8 @@ pub struct CastWizard {
     pub target_players: baylee_core::ids::SeatSet,
     /// Chosen target player, if any.
     pub chosen_player: Option<PlayerId>,
+    /// Group controller/owner chosen for the current `SameController` target clause.
+    pub target_group_player: Option<PlayerId>,
     /// Chosen X.
     pub x: u32,
     /// Whether the kicker was taken.
@@ -259,6 +261,11 @@ pub struct CastWizard {
     pub pending_counter_object: Option<ObjectId>,
     /// Explicit mana cost imposed by an effect (`PlayCostMode::Alternative`).
     pub override_mana_cost: Option<ManaCost>,
+    /// Index into `options` selected by `ChooseMode` (or `0` when single-option).
+    pub chosen_option_index: Option<u16>,
+    /// Continuous `MayCastWithAltCost` routes and chosen grant, allocated only
+    /// when a grant applies so `CastWizard` stays compact on the stack.
+    pub alt_cast: Option<Box<AltCastWizardState>>,
     /// Whether an effect casting this spell exiles it as it resolves instead of putting it into a graveyard.
     pub exile_instead_of_graveyard: bool,
     /// How each Phyrexian symbol of the chosen option's cost is paid, in the
@@ -300,7 +307,21 @@ pub struct CastWizard {
     pub window_start: Option<Box<super::WindowStart>>,
 }
 
+/// Boxed `MayCastWithAltCost` state on [`CastWizard`], kept out of line so
+/// `CastWizard` does not bloat `Engine` / `Checkpoint` stack frames on
+/// ordinary casts.
+#[derive(Debug, Clone)]
+pub(crate) struct AltCastWizardState {
+    /// Continuous `MayCastWithAltCost` routes indexed by position in `options`.
+    pub routes: Vec<(usize, casting::AltCastGrantRoute)>,
+    /// Active `MayCastWithAltCost` route chosen for this cast, if any.
+    pub selected: Option<casting::AltCastGrantRoute>,
+}
+
 impl CastWizard {
+    pub(in crate::engine) fn selected_alt_grant(&self) -> Option<casting::AltCastGrantRoute> {
+        self.alt_cast.as_deref().and_then(|s| s.selected)
+    }
     pub(super) fn clause_first_targets(
         &self,
         clause_idx: usize,
@@ -369,6 +390,7 @@ impl CastWizard {
             extra_targets: Vec::new(),
             target_players: baylee_core::ids::SeatSet::new(),
             chosen_player: None,
+            target_group_player: None,
             x: 0,
             kicked: false,
             kicked_mask: 0,
@@ -402,6 +424,8 @@ impl CastWizard {
             counter_removals: SmallVec::new(),
             pending_counter_object: None,
             override_mana_cost: None,
+            chosen_option_index: None,
+            alt_cast: None,
             exile_instead_of_graveyard: false,
             phyrexian: SmallVec::new(),
             stage,
@@ -421,6 +445,9 @@ impl CastWizard {
         if let Some(face) = self.forced_face {
             return usize::from(face);
         }
+        if let Some(route) = self.selected_alt_grant() {
+            return route.face;
+        }
         match self.announced.or(self.option) {
             Some(
                 CastModeKind::Face(face)
@@ -428,6 +455,48 @@ impl CastWizard {
                 | CastModeKind::LibraryTopLife { face, .. },
             ) => face,
             _ => 0,
+        }
+    }
+
+    pub(in crate::engine) fn apply_selected_option(
+        &mut self,
+        index: usize,
+        def: Option<&'static baylee_cards_dsl::CardDef>,
+    ) {
+        self.chosen_option_index = u16::try_from(index).ok();
+        let Some(desc) = self.options.get(index) else {
+            return;
+        };
+        let option = desc.kind;
+        self.option = Some(option);
+        self.kicked = option == CastModeKind::Kicked;
+        let matched_route = self
+            .alt_cast
+            .as_deref()
+            .and_then(|s| s.routes.iter().find(|(i, _)| *i == index))
+            .map(|(_, route)| *route);
+        if let Some(route) = matched_route {
+            if let Some(state) = self.alt_cast.as_deref_mut() {
+                state.selected = Some(route);
+            }
+            if let Some(base_mana) = route.base_mana {
+                self.announced = Some(CastModeKind::Permission(route.source));
+                self.override_mana_cost = Some(base_mana);
+                self.kicked = route.kicked;
+                if let Some(def) = def {
+                    self.option = Some(casting::ordinary_face_kind(
+                        def,
+                        route.face,
+                        route.modes,
+                        route.kicked,
+                    ));
+                }
+            }
+        }
+        if self.option == Some(CastModeKind::Awaken)
+            && let Some((_, cost)) = def.and_then(|d| wave10b::face_awaken(d, self.face_index()))
+        {
+            self.awaken_parts = cost.parts;
         }
     }
 
@@ -556,6 +625,8 @@ impl CastWizard {
             || self.pending_counter_object.is_some()
             || self.override_mana_cost.is_some()
             || self.exile_instead_of_graveyard
+            || self.selected_alt_grant().is_some()
+            || self.target_group_player.is_some()
         {
             hash = hash
                 .wrapping_mul(31)
@@ -565,6 +636,8 @@ impl CastWizard {
                     self.pending_counter_object,
                     self.override_mana_cost,
                     self.exile_instead_of_graveyard,
+                    self.selected_alt_grant().map(|r| r.effect_id),
+                    self.target_group_player,
                 )));
         }
         hash = hash
@@ -755,10 +828,18 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
         let pay_in_window = !self.commanded_card(card)
             && casting::can_cast(&self.state, &self.lookup, player, card).is_err()
             && self.compute_legal(player).payable.contains(&card);
-        let options = self.cast_options(player, card, pay_in_window)?;
+        let (options, alt_cost_routes) =
+            self.cast_options_with_routes(player, card, pay_in_window)?;
         let plot_modal = self.is_plot_only_modal(player, card);
+        let alt_cast = (!alt_cost_routes.is_empty()).then(|| {
+            Box::new(AltCastWizardState {
+                routes: alt_cost_routes,
+                selected: None,
+            })
+        });
         let mut wizard = CastWizard {
             alternative_cost: plot_modal.then_some(CastModeKind::Plot),
+            alt_cast,
             by_effect: self.commanded_card(card).then_some(EffectCast::Plain),
             paying: if pay_in_window {
                 casting::Paying::DuringTheCast
@@ -769,18 +850,12 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
             ..CastWizard::new(card, player, WizardStage::ChooseMode, options)
         };
         if wizard.options.len() == 1 {
-            wizard.option = Some(wizard.options[0].kind);
-            wizard.kicked = wizard.option == Some(CastModeKind::Kicked);
-            if wizard.option == Some(CastModeKind::Awaken)
-                && let Some((_, cost)) = self
-                    .state
-                    .object(card)
-                    .and_then(|o| o.card)
-                    .and_then(|c| self.lookup.card(c.index))
-                    .and_then(|d| wave10b::face_awaken(d, wizard.face_index()))
-            {
-                wizard.awaken_parts = cost.parts;
-            }
+            let def = self
+                .state
+                .object(card)
+                .and_then(|o| o.card)
+                .and_then(|c| self.lookup.card(c.index));
+            wizard.apply_selected_option(0, def);
             wizard.stage = WizardStage::Permission;
         }
         // The offer and option validation used a private projection. The
@@ -2328,6 +2403,7 @@ fn wizard_total_before_reduction(
     total = total.with_more_generic(face.extra_target_cost.saturating_mul(extra));
     if wizard.kicked
         && wizard.option != Some(CastModeKind::Kicked)
+        && !wizard.selected_alt_grant().is_some_and(|r| r.kicked)
         && !matches!(
             wizard.announced,
             Some(
@@ -2466,6 +2542,11 @@ pub(super) fn spend_for(
 /// filled in, and the X question itself has to look at the cost that still
 /// says X.
 fn chosen_option_cost(wizard: &CastWizard) -> ManaCost {
+    if let Some(idx) = wizard.chosen_option_index
+        && let Some(opt) = wizard.options.get(usize::from(idx))
+    {
+        return opt.cost;
+    }
     wizard
         .options
         .iter()

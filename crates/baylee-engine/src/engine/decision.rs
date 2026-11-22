@@ -191,7 +191,11 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 ..DecisionContext::default()
             };
         }
-        if let Some(PlanKind::SyntheticTriggerTarget { trigger, .. }) = &self.pending_plan {
+        if let Some(
+            PlanKind::SyntheticTriggerTarget { trigger, .. }
+            | PlanKind::ChooseSyntheticTriggerGroup { trigger },
+        ) = &self.pending_plan
+        {
             let printed = trigger
                 .abilities
                 .as_ref()
@@ -215,6 +219,12 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
         let handle = match &self.pending_plan {
             Some(
                 PlanKind::ActivateAbilitySecondTargets {
+                    source,
+                    ability_index,
+                    targets,
+                    ..
+                }
+                | PlanKind::ChooseActivationSecondGroup {
                     source,
                     ability_index,
                     targets,
@@ -282,12 +292,19 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 self.activation_mode_index(*source, *ability_index)
                     .map(usize::from),
             )),
-            Some(PlanKind::Trigger {
-                source,
-                ability_index,
-                mode,
-                ..
-            }) => Some((*source, *ability_index, mode.map(usize::from))),
+            Some(
+                PlanKind::Trigger {
+                    source,
+                    ability_index,
+                    mode,
+                    ..
+                }
+                | PlanKind::ChooseTriggerTargetGroup {
+                    source,
+                    ability_index,
+                    mode,
+                },
+            ) => Some((*source, *ability_index, mode.map(usize::from))),
             // The trigger is on the stack already, its first instance chosen:
             // the ability it asks for is the one its stack object names, and
             // the first targets are shown beside the second question as an
@@ -295,6 +312,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
             // targets it divides among.
             Some(
                 PlanKind::TriggerSecondTarget { on_stack }
+                | PlanKind::ChooseTriggerSecondGroup { on_stack }
                 | PlanKind::DivideDamage { on_stack, .. },
             ) => self.state.object(*on_stack).and_then(|o| {
                 first = &o.targets;
@@ -307,9 +325,12 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
         // activator, who answers unless an opponent was named to choose the
         // targets (`activation_target_choice`).
         let actor = match &self.pending_plan {
-            Some(PlanKind::Trigger { .. }) => self.trigger_queue.front().map(|t| t.controller),
+            Some(PlanKind::Trigger { .. } | PlanKind::ChooseTriggerTargetGroup { .. }) => {
+                self.trigger_queue.front().map(|t| t.controller)
+            }
             Some(
                 PlanKind::TriggerSecondTarget { on_stack }
+                | PlanKind::ChooseTriggerSecondGroup { on_stack }
                 | PlanKind::DivideDamage { on_stack, .. },
             ) => controller(*on_stack),
             _ => self
@@ -334,7 +355,9 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                         self.pending_plan,
                         Some(
                             PlanKind::ActivateAbilitySecondTargets { .. }
+                                | PlanKind::ChooseActivationSecondGroup { .. }
                                 | PlanKind::TriggerSecondTarget { .. }
+                                | PlanKind::ChooseTriggerSecondGroup { .. }
                         )
                     ),
                     first_targets: first,
@@ -342,11 +365,12 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 };
             }
             let captured = match self.pending_plan {
-                Some(PlanKind::Trigger { .. }) => {
+                Some(PlanKind::Trigger { .. } | PlanKind::ChooseTriggerTargetGroup { .. }) => {
                     self.trigger_queue.front().and_then(|t| t.abilities.clone())
                 }
                 Some(
                     PlanKind::TriggerSecondTarget { on_stack }
+                    | PlanKind::ChooseTriggerSecondGroup { on_stack }
                     | PlanKind::DivideDamage { on_stack, .. },
                 ) => self
                     .state
@@ -381,7 +405,9 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                     self.pending_plan,
                     Some(
                         PlanKind::ActivateAbilitySecondTargets { .. }
+                            | PlanKind::ChooseActivationSecondGroup { .. }
                             | PlanKind::TriggerSecondTarget { .. }
+                            | PlanKind::ChooseTriggerSecondGroup { .. }
                     )
                 ),
                 first_targets: first,

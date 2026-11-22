@@ -329,7 +329,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                     .last()
                     .filter(|card| {
                         casting::land_card_open(&self.state, player, **card)
-                            || casting::library_top_life_open(&self.state, player, **card)
+                            || casting::library_top_spell_open(&self.state, player, **card)
                     })
                     .map(|card| (card, false)),
             )
@@ -353,7 +353,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
             {
                 legal.lands.push(card);
             }
-            let library_spell = casting::library_top_life_open(&self.state, player, card);
+            let library_spell = casting::library_top_spell_open(&self.state, player, card);
             if !from_hand && !library_spell {
                 continue;
             }
@@ -380,6 +380,8 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 || casting::foretell_permission(&self.state, player, card)
                 || casting::plot_permission(&self.state, player, card)
                 || casting::warp_exile_permission(&self.state, player, card)
+                || casting::alt_cast_zone_spell_open(&self.state, player, card)
+                || casting::alt_cast_land_open(&self.state, player, card)
                 || self.state.object(card).is_some_and(|o| {
                     o.riders
                         .contains(&crate::object::Rider::PlayableFromExileFor(player))
@@ -387,18 +389,24 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
             if !permitted {
                 continue;
             }
+            let exile_plays_as_land = self.state.object(card).is_some_and(|o| {
+                o.characteristics().types.contains(TypeSet::LAND)
+                    || o.card
+                        .and_then(|c| self.lookup.card(c.index))
+                        .is_some_and(|def| def.land_faces_from_hand().next().is_some())
+            });
             if sorcery_timing
+                && exile_plays_as_land
                 && casting::has_a_land_drop_left(&self.state, player)
                 && casting::land_card_open(&self.state, player, card)
-                && self
-                    .state
-                    .object(card)
-                    .is_some_and(|o| o.characteristics().types.contains(TypeSet::LAND))
             {
                 legal.lands.push(card);
             }
+            let alt_exile = casting::alt_cast_zone_spell_open(&self.state, player, card);
             match casting::can_cast(&self.state, &self.lookup, player, card) {
-                Ok(()) if self.has_a_legal_target(player, card) => legal.castable.push(card),
+                Ok(()) if alt_exile || self.has_a_legal_target(player, card) => {
+                    legal.castable.push(card);
+                }
                 Err(casting::CastError::NotEnoughMana) => legal.payable.push(card),
                 _ => {}
             }
@@ -1038,7 +1046,8 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
             let priced = elsewhere
                 || def.is_some_and(casting::has_priced_ways)
                 || (self.state.effects.may_change_or_forbid_abilities()
-                    && casting::sneak_cost_for(&self.state, player, card, def, 0).is_some());
+                    && casting::sneak_cost_for(&self.state, player, card, def, 0).is_some())
+                || casting::has_alt_cast_grant(&self.state, &self.lookup, player, card);
             if !priced || self.commanded_card(card) {
                 continue;
             }

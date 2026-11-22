@@ -64,6 +64,9 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
     ) -> Result<(), EngineError> {
         use crate::casting::GraveyardPermission;
         let own_cost_permission = wizard.escapes()
+            || wizard
+                .selected_alt_grant()
+                .is_some_and(|r| r.grant_zone_permission)
             || matches!(
                 wizard.option,
                 Some(
@@ -102,6 +105,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 .and_then(|card| self.lookup.card(card.index))
                 .expect("wizard card known");
             if face == 0
+                && wizard.selected_alt_grant().is_none()
                 && wizard
                     .option
                     .is_some_and(|option| crate::casting::mana_cost_mode(def, face, option))

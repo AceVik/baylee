@@ -414,9 +414,17 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
             resolved_subtype: None,
             reference: first_obj.or(t.event_object),
         };
-        let objects =
-            eval::target_options_in_domain(&spec, &self.state, t.controller, ctx, None, wall_only)
-                .len();
+        let object_list =
+            eval::target_options_in_domain(&spec, &self.state, t.controller, ctx, None, wall_only);
+        if second_req.constraint() == Some(baylee_cards_dsl::TargetConstraint::SameController) {
+            return !eval::eligible_same_controller_groups(
+                &self.state,
+                &object_list,
+                u32::from(second_req.min),
+            )
+            .is_empty();
+        }
+        let objects = object_list.len();
         let players = eval::target_player_options_from(&self.state, &spec, t.controller, ctx).len();
         objects + players >= usize::from(second_req.min)
     }
@@ -445,15 +453,23 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 return t.event_object.is_some();
             }
             let spec = self.bound_trigger_target(t, req.spec);
-            let objects = eval::target_options_in_domain(
+            let object_list = eval::target_options_in_domain(
                 &spec,
                 &self.state,
                 t.controller,
                 ctx,
                 None,
                 wall_only,
-            )
-            .len();
+            );
+            if req.constraint() == Some(baylee_cards_dsl::TargetConstraint::SameController) {
+                return !eval::eligible_same_controller_groups(
+                    &self.state,
+                    &object_list,
+                    u32::from(req.min),
+                )
+                .is_empty();
+            }
+            let objects = object_list.len();
             let players =
                 eval::target_player_options_from(&self.state, &spec, t.controller, ctx).len();
             objects + players >= usize::from(req.min)
@@ -1209,7 +1225,20 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                         continue;
                     }
                 }
-                let offered = options.len() + player_options.len();
+                let chooser = match req.chooser {
+                    baylee_cards_dsl::TargetChooser::EventPlayer => t
+                        .event_player
+                        .or_else(|| {
+                            t.event_object
+                                .and_then(|id| self.state.last_known_controller(id))
+                        })
+                        .expect("event-player target chooser requires a captured event player"),
+                    baylee_cards_dsl::TargetChooser::Controller
+                    | baylee_cards_dsl::TargetChooser::ConstrainedController(_) => t.controller,
+                    baylee_cards_dsl::TargetChooser::Opponent => {
+                        panic!("opponent chooser requires an activation announcement")
+                    }
+                };
                 let (etb_x, div_total) =
                     match self.trigger_abilities(&t).get(t.ability_index as usize) {
                         Some(AbilityDef::Triggered {
@@ -1244,7 +1273,44 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 if let Some(total) = div_total {
                     max = max.min(total);
                 }
-                if min > max || u32::try_from(offered).unwrap_or(u32::MAX) < min {
+                if min > max {
+                    self.cleanup_check_acted();
+                    self.trigger_queue.pop_front();
+                    continue;
+                }
+                if req.constraint() == Some(baylee_cards_dsl::TargetConstraint::SameController) {
+                    if let Some(chosen) = self.activation_graveyard.take() {
+                        options.retain(|id| {
+                            eval::same_controller_group(&self.state, *id) == Some(chosen)
+                        });
+                    } else {
+                        let groups =
+                            eval::eligible_same_controller_groups(&self.state, &options, min);
+                        match groups.as_slice() {
+                            [] => options.clear(),
+                            [only] => {
+                                options.retain(|id| {
+                                    eval::same_controller_group(&self.state, *id) == Some(*only)
+                                });
+                            }
+                            _ => {
+                                self.pending_plan = Some(PlanKind::ChooseTriggerTargetGroup {
+                                    source: t.source,
+                                    ability_index: t.ability_index,
+                                    mode: t.chosen_mode,
+                                });
+                                self.pending = Pending::ChoosePlayer {
+                                    player: chooser,
+                                    options: groups,
+                                };
+                                self.awaiting_answer = true;
+                                return;
+                            }
+                        }
+                    }
+                }
+                let offered = options.len() + player_options.len();
+                if u32::try_from(offered).unwrap_or(u32::MAX) < min {
                     // No legal target: the trigger is removed from the stack
                     // entirely (CR 603.3d). It was put there first, so a
                     // cleanup step's check has found it (CR 514.3a).
@@ -1316,21 +1382,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                     });
                     let max = max.min(u32::try_from(offered).unwrap_or(u32::MAX));
                     self.pending = Pending::ChooseTargets {
-                        player: match req.chooser {
-                            baylee_cards_dsl::TargetChooser::EventPlayer => t
-                                .event_player
-                                .or_else(|| {
-                                    t.event_object
-                                        .and_then(|id| self.state.last_known_controller(id))
-                                })
-                                .expect(
-                                    "event-player target chooser requires a captured event player",
-                                ),
-                            baylee_cards_dsl::TargetChooser::Controller => t.controller,
-                            baylee_cards_dsl::TargetChooser::Opponent => {
-                                panic!("opponent chooser requires an activation announcement")
-                            }
-                        },
+                        player: chooser,
                         options,
                         player_options,
                         min,
@@ -1389,8 +1441,34 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                         }
                     }
                 }
-                let (options, player_options) =
+                let (mut options, player_options) =
                     self.trigger_target_options(&t, spec, self.trigger_wall_only(&t));
+                if req.constraint() == Some(baylee_cards_dsl::TargetConstraint::SameController) {
+                    let groups = eval::eligible_same_controller_groups(
+                        &self.state,
+                        &options,
+                        u32::from(req.min),
+                    );
+                    match groups.as_slice() {
+                        [] => options.clear(),
+                        [only] => {
+                            options.retain(|id| {
+                                eval::same_controller_group(&self.state, *id) == Some(*only)
+                            });
+                        }
+                        _ => {
+                            let controller = t.controller;
+                            self.pending_plan =
+                                Some(PlanKind::ChooseSyntheticTriggerGroup { trigger: t });
+                            self.pending = Pending::ChoosePlayer {
+                                player: controller,
+                                options: groups,
+                            };
+                            self.awaiting_answer = true;
+                            return;
+                        }
+                    }
+                }
                 // Objects and players are answers to the same target choice.
                 // Counting only objects loses a mandatory "any target" ability
                 // or caps a multi-target one below its legal maximum.
@@ -1606,6 +1684,47 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 })
             }),
         )
+    }
+
+    pub(in crate::engine) fn resume_synthetic_trigger_group(
+        &mut self,
+        trigger: crate::trigger::PendingTrigger,
+        chosen: PlayerId,
+    ) {
+        let Some(req) = trigger.synthetic_target else {
+            return;
+        };
+        let (mut options, player_options) =
+            self.trigger_target_options(&trigger, req.spec, self.trigger_wall_only(&trigger));
+        options.retain(|id| eval::same_controller_group(&self.state, *id) == Some(chosen));
+        let offered = options.len() + player_options.len();
+        if offered < usize::from(req.min) {
+            return;
+        }
+        if offered == 0 {
+            self.push_synthetic_trigger_with_targets(
+                &trigger,
+                SmallVec::new(),
+                baylee_core::ids::SeatSet::new(),
+            );
+            return;
+        }
+        let controller = trigger.controller;
+        self.pending_plan = Some(PlanKind::SyntheticTriggerTarget {
+            trigger,
+            per_opponent: None,
+        });
+        let (min, max) = req.bounds(0);
+        let max = max.min(u32::try_from(offered).unwrap_or(u32::MAX));
+        self.pending = Pending::ChooseTargets {
+            player: controller,
+            options,
+            player_options,
+            min,
+            max,
+            reason: TargetPrompt::Targets,
+        };
+        self.awaiting_answer = true;
     }
 }
 

@@ -37,9 +37,20 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 return Err(EngineError::IllegalAction("unknown library top face"));
             };
             let total_life = wizard.total_life_cost(face);
+            let open_by_grant = wizard.selected_alt_grant().is_some_and(|r| {
+                r.life == Some(life)
+                    && casting::alt_cast_route_still_open(
+                        &self.state,
+                        &self.lookup,
+                        player,
+                        wizard.card,
+                        r,
+                    )
+            });
             if route_face != wizard.face_index()
                 || life != casting::library_top_life_value(def, route_face)
-                || !casting::library_top_life_open(&self.state, player, wizard.card)
+                || (!casting::library_top_life_open(&self.state, player, wizard.card)
+                    && !open_by_grant)
                 || !self.state.can_pay_life(player, total_life)
             {
                 return Err(EngineError::IllegalAction(
@@ -48,6 +59,19 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
             }
             Some(life)
         } else {
+            if let Some(route) = wizard.selected_alt_grant()
+                && !casting::alt_cast_route_still_open(
+                    &self.state,
+                    &self.lookup,
+                    player,
+                    wizard.card,
+                    route,
+                )
+            {
+                return Err(EngineError::IllegalAction(
+                    "the alternative cost permission is no longer active",
+                ));
+            }
             None
         };
         let prepared_source = self.state.prepared_copy_source(wizard.card);
@@ -117,6 +141,14 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
         if let Some(life) = library_top_life {
             let life = i32::try_from(life).unwrap_or(i32::MAX);
             self.state.change_life(player, -life, Cause::Cost);
+        }
+        if let Some(route) = wizard.selected_alt_grant()
+            && route.once_per_turn
+        {
+            self.state
+                .per_turn
+                .graveyard_allowances_used
+                .push((player, route.effect_id));
         }
         for &card in &wizard.delve_exiles {
             let _ = self.state.move_object(

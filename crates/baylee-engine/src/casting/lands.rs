@@ -464,19 +464,22 @@ pub fn land_card_open(state: &GameState, player: PlayerId, card: ObjectId) -> bo
     {
         return true;
     }
-    mayhem_land_permission(state, player, card) || adventure_permission(state, player, card) || {
-        if obj.zone == Zone::Exile
-            && obj
-                .riders
-                .contains(&crate::object::Rider::PlayableFromExileFor(player))
-        {
-            return true;
+    mayhem_land_permission(state, player, card)
+        || adventure_permission(state, player, card)
+        || super::alt_cast_land_open(state, player, card)
+        || {
+            if obj.zone == Zone::Exile
+                && obj
+                    .riders
+                    .contains(&crate::object::Rider::PlayableFromExileFor(player))
+            {
+                return true;
+            }
+            obj.zone_owner == Some(player)
+                && land_zone_open(state, player, obj.zone)
+                && (obj.zone != Zone::Library
+                    || state.zones.list(ZoneLocation::Library(player)).last() == Some(&card))
         }
-        obj.zone_owner == Some(player)
-            && land_zone_open(state, player, obj.zone)
-            && (obj.zone != Zone::Library
-                || state.zones.list(ZoneLocation::Library(player)).last() == Some(&card))
-    }
 }
 
 /// Native costless Mayhem applies only to the exact discarded land incarnation.

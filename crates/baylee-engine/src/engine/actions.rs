@@ -563,28 +563,18 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 }
                 // The wizard's own list is the one the position indexes, and
                 // it is read before the wizard leaves its slot.
-                let Some(option) = self
-                    .cast_wizard
-                    .as_ref()
-                    .and_then(|w| w.options.get(index).map(|o| o.kind))
-                else {
+                let Some(_) = self.cast_wizard.as_ref().and_then(|w| w.options.get(index)) else {
                     return Err(EngineError::IllegalAction("no such cast mode"));
                 };
                 let Some(mut wizard) = self.cast_wizard.take() else {
                     return Err(EngineError::IllegalAction("no such cast mode"));
                 };
-                wizard.option = Some(option);
-                wizard.kicked = option == crate::choice::CastModeKind::Kicked;
-                if option == crate::choice::CastModeKind::Awaken
-                    && let Some((_, cost)) = self
-                        .state
-                        .object(wizard.card)
-                        .and_then(|o| o.card)
-                        .and_then(|c| self.lookup.card(c.index))
-                        .and_then(|d| cast_wizard::wave10b::face_awaken(d, wizard.face_index()))
-                {
-                    wizard.awaken_parts = cost.parts;
-                }
+                let def = self
+                    .state
+                    .object(wizard.card)
+                    .and_then(|o| o.card)
+                    .and_then(|c| self.lookup.card(c.index));
+                wizard.apply_selected_option(index, def);
                 // CR 601.2b announces the mode and *then* the value of X, in
                 // the same step: choosing how to cast the spell does not
                 // answer what X is. Going to `Targets` here skipped the
@@ -822,6 +812,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                     ability_index,
                 }) = self.pending_plan
                 {
+                    let player = self.activation_target_choice.controller.unwrap_or(player);
                     self.pending_plan = None;
                     self.activation_graveyard = Some(chosen);
                     // An offered graveyard is taken; an activation that
@@ -833,6 +824,67 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                     {
                         self.reverse_activation(player);
                     }
+                    self.activation_graveyard = None;
+                    return Ok(());
+                }
+                if matches!(
+                    self.pending_plan,
+                    Some(PlanKind::ChooseActivationSecondGroup { .. })
+                ) && let Some(PlanKind::ChooseActivationSecondGroup {
+                    source,
+                    ability_index,
+                    targets,
+                    target_players,
+                }) = self.pending_plan.take()
+                {
+                    let player = self.activation_target_choice.controller.unwrap_or(player);
+                    self.activation_graveyard = Some(chosen);
+                    if self.loyalty_second_targets(source, ability_index).is_some() {
+                        if self
+                            .continue_loyalty_activation(player, source, ability_index, targets)
+                            .is_err()
+                        {
+                            self.reverse_activation(player);
+                        }
+                    } else {
+                        self.activation_target_players = target_players;
+                        if self
+                            .start_activation(player, source, ability_index, targets)
+                            .is_err()
+                        {
+                            self.reverse_activation(player);
+                        }
+                    }
+                    self.activation_graveyard = None;
+                    return Ok(());
+                }
+                if matches!(
+                    self.pending_plan,
+                    Some(PlanKind::ChooseTriggerTargetGroup { .. })
+                ) {
+                    self.pending_plan = None;
+                    self.activation_graveyard = Some(chosen);
+                    self.collect_triggers();
+                    self.activation_graveyard = None;
+                    return Ok(());
+                }
+                if matches!(
+                    self.pending_plan,
+                    Some(PlanKind::ChooseSyntheticTriggerGroup { .. })
+                ) && let Some(PlanKind::ChooseSyntheticTriggerGroup { trigger }) =
+                    self.pending_plan.take()
+                {
+                    self.resume_synthetic_trigger_group(trigger, chosen);
+                    return Ok(());
+                }
+                if matches!(
+                    self.pending_plan,
+                    Some(PlanKind::ChooseTriggerSecondGroup { .. })
+                ) {
+                    self.pending_plan = None;
+                    self.activation_graveyard = Some(chosen);
+                    let _ = self.ask_trigger_second_target();
+                    self.activation_graveyard = None;
                     return Ok(());
                 }
                 if self.resolution.as_ref().is_some_and(|r| {
@@ -951,6 +1003,13 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 if wizard.stage == cast_wizard::WizardStage::Gift {
                     wizard.gift_recipient = Some(chosen);
                     wizard.stage = cast_wizard::WizardStage::Multikicker;
+                } else if matches!(
+                    wizard.stage,
+                    cast_wizard::WizardStage::Targets
+                        | cast_wizard::WizardStage::SecondTargets
+                        | cast_wizard::WizardStage::ExtraTargets
+                ) {
+                    wizard.target_group_player = Some(chosen);
                 } else {
                     wizard.chosen_player = Some(chosen);
                     wizard.stage = cast_wizard::WizardStage::SecondTargets;
@@ -977,6 +1036,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 self.activation_pending_counter_object = None;
                 self.activation_division.clear();
                 self.activation_x = None;
+                self.activation_graveyard = None;
                 self.activation_phyrexian.clear();
                 self.activation_either_branches.clear();
                 self.activation_second_targets = None;
@@ -1139,8 +1199,12 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                     PlanKind::ChooseActivationX { .. } => {
                         unreachable!("activation-number plans are answered via ChooseNumber")
                     }
-                    PlanKind::ChooseActivationGraveyard { .. } => {
-                        unreachable!("a graveyard is answered via ChoosePlayer")
+                    PlanKind::ChooseActivationGraveyard { .. }
+                    | PlanKind::ChooseActivationSecondGroup { .. }
+                    | PlanKind::ChooseTriggerTargetGroup { .. }
+                    | PlanKind::ChooseSyntheticTriggerGroup { .. }
+                    | PlanKind::ChooseTriggerSecondGroup { .. } => {
+                        unreachable!("a target group or graveyard is answered via ChoosePlayer")
                     }
                     PlanKind::ChoosePhyrexianLife { .. } => {
                         unreachable!("a Phyrexian symbol is answered via YesNo")

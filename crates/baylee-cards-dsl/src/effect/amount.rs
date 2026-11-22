@@ -445,6 +445,11 @@ pub enum ThisWay {
     /// [`crate::Effect::Vote`] of this resolution (Council's dilemma,
     /// CR 701.38). Appended to preserve replay identities.
     VoteCount(u8),
+    /// Excess damage dealt to permanents (creatures, planeswalkers, and/or
+    /// battles) earlier in this resolution (CR 120.10), summed across all
+    /// excess-damage events caused by this resolution's source or instructed
+    /// damage sources. Appended to preserve replay identities.
+    ExcessDamage,
 }
 
 impl Amount {

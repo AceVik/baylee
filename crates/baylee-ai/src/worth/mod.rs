@@ -2452,6 +2452,32 @@ impl HeuristicAgent {
                     }
                 })
             }
+            Effect::MoveAndModify {
+                subject: move_subject,
+                blink,
+                owner_control,
+                ..
+            } => match (move_subject, blink) {
+                (baylee_cards_dsl::MoveSubject::Target(TargetSpec::ThisObject), true) => {
+                    origin.object.map_or(0, |o| self.blink(view, o))
+                }
+                (baylee_cards_dsl::MoveSubject::Target(_), true) => {
+                    subject.map_or(0, |o| self.blink(view, o))
+                }
+                (baylee_cards_dsl::MoveSubject::AllInZone { .. }, true) => 250,
+                (baylee_cards_dsl::MoveSubject::Target(TargetSpec::ThisObject), false) => origin
+                    .object
+                    .map_or(200, |o| Self::permanent_worth(view, o)),
+                (baylee_cards_dsl::MoveSubject::Target(_), false) => subject.map_or(250, |o| {
+                    let worth = Self::permanent_worth(view, o) + self.etb_worth(view, o);
+                    if *owner_control && self.hostile(o.owner, me) {
+                        -worth
+                    } else {
+                        worth
+                    }
+                }),
+                (baylee_cards_dsl::MoveSubject::AllInZone { .. }, false) => 450,
+            },
             Effect::GraveyardToHand { .. } => {
                 subject.map_or(0, |o| if self.hostile(o.owner, me) { -350 } else { 350 })
             }

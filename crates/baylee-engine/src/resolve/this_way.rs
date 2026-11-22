@@ -248,6 +248,22 @@ pub(super) fn count(
             {
                 1
             }
+            (
+                GameEvent::DamageDealt {
+                    target: DamageTarget::Object(target),
+                    is_combat: false,
+                    ..
+                },
+                ThisWay::ExcessDamage,
+            ) if entry.excess_damage > 0
+                && only.is_none_or(|p| {
+                    state
+                        .object_or_departed(*target)
+                        .is_some_and(|o| o.controller == p)
+                }) =>
+            {
+                entry.excess_damage
+            }
             _ => 0,
         };
         total = total.saturating_add(n);

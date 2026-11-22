@@ -709,6 +709,9 @@ impl GameState {
             self.per_turn.extra_phases.0.as_slice().hash(h);
             self.per_turn.extra_phases_created.0.hash(h);
         }
+        if !self.per_turn.graveyard_allowances_used.is_empty() {
+            self.per_turn.graveyard_allowances_used.as_slice().hash(h);
+        }
     }
 
     fn hash_must_block_pairs(&self, h: &mut Hasher, position: &impl Fn(ObjectId) -> u32) {

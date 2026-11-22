@@ -213,7 +213,8 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
         | Effect::GraveyardToBattlefield { .. }
         | Effect::GraveyardToBattlefieldModified { .. }
         | Effect::Assimilate { .. }
-        | Effect::ExileSelfReturnAsFace { .. } => super::reanimation::exec(state, res, op),
+        | Effect::ExileSelfReturnAsFace { .. }
+        | Effect::MoveAndModify { .. } => super::reanimation::exec(state, res, op),
         Effect::Exile { target } => {
             // Every target and not the first. A card may name more than one
             // — Pit of Offerings prints "exile up to three target cards from
@@ -224,10 +225,12 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
             // in `res.targets`, so nothing else in the pool moves.
             for target_id in moving_objects(state, res, target) {
                 if matches!(target, TargetSpec::EventObject)
-                    && state.object(target_id).is_none_or(|o| {
-                        o.zone != crate::zone::Zone::Battlefield
-                            || o.status.contains(crate::object::Status::PHASED_OUT)
-                    })
+                    && (super::subjects::event(state, res)
+                        .is_some_and(|r| !super::subjects::is_current(state, r))
+                        || state.object(target_id).is_none_or(|o| {
+                            o.zone != crate::zone::Zone::Battlefield
+                                || o.status.contains(crate::object::Status::PHASED_OUT)
+                        }))
                 {
                     continue;
                 }

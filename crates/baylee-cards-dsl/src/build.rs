@@ -1156,16 +1156,17 @@ pub mod prelude {
         DamageRedirectTo, DamageTo, DelayedDuration, DelayedObservation, DelayedStep,
         DelayedTriggerWhen, DivisionAmount, Effect, ExileMana, ExilePermission, ExilePlay,
         ExileUntil, Find, LookRest, ManaDistribution, ManaRestriction, ManaSource, ManaUse,
-        ManaValueBound, ManaValueCmp, PeekPickDest, PeekRestDest, PlayCostMode, PlayCount,
-        PlaySource, PlayWindow, PlayerRel, ReflexiveEvent, ReflexiveWhen, RepeatDomain,
-        RevealUntilFound, RevealUntilRest, SearchDest, SpendRider, TargetChooser, TargetReq,
-        TargetSlot, TargetSpec, ThisWay, TokenDef, TriggerRemember, VoteObjectAction, VoteOption,
-        VoteOutcome, ZoneSel,
+        ManaValueBound, ManaValueCmp, MoveSubject, PeekPickDest, PeekRestDest, PlayCostMode,
+        PlayCount, PlaySource, PlayWindow, PlayerRel, ReflexiveEvent, ReflexiveWhen, RepeatDomain,
+        RevealUntilFound, RevealUntilRest, SearchDest, SourceLeaveAction, SpendRider,
+        TargetChooser, TargetConstraint, TargetReq, TargetSlot, TargetSpec, ThisWay, TokenDef,
+        TriggerRemember, VoteObjectAction, VoteOption, VoteOutcome, ZoneSel,
     };
     pub use crate::filter::{Filter, OriginalExpansion, ZoneRef, ZoneRef as ZoneKind};
     pub use crate::static_ability::{
-        CounterReplaceOp, DamageAmountReplacement, DamageRecipients, Duration, LAYERS, Layer,
-        Modifier, PtCount, ReplacementRule, StaticAbility,
+        AbilityDonorZone, AltCastPrice, AltCastZones, CounterReplaceOp, DamageAmountReplacement,
+        DamageRecipients, Duration, LAYERS, Layer, Modifier, PtCount, ReplacementRule,
+        StaticAbility,
     };
     pub use crate::{
         ALL_MANA_COLORS, ANY_COLOR_MANA, BeholdOrPay, CardDef, CommanderRule, Coverage,

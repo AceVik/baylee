@@ -127,7 +127,9 @@ fn ways(view: &PlayerView, legal: &LegalActions) -> Vec<Way> {
                     | CastModeKind::Fused
                     | CastModeKind::Plot
                     | CastModeKind::Impending
-                    | CastModeKind::Awaken => true,
+                    | CastModeKind::Awaken
+                    | CastModeKind::Permission(_)
+                    | CastModeKind::LibraryTopLife { .. } => true,
                     CastModeKind::Alternative(i) => face(front)
                         .and_then(|f| f.alternative_costs.get(i))
                         .is_some_and(|alt| {

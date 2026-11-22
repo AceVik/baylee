@@ -347,7 +347,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
         eval::target_options_in_domain(&first.spec, &self.state, player, context, None, wall_only)
             .into_iter()
             .any(|reference| {
-                eval::target_options_in_domain(
+                let second_objs = eval::target_options_in_domain(
                     &second_req.spec,
                     &self.state,
                     player,
@@ -360,9 +360,19 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                     },
                     None,
                     wall_only,
-                )
-                .len()
-                    >= usize::from(second_req.min)
+                );
+                if second_req.constraint()
+                    == Some(baylee_cards_dsl::TargetConstraint::SameController)
+                {
+                    !eval::eligible_same_controller_groups(
+                        &self.state,
+                        &second_objs,
+                        u32::from(second_req.min),
+                    )
+                    .is_empty()
+                } else {
+                    second_objs.len() >= usize::from(second_req.min)
+                }
             })
     }
 
@@ -429,15 +439,23 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
         // player is always there to point at. `target_player_options`
         // answers empty for every object-only spec, which is what lets one
         // sum serve every spec; the cast wizard adds them the same way.
-        let objects = eval::target_options_in_domain(
+        let object_list = eval::target_options_in_domain(
             &req.spec,
             &self.state,
             player,
             self.ability_rule_context(source, ability_index),
             None,
             wall_only,
-        )
-        .len();
+        );
+        if req.constraint() == Some(baylee_cards_dsl::TargetConstraint::SameController) {
+            return !eval::eligible_same_controller_groups(
+                &self.state,
+                &object_list,
+                u32::from(req.min),
+            )
+            .is_empty();
+        }
+        let objects = object_list.len();
         let players = eval::target_player_options_from(
             &self.state,
             &req.spec,

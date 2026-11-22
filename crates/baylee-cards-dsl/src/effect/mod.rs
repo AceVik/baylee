@@ -40,6 +40,32 @@ pub enum DamageRedirectTo {
     DamagingSourceController,
 }
 
+/// Which object(s) [`Effect::MoveAndModify`] moves onto the battlefield.
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
+pub enum MoveSubject {
+    /// Resolve `TargetSpec` (`ThisObject`, `EventObject`, `Object(...)`,
+    /// `CardInGraveyard(...)`, etc.) from the current resolution.
+    Target(TargetSpec),
+    /// Every object matching `filter` in `zone` in canonical zone order.
+    AllInZone {
+        /// Zone(s) scanned in canonical order.
+        zone: ZoneSel,
+        /// Filter each candidate must match in that zone.
+        filter: &'static Filter,
+    },
+}
+
+/// Action taken on the moved permanent if the source permanent of
+/// [`Effect::MoveAndModify`] later leaves the battlefield (*Animate Dead*,
+/// *Dance of the Dead*, *Necromancy*).
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
+pub enum SourceLeaveAction {
+    /// The permanent's controller sacrifices it.
+    Sacrifice,
+    /// Exile the permanent.
+    Exile,
+}
+
 /// The future event observed by an independent one-shot delayed ability.
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 pub enum DelayedObservation {
@@ -5375,6 +5401,48 @@ pub enum Effect {
         kind: CounterKind,
         /// Total counters to distribute, evaluated at announcement time (`CR 601.2d`).
         amount: Amount,
+    },
+    /// Move `subject` onto the battlefield (or exile-then-return when `blink`
+    /// is `true`) and atomically apply `modifiers` (for `duration`) and
+    /// optional entry `counters` before ETB checks (`CR 611.2e`, `CR 614.12`),
+    /// optionally attaching the resolving source permanent (`attach_source`)
+    /// and registering a leaves-the-battlefield cleanup on the source
+    /// (`when_source_leaves`) for *Animate Dead*, *Dance of the Dead*,
+    /// *Necromancy*, *The Master, Transcendent*, *Enduring Curiosity*,
+    /// *Abuelo's Awakening*, *Xu-Ifit*, and *Ghost Vacuum*. Appended to
+    /// preserve replay identities.
+    MoveAndModify {
+        /// Object(s) to move onto the battlefield.
+        subject: MoveSubject,
+        /// Required origin zone (`Some(ZoneRef::Graveyard)` when reanimating
+        /// from a graveyard, `None` when moving from whatever zone `subject`
+        /// currently occupies).
+        expected_origin: Option<crate::ZoneRef>,
+        /// When `true`, exile `subject` from the battlefield first and return
+        /// that exiled card immediately to the battlefield (*flicker* + modify).
+        blink: bool,
+        /// `true` puts the permanent onto the battlefield under its owner's
+        /// control; `false` puts it under the resolving ability's controller.
+        owner_control: bool,
+        /// Whether the permanent enters tapped.
+        tapped: bool,
+        /// Face index to enter on (`None` = front face `0`, `Some(1)` = back/transformed).
+        face: Option<u8>,
+        /// Optional `(kind, amount)` counters placed on the entering permanent
+        /// as it enters (`CR 122.6`, e.g. X `+1/+1` counters on *Abuelo's Awakening*).
+        counters: Option<(CounterKind, Amount)>,
+        /// Continuous modifiers bound to the entering permanent's exact
+        /// incarnation before ETB triggers / replacement checks run.
+        modifiers: &'static [crate::Modifier],
+        /// How long `modifiers` apply (`Indefinitely`, `UntilEndOfTurn`,
+        /// `WhileSourceOnBattlefield`, etc.).
+        duration: super::Duration,
+        /// When `true` and the resolving source is still on the battlefield,
+        /// attach that source Aura/permanent to the entered permanent.
+        attach_source: bool,
+        /// Optional delayed action on the entered permanent when the resolving
+        /// source leaves the battlefield (*Animate Dead* / *Necromancy*).
+        when_source_leaves: Option<SourceLeaveAction>,
     },
 }
 

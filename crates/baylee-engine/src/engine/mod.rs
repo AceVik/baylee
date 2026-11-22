@@ -981,14 +981,48 @@ enum PlanKind {
         /// Ability index.
         ability_index: u32,
     },
-    /// An activation asking which graveyard its targets come from ("target
-    /// cards from a single graveyard"), before it asks for them. Carries
-    /// only the ability, for [`PlanKind::ChooseActivationX`]'s reason.
+    /// An activation asking which graveyard or controller group its targets
+    /// come from, before it asks for them. Carries only the ability, for
+    /// [`PlanKind::ChooseActivationX`]'s reason.
     ChooseActivationGraveyard {
         /// The object whose ability is being activated.
         source: ObjectId,
         /// Ability index.
         ability_index: u32,
+    },
+    /// An activation asking which controller/graveyard group its second
+    /// target clause comes from (`TargetConstraint::SameController`).
+    ChooseActivationSecondGroup {
+        /// The permanent whose ability is being activated.
+        source: ObjectId,
+        /// Ability index.
+        ability_index: u32,
+        /// The first instance's targets, already chosen.
+        targets: SmallVec<[ObjectId; 2]>,
+        /// The first instance's seats, put back before the re-entry.
+        target_players: Vec<PlayerId>,
+    },
+    /// A triggered ability asking which controller/graveyard group its first
+    /// target clause comes from (`TargetConstraint::SameController`).
+    ChooseTriggerTargetGroup {
+        /// Source permanent.
+        source: ObjectId,
+        /// Ability index.
+        ability_index: u32,
+        /// Chosen mode for a modal trigger, if any.
+        mode: Option<u8>,
+    },
+    /// A synthetic trigger asking which controller/graveyard group its target
+    /// clause comes from (`TargetConstraint::SameController`).
+    ChooseSyntheticTriggerGroup {
+        /// The queued synthetic trigger.
+        trigger: crate::trigger::PendingTrigger,
+    },
+    /// A triggered ability on the stack asking which controller/graveyard
+    /// group its second target clause comes from (`TargetConstraint::SameController`).
+    ChooseTriggerSecondGroup {
+        /// The triggered ability on the stack.
+        on_stack: ObjectId,
     },
     /// An activation asking whether its next Phyrexian symbol is paid with
     /// 2 life (yes) or with its mana (no) — asked only where both can be
@@ -2211,6 +2245,7 @@ impl<L: CardLookup, D: LoopDetection> Engine<L, D> {
                         | PlanKind::ActivateAbilitySecondTargets { .. }
                         | PlanKind::ChooseActivationX { .. }
                         | PlanKind::ChooseActivationGraveyard { .. }
+                        | PlanKind::ChooseActivationSecondGroup { .. }
                         | PlanKind::ChoosePhyrexianLife { .. }
                         | PlanKind::ChooseActivationCostBranch { .. }
                         | PlanKind::PayActivationCost { .. }

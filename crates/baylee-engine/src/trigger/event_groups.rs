@@ -289,6 +289,7 @@ mod tests {
                 },
                 tap_observation: None,
                 departure: None,
+                excess_damage: 0,
             })
             .collect();
         for slice in [

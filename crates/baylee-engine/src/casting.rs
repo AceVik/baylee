@@ -19,6 +19,7 @@ use baylee_core::types::TypeSet;
 use smallvec::SmallVec;
 
 mod additional;
+mod alt_grants;
 mod escape;
 mod face_options;
 mod intrinsic;
@@ -41,6 +42,11 @@ pub(crate) use source_cost::*;
 #[cfg(test)]
 mod tests;
 
+pub use alt_grants::alt_cast_land_open;
+pub(crate) use alt_grants::{
+    AltCastGrantRoute, alt_cast_grant_options, alt_cast_route_still_open, alt_cast_zone_spell_open,
+    has_alt_cast_grant,
+};
 pub(crate) use escape::{escape_grants, granted_escape_options, mana_cost_mode};
 pub(crate) use face_options::ordinary_face_kind;
 pub use intrinsic::*;
@@ -943,7 +949,7 @@ pub(crate) fn requirement_is_reachable_for(
     // Derived rather than listed, for the same reason: a new `TargetSpec` is
     // counted by whichever of the two readers knows about it, and a spec
     // neither knows is unreachable, which is the honest answer.
-    let objects = match x_bounded(req.spec) {
+    let object_list: Vec<ObjectId> = match x_bounded(req.spec) {
         // "Target spell with mana value X" before any X is announced: a
         // target for some X (`eval::matches_for_some_x`). Enumerated through
         // the same reader with the filter widened, so what makes a spell or
@@ -957,12 +963,20 @@ pub(crate) fn requirement_is_reachable_for(
                 .object(*id)
                 .is_some_and(|o| crate::eval::matches_for_some_x(filter, state, o, player, card))
         })
-        .count(),
+        .collect(),
         None => crate::eval::spell_target_options_for(
             &req.spec, state, player, card, face, None, wall_only,
-        )
-        .len(),
+        ),
     };
+    if req.constraint() == Some(baylee_cards_dsl::TargetConstraint::SameController) {
+        return !crate::eval::eligible_same_controller_groups(
+            state,
+            &object_list,
+            u32::from(req.min),
+        )
+        .is_empty();
+    }
+    let objects = object_list.len();
     let players = crate::eval::target_player_options_from(
         state,
         &req.spec,
@@ -1351,6 +1365,16 @@ fn can_cast_paying(
                 Err(_) => {}
             }
         }
+    }
+    let (alt_opts, alt_diag) = alt_cast_grant_options(state, lookup, player, card, paying);
+    if !alt_opts.is_empty() {
+        return Ok(());
+    }
+    if let Some(diag) = alt_diag
+        && (diag == CastError::NotEnoughMana
+            || matches!(best, Err(CastError::NotInHand | CastError::NoWayToCast)))
+    {
+        best = Err(diag);
     }
     best
 }

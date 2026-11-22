@@ -3,8 +3,44 @@
 use super::life_result::LifeLossBudgets;
 use super::{CounterKind, DamageTarget, DamageWork, GameState, KeywordSet, Part};
 use crate::event::Cause;
+use baylee_core::ids::ObjectId;
 use baylee_core::types::TypeSet;
 use rustc_hash::FxHashMap;
+
+/// Initial lethal/loyalty/defense threshold before this damage batch commits (`CR 120.10`).
+fn initial_excess_threshold(
+    state: &GameState,
+    target: ObjectId,
+    deathtouch_in_batch: bool,
+) -> Option<u32> {
+    let obj = state.object(target)?;
+    let chars = obj.characteristics();
+    let mut best: Option<u32> = None;
+    let mut consider = |v: u32| {
+        best = Some(best.map_or(v, |prev| prev.min(v)));
+    };
+    if chars.types.contains(TypeSet::CREATURE)
+        && let Some(raw_toughness) = chars.toughness
+    {
+        let toughness = i32::from(raw_toughness);
+        let marked = i32::from(obj.damage);
+        let lethal = if obj.deathtouched || toughness <= 0 || marked >= toughness {
+            0
+        } else if deathtouch_in_batch {
+            1
+        } else {
+            u32::try_from(toughness - marked).unwrap_or(0)
+        };
+        consider(lethal);
+    }
+    if chars.types.contains(TypeSet::PLANESWALKER) {
+        consider(u32::from(obj.counters.get(CounterKind::Loyalty)));
+    }
+    if chars.types.contains(TypeSet::BATTLE) {
+        consider(u32::from(obj.counters.get(CounterKind::Defense)));
+    }
+    best
+}
 
 impl DamageWork {
     pub(super) fn commit(&mut self, state: &mut GameState) {
@@ -16,6 +52,22 @@ impl DamageWork {
             }
         }
         self.combine_damage_to_same_recipient();
+        let mut excess_budgets: FxHashMap<ObjectId, Option<u32>> = FxHashMap::default();
+        for part in &self.parts {
+            if part.view.amount == 0 {
+                continue;
+            }
+            if let DamageTarget::Object(id) = part.view.recipient {
+                excess_budgets.entry(id).or_insert_with(|| {
+                    let dt = self.parts.iter().any(|p| {
+                        p.view.amount > 0
+                            && p.view.recipient == DamageTarget::Object(id)
+                            && p.keywords.contains(KeywordSet::DEATHTOUCH)
+                    });
+                    initial_excess_threshold(state, id, dt)
+                });
+            }
+        }
         let mut life_loss = LifeLossBudgets::new(self, state);
         for part in &self.parts {
             if part.view.amount == 0 {
@@ -71,7 +123,15 @@ impl DamageWork {
                         }
                     }
                 }
-                DamageTarget::Object(id) => part.commit_object(state, id),
+                DamageTarget::Object(id) => {
+                    part.commit_object(state, id);
+                    if let Some(Some(remaining)) = excess_budgets.get_mut(&id) {
+                        let absorbed = part.view.amount.min(*remaining);
+                        *remaining -= absorbed;
+                        let excess = part.view.amount - absorbed;
+                        state.journal.set_last_excess_damage(id, excess);
+                    }
+                }
             }
         }
         for plan in self.result_plans.take().expect("damage results planned") {

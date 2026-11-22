@@ -469,6 +469,7 @@ fn damage_to_an_opponent_and_damage_dealt_to_this_count_their_events() {
         event,
         tap_observation: None,
         departure: None,
+        excess_damage: 0,
     };
     let blocked = vec![
         entry(1, dealt(one, DamageTarget::Object(fungusaur), 1, true)),
@@ -528,6 +529,7 @@ fn being_dealt_damage_is_one_event_per_combat_step_and_counts_all_of_it() {
         event,
         tap_observation: None,
         departure: None,
+        excess_damage: 0,
     };
     let you = Trigger::PlayerDealtDamage(PlayerRel::You);
     let fired =
@@ -1056,6 +1058,7 @@ fn step_begin_each_other_player_fires_on_other_players_steps_and_not_yours() {
                 event: other_draw,
                 tap_observation: None,
                 departure: None,
+                excess_damage: 0,
             },
             &state,
         ),

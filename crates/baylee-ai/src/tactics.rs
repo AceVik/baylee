@@ -998,10 +998,14 @@ impl HeuristicAgent {
             Some(Ok(inner)) => inner,
             _ => context.effects,
         };
-        let is_blink = context
-            .effects
-            .iter()
-            .any(|e| matches!(e, Effect::Blink { .. } | Effect::ExileAndReturnAtEndStep));
+        let is_blink = context.effects.iter().any(|e| {
+            matches!(
+                e,
+                Effect::Blink { .. }
+                    | Effect::ExileAndReturnAtEndStep
+                    | Effect::MoveAndModify { blink: true, .. }
+            )
+        });
         let is_provoke = unwrapped_effects.iter().any(|e| {
             matches!(
                 e,

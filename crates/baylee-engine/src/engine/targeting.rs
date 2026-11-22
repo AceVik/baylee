@@ -173,7 +173,8 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
         }
         let controller = obj.controller;
         let chooser = match req.chooser {
-            baylee_cards_dsl::TargetChooser::Controller => controller,
+            baylee_cards_dsl::TargetChooser::Controller
+            | baylee_cards_dsl::TargetChooser::ConstrainedController(_) => controller,
             baylee_cards_dsl::TargetChooser::EventPlayer => {
                 event_player.expect("event-player target chooser requires a captured event player")
             }
@@ -185,8 +186,34 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
             .targets
             .first()
             .and_then(|id| self.state.source_identity(*id));
-        let (options, player_options) =
+        let (mut options, player_options) =
             eval::stack_target_options_relative(&self.state, obj, &req.spec, reference);
+        let (min, max) = req.bounds(0);
+        if req.constraint() == Some(baylee_cards_dsl::TargetConstraint::SameController) {
+            if let Some(chosen) = self.activation_graveyard.take() {
+                options.retain(|id| eval::same_controller_group(&self.state, *id) == Some(chosen));
+            } else {
+                let groups = eval::eligible_same_controller_groups(&self.state, &options, min);
+                match groups.as_slice() {
+                    [] => options.clear(),
+                    [only] => {
+                        options.retain(|id| {
+                            eval::same_controller_group(&self.state, *id) == Some(*only)
+                        });
+                    }
+                    _ => {
+                        self.pending_plan =
+                            Some(PlanKind::ChooseTriggerSecondGroup { on_stack: top });
+                        self.pending = Pending::ChoosePlayer {
+                            player: chooser,
+                            options: groups,
+                        };
+                        self.awaiting_answer = true;
+                        return true;
+                    }
+                }
+            }
+        }
         if let Some(obj) = self.state.object_mut(top) {
             obj.set_second(SmallVec::new(), Some(req));
         }
@@ -204,7 +231,6 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
             // "Up to one" with nothing to point at: nothing to decide.
             return false;
         }
-        let (min, max) = req.bounds(0);
         let max = max.min(u32::try_from(options.len() + player_options.len()).unwrap_or(u32::MAX));
         self.pending_plan = Some(PlanKind::TriggerSecondTarget { on_stack: top });
         self.pending = Pending::ChooseTargets {
@@ -576,7 +602,10 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
         plan: PlanKind,
     ) -> Result<Option<PlayerId>, EngineError> {
         match req.chooser {
-            baylee_cards_dsl::TargetChooser::Controller => return Ok(Some(controller)),
+            baylee_cards_dsl::TargetChooser::Controller
+            | baylee_cards_dsl::TargetChooser::ConstrainedController(_) => {
+                return Ok(Some(controller));
+            }
             baylee_cards_dsl::TargetChooser::EventPlayer => {
                 return Err(EngineError::IllegalAction(
                     "an activation has no triggering event player",

@@ -284,6 +284,16 @@ pub enum ColorSubject {
     Attached,
 }
 
+/// Relational constraint across multiple objects chosen within a single
+/// [`TargetReq`] (`TargetsWithSameController$ True`).
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
+pub enum TargetConstraint {
+    /// Every chosen object must share the same controller on the
+    /// battlefield/stack or reside in the same player's non-battlefield zone
+    /// (e.g. *Bioshift*, *Simic Guildmage*, *Unlicensed Hearse*, *Ebony Charm*).
+    SameController,
+}
+
 /// Who chooses targets without changing the spell or ability's controller.
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 pub enum TargetChooser {
@@ -293,6 +303,9 @@ pub enum TargetChooser {
     Opponent,
     /// The player captured by the triggering event chooses this trigger's targets.
     EventPlayer,
+    /// The spell or ability's controller chooses, constrained across the group.
+    /// Appended to preserve replay identities and `TargetReq` struct literals.
+    ConstrainedController(TargetConstraint),
 }
 
 /// How many targets an ability/spell requires.
@@ -325,6 +338,24 @@ impl TargetReq {
     pub const fn chosen_by_event_player(mut self) -> Self {
         self.chooser = TargetChooser::EventPlayer;
         self
+    }
+
+    /// Require all chosen target objects in this instance to satisfy `constraint`.
+    #[must_use]
+    pub const fn with_constraint(mut self, constraint: TargetConstraint) -> Self {
+        self.chooser = TargetChooser::ConstrainedController(constraint);
+        self
+    }
+
+    /// Group-level target constraint on this target requirement, if any.
+    #[must_use]
+    pub const fn constraint(self) -> Option<TargetConstraint> {
+        match self.chooser {
+            TargetChooser::ConstrainedController(constraint) => Some(constraint),
+            TargetChooser::Controller | TargetChooser::Opponent | TargetChooser::EventPlayer => {
+                None
+            }
+        }
     }
 
     /// Exactly one target.

@@ -908,6 +908,9 @@ pub struct JournalEntry {
     /// Identity and controller of the permanent when it tapped or untapped.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub tap_observation: Option<TapObservation>,
+    /// Excess damage dealt on a `GameEvent::DamageDealt` (`CR 120.10`), zero otherwise.
+    #[serde(default, skip_serializing_if = "is_zero_u32")]
+    pub excess_damage: u32,
 }
 
 /// Information captured at a tap or untap, before later instructions resolve.
@@ -963,8 +966,27 @@ impl Journal {
             event,
             departure: None,
             tap_observation,
+            excess_damage: 0,
         });
         seq
+    }
+
+    /// Annotates the just-recorded `DamageDealt` to `target` with its excess damage (`CR 120.10`).
+    pub(crate) fn set_last_excess_damage(&mut self, target: ObjectId, excess: u32) {
+        if excess == 0 {
+            return;
+        }
+        if let Some(last) = Arc::make_mut(&mut self.entries).last_mut()
+            && matches!(
+                last.event,
+                GameEvent::DamageDealt {
+                    target: DamageTarget::Object(id),
+                    ..
+                } if id == target
+            )
+        {
+            last.excess_damage = excess;
+        }
     }
 
     /// Record a zone change with its immutable battlefield information.

@@ -235,12 +235,10 @@ fn raw_option_cost(
     let raw = match wizard.option {
         Some(CastModeKind::Normal | CastModeKind::Face(_)) | None => normal,
         // Only kicker's additional mana survives the alternative zero base.
-        Some(CastModeKind::Kicked) if library_top => face
+        Some(CastModeKind::Kicked) if library_top || wizard.override_mana_cost.is_some() => face
             .additional_costs
             .iter()
-            .fold(ManaCost::ZERO, |cost, additional| {
-                cost.combine(&additional.mana)
-            }),
+            .fold(normal, |cost, additional| cost.combine(&additional.mana)),
         Some(CastModeKind::Kicked) => casting::kicked_mana_cost(face),
         Some(CastModeKind::Alternative(index)) => face.alternative_costs[index].cost.mana,
         Some(CastModeKind::Prototype) => face.prototype.expect("prototype").cost,
@@ -303,13 +301,14 @@ fn raw_option_cost(
         }
     };
     if wizard.option != Some(CastModeKind::Kicked)
-        && matches!(
-            wizard.announced,
-            Some(
-                CastModeKind::EscapeGranted { kicked: true, .. }
-                    | CastModeKind::LibraryTopLife { kicked: true, .. }
-            )
-        )
+        && (wizard.selected_alt_grant().is_some_and(|r| r.kicked)
+            || matches!(
+                wizard.announced,
+                Some(
+                    CastModeKind::EscapeGranted { kicked: true, .. }
+                        | CastModeKind::LibraryTopLife { kicked: true, .. }
+                )
+            ))
     {
         face.additional_costs
             .iter()

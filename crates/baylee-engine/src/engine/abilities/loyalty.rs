@@ -125,7 +125,8 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
         targets: SmallVec<[ObjectId; 2]>,
     ) -> Result<(), EngineError> {
         if let Some(req) = self.loyalty_second_targets(source, ability_index) {
-            let options = eval::target_options_in_domain(
+            let (min, max) = req.bounds(self.activation_x.unwrap_or(0));
+            let mut options = eval::target_options_in_domain(
                 &req.spec,
                 &self.state,
                 player,
@@ -133,14 +134,46 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 None,
                 self.activation_wall_only(source, ability_index),
             );
-            if !options.is_empty() && req.max > 0 {
+            if req.constraint() == Some(baylee_cards_dsl::TargetConstraint::SameController) {
+                if let Some(chosen) = self.activation_graveyard.take() {
+                    options
+                        .retain(|id| eval::same_controller_group(&self.state, *id) == Some(chosen));
+                } else {
+                    let groups = eval::eligible_same_controller_groups(&self.state, &options, min);
+                    match groups.as_slice() {
+                        [] => options.clear(),
+                        [only] => {
+                            options.retain(|id| {
+                                eval::same_controller_group(&self.state, *id) == Some(*only)
+                            });
+                        }
+                        _ => {
+                            self.pending_plan = Some(PlanKind::ChooseActivationSecondGroup {
+                                source,
+                                ability_index,
+                                targets,
+                                target_players: Vec::new(),
+                            });
+                            self.pending = Pending::ChoosePlayer {
+                                player,
+                                options: groups,
+                            };
+                            self.awaiting_answer = true;
+                            return Ok(());
+                        }
+                    }
+                }
+            }
+            if options.len() < min as usize {
+                return Err(EngineError::IllegalAction("no legal targets"));
+            }
+            if !options.is_empty() && max > 0 {
                 self.pending_plan = Some(PlanKind::ActivateAbilitySecondTargets {
                     source,
                     ability_index,
                     targets,
                     target_players: Vec::new(),
                 });
-                let (min, max) = req.bounds(self.activation_x.unwrap_or(0));
                 let max = max.min(u32::try_from(options.len()).unwrap_or(u32::MAX));
                 self.pending = Pending::ChooseTargets {
                     player,
@@ -280,15 +313,25 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 )
                 .len()
             } else {
-                eval::target_options_in_domain(
+                let objs = eval::target_options_in_domain(
                     &req.spec,
                     &self.state,
                     player,
                     self.ability_rule_context(source, ability_index),
                     None,
                     self.activation_wall_only(source, ability_index),
-                )
-                .len()
+                );
+                if req.constraint() == Some(baylee_cards_dsl::TargetConstraint::SameController) {
+                    if eval::eligible_same_controller_groups(&self.state, &objs, u32::from(req.min))
+                        .is_empty()
+                    {
+                        0
+                    } else {
+                        req.min as usize
+                    }
+                } else {
+                    objs.len()
+                }
             };
             if found < req.min as usize {
                 return Err(EngineError::IllegalAction("no legal targets"));
@@ -325,21 +368,6 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 self.awaiting_answer = true;
                 return Ok(());
             }
-            let options = eval::target_options_in_domain(
-                &req.spec,
-                &self.state,
-                player,
-                self.ability_rule_context(source, ability_index),
-                None,
-                self.activation_wall_only(source, ability_index),
-            );
-            if options.len() < req.min as usize {
-                return Err(EngineError::IllegalAction("no legal targets"));
-            }
-            // "Up to one target" with nothing on the board to point at is not
-            // a question: there would be one answer to it. The ability goes
-            // on the stack targeting nothing, which is what the printing says
-            // it may do.
             let (min, mut max) = req.bounds(self.activation_x.unwrap_or(0));
             if let Some(AbilityDef::Loyalty { effects, .. }) =
                 self.activation_definition(source, ability_index)
@@ -357,6 +385,49 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
             if min > max {
                 return Err(EngineError::IllegalAction("no legal targets"));
             }
+            let mut options = eval::target_options_in_domain(
+                &req.spec,
+                &self.state,
+                player,
+                self.ability_rule_context(source, ability_index),
+                None,
+                self.activation_wall_only(source, ability_index),
+            );
+            if req.constraint() == Some(baylee_cards_dsl::TargetConstraint::SameController) {
+                if let Some(chosen) = self.activation_graveyard.take() {
+                    options
+                        .retain(|id| eval::same_controller_group(&self.state, *id) == Some(chosen));
+                } else {
+                    let groups = eval::eligible_same_controller_groups(&self.state, &options, min);
+                    match groups.as_slice() {
+                        [] => options.clear(),
+                        [only] => {
+                            options.retain(|id| {
+                                eval::same_controller_group(&self.state, *id) == Some(*only)
+                            });
+                        }
+                        _ => {
+                            self.pending_plan = Some(PlanKind::ChooseActivationGraveyard {
+                                source,
+                                ability_index,
+                            });
+                            self.pending = Pending::ChoosePlayer {
+                                player,
+                                options: groups,
+                            };
+                            self.awaiting_answer = true;
+                            return Ok(());
+                        }
+                    }
+                }
+            }
+            if options.len() < min as usize {
+                return Err(EngineError::IllegalAction("no legal targets"));
+            }
+            // "Up to one target" with nothing on the board to point at is not
+            // a question: there would be one answer to it. The ability goes
+            // on the stack targeting nothing, which is what the printing says
+            // it may do.
             if !options.is_empty() && max > 0 {
                 self.pending_plan = Some(PlanKind::ActivateAbility {
                     source,

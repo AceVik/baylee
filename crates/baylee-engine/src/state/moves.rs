@@ -1077,6 +1077,7 @@ impl GameState {
             to.zone(),
             Zone::Battlefield | Zone::Stack | Zone::Graveyard | Zone::Exile | Zone::Hand
         ) || self.projected_cross_zone
+            || self.effects.may_grant_from_linked_exile()
         {
             self.invalidate_projections();
         }
@@ -1319,6 +1320,9 @@ impl GameState {
         let loc = ZoneLocation::Library(player);
         let rng = &mut self.rng;
         rng.shuffle(self.zones.list_mut(loc).as_mut_slice());
+        if self.effects.may_grant_from_linked_exile() {
+            self.invalidate_projections();
+        }
         self.journal.record(GameEvent::Shuffled {
             player,
             zone: Zone::Library,
@@ -1333,6 +1337,9 @@ impl GameState {
                 .list_mut(ZoneLocation::Library(player))
                 .as_mut_slice(),
         );
+        if self.effects.may_grant_from_linked_exile() {
+            self.invalidate_projections();
+        }
         self.journal.record(GameEvent::Shuffled {
             player,
             zone: Zone::Library,

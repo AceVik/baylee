@@ -1330,6 +1330,103 @@ pub enum Modifier {
     /// (CR 613.4b), leaving base power unchanged. Appended to preserve replay
     /// identities.
     SetToughnessToCount(PtCount),
+    /// Layer 6 ability-adding effect (`CR 613.1f`): affected permanents gain
+    /// all activated abilities of objects matching `filter` in `zone`
+    /// (*Experiment Kraj*, *Necrotic Ooze*, *Dark Impostor*, *Myr Welder*,
+    /// *Patchwork Crawler*, *Trazyn the Infinite*, *Mirran Safehouse*,
+    /// *Manascape Refractor*, *Steward of the Harvest*, *Conspicuous Snoop*).
+    /// Appended to preserve replay identities.
+    GainActivatedAbilitiesOf {
+        /// Donor filter evaluated relative to the source/recipient permanent.
+        filter: &'static Filter,
+        /// Zone(s) scanned for donor objects.
+        zone: AbilityDonorZone,
+    },
+    /// Continuous casting/playing permission and alternative cost (`CR 118.9`,
+    /// `CR 601.3e`): players matching `who` (relative to the effect's
+    /// controller) may cast spells matching this static ability's `filter`
+    /// from `zones` (with optional `max_mana_value` bound evaluated against the
+    /// effect's source and controller) by paying `price` rather than their
+    /// mana cost (*Bolas's Citadel*, *Valgavoth, Terror Eater*, *As Foretold*,
+    /// *Fires of Invention*, *Aluren*, *Fist of Suns*, *Jodah, Archmage
+    /// Eternal*, *Demon of Fate's Design*, *Warped Space*). Appended to
+    /// preserve replay identities.
+    MayCastWithAltCost {
+        /// Which players may use this permission/alternative cost (`PlayerRel::You`
+        /// or `PlayerRel::EachPlayer` for *Aluren*).
+        who: crate::effect::PlayerRel,
+        /// Candidate origin zone(s) (`AnyPermitted`, `Zones(&[...])`, `TopOfLibrary`, `LinkedExile`).
+        zones: AltCastZones,
+        /// When `true`, also grants permission to cast matching spells from
+        /// `zones` (and play lands from `zones` when `allow_lands` is `true`);
+        /// when `false` (`MayPlayDontGrantZonePermissions$ True`), only offers
+        /// `price` for spells the player already has non-alternative zone
+        /// permission to cast (`Hand`, commander in `Command`, Muldrotha, etc.).
+        grant_zone_permission: bool,
+        /// When `true` alongside `grant_zone_permission: true`, also allows
+        /// playing matching land cards from `zones` (*Bolas's Citadel*,
+        /// *Valgavoth, Terror Eater*).
+        allow_lands: bool,
+        /// When `true`, matching spells cast via this permission may be cast as
+        /// though they had flash (*Aluren*).
+        with_flash: bool,
+        /// Optional dynamic upper bound on the prospective spell face's mana
+        /// value (`Some(Amount::CountersOnSource(CounterKind::Time))` for *As
+        /// Foretold*, `None` when unbounded or encoded in `filter`).
+        max_mana_value: Option<crate::Amount>,
+        /// When `true`, each eligible player may cast at most one spell per
+        /// turn using this exact effect's alternative cost (*As Foretold*,
+        /// *Demon of Fate's Design*, *Warped Space*).
+        once_per_turn: bool,
+        /// Alternative price paid rather than the spell's mana cost.
+        price: AltCastPrice,
+    },
+}
+
+/// Donor zone(s) scanned by [`Modifier::GainActivatedAbilitiesOf`].
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
+pub enum AbilityDonorZone {
+    /// Permanents on the battlefield (*Experiment Kraj*, *Manascape Refractor*, *Marvin*).
+    Battlefield,
+    /// Cards in the graveyard(s) of players matching `PlayerRel` (*Necrotic Ooze*,
+    /// *Trazyn the Infinite*, *Mirran Safehouse*).
+    Graveyard(crate::effect::PlayerRel),
+    /// Cards exiled with the source permanent (`CR 406.6`, *Dark Impostor*,
+    /// *Myr Welder*, *Patchwork Crawler*, *Steward of the Harvest*).
+    LinkedExile,
+    /// Cards in exile owned by players matching `PlayerRel` (*Mairsil*, *Rex, Cyber-Hound*).
+    Exile(crate::effect::PlayerRel),
+    /// The top card of the effect controller's library (*Conspicuous Snoop*, *Skill Borrower*).
+    TopOfYourLibrary,
+}
+
+/// Candidate origin zones for [`Modifier::MayCastWithAltCost`].
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
+pub enum AltCastZones {
+    /// Any zone (`Hand`, `Graveyard`, `Library`, `Exile`, `Command`) — commonly
+    /// paired with `grant_zone_permission: false` (*As Foretold*, *Fires of
+    /// Invention*, *Aluren*, *Fist of Suns*, *Demon of Fate's Design*).
+    AnyPermitted,
+    /// Specific zones (*Warped Space*: `&[ZoneRef::Exile]`).
+    Zones(&'static [crate::ZoneRef]),
+    /// The top card of the casting player's library (*Bolas's Citadel*).
+    TopOfLibrary,
+    /// Cards in exile linked to (`ExiledWith` / `LinkedExile`) the effect's
+    /// source permanent (*Valgavoth, Terror Eater*).
+    LinkedExile,
+}
+
+/// Alternative price paid rather than a spell's mana cost under
+/// [`Modifier::MayCastWithAltCost`] (`CR 118.9`).
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
+pub enum AltCastPrice {
+    /// Pay `ManaCost` rather than the spell's mana cost (`ManaCost::ZERO`
+    /// for *As Foretold* / *Fires of Invention* / *Aluren* / *Omniscience*;
+    /// `{W}{U}{B}{R}{G}` for *Fist of Suns* / *Jodah, Archmage Eternal*).
+    Mana(baylee_core::mana::ManaCost),
+    /// Pay life equal to the spell's mana value rather than its mana cost
+    /// (*Bolas's Citadel*, *Valgavoth, Terror Eater*, *Demon of Fate's Design*).
+    PayLifeEqualToManaValue,
 }
 
 /// What a [`Modifier::CharacteristicPT`] counts.
@@ -1529,6 +1626,7 @@ impl Modifier {
             | Self::GrantActivated { .. }
             | Self::GrantActivatedDefinition(_)
             | Self::GrantActivatedFromLinkedExile(_)
+            | Self::GainActivatedAbilitiesOf { .. }
             | Self::GrantStatic { .. }
             | Self::GrantsFlashback
             | Self::GrantsEscape(_)
@@ -1727,7 +1825,8 @@ impl Modifier {
             | Self::AssignCombatDamageUsingToughnessIfToughnessGreater
             | Self::MayAssignCombatDamageAsThoughUnblocked
             | Self::PlayersCantGainLife(_)
-            | Self::CantBeSacrificed { .. } => Layer::Text,
+            | Self::CantBeSacrificed { .. }
+            | Self::MayCastWithAltCost { .. } => Layer::Text,
         }
     }
 }
@@ -2317,6 +2416,13 @@ mod tests {
                 Layer::Ability,
             ),
             (
+                Modifier::GainActivatedAbilitiesOf {
+                    filter: &Filter::CREATURE,
+                    zone: AbilityDonorZone::Graveyard(crate::PlayerRel::EachPlayer),
+                },
+                Layer::Ability,
+            ),
+            (
                 Modifier::CharacteristicPT {
                     count: PtCount::CardTypesInAllGraveyards,
                     toughness_plus: 1,
@@ -2588,6 +2694,16 @@ mod tests {
             Modifier::PlayersCantGainLife(crate::PlayerRel::EachOpponent),
             Modifier::CantBeSacrificed {
                 opponents_only: true,
+            },
+            Modifier::MayCastWithAltCost {
+                who: crate::PlayerRel::You,
+                zones: AltCastZones::AnyPermitted,
+                grant_zone_permission: false,
+                allow_lands: false,
+                with_flash: false,
+                max_mana_value: None,
+                once_per_turn: true,
+                price: AltCastPrice::Mana(baylee_core::mana::ManaCost::ZERO),
             },
         ] {
             assert_eq!(

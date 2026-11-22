@@ -72,6 +72,26 @@ pub(super) fn refers_to_subject(effects: &'static [Effect], implicit_source: boo
                 source: baylee_cards_dsl::PlaySource::Subject(target),
                 ..
             } => matches!(target, TargetSpec::ThisObject),
+            Effect::MoveAndModify {
+                subject: baylee_cards_dsl::MoveSubject::Target(target),
+                attach_source,
+                when_source_leaves,
+                ..
+            } => {
+                matches!(target, TargetSpec::ThisObject)
+                    || *attach_source
+                    || when_source_leaves.is_some()
+            }
+            Effect::MoveAndModify {
+                subject: baylee_cards_dsl::MoveSubject::AllInZone { zone, .. },
+                attach_source,
+                when_source_leaves,
+                ..
+            } => {
+                matches!(zone, baylee_cards_dsl::ZoneSel::LinkedExile)
+                    || *attach_source
+                    || when_source_leaves.is_some()
+            }
             Effect::CreateContinuousEffect { filter, .. }
             | Effect::BecomeChosenCreatureType { filter, .. }
             | Effect::GrantProtectionFromChosenColorUntilEot { filter }
@@ -223,6 +243,10 @@ pub(super) fn moves_subject(effects: &'static [Effect]) -> bool {
                 }
                 | Effect::PutOnBottomOfLibraryFromGraveyard {
                     target: TargetSpec::ThisObject
+                }
+                | Effect::MoveAndModify {
+                    subject: baylee_cards_dsl::MoveSubject::Target(TargetSpec::ThisObject),
+                    ..
                 }
         );
     });

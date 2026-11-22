@@ -685,7 +685,12 @@ impl GameState {
     pub fn targets_chosen_by_another(&self, on_stack: ObjectId) -> bool {
         use baylee_cards_dsl::{AbilityDef, TargetChooser, TargetReq};
         let foreign = |req: Option<TargetReq>| {
-            req.is_some_and(|req| req.chooser != TargetChooser::Controller)
+            req.is_some_and(|req| {
+                matches!(
+                    req.chooser,
+                    TargetChooser::Opponent | TargetChooser::EventPlayer
+                )
+            })
         };
         let Some(object) = self.object(on_stack) else {
             return false;

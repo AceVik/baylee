@@ -374,7 +374,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
         }
         let (legal_objects, legal_players) =
             eval::stack_target_options_relative(&self.state, obj, &req.spec, reference);
-        let objects: SmallVec<[ObjectId; 2]> = chosen
+        let mut objects: SmallVec<[ObjectId; 2]> = chosen
             .iter()
             .enumerate()
             .filter_map(|(index, &id)| {
@@ -389,6 +389,12 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 .then_some(id)
             })
             .collect();
+        if req.constraint() == Some(baylee_cards_dsl::TargetConstraint::SameController)
+            && objects.len() > 1
+        {
+            let anchor = eval::same_controller_group(&self.state, objects[0]);
+            objects.retain(|id| eval::same_controller_group(&self.state, *id) == anchor);
+        }
         let mut kept = SeatSet::new();
         for player in chosen_players.iter() {
             if legal_players.contains(&player) {
@@ -417,7 +423,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
         let group = u32::try_from(group_idx).expect("extra target group");
         let (legal_objects, legal_players) =
             eval::stack_target_options_relative(&self.state, obj, &req.spec, reference);
-        let objects: SmallVec<[ObjectId; 2]> = inst
+        let mut objects: SmallVec<[ObjectId; 2]> = inst
             .targets
             .iter()
             .enumerate()
@@ -433,6 +439,12 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 .then_some(id)
             })
             .collect();
+        if req.constraint() == Some(baylee_cards_dsl::TargetConstraint::SameController)
+            && objects.len() > 1
+        {
+            let anchor = eval::same_controller_group(&self.state, objects[0]);
+            objects.retain(|id| eval::same_controller_group(&self.state, *id) == anchor);
+        }
         let mut kept = SeatSet::new();
         for player in inst.players.iter() {
             if legal_players.contains(&player) {

@@ -616,37 +616,49 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 self.activation_x,
                 eval::target_domain::walls(first, second),
             );
-            // "Target cards from a single graveyard" (Unlicensed Hearse):
-            // which graveyard is asked first, when more than one holds a
-            // card to choose, and the targets are then that graveyard's.
-            if let baylee_cards_dsl::TargetSpec::CardInGraveyard(
-                _,
-                baylee_cards_dsl::PlayerRel::Chosen,
-            ) = req.spec
+            // "Target cards from a single graveyard" (Unlicensed Hearse) and
+            // `TargetConstraint::SameController` ("target creatures controlled
+            // by the same player"): when multiple controller/graveyard groups
+            // satisfy `min`, ask which group first and narrow `options` to it.
+            if req.constraint() == Some(baylee_cards_dsl::TargetConstraint::SameController)
+                || matches!(
+                    req.spec,
+                    baylee_cards_dsl::TargetSpec::CardInGraveyard(
+                        _,
+                        baylee_cards_dsl::PlayerRel::Chosen
+                    )
+                )
             {
-                let graveyard_of = |state: &crate::state::GameState, id: &ObjectId| {
-                    state.object(*id).and_then(|o| o.zone_owner)
-                };
                 if let Some(chosen) = self.activation_graveyard.take() {
-                    options.retain(|id| graveyard_of(&self.state, id) == Some(chosen));
+                    options
+                        .retain(|id| eval::same_controller_group(&self.state, *id) == Some(chosen));
                 } else {
-                    let mut graveyards: Vec<PlayerId> = options
-                        .iter()
-                        .filter_map(|id| graveyard_of(&self.state, id))
-                        .collect();
-                    graveyards.sort_unstable();
-                    graveyards.dedup();
-                    if graveyards.len() > 1 {
-                        self.pending_plan = Some(PlanKind::ChooseActivationGraveyard {
-                            source,
-                            ability_index,
-                        });
-                        self.pending = Pending::ChoosePlayer {
-                            player,
-                            options: graveyards,
-                        };
-                        self.awaiting_answer = true;
-                        return Ok(());
+                    let groups = eval::eligible_same_controller_groups(&self.state, &options, min);
+                    match groups.as_slice() {
+                        [] => options.clear(),
+                        [only] => {
+                            options.retain(|id| {
+                                eval::same_controller_group(&self.state, *id) == Some(*only)
+                            });
+                        }
+                        _ => {
+                            let plan = PlanKind::ChooseActivationGraveyard {
+                                source,
+                                ability_index,
+                            };
+                            let Some(chooser) =
+                                self.activation_target_chooser(req, player, plan.clone())?
+                            else {
+                                return Ok(());
+                            };
+                            self.pending_plan = Some(plan);
+                            self.pending = Pending::ChoosePlayer {
+                                player: chooser,
+                                options: groups,
+                            };
+                            self.awaiting_answer = true;
+                            return Ok(());
+                        }
                     }
                 }
             }
@@ -710,7 +722,8 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
             // "that shares one of those types with it") reads it here.
             let mut context = self.ability_rule_context(source, ability_index);
             context.reference = targets.first().copied();
-            let options = eval::target_options_in_domain(
+            let (min, max) = req.bounds(self.activation_x.unwrap_or(0));
+            let mut options = eval::target_options_in_domain(
                 &req.spec,
                 &self.state,
                 player,
@@ -718,17 +731,61 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 self.activation_x,
                 eval::target_domain::walls(first, second),
             );
+            if req.constraint() == Some(baylee_cards_dsl::TargetConstraint::SameController)
+                || matches!(
+                    req.spec,
+                    baylee_cards_dsl::TargetSpec::CardInGraveyard(
+                        _,
+                        baylee_cards_dsl::PlayerRel::Chosen
+                    )
+                )
+            {
+                if let Some(chosen) = self.activation_graveyard.take() {
+                    options
+                        .retain(|id| eval::same_controller_group(&self.state, *id) == Some(chosen));
+                } else {
+                    let groups = eval::eligible_same_controller_groups(&self.state, &options, min);
+                    match groups.as_slice() {
+                        [] => options.clear(),
+                        [only] => {
+                            options.retain(|id| {
+                                eval::same_controller_group(&self.state, *id) == Some(*only)
+                            });
+                        }
+                        _ => {
+                            let plan = PlanKind::ChooseActivationSecondGroup {
+                                source,
+                                ability_index,
+                                targets,
+                                target_players: chosen_players,
+                            };
+                            let Some(chooser) =
+                                self.activation_target_chooser(req, player, plan.clone())?
+                            else {
+                                return Ok(());
+                            };
+                            self.pending_plan = Some(plan);
+                            self.pending = Pending::ChoosePlayer {
+                                player: chooser,
+                                options: groups,
+                            };
+                            self.awaiting_answer = true;
+                            return Ok(());
+                        }
+                    }
+                }
+            }
             let player_options = eval::target_player_options_from(
                 &self.state,
                 &req.spec,
                 player,
                 self.ability_rule_context(source, ability_index),
             );
-            if options.len() + player_options.len() < req.min as usize {
+            if options.len() + player_options.len() < min as usize {
                 self.activation_x = None;
                 return Err(EngineError::IllegalAction("no legal targets"));
             }
-            if (options.is_empty() && player_options.is_empty()) || req.max == 0 {
+            if (options.is_empty() && player_options.is_empty()) || max == 0 {
                 self.activation_second_targets = Some(SmallVec::new());
             } else {
                 let plan = PlanKind::ActivateAbilitySecondTargets {
@@ -742,7 +799,6 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                     return Ok(());
                 };
                 self.pending_plan = Some(plan);
-                let (min, max) = req.bounds(self.activation_x.unwrap_or(0));
                 let max = max
                     .min(u32::try_from(options.len() + player_options.len()).unwrap_or(u32::MAX));
                 self.pending = Pending::ChooseTargets {

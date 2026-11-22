@@ -7,7 +7,68 @@ enum WizardStep {
     Yield(Result<(), EngineError>),
 }
 
+enum GroupNarrow {
+    Ready,
+    Yielded,
+}
+
 impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
+    fn narrow_wizard_same_controller_group(
+        &mut self,
+        wizard: &mut CastWizard,
+        req: TargetReq,
+        min: u32,
+        options: &mut Vec<ObjectId>,
+    ) -> GroupNarrow {
+        let constrained = req.constraint()
+            == Some(baylee_cards_dsl::TargetConstraint::SameController)
+            || matches!(
+                req.spec,
+                TargetSpec::CardInGraveyard(_, baylee_cards_dsl::PlayerRel::Chosen)
+            );
+        if !constrained {
+            return GroupNarrow::Ready;
+        }
+        if let Some(chosen) = wizard.target_group_player.take() {
+            options.retain(|&id| eval::same_controller_group(&self.state, id) == Some(chosen));
+            if matches!(
+                req.spec,
+                TargetSpec::CardInGraveyard(_, baylee_cards_dsl::PlayerRel::Chosen)
+            ) && wizard.chosen_player.is_none()
+            {
+                wizard.chosen_player = Some(chosen);
+            }
+            return GroupNarrow::Ready;
+        }
+        let groups = eval::eligible_same_controller_groups(&self.state, options, min);
+        match groups.as_slice() {
+            [] => {
+                options.clear();
+                GroupNarrow::Ready
+            }
+            [only] => {
+                options.retain(|&id| eval::same_controller_group(&self.state, id) == Some(*only));
+                if matches!(
+                    req.spec,
+                    TargetSpec::CardInGraveyard(_, baylee_cards_dsl::PlayerRel::Chosen)
+                ) && wizard.chosen_player.is_none()
+                {
+                    wizard.chosen_player = Some(*only);
+                }
+                GroupNarrow::Ready
+            }
+            _ => {
+                self.pending = Pending::ChoosePlayer {
+                    player: wizard.player,
+                    options: groups,
+                };
+                self.cast_wizard = Some(wizard.clone());
+                self.awaiting_answer = true;
+                GroupNarrow::Yielded
+            }
+        }
+    }
+
     pub(super) fn advance_cast_wizard_inner(&mut self) -> Result<(), EngineError> {
         loop {
             match self.advance_cast_wizard_step() {
@@ -372,7 +433,15 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                     self.cast_wizard = Some(wizard);
                     return WizardStep::Continue;
                 }
-                let options = self.wizard_target_options(&wizard, &spec);
+                let mut options = self.wizard_target_options(&wizard, &spec);
+                let mut wizard = wizard;
+                if matches!(
+                    self.narrow_wizard_same_controller_group(&mut wizard, req, min, &mut options),
+                    GroupNarrow::Yielded
+                ) {
+                    return WizardStep::Yield(Ok(()));
+                }
+                self.cast_wizard = Some(wizard.clone());
                 let player_options = eval::target_player_options_from(
                     &self.state,
                     &spec,
@@ -459,14 +528,24 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 } else {
                     wizard.targets.first().copied()
                 };
-                let options = self.wizard_target_options_relative(&wizard, &req.spec, reference);
+                let mut options =
+                    self.wizard_target_options_relative(&wizard, &req.spec, reference);
+                let (min, max) = req.bounds(wizard.x);
+                let mut wizard = wizard;
+                if matches!(
+                    self.narrow_wizard_same_controller_group(&mut wizard, req, min, &mut options),
+                    GroupNarrow::Yielded
+                ) {
+                    return WizardStep::Yield(Ok(()));
+                }
+                self.cast_wizard = Some(wizard.clone());
                 let player_options = eval::target_player_options_from(
                     &self.state,
                     &req.spec,
                     wizard.player,
                     eval::live_context(&self.state, wizard.card),
                 );
-                if options.len() + player_options.len() < req.min as usize {
+                if options.len() + player_options.len() < min as usize {
                     self.cast_wizard = None;
                     return WizardStep::Yield(Err(EngineError::IllegalAction(
                         "not enough legal targets",
@@ -480,7 +559,6 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                     self.cast_wizard = Some(wizard);
                     return WizardStep::Continue;
                 }
-                let (min, max) = req.bounds(wizard.x);
                 let max = max
                     .min(u32::try_from(options.len() + player_options.len()).unwrap_or(u32::MAX));
                 self.pending = Pending::ChooseTargets {
@@ -506,14 +584,24 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 let reference = is_second
                     .then(|| wizard.clause_first_targets(clause_idx).0)
                     .flatten();
-                let options = self.wizard_target_options_relative(&wizard, &req.spec, reference);
+                let mut options =
+                    self.wizard_target_options_relative(&wizard, &req.spec, reference);
+                let (min, max) = req.bounds(wizard.x);
+                let mut wizard = wizard;
+                if matches!(
+                    self.narrow_wizard_same_controller_group(&mut wizard, req, min, &mut options),
+                    GroupNarrow::Yielded
+                ) {
+                    return WizardStep::Yield(Ok(()));
+                }
+                self.cast_wizard = Some(wizard.clone());
                 let player_options = eval::target_player_options_from(
                     &self.state,
                     &req.spec,
                     wizard.player,
                     eval::live_context(&self.state, wizard.card),
                 );
-                if options.len() + player_options.len() < req.min as usize {
+                if options.len() + player_options.len() < min as usize {
                     self.cast_wizard = None;
                     return WizardStep::Yield(Err(EngineError::IllegalAction(
                         "not enough legal targets",
@@ -528,7 +616,6 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                     self.cast_wizard = Some(wizard);
                     return WizardStep::Continue;
                 }
-                let (min, max) = req.bounds(wizard.x);
                 let max = max
                     .min(u32::try_from(options.len() + player_options.len()).unwrap_or(u32::MAX));
                 let reason = if req.distinct_mana_values {

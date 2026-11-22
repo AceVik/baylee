@@ -14,6 +14,7 @@ pub(crate) struct CostBasis {
     replacement: Option<ManaCost>,
     require_printed_cost: bool,
     allow_prototype: bool,
+    with_flash: bool,
 }
 
 impl CostBasis {
@@ -23,6 +24,7 @@ impl CostBasis {
             replacement: None,
             require_printed_cost: true,
             allow_prototype: true,
+            with_flash: false,
         }
     }
 
@@ -33,7 +35,14 @@ impl CostBasis {
             replacement: Some(cost),
             require_printed_cost: false,
             allow_prototype: false,
+            with_flash: false,
         }
+    }
+
+    /// Allow casting as though the spell had flash (*Aluren*).
+    pub(crate) const fn with_flash(mut self, with_flash: bool) -> Self {
+        self.with_flash = with_flash;
+        self
     }
 }
 
@@ -117,10 +126,18 @@ pub(crate) fn replaced_cost_options(
         return options;
     };
     for (index, face) in def.faces.iter().enumerate() {
+        let flash_ok = basis.with_flash
+            && timing_allows(
+                state,
+                player,
+                TypeSet::INSTANT,
+                baylee_cards_dsl::KeywordSet::EMPTY,
+            )
+            && spell_condition_allows(state, player, card, def, index);
         if face.types.contains(TypeSet::LAND)
             || (index != 0 && !face.castable_from_hand)
             || (basis.require_printed_cost && !has_a_printed_cost(&face.mana_cost))
-            || !face_timing_allows(state, player, card, def, index)
+            || (!flash_ok && !face_timing_allows(state, player, card, def, index))
             || face_is_forbidden(state, player, object, def, index)
         {
             continue;

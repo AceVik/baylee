@@ -370,7 +370,8 @@ fn accumulate_effect(effect: &Effect, ch: &mut EffectChannels) {
         | Effect::RandomGraveyardToHand { .. }
         | Effect::ReturnFromGraveyardOf { .. }
         | Effect::ReanimateEnchanted
-        | Effect::ReturnCraftedTransformed => {
+        | Effect::ReturnCraftedTransformed
+        | Effect::MoveAndModify { blink: false, .. } => {
             ch.reanimate += 1.0;
         }
         Effect::GainLife { amount } | Effect::GainLifeFor { amount, .. } => {
@@ -408,7 +409,8 @@ fn accumulate_effect(effect: &Effect, ch: &mut EffectChannels) {
         | Effect::Cipher
         | Effect::CipherCastEncoded
         | Effect::Champion { .. }
-        | Effect::ReturnChampioned => {
+        | Effect::ReturnChampioned
+        | Effect::MoveAndModify { blink: true, .. } => {
             ch.blink_copy_control += 1.0;
         }
         Effect::AwakenLand { count } => {

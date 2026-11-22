@@ -487,6 +487,7 @@ pub(super) fn exec_immediate(
         | Effect::GraveyardToBattlefieldLinked { .. }
         | Effect::GraveyardToBattlefield { .. }
         | Effect::GraveyardToBattlefieldModified { .. }
+        | Effect::MoveAndModify { .. }
         | Effect::Assimilate { .. }
         | Effect::PutSourceOnTopOfLibrary
         | Effect::BottomCardFromHand { .. }

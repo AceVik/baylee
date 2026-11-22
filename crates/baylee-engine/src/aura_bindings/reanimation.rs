@@ -19,6 +19,8 @@ pub(crate) struct ReanimationFinish {
     pub(crate) returned: DamageSourceRef,
     pub(crate) controller: PlayerId,
     pub(crate) text: TextChangeMap,
+    pub(crate) attach: bool,
+    pub(crate) leave_action: Option<baylee_cards_dsl::SourceLeaveAction>,
 }
 
 /// Change the enchant ability, then return the card currently enchanted.
@@ -86,8 +88,15 @@ pub(crate) fn begin_reanimation(
         returned,
         controller: res.controller,
         text: res.text,
+        attach: true,
+        leave_action: Some(baylee_cards_dsl::SourceLeaveAction::Sacrifice),
     })
 }
+
+const SACRIFICE_EVENT_EFFECTS: &[Effect] = &[Effect::SacrificeEvent];
+const EXILE_EVENT_EFFECTS: &[Effect] = &[Effect::Exile {
+    target: baylee_cards_dsl::TargetSpec::EventObject,
+}];
 
 /// Entry is complete: attempt the attachment and define its delayed trigger.
 /// Protection can prevent the attachment without preventing the return or
@@ -96,35 +105,47 @@ pub(crate) fn finish_reanimation(state: &mut GameState, finish: ReanimationFinis
     if !live_battlefield(state, finish.returned) {
         return;
     }
-    // Record only an actual return, after its entry replacements. Separate
-    // copied triggers retain their own exact incarnation of the creature.
-    state.reanimated_auras.push(ReanimatedAura {
-        aura: finish.aura,
-        returned: Some(finish.returned),
-    });
-    if live_battlefield(state, finish.aura)
-        && live_battlefield(state, finish.returned)
-        && can_attach(state, finish.aura.object, finish.returned.object)
-    {
-        state.attach(finish.aura.object, finish.returned.object);
+    if finish.attach {
+        if state.object(finish.aura.object).is_some_and(|o| {
+            o.characteristics()
+                .subtypes
+                .contains(baylee_core::generated::subtypes::enchantment::AURA)
+        }) {
+            state.reanimated_auras.push(ReanimatedAura {
+                aura: finish.aura,
+                returned: Some(finish.returned),
+            });
+        }
+        if live_battlefield(state, finish.aura)
+            && live_battlefield(state, finish.returned)
+            && can_attach(state, finish.aura.object, finish.returned.object)
+        {
+            state.attach(finish.aura.object, finish.returned.object);
+        }
     }
-    state.delayed.push(DelayedTrigger {
-        controller: finish.controller,
-        when: DelayedWhen::LeavesBattlefield {
-            card: finish.aura.object,
-            version: finish.aura.version,
-            after: state.journal.last_seq(),
-        },
-        action: DelayedAction::TriggerAbout {
-            source: finish.aura.object,
-            source_version: finish.aura.version,
-            effects: &[Effect::SacrificeEvent],
-            text: finish.text,
-            object: finish.returned.object,
-            version: finish.returned.version,
-            subject: None,
-        },
-    });
+    if let Some(leave_action) = finish.leave_action {
+        let effects = match leave_action {
+            baylee_cards_dsl::SourceLeaveAction::Sacrifice => SACRIFICE_EVENT_EFFECTS,
+            baylee_cards_dsl::SourceLeaveAction::Exile => EXILE_EVENT_EFFECTS,
+        };
+        state.delayed.push(DelayedTrigger {
+            controller: finish.controller,
+            when: DelayedWhen::LeavesBattlefield {
+                card: finish.aura.object,
+                version: finish.aura.version,
+                after: state.journal.last_seq(),
+            },
+            action: DelayedAction::TriggerAbout {
+                source: finish.aura.object,
+                source_version: finish.aura.version,
+                effects,
+                text: finish.text,
+                object: finish.returned.object,
+                version: finish.returned.version,
+                subject: None,
+            },
+        });
+    }
 }
 
 /// "That creature's controller sacrifices it" follows the object even if

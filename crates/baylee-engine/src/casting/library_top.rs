@@ -45,6 +45,8 @@ pub(crate) fn library_top_life_open(state: &GameState, player: PlayerId, card: O
 #[must_use]
 pub(crate) fn library_top_spell_open(state: &GameState, player: PlayerId, card: ObjectId) -> bool {
     library_top_life_open(state, player, card)
+        || (state.object(card).is_some_and(|o| o.zone == Zone::Library)
+            && super::alt_cast_zone_spell_open(state, player, card))
 }
 
 /// Mana value of the prospective spell face. X contributes zero to a mana

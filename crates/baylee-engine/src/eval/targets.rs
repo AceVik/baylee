@@ -619,3 +619,45 @@ fn stack_target_options_impl(
         target_player_options_from(state, spec, you, context),
     )
 }
+
+/// The controller (on the battlefield or stack) or zone owner (in any other
+/// zone) that groups objects under [`baylee_cards_dsl::TargetConstraint::SameController`].
+#[must_use]
+pub fn same_controller_group(state: &GameState, id: ObjectId) -> Option<PlayerId> {
+    let obj = state.object(id)?;
+    if matches!(
+        obj.zone,
+        crate::zone::Zone::Battlefield | crate::zone::Zone::Stack
+    ) {
+        Some(obj.controller)
+    } else {
+        obj.zone_owner.or(Some(obj.owner))
+    }
+}
+
+/// Distinct players who have at least `min.max(1)` candidate objects in
+/// `options`, sorted in deterministic [`PlayerId`] order.
+#[must_use]
+pub fn eligible_same_controller_groups(
+    state: &GameState,
+    options: &[ObjectId],
+    min: u32,
+) -> Vec<PlayerId> {
+    let threshold = usize::try_from(min.max(1)).unwrap_or(usize::MAX);
+    let mut counts: smallvec::SmallVec<[(PlayerId, usize); 4]> = smallvec::SmallVec::new();
+    for &id in options {
+        let Some(p) = same_controller_group(state, id) else {
+            continue;
+        };
+        if let Some((_, c)) = counts.iter_mut().find(|(q, _)| *q == p) {
+            *c += 1;
+        } else {
+            counts.push((p, 1));
+        }
+    }
+    counts.sort_unstable_by_key(|(p, _)| *p);
+    counts
+        .into_iter()
+        .filter_map(|(p, c)| (c >= threshold).then_some(p))
+        .collect()
+}

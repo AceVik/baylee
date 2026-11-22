@@ -85,7 +85,9 @@ pub(crate) fn modifier_reads_combat(modifier: baylee_cards_dsl::Modifier) -> boo
     if matches!(modifier, Modifier::ModifyPTByAmount { .. }) {
         return true;
     }
-    if let Modifier::ModifyPTPerCount { filter, .. } = modifier {
+    if let Modifier::ModifyPTPerCount { filter, .. }
+    | Modifier::GainActivatedAbilitiesOf { filter, .. } = modifier
+    {
         return filter_reads_board_state(filter);
     }
     if let Modifier::CharacteristicPTSeparate { power, toughness }
@@ -312,6 +314,7 @@ fn effects_read_crime(effects: &'static [baylee_cards_dsl::Effect]) -> bool {
             Effect::Backup {
                 grant_abilities, ..
             } => grant_abilities.iter().any(ability_reads_crime),
+            Effect::MoveAndModify { modifiers, .. } => modifiers.iter().any(modifier_reads_crime),
             _ => false,
         };
     });
@@ -504,6 +507,14 @@ fn effects_read_expend(effects: &'static [baylee_cards_dsl::Effect]) -> bool {
             Effect::Backup {
                 grant_abilities, ..
             } => grant_abilities.iter().any(ability_reads_expend),
+            Effect::MoveAndModify {
+                counters,
+                modifiers,
+                ..
+            } => {
+                counters.iter().any(|(_, amt)| amount_reads_expend(amt))
+                    || modifiers.iter().any(modifier_reads_expend)
+            }
             _ => false,
         };
     });

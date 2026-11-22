@@ -174,6 +174,7 @@ pub fn locks_its_set(modifier: &Modifier) -> bool {
         | Modifier::GrantActivated { .. }
         | Modifier::GrantActivatedDefinition(_)
         | Modifier::GrantActivatedFromLinkedExile(_)
+        | Modifier::GainActivatedAbilitiesOf { .. }
         | Modifier::GrantStatic { .. }
         | Modifier::GrantTriggered { .. }
         | Modifier::GrantTriggeredUpToOne { .. }
@@ -381,7 +382,8 @@ pub fn locks_its_set(modifier: &Modifier) -> bool {
         | Modifier::CantAttackIfDefenderControls(_)
         | Modifier::CantAttackUnlessYouControlMoreCreaturesThanDefender
         | Modifier::CantBlockUnlessYouControlMoreCreaturesThanAttacker
-        | Modifier::CreatureAbilityManaAnyColor => false,
+        | Modifier::CreatureAbilityManaAnyColor
+        | Modifier::MayCastWithAltCost { .. } => false,
     }
 }
 
@@ -682,7 +684,11 @@ impl EffectTable {
         );
         self.hints.insert_if(
             RuleHints::GRANT_LINKED_EXILE,
-            matches!(fx.modifier, Modifier::GrantActivatedFromLinkedExile(_)),
+            matches!(
+                fx.modifier,
+                Modifier::GrantActivatedFromLinkedExile(_)
+                    | Modifier::GainActivatedAbilitiesOf { .. }
+            ),
         );
         self.hints.insert_if(
             RuleHints::GRANT_ACTIVATED,
@@ -691,6 +697,7 @@ impl EffectTable {
                 Modifier::GrantActivated { .. }
                     | Modifier::GrantActivatedDefinition(_)
                     | Modifier::GrantActivatedFromLinkedExile(_)
+                    | Modifier::GainActivatedAbilitiesOf { .. }
             ),
         );
         self.hints.insert_if(
@@ -760,6 +767,10 @@ impl EffectTable {
                     | Modifier::PlayersCantCast { .. }
                     | Modifier::PlayersCantPlay(_)
                     | Modifier::CantEnterBattlefield(_)
+                    | Modifier::MayCastWithAltCost {
+                        with_flash: true,
+                        ..
+                    }
             ),
         );
         self.hints.insert_if(
@@ -790,6 +801,7 @@ impl EffectTable {
                     | Modifier::GraveyardInstantSorceryOnce
                     | Modifier::GraveyardVampireOnce
                     | Modifier::ExtraLandDrops(_)
+                    | Modifier::MayCastWithAltCost { .. }
             ),
         );
         self.hints.insert_if(
@@ -1110,6 +1122,7 @@ pub fn grants(state: &crate::state::GameState) -> impl Iterator<Item = &Continuo
             Modifier::GrantActivated { .. }
                 | Modifier::GrantActivatedDefinition(_)
                 | Modifier::GrantActivatedFromLinkedExile(_)
+                | Modifier::GainActivatedAbilitiesOf { .. }
         )
     })
 }
@@ -1164,7 +1177,7 @@ fn granted_worded<'a>(
             .for_effect(fx.id)
             .filter_map(move |mut grant| {
                 let obj = obj?;
-                if !applies_to(state, fx, obj) {
+                if grant.origin_donor == Some(source) || !applies_to(state, fx, obj) {
                     return None;
                 }
                 if grant.provenance.is_none() {
@@ -2101,6 +2114,20 @@ mod tests {
             },
             Modifier::SetPowerToCount(baylee_cards_dsl::PtCount::LifeTotal(PlayerRel::You)),
             Modifier::SetToughnessToCount(baylee_cards_dsl::PtCount::PartySize(PlayerRel::You)),
+            Modifier::GainActivatedAbilitiesOf {
+                filter: &Filter::CREATURE,
+                zone: baylee_cards_dsl::AbilityDonorZone::Graveyard(PlayerRel::EachPlayer),
+            },
+            Modifier::MayCastWithAltCost {
+                who: PlayerRel::You,
+                zones: baylee_cards_dsl::AltCastZones::AnyPermitted,
+                grant_zone_permission: false,
+                allow_lands: false,
+                with_flash: false,
+                max_mana_value: None,
+                once_per_turn: true,
+                price: baylee_cards_dsl::AltCastPrice::Mana(baylee_core::mana::ManaCost::ZERO),
+            },
         ]
     }
 
@@ -2139,7 +2166,7 @@ mod tests {
 
         assert_eq!(
             declared.len(),
-            227,
+            229,
             "read {} variants out of the declaration, which is not the enum",
             declared.len()
         );
@@ -2260,7 +2287,9 @@ mod tests {
         // AdditionalVotes modifies voting rules (+1 rules-only -> 165).
         // BecomeTypes, SetPTSeparateToCount, SetPowerToCount, and SetToughnessToCount
         // modify characteristics on Layer::Type / Layer::PtCda (+4 locking -> 62).
-        assert_eq!((locking, all.len() - locking), (62, 165));
+        // GainActivatedAbilitiesOf grants abilities on Layer::Ability (+1 locking -> 63);
+        // MayCastWithAltCost modifies casting/playing rules (+1 rules-only -> 166).
+        assert_eq!((locking, all.len() - locking), (63, 166));
     }
 
     /// An `ObjectId` alone is not an identity: an id is stable for a whole

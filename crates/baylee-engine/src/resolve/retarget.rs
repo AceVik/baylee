@@ -538,10 +538,17 @@ fn can_finish(state: &GameState, retarget: &Retarget, candidate: Aim) -> bool {
             .map(|object| object.characteristics().mana_value()),
         Aim::Player(_) => None,
     };
+    let group_of = |aim: Aim| match aim {
+        Aim::Object(reference) => eval::same_controller_group(state, reference.object),
+        Aim::Player(_) => None,
+    };
+    let same_ctrl = req.constraint() == Some(baylee_cards_dsl::TargetConstraint::SameController);
     let conflicts = |left: Aim, right: Aim| {
         left == right
             || (req.distinct_mana_values
                 && value(left).is_some_and(|mana| value(right) == Some(mana)))
+            || (same_ctrl
+                && group_of(left).is_some_and(|g| group_of(right).is_some_and(|h| g != h)))
     };
     if used.iter().any(|&aim| conflicts(aim, candidate)) {
         return false;

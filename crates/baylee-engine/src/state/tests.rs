@@ -1025,6 +1025,8 @@ fn every_field_that_decides_the_future_moves_the_snapshot_hash() {
                     returned: reference,
                     controller: PlayerId::new(0),
                     text: crate::text_changes::TextChangeMap::IDENTITY,
+                    attach: true,
+                    leave_action: Some(baylee_cards_dsl::SourceLeaveAction::Sacrifice),
                 });
         }),
         ("restriction_info", |s, id| {

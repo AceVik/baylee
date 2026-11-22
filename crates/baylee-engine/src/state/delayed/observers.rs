@@ -82,6 +82,7 @@ mod tests {
             },
             tap_observation: None,
             departure: None,
+            excess_damage: 0,
         }
     }
 
@@ -96,6 +97,7 @@ mod tests {
                 place: None,
             },
             tap_observation: None,
+            excess_damage: 0,
             departure: Some(Box::new(Departure {
                 sacrificed: false,
                 was_attacking: false,
@@ -139,6 +141,7 @@ mod tests {
             },
             tap_observation: None,
             departure: None,
+            excess_damage: 0,
         };
         assert!(!observation.observation_fired(&[untap.clone()], you));
         untap.seq = 11;

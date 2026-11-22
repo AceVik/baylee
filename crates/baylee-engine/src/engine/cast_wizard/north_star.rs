@@ -8,7 +8,10 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
             || wizard.masked
             || wizard.escapes()
             || wizard.permission == Some(casting::GraveyardPermission::Flashback)
-            || matches!(wizard.announced, Some(CastModeKind::LibraryTopLife { .. }))
+            || matches!(
+                wizard.announced,
+                Some(CastModeKind::LibraryTopLife { .. } | CastModeKind::Permission(_))
+            )
         {
             return None;
         }

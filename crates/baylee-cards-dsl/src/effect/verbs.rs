@@ -1424,7 +1424,8 @@ impl Effect {
             | Effect::ReduceNextSpellCost { .. }
             | Effect::Play { .. }
             | Effect::CreateTokenSized { .. }
-            | Effect::PutCountersDivided { .. } => (NONE, NONE),
+            | Effect::PutCountersDivided { .. }
+            | Effect::MoveAndModify { .. } => (NONE, NONE),
             Effect::VoteObjects { if_no_votes, .. } => (NONE, if_no_votes),
         }
     }
