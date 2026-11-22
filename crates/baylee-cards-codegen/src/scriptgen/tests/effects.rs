@@ -4151,7 +4151,6 @@ fn wave19b_filters_addendum_choose_card_reveal_hand_and_token_refusals() {
     // `ChooseCard` `ChoiceZone$ Hand` & non-You `ControlledByPlayer$ Chooser`, `RevealHand` `Look$ True`
     // on non-chosen seat, dynamic `Token.{TokenPower,TokenToughness}`.
     for bad in [
-        "Name:BadModified\nManaCost:1 W\nTypes:Instant\nA:SP$ Destroy | ValidTgts$ Creature.modified",
         "Name:BadWasCastFilter\nManaCost:1 U\nTypes:Instant\nA:SP$ Destroy | ValidTgts$ Creature.wasCast",
         "Name:BadNonXCmcLe\nManaCost:W\nTypes:Sorcery\nA:SP$ ChangeZone | ValidTgts$ Creature.cmcLEX | Origin$ Battlefield | Destination$ Exile\nSVar:X:Count$Valid Plains.YouCtrl",
         "Name:BadNonYouWasCast\nManaCost:3 W\nTypes:Artifact\nT:Mode$ ChangesZone | Origin$ Any | Destination$ Battlefield | ValidCard$ Card.Self | Execute$ D\nSVar:D:DB$ Draw | ConditionDefined$ Self | ConditionPresent$ Card.wasCast\nOracle:When this enters, if it was cast, draw a card.",
@@ -4389,7 +4388,6 @@ fn wave20b_exile_targets_tokens_and_this_way_exiled() {
         "Name:BadTwoSwap\nManaCost:X U\nTypes:Sorcery\nA:SP$ ChangeZone | ValidTgts$ Creature | TargetMin$ X | TargetMax$ X | Origin$ Battlefield | Destination$ Exile | RememberLKI$ True | SubAbility$ R\nSVar:R:DB$ RepeatEach | UseImprinted$ True | DefinedCards$ DirectRemembered | RepeatSubAbility$ T\nSVar:T:DB$ Token | TokenScript$ r_1_1_goblin | TokenOwner$ ImprintedController | TokenAmount$ 2\nSVar:X:Count$xPaid",
         "Name:BadPlaySub\nManaCost:2 R\nTypes:Sorcery\nA:SP$ Play | Defined$ Remembered | SubAbility$ D\nSVar:D:DB$ Draw | NumCards$ 1",
         "Name:BadDynamicTok\nManaCost:X G\nTypes:Sorcery\nA:SP$ Token | TokenScript$ r_1_1_goblin | TokenPower$ X | TokenToughness$ X\nSVar:X:Count$xPaid",
-        "Name:BadModified20b\nManaCost:1 W\nTypes:Instant\nA:SP$ ChangeZone | Origin$ Battlefield | Destination$ Exile | ValidTgts$ Creature.modified",
     ] {
         assert!(refused(bad), "must refuse: {bad}");
     }

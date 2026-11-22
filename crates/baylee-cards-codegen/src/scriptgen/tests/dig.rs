@@ -420,11 +420,11 @@ fn wave18b_dig_library_position_and_dig_until_subability() {
         "{belcher}"
     );
 
-    // Refusal: `DigUntil` with unhandled `RememberFound$ True` -> `Play`.
+    // Refusal: `DigUntil` with `RememberFound$ True` -> `Play` with dynamic `PlayCost$`.
     assert!(refused(
         "Name:BadDigPlay\nManaCost:3 R\nTypes:Sorcery\n\
          A:SP$ DigUntil | Valid$ Card.nonLand | FoundDestination$ Exile | RevealedDestination$ Exile | RememberFound$ True | SubAbility$ DBPlay\n\
-         SVar:DBPlay:DB$ Play | Defined$ Remembered | WithoutManaCost$ True"
+         SVar:DBPlay:DB$ Play | Defined$ Remembered | PlayCost$ PayLife<ConvertedManaCost>"
     ));
 }
 
@@ -588,6 +588,662 @@ fn wave20b_dig_remember_changed_exiled_and_revealed_mana_value() {
     for bad in [
         "Name:BadDigPlay\nManaCost:3 R\nTypes:Sorcery\nA:SP$ Dig | DigNum$ 4 | ChangeNum$ All | DestinationZone$ Exile | RememberChanged$ True | SubAbility$ P\nSVar:P:DB$ Play | Defined$ Remembered",
         "Name:BadUnrevealedDigHand\nManaCost:1 B\nTypes:Sorcery\nA:SP$ Dig | DigNum$ 1 | ChangeNum$ All | ChangeValid$ Card | DestinationZone$ Hand | RememberChanged$ True | SubAbility$ L\nSVar:L:DB$ LoseLife | LifeAmount$ X\nSVar:X:Remembered$CardManaCost",
+    ] {
+        assert!(refused(bad), "must refuse: {bad}");
+    }
+}
+
+#[test]
+fn wave23a_dig_until_standalone_reveal_until_then() {
+    // Multi-hit `Amount$ 4` revealing into graveyard (`SameAsRest`).
+    let mill_four = ability(
+        "Name:GraveDredger\nManaCost:1 U B\nTypes:Sorcery\n\
+         A:SP$ DigUntil | ValidTgts$ Opponent | Amount$ 4 | Valid$ Land | \
+         RevealedDestination$ Graveyard",
+    );
+    assert!(
+        mill_four.contains(
+            "Effect::RevealUntilThen { library: PlayerRel::Chosen, filter: &Filter::LAND, \
+             count: Amount::Fixed(4), max_revealed: None, exile_while_revealing: false, \
+             found: RevealUntilFound::SameAsRest, rest: RevealUntilRest::Graveyard, then: &[] }"
+        ),
+        "{mill_four}"
+    );
+
+    // Dynamic `Amount$ X`, `RestDestination$` alias, `FoundDestination$ Hand`.
+    let dyn_amount = ability(
+        "Name:TideSurveyor\nManaCost:3 U\nTypes:Sorcery\n\
+         A:SP$ DigUntil | Amount$ X | Valid$ Card.nonLand | FoundDestination$ Hand | \
+         RestDestination$ Library | RevealedLibraryPosition$ -1 | RevealRandomOrder$ True\n\
+         SVar:X:Count$Valid Creature.YouCtrl",
+    );
+    assert!(
+        dyn_amount.contains(
+            "count: Amount::CountOf { filter: &Filter::YOUR_CREATURE, zone: ZoneSel::Battlefield }"
+        ) && dyn_amount.contains(
+            "found: RevealUntilFound::Hand, rest: RevealUntilRest::BottomRandom, then: &[]"
+        ),
+        "{dyn_amount}"
+    );
+
+    // `MaxRevealed$ X`, `Tapped$ True`, `GainControl$ True` vs library owner's control.
+    let steal_tapped = ability(
+        "Name:VaultRaider\nManaCost:X 2 B\nTypes:Sorcery\n\
+         A:SP$ DigUntil | ValidTgts$ Opponent | MaxRevealed$ X | Valid$ Creature | \
+         FoundDestination$ Battlefield | Tapped$ True | GainControl$ True | \
+         RevealedDestination$ Graveyard\n\
+         SVar:X:Count$xPaid",
+    );
+    assert!(
+        steal_tapped.contains(
+            "max_revealed: Some(Amount::X), exile_while_revealing: false, \
+             found: RevealUntilFound::Battlefield { tapped: true, under_your_control: true }, \
+             rest: RevealUntilRest::Graveyard"
+        ),
+        "{steal_tapped}"
+    );
+    let owner_ctrl = ability(
+        "Name:SharedOath\nManaCost:2 G\nTypes:Sorcery\n\
+         A:SP$ DigUntil | ValidTgts$ Opponent | Valid$ Creature | \
+         FoundDestination$ Battlefield | RevealedDestination$ Library | \
+         RevealedLibraryPosition$ -1",
+    );
+    assert!(
+        owner_ctrl.contains(
+            "found: RevealUntilFound::Battlefield { tapped: false, under_your_control: false }, \
+             rest: RevealUntilRest::BottomChosenOrder"
+        ),
+        "{owner_ctrl}"
+    );
+}
+
+#[test]
+fn wave23a_dig_until_positions_optional_and_multiseat() {
+    // `FoundLibraryPosition$ 0` (top) and `-1` (same as bottom rest).
+    let top_found = ability(
+        "Name:TopFinder\nManaCost:1 U\nTypes:Sorcery\n\
+         A:SP$ DigUntil | Valid$ Instant | FoundDestination$ Library | \
+         FoundLibraryPosition$ 0 | RevealedDestination$ Graveyard",
+    );
+    assert!(
+        top_found
+            .contains("found: RevealUntilFound::TopOfLibrary, rest: RevealUntilRest::Graveyard"),
+        "{top_found}"
+    );
+    let bottom_found = ability(
+        "Name:BottomFinder\nManaCost:1 U\nTypes:Sorcery\n\
+         A:SP$ DigUntil | Valid$ Instant | FoundDestination$ Library | \
+         FoundLibraryPosition$ -1 | RevealedDestination$ Library | \
+         RevealedLibraryPosition$ -1 | RevealRandomOrder$ True",
+    );
+    assert!(
+        bottom_found
+            .contains("found: RevealUntilFound::SameAsRest, rest: RevealUntilRest::BottomRandom"),
+        "{bottom_found}"
+    );
+
+    // `RevealOptional$ True` wraps in `Effect::MayDo`.
+    let opt_reveal = ability(
+        "Name:CoyOracle\nManaCost:1 G\nTypes:Sorcery\n\
+         A:SP$ DigUntil | RevealOptional$ True | Valid$ Land | FoundDestination$ Hand | \
+         RevealedDestination$ Library | RevealedLibraryPosition$ -1 | RevealRandomOrder$ True",
+    );
+    assert!(
+        opt_reveal.contains("Effect::MayDo { effects: &[Effect::RevealUntilThen {"),
+        "{opt_reveal}"
+    );
+
+    // `OptionalFoundMove$ True` with `Shuffle$ True` (non-Aura) -> `StayInLibrary` + `MayDo(MoveAndModify)` + `ShuffleLibrary`.
+    let opt_move = ability(
+        "Name:ShrineSpirit\nManaCost:3 G\nTypes:Creature Spirit\nPT:3/3\n\
+         T:Mode$ ChangesZone | Origin$ Any | Destination$ Battlefield | ValidCard$ Card.Self | Execute$ TrigDig\n\
+         SVar:TrigDig:DB$ DigUntil | Valid$ Artifact | FoundDestination$ Battlefield | \
+         OptionalFoundMove$ True | RevealedDestination$ Library | Shuffle$ True",
+    );
+    assert!(
+        opt_move.contains(
+            "found: RevealUntilFound::StayInLibrary, rest: RevealUntilRest::StayInLibrary"
+        ) && opt_move.contains("Effect::MayDo { effects: &[Effect::MoveAndModify {")
+            && opt_move.contains("duration: Duration::Indefinitely")
+            && opt_move.contains("Effect::ShuffleLibrary { who: PlayerRel::You }"),
+        "{opt_move}"
+    );
+
+    // Multi-seat `Defined$ Opponent` wraps single-seat `RevealUntilThen` in `Effect::RepeatEach`.
+    let each_opp = ability(
+        "Name:GroupMill\nManaCost:2 U B\nTypes:Sorcery\n\
+         A:SP$ DigUntil | Defined$ Opponent | Amount$ 2 | Valid$ Land | \
+         RevealedDestination$ Graveyard",
+    );
+    assert!(
+        each_opp.contains(
+            "Effect::RepeatEach { domain: RepeatDomain::EachOpponent, effects: &[Effect::RevealUntilThen { \
+             library: PlayerRel::EventPlayer,"
+        ),
+        "{each_opp}"
+    );
+}
+
+#[test]
+fn wave23a_dig_until_remember_found_and_revealed_chains() {
+    // Hoisted `ValidTgts$` + `DealDamage` equal to found card's mana value.
+    let mv_burn = ability(
+        "Name:ArcaneSpark\nManaCost:2 R\nTypes:Sorcery\n\
+         A:SP$ DigUntil | Valid$ Card.nonLand | RevealedDestination$ Library | \
+         RevealedLibraryPosition$ -1 | RevealRandomOrder$ True | RememberFound$ True | \
+         SubAbility$ DBDmg\n\
+         SVar:DBDmg:DB$ DealDamage | ValidTgts$ Any | NumDmg$ X | SubAbility$ DBClean\n\
+         SVar:DBClean:DB$ Cleanup | ClearRemembered$ True\n\
+         SVar:X:Remembered$CardManaCost",
+    );
+    assert!(
+        mv_burn.contains("targets = Some(TargetReq::one(TargetSpec::AnyTarget))")
+            && mv_burn.contains(
+                "then: &[Effect::DealDamage { amount: Amount::EventManaValue, \
+                 target: TargetSpec::AnyTarget }]"
+            ),
+        "{mv_burn}"
+    );
+
+    // Hoisted `ValidTgts$ Creature` + `+X/-X` (`Amount::Negated(&Amount::EventManaValue)`).
+    let mv_mut = ability(
+        "Name:WildShift\nManaCost:2 U\nTypes:Instant\n\
+         A:SP$ DigUntil | Valid$ Card.nonLand | RevealedDestination$ Library | \
+         RevealedLibraryPosition$ -1 | RevealRandomOrder$ True | RememberFound$ True | \
+         SubAbility$ DBPump\n\
+         SVar:DBPump:DB$ Pump | ValidTgts$ Creature | NumAtt$ +X | NumDef$ -X | SubAbility$ DBClean\n\
+         SVar:DBClean:DB$ Cleanup | ClearRemembered$ True\n\
+         SVar:X:Remembered$CardManaCost",
+    );
+    assert!(
+        mv_mut.contains(
+            "Effect::PumpTarget { power: Amount::EventManaValue, \
+             toughness: Amount::Negated(&Amount::EventManaValue)"
+        ),
+        "{mv_mut}"
+    );
+
+    // Untargeted `Pump | Defined$ Self` uses `PumpTargetSlot { slot: TargetSlot::This, .. }`.
+    let self_pump = ability(
+        "Name:ChaosTinker\nManaCost:2 R\nTypes:Creature Goblin\nPT:2/2\n\
+         A:AB$ DigUntil | Cost$ 2 R | Valid$ Card.nonLand | RevealedDestination$ Library | \
+         RevealedLibraryPosition$ -1 | RevealRandomOrder$ True | RememberFound$ True | \
+         SubAbility$ DBPump\n\
+         SVar:DBPump:DB$ Pump | Defined$ Self | NumAtt$ +X | SubAbility$ DBClean\n\
+         SVar:DBClean:DB$ Cleanup | ClearRemembered$ True\n\
+         SVar:X:Remembered$CardManaCost",
+    );
+    assert!(
+        self_pump.contains(
+            "Effect::PumpTargetSlot { slot: TargetSlot::This, power: Amount::EventManaValue, \
+             toughness: Amount::Fixed(0), keywords: KeywordSet::EMPTY, duration: Duration::UntilEndOfTurn }"
+        ),
+        "{self_pump}"
+    );
+
+    // `MaxRevealed$ X` + `Sacrifice` gated by `Remembered$Amount == 1` -> `Effect::SacrificeSelf`.
+    let dissect = ability(
+        "Name:MindProbe\nManaCost:4\nTypes:Artifact\n\
+         A:AB$ DigUntil | Cost$ X T | ValidTgts$ Opponent | MaxRevealed$ X | Valid$ Artifact | \
+         FoundDestination$ Battlefield | GainControl$ True | RevealedDestination$ Graveyard | \
+         RememberFound$ True | SubAbility$ DBSac\n\
+         SVar:DBSac:DB$ Sacrifice | ConditionCheckSVar$ Found | ConditionSVarCompare$ EQ1 | SubAbility$ DBClean\n\
+         SVar:DBClean:DB$ Cleanup | ClearRemembered$ True\n\
+         SVar:X:Count$xPaid\n\
+         SVar:Found:Remembered$Amount",
+    );
+    assert!(
+        dissect.contains("max_revealed: Some(Amount::X)")
+            && dissect.contains("then: &[Effect::SacrificeSelf]"),
+        "{dissect}"
+    );
+
+    // `ImmediateTrigger` reading `Remembered$CardManaCost` -> `Effect::ReflexiveTrigger`.
+    let blast = ability(
+        "Name:FluxVolley\nManaCost:2 R\nTypes:Instant\n\
+         A:SP$ DigUntil | Valid$ Card.nonLand | RevealedDestination$ Library | \
+         RevealedLibraryPosition$ -1 | RevealRandomOrder$ True | RememberFound$ True | \
+         SubAbility$ DBTrig\n\
+         SVar:DBTrig:DB$ ImmediateTrigger | ConditionDefined$ Remembered | \
+         ConditionPresent$ Card.nonLand | Execute$ TrigDmg | SubAbility$ DBClean\n\
+         SVar:TrigDmg:DB$ DealDamage | ValidTgts$ Any | NumDmg$ X\n\
+         SVar:DBClean:DB$ Cleanup | ClearRemembered$ True\n\
+         SVar:X:Remembered$CardManaCost",
+    );
+    assert!(
+        blast.contains(
+            "Effect::ReflexiveTrigger { when: ReflexiveWhen::Always, once: true, \
+             condition: None, targets: Some(TargetReq::one(TargetSpec::AnyTarget)), \
+             remember: TriggerRemember::EventObject, \
+             effects: &[Effect::DealDamage { amount: Amount::EventManaValue, \
+             target: TargetSpec::AnyTarget }] }"
+        ),
+        "{blast}"
+    );
+}
+
+#[test]
+fn wave23a_dig_until_play_and_exile_permission_chains() {
+    // `Play` + Exile->Hand uncast fallback.
+    let storm_play = ability(
+        "Name:StormRift\nManaCost:4 R\nTypes:Enchantment\n\
+         T:Mode$ ChangesZone | Origin$ Any | Destination$ Battlefield | ValidCard$ Card.Self | Execute$ TrigDig\n\
+         SVar:TrigDig:DB$ DigUntil | Valid$ Card.nonLand | FoundDestination$ Exile | \
+         RevealedDestination$ Library | RevealedLibraryPosition$ -1 | RevealRandomOrder$ True | \
+         RememberFound$ True | SubAbility$ DBPlay\n\
+         SVar:DBPlay:DB$ Play | Defined$ Remembered | WithoutManaCost$ True | Optional$ True | \
+         ValidSA$ Spell.cmcLE6 | SubAbility$ DBHand\n\
+         SVar:DBHand:DB$ ChangeZone | Defined$ Remembered | Origin$ Exile | Destination$ Hand | \
+         SubAbility$ DBClean\n\
+         SVar:DBClean:DB$ Cleanup | ClearRemembered$ True",
+    );
+    assert!(
+        storm_play.contains("Effect::Play { source: PlaySource::Subject(TargetSpec::EventObject)")
+            && storm_play.contains("cost: PlayCostMode::WithoutPayingManaCost, cast_only: true")
+            && storm_play.contains("Effect::ReturnToHand { target: TargetSpec::EventObject }"),
+        "{storm_play}"
+    );
+
+    // `NoMoveRevealed$ True` -> `Play` -> `Shuffle`.
+    let shift_play = ability(
+        "Name:SpellWeave\nManaCost:3 U\nTypes:Instant\n\
+         A:SP$ DigUntil | Valid$ Instant | NoMoveRevealed$ True | RememberFound$ True | \
+         SubAbility$ DBPlay\n\
+         SVar:DBPlay:DB$ Play | Defined$ Remembered | WithoutManaCost$ True | Optional$ True | \
+         SubAbility$ DBShuf\n\
+         SVar:DBShuf:DB$ Shuffle | Defined$ You | SubAbility$ DBClean\n\
+         SVar:DBClean:DB$ Cleanup | ClearRemembered$ True",
+    );
+    assert!(
+        shift_play.contains(
+            "found: RevealUntilFound::StayInLibrary, rest: RevealUntilRest::StayInLibrary"
+        ) && shift_play
+            .contains("Effect::Play { source: PlaySource::Subject(TargetSpec::EventObject)")
+            && shift_play.contains("Effect::ShuffleLibrary { who: PlayerRel::You }"),
+        "{shift_play}"
+    );
+
+    // `FoundDestination$ Exile` -> `DB$ Effect` (`ThisTurn` on spell, `UntilHostLeavesPlay` on permanent).
+    let stolen = ability(
+        "Name:LiftedSpoils\nManaCost:3 U\nTypes:Sorcery\n\
+         A:SP$ DigUntil | ValidTgts$ Opponent | Valid$ Card.nonLand | FoundDestination$ Exile | \
+         RevealedDestination$ Library | RevealedLibraryPosition$ -1 | RevealRandomOrder$ True | \
+         RememberFound$ True | SubAbility$ DBEff\n\
+         SVar:DBEff:DB$ Effect | RememberObjects$ Remembered | StaticAbilities$ STPlay | \
+         ForgetOnMoved$ Exile | SubAbility$ DBClean\n\
+         SVar:STPlay:Mode$ Continuous | Affected$ Card.IsRemembered | AffectedZone$ Exile | \
+         MayPlay$ True | MayPlayWithoutManaCost$ True\n\
+         SVar:DBClean:DB$ Cleanup | ClearRemembered$ True",
+    );
+    assert!(
+        stolen.contains("found: RevealUntilFound::ExileLinked")
+            && stolen.contains(
+                "Effect::GrantLinkedExilePermission { \
+                 permission: ExilePermission::play(PlayWindow::ThisTurn).without_paying_mana_cost() }"
+            ),
+        "{stolen}"
+    );
+
+    let host_play = ability(
+        "Name:TimelessChronicle\nManaCost:3 R W\nTypes:Enchantment\n\
+         T:Mode$ Phase | Phase$ Upkeep | ValidPlayer$ You | TriggerZones$ Battlefield | Execute$ TrigDig\n\
+         SVar:TrigDig:DB$ DigUntil | Defined$ You | Valid$ Card.Legendary | \
+         FoundDestination$ Exile | RevealedDestination$ Exile | RememberRevealed$ True | \
+         ImprintFound$ True | SubAbility$ DBEff\n\
+         SVar:DBEff:DB$ Effect | StaticAbilities$ STPlay | RememberObjects$ Imprinted | \
+         Duration$ UntilHostLeavesPlay | ForgetOnMoved$ Exile | SubAbility$ DBRest\n\
+         SVar:STPlay:Mode$ Continuous | Affected$ Card.IsRemembered | AffectedZone$ Exile | \
+         MayPlay$ True\n\
+         SVar:DBRest:DB$ ChangeZoneAll | ChangeType$ Card.IsRemembered+!IsImprinted | \
+         Origin$ Exile | Destination$ Library | LibraryPosition$ -1 | RandomOrder$ True | \
+         SubAbility$ DBClean\n\
+         SVar:DBClean:DB$ Cleanup | ClearRemembered$ True | ClearImprinted$ True",
+    );
+    assert!(
+        host_play.contains("exile_while_revealing: true, found: RevealUntilFound::ExileLinked, rest: RevealUntilRest::BottomRandom")
+            && host_play.contains(
+                "Effect::GrantLinkedExilePermission { \
+                 permission: ExilePermission::play(PlayWindow::WhileSourceOnBattlefield) }"
+            ),
+        "{host_play}"
+    );
+}
+
+#[test]
+fn wave23a_dig_until_exile_move_revealed_count_and_repeat_composition() {
+    // `exile_while_revealing` -> `ChangeZone` Exile->Battlefield + `ChangeZoneAll` rest to bottom.
+    let starrix = ability(
+        "Name:ExileSurge\nManaCost:4 G\nTypes:Sorcery\n\
+         A:SP$ DigUntil | Amount$ 2 | Valid$ Permanent | FoundDestination$ Exile | \
+         RevealedDestination$ Exile | RememberRevealed$ True | ImprintFound$ True | \
+         SubAbility$ DBPut\n\
+         SVar:DBPut:DB$ ChangeZone | Defined$ Imprinted | Origin$ Exile | Destination$ Battlefield | \
+         SubAbility$ DBRest\n\
+         SVar:DBRest:DB$ ChangeZoneAll | ChangeType$ Card.IsRemembered+!IsImprinted | \
+         Origin$ Exile | Destination$ Library | LibraryPosition$ -1 | RandomOrder$ True | \
+         SubAbility$ DBClean\n\
+         SVar:DBClean:DB$ Cleanup | ClearRemembered$ True | ClearImprinted$ True",
+    );
+    assert!(
+        starrix.contains(
+            "exile_while_revealing: true, \
+             found: RevealUntilFound::Battlefield { tapped: false, under_your_control: true }, \
+             rest: RevealUntilRest::BottomRandom, then: &[]"
+        ),
+        "{starrix}"
+    );
+
+    // `RememberFound$ True` -> unconditional trailing `Clash` (outside `then`).
+    let recross = ability(
+        "Name:PathClash\nManaCost:2 G\nTypes:Sorcery\n\
+         A:SP$ DigUntil | Valid$ Land | FoundDestination$ Battlefield | \
+         RevealedDestination$ Library | RevealedLibraryPosition$ -1 | RevealRandomOrder$ True | \
+         RememberFound$ True | SubAbility$ DBClash\n\
+         SVar:DBClash:DB$ Clash | WinSubAbility$ DBDraw\n\
+         SVar:DBDraw:DB$ Draw | NumCards$ 1",
+    );
+    assert!(recross.contains("then: &[] }, Effect::Clash"), "{recross}");
+
+    // `RememberRevealed$ True` -> `DealDamage` reading `Remembered$Amount` -> `ThisWay::Revealed`.
+    let madcap = ability(
+        "Name:AetherGamble\nManaCost:3 R\nTypes:Sorcery\n\
+         A:SP$ DigUntil | Valid$ Artifact | FoundDestination$ Battlefield | \
+         RevealedDestination$ Library | RevealedLibraryPosition$ -1 | RevealRandomOrder$ True | \
+         RememberRevealed$ True | SubAbility$ DBDmg\n\
+         SVar:DBDmg:DB$ DealDamage | Defined$ You | NumDmg$ X | SubAbility$ DBClean\n\
+         SVar:DBClean:DB$ Cleanup | ClearRemembered$ True\n\
+         SVar:X:Remembered$Amount",
+    );
+    assert!(
+        madcap.contains("then: &[] }, Effect::DealDamage { amount: Amount::ThisWay(ThisWay::Revealed(&Filter::Any)), target: TargetSpec::Player(PlayerRel::You) }"),
+        "{madcap}"
+    );
+
+    // Composition: multi-hit `RevealUntilThen` -> `RepeatEachObject { only_found: true }`.
+    let composed = ability(
+        "Name:DoubleCastDig\nManaCost:5 R\nTypes:Sorcery\n\
+         A:SP$ DigUntil | Amount$ 2 | Valid$ Card.nonLand | FoundDestination$ Exile | \
+         RevealedDestination$ Library | RevealedLibraryPosition$ -1 | RevealRandomOrder$ True | \
+         RememberFound$ True | SubAbility$ DBRep\n\
+         SVar:DBRep:DB$ RepeatEach | RepeatCards$ Card.IsRemembered | Zone$ Exile | \
+         RepeatSubAbility$ DBPlay | SubAbility$ DBClean\n\
+         SVar:DBPlay:DB$ Play | Defined$ Remembered | WithoutManaCost$ True | Optional$ True\n\
+         SVar:DBClean:DB$ Cleanup | ClearRemembered$ True",
+    );
+    assert!(
+        composed.contains("count: Amount::Fixed(2)")
+            && composed.contains(
+                "Effect::RepeatEachObject { zone: ZoneSel::ExileAll, filter: &Filter::Any, \
+                 only_found: true, then: &[Effect::Play {"
+            ),
+        "{composed}"
+    );
+}
+
+#[test]
+fn wave23a_repeat_each_object_and_two_piles() {
+    // Non-battlefield `Zone$` variants: ExileAll, LinkedExile, GraveyardYou/Opponents/Chosen/All,
+    // HandYou/Chosen/EachOpponent, LibraryYou/Chosen.
+    let exile_all = ability(
+        "Name:ExileSweeper\nManaCost:3 U\nTypes:Sorcery\n\
+         A:SP$ RepeatEach | RepeatCards$ Card | Zone$ Exile | RepeatSubAbility$ DBPlay\n\
+         SVar:DBPlay:DB$ Play | Defined$ Remembered | WithoutManaCost$ True | Optional$ True",
+    );
+    assert!(
+        exile_all.contains("Effect::RepeatEachObject { zone: ZoneSel::ExileAll,"),
+        "{exile_all}"
+    );
+
+    let linked_exile = ability(
+        "Name:VaultRelease\nManaCost:3\nTypes:Artifact\n\
+         A:AB$ RepeatEach | Cost$ T | RepeatCards$ Card.ExiledWithSource | Zone$ Exile | RepeatSubAbility$ DBPlay\n\
+         SVar:DBPlay:DB$ Play | Defined$ Remembered | WithoutManaCost$ True | Optional$ True",
+    );
+    assert!(
+        linked_exile.contains("Effect::RepeatEachObject { zone: ZoneSel::LinkedExile,"),
+        "{linked_exile}"
+    );
+
+    let gy_you = ability(
+        "Name:CryptSweep\nManaCost:2 B\nTypes:Sorcery\n\
+         A:SP$ RepeatEach | RepeatCards$ Creature.YouOwn | Zone$ Graveyard | RepeatSubAbility$ DBRet\n\
+         SVar:DBRet:DB$ ChangeZone | Defined$ Remembered | Origin$ Graveyard | Destination$ Hand",
+    );
+    assert!(
+        gy_you.contains("Effect::RepeatEachObject { zone: ZoneSel::GraveyardYou,"),
+        "{gy_you}"
+    );
+
+    let gy_chosen = ability(
+        "Name:TombPurge\nManaCost:2 B\nTypes:Sorcery\n\
+         A:SP$ RepeatEach | ValidTgts$ Player | RepeatCards$ Artifact.TargetedPlayerOwn | \
+         Zone$ Graveyard | RepeatSubAbility$ DBRet\n\
+         SVar:DBRet:DB$ ChangeZone | Defined$ Remembered | Origin$ Graveyard | Destination$ Library | LibraryPosition$ -1",
+    );
+    assert!(
+        gy_chosen
+            .contains("Effect::RepeatEachObject { zone: ZoneSel::GraveyardOf(PlayerRel::Chosen),"),
+        "{gy_chosen}"
+    );
+
+    let hand_opp = ability(
+        "Name:ThoughtRake\nManaCost:3 B\nTypes:Sorcery\n\
+         A:SP$ RepeatEach | RepeatCards$ Card.OppOwn | Zone$ Hand | RepeatSubAbility$ DBPlay\n\
+         SVar:DBPlay:DB$ Play | Defined$ Remembered | Optional$ True",
+    );
+    assert!(
+        hand_opp
+            .contains("Effect::RepeatEachObject { zone: ZoneSel::HandOf(PlayerRel::EachOpponent),"),
+        "{hand_opp}"
+    );
+
+    let lib_you = ability(
+        "Name:LibrarySift\nManaCost:2 U\nTypes:Sorcery\n\
+         A:SP$ RepeatEach | RepeatCards$ Card.YouOwn | Zone$ Library | RepeatSubAbility$ DBPlay\n\
+         SVar:DBPlay:DB$ Play | Defined$ Remembered | WithoutManaCost$ True | Optional$ True",
+    );
+    assert!(
+        lib_you.contains("Effect::RepeatEachObject { zone: ZoneSel::LibraryYou,"),
+        "{lib_you}"
+    );
+}
+
+#[test]
+fn wave23a_repeat_each_object_copy_damage_nested_and_two_piles() {
+    // `UseImprinted$ True` + `CopyPermanent | RememberTokens$ True` + `DelayedTrigger` (`EndCombat` Exile).
+    let mirror_copy = ability(
+        "Name:CombatMirage\nManaCost:4 R\nTypes:Creature Monk\nPT:3/3\n\
+         T:Mode$ Attacks | ValidCard$ Card.Self | Execute$ TrigRep\n\
+         SVar:TrigRep:DB$ RepeatEach | RepeatCards$ Creature.YouCtrl+modified | UseImprinted$ True | \
+         RepeatSubAbility$ DBCopy | SubAbility$ DBDel\n\
+         SVar:DBCopy:DB$ CopyPermanent | Defined$ Imprinted | TokenTapped$ True | \
+         TokenAttacking$ True | RememberTokens$ True\n\
+         SVar:DBDel:DB$ DelayedTrigger | Mode$ Phase | Phase$ EndCombat | \
+         RememberObjects$ Remembered | Execute$ DBExile | SubAbility$ DBClean\n\
+         SVar:DBExile:DB$ ChangeZone | Origin$ Battlefield | Destination$ Exile | \
+         Defined$ DelayTriggerRemembered\n\
+         SVar:DBClean:DB$ Cleanup | ClearRemembered$ True | ClearImprinted$ True",
+    );
+    assert!(
+        mirror_copy.contains("Effect::RepeatEachObject { zone: ZoneSel::Battlefield, filter: &Filter::YOUR_MODIFIED_CREATURE")
+            && mirror_copy.contains("Effect::CreateTokenCopy { target: TargetSpec::EventObject, controller: PlayerRel::You")
+            && mirror_copy.contains("tapped: true, attacking: true, haste_until_eot: false, cleanup: CopyCleanup::ExileAtEndOfCombat }"),
+        "{mirror_copy}"
+    );
+
+    // `CopyPermanent` with `Controller$ RememberedController` -> `PlayerRel::EventPlayer`.
+    let parallel_copy = ability(
+        "Name:TokenEcho\nManaCost:3 G G\nTypes:Sorcery\n\
+         A:SP$ RepeatEach | RepeatCards$ Creature.token | RepeatSubAbility$ DBCopy\n\
+         SVar:DBCopy:DB$ CopyPermanent | Defined$ Remembered | Controller$ RememberedController",
+    );
+    assert!(
+        parallel_copy.contains(
+            "Effect::CreateTokenCopy { target: TargetSpec::EventObject, \
+             controller: PlayerRel::EventPlayer,"
+        ),
+        "{parallel_copy}"
+    );
+
+    // `DamageMap$ True` + `DealDamage | DamageSource$ Remembered` -> `EventObjectDealsDamage`.
+    let charm_dmg = ability(
+        "Name:ReboundHex\nManaCost:B R\nTypes:Instant\n\
+         A:SP$ RepeatEach | RepeatCards$ Creature | DamageMap$ True | RepeatSubAbility$ DBDmg\n\
+         SVar:DBDmg:DB$ DealDamage | Defined$ RememberedController | DamageSource$ Remembered | NumDmg$ 1",
+    );
+    assert!(
+        charm_dmg.contains(
+            "Effect::RepeatEachObject { zone: ZoneSel::Battlefield, filter: &Filter::CREATURE, \
+             only_found: false, then: &[Effect::EventObjectDealsDamage { amount: Amount::Fixed(1), \
+             target: TargetSpec::Player(PlayerRel::EventPlayer) }] }"
+        ),
+        "{charm_dmg}"
+    );
+
+    // `ShowCurrentCard$ Remembered` UI prose stripped cleanly.
+    let cut_tethers = ability(
+        "Name:TetherSnap\nManaCost:2 U\nTypes:Sorcery\n\
+         A:SP$ RepeatEach | RepeatCards$ Creature | RepeatSubAbility$ DBBounce\n\
+         SVar:DBBounce:DB$ ChangeZone | Defined$ Remembered | Origin$ Battlefield | \
+         Destination$ Hand | ShowCurrentCard$ Remembered | UnlessCost$ 2 | \
+         UnlessPayer$ RememberedController",
+    );
+    assert!(
+        cut_tethers.contains(
+            "Effect::RepeatEachObject { zone: ZoneSel::Battlefield, filter: &Filter::CREATURE"
+        ),
+        "{cut_tethers}"
+    );
+
+    // Nested `RepeatPlayers$ Player` -> `RepeatCards$ Creature.RememberedPlayerCtrl`.
+    let fade_tax = ability(
+        "Name:FadingTax\nManaCost:2 U\nTypes:Sorcery\n\
+         A:SP$ RepeatEach | RepeatPlayers$ Player | RepeatSubAbility$ DBEach\n\
+         SVar:DBEach:DB$ RepeatEach | RepeatCards$ Creature.RememberedPlayerCtrl | \
+         RepeatSubAbility$ DBSac\n\
+         SVar:DBSac:DB$ Sacrifice | Defined$ Player.IsRemembered | SacValid$ Permanent | \
+         UnlessCost$ 1 | UnlessPayer$ Player.IsRemembered",
+    );
+    assert!(
+        fade_tax.contains(
+            "Effect::RepeatEachObject { zone: ZoneSel::Battlefield, filter: &Filter::CREATURE, only_found: false,"
+        ),
+        "{fade_tax}"
+    );
+
+    // `PeekAndReveal` -> `TwoPiles` (*Fact or Fiction* shape) -> `Effect::RevealAndSeparate { count }`.
+    let fof = ability(
+        "Name:TwinPiles\nManaCost:3 U\nTypes:Instant\n\
+         A:SP$ PeekAndReveal | NoPeek$ True | RememberRevealed$ True | PeekAmount$ 5 | \
+         SubAbility$ DBTwo\n\
+         SVar:DBTwo:DB$ TwoPiles | Defined$ You | DefinedCards$ Remembered | \
+         Separator$ Opponent | Chooser$ You | ChosenPile$ DBHand | UnchosenPile$ DBGrave | \
+         SubAbility$ DBClean\n\
+         SVar:DBHand:DB$ ChangeZone | Defined$ Remembered | Origin$ Library | Destination$ Hand\n\
+         SVar:DBGrave:DB$ ChangeZone | Defined$ Remembered | Origin$ Library | Destination$ Graveyard\n\
+         SVar:DBClean:DB$ Cleanup | ClearRemembered$ True",
+    );
+    assert!(
+        fof.contains("Effect::RevealAndSeparate { count: 5 }"),
+        "{fof}"
+    );
+}
+
+#[test]
+fn wave23a_refusal_edge_cases() {
+    for bad in [
+        // Planechase / non-Paper `DigZone$ PlanarDeck`.
+        "Name:BadPlanarDig\nManaCost:2 U\nTypes:Sorcery\n\
+         A:SP$ DigUntil | DigZone$ PlanarDeck | Valid$ Plane | FoundDestination$ Command",
+        // Unmodelled `MinTotalCMC$`, `Attacking$`, `AttachedTo$`.
+        "Name:BadMinCmc\nManaCost:4 R\nTypes:Sorcery\n\
+         A:SP$ DigUntil | Valid$ Card | MinTotalCMC$ 5 | FoundDestination$ Exile | RevealedDestination$ Exile",
+        "Name:BadAttackingDig\nManaCost:4 R\nTypes:Sorcery\n\
+         A:SP$ DigUntil | Valid$ Creature | FoundDestination$ Battlefield | Attacking$ True | RevealedDestination$ Library | RevealedLibraryPosition$ -1",
+        "Name:BadAttachedDig\nManaCost:3 W\nTypes:Sorcery\n\
+         A:SP$ DigUntil | Valid$ Aura | FoundDestination$ Battlefield | AttachedTo$ Self | RevealedDestination$ Library | RevealedLibraryPosition$ -1",
+        // `Optional$ True` on non-controller library.
+        "Name:BadOppOptional\nManaCost:2 U\nTypes:Sorcery\n\
+         A:SP$ DigUntil | ValidTgts$ Opponent | Optional$ True | Valid$ Land | RevealedDestination$ Graveyard",
+        // `OptionalFoundMove$ True` with bottom-random rest or Aura.
+        "Name:BadOptBottom\nManaCost:3 G\nTypes:Sorcery\n\
+         A:SP$ DigUntil | Valid$ Creature | FoundDestination$ Battlefield | OptionalFoundMove$ True | \
+         RevealedDestination$ Library | RevealedLibraryPosition$ -1 | RevealRandomOrder$ True",
+        "Name:BadOptAura\nManaCost:3 W\nTypes:Sorcery\n\
+         A:SP$ DigUntil | Valid$ Aura | FoundDestination$ Battlefield | OptionalFoundMove$ True | \
+         RevealedDestination$ Library | Shuffle$ True",
+        // `RememberFound$ + RememberRevealed$` -> `Play` -> `ChangeZoneAll` rest to bottom
+        // (uncast found card must randomize with rest).
+        "Name:BadChaosWand\nManaCost:4\nTypes:Artifact\n\
+         A:AB$ DigUntil | Cost$ 4 T | ValidTgts$ Opponent | Valid$ Instant,Sorcery | \
+         FoundDestination$ Exile | RevealedDestination$ Exile | RememberFound$ True | \
+         RememberRevealed$ True | SubAbility$ DBPlay\n\
+         SVar:DBPlay:DB$ Play | Defined$ Remembered | WithoutManaCost$ True | Optional$ True | SubAbility$ DBRest\n\
+         SVar:DBRest:DB$ ChangeZoneAll | ChangeType$ Card.IsRemembered | Origin$ Exile | Destination$ Library | LibraryPosition$ -1 | RandomOrder$ True",
+        // `DB$ Effect` `ThisTurn` permission on a permanent (would refresh prior turns' linked cards).
+        "Name:BadPermThisTurn\nManaCost:3 R\nTypes:Artifact\n\
+         A:AB$ DigUntil | Cost$ 2 T | Valid$ Card.nonLand | FoundDestination$ Exile | \
+         RevealedDestination$ Library | RevealedLibraryPosition$ -1 | RevealRandomOrder$ True | \
+         RememberFound$ True | SubAbility$ DBEff\n\
+         SVar:DBEff:DB$ Effect | RememberObjects$ Remembered | StaticAbilities$ STPlay | ForgetOnMoved$ Exile | SubAbility$ DBClean\n\
+         SVar:STPlay:Mode$ Continuous | Affected$ Card.IsRemembered | AffectedZone$ Exile | MayPlay$ True\n\
+         SVar:DBClean:DB$ Cleanup | ClearRemembered$ True",
+        // Multi-seat `DigUntil` with `RememberFound$ True` -> `Play` (pooled multi-seat cast).
+        "Name:BadMultiSeatPlay\nManaCost:5 R\nTypes:Sorcery\n\
+         A:SP$ DigUntil | Defined$ Opponent | Valid$ Card.nonLand | FoundDestination$ Exile | \
+         RevealedDestination$ Library | RevealedLibraryPosition$ -1 | RevealRandomOrder$ True | \
+         RememberFound$ True | SubAbility$ DBPlay\n\
+         SVar:DBPlay:DB$ Play | Defined$ Remembered | WithoutManaCost$ True | Optional$ True",
+        // `FoundLibraryPosition$ -1` with non-bottom rest.
+        "Name:BadFoundBottomGyRest\nManaCost:2 U\nTypes:Sorcery\n\
+         A:SP$ DigUntil | Valid$ Land | FoundDestination$ Library | FoundLibraryPosition$ -1 | \
+         RevealedDestination$ Graveyard",
+        // `RepeatEach`: multi-zone, `ChooseOrder$`, standalone `IsRemembered`, `DamageMap` non-damage, targeted sub.
+        "Name:BadMultiZoneRepeat\nManaCost:3 B\nTypes:Sorcery\n\
+         A:SP$ RepeatEach | RepeatCards$ Creature | Zone$ Battlefield,Graveyard | RepeatSubAbility$ DBEx\n\
+         SVar:DBEx:DB$ ChangeZone | Defined$ Remembered | Origin$ Graveyard | Destination$ Exile",
+        "Name:BadChooseOrderRepeat\nManaCost:3 U\nTypes:Sorcery\n\
+         A:SP$ RepeatEach | RepeatCards$ Creature | ChooseOrder$ True | RepeatSubAbility$ DBTap\n\
+         SVar:DBTap:DB$ Tap | Defined$ Remembered",
+        "Name:BadBareRememberedRepeat\nManaCost:2 R\nTypes:Sorcery\n\
+         A:SP$ RepeatEach | RepeatCards$ Card.IsRemembered | Zone$ Exile | RepeatSubAbility$ DBPlay\n\
+         SVar:DBPlay:DB$ Play | Defined$ Remembered",
+        "Name:BadDamageMapNonDmg\nManaCost:2 R\nTypes:Sorcery\n\
+         A:SP$ RepeatEach | RepeatCards$ Creature | DamageMap$ True | RepeatSubAbility$ DBTap\n\
+         SVar:DBTap:DB$ Tap | Defined$ Remembered",
+        "Name:BadTargetedRepeatSub\nManaCost:3 R\nTypes:Sorcery\n\
+         A:SP$ RepeatEach | RepeatCards$ Creature.YouCtrl | RepeatSubAbility$ DBDmg\n\
+         SVar:DBDmg:DB$ DealDamage | ValidTgts$ Any | NumDmg$ 1",
+        // `PeekAndReveal` -> `TwoPiles` refusals: inverted roles, face-down, bottom-of-library, dynamic count, non-You library.
+        "Name:BadInvertedPiles\nManaCost:2 U R\nTypes:Instant\n\
+         A:SP$ PeekAndReveal | NoPeek$ True | RememberRevealed$ True | PeekAmount$ 5 | SubAbility$ DBTwo\n\
+         SVar:DBTwo:DB$ TwoPiles | Defined$ You | DefinedCards$ Remembered | Separator$ You | Chooser$ Opponent | ChosenPile$ DBH | UnchosenPile$ DBG\n\
+         SVar:DBH:DB$ ChangeZone | Defined$ Remembered | Origin$ Library | Destination$ Hand\n\
+         SVar:DBG:DB$ ChangeZone | Defined$ Remembered | Origin$ Library | Destination$ Graveyard",
+        "Name:BadFaceDownPiles\nManaCost:3 U\nTypes:Instant\n\
+         A:SP$ PeekAndReveal | NoPeek$ True | RememberRevealed$ True | PeekAmount$ 4 | SubAbility$ DBTwo\n\
+         SVar:DBTwo:DB$ TwoPiles | Defined$ You | DefinedCards$ Remembered | Separator$ Opponent | Chooser$ You | FaceDown$ One | ChosenPile$ DBH | UnchosenPile$ DBG\n\
+         SVar:DBH:DB$ ChangeZone | Defined$ Remembered | Origin$ Library | Destination$ Hand\n\
+         SVar:DBG:DB$ ChangeZone | Defined$ Remembered | Origin$ Library | Destination$ Graveyard",
+        "Name:BadBottomPiles\nManaCost:3 U\nTypes:Instant\n\
+         A:SP$ PeekAndReveal | NoPeek$ True | RememberRevealed$ True | PeekAmount$ 3 | SubAbility$ DBTwo\n\
+         SVar:DBTwo:DB$ TwoPiles | Defined$ You | DefinedCards$ Remembered | Separator$ Opponent | Chooser$ You | ChosenPile$ DBH | UnchosenPile$ DBL\n\
+         SVar:DBH:DB$ ChangeZone | Defined$ Remembered | Origin$ Library | Destination$ Hand\n\
+         SVar:DBL:DB$ ChangeZone | Defined$ Remembered | Origin$ Library | Destination$ Library | LibraryPosition$ -1",
+        "Name:BadDynamicPiles\nManaCost:X U\nTypes:Instant\n\
+         A:SP$ PeekAndReveal | NoPeek$ True | RememberRevealed$ True | PeekAmount$ X | SubAbility$ DBTwo\n\
+         SVar:DBTwo:DB$ TwoPiles | Defined$ You | DefinedCards$ Remembered | Separator$ Opponent | Chooser$ You | ChosenPile$ DBH | UnchosenPile$ DBG\n\
+         SVar:DBH:DB$ ChangeZone | Defined$ Remembered | Origin$ Library | Destination$ Hand\n\
+         SVar:DBG:DB$ ChangeZone | Defined$ Remembered | Origin$ Library | Destination$ Graveyard\n\
+         SVar:X:Count$xPaid",
+        "Name:BadOppLibraryPiles\nManaCost:3 U\nTypes:Instant\n\
+         A:SP$ PeekAndReveal | Defined$ Opponent | NoPeek$ True | RememberRevealed$ True | PeekAmount$ 5 | SubAbility$ DBTwo\n\
+         SVar:DBTwo:DB$ TwoPiles | Defined$ You | DefinedCards$ Remembered | Separator$ Opponent | Chooser$ You | ChosenPile$ DBH | UnchosenPile$ DBG\n\
+         SVar:DBH:DB$ ChangeZone | Defined$ Remembered | Origin$ Library | Destination$ Hand\n\
+         SVar:DBG:DB$ ChangeZone | Defined$ Remembered | Origin$ Library | Destination$ Graveyard",
+        // Digital-only Alchemy guard (`MakeCard`).
+        "Name:BadAlchemyMakeCard\nManaCost:1 U\nTypes:Sorcery\n\
+         A:SP$ MakeCard | Name$ Lightning Bolt | Zone$ Hand",
     ] {
         assert!(refused(bad), "must refuse: {bad}");
     }

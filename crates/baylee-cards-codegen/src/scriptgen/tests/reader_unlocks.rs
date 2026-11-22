@@ -2554,7 +2554,7 @@ fn wave8b_repeat_each_domains_and_refusals() {
 
     assert!(refused(
         "Name:BadZoneRepeat\nManaCost:2 B\nTypes:Sorcery\n\
-         A:SP$ RepeatEach | RepeatCards$ Creature | Zone$ Exile | RepeatSubAbility$ G\n\
+         A:SP$ RepeatEach | RepeatCards$ Creature | Zone$ Battlefield,Exile | RepeatSubAbility$ G\n\
          SVar:G:DB$ GainLife | LifeAmount$ 1"
     ));
     assert!(refused(

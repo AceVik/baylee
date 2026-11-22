@@ -203,6 +203,15 @@ pub(super) fn pump_amount(
 /// the name is matched against each bit's printed spelling with its spaces
 /// taken out.
 pub(super) fn keyword_atom(atom: &str) -> Option<String> {
+    // CR 700.9: modified creature predicate (`Creature.modified`,
+    // `Card.Self+modified`, `Creature.isModified`, `Creature.!modified`).
+    match atom {
+        "modified" | "isModified" | "IsModified" => return Some("Filter::Modified".to_string()),
+        "!modified" | "nonModified" | "!isModified" | "!IsModified" => {
+            return Some("Filter::Not(&Filter::Modified)".to_string());
+        }
+        _ => {}
+    }
     let (negated, name) = match atom.strip_prefix("without") {
         Some(rest) => (true, rest),
         None => (false, atom.strip_prefix("with")?),

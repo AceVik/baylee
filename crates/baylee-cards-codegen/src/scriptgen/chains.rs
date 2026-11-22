@@ -187,7 +187,31 @@ impl Tx<'_> {
             return self.chain_sub_ability(sub, chain);
         }
         if api == "RepeatEach" {
-            return self.repeat_each_chain(p, sub.as_deref(), chain);
+            let saved_p = p.clone();
+            let saved_effects_len = chain.effects.len();
+            let saved_target = chain.target.clone();
+            let saved_second = chain.second_target.clone();
+            let saved_unclaimed = self.unclaimed.borrow().clone();
+            let saved_statics_len = self.body.statics.len();
+            if self.repeat_each_chain(p, sub.as_deref(), chain).is_some() {
+                return Some(());
+            }
+            let first_err = self.unclaimed.borrow().clone();
+            chain.effects.truncate(saved_effects_len);
+            chain.target = saved_target;
+            chain.second_target = saved_second;
+            *self.unclaimed.borrow_mut() = saved_unclaimed;
+            self.body.statics.truncate(saved_statics_len);
+            if self
+                .wave23a_repeat_each_object_chain(saved_p, sub.as_deref(), chain)
+                .is_some()
+            {
+                return Some(());
+            }
+            if self.unclaimed.borrow().is_none() && first_err.is_some() {
+                *self.unclaimed.borrow_mut() = first_err;
+            }
+            return None;
         }
         if api == "Repeat" {
             return self.repeat_process_chain(p, sub.as_deref(), chain);
@@ -213,6 +237,14 @@ impl Tx<'_> {
                     targets_a_player,
                     chain,
                 ),
+                "PeekAndReveal" if self.sub_is_api(sub.as_deref(), "TwoPiles") => self
+                    .peek_and_reveal_two_piles_chain(
+                        p,
+                        sub.as_deref(),
+                        targets_here,
+                        targets_a_player,
+                        chain,
+                    ),
                 "PeekAndReveal" => self.peek_and_reveal_chain(
                     p,
                     sub.as_deref(),
@@ -632,13 +664,105 @@ impl Tx<'_> {
         } else if api == "DigUntil"
             && !second_target_here
             && p.peek("RememberRevealed") == Some("True")
+            && !p.has("RememberFound")
+            && !p.has("ImprintFound")
             && sub.is_some()
             && unless.is_none()
             && dying.is_none()
             && at_end.is_none()
             && !optional_counter
         {
-            self.goblin_charbelcher_effect(&mut p, &mut sub, chain)?
+            let saved_p = p.clone();
+            let saved_sub = sub.clone();
+            let saved_target = chain.target.clone();
+            let saved_up_to = chain.target_up_to;
+            let saved_exact = chain.target_exact;
+            let saved_is_x = chain.target_is_x;
+            let saved_unclaimed = self.unclaimed.borrow().clone();
+            let saved_statics_len = self.body.statics.len();
+            if let Some(effects) = self.goblin_charbelcher_effect(&mut p, &mut sub, chain) {
+                effects
+            } else {
+                p = saved_p;
+                sub = saved_sub;
+                chain.target = saved_target;
+                chain.target_up_to = saved_up_to;
+                chain.target_exact = saved_exact;
+                chain.target_is_x = saved_is_x;
+                *self.unclaimed.borrow_mut() = saved_unclaimed;
+                self.body.statics.truncate(saved_statics_len);
+                let Some(effects) = self.reveal_until_remembered_count_chain(
+                    &mut p,
+                    &mut sub,
+                    target.as_deref(),
+                    targets_a_player,
+                    chain,
+                ) else {
+                    self.note("unreadable value in `DigUntil`".to_string());
+                    return None;
+                };
+                effects
+            }
+        } else if api == "DigUntil"
+            && !second_target_here
+            && (p.peek("RememberFound") == Some("True") || p.peek("ImprintFound") == Some("True"))
+            && sub.is_some()
+            && unless.is_none()
+            && dying.is_none()
+            && at_end.is_none()
+            && !optional_counter
+        {
+            let saved_p = p.clone();
+            let saved_sub = sub.clone();
+            let saved_target = chain.target.clone();
+            let saved_up_to = chain.target_up_to;
+            let saved_exact = chain.target_exact;
+            let saved_is_x = chain.target_is_x;
+            let saved_unclaimed = self.unclaimed.borrow().clone();
+            let saved_statics_len = self.body.statics.len();
+            if let Some(effects) = self.reveal_until_then_chain(
+                &mut p,
+                &mut sub,
+                target.as_deref(),
+                targets_a_player,
+                chain,
+            ) {
+                effects
+            } else {
+                p = saved_p;
+                sub = saved_sub;
+                chain.target = saved_target;
+                chain.target_up_to = saved_up_to;
+                chain.target_exact = saved_exact;
+                chain.target_is_x = saved_is_x;
+                *self.unclaimed.borrow_mut() = saved_unclaimed;
+                self.body.statics.truncate(saved_statics_len);
+                if self.sub_is_api(sub.as_deref(), "ImmediateTrigger") {
+                    self.claim_followed_remember_flag(&api, &mut p, sub.as_deref());
+                    let single_target = chain.target_exact.is_none()
+                        && !chain.target_is_x
+                        && chain.target_up_to.is_none_or(|n| n == 1);
+                    let prior_target_used = !targets_here && !chain.effects.is_empty();
+                    let Some(effects) = self.effect_of_inner(
+                        &api,
+                        &mut p,
+                        target.as_deref(),
+                        LineFlags {
+                            targets_here,
+                            targets_a_player,
+                            single_target,
+                            prior_target_used,
+                        },
+                    ) else {
+                        self.note("unreadable value in `DigUntil`".to_string());
+                        return None;
+                    };
+                    effects
+                } else {
+                    self.note("unreadable value in `DigUntil`".to_string());
+                    return None;
+                }
+            }
         } else if api == "DelayedTrigger" {
             vec![self.delayed_trigger(&mut p, target.as_deref(), targets_here, chain)?]
         } else if api == "ImmediateTrigger" {
@@ -1408,6 +1532,34 @@ impl Tx<'_> {
                     Some("EQ0") => "Condition::Not(&Condition::ControlYourCommander)".to_string(),
                     Some(other) => {
                         return self.deny(format!("commander presence compared `{other}`"));
+                    }
+                }
+            } else if !p.has("ConditionDefined")
+                && !p.has("PresentPlayer")
+                && matches!(p.peek("PresentZone"), None | Some("Battlefield"))
+                && matches!(
+                    valid.as_str(),
+                    "Creature.YouCtrl+modified"
+                        | "Creature.modified+YouCtrl"
+                        | "Card.YouCtrl+modified"
+                        | "Card.modified+YouCtrl"
+                        | "Creature.YouCtrl+isModified"
+                        | "Creature.isModified+YouCtrl"
+                )
+            {
+                let cmp = p.take("PresentCompare");
+                p.take("PresentZone");
+                match cmp.as_deref() {
+                    None | Some("GE1" | "GT0") => {
+                        "Condition::ControlCount(&Filter::YOUR_MODIFIED_CREATURE, 1)".to_string()
+                    }
+                    Some("EQ0" | "LT1") => {
+                        "Condition::Not(&Condition::ControlCount(&Filter::YOUR_MODIFIED_CREATURE, 1))"
+                            .to_string()
+                    }
+                    Some(other) => {
+                        p.entries.push(("PresentCompare".to_string(), other.to_string()));
+                        self.present_clause(p, &valid)?
                     }
                 }
             } else {
@@ -2794,10 +2946,20 @@ impl Tx<'_> {
                     {
                         effects
                     } else {
-                        *p = snapshot;
-                        *self.unclaimed.borrow_mut() = saved_unclaimed;
+                        p.clone_from(&snapshot);
+                        self.unclaimed.borrow_mut().clone_from(&saved_unclaimed);
                         self.body.statics.truncate(saved_statics_len);
-                        self.wave7_dig_until_effect(p, target, targets_a_player)?
+                        if let Some(effects) =
+                            self.wave7_dig_until_effect(p, target, targets_a_player)
+                            && only_conds(p)
+                        {
+                            effects
+                        } else {
+                            *p = snapshot;
+                            *self.unclaimed.borrow_mut() = saved_unclaimed;
+                            self.body.statics.truncate(saved_statics_len);
+                            self.wave23a_dig_until_effect(p, target, targets_a_player)?
+                        }
                     }
                 }
             }
