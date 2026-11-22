@@ -2599,7 +2599,6 @@ mod tests {
     #[allow(clippy::too_many_lines)] // Auditable table of distinct modifier/layer contracts.
     fn every_modifier_applies_in_the_layer_the_rules_give_it() {
         const NOTHING: &[crate::effect::Effect] = &[];
-        const RIDER: crate::DamageRider = crate::DamageRider::new(&[crate::Effect::gain_life(1)]);
         let rows: Vec<(Modifier, Layer)> = vec![
             (Modifier::BecomeCopyOf(ObjectId::new(1, 0)), Layer::Copy),
             (Modifier::GainControl, Layer::Control),
@@ -2784,6 +2783,7 @@ mod tests {
     #[test]
     #[allow(clippy::too_many_lines)] // one row per rules-modifying modifier
     fn a_rules_modifying_effect_changes_no_characteristic_and_parks_on_text() {
+        const RIDER: crate::DamageRider = crate::DamageRider::new(&[crate::Effect::gain_life(1)]);
         for modifier in vec![
             Modifier::BandsWithOther(&Filter::CREATURE),
             Modifier::GraveyardInstantSorceryOnce,
