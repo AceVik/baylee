@@ -1438,7 +1438,8 @@ fn wave18b_change_zone_origin_alternative_defined_player_and_remember_changed() 
          ChangeType$ Card.YouOwn+namedAjani | Optional$ True | ShuffleNonMandatory$ True",
     );
     assert!(
-        optional_tutor.abilities[0].contains("Effect::MayDo(&[Effect::SearchLibraryOrGraveyard {")
+        optional_tutor.abilities[0]
+            .contains("Effect::MayDo { effects: &[Effect::SearchLibraryOrGraveyard {")
             && optional_tutor.abilities[0].contains("find: &Find::HAND"),
         "{:?}",
         optional_tutor.abilities

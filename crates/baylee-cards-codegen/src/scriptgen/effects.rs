@@ -6361,7 +6361,7 @@ impl Tx<'_> {
         let effect =
             format!("Effect::SearchLibraryOrGraveyard {{ filter: &{name}, find: &{find} }}");
         Some(vec![if optional {
-            format!("Effect::MayDo(&[{effect}])")
+            format!("Effect::MayDo {{ effects: &[{effect}] }}")
         } else {
             effect
         }])
