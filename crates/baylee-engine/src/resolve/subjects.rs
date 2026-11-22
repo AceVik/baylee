@@ -428,9 +428,8 @@ impl SubjectContext {
 
     fn fingerprint_tail(&self, mut h: u64) -> u64 {
         if let Some(inspected) = &self.inspected_library {
-            h = h.wrapping_mul(31).wrapping_add(crate::state::structural_fingerprint(
-                &("inspected-library", inspected),
-            ));
+            let digest = crate::state::structural_fingerprint(&("inspected-library", inspected));
+            h = h.wrapping_mul(31).wrapping_add(digest);
         }
         // Only once a creature type was chosen during this resolution, keeping
         // existing replay hashes unchanged for all other resolutions.
