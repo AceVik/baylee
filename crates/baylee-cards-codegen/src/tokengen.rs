@@ -360,6 +360,7 @@ struct TokenStats {
     toughness: Option<i16>,
     star_power: bool,
     star_toughness: bool,
+    toughness_plus: Option<u8>,
     loyalty: Option<u16>,
 }
 
@@ -368,6 +369,7 @@ struct TokenPt {
     toughness: Option<i16>,
     star_power: bool,
     star_toughness: bool,
+    toughness_plus: Option<u8>,
 }
 
 fn render_token_literal(fields: &LiteralFields<'_>) -> String {
@@ -496,15 +498,23 @@ fn parse_token_pt(pt: Option<&str>, types: &TypeLine) -> Option<TokenPt> {
                 "*" => (None, true),
                 other => (Some(other.parse::<i16>().ok()?), false),
             };
-            let (toughness, star_toughness) = match raw_t.trim() {
-                "*" => (None, true),
-                other => (Some(other.parse::<i16>().ok()?), false),
+            let (toughness, star_toughness, toughness_plus) = match raw_t.trim() {
+                "*" => (None, true, None),
+                other => {
+                    if let Some(plus) = other.strip_prefix("*+") {
+                        let n = plus.parse::<u8>().ok().filter(|&n| (1..=9).contains(&n))?;
+                        (None, true, Some(n))
+                    } else {
+                        (Some(other.parse::<i16>().ok()?), false, None)
+                    }
+                }
             };
             Some(TokenPt {
                 power,
                 toughness,
                 star_power,
                 star_toughness,
+                toughness_plus,
             })
         }
         (Some(pt), false, true) => {
@@ -516,6 +526,7 @@ fn parse_token_pt(pt: Option<&str>, types: &TypeLine) -> Option<TokenPt> {
                 toughness: Some(t),
                 star_power: false,
                 star_toughness: false,
+                toughness_plus: None,
             })
         }
         (None, false, false) => Some(TokenPt {
@@ -523,6 +534,7 @@ fn parse_token_pt(pt: Option<&str>, types: &TypeLine) -> Option<TokenPt> {
             toughness: None,
             star_power: false,
             star_toughness: false,
+            toughness_plus: None,
         }),
         // A creature or Vehicle with no size, a Vehicle with `*/*`, or a size on
         // something that is neither a creature nor a Vehicle: refuse rather than
@@ -540,6 +552,20 @@ fn star_pt_ok(
     let has_cda = abilities
         .iter()
         .any(|a| a.contains("Modifier::CharacteristicPT"));
+    if let Some(plus) = pt.toughness_plus {
+        let needle = format!("toughness_plus: {plus}");
+        return pt.star_power
+            && abilities
+                .iter()
+                .any(|a| a.contains("Modifier::CharacteristicPT") && a.contains(&needle));
+    }
+    if abilities.iter().any(|a| {
+        a.contains("Modifier::CharacteristicPT")
+            && a.contains("toughness_plus: ")
+            && !a.contains("toughness_plus: 0")
+    }) {
+        return false;
+    }
     if (!allow_double_faced || double_faced) && (pt.star_power || pt.star_toughness) && !has_cda {
         return false;
     }
@@ -611,6 +637,7 @@ fn read_face(
         toughness: pt.toughness,
         star_power: pt.star_power,
         star_toughness: pt.star_toughness,
+        toughness_plus: pt.toughness_plus,
         loyalty: raw.loyalty,
     };
     let mut constant = constant_name(
@@ -1133,8 +1160,13 @@ fn inline_statics(statics: &str, abilities: &mut [String]) -> Option<()> {
         let (name, rhs) = rest.split_once(": ")?;
         let (ty, expr) = rhs.split_once(" = ")?;
         let ty = ty.trim();
-        let valid_ty = matches!(ty, "Filter" | "Condition" | "AbilityDef")
-            || (ty.starts_with("[AbilityDef; ") && ty.ends_with(']'));
+        let valid_ty = matches!(
+            ty,
+            "Filter" | "Condition" | "AbilityDef" | "Amount" | "PtCount" | "Effect"
+        ) || ((ty.starts_with("[AbilityDef; ")
+            || ty.starts_with("[Effect; ")
+            || ty.starts_with("[SubtypeId; "))
+            && ty.ends_with(']'));
         if !valid_ty {
             return None;
         }
@@ -1445,7 +1477,12 @@ fn constant_name(
         (Some(p), Some(t), _, _) => {
             let _ = write!(out, "_{}_{}", pt_word(p), pt_word(t));
         }
-        (None, None, true, true) => out.push_str("_X_X"),
+        (None, None, true, true) => match stats.toughness_plus {
+            Some(n) => {
+                let _ = write!(out, "_X_X_PLUS_{n}");
+            }
+            None => out.push_str("_X_X"),
+        },
         (None, Some(t), true, false) => {
             let _ = write!(out, "_X_{}", pt_word(t));
         }
@@ -1494,7 +1531,12 @@ fn doc_line(
         (Some(p), Some(t), _, _) => {
             let _ = write!(out, "{p}/{t} ");
         }
-        (None, None, true, true) => out.push_str("*/* "),
+        (None, None, true, true) => match stats.toughness_plus {
+            Some(n) => {
+                let _ = write!(out, "*/*+{n} ");
+            }
+            None => out.push_str("*/* "),
+        },
         (None, Some(t), true, false) => {
             let _ = write!(out, "*/{t} ");
         }

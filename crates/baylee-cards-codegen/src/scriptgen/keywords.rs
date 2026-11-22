@@ -1815,18 +1815,38 @@ impl Tx<'_> {
             .svars
             .get(trimmed_var)
             .map_or_else(|| trimmed_var.to_string(), |s| s.trim().to_string());
-        // Preserve existing contract: plain `Count$Valid ...` without explicit
-        // `SVarCompare$` and unhandled `Count$Kicked*` shapes stay refused.
+        // Preserve existing contract: plain `Count$Valid <single-clause>` without
+        // explicit `SVarCompare$` (e.g. `Creature.YouCtrl` in `CondEtb`) and
+        // unhandled `Count$Kicked*` shapes stay refused, while qualified
+        // `Count$Valid <filter>+<pred>` checks (*Frontier Mastodon*, *Heir of the
+        // Ancient Fang*) lower via `inline_valid_count_condition`.
         if def.starts_with("Count$Kicked")
             || (explicit_cmp.is_none()
                 && def
                     .strip_prefix("Count$Valid ")
-                    .is_some_and(|rest| !rest.contains('$')))
+                    .is_some_and(|rest| !rest.contains('$') && !rest.contains('+')))
         {
             return None;
         }
         if let Some(cond) = self.etb_compare_condition(&def, cmp, depth) {
             return Some(cond);
+        }
+        if let Some(flag_true) = match def.as_str() {
+            "Count$wasCastFromYourHandByYou.1.0" => Some(true),
+            "Count$wasCastFromYourHandByYou.0.1" => Some(false),
+            _ => None,
+        } {
+            let want_true = match cmp {
+                "GE1" | "GT0" | "EQ1" => true,
+                "EQ0" | "LE0" | "LT1" => false,
+                _ => return None,
+            };
+            let base = "Condition::All(&[Condition::SourceWasCastByYou, Condition::SourceMatches(&Filter::CastFromHand)])";
+            return Some(if flag_true == want_true {
+                base.to_string()
+            } else {
+                self.negate_etb_condition(base)
+            });
         }
         if def == "Count$xPaid" && self.has_x_mana_cost {
             return match super::count_bound(cmp) {
@@ -1848,10 +1868,12 @@ impl Tx<'_> {
             .or_else(|| self.extra_svar_condition_wave8(trimmed_var, cmp))
             .or_else(|| self.wave15_trigger_svar_condition(trimmed_var, cmp))
             .or_else(|| {
-                explicit_cmp
-                    .is_some()
-                    .then(|| self.inline_valid_count_condition(trimmed_var, cmp))
-                    .flatten()
+                (explicit_cmp.is_some()
+                    || def
+                        .strip_prefix("Count$Valid ")
+                        .is_some_and(|rest| rest.contains('+') && !rest.contains('$')))
+                .then(|| self.inline_valid_count_condition(trimmed_var, cmp))
+                .flatten()
             })
     }
 
@@ -2039,6 +2061,12 @@ impl Tx<'_> {
         }
         if def == "Count$ThisTurnEntered_Graveyard_from_Battlefield_Creature" {
             return Some("Amount::CreaturesDiedThisTurn".to_string());
+        }
+        if def == "Count$ValidHand Card" {
+            return Some(
+                "Amount::CountOf { filter: &Filter::Any, zone: ZoneSel::HandOf(PlayerRel::EachPlayer) }"
+                    .to_string(),
+            );
         }
         if def == "Count$xPaid" && self.has_x_mana_cost {
             return Some("Amount::X".to_string());
@@ -3490,10 +3518,31 @@ impl Tx<'_> {
                 super::saga_ward_convoke::ExtraOutcome::Handled(res) => res,
                 super::saga_ward_convoke::ExtraOutcome::Pass => self.static_ability(spec),
             },
-            'R' => match self.try_extra_replacement(spec) {
-                super::saga_ward_convoke::ExtraOutcome::Handled(res) => res,
-                super::saga_ward_convoke::ExtraOutcome::Pass => self.replacement(spec),
-            },
+            'R' => {
+                let saved_statics = self.body.statics.len();
+                let saved_enter_mods = self.body.enter_modifiers.len();
+                let saved_abilities = self.body.abilities.len();
+                let saved_unclaimed = self.unclaimed.borrow().clone();
+                match self.try_extra_replacement(spec) {
+                    super::saga_ward_convoke::ExtraOutcome::Handled(Some(())) => Some(()),
+                    super::saga_ward_convoke::ExtraOutcome::Handled(None) => {
+                        let extra_unclaimed = self.unclaimed.borrow().clone();
+                        self.body.statics.truncate(saved_statics);
+                        self.body.enter_modifiers.truncate(saved_enter_mods);
+                        self.body.abilities.truncate(saved_abilities);
+                        *self.unclaimed.borrow_mut() = saved_unclaimed;
+                        if self.wave24e_self_etb_moved_replacement(spec).is_some() {
+                            return Some(());
+                        }
+                        self.body.statics.truncate(saved_statics);
+                        self.body.enter_modifiers.truncate(saved_enter_mods);
+                        self.body.abilities.truncate(saved_abilities);
+                        *self.unclaimed.borrow_mut() = extra_unclaimed;
+                        None
+                    }
+                    super::saga_ward_convoke::ExtraOutcome::Pass => self.replacement(spec),
+                }
+            }
             other => self.deny(format!("rules line kind `{other}:`")),
         }
     }
@@ -3620,6 +3669,9 @@ impl Tx<'_> {
             return self.deny("replacement `Moved` with no `ReplaceWith$`".to_string());
         };
         if !about_self || !entering || !updated || !p.exhausted() {
+            if self.wave24e_self_etb_moved_replacement(spec).is_some() {
+                return Some(());
+            }
             self.note("replacement `Moved` this rule cannot read".to_string());
             return None;
         }
@@ -3628,11 +3680,19 @@ impl Tx<'_> {
         };
         body.drop_prose();
         // `DB$ Tap | Defined$ Self | ETB$ True`: the tap has to be of this
-        // card, as it enters, or it is not this modifier.
+        // card, as it enters, or it is not this modifier. `Defined$ ReplacedCard`
+        // also names this entering permanent when a card reuses its `ETBTapped`
+        // SVar across a self-entry and external-entry replacement (*False Floor*).
         if api != "Tap"
-            || body.take("Defined").as_deref() != Some("Self")
+            || !matches!(
+                body.take("Defined").as_deref(),
+                Some("Self" | "ReplacedCard")
+            )
             || body.take("ETB").as_deref() != Some("True")
         {
+            if self.wave24e_self_etb_moved_replacement(spec).is_some() {
+                return Some(());
+            }
             self.note(format!("replacement `Moved` replacing with `{api}`"));
             return None;
         }
@@ -3653,10 +3713,28 @@ impl Tx<'_> {
             // because it counts something no `IsPresent$` filter reaches: a
             // number of *players*. Without one of those the line is the
             // plain "enters tapped" (optionally chaining ETB counters onto
-            // itself, as on the Vivid lands or Sphere of the Suns).
+            // itself, as on the Vivid lands or Sphere of the Suns, or gating
+            // on `ConditionPlayerTurn$` as on *Horned Loch-Whale*).
             (None, None) => match body.take("ConditionCheckSVar") {
                 None => {
-                    if let Some(sub) = body.take("SubAbility") {
+                    if let Some(turn_flag) = body.take("ConditionPlayerTurn") {
+                        match turn_flag.as_str() {
+                            "False" => {
+                                "EnterModifier::TappedUnlessCondition(Condition::YourTurn)"
+                                    .to_string()
+                            }
+                            "True" => {
+                                "EnterModifier::TappedUnlessCondition(Condition::Not(&Condition::YourTurn))"
+                                    .to_string()
+                            }
+                            _ => {
+                                self.note(format!(
+                                    "replacement `Moved` with `ConditionPlayerTurn$ {turn_flag}`"
+                                ));
+                                return None;
+                            }
+                        }
+                    } else if let Some(sub) = body.take("SubAbility") {
                         if !body.exhausted() {
                             self.note(format!(
                                 "replacement `Moved` tapping with `{}`",
@@ -3670,8 +3748,9 @@ impl Tx<'_> {
                             .push("EnterModifier::Tapped".to_string());
                         self.body.enter_modifiers.extend(extras);
                         return Some(());
+                    } else {
+                        "EnterModifier::Tapped".to_string()
                     }
-                    "EnterModifier::Tapped".to_string()
                 }
                 Some(svar) => self.enters_tapped_unless_players(&mut body, &svar)?,
             },
@@ -3684,6 +3763,398 @@ impl Tx<'_> {
             return None;
         }
         self.body.enter_modifiers.push(modifier);
+        Some(())
+    }
+
+    /// Wave 24e self-ETB `R:Event$ Moved` replacement shapes mapping cleanly
+    /// to existing `EnterModifier` (and `Trigger::ETB` for escaped-ETB) DSL variants:
+    /// - `ChooseType` (`Basic Land`) -> `Tap | UnlessCost$ PayLife<N>` (*Multiversal Passage*)
+    /// - `PutCounter` (`Number$C/Minus.X`) -> `Tap` (`X <= M`) (*Slumbering Trudge*)
+    /// - `ChooseCard` (GY X) -> `Exile` -> `MoveToYard` -> `PutCounter` (`SplitAmount$ True`)
+    ///   (*Frankenstein's Monster*)
+    /// - `Sacrifice` (optional any number) -> `PutCounter` (`P1P1`) (*Shimatsu*, *Devouring Hellion*)
+    /// - `Card.Self+escaped` -> `PutCounter` -> `ImmediateTrigger` (*Pharika's Spawn*)
+    #[allow(clippy::too_many_lines)]
+    fn wave24e_self_etb_moved_replacement(&mut self, spec: &str) -> Option<()> {
+        let (event, mut p) = Params::parse(spec)?;
+        if event != "Moved" {
+            return None;
+        }
+        p.drop_prose();
+        let valid_card = p.take("ValidCard")?;
+        if p.take("Destination").as_deref() != Some("Battlefield") {
+            return None;
+        }
+        let result_kind = p.take("ReplacementResult");
+        let with = p.take("ReplaceWith")?;
+        if !p.exhausted() {
+            return None;
+        }
+        let body_str = self.svars.get(with.trim())?.clone();
+        let (api, mut body) = Params::parse(&body_str)?;
+        body.drop_prose();
+
+        // Shape 1 (*Multiversal Passage*): `ChooseType` (`Basic Land`) -> `Tap` (`PayLife<N>`).
+        if valid_card == "Card.Self"
+            && result_kind.as_deref() == Some("Updated")
+            && api == "ChooseType"
+            && body.take("ETB").as_deref() == Some("True")
+            && body.take("Type").as_deref() == Some("Basic Land")
+            && let Some(sub) = body.take("SubAbility")
+            && body.exhausted()
+        {
+            let tap_str = self.svars.get(sub.trim())?.clone();
+            let (t_api, mut tp) = Params::parse(&tap_str)?;
+            tp.drop_prose();
+            if t_api == "Tap"
+                && tp.take("ETB").as_deref() == Some("True")
+                && tp.take("Defined").as_deref() == Some("Self")
+                && tp.take("UnlessPayer").as_deref() == Some("You")
+                && let Some(cost) = tp.take("UnlessCost")
+                && tp.exhausted()
+                && let Some(life) = cost
+                    .strip_prefix("PayLife<")
+                    .and_then(|s| s.strip_suffix('>'))
+                    .and_then(|n| n.parse::<u16>().ok())
+            {
+                self.body
+                    .enter_modifiers
+                    .push("EnterModifier::ChooseBasicLandType".to_string());
+                self.body
+                    .enter_modifiers
+                    .push(format!("EnterModifier::TappedOrPayLife({life})"));
+                return Some(());
+            }
+            return None;
+        }
+
+        // Shape 2 (*Slumbering Trudge*): `PutCounter` (`Number$C/Minus.X`) -> `Tap` (`X <= M`).
+        if valid_card == "Card.Self"
+            && result_kind.as_deref() == Some("Updated")
+            && self.has_x_mana_cost
+            && api == "PutCounter"
+            && body.take("ETB").as_deref() == Some("True")
+            && matches!(body.take("Defined").as_deref(), None | Some("Self"))
+            && let Some(kind_raw) = body.take("CounterType")
+            && let Some(num_raw) = body.take("CounterNum")
+            && let Some(sub) = body.take("SubAbility")
+            && body.exhausted()
+            && let Some(kind) = super::counter_kind(&kind_raw)
+        {
+            let num_def = self.svars.get(num_raw.trim())?.trim();
+            let (lhs, rhs) = num_def.split_once("/Minus.")?;
+            let constant: u32 = lhs.strip_prefix("Number$")?.trim().parse().ok()?;
+            if self.svars.get(rhs.trim()).map(|s| s.trim()) != Some("Count$xPaid") {
+                return None;
+            }
+            let tap_str = self.svars.get(sub.trim())?.clone();
+            let (t_api, mut tp) = Params::parse(&tap_str)?;
+            tp.drop_prose();
+            if t_api != "Tap"
+                || tp.take("ETB").as_deref() != Some("True")
+                || !matches!(tp.take("Defined").as_deref(), None | Some("Self"))
+            {
+                return None;
+            }
+            let chk = tp.take("ConditionCheckSVar")?;
+            let cmp = tp.take("ConditionSVarCompare")?;
+            if !tp.exhausted()
+                || self.svars.get(chk.trim()).map(|s| s.trim()) != Some("Count$xPaid")
+            {
+                return None;
+            }
+            let threshold: u32 = if let Some(m) = cmp.strip_prefix("LE") {
+                m.parse::<u32>().ok()?.checked_add(1)?
+            } else {
+                let m = cmp.strip_prefix("LT")?;
+                m.parse::<u32>().ok().filter(|&v| v >= 1)?
+            };
+            self.body.enter_modifiers.push(format!(
+                "EnterModifier::WithCounters {{ kind: {kind}, amount: Amount::ConstantMinus {{ \
+                 constant: {constant}, subtract: &Amount::X }} }}"
+            ));
+            self.body.enter_modifiers.push(format!(
+                "EnterModifier::TappedUnlessCondition(Condition::XAtLeast({threshold}))"
+            ));
+            return Some(());
+        }
+
+        // Shape 3 (*Frankenstein's Monster*): exile X creatures from GY or go to GY instead,
+        // then choose one counter per exiled card from a printed counter list.
+        if valid_card == "Card.Self"
+            && result_kind.is_none()
+            && self.has_x_mana_cost
+            && api == "ChooseCard"
+        {
+            return self.try_wave24e_frankenstein_entry(body);
+        }
+
+        // Shape 4 (*Shimatsu the Bloodcloaked*, *Devouring Hellion*): optional sacrifice of
+        // any number of matching permanents -> `EnterModifier::Devour { filter, factor }`.
+        if valid_card == "Card.Self"
+            && result_kind.as_deref() == Some("Updated")
+            && api == "Sacrifice"
+        {
+            return self.try_wave24e_devour_replacement(body);
+        }
+
+        // Shape 5 (*Pharika's Spawn*): `Card.Self+escaped` -> `PutCounter` -> `ImmediateTrigger`.
+        if matches!(
+            valid_card.as_str(),
+            "Card.Self+escaped" | "Card.escaped+Self"
+        ) && result_kind.as_deref() == Some("Updated")
+            && api == "PutCounter"
+            && body.take("ETB").as_deref() == Some("True")
+            && matches!(body.take("Defined").as_deref(), None | Some("Self"))
+            && let Some(kind_raw) = body.take("CounterType")
+            && let Some(num_raw) = body.take("CounterNum")
+            && let Some(sub) = body.take("SubAbility")
+            && body.exhausted()
+            && let Some(kind) = super::counter_kind(&kind_raw)
+            && let Some(amount) = self.etb_wave6_amount(num_raw.trim())
+        {
+            let trig_str = self.svars.get(sub.trim())?.clone();
+            let (t_api, mut tp) = Params::parse(&trig_str)?;
+            tp.drop_prose();
+            if t_api != "ImmediateTrigger" {
+                return None;
+            }
+            let exec_name = tp.take("Execute")?;
+            if !tp.exhausted() {
+                return None;
+            }
+            let exec_body = self.svars.get(exec_name.trim())?.clone();
+            let mut chain = Chain::default();
+            let saved_statics = self.body.statics.len();
+            let saved_unclaimed = self.unclaimed.borrow().clone();
+            let ok = self.chain(&exec_body, &mut chain);
+            if ok.is_none() || chain.effects.is_empty() || chain.second_target.is_some() {
+                self.body.statics.truncate(saved_statics);
+                *self.unclaimed.borrow_mut() = saved_unclaimed;
+                return None;
+            }
+            let targets = Self::target_req_expr(&chain)
+                .map_or_default(|req| format!(", targets = Some({req})"));
+            self.body.enter_modifiers.push(format!(
+                "EnterModifier::WithCountersIf {{ kind: {kind}, count: {amount}, \
+                 condition: Condition::Escaped }}"
+            ));
+            self.body.abilities.push(format!(
+                "triggered!(Trigger::ETB, &[{}]{targets}, condition = Some(Condition::Escaped))",
+                chain.effects.join(", ")
+            ));
+            return Some(());
+        }
+
+        None
+    }
+
+    #[allow(clippy::too_many_lines)]
+    fn try_wave24e_frankenstein_entry(&mut self, mut p: Params) -> Option<()> {
+        if p.take("ETB").as_deref() != Some("True")
+            || p.take("Choices").as_deref()
+                != Some("Creature.YouOwn+NotDefinedReplacedSimultaneousETB")
+            || p.take("ChoiceZone").as_deref() != Some("Graveyard")
+            || p.take("Mandatory").as_deref() != Some("True")
+        {
+            return None;
+        }
+        let x_var = p.take("Amount")?;
+        let chk_yard = p.take("ConditionCheckSVar")?;
+        let chk_yard_cmp = p.take("ConditionSVarCompare")?;
+        let exile_sub = p.take("SubAbility")?;
+        if !p.exhausted()
+            || self.svars.get(x_var.trim()).map(|s| s.trim()) != Some("Count$xPaid")
+            || chk_yard_cmp != format!("GE{x_var}")
+            || self.svars.get(chk_yard.trim()).map(|s| s.trim())
+                != Some("Count$ValidGraveyard Creature.YouOwn+NotDefinedReplacedSimultaneousETB")
+        {
+            return None;
+        }
+        let (e_api, mut ep) = Params::parse(self.svars.get(exile_sub.trim())?)?;
+        ep.drop_prose();
+        if e_api != "ChangeZone"
+            || ep.take("Defined").as_deref() != Some("ChosenCard")
+            || ep.take("Origin").as_deref() != Some("Graveyard")
+            || ep.take("Destination").as_deref() != Some("Exile")
+            || ep.take("RememberChanged").as_deref() != Some("True")
+        {
+            return None;
+        }
+        let yard_sub = ep.take("SubAbility")?;
+        if !ep.exhausted() {
+            return None;
+        }
+        let (y_api, mut yp) = Params::parse(self.svars.get(yard_sub.trim())?)?;
+        yp.drop_prose();
+        if y_api != "ChangeZone"
+            || yp.take("Hidden").as_deref() != Some("True")
+            || yp.take("Origin").as_deref() != Some("All")
+            || yp.take("Destination").as_deref() != Some("Graveyard")
+            || yp.take("Defined").as_deref() != Some("Self")
+            || yp.take("Imprint").as_deref() != Some("True")
+            || yp.take("ETB").as_deref() != Some("True")
+        {
+            return None;
+        }
+        let chk_ex = yp.take("ConditionCheckSVar")?;
+        let chk_ex_cmp = yp.take("ConditionSVarCompare")?;
+        let ctr_sub = yp.take("SubAbility")?;
+        if !yp.exhausted()
+            || chk_ex_cmp != format!("LT{x_var}")
+            || self.svars.get(chk_ex.trim()).map(|s| s.trim())
+                != Some("Count$ValidExile Card.IsRemembered")
+        {
+            return None;
+        }
+        let (c_api, mut cp) = Params::parse(self.svars.get(ctr_sub.trim())?)?;
+        cp.drop_prose();
+        if c_api != "PutCounter"
+            || cp.take("CounterNum").as_deref() != Some(x_var.as_str())
+            || cp.take("SplitAmount").as_deref() != Some("True")
+            || cp.take("ETB").as_deref() != Some("True")
+            || cp.take("ConditionDefined").as_deref() != Some("Imprinted")
+            || cp.take("ConditionPresent").as_deref() != Some("Card")
+            || cp.take("ConditionCompare").as_deref() != Some("EQ0")
+        {
+            return None;
+        }
+        let kinds_raw = cp.take("CounterTypes")?;
+        let upd_sub = cp.take("SubAbility")?;
+        if !cp.exhausted() {
+            return None;
+        }
+        let mut kinds = Vec::new();
+        for tok in kinds_raw.split(',').map(str::trim) {
+            kinds.push(super::counter_kind(tok)?);
+        }
+        if kinds.len() < 2 {
+            return None;
+        }
+        let (u_api, mut up) = Params::parse(self.svars.get(upd_sub.trim())?)?;
+        up.drop_prose();
+        if u_api != "ReplaceEffect"
+            || up.take("ConditionDefined").as_deref() != Some("Imprinted")
+            || up.take("ConditionPresent").as_deref() != Some("Card")
+            || up.take("ConditionCompare").as_deref() != Some("EQ0")
+        {
+            return None;
+        }
+        let clean_sub = up.take("SubAbility")?;
+        if !up.exhausted() {
+            return None;
+        }
+        let (cl_api, mut clp) = Params::parse(self.svars.get(clean_sub.trim())?)?;
+        clp.drop_prose();
+        if cl_api != "Cleanup"
+            || clp.take("ClearRemembered").as_deref() != Some("True")
+            || clp.take("ClearImprinted").as_deref() != Some("True")
+            || !clp.exhausted()
+        {
+            return None;
+        }
+        self.body
+            .enter_modifiers
+            .push("EnterModifier::ExileFromGraveyardXOrGraveyard(&Filter::CREATURE)".to_string());
+        self.body.enter_modifiers.push(format!(
+            "EnterModifier::ChooseCounterPerEntryCount(&[{}])",
+            kinds.join(", ")
+        ));
+        Some(())
+    }
+
+    fn try_wave24e_devour_replacement(&mut self, mut p: Params) -> Option<()> {
+        if !matches!(p.take("Defined").as_deref(), None | Some("You"))
+            || p.take("RememberSacrificed").as_deref() != Some("True")
+            || p.take("Optional").as_deref() != Some("True")
+        {
+            return None;
+        }
+        p.claim_label("SacMessage", "SacValid");
+        let sac_valid = p.take("SacValid")?;
+        let amount_var = p.take("Amount")?;
+        let put_sub = p.take("SubAbility")?;
+        if !p.exhausted() {
+            return None;
+        }
+        // Verify `Amount$` is "any number of `<SacValid>` you control" so
+        // `EnterModifier::Devour`'s unconstrained-count selection is exact.
+        let amount_def = self.svars.get(amount_var.trim())?.trim();
+        let amount_valid = amount_def.strip_prefix("Count$Valid ")?.trim();
+        let normalize_sac = |raw: &str, require_you_ctrl: bool| -> Option<Vec<String>> {
+            let mut out = Vec::new();
+            for alt in raw.split(',').map(str::trim) {
+                let (noun, attrs) = alt.split_once('.').map_or((alt, ""), |(n, a)| (n, a));
+                let mut has_you_ctrl = false;
+                let mut kept = Vec::new();
+                for piece in attrs.split('+').map(str::trim).filter(|s| !s.is_empty()) {
+                    if piece == "YouCtrl" {
+                        has_you_ctrl = true;
+                    } else if piece != "Other" {
+                        kept.push(piece);
+                    }
+                }
+                if require_you_ctrl && !has_you_ctrl {
+                    return None;
+                }
+                if kept.is_empty() {
+                    out.push(noun.to_string());
+                } else {
+                    out.push(format!("{noun}.{}", kept.join("+")));
+                }
+            }
+            (!out.is_empty()).then_some(out)
+        };
+        let norm_sac = normalize_sac(&sac_valid, false)?;
+        let norm_amt = normalize_sac(amount_valid, true)?;
+        if norm_sac != norm_amt {
+            return None;
+        }
+
+        let put_str = self.svars.get(put_sub.trim())?.clone();
+        let (p_api, mut pp) = Params::parse(&put_str)?;
+        pp.drop_prose();
+        if p_api != "PutCounter"
+            || pp.take("ETB").as_deref() != Some("True")
+            || !matches!(pp.take("Defined").as_deref(), None | Some("Self"))
+            || pp.take("CounterType").as_deref() != Some("P1P1")
+        {
+            return None;
+        }
+        let num_var = pp.take("CounterNum")?;
+        let clean_sub = pp.take("SubAbility")?;
+        if !pp.exhausted() {
+            return None;
+        }
+        let (cl_api, mut clp) = Params::parse(self.svars.get(clean_sub.trim())?)?;
+        clp.drop_prose();
+        if cl_api != "Cleanup"
+            || clp.take("ClearRemembered").as_deref() != Some("True")
+            || !clp.exhausted()
+        {
+            return None;
+        }
+        let num_def = self.svars.get(num_var.trim())?.trim();
+        let factor: u8 = match num_def {
+            "Remembered$Amount" | "Count$RememberedSize" => 1,
+            "Remembered$Amount/Twice" | "Count$RememberedSize/Twice" => 2,
+            "Remembered$Amount/Thrice" | "Count$RememberedSize/Thrice" => 3,
+            other => {
+                let mult = other
+                    .strip_prefix("Remembered$Amount/Times.")
+                    .or_else(|| other.strip_prefix("Count$RememberedSize/Times."))?;
+                mult.trim().parse::<u8>().ok().filter(|&n| n >= 1)?
+            }
+        };
+        let filter_expr = self.filter_expr(&norm_sac.join(","))?;
+        let filter_ref = match filter_expr.as_str() {
+            "Filter::CREATURE" => "&Filter::CREATURE".to_string(),
+            "Filter::PERMANENT" => "&Filter::PERMANENT".to_string(),
+            _ => format!("&{}", self.body.filter_static("DEVOUR", &filter_expr)),
+        };
+        self.body.enter_modifiers.push(format!(
+            "EnterModifier::Devour {{ filter: {filter_ref}, factor: {factor} }}"
+        ));
         Some(())
     }
 

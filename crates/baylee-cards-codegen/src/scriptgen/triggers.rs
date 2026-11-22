@@ -2635,8 +2635,17 @@ impl Tx<'_> {
             Some((stripped, price)) => (stripped, Some(price)),
             None => (body, None),
         };
+        let (body, mandatory_sac_self) = if !may && price.is_none() {
+            match Self::strip_mandatory_sac_self_trigger(&body) {
+                Some(stripped) => (stripped, true),
+                None => (body, false),
+            }
+        } else {
+            (body, false)
+        };
         if !may
             && price.is_none()
+            && !mandatory_sac_self
             && self.block_line.is_none()
             && let Some((api, mut cp)) = Params::parse(&body)
             && api == "Charm"
@@ -2681,7 +2690,26 @@ impl Tx<'_> {
             Some(OptionalTriggerPrice::CostPart(p))
                 if p.starts_with("Sacrifice(") && p != "Sacrifice(&Filter::This)"
         );
-        let chain_ok = self.chain(&body, &mut chain);
+        let saved_statics = self.body.statics.len();
+        let saved_unclaimed = self.unclaimed.borrow().clone();
+        let mut chain_ok = self.chain(&body, &mut chain);
+        if chain_ok.is_none() {
+            let mut dig_chain = Chain::default();
+            let after_first_statics = self.body.statics.len();
+            let after_first_unclaimed = self.unclaimed.borrow().clone();
+            self.body.statics.truncate(saved_statics);
+            *self.unclaimed.borrow_mut() = saved_unclaimed;
+            if self
+                .wave24e_dig_trigger_chain(&body, &mut dig_chain)
+                .is_some()
+            {
+                chain = dig_chain;
+                chain_ok = Some(());
+            } else {
+                self.body.statics.truncate(after_first_statics);
+                *self.unclaimed.borrow_mut() = after_first_unclaimed;
+            }
+        }
         self.trigger_is_self = false;
         self.is_etb_self_trigger = false;
         self.trigger_blocks_creature = false;
@@ -2692,10 +2720,10 @@ impl Tx<'_> {
             return self.deny("a trigger that reads as no effect at all".to_string());
         }
         let chain_asks = chain.target_up_to.is_some()
-            || chain
-                .effects
-                .iter()
-                .any(|e| e.contains("ChooseCard {") && e.contains("min: 0,"))
+            || chain.effects.iter().any(|e| {
+                (e.contains("ChooseCard {") && e.contains("min: 0,"))
+                    || (e.contains("PeekAndReveal {") && e.contains("min_pick: 0,"))
+            })
             || chain.effects.iter().any(|e| {
                 [
                     "MayDo",
@@ -2708,6 +2736,7 @@ impl Tx<'_> {
                     "LookAtTop",
                     "RevealTopFind",
                     "RevealTopOnePerType",
+                    "RevealTopPlayerMayPutOntoBattlefield",
                     "ExileTopToPlay",
                     "ExileTopMayCast",
                     "ExileTopWithPermission",
@@ -2831,6 +2860,9 @@ impl Tx<'_> {
                 "Effect::PlayerMaySacrificeNThen {{ player: PlayerRel::You, \
                  filter: {filter}, count: {count}, effect: &{one_effect} }}"
             ),
+            None if mandatory_sac_self => {
+                format!("Effect::SacrificeSelfThen {{ then: &[{effects}] }}")
+            }
             None if may && !asks_already => format!("Effect::MayDo {{ effects: &[{effects}] }}"),
             None => effects,
         };
@@ -2884,6 +2916,35 @@ impl Tx<'_> {
         }
         self.body.abilities.push(ability);
         Some(())
+    }
+
+    /// Strips `Cost$ Mandatory Sac<1/CARDNAME>` from a trigger-executed `AB$`
+    /// line (*Aspiring Champion* shape: "sacrifice it. If you do, ...") so the
+    /// compiled body wraps in `Effect::SacrificeSelfThen`. Refuses lines that
+    /// read `Sacrificed$` since `SacrificeSelfThen` does not populate cost LKI.
+    fn strip_mandatory_sac_self_trigger(body: &str) -> Option<String> {
+        if !body.trim_start().starts_with("AB$") || body.contains("Sacrificed") {
+            return None;
+        }
+        let parts: Vec<&str> = body.split(" | ").collect();
+        let cost = parts
+            .iter()
+            .find_map(|part| part.strip_prefix("Cost$"))?
+            .trim();
+        let rest_cost = cost.strip_prefix("Mandatory ")?.trim();
+        let is_sac_self = rest_cost == "Sac<1/CARDNAME>"
+            || (rest_cost.starts_with("Sac<1/CARDNAME/")
+                && rest_cost.find('>') == Some(rest_cost.len() - 1));
+        if !is_sac_self {
+            return None;
+        }
+        Some(
+            parts
+                .into_iter()
+                .filter(|part| !part.starts_with("Cost$"))
+                .collect::<Vec<_>>()
+                .join(" | "),
+        )
     }
 
     /// `T:Mode$ AttackerBlockedByCreature` — "whenever this creature blocks
@@ -3698,7 +3759,9 @@ impl Tx<'_> {
     pub(super) fn take_trigger_bool_conditions(p: &mut Params) -> Option<Vec<&'static str>> {
         const FLAGS: &[(&str, &str)] = &[
             ("PlayerTurn", "Condition::YourTurn"),
+            ("NotPlayerTurn", "Condition::Not(&Condition::YourTurn)"),
             ("OpponentTurn", "Condition::OpponentsTurn"),
+            ("Blessing", "Condition::CitysBlessing"),
             ("Revolt", "Condition::Revolt"),
             ("Delirium", "Condition::GraveyardTypesAtLeast(4)"),
             ("Threshold", "Condition::GraveyardCountAtLeast(7)"),
@@ -3713,7 +3776,9 @@ impl Tx<'_> {
                 "Condition::APlayerHasMostLife",
             ),
         ];
-        if p.peek("PlayerTurn") == Some("True") && p.peek("OpponentTurn") == Some("True") {
+        if p.peek("PlayerTurn") == Some("True")
+            && (p.peek("OpponentTurn") == Some("True") || p.peek("NotPlayerTurn") == Some("True"))
+        {
             return None;
         }
         let mut out = Vec::new();
@@ -4276,7 +4341,7 @@ impl Tx<'_> {
         }
     }
 
-    fn wave15_amount_cmp(lhs: &str, cmp: &str) -> Option<String> {
+    pub(super) fn wave15_amount_cmp(lhs: &str, cmp: &str) -> Option<String> {
         let (op_code, rhs_raw) = cmp.split_at_checked(2)?;
         let n: u32 = rhs_raw.parse().ok()?;
         let op = match op_code {
@@ -4782,6 +4847,7 @@ impl Tx<'_> {
 
     /// Wave-19c `Phase.CheckSVar` and trigger/ETB `CheckSVar$` lowerings backed
     /// by existing `Condition` / `Amount` variants.
+    #[allow(clippy::too_many_lines)]
     fn wave19c_svar_condition(&mut self, raw: &str, cmp: &str) -> Option<String> {
         if raw == "ExiledWith$Amount" && !self.on_a_spell {
             return Self::wave15_amount_cmp(
@@ -4794,6 +4860,40 @@ impl Tx<'_> {
         }
         if let Some(cond) = self.wave22c_svar_condition(raw, cmp) {
             return Some(cond);
+        }
+        if matches!(
+            raw,
+            "PlayerCountOpponents$HighestLifeLostThisTurn"
+                | "PlayerCountRegisteredOpponents$HighestLifeLostThisTurn"
+        ) {
+            return match cmp {
+                "GE1" | "GT0" | "NE0" => Some("Condition::OpponentLostLifeThisTurn".to_string()),
+                "EQ0" | "LE0" | "LT1" => {
+                    Some("Condition::Not(&Condition::OpponentLostLifeThisTurn)".to_string())
+                }
+                _ => None,
+            };
+        }
+        if let Some(valid) = raw.strip_prefix("Count$Valid ")
+            && let Some((op, rhs_var)) = cmp.split_at_checked(2)
+            && matches!(op, "GT" | "LE")
+            && let Some(rhs_def) = self.svars.get(rhs_var.trim()).map(|s| s.trim())
+            && rhs_def.strip_prefix("PlayerCountOther$HighestValid ") == Some(valid.trim())
+            && let Some(neutral) = Self::wave19c_rewrite_you_ctrl(valid.trim(), None)
+        {
+            let expr = self.filter_expr(&neutral)?;
+            let filter_ref = match expr.as_str() {
+                "Filter::CREATURE" => "&Filter::CREATURE".to_string(),
+                "Filter::LAND" => "&Filter::LAND".to_string(),
+                "Filter::ARTIFACT" => "&Filter::ARTIFACT".to_string(),
+                "Filter::PERMANENT" => "&Filter::PERMANENT".to_string(),
+                _ => format!("&{}", self.body.filter_static("CHECK", &expr)),
+            };
+            return Some(if op == "GT" {
+                format!("Condition::ControlMoreThanEachOtherPlayer({filter_ref})")
+            } else {
+                format!("Condition::Not(&Condition::ControlMoreThanEachOtherPlayer({filter_ref}))")
+            });
         }
         if let Some(sub_raw) = raw.strip_prefix("PlayerCountPropertyYou$SacrificedThisTurn ") {
             return self.wave19c_sacrificed_subtype_condition(sub_raw.trim(), cmp);
