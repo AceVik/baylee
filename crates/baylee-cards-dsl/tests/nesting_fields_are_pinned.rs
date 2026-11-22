@@ -19,8 +19,7 @@
 //! the author of the thing it checks shares that author's blind spot, which
 //! is the house rule card batches followed when this was written.
 
-/// What `Effect`'s body declares today: seventeen `&'static [Effect]` and three
-/// `&'static Effect`.
+/// Fields in `Effect` that carry a child instruction or a branch of instructions.
 ///
 /// Derived twice from the source rather than recalled — once here and once by
 /// a script in the session that wrote the walker — and the two agreed.
@@ -115,7 +114,7 @@
 // walker-tested body each.
 const NESTING_FIELDS: usize = 119;
 
-/// How many variants those twenty-one fields are spread across.
+/// How many variants contain those fields.
 ///
 /// Pinned **beside** the field count rather than instead of it, because the
 /// two move for different reasons and only one of them describes the defect
@@ -247,6 +246,7 @@ fn without_comments(body: &str) -> String {
 
 #[test]
 fn every_field_that_nests_an_effect_is_one_the_walker_knows_about() {
+    const FIELD_TYPES: [&str; 3] = ["&'static [Effect]", "&'static Effect", "DamageRider"];
     let src = include_str!("../src/effect/mod.rs");
     let body = without_comments(&enum_body(src));
 
@@ -269,11 +269,9 @@ fn every_field_that_nests_an_effect_is_one_the_walker_knows_about() {
          having shrunk — fix the reader before believing the count below."
     );
 
-    // `&'static [Effect]` cannot be mistaken for `&'static Effect`: the
-    // bracket sits where the `E` would, so plain counting separates them.
-    let slices = body.matches("&'static [Effect]").count();
-    let singles = body.matches("&'static Effect").count();
-    let found = slices + singles;
+    // A DamageRider wraps one instruction exposed by Effect::branches.
+    let [slices, singles, riders] = FIELD_TYPES.map(|ty| body.matches(ty).count());
+    let found = slices + singles + riders;
 
     // Which variants those sit on. The variant is read first and the field
     // second on the same line, so a tuple variant — `Sequence(&'static
@@ -289,9 +287,7 @@ fn every_field_that_nests_an_effect_is_one_the_walker_knows_about() {
                 .next()
                 .unwrap_or("");
         }
-        if (t.contains("&'static [Effect]") || t.contains("&'static Effect"))
-            && !carrying.contains(&current)
-        {
+        if FIELD_TYPES.iter().any(|ty| t.contains(ty)) && !carrying.contains(&current) {
             carrying.push(current);
         }
     }
@@ -306,7 +302,7 @@ fn every_field_that_nests_an_effect_is_one_the_walker_knows_about() {
     assert_eq!(
         found, NESTING_FIELDS,
         "`Effect` now declares {found} fields that hold another `Effect` \
-         ({slices} slices, {singles} singles), and this test is pinned to \
+         ({slices} slices, {singles} singles, {riders} damage riders), and this test is pinned to \
          {NESTING_FIELDS}.\n\
          \n\
          If you added one: `Effect::branches` in this crate has to descend \
