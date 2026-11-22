@@ -145,7 +145,8 @@ reaches Central, so nobody's load can cost another account its session.
 
 ## Bigint advisory scope
 
-The ranked SDK revision adds an exact match identifier to ranked admission
+The ranked SDK revision `52f8bd3049b7bf804516d4e9dc6277b152834634`
+adds an exact match identifier to ranked admission
 and an optional source digest to legacy migration. Within `central-crypto`
 the changes are confined to the JWT claims and their tests. We reviewed the
 changes from the earlier November 22 pin and verified the same reverse
