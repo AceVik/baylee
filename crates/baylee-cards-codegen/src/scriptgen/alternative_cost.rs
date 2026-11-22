@@ -164,7 +164,7 @@ impl Tx<'_> {
         Some(())
     }
 
-    fn alt_condition(&self, p: &mut Params) -> Option<String> {
+    fn alt_condition(&mut self, p: &mut Params) -> Option<String> {
         if matches!(
             p.peek("IsPresent"),
             Some("Card.IsCommander+YouCtrl" | "Card.YouCtrl+IsCommander")
@@ -321,46 +321,46 @@ impl Tx<'_> {
             .or_else(|| self.deny(format!("`IsPresent$ {valid}` compared `{compare}`")))
     }
 
-    fn alt_svar_clause(&self, var: &str, compare: &str) -> Option<String> {
+    fn alt_svar_clause(&mut self, var: &str, compare: &str) -> Option<String> {
         let trimmed = var.trim();
         let def = if trimmed.starts_with("Count$")
             || trimmed.starts_with("PlayerCount")
             || trimmed.starts_with("DungeonsCompleted$")
         {
-            trimmed
+            trimmed.to_string()
         } else {
             let Some(raw) = self.svars.get(trimmed) else {
                 return self.deny(format!("`CheckSVar$ {trimmed}` naming no SVar"));
             };
-            raw.trim()
+            raw.trim().to_string()
         };
-        let deny_def = || {
+        let deny_def = |this: &Self| {
             if compare == "GE1" {
-                self.deny(format!("alternative-cost condition `{def}`"))
+                this.deny(format!("alternative-cost condition `{def}`"))
             } else {
-                self.deny(format!(
+                this.deny(format!(
                     "alternative-cost condition `{def}` compared `{compare}`"
                 ))
             }
         };
-        if let Some(cond) = self.alt_svar_known(def, compare) {
+        if let Some(cond) = self.alt_svar_known(&def, compare) {
             return Some(cond);
         }
         if let Some(valid) = def.strip_prefix("Count$Valid ") {
-            if valid.contains('/') || has_relative_atom(valid) {
-                return deny_def();
+            if valid.contains('/') || valid.contains('$') || has_relative_atom(valid) {
+                return deny_def(self);
             }
             let Some(bound) = count_bound(compare) else {
-                return deny_def();
+                return deny_def(self);
             };
             return self
                 .battlefield_count_condition(valid, bound)
-                .or_else(deny_def);
+                .or_else(|| deny_def(self));
         }
-        deny_def()
+        deny_def(self)
     }
 
-    fn alt_svar_known(&self, def: &str, compare: &str) -> Option<String> {
+    fn alt_svar_known(&mut self, def: &str, compare: &str) -> Option<String> {
         if let Some(cond) = Self::crime_or_opp_damaged_condition(def, compare) {
             return Some(cond);
         }
@@ -425,13 +425,13 @@ impl Tx<'_> {
                 }
                 _ => return None,
             },
-            "Count$ThisTurnCast_Card.YouCtrl" => {
-                return match compare {
-                    "EQ0" => Some("Condition::YouCastNoSpellThisTurn".to_string()),
-                    "GE1" => Some("Condition::Not(&Condition::YouCastNoSpellThisTurn)".to_string()),
-                    _ => None,
-                };
-            }
+            "Count$ThisTurnCast_Card.YouCtrl" => match compare {
+                "EQ0" => return Some("Condition::YouCastNoSpellThisTurn".to_string()),
+                "GE1" => {
+                    return Some("Condition::Not(&Condition::YouCastNoSpellThisTurn)".to_string());
+                }
+                _ => {}
+            },
             "Count$ThisTurnCast_Creature.YouCtrl" | "Count$ThisTurnCast_Card.Creature+YouCtrl" => {
                 return match compare {
                     "GE1" => Some("Condition::CastCreatureThisTurn".to_string()),
@@ -453,7 +453,41 @@ impl Tx<'_> {
             }
             _ => {}
         }
-        self.alt_svar_zone_count(def, bound)
+        if let Some(cond) = self.alt_svar_zone_count(def, bound) {
+            return Some(cond);
+        }
+        self.alt_wave14_svar_condition(def, compare, bound)
+    }
+
+    fn alt_wave14_svar_condition(
+        &mut self,
+        def: &str,
+        compare: &str,
+        bound: Option<Bound>,
+    ) -> Option<String> {
+        let amt = if def == "Count$LifeYouGainedThisTurn" {
+            "Amount::LifeGainedThisTurn(PlayerRel::You)".to_string()
+        } else {
+            self.wave14_condition_amount(def)?
+        };
+        if let Some(b) = bound {
+            return match b {
+                Bound::AtLeast(n) if n >= 1 => {
+                    Some(format!("Condition::AmountAtLeast({amt}, {n})"))
+                }
+                Bound::AtMost(n) => {
+                    let above = u32::from(n).checked_add(1)?;
+                    Some(format!(
+                        "Condition::Not(&Condition::AmountAtLeast({amt}, {above}))"
+                    ))
+                }
+                Bound::AtLeast(_) => None,
+            };
+        }
+        if def == "Count$Party" && compare.trim() == "EQ4" {
+            return Some(format!("Condition::AmountAtLeast({amt}, 4)"));
+        }
+        None
     }
 
     fn alt_svar_zone_count(&self, def: &str, bound: Option<Bound>) -> Option<String> {
@@ -501,6 +535,29 @@ impl Tx<'_> {
             && let Some(expr) = self.filter_expr_in_zone(&stripped, true)
         {
             let amt = format!("Amount::CountOf {{ filter: &{expr}, zone: ZoneSel::HandYou }}");
+            return match bound {
+                Some(Bound::AtLeast(n)) if n >= 1 => {
+                    Some(format!("Condition::AmountAtLeast({amt}, {n})"))
+                }
+                Some(Bound::AtMost(n)) => {
+                    let above = u32::from(n).checked_add(1)?;
+                    Some(format!(
+                        "Condition::Not(&Condition::AmountAtLeast({amt}, {above}))"
+                    ))
+                }
+                _ => None,
+            };
+        }
+        if let Some(valid) = def.strip_prefix("Count$ValidGraveyard ")
+            && !valid.contains('/')
+            && !valid.contains('$')
+            && !has_relative_atom(valid)
+            && let Some(stripped) = Self::strip_your_graveyard_owner(valid)
+            && let Some(expr) = self.filter_expr_in_zone(&stripped, true)
+        {
+            let amt = format!(
+                "Amount::CountOf {{ filter: &{expr}, zone: ZoneSel::GraveyardOf(PlayerRel::You) }}"
+            );
             return match bound {
                 Some(Bound::AtLeast(n)) if n >= 1 => {
                     Some(format!("Condition::AmountAtLeast({amt}, {n})"))

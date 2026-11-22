@@ -3550,7 +3550,7 @@ fn wave12b_refusal_boundaries() {
         "Name:BadRaiseNarrowTarget\nTypes:Creature\nPT:2/2\n\
          S:Mode$ RaiseCost | ValidTarget$ Creature.YouCtrl | Activator$ Opponent | Type$ Spell | Amount$ 2",
         "Name:BadReduceColorTarget\nTypes:Creature\nPT:2/2\n\
-         S:Mode$ ReduceCost | ValidTarget$ Card.Self | Activator$ You | Type$ Spell | Color$ U | Amount$ 1",
+         S:Mode$ ReduceCost | ValidTarget$ Card.Self | Activator$ You | Type$ Spell | Color$ U | Amount$ 1 | IgnoreGeneric$ True",
         "Name:BadReduceAllZoneTarget\nTypes:Instant\n\
          A:SP$ Draw | NumCards$ 1\n\
          S:Mode$ ReduceCost | ValidCard$ Card.Self | ValidTarget$ Card.Self | Type$ Spell | EffectZone$ All | Amount$ 2",

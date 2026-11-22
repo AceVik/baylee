@@ -234,6 +234,7 @@ impl Tx<'_> {
             }
             "CantBlockBy" => return self.cant_block_by(p),
             "MustAttack" => return self.must_attack(p),
+            "MustBlock" => return self.must_block(p),
             "CantAttack,CantBlock,CantBeActivated" | "CantAttack,CantBlock" => {
                 return self.cant_attack_block_activate(&mode, p);
             }
@@ -281,6 +282,13 @@ impl Tx<'_> {
         // `EffectZone$ Battlefield` is the default written out; any other
         // zone means the source works from somewhere else, which is a
         // different rule than the one below.
+        let exile_self_play = p.peek("EffectZone") == Some("Exile")
+            && p.peek("AffectedZone") == Some("Exile")
+            && p.peek("Affected") == Some("Card.Self")
+            && p.peek("MayPlay") == Some("True");
+        if exile_self_play {
+            return self.exile_self_may_play(p);
+        }
         let graveyard_self_grant = p.peek("EffectZone") == Some("Graveyard")
             && p.peek("AffectedZone") == Some("Graveyard")
             && p.peek("Affected") == Some("Card.Self")
@@ -367,7 +375,9 @@ impl Tx<'_> {
         }
         if effect_zone != Some("ZoneRef::Graveyard")
             && p.peek("MayPlay") == Some("True")
-            && (p.has("MayPlayAltManaCost") || p.has("MayPlayWithoutManaCost"))
+            && (p.has("MayPlayAltManaCost")
+                || p.has("MayPlayWithoutManaCost")
+                || p.peek("AffectedZone") == Some("Exile"))
         {
             return self.may_cast_with_alt_cost(p, effect_zone);
         }
@@ -1077,11 +1087,6 @@ impl Tx<'_> {
             ));
             return Some(());
         }
-        let condition =
-            self.static_conditions(&mut p, "unclaimed parameter `Continuous.CheckSVar`")?;
-        if p.first_key().is_some() {
-            return deny_zone(self);
-        }
         let modifiers: &[&str] = match affected.trim() {
             "Land.YouOwn" | "Land.YouCtrl" => &["Modifier::PlayLandsFromGraveyard"],
             "Card.YouOwn" | "Card.YouCtrl" => &[
@@ -1096,13 +1101,132 @@ impl Tx<'_> {
                 "Modifier::PlayLandsFromGraveyard",
                 "Modifier::CastPermanentSpellsFromGraveyard",
             ],
-            _ => return deny_zone(self),
+            _ => &[],
         };
-        for modifier in modifiers {
-            self.body.abilities.push(format!(
-                "static_ability!(Filter::Any, {modifier}{zone_arg}{condition})"
-            ));
+        if !modifiers.is_empty() {
+            let condition =
+                self.static_conditions(&mut p, "unclaimed parameter `Continuous.CheckSVar`")?;
+            if p.first_key().is_some() {
+                return deny_zone(self);
+            }
+            for modifier in modifiers {
+                self.body.abilities.push(format!(
+                    "static_ability!(Filter::Any, {modifier}{zone_arg}{condition})"
+                ));
+            }
+            return Some(());
         }
+        // Filtered graveyard land-play permissions (Wave 14a: `Modifier::PlayLandsFromGraveyard`
+        // evaluates the static ability's `filter` against land cards in your graveyard).
+        if !p.has("MayPlayLimit")
+            && !p.has("MayPlayWithFlash")
+            && !p.has("RaiseCost")
+            && !p.has("MayPlayPlayer")
+            && let Some(land_filter) = self.filtered_graveyard_land_filter(&affected)
+        {
+            let condition =
+                self.static_conditions(&mut p, "unclaimed parameter `Continuous.CheckSVar`")?;
+            if p.first_key().is_some() {
+                return deny_zone(self);
+            }
+            self.body.abilities.push(format!(
+                "static_ability!({land_filter}, Modifier::PlayLandsFromGraveyard{zone_arg}{condition})"
+            ));
+            return Some(());
+        }
+        // General filtered graveyard `MayPlay$ True` (including `MayPlayLimit$ 1`,
+        // `MayPlayWithFlash$ True`, `RaiseCost$`, `cmcLE...`) -> `Modifier::MayCastWithAltCost`
+        // with `AltCastPrice::Normal` or `AltCastPrice::NormalPlus`.
+        let mut alt_p = p;
+        alt_p.entries.push(("Affected".to_string(), affected));
+        alt_p
+            .entries
+            .push(("AffectedZone".to_string(), "Graveyard".to_string()));
+        alt_p
+            .entries
+            .push(("MayPlay".to_string(), "True".to_string()));
+        self.may_cast_with_alt_cost(alt_p, effect_zone)
+    }
+
+    fn filtered_graveyard_land_filter(&self, affected: &str) -> Option<String> {
+        let mut stripped_alts = Vec::new();
+        for raw_alt in affected.split(',') {
+            let alt = raw_alt.trim();
+            if alt.is_empty() {
+                return None;
+            }
+            let (base, qual) = alt.split_once('.').unwrap_or((alt, ""));
+            if base.trim() != "Land" {
+                return None;
+            }
+            let mut saw_you = false;
+            let mut kept = Vec::new();
+            for atom in qual.split('+').map(str::trim).filter(|a| !a.is_empty()) {
+                match atom {
+                    "YouOwn" | "YouCtrl" => saw_you = true,
+                    "Self" | "Other" | "StrictlyOther" | "EnchantedBy" | "EquippedBy"
+                    | "AttachedBy" | "Attached" | "IsRemembered" | "ExiledWithSource"
+                    | "ExiledWith" | "IsImprinted" | "TopLibrary" => return None,
+                    a if a.contains("Ctrl") || a.contains("Own") || a.starts_with("cmcLE") => {
+                        return None;
+                    }
+                    other => kept.push(other),
+                }
+            }
+            if !saw_you || kept.is_empty() {
+                return None;
+            }
+            stripped_alts.push(format!("Land.{}", kept.join("+")));
+        }
+        if stripped_alts.is_empty() {
+            return None;
+        }
+        self.filter_expr_in_zone(&stripped_alts.join(","), true)
+    }
+
+    /// `S: Mode$ Continuous | EffectZone$ Exile | AffectedZone$ Exile | Affected$ Card.Self | MayPlay$ True`
+    /// (*Eternal Scourge*, *Misthollow Griffin*, *Squee, the Immortal* — normal cost or `RaiseCost$`).
+    fn exile_self_may_play(&mut self, mut p: Params) -> Option<()> {
+        p.take("EffectZone");
+        p.take("AffectedZone");
+        p.take("Affected");
+        p.take("MayPlay");
+        if self.type_line.split_whitespace().any(|w| w == "Land") {
+            return self.deny("static ability from `EffectZone$ Exile`".into());
+        }
+        if p.has("MayPlayAltManaCost") || p.has("MayPlayWithoutManaCost") {
+            return self.deny("static ability from `EffectZone$ Exile`".into());
+        }
+        let price = if let Some(raw_raise) = p.take("RaiseCost") {
+            let cost = self.normal_plus_cost_expr(&raw_raise)?;
+            format!("AltCastPrice::NormalPlus({cost})")
+        } else {
+            "AltCastPrice::Normal".to_string()
+        };
+        let once_per_turn = match p.take("MayPlayLimit").as_deref() {
+            None => false,
+            Some("1") => true,
+            Some(other) => return self.deny(format!("`Continuous.MayPlayLimit$ {other}`")),
+        };
+        let with_flash = match p.take("MayPlayWithFlash").as_deref() {
+            None | Some("False") => false,
+            Some("True") => true,
+            Some(other) => return self.deny(format!("`Continuous.MayPlayWithFlash$ {other}`")),
+        };
+        let condition =
+            self.static_conditions(&mut p, "unclaimed parameter `Continuous.CheckSVar`")?;
+        if let Some(key) = p.first_key() {
+            return self.deny(format!("unclaimed parameter `Continuous.{key}`"));
+        }
+        let modifier = format!(
+            "Modifier::MayCastWithAltCost {{ who: PlayerRel::You, zones: AltCastZones::Zones(&[ZoneRef::Exile]), grant_zone_permission: true, allow_lands: false, with_flash: {with_flash}, max_mana_value: None, once_per_turn: {once_per_turn}, price: {price} }}"
+        );
+        self.body.abilities.push(Self::format_static_expr(
+            "Filter::This",
+            &modifier,
+            StaticEffectZone::Explicit("ZoneRef::Exile"),
+            &condition,
+        ));
         Some(())
     }
 
@@ -1900,6 +2024,35 @@ impl Tx<'_> {
         Some(())
     }
 
+    /// `S: Mode$ MustBlock | ValidCreature$ ...` -> `Modifier::MustBlock`
+    /// (*Watchdog*, *Grand Melee*, *Invasion Plans*, *Iron Golem*,
+    /// *Khârn the Betrayer*, *Razorgrass Screen*, *Relentless Raptor*, *Spirespine*).
+    pub(super) fn must_block(&mut self, mut p: Params) -> Option<()> {
+        p.drop_prose();
+        let zone = self.take_static_effect_zone(&mut p, "MustBlock")?;
+        match p.take("Secondary").as_deref() {
+            None | Some("True") => {}
+            Some(other) => return self.deny(format!("`MustBlock.Secondary$ {other}`")),
+        }
+        let Some(valid) = p.take("ValidCreature") else {
+            return self.deny("`MustBlock` naming no creature".to_string());
+        };
+        let condition =
+            self.static_conditions(&mut p, "unclaimed parameter `MustBlock.CheckSVar`")?;
+        if let Some(key) = p.first_key() {
+            self.note(format!("unclaimed parameter `MustBlock.{key}`"));
+            return None;
+        }
+        let filter = self.filter_expr(&valid)?;
+        self.body.abilities.push(Self::format_static_expr(
+            &filter,
+            "Modifier::MustBlock",
+            zone,
+            &condition,
+        ));
+        Some(())
+    }
+
     /// One source's attack during its current controller's last actual turn.
     /// The exact historical predicate is not an ordinary battlefield filter.
     fn cant_attack_after_last_own_turn(&mut self, mut p: Params) -> Option<()> {
@@ -2332,7 +2485,9 @@ impl Tx<'_> {
         let neg = trimmed.starts_with('-');
         let var = trimmed.trim_start_matches(['+', '-']);
         let body = self.svars.get(var)?.clone();
-        let inner = self.static_count_expr_ext(&body)?;
+        let inner = self
+            .static_count_expr_ext(&body)
+            .or_else(|| self.wave14_non_power_amount(&body))?;
         Some(if neg {
             format!("Amount::Negated(&{inner})")
         } else {
@@ -3246,13 +3401,24 @@ impl Tx<'_> {
                 && p.peek("Amount")
                     .is_some_and(|a| a.trim().parse::<u8>().is_err()))
         {
-            if valid_target.is_none()
-                && !stack_self_target
-                && self
+            if valid_target.is_none() && !stack_self_target {
+                let saved_p = p.clone();
+                let saved_statics = self.body.statics.len();
+                let saved_unclaimed = self.unclaimed.borrow().clone();
+                if self
                     .adjust_spell_cost_by_cast(p, true, self_stack_tax, zone)
                     .is_some()
-            {
-                return Some(());
+                {
+                    return Some(());
+                }
+                self.body.statics.truncate(saved_statics);
+                *self.unclaimed.borrow_mut() = saved_unclaimed;
+                if self
+                    .adjust_spell_cost_by_amount(saved_p, true, self_stack_tax, zone, true)
+                    .is_some()
+                {
+                    return Some(());
+                }
             }
             return self.deny("static ability `S: Mode$ RaiseCost`".into());
         }
@@ -3445,7 +3611,11 @@ impl Tx<'_> {
             },
         };
         let target_filter = if p.has("ValidTarget") {
-            Some(self.reduce_cost_target_filter(&mut p, is_self_zone, face_down, zone)?)
+            if is_legacy_reduce_cost_target(&p, is_self_zone, face_down, zone) {
+                Some(self.reduce_cost_target_filter(&mut p, is_self_zone, face_down, zone)?)
+            } else {
+                return self.reduce_cost_if_targets(p, is_self_zone, face_down, zone);
+            }
         } else {
             None
         };
@@ -3475,18 +3645,13 @@ impl Tx<'_> {
         let cond = self.reduce_cost_condition(&mut p)?;
         let Some(modifier) = self.reduce_cost_modifier(&mut p) else {
             if let Some((saved_p, saved_statics, saved_unclaimed)) = adjust_fallback {
-                let after_statics = self.body.statics.len();
-                let after_unclaimed = self.unclaimed.borrow().clone();
-                self.body.statics.truncate(saved_statics);
-                *self.unclaimed.borrow_mut() = saved_unclaimed;
-                if self
-                    .adjust_spell_cost_by_cast(saved_p, false, is_self_zone, zone)
-                    .is_some()
-                {
-                    return Some(());
-                }
-                self.body.statics.truncate(after_statics);
-                *self.unclaimed.borrow_mut() = after_unclaimed;
+                return self.try_reduce_cost_dynamic_fallback(
+                    saved_p,
+                    saved_statics,
+                    saved_unclaimed,
+                    is_self_zone,
+                    zone,
+                );
             }
             return None;
         };
@@ -3500,6 +3665,37 @@ impl Tx<'_> {
             .abilities
             .push(Self::format_static_expr(&filter, &modifier, zone, &cond));
         Some(())
+    }
+
+    fn try_reduce_cost_dynamic_fallback(
+        &mut self,
+        saved_p: Params,
+        saved_statics: usize,
+        saved_unclaimed: Option<String>,
+        is_self_zone: bool,
+        zone: StaticEffectZone,
+    ) -> Option<()> {
+        let after_statics = self.body.statics.len();
+        let after_unclaimed = self.unclaimed.borrow().clone();
+        self.body.statics.truncate(saved_statics);
+        (*self.unclaimed.borrow_mut()).clone_from(&saved_unclaimed);
+        if self
+            .adjust_spell_cost_by_cast(saved_p.clone(), false, is_self_zone, zone)
+            .is_some()
+        {
+            return Some(());
+        }
+        self.body.statics.truncate(saved_statics);
+        *self.unclaimed.borrow_mut() = saved_unclaimed;
+        if self
+            .adjust_spell_cost_by_amount(saved_p, false, is_self_zone, zone, false)
+            .is_some()
+        {
+            return Some(());
+        }
+        self.body.statics.truncate(after_statics);
+        *self.unclaimed.borrow_mut() = after_unclaimed;
+        None
     }
 
     fn resolve_reduce_cost_card(
@@ -3832,11 +4028,272 @@ impl Tx<'_> {
     }
 
     fn reduce_cost_ability(&mut self, p: Params) -> Option<()> {
+        if p.has("ValidTarget") {
+            return self.reduce_cost_ability_if_targets(p);
+        }
         let (filter, amount, minimum, zone, cond) =
             self.parse_ability_reduction(p, true, true, true)?;
         self.body.abilities.push(Self::format_static_expr(
             &filter,
             &format!("Modifier::AbilitiesCostLess {{ amount: {amount}, minimum: {minimum} }}"),
+            zone,
+            &cond,
+        ));
+        Some(())
+    }
+
+    fn reduce_cost_if_targets(
+        &mut self,
+        mut p: Params,
+        is_self_zone: bool,
+        face_down: bool,
+        zone: StaticEffectZone,
+    ) -> Option<()> {
+        if face_down || p.peek("Relative") == Some("True") {
+            return self.deny("unclaimed parameter `ReduceCost.ValidTarget`".into());
+        }
+        let raw_target = p.take("ValidTarget")?;
+        let (outer_filter, who, spell_filter) = if is_self_zone {
+            if !matches!(p.take("Activator").as_deref(), None | Some("You"))
+                || p.take("ValidCard").as_deref() != Some("Card.Self")
+            {
+                return self.deny("unclaimed parameter `ReduceCost.ValidTarget`".into());
+            }
+            (
+                "Filter::This",
+                "PlayerRel::You",
+                "&Filter::This".to_string(),
+            )
+        } else {
+            let who = match p.take("Activator").as_deref() {
+                None | Some("Player") => "PlayerRel::EachPlayer",
+                Some("You") => "PlayerRel::You",
+                Some("Opponent" | "Player.Opponent") => "PlayerRel::EachOpponent",
+                Some("EnchantedPlayer" | "Player.EnchantedBy" | "Player.EnchantedPlayer") => {
+                    "PlayerRel::EnchantedPlayer"
+                }
+                Some(_) => return self.deny("unclaimed parameter `ReduceCost.ValidTarget`".into()),
+            };
+            let raw_card = p.take("ValidCard").unwrap_or_else(|| "Card".to_string());
+            if raw_card == "Card.Self" {
+                return self.deny("static ability `S: Mode$ ReduceCost`".into());
+            }
+            let expr = self.filter_expr_in_zone(&raw_card, true)?;
+            let inner = if simple_const_filter(&expr) {
+                format!("&{expr}")
+            } else {
+                format!("&{}", self.body.filter_static("COST_SPELL", &expr))
+            };
+            ("Filter::Any", who, inner)
+        };
+        let target_filter = self.parse_target_cost_filter(&raw_target, is_self_zone)?;
+        let reduction = self.parse_fixed_reduction_mana(&mut p)?;
+        let cond = self.reduce_cost_condition(&mut p)?;
+        if let Some(key) = p.first_key() {
+            return self.deny(format!("unclaimed parameter `ReduceCost.{key}`"));
+        }
+        let modifier = format!(
+            "Modifier::ReduceCostIfTargets {{ who: {who}, spell_filter: {spell_filter}, target_filter: {target_filter}, reduction: {reduction}, abilities: false }}"
+        );
+        self.body.abilities.push(Self::format_static_expr(
+            outer_filter,
+            &modifier,
+            zone,
+            &cond,
+        ));
+        Some(())
+    }
+
+    fn reduce_cost_ability_if_targets(&mut self, mut p: Params) -> Option<()> {
+        let Some(zone) = Self::static_effect_zone(p.take("EffectZone").as_deref(), false) else {
+            return self.deny("static ability `S: Mode$ ReduceCost`".into());
+        };
+        if !matches!(
+            p.take("AffectedZone").as_deref(),
+            None | Some("Battlefield")
+        ) || !matches!(p.take("MinMana").as_deref(), None | Some("0"))
+            || p.peek("Relative") == Some("True")
+        {
+            return self.deny("unclaimed parameter `ReduceCost.ValidTarget`".into());
+        }
+        let who = match p.take("Activator").as_deref() {
+            None | Some("Player") => "PlayerRel::EachPlayer",
+            Some("You") => "PlayerRel::You",
+            Some("Opponent" | "Player.Opponent") => "PlayerRel::EachOpponent",
+            Some(_) => return self.deny("unclaimed parameter `ReduceCost.ValidTarget`".into()),
+        };
+        let Some(raw_card) = p.take("ValidCard") else {
+            return self.deny("unclaimed parameter `ReduceCost.ValidTarget`".into());
+        };
+        let raw_target = p.take("ValidTarget")?;
+        let spell_expr = self.filter_expr(&raw_card)?;
+        let spell_filter = if simple_const_filter(&spell_expr) {
+            format!("&{spell_expr}")
+        } else {
+            format!("&{}", self.body.filter_static("COST_SPELL", &spell_expr))
+        };
+        let target_filter = self.parse_target_cost_filter(&raw_target, false)?;
+        let reduction = self.parse_fixed_reduction_mana(&mut p)?;
+        let cond = self.reduce_cost_condition(&mut p)?;
+        if let Some(key) = p.first_key() {
+            return self.deny(format!("unclaimed parameter `ReduceCost.{key}`"));
+        }
+        let modifier = format!(
+            "Modifier::ReduceCostIfTargets {{ who: {who}, spell_filter: {spell_filter}, target_filter: {target_filter}, reduction: {reduction}, abilities: true }}"
+        );
+        self.body.abilities.push(Self::format_static_expr(
+            "Filter::Any",
+            &modifier,
+            zone,
+            &cond,
+        ));
+        Some(())
+    }
+
+    fn parse_target_cost_filter(&mut self, raw_target: &str, forbid_self: bool) -> Option<String> {
+        let mut normalized = Vec::new();
+        for raw_alt in raw_target.split(',') {
+            let alt = raw_alt.trim();
+            if alt.is_empty() {
+                return self.deny("unclaimed parameter `ReduceCost.ValidTarget`".into());
+            }
+            let (base, qual) = alt.split_once('.').unwrap_or((alt, ""));
+            let base = base.trim();
+            if matches!(
+                base,
+                "Player"
+                    | "Opponent"
+                    | "You"
+                    | "TargetedPlayer"
+                    | "Any"
+                    | "Object"
+                    | "SpellAbility"
+            ) {
+                return self.deny("unclaimed parameter `ReduceCost.ValidTarget`".into());
+            }
+            let mut has_in_zone = false;
+            for atom in qual.split('+').map(str::trim).filter(|a| !a.is_empty()) {
+                if forbid_self && atom == "Self" {
+                    return self.deny("unclaimed parameter `ReduceCost.ValidTarget`".into());
+                }
+                if atom.starts_with("inZone") {
+                    has_in_zone = true;
+                }
+            }
+            if forbid_self && base == "Self" {
+                return self.deny("unclaimed parameter `ReduceCost.ValidTarget`".into());
+            }
+            if base == "Permanent" && !has_in_zone {
+                if qual.is_empty() {
+                    normalized.push("Permanent.inZoneBattlefield".to_string());
+                } else {
+                    normalized.push(format!("{alt}+inZoneBattlefield"));
+                }
+            } else {
+                normalized.push(alt.to_string());
+            }
+        }
+        let joined = normalized.join(",");
+        let expr = self.filter_expr(&joined)?;
+        Some(if simple_const_filter(&expr) {
+            format!("&{expr}")
+        } else {
+            format!("&{}", self.body.filter_static("TARGET_COST", &expr))
+        })
+    }
+
+    fn parse_fixed_reduction_mana(&self, p: &mut Params) -> Option<String> {
+        if let Some(color_raw) = p.take("Color") {
+            if p.take("Amount").as_deref() != Some("1")
+                || !matches!(p.take("IgnoreGeneric").as_deref(), None | Some("False"))
+            {
+                return self.deny("static ability `S: Mode$ ReduceCost`".into());
+            }
+            let Some(mana) = super::printed_mana(&color_raw) else {
+                return self.deny("static ability `S: Mode$ ReduceCost`".into());
+            };
+            return Some(format!("mana!(\"{mana}\")"));
+        }
+        let Some(amt_raw) = p.take("Amount") else {
+            return self.deny("static ability `S: Mode$ ReduceCost`".into());
+        };
+        let Ok(n) = amt_raw.trim().parse::<u32>() else {
+            return self.deny("static ability `S: Mode$ ReduceCost`".into());
+        };
+        if n == 0 {
+            return self.deny("static ability `S: Mode$ ReduceCost`".into());
+        }
+        Some(format!("mana!(\"{{{n}}}\")"))
+    }
+
+    /// `S: Mode$ ReduceCost` / `RaiseCost` with dynamic `Amount$` ->
+    /// `Modifier::AdjustSpellCostByAmount { who, filter, increase, amount }`.
+    fn adjust_spell_cost_by_amount(
+        &mut self,
+        mut p: Params,
+        increase: bool,
+        is_self_zone: bool,
+        zone: StaticEffectZone,
+        allow_base_static_count: bool,
+    ) -> Option<()> {
+        if p.peek("Relative") == Some("True") {
+            return None;
+        }
+        p.take("Relative");
+        let (outer_filter, who, inner_filter) = if is_self_zone {
+            if !matches!(p.take("Activator").as_deref(), None | Some("You")) {
+                return None;
+            }
+            let raw_card = p.take("ValidCard").or_else(|| p.take("Affected"))?;
+            if raw_card != "Card.Self" {
+                return None;
+            }
+            (
+                "Filter::This",
+                "PlayerRel::You",
+                "&Filter::This".to_string(),
+            )
+        } else {
+            let who = match p.take("Activator").as_deref() {
+                None | Some("Player") => "PlayerRel::EachPlayer",
+                Some("You") => "PlayerRel::You",
+                Some("Opponent" | "Player.Opponent") => "PlayerRel::EachOpponent",
+                Some("EnchantedPlayer" | "Player.EnchantedBy" | "Player.EnchantedPlayer") => {
+                    "PlayerRel::EnchantedPlayer"
+                }
+                Some(_) => return None,
+            };
+            let raw_card = p.take("ValidCard").unwrap_or_else(|| "Card".to_string());
+            if raw_card == "Card.Self" {
+                return None;
+            }
+            let expr = self.filter_expr_in_zone(&raw_card, true)?;
+            let inner = if simple_const_filter(&expr) {
+                format!("&{expr}")
+            } else {
+                format!("&{}", self.body.filter_static("COST_SPELL", &expr))
+            };
+            ("Filter::Any", who, inner)
+        };
+        let amt_raw = p.take("Amount")?;
+        let amt_def = if amt_raw.starts_with("Count$") || amt_raw.starts_with("SVar$") {
+            amt_raw
+        } else {
+            self.svars.get(amt_raw.trim())?.clone()
+        };
+        let amt_expr = self
+            .wave14_static_amount(&amt_def)
+            .or_else(|| allow_base_static_count.then(|| self.static_count_expr_ext(&amt_def))?)?;
+        let cond = self.reduce_cost_condition(&mut p)?;
+        if !p.exhausted() {
+            return None;
+        }
+        let modifier = format!(
+            "Modifier::AdjustSpellCostByAmount {{ who: {who}, filter: {inner_filter}, increase: {increase}, amount: &{amt_expr} }}"
+        );
+        self.body.abilities.push(Self::format_static_expr(
+            outer_filter,
+            &modifier,
             zone,
             &cond,
         ));
@@ -4145,12 +4602,19 @@ impl Tx<'_> {
         }
         if let Some((op, rhs_var)) = parse_svar_amount_compare(cmp)
             && let Some(rhs_def) = self.svars.get(rhs_var).cloned()
-            && let Some(left) = self.static_count_expr(&def)
-            && let Some(right) = self.static_count_expr(&rhs_def)
+            && let Some(left) = self
+                .static_count_expr(&def)
+                .or_else(|| self.wave14_condition_amount(&def))
+            && let Some(right) = self
+                .static_count_expr(&rhs_def)
+                .or_else(|| self.wave14_condition_amount(&rhs_def))
         {
             return Some(format!(
                 "Condition::AmountCompare {{ left: &{left}, op: AmountCmp::{op}, right: &{right} }}"
             ));
+        }
+        if let Some(clause) = self.wave14_svar_condition_clause(&def, cmp) {
+            return Some(clause);
         }
         let bound = super::count_bound(cmp)?;
         if def == "PlayerCountOpponents$HighestCardsInGraveyard" {
@@ -4175,18 +4639,39 @@ impl Tx<'_> {
             .is_some_and(|rest| !rest.contains('$') && !rest.contains('/'))
             && let Some(count) = self.static_count_expr(&def)
         {
-            return match bound {
-                super::Bound::AtLeast(n) if n >= 1 => {
-                    Some(format!("Condition::AmountAtLeast({count}, {n})"))
+            return format_amount_bound(&count, bound);
+        }
+        None
+    }
+
+    fn wave14_svar_condition_clause(&mut self, def: &str, cmp: &str) -> Option<String> {
+        let amt = self.wave14_condition_amount(def)?;
+        if let Some(bound) = super::count_bound(cmp) {
+            return format_amount_bound(&amt, bound);
+        }
+        if def != "Count$ThisTurnCast_Card.YouCtrl" {
+            let trimmed_cmp = cmp.trim();
+            if let Some(n) = trimmed_cmp
+                .strip_prefix("EQ")
+                .and_then(|s| s.parse::<u32>().ok())
+                .filter(|&n| n >= 1)
+            {
+                if def == "Count$Party" && n == 4 {
+                    return Some(format!("Condition::AmountAtLeast({amt}, 4)"));
                 }
-                super::Bound::AtMost(n) => {
-                    let threshold = u32::from(n).saturating_add(1);
-                    Some(format!(
-                        "Condition::Not(&Condition::AmountAtLeast({count}, {threshold}))"
-                    ))
-                }
-                super::Bound::AtLeast(_) => None,
-            };
+                return Some(format!(
+                    "Condition::AmountCompare {{ left: &{amt}, op: AmountCmp::Equal, right: &Amount::Fixed({n}) }}"
+                ));
+            }
+            if let Some(n) = trimmed_cmp
+                .strip_prefix("NE")
+                .and_then(|s| s.parse::<u32>().ok())
+                .filter(|&n| n >= 1)
+            {
+                return Some(format!(
+                    "Condition::AmountCompare {{ left: &{amt}, op: AmountCmp::NotEqual, right: &Amount::Fixed({n}) }}"
+                ));
+            }
         }
         None
     }
@@ -4921,18 +5406,21 @@ impl Tx<'_> {
         let Some(raw_zones) = p.take("AffectedZone") else {
             return self.deny("`MayPlay` static with no `AffectedZone$`".into());
         };
-        let has_exile_gy_replacement = self
-            .body
-            .abilities
-            .iter()
-            .any(|a| a.contains("ReplacementRule::ExileInsteadOfGraveyard"));
+        let has_linked_exile_producer = self.body.abilities.iter().any(|a| {
+            a.contains("ReplacementRule::ExileInsteadOfGraveyard")
+                || a.contains("ExileTargetsWithSource")
+                || a.contains("ExileMatchingWithSource")
+                || a.contains("ExileTopLinked")
+                || a.contains("RevealUntilFound::ExileLinked")
+                || a.contains("link_to_source: true")
+        });
         let Some(zone_plan) = plan_alt_cast_zones(
             &raw_zones,
             &affected,
             dont_grant_zone,
             who,
             effect_zone,
-            has_exile_gy_replacement,
+            has_linked_exile_producer,
         ) else {
             return self.deny(format!(
                 "static ability reaching `AffectedZone$ {raw_zones}`"
@@ -4940,7 +5428,10 @@ impl Tx<'_> {
         };
         let (card_filter, max_mv_expr, allow_lands) =
             self.parse_alt_cast_affected(&affected, who, dont_grant_zone, &zone_plan)?;
-        if allow_lands && once_per_turn {
+        if allow_lands
+            && (price.starts_with("AltCastPrice::NormalPlus(")
+                || (once_per_turn && price != "AltCastPrice::Normal"))
+        {
             return self.deny("`MayPlayLimit$` combined with land-play permission".into());
         }
         let condition =
@@ -4972,24 +5463,69 @@ impl Tx<'_> {
         Some(())
     }
 
-    fn take_alt_cast_price(&self, p: &mut Params) -> Option<String> {
+    fn take_alt_cast_price(&mut self, p: &mut Params) -> Option<String> {
         let raw_alt = p.take("MayPlayAltManaCost");
         let raw_free = p.take("MayPlayWithoutManaCost");
-        match (raw_alt.as_deref(), raw_free.as_deref()) {
-            (None, Some("True")) => Some("AltCastPrice::Mana(ManaCost::ZERO)".to_string()),
-            (Some("PayLife<ConvertedManaCost>"), None) => {
+        let raw_raise = p.take("RaiseCost");
+        if raw_raise.is_some() && (raw_alt.is_some() || raw_free.is_some()) {
+            return self.deny("`RaiseCost$` combined with an alternative mana cost".into());
+        }
+        match (
+            raw_alt.as_deref(),
+            raw_free.as_deref(),
+            raw_raise.as_deref(),
+        ) {
+            (None, Some("True"), None) => Some("AltCastPrice::Mana(ManaCost::ZERO)".to_string()),
+            (Some("PayLife<ConvertedManaCost>"), None, None) => {
                 Some("AltCastPrice::PayLifeEqualToManaValue".to_string())
             }
-            (Some(cost), None) => parse_fixed_alt_mana_price(cost)
+            (Some(cost), None, None) => parse_fixed_alt_mana_price(cost)
                 .or_else(|| self.deny(format!("`Continuous.MayPlayAltManaCost$ {cost}`"))),
-            (Some(_), Some(_)) => {
+            (Some(_), Some(_), _) => {
                 self.deny("both `MayPlayAltManaCost$` and `MayPlayWithoutManaCost$`".into())
             }
-            (None, Some(other)) => {
+            (None, Some(other), _) => {
                 self.deny(format!("`Continuous.MayPlayWithoutManaCost$ {other}`"))
             }
-            (None, None) => None,
+            (None, None, Some(raw_cost)) => {
+                let cost = self.normal_plus_cost_expr(raw_cost)?;
+                Some(format!("AltCastPrice::NormalPlus({cost})"))
+            }
+            (None, None, None) => Some("AltCastPrice::Normal".to_string()),
+            (_, _, Some(_)) => {
+                self.deny("`RaiseCost$` combined with an alternative mana cost".into())
+            }
         }
+    }
+
+    fn normal_plus_cost_expr(&mut self, raw: &str) -> Option<String> {
+        let Some((mana, parts)) = self.cost_pieces(raw) else {
+            return self.deny(format!("`Continuous.RaiseCost$ {raw}`"));
+        };
+        let paid = |part: &String| {
+            part.starts_with("PayLife(")
+                || part.starts_with("DealDamageToYou(")
+                || part.starts_with("PayEnergy(")
+                || part.starts_with("Sacrifice(")
+                || part.starts_with("ReturnToHand(")
+                || part.starts_with("ExilePermanent(")
+                || part.starts_with("ExileFromHand(")
+                || part.starts_with("ExileFromGraveyard(")
+                || part.starts_with("ExileTopOfLibrary(")
+                || part.starts_with("Discard(")
+                || part == "DiscardRandom"
+                || part == "DiscardHand"
+                || part.starts_with("TapOther(")
+                || part.starts_with("TapN {")
+                || part.starts_with("RemoveAnyCounter {")
+                || part == "Forage"
+                || part.starts_with("Behold(")
+                || part.starts_with("CollectEvidence(")
+        };
+        if (mana.is_empty() && parts.is_empty()) || !parts.iter().all(paid) {
+            return self.deny(format!("`Continuous.RaiseCost$ {raw}`"));
+        }
+        Some(crate::body::cost_literal(&mana, &parts))
     }
 
     fn parse_alt_cast_affected(
@@ -5586,6 +6122,175 @@ impl Tx<'_> {
         None
     }
 
+    /// Wave 14a/b `Amount` readers usable in static cost adjustments
+    /// (`Modifier::AdjustSpellCostByAmount`) and `CheckSVar` conditions:
+    /// `Devotion`, `DevotionDual`, `PartySize`, `TotalPowerAmong`,
+    /// `GreatestPowerAmong`, `GreatestManaValueAmong` (with optional arithmetic
+    /// suffixes `/Times.N`, `/Twice`, `/Plus.N`, `/Minus.N`, `/HalfDown`, `/HalfUp`).
+    pub(super) fn wave14_static_amount(&mut self, def: &str) -> Option<String> {
+        self.wave14_amount_depth(def, 0, true, false)
+    }
+
+    /// Wave 14a/b `Amount` readers safe inside Layer 7c P/T modifiers
+    /// (excludes `TotalPowerAmong`/`GreatestPowerAmong` to avoid P/T circularity,
+    /// includes `CardsDrawnThisTurn`).
+    fn wave14_non_power_amount(&mut self, def: &str) -> Option<String> {
+        self.wave14_amount_depth(def, 0, false, true)
+    }
+
+    /// Wave 14a/b `Amount` readers for `CheckSVar` conditions (includes
+    /// `TotalPowerAmong`, `GreatestPowerAmong`, `GreatestManaValueAmong`,
+    /// `Devotion`, `PartySize`, `CardsDrawnThisTurn`, `SpellsCastThisTurn`).
+    pub(super) fn wave14_condition_amount(&mut self, def: &str) -> Option<String> {
+        self.wave14_amount_depth(def, 0, true, true)
+    }
+
+    fn wave14_amount_depth(
+        &mut self,
+        def: &str,
+        depth: u8,
+        allow_power_scan: bool,
+        allow_turn_counts: bool,
+    ) -> Option<String> {
+        let trimmed = def.trim();
+        if depth < 4
+            && let Some(var) = trimmed.strip_prefix("SVar$")
+            && !var.contains('/')
+            && let Some(inner) = self.svars.get(var.trim()).cloned()
+        {
+            return self.wave14_amount_depth(
+                &inner,
+                depth + 1,
+                allow_power_scan,
+                allow_turn_counts,
+            );
+        }
+        if depth < 4
+            && let Some((lhs, rhs)) = trimmed.rsplit_once('/')
+        {
+            return self.wave14_amount_arith(
+                lhs,
+                rhs,
+                depth + 1,
+                allow_power_scan,
+                allow_turn_counts,
+            );
+        }
+        if let Some(color_name) = trimmed.strip_prefix("Count$Devotion.") {
+            let color = parse_wave14_color(color_name.trim())?;
+            return Some(format!(
+                "Amount::Devotion {{ who: PlayerRel::You, colors: ColorSet::from_slice(&[Color::{color}]) }}"
+            ));
+        }
+        if let Some(dual) = trimmed.strip_prefix("Count$DevotionDual.") {
+            let (c1, c2) = dual.split_once('.')?;
+            let color1 = parse_wave14_color(c1.trim())?;
+            let color2 = parse_wave14_color(c2.trim())?;
+            if color1 == color2 || c2.contains('.') {
+                return None;
+            }
+            return Some(format!(
+                "Amount::Devotion {{ who: PlayerRel::You, colors: ColorSet::from_slice(&[Color::{color1}, Color::{color2}]) }}"
+            ));
+        }
+        if trimmed == "Count$Party" {
+            return Some("Amount::PartySize(PlayerRel::You)".to_string());
+        }
+        if allow_turn_counts {
+            match trimmed {
+                "Count$YouDrewThisTurn" => {
+                    return Some("Amount::CardsDrawnThisTurn(PlayerRel::You)".to_string());
+                }
+                "Count$ThisTurnCast_Card.YouCtrl" => {
+                    return Some("Amount::SpellsCastThisTurn(PlayerRel::You)".to_string());
+                }
+                "Count$ThisTurnCast_Card" if allow_power_scan => {
+                    return Some("Amount::SpellsCastThisTurn(PlayerRel::EachPlayer)".to_string());
+                }
+                "Count$ThisTurnCast_Card.OppCtrl" if allow_power_scan => {
+                    return Some("Amount::SpellsCastThisTurn(PlayerRel::EachOpponent)".to_string());
+                }
+                _ => {}
+            }
+        }
+        if let Some(rest) = trimmed.strip_prefix("Count$Valid ") {
+            return self.wave14_valid_stat_amount(rest, allow_power_scan);
+        }
+        None
+    }
+
+    fn wave14_amount_arith(
+        &mut self,
+        lhs: &str,
+        rhs: &str,
+        next_depth: u8,
+        allow_power_scan: bool,
+        allow_turn_counts: bool,
+    ) -> Option<String> {
+        let base =
+            self.wave14_amount_depth(lhs, next_depth, allow_power_scan, allow_turn_counts)?;
+        let rhs = rhs.trim();
+        if rhs == "Twice" {
+            return Some(format!("Amount::Times {{ base: &{base}, factor: 2 }}"));
+        }
+        if rhs == "Thrice" {
+            return Some(format!("Amount::Times {{ base: &{base}, factor: 3 }}"));
+        }
+        if rhs == "HalfDown" {
+            return Some(format!("Amount::Half {{ base: &{base}, round_up: false }}"));
+        }
+        if rhs == "HalfUp" {
+            return Some(format!("Amount::Half {{ base: &{base}, round_up: true }}"));
+        }
+        if let Some(n) = rhs
+            .strip_prefix("Times.")
+            .and_then(|s| s.trim().parse::<u32>().ok())
+            .filter(|&v| v >= 1)
+        {
+            return Some(format!("Amount::Times {{ base: &{base}, factor: {n} }}"));
+        }
+        if let Some(n) = rhs
+            .strip_prefix("Plus.")
+            .and_then(|s| s.trim().parse::<u32>().ok())
+        {
+            return Some(format!("Amount::Plus {{ base: &{base}, offset: {n} }}"));
+        }
+        if let Some(n) = rhs
+            .strip_prefix("Minus.")
+            .and_then(|s| s.trim().parse::<u32>().ok())
+        {
+            return Some(format!(
+                "Amount::SaturatingSub {{ base: &{base}, subtract: {n} }}"
+            ));
+        }
+        None
+    }
+
+    fn wave14_valid_stat_amount(&mut self, rest: &str, allow_power_scan: bool) -> Option<String> {
+        let (valid, variant) = if let Some(valid) = rest.strip_suffix("$CardPower")
+            && allow_power_scan
+        {
+            (valid, "Amount::TotalPowerAmong")
+        } else if let Some(valid) = rest.strip_suffix("$GreatestCardPower")
+            && allow_power_scan
+        {
+            (valid, "Amount::GreatestPowerAmong")
+        } else {
+            let valid = rest.strip_suffix("$GreatestCardManaCost")?;
+            (valid, "Amount::GreatestManaValueAmong")
+        };
+        if valid.is_empty() || valid.contains(['$', '/']) || valid.contains("inZone") {
+            return None;
+        }
+        let expr = self.filter_expr(valid)?;
+        let filter_ref = if simple_const_filter(&expr) {
+            format!("&{expr}")
+        } else {
+            format!("&{}", self.body.filter_static("COUNT", &expr))
+        };
+        Some(format!("{variant}({filter_ref})"))
+    }
+
     fn parse_discard_x_spell_cost(&mut self, cost: &str) -> Option<String> {
         let tokens = super::cost_parts(cost);
         if tokens.len() != 1
@@ -5809,6 +6514,8 @@ fn parse_svar_amount_compare(cmp: &str) -> Option<(&'static str, &str)> {
 enum AltCastZoneKind {
     Generic,
     HandOnly,
+    GraveyardGrant,
+    ExileCounter,
     LinkedExile { requires_imprinted: bool },
 }
 
@@ -5816,6 +6523,27 @@ struct AltCastZonePlan {
     zones_expr: String,
     grant_zone_permission: bool,
     kind: AltCastZoneKind,
+}
+
+fn is_forbidden_alt_cast_atom(atom: &str) -> bool {
+    matches!(
+        atom,
+        "Self"
+            | "Other"
+            | "StrictlyOther"
+            | "EnchantedBy"
+            | "EquippedBy"
+            | "AttachedBy"
+            | "Attached"
+            | "IsRemembered"
+            | "TopLibrary"
+            | "ThisTurnEntered"
+            | "ExiledWithEffectSource"
+            | "ExiledWith"
+            | "ExiledByYou"
+            | "foretold"
+            | "surveilledThisTurn"
+    ) || atom.starts_with("ControlledBy")
 }
 
 fn clean_alt_cast_alt(
@@ -5837,39 +6565,38 @@ fn clean_alt_cast_alt(
         return None;
     }
     let is_hand_only = plan.kind == AltCastZoneKind::HandOnly;
+    let is_gy_grant = plan.kind == AltCastZoneKind::GraveyardGrant;
+    let is_exile_counter = plan.kind == AltCastZoneKind::ExileCounter;
     let linked_requires_imprinted = match plan.kind {
         AltCastZoneKind::LinkedExile { requires_imprinted } => Some(requires_imprinted),
-        AltCastZoneKind::Generic | AltCastZoneKind::HandOnly => None,
+        AltCastZoneKind::Generic
+        | AltCastZoneKind::HandOnly
+        | AltCastZoneKind::GraveyardGrant
+        | AltCastZoneKind::ExileCounter => None,
     };
     let is_linked_exile = linked_requires_imprinted.is_some();
     let mut saw_you_owner_or_ctrl = false;
     let mut saw_nonland = base != "Card";
     let mut saw_exiled_with = false;
     let mut saw_imprinted = false;
+    let mut saw_counter = false;
     let mut alt_cmc: Option<String> = None;
     let mut kept = Vec::new();
     for atom in qual.split('+').map(str::trim).filter(|a| !a.is_empty()) {
+        if is_forbidden_alt_cast_atom(atom) {
+            return None;
+        }
         match atom {
-            "Self"
-            | "Other"
-            | "StrictlyOther"
-            | "EnchantedBy"
-            | "EquippedBy"
-            | "AttachedBy"
-            | "Attached"
-            | "IsRemembered"
-            | "TopLibrary"
-            | "ThisTurnEntered"
-            | "ExiledWithEffectSource"
-            | "ExiledWith"
-            | "foretold"
-            | "surveilledThisTurn" => return None,
-            a if a.starts_with("ControlledBy") => return None,
             "ExiledWithSource" if is_linked_exile => saw_exiled_with = true,
             "IsImprinted" if is_linked_exile => saw_imprinted = true,
             "ExiledWithSource" | "IsImprinted" => return None,
             "nonLand" => saw_nonland = true,
-            "YouCtrl" if who == "PlayerRel::You" => saw_you_owner_or_ctrl = true,
+            "YouCtrl" if who == "PlayerRel::You" => {
+                saw_you_owner_or_ctrl = true;
+                if is_gy_grant {
+                    kept.push("YouOwn");
+                }
+            }
             "YouOwn" if who == "PlayerRel::You" => {
                 saw_you_owner_or_ctrl = true;
                 if !is_hand_only {
@@ -5877,7 +6604,7 @@ fn clean_alt_cast_alt(
                 }
             }
             "OppOwn" | "YouDontOwn" if who == "PlayerRel::You" => {
-                if is_hand_only && !dont_grant_zone {
+                if (is_hand_only && !dont_grant_zone) || is_gy_grant || is_exile_counter {
                     return None;
                 }
                 kept.push(atom);
@@ -5890,7 +6617,12 @@ fn clean_alt_cast_alt(
                 }
                 alt_cmc = Some(rhs.to_string());
             }
-            other => kept.push(other),
+            other => {
+                if other.starts_with("counters_GE") {
+                    saw_counter = true;
+                }
+                kept.push(other);
+            }
         }
     }
     if let Some(requires_imprinted) = linked_requires_imprinted
@@ -5898,7 +6630,10 @@ fn clean_alt_cast_alt(
     {
         return None;
     }
-    if is_hand_only && !dont_grant_zone && !saw_you_owner_or_ctrl {
+    if (is_hand_only && !dont_grant_zone && !saw_you_owner_or_ctrl)
+        || (is_gy_grant && !saw_you_owner_or_ctrl)
+        || (is_exile_counter && (!saw_you_owner_or_ctrl || !saw_counter))
+    {
         return None;
     }
     let cleaned = if kept.is_empty() {
@@ -5909,13 +6644,67 @@ fn clean_alt_cast_alt(
     Some((cleaned, alt_cmc, saw_nonland))
 }
 
+fn plan_exile_alt_cast_zone(
+    affected: &str,
+    effect_zone: Option<&'static str>,
+    who: &str,
+    has_linked_exile_producer: bool,
+) -> Option<AltCastZonePlan> {
+    if effect_zone.is_some() || who != "PlayerRel::You" {
+        return None;
+    }
+    let all_linked = affected.split(',').all(|alt| {
+        let mut has_exiled = false;
+        let mut has_imprinted = false;
+        for a in alt.split(['.', '+']).map(str::trim) {
+            if a == "ExiledWithSource" {
+                has_exiled = true;
+            } else if a == "IsImprinted" {
+                has_imprinted = true;
+            }
+        }
+        has_exiled && (has_imprinted || has_linked_exile_producer)
+    });
+    if all_linked {
+        return Some(AltCastZonePlan {
+            zones_expr: "AltCastZones::LinkedExile".to_string(),
+            grant_zone_permission: true,
+            kind: AltCastZoneKind::LinkedExile {
+                requires_imprinted: !has_linked_exile_producer,
+            },
+        });
+    }
+    let all_owned_counter = affected.split(',').all(|alt| {
+        let mut has_you_own = false;
+        let mut has_counter = false;
+        for a in alt.split(['.', '+']).map(str::trim) {
+            if a == "YouOwn" {
+                has_you_own = true;
+            } else if a.starts_with("counters_GE") {
+                has_counter = true;
+            } else if matches!(
+                a,
+                "ExiledWithSource" | "ExiledWith" | "ExiledByYou" | "IsImprinted"
+            ) {
+                return false;
+            }
+        }
+        has_you_own && has_counter
+    });
+    all_owned_counter.then(|| AltCastZonePlan {
+        zones_expr: "AltCastZones::Zones(&[ZoneRef::Exile])".to_string(),
+        grant_zone_permission: true,
+        kind: AltCastZoneKind::ExileCounter,
+    })
+}
+
 fn plan_alt_cast_zones(
     raw_zones: &str,
     affected: &str,
     dont_grant_zone: bool,
     who: &str,
     effect_zone: Option<&'static str>,
-    has_exile_gy_replacement: bool,
+    has_linked_exile_producer: bool,
 ) -> Option<AltCastZonePlan> {
     let mut zones: Vec<&str> = Vec::new();
     for z in raw_zones
@@ -5951,29 +6740,15 @@ fn plan_alt_cast_zones(
             kind: AltCastZoneKind::HandOnly,
         });
     }
-    if zones == ["Exile"] && !dont_grant_zone {
-        let all_linked = affected.split(',').all(|alt| {
-            let mut has_exiled = false;
-            let mut has_imprinted = false;
-            for a in alt.split(['.', '+']).map(str::trim) {
-                if a == "ExiledWithSource" {
-                    has_exiled = true;
-                } else if a == "IsImprinted" {
-                    has_imprinted = true;
-                }
-            }
-            has_exiled && (has_imprinted || has_exile_gy_replacement)
+    if zones == ["Graveyard"] && !dont_grant_zone && who == "PlayerRel::You" {
+        return Some(AltCastZonePlan {
+            zones_expr: "AltCastZones::Zones(&[ZoneRef::Graveyard])".to_string(),
+            grant_zone_permission: true,
+            kind: AltCastZoneKind::GraveyardGrant,
         });
-        if all_linked && effect_zone.is_none() && who == "PlayerRel::You" {
-            return Some(AltCastZonePlan {
-                zones_expr: "AltCastZones::LinkedExile".to_string(),
-                grant_zone_permission: true,
-                kind: AltCastZoneKind::LinkedExile {
-                    requires_imprinted: !has_exile_gy_replacement,
-                },
-            });
-        }
-        return None;
+    }
+    if zones == ["Exile"] && !dont_grant_zone {
+        return plan_exile_alt_cast_zone(affected, effect_zone, who, has_linked_exile_producer);
     }
     if !dont_grant_zone {
         return None;
@@ -5994,6 +6769,53 @@ fn plan_alt_cast_zones(
         grant_zone_permission: false,
         kind: AltCastZoneKind::Generic,
     })
+}
+
+fn is_legacy_reduce_cost_target(
+    p: &Params,
+    is_self_zone: bool,
+    face_down: bool,
+    zone: StaticEffectZone,
+) -> bool {
+    !is_self_zone
+        && !face_down
+        && !p.has("Color")
+        && matches!(zone, StaticEffectZone::Battlefield)
+        && matches!(
+            p.peek("ValidTarget"),
+            Some(
+                "Card.Self"
+                    | "Creature.Self"
+                    | "Permanent.Self"
+                    | "Permanent.YouCtrl"
+                    | "Permanent.YouCtrl+inZoneBattlefield"
+                    | "Card.YouCtrl+inZoneBattlefield"
+            )
+        )
+}
+
+pub(super) fn parse_wave14_color(raw: &str) -> Option<&'static str> {
+    Some(match raw {
+        "White" => "White",
+        "Blue" => "Blue",
+        "Black" => "Black",
+        "Red" => "Red",
+        "Green" => "Green",
+        _ => return None,
+    })
+}
+
+fn format_amount_bound(amt: &str, bound: super::Bound) -> Option<String> {
+    match bound {
+        super::Bound::AtLeast(n) if n >= 1 => Some(format!("Condition::AmountAtLeast({amt}, {n})")),
+        super::Bound::AtMost(n) => {
+            let threshold = u32::from(n).saturating_add(1);
+            Some(format!(
+                "Condition::Not(&Condition::AmountAtLeast({amt}, {threshold}))"
+            ))
+        }
+        super::Bound::AtLeast(_) => None,
+    }
 }
 
 pub(super) fn parse_fixed_alt_mana_price(raw: &str) -> Option<String> {

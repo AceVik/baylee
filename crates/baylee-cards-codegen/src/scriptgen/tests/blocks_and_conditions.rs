@@ -1975,7 +1975,7 @@ fn wave22d_computed_pt_and_static_refusals() {
     );
 
     for bad in [
-        "Name:BadDevotion\nTypes:Enchantment\nS:Mode$ Continuous | AffectedDefined$ Self | AddKeyword$ Flying | CheckSVar$ D | SVarCompare$ GE5\nSVar:D:Count$DevotionDual.White.Blue",
+        "Name:BadDevotion\nTypes:Enchantment\nS:Mode$ Continuous | AffectedDefined$ Self | AddKeyword$ Flying | CheckSVar$ D | SVarCompare$ GE5\nSVar:D:Count$Devotion.Chosen",
         "Name:BadSacCardType\nTypes:Enchantment\nS:Mode$ Continuous | AffectedDefined$ Self | AddKeyword$ Flying | CheckSVar$ S | SVarCompare$ GE1\nSVar:S:PlayerCountPropertyYou$SacrificedThisTurn Artifact",
         "Name:BadOppEq2\nTypes:Enchantment\nS:Mode$ Continuous | AffectedDefined$ Self | AddKeyword$ Flying | IsPresent$ Island.OppCtrl | PresentCompare$ EQ2",
         "Name:BadShardTwo\nTypes:Enchantment\nS:Mode$ RaiseCost | Type$ Spell | ForEachShard$ Black | Cost$ Sac<2/Mountain>",

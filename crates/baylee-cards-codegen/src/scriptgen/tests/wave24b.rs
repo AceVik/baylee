@@ -680,11 +680,6 @@ fn wave24b_refuses_engine_gaps_and_non_paper_scripts() {
         "Name:Thran Portal Shape\nTypes:Land\n\
          S:Mode$ RaiseCost | ValidCard$ Card.Self | ValidSpell$ Activated.ManaAbility | \
          Cost$ PayLife<1> | EffectZone$ All",
-        // `ReduceCost` `ValidTarget$` (This Town Ain't Big Enough — engine gap).
-        "Name:This Town Shape\nManaCost:4 U\nTypes:Instant\n\
-         S:Mode$ ReduceCost | ValidCard$ Card.Self | Type$ Spell | Amount$ 3 | \
-         ValidTarget$ Permanent.YouCtrl | EffectZone$ All\n\
-         A:SP$ Draw | NumCards$ 1",
         // `AffectedZone$ Library` / `Graveyard` `MayPlay$ True` (engine/DSL gaps).
         "Name:Library MayPlay\nManaCost:2 U\nTypes:Enchantment\n\
          S:Mode$ Continuous | Affected$ Card.TopLibrary+YouCtrl | AffectedZone$ Library | \
