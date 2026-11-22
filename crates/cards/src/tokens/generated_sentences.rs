@@ -8,6 +8,114 @@ use crate::generated_tokens as token;
 use baylee_cards_dsl::TokenDef;
 
 pub(super) static ROWS: &[(&TokenDef, &[&str])] = &[
+    // Ajani, Strength of the Pride and Ajani, Resolute.
+    (
+        &token::AJANI_S_PRIDEMATE_2_2_WHITE_A5D7A6060,
+        &["Whenever you gain life, put a +1/+1 counter on this token."],
+    ),
+    // Garruk, Cursed Huntsman.
+    (
+        &token::WOLF_2_2_BLACK_GREEN_A26E23A3D,
+        &["When this token dies, put a loyalty counter on each Garruk you control."],
+    ),
+    // Everquill Phoenix.
+    (
+        &token::FEATHER_RED_A49C2DBA7,
+        &[
+            "{1}, Sacrifice this token: Return target Phoenix card from your graveyard to the battlefield tapped.",
+        ],
+    ),
+    // Freyalise, Llanowar's Fury.
+    (&token::ELF_DRUID_1_1_GREEN_A550D8680, &["{T}: Add {G}."]),
+    // Roxanne, Starfall Savant.
+    (
+        &token::METEORITE_A68E96657,
+        &[
+            "When this token enters, it deals 2 damage to any target.",
+            "{T}: Add one mana of any color.",
+        ],
+    ),
+    // Commodore Guff.
+    (
+        &token::WIZARD_1_1_RED_AC89D6B73,
+        &["{T}: Add {R}. Spend this mana only to cast a planeswalker spell."],
+    ),
+    // Fire Nation Attacks.
+    (&token::SOLDIER_2_2_RED_FIREBENDING_1, &["Firebending 1"]),
+    // The Legend of Roku // Avatar Roku.
+    (
+        &token::DRAGON_4_4_RED_FIREBENDING_4_FLYING,
+        &["Firebending 4"],
+    ),
+    // There and Back Again.
+    (
+        &token::SMAUG_LEGENDARY_6_6_RED_FLYING_HASTE_AE2F21CCC,
+        &["When Smaug dies, create fourteen Treasure tokens."],
+    ),
+    // Kaito Shizuki.
+    (
+        &token::NINJA_1_1_BLUE_A2CE7F4B9,
+        &["This token can't be blocked."],
+    ),
+    // Rasputin, the Oneiromancer.
+    (
+        &token::KNIGHT_2_2_WHITE_PROTECTION_FROM_RED,
+        &["Protection from red"],
+    ),
+    // Ajani Goldmane.
+    (
+        &token::AVATAR_X_X_WHITE_AA53C9B55,
+        &["This token's power and toughness are each equal to your life total."],
+    ),
+    // Tezzeret the Schemer.
+    (
+        &token::ETHERIUM_CELL_A852C8CC6,
+        &["{T}, Sacrifice this token: Add one mana of any color."],
+    ),
+    // Invasion of Kylem // Valor's Reach Tag Team.
+    (
+        &token::WARRIOR_3_2_WHITE_RED_A7C32C14A,
+        &[
+            "Whenever this token and at least one other creature token attack, put a +1/+1 counter on this token.",
+        ],
+    ),
+    // Extus, Oriq Overlord // Awaken the Blood Avatar.
+    (
+        &token::AVATAR_3_6_BLACK_RED_HASTE_A5A48861B,
+        &["Whenever this token attacks, it deals 3 damage to each opponent."],
+    ),
+    // Wrenn and Seven.
+    (
+        &token::TREEFOLK_X_X_GREEN_REACH_AC1FE3DC7,
+        &["This token's power and toughness are each equal to the number of lands you control."],
+    ),
+    // Mesmerizing Benthid.
+    (
+        &token::ILLUSION_0_2_BLUE_A820721BF,
+        &[
+            "Whenever this token blocks a creature, that creature doesn't untap during its controller's next untap step.",
+        ],
+    ),
+    // Niko Aris.
+    (
+        &token::SHARD_A4E3EA5DB,
+        &["{2}, Sacrifice this token: Scry 1, then draw a card."],
+    ),
+    // Blacksmith's Talent. The compiled Equip ability precedes the stat bonus.
+    (
+        &token::SWORD_EQUIP_2_A837D70E1,
+        &["Equip {2}", "Equipped creature gets +1/+1."],
+    ),
+    // White Tiger, Ava Ayala.
+    (
+        &token::THE_TIGER_GOD_LEGENDARY_4_4_GREEN_AE516C47A,
+        &["The Tiger God can't be blocked by more than one creature."],
+    ),
+    // Minn, Wily Illusionist.
+    (
+        &token::ILLUSION_1_1_BLUE_AF5F23524,
+        &["This token gets +1/+0 for each other Illusion you control."],
+    ),
     // Serpent Generator.
     (
         &token::SNAKE_ARTIFACT_1_1,
