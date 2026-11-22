@@ -938,6 +938,18 @@ impl HeuristicAgent {
         ) {
             return Some(self.keep_permanents(view, options, max));
         }
+        if let ChoicePrompt::NewHost { aura } = prompt {
+            return Some(self.move_attachment_answer(view, options, min, max, Some(aura), context));
+        }
+        if prompt == ChoicePrompt::Generic
+            && max > 0
+            && context
+                .effects
+                .iter()
+                .any(|e| matches!(e, baylee_cards_dsl::Effect::MoveAttachment { .. }))
+        {
+            return Some(self.move_attachment_answer(view, options, min, max, None, context));
+        }
         if prompt == ChoicePrompt::Generic
             && max > 0
             && context
@@ -5612,6 +5624,284 @@ pub(crate) fn reach_total(
     }
     ((min..=max).contains(&chosen.len()) && total.fault(options, &chosen).is_none())
         .then_some(chosen)
+}
+
+impl HeuristicAgent {
+    /// Answer `Pending::ChooseNumber` when resolving `Effect::ChooseNumberEx`.
+    #[allow(clippy::too_many_lines)]
+    pub(crate) fn choose_number_ex_answer(
+        &self,
+        view: &PlayerView,
+        min: u32,
+        max: u32,
+        context: &DecisionContext<'_>,
+    ) -> Option<u32> {
+        use baylee_cards_dsl::{Amount, Effect, PlayerRel, VariablePayKind};
+        let (pay_cost, then, tail): (Option<VariablePayKind>, &[Effect], &[Effect]) =
+            if let Some((Effect::ChooseNumberEx { pay_cost, then, .. }, rest)) =
+                context.effects.split_first()
+            {
+                (*pay_cost, *then, rest)
+            } else {
+                let top = view.top_of_stack()?;
+                let printed = crate::tactics::stack_effects(view, top);
+                let mut found = None;
+                for slice in printed {
+                    for (i, eff) in slice.iter().enumerate() {
+                        if let Effect::ChooseNumberEx { pay_cost, then, .. } = eff {
+                            found = Some((*pay_cost, *then, &slice[i + 1..]));
+                            break;
+                        }
+                    }
+                    if found.is_some() {
+                        break;
+                    }
+                }
+                found?
+            };
+
+        let me = view.seat;
+        let my_life = view.seat(me).map_or(0, |s| s.life);
+        let safe_max = if pay_cost == Some(VariablePayKind::Life) {
+            u32::try_from((my_life - 5).max(0))
+                .unwrap_or(0)
+                .clamp(min, max)
+        } else {
+            max
+        };
+
+        // Opponent spell asking us to choose a number (e.g. Choice of Damnations):
+        // pick a balanced number preserving a surviving life margin and permanents.
+        if let Some(top) = view.top_of_stack()
+            && self.hostile(top.controller, me)
+            && pay_cost.is_none()
+        {
+            let perms = u32::try_from(view.battlefield_of(me).count()).unwrap_or(0);
+            let life_bound = u32::try_from((my_life - 1).max(0) / 2).unwrap_or(0);
+            return Some(perms.max(life_bound).clamp(min, safe_max));
+        }
+
+        let followups = then.iter().chain(tail.iter());
+        for eff in followups {
+            match eff {
+                Effect::DealDamage {
+                    amount: Amount::ResolutionChosenNumber,
+                    ..
+                } => {
+                    if let Some(target_ref) = view.top_of_stack().and_then(|s| s.targets.first()) {
+                        return Some(match target_ref {
+                            baylee_view::TargetRef::Object(r) => match view.object(r.object) {
+                                Some(o) if !self.hostile(o.controller, me) => min,
+                                Some(o) => lethal_units_for(o, safe_max).clamp(min, safe_max),
+                                None => safe_max,
+                            },
+                            baylee_view::TargetRef::Player(p) => {
+                                if self.hostile(*p, me) {
+                                    safe_max
+                                } else {
+                                    min
+                                }
+                            }
+                        });
+                    }
+                }
+                Effect::PumpTarget {
+                    power, toughness, ..
+                } if (power.is_negative() || toughness.is_negative()) => {
+                    if let Some(baylee_view::TargetRef::Object(r)) =
+                        view.top_of_stack().and_then(|s| s.targets.first())
+                        && let Some(o) = view.object(r.object)
+                    {
+                        if !self.hostile(o.controller, me) {
+                            return Some(min);
+                        }
+                        let left = u32::try_from(o.toughness.unwrap_or(0).max(0)).unwrap_or(0);
+                        return Some(left.clamp(min, safe_max));
+                    }
+                }
+                Effect::PlayerMayPayOr {
+                    mana: Amount::ResolutionChosenNumber,
+                    effect:
+                        Effect::CounterTargetSpell
+                        | Effect::CounterTargetSpellToExile
+                        | Effect::CounterTargetSpellOrAbility,
+                    ..
+                } => {
+                    if let Some(baylee_view::TargetRef::Object(r)) =
+                        view.top_of_stack().and_then(|s| s.targets.first())
+                        && let Some(spell_obj) = view.stack.iter().find(|s| s.id == r.object)
+                    {
+                        if !self.hostile(spell_obj.controller, me) {
+                            return Some(min);
+                        }
+                        let opp = spell_obj.controller;
+                        let floating = view
+                            .seat(opp)
+                            .map_or(0, |s| u32::try_from(s.mana_pool.total()).unwrap_or(0));
+                        let untapped = u32::try_from(
+                            view.battlefield_of(opp)
+                                .filter(|p| {
+                                    !p.status.is_tapped()
+                                        && p.types.contains(baylee_core::types::TypeSet::LAND)
+                                })
+                                .count(),
+                        )
+                        .unwrap_or(0);
+                        return Some(
+                            floating
+                                .saturating_add(untapped)
+                                .saturating_add(1)
+                                .clamp(min, safe_max),
+                        );
+                    }
+                }
+                Effect::SacrificeAmountForPlayers {
+                    who: PlayerRel::EachPlayer,
+                    filter,
+                    amount: Amount::ResolutionChosenNumber,
+                } => {
+                    let matches_board = |o: &baylee_view::PublicObject| {
+                        self.filter_matches(
+                            filter,
+                            view,
+                            o,
+                            baylee_cards_dsl::ZoneRef::Battlefield,
+                            context.source,
+                        )
+                        .unwrap_or(true)
+                    };
+                    let mine =
+                        u32::try_from(view.battlefield_of(me).filter(|o| matches_board(o)).count())
+                            .unwrap_or(0);
+                    let opp_max = view
+                        .seats
+                        .iter()
+                        .filter(|s| self.hostile(s.player, me))
+                        .map(|s| {
+                            u32::try_from(
+                                view.battlefield_of(s.player)
+                                    .filter(|o| matches_board(o))
+                                    .count(),
+                            )
+                            .unwrap_or(0)
+                        })
+                        .max()
+                        .unwrap_or(0);
+                    return Some(if opp_max > mine {
+                        opp_max.clamp(min, safe_max)
+                    } else {
+                        min
+                    });
+                }
+                _ => {}
+            }
+        }
+
+        Some(safe_max.clamp(min, max))
+    }
+
+    /// Answer `Pending::ChooseCards` for Aura/Equipment relocation (`ChoicePrompt::NewHost`
+    /// and `Effect::MoveAttachment`).
+    pub(crate) fn move_attachment_answer(
+        &self,
+        view: &PlayerView,
+        options: &[ObjectId],
+        min: u8,
+        max: u8,
+        explicit_aura: Option<ObjectId>,
+        context: &DecisionContext<'_>,
+    ) -> Vec<ObjectId> {
+        use baylee_cards_dsl::{Effect, TargetSpec};
+        use baylee_core::types::TargetSide;
+
+        let att_obj = explicit_aura.and_then(|id| view.object(id)).or_else(|| {
+            if let Some(Effect::MoveAttachment { attachment, .. }) = context.effects.first() {
+                match attachment {
+                    TargetSpec::ThisObject => context
+                        .source
+                        .or_else(|| {
+                            view.top_of_stack().map(|s| match s.stack_item {
+                                Some(baylee_view::StackItem::Ability { source, .. }) => source,
+                                _ => s.id,
+                            })
+                        })
+                        .and_then(|id| view.object(id)),
+                    _ => view
+                        .top_of_stack()
+                        .and_then(|s| s.targets.first())
+                        .and_then(|t| match t {
+                            baylee_view::TargetRef::Object(r) => view.object(r.object),
+                            baylee_view::TargetRef::Player(_) => None,
+                        }),
+                }
+            } else {
+                None
+            }
+        });
+
+        let want_hostile = att_obj
+            .and_then(|o| baylee_engine::target_side::aura_side(crate::activate::printed_list(o)))
+            .is_some_and(|side| side == TargetSide::Harmful);
+
+        let me = view.seat;
+        let mut desired: Vec<ObjectId> = options
+            .iter()
+            .copied()
+            .filter(|id| {
+                view.object(*id).is_some_and(|o| {
+                    let is_hostile = self.hostile(o.controller, me);
+                    if want_hostile {
+                        is_hostile
+                    } else {
+                        !is_hostile
+                    }
+                })
+            })
+            .collect();
+
+        desired.sort_by_key(|id| {
+            (
+                std::cmp::Reverse(
+                    view.object(*id)
+                        .map_or(0, |o| Self::permanent_worth(view, o)),
+                ),
+                *id,
+            )
+        });
+
+        if !desired.is_empty() {
+            desired.truncate(usize::from(max.max(1)));
+            return desired;
+        }
+        if min == 0 {
+            return Vec::new();
+        }
+        let mut fallback = options.to_vec();
+        fallback.sort_by_key(|id| {
+            (
+                view.object(*id)
+                    .map_or(0, |o| Self::permanent_worth(view, o)),
+                *id,
+            )
+        });
+        fallback.truncate(usize::from(min));
+        fallback
+    }
+}
+
+fn lethal_units_for(o: &baylee_view::PublicObject, fallback: u32) -> u32 {
+    if let Some(t) = o.toughness {
+        let rem = i32::from(t) - i32::from(o.damage);
+        return u32::try_from(rem.max(1)).unwrap_or(1);
+    }
+    if let Some(l) = o.loyalty {
+        return u32::from(l.max(1));
+    }
+    let defense = o.counter_count(baylee_view::CounterKind::Defense);
+    if defense > 0 {
+        return u32::from(defense);
+    }
+    fallback
 }
 
 #[cfg(test)]

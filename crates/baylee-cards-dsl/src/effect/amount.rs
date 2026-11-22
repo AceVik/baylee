@@ -419,6 +419,14 @@ pub enum Amount {
     /// last existed on the battlefield (CR 608.2h; *Bound*). Appended to
     /// preserve replay identities.
     SacrificedDistinctColors,
+    /// Number most recently chosen (and paid, when `pay_cost.is_some()`) by
+    /// [`super::Effect::ChooseNumberEx`] earlier in the current resolution
+    /// (`CR 107.1`, `CR 608.2d`, `CR 608.2h`; *Galvanic Discharge*, *Aether Spike*,
+    /// *Aether Refinery*, *Die Young*, *By Invitation Only*, *Expel the
+    /// Interlopers*, *Choice of Damnations*). Evaluates to `0` outside an active
+    /// resolution or before a number is chosen. Appended to preserve replay
+    /// identities.
+    ResolutionChosenNumber,
 }
 
 /// The recipient [`Amount::DamageThisTurn`] counts.

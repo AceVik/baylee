@@ -1250,3 +1250,37 @@ fn choose_one_restricted_branches_and_sacrifice_any_number_are_visited() {
     assert_eq!(seen, 4);
     assert!(sac && drew && gained);
 }
+
+#[test]
+fn choose_number_ex_and_move_attachment_bodies_are_visited() {
+    static EFFECTS: &[Effect] = &[
+        Effect::ChooseNumberEx {
+            chooser: crate::PlayerRel::You,
+            min: Amount::Fixed(0),
+            max: Amount::Fixed(5),
+            prompt: crate::NumberChoiceKind::EnergyPayment,
+            pay_cost: Some(crate::VariablePayKind::Energy),
+            then: &[Effect::DealDamage {
+                amount: Amount::ResolutionChosenNumber,
+                target: crate::TargetSpec::AnyTarget,
+            }],
+        },
+        Effect::MoveAttachment {
+            attachment: crate::TargetSpec::ThisObject,
+            recipient_filter: &Filter::YOUR_CREATURE,
+            must_change_recipient: false,
+            optional: false,
+            then_if_moved: &[Effect::UntapAll {
+                filter: &Filter::YOUR_CREATURE,
+            }],
+        },
+    ];
+    let mut seen = 0;
+    let (mut dealt, mut untapped) = (false, false);
+    Effect::walk(EFFECTS, &mut seen, &mut |effect| {
+        dealt |= matches!(effect, Effect::DealDamage { .. });
+        untapped |= matches!(effect, Effect::UntapAll { .. });
+    });
+    assert_eq!(seen, 4);
+    assert!(dealt && untapped);
+}

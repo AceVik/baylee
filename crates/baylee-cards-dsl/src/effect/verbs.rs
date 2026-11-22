@@ -851,6 +851,21 @@ impl Effect {
                 filter: _,
                 only_found: _,
                 then,
+            }
+            | Effect::ChooseNumberEx {
+                chooser: _,
+                min: _,
+                max: _,
+                prompt: _,
+                pay_cost: _,
+                then,
+            }
+            | Effect::MoveAttachment {
+                attachment: _,
+                recipient_filter: _,
+                must_change_recipient: _,
+                optional: _,
+                then_if_moved: then,
             } => (then, NONE),
             Effect::PlayerMayPayThenElse { player: _, mana: _, paid: then, unpaid: otherwise }
             | Effect::PlayerMayPayManaAndLifeEachThenElse { paid: then, unpaid: otherwise, .. }

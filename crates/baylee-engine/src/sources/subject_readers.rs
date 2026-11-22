@@ -63,6 +63,9 @@ pub(super) fn refers_to_subject(effects: &'static [Effect], implicit_source: boo
             | Effect::GraveyardToBattlefield { target, .. }
             | Effect::GraveyardToBattlefieldModified { target, .. }
             | Effect::AttachSelf { target, .. }
+            | Effect::MoveAttachment {
+                attachment: target, ..
+            }
             | Effect::ExileLinked { target, .. }
             | Effect::SacrificeObject { target, .. }
             | Effect::RedirectNextDamage { target, .. }

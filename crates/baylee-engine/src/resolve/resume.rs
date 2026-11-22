@@ -842,6 +842,12 @@ pub(super) fn resume_inner(
                 super::attachments::attach_to(state, source, host, false);
             }
         }
+        AwaitingOp::MoveAttachment {
+            attachment,
+            then_if_moved,
+        } => {
+            super::wave14f::move_attachment_resume(state, res, attachment, then_if_moved, chosen);
+        }
         AwaitingOp::UntapPayingEach { player, each } => {
             let chosen: Vec<(ObjectId, u32)> = chosen
                 .iter()
@@ -1700,6 +1706,7 @@ pub(super) fn resume_inner(
         AwaitingOp::ChooseCardName { .. }
         | AwaitingOp::GuessNamedCardInHand { .. }
         | AwaitingOp::ChooseNumber
+        | AwaitingOp::ChooseNumberEx { .. }
         | AwaitingOp::RemoveCountersSelfCreateTokens { .. }
         | AwaitingOp::DungeonPlay(_)
         | AwaitingOp::Dungeon { .. }

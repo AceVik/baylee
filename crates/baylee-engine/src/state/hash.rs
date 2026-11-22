@@ -79,6 +79,7 @@ impl GameState {
             reflexive: _,
             // Transient scope bound only inside `resolve::run`; `None` at rest.
             resolution_chosen_color: _,
+            resolution_chosen_number,
             discovered,
             divided,
             synthetic_copies,
@@ -190,6 +191,11 @@ impl GameState {
         }
         if !goaded.is_empty() {
             goaded.hash(&mut h);
+        }
+        if let Some((src, number)) = resolution_chosen_number {
+            h.u16(370);
+            src.hash(&mut h);
+            h.u32(*number);
         }
         game_end.hash(&mut h);
         format.hash(&mut h);

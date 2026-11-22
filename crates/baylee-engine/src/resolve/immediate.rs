@@ -4158,6 +4158,8 @@ pub(super) fn exec_immediate(
         | Effect::RevealHandForGuess
         | Effect::DrawIfGuessWrong
         | Effect::ChooseNumber { .. }
+        | Effect::ChooseNumberEx { .. }
+        | Effect::MoveAttachment { .. }
         | Effect::DestroyWeakest { .. }
         | Effect::ExchangeGreatestManaValue { .. }
         | Effect::PlayerMayPayCostThen { .. }

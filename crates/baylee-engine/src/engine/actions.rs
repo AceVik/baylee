@@ -650,6 +650,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                         res.awaiting,
                         Some(
                             resolve::AwaitingOp::ChooseNumber
+                                | resolve::AwaitingOp::ChooseNumberEx { .. }
                                 | resolve::AwaitingOp::TapEnergy(_)
                                 | resolve::AwaitingOp::Counters { .. }
                                 | resolve::AwaitingOp::RemoveUpToCountersTarget { .. }

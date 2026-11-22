@@ -418,6 +418,7 @@ pub(super) fn event_object_for(
         ) => Some(*recipient),
         (
             Trigger::DealsDamageToPlayer { .. }
+            | Trigger::DealsCombatDamageToPlayer(_)
             | Trigger::OneOrMoreDealCombatDamageToPlayer(_)
             | Trigger::DealsCombatDamageToYou(_)
             | Trigger::DealsCombatDamage(_)

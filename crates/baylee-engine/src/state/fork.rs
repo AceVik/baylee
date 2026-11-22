@@ -103,6 +103,7 @@ impl GameState {
             ceased: _,
             reflexive,
             resolution_chosen_color: _,
+            resolution_chosen_number: _,
             discovered,
             divided: _,
             synthetic_copies: _,

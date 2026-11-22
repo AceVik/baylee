@@ -758,6 +758,12 @@ pub struct GameState {
     /// CR 608.2d); always `None` at rest (between calls into `resolve::run`),
     /// where `Resolution::subject.chosen_color` carries the persisted state.
     pub(crate) resolution_chosen_color: Option<(ObjectId, baylee_core::mana::ManaColor)>,
+    /// Transient `(source, number)` binding active only while `resolve::run` is
+    /// executing a resolution that chose a number (`Effect::ChooseNumberEx`,
+    /// CR 107.1, CR 608.2d); always `None` at rest (between calls into
+    /// `resolve::run`), where `Resolution::subject.chosen_number` carries the
+    /// persisted state.
+    pub(crate) resolution_chosen_number: Option<(ObjectId, u32)>,
     /// Cards a resolving discover (CR 701.57a) exiled and stopped at:
     /// `(the discovering player, the card, its version in exile)`.
     ///
@@ -1008,6 +1014,7 @@ impl GameState {
             ceased,
             reflexive,
             resolution_chosen_color: _,
+            resolution_chosen_number: _,
             discovered,
             divided,
             synthetic_copies,

@@ -40,6 +40,29 @@ pub enum DamageRedirectTo {
     DamagingSourceController,
 }
 
+/// UI / rules prompt classification for [`Effect::ChooseNumberEx`], mapped onto
+/// existing `Pending::ChooseNumber` `NumberPrompt` variants with zero wire changes.
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
+pub enum NumberChoiceKind {
+    /// Plain bounded or unbounded numeric choice (`NumberPrompt::Choice`).
+    Choice,
+    /// Variable energy counter payment (`NumberPrompt::EnergyPayment`, `CR 107.14`).
+    EnergyPayment,
+    /// Variable floating generic mana payment (`NumberPrompt::ManaPayment`, `CR 118.3`).
+    ManaPayment,
+}
+
+/// Variable resource paid equal to the chosen number in [`Effect::ChooseNumberEx`].
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
+pub enum VariablePayKind {
+    /// Pay `N` energy counters (`{E}`, `CR 107.14`).
+    Energy,
+    /// Pay `{N}` generic mana from the chooser's floating mana pool (`CR 118.3`).
+    GenericMana,
+    /// Pay `N` life (`CR 118.3`, `CR 119.4`, `CR 119.8`).
+    Life,
+}
+
 /// Which object(s) [`Effect::MoveAndModify`] moves onto the battlefield.
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 pub enum MoveSubject {
@@ -5678,6 +5701,51 @@ pub enum Effect {
         choices: &'static [Effect],
         /// Repeat-selection restriction scoped to the source permanent incarnation.
         restriction: ModalRestriction,
+    },
+    /// Dynamically evaluate `min` and `max` on resolution (clamping `max` to
+    /// affordable energy, spendable floating generic mana, or payable life when
+    /// `pay_cost` is `Some`, skipping the choice and `then` if `min > max`),
+    /// prompt `chooser` via `Pending::ChooseNumber`, pay the chosen cost when
+    /// `pay_cost` is `Some`, bind [`Amount::ResolutionChosenNumber`] for `then`
+    /// and any subsequent effects in the same resolution, and execute `then`
+    /// (*Galvanic Discharge*, *Aether Spike*, *Aether Refinery*, *Die Young*,
+    /// *By Invitation Only*, *Expel the Interlopers*, *Choice of Damnations*).
+    /// Appended beside [`Self::ChooseNumber`] to preserve replay identities.
+    ChooseNumberEx {
+        /// Which player chooses (and pays, when `pay_cost` is `Some`).
+        chooser: PlayerRel,
+        /// Minimum permitted choice, evaluated dynamically at resolution.
+        min: Amount,
+        /// Maximum permitted choice, evaluated dynamically at resolution and
+        /// clamped to affordable resources when `pay_cost` is `Some`.
+        max: Amount,
+        /// Prompt classification mapped onto `NumberPrompt`.
+        prompt: NumberChoiceKind,
+        /// Optional variable resource cost paid equal to the chosen number.
+        pay_cost: Option<VariablePayKind>,
+        /// Follow-up instructions executed once the choice (and payment) succeeds.
+        then: &'static [Effect],
+    },
+    /// Prompt the resolving controller via `Pending::ChooseCards` to select a
+    /// legal permanent on the battlefield matching `recipient_filter` (excluding
+    /// the permanent `attachment` is currently attached to when
+    /// `must_change_recipient` is `true`, and enforcing Aura `Enchant` legality
+    /// per `CR 303.4d` and Equipment/Fortification legality per `CR 301.5c` /
+    /// `CR 301.6`), attach `attachment` to it (`CR 701.3a–b`), and run
+    /// `then_if_moved` only when `attachment` actually became attached to a
+    /// different permanent (*Aura Graft*, *Crown of the Ages*, *Breath of Fury*,
+    /// *Armed and Armored*). Appended to preserve replay identities.
+    MoveAttachment {
+        /// Aura, Equipment, or Fortification permanent to attach/move.
+        attachment: TargetSpec,
+        /// Additional filter candidate host permanents must match.
+        recipient_filter: &'static Filter,
+        /// When `true`, excludes the permanent `attachment` is already attached to.
+        must_change_recipient: bool,
+        /// When `true`, offers `min = 0` so the controller may decline to attach.
+        optional: bool,
+        /// Instructions executed only if `attachment` actually attached (`CR 701.3b`).
+        then_if_moved: &'static [Effect],
     },
 }
 

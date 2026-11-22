@@ -140,6 +140,7 @@ pub struct SubjectContext {
     checkpoint: Option<(Vec<DamageSourceRef>, u64)>,
     pub(super) last_die_roll: Option<u32>,
     pub(super) coins_won: u32,
+    pub(super) chosen_number: Option<u32>,
     pub(super) repeat_frames: Vec<super::wave3_ops::RepeatFrame>,
     pub(super) repeat_processes: Vec<RepeatProcessFrame>,
     pub(super) vote_queue: Option<Box<super::vote::VoteQueue>>,
@@ -255,6 +256,7 @@ impl SubjectContext {
             named: None,
             chosen_subtype: None,
             chosen_color: None,
+            chosen_number: None,
             sacrificed: paid.sacrificed_lki,
             sacrifice_stats: SacrificeStats::default(),
             circled_colors: baylee_core::color::ColorSet::EMPTY,
@@ -509,6 +511,11 @@ impl SubjectContext {
                     360_u16,
                     self.sacrifice_stats,
                 )));
+        }
+        if let Some(number) = self.chosen_number {
+            h = h
+                .wrapping_mul(31)
+                .wrapping_add(crate::state::structural_fingerprint(&(370_u16, number)));
         }
         h
     }

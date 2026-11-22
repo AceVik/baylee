@@ -772,6 +772,9 @@ fn effects_read_expend(effects: &'static [baylee_cards_dsl::Effect]) -> bool {
                 counters.iter().any(|(_, amt)| amount_reads_expend(amt))
                     || modifiers.iter().any(modifier_reads_expend)
             }
+            Effect::ChooseNumberEx { min, max, .. } => {
+                amount_reads_expend(min) || amount_reads_expend(max)
+            }
             _ => false,
         };
     });

@@ -301,6 +301,10 @@ pub fn amount_with_context(
         | Amount::SacrificedTotalToughness
         | Amount::SacrificedTotalManaValue
         | Amount::SacrificedDistinctColors => 0,
+        Amount::ResolutionChosenNumber => state
+            .resolution_chosen_number
+            .filter(|(src, _)| *src == this)
+            .map_or(0, |(_, n)| n),
         Amount::DamageThisTurn { to, by, combat } => {
             damage_this_turn(state, you, context, *to, by, *combat)
         }

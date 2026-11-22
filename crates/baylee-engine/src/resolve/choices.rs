@@ -230,6 +230,31 @@ pub(super) fn exec_choice(
                 reason: crate::choice::NumberPrompt::Choice,
             })
         }
+        Effect::ChooseNumberEx {
+            chooser,
+            min,
+            max,
+            prompt,
+            pay_cost,
+            then,
+        } => super::wave14f::choose_number_ex_start(
+            state, res, chooser, min, max, prompt, pay_cost, then,
+        ),
+        Effect::MoveAttachment {
+            attachment,
+            recipient_filter,
+            must_change_recipient,
+            optional,
+            then_if_moved,
+        } => super::wave14f::move_attachment_start(
+            state,
+            res,
+            attachment,
+            recipient_filter,
+            must_change_recipient,
+            optional,
+            then_if_moved,
+        ),
         Effect::DestroyWeakest { filter, no_regen } => {
             super::weakest::start(state, res, filter, no_regen)
         }

@@ -247,6 +247,14 @@ fn reads_event(effect: &Effect) -> bool {
                 || reads_choose_zone(*zone)
                 || reads_filter(filter)
         }
+        Effect::ChooseNumberEx {
+            chooser, min, max, ..
+        } => reads_player(*chooser) || reads_amount(*min) || reads_amount(*max),
+        Effect::MoveAttachment {
+            attachment,
+            recipient_filter,
+            ..
+        } => reads_target(*attachment) || reads_filter(recipient_filter),
         Effect::SeparateIntoTwoPiles {
             separator,
             pile_chooser,

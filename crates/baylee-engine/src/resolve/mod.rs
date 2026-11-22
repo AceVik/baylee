@@ -45,6 +45,7 @@ mod wave10b;
 mod wave12a;
 mod wave13a;
 mod wave14d;
+mod wave14f;
 mod weakest;
 use copying::{copy_spell, copy_target_ability};
 mod coin;
@@ -875,6 +876,7 @@ pub(super) fn amount2(amount: &Amount, state: &GameState, you: PlayerId, res: &R
             .map_or(0, GameObject::event_amount),
         Amount::LastDieRoll => res.subject.last_die_roll.unwrap_or(0),
         Amount::CoinsWonThisResolution => res.subject.coins_won,
+        Amount::ResolutionChosenNumber => res.subject.chosen_number.unwrap_or(0),
         // Off the stack object, which is where the payment wrote it — a
         // spell's own, or the ability's rather than its permanent's.
         Amount::SacrificedManaValue | Amount::SacrificedPower | Amount::SacrificedToughness => {
@@ -1039,6 +1041,9 @@ pub(super) fn amount2(amount: &Amount, state: &GameState, you: PlayerId, res: &R
         Amount::Plus { base, offset } => amount2(base, state, you, res).saturating_add(*offset),
         Amount::SaturatingSub { base, subtract } => {
             amount2(base, state, you, res).saturating_sub(*subtract)
+        }
+        Amount::ConstantMinus { constant, subtract } => {
+            constant.saturating_sub(amount2(subtract, state, you, res))
         }
         Amount::Negated(base) => amount2(base, state, you, res),
         Amount::HandSize(who) => players_of(*who, state, you, res).first().map_or(0, |p| {
@@ -1846,9 +1851,12 @@ pub enum Flow {
 #[must_use]
 pub fn run(state: &mut GameState, res: &mut Resolution) -> Flow {
     let prev_color = state.resolution_chosen_color;
+    let prev_number = state.resolution_chosen_number;
     state.resolution_chosen_color = res.subject.chosen_color.map(|c| (res.source, c));
+    state.resolution_chosen_number = res.subject.chosen_number.map(|n| (res.source, n));
     let flow = run_inner(state, res);
     state.resolution_chosen_color = prev_color;
+    state.resolution_chosen_number = prev_number;
     flow
 }
 
@@ -2198,6 +2206,8 @@ fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> Option<Pendi
         | Effect::RevealHandForGuess
         | Effect::DrawIfGuessWrong
         | Effect::ChooseNumber { .. }
+        | Effect::ChooseNumberEx { .. }
+        | Effect::MoveAttachment { .. }
         | Effect::DestroyWeakest { .. }
         | Effect::ExchangeGreatestManaValue { .. }
         | Effect::PlayerMayPayCostThen { .. }
@@ -2388,6 +2398,8 @@ fn run_nested_with(
     };
     let flow = run(state, &mut nested);
     res.subject = nested.subject.clone();
+    state.resolution_chosen_color = res.subject.chosen_color.map(|c| (res.source, c));
+    state.resolution_chosen_number = res.subject.chosen_number.map(|n| (res.source, n));
     match flow {
         Flow::Complete => None,
         Flow::Enter => {

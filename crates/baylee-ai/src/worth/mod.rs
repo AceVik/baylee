@@ -146,6 +146,8 @@ struct Evaluation<'a> {
     x: u32,
     created_tokens: i64,
     die_range: Option<(i64, i64)>,
+    chosen_number: Option<i64>,
+    energy_gained: i64,
     event_player: Option<PlayerId>,
     event_object: Option<ObjectId>,
 }
@@ -667,6 +669,8 @@ impl HeuristicAgent {
                 x,
                 created_tokens: 0,
                 die_range: None,
+                chosen_number: None,
+                energy_gained: 0,
                 event_player: None,
                 event_object: None,
             },
@@ -813,8 +817,25 @@ impl HeuristicAgent {
         aim: Aim,
         x: u32,
     ) -> Option<i64> {
+        self.count_with_chosen(view, origin, amount, aim, x, None, 0)
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    fn count_with_chosen(
+        &self,
+        view: &PlayerView,
+        origin: Origin<'_>,
+        amount: Amount,
+        aim: Aim,
+        x: u32,
+        chosen_number: Option<i64>,
+        energy_gained: i64,
+    ) -> Option<i64> {
+        let rec = |a: Amount| {
+            self.count_with_chosen(view, origin, a, aim, x, chosen_number, energy_gained)
+        };
         if let Amount::Negated(inner) = amount {
-            return self.count(view, origin, *inner, aim, x).map(|n| -n);
+            return rec(*inner).map(|n| -n);
         }
         let target = match aim {
             Aim::Object(id) => view.object(id),
@@ -824,6 +845,10 @@ impl HeuristicAgent {
             Amount::Fixed(n) | Amount::NegXFixed(n) => i64::from(n),
             Amount::X | Amount::NegX | Amount::TimesKicked => i64::from(x),
             Amount::DoubleX => 2 * i64::from(x),
+            Amount::ResolutionChosenNumber => chosen_number?,
+            Amount::CountersOnYou(CounterKind::Energy) => view.seat(view.seat).map_or(0, |s| {
+                i64::from(s.energy).saturating_add(energy_gained).max(0)
+            }),
             Amount::LifeTotal(who) => self
                 .players(view, who, aim)?
                 .first()
@@ -835,28 +860,18 @@ impl HeuristicAgent {
                 divisor,
                 round_up,
             } => {
-                let n = self.count(view, origin, *base, aim, x)?.max(0);
+                let n = rec(*base)?.max(0);
                 let divisor = i64::from(divisor.get());
                 n / divisor + i64::from(round_up && n % divisor != 0)
             }
-            Amount::Plus { base, offset } => {
-                self.count(view, origin, *base, aim, x)? + i64::from(offset)
-            }
-            Amount::SaturatingSub { base, subtract } => {
-                (self.count(view, origin, *base, aim, x)? - i64::from(subtract)).max(0)
-            }
+            Amount::Plus { base, offset } => rec(*base)? + i64::from(offset),
+            Amount::SaturatingSub { base, subtract } => (rec(*base)? - i64::from(subtract)).max(0),
             Amount::ConstantMinus { constant, subtract } => {
-                (i64::from(constant) - self.count(view, origin, *subtract, aim, x)?).max(0)
+                (i64::from(constant) - rec(*subtract)?).max(0)
             }
-            Amount::Times { base, factor } => self
-                .count(view, origin, *base, aim, x)?
-                .saturating_mul(i64::from(factor)),
-            Amount::Sum { left, right } => self
-                .count(view, origin, *left, aim, x)?
-                .saturating_add(self.count(view, origin, *right, aim, x)?),
-            Amount::Difference { left, right } => (self.count(view, origin, *left, aim, x)?
-                - self.count(view, origin, *right, aim, x)?)
-            .max(0),
+            Amount::Times { base, factor } => rec(*base)?.saturating_mul(i64::from(factor)),
+            Amount::Sum { left, right } => rec(*left)?.saturating_add(rec(*right)?),
+            Amount::Difference { left, right } => (rec(*left)? - rec(*right)?).max(0),
             Amount::CountOf { filter, zone } => self.count_of(view, origin, filter, zone, aim)?,
             Amount::DistinctColorsAmong(filter) => i64::from(
                 view.battlefield
@@ -881,7 +896,7 @@ impl HeuristicAgent {
             Amount::TargetToughness => i64::from(target?.toughness?),
             Amount::TargetCmc => i64::from(target?.mana_value),
             Amount::IfCondition { otherwise, .. } => {
-                return self.count(view, origin, *otherwise, aim, x);
+                return rec(*otherwise);
             }
             _ => return None,
         };
@@ -1953,6 +1968,36 @@ impl HeuristicAgent {
             };
             return Some(base.saturating_add(bonus));
         }
+        if let Effect::ChooseNumberEx {
+            chooser,
+            min,
+            max,
+            pay_cost,
+            then,
+            ..
+        } = effect
+        {
+            return self
+                .choose_number_ex_worth(view, *chooser, *min, *max, *pay_cost, then, evaluation);
+        }
+        if let Effect::MoveAttachment {
+            attachment,
+            recipient_filter,
+            must_change_recipient,
+            optional,
+            then_if_moved,
+        } = effect
+        {
+            return self.move_attachment_worth(
+                view,
+                *attachment,
+                recipient_filter,
+                *must_change_recipient,
+                *optional,
+                then_if_moved,
+                evaluation,
+            );
+        }
         let (then, otherwise) = effect.branches();
         if !then.is_empty() || !otherwise.is_empty() {
             let (mut yes, mut no) = (*evaluation, *evaluation);
@@ -2050,7 +2095,10 @@ impl HeuristicAgent {
             }
             self.players(view, rel, eff_aim)
         };
-        let count = |amount: Amount| self.count(view, origin, amount, aim, x);
+        let (eval_chosen, eval_energy) = (evaluation.chosen_number, evaluation.energy_gained);
+        let count = |amount: Amount| {
+            self.count_with_chosen(view, origin, amount, aim, x, eval_chosen, eval_energy)
+        };
         let on_board = |filter: &Filter| -> Option<Vec<&PublicObject>> {
             view.battlefield.iter().try_fold(Vec::new(), |mut all, o| {
                 if self.filter_matches(filter, view, o, ZoneRef::Battlefield, Some(origin.id))? {
@@ -2863,7 +2911,11 @@ impl HeuristicAgent {
             }
             Effect::Energy { who, amount } => {
                 let n = count(*amount)?;
-                self.players(view, *who, aim)?
+                let seats = self.players(view, *who, aim)?;
+                if seats.contains(&me) {
+                    evaluation.energy_gained = evaluation.energy_gained.saturating_add(n.max(0));
+                }
+                seats
                     .into_iter()
                     .map(|p| if self.hostile(p, me) { -40 * n } else { 40 * n })
                     .sum()
@@ -4061,6 +4113,235 @@ impl HeuristicAgent {
             return Some(0);
         }
         Some(top_score_sum(&mut hand_scores, min, max_n))
+    }
+
+    #[allow(clippy::too_many_arguments, clippy::too_many_lines)]
+    fn choose_number_ex_worth(
+        &self,
+        view: &PlayerView,
+        chooser: PlayerRel,
+        min: Amount,
+        max: Amount,
+        pay_cost: Option<baylee_cards_dsl::VariablePayKind>,
+        then: &[Effect],
+        evaluation: &mut Evaluation<'_>,
+    ) -> Option<i64> {
+        use baylee_cards_dsl::VariablePayKind;
+        let Evaluation { origin, aim, x, .. } = *evaluation;
+        let me = view.seat;
+        let chooser_seat = *self.players(view, chooser, aim)?.first()?;
+        let chooser_hostile = self.hostile(chooser_seat, me);
+        let lo = self
+            .count_with_chosen(
+                view,
+                origin,
+                min,
+                aim,
+                x,
+                evaluation.chosen_number,
+                evaluation.energy_gained,
+            )?
+            .max(0);
+        let raw_hi = self
+            .count_with_chosen(
+                view,
+                origin,
+                max,
+                aim,
+                x,
+                evaluation.chosen_number,
+                evaluation.energy_gained,
+            )?
+            .max(0);
+        let hi = match pay_cost {
+            None => raw_hi.min(20),
+            Some(VariablePayKind::Energy) => {
+                let base_e = view.seat(chooser_seat).map_or(0, |s| i64::from(s.energy));
+                let bonus = if chooser_seat == me {
+                    evaluation.energy_gained
+                } else {
+                    0
+                };
+                raw_hi.min((base_e + bonus).max(0))
+            }
+            Some(VariablePayKind::GenericMana) => {
+                let pool = view
+                    .seat(chooser_seat)
+                    .map_or(0, |s| i64::try_from(s.mana_pool.total()).unwrap_or(20));
+                raw_hi.min(pool)
+            }
+            Some(VariablePayKind::Life) => {
+                let life = view
+                    .seat(chooser_seat)
+                    .map_or(0, |s| i64::from(s.life.max(0)));
+                let safe = if lo == 0 { (life - 5).max(0) } else { life };
+                raw_hi.min(safe)
+            }
+        };
+        if lo > hi {
+            return Some(0);
+        }
+        let target_hint = match aim {
+            Aim::Object(id) => view.object(id).and_then(|o| {
+                o.toughness
+                    .map(|t| i64::from(t.max(1)))
+                    .or_else(|| o.loyalty.map(|l| i64::from(l.max(1))))
+            }),
+            _ => None,
+        };
+        let mut samples = [
+            lo,
+            hi,
+            3_i64.clamp(lo, hi),
+            target_hint.unwrap_or(lo).clamp(lo, hi),
+        ];
+        samples.sort_unstable();
+        let cost_of = |n: i64| -> i64 {
+            let raw = match pay_cost {
+                None => 0,
+                Some(VariablePayKind::Energy) => n * 40,
+                Some(VariablePayKind::GenericMana) => n * Self::mana_price(view),
+                Some(VariablePayKind::Life) => n * life_price(view, chooser_seat),
+            };
+            if chooser_hostile { -raw } else { raw }
+        };
+        if then.is_empty() {
+            let pick = if chooser_hostile { lo } else { hi };
+            evaluation.chosen_number = Some(pick);
+            if pay_cost == Some(VariablePayKind::Energy) && chooser_seat == me {
+                evaluation.energy_gained -= pick;
+            }
+            return Some(-cost_of(pick));
+        }
+        let mut best: Option<(i64, i64, Evaluation<'_>)> = None;
+        let mut prev: Option<i64> = None;
+        for n in samples {
+            if prev == Some(n) {
+                continue;
+            }
+            prev = Some(n);
+            let mut sub = *evaluation;
+            sub.chosen_number = Some(n);
+            if pay_cost == Some(VariablePayKind::Energy) && chooser_seat == me {
+                sub.energy_gained -= n;
+            }
+            let val = self.effects_worth_in(view, then, &mut sub)? - cost_of(n);
+            let better = match best {
+                None => true,
+                Some((cur, _, _)) => {
+                    if chooser_hostile {
+                        val < cur
+                    } else {
+                        val > cur
+                    }
+                }
+            };
+            if better {
+                best = Some((val, n, sub));
+            }
+        }
+        let (best_val, _, best_eval) = best?;
+        *evaluation = best_eval;
+        Some(best_val)
+    }
+
+    #[allow(clippy::too_many_arguments, clippy::fn_params_excessive_bools)]
+    fn move_attachment_worth(
+        &self,
+        view: &PlayerView,
+        attachment: TargetSpec,
+        recipient_filter: &Filter,
+        must_change_recipient: bool,
+        optional: bool,
+        then_if_moved: &[Effect],
+        evaluation: &mut Evaluation<'_>,
+    ) -> Option<i64> {
+        use baylee_core::generated::subtypes;
+        use baylee_core::types::TargetSide;
+        let Evaluation { origin, aim, .. } = *evaluation;
+        let me = view.seat;
+        let att_obj = match attachment {
+            TargetSpec::ThisObject => origin.object,
+            TargetSpec::EventObject => evaluation.event_object.and_then(|id| view.object(id)),
+            _ => match aim {
+                Aim::Object(id) => view.object(id),
+                _ => None,
+            },
+        }?;
+        let current_host = att_obj.attached_to.and_then(|id| view.object(id));
+        let is_aura = att_obj.subtypes.contains(subtypes::enchantment::AURA);
+        let is_equip = att_obj.subtypes.contains(subtypes::artifact::EQUIPMENT);
+        let aura_harmful = is_aura
+            && baylee_engine::target_side::aura_side(crate::activate::printed_list(att_obj))
+                .is_some_and(|side| side == TargetSide::Harmful);
+
+        let aura_score = |host: &PublicObject| -> i64 {
+            let base = Self::permanent_worth(view, host) / 2;
+            let hostile = self.hostile(host.controller, me);
+            if aura_harmful {
+                if hostile { base } else { -base }
+            } else if hostile {
+                -base
+            } else {
+                base
+            }
+        };
+
+        let mut best_delta: Option<i64> = None;
+        for cand in &view.battlefield {
+            if cand.id == att_obj.id {
+                continue;
+            }
+            if must_change_recipient && att_obj.attached_to == Some(cand.id) {
+                continue;
+            }
+            if is_equip && !cand.types.contains(TypeSet::CREATURE) {
+                continue;
+            }
+            if !self
+                .filter_matches(
+                    recipient_filter,
+                    view,
+                    cand,
+                    ZoneRef::Battlefield,
+                    Some(origin.id),
+                )
+                .unwrap_or(false)
+            {
+                continue;
+            }
+            let actually_moves = att_obj.attached_to != Some(cand.id);
+            let move_delta = if is_equip {
+                self.attach(
+                    view,
+                    Origin {
+                        id: att_obj.id,
+                        object: Some(att_obj),
+                    },
+                    cand,
+                )
+            } else if is_aura {
+                if actually_moves {
+                    aura_score(cand) - current_host.map_or(0, aura_score)
+                } else {
+                    0
+                }
+            } else {
+                0
+            };
+            let rider = if actually_moves && !then_if_moved.is_empty() {
+                let mut sub = *evaluation;
+                self.effects_worth_in(view, then_if_moved, &mut sub)?
+            } else {
+                0
+            };
+            let total = move_delta.saturating_add(rider);
+            best_delta = Some(best_delta.map_or(total, |cur| cur.max(total)));
+        }
+        let Some(delta) = best_delta else {
+            return Some(0);
+        };
+        Some(if optional { delta.max(0) } else { delta })
     }
 }
 

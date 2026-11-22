@@ -124,6 +124,7 @@ impl GameState {
             ceased: Vec::new(),
             reflexive: Vec::new(),
             resolution_chosen_color: None,
+            resolution_chosen_number: None,
             discovered: Vec::new(),
             divided: Vec::new(),
             synthetic_copies: Vec::new(),

@@ -66,6 +66,17 @@ pub(super) fn resume_with_number_inner(
         advance_program(res);
         return run(state, res);
     }
+    if let Some(AwaitingOp::ChooseNumberEx {
+        chooser,
+        pay_cost,
+        then,
+    }) = res.awaiting
+    {
+        res.awaiting = None;
+        return super::wave14f::choose_number_ex_resume(
+            state, res, chooser, pay_cost, then, number,
+        );
+    }
     if matches!(res.awaiting, Some(AwaitingOp::TapEnergy(_))) {
         let Some(AwaitingOp::TapEnergy(selection)) = res.awaiting.take() else {
             unreachable!("energy payment continuation")

@@ -1518,6 +1518,22 @@ pub enum AwaitingOp {
         /// Ability index on the source permanent.
         ability_index: u32,
     },
+    /// Dynamic numeric choice / variable payment (`Effect::ChooseNumberEx`).
+    ChooseNumberEx {
+        /// Choosing (and paying) player seat.
+        chooser: PlayerId,
+        /// Optional variable resource cost paid equal to the chosen number.
+        pay_cost: Option<baylee_cards_dsl::VariablePayKind>,
+        /// Follow-up instructions spliced once chosen (and paid).
+        then: &'static [Effect],
+    },
+    /// Recipient selection for `Effect::MoveAttachment` (`CR 701.3a–b`).
+    MoveAttachment {
+        /// Exact Aura, Equipment, or Fortification incarnation moving.
+        attachment: baylee_core::ids::DamageSourceRef,
+        /// Follow-up instructions executed only if `attachment` actually attached.
+        then_if_moved: &'static [Effect],
+    },
 }
 
 /// Work to resume after an optional life payment.
@@ -1995,6 +2011,15 @@ impl AwaitingOp {
                 source,
                 ability_index,
             )),
+            Self::ChooseNumberEx {
+                chooser,
+                pay_cost,
+                then,
+            } => crate::state::structural_fingerprint(&(245_u8, chooser, pay_cost, then)),
+            Self::MoveAttachment {
+                attachment,
+                then_if_moved,
+            } => crate::state::structural_fingerprint(&(246_u8, attachment, then_if_moved)),
             _ => 0,
         }
     }

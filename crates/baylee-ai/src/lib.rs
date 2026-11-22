@@ -868,15 +868,17 @@ impl HeuristicAgent {
                         min
                     }
                 }
-                baylee_engine::choice::NumberPrompt::EnergyPayment { candidates } => {
-                    candidates.clamp(min, max)
-                }
-                baylee_engine::choice::NumberPrompt::Sacrifices
-                | baylee_engine::choice::NumberPrompt::Choice => 3u32.clamp(min, max),
+                baylee_engine::choice::NumberPrompt::EnergyPayment { candidates } => self
+                    .choose_number_ex_answer(view, min, max, context)
+                    .unwrap_or_else(|| candidates.clamp(min, max)),
+                baylee_engine::choice::NumberPrompt::Sacrifices => 3u32.clamp(min, max),
+                baylee_engine::choice::NumberPrompt::Choice => self
+                    .choose_number_ex_answer(view, min, max, context)
+                    .unwrap_or_else(|| 3u32.clamp(min, max)),
                 baylee_engine::choice::NumberPrompt::X => self.number(view, min, max, context),
-                baylee_engine::choice::NumberPrompt::ManaPayment { preventable_damage } => {
-                    preventable_damage.clamp(min, max)
-                }
+                baylee_engine::choice::NumberPrompt::ManaPayment { preventable_damage } => self
+                    .choose_number_ex_answer(view, min, max, context)
+                    .unwrap_or_else(|| preventable_damage.clamp(min, max)),
                 // Every payment the engine offers: it bounded the count by
                 // what the floating pool pays beside the rest of the cast,
                 // and each payment is the spell once more (CR 702.56a).

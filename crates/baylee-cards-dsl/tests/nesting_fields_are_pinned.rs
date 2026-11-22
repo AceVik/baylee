@@ -111,7 +111,9 @@
 // WithSecondTarget and WithThirdTarget add one walker-tested body each.
 // PreventNextDamageWithThen (`then`) adds one walker-tested body.
 // ChooseOneRestricted (`choices`) adds one walker-tested body.
-const NESTING_FIELDS: usize = 117;
+// ChooseNumberEx (`then`) and MoveAttachment (`then_if_moved`) add one
+// walker-tested body each.
+const NESTING_FIELDS: usize = 119;
 
 /// How many variants those twenty-one fields are spread across.
 ///
@@ -193,7 +195,9 @@ const NESTING_FIELDS: usize = 117;
 /// `PreventNextDamageWithThen` is the hundred-first.
 /// `ChooseOneRestricted` is the hundred-second
 /// (`choose_one_restricted_branches_and_sacrifice_any_number_are_visited`).
-const CARRYING_VARIANTS: usize = 102;
+/// `ChooseNumberEx` and `MoveAttachment` are the hundred-third and hundred-fourth
+/// (`choose_number_ex_and_move_attachment_bodies_are_visited`).
+const CARRYING_VARIANTS: usize = 104;
 
 /// The floor under the reader itself.
 ///

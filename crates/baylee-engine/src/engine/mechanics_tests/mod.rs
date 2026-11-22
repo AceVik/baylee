@@ -83,6 +83,7 @@ mod wave14b_target_and_dynamic_cost_reductions;
 mod wave14c_multi_target_chains;
 mod wave14d_temp_modifiers_damage_control;
 mod wave14e_sacrifice_modal_powerup_tokens;
+mod wave14f_choose_number_and_move_attach;
 mod wave2_bugs_copy_and_dice;
 mod wave3_repeat_choose_color;
 mod wave3_rules;
