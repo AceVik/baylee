@@ -2618,10 +2618,10 @@ impl Tx<'_> {
             ),
             Some("UntilTheEndOfYourNextTurn") => ("PlayWindow::ThroughYourNextTurn", false),
             Some("UntilYourNextTurn") => ("PlayWindow::UntilYourNextTurn", false),
-            Some("Permanent" | "UntilHostLeavesPlay") if !self.on_a_spell => {
+            Some("UntilHostLeavesPlay") if !self.on_a_spell => {
                 ("PlayWindow::WhileSourceOnBattlefield", prefer_linked_legacy)
             }
-            Some("Permanent") if self.on_a_spell => ("PlayWindow::WhileExiled", false),
+            Some("Permanent") => ("PlayWindow::WhileExiled", false),
             _ => return None,
         };
         let stat_name = ep.take("StaticAbilities")?;

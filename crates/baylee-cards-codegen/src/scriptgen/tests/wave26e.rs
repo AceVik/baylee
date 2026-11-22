@@ -129,6 +129,30 @@ fn dig_remember_changed_exile_with_event_step_and_permission() {
 }
 
 #[test]
+fn permanent_exile_permission_outlives_the_trigger_source() {
+    let script = "Name:Theft Probe\nManaCost:2 B\nTypes:Enchantment\n\
+        T:Mode$ Phase | Phase$ Upkeep | ValidPlayer$ You | Execute$ DigTop\n\
+        SVar:DigTop:DB$ Dig | Defined$ You | DigNum$ 1 | ChangeNum$ All | DestinationZone$ Exile | RememberChanged$ True | SubAbility$ AllowPlay\n\
+        SVar:AllowPlay:DB$ Effect | Duration$ Permanent | RememberObjects$ Remembered | ForgetOnMoved$ Exile | StaticAbilities$ PermitPlay\n\
+        SVar:PermitPlay:Mode$ Continuous | MayPlay$ True | Affected$ Card.IsRemembered | AffectedZone$ Exile";
+    let body = read_w26e(script);
+    assert!(
+        body.abilities[0].contains("ExilePermission::play(PlayWindow::WhileExiled)"),
+        "{}",
+        body.abilities[0]
+    );
+
+    let while_host_present =
+        read_w26e(&script.replace("Duration$ Permanent", "Duration$ UntilHostLeavesPlay"));
+    assert!(
+        while_host_present.abilities[0]
+            .contains("ExilePermission::play(PlayWindow::WhileSourceOnBattlefield)"),
+        "{}",
+        while_host_present.abilities[0]
+    );
+}
+
+#[test]
 fn dig_remember_changed_multi_exile_choose_play_and_peek_if_picked() {
     // Feldon, Ronom Excavator shape: exile top X, choose one to play until the
     // end of your next turn (using `ChosenCard` + `ClearChosenCard$ True`).
