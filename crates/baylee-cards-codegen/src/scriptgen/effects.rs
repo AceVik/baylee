@@ -649,7 +649,9 @@ impl Tx<'_> {
                 "HIDDEN CARDNAME can't attack or block." => {
                     "KeywordSet::CANT_ATTACK.union(KeywordSet::CANT_BLOCK)"
                 }
-                "HIDDEN CARDNAME can't block." => "KeywordSet::CANT_BLOCK",
+                "HIDDEN CARDNAME can't block." | "CARDNAME can't block." => {
+                    "KeywordSet::CANT_BLOCK"
+                }
                 "HIDDEN CARDNAME can't attack." => "KeywordSet::CANT_ATTACK",
                 "HIDDEN CARDNAME can't be blocked." => "KeywordSet::UNBLOCKABLE",
                 "Provoke" => "KeywordSet::PROVOKE",
@@ -715,6 +717,24 @@ impl Tx<'_> {
             };
         }
         if p.peek("KW").map(str::trim)
+            == Some(
+                "HIDDEN During your next untap step, as you untap your permanents, return CARDNAME to its owner's hand.",
+            )
+            && !p.has("NumAtt")
+            && !p.has("NumDef")
+            && !second
+            && !self.on_a_spell
+            && target == "TargetSpec::AnyPlayer"
+            && p.peek("Duration") == Some("Permanent")
+            && matches!(p.peek("Defined"), None | Some("Self"))
+        {
+            p.take("KW");
+            p.take("Duration");
+            p.take("Defined");
+            p.take("IsCurse");
+            return Some(vec!["Effect::ReturnSelfDuringNextUntap".to_string()]);
+        }
+        if p.peek("KW").map(str::trim)
             == Some("HIDDEN This card doesn't untap during your next untap step.")
             && !p.has("NumAtt")
             && !p.has("NumDef")
@@ -725,7 +745,22 @@ impl Tx<'_> {
             }
             p.take("KW");
             p.take("IsCurse");
-            let to = match p.take("Defined").as_deref() {
+            let block_role = self.block_line.as_ref().map(|(r, _, _)| *r);
+            let defined_raw = p.take("Defined");
+            if !self.on_a_spell
+                && matches!(
+                    defined_raw.as_deref(),
+                    Some("Self & Targeted" | "Targeted & Self")
+                )
+                && target.starts_with("TargetSpec::Object(")
+            {
+                return Some(vec![
+                    "Effect::SuppressUntap { target: TargetSpec::ThisObject, steps: 1 }"
+                        .to_string(),
+                    format!("Effect::SuppressUntap {{ target: {target}, steps: 1 }}"),
+                ]);
+            }
+            let to = match defined_raw.as_deref() {
                 Some("Self") => "TargetSpec::ThisObject",
                 None if target == "TargetSpec::AnyPlayer" && !self.on_a_spell => {
                     "TargetSpec::ThisObject"
@@ -734,17 +769,34 @@ impl Tx<'_> {
                     target
                 }
                 Some("TriggeredCardLKICopy" | "TriggeredCard")
-                    if self.trigger_mode.as_deref() == Some("ChangesZone") =>
+                    if matches!(
+                        self.trigger_mode.as_deref(),
+                        Some("ChangesZone" | "TapsForMana")
+                    ) =>
                 {
                     "TargetSpec::EventObject"
                 }
                 Some("TriggeredAttackerLKICopy" | "TriggeredAttacker")
-                    if self.trigger_mode.as_deref() == Some("Attacks") =>
+                    if matches!(
+                        self.trigger_mode.as_deref(),
+                        Some("Attacks" | "AttackerBlocked")
+                    ) || (self.trigger_mode.as_deref() == Some("AttackerBlockedByCreature")
+                        && block_role == Some(super::BlockRole::Blocks)) =>
                 {
                     "TargetSpec::EventObject"
                 }
                 Some("TriggeredBlockerLKICopy" | "TriggeredBlocker")
-                    if self.trigger_mode.as_deref() == Some("Blocks") =>
+                    if self.trigger_mode.as_deref() == Some("Blocks")
+                        || (self.trigger_mode.as_deref() == Some("AttackerBlockedByCreature")
+                            && block_role == Some(super::BlockRole::Blocked)) =>
+                {
+                    "TargetSpec::EventObject"
+                }
+                Some("TriggeredTargetLKICopy" | "TriggeredTarget")
+                    if matches!(
+                        self.trigger_mode.as_deref(),
+                        Some("DamageDone" | "DamageDoneOnce")
+                    ) =>
                 {
                     "TargetSpec::EventObject"
                 }
@@ -793,10 +845,11 @@ impl Tx<'_> {
         }
         if !second
             && target == "TargetSpec::AnyPlayer"
-            && p.peek("Defined") == Some("You")
             && p.peek("KW").map(str::trim) == Some("Hexproof")
             && !p.has("NumAtt")
             && !p.has("NumDef")
+            && p.peek("Defined")
+                .is_some_and(|d| matches!(d, "You" | "Player") || d.starts_with("You & Valid "))
         {
             let duration = match p.take("Duration").as_deref() {
                 None | Some("UntilEndOfTurn") => "Duration::UntilEndOfTurn",
@@ -804,12 +857,33 @@ impl Tx<'_> {
                 Some("UntilYourNextTurn") => "Duration::UntilYourNextTurn",
                 Some(_) => return None,
             };
-            p.take("Defined");
+            let def = p.take("Defined")?;
             p.take("KW");
             p.take("IsCurse");
-            return Some(vec![format!(
-                "Effect::continuous(&Filter::Any, Modifier::PlayerHexproof {{ who: PlayerRel::You }}, {duration})"
-            )]);
+            return if def == "You" {
+                Some(vec![format!(
+                    "Effect::continuous(&Filter::Any, Modifier::PlayerHexproof {{ who: PlayerRel::You }}, {duration})"
+                )])
+            } else if def == "Player" {
+                Some(vec![format!(
+                    "Effect::continuous(&Filter::Any, Modifier::PlayerHexproof {{ who: PlayerRel::EachPlayer }}, {duration})"
+                )])
+            } else if let Some(valid) = def.strip_prefix("You & Valid ") {
+                let expr = self.filter_expr(valid.trim())?;
+                let filter = self.body.filter_static("PUMP", &expr);
+                Some(vec![
+                    format!(
+                        "Effect::continuous(&Filter::Any, Modifier::PlayerHexproof {{ who: PlayerRel::You }}, {duration})"
+                    ),
+                    format!(
+                        "Effect::PumpFilter {{ filter: &{filter}, controlled_by: None, \
+                         power: Amount::Fixed(0), toughness: Amount::Fixed(0), \
+                         keywords: KeywordSet::HEXPROOF, duration: {duration} }}"
+                    ),
+                ])
+            } else {
+                None
+            };
         }
         if !second
             && p.peek("PumpZone") == Some("Graveyard")
@@ -835,16 +909,40 @@ impl Tx<'_> {
             && !p.has("DefinedKW")
             && !p.has("NumAtt")
             && !p.has("NumDef")
-            && p.peek("KW")
-                .is_some_and(|kw| kw.trim().starts_with("Protection:"))
+            && p.peek("KW").is_some_and(|kw| {
+                let t = kw.trim();
+                !t.contains('&')
+                    && (t.starts_with("Protection:") || t.starts_with("Protection from "))
+            })
         {
             return self.pump_protection_effect(p, target);
         }
-        let power = self.pump_side_ext(p.take("NumAtt").as_deref().unwrap_or("0"))?;
-        let toughness = self.pump_side_ext(p.take("NumDef").as_deref().unwrap_or("0"))?;
+        // Single-target doubling (`NumAtt$ Double` / `NumDef$ Double`, CR 701.10b–c):
+        // `resolve::counters::signed` reads exact signed `i16` for `TargetPower`
+        // and `TargetToughness`, preserving negative power/toughness semantics.
+        // Strictly single-target only (never `Self`, `Valid`, multi-target, or
+        // Alchemy `Duration$ Perpetual`).
+        let single_target_double_ok = !second
+            && target.starts_with("TargetSpec::Object(")
+            && matches!(p.peek("Defined"), None | Some("Targeted" | "ParentTarget"))
+            && p.peek("Duration") != Some("Perpetual")
+            && !self
+                .oracle
+                .to_ascii_lowercase()
+                .contains("target creatures");
+        let power = match p.take("NumAtt").as_deref().map(str::trim) {
+            Some("Double") if single_target_double_ok => "Amount::TargetPower".to_string(),
+            Some(raw) => self.pump_side_ext(raw)?,
+            None => "Amount::Fixed(0)".to_string(),
+        };
+        let toughness = match p.take("NumDef").as_deref().map(str::trim) {
+            Some("Double") if single_target_double_ok => "Amount::TargetToughness".to_string(),
+            Some(raw) => self.pump_side_ext(raw)?,
+            None => "Amount::Fixed(0)".to_string(),
+        };
         let (keywords, prevent_mods) = match p.take("KW") {
             None => ("KeywordSet::EMPTY".to_string(), Vec::new()),
-            Some(kw) => Self::pump_kw_and_prevent(&kw, p.opponents_only_lure)?,
+            Some(kw) => self.pump_kw_and_prevent(&kw, p.opponents_only_lure)?,
         };
         let kw_choices = match p.take("KWChoice") {
             None => None,
@@ -865,7 +963,7 @@ impl Tx<'_> {
         };
         // Every duration but the default is a lifetime the DSL spells
         // differently; none of them is "until end of turn" with a longer
-        // name.
+        // name. Alchemy `Duration$ Perpetual` is strictly refused.
         let duration = match p.take("Duration").as_deref() {
             None => "Duration::UntilEndOfTurn",
             Some("UntilEndOfCombat") => "Duration::UntilEndOfCombat",
@@ -1164,62 +1262,84 @@ impl Tx<'_> {
     }
 
     fn pump_kw_and_prevent(
+        &mut self,
         kw: &str,
         opponents_only_lure: bool,
-    ) -> Option<(String, Vec<&'static str>)> {
+    ) -> Option<(String, Vec<String>)> {
         let mut normal = Vec::new();
         let mut prevent = Vec::new();
         for part in kw.split('&').map(str::trim).filter(|s| !s.is_empty()) {
             match part {
                 "Prevent all combat damage that would be dealt to CARDNAME." => {
-                    prevent.push("Modifier::PreventDamageToIt");
+                    prevent.push("Modifier::PreventDamageToIt".to_string());
                 }
                 "Prevent all combat damage that would be dealt by CARDNAME." => {
-                    prevent.push("Modifier::PreventDamageFromIt");
+                    prevent.push("Modifier::PreventDamageFromIt".to_string());
                 }
                 "Prevent all combat damage that would be dealt to and dealt by CARDNAME." => {
-                    prevent.push("Modifier::PreventDamageToIt");
-                    prevent.push("Modifier::PreventDamageFromIt");
+                    prevent.push("Modifier::PreventDamageToIt".to_string());
+                    prevent.push("Modifier::PreventDamageFromIt".to_string());
                 }
                 "Prevent all damage that would be dealt by CARDNAME." => {
-                    prevent.push("Modifier::PreventAllDamageFromIt");
+                    prevent.push("Modifier::PreventAllDamageFromIt".to_string());
                 }
                 "Prevent all damage that would be dealt to CARDNAME." => {
-                    prevent.push("Modifier::PreventDamageFrom(&Filter::Any)");
+                    prevent.push("Modifier::PreventDamageFrom(&Filter::Any)".to_string());
                 }
                 "Prevent all damage that would be dealt to and dealt by CARDNAME." => {
-                    prevent.push("Modifier::PreventDamageFrom(&Filter::Any)");
-                    prevent.push("Modifier::PreventAllDamageFromIt");
+                    prevent.push("Modifier::PreventDamageFrom(&Filter::Any)".to_string());
+                    prevent.push("Modifier::PreventAllDamageFromIt".to_string());
                 }
                 "HIDDEN All creatures able to block CARDNAME do so." => {
                     if opponents_only_lure {
                         prevent.push(
-                            "Modifier::MustBeBlockedByAllAbleMatching(&Filter::OPPONENT_CREATURE)",
+                            "Modifier::MustBeBlockedByAllAbleMatching(&Filter::OPPONENT_CREATURE)"
+                                .to_string(),
                         );
                     } else {
-                        prevent.push("Modifier::MustBeBlockedByAllAble");
+                        prevent.push("Modifier::MustBeBlockedByAllAble".to_string());
                     }
                 }
                 "HIDDEN CARDNAME attacks each combat if able." => {
-                    prevent.push("Modifier::AttacksEachCombat");
+                    prevent.push("Modifier::AttacksEachCombat".to_string());
                 }
                 "HIDDEN CARDNAME can block any number of creatures." => {
-                    prevent.push("Modifier::CanBlockAnyNumber");
+                    prevent.push("Modifier::CanBlockAnyNumber".to_string());
                 }
                 "HIDDEN CARDNAME can't be blocked except by two or more creatures." => {
-                    prevent.push("Modifier::MinimumBlockers(2)");
+                    prevent.push("Modifier::MinimumBlockers(2)".to_string());
                 }
                 "HIDDEN CARDNAME can block an additional creature each combat." => {
-                    prevent.push("Modifier::CanBlockAdditional(1)");
+                    prevent.push("Modifier::CanBlockAdditional(1)".to_string());
                 }
                 "HIDDEN CARDNAME can attack as though it didn't have defender." => {
-                    prevent.push("Modifier::AttacksDespiteDefender");
+                    prevent.push("Modifier::AttacksDespiteDefender".to_string());
                 }
                 "HIDDEN CARDNAME can attack as though it had haste." => {
-                    prevent.push("Modifier::AttacksAsThoughHaste");
+                    prevent.push("Modifier::AttacksAsThoughHaste".to_string());
                 }
                 "HIDDEN CARDNAME blocks each attacking creature if able." => {
-                    prevent.push("Modifier::BlocksEachAttackerIfAble");
+                    prevent.push("Modifier::BlocksEachAttackerIfAble".to_string());
+                }
+                "Protection from each color" => {
+                    let from = self
+                        .body
+                        .filter_static("PROT", "Filter::Not(&Filter::IsColorless)");
+                    prevent.push(format!("Modifier::ProtectionFrom(&{from})"));
+                }
+                other if other.starts_with("Protection:") => {
+                    let from = self.pump_protection_spec(other)?;
+                    prevent.push(format!("Modifier::ProtectionFrom(&{from})"));
+                }
+                other if other.starts_with("Protection from ") => {
+                    let expr = self.protection_filter(other)?;
+                    let from = self.body.filter_static("PROT", &expr);
+                    prevent.push(format!("Modifier::ProtectionFrom(&{from})"));
+                }
+                other if other.starts_with("Landwalk:") => {
+                    let expr = self.landwalk_filter(other)?;
+                    let filter = self.body.filter_static("LANDWALK", &expr);
+                    prevent.push(format!("Modifier::LandwalkMatching(&{filter})"));
                 }
                 other => normal.push(other),
             }
@@ -1243,13 +1363,24 @@ impl Tx<'_> {
                 inner.to_string()
             });
         }
-        self.pump_side(raw)
+        self.pump_side_ext(raw)
     }
 
     /// `PumpAll`: `ValidCards$ Creature.blocking | NumAtt$ +1 | NumDef$ +1`,
     /// pumping every permanent on the battlefield that matches `ValidCards$`.
     fn pump_protection_spec(&mut self, kw: &str) -> Option<String> {
-        let rest = kw.trim().strip_prefix("Protection:")?;
+        let trimmed = kw.trim();
+        if trimmed == "Protection from each color" {
+            return Some(
+                self.body
+                    .filter_static("PROT", "Filter::Not(&Filter::IsColorless)"),
+            );
+        }
+        if trimmed.starts_with("Protection from ") {
+            let expr = self.protection_filter(trimmed)?;
+            return Some(self.body.filter_static("PROT", &expr));
+        }
+        let rest = trimmed.strip_prefix("Protection:")?;
         let spec = rest.split(':').next()?.trim();
         if spec.is_empty()
             || spec.contains('&')
@@ -1327,6 +1458,24 @@ impl Tx<'_> {
         targets_a_player: bool,
         prior_target_used: bool,
     ) -> Option<Vec<String>> {
+        if p.peek("KW").map(str::trim) == Some("HIDDEN CARDNAME's power and toughness are switched")
+            && !p.has("NumAtt")
+            && !p.has("NumDef")
+            && !targets_here
+            && (target.is_none() || prior_target_used)
+            && p.peek("Defined").is_none()
+            && matches!(p.peek("Duration"), None | Some("UntilEndOfTurn"))
+        {
+            p.take("KW");
+            p.take("Duration");
+            p.take("IsCurse");
+            let valid = p.take("ValidCards")?;
+            let expr = self.filter_expr(&valid)?;
+            let filter = self.body.filter_static("PUMP_ALL", &expr);
+            return Some(vec![format!(
+                "Effect::continuous(&{filter}, Modifier::SwitchPT, Duration::UntilEndOfTurn)"
+            )]);
+        }
         if p.peek("KW").map(str::trim)
             == Some("HIDDEN This card doesn't untap during your next untap step.")
             && p.peek("Duration") == Some("Permanent")
@@ -1362,8 +1511,11 @@ impl Tx<'_> {
             && !targets_here
             && (target.is_none() || prior_target_used)
             && p.peek("Defined").is_none()
-            && p.peek("KW")
-                .is_some_and(|kw| kw.trim().starts_with("Protection:"))
+            && p.peek("KW").is_some_and(|kw| {
+                let t = kw.trim();
+                !t.contains('&')
+                    && (t.starts_with("Protection:") || t.starts_with("Protection from "))
+            })
         {
             let kw = p.take("KW")?;
             let from = self.pump_protection_spec(&kw)?;
@@ -1388,6 +1540,50 @@ impl Tx<'_> {
                 || (!targets_here && defined.as_deref() == Some("Targeted")))
         {
             "Some(PlayerRel::Chosen)"
+        } else if !targets_here
+            && defined.as_deref() == Some("TargetedOrController")
+            && target.is_some_and(|t| t != "TargetSpec::AnyPlayer")
+        {
+            "Some(PlayerRel::TargetPlayerOrController)"
+        } else if !targets_here
+            && defined.as_deref() == Some("TargetedController")
+            && target.is_some_and(|t| t.starts_with("TargetSpec::Object("))
+        {
+            "Some(PlayerRel::ControllerOfTarget)"
+        } else if !targets_here
+            && defined.as_deref() == Some("TriggeredDefendingPlayer")
+            && matches!(
+                self.trigger_mode.as_deref(),
+                Some("Attacks" | "AttackerUnblocked" | "AttackerBlocked")
+            )
+        {
+            "Some(PlayerRel::DefendingPlayer)"
+        } else if !targets_here
+            && defined.as_deref() == Some("TriggeredPlayer")
+            && self.trigger_mode.as_deref() == Some("Phase")
+        {
+            "Some(PlayerRel::ActivePlayer)"
+        } else if !targets_here
+            && defined.as_deref() == Some("TriggeredTarget")
+            && matches!(
+                self.trigger_mode.as_deref(),
+                Some("DamageDone" | "DamageDoneOnce")
+            )
+        {
+            "Some(PlayerRel::DamagedPlayer)"
+        } else if !targets_here && defined.as_deref() == Some("EnchantedPlayer") && !self.on_a_spell
+        {
+            "Some(PlayerRel::EnchantedPlayer)"
+        } else if !targets_here
+            && (target.is_none() || prior_target_used)
+            && let Some(rel) = match defined.as_deref() {
+                Some("You") => Some("Some(PlayerRel::You)"),
+                Some("Opponent" | "Player.Opponent") => Some("Some(PlayerRel::EachOpponent)"),
+                Some("Player") => Some("Some(PlayerRel::EachPlayer)"),
+                _ => None,
+            }
+        {
+            rel
         } else if defined.is_none() && !targets_here && (target.is_none() || prior_target_used) {
             "None"
         } else {
@@ -1401,7 +1597,7 @@ impl Tx<'_> {
         let toughness = self.pump_all_side(p.take("NumDef").as_deref().unwrap_or("0"))?;
         let (keywords, extra_mods) = match p.take("KW") {
             None => ("KeywordSet::EMPTY".to_string(), Vec::new()),
-            Some(kw) => Self::pump_kw_and_prevent(&kw, p.opponents_only_lure)?,
+            Some(kw) => self.pump_kw_and_prevent(&kw, p.opponents_only_lure)?,
         };
         if !extra_mods.is_empty() && controlled_by != "None" {
             return None;
@@ -1411,6 +1607,9 @@ impl Tx<'_> {
             Some("UntilEndOfCombat") => "Duration::UntilEndOfCombat",
             Some("UntilYourNextTurn") => "Duration::UntilYourNextTurn",
             Some("Permanent") => "Duration::Indefinitely",
+            Some("UntilUntaps") if !self.on_a_spell && extra_mods.is_empty() => {
+                "Duration::WhileSourceTapped { control: false, power_limited: false }"
+            }
             Some(_) => return None,
         };
         p.take("IsCurse");
@@ -1509,9 +1708,27 @@ impl Tx<'_> {
                     "Effect::ExileGraveyard {{ player: {player} }}"
                 )]);
             }
-            if (target.is_some() && !prior_target_used)
-                || targets_a_player
-                || p.take("Defined").is_some()
+            let defined_early = p.take("Defined");
+            if (target.is_some() && !prior_target_used && !targets_a_player)
+                || (targets_a_player
+                    && !matches!(
+                        p.peek("Origin").zip(p.peek("Destination")),
+                        Some(("Graveyard", "Battlefield"))
+                    ))
+                || (defined_early.is_some()
+                    && !matches!(
+                        (
+                            p.peek("Origin"),
+                            p.peek("Destination"),
+                            defined_early.as_deref()
+                        ),
+                        (Some("Graveyard"), Some("Hand"), Some("You"))
+                            | (
+                                Some("Graveyard"),
+                                Some("Battlefield"),
+                                Some("You" | "Targeted" | "TargetedPlayer")
+                            )
+                    ))
             {
                 return None;
             }
@@ -1519,10 +1736,46 @@ impl Tx<'_> {
                 p.take("Origin").as_deref(),
                 p.take("Destination").as_deref(),
             ) {
-                (Some("Exile"), Some("Battlefield"))
-                    if p.take("ChangeType").as_deref() == Some("Card.ExiledWithSource") =>
-                {
-                    Some(vec!["Effect::ReturnLinkedToBattlefield".to_string()])
+                (Some("Exile"), Some("Battlefield")) => {
+                    p.take("IsCurse");
+                    let valid = p.take("ChangeType")?;
+                    let stripped = Self::strip_exiled_with_source_filter(&valid)?;
+                    let tapped = match p.take("Tapped").as_deref() {
+                        None | Some("False") => false,
+                        Some("True") => true,
+                        Some(_) => return None,
+                    };
+                    let gain = match p.take("GainControl").as_deref() {
+                        None | Some("False") => false,
+                        Some("True") => true,
+                        Some(_) => return None,
+                    };
+                    let counters = self.take_with_counters_amount(p).ok()?;
+                    let moved_is_creature = stripped == "Creature";
+                    let modifiers = self.take_optional_static_effect(p, moved_is_creature)?;
+                    if valid == "Card.ExiledWithSource"
+                        && !tapped
+                        && !gain
+                        && counters.is_none()
+                        && modifiers.is_empty()
+                    {
+                        return Some(vec!["Effect::ReturnLinkedToBattlefield".to_string()]);
+                    }
+                    let expr = self.filter_expr_in_zone(&stripped, true)?;
+                    let name = self.body.filter_static("LINKED_RETURN", &expr);
+                    Some(vec![Self::format_move_and_modify(
+                        &format!(
+                            "MoveSubject::AllInZone {{ zone: ZoneSel::LinkedExile, filter: &{name} }}"
+                        ),
+                        Some("ZoneRef::Exile"),
+                        false,
+                        !gain,
+                        tapped,
+                        None,
+                        counters.as_ref(),
+                        &modifiers,
+                        "Duration::Indefinitely",
+                    )])
                 }
                 (Some("Exile"), Some(dest @ ("Hand" | "Graveyard")))
                     if p.take("ChangeType").as_deref() == Some("Card.ExiledWithSource") =>
@@ -1560,7 +1813,16 @@ impl Tx<'_> {
                 (Some("Graveyard"), Some("Hand")) => {
                     p.take("IsCurse");
                     let valid = p.take("ChangeType")?;
-                    let stripped = Self::strip_your_graveyard_owner(&valid)?;
+                    let stripped = if let Some(s) = Self::strip_your_graveyard_owner(&valid) {
+                        s
+                    } else if defined_early.as_deref() == Some("You")
+                        && !valid.contains("Ctrl")
+                        && !valid.contains("Own")
+                    {
+                        valid
+                    } else {
+                        return None;
+                    };
                     let expr = self.filter_expr_in_zone(&stripped, true)?;
                     let name = self.body.filter_static("GRAVE_TO_HAND", &expr);
                     Some(vec![format!(
@@ -1580,25 +1842,61 @@ impl Tx<'_> {
                         Some("True") => true,
                         Some(_) => return None,
                     };
-                    if let Some(stripped) = Self::strip_your_graveyard_owner(&valid) {
-                        let expr = self.filter_expr_in_zone(&stripped, true)?;
-                        let name = self.body.filter_static("REANIMATE_ALL", &expr);
-                        return Some(vec![format!(
-                            "Effect::YourGraveyardToBattlefield {{ filter: &{name}, tapped: {tapped} }}"
-                        )]);
+                    let counters = self.take_with_counters_amount(p).ok()?;
+                    let (owner_opt, stripped) = Self::strip_graveyard_owner(&valid)?;
+                    let zone = match (defined_early.as_deref(), targets_a_player, owner_opt) {
+                        (None, false, Some("PlayerRel::You"))
+                        | (Some("You"), false, None | Some("PlayerRel::You")) => {
+                            "ZoneSel::GraveyardYou"
+                        }
+                        (None, false, Some("PlayerRel::EachOpponent")) => {
+                            "ZoneSel::GraveyardOpponents"
+                        }
+                        (None | Some("Targeted" | "TargetedPlayer"), true, None) => {
+                            "ZoneSel::GraveyardOf(PlayerRel::Chosen)"
+                        }
+                        (None, false, None) => "ZoneSel::GraveyardAll",
+                        _ => return None,
+                    };
+                    let moved_is_creature = stripped == "Creature";
+                    let modifiers = self.take_optional_static_effect(p, moved_is_creature)?;
+                    let expr = self.filter_expr_in_zone(&stripped, true)?;
+                    if counters.is_none() && modifiers.is_empty() {
+                        if zone == "ZoneSel::GraveyardYou" {
+                            let name = self.body.filter_static("REANIMATE_ALL", &expr);
+                            return Some(vec![format!(
+                                "Effect::YourGraveyardToBattlefield {{ filter: &{name}, tapped: {tapped} }}"
+                            )]);
+                        }
+                        if zone == "ZoneSel::GraveyardAll" && valid == "Creature" && gain && !tapped
+                        {
+                            return Some(vec![
+                                "Effect::AllGraveyardCreaturesToBattlefield".to_string(),
+                            ]);
+                        }
+                        if zone == "ZoneSel::GraveyardAll" && !tapped && !gain {
+                            let name = self.body.filter_static("REANIMATE_ALL", &expr);
+                            return Some(vec![format!(
+                                "Effect::EachPlayerGraveyardToBattlefield {{ filter: &{name} }}"
+                            )]);
+                        }
                     }
-                    if valid == "Creature" && gain && !tapped {
-                        return Some(vec![
-                            "Effect::AllGraveyardCreaturesToBattlefield".to_string(),
-                        ]);
-                    }
-                    if valid.contains("Ctrl") || valid.contains("Own") || tapped || gain {
-                        return None;
-                    }
-                    let expr = self.filter_expr_in_zone(&valid, true)?;
                     let name = self.body.filter_static("REANIMATE_ALL", &expr);
-                    Some(vec![format!(
-                        "Effect::EachPlayerGraveyardToBattlefield {{ filter: &{name} }}"
+                    let owner_control = if zone == "ZoneSel::GraveyardYou" {
+                        false
+                    } else {
+                        !gain
+                    };
+                    Some(vec![Self::format_move_and_modify(
+                        &format!("MoveSubject::AllInZone {{ zone: {zone}, filter: &{name} }}"),
+                        Some("ZoneRef::Graveyard"),
+                        false,
+                        owner_control,
+                        tapped,
+                        None,
+                        counters.as_ref(),
+                        &modifiers,
+                        "Duration::Indefinitely",
                     )])
                 }
                 _ => None,
@@ -1681,10 +1979,16 @@ impl Tx<'_> {
         let defined = p.take("Defined");
         let change_type = p.take("ChangeType");
         let no_open_target = target.is_none() || prior_target_used;
-        if let Some(effects) = self.shuffle_matching_graveyard(
-            !hand && graveyard && defined.is_none() && no_open_target,
-            change_type.as_deref(),
-        ) {
+        if !hand
+            && graveyard
+            && let Some(effects) = self.shuffle_matching_graveyard(
+                change_type.as_deref(),
+                defined.as_deref(),
+                target,
+                targets_a_player,
+                no_open_target,
+            )
+        {
             return Some(effects);
         }
         let who = match change_type.as_deref() {
@@ -1704,21 +2008,43 @@ impl Tx<'_> {
 
     fn shuffle_matching_graveyard(
         &mut self,
-        eligible: bool,
         change_type: Option<&str>,
+        defined: Option<&str>,
+        target: Option<&str>,
+        targets_a_player: bool,
+        no_open_target: bool,
     ) -> Option<Vec<String>> {
-        if !eligible {
-            return None;
-        }
         let raw = change_type?;
-        if matches!(raw, "Card.YouOwn" | "Card.YouCtrl") {
+        if matches!(raw, "Card" | "Card.YouOwn" | "Card.YouCtrl") {
             return None;
         }
-        let stripped = Self::strip_your_graveyard_owner(raw)?;
+        let (who, stripped) = if defined.is_none() && no_open_target {
+            if let Some(s) = Self::strip_your_graveyard_owner(raw) {
+                ("PlayerRel::You", s)
+            } else {
+                let (owner_opt, s) = Self::strip_graveyard_owner(raw)?;
+                if s == "Card" {
+                    return None;
+                }
+                let rel = owner_opt.unwrap_or("PlayerRel::EachPlayer");
+                if rel == "PlayerRel::Chosen" {
+                    return None;
+                }
+                (rel, s)
+            }
+        } else if (defined.is_some() || targets_a_player)
+            && !raw.contains("Ctrl")
+            && !raw.contains("Own")
+        {
+            let rel = self.wave11_player_of_line(defined, target, targets_a_player)?;
+            (rel, raw.to_string())
+        } else {
+            return None;
+        };
         let expr = self.filter_expr_in_zone(&stripped, true)?;
         let name = self.body.filter_static("SHUFFLE_GRAVEYARD", &expr);
         Some(vec![format!(
-            "Effect::ShuffleGraveyardMatchingIntoLibrary {{ who: PlayerRel::You, filter: &{name} }}"
+            "Effect::ShuffleGraveyardMatchingIntoLibrary {{ who: {who}, filter: &{name} }}"
         )])
     }
 
@@ -4166,8 +4492,15 @@ impl Tx<'_> {
             Some("True") => true,
             Some(_) => return None,
         };
-        let mut counters = self.take_with_counters(p)?;
-        let mut modifiers: Vec<String> = Vec::new();
+        let moved_is_creature = target.contains("Filter::CREATURE");
+        let head_static = p.take("StaticEffect");
+        let mut modifiers: Vec<String> = match head_static {
+            Some(ref svar_name) => {
+                self.parse_change_zone_static_effect(svar_name, moved_is_creature)?
+            }
+            None => Vec::new(),
+        };
+        let mut counters = self.take_with_counters_amount(p).ok()?;
         let mut cursor = sub.take();
         let mut consumed_any = false;
         let mut steps = 0usize;
@@ -4199,14 +4532,12 @@ impl Tx<'_> {
                 let next = sp.take("SubAbility");
                 let code = sp.take("CounterType")?;
                 let kind = super::counter_kind(&code)?;
-                let n: u16 = self
-                    .plain_num(sp.take("CounterNum").as_deref().unwrap_or("1"))?
-                    .try_into()
-                    .ok()?;
-                if n == 0 || counters != "None" || !sp.exhausted() {
+                let amt =
+                    self.amount_or_count_ext(sp.take("CounterNum").as_deref().unwrap_or("1"))?;
+                if amt == "Amount::Fixed(0)" || counters.is_some() || !sp.exhausted() {
                     return None;
                 }
-                counters = format!("Some(({kind}, {n}))");
+                counters = Some((kind, amt));
                 consumed_any = true;
                 cursor = next;
                 continue;
@@ -4288,17 +4619,33 @@ impl Tx<'_> {
         if !consumed_any {
             return None;
         }
+        let fixed_counters = Self::fixed_counter_pair(counters.as_ref());
+        if head_static.is_some() || (counters.is_some() && fixed_counters.is_none()) {
+            return Some(vec![Self::format_move_and_modify(
+                &format!("MoveSubject::Target({target})"),
+                Some("ZoneRef::Graveyard"),
+                false,
+                false,
+                tapped,
+                None,
+                counters.as_ref(),
+                &modifiers,
+                "Duration::Indefinitely",
+            )]);
+        }
+        let legacy_counters =
+            fixed_counters.map_or_else(|| "None".to_string(), |(k, n)| format!("Some(({k}, {n}))"));
         if tapped || !modifiers.is_empty() {
             Some(vec![format!(
                 "Effect::GraveyardToBattlefieldModified {{ target: {target}, \
-                 owner_control: false, tapped: {tapped}, counters: {counters}, \
+                 owner_control: false, tapped: {tapped}, counters: {legacy_counters}, \
                  modifiers: &[{}] }}",
                 modifiers.join(", ")
             )])
         } else {
             Some(vec![format!(
                 "Effect::GraveyardToBattlefield {{ target: {target}, \
-                 owner_control: false, counters: {counters} }}"
+                 owner_control: false, counters: {legacy_counters} }}"
             )])
         }
     }
@@ -4729,6 +5076,11 @@ impl Tx<'_> {
                 return self.deny(format!("a blink with `{key}$ {val}`"));
             }
         }
+        if let Some(mandatory) = p.take("Mandatory")
+            && mandatory != "True"
+        {
+            return self.deny(format!("a blink with `Mandatory$ {mandatory}`"));
+        }
         p.take("IsCurse");
         let Some(del_name) = sub.take() else {
             return self.deny("an end-step blink with no delayed trigger".into());
@@ -4772,6 +5124,16 @@ impl Tx<'_> {
                     return self.deny(format!("a blink return with `Tapped$ {other}`"));
                 }
             };
+            let face = match dp.take("Transformed").as_deref() {
+                None | Some("False") => None,
+                Some("True") => Some(1u8),
+                Some(other) => {
+                    return self.deny(format!("a blink return with `Transformed$ {other}`"));
+                }
+            };
+            let counters = self.take_with_counters_amount(&mut dp).ok()?;
+            let moved_is_creature = blink_target.contains("Filter::CREATURE");
+            let modifiers = self.take_optional_static_effect(&mut dp, moved_is_creature)?;
             let cleanup_name = dp.take("SubAbility");
             if let Some(key) = dp.first_key() {
                 return self.deny(format!("unclaimed parameter `BlinkReturn.{key}`"));
@@ -4779,21 +5141,17 @@ impl Tx<'_> {
             if let Some(cname) = cleanup_name {
                 self.consume_optional_remember_cleanup(cname, sub)?;
             }
-            if tapped {
-                return Some(vec![format!(
-                    "Effect::MoveAndModify {{ \
-                     subject: MoveSubject::Target({blink_target}), \
-                     expected_origin: None, \
-                     blink: true, \
-                     owner_control: {owner_control}, \
-                     tapped: true, \
-                     face: None, \
-                     counters: None, \
-                     modifiers: &[], \
-                     duration: Duration::Indefinitely, \
-                     attach_source: false, \
-                     when_source_leaves: None \
-                     }}"
+            if tapped || face.is_some() || counters.is_some() || !modifiers.is_empty() {
+                return Some(vec![Self::format_move_and_modify(
+                    &format!("MoveSubject::Target({blink_target})"),
+                    None,
+                    true,
+                    owner_control,
+                    tapped,
+                    face,
+                    counters.as_ref(),
+                    &modifiers,
+                    "Duration::Indefinitely",
                 )]);
             }
             return Some(vec![format!(
@@ -4954,6 +5312,52 @@ impl Tx<'_> {
         let destination = p.take("Destination")?;
         p.claim_label("ChangeTypeDesc", "ChangeType");
         if !targets_here
+            && origin == "Command"
+            && destination == "Hand"
+            && p.peek("ChangeType") == Some("Card.IsCommander+YouOwn")
+            && matches!(p.peek("ChangeNum"), None | Some("1"))
+            && matches!(p.peek("Mandatory"), None | Some("True"))
+            && matches!(p.peek("Hidden"), None | Some("True"))
+            && matches!(p.peek("DefinedPlayer"), None | Some("You"))
+            && matches!(p.peek("Chooser"), None | Some("You"))
+        {
+            p.take("ChangeType");
+            p.take("ChangeNum");
+            p.take("Mandatory");
+            p.take("Hidden");
+            p.take("DefinedPlayer");
+            p.take("Chooser");
+            p.take("SelectPrompt");
+            return Some(vec!["Effect::CommanderToHand".to_string()]);
+        }
+        // `Effect::WishToHand` searches BOTH outside the game AND face-up exile
+        // (Karn, the Great Creator; Coax from the Blind Eternities). Strictly
+        // require BOTH `Sideboard` and `Exile` in `Origin$` — never emit for
+        // `Origin$ Sideboard` alone!
+        if !targets_here
+            && matches!(origin.as_str(), "Sideboard,Exile" | "Exile,Sideboard")
+            && destination == "Hand"
+            && matches!(p.peek("ChangeNum"), None | Some("1"))
+            && matches!(p.peek("Hidden"), None | Some("True"))
+            && matches!(p.peek("Reveal"), None | Some("True"))
+            && matches!(p.peek("Optional"), None | Some("True"))
+            && matches!(p.peek("DefinedPlayer"), None | Some("You"))
+            && matches!(p.peek("Chooser"), None | Some("You"))
+        {
+            p.take("ChangeNum");
+            p.take("Hidden");
+            p.take("Reveal");
+            p.take("Optional");
+            p.take("DefinedPlayer");
+            p.take("Chooser");
+            p.take("SelectPrompt");
+            let valid = p.take("ChangeType")?;
+            let stripped = Self::strip_your_graveyard_owner(&valid)?;
+            let expr = self.filter_expr_in_zone(&stripped, true)?;
+            let name = self.body.filter_static("WISH", &expr);
+            return Some(vec![format!("Effect::WishToHand {{ filter: &{name} }}")]);
+        }
+        if !targets_here
             && !self.on_a_spell
             && origin == "Library"
             && destination == "Exile"
@@ -5094,7 +5498,7 @@ impl Tx<'_> {
             return self.put_from_hand_onto_battlefield(p);
         }
         if !itself
-            && target == "TargetSpec::AnyPlayer"
+            && (target == "TargetSpec::AnyPlayer" || (prior_target_used && !targets_here))
             && origin == "Hand"
             && destination == "Exile"
             && matches!(p.peek("DefinedPlayer"), None | Some("You"))
@@ -5195,7 +5599,16 @@ impl Tx<'_> {
             && !p.has("Defined")
         {
             p.take("IsCurse");
-            if p.exhausted() {
+            if destination == "Exile" && p.has("WithCountersType") {
+                let counters = self.take_with_counters(p)?;
+                if p.exhausted()
+                    && let Some((kind, n)) = Self::split_fixed_counters_str(&counters)
+                {
+                    return Some(vec![format!(
+                        "Effect::ExileSourceWithCounters {{ kind: {kind}, n: {n} }}"
+                    )]);
+                }
+            } else if p.exhausted() {
                 return Some(vec![if destination == "Exile" {
                     "Effect::ExileSource".to_string()
                 } else {
@@ -5206,6 +5619,11 @@ impl Tx<'_> {
         // Without a target this would move nothing at all.
         if !itself && target == "TargetSpec::AnyPlayer" {
             return self.deny("`ChangeZone` with neither a target nor `Defined$`".to_string());
+        }
+        // Targeted `ChangeZone` in MTG is mandatory by default unless `Optional$`
+        // is present; Forge sometimes attaches a redundant `Mandatory$ True`.
+        if !itself && target != "TargetSpec::AnyPlayer" && p.peek("Mandatory") == Some("True") {
+            p.take("Mandatory");
         }
         // "Its owner puts it on the top or bottom of their library"
         // (`Subtlety`, `Aether Gust`, `Horned Loch-Whale`, `Lost in Space`).
@@ -5255,15 +5673,34 @@ impl Tx<'_> {
                     Some(_) => return None,
                 };
                 let face = match p.take("Transformed").as_deref() {
-                    None | Some("False") => "None",
-                    Some("True") => "Some(1)",
+                    None | Some("False") => None,
+                    Some("True") => Some(1u8),
                     Some(_) => return None,
                 };
-                let counters = self.take_with_counters(p)?;
-                vec![format!(
-                    "Effect::ReturnSourceFromGraveyard {{ face: {face}, tapped: {tapped}, \
-                     owner_control: false, counters: {counters} }}"
-                )]
+                let counters = self.take_with_counters_amount(p).ok()?;
+                let modifiers = self.take_optional_static_effect(p, false)?;
+                let fixed_counters = Self::fixed_counter_pair(counters.as_ref());
+                if !modifiers.is_empty() || (counters.is_some() && fixed_counters.is_none()) {
+                    vec![Self::format_move_and_modify(
+                        "MoveSubject::Target(TargetSpec::ThisObject)",
+                        Some("ZoneRef::Graveyard"),
+                        false,
+                        false,
+                        tapped,
+                        face,
+                        counters.as_ref(),
+                        &modifiers,
+                        "Duration::Indefinitely",
+                    )]
+                } else {
+                    let face_str = face.map_or("None", |_| "Some(1)");
+                    let legacy_counters = fixed_counters
+                        .map_or_else(|| "None".to_string(), |(k, n)| format!("Some(({k}, {n}))"));
+                    vec![format!(
+                        "Effect::ReturnSourceFromGraveyard {{ face: {face_str}, tapped: {tapped}, \
+                         owner_control: false, counters: {legacy_counters} }}"
+                    )]
+                }
             }
             ("Battlefield", "Hand", false) => vec![format!("Effect::bounce({target})")],
             ("Stack", "Hand", false) if target.starts_with("TargetSpec::Spell(") => {
@@ -5409,7 +5846,15 @@ impl Tx<'_> {
                 }
             }
             ("Battlefield" | "Graveyard" | "Stack" | "Hand", "Exile", true) => {
-                vec!["Effect::ExileSource".to_string()]
+                if origin == "Stack" && p.has("WithCountersType") {
+                    let counters = self.take_with_counters(p)?;
+                    let (kind, n) = Self::split_fixed_counters_str(&counters)?;
+                    vec![format!(
+                        "Effect::ExileSourceWithCounters {{ kind: {kind}, n: {n} }}"
+                    )]
+                } else {
+                    vec!["Effect::ExileSource".to_string()]
+                }
             }
             ("Exile", "Graveyard", true) => {
                 vec!["Effect::MoveSourceToOwnerGraveyard".to_string()]
@@ -5454,11 +5899,13 @@ impl Tx<'_> {
             ("Graveyard", "Battlefield", false)
                 if target.starts_with("TargetSpec::CardInGraveyard") =>
             {
-                if let Some(gain) = p.take("GainControl")
-                    && gain != "True"
-                {
-                    return self.deny(format!("`ChangeZone` with `GainControl$ {gain}`"));
-                }
+                let owner_control = match p.take("GainControl").as_deref() {
+                    None | Some("True") => false,
+                    Some("False") => true,
+                    Some(gain) => {
+                        return self.deny(format!("`ChangeZone` with `GainControl$ {gain}`"));
+                    }
+                };
                 if let Some(num) = p.take("ChangeNum")
                     && num != "1"
                 {
@@ -5471,18 +5918,47 @@ impl Tx<'_> {
                         return self.deny(format!("`ChangeZone` with `Tapped$ {other}`"));
                     }
                 };
-                let counters = self.take_with_counters(p)?;
-                if tapped {
-                    vec![format!(
-                        "Effect::GraveyardToBattlefieldModified {{ target: {target}, \
-                         owner_control: false, tapped: true, counters: {counters}, \
-                         modifiers: &[] }}"
+                let face = match p.take("Transformed").as_deref() {
+                    None | Some("False") => None,
+                    Some("True") => Some(1u8),
+                    Some(other) => {
+                        return self.deny(format!("`ChangeZone` with `Transformed$ {other}`"));
+                    }
+                };
+                let counters = self.take_with_counters_amount(p).ok()?;
+                let moved_is_creature = target.contains("Filter::CREATURE");
+                let modifiers = self.take_optional_static_effect(p, moved_is_creature)?;
+                let fixed_counters = Self::fixed_counter_pair(counters.as_ref());
+                if face.is_some()
+                    || !modifiers.is_empty()
+                    || (counters.is_some() && fixed_counters.is_none())
+                {
+                    vec![Self::format_move_and_modify(
+                        &format!("MoveSubject::Target({target})"),
+                        Some("ZoneRef::Graveyard"),
+                        false,
+                        owner_control,
+                        tapped,
+                        face,
+                        counters.as_ref(),
+                        &modifiers,
+                        "Duration::Indefinitely",
                     )]
                 } else {
-                    vec![format!(
-                        "Effect::GraveyardToBattlefield {{ target: {target}, \
-                         owner_control: false, counters: {counters} }}"
-                    )]
+                    let legacy_counters = fixed_counters
+                        .map_or_else(|| "None".to_string(), |(k, n)| format!("Some(({k}, {n}))"));
+                    if tapped {
+                        vec![format!(
+                            "Effect::GraveyardToBattlefieldModified {{ target: {target}, \
+                             owner_control: {owner_control}, tapped: true, \
+                             counters: {legacy_counters}, modifiers: &[] }}"
+                        )]
+                    } else {
+                        vec![format!(
+                            "Effect::GraveyardToBattlefield {{ target: {target}, \
+                             owner_control: {owner_control}, counters: {legacy_counters} }}"
+                        )]
+                    }
                 }
             }
             _ => return self.deny(format!("`ChangeZone` {origin} to {destination}")),
@@ -5505,6 +5981,252 @@ impl Tx<'_> {
         } else {
             Some("None".to_string())
         }
+    }
+
+    fn split_fixed_counters_str(s: &str) -> Option<(&str, u16)> {
+        let inner = s.strip_prefix("Some((")?.strip_suffix("))")?;
+        let (kind, n_str) = inner.split_once(", ")?;
+        let n = n_str.parse::<u16>().ok()?;
+        Some((kind, n))
+    }
+
+    fn fixed_counter_pair(counters: Option<&(String, String)>) -> Option<(&str, u16)> {
+        let (kind, amt) = counters?;
+        let n = amt
+            .strip_prefix("Amount::Fixed(")?
+            .strip_suffix(')')?
+            .parse::<u16>()
+            .ok()?;
+        Some((kind.as_str(), n))
+    }
+
+    fn take_with_counters_amount(
+        &mut self,
+        p: &mut Params,
+    ) -> Result<Option<(String, String)>, ()> {
+        let Some(code) = p.take("WithCountersType") else {
+            return Ok(None);
+        };
+        let Some(kind) = super::counter_kind(&code) else {
+            self.deny::<()>(format!("counter `{code}`"));
+            return Err(());
+        };
+        let raw_amt = p
+            .take("WithCountersAmount")
+            .unwrap_or_else(|| "1".to_string());
+        let Some(amt) = self.amount_or_count_ext(&raw_amt) else {
+            return Err(());
+        };
+        if amt == "Amount::Fixed(0)" {
+            return Err(());
+        }
+        Ok(Some((kind, amt)))
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    fn format_move_and_modify(
+        subject: &str,
+        expected_origin: Option<&str>,
+        blink: bool,
+        owner_control: bool,
+        tapped: bool,
+        face: Option<u8>,
+        counters: Option<&(String, String)>,
+        modifiers: &[String],
+        duration: &str,
+    ) -> String {
+        let origin_str =
+            expected_origin.map_or_else(|| "None".to_string(), |z| format!("Some({z})"));
+        let face_str = face.map_or_else(|| "None".to_string(), |f| format!("Some({f})"));
+        let counters_str = counters.map_or_else(
+            || "None".to_string(),
+            |(kind, amt)| format!("Some(({kind}, {amt}))"),
+        );
+        format!(
+            "Effect::MoveAndModify {{ subject: {subject}, expected_origin: {origin_str}, \
+             blink: {blink}, owner_control: {owner_control}, tapped: {tapped}, face: {face_str}, \
+             counters: {counters_str}, modifiers: &[{}], duration: {duration}, \
+             attach_source: false, when_source_leaves: None }}",
+            modifiers.join(", ")
+        )
+    }
+
+    fn take_optional_static_effect(
+        &mut self,
+        p: &mut Params,
+        moved_is_creature: bool,
+    ) -> Option<Vec<String>> {
+        match p.take("StaticEffect") {
+            None => Some(Vec::new()),
+            Some(svar_name) => self.parse_change_zone_static_effect(&svar_name, moved_is_creature),
+        }
+    }
+
+    /// Parse `StaticEffect$ <SVar>` attached to `ChangeZone` / `ChangeZoneAll`
+    /// into ordered `Modifier` expressions for `Effect::MoveAndModify`.
+    ///
+    /// Strictly refuses Alchemy, Aura-attachment (`AddKeyword$ Enchant:...`),
+    /// unknown keys (`!sp.exhausted()`), and `Affected$ Creature.IsRemembered`
+    /// unless the moved card is guaranteed to be a creature card.
+    #[allow(clippy::too_many_lines)]
+    fn parse_change_zone_static_effect(
+        &mut self,
+        svar_name: &str,
+        moved_is_creature: bool,
+    ) -> Option<Vec<String>> {
+        let trimmed = svar_name.trim();
+        if trimmed.is_empty() || trimmed.contains([',', '&']) {
+            return None;
+        }
+        let body = self.svars.get(trimmed)?.clone();
+        let (mode, mut sp) = Params::parse(&body)?;
+        sp.drop_prose();
+        if mode != "Continuous" {
+            return None;
+        }
+        match sp.take("Affected").as_deref() {
+            Some("Card.IsRemembered") => {}
+            Some("Creature.IsRemembered") if moved_is_creature => {}
+            _ => return None,
+        }
+        if let Some(zone) = sp.take("AffectedZone")
+            && zone != "Battlefield"
+        {
+            return None;
+        }
+        let mut mods: Vec<String> = Vec::new();
+        // Layer 4: types / supertypes / subtypes.
+        if sp.peek("RemoveCardTypes") == Some("True") {
+            sp.take("RemoveCardTypes");
+            let raw_types = sp.take("AddType")?;
+            mods.extend(self.become_types_modifiers(&mut sp, &raw_types, &[',', '&'])?);
+        } else {
+            let remove_creature_types = match sp.take("RemoveCreatureTypes").as_deref() {
+                None | Some("False") => false,
+                Some("True") => true,
+                Some(_) => return None,
+            };
+            if let Some(raw_types) = sp.take("AddType") {
+                let mut replaced_creature = false;
+                for word in raw_types
+                    .split([',', '&'])
+                    .map(str::trim)
+                    .filter(|w| !w.is_empty())
+                {
+                    if let Some(ct) = card_type_const(word) {
+                        mods.push(format!("Modifier::AddType({ct})"));
+                    } else if let Some(st) = Self::copy_supertype_const(word) {
+                        mods.push(format!("Modifier::AddSupertype({st})"));
+                    } else {
+                        let path = self.cats.const_path(word)?;
+                        if remove_creature_types
+                            && !replaced_creature
+                            && self
+                                .cats
+                                .const_path_of(SubtypeKind::Creature, word)
+                                .is_some()
+                        {
+                            mods.push(format!("Modifier::ReplaceCreatureTypes({path})"));
+                            replaced_creature = true;
+                        } else {
+                            mods.push(format!("Modifier::AddSubtype({path})"));
+                        }
+                    }
+                }
+                if remove_creature_types && !replaced_creature {
+                    return None;
+                }
+            } else if remove_creature_types {
+                return None;
+            }
+            if let Some(raw_rem) = sp.take("RemoveType") {
+                for word in raw_rem
+                    .split([',', '&'])
+                    .map(str::trim)
+                    .filter(|w| !w.is_empty())
+                {
+                    let ct = card_type_const(word)?;
+                    mods.push(format!("Modifier::RemoveType({ct})"));
+                }
+            }
+        }
+        // Layer 5: colors.
+        if let Some(raw) = sp.take("SetColor") {
+            mods.push(format!(
+                "Modifier::SetColor({})",
+                Self::parse_copy_colors(&raw)?
+            ));
+        }
+        if let Some(raw) = sp.take("AddColor") {
+            mods.push(format!(
+                "Modifier::AddColor({})",
+                Self::parse_copy_colors(&raw)?
+            ));
+        }
+        // Layer 6: `RemoveAllAbilities` MUST precede granted keywords/abilities
+        // so timestamps order removal before grants (CR 613.7).
+        match sp.take("RemoveAllAbilities").as_deref() {
+            None | Some("False") => {}
+            Some("True") => mods.push("Modifier::LoseAllAbilities".to_string()),
+            Some(_) => return None,
+        }
+        if let Some(raw_kw) = sp.take("AddKeyword") {
+            let (bits, extra) = self.pump_kw_and_prevent(&raw_kw, false)?;
+            if bits != "KeywordSet::EMPTY" {
+                mods.push(format!("Modifier::AddKeyword({bits})"));
+            }
+            mods.extend(extra);
+        }
+        if let Some(raw_ab) = sp.take("AddAbility") {
+            for name in raw_ab.split('&').map(str::trim).filter(|s| !s.is_empty()) {
+                match self.build_grant_activated_modifier(name, "AddAbility$", false)? {
+                    super::statics::GrantedActivated::Modifier(m) => mods.push(m),
+                    super::statics::GrantedActivated::SelfTarget { .. } => return None,
+                }
+            }
+        }
+        if let Some(raw_tr) = sp.take("AddTrigger") {
+            for name in raw_tr.split('&').map(str::trim).filter(|s| !s.is_empty()) {
+                mods.push(self.build_grant_triggered_modifier(name, "AddTrigger$")?);
+            }
+        }
+        if let Some(raw_st) = sp.take("AddStaticAbility") {
+            for name in raw_st.split('&').map(str::trim).filter(|s| !s.is_empty()) {
+                mods.extend(self.grant_static_modifiers_for_animate(name)?);
+            }
+        }
+        // Layer 7b / 7c: P/T set and modify.
+        match (sp.take("SetPower"), sp.take("SetToughness")) {
+            (None, None) => {}
+            (Some(pow), Some(tou)) => {
+                let pow = pow.trim().parse::<i16>().ok()?;
+                let tou = tou.trim().parse::<i16>().ok()?;
+                mods.push(format!("Modifier::SetPT({pow}, {tou})"));
+            }
+            (Some(pow), None) => {
+                let pow = pow.trim().parse::<i16>().ok()?;
+                mods.push(format!("Modifier::SetPower({pow})"));
+            }
+            (None, Some(tou)) => {
+                let tou = tou.trim().parse::<i16>().ok()?;
+                mods.push(format!("Modifier::SetToughness({tou})"));
+            }
+        }
+        let add_pow = sp.take("AddPower");
+        let add_tou = sp.take("AddToughness");
+        if add_pow.is_some() || add_tou.is_some() {
+            let p = add_pow
+                .as_deref()
+                .map_or(Some(0i16), |s| s.trim().parse::<i16>().ok())?;
+            let t = add_tou
+                .as_deref()
+                .map_or(Some(0i16), |s| s.trim().parse::<i16>().ok())?;
+            mods.push(format!("Modifier::ModifyPT({p}, {t})"));
+        }
+        if !sp.exhausted() || mods.is_empty() {
+            return None;
+        }
+        Some(mods)
     }
 
     fn defaults_to_self_zone_change(
@@ -5698,8 +6420,8 @@ impl Tx<'_> {
             p.take("Mandatory").as_deref(),
             p.take("Optional").as_deref(),
         ) {
-            (Some("True"), None) => Some(false),
-            (None, Some("True")) => Some(true),
+            (Some("True"), None | Some("False")) => Some(false),
+            (None | Some("False"), Some("True")) => Some(true),
             (None, None)
                 if prompt_opt || {
                     let lower = self.oracle.to_ascii_lowercase();
@@ -5712,6 +6434,7 @@ impl Tx<'_> {
         }
     }
 
+    #[allow(clippy::too_many_lines)]
     fn choose_from_your_graveyard(
         &mut self,
         p: &mut Params,
@@ -5753,10 +6476,23 @@ impl Tx<'_> {
         if owner_rel == "PlayerRel::Chosen" && !targets_a_player {
             return None;
         }
+        let counters = if destination == "Battlefield" {
+            self.take_with_counters_amount(p).ok()?
+        } else {
+            None
+        };
+        let moved_is_creature = stripped == "Creature";
+        let modifiers = if destination == "Battlefield" {
+            self.take_optional_static_effect(p, moved_is_creature)?
+        } else {
+            Vec::new()
+        };
+        let owner_control_bf =
+            destination == "Battlefield" && owner_rel != "PlayerRel::You" && !gain_control;
         // `ChooseMove::Battlefield` puts chosen cards onto the battlefield under
         // `you`'s control (CR 110.2a), so non-own graveyards require explicit
-        // `GainControl$ True`.
-        if destination == "Battlefield" && owner_rel != "PlayerRel::You" && !gain_control {
+        // `GainControl$ True` unless lowered through `MoveAndModify`.
+        if owner_control_bf && counters.is_none() && modifiers.is_empty() {
             return None;
         }
         if destination == "Exile" && self.has_linked_exile_reader() {
@@ -5764,6 +6500,37 @@ impl Tx<'_> {
         }
         let expr = self.filter_expr_in_zone(&stripped, true)?;
         let filter = self.body.filter_static("GRAVE_CHOICE", &expr);
+        if destination == "Battlefield" && (counters.is_some() || !modifiers.is_empty()) {
+            let (min, max) = if optional {
+                let max = self.amount_or_count_ext(&num_raw)?;
+                if max == "Amount::Fixed(0)" {
+                    return None;
+                }
+                (0u8, max)
+            } else {
+                let n: u8 = self.plain_num(&num_raw)?.try_into().ok()?;
+                if n == 0 {
+                    return None;
+                }
+                (n, format!("Amount::Fixed({n})"))
+            };
+            let move_fx = Self::format_move_and_modify(
+                "MoveSubject::Target(TargetSpec::EventObject)",
+                Some("ZoneRef::Graveyard"),
+                false,
+                owner_control_bf,
+                tapped,
+                None,
+                counters.as_ref(),
+                &modifiers,
+                "Duration::Indefinitely",
+            );
+            return Some(vec![format!(
+                "Effect::ChooseCard {{ chooser: {chooser}, \
+                 zone: ChooseZone::Graveyard({owner_rel}), filter: &{filter}, \
+                 min: {min}, max: {max}, movement: ChooseMove::None, then: &[{move_fx}] }}"
+            )]);
+        }
         if num_raw == "1" && owner_rel == "PlayerRel::You" && chooser == "PlayerRel::You" {
             let dest = match (destination, lib_pos.as_deref()) {
                 ("Battlefield", None) => Some("SearchDest::Battlefield"),
@@ -6211,7 +6978,7 @@ impl Tx<'_> {
         } else {
             false
         };
-        let base_find = match (destination, tapped) {
+        let base_find_raw = match (destination, tapped) {
             ("Battlefield", false) => "Find::BATTLEFIELD",
             ("Battlefield", true) => "Find::BATTLEFIELD_TAPPED",
             ("Hand", false) => "Find::HAND",
@@ -6228,10 +6995,17 @@ impl Tx<'_> {
                 return None;
             }
         };
+        let base_find = if destination == "Battlefield" && p.has("WithCountersType") {
+            let counters = self.take_with_counters(p)?;
+            let (kind, n) = Self::split_fixed_counters_str(&counters)?;
+            format!("{base_find_raw}.with_counter({kind}, {n})")
+        } else {
+            base_find_raw.to_string()
+        };
         let find = if any_number {
             format!("{base_find}.any_number()")
         } else {
-            base_find.to_string()
+            base_find.clone()
         };
         // "You may search" and "search for up to two" are both this flag:
         // the player may end up with fewer cards than `finds` allows.
@@ -6325,38 +7099,70 @@ impl Tx<'_> {
                  optional: {optional_lo} }}] }}"
             )]);
         }
-        let count = self.plain_num(raw_num.as_deref().unwrap_or("1"))?;
-        let count = usize::try_from(count).ok()?;
-        if count == 0 || count > 4 {
-            self.note(format!("`ChangeZone` finding {count} cards"));
-            return None;
-        }
-        let filter = self.filter_expr_in_zone(&p.take("ChangeType")?, true)?;
-        if reveal_requested
-            && filter == "Filter::Any"
-            && !matches!(destination, "Battlefield" | "Exile" | "Graveyard")
+        let plain_count = self
+            .plain_num(raw_num.as_deref().unwrap_or("1"))
+            .and_then(|c| usize::try_from(c).ok());
+        if let Some(count) = plain_count
+            && (1..=4).contains(&count)
         {
-            return self.deny("`ChangeZone` revealing an unrestricted hidden search".into());
+            let filter = self.filter_expr_in_zone(&p.take("ChangeType")?, true)?;
+            if reveal_requested
+                && filter == "Filter::Any"
+                && !matches!(destination, "Battlefield" | "Exile" | "Graveyard")
+            {
+                return self.deny("`ChangeZone` revealing an unrestricted hidden search".into());
+            }
+            let optional =
+                self.resolve_search_optional(count, &filter, optional, mandatory, up_to)?;
+            let name = self.body.filter_static("SEARCH", &filter);
+            let finds = vec![find.as_str(); count].join(", ");
+            return if is_own_library {
+                Some(vec![format!(
+                    "Effect::SearchLibrary {{ filter: &{name}, finds: &[{finds}], optional: {optional} }}"
+                )])
+            } else if let Some(domain) = group_domain {
+                Some(vec![format!(
+                    "Effect::RepeatEach {{ domain: {domain}, effects: &[Effect::SearchLibraryOf {{ \
+                     library: PlayerRel::EventPlayer, owner_searches: true, filter: &{name}, \
+                     mana_value: None, finds: &[{finds}], optional: {optional} }}] }}"
+                )])
+            } else {
+                Some(vec![format!(
+                    "Effect::SearchLibraryOf {{ library: {library_rel}, owner_searches: {owner_searches}, \
+                     filter: &{name}, mana_value: None, finds: &[{finds}], optional: {optional} }}"
+                )])
+            };
         }
-        let optional = self.resolve_search_optional(count, &filter, optional, mandatory, up_to)?;
-        let name = self.body.filter_static("SEARCH", &filter);
-        let finds = vec![find.as_str(); count].join(", ");
-        if is_own_library {
-            Some(vec![format!(
-                "Effect::SearchLibrary {{ filter: &{name}, finds: &[{finds}], optional: {optional} }}"
-            )])
-        } else if let Some(domain) = group_domain {
-            Some(vec![format!(
-                "Effect::RepeatEach {{ domain: {domain}, effects: &[Effect::SearchLibraryOf {{ \
-                 library: PlayerRel::EventPlayer, owner_searches: true, filter: &{name}, \
-                 mana_value: None, finds: &[{finds}], optional: {optional} }}] }}"
-            )])
-        } else {
-            Some(vec![format!(
-                "Effect::SearchLibraryOf {{ library: {library_rel}, owner_searches: {owner_searches}, \
-                 filter: &{name}, mana_value: None, finds: &[{finds}], optional: {optional} }}"
-            )])
+        // Dynamic or >4 count ("search your library for up to X ... cards"):
+        // `Effect::SearchLibraryUpTo` always searches YOUR library optionally up
+        // to `count`. Never emit for mandatory unrestricted searches (`Diabolic
+        // Revelation`) or `DifferentNames` / `WithTotalCMC`.
+        if is_own_library
+            && !any_number
+            && !p.has("DifferentNames")
+            && !p.has("WithTotalCMC")
+            && let Some(ref raw) = raw_num
+            && let Some(count_amt) = self.amount_or_count_ext(raw)
+            && count_amt != "Amount::Fixed(0)"
+        {
+            let filter = self.filter_expr_in_zone(&p.take("ChangeType")?, true)?;
+            if reveal_requested
+                && filter == "Filter::Any"
+                && !matches!(destination, "Battlefield" | "Exile" | "Graveyard")
+            {
+                return self.deny("`ChangeZone` revealing an unrestricted hidden search".into());
+            }
+            if up_to || optional || (!mandatory && filter != "Filter::Any") {
+                let name = self.body.filter_static("SEARCH", &filter);
+                return Some(vec![format!(
+                    "Effect::SearchLibraryUpTo {{ filter: &{name}, count: {count_amt}, find: &{base_find} }}"
+                )]);
+            }
         }
+        if let Some(count) = plain_count {
+            self.note(format!("`ChangeZone` finding {count} cards"));
+        }
+        None
     }
 
     fn beneath_top_library_position(&mut self, raw: &str) -> Option<String> {
@@ -6842,6 +7648,11 @@ impl Tx<'_> {
             Some("True") => 1u8,
             Some(_) => return None,
         };
+        let tapped = match np.take("Tapped").as_deref() {
+            None | Some("False") => false,
+            Some("True") => true,
+            Some(_) => return None,
+        };
         let owner_control = match np.take("GainControl").as_deref() {
             Some("True") => false,
             Some("False") => true,
@@ -6858,12 +7669,27 @@ impl Tx<'_> {
             }
             Some(_) => return None,
         };
+        let counters = self.take_with_counters_amount(&mut np).ok()?;
+        let modifiers = self.take_optional_static_effect(&mut np, false)?;
         let cleanup_name = np.take("SubAbility");
         if let Some(key) = np.first_key() {
             return self.deny(format!("unclaimed parameter `SelfBlinkReturn.{key}`"));
         }
         if let Some(cname) = cleanup_name {
             self.consume_optional_remember_cleanup(cname, sub)?;
+        }
+        if tapped || counters.is_some() || !modifiers.is_empty() {
+            return Some(vec![Self::format_move_and_modify(
+                "MoveSubject::Target(TargetSpec::ThisObject)",
+                Some("ZoneRef::Battlefield"),
+                true,
+                owner_control,
+                tapped,
+                (face != 0).then_some(face),
+                counters.as_ref(),
+                &modifiers,
+                "Duration::Indefinitely",
+            )]);
         }
         Some(vec![format!(
             "Effect::ExileSelfReturnAsFace {{ face: {face}, owner_control: {owner_control} }}"
@@ -7078,6 +7904,7 @@ impl Tx<'_> {
         }
     }
 
+    #[allow(clippy::too_many_lines)]
     fn change_zone_event_object(
         &mut self,
         p: &mut Params,
@@ -7092,6 +7919,24 @@ impl Tx<'_> {
             }
             ("Battlefield", "Exile") => {
                 Some(vec!["Effect::exile(TargetSpec::EventObject)".to_string()])
+            }
+            ("Graveyard", "Exile")
+                if !self.in_delayed
+                    && self.trigger_mode.as_deref() == Some("ChangesZone")
+                    && p.has("WithCountersType")
+                    && matches!(
+                        defined,
+                        "TriggeredNewCardLKICopy"
+                            | "TriggeredNewCard"
+                            | "TriggeredCardLKICopy"
+                            | "TriggeredCard"
+                    ) =>
+            {
+                let counters = self.take_with_counters(p)?;
+                let (kind, n) = Self::split_fixed_counters_str(&counters)?;
+                Some(vec![format!(
+                    "Effect::ExileEventFromGraveyardWithCounters {{ kind: {kind}, n: {n} }}"
+                )])
             }
             ("Graveyard", "Exile")
                 if !self.in_delayed
@@ -7133,61 +7978,260 @@ impl Tx<'_> {
                     Some("True") => true,
                     Some(_) => return None,
                 };
-                let counters = self.take_with_counters(p)?;
+                let face = match p.take("Transformed").as_deref() {
+                    None | Some("False") => None,
+                    Some("True") => Some(1u8),
+                    Some(_) => return None,
+                };
+                let counters = self.take_with_counters_amount(p).ok()?;
+                // Dies triggers can fire on animated noncreature permanents (e.g.
+                // manlands), so `Affected$ Creature.IsRemembered` cannot be
+                // treated as unconditional `Card.IsRemembered` here.
+                let modifiers = self.take_optional_static_effect(p, false)?;
+                let fixed_counters = Self::fixed_counter_pair(counters.as_ref());
+                if face.is_some()
+                    || !modifiers.is_empty()
+                    || (counters.is_some() && fixed_counters.is_none())
+                {
+                    return Some(vec![Self::format_move_and_modify(
+                        "MoveSubject::Target(TargetSpec::EventObject)",
+                        Some("ZoneRef::Graveyard"),
+                        false,
+                        owner_control,
+                        tapped,
+                        face,
+                        counters.as_ref(),
+                        &modifiers,
+                        "Duration::Indefinitely",
+                    )]);
+                }
+                let legacy_counters = fixed_counters
+                    .map_or_else(|| "None".to_string(), |(k, n)| format!("Some(({k}, {n}))"));
                 if tapped {
                     Some(vec![format!(
                         "Effect::GraveyardToBattlefieldModified {{ target: TargetSpec::EventObject, \
-                         owner_control: {owner_control}, tapped: true, counters: {counters}, \
+                         owner_control: {owner_control}, tapped: true, counters: {legacy_counters}, \
                          modifiers: &[] }}"
                     )])
-                } else if !owner_control && counters == "None" {
+                } else if !owner_control && legacy_counters == "None" {
                     Some(vec![
                         "Effect::reanimate(TargetSpec::EventObject)".to_string(),
                     ])
                 } else {
                     Some(vec![format!(
                         "Effect::GraveyardToBattlefield {{ target: TargetSpec::EventObject, \
-                         owner_control: {owner_control}, counters: {counters} }}"
+                         owner_control: {owner_control}, counters: {legacy_counters} }}"
                     )])
                 }
+            }
+            ("All", "Battlefield")
+                if self.trigger_mode.as_deref() == Some("ChangesZone")
+                    && matches!(
+                        defined,
+                        "TriggeredNewCardLKICopy"
+                            | "TriggeredNewCard"
+                            | "DelayTriggerRememberedLKI"
+                            | "DelayTriggerRemembered"
+                    ) =>
+            {
+                let owner_control = match p.take("GainControl").as_deref() {
+                    None | Some("False") => true,
+                    Some("True") => false,
+                    Some(_) => return None,
+                };
+                let tapped = match p.take("Tapped").as_deref() {
+                    None | Some("False") => false,
+                    Some("True") => true,
+                    Some(_) => return None,
+                };
+                let face = match p.take("Transformed").as_deref() {
+                    None | Some("False") => None,
+                    Some("True") => Some(1u8),
+                    Some(_) => return None,
+                };
+                let counters = self.take_with_counters_amount(p).ok()?;
+                let modifiers = self.take_optional_static_effect(p, false)?;
+                Some(vec![Self::format_move_and_modify(
+                    "MoveSubject::Target(TargetSpec::EventObject)",
+                    None,
+                    false,
+                    owner_control,
+                    tapped,
+                    face,
+                    counters.as_ref(),
+                    &modifiers,
+                    "Duration::Indefinitely",
+                )])
             }
             _ => None,
         }
     }
 
     pub(super) fn amount_or_count_ext(&mut self, raw: &str) -> Option<String> {
+        let saved_unclaimed = self.unclaimed.borrow().clone();
+        let saved_statics_len = self.body.statics.len();
+        if let Some(expr) = self.amount_or_count(raw) {
+            return Some(expr);
+        }
+        let after_unclaimed = self.unclaimed.borrow().clone();
+        *self.unclaimed.borrow_mut() = saved_unclaimed;
+        self.body.statics.truncate(saved_statics_len);
         let trimmed = raw.trim();
         let resolved = self
             .svars
             .get(trimmed)
             .map_or(trimmed, String::as_str)
-            .trim();
-        if let Some(expr) = self.wave6_count_expr(resolved) {
+            .trim()
+            .to_string();
+        if let Some(expr) = self.wave6_count_expr_depth(&resolved, 0) {
             return Some(expr);
         }
-        self.amount_or_count(raw)
+        *self.unclaimed.borrow_mut() = after_unclaimed;
+        None
     }
 
     pub(super) fn pump_side_ext(&mut self, raw: &str) -> Option<String> {
-        let trimmed = raw.trim();
-        let positive = trimmed.strip_prefix('+').unwrap_or(trimmed).trim();
-        let resolved = self
-            .svars
-            .get(positive)
-            .map_or(positive, String::as_str)
-            .trim();
-        if let Some(expr) = self.wave6_count_expr(resolved) {
+        let saved_unclaimed = self.unclaimed.borrow().clone();
+        let saved_statics_len = self.body.statics.len();
+        if let Some(expr) = self.pump_side(raw) {
             return Some(expr);
         }
-        self.pump_side(raw)
+        let after_unclaimed = self.unclaimed.borrow().clone();
+        *self.unclaimed.borrow_mut() = saved_unclaimed;
+        self.body.statics.truncate(saved_statics_len);
+        let trimmed = raw.trim();
+        let (neg, body) = if let Some(rest) = trimmed.strip_prefix('-') {
+            (true, rest.trim())
+        } else if let Some(rest) = trimmed.strip_prefix('+') {
+            (false, rest.trim())
+        } else {
+            (false, trimmed)
+        };
+        let resolved = self
+            .svars
+            .get(body)
+            .map_or(body, String::as_str)
+            .trim()
+            .to_string();
+        if let Some(expr) = self.wave6_count_expr_depth(&resolved, 0) {
+            return Some(if neg {
+                format!("Amount::Negated(&{expr})")
+            } else {
+                expr
+            });
+        }
+        *self.unclaimed.borrow_mut() = after_unclaimed;
+        None
     }
 
-    fn wave6_count_base(&self, base_raw: &str) -> Option<String> {
+    #[allow(clippy::too_many_lines)]
+    fn wave6_count_base(&mut self, base_raw: &str) -> Option<String> {
+        let block_role = self.block_line.as_ref().map(|(r, _, _)| *r);
+        let attack_trigger = matches!(
+            self.trigger_mode.as_deref(),
+            Some("Attacks" | "AttackerUnblocked" | "AttackerBlocked")
+        );
+        if let Some(valid) = base_raw.strip_prefix("Count$ValidHand ") {
+            let valid = valid.trim();
+            if matches!(valid, "Card.TargetedPlayerOwn" | "Card.TargetedPlayerCtrl") {
+                return Some("Amount::HandSize(PlayerRel::Chosen)".to_string());
+            }
+            if valid == "Card.OwnedBy TriggeredAttackingPlayer"
+                && matches!(
+                    self.trigger_mode.as_deref(),
+                    Some("Attacked" | "AttackersDeclared" | "AttackersDeclaredOneTarget")
+                )
+            {
+                return Some("Amount::HandSize(PlayerRel::EventPlayer)".to_string());
+            }
+            if let Some(stripped) =
+                Self::strip_remembered_ctrl_or_own(valid, "TargetedPlayerOwn", "TargetedPlayerCtrl")
+            {
+                let expr = self.filter_expr_in_zone(&stripped, true)?;
+                let name = self.body.filter_static("COUNT", &expr);
+                return Some(format!(
+                    "Amount::CountOf {{ filter: &{name}, zone: ZoneSel::HandOf(PlayerRel::Chosen) }}"
+                ));
+            }
+            if let Some(stripped) = valid.strip_suffix(".OwnedBy TargetedController") {
+                let expr = self.filter_expr_in_zone(stripped.trim(), true)?;
+                let name = self.body.filter_static("COUNT", &expr);
+                return Some(format!(
+                    "Amount::CountOf {{ filter: &{name}, zone: ZoneSel::HandOf(PlayerRel::ControllerOfTarget) }}"
+                ));
+            }
+        }
+        if let Some(valid) = base_raw.strip_prefix("Count$ValidGraveyard ")
+            && attack_trigger
+            && let Some(stripped) =
+                Self::strip_remembered_ctrl_or_own(valid.trim(), "DefenderCtrl", "DefenderOwn")
+        {
+            let expr = self.filter_expr_in_zone(&stripped, true)?;
+            let name = self.body.filter_static("COUNT", &expr);
+            return Some(format!(
+                "Amount::CountOf {{ filter: &{name}, zone: ZoneSel::GraveyardOf(PlayerRel::DefendingPlayer) }}"
+            ));
+        }
+        if let Some(valid) = base_raw
+            .strip_prefix("Count$ValidGraveyard,Exile ")
+            .or_else(|| base_raw.strip_prefix("Count$ValidExile,Graveyard "))
+            && !valid.contains('$')
+            && !valid.contains('/')
+            && let Some(stripped) = Self::strip_your_graveyard_owner(valid.trim())
+        {
+            let gy_expr = self.filter_expr_in_zone(&stripped, true)?;
+            let gy_name = self.body.filter_static("COUNT", &gy_expr);
+            let ex_expr = if gy_expr == "Filter::Any" {
+                "Filter::OwnedByYou".to_string()
+            } else {
+                format!("Filter::And(&[{gy_expr}, Filter::OwnedByYou])")
+            };
+            let ex_name = self.body.filter_static("COUNT", &ex_expr);
+            return Some(format!(
+                "Amount::Sum {{ left: &Amount::CountOf {{ filter: &{gy_name}, zone: ZoneSel::GraveyardOf(PlayerRel::You) }}, \
+                 right: &Amount::CountOf {{ filter: &{ex_name}, zone: ZoneSel::ExileAll }} }}"
+            ));
+        }
+        if let Some(rest) = base_raw.strip_prefix("Count$DamageThisTurn ")
+            && let Some(valid) = rest.strip_suffix(" You")
+            && !valid.contains(' ')
+        {
+            let expr = self.filter_expr(valid.trim())?;
+            let name = self.body.filter_static("DMG_SRC", &expr);
+            return Some(format!(
+                "Amount::DamageThisTurn {{ to: DamageTo::You, by: &{name}, combat: None }}"
+            ));
+        }
+        if let Some(valid) = base_raw.strip_prefix("Count$TotalDamageThisTurn ")
+            && !valid.contains(' ')
+            && !self.on_a_spell
+        {
+            let expr = self.filter_expr(valid.trim())?;
+            let name = self.body.filter_static("DMG_SRC", &expr);
+            return Some(format!(
+                "Amount::DamageThisTurn {{ to: DamageTo::Source, by: &{name}, combat: None }}"
+            ));
+        }
         Some(match base_raw {
             "Count$LastDieRoll" => "Amount::LastDieRoll".to_string(),
             "Count$CoinsWonThisResolution" => "Amount::CoinsWonThisResolution".to_string(),
             "Count$ExcessDamage" => "Amount::ThisWay(ThisWay::ExcessDamage)".to_string(),
+            "Count$TotalDamageDoneByThisTurn" if self.on_a_spell => {
+                "Amount::ThisWay(ThisWay::DamageDealt)".to_string()
+            }
             "Count$YourLifeTotal" => "Amount::LifeTotal(PlayerRel::You)".to_string(),
+            "TargetedPlayer$CreaturesInPlay" | "ThisTargetedPlayer$CreaturesInPlay" => {
+                "Amount::ControlledCount { who: PlayerRel::Chosen, filter: &Filter::CREATURE }"
+                    .to_string()
+            }
+            "TriggeredPlayer$NumPowerSurgeLands"
+                if self.trigger_mode.as_deref() == Some("Phase") =>
+            {
+                "Amount::UntappedLandsAtTurnStart".to_string()
+            }
+            "TriggeredDefendingPlayer$CardsInHand" if attack_trigger => {
+                "Amount::HandSize(PlayerRel::DefendingPlayer)".to_string()
+            }
             "Sacrificed$CardPower" if self.cost_sacrifices_self && !self.on_a_spell => {
                 "Amount::SourcePower".to_string()
             }
@@ -7215,7 +8259,10 @@ impl Tx<'_> {
             | "Count$ThisTurnCast_Card.CastSa Spell.Warp+OppCtrl" => {
                 "Amount::SpellsWarpedThisTurn(PlayerRel::EachOpponent)".to_string()
             }
-            "TriggeredSpellAbility$CardManaCostLKI" | "TriggeredSpellAbility$CardManaCost"
+            "TriggeredSpellAbility$CardManaCostLKI"
+            | "TriggeredSpellAbility$CardManaCost"
+            | "TriggeredCardLKI$CardManaCost"
+            | "TriggeredCard$CardManaCost"
                 if matches!(
                     self.trigger_mode.as_deref(),
                     Some("SpellCast" | "SpellCastOrCopy")
@@ -7240,6 +8287,30 @@ impl Tx<'_> {
                 if self.trigger_mode.as_deref() == Some("Exploited") =>
             {
                 "Amount::EventManaValue".to_string()
+            }
+            "TriggeredAttacker$CardToughness" | "TriggeredAttackerLKICopy$CardToughness"
+                if self.trigger_mode.as_deref() == Some("AttackerBlockedByCreature")
+                    && block_role == Some(super::BlockRole::Blocks) =>
+            {
+                "Amount::EventLastToughness".to_string()
+            }
+            "TriggeredBlocker$CardToughness" | "TriggeredBlockerLKICopy$CardToughness"
+                if self.trigger_mode.as_deref() == Some("AttackerBlockedByCreature")
+                    && block_role == Some(super::BlockRole::Blocked) =>
+            {
+                "Amount::EventLastToughness".to_string()
+            }
+            "TriggeredAttacker$CardPower" | "TriggeredAttackerLKICopy$CardPower"
+                if self.trigger_mode.as_deref() == Some("AttackerBlockedByCreature")
+                    && block_role == Some(super::BlockRole::Blocks) =>
+            {
+                "Amount::EventPower".to_string()
+            }
+            "TriggeredBlocker$CardPower" | "TriggeredBlockerLKICopy$CardPower"
+                if self.trigger_mode.as_deref() == Some("AttackerBlockedByCreature")
+                    && block_role == Some(super::BlockRole::Blocked) =>
+            {
+                "Amount::EventPower".to_string()
             }
             "TriggerCount$Amount" | "Count$TriggeredObjectsNum" | "TriggeredNum"
                 if matches!(
@@ -7284,7 +8355,29 @@ impl Tx<'_> {
         })
     }
 
-    fn wave6_count_expr(&self, def: &str) -> Option<String> {
+    fn resolve_svar_or_expr(&mut self, token: &str, depth: u8) -> Option<String> {
+        if depth >= 6 {
+            return None;
+        }
+        let trimmed = token.trim();
+        if let Ok(n) = trimmed.parse::<u32>() {
+            return Some(format!("Amount::Fixed({n})"));
+        }
+        let inner = self
+            .svars
+            .get(trimmed)
+            .map_or(trimmed, String::as_str)
+            .trim()
+            .to_string();
+        self.wave6_count_expr_depth(&inner, depth + 1)
+            .or_else(|| self.amount_or_count(trimmed))
+    }
+
+    #[allow(clippy::too_many_lines)]
+    fn wave6_count_expr_depth(&mut self, def: &str, depth: u8) -> Option<String> {
+        if depth >= 6 {
+            return None;
+        }
         if def == "TriggerCount$Result" && self.trigger_mode.as_deref() == Some("RolledDie") {
             return Some("Amount::EventAmount".to_string());
         }
@@ -7298,21 +8391,30 @@ impl Tx<'_> {
         let (base_raw, op_raw) = def
             .split_once('/')
             .map_or((def, None), |(l, r)| (l.trim(), Some(r.trim())));
-        let base = if let Some(svar_name) = base_raw.strip_prefix("SVar$") {
-            let inner = self.svars.get(svar_name.trim())?.trim();
-            if inner == "Count$xPaid"
-                && (self.has_x
-                    || (self.is_etb_self_trigger && self.has_x_mana_cost && !self.in_delayed))
-            {
+        let x_available =
+            self.has_x || (self.is_etb_self_trigger && self.has_x_mana_cost && !self.in_delayed);
+        let base = if base_raw == "Count$xPaid" && x_available {
+            if matches!(op_raw, Some("Twice" | "Times.2")) {
+                return Some("Amount::DoubleX".to_string());
+            }
+            "Amount::X".to_string()
+        } else if let Some(svar_name) = base_raw.strip_prefix("SVar$") {
+            let inner = self.svars.get(svar_name.trim())?.trim().to_string();
+            if inner == "Count$xPaid" && x_available {
                 if matches!(op_raw, Some("Twice" | "Times.2")) {
                     return Some("Amount::DoubleX".to_string());
                 }
                 "Amount::X".to_string()
             } else {
-                self.wave6_count_base(inner)?
+                self.wave6_count_expr_depth(&inner, depth + 1)
+                    .or_else(|| self.amount_or_count(svar_name.trim()))?
             }
+        } else if let Some(expr) = self.wave6_count_base(base_raw) {
+            expr
+        } else if op_raw.is_some() {
+            self.amount_or_count(base_raw)?
         } else {
-            self.wave6_count_base(base_raw)?
+            return None;
         };
         let Some(op) = op_raw else {
             return Some(base);
@@ -7320,22 +8422,45 @@ impl Tx<'_> {
         if op == "Twice" {
             return Some(format!("Amount::Times {{ base: &{base}, factor: 2 }}"));
         }
+        if op == "Thrice" {
+            return Some(format!("Amount::Times {{ base: &{base}, factor: 3 }}"));
+        }
         if op == "HalfDown" {
             return Some(format!("Amount::Half {{ base: &{base}, round_up: false }}"));
         }
         if op == "HalfUp" {
             return Some(format!("Amount::Half {{ base: &{base}, round_up: true }}"));
         }
-        if let Some(n) = op
-            .strip_prefix("Minus.")
-            .and_then(|s| s.parse::<u32>().ok())
-        {
+        if op == "ThirdDown" {
+            return Some(format!("Amount::divided(&{base}, 3, false)"));
+        }
+        if op == "ThirdUp" {
+            return Some(format!("Amount::divided(&{base}, 3, true)"));
+        }
+        if let Some(rest) = op.strip_prefix("Minus.") {
+            if let Ok(n) = rest.parse::<u32>() {
+                return Some(format!(
+                    "Amount::SaturatingSub {{ base: &{base}, subtract: {n} }}"
+                ));
+            }
+            let rhs = self.resolve_svar_or_expr(rest, depth + 1)?;
             return Some(format!(
-                "Amount::SaturatingSub {{ base: &{base}, subtract: {n} }}"
+                "Amount::Difference {{ left: &{base}, right: &{rhs} }}"
             ));
         }
-        if let Some(n) = op.strip_prefix("Plus.").and_then(|s| s.parse::<u32>().ok()) {
-            return Some(format!("Amount::Plus {{ base: &{base}, offset: {n} }}"));
+        if let Some(rest) = op.strip_prefix("NMinus.")
+            && let Ok(n) = rest.parse::<u32>()
+        {
+            return Some(format!(
+                "Amount::ConstantMinus {{ constant: {n}, subtract: &{base} }}"
+            ));
+        }
+        if let Some(rest) = op.strip_prefix("Plus.") {
+            if let Ok(n) = rest.parse::<u32>() {
+                return Some(format!("Amount::Plus {{ base: &{base}, offset: {n} }}"));
+            }
+            let rhs = self.resolve_svar_or_expr(rest, depth + 1)?;
+            return Some(format!("Amount::Sum {{ left: &{base}, right: &{rhs} }}"));
         }
         if let Some(n) = op
             .strip_prefix("Times.")
@@ -7343,6 +8468,20 @@ impl Tx<'_> {
             .filter(|&v| v >= 1)
         {
             return Some(format!("Amount::Times {{ base: &{base}, factor: {n} }}"));
+        }
+        if let Some(n) = op
+            .strip_prefix("DivideEvenlyDown.")
+            .and_then(|s| s.parse::<u32>().ok())
+            .filter(|&v| v >= 2)
+        {
+            return Some(format!("Amount::divided(&{base}, {n}, false)"));
+        }
+        if let Some(n) = op
+            .strip_prefix("DivideEvenlyUp.")
+            .and_then(|s| s.parse::<u32>().ok())
+            .filter(|&v| v >= 2)
+        {
+            return Some(format!("Amount::divided(&{base}, {n}, true)"));
         }
         None
     }
@@ -9683,15 +10822,28 @@ impl Tx<'_> {
         if suffix.is_empty() {
             return Some(base);
         }
+        if suffix == "Twice" {
+            return Some(format!("Amount::Times {{ base: &{base}, factor: 2 }}"));
+        }
+        if suffix == "Thrice" {
+            return Some(format!("Amount::Times {{ base: &{base}, factor: 3 }}"));
+        }
         if suffix == "HalfUp" {
             return Some(format!("Amount::Half {{ base: &{base}, round_up: true }}"));
         }
         if suffix == "HalfDown" {
             return Some(format!("Amount::Half {{ base: &{base}, round_up: false }}"));
         }
+        if suffix == "ThirdUp" {
+            return Some(format!("Amount::divided(&{base}, 3, true)"));
+        }
+        if suffix == "ThirdDown" {
+            return Some(format!("Amount::divided(&{base}, 3, false)"));
+        }
         if let Some(k) = suffix
             .strip_prefix("Times.")
             .and_then(|s| s.parse::<u32>().ok())
+            .filter(|&v| v >= 1)
         {
             return Some(format!("Amount::Times {{ base: &{base}, factor: {k} }}"));
         }
@@ -9708,6 +10860,28 @@ impl Tx<'_> {
             return Some(format!(
                 "Amount::SaturatingSub {{ base: &{base}, subtract: {k} }}"
             ));
+        }
+        if let Some(k) = suffix
+            .strip_prefix("NMinus.")
+            .and_then(|s| s.parse::<u32>().ok())
+        {
+            return Some(format!(
+                "Amount::ConstantMinus {{ constant: {k}, subtract: &{base} }}"
+            ));
+        }
+        if let Some(k) = suffix
+            .strip_prefix("DivideEvenlyDown.")
+            .and_then(|s| s.parse::<u32>().ok())
+            .filter(|&v| v >= 2)
+        {
+            return Some(format!("Amount::divided(&{base}, {k}, false)"));
+        }
+        if let Some(k) = suffix
+            .strip_prefix("DivideEvenlyUp.")
+            .and_then(|s| s.parse::<u32>().ok())
+            .filter(|&v| v >= 2)
+        {
+            return Some(format!("Amount::divided(&{base}, {k}, true)"));
         }
         None
     }
@@ -9749,6 +10923,15 @@ impl Tx<'_> {
             let expr = self.filter_expr(&clean)?;
             let filter = self.body.filter_static("COUNT", &expr);
             format!("Amount::ControlledCount {{ who: {who}, filter: &{filter} }}")
+        } else if let Some(valid) = head.strip_prefix("Count$ValidGraveyard ") {
+            let clean = Self::strip_remembered_ctrl_or_own(
+                valid.trim(),
+                "RememberedPlayerCtrl",
+                "RememberedPlayerOwn",
+            )?;
+            let expr = self.filter_expr_in_zone(&clean, true)?;
+            let filter = self.body.filter_static("COUNT", &expr);
+            format!("Amount::CountOf {{ filter: &{filter}, zone: ZoneSel::GraveyardOf({who}) }}")
         } else if let Some(valid) = head.strip_prefix("PlayerCountRemembered$Valid ") {
             let clean = Self::strip_remembered_ctrl_or_own(valid.trim(), "YouCtrl", "YouCtrl")?;
             let expr = self.filter_expr(&clean)?;
@@ -12692,6 +13875,33 @@ impl Tx<'_> {
         {
             return Some(effs);
         }
+        if api == "ChangeZone"
+            && targets_here
+            && p.peek("Origin") == Some("Graveyard")
+            && p.peek("Destination") == Some("Exile")
+            && p.peek("RememberChanged") == Some("True")
+            && let Some(effs) = self.exile_and_cast_copies_chain(p, sub, target)
+        {
+            return Some(effs);
+        }
+        if api == "ChangeZone"
+            && single_target
+            && p.peek("Origin") == Some("Graveyard")
+            && p.peek("Destination") == Some("Exile")
+            && p.peek("RememberChanged") == Some("True")
+            && let Some(effs) =
+                self.exile_from_graveyard_and_copy_chain(p, sub, target, targets_here)
+        {
+            return Some(effs);
+        }
+        if matches!(api, "ChangeZone" | "ChangeZoneAll")
+            && p.peek("Origin") == Some("Graveyard")
+            && p.peek("Destination") == Some("Battlefield")
+            && p.peek("RememberChanged") == Some("True")
+            && let Some(effs) = self.reanimate_and_pump_remembered_chain(api, p, sub, target, flags)
+        {
+            return Some(effs);
+        }
         let (kind, flag_key, is_single_action) = match api {
             "Destroy" if p.peek("RememberDestroyed") == Some("True") => (
                 RememberedThisWay::Destroyed,
@@ -12717,10 +13927,15 @@ impl Tx<'_> {
             {
                 let who =
                     self.wave11_player_of_line(p.peek("Defined"), target, targets_a_player)?;
-                if !Self::is_single_player_rel(who) {
+                let multi_opp_one =
+                    matches!(who, "PlayerRel::EachOpponent" | "PlayerRel::Opponent")
+                        && p.peek("Mode") == Some("TgtChoose")
+                        && matches!(p.peek("NumCards"), None | Some("1"));
+                if !Self::is_single_player_rel(who) && !multi_opp_one {
                     return None;
                 }
-                let single = p.peek("Mode") != Some("Hand")
+                let single = Self::is_single_player_rel(who)
+                    && p.peek("Mode") != Some("Hand")
                     && matches!(p.peek("NumCards"), None | Some("1"));
                 (RememberedThisWay::Discarded, "RememberDiscarded", single)
             }
@@ -12940,6 +14155,519 @@ impl Tx<'_> {
         consumed.then_some(out)
     }
 
+    /// Whether a lowered `Filter` expression (possibly naming a hoisted
+    /// `static NAME: Filter = ...;` in `statics`) is guaranteed to exclude all
+    /// lands (including Artifact Lands, Dryad Arbor, and Enchantment Lands).
+    fn filter_excludes_lands(expr: &str, statics: &str, depth: u8) -> bool {
+        if depth > 8 {
+            return false;
+        }
+        let expr = expr.trim().trim_start_matches('&').trim();
+        if expr.is_empty() {
+            return false;
+        }
+        if !expr.contains("::")
+            && expr
+                .chars()
+                .all(|c| c.is_ascii_uppercase() || c.is_ascii_digit() || c == '_')
+        {
+            let prefix = format!("static {expr}: Filter = ");
+            let Some(rest) = statics
+                .find(&prefix)
+                .map(|idx| &statics[idx + prefix.len()..])
+            else {
+                return false;
+            };
+            let Some(rhs) = rest.split(';').next() else {
+                return false;
+            };
+            return Self::filter_excludes_lands(rhs, statics, depth + 1);
+        }
+        if matches!(
+            expr,
+            "Filter::INSTANT_OR_SORCERY"
+                | "Filter::HasType(TypeSet::INSTANT)"
+                | "Filter::HasType(TypeSet::SORCERY)"
+                | "Filter::NONLAND"
+                | "Filter::Not(&Filter::LAND)"
+        ) {
+            return true;
+        }
+        if let Some(inner) = expr
+            .strip_prefix("Filter::And(&[")
+            .and_then(|s| s.strip_suffix("])"))
+        {
+            return Self::split_top_level_items(inner)
+                .into_iter()
+                .any(|item| Self::filter_excludes_lands(item, statics, depth + 1));
+        }
+        if let Some(inner) = expr
+            .strip_prefix("Filter::Or(&[")
+            .and_then(|s| s.strip_suffix("])"))
+        {
+            let items = Self::split_top_level_items(inner);
+            return !items.is_empty()
+                && items
+                    .into_iter()
+                    .all(|item| Self::filter_excludes_lands(item, statics, depth + 1));
+        }
+        false
+    }
+
+    fn split_top_level_items(s: &str) -> Vec<&str> {
+        let mut out = Vec::new();
+        let mut depth = 0usize;
+        let mut start = 0usize;
+        for (idx, ch) in s.char_indices() {
+            match ch {
+                '(' | '[' | '{' => depth += 1,
+                ')' | ']' | '}' => depth = depth.saturating_sub(1),
+                ',' if depth == 0 => {
+                    let piece = s[start..idx].trim();
+                    if !piece.is_empty() {
+                        out.push(piece);
+                    }
+                    start = idx + 1;
+                }
+                _ => {}
+            }
+        }
+        let tail = s[start..].trim();
+        if !tail.is_empty() {
+            out.push(tail);
+        }
+        out
+    }
+
+    fn exile_and_cast_copies_chain(
+        &mut self,
+        p: &mut Params,
+        sub: &mut Option<String>,
+        target: Option<&str>,
+    ) -> Option<Vec<String>> {
+        let tgt = target.filter(|t| t.starts_with("TargetSpec::CardInGraveyard("))?;
+        let filter_expr = tgt
+            .strip_prefix("TargetSpec::CardInGraveyard(")?
+            .rsplit_once(',')?
+            .0
+            .trim();
+        // `Effect::ExileAndCastCopies` invokes `start_linked_free_play`, so
+        // require the target filter (following any hoisted `static TARGETn`) to
+        // exclude all lands.
+        if !Self::filter_excludes_lands(filter_expr, &self.body.statics, 0) {
+            return None;
+        }
+        let mut probe = p.clone();
+        probe.take("Origin");
+        probe.take("Destination");
+        probe.take("RememberChanged");
+        probe.take("IsCurse");
+        if let Some(forget) = probe.take("ForgetOtherRemembered")
+            && forget != "True"
+        {
+            return None;
+        }
+        if let Some(mandatory) = probe.take("Mandatory")
+            && mandatory != "True"
+        {
+            return None;
+        }
+        if !probe.exhausted() {
+            return None;
+        }
+        let next_name = sub.as_deref()?.to_string();
+        let next_body = self.svars.get(next_name.trim())?.clone();
+        let (next_api, mut sp) = Params::parse(&next_body)?;
+        sp.drop_prose();
+        if next_api != "Play" {
+            return None;
+        }
+        let targets_remembered = matches!(
+            (sp.take("Valid").as_deref(), sp.take("Defined").as_deref()),
+            (
+                Some("Card.IsRemembered" | "Card.IsRemembered+ExiledWithSource"),
+                None
+            ) | (None, Some("Remembered"))
+        );
+        if !targets_remembered
+            || !matches!(sp.take("ValidSA").as_deref(), None | Some("Spell"))
+            || !matches!(sp.take("ValidZone").as_deref(), None | Some("Exile"))
+            || !matches!(sp.take("Controller").as_deref(), None | Some("You"))
+            || !matches!(sp.take("Amount").as_deref(), None | Some("All"))
+            || sp.take("CopyCard").as_deref() != Some("True")
+            || sp.take("WithoutManaCost").as_deref() != Some("True")
+            || sp.take("Optional").as_deref() != Some("True")
+        {
+            return None;
+        }
+        if let Some(show) = sp.take("ShowCard")
+            && show != "True"
+        {
+            return None;
+        }
+        if let Some(copy_opt) = sp.take("CopyIsOptional")
+            && copy_opt != "True"
+        {
+            return None;
+        }
+        let after = sp.take("SubAbility");
+        if !sp.exhausted() {
+            return None;
+        }
+        *p = probe;
+        *sub = None;
+        if let Some(aname) = after {
+            if self.sub_is_api(Some(&aname), "Cleanup") {
+                self.consume_optional_remember_cleanup(aname, sub)?;
+            } else {
+                *sub = Some(aname);
+            }
+        }
+        Some(vec![
+            "Effect::ExileAndCastCopies { graveyard: None }".to_string(),
+        ])
+    }
+
+    fn exile_from_graveyard_and_copy_chain(
+        &mut self,
+        p: &mut Params,
+        sub: &mut Option<String>,
+        target: Option<&str>,
+        targets_here: bool,
+    ) -> Option<Vec<String>> {
+        let tgt = target.filter(|t| t.starts_with("TargetSpec::CardInGraveyard("))?;
+        let next_name = sub.as_deref()?.to_string();
+        let next_body = self.svars.get(next_name.trim())?.clone();
+        let (next_api, mut sp) = Params::parse(&next_body)?;
+        sp.drop_prose();
+        if next_api != "CopyPermanent"
+            || sp.has("ValidTgts")
+            || sp.has("UnlessCost")
+            || sp.has("RememberTokens")
+            || sp.has("AddAbilities")
+            || sp.has("AddTriggers")
+            || sp.has("AddStaticAbilities")
+            || !matches!(
+                sp.take("Defined").as_deref(),
+                Some("Remembered" | "RememberedLKI")
+            )
+        {
+            return None;
+        }
+        // Optional "if you exiled a card this way" guard is already satisfied
+        // by wrapping `CreateTokenCopy` in `ExiledFromGraveyard >= 1`.
+        if sp.peek("ConditionDefined") == Some("Remembered")
+            && sp.peek("ConditionPresent") == Some("Card")
+            && matches!(sp.peek("ConditionCompare"), None | Some("GE1" | "GT0"))
+        {
+            sp.take("ConditionDefined");
+            sp.take("ConditionPresent");
+            sp.take("ConditionCompare");
+            sp.take("ConditionDescription");
+        }
+        if sp.entries.iter().any(|(k, _)| k.starts_with("Condition")) {
+            return None;
+        }
+        sp.take("AITgts");
+        let controller = self.wave11_player_rel(sp.take("Controller").as_deref())?;
+        let amount = match sp.take("NumCopies") {
+            None => "Amount::Fixed(1)".to_string(),
+            Some(raw) => self.amount_or_count_ext(&raw)?,
+        };
+        let mods = self.copy_mods(&mut sp, false)?;
+        let (tapped, attacking, haste_until_eot, cleanup) =
+            Self::take_copy_permanent_riders(&mut sp)?;
+        let after = sp.take("SubAbility");
+        if !sp.exhausted() {
+            return None;
+        }
+        let mut probe = p.clone();
+        probe.take("Origin");
+        probe.take("Destination");
+        probe.take("RememberChanged");
+        probe.take("IsCurse");
+        match probe.take("Defined").as_deref() {
+            None if targets_here => {}
+            Some("Targeted" | "ParentTarget") if !targets_here => {}
+            _ => return None,
+        }
+        if let Some(forget) = probe.take("ForgetOtherRemembered")
+            && forget != "True"
+        {
+            return None;
+        }
+        if let Some(mandatory) = probe.take("Mandatory")
+            && mandatory != "True"
+        {
+            return None;
+        }
+        if !probe.exhausted() {
+            return None;
+        }
+        *p = probe;
+        *sub = None;
+        if let Some(aname) = after {
+            if self.sub_is_api(Some(&aname), "Cleanup") {
+                self.consume_optional_remember_cleanup(aname, sub)?;
+            } else {
+                *sub = Some(aname);
+            }
+        }
+        let copy_fx = format!(
+            "Effect::CreateTokenCopy {{ target: {tgt}, controller: {controller}, amount: {amount}, \
+             mods: &[{}], tapped: {tapped}, attacking: {attacking}, \
+             haste_until_eot: {haste_until_eot}, cleanup: {cleanup} }}",
+            mods.join(", ")
+        );
+        Some(vec![
+            format!("Effect::exile({tgt})"),
+            format!(
+                "Effect::IfCondition {{ condition: Condition::AmountAtLeast(\
+                 Amount::ThisWay(ThisWay::ExiledFromGraveyard(&Filter::Any)), 1), \
+                 then: &[{copy_fx}], otherwise: &[] }}"
+            ),
+        ])
+    }
+
+    #[allow(clippy::too_many_lines)]
+    fn reanimate_and_pump_remembered_chain(
+        &mut self,
+        api: &str,
+        p: &mut Params,
+        sub: &mut Option<String>,
+        target: Option<&str>,
+        flags: super::chains::LineFlags,
+    ) -> Option<Vec<String>> {
+        let next_name = sub.as_deref()?.to_string();
+        let next_body = self.svars.get(next_name.trim())?.clone();
+        let (next_api, mut sp) = Params::parse(&next_body)?;
+        sp.drop_prose();
+        if !matches!(next_api.as_str(), "Pump" | "PumpAll")
+            || sp.has("ValidTgts")
+            || sp.has("UnlessCost")
+            || sp.has("AtEOT")
+            || sp.entries.iter().any(|(k, _)| k.starts_with("Condition"))
+        {
+            return None;
+        }
+        if next_api == "Pump" {
+            if !matches!(
+                sp.take("Defined").as_deref(),
+                Some("Remembered" | "RememberedLKI")
+            ) {
+                return None;
+            }
+        } else if !matches!(
+            sp.take("ValidCards").as_deref(),
+            Some("Card.IsRemembered" | "Permanent.IsRemembered" | "Creature.IsRemembered")
+        ) {
+            return None;
+        }
+        let duration = match sp.take("Duration").as_deref() {
+            None | Some("EOT" | "UntilEndOfTurn") => "Duration::UntilEndOfTurn",
+            Some("UntilEndOfCombat") => "Duration::UntilEndOfCombat",
+            Some("UntilYourNextTurn") => "Duration::UntilYourNextTurn",
+            Some("Permanent") => "Duration::Indefinitely",
+            Some(_) => return None,
+        };
+        sp.take("IsCurse");
+        let mut extra_mods: Vec<String> = Vec::new();
+        let att_raw = sp.take("NumAtt");
+        let def_raw = sp.take("NumDef");
+        if att_raw.is_some() || def_raw.is_some() {
+            let p_val = att_raw
+                .as_deref()
+                .map_or(Some(0i16), |s| s.trim().parse::<i16>().ok())?;
+            let t_val = def_raw
+                .as_deref()
+                .map_or(Some(0i16), |s| s.trim().parse::<i16>().ok())?;
+            if p_val != 0 || t_val != 0 {
+                extra_mods.push(format!("Modifier::ModifyPT({p_val}, {t_val})"));
+            }
+        }
+        if let Some(kw) = sp.take("KW") {
+            let (bits, mods) = self.pump_kw_and_prevent(&kw, sp.opponents_only_lure)?;
+            if bits != "KeywordSet::EMPTY" {
+                extra_mods.push(format!("Modifier::AddKeyword({bits})"));
+            }
+            extra_mods.extend(mods);
+        }
+        let after = sp.take("SubAbility");
+        if extra_mods.is_empty() || !sp.exhausted() {
+            return None;
+        }
+        let mut probe = p.clone();
+        probe.take("Origin");
+        probe.take("Destination");
+        probe.take("RememberChanged");
+        probe.take("IsCurse");
+        if let Some(forget) = probe.take("ForgetOtherRemembered")
+            && forget != "True"
+        {
+            return None;
+        }
+        let tapped = match probe.take("Tapped").as_deref() {
+            None | Some("False") => false,
+            Some("True") => true,
+            Some(_) => return None,
+        };
+        let counters = self.take_with_counters_amount(&mut probe).ok()?;
+        let out = if api == "ChangeZoneAll" {
+            if (target.is_some() && !flags.prior_target_used && !flags.targets_a_player)
+                || probe.has("StaticEffect")
+            {
+                return None;
+            }
+            let defined_early = probe.take("Defined");
+            let gain = match probe.take("GainControl").as_deref() {
+                None | Some("False") => false,
+                Some("True") => true,
+                Some(_) => return None,
+            };
+            let valid = probe.take("ChangeType")?;
+            let (owner_opt, stripped) = Self::strip_graveyard_owner(&valid)?;
+            let zone = match (defined_early.as_deref(), flags.targets_a_player, owner_opt) {
+                (None, false, Some("PlayerRel::You"))
+                | (Some("You"), false, None | Some("PlayerRel::You")) => "ZoneSel::GraveyardYou",
+                (None, false, Some("PlayerRel::EachOpponent")) => "ZoneSel::GraveyardOpponents",
+                (None | Some("Targeted" | "TargetedPlayer"), true, None) => {
+                    "ZoneSel::GraveyardOf(PlayerRel::Chosen)"
+                }
+                (None, false, None) => "ZoneSel::GraveyardAll",
+                _ => return None,
+            };
+            if !probe.exhausted() {
+                return None;
+            }
+            let expr = self.filter_expr_in_zone(&stripped, true)?;
+            let name = self.body.filter_static("REANIMATE_ALL", &expr);
+            let owner_control = if zone == "ZoneSel::GraveyardYou" {
+                false
+            } else {
+                !gain
+            };
+            Self::format_move_and_modify(
+                &format!("MoveSubject::AllInZone {{ zone: {zone}, filter: &{name} }}"),
+                Some("ZoneRef::Graveyard"),
+                false,
+                owner_control,
+                tapped,
+                None,
+                counters.as_ref(),
+                &extra_mods,
+                duration,
+            )
+        } else if probe.peek("Hidden") == Some("True")
+            && !flags.targets_here
+            && (target.is_none() || flags.prior_target_used)
+            && !probe.has("StaticEffect")
+        {
+            probe.take("Hidden");
+            probe.claim_label("ChangeTypeDesc", "ChangeType");
+            let (chooser, defined_owner) =
+                self.parse_graveyard_chooser_and_owner(&mut probe, "TargetSpec::AnyPlayer", false)?;
+            let optional = self.parse_graveyard_optional(&mut probe)?;
+            let num_raw = probe.take("ChangeNum").unwrap_or_else(|| "1".to_string());
+            let gain = match probe.take("GainControl").as_deref() {
+                None | Some("False") => false,
+                Some("True") => true,
+                Some(_) => return None,
+            };
+            let valid = probe.take("ChangeType")?;
+            let (filter_owner, stripped) = Self::strip_graveyard_owner(&valid)?;
+            let owner_rel = match (defined_owner, filter_owner) {
+                (Some(a), Some(b)) if a != b => return None,
+                (Some(a), _) | (_, Some(a)) => a,
+                (None, None) => "PlayerRel::EachPlayer",
+            };
+            if owner_rel == "PlayerRel::Chosen" || !probe.exhausted() {
+                return None;
+            }
+            let owner_control = owner_rel != "PlayerRel::You" && !gain;
+            let (min, max) = if optional {
+                let max = self.amount_or_count_ext(&num_raw)?;
+                if max == "Amount::Fixed(0)" {
+                    return None;
+                }
+                (0u8, max)
+            } else {
+                let n: u8 = self.plain_num(&num_raw)?.try_into().ok()?;
+                if n == 0 {
+                    return None;
+                }
+                (n, format!("Amount::Fixed({n})"))
+            };
+            let expr = self.filter_expr_in_zone(&stripped, true)?;
+            let filter = self.body.filter_static("GRAVE_CHOICE", &expr);
+            let move_fx = Self::format_move_and_modify(
+                "MoveSubject::Target(TargetSpec::EventObject)",
+                Some("ZoneRef::Graveyard"),
+                false,
+                owner_control,
+                tapped,
+                None,
+                counters.as_ref(),
+                &extra_mods,
+                duration,
+            );
+            format!(
+                "Effect::ChooseCard {{ chooser: {chooser}, \
+                 zone: ChooseZone::Graveyard({owner_rel}), filter: &{filter}, \
+                 min: {min}, max: {max}, movement: ChooseMove::None, then: &[{move_fx}] }}"
+            )
+        } else if let Some(tgt) = target.filter(|t| t.starts_with("TargetSpec::CardInGraveyard"))
+            && !probe.has("Hidden")
+            && !probe.has("StaticEffect")
+        {
+            match probe.take("Defined").as_deref() {
+                None if flags.targets_here => {}
+                Some("Targeted" | "ParentTarget") if !flags.targets_here => {}
+                _ => return None,
+            }
+            let owner_control = match probe.take("GainControl").as_deref() {
+                None | Some("True") => false,
+                Some("False") => true,
+                Some(_) => return None,
+            };
+            if let Some(num) = probe.take("ChangeNum")
+                && num != "1"
+            {
+                return None;
+            }
+            if let Some(mandatory) = probe.take("Mandatory")
+                && mandatory != "True"
+            {
+                return None;
+            }
+            if !probe.exhausted() {
+                return None;
+            }
+            Self::format_move_and_modify(
+                &format!("MoveSubject::Target({tgt})"),
+                Some("ZoneRef::Graveyard"),
+                false,
+                owner_control,
+                tapped,
+                None,
+                counters.as_ref(),
+                &extra_mods,
+                duration,
+            )
+        } else {
+            return None;
+        };
+        *p = probe;
+        *sub = None;
+        if let Some(aname) = after {
+            if self.sub_is_api(Some(&aname), "Cleanup") {
+                self.consume_optional_remember_cleanup(aname, sub)?;
+            } else {
+                *sub = Some(aname);
+            }
+        }
+        Some(vec![out])
+    }
+
     fn optional_discard_then_draw_chain(
         &mut self,
         p: &mut Params,
@@ -13027,6 +14755,24 @@ impl Tx<'_> {
                 Some(c) if c.starts_with("GE") => c[2..].parse::<u32>().ok().filter(|&n| n >= 1),
                 Some(_) => None,
             }?;
+            let expected_zone = match kind {
+                RememberedThisWay::Milled
+                | RememberedThisWay::Destroyed
+                | RememberedThisWay::Discarded => Some("Graveyard"),
+                RememberedThisWay::Exiled
+                | RememberedThisWay::ExiledFromBattlefield
+                | RememberedThisWay::ExiledFromGraveyard => Some("Exile"),
+                RememberedThisWay::ReturnedToHand | RememberedThisWay::RevealedTopToHand => {
+                    Some("Hand")
+                }
+                RememberedThisWay::PutIntoLibraryFromHand => Some("Library"),
+            };
+            if let Some(cz) = sp.peek("ConditionZone")
+                && Some(cz) != expected_zone
+            {
+                return None;
+            }
+            sp.take("ConditionZone");
             sp.take("ConditionDefined");
             let valid = sp.take("ConditionPresent")?;
             sp.take("ConditionCompare");
@@ -13161,6 +14907,18 @@ impl Tx<'_> {
         raw: &str,
         kind: RememberedThisWay,
     ) -> Option<(String, bool)> {
+        self.remembered_this_way_amount_depth(raw, kind, 0)
+    }
+
+    fn remembered_this_way_amount_depth(
+        &mut self,
+        raw: &str,
+        kind: RememberedThisWay,
+        depth: u8,
+    ) -> Option<(String, bool)> {
+        if depth >= 4 {
+            return None;
+        }
         let trimmed = raw.trim();
         let neg = trimmed.starts_with('-');
         let key = trimmed.trim_start_matches(['+', '-']);
@@ -13172,6 +14930,27 @@ impl Tx<'_> {
         let (head, suffix) = def
             .split_once('/')
             .map_or((def.as_str(), ""), |(h, s)| (h, s));
+        if let Some(inner_var) = head.strip_prefix("SVar$") {
+            let (base, false) =
+                self.remembered_this_way_amount_depth(inner_var.trim(), kind, depth + 1)?
+            else {
+                return None;
+            };
+            let mag = Self::wrap_amount_suffix(base, suffix)?;
+            return Some((mag, neg));
+        }
+        if head == "PlayerCountOpponents$Amount"
+            && let Some(sub_rhs) = suffix.strip_prefix("Minus.")
+            && let Some((rhs, false)) =
+                self.remembered_this_way_amount_depth(sub_rhs.trim(), kind, depth + 1)
+        {
+            return Some((
+                format!(
+                    "Amount::Difference {{ left: &Amount::Players(PlayerRel::EachOpponent), right: &{rhs} }}"
+                ),
+                neg,
+            ));
+        }
         let base = if matches!(head, "Remembered$Amount" | "Count$RememberedSize") {
             self.this_way_amount_for_filter(kind, None)?
         } else if kind == RememberedThisWay::RevealedTopToHand
@@ -13438,6 +15217,29 @@ impl Tx<'_> {
                 } else {
                     format!("Effect::AddCounter {{ kind: {counter}, amount: {amt} }}")
                 }
+            }
+            "Incubate" => {
+                let Some(raw) = sp.take("Amount") else {
+                    restore(chain);
+                    return None;
+                };
+                let Some((amt, false)) = self.remembered_this_way_amount(&raw, kind) else {
+                    restore(chain);
+                    return None;
+                };
+                let Some(who) = self.wave11_player_of_line(
+                    sp.take("Defined").as_deref(),
+                    target.as_deref(),
+                    targets_a_player,
+                ) else {
+                    restore(chain);
+                    return None;
+                };
+                if !sp.exhausted() {
+                    restore(chain);
+                    return None;
+                }
+                format!("Effect::Incubate {{ who: {who}, count: {amt} }}")
             }
             "Mana" => {
                 let Some(raw) = sp.take("Amount") else {
@@ -16099,7 +17901,7 @@ impl Tx<'_> {
                 let toughness = resolve_pump(sp.take("NumDef").as_deref().unwrap_or("0"))?;
                 let (keywords, extra_mods) = match sp.take("KW") {
                     None => ("KeywordSet::EMPTY".to_string(), Vec::new()),
-                    Some(kw) => Self::pump_kw_and_prevent(&kw, sp.opponents_only_lure)?,
+                    Some(kw) => self.pump_kw_and_prevent(&kw, sp.opponents_only_lure)?,
                 };
                 let duration = match sp.take("Duration").as_deref() {
                     None | Some("UntilEndOfTurn") => "Duration::UntilEndOfTurn",

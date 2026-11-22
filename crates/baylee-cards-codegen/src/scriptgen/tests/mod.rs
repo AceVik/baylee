@@ -22,6 +22,7 @@ mod static_supertypes;
 mod tokens_and_zones;
 mod wave24a;
 mod wave24c;
+mod wave24d;
 
 fn cats() -> SubtypeCatalogs {
     let mut c = SubtypeCatalogs {
