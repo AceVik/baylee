@@ -971,58 +971,218 @@ impl Tx<'_> {
         Some(())
     }
 
-    /// `K:Equip:<cost>` as the activated ability the keyword is.
+    /// `K:Equip:<cost>[:<valid>:<desc>][:<mod>...]` (CR 702.6a).
     ///
-    /// Equip prints one thing and the rules supply the rest (CR 702.6a):
-    /// sorcery speed, "target creature you control", and attaching this
-    /// permanent to it. `equip!` is that sentence, so the cost is all there
-    /// is to read — and reading it through [`Self::cost_expr`] rather than
-    /// as mana means the eight scripts that equip for a sacrifice, a
-    /// discard or three life are the same rule as the 543 that equip for
-    /// mana.
-    ///
-    /// A fourth field refuses. `K:Equip:1:Creature.Legendary+YouCtrl` is
-    /// "equip legendary creature", which narrows the target the keyword
-    /// otherwise defines — and `equip!` has no room for it precisely
-    /// because the rules fill that room. Writing the card without the
-    /// restriction would let it move onto anything.
+    /// Every lowered Equip ability enforces CR 702.6a (`ActivationTiming::SorcerySpeed`,
+    /// never `CostPart::TapSelf`, single target `min == max == 1`, and
+    /// `Filter::ControlledByYou` + `Filter::CREATURE` on narrowed creature targets).
+    /// Non-creature Equip targets (such as `Planeswalker.YouCtrl`) and
+    /// target-dependent reductions stay honestly refused.
     pub(super) fn equip(&mut self, rest: &str) -> Option<()> {
         let fields: Vec<&str> = rest.split(':').collect();
-        match fields.as_slice() {
-            [cost_raw] => {
-                let cost = self.cost_expr(cost_raw.trim())?;
-                self.body.abilities.push(format!("equip!({cost})"));
-                Some(())
-            }
-            [cost_raw, flavor] if flavor.trim().starts_with("Flavor ") => {
-                let cost = self.cost_expr(cost_raw.trim())?;
-                self.body.abilities.push(format!("equip!({cost})"));
-                Some(())
-            }
-            [cost_raw, target, desc, mod_raw, tail @ ..]
-                if target.trim().is_empty()
-                    && desc.trim().is_empty()
-                    && let Some(limit_str) = mod_raw.trim().strip_prefix("ActivationLimit$ ")
-                    && let Ok(limit) = limit_str.trim().parse::<u8>()
-                    && tail.iter().all(|f| {
-                        let t = f.trim();
-                        !t.contains('$')
-                            && (t.is_empty()
-                                || t.starts_with("Activate only")
-                                || t.starts_with("Flavor "))
-                    }) =>
-            {
-                let cost = self.cost_expr(cost_raw.trim())?;
-                self.body.abilities.push(format!(
-                    "activated!({cost}, &[Effect::AttachSelf {{ target: TargetSpec::Object(&Filter::YOUR_CREATURE) }}], \
-                     timing = ActivationTiming::SorcerySpeed, \
-                     target = Some(TargetSpec::Object(&Filter::YOUR_CREATURE)), \
-                     limit = ActivationLimit::PerTurn({limit}))"
-                ));
-                Some(())
-            }
-            _ => self.deny("an `Equip` that narrows what it may attach to".to_string()),
+        let cost_raw = fields.first()?.trim();
+        let cost = self.cost_expr(cost_raw)?;
+        if cost == "Cost::TAP" || cost.contains("TapSelf") {
+            return self.deny("an `Equip` ability that taps itself".to_string());
         }
+        if fields.len() == 1 || (fields.len() == 2 && fields[1].trim().starts_with("Flavor ")) {
+            self.body.abilities.push(format!("equip!({cost})"));
+            return Some(());
+        }
+        let target_raw = fields[1].trim();
+        let (target_filter, tail_start) = if target_raw.is_empty() {
+            let start = if fields.get(2).is_some_and(|f| f.trim().is_empty()) {
+                3
+            } else {
+                2
+            };
+            ("&Filter::YOUR_CREATURE".to_string(), start)
+        } else {
+            if fields.len() < 3
+                || target_raw.contains('$')
+                || target_raw.starts_with("Flavor ")
+                || fields[2].contains('$')
+            {
+                return self.deny("an `Equip` that narrows what it may attach to".to_string());
+            }
+            let Some(filter) = self.equip_target_filter(target_raw) else {
+                return self.deny("an `Equip` that narrows what it may attach to".to_string());
+            };
+            (filter, 3)
+        };
+        let (limit, reduction, alt_cost) =
+            self.parse_equip_modifiers(&fields[tail_start..], !target_raw.is_empty())?;
+        if let Some(alt) = alt_cost {
+            self.body.abilities.push(format!("equip!({cost})"));
+            self.body.abilities.push(format!("equip!({alt})"));
+            return Some(());
+        }
+        if target_raw.is_empty() && limit.is_none() && reduction.is_none() {
+            return self.deny("an `Equip` with unexpected trailing fields".to_string());
+        }
+        let limit_clause = limit.map_or_else(String::new, |n| {
+            format!(", limit = ActivationLimit::PerTurn({n})")
+        });
+        let red_clause = reduction.unwrap_or_default();
+        self.body.abilities.push(format!(
+            "activated!({cost}, &[Effect::AttachSelf {{ target: TargetSpec::Object({target_filter}) }}], \
+             timing = ActivationTiming::SorcerySpeed, \
+             target = Some(TargetSpec::Object({target_filter})){limit_clause}{red_clause})"
+        ));
+        Some(())
+    }
+
+    fn parse_equip_modifiers(
+        &mut self,
+        tail: &[&str],
+        narrowed: bool,
+    ) -> Option<(Option<u8>, Option<String>, Option<String>)> {
+        let mut limit: Option<u8> = None;
+        let mut reduction: Option<String> = None;
+        let mut alt_cost: Option<String> = None;
+        for field in tail {
+            let f = field.trim();
+            if f.is_empty() || f.starts_with("Flavor ") {
+                continue;
+            }
+            if let Some(lim_raw) = f.strip_prefix("ActivationLimit$ ") {
+                let Ok(n) = lim_raw.trim().parse::<u8>() else {
+                    return self.deny(format!("invalid `Equip` `ActivationLimit$ {lim_raw}`"));
+                };
+                if n == 0 || limit.is_some() || alt_cost.is_some() {
+                    return self.deny(format!("invalid `Equip` modifier `{f}`"));
+                }
+                limit = Some(n);
+            } else if let Some(red_raw) = f.strip_prefix("ReduceCost$ ") {
+                if reduction.is_some() || alt_cost.is_some() {
+                    return self.deny(format!("invalid `Equip` modifier `{f}`"));
+                }
+                reduction = Some(self.equip_cost_reduction(red_raw.trim())?);
+            } else if let Some(alt_raw) = f.strip_prefix("AlternateCost$ ") {
+                if narrowed || alt_cost.is_some() || limit.is_some() || reduction.is_some() {
+                    return self.deny(format!("unsupported `Equip` `AlternateCost$ {alt_raw}`"));
+                }
+                let alt = self.cost_expr(alt_raw.trim())?;
+                if alt == "Cost::TAP" || alt.contains("TapSelf") {
+                    return self.deny("an `Equip` alternate cost that taps itself".to_string());
+                }
+                alt_cost = Some(alt);
+            } else if f.contains('$') {
+                return self.deny(format!("unsupported `Equip` modifier `{f}`"));
+            } else if f.starts_with("Activate only") {
+                if limit.is_none() {
+                    return self.deny(format!("unclaimed `Equip` restriction `{f}`"));
+                }
+            } else if f.starts_with("This ability costs ") {
+                if reduction.is_none() {
+                    return self.deny(format!("unclaimed `Equip` reduction prose `{f}`"));
+                }
+            } else {
+                return self.deny(format!("unclaimed `Equip` field `{f}`"));
+            }
+        }
+        Some((limit, reduction, alt_cost))
+    }
+
+    fn equip_target_filter(&mut self, valid: &str) -> Option<String> {
+        if valid.contains(['$', '/']) {
+            return None;
+        }
+        let mut normalized = Vec::new();
+        for alt in valid.split(',').map(str::trim) {
+            if alt.is_empty() {
+                return None;
+            }
+            let (base, atoms_raw) = alt.split_once('.')?;
+            let base = base.trim();
+            let mut saw_you = false;
+            for atom in atoms_raw
+                .split('+')
+                .map(str::trim)
+                .filter(|a| !a.is_empty())
+            {
+                if atom == "YouCtrl" {
+                    saw_you = true;
+                } else if atom.contains("Ctrl")
+                    || atom.contains("Own")
+                    || atom.contains("ControlledBy")
+                    || atom == "Self"
+                    || atom == "StrictlySelf"
+                {
+                    return None;
+                }
+            }
+            if !saw_you {
+                return None;
+            }
+            if base == "Creature" {
+                normalized.push(alt.to_string());
+            } else if self
+                .cats
+                .const_path_of(baylee_core::types::SubtypeKind::Creature, base)
+                .is_some()
+            {
+                // CR 702.6a: "Equip [quality]" always targets a creature you
+                // control, never a non-creature Kindred permanent of that subtype.
+                normalized.push(format!("Creature.{base}+{atoms_raw}"));
+            } else {
+                return None;
+            }
+        }
+        if normalized.is_empty() {
+            return None;
+        }
+        let joined = normalized.join(",");
+        let expr = self.filter_expr(&joined)?;
+        if expr != "Filter::YOUR_CREATURE" && !expr.contains("Filter::ControlledByYou") {
+            return None;
+        }
+        let filter = self.body.filter_static("EQUIP", &expr);
+        Some(format!("&{filter}"))
+    }
+
+    fn equip_cost_reduction(&mut self, raw: &str) -> Option<String> {
+        let def = if raw.starts_with("Count$") || raw.starts_with("PlayerCount") {
+            raw.to_string()
+        } else if let Some(resolved) = self.svars.get(raw).cloned() {
+            resolved.trim().to_string()
+        } else {
+            return self.deny(format!("`Equip` `ReduceCost$ {raw}` naming no `SVar`"));
+        };
+        if def == "PlayerCountPropertyYou$HasPropertyActive" {
+            return Some(
+                ", cost_reduction = Some(CostReduction::If { condition: Condition::YourTurn, amount: 1 })"
+                    .to_string(),
+            );
+        }
+        if let Some(compare) = def.strip_prefix("Count$Compare ") {
+            if let Some((lhs_part, else_str)) = compare.rsplit_once('.')
+                && else_str.trim() == "0"
+                && let Some((cond_spec, then_str)) = lhs_part.rsplit_once('.')
+                && let Ok(amount) = then_str.trim().parse::<u32>()
+                && amount > 0
+                && let Some((var, cmp)) = cond_spec.trim().rsplit_once(' ')
+                && let Some(cond) = self
+                    .svar_condition_clause(var.trim(), cmp.trim())
+                    .or_else(|| self.extra_svar_condition_clause(var.trim(), cmp.trim()))
+                    .or_else(|| self.wave15_trigger_svar_condition(var.trim(), cmp.trim()))
+                && !cond.contains("Condition::XAtLeast")
+            {
+                return Some(format!(
+                    ", cost_reduction = Some(CostReduction::If {{ condition: {cond}, amount: {amount} }})"
+                ));
+            }
+            return self.deny(format!("unsupported `Equip` `ReduceCost$ {raw}`"));
+        }
+        let Some(amt) = self.static_count_expr(&def) else {
+            return self.deny(format!("unsupported `Equip` `ReduceCost$ {raw}`"));
+        };
+        if amt.starts_with("Amount::Fixed(") || amt.contains("Target") {
+            return self.deny(format!("unsupported `Equip` `ReduceCost$ {raw}`"));
+        }
+        Some(format!(
+            ", cost_reduction = Some(CostReduction::PerCount {{ amount: {amt}, each: 1 }})"
+        ))
     }
 
     /// `K:Ninjutsu:<cost>[:Commander]` and `K:CommanderNinjutsu:<cost>`
@@ -1526,11 +1686,22 @@ impl Tx<'_> {
                 }
                 _ => return None,
             }
-        } else if p.peek("Revolt").is_some() {
-            if p.take("Revolt").as_deref() != Some("True") {
-                return None;
+        } else if let Some(cond_raw) = p.take("Condition") {
+            Self::named_condition(&cond_raw)
+                .or_else(|| Self::wave7_named_condition(&cond_raw))?
+                .to_string()
+        } else if p.peek("Revolt").is_some()
+            || p.peek("Delirium").is_some()
+            || p.peek("Threshold").is_some()
+            || p.peek("Metalcraft").is_some()
+            || p.peek("Hellbent").is_some()
+            || p.peek("FatefulHour").is_some()
+        {
+            let clauses = Self::take_trigger_bool_conditions(&mut p)?;
+            match clauses.as_slice() {
+                [only] => (*only).to_string(),
+                _ => return None,
             }
-            "Condition::Revolt".to_string()
         } else if let Some(valid) = p.take("IsPresent") {
             self.present_clause(&mut p, &valid)?
         } else {

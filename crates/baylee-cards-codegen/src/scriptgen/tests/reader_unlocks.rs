@@ -6714,3 +6714,225 @@ fn wave19c_etb_counter_card_name_and_refusals() {
         assert!(refused(bad), "must refuse: {bad}");
     }
 }
+
+#[test]
+fn wave20c_narrowed_alt_and_reduced_equip() {
+    // Subtype-only narrowed Equip prepends `Filter::CREATURE` alongside `ControlledByYou` (CR 702.6a).
+    let sub_equip = read(
+        "Name:GoblinBlade\nManaCost:1\nTypes:Artifact Equipment\n\
+         K:Equip:1:Goblin.YouCtrl:Goblin",
+    );
+    assert!(
+        sub_equip.statics.contains("Filter::CREATURE")
+            && sub_equip.statics.contains("subtypes::creature::GOBLIN")
+            && sub_equip.statics.contains("Filter::ControlledByYou")
+            && sub_equip.abilities[0].contains("ActivationTiming::SorcerySpeed")
+            && sub_equip.abilities[0].contains("Effect::AttachSelf"),
+        "{} | {:?}",
+        sub_equip.statics,
+        sub_equip.abilities
+    );
+
+    // Multi-subtype narrowed Equip.
+    let multi_sub = read(
+        "Name:MageStaff\nManaCost:2\nTypes:Artifact Equipment\n\
+         K:Equip:1:Creature.YouCtrl+Goblin,Creature.YouCtrl+Wizard:Goblin or Wizard",
+    );
+    assert!(
+        multi_sub.statics.contains("Filter::Or(&[")
+            && multi_sub.statics.contains("subtypes::creature::GOBLIN")
+            && multi_sub.statics.contains("subtypes::creature::WIZARD"),
+        "{}",
+        multi_sub.statics
+    );
+
+    // Two-colon `ActivationLimit$`.
+    let two_colon = read(
+        "Name:SacArmor\nManaCost:2\nTypes:Artifact Equipment\n\
+         K:Equip:Sac<1/Creature>::ActivationLimit$ 1:Activate only once each turn",
+    );
+    assert!(
+        two_colon.abilities[0].contains("limit = ActivationLimit::PerTurn(1)"),
+        "{:?}",
+        two_colon.abilities
+    );
+}
+
+#[test]
+fn wave20c_alt_and_reduced_equip() {
+    let alt_equip = read(
+        "Name:DualCrown\nManaCost:2\nTypes:Artifact Equipment\n\
+         K:Equip:2:::AlternateCost$ B",
+    );
+    assert_eq!(
+        alt_equip.abilities,
+        ["equip!(cost!(\"{2}\"))", "equip!(cost!(\"{B}\"))"]
+    );
+
+    let alt_discard = read(
+        "Name:FlailGear\nManaCost:1\nTypes:Artifact Equipment\n\
+         K:Equip:3:::AlternateCost$ Discard<1/Card>",
+    );
+    assert_eq!(
+        alt_discard.abilities,
+        [
+            "equip!(cost!(\"{3}\"))",
+            "equip!(cost!(Discard(&Filter::Any)))"
+        ]
+    );
+
+    let per_count_red = read(
+        "Name:PlateMail\nManaCost:3\nTypes:Artifact Equipment\n\
+         K:Equip:3:::ReduceCost$ Y:This ability costs {1} less to activate for each other artifact you control\n\
+         SVar:Y:Count$Valid Artifact.YouCtrl+Other",
+    );
+    assert!(
+        per_count_red.abilities[0].contains("cost_reduction = Some(CostReduction::PerCount"),
+        "{:?}",
+        per_count_red.abilities
+    );
+
+    let cond_red = read(
+        "Name:AnchorGear\nManaCost:2\nTypes:Artifact Equipment\n\
+         K:Equip:2:::ReduceCost$ Y:This ability costs {2} less to activate if you have one or fewer cards in hand\n\
+         SVar:X:Count$ValidHand Card.YouOwn\n\
+         SVar:Y:Count$Compare X LE1.2.0",
+    );
+    assert!(
+        cond_red.abilities[0].contains(
+            "cost_reduction = Some(CostReduction::If { condition: Condition::HandSizeAtMost(1), amount: 2 })"
+        ),
+        "{:?}",
+        cond_red.abilities
+    );
+
+    for bad in [
+        "Name:BadTapEquip\nTypes:Artifact Equipment\nK:Equip:T",
+        "Name:BadAltTap\nTypes:Artifact Equipment\nK:Equip:2:::AlternateCost$ T",
+        "Name:BadPwEquip\nTypes:Artifact Equipment\nK:Equip:1:Planeswalker.YouCtrl:planeswalker",
+        "Name:BadTgtRed\nTypes:Artifact Equipment\nK:Equip:4:::ReduceCost$ X:This ability costs {X} less\nSVar:X:Targeted$CardPower",
+        "Name:BadUnknownProse\nTypes:Artifact Equipment\nK:Equip:2:::Only while tapped",
+    ] {
+        assert!(refused(bad), "must refuse: {bad}");
+    }
+}
+
+#[test]
+fn wave20c_trigger_bool_conditions_and_named_svars() {
+    let revolt_phase = read(
+        "Name:RevoltWatch\nManaCost:2 W\nTypes:Enchantment\n\
+         T:Mode$ Phase | Phase$ End of Turn | ValidPlayer$ You | Revolt$ True | TriggerZones$ Battlefield | Execute$ D\n\
+         SVar:D:DB$ Draw | NumCards$ 1",
+    );
+    assert!(
+        revolt_phase.abilities[0].contains("condition = Some(Condition::Revolt)"),
+        "{}",
+        revolt_phase.abilities[0]
+    );
+
+    let opp_turn_cast = read(
+        "Name:NightScout\nManaCost:1 U\nTypes:Creature\nPT:1/2\n\
+         T:Mode$ SpellCast | ValidCard$ Card | ValidActivatingPlayer$ You | OpponentTurn$ True | TriggerZones$ Battlefield | Execute$ D\n\
+         SVar:D:DB$ Draw | NumCards$ 1",
+    );
+    assert!(
+        opp_turn_cast.abilities[0].contains("condition = Some(Condition::OpponentsTurn)"),
+        "{}",
+        opp_turn_cast.abilities[0]
+    );
+
+    let delirium_atk = read(
+        "Name:GraveCharger\nManaCost:2 R\nTypes:Creature\nPT:2/2\n\
+         T:Mode$ Attacks | ValidCard$ Card.Self | Delirium$ True | TriggerZones$ Battlefield | Execute$ D\n\
+         SVar:D:DB$ Draw | NumCards$ 1",
+    );
+    assert!(
+        delirium_atk.abilities[0].contains("condition = Some(Condition::GraveyardTypesAtLeast(4))"),
+        "{}",
+        delirium_atk.abilities[0]
+    );
+
+    let most_life = read(
+        "Name:LifeOgre\nManaCost:G\nTypes:Creature\nPT:2/2\n\
+         T:Mode$ Phase | Phase$ Upkeep | ValidPlayer$ You | APlayerHasMoreLifeThanEachOther$ True | TriggerZones$ Battlefield | Execute$ D\n\
+         SVar:D:DB$ Draw | NumCards$ 1",
+    );
+    assert!(
+        most_life.abilities[0].contains("condition = Some(Condition::APlayerHasMostLife)"),
+        "{}",
+        most_life.abilities[0]
+    );
+
+    let revolt_etb = read(
+        "Name:RevoltRider\nManaCost:4 G\nTypes:Creature\nPT:4/4\n\
+         K:etbCounter:P1P1:2:CheckSVar$ R:Revolt desc\n\
+         SVar:R:Count$Revolt.1.0",
+    );
+    assert_eq!(
+        revolt_etb.enter_modifiers,
+        [
+            "EnterModifier::WithCountersIf { kind: CounterKind::P1P1, count: Amount::Fixed(2), condition: Condition::Revolt }"
+        ]
+    );
+
+    let delirium_etb = read(
+        "Name:DeliriumOoze\nManaCost:2 G\nTypes:Creature\nPT:2/2\n\
+         K:etbCounter:P1P1:2:Delirium$ True:Delirium desc",
+    );
+    assert_eq!(
+        delirium_etb.enter_modifiers,
+        [
+            "EnterModifier::WithCountersIf { kind: CounterKind::P1P1, count: Amount::Fixed(2), condition: Condition::GraveyardTypesAtLeast(4) }"
+        ]
+    );
+
+    for bad in [
+        "Name:BadRevoltNone\nManaCost:2 W\nTypes:Enchantment\n\
+         T:Mode$ Phase | Phase$ End of Turn | ValidPlayer$ Player | Revolt$ None | TriggerZones$ Battlefield | Execute$ D\nSVar:D:DB$ Draw | NumCards$ 1",
+        "Name:BadBothTurnsTrig\nManaCost:1 U\nTypes:Enchantment\n\
+         T:Mode$ SpellCast | ValidCard$ Card | ValidActivatingPlayer$ You | PlayerTurn$ True | OpponentTurn$ True | TriggerZones$ Battlefield | Execute$ D\nSVar:D:DB$ Draw | NumCards$ 1",
+    ] {
+        assert!(refused(bad), "must refuse: {bad}");
+    }
+}
+
+#[test]
+fn wave20c_tamiyo_and_lose_control_effect_triggers() {
+    let tamiyo_ward = read(
+        "Name:StoryCircle\nManaCost:1 U\nTypes:Sorcery\n\
+         A:SP$ Effect | Triggers$ TrigAttack | Duration$ UntilYourNextTurn\n\
+         SVar:TrigAttack:Mode$ Attacks | ValidCard$ Creature.OppCtrl | Attacked$ You,Planeswalker.YouCtrl | TriggerZones$ Command | Execute$ Shrink\n\
+         SVar:Shrink:DB$ Pump | Defined$ TriggeredAttackerLKICopy | NumAtt$ -2",
+    );
+    assert!(
+        tamiyo_ward.abilities[0].contains(
+            "Effect::WheneverCreatureAttacksYouOrYourPlaneswalkerUntilYourNextTurn { effects: &[Effect::PumpFilter { filter: &Filter::Reference"
+        ),
+        "{}",
+        tamiyo_ward.abilities[0]
+    );
+
+    let lose_ctrl = read(
+        "Name:ControlLeash\nManaCost:2 R\nTypes:Sorcery\n\
+         A:SP$ Effect | ValidTgts$ Creature | RememberObjects$ Targeted | Triggers$ LostIt | Duration$ Permanent\n\
+         SVar:LostIt:Mode$ ChangesController | ValidCard$ Card.IsRemembered | ValidOriginalController$ You | TriggerZones$ Command | Execute$ DropIt\n\
+         SVar:DropIt:DB$ Destroy | Defined$ Remembered | SubAbility$ Clean\n\
+         SVar:Clean:DB$ ChangeZone | Origin$ Command | Destination$ Exile",
+    );
+    assert!(
+        lose_ctrl.abilities[0].contains(
+            "DelayedTriggerWhen::OnObservation { watch: TriggerRemember::FirstTarget, \
+             observation: DelayedObservation::YouLoseControl, this_turn_only: false }"
+        ) && lose_ctrl.abilities[0].contains("Effect::destroy(TargetSpec::EventObject)"),
+        "{}",
+        lose_ctrl.abilities[0]
+    );
+
+    // Wrong duration on Tamiyo trigger stays refused.
+    assert!(refused(
+        "Name:BadTamiyoDur\nManaCost:1 U\nTypes:Sorcery\n\
+         A:SP$ Effect | Triggers$ TrigAttack | Duration$ Permanent\n\
+         SVar:TrigAttack:Mode$ Attacks | ValidCard$ Creature | Attacked$ You,Planeswalker.YouCtrl | TriggerZones$ Command | Execute$ Shrink\n\
+         SVar:Shrink:DB$ Pump | Defined$ TriggeredAttackerLKICopy | NumAtt$ -2"
+    ));
+}

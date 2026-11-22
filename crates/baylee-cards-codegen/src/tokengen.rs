@@ -2599,4 +2599,31 @@ mod tests {
         assert!(nested[0].contains("&tokens::ZOMBIE_2_2_BLACK"));
         assert!(nested[1].contains("&SKELETON_1_1_BLACK"));
     }
+
+    #[test]
+    fn wave20c_narrowed_equip_token_and_refusals() {
+        let c = cats();
+        let blade = read(
+            "Name:Banner\nTypes:Artifact Equipment\n\
+             K:Equip:1:Soldier.YouCtrl:Soldier",
+            &c,
+        )
+        .expect("narrowed Equip Equipment token");
+        assert!(
+            blade.literal.contains("Effect::AttachSelf")
+                && blade.literal.contains("creature::SOLDIER")
+                && blade.literal.contains("Filter::ControlledByYou")
+                && !blade.literal.contains("EQUIP1"),
+            "{}",
+            blade.literal
+        );
+        assert!(
+            read(
+                "Name:BadPwGear\nTypes:Artifact Equipment\n\
+                 K:Equip:1:Planeswalker.YouCtrl:planeswalker",
+                &c,
+            )
+            .is_none()
+        );
+    }
 }

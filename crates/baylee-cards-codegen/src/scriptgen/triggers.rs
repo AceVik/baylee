@@ -2291,18 +2291,20 @@ impl Tx<'_> {
                 return self.deny("`Condition$` beside another clause".to_string());
             };
         }
-        if p.peek("PlayerTurn") == Some("True") {
-            p.take("PlayerTurn");
-            condition = if condition.is_empty() {
-                ", condition = Some(Condition::YourTurn)".to_string()
-            } else if let Some(inner) = condition
-                .strip_prefix(", condition = Some(")
-                .and_then(|s| s.strip_suffix(')'))
-            {
-                format!(", condition = Some(Condition::All(&[{inner}, Condition::YourTurn]))")
-            } else {
-                return self.deny("`PlayerTurn$ True` beside another clause".to_string());
-            };
+        if let Some(bool_clauses) = Self::take_trigger_bool_conditions(&mut p) {
+            for clause in bool_clauses {
+                condition = if condition.is_empty() {
+                    format!(", condition = Some({clause})")
+                } else if let Some(inner) = condition
+                    .strip_prefix(", condition = Some(")
+                    .and_then(|s| s.strip_suffix(')'))
+                {
+                    format!(", condition = Some(Condition::All(&[{inner}, {clause}]))")
+                } else {
+                    return self
+                        .deny("trigger boolean condition beside another clause".to_string());
+                };
+            }
         }
         let once_per_turn = match p.take("ActivationLimit").as_deref() {
             None => "",
@@ -3349,11 +3351,52 @@ impl Tx<'_> {
             p.take("SVarCompare");
             clauses.push(clause);
         }
+        if let Some(bool_clauses) = Self::take_trigger_bool_conditions(p) {
+            for clause in bool_clauses {
+                clauses.push(clause.to_string());
+            }
+        }
         Some(match clauses.as_slice() {
             [] => "None".to_string(),
             [only] => format!("Some(&{only})"),
             many => format!("Some(&Condition::All(&[{}]))", many.join(", ")),
         })
+    }
+
+    /// Consumes recognized boolean trigger/ETB condition flags (`PlayerTurn$`,
+    /// `OpponentTurn$`, `Revolt$`, `Delirium$`, `Threshold$`, `Metalcraft$`,
+    /// `Hellbent$`, `FatefulHour$`, `APlayerHasMoreLifeThanEachOther$`).
+    /// Leaves unrecognized values unconsumed so the caller's exhaustion check
+    /// refuses them cleanly.
+    pub(super) fn take_trigger_bool_conditions(p: &mut Params) -> Option<Vec<&'static str>> {
+        const FLAGS: &[(&str, &str)] = &[
+            ("PlayerTurn", "Condition::YourTurn"),
+            ("OpponentTurn", "Condition::OpponentsTurn"),
+            ("Revolt", "Condition::Revolt"),
+            ("Delirium", "Condition::GraveyardTypesAtLeast(4)"),
+            ("Threshold", "Condition::GraveyardCountAtLeast(7)"),
+            (
+                "Metalcraft",
+                "Condition::ControlCount(&Filter::ARTIFACT, 3)",
+            ),
+            ("Hellbent", "Condition::HandSizeAtMost(0)"),
+            ("FatefulHour", "Condition::LifeAtMost(5)"),
+            (
+                "APlayerHasMoreLifeThanEachOther",
+                "Condition::APlayerHasMostLife",
+            ),
+        ];
+        if p.peek("PlayerTurn") == Some("True") && p.peek("OpponentTurn") == Some("True") {
+            return None;
+        }
+        let mut out = Vec::new();
+        for &(key, cond) in FLAGS {
+            if p.peek(key) == Some("True") {
+                p.take(key);
+                out.push(cond);
+            }
+        }
+        (!out.is_empty()).then_some(out)
     }
 
     fn parse_delayed_body(
@@ -3854,8 +3897,42 @@ impl Tx<'_> {
             "Count$Valid Card.Self+IsRingbearer" | "Count$ValidSelf Card.IsRingbearer" => {
                 bool_flag("Condition::SourceMatches(&Filter::RingBearer)")
             }
-            _ => None,
+            _ => Self::wave20c_named_svar_flag(raw, cmp),
         }
+    }
+
+    fn wave20c_named_svar_flag(raw: &str, cmp: &str) -> Option<String> {
+        let (base, inverted) = match raw {
+            "Count$Revolt" | "Count$Revolt.1.0" => ("Condition::Revolt", false),
+            "Count$Revolt.0.1" => ("Condition::Revolt", true),
+            "Count$Delirium" | "Count$Delirium.1.0" => {
+                ("Condition::GraveyardTypesAtLeast(4)", false)
+            }
+            "Count$Delirium.0.1" => ("Condition::GraveyardTypesAtLeast(4)", true),
+            "Count$Threshold" | "Count$Threshold.1.0" => {
+                ("Condition::GraveyardCountAtLeast(7)", false)
+            }
+            "Count$Threshold.0.1" => ("Condition::GraveyardCountAtLeast(7)", true),
+            "Count$Metalcraft" | "Count$Metalcraft.1.0" => {
+                ("Condition::ControlCount(&Filter::ARTIFACT, 3)", false)
+            }
+            "Count$Metalcraft.0.1" => ("Condition::ControlCount(&Filter::ARTIFACT, 3)", true),
+            "Count$Hellbent" | "Count$Hellbent.1.0" => ("Condition::HandSizeAtMost(0)", false),
+            "Count$Hellbent.0.1" => ("Condition::HandSizeAtMost(0)", true),
+            "Count$FatefulHour" | "Count$FatefulHour.1.0" => ("Condition::LifeAtMost(5)", false),
+            "Count$FatefulHour.0.1" => ("Condition::LifeAtMost(5)", true),
+            _ => return None,
+        };
+        let want_true = match cmp {
+            "GE1" | "GT0" | "EQ1" => !inverted,
+            "EQ0" | "LT1" | "LE0" => inverted,
+            _ => return None,
+        };
+        Some(if want_true {
+            base.to_string()
+        } else {
+            format!("Condition::Not(&{base})")
+        })
     }
 
     fn wave16_graveyard_count_cmp(cmp: &str) -> Option<String> {
@@ -4529,6 +4606,33 @@ impl Tx<'_> {
                 trigger_count += 1;
                 continue;
             }
+            if mode == "Attacks"
+                && matches!(
+                    tp.peek("Attacked"),
+                    Some("You,Planeswalker.YouCtrl" | "Planeswalker.YouCtrl,You")
+                )
+            {
+                let expr = self.effect_tamiyo_attack_trigger(
+                    &mut tp,
+                    dur_raw.as_deref(),
+                    ends.as_deref(),
+                    base_watch,
+                )?;
+                out.push(expr);
+                trigger_count += 1;
+                continue;
+            }
+            if mode == "ChangesController" {
+                let expr = self.effect_lose_control_trigger(
+                    &mut tp,
+                    dur_raw.as_deref(),
+                    ends.as_deref(),
+                    base_watch,
+                )?;
+                out.push(expr);
+                trigger_count += 1;
+                continue;
+            }
             if !matches!(
                 mode.as_str(),
                 "ChangesZone"
@@ -4777,6 +4881,153 @@ impl Tx<'_> {
              condition: {cond}, targets: {targets_expr}, remember: {remember}, \
              effects: &[{effects}] }}"
         ))
+    }
+
+    fn effect_tamiyo_attack_trigger(
+        &mut self,
+        tp: &mut Params,
+        dur_raw: Option<&str>,
+        ends: Option<&str>,
+        base_watch: &'static str,
+    ) -> Option<String> {
+        if dur_raw != Some("UntilYourNextTurn")
+            || ends.is_some()
+            || base_watch != "TriggerRemember::None"
+            || tp.has("Static")
+        {
+            return None;
+        }
+        if !matches!(tp.take("TriggerZones").as_deref(), None | Some("Command")) {
+            return None;
+        }
+        if let Some(sec) = tp.take("Secondary")
+            && sec != "True"
+        {
+            return None;
+        }
+        if !matches!(
+            tp.take("ValidCard").as_deref(),
+            Some("Creature" | "Creature.OppCtrl")
+        ) || !matches!(
+            tp.take("Attacked").as_deref(),
+            Some("You,Planeswalker.YouCtrl" | "Planeswalker.YouCtrl,You")
+        ) {
+            return None;
+        }
+        let optional = match tp.take("OptionalDecider").as_deref() {
+            None => false,
+            Some("You") => true,
+            Some(_) => return None,
+        };
+        let execute = tp.take("Execute")?;
+        let exec_raw = self.svars.get(execute.trim())?.clone();
+        if !tp.exhausted() {
+            return None;
+        }
+        let (effects, targets) =
+            self.parse_delayed_body_str(&exec_raw, Some("Attacks".to_string()), optional)?;
+        if targets.is_some() {
+            return None;
+        }
+        Some(format!(
+            "Effect::WheneverCreatureAttacksYouOrYourPlaneswalkerUntilYourNextTurn {{ \
+             effects: &[{effects}] }}"
+        ))
+    }
+
+    fn effect_lose_control_trigger(
+        &mut self,
+        tp: &mut Params,
+        dur_raw: Option<&str>,
+        ends: Option<&str>,
+        base_watch: &'static str,
+    ) -> Option<String> {
+        if dur_raw != Some("Permanent")
+            || ends.is_some()
+            || base_watch == "TriggerRemember::None"
+            || tp.has("Static")
+        {
+            return None;
+        }
+        if !matches!(tp.take("TriggerZones").as_deref(), None | Some("Command")) {
+            return None;
+        }
+        if let Some(sec) = tp.take("Secondary")
+            && sec != "True"
+        {
+            return None;
+        }
+        if tp.take("ValidCard").as_deref() != Some("Card.IsRemembered")
+            || tp.take("ValidOriginalController").as_deref() != Some("You")
+        {
+            return None;
+        }
+        let optional = match tp.take("OptionalDecider").as_deref() {
+            None => false,
+            Some("You") => true,
+            Some(_) => return None,
+        };
+        let cond = self.delayed_optional_condition(tp)?;
+        let execute = tp.take("Execute")?;
+        let exec_raw = self.svars.get(execute.trim())?.clone();
+        if !tp.exhausted()
+            || exec_raw.contains("RememberedPlayer")
+            || exec_raw.contains("Triggered")
+            || exec_raw.contains("TriggerCount$")
+        {
+            return None;
+        }
+        let cleaned = self.strip_command_exile_subability(&exec_raw);
+        let normalized = cleaned
+            .replace(
+                "Defined$ RememberedLKI",
+                "Defined$ DelayTriggerRememberedLKI",
+            )
+            .replace("Defined$ Remembered", "Defined$ DelayTriggerRemembered");
+        let (effects, targets) = self.parse_delayed_body_str(&normalized, None, optional)?;
+        let targets_expr = targets.map_or_else(|| "None".to_string(), |req| format!("Some({req})"));
+        Some(format!(
+            "Effect::RegisterDelayedTrigger {{ when: DelayedTriggerWhen::OnObservation {{ \
+             watch: {base_watch}, observation: DelayedObservation::YouLoseControl, \
+             this_turn_only: false }}, condition: {cond}, targets: {targets_expr}, \
+             remember: TriggerRemember::None, effects: &[{effects}] }}"
+        ))
+    }
+
+    /// Strips a trailing `SubAbility$` pointing solely to an `Effect` self-exile
+    /// (`DB$ ChangeZone | Origin$ Command | Destination$ Exile`) from a one-shot
+    /// observation trigger body.
+    fn strip_command_exile_subability(&self, exec_raw: &str) -> String {
+        let Some((_, mut p)) = Params::parse(exec_raw) else {
+            return exec_raw.to_string();
+        };
+        let Some(sub_name) = p.take("SubAbility") else {
+            return exec_raw.to_string();
+        };
+        let Some(sub_body) = self.svars.get(sub_name.trim()) else {
+            return exec_raw.to_string();
+        };
+        let Some((sub_api, mut sp)) = Params::parse(sub_body) else {
+            return exec_raw.to_string();
+        };
+        sp.drop_prose();
+        let is_self_exile = sub_api == "ChangeZone"
+            && sp.take("Origin").as_deref() == Some("Command")
+            && sp.take("Destination").as_deref() == Some("Exile")
+            && matches!(sp.take("Defined").as_deref(), None | Some("Self"))
+            && sp.exhausted();
+        if !is_self_exile {
+            return exec_raw.to_string();
+        }
+        exec_raw
+            .split('|')
+            .map(str::trim)
+            .filter(|part| {
+                part.strip_prefix("SubAbility$")
+                    .is_none_or(|v| v.trim() != sub_name.trim())
+            })
+            .collect::<Vec<_>>()
+            .join(" | ")
     }
 
     fn rewrite_remembered_atom(valid: &str, needle: &str) -> Option<String> {

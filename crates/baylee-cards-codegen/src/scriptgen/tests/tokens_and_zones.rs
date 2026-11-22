@@ -697,17 +697,35 @@ fn equip_is_read_as_the_ability_the_rules_define() {
         read("Name:X\nTypes:Artifact Equipment\nK:Equip:PayLife<3>").abilities,
         ["equip!(cost!(PayLife(3)))"]
     );
-    // And a narrowed one is refused rather than written without its
-    // restriction, which would let the Equipment move onto anything.
-    let parsed = parse(
+    // Narrowed `Equip` (`CR 702.6a`) lowers to a sorcery-speed `AttachSelf`
+    // ability with the narrowed creature-you-control filter while non-creature
+    // or opponent targets stay refused.
+    let narrowed = read(
         "Name:X\nTypes:Artifact Equipment\n\
          K:Equip:1:Creature.Legendary+YouCtrl:legendary creature",
     );
-    assert!(transcode(&parsed, &cats(), None).is_none());
-    assert_eq!(
-        refusal_reason(&parsed, &cats(), None).as_deref(),
-        Some("an `Equip` that narrows what it may attach to")
+    assert!(
+        narrowed
+            .statics
+            .contains("Filter::HasSupertype(SupertypeSet::LEGENDARY)")
+            && narrowed.statics.contains("Filter::ControlledByYou")
+            && narrowed.abilities[0].contains("Effect::AttachSelf")
+            && narrowed.abilities[0].contains("ActivationTiming::SorcerySpeed"),
+        "{} | {:?}",
+        narrowed.statics,
+        narrowed.abilities
     );
+    for bad_equip in [
+        "Name:X\nTypes:Artifact Equipment\nK:Equip:1:Planeswalker.YouCtrl:planeswalker",
+        "Name:X\nTypes:Artifact Equipment\nK:Equip:1:Creature.OppCtrl:opponent creature",
+    ] {
+        let parsed = parse(bad_equip);
+        assert!(transcode(&parsed, &cats(), None).is_none(), "{bad_equip}");
+        assert_eq!(
+            refusal_reason(&parsed, &cats(), None).as_deref(),
+            Some("an `Equip` that narrows what it may attach to")
+        );
+    }
 }
 
 /// Cycling prints a cost and the rules supply the rest (CR 702.29a), and
