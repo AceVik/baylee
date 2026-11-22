@@ -12,8 +12,6 @@ static COST1: Filter = Filter::And(&[
     Filter::ControlledByYou,
 ]);
 
-static LANDWALK2: Filter = Filter::HasSubtype(subtypes::land::SWAMP);
-
 card!(
     index = index::ZOMBIE_TRAILBLAZER,
     oracle_id = "5cd96cf2-c1c6-4982-8cf8-70c16704e387",
@@ -40,8 +38,10 @@ card!(
         ),
         activated!(
             cost!(TapOther(&COST1)),
-            &[Effect::ModifyTargets {
-                modifier: Modifier::LandwalkMatching(&LANDWALK2),
+            &[Effect::PumpTarget {
+                power: Amount::Fixed(0),
+                toughness: Amount::Fixed(0),
+                keywords: KeywordSet::SWAMPWALK,
                 duration: Duration::UntilEndOfTurn
             }],
             target = Some(TargetSpec::Object(&Filter::CREATURE))

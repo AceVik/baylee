@@ -6,8 +6,6 @@
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes;
 
-static LANDWALK1: Filter = Filter::HasSubtype(subtypes::land::FOREST);
-
 card!(
     index = index::WEATHERSEED_ELF,
     oracle_id = "73d0b29a-5b7a-4835-9bd4-5d00e685b851",
@@ -24,8 +22,10 @@ card!(
     ),],
     abilities = &[activated!(
         Cost::TAP,
-        &[Effect::ModifyTargets {
-            modifier: Modifier::LandwalkMatching(&LANDWALK1),
+        &[Effect::PumpTarget {
+            power: Amount::Fixed(0),
+            toughness: Amount::Fixed(0),
+            keywords: KeywordSet::FORESTWALK,
             duration: Duration::UntilEndOfTurn
         }],
         target = Some(TargetSpec::Object(&Filter::CREATURE))

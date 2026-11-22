@@ -9,8 +9,6 @@ use baylee_core::generated::subtypes;
 
 static TARGET1: Filter = Filter::HasSubtype(subtypes::creature::MERFOLK);
 
-static LANDWALK2: Filter = Filter::HasSubtype(subtypes::land::ISLAND);
-
 card!(
     index = index::STREAMBED_AQUITECTS,
     oracle_id = "61251125-1379-43e9-8fb1-ce03ca399083",
@@ -28,18 +26,12 @@ card!(
     abilities = &[
         activated!(
             Cost::TAP,
-            &[
-                Effect::PumpTarget {
-                    power: Amount::Fixed(1),
-                    toughness: Amount::Fixed(1),
-                    keywords: KeywordSet::EMPTY,
-                    duration: Duration::UntilEndOfTurn
-                },
-                Effect::ModifyTargets {
-                    modifier: Modifier::LandwalkMatching(&LANDWALK2),
-                    duration: Duration::UntilEndOfTurn
-                }
-            ],
+            &[Effect::PumpTarget {
+                power: Amount::Fixed(1),
+                toughness: Amount::Fixed(1),
+                keywords: KeywordSet::ISLANDWALK,
+                duration: Duration::UntilEndOfTurn
+            }],
             target = Some(TargetSpec::Object(&TARGET1))
         ),
         activated!(

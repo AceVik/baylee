@@ -18,8 +18,6 @@ static TRIGGER1: Filter = Filter::Or(&[
     ]),
 ]);
 
-static LANDWALK2: Filter = Filter::HasSubtype(subtypes::land::FOREST);
-
 card!(
     index = index::ORBWEAVER_KUMO,
     oracle_id = "a2b29ae0-feaf-4662-9aee-8c6179f91853",
@@ -37,8 +35,12 @@ card!(
     ),],
     abilities = &[triggered!(
         Trigger::SpellCast(&TRIGGER1),
-        &[Effect::ModifySource {
-            modifier: Modifier::LandwalkMatching(&LANDWALK2),
+        &[Effect::PumpFilter {
+            filter: &Filter::This,
+            controlled_by: None,
+            power: Amount::Fixed(0),
+            toughness: Amount::Fixed(0),
+            keywords: KeywordSet::FORESTWALK,
             duration: Duration::UntilEndOfTurn
         }]
     ),],

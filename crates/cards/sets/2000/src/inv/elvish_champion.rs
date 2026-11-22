@@ -6,8 +6,6 @@
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes;
 
-static LANDWALK1: Filter = Filter::HasSubtype(subtypes::land::FOREST);
-
 card!(
     index = index::ELVISH_CHAMPION,
     oracle_id = "7e40f37c-9a0c-40e0-b195-7ea94b12f798",
@@ -37,7 +35,7 @@ card!(
                 Filter::HasSubtype(subtypes::creature::ELF),
                 Filter::Another
             ]),
-            Modifier::LandwalkMatching(&LANDWALK1)
+            Modifier::AddKeyword(KeywordSet::FORESTWALK)
         ),
     ],
 );

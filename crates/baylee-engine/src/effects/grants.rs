@@ -186,15 +186,17 @@ fn linked_exile_donors(
     state: &GameState,
     effect: &ContinuousEffect,
     filter: &Filter,
+    allow_exiled_with: bool,
 ) -> Vec<ObjectId> {
     let Some(source) = effect.source.and_then(|id| state.object(id)) else {
         return Vec::new();
     };
+    let identity = DamageSourceRef {
+        object: source.id,
+        version: source.version,
+    };
     let link = Rider::LinkedExile {
-        source: DamageSourceRef {
-            object: source.id,
-            version: source.version,
-        },
+        source: identity,
         acquisition: source.rules_acquisition(),
     };
     let with = Rider::ExiledWith {
@@ -205,8 +207,17 @@ fn linked_exile_donors(
         .arena
         .iter()
         .filter_map(|(_, donor)| {
+            let linked = donor.riders.contains(&link)
+                || (allow_exiled_with
+                    && donor.riders.contains(&with)
+                    && !donor.riders.iter().any(|rider| {
+                        matches!(
+                            rider,
+                            Rider::LinkedExile { source: s, .. } if *s == identity
+                        )
+                    }));
             (donor.zone == Zone::Exile
-                && (donor.riders.contains(&link) || donor.riders.contains(&with))
+                && linked
                 && crate::eval::matches(filter, state, donor, effect.controller, source.id))
             .then_some(donor.id)
         })
@@ -218,6 +229,7 @@ fn zone_donors(
     effect: &ContinuousEffect,
     filter: &Filter,
     zone: AbilityDonorZone,
+    allow_exiled_with: bool,
 ) -> Vec<ObjectId> {
     let this = effect
         .source
@@ -227,7 +239,9 @@ fn zone_donors(
         })
         .unwrap_or(ObjectId::NO_SOURCE);
     let raw: Vec<ObjectId> = match zone {
-        AbilityDonorZone::LinkedExile => return linked_exile_donors(state, effect, filter),
+        AbilityDonorZone::LinkedExile => {
+            return linked_exile_donors(state, effect, filter, allow_exiled_with);
+        }
         AbilityDonorZone::Battlefield => state.battlefield_seen().collect(),
         AbilityDonorZone::Graveyard(who) => {
             crate::eval::players_for_source(who, state, effect.controller, effect.source)
@@ -351,17 +365,17 @@ pub fn sync_granted_activated(state: &mut GameState, lookup: &impl CardLookup) {
     }
     let mut has_battlefield_grant = false;
     for effect in state.effects.iter() {
-        let (filter, zone) = match effect.modifier {
+        let (filter, zone, allow_exiled_with) = match effect.modifier {
             Modifier::GrantActivatedFromLinkedExile(filter) => {
-                (filter, AbilityDonorZone::LinkedExile)
+                (filter, AbilityDonorZone::LinkedExile, false)
             }
-            Modifier::GainActivatedAbilitiesOf { filter, zone } => (filter, zone),
+            Modifier::GainActivatedAbilitiesOf { filter, zone } => (filter, zone, true),
             _ => continue,
         };
         if zone == AbilityDonorZone::Battlefield {
             has_battlefield_grant = true;
         }
-        for donor_id in zone_donors(state, effect, filter, zone) {
+        for donor_id in zone_donors(state, effect, filter, zone, allow_exiled_with) {
             push_donor_own_abilities(state, lookup, effect, donor_id, &mut discovered);
         }
     }
@@ -402,7 +416,8 @@ fn propagate_battlefield_grants(state: &GameState, discovered: &mut Vec<(Key, Gr
             else {
                 continue;
             };
-            for donor_id in zone_donors(state, effect, filter, AbilityDonorZone::Battlefield) {
+            for donor_id in zone_donors(state, effect, filter, AbilityDonorZone::Battlefield, true)
+            {
                 let Some(donor) = state.object(donor_id) else {
                     continue;
                 };

@@ -6,8 +6,6 @@
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes;
 
-static LANDWALK1: Filter = Filter::HasSubtype(subtypes::land::FOREST);
-
 card!(
     index = index::VELDRANE_OF_SENGIR,
     oracle_id = "39322103-c40e-4d05-8e87-a92d1cbc7b68",
@@ -26,19 +24,13 @@ card!(
     ),],
     abilities = &[activated!(
         cost!("{1}{B}{B}"),
-        &[
-            Effect::PumpFilter {
-                filter: &Filter::This,
-                controlled_by: None,
-                power: Amount::NegXFixed(3),
-                toughness: Amount::Fixed(0),
-                keywords: KeywordSet::EMPTY,
-                duration: Duration::UntilEndOfTurn
-            },
-            Effect::ModifySource {
-                modifier: Modifier::LandwalkMatching(&LANDWALK1),
-                duration: Duration::UntilEndOfTurn
-            }
-        ]
+        &[Effect::PumpFilter {
+            filter: &Filter::This,
+            controlled_by: None,
+            power: Amount::NegXFixed(3),
+            toughness: Amount::Fixed(0),
+            keywords: KeywordSet::FORESTWALK,
+            duration: Duration::UntilEndOfTurn
+        }]
     ),],
 );

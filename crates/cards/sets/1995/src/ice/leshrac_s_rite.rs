@@ -7,8 +7,6 @@
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes;
 
-static LANDWALK1: Filter = Filter::HasSubtype(subtypes::land::SWAMP);
-
 card!(
     index = index::LESHRAC_S_RITE,
     oracle_id = "ced4538a-4919-4ef8-8bf2-2de9e0388587",
@@ -30,7 +28,7 @@ card!(
         ),
         static_ability!(
             Filter::And(&[Filter::CREATURE, Filter::AttachedToBySource]),
-            Modifier::LandwalkMatching(&LANDWALK1)
+            Modifier::AddKeyword(KeywordSet::SWAMPWALK)
         ),
     ],
 );

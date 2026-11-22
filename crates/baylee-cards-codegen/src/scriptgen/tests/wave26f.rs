@@ -698,3 +698,61 @@ fn non_numeric_loyalty_walker_is_refused() {
          A:AB$ Scry | Cost$ AddCounter<2/LOYALTY> | Planeswalker$ True | ScryNum$ 2"
     ));
 }
+
+#[test]
+fn basic_landwalk_uses_keyword_set_and_nonbasic_uses_landwalk_matching() {
+    let static_mountain = read(
+        "Name:MountainLord\nManaCost:1 R R\nTypes:Creature Goblin\nPT:2/2\n\
+         S:Mode$ Continuous | Affected$ Creature.Goblin+Other | AddKeyword$ Landwalk:Mountain",
+    );
+    assert!(
+        static_mountain
+            .abilities
+            .iter()
+            .any(|a| a.contains("Modifier::AddKeyword(KeywordSet::MOUNTAINWALK)")),
+        "abilities: {:?}",
+        static_mountain.abilities
+    );
+    assert!(
+        static_mountain
+            .abilities
+            .iter()
+            .all(|a| !a.contains("LandwalkMatching")),
+        "abilities: {:?}",
+        static_mountain.abilities
+    );
+
+    let pump_forest = read(
+        "Name:ForestGuide\nManaCost:1 G\nTypes:Creature Elf\nPT:1/1\n\
+         A:AB$ Pump | Cost$ T | ValidTgts$ Creature | KW$ Landwalk:Forest",
+    );
+    assert!(
+        pump_forest
+            .abilities
+            .iter()
+            .any(|a| a.contains("KeywordSet::FORESTWALK")),
+        "abilities: {:?}",
+        pump_forest.abilities
+    );
+    assert!(
+        pump_forest
+            .abilities
+            .iter()
+            .all(|a| !a.contains("LandwalkMatching")),
+        "abilities: {:?}",
+        pump_forest.abilities
+    );
+
+    let nonbasic = read(
+        "Name:NonbasicWalker\nManaCost:2 G\nTypes:Creature Elf\nPT:2/2\n\
+         S:Mode$ Continuous | Affected$ Creature.Self | AddKeyword$ Landwalk:Land.nonBasic:Nonbasic land",
+    );
+    assert!(
+        nonbasic
+            .abilities
+            .iter()
+            .any(|a| a.contains("Modifier::LandwalkMatching")),
+        "abilities: {:?}",
+        nonbasic.abilities
+    );
+}

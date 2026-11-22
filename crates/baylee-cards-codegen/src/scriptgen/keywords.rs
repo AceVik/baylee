@@ -549,7 +549,11 @@ impl Tx<'_> {
     /// landwalk). The five basic landwalks are [`KeywordSet`] bits and are
     /// matched earlier by [`keyword_const`].
     pub(super) fn landwalk_filter(&self, word: &str) -> Option<String> {
-        let rest = word.trim().strip_prefix("Landwalk:")?;
+        let trimmed = word.trim();
+        if keyword_const(trimmed).is_some() {
+            return None;
+        }
+        let rest = trimmed.strip_prefix("Landwalk:")?;
         let mut fields = rest.split(':');
         let quality = self.filter_expr(fields.next()?)?;
         let _prose = fields.next();

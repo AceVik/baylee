@@ -6,8 +6,6 @@
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes;
 
-static LANDWALK1: Filter = Filter::HasSubtype(subtypes::land::SWAMP);
-
 card!(
     index = index::VISCID_LEMURES,
     oracle_id = "738d8d1c-4ceb-4115-89e1-1f2149fb4f5f",
@@ -24,19 +22,13 @@ card!(
     ),],
     abilities = &[activated!(
         cost!("{0}"),
-        &[
-            Effect::PumpFilter {
-                filter: &Filter::This,
-                controlled_by: None,
-                power: Amount::NegXFixed(1),
-                toughness: Amount::Fixed(0),
-                keywords: KeywordSet::EMPTY,
-                duration: Duration::UntilEndOfTurn
-            },
-            Effect::ModifySource {
-                modifier: Modifier::LandwalkMatching(&LANDWALK1),
-                duration: Duration::UntilEndOfTurn
-            }
-        ]
+        &[Effect::PumpFilter {
+            filter: &Filter::This,
+            controlled_by: None,
+            power: Amount::NegXFixed(1),
+            toughness: Amount::Fixed(0),
+            keywords: KeywordSet::SWAMPWALK,
+            duration: Duration::UntilEndOfTurn
+        }]
     ),],
 );

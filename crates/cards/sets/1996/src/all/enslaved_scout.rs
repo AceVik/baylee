@@ -6,8 +6,6 @@
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes;
 
-static LANDWALK1: Filter = Filter::HasSubtype(subtypes::land::MOUNTAIN);
-
 card!(
     index = index::ENSLAVED_SCOUT,
     oracle_id = "f39a3798-1ff0-4d1b-933f-bfcc0f265168",
@@ -24,8 +22,12 @@ card!(
     ),],
     abilities = &[activated!(
         cost!("{2}"),
-        &[Effect::ModifySource {
-            modifier: Modifier::LandwalkMatching(&LANDWALK1),
+        &[Effect::PumpFilter {
+            filter: &Filter::This,
+            controlled_by: None,
+            power: Amount::Fixed(0),
+            toughness: Amount::Fixed(0),
+            keywords: KeywordSet::MOUNTAINWALK,
             duration: Duration::UntilEndOfTurn
         }]
     ),],

@@ -1336,7 +1336,9 @@ impl Tx<'_> {
                     let from = self.body.filter_static("PROT", &expr);
                     prevent.push(format!("Modifier::ProtectionFrom(&{from})"));
                 }
-                other if other.starts_with("Landwalk:") => {
+                other
+                    if other.starts_with("Landwalk:") && keyword_const(other.trim()).is_none() =>
+                {
                     let expr = self.landwalk_filter(other)?;
                     let filter = self.body.filter_static("LANDWALK", &expr);
                     prevent.push(format!("Modifier::LandwalkMatching(&{filter})"));

@@ -17,8 +17,6 @@ static TRIGGER2: Filter = Filter::And(&[
     Filter::ControlledByYou,
 ]);
 
-static LANDWALK3: Filter = Filter::HasSubtype(subtypes::land::FOREST);
-
 card!(
     index = index::TATTERMUNGE_DUO,
     oracle_id = "a56d13b5-a84d-4629-b9ec-4f407ee62596",
@@ -51,8 +49,12 @@ card!(
         ),
         triggered!(
             Trigger::SpellCast(&TRIGGER2),
-            &[Effect::ModifySource {
-                modifier: Modifier::LandwalkMatching(&LANDWALK3),
+            &[Effect::PumpFilter {
+                filter: &Filter::This,
+                controlled_by: None,
+                power: Amount::Fixed(0),
+                toughness: Amount::Fixed(0),
+                keywords: KeywordSet::FORESTWALK,
                 duration: Duration::UntilEndOfTurn
             }]
         ),

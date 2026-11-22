@@ -7,8 +7,6 @@
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes;
 
-static LANDWALK1: Filter = Filter::HasSubtype(subtypes::land::SWAMP);
-
 card!(
     index = index::RESTLESS_BONES,
     oracle_id = "b6c6e872-1363-480f-9a8d-c393361ccbc1",
@@ -26,8 +24,10 @@ card!(
     abilities = &[
         activated!(
             cost!("{3}{B}", TapSelf),
-            &[Effect::ModifyTargets {
-                modifier: Modifier::LandwalkMatching(&LANDWALK1),
+            &[Effect::PumpTarget {
+                power: Amount::Fixed(0),
+                toughness: Amount::Fixed(0),
+                keywords: KeywordSet::SWAMPWALK,
                 duration: Duration::UntilEndOfTurn
             }],
             target = Some(TargetSpec::Object(&Filter::CREATURE))

@@ -6,8 +6,6 @@
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes;
 
-static LANDWALK1: Filter = Filter::HasSubtype(subtypes::land::MOUNTAIN);
-
 card!(
     index = index::GOBLIN_KING,
     oracle_id = "d236b3fc-0d3f-4d99-875d-e32a33fe5767",
@@ -37,7 +35,7 @@ card!(
                 Filter::HasSubtype(subtypes::creature::GOBLIN),
                 Filter::Another
             ]),
-            Modifier::LandwalkMatching(&LANDWALK1)
+            Modifier::AddKeyword(KeywordSet::MOUNTAINWALK)
         ),
     ],
 );

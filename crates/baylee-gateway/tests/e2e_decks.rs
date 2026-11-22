@@ -1078,11 +1078,16 @@ fn a_real_card_this_build_cannot_play_is_not_called_unknown() {
                 && baylee_cards::decks::by_name(row.name).is_none()
         })
         .collect();
+    let outside_total = baylee_cards_index::ROWS
+        .iter()
+        .filter(|row| baylee_cards::decks::by_name(row.name).is_none())
+        .count();
     assert!(
-        candidates.len() > 10_000,
-        "only {} plainly-spelled cards outside the pool — the filter is \
+        !candidates.is_empty() && candidates.len() * 2 >= outside_total,
+        "only {} of {} cards outside the pool are plainly-spelled — the filter is \
          doing the choosing rather than the ledger",
-        candidates.len()
+        candidates.len(),
+        outside_total
     );
     let outside = candidates[0];
 
