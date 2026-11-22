@@ -1458,6 +1458,21 @@ fn wave18b_change_zone_origin_alternative_defined_player_and_remember_changed() 
         optional_tutor.abilities
     );
 
+    // A player target chooses the library independently of the searcher.
+    let targeted_library = "Name:Library Cut\nManaCost:U\nTypes:Sorcery\n\
+                            A:SP$ ChangeZone | Origin$ Library | Destination$ Exile | \
+                            ValidTgts$ Player | ChangeType$ Card";
+    for (extra, owner_searches) in [
+        ("", false),
+        (" | DefinedPlayer$ Targeted", true),
+        (" | Chooser$ TargetedPlayer", true),
+    ] {
+        let body = read(&format!("{targeted_library}{extra}"));
+        assert!(body.abilities[0].contains(&format!(
+            "Effect::SearchLibraryOf {{ library: PlayerRel::Chosen, owner_searches: {owner_searches},"
+        )));
+    }
+
     // `ChangeZone.DefinedPlayer`: target's controller searches their own library.
     let path_like = read(
         "Name:ExileAndRamp\nManaCost:W\nTypes:Instant\n\

@@ -8083,7 +8083,10 @@ impl Tx<'_> {
             }
         } else {
             match chooser_raw.as_deref() {
-                None => true,
+                // A bare player target selects the library. The resolving
+                // ability's controller still searches it. An explicit
+                // DefinedPlayer changes who performs the search as well.
+                None => !targets_a_player || defined_player.is_some(),
                 Some(c) if Some(c) == defined_player.as_deref() => true,
                 Some("Targeted" | "TargetedPlayer") if library_rel == "PlayerRel::Chosen" => true,
                 Some("You") => false,
