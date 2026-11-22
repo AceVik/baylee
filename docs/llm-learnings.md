@@ -8617,10 +8617,15 @@ unfiltered cards. The eight additional cards come from typecycling and dredge.
   printings in Marvel Super Heroes. An `A-*` name filter alone missed nine
   digital-only cards in this batch. The Scryfall printing feed verified paper
   availability for all 2,755 remaining additions.
-- The pool holds 24,562 definitions, including 11,033 Implemented,
-  12,457 Generated, 263 Partial and 809 stubs. The new paper entries add
-  2,754 Generated cards and one stub, Thief of Existence. The retained
+- The pool holds 24,562 definitions, including 11,034 Implemented,
+  12,456 Generated, 263 Partial and 809 stubs. The new paper entries add
+  Everquill Phoenix as Implemented, 2,753 Generated cards and one stub,
+  Thief of Existence. The retained
   pool gains 96 Generated cards and one Implemented promotion.
+- Check the activated costs of tokens against their paper printing. A tapped
+  Feather from Everquill Phoenix can still be sacrificed for one mana to
+  return a Phoenix from its controller's graveyard tapped. The card test
+  taps the Feather with Relic Barrier before activating it.
 - All 100 new Unfinity exclusions match ledger rows absent from the pool.
   Saw in Half remains outside this batch and has sanctioned paper reprints.
   Scope decisions and the ledger's first-print location answer different
