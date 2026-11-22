@@ -8607,3 +8607,31 @@ unfiltered cards. The eight additional cards come from typecycling and dredge.
   completed `16` Wave-7 pool stubs (holding back `Cruel Sadist` / `Bident of Thassa` / `Bow of Nylea` / `Worst Fears`)
   and landed **+1,000** generated cards across `zen`–`m15` + DFC back faces (`13,405` playable = `11,015` `Implemented` + `2,390` `Generated`,
   `263` `Partial`, `986` stubs across `14,654` conform pool cards), blessing `baylee-seat` Reap the Tides goldens (`5_060` reference ceiling).
+
+## 2026-11-22 — Paper admission and promotion in Passes E13–E16
+
+- Check paper availability by Oracle ID across printings. The release set in
+  the ledger determines the card's path, and the reference printing can be a
+  separate set. Tsagan, Raider Warlord has a paper printing in Mystery Booster
+  Commander Edition, and the Through the Omenpaths ledger rows can have paper
+  printings in Marvel Super Heroes. An `A-*` name filter alone missed nine
+  digital-only cards in this batch. The Scryfall printing feed verified paper
+  availability for all 2,755 remaining additions.
+- The pool holds 24,562 definitions, including 11,033 Implemented,
+  12,457 Generated, 263 Partial and 809 stubs. The new paper entries add
+  2,754 Generated cards and one stub, Thief of Existence. The retained
+  pool gains 96 Generated cards and one Implemented promotion.
+- All 100 new Unfinity exclusions match ledger rows absent from the pool.
+  Saw in Half remains outside this batch and has sanctioned paper reprints.
+  Scope decisions and the ledger's first-print location answer different
+  questions.
+- Inspect what the existing test actually plays when generation promotes a
+  stub. Invasion of Ikoria had a passing color-indicator test on a manually
+  transformed battle. That fixture never cast the front face or searched either
+  zone, so it could not catch the forced private library search and shuffle.
+  Play the cast with a nonzero X, both search choices, and the real defeat
+  trigger before accepting its coverage.
+- Harvest commits `c4104302a`, `17aa17deb`, `02a11b77e` and `d3263eee5`
+  lacked the author and pending-review trailers.
+  A pool admission audit and sample rules review do not attest to a
+  sentence-by-sentence review of the full generated population.

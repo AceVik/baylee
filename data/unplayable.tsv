@@ -2,8 +2,8 @@
 #
 # The owner's plan (29.09.2026) implements the whole corpus set by set, in
 # release order by first printing, and "the whole corpus" leaves out four
-# kinds of card on purpose. Each is banned in every sanctioned format, and
-# none of them can be played by a rules engine as printed:
+# kinds of card on purpose. The exclusions cover rules beyond the engine
+# and cards outside the project's paper release scope.
 #
 #   ante       - plays for ante (CR 407). "When not playing for ante,
 #                players can't include these cards in their decks or
@@ -17,9 +17,10 @@
 #                rules (owner, 13.10.2026): fractional or infinite mana
 #                (City of Ass, Urza's Fun House; CR 107.1a allows neither),
 #                printed text in place of Oracle errata (R&D's Secret Lair),
-#                a website (Urza's Fun House); plus (owner, 22.11.2026) all
-#                unbuilt Un-set, Acorn, and Sticker cards (including unbuilt
-#                Unfinity rows).
+#                a website (Urza's Fun House); plus (owner, 22.11.2026)
+#                unbuilt Un-set exclusives, Acorn, and Sticker cards.
+#                Ordinary cards with sanctioned paper reprints remain
+#                eligible even if their first release was an Un-set.
 #
 # A card is listed here after its oracle text was read, never from its name.
 # It is never added to data/card-pool.txt, and a set is counted complete
