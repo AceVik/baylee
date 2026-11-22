@@ -1197,11 +1197,34 @@ impl Tx<'_> {
         what: &str,
         target: Option<&str>,
     ) -> Option<String> {
-        if api == "Token" && what == "Exile" && target.is_none() {
-            return Some(
-                "Effect::AtNextEndStepForCreatedTokens { effects: &[Effect::exile(TargetSpec::EventObject)] }"
-                    .to_string(),
+        if api == "Token" {
+            let targets_player = matches!(
+                target,
+                Some(
+                    "TargetSpec::Player(PlayerRel::Chosen)"
+                        | "TargetSpec::AnyPlayer"
+                        | "TargetSpec::AnyOpponent"
+                )
             );
+            return match what {
+                "Exile" => Some(
+                    "Effect::AtNextEndStepForCreatedTokens { effects: &[Effect::exile(TargetSpec::EventObject)] }"
+                        .to_string(),
+                ),
+                "Sacrifice" if !targets_player => Some(
+                    "Effect::AtNextEndStepForCreatedTokens { effects: &[Effect::SacrificeEvent] }"
+                        .to_string(),
+                ),
+                "SacrificeCombat" if !targets_player => Some(
+                    "Effect::RegisterDelayedTrigger { when: DelayedTriggerWhen::AtStep { step: DelayedStep::CombatEnd, whose: None, this_turn_only: true, recurring: false }, condition: None, targets: None, remember: TriggerRemember::EachCreatedToken, effects: &[Effect::SacrificeEvent] }"
+                        .to_string(),
+                ),
+                "ExileCombat" => Some(
+                    "Effect::RegisterDelayedTrigger { when: DelayedTriggerWhen::AtStep { step: DelayedStep::CombatEnd, whose: None, this_turn_only: true, recurring: false }, condition: None, targets: None, remember: TriggerRemember::EachCreatedToken, effects: &[Effect::exile(TargetSpec::EventObject)] }"
+                        .to_string(),
+                ),
+                _ => self.deny(format!("`AtEOT$ {what}` on `{api}`")),
+            };
         }
         let aimed = target.is_some_and(|t| {
             !matches!(

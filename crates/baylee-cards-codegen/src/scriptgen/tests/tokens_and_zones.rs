@@ -1830,3 +1830,189 @@ fn wave19b_change_zone_library_destination_alt_shuffle_false_hand_exile_and_all(
         assert!(refused(bad), "must refuse: {bad}");
     }
 }
+
+fn wave23b_sized_tokens() -> TokenLookup {
+    TokenLookup::held(&[
+        (
+            "g_x_x_goblin",
+            "Name:Goblin Token\nTypes:Creature Goblin\nColors:green\nPT:*/*",
+        ),
+        (
+            "r_x_1_goblin_trample",
+            "Name:Goblin Token\nTypes:Creature Goblin\nColors:red\nPT:*/1\nK:Trample",
+        ),
+        (
+            "c_x_x_cda_goblin",
+            "Name:Goblin Token\nTypes:Creature Goblin\nPT:*/*\n\
+             S:Mode$ Continuous | CharacteristicDefining$ True | SetPower$ X | SetToughness$ X | Description$ Power and toughness.\n\
+             SVar:X:Count$Valid Creature.YouCtrl",
+        ),
+        (
+            "r_1_1_goblin",
+            "Name:Goblin\nTypes:Creature Goblin\nColors:red\nPT:1/1",
+        ),
+    ])
+}
+
+#[test]
+fn wave23b_create_token_sized_and_tapped_blink() {
+    let sized_tokens = wave23b_sized_tokens();
+    let read_sized = |text: &str| {
+        let parsed = parse(text);
+        transcode(&parsed, &cats(), Some(&sized_tokens)).unwrap_or_else(|| {
+            panic!(
+                "expected success, refused: {:?}",
+                refusal_reason(&parsed, &cats(), Some(&sized_tokens))
+            )
+        })
+    };
+
+    // Symmetric X/X token sized by paid X.
+    let xx = read_sized(
+        "Name:GrowGoblin\nManaCost:X G\nTypes:Sorcery\n\
+         A:SP$ Token | TokenScript$ g_x_x_goblin | TokenOwner$ You | TokenPower$ X | TokenToughness$ X\n\
+         SVar:X:Count$xPaid",
+    );
+    assert!(
+        xx.abilities[0].contains("Effect::CreateTokenSized {")
+            && xx.abilities[0].contains("amount: Amount::Fixed(1)")
+            && xx.abilities[0].contains("power: Amount::X, toughness: Amount::X")
+            && xx.abilities[0].contains(
+                "who: PlayerRel::You, tapped: false, attacking: false, haste_until_eot: false, cleanup: CopyCleanup::None"
+            ),
+        "{:?}",
+        xx.abilities
+    );
+
+    // Asymmetric */1 token sized only by TokenPower$, with haste + AtEOT$ Sacrifice.
+    let forge = read_sized(
+        "Name:FlameMill\nManaCost:2 R\nTypes:Artifact\n\
+         A:AB$ Token | Cost$ T | TokenAmount$ 2 | TokenScript$ r_x_1_goblin_trample | TokenOwner$ You \
+         | TokenPower$ X | PumpKeywords$ Haste | PumpDuration$ EOT | AtEOT$ Sacrifice\n\
+         SVar:X:Count$Valid Goblin.YouCtrl",
+    );
+    assert!(
+        forge.abilities[0].contains("Effect::CreateTokenSized {")
+            && forge.abilities[0].contains("amount: Amount::Fixed(2)")
+            && forge.abilities[0].contains("toughness: Amount::Fixed(1)")
+            && forge.abilities[0].contains("haste_until_eot: true")
+            && forge.abilities[0].contains(
+                "Effect::AtNextEndStepForCreatedTokens { effects: &[Effect::SacrificeEvent] }"
+            ),
+        "{:?}",
+        forge.abilities
+    );
+
+    // Tapped + attacking sized token for You with AtEOT$ Sacrifice, and non-attacking for TargetedPlayer.
+    let tap_atk = read_sized(
+        "Name:ChargeToken\nManaCost:3 R\nTypes:Instant\n\
+         A:SP$ Token | TokenScript$ g_x_x_goblin | TokenPower$ 3 | TokenToughness$ 3 | TokenTapped$ True | TokenAttacking$ True | AtEOT$ Sacrifice",
+    );
+    assert!(
+        tap_atk.abilities[0].contains(
+            "tapped: true, attacking: true, haste_until_eot: false, cleanup: CopyCleanup::SacrificeAtNextEndStep"
+        ),
+        "{:?}",
+        tap_atk.abilities
+    );
+    let gift = read_sized(
+        "Name:GiftSized\nManaCost:2 G\nTypes:Sorcery\n\
+         A:SP$ Token | ValidTgts$ Player | TokenScript$ g_x_x_goblin | TokenOwner$ TargetedPlayer | TokenPower$ 4 | TokenToughness$ 4",
+    );
+    assert!(
+        gift.abilities[0].contains("who: PlayerRel::Chosen, tapped: false, attacking: false"),
+        "{:?}",
+        gift.abilities
+    );
+
+    // Activated sacrifice cost feeding TokenPower$/TokenToughness$ via Sacrificed$CardPower.
+    let sac_sized = read_sized(
+        "Name:OozeVat\nManaCost:1 G\nTypes:Enchantment\n\
+         A:AB$ Token | Cost$ 1 G Sac<1/Creature> | TokenScript$ g_x_x_goblin | TokenPower$ X | TokenToughness$ X\n\
+         SVar:X:Sacrificed$CardPower",
+    );
+    assert!(
+        sac_sized.abilities[0]
+            .contains("power: Amount::SacrificedPower, toughness: Amount::SacrificedPower"),
+        "{:?}",
+        sac_sized.abilities
+    );
+}
+
+#[test]
+fn wave23b_create_token_sized_followups_and_tapped_blink() {
+    let sized_tokens = wave23b_sized_tokens();
+    let read_sized = |text: &str| {
+        let parsed = parse(text);
+        transcode(&parsed, &cats(), Some(&sized_tokens)).unwrap_or_else(|| {
+            panic!(
+                "expected success, refused: {:?}",
+                refusal_reason(&parsed, &cats(), Some(&sized_tokens))
+            )
+        })
+    };
+
+    // RememberedThisWay sized token after DestroyAll, plus RememberTokens -> PutCounter follow-up.
+    let rebirth = read_sized(
+        "Name:SweepSized\nManaCost:4 W W\nTypes:Sorcery\n\
+         A:SP$ DestroyAll | ValidCards$ Creature | RememberDestroyed$ True | SubAbility$ DBTok\n\
+         SVar:DBTok:DB$ Token | TokenScript$ g_x_x_goblin | TokenOwner$ You | TokenPower$ X | TokenToughness$ X | SubAbility$ DBClean\n\
+         SVar:DBClean:DB$ Cleanup | ClearRemembered$ True\n\
+         SVar:X:Remembered$Amount",
+    );
+    assert!(
+        rebirth.abilities[0].contains("Effect::CreateTokenSized {")
+            && rebirth.abilities[0].contains("Amount::ThisWay(ThisWay::Destroyed(&Filter::Any))"),
+        "{:?}",
+        rebirth.abilities
+    );
+    let rem_cnt = read_sized(
+        "Name:SizedWithCounters\nManaCost:X G G\nTypes:Sorcery\n\
+         A:SP$ Token | TokenScript$ g_x_x_goblin | TokenPower$ X | TokenToughness$ X | RememberTokens$ True | SubAbility$ DBPut\n\
+         SVar:DBPut:DB$ PutCounter | Defined$ Remembered | CounterType$ P1P1 | CounterNum$ 2 | SubAbility$ DBClean\n\
+         SVar:DBClean:DB$ Cleanup | ClearRemembered$ True\n\
+         SVar:X:Count$xPaid",
+    );
+    assert!(
+        rem_cnt.abilities[0].contains("Effect::CreateTokenSized {")
+            && rem_cnt.abilities[0].contains("Effect::AddCounterCreatedTokens"),
+        "{:?}",
+        rem_cnt.abilities
+    );
+
+    // Immediate blink returning tapped lowers to Effect::MoveAndModify { blink: true, tapped: true }.
+    let tapped_blink = read(
+        "Name:DisplaceTap\nManaCost:2 W\nTypes:Instant\n\
+         A:SP$ ChangeZone | ValidTgts$ Creature | Origin$ Battlefield | Destination$ Exile | RememberChanged$ True | SubAbility$ DBRet\n\
+         SVar:DBRet:DB$ ChangeZone | Defined$ Remembered | Origin$ Exile | Destination$ Battlefield | Tapped$ True | SubAbility$ DBClean\n\
+         SVar:DBClean:DB$ Cleanup | ClearRemembered$ True",
+    );
+    assert!(
+        tapped_blink.abilities[0].contains("Effect::MoveAndModify {")
+            && tapped_blink.abilities[0].contains("blink: true, owner_control: true, tapped: true"),
+        "{:?}",
+        tapped_blink.abilities
+    );
+}
+
+#[test]
+fn wave23b_create_token_sized_refusals() {
+    let sized_tokens = wave23b_sized_tokens();
+    let refused_sized =
+        |text: &str| transcode(&parse(text), &cats(), Some(&sized_tokens)).is_none();
+    // Refusals: plain token on */* or */1 without CDA, partial stats on */*,
+    // overriding a CDA token's stats, opponent attacking sized token, missing PumpDuration$,
+    // AtEOT$ Sacrifice for targeted opponent, and invalid BlinkReturn.Tapped.
+    for bad in [
+        "Name:PlainStar\nManaCost:2 G\nTypes:Sorcery\nA:SP$ Token | TokenScript$ g_x_x_goblin",
+        "Name:PlainHalfStar\nManaCost:2 R\nTypes:Sorcery\nA:SP$ Token | TokenScript$ r_x_1_goblin_trample",
+        "Name:MissingTough\nManaCost:2 G\nTypes:Sorcery\nA:SP$ Token | TokenScript$ g_x_x_goblin | TokenPower$ 3",
+        "Name:CdaOverride\nManaCost:2 G\nTypes:Sorcery\nA:SP$ Token | TokenScript$ c_x_x_cda_goblin | TokenPower$ 3 | TokenToughness$ 3",
+        "Name:OppAtk\nManaCost:2 R\nTypes:Instant\nA:SP$ Token | TokenScript$ g_x_x_goblin | TokenOwner$ Opponent | TokenPower$ 2 | TokenToughness$ 2 | TokenAttacking$ True",
+        "Name:HasteNoDur\nManaCost:2 R\nTypes:Sorcery\nA:SP$ Token | TokenScript$ g_x_x_goblin | TokenPower$ 2 | TokenToughness$ 2 | PumpKeywords$ Haste",
+        "Name:SacOpp\nManaCost:2 R\nTypes:Sorcery\nA:SP$ Token | ValidTgts$ Opponent | TokenScript$ r_x_1_goblin_trample | TokenOwner$ TargetedPlayer | TokenPower$ 2 | AtEOT$ Sacrifice",
+        "Name:BadBlinkTap\nManaCost:2 W\nTypes:Instant\nA:SP$ ChangeZone | ValidTgts$ Creature | Origin$ Battlefield | Destination$ Exile | RememberChanged$ True | SubAbility$ DBRet\nSVar:DBRet:DB$ ChangeZone | Defined$ Remembered | Origin$ Exile | Destination$ Battlefield | Tapped$ Maybe",
+    ] {
+        assert!(refused_sized(bad), "must refuse: {bad}");
+    }
+}

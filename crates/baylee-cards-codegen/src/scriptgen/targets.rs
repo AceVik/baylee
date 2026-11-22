@@ -1480,6 +1480,32 @@ impl Tx<'_> {
             other => self.player_rel_of(other, targets_a_player),
         }
     }
+
+    /// Validates and wraps a formatted `TargetReq` expression with
+    /// `TargetConstraint::SameController` (`TargetsWithSameController$ True`).
+    ///
+    /// Refuses player-targeting specs or single-target requirements where a
+    /// group-level controller/zone-owner constraint has no meaning.
+    pub(super) fn apply_same_controller_target_req(
+        &self,
+        req_expr: &str,
+        target_spec: &str,
+        multi_target: bool,
+    ) -> Option<String> {
+        let object_only = target_spec.starts_with("TargetSpec::Object(")
+            || target_spec.starts_with("TargetSpec::CardInGraveyard(")
+            || target_spec.starts_with("TargetSpec::Spell(")
+            || target_spec.starts_with("TargetSpec::StackOrBattlefield(")
+            || target_spec.starts_with("TargetSpec::ObjectOrCardInAnyGraveyard(");
+        if !object_only || !multi_target {
+            return self.deny(
+                "`TargetsWithSameController$` on a non-multi-object target requirement".into(),
+            );
+        }
+        Some(format!(
+            "{req_expr}.with_constraint(TargetConstraint::SameController)"
+        ))
+    }
 }
 
 enum CounterAtom {

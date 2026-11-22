@@ -1,6 +1,7 @@
-//! Announced damage divisions and an independent opponent life-gain target.
+//! Announced damage and counter divisions (`CR 601.2d`), plus the independent
+//! opponent life-gain target paired with divided damage.
 
-use super::{Params, Tx, amount};
+use super::{Chain, Params, Tx, amount, counter_kind};
 
 impl Tx<'_> {
     /// Read the complete spell line before the ordinary one-target chain.
@@ -98,5 +99,189 @@ impl Tx<'_> {
             .strip_prefix("PlayerCountPlayers$Amount/Plus.")?;
         (valid == "Any" && self.svars.get(counted).map(String::as_str) == Some("Count$Valid Any"))
             .then(|| "u8::MAX".into())
+    }
+
+    /// Reads `PutCounter` with `DividedAsYouChoose$` (`Effect::PutCountersDivided`)
+    /// for spells, choose-one modal modes, activated abilities, and loyalty
+    /// abilities (`CR 601.2d`, `CR 602.2b`).
+    ///
+    /// Returns `(effects, target_spec_expr, target_req_expr)`.
+    #[allow(clippy::too_many_lines)]
+    pub(super) fn read_divided_counters(
+        &mut self,
+        mut p: Params,
+    ) -> Option<(Vec<String>, String, String)> {
+        p.drop_prose();
+        p.claim_label("ValidTgtsDesc", "ValidTgts");
+        let Some(valid) = p.take("ValidTgts") else {
+            return self.deny("`PutCounter` `DividedAsYouChoose$` without `ValidTgts$`".into());
+        };
+        let spec = self.target_spec(&valid, "PutCounter")?;
+        if !spec.starts_with("TargetSpec::Object(") {
+            return self.deny("a non-object divided counter target requirement".into());
+        }
+        let Some(code) = p.take("CounterType") else {
+            return self.deny("`PutCounter` `DividedAsYouChoose$` without `CounterType$`".into());
+        };
+        if matches!(code.as_str(), "ENERGY" | "POISON" | "RAD") {
+            return self.deny(format!("divided player counter `{code}`"));
+        }
+        let Some(kind) = counter_kind(&code) else {
+            return self.deny(format!("counter `{code}`"));
+        };
+        let Some(raw_num) = p.take("CounterNum") else {
+            return self.deny("`PutCounter` `DividedAsYouChoose$` without `CounterNum$`".into());
+        };
+        let Some(raw_div) = p.take("DividedAsYouChoose") else {
+            return self.deny("missing `DividedAsYouChoose$`".into());
+        };
+        let Some(amount) = self.divided_counter_amount(&raw_num) else {
+            return self.deny(format!("divided counter count `{raw_num}`"));
+        };
+        if self.divided_counter_amount(&raw_div).as_deref() != Some(amount.as_str()) {
+            return self.deny("counter count and announced division have different totals".into());
+        }
+        let fixed_total = amount
+            .strip_prefix("Amount::Fixed(")
+            .and_then(|s| s.strip_suffix(')'))
+            .and_then(|s| s.parse::<u32>().ok());
+        if fixed_total == Some(0) {
+            return self.deny("divided counter total of zero".into());
+        }
+        let min: u8 = match p.take("TargetMin").as_deref() {
+            Some("0") => 0,
+            Some("1") => 1,
+            Some(other) => {
+                return self.deny(format!(
+                    "divided counter distribution with `TargetMin$ {other}`"
+                ));
+            }
+            None => {
+                return self.deny("divided counter distribution without `TargetMin$`".into());
+            }
+        };
+        if let Some(total) = fixed_total
+            && u32::from(min) > total
+        {
+            return self.deny("divided counter minimum targets exceeds counter total".into());
+        }
+        let Some(raw_max) = p.take("TargetMax") else {
+            return self.deny("divided counter distribution without `TargetMax$`".into());
+        };
+        let max_expr = if let Ok(n) = raw_max.trim().parse::<u8>() {
+            if n == 0 || n == u8::MAX || n < min {
+                return self.deny(format!(
+                    "divided counter distribution with `TargetMax$ {raw_max}`"
+                ));
+            }
+            if let Some(total) = fixed_total
+                && u32::from(n) > total
+            {
+                return self.deny("divided counter maximum targets exceeds counter total".into());
+            }
+            n.to_string()
+        } else if raw_max.trim() == raw_num.trim() || raw_max.trim() == raw_div.trim() {
+            "u8::MAX".to_string()
+        } else {
+            return self.deny(format!(
+                "divided counter distribution with `TargetMax$ {raw_max}`"
+            ));
+        };
+        p.take("IsCurse");
+        let next = p.take("SubAbility");
+        if let Some(key) = p.first_key() {
+            return self.deny(format!("unclaimed parameter `PutCounter.{key}`"));
+        }
+        let target_req = match (min, max_expr.as_str()) {
+            (0, "1") => format!("TargetReq::up_to_one({spec})"),
+            (0, max) => format!("TargetReq::up_to({spec}, {max})"),
+            (1, "1") => format!("TargetReq::one({spec})"),
+            (1, max) => format!("TargetReq {{ min: 1, ..TargetReq::up_to({spec}, {max}) }}"),
+            _ => unreachable!(),
+        };
+        let mut effects = vec![format!(
+            "Effect::PutCountersDivided {{ kind: {kind}, amount: {amount} }}"
+        )];
+        if let Some(next_name) = next {
+            let Some(body) = self.svars.get(next_name.trim()).cloned() else {
+                return self.deny(format!("`SubAbility$ {next_name}` names no SVar"));
+            };
+            let initial_up_to = match max_expr.as_str() {
+                "1" => None,
+                "u8::MAX" => Some(u8::MAX),
+                num => num.parse::<u8>().ok(),
+            };
+            let mut follow = Chain {
+                effects: effects.clone(),
+                target: Some(spec.clone()),
+                target_up_to: initial_up_to,
+                ..Chain::default()
+            };
+            self.chain(&body, &mut follow)?;
+            if follow.target.as_deref() != Some(spec.as_str())
+                || follow.second_target.is_some()
+                || follow.target_is_x
+                || follow.target_up_to != initial_up_to
+                || follow.target_exact.is_some()
+                || follow.could_add_mana
+                || follow
+                    .effects
+                    .iter()
+                    .skip(1)
+                    .any(|e| e.contains("DealDamageDivided") || e.contains("PutCountersDivided"))
+            {
+                return self.deny("an unsupported continuation after divided counters".into());
+            }
+            effects = follow.effects;
+        }
+        Some((effects, spec, target_req))
+    }
+
+    /// Evaluates a `PutCountersDivided` total known at cast/activation
+    /// announcement time (`CR 601.2d`), refusing resolution-only amounts.
+    fn divided_counter_amount(&mut self, raw: &str) -> Option<String> {
+        const RESOLUTION_ONLY: &[&str] = &[
+            "ThisWay",
+            "TargetPower",
+            "TargetToughness",
+            "TargetCmc",
+            "Sacrificed",
+            "TappedPower",
+            "EventAmount",
+            "EventPower",
+            "EventLastToughness",
+            "EventManaValue",
+            "LastDieRoll",
+            "CoinsWonThisResolution",
+            "Amount::Neg",
+            "TargetsPutIntoGraveyard",
+        ];
+        let trimmed = raw.trim();
+        if let Some(def) = self.svars.get(trimmed).map(|s| s.trim())
+            && let Some(valid) = def.strip_prefix("Count$LastStateGraveyardWithFallback ")
+        {
+            let mut stripped_alts = Vec::new();
+            for alt in valid.split(',').map(str::trim) {
+                let cleaned = alt
+                    .strip_suffix(".YouOwn")
+                    .or_else(|| alt.strip_suffix("+YouOwn"))
+                    .or_else(|| alt.strip_suffix(".YouCtrl"))
+                    .or_else(|| alt.strip_suffix("+YouCtrl"))?;
+                if cleaned.contains("Ctrl") || cleaned.contains("Own") {
+                    return None;
+                }
+                stripped_alts.push(cleaned);
+            }
+            let expr = self.filter_expr_in_zone(&stripped_alts.join(","), true)?;
+            let name = self.body.filter_static("COUNT", &expr);
+            return Some(format!(
+                "Amount::CountOf {{ filter: &{name}, zone: ZoneSel::GraveyardYou }}"
+            ));
+        }
+        let expr = self.amount_or_count_ext(trimmed)?;
+        if RESOLUTION_ONLY.iter().any(|bad| expr.contains(bad)) {
+            return None;
+        }
+        Some(expr)
     }
 }

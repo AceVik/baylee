@@ -151,12 +151,16 @@ impl Tx<'_> {
         // absent key is read the same way it reads one there: as the target
         // where this line targets a player, and as you where it does not.
         let raw_owner = p.take("TokenOwner");
+        let raw_power = p.take("TokenPower");
+        let raw_toughness = p.take("TokenToughness");
+        let has_sized_pt = raw_power.is_some() || raw_toughness.is_some();
         let is_plain_target_ctrl = raw_owner.as_deref() == Some("TargetedController")
             && target.is_some_and(|t| {
                 t.starts_with("TargetSpec::Object(")
                     || t.starts_with("TargetSpec::CardInGraveyard(")
             })
             && matches!(p.peek("TokenAmount"), None | Some("1"))
+            && !has_sized_pt
             && !p.has("TokenTapped")
             && !p.has("TokenAttacking")
             && !p.has("PumpKeywords")
@@ -169,7 +173,7 @@ impl Tx<'_> {
             let Some(tokens) = self.tokens else {
                 return self.deny("`Token` with no token scripts to read it against".to_string());
             };
-            let Some(body) = tokens.body(&stem, self.cats) else {
+            let Some(body) = tokens.body_fixed(&stem, self.cats) else {
                 return self.deny(format!("token script `{stem}`"));
             };
             return Some(vec![format!(
@@ -211,6 +215,67 @@ impl Tx<'_> {
         } else {
             false
         };
+        if has_sized_pt {
+            if attacking && owner != "PlayerRel::You" {
+                return self
+                    .deny("an attacking token created under another player's control".to_string());
+            }
+            let cleanup = match p.take("AtEOT").as_deref() {
+                None => "CopyCleanup::None",
+                Some("Sacrifice") => "CopyCleanup::SacrificeAtNextEndStep",
+                Some("Exile") => "CopyCleanup::ExileAtNextEndStep",
+                Some("SacrificeCombat") => "CopyCleanup::SacrificeAtEndOfCombat",
+                Some("ExileCombat") => "CopyCleanup::ExileAtEndOfCombat",
+                Some(other) => return self.deny(format!("token `AtEOT$ {other}`")),
+            };
+            let Some(stem) = p.take("TokenScript") else {
+                return self.deny("a `Token` effect naming no `TokenScript$`".to_string());
+            };
+            let raw_amount = p.take("TokenAmount");
+            let Some(tokens) = self.tokens else {
+                return self.deny("`Token` with no token scripts to read it against".to_string());
+            };
+            let Some(body) = tokens.body(&stem, self.cats) else {
+                return self.deny(format!("token script `{stem}`"));
+            };
+            if body.has_characteristic_pt() {
+                return self.deny(format!("sized override on CDA token `{stem}`"));
+            }
+            let (needs_power, needs_toughness) = body.needs_creation_pt();
+            let (printed_power, printed_toughness) = body.printed_pt();
+            let power = self.resolve_sized_token_stat(
+                raw_power.as_deref(),
+                needs_power,
+                printed_power,
+                "TokenPower",
+                &stem,
+            )?;
+            let toughness = self.resolve_sized_token_stat(
+                raw_toughness.as_deref(),
+                needs_toughness,
+                printed_toughness,
+                "TokenToughness",
+                &stem,
+            )?;
+            let amount = match raw_amount.as_deref() {
+                None => "Amount::Fixed(1)".to_string(),
+                Some(raw) => match self.amount_or_count_ext(raw) {
+                    None => {
+                        return match self.svars.get(raw) {
+                            Some(how) => self.deny(format!("token amount `{raw}` = `{how}`")),
+                            None => self.deny(format!("token amount `{raw}`")),
+                        };
+                    }
+                    Some(a) => a,
+                },
+            };
+            let token = format!("&generated_tokens::{}", body.constant);
+            return Some(vec![format!(
+                "Effect::CreateTokenSized {{ token: {token}, amount: {amount}, power: {power}, \
+                 toughness: {toughness}, who: {owner}, tapped: {tapped}, attacking: {attacking}, \
+                 haste_until_eot: {haste}, cleanup: {cleanup} }}"
+            )]);
+        }
         let sacrifice_at_eot = if attacking
             && tapped
             && !haste
@@ -239,7 +304,7 @@ impl Tx<'_> {
         let Some(tokens) = self.tokens else {
             return self.deny("`Token` with no token scripts to read it against".to_string());
         };
-        let Some(body) = tokens.body(&stem, self.cats) else {
+        let Some(body) = tokens.body_fixed(&stem, self.cats) else {
             return self.deny(format!("token script `{stem}`"));
         };
         let token = format!("&generated_tokens::{}", body.constant);
@@ -272,6 +337,32 @@ impl Tx<'_> {
         )])
     }
 
+    fn resolve_sized_token_stat(
+        &mut self,
+        raw: Option<&str>,
+        needs_override: bool,
+        printed: Option<i16>,
+        param_name: &str,
+        stem: &str,
+    ) -> Option<String> {
+        match raw {
+            Some(raw) => match self.amount_or_count_ext(raw) {
+                Some(expr) if !expr.starts_with("Amount::Neg") && !expr.contains("Amount::Neg") => {
+                    Some(expr)
+                }
+                _ => match self.svars.get(raw.trim()) {
+                    Some(how) => self.deny(format!("token stat `{param_name}` `{raw}` = `{how}`")),
+                    None => self.deny(format!("token stat `{param_name}` `{raw}`")),
+                },
+            },
+            None if !needs_override => match printed {
+                Some(n) if n >= 0 => Some(format!("Amount::Fixed({n})")),
+                _ => self.deny(format!("missing `{param_name}$` for `{stem}`")),
+            },
+            None => self.deny(format!("missing `{param_name}$` for `{stem}`")),
+        }
+    }
+
     /// The half of a token effect that is about the token rather than about
     /// the line that asked for it: which script, and how many.
     ///
@@ -290,7 +381,7 @@ impl Tx<'_> {
         let Some(tokens) = self.tokens else {
             return self.deny("`Token` with no token scripts to read it against".to_string());
         };
-        let Some(body) = tokens.body(stem, self.cats) else {
+        let Some(body) = tokens.body_fixed(stem, self.cats) else {
             return self.deny(format!("token script `{stem}`"));
         };
         // `generated_tokens` and not `tokens`: the ledger is the one door,
@@ -4661,12 +4752,36 @@ impl Tx<'_> {
                     return self.deny(format!("a blink return with `GainControl$ {other}`"));
                 }
             };
+            let tapped = match dp.take("Tapped").as_deref() {
+                None | Some("False") => false,
+                Some("True") => true,
+                Some(other) => {
+                    return self.deny(format!("a blink return with `Tapped$ {other}`"));
+                }
+            };
             let cleanup_name = dp.take("SubAbility");
             if let Some(key) = dp.first_key() {
                 return self.deny(format!("unclaimed parameter `BlinkReturn.{key}`"));
             }
             if let Some(cname) = cleanup_name {
                 self.consume_optional_remember_cleanup(cname, sub)?;
+            }
+            if tapped {
+                return Some(vec![format!(
+                    "Effect::MoveAndModify {{ \
+                     subject: MoveSubject::Target({blink_target}), \
+                     expected_origin: None, \
+                     blink: true, \
+                     owner_control: {owner_control}, \
+                     tapped: true, \
+                     face: None, \
+                     counters: None, \
+                     modifiers: &[], \
+                     duration: Duration::Indefinitely, \
+                     attach_source: false, \
+                     when_source_leaves: None \
+                     }}"
+                )]);
             }
             return Some(vec![format!(
                 "Effect::Blink {{ target: {blink_target}, owner_control: {owner_control} }}"
@@ -6796,7 +6911,46 @@ impl Tx<'_> {
         if target.is_some()
             || targets_a_player
             || p.take("RememberTokens").as_deref() != Some("True")
-            || !matches!(p.take("TokenAmount").as_deref(), None | Some("1"))
+        {
+            return None;
+        }
+        let has_sized_pt = p.has("TokenPower") || p.has("TokenToughness");
+        if has_sized_pt {
+            let mut effects = self.token_effect(p, target, targets_a_player)?;
+            if !p.exhausted() {
+                return None;
+            }
+            let next_name = sub.take()?;
+            let next_body = self.svars.get(&next_name)?.clone();
+            let (next_api, mut np) = Params::parse(&next_body)?;
+            np.drop_prose();
+            if next_api != "PutCounter"
+                || !matches!(
+                    np.take("Defined").as_deref(),
+                    Some("Remembered" | "RememberedLKI")
+                )
+            {
+                return None;
+            }
+            let code = np.take("CounterType")?;
+            let Some(kind) = super::counter_kind(&code) else {
+                return self.deny(format!("counter `{code}`"));
+            };
+            let amount =
+                self.amount_or_count_ext(np.take("CounterNum").as_deref().unwrap_or("1"))?;
+            let cleanup_name = np.take("SubAbility");
+            if let Some(key) = np.first_key() {
+                return self.deny(format!("unclaimed parameter `TokenFollowUp.{key}`"));
+            }
+            if let Some(cname) = cleanup_name {
+                self.consume_optional_remember_cleanup(cname, sub)?;
+            }
+            effects.push(format!(
+                "Effect::AddCounterCreatedTokens {{ kind: {kind}, amount: {amount} }}"
+            ));
+            return Some(effects);
+        }
+        if !matches!(p.take("TokenAmount").as_deref(), None | Some("1"))
             || !matches!(p.take("TokenOwner").as_deref(), None | Some("You"))
             || p.has("TokenTapped")
             || p.has("TokenAttacking")
@@ -6811,7 +6965,7 @@ impl Tx<'_> {
         let Some(tokens) = self.tokens else {
             return self.deny("`Token` with no token scripts to read it against".to_string());
         };
-        let Some(body) = tokens.body(&stem, self.cats) else {
+        let Some(body) = tokens.body_fixed(&stem, self.cats) else {
             return self.deny(format!("token script `{stem}`"));
         };
         let token = format!("&generated_tokens::{}", body.constant);
@@ -7019,6 +7173,20 @@ impl Tx<'_> {
         Some(match base_raw {
             "Count$LastDieRoll" => "Amount::LastDieRoll".to_string(),
             "Count$CoinsWonThisResolution" => "Amount::CoinsWonThisResolution".to_string(),
+            "Count$ExcessDamage" => "Amount::ThisWay(ThisWay::ExcessDamage)".to_string(),
+            "Count$YourLifeTotal" => "Amount::LifeTotal(PlayerRel::You)".to_string(),
+            "Sacrificed$CardPower" if self.cost_sacrifices_self && !self.on_a_spell => {
+                "Amount::SourcePower".to_string()
+            }
+            "Sacrificed$CardPower" if self.cost_sacrifices_other => {
+                "Amount::SacrificedPower".to_string()
+            }
+            "Sacrificed$CardToughness" if self.cost_sacrifices_other => {
+                "Amount::SacrificedToughness".to_string()
+            }
+            "Sacrificed$CardManaCost" if self.cost_sacrifices_other => {
+                "Amount::SacrificedManaValue".to_string()
+            }
             "Count$CastTotalManaSpent Snow" => "Amount::SnowManaSpentToCast".to_string(),
             "Count$DamageOpponentsTookThisTurn" => {
                 "Amount::DamageDealtToOpponentsThisTurn".to_string()
@@ -7117,7 +7285,22 @@ impl Tx<'_> {
         let (base_raw, op_raw) = def
             .split_once('/')
             .map_or((def, None), |(l, r)| (l.trim(), Some(r.trim())));
-        let base = self.wave6_count_base(base_raw)?;
+        let base = if let Some(svar_name) = base_raw.strip_prefix("SVar$") {
+            let inner = self.svars.get(svar_name.trim())?.trim();
+            if inner == "Count$xPaid"
+                && (self.has_x
+                    || (self.is_etb_self_trigger && self.has_x_mana_cost && !self.in_delayed))
+            {
+                if matches!(op_raw, Some("Twice" | "Times.2")) {
+                    return Some("Amount::DoubleX".to_string());
+                }
+                "Amount::X".to_string()
+            } else {
+                self.wave6_count_base(inner)?
+            }
+        } else {
+            self.wave6_count_base(base_raw)?
+        };
         let Some(op) = op_raw else {
             return Some(base);
         };
@@ -8063,7 +8246,7 @@ impl Tx<'_> {
         let Some(tokens) = self.tokens else {
             return self.deny("`Amass` with no token scripts to read it against".to_string());
         };
-        let Some(body) = tokens.body(&stem, self.cats) else {
+        let Some(body) = tokens.body_fixed(&stem, self.cats) else {
             return self.deny(format!("token script `{stem}`"));
         };
         let raw_num = p.take("Num")?;
@@ -8725,7 +8908,7 @@ impl Tx<'_> {
                 if !sp.exhausted() || (owner != "PlayerRel::You" && tapped) {
                     return None;
                 }
-                let body = self.tokens?.body(&stem, self.cats)?;
+                let body = self.tokens?.body_fixed(&stem, self.cats)?;
                 let token = format!("&generated_tokens::{}", body.constant);
                 if owner != "PlayerRel::You" {
                     format!(
@@ -10014,7 +10197,7 @@ impl Tx<'_> {
                 return None;
             }
             let tokens = self.tokens?;
-            let body = tokens.body(&stem, self.cats)?;
+            let body = tokens.body_fixed(&stem, self.cats)?;
             let token = format!("&generated_tokens::{}", body.constant);
             let amount = match raw_amt.as_deref() {
                 None => "Amount::Fixed(1)".to_string(),
@@ -10735,7 +10918,7 @@ impl Tx<'_> {
                     if !sp.exhausted() {
                         return None;
                     }
-                    let body = self.tokens?.body(&stem, self.cats)?;
+                    let body = self.tokens?.body_fixed(&stem, self.cats)?;
                     let token = format!("&generated_tokens::{}", body.constant);
                     if who == "PlayerRel::You" {
                         format!("Effect::CreateTokenN {{ token: {token}, amount: {amt} }}")
@@ -13416,14 +13599,10 @@ impl Tx<'_> {
                 )
             }
             "Token" => {
-                let Some(raw) = sp.take("TokenAmount") else {
-                    restore(chain);
-                    return None;
-                };
-                let Some((amt, false)) = self.remembered_this_way_amount(&raw, kind) else {
-                    restore(chain);
-                    return None;
-                };
+                let raw_amount = sp.take("TokenAmount");
+                let raw_power = sp.take("TokenPower");
+                let raw_toughness = sp.take("TokenToughness");
+                let has_sized_pt = raw_power.is_some() || raw_toughness.is_some();
                 let raw_owner = sp.take("TokenOwner");
                 let Some(owner) = (match raw_owner.as_deref() {
                     None | Some("You") => Some("PlayerRel::You"),
@@ -13444,7 +13623,7 @@ impl Tx<'_> {
                     restore(chain);
                     return None;
                 };
-                if !sp.exhausted() || (owner != "PlayerRel::You" && tapped) {
+                if !sp.exhausted() {
                     restore(chain);
                     return None;
                 }
@@ -13452,21 +13631,100 @@ impl Tx<'_> {
                     restore(chain);
                     return None;
                 };
-                let Some(body) = tokens.body(&stem, self.cats) else {
-                    restore(chain);
-                    return None;
-                };
-                let token = format!("&generated_tokens::{}", body.constant);
-                if owner != "PlayerRel::You" {
+                if has_sized_pt {
+                    let Some(body) = tokens.body(&stem, self.cats) else {
+                        restore(chain);
+                        return None;
+                    };
+                    if body.has_characteristic_pt() {
+                        restore(chain);
+                        return None;
+                    }
+                    let mut used_remembered = false;
+                    let amount = match raw_amount.as_deref() {
+                        None => "Amount::Fixed(1)".to_string(),
+                        Some(raw) => {
+                            if let Some((a, false)) = self.remembered_this_way_amount(raw, kind) {
+                                used_remembered = true;
+                                a
+                            } else if let Some(a) = self.amount_or_count_ext(raw) {
+                                a
+                            } else {
+                                restore(chain);
+                                return None;
+                            }
+                        }
+                    };
+                    let (needs_p, needs_t) = body.needs_creation_pt();
+                    let (printed_p, printed_t) = body.printed_pt();
+                    let mut resolve_stat =
+                        |raw: Option<&str>, needs: bool, printed: Option<i16>| -> Option<String> {
+                            match raw {
+                                Some(raw) => {
+                                    if let Some((a, false)) =
+                                        self.remembered_this_way_amount(raw, kind)
+                                    {
+                                        used_remembered = true;
+                                        Some(a)
+                                    } else {
+                                        self.amount_or_count_ext(raw)
+                                    }
+                                }
+                                None if !needs => printed
+                                    .filter(|&n| n >= 0)
+                                    .map(|n| format!("Amount::Fixed({n})")),
+                                None => None,
+                            }
+                        };
+                    let Some(power) = resolve_stat(raw_power.as_deref(), needs_p, printed_p) else {
+                        restore(chain);
+                        return None;
+                    };
+                    let Some(toughness) =
+                        resolve_stat(raw_toughness.as_deref(), needs_t, printed_t)
+                    else {
+                        restore(chain);
+                        return None;
+                    };
+                    if !used_remembered {
+                        restore(chain);
+                        return None;
+                    }
+                    let token = format!("&generated_tokens::{}", body.constant);
                     format!(
-                        "Effect::CreateTokensFor {{ player: {owner}, token: {token}, amount: {amt} }}"
-                    )
-                } else if tapped {
-                    format!(
-                        "Effect::CreateTokenModified {{ token: {token}, amount: {amt}, tapped: true, haste: false }}"
+                        "Effect::CreateTokenSized {{ token: {token}, amount: {amount}, \
+                         power: {power}, toughness: {toughness}, who: {owner}, tapped: {tapped}, \
+                         attacking: false, haste_until_eot: false, cleanup: CopyCleanup::None }}"
                     )
                 } else {
-                    format!("Effect::CreateTokenN {{ token: {token}, amount: {amt} }}")
+                    let Some(raw) = raw_amount else {
+                        restore(chain);
+                        return None;
+                    };
+                    let Some((amt, false)) = self.remembered_this_way_amount(&raw, kind) else {
+                        restore(chain);
+                        return None;
+                    };
+                    if owner != "PlayerRel::You" && tapped {
+                        restore(chain);
+                        return None;
+                    }
+                    let Some(body) = tokens.body_fixed(&stem, self.cats) else {
+                        restore(chain);
+                        return None;
+                    };
+                    let token = format!("&generated_tokens::{}", body.constant);
+                    if owner != "PlayerRel::You" {
+                        format!(
+                            "Effect::CreateTokensFor {{ player: {owner}, token: {token}, amount: {amt} }}"
+                        )
+                    } else if tapped {
+                        format!(
+                            "Effect::CreateTokenModified {{ token: {token}, amount: {amt}, tapped: true, haste: false }}"
+                        )
+                    } else {
+                        format!("Effect::CreateTokenN {{ token: {token}, amount: {amt} }}")
+                    }
                 }
             }
             _ => {
@@ -13630,7 +13888,7 @@ impl Tx<'_> {
         if let Some(key) = tp.first_key() {
             return self.deny(format!("unclaimed parameter `Token.{key}`"));
         }
-        let body = self.tokens?.body(&stem, self.cats)?;
+        let body = self.tokens?.body_fixed(&stem, self.cats)?;
         let token = format!("&generated_tokens::{}", body.constant);
         if let Some(after) = after_rep {
             if self.sub_is_api(Some(&after), "Cleanup") {
@@ -13685,7 +13943,7 @@ impl Tx<'_> {
         if !tp.exhausted() {
             return None;
         }
-        let body = self.tokens?.body(&stem, self.cats)?;
+        let body = self.tokens?.body_fixed(&stem, self.cats)?;
         let token = format!("&generated_tokens::{}", body.constant);
         *sub = next_sub;
         let create = if tapped {
@@ -14849,7 +15107,7 @@ impl Tx<'_> {
                 if !sp.exhausted() || (owner != "PlayerRel::You" && tapped) {
                     return None;
                 }
-                let body = self.tokens?.body(&stem, self.cats)?;
+                let body = self.tokens?.body_fixed(&stem, self.cats)?;
                 let token = format!("&generated_tokens::{}", body.constant);
                 if owner != "PlayerRel::You" {
                     format!(
@@ -15545,6 +15803,378 @@ impl Tx<'_> {
              toughness: {toughness}, duration: {duration} }}"
         ));
         Some(effs)
+    }
+
+    /// Reads `DealDamage | ExcessSVar$ <var> | [ExcessSVarCondition$ ...] | SubAbility$ <sub_name>`
+    /// into `Effect::DealDamage` followed by `ThisWay::ExcessDamage` (`CR 120.10`)
+    /// effects (or `Condition::AmountAtLeast(Amount::ThisWay(ThisWay::ExcessDamage), N)`
+    /// conditional follow-ups).
+    #[allow(clippy::too_many_lines)]
+    pub(super) fn excess_damage_chain(&mut self, spec: &str, chain: &mut Chain) -> Option<()> {
+        let Some((api, mut p)) = Params::parse(spec) else {
+            return self.deny("an ability spec with no `$` in it".to_string());
+        };
+        if api != "DealDamage" {
+            return None;
+        }
+        p.drop_prose();
+        let excess_var = p.take("ExcessSVar")?;
+        let excess_var = excess_var.trim().to_string();
+        if excess_var.is_empty() || self.svars.contains_key(&excess_var) {
+            return self.deny(format!("conflicting `ExcessSVar$ {excess_var}`"));
+        }
+        let require_creature_target = match p.take("ExcessSVarCondition").as_deref() {
+            None | Some("Card.targetedBy") => false,
+            Some("Creature") => true,
+            Some(other) => {
+                return self.deny(format!("`DealDamage` with `ExcessSVarCondition$ {other}`"));
+            }
+        };
+        let Some(sub_name) = p.take("SubAbility") else {
+            return self.deny("`DealDamage` `ExcessSVar$` without `SubAbility$`".to_string());
+        };
+        p.claim_label("ValidTgtsDesc", "ValidTgts");
+        let Some(valid) = p.take("ValidTgts") else {
+            return self.deny("`DealDamage` `ExcessSVar$` without `ValidTgts$`".to_string());
+        };
+        let target_spec = self.target_spec(&valid, "DealDamage")?;
+        if matches!(
+            target_spec.as_str(),
+            "TargetSpec::AnyPlayer" | "TargetSpec::AnyOpponent"
+        ) {
+            return self.deny("`DealDamage` `ExcessSVar$` targeting only a player".to_string());
+        }
+        match (
+            p.take("TargetMin").as_deref(),
+            p.take("TargetMax").as_deref(),
+        ) {
+            (None, None) | (Some("1"), None | Some("1")) => {}
+            (Some("0"), None | Some("1")) => {
+                chain.target_up_to = Some(1);
+            }
+            _ => {
+                return self
+                    .deny("`DealDamage` `ExcessSVar$` with unsupported target count".to_string());
+            }
+        }
+        let Some(raw_dmg) = p.take("NumDmg") else {
+            return self.deny("`DealDamage` `ExcessSVar$` without `NumDmg$`".to_string());
+        };
+        let dmg = self.amount_or_count_ext(&raw_dmg)?;
+        let may = match p.take("OptionalDecider").as_deref() {
+            None => false,
+            Some("You") => true,
+            Some(other) => return self.deny(format!("`DealDamage` `OptionalDecider$ {other}`")),
+        };
+        if p.take("DamageMap").is_some_and(|v| v != "True") {
+            return self.deny("`DealDamage` `DamageMap$`".to_string());
+        }
+        if let Some(key) = p.first_key() {
+            return self.deny(format!("unclaimed parameter `DealDamage.{key}`"));
+        }
+        let dmg_eff = format!("Effect::DealDamage {{ amount: {dmg}, target: {target_spec} }}");
+        let first_eff = if may {
+            format!("Effect::MayDo {{ effects: &[{dmg_eff}] }}")
+        } else {
+            dmg_eff
+        };
+        chain.target = Some(target_spec);
+        chain.effects.push(first_eff);
+        self.excess_damage_followup(&sub_name, &excess_var, require_creature_target, chain)
+    }
+
+    #[allow(clippy::too_many_lines)]
+    fn excess_damage_followup(
+        &mut self,
+        sub_name: &str,
+        excess_var: &str,
+        require_creature_target: bool,
+        chain: &mut Chain,
+    ) -> Option<()> {
+        let Some(body) = self.svars.get(sub_name.trim()).cloned() else {
+            return self.deny(format!("`SubAbility$ {sub_name}` names no SVar"));
+        };
+        let Some((sub_api, mut sp)) = Params::parse(&body) else {
+            return self.deny(format!("`SubAbility$ {sub_name}` is no ability"));
+        };
+        sp.drop_prose();
+        sp.take("IfDesc");
+        if sp.has("ValidTgts") {
+            return self.deny(format!("targeted excess-damage follow-up `{sub_api}`"));
+        }
+        let cond = if let Some(check_var) = sp.take("ConditionCheckSVar") {
+            if check_var.trim() != excess_var {
+                return self.deny(format!(
+                    "excess-damage follow-up checking unrelated SVar `{check_var}`"
+                ));
+            }
+            let min_excess: u32 = match sp.take("ConditionSVarCompare").as_deref() {
+                None | Some("GE1" | "GT0") => 1,
+                Some(cmp) => {
+                    if let Some(n) = cmp.strip_prefix("GE").and_then(|s| s.parse::<u32>().ok())
+                        && n >= 1
+                    {
+                        n
+                    } else if let Some(n) =
+                        cmp.strip_prefix("GT").and_then(|s| s.parse::<u32>().ok())
+                    {
+                        n.checked_add(1)?
+                    } else {
+                        return self.deny(format!(
+                            "excess-damage follow-up `ConditionSVarCompare$ {cmp}`"
+                        ));
+                    }
+                }
+            };
+            let base = format!(
+                "Condition::AmountAtLeast(Amount::ThisWay(ThisWay::ExcessDamage), {min_excess})"
+            );
+            Some(if require_creature_target {
+                format!(
+                    "Condition::All(&[Condition::ObjectMatches {{ what: &TargetSpec::Object(&Filter::Any), filter: &Filter::CREATURE }}, {base}])"
+                )
+            } else {
+                base
+            })
+        } else {
+            if sp.has("ConditionSVarCompare") {
+                return self.deny("`ConditionSVarCompare$` without `ConditionCheckSVar$`".into());
+            }
+            if require_creature_target {
+                return self.deny(
+                    "unconditional numeric `ExcessSVar$` with `ExcessSVarCondition$ Creature`"
+                        .into(),
+                );
+            }
+            None
+        };
+        let mut used_excess = cond.is_some();
+        let excess_amt = "Amount::ThisWay(ThisWay::ExcessDamage)";
+        let resolve_amt = |tx: &mut Self, raw: &str, used: &mut bool| -> Option<String> {
+            if raw.trim() == excess_var {
+                *used = true;
+                Some(excess_amt.to_string())
+            } else {
+                tx.amount_or_count_ext(raw)
+            }
+        };
+        let mut next_sub = sp.take("SubAbility");
+        let effects = match sub_api.as_str() {
+            "GainLife" => {
+                if !matches!(sp.take("Defined").as_deref(), None | Some("You")) {
+                    return self.deny("excess-damage `GainLife` for another player".into());
+                }
+                let raw = sp.take("LifeAmount")?;
+                let amt = resolve_amt(self, &raw, &mut used_excess)?;
+                vec![format!("Effect::GainLife {{ amount: {amt} }}")]
+            }
+            "LoseLife" => {
+                let who = self.wave11_player_of_line(
+                    sp.take("Defined").as_deref(),
+                    chain.target.as_deref(),
+                    false,
+                )?;
+                let raw = sp.take("LifeAmount")?;
+                let amt = resolve_amt(self, &raw, &mut used_excess)?;
+                vec![format!(
+                    "Effect::LoseLife {{ amount: {amt}, target: {who} }}"
+                )]
+            }
+            "Draw" => {
+                let who = self.wave11_player_of_line(
+                    sp.take("Defined").as_deref(),
+                    chain.target.as_deref(),
+                    false,
+                )?;
+                let raw = sp.take("NumCards").unwrap_or_else(|| "1".to_string());
+                let amt = resolve_amt(self, &raw, &mut used_excess)?;
+                if who == "PlayerRel::You" {
+                    if let Some(n) = amt
+                        .strip_prefix("Amount::Fixed(")
+                        .and_then(|s| s.strip_suffix(')'))
+                    {
+                        vec![format!("Effect::draw({n})")]
+                    } else {
+                        vec![format!("Effect::DrawCards {{ amount: {amt} }}")]
+                    }
+                } else {
+                    vec![format!(
+                        "Effect::DrawCardsFor {{ amount: {amt}, who: {who} }}"
+                    )]
+                }
+            }
+            "Investigate" => {
+                let who = match (sp.take("Defined"), sp.take("ValidPlayer")) {
+                    (Some(_), Some(_)) => {
+                        return self.deny("`Investigate` naming its player twice".into());
+                    }
+                    (Some(d), None) | (None, Some(d)) => self.player_rel(Some(&d)),
+                    (None, None) => Some("PlayerRel::You"),
+                };
+                if who != Some("PlayerRel::You") {
+                    return self.deny("somebody other than you investigating".into());
+                }
+                let raw = sp.take("Num").unwrap_or_else(|| "1".to_string());
+                let amt = resolve_amt(self, &raw, &mut used_excess)?;
+                let Some(tokens) = self.tokens else {
+                    return self.deny("`Token` with no token scripts to read it against".into());
+                };
+                let Some(tok) = tokens.body_fixed(CLUE_TOKEN_SCRIPT, self.cats) else {
+                    return self.deny(format!("token script `{CLUE_TOKEN_SCRIPT}`"));
+                };
+                let token = format!("&generated_tokens::{}", tok.constant);
+                if amt == "Amount::Fixed(1)" {
+                    vec![format!("Effect::CreateToken {{ token: {token} }}")]
+                } else {
+                    vec![format!(
+                        "Effect::CreateTokenN {{ token: {token}, amount: {amt} }}"
+                    )]
+                }
+            }
+            "Token" => {
+                if !matches!(sp.take("TokenOwner").as_deref(), None | Some("You")) {
+                    return self.deny("excess-damage `Token` for another player".into());
+                }
+                let tapped = match sp.take("TokenTapped").as_deref() {
+                    None => false,
+                    Some("True") => true,
+                    Some(other) => return self.deny(format!("token `TokenTapped$ {other}`")),
+                };
+                let raw = sp.take("TokenAmount").unwrap_or_else(|| "1".to_string());
+                let amt = resolve_amt(self, &raw, &mut used_excess)?;
+                let Some(stem) = sp.take("TokenScript") else {
+                    return self.deny("a `Token` effect naming no `TokenScript$`".into());
+                };
+                let Some(tokens) = self.tokens else {
+                    return self.deny("`Token` with no token scripts to read it against".into());
+                };
+                let Some(tok) = tokens.body_fixed(&stem, self.cats) else {
+                    return self.deny(format!("token script `{stem}`"));
+                };
+                let token = format!("&generated_tokens::{}", tok.constant);
+                if tapped {
+                    vec![format!(
+                        "Effect::CreateTokenModified {{ token: {token}, amount: {amt}, \
+                         tapped: true, haste: false }}"
+                    )]
+                } else if amt == "Amount::Fixed(1)" {
+                    vec![format!("Effect::CreateToken {{ token: {token} }}")]
+                } else {
+                    vec![format!(
+                        "Effect::CreateTokenN {{ token: {token}, amount: {amt} }}"
+                    )]
+                }
+            }
+            "PumpAll" => {
+                if sp.take("Defined").is_some() {
+                    return self.deny("excess-damage `PumpAll` with `Defined$`".into());
+                }
+                let valid = sp.take("ValidCards")?;
+                let mut resolve_pump = |raw: &str| -> Option<String> {
+                    let t = raw.trim();
+                    if t == excess_var || t.strip_prefix('+') == Some(excess_var) {
+                        used_excess = true;
+                        Some(excess_amt.to_string())
+                    } else if t.strip_prefix('-') == Some(excess_var) {
+                        used_excess = true;
+                        Some(format!("Amount::Negated(&{excess_amt})"))
+                    } else {
+                        self.pump_all_side(t)
+                    }
+                };
+                let power = resolve_pump(sp.take("NumAtt").as_deref().unwrap_or("0"))?;
+                let toughness = resolve_pump(sp.take("NumDef").as_deref().unwrap_or("0"))?;
+                let (keywords, extra_mods) = match sp.take("KW") {
+                    None => ("KeywordSet::EMPTY".to_string(), Vec::new()),
+                    Some(kw) => Self::pump_kw_and_prevent(&kw)?,
+                };
+                let duration = match sp.take("Duration").as_deref() {
+                    None | Some("UntilEndOfTurn") => "Duration::UntilEndOfTurn",
+                    Some("UntilEndOfCombat") => "Duration::UntilEndOfCombat",
+                    Some("UntilYourNextTurn") => "Duration::UntilYourNextTurn",
+                    Some(other) => {
+                        return self.deny(format!("excess-damage `PumpAll` lasting `{other}`"));
+                    }
+                };
+                sp.take("IsCurse");
+                let expr = self.filter_expr(&valid)?;
+                let filter = self.body.filter_static("PUMP_ALL", &expr);
+                let mut out = Vec::new();
+                if power != "Amount::Fixed(0)"
+                    || toughness != "Amount::Fixed(0)"
+                    || keywords != "KeywordSet::EMPTY"
+                {
+                    out.push(format!(
+                        "Effect::PumpFilter {{ filter: &{filter}, controlled_by: None, \
+                         power: {power}, toughness: {toughness}, keywords: {keywords}, \
+                         duration: {duration} }}"
+                    ));
+                }
+                for m in extra_mods {
+                    out.push(format!("Effect::continuous(&{filter}, {m}, {duration})"));
+                }
+                if out.is_empty() {
+                    return None;
+                }
+                out
+            }
+            "Scry" => {
+                if !matches!(sp.take("Defined").as_deref(), None | Some("You")) {
+                    return None;
+                }
+                let raw = sp.take("ScryNum")?;
+                let amt = resolve_amt(self, &raw, &mut used_excess)?;
+                vec![format!("Effect::Scry {{ amount: {amt} }}")]
+            }
+            "Surveil" => {
+                if !matches!(sp.take("Defined").as_deref(), None | Some("You")) {
+                    return None;
+                }
+                let raw = sp.take("Amount")?;
+                let amt = resolve_amt(self, &raw, &mut used_excess)?;
+                vec![format!("Effect::Surveil {{ amount: {amt} }}")]
+            }
+            "Dig" => {
+                let raw_dig = sp.take("DigNum")?;
+                if raw_dig.trim() != excess_var
+                    || sp.take("ChangeNum").as_deref() != Some("All")
+                    || sp.take("DestinationZone").as_deref() != Some("Exile")
+                    || sp.take("RememberChanged").as_deref() != Some("True")
+                    || !matches!(sp.take("ChangeValid").as_deref(), None | Some("Card"))
+                {
+                    return self.deny("an unsupported excess-damage `Dig` follow-up".into());
+                }
+                sp.take("IsCurse");
+                let who = self.wave11_player_of_line(
+                    sp.take("Defined").as_deref(),
+                    chain.target.as_deref(),
+                    false,
+                )?;
+                used_excess = true;
+                self.exile_top_play_follow_up(who, None, excess_amt, &mut next_sub)?
+            }
+            other => {
+                return self.deny(format!("excess-damage follow-up `{other}`"));
+            }
+        };
+        if let Some(key) = sp.first_key() {
+            return self.deny(format!("unclaimed parameter `{sub_api}.{key}`"));
+        }
+        if !used_excess {
+            return self.deny("excess-damage follow-up ignoring `ExcessSVar$`".into());
+        }
+        if next_sub.is_some() {
+            return self.deny("an unsupported continuation after excess-damage follow-up".into());
+        }
+        if let Some(c) = cond {
+            chain.effects.push(format!(
+                "Effect::IfCondition {{ condition: {c}, then: &[{}], otherwise: &[] }}",
+                effects.join(", ")
+            ));
+        } else {
+            chain.effects.extend(effects);
+        }
+        Some(())
     }
 }
 

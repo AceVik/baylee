@@ -5538,7 +5538,7 @@ fn wave20a_mana_amount_for_chosen_color_identity_and_explicit_reasons() {
     for bad in [
         "Name:X\nTypes:Land\nA:AB$ Mana | Cost$ T | Produced$ Combo W Chosen | Amount$ 2",
         "Name:X\nTypes:Artifact\nA:AB$ Draw | Cost$ 1 | NumCards$ 1 | IsPresent$ Card.Self+counters_GE2_NOSUCHCOUNTER",
-        "Name:X\nManaCost:2 U\nTypes:Instant\nA:SP$ Charm | Choices$ M1,M2 | CharmNum$ 3 | CanRepeatModes$ True\nSVar:M1:DB$ Draw | NumCards$ 1\nSVar:M2:DB$ GainLife | Defined$ You | LifeAmount$ 2",
+        "Name:X\nManaCost:2 U\nTypes:Instant\nA:SP$ Charm | Choices$ M1,M2 | CharmNum$ X | CanRepeatModes$ True\nSVar:X:Count$xPaid\nSVar:M1:DB$ Draw | NumCards$ 1\nSVar:M2:DB$ GainLife | Defined$ You | LifeAmount$ 2",
     ] {
         let parsed = parse(bad);
         assert!(

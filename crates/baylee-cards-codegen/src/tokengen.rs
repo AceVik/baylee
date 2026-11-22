@@ -78,6 +78,57 @@ pub struct TokenBody {
     pub modules: Vec<String>,
 }
 
+impl TokenBody {
+    fn front_literal(&self) -> &str {
+        self.literal
+            .split_once("\n    back_face:")
+            .map_or(self.literal.as_str(), |(front, _)| front)
+    }
+
+    /// The fixed printed `(power, toughness)` emitted on the front face of this
+    /// `TokenDef`, if any.
+    #[must_use]
+    pub fn printed_pt(&self) -> (Option<i16>, Option<i16>) {
+        let front = self.front_literal();
+        let parse_line = |prefix: &str| -> Option<i16> {
+            front.lines().find_map(|line| {
+                line.strip_prefix(prefix)?
+                    .strip_suffix("),")?
+                    .parse::<i16>()
+                    .ok()
+            })
+        };
+        (
+            parse_line("    power: Some("),
+            parse_line("    toughness: Some("),
+        )
+    }
+
+    /// Whether this token's front face is a creature with a `*` power and/or
+    /// `*` toughness that has no `Modifier::CharacteristicPT` CDA (and therefore
+    /// must be created via `Effect::CreateTokenSized` supplying the missing
+    /// side(s), CR 111.3).
+    #[must_use]
+    pub fn needs_creation_pt(&self) -> (bool, bool) {
+        let front = self.front_literal();
+        let is_creature = front
+            .lines()
+            .any(|line| line.starts_with("    types: ") && line.contains("TypeSet::CREATURE"));
+        if !is_creature || front.contains("Modifier::CharacteristicPT") {
+            return (false, false);
+        }
+        let (power, toughness) = self.printed_pt();
+        (power.is_none(), toughness.is_none())
+    }
+
+    /// Whether this token's front face defines its P/T via a CDA
+    /// (`Modifier::CharacteristicPT`).
+    #[must_use]
+    pub fn has_characteristic_pt(&self) -> bool {
+        self.front_literal().contains("Modifier::CharacteristicPT")
+    }
+}
+
 /// The line head a token script carries that says nothing this reads.
 ///
 /// `Oracle` is the printed reminder text, which this side has no use for — a
@@ -295,7 +346,8 @@ struct LiteralFields<'a> {
     name: &'a str,
     colors: Option<&'a Colors>,
     types: &'a TypeLine,
-    pt: Option<(i16, i16)>,
+    power: Option<i16>,
+    toughness: Option<i16>,
     loyalty: Option<u16>,
     defense: Option<u16>,
     keywords: &'a [&'a str],
@@ -306,8 +358,16 @@ struct LiteralFields<'a> {
 struct TokenStats {
     power: Option<i16>,
     toughness: Option<i16>,
-    star_pt: bool,
+    star_power: bool,
+    star_toughness: bool,
     loyalty: Option<u16>,
+}
+
+struct TokenPt {
+    power: Option<i16>,
+    toughness: Option<i16>,
+    star_power: bool,
+    star_toughness: bool,
 }
 
 fn render_token_literal(fields: &LiteralFields<'_>) -> String {
@@ -330,8 +390,10 @@ fn render_token_literal(fields: &LiteralFields<'_>) -> String {
             fields.types.subtypes.join(", ")
         );
     }
-    if let Some((p, t)) = fields.pt {
+    if let Some(p) = fields.power {
         let _ = writeln!(literal, "    power: Some({p}),");
+    }
+    if let Some(t) = fields.toughness {
         let _ = writeln!(literal, "    toughness: Some({t}),");
     }
     if let Some(loyalty) = fields.loyalty {
@@ -425,22 +487,63 @@ pub fn read_with_tokens(
     read_face(&front_text, cats, tokens, true, back.as_ref())
 }
 
-fn parse_token_pt(pt: Option<&str>, types: &TypeLine) -> Option<(Option<i16>, Option<i16>, bool)> {
+fn parse_token_pt(pt: Option<&str>, types: &TypeLine) -> Option<TokenPt> {
     let is_vehicle = !types.is_creature && types.subtypes.iter().any(|s| s == "artifact::VEHICLE");
     match (pt, types.is_creature, is_vehicle) {
-        (Some("*/*"), true, false) => Some((None, None, true)),
-        (Some(pt), true, false) | (Some(pt), false, true) => {
+        (Some(pt), true, false) => {
+            let (raw_p, raw_t) = pt.split_once('/')?;
+            let (power, star_power) = match raw_p.trim() {
+                "*" => (None, true),
+                other => (Some(other.parse::<i16>().ok()?), false),
+            };
+            let (toughness, star_toughness) = match raw_t.trim() {
+                "*" => (None, true),
+                other => (Some(other.parse::<i16>().ok()?), false),
+            };
+            Some(TokenPt {
+                power,
+                toughness,
+                star_power,
+                star_toughness,
+            })
+        }
+        (Some(pt), false, true) => {
             let (p, t) = pt.split_once('/')?;
             let p = p.trim().parse::<i16>().ok()?;
             let t = t.trim().parse::<i16>().ok()?;
-            Some((Some(p), Some(t), false))
+            Some(TokenPt {
+                power: Some(p),
+                toughness: Some(t),
+                star_power: false,
+                star_toughness: false,
+            })
         }
-        (None, false, false) => Some((None, None, false)),
-        // A creature or Vehicle with no size, a Vehicle with `*/*` and no CDA,
-        // or a size on something that is neither a creature nor a Vehicle:
-        // refuse rather than guessing.
+        (None, false, false) => Some(TokenPt {
+            power: None,
+            toughness: None,
+            star_power: false,
+            star_toughness: false,
+        }),
+        // A creature or Vehicle with no size, a Vehicle with `*/*`, or a size on
+        // something that is neither a creature nor a Vehicle: refuse rather than
+        // guessing.
         _ => None,
     }
+}
+
+fn star_pt_ok(
+    pt: &TokenPt,
+    abilities: &[String],
+    allow_double_faced: bool,
+    double_faced: bool,
+) -> bool {
+    let has_cda = abilities
+        .iter()
+        .any(|a| a.contains("Modifier::CharacteristicPT"));
+    if (!allow_double_faced || double_faced) && (pt.star_power || pt.star_toughness) && !has_cda {
+        return false;
+    }
+    !(pt.star_power != pt.star_toughness && has_cda)
 }
 
 fn read_face(
@@ -458,7 +561,7 @@ fn read_face(
     if !token_shape_ok(&raw, &types) {
         return None;
     }
-    let (power, toughness, star_pt) = parse_token_pt(raw.pt.as_deref(), &types)?;
+    let pt = parse_token_pt(raw.pt.as_deref(), &types)?;
     let colors = match raw.colors.as_deref() {
         Some(raw_colors) => Some(color_line(raw_colors)?),
         None => None,
@@ -475,11 +578,7 @@ fn read_face(
         tokens,
         &mut types.modules,
     )?;
-    if star_pt
-        && !abilities
-            .iter()
-            .any(|a| a.contains("Modifier::CharacteristicPT"))
-    {
+    if !star_pt_ok(&pt, &abilities, allow_double_faced, raw.double_faced) {
         return None;
     }
     let mut render_keywords = raw.keywords.clone();
@@ -490,7 +589,8 @@ fn read_face(
         name: &raw.name,
         colors: colors.as_ref(),
         types: &types,
-        pt: power.zip(toughness),
+        power: pt.power,
+        toughness: pt.toughness,
         loyalty: raw.loyalty,
         defense: raw.defense,
         keywords: &render_keywords,
@@ -507,9 +607,10 @@ fn read_face(
     }
     keyword_tags.sort_unstable();
     let stats = TokenStats {
-        power,
-        toughness,
-        star_pt,
+        power: pt.power,
+        toughness: pt.toughness,
+        star_power: pt.star_power,
+        star_toughness: pt.star_toughness,
         loyalty: raw.loyalty,
     };
     let mut constant = constant_name(
@@ -1335,10 +1436,23 @@ fn constant_name(
     for word in qualifiers {
         let _ = write!(out, "_{word}");
     }
-    if let (Some(p), Some(t)) = (stats.power, stats.toughness) {
-        let _ = write!(out, "_{}_{}", pt_word(p), pt_word(t));
-    } else if stats.star_pt {
-        out.push_str("_X_X");
+    match (
+        stats.power,
+        stats.toughness,
+        stats.star_power,
+        stats.star_toughness,
+    ) {
+        (Some(p), Some(t), _, _) => {
+            let _ = write!(out, "_{}_{}", pt_word(p), pt_word(t));
+        }
+        (None, None, true, true) => out.push_str("_X_X"),
+        (None, Some(t), true, false) => {
+            let _ = write!(out, "_X_{}", pt_word(t));
+        }
+        (Some(p), None, false, true) => {
+            let _ = write!(out, "_{}_X", pt_word(p));
+        }
+        _ => {}
     }
     if let Some(loyalty) = stats.loyalty {
         let _ = write!(out, "_L{loyalty}");
@@ -1371,10 +1485,23 @@ fn doc_line(
     keyword_tags: &[String],
 ) -> String {
     let mut out = String::new();
-    if let (Some(p), Some(t)) = (stats.power, stats.toughness) {
-        let _ = write!(out, "{p}/{t} ");
-    } else if stats.star_pt {
-        out.push_str("*/* ");
+    match (
+        stats.power,
+        stats.toughness,
+        stats.star_power,
+        stats.star_toughness,
+    ) {
+        (Some(p), Some(t), _, _) => {
+            let _ = write!(out, "{p}/{t} ");
+        }
+        (None, None, true, true) => out.push_str("*/* "),
+        (None, Some(t), true, false) => {
+            let _ = write!(out, "*/{t} ");
+        }
+        (Some(p), None, false, true) => {
+            let _ = write!(out, "{p}/* ");
+        }
+        _ => {}
     }
     match colors.map_or_default(|c| c.words.as_slice()) {
         [] => out.push_str("colorless "),
@@ -1534,6 +1661,15 @@ impl TokenLookup {
         }
         let text = self.text(stem)?;
         self.read_entry(&text, cats)
+    }
+
+    /// Like [`Self::body`], but refuses creature tokens whose `*` power or
+    /// toughness has no `Modifier::CharacteristicPT` CDA — those may only be
+    /// created through `Effect::CreateTokenSized` (`CR 111.3`).
+    #[must_use]
+    pub fn body_fixed(&self, stem: &str, cats: &SubtypeCatalogs) -> Option<TokenBody> {
+        let body = self.body(stem, cats)?;
+        (body.needs_creation_pt() == (false, false)).then_some(body)
     }
 
     fn read_entry(&self, text: &str, cats: &SubtypeCatalogs) -> Option<TokenBody> {
@@ -1903,8 +2039,8 @@ mod tests {
              A:AB$ Token | Cost$ T | TokenScript$ w_1_1_soldier | TokenOwner$ You",
             // A second face.
             "Name:Soldier Token\nColors:white\nTypes:Creature Soldier\nPT:1/1\nAlternateMode:Double",
-            // A computed size.
-            "Name:Soldier Token\nColors:white\nTypes:Creature Soldier\nPT:*/*",
+            // A computed size with an unsupported offset expression.
+            "Name:Soldier Token\nColors:white\nTypes:Creature Soldier\nPT:*/*+1",
             // A keyword that is data rather than a bit.
             "Name:Soldier Token\nColors:white\nTypes:Creature Soldier\nPT:1/1\nK:Equip:2",
             // A card type this reader does not write, and a subtype the pool
@@ -2049,6 +2185,47 @@ mod tests {
             "literal: {}",
             body.literal
         );
+        assert_eq!(body.needs_creation_pt(), (false, false));
+
+        // Creation-sized `*/*` and `*/1` tokens without a CDA read for
+        // `Effect::CreateTokenSized` but are refused by `TokenLookup::body_fixed`.
+        let lookup = TokenLookup::held(&[
+            (
+                "soldier_x_x",
+                "Name:Soldier Token\nColors:green\nTypes:Creature Soldier\nPT:*/*",
+            ),
+            (
+                "bird_x_1",
+                "Name:Bird Token\nColors:red\nTypes:Creature Bird\nPT:*/1\nK:Trample\nK:Haste",
+            ),
+            (
+                "pest_1_x",
+                "Name:Pest Token\nColors:black\nTypes:Creature Pest\nPT:1/*",
+            ),
+        ]);
+        let soldier = lookup.body("soldier_x_x", &cats()).expect("sized soldier");
+        assert_eq!(soldier.constant, "SOLDIER_X_X_GREEN");
+        assert_eq!(soldier.doc, "*/* green Soldier.");
+        assert_eq!(soldier.needs_creation_pt(), (true, true));
+        assert!(lookup.body_fixed("soldier_x_x", &cats()).is_none());
+
+        let bird = lookup.body("bird_x_1", &cats()).expect("sized bird");
+        assert_eq!(bird.constant, "BIRD_X_1_RED_HASTE_TRAMPLE");
+        assert_eq!(bird.doc, "*/1 red Bird with haste and trample.");
+        assert_eq!(bird.needs_creation_pt(), (true, false));
+        assert_eq!(bird.printed_pt(), (None, Some(1)));
+        assert!(bird.literal.contains("toughness: Some(1),"));
+        assert!(!bird.literal.contains("power:"));
+        assert!(lookup.body_fixed("bird_x_1", &cats()).is_none());
+
+        let pest = lookup.body("pest_1_x", &cats()).expect("sized pest");
+        assert_eq!(pest.constant, "PEST_1_X_BLACK");
+        assert_eq!(pest.doc, "1/* black Pest.");
+        assert_eq!(pest.needs_creation_pt(), (false, true));
+        assert_eq!(pest.printed_pt(), (Some(1), None));
+        assert!(pest.literal.contains("power: Some(1),"));
+        assert!(!pest.literal.contains("toughness:"));
+        assert!(lookup.body_fixed("pest_1_x", &cats()).is_none());
     }
 
     #[test]

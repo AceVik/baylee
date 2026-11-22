@@ -64,6 +64,7 @@ struct StrippedXMin {
     implicit: Option<u32>,
 }
 
+#[allow(clippy::struct_excessive_bools)]
 struct ExtractedAbilitySpec {
     cost: Option<String>,
     alternate_cost: Option<String>,
@@ -78,6 +79,8 @@ struct ExtractedAbilitySpec {
     kind: ActivationKind,
     condition: String,
     cost_reduction: String,
+    target_req_override: Option<String>,
+    same_controller_targets: bool,
     chain: Chain,
 }
 
@@ -530,6 +533,8 @@ impl Tx<'_> {
                 extracted.chain.target_is_x,
                 extracted.chain.target_up_to,
                 extracted.chain.target_exact,
+                extracted.target_req_override.as_deref(),
+                extracted.same_controller_targets,
                 &second_targets,
             )
         }
@@ -610,6 +615,7 @@ impl Tx<'_> {
         self.activation_cost_reduction(&raw, activation_zone)
     }
 
+    #[allow(clippy::too_many_lines)]
     fn extract_ability_spec(
         &mut self,
         spec: &str,
@@ -667,6 +673,21 @@ impl Tx<'_> {
         let present_player_read = had_present_player && !probe.has("PresentPlayer");
         let defined_player_read = had_defined_player && !probe.has("CheckDefinedPlayer");
         let restrictions = self.activation_restriction(&mut probe, is_activated, &mut condition)?;
+        let same_controller_targets = match probe.take("TargetsWithSameController").as_deref() {
+            None | Some("False") => false,
+            Some("True") => {
+                if !probe.has("ValidTgts") {
+                    return self
+                        .deny("`TargetsWithSameController$` without `ValidTgts$`".to_string());
+                }
+                true
+            }
+            Some(other) => {
+                return self.deny(format!("`TargetsWithSameController$ {other}`"));
+            }
+        };
+        let is_divided_counters = api == "PutCounter" && probe.has("DividedAsYouChoose");
+        let is_excess_damage = api == "DealDamage" && probe.has("ExcessSVar");
         let mut drop_keys: Vec<&'static str> = [
             (true, "Cost$"),
             (is_planeswalker, "Planeswalker$"),
@@ -682,6 +703,7 @@ impl Tx<'_> {
             (life_total_read, "LifeAmount$"),
             (present_player_read, "PresentPlayer$"),
             (defined_player_read, "CheckDefinedPlayer$"),
+            (same_controller_targets, "TargetsWithSameController$"),
         ]
         .into_iter()
         .filter_map(|(on, key)| on.then_some(key))
@@ -697,7 +719,59 @@ impl Tx<'_> {
                 "PresentDefined$",
             ]);
         }
-        let chain = self.read_ability_chain(spec, is_activated, cost.as_deref(), &drop_keys)?;
+        let (chain, target_req_override) = if is_divided_counters {
+            let stripped: Vec<&str> = spec
+                .split(" | ")
+                .filter(|part| {
+                    let p = part.trim_start();
+                    !drop_keys.iter().any(|key| p.starts_with(key))
+                })
+                .collect();
+            let (_, dp) = Params::parse(&stripped.join(" | "))?;
+            self.cost_sacrifices_self = is_activated
+                && cost
+                    .as_deref()
+                    .is_some_and(|c| cost_parts(c).iter().any(|t| Self::is_sac_self_token(t)));
+            self.cost_sacrifices_other = cost
+                .as_deref()
+                .is_some_and(|c| cost_parts(c).iter().any(|t| Self::is_sac_other_token(t)));
+            let parsed = self.read_divided_counters(dp);
+            self.cost_sacrifices_self = false;
+            self.cost_sacrifices_other = false;
+            let (effects, target_spec, req_expr) = parsed?;
+            let chain = Chain {
+                effects,
+                target: Some(target_spec),
+                ..Chain::default()
+            };
+            (chain, Some(req_expr))
+        } else if is_excess_damage {
+            let stripped: Vec<&str> = spec
+                .split(" | ")
+                .filter(|part| {
+                    let p = part.trim_start();
+                    !drop_keys.iter().any(|key| p.starts_with(key))
+                })
+                .collect();
+            let mut chain = Chain::default();
+            self.cost_sacrifices_self = is_activated
+                && cost
+                    .as_deref()
+                    .is_some_and(|c| cost_parts(c).iter().any(|t| Self::is_sac_self_token(t)));
+            self.cost_sacrifices_other = cost
+                .as_deref()
+                .is_some_and(|c| cost_parts(c).iter().any(|t| Self::is_sac_other_token(t)));
+            let ok = self.excess_damage_chain(&stripped.join(" | "), &mut chain);
+            self.cost_sacrifices_self = false;
+            self.cost_sacrifices_other = false;
+            ok?;
+            (chain, None)
+        } else {
+            (
+                self.read_ability_chain(spec, is_activated, cost.as_deref(), &drop_keys)?,
+                None,
+            )
+        };
         Some(ExtractedAbilitySpec {
             cost,
             alternate_cost,
@@ -712,6 +786,8 @@ impl Tx<'_> {
             kind,
             condition,
             cost_reduction,
+            target_req_override,
+            same_controller_targets,
             chain,
         })
     }
@@ -846,6 +922,37 @@ impl Tx<'_> {
         })
     }
 
+    fn resolve_spec_target_suffix(&self, spec: &ExtractedAbilitySpec) -> Option<String> {
+        if let Some(req) = spec.target_req_override.as_deref() {
+            let req = if spec.same_controller_targets {
+                let t = spec.chain.target.as_deref()?;
+                let multi = !req.starts_with("TargetReq::one(")
+                    && !req.starts_with("TargetReq::up_to_one(");
+                self.apply_same_controller_target_req(req, t, multi)?
+            } else {
+                req.to_string()
+            };
+            Some(format!(", targets = Some({req})"))
+        } else if let Some(req) = Self::target_req_expr(&spec.chain) {
+            let req = if spec.same_controller_targets {
+                let t = spec.chain.target.as_deref()?;
+                let multi = spec.chain.target_up_to.is_some_and(|m| m > 1)
+                    || spec.chain.target_exact.is_some_and(|n| n > 1)
+                    || spec.chain.target_is_x;
+                self.apply_same_controller_target_req(&req, t, multi)?
+            } else {
+                req
+            };
+            Some(format!(", targets = Some({req})"))
+        } else if spec.same_controller_targets {
+            self.deny(
+                "`TargetsWithSameController$` on a non-multi-object target requirement".into(),
+            )
+        } else {
+            Some(String::new())
+        }
+    }
+
     fn build_activated_parts(&mut self, spec: &ExtractedAbilitySpec) -> Option<ParsedActivated> {
         if spec.kind == ActivationKind::Loyalty {
             return self.build_loyalty_parts(spec);
@@ -875,7 +982,11 @@ impl Tx<'_> {
         if spec.chain.target_is_x {
             return self.deny("`TargetMin$/TargetMax$ X` on an activated ability".to_string());
         }
-        let target = Self::activated_target_suffix(&spec.chain);
+        let target = if spec.target_req_override.is_some() || spec.same_controller_targets {
+            self.resolve_spec_target_suffix(spec)?
+        } else {
+            Self::activated_target_suffix(&spec.chain)
+        };
         let limit_str = self.activation_limit(&spec.limit)?;
         let x_value = if x_min > 0 {
             format!(", x_value = ActivationX::AtLeast({x_min})")
@@ -910,6 +1021,8 @@ impl Tx<'_> {
             && x_min == 0
             && condition.is_empty()
             && spec.cost_reduction.is_empty()
+            && spec.target_req_override.is_none()
+            && !spec.same_controller_targets
             && spec.chain.second_target.is_none()
             && spec.chain.target_up_to.is_none()
             && spec.chain.target_exact.is_none()
@@ -982,8 +1095,7 @@ impl Tx<'_> {
         };
         let delta = self.parse_loyalty_cost(raw_cost)?;
         let effects = format!("&[{}]", spec.chain.effects.join(", "));
-        let targets = Self::target_req_expr(&spec.chain)
-            .map_or_default(|req| format!(", targets = Some({req})"));
+        let targets = self.resolve_spec_target_suffix(spec)?;
         let second_targets = Self::second_target_req_expr(&spec.chain)
             .map_or_default(|req| format!(", second_targets = Some({req})"));
         let extras = format!("{targets}{second_targets}");
@@ -1097,6 +1209,8 @@ impl Tx<'_> {
         target_is_x: bool,
         target_up_to: Option<u8>,
         target_exact: Option<u8>,
+        target_req_override: Option<&str>,
+        same_controller_targets: bool,
         second_targets: &str,
     ) -> Option<()> {
         if *limit != ParsedLimit::Unlimited {
@@ -1108,20 +1222,44 @@ impl Tx<'_> {
         if let Some(raw) = cost {
             self.spell_mana_cost(raw)?;
         }
-        let targets = target.map_or_default(|t| {
-            if let Some(max) = target_up_to {
+        let target_req = if let Some(req) = target_req_override {
+            let mut req = req.to_string();
+            if same_controller_targets {
+                let t = target?;
+                let multi = !req.starts_with("TargetReq::one(")
+                    && !req.starts_with("TargetReq::up_to_one(");
+                req = self.apply_same_controller_target_req(&req, t, multi)?;
+            }
+            Some(req)
+        } else if let Some(t) = target {
+            let mut req = if let Some(max) = target_up_to {
                 if max == 1 {
-                    format!(", targets = Some(TargetReq::up_to_one({t}))")
+                    format!("TargetReq::up_to_one({t})")
                 } else {
-                    format!(", targets = Some(TargetReq::up_to({t}, {max}))")
+                    format!("TargetReq::up_to({t}, {max})")
                 }
             } else if let Some(n) = target_exact {
-                format!(", targets = Some(TargetReq::exactly({t}, {n}))")
+                format!("TargetReq::exactly({t}, {n})")
             } else {
                 let req_fn = if target_is_x { "x_targets" } else { "one" };
-                format!(", targets = Some(TargetReq::{req_fn}({t}))")
+                format!("TargetReq::{req_fn}({t})")
+            };
+            if same_controller_targets {
+                let multi = target_up_to.is_some_and(|m| m > 1)
+                    || target_exact.is_some_and(|n| n > 1)
+                    || target_is_x;
+                req = self.apply_same_controller_target_req(&req, t, multi)?;
             }
-        });
+            Some(req)
+        } else {
+            if same_controller_targets {
+                return self.deny(
+                    "`TargetsWithSameController$` on a non-multi-object target requirement".into(),
+                );
+            }
+            None
+        };
+        let targets = target_req.map_or_default(|req| format!(", targets = Some({req})"));
         self.body.abilities.push(format!(
             "spell!({effects}{targets}{second_targets}{condition})"
         ));
@@ -1259,13 +1397,15 @@ impl Tx<'_> {
 
     /// Reads the `Choices$` list of a `Charm` ability into [`CharmMode`] tuples.
     pub(super) fn read_charm_modes(&mut self, choices: &str) -> Option<Vec<CharmMode>> {
-        self.read_charm_modes_with(choices, false)
+        self.read_charm_modes_with(choices, false, false)
     }
 
+    #[allow(clippy::too_many_lines)]
     fn read_charm_modes_with(
         &mut self,
         choices: &str,
         allow_mode_cost: bool,
+        allow_divided_counters: bool,
     ) -> Option<Vec<CharmMode>> {
         let mut modes = Vec::new();
         for name in choices.split(',').map(str::trim) {
@@ -1273,15 +1413,35 @@ impl Tx<'_> {
                 return self.deny(format!("charm choice `{name}` with no `SVar`"));
             };
             let mut mode_cost_raw: Option<String> = None;
-            let mut kept_parts = Vec::new();
+            let mut mode_same_controller = false;
+            let line_has_valid_tgts = line
+                .split(" | ")
+                .any(|part| part.trim_start().starts_with("ValidTgts$"));
+            let mut kept_parts: Vec<String> = Vec::new();
             for part in line.split(" | ") {
-                if let Some(val) = part.trim_start().strip_prefix("ModeCost$") {
+                let trimmed = part.trim_start();
+                if let Some(val) = trimmed.strip_prefix("ModeCost$") {
                     if mode_cost_raw.is_some() {
                         return self.deny(format!("multiple `ModeCost$` keys in mode `{name}`"));
                     }
                     mode_cost_raw = Some(val.trim().to_string());
+                } else if let Some(val) = trimmed.strip_prefix("TargetsWithSameController$") {
+                    match val.trim() {
+                        "True" if line_has_valid_tgts => mode_same_controller = true,
+                        "False" => {}
+                        other => {
+                            return self.deny(format!(
+                                "`TargetsWithSameController$ {other}` in charm mode `{name}`"
+                            ));
+                        }
+                    }
+                } else if line_has_valid_tgts
+                    && trimmed.strip_prefix("UnlessPayer$").map(str::trim)
+                        == Some("ThisTargetedController")
+                {
+                    kept_parts.push("UnlessPayer$ TargetedController".to_string());
                 } else {
-                    kept_parts.push(part);
+                    kept_parts.push(part.to_string());
                 }
             }
             let additional_cost = match mode_cost_raw {
@@ -1298,6 +1458,29 @@ impl Tx<'_> {
                 None => String::new(),
             };
             let stripped = kept_parts.join(" | ");
+            if allow_divided_counters
+                && let Some((api, dp)) = Params::parse(&stripped)
+                && api == "PutCounter"
+                && dp.has("DividedAsYouChoose")
+            {
+                let (effects, target_spec, mut req_expr) = self.read_divided_counters(dp)?;
+                if mode_same_controller {
+                    let multi = !req_expr.starts_with("TargetReq::one(")
+                        && !req_expr.starts_with("TargetReq::up_to_one(");
+                    req_expr =
+                        self.apply_same_controller_target_req(&req_expr, &target_spec, multi)?;
+                }
+                modes.push((
+                    format!(
+                        "mode!(&[{}], targets = Some({req_expr}){additional_cost})",
+                        effects.join(", ")
+                    ),
+                    Some(target_spec),
+                    false,
+                    false,
+                ));
+                continue;
+            }
             let mut chain = Chain::default();
             if self.chain(&stripped, &mut chain).is_none() {
                 if self.unclaimed.borrow().is_none() {
@@ -1310,8 +1493,25 @@ impl Tx<'_> {
             if chain.effects.is_empty() {
                 return self.deny("a charm mode that reads as no effect at all".to_string());
             }
-            let targets = Self::target_req_expr(&chain)
-                .map_or_default(|req| format!(", targets = Some({req})"));
+            let target_req = if let Some(mut req) = Self::target_req_expr(&chain) {
+                if mode_same_controller {
+                    let t = chain.target.as_deref()?;
+                    let multi = chain.target_up_to.is_some_and(|m| m > 1)
+                        || chain.target_exact.is_some_and(|n| n > 1)
+                        || chain.target_is_x;
+                    req = self.apply_same_controller_target_req(&req, t, multi)?;
+                }
+                Some(req)
+            } else {
+                if mode_same_controller {
+                    return self.deny(
+                        "`TargetsWithSameController$` on a non-multi-object target requirement"
+                            .into(),
+                    );
+                }
+                None
+            };
+            let targets = target_req.map_or_default(|req| format!(", targets = Some({req})"));
             let has_second = chain.second_target.is_some();
             let second = Self::second_target_req_expr(&chain)
                 .map_or_default(|req| format!(", second_targets = Some({req})"));
@@ -1358,14 +1558,24 @@ impl Tx<'_> {
     /// spell whose modes are the named `SVar`s, each read as the chain it
     /// is and each targeting for itself, since a target a mode names is
     /// chosen only when that mode is (CR 700.2c).
+    #[allow(clippy::too_many_lines)]
     pub(super) fn charm(&mut self, spec: &str) -> Option<()> {
         let Some((_, mut p)) = Params::parse(spec) else {
             return self.deny("an `A:` line with no `$` in it".to_string());
         };
         p.drop_prose();
         let raw_cost = p.take("Cost");
+        match p.take("Defined").as_deref() {
+            None | Some("You") => {}
+            Some(who) => return self.deny(format!("a charm with `Defined$ {who}`")),
+        }
         let Some(choices) = p.take("Choices") else {
             return self.deny("a charm with no `Choices$`".to_string());
+        };
+        let can_repeat_modes = match p.take("CanRepeatModes").as_deref() {
+            None | Some("False") => false,
+            Some("True") => true,
+            Some(other) => return self.deny(format!("a charm with `CanRepeatModes$ {other}`")),
         };
         let max: u8 = match p.take("CharmNum").as_deref() {
             None => 1,
@@ -1377,7 +1587,7 @@ impl Tx<'_> {
         let min: u8 = match p.take("MinCharmNum").as_deref() {
             None => max,
             Some(raw) => match raw.trim().parse::<u8>() {
-                Ok(n) if n > 0 => n,
+                Ok(n) if n > 0 || (can_repeat_modes && n == 0) => n,
                 _ => return self.deny(format!("a charm with `MinCharmNum$ {raw}`")),
             },
         };
@@ -1385,12 +1595,15 @@ impl Tx<'_> {
             self.note(format!("unclaimed parameter `Charm.{key}`"));
             return None;
         }
-        if min == 0 || min > max {
+        if min > max || (!can_repeat_modes && min == 0) {
             return self.deny(format!("a charm with min {min} > max {max}"));
         }
+        if can_repeat_modes && max > 8 {
+            return self.deny(format!("a repeating charm choosing `{max}`"));
+        }
         let has_spree = self.body.keywords.iter().any(|k| k == "KeywordSet::SPREE");
-        if has_spree && max == 1 {
-            return self.deny("a `Spree` charm choosing only one mode".to_string());
+        if has_spree && (max == 1 || can_repeat_modes) {
+            return self.deny("a `Spree` charm with unsupported mode selection".to_string());
         }
         if let Some(raw) = raw_cost.as_deref() {
             self.spell_mana_cost(raw)?;
@@ -1398,27 +1611,40 @@ impl Tx<'_> {
         self.cost_sacrifices_other = raw_cost
             .as_deref()
             .is_some_and(|c| cost_parts(c).iter().any(|t| Self::is_sac_other_token(t)));
-        let parsed = self.read_charm_modes_with(&choices, has_spree && max > 1);
+        let allow_divided_counters = min == 1 && max == 1 && !can_repeat_modes;
+        let parsed =
+            self.read_charm_modes_with(&choices, has_spree && max > 1, allow_divided_counters);
         self.cost_sacrifices_other = false;
         let parsed = parsed?;
         if parsed.len() < 2 {
             return self.deny("a charm with fewer than two modes".to_string());
         }
-        if usize::from(min) > parsed.len() {
+        if !can_repeat_modes && usize::from(min) > parsed.len() {
             return self.deny("a charm choosing more modes than it has".to_string());
         }
         // Mirror `crates/cards/src/lints/shapes.rs::modes_fault` for multi-mode
-        // spells so no generated card violates the pool invariant.
-        if max > 1 {
+        // and repeating modal spells so no generated card violates the pool invariant.
+        if max > 1 || can_repeat_modes {
             if parsed.len() > 8 {
                 return self.deny("a multi-mode charm with more than eight modes".to_string());
             }
-            let total_target_clauses: usize = parsed
-                .iter()
-                .map(|(_, tgt, has_second, _)| {
-                    usize::from(tgt.is_some()) + usize::from(*has_second)
-                })
-                .sum();
+            let total_target_clauses: usize = if can_repeat_modes {
+                let per_mode = parsed
+                    .iter()
+                    .map(|(_, tgt, has_second, _)| {
+                        usize::from(tgt.is_some()) + usize::from(*has_second)
+                    })
+                    .max()
+                    .unwrap_or(0);
+                usize::from(max).saturating_mul(per_mode)
+            } else {
+                parsed
+                    .iter()
+                    .map(|(_, tgt, has_second, _)| {
+                        usize::from(tgt.is_some()) + usize::from(*has_second)
+                    })
+                    .sum()
+            };
             if total_target_clauses > 16 {
                 return self
                     .deny("a multi-mode charm with more than sixteen target clauses".to_string());
@@ -1427,13 +1653,23 @@ impl Tx<'_> {
         let choose = match (min, max) {
             (1, 1) => "ModeCount::ONE".to_string(),
             (2, 2) => "ModeCount::TWO".to_string(),
+            (3, 3) => "ModeCount::THREE".to_string(),
+            (4, 4) => "ModeCount::FOUR".to_string(),
+            (5, 5) => "ModeCount::FIVE".to_string(),
             _ => format!("ModeCount {{ min: {min}, max: {max} }}"),
         };
         let modes: Vec<String> = parsed.into_iter().map(|(m, _, _, _)| m).collect();
-        self.body.abilities.push(format!(
-            "AbilityDef::ModalSpell {{ choose: {choose}, modes: &[{}] }}",
-            modes.join(", ")
-        ));
+        if can_repeat_modes {
+            self.body.abilities.push(format!(
+                "AbilityDef::Modal {{ modes: &[{}], choose: {choose}, can_repeat_modes: true }}",
+                modes.join(", ")
+            ));
+        } else {
+            self.body.abilities.push(format!(
+                "AbilityDef::ModalSpell {{ choose: {choose}, modes: &[{}] }}",
+                modes.join(", ")
+            ));
+        }
         Some(())
     }
 
@@ -1507,6 +1743,12 @@ impl Tx<'_> {
         let Some(cost_raw) = p.take("Cost") else {
             return self.deny("a modal activated ability with no `Cost$`".to_string());
         };
+        match p.take("Defined").as_deref() {
+            None | Some("You") => {}
+            Some(who) => {
+                return self.deny(format!("a modal activated ability with `Defined$ {who}`"));
+            }
+        }
         let Some(choices) = p.take("Choices") else {
             return self.deny("a charm with no `Choices$`".to_string());
         };

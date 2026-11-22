@@ -5509,3 +5509,305 @@ fn wave22b_filters_pump_counters_and_multiplayer_effects() {
         dmg_draw.abilities
     );
 }
+
+#[test]
+fn wave23b_repeating_modal_and_mode_counts() {
+    // Choose three with repeating modes + UnlessPayer$ ThisTargetedController.
+    let confluence = read(
+        "Name:ArcaneConfluence\nManaCost:3 U U\nTypes:Instant\n\
+         A:SP$ Charm | CharmNum$ 3 | CanRepeatModes$ True | Choices$ MCounter,MBounce,MDraw\n\
+         SVar:MCounter:DB$ Counter | TargetType$ Spell | TgtPrompt$ Select target spell | ValidTgts$ Card | UnlessCost$ 3 | UnlessPayer$ ThisTargetedController\n\
+         SVar:MBounce:DB$ ChangeZone | ValidTgts$ Creature | Origin$ Battlefield | Destination$ Hand\n\
+         SVar:MDraw:DB$ Draw | Defined$ You | NumCards$ 1",
+    );
+    assert!(
+        confluence.abilities[0].contains("AbilityDef::Modal {")
+            && confluence.abilities[0].contains("choose: ModeCount::THREE, can_repeat_modes: true")
+            && confluence.abilities[0].contains(
+                "Effect::PlayerMayPayOr { player: PlayerRel::ControllerOfTarget, mana: Amount::Fixed(3), effect: &Effect::CounterTargetSpell }"
+            ),
+        "{:?}",
+        confluence.abilities
+    );
+
+    // Choose four & choose five with repeating modes, plus MinCharmNum$ 0 (up to 4).
+    let four = read(
+        "Name:FourModes\nManaCost:5 G G\nTypes:Sorcery\n\
+         A:SP$ Charm | CharmNum$ 4 | CanRepeatModes$ True | Choices$ M1,M2\n\
+         SVar:M1:DB$ GainLife | Defined$ You | LifeAmount$ 4\n\
+         SVar:M2:DB$ Draw | Defined$ You | NumCards$ 1",
+    );
+    assert!(
+        four.abilities[0].contains("choose: ModeCount::FOUR, can_repeat_modes: true"),
+        "{:?}",
+        four.abilities
+    );
+    let five = read(
+        "Name:FiveModes\nManaCost:4 R\nTypes:Instant\n\
+         A:SP$ Charm | CharmNum$ 5 | CanRepeatModes$ True | Choices$ M1,M2\n\
+         SVar:M1:DB$ DealDamage | ValidTgts$ Any | NumDmg$ 1\n\
+         SVar:M2:DB$ GainLife | Defined$ You | LifeAmount$ 2",
+    );
+    assert!(
+        five.abilities[0].contains("choose: ModeCount::FIVE, can_repeat_modes: true"),
+        "{:?}",
+        five.abilities
+    );
+    let up_to_four = read(
+        "Name:ReckoningModes\nManaCost:4 W\nTypes:Sorcery\n\
+         A:SP$ Charm | MinCharmNum$ 0 | CharmNum$ 4 | CanRepeatModes$ True | Choices$ M1,M2\n\
+         SVar:M1:DB$ GainLife | Defined$ You | LifeAmount$ 2\n\
+         SVar:M2:DB$ Draw | Defined$ You | NumCards$ 1",
+    );
+    assert!(
+        up_to_four.abilities[0]
+            .contains("choose: ModeCount { min: 0, max: 4 }, can_repeat_modes: true"),
+        "{:?}",
+        up_to_four.abilities
+    );
+
+    // Non-repeating choose-three spell with Defined$ You, and AB$ Charm with Defined$ You.
+    let non_rep_three = read(
+        "Name:TriChoice\nManaCost:3 U\nTypes:Instant\n\
+         A:SP$ Charm | Defined$ You | CharmNum$ 3 | Choices$ M1,M2,M3,M4\n\
+         SVar:M1:DB$ Draw | Defined$ You | NumCards$ 1\n\
+         SVar:M2:DB$ GainLife | Defined$ You | LifeAmount$ 2\n\
+         SVar:M3:DB$ Scry | ScryNum$ 1\n\
+         SVar:M4:DB$ LoseLife | Defined$ Opponent | LifeAmount$ 1",
+    );
+    assert!(
+        non_rep_three.abilities[0].contains("AbilityDef::ModalSpell")
+            && non_rep_three.abilities[0].contains("choose: ModeCount::THREE"),
+        "{:?}",
+        non_rep_three.abilities
+    );
+    let act_charm = read(
+        "Name:JitteBlade\nManaCost:2\nTypes:Artifact\n\
+         A:AB$ Charm | Cost$ SubCounter<1/CHARGE> | Defined$ You | Choices$ M1,M2\n\
+         SVar:M1:DB$ GainLife | Defined$ You | LifeAmount$ 2\n\
+         SVar:M2:DB$ Draw | Defined$ You | NumCards$ 1",
+    );
+    assert!(
+        act_charm.abilities[0].starts_with("modal_activated!("),
+        "{:?}",
+        act_charm.abilities
+    );
+
+    // Refusals: Pawprint$ (Seasons), CharmNum$ X, CharmNum$ 9 (>8), MinCharmNum$ 0 without repeat,
+    // Defined$ Opponent on Charm, Spree with CanRepeatModes$.
+    for bad in [
+        "Name:SeasonBad\nManaCost:4 W W\nTypes:Sorcery\n\
+         A:SP$ Charm | Pawprint$ 5 | CanRepeatModes$ True | Choices$ M1,M2\n\
+         SVar:M1:DB$ GainLife | Defined$ You | LifeAmount$ 2\n\
+         SVar:M2:DB$ Draw | Defined$ You | NumCards$ 1",
+        "Name:TooManyRepeats\nManaCost:6 U\nTypes:Sorcery\n\
+         A:SP$ Charm | CharmNum$ 9 | CanRepeatModes$ True | Choices$ M1,M2\n\
+         SVar:M1:DB$ GainLife | Defined$ You | LifeAmount$ 1\n\
+         SVar:M2:DB$ Draw | Defined$ You | NumCards$ 1",
+        "Name:ZeroNonRepeat\nManaCost:3 W\nTypes:Sorcery\n\
+         A:SP$ Charm | MinCharmNum$ 0 | CharmNum$ 2 | Choices$ M1,M2\n\
+         SVar:M1:DB$ GainLife | Defined$ You | LifeAmount$ 1\n\
+         SVar:M2:DB$ Draw | Defined$ You | NumCards$ 1",
+        "Name:OppCharm\nManaCost:2 B\nTypes:Sorcery\n\
+         A:SP$ Charm | Defined$ Opponent | Choices$ M1,M2\n\
+         SVar:M1:DB$ GainLife | Defined$ You | LifeAmount$ 1\n\
+         SVar:M2:DB$ Draw | Defined$ You | NumCards$ 1",
+        "Name:SpreeRepeat\nManaCost:R\nTypes:Sorcery\nK:Spree\n\
+         A:SP$ Charm | CanRepeatModes$ True | CharmNum$ 2 | Choices$ M1,M2\n\
+         SVar:M1:DB$ GainLife | Defined$ You | LifeAmount$ 1 | ModeCost$ 1\n\
+         SVar:M2:DB$ Draw | Defined$ You | NumCards$ 1 | ModeCost$ 2",
+    ] {
+        assert!(refused(bad), "must refuse: {bad}");
+    }
+}
+
+#[test]
+fn wave23b_targets_with_same_controller() {
+    // Spell multi-graveyard exile with TargetsWithSameController$ True.
+    let feast = read(
+        "Name:GraveFeast\nManaCost:B\nTypes:Instant\n\
+         A:SP$ ChangeZone | Origin$ Graveyard | Destination$ Exile | TgtZone$ Graveyard \
+         | ValidTgts$ Card | TargetMin$ 0 | TargetMax$ 3 | TargetsWithSameController$ True",
+    );
+    assert!(
+        feast.abilities[0].contains(
+            "TargetReq::up_to(TargetSpec::CardInGraveyard(&Filter::Any, PlayerRel::EachPlayer), 3)\
+             .with_constraint(TargetConstraint::SameController)"
+        ),
+        "{:?}",
+        feast.abilities
+    );
+
+    // Activated ability with TargetsWithSameController$ True.
+    let beetles = read(
+        "Name:GraveBeetles\nManaCost:B\nTypes:Creature Goblin\nPT:1/1\n\
+         A:AB$ ChangeZone | Cost$ 2 B T | Origin$ Graveyard | Destination$ Exile | TgtZone$ Graveyard \
+         | ValidTgts$ Card | TargetMin$ 0 | TargetMax$ 3 | TargetsWithSameController$ True",
+    );
+    assert!(
+        beetles.abilities[0].starts_with("activated!(")
+            && beetles.abilities[0].contains(".with_constraint(TargetConstraint::SameController)"),
+        "{:?}",
+        beetles.abilities
+    );
+
+    // Charm mode with TargetsWithSameController$ True.
+    let charm = read(
+        "Name:DarkCharm\nManaCost:B\nTypes:Instant\n\
+         A:SP$ Charm | Choices$ MDrain,MExile\n\
+         SVar:MDrain:DB$ LoseLife | ValidTgts$ Opponent | LifeAmount$ 1\n\
+         SVar:MExile:DB$ ChangeZone | Origin$ Graveyard | Destination$ Exile | TgtZone$ Graveyard \
+         | ValidTgts$ Card | TargetMin$ 0 | TargetMax$ 3 | TargetsWithSameController$ True",
+    );
+    assert!(
+        charm.abilities[0].contains(".with_constraint(TargetConstraint::SameController)"),
+        "{:?}",
+        charm.abilities
+    );
+
+    // Refusals: missing ValidTgts$, single-target (max=1), player target, invalid value.
+    for bad in [
+        "Name:NoTgt\nManaCost:B\nTypes:Sorcery\nA:SP$ Draw | Defined$ You | NumCards$ 1 | TargetsWithSameController$ True",
+        "Name:SingleTgt\nManaCost:B\nTypes:Instant\nA:SP$ ChangeZone | Origin$ Graveyard | Destination$ Exile | TgtZone$ Graveyard | ValidTgts$ Card | TargetMin$ 1 | TargetMax$ 1 | TargetsWithSameController$ True",
+        "Name:PlayerTgt\nManaCost:2 B\nTypes:Sorcery\nA:SP$ LoseLife | ValidTgts$ Player | TargetMin$ 1 | TargetMax$ 2 | LifeAmount$ 1 | TargetsWithSameController$ True",
+        "Name:BadVal\nManaCost:B\nTypes:Instant\nA:SP$ ChangeZone | Origin$ Graveyard | Destination$ Exile | TgtZone$ Graveyard | ValidTgts$ Card | TargetMin$ 0 | TargetMax$ 3 | TargetsWithSameController$ Maybe",
+    ] {
+        assert!(refused(bad), "must refuse: {bad}");
+    }
+}
+
+#[test]
+fn wave23b_excess_damage() {
+    // Excess damage -> GainLife.
+    let life = read(
+        "Name:SearingBalm\nManaCost:2 R\nTypes:Instant\n\
+         A:SP$ DealDamage | ValidTgts$ Creature | NumDmg$ 4 | ExcessSVar$ Excess | SubAbility$ DBGain\n\
+         SVar:DBGain:DB$ GainLife | Defined$ You | LifeAmount$ Excess",
+    );
+    assert!(
+        life.abilities[0].contains("Effect::DealDamage {")
+            && life.abilities[0].contains("Amount::ThisWay(ThisWay::ExcessDamage)"),
+        "{:?}",
+        life.abilities
+    );
+
+    // Excess damage -> unconditional TokenAmount$ Excess + TokenTapped$ True.
+    let tok = read_with_tokens(
+        "Name:ExcessGoblins\nManaCost:X R\nTypes:Sorcery\n\
+         A:SP$ DealDamage | ValidTgts$ Creature | NumDmg$ X | ExcessSVar$ Excess | SubAbility$ DBTok\n\
+         SVar:DBTok:DB$ Token | TokenAmount$ Excess | TokenScript$ r_1_1_goblin | TokenTapped$ True\n\
+         SVar:X:Count$xPaid",
+    );
+    assert!(
+        tok.abilities[0].contains("Effect::CreateTokenModified {")
+            && tok.abilities[0].contains("amount: Amount::ThisWay(ThisWay::ExcessDamage)")
+            && tok.abilities[0].contains("tapped: true, haste: false"),
+        "{:?}",
+        tok.abilities
+    );
+
+    // Excess damage -> conditional Investigate + PumpAll (+Excess).
+    let inv = read_with_tokens(
+        "Name:TorchClue\nManaCost:X R\nTypes:Sorcery\n\
+         A:SP$ DealDamage | ValidTgts$ Creature | NumDmg$ X | ExcessSVar$ Excess | SubAbility$ DBInv\n\
+         SVar:DBInv:DB$ Investigate | ConditionCheckSVar$ Excess | ConditionSVarCompare$ GE1\n\
+         SVar:X:Count$xPaid",
+    );
+    assert!(
+        inv.abilities[0].contains("Effect::IfCondition {")
+            && inv.abilities[0]
+                .contains("Condition::AmountAtLeast(Amount::ThisWay(ThisWay::ExcessDamage), 1)")
+            && inv.abilities[0].contains("Effect::CreateToken { token: &generated_tokens::CLUE }"),
+        "{:?}",
+        inv.abilities
+    );
+    let pump = read(
+        "Name:ExcessRally\nManaCost:3 R\nTypes:Sorcery\n\
+         A:SP$ DealDamage | ValidTgts$ Creature | NumDmg$ 5 | ExcessSVar$ Excess | SubAbility$ DBPump\n\
+         SVar:DBPump:DB$ PumpAll | ValidCards$ Creature.YouCtrl | NumAtt$ +Excess | NumDef$ +0",
+    );
+    assert!(
+        pump.abilities[0].contains("Effect::PumpFilter {")
+            && pump.abilities[0].contains("power: Amount::ThisWay(ThisWay::ExcessDamage)"),
+        "{:?}",
+        pump.abilities
+    );
+
+    // ExcessSVarCondition$ Creature on AnyTarget -> Condition::All(&[ObjectMatches, AmountAtLeast]).
+    let cond_draw = read(
+        "Name:ExcessInsight\nManaCost:2 R\nTypes:Sorcery\n\
+         A:SP$ DealDamage | ValidTgts$ Creature,Planeswalker | NumDmg$ 4 | ExcessSVar$ Excess \
+         | ExcessSVarCondition$ Creature | SubAbility$ DBDraw\n\
+         SVar:DBDraw:DB$ Draw | Defined$ You | NumCards$ 1 | ConditionCheckSVar$ Excess | ConditionSVarCompare$ GE1",
+    );
+    assert!(
+        cond_draw.abilities[0].contains("Condition::All(&[Condition::ObjectMatches")
+            && cond_draw.abilities[0]
+                .contains("Condition::AmountAtLeast(Amount::ThisWay(ThisWay::ExcessDamage), 1)"),
+        "{:?}",
+        cond_draw.abilities
+    );
+
+    // Excess damage -> Dig (impulse exile with permission), Scry, Surveil, and activated -> LoseLife.
+    let dig = read(
+        "Name:ImpulseBlast\nManaCost:3 R\nTypes:Sorcery\n\
+         A:SP$ DealDamage | ValidTgts$ Creature | NumDmg$ 4 | ExcessSVar$ Excess | SubAbility$ DBDig\n\
+         SVar:DBDig:DB$ Dig | DigNum$ Excess | DestinationZone$ Exile | ChangeNum$ All | RememberChanged$ True | SubAbility$ DBMayPlay\n\
+         SVar:DBMayPlay:DB$ Effect | RememberObjects$ Remembered | StaticAbilities$ MayPlay | Duration$ UntilEndOfTurn | SubAbility$ DBClean\n\
+         SVar:MayPlay:Mode$ Continuous | MayPlay$ True | Affected$ Card.IsRemembered | AffectedZone$ Exile\n\
+         SVar:DBClean:DB$ Cleanup | ClearRemembered$ True",
+    );
+    assert!(
+        dig.abilities[0].contains("Effect::ExileTopWithPermission {")
+            && dig.abilities[0].contains("Amount::ThisWay(ThisWay::ExcessDamage)"),
+        "{:?}",
+        dig.abilities
+    );
+    let scry_surveil = read(
+        "Name:ScryBlast\nManaCost:2 R\nTypes:Sorcery\n\
+         A:SP$ DealDamage | ValidTgts$ Creature | NumDmg$ 3 | ExcessSVar$ Excess | SubAbility$ DBScry\n\
+         SVar:DBScry:DB$ Scry | ScryNum$ Excess",
+    );
+    assert!(
+        scry_surveil.abilities[0]
+            .contains("Effect::Scry { amount: Amount::ThisWay(ThisWay::ExcessDamage) }"),
+        "{:?}",
+        scry_surveil.abilities
+    );
+    let act = read(
+        "Name:ExcessStriker\nManaCost:2 R\nTypes:Creature Goblin\nPT:2/2\n\
+         A:AB$ DealDamage | Cost$ 2 R T | ValidTgts$ Creature | NumDmg$ 3 | ExcessSVar$ Excess | SubAbility$ DBLose\n\
+         SVar:DBLose:DB$ LoseLife | Defined$ Opponent | LifeAmount$ Excess",
+    );
+    assert!(
+        act.abilities[0].starts_with("activated!(")
+            && act.abilities[0].contains("Amount::ThisWay(ThisWay::ExcessDamage)"),
+        "{:?}",
+        act.abilities
+    );
+}
+
+#[test]
+fn wave23b_excess_damage_refusals() {
+    // Refusals: missing SubAbility$, conflicting SVar definition, ExcessSVarCondition$ Creature
+    // with unconditional numeric use, player-only ValidTgts$, Alchemy follow-up.
+    for bad in [
+        "Name:NoSub\nManaCost:1 R\nTypes:Instant\nA:SP$ DealDamage | ValidTgts$ Creature | NumDmg$ 3 | ExcessSVar$ Excess",
+        "Name:ConflictSvar\nManaCost:1 R\nTypes:Instant\n\
+         A:SP$ DealDamage | ValidTgts$ Creature | NumDmg$ 3 | ExcessSVar$ Excess | SubAbility$ DBGain\n\
+         SVar:DBGain:DB$ GainLife | Defined$ You | LifeAmount$ Excess\n\
+         SVar:Excess:Count$xPaid",
+        "Name:CondNumeric\nManaCost:2 R\nTypes:Sorcery\n\
+         A:SP$ DealDamage | ValidTgts$ Creature,Planeswalker | NumDmg$ 4 | ExcessSVar$ Excess \
+         | ExcessSVarCondition$ Creature | SubAbility$ DBGain\n\
+         SVar:DBGain:DB$ GainLife | Defined$ You | LifeAmount$ Excess",
+        "Name:PlayerOnlyExcess\nManaCost:1 R\nTypes:Instant\n\
+         A:SP$ DealDamage | ValidTgts$ Player | NumDmg$ 3 | ExcessSVar$ Excess | SubAbility$ DBGain\n\
+         SVar:DBGain:DB$ GainLife | Defined$ You | LifeAmount$ Excess",
+        "Name:AlchemyExcess\nManaCost:1 R\nTypes:Instant\n\
+         A:SP$ DealDamage | ValidTgts$ Creature | NumDmg$ 3 | ExcessSVar$ Excess | SubAbility$ DBAlch\n\
+         SVar:DBAlch:DB$ MakeCard | Name$ Lightning Bolt | ConditionCheckSVar$ Excess | ConditionSVarCompare$ GE1",
+    ] {
+        assert!(refused(bad), "must refuse: {bad}");
+    }
+}
