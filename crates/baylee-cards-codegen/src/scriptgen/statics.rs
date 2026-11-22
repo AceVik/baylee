@@ -339,6 +339,33 @@ impl Tx<'_> {
             return self.stack_continuous_static(p, effect_zone, &zone);
         }
         if effect_zone != Some("ZoneRef::Graveyard")
+            && p.peek("AffectedZone") == Some("All")
+            && !p.has("MayPlay")
+            && !p.has("AddKeyword")
+            && !p.has("RemoveKeyword")
+            && !p.has("CantHaveKeyword")
+            && !p.has("AddPower")
+            && !p.has("AddToughness")
+            && !p.has("SetPower")
+            && !p.has("SetToughness")
+            && (p.has("AddType")
+                || p.has("AddAllCreatureTypes")
+                || p.has("AddColor")
+                || p.has("SetColor"))
+        {
+            p.take("AffectedZone");
+            return self.all_zones_layer45_static(p, effect_zone);
+        }
+        if effect_zone != Some("ZoneRef::Graveyard")
+            && p.peek("AffectedZone")
+                .is_some_and(is_all_non_battlefield_zones)
+            && p.peek("AddKeyword").map(str::trim) == Some("Flash")
+            && !p.has("MayPlay")
+        {
+            let raw_zone = p.take("AffectedZone").unwrap_or_default();
+            return self.offboard_flash_static(p, effect_zone, &raw_zone);
+        }
+        if effect_zone != Some("ZoneRef::Graveyard")
             && p.peek("MayPlay") == Some("True")
             && (p.has("MayPlayAltManaCost") || p.has("MayPlayWithoutManaCost"))
         {
@@ -353,6 +380,21 @@ impl Tx<'_> {
         {
             self.note(format!("static ability reaching `AffectedZone$ {zone}`"));
             return None;
+        }
+        // Non-P/T characteristic-defining abilities on `Card.Self` (or omitted
+        // `Affected$`): unconditional Layer 4/5 color/type CDAs (*Ghostfire*,
+        // *Transguild Courier*, *Mistform Ultimus*, Party creatures),
+        // conditional self-Flash CDAs (*Colossal Rattlewurm*, *Crashing Tide*,
+        // *Take for a Ride*), and conditional kicked stack Split Second
+        // (*Molten Disaster*).
+        if effect_zone.is_none()
+            && p.peek("CharacteristicDefining").map(str::trim) == Some("True")
+            && !p.has("SetPower")
+            && !p.has("SetToughness")
+            && matches!(p.peek("Affected"), None | Some("Card.Self"))
+            && !p.has("AffectedDefined")
+        {
+            return self.non_pt_cda_static(p);
         }
         // "This creature's power and toughness are each equal to the number
         // of Swamps you control" (Nightmare): a characteristic-defining
@@ -744,6 +786,12 @@ impl Tx<'_> {
         }
         if let Some(state_cond) = self.take_self_state_present(p).ok()? {
             clauses.push(state_cond);
+        }
+        if let Some(phases) = p.peek("Phases")
+            && let Some(phase_cond) = static_phase_condition(phases)
+        {
+            p.take("Phases");
+            clauses.push(phase_cond.to_string());
         }
         self.take_extended_present_clauses(p, &mut clauses)?;
         if let Some(base) = self
@@ -1162,6 +1210,32 @@ impl Tx<'_> {
         effect_zone: Option<&'static str>,
         affected_zone: &str,
     ) -> Option<()> {
+        if effect_zone == Some("ZoneRef::Stack")
+            && affected_zone == "Stack"
+            && p.peek("Affected") == Some("Card.Self")
+            && p.peek("AddKeyword").map(str::trim) == Some("Cascade")
+            && !p.has("AffectedDefined")
+        {
+            p.take("Affected");
+            p.take("AddKeyword");
+            let condition =
+                self.static_conditions(&mut p, "unclaimed parameter `Continuous.CheckSVar`")?;
+            let Some(inner_cond) = condition
+                .strip_prefix(", condition = Some(")
+                .and_then(|s| s.strip_suffix(')'))
+            else {
+                return self.deny("static ability reaching `AffectedZone$ Stack`".to_string());
+            };
+            self.strip_ai_hint_add_svar(&mut p);
+            if !p.exhausted() {
+                return self.deny("static ability reaching `AffectedZone$ Stack`".to_string());
+            }
+            self.body.abilities.push(format!(
+                "triggered!(Trigger::SpellCast(&Filter::This), &[Effect::Cascade], \
+                 condition = Some(Condition::TriggerOnly(&{inner_cond})))"
+            ));
+            return Some(());
+        }
         let affected = self.continuous_affected(&mut p)?;
         let base_filter = self.filter_expr_in_zone(&affected, true)?;
         let zone_clause = if affected_zone == "Stack" {
@@ -1639,7 +1713,10 @@ impl Tx<'_> {
             } else {
                 (self.filter_expr(&valid)?, None)
             };
-        let base_cond = self.condition(&mut p)?;
+        let base_cond = self.static_conditions(
+            &mut p,
+            &format!("unclaimed parameter `{modifier}.CheckSVar`"),
+        )?;
         let condition = Self::merge_static_condition(implicit_cond, &base_cond);
         if let Some(key) = p.first_key() {
             return self.deny(format!("unclaimed parameter `{modifier}.{key}`"));
@@ -2255,7 +2332,7 @@ impl Tx<'_> {
         let neg = trimmed.starts_with('-');
         let var = trimmed.trim_start_matches(['+', '-']);
         let body = self.svars.get(var)?.clone();
-        let inner = self.static_count_expr(&body)?;
+        let inner = self.static_count_expr_ext(&body)?;
         Some(if neg {
             format!("Amount::Negated(&{inner})")
         } else {
@@ -2270,6 +2347,10 @@ impl Tx<'_> {
         filter: &str,
         out: &mut Vec<String>,
     ) -> Option<()> {
+        let allows_equip = p
+            .peek("AddType")
+            .is_some_and(|raw| raw.split_whitespace().any(|w| w == "Equipment"))
+            || filter.contains("subtypes::artifact::EQUIPMENT");
         for (key, modifier) in [
             ("AddKeyword", "AddKeyword"),
             ("RemoveKeyword", "RemoveKeyword"),
@@ -2281,47 +2362,15 @@ impl Tx<'_> {
             // rule reads.
             let mut bits = Vec::new();
             for word in raw.split(" & ") {
-                // Protection is granted as the static ability it is (CR
-                // 702.16a), never as a bit; removing it is a different
-                // sentence and is refused.
                 if modifier == "AddKeyword"
-                    && let Some(from) = self.protection_filter(word)
-                {
-                    out.push(Self::static_expr(
+                    && self.try_granted_keyword_ability(
+                        word,
                         filter,
-                        &format!("Modifier::ProtectionFrom(&{from})"),
-                    ));
-                    continue;
-                }
-                if modifier == "AddKeyword"
-                    && let Some(rest) = word.trim().strip_prefix("Cumulative upkeep:")
+                        allows_equip,
+                        &mut bits,
+                        out,
+                    )?
                 {
-                    let payment = self.cumulative_upkeep_payment(rest)?;
-                    out.push(Self::static_expr(
-                        filter,
-                        &format!(
-                            "Modifier::GrantTriggered {{ \
-                             trigger: Trigger::StepBegin {{ step: StepKind::Upkeep, whose: PlayerRel::You }}, \
-                             effects: &[Effect::AddCounter {{ kind: counters::AGE, amount: Amount::Fixed(1) }}, {payment}], \
-                             target: None }}"
-                        ),
-                    ));
-                    continue;
-                }
-                if modifier == "AddKeyword"
-                    && let Some(rest) = word.trim().strip_prefix("Ward:")
-                {
-                    let Some(effect) = self.ward_effect_expr(rest, true) else {
-                        self.note(format!("static ability granting keyword `{word}`"));
-                        return None;
-                    };
-                    out.push(Self::static_expr(
-                        filter,
-                        &format!(
-                            "Modifier::GrantTriggered {{ trigger: Trigger::Ward, \
-                             effects: &[{effect}], target: None }}"
-                        ),
-                    ));
                     continue;
                 }
                 let Some(bit) = keyword_const(word) else {
@@ -2435,6 +2484,13 @@ impl Tx<'_> {
         filter: &str,
         out: &mut Vec<String>,
     ) -> Option<()> {
+        match p.take("AddAllCreatureTypes").as_deref() {
+            None => {}
+            Some("True") => {
+                out.push(Self::static_expr(filter, "Modifier::AllCreatureTypes"));
+            }
+            Some(_) => return None,
+        }
         match p.take("RemoveLandTypes").as_deref() {
             None => {}
             Some("True") => {
@@ -3271,6 +3327,12 @@ impl Tx<'_> {
             self.body.mandatory_additional_costs.extend(parts);
             return Some(());
         }
+        (*self.unclaimed.borrow_mut()).clone_from(&saved_unclaimed);
+        self.body.statics.truncate(saved_statics_len);
+        if let Some(part) = self.parse_discard_x_spell_cost(&cost) {
+            self.body.mandatory_additional_costs.push(part);
+            return Some(());
+        }
         *self.unclaimed.borrow_mut() = saved_unclaimed;
         self.body.statics.truncate(saved_statics_len);
         self.deny("static ability `S: Mode$ RaiseCost`".into())
@@ -3456,7 +3518,7 @@ impl Tx<'_> {
             };
             def
         };
-        let amt_expr = self.static_count_expr(&amt_def)?;
+        let amt_expr = self.static_count_expr_ext(&amt_def)?;
         Some(format!("Modifier::SpellsCostLessByAmount({amt_expr})"))
     }
 
@@ -3739,6 +3801,12 @@ impl Tx<'_> {
         if let Some(state_cond) = self.take_self_state_present(p).ok()? {
             clauses.push(state_cond);
         }
+        if let Some(phases) = p.peek("Phases")
+            && let Some(phase_cond) = static_phase_condition(phases)
+        {
+            p.take("Phases");
+            clauses.push(phase_cond.to_string());
+        }
         self.take_extended_present_clauses(p, &mut clauses)?;
         if let Some(valid) = p.take("IsPresent") {
             let clause = if matches!(p.peek("PresentZone"), Some("Hand" | "Graveyard"))
@@ -3826,6 +3894,15 @@ impl Tx<'_> {
             if Self::is_opp_ctrl_present(valid) {
                 return self.opp_ctrl_present_clause(valid, cmp);
             }
+        }
+        if let Some((op, rhs_var)) = parse_svar_amount_compare(cmp)
+            && let Some(rhs_def) = self.svars.get(rhs_var).cloned()
+            && let Some(left) = self.static_count_expr(&def)
+            && let Some(right) = self.static_count_expr(&rhs_def)
+        {
+            return Some(format!(
+                "Condition::AmountCompare {{ left: &{left}, op: AmountCmp::{op}, right: &{right} }}"
+            ));
         }
         let bound = super::count_bound(cmp)?;
         if def == "PlayerCountOpponents$HighestCardsInGraveyard" {
@@ -4424,7 +4501,9 @@ impl Tx<'_> {
             let Some(def) = self.svars.get(name) else {
                 return false;
             };
-            if !is_pure_ai_hint_svar(def) {
+            if !(is_pure_ai_hint_svar(def)
+                || (is_pure_ai_hint_name(name) && is_scalar_ai_hint_value(def)))
+            {
                 return false;
             }
         }
@@ -4697,6 +4776,766 @@ impl Tx<'_> {
         let card_filter = self.filter_expr_in_zone(&cleaned, true)?;
         Some((card_filter, max_mv_expr, all_allow_lands))
     }
+
+    /// Cross-zone Layer 4/5 static abilities (`AffectedZone$ All`, e.g.
+    /// *Maskwood Nexus*, *Arcane Adaptation*, *Leyline of Transformation*,
+    /// *Biotransference*, *Dune Chanter*, *Encroaching Mycosynth*, *Mycosynth
+    /// Lattice*, *Roshan, Hidden Magister*, *Rukarumel, Biologist*).
+    /// Strictly refuses P/T changes, keywords, `RemoveCreatureTypes`, and
+    /// `ChosenColor`.
+    fn all_zones_layer45_static(
+        &mut self,
+        mut p: Params,
+        effect_zone: Option<&'static str>,
+    ) -> Option<()> {
+        if p.has("AffectedDefined") || p.has("RemoveLandTypes") || p.has("RemoveCreatureTypes") {
+            return self.deny("static ability reaching `AffectedZone$ All`".to_string());
+        }
+        let Some(affected) = p.take("Affected") else {
+            return self.deny("static ability reaching `AffectedZone$ All`".to_string());
+        };
+        let filter = if let Some(stripped) = strip_all_zones_you_ctrl(&affected) {
+            let base = self.filter_expr_in_zone(&stripped, true)?;
+            let scope = "Filter::Or(&[Filter::And(&[Filter::ControlledByYou, Filter::InZone(ZoneRef::Battlefield)]), Filter::And(&[Filter::ControlledByYou, Filter::InZone(ZoneRef::Stack)]), Filter::And(&[Filter::OwnedByYou, Filter::InZone(ZoneRef::NotBattlefield), Filter::Not(&Filter::InZone(ZoneRef::Stack))])])";
+            if base == "Filter::Any" {
+                scope.to_string()
+            } else {
+                format!("Filter::And(&[{base}, {scope}])")
+            }
+        } else if is_unscoped_all_zones_affected(&affected) {
+            let base = self.filter_expr_in_zone(&affected, true)?;
+            let scope = "Filter::Or(&[Filter::InZone(ZoneRef::Battlefield), Filter::InZone(ZoneRef::NotBattlefield)])";
+            if base == "Filter::Any" {
+                scope.to_string()
+            } else {
+                format!("Filter::And(&[{base}, {scope}])")
+            }
+        } else {
+            return self.deny("static ability reaching `AffectedZone$ All`".to_string());
+        };
+        let condition =
+            self.static_conditions(&mut p, "unclaimed parameter `Continuous.CheckSVar`")?;
+        let mut out = Vec::new();
+        self.type_modifiers(&mut p, &filter, &mut out)?;
+        self.color_modifiers(&mut p, &filter, &mut out)?;
+        self.strip_ai_hint_add_svar(&mut p);
+        if !p.exhausted() || out.is_empty() {
+            return self.deny("static ability reaching `AffectedZone$ All`".to_string());
+        }
+        let zone_arg = effect_zone.map_or_else(String::new, |z| format!(", zone = {z}"));
+        for ability in &mut out {
+            if (!zone_arg.is_empty() || !condition.is_empty())
+                && let Some(open) = ability.strip_suffix(')')
+            {
+                *ability = format!("{open}{zone_arg}{condition})");
+            }
+        }
+        self.body.abilities.extend(out);
+        Some(())
+    }
+
+    /// Off-battlefield Flash grant (`AffectedZone$ Hand,Graveyard,Exile,Library,Command,Stack`,
+    /// e.g. *Teferi, Mage of Zhalfir*), lowered to `Modifier::AddKeyword(KeywordSet::FLASH)`
+    /// with `Filter::InZone(ZoneRef::NotBattlefield)`.
+    fn offboard_flash_static(
+        &mut self,
+        mut p: Params,
+        effect_zone: Option<&'static str>,
+        raw_zone: &str,
+    ) -> Option<()> {
+        if p.has("AffectedDefined")
+            || p.take("AddKeyword").as_deref().map(str::trim) != Some("Flash")
+        {
+            return self.deny(format!(
+                "static ability reaching `AffectedZone$ {raw_zone}`"
+            ));
+        }
+        let Some(affected) = p.take("Affected") else {
+            return self.deny(format!(
+                "static ability reaching `AffectedZone$ {raw_zone}`"
+            ));
+        };
+        let base = self.filter_expr_in_zone(&affected, true)?;
+        let filter = if base == "Filter::Any" {
+            "Filter::InZone(ZoneRef::NotBattlefield)".to_string()
+        } else {
+            format!("Filter::And(&[{base}, Filter::InZone(ZoneRef::NotBattlefield)])")
+        };
+        let condition =
+            self.static_conditions(&mut p, "unclaimed parameter `Continuous.CheckSVar`")?;
+        self.strip_ai_hint_add_svar(&mut p);
+        if !p.exhausted() {
+            return self.deny(format!(
+                "static ability reaching `AffectedZone$ {raw_zone}`"
+            ));
+        }
+        let zone_arg = effect_zone.map_or_else(String::new, |z| format!(", zone = {z}"));
+        self.body.abilities.push(format!(
+            "static_ability!({filter}, Modifier::AddKeyword(KeywordSet::FLASH){zone_arg}{condition})"
+        ));
+        Some(())
+    }
+
+    /// Non-P/T characteristic-defining abilities on `Card.Self` (or omitted
+    /// `Affected$`): unconditional Layer 4/5 color/type CDAs, conditional
+    /// self-Flash CDAs, and kicked stack Split Second.
+    fn non_pt_cda_static(&mut self, mut p: Params) -> Option<()> {
+        p.take("CharacteristicDefining");
+        p.take("Affected");
+        if p.peek("AddKeyword").map(str::trim) == Some("Split second") {
+            if p.peek("IsPresent").map(str::trim) != Some("Card.Self+kicked")
+                || p.peek("PresentZone").map(str::trim) != Some("Stack")
+                || self.body.additional_costs.is_empty()
+            {
+                return self.deny("a characteristic-defining ability with no P/T".to_string());
+            }
+            p.take("AddKeyword");
+            p.take("IsPresent");
+            p.take("PresentZone");
+            if !p.exhausted() {
+                return self.deny("a characteristic-defining ability with no P/T".to_string());
+            }
+            self.body.abilities.push(
+                "static_ability!(Filter::This, Modifier::AddKeyword(KeywordSet::SPLIT_SECOND), \
+                 zone = ZoneRef::Stack, condition = Some(Condition::KickedWith(0)))"
+                    .to_string(),
+            );
+            return Some(());
+        }
+        if p.peek("AddKeyword").map(str::trim) == Some("Flash") {
+            p.take("AddKeyword");
+            let condition =
+                self.static_conditions(&mut p, "unclaimed parameter `Continuous.CheckSVar`")?;
+            if !p.exhausted() {
+                return self.deny("a characteristic-defining ability with no P/T".to_string());
+            }
+            self.body.abilities.push(format!(
+                "static_ability!(Filter::This, Modifier::AddKeyword(KeywordSet::FLASH), \
+                 zone = ZoneRef::NotBattlefield{condition})"
+            ));
+            return Some(());
+        }
+        if p.has("AddKeyword")
+            || p.has("RemoveKeyword")
+            || p.has("CantHaveKeyword")
+            || p.has("RemoveLandTypes")
+            || p.peek("AddType").map(str::trim) == Some("ChosenType")
+        {
+            return self
+                .deny("unclaimed parameter `Continuous.CharacteristicDefining`".to_string());
+        }
+        let mut out = Vec::new();
+        self.type_modifiers(&mut p, "Filter::This", &mut out)?;
+        self.color_modifiers(&mut p, "Filter::This", &mut out)?;
+        self.strip_ai_hint_add_svar(&mut p);
+        if !p.exhausted() || out.is_empty() {
+            return self
+                .deny("unclaimed parameter `Continuous.CharacteristicDefining`".to_string());
+        }
+        let is_perm = self.is_permanent_card_pub();
+        for ability in out {
+            let Some(open) = ability.strip_suffix(')') else {
+                return self.deny("unclaimed parameter `Continuous.CharacteristicDefining`".into());
+            };
+            if is_perm {
+                self.body.abilities.push(ability.clone());
+            }
+            self.body
+                .abilities
+                .push(format!("{open}, zone = ZoneRef::NotBattlefield)"));
+        }
+        Some(())
+    }
+
+    /// Lowers a single `AddKeyword$` entry that represents a granted static,
+    /// prevention, triggered, or activated keyword ability. Returns `Ok(true)`
+    /// (`Some(true)`) if handled, `Some(false)` to fall through to
+    /// `keyword_const`, and `None` if refused.
+    fn try_granted_keyword_ability(
+        &mut self,
+        word: &str,
+        filter: &str,
+        allows_equip: bool,
+        bits: &mut Vec<String>,
+        out: &mut Vec<String>,
+    ) -> Option<bool> {
+        let trimmed = word.trim();
+        if trimmed == "Protection from each color" {
+            out.push(Self::static_expr(
+                filter,
+                "Modifier::ProtectionFrom(&Filter::HasColor(ColorSet::from_slice(&[\
+                 Color::White, Color::Blue, Color::Black, Color::Red, Color::Green])))",
+            ));
+            return Some(true);
+        }
+        if trimmed == "Protection from everything" {
+            out.push(Self::static_expr(
+                filter,
+                "Modifier::ProtectionFrom(&Filter::Any)",
+            ));
+            return Some(true);
+        }
+        if let Some(from) = self.protection_filter(word) {
+            out.push(Self::static_expr(
+                filter,
+                &format!("Modifier::ProtectionFrom(&{from})"),
+            ));
+            return Some(true);
+        }
+        if let Some(land) = self.landwalk_filter(word) {
+            let name = self.body.filter_static("LANDWALK", &land);
+            out.push(Self::static_expr(
+                filter,
+                &format!("Modifier::LandwalkMatching(&{name})"),
+            ));
+            return Some(true);
+        }
+        if let Some(rest) = trimmed.strip_prefix("Cumulative upkeep:") {
+            let payment = self.cumulative_upkeep_payment(rest)?;
+            out.push(Self::static_expr(
+                filter,
+                &format!(
+                    "Modifier::GrantTriggered {{ \
+                     trigger: Trigger::StepBegin {{ step: StepKind::Upkeep, whose: PlayerRel::You }}, \
+                     effects: &[Effect::AddCounter {{ kind: counters::AGE, amount: Amount::Fixed(1) }}, {payment}], \
+                     target: None }}"
+                ),
+            ));
+            return Some(true);
+        }
+        if let Some(rest) = trimmed.strip_prefix("Ward:") {
+            let Some(effect) = self.ward_effect_expr(rest, true) else {
+                self.note(format!("static ability granting keyword `{word}`"));
+                return None;
+            };
+            out.push(Self::static_expr(
+                filter,
+                &format!(
+                    "Modifier::GrantTriggered {{ trigger: Trigger::Ward, \
+                     effects: &[{effect}], target: None }}"
+                ),
+            ));
+            return Some(true);
+        }
+        if trimmed == "Exalted" {
+            out.push(Self::static_expr(
+                filter,
+                "Modifier::GrantTriggered { \
+                 trigger: Trigger::AttacksAlone(&Filter::YOUR_CREATURE), \
+                 effects: &[Effect::PumpEventObject { power: Amount::Fixed(1), \
+                 toughness: Amount::Fixed(1), keywords: KeywordSet::EMPTY, \
+                 duration: Duration::UntilEndOfTurn }], target: None }",
+            ));
+            return Some(true);
+        }
+        if let Some(mods) = granted_damage_prevention_modifiers(trimmed) {
+            for m in mods {
+                out.push(Self::static_expr(filter, m));
+            }
+            return Some(true);
+        }
+        if self.try_granted_triggered_keyword(trimmed, word, filter, bits, out)? {
+            return Some(true);
+        }
+        self.try_granted_activated_keyword(trimmed, word, filter, allows_equip, bits, out)
+    }
+
+    fn try_granted_triggered_keyword(
+        &mut self,
+        trimmed: &str,
+        word: &str,
+        filter: &str,
+        bits: &mut Vec<String>,
+        out: &mut Vec<String>,
+    ) -> Option<bool> {
+        if let Some(rest) = trimmed.strip_prefix("Annihilator:") {
+            let Some(n) = rest.trim().parse::<u16>().ok().filter(|&n| n >= 1) else {
+                self.note(format!("static ability granting keyword `{word}`"));
+                return None;
+            };
+            out.push(Self::static_expr(
+                filter,
+                &format!(
+                    "Modifier::GrantTriggered {{ trigger: Trigger::Attacks(&Filter::This), \
+                     effects: &[Effect::SacrificeAmountForPlayers {{ \
+                     who: PlayerRel::DefendingPlayer, filter: &Filter::Any, \
+                     amount: Amount::Fixed({n}) }}], target: None }}"
+                ),
+            ));
+            return Some(true);
+        }
+        if let Some(rest) = trimmed.strip_prefix("Afflict:") {
+            let Some(n) = rest.trim().parse::<u32>().ok().filter(|&n| n >= 1) else {
+                self.note(format!("static ability granting keyword `{word}`"));
+                return None;
+            };
+            bits.push("KeywordSet::AFFLICT".to_string());
+            out.push(Self::static_expr(
+                filter,
+                &format!(
+                    "Modifier::GrantTriggered {{ trigger: Trigger::BecomesBlocked, \
+                     effects: &[Effect::LoseLife {{ amount: Amount::Fixed({n}), \
+                     target: PlayerRel::DefendingPlayer }}], target: None }}"
+                ),
+            ));
+            return Some(true);
+        }
+        if let Some(rest) = trimmed.strip_prefix("Afterlife:") {
+            let Some(n) = rest.trim().parse::<u32>().ok().filter(|&n| n >= 1) else {
+                self.note(format!("static ability granting keyword `{word}`"));
+                return None;
+            };
+            bits.push("KeywordSet::AFTERLIFE".to_string());
+            out.push(Self::static_expr(
+                filter,
+                &format!(
+                    "Modifier::GrantTriggered {{ trigger: Trigger::Dies(&Filter::This), \
+                     effects: &[Effect::CreateTokenN {{ \
+                     token: &generated_tokens::SPIRIT_1_1_WHITE_BLACK_FLYING, \
+                     amount: Amount::Fixed({n}) }}], target: None }}"
+                ),
+            ));
+            return Some(true);
+        }
+        if let Some(rest) = trimmed.strip_prefix("Poisonous:") {
+            let Some(n) = rest.trim().parse::<u32>().ok().filter(|&n| n >= 1) else {
+                self.note(format!("static ability granting keyword `{word}`"));
+                return None;
+            };
+            out.push(Self::static_expr(
+                filter,
+                &format!(
+                    "Modifier::GrantTriggered {{ \
+                     trigger: Trigger::DealsCombatDamageToPlayer(&Filter::This), \
+                     effects: &[Effect::Poison {{ who: PlayerRel::DamagedPlayer, \
+                     amount: Amount::Fixed({n}) }}], target: None }}"
+                ),
+            ));
+            return Some(true);
+        }
+        if let Some(rest) = trimmed.strip_prefix("Renown:") {
+            let Some(n) = rest.trim().parse::<u8>().ok().filter(|&n| n >= 1) else {
+                self.note(format!("static ability granting keyword `{word}`"));
+                return None;
+            };
+            bits.push("KeywordSet::RENOWN".to_string());
+            let trig_expr = format!(
+                "triggered!(Trigger::DealsCombatDamageToPlayer(&Filter::This), \
+                 &[Effect::BecomeRenowned({n})], \
+                 condition = Some(Condition::Not(&Condition::IsRenowned)))"
+            );
+            let def_name = self.body.ability_static("GRANTED_TRIGGER_", &trig_expr);
+            out.push(Self::static_expr(
+                filter,
+                &format!("Modifier::GrantTriggeredDefinition(&{def_name})"),
+            ));
+            return Some(true);
+        }
+        Some(false)
+    }
+
+    fn try_granted_activated_keyword(
+        &mut self,
+        trimmed: &str,
+        word: &str,
+        filter: &str,
+        allows_equip: bool,
+        bits: &mut Vec<String>,
+        out: &mut Vec<String>,
+    ) -> Option<bool> {
+        if let Some(rest) = trimmed.strip_prefix("Crew:") {
+            let Ok(n) = rest.trim().parse::<u8>() else {
+                self.note(format!("static ability granting keyword `{word}`"));
+                return None;
+            };
+            let def_name = self
+                .body
+                .ability_static("GRANTED_ACTIVATED_", &format!("crew!({n})"));
+            out.push(Self::static_expr(
+                filter,
+                &format!("Modifier::GrantActivatedDefinition(&{def_name})"),
+            ));
+            return Some(true);
+        }
+        if let Some(rest) = trimmed.strip_prefix("Saddle:") {
+            let Ok(n) = rest.trim().parse::<u8>() else {
+                self.note(format!("static ability granting keyword `{word}`"));
+                return None;
+            };
+            let def_name = self
+                .body
+                .ability_static("GRANTED_ACTIVATED_", &format!("saddle!({n})"));
+            out.push(Self::static_expr(
+                filter,
+                &format!("Modifier::GrantActivatedDefinition(&{def_name})"),
+            ));
+            return Some(true);
+        }
+        if let Some(rest) = trimmed.strip_prefix("Outlast:") {
+            return self.granted_outlast_ability(rest, word, filter, bits, out);
+        }
+        if let Some(rest) = trimmed.strip_prefix("Equip:")
+            && allows_equip
+        {
+            return self.granted_equip_ability(rest, word, filter, out);
+        }
+        Some(false)
+    }
+
+    fn granted_outlast_ability(
+        &mut self,
+        rest: &str,
+        word: &str,
+        filter: &str,
+        bits: &mut Vec<String>,
+        out: &mut Vec<String>,
+    ) -> Option<bool> {
+        let trimmed = rest.trim();
+        if trimmed.is_empty() || trimmed.contains([':', '$', '<', '>']) {
+            self.note(format!("static ability granting keyword `{word}`"));
+            return None;
+        }
+        let Some((mana, parts)) = self.cost_pieces(trimmed) else {
+            self.note(format!("static ability granting keyword `{word}`"));
+            return None;
+        };
+        if !parts.is_empty() || mana.is_empty() {
+            self.note(format!("static ability granting keyword `{word}`"));
+            return None;
+        }
+        let cost = crate::body::cost_literal(&mana, &["TapSelf".to_string()]);
+        bits.push("KeywordSet::OUTLAST".to_string());
+        let ab_expr = format!(
+            "activated!({cost}, &[Effect::AddCounterSource {{ kind: CounterKind::P1P1, \
+             amount: Amount::Fixed(1) }}], timing = ActivationTiming::SorcerySpeed)"
+        );
+        let def_name = self.body.ability_static("GRANTED_ACTIVATED_", &ab_expr);
+        out.push(Self::static_expr(
+            filter,
+            &format!("Modifier::GrantActivatedDefinition(&{def_name})"),
+        ));
+        Some(true)
+    }
+
+    fn granted_equip_ability(
+        &mut self,
+        rest: &str,
+        word: &str,
+        filter: &str,
+        out: &mut Vec<String>,
+    ) -> Option<bool> {
+        let fields: Vec<&str> = rest.split(':').collect();
+        let cost_raw = fields.first().map_or_default(|s| s.trim());
+        if cost_raw.is_empty() || cost_raw.contains(['$', '/']) {
+            self.note(format!("static ability granting keyword `{word}`"));
+            return None;
+        }
+        let Some(cost) = self.cost_expr(cost_raw) else {
+            self.note(format!("static ability granting keyword `{word}`"));
+            return None;
+        };
+        if cost == "Cost::TAP" || cost.contains("TapSelf") {
+            self.note(format!("static ability granting keyword `{word}`"));
+            return None;
+        }
+        let ab_expr = if fields.len() == 1 {
+            format!("equip!({cost})")
+        } else if fields.len() == 3 {
+            let valid = fields[1].trim();
+            if valid.is_empty()
+                || valid.contains(['$', '/'])
+                || fields[2].contains('$')
+                || !is_granted_equip_target_valid(valid)
+            {
+                self.note(format!("static ability granting keyword `{word}`"));
+                return None;
+            }
+            let target_expr = self.filter_expr(valid)?;
+            if target_expr != "Filter::YOUR_CREATURE"
+                && !target_expr.contains("Filter::ControlledByYou")
+            {
+                self.note(format!("static ability granting keyword `{word}`"));
+                return None;
+            }
+            let target_name = self.body.filter_static("EQUIP", &target_expr);
+            format!(
+                "activated!({cost}, &[Effect::AttachSelf {{ target: TargetSpec::Object(&{target_name}) }}], \
+                 timing = ActivationTiming::SorcerySpeed, \
+                 target = Some(TargetSpec::Object(&{target_name})))"
+            )
+        } else {
+            self.note(format!("static ability granting keyword `{word}`"));
+            return None;
+        };
+        let def_name = self.body.ability_static("GRANTED_ACTIVATED_", &ab_expr);
+        out.push(Self::static_expr(
+            filter,
+            &format!("Modifier::GrantActivatedDefinition(&{def_name})"),
+        ));
+        Some(true)
+    }
+
+    /// Extended static-safe `Amount` expressions local to `statics.rs`:
+    /// delegates to `static_count_expr`, plus `Count$ValidGraveyard,Exile`
+    /// (*Huskburster Swarm*, *Sailors' Bane*) and `Count$ValidHand Card.ChosenCtrl`
+    /// (*Nyxathid*, guarded by `EnterModifier::ChooseOpponent`).
+    fn static_count_expr_ext(&mut self, def: &str) -> Option<String> {
+        if let Some(expr) = self.static_count_expr(def) {
+            return Some(expr);
+        }
+        let trimmed = def.trim();
+        if trimmed == "Count$ValidHand Card.ChosenCtrl" && self.has_chosen_opponent() {
+            return Some(
+                "Amount::CountOf { filter: &Filter::Any, zone: ZoneSel::HandChosen }".to_string(),
+            );
+        }
+        if let Some(valid) = trimmed
+            .strip_prefix("Count$ValidGraveyard,Exile ")
+            .or_else(|| trimmed.strip_prefix("Count$ValidExile,Graveyard "))
+            && !valid.contains(['$', '/'])
+        {
+            match strip_strict_zone_owner(valid)? {
+                (Some("PlayerRel::You"), stripped) => {
+                    let gy_expr = self.filter_expr_in_zone(&stripped, true)?;
+                    let ex_expr = self.filter_expr_in_zone(valid, true)?;
+                    let gy_name = self.body.filter_static("COUNT", &gy_expr);
+                    let ex_name = self.body.filter_static("COUNT", &ex_expr);
+                    return Some(format!(
+                        "Amount::Sum {{ left: &Amount::CountOf {{ filter: &{gy_name}, \
+                         zone: ZoneSel::GraveyardOf(PlayerRel::You) }}, \
+                         right: &Amount::CountOf {{ filter: &{ex_name}, zone: ZoneSel::ExileAll }} }}"
+                    ));
+                }
+                (None, stripped) => {
+                    let expr = self.filter_expr_in_zone(&stripped, true)?;
+                    let name = self.body.filter_static("COUNT", &expr);
+                    return Some(format!(
+                        "Amount::Sum {{ left: &Amount::CountOf {{ filter: &{name}, \
+                         zone: ZoneSel::GraveyardAll }}, \
+                         right: &Amount::CountOf {{ filter: &{name}, zone: ZoneSel::ExileAll }} }}"
+                    ));
+                }
+                _ => return None,
+            }
+        }
+        None
+    }
+
+    fn parse_discard_x_spell_cost(&mut self, cost: &str) -> Option<String> {
+        let tokens = super::cost_parts(cost);
+        if tokens.len() != 1
+            || !self.has_x_mana_cost
+            || self.svars.get("X").map(String::as_str) != Some("Count$xPaid")
+            || self.oracle.to_ascii_lowercase().contains("x is ")
+        {
+            return None;
+        }
+        let inner = tokens[0]
+            .strip_prefix("Discard<")
+            .and_then(|s| s.strip_suffix('>'))?;
+        let mut fields = inner.splitn(3, '/');
+        let (Some("X"), Some(spec)) = (fields.next(), fields.next()) else {
+            return None;
+        };
+        let spec = spec.trim();
+        if spec.is_empty() || matches!(spec, "Random" | "CARDNAME" | "NICKNAME") {
+            return None;
+        }
+        let expr = self.filter_expr_in_zone(spec, true)?;
+        let filter_name = self.body.filter_static("COST", &expr);
+        Some(format!("CostPart::DiscardX(&{filter_name})"))
+    }
+}
+
+fn granted_damage_prevention_modifiers(trimmed: &str) -> Option<&'static [&'static str]> {
+    Some(match trimmed {
+        "Prevent all combat damage that would be dealt to CARDNAME." => {
+            &["Modifier::PreventDamageToIt"]
+        }
+        "Prevent all combat damage that would be dealt by CARDNAME." => {
+            &["Modifier::PreventDamageFromIt"]
+        }
+        "Prevent all combat damage that would be dealt to and dealt by CARDNAME." => &[
+            "Modifier::PreventDamageToIt",
+            "Modifier::PreventDamageFromIt",
+        ],
+        "Prevent all damage that would be dealt by CARDNAME." => {
+            &["Modifier::PreventAllDamageFromIt"]
+        }
+        "Prevent all damage that would be dealt to CARDNAME." => {
+            &["Modifier::PreventDamageFrom(&Filter::Any)"]
+        }
+        _ => return None,
+    })
+}
+
+fn static_phase_condition(phases: &str) -> Option<&'static str> {
+    Some(match phases.trim() {
+        "BeginCombat->EndCombat" => "Condition::DuringCombat",
+        "BeginCombat->Declare Attackers" => {
+            "Condition::Any(&[Condition::DuringStep(StepKind::CombatBegin), Condition::DuringStep(StepKind::DeclareAttackers)])"
+        }
+        "Main2->Cleanup" => "Condition::AfterCombat",
+        "Upkeep->Main1,Main2->Cleanup" => "Condition::Not(&Condition::DuringCombat)",
+        "Upkeep" => "Condition::DuringStep(StepKind::Upkeep)",
+        "Draw" => "Condition::DuringStep(StepKind::Draw)",
+        "BeginCombat" => "Condition::DuringStep(StepKind::CombatBegin)",
+        "Declare Attackers" => "Condition::DuringStep(StepKind::DeclareAttackers)",
+        "Declare Blockers" => "Condition::DuringStep(StepKind::DeclareBlockers)",
+        "EndCombat" => "Condition::DuringStep(StepKind::CombatEnd)",
+        "End of Turn" => "Condition::DuringStep(StepKind::End)",
+        _ => return None,
+    })
+}
+
+fn is_all_non_battlefield_zones(raw: &str) -> bool {
+    let mut zones: Vec<&str> = Vec::new();
+    for z in raw.split(',').map(str::trim).filter(|s| !s.is_empty()) {
+        if !zones.contains(&z) {
+            zones.push(z);
+        }
+    }
+    zones.len() == 6
+        && ["Hand", "Graveyard", "Exile", "Library", "Command", "Stack"]
+            .iter()
+            .all(|z| zones.contains(z))
+}
+
+fn strip_all_zones_you_ctrl(valid: &str) -> Option<String> {
+    let mut alts = Vec::new();
+    for raw_alt in valid.split(',') {
+        let alt = raw_alt.trim();
+        if alt.is_empty() {
+            return None;
+        }
+        let (base, qual) = alt.split_once('.').unwrap_or((alt, ""));
+        if base.contains("Ctrl") || base.contains("Own") {
+            return None;
+        }
+        let mut saw_you_ctrl = false;
+        let mut kept = Vec::new();
+        for atom in qual.split('+').map(str::trim).filter(|s| !s.is_empty()) {
+            match atom {
+                "YouCtrl" => saw_you_ctrl = true,
+                "Self" | "EnchantedBy" | "EquippedBy" | "AttachedBy" | "Attached"
+                | "IsRemembered" | "ChosenCard" | "ExiledWithSource" | "ExiledWith"
+                | "IsImprinted" | "TopLibrary" => return None,
+                a if a.contains("Ctrl") || a.contains("Own") || a.contains("inZone") => {
+                    return None;
+                }
+                other => kept.push(other),
+            }
+        }
+        if !saw_you_ctrl {
+            return None;
+        }
+        if kept.is_empty() {
+            alts.push(base.trim().to_string());
+        } else {
+            alts.push(format!("{}.{}", base.trim(), kept.join("+")));
+        }
+    }
+    (!alts.is_empty()).then(|| alts.join(","))
+}
+
+fn is_unscoped_all_zones_affected(valid: &str) -> bool {
+    let mut saw_alt = false;
+    for raw_alt in valid.split(',') {
+        let alt = raw_alt.trim();
+        if alt.is_empty() {
+            return false;
+        }
+        saw_alt = true;
+        for atom in alt
+            .split(['.', '+'])
+            .map(str::trim)
+            .filter(|s| !s.is_empty())
+        {
+            if matches!(
+                atom,
+                "Self"
+                    | "Other"
+                    | "StrictlyOther"
+                    | "EnchantedBy"
+                    | "EquippedBy"
+                    | "AttachedBy"
+                    | "Attached"
+                    | "IsRemembered"
+                    | "ChosenCard"
+                    | "ExiledWithSource"
+                    | "ExiledWith"
+                    | "IsImprinted"
+                    | "TopLibrary"
+            ) || atom.contains("Ctrl")
+                || atom.contains("Own")
+                || atom.contains("inZone")
+            {
+                return false;
+            }
+        }
+    }
+    saw_alt
+}
+
+fn is_granted_equip_target_valid(valid: &str) -> bool {
+    let mut saw_alt = false;
+    for alt in valid.split(',').map(str::trim) {
+        if alt.is_empty() {
+            return false;
+        }
+        saw_alt = true;
+        let Some((base, atoms_raw)) = alt.split_once('.') else {
+            return false;
+        };
+        if base.trim() != "Creature" {
+            return false;
+        }
+        let mut saw_you = false;
+        for atom in atoms_raw
+            .split('+')
+            .map(str::trim)
+            .filter(|a| !a.is_empty())
+        {
+            if atom == "YouCtrl" {
+                saw_you = true;
+            } else if atom.contains("Ctrl")
+                || atom.contains("Own")
+                || atom.contains("ControlledBy")
+                || matches!(atom, "Self" | "StrictlySelf")
+            {
+                return false;
+            }
+        }
+        if !saw_you {
+            return false;
+        }
+    }
+    saw_alt
+}
+
+fn parse_svar_amount_compare(cmp: &str) -> Option<(&'static str, &str)> {
+    let trimmed = cmp.trim();
+    if trimmed.len() < 3 {
+        return None;
+    }
+    let (prefix, rhs) = trimmed.split_at(2);
+    let rhs = rhs.trim();
+    if rhs.is_empty()
+        || rhs.chars().next().is_some_and(|c| c.is_ascii_digit())
+        || rhs.contains([' ', '$', '/'])
+    {
+        return None;
+    }
+    let op = match prefix {
+        "GE" => "AtLeast",
+        "GT" => "GreaterThan",
+        "LE" => "AtMost",
+        "LT" => "LessThan",
+        "EQ" => "Equal",
+        "NE" => "NotEqual",
+        _ => return None,
+    };
+    Some((op, rhs))
 }
 
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -5211,13 +6050,7 @@ fn is_exert_self_cost(cost: &str) -> bool {
         && matches!(subject.trim(), "CARDNAME" | "NICKNAME")
 }
 
-fn is_pure_ai_hint_svar(def: &str) -> bool {
-    let Some(rest) = def.trim().strip_prefix("SVar:") else {
-        return false;
-    };
-    let Some((key, _)) = rest.split_once(':') else {
-        return false;
-    };
+fn is_pure_ai_hint_name(key: &str) -> bool {
     matches!(
         key.trim(),
         "HasAttackEffect"
@@ -5235,6 +6068,26 @@ fn is_pure_ai_hint_svar(def: &str) -> bool {
             | "DiscardMe"
             | "NonStackingEffect"
     )
+}
+
+fn is_scalar_ai_hint_value(def: &str) -> bool {
+    let trimmed = def.trim();
+    !trimmed.is_empty()
+        && !trimmed.contains(['$', ':', '|', ' '])
+        && (matches!(
+            trimmed,
+            "TRUE" | "True" | "true" | "FALSE" | "False" | "false" | "Once" | "Multiple" | "Always"
+        ) || trimmed.parse::<i32>().is_ok())
+}
+
+fn is_pure_ai_hint_svar(def: &str) -> bool {
+    let Some(rest) = def.trim().strip_prefix("SVar:") else {
+        return false;
+    };
+    let Some((key, _)) = rest.split_once(':') else {
+        return false;
+    };
+    is_pure_ai_hint_name(key)
 }
 
 fn parse_pt_multiplier(raw: &str) -> Option<(&str, i16)> {
