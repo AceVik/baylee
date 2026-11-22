@@ -1540,6 +1540,18 @@ fn effect_play_copies_from_graveyard_and_supports_opponent_alternative_cost() {
         },
     )
     .unwrap();
+    // CR 707.12: cast-from-graveyard rules see both copies move from that
+    // zone, even though neither original leaves it.
+    let copies = e.state().zones.list(ZoneLocation::Stack);
+    assert_eq!(copies.len(), 2);
+    for &copy in copies {
+        assert!(e.state().journal.entries().iter().any(|entry| matches!(
+            entry.event,
+            crate::event::GameEvent::ZoneChanged {
+                object, from: Zone::Graveyard, to: Zone::Stack, ..
+            } if object == copy
+        )));
+    }
     resolve_all_stack(&mut e);
 
     assert_eq!(

@@ -425,6 +425,17 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
             .state
             .object(original.object)
             .filter(|object| object.version == original.version)?;
+        // CR 707.12 and 112.2a: the copy starts in the original's zone,
+        // even when the player creating it owns neither that hand nor that
+        // graveyard. Exile and the command zone are shared (CR 400.1).
+        let zone = orig_obj.zone;
+        let zone_owner = match zone {
+            crate::zone::Zone::Hand | crate::zone::Zone::Graveyard | crate::zone::Zone::Library => {
+                orig_obj.zone_owner.unwrap_or(orig_obj.owner)
+            }
+            _ => player,
+        };
+        let location = crate::zone::ZoneLocation::of(zone, zone_owner);
         let base = (*orig_obj.base).clone();
         let card_ref = orig_obj.card;
         let face_index = orig_obj.face_index;
@@ -438,19 +449,16 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
             );
             object.timestamp = timestamp;
             object.controlled_since = timestamp;
-            object.zone = crate::zone::Zone::Exile;
-            object.zone_owner = Some(player);
+            object.zone = zone;
+            object.zone_owner = location.player();
             object.card = card_ref;
             object.face_index = face_index;
             object.riders.push(crate::object::Rider::SpellCopy);
             object
         });
-        self.state.zones.insert(
-            id,
-            crate::zone::ZoneLocation::Exile(player),
-            crate::zone::ZonePosition::Top,
-            true,
-        );
+        self.state
+            .zones
+            .insert(id, location, crate::zone::ZonePosition::Top, true);
         let version = self.state.object(id)?.version;
         self.state.watch_token_cleanup(id);
         self.state.invalidate_projections();
