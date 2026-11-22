@@ -22636,8 +22636,6 @@ Dream Spoilers
 Knickknack Ouphe
 Misleading Motes
 Will, Scion of Peace
-Draconic Debut
-First Little Pig
 Adric, Mathematical Genius
 Decaying Time Loop
 Duggan, Private Detective
@@ -22786,7 +22784,6 @@ Venerated Stormsinger
 Veteran Ice Climber
 Voice of Victory
 Zurgo's Vanguard
-Xho Cai, Flickering Talon
 Aettir and Priwen
 Delivery Moogle
 O'aka, Traveling Merchant
@@ -22918,7 +22915,6 @@ Living Library
 Ob Nixilis, the Ascended
 Pyre Rhymer // Molten Tide
 Yoshimaru, Beloved Companion
-Sparks Ablaze
 Captain Pike, Fullness of Time
 De-evolve
 Dr. Joseph M'Benga
@@ -23261,7 +23257,6 @@ Sword of Forge and Frontier
 Unctus's Retrofitter
 Urabrask's Forge
 Vulshok Factory
-Magmatic Scorchwing
 Axgard Artisan
 Botanical Brawler
 Invasion of Kylem // Valor's Reach Tag Team
@@ -23432,7 +23427,6 @@ Tactical Officer
 Jhoira, Weatherlight Corsair
 Multiply by Zero
 Omnipresence
-Asymmetry Sage
 D-7 Battle Cruiser
 Hologram Janeway
 Janice Rand, Essential Aide
@@ -23715,7 +23709,6 @@ Rampant Rejuvenator
 Regent's Authority
 Unquenchable Fury
 Voltage Surge
-Mothrider Cavalry
 Surge Engine
 Body Launderer
 Corpse Appraiser
@@ -23913,8 +23906,6 @@ Excava, the Risen Past
 Flow State
 Follow the Lumarets
 Slumbering Trudge
-Honor the Past
-Impose Hierarchy
 Attuma, Atlantean Warlord
 Crimson Cowl, Master of Evil
 Epic Fight

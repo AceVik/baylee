@@ -132,4 +132,4 @@ ecaf5d0c-17b6-43e5-a791-a36183e36616	A-Stimulus Package	identity-clash: Alchemy 
 a26288bc-3bb2-483d-80a1-fb99961be971	A-Mightstone's Animation	identity-clash: Alchemy A-* card collides on paper card path
 8f7b6421-e399-425c-b403-90d7c28a59db	A-Harald, King of Skemfar	identity-clash: Alchemy A-* card collides on paper card path
 6ca4328e-1326-435f-819e-554133f0d63e	A-Warm Welcome	identity-clash: Alchemy A-* card collides on paper card path
-9726cf0e-5fd2-4699-8192-2fafa2b36963	Padishah Emperor Shaddam IV	forge-script-bug: upcoming script falsely lists K:Trample absent from printed oracle
+9726cf0e-5fd2-4699-8192-2fafa2b36963	Padishah Emperor Shaddam IV	reference-script defect: adds trample absent from Oracle text

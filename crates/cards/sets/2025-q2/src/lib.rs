@@ -841,8 +841,6 @@ pub mod worthy_cost;
 pub mod wrecking_ball_arm;
 #[path = "fin/xande_dark_mage.rs"]
 pub mod xande_dark_mage;
-#[path = "ytdm/xho_cai_flickering_talon.rs"]
-pub mod xho_cai_flickering_talon;
 #[path = "tdm/yathan_tombguard.rs"]
 pub mod yathan_tombguard;
 #[path = "fin/yuna_hope_of_spira.rs"]

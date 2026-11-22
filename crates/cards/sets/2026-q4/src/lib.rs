@@ -61,8 +61,6 @@ pub mod ashaya_s_enduring_bond;
 pub mod assault_drone;
 #[path = "trk/assembly_specialist.rs"]
 pub mod assembly_specialist;
-#[path = "yfra/asymmetry_sage.rs"]
-pub mod asymmetry_sage;
 #[path = "trk/automated_warfare_system.rs"]
 pub mod automated_warfare_system;
 #[path = "mbc/autumn_willow_harmony.rs"]
@@ -759,8 +757,6 @@ pub mod solarium_sentry;
 pub mod solitary_cell;
 #[path = "fra/something_worth_saving.rs"]
 pub mod something_worth_saving;
-#[path = "yfra/sparks_ablaze.rs"]
-pub mod sparks_ablaze;
 #[path = "trk/spatial_anomaly.rs"]
 pub mod spatial_anomaly;
 #[path = "fra/sphinx_of_false_conclusions.rs"]

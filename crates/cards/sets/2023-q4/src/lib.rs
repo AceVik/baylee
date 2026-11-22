@@ -187,8 +187,6 @@ pub mod don_andres_the_renegade;
 pub mod donna_noble;
 #[path = "lci/dowsing_device.rs"]
 pub mod dowsing_device;
-#[path = "ywoe/draconic_debut.rs"]
-pub mod draconic_debut;
 #[path = "lci/dreadmaw_s_ire.rs"]
 pub mod dreadmaw_s_ire;
 #[path = "who/duggan_private_detective.rs"]
@@ -219,8 +217,6 @@ pub mod explorer_s_cache;
 pub mod family_reunion;
 #[path = "lci/fanatical_offering.rs"]
 pub mod fanatical_offering;
-#[path = "ywoe/first_little_pig.rs"]
-pub mod first_little_pig;
 #[path = "who/five_hundred_year_diary.rs"]
 pub mod five_hundred_year_diary;
 #[path = "who/flaming_tyrannosaurus.rs"]

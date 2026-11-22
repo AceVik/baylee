@@ -237,8 +237,6 @@ pub mod moonfolk_puzzlemaker;
 pub mod moonsnare_prototype;
 #[path = "neo/moonsnare_specialist.rs"]
 pub mod moonsnare_specialist;
-#[path = "yneo/mothrider_cavalry.rs"]
-pub mod mothrider_cavalry;
 #[path = "neo/mothrider_patrol.rs"]
 pub mod mothrider_patrol;
 #[path = "neo/mukotai_ambusher.rs"]

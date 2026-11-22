@@ -187,8 +187,6 @@ pub mod kemba_s_banner;
 pub mod kuldotha_cackler;
 #[path = "one/leonin_lightbringer.rs"]
 pub mod leonin_lightbringer;
-#[path = "yone/magmatic_scorchwing.rs"]
-pub mod magmatic_scorchwing;
 #[path = "one/malcator_s_watcher.rs"]
 pub mod malcator_s_watcher;
 #[path = "one/mandible_justiciar.rs"]

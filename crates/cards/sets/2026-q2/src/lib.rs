@@ -477,8 +477,6 @@ pub mod hidden_lair;
 pub mod hire_a_crew;
 #[path = "msc/hit_monkey.rs"]
 pub mod hit_monkey;
-#[path = "ysos/honor_the_past.rs"]
-pub mod honor_the_past;
 #[path = "sos/honorbound_page.rs"]
 pub mod honorbound_page;
 #[path = "msh/hour_of_defeat.rs"]
@@ -521,8 +519,6 @@ pub mod immoral_bargain;
 pub mod immortus_master_of_eternity;
 #[path = "sos/imperious_inkmage.rs"]
 pub mod imperious_inkmage;
-#[path = "ysos/impose_hierarchy.rs"]
-pub mod impose_hierarchy;
 #[path = "msc/impossible_man.rs"]
 pub mod impossible_man;
 #[path = "msc/infinity_formula.rs"]
