@@ -197,11 +197,64 @@ pub(super) fn pump_amount(
     })
 }
 
-/// `withFlying` as `Filter::HasKeyword(KeywordSet::FLYING)`, `withoutFlying`
-/// as its negation. The reference runs the keyword into the word, spaces
-/// removed (`withFirst Strike` is never written; `withFirstStrike` is), so
-/// the name is matched against each bit's printed spelling with its spaces
-/// taken out.
+const PRINTED_KEYWORDS: &[&str] = &[
+    "Flying",
+    "First Strike",
+    "Double Strike",
+    "Deathtouch",
+    "Haste",
+    "Hexproof",
+    "Indestructible",
+    "Lifelink",
+    "Menace",
+    "Reach",
+    "Trample",
+    "Vigilance",
+    "Defender",
+    "Flash",
+    "Shroud",
+    "Shadow",
+    "Fear",
+    "Intimidate",
+    "Infect",
+    "Flanking",
+    "Wither",
+    "Horsemanship",
+    "Skulk",
+    "Enlist",
+    "Persist",
+    "Undying",
+    "Phasing",
+    "Rebound",
+    "Prowess",
+    "Devoid",
+    "Changeling",
+    "Banding",
+    "Storm",
+    "Battle Cry",
+    "Dethrone",
+    "Melee",
+    "Mentor",
+    "Training",
+    "Myriad",
+    "Extort",
+    "Soulbond",
+    "Ascend",
+    "Daybound",
+    "Nightbound",
+    "Split Second",
+    "Read Ahead",
+    "Exploit",
+    "Evolve",
+    "Riot",
+    "Unleash",
+    "Umbra Armor",
+];
+
+/// `withFlying` / `hasKeywordFlying` as `Filter::HasKeyword(KeywordSet::FLYING)`,
+/// `withoutFlying` / `!withFlying` / `!hasKeywordFlying` as its negation.
+/// Matches both spaced (`withFirst Strike`) and unspaced (`withFirstStrike`)
+/// spellings against every engine-enforced keyword bit.
 pub(super) fn keyword_atom(atom: &str) -> Option<String> {
     // CR 700.9: modified creature predicate (`Creature.modified`,
     // `Card.Self+modified`, `Creature.isModified`, `Creature.!modified`).
@@ -212,9 +265,17 @@ pub(super) fn keyword_atom(atom: &str) -> Option<String> {
         }
         _ => {}
     }
-    let (negated, name) = match atom.strip_prefix("without") {
-        Some(rest) => (true, rest),
-        None => (false, atom.strip_prefix("with")?),
+    let (negated, name) = if let Some(rest) = atom
+        .strip_prefix("without")
+        .or_else(|| atom.strip_prefix("!with"))
+        .or_else(|| atom.strip_prefix("!hasKeyword"))
+    {
+        (true, rest)
+    } else {
+        let rest = atom
+            .strip_prefix("with")
+            .or_else(|| atom.strip_prefix("hasKeyword"))?;
+        (false, rest)
     };
     if matches!(name, "Cumulative upkeep" | "CumulativeUpkeep") {
         let has = "Filter::HasCumulativeUpkeep";
@@ -233,66 +294,39 @@ pub(super) fn keyword_atom(atom: &str) -> Option<String> {
         "Bloodthirst" => Some("KeywordSet::BLOODTHIRST"),
         "Devour" => Some("KeywordSet::DEVOUR"),
         "Spree" => Some("KeywordSet::SPREE"),
+        "Provoke" => Some("KeywordSet::PROVOKE"),
+        "Mobilize" => Some("KeywordSet::MOBILIZE"),
+        "Transmute" => Some("KeywordSet::TRANSMUTE"),
+        "Scavenge" => Some("KeywordSet::SCAVENGE"),
+        "Firebending" => Some("KeywordSet::FIREBENDING"),
+        "Freerunning" => Some("KeywordSet::FREERUNNING"),
+        "Sneak" => Some("KeywordSet::SNEAK"),
+        "Sunburst" => Some("KeywordSet::SUNBURST"),
+        "Ravenous" => Some("KeywordSet::RAVENOUS"),
+        "Graft" => Some("KeywordSet::GRAFT"),
+        "Outlast" => Some("KeywordSet::OUTLAST"),
+        "Afterlife" => Some("KeywordSet::AFTERLIFE"),
+        "Afflict" => Some("KeywordSet::AFFLICT"),
+        "Reinforce" => Some("KeywordSet::REINFORCE"),
+        "Splice" => Some("KeywordSet::SPLICE"),
+        "Awaken" => Some("KeywordSet::AWAKEN"),
+        "Conspire" => Some("KeywordSet::CONSPIRE"),
+        "Cipher" => Some("KeywordSet::CIPHER"),
+        "Champion" => Some("KeywordSet::CHAMPION"),
+        "Tribute" => Some("KeywordSet::TRIBUTE"),
+        "Plainswalk" | "Landwalk:Plains" => Some("KeywordSet::PLAINSWALK"),
+        "Islandwalk" | "Landwalk:Island" => Some("KeywordSet::ISLANDWALK"),
+        "Swampwalk" | "Landwalk:Swamp" => Some("KeywordSet::SWAMPWALK"),
+        "Mountainwalk" | "Landwalk:Mountain" => Some("KeywordSet::MOUNTAINWALK"),
+        "Forestwalk" | "Landwalk:Forest" => Some("KeywordSet::FORESTWALK"),
         _ => None,
     };
-    let kw_bit = if let Some(bit) = direct_kw {
+    let kw_bit = if let Some(bit) = direct_kw.or_else(|| keyword_const(name)) {
         bit
     } else {
-        let printed = [
-            "Flying",
-            "First Strike",
-            "Double Strike",
-            "Deathtouch",
-            "Haste",
-            "Hexproof",
-            "Indestructible",
-            "Lifelink",
-            "Menace",
-            "Reach",
-            "Trample",
-            "Vigilance",
-            "Defender",
-            "Flash",
-            "Shroud",
-            "Shadow",
-            "Fear",
-            "Intimidate",
-            "Infect",
-            "Flanking",
-            "Wither",
-            "Horsemanship",
-            "Skulk",
-            "Enlist",
-            "Persist",
-            "Undying",
-            "Phasing",
-            "Rebound",
-            "Prowess",
-            "Devoid",
-            "Changeling",
-            "Banding",
-            "Storm",
-            "Intimidate",
-            "Battle Cry",
-            "Dethrone",
-            "Melee",
-            "Mentor",
-            "Training",
-            "Myriad",
-            "Extort",
-            "Soulbond",
-            "Ascend",
-            "Daybound",
-            "Nightbound",
-            "Split Second",
-            "Read Ahead",
-            "Exploit",
-            "Evolve",
-            "Riot",
-            "Unleash",
-        ]
-        .into_iter()
-        .find(|p| p.replace(' ', "") == name)?;
+        let printed = PRINTED_KEYWORDS.iter().copied().find(|p| {
+            p.eq_ignore_ascii_case(name) || p.replace(' ', "").eq_ignore_ascii_case(name)
+        })?;
         keyword_const(printed)?
     };
     let has = format!("Filter::HasKeyword({kw_bit})");
@@ -317,11 +351,12 @@ pub(super) fn named_atom(atom: &str) -> Option<&str> {
 }
 
 /// A colour word in a valid-string, and whether it is negated: `Black` is
-/// `(false, "Black")` and `nonBlack` is `(true, "Black")`, the second half
-/// being the `Color` variant's name.
+/// `(false, "Black")` and `nonBlack` / `!Black` is `(true, "Black")`, the
+/// second half being the `Color` variant's name.
 pub(super) fn color_atom(atom: &str) -> Option<(bool, &'static str)> {
     let (negated, word) = atom
         .strip_prefix("non")
+        .or_else(|| atom.strip_prefix('!'))
         .map_or((false, atom), |rest| (true, rest));
     let color = match word {
         "White" => "White",
