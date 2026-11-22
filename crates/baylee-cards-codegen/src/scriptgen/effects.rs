@@ -12840,17 +12840,42 @@ impl Tx<'_> {
             return self
                 .deny("`RepeatEach` `Filter::Reference` beside an outer target".to_string());
         }
-        let repeat_expr = format!(
-            "Effect::RepeatEach {{ domain: {domain}, effects: &[{}] }}",
-            body_effects.join(", ")
-        );
-        chain.effects.push(match outer_cond {
-            Some(c) => format!(
-                "Effect::IfCondition {{ condition: {c}, then: &[{repeat_expr}], otherwise: &[] }}"
-            ),
-            None => repeat_expr,
-        });
+        let effects = if domain == "RepeatDomain::EachPlayer"
+            && body_effects
+                == Self::shuffle_and_redraw_effects(
+                    "PlayerRel::EventPlayer",
+                    "PlayerRel::EventPlayer",
+                ) {
+            if !chain.effects.is_empty() {
+                return self.deny("a shared hand shuffle and redraw after earlier effects".into());
+            }
+            // Everyone shuffles before the first player draws (CR 608.2c).
+            // The draw effect counts by recipient and draws in APNAP order (CR 121.2c).
+            Self::shuffle_and_redraw_effects("PlayerRel::EachPlayer", "PlayerRel::Recipient")
+        } else {
+            vec![format!(
+                "Effect::RepeatEach {{ domain: {domain}, effects: &[{}] }}",
+                body_effects.join(", ")
+            )]
+        };
+        if let Some(c) = outer_cond {
+            chain.effects.push(format!(
+                "Effect::IfCondition {{ condition: {c}, then: &[{}], otherwise: &[] }}",
+                effects.join(", ")
+            ));
+        } else {
+            chain.effects.extend(effects);
+        }
         self.chain_sub_ability(sub.map(str::to_string), chain)
+    }
+
+    fn shuffle_and_redraw_effects(who: &str, count_for: &str) -> Vec<String> {
+        vec![
+            format!("Effect::ShuffleIntoLibrary {{ who: {who}, hand: true, graveyard: false }}"),
+            format!(
+                "Effect::DrawCardsFor {{ amount: Amount::ThisWayBy {{ what: ThisWay::PutIntoLibraryFromHand, who: {count_for} }}, who: {who} }}"
+            ),
+        ]
     }
 
     /// Simultaneous `RepeatEach | RepeatPlayers$ Player/Opponent | DamageMap$ True`
@@ -13328,12 +13353,10 @@ impl Tx<'_> {
                     == Some("Remembered$Amount")
             {
                 return Some((
-                    vec![
-                        "Effect::ShuffleIntoLibrary { who: PlayerRel::EventPlayer, hand: true, graveyard: false }"
-                            .to_string(),
-                        "Effect::DrawCardsFor { amount: Amount::ThisWayBy { what: ThisWay::PutIntoLibraryFromHand, who: PlayerRel::EventPlayer }, who: PlayerRel::EventPlayer }"
-                            .to_string(),
-                    ],
+                    Self::shuffle_and_redraw_effects(
+                        "PlayerRel::EventPlayer",
+                        "PlayerRel::EventPlayer",
+                    ),
                     after_draw,
                 ));
             }

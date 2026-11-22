@@ -2531,10 +2531,10 @@ fn wave8b_repeat_each_domains_and_refusals() {
          SVar:X:Remembered$Amount",
     );
     assert!(
-        wheel.abilities[0].contains("Effect::RepeatEach { domain: RepeatDomain::EachPlayer")
-            && wheel.abilities[0]
-                .contains("Effect::ShuffleIntoLibrary { who: PlayerRel::EventPlayer")
-            && wheel.abilities[0].contains("ThisWay::PutIntoLibraryFromHand"),
+        wheel.abilities[0].contains(
+            "Effect::ShuffleIntoLibrary { who: PlayerRel::EachPlayer, hand: true, graveyard: false }, \
+             Effect::DrawCardsFor { amount: Amount::ThisWayBy { what: ThisWay::PutIntoLibraryFromHand, who: PlayerRel::Recipient }, who: PlayerRel::EachPlayer }"
+        ) && !wheel.abilities[0].contains("Effect::RepeatEach"),
         "{}",
         wheel.abilities[0]
     );
