@@ -425,6 +425,24 @@ fn accumulate_effect(effect: &Effect, ch: &mut EffectChannels) {
             baylee_cards_dsl::GiftKind::ExtraTurn => ch.extra_turn_or_win -= 1.0,
             _ => ch.tokens_create -= 0.5,
         },
+        Effect::ChooseCardEx {
+            movement,
+            not_chosen_movement,
+            ..
+        } => {
+            for mv in [*movement, *not_chosen_movement] {
+                match mv {
+                    baylee_cards_dsl::ChooseMove::Hand => ch.draw += 1.0,
+                    baylee_cards_dsl::ChooseMove::Battlefield { .. } => ch.reanimate += 1.0,
+                    baylee_cards_dsl::ChooseMove::Exile
+                    | baylee_cards_dsl::ChooseMove::ExileLinked => ch.exile_single += 1.0,
+                    _ => {}
+                }
+            }
+        }
+        Effect::SeparateIntoTwoPiles { .. } => {
+            ch.draw += 0.5;
+        }
         _ => {}
     }
 }

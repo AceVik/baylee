@@ -49,6 +49,8 @@ pub(super) fn matches(
             },
             |event| event.object == object.id && event.version == object.version,
         ),
+        Filter::ControlledBy(rel) => crate::resolve::players_of(*rel, state, res.controller, res)
+            .contains(&object.controller),
         Filter::And(parts) => parts.iter().all(|part| matches(part, state, object, res)),
         Filter::Or(parts) => parts.iter().any(|part| matches(part, state, object, res)),
         Filter::Not(part) => !matches(part, state, object, res),

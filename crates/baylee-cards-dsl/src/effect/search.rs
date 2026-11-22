@@ -191,17 +191,31 @@ pub enum RepeatDomain {
     Times(super::Amount),
 }
 
-/// Which zone [`super::Effect::ChooseCard`] offers selectable objects/cards from.
+/// Which zone [`super::Effect::ChooseCard`] or [`super::Effect::ChooseCardEx`]
+/// offers selectable objects/cards from.
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 pub enum ChooseZone {
     /// Permanents on the battlefield (`filter` narrows controller/owner/qualities).
     Battlefield,
     /// Cards in the graveyard(s) of `PlayerRel`.
     Graveyard(super::PlayerRel),
+    /// Cards in the hand(s) of `PlayerRel`. Appended to preserve replay identities.
+    Hand(super::PlayerRel),
+    /// Cards in the exile zone(s) of `PlayerRel`. Appended to preserve replay
+    /// identities.
+    Exile(super::PlayerRel),
+    /// Cards in exile linked to the resolving ability's source (`CR 406.6`,
+    /// `CR 607.2a`). Appended to preserve replay identities.
+    LinkedExile,
+    /// Objects/cards bound in `SubjectContext::found` earlier in this resolution
+    /// in whichever zone each bound incarnation currently occupies (*Fireglass
+    /// Mentor*, *You Find Some Prisoners*, *Queen Kayla bin-Kroog*, *Truth or
+    /// Tale*). Appended to preserve replay identities.
+    Found,
 }
 
-/// Optional zone movement applied to each card or permanent chosen by
-/// [`super::Effect::ChooseCard`].
+/// Optional zone movement applied to each card or permanent chosen (or left
+/// unchosen) by [`super::Effect::ChooseCard`] or [`super::Effect::ChooseCardEx`].
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 pub enum ChooseMove {
     /// Leave chosen object(s) in place; bind to `EventObject` and run `then`.
@@ -228,6 +242,13 @@ pub enum ChooseMove {
     /// [`super::Effect::ReturnLinkedToHand`] finds it when the source leaves
     /// (CR 607.2a). Appended to preserve replay identities.
     ExileLinked,
+    /// Put the object(s) on the bottom of their owner's library in any order
+    /// chosen by the resolving controller (`Pending::Arrange` when two or more
+    /// cards go to one library). Appended to preserve replay identities.
+    BottomOfLibraryChosenOrder,
+    /// Put the object(s) on the bottom of their owner's library in a random
+    /// order. Appended to preserve replay identities.
+    BottomOfLibraryRandom,
 }
 
 /// Destination for cards chosen during [`super::Effect::PeekAndReveal`].

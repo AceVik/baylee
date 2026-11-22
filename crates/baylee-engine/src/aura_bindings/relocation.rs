@@ -2,7 +2,6 @@
 
 use super::can_attach;
 use crate::choice::{ChoicePrompt, Pending};
-use crate::object::Rider;
 use crate::resolve::{AwaitingOp, Resolution};
 use crate::state::GameState;
 use crate::text_changes::RuleContext;
@@ -13,14 +12,7 @@ use baylee_core::ids::{DamageSourceRef, ObjectId};
 /// The event's exact incarnation, captured before any response could blink it.
 pub(super) fn event_reference(state: &GameState, res: &Resolution) -> Option<DamageSourceRef> {
     let object = res.event_object?;
-    let version = state
-        .object(res.on_stack)?
-        .riders
-        .iter()
-        .find_map(|rider| match rider {
-            Rider::EventObjectIdentity(version, _) => Some(*version),
-            _ => None,
-        })?;
+    let (version, _) = crate::resolve::event_object_identity(state, res)?;
     Some(DamageSourceRef { object, version })
 }
 

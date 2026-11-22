@@ -1162,3 +1162,43 @@ fn reveal_until_then_and_repeat_each_object_bodies_are_visited() {
     assert_eq!(seen, 4);
     assert!(drew && gained);
 }
+
+#[test]
+fn choose_card_ex_and_separate_into_two_piles_branches_are_visited() {
+    static EFFECTS: &[Effect] = &[
+        Effect::ChooseCardEx {
+            chooser: crate::PlayerRel::You,
+            zone: crate::ChooseZone::Found,
+            filter: &Filter::Any,
+            min: 1,
+            max: Amount::Fixed(1),
+            reveal_chosen: true,
+            movement: crate::ChooseMove::Hand,
+            not_chosen_movement: crate::ChooseMove::BottomOfLibraryChosenOrder,
+            then: &[Effect::draw(1)],
+            for_unchosen: &[Effect::scry(1)],
+        },
+        Effect::SeparateIntoTwoPiles {
+            separator: crate::PlayerRel::Opponent,
+            pile_chooser: crate::PlayerRel::You,
+            zone: crate::ZoneSel::Battlefield,
+            filter: &Filter::ControlledBy(crate::PlayerRel::Chosen),
+            only_found: false,
+            chosen_pile: &[Effect::gain_life(3)],
+            unchosen_pile: &[Effect::Mill {
+                amount: Amount::Fixed(2),
+                target: crate::PlayerRel::You,
+            }],
+        },
+    ];
+    let mut seen = 0;
+    let (mut drew, mut scried, mut gained, mut milled) = (false, false, false, false);
+    Effect::walk(EFFECTS, &mut seen, &mut |effect| {
+        drew |= matches!(effect, Effect::DrawCards { .. });
+        scried |= matches!(effect, Effect::Scry { .. });
+        gained |= matches!(effect, Effect::GainLife { .. });
+        milled |= matches!(effect, Effect::Mill { .. });
+    });
+    assert_eq!(seen, 6);
+    assert!(drew && scried && gained && milled);
+}

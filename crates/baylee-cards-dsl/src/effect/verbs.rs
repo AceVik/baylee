@@ -893,6 +893,27 @@ impl Effect {
             | Effect::Clash {
                 on_win: then,
                 on_loss: otherwise,
+            }
+            | Effect::ChooseCardEx {
+                chooser: _,
+                zone: _,
+                filter: _,
+                min: _,
+                max: _,
+                reveal_chosen: _,
+                movement: _,
+                not_chosen_movement: _,
+                then,
+                for_unchosen: otherwise,
+            }
+            | Effect::SeparateIntoTwoPiles {
+                separator: _,
+                pile_chooser: _,
+                zone: _,
+                filter: _,
+                only_found: _,
+                chosen_pile: then,
+                unchosen_pile: otherwise,
             } => (then, otherwise),
             // A single effect, not a list: the branch taken when the player
             // declines the price. `from_ref` is what makes it one shape with

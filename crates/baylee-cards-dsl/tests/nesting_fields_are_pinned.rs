@@ -106,7 +106,9 @@
 // VoteObjects adds one walker-tested body (`if_no_votes`; VoteOption bodies are
 // also walked by `Effect::walk` and tested in `vote_options_and_vote_objects_fallback_are_visited`).
 // RevealUntilThen and RepeatEachObject add one walker-tested body each (`then`).
-const NESTING_FIELDS: usize = 109;
+// ChooseCardEx (`then`, `for_unchosen`) and SeparateIntoTwoPiles (`chosen_pile`,
+// `unchosen_pile`) add two walker-tested bodies each.
+const NESTING_FIELDS: usize = 113;
 
 /// How many variants those twenty-one fields are spread across.
 ///
@@ -181,7 +183,9 @@ const NESTING_FIELDS: usize = 109;
 /// `VoteObjects` is the ninety-fourth (`vote_options_and_vote_objects_fallback_are_visited`).
 /// `RevealUntilThen` and `RepeatEachObject` are the ninety-fifth and ninety-sixth
 /// (`reveal_until_then_and_repeat_each_object_bodies_are_visited`).
-const CARRYING_VARIANTS: usize = 96;
+/// `ChooseCardEx` and `SeparateIntoTwoPiles` are the ninety-seventh and ninety-eighth
+/// (`choose_card_ex_and_separate_into_two_piles_branches_are_visited`).
+const CARRYING_VARIANTS: usize = 98;
 
 /// The floor under the reader itself.
 ///

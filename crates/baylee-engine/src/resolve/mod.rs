@@ -43,6 +43,7 @@ mod damage_returns;
 pub(crate) mod for_each;
 mod wave10b;
 mod wave12a;
+mod wave13a;
 mod weakest;
 use copying::{copy_spell, copy_target_ability};
 mod coin;
@@ -500,7 +501,7 @@ pub(super) fn granted_source(
 }
 
 /// Identity and departure power retained for the triggering event's object.
-fn event_object_identity(state: &GameState, res: &Resolution) -> Option<(u32, i16)> {
+pub(crate) fn event_object_identity(state: &GameState, res: &Resolution) -> Option<(u32, i16)> {
     if let Some((reference, power)) = res.subject.event_identity() {
         return Some((reference.version, power));
     }
@@ -1066,6 +1067,17 @@ pub(super) fn amount2(amount: &Amount, state: &GameState, you: PlayerId, res: &R
                 })
                 .count() as u32
         }
+        Amount::CountOf { filter, zone } if filter_reads_resolution_player(filter) => {
+            let candidates = wave12a::snapshot_zone_candidates(state, res, *zone);
+            candidates
+                .into_iter()
+                .filter(|&id| {
+                    state
+                        .object(id)
+                        .is_some_and(|o| matches_in_resolution(filter, state, o, you, res, None))
+                })
+                .count() as u32
+        }
         other => eval::amount_with_context(other, state, you, res.rule_context(), res.x),
     }
 }
@@ -1214,7 +1226,7 @@ pub(super) fn bound_now_with_context(
             .into_iter()
             .collect();
     }
-    if !crate::effects::locks_its_set(modifier) {
+    if !crate::effects::locks_its_set(modifier) && !filter_reads_resolution_player(filter) {
         if eval::filter_reads_chosen_subtype(filter)
             && let Some(subtype) = context
                 .resolved_subtype
@@ -1253,6 +1265,85 @@ pub(super) fn bound_now_with_context(
             .filter(|id| state.object(*id).is_some_and(matches))
             .map(|id| crate::effects::EffectFilter::object(state, id))
             .collect()
+    }
+}
+
+/// Whether `filter` directly or recursively contains [`Filter::ControlledBy`]
+/// or [`Filter::ControlledByChooser`].
+pub(super) fn filter_reads_resolution_player(filter: &baylee_cards_dsl::Filter) -> bool {
+    use baylee_cards_dsl::Filter;
+    match filter {
+        Filter::ControlledBy(_) | Filter::ControlledByChooser => true,
+        Filter::And(parts) | Filter::Or(parts) => parts.iter().any(filter_reads_resolution_player),
+        Filter::Not(f)
+        | Filter::AttachedTo(f)
+        | Filter::BlockedThisTurnBy(f)
+        | Filter::LowestManaValueOnBattlefield(f)
+        | Filter::SharesAColorWith(f)
+        | Filter::SharesCreatureTypeWith(f)
+        | Filter::ControllerControls(f) => filter_reads_resolution_player(f),
+        _ => false,
+    }
+}
+
+/// Evaluate `filter` inside a resolution, binding [`Filter::ControlledBy`],
+/// [`Filter::ControlledByChooser`], and announced `res.x`.
+pub(super) fn matches_in_resolution(
+    filter: &baylee_cards_dsl::Filter,
+    state: &GameState,
+    obj: &GameObject,
+    you: PlayerId,
+    res: &Resolution,
+    chooser: Option<PlayerId>,
+) -> bool {
+    matches_in_resolution_with_chars(filter, state, obj, obj.characteristics(), you, res, chooser)
+}
+
+pub(super) fn matches_in_resolution_with_chars(
+    filter: &baylee_cards_dsl::Filter,
+    state: &GameState,
+    obj: &GameObject,
+    chars: &Characteristics,
+    you: PlayerId,
+    res: &Resolution,
+    chooser: Option<PlayerId>,
+) -> bool {
+    use baylee_cards_dsl::Filter;
+    if obj.is_merged_component() {
+        return false;
+    }
+    match filter {
+        Filter::ControlledBy(rel) => players_of(*rel, state, you, res).contains(&obj.controller),
+        Filter::ControlledByChooser => chooser == Some(obj.controller),
+        Filter::CmcAtMostX => res.x.is_none_or(|x| chars.mana_value() <= x),
+        Filter::CmcExactlyX => res.x.is_none_or(|x| chars.mana_value() == x),
+        Filter::TwiceCmcExactlyX => res
+            .x
+            .is_none_or(|x| chars.mana_value().saturating_mul(2) == x),
+        Filter::And(parts) => parts
+            .iter()
+            .all(|f| matches_in_resolution_with_chars(f, state, obj, chars, you, res, chooser)),
+        Filter::Or(parts) => parts
+            .iter()
+            .any(|f| matches_in_resolution_with_chars(f, state, obj, chars, you, res, chooser)),
+        Filter::Not(f) => {
+            !matches_in_resolution_with_chars(f, state, obj, chars, you, res, chooser)
+        }
+        Filter::AttachedTo(inner) => obj
+            .attached_to
+            .and_then(|host| state.object(host))
+            .is_some_and(|host_obj| {
+                matches_in_resolution(inner, state, host_obj, you, res, chooser)
+            }),
+        Filter::ControllerControls(inner) => state.battlefield_seen().any(|id| {
+            state.object(id).is_some_and(|perm| {
+                perm.controller == obj.controller
+                    && matches_in_resolution(inner, state, perm, you, res, chooser)
+            })
+        }),
+        other => {
+            eval::matches_projected_with_context(other, state, obj, chars, you, res.rule_context())
+        }
     }
 }
 

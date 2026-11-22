@@ -1061,6 +1061,19 @@ pub(super) fn resume_inner(
                 return Flow::Wait(pending);
             }
         }
+        AwaitingOp::ChooseCardExOp(spec) => {
+            if let Some(pending) = super::wave13a::choose_card_ex_finish(state, res, *spec, chosen)
+            {
+                return next_choice(state, res, since, pending);
+            }
+        }
+        AwaitingOp::TwoPilesFirstPile(spec) => {
+            if let Some(pending) =
+                super::wave13a::two_piles_after_separation(state, res, *spec, chosen)
+            {
+                return next_choice(state, res, since, pending);
+            }
+        }
         AwaitingOp::PeekAndRevealOp {
             lib_owner,
             looked,
@@ -1712,6 +1725,10 @@ pub(super) fn resume_inner(
         | AwaitingOp::CoinFlipIgnore { .. }
         | AwaitingOp::RevealTopPlayerMayPut { .. }
         | AwaitingOp::PeekBottom { .. }
+        | AwaitingOp::ChooseCardExArrangeBottom(_)
+        | AwaitingOp::TwoPilesPickSeparator(_)
+        | AwaitingOp::TwoPilesPickChooser(_)
+        | AwaitingOp::TwoPilesChoosePile(_)
         | AwaitingOp::SoulbondConfirmPair { .. }
         | AwaitingOp::ClashBottom { .. }
         | AwaitingOp::PutTargetsInLibraryOrder { .. }

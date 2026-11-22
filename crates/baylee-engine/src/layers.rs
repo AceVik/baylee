@@ -893,6 +893,8 @@ fn could_change_match(modifier: &Modifier, filter: &Filter, layer: Layer) -> boo
         | Filter::ControlledByActivePlayer
         | Filter::ControlledByDefendingPlayer
         | Filter::ControlledByEnchantedPlayer
+        | Filter::ControlledBy(_)
+        | Filter::ControlledByChooser
         | Filter::NotControlledByReferenceController
         | Filter::ControlledSinceTurnBegan => matches!(modifier, Modifier::GainControl),
         Filter::Historic => {

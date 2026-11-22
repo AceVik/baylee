@@ -1008,7 +1008,22 @@ impl HeuristicAgent {
             // the most valuable card alone. Whichever pile they take, they
             // give up either it or the rest.
             ChoicePrompt::FirstPile => {
-                ranked.sort_by_key(|id| (std::cmp::Reverse(value(id)), *id));
+                let on_board = !ranked.is_empty()
+                    && ranked
+                        .iter()
+                        .all(|id| view.battlefield.iter().any(|b| b.id == *id));
+                if on_board {
+                    ranked.sort_by_key(|id| {
+                        let w = view
+                            .battlefield
+                            .iter()
+                            .find(|b| b.id == *id)
+                            .map_or(0, |o| Self::permanent_worth(view, o));
+                        (std::cmp::Reverse(w), *id)
+                    });
+                } else {
+                    ranked.sort_by_key(|id| (std::cmp::Reverse(value(id)), *id));
+                }
                 usize::from(max.min(1))
             }
             // Not a price: `Effect::PutFromHandOnTop` asks with
@@ -1242,9 +1257,28 @@ impl HeuristicAgent {
     pub(crate) fn pile(&self, view: &PlayerView, piles: &[Vec<ObjectId>]) -> usize {
         let value = Self::card_value(view);
         let reads = self.profile.card_skill() >= 2;
+        let on_board = piles
+            .iter()
+            .flatten()
+            .any(|id| view.battlefield.iter().any(|b| b.id == *id));
+        let minimize = view
+            .stack
+            .last()
+            .is_some_and(|top| self.hostile(top.controller, view.seat));
         let worth = |pile: &Vec<ObjectId>| -> (i64, usize) {
             let sum: i64 = if reads {
-                pile.iter().map(|id| value(id).max(0)).sum()
+                if on_board {
+                    pile.iter()
+                        .map(|id| {
+                            view.battlefield
+                                .iter()
+                                .find(|b| b.id == *id)
+                                .map_or(0, |o| Self::permanent_worth(view, o).max(0))
+                        })
+                        .sum()
+                } else {
+                    pile.iter().map(|id| value(id).max(0)).sum()
+                }
             } else {
                 0
             };
@@ -1252,7 +1286,12 @@ impl HeuristicAgent {
         };
         let mut best = 0;
         for (i, pile) in piles.iter().enumerate().skip(1) {
-            if worth(pile) > worth(&piles[best]) {
+            let better = if minimize {
+                worth(pile) < worth(&piles[best])
+            } else {
+                worth(pile) > worth(&piles[best])
+            };
+            if better {
                 best = i;
             }
         }

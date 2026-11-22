@@ -859,6 +859,36 @@ fn read_one(effect: &Effect, certain: bool, reading: &Reading<'_>, facts: &mut F
             | baylee_cards::dsl::ZoneSel::GraveyardAll => facts.reads.add(Stuff::GRAVEYARD),
             _ => {}
         },
+        Effect::ChooseCardEx {
+            movement,
+            not_chosen_movement,
+            ..
+        } => {
+            facts.deeds.add(Deeds::ASKS);
+            for mv in [movement, not_chosen_movement] {
+                match mv {
+                    baylee_cards::dsl::ChooseMove::Hand => facts.makes.add(Stuff::HAND),
+                    baylee_cards::dsl::ChooseMove::Battlefield { .. } => {
+                        facts.makes.add(Stuff::BOARD);
+                    }
+                    baylee_cards::dsl::ChooseMove::Graveyard => {
+                        facts.makes.add(Stuff::GRAVEYARD);
+                    }
+                    _ => {}
+                }
+            }
+        }
+        Effect::SeparateIntoTwoPiles { zone, .. } => {
+            facts.deeds.add(Deeds::ASKS);
+            match zone {
+                baylee_cards::dsl::ZoneSel::Battlefield => facts.reads.add(Stuff::BOARD),
+                baylee_cards::dsl::ZoneSel::GraveyardYou
+                | baylee_cards::dsl::ZoneSel::GraveyardOf(_)
+                | baylee_cards::dsl::ZoneSel::GraveyardOpponents
+                | baylee_cards::dsl::ZoneSel::GraveyardAll => facts.reads.add(Stuff::GRAVEYARD),
+                _ => {}
+            }
+        }
         _ => {}
     }
 }

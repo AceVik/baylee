@@ -120,6 +120,30 @@ pub(super) fn refers_to_subject(effects: &'static [Effect], implicit_source: boo
                 zone: baylee_cards_dsl::ZoneSel::LinkedExile,
                 ..
             }
+            | Effect::SeparateIntoTwoPiles {
+                zone: baylee_cards_dsl::ZoneSel::LinkedExile,
+                ..
+            }
+            | Effect::ChooseCard {
+                zone: baylee_cards_dsl::ChooseZone::LinkedExile,
+                ..
+            }
+            | Effect::ChooseCard {
+                movement: baylee_cards_dsl::ChooseMove::ExileLinked,
+                ..
+            }
+            | Effect::ChooseCardEx {
+                zone: baylee_cards_dsl::ChooseZone::LinkedExile,
+                ..
+            }
+            | Effect::ChooseCardEx {
+                movement: baylee_cards_dsl::ChooseMove::ExileLinked,
+                ..
+            }
+            | Effect::ChooseCardEx {
+                not_chosen_movement: baylee_cards_dsl::ChooseMove::ExileLinked,
+                ..
+            }
             | Effect::PreventNextDamageToAttached { .. }
             | Effect::ReflectNextChosenSourceDamage
             | Effect::MustBlockSourceIfAbleThisCombat

@@ -105,6 +105,14 @@ pub(super) fn resume_pile_inner(state: &mut GameState, res: &mut Resolution, ind
     {
         return super::river::resume_label(state, res, (attacker, rest, left, right), index);
     }
+    if let Some(AwaitingOp::TwoPilesChoosePile(split)) = res
+        .awaiting
+        .take_if(|op| matches!(op, AwaitingOp::TwoPilesChoosePile(_)))
+    {
+        let since = state.journal.last_seq();
+        super::wave13a::two_piles_finish(state, res, *split, index);
+        return finish_choice(state, res, since);
+    }
     let since = state.journal.last_seq();
     let Some(AwaitingOp::TakePile { piles }) = res.awaiting.take() else {
         panic!("pile choice not suspended");
@@ -199,6 +207,27 @@ pub fn resume_chosen_player(state: &mut GameState, res: &mut Resolution, chosen:
         Some(AwaitingOp::ClashOpponent { on_win, on_loss }) => {
             super::subjects::begin_resume(state, res);
             let flow = super::clash::resume_opponent(state, res, chosen, on_win, on_loss);
+            super::subjects::flush(state, res);
+            flow
+        }
+        Some(AwaitingOp::TwoPilesPickSeparator(spec)) => {
+            let since = state.journal.last_seq();
+            super::subjects::begin_resume(state, res);
+            let flow = if let Some(pending) =
+                super::wave13a::ask_two_piles_separator(state, res, chosen, *spec)
+            {
+                super::next_choice(state, res, since, pending)
+            } else {
+                super::finish_choice(state, res, since)
+            };
+            super::subjects::flush(state, res);
+            flow
+        }
+        Some(AwaitingOp::TwoPilesPickChooser(split)) => {
+            let since = state.journal.last_seq();
+            super::subjects::begin_resume(state, res);
+            let pending = super::wave13a::ask_two_piles_chooser(state, res, chosen, *split);
+            let flow = super::next_choice(state, res, since, pending);
             super::subjects::flush(state, res);
             flow
         }

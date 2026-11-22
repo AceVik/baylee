@@ -83,6 +83,7 @@ pub struct SubjectContext {
     pub(super) repeat_frames: Vec<super::wave3_ops::RepeatFrame>,
     pub(super) repeat_processes: Vec<RepeatProcessFrame>,
     pub(super) vote_queue: Option<Box<super::vote::VoteQueue>>,
+    pub(super) branch_frames: Vec<super::wave13a::BranchFrame>,
 }
 impl SubjectContext {
     /// Preserve the independent player targets of the second target instance.
@@ -150,6 +151,7 @@ impl SubjectContext {
             repeat_frames: Vec::new(),
             repeat_processes: Vec::new(),
             vote_queue: None,
+            branch_frames: Vec::new(),
         }
     }
 
@@ -334,6 +336,14 @@ impl SubjectContext {
             h = h
                 .wrapping_mul(31)
                 .wrapping_add(crate::state::structural_fingerprint(&(99_u8, vq)));
+        }
+        if !self.branch_frames.is_empty() {
+            h = h
+                .wrapping_mul(31)
+                .wrapping_add(crate::state::structural_fingerprint(&(
+                    100_u8,
+                    &self.branch_frames,
+                )));
         }
         h
     }

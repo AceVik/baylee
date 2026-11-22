@@ -5444,6 +5444,74 @@ pub enum Effect {
         /// source leaves the battlefield (*Animate Dead* / *Necromancy*).
         when_source_leaves: Option<SourceLeaveAction>,
     },
+    /// Generalized untargeted resolution choice of `min..=max` objects/cards
+    /// from `zone` (`Battlefield`, `Graveyard`, `Hand`, `Exile`, `LinkedExile`,
+    /// or `Found`) matching `filter` (`CR 608.2d`, `CR 609.3`), optionally
+    /// revealing chosen cards (`reveal_chosen`, `CR 701.20a`), applying
+    /// `movement` to chosen objects and `not_chosen_movement` to remaining
+    /// eligible objects, executing `then` (when at least one object was chosen)
+    /// with `SubjectContext::found` + [`TargetSpec::EventObject`] bound to the
+    /// chosen object(s), and executing `for_unchosen` (when at least one
+    /// eligible object was not chosen) with `SubjectContext::found` +
+    /// [`TargetSpec::EventObject`] bound to the unchosen object(s). Appended
+    /// beside [`Self::ChooseCard`] to preserve replay identities.
+    ChooseCardEx {
+        /// Which player makes the choice.
+        chooser: PlayerRel,
+        /// Zone or `Found` collection from which options are offered.
+        zone: ChooseZone,
+        /// Eligibility filter evaluated from the resolving controller (with
+        /// [`Filter::ControlledByChooser`] bound to the choosing seat).
+        filter: &'static Filter,
+        /// Minimum selection count (`0` for optional / "up to", clamped to
+        /// available legal options per `CR 608.2d` / `CR 609.3`).
+        min: u8,
+        /// Maximum selection count.
+        max: Amount,
+        /// Whether chosen card(s) are explicitly revealed (`CR 701.20a`).
+        reveal_chosen: bool,
+        /// Optional zone movement applied to each chosen object.
+        movement: ChooseMove,
+        /// Optional zone movement applied to each eligible unchosen object.
+        not_chosen_movement: ChooseMove,
+        /// Instructions executed when at least one object was chosen, with
+        /// `SubjectContext::found` and `EventObject` bound to the chosen objects.
+        then: &'static [Effect],
+        /// Instructions executed when at least one eligible object was not
+        /// chosen, with `SubjectContext::found` and `EventObject` bound to the
+        /// unchosen objects.
+        for_unchosen: &'static [Effect],
+    },
+    /// Separate eligible objects in `zone` matching `filter` (additionally
+    /// narrowed to `SubjectContext::found` when `only_found` is `true`) into two
+    /// piles (`CR 700.3`: `separator` names the first pile via
+    /// `ChoicePrompt::FirstPile`, where either pile may be empty), then
+    /// `pile_chooser` chooses one pile (`Pending::ChoosePile`), executing
+    /// `chosen_pile` with `SubjectContext::found` + [`TargetSpec::EventObject`]
+    /// bound to the chosen pile's objects and `unchosen_pile` with
+    /// `SubjectContext::found` + [`TargetSpec::EventObject`] bound to the other
+    /// pile's objects (*Liliana of the Veil*, *Jace, Architect of Thought*,
+    /// *Unesh, Criosphinx Sovereign*, *Hostile Negotiations*, *Truth or Tale*).
+    /// Appended to preserve replay identities.
+    SeparateIntoTwoPiles {
+        /// Which player separates the objects into two piles.
+        separator: PlayerRel,
+        /// Which player chooses one of the two piles.
+        pile_chooser: PlayerRel,
+        /// Zone whose objects are separated.
+        zone: ZoneSel,
+        /// Filter each candidate object must match.
+        filter: &'static Filter,
+        /// When `true`, only objects recorded in `SubjectContext::found`
+        /// earlier in this resolution are separated.
+        only_found: bool,
+        /// Effects executed for the chosen pile (when non-empty) with
+        /// `SubjectContext::found` and `EventObject` bound to its objects.
+        chosen_pile: &'static [Effect],
+        /// Effects executed for the unchosen pile (when non-empty) with
+        /// `SubjectContext::found` and `EventObject` bound to its objects.
+        unchosen_pile: &'static [Effect],
+    },
 }
 
 #[cfg(test)]

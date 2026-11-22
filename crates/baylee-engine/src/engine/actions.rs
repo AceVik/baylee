@@ -938,6 +938,8 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                         Some(
                             resolve::AwaitingOp::ChoosePlayerFrom
                                 | resolve::AwaitingOp::ClashOpponent { .. }
+                                | resolve::AwaitingOp::TwoPilesPickSeparator(_)
+                                | resolve::AwaitingOp::TwoPilesPickChooser(_)
                         )
                     )
                 }) {

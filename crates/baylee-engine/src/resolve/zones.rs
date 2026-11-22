@@ -1025,9 +1025,9 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
             let all: Vec<ObjectId> = state
                 .battlefield_seen()
                 .filter(|id| {
-                    state.object(*id).is_some_and(|o| {
-                        eval::matches_with_context(filter, state, o, you, res.rule_context())
-                    })
+                    state
+                        .object(*id)
+                        .is_some_and(|o| sweep_filter::matches(filter, state, o, res))
                 })
                 .collect();
             super::sacrifice_together(state, &all, Some(you));

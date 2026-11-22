@@ -636,7 +636,18 @@ pub(crate) fn matches(view: &PlayerView, object: &PublicObject, filter: &Filter)
         | Filter::RingBearer
         | Filter::SameManaValueAsSource
         | Filter::SharesColorWithSource
-        | Filter::CmcEqualsYourUnspentMana => return None,
+        | Filter::CmcEqualsYourUnspentMana
+        | Filter::ControlledByChooser => return None,
+        Filter::ControlledBy(rel) => match rel {
+            baylee_cards_dsl::PlayerRel::You => object.controller == you(view),
+            baylee_cards_dsl::PlayerRel::Opponent | baylee_cards_dsl::PlayerRel::EachOpponent => {
+                duel_opponent(view, object, you(view))?
+            }
+            baylee_cards_dsl::PlayerRel::ActivePlayer => object.controller == view.active,
+            baylee_cards_dsl::PlayerRel::EachPlayer => true,
+            baylee_cards_dsl::PlayerRel::EachOtherPlayer => object.controller != you(view),
+            _ => return None,
+        },
         Filter::FaceDown => object.status.contains(baylee_view::ObjectStatus::FACE_DOWN),
         Filter::WarpedInExile => object.warped,
         Filter::Suspected => object.suspected,

@@ -214,7 +214,12 @@ fn place_found_card(
     }
 }
 
-fn link_in_exile(state: &mut GameState, res: &Resolution, owner: PlayerId, id: ObjectId) {
+pub(super) fn link_in_exile(
+    state: &mut GameState,
+    res: &Resolution,
+    owner: PlayerId,
+    id: ObjectId,
+) {
     let fallback_version =
         super::source_version(state, res).or_else(|| state.object(res.source).map(|o| o.version));
     let source = state
@@ -426,8 +431,6 @@ fn build_object_steps(
     only_found: bool,
 ) -> Vec<super::wave3_ops::RepeatStep> {
     let you = res.controller;
-    let context = res.rule_context();
-    let x = res.x;
     let cap = super::immediate::REPEAT_CAP as usize;
     let raw = snapshot_zone_candidates(state, res, zone);
     let mut matched: Vec<super::wave3_ops::RepeatStep> = Vec::new();
@@ -444,7 +447,7 @@ fn build_object_steps(
         {
             continue;
         }
-        if !eval::matches_for_x(filter, state, obj, you, context, x) {
+        if !matches_in_resolution(filter, state, obj, you, res, None) {
             continue;
         }
         let event_player = if obj.zone == Zone::Battlefield {
@@ -468,7 +471,7 @@ fn build_object_steps(
     matched
 }
 
-fn apnap_seats_of(state: &GameState, mut seats: Vec<PlayerId>) -> Vec<PlayerId> {
+pub(super) fn apnap_seats_of(state: &GameState, mut seats: Vec<PlayerId>) -> Vec<PlayerId> {
     seats.sort_by_key(|p| crate::battle::sba::apnap_distance(state, *p));
     seats.dedup();
     seats
@@ -478,7 +481,11 @@ fn all_seats_apnap(state: &GameState) -> Vec<PlayerId> {
     apnap_seats_of(state, state.players.iter().map(|p| p.id).collect())
 }
 
-fn snapshot_zone_candidates(state: &GameState, res: &Resolution, zone: ZoneSel) -> Vec<ObjectId> {
+pub(super) fn snapshot_zone_candidates(
+    state: &GameState,
+    res: &Resolution,
+    zone: ZoneSel,
+) -> Vec<ObjectId> {
     let you = res.controller;
     match zone {
         ZoneSel::Battlefield => {

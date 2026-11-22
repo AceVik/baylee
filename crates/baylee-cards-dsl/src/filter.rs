@@ -468,6 +468,16 @@ pub enum Filter {
     /// enchanted by an Aura controlled by that creature's controller, or has
     /// any counter on it. Appended to preserve replay identities.
     Modified,
+    /// Controlled by a player matching `PlayerRel` relative to the resolving
+    /// ability's controller / resolution context (e.g. `PlayerRel::EventPlayer`
+    /// inside `RepeatEach` on *Killing Wave*, or `PlayerRel::Chosen` on
+    /// *Liliana of the Veil*). Appended to preserve replay identities.
+    ControlledBy(crate::PlayerRel),
+    /// Controlled by the specific seat currently answering `Effect::ChooseCard`
+    /// or `Effect::ChooseCardEx` (e.g. `"an opponent chooses a creature they
+    /// control"`). Matches nothing outside an active card/permanent choice.
+    /// Appended to preserve replay identities.
+    ControlledByChooser,
 }
 
 /// Zone references for filters (engine zones, DSL view).

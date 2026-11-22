@@ -225,19 +225,24 @@ pub(super) fn exile_with_permission(
     for target_id in super::zones::moving_objects(state, res, target) {
         let components = state.merged_components(target_id);
         let owner = state.object(target_id).map_or(you, |o| o.owner);
-        if let Some(obj) = state.object_mut(target_id) {
-            obj.kind = crate::object::ObjectKind::Card;
-            obj.riders.push(crate::object::Rider::Linked {
-                host: res.source,
-                until,
-            });
+        let already_in_exile = state
+            .object(target_id)
+            .is_some_and(|o| o.zone == crate::zone::Zone::Exile);
+        if !already_in_exile {
+            if let Some(obj) = state.object_mut(target_id) {
+                obj.kind = crate::object::ObjectKind::Card;
+                obj.riders.push(crate::object::Rider::Linked {
+                    host: res.source,
+                    until,
+                });
+            }
+            let _ = state.move_object(
+                target_id,
+                ZoneLocation::Exile(owner),
+                ZonePosition::Top,
+                Cause::Effect,
+            );
         }
-        let _ = state.move_object(
-            target_id,
-            ZoneLocation::Exile(owner),
-            ZonePosition::Top,
-            Cause::Effect,
-        );
         for component in components {
             let in_exile = state
                 .object(component)

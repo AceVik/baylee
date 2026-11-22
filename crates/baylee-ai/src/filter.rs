@@ -427,6 +427,20 @@ impl HeuristicAgent {
                 let source = view.object(this?)?;
                 Some(source.attached_player() == Some(object.controller))
             }
+            Filter::ControlledBy(rel) => match rel {
+                PlayerRel::You => Some(object.controller == view.seat),
+                PlayerRel::Opponent | PlayerRel::EachOpponent => {
+                    Some(self.hostile(object.controller, view.seat))
+                }
+                PlayerRel::ActivePlayer => Some(object.controller == view.active),
+                PlayerRel::EachPlayer => Some(true),
+                PlayerRel::EachOtherPlayer => Some(object.controller != view.seat),
+                PlayerRel::EnchantedPlayer => {
+                    let source = view.object(this?)?;
+                    Some(source.attached_player() == Some(object.controller))
+                }
+                _ => None,
+            },
             Filter::PairedWithSource => {
                 let source = view.object(this?)?;
                 Some(source.paired_with() == Some(object.id))
@@ -527,7 +541,8 @@ impl HeuristicAgent {
         | Filter::NotControlledByReferenceController
         | Filter::LowestManaValueOnBattlefield(_)
         | Filter::RingBearer
-        | Filter::CmcEqualsYourUnspentMana => None,
+        | Filter::CmcEqualsYourUnspentMana
+        | Filter::ControlledByChooser => None,
         }
     }
 

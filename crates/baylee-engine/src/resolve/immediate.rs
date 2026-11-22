@@ -2023,6 +2023,52 @@ pub(super) fn exec_immediate(
         } => super::wave3_ops::choose_card_start(
             state, res, chooser, zone, filter, min, max, movement, then,
         ),
+        Effect::ChooseCardEx {
+            chooser,
+            zone,
+            filter,
+            min,
+            max,
+            reveal_chosen,
+            movement,
+            not_chosen_movement,
+            then,
+            for_unchosen,
+        } => super::wave13a::choose_card_ex(
+            state,
+            res,
+            chooser,
+            zone,
+            filter,
+            min,
+            max,
+            reveal_chosen,
+            movement,
+            not_chosen_movement,
+            then,
+            for_unchosen,
+            op,
+        ),
+        Effect::SeparateIntoTwoPiles {
+            separator,
+            pile_chooser,
+            zone,
+            filter,
+            only_found,
+            chosen_pile,
+            unchosen_pile,
+        } => super::wave13a::separate_into_two_piles(
+            state,
+            res,
+            separator,
+            pile_chooser,
+            zone,
+            filter,
+            only_found,
+            chosen_pile,
+            unchosen_pile,
+            op,
+        ),
         Effect::PeekAndReveal {
             library,
             count,
@@ -3273,7 +3319,14 @@ pub(super) fn exec_immediate(
         }
         Effect::TurnFaceUp { target } => {
             for target_id in zones::moving_objects(state, res, target) {
-                state.turn_permanent_face_up(target_id);
+                if state
+                    .object(target_id)
+                    .is_some_and(|o| o.zone == crate::zone::Zone::Exile)
+                {
+                    state.reveal_exiled_card(target_id);
+                } else {
+                    state.turn_permanent_face_up(target_id);
+                }
             }
             None
         }

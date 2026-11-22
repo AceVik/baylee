@@ -2896,6 +2896,11 @@ fn filter_hash(h: &mut Hasher, f: &baylee_cards_dsl::Filter) {
         F::SameManaValueAsSource => h.u8(231),
         F::SharesColorWithSource => h.u8(232),
         F::Modified => h.u8(233),
+        F::ControlledBy(rel) => {
+            h.u8(234);
+            std::hash::Hash::hash(rel, h);
+        }
+        F::ControlledByChooser => h.u8(235),
     }
 }
 

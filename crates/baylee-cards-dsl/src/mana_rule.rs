@@ -134,6 +134,16 @@ fn outside_library(destination: SearchDest) -> bool {
     !matches!(destination, SearchDest::TopOfLibrary)
 }
 
+fn choose_move_touches_library(zone: crate::ChooseZone, movement: crate::ChooseMove) -> bool {
+    matches!(
+        movement,
+        crate::ChooseMove::TopOfLibrary
+            | crate::ChooseMove::BottomOfLibrary
+            | crate::ChooseMove::BottomOfLibraryChosenOrder
+            | crate::ChooseMove::BottomOfLibraryRandom
+    ) || (matches!(zone, crate::ChooseZone::Found) && !matches!(movement, crate::ChooseMove::None))
+}
+
 fn reveal_until_then_moves_library(
     exile_while_revealing: bool,
     found: crate::RevealUntilFound,
@@ -158,67 +168,75 @@ fn reveal_until_then_moves_library(
         || then.iter().any(moves_library)
 }
 
-fn moves_library(effect: &Effect) -> bool {
-    match effect {
+const fn always_moves_library(effect: &Effect) -> bool {
+    matches!(
+        effect,
         Effect::DrawCards { .. }
-        | Effect::DrawCardsFor { .. }
-        | Effect::DrawRevealDiscardUnless { .. }
-        | Effect::DiscardUpToThenDraw { .. }
-        | Effect::Connive { .. }
-        | Effect::Recruit { .. }
-        | Effect::LookAtTopPick { .. }
-        | Effect::LookAtTopKeepBottomPlay { .. }
-        | Effect::RevealAndSeparate { .. }
-        | Effect::MillMayTakeOne { .. }
-        | Effect::Cascade
-        | Effect::Discover { .. }
-        | Effect::DiscoverAmount { .. }
-        | Effect::DiscardAnyThenDraw
-        | Effect::ExileTopMayCast { .. }
-        | Effect::ExileTopToPlay { .. }
-        | Effect::ExileTopWithPermission { .. }
-        | Effect::ExileWithPermission { .. }
-        | Effect::GrantLinkedExilePermission { .. }
-        | Effect::ManifestTop { .. }
-        | Effect::ManifestDread
-        | Effect::TurnFaceUp { .. }
-        | Effect::Plot { .. }
-        | Effect::PlotTop { .. }
-        | Effect::Backup { .. }
-        | Effect::DeliverGift(_)
-        | Effect::LookAtTopExileFaceDown { .. }
-        | Effect::RevealTopOnePerType { .. }
-        | Effect::RevealTopIf { .. }
-        | Effect::RevealTopPlayerMayPutOntoBattlefield { .. }
-        | Effect::RevealUntilLandDealDamage { .. }
-        | Effect::PutFromHandOnTop { .. }
-        | Effect::PayLifeOrPutBackDrawn { .. }
-        | Effect::PutTargetOnBottomOfLibrary
-        | Effect::PutOnBottomOfLibraryFromGraveyard { .. }
-        | Effect::OwnerPutsOnTopOrBottom { .. }
-        | Effect::GraveyardToLibraryBottom { .. }
-        | Effect::ShuffleTargetsIntoOwnersLibraries
-        | Effect::ShuffleGraveyardIntoLibrary
-        | Effect::ShuffleGraveyardMatchingIntoLibrary { .. }
-        | Effect::ShuffleIntoLibrary { .. }
-        | Effect::Surveil { .. }
-        | Effect::ExileLibraryAndShuffleHand { .. }
-        | Effect::Mill { .. }
-        | Effect::PlayerMayMillOr { .. }
-        | Effect::GraveyardToTop { .. }
-        | Effect::PutSourceOnTopOfLibrary
-        | Effect::BottomCardFromHand { .. }
-        | Effect::OptionalBasicLandSearchFor { .. }
-        | Effect::SearchOpponentSplits { .. }
-        | Effect::SearchLibraryOrGraveyard { .. }
-        | Effect::Play {
-            source:
-                crate::effect::PlaySource::Zone {
+            | Effect::DrawCardsFor { .. }
+            | Effect::DrawRevealDiscardUnless { .. }
+            | Effect::DiscardUpToThenDraw { .. }
+            | Effect::Connive { .. }
+            | Effect::Recruit { .. }
+            | Effect::LookAtTopPick { .. }
+            | Effect::LookAtTopKeepBottomPlay { .. }
+            | Effect::RevealAndSeparate { .. }
+            | Effect::MillMayTakeOne { .. }
+            | Effect::Cascade
+            | Effect::Discover { .. }
+            | Effect::DiscoverAmount { .. }
+            | Effect::DiscardAnyThenDraw
+            | Effect::ExileTopMayCast { .. }
+            | Effect::ExileTopToPlay { .. }
+            | Effect::ExileTopWithPermission { .. }
+            | Effect::ExileWithPermission { .. }
+            | Effect::GrantLinkedExilePermission { .. }
+            | Effect::ManifestTop { .. }
+            | Effect::ManifestDread
+            | Effect::TurnFaceUp { .. }
+            | Effect::Plot { .. }
+            | Effect::PlotTop { .. }
+            | Effect::Backup { .. }
+            | Effect::DeliverGift(_)
+            | Effect::LookAtTopExileFaceDown { .. }
+            | Effect::RevealTopOnePerType { .. }
+            | Effect::RevealTopIf { .. }
+            | Effect::RevealTopPlayerMayPutOntoBattlefield { .. }
+            | Effect::RevealUntilLandDealDamage { .. }
+            | Effect::PutFromHandOnTop { .. }
+            | Effect::PayLifeOrPutBackDrawn { .. }
+            | Effect::PutTargetOnBottomOfLibrary
+            | Effect::PutOnBottomOfLibraryFromGraveyard { .. }
+            | Effect::OwnerPutsOnTopOrBottom { .. }
+            | Effect::GraveyardToLibraryBottom { .. }
+            | Effect::ShuffleTargetsIntoOwnersLibraries
+            | Effect::ShuffleGraveyardIntoLibrary
+            | Effect::ShuffleGraveyardMatchingIntoLibrary { .. }
+            | Effect::ShuffleIntoLibrary { .. }
+            | Effect::Surveil { .. }
+            | Effect::ExileLibraryAndShuffleHand { .. }
+            | Effect::Mill { .. }
+            | Effect::PlayerMayMillOr { .. }
+            | Effect::GraveyardToTop { .. }
+            | Effect::PutSourceOnTopOfLibrary
+            | Effect::BottomCardFromHand { .. }
+            | Effect::OptionalBasicLandSearchFor { .. }
+            | Effect::SearchOpponentSplits { .. }
+            | Effect::SearchLibraryOrGraveyard { .. }
+            | Effect::Play {
+                source: crate::effect::PlaySource::Zone {
                     zone: crate::filter::ZoneRef::Library,
                     ..
                 },
-            ..
-        } => true,
+                ..
+            }
+    )
+}
+
+fn moves_library(effect: &Effect) -> bool {
+    if always_moves_library(effect) {
+        return true;
+    }
+    match effect {
         Effect::RevealUntil { found, .. } => outside_library(*found),
         Effect::RevealUntilThen {
             exile_while_revealing,
@@ -249,6 +267,37 @@ fn moves_library(effect: &Effect) -> bool {
         Effect::Vote { options, .. } => options
             .iter()
             .any(|opt| opt.effects.iter().any(moves_library)),
+        Effect::ChooseCard {
+            zone,
+            movement,
+            then,
+            ..
+        } => choose_move_touches_library(*zone, *movement) || then.iter().any(moves_library),
+        Effect::ChooseCardEx {
+            zone,
+            movement,
+            not_chosen_movement,
+            then,
+            for_unchosen,
+            ..
+        } => {
+            choose_move_touches_library(*zone, *movement)
+                || choose_move_touches_library(*zone, *not_chosen_movement)
+                || then.iter().any(moves_library)
+                || for_unchosen.iter().any(moves_library)
+        }
+        Effect::SeparateIntoTwoPiles {
+            zone,
+            chosen_pile,
+            unchosen_pile,
+            ..
+        } => {
+            matches!(
+                zone,
+                crate::ZoneSel::LibraryYou | crate::ZoneSel::LibraryOf(_)
+            ) || chosen_pile.iter().any(moves_library)
+                || unchosen_pile.iter().any(moves_library)
+        }
         // Scry, reordering, revealing and shuffling alone do not move a card
         // to/from this zone. They can nevertheless be irreversible under
         // CR 734.1; that is a separate question from being a mana ability.

@@ -848,6 +848,35 @@ pub(crate) fn matches_projected_with_choices(
             }
         }
         Filter::Modified => object_is_modified(state, obj, chars),
+        Filter::ControlledBy(rel) => {
+            if let Some(seats) = players_for_source(*rel, state, you, Some(this)) {
+                return seats.contains(&obj.controller);
+            }
+            match rel {
+                baylee_cards_dsl::PlayerRel::EventPlayer
+                | baylee_cards_dsl::PlayerRel::DamagedPlayer => state
+                    .object(this)
+                    .and_then(|o| {
+                        o.riders.iter().find_map(|r| match r {
+                            crate::object::Rider::EventPlayer(seat) => Some(*seat),
+                            _ => None,
+                        })
+                    })
+                    .is_some_and(|seat| !state.has_left(seat) && seat == obj.controller),
+                baylee_cards_dsl::PlayerRel::ControllerOfTarget
+                | baylee_cards_dsl::PlayerRel::TargetPlayerOrController
+                | baylee_cards_dsl::PlayerRel::ControllerOfEvent => context
+                    .reference
+                    .and_then(|id| state.last_known_controller(id))
+                    .is_some_and(|seat| !state.has_left(seat) && seat == obj.controller),
+                baylee_cards_dsl::PlayerRel::OwnerOfEvent => context
+                    .reference
+                    .and_then(|id| state.object_or_departed(id))
+                    .is_some_and(|o| !state.has_left(o.owner) && o.owner == obj.controller),
+                _ => false,
+            }
+        }
+        Filter::ControlledByChooser => false,
         Filter::SameManaValueAsSource => {
             source_mana_value(state, this).is_some_and(|mv| chars.mana_value() == mv)
         }

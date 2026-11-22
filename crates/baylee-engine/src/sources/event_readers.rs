@@ -11,6 +11,31 @@ pub(super) fn refers_to_event(effects: &'static [Effect]) -> bool {
 fn reads_player(value: PlayerRel) -> bool {
     matches!(value, PlayerRel::ControllerOfEvent)
 }
+fn reads_filter(filter: &baylee_cards_dsl::Filter) -> bool {
+    use baylee_cards_dsl::Filter as F;
+    match filter {
+        F::ControlledBy(who) => reads_player(*who),
+        F::And(parts) | F::Or(parts) => parts.iter().any(reads_filter),
+        F::Not(inner)
+        | F::AttachedTo(inner)
+        | F::BlockedThisTurnBy(inner)
+        | F::LowestManaValueOnBattlefield(inner)
+        | F::SharesAColorWith(inner)
+        | F::SharesCreatureTypeWith(inner)
+        | F::ControllerControls(inner) => reads_filter(inner),
+        _ => false,
+    }
+}
+fn reads_choose_zone(zone: baylee_cards_dsl::ChooseZone) -> bool {
+    match zone {
+        baylee_cards_dsl::ChooseZone::Graveyard(p)
+        | baylee_cards_dsl::ChooseZone::Hand(p)
+        | baylee_cards_dsl::ChooseZone::Exile(p) => reads_player(p),
+        baylee_cards_dsl::ChooseZone::Battlefield
+        | baylee_cards_dsl::ChooseZone::LinkedExile
+        | baylee_cards_dsl::ChooseZone::Found => false,
+    }
+}
 fn reads_target(value: TargetSpec) -> bool {
     match value {
         TargetSpec::EventObject | TargetSpec::CardInGraveyardBelowEvent(..) => true,
@@ -189,11 +214,41 @@ fn reads_event(effect: &Effect) -> bool {
             ..
         } => reads_amount(*count),
         Effect::ChooseCard {
-            chooser, zone, max, ..
+            chooser,
+            zone,
+            filter,
+            max,
+            ..
+        }
+        | Effect::ChooseCardEx {
+            chooser,
+            zone,
+            filter,
+            max,
+            ..
         } => {
             reads_player(*chooser)
                 || reads_amount(*max)
-                || matches!(zone, baylee_cards_dsl::ChooseZone::Graveyard(p) if reads_player(*p))
+                || reads_choose_zone(*zone)
+                || reads_filter(filter)
+        }
+        Effect::SeparateIntoTwoPiles {
+            separator,
+            pile_chooser,
+            zone,
+            filter,
+            ..
+        } => {
+            reads_player(*separator)
+                || reads_player(*pile_chooser)
+                || reads_filter(filter)
+                || matches!(
+                    zone,
+                    baylee_cards_dsl::ZoneSel::GraveyardOf(who)
+                        | baylee_cards_dsl::ZoneSel::HandOf(who)
+                        | baylee_cards_dsl::ZoneSel::LibraryOf(who)
+                        if reads_player(*who)
+                )
         }
         Effect::PeekAndReveal {
             library: player,

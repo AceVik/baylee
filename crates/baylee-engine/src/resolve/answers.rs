@@ -1255,6 +1255,13 @@ pub(super) fn resume_arranged_inner(
                 let _ = state.move_object(card, library, ZonePosition::Bottom, Cause::Effect);
             }
         }
+        (AwaitingOp::ChooseCardExArrangeBottom(bottom_state), [bottom]) => {
+            if let Some(pending) =
+                super::wave13a::choose_card_ex_resume_bottom(state, res, *bottom_state, bottom)
+            {
+                return next_choice(state, res, since, pending);
+            }
+        }
         (AwaitingOp::PeekBottom { player }, [bottom]) => {
             let target_lib = ZoneLocation::Library(player);
             for &card in bottom {

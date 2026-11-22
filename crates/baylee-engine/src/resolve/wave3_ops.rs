@@ -330,25 +330,33 @@ pub(super) fn choose_card_start(
     if max_n == 0 {
         return None;
     }
-    let context = res.rule_context();
     let options: Vec<ObjectId> = match zone {
         ChooseZone::Battlefield => state
             .battlefield_seen()
             .filter(|&id| {
-                state
-                    .object(id)
-                    .is_some_and(|o| eval::matches_with_context(filter, state, o, you, context))
+                state.object(id).is_some_and(|o| {
+                    matches_in_resolution(filter, state, o, you, res, Some(ask_player))
+                })
             })
             .collect(),
         ChooseZone::Graveyard(owner_rel) => players_of(owner_rel, state, you, res)
             .into_iter()
             .flat_map(|p| state.zones.list(ZoneLocation::Graveyard(p)).iter().copied())
             .filter(|&id| {
-                state
-                    .object(id)
-                    .is_some_and(|o| eval::matches_with_context(filter, state, o, you, context))
+                state.object(id).is_some_and(|o| {
+                    matches_in_resolution(filter, state, o, you, res, Some(ask_player))
+                })
             })
             .collect(),
+        ChooseZone::Hand(_)
+        | ChooseZone::Exile(_)
+        | ChooseZone::LinkedExile
+        | ChooseZone::Found => {
+            super::wave13a::collect_choose_zone_candidates(state, res, zone, filter, ask_player)
+                .into_iter()
+                .map(|(id, _, _)| id)
+                .collect()
+        }
     };
     if options.is_empty() {
         return None;
@@ -356,14 +364,7 @@ pub(super) fn choose_card_start(
     let avail = u8::try_from(options.len()).unwrap_or(u8::MAX);
     let max_clamped = u8::try_from(max_n).unwrap_or(u8::MAX).min(avail);
     let min_clamped = min.min(max_clamped);
-    let prompt = match (zone, movement) {
-        (ChooseZone::Graveyard(_), _) => ChoicePrompt::FromGraveyard,
-        (_, ChooseMove::Hand) => ChoicePrompt::PutIntoHand,
-        (_, ChooseMove::Battlefield { .. }) => ChoicePrompt::PutOntoBattlefield,
-        (_, ChooseMove::TopOfLibrary) => ChoicePrompt::PutBackOnTop,
-        (_, ChooseMove::BottomOfLibrary) => ChoicePrompt::PutOnBottom,
-        _ => ChoicePrompt::Generic,
-    };
+    let prompt = super::wave13a::choose_prompt_for(zone, movement);
     res.awaiting = Some(AwaitingOp::ChooseCardOp {
         zone,
         movement,
@@ -399,6 +400,15 @@ pub(super) fn choose_card_finish(
             state.object(id).is_some_and(|o| match zone {
                 ChooseZone::Battlefield => o.zone == crate::zone::Zone::Battlefield,
                 ChooseZone::Graveyard(_) => o.zone == crate::zone::Zone::Graveyard,
+                ChooseZone::Hand(_) => o.zone == crate::zone::Zone::Hand,
+                ChooseZone::Exile(_) | ChooseZone::LinkedExile => {
+                    o.zone == crate::zone::Zone::Exile
+                }
+                ChooseZone::Found => res
+                    .subject
+                    .found
+                    .iter()
+                    .any(|r| r.object == id && r.version == o.version),
             })
         })
         .collect();
@@ -456,9 +466,10 @@ fn planned_choose_moves(
                     ChooseMove::None => unreachable!(),
                     ChooseMove::Hand => ZoneLocation::Hand(owner),
                     ChooseMove::Battlefield { .. } => ZoneLocation::Battlefield,
-                    ChooseMove::TopOfLibrary | ChooseMove::BottomOfLibrary => {
-                        ZoneLocation::Library(owner)
-                    }
+                    ChooseMove::TopOfLibrary
+                    | ChooseMove::BottomOfLibrary
+                    | ChooseMove::BottomOfLibraryChosenOrder
+                    | ChooseMove::BottomOfLibraryRandom => ZoneLocation::Library(owner),
                     ChooseMove::Graveyard => ZoneLocation::Graveyard(owner),
                     ChooseMove::Exile | ChooseMove::ExileLinked => ZoneLocation::Exile(owner),
                 };
@@ -506,7 +517,9 @@ fn apply_choose_move(
                 Cause::Effect,
             );
         }
-        ChooseMove::BottomOfLibrary => {
+        ChooseMove::BottomOfLibrary
+        | ChooseMove::BottomOfLibraryChosenOrder
+        | ChooseMove::BottomOfLibraryRandom => {
             if let Some(obj) = state.object_mut(id) {
                 obj.kind = ObjectKind::Card;
             }

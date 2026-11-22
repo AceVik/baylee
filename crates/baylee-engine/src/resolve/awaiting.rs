@@ -1453,6 +1453,18 @@ pub enum AwaitingOp {
     /// Mandatory creature-card choice from the revealed top ten library cards
     /// in Undercity's "Throne of the Dead Three".
     UndercityThrone,
+    /// Selection step of `Effect::ChooseCardEx`.
+    ChooseCardExOp(Box<super::wave13a::ChooseCardExState>),
+    /// Bottom-of-library ordering step of `Effect::ChooseCardEx`.
+    ChooseCardExArrangeBottom(Box<super::wave13a::ChooseCardExBottomState>),
+    /// Multiplayer separator selection for `Effect::SeparateIntoTwoPiles`.
+    TwoPilesPickSeparator(Box<super::wave13a::TwoPilesState>),
+    /// First-pile selection (`ChoicePrompt::FirstPile`) for `Effect::SeparateIntoTwoPiles`.
+    TwoPilesFirstPile(Box<super::wave13a::TwoPilesState>),
+    /// Multiplayer pile-chooser selection for `Effect::SeparateIntoTwoPiles`.
+    TwoPilesPickChooser(Box<super::wave13a::TwoPilesSplitState>),
+    /// Pile choice (`Pending::ChoosePile`) for `Effect::SeparateIntoTwoPiles`.
+    TwoPilesChoosePile(Box<super::wave13a::TwoPilesSplitState>),
 }
 
 /// Work to resume after an optional life payment.
@@ -1880,6 +1892,18 @@ impl AwaitingOp {
             Self::OptionVote(vote) => crate::state::structural_fingerprint(&(215_u8, vote)),
             Self::PlayCards(offer) => crate::state::structural_fingerprint(&(216_u8, offer)),
             Self::UndercityThrone => crate::state::structural_fingerprint(&217_u8),
+            Self::ChooseCardExOp(spec) => crate::state::structural_fingerprint(&(218_u8, spec)),
+            Self::ChooseCardExArrangeBottom(spec) => {
+                crate::state::structural_fingerprint(&(219_u8, spec))
+            }
+            Self::TwoPilesPickSeparator(spec) => {
+                crate::state::structural_fingerprint(&(220_u8, spec))
+            }
+            Self::TwoPilesFirstPile(spec) => crate::state::structural_fingerprint(&(221_u8, spec)),
+            Self::TwoPilesPickChooser(spec) => {
+                crate::state::structural_fingerprint(&(222_u8, spec))
+            }
+            Self::TwoPilesChoosePile(spec) => crate::state::structural_fingerprint(&(223_u8, spec)),
             _ => 0,
         }
     }

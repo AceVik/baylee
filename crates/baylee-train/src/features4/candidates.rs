@@ -1062,8 +1062,16 @@ pub fn public_object_matches_basic_filter(
         baylee_cards_dsl::Filter::PowerAtLeast(n) => obj.power.is_some_and(|p| p >= *n),
         baylee_cards_dsl::Filter::ToughnessAtMost(n) => obj.toughness.is_some_and(|t| t <= *n),
         baylee_cards_dsl::Filter::ToughnessAtLeast(n) => obj.toughness.is_some_and(|t| t >= *n),
-        baylee_cards_dsl::Filter::ControlledByYou => obj.controller == actor,
-        baylee_cards_dsl::Filter::ControlledByOpponent => obj.controller != actor,
+        baylee_cards_dsl::Filter::ControlledByYou
+        | baylee_cards_dsl::Filter::ControlledBy(baylee_cards_dsl::PlayerRel::You) => {
+            obj.controller == actor
+        }
+        baylee_cards_dsl::Filter::ControlledByOpponent
+        | baylee_cards_dsl::Filter::ControlledBy(
+            baylee_cards_dsl::PlayerRel::Opponent
+            | baylee_cards_dsl::PlayerRel::EachOpponent
+            | baylee_cards_dsl::PlayerRel::EachOtherPlayer,
+        ) => obj.controller != actor,
         baylee_cards_dsl::Filter::OwnedByYou => obj.owner == actor,
         baylee_cards_dsl::Filter::Tapped => obj.status.contains(ObjectStatus::TAPPED),
         baylee_cards_dsl::Filter::Untapped => !obj.status.contains(ObjectStatus::TAPPED),
