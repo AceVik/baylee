@@ -8635,3 +8635,24 @@ unfiltered cards. The eight additional cards come from typecycling and dredge.
   lacked the author and pending-review trailers.
   A pool admission audit and sample rules review do not attest to a
   sentence-by-sentence review of the full generated population.
+
+## 2026-11-22 — Rules and reader review of Waves 11–14 and 18–26
+
+- Check when a player makes a choice. Restricted modal triggers reserve their
+  mode when they go on the stack. A damage-prevention rider can create a
+  replacement-order decision for the affected player. The resolving engine
+  must preserve that decision.
+- Model the searcher, the owner of each zone, and the decision to search each
+  zone separately. Extract and Life's Finale search an opponent's library.
+  Verdant Crescendo searches both zones and shuffles once. Kaho's cast ability
+  requires the exact cards exiled by that incarnation.
+- Use printed wording to distinguish the second main phase from every
+  postcombat main phase, a single player's graveyard from the combined
+  graveyards, and a strict mana-value threshold from an inclusive one.
+- Exercise costs through the legal-action offer and the actual payment.
+  Hinata counts distinct targets across selected modes. A variable mana
+  payment can open a mana-ability window, and a failed payment skips the
+  dependent instructions. Behold may require a card or offer a mana surcharge.
+- Hash the frozen characteristics used by sacrifice payoffs after a card
+  leaves play. Record simultaneous excess damage once per recipient while
+  retaining the ordinary damage events for each source.
