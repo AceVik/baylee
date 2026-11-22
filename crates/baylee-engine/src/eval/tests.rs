@@ -149,6 +149,38 @@ fn graveyard_cards_above_counts_only_matching_cards_above_the_source() {
 }
 
 #[test]
+fn a_single_graveyard_can_belong_to_a_teammate() {
+    let mut state = empty_state();
+    for player in &mut state.players {
+        player.team = Some(1);
+    }
+    assert!(!state.is_opponent(P0, P1));
+
+    let source = creature(&mut state, P0, KeywordSet::EMPTY);
+    let name = state.names.intern("Graveyard fixture");
+    for player in [P0, P1] {
+        for _ in 0..5 {
+            state.create_bare(
+                player,
+                ObjectKind::Card,
+                name,
+                ZoneLocation::Graveyard(player),
+            );
+        }
+    }
+    let threshold = Condition::AnyGraveyardCountAtLeast(10);
+    assert!(!condition_holds(&state, P0, source, threshold));
+
+    for _ in 0..5 {
+        state.create_bare(P1, ObjectKind::Card, name, ZoneLocation::Graveyard(P1));
+    }
+    assert!(condition_holds(&state, P0, source, threshold));
+
+    state.players[1].loss = Some(crate::event::LossReason::Conceded);
+    assert!(!condition_holds(&state, P0, source, threshold));
+}
+
+#[test]
 fn graveyard_order_condition_cannot_find_a_later_incarnation() {
     let mut state = empty_state();
     let source = buried_card(&mut state, TypeSet::CREATURE);

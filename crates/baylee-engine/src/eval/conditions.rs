@@ -494,6 +494,10 @@ pub fn condition_holds_with_context(
             .map(|i| PlayerId::new(i as u8))
             .filter(|id| state.is_opponent(*id, you))
             .any(|id| state.zones.list(ZoneLocation::Graveyard(id)).len() >= min as usize),
+        Condition::AnyGraveyardCountAtLeast(min) => state.players.iter().any(|player| {
+            !player.has_lost()
+                && state.zones.list(ZoneLocation::Graveyard(player.id)).len() >= usize::from(min)
+        }),
         // Your own graveyard, and only yours — threshold counts the cards
         // the *controller* of the ability has, so the seat is `you` and not
         // a scan. The line above is the same question asked of an opponent

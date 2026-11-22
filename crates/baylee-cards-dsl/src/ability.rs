@@ -759,6 +759,9 @@ pub enum Condition {
     /// non-kicker [`crate::FaceDef::optional_cost`] paid (`CR 118.8b`).
     /// Appended to preserve replay identities.
     OptionalCostPaid,
+    /// At least one player still in the game has N cards in their graveyard.
+    /// Appended to preserve replay identities.
+    AnyGraveyardCountAtLeast(u16),
 }
 
 /// Trigger conditions for triggered abilities.

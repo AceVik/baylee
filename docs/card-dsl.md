@@ -1146,6 +1146,8 @@ reader. `ControlCount(&filter, n)` is metalcraft and the verge lands,
 `ControlDistinctNames(&filter, n)` counts names rather than permanents
 (Field of the Dead's "seven or more lands with different names"),
 `OpponentGraveyardCountAtLeast(n)` is Sheoldred's flip,
+`AnyGraveyardCountAtLeast(n)` is Swimmer in Nightmares and checks each
+remaining player's graveyard individually, including teammates,
 `CountersOnSelf(kind, n)`, `CountersOnSelfExactly(kind, n)` and
 `CountersOnSelfBetween(kind, lo, hi)` read the permanent the ability is
 printed on, `SourceMatches(&filter)` points a

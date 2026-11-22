@@ -2810,20 +2810,16 @@ impl Tx<'_> {
     }
 
     fn highest_cards_in_gy_condition(cmp: &str) -> Option<String> {
-        if let Some(n) = parse_at_least_u16(cmp).and_then(|v| u8::try_from(v).ok())
+        if let Some(n) = parse_at_least_u16(cmp)
             && n >= 1
         {
-            return Some(format!(
-                "Condition::Any(&[Condition::GraveyardCountAtLeast({n}), \
-                 Condition::OpponentGraveyardCountAtLeast({n})])"
-            ));
+            return Some(format!("Condition::AnyGraveyardCountAtLeast({n})"));
         }
         if let Some(max) = parse_at_most_u16(cmp)
-            && let Some(min) = max.checked_add(1).and_then(|v| u8::try_from(v).ok())
+            && let Some(min) = max.checked_add(1)
         {
             return Some(format!(
-                "Condition::All(&[Condition::Not(&Condition::GraveyardCountAtLeast({min})), \
-                 Condition::Not(&Condition::OpponentGraveyardCountAtLeast({min}))])"
+                "Condition::Not(&Condition::AnyGraveyardCountAtLeast({min}))"
             ));
         }
         None

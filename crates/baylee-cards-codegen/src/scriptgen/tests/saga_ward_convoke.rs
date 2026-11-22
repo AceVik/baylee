@@ -4268,9 +4268,7 @@ fn wave19d_command_library_and_highest_gy_conditions() {
          SVar:X:PlayerCountPlayers$HighestCardsInGraveyard",
     );
     assert!(
-        any_gy.abilities[0].contains(
-            "Condition::Any(&[Condition::GraveyardCountAtLeast(10), Condition::OpponentGraveyardCountAtLeast(10)])"
-        ),
+        any_gy.abilities[0].contains("Condition::AnyGraveyardCountAtLeast(10)"),
         "{:?}",
         any_gy.abilities
     );
@@ -4281,7 +4279,7 @@ fn wave19d_command_library_and_highest_gy_conditions() {
          SVar:P:PlayerCountPlayers$HighestCardsInGraveyard",
     );
     assert!(
-        dual_inline.abilities[0].contains("Condition::All(&[Condition::All(&[Condition::Not(&Condition::GraveyardCountAtLeast(4)), Condition::Not(&Condition::OpponentGraveyardCountAtLeast(4))]), Condition::ControlCount("),
+        dual_inline.abilities[0].contains("Condition::All(&[Condition::Not(&Condition::AnyGraveyardCountAtLeast(4)), Condition::ControlCount("),
         "{:?}",
         dual_inline.abilities
     );
