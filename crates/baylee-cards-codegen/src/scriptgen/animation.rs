@@ -122,38 +122,8 @@ impl Tx<'_> {
                 return None;
             }
         };
-        let replace_creature_types = match p.take("RemoveCreatureTypes").as_deref() {
-            None => false,
-            Some("True") => true,
-            Some(other) => return self.deny(format!("`RemoveCreatureTypes$ {other}`")),
-        };
-        let set_land_type = match p.take("RemoveLandTypes").as_deref() {
-            None => false,
-            Some("True") => true,
-            Some(other) => return self.deny(format!("`RemoveLandTypes$ {other}`")),
-        };
         let mut out = Vec::new();
-        let types = p.take("Types").unwrap_or_default();
-        self.animate_types_for(
-            &types,
-            (replace_creature_types, set_land_type),
-            filter,
-            duration,
-            &mut out,
-        )?;
-        if let Some(removed) = p.take("RemoveTypes") {
-            for word in removed.split(',') {
-                let word = word.trim();
-                let Some(supertype) = supertype_const(word) else {
-                    return self.deny(format!("`Animate` removing type `{word}`"));
-                };
-                out.push(Self::animate_expr_for(
-                    filter,
-                    &format!("Modifier::RemoveSupertype({supertype})"),
-                    duration,
-                ));
-            }
-        }
+        self.animate_types_block(p, filter, duration, &mut out)?;
         out.extend(self.animate_regeneration_grant(p, source_only, duration)?);
         self.animate_colors_and_keywords(p, filter, duration, &mut out)?;
         // Layer 7b: the printed P/T it takes on. Both halves or neither —
@@ -192,6 +162,170 @@ impl Tx<'_> {
             return None;
         }
         Some(out)
+    }
+
+    fn take_true_flag(&mut self, p: &mut Params, key: &str) -> Option<bool> {
+        match p.take(key).as_deref() {
+            None => Some(false),
+            Some("True") => Some(true),
+            Some(other) => self.deny(format!("`{key}$ {other}`")),
+        }
+    }
+
+    fn subtype_belongs_to_card_type(&self, word: &str, ct: &str) -> bool {
+        let kinds: &[baylee_core::types::SubtypeKind] = match ct {
+            "TypeSet::CREATURE" | "TypeSet::KINDRED" => {
+                &[baylee_core::types::SubtypeKind::Creature]
+            }
+            "TypeSet::ARTIFACT" => &[baylee_core::types::SubtypeKind::Artifact],
+            "TypeSet::ENCHANTMENT" => &[baylee_core::types::SubtypeKind::Enchantment],
+            "TypeSet::LAND" => &[baylee_core::types::SubtypeKind::Land],
+            "TypeSet::PLANESWALKER" => &[baylee_core::types::SubtypeKind::Planeswalker],
+            "TypeSet::INSTANT" | "TypeSet::SORCERY" => &[baylee_core::types::SubtypeKind::Spell],
+            "TypeSet::BATTLE" => &[baylee_core::types::SubtypeKind::Battle],
+            _ => return false,
+        };
+        kinds
+            .iter()
+            .any(|&kind| self.cats.const_path_of(kind, word).is_some())
+    }
+
+    /// Lower Layer 4 type replacement (`RemoveCardTypes$ True`) for `Animate`
+    /// and `Continuous` effects.
+    pub(super) fn become_types_modifiers(
+        &mut self,
+        p: &mut Params,
+        raw_types: &str,
+        sep: &[char],
+    ) -> Option<Vec<String>> {
+        // `BecomeTypes` preserves existing supertypes per CR 205.1b.
+        let _ = self.take_true_flag(p, "KeepSupertypes")?;
+        if p.has("RemoveSupertypes") {
+            return self.deny("`RemoveSupertypes$` with `RemoveCardTypes$`".to_string());
+        }
+        let remove_subtypes = self.take_true_flag(p, "RemoveSubTypes")?;
+        let remove_creature = self.take_true_flag(p, "RemoveCreatureTypes")?;
+        let remove_artifact = self.take_true_flag(p, "RemoveArtifactTypes")?;
+        let remove_enchantment = self.take_true_flag(p, "RemoveEnchantmentTypes")?;
+        let remove_land = self.take_true_flag(p, "RemoveLandTypes")?;
+
+        let mut card_types: Vec<&'static str> = Vec::new();
+        let mut supertypes: Vec<String> = Vec::new();
+        let mut subtypes: Vec<(&str, String)> = Vec::new();
+        for word in raw_types
+            .split(sep)
+            .map(str::trim)
+            .filter(|w| !w.is_empty())
+        {
+            if let Some(ct) = card_type_const(word) {
+                if !card_types.contains(&ct) {
+                    card_types.push(ct);
+                }
+            } else if let Some(st) = supertype_const(word) {
+                supertypes.push(st);
+            } else {
+                let Some(path) = self.cats.const_path(word) else {
+                    self.note(format!("type replacement into `{word}`"));
+                    return None;
+                };
+                subtypes.push((word, path));
+            }
+        }
+        if card_types.is_empty() {
+            return self.deny("`RemoveCardTypes$` with no card type".to_string());
+        }
+        if !remove_subtypes && card_types.len() > 1 {
+            let covered = card_types.iter().all(|&ct| match ct {
+                "TypeSet::CREATURE" => remove_creature,
+                "TypeSet::ARTIFACT" => remove_artifact,
+                "TypeSet::ENCHANTMENT" => remove_enchantment,
+                "TypeSet::LAND" => remove_land,
+                _ => false,
+            });
+            if !covered {
+                return self.deny("`RemoveCardTypes` without matching subtype removal".to_string());
+            }
+        }
+        for (word, _) in &subtypes {
+            if !card_types
+                .iter()
+                .any(|&ct| self.subtype_belongs_to_card_type(word, ct))
+            {
+                return self.deny(format!(
+                    "subtype `{word}` without its card type under `RemoveCardTypes$`"
+                ));
+            }
+        }
+        let types_expr = card_types
+            .into_iter()
+            .map(str::to_string)
+            .reduce(|acc, ct| format!("{acc}.union({ct})"))?;
+        let subtypes_expr = if subtypes.is_empty() {
+            "&[]".to_string()
+        } else {
+            let paths: Vec<&str> = subtypes.iter().map(|(_, p)| p.as_str()).collect();
+            format!("&[{}]", paths.join(", "))
+        };
+        let mut out = vec![format!(
+            "Modifier::BecomeTypes {{ types: {types_expr}, subtypes: {subtypes_expr} }}"
+        )];
+        for st in supertypes {
+            out.push(format!("Modifier::AddSupertype({st})"));
+        }
+        Some(out)
+    }
+
+    fn animate_types_block(
+        &mut self,
+        p: &mut Params,
+        filter: &str,
+        duration: &str,
+        out: &mut Vec<String>,
+    ) -> Option<()> {
+        if self.take_true_flag(p, "RemoveCardTypes")? {
+            let types = p.take("Types").unwrap_or_default();
+            for modifier in self.become_types_modifiers(p, &types, &[',', '&'])? {
+                out.push(Self::animate_expr_for(filter, &modifier, duration));
+            }
+            if !p.has("Keywords")
+                && !p.has("Abilities")
+                && !p.has("Triggers")
+                && !p.has("StaticAbilities")
+                && !p.has("DamagedThisWayCantBeRegenerated")
+                && self.take_true_flag(p, "RemoveAllAbilities")?
+            {
+                out.push(Self::animate_expr_for(
+                    filter,
+                    "Modifier::LoseAllAbilities",
+                    duration,
+                ));
+            }
+            return Some(());
+        }
+        let replace_creature_types = self.take_true_flag(p, "RemoveCreatureTypes")?;
+        let set_land_type = self.take_true_flag(p, "RemoveLandTypes")?;
+        let types = p.take("Types").unwrap_or_default();
+        self.animate_types_for(
+            &types,
+            (replace_creature_types, set_land_type),
+            filter,
+            duration,
+            out,
+        )?;
+        if let Some(removed) = p.take("RemoveTypes") {
+            for word in removed.split(',') {
+                let word = word.trim();
+                let Some(supertype) = supertype_const(word) else {
+                    return self.deny(format!("`Animate` removing type `{word}`"));
+                };
+                out.push(Self::animate_expr_for(
+                    filter,
+                    &format!("Modifier::RemoveSupertype({supertype})"),
+                    duration,
+                ));
+            }
+        }
+        Some(())
     }
 
     /// Fixed color changes and keyword grants retain their distinct layers.

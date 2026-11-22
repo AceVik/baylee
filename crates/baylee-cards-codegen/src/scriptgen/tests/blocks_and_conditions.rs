@@ -1724,3 +1724,103 @@ fn wave20d_reduce_cost_valid_spell_and_gift_svar() {
         assert!(refused(bad), "must refuse:\n{bad}");
     }
 }
+
+#[test]
+fn wave21d_computed_pt_counts_graveyard_self_grant_and_honest_refusals() {
+    let hand_cda = read(
+        "Name:Hand Avatar\nManaCost:3 U\nTypes:Creature\nPT:*/*\n\
+         S:Mode$ Continuous | CharacteristicDefining$ True | SetPower$ X | SetToughness$ Y\n\
+         SVar:X:Count$ValidHand Card.YouOwn/Twice\n\
+         SVar:Y:Count$ValidHand Card.OppOwn",
+    );
+    assert!(hand_cda.abilities.iter().any(|a| {
+        a.contains("Modifier::CharacteristicPTSeparate { power: PtCount::Twice(&PtCount::CardsInHand(PlayerRel::You)), toughness: PtCount::CardsInHand(PlayerRel::EachOpponent) }")
+    }));
+
+    let self_cda = read(
+        "Name:Domain Golem\nManaCost:4 G\nTypes:Creature\nPT:*/*\n\
+         S:Mode$ Continuous | Affected$ Card.Self | CharacteristicDefining$ True | SetPower$ X | SetToughness$ Y\n\
+         SVar:X:Count$Domain\n\
+         SVar:Y:Count$Party",
+    );
+    assert!(self_cda.abilities.iter().any(|a| {
+        a.contains("Modifier::CharacteristicPTSeparate { power: PtCount::Domain(PlayerRel::You), toughness: PtCount::PartySize(PlayerRel::You) }")
+    }));
+
+    let opp_gy_cda = read(
+        "Name:Crypt Shade\nManaCost:3 B\nTypes:Creature\nPT:*/*\n\
+         S:Mode$ Continuous | Affected$ Card.Self | CharacteristicDefining$ True | SetPower$ X | SetToughness$ X\n\
+         SVar:X:Count$ValidGraveyard Creature.OppOwn",
+    );
+    assert!(opp_gy_cda.abilities.iter().any(|a| {
+        a.contains("Modifier::CharacteristicPT { count: PtCount::InGraveyards { who: PlayerRel::EachOpponent, filter: &Filter::CREATURE }, toughness_plus: 0 }")
+    }));
+
+    let non_cda_pts = read(
+        "Name:Field Sculptor\nManaCost:2 U G\nTypes:Enchantment\n\
+         S:Mode$ Continuous | Affected$ Creature.YouCtrl | SetPower$ D | SetToughness$ D\n\
+         S:Mode$ Continuous | Affected$ Creature.YouCtrl | SetPower$ 0 | SetToughness$ L\n\
+         S:Mode$ Continuous | Affected$ Artifact.YouCtrl | SetPower$ G\n\
+         S:Mode$ Continuous | Affected$ Creature.OppCtrl | SetToughness$ Y\n\
+         S:Mode$ Continuous | Affected$ Creature.YouCtrl | SetPower$ H\n\
+         SVar:D:Count$Valid Land.YouCtrl$DifferentCardNames\n\
+         SVar:L:Count$YourLifeTotal\n\
+         SVar:G:Count$Valid Permanent.YouCtrl$GreatestCardManaCost\n\
+         SVar:Y:Count$ValidGraveyard Instant.YouOwn,Sorcery.YouOwn/Times.2\n\
+         SVar:H:Count$NumInAllHands",
+    );
+    assert!(non_cda_pts.abilities.iter().any(|a| {
+        a.contains("Modifier::SetPTToCount(PtCount::DistinctNamesAmong(&Filter::YOUR_LAND))")
+    }));
+    assert!(non_cda_pts.abilities.iter().any(|a| {
+        a.contains("Modifier::SetPTSeparateToCount { power: PtCount::Fixed(0), toughness: PtCount::LifeTotal(PlayerRel::You) }")
+    }));
+    assert!(non_cda_pts.abilities.iter().any(|a| {
+        a.contains(
+            "Modifier::SetPowerToCount(PtCount::GreatestManaValueAmong(&Filter::ControlledByYou))",
+        )
+    }));
+    assert!(non_cda_pts.abilities.iter().any(|a| {
+        a.contains("Modifier::SetToughnessToCount(PtCount::Twice(&PtCount::InGraveyards { who: PlayerRel::You, filter: &Filter::INSTANT_OR_SORCERY }))")
+    }));
+    assert!(non_cda_pts.abilities.iter().any(|a| {
+        a.contains("Modifier::SetPowerToCount(PtCount::CardsInHand(PlayerRel::EachPlayer))")
+    }));
+
+    let gy_self_static = read(
+        "Name:Speed Reclaimer\nManaCost:1 R\nTypes:Creature\nPT:2/1\n\
+         S:Mode$ Continuous | EffectZone$ Graveyard | AffectedZone$ Graveyard | Affected$ Card.Self | Condition$ MaxSpeed | AddStaticAbility$ SpeedCast\n\
+         SVar:SpeedCast:Mode$ Continuous | Affected$ Card.Self | AffectedZone$ Graveyard | EffectZone$ Graveyard | MayPlay$ True | Secondary$ True",
+    );
+    assert_eq!(
+        gy_self_static.abilities,
+        [
+            "static_ability!(Filter::This, Modifier::CastSpellsFromGraveyard, zone = ZoneRef::Graveyard, condition = Some(Condition::MaxSpeed))"
+        ]
+    );
+
+    for bad in [
+        "Name:BadGyGreatestMv\nTypes:Creature\nPT:*/*\n\
+         S:Mode$ Continuous | CharacteristicDefining$ True | SetPower$ X | SetToughness$ X\n\
+         SVar:X:Count$ValidGraveyard Card.YouOwn$GreatestCardManaCost",
+        "Name:BadGyDistinctNames\nTypes:Creature\nPT:*/*\n\
+         S:Mode$ Continuous | CharacteristicDefining$ True | SetPower$ X | SetToughness$ X\n\
+         SVar:X:Count$ValidGraveyard Card$DifferentCardNames",
+        "Name:BadHandFilter\nTypes:Creature\nPT:*/*\n\
+         S:Mode$ Continuous | CharacteristicDefining$ True | SetPower$ X | SetToughness$ X\n\
+         SVar:X:Count$ValidHand Creature.YouOwn",
+        "Name:BadSourceBoundOnOther\nTypes:Enchantment\n\
+         S:Mode$ Continuous | Affected$ Creature.YouCtrl | SetPower$ X | SetToughness$ X\n\
+         SVar:X:Count$CardCounters.P1P1",
+        "Name:BadOptionalCostMode\nTypes:Enchantment\n\
+         S:Mode$ OptionalCost | Cost$ 1",
+        "Name:BadDevotionPt\nTypes:Creature\nPT:*/*\n\
+         S:Mode$ Continuous | CharacteristicDefining$ True | SetPower$ X | SetToughness$ X\n\
+         SVar:X:Count$Devotion.White",
+        "Name:BadGyInnerKey\nTypes:Creature\nPT:2/1\n\
+         S:Mode$ Continuous | EffectZone$ Graveyard | AffectedZone$ Graveyard | Affected$ Card.Self | AddStaticAbility$ SpeedCast\n\
+         SVar:SpeedCast:Mode$ Continuous | Affected$ Card.Self | AffectedZone$ Graveyard | EffectZone$ Graveyard | MayPlay$ True | MayPlayWithoutManaCost$ True",
+    ] {
+        assert!(refused(bad), "must refuse:\n{bad}");
+    }
+}

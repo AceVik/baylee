@@ -302,3 +302,83 @@ fn the_grant_only_damage_filter_is_not_accepted_as_an_incidental_spell_target() 
          A:SP$ DealDamage | ValidTgts$ Creature.DamagedBy | NumDmg$ 2"
     ));
 }
+
+#[test]
+fn animate_remove_card_types_emits_become_types_and_preserves_cr_guards() {
+    let witness = read(
+        "Name:Starbound Witness\nManaCost:1 U\nTypes:Instant\n\
+         A:SP$ Animate | ValidTgts$ Creature | Types$ Enchantment | \
+         RemoveCardTypes$ True | RemoveCreatureTypes$ True | RemoveAllAbilities$ True",
+    );
+    contains(
+        &witness,
+        "Effect::continuous(&Filter::This, Modifier::BecomeTypes { types: TypeSet::ENCHANTMENT, subtypes: &[] }, Duration::UntilEndOfTurn)",
+    );
+    contains(&witness, "Modifier::LoseAllAbilities");
+
+    let twotype = read(
+        "Name:Arcane Forging\nManaCost:2 W\nTypes:Instant\n\
+         A:SP$ Animate | ValidTgts$ Permanent | Types$ Creature,Goblin,Wizard | \
+         RemoveCardTypes$ True | RemoveCreatureTypes$ True | Power$ 3 | Toughness$ 3",
+    );
+    contains(
+        &twotype,
+        "Modifier::BecomeTypes { types: TypeSet::CREATURE, subtypes: &[subtypes::creature::GOBLIN, subtypes::creature::WIZARD] }",
+    );
+    contains(&twotype, "Modifier::SetPT(3, 3)");
+
+    let legend_goblin = read(
+        "Name:Royal Crown\nManaCost:3 R\nTypes:Instant\n\
+         A:SP$ Animate | ValidTgts$ Creature | Types$ Creature,Legendary,Goblin | \
+         RemoveCardTypes$ True | RemoveCreatureTypes$ True | Power$ 4 | Toughness$ 4",
+    );
+    contains(
+        &legend_goblin,
+        "Modifier::BecomeTypes { types: TypeSet::CREATURE, subtypes: &[subtypes::creature::GOBLIN] }",
+    );
+    contains(
+        &legend_goblin,
+        "Modifier::AddSupertype(SupertypeSet::LEGENDARY)",
+    );
+
+    let clue = read(
+        "Name:Clue Transmute\nManaCost:1 U\nTypes:Instant\n\
+         A:SP$ Animate | ValidTgts$ Permanent | Types$ Artifact,Clue | RemoveCardTypes$ True",
+    );
+    contains(
+        &clue,
+        "Modifier::BecomeTypes { types: TypeSet::ARTIFACT, subtypes: &[subtypes::artifact::CLUE] }",
+    );
+
+    let full_strip = read(
+        "Name:Animated Evidence\nManaCost:2 W\nTypes:Instant\n\
+         A:SP$ Animate | ValidTgts$ Permanent | Types$ Artifact,Creature,Clue | \
+         RemoveCardTypes$ True | RemoveSubTypes$ True | Power$ 2 | Toughness$ 2",
+    );
+    contains(
+        &full_strip,
+        "Modifier::BecomeTypes { types: TypeSet::ARTIFACT.union(TypeSet::CREATURE), subtypes: &[subtypes::artifact::CLUE] }",
+    );
+
+    for bad in [
+        "Name:MixedNoStrip\nManaCost:1 U\nTypes:Instant\n\
+         A:SP$ Animate | ValidTgts$ Creature | Types$ Artifact,Creature,Goblin | \
+         RemoveCardTypes$ True | RemoveCreatureTypes$ True",
+        "Name:NoCardType\nManaCost:1 U\nTypes:Instant\n\
+         A:SP$ Animate | ValidTgts$ Creature | Types$ Goblin | RemoveCardTypes$ True",
+        "Name:MismatchedSubtype\nManaCost:1 U\nTypes:Instant\n\
+         A:SP$ Animate | ValidTgts$ Creature | Types$ Enchantment,Goblin | \
+         RemoveCardTypes$ True | RemoveSubTypes$ True",
+        "Name:DropSuper\nManaCost:1 U\nTypes:Instant\n\
+         A:SP$ Animate | ValidTgts$ Creature | Types$ Enchantment | \
+         RemoveCardTypes$ True | RemoveSupertypes$ True",
+        "Name:KeepSuperFalse\nManaCost:1 U\nTypes:Instant\n\
+         A:SP$ Animate | ValidTgts$ Creature | Types$ Enchantment | \
+         RemoveCardTypes$ True | KeepSupertypes$ False",
+        "Name:RemoveAllPlusKw\nManaCost:1 U\nTypes:Instant\n\
+         A:SP$ Animate | ValidTgts$ Creature | Types$ Enchantment | \
+         RemoveCardTypes$ True | RemoveAllAbilities$ True | Keywords$ Flying",
+    ] {
+        assert!(refused(bad), "must refuse:\n{bad}");
+    }
+}

@@ -836,7 +836,7 @@ impl Tx<'_> {
             return self.deny("a `CantAttack,CantBlock` with no `ValidCard$`".to_string());
         };
         let filter = self.filter_expr(&valid)?;
-        let condition = self.condition_any(&mut p)?;
+        let condition = self.condition_any_wave21(&mut p)?;
         if let Some(key) = p.first_key() {
             return self.deny(format!("unclaimed parameter `CantAttack,CantBlock.{key}`"));
         }
@@ -1462,6 +1462,27 @@ impl Tx<'_> {
         if self.has_owner_graveyard_cda(&p) {
             return ExtraOutcome::Handled(self.characteristic_pt_graveyard_owner(p));
         }
+        if p.has("AdditionalVote") || p.has("AdditionalOptionalVote") {
+            return ExtraOutcome::Handled(self.continuous_additional_votes(p));
+        }
+        if matches!(p.peek("EffectZone"), None | Some("Battlefield"))
+            && matches!(p.peek("AffectedZone"), None | Some("Battlefield"))
+            && !p.has("CharacteristicDefining")
+            && p.peek("SetPower") != Some("AffectedX")
+            && p.peek("RemoveCardTypes") == Some("True")
+            && !self.is_wave5_single_subtype_become(&p)
+        {
+            return ExtraOutcome::Handled(self.continuous_become_types(p));
+        }
+        if let Some(cond) = p.peek("Condition").and_then(Self::wave21_named_condition)
+            && !p.has("ConditionDescription")
+        {
+            return ExtraOutcome::Handled(self.continuous_with_stripped_params(
+                spec,
+                &["Condition"],
+                cond,
+            ));
+        }
         if p.peek("Affected")
             .is_some_and(is_player_continuous_affected)
             && (p.has("SetMaxHandSize")
@@ -1772,20 +1793,192 @@ impl Tx<'_> {
         Some(())
     }
 
+    fn condition_any_wave21(&mut self, p: &mut Params) -> Option<String> {
+        let extra = p.peek("Condition").and_then(Self::wave21_named_condition);
+        if extra.is_some() {
+            p.take("Condition");
+        }
+        let base = self.condition_any(p)?;
+        let base_clause = base
+            .strip_prefix(", condition = Some(")
+            .and_then(|s| s.strip_suffix(')'));
+        match (extra, base_clause) {
+            (None, _) => Some(base),
+            (Some(e), None) => Some(format!(", condition = Some({e})")),
+            (Some(e), Some(b)) => Some(format!(", condition = Some(Condition::All(&[{e}, {b}]))")),
+        }
+    }
+
+    fn continuous_additional_votes(&mut self, mut p: Params) -> Option<()> {
+        p.drop_prose();
+        if !matches!(p.take("EffectZone").as_deref(), None | Some("Battlefield"))
+            || p.has("AffectedZone")
+            || !matches!(p.take("Secondary").as_deref(), None | Some("True"))
+        {
+            return self.deny("`Continuous.AdditionalVote` outside battlefield".to_string());
+        }
+        if p.take("Affected").as_deref() != Some("You") {
+            return self.deny("`Continuous.AdditionalVote` not affecting `You`".to_string());
+        }
+        let mut votes = Vec::new();
+        for (key, optional) in [("AdditionalVote", false), ("AdditionalOptionalVote", true)] {
+            if let Some(raw) = p.take(key) {
+                let Ok(count) = raw.trim().parse::<u8>() else {
+                    return self.deny(format!("`Continuous.{key}` `{raw}`"));
+                };
+                if count == 0 {
+                    return self.deny(format!("`Continuous.{key}$ 0`"));
+                }
+                votes.push((count, optional));
+            }
+        }
+        let cond = self.condition_any_wave21(&mut p)?;
+        if !p.exhausted() || votes.is_empty() {
+            return self.deny("unsupported `Continuous.AdditionalVote`".to_string());
+        }
+        for (count, optional) in votes {
+            self.push_static_with_cond(
+                "Filter::This",
+                &format!("Modifier::AdditionalVotes {{ count: {count}, optional: {optional} }}"),
+                &cond,
+            );
+        }
+        Some(())
+    }
+
+    fn is_wave5_single_subtype_become(&self, p: &Params) -> bool {
+        if p.has("RemoveSubTypes")
+            || p.has("RemoveEnchantmentTypes")
+            || p.has("RemoveLandTypes")
+            || p.has("KeepSupertypes")
+        {
+            return false;
+        }
+        let Some(raw) = p.peek("AddType") else {
+            return false;
+        };
+        let tokens: Vec<&str> = raw
+            .split('&')
+            .map(str::trim)
+            .filter(|s| !s.is_empty())
+            .collect();
+        if tokens.len() != 2 {
+            return false;
+        }
+        if tokens.contains(&"Creature") && p.peek("RemoveCreatureTypes") == Some("True") {
+            return tokens.iter().any(|&w| {
+                w != "Creature"
+                    && self
+                        .cats
+                        .const_path_of(baylee_core::types::SubtypeKind::Creature, w)
+                        .is_some()
+            });
+        }
+        if tokens.contains(&"Artifact") && p.peek("RemoveArtifactTypes") == Some("True") {
+            return tokens.iter().any(|&w| {
+                w != "Artifact"
+                    && self
+                        .cats
+                        .const_path_of(baylee_core::types::SubtypeKind::Artifact, w)
+                        .is_some()
+            });
+        }
+        false
+    }
+
+    fn continuous_become_types(&mut self, mut p: Params) -> Option<()> {
+        p.drop_prose();
+        if !matches!(p.take("EffectZone").as_deref(), None | Some("Battlefield"))
+            || !matches!(
+                p.take("AffectedZone").as_deref(),
+                None | Some("Battlefield")
+            )
+            || !matches!(p.take("Secondary").as_deref(), None | Some("True"))
+        {
+            return None;
+        }
+        let affected = self.continuous_affected(&mut p)?;
+        let filter = self.filter_expr(&affected)?;
+        let cond = self.condition_any_wave21(&mut p)?;
+        if p.take("RemoveCardTypes").as_deref() != Some("True") {
+            return self.deny("`Continuous.RemoveCardTypes` not `True`".to_string());
+        }
+        let add_types = p.take("AddType").unwrap_or_default();
+        let mut out: Vec<String> = self
+            .become_types_modifiers(&mut p, &add_types, &['&', ','])?
+            .into_iter()
+            .map(|m| Self::static_expr(&filter, &m))
+            .collect();
+        if !p.has("AddKeyword")
+            && !p.has("AddAbility")
+            && !p.has("AddTrigger")
+            && !p.has("AddStaticAbility")
+            && let Some(val) = p.take("RemoveAllAbilities")
+        {
+            if val != "True" {
+                return self.deny("`Continuous.RemoveAllAbilities` not `True`".to_string());
+            }
+            out.push(Self::static_expr(&filter, "Modifier::LoseAllAbilities"));
+        }
+        if p.peek("SetColor") == Some("Colorless") {
+            p.take("SetColor");
+            out.push(Self::static_expr(
+                &filter,
+                "Modifier::SetColor(ColorSet::EMPTY)",
+            ));
+        }
+        self.pt_modifiers(&mut p, &filter, &mut out)?;
+        self.color_modifiers(&mut p, &filter, &mut out)?;
+        self.keyword_modifiers(&mut p, &filter, &mut out)?;
+        let mut self_granted = false;
+        self.grant_modifiers(&mut p, &filter, false, &cond, &mut out, &mut self_granted)?;
+        let _ = self.strip_ai_hint_add_svar(&mut p);
+        if !p.exhausted() || out.is_empty() {
+            return self.deny("unsupported `Continuous.RemoveCardTypes`".to_string());
+        }
+        if !cond.is_empty() {
+            for ability in &mut out {
+                let open = ability.strip_suffix(')')?;
+                *ability = format!("{open}{cond})");
+            }
+        }
+        self.body.abilities.extend(out);
+        Some(())
+    }
+
     fn continuous_with_extra_condition(&mut self, spec: &str, cond: &str) -> Option<()> {
+        self.continuous_with_stripped_params(
+            spec,
+            &[
+                "CheckSVar",
+                "SVarCompare",
+                "CheckSecondSVar",
+                "SecondSVarCompare",
+            ],
+            cond,
+        )
+    }
+
+    fn continuous_with_stripped_params(
+        &mut self,
+        spec: &str,
+        strip_keys: &[&str],
+        cond: &str,
+    ) -> Option<()> {
         let stripped: Vec<&str> = spec
             .split(" | ")
             .filter(|part| {
                 let key = part.split_once('$').map_or("", |(k, _)| k.trim());
-                !matches!(
-                    key,
-                    "CheckSVar" | "SVarCompare" | "CheckSecondSVar" | "SecondSVarCompare"
-                )
+                !strip_keys.contains(&key)
             })
             .collect();
         let clean_spec = stripped.join(" | ");
         let start = self.body.abilities.len();
-        if self.static_ability(&clean_spec).is_none() || self.body.abilities.len() == start {
+        let res = match self.try_extra_static(&clean_spec) {
+            ExtraOutcome::Handled(res) => res,
+            ExtraOutcome::Pass => self.static_ability(&clean_spec),
+        };
+        if res.is_none() || self.body.abilities.len() == start {
             self.body.abilities.truncate(start);
             return None;
         }
@@ -2273,7 +2466,40 @@ impl Tx<'_> {
         if raw == "Count$ValidExile Card.ExiledWithSource" {
             return Self::linked_exile_count_condition(cmp);
         }
-        None
+        Self::wave21_svar_condition(raw, cmp)
+    }
+
+    fn wave21_svar_condition(raw: &str, cmp: &str) -> Option<String> {
+        let (cond, allow_eq1, invert) = match raw {
+            "Count$Monarch" | "Count$Monarch.1.0" => {
+                ("Condition::IsMonarch(PlayerRel::You)", true, false)
+            }
+            "Count$Monarch.0.1" => ("Condition::IsMonarch(PlayerRel::You)", true, true),
+            "Count$Initiative"
+            | "Count$Initiative.1.0"
+            | "Count$HasInitiative"
+            | "Count$HasInitiative.1.0" => {
+                ("Condition::HasInitiative(PlayerRel::You)", true, false)
+            }
+            "Count$Initiative.0.1" | "Count$HasInitiative.0.1" => {
+                ("Condition::HasInitiative(PlayerRel::You)", true, true)
+            }
+            "DungeonsCompleted$Amount" => {
+                ("Condition::CompletedADungeon(PlayerRel::You)", false, false)
+            }
+            _ => return None,
+        };
+        let holds = match cmp {
+            "GE1" | "GT0" => true,
+            "EQ1" if allow_eq1 => true,
+            "EQ0" | "LT1" | "LE0" => false,
+            _ => return None,
+        };
+        Some(if holds ^ invert {
+            cond.to_string()
+        } else {
+            format!("Condition::Not(&{cond})")
+        })
     }
 
     fn linked_exile_count_condition(cmp: &str) -> Option<String> {

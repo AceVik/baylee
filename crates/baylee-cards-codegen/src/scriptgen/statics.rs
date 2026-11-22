@@ -276,7 +276,7 @@ impl Tx<'_> {
         let graveyard_self_grant = p.peek("EffectZone") == Some("Graveyard")
             && p.peek("AffectedZone") == Some("Graveyard")
             && p.peek("Affected") == Some("Card.Self")
-            && p.has("AddAbility");
+            && (p.has("AddAbility") || p.has("AddStaticAbility"));
         let graveyard_ok = (p.peek("Affected") == Some("Creature.YouCtrl") && p.has("AddKeyword"))
             || graveyard_self_grant;
         let stack_self_zone = p.peek("EffectZone") == Some("Stack")
@@ -342,9 +342,18 @@ impl Tx<'_> {
         // of Swamps you control" (Nightmare): a characteristic-defining
         // ability (CR 604.3), about the card itself and so with no
         // `Affected$`.
-        if p.peek("Affected").is_none()
+        if (p.peek("Affected").is_none()
+            || (p.peek("Affected") == Some("Card.Self")
+                && (p.has("SetPower") || p.has("SetToughness"))
+                && p.entries.iter().all(|(k, _)| {
+                    matches!(
+                        k.as_str(),
+                        "Affected" | "CharacteristicDefining" | "SetPower" | "SetToughness"
+                    )
+                })))
             && p.take("CharacteristicDefining").as_deref() == Some("True")
         {
+            p.take("Affected");
             return self.characteristic_pt(p);
         }
         let affected = self.continuous_affected(&mut p)?;
@@ -682,6 +691,17 @@ impl Tx<'_> {
         }
     }
 
+    pub(super) fn wave21_named_condition(cond: &str) -> Option<&'static str> {
+        Some(match cond.trim() {
+            "Monarch" => "Condition::IsMonarch(PlayerRel::You)",
+            "Initiative" | "HasInitiative" => "Condition::HasInitiative(PlayerRel::You)",
+            "CompletedDungeon" | "CompletedADungeon" => {
+                "Condition::CompletedADungeon(PlayerRel::You)"
+            }
+            _ => return None,
+        })
+    }
+
     pub(super) fn static_conditions(
         &mut self,
         p: &mut Params,
@@ -689,6 +709,12 @@ impl Tx<'_> {
     ) -> Option<String> {
         let mut clauses: Vec<String> = Vec::new();
         Self::take_ability_word_flags(p, &mut clauses)?;
+        if let Some(cond_raw) = p.peek("Condition")
+            && let Some(named) = Self::wave21_named_condition(cond_raw)
+        {
+            p.take("Condition");
+            clauses.push(named.to_string());
+        }
         if let Some(cond_raw) = p.peek("Condition")
             && p.has("IsPresent")
             && let Some(named) = Self::named_condition(cond_raw)
@@ -866,7 +892,7 @@ impl Tx<'_> {
     /// Normalize the selected objects before reading their validity predicate.
     /// Applying the relation to every alternative preserves comma-union semantics.
     /// Unknown definitions must never silently widen to every permanent.
-    fn continuous_affected(&self, p: &mut Params) -> Option<String> {
+    pub(super) fn continuous_affected(&self, p: &mut Params) -> Option<String> {
         let affected = p.take("Affected");
         let Some(defined) = p.take("AffectedDefined") else {
             return affected
@@ -1009,10 +1035,55 @@ impl Tx<'_> {
         Some(())
     }
 
+    /// Self-granted graveyard `AddStaticAbility$` wrapping `MayPlay$ True`
+    /// with optional outer condition (`EffectZone$ Graveyard | AffectedZone$
+    /// Graveyard | Affected$ Card.Self | AddStaticAbility$ ...`).
+    fn graveyard_self_granted_static(&mut self, mut p: Params) -> Option<()> {
+        p.take("AffectedZone");
+        if p.take("Affected").as_deref() != Some("Card.Self") {
+            return self.deny("static ability reaching `AffectedZone$ Graveyard`".to_string());
+        }
+        let Some(var) = p.take("AddStaticAbility") else {
+            return self.deny("static ability reaching `AffectedZone$ Graveyard`".to_string());
+        };
+        let condition =
+            self.static_conditions(&mut p, "unclaimed parameter `Continuous.CheckSVar`")?;
+        self.strip_ai_hint_add_svar(&mut p);
+        if !p.exhausted() {
+            return self.deny("static ability reaching `AffectedZone$ Graveyard`".to_string());
+        }
+        let Some(svar_raw) = self.svars.get(var.trim()).cloned() else {
+            return self.deny("static ability reaching `AffectedZone$ Graveyard`".to_string());
+        };
+        let Some((mode, mut inner)) = Params::parse(&svar_raw) else {
+            return self.deny("static ability reaching `AffectedZone$ Graveyard`".to_string());
+        };
+        inner.drop_prose();
+        if !svar_raw.trim_start().starts_with("Mode$")
+            || mode != "Continuous"
+            || inner.take("Affected").as_deref() != Some("Card.Self")
+            || inner.take("AffectedZone").as_deref() != Some("Graveyard")
+            || inner.take("EffectZone").as_deref() != Some("Graveyard")
+            || inner.take("MayPlay").as_deref() != Some("True")
+            || !matches!(inner.take("Secondary").as_deref(), None | Some("True"))
+            || !inner.exhausted()
+        {
+            return self.deny("static ability reaching `AffectedZone$ Graveyard`".to_string());
+        }
+        self.body.abilities.push(format!(
+            "static_ability!(Filter::This, Modifier::CastSpellsFromGraveyard, \
+             zone = ZoneRef::Graveyard{condition})"
+        ));
+        Some(())
+    }
+
     /// Self-granted graveyard activated abilities (`EffectZone$ Graveyard |
     /// AffectedZone$ Graveyard | Affected$ Card.Self | AddAbility$ ...`, e.g.
     /// Max speed graveyard cycling/draw activations).
     fn graveyard_self_granted_ability(&mut self, mut p: Params) -> Option<()> {
+        if p.has("AddStaticAbility") && !p.has("AddAbility") {
+            return self.graveyard_self_granted_static(p);
+        }
         p.take("AffectedZone");
         if p.take("Affected").as_deref() != Some("Card.Self") {
             return self.deny("static ability reaching `AffectedZone$ Graveyard`".to_string());
@@ -1305,11 +1376,20 @@ impl Tx<'_> {
                 Some(())
             }
             (Some(power), Some(toughness)) => {
-                let t_def = self.svars.get(&toughness).cloned();
-                if let Some(t_def) = t_def.as_deref()
-                    && let Some(rest) = t_def.trim().strip_prefix(&format!("SVar${power}/Plus."))
-                    && let Ok(plus) = rest.trim().parse::<i8>()
-                {
+                let inline_plus = toughness
+                    .trim()
+                    .strip_prefix(&format!("{}/Plus.", power.trim()))
+                    .and_then(|rest| rest.trim().parse::<i8>().ok());
+                let svar_plus = self
+                    .svars
+                    .get(toughness.trim())
+                    .and_then(|t_def| {
+                        t_def
+                            .trim()
+                            .strip_prefix(&format!("SVar${}/Plus.", power.trim()))
+                    })
+                    .and_then(|rest| rest.trim().parse::<i8>().ok());
+                if let Some(plus) = inline_plus.or(svar_plus) {
                     let count = self.pt_count_for_svar(&power)?;
                     self.body.abilities.push(format!(
                         "static_ability!(Filter::This, Modifier::CharacteristicPT {{ \
@@ -1317,8 +1397,8 @@ impl Tx<'_> {
                     ));
                     return Some(());
                 }
-                let p_count = self.pt_count_for_svar(&power)?;
-                let t_count = self.pt_count_for_svar(&toughness)?;
+                let p_count = self.pt_count_or_fixed(&power)?;
+                let t_count = self.pt_count_or_fixed(&toughness)?;
                 self.body.abilities.push(format!(
                     "static_ability!(Filter::This, Modifier::CharacteristicPTSeparate {{ \
                      power: {p_count}, toughness: {t_count} }})"
@@ -1353,25 +1433,58 @@ impl Tx<'_> {
         }
     }
 
+    fn pt_count_or_fixed(&mut self, raw: &str) -> Option<String> {
+        let trimmed = raw.trim();
+        if let Ok(n) = trimmed.parse::<u16>() {
+            return Some(format!("PtCount::Fixed({n})"));
+        }
+        self.pt_count_for_svar(trimmed)
+    }
+
     fn pt_count_for_svar(&mut self, var: &str) -> Option<String> {
-        let Some(raw) = self.svars.get(var.trim()).cloned() else {
+        let trimmed = var.trim();
+        if trimmed.starts_with("Count$") {
+            return self.pt_count_expr(trimmed, 0);
+        }
+        let Some(raw) = self.svars.get(trimmed).cloned() else {
             return self.deny(format!("`{var}` names no SVar"));
         };
+        self.pt_count_expr(raw.trim(), 0)
+    }
+
+    fn pt_count_expr(&mut self, raw: &str, depth: u8) -> Option<String> {
+        if depth > 4 {
+            return self.deny(format!("cyclic count `{raw}`"));
+        }
         let raw = raw.trim();
         if let Some((lhs, rhs)) = raw.rsplit_once("/Plus.")
             && let Ok(offset) = rhs.trim().parse::<u16>()
         {
-            let base = if let Some(inner_var) = lhs.trim().strip_prefix("SVar$") {
-                let inner = self.svars.get(inner_var.trim())?.clone();
-                self.pt_count_base(inner.trim())?
-            } else {
-                self.pt_count_base(lhs.trim())?
-            };
+            let base = self.pt_count_atom(lhs.trim(), depth + 1)?;
             return Some(format!(
                 "PtCount::Plus {{ base: &{base}, offset: {offset} }}"
             ));
         }
-        self.pt_count_base(raw)
+        if let Some(lhs) = raw
+            .strip_suffix("/Twice")
+            .or_else(|| raw.strip_suffix("/Times.2"))
+        {
+            let base = self.pt_count_atom(lhs.trim(), depth + 1)?;
+            return Some(format!("PtCount::Twice(&{base})"));
+        }
+        self.pt_count_atom(raw, depth + 1)
+    }
+
+    fn pt_count_atom(&mut self, raw: &str, depth: u8) -> Option<String> {
+        let trimmed = raw.trim();
+        if let Some(inner_var) = trimmed.strip_prefix("SVar$") {
+            let inner_name = inner_var.trim();
+            let Some(inner) = self.svars.get(inner_name).cloned() else {
+                return self.deny(format!("`{inner_name}` names no SVar"));
+            };
+            return self.pt_count_expr(inner.trim(), depth + 1);
+        }
+        self.pt_count_base(trimmed)
     }
 
     fn pt_count_base(&mut self, count: &str) -> Option<String> {
@@ -1381,27 +1494,43 @@ impl Tx<'_> {
             };
             return Some(format!("PtCount::CountersOnThis({kind})"));
         }
-        if count == "Count$ValidGraveyard Card$CardTypes" {
-            return Some("PtCount::CardTypesInAllGraveyards".to_string());
-        }
-        if count == "Count$ValidGraveyard Card.OppOwn$CardTypes" {
-            return Some("PtCount::CardTypesInOpponentsGraveyards".to_string());
+        match count {
+            "Count$Domain" => return Some("PtCount::Domain(PlayerRel::You)".to_string()),
+            "Count$Party" => return Some("PtCount::PartySize(PlayerRel::You)".to_string()),
+            "Count$YourLifeTotal" => return Some("PtCount::LifeTotal(PlayerRel::You)".to_string()),
+            "Count$CardsInYourHand"
+            | "Count$ValidHand Card.YouOwn"
+            | "Count$ValidHand Card.YouCtrl" => {
+                return Some("PtCount::CardsInHand(PlayerRel::You)".to_string());
+            }
+            "Count$NumInAllHands" | "Count$ValidHand Card" => {
+                return Some("PtCount::CardsInHand(PlayerRel::EachPlayer)".to_string());
+            }
+            "Count$ValidHand Card.OppOwn" | "Count$ValidHand Card.OppCtrl" => {
+                return Some("PtCount::CardsInHand(PlayerRel::EachOpponent)".to_string());
+            }
+            _ => {}
         }
         if let Some(valid) = count.strip_prefix("Count$ValidGraveyard ") {
-            if valid.contains("Ctrl")
-                || valid.contains("Own")
-                || valid.contains('/')
-                || valid.contains('$')
-            {
-                return self.deny(format!("count `{count}`"));
-            }
-            let filter = self.filter_expr_in_zone(valid, true)?;
-            let name = self.body.filter_static("COUNTED", &filter);
-            return Some(format!("PtCount::InAllGraveyards(&{name})"));
+            return self.pt_count_graveyard(count, valid);
         }
         let Some(valid) = count.strip_prefix("Count$Valid ") else {
             return self.deny(format!("count `{count}`"));
         };
+        if let Some(inner) = valid.strip_suffix("$DifferentCardNames")
+            && !inner.contains(['/', '$'])
+        {
+            let filter = self.filter_expr(inner)?;
+            let name = self.body.filter_static("COUNTED", &filter);
+            return Some(format!("PtCount::DistinctNamesAmong(&{name})"));
+        }
+        if let Some(inner) = valid.strip_suffix("$GreatestCardManaCost")
+            && !inner.contains(['/', '$'])
+        {
+            let filter = self.filter_expr(inner)?;
+            let name = self.body.filter_static("COUNTED", &filter);
+            return Some(format!("PtCount::GreatestManaValueAmong(&{name})"));
+        }
         if let Some(color_valid) = valid.strip_suffix("$Colors")
             && !color_valid.contains('/')
             && !color_valid.contains('$')
@@ -1425,6 +1554,27 @@ impl Tx<'_> {
         let name = self.body.filter_static("COUNTED", &filter);
         let kind = if yours { "YouControl" } else { "OnBattlefield" };
         Some(format!("PtCount::{kind}(&{name})"))
+    }
+
+    fn pt_count_graveyard(&mut self, count: &str, valid: &str) -> Option<String> {
+        if valid == "Card$CardTypes" {
+            return Some("PtCount::CardTypesInAllGraveyards".to_string());
+        }
+        if valid == "Card.OppOwn$CardTypes" {
+            return Some("PtCount::CardTypesInOpponentsGraveyards".to_string());
+        }
+        if valid.contains('/') || valid.contains('$') {
+            return self.deny(format!("count `{count}`"));
+        }
+        let Some((who, cleaned)) = strip_graveyard_owner(valid) else {
+            return self.deny(format!("count `{count}`"));
+        };
+        let filter = self.filter_expr_in_zone(&cleaned, true)?;
+        let name = self.body.filter_static("COUNTED", &filter);
+        Some(match who {
+            Some(rel) => format!("PtCount::InGraveyards {{ who: {rel}, filter: &{name} }}"),
+            None => format!("PtCount::InAllGraveyards(&{name})"),
+        })
     }
 
     /// "Enchanted Wall can attack as though it didn't have defender"
@@ -1963,12 +2113,62 @@ impl Tx<'_> {
                     &format!("Modifier::SetToughness({tough})"),
                 )),
                 _ => {
-                    self.note("static ability setting one half of P/T".to_string());
-                    return None;
+                    let modifier =
+                        self.computed_set_pt_modifier(filter, set_p.as_deref(), set_t.as_deref())?;
+                    out.push(Self::static_expr(filter, &modifier));
                 }
             }
         }
         Some(())
+    }
+
+    fn computed_set_pt_modifier(
+        &mut self,
+        filter: &str,
+        set_p: Option<&str>,
+        set_t: Option<&str>,
+    ) -> Option<String> {
+        let count_ok = |count: &str| {
+            filter == "Filter::This"
+                || (!count.contains("PtCount::CountersOnThis")
+                    && !count.contains("PtCount::ExiledWithThis")
+                    && !count.contains("PtCount::EntrySacrifices")
+                    && !count.contains("PtCount::ChosenNumber"))
+        };
+        match (set_p, set_t) {
+            (Some(p_raw), Some(t_raw)) if p_raw.trim() == t_raw.trim() => {
+                let count = self.pt_count_for_svar(p_raw)?;
+                if !count_ok(&count) {
+                    return self.deny("source-bound `PtCount` on non-self filter".to_string());
+                }
+                Some(format!("Modifier::SetPTToCount({count})"))
+            }
+            (Some(p_raw), Some(t_raw)) => {
+                let power = self.pt_count_or_fixed(p_raw)?;
+                let toughness = self.pt_count_or_fixed(t_raw)?;
+                if !count_ok(&power) || !count_ok(&toughness) {
+                    return self.deny("source-bound `PtCount` on non-self filter".to_string());
+                }
+                Some(format!(
+                    "Modifier::SetPTSeparateToCount {{ power: {power}, toughness: {toughness} }}"
+                ))
+            }
+            (Some(p_raw), None) => {
+                let power = self.pt_count_for_svar(p_raw)?;
+                if !count_ok(&power) {
+                    return self.deny("source-bound `PtCount` on non-self filter".to_string());
+                }
+                Some(format!("Modifier::SetPowerToCount({power})"))
+            }
+            (None, Some(t_raw)) => {
+                let toughness = self.pt_count_for_svar(t_raw)?;
+                if !count_ok(&toughness) {
+                    return self.deny("source-bound `PtCount` on non-self filter".to_string());
+                }
+                Some(format!("Modifier::SetToughnessToCount({toughness})"))
+            }
+            (None, None) => None,
+        }
     }
 
     fn static_pt_amount(&mut self, raw: Option<&str>) -> Option<String> {
@@ -3238,7 +3438,9 @@ impl Tx<'_> {
             clauses.push("Condition::YourTurn".to_string());
         }
         if let Some(cond_raw) = p.take("Condition") {
-            let Some(cond) = Self::named_condition(&cond_raw) else {
+            let Some(cond) = Self::named_condition(&cond_raw)
+                .or_else(|| Self::wave21_named_condition(&cond_raw))
+            else {
                 return self.deny("static ability `S: Mode$ ReduceCost`".into());
             };
             clauses.push(cond.to_string());
@@ -3616,7 +3818,7 @@ impl Tx<'_> {
 
     /// Claims `AddSVar$` on a `Continuous` static when every referenced `SVar` is
     /// strictly a non-rules Forge AI hint (`SVar:<hint>:<value>`).
-    fn strip_ai_hint_add_svar(&self, p: &mut Params) -> bool {
+    pub(super) fn strip_ai_hint_add_svar(&self, p: &mut Params) -> bool {
         let Some(raw) = p.peek("AddSVar") else {
             return false;
         };
@@ -3658,6 +3860,57 @@ fn strip_secondary_true(spec: &str) -> String {
         .filter(|part| part.trim() != "Secondary$ True")
         .collect::<Vec<_>>()
         .join(" | ")
+}
+
+fn strip_graveyard_owner(valid: &str) -> Option<(Option<&'static str>, String)> {
+    let mut owner: Option<&'static str> = None;
+    let mut saw_plain = false;
+    let mut alts = Vec::new();
+    for raw_alt in valid.split(',') {
+        let alt = raw_alt.trim();
+        if alt.is_empty() {
+            return None;
+        }
+        let (base, qual) = alt.split_once('.').unwrap_or((alt, ""));
+        if base.contains("Own") || base.contains("Ctrl") {
+            return None;
+        }
+        let mut alt_owner: Option<&'static str> = None;
+        let mut kept = Vec::new();
+        for atom in qual.split('+').map(str::trim).filter(|s| !s.is_empty()) {
+            let rel = match atom {
+                "YouOwn" | "YouCtrl" => Some("PlayerRel::You"),
+                "OppOwn" | "OppCtrl" => Some("PlayerRel::EachOpponent"),
+                _ if atom.contains("Own") || atom.contains("Ctrl") => return None,
+                _ => None,
+            };
+            if let Some(rel) = rel {
+                if alt_owner.is_some_and(|prev| prev != rel) {
+                    return None;
+                }
+                alt_owner = Some(rel);
+            } else {
+                kept.push(atom);
+            }
+        }
+        if let Some(rel) = alt_owner {
+            if saw_plain || owner.is_some_and(|prev| prev != rel) {
+                return None;
+            }
+            owner = Some(rel);
+        } else {
+            if owner.is_some() {
+                return None;
+            }
+            saw_plain = true;
+        }
+        if kept.is_empty() {
+            alts.push(base.to_string());
+        } else {
+            alts.push(format!("{base}.{}", kept.join("+")));
+        }
+    }
+    Some((owner, alts.join(",")))
 }
 
 fn splice_activated_condition(ability_expr: &str, condition: &str) -> Option<String> {

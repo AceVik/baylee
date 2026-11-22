@@ -4765,3 +4765,180 @@ fn wave20d_flash_exile_prepared_misc() {
         assert!(refused(bad), "must refuse:\n{bad}");
     }
 }
+
+#[test]
+fn wave21d_continuous_become_types_and_votes() {
+    let zero_sub = read(
+        "Name:Starlit Veil\nTypes:Enchantment Aura\nK:Enchant:Creature\n\
+         S:Mode$ Continuous | Affected$ Creature.EnchantedBy | AddType$ Enchantment | \
+         RemoveCardTypes$ True | RemoveCreatureTypes$ True",
+    );
+    assert!(
+        zero_sub.abilities.iter().any(|a| {
+            a.contains("Modifier::BecomeTypes { types: TypeSet::ENCHANTMENT, subtypes: &[] }")
+        }),
+        "{:?}",
+        zero_sub.abilities
+    );
+
+    let two_sub = read(
+        "Name:Guild Morph\nTypes:Enchantment Aura\nK:Enchant:Creature\n\
+         S:Mode$ Continuous | Affected$ Creature.EnchantedBy | AddType$ Creature & Goblin & Wizard | \
+         RemoveCardTypes$ True | RemoveCreatureTypes$ True | SetPower$ 3 | SetToughness$ 3 | RemoveAllAbilities$ True",
+    );
+    assert!(two_sub.abilities.iter().any(|a| {
+        a.contains("Modifier::BecomeTypes { types: TypeSet::CREATURE, subtypes: &[subtypes::creature::GOBLIN, subtypes::creature::WIZARD] }")
+    }));
+    assert!(
+        two_sub
+            .abilities
+            .iter()
+            .any(|a| a.contains("Modifier::LoseAllAbilities"))
+    );
+    assert!(
+        two_sub
+            .abilities
+            .iter()
+            .any(|a| a.contains("Modifier::SetPT(3, 3)"))
+    );
+
+    let colorless_land = read(
+        "Name:Dryad Song\nTypes:Enchantment Aura\nK:Enchant:Permanent\n\
+         S:Mode$ Continuous | Affected$ Permanent.EnchantedBy | AddType$ Land & Forest | \
+         SetColor$ Colorless | RemoveCardTypes$ True | RemoveLandTypes$ True | RemoveAllAbilities$ True",
+    );
+    assert!(colorless_land.abilities.iter().any(|a| {
+        a.contains(
+            "Modifier::BecomeTypes { types: TypeSet::LAND, subtypes: &[subtypes::land::FOREST] }",
+        )
+    }));
+    assert!(
+        colorless_land
+            .abilities
+            .iter()
+            .any(|a| a.contains("Modifier::SetColor(ColorSet::EMPTY)"))
+    );
+
+    let legend_body = read(
+        "Name:Crown Ascension\nTypes:Enchantment\n\
+         S:Mode$ Continuous | Affected$ Creature.YouCtrl | AddType$ Creature & Legendary & Goblin | \
+         RemoveCardTypes$ True | RemoveCreatureTypes$ True",
+    );
+    assert!(legend_body.abilities.iter().any(|a| {
+        a.contains("Modifier::BecomeTypes { types: TypeSet::CREATURE, subtypes: &[subtypes::creature::GOBLIN] }")
+    }));
+    assert!(
+        legend_body
+            .abilities
+            .iter()
+            .any(|a| a.contains("Modifier::AddSupertype(SupertypeSet::LEGENDARY)"))
+    );
+
+    let rep_vote = read(
+        "Name:Council Aide\nManaCost:1 W\nTypes:Creature\nPT:1/4\n\
+         S:Mode$ Continuous | Affected$ You | AdditionalVote$ 1",
+    );
+    assert_eq!(
+        rep_vote.abilities,
+        ["static_ability!(Filter::This, Modifier::AdditionalVotes { count: 1, optional: false })"]
+    );
+
+    let opt_vote = read(
+        "Name:Crown Steward\nManaCost:2 U\nTypes:Creature\nPT:2/2\n\
+         S:Mode$ Continuous | Affected$ You | AdditionalOptionalVote$ 1 | Condition$ Monarch",
+    );
+    assert_eq!(
+        opt_vote.abilities,
+        [
+            "static_ability!(Filter::This, Modifier::AdditionalVotes { count: 1, optional: true }, condition = Some(Condition::IsMonarch(PlayerRel::You)))"
+        ]
+    );
+
+    let full_strip = read(
+        "Name:Ascended Form\nTypes:Enchantment Aura\nK:Enchant:Creature\n\
+         S:Mode$ Continuous | Affected$ Creature.EnchantedBy | AddType$ Enchantment & Creature | \
+         RemoveCardTypes$ True | RemoveSubTypes$ True",
+    );
+    assert!(full_strip.abilities.iter().any(|a| {
+        a.contains(
+            "Modifier::BecomeTypes { types: TypeSet::ENCHANTMENT.union(TypeSet::CREATURE), subtypes: &[] }",
+        )
+    }));
+}
+
+#[test]
+fn wave21d_wave11c_monarch_initiative_dungeon_conditions() {
+    let wave11c_conds = read(
+        "Name:Throne Relic\nManaCost:3\nTypes:Artifact\n\
+         S:Mode$ Continuous | Affected$ Creature.YouCtrl | AddPower$ 1 | Condition$ Monarch\n\
+         S:Mode$ CantAttack | ValidCard$ Creature.OppCtrl | Condition$ Initiative\n\
+         S:Mode$ ReduceCost | ValidCard$ Card | Type$ Spell | Activator$ You | Amount$ 1 | Condition$ CompletedADungeon\n\
+         S:Mode$ Continuous | Affected$ You | AddKeyword$ Hexproof | Condition$ Monarch\n\
+         S:Mode$ Continuous | Affected$ Creature.YouCtrl | AddToughness$ 1 | CheckSVar$ Mon | SVarCompare$ EQ0\n\
+         S:Mode$ Continuous | Affected$ Creature.YouCtrl | AddPower$ 2 | CheckSVar$ MonInv | SVarCompare$ GE1\n\
+         S:Mode$ Continuous | Affected$ Creature.YouCtrl | AddKeyword$ Vigilance | CheckSVar$ Init | SVarCompare$ GE1\n\
+         S:Mode$ Continuous | Affected$ Creature.YouCtrl | AddKeyword$ Reach | CheckSVar$ Dung | SVarCompare$ GE1\n\
+         SVar:Mon:Count$Monarch.1.0\n\
+         SVar:MonInv:Count$Monarch.0.1\n\
+         SVar:Init:Count$Initiative.1.0\n\
+         SVar:Dung:DungeonsCompleted$Amount",
+    );
+    assert!(
+        wave11c_conds.abilities[0].contains("Condition::IsMonarch(PlayerRel::You)"),
+        "{:?}",
+        wave11c_conds.abilities[0]
+    );
+    assert!(
+        wave11c_conds.abilities[1].contains("Condition::HasInitiative(PlayerRel::You)"),
+        "{:?}",
+        wave11c_conds.abilities[1]
+    );
+    assert!(
+        wave11c_conds.abilities[2].contains("Condition::CompletedADungeon(PlayerRel::You)"),
+        "{:?}",
+        wave11c_conds.abilities[2]
+    );
+    assert!(
+        wave11c_conds.abilities[3].contains("Condition::IsMonarch(PlayerRel::You)"),
+        "{:?}",
+        wave11c_conds.abilities[3]
+    );
+    assert!(
+        wave11c_conds.abilities[4]
+            .contains("Condition::Not(&Condition::IsMonarch(PlayerRel::You))"),
+        "{:?}",
+        wave11c_conds.abilities[4]
+    );
+    assert!(
+        wave11c_conds.abilities[5]
+            .contains("Condition::Not(&Condition::IsMonarch(PlayerRel::You))"),
+        "{:?}",
+        wave11c_conds.abilities[5]
+    );
+    assert!(
+        wave11c_conds.abilities[6].contains("Condition::HasInitiative(PlayerRel::You)"),
+        "{:?}",
+        wave11c_conds.abilities[6]
+    );
+    assert!(
+        wave11c_conds.abilities[7].contains("Condition::CompletedADungeon(PlayerRel::You)"),
+        "{:?}",
+        wave11c_conds.abilities[7]
+    );
+
+    for bad in [
+        "Name:BadVotePlayer\nTypes:Enchantment\nS:Mode$ Continuous | Affected$ Player | AdditionalVote$ 1",
+        "Name:BadVoteZero\nTypes:Enchantment\nS:Mode$ Continuous | Affected$ You | AdditionalVote$ 0",
+        "Name:BadDungeonTwo\nTypes:Creature\nPT:2/2\n\
+         S:Mode$ Continuous | Affected$ Card.Self | AddKeyword$ Flying | CheckSVar$ D | SVarCompare$ GE2\n\
+         SVar:D:DungeonsCompleted$Amount",
+        "Name:BadDungeonEq1\nTypes:Creature\nPT:2/2\n\
+         S:Mode$ Continuous | Affected$ Card.Self | AddKeyword$ Flying | CheckSVar$ D | SVarCompare$ EQ1\n\
+         SVar:D:DungeonsCompleted$Amount",
+        "Name:BadBecomeMixed\nTypes:Enchantment\n\
+         S:Mode$ Continuous | Affected$ Creature.YouCtrl | AddType$ Enchantment & Creature & Goblin | \
+         RemoveCardTypes$ True | RemoveCreatureTypes$ True",
+    ] {
+        assert!(refused(bad), "must refuse:\n{bad}");
+    }
+}
