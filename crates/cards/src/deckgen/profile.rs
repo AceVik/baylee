@@ -375,6 +375,7 @@ fn collect_named_from_effects(
         Effect::SearchLibrary { filter, .. }
         | Effect::SearchLibraryBeforeShuffle { filter, .. }
         | Effect::SearchLibraryOrGraveyard { filter, .. }
+        | Effect::SearchLibraryAndGraveyard { filter, .. }
         | Effect::SearchLibraryOf { filter, .. }
         | Effect::SearchLibraryUpTo { filter, .. } => {
             collect_named_from_filter(filter, out, snow);

@@ -2594,6 +2594,11 @@ hashes, layers and does nothing. This paragraph said THREE until
   `ChoicePrompt::SearchLibraryOrGraveyard`. The library is shuffled even
   when the player picks a graveyard card or finds nothing. Declining ends
   the search.
+- **`Effect::SearchLibraryAndGraveyard { filter, find }`** (Verdant
+  Crescendo) searches both zones, with no consent question, and shuffles
+  after placement. A matching graveyard card makes the find mandatory
+  (CR 701.23b). Immediately after `SearchLibraryBeforeShuffle`, it shares
+  that step's inspected library segment and logs one search (CR 701.23h).
 - **`Condition::XAtLeast(n)`** is "if X is `n` or more", read off the
   announced X on the source, where `Filter::CmcAtMostX` reads it. A source
   that is gone or announced no X counts as X = 0. Finale of Devastation puts

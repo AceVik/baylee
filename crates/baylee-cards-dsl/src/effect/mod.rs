@@ -5782,6 +5782,16 @@ pub enum Effect {
         /// Instructions executed only if `attachment` actually attached (`CR 701.3b`).
         then_if_moved: &'static [Effect],
     },
+    /// Search both your library and graveyard for one card, put it where
+    /// `find` says, then shuffle (CR 701.23). Immediately after
+    /// `SearchLibraryBeforeShuffle`, continues that same library search
+    /// (CR 701.23h).
+    SearchLibraryAndGraveyard {
+        /// What may be found.
+        filter: &'static Filter,
+        /// Where the card goes.
+        find: &'static Find,
+    },
 }
 
 #[cfg(test)]

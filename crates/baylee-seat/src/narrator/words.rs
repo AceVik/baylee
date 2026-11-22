@@ -288,9 +288,9 @@ fn replacement_prompt(event: &str) -> String {
 pub fn library_choice_prompt(prompt: ChoicePrompt, whose: &str) -> String {
     match prompt {
         ChoicePrompt::SearchLibrary => format!("Search {whose} library: choose the cards to find"),
-        ChoicePrompt::SearchLibraryOrGraveyard => format!(
-            "Search {whose} library and/or graveyard: choose a card to find, or choose none"
-        ),
+        ChoicePrompt::SearchLibraryOrGraveyard => {
+            format!("Search {whose} library and graveyard: choose a card to find")
+        }
         ChoicePrompt::SearchLibraryTappedAndHand => format!(
             "Search {whose} library: choose up to 2 cards (the first enters the battlefield \
              tapped, the second goes into your hand)"

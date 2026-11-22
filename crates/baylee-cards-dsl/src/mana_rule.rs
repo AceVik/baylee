@@ -224,6 +224,7 @@ const fn always_moves_library(effect: &Effect) -> bool {
             | Effect::OptionalBasicLandSearchFor { .. }
             | Effect::SearchOpponentSplits { .. }
             | Effect::SearchLibraryOrGraveyard { .. }
+            | Effect::SearchLibraryAndGraveyard { .. }
             | Effect::Play {
                 source: crate::effect::PlaySource::Zone {
                     zone: crate::filter::ZoneRef::Library,

@@ -126,6 +126,7 @@ fn accumulate_effect(effect: &Effect, ch: &mut EffectChannels) {
         | Effect::SearchSharedLandType
         | Effect::SearchWithManaDifference { .. }
         | Effect::SearchLibraryOrGraveyard { .. }
+        | Effect::SearchLibraryAndGraveyard { .. }
         | Effect::SearchLibraryOf { .. }
         | Effect::SearchLibraryUpTo { .. }
         | Effect::OptionalBasicLandSearchFor { .. }

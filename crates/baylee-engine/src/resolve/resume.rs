@@ -493,7 +493,16 @@ pub(super) fn resume_inner(
             // For a find that leaves the library (Cultivate's battlefield and
             // hand) the order is unobservable: the card is gone either way,
             // and the rest is a shuffled library in both readings.
-            search::finish_shuffle(state, res, library);
+            let shuffle_after = matches!(
+                res.effects.get(res.pc),
+                Some(
+                    Effect::SearchLibraryAndGraveyard { .. }
+                        | Effect::SearchLibraryOrGraveyard { .. }
+                )
+            );
+            if !shuffle_after {
+                search::finish_shuffle(state, res, library);
+            }
             // Positional: the first card found takes the first destination.
             // Cultivate names the battlefield first and the hand second, and
             // finding only one card then puts that one onto the battlefield —
@@ -558,6 +567,9 @@ pub(super) fn resume_inner(
                         }
                     }
                 }
+            }
+            if shuffle_after {
+                search::finish_shuffle(state, res, library);
             }
         }
         AwaitingOp::SplitToGraveyard {

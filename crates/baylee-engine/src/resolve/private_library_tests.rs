@@ -145,6 +145,156 @@ fn library_or_graveyard_search_requires_consent_before_inspection_or_shuffle() {
 }
 
 #[test]
+fn library_or_graveyard_search_obeys_search_prohibitions_and_limits() {
+    use baylee_cards_dsl::{Duration, Filter, Find, Modifier};
+    use baylee_core::ids::EffectId;
+
+    let you = PlayerId::new(0);
+    for modifier in [
+        Modifier::OpponentsCantSearch,
+        Modifier::OpponentsSearchTop(1),
+    ] {
+        let (mut state, source, _) = table(3);
+        let timestamp = state.next_timestamp();
+        state.effects.register(crate::effects::ContinuousEffect {
+            id: EffectId::new(0),
+            source: None,
+            controller: PlayerId::new(1),
+            origin: crate::effects::EffectOrigin::Resolution,
+            layer: modifier.layer(),
+            timestamp,
+            duration: Duration::Indefinitely,
+            filter: crate::effects::EffectFilter::Dsl(&Filter::Any),
+            modifier,
+        });
+        let mut res = resolution(
+            source,
+            &[Effect::SearchLibraryOrGraveyard {
+                filter: &Filter::Any,
+                find: &Find::HAND,
+            }],
+            you,
+        );
+        let first = run(&mut state, &mut res);
+        if modifier == Modifier::OpponentsCantSearch {
+            assert!(matches!(first, Flow::Complete));
+            assert!(!state.journal.entries().iter().any(|entry| matches!(
+                entry.event,
+                GameEvent::LibrarySearched { player } if player == you
+            )));
+            continue;
+        }
+        let top = *state.zones.list(ZoneLocation::Library(you)).last().unwrap();
+        assert!(matches!(
+            first,
+            Flow::Wait(Pending::YesNo {
+                prompt: YesNoPrompt::SearchLibrary,
+                ..
+            })
+        ));
+        let Flow::Wait(Pending::ChooseCards { options, .. }) =
+            resume_yes_no(&mut state, &mut res, true)
+        else {
+            panic!("expected a search of the permitted segment");
+        };
+        assert_eq!(options, [top]);
+        let Some(AwaitingOp::SearchLibrary { inspected, .. }) = res.awaiting else {
+            panic!("expected a suspended library search");
+        };
+        assert_eq!(inspected, [top]);
+    }
+}
+
+#[test]
+fn required_union_continues_the_same_library_search_before_the_final_shuffle() {
+    use baylee_cards_dsl::{Duration, Filter, Find, Modifier};
+    use baylee_core::ids::EffectId;
+
+    let you = PlayerId::new(0);
+    let (mut state, source, _) = table(3);
+    let top = *state.zones.list(ZoneLocation::Library(you)).last().unwrap();
+    let name = state.names.intern("named card");
+    let graveyard = state.create_bare(you, ObjectKind::Card, name, ZoneLocation::Graveyard(you));
+    let modifier = Modifier::OpponentsSearchTop(1);
+    let timestamp = state.next_timestamp();
+    state.effects.register(crate::effects::ContinuousEffect {
+        id: EffectId::new(0),
+        source: None,
+        controller: PlayerId::new(1),
+        origin: crate::effects::EffectOrigin::Resolution,
+        layer: modifier.layer(),
+        timestamp,
+        duration: Duration::Indefinitely,
+        filter: crate::effects::EffectFilter::Dsl(&Filter::Any),
+        modifier,
+    });
+    let mut res = resolution(
+        source,
+        &[
+            Effect::SearchLibraryBeforeShuffle {
+                filter: &Filter::Any,
+                finds: &[Find::BATTLEFIELD_TAPPED],
+                optional: false,
+            },
+            Effect::SearchLibraryAndGraveyard {
+                filter: &Filter::Named("named card"),
+                find: &Find::HAND,
+            },
+        ],
+        you,
+    );
+    let before = state.journal.last_seq();
+    let Flow::Wait(Pending::ChooseCards { options, .. }) = run(&mut state, &mut res) else {
+        panic!("expected the first search choice");
+    };
+    assert_eq!(options, [top]);
+    let Flow::Wait(Pending::ChooseCards {
+        prompt: ChoicePrompt::SearchLibraryOrGraveyard,
+        options,
+        min: 1,
+        ..
+    }) = resume(&mut state, &mut res, &[top])
+    else {
+        panic!("expected the required graveyard find");
+    };
+    assert_eq!(options, [graveyard]);
+    assert!(matches!(
+        &res.awaiting,
+        Some(AwaitingOp::SearchLibrary { inspected, .. }) if inspected.is_empty()
+    ));
+    assert!(matches!(
+        resume(&mut state, &mut res, &[graveyard]),
+        Flow::Complete
+    ));
+    let order: Vec<_> = state.journal.entries()[before as usize..]
+        .iter()
+        .filter(|line| {
+            matches!(
+                line.event,
+                GameEvent::LibrarySearched { .. }
+                    | GameEvent::Revealed { .. }
+                    | GameEvent::Shuffled { .. }
+            )
+        })
+        .map(|line| &line.event)
+        .collect();
+    assert!(matches!(
+        order.as_slice(),
+        [
+            GameEvent::LibrarySearched { .. },
+            GameEvent::Revealed { .. },
+            GameEvent::Shuffled { .. }
+        ]
+    ));
+    assert!(
+        state
+            .zones
+            .list(ZoneLocation::Hand(you))
+            .contains(&graveyard)
+    );
+}
+
+#[test]
 fn mandatory_unfiltered_search_exiles_exactly_available_cards_for_library_owner() {
     for size in [0, 1, 4] {
         let (mut state, source, cards) = table(size);

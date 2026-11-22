@@ -166,14 +166,20 @@ pub(super) fn begin_search(
     res: &mut Resolution,
     search: Search,
 ) -> Option<Pending> {
-    begin_search_with_graveyard(state, res, search, None)
+    begin_search_in_zones(state, res, search, None)
 }
 
-fn begin_search_with_graveyard(
+struct GraveyardSearch {
+    options: Vec<ObjectId>,
+    mandatory: bool,
+}
+
+#[allow(clippy::too_many_lines)] // Inspection, restrictions and the pending find are one search.
+fn begin_search_in_zones(
     state: &mut GameState,
     res: &mut Resolution,
     search: Search,
-    graveyard: Option<Vec<ObjectId>>,
+    graveyard: Option<GraveyardSearch>,
 ) -> Option<Pending> {
     res.subject.found.clear();
     let Search {
@@ -187,24 +193,29 @@ fn begin_search_with_graveyard(
         split,
         optional,
     } = search;
-    if !allowed(state, res, library, searcher) {
-        // CR 609.3: prohibiting the search does not prohibit the separate
-        // shuffle instruction. Optional searches reject consent before here.
-        if !state.has_left(library) && !state.has_left(searcher) {
-            finish_shuffle(state, res, library);
-        }
+    if state.has_left(library) || state.has_left(searcher) {
         return None;
     }
-    state
-        .journal
-        .record(GameEvent::LibrarySearched { player: searcher });
+    let can_search_library = allowed(state, res, library, searcher);
+    if !can_search_library && graveyard.is_none() {
+        // CR 609.3: prohibiting the search does not prohibit the separate
+        // shuffle instruction. Optional searches reject consent before here.
+        finish_shuffle(state, res, library);
+        return None;
+    }
+    let continuing = res.subject.inspected_library.take();
+    if can_search_library && continuing.is_none() {
+        state
+            .journal
+            .record(GameEvent::LibrarySearched { player: searcher });
+    }
     // Opposition Agent: an opponent of the searching player takes the
     // search over — they choose, and the find goes to exile playable by
     // them. That is controlling the searching player (CR 724.2), which a
     // player who has left the game does not (CR 800.4b). The card reaches a
     // player searching *their* library, so a search through somebody
     // else's is left alone.
-    let takeover = (searcher == library)
+    let takeover = (can_search_library && searcher == library)
         .then(|| {
             state
                 .effects
@@ -220,7 +231,31 @@ fn begin_search_with_graveyard(
                 .map(|fx| fx.controller)
         })
         .flatten();
-    let inspected = inspected_cards(state, library, searcher);
+    let inspected = if can_search_library {
+        continuing.map_or_else(
+            || inspected_cards(state, library, searcher),
+            |mut inspected| {
+                inspected.retain(|id| {
+                    state
+                        .zones
+                        .list(ZoneLocation::Library(library))
+                        .contains(id)
+                });
+                inspected
+            },
+        )
+    } else {
+        Vec::new()
+    };
+    if matches!(
+        res.effects.get(res.pc),
+        Some(Effect::SearchLibraryBeforeShuffle { .. })
+    ) && matches!(
+        res.effects.get(res.pc + 1),
+        Some(Effect::SearchLibraryAndGraveyard { .. })
+    ) {
+        res.subject.inspected_library = Some(inspected.clone());
+    }
     let mut options: Vec<ObjectId> = inspected
         .iter()
         .rev()
@@ -240,9 +275,16 @@ fn begin_search_with_graveyard(
             true
         });
     }
+    let require_graveyard_find = graveyard
+        .as_ref()
+        .is_some_and(|search| search.mandatory && !search.options.is_empty());
     let prompt = if let Some(graveyard) = graveyard {
-        options.extend(graveyard);
-        ChoicePrompt::SearchLibraryOrGraveyard
+        options.extend(graveyard.options);
+        if can_search_library {
+            ChoicePrompt::SearchLibraryOrGraveyard
+        } else {
+            ChoicePrompt::FromGraveyard
+        }
     } else {
         search_prompt(finds, split)
     };
@@ -252,7 +294,9 @@ fn begin_search_with_graveyard(
     }
     let want = u8::try_from(most_found(count, finds, options.len())).unwrap_or(u8::MAX);
     // CR 701.23b: a hidden-zone search with a stated quality may fail to find.
-    let least = if optional || !matches!(filter, baylee_cards_dsl::Filter::Any) {
+    let least = if require_graveyard_find {
+        1
+    } else if optional || !matches!(filter, baylee_cards_dsl::Filter::Any) {
         0
     } else {
         want
@@ -523,6 +567,38 @@ pub(super) fn ask_library_search(
     })
 }
 
+/// Resolve one mixed-zone search, with consent already given when optional.
+#[allow(clippy::trivially_copy_pass_by_ref)]
+pub(super) fn begin_mixed_search(
+    state: &mut GameState,
+    res: &mut Resolution,
+    filter: &'static baylee_cards_dsl::Filter,
+    find: &'static baylee_cards_dsl::Find,
+    mandatory: bool,
+) -> Option<Pending> {
+    let you = res.controller;
+    let graveyard = graveyard_matches(state, res, filter);
+    begin_search_in_zones(
+        state,
+        res,
+        Search {
+            library: you,
+            searcher: you,
+            filter,
+            bound: None,
+            finds: core::slice::from_ref(find),
+            count: None,
+            distinct_names: false,
+            split: None,
+            optional: !mandatory,
+        },
+        Some(GraveyardSearch {
+            options: graveyard,
+            mandatory,
+        }),
+    )
+}
+
 /// A few spells explicitly postpone the shuffle past another instruction.
 pub(super) fn finish_shuffle(state: &mut GameState, res: &Resolution, library: PlayerId) {
     if !matches!(
@@ -557,23 +633,7 @@ pub(super) fn resume_consent(
             res.awaiting = None;
             let you = res.controller;
             if answer && allowed(state, res, you, you) {
-                let graveyard = graveyard_matches(state, res, filter);
-                begin_search_with_graveyard(
-                    state,
-                    res,
-                    Search {
-                        library: you,
-                        searcher: you,
-                        filter,
-                        bound: None,
-                        finds: core::slice::from_ref(find),
-                        count: None,
-                        distinct_names: false,
-                        split: None,
-                        optional: true,
-                    },
-                    Some(graveyard),
-                )
+                begin_mixed_search(state, res, filter, find, false)
             } else {
                 None
             }

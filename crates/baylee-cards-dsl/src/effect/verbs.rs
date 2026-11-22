@@ -1017,6 +1017,7 @@ impl Effect {
             | Effect::Connive { .. }
             | Effect::Recruit { .. }
             | Effect::SearchLibraryOrGraveyard { .. }
+            | Effect::SearchLibraryAndGraveyard { .. }
             | Effect::PutFromHandOnTop { .. }
             | Effect::ModifyTargets { .. }
             | Effect::ModifyEvent { .. }

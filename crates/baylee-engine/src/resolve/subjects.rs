@@ -6,7 +6,7 @@ use crate::{
     state::GameState,
     zone::Zone,
 };
-use baylee_core::ids::DamageSourceRef;
+use baylee_core::ids::{DamageSourceRef, ObjectId};
 
 /// The answer and proof state of a named-card guess.
 #[derive(Clone, Copy, Debug, Hash)]
@@ -118,6 +118,8 @@ pub struct SubjectContext {
     pub(super) reanimation_links: Vec<super::linked_reanimation::PendingLink>,
     /// Exact future/current battlefield incarnations from the latest search.
     pub(super) found: Vec<DamageSourceRef>,
+    /// Original inspected segment of an unfinished multi-instruction library search.
+    pub(super) inspected_library: Option<Vec<ObjectId>>,
     pub(super) guess: Option<GuessOutcome>,
     pub(super) named: Option<(crate::object::PrintedFace, baylee_core::ids::NameRef)>,
     pub(super) chosen_subtype: Option<baylee_core::ids::SubtypeId>,
@@ -252,6 +254,7 @@ impl SubjectContext {
             followed: paid.source_after_cost.into_iter().collect(),
             reanimation_links: Vec::new(),
             found: Vec::new(),
+            inspected_library: None,
             guess: None,
             named: None,
             chosen_subtype: None,
@@ -424,6 +427,11 @@ impl SubjectContext {
     }
 
     fn fingerprint_tail(&self, mut h: u64) -> u64 {
+        if let Some(inspected) = &self.inspected_library {
+            h = h.wrapping_mul(31).wrapping_add(crate::state::structural_fingerprint(
+                &("inspected-library", inspected),
+            ));
+        }
         // Only once a creature type was chosen during this resolution, keeping
         // existing replay hashes unchanged for all other resolutions.
         if let Some(subtype) = self.chosen_subtype {

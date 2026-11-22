@@ -2743,6 +2743,9 @@ pub(super) fn exec_immediate(
             tapped,
             optional,
         } => graveyard_choice::start(state, res, filter, destination, tapped, optional),
+        Effect::SearchLibraryAndGraveyard { filter, find } => {
+            search::begin_mixed_search(state, res, filter, find, true)
+        }
         Effect::SearchLibraryOrGraveyard { filter, find } => {
             res.subject.found.clear();
             let buried = search::graveyard_matches(state, res, filter);

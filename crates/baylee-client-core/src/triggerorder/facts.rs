@@ -507,6 +507,7 @@ fn read_one(effect: &Effect, certain: bool, reading: &Reading<'_>, facts: &mut F
         | Effect::SearchLibraryOf { .. }
         | Effect::SearchLibraryUpTo { .. }
         | Effect::SearchLibraryOrGraveyard { .. }
+        | Effect::SearchLibraryAndGraveyard { .. }
         | Effect::SearchSharedLandType
         | Effect::SearchWithManaDifference { .. }
         | Effect::RevealLibrarySearch { .. }
