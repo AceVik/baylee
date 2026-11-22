@@ -338,6 +338,93 @@ fn hinata_reduces_controller_spells_per_distinct_target_and_counts_shared_target
 }
 
 #[test]
+fn hinata_previews_all_selected_modal_targets_and_charges_for_distinct_targets() {
+    use baylee_cards_dsl::{ModeCount, mode};
+
+    static MODAL: &[AbilityDef] = &[AbilityDef::Modal {
+        modes: &[
+            mode!(
+                &[Effect::TapTarget],
+                targets = Some(TargetReq::one(TargetSpec::Object(&Filter::CREATURE)))
+            ),
+            mode!(&[Effect::GainLife {
+                amount: Amount::Fixed(1)
+            }]),
+        ],
+        choose: ModeCount::TWO,
+        can_repeat_modes: true,
+    }];
+    let hinata = card(
+        C0,
+        creature_face("Hinata Probe", "{1}{U}{R}{W}", 4, 4),
+        KeywordSet::EMPTY,
+        HINATA_ABILITIES,
+    );
+    let modal = card(
+        C1,
+        face("Repeated Target Tap", "{2}", TypeSet::INSTANT),
+        KeywordSet::EMPTY,
+        MODAL,
+    );
+    let bear_a = card(
+        C2,
+        creature_face("Bear A", "{G}", 2, 2),
+        KeywordSet::EMPTY,
+        &[],
+    );
+    let bear_b = card(
+        C3,
+        creature_face("Bear B", "{G}", 2, 2),
+        KeywordSet::EMPTY,
+        &[],
+    );
+
+    for shared in [false, true] {
+        let mut engine = bench(
+            1324,
+            vec![hinata, modal, bear_a, bear_b],
+            [Seat::with(&[C0]).holding(&[C1]), Seat::with(&[C2, C3])],
+        );
+        to_main(&mut engine, me());
+        let spell = the(&engine, ZoneLocation::Hand(me()), C1);
+        let first = the(&engine, ZoneLocation::Battlefield, C2);
+        let second = if shared {
+            add_pool(&mut engine, me(), ManaColor::Red, 1);
+            first
+        } else {
+            the(&engine, ZoneLocation::Battlefield, C3)
+        };
+        assert!(
+            offer(&engine).1.castable.contains(&spell),
+            "two selected instances of one mode can target two different creatures"
+        );
+        engine
+            .apply(me(), PlayerAction::CastSpell { card: spell })
+            .expect("begin the offered modal cast");
+        let Pending::ChooseCastMode { options, .. } = engine.pending() else {
+            panic!("expected spell modes");
+        };
+        let twice = options
+            .iter()
+            .position(|option| option.kind == CastModeKind::RepeatedModes(2))
+            .expect("tap mode twice");
+        engine.apply(me(), PlayerAction::ChooseMode(twice)).unwrap();
+        for target in [first, second] {
+            aim_objects(&mut engine, me(), &[target]);
+        }
+        assert_eq!(engine.state().zones.list(ZoneLocation::Stack), &[spell]);
+        assert_eq!(
+            pool_total(&engine, me()),
+            0,
+            "distinct targets pay zero; the shared target spends the floated mana"
+        );
+        settle(&mut engine, me());
+        assert!(is_tapped(&engine, first));
+        assert!(is_tapped(&engine, second));
+    }
+}
+
+#[test]
 fn hinata_taxes_opponent_spells_per_distinct_target_including_shared_target() {
     static ONE_TARGET: &[AbilityDef] = &[spell!(
         &[Effect::TapTarget],
