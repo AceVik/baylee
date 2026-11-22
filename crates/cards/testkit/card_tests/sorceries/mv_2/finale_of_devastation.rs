@@ -2,7 +2,7 @@
 
 #[allow(clippy::wildcard_imports)] // the parent's vocabulary and helpers
 use super::*;
-use baylee_engine::choice::NumberPrompt;
+use baylee_engine::choice::{ChoicePrompt, NumberPrompt};
 
 /// Finale of Devastation — {X}{G}{G}: "Search your library and/or graveyard
 /// for a creature card with mana value X or less and put it onto the
@@ -14,9 +14,7 @@ use baylee_engine::choice::NumberPrompt;
 /// charging the announced number would leave one floating where this reads
 /// zero.
 ///
-/// Nothing is in the graveyard here, so the search goes straight to the
-/// library, and X is 1; the graveyard and the X-is-10 rider are the three
-/// tests after this one.
+/// The caster opts into the library search at X = 1 with an empty graveyard.
 #[test]
 fn finale_of_devastation_fetches_a_creature_within_the_announced_x() {
     let p0 = PlayerId::new(0);
@@ -37,12 +35,14 @@ fn finale_of_devastation_fetches_a_creature_within_the_announced_x() {
         .apply(p0, PlayerAction::ChooseNumber(1))
         .expect("X = 1");
 
-    pass_until(&mut engine, |e| {
-        matches!(e.pending(), Pending::ChooseCards { .. })
-    });
-    let Pending::ChooseCards { options, .. } = engine.pending().clone() else {
-        unreachable!("the predicate just matched")
+    answer_finale_library_search(&mut engine, p0, true);
+    let Pending::ChooseCards {
+        options, prompt, ..
+    } = engine.pending().clone()
+    else {
+        panic!("expected a library search, got {:?}", engine.pending());
     };
+    assert_eq!(prompt, ChoicePrompt::SearchLibraryOrGraveyard);
     for id in &options {
         assert!(
             engine
@@ -72,10 +72,9 @@ fn finale_of_devastation_fetches_a_creature_within_the_announced_x() {
     );
 }
 
-/// "Search your library and/or graveyard": the graveyard is offered first,
-/// only the creature cards in it within X — the Llanowar Elves at X = 1 and
-/// not the Air Elemental — and a card taken from there is the whole search,
-/// so the library is not shuffled.
+/// Declining the library leaves a graveyard-only search. At X = 1, the
+/// Llanowar Elves qualify and the Air Elemental does not. The library keeps
+/// its order.
 #[test]
 fn finale_of_devastation_takes_a_creature_from_the_graveyard_without_a_shuffle() {
     let p0 = PlayerId::new(0);
@@ -99,13 +98,13 @@ fn finale_of_devastation_takes_a_creature_from_the_graveyard_without_a_shuffle()
         max,
         prompt,
         ..
-    } = cast_finale(&mut engine, p0, 1)
+    } = cast_finale(&mut engine, p0, 1, false)
     else {
         unreachable!("cast_finale stops on a card choice")
     };
-    assert_eq!(prompt, baylee_engine::choice::ChoicePrompt::FromGraveyard);
+    assert_eq!(prompt, ChoicePrompt::FromGraveyard);
     assert_eq!(options, vec![buried], "within X = 1, and a creature");
-    assert_eq!((min, max), (0, 1));
+    assert_eq!((min, max), (1, 1));
     engine
         .apply(
             p0,
@@ -136,10 +135,10 @@ fn finale_of_devastation_takes_a_creature_from_the_graveyard_without_a_shuffle()
     );
 }
 
-/// Naming nothing from the graveyard searches the library instead, and
-/// that search shuffles.
+/// Choosing to search the library offers cards from both zones and shuffles
+/// the library after the player chooses one card.
 #[test]
-fn finale_of_devastation_searches_the_library_when_the_graveyard_is_passed_over() {
+fn finale_of_devastation_offers_both_zones_when_the_player_searches_the_library() {
     let p0 = PlayerId::new(0);
     let mut engine = Duel::new(41, llanowar_elves())
         .battlefield(0, &[forest(), forest(), forest()])
@@ -149,28 +148,30 @@ fn finale_of_devastation_searches_the_library_when_the_graveyard_is_passed_over(
     assert!(walk_to_own_main(&mut engine, p0));
     let buried = in_hand(&engine, p0, llanowar_elves()).unwrap();
     discard_by_hand(&mut engine, p0, &[llanowar_elves()]);
-    let Pending::ChooseCards { prompt, .. } = cast_finale(&mut engine, p0, 1) else {
-        unreachable!("cast_finale stops on a card choice")
-    };
-    assert_eq!(prompt, baylee_engine::choice::ChoicePrompt::FromGraveyard);
-    engine
-        .apply(p0, PlayerAction::ChooseObjects { objects: vec![] })
-        .unwrap();
     let Pending::ChooseCards {
         options, prompt, ..
-    } = engine.pending().clone()
+    } = cast_finale(&mut engine, p0, 1, true)
     else {
         panic!("the library search, got {:?}", engine.pending())
     };
-    assert_eq!(prompt, baylee_engine::choice::ChoicePrompt::SearchLibrary);
-    let library = engine.state().zones.list(ZoneLocation::Library(p0)).clone();
-    assert!(options.iter().all(|id| library.contains(id)));
+    assert_eq!(prompt, ChoicePrompt::SearchLibraryOrGraveyard);
+    let library = engine.state().zones.list(ZoneLocation::Library(p0));
+    assert!(options.contains(&buried));
+    assert!(
+        options
+            .iter()
+            .all(|id| *id == buried || library.contains(id))
+    );
+    let fetched = *options
+        .iter()
+        .find(|id| library.contains(id))
+        .expect("a library card alongside the graveyard card");
     let journal_from = engine.state().journal.len();
     engine
         .apply(
             p0,
             PlayerAction::ChooseObjects {
-                objects: vec![options[0]],
+                objects: vec![fetched],
             },
         )
         .unwrap();
@@ -180,7 +181,7 @@ fn finale_of_devastation_searches_the_library_when_the_graveyard_is_passed_over(
             .state()
             .zones
             .list(ZoneLocation::Battlefield)
-            .contains(&options[0])
+            .contains(&fetched)
     );
     assert!(
         engine
@@ -218,11 +219,11 @@ fn finale_of_devastation_at_ten_or_more_pumps_and_hastes_your_creatures() {
         assert!(walk_to_own_main(&mut engine, p0));
         let Pending::ChooseCards {
             options, prompt, ..
-        } = cast_finale(&mut engine, p0, x)
+        } = cast_finale(&mut engine, p0, x, true)
         else {
             unreachable!("cast_finale stops on a card choice")
         };
-        assert_eq!(prompt, baylee_engine::choice::ChoicePrompt::SearchLibrary);
+        assert_eq!(prompt, ChoicePrompt::SearchLibraryOrGraveyard);
         let fetched = options[0];
         engine
             .apply(
@@ -308,16 +309,14 @@ fn finale_of_devastation_off_two_green_and_a_white_is_announced_at_one() {
         "X = 1 and {{G}}{{G}} took all three"
     );
 
-    pass_until(&mut engine, |e| {
-        matches!(e.pending(), Pending::ChooseCards { .. })
-    });
+    answer_finale_library_search(&mut engine, p0, false);
     let Pending::ChooseCards {
         options, prompt, ..
     } = engine.pending().clone()
     else {
-        unreachable!("the predicate just matched")
+        panic!("expected a graveyard search, got {:?}", engine.pending());
     };
-    assert_eq!(prompt, baylee_engine::choice::ChoicePrompt::FromGraveyard);
+    assert_eq!(prompt, ChoicePrompt::FromGraveyard);
     assert_eq!(
         options,
         vec![buried],

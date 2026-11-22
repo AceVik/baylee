@@ -133,18 +133,40 @@ pub fn discard_by_hand(engine: &mut Engine<RegistryLookup>, seat: PlayerId, card
     }
 }
 
-/// Casts Finale of Devastation for `x` off the Forests on the board and
-/// passes until its first question.
-pub fn cast_finale(engine: &mut Engine<RegistryLookup>, seat: PlayerId, x: u32) -> Pending {
+/// Casts Finale of Devastation for `x` and answers whether to search the library.
+pub fn cast_finale(
+    engine: &mut Engine<RegistryLookup>,
+    seat: PlayerId,
+    x: u32,
+    search_library: bool,
+) -> Pending {
     tap_all_mana(engine, seat);
     cast_with_floating(engine, seat, finale_of_devastation());
     engine
         .apply(seat, PlayerAction::ChooseNumber(x))
         .expect("the announced X");
-    pass_until(engine, |e| {
-        matches!(e.pending(), Pending::ChooseCards { .. })
-    });
+    answer_finale_library_search(engine, seat, search_library);
     engine.pending().clone()
+}
+
+fn answer_finale_library_search(
+    engine: &mut Engine<RegistryLookup>,
+    seat: PlayerId,
+    search_library: bool,
+) {
+    pass_until(engine, |e| {
+        matches!(
+            e.pending(),
+            Pending::YesNo {
+                player,
+                prompt: baylee_engine::choice::YesNoPrompt::SearchLibrary,
+                ..
+            } if *player == seat
+        )
+    });
+    engine
+        .apply(seat, PlayerAction::YesNo(search_library))
+        .expect("answer Finale's library search choice");
 }
 
 pub fn angelic_blessing() -> CardIndex {
