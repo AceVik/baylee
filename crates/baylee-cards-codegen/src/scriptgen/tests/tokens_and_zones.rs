@@ -430,7 +430,7 @@ fn alternate_mode_and_flavor_variant_rules() {
     assert!(!adv_body.has_own_rules());
     assert_eq!(adv_body.back.as_ref().unwrap().abilities.len(), 1);
 
-    // Room split cards stay refused.
+    // Room split cards transcode both doors.
     let room = parse(
         "Name:Left\nManaCost:1 W\nTypes:Enchantment Room\n\
          T:Mode$ ChangesZone | Origin$ Any | Destination$ Battlefield | ValidCard$ Card.Self | Execute$ TrigGain\n\
@@ -441,10 +441,9 @@ fn alternate_mode_and_flavor_variant_rules() {
          T:Mode$ ChangesZone | Origin$ Any | Destination$ Battlefield | ValidCard$ Card.Self | Execute$ TrigDraw\n\
          SVar:TrigDraw:DB$ Draw | NumCards$ 1",
     );
-    assert_eq!(
-        refusal_reason(&room, &cats(), Some(&tokens())).as_deref(),
-        Some("Room split card")
-    );
+    let room_body = transcode(&room, &cats(), Some(&tokens())).expect("room split transcodes");
+    assert_eq!(room_body.abilities.len(), 1);
+    assert_eq!(room_body.back.as_ref().unwrap().abilities.len(), 1);
 
     // Unsupported alternate modes stay refused.
     let flip = parse(

@@ -2545,3 +2545,281 @@ fn wave22c_emblem_and_non_paper_command_zone_refusals() {
         assert!(refused(unmodelled), "must stay refused:\n{unmodelled}");
     }
 }
+
+#[test]
+fn wave23c_trigger_only_no_resolving_check_and_composition() {
+    // Battalion: `IsPresent$ Creature.attacking+Other | PresentCompare$ GE2 | NoResolvingCheck$ True`.
+    let battalion = read(
+        "Name:SkySquad\nManaCost:W\nTypes:Creature Human Soldier\nPT:1/1\n\
+         T:Mode$ Attacks | ValidCard$ Card.Self | TriggerZones$ Battlefield | \
+         IsPresent$ Creature.attacking+Other | PresentCompare$ GE2 | NoResolvingCheck$ True | Execute$ Buff\n\
+         SVar:Buff:DB$ Pump | Defined$ Self | NumAtt$ +2 | NumDef$ +2",
+    );
+    assert!(
+        battalion.abilities[0].contains("Condition::TriggerOnly(&Condition::BattlefieldCount(")
+            && battalion.abilities[0].contains(", 2))")
+            && battalion.statics.contains("Filter::Attacking")
+            && battalion.statics.contains("Filter::Another"),
+        "{:?}\n{}",
+        battalion.abilities,
+        battalion.statics
+    );
+
+    // CheckSVar total power, Delirium, Monarch, `Other+YouCtrl` EQ0, `blockedBySource`,
+    // `!EquippedBy`, `attackedOrBlockedThisCombat`, and cast-self trigger.
+    let power_gate = read(
+        "Name:FleetCaptain\nManaCost:2 R\nTypes:Creature Human\nPT:3/2\n\
+         T:Mode$ AttackersDeclared | AttackingPlayer$ You | CheckSVar$ P | SVarCompare$ GE8 | \
+         NoResolvingCheck$ True | TriggerZones$ Battlefield | Execute$ DrawOne\n\
+         SVar:DrawOne:DB$ Draw | NumCards$ 1\n\
+         SVar:P:Count$Valid Creature.YouCtrl$CardPower",
+    );
+    assert!(
+        power_gate.abilities[0]
+            .contains("Condition::TriggerOnly(&Condition::ControlledCreaturePowerAtLeast(8))"),
+        "{:?}",
+        power_gate.abilities
+    );
+
+    let delirium_once = read(
+        "Name:GraveProwler\nManaCost:1 R\nTypes:Creature\nPT:2/1\n\
+         T:Mode$ Attacks | ValidCard$ Card.Self | Delirium$ True | NoResolvingCheck$ True | Execute$ Buff\n\
+         SVar:Buff:DB$ Pump | Defined$ Self | NumAtt$ +2",
+    );
+    assert!(
+        delirium_once.abilities[0]
+            .contains("Condition::TriggerOnly(&Condition::GraveyardTypesAtLeast(4))"),
+        "{:?}",
+        delirium_once.abilities
+    );
+
+    let monarch_once = read(
+        "Name:CrownGuard\nManaCost:2 W\nTypes:Creature\nPT:2/2\n\
+         T:Mode$ Attacks | ValidCard$ Card.Self | CheckDefinedPlayer$ You.isMonarch | \
+         NoResolvingCheck$ True | TriggerZones$ Battlefield | Execute$ D\n\
+         SVar:D:DB$ Draw | NumCards$ 1",
+    );
+    assert!(
+        monarch_once.abilities[0]
+            .contains("Condition::TriggerOnly(&Condition::IsMonarch(PlayerRel::You))"),
+        "{:?}",
+        monarch_once.abilities
+    );
+}
+
+#[test]
+fn wave23c_trigger_only_relative_and_combat_clauses() {
+    let solo_goblin = read(
+        "Name:LoneGoblin\nManaCost:2 R\nTypes:Creature Goblin\nPT:6/6\n\
+         T:Mode$ Attacks | ValidCard$ Card.Self | IsPresent$ Goblin.YouCtrl+Other | \
+         PresentCompare$ EQ0 | NoResolvingCheck$ True | TriggerZones$ Battlefield | Execute$ Stun\n\
+         SVar:Stun:DB$ PutCounter | Defined$ Self | CounterType$ STUN | CounterNum$ 1",
+    );
+    assert!(
+        solo_goblin.abilities[0]
+            .contains("Condition::TriggerOnly(&Condition::BattlefieldCountAtMost(")
+            && solo_goblin.statics.contains("Filter::ControlledByYou")
+            && solo_goblin.statics.contains("Filter::Another"),
+        "{:?}\n{}",
+        solo_goblin.abilities,
+        solo_goblin.statics
+    );
+
+    let multi_block = read(
+        "Name:TwoBlockGiant\nManaCost:5 W\nTypes:Creature Giant\nPT:5/3\n\
+         T:Mode$ Blocks | ValidCard$ Card.Self | IsPresent$ Creature.blockedBySource | \
+         PresentCompare$ GE2 | NoResolvingCheck$ True | Execute$ Buff\n\
+         SVar:Buff:DB$ Pump | Defined$ Self | KW$ First Strike",
+    );
+    assert!(
+        multi_block.abilities[0].contains("Condition::TriggerOnly(&Condition::BattlefieldCount(")
+            && multi_block.statics.contains("Filter::BlockedBySource"),
+        "{:?}\n{}",
+        multi_block.abilities,
+        multi_block.statics
+    );
+
+    let equip_buddy = read(
+        "Name:BuddyLens\nManaCost:1 W\nTypes:Artifact Equipment\n\
+         T:Mode$ Attacks | ValidCard$ Card.EquippedBy | TriggerZones$ Battlefield | \
+         IsPresent$ Creature.attacking+!EquippedBy | NoResolvingCheck$ True | Execute$ D\n\
+         SVar:D:DB$ Draw | NumCards$ 1",
+    );
+    assert!(
+        equip_buddy.abilities[0].contains("Condition::TriggerOnly(&Condition::BattlefieldCount(")
+            && equip_buddy
+                .statics
+                .contains("Filter::Not(&Filter::AttachedToBySource)"),
+        "{:?}\n{}",
+        equip_buddy.abilities,
+        equip_buddy.statics
+    );
+
+    let combat_guard = read(
+        "Name:HomeSentinel\nManaCost:3 W\nTypes:Creature\nPT:1/6\n\
+         T:Mode$ Phase | Phase$ EndCombat | ValidPlayer$ Player | \
+         IsPresent$ Card.Self+attackedThisCombat,Card.Self+blockedThisCombat | \
+         NoResolvingCheck$ True | TriggerZones$ Battlefield | Execute$ Cnt\n\
+         SVar:Cnt:DB$ PutCounter | Defined$ Self | CounterType$ P1P1 | CounterNum$ 1",
+    );
+    assert!(
+        combat_guard.abilities[0]
+            .contains("Condition::TriggerOnly(&Condition::AttackedOrBlockedThisCombat)"),
+        "{:?}",
+        combat_guard.abilities
+    );
+
+    let cast_trigger = read(
+        "Name:CastWhileCreature\nManaCost:1 U\nTypes:Instant\n\
+         T:Mode$ SpellCast | ValidCard$ Card.Self | IsPresent$ Creature.YouCtrl | \
+         NoResolvingCheck$ True | Execute$ D\n\
+         SVar:D:DB$ Draw | NumCards$ 1\n\
+         A:SP$ GainLife | Defined$ You | LifeAmount$ 2",
+    );
+    assert!(
+        cast_trigger.abilities[0].contains("Trigger::SpellCast(&Filter::This)")
+            && cast_trigger.abilities[0]
+                .contains("Condition::TriggerOnly(&Condition::ControlCount("),
+        "{:?}",
+        cast_trigger.abilities
+    );
+
+    // Composition: `NoResolvingCheck$ True` wraps trigger-level clauses in `TriggerOnly`
+    // while keeping genuine intervening-if clauses (`Bargained`, `ValidPlayer$ You.isMonarch`)
+    // outside `TriggerOnly` inside `Condition::All`.
+}
+
+#[test]
+fn wave23c_trigger_only_composition_and_refusals() {
+    let composed_bargain = read(
+        "Name:BargainWatcher\nManaCost:2 G\nTypes:Creature\nPT:2/2\n\
+         T:Mode$ ChangesZone | Origin$ Any | Destination$ Battlefield | ValidCard$ Card.Self+bargained | \
+         IsPresent$ Creature.YouCtrl+powerGE4 | NoResolvingCheck$ True | Execute$ D\n\
+         SVar:D:DB$ Draw | NumCards$ 1",
+    );
+    assert!(
+        composed_bargain.abilities[0]
+            .contains("Condition::All(&[Condition::TriggerOnly(&Condition::ControlCount(")
+            && composed_bargain.abilities[0].contains("Condition::Bargained])"),
+        "{:?}",
+        composed_bargain.abilities
+    );
+
+    let composed_monarch = read(
+        "Name:MonarchUpkeep\nManaCost:3 W\nTypes:Enchantment\n\
+         T:Mode$ Phase | Phase$ Upkeep | ValidPlayer$ You.isMonarch | TriggerZones$ Battlefield | \
+         IsPresent$ Artifact.YouCtrl | NoResolvingCheck$ True | Execute$ D\n\
+         SVar:D:DB$ Draw | NumCards$ 1",
+    );
+    assert!(
+        composed_monarch.abilities[0]
+            .contains("Condition::All(&[Condition::TriggerOnly(&Condition::ControlCount(")
+            && composed_monarch.abilities[0].contains("Condition::IsMonarch(PlayerRel::You)])"),
+        "{:?}",
+        composed_monarch.abilities
+    );
+
+    // Refusals: bad value, vacuous `NoResolvingCheck$ True`, state trigger `Always`, and
+    // Pack Tactics (`attacking$CardPower`, which must not approximate to all controlled creatures).
+    for bad in [
+        "Name:BadFalse\nManaCost:1 W\nTypes:Creature\nPT:2/2\n\
+         T:Mode$ Attacks | ValidCard$ Card.Self | IsPresent$ Creature.YouCtrl | NoResolvingCheck$ False | Execute$ D\n\
+         SVar:D:DB$ Draw | NumCards$ 1",
+        "Name:BadBare\nManaCost:1 W\nTypes:Creature\nPT:2/2\n\
+         T:Mode$ Attacks | ValidCard$ Card.Self | NoResolvingCheck$ True | Execute$ D\n\
+         SVar:D:DB$ Draw | NumCards$ 1",
+        "Name:BadAlways\nManaCost:1 U\nTypes:Creature\nPT:2/2\n\
+         T:Mode$ Always | IsPresent$ Island.YouCtrl | PresentCompare$ EQ0 | NoResolvingCheck$ True | Execute$ S\n\
+         SVar:S:DB$ Sacrifice",
+        "Name:PackTacticsUnmodelled\nManaCost:1 G\nTypes:Creature\nPT:2/2\n\
+         T:Mode$ Attacks | ValidCard$ Card.Self | CheckSVar$ PackTactics | SVarCompare$ GE6 | NoResolvingCheck$ True | Execute$ D\n\
+         SVar:D:DB$ Draw | NumCards$ 1\n\
+         SVar:PackTactics:Count$Valid Creature.attacking$CardPower",
+    ] {
+        assert!(refused(bad), "must refuse:\n{bad}");
+    }
+}
+
+#[test]
+fn wave23c_duskmourn_rooms_and_unlock_door() {
+    let dual_room = read(
+        "Name:LeftDoor\nManaCost:1 U\nTypes:Enchantment Room\n\
+         T:Mode$ UnlockDoor | ValidPlayer$ You | ValidCard$ Card.Self | ThisDoor$ True | Execute$ TrigSurveil\n\
+         SVar:TrigSurveil:DB$ Surveil | Amount$ 2\n\
+         AlternateMode:Split\n\
+         ALTERNATE\n\
+         Name:RightDoor\nManaCost:3 U\nTypes:Enchantment Room\n\
+         T:Mode$ UnlockDoor | ValidPlayer$ You | ValidCard$ Card.Self | ThisDoor$ True | Execute$ TrigDraw\n\
+         SVar:TrigDraw:DB$ Draw | NumCards$ 2",
+    );
+    assert_eq!(dual_room.abilities.len(), 1);
+    assert!(
+        dual_room.abilities[0].starts_with("triggered!(Trigger::UnlockThisDoor(0),"),
+        "{:?}",
+        dual_room.abilities
+    );
+    let right = dual_room.back.as_ref().expect("right door body");
+    assert_eq!(right.abilities.len(), 1);
+    assert!(
+        right.abilities[0].starts_with("triggered!(Trigger::UnlockThisDoor(1),"),
+        "{:?}",
+        right.abilities
+    );
+
+    let mixed_room = read(
+        "Name:UpkeepRoom\nManaCost:2 B\nTypes:Enchantment Room\n\
+         T:Mode$ Phase | Phase$ End of Turn | ValidPlayer$ You | TriggerZones$ Battlefield | Execute$ TrigDraw\n\
+         SVar:TrigDraw:DB$ Draw | NumCards$ 1\n\
+         AlternateMode:Split\n\
+         ALTERNATE\n\
+         Name:UnlockRoom\nManaCost:4 B\nTypes:Enchantment Room\n\
+         T:Mode$ UnlockDoor | ValidPlayer$ You | ValidCard$ Card.Self | ThisDoor$ True | Execute$ TrigGain\n\
+         SVar:TrigGain:DB$ GainLife | Defined$ You | LifeAmount$ 4",
+    );
+    assert!(mixed_room.abilities[0].contains("Trigger::StepBegin"));
+    assert!(
+        mixed_room.back.as_ref().unwrap().abilities[0]
+            .starts_with("triggered!(Trigger::UnlockThisDoor(1),")
+    );
+
+    // Refusals: missing/false `ThisDoor$`, non-`You`, non-`Card.Self`, non-battlefield zone,
+    // `UnlockDoor` on non-Room, single-face Room, mismatched halves, non-Split Room.
+    for bad in [
+        "Name:NoThisDoor\nManaCost:1 W\nTypes:Enchantment Room\n\
+         T:Mode$ UnlockDoor | ValidPlayer$ You | ValidCard$ Card.Self | Execute$ D\nSVar:D:DB$ Draw | NumCards$ 1\n\
+         AlternateMode:Split\nALTERNATE\n\
+         Name:OtherDoor\nManaCost:2 W\nTypes:Enchantment Room\n\
+         T:Mode$ UnlockDoor | ValidPlayer$ You | ValidCard$ Card.Self | ThisDoor$ True | Execute$ G\nSVar:G:DB$ GainLife | LifeAmount$ 1",
+        "Name:OppDoor\nManaCost:1 W\nTypes:Enchantment Room\n\
+         T:Mode$ UnlockDoor | ValidPlayer$ Opponent | ValidCard$ Card.Self | ThisDoor$ True | Execute$ D\nSVar:D:DB$ Draw | NumCards$ 1\n\
+         AlternateMode:Split\nALTERNATE\n\
+         Name:OtherDoor\nManaCost:2 W\nTypes:Enchantment Room\n\
+         T:Mode$ UnlockDoor | ValidPlayer$ You | ValidCard$ Card.Self | ThisDoor$ True | Execute$ G\nSVar:G:DB$ GainLife | LifeAmount$ 1",
+        "Name:OtherCardDoor\nManaCost:1 W\nTypes:Enchantment Room\n\
+         T:Mode$ UnlockDoor | ValidPlayer$ You | ValidCard$ Enchantment.YouCtrl | ThisDoor$ True | Execute$ D\nSVar:D:DB$ Draw | NumCards$ 1\n\
+         AlternateMode:Split\nALTERNATE\n\
+         Name:OtherDoor\nManaCost:2 W\nTypes:Enchantment Room\n\
+         T:Mode$ UnlockDoor | ValidPlayer$ You | ValidCard$ Card.Self | ThisDoor$ True | Execute$ G\nSVar:G:DB$ GainLife | LifeAmount$ 1",
+        "Name:GraveDoor\nManaCost:1 W\nTypes:Enchantment Room\n\
+         T:Mode$ UnlockDoor | ValidPlayer$ You | ValidCard$ Card.Self | ThisDoor$ True | TriggerZones$ Graveyard | Execute$ D\nSVar:D:DB$ Draw | NumCards$ 1\n\
+         AlternateMode:Split\nALTERNATE\n\
+         Name:OtherDoor\nManaCost:2 W\nTypes:Enchantment Room\n\
+         T:Mode$ UnlockDoor | ValidPlayer$ You | ValidCard$ Card.Self | ThisDoor$ True | Execute$ G\nSVar:G:DB$ GainLife | LifeAmount$ 1",
+        "Name:NotARoom\nManaCost:1 W\nTypes:Enchantment\n\
+         T:Mode$ UnlockDoor | ValidPlayer$ You | ValidCard$ Card.Self | ThisDoor$ True | Execute$ D\nSVar:D:DB$ Draw | NumCards$ 1",
+        "Name:SingleRoom\nManaCost:1 W\nTypes:Enchantment Room\n\
+         T:Mode$ Phase | Phase$ Upkeep | ValidPlayer$ You | Execute$ D\nSVar:D:DB$ Draw | NumCards$ 1",
+        "Name:HalfRoom\nManaCost:1 W\nTypes:Enchantment Room\n\
+         T:Mode$ Phase | Phase$ Upkeep | ValidPlayer$ You | Execute$ D\nSVar:D:DB$ Draw | NumCards$ 1\n\
+         AlternateMode:Split\nALTERNATE\n\
+         Name:NotRoom\nManaCost:2 W\nTypes:Enchantment\n\
+         T:Mode$ Phase | Phase$ Upkeep | ValidPlayer$ You | Execute$ G\nSVar:G:DB$ GainLife | LifeAmount$ 1",
+        "Name:DfcRoom\nManaCost:1 W\nTypes:Enchantment Room\n\
+         T:Mode$ Phase | Phase$ Upkeep | ValidPlayer$ You | Execute$ D\nSVar:D:DB$ Draw | NumCards$ 1\n\
+         AlternateMode:DoubleFaced\nALTERNATE\n\
+         Name:BackRoom\nTypes:Enchantment Room\n\
+         T:Mode$ Phase | Phase$ Upkeep | ValidPlayer$ You | Execute$ G\nSVar:G:DB$ GainLife | LifeAmount$ 1",
+    ] {
+        assert!(refused(bad), "must refuse:\n{bad}");
+    }
+}

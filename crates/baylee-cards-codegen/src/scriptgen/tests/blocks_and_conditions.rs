@@ -1023,25 +1023,31 @@ fn a_clause_that_counts_needs_the_filter_to_say_whose() {
         theirs_none.abilities
     );
 
-    // The same trap one atom further in, and the one that would have
-    // been written rather than refused: `Other` is a filter about the
-    // card stating the clause, which a count has no room for.
-    let another = parse(&script.replace("Creature.YouCtrl", "Creature.Other+YouCtrl"));
-    assert!(transcode(&another, &cats(), None).is_none());
+    // A trigger's `Other+YouCtrl` count uses `BattlefieldCount` (which preserves
+    // `context.source` so `Filter::Another` excludes the source itself), while
+    // an activated ability still refuses relative `Other` counts.
+    let another = read(&script.replace("Creature.YouCtrl", "Creature.Other+YouCtrl"));
+    assert!(
+        another.abilities[0].contains("Condition::BattlefieldCount(")
+            && another.statics.contains("Filter::Another")
+            && another.statics.contains("Filter::ControlledByYou"),
+        "{:?}\n{}",
+        another.abilities,
+        another.statics
+    );
+    let another_activated = parse(
+        "Name:X\nManaCost:G\nTypes:Creature Elf\nPT:1/1\n\
+         A:AB$ Draw | Cost$ T | NumCards$ 1 | IsPresent$ Creature.Other+YouCtrl\n",
+    );
+    assert!(transcode(&another_activated, &cats(), None).is_none());
     assert_eq!(
-        refusal_reason(&another, &cats(), None).as_deref(),
+        refusal_reason(&another_activated, &cats(), None).as_deref(),
         Some("`IsPresent$ Creature.Other+YouCtrl`, a count relative to this card")
     );
 }
 
-/// Every other key of the family refuses by name, and the reasons are
-/// what a worklist is made of.
-///
-/// `NoResolvingCheck$ True` is the one that matters most and is easiest
-/// to read past: it is the reference opting *out* of CR 603.4's second
-/// check — the clause asked once instead of twice — and a reader that
-/// dropped the key would write a card that behaves differently from the
-/// script it came from, in the one direction nothing would notice.
+/// Every unmodelled key of the condition family still refuses by name, and the
+/// reasons are what a worklist is made of.
 #[test]
 fn the_rest_of_the_condition_family_refuses_by_name() {
     let base = "Name:X\nManaCost:G\nTypes:Creature Elf\nPT:1/1\n\
@@ -1049,11 +1055,11 @@ fn the_rest_of_the_condition_family_refuses_by_name() {
          IsPresent$ Creature.YouCtrl | {EXTRA}Execute$ TrigDraw\n\
          SVar:TrigDraw:DB$ Draw | NumCards$ 1\n";
     for (extra, reason) in [
+        ("NoResolvingCheck$ False | ", "`NoResolvingCheck$ False`"),
         (
-            "NoResolvingCheck$ True | ",
-            "`NoResolvingCheck$`, a clause checked once",
+            "IsPresent2$ Card.Self | ResolvingCheck$ IsPresent2 | ",
+            "a second `IsPresent2$` clause with `ResolvingCheck$`",
         ),
-        ("IsPresent2$ Card.Self | ", "a second `IsPresent2$` clause"),
         ("PresentPlayer$ You | ", "`PresentPlayer$ You`"),
         ("PresentZone$ Graveyard | ", "`PresentZone$ Graveyard`"),
         ("PresentCompare$ EQ2 | ", "`PresentCompare$ EQ2`"),
@@ -1063,6 +1069,24 @@ fn the_rest_of_the_condition_family_refuses_by_name() {
         ),
     ] {
         let parsed = parse(&base.replace("{EXTRA}", extra));
+        assert!(transcode(&parsed, &cats(), None).is_none(), "{extra}");
+        assert_eq!(
+            refusal_reason(&parsed, &cats(), None).as_deref(),
+            Some(reason),
+            "{extra}"
+        );
+    }
+    // `NoResolvingCheck$` and `IsPresent2$` remain refused on activated abilities.
+    let activated_base = "Name:X\nManaCost:G\nTypes:Creature Elf\nPT:1/1\n\
+         A:AB$ Draw | Cost$ T | NumCards$ 1 | IsPresent$ Creature.YouCtrl | {EXTRA}\n";
+    for (extra, reason) in [
+        (
+            "NoResolvingCheck$ True",
+            "`NoResolvingCheck$`, a clause checked once",
+        ),
+        ("IsPresent2$ Card.Self", "a second `IsPresent2$` clause"),
+    ] {
+        let parsed = parse(&activated_base.replace("{EXTRA}", extra));
         assert!(transcode(&parsed, &cats(), None).is_none(), "{extra}");
         assert_eq!(
             refusal_reason(&parsed, &cats(), None).as_deref(),

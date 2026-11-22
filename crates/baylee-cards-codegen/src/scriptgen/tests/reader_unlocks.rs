@@ -7089,8 +7089,10 @@ fn wave21c_monarch_initiative_dungeon_etb_and_refusals() {
          T:Mode$ Attacks | ValidCard$ Card.Self | CheckDefinedPlayer$ You.withMostLife | TriggerZones$ Battlefield | Execute$ D\nSVar:D:DB$ Draw | NumCards$ 1",
         "Name:BadMostCreatures\nManaCost:2 G\nTypes:Creature\nPT:2/2\n\
          T:Mode$ Phase | Phase$ Upkeep | ValidPlayer$ You | CheckDefinedPlayer$ Player.withMostTypeCreatureOnly | TriggerZones$ Battlefield | Execute$ D\nSVar:D:DB$ Draw | NumCards$ 1",
-        "Name:BadNoResolvingCheck\nManaCost:2 W\nTypes:Creature\nPT:2/2\n\
-         T:Mode$ Phase | Phase$ End of Turn | ValidPlayer$ You | CheckDefinedPlayer$ You.isMonarch | NoResolvingCheck$ True | TriggerZones$ Battlefield | Execute$ D\nSVar:D:DB$ Draw | NumCards$ 1",
+        "Name:BadNoResolvingCheckFalse\nManaCost:2 W\nTypes:Creature\nPT:2/2\n\
+         T:Mode$ Phase | Phase$ End of Turn | ValidPlayer$ You | CheckDefinedPlayer$ You.isMonarch | NoResolvingCheck$ False | TriggerZones$ Battlefield | Execute$ D\nSVar:D:DB$ Draw | NumCards$ 1",
+        "Name:BadNoResolvingCheckBare\nManaCost:2 W\nTypes:Creature\nPT:2/2\n\
+         T:Mode$ Phase | Phase$ End of Turn | ValidPlayer$ You | NoResolvingCheck$ True | TriggerZones$ Battlefield | Execute$ D\nSVar:D:DB$ Draw | NumCards$ 1",
         "Name:BadActiveDraw\nManaCost:2 U\nTypes:Enchantment\n\
          T:Mode$ Drawn | ValidPlayer$ Player.Active | TriggerZones$ Battlefield | Execute$ D\nSVar:D:DB$ Draw | NumCards$ 1",
         "Name:BadTwoDungeons\nManaCost:2 G\nTypes:Creature\nPT:2/2\n\
@@ -7106,5 +7108,316 @@ fn wave21c_monarch_initiative_dungeon_etb_and_refusals() {
          K:Equip:4:::ReduceCost$ M:This ability costs {3} less\nSVar:M:Count$Monarch.3.1",
     ] {
         assert!(refused(bad), "must refuse: {bad}");
+    }
+}
+
+#[test]
+fn wave23c_high_yield_paper_trigger_unlocks_and_refusals() {
+    // `AttackerBlocked | ValidCard$ <attacker> | ValidBlocker$ Card.Self` -> `Trigger::BlocksCreature`
+    // plus `AtEndOfCombat` delayed bounce remembering `TriggeredAttackerLKICopy`.
+    let spider = read(
+        "Name:WebSpider\nManaCost:1 G\nTypes:Creature Spider\nPT:1/2\nK:Reach\n\
+         T:Mode$ AttackerBlocked | ValidCard$ Creature.withFlying | ValidBlocker$ Card.Self | Execute$ Pump\n\
+         SVar:Pump:DB$ Pump | Defined$ Self | NumAtt$ +3",
+    );
+    assert!(
+        spider.abilities[0].contains("Trigger::BlocksCreature(&TRIGGER")
+            && spider.statics.contains("KeywordSet::FLYING"),
+        "{:?}\n{}",
+        spider.abilities,
+        spider.statics
+    );
+
+    let bounce_wall = read(
+        "Name:BounceWall\nManaCost:1 U\nTypes:Creature Wall\nPT:0/4\nK:Defender\n\
+         T:Mode$ AttackerBlocked | ValidCard$ Creature | ValidBlocker$ Card.Self | Execute$ Del\n\
+         SVar:Del:DB$ DelayedTrigger | Mode$ Phase | Phase$ EndCombat | ValidPlayer$ Player | \
+         Execute$ Bounce | RememberObjects$ TriggeredAttackerLKICopy\n\
+         SVar:Bounce:DB$ ChangeZone | Origin$ Battlefield | Destination$ Hand | Defined$ DelayTriggerRememberedLKI",
+    );
+    assert!(
+        bounce_wall.abilities[0].contains("Trigger::BlocksCreature(&Filter::CREATURE)")
+            && bounce_wall.abilities[0]
+                .contains("Effect::AtEndOfCombat { about: TargetSpec::EventObject,"),
+        "{:?}",
+        bounce_wall.abilities
+    );
+
+    let implicit_attacker_wall = read(
+        "Name:ChillWall\nManaCost:2 U\nTypes:Creature Wall\nPT:0/5\n\
+         T:Mode$ AttackerBlocked | ValidBlocker$ Card.Self | Execute$ Pump\n\
+         SVar:Pump:DB$ Pump | Defined$ Self | NumDef$ +2",
+    );
+    assert!(
+        implicit_attacker_wall.abilities[0].contains("Trigger::BlocksCreature(&Filter::CREATURE)"),
+        "{:?}",
+        implicit_attacker_wall.abilities
+    );
+
+    // `Drawn | FirstCardInDrawStep$ False` -> `Trigger::DrawsExceptFirst`.
+    let bow = read(
+        "Name:DrawTax\nManaCost:1 B\nTypes:Creature\nPT:1/1\n\
+         T:Mode$ Drawn | ValidCard$ Card.OppOwn | FirstCardInDrawStep$ False | \
+         TriggerZones$ Battlefield | Execute$ Dmg\n\
+         SVar:Dmg:DB$ DealDamage | ValidTgts$ Any | NumDmg$ 1",
+    );
+    assert!(
+        bow.abilities[0].contains("Trigger::DrawsExceptFirst(PlayerRel::EachOpponent)"),
+        "{:?}",
+        bow.abilities
+    );
+
+    // `CounterAddedOnce | FirstTime$ True` + `+inZoneBattlefield` stripping.
+    let brawler = read(
+        "Name:CounterBrawler\nManaCost:G W\nTypes:Creature\nPT:0/0\n\
+         T:Mode$ CounterAddedOnce | ValidCard$ Permanent.Other+YouCtrl+inZoneBattlefield | \
+         TriggerZones$ Battlefield | CounterType$ P1P1 | FirstTime$ True | Execute$ Grow\n\
+         SVar:Grow:DB$ PutCounter | Defined$ Self | CounterType$ P1P1 | CounterNum$ 1",
+    );
+    assert!(
+        brawler.abilities[0].contains("Trigger::CountersPlaced {")
+            && brawler.abilities[0].contains("first_this_turn: true"),
+        "{:?}",
+        brawler.abilities
+    );
+
+    // Non-`Phase` trigger `Phase$` gate -> `Condition::TriggerOnly(&Condition::DuringCombat / DuringStep)`.
+    let combat_etb = read(
+        "Name:CombatVisitor\nManaCost:2 U\nTypes:Creature\nPT:2/2\n\
+         T:Mode$ ChangesZone | Phase$ BeginCombat->EndCombat | Origin$ Any | Destination$ Battlefield | \
+         ValidCard$ Creature.YouCtrl | TriggerZones$ Battlefield | Execute$ D\n\
+         SVar:D:DB$ Draw | NumCards$ 1",
+    );
+    assert!(
+        combat_etb.abilities[0].contains("Condition::TriggerOnly(&Condition::DuringCombat)"),
+        "{:?}",
+        combat_etb.abilities
+    );
+
+    let step_etb = read(
+        "Name:AttackerStepVisitor\nManaCost:2 U\nTypes:Creature\nPT:2/2\n\
+         T:Mode$ ChangesZone | Phase$ Declare Attackers | Origin$ Any | Destination$ Battlefield | \
+         ValidCard$ Card.Self | Execute$ D\n\
+         SVar:D:DB$ Draw | NumCards$ 1",
+    );
+    assert!(
+        step_etb.abilities[0]
+            .contains("Condition::TriggerOnly(&Condition::DuringStep(StepKind::DeclareAttackers))"),
+        "{:?}",
+        step_etb.abilities
+    );
+
+    // `IsPresent2$` composition, Barren Glory (`PresentPlayer$ You | Card.Other | EQ0` + empty hand),
+    // Wall of Caltrops (`EventBlockedByOthers`), and Aura `EnchantedBy` -> `Condition::AttachedMatches`.
+}
+
+#[test]
+fn wave23c_present2_attached_and_block_pairs() {
+    let art_ench = read(
+        "Name:DualCheck\nManaCost:2 B\nTypes:Creature\nPT:2/2\n\
+         T:Mode$ ChangesZone | Destination$ Battlefield | ValidCard$ Card.Self | \
+         IsPresent$ Artifact.YouCtrl | IsPresent2$ Enchantment.YouCtrl | Execute$ D\n\
+         SVar:D:DB$ Draw | NumCards$ 1",
+    );
+    assert!(
+        art_ench.abilities[0]
+            .contains("Condition::All(&[Condition::ControlCount(&Filter::YOUR_ARTIFACT, 1),")
+            && art_ench.statics.contains("Filter::ENCHANTMENT"),
+        "{:?}\n{}",
+        art_ench.abilities,
+        art_ench.statics
+    );
+
+    let empty_board_win = read(
+        "Name:BarrenWin\nManaCost:4 W W\nTypes:Enchantment\n\
+         T:Mode$ Phase | Phase$ Upkeep | ValidPlayer$ You | TriggerZones$ Battlefield | \
+         IsPresent$ Card.Other | PresentZone$ Battlefield | PresentPlayer$ You | PresentCompare$ EQ0 | \
+         IsPresent2$ Card | PresentZone2$ Hand | PresentPlayer2$ You | PresentCompare2$ EQ0 | Execute$ W\n\
+         SVar:W:DB$ WinsGame | Defined$ You",
+    );
+    assert!(
+        empty_board_win.abilities[0]
+            .contains("Condition::All(&[Condition::BattlefieldCountAtMost(")
+            && empty_board_win.abilities[0].contains("Condition::HandSizeAtMost(0)])"),
+        "{:?}",
+        empty_board_win.abilities
+    );
+
+    let caltrops = read(
+        "Name:WallBand\nManaCost:1 W\nTypes:Creature Goblin\nPT:2/1\n\
+         T:Mode$ AttackerBlocked | ValidCard$ Creature | ValidBlocker$ Card.Self | Execute$ Band | \
+         IsPresent$ Creature.Goblin+Other+sharesBlockingAssignmentWith | \
+         IsPresent2$ Creature.nonGoblin+sharesBlockingAssignmentWith | PresentCompare2$ EQ0\n\
+         SVar:Band:DB$ Pump | Defined$ Self | KW$ Banding",
+    );
+    assert!(
+        caltrops.abilities[0].contains("Trigger::BlocksCreature(&Filter::CREATURE)")
+            && caltrops.abilities[0].contains("Condition::EventBlockedByOthers {"),
+        "{:?}",
+        caltrops.abilities
+    );
+
+    let aura_check = read(
+        "Name:WebAura\nManaCost:2 G\nTypes:Enchantment Aura\nK:Enchant:Creature\n\
+         T:Mode$ Phase | Phase$ End of Turn | TriggerZones$ Battlefield | \
+         IsPresent$ Creature.EnchantedBy+powerGE4 | Execute$ Sac\n\
+         SVar:Sac:DB$ Sacrifice",
+    );
+    assert!(
+        aura_check
+            .abilities
+            .iter()
+            .any(|a| a.contains("Condition::AttachedMatches(&CHECK")),
+        "{:?}\n{}",
+        aura_check.abilities,
+        aura_check.statics
+    );
+
+    // `Blocks | ValidBlocked$ Creature`, paired `Blocks` + `AttackerBlocked` in both orders,
+    // and `Blocks(Self, Creature)` + `Blocks(Creature, Self, Secondary)`.
+}
+
+#[test]
+fn wave23c_block_pair_triggers() {
+    let lone_block = read(
+        "Name:SnowBlocker\nManaCost:3 R\nTypes:Creature Goblin\nPT:1/1\n\
+         T:Mode$ Blocks | ValidCard$ Card.Self | ValidBlocked$ Creature | Execute$ D\n\
+         SVar:D:DB$ Draw | NumCards$ 1",
+    );
+    assert!(
+        lone_block.abilities[0].contains("Trigger::Blocks(&Filter::This)"),
+        "{:?}",
+        lone_block.abilities
+    );
+
+    let blocks_first = read(
+        "Name:KavuPair\nManaCost:3 G\nTypes:Creature\nPT:2/2\n\
+         T:Mode$ Blocks | ValidCard$ Card.Self | ValidBlocked$ Creature.Black | Execute$ P\n\
+         T:Mode$ AttackerBlocked | ValidCard$ Card.Self | ValidBlocker$ Creature.Black | Secondary$ True | Execute$ P\n\
+         SVar:P:DB$ Pump | Defined$ Self | NumAtt$ +2 | NumDef$ +2",
+    );
+    assert_eq!(blocks_first.abilities.len(), 1);
+    assert!(
+        blocks_first.abilities[0].contains("Trigger::BlocksOrBecomesBlockedByOneOrMore(&TRIGGER"),
+        "{:?}",
+        blocks_first.abilities
+    );
+
+    let blocked_first = read(
+        "Name:WizardPair\nManaCost:1 R\nTypes:Creature\nPT:2/1\n\
+         T:Mode$ AttackerBlocked | ValidCard$ Card.Self | ValidBlocker$ Wizard | Execute$ P\n\
+         T:Mode$ Blocks | ValidCard$ Card.Self | ValidBlocked$ Wizard | Secondary$ True | Execute$ P\n\
+         SVar:P:DB$ Pump | Defined$ Self | NumDef$ +2",
+    );
+    assert_eq!(blocked_first.abilities.len(), 1);
+    assert!(
+        blocked_first.abilities[0].contains("Trigger::BlocksOrBecomesBlockedByOneOrMore(&TRIGGER"),
+        "{:?}",
+        blocked_first.abilities
+    );
+
+    let block_either = read(
+        "Name:CadetPair\nManaCost:R\nTypes:Creature\nPT:2/1\n\
+         T:Mode$ Blocks | ValidCard$ Card.Self | ValidBlocked$ Creature | Execute$ D\n\
+         T:Mode$ Blocks | ValidCard$ Creature | ValidBlocked$ Card.Self | Secondary$ True | Execute$ D\n\
+         SVar:D:DB$ Draw | NumCards$ 1",
+    );
+    assert_eq!(block_either.abilities.len(), 1);
+    assert!(
+        block_either.abilities[0]
+            .contains("Trigger::BlocksOrBecomesBlockedByOneOrMore(&Filter::CREATURE)"),
+        "{:?}",
+        block_either.abilities
+    );
+
+    // `BecomesTarget | ValidTarget$ Card.AttachedBy`, `ChangesZone | Card.Self | TriggerController$ TriggeredCardController`,
+    // zoned `SpellCast` without `ValidCard$`, and `DamageDoneOnce | ValidSource$ Card | ValidTarget$ Opponent`.
+}
+
+#[test]
+fn wave23c_attached_target_self_dies_and_refusals() {
+    let attached_target = read(
+        "Name:CageAura\nManaCost:1 U\nTypes:Enchantment Aura\nK:Enchant:Creature\n\
+         T:Mode$ BecomesTarget | ValidTarget$ Card.AttachedBy | TriggerZones$ Battlefield | Execute$ Sac\n\
+         SVar:Sac:DB$ Sacrifice",
+    );
+    assert!(
+        attached_target
+            .abilities
+            .iter()
+            .any(|a| a.contains("Trigger::EnchantedBecomesTarget")),
+        "{:?}",
+        attached_target.abilities
+    );
+
+    let self_dies_ctrl = read(
+        "Name:SelfDiesCtrl\nManaCost:2 B\nTypes:Creature\nPT:2/2\n\
+         T:Mode$ ChangesZone | Origin$ Battlefield | Destination$ Graveyard | ValidCard$ Card.Self | \
+         TriggerController$ TriggeredCardController | Execute$ D\n\
+         SVar:D:DB$ Draw | NumCards$ 1",
+    );
+    assert!(
+        self_dies_ctrl.abilities[0].contains("Trigger::Dies(&Filter::This)"),
+        "{:?}",
+        self_dies_ctrl.abilities
+    );
+
+    let any_spell_cast = read(
+        "Name:AnySpellCast\nManaCost:1 B\nTypes:Creature\nPT:3/3\n\
+         T:Mode$ SpellCast | TriggerZones$ Battlefield | Execute$ Shrink\n\
+         SVar:Shrink:DB$ Pump | Defined$ Self | NumAtt$ -1 | NumDef$ -1",
+    );
+    assert!(
+        any_spell_cast.abilities[0].contains("Trigger::SpellCast(&Filter::Any)"),
+        "{:?}",
+        any_spell_cast.abilities
+    );
+
+    let opp_dmg_card = read(
+        "Name:DmgWatcher\nManaCost:R R R\nTypes:Creature\nPT:1/1\n\
+         T:Mode$ DamageDoneOnce | ValidSource$ Card | ValidTarget$ Opponent | \
+         TriggerZones$ Battlefield | Execute$ Grow\n\
+         SVar:Grow:DB$ PutCounter | Defined$ Self | CounterType$ P1P1 | CounterNum$ 1",
+    );
+    assert!(
+        opp_dmg_card.abilities[0].contains("Trigger::PlayerDealtDamage(PlayerRel::EachOpponent)"),
+        "{:?}",
+        opp_dmg_card.abilities
+    );
+
+    // Refusals: `FirstCardInDrawStep$ True`, `Number$` + `FirstCardInDrawStep$`,
+    // `Phase$ Main1,Main2` / `Untap`, non-Barren-Glory `PresentPlayer$ You`, lone filtered `Blocks`,
+    // non-self `ChangesZone.TriggerController`, `CounterAddedOnce` non-battlefield `inZone`,
+    // and `DamageDoneOnce` combat naming `ValidTarget$ Opponent`.
+    for bad in [
+        "Name:BadFirstDrawTrue\nManaCost:2 U\nTypes:Enchantment\n\
+         T:Mode$ Drawn | ValidCard$ Card.YouOwn | FirstCardInDrawStep$ True | TriggerZones$ Battlefield | Execute$ D\n\
+         SVar:D:DB$ Draw | NumCards$ 1",
+        "Name:BadDrawNumAndFirst\nManaCost:2 U\nTypes:Enchantment\n\
+         T:Mode$ Drawn | ValidCard$ Card.OppOwn | Number$ 2 | FirstCardInDrawStep$ False | TriggerZones$ Battlefield | Execute$ D\n\
+         SVar:D:DB$ Draw | NumCards$ 1",
+        "Name:BadMainPhase\nManaCost:2 W\nTypes:Enchantment\n\
+         T:Mode$ ChangesZone | Origin$ Any | Destination$ Battlefield | ValidCard$ Land.YouCtrl | Phase$ Main1,Main2 | TriggerZones$ Battlefield | Execute$ D\n\
+         SVar:D:DB$ Draw | NumCards$ 1",
+        "Name:BadUntapPhase\nManaCost:2 U\nTypes:Creature\nPT:2/2\n\
+         T:Mode$ Untaps | Phase$ Untap | ValidCard$ Card.Self | TriggerZones$ Battlefield | Execute$ D\n\
+         SVar:D:DB$ Draw | NumCards$ 1",
+        "Name:BadPresentPlayerWhite\nManaCost:3 W\nTypes:Creature\nPT:3/4\n\
+         T:Mode$ Phase | Phase$ Upkeep | ValidPlayer$ You | IsPresent$ Creature.White | PresentZone$ Battlefield | PresentPlayer$ You | TriggerZones$ Battlefield | Execute$ D\n\
+         SVar:D:DB$ Draw | NumCards$ 1",
+        "Name:BadLoneFilteredBlock\nManaCost:3 W\nTypes:Creature\nPT:3/3\n\
+         T:Mode$ Blocks | ValidCard$ Card.Self | ValidBlocked$ Creature.Black | Execute$ P\n\
+         SVar:P:DB$ Pump | Defined$ Self | NumAtt$ +1 | NumDef$ +2",
+        "Name:BadEnchantedTrigCtrl\nManaCost:1 B\nTypes:Enchantment Aura\nK:Enchant:Creature\n\
+         T:Mode$ ChangesZone | Origin$ Battlefield | Destination$ Graveyard | ValidCard$ Card.EnchantedBy | TriggerController$ TriggeredCardController | Execute$ D\n\
+         SVar:D:DB$ Draw | NumCards$ 1",
+        "Name:BadCounterZone\nManaCost:1 G\nTypes:Creature\nPT:1/1\n\
+         T:Mode$ CounterAddedOnce | ValidCard$ Card.YouOwn+inZoneGraveyard | CounterType$ P1P1 | FirstTime$ True | TriggerZones$ Battlefield | Execute$ D\n\
+         SVar:D:DB$ Draw | NumCards$ 1",
+        "Name:BadCombatOppOnce\nManaCost:2 R\nTypes:Creature\nPT:2/2\n\
+         T:Mode$ DamageDoneOnce | CombatDamage$ True | ValidSource$ Goblin.YouCtrl | ValidTarget$ Opponent | TriggerZones$ Battlefield | Execute$ D\n\
+         SVar:D:DB$ Draw | NumCards$ 1",
+    ] {
+        assert!(refused(bad), "must refuse:\n{bad}");
     }
 }

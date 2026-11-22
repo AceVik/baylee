@@ -2,14 +2,20 @@
 //! permanent enters.
 
 use super::{
-    BlockHalf, BlockRole, Chain, Params, Tx, activated::OptionalTriggerPrice, card_type_const,
-    color_word, counter_kind,
+    BlockHalf, BlockRole, Bound, Chain, Params, Tx, activated::OptionalTriggerPrice,
+    card_type_const, color_word, count_bound, counter_kind,
 };
 
 enum LegacyPhase {
     Handled(String),
     Fallthrough,
     Refused,
+}
+
+enum RelativePresent {
+    Matched(String),
+    NotApplicable,
+    Denied,
 }
 
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -54,7 +60,7 @@ impl Tx<'_> {
         }
         let valid = match p.take("ValidCard") {
             Some(valid) => valid,
-            None if p.has("ValidActivatingPlayer") || p.has("TargetsValid") => "Card".to_string(),
+            None if !p.has("ValidSA") => "Card".to_string(),
             None => return self.deny("a `SpellCast` trigger with no `ValidCard$`".to_string()),
         };
         // The same sentence, refused a second way: a cast trigger
@@ -627,45 +633,7 @@ impl Tx<'_> {
             Some(format!("&{}", this.body.filter_static("TRIGGER", &expr)))
         };
         if once {
-            let Some(target) = target else {
-                return self.deny("a `DamageDoneOnce` trigger with no `ValidTarget$`".to_string());
-            };
-            if let Some(source) = source {
-                if combat && target == "Player" {
-                    let filter = filter_of(self, &source)?;
-                    return Some(format!(
-                        "Trigger::OneOrMoreDealCombatDamageToPlayer({filter})"
-                    ));
-                }
-                return self.deny("a `DamageDoneOnce` trigger naming its source".to_string());
-            }
-            if !combat
-                && matches!(
-                    target.as_str(),
-                    "You" | "Player" | "Opponent" | "Player.Opponent"
-                )
-            {
-                let who = match target.as_str() {
-                    "You" => "PlayerRel::You",
-                    "Player" => "PlayerRel::EachPlayer",
-                    "Opponent" | "Player.Opponent" => "PlayerRel::EachOpponent",
-                    _ => unreachable!(),
-                };
-                return Some(format!("Trigger::PlayerDealtDamage({who})"));
-            }
-            if target
-                .split(['.', ','])
-                .any(|w| matches!(w, "You" | "Player" | "Opponent"))
-            {
-                return self.deny(format!("damage dealt to `{target}` at once"));
-            }
-            let filter = filter_of(self, &target)?;
-            let kind = if combat {
-                "DealtCombatDamage"
-            } else {
-                "DealtDamage"
-            };
-            return Some(format!("Trigger::{kind}({filter})"));
+            return self.damage_done_once_trigger(source, target, combat);
         }
         let Some(source) = source else {
             return self.deny("a `DamageDone` trigger with no `ValidSource$`".to_string());
@@ -712,6 +680,64 @@ impl Tx<'_> {
                 if combat { " in combat" } else { "" }
             )),
         }
+    }
+
+    fn damage_done_once_trigger(
+        &mut self,
+        source: Option<String>,
+        target: Option<String>,
+        combat: bool,
+    ) -> Option<String> {
+        let Some(target) = target else {
+            return self.deny("a `DamageDoneOnce` trigger with no `ValidTarget$`".to_string());
+        };
+        let player_rel = match target.as_str() {
+            "You" => Some("PlayerRel::You"),
+            "Player" => Some("PlayerRel::EachPlayer"),
+            "Opponent" | "Player.Opponent" => Some("PlayerRel::EachOpponent"),
+            _ => None,
+        };
+        if let Some(source) = source {
+            if combat && target == "Player" {
+                let filter = if source == "Card.Self" {
+                    "&Filter::This".to_string()
+                } else {
+                    let expr = self.filter_expr(&source)?;
+                    format!("&{}", self.body.filter_static("TRIGGER", &expr))
+                };
+                return Some(format!(
+                    "Trigger::OneOrMoreDealCombatDamageToPlayer({filter})"
+                ));
+            }
+            if !combat
+                && source == "Card"
+                && let Some(who) = player_rel
+            {
+                return Some(format!("Trigger::PlayerDealtDamage({who})"));
+            }
+            return self.deny("a `DamageDoneOnce` trigger naming its source".to_string());
+        }
+        if !combat && let Some(who) = player_rel {
+            return Some(format!("Trigger::PlayerDealtDamage({who})"));
+        }
+        if target
+            .split(['.', ','])
+            .any(|w| matches!(w, "You" | "Player" | "Opponent"))
+        {
+            return self.deny(format!("damage dealt to `{target}` at once"));
+        }
+        let filter = if target == "Card.Self" {
+            "&Filter::This".to_string()
+        } else {
+            let expr = self.filter_expr(&target)?;
+            format!("&{}", self.body.filter_static("TRIGGER", &expr))
+        };
+        let kind = if combat {
+            "DealtCombatDamage"
+        } else {
+            "DealtDamage"
+        };
+        Some(format!("Trigger::{kind}({filter})"))
     }
 
     /// `T:Mode$ DamageDealtOnce` — "whenever a creature you control deals
@@ -879,8 +905,37 @@ impl Tx<'_> {
             "RingTemptsYou" => self.ring_tempts_you_trigger(p),
             "Clashed" => self.clashed_trigger(p),
             "Firebend" | "Firebends" => self.firebends_trigger(p),
+            "UnlockDoor" => self.unlock_door_trigger(p, zone_taken),
             other => self.deny(format!("trigger mode `{other}`")),
         }
+    }
+
+    /// `T:Mode$ UnlockDoor | ThisDoor$ True` — CR 709.5h "When you unlock this
+    /// door, …" on a Duskmourn Room split card (`Trigger::UnlockThisDoor(0|1)`).
+    fn unlock_door_trigger(&mut self, p: &mut Params, zone_taken: bool) -> Option<String> {
+        if zone_taken {
+            return self.deny("an `UnlockDoor` trigger outside the battlefield".to_string());
+        }
+        let Some(door) = self.room_door else {
+            return self.deny("an `UnlockDoor` trigger outside a Room split card".to_string());
+        };
+        match p.take("ValidPlayer").as_deref() {
+            None | Some("You") => {}
+            Some(other) => return self.deny(format!("`UnlockDoor` player `{other}`")),
+        }
+        match p.take("ValidCard").as_deref() {
+            Some("Card.Self") => {}
+            Some(other) => return self.deny(format!("`UnlockDoor` on `{other}`")),
+            None => return self.deny("an `UnlockDoor` trigger with no `ValidCard$`".to_string()),
+        }
+        match p.take("ThisDoor").as_deref() {
+            Some("True") => {}
+            Some(other) => return self.deny(format!("`UnlockDoor` with `ThisDoor$ {other}`")),
+            None => {
+                return self.deny("an `UnlockDoor` trigger without `ThisDoor$ True`".to_string());
+            }
+        }
+        Some(format!("Trigger::UnlockThisDoor({door})"))
     }
 
     fn phase_step_trigger(&mut self, p: &mut Params) -> Option<String> {
@@ -1251,14 +1306,36 @@ impl Tx<'_> {
             Some("Opponent" | "Player.Opponent") => "PlayerRel::EachOpponent",
             Some(other) => return self.deny(format!("`CounterAddedOnce` by `{other}`")),
         };
+        let first_this_turn = match p.take("FirstTime").as_deref() {
+            None | Some("False") => false,
+            Some("True") => true,
+            Some(other) => return self.deny(format!("`FirstTime$ {other}`")),
+        };
         let filter = if valid == "Card.Self" {
             "&Filter::This".to_string()
         } else {
-            let expr = self.filter_expr(&valid)?;
+            let mut cleaned = Vec::new();
+            for alt in valid.split(',').map(str::trim) {
+                let (base, atoms) = alt.split_once('.').unwrap_or((alt, ""));
+                let kept: Vec<&str> = atoms
+                    .split('+')
+                    .map(str::trim)
+                    .filter(|a| !a.is_empty() && *a != "inZoneBattlefield")
+                    .collect();
+                if kept.iter().any(|a| a.starts_with("inZone")) {
+                    return self.deny(format!("`CounterAddedOnce` on `{valid}`"));
+                }
+                if kept.is_empty() {
+                    cleaned.push(base.to_string());
+                } else {
+                    cleaned.push(format!("{base}.{}", kept.join("+")));
+                }
+            }
+            let expr = self.filter_expr(&cleaned.join(","))?;
             format!("&{}", self.body.filter_static("TRIGGER", &expr))
         };
         Some(format!(
-            "Trigger::CountersPlaced {{ filter: {filter}, kind: {kind}, by: {by}, first_this_turn: false }}"
+            "Trigger::CountersPlaced {{ filter: {filter}, kind: {kind}, by: {by}, first_this_turn: {first_this_turn} }}"
         ))
     }
 
@@ -1269,7 +1346,9 @@ impl Tx<'_> {
         match p.take("ValidSource").as_deref() {
             None => match valid_target.as_str() {
                 "Card.Self" => Some("Trigger::BecomesTarget".to_string()),
-                "Card.EnchantedBy" => Some("Trigger::EnchantedBecomesTarget".to_string()),
+                "Card.EnchantedBy" | "Card.AttachedBy" => {
+                    Some("Trigger::EnchantedBecomesTarget".to_string())
+                }
                 _ => self.deny("a `BecomesTarget` trigger not on `Card.Self`".to_string()),
             },
             Some("SpellAbility.OppCtrl") => {
@@ -1375,6 +1454,16 @@ impl Tx<'_> {
             self.trigger_self_etb_kicked_with = Some(idx);
             return Some("Trigger::ETB".to_string());
         }
+        if valid == "Card.Self"
+            && origin == "Battlefield"
+            && matches!(dest.as_str(), "Graveyard" | "Exile" | "Any")
+            && p.peek("TriggerController") == Some("TriggeredCardController")
+        {
+            // CR 603.10a / CR 603.3a: a permanent's own leaves-the-battlefield
+            // trigger is already controlled by its last-known battlefield
+            // controller.
+            p.take("TriggerController");
+        }
         let filter = if valid == "Card.Self" {
             "&Filter::This".to_string()
         } else {
@@ -1413,6 +1502,13 @@ impl Tx<'_> {
         let valid_player = p.take("ValidPlayer");
         let valid_card = p.take("ValidCard");
         let number = p.take("Number");
+        let except_first_in_draw_step = match p.take("FirstCardInDrawStep").as_deref() {
+            None => false,
+            Some("False") => true,
+            Some(other) => {
+                return self.deny(format!("`Drawn` with `FirstCardInDrawStep$ {other}`"));
+            }
+        };
         if valid_card.is_none() && valid_player.is_none() {
             return self.deny("a `Drawn` trigger with no `ValidCard$`".to_string());
         }
@@ -1443,6 +1539,14 @@ impl Tx<'_> {
             (Some(a), _) | (_, Some(a)) => a,
             (None, None) => "PlayerRel::EachPlayer",
         };
+        if except_first_in_draw_step {
+            if number.is_some() {
+                return self.deny(
+                    "a `Drawn` trigger with both `Number$` and `FirstCardInDrawStep$`".to_string(),
+                );
+            }
+            return Some(format!("Trigger::DrawsExceptFirst({who})"));
+        }
         if let Some(raw) = number {
             let Some(n) = raw.trim().parse::<u8>().ok().filter(|&n| n >= 1) else {
                 return self.deny(format!("`Drawn` with `Number$ {raw}`"));
@@ -1468,13 +1572,40 @@ impl Tx<'_> {
     }
 
     fn attacker_blocked_trigger(&mut self, p: &mut Params) -> Option<String> {
-        let Some(valid) = p.take("ValidCard") else {
-            return self.deny("an `AttackerBlocked` trigger with no `ValidCard$`".to_string());
+        let secondary = match p.take("Secondary").as_deref() {
+            None => false,
+            Some("True") => true,
+            Some(other) => return self.deny(format!("`Secondary$ {other}`")),
         };
-        if valid != "Card.Self" {
-            if p.peek("ValidBlocker").is_some() {
-                return self.deny("an `AttackerBlocked` trigger not on `Card.Self`".to_string());
+        let valid = p.take("ValidCard");
+        if valid.as_deref() != Some("Card.Self") {
+            if let Some(blocker) = p.take("ValidBlocker") {
+                if blocker != "Card.Self" {
+                    return self
+                        .deny("an `AttackerBlocked` trigger not on `Card.Self`".to_string());
+                }
+                let attacker = valid.as_deref().unwrap_or("Creature");
+                if attacker.split([',', '.', '+']).any(|atom| {
+                    matches!(
+                        atom.trim(),
+                        "Self" | "Other" | "EnchantedBy" | "EquippedBy" | "AttachedBy"
+                    )
+                }) {
+                    return self.deny(format!(
+                        "an `AttackerBlocked` trigger blocking `{attacker}`, relative to another card"
+                    ));
+                }
+                let filter = if attacker == "Creature" {
+                    "&Filter::CREATURE".to_string()
+                } else {
+                    let expr = self.filter_expr(attacker)?;
+                    format!("&{}", self.body.filter_static("TRIGGER", &expr))
+                };
+                return Some(format!("Trigger::BlocksCreature({filter})"));
             }
+            let Some(valid) = valid else {
+                return self.deny("an `AttackerBlocked` trigger with no `ValidCard$`".to_string());
+            };
             let expr = self.filter_expr(&valid)?;
             let filter = self.body.filter_static("TRIGGER", &expr);
             return Some(format!("Trigger::ControlledBecomesBlocked(&{filter})"));
@@ -1482,6 +1613,22 @@ impl Tx<'_> {
         match p.take("ValidBlocker") {
             None => Some("Trigger::BecomesBlocked".to_string()),
             Some(blocker) => {
+                if secondary
+                    && self.block_half.as_ref().is_some_and(|half| {
+                        half.one_or_more
+                            && half.role == BlockRole::Blocks
+                            && !half.secondary
+                            && half.other == blocker
+                    })
+                {
+                    let expr = self.filter_expr(&blocker)?;
+                    let filter = self.body.filter_static("TRIGGER", &expr);
+                    self.block_line = Some((BlockRole::Blocked, blocker, true));
+                    self.block_line_one_or_more = true;
+                    return Some(format!(
+                        "Trigger::BlocksOrBecomesBlockedByOneOrMore(&{filter})"
+                    ));
+                }
                 let expr = self.filter_expr(&blocker)?;
                 let filter = self.body.filter_static("TRIGGER", &expr);
                 Some(format!("Trigger::BecomesBlockedBy(&{filter})"))
@@ -1709,9 +1856,41 @@ impl Tx<'_> {
         let Some(valid) = p.take("ValidCard") else {
             return self.deny("a `Blocks` trigger with no `ValidCard$`".to_string());
         };
-        match p.take("Secondary").as_deref() {
-            None | Some("True") => {}
+        let secondary = match p.take("Secondary").as_deref() {
+            None => false,
+            Some("True") => true,
             Some(other) => return self.deny(format!("`Secondary$ {other}`")),
+        };
+        if let Some(blocked) = p.peek("ValidBlocked").map(str::to_string) {
+            if valid == "Card.Self" && blocked == "Creature" && !secondary {
+                p.take("ValidBlocked");
+                return Some("Trigger::Blocks(&Filter::This)".to_string());
+            }
+            if valid == "Creature" && blocked == "Card.Self" && secondary {
+                p.take("ValidBlocked");
+                self.block_line = Some((BlockRole::Blocked, "Creature".to_string(), true));
+                self.block_line_one_or_more = true;
+                return Some(
+                    "Trigger::BlocksOrBecomesBlockedByOneOrMore(&Filter::CREATURE)".to_string(),
+                );
+            }
+            if valid == "Card.Self"
+                && !blocked.split([',', '.', '+']).any(|atom| {
+                    matches!(
+                        atom.trim(),
+                        "Self" | "Other" | "EnchantedBy" | "EquippedBy" | "AttachedBy"
+                    )
+                })
+            {
+                p.take("ValidBlocked");
+                let expr = self.filter_expr(&blocked)?;
+                let filter = self.body.filter_static("TRIGGER", &expr);
+                self.block_line = Some((BlockRole::Blocks, blocked, secondary));
+                self.block_line_one_or_more = true;
+                return Some(format!(
+                    "Trigger::BlocksOrBecomesBlockedByOneOrMore(&{filter})"
+                ));
+            }
         }
         let filter = if valid == "Card.Self" {
             "&Filter::This".to_string()
@@ -2186,12 +2365,24 @@ impl Tx<'_> {
         if self.is_imprison_clause(&mode, &p) {
             return self.imprison_clause(&mode, p);
         }
-        if mode != "AttackerBlockedByCreature" {
+        if !matches!(
+            mode.as_str(),
+            "AttackerBlockedByCreature" | "Blocks" | "AttackerBlocked"
+        ) {
             match p.take("Secondary").as_deref() {
                 None | Some("True") => {}
                 Some(other) => return self.deny(format!("`Secondary$ {other}`")),
             }
         }
+        let no_resolving_check = if mode == "Always" {
+            false
+        } else {
+            match p.take("NoResolvingCheck").as_deref() {
+                None => false,
+                Some("True") => true,
+                Some(other) => return self.deny(format!("`NoResolvingCheck$ {other}`")),
+            }
+        };
         let zone = Self::take_trigger_zone(&mode, &mut p);
         self.trigger_self_etb_kicked = false;
         self.trigger_self_etb_kicked_with = None;
@@ -2219,61 +2410,56 @@ impl Tx<'_> {
                 }
             }
         }
-        let (trigger, mut condition) = if mode == "Always" {
-            (self.state_trigger(&mut p)?, String::new())
+        // `(is_trigger_clause, condition_expr)` preserves exact existing clause
+        // order when `NoResolvingCheck$` is absent, while cleanly partitioning
+        // trigger-only clauses from genuine intervening-if clauses when
+        // `NoResolvingCheck$ True` is present.
+        let mut tagged_clauses: Vec<(bool, String)> = Vec::new();
+        let mut always_trigger_only_clauses: Vec<String> = Vec::new();
+        let trigger = if mode == "Always" {
+            self.state_trigger(&mut p)?
         } else {
             let trigger = self.trigger_expr_in_zone(&mut p, &mode, !zone.is_empty())?;
-            let wave8_cond = Self::wave8_trigger_present_condition(&mut p);
-            let mut cond = self.condition(&mut p)?;
-            if let Some(clause) = wave8_cond {
-                cond = if cond.is_empty() {
-                    format!(", condition = Some({clause})")
-                } else if let Some(inner) = cond
+            if mode != "Phase"
+                && let Some(phase_raw) = p.peek("Phase")
+                && let Some(phase_cond) = Self::trigger_phase_condition(phase_raw)
+            {
+                p.take("Phase");
+                always_trigger_only_clauses.push(phase_cond.to_string());
+            }
+            if mode == "AttackerBlocked"
+                && trigger.starts_with("Trigger::BlocksCreature(")
+                && let Some(clause) = self.event_blocked_by_others_clause(&mut p)
+            {
+                tagged_clauses.push((true, clause));
+            }
+            let mut present_clauses = Vec::new();
+            if p.has("IsPresent") || p.has("IsPresent2") {
+                self.read_trigger_present_clauses(&mut p, &mut present_clauses)?;
+            }
+            let cond = self.condition(&mut p)?;
+            if !cond.is_empty() {
+                let Some(inner) = cond
                     .strip_prefix(", condition = Some(")
                     .and_then(|s| s.strip_suffix(')'))
-                {
-                    format!(", condition = Some(Condition::All(&[{inner}, {clause}]))")
-                } else {
+                else {
                     return self.deny("`IsPresent$` beside another clause".to_string());
                 };
+                tagged_clauses.push((true, inner.to_string()));
             }
-            (trigger, cond)
+            for clause in present_clauses {
+                tagged_clauses.push((true, clause));
+            }
+            trigger
         };
         if let Some(clause) = self_etb_extra_cond {
-            condition = if condition.is_empty() {
-                format!(", condition = Some({clause})")
-            } else if let Some(inner) = condition
-                .strip_prefix(", condition = Some(")
-                .and_then(|s| s.strip_suffix(')'))
-            {
-                format!(", condition = Some(Condition::All(&[{inner}, {clause}]))")
-            } else {
-                return self.deny("`Card.Self+bargained/prototyped` beside another clause".into());
-            };
+            tagged_clauses.push((false, clause.to_string()));
         }
         if let Some(clause) = werewolf_cond {
-            condition = if condition.is_empty() {
-                format!(", condition = Some({clause})")
-            } else if let Some(inner) = condition
-                .strip_prefix(", condition = Some(")
-                .and_then(|s| s.strip_suffix(')'))
-            {
-                format!(", condition = Some(Condition::All(&[{inner}, {clause}]))")
-            } else {
-                return self.deny("werewolf condition beside another clause".to_string());
-            };
+            tagged_clauses.push((false, clause.to_string()));
         }
         if let Some(clause) = valid_player_cond {
-            condition = if condition.is_empty() {
-                format!(", condition = Some({clause})")
-            } else if let Some(inner) = condition
-                .strip_prefix(", condition = Some(")
-                .and_then(|s| s.strip_suffix(')'))
-            {
-                format!(", condition = Some(Condition::All(&[{inner}, {clause}]))")
-            } else {
-                return self.deny("qualified `ValidPlayer$` beside another clause".to_string());
-            };
+            tagged_clauses.push((false, clause.to_string()));
         }
         if p.peek("CheckSVar").is_some() {
             let var = p.peek("CheckSVar").map(str::to_string).unwrap();
@@ -2299,16 +2485,7 @@ impl Tx<'_> {
             {
                 p.take("CheckSVar");
                 p.take("SVarCompare");
-                condition = if condition.is_empty() {
-                    format!(", condition = Some({clause})")
-                } else if let Some(inner) = condition
-                    .strip_prefix(", condition = Some(")
-                    .and_then(|s| s.strip_suffix(')'))
-                {
-                    format!(", condition = Some(Condition::All(&[{inner}, {clause}]))")
-                } else {
-                    return self.deny("`CheckSVar$` beside another clause".to_string());
-                };
+                tagged_clauses.push((true, clause));
             }
         }
         if let Some(cond_raw) = p.peek("Condition")
@@ -2317,44 +2494,49 @@ impl Tx<'_> {
                 .or_else(|| Self::wave21c_named_condition(cond_raw))
         {
             p.take("Condition");
-            condition = if condition.is_empty() {
-                format!(", condition = Some({clause})")
-            } else if let Some(inner) = condition
-                .strip_prefix(", condition = Some(")
-                .and_then(|s| s.strip_suffix(')'))
-            {
-                format!(", condition = Some(Condition::All(&[{inner}, {clause}]))")
-            } else {
-                return self.deny("`Condition$` beside another clause".to_string());
-            };
+            tagged_clauses.push((true, clause.to_string()));
         }
         if let Some(clause) = Self::take_check_defined_player(&mut p) {
-            condition = if condition.is_empty() {
-                format!(", condition = Some({clause})")
-            } else if let Some(inner) = condition
-                .strip_prefix(", condition = Some(")
-                .and_then(|s| s.strip_suffix(')'))
-            {
-                format!(", condition = Some(Condition::All(&[{inner}, {clause}]))")
-            } else {
-                return self.deny("`CheckDefinedPlayer$` beside another clause".to_string());
-            };
+            tagged_clauses.push((true, clause.to_string()));
         }
         if let Some(bool_clauses) = Self::take_trigger_bool_conditions(&mut p) {
             for clause in bool_clauses {
-                condition = if condition.is_empty() {
-                    format!(", condition = Some({clause})")
-                } else if let Some(inner) = condition
-                    .strip_prefix(", condition = Some(")
-                    .and_then(|s| s.strip_suffix(')'))
-                {
-                    format!(", condition = Some(Condition::All(&[{inner}, {clause}]))")
-                } else {
-                    return self
-                        .deny("trigger boolean condition beside another clause".to_string());
-                };
+                tagged_clauses.push((true, clause.to_string()));
             }
         }
+        if no_resolving_check && !tagged_clauses.iter().any(|(is_trig, _)| *is_trig) {
+            return self.deny("`NoResolvingCheck$ True` with no trigger condition".to_string());
+        }
+        let join_all = |mut items: Vec<String>| -> Option<String> {
+            match items.len() {
+                0 => None,
+                1 => items.pop(),
+                _ => Some(format!("Condition::All(&[{}])", items.join(", "))),
+            }
+        };
+        let mut final_clauses = Vec::new();
+        if no_resolving_check {
+            let mut once_clauses = always_trigger_only_clauses;
+            let mut intervening = Vec::new();
+            for (is_trig, clause) in tagged_clauses {
+                if is_trig {
+                    once_clauses.push(clause);
+                } else {
+                    intervening.push(clause);
+                }
+            }
+            if let Some(inner) = join_all(once_clauses) {
+                final_clauses.push(format!("Condition::TriggerOnly(&{inner})"));
+            }
+            final_clauses.extend(intervening);
+        } else {
+            if let Some(inner) = join_all(always_trigger_only_clauses) {
+                final_clauses.push(format!("Condition::TriggerOnly(&{inner})"));
+            }
+            final_clauses.extend(tagged_clauses.into_iter().map(|(_, c)| c));
+        }
+        let condition = join_all(final_clauses)
+            .map_or_else(String::new, |expr| format!(", condition = Some({expr})"));
         let once_per_turn = match p.take("ActivationLimit").as_deref() {
             None => "",
             Some("1") => ", once_per_turn = true",
@@ -2404,6 +2586,7 @@ impl Tx<'_> {
             || trigger == "Trigger::PHASES_IN"
             || trigger == "Trigger::PHASES_OUT"
             || trigger == "Trigger::EXERTED_THIS"
+            || trigger.starts_with("Trigger::UnlockThisDoor(")
             || trigger.contains("&Filter::This")
             || trigger_self_etb_kicked;
         let optional_flag = match p.take("Optional").as_deref() {
@@ -2488,6 +2671,7 @@ impl Tx<'_> {
         let mut chain = Chain::default();
         self.trigger_is_self = trigger_is_self;
         self.is_etb_self_trigger = trigger == "Trigger::ETB";
+        self.trigger_blocks_creature = trigger.starts_with("Trigger::BlocksCreature(");
         self.cost_sacrifices_self = matches!(
             &price,
             Some(OptionalTriggerPrice::CostPart(p)) if p == "Sacrifice(&Filter::This)"
@@ -2500,6 +2684,7 @@ impl Tx<'_> {
         let chain_ok = self.chain(&body, &mut chain);
         self.trigger_is_self = false;
         self.is_etb_self_trigger = false;
+        self.trigger_blocks_creature = false;
         self.cost_sacrifices_self = false;
         self.cost_sacrifices_other = false;
         chain_ok?;
@@ -2651,8 +2836,34 @@ impl Tx<'_> {
         };
         let tail = format!("&[{effects}]{zone}{once_per_turn}{targets}{second}{condition})");
         let ability = format!("triggered!({trigger}, {tail}");
+        let one_or_more = std::mem::take(&mut self.block_line_one_or_more);
         if let Some((role, other, secondary)) = self.block_line.take() {
-            return self.pair_block_half(role, other, secondary, ability);
+            if one_or_more && secondary && self.block_half.is_none() {
+                if role == BlockRole::Blocks
+                    && let Some(filter_ref) = trigger
+                        .strip_prefix("Trigger::BlocksOrBecomesBlockedByOneOrMore(")
+                        .and_then(|s| s.strip_suffix(')'))
+                    && let Some(prev) = self.body.abilities.last_mut()
+                    && *prev
+                        == format!("triggered!(Trigger::BecomesBlockedBy({filter_ref}), {tail}")
+                {
+                    *prev = ability;
+                    return Some(());
+                }
+                if role == BlockRole::Blocked
+                    && other == "Creature"
+                    && let Some(prev) = self.body.abilities.last_mut()
+                    && *prev == format!("triggered!(Trigger::Blocks(&Filter::This), {tail}")
+                {
+                    *prev = ability;
+                    return Some(());
+                }
+                return self.deny(
+                    "a secondary one-or-more block trigger without its matching first half"
+                        .to_string(),
+                );
+            }
+            return self.pair_block_half(role, other, secondary, one_or_more, ability);
         }
         if let Some(filter_ref) = trigger
             .strip_prefix("Trigger::LeavesBattlefield(")
@@ -2726,6 +2937,7 @@ impl Tx<'_> {
         let expr = self.filter_expr(&other)?;
         let filter = self.body.filter_static("TRIGGER", &expr);
         self.block_line = Some((role, other, secondary));
+        self.block_line_one_or_more = false;
         Some(format!("Trigger::BlocksOrBecomesBlockedBy(&{filter})"))
     }
 
@@ -2739,6 +2951,7 @@ impl Tx<'_> {
         role: BlockRole,
         other: String,
         secondary: bool,
+        one_or_more: bool,
         ability: String,
     ) -> Option<()> {
         match self.block_half.take() {
@@ -2748,12 +2961,14 @@ impl Tx<'_> {
                     role,
                     other,
                     secondary,
+                    one_or_more,
                     ability,
                 });
                 Some(())
             }
             Some(first)
-                if first.role != role
+                if first.one_or_more == one_or_more
+                    && first.role != role
                     && first.other == other
                     && first.secondary != secondary
                     && first.ability == ability =>
@@ -2772,7 +2987,7 @@ impl Tx<'_> {
         let Some(half) = self.block_half.take() else {
             return Some(());
         };
-        if half.role == BlockRole::Blocked && !half.secondary {
+        if !half.one_or_more && half.role == BlockRole::Blocked && !half.secondary {
             let ability = self
                 .body
                 .abilities
@@ -2871,6 +3086,9 @@ impl Tx<'_> {
             let damage_done_target = self.block_line.is_none()
                 && self.trigger_mode.as_deref() == Some("DamageDone")
                 && matches!(remembered, "TriggeredTargetLKICopy" | "TriggeredTarget");
+            let blocks_creature_attacker = self.block_line.is_none()
+                && self.trigger_blocks_creature
+                && matches!(remembered, "TriggeredAttackerLKICopy" | "TriggeredAttacker");
             let block_pair = self.block_line.as_ref().is_some_and(|(role, ..)| {
                 let expected = match role {
                     BlockRole::Blocks => "TriggeredAttacker",
@@ -2878,7 +3096,7 @@ impl Tx<'_> {
                 };
                 remembered.strip_suffix("LKICopy").unwrap_or(remembered) == expected
             });
-            if self_combat || damage_done_target || block_pair {
+            if self_combat || damage_done_target || blocks_creature_attacker || block_pair {
                 p.take("ValidPlayer");
                 p.take("RememberObjects");
                 return match self.delayed_execute_effects(p) {
@@ -3591,6 +3809,324 @@ impl Tx<'_> {
             && atoms.contains(&"IsCommander")
             && atoms.contains(&"YouOwn")
             && atoms.contains(&"YouCtrl")
+    }
+
+    /// Trigger-time phase/step gate (`Phase$` on a non-`Phase` trigger, e.g.
+    /// "during combat", "during the declare attackers step"), always wrapped in
+    /// `Condition::TriggerOnly`.
+    fn trigger_phase_condition(phase: &str) -> Option<&'static str> {
+        match phase {
+            "BeginCombat->EndCombat" => Some("Condition::DuringCombat"),
+            "Upkeep" => Some("Condition::DuringStep(StepKind::Upkeep)"),
+            "Draw" => Some("Condition::DuringStep(StepKind::Draw)"),
+            "Main1" => Some("Condition::DuringStep(StepKind::FirstMain)"),
+            "BeginCombat" => Some("Condition::DuringStep(StepKind::CombatBegin)"),
+            "Declare Attackers" => Some("Condition::DuringStep(StepKind::DeclareAttackers)"),
+            "Declare Blockers" => Some("Condition::DuringStep(StepKind::DeclareBlockers)"),
+            "EndCombat" | "End of Combat" => Some("Condition::DuringStep(StepKind::CombatEnd)"),
+            "End of Turn" => Some("Condition::DuringStep(StepKind::End)"),
+            _ => None,
+        }
+    }
+
+    /// Wall of Caltrops: `IsPresent$ <some>+Other+sharesBlockingAssignmentWith`
+    /// paired with `IsPresent2$ <none>+sharesBlockingAssignmentWith | PresentCompare2$ EQ0`
+    /// on a `Trigger::BlocksCreature` trigger -> `Condition::EventBlockedByOthers`.
+    fn event_blocked_by_others_clause(&mut self, p: &mut Params) -> Option<String> {
+        let valid1 = p.peek("IsPresent")?.to_string();
+        let valid2 = p.peek("IsPresent2")?.to_string();
+        if !valid1.contains("sharesBlockingAssignmentWith")
+            || !valid2.contains("sharesBlockingAssignmentWith")
+        {
+            return None;
+        }
+        if p.has("PresentZone")
+            || p.has("PresentZone2")
+            || p.has("PresentPlayer")
+            || p.has("PresentPlayer2")
+            || p.has("PresentDefined")
+            || p.has("PresentDefined2")
+            || p.has("ResolvingCheck")
+        {
+            return None;
+        }
+        if !matches!(p.peek("PresentCompare"), None | Some("GE1"))
+            || p.peek("PresentCompare2") != Some("EQ0")
+        {
+            return None;
+        }
+        let strip_atoms = |raw: &str, require_other: bool| -> Option<String> {
+            let mut alts = Vec::new();
+            for alt in raw.split(',').map(str::trim) {
+                let (base, rest) = alt.split_once('.')?;
+                let mut saw_shares = false;
+                let mut saw_other = false;
+                let mut kept = Vec::new();
+                for atom in rest.split('+').map(str::trim).filter(|a| !a.is_empty()) {
+                    match atom {
+                        "sharesBlockingAssignmentWith" => saw_shares = true,
+                        "Other" | "StrictlyOther" if require_other => saw_other = true,
+                        other => kept.push(other),
+                    }
+                }
+                if !saw_shares || (require_other && !saw_other) {
+                    return None;
+                }
+                if kept.is_empty() {
+                    alts.push(base.to_string());
+                } else {
+                    alts.push(format!("{base}.{}", kept.join("+")));
+                }
+            }
+            (!alts.is_empty()).then(|| alts.join(","))
+        };
+        let some_raw = strip_atoms(&valid1, true)?;
+        let none_raw = strip_atoms(&valid2, false)?;
+        let some_expr = self.filter_expr(&some_raw)?;
+        let none_expr = self.filter_expr(&none_raw)?;
+        let some_name = self.body.filter_static("CHECK", &some_expr);
+        let none_name = self.body.filter_static("CHECK", &none_expr);
+        p.take("IsPresent");
+        p.take("PresentCompare");
+        p.take("IsPresent2");
+        p.take("PresentCompare2");
+        Some(format!(
+            "Condition::EventBlockedByOthers {{ some: &{some_name}, none: &{none_name} }}"
+        ))
+    }
+
+    /// Reads `IsPresent$` and optional `IsPresent2$` clauses on a non-`Always`
+    /// trigger into `out`.
+    fn read_trigger_present_clauses(
+        &mut self,
+        p: &mut Params,
+        out: &mut Vec<String>,
+    ) -> Option<()> {
+        if p.has("IsPresent2") {
+            if !p.has("IsPresent") {
+                return self.deny("`IsPresent2$` without `IsPresent$`".to_string());
+            }
+            if p.has("ResolvingCheck") {
+                return self
+                    .deny("a second `IsPresent2$` clause with `ResolvingCheck$`".to_string());
+            }
+            let mut p2 = Params::default();
+            for (src, dst) in [
+                ("IsPresent2", "IsPresent"),
+                ("PresentCompare2", "PresentCompare"),
+                ("PresentZone2", "PresentZone"),
+                ("PresentPlayer2", "PresentPlayer"),
+                ("PresentDefined2", "PresentDefined"),
+            ] {
+                if let Some(val) = p.take(src) {
+                    p2.entries.push((dst.to_string(), val));
+                }
+            }
+            let first = self.read_one_trigger_present_clause(p)?;
+            out.push(first);
+            let second = self.read_one_trigger_present_clause(&mut p2)?;
+            if !p2.exhausted() {
+                if let Some(key) = p2.first_key() {
+                    return self.deny(format!("unclaimed parameter `IsPresent2.{key}`"));
+                }
+                return None;
+            }
+            out.push(second);
+            return Some(());
+        }
+        if p.has("IsPresent") {
+            let first = self.read_one_trigger_present_clause(p)?;
+            out.push(first);
+        }
+        Some(())
+    }
+
+    fn read_one_trigger_present_clause(&mut self, p: &mut Params) -> Option<String> {
+        if let Some(clause) = Self::wave8_trigger_present_condition(p) {
+            return Some(clause);
+        }
+        if matches!(p.peek("PresentZone"), None | Some("Battlefield"))
+            && !p.has("PresentPlayer")
+            && !p.has("PresentDefined")
+            && matches!(p.peek("PresentCompare"), None | Some("GE1" | "EQ1"))
+            && matches!(
+                p.peek("IsPresent"),
+                Some(
+                    "Card.Self+attackedThisCombat,Card.Self+blockedThisCombat"
+                        | "Card.Self+blockedThisCombat,Card.Self+attackedThisCombat"
+                )
+            )
+        {
+            p.take("IsPresent");
+            p.take("PresentZone");
+            p.take("PresentCompare");
+            return Some("Condition::AttackedOrBlockedThisCombat".to_string());
+        }
+        match self.relative_battlefield_present_clause(p) {
+            RelativePresent::Matched(clause) => return Some(clause),
+            RelativePresent::Denied => return None,
+            RelativePresent::NotApplicable => {}
+        }
+        let cond = self.condition(p)?;
+        let Some(inner) = cond
+            .strip_prefix(", condition = Some(")
+            .and_then(|s| s.strip_suffix(')'))
+        else {
+            return self.deny("an `IsPresent$` clause that produced no condition".to_string());
+        };
+        Some(inner.to_string())
+    }
+
+    fn attached_matches_present_clause(
+        &mut self,
+        p: &mut Params,
+        valid: &str,
+        compare: &str,
+    ) -> RelativePresent {
+        if !matches!(compare, "GE1" | "EQ1") {
+            return RelativePresent::NotApplicable;
+        }
+        let mut stripped_alts = Vec::new();
+        for alt in valid.split(',').map(str::trim) {
+            let Some((base, rest)) = alt.split_once('.') else {
+                return RelativePresent::NotApplicable;
+            };
+            let mut saw_attached = false;
+            let mut kept = Vec::new();
+            for atom in rest.split('+').map(str::trim).filter(|a| !a.is_empty()) {
+                match atom {
+                    "EnchantedBy" | "EquippedBy" | "AttachedBy" => saw_attached = true,
+                    "Self" | "Other" | "StrictlyOther" | "blockedBySource" | "Attached"
+                    | "!EnchantedBy" | "!EquippedBy" | "!AttachedBy" => {
+                        return RelativePresent::NotApplicable;
+                    }
+                    other => kept.push(other),
+                }
+            }
+            if !saw_attached {
+                return RelativePresent::NotApplicable;
+            }
+            if kept.is_empty() {
+                stripped_alts.push(base.to_string());
+            } else {
+                stripped_alts.push(format!("{base}.{}", kept.join("+")));
+            }
+        }
+        let Some(expr) = self.filter_expr(&stripped_alts.join(",")) else {
+            return RelativePresent::Denied;
+        };
+        let name = self.body.filter_static("CHECK", &expr);
+        p.take("IsPresent");
+        p.take("PresentZone");
+        p.take("PresentCompare");
+        RelativePresent::Matched(format!("Condition::AttachedMatches(&{name})"))
+    }
+
+    /// Handles battlefield `IsPresent$` clauses that reference the source:
+    /// - Positive `EnchantedBy` / `EquippedBy` / `AttachedBy` in every
+    ///   alternative (`GE1` / `EQ1`) -> `Condition::AttachedMatches(&filter)`,
+    ///   which preserves LKI of the attached permanent if the Aura/Equipment
+    ///   leaves before resolution.
+    /// - `Other`, `StrictlyOther`, `blockedBySource`, `!EquippedBy`,
+    ///   `!EnchantedBy`, `!AttachedBy` -> `Condition::BattlefieldCount` /
+    ///   `BattlefieldCountAtMost` (which preserve `context.source`, unlike
+    ///   `Condition::ControlCount`).
+    /// - *Barren Glory*'s `PresentPlayer$ You | IsPresent$ Card.Other |
+    ///   PresentCompare$ EQ0`.
+    fn relative_battlefield_present_clause(&mut self, p: &mut Params) -> RelativePresent {
+        if !matches!(p.peek("PresentZone"), None | Some("Battlefield")) || p.has("PresentDefined") {
+            return RelativePresent::NotApplicable;
+        }
+        let Some(valid) = p.peek("IsPresent").map(str::to_string) else {
+            return RelativePresent::NotApplicable;
+        };
+        if p.peek("PresentPlayer") == Some("You") {
+            if matches!(valid.as_str(), "Card.Other" | "Permanent.Other")
+                && p.peek("PresentCompare") == Some("EQ0")
+            {
+                let Some(expr) = self.filter_expr("Permanent.Other+YouCtrl") else {
+                    return RelativePresent::Denied;
+                };
+                let name = self.body.filter_static("CHECK", &expr);
+                p.take("IsPresent");
+                p.take("PresentZone");
+                p.take("PresentPlayer");
+                p.take("PresentCompare");
+                return RelativePresent::Matched(format!(
+                    "Condition::BattlefieldCountAtMost(&{name}, 0)"
+                ));
+            }
+            return RelativePresent::NotApplicable;
+        }
+        if p.has("PresentPlayer") {
+            return RelativePresent::NotApplicable;
+        }
+        let compare = p
+            .peek("PresentCompare")
+            .map_or_else(|| "GE1".to_string(), str::to_string);
+        if valid.split(',').any(|alt| {
+            alt.split(['.', '+'])
+                .any(|atom| matches!(atom.trim(), "EnchantedBy" | "EquippedBy" | "AttachedBy"))
+        }) {
+            return self.attached_matches_present_clause(p, &valid, &compare);
+        }
+        let has_relative = valid.split(',').any(|alt| {
+            alt.split(['.', '+']).any(|atom| {
+                matches!(
+                    atom.trim(),
+                    "Other"
+                        | "StrictlyOther"
+                        | "blockedBySource"
+                        | "!EnchantedBy"
+                        | "!EquippedBy"
+                        | "!AttachedBy"
+                )
+            })
+        });
+        if !has_relative {
+            return RelativePresent::NotApplicable;
+        }
+        if valid.split(',').any(|alt| {
+            alt.split(['.', '+'])
+                .any(|atom| matches!(atom.trim(), "Self" | "Attached"))
+        }) {
+            return RelativePresent::NotApplicable;
+        }
+        let exact_one = compare == "EQ1";
+        let bound = if exact_one {
+            None
+        } else {
+            let Some(bound) = count_bound(&compare) else {
+                return RelativePresent::NotApplicable;
+            };
+            Some(bound)
+        };
+        let atoms = || valid.split(',').flat_map(|alt| alt.split(['.', '+']));
+        let yours = valid
+            .split(',')
+            .all(|alt| alt.split(['.', '+']).any(|atom| atom.trim() == "YouCtrl"));
+        let opponents = valid
+            .split(',')
+            .all(|alt| alt.split(['.', '+']).any(|atom| atom.trim() == "OppCtrl"))
+            && matches!(bound, Some(Bound::AtMost(0)));
+        let nobodys = !atoms().any(|atom| atom.contains("Ctrl") || atom.contains("Own"));
+        if !yours && !nobodys && !opponents {
+            return RelativePresent::NotApplicable;
+        }
+        let Some(expr) = self.filter_expr(&valid) else {
+            return RelativePresent::Denied;
+        };
+        let name = self.body.filter_static("CHECK", &expr);
+        p.take("IsPresent");
+        p.take("PresentZone");
+        p.take("PresentCompare");
+        RelativePresent::Matched(match bound {
+            Some(Bound::AtLeast(n)) => format!("Condition::BattlefieldCount(&{name}, {n})"),
+            Some(Bound::AtMost(n)) => format!("Condition::BattlefieldCountAtMost(&{name}, {n})"),
+            None => format!(
+                "Condition::All(&[Condition::BattlefieldCount(&{name}, 1), Condition::BattlefieldCountAtMost(&{name}, 1)])"
+            ),
+        })
     }
 
     fn wave8_trigger_present_condition(p: &mut Params) -> Option<String> {

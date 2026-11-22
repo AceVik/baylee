@@ -974,23 +974,44 @@ fn render_card_literal(
         out.push_str(&format!("    {field},\n"));
     }
     out.push_str(&format!("    faces = &[\n{face_defs}    ],\n"));
-    if let Some(land) = land
-        && (land.back.is_none() || land.back_is_prepare)
-        && (!land.abilities.is_empty() || land.back_is_prepare)
-    {
-        out.push_str("    abilities = &[\n");
-        if land.back_is_prepare {
-            out.push_str(&format!(
-                "        AbilityDef::Prepared {{ card: index::{constant}, face: 1 }},\n"
-            ));
+    if let Some(land) = land {
+        if is_room_faces(faces) {
+            if let Some(back) = land.back.as_deref()
+                && (!land.abilities.is_empty() || !back.abilities.is_empty())
+            {
+                out.push_str("    abilities = &[\n");
+                for ability in &land.abilities {
+                    out.push_str(&format!("        {ability},\n"));
+                }
+                for ability in &back.abilities {
+                    out.push_str(&format!("        {ability},\n"));
+                }
+                out.push_str("    ],\n");
+            }
+        } else if land.back_is_prepare || (land.back.is_none() && !land.abilities.is_empty()) {
+            out.push_str("    abilities = &[\n");
+            if land.back_is_prepare {
+                out.push_str(&format!(
+                    "        AbilityDef::Prepared {{ card: index::{constant}, face: 1 }},\n"
+                ));
+            }
+            for ability in &land.abilities {
+                out.push_str(&format!("        {ability},\n"));
+            }
+            out.push_str("    ],\n");
         }
-        for ability in &land.abilities {
-            out.push_str(&format!("        {ability},\n"));
-        }
-        out.push_str("    ],\n");
     }
     out.push_str(");\n\n");
     Ok(out)
+}
+
+fn is_room_faces(faces: &[FaceData]) -> bool {
+    faces.len() == 2
+        && faces.iter().all(|f| {
+            f.type_line
+                .split_once('\u{2014}')
+                .is_some_and(|(_, sub)| sub.split_whitespace().any(|w| w == "Room"))
+        })
 }
 
 fn join_union_owned(bits: &[String]) -> String {
@@ -1122,6 +1143,11 @@ fn transcode_faces(
                 | (Some("Prepare"), Some("prepare"))
         );
         if !layout_ok {
+            return None;
+        }
+        let script_is_room =
+            script.is_room || script.alternate.as_deref().is_some_and(|b| b.is_room);
+        if script_is_room != is_room_faces(faces) {
             return None;
         }
         if let Some(ability) = crate::landgen::intrinsic_mana_ability(&faces[0].type_line) {
@@ -3128,5 +3154,109 @@ mod tests {
             life_out.contains("warp = Some(cost!(\"{X}{B}\", PayLife(2))),"),
             "{life_out}"
         );
+    }
+
+    #[test]
+    fn wave23c_room_stub_emits_door_and_concatenated_card_abilities() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        std::fs::write(
+            dir.path().join("left_door_right_door.txt"),
+            "Name:Left Door\nManaCost:1 U\nTypes:Enchantment Room\n\
+             T:Mode$ UnlockDoor | ValidPlayer$ You | ValidCard$ Card.Self | ThisDoor$ True | Execute$ TrigSurveil\n\
+             SVar:TrigSurveil:DB$ Surveil | Amount$ 2\n\
+             AlternateMode:Split\nALTERNATE\n\
+             Name:Right Door\nManaCost:3 U\nTypes:Enchantment Room\n\
+             T:Mode$ UnlockDoor | ValidPlayer$ You | ValidCard$ Card.Self | ThisDoor$ True | Execute$ TrigDraw\n\
+             SVar:TrigDraw:DB$ Draw | NumCards$ 2\n",
+        )
+        .expect("room script");
+        let scripts = crate::scriptgen::ScriptLookup::new(
+            dir.path().to_path_buf(),
+            BTreeMap::from([(
+                "Left Door // Right Door".to_string(),
+                "left_door_right_door.txt".to_string(),
+            )]),
+        );
+        let mut cats = SubtypeCatalogs {
+            enchantment: vec!["Room".into()],
+            ..SubtypeCatalogs::default()
+        };
+        cats.normalize();
+        let door_face = |name: &str, cost: &str, oracle: &str| ScryfallFace {
+            watermark: None,
+            name: name.to_string(),
+            mana_cost: Some(cost.to_string()),
+            type_line: Some("Enchantment \u{2014} Room".to_string()),
+            oracle_text: Some(oracle.to_string()),
+            power: None,
+            toughness: None,
+            loyalty: None,
+            defense: None,
+            colors: Some(vec!["U".to_string()]),
+            image_uris: None,
+        };
+        let mut room_card = ScryfallCard {
+            layout: Some("split".to_string()),
+            color_identity: Some(vec!["U".to_string()]),
+            card_faces: Some(vec![
+                door_face(
+                    "Left Door",
+                    "{1}{U}",
+                    "When you unlock this door, surveil 2.",
+                ),
+                door_face(
+                    "Right Door",
+                    "{3}{U}",
+                    "When you unlock this door, draw two cards.",
+                ),
+            ]),
+            ..bare_card(
+                "Left Door // Right Door",
+                "Enchantment \u{2014} Room // Enchantment \u{2014} Room",
+            )
+        };
+        let (_, out) = render_stub(
+            &room_card,
+            &row(46, "LEFT_DOOR"),
+            &IndexLedger::default(),
+            &cats,
+            Some(&scripts),
+            None,
+            &|_| false,
+        )
+        .expect("room renders");
+        assert!(out.contains(OWNED_MARKER), "{out}");
+        assert_eq!(
+            out.matches("triggered!(Trigger::UnlockThisDoor(0),")
+                .count(),
+            2
+        );
+        assert_eq!(
+            out.matches("triggered!(Trigger::UnlockThisDoor(1),")
+                .count(),
+            2
+        );
+        let card_abilities = out
+            .split("    ],\n    abilities = &[\n")
+            .nth(1)
+            .expect("card-level abilities list for Room");
+        assert!(
+            card_abilities.find("Trigger::UnlockThisDoor(0)").unwrap()
+                < card_abilities.find("Trigger::UnlockThisDoor(1)").unwrap(),
+            "{card_abilities}"
+        );
+        // Mismatched non-Room Scryfall faces with a Room script stay a stub.
+        room_card.card_faces.as_mut().unwrap()[1].type_line = Some("Enchantment".to_string());
+        let (_, stub_out) = render_stub(
+            &room_card,
+            &row(47, "LEFT_DOOR_BAD"),
+            &IndexLedger::default(),
+            &cats,
+            Some(&scripts),
+            None,
+            &|_| false,
+        )
+        .expect("mismatched room renders as stub");
+        assert!(stub_out.contains(STUB_MARKER), "{stub_out}");
     }
 }

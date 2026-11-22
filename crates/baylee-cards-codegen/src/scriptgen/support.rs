@@ -25,6 +25,7 @@ fn refusal_reason_face(
     cats: &SubtypeCatalogs,
     tokens: Option<&TokenLookup>,
     allow_vanilla: bool,
+    room_door: Option<u8>,
 ) -> Option<String> {
     if script.keywords.iter().any(|word| word == "Mayhem") && !script.is_land {
         return Some("costless Mayhem without a land type line".to_string());
@@ -39,6 +40,7 @@ fn refusal_reason_face(
         return Some("commander `Text:` without matching `Oracle:` line".to_string());
     }
     let mut tx = Tx::new(script, cats, tokens);
+    tx.room_door = room_door;
     for line in script
         .keywords
         .iter()
@@ -94,7 +96,10 @@ pub fn refusal_reason(
         return None;
     }
     if script.alternate_mode.is_none() && script.alternate.is_none() {
-        return refusal_reason_face(script, cats, tokens, false);
+        if script.is_room {
+            return Some("single-face Room card".to_string());
+        }
+        return refusal_reason_face(script, cats, tokens, false, None);
     }
     let Some(mode) = script.alternate_mode.as_deref() else {
         return Some("ALTERNATE face without AlternateMode".to_string());
@@ -108,8 +113,9 @@ pub fn refusal_reason(
     let Some(back) = script.alternate.as_deref() else {
         return Some("alternate mode without an ALTERNATE face".to_string());
     };
-    if script.is_room || back.is_room {
-        return Some("Room split card".to_string());
+    let is_room = script.is_room || back.is_room;
+    if is_room && (mode != "Split" || !script.is_room || !back.is_room) {
+        return Some("Room card without two Room split halves".to_string());
     }
     if back.alternate_mode.is_some() || back.alternate.is_some() {
         return Some("more than two faces".to_string());
@@ -121,15 +127,23 @@ pub fn refusal_reason(
         let head = line.split(':').next().unwrap_or(line);
         return Some(format!("unmodelled line kind `{head}:`"));
     }
-    if let Some(why) = refusal_reason_face(script, cats, tokens, true) {
+    let (front_door, back_door) = if is_room {
+        (Some(0), Some(1))
+    } else {
+        (None, None)
+    };
+    if let Some(why) = refusal_reason_face(script, cats, tokens, true, front_door) {
         return Some(why);
     }
-    if let Some(why) = refusal_reason_face(back, cats, tokens, true) {
+    if let Some(why) = refusal_reason_face(back, cats, tokens, true, back_door) {
         return Some(why);
     }
-    if let Some(mut front_body) = super::transcode_face(script, cats, tokens, String::new(), true) {
+    if let Some(mut front_body) =
+        super::transcode_face(script, cats, tokens, String::new(), true, front_door)
+    {
         let statics = std::mem::take(&mut front_body.statics);
-        if let Some(mut back_body) = super::transcode_face(back, cats, tokens, statics, true)
+        if let Some(mut back_body) =
+            super::transcode_face(back, cats, tokens, statics, true, back_door)
             && let Some(why) =
                 super::finalize_two_face_bodies(mode, script, back, &front_body, &mut back_body)
         {

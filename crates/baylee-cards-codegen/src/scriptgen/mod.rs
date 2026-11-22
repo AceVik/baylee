@@ -389,6 +389,8 @@ struct BlockHalf {
     other: String,
     /// Whether this half carried `Secondary$ True`.
     secondary: bool,
+    /// Whether this half is the "one or more" form (`Blocks` + `AttackerBlocked`).
+    one_or_more: bool,
     /// The ability this half wrote.
     ability: String,
 }
@@ -427,6 +429,9 @@ struct Tx<'a> {
     /// and the half it read ([`Tx::block_trigger`]); `None` on every other
     /// line.
     block_line: Option<(BlockRole, String, bool)>,
+    /// Whether `block_line` came from the one-or-more block trigger pair
+    /// (`Blocks` + `AttackerBlocked`) rather than `AttackerBlockedByCreature`.
+    block_line_one_or_more: bool,
     /// The first half of a "blocks or becomes blocked by" trigger, while its
     /// mirror has not been read. A script that ends with one here printed a
     /// sentence this reader does not say, and is refused.
@@ -464,6 +469,9 @@ struct Tx<'a> {
     /// `ValidCard$ Card.Self`), the only trigger whose stack object carries
     /// `times_kicked` for `Effect::IfKicked`.
     is_etb_self_trigger: bool,
+    /// Whether the triggered ability being read is `Trigger::BlocksCreature`,
+    /// whose `EventObject` is the blocked attacker (`TriggeredAttacker`).
+    trigger_blocks_creature: bool,
     /// Set by `changes_zone_trigger` when `ValidCard$` is `Card.Self+kicked`,
     /// so `triggered()` still sets `trigger_is_self = true` even though the
     /// filter was hoisted into a static.
@@ -494,6 +502,9 @@ struct Tx<'a> {
     pub(super) in_hand_activation: bool,
     /// Whether this face is the front half of a `Split` card (`AlternateMode$ Split`).
     is_split_front: bool,
+    /// When transcoding a Room split card (CR 709.5), the door index of this
+    /// face (`Some(0)` left, `Some(1)` right); `None` on all non-Room cards.
+    room_door: Option<u8>,
     /// Whether this face is the front face of a `DoubleFaced` transform card
     /// (`AlternateMode$ DoubleFaced`).
     is_double_faced_front: bool,
@@ -555,6 +566,7 @@ impl<'a> Tx<'a> {
             on_a_spell: false,
             trigger_mode: None,
             block_line: None,
+            block_line_one_or_more: false,
             block_half: None,
             in_delayed: false,
             cost_sacrifices_self: false,
@@ -567,6 +579,7 @@ impl<'a> Tx<'a> {
             in_alternative_cost: false,
             has_evoke: false,
             is_etb_self_trigger: false,
+            trigger_blocks_creature: false,
             trigger_self_etb_kicked: false,
             trigger_self_etb_kicked_with: None,
             kicked_branch: None,
@@ -576,6 +589,7 @@ impl<'a> Tx<'a> {
             in_graveyard_activation: false,
             in_hand_activation: false,
             is_split_front: script.alternate_mode.as_deref() == Some("Split"),
+            room_door: None,
             is_double_faced_front: script.alternate_mode.as_deref() == Some("DoubleFaced"),
             pt: script.pt.as_deref(),
             backup_grants: BTreeMap::new(),
@@ -781,6 +795,7 @@ fn transcode_face(
     tokens: Option<&TokenLookup>,
     statics: String,
     allow_vanilla: bool,
+    room_door: Option<u8>,
 ) -> Option<CardBody> {
     if !script.unknown_lines.is_empty() {
         return None;
@@ -799,6 +814,7 @@ fn transcode_face(
         return None;
     }
     let mut tx = Tx::new(script, cats, tokens);
+    tx.room_door = room_door;
     tx.body.statics = statics;
     if song52::song_candidate(script) {
         tx.song_whole_card(script)?;
@@ -861,6 +877,20 @@ pub(super) fn finalize_two_face_bodies(
     front: &CardBody,
     back: &mut CardBody,
 ) -> Option<String> {
+    if script.is_room || back_script.is_room {
+        if mode != "Split" || !script.is_room || !back_script.is_room {
+            return Some("Room card without two Room split halves".to_string());
+        }
+        if front.fuse
+            || back.fuse
+            || front.aftermath
+            || back.aftermath
+            || front.disturb.is_some()
+            || back.disturb.is_some()
+        {
+            return Some("Room split card with incompatible split/DFC mechanic".to_string());
+        }
+    }
     if front.fuse {
         if mode != "Split" || front.aftermath || back.aftermath || back.fuse {
             return Some(
@@ -905,7 +935,10 @@ pub fn transcode(
     tokens: Option<&TokenLookup>,
 ) -> Option<CardBody> {
     if script.alternate_mode.is_none() && script.alternate.is_none() {
-        let mut body = transcode_face(script, cats, tokens, String::new(), false)?;
+        if script.is_room {
+            return None;
+        }
+        let mut body = transcode_face(script, cats, tokens, String::new(), false, None)?;
         body.prune_unused_statics();
         body.notes.push("transcoded from the card's rules".into());
         return Some(body);
@@ -918,17 +951,22 @@ pub fn transcode(
         return None;
     }
     let back_script = script.alternate.as_deref()?;
-    if script.is_room
-        || back_script.is_room
+    let is_room = script.is_room || back_script.is_room;
+    if (is_room && (mode != "Split" || !script.is_room || !back_script.is_room))
         || back_script.copy_face_from.is_some()
         || back_script.alternate_mode.is_some()
         || back_script.alternate.is_some()
     {
         return None;
     }
-    let mut front = transcode_face(script, cats, tokens, String::new(), true)?;
+    let (front_door, back_door) = if is_room {
+        (Some(0), Some(1))
+    } else {
+        (None, None)
+    };
+    let mut front = transcode_face(script, cats, tokens, String::new(), true, front_door)?;
     let statics = std::mem::take(&mut front.statics);
-    let mut back = transcode_face(back_script, cats, tokens, statics, true)?;
+    let mut back = transcode_face(back_script, cats, tokens, statics, true, back_door)?;
     front.statics = std::mem::take(&mut back.statics);
     if finalize_two_face_bodies(mode, script, back_script, &front, &mut back).is_some() {
         return None;
