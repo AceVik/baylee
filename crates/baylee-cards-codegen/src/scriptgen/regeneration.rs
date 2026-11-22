@@ -11,19 +11,79 @@ impl Tx<'_> {
         sub: &mut Option<String>,
         initial: bool,
     ) -> Option<bool> {
-        if api != "DealDamage" || !p.has("RememberDamaged") {
+        if !matches!(api, "DealDamage" | "DamageAll") || !p.has("RememberDamaged") {
             return Some(false);
         }
         // Runtime damage facts span the resolution, not one instruction.
         if !initial {
             return self.deny("damage-recipient memory after an earlier instruction".into());
         }
-        if p.take("RememberDamaged").as_deref() != Some("True") {
+        if p.peek("RememberDamaged") != Some("True") {
             return self.deny("a nontrue damage-recipient memory flag".into());
         }
+        if let Some(replace) = p.peek("ReplaceDyingDefined")
+            && !p.has("ReplaceDyingCondition")
+            && matches!(p.peek("DamageSource"), None | Some("Self"))
+            && self.remembered_damage_cleanup_only(sub.as_deref())
+        {
+            let marker = match replace {
+                "Remembered" => Some("__DamagedThisWay"),
+                "Remembered.Creature" if self.on_a_spell => Some("__DamagedThisWayCreature"),
+                _ => None,
+            };
+            if let Some(marker) = marker {
+                p.take("RememberDamaged");
+                for (k, v) in &mut p.entries {
+                    if k == "ReplaceDyingDefined" {
+                        *v = marker.to_string();
+                        break;
+                    }
+                }
+                return Some(false);
+            }
+        }
+        if api != "DealDamage" {
+            return Some(false);
+        }
+        p.take("RememberDamaged");
         self.damage_recipient_regeneration(sub.as_deref()?)?;
         *sub = None;
         Some(true)
+    }
+
+    /// Returns `true` iff the `SubAbility$` chain reaches a `Cleanup` with
+    /// `ClearRemembered$ True` and no earlier instruction in the chain reads
+    /// `Remembered` (preserving any follow-up after `Cleanup`, e.g. shuffle or
+    /// self-exile, and any unrelated intervening step such as `Scry`).
+    fn remembered_damage_cleanup_only(&self, start: Option<&str>) -> bool {
+        let mut cur = start.map(|s| s.trim().to_string());
+        for _ in 0..8 {
+            let Some(name) = cur else {
+                return false;
+            };
+            let Some(body) = self.svars.get(name.as_str()) else {
+                return false;
+            };
+            let Some((api, mut sp)) = Params::parse(body) else {
+                return false;
+            };
+            sp.drop_prose();
+            if api == "Cleanup" && sp.peek("ClearRemembered") == Some("True") {
+                return true;
+            }
+            if sp
+                .entries
+                .iter()
+                .any(|(k, v)| k.contains("Remember") || v.contains("Remembered"))
+            {
+                return false;
+            }
+            cur = sp
+                .entries
+                .iter()
+                .find_map(|(k, v)| (k == "SubAbility").then(|| v.trim().to_string()));
+        }
+        false
     }
 
     /// A temporary source static ability grant on `Animate`.
@@ -84,6 +144,45 @@ impl Tx<'_> {
                 )])
             }
             "CantAttack" => self.animate_cant_attack_grant(st, duration),
+            "CantBlock" => {
+                let valid = st.take("ValidCard")?;
+                if !matches!(valid.as_str(), "Creature.Self" | "Card.Self") || !st.exhausted() {
+                    return self.deny(
+                        "a referenced static other than an unconditional regeneration restriction"
+                            .into(),
+                    );
+                }
+                Some(vec![Self::animate_expr(
+                    "Modifier::AddKeyword(KeywordSet::CANT_BLOCK)",
+                    duration,
+                )])
+            }
+            "MustAttack" => {
+                let valid = st.take("ValidCreature")?;
+                if !matches!(valid.as_str(), "Creature.Self" | "Card.Self") || !st.exhausted() {
+                    return self.deny(
+                        "a referenced static other than an unconditional regeneration restriction"
+                            .into(),
+                    );
+                }
+                Some(vec![Self::animate_expr(
+                    "Modifier::AttacksEachCombat",
+                    duration,
+                )])
+            }
+            "AssignNoCombatDamage" => {
+                let valid = st.take("ValidCard")?;
+                if !matches!(valid.as_str(), "Creature.Self" | "Card.Self") || !st.exhausted() {
+                    return self.deny(
+                        "a referenced static other than an unconditional regeneration restriction"
+                            .into(),
+                    );
+                }
+                Some(vec![Self::animate_expr(
+                    "Modifier::AssignsNoCombatDamage",
+                    duration,
+                )])
+            }
             "Continuous" => self.animate_continuous_grant(st, duration),
             _ => self.deny(
                 "a referenced static other than an unconditional regeneration restriction".into(),
@@ -290,6 +389,9 @@ impl Tx<'_> {
             return self.delayed_destroy_target_effect(p, target);
         }
         let statics = p.peek("StaticAbilities")?.trim().to_string();
+        if statics.contains(',') {
+            return self.combat_damage_toughness_bundle_effect(p, target, &statics);
+        }
         let body = self.svars.get(&statics)?.clone();
         let (mode, _) = Params::parse(&body)?;
         match mode.as_str() {
@@ -298,6 +400,7 @@ impl Tx<'_> {
                 .or_else(|| self.continuous_turn_effect(p, target)),
             "MustAttack" => self.must_attack_effect(p, target),
             "CanAttackDefender" => self.can_attack_defender_effect(p, target),
+            "CombatDamageToughness" => self.combat_damage_toughness_effect(p, target),
             "CastWithFlash" => self.cast_with_flash_effect(p, target),
             "CantLoseLife" => self.cant_lose_life_effect(p, target),
             "CantPreventDamage" => self.cant_prevent_combat_damage_effect(p, target),
@@ -387,6 +490,131 @@ impl Tx<'_> {
         )])
     }
 
+    fn combat_damage_toughness_effect(
+        &mut self,
+        p: &mut Params,
+        target: Option<&str>,
+    ) -> Option<Vec<String>> {
+        let statics = p.peek("StaticAbilities")?.trim().to_string();
+        self.combat_damage_toughness_bundle_effect(p, target, &statics)
+    }
+
+    /// Reads `CombatDamageToughness` (optionally bundled with
+    /// `CanAttackDefender`, e.g. `Bill the Pony`, `Baldin`-style, or defender
+    /// animation abilities).
+    fn combat_damage_toughness_bundle_effect(
+        &mut self,
+        p: &mut Params,
+        target: Option<&str>,
+        statics_raw: &str,
+    ) -> Option<Vec<String>> {
+        let parsed_statics = self.parse_toughness_bundle_statics(statics_raw)?;
+        let duration = match p.peek("Duration") {
+            None | Some("UntilEndOfTurn") => "Duration::UntilEndOfTurn",
+            Some("UntilYourNextTurn") => "Duration::UntilYourNextTurn",
+            Some(_) => return None,
+        };
+        let mut out = Vec::with_capacity(parsed_statics.len());
+        let mut used_remembered = false;
+        for (mode, valid) in parsed_statics {
+            if mode == "CombatDamageToughness"
+                && let Some(base) = valid.strip_suffix("+powerLTtoughness")
+                && target.is_none()
+                && !p.has("RememberObjects")
+                && !base.contains("Remembered")
+                && !base.contains("EffectSource")
+            {
+                let expr = self.filter_expr(base)?;
+                let filter = self.body.filter_static("EFFECT", &expr);
+                out.push(format!(
+                    "Effect::continuous(&{filter}, \
+                     Modifier::AssignCombatDamageUsingToughnessIfToughnessGreater, {duration})"
+                ));
+                continue;
+            }
+            let modifier = if mode == "CombatDamageToughness" {
+                "Modifier::AssignCombatDamageUsingToughness"
+            } else {
+                "Modifier::AttacksDespiteDefender"
+            };
+            if valid == "Card.EffectSource" && !self.on_a_spell && target.is_none() {
+                out.push(format!(
+                    "Effect::ModifySource {{ modifier: {modifier}, duration: {duration} }}"
+                ));
+            } else if valid == "Card.IsRemembered"
+                && target.is_some_and(|t| t.starts_with("TargetSpec::Object("))
+                && matches!(
+                    p.peek("RememberObjects"),
+                    Some("Targeted" | "ParentTarget" | "ThisTargetedCard")
+                )
+            {
+                used_remembered = true;
+                out.push(format!(
+                    "Effect::ModifyTargets {{ modifier: {modifier}, duration: {duration} }}"
+                ));
+            } else if target.is_none()
+                && !p.has("RememberObjects")
+                && !valid.contains("Remembered")
+                && !valid.contains("EffectSource")
+            {
+                let expr = self.filter_expr(&valid)?;
+                let filter = self.body.filter_static("EFFECT", &expr);
+                out.push(format!(
+                    "Effect::continuous(&{filter}, {modifier}, {duration})"
+                ));
+            } else {
+                return None;
+            }
+        }
+        p.take("StaticAbilities");
+        p.take("Duration");
+        if used_remembered {
+            p.take("RememberObjects");
+        }
+        if matches!(p.peek("ExileOnMoved"), Some("Battlefield")) {
+            p.take("ExileOnMoved");
+        }
+        if matches!(p.peek("ForgetOnMoved"), Some("Battlefield")) {
+            p.take("ForgetOnMoved");
+        }
+        Some(out)
+    }
+
+    fn parse_toughness_bundle_statics(&self, statics_raw: &str) -> Option<Vec<(String, String)>> {
+        let names: Vec<&str> = statics_raw
+            .split(',')
+            .map(str::trim)
+            .filter(|s| !s.is_empty())
+            .collect();
+        if names.is_empty() {
+            return None;
+        }
+        let mut saw_toughness = false;
+        let mut parsed_statics = Vec::with_capacity(names.len());
+        for name in names {
+            let body = self.svars.get(name)?;
+            let (mode, mut st) = Params::parse(body)?;
+            st.drop_prose();
+            if !matches!(
+                st.take("EffectZone").as_deref(),
+                None | Some("Battlefield" | "Command")
+            ) {
+                return None;
+            }
+            if mode == "CombatDamageToughness" {
+                saw_toughness = true;
+            } else if mode != "CanAttackDefender" {
+                return None;
+            }
+            let valid = st.take("ValidCard")?;
+            if !st.exhausted() {
+                return None;
+            }
+            parsed_statics.push((mode, valid));
+        }
+        saw_toughness.then_some(parsed_statics)
+    }
+
     fn cast_with_flash_effect(
         &mut self,
         p: &mut Params,
@@ -404,46 +632,67 @@ impl Tx<'_> {
         let body = self.svars.get(&statics)?.clone();
         let (mode, mut st) = Params::parse(&body)?;
         st.drop_prose();
-        if mode != "CastWithFlash"
-            || st.take("Caster").as_deref() != Some("You")
-            || st.take("ValidSA").as_deref() != Some("Spell")
+        if mode != "CastWithFlash" || st.take("ValidSA").as_deref() != Some("Spell") {
+            return None;
+        }
+        let who = match st.take("Caster").as_deref() {
+            Some("You") => "PlayerRel::You",
+            Some("Player") => "PlayerRel::EachPlayer",
+            Some("Opponent" | "Player.Opponent") => "PlayerRel::EachOpponent",
+            _ => return None,
+        };
+        if let Some(zone) = st.take("EffectZone")
+            && !matches!(zone.as_str(), "Battlefield" | "Command")
         {
             return None;
         }
-        if let Some(zone) = st.take("EffectZone")
-            && zone != "Battlefield"
-        {
-            return None;
+        if let Some(az) = st.take("AffectedZone") {
+            let mut zones: Vec<&str> = az.split(',').map(str::trim).collect();
+            zones.sort_unstable();
+            zones.dedup();
+            if zones != ["Command", "Exile", "Graveyard", "Hand", "Library"] {
+                return None;
+            }
         }
         let valid_card = st.take("ValidCard")?;
         if !st.exhausted() {
             return None;
         }
-        let modifier = match valid_card.trim() {
-            "Card" => "Modifier::SpellsHaveFlash(None)".to_string(),
-            "Sorcery" => "Modifier::SorceriesHaveFlash".to_string(),
-            other => {
-                let mut types = Vec::new();
-                for alt in other.split(',') {
-                    let ty = super::card_type_const(alt.trim())?;
-                    if !types.contains(&ty) {
-                        types.push(ty);
+        let modifier = if who == "PlayerRel::You" {
+            match valid_card.trim() {
+                "Card" => "Modifier::SpellsHaveFlash(None)".to_string(),
+                "Sorcery" => "Modifier::SorceriesHaveFlash".to_string(),
+                other => {
+                    let bare_types: Option<Vec<&'static str>> = other
+                        .split(',')
+                        .map(|alt| super::card_type_const(alt.trim()))
+                        .collect();
+                    if let Some(mut types) = bare_types
+                        && !types.is_empty()
+                    {
+                        types.dedup();
+                        let joined =
+                            types
+                                .iter()
+                                .skip(1)
+                                .fold(types[0].to_string(), |mut acc, t| {
+                                    acc.push_str(".union(");
+                                    acc.push_str(t);
+                                    acc.push(')');
+                                    acc
+                                });
+                        format!("Modifier::SpellsHaveFlash(Some({joined}))")
+                    } else {
+                        let expr = self.filter_expr(other)?;
+                        let filter = self.body.filter_static("FLASH", &expr);
+                        format!("Modifier::GrantFlash {{ who: {who}, filter: &{filter} }}")
                     }
                 }
-                if types.is_empty() {
-                    return None;
-                }
-                let joined = types
-                    .iter()
-                    .skip(1)
-                    .fold(types[0].to_string(), |mut acc, t| {
-                        acc.push_str(".union(");
-                        acc.push_str(t);
-                        acc.push(')');
-                        acc
-                    });
-                format!("Modifier::SpellsHaveFlash(Some({joined}))")
             }
+        } else {
+            let expr = self.filter_expr(valid_card.trim())?;
+            let filter = self.body.filter_static("FLASH", &expr);
+            format!("Modifier::GrantFlash {{ who: {who}, filter: &{filter} }}")
         };
         p.take("StaticAbilities");
         p.take("Duration");
@@ -1166,8 +1415,23 @@ impl Tx<'_> {
 
     /// `ReplaceDyingDefined$` — "if that creature would die this turn,
     /// exile it instead" (Magma Spray), a replacement on the line's own
-    /// target for the rest of the turn.
+    /// target for the rest of the turn, or on actual damage recipients when
+    /// validated alongside `RememberDamaged$ True` and its cleanup.
     pub(super) fn exile_if_dies(&mut self, defined: &str, target: Option<&str>) -> Option<String> {
+        match defined {
+            "__DamagedThisWay" => return Some("Effect::ExileDamagedThisWayIfDies".to_string()),
+            "__DamagedThisWayCreature" => {
+                let filter = self.body.filter_static(
+                    "DAMAGED",
+                    "Filter::And(&[Filter::CREATURE, Filter::DealtDamageBySourceThisTurn])",
+                );
+                return Some(format!(
+                    "Effect::RepeatEachObject {{ zone: ZoneSel::Battlefield, filter: &{filter}, \
+                     only_found: false, then: &[Effect::ExileIfDiesThisTurn {{ target: TargetSpec::EventObject }}] }}"
+                ));
+            }
+            _ => {}
+        }
         let Some(target) = target.filter(|t| {
             !matches!(
                 *t,
@@ -1180,7 +1444,7 @@ impl Tx<'_> {
         };
         let exile = format!("Effect::ExileIfDiesThisTurn {{ target: {target} }}");
         match defined {
-            "Targeted" => Some(exile),
+            "Targeted" | "ThisTargetedCard" => Some(exile),
             "ThisTargetedCard.Creature" => Some(format!(
                 "Effect::IfTargetMatches {{ filter: &Filter::CREATURE, then: &[{exile}] }}"
             )),
@@ -1188,9 +1452,9 @@ impl Tx<'_> {
         }
     }
 
-    /// `AtEOT$` on a line that pumps its target — "destroy that creature at
-    /// the beginning of the next end step" (Stone Giant): a delayed trigger
-    /// about the target, `Effect::AtNextEndStep`.
+    /// `AtEOT$` on a `Token`, `Pump`, or `Animate` line — delayed step
+    /// cleanup (CR 603.7: Stone Giant, Chimeric Coils, Attack-in-the-Box,
+    /// Ayara, Furnace Queen, Kami of Industry, token end-step/upkeep clauses).
     pub(super) fn at_next_end_step(
         &mut self,
         api: &str,
@@ -1198,33 +1462,7 @@ impl Tx<'_> {
         target: Option<&str>,
     ) -> Option<String> {
         if api == "Token" {
-            let targets_player = matches!(
-                target,
-                Some(
-                    "TargetSpec::Player(PlayerRel::Chosen)"
-                        | "TargetSpec::AnyPlayer"
-                        | "TargetSpec::AnyOpponent"
-                )
-            );
-            return match what {
-                "Exile" => Some(
-                    "Effect::AtNextEndStepForCreatedTokens { effects: &[Effect::exile(TargetSpec::EventObject)] }"
-                        .to_string(),
-                ),
-                "Sacrifice" if !targets_player => Some(
-                    "Effect::AtNextEndStepForCreatedTokens { effects: &[Effect::SacrificeEvent] }"
-                        .to_string(),
-                ),
-                "SacrificeCombat" if !targets_player => Some(
-                    "Effect::RegisterDelayedTrigger { when: DelayedTriggerWhen::AtStep { step: DelayedStep::CombatEnd, whose: None, this_turn_only: true, recurring: false }, condition: None, targets: None, remember: TriggerRemember::EachCreatedToken, effects: &[Effect::SacrificeEvent] }"
-                        .to_string(),
-                ),
-                "ExileCombat" => Some(
-                    "Effect::RegisterDelayedTrigger { when: DelayedTriggerWhen::AtStep { step: DelayedStep::CombatEnd, whose: None, this_turn_only: true, recurring: false }, condition: None, targets: None, remember: TriggerRemember::EachCreatedToken, effects: &[Effect::exile(TargetSpec::EventObject)] }"
-                        .to_string(),
-                ),
-                _ => self.deny(format!("`AtEOT$ {what}` on `{api}`")),
-            };
+            return self.token_at_next_end_step(what, target);
         }
         let aimed = target.is_some_and(|t| {
             !matches!(
@@ -1232,12 +1470,176 @@ impl Tx<'_> {
                 "TargetSpec::Player(PlayerRel::Chosen)" | "TargetSpec::AnyPlayer"
             )
         });
-        if api != "Pump" || !aimed || what != "Destroy" {
-            return self.deny(format!("`AtEOT$ {what}` on `{api}`"));
+        let aimed_you_ctrl =
+            aimed && target.is_some_and(|t| self.target_spec_requires_your_control(t));
+        let self_subject = target.is_none()
+            && !self.on_a_spell
+            && !self
+                .type_line
+                .split_whitespace()
+                .any(|w| matches!(w, "Aura" | "Equipment"))
+            && self.non_targeted_at_eot_targets_self(api, what);
+        match (api, what) {
+            ("Pump" | "Animate", "Destroy") if aimed => Some(
+                "Effect::AtNextEndStep { effects: &[Effect::destroy(TargetSpec::EventObject)] }"
+                    .to_string(),
+            ),
+            ("Pump", "Sacrifice") if self_subject || aimed_you_ctrl => {
+                Some("Effect::AtNextEndStep { effects: &[Effect::SacrificeEvent] }".to_string())
+            }
+            ("Animate", "Sacrifice") if aimed || self_subject => {
+                Some("Effect::AtNextEndStep { effects: &[Effect::SacrificeEvent] }".to_string())
+            }
+            ("Pump" | "Animate", "Exile") if aimed || self_subject => Some(
+                "Effect::AtNextEndStep { effects: &[Effect::exile(TargetSpec::EventObject)] }"
+                    .to_string(),
+            ),
+            ("Pump" | "Animate", "YourExile") if aimed || self_subject => {
+                let remember = if aimed {
+                    "TriggerRemember::FirstTarget"
+                } else {
+                    "TriggerRemember::Source"
+                };
+                Some(format!(
+                    "Effect::RegisterDelayedTrigger {{ when: DelayedTriggerWhen::AtStep {{ step: DelayedStep::EndStep, whose: Some(PlayerRel::You), this_turn_only: false, recurring: false }}, condition: None, targets: None, remember: {remember}, effects: &[Effect::exile(TargetSpec::EventObject)] }}"
+                ))
+            }
+            ("Pump" | "Animate", "YourSacrifice") if self_subject || aimed_you_ctrl => {
+                let remember = if aimed_you_ctrl {
+                    "TriggerRemember::FirstTarget"
+                } else {
+                    "TriggerRemember::Source"
+                };
+                Some(format!(
+                    "Effect::RegisterDelayedTrigger {{ when: DelayedTriggerWhen::AtStep {{ step: DelayedStep::EndStep, whose: Some(PlayerRel::You), this_turn_only: false, recurring: false }}, condition: None, targets: None, remember: {remember}, effects: &[Effect::SacrificeEvent] }}"
+                ))
+            }
+            _ => self.deny(format!("`AtEOT$ {what}` on `{api}`")),
         }
-        Some(
-            "Effect::AtNextEndStep { effects: &[Effect::destroy(TargetSpec::EventObject)] }"
-                .to_string(),
-        )
+    }
+
+    fn token_at_next_end_step(&mut self, what: &str, target: Option<&str>) -> Option<String> {
+        let targets_player = matches!(
+            target,
+            Some(
+                "TargetSpec::Player(PlayerRel::Chosen)"
+                    | "TargetSpec::AnyPlayer"
+                    | "TargetSpec::AnyOpponent"
+            )
+        );
+        match what {
+            "Exile" => Some(
+                "Effect::AtNextEndStepForCreatedTokens { effects: &[Effect::exile(TargetSpec::EventObject)] }"
+                    .to_string(),
+            ),
+            "Sacrifice" if !targets_player => Some(
+                "Effect::AtNextEndStepForCreatedTokens { effects: &[Effect::SacrificeEvent] }"
+                    .to_string(),
+            ),
+            "SacrificeCombat" if !targets_player => Some(
+                "Effect::RegisterDelayedTrigger { when: DelayedTriggerWhen::AtStep { step: DelayedStep::CombatEnd, whose: None, this_turn_only: true, recurring: false }, condition: None, targets: None, remember: TriggerRemember::EachCreatedToken, effects: &[Effect::SacrificeEvent] }"
+                    .to_string(),
+            ),
+            "ExileCombat" => Some(
+                "Effect::RegisterDelayedTrigger { when: DelayedTriggerWhen::AtStep { step: DelayedStep::CombatEnd, whose: None, this_turn_only: true, recurring: false }, condition: None, targets: None, remember: TriggerRemember::EachCreatedToken, effects: &[Effect::exile(TargetSpec::EventObject)] }"
+                    .to_string(),
+            ),
+            "YourExile" => Some(
+                "Effect::RegisterDelayedTrigger { when: DelayedTriggerWhen::AtStep { step: DelayedStep::EndStep, whose: Some(PlayerRel::You), this_turn_only: false, recurring: false }, condition: None, targets: None, remember: TriggerRemember::EachCreatedToken, effects: &[Effect::exile(TargetSpec::EventObject)] }"
+                    .to_string(),
+            ),
+            "YourSacrifice" if !targets_player => Some(
+                "Effect::RegisterDelayedTrigger { when: DelayedTriggerWhen::AtStep { step: DelayedStep::EndStep, whose: Some(PlayerRel::You), this_turn_only: false, recurring: false }, condition: None, targets: None, remember: TriggerRemember::EachCreatedToken, effects: &[Effect::SacrificeEvent] }"
+                    .to_string(),
+            ),
+            "YourExileUpkeep" => Some(
+                "Effect::RegisterDelayedTrigger { when: DelayedTriggerWhen::AtStep { step: DelayedStep::Upkeep, whose: Some(PlayerRel::You), this_turn_only: false, recurring: false }, condition: None, targets: None, remember: TriggerRemember::EachCreatedToken, effects: &[Effect::exile(TargetSpec::EventObject)] }"
+                    .to_string(),
+            ),
+            "YourSacrificeUpkeep" if !targets_player => Some(
+                "Effect::RegisterDelayedTrigger { when: DelayedTriggerWhen::AtStep { step: DelayedStep::Upkeep, whose: Some(PlayerRel::You), this_turn_only: false, recurring: false }, condition: None, targets: None, remember: TriggerRemember::EachCreatedToken, effects: &[Effect::SacrificeEvent] }"
+                    .to_string(),
+            ),
+            "SacrificeUpkeep" if !targets_player => Some(
+                "Effect::RegisterDelayedTrigger { when: DelayedTriggerWhen::AtStep { step: DelayedStep::Upkeep, whose: None, this_turn_only: false, recurring: false }, condition: None, targets: None, remember: TriggerRemember::EachCreatedToken, effects: &[Effect::SacrificeEvent] }"
+                    .to_string(),
+            ),
+            _ => self.deny(format!("`AtEOT$ {what}` on `Token`")),
+        }
+    }
+
+    fn non_targeted_at_eot_targets_self(&self, api: &str, what: &str) -> bool {
+        let mut saw_svar = false;
+        for body in self.svars.values() {
+            let Some((parsed_api, parsed)) = Params::parse(body) else {
+                continue;
+            };
+            if parsed_api == api && parsed.peek("AtEOT") == Some(what) && !parsed.has("ValidTgts") {
+                saw_svar = true;
+                if !matches!(parsed.peek("Defined"), None | Some("Self")) {
+                    return false;
+                }
+            }
+        }
+        self.trigger_mode.is_none() || saw_svar
+    }
+
+    fn target_spec_requires_your_control(&self, target: &str) -> bool {
+        let Some(inner) = target
+            .strip_prefix("TargetSpec::Object(&")
+            .and_then(|s| s.strip_suffix(')'))
+        else {
+            return false;
+        };
+        if matches!(
+            inner,
+            "Filter::YOUR_CREATURE"
+                | "Filter::YOUR_OTHER_CREATURE"
+                | "Filter::YOUR_ARTIFACT"
+                | "Filter::YOUR_PERMANENT"
+                | "Filter::YOUR_NONLAND_PERMANENT"
+                | "Filter::YOUR_MODIFIED_CREATURE"
+                | "Filter::YOUR_LAND"
+                | "Filter::YOUR_ENCHANTMENT"
+                | "Filter::YOUR_PLANESWALKER"
+                | "Filter::ControlledByYou"
+        ) {
+            return true;
+        }
+        if inner.contains("::") {
+            return false;
+        }
+        let prefix = format!("static {inner}: Filter = ");
+        let Some(rhs) = self
+            .body
+            .statics
+            .lines()
+            .find_map(|line| line.trim().strip_prefix(&prefix))
+            .and_then(|rest| rest.strip_suffix(';'))
+        else {
+            return false;
+        };
+        let Some(slice) = rhs
+            .strip_prefix("Filter::And(&[")
+            .and_then(|s| s.strip_suffix("])"))
+        else {
+            return false;
+        };
+        let mut depth = 0usize;
+        let mut start = 0usize;
+        for (idx, ch) in slice.char_indices() {
+            match ch {
+                '(' | '[' | '{' => depth += 1,
+                ')' | ']' | '}' => depth = depth.saturating_sub(1),
+                ',' if depth == 0 => {
+                    if slice[start..idx].trim() == "Filter::ControlledByYou" {
+                        return true;
+                    }
+                    start = idx + 1;
+                }
+                _ => {}
+            }
+        }
+        slice[start..].trim() == "Filter::ControlledByYou"
     }
 }

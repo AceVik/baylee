@@ -34,6 +34,7 @@ mod wave26c;
 mod wave26d;
 mod wave26e;
 mod wave26g;
+mod wave26h;
 
 fn cats() -> SubtypeCatalogs {
     let mut c = SubtypeCatalogs {

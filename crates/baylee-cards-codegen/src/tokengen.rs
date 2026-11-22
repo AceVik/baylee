@@ -921,6 +921,12 @@ fn ability_keyword_slug(kw: &str) -> Option<String> {
     if let Some(rest) = kw.strip_prefix("Mobilize:") {
         return Some(format!("MOBILIZE_{}", sanitize_tag(rest)?));
     }
+    if let Some(rest) = kw.strip_prefix("Bushido:") {
+        return Some(format!("BUSHIDO_{}", sanitize_tag(rest)?));
+    }
+    if let Some(rest) = kw.strip_prefix("Soulshift:") {
+        return Some(format!("SOULSHIFT_{}", sanitize_tag(rest)?));
+    }
     match kw {
         "Exalted" => Some("EXALTED".to_string()),
         "Prevent all damage that would be dealt to CARDNAME." => Some("PREVENT_DAMAGE".to_string()),
@@ -963,6 +969,12 @@ fn is_token_ability_keyword(kw: &str) -> bool {
         || kw
             .strip_prefix("Mobilize:")
             .is_some_and(is_numeric_token_param)
+        || kw
+            .strip_prefix("Bushido:")
+            .is_some_and(is_numeric_token_param)
+        || kw
+            .strip_prefix("Soulshift:")
+            .is_some_and(|rest| !rest.contains(':') && rest.trim().parse::<u32>().is_ok())
         || matches!(
             kw,
             "Exalted"
@@ -988,13 +1000,23 @@ fn is_token_ability_keyword(kw: &str) -> bool {
 /// inside `generated_tokens.rs` via `use crate::tokens;`, so a generated token's
 /// ability may safely rewrite `&generated_tokens::<NAME>` -> `&tokens::<NAME>`.
 const HAND_WRITTEN_NESTED_TOKENS: &[&str] = &[
+    "ALLY_1_1_WHITE",
+    "ANGEL_4_4_WHITE_FLYING",
+    "ARMY_0_0_BLACK",
+    "BEAST_5_5_GREEN",
+    "BIRD_1_1_WHITE_FLYING",
     "BLOOD",
+    "BOAR_2_2_GREEN",
     "CLUE",
+    "CONSTRUCT_ARTIFACT_0_0",
     "FOOD",
+    "HUMAN_SOLDIER_1_1_WHITE",
     "JUNK",
+    "KNIGHT_2_2_WHITE_BLUE_VIGILANCE",
     "MAP",
     "POWERSTONE",
     "SERVO_1_1",
+    "SPIRIT_1_1_COLORLESS",
     "TREASURE",
     "VIBRANIUM",
     "ZOMBIE_2_2_BLACK",
@@ -1004,16 +1026,29 @@ const HAND_WRITTEN_NESTED_TOKENS: &[&str] = &[
 /// `crates/cards/src/generated_tokens.rs` ledger, so another generated token's
 /// ability may safely rewrite `&generated_tokens::<NAME>` -> `&<NAME>`.
 const GENERATED_NESTED_TOKENS: &[&str] = &[
+    "BEAST_3_3_GREEN",
+    "CAT_1_1_WHITE",
     "DRAGON_2_2_RED_FLYING",
+    "ELDRAZI_SCION_1_1",
+    "ELDRAZI_SPAWN_0_1",
+    "ELF_WARRIOR_1_1_GREEN",
+    "GOLD",
+    "HUMAN_1_1_WHITE",
     "INSECT_1_1_GREEN",
+    "KNIGHT_2_2_WHITE_VIGILANCE",
     "KRAKEN_9_9_BLUE",
+    "MERFOLK_1_1_BLUE",
+    "OOZE_2_2_GREEN",
+    "PLANT_0_1_GREEN",
     "RABBIT_1_1_WHITE",
     "SAPROLING_1_1_GREEN",
     "SERVO_ARTIFACT_1_1",
     "SKELETON_1_1_BLACK",
     "SKELETON_4_1_BLACK_MENACE",
     "SPIRIT_1_1_WHITE_BLACK_FLYING",
+    "THOPTER_ARTIFACT_1_1_FLYING",
     "WARRIOR_1_1_RED",
+    "WOLF_2_2_GREEN",
 ];
 
 fn rewrite_nested_token_refs(abilities: &mut [String]) -> bool {
@@ -1109,10 +1144,16 @@ fn abilities(
         || !body.flashback_parts.is_empty()
         || body.madness.is_some()
         || body.foretell.is_some()
+        || body.miracle.is_some()
+        || body.dash.is_some()
+        || body.blitz.is_some()
         || body.morph.is_some()
         || body.megamorph.is_some()
         || !body.morph_parts.is_empty()
         || body.bestow.is_some()
+        || body.prototype.is_some()
+        || body.bargain
+        || body.emerge.is_some()
         || body.jump_start
         || body.aftermath
         || body.disturb.is_some()
@@ -1136,6 +1177,8 @@ fn abilities(
         || body.kicked_targets.is_some()
         || body.has_partner
         || body.back.is_some()
+        || body.back_is_adventure
+        || body.back_is_prepare
     {
         return None;
     }
@@ -1163,9 +1206,18 @@ fn inline_statics(statics: &str, abilities: &mut [String]) -> Option<()> {
         let ty = ty.trim();
         let valid_ty = matches!(
             ty,
-            "Filter" | "Condition" | "AbilityDef" | "Amount" | "PtCount" | "Effect"
+            "Filter"
+                | "Condition"
+                | "AbilityDef"
+                | "Amount"
+                | "PtCount"
+                | "Effect"
+                | "Trigger"
+                | "Modifier"
         ) || ((ty.starts_with("[AbilityDef; ")
             || ty.starts_with("[Effect; ")
+            || ty.starts_with("[Filter; ")
+            || ty.starts_with("[Modifier; ")
             || ty.starts_with("[SubtypeId; "))
             && ty.ends_with(']'));
         if !valid_ty {
@@ -1177,11 +1229,11 @@ fn inline_statics(statics: &str, abilities: &mut [String]) -> Option<()> {
     if defs.is_empty() {
         return None;
     }
-    for _ in 0..4 {
+    for _ in 0..6 {
         let mut changed = false;
         for ability in abilities.iter_mut() {
             for &(name, expr) in &defs {
-                if let Some(updated) = replace_ref_ident(ability, name, expr) {
+                if let Some(updated) = replace_ident(ability, name, expr) {
                     *ability = updated;
                     changed = true;
                 }
@@ -1223,33 +1275,54 @@ fn contains_ident(text: &str, ident: &str) -> bool {
     false
 }
 
-fn replace_ref_ident(text: &str, ident: &str, replacement: &str) -> Option<String> {
-    let needle = format!("&{ident}");
+fn replace_ident(text: &str, ident: &str, replacement: &str) -> Option<String> {
     let bytes = text.as_bytes();
     let mut out = String::with_capacity(text.len());
-    let mut cursor = 0;
+    let mut i = 0;
+    let mut in_string = false;
+    let mut escaped = false;
     let mut replaced = false;
-    while let Some(rel) = text[cursor..].find(&needle) {
-        let start = cursor + rel;
-        let end = start + needle.len();
-        let next_is_ident = bytes
-            .get(end)
-            .is_some_and(|&b| b.is_ascii_alphanumeric() || b == b'_');
-        if next_is_ident {
-            out.push_str(&text[cursor..end]);
-        } else {
-            out.push_str(&text[cursor..start]);
-            out.push('&');
-            out.push_str(replacement);
-            replaced = true;
+    while i < bytes.len() {
+        if in_string {
+            let ch = text[i..].chars().next()?;
+            if escaped {
+                escaped = false;
+            } else if ch == '\\' {
+                escaped = true;
+            } else if ch == '"' {
+                in_string = false;
+            }
+            out.push(ch);
+            i += ch.len_utf8();
+            continue;
         }
-        cursor = end;
+        if bytes[i] == b'"' {
+            in_string = true;
+            out.push('"');
+            i += 1;
+            continue;
+        }
+        if text[i..].starts_with(ident) {
+            let end = i + ident.len();
+            let prev = i.checked_sub(1).and_then(|p| bytes.get(p).copied());
+            let next = bytes.get(end).copied();
+            let prev_ok = prev.is_none_or(|b| {
+                !(b.is_ascii_alphanumeric() || b == b'_' || b == b':' || b == b'.')
+            });
+            let next_ok =
+                next.is_none_or(|b| !(b.is_ascii_alphanumeric() || b == b'_' || b == b':'));
+            if prev_ok && next_ok {
+                out.push_str(replacement);
+                replaced = true;
+                i = end;
+                continue;
+            }
+        }
+        let ch = text[i..].chars().next()?;
+        out.push(ch);
+        i += ch.len_utf8();
     }
-    if !replaced {
-        return None;
-    }
-    out.push_str(&text[cursor..]);
-    Some(out)
+    replaced.then_some(out)
 }
 
 fn rewrite_subtypes(abilities: &mut [String], modules: &mut Vec<String>) -> Option<()> {

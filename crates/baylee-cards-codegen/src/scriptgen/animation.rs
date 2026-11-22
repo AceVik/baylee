@@ -156,7 +156,19 @@ impl Tx<'_> {
 
     fn animate_triggered_subject(&self, def: &str) -> bool {
         match def {
-            "TriggeredCardLKICopy" | "TriggeredCard" => {
+            "TriggeredCardLKICopy" | "TriggeredCard" => matches!(
+                self.trigger_mode.as_deref(),
+                Some(
+                    "ChangesZone"
+                        | "Taps"
+                        | "Untaps"
+                        | "TurnFaceUp"
+                        | "Transformed"
+                        | "Exerted"
+                        | "Enlisted"
+                )
+            ),
+            "TriggeredNewCardLKICopy" | "TriggeredNewCard" => {
                 self.trigger_mode.as_deref() == Some("ChangesZone")
             }
             "TriggeredAttackerLKICopy" | "TriggeredAttacker" => {
@@ -205,6 +217,8 @@ impl Tx<'_> {
             Some("Permanent") => "Duration::Indefinitely",
             Some("UntilEndOfCombat") => "Duration::UntilEndOfCombat",
             Some("UntilYourNextTurn") => "Duration::UntilYourNextTurn",
+            Some("UntilYourNextUpkeep") => "Duration::UntilYourNextUpkeep",
+            Some("UntilTheEndOfYourNextUpkeep") => "Duration::UntilEndOfYourNextUpkeep",
             Some("UntilHostLeavesPlay" | "AsLongAsInPlay") => "Duration::WhileSourceOnBattlefield",
             Some("AsLongAsControl") => "Duration::WhileYouControlSource",
             Some("UntilUntaps") => {
@@ -371,6 +385,19 @@ impl Tx<'_> {
     }
 
     fn animate_pt_amount(&mut self, raw: &str, has_target: bool) -> Option<String> {
+        self.animate_pt_amount_depth(raw, has_target, 0)
+    }
+
+    #[allow(clippy::too_many_lines)]
+    fn animate_pt_amount_depth(
+        &mut self,
+        raw: &str,
+        has_target: bool,
+        depth: u8,
+    ) -> Option<String> {
+        if depth > 4 {
+            return None;
+        }
         let trimmed = raw.trim();
         if let Ok(n) = trimmed.parse::<u32>() {
             return Some(format!("Amount::Fixed({n})"));
@@ -388,11 +415,83 @@ impl Tx<'_> {
         if let Some((lhs, rhs)) = def.rsplit_once("/Plus.")
             && let Ok(offset) = rhs.trim().parse::<u32>()
             && let Some(var) = lhs.trim().strip_prefix("SVar$")
-            && let Some(base) = self.animate_pt_amount(var.trim(), has_target)
+            && let Some(base) = self.animate_pt_amount_depth(var.trim(), has_target, depth + 1)
         {
             return Some(format!(
                 "Amount::Plus {{ base: &{base}, offset: {offset} }}"
             ));
+        }
+        if let Some((lhs, rhs)) = def.rsplit_once("/Minus.")
+            && let Ok(subtract) = rhs.trim().parse::<u32>()
+            && let Some(var) = lhs.trim().strip_prefix("SVar$")
+            && let Some(base) = self.animate_pt_amount_depth(var.trim(), has_target, depth + 1)
+        {
+            return Some(format!(
+                "Amount::SaturatingSub {{ base: &{base}, subtract: {subtract} }}"
+            ));
+        }
+        if let Some((lhs, rhs)) = def.rsplit_once("/Times.")
+            && let Ok(factor) = rhs.trim().parse::<u32>()
+            && factor >= 1
+            && let Some(var) = lhs.trim().strip_prefix("SVar$")
+            && let Some(base) = self.animate_pt_amount_depth(var.trim(), has_target, depth + 1)
+        {
+            return Some(format!(
+                "Amount::Times {{ base: &{base}, factor: {factor} }}"
+            ));
+        }
+        if let Some(lhs) = def.strip_suffix("/Twice")
+            && let Some(var) = lhs.trim().strip_prefix("SVar$")
+            && let Some(base) = self.animate_pt_amount_depth(var.trim(), has_target, depth + 1)
+        {
+            return Some(format!("Amount::Times {{ base: &{base}, factor: 2 }}"));
+        }
+        if let Some(lhs) = def.strip_suffix("/HalfDown")
+            && let Some(var) = lhs.trim().strip_prefix("SVar$")
+            && let Some(base) = self.animate_pt_amount_depth(var.trim(), has_target, depth + 1)
+        {
+            return Some(format!("Amount::Half {{ base: &{base}, round_up: false }}"));
+        }
+        if let Some(lhs) = def.strip_suffix("/HalfUp")
+            && let Some(var) = lhs.trim().strip_prefix("SVar$")
+            && let Some(base) = self.animate_pt_amount_depth(var.trim(), has_target, depth + 1)
+        {
+            return Some(format!("Amount::Half {{ base: &{base}, round_up: true }}"));
+        }
+        let event_is_attacker = matches!(
+            self.trigger_mode.as_deref(),
+            Some("Attacks" | "AttackerUnblocked" | "AttackerBlocked")
+        ) || (self.trigger_mode.as_deref()
+            == Some("AttackerBlockedByCreature")
+            && self
+                .block_line
+                .as_ref()
+                .is_some_and(|(r, _, _)| *r == super::BlockRole::Blocks));
+        let event_is_blocker = self.trigger_mode.as_deref() == Some("Blocks")
+            || (self.trigger_mode.as_deref() == Some("AttackerBlockedByCreature")
+                && self
+                    .block_line
+                    .as_ref()
+                    .is_some_and(|(r, _, _)| *r == super::BlockRole::Blocked));
+        if let Some(kind_raw) = def.strip_prefix("Count$CardCounters.")
+            && let Some(kind) = super::counter_kind(kind_raw.trim())
+        {
+            return Some(format!("Amount::CountersOnSource({kind})"));
+        }
+        if let Some(valid_body) = def.strip_prefix("Count$Valid ")
+            && let Some((raw_filter, metric)) = valid_body.rsplit_once('$')
+        {
+            let variant = match metric.trim() {
+                "GreatestCardPower" => Some("Amount::GreatestPowerAmong"),
+                "GreatestCardManaCost" => Some("Amount::GreatestManaValueAmong"),
+                "TotalCardPower" => Some("Amount::TotalPowerAmong"),
+                _ => None,
+            };
+            if let Some(variant) = variant {
+                let expr = self.filter_expr(raw_filter.trim())?;
+                let filter_static = self.body.filter_static("ANIMATE_PT", &expr);
+                return Some(format!("{variant}(&{filter_static})"));
+            }
         }
         match def.as_str() {
             "Count$xPaid" if can_read_x => Some("Amount::X".to_string()),
@@ -401,17 +500,50 @@ impl Tx<'_> {
             }
             "Count$LastDieRoll" => Some("Amount::LastDieRoll".to_string()),
             "Count$CardPower" => Some("Amount::SourcePower".to_string()),
+            "Count$Party" => Some("Amount::PartySize(PlayerRel::You)".to_string()),
+            "Count$CreaturesDiedThisTurn" => Some("Amount::CreaturesDiedThisTurn".to_string()),
+            "Count$TotalManaSpent" => Some("Amount::ManaSpentToCast".to_string()),
             "Count$ValidAll Card.IsCommander+YouOwn$GreatestCardManaCost" => {
                 Some("Amount::GreatestCommanderManaValue".to_string())
             }
             "Targeted$CardManaCost" if has_target => Some("Amount::TargetCmc".to_string()),
             "Targeted$CardPower" if has_target => Some("Amount::TargetPower".to_string()),
             "Targeted$CardToughness" if has_target => Some("Amount::TargetToughness".to_string()),
-            "TriggeredCard$CardPower" if self.trigger_mode.as_deref() == Some("ChangesZone") => {
+            "TriggeredCard$CardPower" | "TriggeredCardLKICopy$CardPower"
+                if self.trigger_mode.as_deref() == Some("ChangesZone") =>
+            {
                 Some("Amount::EventPower".to_string())
             }
-            "TriggeredCard$CardToughness"
+            "TriggeredCard$CardToughness" | "TriggeredCardLKICopy$CardToughness"
                 if self.trigger_mode.as_deref() == Some("ChangesZone") =>
+            {
+                Some("Amount::EventLastToughness".to_string())
+            }
+            "TriggeredCard$CardManaCost" | "TriggeredCardLKICopy$CardManaCost"
+                if matches!(
+                    self.trigger_mode.as_deref(),
+                    Some("ChangesZone" | "SpellCast")
+                ) =>
+            {
+                Some("Amount::EventManaValue".to_string())
+            }
+            "TriggeredAttacker$CardPower" | "TriggeredAttackerLKICopy$CardPower"
+                if event_is_attacker =>
+            {
+                Some("Amount::EventPower".to_string())
+            }
+            "TriggeredAttacker$CardToughness" | "TriggeredAttackerLKICopy$CardToughness"
+                if event_is_attacker =>
+            {
+                Some("Amount::EventLastToughness".to_string())
+            }
+            "TriggeredBlocker$CardPower" | "TriggeredBlockerLKICopy$CardPower"
+                if event_is_blocker =>
+            {
+                Some("Amount::EventPower".to_string())
+            }
+            "TriggeredBlocker$CardToughness" | "TriggeredBlockerLKICopy$CardToughness"
+                if event_is_blocker =>
             {
                 Some("Amount::EventLastToughness".to_string())
             }
@@ -423,6 +555,9 @@ impl Tx<'_> {
             "Sacrificed$CardManaCost" => Some("Amount::SacrificedManaValue".to_string()),
             "Sacrificed$CardPower" => Some("Amount::SacrificedPower".to_string()),
             "Sacrificed$CardToughness" => Some("Amount::SacrificedToughness".to_string()),
+            "Sacrificed$TotalCardPower" => Some("Amount::SacrificedTotalPower".to_string()),
+            "Sacrificed$TotalCardToughness" => Some("Amount::SacrificedTotalToughness".to_string()),
+            "Sacrificed$TotalCardManaCost" => Some("Amount::SacrificedTotalManaValue".to_string()),
             _ => None,
         }
     }
