@@ -62,6 +62,7 @@ struct ExtractedAbilitySpec {
     cost: Option<String>,
     alternate_cost: Option<String>,
     limit: ParsedLimit,
+    x_min_param: u32,
     activation_zone: Option<String>,
     non_battlefield_zone: bool,
     zone_suffix: &'static str,
@@ -69,7 +70,7 @@ struct ExtractedAbilitySpec {
     sorcery_speed: bool,
     kind: ActivationKind,
     condition: String,
-    cost_reduction: Option<String>,
+    cost_reduction: String,
     chain: Chain,
 }
 
@@ -386,6 +387,48 @@ impl Tx<'_> {
         Some((kept.join(" "), x_min))
     }
 
+    fn take_x_min_param(
+        &self,
+        probe: &mut Params,
+        is_activated: bool,
+        is_planeswalker: bool,
+    ) -> Option<u32> {
+        let Some(raw) = probe.take("XMin") else {
+            return Some(0);
+        };
+        if !is_activated {
+            return self.deny("`XMin$` on a spell".to_string());
+        }
+        if is_planeswalker {
+            return self.deny("`XMin$` on a loyalty ability".to_string());
+        }
+        let Ok(n) = raw.trim().parse::<u32>() else {
+            return self.deny(format!("`XMin$ {raw}`"));
+        };
+        if n == 0 {
+            return self.deny(format!("`XMin$ {raw}`"));
+        }
+        Some(n)
+    }
+
+    fn merge_x_min(&self, cost_x_min: Option<u32>, param_x_min: u32) -> Option<u32> {
+        match (cost_x_min, param_x_min) {
+            (Some(_), 1..) => self.deny("duplicate `XMin` in cost and `XMin$`".to_string()),
+            (Some(n), 0) | (None, n) => Some(n),
+        }
+    }
+
+    fn is_sac_self_token(token: &str) -> bool {
+        token == "Sac<1/CARDNAME>"
+            || token.starts_with("Sac<1/CARDNAME/")
+            || token == "Sac<1/NICKNAME>"
+            || token.starts_with("Sac<1/NICKNAME/")
+    }
+
+    fn is_sac_other_token(token: &str) -> bool {
+        token.starts_with("Sac<1/") && !Self::is_sac_self_token(token)
+    }
+
     fn cost_has_variable_x(cost: &str) -> bool {
         cost.contains("{X}")
             || cost.contains("SacrificeX(")
@@ -425,7 +468,7 @@ impl Tx<'_> {
             if !is_activated {
                 return self.deny("reflected Gate mana as a spell".into());
             }
-            return self.gond_mana_reflected(p);
+            return self.activated_mana_reflected(p);
         }
         if Params::parse(spec).is_some_and(|(api, _)| api == "Charm") {
             return if is_activated {
@@ -517,6 +560,24 @@ impl Tx<'_> {
         Some((kind, ultimate_raw.is_some()))
     }
 
+    fn take_reduce_cost(
+        &mut self,
+        probe: &mut Params,
+        is_activated: bool,
+        activation_zone: Option<&str>,
+    ) -> Option<String> {
+        let Some(raw) = probe.take("ReduceCost") else {
+            return Some(String::new());
+        };
+        if !is_activated {
+            return self.deny("`ReduceCost$` on a spell".to_string());
+        }
+        if probe.has("ReduceAmount") {
+            return self.deny("a `ReduceCost$` with `ReduceAmount$`".to_string());
+        }
+        self.activation_cost_reduction(&raw, activation_zone)
+    }
+
     fn extract_ability_spec(
         &mut self,
         spec: &str,
@@ -543,24 +604,14 @@ impl Tx<'_> {
             return self.deny("an `AlternateCost` on a spell".to_string());
         }
         let (limit, limit_keys) = self.take_activation_limit(&mut probe, is_activated)?;
+        let x_min_param = self.take_x_min_param(&mut probe, is_activated, is_planeswalker)?;
         let activator = self.parse_activator(probe.take("Activator").as_deref(), is_activated)?;
         let activation_zone = probe.take("ActivationZone");
         if !is_activated && let Some(zone) = activation_zone.as_deref() {
             return self.deny(format!("a spell in `ActivationZone$ {zone}`"));
         }
-        let reduce_cost = probe.take("ReduceCost");
-        if !is_activated && reduce_cost.is_some() {
-            return self.deny("`ReduceCost$` on a spell".to_string());
-        }
-        if is_activated && reduce_cost.is_some() && probe.has("ReduceAmount") {
-            return self.deny("a `ReduceCost$` with `ReduceAmount$`".to_string());
-        }
-        let cost_reduction = match (is_activated, reduce_cost.as_deref()) {
-            (true, Some(raw)) => {
-                Some(self.activation_cost_reduction(raw, activation_zone.as_deref())?)
-            }
-            _ => None,
-        };
+        let cost_reduction =
+            self.take_reduce_cost(&mut probe, is_activated, activation_zone.as_deref())?;
         let (non_battlefield_zone, zone_suffix) = if is_activated {
             self.activation_zone_expr(activation_zone.as_deref(), activator, false)?
         } else {
@@ -568,18 +619,26 @@ impl Tx<'_> {
         };
         let zone_handled = is_activated && activation_zone.is_some();
         let sorcery_speed = is_activated && probe.take("SorcerySpeed").as_deref() == Some("True");
+        let had_life_total = probe.has("LifeTotal");
+        let had_present_player = probe.has("PresentPlayer");
         let mut condition = self.condition_with_prose(&mut probe, &line_prose)?;
         let present_read = !condition.is_empty();
+        let life_total_read = had_life_total && !probe.has("LifeTotal");
+        let present_player_read = had_present_player && !probe.has("PresentPlayer");
         let restrictions = self.activation_restriction(&mut probe, is_activated, &mut condition)?;
         let mut drop_keys: Vec<&'static str> = [
             (true, "Cost$"),
             (is_planeswalker, "Planeswalker$"),
             (has_ultimate, "Ultimate$"),
             (alternate_cost.is_some(), "AlternateCost$"),
-            (is_activated && reduce_cost.is_some(), "ReduceCost$"),
+            (x_min_param > 0, "XMin$"),
+            (!cost_reduction.is_empty(), "ReduceCost$"),
             (activator != ActivatorRestriction::Default, "Activator$"),
             (zone_handled, "ActivationZone$"),
             (sorcery_speed, "SorcerySpeed$"),
+            (life_total_read, "LifeTotal$"),
+            (life_total_read, "LifeAmount$"),
+            (present_player_read, "PresentPlayer$"),
         ]
         .into_iter()
         .filter_map(|(on, key)| on.then_some(key))
@@ -600,6 +659,7 @@ impl Tx<'_> {
             cost,
             alternate_cost,
             limit,
+            x_min_param,
             activation_zone,
             non_battlefield_zone,
             zone_suffix,
@@ -628,12 +688,9 @@ impl Tx<'_> {
             .collect();
         let mut chain = Chain::default();
         self.cost_sacrifices_self = is_activated
-            && cost.is_some_and(|c| c.split_whitespace().any(|t| t == "Sac<1/CARDNAME>"));
-        self.cost_sacrifices_other = cost.is_some_and(|c| {
-            cost_parts(c)
-                .iter()
-                .any(|t| t.starts_with("Sac<1/") && !t.starts_with("Sac<1/CARDNAME"))
-        });
+            && cost.is_some_and(|c| cost_parts(c).iter().any(|t| Self::is_sac_self_token(t)));
+        self.cost_sacrifices_other =
+            cost.is_some_and(|c| cost_parts(c).iter().any(|t| Self::is_sac_other_token(t)));
         let chain_ok = self.chain(&stripped.join(" | "), &mut chain);
         self.cost_sacrifices_self = false;
         self.cost_sacrifices_other = false;
@@ -717,13 +774,14 @@ impl Tx<'_> {
         let Some(cost_raw) = spec.cost.as_deref() else {
             return self.deny("an activated ability with no `Cost$`".to_string());
         };
-        let (cost_without_xmin, x_min) = self.strip_activation_x_min(cost_raw)?;
+        let (cost_without_xmin, cost_x_min) = self.strip_activation_x_min(cost_raw)?;
+        let x_min = self.merge_x_min(cost_x_min, spec.x_min_param)?;
         let cost =
             self.parse_activated_cost(&cost_without_xmin, spec.activation_zone.as_deref())?;
-        if x_min.is_some() && !Self::cost_has_variable_x(&cost) {
+        if x_min > 0 && !Self::cost_has_variable_x(&cost) {
             return self.deny("unused `XMin` in activation cost".to_string());
         }
-        if x_min.is_some() && spec.alternate_cost.is_some() {
+        if x_min > 0 && spec.alternate_cost.is_some() {
             return self.deny("`XMin` beside `AlternateCost$`".to_string());
         }
         let effects = format!("&[{}]", spec.chain.effects.join(", "));
@@ -750,9 +808,13 @@ impl Tx<'_> {
         }
         let target = Self::activated_target_suffix(&spec.chain);
         let limit_str = self.activation_limit(&spec.limit)?;
-        let x_value = x_min.map_or_default(|n| format!(", x_value = ActivationX::AtLeast({n})"));
+        let x_value = if x_min > 0 {
+            format!(", x_value = ActivationX::AtLeast({x_min})")
+        } else {
+            String::new()
+        };
         let condition = &spec.condition;
-        let cost_reduction = spec.cost_reduction.as_deref().unwrap_or("");
+        let cost_reduction = spec.cost_reduction.as_str();
         let extras = format!(
             "{timing}{zone}{target}{second_targets}{limit_str}{x_value}{condition}{cost_reduction}"
         );
@@ -775,9 +837,9 @@ impl Tx<'_> {
             && spec.activator == ActivatorRestriction::Default
             && !spec.sorcery_speed
             && limit_str.is_empty()
-            && x_min.is_none()
+            && x_min == 0
             && condition.is_empty()
-            && spec.cost_reduction.is_none()
+            && spec.cost_reduction.is_empty()
             && spec.chain.second_target.is_none()
             && spec.chain.target_up_to.is_none()
             && spec.chain.target_exact.is_none()
@@ -836,7 +898,7 @@ impl Tx<'_> {
         if !spec.condition.is_empty() {
             return self.deny("an activation condition on a loyalty ability".to_string());
         }
-        if spec.cost_reduction.is_some() {
+        if !spec.cost_reduction.is_empty() {
             return self.deny("`ReduceCost$` on a loyalty ability".to_string());
         }
         if spec.chain.target_is_x {
@@ -1257,11 +1319,9 @@ impl Tx<'_> {
         if let Some(raw) = raw_cost.as_deref() {
             self.spell_mana_cost(raw)?;
         }
-        self.cost_sacrifices_other = raw_cost.as_deref().is_some_and(|c| {
-            cost_parts(c)
-                .iter()
-                .any(|t| t.starts_with("Sac<1/") && !t.starts_with("Sac<1/CARDNAME"))
-        });
+        self.cost_sacrifices_other = raw_cost
+            .as_deref()
+            .is_some_and(|c| cost_parts(c).iter().any(|t| Self::is_sac_other_token(t)));
         let parsed = self.read_charm_modes_with(&choices, has_spree && max > 1);
         self.cost_sacrifices_other = false;
         let parsed = parsed?;
@@ -1385,16 +1445,10 @@ impl Tx<'_> {
             }
         }
         let (limit, _) = self.take_activation_limit(&mut p, true)?;
+        let x_min_param = self.take_x_min_param(&mut p, true, false)?;
         let activator = self.parse_activator(p.take("Activator").as_deref(), true)?;
         let activation_zone = p.take("ActivationZone");
-        let reduce_cost = p.take("ReduceCost");
-        if reduce_cost.is_some() && p.has("ReduceAmount") {
-            return self.deny("a `ReduceCost$` with `ReduceAmount$`".to_string());
-        }
-        let cost_reduction = match reduce_cost.as_deref() {
-            Some(raw) => Some(self.activation_cost_reduction(raw, activation_zone.as_deref())?),
-            None => None,
-        };
+        let cost_reduction = self.take_reduce_cost(&mut p, true, activation_zone.as_deref())?;
         let sorcery_speed = match p.take("SorcerySpeed").as_deref() {
             None => false,
             Some("True") => true,
@@ -1404,28 +1458,29 @@ impl Tx<'_> {
             self.activation_zone_expr(activation_zone.as_deref(), activator, true)?;
         let mut condition = self.condition_with_prose(&mut p, &line_prose)?;
         let _restrictions = self.activation_restriction(&mut p, true, &mut condition)?;
-        let (cost_without_xmin, x_min) = self.strip_activation_x_min(&cost_raw)?;
+        let (cost_without_xmin, cost_x_min) = self.strip_activation_x_min(&cost_raw)?;
+        let x_min = self.merge_x_min(cost_x_min, x_min_param)?;
         Self::claim_modal_additional_description(
             &mut p,
             sorcery_speed,
             &limit,
             !condition.is_empty(),
-            x_min,
+            (x_min > 0).then_some(x_min),
         );
         if let Some(key) = p.first_key() {
             return self.deny(format!("unclaimed parameter `Charm.{key}`"));
         }
         let cost = self.parse_activated_cost(&cost_without_xmin, activation_zone.as_deref())?;
-        if x_min.is_some() && !Self::cost_has_variable_x(&cost) {
+        if x_min > 0 && !Self::cost_has_variable_x(&cost) {
             return self.deny("unused `XMin` in activation cost".to_string());
         }
         self.reject_non_mana_counter_x(&cost, false, true)?;
         self.cost_sacrifices_self = cost_parts(&cost_without_xmin)
             .iter()
-            .any(|t| t == "Sac<1/CARDNAME>");
+            .any(|t| Self::is_sac_self_token(t));
         self.cost_sacrifices_other = cost_parts(&cost_without_xmin)
             .iter()
-            .any(|t| t.starts_with("Sac<1/") && !t.starts_with("Sac<1/CARDNAME"));
+            .any(|t| Self::is_sac_other_token(t));
         let parsed = self.read_charm_modes(&choices);
         self.cost_sacrifices_self = false;
         self.cost_sacrifices_other = false;
@@ -1442,8 +1497,12 @@ impl Tx<'_> {
             ""
         };
         let limit = self.activation_limit(&limit)?;
-        let x_value = x_min.map_or_default(|n| format!(", x_value = ActivationX::AtLeast({n})"));
-        let reduction_suffix = cost_reduction.as_deref().unwrap_or("");
+        let x_value = if x_min > 0 {
+            format!(", x_value = ActivationX::AtLeast({x_min})")
+        } else {
+            String::new()
+        };
+        let reduction_suffix = cost_reduction.as_str();
         let modes: Vec<String> = parsed.into_iter().map(|(m, _, _, _)| m).collect();
         self.body.abilities.push(format!(
             "modal_activated!({cost}, &[{}]{timing}{zone}{limit}{x_value}{condition}{reduction_suffix})",
@@ -2351,8 +2410,12 @@ impl Tx<'_> {
             let Some((n, code)) = raw.split_once('_') else {
                 return self.deny(format!("a source counter clause `{valid}`"));
             };
-            let n = n.parse::<u8>().ok()?;
-            let kind = counter_kind(code)?;
+            let Ok(n) = n.parse::<u8>() else {
+                return self.deny(format!("a source counter clause `{valid}`"));
+            };
+            let Some(kind) = counter_kind(code) else {
+                return self.deny(format!("counter `{code}`"));
+            };
             p.take("PresentDefined");
             return Some(format!("Condition::CountersOnSelf({kind}, {n})"));
         }

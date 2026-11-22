@@ -5,17 +5,33 @@ use super::{
     object_cost, plain_number, stat_atom,
 };
 
+type SpendRestriction = (String, Option<&'static str>, Option<String>);
+
+enum ManaSpendRider {
+    None,
+    RestrictUncounterable,
+    WhenSpent { filter: String, rider: String },
+}
+
+impl ManaSpendRider {
+    fn is_some(&self) -> bool {
+        !matches!(self, Self::None)
+    }
+}
+
 impl Tx<'_> {
     /// `Produced$ Combo W U | Amount$ 2` and friends.
     pub(super) fn mana_effect(&mut self, p: &mut Params) -> Option<Vec<String>> {
         // "Its controller adds an additional {R}" (Gauntlet of Might): mana
-        // in another player's pool, which is fixed mana or nothing.
+        // in another player's pool.
         let defined = p.take("Defined");
         if let Some(who) = defined.as_deref().filter(|d| *d != "You") {
             let who = self.player_rel(Some(who))?;
             return self.mana_for(p, who);
         }
-        let produced = p.take("Produced")?;
+        let Some(produced) = p.take("Produced") else {
+            return self.deny("`Mana` with no `Produced$`".to_string());
+        };
         let persistent = match p.take("PersistentMana").as_deref() {
             None => false,
             Some("True") => true,
@@ -25,14 +41,30 @@ impl Tx<'_> {
             None => None,
             Some(valid) => Some(self.spend_restriction(&valid)?),
         };
+        let spend_rider = self.take_mana_spend_rider(p, restrict.is_some())?;
         let raw = p.take("Amount").unwrap_or_else(|| "1".to_string());
-        // A literal first and always. The `Amount` this line can now carry is
-        // the *dynamic* one, and reaching for it where a number would do
-        // would rewrite half the lands in the pool on the next codegen run
-        // while saying nothing new about any of them — `Effect::mana` and
-        // `Effect::mana_dynamic` build the same `AddMana` and only one of
-        // them is what the 508 machine-owned files already say.
         let fixed = plain_number(&raw, self.svars).and_then(|n| u32::try_from(n).ok());
+        let has_modifier = restrict.is_some() || spend_rider.is_some();
+        let effects = if let Some(valid) = produced.strip_prefix("Special EachColorAmong_Valid ") {
+            if fixed != Some(1) || has_modifier || persistent {
+                return self.deny("mana source `Special`".to_string());
+            }
+            let expr = self.filter_expr(valid.trim())?;
+            let name = self.body.filter_static("MANA", &expr);
+            return Some(vec![format!("Effect::ManaForColorsAmong(&{name})")]);
+        } else {
+            self.produced_mana_effects(&produced, &raw, fixed, has_modifier)?
+        };
+        self.apply_mana_modifiers(effects, restrict, spend_rider, persistent)
+    }
+
+    fn produced_mana_effects(
+        &mut self,
+        produced: &str,
+        raw: &str,
+        fixed: Option<u32>,
+        fold_identical: bool,
+    ) -> Option<Vec<String>> {
         let color = |c: &str| {
             Some(match c {
                 "W" => "ManaColor::White",
@@ -44,80 +76,87 @@ impl Tx<'_> {
                 _ => return None,
             })
         };
-        let effects = if produced == "Any" {
-            match fixed {
+        if produced == "Any" {
+            return Some(match fixed {
                 Some(1) => vec!["Effect::mana_of_any_color()".to_string()],
-                // "Add three mana of any one color" — **one** pick for the
-                // whole amount, which is the difference from `Combo` below
-                // and the reason `mana_choice_dynamic` exists beside
-                // `mana_combination`.
                 _ => vec![format!(
                     "Effect::mana_choice_dynamic(ALL_MANA_COLORS, {})",
-                    self.counted_amount(&raw)?
+                    self.counted_amount(raw)?
                 )],
+            });
+        }
+        if produced == "Chosen" || produced == "ChosenColor" {
+            return Some(if fixed == Some(1) {
+                vec!["Effect::mana_chosen()".to_string()]
+            } else {
+                let amount = if self.svars.get(raw.trim()).map(String::as_str)
+                    == Some("Count$Devotion.Chosen")
+                {
+                    "Amount::DevotionToManaColor".to_string()
+                } else {
+                    self.counted_amount(raw)?
+                };
+                vec![format!(
+                    "Effect::AddMana {{ source: ManaSource::Chosen, amount: {amount}, distribution: ManaDistribution::OneColor, restriction: None }}"
+                )]
+            });
+        }
+        if let Some(list) = produced.strip_prefix("Combo ") {
+            return self.combo_mana(list, raw, fixed);
+        }
+        let Some(colors) = produced
+            .split_whitespace()
+            .map(color)
+            .collect::<Option<Vec<_>>>()
+        else {
+            let head = produced.split_whitespace().next().unwrap_or(produced);
+            return self.deny(format!("mana source `{head}`"));
+        };
+        if let Some(n) = fixed {
+            if fold_identical && colors.len() > 1 && colors.iter().all(|c| *c == colors[0]) {
+                let total = n.saturating_mul(u32::try_from(colors.len()).unwrap_or(1));
+                return Some(vec![format!("Effect::mana({}, {total})", colors[0])]);
             }
-        } else if produced == "Chosen" || produced == "ChosenColor" {
-            // "Add one mana of the chosen color." The colour is on the
-            // permanent, named as it entered — `EnterModifier::ChooseColor`
-            // is the other half, and a card printing this line without it
-            // would make nothing.
-            (fixed == Some(1)).then(|| vec!["Effect::mana_chosen()".to_string()])?
-        } else if let Some(valid) = produced.strip_prefix("Special EachColorAmong_Valid ") {
-            if fixed != Some(1) || restrict.is_some() || persistent {
-                return self.deny("mana source `Special`".to_string());
-            }
-            let expr = self.filter_expr(valid.trim())?;
-            let name = self.body.filter_static("MANA", &expr);
-            return Some(vec![format!("Effect::ManaForColorsAmong(&{name})")]);
-        } else if let Some(list) = produced.strip_prefix("Combo ") {
-            self.combo_mana(list, &raw, fixed)?
-        } else {
-            // `Produced$ W U` is "add {W}{U}" — two mana at once, not a
-            // choice between them (that is `Combo`). One effect per colour,
-            // which is how the bounce lands were already written by hand.
-            let Some(colors) = produced
-                .split_whitespace()
-                .map(color)
-                .collect::<Option<Vec<_>>>()
-            else {
-                // `Produced$ Special EachColorAmong_Valid …` is the whole of
-                // what lands here, and it is one rule rather than an
-                // unreadable word: a colour per colour among a filter.
-                let head = produced.split_whitespace().next().unwrap_or(&produced);
-                return self.deny(format!("mana source `{head}`"));
-            };
-            if let Some(n) = fixed {
+            return Some(
                 colors
                     .into_iter()
                     .map(|c| format!("Effect::mana({c}, {n})"))
-                    .collect()
-            } else {
-                // "Add {B} for each Swamp you control." One colour only,
-                // because a counted amount of *two* colours is a sentence no
-                // card prints and `mana_dynamic` has no room for.
-                let [only] = &colors[..] else {
-                    return self.deny("a counted amount of more than one colour".to_string());
-                };
-                let amount = self
-                    .mono_devotion_mana_amount(only, &raw)
-                    .map(str::to_string)
-                    .or_else(|| self.counted_amount(&raw))?;
-                vec![format!("Effect::mana_dynamic({only}, {amount})")]
-            }
+                    .collect(),
+            );
+        }
+        let [only] = &colors[..] else {
+            return self.deny("a counted amount of more than one colour".to_string());
         };
+        let amount = self
+            .mono_devotion_mana_amount(only, raw)
+            .map(str::to_string)
+            .or_else(|| self.counted_amount(raw))?;
+        Some(vec![format!("Effect::mana_dynamic({only}, {amount})")])
+    }
+
+    fn apply_mana_modifiers(
+        &mut self,
+        effects: Vec<String>,
+        restrict: Option<SpendRestriction>,
+        spend_rider: ManaSpendRider,
+        persistent: bool,
+    ) -> Option<Vec<String>> {
         let mut out = if let Some((filter, uses, ability_filter)) = restrict {
-            // "Spend this mana only to cast a creature spell" is a rider on the
-            // mana, so it can only hang on one effect — a line that made two
-            // mana and restricted them would need the restriction twice, and
-            // nothing in the corpus prints that.
             let [only] = &effects[..] else {
                 self.note("`Mana.RestrictValid` on more than one mana".to_string());
                 return None;
             };
+            let rider = match spend_rider {
+                ManaSpendRider::RestrictUncounterable => "SpendRider::Uncounterable",
+                ManaSpendRider::None => "SpendRider::None",
+                ManaSpendRider::WhenSpent { .. } => {
+                    return self.deny("a mana spend rider beside `RestrictValid$`".to_string());
+                }
+            };
             let name = self.body.filter_static("SPEND", &filter);
             let mut expr = match uses {
-                None => format!("{only}.restricted(&{name}, SpendRider::None)"),
-                Some(uses) => format!("{only}.restricted_for(&{name}, SpendRider::None, {uses})"),
+                None => format!("{only}.restricted(&{name}, {rider})"),
+                Some(uses) => format!("{only}.restricted_for(&{name}, {rider}, {uses})"),
             };
             if let Some(ab_filter) = ability_filter {
                 let ab_ref = if ab_filter == "Filter::Any" {
@@ -128,6 +167,16 @@ impl Tx<'_> {
                 expr = format!("{expr}.for_abilities_matching(&{ab_ref})");
             }
             vec![expr]
+        } else if let ManaSpendRider::WhenSpent { filter, rider } = spend_rider {
+            let [only] = &effects[..] else {
+                return self.deny("a mana spend rider on more than one mana".to_string());
+            };
+            let name = if filter == "Filter::Any" {
+                "Filter::Any".to_string()
+            } else {
+                self.body.filter_static("SPEND", &filter)
+            };
+            vec![format!("{only}.when_spent(&{name}, {rider})")]
         } else {
             effects
         };
@@ -137,6 +186,183 @@ impl Tx<'_> {
             }
         }
         Some(out)
+    }
+
+    fn take_mana_spend_rider(&self, p: &mut Params, has_restrict: bool) -> Option<ManaSpendRider> {
+        let adds_no_counter = p.take("AddsNoCounter");
+        let adds_keywords = p.take("AddsKeywords");
+        let adds_counters = p.take("AddsCounters");
+        let triggers_when_spent = p.take("TriggersWhenSpent");
+        let count = usize::from(adds_no_counter.is_some())
+            + usize::from(adds_keywords.is_some())
+            + usize::from(adds_counters.is_some())
+            + usize::from(triggers_when_spent.is_some());
+        if count > 1 {
+            return self.deny("multiple mana spend riders on one ability".to_string());
+        }
+        if let Some(raw) = adds_no_counter {
+            if raw != "True" || !has_restrict {
+                return self.deny(format!("`Mana.AddsNoCounter$ {raw}`"));
+            }
+            return Some(ManaSpendRider::RestrictUncounterable);
+        }
+        if let Some(kw) = adds_keywords {
+            return self.parse_adds_keywords_rider(p, &kw, has_restrict);
+        }
+        if let Some(raw) = adds_counters {
+            return self.parse_adds_counters_rider(&raw, has_restrict);
+        }
+        if let Some(trig) = triggers_when_spent {
+            return self.parse_triggers_when_spent(&trig, has_restrict);
+        }
+        Some(ManaSpendRider::None)
+    }
+
+    fn parse_adds_keywords_rider(
+        &self,
+        p: &mut Params,
+        kw: &str,
+        has_restrict: bool,
+    ) -> Option<ManaSpendRider> {
+        if has_restrict || kw != "Haste" {
+            return self.deny(format!("`Mana.AddsKeywords$ {kw}`"));
+        }
+        let Some(valid) = p.take("AddsKeywordsValid") else {
+            return self.deny("`Mana.AddsKeywords$` without `AddsKeywordsValid$`".to_string());
+        };
+        let (filter, uses, ab_filter) = self.spend_restriction(&valid)?;
+        if uses.is_some() || ab_filter.is_some() {
+            return self.deny(format!("`Mana.AddsKeywordsValid$ {valid}`"));
+        }
+        let rider = match p.take("AddsKeywordsUntil").as_deref() {
+            None => "SpendRider::Haste".to_string(),
+            Some("UntilEOT") => "SpendRider::HasteUntilEndOfTurn".to_string(),
+            Some(other) => return self.deny(format!("`Mana.AddsKeywordsUntil$ {other}`")),
+        };
+        Some(ManaSpendRider::WhenSpent { filter, rider })
+    }
+
+    fn parse_adds_counters_rider(&self, raw: &str, has_restrict: bool) -> Option<ManaSpendRider> {
+        if has_restrict {
+            return self.deny("`Mana.AddsCounters$` beside `RestrictValid$`".to_string());
+        }
+        let parts: Vec<&str> = raw.split('_').collect();
+        let [valid_raw, "P1P1", count_raw] = parts.as_slice() else {
+            return self.deny(format!("`Mana.AddsCounters$ {raw}`"));
+        };
+        if matches!(
+            *valid_raw,
+            "Card.YouOwn+IsCommander" | "Card.IsCommander+YouOwn"
+        ) && *count_raw == "ManaAddsCounterNum"
+        {
+            return Some(ManaSpendRider::WhenSpent {
+                filter: "Filter::And(&[Filter::IsCommander, Filter::OwnedByYou])".to_string(),
+                rider: "SpendRider::CommanderEnterCounters".to_string(),
+            });
+        }
+        let Some(n) = count_raw.parse::<u32>().ok().filter(|&n| n > 0) else {
+            return self.deny(format!("`Mana.AddsCounters$ {raw}`"));
+        };
+        if has_unscoped_spend_atom(valid_raw) {
+            return self.deny(format!("`Mana.AddsCounters$ {raw}`"));
+        }
+        let Some(filter) = self.filter_expr_in_zone(valid_raw, true) else {
+            return self.deny(format!("`Mana.AddsCounters$ {raw}`"));
+        };
+        Some(ManaSpendRider::WhenSpent {
+            filter,
+            rider: format!("SpendRider::EnterCounters({n})"),
+        })
+    }
+
+    fn parse_triggers_when_spent(
+        &self,
+        trig_name: &str,
+        has_restrict: bool,
+    ) -> Option<ManaSpendRider> {
+        let deny = || self.deny(format!("`Mana.TriggersWhenSpent$ {trig_name}`"));
+        if has_restrict {
+            return deny();
+        }
+        let Some(trig_body) = self.svars.get(trig_name.trim()) else {
+            return deny();
+        };
+        let Some((mode, mut tp)) = Params::parse(trig_body) else {
+            return deny();
+        };
+        tp.drop_prose();
+        if mode != "SpellCast"
+            || !matches!(
+                tp.take("ValidActivatingPlayer").as_deref(),
+                None | Some("You")
+            )
+        {
+            return deny();
+        }
+        let Some(exec_name) = tp.take("Execute") else {
+            return deny();
+        };
+        let mut is_your_commander = false;
+        let filter = match tp.take("ValidCard").as_deref() {
+            None => "Filter::Any".to_string(),
+            Some("Card.IsCommander+YouOwn" | "Card.YouOwn+IsCommander") => {
+                is_your_commander = true;
+                "Filter::And(&[Filter::IsCommander, Filter::OwnedByYou])".to_string()
+            }
+            Some("Creature.sharesCreatureTypeWith Commander") => {
+                "Filter::And(&[Filter::CREATURE, Filter::SharesSubtypeWithCommander])".to_string()
+            }
+            Some(valid) if !has_unscoped_spend_atom(valid) => {
+                let Some(expr) = self.filter_expr_in_zone(valid, true) else {
+                    return deny();
+                };
+                expr
+            }
+            Some(_) => return deny(),
+        };
+        if tp.first_key().is_some() {
+            return deny();
+        }
+        let Some(exec_body) = self.svars.get(exec_name.trim()) else {
+            return deny();
+        };
+        let Some((exec_api, mut ep)) = Params::parse(exec_body) else {
+            return deny();
+        };
+        ep.drop_prose();
+        let rider = match exec_api.as_str() {
+            "Scry" => {
+                let Some(num) = ep.take("ScryNum") else {
+                    return deny();
+                };
+                if ep.first_key().is_some() {
+                    return deny();
+                }
+                if let Ok(n) = num.trim().parse::<u8>()
+                    && n > 0
+                {
+                    format!("SpendRider::Scry({n})")
+                } else if is_your_commander
+                    && self.svars.get(num.trim()).map(String::as_str)
+                        == Some("TriggeredCard$CommanderCastFromCommandZone")
+                {
+                    "SpendRider::CommanderScry".to_string()
+                } else {
+                    return deny();
+                }
+            }
+            "CopySpellAbility" => {
+                if ep.take("Defined").as_deref() != Some("TriggeredSpellAbility")
+                    || ep.take("MayChooseTarget").as_deref() != Some("True")
+                    || ep.first_key().is_some()
+                {
+                    return deny();
+                }
+                "SpendRider::Copy".to_string()
+            }
+            _ => return deny(),
+        };
+        Some(ManaSpendRider::WhenSpent { filter, rider })
     }
 
     fn mono_devotion_mana_amount(&self, color_const: &str, raw: &str) -> Option<&'static str> {
@@ -153,34 +379,198 @@ impl Tx<'_> {
     }
 
     /// [`Self::mana_effect`] for a pool other than the controller's:
-    /// `Effect::AddManaFor`, one per colour, of a fixed amount and with no
-    /// restriction. Anything else is refused by name.
+    /// `Effect::AddManaFor` for fixed amounts, or `Effect::AddManaAmountFor`
+    /// for a dynamic single-color amount.
     pub(super) fn mana_for(&mut self, p: &mut Params, who: &str) -> Option<Vec<String>> {
-        let produced = p.take("Produced")?;
+        let Some(produced) = p.take("Produced") else {
+            return self.deny("`Mana` for another player with no `Produced$`".to_string());
+        };
         if p.peek("RestrictValid").is_some() {
             return self.deny("restricted mana for another player".to_string());
         }
         let raw = p.take("Amount").unwrap_or_else(|| "1".to_string());
-        let Some(amount) = plain_number(&raw, self.svars).and_then(|n| u16::try_from(n).ok())
-        else {
+        let color_of = |symbol: &str| match symbol {
+            "W" => Some("ManaColor::White"),
+            "U" => Some("ManaColor::Blue"),
+            "B" => Some("ManaColor::Black"),
+            "R" => Some("ManaColor::Red"),
+            "G" => Some("ManaColor::Green"),
+            "C" => Some("ManaColor::Colorless"),
+            _ => None,
+        };
+        if let Some(amount) = plain_number(&raw, self.svars).and_then(|n| u16::try_from(n).ok()) {
+            let mut out = Vec::new();
+            for symbol in produced.split_whitespace() {
+                let Some(color) = color_of(symbol) else {
+                    return self.deny(format!("mana for another player of `{symbol}`"));
+                };
+                out.push(format!(
+                    "Effect::AddManaFor {{ who: {who}, color: {color}, amount: {amount} }}"
+                ));
+            }
+            return Some(out);
+        }
+        let symbols: Vec<&str> = produced.split_whitespace().collect();
+        let [only] = symbols.as_slice() else {
             return self.deny(format!("mana for another player of `Amount$ {raw}`"));
         };
-        let mut out = Vec::new();
-        for symbol in produced.split_whitespace() {
-            let color = match symbol {
-                "W" => "ManaColor::White",
-                "U" => "ManaColor::Blue",
-                "B" => "ManaColor::Black",
-                "R" => "ManaColor::Red",
-                "G" => "ManaColor::Green",
-                "C" => "ManaColor::Colorless",
-                other => return self.deny(format!("mana for another player of `{other}`")),
-            };
-            out.push(format!(
-                "Effect::AddManaFor {{ who: {who}, color: {color}, amount: {amount} }}"
-            ));
+        let Some(color) = color_of(only) else {
+            return self.deny(format!("mana for another player of `{only}`"));
+        };
+        let saved = self.unclaimed.borrow().clone();
+        let Some(amount) = self.counted_amount(&raw) else {
+            *self.unclaimed.borrow_mut() = saved;
+            return self.deny(format!("mana for another player of `Amount$ {raw}`"));
+        };
+        Some(vec![format!(
+            "Effect::AddManaAmountFor {{ who: {who}, color: {color}, amount: {amount} }}"
+        )])
+    }
+
+    /// `A:AB$ ManaReflected`: delegates `ReflectProperty$ Produce` to
+    /// [`Self::gond_mana_reflected`] (plus two clean extensions) and lowers
+    /// `ReflectProperty$ Is` (`ColorsAmong` / `ExiledWithSource`).
+    pub(super) fn activated_mana_reflected(&mut self, mut p: Params) -> Option<()> {
+        if p.peek("ReflectProperty") == Some("Is") {
+            return self.mana_reflected_is(p);
         }
-        Some(out)
+        if p.peek("ReflectProperty") == Some("Produce")
+            && p.peek("Cost") == Some("T")
+            && p.peek("ColorOrType") == Some("Type")
+            && p.peek("Valid") == Some("Gate.YouCtrl")
+        {
+            p.drop_prose();
+            p.take("Cost");
+            p.take("ReflectProperty");
+            p.take("ColorOrType");
+            p.take("Valid");
+            if let Some(amount) = p.take("Amount")
+                && amount != "1"
+            {
+                return self.deny("reflected Gate amount other than one".into());
+            }
+            if !p.exhausted() {
+                return self.deny("unclaimed reflected Gate mana parameter".into());
+            }
+            self.body.abilities.push(
+                "mana_ability!(&[Effect::mana_from_lands(&Filter::HasSubtype(subtypes::land::GATE), true, true)])"
+                    .to_string(),
+            );
+            return Some(());
+        }
+        if p.peek("ReflectProperty") == Some("Produce")
+            && p.peek("Cost") == Some("T PayLife<1>")
+            && matches!(p.peek("Valid"), Some("Land.YouCtrl" | "Land.OppCtrl"))
+        {
+            p.drop_prose();
+            let cost_raw = p.take("Cost")?;
+            p.take("ReflectProperty");
+            let any_type = match p.take("ColorOrType").as_deref() {
+                Some("Color") => false,
+                Some("Type") => true,
+                _ => {
+                    return self
+                        .deny("reflected mana outside the exact your-Gate colours grammar".into());
+                }
+            };
+            let effect = match p.take("Valid").as_deref() {
+                Some("Land.YouCtrl") => {
+                    format!("Effect::mana_from_lands(&Filter::ControlledByYou, true, {any_type})")
+                }
+                Some("Land.OppCtrl") => format!(
+                    "Effect::mana_from_lands(&Filter::ControlledByOpponent, false, {any_type})"
+                ),
+                _ => unreachable!(),
+            };
+            if let Some(amount) = p.take("Amount")
+                && amount != "1"
+            {
+                return self.deny("reflected Gate amount other than one".into());
+            }
+            if !p.exhausted() {
+                return self.deny("unclaimed reflected Gate mana parameter".into());
+            }
+            let cost = self.parse_activated_cost(&cost_raw, None)?;
+            self.body
+                .abilities
+                .push(format!("mana_ability!({cost}, &[{effect}])"));
+            return Some(());
+        }
+        self.gond_mana_reflected(p)
+    }
+
+    fn mana_reflected_is(&mut self, mut p: Params) -> Option<()> {
+        p.drop_prose();
+        p.take("ReflectProperty");
+        let Some(cost_raw) = p.take("Cost") else {
+            return self.deny("`ManaReflected` with no `Cost$`".to_string());
+        };
+        if p.take("ColorOrType").as_deref() != Some("Color") {
+            return self.deny("`ManaReflected` with non-`Color` `ReflectProperty$ Is`".to_string());
+        }
+        if let Some(amount) = p.take("Amount")
+            && amount != "1"
+        {
+            return self.deny(format!("`ManaReflected` with `Amount$ {amount}`"));
+        }
+        let persistent = match p.take("PersistentMana").as_deref() {
+            None => false,
+            Some("True") => true,
+            Some(other) => return self.deny(format!("`ManaReflected.PersistentMana$ {other}`")),
+        };
+        let restrict = match p.take("RestrictValid") {
+            None => None,
+            Some(valid) => Some(self.spend_restriction(&valid)?),
+        };
+        let Some(valid) = p.take("Valid") else {
+            return self.deny("`ManaReflected` with no `Valid$`".to_string());
+        };
+        if let Some(key) = p.first_key() {
+            return self.deny(format!("unclaimed parameter `ManaReflected.{key}`"));
+        }
+        let base_effect = match valid.as_str() {
+            "Defined.ExiledWith" | "Defined.Imprinted" => "Effect::mana_exiled_colors()".to_string(),
+            "Defined.Self" => "Effect::AddMana { source: ManaSource::ColorsAmong { filter: &Filter::This, zone: ZoneSel::Battlefield }, amount: Amount::Fixed(1), distribution: ManaDistribution::OneColor, restriction: None }".to_string(),
+            other if other.starts_with("Defined.ValidGraveyard ") => {
+                let raw = other.trim_start_matches("Defined.ValidGraveyard ").trim();
+                let Some(cleaned) = strip_player_valid_scope(raw, "YouOwn") else {
+                    return self.deny(format!("`ManaReflected.Valid$ {valid}`"));
+                };
+                let expr = self.filter_expr_in_zone(&cleaned, true)?;
+                let filter_ref = if expr == "Filter::Any" {
+                    "Filter::Any".to_string()
+                } else {
+                    self.body.filter_static("MANA", &expr)
+                };
+                format!(
+                    "Effect::AddMana {{ source: ManaSource::ColorsAmong {{ filter: &{filter_ref}, zone: ZoneSel::GraveyardOf(PlayerRel::You) }}, amount: Amount::Fixed(1), distribution: ManaDistribution::OneColor, restriction: None }}"
+                )
+            }
+            other if other.starts_with("Defined.") => {
+                return self.deny(format!("`ManaReflected.Valid$ {valid}`"));
+            }
+            other => {
+                let expr = self.filter_expr(other)?;
+                let filter_ref = self.body.filter_static("MANA", &expr);
+                format!(
+                    "Effect::AddMana {{ source: ManaSource::ColorsAmong {{ filter: &{filter_ref}, zone: ZoneSel::Battlefield }}, amount: Amount::Fixed(1), distribution: ManaDistribution::OneColor, restriction: None }}"
+                )
+            }
+        };
+        let effects = self.apply_mana_modifiers(
+            vec![base_effect],
+            restrict,
+            ManaSpendRider::None,
+            persistent,
+        )?;
+        let cost = self.parse_activated_cost(&cost_raw, None)?;
+        let ability = if cost == "Cost::TAP" {
+            format!("mana_ability!(&[{}])", effects.join(", "))
+        } else {
+            format!("mana_ability!({cost}, &[{}])", effects.join(", "))
+        };
+        self.body.abilities.push(ability);
+        Some(())
     }
 
     /// `Produced$ Combo …` — a choice among the colours listed, and how many.
@@ -201,8 +591,14 @@ impl Tx<'_> {
         // what a Command Tower makes is read off its controller's commanders
         // (CR 903.4), so no card can name the colours.
         if list.trim() == "ColorIdentity" {
-            return (fixed == Some(1))
-                .then(|| vec!["Effect::mana_commander_identity()".to_string()]);
+            return Some(if fixed == Some(1) {
+                vec!["Effect::mana_commander_identity()".to_string()]
+            } else {
+                vec![format!(
+                    "Effect::AddMana {{ source: ManaSource::CommanderIdentity, amount: {}, distribution: ManaDistribution::AnyCombination, restriction: None }}",
+                    self.counted_amount(raw)?
+                )]
+            });
         }
         // The chosen colour is one of the options rather than a colour of
         // its own: "Add {W} or one mana of the chosen color."
@@ -232,11 +628,6 @@ impl Tx<'_> {
             let mut out = Vec::new();
             for word in rest {
                 let Some(color) = mana_color_const(word) else {
-                    // `AnyDifferent` (two mana of *different* colours) and
-                    // `NotedColors` (what was chosen while drafting) are each
-                    // a rule of their own, and a refusal naming the line
-                    // rather than the word would send a reader back to the
-                    // script to find out which.
                     return self.deny(format!("`Mana` combination over `{word}`"));
                 };
                 out.push(color.to_string());
@@ -249,7 +640,11 @@ impl Tx<'_> {
             format!("&[{}]", colors.join(", "))
         };
         if !chosen.is_empty() {
-            return (fixed == Some(1)).then(|| vec![format!("Effect::mana_chosen_or({listed})")]);
+            return if fixed == Some(1) {
+                Some(vec![format!("Effect::mana_chosen_or({listed})")])
+            } else {
+                self.deny(format!("`Mana` chosen-or combination with `Amount$ {raw}`"))
+            };
         }
         Some(match fixed {
             Some(1) if colors.is_empty() => vec!["Effect::mana_of_any_color()".to_string()],
@@ -1586,16 +1981,27 @@ impl Tx<'_> {
                 parts.push("TapSelf".to_string());
             } else if token == "Q" {
                 parts.push("UntapSelf".to_string());
-            } else if token.starts_with("Sac<1/CARDNAME") {
+            } else if token == "Sac<1/CARDNAME>"
+                || token.starts_with("Sac<1/CARDNAME/")
+                || token == "Sac<1/NICKNAME>"
+                || token.starts_with("Sac<1/NICKNAME/")
+            {
                 parts.push("SacrificeSelf".to_string());
             } else if (token == "Sac<1/OriginalHost>" || token.starts_with("Sac<1/OriginalHost/"))
                 && !self.on_a_spell
                 && !self.in_alternative_cost
             {
                 parts.push("SacrificeGrantor".to_string());
-            } else if token == "Exile<1/CARDNAME>" || token.starts_with("Exile<1/CARDNAME/") {
+            } else if token == "Exile<1/CARDNAME>"
+                || token.starts_with("Exile<1/CARDNAME/")
+                || token == "Exile<1/NICKNAME>"
+                || token.starts_with("Exile<1/NICKNAME/")
+            {
                 parts.push("ExileSelf".to_string());
-            } else if (token == "Exert<1/CARDNAME>" || token.starts_with("Exert<1/CARDNAME/"))
+            } else if (token == "Exert<1/CARDNAME>"
+                || token.starts_with("Exert<1/CARDNAME/")
+                || token == "Exert<1/NICKNAME>"
+                || token.starts_with("Exert<1/NICKNAME/"))
                 && !self.on_a_spell
                 && !self.in_alternative_cost
             {
@@ -1825,7 +2231,7 @@ impl Tx<'_> {
             else {
                 return self.deny(format!("cost `{token}`"));
             };
-            if fields.next() != Some("Card") {
+            if !matches!(fields.next(), Some("Card" | "Card.YouOwn")) {
                 return self.deny(format!("cost `{token}`"));
             }
             return Some(format!("ExileTopOfLibrary({n})"));
@@ -1890,30 +2296,26 @@ impl Tx<'_> {
             && !tap_x
             && (self.in_alternative_cost || (self.trigger_mode.is_none() && n != "1"))
         {
-            let Some(count) = n
+            match n
                 .parse::<u32>()
                 .ok()
                 .filter(|count| (1..=10).contains(count))
-            else {
-                return self.deny(format!("a cost naming `{n}` objects"));
-            };
-            Some(count)
+            {
+                Some(count) => Some(count),
+                None => return self.deny(format!("a cost naming `{n}` objects")),
+            }
         } else {
             None
         };
-        let multi_parts = (matches!(kind, "Sac" | "Discard" | "ExileFromGrave")
-            || (self.in_alternative_cost && matches!(kind, "Return" | "ExileFromHand")))
+        let is_self_name = matches!(spec, "CARDNAME" | "NICKNAME");
+        let multi_parts = (matches!(
+            kind,
+            "Sac" | "Discard" | "ExileFromGrave" | "Return" | "Exile"
+        ) || (self.in_alternative_cost && kind == "ExileFromHand"))
             && matches!(n, "2" | "3")
-            && spec != "CARDNAME";
-        if n != "1"
-            && !sac_x
-            && !sac_all
-            && !tap_x
-            && !discard_x
-            && !exile_grave_x
-            && tap_n.is_none()
-            && !multi_parts
-        {
+            && !is_self_name;
+        let special = sac_x || sac_all || tap_x || discard_x || exile_grave_x || tap_n.is_some();
+        if n != "1" && !special && !multi_parts {
             return self.deny(format!("a cost naming `{n}` objects"));
         }
         let part_count = if multi_parts {
@@ -1930,7 +2332,7 @@ impl Tx<'_> {
             "Exile" => ("ExilePermanent", true),
             _ => ("ReturnToHand", true),
         };
-        if spec == "CARDNAME" {
+        if is_self_name {
             // The source pays for itself, which is a part with no filter and
             // no question. `Sac<1/CARDNAME>` never reaches here (it is
             // matched one branch up), so this is the return's own case.
@@ -2098,4 +2500,16 @@ pub(super) fn special_mana_symbol(token: &str) -> Option<String> {
         }
         _ => None,
     }
+}
+
+fn has_unscoped_spend_atom(valid: &str) -> bool {
+    valid.split(',').any(|alt| {
+        alt.split(['.', '+']).any(|atom| {
+            let a = atom.trim();
+            a.contains("Ctrl")
+                || a.contains("Own")
+                || a.contains("shares")
+                || matches!(a, "Self" | "Other" | "StrictlyOther")
+        })
+    })
 }

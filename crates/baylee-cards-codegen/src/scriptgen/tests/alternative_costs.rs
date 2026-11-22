@@ -299,8 +299,8 @@ fn alternative_cost_refuses_unpayable_parts_and_stays_scoped_off_activated_lines
         ),
         (
             "Name:X\nTypes:Creature\n\
-             A:AB$ Draw | Cost$ Return<2/Forest> | NumCards$ 1",
-            "a cost naming `2` objects",
+             A:AB$ Draw | Cost$ Return<4/Forest> | NumCards$ 1",
+            "a cost naming `4` objects",
         ),
     ]);
 }
@@ -524,4 +524,34 @@ fn wave19a_alternative_cost_phyrexian_and_two_generic_mana() {
         );
         assert!(refused(&script), "must refuse: {bad_cost}");
     }
+}
+
+#[test]
+fn wave20a_alternative_cost_extra_named_conditions() {
+    assert_alt_conditions(&[
+        (
+            "Name:X\nTypes:Instant\n\
+             S:Mode$ AlternativeCost | ValidSA$ Spell.Self | EffectZone$ All | Cost$ 0 | Condition$ MaxSpeed\n\
+             A:SP$ Draw | NumCards$ 1",
+            "AltCondition::If(&Condition::MaxSpeed)",
+        ),
+        (
+            "Name:X\nTypes:Instant\n\
+             S:Mode$ AlternativeCost | ValidSA$ Spell.Self | EffectZone$ All | Cost$ 0 | Condition$ EnduringStory\n\
+             A:SP$ Draw | NumCards$ 1",
+            "AltCondition::If(&Condition::EnduringStory)",
+        ),
+        (
+            "Name:X\nTypes:Instant\n\
+             S:Mode$ AlternativeCost | ValidSA$ Spell.Self | EffectZone$ All | Cost$ 0 | Condition$ FatefulHour\n\
+             A:SP$ Draw | NumCards$ 1",
+            "AltCondition::If(&Condition::LifeAtMost(5))",
+        ),
+        (
+            "Name:X\nTypes:Instant\n\
+             S:Mode$ AlternativeCost | ValidSA$ Spell.Self | EffectZone$ All | Cost$ 0 | Condition$ Revolt\n\
+             A:SP$ Draw | NumCards$ 1",
+            "AltCondition::If(&Condition::Revolt)",
+        ),
+    ]);
 }

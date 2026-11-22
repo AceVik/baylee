@@ -1014,13 +1014,11 @@ fn a_refused_script_always_says_why() {
              A:AB$ PutCounter | Cost$ T | CounterType$ P1M1 | CounterNum$ 1",
             "counter `P1M1`",
         ),
-        // A return cost carries one permanent, so a count above one is
-        // refused by that count rather than paid one short. Fourteen of
-        // the corpus's 78 return costs print two, three or X.
+        // Multi-return costs above three or variable X remain refused by count.
         (
             "Name:X\nTypes:Creature\n\
-             A:AB$ Untap | Cost$ Return<2/Forest> | ValidTgts$ Creature",
-            "a cost naming `2` objects",
+             A:AB$ Untap | Cost$ Return<4/Forest> | ValidTgts$ Creature",
+            "a cost naming `4` objects",
         ),
         (
             "Name:X\nTypes:Creature\n\
@@ -5292,6 +5290,335 @@ fn wave19a_devotion_mana_any_different_and_sub_counter_self() {
         "Name:X\nTypes:Land\nA:AB$ Mana | Cost$ T | Produced$ Combo Chosen AnyDifferent | Amount$ 2",
         "Name:X\nTypes:Artifact\nA:AB$ Draw | Cost$ SubCounter<1/LOYALTY/CARDNAME> | NumCards$ 1",
         "Name:X\nTypes:Artifact\nA:AB$ Draw | Cost$ SubCounter<1/OIL/Creature.YouCtrl> | NumCards$ 1",
+    ] {
+        assert!(refused(bad), "must refuse: {bad}");
+    }
+}
+
+#[test]
+fn wave20a_mana_reflected_is_and_produce_extensions() {
+    let exiled = read(
+        "Name:ImprintMox\nManaCost:0\nTypes:Artifact\n\
+         A:AB$ ManaReflected | Cost$ T | Valid$ Defined.ExiledWith | ColorOrType$ Color | ReflectProperty$ Is",
+    );
+    assert_eq!(
+        exiled.abilities,
+        ["mana_ability!(&[Effect::mana_exiled_colors()])"]
+    );
+
+    let self_colors = read(
+        "Name:SelfMana\nManaCost:2\nTypes:Creature\nPT:1/1\n\
+         A:AB$ ManaReflected | Cost$ T | Valid$ Defined.Self | ColorOrType$ Color | ReflectProperty$ Is",
+    );
+    assert!(
+        self_colors.abilities[0].contains(
+            "ManaSource::ColorsAmong { filter: &Filter::This, zone: ZoneSel::Battlefield }"
+        ),
+        "{:?}",
+        self_colors.abilities
+    );
+
+    let leg = read(
+        "Name:LegendMox\nManaCost:0\nTypes:Artifact\n\
+         A:AB$ ManaReflected | Cost$ T | Valid$ Permanent.Legendary+YouCtrl | ColorOrType$ Color | ReflectProperty$ Is",
+    );
+    assert!(
+        leg.abilities[0]
+            .contains("ManaSource::ColorsAmong { filter: &MANA1, zone: ZoneSel::Battlefield }"),
+        "{:?}",
+        leg.abilities
+    );
+
+    let gy = read(
+        "Name:GraveMox\nManaCost:2\nTypes:Artifact\n\
+         A:AB$ ManaReflected | Cost$ T | Valid$ Defined.ValidGraveyard Card.YouOwn | ColorOrType$ Color | ReflectProperty$ Is",
+    );
+    assert!(
+        gy.abilities[0].contains(
+            "ManaSource::ColorsAmong { filter: &Filter::Any, zone: ZoneSel::GraveyardOf(PlayerRel::You) }"
+        ),
+        "{:?}",
+        gy.abilities
+    );
+
+    let gate_type = read(
+        "Name:GatePool\nTypes:Land\n\
+         A:AB$ ManaReflected | Cost$ T | ColorOrType$ Type | Valid$ Gate.YouCtrl | ReflectProperty$ Produce",
+    );
+    assert!(
+        gate_type.abilities[0].contains(
+            "Effect::mana_from_lands(&Filter::HasSubtype(subtypes::land::GATE), true, true)"
+        ),
+        "{:?}",
+        gate_type.abilities
+    );
+
+    let pain_pool = read(
+        "Name:PainPool\nTypes:Land\n\
+         A:AB$ ManaReflected | Cost$ T PayLife<1> | ColorOrType$ Type | Valid$ Land.YouCtrl | ReflectProperty$ Produce",
+    );
+    assert_eq!(
+        pain_pool.abilities,
+        [
+            "mana_ability!(cost!(TapSelf, PayLife(1)), &[Effect::mana_from_lands(&Filter::ControlledByYou, true, true)])"
+        ]
+    );
+
+    for bad in [
+        "Name:X\nTypes:Artifact\nA:AB$ ManaReflected | Cost$ T | Valid$ Permanent.YouCtrl | ColorOrType$ Type | ReflectProperty$ Is",
+        "Name:X\nTypes:Artifact\nA:AB$ ManaReflected | Cost$ T | Valid$ Defined.Untapped | ColorOrType$ Color | ReflectProperty$ Is",
+        "Name:X\nTypes:Artifact\nA:AB$ ManaReflected | Cost$ T | Valid$ Defined.ValidGraveyard Card.OppOwn | ColorOrType$ Color | ReflectProperty$ Is",
+        "Name:X\nTypes:Artifact\nA:AB$ ManaReflected | Cost$ T | Valid$ Permanent.YouCtrl | ColorOrType$ Color | ReflectProperty$ Is | Amount$ 2",
+        "Name:X\nTypes:Artifact\nA:AB$ ManaReflected | Cost$ T | Valid$ Permanent.YouCtrl | ColorOrType$ Color | ReflectProperty$ Is | Unknown$ True",
+    ] {
+        assert!(refused(bad), "must refuse: {bad}");
+    }
+}
+
+#[test]
+fn wave20a_mana_spend_riders_and_triggers_when_spent() {
+    let uncounterable = read(
+        "Name:HeroPlaza\nTypes:Land\n\
+         A:AB$ Mana | Cost$ T | Produced$ Any | RestrictValid$ Spell.Legendary | AddsNoCounter$ True",
+    );
+    assert!(
+        uncounterable.abilities[0].contains(".restricted(&SPEND1, SpendRider::Uncounterable)")
+            && uncounterable
+                .statics
+                .contains("Filter::HasSupertype(SupertypeSet::LEGENDARY)"),
+        "{:?} / {}",
+        uncounterable.abilities,
+        uncounterable.statics
+    );
+
+    let haste_perm = read(
+        "Name:BanditHall\nTypes:Land\n\
+         A:AB$ Mana | Cost$ T PayLife<3> | Produced$ C | AddsKeywords$ Haste | AddsKeywordsValid$ Spell.Creature",
+    );
+    assert_eq!(
+        haste_perm.abilities,
+        [
+            "mana_ability!(cost!(TapSelf, PayLife(3)), &[Effect::mana(ManaColor::Colorless, 1).when_spent(&Filter::CREATURE, SpendRider::Haste)])"
+        ]
+    );
+
+    let haste_eot = read(
+        "Name:GloryArena\nTypes:Land\n\
+         A:AB$ Mana | Cost$ R T Exert<1/CARDNAME/this land> | Produced$ R R | AddsKeywords$ Haste | AddsKeywordsValid$ Spell.Creature | AddsKeywordsUntil$ UntilEOT",
+    );
+    assert_eq!(
+        haste_eot.abilities,
+        [
+            "mana_ability!(cost!(\"{R}\", TapSelf, ExertSelf), &[Effect::mana(ManaColor::Red, 2).when_spent(&Filter::CREATURE, SpendRider::HasteUntilEndOfTurn)])"
+        ]
+    );
+
+    let ctr = read(
+        "Name:CounterLand\nTypes:Land\n\
+         A:AB$ Mana | Cost$ T | Produced$ Any | AddsCounters$ Card.Creature_P1P1_1",
+    );
+    assert_eq!(
+        ctr.abilities,
+        [
+            "mana_ability!(&[Effect::mana_of_any_color().when_spent(&Filter::CREATURE, SpendRider::EnterCounters(1))])"
+        ]
+    );
+
+    let cmd_ctr = read(
+        "Name:PalaceLand\nTypes:Land\n\
+         A:AB$ Mana | Cost$ 1 T | Produced$ Combo ColorIdentity | AddsCounters$ Card.YouOwn+IsCommander_P1P1_ManaAddsCounterNum",
+    );
+    assert!(
+        cmd_ctr.abilities[0].contains(".when_spent(&SPEND1, SpendRider::CommanderEnterCounters)"),
+        "{:?}",
+        cmd_ctr.abilities
+    );
+
+    let path_scry = read(
+        "Name:AncestryPath\nTypes:Land\n\
+         A:AB$ Mana | Cost$ T | Produced$ Combo ColorIdentity | TriggersWhenSpent$ TrigScry\n\
+         SVar:TrigScry:Mode$ SpellCast | ValidCard$ Creature.sharesCreatureTypeWith Commander | Execute$ DBScry\n\
+         SVar:DBScry:DB$ Scry | ScryNum$ 1",
+    );
+    assert!(
+        path_scry.abilities[0].contains(".when_spent(&SPEND1, SpendRider::Scry(1))")
+            && path_scry
+                .statics
+                .contains("Filter::SharesSubtypeWithCommander"),
+        "{:?} / {}",
+        path_scry.abilities,
+        path_scry.statics
+    );
+
+    let cmd_scry = read(
+        "Name:HallStudy\nTypes:Land\n\
+         A:AB$ Mana | Cost$ 1 T | Produced$ Any | TriggersWhenSpent$ TrigSpent\n\
+         SVar:TrigSpent:Mode$ SpellCast | ValidCard$ Card.IsCommander+YouOwn | ValidActivatingPlayer$ You | Execute$ TrigScry\n\
+         SVar:TrigScry:DB$ Scry | ScryNum$ X\n\
+         SVar:X:TriggeredCard$CommanderCastFromCommandZone",
+    );
+    assert!(
+        cmd_scry.abilities[0].contains(".when_spent(&SPEND1, SpendRider::CommanderScry)"),
+        "{:?}",
+        cmd_scry.abilities
+    );
+
+    let copy_mana = read(
+        "Name:CopyLens\nManaCost:5\nTypes:Artifact\n\
+         A:AB$ Mana | Cost$ T | Produced$ R | TriggersWhenSpent$ TrigCopy\n\
+         SVar:TrigCopy:Mode$ SpellCast | ValidCard$ Instant.Red,Sorcery.Red | Execute$ TrigCopyMain\n\
+         SVar:TrigCopyMain:DB$ CopySpellAbility | Defined$ TriggeredSpellAbility | MayChooseTarget$ True",
+    );
+    assert!(
+        copy_mana.abilities[0].contains(".when_spent(&SPEND1, SpendRider::Copy)"),
+        "{:?}",
+        copy_mana.abilities
+    );
+
+    for bad in [
+        "Name:X\nTypes:Land\nA:AB$ Mana | Cost$ T | Produced$ Any | AddsNoCounter$ True",
+        "Name:X\nTypes:Land\nA:AB$ Mana | Cost$ T | Produced$ G | AddsKeywords$ Riot | AddsKeywordsValid$ Spell.Creature",
+        "Name:X\nTypes:Land\nA:AB$ Mana | Cost$ T | Produced$ G | RestrictValid$ Spell.Creature | AddsKeywords$ Haste | AddsKeywordsValid$ Spell.Creature",
+        "Name:X\nTypes:Land\nA:AB$ Mana | Cost$ T | Produced$ Any | AddsCounters$ Card.Creature_M1M1_1",
+        "Name:X\nTypes:Land\nA:AB$ Mana | Cost$ T | Produced$ G | TriggersWhenSpent$ T\nSVar:T:Mode$ SpellCast | ValidCard$ Creature | Execute$ G\nSVar:G:DB$ GainLife | LifeAmount$ 2",
+        "Name:X\nTypes:Land\nA:AB$ Mana | Cost$ T | Produced$ U | TriggersWhenSpent$ T\nSVar:T:Mode$ SpellAbilityCast | ValidSA$ Spell,Activated | Execute$ C\nSVar:C:DB$ CopySpellAbility | Defined$ TriggeredSpellAbility | MayChooseTarget$ True",
+    ] {
+        assert!(refused(bad), "must refuse: {bad}");
+    }
+}
+
+#[test]
+fn wave20a_mana_amount_for_chosen_color_identity_and_explicit_reasons() {
+    let for_dyn = read(
+        "Name:EachMana\nManaCost:2 G\nTypes:Sorcery\n\
+         A:SP$ Mana | Defined$ Player | Produced$ G | Amount$ X\n\
+         SVar:X:Count$Valid Creature.YouCtrl",
+    );
+    assert!(
+        for_dyn.abilities[0].contains("Effect::AddManaAmountFor { who: PlayerRel::EachPlayer, color: ManaColor::Green, amount: Amount::CountOf {"),
+        "{:?}",
+        for_dyn.abilities
+    );
+
+    let chosen_two = read(
+        "Name:DoubleChosen\nTypes:Land\n\
+         A:AB$ Mana | Cost$ T | Produced$ Chosen | Amount$ 2",
+    );
+    assert!(
+        chosen_two.abilities[0].contains("ManaSource::Chosen, amount: Amount::Fixed(2)"),
+        "{:?}",
+        chosen_two.abilities
+    );
+
+    let chosen_devotion = read(
+        "Name:DevotionChosen\nManaCost:4\nTypes:Artifact\n\
+         A:AB$ Mana | Cost$ T | Produced$ Chosen | Amount$ X\n\
+         SVar:X:Count$Devotion.Chosen",
+    );
+    assert!(
+        chosen_devotion.abilities[0]
+            .contains("ManaSource::Chosen, amount: Amount::DevotionToManaColor"),
+        "{:?}",
+        chosen_devotion.abilities
+    );
+
+    let cmd_two = read(
+        "Name:DoubleTower\nTypes:Land\n\
+         A:AB$ Mana | Cost$ T | Produced$ Combo ColorIdentity | Amount$ 2",
+    );
+    assert!(
+        cmd_two.abilities[0].contains(
+            "ManaSource::CommanderIdentity, amount: Amount::Fixed(2), distribution: ManaDistribution::AnyCombination"
+        ),
+        "{:?}",
+        cmd_two.abilities
+    );
+
+    // Every refusal below must record an explicit non-empty reason (no silent None).
+    for bad in [
+        "Name:X\nTypes:Land\nA:AB$ Mana | Cost$ T | Produced$ Combo W Chosen | Amount$ 2",
+        "Name:X\nTypes:Artifact\nA:AB$ Draw | Cost$ 1 | NumCards$ 1 | IsPresent$ Card.Self+counters_GE2_NOSUCHCOUNTER",
+        "Name:X\nManaCost:2 U\nTypes:Instant\nA:SP$ Charm | Choices$ M1,M2 | CharmNum$ 3 | CanRepeatModes$ True\nSVar:M1:DB$ Draw | NumCards$ 1\nSVar:M2:DB$ GainLife | Defined$ You | LifeAmount$ 2",
+    ] {
+        let parsed = parse(bad);
+        assert!(
+            transcode(&parsed, &cats(), None).is_none(),
+            "must refuse: {bad}"
+        );
+        assert!(
+            refusal_reason(&parsed, &cats(), None).is_some(),
+            "must record an explicit refusal reason: {bad}"
+        );
+    }
+}
+
+#[test]
+fn wave20a_nickname_self_costs_multi_return_exile_xmin_param_and_life_total_drop() {
+    let nick_costs = read(
+        "Name:NickBot\nManaCost:2\nTypes:Artifact Creature\nPT:2/2\n\
+         A:AB$ Draw | Cost$ Sac<1/NICKNAME> | NumCards$ 1\n\
+         A:AB$ Draw | Cost$ Exile<1/NICKNAME/this creature> | NumCards$ 1\n\
+         A:AB$ Draw | Cost$ Exert<1/NICKNAME> | NumCards$ 1\n\
+         A:AB$ Draw | Cost$ Return<1/NICKNAME> | NumCards$ 1\n\
+         A:AB$ Draw | Cost$ ExileFromTop<2/Card.YouOwn> | NumCards$ 1",
+    );
+    assert_eq!(
+        nick_costs.abilities,
+        [
+            "activated!(cost!(SacrificeSelf), &[Effect::draw(1)])",
+            "activated!(cost!(ExileSelf), &[Effect::draw(1)])",
+            "activated!(cost!(ExertSelf), &[Effect::draw(1)])",
+            "activated!(cost!(ReturnSelfToHand), &[Effect::draw(1)])",
+            "activated!(cost!(ExileTopOfLibrary(2)), &[Effect::draw(1)])",
+        ]
+    );
+
+    let multi_ret_exile = read(
+        "Name:MultiCost\nManaCost:2\nTypes:Artifact\n\
+         A:AB$ Draw | Cost$ Return<2/Land> | NumCards$ 1\n\
+         A:AB$ Draw | Cost$ Exile<2/Artifact> | NumCards$ 1",
+    );
+    assert_eq!(
+        multi_ret_exile.abilities,
+        [
+            "activated!(cost!(ReturnToHand(&Filter::YOUR_LAND), ReturnToHand(&Filter::YOUR_LAND)), &[Effect::draw(1)])",
+            "activated!(cost!(ExilePermanent(&Filter::YOUR_ARTIFACT), ExilePermanent(&Filter::YOUR_ARTIFACT)), &[Effect::draw(1)])",
+        ]
+    );
+
+    let xmin_param = read(
+        "Name:ParamXMin\nManaCost:2\nTypes:Artifact\n\
+         A:AB$ Draw | Cost$ X | XMin$ 1 | NumCards$ X\n\
+         SVar:X:Count$xPaid",
+    );
+    assert_eq!(
+        xmin_param.abilities,
+        [
+            "activated!(cost!(\"{X}\"), &[Effect::DrawCards { amount: Amount::X }], x_value = ActivationX::AtLeast(1))"
+        ]
+    );
+
+    let life_and_gy = read(
+        "Name:DropKeyFix\nManaCost:2 W\nTypes:Creature\nPT:2/2\n\
+         A:AB$ Draw | Cost$ T | NumCards$ 1 | LifeTotal$ You | LifeAmount$ GE30\n\
+         A:AB$ Draw | Cost$ T | NumCards$ 1 | IsPresent$ Card | PresentZone$ Graveyard | PresentPlayer$ You | PresentCompare$ GE5",
+    );
+    assert!(
+        life_and_gy.abilities[0]
+            .contains("Condition::AmountAtLeast(Amount::LifeTotal(PlayerRel::You), 30)")
+            && life_and_gy.abilities[1].contains(
+                "Condition::AmountAtLeast(Amount::CountOf { filter: &Filter::Any, zone: ZoneSel::GraveyardOf(PlayerRel::You) }, 5)"
+            ),
+        "{:?}",
+        life_and_gy.abilities
+    );
+
+    for bad in [
+        "Name:X\nTypes:Instant\nA:SP$ Draw | Cost$ X | XMin$ 1 | NumCards$ X\nSVar:X:Count$xPaid",
+        "Name:X\nTypes:Planeswalker\nLoyalty:3\nA:AB$ Draw | Cost$ AddCounter<1/LOYALTY> | Planeswalker$ True | XMin$ 1 | NumCards$ 1",
+        "Name:X\nTypes:Artifact\nA:AB$ Draw | Cost$ XMin1 X | XMin$ 1 | NumCards$ X\nSVar:X:Count$xPaid",
+        "Name:X\nTypes:Artifact\nA:AB$ Draw | Cost$ 2 | XMin$ 1 | NumCards$ 1",
+        "Name:X\nTypes:Artifact\nA:AB$ Draw | Cost$ X | XMin$ 0 | NumCards$ X\nSVar:X:Count$xPaid",
     ] {
         assert!(refused(bad), "must refuse: {bad}");
     }
