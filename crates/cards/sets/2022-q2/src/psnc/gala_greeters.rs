@@ -27,23 +27,21 @@ card!(
         power = Some(1),
         toughness = Some(1),
     ),],
-    abilities = &[triggered!(
+    abilities = &[modal_triggered!(
         Trigger::EntersBattlefield(&TRIGGER1),
-        &[Effect::ChooseOneRestricted {
-            choices: &[
-                Effect::AddCounter {
-                    kind: CounterKind::P1P1,
-                    amount: Amount::Fixed(1)
-                },
-                Effect::CreateTokenModified {
-                    token: &generated_tokens::TREASURE,
-                    amount: Amount::Fixed(1),
-                    tapped: true,
-                    haste: false
-                },
-                Effect::gain_life(2)
-            ],
-            restriction: ModalRestriction::OncePerTurn
-        }]
+        &[
+            mode!(&[Effect::AddCounter {
+                kind: CounterKind::P1P1,
+                amount: Amount::Fixed(1)
+            }]),
+            mode!(&[Effect::CreateTokenModified {
+                token: &generated_tokens::TREASURE,
+                amount: Amount::Fixed(1),
+                tapped: true,
+                haste: false
+            }]),
+            mode!(&[Effect::gain_life(2)])
+        ],
+        restriction = ModalRestriction::OncePerTurn
     ),],
 );

@@ -50,7 +50,7 @@ card!(
         &[Effect::Play {
             source: PlaySource::Zone {
                 zone: ZoneRef::Graveyard,
-                owner: PlayerRel::You
+                owner: PlayerRel::EachPlayer
             },
             filter: &PLAY1,
             controller: PlayerRel::You,

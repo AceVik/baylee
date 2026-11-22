@@ -19,23 +19,21 @@ card!(
         mana_cost = mana!("{3}"),
         types = TypeSet::ARTIFACT,
     ),],
-    abilities = &[triggered!(
+    abilities = &[modal_triggered!(
         Trigger::Discarded {
             who: PlayerRel::You,
             filter: &Filter::Any
         },
-        &[Effect::ChooseOneRestricted {
-            choices: &[
-                Effect::draw(1),
-                Effect::CreateToken {
-                    token: &generated_tokens::TREASURE
-                },
-                Effect::LoseLife {
-                    amount: Amount::Fixed(3),
-                    target: PlayerRel::Opponent
-                }
-            ],
-            restriction: ModalRestriction::OncePerTurn
-        }]
+        &[
+            mode!(&[Effect::draw(1)]),
+            mode!(&[Effect::CreateToken {
+                token: &generated_tokens::TREASURE
+            }]),
+            mode!(&[Effect::LoseLife {
+                amount: Amount::Fixed(3),
+                target: PlayerRel::Opponent
+            }])
+        ],
+        restriction = ModalRestriction::OncePerTurn
     ),],
 );

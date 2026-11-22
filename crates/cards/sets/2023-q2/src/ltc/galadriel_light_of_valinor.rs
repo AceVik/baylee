@@ -28,19 +28,17 @@ card!(
         power = Some(3),
         toughness = Some(3),
     ),],
-    abilities = &[triggered!(
+    abilities = &[modal_triggered!(
         Trigger::EntersBattlefield(&TRIGGER1),
-        &[Effect::ChooseOneRestricted {
-            choices: &[
-                Effect::mana(ManaColor::Green, 3),
-                Effect::AddCounterFilter {
-                    filter: &Filter::YOUR_CREATURE,
-                    kind: CounterKind::P1P1,
-                    amount: Amount::Fixed(1)
-                },
-                Effect::Sequence(&[Effect::scry(2), Effect::draw(1)])
-            ],
-            restriction: ModalRestriction::OncePerTurn
-        }]
+        &[
+            mode!(&[Effect::mana(ManaColor::Green, 3)]),
+            mode!(&[Effect::AddCounterFilter {
+                filter: &Filter::YOUR_CREATURE,
+                kind: CounterKind::P1P1,
+                amount: Amount::Fixed(1)
+            }]),
+            mode!(&[Effect::scry(2), Effect::draw(1)])
+        ],
+        restriction = ModalRestriction::OncePerTurn
     ),],
 );

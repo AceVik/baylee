@@ -33,20 +33,18 @@ card!(
         power = Some(2),
         toughness = Some(1),
     ),],
-    abilities = &[triggered!(
+    abilities = &[modal_triggered!(
         Trigger::EntersBattlefield(&TRIGGER1),
-        &[Effect::ChooseOneRestricted {
-            choices: &[
-                Effect::AddCounter {
-                    kind: CounterKind::P1P1,
-                    amount: Amount::Fixed(1)
-                },
-                Effect::CreateToken {
-                    token: &generated_tokens::FOOD
-                },
-                Effect::scry(1)
-            ],
-            restriction: ModalRestriction::OncePerTurn
-        }]
+        &[
+            mode!(&[Effect::AddCounter {
+                kind: CounterKind::P1P1,
+                amount: Amount::Fixed(1)
+            }]),
+            mode!(&[Effect::CreateToken {
+                token: &generated_tokens::FOOD
+            }]),
+            mode!(&[Effect::scry(1)])
+        ],
+        restriction = ModalRestriction::OncePerTurn
     ),],
 );

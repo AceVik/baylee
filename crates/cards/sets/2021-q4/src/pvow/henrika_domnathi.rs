@@ -49,28 +49,26 @@ card!(
             power = Some(1),
             toughness = Some(3),
             keywords = KeywordSet::FLYING,
-            abilities = &[triggered!(
+            abilities = &[modal_triggered!(
                 Trigger::StepBegin {
                     step: StepKind::CombatBegin,
                     whose: PlayerRel::You
                 },
-                &[Effect::ChooseOneRestricted {
-                    choices: &[
-                        Effect::SacrificeFilter {
-                            who: PlayerRel::EachPlayer,
-                            filter: &Filter::CREATURE
-                        },
-                        Effect::Sequence(&[
-                            Effect::draw(1),
-                            Effect::LoseLife {
-                                amount: Amount::Fixed(1),
-                                target: PlayerRel::You
-                            }
-                        ]),
-                        Effect::TransformSource
-                    ],
-                    restriction: ModalRestriction::OncePerPermanent
-                }]
+                &[
+                    mode!(&[Effect::SacrificeFilter {
+                        who: PlayerRel::EachPlayer,
+                        filter: &Filter::CREATURE
+                    }]),
+                    mode!(&[
+                        Effect::draw(1),
+                        Effect::LoseLife {
+                            amount: Amount::Fixed(1),
+                            target: PlayerRel::You
+                        }
+                    ]),
+                    mode!(&[Effect::TransformSource])
+                ],
+                restriction = ModalRestriction::OncePerPermanent
             ),],
         ),
         face!(

@@ -21,7 +21,7 @@ card!(
             Effect::destroy_all(&Filter::CREATURE),
             Effect::SearchLibraryOf {
                 library: PlayerRel::Chosen,
-                owner_searches: true,
+                owner_searches: false,
                 filter: &Filter::CREATURE,
                 mana_value: None,
                 finds: &[Find::GRAVEYARD, Find::GRAVEYARD, Find::GRAVEYARD],

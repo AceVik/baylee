@@ -20,24 +20,22 @@ card!(
         mana_cost = mana!("{2}{B}"),
         types = TypeSet::ENCHANTMENT,
     ),],
-    abilities = &[triggered!(
+    abilities = &[modal_triggered!(
         Trigger::ChangesZoneAll {
             origin: Some(ZoneRef::Graveyard),
             destination: None,
             filter: &Filter::OwnedByYou,
             exclude_self: false
         },
-        &[Effect::ChooseOneRestricted {
-            choices: &[
-                Effect::draw(1),
-                Effect::CreateToken {
-                    token: &generated_tokens::TREASURE
-                },
-                Effect::CreateToken {
-                    token: &generated_tokens::ZOMBIE_DRUID_2_2_BLACK
-                }
-            ],
-            restriction: ModalRestriction::OncePerTurn
-        }]
+        &[
+            mode!(&[Effect::draw(1)]),
+            mode!(&[Effect::CreateToken {
+                token: &generated_tokens::TREASURE
+            }]),
+            mode!(&[Effect::CreateToken {
+                token: &generated_tokens::ZOMBIE_DRUID_2_2_BLACK
+            }])
+        ],
+        restriction = ModalRestriction::OncePerTurn
     ),],
 );

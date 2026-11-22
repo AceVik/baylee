@@ -19,7 +19,7 @@ card!(
     abilities = &[spell!(
         &[Effect::SearchLibraryOf {
             library: PlayerRel::Chosen,
-            owner_searches: true,
+            owner_searches: false,
             filter: &Filter::Any,
             mana_value: None,
             finds: &[Find::EXILE],

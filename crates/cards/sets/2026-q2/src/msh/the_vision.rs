@@ -28,29 +28,27 @@ card!(
         power = Some(2),
         toughness = Some(5),
     ),],
-    abilities = &[triggered!(
+    abilities = &[modal_triggered!(
         Trigger::SpellCast(&TRIGGER1),
-        &[Effect::ChooseOneRestricted {
-            choices: &[
-                Effect::PumpFilter {
-                    filter: &Filter::This,
-                    controlled_by: None,
-                    power: Amount::Fixed(0),
-                    toughness: Amount::Fixed(0),
-                    keywords: KeywordSet::DOUBLE_STRIKE,
-                    duration: Duration::UntilEndOfTurn
-                },
-                Effect::PumpFilter {
-                    filter: &Filter::This,
-                    controlled_by: None,
-                    power: Amount::Fixed(0),
-                    toughness: Amount::Fixed(0),
-                    keywords: KeywordSet::INDESTRUCTIBLE,
-                    duration: Duration::UntilEndOfTurn
-                },
-                Effect::draw(1)
-            ],
-            restriction: ModalRestriction::OncePerTurn
-        }]
+        &[
+            mode!(&[Effect::PumpFilter {
+                filter: &Filter::This,
+                controlled_by: None,
+                power: Amount::Fixed(0),
+                toughness: Amount::Fixed(0),
+                keywords: KeywordSet::DOUBLE_STRIKE,
+                duration: Duration::UntilEndOfTurn
+            }]),
+            mode!(&[Effect::PumpFilter {
+                filter: &Filter::This,
+                controlled_by: None,
+                power: Amount::Fixed(0),
+                toughness: Amount::Fixed(0),
+                keywords: KeywordSet::INDESTRUCTIBLE,
+                duration: Duration::UntilEndOfTurn
+            }]),
+            mode!(&[Effect::draw(1)])
+        ],
+        restriction = ModalRestriction::OncePerTurn
     ),],
 );

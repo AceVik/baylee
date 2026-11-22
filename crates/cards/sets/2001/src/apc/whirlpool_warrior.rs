@@ -37,23 +37,20 @@ card!(
         ),
         activated!(
             cost!("{R}", SacrificeSelf),
-            &[Effect::RepeatEach {
-                domain: RepeatDomain::EachPlayer,
-                effects: &[
-                    Effect::ShuffleIntoLibrary {
-                        who: PlayerRel::EventPlayer,
-                        hand: true,
-                        graveyard: false
+            &[
+                Effect::ShuffleIntoLibrary {
+                    who: PlayerRel::EachPlayer,
+                    hand: true,
+                    graveyard: false
+                },
+                Effect::DrawCardsFor {
+                    amount: Amount::ThisWayBy {
+                        what: ThisWay::PutIntoLibraryFromHand,
+                        who: PlayerRel::Recipient
                     },
-                    Effect::DrawCardsFor {
-                        amount: Amount::ThisWayBy {
-                            what: ThisWay::PutIntoLibraryFromHand,
-                            who: PlayerRel::EventPlayer
-                        },
-                        who: PlayerRel::EventPlayer
-                    }
-                ]
-            }]
+                    who: PlayerRel::EachPlayer
+                }
+            ]
         ),
     ],
 );
