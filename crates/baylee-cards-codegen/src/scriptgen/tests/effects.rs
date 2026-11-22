@@ -5027,6 +5027,11 @@ fn wave21b_vote_objects_and_refusals() {
 
     for bad in [
         "Name:BadVoteDef\nManaCost:2 U\nTypes:Sorcery\nA:SP$ Vote | Defined$ Opponent | Choices$ A,B\nSVar:A:DB$ Draw | Defined$ You | NumCards$ 1 | SpellDescription$ A\nSVar:B:DB$ GainLife | Defined$ You | LifeAmount$ 1 | SpellDescription$ B",
+        "Name:CyclicVoteFallback\nManaCost:2 U\nTypes:Sorcery\n\
+         A:SP$ Vote | Defined$ Player | VoteCard$ Creature | UpTo$ True | VoteSubAbility$ EndVote\n\
+         SVar:EndVote:DB$ Destroy | Defined$ Remembered | SubAbility$ Redraw\n\
+         SVar:Redraw:DB$ Draw | Defined$ Player | NumCards$ 1 | ConditionDefined$ Remembered | \
+         ConditionPresent$ Card | ConditionCompare$ EQ0 | SubAbility$ Redraw",
         "Name:BadVotePlayer\nManaCost:2 U\nTypes:Sorcery\nA:SP$ Vote | Defined$ Player | VotePlayer$ Player | StoreVoteNum$ True",
         "Name:BadRememberVoted\nManaCost:2 U\nTypes:Sorcery\nA:SP$ Vote | Defined$ Player | VoteCard$ Creature | RememberVotedObjects$ True | VoteSubAbility$ E\nSVar:E:DB$ ChangeZone | Defined$ Remembered | Origin$ Battlefield | Destination$ Exile",
         "Name:BadConflict\nManaCost:2 U\nTypes:Sorcery\nA:SP$ Vote | Defined$ Player | Choices$ A,B | StoreVoteNum$ True | EachVote$ True\nSVar:A:DB$ Draw | Defined$ You | NumCards$ 1 | SpellDescription$ A\nSVar:B:DB$ GainLife | Defined$ You | LifeAmount$ 1 | SpellDescription$ B",
