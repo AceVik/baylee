@@ -4134,3 +4134,516 @@ fn wave19b_filters_addendum_choose_card_reveal_hand_and_token_refusals() {
         assert!(refused(bad), "must refuse: {bad}");
     }
 }
+
+#[test]
+fn wave20b_repeat_process_and_refusals() {
+    let cats = cats();
+    let toks = tokens();
+    let read_tok = |text: &str| {
+        let script = parse(text);
+        transcode(&script, &cats, Some(&toks)).unwrap_or_else(|| {
+            panic!(
+                "expected translation, refused: {:?}\n{text}",
+                refusal_reason(&script, &cats, Some(&toks))
+            )
+        })
+    };
+
+    // Bounded MaxRepeat$ X + FlipCoin token creation.
+    let flock = read_tok(
+        "Name:BoundedFlip\nManaCost:X R\nTypes:Sorcery\n\
+         A:SP$ Repeat | MaxRepeat$ X | RepeatSubAbility$ DBFlip | Mandatory$ True\n\
+         SVar:DBFlip:DB$ FlipCoin | WinSubAbility$ DBTok\n\
+         SVar:DBTok:DB$ Token | TokenScript$ r_1_1_goblin | TokenOwner$ You\n\
+         SVar:X:Count$xPaid\n\
+         Oracle:Flip X coins. For each flip you win, create a 1/1 red Goblin creature token.",
+    );
+    assert!(
+        flock.abilities[0].contains(
+            "Effect::RepeatProcess { effects: &[Effect::FlipCoin { \
+             won: &[Effect::CreateToken { token: &generated_tokens::GOBLIN_1_1_RED }], lost: &[] }], \
+             max_times: Some(Amount::X), pre_condition: None, post_condition: None, \
+             optional: false, optional_before_first: false, per_pass_this_way: false }"
+        ),
+        "{:?}",
+        flock.abilities
+    );
+
+    // Bounded MaxRepeat$ 2 + battlefield RepeatPresent$ / RepeatCompare$.
+    let land_repeat = read_tok(
+        "Name:LandRepeat\nManaCost:2 G\nTypes:Creature Wizard\nPT:2/2\n\
+         A:AB$ Repeat | Cost$ T | RepeatSubAbility$ DBDraw | MaxRepeat$ 2 \
+         | RepeatPresent$ Land.YouCtrl | RepeatCompare$ GE8\n\
+         SVar:DBDraw:DB$ Draw | NumCards$ 1\n\
+         Oracle:{T}: Draw a card. If you control eight or more lands, repeat this process once.",
+    );
+    assert!(
+        land_repeat.abilities[0].contains("Effect::RepeatProcess { effects: &[Effect::draw(1)]")
+            && land_repeat.abilities[0].contains("max_times: Some(Amount::Fixed(2))")
+            && land_repeat.abilities[0].contains(
+                "post_condition: Some(Condition::AmountAtLeast(\
+                 Amount::CountOf { filter: &Filter::YOUR_LAND, zone: ZoneSel::Battlefield }, 8))"
+            ),
+        "{:?}",
+        land_repeat.abilities
+    );
+
+    // Optional repeat with per-pass reveal + mana value life loss (Ad Nauseam shape).
+    let ad_naus = read_tok(
+        "Name:RevealRepeat\nManaCost:3 B B\nTypes:Instant\n\
+         A:SP$ Repeat | RepeatSubAbility$ DBDig | RepeatOptional$ True\n\
+         SVar:DBDig:DB$ Dig | DigNum$ 1 | Reveal$ True | ChangeNum$ All | ChangeValid$ Card \
+         | DestinationZone$ Hand | RememberChanged$ True | SubAbility$ DBLose\n\
+         SVar:DBLose:DB$ LoseLife | LifeAmount$ X | SubAbility$ DBClean\n\
+         SVar:DBClean:DB$ Cleanup | ClearRemembered$ True\n\
+         SVar:X:Remembered$CardManaCost\n\
+         Oracle:Reveal the top card of your library and put it into your hand. \
+         You lose life equal to its mana value. You may repeat this process any number of times.",
+    );
+    assert!(
+        ad_naus.abilities[0].contains(
+            "Effect::RepeatProcess { effects: &[\
+             Effect::RevealTopAllMatching { count: 1, filter: &Filter::Any, found: Find::HAND }, \
+             Effect::LoseLife { amount: Amount::ThisWay(ThisWay::RevealedManaValue), target: PlayerRel::You }], \
+             max_times: None, pre_condition: None, post_condition: None, \
+             optional: true, optional_before_first: false, per_pass_this_way: true }"
+        ),
+        "{:?}",
+        ad_naus.abilities
+    );
+
+    // Optional before first ("as many times as you choose").
+    let before_first = read_tok(
+        "Name:ChoiceLoop\nManaCost:4 R\nTypes:Sorcery\n\
+         A:SP$ Repeat | RepeatSubAbility$ DBExile | RepeatOptional$ True\n\
+         SVar:DBExile:DB$ Dig | DigNum$ 1 | ChangeNum$ All | DestinationZone$ Exile\n\
+         Oracle:As many times as you choose, you may exile the top card of your library.",
+    );
+    assert!(
+        before_first.abilities[0]
+            .contains("optional: true, optional_before_first: true, per_pass_this_way: false"),
+        "{:?}",
+        before_first.abilities
+    );
+}
+
+#[test]
+fn wave20b_repeat_process_remembered_post_and_refusals() {
+    // Per-pass remembered post-condition (mill until a land is milled).
+    let mill_loop = read(
+        "Name:MillUntilLand\nManaCost:1 U\nTypes:Sorcery\n\
+         A:SP$ Repeat | RepeatSubAbility$ DBMill | RepeatDefined$ Remembered \
+         | RepeatPresent$ Land | RepeatCompare$ EQ0 | SubAbility$ DBClean\n\
+         SVar:DBMill:DB$ Mill | Defined$ You | NumCards$ 1 | RememberMilled$ True\n\
+         SVar:DBClean:DB$ Cleanup | ClearRemembered$ True\n\
+         Oracle:Mill a card. Repeat this process until you mill a land card.",
+    );
+    assert!(
+        mill_loop.abilities[0]
+            .contains("Effect::Mill { amount: Amount::Fixed(1), target: PlayerRel::You }")
+            && mill_loop.abilities[0].contains(
+                "post_condition: Some(Condition::Not(&Condition::AmountAtLeast(\
+                 Amount::ThisWay(ThisWay::Milled(&Filter::LAND)), 1)))"
+            )
+            && mill_loop.abilities[0].contains("per_pass_this_way: true"),
+        "{:?}",
+        mill_loop.abilities
+    );
+
+    // Refusals: unbounded repeat, opponent decider, zero cap, nested targets, unknown param.
+    for bad in [
+        "Name:BadUnbounded\nManaCost:1 U\nTypes:Sorcery\nA:SP$ Repeat | RepeatSubAbility$ D\nSVar:D:DB$ Draw | NumCards$ 1",
+        "Name:BadDecider\nManaCost:1 R\nTypes:Sorcery\nA:SP$ Repeat | RepeatSubAbility$ D | RepeatOptional$ True | RepeatOptionalDecider$ Opponent\nSVar:D:DB$ Draw | NumCards$ 1",
+        "Name:BadZeroCap\nManaCost:1 R\nTypes:Sorcery\nA:SP$ Repeat | RepeatSubAbility$ D | MaxRepeat$ 0\nSVar:D:DB$ Draw | NumCards$ 1",
+        "Name:BadNestedTgt\nManaCost:1 R\nTypes:Sorcery\nA:SP$ Repeat | RepeatSubAbility$ D | MaxRepeat$ 2\nSVar:D:DB$ DealDamage | ValidTgts$ Any | NumDmg$ 1",
+        "Name:BadParam\nManaCost:1 R\nTypes:Sorcery\nA:SP$ Repeat | RepeatSubAbility$ D | MaxRepeat$ 2 | FooBar$ True\nSVar:D:DB$ Draw | NumCards$ 1",
+    ] {
+        assert!(refused(bad), "must refuse: {bad}");
+    }
+}
+
+#[test]
+fn wave20b_exile_targets_tokens_and_this_way_exiled() {
+    let cats = cats();
+    let toks = tokens();
+    let read_tok = |text: &str| {
+        let script = parse(text);
+        transcode(&script, &cats, Some(&toks)).unwrap_or_else(|| {
+            panic!(
+                "expected translation, refused: {:?}\n{text}",
+                refusal_reason(&script, &cats, Some(&toks))
+            )
+        })
+    };
+
+    // Curse of the Swine shape: RememberLKI$ True + UseImprinted$ True + ImprintedController.
+    let swine = read_tok(
+        "Name:ExileSwap\nManaCost:X U U\nTypes:Sorcery\n\
+         A:SP$ ChangeZone | ValidTgts$ Creature | TargetMin$ X | TargetMax$ X \
+         | Origin$ Battlefield | Destination$ Exile | RememberLKI$ True | SubAbility$ DBRep\n\
+         SVar:DBRep:DB$ RepeatEach | UseImprinted$ True | DefinedCards$ DirectRemembered \
+         | RepeatSubAbility$ DBTok | SubAbility$ DBClean | ChangeZoneTable$ True\n\
+         SVar:DBTok:DB$ Token | TokenScript$ r_1_1_goblin | TokenOwner$ ImprintedController\n\
+         SVar:DBClean:DB$ Cleanup | ClearRemembered$ True\n\
+         SVar:X:Count$xPaid\n\
+         Oracle:Exile X target creatures. For each creature exiled this way, its controller creates a 1/1 red Goblin creature token.",
+    );
+    assert!(
+        swine.abilities[0].contains(
+            "Effect::ExileTargetsCreateTokens { token: &generated_tokens::GOBLIN_1_1_RED }"
+        ) && swine.abilities[0].contains("TargetReq::x_targets("),
+        "{:?}",
+        swine.abilities
+    );
+
+    // Midnight Ritual shape: TargetMin$ X | TargetMax$ X + DB$ Token | TokenAmount$ X -> ThisWay::Exiled.
+    let ritual = read_tok(
+        "Name:GraveExileTokens\nManaCost:X 2 B\nTypes:Sorcery\n\
+         A:SP$ ChangeZone | Origin$ Graveyard | Destination$ Exile | ValidTgts$ Creature.YouOwn \
+         | TargetMin$ X | TargetMax$ X | SubAbility$ DBTok\n\
+         SVar:DBTok:DB$ Token | TokenScript$ r_1_1_goblin | TokenOwner$ You | TokenAmount$ X\n\
+         SVar:X:Count$xPaid\n\
+         Oracle:Exile X target creature cards from your graveyard. For each creature card exiled this way, create a 1/1 red Goblin creature token.",
+    );
+    assert!(
+        ritual.abilities[0].contains("Effect::exile(TargetSpec::CardInGraveyard(")
+            && ritual.abilities[0].contains(
+                "Effect::CreateTokenN { token: &generated_tokens::GOBLIN_1_1_RED, \
+                 amount: Amount::ThisWay(ThisWay::Exiled(&Filter::Any)) }"
+            ),
+        "{:?}",
+        ritual.abilities
+    );
+
+    // Exile from graveyard -> AddManaAmountFor using Remembered$Amount + Count$ValidExile.
+    let exile_mana = read_tok(
+        "Name:ExileForMana\nManaCost:3 R\nTypes:Sorcery\n\
+         A:SP$ ChangeZone | Origin$ Graveyard | Destination$ Exile | ValidTgts$ Card.YouOwn \
+         | TargetMin$ 0 | TargetMax$ Yard | RememberChanged$ True | SubAbility$ DBMana\n\
+         SVar:DBMana:DB$ Mana | Produced$ R | Amount$ N | SubAbility$ DBClean\n\
+         SVar:DBClean:DB$ Cleanup | ClearRemembered$ True\n\
+         SVar:Yard:Count$ValidGraveyard Card.YouOwn\n\
+         SVar:N:Remembered$Amount\n\
+         Oracle:Exile any number of target cards from your graveyard. Add {R} for each card exiled this way.",
+    );
+    assert!(
+        exile_mana.abilities[0].contains(
+            "Effect::AddManaAmountFor { who: PlayerRel::You, color: ManaColor::Red, \
+             amount: Amount::ThisWay(ThisWay::ExiledFromGraveyard(&Filter::Any)) }"
+        ),
+        "{:?}",
+        exile_mana.abilities
+    );
+
+    // Stack -> Exile with RememberChanged$ True + Count$ValidExile -> ThisWay::Exiled.
+    let stack_exile = read_tok(
+        "Name:ExileSpellGain\nManaCost:2 U\nTypes:Instant\n\
+         A:SP$ ChangeZone | Origin$ Stack | Destination$ Exile | ValidTgts$ Card \
+         | TargetType$ Spell | TgtZone$ Stack | RememberChanged$ True | SubAbility$ DBLose\n\
+         SVar:DBLose:DB$ LoseLife | Defined$ Opponent | LifeAmount$ N | IsCurse$ True | SubAbility$ DBClean\n\
+         SVar:DBClean:DB$ Cleanup | ClearRemembered$ True\n\
+         SVar:N:Count$ValidExile Card.IsRemembered\n\
+         Oracle:Exile target spell. Each opponent loses 1 life for each card exiled this way.",
+    );
+    assert!(
+        stack_exile.abilities[0].contains(
+            "Effect::LoseLife { amount: Amount::ThisWay(ThisWay::Exiled(&Filter::Any)), \
+             target: PlayerRel::Opponent }"
+        ),
+        "{:?}",
+        stack_exile.abilities
+    );
+
+    // Refusals: wrong token owner / amount on exile-for-tokens, Play.* (until 11b), TokenPower, modified.
+    for bad in [
+        "Name:BadOwnerSwap\nManaCost:X U\nTypes:Sorcery\nA:SP$ ChangeZone | ValidTgts$ Creature | TargetMin$ X | TargetMax$ X | Origin$ Battlefield | Destination$ Exile | RememberLKI$ True | SubAbility$ R\nSVar:R:DB$ RepeatEach | UseImprinted$ True | DefinedCards$ DirectRemembered | RepeatSubAbility$ T\nSVar:T:DB$ Token | TokenScript$ r_1_1_goblin | TokenOwner$ You\nSVar:X:Count$xPaid",
+        "Name:BadTwoSwap\nManaCost:X U\nTypes:Sorcery\nA:SP$ ChangeZone | ValidTgts$ Creature | TargetMin$ X | TargetMax$ X | Origin$ Battlefield | Destination$ Exile | RememberLKI$ True | SubAbility$ R\nSVar:R:DB$ RepeatEach | UseImprinted$ True | DefinedCards$ DirectRemembered | RepeatSubAbility$ T\nSVar:T:DB$ Token | TokenScript$ r_1_1_goblin | TokenOwner$ ImprintedController | TokenAmount$ 2\nSVar:X:Count$xPaid",
+        "Name:BadPlaySub\nManaCost:2 R\nTypes:Sorcery\nA:SP$ Play | Defined$ Remembered | SubAbility$ D\nSVar:D:DB$ Draw | NumCards$ 1",
+        "Name:BadDynamicTok\nManaCost:X G\nTypes:Sorcery\nA:SP$ Token | TokenScript$ r_1_1_goblin | TokenPower$ X | TokenToughness$ X\nSVar:X:Count$xPaid",
+        "Name:BadModified20b\nManaCost:1 W\nTypes:Instant\nA:SP$ ChangeZone | Origin$ Battlefield | Destination$ Exile | ValidTgts$ Creature.modified",
+    ] {
+        assert!(refused(bad), "must refuse: {bad}");
+    }
+}
+
+#[test]
+fn wave20b_hand_bottom_change_zone_and_mill_chains() {
+    // Form A (Volcanic Spite): Hand -> Bottom of library, if you do, draw a card.
+    let spite = read(
+        "Name:SpiteBurn\nManaCost:1 R\nTypes:Instant\n\
+         A:SP$ DealDamage | ValidTgts$ Creature | NumDmg$ 3 | SubAbility$ DBBottom\n\
+         SVar:DBBottom:DB$ ChangeZone | Origin$ Hand | Destination$ Library | LibraryPosition$ -1 \
+         | ChangeNum$ 1 | RememberChanged$ True | SubAbility$ DBDraw\n\
+         SVar:DBDraw:DB$ Draw | ConditionDefined$ Remembered | ConditionPresent$ Card \
+         | ConditionCompare$ GE1 | SubAbility$ DBClean\n\
+         SVar:DBClean:DB$ Cleanup | ClearRemembered$ True\n\
+         Oracle:Deals 3 damage to target creature. You may put a card from your hand on the bottom of your library. If you do, draw a card.",
+    );
+    assert!(
+        spite.abilities[0].contains(
+            "Effect::BottomCardFromHand { player: PlayerRel::You, filter: &Filter::Any, \
+             then: &[Effect::draw(1)] }"
+        ),
+        "{:?}",
+        spite.abilities
+    );
+
+    // Form B (Valakut Awakening): put any number from hand on bottom, draw that many plus one.
+    let awake = read(
+        "Name:BottomWheel\nManaCost:2 R\nTypes:Instant\n\
+         A:SP$ ChangeZone | Origin$ Hand | Destination$ Library | LibraryPosition$ -1 \
+         | ChangeType$ Card | ChangeNum$ X | RememberChanged$ True | SubAbility$ DBDraw\n\
+         SVar:DBDraw:DB$ Draw | NumCards$ Y | SubAbility$ DBClean\n\
+         SVar:DBClean:DB$ Cleanup | ClearRemembered$ True\n\
+         SVar:X:Count$ValidHand Card.YouOwn\n\
+         SVar:Y:Count$RememberedSize/Plus.1\n\
+         Oracle:Put any number of cards from your hand on the bottom of your library, then draw that many cards plus one.",
+    );
+    assert!(
+        awake.abilities[0].contains("Effect::PutAnyFromHandOnBottom")
+            && awake.abilities[0].contains(
+                "Effect::DrawCards { amount: Amount::Plus { \
+                 base: &Amount::ThisWay(ThisWay::PutIntoLibraryFromHand), offset: 1 } }"
+            ),
+        "{:?}",
+        awake.abilities
+    );
+
+    // Self Graveyard -> Exile without Defined$ (`defaults_to_self_zone_change`).
+    let self_gy_exile = read(
+        "Name:SelfGyExile\nManaCost:1 B\nTypes:Creature Goblin\nPT:1/1\n\
+         A:AB$ ChangeZone | Cost$ 1 | Origin$ Graveyard | Destination$ Exile | ActivationZone$ Graveyard\n\
+         Oracle:{1}: Exile this card from your graveyard.",
+    );
+    assert!(
+        self_gy_exile.abilities[0].contains("Effect::ExileSource"),
+        "{:?}",
+        self_gy_exile.abilities
+    );
+
+    // Hidden Graveyard -> Exile with RememberChanged$ True + LE0 else branch (Entrails Feaster shape).
+    let feaster = read(
+        "Name:GraveFeaster\nManaCost:B\nTypes:Creature Goblin\nPT:1/1\n\
+         T:Mode$ Phase | Phase$ Upkeep | ValidPlayer$ You | Execute$ TrigEx | TriggerZones$ Battlefield\n\
+         SVar:TrigEx:DB$ ChangeZone | ChangeType$ Creature | ChangeNum$ 1 | Origin$ Graveyard \
+         | Destination$ Exile | Optional$ True | IsCurse$ True | RememberChanged$ True \
+         | Hidden$ True | Chooser$ You | SubAbility$ DBPut\n\
+         SVar:DBPut:DB$ PutCounter | Defined$ Self | CounterNum$ 1 | CounterType$ P1P1 \
+         | ConditionCheckSVar$ X | SubAbility$ DBTap\n\
+         SVar:DBTap:DB$ Tap | Defined$ Self | ConditionCheckSVar$ X | ConditionSVarCompare$ LE0 \
+         | SubAbility$ DBClean\n\
+         SVar:DBClean:DB$ Cleanup | ClearRemembered$ True\n\
+         SVar:X:Remembered$Amount\n\
+         Oracle:At the beginning of your upkeep, you may exile a creature card from a graveyard. If you do, put a +1/+1 counter on this. If you don't, tap it.",
+    );
+    assert!(
+        feaster.abilities[0].contains("Effect::ChooseCard { chooser: PlayerRel::You, zone: ChooseZone::Graveyard(PlayerRel::EachPlayer)")
+            && feaster.abilities[0].contains("ThisWay::ExiledFromGraveyard(&Filter::Any)")
+            && feaster.abilities[0].contains("Condition::Not(&Condition::AmountAtLeast("),
+        "{:?}",
+        feaster.abilities
+    );
+
+    // Sweep (Battlefield -> Hand hidden any-number + counted Pump).
+    let sweep = read(
+        "Name:MountainSweep\nManaCost:1 R\nTypes:Instant\n\
+         A:SP$ ChangeZone | Origin$ Battlefield | Destination$ Hand | ChangeType$ Mountain.YouCtrl \
+         | ChangeNum$ X | Hidden$ True | RememberChanged$ True | SubAbility$ DBPump\n\
+         SVar:DBPump:DB$ Pump | ValidTgts$ Creature | NumAtt$ +Y | NumDef$ +Y | SubAbility$ DBClean\n\
+         SVar:DBClean:DB$ Cleanup | ClearRemembered$ True\n\
+         SVar:X:Count$Valid Mountain.YouCtrl\n\
+         SVar:Y:Remembered$Amount\n\
+         Oracle:Sweep — Return any number of Mountains you control to their owner's hand. Target creature gets +1/+1 until end of turn for each Mountain returned this way.",
+    );
+    assert!(
+        sweep.abilities[0].contains("movement: ChooseMove::Hand")
+            && sweep.abilities[0].contains(
+                "Effect::PumpTarget { power: Amount::ThisWay(ThisWay::ReturnedToHand(&Filter::Any)), \
+                 toughness: Amount::ThisWay(ThisWay::ReturnedToHand(&Filter::Any))"
+            ),
+        "{:?}",
+        sweep.abilities
+    );
+}
+
+#[test]
+fn wave20b_mill_fallback_and_target_min_extensions() {
+    // Mill -> RememberMilled with UseAllOriginZones$ + ForgetChanged$ + "Select up to",
+    // plus Mill -> conditional ChangeZone fallback via remembered_this_way_chain.
+    let mill_take = read(
+        "Name:MillTakeClean\nManaCost:1 G\nTypes:Sorcery\n\
+         A:SP$ Mill | NumCards$ 4 | Defined$ You | RememberMilled$ True | SubAbility$ DBTake\n\
+         SVar:DBTake:DB$ ChangeZone | Origin$ Graveyard,Exile | UseAllOriginZones$ True \
+         | Destination$ Hand | ChangeType$ Creature.IsRemembered | ChangeNum$ 1 | Hidden$ True \
+         | ForgetChanged$ True | SelectPrompt$ Select up to one creature card | SubAbility$ DBClean\n\
+         SVar:DBClean:DB$ Cleanup | ClearRemembered$ True",
+    );
+    assert!(
+        mill_take.abilities[0].contains("Effect::MillMayTakeOne { amount: Amount::Fixed(4)"),
+        "{:?}",
+        mill_take.abilities
+    );
+
+    let mill_fallback = read(
+        "Name:MillCondBounce\nManaCost:1 U\nTypes:Sorcery\n\
+         A:SP$ Mill | NumCards$ 3 | Defined$ You | RememberMilled$ True | SubAbility$ DBBounce\n\
+         SVar:DBBounce:DB$ ChangeZone | Origin$ Battlefield | Destination$ Hand \
+         | ValidTgts$ Creature | ConditionDefined$ Remembered | ConditionPresent$ Instant \
+         | SubAbility$ DBClean\n\
+         SVar:DBClean:DB$ Cleanup | ClearRemembered$ True",
+    );
+    assert!(
+        mill_fallback.abilities[0].contains("ThisWay::Milled("),
+        "{:?}",
+        mill_fallback.abilities
+    );
+
+    // TargetMin$ 0 | TargetMax$ 1 on GainControl and superset Count$ValidGraveyard Card.YouOwn.
+    let up_to_ctrl = read(
+        "Name:UpToGainCtrl\nManaCost:4 U\nTypes:Sorcery\n\
+         A:SP$ GainControl | ValidTgts$ Creature | TargetMin$ 0 | TargetMax$ 1",
+    );
+    assert!(
+        up_to_ctrl.abilities[0].contains("TargetReq::up_to_one("),
+        "{:?}",
+        up_to_ctrl.abilities
+    );
+    let superset_gy = read(
+        "Name:AnyGoblinGy\nManaCost:2 B\nTypes:Sorcery\n\
+         A:SP$ ChangeZone | Origin$ Graveyard | Destination$ Exile \
+         | ValidTgts$ Goblin.YouOwn | TargetMin$ 0 | TargetMax$ X\n\
+         SVar:X:Count$ValidGraveyard Card.YouOwn",
+    );
+    assert!(
+        superset_gy.abilities[0].contains("TargetReq::up_to("),
+        "{:?}",
+        superset_gy.abilities
+    );
+}
+
+#[test]
+fn wave20b_sacrifice_all_remember_sac_and_mana_reflected() {
+    // SacrificeAll Defined$ Self, Defined$ Equipped, and Defined$ DelayTriggerRemembered.
+    let sac_self = read(
+        "Name:SacSelfAll\nManaCost:2\nTypes:Artifact\n\
+         A:AB$ SacrificeAll | Cost$ 1 | Defined$ Self | Controller$ You",
+    );
+    assert!(
+        sac_self.abilities[0].contains("Effect::SacrificeSelf"),
+        "{:?}",
+        sac_self.abilities
+    );
+    let sac_eq = read(
+        "Name:SacEquipAll\nManaCost:3\nTypes:Artifact Equipment\n\
+         T:Mode$ Phase | Phase$ End of Turn | ValidPlayer$ You | TriggerZones$ Battlefield | Execute$ S\n\
+         SVar:S:DB$ SacrificeAll | Defined$ Equipped",
+    );
+    assert!(
+        sac_eq.abilities[0]
+            .contains("Effect::SacrificeAll { filter: &Filter::AttachedToBySource }"),
+        "{:?}",
+        sac_eq.abilities
+    );
+    let sac_delayed = read(
+        "Name:SacDelayedAll\nManaCost:2 R\nTypes:Instant\n\
+         A:SP$ Pump | ValidTgts$ Creature | NumAtt$ 2 | SubAbility$ DT\n\
+         SVar:DT:DB$ DelayedTrigger | Mode$ Phase | Phase$ End of Turn | Execute$ DS | RememberObjects$ Targeted\n\
+         SVar:DS:DB$ SacrificeAll | Defined$ DelayTriggerRemembered",
+    );
+    assert!(
+        sac_delayed.abilities[0].contains("Effect::SacrificeEvent"),
+        "{:?}",
+        sac_delayed.abilities
+    );
+
+    // Thalakos Deceiver shape: SacrificeAll | Defined$ Self | RememberSacrificed$ True + targeted GainControl.
+    let deceiver = read(
+        "Name:SelfSacSteal\nManaCost:3 U\nTypes:Creature Wizard\nPT:1/1\n\
+         T:Mode$ AttackerUnblocked | ValidCard$ Card.Self | Execute$ TrigSac | OptionalDecider$ You\n\
+         SVar:TrigSac:DB$ SacrificeAll | Defined$ Self | RememberSacrificed$ True | SubAbility$ DBGain\n\
+         SVar:DBGain:DB$ GainControl | ValidTgts$ Creature | ConditionDefined$ Remembered \
+         | ConditionPresent$ Card | SubAbility$ DBClean\n\
+         SVar:DBClean:DB$ Cleanup | ClearRemembered$ True",
+    );
+    assert!(
+        deceiver.abilities[0].contains(
+            "Effect::SacrificeSelfThen { then: &[Effect::continuous(&Filter::This, Modifier::GainControl, Duration::Indefinitely)] }"
+        ) && deceiver.abilities[0]
+            .contains("targets = Some(TargetReq::one(TargetSpec::Object(&Filter::CREATURE)))"),
+        "{:?}",
+        deceiver.abilities
+    );
+
+    // Victimize shape: Sacrifice + RememberSacrificed$ True + targeted multi-reanimate follow-up.
+    let victimize = read(
+        "Name:SacReanimateTwo\nManaCost:2 B\nTypes:Sorcery\n\
+         A:SP$ Sacrifice | Defined$ You | SacValid$ Creature | RememberSacrificed$ True | SubAbility$ Rise\n\
+         SVar:Rise:DB$ ChangeZone | ValidTgts$ Creature.YouOwn | TargetMin$ 2 | TargetMax$ 2 \
+         | Origin$ Graveyard | Destination$ Battlefield | ConditionCheckSVar$ X \
+         | ConditionSVarCompare$ EQ1 | Tapped$ True | SubAbility$ DBClean\n\
+         SVar:DBClean:DB$ Cleanup | ClearRemembered$ True\n\
+         SVar:X:Remembered$Amount",
+    );
+    assert!(
+        victimize.abilities[0].contains("Effect::SacrificeAndIf {")
+            && victimize.abilities[0].contains("Effect::GraveyardToBattlefieldModified {")
+            && victimize.abilities[0].contains("TargetReq::exactly("),
+        "{:?}",
+        victimize.abilities
+    );
+
+    // Single-sac LKI follow-up for controller -> SacrificeOneThen + SacrificedPower.
+    let sac_lki = read(
+        "Name:SacGainPower\nManaCost:1 B\nTypes:Sorcery\n\
+         A:SP$ Sacrifice | Defined$ You | SacValid$ Creature | RememberSacrificed$ True | SubAbility$ DBGain\n\
+         SVar:DBGain:DB$ GainLife | Defined$ You | LifeAmount$ X | SubAbility$ DBClean\n\
+         SVar:DBClean:DB$ Cleanup | ClearRemembered$ True\n\
+         SVar:X:RememberedLKI$CardPower",
+    );
+    assert!(
+        sac_lki.abilities[0].contains(
+            "Effect::SacrificeOneThen { filter: &Filter::CREATURE, if_it_was: &Filter::Any, \
+             then: &[Effect::GainLife { amount: Amount::SacrificedPower }] }"
+        ),
+        "{:?}",
+        sac_lki.abilities
+    );
+}
+
+#[test]
+fn wave20b_mana_reflected_db_and_sacrifice_refusals() {
+    // DB$ ManaReflected under T:Mode$ TapsForMana (TriggeredActivator, TriggeredCardController, You).
+    let flare = read(
+        "Name:ManaDoubler\nManaCost:2 R\nTypes:Enchantment\n\
+         T:Mode$ TapsForMana | ValidCard$ Land | Execute$ TrigMana | TriggerZones$ Battlefield | Static$ True\n\
+         SVar:TrigMana:DB$ ManaReflected | ColorOrType$ Type | ReflectProperty$ Produced | Defined$ TriggeredActivator",
+    );
+    assert!(
+        flare.abilities[0].contains("Effect::AddManaLikeEvent { amount: 1 }"),
+        "{:?}",
+        flare.abilities
+    );
+    let wake = read(
+        "Name:YourManaDoubler\nManaCost:3 G W\nTypes:Enchantment\n\
+         T:Mode$ TapsForMana | ValidCard$ Land | Activator$ You | Execute$ TrigMana | TriggerZones$ Battlefield | Static$ True\n\
+         SVar:TrigMana:DB$ ManaReflected | ColorOrType$ Type | ReflectProperty$ Produced | Defined$ You\n\
+         Oracle:Whenever you tap a land for mana, add one mana of any type that land produced.",
+    );
+    assert!(
+        wake.abilities[0].contains("Effect::AddManaLikeEvent { amount: 1 }"),
+        "{:?}",
+        wake.abilities
+    );
+
+    // Honest refusals: SacrificeAll Enchanted/Opponent, multi-sac RememberSacrificed count (NEVER ThisWay::Died),
+    // opponent-sac LKI, ManaReflected Defined$ You on opponent trigger or outside TapsForMana.
+    for bad in [
+        "Name:BadSacEnch\nManaCost:1 B\nTypes:Enchantment Aura\nK:Enchant:Creature\nT:Mode$ Phase | Phase$ End of Turn | ValidPlayer$ You | TriggerZones$ Battlefield | Execute$ S\nSVar:S:DB$ SacrificeAll | Defined$ Enchanted",
+        "Name:BadSacCtrl\nManaCost:2 B\nTypes:Sorcery\nA:SP$ SacrificeAll | ValidCards$ Creature | Controller$ Opponent",
+        "Name:BadMultiSacCount\nManaCost:4 R\nTypes:Sorcery\nA:SP$ SacrificeAll | ValidCards$ Creature.YouCtrl | RememberSacrificed$ True | SubAbility$ T\nSVar:T:DB$ Token | TokenScript$ r_1_1_goblin | TokenAmount$ X\nSVar:X:Remembered$Amount",
+        "Name:BadOppSacLki\nManaCost:2 B\nTypes:Instant\nA:SP$ Sacrifice | ValidTgts$ Opponent | SacValid$ Creature | RememberSacrificed$ True | SubAbility$ G\nSVar:G:DB$ GainLife | Defined$ You | LifeAmount$ X\nSVar:X:RememberedLKI$CardToughness",
+        "Name:BadManaReflectOpp\nManaCost:2 R\nTypes:Enchantment\nT:Mode$ TapsForMana | ValidCard$ Land | Activator$ Opponent | Execute$ M | TriggerZones$ Battlefield | Static$ True\nSVar:M:DB$ ManaReflected | ColorOrType$ Type | ReflectProperty$ Produced | Defined$ You\nOracle:Whenever an opponent taps a land for mana, add one mana of any type that land produced.",
+    ] {
+        assert!(refused(bad), "must refuse: {bad}");
+    }
+}

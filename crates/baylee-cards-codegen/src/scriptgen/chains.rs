@@ -188,6 +188,9 @@ impl Tx<'_> {
         if api == "RepeatEach" {
             return self.repeat_each_chain(p, sub.as_deref(), chain);
         }
+        if api == "Repeat" {
+            return self.repeat_process_chain(p, sub.as_deref(), chain);
+        }
         if matches!(api.as_str(), "ChooseCard" | "PeekAndReveal" | "Reveal") {
             let target = local_kicked_target.or_else(|| {
                 if had_second_target {
@@ -409,6 +412,32 @@ impl Tx<'_> {
             chain.target = Some("TargetSpec::Object(&Filter::YOUR_LAND)".to_string());
             vec![format!("Effect::Earthbend({n})")]
         } else if api == "ChangeZone"
+            && targets_here
+            && p.peek("Origin") == Some("Battlefield")
+            && p.peek("Destination") == Some("Exile")
+            && (p.peek("RememberLKI") == Some("True") || p.peek("RememberChanged") == Some("True"))
+            && self.sub_is_api(sub.as_deref(), "RepeatEach")
+            && unless.is_none()
+            && dying.is_none()
+            && at_end.is_none()
+            && !optional_counter
+            && !self.has_linked_exile_reader()
+        {
+            self.exile_targets_create_tokens_effect(&mut p, &mut sub, target.as_deref())?
+        } else if api == "ChangeZone"
+            && !targets_here
+            && p.peek("Origin") == Some("Hand")
+            && p.peek("Destination") == Some("Library")
+            && p.peek("LibraryPosition") == Some("-1")
+            && p.peek("RememberChanged") == Some("True")
+            && sub.is_some()
+            && unless.is_none()
+            && dying.is_none()
+            && at_end.is_none()
+            && !optional_counter
+        {
+            self.hand_to_bottom_remembered_chain(&mut p, &mut sub, chain)?
+        } else if api == "ChangeZone"
             && !targets_here
             && !self.on_a_spell
             && matches!(p.peek("Defined"), None | Some("Self"))
@@ -418,41 +447,6 @@ impl Tx<'_> {
             && self.sub_is_api(sub.as_deref(), "ChangeZone")
         {
             self.exile_self_return_as_face_effect(&mut p, &mut sub)?
-        } else if api == "ChangeZone"
-            && ((p.peek("Origin") == Some("Battlefield")
-                && matches!(p.peek("Destination"), Some("Hand" | "Exile")))
-                || (p.peek("Origin") == Some("Graveyard")
-                    && p.peek("Destination") == Some("Exile")))
-            && p.peek("RememberChanged") == Some("True")
-            && !self.sub_is_api(sub.as_deref(), "Effect")
-            && !self.sub_is_api(sub.as_deref(), "ChangeZone")
-            && !self.sub_is_api(sub.as_deref(), "DelayedTrigger")
-            && !self.sub_is_api(sub.as_deref(), "ImmediateTrigger")
-            && sub
-                .as_deref()
-                .and_then(|s| self.svars.get(s))
-                .is_some_and(|b| {
-                    Params::parse(b).is_some_and(|(_, sp)| {
-                        (sp.peek("ConditionDefined") == Some("Remembered")
-                            && sp.peek("ConditionPresent").is_some())
-                            || (p.peek("Origin") == Some("Graveyard")
-                                && sp
-                                    .peek("ConditionCheckSVar")
-                                    .and_then(|v| self.svars.get(v.trim()))
-                                    .is_some_and(|expr| expr.trim() == "Remembered$Amount"))
-                    })
-                })
-        {
-            let single_target = chain.target_exact.is_none()
-                && !chain.target_is_x
-                && chain.target_up_to.is_none_or(|n| n == 1);
-            self.change_zone_then_if_moved(
-                &mut p,
-                &mut sub,
-                target.as_deref(),
-                targets_here,
-                single_target,
-            )?
         } else if api == "ChangeZone"
             && !targets_here
             && p.peek("Origin") == Some("Library")
@@ -534,6 +528,7 @@ impl Tx<'_> {
             && p.peek("ChangeNum") == Some("All")
             && p.peek("DestinationZone") == Some("Exile")
             && p.has("RememberChanged")
+            && self.sub_is_api(sub.as_deref(), "Effect")
         {
             self.dig_exile_top_to_play_effect(
                 &mut p,
@@ -593,29 +588,22 @@ impl Tx<'_> {
                     ]
                 }
             }
-        } else if api == "Mill"
-            && !targets_here
-            && matches!(p.peek("Defined"), None | Some("You"))
-            && p.peek("RememberMilled") == Some("True")
-            && self.sub_is_api(sub.as_deref(), "ChangeZone")
-        {
-            let Some(effects) = self.mill_may_take_one_effect(&mut p, &mut sub) else {
-                if self.unclaimed.borrow().is_none() {
-                    self.note("unclaimed parameter `Mill.RememberMilled`".to_string());
-                }
-                return None;
-            };
-            effects
-        } else if api == "Sacrifice"
+        } else if (api == "Sacrifice"
+            || (api == "SacrificeAll"
+                && !targets_here
+                && !self.on_a_spell
+                && p.peek("Defined") == Some("Self")))
             && p.peek("RememberSacrificed") == Some("True")
             && sub.is_some()
             && !self.sub_is_api(sub.as_deref(), "ImmediateTrigger")
         {
             let Some(effects) = self.sacrifice_remembered_effect(
+                &api,
                 &mut p,
                 &mut sub,
                 target.as_deref(),
                 targets_a_player,
+                chain,
             ) else {
                 if self.unclaimed.borrow().is_none() {
                     self.note("a sacrifice naming `RememberSacrificed`".to_string());
@@ -687,7 +675,103 @@ impl Tx<'_> {
                 effects
             }
         } else {
-            let try_remember_this_way = !second_target_here
+            let single_target = chain.target_exact.is_none()
+                && !chain.target_is_x
+                && chain.target_up_to.is_none_or(|n| n == 1);
+            let prior_target_used = !targets_here && !chain.effects.is_empty();
+            let try_midnight_ritual = api == "ChangeZone"
+                && targets_here
+                && chain.target_is_x
+                && p.peek("Origin") == Some("Graveyard")
+                && p.peek("Destination") == Some("Exile")
+                && !p.has("RememberChanged")
+                && self.sub_is_api(sub.as_deref(), "Token")
+                && unless.is_none()
+                && dying.is_none()
+                && at_end.is_none()
+                && !optional_counter;
+            let try_cz_if_moved = api == "ChangeZone"
+                && ((p.peek("Origin") == Some("Battlefield")
+                    && matches!(p.peek("Destination"), Some("Hand" | "Exile")))
+                    || (p.peek("Origin") == Some("Graveyard")
+                        && p.peek("Destination") == Some("Exile")))
+                && p.peek("RememberChanged") == Some("True")
+                && !self.sub_is_api(sub.as_deref(), "Effect")
+                && !self.sub_is_api(sub.as_deref(), "ChangeZone")
+                && !self.sub_is_api(sub.as_deref(), "DelayedTrigger")
+                && !self.sub_is_api(sub.as_deref(), "ImmediateTrigger")
+                && sub
+                    .as_deref()
+                    .and_then(|s| self.svars.get(s))
+                    .is_some_and(|b| {
+                        Params::parse(b).is_some_and(|(_, sp)| {
+                            (sp.peek("ConditionDefined") == Some("Remembered")
+                                && sp.peek("ConditionPresent").is_some())
+                                || (p.peek("Origin") == Some("Graveyard")
+                                    && sp
+                                        .peek("ConditionCheckSVar")
+                                        .and_then(|v| self.svars.get(v.trim()))
+                                        .is_some_and(|expr| expr.trim() == "Remembered$Amount"))
+                        })
+                    });
+            let try_mill_take_one = api == "Mill"
+                && !targets_here
+                && matches!(p.peek("Defined"), None | Some("You"))
+                && p.peek("RememberMilled") == Some("True")
+                && self.sub_is_api(sub.as_deref(), "ChangeZone");
+            let mut special_effects: Option<Vec<String>> = None;
+            if try_midnight_ritual {
+                let saved_p = p.clone();
+                let saved_sub = sub.clone();
+                let saved_unclaimed = self.unclaimed.borrow().clone();
+                let saved_statics_len = self.body.statics.len();
+                if let Some(effects) =
+                    self.midnight_ritual_exile_tokens_effect(&mut p, &mut sub, target.as_deref())
+                {
+                    special_effects = Some(effects);
+                } else {
+                    p = saved_p;
+                    sub = saved_sub;
+                    *self.unclaimed.borrow_mut() = saved_unclaimed;
+                    self.body.statics.truncate(saved_statics_len);
+                }
+            }
+            if special_effects.is_none() && try_cz_if_moved {
+                let saved_p = p.clone();
+                let saved_sub = sub.clone();
+                let saved_unclaimed = self.unclaimed.borrow().clone();
+                let saved_statics_len = self.body.statics.len();
+                if let Some(effects) = self.change_zone_then_if_moved(
+                    &mut p,
+                    &mut sub,
+                    target.as_deref(),
+                    targets_here,
+                    single_target,
+                ) {
+                    special_effects = Some(effects);
+                } else {
+                    p = saved_p;
+                    sub = saved_sub;
+                    *self.unclaimed.borrow_mut() = saved_unclaimed;
+                    self.body.statics.truncate(saved_statics_len);
+                }
+            }
+            if special_effects.is_none() && try_mill_take_one {
+                let saved_p = p.clone();
+                let saved_sub = sub.clone();
+                let saved_unclaimed = self.unclaimed.borrow().clone();
+                let saved_statics_len = self.body.statics.len();
+                if let Some(effects) = self.mill_may_take_one_effect(&mut p, &mut sub) {
+                    special_effects = Some(effects);
+                } else {
+                    p = saved_p;
+                    sub = saved_sub;
+                    *self.unclaimed.borrow_mut() = saved_unclaimed;
+                    self.body.statics.truncate(saved_statics_len);
+                }
+            }
+            let try_remember_this_way = special_effects.is_none()
+                && !second_target_here
                 && sub.is_some()
                 && !self.sub_is_api(sub.as_deref(), "ImmediateTrigger")
                 && !self.sub_is_api(sub.as_deref(), "DelayedTrigger")
@@ -704,8 +788,23 @@ impl Tx<'_> {
                     || (api == "Mill" && p.peek("RememberMilled") == Some("True"))
                     || (api == "Discard" && p.peek("RememberDiscarded") == Some("True"))
                     || (matches!(api.as_str(), "ChangeZone" | "ChangeZoneAll")
+                        && p.peek("RememberChanged") == Some("True"))
+                    || (api == "Dig"
+                        && p.peek("ChangeNum") == Some("All")
+                        && p.peek("DestinationZone") == Some("Exile")
+                        && p.peek("RememberChanged") == Some("True")
+                        && !self.sub_is_api(sub.as_deref(), "Effect"))
+                    || (api == "Dig"
+                        && !targets_here
+                        && p.peek("ChangeNum") == Some("All")
+                        && p.peek("Reveal") == Some("True")
+                        && p.peek("DestinationZone") == Some("Hand")
+                        && p.peek("ChangeValid") == Some("Card")
+                        && matches!(p.peek("Defined"), None | Some("You"))
                         && p.peek("RememberChanged") == Some("True")));
-            let remembered_effects = if try_remember_this_way {
+            let remembered_effects = if let Some(effects) = special_effects {
+                Some(effects)
+            } else if try_remember_this_way {
                 let saved_p = p.clone();
                 let saved_sub = sub.clone();
                 let saved_target = chain.target.clone();
@@ -714,10 +813,6 @@ impl Tx<'_> {
                 let saved_is_x = chain.target_is_x;
                 let saved_unclaimed = self.unclaimed.borrow().clone();
                 let saved_statics_len = self.body.statics.len();
-                let single_target = chain.target_exact.is_none()
-                    && !chain.target_is_x
-                    && chain.target_up_to.is_none_or(|n| n == 1);
-                let prior_target_used = !targets_here && !chain.effects.is_empty();
                 if let Some(effects) = self.remembered_this_way_chain(
                     &api,
                     &mut p,
@@ -1697,7 +1792,13 @@ impl Tx<'_> {
                         && (matches!(
                             (p.peek("Origin"), p.peek("Destination")),
                             (
-                                Some("Battlefield" | "Graveyard" | "Stack"),
+                                Some(
+                                    "Battlefield"
+                                        | "Graveyard"
+                                        | "Stack"
+                                        | "Battlefield,Stack"
+                                        | "Stack,Battlefield"
+                                ),
                                 Some("Hand" | "Exile")
                             ) | (Some("Graveyard"), Some("Battlefield"))
                         ) || (matches!(p.peek("Origin"), Some("Battlefield" | "Graveyard"))
@@ -1754,6 +1855,17 @@ impl Tx<'_> {
                             | "Explore"
                             | "SetLife"
                             | "TargetOnly"
+                            | "GainControl"
+                            | "Counter"
+                            | "LoseLife"
+                            | "GainLife"
+                            | "Draw"
+                            | "Mill"
+                            | "Discard"
+                            | "RemoveCounter"
+                            | "MoveCounter"
+                            | "Regenerate"
+                            | "PreventDamage"
                     )
                     || (api == "DealDamage" && !p.has("DividedAsYouChoose"))
                     || (api == "ChangeZone"
@@ -1768,7 +1880,10 @@ impl Tx<'_> {
                                         | "Stack,Battlefield"
                                 ),
                                 Some("Library")
-                            )
+                            ) | (
+                                Some("Exile"),
+                                Some("Battlefield" | "Hand" | "Graveyard" | "Library")
+                            ) | (Some("Battlefield"), Some("Graveyard"))
                         )))
                     && p.peek("TargetMin") == Some("0")
                     && matches!(p.peek("TargetMax"), None | Some("1"))
@@ -1792,10 +1907,16 @@ impl Tx<'_> {
                     && self.svars.get(max_var.trim()).is_some_and(|def| {
                         let def = def.trim();
                         def == format!("Count$Valid {valid}")
+                            || (spec.starts_with("TargetSpec::Object(")
+                                && matches!(def, "Count$Valid Card" | "Count$Valid Permanent"))
                             || (api == "ChangeZone"
                                 && p.peek("Origin") == Some("Graveyard")
                                 && def.strip_prefix("Count$ValidGraveyard ").is_some_and(|cv| {
                                     cv == valid
+                                        || cv == "Card"
+                                        || (cv == "Card.YouOwn"
+                                            && (valid.contains("YouOwn")
+                                                || valid.contains("YouCtrl")))
                                         || cv.replace("YouOwn", "YouCtrl")
                                             == valid.replace("YouOwn", "YouCtrl")
                                 }))
@@ -3300,6 +3421,7 @@ impl Tx<'_> {
                 }
             }
             "Mana" => self.mana_effect(p)?,
+            "ManaReflected" => self.mana_reflected_db_effect(p, target, targets_here)?,
             "Branch" => {
                 let var = p.take("BranchConditionSVar")?;
                 let cmp = p
@@ -3405,16 +3527,44 @@ impl Tx<'_> {
                 if targets_here {
                     return None;
                 }
-                let valid = p.take("ValidCards")?;
-                let filter = self.filter_expr(&valid)?;
-                if !self.on_a_spell
-                    && (filter.contains("Filter::CmcAtMostX")
-                        || filter.contains("Filter::CmcExactlyX"))
+                if let Some(ctrl) = p.take("Controller")
+                    && ctrl != "You"
                 {
-                    return None;
+                    return self.deny(format!("`SacrificeAll` with `Controller$ {ctrl}`"));
                 }
-                let name = self.body.filter_static("SWEEP", &filter);
-                vec![format!("Effect::SacrificeAll {{ filter: &{name} }}")]
+                if let Some(valid) = p.take("ValidCards") {
+                    let filter = self.filter_expr(&valid)?;
+                    if !self.on_a_spell
+                        && (filter.contains("Filter::CmcAtMostX")
+                            || filter.contains("Filter::CmcExactlyX"))
+                    {
+                        return None;
+                    }
+                    let name = self.body.filter_static("SWEEP", &filter);
+                    vec![format!("Effect::SacrificeAll {{ filter: &{name} }}")]
+                } else {
+                    match p.take("Defined").as_deref() {
+                        Some("Self") if !self.on_a_spell && target.is_none() => {
+                            vec!["Effect::SacrificeSelf".to_string()]
+                        }
+                        Some("Equipped")
+                            if !self.on_a_spell
+                                && !self.cost_sacrifices_self
+                                && target.is_none() =>
+                        {
+                            vec![
+                                "Effect::SacrificeAll { filter: &Filter::AttachedToBySource }"
+                                    .to_string(),
+                            ]
+                        }
+                        Some("DelayTriggerRemembered" | "DelayTriggerRememberedLKI")
+                            if self.in_delayed && target.is_none() =>
+                        {
+                            vec!["Effect::SacrificeEvent".to_string()]
+                        }
+                        _ => return None,
+                    }
+                }
             }
             // "Destroy all lands", "destroy all creatures. They can't be
             // regenerated": every permanent the valid-string names, none of

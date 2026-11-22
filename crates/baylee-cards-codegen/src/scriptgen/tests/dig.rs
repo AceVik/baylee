@@ -539,3 +539,56 @@ fn wave19b_dig_peek_rest_any_and_face_down_exile() {
         assert!(refused(bad), "must refuse: {bad}");
     }
 }
+
+#[test]
+fn wave20b_dig_remember_changed_exiled_and_revealed_mana_value() {
+    // Dig | ChangeNum$ All | DestinationZone$ Exile | RememberChanged$ True -> ThisWay::Exiled.
+    let dig_exile_loss = read(
+        "Name:ExileTopLoss\nManaCost:2 B\nTypes:Sorcery\n\
+         A:SP$ Dig | DigNum$ 3 | ChangeNum$ All | DestinationZone$ Exile \
+         | RememberChanged$ True | SubAbility$ DBLose\n\
+         SVar:DBLose:DB$ LoseLife | Defined$ Opponent | LifeAmount$ X | IsCurse$ True | SubAbility$ DBClean\n\
+         SVar:DBClean:DB$ Cleanup | ClearRemembered$ True\n\
+         SVar:X:Remembered$Valid Creature",
+    );
+    assert!(
+        dig_exile_loss.abilities[0]
+            .contains("Effect::ExileTop { who: PlayerRel::You, count: Amount::Fixed(3) }")
+            && dig_exile_loss.abilities[0].contains(
+                "Effect::LoseLife { amount: Amount::ThisWay(ThisWay::Exiled(&Filter::CREATURE)), \
+                 target: PlayerRel::Opponent }"
+            ),
+        "{:?}",
+        dig_exile_loss.abilities
+    );
+
+    // Dig | Reveal$ True | ChangeNum$ All | DestinationZone$ Hand | RememberChanged$ True
+    // -> RevealTopAllMatching + ThisWay::RevealedManaValue (Dark Confidant / Yuriko shape).
+    let bob = read(
+        "Name:BobReveal\nManaCost:1 B\nTypes:Creature Wizard\nPT:2/1\n\
+         T:Mode$ Phase | Phase$ Upkeep | ValidPlayer$ You | TriggerZones$ Battlefield | Execute$ TrigDig\n\
+         SVar:TrigDig:DB$ Dig | DigNum$ 1 | Reveal$ True | ChangeNum$ All | ChangeValid$ Card \
+         | DestinationZone$ Hand | RememberChanged$ True | SubAbility$ DBLose\n\
+         SVar:DBLose:DB$ LoseLife | Defined$ Player.Opponent | LifeAmount$ X | SubAbility$ DBClean\n\
+         SVar:DBClean:DB$ Cleanup | ClearRemembered$ True\n\
+         SVar:X:Remembered$CardManaCost",
+    );
+    assert!(
+        bob.abilities[0].contains(
+            "Effect::RevealTopAllMatching { count: 1, filter: &Filter::Any, found: Find::HAND }"
+        ) && bob.abilities[0].contains(
+            "Effect::LoseLife { amount: Amount::ThisWay(ThisWay::RevealedManaValue), \
+             target: PlayerRel::Opponent }"
+        ),
+        "{:?}",
+        bob.abilities
+    );
+
+    // Refusals: Dig exile followed by DB$ Play (until 11b merges) and unrevealed Hand Dig.
+    for bad in [
+        "Name:BadDigPlay\nManaCost:3 R\nTypes:Sorcery\nA:SP$ Dig | DigNum$ 4 | ChangeNum$ All | DestinationZone$ Exile | RememberChanged$ True | SubAbility$ P\nSVar:P:DB$ Play | Defined$ Remembered",
+        "Name:BadUnrevealedDigHand\nManaCost:1 B\nTypes:Sorcery\nA:SP$ Dig | DigNum$ 1 | ChangeNum$ All | ChangeValid$ Card | DestinationZone$ Hand | RememberChanged$ True | SubAbility$ L\nSVar:L:DB$ LoseLife | LifeAmount$ X\nSVar:X:Remembered$CardManaCost",
+    ] {
+        assert!(refused(bad), "must refuse: {bad}");
+    }
+}
