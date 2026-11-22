@@ -342,7 +342,7 @@ fn accept_at_central(state: &LobbyState, version: &str, mailbox: &Mailbox) {
             // A gateway account's move that waited for Central's own terms
             // goes on now (nothing when none waits).
             Ok(()) if central && account.finish_migration().is_err() => {
-                vec![TermsReply::Accepted(version), TermsReply::MigrationFailed]
+                vec![TermsReply::MigrationFailed]
             }
             Ok(()) => vec![TermsReply::Accepted(version), TermsReply::Readmit],
             Err(baylee_account::Error::Conflict) => vec![TermsReply::Changed],
@@ -546,6 +546,9 @@ pub(in crate::lobby) fn receive(
             readmit(state, mailbox);
         }
         TermsReply::MigrationFailed => {
+            // Consent was recorded, but the failed move ends this session.
+            // Account features must stay suspended until sign-in succeeds.
+            state.terms.close();
             state.terms_subject = Subject::Gateway;
             migration_failed(state, prefs);
         }

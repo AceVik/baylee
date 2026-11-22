@@ -68,9 +68,9 @@ pub(super) struct PortraitBelief<'w, 's> {
         (
             &'static crate::shellkit::avatar::Avatar,
             &'static InheritedVisibility,
-            Option<&'static Children>,
         ),
     >,
+    plates: Query<'w, 's, &'static Children>,
     faces: Query<'w, 's, &'static crate::shellkit::avatar::AvatarFace>,
 }
 
@@ -932,10 +932,11 @@ fn portraits_json(believed: &Believed) -> String {
         work,
         portraits,
         discs,
+        plates,
         faces,
     } = &believed.portraits;
-    let discs = discs.iter().map(|(avatar, visible, children)| {
-        let worn = children.into_iter().flatten().any(|child| {
+    let discs = discs.iter().map(|(avatar, visible)| {
+        let worn = plates.get(avatar.plate).into_iter().flatten().any(|child| {
             matches!(
                 faces.get(*child),
                 Ok(crate::shellkit::avatar::AvatarFace::Picture(_))

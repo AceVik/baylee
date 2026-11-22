@@ -68,7 +68,7 @@ pub(super) const STYLES: [Style; 12] = [
     ),
 ];
 
-pub(super) fn embed(embedded: &EmbeddedAssetRegistry) {
+pub(crate) fn embed(embedded: &EmbeddedAssetRegistry) {
     macro_rules! painting {
         ($track:literal, $stem:literal) => {
             embedded.insert_asset(

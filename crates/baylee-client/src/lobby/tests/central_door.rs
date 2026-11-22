@@ -611,6 +611,10 @@ fn central_sign_in_wears_lobby_header_allows_decks_before_gateway_and_refreshes_
 
     // Refreshing gateways must preserve known probes on the refresh frame so rows
     // do not flicker into Offline while background probes are in flight.
+    assert!(
+        app.world().resource::<LobbyState>().lobby.busy(),
+        "the private deck read is still in flight"
+    );
     press(&mut app, Press::Front(FrontPress::RefreshGateways));
     assert!(matches!(
         app.world()

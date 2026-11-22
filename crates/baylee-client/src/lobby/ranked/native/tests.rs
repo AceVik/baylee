@@ -57,6 +57,23 @@ fn a_late_read_from_a_departed_home_does_not_join() {
 }
 
 #[test]
+fn ending_the_account_detaches_an_in_flight_ranked_status_answer() {
+    let (handle, _jobs) = central::Handle::queued_for_test();
+    let mut worker = Worker::default();
+    worker.session(Some(handle));
+    let old: Inbox = Arc::default();
+    worker.inbox = Some(old.clone());
+    worker.session(None);
+    *old.lock().unwrap() = Some(Reply::Queue(
+        Request::Status,
+        Ok(assigned(*Uuid::now_v7().as_bytes())),
+    ));
+    assert!(worker.inbox.is_none() && worker.session.is_none());
+    assert_eq!(worker.queue, QueueState::Idle);
+    assert!(worker.played.is_none());
+}
+
+#[test]
 fn an_unchanged_queue_does_not_rebuild_and_a_live_game_needs_no_local_deck() {
     let mut w = Worker::default();
     let pending = assigned(*Uuid::now_v7().as_bytes());

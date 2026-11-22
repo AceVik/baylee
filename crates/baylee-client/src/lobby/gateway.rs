@@ -675,7 +675,7 @@ pub(super) fn toolbar(
             keys::stop(state, "gateway-sort"),
         ),
     );
-    let can_refresh = !state.lobby.busy() && state.adding.is_none();
+    let can_refresh = picker_ready(state);
     let refresh_btn = toolbar_icon_btn(
         commands,
         kit,
@@ -1325,6 +1325,16 @@ fn style_gateway_control(
     }
 }
 
+/// A private Central shelf read can continue while the player browses hosts.
+fn picker_ready(state: &LobbyState) -> bool {
+    let busy = if state.central_ready() {
+        state.central_admitting()
+    } else {
+        state.lobby.busy()
+    };
+    !busy && state.adding.is_none()
+}
+
 fn gateway_row(
     commands: &mut Commands,
     state: &LobbyState,
@@ -1335,12 +1345,7 @@ fn gateway_row(
 ) -> Entity {
     let lang = state.lobby.lang();
     let words = row_words(url, state.probes.get(url), lang);
-    let busy = if state.central_ready() {
-        state.central_admitting()
-    } else {
-        state.lobby.busy()
-    };
-    let enabled = !busy && state.adding.is_none();
+    let enabled = picker_ready(state);
     let marked = state.gateway_cursor == Some(index);
     let last_used = index == 0 && state.uses.of(url).count > 0;
     let rest_bg = if marked {

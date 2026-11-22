@@ -10,6 +10,7 @@ use std::collections::HashMap;
 
 mod catalog;
 mod promotion;
+pub(crate) use catalog::embed as embed_art;
 pub(crate) use promotion::Promotion;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
@@ -215,7 +216,7 @@ pub(crate) fn install(app: &mut App) {
     {
         return;
     }
-    catalog::embed(app.world().resource());
+    embed_art(app.world().resource());
     let library = app
         .world()
         .resource::<AssetServer>()

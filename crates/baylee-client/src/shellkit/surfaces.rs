@@ -768,7 +768,7 @@ fn sheet_box_parts<C: Bundle>(
         let band = crate::lobby::scrollbars::band_stable(commands, scroller, phone);
         commands.entity(band).entry::<Node>().and_modify(|mut n| {
             n.flex_grow = 1.0;
-            n.flex_basis = px(0);
+            n.flex_basis = px_fixed(0.0);
         });
         band
     } else {

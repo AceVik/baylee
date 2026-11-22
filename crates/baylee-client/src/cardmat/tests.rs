@@ -2193,7 +2193,8 @@ fn every_module_a_shader_imports_is_registered_as_a_shader_library() {
     );
 }
 
-/// Every shader the Rust side names is a file that exists.
+/// Every shader the Rust side registers has a physical source, and every shader
+/// it requests has a physical source or a readable entry in Bevy's asset registry.
 ///
 /// A shader is embedded with `embedded_asset!` (or registered with
 /// `load_shader_library!`) and asked for by an `embedded://` path; the two are strings that agree only by being typed
@@ -2207,6 +2208,11 @@ fn every_shader_the_code_names_is_a_wesl_file_that_exists() {
     let library = ["load_shader_library", "!("].concat();
     let url = ["\"embedded", "://baylee_client/"].concat();
     let source_root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("src");
+    let mut app = App::new();
+    app.add_plugins((MinimalPlugins, AssetPlugin::default()));
+    crate::rank_art::embed_art(app.world().resource());
+    let server = app.world().resource::<AssetServer>();
+    let virtual_assets = server.get_source("embedded").unwrap();
     let mut sources = Vec::new();
     rust_files(
         &std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("src"),
@@ -2217,11 +2223,11 @@ fn every_shader_the_code_names_is_a_wesl_file_that_exists() {
     for path in sources {
         let source = std::fs::read_to_string(&path).expect("a source file");
         let file = path.file_name().unwrap_or_default().to_string_lossy();
-        let mut check = |name: &str, base: &std::path::Path, how: &str| {
+        let mut check = |name: &str, exists: bool, how: &str| {
             let is_wesl = std::path::Path::new(name)
                 .extension()
                 .is_some_and(|extension| extension == "wesl");
-            if !is_wesl || !base.join(name).is_file() {
+            if !is_wesl || !exists {
                 faults.push(format!("{file}: {how} names `{name}`, no .wesl shader"));
             }
         };
@@ -2241,7 +2247,11 @@ fn every_shader_the_code_names_is_a_wesl_file_that_exists() {
                 let name = call[open + 1..].split('"').next().unwrap_or("");
                 embedded += 1;
                 // Bevy resolves embedded assets relative to the declaring module.
-                check(name, path.parent().expect("source parent"), how);
+                check(
+                    name,
+                    path.parent().expect("source parent").join(name).is_file(),
+                    how,
+                );
             }
         }
         for (at, _) in source.match_indices(&url) {
@@ -2254,7 +2264,11 @@ fn every_shader_the_code_names_is_a_wesl_file_that_exists() {
                 continue;
             }
             asked += 1;
-            check(name, &source_root, "an embedded:// path");
+            let exists = source_root.join(name).is_file() || {
+                let asset = std::path::Path::new("baylee_client").join(name);
+                bevy::tasks::block_on(virtual_assets.reader().read(&asset)).is_ok()
+            };
+            check(name, exists, "an embedded:// path");
         }
     }
     assert!(

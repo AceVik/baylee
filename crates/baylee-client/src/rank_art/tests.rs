@@ -70,6 +70,19 @@ fn every_approved_painting_has_one_portable_asset_and_cache_key() {
                 "{path}: 384 × 384"
             );
         }
+        // The client and the gallery both illuminate the paintings with these
+        // exact bytes. A packaged client resolves this name without a filesystem.
+        let mut finish = source
+            .reader()
+            .read(std::path::Path::new("baylee_client/rank_art/finish.wesl"))
+            .await
+            .unwrap();
+        bytes.clear();
+        finish.read_to_end(&mut bytes).await.unwrap();
+        assert_eq!(
+            bytes,
+            include_bytes!("../../../../art/baylee/ranks/finish.wgsl").as_slice()
+        );
     });
     assert!(RankArt::badge("../../other", None, false, None).is_none());
     assert_eq!(

@@ -470,11 +470,12 @@ mod tests {
         let sql = bootstrap("aa", "bb", "cc");
         assert!(sql.contains("central_migrator") && sql.contains("PASSWORD 'aa'"));
         assert!(sql.contains("ROLE central_legacy") && sql.contains("PASSWORD 'cc'"));
-        assert_eq!(
-            sql.matches("REVOKE CREATE ON SCHEMA public FROM PUBLIC;")
-                .count(),
-            2
-        );
+        for db in ["central_test", "central_native_test", "central_ranked_test"] {
+            assert!(sql.contains(&format!("CREATE DATABASE {db} OWNER central_migrator;")));
+            assert!(sql.contains(&format!(
+                "\\connect {db}\nREVOKE CREATE, TEMP ON DATABASE {db} FROM PUBLIC;\nREVOKE CREATE ON SCHEMA public FROM PUBLIC;"
+            )));
+        }
         assert!(sql.contains("GRANT central_migrator TO central_inherited;"));
     }
 }

@@ -633,6 +633,10 @@ fn accepting_central_terms_first_then_enters_the_gateway() {
     let state = app.world().resource::<LobbyState>();
     assert!(!state.terms.up(), "the sheet is down");
     assert!(!super::super::central::terms_pending(state));
+    assert!(
+        state.central_admitting(),
+        "the chosen gateway is being entered"
+    );
     assert!(jobs.try_recv().is_ok(), "and the gateway is entered");
 }
 
@@ -642,11 +646,16 @@ fn accepting_central_terms_first_then_enters_the_gateway() {
 #[test]
 fn a_move_that_fails_after_central_terms_ends_the_central_sign_in() {
     let (mut app, jobs) = central_terms_waiting();
-    post(&mut app, Reply::Terms(TermsReply::Accepted("v1".into())));
+    let old_epoch = app.world().resource::<LobbyState>().gateway_epoch;
     post(&mut app, Reply::Terms(TermsReply::MigrationFailed));
+    post(
+        &mut app,
+        Reply::Remote(old_epoch, Box::new(Reply::Terms(TermsReply::Readmit))),
+    );
     let state = app.world().resource::<LobbyState>();
     assert!(!state.terms.up());
     assert!(state.central.is_none(), "signed out of Central");
+    assert!(!state.central_admitting() && state.lobby.token().is_none());
     assert!(jobs.try_recv().is_err(), "no gateway entered");
     let words = drawn(&mut app);
     assert!(words.contains(Phrase::CentralSignInFailed.text(Lang::En)));

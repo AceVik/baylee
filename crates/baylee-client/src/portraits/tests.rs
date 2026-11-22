@@ -461,11 +461,17 @@ fn wears(work: &mut PictureWork, handle: &str, key: PictureKey, moving: bool) {
     );
 }
 
-fn face(app: &App, disc: Entity) -> Option<AvatarFace> {
-    let children = app.world().get::<Children>(disc)?;
-    children
+fn face(app: &App, disc: Entity) -> (Entity, &AvatarFace) {
+    let world = app.world();
+    let plate = world.get::<Avatar>(disc).expect("avatar disc").plate;
+    let mut faces = world
+        .get::<Children>(plate)
+        .expect("portrait plate")
         .iter()
-        .find_map(|child| app.world().get::<AvatarFace>(child).cloned())
+        .filter_map(|child| world.get::<AvatarFace>(child).map(|face| (child, face)));
+    let rendered = faces.next().expect("a picture or monogram on the plate");
+    assert!(faces.next().is_none(), "exactly one rendered avatar face");
+    rendered
 }
 
 fn pixels(app: &App, image: &Handle<Image>) -> Vec<u8> {
@@ -486,6 +492,11 @@ fn a_moving_picture_plays_in_its_disc_and_writes_only_on_a_new_frame() {
     let mut app = app();
     let key = [0x42; 16];
     let disc = drawn(&mut app, "Mia Wallace#00ff");
+    let rim = app
+        .world_mut()
+        .spawn(crate::rank_art::RankArt::frame("gold", Some(2), None).unwrap())
+        .id();
+    app.world_mut().entity_mut(disc).add_child(rim);
     let other = drawn(&mut app, "Alice#0001");
     // A gateway's own account that holds the same tag under another name.
     let stranger = drawn(&mut app, "Mallory#00ff");
@@ -495,7 +506,7 @@ fn a_moving_picture_plays_in_its_disc_and_writes_only_on_a_new_frame() {
         work.account = Some(1);
     }
     app.update();
-    assert_eq!(face(&app, disc), Some(AvatarFace::Letters), "no still yet");
+    assert_eq!(face(&app, disc).1, &AvatarFace::Letters, "no still yet");
 
     let still = vec![9u8; (KEPT_SIDE * KEPT_SIDE * 4) as usize];
     let frames: Vec<Vec<u8>> = (0..6u8)
@@ -509,14 +520,15 @@ fn a_moving_picture_plays_in_its_disc_and_writes_only_on_a_new_frame() {
         },
     );
     app.update();
-    let image = match face(&app, disc) {
-        Some(AvatarFace::Picture(image)) => image,
+    let (face_before, still_face) = face(&app, disc);
+    let image = match still_face {
+        AvatarFace::Picture(image) => image.clone(),
         other => panic!("the picture, not {other:?}"),
     };
-    assert_eq!(face(&app, other), Some(AvatarFace::Letters));
+    assert_eq!(face(&app, other).1, &AvatarFace::Letters);
     assert_eq!(
-        face(&app, stranger),
-        Some(AvatarFace::Letters),
+        face(&app, stranger).1,
+        &AvatarFace::Letters,
         "the same tag under another name keeps its monogram"
     );
     assert_eq!(pixels(&app, &image), still);
@@ -577,8 +589,6 @@ fn a_moving_picture_plays_in_its_disc_and_writes_only_on_a_new_frame() {
         Some(&portrait),
         "the image is the same: no disc is touched"
     );
-    let faces_before = app.world().get::<Children>(disc).unwrap()[0];
-
     // Reduced motion: the still, at once, and then nothing more.
     let mut prefs = crate::prefs::Prefs::default();
     prefs.edit().reduce_motion = true;
@@ -606,9 +616,13 @@ fn a_moving_picture_plays_in_its_disc_and_writes_only_on_a_new_frame() {
     app.update();
     assert_eq!(pixels(&app, &image), still);
     assert_eq!(
-        app.world().get::<Children>(disc).unwrap()[0],
-        faces_before,
+        face(&app, disc).0,
+        face_before,
         "the face was never rebuilt"
+    );
+    assert_eq!(
+        app.world().get::<ChildOf>(rim).map(ChildOf::parent),
+        Some(disc)
     );
 }
 
@@ -643,7 +657,7 @@ fn a_lost_or_replaced_picture_leaves_and_a_sign_out_forgets_all() {
         },
     );
     app.update();
-    assert!(matches!(face(&app, disc), Some(AvatarFace::Picture(_))));
+    assert!(matches!(face(&app, disc).1, AvatarFace::Picture(_)));
     // Central's next answer: no picture for the tag.
     app.world_mut()
         .resource_scope(|world, mut work: Mut<PictureWork>| {
@@ -659,7 +673,7 @@ fn a_lost_or_replaced_picture_leaves_and_a_sign_out_forgets_all() {
             });
         });
     app.update();
-    assert_eq!(face(&app, disc), Some(AvatarFace::Letters));
+    assert_eq!(face(&app, disc).1, &AvatarFace::Letters);
     assert!(app.world().resource::<PictureWork>().pictures.is_empty());
 }
 
