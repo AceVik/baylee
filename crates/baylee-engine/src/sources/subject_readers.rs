@@ -78,7 +78,8 @@ pub(super) fn refers_to_subject(effects: &'static [Effect], implicit_source: boo
             | Effect::DetainFilter { filter }
             | Effect::PumpFilter { filter, .. }
             | Effect::PumpFilterPerKeyword { filter, .. }
-            | Effect::SetPTFilter { filter, .. } => {
+            | Effect::SetPTFilter { filter, .. }
+            | Effect::SetPTByCountFilter { filter, .. } => {
                 implicit_source && matches!(filter, Filter::This)
             }
             Effect::RedirectCombatDamageToYouThisTurn { to, .. } => matches!(
@@ -94,6 +95,8 @@ pub(super) fn refers_to_subject(effects: &'static [Effect], implicit_source: boo
             | Effect::PreventNextDamageToAttached { .. }
             | Effect::ReflectNextChosenSourceDamage
             | Effect::MustBlockSourceIfAbleThisCombat
+            | Effect::ExileSource
+            | Effect::ExileSourceWithCounters { .. }
             | Effect::ExileSourceThenCastTransformed { .. }
             | Effect::TakklemaggotDeath
             | Effect::MeldWithNamed { .. }
@@ -182,6 +185,8 @@ pub(super) fn moves_subject(effects: &'static [Effect]) -> bool {
         moves |= matches!(
             effect,
             Effect::TakklemaggotDeath
+                | Effect::ExileSource
+                | Effect::ExileSourceWithCounters { .. }
                 | Effect::MeldWithNamed { .. }
                 | Effect::ReturnSourceFromGraveyard { .. }
                 | Effect::ReturnToHand {

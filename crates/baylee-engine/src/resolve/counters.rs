@@ -494,6 +494,47 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
             }
             None
         }
+        Effect::SetPTByCountFilter {
+            filter,
+            power,
+            toughness,
+            duration,
+        } => {
+            let probe = baylee_cards_dsl::Modifier::SetPT(0, 0);
+            let filters = if matches!(filter, baylee_cards_dsl::Filter::This) {
+                let this = this_to_affect(state, res)?;
+                smallvec::smallvec![crate::effects::EffectFilter::object(state, this)]
+            } else {
+                super::bound_now_with_context(state, filter, &probe, you, res.rule_context(), None)
+            };
+            if filters.is_empty() {
+                return None;
+            }
+            let ts = state.next_timestamp();
+            let context = res.rule_context();
+            for ef in filters {
+                let crate::effects::EffectFilter::ObjectIs(id, _) = ef else {
+                    continue;
+                };
+                let Some(obj) = state.object(id) else {
+                    continue;
+                };
+                let p = crate::layers::pt_count_for_resolution(state, obj, you, power, context);
+                let t = crate::layers::pt_count_for_resolution(state, obj, you, toughness, context);
+                state.effects.register(crate::effects::ContinuousEffect {
+                    id: baylee_core::ids::EffectId::new(0),
+                    source: Some(res.source),
+                    controller: you,
+                    origin: crate::effects::EffectOrigin::Resolution,
+                    layer: baylee_cards_dsl::Layer::PtSet,
+                    timestamp: ts,
+                    duration,
+                    filter: ef,
+                    modifier: baylee_cards_dsl::Modifier::SetPT(p, t),
+                });
+            }
+            None
+        }
         Effect::ModifyFilter {
             filter,
             controlled_by,
@@ -1170,7 +1211,8 @@ mod pump_tests {
                 crate::effects::EffectFilter::ObjectIs(id, _) => id,
                 crate::effects::EffectFilter::Dsl(f)
                 | crate::effects::EffectFilter::DslAbout(f, ..)
-                | crate::effects::EffectFilter::DslControlledBy(f, ..) => {
+                | crate::effects::EffectFilter::DslControlledBy(f, ..)
+                | crate::effects::EffectFilter::DslWithSubtype(f, ..) => {
                     panic!("a dynamic filter: {f:?}")
                 }
             })
@@ -1227,7 +1269,8 @@ mod pump_tests {
                 crate::effects::EffectFilter::ObjectIs(id, _) => id,
                 crate::effects::EffectFilter::Dsl(f)
                 | crate::effects::EffectFilter::DslAbout(f, ..)
-                | crate::effects::EffectFilter::DslControlledBy(f, ..) => {
+                | crate::effects::EffectFilter::DslControlledBy(f, ..)
+                | crate::effects::EffectFilter::DslWithSubtype(f, ..) => {
                     panic!("a dynamic filter: {f:?}")
                 }
             })

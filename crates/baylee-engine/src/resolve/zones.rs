@@ -1116,12 +1116,15 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
             None
         }
         Effect::ExileSource => {
-            let owner = state.object(res.source).map_or(you, |o| o.owner);
-            if let Some(obj) = state.object_mut(res.source) {
+            let source = super::subjects::moving_source(state, res)?;
+            let owner = state.object(source.object).map_or(you, |o| o.owner);
+            if let Some(obj) = state.object_mut(source.object)
+                && obj.is_card()
+            {
                 obj.kind = ObjectKind::Card;
             }
             let _ = state.move_object(
-                res.source,
+                source.object,
                 ZoneLocation::Exile(owner),
                 ZonePosition::Top,
                 Cause::Effect,
@@ -1129,21 +1132,24 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
             None
         }
         Effect::ExileSourceWithCounters { kind, n } => {
-            let owner = state.object(res.source).map_or(you, |o| o.owner);
-            if let Some(obj) = state.object_mut(res.source) {
+            let source = super::subjects::moving_source(state, res)?;
+            let owner = state.object(source.object).map_or(you, |o| o.owner);
+            if let Some(obj) = state.object_mut(source.object)
+                && obj.is_card()
+            {
                 obj.kind = ObjectKind::Card;
             }
             let _ = state.move_object(
-                res.source,
+                source.object,
                 ZoneLocation::Exile(owner),
                 ZonePosition::Top,
                 Cause::Effect,
             );
             if state
-                .object(res.source)
+                .object(source.object)
                 .is_some_and(|o| o.zone == crate::zone::Zone::Exile)
             {
-                crate::replacement::put_counters_by(state, you, res.source, kind, n);
+                crate::replacement::put_counters_by(state, you, source.object, kind, n);
             }
             None
         }

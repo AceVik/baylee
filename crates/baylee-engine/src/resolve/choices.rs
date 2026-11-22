@@ -797,8 +797,7 @@ pub(super) fn exec_choice(
                     | baylee_cards_dsl::CostPart::DiscardX(_)
                     | baylee_cards_dsl::CostPart::ExileFromGraveyardX(_)
             ) {
-                let options =
-                    cost_wizard::options_with_context(state, player, res.rule_context(), cost);
+                let options = resolution_cost_options(state, res, player, cost);
                 let fixed_x = if !on_payment {
                     Some(res.x.unwrap_or(0))
                 } else if res.x.is_some_and(|x| x > 0)
@@ -902,8 +901,7 @@ pub(super) fn exec_choice(
                     pending
                 };
             }
-            let options =
-                cost_wizard::options_with_context(state, player, res.rule_context(), cost);
+            let options = resolution_cost_options(state, res, player, cost);
             if options.is_empty() {
                 // No legal answer, so no question: a Karoo under a player
                 // with no other land to return sacrifices itself, and
@@ -1484,6 +1482,51 @@ fn payment_player(
         .expect("batch initialized");
     res.subject.set_event_player(batch.previous_player);
     None
+}
+
+fn filter_names_this(filter: &baylee_cards_dsl::Filter) -> bool {
+    use baylee_cards_dsl::Filter;
+    match filter {
+        Filter::This => true,
+        Filter::And(parts) | Filter::Or(parts) => parts.iter().any(filter_names_this),
+        Filter::Not(inner) => filter_names_this(inner),
+        _ => false,
+    }
+}
+
+pub(super) fn cost_part_names_this(part: &baylee_cards_dsl::CostPart) -> bool {
+    use baylee_cards_dsl::CostPart;
+    match part {
+        CostPart::Sacrifice(f)
+        | CostPart::SacrificeX(f)
+        | CostPart::SacrificeAll(f)
+        | CostPart::ExilePermanent(f)
+        | CostPart::Discard(f)
+        | CostPart::DiscardX(f)
+        | CostPart::TapN { filter: f, .. }
+        | CostPart::TapX(f)
+        | CostPart::ReturnToHand(f)
+        | CostPart::ExileFromGraveyard(f)
+        | CostPart::ExileFromGraveyardX(f)
+        | CostPart::ExileFromSingleGraveyard { filter: f, .. } => filter_names_this(f),
+        _ => false,
+    }
+}
+
+pub(super) fn resolution_cost_options(
+    state: &GameState,
+    res: &Resolution,
+    player: PlayerId,
+    cost: &baylee_cards_dsl::CostPart,
+) -> Vec<ObjectId> {
+    let mut options = cost_wizard::options_with_context(state, player, res.rule_context(), cost);
+    if cost_part_names_this(cost)
+        && !super::subjects::source(state, res)
+            .is_some_and(|source| super::subjects::is_current(state, source))
+    {
+        options.retain(|&id| id != res.source);
+    }
+    options
 }
 
 #[cfg(test)]

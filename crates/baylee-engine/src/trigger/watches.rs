@@ -368,6 +368,18 @@ static MONARCH_TAKEOVER: &[baylee_cards_dsl::Effect] = &[baylee_cards_dsl::Effec
     PlayerRel::ControllerOfTarget,
 )];
 
+/// "Whenever you take the initiative, venture into Undercity" and
+/// "At the beginning of your upkeep, venture into Undercity" (CR 725.2).
+static INITIATIVE_VENTURE: &[baylee_cards_dsl::Effect] =
+    &[baylee_cards_dsl::Effect::VentureIntoUndercity];
+
+/// "Whenever one or more creatures a player controls deal combat damage to you,
+/// that player takes the initiative" (CR 725.2).
+static INITIATIVE_TAKEOVER: &[baylee_cards_dsl::Effect] =
+    &[baylee_cards_dsl::Effect::TakeInitiative(
+        PlayerRel::EventPlayer,
+    )];
+
 /// The monarch's two inherent triggered abilities (CR 726.2).
 ///
 /// No permanent has them, so no walk over permanents finds them: they are
@@ -1064,6 +1076,88 @@ pub(super) fn monarch_triggers(
                 }) =>
             {
                 triggers.push(inherent(MONARCH_TAKEOVER, Some(*creature)));
+            }
+            _ => {}
+        }
+    }
+}
+
+/// The initiative's three inherent triggered abilities (CR 725.2):
+/// 1. "Whenever you take the initiative, venture into Undercity."
+/// 2. "At the beginning of your upkeep, venture into Undercity."
+/// 3. "Whenever one or more creatures a player controls deal combat damage to
+///    you, that player takes the initiative" — batched once per attacking
+///    controller across simultaneous combat-damage events (CR 603.2c).
+pub(super) fn initiative_triggers(
+    state: &GameState,
+    events: &[crate::event::JournalEntry],
+    triggers: &mut Vec<PendingTrigger>,
+) {
+    let inherent = |controller, effects, event_player| PendingTrigger {
+        text: TextChangeMap::IDENTITY,
+        source_version: None,
+        related_objects: None,
+        grantor: None,
+        event_subject: None,
+        event_ability: None,
+        event_object_identity: None,
+        counter_source_version: None,
+        event_mana: None,
+        event_mana_value: None,
+        event_tap_snapshot: None,
+        event_departure: None,
+        event_amount: None,
+        event_player,
+        source: ObjectId::NO_SOURCE,
+        ability_index: baylee_core::ids::AbilityRef::SYNTHETIC,
+        abilities: None,
+        controller,
+        timestamp: 0,
+        event_object: None,
+        implicit_target: None,
+        synthetic_effects: Some(effects),
+        once_per_turn: false,
+        synthetic_target: None,
+        chosen_mode: None,
+        synthetic_condition: None,
+        in_chosen_order: false,
+    };
+    let initiative = state.initiative.filter(|&p| !state.has_left(p));
+    let mut combat_damage_controllers = baylee_core::ids::SeatSet::new();
+    for entry in events {
+        match &entry.event {
+            GameEvent::TookInitiative { player } if !state.has_left(*player) => {
+                triggers.push(inherent(*player, INITIATIVE_VENTURE, None));
+            }
+            GameEvent::StepChanged {
+                step: crate::turn::Step::Upkeep,
+                ..
+            } if initiative == Some(state.turn.active) => {
+                triggers.push(inherent(state.turn.active, INITIATIVE_VENTURE, None));
+            }
+            GameEvent::DamageDealt {
+                source: Some(creature),
+                target: crate::event::DamageTarget::Player(player),
+                amount,
+                is_combat: true,
+            } if *amount > 0
+                && Some(*player) == initiative
+                && let Some(attacker_controller) = state
+                    .object_or_departed(*creature)
+                    .filter(|o| {
+                        o.characteristics()
+                            .types
+                            .contains(baylee_core::types::TypeSet::CREATURE)
+                    })
+                    .map(|o| o.controller)
+                && !combat_damage_controllers.contains(attacker_controller) =>
+            {
+                combat_damage_controllers.insert(attacker_controller);
+                triggers.push(inherent(
+                    *player,
+                    INITIATIVE_TAKEOVER,
+                    Some(attacker_controller),
+                ));
             }
             _ => {}
         }

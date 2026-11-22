@@ -570,6 +570,11 @@ pub enum LogEvent {
         /// Zero-based index into `Effect::Vote::options`.
         option: u8,
     },
+    /// A player took the initiative (CR 725.1–725.3).
+    TookInitiative {
+        /// The player who took the initiative.
+        player: PlayerId,
+    },
 }
 
 impl LogEvent {
@@ -588,6 +593,7 @@ impl LogEvent {
             | Self::PlayerCounters { .. }
             | Self::Shuffled { .. }
             | Self::BecameMonarch { .. }
+            | Self::TookInitiative { .. }
             | Self::DiceRolled { .. }
             | Self::CoinFlipped { .. }
             | Self::Lost { .. }
@@ -656,6 +662,7 @@ impl LogEvent {
             | Self::PlayerCounters { .. }
             | Self::Shuffled { .. }
             | Self::BecameMonarch { .. }
+            | Self::TookInitiative { .. }
             | Self::DiceRolled { .. }
             | Self::CoinFlipped { .. }
             | Self::Lost { .. }

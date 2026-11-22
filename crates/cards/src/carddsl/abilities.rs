@@ -473,6 +473,9 @@ fn encode_static_into(sa: &StaticAbility, ch: &mut EffectChannels) {
         | Modifier::SetPower(_)
         | Modifier::SetToughness(_)
         | Modifier::SetPTToCount(_)
+        | Modifier::SetPTSeparateToCount { .. }
+        | Modifier::SetPowerToCount(_)
+        | Modifier::SetToughnessToCount(_)
         | Modifier::CharacteristicPT { .. }
         | Modifier::CharacteristicPTSeparate { .. } => {
             ch.pump_pt += 2.0;

@@ -85,6 +85,7 @@ pub(crate) fn view(seats: u8) -> PlayerView {
         priority_held: false,
         policy_acts: Vec::new(),
         monarch: None,
+        initiative: None,
         day_night: None,
         seats: (0..seats)
             .map(|i| SeatView {

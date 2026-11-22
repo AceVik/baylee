@@ -3502,9 +3502,6 @@ What is genuinely absent today:
 
 - Battles (Invasion of Ikoria is a stub; `TypeSet::BATTLE` exists and
   nothing plays one).
-- Dungeons and the venture mechanic.
-- The initiative and Undercity (`TakeInitiative` is a refused effect in
-  `transcode-report`).
 - Stickers and attractions.
 - Subgames, and ante.
 

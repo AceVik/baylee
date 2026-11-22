@@ -327,7 +327,10 @@ pub use turn::{DayNight, Phase, Step};
 /// Version 109 adds named-option voting (`CastModeKind::VoteOption`,
 /// `YesNoPrompt::AdditionalVote`, [`LogEvent::VotedOption`]; CR 701.38) and
 /// `ChoicePrompt::CostRemoveCounter`.
-pub const VIEW_VERSION: u32 = 109;
+/// Version 110 adds the initiative designation ([`PlayerView::initiative`],
+/// [`SpectatorView::initiative`], [`LogEvent::TookInitiative`], CR 725) and
+/// [`baylee_core::Dungeon::Undercity`] (CR 309.4c).
+pub const VIEW_VERSION: u32 = 110;
 
 // ------------------------------------------------------------------- targets
 

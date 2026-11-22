@@ -1182,6 +1182,7 @@ impl Effect {
             | Effect::ScryFor { .. }
             | Effect::ExileLibraryAndShuffleHand { .. }
             | Effect::SetPTFilter { .. }
+            | Effect::SetPTByCountFilter { .. }
             | Effect::Mill { .. }
             | Effect::AddManaUnlessAnyPlayerPays { .. }
             | Effect::AddMana { .. }
@@ -1301,6 +1302,8 @@ impl Effect {
             | Effect::DungeonExileTwo
             | Effect::DungeonTax { .. }
             | Effect::VentureIntoTheDungeon
+            | Effect::VentureIntoUndercity
+            | Effect::DungeonThroneOfTheDeadThree
             | Effect::RevealHand { .. }
             | Effect::RevealRandomFromHand { .. }
             | Effect::DiscardRevealedThisWay
@@ -1342,6 +1345,7 @@ impl Effect {
             | Effect::PayManaOrLose { .. }
             | Effect::CreateEmblem { .. }
             | Effect::BecomeMonarch(_)
+            | Effect::TakeInitiative(_)
             | Effect::IncreaseSpeed
             | Effect::OptionalBasicLandSearchFor { .. }
             | Effect::SearchLibraryOf { .. }

@@ -1295,6 +1295,7 @@ fn leave(
     // and the card comes back to its owner (CR 610.3).
     state.return_what_departed_hosts_held();
     state.monarch_leaves(player, leaving);
+    state.initiative_leaves(player, leaving);
     state.players[usize::from(player.get())].ring_bearer = None;
     let exiled = exile_what_the_departed_control(state);
     for p in 0..state.players.len() {

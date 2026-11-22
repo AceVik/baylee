@@ -3,7 +3,7 @@ use super::{
     Amount, ColorSet, DUNGEON_TREASURE, Dungeon, Duration, Effect, Filter, KeywordSet, Modifier,
     PlayerRel, TargetSpec,
 };
-use baylee_cards_dsl::{CounterKind, TokenDef};
+use baylee_cards_dsl::{CounterKind, Find, TokenDef};
 use baylee_core::{
     color::Color,
     generated::subtypes::creature,
@@ -37,6 +37,16 @@ static ATROPAL: TokenDef = TokenDef {
     power: Some(4),
     toughness: Some(4),
     keywords: KeywordSet::DEATHTOUCH,
+    ..TokenDef::DEFAULT
+};
+static CATACOMBS_SKELETON: TokenDef = TokenDef {
+    name: "Skeleton",
+    types: TypeSet::CREATURE,
+    subtypes: &[creature::SKELETON],
+    colors: ColorSet::of(Color::Black),
+    power: Some(4),
+    toughness: Some(1),
+    keywords: KeywordSet::MENACE,
     ..TokenDef::DEFAULT
 };
 
@@ -90,20 +100,40 @@ static ROOM_17: &[Effect] = &[
     Effect::DungeonSacrificeThree,
 ];
 static ROOM_18: &[Effect] = &[Effect::CreateToken { token: &ATROPAL }];
+static UNDERCITY_SECRET_ENTRANCE: &[Effect] = &[Effect::SearchLibrary {
+    filter: &Filter::BASIC_LAND,
+    finds: &[Find::HAND],
+    optional: false,
+}];
+static UNDERCITY_FORGE: &[Effect] = &[Effect::AddCounter {
+    kind: CounterKind::P1P1,
+    amount: Amount::Fixed(2),
+}];
+static UNDERCITY_TRAP: &[Effect] = &[Effect::LoseLife {
+    amount: Amount::Fixed(5),
+    target: PlayerRel::TargetPlayerOrController,
+}];
+static UNDERCITY_ARENA: &[Effect] = &[Effect::Goad {
+    target: TargetSpec::Object(&Filter::CREATURE),
+}];
+static UNDERCITY_CATACOMBS: &[Effect] = &[Effect::CreateToken {
+    token: &CATACOMBS_SKELETON,
+}];
+static UNDERCITY_THRONE: &[Effect] = &[Effect::DungeonThroneOfTheDeadThree];
 
 pub(super) fn effects(dungeon: Dungeon, room: u8) -> (&'static [Effect], Option<TargetSpec>) {
     let creature = Some(TargetSpec::Object(&Filter::CREATURE));
     match (dungeon, room) {
         (Dungeon::LostMine, 0) | (Dungeon::MadMage, 1) => (ROOM_0, None),
         (Dungeon::LostMine, 1) => (ROOM_1, None),
-        (Dungeon::LostMine | Dungeon::MadMage, 2) => (ROOM_2, None),
+        (Dungeon::LostMine | Dungeon::MadMage, 2) | (Dungeon::Undercity, 5) => (ROOM_2, None),
         (Dungeon::LostMine, 3) => (ROOM_3, creature),
         (Dungeon::LostMine, 4) => (ROOM_4, None),
         (Dungeon::LostMine, 5) => (ROOM_5, creature),
-        (Dungeon::LostMine, 6) => (ROOM_6, None),
+        (Dungeon::LostMine | Dungeon::Undercity, 6) => (ROOM_6, None),
         (Dungeon::MadMage, 0) => (ROOM_7, None),
         (Dungeon::MadMage, 3) => (ROOM_8, creature),
-        (Dungeon::MadMage, 4) => (ROOM_9, None),
+        (Dungeon::MadMage, 4) | (Dungeon::Undercity, 2) => (ROOM_9, None),
         (Dungeon::MadMage, 5) => (ROOM_10, None),
         (Dungeon::MadMage, 6) => (ROOM_11, None),
         (Dungeon::MadMage, 7) => (ROOM_12, None),
@@ -113,6 +143,12 @@ pub(super) fn effects(dungeon: Dungeon, room: u8) -> (&'static [Effect], Option<
         (Dungeon::Tomb, 2) => (ROOM_16, None),
         (Dungeon::Tomb, 3) => (ROOM_17, None),
         (Dungeon::Tomb, 4) => (ROOM_18, None),
+        (Dungeon::Undercity, 0) => (UNDERCITY_SECRET_ENTRANCE, None),
+        (Dungeon::Undercity, 1) => (UNDERCITY_FORGE, creature),
+        (Dungeon::Undercity, 3) => (UNDERCITY_TRAP, Some(TargetSpec::AnyPlayer)),
+        (Dungeon::Undercity, 4) => (UNDERCITY_ARENA, creature),
+        (Dungeon::Undercity, 7) => (UNDERCITY_CATACOMBS, None),
+        (Dungeon::Undercity, 8) => (UNDERCITY_THRONE, None),
         _ => unreachable!("offered dungeon room"),
     }
 }

@@ -2268,6 +2268,13 @@ impl HeuristicAgent {
                 })
             }
             Effect::TakeExtraTurn => 10_000,
+            Effect::TakeInitiative(who) => self
+                .players(view, *who, aim)?
+                .iter()
+                .map(|&p| if self.hostile(p, me) { -600 } else { 600 })
+                .sum(),
+            Effect::VentureIntoUndercity => 550,
+            Effect::DungeonThroneOfTheDeadThree => 750,
             Effect::DeliverGift(kind) => match kind {
                 baylee_cards_dsl::GiftKind::Food => -100,
                 baylee_cards_dsl::GiftKind::TappedFish => -110,

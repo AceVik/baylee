@@ -78,7 +78,8 @@ pub(super) fn forget_effects_on_moved_objects(state: &mut crate::state::GameStat
                 .then_some((id, version)),
             crate::effects::EffectFilter::Dsl(_)
             | crate::effects::EffectFilter::DslAbout(..)
-            | crate::effects::EffectFilter::DslControlledBy(..) => None,
+            | crate::effects::EffectFilter::DslControlledBy(..)
+            | crate::effects::EffectFilter::DslWithSubtype(..) => None,
         })
         .collect();
     if !stale.is_empty() {

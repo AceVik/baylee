@@ -1450,6 +1450,9 @@ pub enum AwaitingOp {
     OptionVote(super::vote::OptionVote),
     /// Composable mid-resolution play/cast offer (`Effect::Play`, `CR 608.2g`).
     PlayCards(Box<super::play_cards::PlayOffer>),
+    /// Mandatory creature-card choice from the revealed top ten library cards
+    /// in Undercity's "Throne of the Dead Three".
+    UndercityThrone,
 }
 
 /// Work to resume after an optional life payment.
@@ -1876,6 +1879,7 @@ impl AwaitingOp {
             } => crate::state::structural_fingerprint(&(212_u8, completed, max_times)),
             Self::OptionVote(vote) => crate::state::structural_fingerprint(&(215_u8, vote)),
             Self::PlayCards(offer) => crate::state::structural_fingerprint(&(216_u8, offer)),
+            Self::UndercityThrone => crate::state::structural_fingerprint(&217_u8),
             _ => 0,
         }
     }

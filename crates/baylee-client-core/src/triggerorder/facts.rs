@@ -616,7 +616,9 @@ fn read_one(effect: &Effect, certain: bool, reading: &Reading<'_>, facts: &mut F
                 facts.makes.add(Stuff::POWER);
             }
         }
-        Effect::PumpFilter { .. } | Effect::ModifyFilter { .. } => {
+        Effect::PumpFilter { .. }
+        | Effect::ModifyFilter { .. }
+        | Effect::SetPTByCountFilter { .. } => {
             facts.deeds.add(Deeds::PUMPS);
             facts.reads.add(Stuff::BOARD);
             facts.makes.add(Stuff::POWER);

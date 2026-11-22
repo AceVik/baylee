@@ -51,8 +51,8 @@ use matching::{
 pub(crate) use watches::on_event_watch_consumed;
 pub use watches::state_triggers;
 use watches::{
-    attack_watch_triggers, cast_copy_triggers, damage_watch_triggers, monarch_triggers,
-    produced_mana, watch_triggers,
+    attack_watch_triggers, cast_copy_triggers, damage_watch_triggers, initiative_triggers,
+    monarch_triggers, produced_mana, watch_triggers,
 };
 
 /// Mana types actually produced by one activation, including colorless.
@@ -343,6 +343,7 @@ pub fn collect(state: &GameState, lookup: &impl CardLookup, from_seq: u64) -> Ve
     collect_emblems(state, lookup, events, &mut triggers);
     graveyard_triggers(state, lookup, events, &mut triggers);
     monarch_triggers(state, events, &mut triggers);
+    initiative_triggers(state, events, &mut triggers);
     watches::ring_triggers(state, events, &mut triggers);
     speed::collect(events, &mut triggers);
     radiation::collect(state, events, &mut triggers);

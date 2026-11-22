@@ -119,6 +119,8 @@ pub struct SeatPlate {
     pub life: i32,
     /// Whether this seat is the monarch (CR 726).
     pub monarch: bool,
+    /// Whether this seat has the initiative (CR 725).
+    pub initiative: bool,
     /// Whether the seat is out of the game.
     pub lost: bool,
     /// The second line, in drawing order.
@@ -170,6 +172,7 @@ impl SeatPlate {
             player,
             life: seat.life,
             monarch: view.monarch == Some(player),
+            initiative: view.initiative == Some(player),
             lost: seat.has_lost(),
             details,
             pool: crate::manapool::row(&seat.mana_pool),
@@ -190,6 +193,9 @@ impl SeatPlate {
         let mut parts = vec![name.to_string()];
         if self.monarch {
             parts.push(Phrase::PlateMonarch.text(lang).to_string());
+        }
+        if self.initiative {
+            parts.push(Phrase::PlateInitiative.text(lang).to_string());
         }
         if self.lost {
             parts.push(Phrase::PlateLost.text(lang).to_string());
@@ -302,6 +308,31 @@ mod tests {
         assert_eq!(crowned(&view), [2]);
         view.monarch = Some(PlayerId::new(0));
         assert_eq!(crowned(&view), [0], "the crown moves, it is not copied");
+    }
+
+    #[test]
+    fn the_compass_follows_the_initiative() {
+        let mut view = ViewBuilder::new(3).build();
+        let holding = |view: &PlayerView| -> Vec<u8> {
+            (0..3u8)
+                .filter(|p| {
+                    SeatPlate::of(view, PlayerId::new(*p))
+                        .expect("a seat")
+                        .initiative
+                })
+                .collect()
+        };
+        assert!(holding(&view).is_empty(), "no initiative at start");
+        view.initiative = Some(PlayerId::new(1));
+        assert_eq!(holding(&view), [1]);
+        assert!(
+            SeatPlate::of(&view, PlayerId::new(1))
+                .unwrap()
+                .describe(Lang::En, "Bo")
+                .contains("Initiative")
+        );
+        view.initiative = Some(PlayerId::new(2));
+        assert_eq!(holding(&view), [2]);
     }
 
     #[test]

@@ -307,6 +307,17 @@ fn accumulate_effect(effect: &Effect, ch: &mut EffectChannels) {
         Effect::Suspect { .. } | Effect::Unsuspect { .. } | Effect::RingTemptsYou => {
             ch.pump_pt += 0.5;
         }
+        Effect::TakeInitiative(_) | Effect::VentureIntoUndercity => {
+            ch.draw += 1.0;
+            ch.tutor_search += 0.5;
+        }
+        Effect::DungeonThroneOfTheDeadThree => {
+            ch.tokens_create += 2.0;
+            ch.counters_add += 3.0;
+        }
+        Effect::SetPTByCountFilter { .. } => {
+            ch.pump_pt += 2.0;
+        }
         Effect::Proliferate
         | Effect::AddCountersUpTo { .. }
         | Effect::DoubleCountersFilter { .. }

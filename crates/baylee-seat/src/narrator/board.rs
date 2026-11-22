@@ -80,6 +80,9 @@ pub(super) fn seats(table: &Table<'_>, out: &mut String) {
         if view.monarch == Some(p) {
             facts.push("the monarch".into());
         }
+        if view.initiative == Some(p) {
+            facts.push("has the initiative".into());
+        }
         if seat.loss.is_some() {
             facts.push("has lost the game".into());
         }

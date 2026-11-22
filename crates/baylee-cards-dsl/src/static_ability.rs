@@ -1303,6 +1303,33 @@ pub enum Modifier {
         /// Whether each extra ballot is optional (`true`) or mandatory (`false`).
         optional: bool,
     },
+    /// "Becomes a [subtypes] [types]" with no prior card types or subtypes
+    /// retained (CR 205.1a, Layer 4): generalizes [`Self::BecomeType`] to zero,
+    /// one, or multiple subtypes while preserving supertypes (and `Instant` /
+    /// `Sorcery` if ever applied to one). Appended to preserve replay
+    /// identities.
+    BecomeTypes {
+        /// The card types the affected object has now.
+        types: TypeSet,
+        /// All subtypes the affected object has now (may be empty).
+        subtypes: &'static [SubtypeId],
+    },
+    /// Set base power and base toughness independently to dynamic [`PtCount`]
+    /// expressions in layer 7b (CR 613.4b). Appended to preserve replay
+    /// identities.
+    SetPTSeparateToCount {
+        /// Base power expression.
+        power: PtCount,
+        /// Base toughness expression.
+        toughness: PtCount,
+    },
+    /// Set base power alone to a dynamic [`PtCount`] in layer 7b (CR 613.4b),
+    /// leaving base toughness unchanged. Appended to preserve replay identities.
+    SetPowerToCount(PtCount),
+    /// Set base toughness alone to a dynamic [`PtCount`] in layer 7b
+    /// (CR 613.4b), leaving base power unchanged. Appended to preserve replay
+    /// identities.
+    SetToughnessToCount(PtCount),
 }
 
 /// What a [`Modifier::CharacteristicPT`] counts.
@@ -1367,6 +1394,43 @@ pub enum PtCount {
     /// Distinct card types among cards in the ability controller's opponents'
     /// graveyards. The controller's own graveyard contributes nothing.
     CardTypesInOpponentsGraveyards,
+    /// Total cards in the hands of players matching the relation (Maro:
+    /// "cards in your hand"; Storm Seeker / Multani: "cards in all hands" /
+    /// "cards in all opponents' hands"). Appended to preserve replay identities.
+    CardsInHand(crate::PlayerRel),
+    /// Cards matching `filter` in the graveyards of players matching `who`,
+    /// excluding tokens (Lord of Extinction / Mortivore / Splinterfright).
+    /// Appended to preserve replay identities.
+    InGraveyards {
+        /// Which players' graveyards are counted.
+        who: crate::PlayerRel,
+        /// Card quality counted in those graveyards.
+        filter: &'static crate::Filter,
+    },
+    /// Distinct English card names among permanents on the battlefield matching
+    /// `filter` ("differently named lands you control"). Appended to preserve
+    /// replay identities.
+    DistinctNamesAmong(&'static crate::Filter),
+    /// Number of basic land types (CR 305.6, `0..=5`) among lands controlled by
+    /// players matching the relation (domain; Scion of Draco, Territorial Kavu,
+    /// Gaea's Might). Appended to preserve replay identities.
+    Domain(crate::PlayerRel),
+    /// Life total of the player(s) matching the relation (Serra Avatar: "your
+    /// life total", CR 208.4 — preserves negative life totals when a player
+    /// remains in the game below zero life). Appended to preserve replay
+    /// identities.
+    LifeTotal(crate::PlayerRel),
+    /// Twice another [`PtCount`] expression (Masumaro, First to Live: "twice
+    /// the number of cards in your hand"). Appended to preserve replay
+    /// identities.
+    Twice(&'static PtCount),
+    /// Greatest mana value among permanents on the battlefield matching `filter`
+    /// (`0` if none match). Appended to preserve replay identities.
+    GreatestManaValueAmong(&'static crate::Filter),
+    /// Number of creatures in the party of the player matching `PlayerRel`
+    /// (up to one each of Cleric, Rogue, Warrior, and Wizard, `0..=4`,
+    /// CR 700.8a–c). Appended to preserve replay identities.
+    PartySize(crate::PlayerRel),
 }
 
 impl Modifier {
@@ -1448,6 +1512,7 @@ impl Modifier {
             | Self::AddChosenBasicLandType
             | Self::AddChosenSubtype
             | Self::BecomeType { .. }
+            | Self::BecomeTypes { .. }
             | Self::AddTypeIfCountersAtLeast { .. }
             | Self::CopyLastExiledCreaturePTAndSubtypes => Layer::Type,
             // Layer 5: color-changing effects.
@@ -1482,7 +1547,13 @@ impl Modifier {
             | Self::GrantTriggeredDefinition(_) => Layer::Ability,
             // Layer 7a/7b/7c/7e: power and toughness.
             Self::CharacteristicPT { .. } | Self::CharacteristicPTSeparate { .. } => Layer::PtCda,
-            Self::SetPT(..) | Self::SetPower(_) | Self::SetToughness(_) | Self::SetPTToCount(_) => Layer::PtSet,
+            Self::SetPT(..)
+            | Self::SetPower(_)
+            | Self::SetToughness(_)
+            | Self::SetPTToCount(_)
+            | Self::SetPTSeparateToCount { .. }
+            | Self::SetPowerToCount(_)
+            | Self::SetToughnessToCount(_) => Layer::PtSet,
             Self::HoneEquipment
             | Self::ModifyPT(..)
             | Self::ModifyPTByAmount { .. }
@@ -2176,6 +2247,13 @@ mod tests {
                 Layer::Type,
             ),
             (
+                Modifier::BecomeTypes {
+                    types: TypeSet::CREATURE,
+                    subtypes: &[],
+                },
+                Layer::Type,
+            ),
+            (
                 Modifier::AddTypeIfCountersAtLeast {
                     kind: crate::effect::CounterKind::Charge,
                     at_least: 8,
@@ -2260,6 +2338,21 @@ mod tests {
             (Modifier::SetToughness(1), Layer::PtSet),
             (
                 Modifier::SetPTToCount(PtCount::YouControl(&Filter::YOUR_LAND)),
+                Layer::PtSet,
+            ),
+            (
+                Modifier::SetPTSeparateToCount {
+                    power: PtCount::CardsInHand(crate::PlayerRel::You),
+                    toughness: PtCount::Domain(crate::PlayerRel::You),
+                },
+                Layer::PtSet,
+            ),
+            (
+                Modifier::SetPowerToCount(PtCount::LifeTotal(crate::PlayerRel::You)),
+                Layer::PtSet,
+            ),
+            (
+                Modifier::SetToughnessToCount(PtCount::PartySize(crate::PlayerRel::You)),
                 Layer::PtSet,
             ),
             (Modifier::ModifyPT(1, 1), Layer::PtModify),

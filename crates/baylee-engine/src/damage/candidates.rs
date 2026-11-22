@@ -763,7 +763,7 @@ pub(super) fn effect_affects_player(
     state: &GameState,
     player: baylee_core::ids::PlayerId,
 ) -> bool {
-    if let crate::effects::EffectFilter::DslControlledBy(_, seats) = fx.filter {
+    if let Some(seats) = fx.filter.seats() {
         return !state.has_left(player) && seats.contains(player);
     }
     crate::eval::players_for_source(who, state, fx.controller, fx.source)

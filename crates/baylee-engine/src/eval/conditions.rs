@@ -760,6 +760,20 @@ pub fn condition_holds_with_context(
         Condition::TributeWasNotPaid => !state
             .object_or_departed(source)
             .is_some_and(|obj| obj.riders.contains(&crate::object::Rider::TributePaid)),
+        Condition::HasInitiative(who) => super::players_for_source(who, state, you, Some(source))
+            .is_some_and(|seats| seats.iter().any(|&p| state.initiative == Some(p))),
+        Condition::IsMonarch(who) => super::players_for_source(who, state, you, Some(source))
+            .is_some_and(|seats| seats.iter().any(|&p| state.monarch == Some(p))),
+        Condition::CompletedADungeon(who) => {
+            super::players_for_source(who, state, you, Some(source)).is_some_and(|seats| {
+                seats.iter().any(|&p| {
+                    state
+                        .players
+                        .get(usize::from(p.get()))
+                        .is_some_and(|pl| pl.dungeons_completed > 0)
+                })
+            })
+        }
     }
 }
 

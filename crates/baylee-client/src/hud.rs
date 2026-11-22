@@ -1969,8 +1969,8 @@ pub use ledge::menu::{MenuPanel, MenuRevision, grow_the_menu, show_priority_swit
 pub(crate) use ledge::players::PlayersStrip;
 pub(crate) use ledge::players::STRIPS_H;
 pub use ledge::players::{
-    ChipCrown, ChipTag, ControlBadge, GuestBadge, HintSeat, PlayersRevision, TagKind,
-    control_badge, glow_the_players, show_the_control_badges, show_the_tags, sync_players,
+    ChipCrown, ChipInitiative, ChipTag, ControlBadge, GuestBadge, HintSeat, PlayersRevision,
+    TagKind, control_badge, glow_the_players, show_the_control_badges, show_the_tags, sync_players,
 };
 pub use ledge::pool::{PoolRevision, grow_the_pool, sync_pool};
 pub(crate) use ledge::replay_bar;

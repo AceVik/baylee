@@ -1,6 +1,9 @@
-//! The three dungeons entered by the venture keyword action.
+//! Dungeons entered by the venture and venture-into-Undercity keyword actions.
 
-/// A dungeon that ordinary venture can enter (the Undercity requires initiative).
+/// A dungeon card in the command zone (CR 309).
+///
+/// Ordinary venture enters one of [`Self::ALL`]; [`Self::Undercity`] can only
+/// be entered by "venture into Undercity" (CR 309.4c, CR 701.49d).
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
 pub enum Dungeon {
     /// Seven rooms, with two branching levels.
@@ -9,11 +12,16 @@ pub enum Dungeon {
     MadMage,
     /// Five rooms, including the Oubliette shortcut.
     Tomb,
+    /// Nine rooms, entered only through "venture into Undercity" (CR 309.4c).
+    Undercity,
 }
 
 impl Dungeon {
-    /// The complete ordinary-venture menu, in stable order.
+    /// The complete ordinary-venture menu, in stable order (excludes [`Self::Undercity`]).
     pub const ALL: [Self; 3] = [Self::LostMine, Self::MadMage, Self::Tomb];
+
+    /// Every dungeon in the game, including [`Self::Undercity`].
+    pub const EVERY: [Self; 4] = [Self::LostMine, Self::MadMage, Self::Tomb, Self::Undercity];
 
     /// Printed English name, as for other untranslated card names.
     #[must_use]
@@ -22,6 +30,7 @@ impl Dungeon {
             Self::LostMine => "Lost Mine of Phandelver",
             Self::MadMage => "Dungeon of the Mad Mage",
             Self::Tomb => "Tomb of Annihilation",
+            Self::Undercity => "Undercity",
         }
     }
 
@@ -63,6 +72,17 @@ impl Dungeon {
                 "Oubliette",
                 "Cradle of the Death God",
             ],
+            Self::Undercity => &[
+                "Secret Entrance",
+                "Forge",
+                "Lost Well",
+                "Trap!",
+                "Arena",
+                "Stash",
+                "Archives",
+                "Catacombs",
+                "Throne of the Dead Three",
+            ],
         }
     }
 
@@ -70,18 +90,19 @@ impl Dungeon {
     #[must_use]
     pub const fn next(self, room: u8) -> &'static [u8] {
         match (self, room) {
-            (Self::LostMine, 0) => &[1, 2],
-            (Self::LostMine, 1) => &[3, 4],
-            (Self::LostMine, 2) => &[4, 5],
-            (Self::LostMine, 3..=5) => &[6],
+            (Self::LostMine | Self::Undercity, 0) => &[1, 2],
+            (Self::LostMine | Self::Undercity, 1) => &[3, 4],
+            (Self::LostMine | Self::Undercity, 2) => &[4, 5],
+            (Self::LostMine, 3..=5) | (Self::Undercity, 3) => &[6],
             (Self::MadMage, 0) => &[1],
             (Self::MadMage, 1) => &[2, 3],
             (Self::MadMage | Self::Tomb, 2 | 3) => &[4],
             (Self::MadMage, 4) => &[5, 6],
-            (Self::MadMage, 5 | 6) => &[7],
-            (Self::MadMage, 7) => &[8],
+            (Self::MadMage, 5 | 6) | (Self::Undercity, 5) => &[7],
+            (Self::MadMage, 7) | (Self::Undercity, 6 | 7) => &[8],
             (Self::Tomb, 0) => &[1, 3],
             (Self::Tomb, 1) => &[2],
+            (Self::Undercity, 4) => &[6, 7],
             _ => &[],
         }
     }
@@ -117,6 +138,17 @@ impl Dungeon {
                 "Discard a card and sacrifice a creature, an artifact, and a land.",
                 "Create The Atropal, a legendary 4/4 black God Horror creature token with deathtouch.",
             ],
+            Self::Undercity => &[
+                "Search your library for a basic land card, reveal it, put it into your hand, then shuffle.",
+                "Put two +1/+1 counters on target creature.",
+                "Scry 2.",
+                "Target player loses 5 life.",
+                "Goad target creature.",
+                "Create a Treasure token.",
+                "Draw a card.",
+                "Create a 4/1 black Skeleton creature token with menace.",
+                "Reveal the top ten cards of your library. Put a creature card from among them onto the battlefield with three +1/+1 counters on it. It gains hexproof until your next turn. Then shuffle.",
+            ],
         }
     }
 
@@ -124,7 +156,7 @@ impl Dungeon {
     /// into its [`Dungeon`] and 0-based active room index.
     #[must_use]
     pub fn from_public_name(name: &str) -> Option<(Self, usize)> {
-        for dungeon in Self::ALL {
+        for dungeon in Self::EVERY {
             if name == dungeon.name() {
                 return Some((dungeon, 0));
             }
@@ -148,13 +180,18 @@ mod tests {
     /// be out of range.
     #[test]
     fn a_room_a_dungeon_lacks_has_no_name() {
-        for dungeon in Dungeon::ALL {
+        for dungeon in Dungeon::EVERY {
             let rooms = dungeon.rooms();
+            assert_eq!(rooms.len(), dungeon.room_effects().len());
             assert_eq!(dungeon.room_name(0), rooms.first().copied());
             let past = u8::try_from(rooms.len()).expect("a few rooms");
             assert_eq!(dungeon.room_name(past - 1), rooms.last().copied());
             assert_eq!(dungeon.room_name(past), None);
             assert_eq!(dungeon.room_name(u8::MAX), None);
+            for (idx, room) in rooms.iter().enumerate() {
+                let public = format!("{} — {room}", dungeon.name());
+                assert_eq!(Dungeon::from_public_name(&public), Some((dungeon, idx)));
+            }
         }
     }
 }

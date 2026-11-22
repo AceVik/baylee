@@ -101,6 +101,10 @@ fn additional_votes_for(state: &GameState, voter: PlayerId) -> (u8, u8) {
         };
         let applies = match effect.filter {
             crate::effects::EffectFilter::DslControlledBy(_, seats) => seats.contains(voter),
+            crate::effects::EffectFilter::DslWithSubtype(filter, _, seats) => seats.map_or(
+                *filter == baylee_cards_dsl::Filter::Any || effect.controller == voter,
+                |s| s.contains(voter),
+            ),
             crate::effects::EffectFilter::Dsl(filter) => {
                 if *filter == baylee_cards_dsl::Filter::Any {
                     true

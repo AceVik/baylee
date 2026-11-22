@@ -277,6 +277,7 @@ fn view(seat: u8, lives: &[i32], battlefield: Vec<PublicObject>) -> PlayerView {
         priority_held: false,
         policy_acts: Vec::new(),
         monarch: None,
+        initiative: None,
         day_night: None,
         seats,
         hand: vec![],
@@ -481,5 +482,88 @@ fn wave9c_strive_cap_either_cost_preference_and_ring_bearer_selection() {
         PlayerAction::ChooseObjects {
             objects: vec![obj(4)]
         }
+    );
+}
+
+#[test]
+fn heuristic_ai_attacks_the_initiative_holder_and_scores_undercity_rooms() {
+    use baylee_core::dungeon::Dungeon;
+    use baylee_engine::choice::{CastModeDesc, CastModeKind};
+
+    let me = PlayerId::new(0);
+    let p1 = PlayerId::new(1);
+    let p2 = PlayerId::new(2);
+    let agent = HeuristicAgent::new(AIProfile::default());
+
+    // 1) In multiplayer, attacker targets the opponent holding the initiative.
+    let attacker = permanent(obj(1), me, 3);
+    let mut v = view(0, &[20, 20, 20], vec![attacker]);
+    v.initiative = Some(p2);
+    let attack_ans = agent.act(
+        &v,
+        &Pending::ChooseAttackers {
+            player: me,
+            attackers: vec![obj(1)],
+            defenders: vec![Defender::Player(p1), Defender::Player(p2)],
+            required: vec![],
+            alone: vec![],
+            minimum_required: None,
+            limits: vec![],
+        },
+    );
+    assert_eq!(
+        attack_ans,
+        PlayerAction::DeclareAttackers {
+            attackers: vec![(obj(1), Defender::Player(p2))],
+        }
+    );
+
+    // 2) Undercity room choice: with only an opposing creature on board, chooses
+    //    Lost Well ("Scry 2") over Forge ("Put two +1/+1 counters on target creature").
+    let foe = permanent(obj(10), p1, 2);
+    let v_opp_only = view(0, &[20, 20], vec![foe]);
+    let room_options = vec![
+        CastModeDesc {
+            index: 0,
+            kind: CastModeKind::DungeonRoom {
+                dungeon: Dungeon::Undercity,
+                room: 1,
+            },
+            cost: baylee_core::mana::ManaCost::ZERO,
+        },
+        CastModeDesc {
+            index: 1,
+            kind: CastModeKind::DungeonRoom {
+                dungeon: Dungeon::Undercity,
+                room: 2,
+            },
+            cost: baylee_core::mana::ManaCost::ZERO,
+        },
+    ];
+    assert_eq!(
+        agent.act(
+            &v_opp_only,
+            &Pending::ChooseCastMode {
+                player: me,
+                object: obj(99),
+                options: room_options.clone(),
+            }
+        ),
+        PlayerAction::ChooseMode(1)
+    );
+
+    // With a friendly creature on board, chooses Forge (index 0).
+    let ally = permanent(obj(11), me, 2);
+    let v_ally = view(0, &[20, 20], vec![ally]);
+    assert_eq!(
+        agent.act(
+            &v_ally,
+            &Pending::ChooseCastMode {
+                player: me,
+                object: obj(99),
+                options: room_options,
+            }
+        ),
+        PlayerAction::ChooseMode(0)
     );
 }

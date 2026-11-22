@@ -927,6 +927,19 @@ fn plate_first_line(
             },
         ));
     }
+    if plate.initiative {
+        parts.push(plate_icon(
+            commands,
+            fonts,
+            glyph::COMPASS,
+            12.0,
+            palette::CANDLE,
+            PlateMark {
+                player: plate.player,
+                kind: PlateMarkKind::Initiative,
+            },
+        ));
+    }
     let mark = if plate.lost {
         Some(glyph::SKULL)
     } else if role == baylee_client_core::board::SeatRole::Away {
@@ -1047,6 +1060,8 @@ pub struct PlateMark {
 pub enum PlateMarkKind {
     /// The crown before the monarch's name.
     Crown,
+    /// The compass before the name of the player who has the initiative.
+    Initiative,
     /// The ∞ beside a hand no maximum size applies to.
     Unlimited,
     /// The third line: mana floating in the seat's pool.

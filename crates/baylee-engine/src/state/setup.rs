@@ -129,6 +129,7 @@ impl GameState {
             synthetic_copies: Vec::new(),
             commanders: vec![Vec::new(); preset.seats.len()],
             monarch: None,
+            initiative: None,
             goaded: super::per_turn::PerTurnVec::default(),
             game_end: None,
             day_night: None,

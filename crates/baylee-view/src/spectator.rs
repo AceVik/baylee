@@ -36,6 +36,9 @@ pub struct SpectatorView {
     pub deciding: SeatSet,
     /// The monarch, if any.
     pub monarch: Option<PlayerId>,
+    /// The player who has the initiative, if any (CR 725).
+    #[serde(default, skip_serializing_if = "baylee_core::wire::left_out")]
+    pub initiative: Option<PlayerId>,
     /// Day or night, once it has become either.
     pub day_night: Option<DayNight>,
     /// Every seat's public numbers: life, counts, floating mana.
@@ -112,6 +115,7 @@ impl SpectatorView {
             policy_acts: Vec::new(),
             owed: None,
             monarch: self.monarch,
+            initiative: self.initiative,
             day_night: self.day_night,
             seats: self.seats,
             hand: Vec::new(),

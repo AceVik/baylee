@@ -798,6 +798,8 @@ pub struct GameState {
     pub commanders: Vec<Vec<Commander>>,
     /// The monarch designation (CR 726), if any.
     pub monarch: Option<PlayerId>,
+    /// The initiative designation (CR 725), if any.
+    pub initiative: Option<PlayerId>,
     /// Active goad designations on battlefield permanents until the goading
     /// player's next turn (CR 701.15a–d).
     pub goaded: per_turn::PerTurnVec<crate::combat::GoadEntry>,
@@ -1003,6 +1005,7 @@ impl GameState {
             synthetic_copies,
             commanders,
             monarch,
+            initiative,
             goaded,
             game_end,
             day_night,
@@ -1133,6 +1136,7 @@ impl GameState {
             ("state.synthetic_copies", format!("{synthetic_copies:?}")),
             ("state.commanders", format!("{commanders:?}")),
             ("state.monarch", format!("{monarch:?}")),
+            ("state.initiative", format!("{initiative:?}")),
             ("state.goaded", format!("{goaded:?}")),
             ("state.game_end", format!("{game_end:?}")),
             ("state.day_night", format!("{day_night:?}")),

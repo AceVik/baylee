@@ -1183,6 +1183,16 @@ pub(super) fn bound_now_with_context(
             .collect();
     }
     if !crate::effects::locks_its_set(modifier) {
+        if eval::filter_reads_chosen_subtype(filter)
+            && let Some(subtype) = context
+                .resolved_subtype
+                .or_else(|| state.object(context.source).and_then(|o| o.chosen_subtype))
+        {
+            let seats = only.map(|s| s.iter().copied().collect());
+            return smallvec::smallvec![crate::effects::EffectFilter::DslWithSubtype(
+                filter, subtype, seats,
+            )];
+        }
         return only.map_or_else(
             || smallvec::smallvec![crate::effects::EffectFilter::Dsl(filter)],
             |seats| {

@@ -2306,6 +2306,11 @@ pub(in crate::netplay4) fn choose_attack_target_player(
     {
         return Some(m);
     }
+    if let Some(i) = view.initiative
+        && def_players.contains(&i)
+    {
+        return Some(i);
+    }
     def_players.iter().copied().min_by_key(|&pid| {
         let life = view.seat(pid).map_or(20, |s| s.life);
         let blks = view

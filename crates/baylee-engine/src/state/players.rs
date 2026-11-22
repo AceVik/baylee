@@ -160,7 +160,7 @@ impl GameState {
                 if !crate::effects::source_is_present(self, fx) {
                     return false;
                 }
-                if let crate::effects::EffectFilter::DslControlledBy(_, seats) = fx.filter {
+                if let Some(seats) = fx.filter.seats() {
                     return seats.contains(player) && !self.has_left(player);
                 }
                 crate::eval::players_for_source(who, self, fx.controller, fx.source)
@@ -421,6 +421,42 @@ impl GameState {
         match heir {
             Some(heir) => self.set_monarch(heir),
             None => self.monarch = None,
+        }
+    }
+
+    /// `player` takes the initiative (CR 725.1–725.3).
+    ///
+    /// Unlike [`Self::set_monarch`], a player can take the initiative even if
+    /// they already have it (CR 725.3), so [`GameEvent::TookInitiative`] is
+    /// recorded whenever a player still in the game takes the initiative —
+    /// firing "Whenever you take the initiative, venture into Undercity"
+    /// (CR 725.2).
+    pub fn take_initiative(&mut self, player: PlayerId) {
+        if self.has_left(player) {
+            return;
+        }
+        self.initiative = Some(player);
+        self.journal.record(GameEvent::TookInitiative { player });
+    }
+
+    /// `player` has left the game (CR 800.4a) and, if they had the initiative,
+    /// the designation passes on at the same time (CR 725.4): to the active
+    /// player, or, when the active player is also leaving, to the next player
+    /// in turn order still in the game. Passing through
+    /// [`Self::take_initiative`] triggers "Whenever you take the initiative,
+    /// venture into Undercity" for the heir (CR 725.2, CR 725.4).
+    pub(crate) fn initiative_leaves(&mut self, player: PlayerId, leaving: &[PlayerId]) {
+        if self.initiative != Some(player) {
+            return;
+        }
+        let seats = self.players.len();
+        let active = usize::from(self.turn.active.get());
+        let heir = (0..seats)
+            .map(|offset| PlayerId::new(((active + offset) % seats) as u8))
+            .find(|&p| !self.has_left(p) && !leaving.contains(&p));
+        match heir {
+            Some(heir) => self.take_initiative(heir),
+            None => self.initiative = None,
         }
     }
 

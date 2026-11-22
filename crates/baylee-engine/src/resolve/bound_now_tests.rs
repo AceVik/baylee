@@ -34,7 +34,8 @@ fn named(bound: &[EffectFilter]) -> Vec<ObjectId> {
             EffectFilter::ObjectIs(id, _) => *id,
             EffectFilter::Dsl(filter)
             | EffectFilter::DslAbout(filter, ..)
-            | EffectFilter::DslControlledBy(filter, ..) => {
+            | EffectFilter::DslControlledBy(filter, ..)
+            | EffectFilter::DslWithSubtype(filter, ..) => {
                 panic!("a dynamic filter in a bound set: {filter:?}")
             }
         })

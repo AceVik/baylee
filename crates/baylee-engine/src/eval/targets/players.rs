@@ -11,7 +11,7 @@ fn effect_players(
     who: PlayerRel,
     state: &GameState,
 ) -> Vec<PlayerId> {
-    if let crate::effects::EffectFilter::DslControlledBy(_, seats) = effect.filter {
+    if let Some(seats) = effect.filter.seats() {
         return seats.iter().filter(|&p| !state.has_left(p)).collect();
     }
     players_for_source(who, state, effect.controller, effect.source).unwrap_or_default()

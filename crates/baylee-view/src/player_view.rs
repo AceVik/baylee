@@ -290,6 +290,9 @@ pub struct PlayerView {
     pub owed: Option<ManaPayment>,
     /// The monarch, if the game has one.
     pub monarch: Option<PlayerId>,
+    /// The player who has the initiative, if any (CR 725).
+    #[serde(default, skip_serializing_if = "baylee_core::wire::left_out")]
+    pub initiative: Option<PlayerId>,
     /// The day/night designation, if the game has one (CR 732).
     ///
     /// `None` for every game with no daybound card in it, which is most of

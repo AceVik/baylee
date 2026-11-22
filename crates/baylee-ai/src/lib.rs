@@ -192,6 +192,9 @@ impl HeuristicAgent {
         if let Some(monarch) = view.monarch.filter(|m| defenders.contains(m)) {
             return monarch;
         }
+        if let Some(initiative) = view.initiative.filter(|i| defenders.contains(i)) {
+            return initiative;
+        }
         let life = |p: &PlayerId| view.seat(*p).map_or(0, |s| s.life);
         match self.profile.politics {
             // Spread the aggression around without breaking determinism: the

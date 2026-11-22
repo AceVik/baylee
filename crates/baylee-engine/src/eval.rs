@@ -701,8 +701,9 @@ pub(crate) fn matches_projected_with_choices(
         }),
         Filter::SpellTargetingAffected => state.spell_targets_affected(obj, this),
         Filter::CountersAtLeast(kind, n) => obj.counters.get(*kind) >= *n,
-        Filter::MatchesChosenTypeOfSource => chosen_subtype
-            .or(context.resolved_subtype)
+        Filter::MatchesChosenTypeOfSource => context
+            .resolved_subtype
+            .or(chosen_subtype)
             .or_else(|| state.object(this).and_then(|src| src.chosen_subtype))
             .is_some_and(|s| chars.subtypes.contains(s)),
         Filter::OfSourceChosenCardType => state

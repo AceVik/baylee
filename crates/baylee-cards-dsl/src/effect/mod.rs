@@ -5267,6 +5267,34 @@ pub enum Effect {
         /// `true` lets `controller` decline (`min = 0`); `false` requires playing if able.
         optional: bool,
     },
+    /// The player `PlayerRel` names takes the initiative (CR 725.1–725.3).
+    /// Even if that player already has the initiative, taking the initiative
+    /// fires the inherent "Whenever you take the initiative, venture into
+    /// Undercity" trigger (CR 725.2). Appended to preserve replay identities.
+    TakeInitiative(PlayerRel),
+    /// Venture into Undercity (CR 701.49d): if not currently in a dungeon,
+    /// enter [`baylee_core::Dungeon::Undercity`] at its entrance room (`Secret
+    /// Entrance`); if already in any dungeon, advance to the next room of that
+    /// dungeon. Appended to preserve replay identities.
+    VentureIntoUndercity,
+    /// Undercity's final room ("Throne of the Dead Three"): reveal the top ten
+    /// cards of your library, put a creature card from among them onto the
+    /// battlefield with three +1/+1 counters on it, grant it hexproof until
+    /// your next turn, then shuffle. Appended to preserve replay identities.
+    DungeonThroneOfTheDeadThree,
+    /// Set base power and toughness of matching permanents to resolution-time
+    /// [`crate::PtCount`] values (CR 608.2h, CR 611.2c, layer 7b). Appended to
+    /// preserve replay identities.
+    SetPTByCountFilter {
+        /// Permanents affected at resolution (`&Filter::This` for self/target).
+        filter: &'static Filter,
+        /// Base power expression evaluated as this resolves.
+        power: crate::PtCount,
+        /// Base toughness expression evaluated as this resolves.
+        toughness: crate::PtCount,
+        /// Duration of the layer-7b base P/T effect.
+        duration: super::Duration,
+    },
 }
 
 #[cfg(test)]

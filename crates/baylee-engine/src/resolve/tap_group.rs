@@ -1,6 +1,6 @@
 //! Simultaneous optional nonsymbol tap payments, with exact offered identities.
 use super::{AwaitingOp, Flow, Pending, Resolution};
-use crate::{choice::ChoicePrompt, engine::cost_wizard, event::Cause, state::GameState};
+use crate::{choice::ChoicePrompt, event::Cause, state::GameState};
 use baylee_cards_dsl::{CostPart, Effect};
 use baylee_core::ids::{DamageSourceRef, ObjectId, PlayerId};
 
@@ -25,7 +25,7 @@ pub(super) fn offer(
     let CostPart::TapN { count, .. } = part else {
         unreachable!()
     };
-    let options = cost_wizard::options_with_context(state, player, res.rule_context(), part);
+    let options = super::choices::resolution_cost_options(state, res, player, part);
     if options.len() < usize::try_from(*count).unwrap_or(usize::MAX) {
         return None;
     }
@@ -60,12 +60,8 @@ pub(crate) fn valid_answer(state: &GameState, res: &Resolution, chosen: &[Object
     let CostPart::TapN { count, .. } = selection.part else {
         unreachable!()
     };
-    let options = cost_wizard::options_with_context(
-        state,
-        selection.player,
-        res.rule_context(),
-        selection.part,
-    );
+    let options =
+        super::choices::resolution_cost_options(state, res, selection.player, selection.part);
     chosen.len() == usize::try_from(*count).unwrap_or(usize::MAX)
         && chosen.iter().enumerate().all(|(i, id)| {
             !chosen[..i].contains(id)

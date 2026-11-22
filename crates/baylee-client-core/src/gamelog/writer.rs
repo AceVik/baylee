@@ -891,6 +891,12 @@ impl Writer<'_> {
                 Phrase::LogMonarch,
                 Vec::new(),
             ),
+            LogEvent::TookInitiative { player } => self.about(
+                *player,
+                Phrase::LogInitiativeYou,
+                Phrase::LogInitiative,
+                Vec::new(),
+            ),
             LogEvent::Aimed {
                 controller,
                 source,

@@ -76,22 +76,7 @@ pub(super) fn pt_count(
     let n = match count {
         baylee_cards_dsl::PtCount::Fixed(n) => usize::from(n),
         baylee_cards_dsl::PtCount::DistinctColorsAmong(filter) => {
-            let mut colors = baylee_core::color::ColorSet::EMPTY;
-            for id in state.battlefield_seen() {
-                if let Some(other) = state.object(id) {
-                    let chars = if id == obj.id {
-                        c
-                    } else {
-                        other.characteristics()
-                    };
-                    if eval::matches_projected_with_context(
-                        filter, state, other, chars, you, context,
-                    ) {
-                        colors = colors.union(chars.colors);
-                    }
-                }
-            }
-            usize::from(colors.len())
+            distinct_colors_among(state, obj, c, you, filter, context)
         }
         baylee_cards_dsl::PtCount::ChosenNumber => obj.chosen_number().map_or(0, usize::from),
         baylee_cards_dsl::PtCount::Complement { from, count } => {
@@ -159,8 +144,191 @@ pub(super) fn pt_count(
                 _ => None,
             })
             .unwrap_or(0),
+        baylee_cards_dsl::PtCount::CardsInHand(who) => {
+            cards_in_hand_count(state, you, who, context)
+        }
+        baylee_cards_dsl::PtCount::InGraveyards { who, filter } => {
+            eval::players_for_source(who, state, you, Some(context.source)).map_or(0, |seats| {
+                cards_in_selected_graveyards(state, obj, c, you, &seats, filter, context)
+            })
+        }
+        baylee_cards_dsl::PtCount::DistinctNamesAmong(filter) => {
+            distinct_names_among(state, obj, c, you, filter, context)
+        }
+        baylee_cards_dsl::PtCount::Domain(who) => domain_count(state, obj, c, you, who, context),
+        baylee_cards_dsl::PtCount::LifeTotal(who) => {
+            return life_total_count(state, you, who, context);
+        }
+        baylee_cards_dsl::PtCount::Twice(base) => {
+            return pt_count(state, obj, c, you, *base, context, read_board).saturating_mul(2);
+        }
+        baylee_cards_dsl::PtCount::GreatestManaValueAmong(filter) => {
+            greatest_mana_value_among(state, obj, c, you, filter, context)
+        }
+        baylee_cards_dsl::PtCount::PartySize(who) => {
+            max_party_size(state, obj, c, you, who, context)
+        }
     };
     i16::try_from(n).unwrap_or(i16::MAX)
+}
+
+fn cards_in_hand_count(
+    state: &GameState,
+    you: PlayerId,
+    who: baylee_cards_dsl::PlayerRel,
+    context: crate::text_changes::RuleContext,
+) -> usize {
+    eval::players_for_source(who, state, you, Some(context.source)).map_or(0, |seats| {
+        seats
+            .into_iter()
+            .map(|seat| {
+                state
+                    .zones
+                    .list(crate::zone::ZoneLocation::Hand(seat))
+                    .len()
+            })
+            .sum()
+    })
+}
+
+fn max_party_size(
+    state: &GameState,
+    obj: &GameObject,
+    c: &Characteristics,
+    you: PlayerId,
+    who: baylee_cards_dsl::PlayerRel,
+    context: crate::text_changes::RuleContext,
+) -> usize {
+    eval::players_for_source(who, state, you, Some(context.source)).map_or(0, |seats| {
+        seats
+            .into_iter()
+            .map(|seat| party_size_of(state, obj, c, seat))
+            .max()
+            .unwrap_or(0)
+    })
+}
+
+fn distinct_colors_among(
+    state: &GameState,
+    obj: &GameObject,
+    c: &Characteristics,
+    you: PlayerId,
+    filter: &baylee_cards_dsl::Filter,
+    context: crate::text_changes::RuleContext,
+) -> usize {
+    let mut colors = baylee_core::color::ColorSet::EMPTY;
+    for id in state.battlefield_seen() {
+        if let Some(other) = state.object(id) {
+            let chars = if id == obj.id {
+                c
+            } else {
+                other.characteristics()
+            };
+            if eval::matches_projected_with_context(filter, state, other, chars, you, context) {
+                colors = colors.union(chars.colors);
+            }
+        }
+    }
+    usize::from(colors.len())
+}
+
+fn distinct_names_among(
+    state: &GameState,
+    obj: &GameObject,
+    c: &Characteristics,
+    you: PlayerId,
+    filter: &baylee_cards_dsl::Filter,
+    context: crate::text_changes::RuleContext,
+) -> usize {
+    let mut names = std::collections::BTreeSet::new();
+    for id in state.battlefield_seen() {
+        if let Some(other) = state.object(id) {
+            let chars = if id == obj.id {
+                c
+            } else {
+                other.characteristics()
+            };
+            if eval::matches_projected_with_context(filter, state, other, chars, you, context) {
+                let name = state.names.get(chars.name);
+                if !name.is_empty() {
+                    names.insert(name);
+                }
+            }
+        }
+    }
+    names.len()
+}
+
+fn domain_count(
+    state: &GameState,
+    obj: &GameObject,
+    c: &Characteristics,
+    you: PlayerId,
+    who: baylee_cards_dsl::PlayerRel,
+    context: crate::text_changes::RuleContext,
+) -> usize {
+    eval::players_for_source(who, state, you, Some(context.source)).map_or(0, |seats| {
+        let mut seen = baylee_core::types::SubtypeSet::EMPTY;
+        for id in state.battlefield_seen() {
+            if let Some(other) = state.object(id)
+                && seats.contains(&other.controller)
+            {
+                let chars = if id == obj.id {
+                    c
+                } else {
+                    other.characteristics()
+                };
+                if chars.types.contains(baylee_core::types::TypeSet::LAND) {
+                    seen.union_with(chars.subtypes);
+                }
+            }
+        }
+        baylee_core::types::SubtypeSet::BASIC_LANDS
+            .iter()
+            .filter(|t| seen.contains(*t))
+            .count()
+    })
+}
+
+fn life_total_count(
+    state: &GameState,
+    you: PlayerId,
+    who: baylee_cards_dsl::PlayerRel,
+    context: crate::text_changes::RuleContext,
+) -> i16 {
+    let total: i64 =
+        eval::players_for_source(who, state, you, Some(context.source)).map_or(0, |seats| {
+            seats
+                .into_iter()
+                .filter_map(|p| state.players.get(usize::from(p.get())))
+                .map(|pl| i64::from(pl.life))
+                .sum()
+        });
+    total.clamp(i64::from(i16::MIN), i64::from(i16::MAX)) as i16
+}
+
+fn greatest_mana_value_among(
+    state: &GameState,
+    obj: &GameObject,
+    c: &Characteristics,
+    you: PlayerId,
+    filter: &baylee_cards_dsl::Filter,
+    context: crate::text_changes::RuleContext,
+) -> usize {
+    let mut greatest = 0_u32;
+    for id in state.battlefield_seen() {
+        if let Some(other) = state.object(id) {
+            let chars = if id == obj.id {
+                c
+            } else {
+                other.characteristics()
+            };
+            if eval::matches_projected_with_context(filter, state, other, chars, you, context) {
+                greatest = greatest.max(chars.mana_value());
+            }
+        }
+    }
+    usize::try_from(greatest).unwrap_or(usize::MAX)
 }
 
 /// Evaluate a live count for a rule outside the P/T layers, using the same
@@ -171,6 +339,22 @@ pub(crate) fn live_pt_count(
     you: PlayerId,
     count: baylee_cards_dsl::PtCount,
 ) -> i16 {
+    pt_count_for_resolution(
+        state,
+        obj,
+        you,
+        count,
+        crate::eval::live_context(state, obj.id),
+    )
+}
+
+pub(crate) fn pt_count_for_resolution(
+    state: &GameState,
+    obj: &GameObject,
+    you: PlayerId,
+    count: baylee_cards_dsl::PtCount,
+    context: crate::text_changes::RuleContext,
+) -> i16 {
     let mut read_board = false;
     pt_count(
         state,
@@ -178,7 +362,7 @@ pub(crate) fn live_pt_count(
         obj.characteristics(),
         you,
         count,
-        crate::eval::live_context(state, obj.id),
+        context,
         &mut read_board,
     )
 }
@@ -257,9 +441,24 @@ fn cards_in_all_graveyards(
     filter: &baylee_cards_dsl::Filter,
     context: crate::text_changes::RuleContext,
 ) -> usize {
-    (0..state.players.len())
+    let seats: Vec<PlayerId> = (0..state.players.len())
         .map(|seat| PlayerId::new(u8::try_from(seat).expect("player index fits")))
-        .flat_map(|player| {
+        .collect();
+    cards_in_selected_graveyards(state, obj, c, you, &seats, filter, context)
+}
+
+fn cards_in_selected_graveyards(
+    state: &GameState,
+    obj: &GameObject,
+    c: &Characteristics,
+    you: PlayerId,
+    seats: &[PlayerId],
+    filter: &baylee_cards_dsl::Filter,
+    context: crate::text_changes::RuleContext,
+) -> usize {
+    seats
+        .iter()
+        .flat_map(|&player| {
             state
                 .zones
                 .list(crate::zone::ZoneLocation::Graveyard(player))
@@ -281,4 +480,67 @@ fn cards_in_all_graveyards(
                 )
         })
         .count()
+}
+
+/// Maximum number of creatures in `player`'s party (up to one each of Cleric,
+/// Rogue, Warrior, and Wizard, `0..=4`, CR 700.8a–c), computed via exact
+/// subset matching over the 4 party roles.
+fn party_size_of(
+    state: &GameState,
+    obj: &GameObject,
+    c: &Characteristics,
+    player: PlayerId,
+) -> usize {
+    use baylee_core::generated::subtypes::creature;
+    const ROLES: [baylee_core::ids::SubtypeId; 4] = [
+        creature::CLERIC,
+        creature::ROGUE,
+        creature::WARRIOR,
+        creature::WIZARD,
+    ];
+    let mut reachable = 1_u16;
+    for id in state.battlefield_seen() {
+        let Some(other) = state.object(id) else {
+            continue;
+        };
+        if other.controller != player {
+            continue;
+        }
+        let chars = if id == obj.id {
+            c
+        } else {
+            other.characteristics()
+        };
+        if !chars.types.contains(baylee_core::types::TypeSet::CREATURE) {
+            continue;
+        }
+        let mut mask = 0_u8;
+        for (idx, &role) in ROLES.iter().enumerate() {
+            if chars.subtypes.contains(role) {
+                mask |= 1 << idx;
+            }
+        }
+        if mask == 0 {
+            continue;
+        }
+        let mut next = reachable;
+        for role in 0..4_usize {
+            if (mask & (1 << role)) != 0 {
+                for subset in 0..16_usize {
+                    if (reachable & (1 << subset)) != 0 && (subset & (1 << role)) == 0 {
+                        next |= 1 << (subset | (1 << role));
+                    }
+                }
+            }
+        }
+        reachable = next;
+        if (reachable & (1 << 15)) != 0 {
+            return 4;
+        }
+    }
+    (0..16_u16)
+        .filter(|s| (reachable & (1 << s)) != 0)
+        .map(|s| s.count_ones() as usize)
+        .max()
+        .unwrap_or(0)
 }

@@ -983,6 +983,59 @@ fn every_seat_sees_the_monarch_and_is_told_when_the_crown_moves() {
     }
 }
 
+/// The initiative at a table of four (CR 725): every seat's view names who
+/// holds it, and unlike the monarch, taking the initiative while already
+/// holding it is still logged (`CR 725.3`).
+#[test]
+fn every_seat_sees_the_initiative_and_is_told_even_when_retaken() {
+    let mut preset = mixed_print_preset();
+    let extra = preset.seats[1].clone();
+    preset.seats.push(extra.clone());
+    preset.seats.push(extra);
+    let mut engine = Engine::new(&preset, Registry).expect("game starts");
+    while let Pending::Mulligan { player, .. } = engine.pending().clone() {
+        engine
+            .apply(player, baylee_engine::choice::PlayerAction::MulliganKeep)
+            .expect("keeps");
+    }
+    let mut log = GameLog::new(engine.state());
+    let seats: Vec<PlayerId> = (0..4).map(PlayerId::new).collect();
+    let views = |engine: &Engine<Registry>| -> Vec<Option<PlayerId>> {
+        seats
+            .iter()
+            .map(|&s| {
+                player_view(engine.state(), s, 0, None, &SeatContext::default(), &[]).initiative
+            })
+            .collect()
+    };
+    assert_eq!(views(&engine), [None; 4]);
+
+    let from = log.len();
+    for taker in [2, 2, 3] {
+        engine
+            .dev_state_mut(seats[0])
+            .expect("dev commands")
+            .take_initiative(seats[taker]);
+    }
+    log.consume(engine.state());
+    assert_eq!(views(&engine), [Some(seats[3]); 4]);
+    for &seat in &seats {
+        let entries: Vec<_> = log
+            .told(seat, from, log.len())
+            .into_iter()
+            .map(|line| (line.event, line.repeat))
+            .collect();
+        assert_eq!(
+            entries,
+            [
+                (LogEvent::TookInitiative { player: seats[2] }, 2),
+                (LogEvent::TookInitiative { player: seats[3] }, 1),
+            ],
+            "seat {seat:?}"
+        );
+    }
+}
+
 /// Library of Leng: a discarded card put on top of its owner's library
 /// instead of into the graveyard is not revealed (CR 701.9c). The discard
 /// line names it to its discarder and to nobody else, while a card the same

@@ -606,6 +606,28 @@ impl HeuristicAgent {
         {
             return normal;
         }
+        if options.first().is_some_and(|option| {
+            matches!(
+                option.kind,
+                CastModeKind::DungeonRoom {
+                    dungeon: baylee_core::dungeon::Dungeon::Undercity,
+                    ..
+                }
+            )
+        }) {
+            return options
+                .iter()
+                .enumerate()
+                .filter_map(|(position, option)| match option.kind {
+                    CastModeKind::DungeonRoom {
+                        dungeon: baylee_core::dungeon::Dungeon::Undercity,
+                        room,
+                    } => Some((position, self.undercity_room_score(view, room))),
+                    _ => None,
+                })
+                .max_by_key(|&(position, score)| (score, std::cmp::Reverse(position)))
+                .map_or(0, |(position, _)| position);
+        }
         let Some(modes) = Self::modal_modes(view, object) else {
             return 0;
         };
@@ -671,6 +693,70 @@ impl HeuristicAgent {
                 (!idle, reached, std::cmp::Reverse(position))
             })
             .map_or(0, |(position, _)| position)
+    }
+
+    /// Board-aware room valuation for `Dungeon::Undercity` (`CR 309.4c`).
+    fn undercity_room_score(&self, view: &PlayerView, room: u8) -> i64 {
+        let me = view.seat;
+        let friendly_creature = view.battlefield.iter().any(|o| {
+            !self.hostile(o.controller, me)
+                && o.types.contains(baylee_core::types::TypeSet::CREATURE)
+        });
+        let hostile_creature = view.battlefield.iter().any(|o| {
+            self.hostile(o.controller, me)
+                && o.types.contains(baylee_core::types::TypeSet::CREATURE)
+        });
+        let hostile_seats = view
+            .seats
+            .iter()
+            .filter(|s| !s.has_lost() && self.hostile(s.player, me))
+            .count();
+        let lethal_trap = view
+            .seats
+            .iter()
+            .any(|s| !s.has_lost() && self.hostile(s.player, me) && s.life <= 5);
+        match room {
+            // Forge ("Put two +1/+1 counters on target creature."): avoid
+            // being forced to put counters on an opponent's creature!
+            1 => {
+                if friendly_creature {
+                    420
+                } else if hostile_creature {
+                    -420
+                } else {
+                    0
+                }
+            }
+            // Lost Well ("Scry 2.").
+            2 => 180,
+            // Trap! ("Target player loses 5 life.").
+            3 => {
+                if lethal_trap {
+                    10_000
+                } else if hostile_seats > 0 {
+                    300
+                } else {
+                    -500
+                }
+            }
+            // Arena ("Goad target creature."): shines in multiplayer against hostile creatures.
+            4 => {
+                if hostile_seats >= 2 && hostile_creature {
+                    260
+                } else if hostile_creature {
+                    120
+                } else {
+                    -260
+                }
+            }
+            // Stash ("Create a Treasure token.").
+            5 => 220,
+            // Archives ("Draw a card.").
+            6 => 360,
+            // Catacombs ("Create a 4/1 black Skeleton creature token with menace.").
+            7 => 400,
+            _ => 100,
+        }
     }
 
     /// Whether the card's alternative cost `index` asks for nothing beside

@@ -27,6 +27,7 @@
 
 pub(crate) mod counts;
 mod reductions;
+pub(crate) use counts::pt_count_for_resolution;
 use counts::{count_controlled, counts_by_attachment, pt_count};
 
 use crate::effects::{ContinuousEffect, EffectFilter, EffectTable};
@@ -164,7 +165,8 @@ impl LayerPlan {
                     }
                     EffectFilter::Dsl(_)
                     | EffectFilter::DslAbout(..)
-                    | EffectFilter::DslControlledBy(..) => {
+                    | EffectFilter::DslControlledBy(..)
+                    | EffectFilter::DslWithSubtype(..) => {
                         plan.has_global = true;
                         plan.named.clear();
                         break;
@@ -535,6 +537,23 @@ fn applies(
                     },
                 )
         }
+        EffectFilter::DslWithSubtype(filter, subtype, seats) => {
+            seats.is_none_or(|s| s.contains(obj.controller))
+                && eval::matches_projected_with_context(
+                    filter,
+                    state,
+                    obj,
+                    projected,
+                    fx.controller,
+                    crate::text_changes::RuleContext {
+                        source: fx.source.unwrap_or(obj.id),
+                        text: state.effect_text(fx),
+                        resolved_name: None,
+                        resolved_subtype: Some(*subtype),
+                        reference: None,
+                    },
+                )
+        }
         EffectFilter::DslAbout(filter, id, version) => eval::matches_projected_with_context(
             filter,
             state,
@@ -633,7 +652,10 @@ fn depends_on(dependent: &ContinuousEffect, depended: &ContinuousEffect, layer: 
         // (CR 613.6), so its filter and condition create no dependency.
         return false;
     }
-    let EffectFilter::Dsl(filter) = dependent.filter else {
+    let (EffectFilter::Dsl(filter)
+    | EffectFilter::DslControlledBy(filter, _)
+    | EffectFilter::DslWithSubtype(filter, ..)) = dependent.filter
+    else {
         return false;
     };
     could_change_match(&depended.modifier, filter, layer)
@@ -821,6 +843,7 @@ fn could_change_match(modifier: &Modifier, filter: &Filter, layer: Layer) -> boo
                     | Modifier::AddChosenBasicLandType
                     | Modifier::AddChosenSubtype
                     | Modifier::BecomeType { .. }
+                    | Modifier::BecomeTypes { .. }
                     | Modifier::AddTypeIfCountersAtLeast { .. }
                     | Modifier::CopyLastExiledCreaturePTAndSubtypes
                     | Modifier::BecomeCopyOf(_)
@@ -846,6 +869,9 @@ fn could_change_match(modifier: &Modifier, filter: &Filter, layer: Layer) -> boo
                     | Modifier::SetPower(_)
                     | Modifier::SetToughness(_)
                     | Modifier::SetPTToCount(_)
+                    | Modifier::SetPTSeparateToCount { .. }
+                    | Modifier::SetPowerToCount(_)
+                    | Modifier::SetToughnessToCount(_)
                     | Modifier::CopyLastExiledCreaturePTAndSubtypes
                     | Modifier::SwitchPT
                     | Modifier::CharacteristicPT { .. }
@@ -878,6 +904,7 @@ fn could_change_match(modifier: &Modifier, filter: &Filter, layer: Layer) -> boo
                     | Modifier::RemoveSupertype(_)
                     | Modifier::AddSubtype(_)
                     | Modifier::BecomeType { .. }
+                    | Modifier::BecomeTypes { .. }
                     | Modifier::AddTypeIfCountersAtLeast { .. }
                     | Modifier::CopyLastExiledCreaturePTAndSubtypes
                     | Modifier::BecomeCopyOf(_)
@@ -1210,10 +1237,22 @@ fn apply(
             c.subtypes.insert(*s);
         }
         Modifier::BecomeType { types, subtype } => {
-            let kept = c.types.intersection(baylee_core::types::TypeSet::INSTANT.union(baylee_core::types::TypeSet::SORCERY));
+            let kept = c.types.intersection(
+                baylee_core::types::TypeSet::INSTANT.union(baylee_core::types::TypeSet::SORCERY),
+            );
             c.types = types.union(kept);
             c.subtypes = SubtypeSet::EMPTY;
             c.subtypes.insert(*subtype);
+        }
+        Modifier::BecomeTypes { types, subtypes } => {
+            let kept = c.types.intersection(
+                baylee_core::types::TypeSet::INSTANT.union(baylee_core::types::TypeSet::SORCERY),
+            );
+            c.types = types.union(kept);
+            c.subtypes = SubtypeSet::EMPTY;
+            for &subtype in *subtypes {
+                c.subtypes.insert(subtype);
+            }
         }
         Modifier::AllBasicLandTypes => c.subtypes = c.subtypes.union(SubtypeSet::BASIC_LANDS),
         // CR 305.7: the old land types go and the new one comes, and the
@@ -1504,9 +1543,47 @@ fn apply(
         // new controller's lands.
         Modifier::SetPTToCount(count) => {
             if c.types.contains(baylee_core::types::TypeSet::CREATURE) {
-                let n = pt_count(state, obj, c, *controller, *count, context, read_board);
+                let you = if fx.origin == crate::effects::EffectOrigin::Static {
+                    fx.controller
+                } else {
+                    *controller
+                };
+                let n = pt_count(state, obj, c, you, *count, context, read_board);
                 c.power = Some(n);
                 c.toughness = Some(n);
+            }
+        }
+        Modifier::SetPTSeparateToCount { power, toughness } => {
+            if c.types.contains(baylee_core::types::TypeSet::CREATURE) {
+                let you = if fx.origin == crate::effects::EffectOrigin::Static {
+                    fx.controller
+                } else {
+                    *controller
+                };
+                let p = pt_count(state, obj, c, you, *power, context, read_board);
+                let t = pt_count(state, obj, c, you, *toughness, context, read_board);
+                c.power = Some(p);
+                c.toughness = Some(t);
+            }
+        }
+        Modifier::SetPowerToCount(count) => {
+            if c.types.contains(baylee_core::types::TypeSet::CREATURE) {
+                let you = if fx.origin == crate::effects::EffectOrigin::Static {
+                    fx.controller
+                } else {
+                    *controller
+                };
+                c.power = Some(pt_count(state, obj, c, you, *count, context, read_board));
+            }
+        }
+        Modifier::SetToughnessToCount(count) => {
+            if c.types.contains(baylee_core::types::TypeSet::CREATURE) {
+                let you = if fx.origin == crate::effects::EffectOrigin::Static {
+                    fx.controller
+                } else {
+                    *controller
+                };
+                c.toughness = Some(pt_count(state, obj, c, you, *count, context, read_board));
             }
         }
         Modifier::CopyLastExiledCreaturePTAndSubtypes => {

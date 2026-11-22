@@ -877,10 +877,11 @@ fn variant(event: &LogEvent) -> usize {
         LogEvent::CardsChosen { .. } => 38,
         LogEvent::ClassLevel { .. } => 39,
         LogEvent::VotedOption { .. } => 40,
+        LogEvent::TookInitiative { .. } => 41,
     }
 }
 
-const VARIANTS: usize = 41;
+const VARIANTS: usize = 42;
 
 /// Every kind of line, about `player`, with every answer, cause, zone and
 /// counter a line can carry.
@@ -1027,6 +1028,7 @@ fn every_line_about(player: PlayerId) -> Vec<LogEvent> {
         },
         LogEvent::Shuffled { player },
         LogEvent::BecameMonarch { player },
+        LogEvent::TookInitiative { player },
         LogEvent::DiceRolled {
             player,
             sides: 20,
@@ -1280,6 +1282,7 @@ fn about_whom(event: &LogEvent) -> Option<PlayerId> {
         | LogEvent::Revealed { player, .. }
         | LogEvent::Shuffled { player }
         | LogEvent::BecameMonarch { player }
+        | LogEvent::TookInitiative { player }
         | LogEvent::DiceRolled { player, .. }
         | LogEvent::CoinFlipped { player, .. }
         | LogEvent::Lost { player, .. } => Some(*player),

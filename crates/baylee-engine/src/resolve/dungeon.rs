@@ -36,6 +36,20 @@ pub(super) fn venture_into_the_dungeon(
     state: &mut GameState,
     res: &mut Resolution,
 ) -> Option<Pending> {
+    venture(state, res, false)
+}
+
+/// Venture into Undercity (CR 701.49d): enters [`Dungeon::Undercity`] at room 0
+/// when the player is not currently in a dungeon, or advances one room in
+/// whichever dungeon they are already in.
+pub(super) fn venture_into_undercity(
+    state: &mut GameState,
+    res: &mut Resolution,
+) -> Option<Pending> {
+    venture(state, res, true)
+}
+
+fn venture(state: &mut GameState, res: &mut Resolution, undercity: bool) -> Option<Pending> {
     let player = res.controller;
     if state.has_left(player) {
         return None;
@@ -50,7 +64,13 @@ pub(super) fn venture_into_the_dungeon(
     }
     let current = state.players[seat].dungeon;
     let choices: Vec<_> = current.map_or_else(
-        || Dungeon::ALL.into_iter().map(|d| (d, 0)).collect(),
+        || {
+            if undercity {
+                vec![(Dungeon::Undercity, 0)]
+            } else {
+                Dungeon::ALL.into_iter().map(|d| (d, 0)).collect()
+            }
+        },
         |(d, _)| {
             d.next(state.players[seat].dungeon_room - 1)
                 .iter()
@@ -164,7 +184,7 @@ pub(crate) fn complete(state: &mut GameState, player: PlayerId) {
 }
 
 pub(crate) use play::continue_play;
-pub(super) use play::{draw_three, exile_two};
+pub(super) use play::{draw_three, exile_two, resume_throne, throne_of_the_dead_three};
 pub(super) use tax::resume as resume_tax;
 pub(super) use tax::start as tax;
 

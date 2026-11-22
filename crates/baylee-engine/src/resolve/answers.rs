@@ -1034,12 +1034,7 @@ pub(super) fn resume_yes_no_inner(
     {
         res.awaiting = None;
         if answer {
-            let options = crate::engine::cost_wizard::options_with_context(
-                state,
-                player,
-                res.rule_context(),
-                cost,
-            );
+            let options = super::choices::resolution_cost_options(state, res, player, cost);
             if options.len() >= usize::from(required) {
                 res.awaiting = Some(AwaitingOp::PlayerMayPayCountedCost {
                     on_payment,

@@ -4795,6 +4795,9 @@ PlateCommander = { $amount } commander damage
 # The monarch designation (CR 726), beside the crown.
 PlateMonarch = Monarch
 
+# The initiative designation (CR 725), beside the compass.
+PlateInitiative = Initiative
+
 # A seat that is out of the game.
 PlateLost = Out of the game
 
@@ -6195,6 +6198,14 @@ LogMonarchYou = { $you_subject } became the monarch
 # Another seat became the monarch.
 # Arguments: player
 LogMonarch = { $player } became the monarch
+
+# The reading seat took the initiative (CR 725).
+# Arguments: player, unused_1, unused_2, unused_3, unused_4, unused_5, unused_6, you_subject
+LogInitiativeYou = { $you_subject } took the initiative
+
+# Another seat took the initiative.
+# Arguments: player
+LogInitiative = { $player } took the initiative
 
 # The one mode chosen for a spell or an ability (CR 601.2b, 603.3c).
 # `$modes` is it: the card's own words in quotes ([`Phrase::LogQuoted`]),

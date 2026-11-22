@@ -87,11 +87,15 @@ pub(crate) fn modifier_reads_combat(modifier: baylee_cards_dsl::Modifier) -> boo
     if let Modifier::ModifyPTPerCount { filter, .. } = modifier {
         return filter_reads_board_state(filter);
     }
-    if let Modifier::CharacteristicPTSeparate { power, toughness } = modifier {
+    if let Modifier::CharacteristicPTSeparate { power, toughness }
+    | Modifier::SetPTSeparateToCount { power, toughness } = modifier
+    {
         return pt_count_reads_combat(power) || pt_count_reads_combat(toughness);
     }
     let (Modifier::CharacteristicPT { count, .. }
     | Modifier::SetPTToCount(count)
+    | Modifier::SetPowerToCount(count)
+    | Modifier::SetToughnessToCount(count)
     | Modifier::ModifyPTByCount(count)
     | Modifier::ReducePTByCount { count, .. }
     | Modifier::ModifyPTHalfCount(count)) = modifier
@@ -104,14 +108,21 @@ pub(crate) fn modifier_reads_combat(modifier: baylee_cards_dsl::Modifier) -> boo
 fn pt_count_reads_combat(count: baylee_cards_dsl::PtCount) -> bool {
     use baylee_cards_dsl::PtCount;
     match count {
-        PtCount::Plus { base, .. } | PtCount::Complement { count: base, .. } => {
-            pt_count_reads_combat(*base)
-        }
+        PtCount::Plus { base, .. }
+        | PtCount::Complement { count: base, .. }
+        | PtCount::Twice(base) => pt_count_reads_combat(*base),
         PtCount::DefendingPlayerControls(_) | PtCount::ControllerOrDefenderControls(_) => true,
         PtCount::DistinctColorsAmong(f)
+        | PtCount::DistinctNamesAmong(f)
+        | PtCount::GreatestManaValueAmong(f)
         | PtCount::YouControl(f)
         | PtCount::OnBattlefield(f)
         | PtCount::ChosenPlayerControls(f) => filter_reads_board_state(f),
+        PtCount::CardsInHand(who)
+        | PtCount::InGraveyards { who, .. }
+        | PtCount::Domain(who)
+        | PtCount::LifeTotal(who)
+        | PtCount::PartySize(who) => matches!(who, baylee_cards_dsl::PlayerRel::DefendingPlayer),
         PtCount::CardTypesInAllGraveyards
         | PtCount::CardTypesInOpponentsGraveyards
         | PtCount::InAllGraveyards(_)

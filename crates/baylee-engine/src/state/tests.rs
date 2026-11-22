@@ -1062,6 +1062,7 @@ fn every_field_that_decides_the_future_moves_the_snapshot_hash() {
             s.ltb_characteristics.push((id, was));
         }),
         ("monarch", |s, _| s.monarch = Some(PlayerId::new(1))),
+        ("initiative", |s, _| s.initiative = Some(PlayerId::new(1))),
         ("starting_player", |s, _| {
             s.starting_player = PlayerId::new(1);
         }),

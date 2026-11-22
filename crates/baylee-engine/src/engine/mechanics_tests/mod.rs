@@ -70,6 +70,7 @@ mod wave10a_freerunning_sneak_sunburst_ravenous_graft_endure;
 mod wave10b_splice_awaken_conspire_cipher_champion_tribute;
 mod wave11a_fixes_and_replacements;
 mod wave11b_vote_costs_play;
+mod wave11c_initiative_animate_pt_cr_fixes;
 mod wave2_bugs_copy_and_dice;
 mod wave3_repeat_choose_color;
 mod wave3_rules;

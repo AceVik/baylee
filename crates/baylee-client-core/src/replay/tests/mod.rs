@@ -150,6 +150,7 @@ pub(super) fn spectator_of(view: &PlayerView) -> baylee_view::SpectatorView {
         awaiting: view.awaiting,
         deciding: view.deciding,
         monarch: view.monarch,
+        initiative: view.initiative,
         day_night: view.day_night,
         seats: view.seats.clone(),
         battlefield: view.battlefield.clone(),

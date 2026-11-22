@@ -325,6 +325,7 @@ fn base_view() -> super::PlayerView {
         priority_held: false,
         policy_acts: Vec::new(),
         monarch: None,
+        initiative: None,
         day_night: None,
         seats: vec![seat_view(0), seat_view(1)],
         hand: Vec::new(),

@@ -108,6 +108,7 @@ impl GameState {
             synthetic_copies: _,
             commanders,
             monarch: _,
+            initiative: _,
             goaded: _,
             // Refused before the audit (`ForkRefusal::GameOver`).
             game_end: _,
@@ -270,7 +271,9 @@ impl GameState {
             EffectFilter::ObjectIs(id, version) | EffectFilter::DslAbout(_, id, version) => {
                 hidden(id) && (!read(id) || self.object(id).is_some_and(|o| o.version == version))
             }
-            EffectFilter::Dsl(_) | EffectFilter::DslControlledBy(..) => false,
+            EffectFilter::Dsl(_)
+            | EffectFilter::DslControlledBy(..)
+            | EffectFilter::DslWithSubtype(..) => false,
         }) {
             return Err(ForkRefusal::ReferencedHiddenCard("a continuous effect"));
         }

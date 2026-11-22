@@ -512,6 +512,12 @@ pub enum GameEvent {
         /// The new monarch.
         player: PlayerId,
     },
+    /// A player took the initiative (CR 725.1–725.3), including when they
+    /// already held it.
+    TookInitiative {
+        /// The player who took the initiative.
+        player: PlayerId,
+    },
     /// A permanent turned over (CR 701.27).
     ///
     /// Recorded by both doors that flip a face: the one a resolving effect

@@ -151,4 +151,5 @@ view_fields! {
     Controls controls: Vec<PlayerControl>,
     ForeignTargets foreign_targets: Vec<ObjectId>,
     Divided divided: Vec<Division>,
+    Initiative initiative: Option<PlayerId>,
 }

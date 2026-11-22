@@ -117,3 +117,99 @@ pub(crate) fn continue_play(
         total: None,
     })
 }
+
+/// Undercity's final room ("Throne of the Dead Three"): reveal the top ten
+/// cards of your library, put a creature card from among them onto the
+/// battlefield with three +1/+1 counters on it, grant it hexproof until your
+/// next turn, then shuffle.
+pub(in crate::resolve) fn throne_of_the_dead_three(
+    state: &mut GameState,
+    res: &mut Resolution,
+) -> Option<Pending> {
+    let you = res.controller;
+    if state.has_left(you) {
+        return None;
+    }
+    let top: Vec<baylee_core::ids::ObjectId> = state
+        .zones
+        .list(ZoneLocation::Library(you))
+        .iter()
+        .rev()
+        .take(10)
+        .copied()
+        .collect();
+    if !top.is_empty() {
+        state.journal.record(GameEvent::Revealed {
+            player: you,
+            cards: top.clone(),
+        });
+    }
+    let options: Vec<baylee_core::ids::ObjectId> = top
+        .into_iter()
+        .filter(|&id| {
+            state.object(id).is_some_and(|o| {
+                o.is_card()
+                    && o.characteristics()
+                        .types
+                        .contains(baylee_core::types::TypeSet::CREATURE)
+            })
+        })
+        .collect();
+    if options.is_empty() {
+        state.shuffle_library(you);
+        return None;
+    }
+    res.awaiting = Some(AwaitingOp::UndercityThrone);
+    Some(Pending::ChooseCards {
+        player: you,
+        options,
+        min: 1,
+        max: 1,
+        prompt: ChoicePrompt::PutOntoBattlefield,
+        total: None,
+    })
+}
+
+pub(in crate::resolve) fn resume_throne(
+    state: &mut GameState,
+    res: &mut Resolution,
+    chosen: &[baylee_core::ids::ObjectId],
+) {
+    let you = res.controller;
+    if let Some(&card) = chosen.first()
+        && state
+            .object(card)
+            .is_some_and(|o| o.zone == Zone::Library && o.is_card())
+    {
+        let lib_version = state.object(card).map(|o| o.version);
+        crate::resolve::search::put_found(
+            state,
+            you,
+            card,
+            baylee_cards_dsl::SearchDest::Battlefield,
+        );
+        let expected_version = lib_version.map(|v| v.wrapping_add(1));
+        let entered = state.entries.contains(card)
+            || state.object(card).is_some_and(|o| {
+                o.zone == Zone::Battlefield && Some(o.version) == expected_version
+            });
+        if entered && let Some(version) = expected_version {
+            crate::entry::put_entry_counters(state, card, baylee_cards_dsl::CounterKind::P1P1, 3);
+            let timestamp = state.next_timestamp();
+            state.effects.register(crate::effects::ContinuousEffect {
+                id: baylee_core::ids::EffectId::new(0),
+                source: Some(res.source),
+                controller: you,
+                origin: crate::effects::EffectOrigin::Resolution,
+                layer: baylee_cards_dsl::Layer::Ability,
+                timestamp,
+                duration: baylee_cards_dsl::Duration::UntilYourNextTurn,
+                filter: crate::effects::EffectFilter::ObjectIs(card, version),
+                modifier: baylee_cards_dsl::Modifier::AddKeyword(
+                    baylee_cards_dsl::KeywordSet::HEXPROOF,
+                ),
+            });
+        }
+    }
+    state.shuffle_library(you);
+}

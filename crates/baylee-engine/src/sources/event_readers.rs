@@ -210,6 +210,7 @@ fn reads_event(effect: &Effect) -> bool {
             reads_target(*about)
         }
         Effect::BecomeMonarch(who)
+        | Effect::TakeInitiative(who)
         | Effect::DestroyChosenForPlayers { who, .. }
         | Effect::DiscardForPlayers { who, .. }
         | Effect::DiscardHand { who, .. }

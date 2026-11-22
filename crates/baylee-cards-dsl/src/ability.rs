@@ -703,6 +703,15 @@ pub enum Condition {
     /// A triggered ability checks this when it triggers. Appended to preserve
     /// replay identities.
     ClassLevelAtLeast(u8),
+    /// A player matching `PlayerRel` currently has the initiative (CR 725.1).
+    /// Appended to preserve replay identities.
+    HasInitiative(crate::PlayerRel),
+    /// A player matching `PlayerRel` is currently the monarch (CR 724.1).
+    /// Appended to preserve replay identities.
+    IsMonarch(crate::PlayerRel),
+    /// A player matching `PlayerRel` has completed at least one dungeon this
+    /// game (CR 309.7). Appended to preserve replay identities.
+    CompletedADungeon(crate::PlayerRel),
 }
 
 /// Trigger conditions for triggered abilities.

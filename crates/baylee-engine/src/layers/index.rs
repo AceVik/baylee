@@ -26,7 +26,8 @@ impl EffectIndex {
                 EffectFilter::ObjectIs(id, _) => index.objects.entry(id).or_default(),
                 EffectFilter::Dsl(_)
                 | EffectFilter::DslAbout(..)
-                | EffectFilter::DslControlledBy(..) => &mut index.global,
+                | EffectFilter::DslControlledBy(..)
+                | EffectFilter::DslWithSubtype(..) => &mut index.global,
             };
             ranks.push(u32::try_from(rank).expect("effect plan fits u32"));
         }

@@ -24,7 +24,7 @@ pub(super) fn affects_player(
     {
         return false;
     }
-    if let crate::effects::EffectFilter::DslControlledBy(_, seats) = effect.filter {
+    if let Some(seats) = effect.filter.seats() {
         return !state.has_left(player) && seats.contains(player);
     }
     crate::eval::players_for_source(who, state, effect.controller, effect.source)
@@ -40,12 +40,18 @@ pub(super) fn prevents(
     spell: &GameObject,
 ) -> bool {
     affects_player(state, effect, who, player)
-        && crate::eval::matches(
+        && crate::eval::matches_with_context(
             filter,
             state,
             spell,
             effect.controller,
-            effect.source.unwrap_or(spell.id),
+            crate::text_changes::RuleContext {
+                source: effect.source.unwrap_or(spell.id),
+                text: state.effect_text(effect),
+                resolved_name: None,
+                resolved_subtype: effect.filter.chosen_subtype(),
+                reference: None,
+            },
         )
 }
 

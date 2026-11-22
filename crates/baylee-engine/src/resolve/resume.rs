@@ -1885,9 +1885,13 @@ pub(super) fn resume_inner(
                         crate::object::SacrificedLki::of(object),
                     )
                 });
-            let paid = chosen
-                .first()
-                .is_some_and(|&chosen| cost_wizard::pay(state, player, cost, chosen).is_ok());
+            let paid = chosen.first().is_some_and(|&chosen| {
+                !(choices::cost_part_names_this(cost)
+                    && chosen == res.source
+                    && !subjects::source(state, res)
+                        .is_some_and(|source| subjects::is_current(state, source)))
+                    && cost_wizard::pay(state, player, cost, chosen).is_ok()
+            });
             if paid
                 && let Some((sacrificed, lki)) = receipt
                 && let Some(stack) = state.object_mut(res.on_stack)
@@ -1902,6 +1906,7 @@ pub(super) fn resume_inner(
         }
         AwaitingOp::CipherEncode => super::wave10b::resume_cipher_encode(state, res, chosen),
         AwaitingOp::ChampionExile => super::wave10b::resume_champion_exile(state, res, chosen),
+        AwaitingOp::UndercityThrone => super::dungeon::resume_throne(state, res, chosen),
     }
     finish_choice(state, res, since)
 }

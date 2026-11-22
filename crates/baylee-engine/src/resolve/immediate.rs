@@ -180,6 +180,8 @@ pub(super) fn exec_immediate(
         Effect::DungeonTax { discard } => super::dungeon::tax(state, res, discard),
         Effect::MergeMutatingSpell => Some(super::mutate::start(res)),
         Effect::VentureIntoTheDungeon => super::dungeon::venture_into_the_dungeon(state, res),
+        Effect::VentureIntoUndercity => super::dungeon::venture_into_undercity(state, res),
+        Effect::DungeonThroneOfTheDeadThree => super::dungeon::throne_of_the_dead_three(state, res),
         Effect::DestroyEventThenMayReattach { to } => {
             crate::aura_bindings::destroy_event_and_offer(state, res, to)
         }
@@ -588,6 +590,7 @@ pub(super) fn exec_immediate(
         | Effect::DoubleCountersFilter { .. }
         | Effect::DrainAllCountersIntoSelf
         | Effect::SetPTFilter { .. }
+        | Effect::SetPTByCountFilter { .. }
         | Effect::ModifyFilter { .. }
         | Effect::PumpFilter { .. }
         | Effect::PumpFilterPerKeyword { .. }
@@ -2302,6 +2305,14 @@ pub(super) fn exec_immediate(
             // One monarch at a time (CR 726.3), so one player at most.
             if let Some(&player) = players_of(rel, state, you, res).first() {
                 state.set_monarch(player);
+            }
+            None
+        }
+        Effect::TakeInitiative(rel) => {
+            // One player holds the initiative at a time (CR 725.3); taking it
+            // when already holding it still triggers venture into Undercity.
+            if let Some(&player) = players_of(rel, state, you, res).first() {
+                state.take_initiative(player);
             }
             None
         }
@@ -4341,6 +4352,7 @@ pub(super) fn any_player_sac_or_damage_advance(
 /// program it builds, far above any count a card reaches.
 pub(crate) const REPEAT_CAP: u32 = 4096;
 
+#[allow(clippy::too_many_lines)]
 fn resolution_condition(
     state: &GameState,
     res: &Resolution,
@@ -4440,6 +4452,20 @@ fn resolution_condition(
                 (u16::from(min)..=u16::from(max)).contains(&object.counters.get(kind))
             }),
         Condition::GiftWasPromised => super::gift_recipient_of_resolution(state, res).is_some(),
+        Condition::HasInitiative(who) => players_of(who, state, res.controller, res)
+            .into_iter()
+            .any(|p| state.initiative == Some(p)),
+        Condition::IsMonarch(who) => players_of(who, state, res.controller, res)
+            .into_iter()
+            .any(|p| state.monarch == Some(p)),
+        Condition::CompletedADungeon(who) => players_of(who, state, res.controller, res)
+            .into_iter()
+            .any(|p| {
+                state
+                    .players
+                    .get(usize::from(p.get()))
+                    .is_some_and(|pl| pl.dungeons_completed > 0)
+            }),
         _ => {
             eval::condition_holds_with_context(state, res.controller, res.rule_context(), condition)
         }

@@ -206,7 +206,7 @@ pub fn player_protected_from(state: &GameState, player: PlayerId, source: Object
         return false;
     };
     let affected = |fx: &crate::effects::ContinuousEffect, who: baylee_cards_dsl::PlayerRel| {
-        if let crate::effects::EffectFilter::DslControlledBy(_, seats) = fx.filter {
+        if let Some(seats) = fx.filter.seats() {
             seats.contains(player)
         } else {
             super::players_for_source(who, state, fx.controller, fx.source)
@@ -233,7 +233,7 @@ pub fn player_protected_from(state: &GameState, player: PlayerId, source: Object
                             source: fx.source.unwrap_or(source),
                             text: state.effect_text(fx),
                             resolved_name: None,
-                            resolved_subtype: None,
+                            resolved_subtype: fx.filter.chosen_subtype(),
                             reference: None,
                         },
                     )

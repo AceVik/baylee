@@ -286,6 +286,7 @@ fn chip_width(facts: &SeatFacts, tier: Tier, step: f32) -> f32 {
         |text: &str, pt: f32, bold: bool| crate::hud::text_width(text, pt * UI_SCALE * step, bold);
     let pip = tier == Tier::Pip;
     let marks = usize::from(facts.plate.monarch)
+        + usize::from(facts.plate.initiative)
         + usize::from((facts.role != SeatRole::Present && !pip) || facts.lost());
     #[allow(clippy::cast_precision_loss)] // at most two marks
     let first = marks as f32 * (icon + ICON_GAP + 1.0)
@@ -392,6 +393,13 @@ pub struct CameraBar;
 /// The crown on the monarch's chip.
 #[derive(Component)]
 pub struct ChipCrown {
+    /// Whose chip it stands on.
+    pub player: PlayerId,
+}
+
+/// The compass on the chip of the player who has the initiative.
+#[derive(Component)]
+pub struct ChipInitiative {
     /// Whose chip it stands on.
     pub player: PlayerId,
 }
@@ -1250,6 +1258,20 @@ fn write(
             player: facts.player,
         });
         parts.push(crown);
+    }
+    if facts.plate.initiative {
+        let compass = icon(
+            commands,
+            fonts,
+            glyph::COMPASS,
+            palette::CANDLE,
+            ICON_GAP,
+            step,
+        );
+        commands.entity(compass).insert(ChipInitiative {
+            player: facts.player,
+        });
+        parts.push(compass);
     }
     let name = text(
         commands,

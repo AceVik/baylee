@@ -88,6 +88,7 @@ fn empty_view(me: PlayerId) -> PlayerView {
         priority_held: false,
         policy_acts: Vec::new(),
         monarch: None,
+        initiative: None,
         day_night: None,
         seats: (0..2)
             .map(|i| SeatView {

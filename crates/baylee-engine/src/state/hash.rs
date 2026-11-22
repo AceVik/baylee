@@ -84,6 +84,7 @@ impl GameState {
             synthetic_copies,
             commanders,
             monarch,
+            initiative,
             goaded,
             game_end,
             day_night,
@@ -182,6 +183,10 @@ impl GameState {
         day_night.hash(&mut h);
         previous_turn.hash(&mut h);
         monarch.hash(&mut h);
+        if let Some(initiative) = initiative {
+            h.u8(251);
+            initiative.hash(&mut h);
+        }
         if !goaded.is_empty() {
             goaded.hash(&mut h);
         }
@@ -373,6 +378,10 @@ impl GameState {
         self.hash_turn_history(&mut h, &position);
         draws::hash(&mut h, self, &position);
         h.u8(self.monarch.map_or(255, PlayerId::get));
+        if let Some(initiative) = self.initiative {
+            h.u8(251);
+            h.u8(initiative.get());
+        }
         // The designation is rules-visible and a loop that flips it is a
         // loop that changes what daybound permanents are (CR 732). The
         // previous turn belongs here for a subtler reason: it is what the
@@ -1864,6 +1873,12 @@ fn hash_effect(h: &mut Hasher, fx: &crate::effects::ContinuousEffect) {
         crate::effects::EffectFilter::DslControlledBy(filter, seats) => {
             h.u8(3);
             filter_hash(h, filter);
+            seats.hash(h);
+        }
+        crate::effects::EffectFilter::DslWithSubtype(filter, subtype, seats) => {
+            h.u8(4);
+            filter_hash(h, filter);
+            subtype.hash(h);
             seats.hash(h);
         }
     }

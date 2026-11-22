@@ -209,6 +209,7 @@ fn for_each_object(event: &mut GameEvent, f: &mut impl FnMut(&mut ObjectId)) {
         | GameEvent::PlayerLost { .. }
         | GameEvent::DayNightChanged { .. }
         | GameEvent::BecameMonarch { .. }
+        | GameEvent::TookInitiative { .. }
         | GameEvent::LoopDetected { .. }
         | GameEvent::GameWon { .. }
         | GameEvent::GiftGiven { .. }

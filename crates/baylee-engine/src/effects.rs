@@ -44,6 +44,15 @@ pub enum EffectFilter {
     /// resolved. The seats are fixed; the objects matching among them are not
     /// (CR 611.2c when the modifier does not lock its set).
     DslControlledBy(&'static Filter, SeatSet),
+    /// A live DSL filter (with optional controller seat restriction) carrying
+    /// the subtype chosen during the resolution that created the effect
+    /// (CR 611.2c when the modifier does not lock its set, e.g. Walking
+    /// Desecration's "Creatures of the chosen type attack this turn if able").
+    DslWithSubtype(
+        &'static Filter,
+        baylee_core::ids::SubtypeId,
+        Option<SeatSet>,
+    ),
 }
 
 impl EffectFilter {
@@ -80,6 +89,26 @@ impl EffectFilter {
     pub fn names(&self, obj: &crate::object::GameObject) -> bool {
         matches!(self, Self::ObjectIs(id, version)
             if *id == obj.id && *version == obj.version)
+    }
+
+    /// Frozen controller seat restriction on a dynamic DSL filter, if any.
+    #[must_use]
+    pub const fn seats(&self) -> Option<SeatSet> {
+        match *self {
+            Self::DslControlledBy(_, seats) | Self::DslWithSubtype(_, _, Some(seats)) => {
+                Some(seats)
+            }
+            _ => None,
+        }
+    }
+
+    /// Subtype frozen at resolution on [`Self::DslWithSubtype`], if any.
+    #[must_use]
+    pub const fn chosen_subtype(&self) -> Option<baylee_core::ids::SubtypeId> {
+        match *self {
+            Self::DslWithSubtype(_, subtype, _) => Some(subtype),
+            _ => None,
+        }
     }
 }
 
@@ -123,6 +152,7 @@ pub fn locks_its_set(modifier: &Modifier) -> bool {
         | Modifier::AddChosenBasicLandType
         | Modifier::AddChosenSubtype
         | Modifier::BecomeType { .. }
+        | Modifier::BecomeTypes { .. }
         | Modifier::AddColor(_)
         | Modifier::SetColor(_)
         | Modifier::AddKeyword(_)
@@ -162,6 +192,9 @@ pub fn locks_its_set(modifier: &Modifier) -> bool {
         | Modifier::SetPower(_)
         | Modifier::SetToughness(_)
         | Modifier::SetPTToCount(_)
+        | Modifier::SetPTSeparateToCount { .. }
+        | Modifier::SetPowerToCount(_)
+        | Modifier::SetToughnessToCount(_)
         | Modifier::CopyLastExiledCreaturePTAndSubtypes
         | Modifier::SwitchPT => true,
         // Neither: a shield that prevents damage, and the rules a player
@@ -766,6 +799,7 @@ impl EffectTable {
                 EffectFilter::Dsl(f)
                     | EffectFilter::DslAbout(f, ..)
                     | EffectFilter::DslControlledBy(f, ..)
+                    | EffectFilter::DslWithSubtype(f, ..)
                     if crate::state::filter_reads_board_state(f)
             ) || crate::state::modifier_reads_combat(fx.modifier),
         );
@@ -1226,7 +1260,8 @@ pub(crate) fn applies_to_snapshot(
     }
     if let EffectFilter::Dsl(filter)
     | EffectFilter::DslAbout(filter, ..)
-    | EffectFilter::DslControlledBy(filter, ..) = fx.filter
+    | EffectFilter::DslControlledBy(filter, ..)
+    | EffectFilter::DslWithSubtype(filter, ..) = fx.filter
         && !matches!(
             obj.zone,
             crate::zone::Zone::Battlefield | crate::zone::Zone::Stack
@@ -1273,6 +1308,22 @@ pub(crate) fn matches_filter(
                         text: state.effect_text(fx),
                         resolved_name: None,
                         resolved_subtype: None,
+                        reference: None,
+                    },
+                )
+        }
+        EffectFilter::DslWithSubtype(filter, subtype, seats) => {
+            seats.is_none_or(|s| s.contains(obj.controller))
+                && crate::eval::matches_with_context(
+                    filter,
+                    state,
+                    obj,
+                    fx.controller,
+                    crate::text_changes::RuleContext {
+                        source: fx.source.unwrap_or(obj.id),
+                        text: state.effect_text(fx),
+                        resolved_name: None,
+                        resolved_subtype: Some(*subtype),
                         reference: None,
                     },
                 )
@@ -2040,6 +2091,16 @@ mod tests {
                 count: 1,
                 optional: false,
             },
+            Modifier::BecomeTypes {
+                types: baylee_core::types::TypeSet::CREATURE,
+                subtypes: &[],
+            },
+            Modifier::SetPTSeparateToCount {
+                power: baylee_cards_dsl::PtCount::CardsInHand(PlayerRel::You),
+                toughness: baylee_cards_dsl::PtCount::Domain(PlayerRel::You),
+            },
+            Modifier::SetPowerToCount(baylee_cards_dsl::PtCount::LifeTotal(PlayerRel::You)),
+            Modifier::SetToughnessToCount(baylee_cards_dsl::PtCount::PartySize(PlayerRel::You)),
         ]
     }
 
@@ -2078,7 +2139,7 @@ mod tests {
 
         assert_eq!(
             declared.len(),
-            223,
+            227,
             "read {} variants out of the declaration, which is not the enum",
             declared.len()
         );
@@ -2197,7 +2258,9 @@ mod tests {
         // modify combat, life-gain, and sacrifice rules (+5 rules-only -> 164).
         // Sneak grants an ability on Layer::Ability (+1 locking -> 58).
         // AdditionalVotes modifies voting rules (+1 rules-only -> 165).
-        assert_eq!((locking, all.len() - locking), (58, 165));
+        // BecomeTypes, SetPTSeparateToCount, SetPowerToCount, and SetToughnessToCount
+        // modify characteristics on Layer::Type / Layer::PtCda (+4 locking -> 62).
+        assert_eq!((locking, all.len() - locking), (62, 165));
     }
 
     /// An `ObjectId` alone is not an identity: an id is stable for a whole
