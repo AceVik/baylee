@@ -809,6 +809,29 @@ impl Tx<'_> {
                             "Filter::SameManaValueAsSource".to_string()
                         }
                     }
+                    other
+                        if (self.has_x
+                            || (self.is_etb_self_trigger
+                                && self.has_x_mana_cost
+                                && !self.in_delayed))
+                            && other
+                                .strip_prefix("cmcLE")
+                                .or_else(|| other.strip_prefix("cmcEQ"))
+                                .and_then(|var| {
+                                    let var = var.trim();
+                                    self.svars.get(var).map(|def| (var, def.trim()))
+                                })
+                                .is_some_and(|(var, def)| {
+                                    def == "Count$xPaid"
+                                        || (var == "X" && def == "Targeted$CardManaCost")
+                                }) =>
+                    {
+                        if other.starts_with("cmcEQ") {
+                            "Filter::CmcExactlyX".to_string()
+                        } else {
+                            "Filter::CmcAtMostX".to_string()
+                        }
+                    }
                     other if other.starts_with("AttachedTo ") => {
                         let inner_raw = other.trim_start_matches("AttachedTo ").trim();
                         if inner_raw == "Card.Self" || inner_raw == "Self" {

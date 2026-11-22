@@ -27,6 +27,7 @@ use super::{Params, Tx};
 enum First {
     Hand,
     Battlefield { tapped: bool },
+    Graveyard,
     Exile,
     TopOfLibrary,
 }
@@ -46,7 +47,16 @@ enum Rest {
 #[derive(Clone, Copy, PartialEq, Eq)]
 enum Take {
     Exactly(u8),
+    Any,
     All,
+}
+
+/// Boolean modifiers read off a `Dig` line.
+#[derive(Clone, Copy)]
+struct DigFlags {
+    reveal: bool,
+    optional: bool,
+    random: bool,
 }
 
 impl Tx<'_> {
@@ -71,6 +81,7 @@ impl Tx<'_> {
         let take = match p.take("ChangeNum").as_deref() {
             None => Take::Exactly(1),
             Some("All") => Take::All,
+            Some("Any") => Take::Any,
             Some(n) => match self
                 .plain_num(n)
                 .and_then(|n| u8::try_from(n).ok())
@@ -90,6 +101,7 @@ impl Tx<'_> {
         // cards, which the player looking at their own library does here.
         let force_reveal = self.dig_flag(p, "ForceRevealToController")?;
         let tapped = self.dig_flag(p, "Tapped")?;
+        let exile_face_down = self.dig_flag(p, "ExileFaceDown")?;
         let dest_zone = p.take("DestinationZone");
         let lib_pos = p.take("LibraryPosition");
         let rest_zone = p.take("DestinationZone2");
@@ -111,9 +123,14 @@ impl Tx<'_> {
         let first = match (dest_zone.as_deref(), tapped) {
             (None | Some("Hand"), false) => First::Hand,
             (Some("Battlefield"), tapped) => First::Battlefield { tapped },
+            (Some("Graveyard"), false) if take == Take::Any && rest == Rest::Top => {
+                First::Graveyard
+            }
             (Some("Exile"), false) => First::Exile,
             (Some("Library"), false)
-                if lib_pos.as_deref() == Some("0") && matches!(rest, Rest::Bottom | Rest::Top) =>
+                if lib_pos.as_deref() == Some("0")
+                    && (matches!(rest, Rest::Bottom | Rest::Top)
+                        || (optional && rest == Rest::Move("SearchDest::Graveyard"))) =>
             {
                 First::TopOfLibrary
             }
@@ -149,6 +166,7 @@ impl Tx<'_> {
             && !random
             && !force_reveal
             && !no_reveal
+            && !exile_face_down
         {
             if targets_here && !targets_a_player {
                 return self
@@ -165,8 +183,31 @@ impl Tx<'_> {
 
         // "Exile the top N cards": every card moves, so nothing is left to
         // put anywhere, and nothing is revealed first (exile is public by
-        // itself, CR 406.3).
+        // itself, CR 406.3). Face-down linked exile on a permanent
+        // (`Bomat Courier`, `Expert-Level Safe`) uses `ExileTopFaceDownLinked`.
         if take == Take::All && first == First::Exile {
+            if exile_face_down {
+                if self.on_a_spell
+                    || !your_library
+                    || valid.is_some()
+                    || reveal
+                    || optional
+                    || random
+                    || force_reveal
+                    || rest_given
+                    || self.oracle.to_ascii_lowercase().contains("look at")
+                {
+                    return self.deny("a `Dig` with `ExileFaceDown$ True`".to_string());
+                }
+                let Some(n) = self
+                    .plain_num(&count_raw)
+                    .and_then(|n| usize::try_from(n).ok())
+                    .filter(|&n| (1..=4).contains(&n))
+                else {
+                    return self.deny("a `Dig` with `ExileFaceDown$ True`".to_string());
+                };
+                return Some(vec!["Effect::ExileTopFaceDownLinked".to_string(); n]);
+            }
             if valid.is_some()
                 || reveal
                 || optional
@@ -189,6 +230,40 @@ impl Tx<'_> {
                 "Effect::ExileTop {{ who: {who}, count: {count} }}"
             )]);
         }
+        if exile_face_down {
+            return self.deny("a `Dig` with `ExileFaceDown$ True`".to_string());
+        }
+        // "Look at the top N cards of [a player's] library. Put any number into
+        // their graveyard / exile, then put the rest back on top in any order."
+        if take == Take::Any
+            && matches!(first, First::Graveyard | First::Exile)
+            && rest == Rest::Top
+            && valid.is_none()
+            && !reveal
+            && !optional
+            && !random
+            && !force_reveal
+            && !no_reveal
+        {
+            if targets_here && !targets_a_player {
+                return self.deny("a `Dig` on a line that targets an object".to_string());
+            }
+            let who = self.player_of_line(defined.as_deref(), target, targets_a_player)?;
+            if !Self::is_single_player_rel(who) {
+                return self.deny("a `Dig` of more than one library".to_string());
+            }
+            let count = self.dig_count(&count_raw)?;
+            let picked = if first == First::Graveyard {
+                "PeekPickDest::Graveyard"
+            } else {
+                "PeekPickDest::Exile"
+            };
+            return Some(vec![format!(
+                "Effect::PeekAndReveal {{ library: {who}, count: {count}, reveal_all: false, \
+                 reveal_chosen: false, filter: &Filter::Any, min_pick: 0, max_pick: u8::MAX, \
+                 picked: {picked}, rest: PeekRestDest::TopAnyOrder, if_picked: &[] }}"
+            )]);
+        }
         if !your_library {
             return self.deny(match (targets_here, defined.as_deref()) {
                 (true, _) => "a `Dig` of a targeted player's library".to_string(),
@@ -199,6 +274,9 @@ impl Tx<'_> {
                 ),
             });
         }
+        if first == First::Graveyard {
+            return self.deny("a `Dig` destination `Graveyard`".to_string());
+        }
         if first == First::Exile {
             return self.deny("a `Dig` that exiles the cards it picks".to_string());
         }
@@ -206,8 +284,24 @@ impl Tx<'_> {
             return self.deny("a `Dig` revealed to its controller twice".to_string());
         }
 
+        // `ChangeValid$ Card` on a private look imposes no type filter; treat
+        // it like an unfiltered look when moving to hand or top of library with
+        // the rest going to graveyard/exile.
+        let valid = match valid {
+            Some(ref v)
+                if v.trim() == "Card"
+                    && !reveal
+                    && matches!(rest, Rest::Move(_))
+                    && (first == First::Hand
+                        || (first == First::TopOfLibrary && optional && !no_reveal)) =>
+            {
+                None
+            }
+            other => other,
+        };
+
         let Some(valid) = valid else {
-            // No filter: a pick into the hand, nothing revealed.
+            // No filter: a pick into the hand (or top of library), nothing revealed.
             return match (take, first, reveal, optional, rest) {
                 (Take::Exactly(pick), First::Hand, false, false, Rest::Bottom) => {
                     let count = self.dig_count(&count_raw)?;
@@ -221,11 +315,42 @@ impl Tx<'_> {
                         "Effect::LookAtTopPickThenReorder {{ count: {count}, pick: {pick} }}"
                     )])
                 }
+                (Take::Exactly(pick), First::Hand, false, false, Rest::Move(dest)) if !random => {
+                    let count = self.dig_count(&count_raw)?;
+                    let rest_dest = Self::peek_rest_dest(Rest::Move(dest), false);
+                    Some(vec![format!(
+                        "Effect::PeekAndReveal {{ library: PlayerRel::You, count: {count}, \
+                         reveal_all: false, reveal_chosen: false, filter: &Filter::Any, \
+                         min_pick: {pick}, max_pick: {pick}, picked: PeekPickDest::Hand, \
+                         rest: {rest_dest}, if_picked: &[] }}"
+                    )])
+                }
+                (Take::Exactly(1), First::TopOfLibrary, false, true, Rest::Move(dest))
+                    if !random && !no_reveal =>
+                {
+                    let count = self.dig_count(&count_raw)?;
+                    let rest_dest = Self::peek_rest_dest(Rest::Move(dest), false);
+                    Some(vec![format!(
+                        "Effect::PeekAndReveal {{ library: PlayerRel::You, count: {count}, \
+                         reveal_all: false, reveal_chosen: false, filter: &Filter::Any, \
+                         min_pick: 0, max_pick: 1, picked: PeekPickDest::TopOfLibrary, \
+                         rest: {rest_dest}, if_picked: &[] }}"
+                    )])
+                }
+                (Take::Any, First::Hand, false, _, Rest::Bottom | Rest::Move(_))
+                    if !(matches!(rest, Rest::Move(_)) && random) =>
+                {
+                    let count = self.dig_count(&count_raw)?;
+                    let rest_dest = Self::peek_rest_dest(rest, random);
+                    Some(vec![format!(
+                        "Effect::PeekAndReveal {{ library: PlayerRel::You, count: {count}, \
+                         reveal_all: false, reveal_chosen: false, filter: &Filter::Any, \
+                         min_pick: 0, max_pick: u8::MAX, picked: PeekPickDest::Hand, \
+                         rest: {rest_dest}, if_picked: &[] }}"
+                    )])
+                }
                 (_, _, _, _, Rest::Top) if random => {
                     self.deny("a `Dig` whose rest goes back on top in a random order".to_string())
-                }
-                (_, _, _, _, Rest::Move(_)) => {
-                    self.deny("a `Dig` pick whose rest goes to the graveyard or exile".to_string())
                 }
                 (_, _, true, _, _) => self.deny("a revealed `Dig` pick".to_string()),
                 (_, _, _, true, _) => self.deny("an optional `Dig` pick".to_string()),
@@ -241,19 +366,11 @@ impl Tx<'_> {
         let filter = self.filter_expr_in_zone(&valid, true)?;
         let name = self.body.filter_static("DIG", &filter);
         let fixed_count = count_raw.parse::<u8>().ok().filter(|&n| n > 0);
-        let fixed = |this: &Self| -> Option<u8> {
-            if fixed_count.is_none() {
-                this.note(format!(
-                    "a `Dig` of `DigNum$ {count_raw}` cards into an effect that counts a number"
-                ));
-            }
-            fixed_count
-        };
         let find = match first {
             First::Battlefield { tapped: false } => "Find::BATTLEFIELD",
             First::Battlefield { tapped: true } => "Find::BATTLEFIELD_TAPPED",
             First::TopOfLibrary => "Find::TOP_OF_LIBRARY",
-            First::Hand | First::Exile => "Find::HAND",
+            First::Hand | First::Graveyard | First::Exile => "Find::HAND",
         };
         match (take, reveal, optional, rest) {
             // "Reveal the top card of your library. If it's a creature card,
@@ -276,8 +393,8 @@ impl Tx<'_> {
             // "Reveal the top four cards of your library. Put all Soldier
             // cards revealed this way into your hand and the rest on the
             // bottom of your library in any order."
-            (Take::All, true, false, Rest::Bottom) if !random => {
-                let count = fixed(self)?;
+            (Take::All, true, false, Rest::Bottom) if !random && fixed_count.is_some() => {
+                let count = fixed_count?;
                 Some(vec![format!(
                     "Effect::RevealTopAllMatching {{ count: {count}, filter: &{name}, found: {find} }}"
                 )])
@@ -286,9 +403,9 @@ impl Tx<'_> {
             // permanent card from among them into your hand. Put the rest
             // into your graveyard."
             (Take::Exactly(1), true, true, Rest::Move(otherwise))
-                if !random && first == First::Hand =>
+                if !random && first == First::Hand && fixed_count.is_some() =>
             {
-                let count = fixed(self)?;
+                let count = fixed_count?;
                 Some(vec![format!(
                     "Effect::RevealTopFind {{ found: {find}, count: {count}, filter: &{name}, otherwise: {otherwise} }}"
                 )])
@@ -296,33 +413,96 @@ impl Tx<'_> {
             // "Look at the top four cards of your library. You may reveal a
             // creature card from among them and put it into your hand. Put
             // the rest on the bottom of your library in a random order."
-            (Take::Exactly(1), false, true, Rest::Bottom) => {
-                let count = fixed(self)?;
+            (Take::Exactly(1), false, true, Rest::Bottom) if fixed_count.is_some() => {
+                let count = fixed_count?;
                 Some(vec![format!(
                     "Effect::LookAtTopFind {{ found: {find}, count: {count}, filter: &{name}, random: {random} }}"
                 )])
             }
-            _ => self.deny(format!(
-                "a `Dig` that {} and moves {} matching to {}, the rest {}{}",
-                if reveal { "reveals" } else { "looks" },
-                match (take, optional) {
-                    (Take::All, _) => "every card".to_string(),
-                    (Take::Exactly(n), true) => format!("up to {n}"),
-                    (Take::Exactly(n), false) => n.to_string(),
-                },
-                match first {
-                    First::Hand | First::Exile => "the hand",
-                    First::Battlefield { .. } => "the battlefield",
-                    First::TopOfLibrary => "the top of the library",
-                },
-                match rest {
-                    Rest::Bottom => "on the bottom",
-                    Rest::Top => "on top",
-                    Rest::Move("SearchDest::Graveyard") => "into the graveyard",
-                    Rest::Move(_) => "into exile",
-                },
-                if random { " in a random order" } else { "" },
-            )),
+            _ => {
+                let flags = DigFlags {
+                    reveal,
+                    optional,
+                    random,
+                };
+                if let Some(peek) =
+                    self.filtered_dig_peek_and_reveal(&count_raw, &name, take, first, rest, flags)
+                {
+                    return Some(peek);
+                }
+                self.deny(format!(
+                    "a `Dig` that {} and moves {} matching to {}, the rest {}{}",
+                    if reveal { "reveals" } else { "looks" },
+                    match (take, optional) {
+                        (Take::All, _) => "every card".to_string(),
+                        (Take::Any, _) => "any number".to_string(),
+                        (Take::Exactly(n), true) => format!("up to {n}"),
+                        (Take::Exactly(n), false) => n.to_string(),
+                    },
+                    match first {
+                        First::Hand | First::Graveyard | First::Exile => "the hand",
+                        First::Battlefield { .. } => "the battlefield",
+                        First::TopOfLibrary => "the top of the library",
+                    },
+                    match rest {
+                        Rest::Bottom => "on the bottom",
+                        Rest::Top => "on top",
+                        Rest::Move("SearchDest::Graveyard") => "into the graveyard",
+                        Rest::Move(_) => "into exile",
+                    },
+                    if random { " in a random order" } else { "" },
+                ))
+            }
+        }
+    }
+
+    fn filtered_dig_peek_and_reveal(
+        &mut self,
+        count_raw: &str,
+        filter_name: &str,
+        take: Take,
+        first: First,
+        rest: Rest,
+        flags: DigFlags,
+    ) -> Option<Vec<String>> {
+        if flags.random && rest != Rest::Bottom {
+            return None;
+        }
+        if first == First::TopOfLibrary && !matches!(take, Take::Exactly(1)) {
+            return None;
+        }
+        let (min_pick, max_pick) = match (take, flags.reveal, flags.optional) {
+            (Take::Any, _, _) => ("0".to_string(), "u8::MAX".to_string()),
+            (Take::All, true, false) => ("u8::MAX".to_string(), "u8::MAX".to_string()),
+            (Take::Exactly(pick), _, true) => ("0".to_string(), pick.to_string()),
+            _ => return None,
+        };
+        let picked = match first {
+            First::Hand => "PeekPickDest::Hand".to_string(),
+            First::Battlefield { tapped } => {
+                format!("PeekPickDest::Battlefield {{ tapped: {tapped} }}")
+            }
+            First::TopOfLibrary => "PeekPickDest::TopOfLibrary".to_string(),
+            First::Graveyard | First::Exile => return None,
+        };
+        let count = self.dig_count(count_raw)?;
+        let rest_dest = Self::peek_rest_dest(rest, flags.random);
+        let reveal_all = flags.reveal;
+        let reveal_chosen = !flags.reveal;
+        Some(vec![format!(
+            "Effect::PeekAndReveal {{ library: PlayerRel::You, count: {count}, \
+             reveal_all: {reveal_all}, reveal_chosen: {reveal_chosen}, filter: &{filter_name}, \
+             min_pick: {min_pick}, max_pick: {max_pick}, picked: {picked}, \
+             rest: {rest_dest}, if_picked: &[] }}"
+        )])
+    }
+
+    fn peek_rest_dest(rest: Rest, random: bool) -> String {
+        match rest {
+            Rest::Bottom => format!("PeekRestDest::BottomOfLibrary {{ random: {random} }}"),
+            Rest::Top => "PeekRestDest::TopAnyOrder".to_string(),
+            Rest::Move("SearchDest::Graveyard") => "PeekRestDest::Graveyard".to_string(),
+            Rest::Move(_) => "PeekRestDest::Exile".to_string(),
         }
     }
 

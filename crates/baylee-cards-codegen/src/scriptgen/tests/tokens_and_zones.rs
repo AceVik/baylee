@@ -1532,3 +1532,256 @@ fn wave18b_change_zone_origin_alternative_defined_player_and_remember_changed() 
         assert!(refused(bad), "must refuse: {bad}");
     }
 }
+
+#[allow(clippy::too_many_lines)]
+#[test]
+fn wave19b_change_zone_library_destination_alt_shuffle_false_hand_exile_and_all() {
+    // `ChangeZone.DestinationAlternative`: Battlefield, Stack with `TargetMin$ 0`, StackOrBattlefield.
+    let tuck_bf = read(
+        "Name:SpaceTuck\nManaCost:3 U\nTypes:Instant\n\
+         A:SP$ ChangeZone | ValidTgts$ Artifact,Creature | AlternativeDecider$ TargetedOwner | \
+         Origin$ Battlefield | Destination$ Library | DestinationAlternative$ Library | \
+         LibraryPositionAlternative$ -1 | SubAbility$ DBSurveil\n\
+         SVar:DBSurveil:DB$ Surveil | Amount$ 1",
+    );
+    assert!(
+        tuck_bf.abilities[0]
+            .contains("Effect::OwnerPutsOnTopOrBottom { target: TargetSpec::Object(")
+            && tuck_bf.abilities[0].contains("Effect::surveil(1)"),
+        "{:?}",
+        tuck_bf.abilities
+    );
+
+    let tuck_stack = read(
+        "Name:SpellTuck\nManaCost:2 U U\nTypes:Creature Elemental\nPT:3/3\n\
+         T:Mode$ ChangesZone | Origin$ Any | Destination$ Battlefield | ValidCard$ Card.Self | Execute$ TrigTuck\n\
+         SVar:TrigTuck:DB$ ChangeZone | ValidTgts$ Card.inZoneStack+Creature,Card.inZoneStack+Planeswalker | \
+         TgtZone$ Stack | TargetMin$ 0 | TargetMax$ 1 | AlternativeDecider$ TargetedOwner | \
+         Origin$ Stack | Destination$ Library | DestinationAlternative$ Library | LibraryPositionAlternative$ -1",
+    );
+    assert!(
+        tuck_stack.abilities[0]
+            .contains("Effect::OwnerPutsOnTopOrBottom { target: TargetSpec::Spell(")
+            && tuck_stack.abilities[0].contains("TargetReq::up_to_one("),
+        "{:?}",
+        tuck_stack.abilities
+    );
+
+    let tuck_either = read(
+        "Name:GustTuck\nManaCost:1 U\nTypes:Instant\n\
+         A:SP$ ChangeZone | ValidTgts$ Creature,Card.inZoneStack | TgtZone$ Stack,Battlefield | \
+         AlternativeDecider$ TargetedOwner | Origin$ Battlefield,Stack | Destination$ Library | \
+         DestinationAlternative$ Library | LibraryPositionAlternative$ -1",
+    );
+    assert!(
+        tuck_either.abilities[0]
+            .contains("Effect::OwnerPutsOnTopOrBottom { target: TargetSpec::StackOrBattlefield("),
+        "{:?}",
+        tuck_either.abilities
+    );
+
+    // `ChangeZone` Battlefield -> Library: fixed position, `IsCurse$`, dynamic `LibraryPosition$ X`,
+    // `(Shuffle$ True, LibraryPosition$ 0)`, and multi-target beneath top.
+    let second_top = read(
+        "Name:OustLike\nManaCost:W\nTypes:Sorcery\n\
+         A:SP$ ChangeZone | Origin$ Battlefield | Destination$ Library | ValidTgts$ Creature | LibraryPosition$ 1",
+    );
+    assert!(
+        second_top.abilities[0]
+            .contains("Effect::PutTargetIntoLibraryBeneathTop { count: Amount::Fixed(1) }"),
+        "{:?}",
+        second_top.abilities
+    );
+    let third_top = read(
+        "Name:ThirdTuck\nManaCost:3 W U\nTypes:Instant\n\
+         A:SP$ ChangeZone | Origin$ Battlefield | Destination$ Library | ValidTgts$ Permanent.nonLand | \
+         LibraryPosition$ 2 | IsCurse$ True",
+    );
+    assert!(
+        third_top.abilities[0]
+            .contains("Effect::PutTargetIntoLibraryBeneathTop { count: Amount::Fixed(2) }"),
+        "{:?}",
+        third_top.abilities
+    );
+    let colossus = read(
+        "Name:IslandGiant\nManaCost:5 U U\nTypes:Creature Giant\nPT:5/6\n\
+         T:Mode$ ChangesZone | Origin$ Any | Destination$ Battlefield | ValidCard$ Card.Self | Execute$ TrigTuck\n\
+         SVar:TrigTuck:DB$ ChangeZone | ValidTgts$ Creature | Origin$ Battlefield | Destination$ Library | LibraryPosition$ X\n\
+         SVar:X:Count$Valid Island.YouCtrl",
+    );
+    assert!(
+        colossus.abilities[0]
+            .contains("Effect::PutTargetIntoLibraryBeneathTop { count: Amount::CountOf {"),
+        "{:?}",
+        colossus.abilities
+    );
+    let shuf_top = read(
+        "Name:ShuffleTop\nManaCost:2 U\nTypes:Instant\n\
+         A:SP$ ChangeZone | Origin$ Battlefield | Destination$ Library | ValidTgts$ Creature | LibraryPosition$ 0 | Shuffle$ True",
+    );
+    assert!(
+        shuf_top.abilities[0].contains("Effect::ShuffleTargetsIntoOwnersLibraries"),
+        "{:?}",
+        shuf_top.abilities
+    );
+    let multi_beneath = read(
+        "Name:TwinTuck\nManaCost:4 U\nTypes:Sorcery\n\
+         A:SP$ ChangeZone | Origin$ Battlefield | Destination$ Library | ValidTgts$ Creature | \
+         TargetMin$ 0 | TargetMax$ 2 | LibraryPosition$ 1",
+    );
+    assert!(
+        multi_beneath.abilities[0].contains("TargetReq::up_to(")
+            && multi_beneath.abilities[0]
+                .contains("Effect::PutTargetIntoLibraryBeneathTop { count: Amount::Fixed(1) }"),
+        "{:?}",
+        multi_beneath.abilities
+    );
+
+    // `ChangeZone` `Shuffle$ False`: `SearchLibraryBeforeShuffle` and split-destination `SearchLibrary`.
+    let before_shuf = read(
+        "Name:PairSearch\nManaCost:3 G\nTypes:Sorcery\n\
+         A:SP$ ChangeZone | Origin$ Library | Destination$ Battlefield | ChangeType$ Forest | Shuffle$ False | SubAbility$ DBTwo\n\
+         SVar:DBTwo:DB$ ChangeZone | Origin$ Library | Destination$ Battlefield | ChangeType$ Island | Shuffle$ False | SubAbility$ DBShuf\n\
+         SVar:DBShuf:DB$ Shuffle",
+    );
+    assert!(
+        before_shuf.abilities[0].contains("Effect::SearchLibraryBeforeShuffle {")
+            && before_shuf.abilities[0].contains("Effect::ShuffleLibrary { who: PlayerRel::You }"),
+        "{:?}",
+        before_shuf.abilities
+    );
+
+    let split_scry = read(
+        "Name:WanderSearch\nManaCost:3 G\nTypes:Sorcery\n\
+         A:SP$ ChangeZone | Origin$ Library | Destination$ Library | ChangeType$ Land.Basic | ChangeNum$ 2 | \
+         RememberChanged$ True | Reveal$ True | Shuffle$ False | SubAbility$ DB1\n\
+         SVar:DB1:DB$ ChangeZone | Origin$ Library | Destination$ Battlefield | ChangeType$ Land.IsRemembered | \
+         ChangeNum$ 1 | Mandatory$ True | NoLooking$ True | Tapped$ True | Shuffle$ False | SubAbility$ DB2\n\
+         SVar:DB2:DB$ ChangeZone | Origin$ Library | Destination$ Hand | ChangeType$ Land.IsRemembered | \
+         Mandatory$ True | NoLooking$ True | SubAbility$ DBClean\n\
+         SVar:DBClean:DB$ Cleanup | ClearRemembered$ True | SubAbility$ DBScry\n\
+         SVar:DBScry:DB$ Scry | ScryNum$ 1",
+    );
+    assert!(
+        split_scry.abilities[0].contains("Effect::SearchLibrary {")
+            && split_scry.abilities[0]
+                .contains("finds: &[Find::BATTLEFIELD_TAPPED, Find::HAND], optional: true }")
+            && split_scry.abilities[0].contains("Effect::scry(1)")
+            && split_scry.statics.contains("SupertypeSet::BASIC"),
+        "{:?}\n{}",
+        split_scry.abilities,
+        split_scry.statics
+    );
+
+    let split_orb = read(
+        "Name:WayOrb\nManaCost:3\nTypes:Artifact\n\
+         A:AB$ ChangeZone | Cost$ 2 T Sac<1/CARDNAME> | Origin$ Library | Destination$ Library | \
+         ChangeType$ Land.Basic | ChangeNum$ 2 | RememberChanged$ True | Reveal$ True | Shuffle$ False | SubAbility$ DB1\n\
+         SVar:DB1:DB$ ChangeZone | Origin$ Library | Destination$ Battlefield | ChangeType$ Land.IsRemembered | \
+         ChangeNum$ 1 | Mandatory$ True | ForgetChanged$ True | NoLooking$ True | Tapped$ True | Shuffle$ True | SubAbility$ DB2\n\
+         SVar:DB2:DB$ ChangeZone | Origin$ Library | Destination$ Hand | Defined$ Remembered | \
+         ConditionDefined$ Remembered | ConditionPresent$ Card | ForgetChanged$ True | SubAbility$ DBClean\n\
+         SVar:DBClean:DB$ Cleanup | ClearRemembered$ True",
+    );
+    assert!(
+        split_orb.abilities[0].contains("Effect::SearchLibrary {")
+            && split_orb.abilities[0]
+                .contains("finds: &[Find::BATTLEFIELD_TAPPED, Find::HAND], optional: true }")
+            && split_orb.statics.contains("SupertypeSet::BASIC"),
+        "{:?}\n{}",
+        split_orb.abilities,
+        split_orb.statics
+    );
+
+    // `ChangeZone` Hand -> Exile: optional `Hidden$ True` / `Optional$ True`, and cast-linked exile.
+    let opt_imprint = read(
+        "Name:ArtPortal\nManaCost:4\nTypes:Artifact\n\
+         T:Mode$ ChangesZone | Origin$ Any | Destination$ Battlefield | ValidCard$ Card.Self | Execute$ TrigEx\n\
+         SVar:TrigEx:DB$ ChangeZone | Imprint$ True | Origin$ Hand | Destination$ Exile | \
+         ChangeType$ Artifact | ChangeNum$ 1 | Hidden$ True | Optional$ True",
+    );
+    assert!(
+        opt_imprint.abilities[0].contains(
+            "Effect::MayDo { effects: &[Effect::ExileChosenFromHandWithSource(&Filter::ARTIFACT)] }"
+        ),
+        "{:?}",
+        opt_imprint.abilities
+    );
+    let hand_cast = read(
+        "Name:VaultMirror\nManaCost:3\nTypes:Artifact\n\
+         A:AB$ ChangeZone | Cost$ T | Origin$ Hand | Destination$ Exile | ChangeType$ Card.nonLand | \
+         ChangeNum$ 1 | Optional$ True | RememberChanged$ True | SubAbility$ DBEff\n\
+         SVar:DBEff:DB$ Effect | RememberObjects$ Remembered | StaticAbilities$ ST | Duration$ Permanent | SubAbility$ DBClean\n\
+         SVar:ST:Mode$ Continuous | MayPlay$ True | Affected$ Card.IsRemembered | AffectedZone$ Exile\n\
+         SVar:DBClean:DB$ Cleanup | ClearRemembered$ True",
+    );
+    assert!(
+        hand_cast.abilities[0].contains("Effect::ExileChosenFromHandWithSourceAndCast("),
+        "{:?}",
+        hand_cast.abilities
+    );
+
+    // `ChangeZoneAll`: `LibraryPosition$` / `RandomOrder$` alongside `Shuffle$ True`, and `GraveyardToLibraryBottom` with `IsCurse$`.
+    let shuf_with_pos = read(
+        "Name:HandCycle\nManaCost:1 U\nTypes:Sorcery\n\
+         A:SP$ ChangeZoneAll | Defined$ Player | Origin$ Hand | Destination$ Library | \
+         LibraryPosition$ -1 | RandomOrder$ True | Shuffle$ True",
+    );
+    assert!(
+        shuf_with_pos.abilities[0]
+            .contains("Effect::ShuffleIntoLibrary { who: PlayerRel::EachPlayer, hand: true, graveyard: false }"),
+        "{:?}",
+        shuf_with_pos.abilities
+    );
+    let gy_bottom = read(
+        "Name:GraveBottom\nManaCost:1 G\nTypes:Sorcery\n\
+         A:SP$ ChangeZoneAll | ValidTgts$ Player | Origin$ Graveyard | Destination$ Library | \
+         LibraryPosition$ -1 | RandomOrder$ True | IsCurse$ True",
+    );
+    assert!(
+        gy_bottom.abilities[0]
+            .contains("Effect::GraveyardToLibraryBottom { player: PlayerRel::Chosen }"),
+        "{:?}",
+        gy_bottom.abilities
+    );
+
+    // Refusals: `LibraryPosition$ 1` + `DestinationAlternative$`, multi-target `DestinationAlternative$`,
+    // non-owner `DestinationAlternative$`, `Shuffle$ False` without shuffle, `Intuition` split,
+    // `LibraryPosition$ -2`, non-imprint opponent Hand -> Exile, Battlefield sweep to bottom.
+    for bad in [
+        "Name:BadSecondOrBottom\nManaCost:2 U\nTypes:Instant\n\
+         A:SP$ ChangeZone | ValidTgts$ Creature | AlternativeDecider$ TargetedOwner | Origin$ Battlefield | \
+         Destination$ Library | LibraryPosition$ 1 | DestinationAlternative$ Library | LibraryPositionAlternative$ -1",
+        "Name:BadMultiAlt\nManaCost:3 U\nTypes:Instant\n\
+         A:SP$ ChangeZone | ValidTgts$ Creature | TargetMin$ 0 | TargetMax$ 2 | AlternativeDecider$ TargetedOwner | \
+         Origin$ Battlefield | Destination$ Library | DestinationAlternative$ Library | LibraryPositionAlternative$ -1",
+        "Name:BadYouChooseAlt\nManaCost:1 W\nTypes:Sorcery\n\
+         A:SP$ ChangeZone | ValidTgts$ Card | TgtZone$ Graveyard | Origin$ Graveyard | \
+         Destination$ Library | DestinationAlternative$ Library | LibraryPositionAlternative$ -1",
+        "Name:BadNoShuffle\nManaCost:1 G\nTypes:Sorcery\n\
+         A:SP$ ChangeZone | Origin$ Library | Destination$ Hand | ChangeType$ Land.Basic | Shuffle$ False | SubAbility$ D\n\
+         SVar:D:DB$ Draw | Defined$ You | NumCards$ 1",
+        "Name:BadIntuitionSplit\nManaCost:2 U\nTypes:Instant\n\
+         A:SP$ ChangeZone | Origin$ Library | Destination$ Library | ChangeType$ Creature | ChangeNum$ 3 | \
+         Mandatory$ True | RememberChanged$ True | Reveal$ True | Shuffle$ False | SubAbility$ DB1\n\
+         SVar:DB1:DB$ ChangeZone | ValidTgts$ Opponent | DefinedPlayer$ You | Chooser$ Targeted | \
+         ChangeType$ Creature.IsRemembered | Origin$ Library | Destination$ Hand | ChangeNum$ 1 | \
+         Mandatory$ True | Shuffle$ False | NoLooking$ True | SubAbility$ DB2\n\
+         SVar:DB2:DB$ ChangeZone | Origin$ Library | Destination$ Graveyard | ChangeType$ Creature.IsRemembered | \
+         ChangeNum$ 2 | Mandatory$ True | NoLooking$ True",
+        "Name:BadNegTwoPos\nManaCost:2 U\nTypes:Instant\n\
+         A:SP$ ChangeZone | Origin$ Battlefield | Destination$ Library | ValidTgts$ Creature | LibraryPosition$ -2",
+        "Name:BadOppHandExile\nManaCost:3 B\nTypes:Sorcery\n\
+         A:SP$ ChangeZone | Origin$ Hand | Destination$ Exile | ValidTgts$ Opponent | DefinedPlayer$ Targeted | \
+         Chooser$ Targeted | ChangeType$ Card | ChangeNum$ 2 | Mandatory$ True",
+        "Name:BadHandLandCast\nManaCost:2\nTypes:Artifact\n\
+         A:AB$ ChangeZone | Cost$ T | Origin$ Hand | Destination$ Exile | ChangeType$ Land | \
+         ChangeNum$ 1 | RememberChanged$ True | SubAbility$ DBEff\n\
+         SVar:DBEff:DB$ Effect | RememberObjects$ Remembered | StaticAbilities$ ST | Duration$ Permanent\n\
+         SVar:ST:Mode$ Continuous | MayPlay$ True | Affected$ Card.IsRemembered | AffectedZone$ Exile",
+        "Name:BadHallowedBurial\nManaCost:3 W W\nTypes:Sorcery\n\
+         A:SP$ ChangeZoneAll | Origin$ Battlefield | Destination$ Library | LibraryPosition$ -1 | ChangeType$ Creature",
+    ] {
+        assert!(refused(bad), "must refuse: {bad}");
+    }
+}

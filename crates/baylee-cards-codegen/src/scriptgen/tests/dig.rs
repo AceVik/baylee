@@ -194,15 +194,6 @@ fn every_card_exiled_is_the_top_of_a_library_exiled() {
 }
 
 const REFUSED_DIG_SHAPES: &[(&str, &str)] = &[
-    // Ancestral Memories, Browse: the rest leave the library.
-    (
-        "DigNum$ 7 | ChangeNum$ 2 | DestinationZone2$ Graveyard",
-        "a `Dig` pick whose rest goes to the graveyard or exile",
-    ),
-    (
-        "DigNum$ 5 | DestinationZone2$ Exile",
-        "a `Dig` pick whose rest goes to the graveyard or exile",
-    ),
     ("DigNum$ 3 | Reveal$ True", "a revealed `Dig` pick"),
     ("DigNum$ 3 | Optional$ True", "an optional `Dig` pick"),
     (
@@ -216,10 +207,6 @@ const REFUSED_DIG_SHAPES: &[(&str, &str)] = &[
     (
         "DigNum$ 4 | ChangeValid$ Creature | NoReveal$ True | Optional$ True",
         "a `Dig` that moves a matching card unrevealed",
-    ),
-    (
-        "DigNum$ 4 | Reveal$ True | ChangeNum$ All | ChangeValid$ Creature | RestRandomOrder$ True",
-        "a `Dig` that reveals and moves every card matching to the hand, the rest on the bottom",
     ),
     (
         "DigNum$ 4 | ChangeValid$ Creature",
@@ -250,10 +237,6 @@ const REFUSED_DIG_SHAPES: &[(&str, &str)] = &[
         "a `Dig` revealed to its controller twice",
     ),
     (
-        "DigNum$ 2 | ChangeNum$ Any",
-        "a `Dig` moving `ChangeNum$ Any` cards",
-    ),
-    (
         "DigNum$ 2 | ChangeNum$ X",
         "a `Dig` moving `ChangeNum$ X` cards",
     ),
@@ -267,10 +250,6 @@ const REFUSED_DIG_SHAPES: &[(&str, &str)] = &[
     ),
     ("DigNum$ 2 | Reveal$ False", "`Reveal$ False` on a `Dig`"),
     ("ChangeNum$ 1", "a `Dig` with no `DigNum$`"),
-    (
-        "DigNum$ X | Reveal$ True | ChangeValid$ Creature | DestinationZone2$ Graveyard | Optional$ True",
-        "a `Dig` of `DigNum$ X` cards into an effect that counts a number",
-    ),
     // "Put the rest back on top in a random order" has no effect here.
     (
         "DigNum$ 3 | LibraryPosition2$ 0 | RestRandomOrder$ True",
@@ -447,4 +426,116 @@ fn wave18b_dig_library_position_and_dig_until_subability() {
          A:SP$ DigUntil | Valid$ Card.nonLand | FoundDestination$ Exile | RevealedDestination$ Exile | RememberFound$ True | SubAbility$ DBPlay\n\
          SVar:DBPlay:DB$ Play | Defined$ Remembered | WithoutManaCost$ True"
     ));
+}
+
+#[test]
+fn wave19b_dig_peek_rest_any_and_face_down_exile() {
+    // Unfiltered Dig with rest to graveyard or exile -> PeekAndReveal.
+    let rest_gy = ability(
+        "Name:VaultSift\nManaCost:2 U\nTypes:Sorcery\n\
+         A:SP$ Dig | DigNum$ 7 | ChangeNum$ 2 | DestinationZone2$ Graveyard",
+    );
+    assert!(
+        rest_gy.contains(
+            "Effect::PeekAndReveal { library: PlayerRel::You, count: Amount::Fixed(7), \
+             reveal_all: false, reveal_chosen: false, filter: &Filter::Any, min_pick: 2, \
+             max_pick: 2, picked: PeekPickDest::Hand, rest: PeekRestDest::Graveyard, if_picked: &[] }"
+        ),
+        "{rest_gy}"
+    );
+    let rest_exile = ability(
+        "Name:VaultBanish\nManaCost:2 U U\nTypes:Sorcery\n\
+         A:SP$ Dig | DigNum$ 5 | DestinationZone2$ Exile",
+    );
+    assert!(
+        rest_exile.contains(
+            "min_pick: 1, max_pick: 1, picked: PeekPickDest::Hand, rest: PeekRestDest::Exile"
+        ),
+        "{rest_exile}"
+    );
+
+    // Filtered Dig: ChangeNum$ All + Graveyard rest, multi-pick optional, ChangeNum$ Any + X + cmcLEX.
+    let all_gy = ability(
+        "Name:PathSift\nManaCost:1 G\nTypes:Sorcery\n\
+         A:SP$ Dig | DigNum$ 4 | Reveal$ True | ChangeNum$ All | ChangeValid$ Land | DestinationZone2$ Graveyard",
+    );
+    assert!(
+        all_gy.contains(
+            "Effect::PeekAndReveal { library: PlayerRel::You, count: Amount::Fixed(4), \
+             reveal_all: true, reveal_chosen: false, filter: &Filter::LAND, min_pick: u8::MAX, \
+             max_pick: u8::MAX, picked: PeekPickDest::Hand, rest: PeekRestDest::Graveyard, if_picked: &[] }"
+        ),
+        "{all_gy}"
+    );
+    let two_spells = ability(
+        "Name:ArcanePuzzle\nManaCost:2 U\nTypes:Sorcery\n\
+         A:SP$ Dig | DigNum$ 5 | Reveal$ True | ChangeNum$ 2 | ChangeValid$ Instant,Sorcery | DestinationZone2$ Graveyard | Optional$ True",
+    );
+    assert!(
+        two_spells.contains("reveal_all: true, reveal_chosen: false")
+            && two_spells.contains("min_pick: 0, max_pick: 2, picked: PeekPickDest::Hand, rest: PeekRestDest::Graveyard"),
+        "{two_spells}"
+    );
+    let any_x = ability(
+        "Name:VowOfGrove\nManaCost:X G G\nTypes:Sorcery\n\
+         A:SP$ Dig | DigNum$ X | Reveal$ True | ChangeNum$ Any | ChangeValid$ Land,Permanent.Legendary+cmcLEX | DestinationZone$ Battlefield | DestinationZone2$ Graveyard\n\
+         SVar:X:Count$xPaid",
+    );
+    assert!(
+        any_x.contains("count: Amount::X, reveal_all: true, reveal_chosen: false")
+            && any_x.contains("min_pick: 0, max_pick: u8::MAX, picked: PeekPickDest::Battlefield { tapped: false }, rest: PeekRestDest::Graveyard"),
+        "{any_x}"
+    );
+
+    // Targeted player `ChangeNum$ Any` top peek -> Graveyard / Exile, rest back on top in any order.
+    let dimir_spy = ability(
+        "Name:MindMachinations\nManaCost:2 B\nTypes:Sorcery\n\
+         A:SP$ Dig | ValidTgts$ Player | DigNum$ 3 | ChangeNum$ Any | DestinationZone$ Exile | LibraryPosition2$ 0",
+    );
+    assert!(
+        dimir_spy.contains(
+            "Effect::PeekAndReveal { library: PlayerRel::Chosen, count: Amount::Fixed(3), \
+             reveal_all: false, reveal_chosen: false, filter: &Filter::Any, min_pick: 0, \
+             max_pick: u8::MAX, picked: PeekPickDest::Exile, rest: PeekRestDest::TopAnyOrder, if_picked: &[] }"
+        ),
+        "{dimir_spy}"
+    );
+
+    // `Dig.ExileFaceDown`: permanent `ExileTopFaceDownLinked` & `LookAtTopExileFaceDown`.
+    let safe = ability(
+        "Name:IronVault\nManaCost:3\nTypes:Artifact\n\
+         T:Mode$ ChangesZone | Origin$ Any | Destination$ Battlefield | ValidCard$ Card.Self | Execute$ TrigExile\n\
+         SVar:TrigExile:DB$ Dig | Defined$ You | DigNum$ 2 | ChangeNum$ All | DestinationZone$ Exile | ExileFaceDown$ True | NoReveal$ True",
+    );
+    assert!(
+        safe.contains("Effect::ExileTopFaceDownLinked, Effect::ExileTopFaceDownLinked"),
+        "{safe}"
+    );
+
+    let scout_pw = ability(
+        "Name:WildScout\nManaCost:2 G\nTypes:Legendary Planeswalker Scout\nLoyalty:4\n\
+         A:AB$ Dig | Cost$ SubCounter<2/LOYALTY> | Planeswalker$ True | Defined$ You | DigNum$ 3 | \
+         DestinationZone$ Exile | ExileFaceDown$ True | WithMayLook$ True | RememberChanged$ True | SubAbility$ DBEffect\n\
+         SVar:DBEffect:DB$ Effect | RememberObjects$ Remembered | StaticAbilities$ STPlay | Duration$ Permanent | ForgetOnMoved$ Exile | SubAbility$ DBCleanup\n\
+         SVar:STPlay:Mode$ Continuous | MayPlay$ True | Affected$ Creature.IsRemembered | AffectedZone$ Exile | Secondary$ You may look at it and cast it if it's a creature.\n\
+         SVar:DBCleanup:DB$ Cleanup | ClearRemembered$ True",
+    );
+    assert!(
+        scout_pw
+            .contains("Effect::LookAtTopExileFaceDown { count: 3, cast_types: TypeSet::CREATURE }"),
+        "{scout_pw}"
+    );
+
+    // Refusals: face-down exile on spell / opponent / without matching static / with look-at Oracle,
+    // multi-card `TopOfLibrary`, undefined `DigNum$ X`.
+    for bad in [
+        "Name:BadSpellFaceDown\nManaCost:U\nTypes:Sorcery\nA:SP$ Dig | Defined$ You | DigNum$ 2 | ChangeNum$ All | DestinationZone$ Exile | ExileFaceDown$ True | NoReveal$ True",
+        "Name:BadOppFaceDown\nManaCost:2 B\nTypes:Artifact\nA:AB$ Dig | Cost$ T | ValidTgts$ Opponent | DigNum$ 2 | ChangeNum$ All | DestinationZone$ Exile | ExileFaceDown$ True",
+        "Name:BadLookFaceDown\nManaCost:2\nTypes:Artifact\nA:AB$ Dig | Cost$ T | Defined$ You | DigNum$ 1 | ChangeNum$ All | DestinationZone$ Exile | ExileFaceDown$ True | WithMayLook$ True",
+        "Name:BadOracleLookFaceDown\nManaCost:2\nTypes:Artifact\nA:AB$ Dig | Cost$ T | Defined$ You | DigNum$ 1 | ChangeNum$ All | DestinationZone$ Exile | ExileFaceDown$ True\nOracle:Look at the top card of your library, then exile it face down.",
+        "Name:BadMultiTop\nManaCost:1 W\nTypes:Sorcery\nA:SP$ Dig | DigNum$ 4 | ChangeNum$ Any | ChangeValid$ Soldier | DestinationZone$ Library | LibraryPosition$ 0",
+        "Name:BadUndefX\nManaCost:1 G\nTypes:Sorcery\nA:SP$ Dig | DigNum$ X | Reveal$ True | ChangeValid$ Creature | DestinationZone2$ Graveyard | Optional$ True",
+    ] {
+        assert!(refused(bad), "must refuse: {bad}");
+    }
 }

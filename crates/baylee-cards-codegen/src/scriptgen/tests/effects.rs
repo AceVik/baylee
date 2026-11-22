@@ -2620,7 +2620,6 @@ fn optional_reveal_dig_takes_one_and_refuses_unread_variants() {
     assert!(!body.statics.contains("Filter::Any"));
 
     for (count, reveal, rest) in [
-        (4, "True", "ChangeNum$ All | DestinationZone2$ Graveyard"),
         (4, "True", "Optional$ False | DestinationZone2$ Graveyard"),
         (4, "False", "Optional$ True | DestinationZone2$ Graveyard"),
         (
@@ -2628,7 +2627,6 @@ fn optional_reveal_dig_takes_one_and_refuses_unread_variants() {
             "True",
             "Optional$ True | DestinationZone$ Exile | DestinationZone2$ Graveyard",
         ),
-        (4, "True", "Optional$ True | DestinationZone2$ Library"),
         (
             4,
             "True",
@@ -3986,6 +3984,152 @@ fn wave18b_remember_this_way_chains() {
         "Name:BadTargetOnlyGyTop\nManaCost:1 G\nTypes:Sorcery\n\
          A:SP$ TargetOnly | ValidTgts$ Card | TgtZone$ Graveyard | TargetMin$ 0 | TargetMax$ 2 | SubAbility$ R\n\
          SVar:R:DB$ ChangeZone | Defined$ Targeted | Origin$ Graveyard | Destination$ Library | LibraryPosition$ 0",
+    ] {
+        assert!(refused(bad), "must refuse: {bad}");
+    }
+}
+
+#[allow(clippy::too_many_lines)]
+#[test]
+fn wave19b_filters_addendum_choose_card_reveal_hand_and_token_refusals() {
+    // `cmcLEX` / `cmcEQX` on an X-cost permanent's ETB self-trigger (`Invasion of Ikoria` shape).
+    let etb_x_search = read(
+        "Name:XSearchBeast\nManaCost:X G G\nTypes:Creature Beast\nPT:3/3\n\
+         T:Mode$ ChangesZone | Origin$ Any | Destination$ Battlefield | ValidCard$ Card.Self | Execute$ TrigSearch\n\
+         SVar:TrigSearch:DB$ ChangeZone | Origin$ Library | Destination$ Battlefield | ChangeType$ Creature.nonGoblin+cmcLEX\n\
+         SVar:X:Count$xPaid",
+    );
+    assert!(
+        etb_x_search.statics.contains("Filter::CmcAtMostX"),
+        "{}\n{:?}",
+        etb_x_search.statics,
+        etb_x_search.abilities
+    );
+    let etb_eq_x = read(
+        "Name:XExactTutor\nManaCost:X W\nTypes:Creature Cleric\nPT:1/1\n\
+         T:Mode$ ChangesZone | Origin$ Any | Destination$ Battlefield | ValidCard$ Card.Self | Execute$ TrigSearch\n\
+         SVar:TrigSearch:DB$ ChangeZone | Origin$ Library | Destination$ Hand | ChangeType$ Artifact.cmcEQX\n\
+         SVar:X:Count$xPaid",
+    );
+    assert!(
+        etb_eq_x.statics.contains("Filter::CmcExactlyX"),
+        "{}\n{:?}",
+        etb_eq_x.statics,
+        etb_eq_x.abilities
+    );
+
+    // Addendum (`ConditionPlayerTurn$ True | ConditionPhases$ Main1,Main2 | ConditionDefined$ Self | ConditionPresent$ Card.wasCast`).
+    let addendum = read(
+        "Name:LawBounce\nManaCost:2 U\nTypes:Instant\n\
+         A:SP$ ChangeZone | ValidTgts$ Creature.OppCtrl | Origin$ Battlefield | Destination$ Hand | SubAbility$ DBAddendum\n\
+         SVar:DBAddendum:DB$ Draw | ConditionPlayerTurn$ True | ConditionPhases$ Main1,Main2 | ConditionDefined$ Self | ConditionPresent$ Card.wasCast\n\
+         Oracle:Return target creature an opponent controls to its owner's hand. Addendum — If you cast this spell during your main phase, draw a card.",
+    );
+    assert!(
+        addendum.abilities[0].contains(
+            "Condition::All(&[Condition::SourceWasCastByYou, Condition::YourTurn, \
+             Condition::Not(&Condition::BeforeStep(StepKind::FirstMain)), \
+             Condition::BeforeStep(StepKind::End), Condition::Not(&Condition::DuringCombat)])"
+        ),
+        "{:?}",
+        addendum.abilities
+    );
+
+    // Standalone `ConditionPresent$ Card.wasCastByYou` and `ConditionPhases$ Main1,Main2`.
+    let cast_by_you = read(
+        "Name:CastBonus\nManaCost:2 G\nTypes:Creature Elf\nPT:2/2\n\
+         T:Mode$ ChangesZone | Origin$ Any | Destination$ Battlefield | ValidCard$ Card.Self | Execute$ TrigDraw\n\
+         SVar:TrigDraw:DB$ Draw | NumCards$ 1 | ConditionDefined$ Self | ConditionPresent$ Card.wasCastByYou",
+    );
+    assert!(
+        cast_by_you.abilities[0].contains("Condition::SourceWasCastByYou"),
+        "{:?}",
+        cast_by_you.abilities
+    );
+    let main_phase_draw = read(
+        "Name:MainDraw\nManaCost:1 U\nTypes:Instant\n\
+         A:SP$ GainLife | LifeAmount$ 2 | SubAbility$ DBMainDraw\n\
+         SVar:DBMainDraw:DB$ Draw | NumCards$ 1 | ConditionPhases$ Main1,Main2 | ConditionPlayerTurn$ True",
+    );
+    assert!(
+        main_phase_draw.abilities[0].contains("Effect::draw(1)")
+            && main_phase_draw.abilities[0].contains(
+                "Condition::All(&[Condition::YourTurn, \
+                 Condition::Not(&Condition::BeforeStep(StepKind::FirstMain)), \
+                 Condition::BeforeStep(StepKind::End), Condition::Not(&Condition::DuringCombat)])"
+            ),
+        "{:?}",
+        main_phase_draw.abilities
+    );
+
+    // `ChooseCard`: `Defined$ Opponent`, `Mandatory$ False`, `ControlledByPlayer$ You`, `IsCurse$`, cleanup tail.
+    let opp_choose = read(
+        "Name:OppPick\nManaCost:2 B\nTypes:Sorcery\n\
+         A:SP$ ChooseCard | Defined$ Opponent | Choices$ Creature | ControlledByPlayer$ You | Mandatory$ False | SubAbility$ DBExile\n\
+         SVar:DBExile:DB$ ChangeZone | Defined$ ChosenCard | Origin$ Battlefield | Destination$ Exile | IsCurse$ True | SubAbility$ DBClean\n\
+         SVar:DBClean:DB$ Cleanup | ClearChosenCard$ True | SubAbility$ DBDraw\n\
+         SVar:DBDraw:DB$ Draw | Defined$ You | NumCards$ 1",
+    );
+    assert!(
+        opp_choose.abilities[0].contains("RepeatDomain::EachOpponent")
+            && opp_choose.abilities[0].contains("min: 0, max: Amount::Fixed(1)")
+            && opp_choose.abilities[0].contains("movement: ChooseMove::Exile")
+            && opp_choose.abilities[0].contains("Effect::draw(1)"),
+        "{:?}",
+        opp_choose.abilities
+    );
+
+    // `RevealHand`: `Look$ True` (`Peek` shape + inside `ChoosePlayer` chain) and public `RevealHand` with `IsCurse$`.
+    let peek = read(
+        "Name:HandPeek\nManaCost:U\nTypes:Instant\n\
+         A:SP$ RevealHand | ValidTgts$ Player | Look$ True | SubAbility$ DBDraw\n\
+         SVar:DBDraw:DB$ Draw | Defined$ You | NumCards$ 1\n\
+         Oracle:Look at target player's hand. Draw a card.",
+    );
+    assert!(
+        peek.abilities[0].contains("Effect::LookAtChosenHand, Effect::draw(1)"),
+        "{:?}",
+        peek.abilities
+    );
+    let spyglass = read(
+        "Name:HandSpyglass\nManaCost:2\nTypes:Artifact\n\
+         T:Mode$ ChangesZone | Origin$ Any | Destination$ Battlefield | ValidCard$ Card.Self | Execute$ TrigLook\n\
+         SVar:TrigLook:DB$ ChoosePlayer | Defined$ You | Choices$ Opponent | SubAbility$ DBLook\n\
+         SVar:DBLook:DB$ RevealHand | Defined$ ChosenPlayer | Look$ True | SubAbility$ DBClean\n\
+         SVar:DBClean:DB$ Cleanup | ClearChosenPlayer$ True",
+    );
+    assert!(
+        spyglass.abilities[0].contains(
+            "Effect::ChoosePlayerFrom { among: PlayerRel::EachOpponent }, Effect::LookAtChosenHand"
+        ),
+        "{:?}",
+        spyglass.abilities
+    );
+    let public_rev = read(
+        "Name:HandShow\nManaCost:B\nTypes:Sorcery\n\
+         A:SP$ RevealHand | ValidTgts$ Opponent | IsCurse$ True | SubAbility$ DBDraw\n\
+         SVar:DBDraw:DB$ Draw | Defined$ You | NumCards$ 1\n\
+         Oracle:Target opponent reveals their hand. Draw a card.",
+    );
+    assert!(
+        public_rev.abilities[0]
+            .contains("Effect::RevealHand { who: PlayerRel::Chosen }, Effect::draw(1)"),
+        "{:?}",
+        public_rev.abilities
+    );
+
+    // Honest refusals: `modified`, bare `wasCast` filter, non-X `cmcLEX`, non-Addendum `Card.wasCast`,
+    // `ChooseCard` `ChoiceZone$ Hand` & non-You `ControlledByPlayer$ Chooser`, `RevealHand` `Look$ True`
+    // on non-chosen seat, dynamic `Token.{TokenPower,TokenToughness}`.
+    for bad in [
+        "Name:BadModified\nManaCost:1 W\nTypes:Instant\nA:SP$ Destroy | ValidTgts$ Creature.modified",
+        "Name:BadWasCastFilter\nManaCost:1 U\nTypes:Instant\nA:SP$ Destroy | ValidTgts$ Creature.wasCast",
+        "Name:BadNonXCmcLe\nManaCost:W\nTypes:Sorcery\nA:SP$ ChangeZone | ValidTgts$ Creature.cmcLEX | Origin$ Battlefield | Destination$ Exile\nSVar:X:Count$Valid Plains.YouCtrl",
+        "Name:BadNonYouWasCast\nManaCost:3 W\nTypes:Artifact\nT:Mode$ ChangesZone | Origin$ Any | Destination$ Battlefield | ValidCard$ Card.Self | Execute$ D\nSVar:D:DB$ Draw | ConditionDefined$ Self | ConditionPresent$ Card.wasCast\nOracle:When this enters, if it was cast, draw a card.",
+        "Name:BadChooseHand\nManaCost:1 B\nTypes:Sorcery\nA:SP$ ChooseCard | ChoiceZone$ Hand | Choices$ Creature.YouOwn | Mandatory$ True | SubAbility$ M\nSVar:M:DB$ ChangeZone | Defined$ ChosenCard | Origin$ Hand | Destination$ Exile",
+        "Name:BadChooseOppCtrl\nManaCost:2 B\nTypes:Sorcery\nA:SP$ ChooseCard | Defined$ Opponent | Choices$ Creature | ControlledByPlayer$ Chooser | Mandatory$ True | SubAbility$ M\nSVar:M:DB$ Destroy | Defined$ ChosenCard",
+        "Name:BadLookNonChosen\nManaCost:2 U\nTypes:Creature Ninja\nPT:1/2\nT:Mode$ DamageDone | ValidSource$ Card.Self | ValidTarget$ Player | CombatDamage$ True | Execute$ L\nSVar:L:DB$ RevealHand | Defined$ TriggeredTarget | Look$ True",
+        "Name:BadSizedToken\nManaCost:X G\nTypes:Sorcery\nA:SP$ Token | TokenScript$ g_x_x_wurm | TokenPower$ X | TokenToughness$ X\nSVar:X:Count$xPaid",
     ] {
         assert!(refused(bad), "must refuse: {bad}");
     }

@@ -323,6 +323,13 @@ impl Tx<'_> {
         {
             self.exile_with_permission_effect(&mut p, &mut sub, target.as_deref(), targets_here)?
         } else if api == "ChangeZone"
+            && p.peek("Origin") == Some("Hand")
+            && p.peek("Destination") == Some("Exile")
+            && p.peek("RememberChanged") == Some("True")
+            && self.sub_is_api(sub.as_deref(), "Effect")
+        {
+            self.exile_chosen_from_hand_and_cast_effect(&mut p, &mut sub, targets_here)?
+        } else if api == "ChangeZone"
             && p.peek("Origin") == Some("Battlefield")
             && p.peek("Destination") == Some("Exile")
             && (p.has("RememberChanged")
@@ -455,6 +462,31 @@ impl Tx<'_> {
         {
             self.search_library_then_untap_found(&mut p, &mut sub, target.as_deref())?
         } else if api == "ChangeZone"
+            && !targets_here
+            && p.peek("Origin") == Some("Library")
+            && p.peek("Destination") == Some("Library")
+            && p.peek("RememberChanged") == Some("True")
+            && p.peek("Reveal") == Some("True")
+            && p.peek("Shuffle") == Some("False")
+            && self.sub_is_api(sub.as_deref(), "ChangeZone")
+        {
+            self.split_search_library_chain(&mut p, &mut sub, targets_here)?
+        } else if api == "ChangeZone"
+            && !targets_here
+            && p.peek("Origin") == Some("Library")
+            && p.peek("Shuffle") == Some("False")
+            && !p.has("RememberChanged")
+            && !p.has("Imprint")
+            && matches!(p.peek("DefinedPlayer"), None | Some("You"))
+            && sub.is_some()
+        {
+            self.search_library_before_shuffle(
+                &mut p,
+                sub.as_deref(),
+                target.as_deref(),
+                targets_here,
+            )?
+        } else if api == "ChangeZone"
             && p.peek("Destination") == Some("Exile")
             && p.peek("RememberChanged") == Some("True")
             && self.sub_is_api(sub.as_deref(), "AlterAttribute")
@@ -510,6 +542,14 @@ impl Tx<'_> {
                 targets_here,
                 targets_a_player,
             )?
+        } else if api == "Dig"
+            && p.peek("DestinationZone") == Some("Exile")
+            && p.peek("ExileFaceDown") == Some("True")
+            && p.peek("WithMayLook") == Some("True")
+            && p.peek("RememberChanged") == Some("True")
+            && matches!(p.peek("ChangeNum"), None | Some("1"))
+        {
+            self.dig_look_at_top_exile_face_down_effect(&mut p, &mut sub, targets_here)?
         } else if api == "TargetOnly" {
             if second_target_here && !had_second_target {
                 if unless.is_some() || dying.is_some() || at_end.is_some() || optional_counter {
@@ -1043,6 +1083,21 @@ impl Tx<'_> {
                     effects.join(", ")
                 )]);
             }
+            if p.has("ConditionPhases")
+                && let Some(cond) = Self::take_main_phase_condition(p)
+            {
+                p.take("ConditionDescription");
+                if !p.exhausted() {
+                    if let Some(key) = p.first_key() {
+                        self.note(format!("unclaimed parameter `{api}.{key}`"));
+                    }
+                    return None;
+                }
+                return Some(vec![format!(
+                    "Effect::IfCondition {{ condition: {cond}, then: &[{}], otherwise: &[] }}",
+                    effects.join(", ")
+                )]);
+            }
             if let Some(key) = p.first_key() {
                 self.note(format!("unclaimed parameter `{api}.{key}`"));
             }
@@ -1190,6 +1245,53 @@ impl Tx<'_> {
             } else {
                 format!("Condition::Not(&{base})")
             }
+        } else if matches!(p.peek("ConditionDefined"), None | Some("Self"))
+            && !p.has("PresentPlayer")
+            && !p.has("PresentZone")
+            && matches!(
+                p.peek("ConditionPresent"),
+                Some(
+                    "Card.wasCastByYou"
+                        | "Card.Self+wasCastByYou"
+                        | "Card.wasCastByYou+Self"
+                        | "Card.!wasCastByYou"
+                        | "Card.Self+!wasCastByYou"
+                        | "Card.wasCast"
+                        | "Card.Self+wasCast"
+                        | "Card.wasCast+Self"
+                        | "Card.!wasCast"
+                        | "Card.Self+!wasCast"
+                )
+            )
+            && (p
+                .peek("ConditionPresent")
+                .is_some_and(|v| v.contains("wasCastByYou"))
+                || (self.on_a_spell && p.has("ConditionPhases"))
+                || self.oracle.to_ascii_lowercase().contains("if you cast"))
+        {
+            let valid = p.take("ConditionPresent").expect("checked above");
+            p.take("ConditionDefined");
+            let cmp = p.take("PresentCompare");
+            let positive_present = !valid.contains('!');
+            let positive = match cmp.as_deref() {
+                None | Some("GE1" | "EQ1" | "GT0") => positive_present,
+                Some("EQ0" | "LT1") => !positive_present,
+                Some(other) => {
+                    return self.deny(format!("wasCast condition compared `{other}`"));
+                }
+            };
+            let cast_cond = if positive {
+                "Condition::SourceWasCastByYou".to_string()
+            } else {
+                "Condition::Not(&Condition::SourceWasCastByYou)".to_string()
+            };
+            if p.has("ConditionPhases") {
+                let mut clauses = vec![cast_cond];
+                Self::push_main_phase_clauses(p, &mut clauses)?;
+                format!("Condition::All(&[{}])", clauses.join(", "))
+            } else {
+                cast_cond
+            }
         } else if let Some(obj_cond) = self.wave11_object_matches_condition(p, target, false) {
             obj_cond
         } else {
@@ -1222,6 +1324,44 @@ impl Tx<'_> {
             "Effect::IfCondition {{ condition: {cond}, then: &[{}], otherwise: &[] }}",
             effects.join(", ")
         )])
+    }
+
+    fn take_main_phase_condition(p: &mut Params) -> Option<String> {
+        let mut clauses = Vec::new();
+        Self::push_main_phase_clauses(p, &mut clauses)?;
+        Some(format!("Condition::All(&[{}])", clauses.join(", ")))
+    }
+
+    fn push_main_phase_clauses(p: &mut Params, clauses: &mut Vec<String>) -> Option<()> {
+        let phases = p.take("ConditionPhases")?;
+        let normalized: Vec<&str> = phases
+            .split(',')
+            .map(str::trim)
+            .filter(|s| !s.is_empty())
+            .collect();
+        match p.take("ConditionPlayerTurn").as_deref() {
+            None => {}
+            Some("True") => clauses.push("Condition::YourTurn".to_string()),
+            Some(_) => return None,
+        }
+        match normalized.as_slice() {
+            ["Main1", "Main2"] | ["Main2", "Main1"] => {
+                clauses.push("Condition::Not(&Condition::BeforeStep(StepKind::FirstMain))".into());
+                clauses.push("Condition::BeforeStep(StepKind::End)".into());
+                clauses.push("Condition::Not(&Condition::DuringCombat)".into());
+            }
+            ["Main1"] => {
+                clauses.push("Condition::Not(&Condition::BeforeStep(StepKind::FirstMain))".into());
+                clauses.push("Condition::BeforeStep(StepKind::CombatBegin)".into());
+            }
+            ["Main2"] => {
+                clauses.push("Condition::Not(&Condition::BeforeStep(StepKind::CombatEnd))".into());
+                clauses.push("Condition::BeforeStep(StepKind::End)".into());
+                clauses.push("Condition::Not(&Condition::DuringCombat)".into());
+            }
+            _ => return None,
+        }
+        Some(())
     }
 
     pub(super) fn resolve_target_spec(
@@ -1565,7 +1705,9 @@ impl Tx<'_> {
                             && p.peek("Shuffle") == Some("True"))
                             || (p.peek("Origin") == Some("Battlefield")
                                 && p.peek("Destination") == Some("Library")
-                                && matches!(p.peek("LibraryPosition"), Some("0" | "-1")))
+                                && !p.has("DestinationAlternative")
+                                && p.peek("LibraryPosition")
+                                    .is_some_and(|pos| pos == "-1" || !pos.starts_with('-')))
                             || (p.peek("Origin") == Some("Graveyard")
                                 && p.peek("Destination") == Some("Library")
                                 && p.peek("LibraryPosition") == Some("-1"))));
@@ -1617,7 +1759,16 @@ impl Tx<'_> {
                     || (api == "ChangeZone"
                         && matches!(
                             (p.peek("Origin"), p.peek("Destination")),
-                            (Some("Battlefield" | "Graveyard"), Some("Library"))
+                            (
+                                Some(
+                                    "Battlefield"
+                                        | "Graveyard"
+                                        | "Stack"
+                                        | "Battlefield,Stack"
+                                        | "Stack,Battlefield"
+                                ),
+                                Some("Library")
+                            )
                         )))
                     && p.peek("TargetMin") == Some("0")
                     && matches!(p.peek("TargetMax"), None | Some("1"))
@@ -3372,24 +3523,44 @@ impl Tx<'_> {
                 )]
             }
             "RevealHand" => {
-                if p.has("RememberRevealed") {
-                    return None;
-                }
-                let lower = self.oracle.to_ascii_lowercase();
-                if !(lower.contains("reveals their hand")
-                    || lower.contains("reveal your hand")
-                    || lower.contains("reveals his or her hand")
-                    || lower.contains("reveal their hands"))
-                    || lower.contains("look at")
+                if p.has("RememberRevealed")
+                    || p.has("ImprintRevealed")
+                    || p.has("RememberRevealedPlayer")
+                    || p.has("RevealType")
+                    || p.has("Optional")
                 {
                     return None;
                 }
-                let who = self.wave11_player_of_line(
-                    p.take("Defined").as_deref(),
-                    target,
-                    targets_a_player,
-                )?;
-                vec![format!("Effect::RevealHand {{ who: {who} }}")]
+                p.take("IsCurse");
+                if p.peek("Look") == Some("True") {
+                    p.take("Look");
+                    let who = self.wave11_player_of_line(
+                        p.take("Defined").as_deref(),
+                        target,
+                        targets_a_player,
+                    )?;
+                    if who != "PlayerRel::Chosen" {
+                        return self.deny(format!("`RevealHand` `Look$ True` for `{who}`"));
+                    }
+                    vec!["Effect::LookAtChosenHand".to_string()]
+                } else {
+                    let lower = self.oracle.to_ascii_lowercase();
+                    if !(lower.contains("reveals their hand")
+                        || lower.contains("reveal your hand")
+                        || lower.contains("reveals his or her hand")
+                        || lower.contains("reveal their hands")
+                        || lower.contains("reveal their hand"))
+                        || lower.contains("look at")
+                    {
+                        return None;
+                    }
+                    let who = self.wave11_player_of_line(
+                        p.take("Defined").as_deref(),
+                        target,
+                        targets_a_player,
+                    )?;
+                    vec![format!("Effect::RevealHand {{ who: {who} }}")]
+                }
             }
             "CopySpellAbility" => self.copy_spell_ability_effect(p, target, targets_here)?,
             // "Prevent all combat damage that would be dealt this turn."
