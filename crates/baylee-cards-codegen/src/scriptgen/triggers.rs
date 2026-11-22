@@ -907,7 +907,12 @@ impl Tx<'_> {
                     Some("PlayerRel::You")
                 }
             }
-            Some("You.descended") => Some("PlayerRel::You"),
+            Some(
+                "You.descended" | "You.isMonarch" | "You.hasInitiative" | "You.completedDungeon",
+            ) => Some("PlayerRel::You"),
+            Some("Player.isMonarch" | "Player.hasInitiative" | "Player.completedDungeon") => {
+                Some("PlayerRel::EachPlayer")
+            }
             Some(who) => self.player_rel(Some(who)),
         };
         let Some(whose) = whose else {
@@ -1673,6 +1678,7 @@ impl Tx<'_> {
             None | Some("Player") => "PlayerRel::EachPlayer",
             Some("You") => "PlayerRel::You",
             Some("Opponent" | "Player.Opponent") => "PlayerRel::EachOpponent",
+            Some("Opponent.Active") => "PlayerRel::ActivePlayer",
             Some(other) => return self.deny(format!("life change for `{other}`")),
         };
         let variant = if lost { "LosesLife" } else { "GainsLife" };
@@ -2124,7 +2130,29 @@ impl Tx<'_> {
             && prose_effect
                 .as_deref()
                 .is_some_and(|effect| effect.starts_with("you may have "));
-        let phase_descended = mode == "Phase" && p.peek("ValidPlayer") == Some("You.descended");
+        let valid_player_cond = match (mode.as_str(), p.peek("ValidPlayer")) {
+            ("Phase", Some("You.descended")) => Some("Condition::DescendedThisTurn"),
+            ("Phase", Some("You.isMonarch")) => Some("Condition::IsMonarch(PlayerRel::You)"),
+            ("Phase", Some("You.hasInitiative")) => {
+                Some("Condition::HasInitiative(PlayerRel::You)")
+            }
+            ("Phase", Some("You.completedDungeon")) => {
+                Some("Condition::CompletedADungeon(PlayerRel::You)")
+            }
+            ("Phase", Some("Player.isMonarch")) => {
+                Some("Condition::IsMonarch(PlayerRel::ActivePlayer)")
+            }
+            ("Phase", Some("Player.hasInitiative")) => {
+                Some("Condition::HasInitiative(PlayerRel::ActivePlayer)")
+            }
+            ("Phase", Some("Player.completedDungeon")) => {
+                Some("Condition::CompletedADungeon(PlayerRel::ActivePlayer)")
+            }
+            ("LifeLost" | "LifeGained", Some("Opponent.Active")) => {
+                Some("Condition::OpponentsTurn")
+            }
+            _ => None,
+        };
         let werewolf_cond = if mode == "Phase" && p.peek("Phase") == Some("Upkeep") {
             let transform = p.take("WerewolfTransformCondition");
             let untransform = p.take("WerewolfUntransformCondition");
@@ -2225,18 +2253,16 @@ impl Tx<'_> {
                 return self.deny("werewolf condition beside another clause".to_string());
             };
         }
-        if phase_descended {
+        if let Some(clause) = valid_player_cond {
             condition = if condition.is_empty() {
-                ", condition = Some(Condition::DescendedThisTurn)".to_string()
+                format!(", condition = Some({clause})")
             } else if let Some(inner) = condition
                 .strip_prefix(", condition = Some(")
                 .and_then(|s| s.strip_suffix(')'))
             {
-                format!(
-                    ", condition = Some(Condition::All(&[{inner}, Condition::DescendedThisTurn]))"
-                )
+                format!(", condition = Some(Condition::All(&[{inner}, {clause}]))")
             } else {
-                return self.deny("`You.descended` beside another clause".to_string());
+                return self.deny("qualified `ValidPlayer$` beside another clause".to_string());
             };
         }
         if p.peek("CheckSVar").is_some() {
@@ -2276,8 +2302,9 @@ impl Tx<'_> {
             }
         }
         if let Some(cond_raw) = p.peek("Condition")
-            && let Some(clause) =
-                Self::named_condition(cond_raw).or_else(|| Self::wave7_named_condition(cond_raw))
+            && let Some(clause) = Self::named_condition(cond_raw)
+                .or_else(|| Self::wave7_named_condition(cond_raw))
+                .or_else(|| Self::wave21c_named_condition(cond_raw))
         {
             p.take("Condition");
             condition = if condition.is_empty() {
@@ -2289,6 +2316,18 @@ impl Tx<'_> {
                 format!(", condition = Some(Condition::All(&[{inner}, {clause}]))")
             } else {
                 return self.deny("`Condition$` beside another clause".to_string());
+            };
+        }
+        if let Some(clause) = Self::take_check_defined_player(&mut p) {
+            condition = if condition.is_empty() {
+                format!(", condition = Some({clause})")
+            } else if let Some(inner) = condition
+                .strip_prefix(", condition = Some(")
+                .and_then(|s| s.strip_suffix(')'))
+            {
+                format!(", condition = Some(Condition::All(&[{inner}, {clause}]))")
+            } else {
+                return self.deny("`CheckDefinedPlayer$` beside another clause".to_string());
             };
         }
         if let Some(bool_clauses) = Self::take_trigger_bool_conditions(&mut p) {
@@ -3351,6 +3390,17 @@ impl Tx<'_> {
             p.take("SVarCompare");
             clauses.push(clause);
         }
+        if let Some(cond_raw) = p.peek("Condition")
+            && let Some(clause) = Self::named_condition(cond_raw)
+                .or_else(|| Self::wave7_named_condition(cond_raw))
+                .or_else(|| Self::wave21c_named_condition(cond_raw))
+        {
+            p.take("Condition");
+            clauses.push(clause.to_string());
+        }
+        if let Some(clause) = Self::take_check_defined_player(p) {
+            clauses.push(clause.to_string());
+        }
         if let Some(bool_clauses) = Self::take_trigger_bool_conditions(p) {
             for clause in bool_clauses {
                 clauses.push(clause.to_string());
@@ -3361,6 +3411,57 @@ impl Tx<'_> {
             [only] => format!("Some(&{only})"),
             many => format!("Some(&Condition::All(&[{}]))", many.join(", ")),
         })
+    }
+
+    pub(super) fn wave21c_named_condition(cond: &str) -> Option<&'static str> {
+        Some(match cond.trim() {
+            "Monarch" | "IsMonarch" => "Condition::IsMonarch(PlayerRel::You)",
+            "Initiative" | "HasInitiative" => "Condition::HasInitiative(PlayerRel::You)",
+            "CompletedDungeon" | "CompletedADungeon" => {
+                "Condition::CompletedADungeon(PlayerRel::You)"
+            }
+            _ => return None,
+        })
+    }
+
+    /// Consumes supported `CheckDefinedPlayer$` trigger/ETB clauses backed by
+    /// `Condition::{IsMonarch, HasInitiative, CompletedADungeon, CommittedCrimeThisTurn}`.
+    pub(super) fn take_check_defined_player(p: &mut Params) -> Option<&'static str> {
+        let clause = match p.peek("CheckDefinedPlayer")? {
+            "You.isMonarch" => "Condition::IsMonarch(PlayerRel::You)",
+            "You.!isMonarch" => "Condition::Not(&Condition::IsMonarch(PlayerRel::You))",
+            "Opponent.isMonarch" | "Player.Opponent+isMonarch" => {
+                "Condition::IsMonarch(PlayerRel::EachOpponent)"
+            }
+            "Player.isMonarch" => "Condition::IsMonarch(PlayerRel::EachPlayer)",
+            "You.hasInitiative" => "Condition::HasInitiative(PlayerRel::You)",
+            "You.!hasInitiative" => "Condition::Not(&Condition::HasInitiative(PlayerRel::You))",
+            "Opponent.hasInitiative" | "Player.Opponent+hasInitiative" => {
+                "Condition::HasInitiative(PlayerRel::EachOpponent)"
+            }
+            "Player.hasInitiative" => "Condition::HasInitiative(PlayerRel::EachPlayer)",
+            "You.completedDungeon" => "Condition::CompletedADungeon(PlayerRel::You)",
+            "You.!completedDungeon" => {
+                "Condition::Not(&Condition::CompletedADungeon(PlayerRel::You))"
+            }
+            "Opponent.completedDungeon" | "Player.Opponent+completedDungeon" => {
+                "Condition::CompletedADungeon(PlayerRel::EachOpponent)"
+            }
+            "Player.completedDungeon" => "Condition::CompletedADungeon(PlayerRel::EachPlayer)",
+            "You.committedCrimeThisTurn" => "Condition::CommittedCrimeThisTurn(PlayerRel::You)",
+            "You.!committedCrimeThisTurn" => {
+                "Condition::Not(&Condition::CommittedCrimeThisTurn(PlayerRel::You))"
+            }
+            "Opponent.committedCrimeThisTurn" | "Player.Opponent+committedCrimeThisTurn" => {
+                "Condition::CommittedCrimeThisTurn(PlayerRel::EachOpponent)"
+            }
+            "Player.committedCrimeThisTurn" => {
+                "Condition::CommittedCrimeThisTurn(PlayerRel::EachPlayer)"
+            }
+            _ => return None,
+        };
+        p.take("CheckDefinedPlayer");
+        Some(clause)
     }
 
     /// Consumes recognized boolean trigger/ETB condition flags (`PlayerTurn$`,
@@ -3677,7 +3778,10 @@ impl Tx<'_> {
         let trimmed = var.trim();
         let raw = if let Some(body) = self.svars.get(trimmed) {
             body.trim()
-        } else if trimmed.starts_with("Count$") {
+        } else if trimmed.starts_with("Count$")
+            || trimmed.starts_with("PlayerCount")
+            || trimmed.starts_with("DungeonsCompleted$")
+        {
             trimmed
         } else {
             return None;
@@ -3902,6 +4006,27 @@ impl Tx<'_> {
     }
 
     fn wave20c_named_svar_flag(raw: &str, cmp: &str) -> Option<String> {
+        // Counts that may exceed 1 (dungeons completed by you, or multiple
+        // players/opponents having completed a dungeon in multiplayer): only
+        // zero vs non-zero comparisons are exact against boolean
+        // `Condition::CompletedADungeon`.
+        let multi_count_cond = match raw {
+            "DungeonsCompleted$Amount" => Some("Condition::CompletedADungeon(PlayerRel::You)"),
+            "PlayerCountPlayers$HasPropertycompletedDungeon" => {
+                Some("Condition::CompletedADungeon(PlayerRel::EachPlayer)")
+            }
+            "PlayerCountOpponents$HasPropertycompletedDungeon" => {
+                Some("Condition::CompletedADungeon(PlayerRel::EachOpponent)")
+            }
+            _ => None,
+        };
+        if let Some(cond) = multi_count_cond {
+            return match cmp {
+                "GE1" | "GT0" | "NE0" => Some(cond.to_string()),
+                "EQ0" | "LT1" | "LE0" => Some(format!("Condition::Not(&{cond})")),
+                _ => None,
+            };
+        }
         let (base, inverted) = match raw {
             "Count$Revolt" | "Count$Revolt.1.0" => ("Condition::Revolt", false),
             "Count$Revolt.0.1" => ("Condition::Revolt", true),
@@ -3921,10 +4046,42 @@ impl Tx<'_> {
             "Count$Hellbent.0.1" => ("Condition::HandSizeAtMost(0)", true),
             "Count$FatefulHour" | "Count$FatefulHour.1.0" => ("Condition::LifeAtMost(5)", false),
             "Count$FatefulHour.0.1" => ("Condition::LifeAtMost(5)", true),
+            // CR 724.1 / CR 725.1: at most one player is the monarch or has the
+            // initiative at a time, so these counts are strictly 0 or 1.
+            "Count$Monarch"
+            | "Count$Monarch.1.0"
+            | "PlayerCountPropertyYou$HasPropertyisMonarch" => {
+                ("Condition::IsMonarch(PlayerRel::You)", false)
+            }
+            "Count$Monarch.0.1" => ("Condition::IsMonarch(PlayerRel::You)", true),
+            "PlayerCountPlayers$HasPropertyisMonarch" => {
+                ("Condition::IsMonarch(PlayerRel::EachPlayer)", false)
+            }
+            "PlayerCountOpponents$HasPropertyisMonarch" => {
+                ("Condition::IsMonarch(PlayerRel::EachOpponent)", false)
+            }
+            "Count$Initiative"
+            | "Count$Initiative.1.0"
+            | "PlayerCountPropertyYou$HasPropertyhasInitiative" => {
+                ("Condition::HasInitiative(PlayerRel::You)", false)
+            }
+            "Count$Initiative.0.1" => ("Condition::HasInitiative(PlayerRel::You)", true),
+            "PlayerCountPlayers$HasPropertyhasInitiative" => {
+                ("Condition::HasInitiative(PlayerRel::EachPlayer)", false)
+            }
+            "PlayerCountOpponents$HasPropertyhasInitiative" => {
+                ("Condition::HasInitiative(PlayerRel::EachOpponent)", false)
+            }
+            "Count$CompletedDungeon"
+            | "Count$CompletedDungeon.1.0"
+            | "PlayerCountPropertyYou$HasPropertycompletedDungeon" => {
+                ("Condition::CompletedADungeon(PlayerRel::You)", false)
+            }
+            "Count$CompletedDungeon.0.1" => ("Condition::CompletedADungeon(PlayerRel::You)", true),
             _ => return None,
         };
         let want_true = match cmp {
-            "GE1" | "GT0" | "EQ1" => !inverted,
+            "GE1" | "GT0" | "EQ1" | "NE0" => !inverted,
             "EQ0" | "LT1" | "LE0" => inverted,
             _ => return None,
         };

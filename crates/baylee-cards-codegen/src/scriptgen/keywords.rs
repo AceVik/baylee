@@ -1155,6 +1155,9 @@ impl Tx<'_> {
                     .to_string(),
             );
         }
+        if let Some(cond_red) = Self::equip_flag_reduction(&def) {
+            return Some(cond_red);
+        }
         if let Some(compare) = def.strip_prefix("Count$Compare ") {
             if let Some((lhs_part, else_str)) = compare.rsplit_once('.')
                 && else_str.trim() == "0"
@@ -1182,6 +1185,33 @@ impl Tx<'_> {
         }
         Some(format!(
             ", cost_reduction = Some(CostReduction::PerCount {{ amount: {amt}, each: 1 }})"
+        ))
+    }
+
+    fn equip_flag_reduction(def: &str) -> Option<String> {
+        let rest = def.strip_prefix("Count$")?;
+        let mut parts = rest.split('.');
+        let flag = parts.next()?.trim();
+        let then_str = parts.next()?.trim();
+        let else_str = parts.next()?.trim();
+        if parts.next().is_some() || else_str != "0" {
+            return None;
+        }
+        let amount = then_str.parse::<u32>().ok().filter(|&n| n > 0)?;
+        let cond = match flag {
+            "Monarch" => "Condition::IsMonarch(PlayerRel::You)",
+            "Initiative" => "Condition::HasInitiative(PlayerRel::You)",
+            "CompletedDungeon" => "Condition::CompletedADungeon(PlayerRel::You)",
+            "Revolt" => "Condition::Revolt",
+            "Delirium" => "Condition::GraveyardTypesAtLeast(4)",
+            "Threshold" => "Condition::GraveyardCountAtLeast(7)",
+            "Metalcraft" => "Condition::ControlCount(&Filter::ARTIFACT, 3)",
+            "Hellbent" => "Condition::HandSizeAtMost(0)",
+            "FatefulHour" => "Condition::LifeAtMost(5)",
+            _ => return None,
+        };
+        Some(format!(
+            ", cost_reduction = Some(CostReduction::If {{ condition: {cond}, amount: {amount} }})"
         ))
     }
 
@@ -1602,6 +1632,22 @@ impl Tx<'_> {
                 escaped_arm.trim(),
                 normal_arm.trim(),
             ))
+        } else if let Some((cond, rest)) = def
+            .strip_prefix("Count$Monarch.")
+            .map(|r| ("Condition::IsMonarch(PlayerRel::You)", r))
+            .or_else(|| {
+                def.strip_prefix("Count$Initiative.")
+                    .map(|r| ("Condition::HasInitiative(PlayerRel::You)", r))
+            })
+            .or_else(|| {
+                def.strip_prefix("Count$CompletedDungeon.")
+                    .map(|r| ("Condition::CompletedADungeon(PlayerRel::You)", r))
+            })
+        {
+            let Some((then_arm, else_arm)) = rest.split_once('.') else {
+                return false;
+            };
+            Some((cond.to_string(), then_arm.trim(), else_arm.trim()))
         } else if let Some(rest) = def.strip_prefix("Count$Compare ") {
             let Some((lhs, else_arm)) = rest.rsplit_once('.') else {
                 return false;
@@ -1688,8 +1734,11 @@ impl Tx<'_> {
             }
         } else if let Some(cond_raw) = p.take("Condition") {
             Self::named_condition(&cond_raw)
-                .or_else(|| Self::wave7_named_condition(&cond_raw))?
+                .or_else(|| Self::wave7_named_condition(&cond_raw))
+                .or_else(|| Self::wave21c_named_condition(&cond_raw))?
                 .to_string()
+        } else if let Some(clause) = Self::take_check_defined_player(&mut p) {
+            clause.to_string()
         } else if p.peek("Revolt").is_some()
             || p.peek("Delirium").is_some()
             || p.peek("Threshold").is_some()

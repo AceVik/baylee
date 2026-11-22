@@ -6936,3 +6936,166 @@ fn wave20c_tamiyo_and_lose_control_effect_triggers() {
          SVar:Shrink:DB$ Pump | Defined$ TriggeredAttackerLKICopy | NumAtt$ -2"
     ));
 }
+
+#[test]
+fn wave21c_monarch_initiative_dungeon_triggers_and_equip() {
+    for (script, expected) in [
+        (
+            "Name:CrownScout\nManaCost:2 W\nTypes:Creature\nPT:2/2\n\
+             T:Mode$ Phase | Phase$ End of Turn | ValidPlayer$ You | CheckDefinedPlayer$ You.isMonarch | TriggerZones$ Battlefield | Execute$ D\nSVar:D:DB$ Draw | NumCards$ 1",
+            "condition = Some(Condition::IsMonarch(PlayerRel::You))",
+        ),
+        (
+            "Name:UsurperSpy\nManaCost:2 B\nTypes:Creature\nPT:2/2\n\
+             T:Mode$ Phase | Phase$ Upkeep | ValidPlayer$ You | CheckDefinedPlayer$ Opponent.isMonarch | TriggerZones$ Battlefield | Execute$ D\nSVar:D:DB$ Draw | NumCards$ 1",
+            "condition = Some(Condition::IsMonarch(PlayerRel::EachOpponent))",
+        ),
+        (
+            "Name:TorchKeeper\nManaCost:2 U\nTypes:Creature\nPT:2/2\n\
+             T:Mode$ Phase | Phase$ End of Turn | ValidPlayer$ You | CheckDefinedPlayer$ You.hasInitiative | TriggerZones$ Battlefield | Execute$ D\nSVar:D:DB$ Draw | NumCards$ 1",
+            "condition = Some(Condition::HasInitiative(PlayerRel::You))",
+        ),
+        (
+            "Name:DelverSage\nManaCost:2 U\nTypes:Creature\nPT:2/2\n\
+             T:Mode$ Phase | Phase$ End of Turn | ValidPlayer$ You | CheckDefinedPlayer$ You.completedDungeon | TriggerZones$ Battlefield | Execute$ D\nSVar:D:DB$ Draw | NumCards$ 1",
+            "condition = Some(Condition::CompletedADungeon(PlayerRel::You))",
+        ),
+        (
+            "Name:CrimeWatcher\nManaCost:1 B\nTypes:Creature\nPT:1/2\n\
+             T:Mode$ DamageDone | ValidSource$ Card.Self | ValidTarget$ Player | CombatDamage$ True | CheckDefinedPlayer$ You.committedCrimeThisTurn | TriggerZones$ Battlefield | Execute$ D\nSVar:D:DB$ Draw | NumCards$ 1",
+            "condition = Some(Condition::CommittedCrimeThisTurn(PlayerRel::You))",
+        ),
+        (
+            "Name:RoyalHall\nManaCost:3 W\nTypes:Enchantment\n\
+             T:Mode$ Phase | Phase$ End of Turn | ValidPlayer$ Player.isMonarch | TriggerZones$ Battlefield | Execute$ D\nSVar:D:DB$ Draw | NumCards$ 1",
+            "StepBegin { step: StepKind::End, whose: PlayerRel::EachPlayer }, &[Effect::draw(1)], condition = Some(Condition::IsMonarch(PlayerRel::ActivePlayer))",
+        ),
+        (
+            "Name:ActiveDrainWatch\nManaCost:2 B\nTypes:Enchantment\n\
+             T:Mode$ LifeLost | ValidPlayer$ Opponent.Active | TriggerZones$ Battlefield | Execute$ D\nSVar:D:DB$ Draw | NumCards$ 1",
+            "Trigger::LosesLife(PlayerRel::ActivePlayer), &[Effect::draw(1)], condition = Some(Condition::OpponentsTurn)",
+        ),
+        (
+            "Name:DungeonDoneTrig\nManaCost:2 G\nTypes:Creature\nPT:2/2\n\
+             T:Mode$ Attacks | ValidCard$ Card.Self | CheckSVar$ X | SVarCompare$ GE1 | TriggerZones$ Battlefield | Execute$ D\n\
+             SVar:D:DB$ Draw | NumCards$ 1\nSVar:X:DungeonsCompleted$Amount",
+            "condition = Some(Condition::CompletedADungeon(PlayerRel::You))",
+        ),
+        (
+            "Name:NoMonarchTrig\nManaCost:2 W\nTypes:Enchantment\n\
+             T:Mode$ Phase | Phase$ Upkeep | ValidPlayer$ You | CheckSVar$ NM | SVarCompare$ EQ0 | TriggerZones$ Battlefield | Execute$ D\n\
+             SVar:D:DB$ Draw | NumCards$ 1\nSVar:NM:PlayerCountPlayers$HasPropertyisMonarch",
+            "condition = Some(Condition::Not(&Condition::IsMonarch(PlayerRel::EachPlayer)))",
+        ),
+        (
+            "Name:OppInitTrig\nManaCost:3 R\nTypes:Enchantment\n\
+             T:Mode$ Phase | Phase$ Upkeep | ValidPlayer$ You | CheckSVar$ I | SVarCompare$ GE1 | TriggerZones$ Battlefield | Execute$ D\n\
+             SVar:D:DB$ Draw | NumCards$ 1\nSVar:I:PlayerCountOpponents$HasPropertyhasInitiative",
+            "condition = Some(Condition::HasInitiative(PlayerRel::EachOpponent))",
+        ),
+        (
+            "Name:NotMonarchTrig\nManaCost:2 W\nTypes:Enchantment\n\
+             T:Mode$ Phase | Phase$ End of Turn | ValidPlayer$ You | CheckSVar$ M | SVarCompare$ GE1 | TriggerZones$ Battlefield | Execute$ D\n\
+             SVar:D:DB$ Draw | NumCards$ 1\nSVar:M:Count$Monarch.0.1",
+            "condition = Some(Condition::Not(&Condition::IsMonarch(PlayerRel::You)))",
+        ),
+        (
+            "Name:CondDungeonTrig\nManaCost:2 U\nTypes:Enchantment\n\
+             T:Mode$ Phase | Phase$ Upkeep | ValidPlayer$ You | Condition$ CompletedDungeon | TriggerZones$ Battlefield | Execute$ D\n\
+             SVar:D:DB$ Draw | NumCards$ 1",
+            "condition = Some(Condition::CompletedADungeon(PlayerRel::You))",
+        ),
+    ] {
+        let body = read(script);
+        assert!(
+            body.abilities.iter().any(|a| a.contains(expected)),
+            "expected `{expected}` in {:?} for:\n{script}",
+            body.abilities
+        );
+    }
+
+    let crown = read(
+        "Name:RegalCrown\nManaCost:3\nTypes:Artifact Equipment\n\
+         K:Equip:4:::ReduceCost$ M:This ability costs {3} less to activate if you're the monarch\n\
+         SVar:M:Count$Monarch.3.0",
+    );
+    assert!(
+        crown.abilities[0].contains(
+            "cost_reduction = Some(CostReduction::If { condition: Condition::IsMonarch(PlayerRel::You), amount: 3 })"
+        ),
+        "{}",
+        crown.abilities[0]
+    );
+}
+
+#[test]
+fn wave21c_monarch_initiative_dungeon_etb_and_refusals() {
+    let etb_monarch = read(
+        "Name:CrownKnight\nManaCost:2 W\nTypes:Creature Knight\nPT:2/2\n\
+         K:etbCounter:P1P1:2:CheckDefinedPlayer$ You.isMonarch:Monarch desc",
+    );
+    assert_eq!(
+        etb_monarch.enter_modifiers,
+        [
+            "EnterModifier::WithCountersIf { kind: CounterKind::P1P1, count: Amount::Fixed(2), condition: Condition::IsMonarch(PlayerRel::You) }"
+        ]
+    );
+
+    let etb_init = read(
+        "Name:InitScout\nManaCost:2 G\nTypes:Creature Scout\nPT:2/2\n\
+         K:etbCounter:P1P1:1:Condition$ Initiative:Init desc",
+    );
+    assert_eq!(
+        etb_init.enter_modifiers,
+        [
+            "EnterModifier::WithCountersIf { kind: CounterKind::P1P1, count: Amount::Fixed(1), condition: Condition::HasInitiative(PlayerRel::You) }"
+        ]
+    );
+
+    let etb_dungeon = read(
+        "Name:CryptGuard\nManaCost:3 B\nTypes:Creature\nPT:2/2\n\
+         K:etbCounter:P1P1:2:CheckSVar$ DungeonsCompleted$Amount:Dungeon desc",
+    );
+    assert_eq!(
+        etb_dungeon.enter_modifiers,
+        [
+            "EnterModifier::WithCountersIf { kind: CounterKind::P1P1, count: Amount::Fixed(2), condition: Condition::CompletedADungeon(PlayerRel::You) }"
+        ]
+    );
+
+    let etb_split = read(
+        "Name:CrownHydra\nManaCost:3 G\nTypes:Creature\nPT:1/1\n\
+         K:etbCounter:P1P1:Count$Monarch.3.1",
+    );
+    assert_eq!(etb_split.enter_modifiers.len(), 2);
+    assert!(
+        etb_split.enter_modifiers[0].contains("Condition::IsMonarch(PlayerRel::You)")
+            && etb_split.enter_modifiers[1].contains("Condition::Not(&"),
+        "{:?}",
+        etb_split.enter_modifiers
+    );
+
+    for bad in [
+        "Name:BadMostLife\nManaCost:2 B\nTypes:Creature\nPT:2/2\n\
+         T:Mode$ Attacks | ValidCard$ Card.Self | CheckDefinedPlayer$ You.withMostLife | TriggerZones$ Battlefield | Execute$ D\nSVar:D:DB$ Draw | NumCards$ 1",
+        "Name:BadMostCreatures\nManaCost:2 G\nTypes:Creature\nPT:2/2\n\
+         T:Mode$ Phase | Phase$ Upkeep | ValidPlayer$ You | CheckDefinedPlayer$ Player.withMostTypeCreatureOnly | TriggerZones$ Battlefield | Execute$ D\nSVar:D:DB$ Draw | NumCards$ 1",
+        "Name:BadNoResolvingCheck\nManaCost:2 W\nTypes:Creature\nPT:2/2\n\
+         T:Mode$ Phase | Phase$ End of Turn | ValidPlayer$ You | CheckDefinedPlayer$ You.isMonarch | NoResolvingCheck$ True | TriggerZones$ Battlefield | Execute$ D\nSVar:D:DB$ Draw | NumCards$ 1",
+        "Name:BadActiveDraw\nManaCost:2 U\nTypes:Enchantment\n\
+         T:Mode$ Drawn | ValidPlayer$ Player.Active | TriggerZones$ Battlefield | Execute$ D\nSVar:D:DB$ Draw | NumCards$ 1",
+        "Name:BadTwoDungeons\nManaCost:2 G\nTypes:Creature\nPT:2/2\n\
+         T:Mode$ Attacks | ValidCard$ Card.Self | CheckSVar$ X | SVarCompare$ GE2 | TriggerZones$ Battlefield | Execute$ D\n\
+         SVar:D:DB$ Draw | NumCards$ 1\nSVar:X:DungeonsCompleted$Amount",
+        "Name:BadExactOneDungeon\nManaCost:2 G\nTypes:Creature\nPT:2/2\n\
+         T:Mode$ Attacks | ValidCard$ Card.Self | CheckSVar$ X | SVarCompare$ EQ1 | TriggerZones$ Battlefield | Execute$ D\n\
+         SVar:D:DB$ Draw | NumCards$ 1\nSVar:X:DungeonsCompleted$Amount",
+        "Name:BadExactOnePlayerDungeon\nManaCost:2 G\nTypes:Creature\nPT:2/2\n\
+         T:Mode$ Attacks | ValidCard$ Card.Self | CheckSVar$ X | SVarCompare$ EQ1 | TriggerZones$ Battlefield | Execute$ D\n\
+         SVar:D:DB$ Draw | NumCards$ 1\nSVar:X:PlayerCountPlayers$HasPropertycompletedDungeon",
+        "Name:BadEquipNonZeroElse\nManaCost:3\nTypes:Artifact Equipment\n\
+         K:Equip:4:::ReduceCost$ M:This ability costs {3} less\nSVar:M:Count$Monarch.3.1",
+    ] {
+        assert!(refused(bad), "must refuse: {bad}");
+    }
+}
