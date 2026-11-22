@@ -1815,9 +1815,6 @@ fn wave19b_change_zone_library_destination_alt_shuffle_false_hand_exile_and_all(
          ChangeNum$ 2 | Mandatory$ True | NoLooking$ True",
         "Name:BadNegTwoPos\nManaCost:2 U\nTypes:Instant\n\
          A:SP$ ChangeZone | Origin$ Battlefield | Destination$ Library | ValidTgts$ Creature | LibraryPosition$ -2",
-        "Name:BadOppHandExile\nManaCost:3 B\nTypes:Sorcery\n\
-         A:SP$ ChangeZone | Origin$ Hand | Destination$ Exile | ValidTgts$ Opponent | DefinedPlayer$ Targeted | \
-         Chooser$ Targeted | ChangeType$ Card | ChangeNum$ 2 | Mandatory$ True",
         "Name:BadHandLandCast\nManaCost:2\nTypes:Artifact\n\
          A:AB$ ChangeZone | Cost$ T | Origin$ Hand | Destination$ Exile | ChangeType$ Land | \
          ChangeNum$ 1 | RememberChanged$ True | SubAbility$ DBEff\n\
@@ -1828,6 +1825,22 @@ fn wave19b_change_zone_library_destination_alt_shuffle_false_hand_exile_and_all(
     ] {
         assert!(refused(bad), "must refuse: {bad}");
     }
+
+    // Wave 13a `Effect::ChooseCardEx` unlocks targeted opponent self-exiling cards from hand.
+    let opp_hand_exile = read(
+        "Name:OppHandExileTwo\nManaCost:3 B\nTypes:Sorcery\n\
+         A:SP$ ChangeZone | Origin$ Hand | Destination$ Exile | ValidTgts$ Opponent | DefinedPlayer$ Targeted | \
+         Chooser$ Targeted | ChangeType$ Card | ChangeNum$ 2 | Mandatory$ True",
+    );
+    assert!(
+        opp_hand_exile.abilities[0].contains("Effect::ChooseCardEx")
+            && opp_hand_exile.abilities[0].contains("chooser: PlayerRel::Chosen")
+            && opp_hand_exile.abilities[0].contains("zone: ChooseZone::Hand(PlayerRel::Chosen)")
+            && opp_hand_exile.abilities[0].contains("min: 2, max: Amount::Fixed(2)")
+            && opp_hand_exile.abilities[0].contains("movement: ChooseMove::Exile"),
+        "{:?}",
+        opp_hand_exile.abilities
+    );
 }
 
 fn wave23b_sized_tokens() -> TokenLookup {

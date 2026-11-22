@@ -1057,13 +1057,17 @@ impl Tx<'_> {
         }
     }
 
-    /// `PeekAndReveal` -> `TwoPiles` (*Fact or Fiction* shape) ->
-    /// `Effect::RevealAndSeparate { count }`.
+    /// `PeekAndReveal` -> `TwoPiles`:
+    /// - Canonical *Fact or Fiction* shape (fixed count, opponent separates,
+    ///   you choose, Hand / Graveyard) emits `Effect::RevealAndSeparate { count }`.
+    /// - Generalized Wave 13a public two-pile shape (fixed or dynamic count,
+    ///   either `(Opponent, You)` or `(You, Opponent)`, any clean Hand /
+    ///   Graveyard / Exile / BottomOfLibrary{ChosenOrder,Random} pair) emits
+    ///   `Effect::RevealUntilThen` + `Effect::SeparateIntoTwoPiles`.
     ///
-    /// Strictly demands public top-N reveal of your own library, opponent
-    /// separation, your choice of pile, chosen pile to hand, and unchosen pile
-    /// to graveyard. Refuses inverted separator/chooser, face-down piles,
-    /// bottom-of-library remainder, or dynamic reveal counts.
+    /// Strictly refuses face-down piles, private peeks, non-controller
+    /// libraries, missing pile handlers, or pile handlers with side-effects.
+    #[allow(clippy::too_many_lines)]
     pub(super) fn peek_and_reveal_two_piles_chain(
         &mut self,
         mut p: Params,
@@ -1094,13 +1098,17 @@ impl Tx<'_> {
         let Some(raw_amt) = p.take("PeekAmount") else {
             return self.deny("`PeekAndReveal` `TwoPiles` with no `PeekAmount$`".to_string());
         };
-        let Some(count) = self
+        let fixed_count = self
             .plain_num(&raw_amt)
             .and_then(|n| u32::try_from(n).ok())
-            .filter(|&n| n > 0)
-        else {
+            .filter(|&n| n > 0);
+        let amount_expr = if let Some(n) = fixed_count {
+            format!("Amount::Fixed({n})")
+        } else if let Some(expr) = self.amount_or_count_ext(&raw_amt) {
+            expr
+        } else {
             return self.deny(format!(
-                "`PeekAndReveal` `TwoPiles` with dynamic `PeekAmount$ {raw_amt}`"
+                "`PeekAndReveal` `TwoPiles` with unreadable `PeekAmount$ {raw_amt}`"
             ));
         };
         if let Some(key) = p.first_key() {
@@ -1119,13 +1127,19 @@ impl Tx<'_> {
         }
         if !matches!(sp.take("Defined").as_deref(), None | Some("You"))
             || sp.take("DefinedCards").as_deref() != Some("Remembered")
-            || sp.take("Separator").as_deref() != Some("Opponent")
-            || !matches!(sp.take("Chooser").as_deref(), None | Some("You"))
             || !matches!(sp.take("Zone").as_deref(), None | Some("Library"))
             || sp.has("FaceDown")
         {
             return self.deny("unsupported `TwoPiles` separation shape".to_string());
         }
+        let (separator, pile_chooser) = match (
+            sp.take("Separator").as_deref(),
+            sp.take("Chooser").as_deref(),
+        ) {
+            (Some("Opponent"), None | Some("You")) => ("PlayerRel::Opponent", "PlayerRel::You"),
+            (Some("You"), Some("Opponent")) => ("PlayerRel::You", "PlayerRel::Opponent"),
+            _ => return self.deny("unsupported `TwoPiles` separation shape".to_string()),
+        };
         let Some(chosen_svar) = sp.take("ChosenPile") else {
             return self.deny("`TwoPiles` with no `ChosenPile$`".to_string());
         };
@@ -1136,11 +1150,12 @@ impl Tx<'_> {
         if let Some(key) = sp.first_key() {
             return self.deny(format!("unclaimed parameter `TwoPiles.{key}`"));
         }
-        if !self.is_library_remembered_move(&chosen_svar, "Hand")
-            || !self.is_library_remembered_move(&unchosen_svar, "Graveyard")
-        {
-            return self.deny("`TwoPiles` pile destinations outside hand/graveyard".to_string());
-        }
+        let Some(chosen_move) = self.library_remembered_pile_move(&chosen_svar) else {
+            return self.deny("`TwoPiles` pile destinations outside supported moves".to_string());
+        };
+        let Some(unchosen_move) = self.library_remembered_pile_move(&unchosen_svar) else {
+            return self.deny("`TwoPiles` pile destinations outside supported moves".to_string());
+        };
         let next_sub = match trailing {
             None => None,
             Some(ref name) => {
@@ -1162,35 +1177,98 @@ impl Tx<'_> {
                 }
             }
         };
-        chain
-            .effects
-            .push(format!("Effect::RevealAndSeparate {{ count: {count} }}"));
+        if let Some(count) = fixed_count
+            && separator == "PlayerRel::Opponent"
+            && pile_chooser == "PlayerRel::You"
+            && chosen_move == "ChooseMove::Hand"
+            && unchosen_move == "ChooseMove::Graveyard"
+        {
+            chain
+                .effects
+                .push(format!("Effect::RevealAndSeparate {{ count: {count} }}"));
+        } else {
+            chain.effects.push(format!(
+                "Effect::RevealUntilThen {{ \
+                 library: PlayerRel::You, \
+                 filter: &Filter::Any, \
+                 count: {amount_expr}, \
+                 max_revealed: Some({amount_expr}), \
+                 exile_while_revealing: false, \
+                 found: RevealUntilFound::StayInLibrary, \
+                 rest: RevealUntilRest::StayInLibrary, \
+                 then: &[Effect::SeparateIntoTwoPiles {{ \
+                 separator: {separator}, \
+                 pile_chooser: {pile_chooser}, \
+                 zone: ZoneSel::LibraryYou, \
+                 filter: &Filter::Any, \
+                 only_found: true, \
+                 chosen_pile: &[Effect::ChooseCardEx {{ \
+                 chooser: PlayerRel::You, \
+                 zone: ChooseZone::Found, \
+                 filter: &Filter::Any, \
+                 min: 0, \
+                 max: Amount::Fixed(0), \
+                 reveal_chosen: false, \
+                 movement: ChooseMove::None, \
+                 not_chosen_movement: {chosen_move}, \
+                 then: &[], \
+                 for_unchosen: &[] \
+                 }}], \
+                 unchosen_pile: &[Effect::ChooseCardEx {{ \
+                 chooser: PlayerRel::You, \
+                 zone: ChooseZone::Found, \
+                 filter: &Filter::Any, \
+                 min: 0, \
+                 max: Amount::Fixed(0), \
+                 reveal_chosen: false, \
+                 movement: ChooseMove::None, \
+                 not_chosen_movement: {unchosen_move}, \
+                 then: &[], \
+                 for_unchosen: &[] \
+                 }}] \
+                 }}] \
+                 }}"
+            ));
+        }
         self.chain_sub_ability(next_sub, chain)
     }
 
-    fn is_library_remembered_move(&self, svar: &str, expected_dest: &str) -> bool {
-        let Some(body) = self.svars.get(svar.trim()) else {
-            return false;
-        };
-        let Some((api, mut mp)) = Params::parse(body) else {
-            return false;
-        };
+    fn library_remembered_pile_move(&self, svar: &str) -> Option<&'static str> {
+        let body = self.svars.get(svar.trim())?;
+        let (api, mut mp) = Params::parse(body)?;
         mp.drop_prose();
         match api.as_str() {
             "ChangeZone" => {
-                mp.take("Defined").as_deref() == Some("Remembered")
-                    && mp.take("Origin").as_deref() == Some("Library")
-                    && mp.take("Destination").as_deref() == Some(expected_dest)
-                    && mp.exhausted()
+                if mp.take("Defined").as_deref() != Some("Remembered")
+                    || mp.take("Origin").as_deref() != Some("Library")
+                {
+                    return None;
+                }
             }
             "ChangeZoneAll" => {
-                mp.take("ChangeType").as_deref() == Some("Card.IsRemembered")
-                    && mp.take("Origin").as_deref() == Some("Library")
-                    && mp.take("Destination").as_deref() == Some(expected_dest)
-                    && mp.exhausted()
+                if mp.take("ChangeType").as_deref() != Some("Card.IsRemembered")
+                    || mp.take("Origin").as_deref() != Some("Library")
+                {
+                    return None;
+                }
             }
-            _ => false,
+            _ => return None,
         }
+        let dest = mp.take("Destination")?;
+        let mv = match dest.as_str() {
+            "Hand" => "ChooseMove::Hand",
+            "Graveyard" => "ChooseMove::Graveyard",
+            "Exile" if !self.has_linked_exile_reader() => "ChooseMove::Exile",
+            "Library" if mp.take("LibraryPosition").as_deref() == Some("-1") => {
+                match mp.take("RandomOrder").as_deref() {
+                    Some("True") => "ChooseMove::BottomOfLibraryRandom",
+                    None | Some("False") => "ChooseMove::BottomOfLibraryChosenOrder",
+                    _ => return None,
+                }
+            }
+            _ => return None,
+        };
+        mp.exhausted().then_some(mv)
     }
 
     /// Wave 23a standalone `DigUntil` fallback (`Effect::RevealUntilThen` with

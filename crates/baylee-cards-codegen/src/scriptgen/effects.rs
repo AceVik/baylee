@@ -4252,8 +4252,12 @@ impl Tx<'_> {
         if !is_exile_play {
             return None;
         }
-        let spec =
-            self.parse_exile_play_static(&static_name, true, false, raw_duration.as_deref())?;
+        let spec = self.parse_exile_play_static(
+            &static_name,
+            ExileAffectedMarker::LinkedSource,
+            false,
+            raw_duration.as_deref(),
+        )?;
         if rem_nonland && !spec.cast_only {
             return None;
         }
@@ -4802,18 +4806,96 @@ impl Tx<'_> {
         }
         let spec = self.parse_exile_play_static(
             &static_name,
-            false,
+            ExileAffectedMarker::Remembered,
             allow_you_own,
             raw_duration.as_deref(),
         )?;
         Some((spec, next_sub))
     }
 
+    /// Parses a `ChooseCard(ChoiceZone$ Exile)` follow-up `DB$ Effect` (with an
+    /// optional leading `Cleanup | ClearRemembered$ True` step, as on
+    /// *Party Thrasher* and *Feldon, Ronom Excavator*) granting play/cast
+    /// permission on `ChosenCard`.
+    fn consume_chosen_card_exile_play_effect(
+        &mut self,
+        start_name: &str,
+        allow_you_own: bool,
+    ) -> Option<(ExilePermissionSpec, Option<String>)> {
+        let mut eff_name = start_name.trim().to_string();
+        if let Some(body) = self.svars.get(&eff_name).cloned()
+            && let Some((api, mut cp)) = Params::parse(&body)
+            && api == "Cleanup"
+        {
+            cp.drop_prose();
+            if cp.take("ClearRemembered").as_deref() == Some("True")
+                && let Some(after) = cp.take("SubAbility")
+                && cp.exhausted()
+            {
+                eff_name = after.trim().to_string();
+            }
+        }
+        let eff_body = self.svars.get(&eff_name)?.clone();
+        let (eff_api, mut ep) = Params::parse(&eff_body)?;
+        ep.drop_prose();
+        if eff_api != "Effect" {
+            return None;
+        }
+        let marker = match ep.take("RememberObjects").as_deref() {
+            Some("ChosenCard") => ExileAffectedMarker::ChosenCardOrRemembered,
+            None => ExileAffectedMarker::ChosenCard,
+            Some(_) => return None,
+        };
+        if !matches!(ep.take("EffectOwner").as_deref(), None | Some("You"))
+            || !matches!(
+                ep.take("ExileOnMoved")
+                    .or_else(|| ep.take("ForgetOnMoved"))
+                    .as_deref(),
+                None | Some("Exile")
+            )
+        {
+            return None;
+        }
+        let raw_duration = ep.take("Duration");
+        let static_name = ep.take("StaticAbilities")?;
+        if static_name.contains(',') {
+            return None;
+        }
+        ep.take("Name");
+        if let Some(non_stack) = ep.take("NonStackingEffect")
+            && non_stack != "True"
+        {
+            return None;
+        }
+        if let Some(stackable) = ep.take("Stackable")
+            && stackable != "False"
+        {
+            return None;
+        }
+        if let Some(forget_cast) = ep.take("ForgetOnCast")
+            && forget_cast != "False"
+        {
+            return None;
+        }
+        let next_sub = ep.take("SubAbility");
+        if !ep.exhausted() {
+            return None;
+        }
+        let spec = self.parse_exile_play_static(
+            &static_name,
+            marker,
+            allow_you_own,
+            raw_duration.as_deref(),
+        )?;
+        let trailing = self.strip_chosen_card_cleanup_tail(next_sub);
+        Some((spec, trailing))
+    }
+
     #[allow(clippy::too_many_lines)]
     fn parse_exile_play_static(
         &mut self,
         static_name: &str,
-        linked_source: bool,
+        marker: ExileAffectedMarker,
         allow_you_own: bool,
         raw_duration: Option<&str>,
     ) -> Option<ExilePermissionSpec> {
@@ -4873,7 +4955,7 @@ impl Tx<'_> {
         };
         let affected = sp.take("Affected")?;
         let Some((cast_only, spell_types)) =
-            Self::parse_exile_affected(&affected, linked_source, allow_you_own)
+            Self::parse_exile_affected(&affected, marker, allow_you_own)
         else {
             return self.deny(format!(
                 "exile play static ability with unsupported `Affected$ {affected}`"
@@ -4931,14 +5013,17 @@ impl Tx<'_> {
 
     fn parse_exile_affected(
         affected: &str,
-        linked_source: bool,
+        marker: ExileAffectedMarker,
         allow_you_own: bool,
     ) -> Option<(bool, Option<String>)> {
-        let is_marker = |atom: &str| {
-            if linked_source {
+        let is_marker = |atom: &str| match marker {
+            ExileAffectedMarker::LinkedSource => {
                 matches!(atom, "ExiledWithEffectSource" | "ExiledWithSource")
-            } else {
-                atom == "IsRemembered"
+            }
+            ExileAffectedMarker::Remembered => atom == "IsRemembered",
+            ExileAffectedMarker::ChosenCard => atom == "ChosenCard",
+            ExileAffectedMarker::ChosenCardOrRemembered => {
+                matches!(atom, "IsRemembered" | "ChosenCard")
             }
         };
         let alts: Vec<&str> = affected.split(',').map(str::trim).collect();
@@ -5435,6 +5520,33 @@ impl Tx<'_> {
             {
                 return Some(vec!["Effect::ReturnLinkedToBattlefield".to_string()]);
             }
+            Some("ExiledWith")
+                if !self.on_a_spell
+                    && origin == "Exile"
+                    && matches!(destination.as_str(), "Hand" | "Graveyard")
+                    && target == "TargetSpec::AnyPlayer" =>
+            {
+                let to = if destination == "Hand" {
+                    "ZoneRef::Hand"
+                } else {
+                    "ZoneRef::Graveyard"
+                };
+                return Some(vec![format!("Effect::ReturnLinkedExile {{ to: {to} }}")]);
+            }
+            Some("Imprinted")
+                if !self.on_a_spell
+                    && origin == "Exile"
+                    && matches!(destination.as_str(), "Hand" | "Graveyard")
+                    && target == "TargetSpec::AnyPlayer"
+                    && self.oracle.to_ascii_lowercase().contains("exiled with ") =>
+            {
+                let to = if destination == "Hand" {
+                    "ZoneRef::Hand"
+                } else {
+                    "ZoneRef::Graveyard"
+                };
+                return Some(vec![format!("Effect::ReturnLinkedExile {{ to: {to} }}")]);
+            }
             Some("Enchanted" | "Equipped")
                 if !self.on_a_spell
                     && !self.cost_sacrifices_self
@@ -5482,62 +5594,40 @@ impl Tx<'_> {
             return self.return_chosen(p, &destination);
         }
         // "You may put a basic land card from your hand onto the battlefield"
-        // (Firebrand Ranger, Skyshroud Ranger): no target, no `Defined$`, and
-        // the controller optionally puts one matching card from their hand
-        // onto the battlefield.
+        // (Firebrand Ranger, Skyshroud Ranger) and Wave 13a multi-card /
+        // non-controller hand-to-battlefield choices (Wrenn and Seven,
+        // Braids, Conjurer Adept, Charmed Griffin).
         if !itself
-            && target == "TargetSpec::AnyPlayer"
+            && (target == "TargetSpec::AnyPlayer"
+                || target == "TargetSpec::Player(PlayerRel::Chosen)"
+                || (prior_target_used && !targets_here))
             && origin == "Hand"
             && destination == "Battlefield"
             && p.has("ChangeType")
             && (p.has("Optional")
                 || p.peek("Mandatory") == Some("True")
-                || (!p.has("Mandatory")
-                    && self.oracle.to_ascii_lowercase().contains("you may put")))
+                || (!p.has("Mandatory") && {
+                    let lower = self.oracle.to_ascii_lowercase();
+                    lower.contains("may put") || lower.contains("put any number of")
+                }))
         {
-            return self.put_from_hand_onto_battlefield(p);
+            return self.put_from_hand_onto_battlefield(p, target, targets_here);
         }
         if !itself
-            && (target == "TargetSpec::AnyPlayer" || (prior_target_used && !targets_here))
+            && (target == "TargetSpec::AnyPlayer"
+                || target == "TargetSpec::Player(PlayerRel::Chosen)"
+                || (prior_target_used && !targets_here))
             && origin == "Hand"
             && destination == "Exile"
-            && matches!(p.peek("DefinedPlayer"), None | Some("You"))
-            && matches!(p.peek("Chooser"), None | Some("You"))
             && !p.has("ExileFaceDown")
             && !p.has("AtRandom")
             && !p.has("RememberChanged")
-            && (p.peek("Imprint") == Some("True") || !self.has_linked_exile_reader())
+            && !p.has("Duration")
+            && !p.has("Foretold")
+            && !p.has("WithCountersType")
+            && !p.has("WithCountersAmount")
         {
-            let is_imprint = p.take("Imprint").as_deref() == Some("True");
-            p.take("DefinedPlayer");
-            p.take("Chooser");
-            p.take("IsCurse");
-            p.take("SelectPrompt");
-            if !matches!(p.take("ChangeNum").as_deref(), None | Some("1")) {
-                return None;
-            }
-            if !matches!(p.take("Hidden").as_deref(), None | Some("True")) {
-                return None;
-            }
-            let optional = match (
-                p.take("Optional").as_deref(),
-                p.take("Mandatory").as_deref(),
-            ) {
-                (None | Some("False"), Some("True")) => false,
-                (None | Some("False"), None) if is_imprint => false,
-                (Some("True"), None | Some("False")) => true,
-                (None, None) if self.oracle.to_ascii_lowercase().contains("you may exile") => true,
-                _ => return None,
-            };
-            let valid = p.take("ChangeType")?;
-            let expr = self.filter_expr_in_zone(&valid, true)?;
-            let filter = self.body.filter_static("IMPRINT", &expr);
-            let inner = format!("Effect::ExileChosenFromHandWithSource(&{filter})");
-            return Some(vec![if optional {
-                format!("Effect::MayDo {{ effects: &[{inner}] }}")
-            } else {
-                inner
-            }]);
+            return self.hand_to_exile_change_zone(p, target, targets_here, prior_target_used);
         }
         if !itself
             && origin == "Hand"
@@ -5587,6 +5677,22 @@ impl Tx<'_> {
                     })))
         {
             return self.choose_from_your_graveyard(p, &destination, target);
+        }
+        if !itself
+            && !self.on_a_spell
+            && target == "TargetSpec::AnyPlayer"
+            && origin == "Exile"
+            && matches!(
+                destination.as_str(),
+                "Battlefield" | "Hand" | "Graveyard" | "Library"
+            )
+            && p.peek("Hidden") == Some("True")
+            && p.peek("ChangeType")
+                .is_some_and(|ct| ct.contains("ExiledWithSource"))
+            && !p.has("AtRandom")
+            && !p.has("RememberChanged")
+        {
+            return self.choose_from_linked_exile(p, &destination);
         }
         // A spell moving itself from the stack sometimes omits `Defined$ Self`
         // (e.g. `Origin$ Stack | Destination$ Exile` / `Hand`).
@@ -5817,9 +5923,7 @@ impl Tx<'_> {
                         "Effect::exile_until({target}, ExileUntil::SourceLeavesBattlefield)"
                     )]);
                 }
-                let verb = if self.svars.values().any(|s| {
-                    s.contains("Defined$ ExiledWith") || s.contains("Card.ExiledWithSource")
-                }) {
+                let verb = if self.has_linked_exile_reader() {
                     "exile_linked"
                 } else {
                     "exile"
@@ -6257,6 +6361,454 @@ impl Tx<'_> {
                     && !p.has("ChangeType")))
     }
 
+    #[allow(clippy::too_many_lines)]
+    fn hand_to_exile_change_zone(
+        &mut self,
+        p: &mut Params,
+        target: &str,
+        targets_here: bool,
+        prior_target_used: bool,
+    ) -> Option<Vec<String>> {
+        let targets_a_player = target == "TargetSpec::Player(PlayerRel::Chosen)";
+        let is_imprint = match p.take("Imprint").as_deref() {
+            None | Some("False") => false,
+            Some("True") => true,
+            Some(_) => return None,
+        };
+        let already_revealed = match p.take("AlreadyRevealed").as_deref() {
+            None | Some("False") => false,
+            Some("True") => true,
+            Some(_) => return None,
+        };
+        let hidden = match p.take("Hidden").as_deref() {
+            None => None,
+            Some("True") => Some(true),
+            Some("False") => Some(false),
+            Some(_) => return None,
+        };
+        p.take("IsCurse");
+        p.take("SelectPrompt");
+        let defined_raw = p.take("DefinedPlayer");
+        let chooser_raw = p.take("Chooser");
+        let num_raw = p.take("ChangeNum").unwrap_or_else(|| "1".to_string());
+
+        // Fast path: existing single-card controller self-exile from hand
+        // (`Effect::ExileChosenFromHandWithSource`), preserving legacy output.
+        if (target == "TargetSpec::AnyPlayer" || (prior_target_used && !targets_here))
+            && matches!(defined_raw.as_deref(), None | Some("You"))
+            && matches!(chooser_raw.as_deref(), None | Some("You"))
+            && !already_revealed
+            && num_raw == "1"
+            && hidden != Some(false)
+            && (is_imprint || !self.has_linked_exile_reader())
+        {
+            let optional = match (
+                p.take("Optional").as_deref(),
+                p.take("Mandatory").as_deref(),
+            ) {
+                (None | Some("False"), Some("True")) => false,
+                (None | Some("False"), None) if is_imprint => false,
+                (Some("True"), None | Some("False")) => true,
+                (None, None) if self.oracle.to_ascii_lowercase().contains("you may exile") => true,
+                _ => return None,
+            };
+            let valid = p.take("ChangeType")?;
+            let expr = self.filter_expr_in_zone(&valid, true)?;
+            let filter = self.body.filter_static("IMPRINT", &expr);
+            let inner = format!("Effect::ExileChosenFromHandWithSource(&{filter})");
+            return Some(vec![if optional {
+                format!("Effect::MayDo {{ effects: &[{inner}] }}")
+            } else {
+                inner
+            }]);
+        }
+
+        let (repeat_domain, owner_rel) = match defined_raw.as_deref() {
+            None if targets_a_player => (None, "PlayerRel::Chosen"),
+            None | Some("You") => (None, "PlayerRel::You"),
+            Some("Player") => (Some("RepeatDomain::EachPlayer"), "PlayerRel::EventPlayer"),
+            Some("Opponent" | "Player.Opponent") => {
+                (Some("RepeatDomain::EachOpponent"), "PlayerRel::EventPlayer")
+            }
+            Some(who) => {
+                let rel = self.wave11_player_of_line(Some(who), Some(target), targets_a_player)?;
+                if !Self::is_single_player_rel(rel) {
+                    return None;
+                }
+                (None, rel)
+            }
+        };
+
+        let chooser_rel: Option<&'static str> = match chooser_raw.as_deref() {
+            None => None,
+            Some("You") => Some("PlayerRel::You"),
+            Some(who) => {
+                let rel = self.wave11_player_of_line(Some(who), Some(target), targets_a_player)?;
+                if !Self::is_single_player_rel(rel) {
+                    return None;
+                }
+                Some(rel)
+            }
+        };
+
+        let movement = if is_imprint || self.has_linked_exile_reader() {
+            "ChooseMove::ExileLinked"
+        } else {
+            "ChooseMove::Exile"
+        };
+
+        // Case A: Owner chooses cards from their own hand (`Chooser$` matches
+        // `DefinedPlayer$`, or omitted with `Hidden$ True` / `You`).
+        let owner_chooses_own = match chooser_rel {
+            None => {
+                hidden == Some(true) || (repeat_domain.is_none() && owner_rel == "PlayerRel::You")
+            }
+            Some(c) => repeat_domain.is_none() && c == owner_rel,
+        };
+        if owner_chooses_own {
+            if hidden == Some(false) {
+                return None;
+            }
+            let optional = match (
+                p.take("Optional").as_deref(),
+                p.take("Mandatory").as_deref(),
+            ) {
+                (None | Some("False"), Some("True")) => false,
+                (None | Some("False"), None) if is_imprint => false,
+                (Some("True"), None | Some("False")) => true,
+                (None, None) if self.oracle.to_ascii_lowercase().contains("may exile") => true,
+                _ => return None,
+            };
+            let max_expr = self.amount_or_count_ext(&num_raw)?;
+            if max_expr == "Amount::Fixed(0)" {
+                return None;
+            }
+            let min: u8 = if optional {
+                0
+            } else {
+                match self.plain_num(&num_raw).and_then(|n| u8::try_from(n).ok()) {
+                    Some(0) => return None,
+                    Some(n) => n,
+                    None => u8::MAX,
+                }
+            };
+            let valid = p.take("ChangeType")?;
+            let cleaned = if owner_rel == "PlayerRel::You" {
+                Self::strip_your_graveyard_owner(&valid)
+                    .or_else(|| Self::strip_hand_owner_ctrl(&valid, "YouOwn", "YouCtrl"))
+                    .unwrap_or(valid)
+            } else {
+                valid
+            };
+            let expr = self.filter_expr_in_zone(&cleaned, true)?;
+            let filter = self.body.filter_static("HAND_EXILE", &expr);
+            let inner = format!(
+                "Effect::ChooseCardEx {{ chooser: {owner_rel}, zone: ChooseZone::Hand({owner_rel}), \
+                 filter: &{filter}, min: {min}, max: {max_expr}, reveal_chosen: false, \
+                 movement: {movement}, not_chosen_movement: ChooseMove::None, then: &[], \
+                 for_unchosen: &[] }}"
+            );
+            return Some(vec![match repeat_domain {
+                Some(domain) => {
+                    format!("Effect::RepeatEach {{ domain: {domain}, effects: &[{inner}] }}")
+                }
+                None => inner,
+            }]);
+        }
+
+        // Case B: Controller chooses from another single player's publicly
+        // revealed hand (`Chooser$ You`, never private `"look at"`).
+        if chooser_rel == Some("PlayerRel::You")
+            && repeat_domain.is_none()
+            && owner_rel != "PlayerRel::You"
+            && hidden != Some(true)
+        {
+            let oracle_lower = self.oracle.to_ascii_lowercase();
+            let oracle_looks =
+                oracle_lower.contains("look at") || oracle_lower.contains("looks at");
+            let oracle_reveals = oracle_lower.contains("reveals their hand")
+                || oracle_lower.contains("reveals his or her hand")
+                || oracle_lower.contains("reveal their hand")
+                || oracle_lower.contains("reveal their hands");
+            if oracle_looks || !(already_revealed || oracle_reveals) {
+                return None;
+            }
+            let optional = match (
+                p.take("Optional").as_deref(),
+                p.take("Mandatory").as_deref(),
+            ) {
+                (Some("True"), None | Some("False")) => true,
+                (None | Some("False"), Some("True")) => false,
+                (None, None) if oracle_lower.contains("you may exile") => true,
+                (None, None) if oracle_reveals => false,
+                _ => return None,
+            };
+            let max_expr = self.amount_or_count_ext(&num_raw)?;
+            if max_expr == "Amount::Fixed(0)" {
+                return None;
+            }
+            let min: u8 = if optional {
+                0
+            } else {
+                match self.plain_num(&num_raw).and_then(|n| u8::try_from(n).ok()) {
+                    Some(0) => return None,
+                    Some(n) => n,
+                    None => u8::MAX,
+                }
+            };
+            let valid = p.take("ChangeType")?;
+            if valid.contains("IsRemembered")
+                || valid.contains("NamedCard")
+                || valid.contains("sameName")
+            {
+                return None;
+            }
+            let expr = self.filter_expr_in_zone(&valid, true)?;
+            let filter = self.body.filter_static("HAND_EXILE", &expr);
+            let choose = format!(
+                "Effect::ChooseCardEx {{ chooser: PlayerRel::You, zone: ChooseZone::Hand({owner_rel}), \
+                 filter: &{filter}, min: {min}, max: {max_expr}, reveal_chosen: false, \
+                 movement: {movement}, not_chosen_movement: ChooseMove::None, then: &[], \
+                 for_unchosen: &[] }}"
+            );
+            let mut effects = Vec::new();
+            if !already_revealed && !prior_target_used {
+                effects.push(format!("Effect::RevealHand {{ who: {owner_rel} }}"));
+            }
+            effects.push(choose);
+            return Some(effects);
+        }
+
+        None
+    }
+
+    fn strip_hand_owner_ctrl(valid: &str, own_atom: &str, ctrl_atom: &str) -> Option<String> {
+        let mut saw_any = false;
+        let mut alts = Vec::new();
+        for alt in valid.split(',').map(str::trim) {
+            if alt.is_empty() {
+                return None;
+            }
+            let (base, atoms_raw) = alt.split_once('.').unwrap_or((alt, ""));
+            let mut kept = Vec::new();
+            for atom in atoms_raw
+                .split('+')
+                .map(str::trim)
+                .filter(|a| !a.is_empty())
+            {
+                if atom == own_atom || atom == ctrl_atom {
+                    saw_any = true;
+                } else {
+                    kept.push(atom);
+                }
+            }
+            if kept.is_empty() {
+                alts.push(base.to_string());
+            } else {
+                alts.push(format!("{base}.{}", kept.join("+")));
+            }
+        }
+        saw_any.then(|| alts.join(","))
+    }
+
+    fn is_permanent_card_filter(valid: &str) -> bool {
+        let mut any = false;
+        for alt in valid.split(',').map(str::trim) {
+            if alt.is_empty() {
+                return false;
+            }
+            any = true;
+            let base = alt.split_once('.').map_or(alt, |(b, _)| b).trim();
+            if !matches!(
+                base,
+                "Permanent"
+                    | "Creature"
+                    | "Artifact"
+                    | "Enchantment"
+                    | "Land"
+                    | "Planeswalker"
+                    | "Battle"
+            ) {
+                return false;
+            }
+        }
+        any
+    }
+
+    fn card_has_unlinked_exile_producer(&self) -> bool {
+        if self.body.delve || self.oracle.to_ascii_lowercase().contains("delve") {
+            return true;
+        }
+        let has_cost_exile_oracle = self.oracle.lines().any(|line| {
+            line.split_once(':').is_some_and(|(cost, _)| {
+                let lower = cost.to_ascii_lowercase();
+                lower.contains("exile ")
+                    && !lower.contains(&format!("exile {}", self.script_name.to_ascii_lowercase()))
+            })
+        });
+        if has_cost_exile_oracle {
+            return true;
+        }
+        let check_cost_line = |body: &str| {
+            body.contains("ExileFromGrave<")
+                || body.contains("ExileFromHand<")
+                || body.contains("ExileFromGraveyard")
+                || body.contains("ExileFromHand")
+                || body.contains("ExilePermanent")
+                || body.contains("Effect::ExileGraveyard")
+                || body.contains("Effect::exile(")
+                || (body.contains("Effect::ExileAll {") && body.contains("linked: false"))
+                || (body.contains("ChangeZoneAll")
+                    && body.contains("Origin$ Graveyard")
+                    && body.contains("Destination$ Exile"))
+        };
+        self.body.abilities.iter().any(|b| check_cost_line(b))
+            || self.svars.values().any(|b| check_cost_line(b))
+    }
+
+    #[allow(clippy::too_many_lines)]
+    fn choose_from_linked_exile(
+        &mut self,
+        p: &mut Params,
+        destination: &str,
+    ) -> Option<Vec<String>> {
+        if self.card_has_unlinked_exile_producer() {
+            return None;
+        }
+        if p.take("Hidden").as_deref() != Some("True") {
+            return None;
+        }
+        p.take("IsCurse");
+        p.take("SelectPrompt");
+        p.claim_label("ChangeTypeDesc", "ChangeType");
+        if !matches!(p.take("DefinedPlayer").as_deref(), None | Some("You"))
+            || !matches!(p.take("Chooser").as_deref(), None | Some("You"))
+        {
+            return None;
+        }
+        let optional = match (
+            p.take("Mandatory").as_deref(),
+            p.take("Optional").as_deref(),
+        ) {
+            (Some("True"), None | Some("False")) => false,
+            (None | Some("False"), Some("True")) => true,
+            (None, None)
+                if {
+                    let lower = self.oracle.to_ascii_lowercase();
+                    lower.contains("you may ") || lower.contains("up to ")
+                } =>
+            {
+                true
+            }
+            _ => return None,
+        };
+        let tapped = match p.take("Tapped").as_deref() {
+            None | Some("False") => false,
+            Some("True") if destination == "Battlefield" => true,
+            Some(_) => return None,
+        };
+        let gain_control = match p.take("GainControl").as_deref() {
+            None | Some("False") => false,
+            Some("True") if destination == "Battlefield" => true,
+            Some(_) => return None,
+        };
+        let lib_pos = if destination == "Library" {
+            Some(p.take("LibraryPosition")?)
+        } else {
+            None
+        };
+        let random_order = match p.take("RandomOrder").as_deref() {
+            None | Some("False") => false,
+            Some("True") if destination == "Library" && lib_pos.as_deref() == Some("-1") => true,
+            Some(_) => return None,
+        };
+        let num_raw = p.take("ChangeNum").unwrap_or_else(|| "1".to_string());
+        let valid = p.take("ChangeType")?;
+        let stripped = Self::strip_hand_owner_ctrl(&valid, "ExiledWithSource", "ExiledWithSource")?;
+        if stripped.contains("ExiledWith")
+            || stripped.contains("IsImprinted")
+            || stripped.contains("IsRemembered")
+        {
+            return None;
+        }
+        let counters = if destination == "Battlefield" {
+            self.take_with_counters_amount(p).ok()?
+        } else {
+            None
+        };
+        let moved_is_creature = stripped == "Creature";
+        let modifiers = if destination == "Battlefield" {
+            self.take_optional_static_effect(p, moved_is_creature)?
+        } else {
+            Vec::new()
+        };
+        let expr = self.filter_expr_in_zone(&stripped, true)?;
+        let filter = self.body.filter_static("EXILE_CHOICE", &expr);
+        let max_expr = self.amount_or_count_ext(&num_raw)?;
+        if max_expr == "Amount::Fixed(0)" {
+            return None;
+        }
+        let min: u8 = if optional {
+            0
+        } else {
+            match self.plain_num(&num_raw).and_then(|n| u8::try_from(n).ok()) {
+                Some(0) => return None,
+                Some(n) => n,
+                None => u8::MAX,
+            }
+        };
+        let owner_control_bf = destination == "Battlefield" && !gain_control;
+        if destination == "Battlefield"
+            && (owner_control_bf || counters.is_some() || !modifiers.is_empty())
+        {
+            if max_expr != "Amount::Fixed(1)" || !Self::is_permanent_card_filter(&stripped) {
+                return None;
+            }
+            let move_fx = Self::format_move_and_modify(
+                "MoveSubject::Target(TargetSpec::EventObject)",
+                Some("ZoneRef::Exile"),
+                false,
+                owner_control_bf,
+                tapped,
+                None,
+                counters.as_ref(),
+                &modifiers,
+                "Duration::Indefinitely",
+            );
+            return Some(vec![format!(
+                "Effect::ChooseCardEx {{ chooser: PlayerRel::You, zone: ChooseZone::LinkedExile, \
+                 filter: &{filter}, min: {min}, max: {max_expr}, reveal_chosen: false, \
+                 movement: ChooseMove::None, not_chosen_movement: ChooseMove::None, \
+                 then: &[{move_fx}], for_unchosen: &[] }}"
+            )]);
+        }
+        let movement = match (destination, lib_pos.as_deref()) {
+            ("Battlefield", None) if Self::is_permanent_card_filter(&stripped) => {
+                format!("ChooseMove::Battlefield {{ tapped: {tapped} }}")
+            }
+            ("Hand", None) => "ChooseMove::Hand".to_string(),
+            ("Graveyard", None) => "ChooseMove::Graveyard".to_string(),
+            ("Library", Some("0")) => "ChooseMove::TopOfLibrary".to_string(),
+            ("Library", Some("-1")) => {
+                if random_order {
+                    "ChooseMove::BottomOfLibraryRandom".to_string()
+                } else if max_expr == "Amount::Fixed(1)" {
+                    "ChooseMove::BottomOfLibrary".to_string()
+                } else {
+                    "ChooseMove::BottomOfLibraryChosenOrder".to_string()
+                }
+            }
+            _ => return None,
+        };
+        Some(vec![format!(
+            "Effect::ChooseCardEx {{ chooser: PlayerRel::You, zone: ChooseZone::LinkedExile, \
+             filter: &{filter}, min: {min}, max: {max_expr}, reveal_chosen: false, \
+             movement: {movement}, not_chosen_movement: ChooseMove::None, then: &[], \
+             for_unchosen: &[] }}"
+        )])
+    }
+
+    #[allow(clippy::too_many_lines)]
     fn hand_to_library_change_zone(
         &mut self,
         p: &mut Params,
@@ -6269,17 +6821,32 @@ impl Tx<'_> {
             return self.deny(format!("`ChangeZone` with `Hidden$ {hidden}`"));
         }
         p.take("SelectPrompt");
+        p.take("IsCurse");
         let pos = p.take("LibraryPosition").unwrap_or_else(|| "0".to_string());
         let targets_a_player = targets_here && target == "TargetSpec::Player(PlayerRel::Chosen)";
         let defined_player = p.take("DefinedPlayer");
-        let player = if let Some(who) = defined_player.as_deref() {
-            self.player_of_line(Some(who), Some(target), targets_a_player)?
-        } else if targets_a_player {
-            "PlayerRel::Chosen"
-        } else {
-            "PlayerRel::You"
-        };
+        let chooser_raw = p.take("Chooser");
+        let oracle_lower = self.oracle.to_ascii_lowercase();
+        let oracle_looks = oracle_lower.contains("look at") || oracle_lower.contains("looks at");
         if pos == "0" {
+            let player = if let Some(who) = defined_player.as_deref() {
+                self.player_of_line(Some(who), Some(target), targets_a_player)?
+            } else if targets_a_player {
+                "PlayerRel::Chosen"
+            } else {
+                "PlayerRel::You"
+            };
+            if player != "PlayerRel::You"
+                && (oracle_looks || (chooser_raw.is_none() && defined_player.is_none()))
+            {
+                return None;
+            }
+            if let Some(c) = chooser_raw.as_deref() {
+                let c_rel = self.wave11_player_of_line(Some(c), Some(target), targets_a_player)?;
+                if c_rel != player {
+                    return None;
+                }
+            }
             if p.take("Mandatory").as_deref() != Some("True") {
                 return None;
             }
@@ -6306,20 +6873,101 @@ impl Tx<'_> {
                 format!("Effect::PutFromHandOnTopFor {{ player: {player}, count: {count} }}")
             }]);
         }
-        if pos == "-1" && p.take("Optional").as_deref() == Some("True") {
-            if !matches!(p.take("ChangeNum").as_deref(), None | Some("1")) {
+        if pos == "-1" {
+            let (repeat_domain, player) = match defined_player.as_deref() {
+                None if targets_a_player => (None, "PlayerRel::Chosen"),
+                None | Some("You") => (None, "PlayerRel::You"),
+                Some("Player") => (Some("RepeatDomain::EachPlayer"), "PlayerRel::EventPlayer"),
+                Some("Opponent" | "Player.Opponent") => {
+                    (Some("RepeatDomain::EachOpponent"), "PlayerRel::EventPlayer")
+                }
+                Some(who) => {
+                    let rel =
+                        self.wave11_player_of_line(Some(who), Some(target), targets_a_player)?;
+                    if !Self::is_single_player_rel(rel) {
+                        return None;
+                    }
+                    (None, rel)
+                }
+            };
+            if player != "PlayerRel::You"
+                && repeat_domain.is_none()
+                && (oracle_looks || (chooser_raw.is_none() && defined_player.is_none()))
+            {
                 return None;
             }
-            let filter = match p.take("ChangeType").as_deref() {
+            if let Some(c) = chooser_raw.as_deref() {
+                let c_rel = self.wave11_player_of_line(Some(c), Some(target), targets_a_player)?;
+                if repeat_domain.is_some() || c_rel != player {
+                    return None;
+                }
+            }
+            let random_order = match p.take("RandomOrder").as_deref() {
+                None | Some("False") => false,
+                Some("True") => true,
+                Some(_) => return None,
+            };
+            let optional = match (
+                p.take("Optional").as_deref(),
+                p.take("Mandatory").as_deref(),
+            ) {
+                (Some("True"), None | Some("False")) => true,
+                (None | Some("False"), Some("True")) => false,
+                _ => return None,
+            };
+            let num_raw = p.take("ChangeNum").unwrap_or_else(|| "1".to_string());
+            let ct_raw = p.take("ChangeType");
+            let filter = match ct_raw.as_deref() {
                 None | Some("Card") => "Filter::Any".to_string(),
                 Some(valid) => {
-                    let expr = self.filter_expr_in_zone(valid, true)?;
+                    let cleaned = if player == "PlayerRel::You" {
+                        Self::strip_your_graveyard_owner(valid)
+                            .or_else(|| Self::strip_hand_owner_ctrl(valid, "YouOwn", "YouCtrl"))
+                            .unwrap_or_else(|| valid.to_string())
+                    } else {
+                        valid.to_string()
+                    };
+                    let expr = self.filter_expr_in_zone(&cleaned, true)?;
                     self.body.filter_static("BOTTOM", &expr)
                 }
             };
-            return Some(vec![format!(
-                "Effect::BottomCardFromHand {{ player: {player}, filter: &{filter}, then: &[] }}"
-            )]);
+            if optional && repeat_domain.is_none() && !random_order && num_raw == "1" {
+                return Some(vec![format!(
+                    "Effect::BottomCardFromHand {{ player: {player}, filter: &{filter}, then: &[] }}"
+                )]);
+            }
+            let max_expr = self.amount_or_count_ext(&num_raw)?;
+            if max_expr == "Amount::Fixed(0)" {
+                return None;
+            }
+            let min: u8 = if optional {
+                0
+            } else {
+                match self.plain_num(&num_raw).and_then(|n| u8::try_from(n).ok()) {
+                    Some(0) => return None,
+                    Some(n) => n,
+                    None => u8::MAX,
+                }
+            };
+            let movement = if random_order {
+                "ChooseMove::BottomOfLibraryRandom"
+            } else if max_expr == "Amount::Fixed(1)" {
+                "ChooseMove::BottomOfLibrary"
+            } else {
+                "ChooseMove::BottomOfLibraryChosenOrder"
+            };
+            let inner = format!(
+                "Effect::ChooseCardEx {{ chooser: {player}, zone: ChooseZone::Hand({player}), \
+                 filter: &{filter}, min: {min}, max: {max_expr}, reveal_chosen: false, \
+                 movement: {movement}, not_chosen_movement: ChooseMove::None, then: &[], \
+                 for_unchosen: &[] }}"
+            );
+            return Some(vec![match repeat_domain {
+                Some(domain) => {
+                    format!("Effect::RepeatEach {{ domain: {domain}, effects: &[{inner}] }}")
+                }
+                None => inner,
+            }]);
         }
         None
     }
@@ -6489,17 +7137,43 @@ impl Tx<'_> {
         };
         let owner_control_bf =
             destination == "Battlefield" && owner_rel != "PlayerRel::You" && !gain_control;
-        // `ChooseMove::Battlefield` puts chosen cards onto the battlefield under
-        // `you`'s control (CR 110.2a), so non-own graveyards require explicit
-        // `GainControl$ True` unless lowered through `MoveAndModify`.
-        if owner_control_bf && counters.is_none() && modifiers.is_empty() {
-            return None;
-        }
         if destination == "Exile" && self.has_linked_exile_reader() {
             return self.deny("`ChooseMove::Exile` on a card referencing `ExiledWith`".to_string());
         }
         let expr = self.filter_expr_in_zone(&stripped, true)?;
         let filter = self.body.filter_static("GRAVE_CHOICE", &expr);
+        // `ChooseMove::Battlefield` puts chosen cards onto the battlefield under
+        // `you`'s control (CR 110.2a), so non-own graveyards without
+        // `GainControl$ True` route through `MoveAndModify { owner_control: true }`
+        // for single-seat, single-card choices. Multi-player simultaneous entry
+        // (*Exhume*) stays refused rather than approximating sequentially.
+        if owner_control_bf && counters.is_none() && modifiers.is_empty() {
+            if num_raw != "1"
+                || !Self::is_permanent_card_filter(&stripped)
+                || !Self::is_single_player_rel(owner_rel)
+            {
+                return None;
+            }
+            let min = u8::from(!optional);
+            let move_fx = Self::format_move_and_modify(
+                "MoveSubject::Target(TargetSpec::EventObject)",
+                Some("ZoneRef::Graveyard"),
+                false,
+                true,
+                tapped,
+                None,
+                None,
+                &[],
+                "Duration::Indefinitely",
+            );
+            return Some(vec![format!(
+                "Effect::ChooseCardEx {{ chooser: {chooser}, \
+                 zone: ChooseZone::Graveyard({owner_rel}), filter: &{filter}, \
+                 min: {min}, max: Amount::Fixed(1), reveal_chosen: false, \
+                 movement: ChooseMove::None, not_chosen_movement: ChooseMove::None, \
+                 then: &[{move_fx}], for_unchosen: &[] }}"
+            )]);
+        }
         if destination == "Battlefield" && (counters.is_some() || !modifiers.is_empty()) {
             let (min, max) = if optional {
                 let max = self.amount_or_count_ext(&num_raw)?;
@@ -6799,12 +7473,27 @@ impl Tx<'_> {
         )])
     }
 
-    /// `Origin$ Hand` to `Destination$ Battlefield` with an explicit `Optional$`:
-    /// "you may put a [matching] card from your hand onto the battlefield"
-    /// (Firebrand Ranger, Skyshroud Ranger).
-    pub(super) fn put_from_hand_onto_battlefield(&mut self, p: &mut Params) -> Option<Vec<String>> {
-        if !matches!(p.take("DefinedPlayer").as_deref(), None | Some("You")) {
-            return self.deny("`ChangeZone` from hand naming another `DefinedPlayer$`".to_string());
+    /// `Origin$ Hand` to `Destination$ Battlefield`:
+    /// - Single-card controller put (*Firebrand Ranger*, *Skyshroud Ranger*,
+    ///   *Emergency Powers*, *Broodcaller Scourge*) emits
+    ///   `Effect::PutFromHandOntoBattlefield`.
+    /// - Multi-card / "any number of" controller put (*Wrenn and Seven* `[0]`)
+    ///   emits `Effect::ChooseCardEx` (`ChooseMove::Battlefield`).
+    /// - Non-controller single-card put (*Braids, Conjurer Adept*, *Charmed
+    ///   Griffin*) emits `Effect::ChooseCardEx` + `Effect::MoveAndModify` with
+    ///   `owner_control: true` (wrapped in `Effect::RepeatEach` for multi-seat).
+    #[allow(clippy::too_many_lines)]
+    pub(super) fn put_from_hand_onto_battlefield(
+        &mut self,
+        p: &mut Params,
+        target: &str,
+        targets_here: bool,
+    ) -> Option<Vec<String>> {
+        let targets_a_player = targets_here && target == "TargetSpec::Player(PlayerRel::Chosen)";
+        if let Some(cz) = p.take("ChoiceZone")
+            && cz != "Hand"
+        {
+            return self.deny(format!("`ChangeZone` from hand with `ChoiceZone$ {cz}`"));
         }
         if let Some(hidden) = p.take("Hidden")
             && hidden != "True"
@@ -6812,6 +7501,35 @@ impl Tx<'_> {
             return self.deny(format!("`ChangeZone` found `Hidden$ {hidden}`"));
         }
         p.take("SelectPrompt");
+        p.take("IsCurse");
+        let defined_raw = p.take("DefinedPlayer");
+        let chooser_raw = p.take("Chooser");
+        // Single-seat non-controller hand-to-battlefield (*Braids, Conjurer
+        // Adept*, *Divine Gambit*, *Metamorphose*) lowers cleanly via
+        // `ChooseCardEx` + `MoveAndModify { owner_control: true }`. Multi-seat
+        // simultaneous entry (*Show and Tell*, *Iwamori*) stays refused so
+        // earlier seats never enter before later seats choose (CR 101.4).
+        let player = match defined_raw.as_deref() {
+            None if targets_a_player => "PlayerRel::Chosen",
+            None | Some("You") => "PlayerRel::You",
+            Some(who) => {
+                let rel = self.wave11_player_of_line(Some(who), Some(target), targets_a_player)?;
+                if !Self::is_single_player_rel(rel) {
+                    return self.deny(format!(
+                        "`ChangeZone` from hand naming multi-seat `DefinedPlayer$ {who}`"
+                    ));
+                }
+                rel
+            }
+        };
+        if let Some(c) = chooser_raw.as_deref() {
+            let c_rel = self.wave11_player_of_line(Some(c), Some(target), targets_a_player)?;
+            if c_rel != player {
+                return self.deny(format!(
+                    "`ChangeZone` from hand with mismatched `Chooser$ {c}`"
+                ));
+            }
+        }
         let tapped = match p.take("Tapped").as_deref() {
             None | Some("False") => false,
             Some("True") => true,
@@ -6828,6 +7546,7 @@ impl Tx<'_> {
                 return None;
             }
         };
+        let oracle_lower = self.oracle.to_ascii_lowercase();
         let optional = match p.take("Optional").as_deref() {
             Some("You" | "True") if !mandatory => true,
             Some("False") => false,
@@ -6836,24 +7555,115 @@ impl Tx<'_> {
                 return None;
             }
             None if mandatory => false,
-            None if self.oracle.to_ascii_lowercase().contains("you may put") => true,
+            None if oracle_lower.contains("may put")
+                || oracle_lower.contains("put any number of") =>
+            {
+                true
+            }
             None => {
                 self.note("`ChangeZone` from hand without `Optional$`".to_string());
                 return None;
             }
         };
-        let count = self.plain_num(p.take("ChangeNum").as_deref().unwrap_or("1"))?;
-        if count != 1 {
-            self.note(format!("`ChangeZone` putting {count} cards from hand"));
-            return None;
+        let num_raw = p.take("ChangeNum").unwrap_or_else(|| "1".to_string());
+        if let Some(amt) = p.take("Amount")
+            && amt != num_raw
+        {
+            return self.deny(format!(
+                "`ChangeZone` from hand with mismatched `Amount$ {amt}`"
+            ));
         }
         let raw_valid = p.take("ChangeType")?;
-        let cleaned = Self::strip_your_graveyard_owner(&raw_valid).unwrap_or(raw_valid);
+        let cleaned = Self::strip_your_graveyard_owner(&raw_valid)
+            .or_else(|| {
+                if player == "PlayerRel::You" {
+                    Self::strip_hand_owner_ctrl(&raw_valid, "YouOwn", "YouCtrl")
+                } else {
+                    None
+                }
+            })
+            .unwrap_or(raw_valid);
         let filter = self.filter_expr_in_zone(&cleaned, true)?;
         let name = self.body.filter_static("PUT_FROM_HAND", &filter);
+
+        // Legacy fast path: controller puts 1 card from their own hand.
+        if player == "PlayerRel::You" && num_raw == "1" {
+            return Some(vec![format!(
+                "Effect::PutFromHandOntoBattlefield {{ tapped: {tapped}, filter: &{name}, \
+                 mana_value: None, optional: {optional} }}"
+            )]);
+        }
+
+        if !Self::is_permanent_card_filter(&cleaned) {
+            return self.deny(format!(
+                "`ChangeZone` hand to battlefield with non-permanent filter `{cleaned}`"
+            ));
+        }
+
+        // Controller puts multiple / "any number of" permanent cards from hand.
+        if player == "PlayerRel::You" {
+            let any_number_svar = optional
+                && self.svars.get(num_raw.trim()).is_some_and(|def| {
+                    def.trim()
+                        .strip_prefix("Count$ValidHand ")
+                        .is_some_and(|v| {
+                            let stripped = Self::strip_your_graveyard_owner(v)
+                                .or_else(|| Self::strip_hand_owner_ctrl(v, "YouOwn", "YouCtrl"))
+                                .unwrap_or_else(|| v.to_string());
+                            stripped == cleaned
+                        })
+                });
+            let max_expr = if any_number_svar {
+                "Amount::Fixed(255)".to_string()
+            } else {
+                let expr = self.amount_or_count_ext(&num_raw)?;
+                if expr == "Amount::Fixed(0)" {
+                    return None;
+                }
+                expr
+            };
+            let min: u8 = if optional {
+                0
+            } else {
+                match self.plain_num(&num_raw).and_then(|n| u8::try_from(n).ok()) {
+                    Some(0) => return None,
+                    Some(n) => n,
+                    None => u8::MAX,
+                }
+            };
+            return Some(vec![format!(
+                "Effect::ChooseCardEx {{ chooser: PlayerRel::You, \
+                 zone: ChooseZone::Hand(PlayerRel::You), filter: &{name}, \
+                 min: {min}, max: {max_expr}, reveal_chosen: false, \
+                 movement: ChooseMove::Battlefield {{ tapped: {tapped} }}, \
+                 not_chosen_movement: ChooseMove::None, then: &[], for_unchosen: &[] }}"
+            )]);
+        }
+
+        // Non-controller single-card put onto the battlefield under its owner's
+        // control (*Braids, Conjurer Adept*, *Divine Gambit*, *Metamorphose*).
+        if num_raw != "1" {
+            return self.deny(format!(
+                "`ChangeZone` non-controller putting `{num_raw}` cards from hand"
+            ));
+        }
+        let min = u8::from(!optional);
+        let move_fx = Self::format_move_and_modify(
+            "MoveSubject::Target(TargetSpec::EventObject)",
+            Some("ZoneRef::Hand"),
+            false,
+            true,
+            tapped,
+            None,
+            None,
+            &[],
+            "Duration::Indefinitely",
+        );
         Some(vec![format!(
-            "Effect::PutFromHandOntoBattlefield {{ tapped: {tapped}, filter: &{name}, \
-             mana_value: None, optional: {optional} }}"
+            "Effect::ChooseCardEx {{ chooser: {player}, zone: ChooseZone::Hand({player}), \
+             filter: &{name}, min: {min}, max: Amount::Fixed(1), reveal_chosen: false, \
+             movement: ChooseMove::None, not_chosen_movement: ChooseMove::None, \
+             then: &[{move_fx}], for_unchosen: &[] }}"
         )])
     }
 
@@ -11266,13 +12076,21 @@ impl Tx<'_> {
                 return self.deny(format!("`RepeatEach` `{api}` referencing outer trigger"));
             }
             for (k, v) in &mut sp.entries {
-                if matches!(k.as_str(), "Defined" | "UnlessPayer")
+                if (matches!(k.as_str(), "Defined" | "UnlessPayer")
+                    || (api == "ChooseCard" && k == "ControlledByPlayer"))
                     && matches!(
                         v.as_str(),
                         "Remembered" | "Player.IsRemembered" | "RememberedPlayer"
                     )
                 {
                     *v = "TriggeredPlayer".to_string();
+                } else if api == "ChooseCard" && k == "Choices" {
+                    if v.contains("RememberedPlayerCtrl") {
+                        *v = v.replace("RememberedPlayerCtrl", "TriggeredPlayerCtrl");
+                    }
+                    if v.contains("RememberedPlayerOwn") {
+                        *v = v.replace("RememberedPlayerOwn", "TriggeredPlayerOwn");
+                    }
                 }
             }
             let spec = Self::reconstruct_spec(&api, &sp);
@@ -11522,7 +12340,8 @@ impl Tx<'_> {
     }
 
     // -------------------------------------------------------------------------
-    // `ChooseCard` -> `Effect::ChooseCard` (Battlefield & Graveyard only)
+    // -------------------------------------------------------------------------
+    // `ChooseCard` -> `Effect::ChooseCard` / `Effect::ChooseCardEx`
     // -------------------------------------------------------------------------
 
     #[allow(clippy::too_many_lines)]
@@ -11534,11 +12353,22 @@ impl Tx<'_> {
         targets_a_player: bool,
         chain: &mut super::Chain,
     ) -> Option<()> {
+        #[derive(Clone, Copy, PartialEq, Eq)]
+        enum ControlledBySpec {
+            None,
+            You,
+            Chooser,
+            Targeted,
+            EventPlayer,
+        }
+
         p.take("ChoiceTitle");
         p.take("ChoiceDesc");
+        p.take("IsCurse");
         let outer_cond = self.take_wave8_line_condition(&mut p).ok()?;
+        let raw_defined = p.take("Defined");
         let chooser =
-            self.wave11_player_of_line(p.take("Defined").as_deref(), target, targets_a_player)?;
+            self.wave11_player_of_line(raw_defined.as_deref(), target, targets_a_player)?;
         let repeat_domain = match chooser {
             "PlayerRel::EachPlayer" => Some("RepeatDomain::EachPlayer"),
             "PlayerRel::EachOpponent" | "PlayerRel::Opponent" => Some("RepeatDomain::EachOpponent"),
@@ -11550,62 +12380,217 @@ impl Tx<'_> {
         } else {
             chooser
         };
-        let controlled_by_you = match p.peek("ControlledByPlayer") {
-            Some("You") => {
-                p.take("ControlledByPlayer");
-                true
+        let mut controlled_by = match p.take("ControlledByPlayer").as_deref() {
+            None => ControlledBySpec::None,
+            Some("You") => ControlledBySpec::You,
+            Some("Chooser") => {
+                if chooser == "PlayerRel::You" {
+                    ControlledBySpec::You
+                } else {
+                    ControlledBySpec::Chooser
+                }
             }
-            Some("Chooser") if chooser == "PlayerRel::You" => {
-                p.take("ControlledByPlayer");
-                true
+            Some("Targeted" | "TargetedPlayer") if targets_a_player => ControlledBySpec::Targeted,
+            Some("TriggeredPlayer") if self.trigger_mode.is_some() => ControlledBySpec::EventPlayer,
+            Some(other) => {
+                return self.deny(format!("`ChooseCard` with `ControlledByPlayer$ {other}`"));
             }
-            _ => false,
+        };
+        let reveal_flag = match p.take("Reveal").as_deref() {
+            None | Some("False") => false,
+            Some("True") => true,
+            Some(other) => {
+                return self.deny(format!("`ChooseCard` with `Reveal$ {other}`"));
+            }
         };
         let Some(choices_raw) = p.take("Choices") else {
             return self.deny("`ChooseCard` with no `Choices$`".to_string());
         };
         if choices_raw.contains("IsRemembered")
+            || choices_raw.contains("IsImprinted")
             || choices_raw.contains("Remembered")
-            || choices_raw.contains("Targeted") && !choices_raw.contains("TargetedPlayerOwn")
+            || (choices_raw.contains("Targeted")
+                && !choices_raw.contains("TargetedPlayerOwn")
+                && !choices_raw.contains("TargetedPlayerCtrl"))
         {
             return self.deny(format!("`ChooseCard` with `Choices$ {choices_raw}`"));
         }
-        let choices_effective = if controlled_by_you {
-            choices_raw
-                .split(',')
-                .map(|alt| {
-                    let trimmed = alt.trim();
-                    if trimmed.contains('.') {
-                        format!("{trimmed}+YouCtrl")
-                    } else {
-                        format!("{trimmed}.YouCtrl")
-                    }
-                })
-                .collect::<Vec<_>>()
-                .join(",")
-        } else {
-            choices_raw
-        };
-        let (zone, zone_owner, filter_name) = match p.take("ChoiceZone").as_deref() {
-            None | Some("Battlefield") => {
-                let expr = self.filter_expr(&choices_effective)?;
-                let name = self.body.filter_static("CHOOSE", &expr);
-                ("ChooseZone::Battlefield".to_string(), None, name)
+        let raw_choice_zone = p.take("ChoiceZone");
+        let origin_name: &'static str = match raw_choice_zone.as_deref() {
+            None | Some("Battlefield") => "Battlefield",
+            Some("Graveyard") => "Graveyard",
+            Some("Exile") => "Exile",
+            Some("Hand") => "Hand",
+            Some(other) => {
+                return self.deny(format!("`ChooseCard` in `ChoiceZone$ {other}`"));
             }
-            Some("Graveyard") if !controlled_by_you => {
-                let (owner_rel, stripped) =
-                    self.extract_choose_graveyard_owner(&choices_effective, targets_a_player)?;
+        };
+        let controlled_by_rel = |spec: ControlledBySpec| -> Option<&'static str> {
+            match spec {
+                ControlledBySpec::None => None,
+                ControlledBySpec::You => Some("PlayerRel::You"),
+                ControlledBySpec::Chooser => Some(eff_chooser),
+                ControlledBySpec::Targeted => Some("PlayerRel::Chosen"),
+                ControlledBySpec::EventPlayer => Some("PlayerRel::EventPlayer"),
+            }
+        };
+        let (zone, zone_owner, stripped_choices, filter_name) = match origin_name {
+            "Battlefield" => {
+                if choices_raw.contains("ExiledWith") {
+                    return self.deny(format!("`ChooseCard` with `Choices$ {choices_raw}`"));
+                }
+                let mut base_choices = choices_raw.clone();
+                if controlled_by == ControlledBySpec::None
+                    && let Some((rel_spec, stripped)) =
+                        self.extract_battlefield_ctrl_atom(&base_choices, targets_a_player)
+                {
+                    controlled_by = match rel_spec {
+                        "PlayerRel::Chosen" => ControlledBySpec::Targeted,
+                        "PlayerRel::EventPlayer" => ControlledBySpec::EventPlayer,
+                        _ => ControlledBySpec::None,
+                    };
+                    base_choices = stripped;
+                }
+                let expr = match controlled_by {
+                    ControlledBySpec::None => self.filter_expr(&base_choices)?,
+                    ControlledBySpec::You => {
+                        let with_you = base_choices
+                            .split(',')
+                            .map(|alt| {
+                                let trimmed = alt.trim();
+                                if trimmed.contains('.') {
+                                    format!("{trimmed}+YouCtrl")
+                                } else {
+                                    format!("{trimmed}.YouCtrl")
+                                }
+                            })
+                            .collect::<Vec<_>>()
+                            .join(",");
+                        self.filter_expr(&with_you)?
+                    }
+                    ControlledBySpec::Chooser => {
+                        let base = self.filter_expr(&base_choices)?;
+                        if base == "Filter::Any" {
+                            "Filter::ControlledByChooser".to_string()
+                        } else {
+                            format!("Filter::And(&[{base}, Filter::ControlledByChooser])")
+                        }
+                    }
+                    ControlledBySpec::Targeted => {
+                        let base = self.filter_expr(&base_choices)?;
+                        if base == "Filter::Any" {
+                            "Filter::ControlledBy(PlayerRel::Chosen)".to_string()
+                        } else {
+                            format!(
+                                "Filter::And(&[{base}, Filter::ControlledBy(PlayerRel::Chosen)])"
+                            )
+                        }
+                    }
+                    ControlledBySpec::EventPlayer => {
+                        let base = self.filter_expr(&base_choices)?;
+                        if base == "Filter::Any" {
+                            "Filter::ControlledBy(PlayerRel::EventPlayer)".to_string()
+                        } else {
+                            format!(
+                                "Filter::And(&[{base}, Filter::ControlledBy(PlayerRel::EventPlayer)])"
+                            )
+                        }
+                    }
+                };
+                let name = self.body.filter_static("CHOOSE", &expr);
+                (
+                    "ChooseZone::Battlefield".to_string(),
+                    None,
+                    base_choices,
+                    name,
+                )
+            }
+            "Graveyard" => {
+                let (parsed_owner, stripped) =
+                    self.extract_choose_zone_owner(&choices_raw, targets_a_player, false)?;
+                let ctrl_owner = controlled_by_rel(controlled_by);
+                let owner_rel = match (parsed_owner, ctrl_owner) {
+                    (Some(ChooseZoneOwner::LinkedExile), _) => return None,
+                    (Some(ChooseZoneOwner::Rel(a)), Some(b)) if a != b => {
+                        return self.deny("`ChooseCard` conflicting graveyard owners".to_string());
+                    }
+                    (Some(ChooseZoneOwner::Rel(a)), _) | (None, Some(a)) => a,
+                    (None, None) => "PlayerRel::EachPlayer",
+                };
                 let expr = self.filter_expr_in_zone(&stripped, true)?;
                 let name = self.body.filter_static("CHOOSE", &expr);
                 (
                     format!("ChooseZone::Graveyard({owner_rel})"),
                     Some(owner_rel),
+                    stripped,
                     name,
                 )
             }
-            Some(other) => {
-                return self.deny(format!("`ChooseCard` in `ChoiceZone$ {other}`"));
+            "Exile" => {
+                let (parsed_owner, stripped) =
+                    self.extract_choose_zone_owner(&choices_raw, targets_a_player, true)?;
+                let ctrl_owner = controlled_by_rel(controlled_by);
+                let (zone_expr, owner_opt) = match (parsed_owner, ctrl_owner) {
+                    (Some(ChooseZoneOwner::LinkedExile), Some(_)) => {
+                        return self.deny(
+                            "`ChooseCard` mixing `ExiledWithSource` with `ControlledByPlayer$`"
+                                .to_string(),
+                        );
+                    }
+                    (Some(ChooseZoneOwner::LinkedExile), None) => {
+                        if self.card_has_unlinked_exile_producer() {
+                            return self.deny(
+                                "`ChooseCard` `ExiledWithSource` with unlinked exile producer"
+                                    .to_string(),
+                            );
+                        }
+                        ("ChooseZone::LinkedExile".to_string(), None)
+                    }
+                    (Some(ChooseZoneOwner::Rel(a)), Some(b)) if a != b => {
+                        return self.deny("`ChooseCard` conflicting exile owners".to_string());
+                    }
+                    (Some(ChooseZoneOwner::Rel(a)), _) | (None, Some(a)) => {
+                        (format!("ChooseZone::Exile({a})"), Some(a))
+                    }
+                    (None, None) => (
+                        "ChooseZone::Exile(PlayerRel::EachPlayer)".to_string(),
+                        Some("PlayerRel::EachPlayer"),
+                    ),
+                };
+                let expr = self.filter_expr_in_zone(&stripped, true)?;
+                let name = self.body.filter_static("CHOOSE", &expr);
+                (zone_expr, owner_opt, stripped, name)
             }
+            "Hand" => {
+                let (parsed_owner, stripped) =
+                    self.extract_choose_zone_owner(&choices_raw, targets_a_player, false)?;
+                let ctrl_owner = controlled_by_rel(controlled_by);
+                let owner_rel = match (parsed_owner, ctrl_owner) {
+                    (Some(ChooseZoneOwner::LinkedExile), _) => return None,
+                    (Some(ChooseZoneOwner::Rel(a)), Some(b)) if a != b => {
+                        return self.deny("`ChooseCard` conflicting hand owners".to_string());
+                    }
+                    (Some(ChooseZoneOwner::Rel(a)), _) | (None, Some(a)) => a,
+                    (None, None) => {
+                        return self
+                            .deny("`ChooseCard` in `ChoiceZone$ Hand` without owner".to_string());
+                    }
+                };
+                if !Self::is_single_player_rel(owner_rel) || owner_rel != eff_chooser {
+                    return self.deny(format!(
+                        "`ChooseCard` in `ChoiceZone$ Hand` where chooser `{eff_chooser}` != owner `{owner_rel}`"
+                    ));
+                }
+                let expr = self.filter_expr_in_zone(&stripped, true)?;
+                let name = self.body.filter_static("CHOOSE", &expr);
+                (
+                    format!("ChooseZone::Hand({owner_rel})"),
+                    Some(owner_rel),
+                    stripped,
+                    name,
+                )
+            }
+            _ => unreachable!(),
         };
         let mandatory = match p.take("Mandatory").as_deref() {
             None | Some("False") => false,
@@ -11635,19 +12620,68 @@ impl Tx<'_> {
         let Some(sub_name) = sub else {
             return self.deny("`ChooseCard` with no `SubAbility$`".to_string());
         };
-        let (movement, then_effects, trailing_sub) =
-            self.choose_card_followup(sub_name, zone_owner)?;
+        let scope_ctrl = match controlled_by {
+            ControlledBySpec::None => ChooseCtrlScope::None,
+            ControlledBySpec::You => ChooseCtrlScope::You,
+            ControlledBySpec::Chooser => ChooseCtrlScope::Chooser,
+            ControlledBySpec::Targeted => ChooseCtrlScope::Targeted,
+            ControlledBySpec::EventPlayer => ChooseCtrlScope::EventPlayer,
+        };
+        let followup = self.choose_card_followup(
+            sub_name,
+            origin_name,
+            zone_owner,
+            chooser,
+            raw_defined.as_deref(),
+            scope_ctrl,
+            &choices_raw,
+            &stripped_choices,
+            &max_expr,
+        )?;
         if (chain.target.is_some() || chain.second_target.is_some())
-            && then_effects.iter().any(|e| e.contains("Filter::Reference"))
+            && followup
+                .then_effects
+                .iter()
+                .any(|e| e.contains("Filter::Reference"))
         {
             return self
                 .deny("`ChooseCard` `Filter::Reference` beside an outer target".to_string());
         }
-        let then_joined = then_effects.join(", ");
-        let inner_choose = format!(
-            "Effect::ChooseCard {{ chooser: {eff_chooser}, zone: {zone}, filter: &{filter_name}, \
-             min: {min}, max: {max_expr}, movement: {movement}, then: &[{then_joined}] }}"
-        );
+        // Only hidden zones (`Hand`) emit a `Revealed` event on `Reveal$ True`;
+        // Battlefield/Graveyard/Exile are already public zones (CR 701.20a).
+        let reveal_chosen = reveal_flag && origin_name == "Hand";
+        let needs_ex = reveal_chosen
+            || followup.not_chosen_movement != "ChooseMove::None"
+            || !followup.for_unchosen.is_empty()
+            || matches!(origin_name, "Hand" | "Exile")
+            || matches!(
+                controlled_by,
+                ControlledBySpec::Chooser
+                    | ControlledBySpec::Targeted
+                    | ControlledBySpec::EventPlayer
+            )
+            || followup.movement.contains("BottomOfLibraryChosenOrder")
+            || followup.movement.contains("BottomOfLibraryRandom")
+            || followup.movement == "ChooseMove::ExileLinked";
+        let then_joined = followup.then_effects.join(", ");
+        let inner_choose = if needs_ex {
+            let unchosen_joined = followup.for_unchosen.join(", ");
+            format!(
+                "Effect::ChooseCardEx {{ chooser: {eff_chooser}, zone: {zone}, \
+                 filter: &{filter_name}, min: {min}, max: {max_expr}, \
+                 reveal_chosen: {reveal_chosen}, movement: {}, \
+                 not_chosen_movement: {}, then: &[{then_joined}], \
+                 for_unchosen: &[{unchosen_joined}] }}",
+                followup.movement, followup.not_chosen_movement
+            )
+        } else {
+            format!(
+                "Effect::ChooseCard {{ chooser: {eff_chooser}, zone: {zone}, \
+                 filter: &{filter_name}, min: {min}, max: {max_expr}, \
+                 movement: {}, then: &[{then_joined}] }}",
+                followup.movement
+            )
+        };
         let choose_expr = match repeat_domain {
             Some(domain) => {
                 format!("Effect::RepeatEach {{ domain: {domain}, effects: &[{inner_choose}] }}")
@@ -11660,67 +12694,253 @@ impl Tx<'_> {
             ),
             None => choose_expr,
         });
-        self.chain_sub_ability(trailing_sub, chain)
+        self.chain_sub_ability(followup.trailing_sub, chain)
     }
 
-    fn extract_choose_graveyard_owner(
-        &mut self,
+    fn extract_battlefield_ctrl_atom(
+        &self,
         raw: &str,
         targets_a_player: bool,
     ) -> Option<(&'static str, String)> {
-        let mut owner: Option<&'static str> = None;
-        let mut stripped_alts = Vec::new();
-        for alt in raw.split(',') {
-            let trimmed = alt.trim();
-            let (alt_owner, clean) = if let Some(rest) = trimmed
-                .strip_suffix(".YouOwn")
-                .or_else(|| trimmed.strip_suffix("+YouOwn"))
-            {
-                ("PlayerRel::You", rest)
-            } else if let Some(rest) = trimmed
-                .strip_suffix(".OppOwn")
-                .or_else(|| trimmed.strip_suffix("+OppOwn"))
-            {
-                ("PlayerRel::EachOpponent", rest)
-            } else if let Some(rest) = trimmed
-                .strip_suffix(".TargetedPlayerOwn")
-                .or_else(|| trimmed.strip_suffix("+TargetedPlayerOwn"))
-            {
-                if !targets_a_player {
-                    return self.deny("`TargetedPlayerOwn` without player target".to_string());
-                }
-                ("PlayerRel::Chosen", rest)
-            } else if trimmed.contains("Own") || trimmed.contains("Ctrl") {
-                return self.deny(format!("`ChooseCard` graveyard owner in `{trimmed}`"));
-            } else {
-                ("PlayerRel::EachPlayer", trimmed)
-            };
-            if let Some(prev) = owner
-                && prev != alt_owner
-            {
-                return self.deny("`ChooseCard` mixing graveyard owners".to_string());
+        let mut found_rel: Option<&'static str> = None;
+        let mut out_alts = Vec::new();
+        for alt in raw.split(',').map(str::trim) {
+            if alt.is_empty() {
+                return None;
             }
-            owner = Some(alt_owner);
-            stripped_alts.push(clean.trim());
+            let (base, atoms_raw) = alt.split_once('.').unwrap_or((alt, ""));
+            let mut alt_rel: Option<&'static str> = None;
+            let mut kept = Vec::new();
+            for atom in atoms_raw
+                .split('+')
+                .map(str::trim)
+                .filter(|a| !a.is_empty())
+            {
+                let rel = match atom {
+                    "TargetedPlayerCtrl" if targets_a_player => Some("PlayerRel::Chosen"),
+                    "TriggeredPlayerCtrl" if self.trigger_mode.is_some() => {
+                        Some("PlayerRel::EventPlayer")
+                    }
+                    _ => None,
+                };
+                if let Some(r) = rel {
+                    if alt_rel.is_some_and(|prev| prev != r) {
+                        return None;
+                    }
+                    alt_rel = Some(r);
+                } else {
+                    kept.push(atom);
+                }
+            }
+            let rel = alt_rel?;
+            if found_rel.is_some_and(|prev| prev != rel) {
+                return None;
+            }
+            found_rel = Some(rel);
+            if kept.is_empty() {
+                out_alts.push(base.to_string());
+            } else {
+                out_alts.push(format!("{base}.{}", kept.join("+")));
+            }
         }
-        Some((owner?, stripped_alts.join(",")))
+        Some((found_rel?, out_alts.join(",")))
     }
 
+    fn extract_choose_zone_owner(
+        &mut self,
+        raw: &str,
+        targets_a_player: bool,
+        allow_exiled_with_source: bool,
+    ) -> Option<(Option<ChooseZoneOwner>, String)> {
+        let mut owner: Option<ChooseZoneOwner> = None;
+        let mut saw_unowned = false;
+        let mut stripped_alts = Vec::new();
+        for alt in raw.split(',').map(str::trim) {
+            if alt.is_empty() {
+                return None;
+            }
+            let (base, atoms_raw) = alt.split_once('.').unwrap_or((alt, ""));
+            let mut alt_owner: Option<ChooseZoneOwner> = None;
+            let mut kept = Vec::new();
+            for atom in atoms_raw
+                .split('+')
+                .map(str::trim)
+                .filter(|a| !a.is_empty())
+            {
+                let parsed = match atom {
+                    "YouOwn" | "YouCtrl" => Some(ChooseZoneOwner::Rel("PlayerRel::You")),
+                    "OppOwn" | "OppCtrl" | "YouDontOwn" => {
+                        Some(ChooseZoneOwner::Rel("PlayerRel::EachOpponent"))
+                    }
+                    "TargetedPlayerOwn" | "TargetedPlayerCtrl" => {
+                        if !targets_a_player {
+                            return self
+                                .deny("`TargetedPlayerOwn` without player target".to_string());
+                        }
+                        Some(ChooseZoneOwner::Rel("PlayerRel::Chosen"))
+                    }
+                    "TriggeredPlayerOwn" | "TriggeredPlayerCtrl" => {
+                        if self.trigger_mode.is_none() {
+                            return self.deny(format!("`ChooseCard` `{atom}` outside trigger"));
+                        }
+                        Some(ChooseZoneOwner::Rel("PlayerRel::EventPlayer"))
+                    }
+                    "ExiledWithSource" if allow_exiled_with_source => {
+                        Some(ChooseZoneOwner::LinkedExile)
+                    }
+                    _ if atom.contains("Own")
+                        || atom.contains("Ctrl")
+                        || atom.contains("ExiledWith") =>
+                    {
+                        return self.deny(format!("`ChooseCard` zone owner in `{alt}`"));
+                    }
+                    _ => None,
+                };
+                if let Some(rel) = parsed {
+                    if alt_owner.is_some_and(|prev| prev != rel) {
+                        return self.deny(format!("`ChooseCard` conflicting owners in `{alt}`"));
+                    }
+                    alt_owner = Some(rel);
+                } else {
+                    kept.push(atom);
+                }
+            }
+            if let Some(rel) = alt_owner {
+                if saw_unowned || owner.is_some_and(|prev| prev != rel) {
+                    return self.deny("`ChooseCard` mixing zone owners".to_string());
+                }
+                owner = Some(rel);
+            } else {
+                if owner.is_some() {
+                    return self.deny("`ChooseCard` mixing zone owners".to_string());
+                }
+                saw_unowned = true;
+            }
+            if kept.is_empty() {
+                stripped_alts.push(base.to_string());
+            } else {
+                stripped_alts.push(format!("{base}.{}", kept.join("+")));
+            }
+        }
+        Some((owner, stripped_alts.join(",")))
+    }
+
+    fn strip_unchosen_filter_marker(
+        valid: &str,
+        expected_ctrl_atom: Option<&str>,
+    ) -> Option<String> {
+        let mut out_alts = Vec::new();
+        for alt in valid.split(',').map(str::trim) {
+            if alt.is_empty() {
+                return None;
+            }
+            let (base, atoms_raw) = alt.split_once('.')?;
+            let mut saw_unchosen = false;
+            let mut saw_ctrl = expected_ctrl_atom.is_none();
+            let mut kept = Vec::new();
+            for atom in atoms_raw
+                .split('+')
+                .map(str::trim)
+                .filter(|a| !a.is_empty())
+            {
+                if matches!(atom, "nonChosenCard" | "!ChosenCard") {
+                    saw_unchosen = true;
+                } else if expected_ctrl_atom == Some(atom) {
+                    saw_ctrl = true;
+                } else {
+                    kept.push(atom);
+                }
+            }
+            if !saw_unchosen || !saw_ctrl {
+                return None;
+            }
+            if kept.is_empty() {
+                out_alts.push(base.to_string());
+            } else {
+                out_alts.push(format!("{base}.{}", kept.join("+")));
+            }
+        }
+        Some(out_alts.join(","))
+    }
+
+    fn strip_chosen_filter_marker(valid: &str) -> Option<String> {
+        let mut out_alts = Vec::new();
+        for alt in valid.split(',').map(str::trim) {
+            if alt.is_empty() {
+                return None;
+            }
+            let (base, atoms_raw) = alt.split_once('.')?;
+            let mut saw_chosen = false;
+            let mut kept = Vec::new();
+            for atom in atoms_raw
+                .split('+')
+                .map(str::trim)
+                .filter(|a| !a.is_empty())
+            {
+                if atom == "ChosenCard" {
+                    saw_chosen = true;
+                } else {
+                    kept.push(atom);
+                }
+            }
+            if !saw_chosen {
+                return None;
+            }
+            if kept.is_empty() {
+                out_alts.push(base.to_string());
+            } else {
+                out_alts.push(format!("{base}.{}", kept.join("+")));
+            }
+        }
+        Some(out_alts.join(","))
+    }
+
+    fn normalize_valid_alts(valid: &str) -> Vec<String> {
+        let mut alts: Vec<String> = valid
+            .split(',')
+            .map(|alt| {
+                let alt = alt.trim();
+                if let Some((base, atoms_raw)) = alt.split_once('.') {
+                    let mut atoms: Vec<&str> = atoms_raw
+                        .split('+')
+                        .map(str::trim)
+                        .filter(|a| !a.is_empty())
+                        .collect();
+                    atoms.sort_unstable();
+                    if atoms.is_empty() {
+                        base.trim().to_string()
+                    } else {
+                        format!("{}.{}", base.trim(), atoms.join("+"))
+                    }
+                } else {
+                    alt.to_string()
+                }
+            })
+            .collect();
+        alts.sort_unstable();
+        alts
+    }
+
+    #[allow(clippy::too_many_lines, clippy::too_many_arguments)]
     fn choose_card_followup(
         &mut self,
         sub_name: &str,
+        expected_origin: &'static str,
         zone_owner: Option<&'static str>,
-    ) -> Option<(String, Vec<String>, Option<String>)> {
+        chooser: &'static str,
+        raw_defined: Option<&str>,
+        ctrl_scope: ChooseCtrlScope,
+        choices_raw: &str,
+        stripped_choices: &str,
+        max_expr: &str,
+    ) -> Option<ChooseCardFollowup> {
         let Some(body) = self.svars.get(sub_name.trim()).cloned() else {
             return self.deny(format!("`SubAbility$ {sub_name}` names no SVar"));
         };
         let (api, mut sp) = Params::parse(&body)?;
         sp.drop_prose();
-        let expected_origin = if zone_owner.is_some() {
-            "Graveyard"
-        } else {
-            "Battlefield"
-        };
+
+        // 1. Direct `ChangeZone` on `ChosenCard` from `expected_origin`.
         if api == "ChangeZone"
             && sp.peek("Defined") == Some("ChosenCard")
             && sp.peek("Origin") == Some(expected_origin)
@@ -11728,6 +12948,11 @@ impl Tx<'_> {
             sp.take("Defined");
             sp.take("Origin");
             sp.take("IsCurse");
+            let is_imprint = match sp.take("Imprint").as_deref() {
+                None | Some("False") => false,
+                Some("True") => true,
+                Some(other) => return self.deny(format!("`ChangeZone` with `Imprint$ {other}`")),
+            };
             let after = sp.take("SubAbility");
             let tapped = match sp.take("Tapped").as_deref() {
                 None | Some("False") => false,
@@ -11741,39 +12966,85 @@ impl Tx<'_> {
                     return self.deny(format!("`ChangeZone` with `GainControl$ {other}`"));
                 }
             };
-            let movement = match sp.take("Destination").as_deref() {
-                Some("Hand") if !tapped && !gain => "ChooseMove::Hand".to_string(),
-                Some("Graveyard") if !tapped && !gain => "ChooseMove::Graveyard".to_string(),
-                Some("Exile") if !tapped && !gain => {
-                    if self.has_linked_exile_reader() {
+            let dest = sp.take("Destination");
+            let (movement, then_effects) = match dest.as_deref() {
+                Some("Hand") if !tapped && !gain && !is_imprint => {
+                    ("ChooseMove::Hand".to_string(), Vec::new())
+                }
+                Some("Graveyard") if !tapped && !gain && !is_imprint => {
+                    // `ChooseMove::Graveyard` uses `Cause::Effect`, NOT
+                    // `Cause::Discard`, so never lower Hand -> Graveyard here.
+                    if expected_origin == "Hand" {
                         return self.deny(
-                            "`ChooseMove::Exile` on a card referencing `ExiledWith`".to_string(),
+                            "`ChooseCard` hand to graveyard requires discard semantics".to_string(),
                         );
                     }
-                    "ChooseMove::Exile".to_string()
+                    ("ChooseMove::Graveyard".to_string(), Vec::new())
                 }
-                Some("Battlefield") => {
-                    // `ChooseMove::Battlefield` puts the card onto the
-                    // battlefield under `you`'s control; require `GainControl`
-                    // whenever the chosen card could belong to another player.
-                    if zone_owner != Some("PlayerRel::You") && !gain {
+                Some("Exile") if !tapped && !gain => {
+                    if is_imprint || self.has_linked_exile_reader() {
+                        ("ChooseMove::ExileLinked".to_string(), Vec::new())
+                    } else {
+                        ("ChooseMove::Exile".to_string(), Vec::new())
+                    }
+                }
+                Some("Battlefield") if !is_imprint => {
+                    if zone_owner == Some("PlayerRel::You") || gain {
+                        (
+                            format!("ChooseMove::Battlefield {{ tapped: {tapped} }}"),
+                            Vec::new(),
+                        )
+                    } else if max_expr == "Amount::Fixed(1)"
+                        && matches!(expected_origin, "Hand" | "Graveyard" | "Exile")
+                        && Self::is_permanent_card_filter(stripped_choices)
+                    {
+                        let origin_ref = match expected_origin {
+                            "Hand" => "ZoneRef::Hand",
+                            "Graveyard" => "ZoneRef::Graveyard",
+                            "Exile" => "ZoneRef::Exile",
+                            _ => unreachable!(),
+                        };
+                        let move_fx = Self::format_move_and_modify(
+                            "MoveSubject::Target(TargetSpec::EventObject)",
+                            Some(origin_ref),
+                            false,
+                            true,
+                            tapped,
+                            None,
+                            None,
+                            &[],
+                            "Duration::Indefinitely",
+                        );
+                        ("ChooseMove::None".to_string(), vec![move_fx])
+                    } else {
                         return self.deny(
                             "`ChooseCard` battlefield move without `GainControl$ True`".to_string(),
                         );
                     }
-                    format!("ChooseMove::Battlefield {{ tapped: {tapped} }}")
                 }
-                Some("Library") if !tapped && !gain => {
-                    match sp.take("LibraryPosition").as_deref() {
+                Some("Library") if !tapped && !gain && !is_imprint => {
+                    let mv = match sp.take("LibraryPosition").as_deref() {
                         Some("0") => "ChooseMove::TopOfLibrary".to_string(),
-                        Some("-1") => "ChooseMove::BottomOfLibrary".to_string(),
+                        Some("-1") => match sp.take("RandomOrder").as_deref() {
+                            Some("True") => "ChooseMove::BottomOfLibraryRandom".to_string(),
+                            None | Some("False") if max_expr == "Amount::Fixed(1)" => {
+                                "ChooseMove::BottomOfLibrary".to_string()
+                            }
+                            None | Some("False") => {
+                                "ChooseMove::BottomOfLibraryChosenOrder".to_string()
+                            }
+                            Some(other) => {
+                                return self.deny(format!("`ChooseCard` `RandomOrder$ {other}`"));
+                            }
+                        },
                         other => {
                             return self.deny(format!(
                                 "`ChooseCard` `LibraryPosition$ {}`",
                                 other.unwrap_or("none")
                             ));
                         }
-                    }
+                    };
+                    (mv, Vec::new())
                 }
                 other => {
                     return self.deny(format!(
@@ -11786,11 +13057,274 @@ impl Tx<'_> {
                 return self.deny(format!("unclaimed parameter `ChangeZone.{key}`"));
             }
             let trailing = self.strip_chosen_card_cleanup_tail(after);
-            return Some((movement, Vec::new(), trailing));
+            return Some(ChooseCardFollowup {
+                movement,
+                not_chosen_movement: "ChooseMove::None".to_string(),
+                then_effects,
+                for_unchosen: Vec::new(),
+                trailing_sub: trailing,
+            });
         }
+
+        // 2. Exile play/cast permission (`DB$ Effect`, *Muse Vessel*, *Dauthi Voidwalker*).
+        if expected_origin == "Exile"
+            && let Some((spec, trailing)) = self.consume_chosen_card_exile_play_effect(
+                sub_name,
+                zone_owner == Some("PlayerRel::You"),
+            )
+        {
+            let perm = spec.to_expr();
+            let grant = format!(
+                "Effect::ExileWithPermission {{ target: TargetSpec::EventObject, until: None, \
+                 permission: {perm} }}"
+            );
+            let then_effects = if max_expr == "Amount::Fixed(1)" {
+                vec![grant]
+            } else {
+                vec![format!(
+                    "Effect::RepeatEachObject {{ zone: ZoneSel::ExileAll, filter: &Filter::Any, \
+                     only_found: true, then: &[{grant}] }}"
+                )]
+            };
+            return Some(ChooseCardFollowup {
+                movement: "ChooseMove::None".to_string(),
+                not_chosen_movement: "ChooseMove::None".to_string(),
+                then_effects,
+                for_unchosen: Vec::new(),
+                trailing_sub: trailing,
+            });
+        }
+
+        // 3. Battlefield `for_unchosen` / `not_chosen_movement` sweeps
+        // (`SacrificeAll`, `DestroyAll`, `ChangeZoneAll` with `.nonChosenCard`
+        // / `.!ChosenCard` matching the exact candidate scope).
+        if expected_origin == "Battlefield"
+            && matches!(
+                api.as_str(),
+                "SacrificeAll" | "DestroyAll" | "ChangeZoneAll"
+            )
+        {
+            let valid_key = if api == "ChangeZoneAll" {
+                "ChangeType"
+            } else {
+                "ValidCards"
+            };
+            if let Some(valid_val) = sp.peek(valid_key).map(str::to_string)
+                && (valid_val.contains("nonChosenCard") || valid_val.contains("!ChosenCard"))
+            {
+                let mut sp_try = sp.clone();
+                sp_try.take(valid_key);
+                sp_try.take("IsCurse");
+                let after = sp_try.take("SubAbility");
+                let ctrl_param = sp_try.take("Controller");
+                let expected_ctrl_atom: Option<Option<&'static str>> = match (chooser, ctrl_scope) {
+                    ("PlayerRel::EachPlayer", ChooseCtrlScope::Chooser) if ctrl_param.is_none() => {
+                        Some(None)
+                    }
+                    (
+                        "PlayerRel::EachOpponent" | "PlayerRel::Opponent",
+                        ChooseCtrlScope::Chooser,
+                    ) => match ctrl_param.as_deref() {
+                        Some("Opponent" | "Player.Opponent") => Some(None),
+                        None => Some(Some("OppCtrl")),
+                        _ => None,
+                    },
+                    (single, ChooseCtrlScope::Chooser) if Self::is_single_seat_rel(single) => {
+                        if let Some(cp) = ctrl_param.as_deref() {
+                            if raw_defined == Some(cp) {
+                                Some(None)
+                            } else {
+                                None
+                            }
+                        } else {
+                            match single {
+                                "PlayerRel::You" => Some(Some("YouCtrl")),
+                                "PlayerRel::Chosen" => Some(Some("TargetedPlayerCtrl")),
+                                "PlayerRel::EventPlayer" => Some(Some("TriggeredPlayerCtrl")),
+                                _ => None,
+                            }
+                        }
+                    }
+                    ("PlayerRel::You", ChooseCtrlScope::You) if ctrl_param.is_none() => {
+                        Some(Some("YouCtrl"))
+                    }
+                    (single, ChooseCtrlScope::None)
+                        if Self::is_single_seat_rel(single) && ctrl_param.is_none() =>
+                    {
+                        Some(None)
+                    }
+                    _ => None,
+                };
+                if let Some(ctrl_atom) = expected_ctrl_atom
+                    && let Some(stripped_valid) =
+                        Self::strip_unchosen_filter_marker(&valid_val, ctrl_atom)
+                    && Self::normalize_valid_alts(&stripped_valid)
+                        == Self::normalize_valid_alts(choices_raw)
+                {
+                    let res = match api.as_str() {
+                        "SacrificeAll" if sp_try.exhausted() => Some((
+                            "ChooseMove::None".to_string(),
+                            vec![
+                                "Effect::RepeatEachObject { zone: ZoneSel::Battlefield, \
+                                 filter: &Filter::Any, only_found: true, \
+                                 then: &[Effect::SacrificeEvent] }"
+                                    .to_string(),
+                            ],
+                        )),
+                        "DestroyAll" => {
+                            let no_regen = match sp_try.take("NoRegen").as_deref() {
+                                None | Some("False") => Some(false),
+                                Some("True") => Some(true),
+                                _ => None,
+                            };
+                            no_regen.filter(|_| sp_try.exhausted()).map(|nr| {
+                                (
+                                    "ChooseMove::None".to_string(),
+                                    vec![format!(
+                                        "Effect::RepeatEachObject {{ zone: ZoneSel::Battlefield, \
+                                         filter: &Filter::Any, only_found: true, \
+                                         then: &[Effect::Destroy {{ target: TargetSpec::EventObject, \
+                                         no_regen: {nr} }}] }}"
+                                    )],
+                                )
+                            })
+                        }
+                        "ChangeZoneAll"
+                            if sp_try.take("Origin").as_deref() == Some("Battlefield") =>
+                        {
+                            let dest = sp_try.take("Destination");
+                            let mv = match dest.as_deref() {
+                                Some("Hand") => Some("ChooseMove::Hand".to_string()),
+                                Some("Graveyard") => Some("ChooseMove::Graveyard".to_string()),
+                                Some("Exile") if !self.has_linked_exile_reader() => {
+                                    Some("ChooseMove::Exile".to_string())
+                                }
+                                Some("Library") => {
+                                    match sp_try.take("LibraryPosition").as_deref() {
+                                        Some("0") => Some("ChooseMove::TopOfLibrary".to_string()),
+                                        Some("-1") => match sp_try.take("RandomOrder").as_deref() {
+                                            Some("True") => Some(
+                                                "ChooseMove::BottomOfLibraryRandom".to_string(),
+                                            ),
+                                            None | Some("False") => Some(
+                                                "ChooseMove::BottomOfLibraryChosenOrder"
+                                                    .to_string(),
+                                            ),
+                                            _ => None,
+                                        },
+                                        _ => None,
+                                    }
+                                }
+                                _ => None,
+                            };
+                            mv.filter(|_| sp_try.exhausted()).map(|m| (m, Vec::new()))
+                        }
+                        _ => None,
+                    };
+                    if let Some((not_chosen_movement, for_unchosen)) = res {
+                        let trailing = self.strip_chosen_card_cleanup_tail(after);
+                        return Some(ChooseCardFollowup {
+                            movement: "ChooseMove::None".to_string(),
+                            not_chosen_movement,
+                            then_effects: Vec::new(),
+                            for_unchosen,
+                            trailing_sub: trailing,
+                        });
+                    }
+                }
+            }
+        }
+
+        // 4. Battlefield chosen-card sweeps (`GainControl`, `TapAll`,
+        // `DestroyAll`, `SacrificeAll` targeting `.ChosenCard`).
+        if expected_origin == "Battlefield" {
+            if api == "GainControl"
+                && sp.peek("AllValid") == Some("Permanent.ChosenCard")
+                && max_expr == "Amount::Fixed(1)"
+            {
+                let mut sp_try = sp.clone();
+                sp_try.take("AllValid");
+                sp_try.take("IsCurse");
+                let after = sp_try.take("SubAbility");
+                if sp_try.exhausted() {
+                    let trailing = self.strip_chosen_card_cleanup_tail(after);
+                    return Some(ChooseCardFollowup {
+                        movement: "ChooseMove::None".to_string(),
+                        not_chosen_movement: "ChooseMove::None".to_string(),
+                        then_effects: vec![
+                            "Effect::GainControlAll { filter: &Filter::Reference, \
+                             to: PlayerRel::You }"
+                                .to_string(),
+                        ],
+                        for_unchosen: Vec::new(),
+                        trailing_sub: trailing,
+                    });
+                }
+            }
+            if matches!(api.as_str(), "TapAll" | "DestroyAll" | "SacrificeAll")
+                && let Some(valid_val) = sp.peek("ValidCards").map(str::to_string)
+                && let Some(stripped_valid) = Self::strip_chosen_filter_marker(&valid_val)
+                && (matches!(stripped_valid.as_str(), "Card" | "Permanent")
+                    || Self::normalize_valid_alts(&stripped_valid)
+                        == Self::normalize_valid_alts(choices_raw))
+            {
+                let mut sp_try = sp.clone();
+                sp_try.take("ValidCards");
+                sp_try.take("IsCurse");
+                let after = sp_try.take("SubAbility");
+                let inner_fx = match api.as_str() {
+                    "TapAll" if sp_try.exhausted() => Some("Effect::TapEventObject".to_string()),
+                    "SacrificeAll" if sp_try.exhausted() => {
+                        Some("Effect::SacrificeEvent".to_string())
+                    }
+                    "DestroyAll" => {
+                        let nr = match sp_try.take("NoRegen").as_deref() {
+                            None | Some("False") => Some(false),
+                            Some("True") => Some(true),
+                            _ => None,
+                        };
+                        nr.filter(|_| sp_try.exhausted()).map(|nr| {
+                            format!(
+                                "Effect::Destroy {{ target: TargetSpec::EventObject, \
+                                 no_regen: {nr} }}"
+                            )
+                        })
+                    }
+                    _ => None,
+                };
+                if let Some(fx) = inner_fx {
+                    let trailing = self.strip_chosen_card_cleanup_tail(after);
+                    return Some(ChooseCardFollowup {
+                        movement: "ChooseMove::None".to_string(),
+                        not_chosen_movement: "ChooseMove::None".to_string(),
+                        then_effects: vec![format!(
+                            "Effect::RepeatEachObject {{ zone: ZoneSel::Battlefield, \
+                             filter: &Filter::Any, only_found: true, then: &[{fx}] }}"
+                        )],
+                        for_unchosen: Vec::new(),
+                        trailing_sub: trailing,
+                    });
+                }
+            }
+        }
+
+        // 5. Never fall through into generic scoped effects on `ChoiceZone$ Hand`
+        // (guards against Alchemy `Duration$ Perpetual` / `PumpZone$ Hand` / `MakeCard`).
+        if expected_origin == "Hand" {
+            return self.deny(format!(
+                "`ChooseCard` in `ChoiceZone$ Hand` with unsupported follow-up `{api}`"
+            ));
+        }
+
         let then_effects =
             self.compile_wave8_scoped_chain(sub_name, Wave8Scope::ChosenObject, None, true)?;
-        Some(("ChooseMove::None".to_string(), then_effects, None))
+        Some(ChooseCardFollowup {
+            movement: "ChooseMove::None".to_string(),
+            not_chosen_movement: "ChooseMove::None".to_string(),
+            then_effects,
+            for_unchosen: Vec::new(),
+            trailing_sub: None,
+        })
     }
 
     fn strip_chosen_card_cleanup_tail(&self, after: Option<String>) -> Option<String> {
@@ -13844,6 +15378,211 @@ impl Tx<'_> {
         ])
     }
 
+    /// `Dig` (`DestinationZone$ Exile | ChangeNum$ All | RememberChanged$ True`)
+    /// -> `ChooseCard` (`ChoiceZone$ Exile | Choices$ <filter>.IsRemembered`)
+    /// -> `DB$ Effect` (`MayPlay$ True`) or `DB$ ChangeZone` (`Origin$ Exile`),
+    /// lowering to `Effect::RevealUntilThen` + `Effect::ChooseCardEx` over
+    /// `ChooseZone::Found` (*Fireglass Mentor*, *You Find Some Prisoners*,
+    /// *Mishra's Research Desk*, *Heroes' Hangout*, *Riverwheel Sweep*,
+    /// *Magmatic Channeler*, *Party Thrasher*, *Lord of the Void*).
+    #[allow(clippy::too_many_lines)]
+    fn dig_exile_choose_chain(
+        &mut self,
+        p: &mut Params,
+        sub: &mut Option<String>,
+        target: Option<&str>,
+        targets_a_player: bool,
+    ) -> Option<Vec<String>> {
+        let choose_name = sub.as_deref()?.trim().to_string();
+        let choose_body = self.svars.get(&choose_name)?.clone();
+        let (choose_api, mut cp) = Params::parse(&choose_body)?;
+        cp.drop_prose();
+        if choose_api != "ChooseCard"
+            || cp.take("ChoiceZone").as_deref() != Some("Exile")
+            || !cp
+                .peek("Choices")
+                .is_some_and(|c| c.contains("IsRemembered"))
+        {
+            return None;
+        }
+        let lib_who =
+            self.wave11_player_of_line(p.take("Defined").as_deref(), target, targets_a_player)?;
+        if !Self::is_single_player_rel(lib_who) {
+            return None;
+        }
+        if p.take("DestinationZone").as_deref() != Some("Exile")
+            || p.take("ChangeNum").as_deref() != Some("All")
+            || p.take("RememberChanged").as_deref() != Some("True")
+        {
+            return None;
+        }
+        p.take("ChangeValid");
+        p.take("IsCurse");
+        if let Some(forget) = p.take("ForgetOtherRemembered")
+            && forget != "True"
+        {
+            return None;
+        }
+        let dig_raw = p.take("DigNum")?;
+        let dig_num = self.amount_or_count_ext(&dig_raw)?;
+        if dig_num == "Amount::Fixed(0)" || !p.exhausted() {
+            return None;
+        }
+
+        cp.take("ChoiceTitle");
+        cp.take("ChoiceDesc");
+        cp.take("IsCurse");
+        if let Some(forget) = cp.take("ForgetOtherRemembered")
+            && forget != "True"
+        {
+            return None;
+        }
+        if let Some(rev) = cp.take("Reveal")
+            && !matches!(rev.as_str(), "True" | "False")
+        {
+            return None;
+        }
+        let chooser =
+            self.wave11_player_of_line(cp.take("Defined").as_deref(), target, targets_a_player)?;
+        if !Self::is_single_player_rel(chooser) {
+            return None;
+        }
+        let choices_raw = cp.take("Choices")?;
+        let mut stripped_alts = Vec::new();
+        for alt in choices_raw.split(',').map(str::trim) {
+            let (base, atoms_raw) = alt.split_once('.')?;
+            let mut saw_rem = false;
+            let mut kept = Vec::new();
+            for atom in atoms_raw
+                .split('+')
+                .map(str::trim)
+                .filter(|a| !a.is_empty())
+            {
+                if atom == "IsRemembered" {
+                    saw_rem = true;
+                } else if atom.contains("Remembered")
+                    || atom.contains("Imprinted")
+                    || atom.contains("ExiledWith")
+                    || atom.contains("Own")
+                    || atom.contains("Ctrl")
+                {
+                    return None;
+                } else {
+                    kept.push(atom);
+                }
+            }
+            if !saw_rem {
+                return None;
+            }
+            if kept.is_empty() {
+                stripped_alts.push(base.to_string());
+            } else {
+                stripped_alts.push(format!("{base}.{}", kept.join("+")));
+            }
+        }
+        let stripped = stripped_alts.join(",");
+        let filter_name = if stripped == "Card" {
+            "Filter::Any".to_string()
+        } else {
+            let expr = self.filter_expr_in_zone(&stripped, true)?;
+            self.body.filter_static("FOUND_CHOOSE", &expr)
+        };
+        let mandatory = match cp.take("Mandatory").as_deref() {
+            None | Some("False") => false,
+            Some("True") => true,
+            Some(_) => return None,
+        };
+        let raw_amount = cp.take("Amount");
+        let max_expr = match raw_amount.as_deref() {
+            None => "Amount::Fixed(1)".to_string(),
+            Some(raw) => self.amount_or_count_ext(raw)?,
+        };
+        if max_expr == "Amount::Fixed(0)" {
+            return None;
+        }
+        let min: u8 = if let Some(raw_min) = cp.take("MinAmount") {
+            raw_min.trim().parse::<u8>().ok()?
+        } else if mandatory {
+            match raw_amount.as_deref() {
+                None => 1,
+                Some(raw) => raw.trim().parse::<u8>().unwrap_or(u8::MAX),
+            }
+        } else {
+            0
+        };
+        let choose_sub = cp.take("SubAbility")?;
+        if !cp.exhausted() {
+            return None;
+        }
+
+        let (movement, then_effects, trailing) = if let Some((spec, trailing)) =
+            self.consume_chosen_card_exile_play_effect(&choose_sub, lib_who == "PlayerRel::You")
+        {
+            let perm = spec.to_expr();
+            let grant = format!(
+                "Effect::ExileWithPermission {{ target: TargetSpec::EventObject, until: None, \
+                 permission: {perm} }}"
+            );
+            let then = if max_expr == "Amount::Fixed(1)" {
+                vec![grant]
+            } else {
+                vec![format!(
+                    "Effect::RepeatEachObject {{ zone: ZoneSel::ExileAll, filter: &Filter::Any, \
+                     only_found: true, then: &[{grant}] }}"
+                )]
+            };
+            ("ChooseMove::None".to_string(), then, trailing)
+        } else {
+            let followup = self.choose_card_followup(
+                &choose_sub,
+                "Exile",
+                Some(lib_who),
+                chooser,
+                None,
+                ChooseCtrlScope::None,
+                &stripped,
+                &stripped,
+                &max_expr,
+            )?;
+            if followup.not_chosen_movement != "ChooseMove::None"
+                || !followup.for_unchosen.is_empty()
+            {
+                return None;
+            }
+            (
+                followup.movement,
+                followup.then_effects,
+                followup.trailing_sub,
+            )
+        };
+
+        *sub = trailing;
+        let then_joined = then_effects.join(", ");
+        Some(vec![format!(
+            "Effect::RevealUntilThen {{ \
+             library: {lib_who}, \
+             filter: &Filter::Any, \
+             count: {dig_num}, \
+             max_revealed: Some({dig_num}), \
+             exile_while_revealing: true, \
+             found: RevealUntilFound::Exile, \
+             rest: RevealUntilRest::Exile, \
+             then: &[Effect::ChooseCardEx {{ \
+             chooser: {chooser}, \
+             zone: ChooseZone::Found, \
+             filter: &{filter_name}, \
+             min: {min}, \
+             max: {max_expr}, \
+             reveal_chosen: false, \
+             movement: {movement}, \
+             not_chosen_movement: ChooseMove::None, \
+             then: &[{then_joined}], \
+             for_unchosen: &[] \
+             }}] \
+             }}"
+        )])
+    }
+
     /// Clean `RememberDestroyed` / `RememberMilled` / `RememberDiscarded` /
     /// `RememberChanged` chains whose `SubAbility$` steps count or test the
     /// affected objects via `Amount::ThisWay(ThisWay::...)` (or optional
@@ -13899,6 +15638,20 @@ impl Tx<'_> {
             && p.peek("Destination") == Some("Battlefield")
             && p.peek("RememberChanged") == Some("True")
             && let Some(effs) = self.reanimate_and_pump_remembered_chain(api, p, sub, target, flags)
+        {
+            return Some(effs);
+        }
+        if api == "Dig"
+            && p.peek("ChangeNum") == Some("All")
+            && p.peek("DestinationZone") == Some("Exile")
+            && p.peek("RememberChanged") == Some("True")
+            && matches!(p.peek("ChangeValid"), None | Some("Card"))
+            && !p.has("ExileFaceDown")
+            && !p.has("Optional")
+            && !p.has("Reveal")
+            && !p.has("DestinationZone2")
+            && !self.has_linked_exile_reader()
+            && let Some(effs) = self.dig_exile_choose_chain(p, sub, target, targets_a_player)
         {
             return Some(effs);
         }
@@ -18019,6 +19772,37 @@ enum Wave8Scope {
     ChosenObject,
     RevealedObject,
     Times,
+}
+
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum ExileAffectedMarker {
+    LinkedSource,
+    Remembered,
+    ChosenCard,
+    ChosenCardOrRemembered,
+}
+
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum ChooseZoneOwner {
+    Rel(&'static str),
+    LinkedExile,
+}
+
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum ChooseCtrlScope {
+    None,
+    You,
+    Chooser,
+    Targeted,
+    EventPlayer,
+}
+
+struct ChooseCardFollowup {
+    movement: String,
+    not_chosen_movement: String,
+    then_effects: Vec<String>,
+    for_unchosen: Vec<String>,
+    trailing_sub: Option<String>,
 }
 
 struct ExilePermissionSpec {

@@ -2146,10 +2146,22 @@ fn wave22c_etb_counter_cast_riders_and_refusals() {
         );
     }
 
-    // Unassigned keyword/named counters and unmodelled etbCounter SVars stay honestly refused.
+    // Wave 13d CR 122.1b keyword counters (`Menace`, `Hexproof`) now lower cleanly.
+    let menace =
+        read("Name:MenaceNinja\nManaCost:2 B\nTypes:Creature\nPT:3/3\nK:etbCounter:Menace:1");
+    assert_eq!(
+        menace.enter_modifiers,
+        ["EnterModifier::WithCounters { kind: CounterKind::Menace, amount: Amount::Fixed(1) }"]
+    );
+    let hexproof =
+        read("Name:HexproofBeast\nManaCost:3 G\nTypes:Creature\nPT:3/3\nK:etbCounter:Hexproof:1");
+    assert_eq!(
+        hexproof.enter_modifiers,
+        ["EnterModifier::WithCounters { kind: CounterKind::Hexproof, amount: Amount::Fixed(1) }"]
+    );
+
+    // Unassigned named counters and unmodelled etbCounter SVars stay honestly refused.
     for unmodelled in [
-        "Name:MenaceNinja\nManaCost:2 B\nTypes:Creature\nPT:3/3\nK:etbCounter:Menace:1",
-        "Name:HexproofBeast\nManaCost:3 G\nTypes:Creature\nPT:3/3\nK:etbCounter:Hexproof:1",
         "Name:DivinitySpirit\nManaCost:5 W\nTypes:Creature\nPT:4/4\nK:etbCounter:DIVINITY:1",
         "Name:ConvergeGolem\nManaCost:4\nTypes:Artifact Creature\nPT:0/0\nK:etbCounter:P1P1:X\nSVar:X:Count$Converge",
         "Name:AdamantKnight\nManaCost:3 R\nTypes:Creature\nPT:2/2\nK:etbCounter:P1P1:1:CheckSVar$ X\nSVar:X:Adamant$ Red",

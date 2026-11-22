@@ -1149,6 +1149,7 @@ fn wave23a_repeat_each_object_copy_damage_nested_and_two_piles() {
     );
 }
 
+#[allow(clippy::too_many_lines)]
 #[test]
 fn wave23a_refusal_edge_cases() {
     for bad in [
@@ -1214,28 +1215,12 @@ fn wave23a_refusal_edge_cases() {
         "Name:BadTargetedRepeatSub\nManaCost:3 R\nTypes:Sorcery\n\
          A:SP$ RepeatEach | RepeatCards$ Creature.YouCtrl | RepeatSubAbility$ DBDmg\n\
          SVar:DBDmg:DB$ DealDamage | ValidTgts$ Any | NumDmg$ 1",
-        // `PeekAndReveal` -> `TwoPiles` refusals: inverted roles, face-down, bottom-of-library, dynamic count, non-You library.
-        "Name:BadInvertedPiles\nManaCost:2 U R\nTypes:Instant\n\
-         A:SP$ PeekAndReveal | NoPeek$ True | RememberRevealed$ True | PeekAmount$ 5 | SubAbility$ DBTwo\n\
-         SVar:DBTwo:DB$ TwoPiles | Defined$ You | DefinedCards$ Remembered | Separator$ You | Chooser$ Opponent | ChosenPile$ DBH | UnchosenPile$ DBG\n\
-         SVar:DBH:DB$ ChangeZone | Defined$ Remembered | Origin$ Library | Destination$ Hand\n\
-         SVar:DBG:DB$ ChangeZone | Defined$ Remembered | Origin$ Library | Destination$ Graveyard",
+        // `PeekAndReveal` -> `TwoPiles` refusals: face-down piles and non-You library stay refused.
         "Name:BadFaceDownPiles\nManaCost:3 U\nTypes:Instant\n\
          A:SP$ PeekAndReveal | NoPeek$ True | RememberRevealed$ True | PeekAmount$ 4 | SubAbility$ DBTwo\n\
          SVar:DBTwo:DB$ TwoPiles | Defined$ You | DefinedCards$ Remembered | Separator$ Opponent | Chooser$ You | FaceDown$ One | ChosenPile$ DBH | UnchosenPile$ DBG\n\
          SVar:DBH:DB$ ChangeZone | Defined$ Remembered | Origin$ Library | Destination$ Hand\n\
          SVar:DBG:DB$ ChangeZone | Defined$ Remembered | Origin$ Library | Destination$ Graveyard",
-        "Name:BadBottomPiles\nManaCost:3 U\nTypes:Instant\n\
-         A:SP$ PeekAndReveal | NoPeek$ True | RememberRevealed$ True | PeekAmount$ 3 | SubAbility$ DBTwo\n\
-         SVar:DBTwo:DB$ TwoPiles | Defined$ You | DefinedCards$ Remembered | Separator$ Opponent | Chooser$ You | ChosenPile$ DBH | UnchosenPile$ DBL\n\
-         SVar:DBH:DB$ ChangeZone | Defined$ Remembered | Origin$ Library | Destination$ Hand\n\
-         SVar:DBL:DB$ ChangeZone | Defined$ Remembered | Origin$ Library | Destination$ Library | LibraryPosition$ -1",
-        "Name:BadDynamicPiles\nManaCost:X U\nTypes:Instant\n\
-         A:SP$ PeekAndReveal | NoPeek$ True | RememberRevealed$ True | PeekAmount$ X | SubAbility$ DBTwo\n\
-         SVar:DBTwo:DB$ TwoPiles | Defined$ You | DefinedCards$ Remembered | Separator$ Opponent | Chooser$ You | ChosenPile$ DBH | UnchosenPile$ DBG\n\
-         SVar:DBH:DB$ ChangeZone | Defined$ Remembered | Origin$ Library | Destination$ Hand\n\
-         SVar:DBG:DB$ ChangeZone | Defined$ Remembered | Origin$ Library | Destination$ Graveyard\n\
-         SVar:X:Count$xPaid",
         "Name:BadOppLibraryPiles\nManaCost:3 U\nTypes:Instant\n\
          A:SP$ PeekAndReveal | Defined$ Opponent | NoPeek$ True | RememberRevealed$ True | PeekAmount$ 5 | SubAbility$ DBTwo\n\
          SVar:DBTwo:DB$ TwoPiles | Defined$ You | DefinedCards$ Remembered | Separator$ Opponent | Chooser$ You | ChosenPile$ DBH | UnchosenPile$ DBG\n\
@@ -1247,4 +1232,45 @@ fn wave23a_refusal_edge_cases() {
     ] {
         assert!(refused(bad), "must refuse: {bad}");
     }
+
+    // Wave 13a `Effect::SeparateIntoTwoPiles` unlocks inverted roles, bottom-of-library remainder,
+    // and dynamic reveal counts.
+    let inverted = read(
+        "Name:InvertedPiles\nManaCost:2 U R\nTypes:Instant\n\
+         A:SP$ PeekAndReveal | NoPeek$ True | RememberRevealed$ True | PeekAmount$ 5 | SubAbility$ DBTwo\n\
+         SVar:DBTwo:DB$ TwoPiles | Defined$ You | DefinedCards$ Remembered | Separator$ You | Chooser$ Opponent | ChosenPile$ DBH | UnchosenPile$ DBG\n\
+         SVar:DBH:DB$ ChangeZone | Defined$ Remembered | Origin$ Library | Destination$ Hand\n\
+         SVar:DBG:DB$ ChangeZone | Defined$ Remembered | Origin$ Library | Destination$ Graveyard",
+    );
+    assert!(
+        inverted.abilities[0].contains("Effect::SeparateIntoTwoPiles { separator: PlayerRel::You, pile_chooser: PlayerRel::Opponent"),
+        "{:?}",
+        inverted.abilities
+    );
+    let bottom = read(
+        "Name:BottomPiles\nManaCost:3 U\nTypes:Instant\n\
+         A:SP$ PeekAndReveal | NoPeek$ True | RememberRevealed$ True | PeekAmount$ 3 | SubAbility$ DBTwo\n\
+         SVar:DBTwo:DB$ TwoPiles | Defined$ You | DefinedCards$ Remembered | Separator$ Opponent | Chooser$ You | ChosenPile$ DBH | UnchosenPile$ DBL\n\
+         SVar:DBH:DB$ ChangeZone | Defined$ Remembered | Origin$ Library | Destination$ Hand\n\
+         SVar:DBL:DB$ ChangeZone | Defined$ Remembered | Origin$ Library | Destination$ Library | LibraryPosition$ -1",
+    );
+    assert!(
+        bottom.abilities[0].contains("not_chosen_movement: ChooseMove::BottomOfLibraryChosenOrder"),
+        "{:?}",
+        bottom.abilities
+    );
+    let dynamic = read(
+        "Name:DynamicPiles\nManaCost:X U\nTypes:Instant\n\
+         A:SP$ PeekAndReveal | NoPeek$ True | RememberRevealed$ True | PeekAmount$ X | SubAbility$ DBTwo\n\
+         SVar:DBTwo:DB$ TwoPiles | Defined$ You | DefinedCards$ Remembered | Separator$ Opponent | Chooser$ You | ChosenPile$ DBH | UnchosenPile$ DBG\n\
+         SVar:DBH:DB$ ChangeZone | Defined$ Remembered | Origin$ Library | Destination$ Hand\n\
+         SVar:DBG:DB$ ChangeZone | Defined$ Remembered | Origin$ Library | Destination$ Graveyard\n\
+         SVar:X:Count$xPaid",
+    );
+    assert!(
+        dynamic.abilities[0].contains("count: Amount::X, max_revealed: Some(Amount::X)")
+            && dynamic.abilities[0].contains("Effect::SeparateIntoTwoPiles"),
+        "{:?}",
+        dynamic.abilities
+    );
 }

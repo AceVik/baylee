@@ -4147,15 +4147,43 @@ fn wave19b_filters_addendum_choose_card_reveal_hand_and_token_refusals() {
         public_rev.abilities
     );
 
+    // Wave 13a `Effect::ChooseCardEx` unlocks `ChoiceZone$ Hand` (Exile) and
+    // `ControlledByPlayer$ Chooser` (`Filter::ControlledByChooser`).
+    let choose_hand = read(
+        "Name:GoodChooseHand\nManaCost:1 B\nTypes:Sorcery\n\
+         A:SP$ ChooseCard | ChoiceZone$ Hand | Choices$ Creature.YouOwn | Mandatory$ True | SubAbility$ M\n\
+         SVar:M:DB$ ChangeZone | Defined$ ChosenCard | Origin$ Hand | Destination$ Exile",
+    );
+    assert!(
+        choose_hand.abilities[0].contains("Effect::ChooseCardEx")
+            && choose_hand.abilities[0].contains("zone: ChooseZone::Hand(PlayerRel::You)")
+            && choose_hand.abilities[0].contains("movement: ChooseMove::Exile"),
+        "{:?}",
+        choose_hand.abilities
+    );
+    let choose_opp_ctrl = read(
+        "Name:GoodChooseOppCtrl\nManaCost:2 B\nTypes:Sorcery\n\
+         A:SP$ ChooseCard | Defined$ Opponent | Choices$ Creature | ControlledByPlayer$ Chooser | Mandatory$ True | SubAbility$ M\n\
+         SVar:M:DB$ Destroy | Defined$ ChosenCard",
+    );
+    assert!(
+        choose_opp_ctrl.abilities[0]
+            .contains("Effect::RepeatEach { domain: RepeatDomain::EachOpponent")
+            && choose_opp_ctrl.abilities[0].contains("Effect::ChooseCardEx")
+            && choose_opp_ctrl
+                .statics
+                .contains("Filter::ControlledByChooser"),
+        "{:?} / {:?}",
+        choose_opp_ctrl.abilities,
+        choose_opp_ctrl.statics
+    );
+
     // Honest refusals: `modified`, bare `wasCast` filter, non-X `cmcLEX`, non-Addendum `Card.wasCast`,
-    // `ChooseCard` `ChoiceZone$ Hand` & non-You `ControlledByPlayer$ Chooser`, `RevealHand` `Look$ True`
-    // on non-chosen seat, dynamic `Token.{TokenPower,TokenToughness}`.
+    // `RevealHand` `Look$ True` on non-chosen seat, dynamic `Token.{TokenPower,TokenToughness}`.
     for bad in [
         "Name:BadWasCastFilter\nManaCost:1 U\nTypes:Instant\nA:SP$ Destroy | ValidTgts$ Creature.wasCast",
         "Name:BadNonXCmcLe\nManaCost:W\nTypes:Sorcery\nA:SP$ ChangeZone | ValidTgts$ Creature.cmcLEX | Origin$ Battlefield | Destination$ Exile\nSVar:X:Count$Valid Plains.YouCtrl",
         "Name:BadNonYouWasCast\nManaCost:3 W\nTypes:Artifact\nT:Mode$ ChangesZone | Origin$ Any | Destination$ Battlefield | ValidCard$ Card.Self | Execute$ D\nSVar:D:DB$ Draw | ConditionDefined$ Self | ConditionPresent$ Card.wasCast\nOracle:When this enters, if it was cast, draw a card.",
-        "Name:BadChooseHand\nManaCost:1 B\nTypes:Sorcery\nA:SP$ ChooseCard | ChoiceZone$ Hand | Choices$ Creature.YouOwn | Mandatory$ True | SubAbility$ M\nSVar:M:DB$ ChangeZone | Defined$ ChosenCard | Origin$ Hand | Destination$ Exile",
-        "Name:BadChooseOppCtrl\nManaCost:2 B\nTypes:Sorcery\nA:SP$ ChooseCard | Defined$ Opponent | Choices$ Creature | ControlledByPlayer$ Chooser | Mandatory$ True | SubAbility$ M\nSVar:M:DB$ Destroy | Defined$ ChosenCard",
         "Name:BadLookNonChosen\nManaCost:2 U\nTypes:Creature Ninja\nPT:1/2\nT:Mode$ DamageDone | ValidSource$ Card.Self | ValidTarget$ Player | CombatDamage$ True | Execute$ L\nSVar:L:DB$ RevealHand | Defined$ TriggeredTarget | Look$ True",
         "Name:BadSizedToken\nManaCost:X G\nTypes:Sorcery\nA:SP$ Token | TokenScript$ g_x_x_wurm | TokenPower$ X | TokenToughness$ X\nSVar:X:Count$xPaid",
     ] {

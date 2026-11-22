@@ -2609,9 +2609,23 @@ fn wave8b_choose_card_battlefield_and_graveyard() {
          A:SP$ ChooseCard | ChoiceZone$ Battlefield | Choices$ Creature | AtRandom$ True | SubAbility$ Kill\n\
          SVar:Kill:DB$ Destroy | Defined$ ChosenCard"
     ));
-    assert!(refused(
-        "Name:BadOppRean\nManaCost:2 B\nTypes:Sorcery\n\
+    // Single-card non-You graveyard return without `GainControl$ True` lowers via
+    // `MoveAndModify { owner_control: true }`; multi-card (`Amount$ 2`) stays refused.
+    let opp_owner_rean = read(
+        "Name:OppOwnerRean\nManaCost:2 B\nTypes:Sorcery\n\
          A:SP$ ChooseCard | ValidTgts$ Opponent | Choices$ Creature.TargetedPlayerOwn | ChoiceZone$ Graveyard | Mandatory$ True | SubAbility$ Move\n\
+         SVar:Move:DB$ ChangeZone | Defined$ ChosenCard | Origin$ Graveyard | Destination$ Battlefield",
+    );
+    assert!(
+        opp_owner_rean.abilities[0].contains("zone: ChooseZone::Graveyard(PlayerRel::Chosen)")
+            && opp_owner_rean.abilities[0].contains("movement: ChooseMove::None")
+            && opp_owner_rean.abilities[0].contains("owner_control: true"),
+        "{}",
+        opp_owner_rean.abilities[0]
+    );
+    assert!(refused(
+        "Name:BadMultiOppRean\nManaCost:2 B\nTypes:Sorcery\n\
+         A:SP$ ChooseCard | ValidTgts$ Opponent | Choices$ Creature.TargetedPlayerOwn | ChoiceZone$ Graveyard | Amount$ 2 | Mandatory$ True | SubAbility$ Move\n\
          SVar:Move:DB$ ChangeZone | Defined$ ChosenCard | Origin$ Graveyard | Destination$ Battlefield"
     ));
 }
@@ -4667,9 +4681,22 @@ fn wave14c_counter_types_and_wave6c_effect_modifiers() {
         "Name:BadListCounter\nManaCost:2 W\nTypes:Sorcery\n\
          A:SP$ PutCounter | ValidTgts$ Creature | CounterTypes$ P1P1,ChosenFromList | TypeList$ Flying,Lifelink"
     ));
+    let trample_counter = read(
+        "Name:TrampleKindCounter\nManaCost:2 G\nTypes:Sorcery\n\
+         A:SP$ PutCounter | ValidTgts$ Creature | CounterTypes$ P1P1,Trample | CounterNum$ 1",
+    );
+    assert!(
+        trample_counter.abilities[0]
+            .contains("Effect::AddCounter { kind: CounterKind::P1P1, amount: Amount::Fixed(1) }")
+            && trample_counter.abilities[0].contains(
+                "Effect::AddCounter { kind: CounterKind::Trample, amount: Amount::Fixed(1) }"
+            ),
+        "{}",
+        trample_counter.abilities[0]
+    );
     assert!(refused(
         "Name:UnmodeledKindCounter\nManaCost:2 G\nTypes:Sorcery\n\
-         A:SP$ PutCounter | ValidTgts$ Creature | CounterTypes$ P1P1,Trample | CounterNum$ 1"
+         A:SP$ PutCounter | ValidTgts$ Creature | CounterTypes$ P1P1,DIVINITY | CounterNum$ 1"
     ));
 
     let max_block = read(
