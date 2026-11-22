@@ -117,8 +117,9 @@ fn restricted_modal_triggers_reserve_modes_before_any_trigger_resolves() {
         ],
     );
     to_main(&mut game, me());
-    let entrants = game.state.zones.list(ZoneLocation::Hand(me())).clone();
-    for entrant in entrants.into_iter().take(3) {
+    let entrants = objects(&game, ZoneLocation::Hand(me()), CUB_BEAR);
+    assert_eq!(entrants.len(), 3);
+    for entrant in entrants {
         game.state
             .move_object(
                 entrant,
