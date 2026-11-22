@@ -500,7 +500,7 @@ fn a_timed_out_seat_does_nothing_wherever_the_question_allows_it() {
 }
 
 /// How many kinds [`kind_of`] tells apart.
-const KINDS: usize = 79;
+const KINDS: usize = 74;
 
 /// Which kind of question this is, numbered without gaps. No wildcard
 /// arm: a new `Pending` variant or yes/no prompt does not compile here
@@ -577,11 +577,11 @@ fn kind_of(pending: &Pending) -> usize {
                 YesNoPrompt::OpeningHandReveal => 47,
                 YesNoPrompt::AssignDamageAsThoughUnblocked { .. } => 48,
                 YesNoPrompt::Endure(_) => 49,
-                YesNoPrompt::ClashBottom { .. } => 50,
-                YesNoPrompt::Conspire => 51,
-                YesNoPrompt::Tribute { .. } => 52,
-                YesNoPrompt::AdditionalVote => 53,
-                YesNoPrompt::SearchLibrary => 54,
+                YesNoPrompt::ClashBottom { .. } => 17,
+                YesNoPrompt::Conspire => 18,
+                YesNoPrompt::Tribute { .. } => 19,
+                YesNoPrompt::AdditionalVote => 20,
+                YesNoPrompt::SearchLibrary => 21,
             }
         }
         Pending::ChoosePile { .. } => 23,
