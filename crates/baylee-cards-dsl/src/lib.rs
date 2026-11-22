@@ -136,7 +136,7 @@ pub use build::{
 pub use cost::{AltCondition, AlternativeCost, Cost, CostPart, CostReduction};
 pub use effect::{
     Amount, ChooseMove, ChooseZone, ColorSubject, CombatWatchEvent, CopyCleanup, CounterKind,
-    DamageRedirectTo, DamageTo, DelayedDuration, DelayedObservation, DelayedStep,
+    DamageRedirectTo, DamageRider, DamageTo, DelayedDuration, DelayedObservation, DelayedStep,
     DelayedTriggerWhen, DivisionAmount, Effect, ExileMana, ExilePermission, ExilePlay, ExileUntil,
     Find, LookRest, ManaDistribution, ManaRestriction, ManaSource, ManaUse, ManaValueBound,
     ManaValueCmp, ModalRestriction, MoveSubject, NumberChoiceKind, PeekPickDest, PeekRestDest,

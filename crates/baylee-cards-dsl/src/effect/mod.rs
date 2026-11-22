@@ -29,6 +29,41 @@ pub use play::*;
 pub use search::*;
 pub use targets::*;
 
+/// A damage prevention or replacement instruction that commits one immediate
+/// effect (CR 615.5). Choices introduced by other replacement effects belong
+/// to the game's ordinary counter, life, entry or graveyard-order queues.
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Hash)]
+pub struct DamageRider(&'static [Effect; 1]);
+
+impl DamageRider {
+    /// Build a printed rider. Card definitions check this at compile time.
+    ///
+    /// # Panics
+    /// If the operation needs its own resolution continuation.
+    #[must_use]
+    pub const fn new(op: &'static [Effect; 1]) -> Self {
+        assert!(
+            matches!(
+                op[0],
+                Effect::GainLife { .. }
+                    | Effect::AddCounterSource { .. }
+                    | Effect::AddCounterFilter { .. }
+                    | Effect::ExileTop { .. }
+                    | Effect::Mill { .. }
+                    | Effect::CreateTokenN { .. }
+            ),
+            "a damage rider must commit a single immediate instruction"
+        );
+        Self(op)
+    }
+
+    /// The printed instruction for execution and DSL traversal.
+    #[must_use]
+    pub const fn instruction(self) -> &'static [Effect; 1] {
+        self.0
+    }
+}
+
 /// Where a damage-redirection instruction sends damage.
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 pub enum DamageRedirectTo {
