@@ -930,6 +930,10 @@ fn encode_global4(
             g[32] = 1.0;
             g[33] = unit(*preventable_damage as f32, 10.0);
         }
+        Some(ManaPayment::Variable { max, .. }) => {
+            g[32] = 1.0;
+            g[33] = unit(*max as f32, 10.0);
+        }
     }
 
     if let Some(p) = pending {

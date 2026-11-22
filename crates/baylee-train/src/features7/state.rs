@@ -1268,6 +1268,12 @@ fn encode_global7(
             g[33] = raw_unit(*preventable_damage as f32, 10.0);
             g[75] = *preventable_damage as f32;
         }
+        Some(ManaPayment::Variable { min, max }) => {
+            g[32] = 1.0;
+            g[33] = raw_unit(*max as f32, 10.0);
+            g[70] = *min as f32;
+            g[75] = *max as f32;
+        }
     }
 
     if let Some(tc) = &view.targeting {
