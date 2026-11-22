@@ -1,0 +1,22 @@
+[package]
+name = "baylee-league-lab"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.99"
+license = "AGPL-3.0-only"
+publish = false
+
+[workspace]
+
+[dependencies]
+rand = "0.10"
+rand_chacha = "0.10"
+rand_distr = "0.6"
+
+[lints.clippy]
+pedantic = { level = "warn", priority = -1 }
+# Simulated deck and population sizes are <= 150,000. Elo changes are
+# deliberately rounded before conversion. Table indices are clamped first.
+cast_precision_loss = "allow"
+cast_possible_truncation = "allow"
+cast_sign_loss = "allow"
