@@ -1280,7 +1280,7 @@ fn reduce_next_spell_cost_duration_mode_and_colored_pips_discount_multiple_spell
 
 #[test]
 fn a_linked_search_exile_can_be_cast_only_through_its_source() {
-    use baylee_cards_dsl::prelude::{Find, activated, triggered};
+    use baylee_cards_dsl::prelude::{Find, Trigger, activated, triggered};
 
     static ABILITIES: &[AbilityDef] = &[
         triggered!(
