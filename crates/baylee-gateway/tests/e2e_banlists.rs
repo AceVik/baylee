@@ -282,7 +282,7 @@ async fn an_official_list_follows_the_feed_and_is_copied_whole() {
     let copy: Value = serde_json::from_str(&body).expect("a list");
     assert_eq!(copy["builtin"], false);
     assert_eq!(copy["mine"], true);
-    assert_eq!(copy["entries"][0]["oracle_id"], ring.as_str());
+    assert_eq!(copy["entries"][0]["oracle_id"], ring);
     assert_eq!(copy["entries"][0]["status"], "banned");
 }
 
@@ -590,7 +590,7 @@ async fn an_edit_does_not_reach_a_running_game() {
     let held: Value = serde_json::from_str(&body).expect("a list");
     assert_eq!(held["version"], frozen);
     assert_eq!(held["entries"].as_array().expect("cards").len(), 1);
-    assert_eq!(held["entries"][0]["oracle_id"], ring.as_str());
+    assert_eq!(held["entries"][0]["oracle_id"], ring);
 
     // A room that still waits reads the list as it stands.
     let guest = login(gw.port, "guest", "Guest");
@@ -603,7 +603,7 @@ async fn an_edit_does_not_reach_a_running_game() {
     assert_eq!(status, 200, "{body}");
     let read: Value = serde_json::from_str(&body).expect("a list");
     assert_eq!(read["version"], 2, "{read}");
-    assert_eq!(read["entries"][0]["oracle_id"], stone.as_str());
+    assert_eq!(read["entries"][0]["oracle_id"], stone);
 }
 
 /// A refresh of an official list is the same question: the ingest moves the
@@ -666,8 +666,7 @@ async fn a_refresh_of_an_official_list_does_not_reach_a_running_game() {
     let held: Value = serde_json::from_str(&body).expect("a list");
     assert_eq!(held["entries"].as_array().expect("cards").len(), 1);
     assert_eq!(
-        held["entries"][0]["oracle_id"],
-        ring.as_str(),
+        held["entries"][0]["oracle_id"], ring,
         "the game's list is the one it started under"
     );
 }
