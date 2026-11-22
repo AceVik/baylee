@@ -4,7 +4,9 @@
 //! reproducible and CI needs no network.
 
 mod defense_cache;
+mod paper;
 pub use defense_cache::migrate_defense_cache;
+pub use paper::paper_oracle_ids;
 
 use crate::catalog::{SubtypeCatalogs, module_name};
 use crate::error::CodegenError;
@@ -789,7 +791,7 @@ pub fn fill_from_bulk(
         eprintln!("scryfall: cannot create {}: {message}", cache_dir.display());
         return 0;
     }
-    let url = match bulk_uri(agent) {
+    let url = match bulk_uri(agent, BULK_FEED) {
         Ok(url) => url,
         Err(message) => {
             eprintln!("scryfall: bulk listing unavailable ({message}), fetching one by one");
@@ -808,8 +810,8 @@ pub fn fill_from_bulk(
     }
 }
 
-/// Resolves [`BULK_FEED`] to its current download URL.
-fn bulk_uri(agent: &ureq::Agent) -> Result<String, String> {
+/// Resolves a bulk feed to its current download URL.
+fn bulk_uri(agent: &ureq::Agent, kind: &str) -> Result<String, String> {
     let url = format!("{API}/bulk-data");
     let list: BulkList = get_json(agent, &url).map_err(|e| match e {
         FetchError::NotFound => "no bulk-data listing".to_string(),
@@ -817,9 +819,9 @@ fn bulk_uri(agent: &ureq::Agent) -> Result<String, String> {
     })?;
     list.data
         .into_iter()
-        .find(|e| e.kind == BULK_FEED)
+        .find(|e| e.kind == kind)
         .map(|e| e.jsonl_download_uri)
-        .ok_or_else(|| format!("Scryfall has no {BULK_FEED} feed"))
+        .ok_or_else(|| format!("Scryfall has no {kind} feed"))
 }
 
 /// Streams the feed line by line, writing the payloads that were asked for.

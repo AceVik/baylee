@@ -263,12 +263,12 @@ pub(crate) fn check_code_matches_the_printing(
 /// and Black Lotus prints neither. "Add three mana of any one color" reached
 /// the symbol scan, which found no symbol, and the card was reported as
 /// making five colours the printing never offers. Counted over the payload
-/// cache, the printed forms of that promise are 28 and every one of them says
-/// "any": "one mana of any color", "three mana of any one color", "two mana
+/// cache, common forms of that promise say "any": "one mana of any color",
+/// "three mana of any one color", "two mana
 /// in any combination of colors", "any type that a land you control could
 /// produce", "any of the exiled card's colors". So the rule is the one the
-/// check actually needs — a clause that says "any" and spells no symbol names
-/// its mana in words — and the single form that says "any" *and* spells
+/// check actually needs — a clause that says "any" or "different colors"
+/// and spells no symbol names its mana in words. The form that says "any" *and* spells
 /// symbols, "add X mana in any combination of {R} and/or {W}", is read rather
 /// than declined, which the narrower spelling also managed by accident.
 pub(crate) fn printed_mana_offered(printed: &str) -> PrintedMana {

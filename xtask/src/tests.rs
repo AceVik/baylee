@@ -550,6 +550,7 @@ fn mana_promised_in_words_is_declined_and_not_read_as_no_mana() {
         "{t}: add one mana of any type that a land you control could produce.",
         "{t}: add two mana in any combination of colors.",
         "{t}: add one mana of any of the exiled card's colors.",
+        "{t}: add two mana of different colors.",
     ] {
         assert!(
             matches!(printed_mana_offered(printed), PrintedMana::InWords),

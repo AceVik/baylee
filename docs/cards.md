@@ -23,6 +23,10 @@ and `docs/card-identity.md` (indices and who may write what).
 
 ## Readers and ownership
 
+- New pool admissions must have a paper printing. `reach-list`, `batch`, and
+  `codegen` check the Oracle ID against Scryfall printing metadata. The local
+  cache stores IDs whose printings list `paper` in `games` and refreshes daily
+  when an admission command needs it.
 - Before a stub, codegen tries `landgen.rs` (printed land text) and `scriptgen.rs` (only `K:`, `A:`/`T:`, `S:` (partly), linked `SVar:`; names, costs, types, P/T come from Scryfall).
 - CR 305.6 mana is an ability: every land with basic land types carries `landgen::intrinsic_mana_ability` (`stubgen::transcode_card` re-adds it after scriptgen); `casting::intrinsic_mana` covers one basic type, `None` for two.
 - One unread clause (effect, parameter, computed `SVar`, data keyword) keeps the card `Coverage::Unimplemented`. Fully read is `Coverage::Generated` (playable, untested), or `Implemented` once a card test named after it exists (`card_tests/**/<slug>.rs`, `layout::tested_slugs`; a module root counts only with a `#[test]` of its own) or a test names its oracle id: codegen decides by that, so the next run after a test lands promotes the card (`docs/card-dsl.md` §"Coverage").

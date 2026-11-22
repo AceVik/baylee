@@ -398,6 +398,40 @@ fn registry_cards(
     cards(root, check, true, agent, cache, &pool, changed)
 }
 
+/// Check new identities before any generated file is changed. Existing
+/// compiled cards, including unfinished stubs, keep their current identities.
+fn check_paper_admissions(
+    names: &[String],
+    agent: &ureq::Agent,
+    cache: &Path,
+) -> anyhow::Result<()> {
+    let existing: BTreeSet<&str> = baylee_cards::all().map(|def| def.oracle_id).collect();
+    let ledger = ledger::IndexLedger::from_rows(&baylee_cards_index::ROWS)?;
+    let mut paper = None;
+    for name in names {
+        // The compiled name tables already know both spellings of a DFC.
+        if baylee_cards::decks::by_name(name)
+            .and_then(baylee_cards::by_index)
+            .is_some()
+        {
+            continue;
+        }
+        let row = ledger.entry_named(name)?;
+        if existing.contains(row.oracle_id.as_str()) {
+            continue;
+        }
+        let ids = match &mut paper {
+            Some(ids) => ids,
+            slot @ None => slot.insert(scryfall::paper_oracle_ids(agent, cache)?),
+        };
+        anyhow::ensure!(
+            ids.contains(&row.oracle_id),
+            "{name} has no paper printing in Scryfall's cached printing index"
+        );
+    }
+    Ok(())
+}
+
 pub(crate) fn codegen(
     root: &Path,
     check: bool,
@@ -420,6 +454,9 @@ pub(crate) fn codegen(
     // Before stage 1, not beside the card stage: the token ledger is written
     // first, so a refusal down there would already have written a table.
     refuse_twin_names(&names)?;
+    if !tables_only {
+        check_paper_admissions(&names, &agent, &cache)?;
+    }
     let from_decks = acceptance::unique_names(&rows).len();
     println!(
         "card pool: {} cards ({from_decks} from the acceptance decks, {} from the pool file)",

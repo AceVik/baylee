@@ -452,6 +452,7 @@ pub(crate) struct Reach {
     names: Vec<&'static str>,
     mine: usize,
     alchemy: usize,
+    without_paper: usize,
     held_back: usize,
     non_deck: usize,
     scripted: usize,
@@ -470,7 +471,9 @@ pub(crate) fn reach_measure(
     let dir = scripts_root(root, scripts_dir);
     let tokens = tokengen::TokenLookup::beside(&dir)?;
     let agent = ureq::Agent::new_with_defaults();
-    let cats = scryfall::fetch_subtype_catalogs(&agent, &root.join(cache))?;
+    let cache = root.join(cache);
+    let cats = scryfall::fetch_subtype_catalogs(&agent, &cache)?;
+    let paper = scryfall::paper_oracle_ids(&agent, &cache)?;
     let script_index = resolve_script_index(root, &dir)?;
     let have: BTreeSet<&str> = baylee_cards::all().map(|def| def.oracle_id).collect();
     // Never built, so never proposed (data/unplayable.tsv, A-* Alchemy, data/held-back.tsv).
@@ -478,6 +481,7 @@ pub(crate) fn reach_measure(
     let held_back_list = held_back_set(root)?;
     let (mut mine, mut alchemy, mut held_back, mut non_deck, mut scripted, mut refused, mut front) =
         (0usize, 0usize, 0usize, 0usize, 0usize, 0usize, 0usize);
+    let mut without_paper = 0;
     let mut names: Vec<&'static str> = Vec::new();
     // By reference: `ROWS` is a 33 694-element array and not a slice, so
     // `for row in ROWS` copies every one of them onto the stack — measured,
@@ -493,6 +497,10 @@ pub(crate) fn reach_measure(
         }
         if is_alchemy_rebalance(row.name) {
             alchemy += 1;
+            continue;
+        }
+        if !paper.contains(row.oracle_id) {
+            without_paper += 1;
             continue;
         }
         if held_back_list.contains(row.oracle_id, row.name) {
@@ -524,6 +532,7 @@ pub(crate) fn reach_measure(
         names,
         mine,
         alchemy,
+        without_paper,
         held_back,
         non_deck,
         scripted,
@@ -543,6 +552,7 @@ pub(crate) fn reach_list(
         mut names,
         mine,
         alchemy,
+        without_paper,
         held_back,
         non_deck,
         scripted,
@@ -557,6 +567,9 @@ pub(crate) fn reach_list(
     );
     if alchemy > 0 {
         println!("reach: {alchemy} digital Alchemy A-* row(s) skipped");
+    }
+    if without_paper > 0 {
+        println!("reach: {without_paper} ledger row(s) without a paper printing skipped");
     }
     if held_back > 0 {
         println!("reach: {held_back} held-back row(s) skipped (data/held-back.tsv)");
