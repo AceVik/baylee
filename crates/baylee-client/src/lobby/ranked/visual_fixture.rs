@@ -1,8 +1,9 @@
 //! Rendering-only E2E fixture for private screens. A passive developer client
 //! must explicitly opt in. No credentials, queue state, deck or host is installed.
-use super::*;
+use super::{Format, Kit, Lang, League, LobbyState, Track, api, draw, queue, receipt};
 use crate::rank_art::Promotion;
 use api::{QueueState, Rank};
+use bevy::prelude::*;
 
 pub(super) fn install(app: &mut App) {
     if std::env::var("BAYLEE_E2E_RANKED_FIXTURE").as_deref() == Ok("1")

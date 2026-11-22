@@ -1514,22 +1514,27 @@ pub(super) fn community_row(
     );
     commands.entity(row).add_child(website);
     #[cfg(not(target_arch = "wasm32"))]
-    {
-        let ranked = controls::button_compact(
-            commands,
-            kit,
-            Some(crate::hud::glyph::TROPHY),
-            Phrase::RankedBoard.text(lang),
-            Weight::Secondary,
-            Live::Yes,
-            (
-                Press::Ranked(crate::lobby::ranked::Action::Open),
-                Stop::new(table, "ranked"),
-            ),
-        );
-        commands.entity(row).add_child(ranked);
-    }
+    add_ranked_board(commands, state, kit, row);
     row
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+fn add_ranked_board(commands: &mut Commands, state: &LobbyState, kit: Kit, row: Entity) {
+    let lang = state.lobby.lang();
+    let table = keys::table_of(state).name;
+    let ranked = controls::button_compact(
+        commands,
+        kit,
+        Some(crate::hud::glyph::TROPHY),
+        Phrase::RankedBoard.text(lang),
+        Weight::Secondary,
+        Live::Yes,
+        (
+            Press::Ranked(crate::lobby::ranked::Action::Open),
+            Stop::new(table, "ranked"),
+        ),
+    );
+    commands.entity(row).add_child(ranked);
 }
 
 const WHATSAPP_GREEN: Color = Color::srgb(0.32, 0.82, 0.49);

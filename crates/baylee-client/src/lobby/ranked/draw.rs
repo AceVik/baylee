@@ -1,9 +1,14 @@
 //! Retained board body. The scroll region and its scrollbar survive network refreshes.
 use super::board::{board_row, filters};
-use super::*;
+use super::{
+    Action, Format, Kit, Lang, League, List, Live, LobbyState, Metrics, ORDER, OwnRank, Phrase,
+    Press, Scrolled, Track, Ui, Weight, api, board, controls, format_name, league_name, orders,
+    parts, queue, tokens,
+};
 use crate::hud::glyph;
 use crate::lobby::{Scrollable, scrollbars};
 use crate::shellkit::{ShellMetrics, surfaces};
+use bevy::prelude::*;
 
 #[derive(Component)]
 pub(super) struct Page {
@@ -219,7 +224,9 @@ fn queue_panel(commands: &mut Commands, content: Entity, kit: Kit, compact: bool
                 n.overflow = Overflow::scroll_y();
             }
         });
-    if !compact {
+    if compact {
+        commands.entity(content).add_child(queue);
+    } else {
         commands
             .entity(queue)
             .insert((ScrollPosition::default(), surfaces::SheetScroller));
@@ -233,8 +240,6 @@ fn queue_panel(commands: &mut Commands, content: Entity, kit: Kit, compact: bool
                 n.max_height = percent(100);
             });
         commands.entity(content).add_child(queue_band);
-    } else {
-        commands.entity(content).add_child(queue);
     }
     queue
 }

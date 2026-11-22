@@ -82,14 +82,27 @@ fn respond(mut stream: TcpStream) -> std::io::Result<()> {
             &json!({"format":"commander","track":"deck","league":"gold","division":2}),
             1,
         );
+        let commander = standing(
+            &json!({"format":"commander","track":"player","league":"platinum","division":4}),
+            1,
+        );
         let award = json!({"kind":"peak","format":"standard","track":"player","season":current["id"],"rank":player["standing"]["rank"]});
         json!({"profile":{"season":current,"account":player["account"],"name":player["name"],
-            "tag":player["tag"],"formats":[player["standing"],deck["standing"]],"awards":[award]}})
+            "tag":player["tag"],"formats":[player["standing"],commander["standing"],deck["standing"]],"awards":[award]}})
     } else if let Some(query) = request.pointer("/request/board") {
         let first = query["after"].is_null();
-        let range = if first { 1u8..=30 } else { 31..=40 };
+        let limit = if query["format"] == "highlander" && query["league"] == "champion" {
+            20
+        } else {
+            40
+        };
+        let range = if first {
+            1u8..=limit.min(30)
+        } else {
+            31..=limit
+        };
         let entries: Vec<_> = range.map(|n| standing(query, n)).collect();
-        let next = first.then(|| {
+        let next = (first && limit > 30).then(|| {
             let last = entries.last().expect("first page has 30 entries");
             json!({"elo":last["standing"]["elo"],"account":last["account"],"deck":last["standing"]["deck"]})
         });
@@ -127,6 +140,15 @@ fn standing(query: &Value, n: u8) -> Value {
             13,
             json!({"games":3540,"wins":2394,"losses":1114,"draws":32}),
         )
+    } else if query["league"] == "platinum" {
+        (
+            1852,
+            500,
+            312,
+            182,
+            6,
+            json!({"games":950,"wins":602,"losses":339,"draws":9}),
+        )
     } else if placed {
         (
             1775,
@@ -146,11 +168,25 @@ fn standing(query: &Value, n: u8) -> Value {
             json!({"games":7,"wins":4,"losses":3,"draws":0}),
         )
     };
-    let names = ["Linden", "Mistral", "Ember", "Willow", "Sable"];
+    let offset = match query["format"].as_str() {
+        Some("commander") => 40,
+        Some("highlander") => 80,
+        _ => 0,
+    };
+    let names = if !placed {
+        ["Brook", "Aster", "Hazel", "Finch", "Mica"]
+    } else if offset == 0 {
+        ["Linden", "Mistral", "Ember", "Willow", "Sable"]
+    } else {
+        ["Laurel", "Reed", "Iris", "Birch", "Rowan"]
+    };
     let name = format!("{}-{n:02}", names[usize::from(n) % names.len()]);
-    let place = (query["league"] == "champion").then_some(n);
+    let place = (query["league"] == "champion").then_some(n + offset);
+    let mut account = [n; 16];
+    account[0] = offset;
+    account[1] = u8::from(placed);
     json!({
-        "account":vec![n;16],"name":name,"tag":u32::from(n),
+        "account":account,"name":name,"tag":u32::from(n),
         "standing":{
             "format":query["format"],"track":query["track"],"deck":deck,
             "elo":elo,"games":games,"wins":wins,"losses":losses,"draws":draws,

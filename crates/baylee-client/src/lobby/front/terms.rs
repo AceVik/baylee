@@ -1011,9 +1011,9 @@ pub(crate) fn sheet(
     let mut name = super::super::gateway::title_of(state, &state.gateway);
     #[cfg(not(target_arch = "wasm32"))]
     if state.terms_subject == Subject::Ranked {
-        name = super::super::ranked::native::consent::origin(state)
+        super::super::ranked::native::consent::origin(state)
             .unwrap_or_default()
-            .to_owned();
+            .clone_into(&mut name);
     }
     let phone = kit.m.frame == crate::shellkit::Frame::Phone;
     let mut body: Vec<Entity> = Vec::new();

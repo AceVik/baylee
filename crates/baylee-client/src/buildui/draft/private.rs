@@ -4,6 +4,7 @@ use super::{Draft, Drafts};
 use baylee_account::{Account, Error};
 use baylee_seal::{RestKind, at_rest_open, at_rest_seal};
 use sha2::{Digest, Sha256};
+use std::fmt::Write as _;
 use std::{io::Read, sync::Arc};
 use zeroize::Zeroizing;
 
@@ -39,10 +40,9 @@ impl Private {
     pub(crate) fn new(key: Zeroizing<[u8; 32]>) -> Self {
         let mut name = Sha256::new();
         name.update(b"baylee/local-builder-drafts/filename/v1");
-        name.update(&*key);
+        name.update(key.as_slice());
         let digest = name.finalize();
         let mut file = String::from("builder-drafts-");
-        use std::fmt::Write as _;
         for byte in digest.as_slice() {
             let _ = write!(file, "{byte:02x}");
         }

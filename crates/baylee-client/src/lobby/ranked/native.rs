@@ -27,9 +27,14 @@ mod public;
 enum Reply {
     Frozen(u64, Result<deck::Frozen, Error>),
     Queue(Request, Result<QueueState, Error>),
-    Seat(Option<RankedHost>, Result<Option<RankedPlay>, Error>),
+    Seat(Box<SeatReply>),
     Accepted(Result<(), Error>),
     Renewed(Id, Result<Instant, Error>),
+}
+
+struct SeatReply {
+    host: Option<RankedHost>,
+    play: Result<Option<RankedPlay>, Error>,
 }
 
 type Inbox = Arc<Mutex<Option<Reply>>>;
@@ -50,6 +55,10 @@ pub(crate) fn clear_game_marker(mut commands: Commands, live: Option<Res<RankedS
     }
 }
 
+#[expect(
+    clippy::struct_excessive_bools,
+    reason = "queue admission, game transport, deck preview and public reads advance independently"
+)]
 pub(crate) struct Worker {
     pub(crate) queue: QueueState,
     pub(crate) needs_deck: bool,
@@ -346,16 +355,13 @@ pub(crate) fn poll(
             }
             // Only the seat capability is installed in the duel. The separate
             // admission and all its rights are dropped here.
-            match NetworkHost::connect(ticket(play)) {
-                Ok(host) => {
-                    commands.insert_resource(InstalledHost(Box::new(host)));
-                    commands.insert_resource(RankedSocket);
-                    opening.write(DuelCommand::Open);
-                }
-                Err(_) => {
-                    worker.played = None;
-                    worker.failed(Error::Unavailable);
-                }
+            if let Ok(host) = NetworkHost::connect(ticket(play)) {
+                commands.insert_resource(InstalledHost(Box::new(host)));
+                commands.insert_resource(RankedSocket);
+                opening.write(DuelCommand::Open);
+            } else {
+                worker.played = None;
+                worker.failed(Error::Unavailable);
             }
             return;
         }
@@ -432,7 +438,7 @@ fn dispatch(worker: &mut Worker, can_play: bool, playing: bool) {
         worker.submit(move |account| {
             let snapshot = frozen.as_ref().map(|f| (f.digest, &f.deck));
             let play = account.play_ranked(key, snapshot, &mut host);
-            Reply::Seat(host, play)
+            Reply::Seat(Box::new(SeatReply { host, play }))
         });
         return;
     }
@@ -530,34 +536,38 @@ fn finish(worker: &mut Worker, epoch: u64, reply: Reply) -> Option<RankedPlay> {
                 Err(error) => worker.failed(error),
             }
         }
-        Reply::Seat(host, result) => {
-            worker.host = host;
-            if worker.intent.is_some() {
-                worker.next = Some(now);
-                return None;
-            }
-            match result {
-                Ok(Some(play)) => {
-                    worker.renew_at = Some(play.renew_at);
-                    worker.played = Some(play.assignment.match_id);
-                    worker.error = None;
-                    worker.changed();
-                    return Some(play);
-                }
-                Ok(None) => {
-                    worker.delay = POLL;
-                    worker.consent = worker.host.as_ref().and_then(RankedHost::consent).cloned();
-                }
-                Err(error) => {
-                    worker.recheck = true;
-                    worker.play_paused =
-                        !matches!(error, Error::Unavailable | Error::Busy | Error::Conflict);
-                    worker.failed(error);
-                }
-            }
-        }
+        Reply::Seat(seat) => return finish_seat(worker, now, *seat),
     }
     None
+}
+
+fn finish_seat(worker: &mut Worker, now: Instant, seat: SeatReply) -> Option<RankedPlay> {
+    worker.host = seat.host;
+    if worker.intent.is_some() {
+        worker.next = Some(now);
+        return None;
+    }
+    match seat.play {
+        Ok(Some(play)) => {
+            worker.renew_at = Some(play.renew_at);
+            worker.played = Some(play.assignment.match_id);
+            worker.error = None;
+            worker.changed();
+            Some(play)
+        }
+        Ok(None) => {
+            worker.delay = POLL;
+            worker.consent = worker.host.as_ref().and_then(RankedHost::consent).cloned();
+            None
+        }
+        Err(error) => {
+            worker.recheck = true;
+            worker.play_paused =
+                !matches!(error, Error::Unavailable | Error::Busy | Error::Conflict);
+            worker.failed(error);
+            None
+        }
+    }
 }
 
 #[cfg(test)]

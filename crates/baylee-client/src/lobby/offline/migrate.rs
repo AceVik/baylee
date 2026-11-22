@@ -215,7 +215,11 @@ mod tests {
 
     #[test]
     fn migration_is_idempotent_preserves_old_metadata_and_excludes_house_decks() {
-        let bytes=br##"{"decks":[{"id":"builtin:plain","name":"House","cards":["1 Island"]},{"id":"old-save","name":"Harbour","cards":["1 Island # plan"],"commander":"Sol'kanar the Swamp King","updated_at":42,"sleeve":"device-art"}]}"##;
+        let bytes = br#"{"decks":[
+            {"id":"builtin:plain","name":"House","cards":["1 Island"]},
+            {"id":"old-save","name":"Harbour","cards":["1 Island # plan"],
+             "commander":"Sol'kanar the Swamp King","updated_at":42,"sleeve":"device-art"}
+        ]}"#;
         let mut decks = parse(bytes, DEVICE).unwrap();
         assert_eq!(decks.len(), 1);
         let one = decks.pop_front().unwrap();

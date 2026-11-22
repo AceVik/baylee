@@ -169,7 +169,7 @@ pub(super) fn install(app: &mut App) {
         .init_resource::<Page>()
         .init_resource::<NewDiscs>()
         .add_observer(|added: On<Add<Avatar>>, mut discs: ResMut<NewDiscs>| {
-            discs.0.push(added.entity)
+            discs.0.push(added.entity);
         })
         .add_message::<RefreshOwn>()
         .add_systems(PreUpdate, |mut page: ResMut<Page>| {
@@ -537,28 +537,26 @@ fn compact_ranks(
             continue;
         }
         let profile = book.known.get(&label.0).and_then(|e| e.profile.as_ref());
-        let lines = profile
-            .map(|p| {
-                Format::ALL
-                    .map(|format| {
-                        let standing = p
-                            .formats
-                            .iter()
-                            .find(|s| s.track == Track::Player && s.format == format);
-                        let name = standing.filter(|s| s.placement_games >= 10).map_or_else(
-                            || {
-                                baylee_client_core::i18n::Phrase::RankedPlacements.fill(
-                                    lang,
-                                    &[&standing.map_or(0, |s| s.placement_games).to_string()],
-                                )
-                            },
-                            |s| model::rank_name(s.rank, lang),
-                        );
-                        format!("{} · {}", model::format_name(format, lang), name)
-                    })
-                    .join("\n")
-            })
-            .unwrap_or_default();
+        let lines = profile.map_or_default(|p| {
+            Format::ALL
+                .map(|format| {
+                    let standing = p
+                        .formats
+                        .iter()
+                        .find(|s| s.track == Track::Player && s.format == format);
+                    let name = standing.filter(|s| s.placement_games >= 10).map_or_else(
+                        || {
+                            baylee_client_core::i18n::Phrase::RankedPlacements.fill(
+                                lang,
+                                &[&standing.map_or(0, |s| s.placement_games).to_string()],
+                            )
+                        },
+                        |s| model::rank_name(s.rank, lang),
+                    );
+                    format!("{} · {}", model::format_name(format, lang), name)
+                })
+                .join("\n")
+        });
         let display = if lines.is_empty() {
             Display::None
         } else {
@@ -573,11 +571,23 @@ fn compact_ranks(
     }
 }
 
+type FramedDiscs<'w, 's> = Query<
+    'w,
+    's,
+    (
+        Entity,
+        &'static Avatar,
+        Option<&'static PortraitKey>,
+        Option<&'static Worn>,
+    ),
+    NeedsProfile,
+>;
+
 fn wear_frames(
     mut commands: Commands,
     book: Res<Book>,
     mut seen: Local<u64>,
-    discs: Query<(Entity, &Avatar, Option<&PortraitKey>, Option<&Worn>), NeedsProfile>,
+    discs: FramedDiscs,
     mut fresh: ResMut<NewDiscs>,
 ) {
     let changed = *seen != book.revision;

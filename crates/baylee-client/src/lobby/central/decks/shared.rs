@@ -7,7 +7,7 @@ use uuid::Uuid;
 use zeroize::Zeroizing;
 
 pub(super) enum Source {
-    BuiltIn(DeckDraft),
+    BuiltIn(Box<DeckDraft>),
     Published {
         origin: String,
         token: Zeroizing<String>,
@@ -38,7 +38,7 @@ pub(super) fn published(state: &mut LobbyState, key: &str) -> Result<Source, Err
         if found != item.id || snapshot.version != item.version {
             return Err(Error::Conflict);
         }
-        Ok(Source::BuiltIn(DeckDraft {
+        Ok(Source::BuiltIn(Box::new(DeckDraft {
             name: item.name,
             format: item.format,
             description: item.description,
@@ -52,7 +52,7 @@ pub(super) fn published(state: &mut LobbyState, key: &str) -> Result<Source, Err
                 revision: version,
             }),
             ..DeckDraft::default()
-        }))
+        })))
     } else {
         Ok(Source::Published {
             origin: state.gateway.clone(),
@@ -66,7 +66,7 @@ pub(super) fn published(state: &mut LobbyState, key: &str) -> Result<Source, Err
 impl Source {
     pub(super) fn read(self) -> Result<DeckDraft, Error> {
         match self {
-            Self::BuiltIn(draft) => Ok(draft),
+            Self::BuiltIn(draft) => Ok(*draft),
             Self::Published {
                 origin,
                 token,

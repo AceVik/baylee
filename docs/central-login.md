@@ -145,6 +145,13 @@ reaches Central, so nobody's load can cost another account its session.
 
 ## Bigint advisory scope
 
+The ranked SDK revision adds an exact match identifier to ranked admission
+and an optional source digest to legacy migration. Within `central-crypto`
+the changes are confined to the JWT claims and their tests. We reviewed the
+changes from the earlier November 22 pin and verified the same reverse
+dependency paths to bigint. Central checks the reviewed source fingerprint
+`f626b2a4fa0ede961db84fafe99112bfed8e943fb30b20b2d10ae1948cf70e17`.
+
 [RUSTSEC-2026-0387](https://github.com/RustSec/advisory-db/blob/main/crates/crypto-bigint/RUSTSEC-2026-0387.md)
 reports variable-time arithmetic in `crypto-bigint`, fixed in 0.7.6. The
 current dependency chain contains 0.5.5 through `elliptic-curve` 0.13.8,

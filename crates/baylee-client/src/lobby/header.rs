@@ -2191,6 +2191,11 @@ fn put_the_toasts_away(
     toasts.last_modal_foot = None;
 }
 
+type HeaderSocial<'w> = (
+    Option<ResMut<'w, crate::social::ChatUi>>,
+    Option<ResMut<'w, crate::social::SocialHost>>,
+);
+
 /// Carries out what header presses asked of systems they cannot reach: the
 /// `?` overlay (through the shell keymap's own message), the report form,
 /// and toast dismissal.
@@ -2200,14 +2205,14 @@ pub(super) fn carry_out(
     mut fired: MessageWriter<crate::shellkit::keys::ShellFired>,
     mut exit: MessageWriter<bevy::app::AppExit>,
     desk: Option<ResMut<crate::report::ReportDesk>>,
-    mut chat: Option<ResMut<crate::social::ChatUi>>,
-    mut host: Option<ResMut<crate::social::SocialHost>>,
+    social: HeaderSocial,
     #[cfg(not(target_arch = "wasm32"))] mut profile: Option<ResMut<super::ranked_profile::Page>>,
 ) {
     if state.shell_asks.is_empty() {
         return;
     }
     let mut desk = desk;
+    let (mut chat, mut host) = social;
     let asks = std::mem::take(&mut state.bypass_change_detection().shell_asks);
     for ask in asks {
         match ask {

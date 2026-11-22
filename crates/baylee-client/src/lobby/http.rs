@@ -61,14 +61,12 @@ pub(super) fn dispatch(state: &mut LobbyState, mailbox: &Mailbox, request: Optio
         return;
     }
     #[cfg(not(target_arch = "wasm32"))]
-    let request = match super::central::decks::dispatch(state, mailbox, request) {
-        Some(other) => other,
-        None => return,
+    let Some(request) = super::central::decks::dispatch(state, mailbox, request) else {
+        return;
     };
     #[cfg(not(target_arch = "wasm32"))]
-    let request = match submitted::resolve(state, mailbox, request) {
-        Some(other) => other,
-        None => return,
+    let Some(request) = submitted::resolve(state, mailbox, request) else {
+        return;
     };
     if state.central_without_gateway() {
         match request {

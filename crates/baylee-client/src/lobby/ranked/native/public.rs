@@ -37,7 +37,7 @@ pub(super) fn poll(worker: &mut Worker) {
     if let Some(request) = worker.read_wanted.take() {
         let inbox: Inbox = Arc::default();
         let writer = Arc::clone(&inbox);
-        match std::thread::Builder::new()
+        if std::thread::Builder::new()
             .name("ranked-leaderboard".into())
             .spawn(move || {
                 let result = crate::lobby::central::endpoint()
@@ -45,13 +45,14 @@ pub(super) fn poll(worker: &mut Worker) {
                 if let Ok(mut slot) = writer.lock() {
                     *slot = Some(result);
                 }
-            }) {
-            Ok(_) => worker.reading = Some(inbox),
-            Err(_) => {
-                worker.board_error = Some(Error::Unavailable);
-                worker.board_busy = false;
-                worker.changed();
-            }
+            })
+            .is_ok()
+        {
+            worker.reading = Some(inbox);
+        } else {
+            worker.board_error = Some(Error::Unavailable);
+            worker.board_busy = false;
+            worker.changed();
         }
     }
 }

@@ -35,7 +35,7 @@ struct Counts {
 
 enum Source {
     Device(offline::migrate::Device),
-    Gateway(GatewayDeckImport),
+    Gateway(Box<GatewayDeckImport>),
 }
 
 impl Source {
@@ -219,7 +219,7 @@ pub(super) fn press(state: &mut LobbyState, mailbox: &Mailbox, action: Action) {
             let source = match action {
                 Action::Device => Source::Device(offline::migrate::Device::default()),
                 Action::Gateway if state.gateway_selected && state.lobby.token().is_some() => {
-                    Source::Gateway(GatewayDeckImport::default())
+                    Source::Gateway(Box::default())
                 }
                 _ => return,
             };

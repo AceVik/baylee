@@ -152,8 +152,10 @@ fn transport_failure_keeps_confirmed_data_but_a_withdrawn_identity_loses_its_fra
 #[test]
 fn a_stopped_worker_and_a_receipt_during_an_old_read_both_recover() {
     let (sender, rx) = mpsc::channel();
-    let mut book = Book::default();
-    book.reading = Some(("Sam#0012".into(), Mutex::new(rx)));
+    let mut book = Book {
+        reading: Some(("Sam#0012".into(), Mutex::new(rx))),
+        ..Book::default()
+    };
     drop(sender);
     receive(&mut book, 5.0);
     assert!(book.reading.is_none());

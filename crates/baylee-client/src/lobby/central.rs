@@ -170,7 +170,6 @@ struct CentralWsPush {
 }
 
 impl Handle {
-    #[cfg(any(test, feature = "dev-control"))]
     fn from_sender(send: mpsc::SyncSender<Job>) -> Self {
         Self {
             public_id: None,
@@ -337,22 +336,19 @@ impl Handle {
         let public_id = account.public_id();
         let draft_store = crate::buildui::draft::private::Private::for_account(&account)?;
         let (send, receive) = mpsc::sync_channel::<Job>(64);
-        let active = Arc::new(AtomicBool::new(true));
-        let worker_active = active.clone();
-        let stays = Arc::new(AtomicBool::new(false));
-        let worker_stays = stays.clone();
-        let ws_live = Arc::new(AtomicBool::new(false));
-        let worker_ws_live = ws_live.clone();
-        let chat_seq = Arc::new(AtomicU64::new(0));
-        let worker_chat_seq = chat_seq.clone();
-        let social_seq = Arc::new(AtomicU64::new(0));
-        let worker_social_seq = social_seq.clone();
-        let presence_seq = Arc::new(AtomicU64::new(0));
-        let worker_presence_seq = presence_seq.clone();
-        let ready_seq = Arc::new(AtomicU64::new(0));
-        let worker_ready_seq = ready_seq.clone();
-        let seen = Arc::new(Mutex::new(Seen::default()));
-        let worker_seen = seen.clone();
+        let handle = Self {
+            public_id: Some(public_id),
+            draft_store: Some(draft_store),
+            ..Self::from_sender(send)
+        };
+        let worker_active = handle.active.clone();
+        let worker_stays = handle.stays.clone();
+        let worker_ws_live = handle.ws_live.clone();
+        let worker_chat_seq = handle.chat_seq.clone();
+        let worker_social_seq = handle.social_seq.clone();
+        let worker_presence_seq = handle.presence_seq.clone();
+        let worker_ready_seq = handle.ready_seq.clone();
+        let worker_seen = handle.seen.clone();
         std::thread::Builder::new()
             .name("central-account".into())
             .spawn(move || {
@@ -423,21 +419,7 @@ impl Handle {
                 }
             })
             .map_err(|_| Error::Unavailable)?;
-        Ok(Self {
-            public_id: Some(public_id),
-            draft_store: Some(draft_store),
-            library: Arc::default(),
-            library_epoch: decks::new_epoch(),
-            send,
-            active,
-            stays,
-            ws_live,
-            chat_seq,
-            social_seq,
-            presence_seq,
-            ready_seq,
-            seen,
-        })
+        Ok(handle)
     }
 
     pub(crate) fn save(

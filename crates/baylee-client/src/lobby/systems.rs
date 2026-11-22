@@ -203,7 +203,7 @@ pub(super) fn poll(
                 Reply::PlayDeck(prepared) => prepared.send(&mut state, &mailbox),
                 #[cfg(not(target_arch = "wasm32"))]
                 Reply::DeckImport(update) => {
-                    super::decks::migration::receive(&mut state, &mailbox, update)
+                    super::decks::migration::receive(&mut state, &mailbox, update);
                 }
                 Reply::VaultLogin(login) => state.vault_login = Some(login),
                 Reply::Event(event) => {

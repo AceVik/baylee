@@ -83,8 +83,8 @@ impl Drafts {
     pub(crate) fn bind(&mut self, epoch: u64, private: Option<private::Private>) {
         if self.epoch != epoch {
             *self = Self {
-                epoch,
                 private,
+                epoch,
                 ..Self::default()
             };
         }
@@ -310,9 +310,11 @@ impl Drafts {
     /// deck left the builder, and nothing else: the deck's place may hold a
     /// newer edit by now, and "new" the next new deck. A deck created on its
     /// way out left its draft under "new" and landed under its id.
-    pub(crate) fn forget_landed(&mut self, _visit: u64, sent: &Draft) {
+    pub(crate) fn forget_landed(&mut self, visit: u64, sent: &Draft) {
+        #[cfg(target_arch = "wasm32")]
+        let _ = visit;
         #[cfg(not(target_arch = "wasm32"))]
-        if self.epoch != 0 && sent.editing.is_none() && self.new_visit != Some(_visit) {
+        if self.epoch != 0 && sent.editing.is_none() && self.new_visit != Some(visit) {
             return;
         }
         let same = |kept: &Draft| {
@@ -402,6 +404,65 @@ pub(crate) fn save_on_leaving(
     state.drafts.offered_on_back = Some(state.lobby.builder().visit());
 }
 
+#[cfg(not(target_arch = "wasm32"))]
+fn bind_owner(state: &mut ResMut<LobbyState>, kept: &mut Keeper) {
+    let scope = state
+        .central_handle()
+        .filter(|_| state.has_central_account());
+    let epoch = scope
+        .as_ref()
+        .map_or(0, crate::lobby::central::Handle::library_epoch);
+    if state.drafts.epoch != epoch {
+        state
+            .bypass_change_detection()
+            .drafts
+            .bind(epoch, scope.and_then(|s| s.draft_store()));
+    }
+    if kept.epoch != epoch {
+        *kept = Keeper {
+            epoch,
+            ..Keeper::default()
+        };
+    }
+}
+
+fn restore_draft(state: &mut LobbyState, kept: &mut Keeper) {
+    kept.restore = false;
+    let clean = state.lobby.builder().draft();
+    let draft = state.drafts.recover(&clean);
+    if let Some((draft, fork)) = draft
+        && !draft.is_empty()
+        && state.lobby.builder().differs_from(&draft)
+    {
+        state.lobby.builder_mut().restore(&draft);
+        #[cfg(not(target_arch = "wasm32"))]
+        if !fork && draft.editing.is_none() {
+            let visit = state.lobby.builder().visit();
+            state.drafts.resume_create(visit);
+        }
+        #[cfg(not(target_arch = "wasm32"))]
+        if fork && let Some(old) = clean.editing.as_deref() {
+            let visit = state.lobby.builder().visit();
+            if let Some(kept) = state.drafts.of(Some(old)) {
+                let fingerprint = private::fingerprint(kept);
+                state
+                    .drafts
+                    .forks
+                    .insert(visit, (old.to_owned(), fingerprint));
+            }
+        }
+        state.lobby.tell_refusal(
+            if fork {
+                Phrase::PrivateDraftRecoveredCopy
+            } else {
+                Phrase::BuildDraftRestored
+            },
+            &[],
+        );
+        kept.written = Some(draft);
+    }
+}
+
 /// Keeps the draft: takes it back when its deck is opened again, saves every
 /// change once it has stood [`SAVE_SETTLE_SECS`], and writes the draft a
 /// second after the last edit for as long as no save has landed.
@@ -413,26 +474,7 @@ pub(crate) fn keep_the_draft(
     mut kept: Local<Keeper>,
 ) {
     #[cfg(not(target_arch = "wasm32"))]
-    {
-        let scope = state
-            .central_handle()
-            .filter(|_| state.has_central_account());
-        let epoch = scope
-            .as_ref()
-            .map_or(0, crate::lobby::central::Handle::library_epoch);
-        if state.drafts.epoch != epoch {
-            state
-                .bypass_change_detection()
-                .drafts
-                .bind(epoch, scope.and_then(|s| s.draft_store()));
-        }
-        if kept.epoch != epoch {
-            *kept = Keeper {
-                epoch,
-                ..Keeper::default()
-            };
-        }
-    }
+    bind_owner(&mut state, &mut kept);
     let on_screen = matches!(state.lobby.screen(), Screen::Build);
     if state.lobby.scoped_builder() {
         if kept.visiting {
@@ -473,40 +515,7 @@ pub(crate) fn keep_the_draft(
     }
     let deck = state.lobby.builder();
     if kept.restore && deck.loaded() && !state.lobby.busy() {
-        kept.restore = false;
-        let clean = deck.draft();
-        let draft = state.drafts.recover(&clean);
-        if let Some((draft, fork)) = draft
-            && !draft.is_empty()
-            && state.lobby.builder().differs_from(&draft)
-        {
-            state.lobby.builder_mut().restore(&draft);
-            #[cfg(not(target_arch = "wasm32"))]
-            if !fork && draft.editing.is_none() {
-                let visit = state.lobby.builder().visit();
-                state.drafts.resume_create(visit);
-            }
-            #[cfg(not(target_arch = "wasm32"))]
-            if fork && let Some(old) = clean.editing.as_deref() {
-                let visit = state.lobby.builder().visit();
-                if let Some(kept) = state.drafts.of(Some(old)) {
-                    let fingerprint = private::fingerprint(kept);
-                    state
-                        .drafts
-                        .forks
-                        .insert(visit, (old.to_owned(), fingerprint));
-                }
-            }
-            state.lobby.tell_refusal(
-                if fork {
-                    Phrase::PrivateDraftRecoveredCopy
-                } else {
-                    Phrase::BuildDraftRestored
-                },
-                &[],
-            );
-            kept.written = Some(draft);
-        }
+        restore_draft(&mut state, &mut kept);
         return;
     }
     // Until the deck just opened has arrived, the builder still holds the

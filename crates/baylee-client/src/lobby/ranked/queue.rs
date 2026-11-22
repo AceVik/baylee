@@ -1,9 +1,13 @@
 //! A single displayed deck choice, explicit queue actions, and the last settled result.
-use super::draw::label;
-use super::*;
+use super::draw::{btn, label};
+use super::{
+    Action, Format, Kit, Lang, League, Live, LobbyState, ORDER, OwnRank, Phrase, Press, Weight,
+    api, controls, format_name, league_name, orders, parts, preview, rank_name, tokens,
+};
 use crate::hud::glyph;
 use api::{Outcome, QueueState};
 use baylee_client_core::lobby::DeckSummary;
+use bevy::prelude::*;
 
 pub(super) fn effective_format(state: &LobbyState) -> Format {
     if state.ranked_net.needs_deck {
@@ -200,7 +204,7 @@ fn error(commands: &mut Commands, parent: Entity, kit: Kit, look: &Look) {
             kit.m.small,
             tokens::DANGER,
         );
-        draw::btn(
+        btn(
             commands,
             parent,
             kit,
@@ -221,7 +225,7 @@ fn show_status(commands: &mut Commands, parent: Entity, kit: Kit, look: &Look) -
         } => {
             waiting(commands, parent, kit, *format, *queued_at);
             if !look.busy {
-                draw::btn(
+                btn(
                     commands,
                     parent,
                     kit,
@@ -239,7 +243,7 @@ fn show_status(commands: &mut Commands, parent: Entity, kit: Kit, look: &Look) -
             let words = Phrase::RankedAssigned.fill(lang, &[format_name(assignment.format, lang)]);
             label(commands, parent, kit, &words, kit.m.text, tokens::ACCENT);
             if look.played == Some(assignment.match_id) && !look.busy {
-                draw::btn(
+                btn(
                     commands,
                     parent,
                     kit,
@@ -368,7 +372,7 @@ fn deck_picker(commands: &mut Commands, parent: Entity, kit: Kit, state: &LobbyS
                 .take(DECK_PAGE)
                 .enumerate()
             {
-                draw::btn(
+                btn(
                     commands,
                     parent,
                     kit,
@@ -382,7 +386,7 @@ fn deck_picker(commands: &mut Commands, parent: Entity, kit: Kit, state: &LobbyS
                 let row = parts::row(commands, kit, true);
                 commands.entity(parent).add_child(row);
                 if page > 0 {
-                    draw::btn(
+                    btn(
                         commands,
                         row,
                         kit,
@@ -393,7 +397,7 @@ fn deck_picker(commands: &mut Commands, parent: Entity, kit: Kit, state: &LobbyS
                     );
                 }
                 if (page + 1) * DECK_PAGE < decks.len() {
-                    draw::btn(
+                    btn(
                         commands,
                         row,
                         kit,

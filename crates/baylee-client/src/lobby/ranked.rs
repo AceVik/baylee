@@ -254,13 +254,10 @@ pub(super) fn press(action: Action, cx: Cx<'_, '_, '_, '_, '_>) {
     }
     // A filter, a page and the network mailbox are local to the retained page.
     let state = cx.state.bypass_change_detection();
+    if online_action(state, action) {
+        return;
+    }
     match action {
-        Action::Preview => {
-            if let Some((id, _)) = queue::selected(state) {
-                native::preview(state, queue::effective_format(state), &id.to_string());
-            }
-            return;
-        }
         Action::Deck(id) if Some(id) != state.ranked.deck_id => native::clear_preview(state),
         Action::Format(f) if f != state.ranked.format => native::clear_preview(state),
         _ => {}
@@ -268,7 +265,6 @@ pub(super) fn press(action: Action, cx: Cx<'_, '_, '_, '_, '_>) {
     let ui = &mut state.ranked;
     let mut reset_pages = false;
     match action {
-        Action::Open | Action::Back => return,
         Action::Format(format) if ui.format != format => {
             ui.format = format;
             ui.deck_id = None;
@@ -298,32 +294,6 @@ pub(super) fn press(action: Action, cx: Cx<'_, '_, '_, '_, '_>) {
         Action::Deck(id) => {
             ui.deck_id = Some(id);
             ui.show_decks = false;
-        }
-        Action::Join => {
-            if !state.has_central_account()
-                || state.lobby.awaiting().is_some()
-                || state.ranked_net.busy
-            {
-                return;
-            }
-            let format = queue::effective_format(state);
-            if let Some((id, _)) = queue::selected(state) {
-                native::clear_preview(state);
-                native::join(state, format, &id.to_string());
-            }
-            return;
-        }
-        Action::Cancel => {
-            native::cancel(state);
-            return;
-        }
-        Action::Resume => {
-            native::resume(state);
-            return;
-        }
-        Action::Refresh => {
-            refresh(state);
-            return;
         }
         Action::Seasons => {
             ui.browsing_seasons = !ui.browsing_seasons;
@@ -368,6 +338,33 @@ pub(super) fn entry(commands: &mut Commands, parent: Entity, kit: Kit) {
     );
     orders::stop(commands, button, &orders::PLAY, "ranked");
     commands.entity(parent).add_child(button);
+}
+
+fn join(state: &mut LobbyState) {
+    if !state.has_central_account() || state.lobby.awaiting().is_some() || state.ranked_net.busy {
+        return;
+    }
+    let format = queue::effective_format(state);
+    if let Some((id, _)) = queue::selected(state) {
+        native::clear_preview(state);
+        native::join(state, format, &id.to_string());
+    }
+}
+
+fn online_action(state: &mut LobbyState, action: Action) -> bool {
+    match action {
+        Action::Preview => {
+            if let Some((id, _)) = queue::selected(state) {
+                native::preview(state, queue::effective_format(state), &id.to_string());
+            }
+        }
+        Action::Join => join(state),
+        Action::Cancel => native::cancel(state),
+        Action::Resume => native::resume(state),
+        Action::Refresh => refresh(state),
+        _ => return false,
+    }
+    true
 }
 
 fn divisions(league: League) -> u8 {

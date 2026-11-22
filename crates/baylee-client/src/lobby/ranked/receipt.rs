@@ -1,6 +1,7 @@
 //! Match-local notification of a confirmed settlement.
-use super::*;
+use super::{Format, Lang, LobbyState, Phrase, Track, api, format_name, league_name, rank_name};
 use api::QueueState;
+use bevy::prelude::*;
 
 /// Authoritative receipts are polled repeatedly. Only a game entered by this
 /// client can produce an animation, once, even after revisiting the lobby.

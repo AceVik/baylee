@@ -67,7 +67,7 @@ impl Handle {
         self.library_epoch
     }
 
-    /// AppExit is the one blocking deck operation. A deletion whose undo
+    /// `AppExit` is the one blocking deck operation. A deletion whose undo
     /// expired during shutdown still targets the authenticated library.
     pub(in crate::lobby) fn flush_deck_delete(&self, key: &str) -> Result<(), Error> {
         let id = id(key)?;
@@ -180,7 +180,7 @@ pub(in crate::lobby) fn dispatch(
                     sideboard: d.sideboard,
                     commanders: d.commanders,
                 }))
-            })
+            });
         }
         LobbyRequest::SaveDeck {
             deck_id,
@@ -211,7 +211,7 @@ pub(in crate::lobby) fn dispatch(
                 versions.edited.remove(&id);
                 versions.listed.remove(&id);
                 Ok(Reply::Event(LobbyEvent::DeckDeleted))
-            })
+            });
         }
         LobbyRequest::Library(LibraryRequest::Copy(id)) => {
             let source = shared::published(state, &id);
