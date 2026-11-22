@@ -245,6 +245,10 @@ fn toughness_delta(effects: &[Effect], x: u32) -> i32 {
             Effect::AddCounter {
                 kind: CounterKind::Minus { toughness, .. },
                 amount: count,
+            }
+            | Effect::PutCountersDivided {
+                kind: CounterKind::Minus { toughness, .. },
+                amount: count,
             } => -i32::from(*toughness) * amount(*count, x).max(0),
             _ => {
                 let (then, otherwise) = effect.branches();
@@ -302,7 +306,8 @@ pub(crate) fn meaning(effects: &[Effect], x: u32) -> Meaning {
             m.benefit = benefit;
         }
         match effect {
-            Effect::AddCounter { kind, .. } => match kind {
+            Effect::AddCounter { kind, .. } | Effect::PutCountersDivided { kind, .. } => match kind
+            {
                 CounterKind::Minus { .. }
                 | CounterKind::Poison
                 | CounterKind::Rad
@@ -385,6 +390,7 @@ pub(crate) fn meaning(effects: &[Effect], x: u32) -> Meaning {
             | Effect::CreateTokenN { .. }
             | Effect::CreateTokenModified { .. }
             | Effect::CreateTokenAttacking { .. }
+            | Effect::CreateTokenSized { .. }
             | Effect::Amass { .. } => {
                 m.value = 500;
             }
@@ -831,7 +837,77 @@ impl HeuristicAgent {
         }) {
             return Some(self.divided_targets(view, offer, total));
         }
+        if let Some(action) = self.divided_counter_targets(view, offer, context) {
+            return Some(action);
+        }
         self.rank(view, offer, context, self.sided_meaning(context), &[])
+    }
+
+    fn divided_counter_targets(
+        &self,
+        view: &PlayerView,
+        offer: Offer<'_>,
+        context: &DecisionContext<'_>,
+    ) -> Option<PlayerAction> {
+        let (kind, count_expr) = context.effects.iter().find_map(|e| match e {
+            Effect::PutCountersDivided { kind, amount } => Some((*kind, *amount)),
+            _ => None,
+        })?;
+        match kind {
+            CounterKind::Minus { toughness, .. } if toughness > 0 => {
+                let raw = u32::try_from(amount(count_expr, context.x).max(0)).unwrap_or(0);
+                let total = if raw > 0 { raw } else { offer.max.min(8) };
+                let unit = i64::from(toughness);
+                let mut hostile: Vec<&PublicObject> = offer
+                    .objects
+                    .iter()
+                    .filter_map(|id| view.object(*id))
+                    .filter(|o| self.hostile(o.controller, view.seat) && !self.answered(view, o))
+                    .collect();
+                hostile.sort_by_key(|o| (std::cmp::Reverse(material(o)), o.id));
+                let mut left = i64::from(total);
+                let mut chosen: Vec<ObjectId> = Vec::new();
+                let cap = usize::try_from(offer.max).unwrap_or(usize::MAX);
+                for o in &hostile {
+                    let t = i64::from(o.toughness.unwrap_or(0));
+                    let need = if t <= 0 { 1 } else { (t + unit - 1) / unit };
+                    if chosen.len() < cap && need <= left {
+                        chosen.push(o.id);
+                        left -= need;
+                    }
+                }
+                if chosen.is_empty()
+                    && offer.max > 0
+                    && let Some(o) = hostile.first()
+                {
+                    chosen.push(o.id);
+                }
+                for id in offer.objects {
+                    if chosen.len() >= usize::try_from(offer.min).unwrap_or(usize::MAX) {
+                        break;
+                    }
+                    if !chosen.contains(id) {
+                        chosen.push(*id);
+                    }
+                }
+                Some(PlayerAction::ChooseTargets {
+                    objects: chosen,
+                    players: Vec::new(),
+                })
+            }
+            CounterKind::Plus { .. }
+            | CounterKind::Loyalty
+            | CounterKind::Charge
+            | CounterKind::Level
+            | CounterKind::Energy => {
+                let capped = Offer {
+                    max: offer.min.max(1).min(offer.max),
+                    ..offer
+                };
+                self.rank(view, capped, context, self.sided_meaning(context), &[])
+            }
+            _ => None,
+        }
     }
 
     /// The targets for damage divided as this seat chooses (CR 601.2d): the

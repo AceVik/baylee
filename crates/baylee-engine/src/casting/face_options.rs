@@ -78,7 +78,9 @@ pub(crate) fn ordinary_face_kind(
     kicked: bool,
 ) -> CastModeKind {
     let single = def.abilities_for_face(face).iter().any(|ability| {
-        matches!(ability, baylee_cards_dsl::AbilityDef::ModalSpell { choose, .. } if choose.is_one())
+        ability
+            .modal_spell()
+            .is_some_and(|(_, choose, can_repeat)| choose.is_one() && !can_repeat)
     });
     if modes != 0 && single {
         CastModeKind::Mode(modes.trailing_zeros() as usize)
@@ -233,10 +235,10 @@ pub(crate) fn replaced_cost_options(
                     add(0, base);
                 }
                 for ability in def.abilities_for_face(index) {
-                    let baylee_cards_dsl::AbilityDef::ModalSpell { modes, choose } = ability else {
+                    let Some((modes, choose, false)) = ability.modal_spell() else {
                         continue;
                     };
-                    for set in mode_sets(modes, *choose) {
+                    for set in mode_sets(modes, choose) {
                         if chosen_modes(modes, set).all(|(_, mode)| {
                             mode.cost_override.is_none()
                                 && reachable(

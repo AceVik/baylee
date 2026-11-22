@@ -73,7 +73,7 @@ pub const fn acts_elsewhere(effect: &Effect) -> bool {
 #[must_use]
 pub fn effect_benefit(effect: &Effect, x: u32) -> Option<i32> {
     match effect {
-        Effect::AddCounter { kind, .. } => match kind {
+        Effect::AddCounter { kind, .. } | Effect::PutCountersDivided { kind, .. } => match kind {
             CounterKind::Minus { .. }
             | CounterKind::Poison
             | CounterKind::Rad
@@ -231,6 +231,9 @@ fn read(effects: &[Effect], x: u32) -> Reading {
         reading.clock |= matches!(
             effect,
             Effect::AddCounter {
+                kind: CounterKind::Time | CounterKind::Lore,
+                ..
+            } | Effect::PutCountersDivided {
                 kind: CounterKind::Time | CounterKind::Lore,
                 ..
             }

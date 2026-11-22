@@ -576,6 +576,8 @@ pub struct Engine<L: CardLookup, D: LoopDetection = DetectLoops> {
     activation_counter_removals: Vec<(ObjectId, baylee_cards_dsl::CounterKind)>,
     /// Permanent chosen for the next counter removal while awaiting counter-kind disambiguation.
     activation_pending_counter_object: Option<ObjectId>,
+    /// Announced CR 601.2d damage or counter shares for an activation in progress.
+    activation_division: Vec<u32>,
     /// The ability list the next push to the stack should use instead of
     /// asking the source — read before its cost is paid, or carried on a
     /// trigger that is looking back in time.
@@ -726,17 +728,31 @@ enum PlanKind {
         /// The triggered ability on the stack.
         on_stack: ObjectId,
     },
-    /// A triggered ability's "damage divided as you choose", asked target
-    /// by target once it is on the stack with its targets (CR 601.2d).
+    /// A triggered ability's CR 601.2d damage or counter division, asked target
+    /// by target once it is on the stack with its targets.
     DivideDamage {
+        /// Whether damage or counters are being divided.
+        kind: division::DividedKind,
         /// The triggered ability on the stack.
         on_stack: ObjectId,
         /// Its targets, in the order they were chosen.
         targets: SmallVec<[ObjectId; 2]>,
         /// The shares given so far, one per target from the first.
         shares: Vec<u32>,
-        /// The damage divided.
+        /// Total damage or counters divided.
         total: u32,
+    },
+    /// An activated or loyalty ability's CR 601.2d damage or counter division,
+    /// asked after targets are chosen and before costs are paid.
+    DivideActivation {
+        /// Source permanent or card of the ability.
+        source: ObjectId,
+        /// Ability index on `source`.
+        ability_index: u32,
+        /// Chosen target objects.
+        targets: SmallVec<[ObjectId; 2]>,
+        /// Chosen target players, if any.
+        target_players: Vec<PlayerId>,
     },
     /// Optional tapped entry that also grants player counters.
     EntryCounters {
@@ -1139,6 +1155,7 @@ impl<L: CardLookup, D: LoopDetection> Engine<L, D> {
             activation_either_branches: Vec::new(),
             activation_counter_removals: Vec::new(),
             activation_pending_counter_object: None,
+            activation_division: Vec::new(),
             activating_abilities: None,
             activating_grant: None,
             entry_scan_seq: 0,
@@ -1865,6 +1882,7 @@ impl<L: CardLookup, D: LoopDetection> Engine<L, D> {
             activation_either_branches,
             activation_counter_removals,
             activation_pending_counter_object,
+            activation_division,
             activating_abilities,
             activating_grant,
             capabilities,
@@ -1941,7 +1959,13 @@ impl<L: CardLookup, D: LoopDetection> Engine<L, D> {
             ),
             (
                 "activation_counter_removals",
-                format!("{activation_counter_removals:?} {activation_pending_counter_object:?}"),
+                if activation_division.is_empty() {
+                    format!("{activation_counter_removals:?} {activation_pending_counter_object:?}")
+                } else {
+                    format!(
+                        "{activation_counter_removals:?} {activation_pending_counter_object:?} {activation_division:?}"
+                    )
+                },
             ),
             ("activating_abilities", format!("{activating_abilities:?}")),
             ("activating_grant", format!("{activating_grant:?}")),
@@ -2248,7 +2272,7 @@ pub mod decision;
 mod decision;
 mod decision_note;
 pub(crate) mod disguise;
-mod division;
+pub(crate) mod division;
 mod room;
 mod storied;
 mod targeting;

@@ -298,6 +298,9 @@ fn raw_option_cost(
         Some(CastModeKind::Modes(set)) => {
             modal_set_cost(def, face, wizard.face_index(), set, normal)
         }
+        Some(CastModeKind::RepeatedModes(packed)) => {
+            modal_repeated_set_cost(def, wizard.face_index(), packed, normal)
+        }
     };
     if wizard.option != Some(CastModeKind::Kicked)
         && matches!(
@@ -326,9 +329,7 @@ fn modal_single_cost(
     def.abilities_for_face(face_idx)
         .iter()
         .find_map(|ability| {
-            let AbilityDef::ModalSpell { modes, .. } = ability else {
-                return None;
-            };
+            let (modes, ..) = ability.modal_spell()?;
             let mode = modes.get(index)?;
             // A cost-overriding mode is another alternative cost, which
             // the library-top reader does not combine with this route.
@@ -351,9 +352,7 @@ fn modal_set_cost(
     def.abilities_for_face(face_idx)
         .iter()
         .find_map(|ability| {
-            let AbilityDef::ModalSpell { modes, choose } = ability else {
-                return None;
-            };
+            let (modes, choose, _) = ability.modal_spell()?;
             let base = casting::mode_set_cost(normal, modes, set);
             Some(
                 if choose.is_one()
@@ -364,6 +363,21 @@ fn modal_set_cost(
                     base
                 },
             )
+        })
+        .expect("modal spell")
+}
+
+fn modal_repeated_set_cost(
+    def: &baylee_cards_dsl::CardDef,
+    face_idx: usize,
+    packed: u32,
+    normal: ManaCost,
+) -> ManaCost {
+    def.abilities_for_face(face_idx)
+        .iter()
+        .find_map(|ability| {
+            let (modes, ..) = ability.modal_spell()?;
+            Some(casting::repeated_mode_set_cost(normal, modes, packed))
         })
         .expect("modal spell")
 }

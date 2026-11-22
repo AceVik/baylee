@@ -1894,20 +1894,9 @@ impl Builder<'_, '_> {
                 "Choose the starting chapter for {} (read ahead)",
                 table.named(*saga)
             ),
-            NumberPrompt::CombatDamage { .. } => combat_division_words(table, reason),
-            NumberPrompt::DivideDamage {
-                target,
-                index,
-                of,
-                left,
-            } => format!(
-                "Divide the damage: how much goes to {} (target {} of {of})? {left} is left to divide",
-                match target {
-                    baylee_core::ids::TargetRef::Object(reference) => table.named(reference.object),
-                    baylee_core::ids::TargetRef::Player(player) => self.player_label(*player),
-                },
-                u16::from(*index) + 1
-            ),
+            NumberPrompt::CombatDamage { .. }
+            | NumberPrompt::DivideDamage { .. }
+            | NumberPrompt::DivideCounters { .. } => self.division_words(table, reason),
         };
         // The engine leaves a multikicker open while a land is untapped; a
         // count past what is floating has to be tapped for in a window this
@@ -1927,6 +1916,49 @@ impl Builder<'_, '_> {
         self.line(format!("QUESTION: {question} (from {min} to {max})."));
         self.ask = Ask::Number { min, max };
         self.answer(&format!("number=<an integer from {min} to {max}>"));
+    }
+
+    fn division_words(&self, table: &Table<'_>, reason: &NumberPrompt) -> String {
+        match reason {
+            NumberPrompt::CombatDamage { .. } => combat_division_words(table, reason),
+            NumberPrompt::DivideDamage {
+                target,
+                index,
+                of,
+                left,
+            } => format!(
+                "Divide the damage: how much goes to {} (target {} of {of})? {left} is left to divide",
+                self.division_target_label(table, *target),
+                u16::from(*index) + 1
+            ),
+            NumberPrompt::DivideCounters {
+                kind,
+                target,
+                index,
+                of,
+                left,
+            } => format!(
+                "Distribute {}: how many go to {} (target {} of {of})? {left} left to distribute",
+                baylee_client_core::interaction::counter_label(
+                    *kind,
+                    baylee_client_core::i18n::Lang::En
+                ),
+                self.division_target_label(table, *target),
+                u16::from(*index) + 1
+            ),
+            _ => String::new(),
+        }
+    }
+
+    fn division_target_label(
+        &self,
+        table: &Table<'_>,
+        target: baylee_core::ids::TargetRef,
+    ) -> String {
+        match target {
+            baylee_core::ids::TargetRef::Object(reference) => table.named(reference.object),
+            baylee_core::ids::TargetRef::Player(player) => self.player_label(player),
+        }
     }
 
     /// The greatest X the pool and the untapped sources pay for the cast or

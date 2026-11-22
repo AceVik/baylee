@@ -148,9 +148,6 @@ fn apply_token_riders(
     made: &[ObjectId],
     spec: TokenCopySpec,
 ) {
-    let src_version = source_version(state, res)
-        .or_else(|| state.object(res.source).map(|o| o.version))
-        .unwrap_or(0);
     for &id in made {
         if spec.tapped {
             state.set_tapped(id, true);
@@ -169,8 +166,26 @@ fn apply_token_riders(
                 modifier: Modifier::AddKeyword(KeywordSet::HASTE),
             });
         }
+    }
+    schedule_cleanup(state, res, controller, made, spec.cleanup);
+}
+
+pub(in crate::resolve) fn schedule_cleanup(
+    state: &mut GameState,
+    res: &Resolution,
+    controller: PlayerId,
+    made: &[ObjectId],
+    cleanup: CopyCleanup,
+) {
+    if cleanup == CopyCleanup::None {
+        return;
+    }
+    let src_version = source_version(state, res)
+        .or_else(|| state.object(res.source).map(|o| o.version))
+        .unwrap_or(0);
+    for &id in made {
         let version = state.object(id).map_or(0, |o| o.version);
-        let delayed = match spec.cleanup {
+        let delayed = match cleanup {
             CopyCleanup::None => None,
             CopyCleanup::SacrificeAtNextEndStep => Some((
                 DelayedWhen::NextEndStep,

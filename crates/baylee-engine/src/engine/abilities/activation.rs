@@ -593,7 +593,21 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
             // two target lands" is two, and "up to one" is none or one
             // (CR 601.2c, by CR 602.2b). X is answered by now (CR 601.2b
             // comes first), so an X count is a number here.
-            let (min, max) = req.bounds(self.activation_x.unwrap_or(0));
+            let (min, mut max) = req.bounds(self.activation_x.unwrap_or(0));
+            if let Some((_, total)) = crate::engine::division::effects_divided_spec(
+                effects,
+                &self.state,
+                player,
+                self.ability_rule_context(source, ability_index),
+                self.state.object(source).map(|o| o.version),
+                self.activation_x.unwrap_or(0),
+            ) {
+                max = max.min(total);
+            }
+            if min > max {
+                self.activation_x = None;
+                return Err(EngineError::IllegalAction("no legal targets"));
+            }
             let mut options = eval::target_options_in_domain(
                 &req.spec,
                 &self.state,
@@ -742,6 +756,16 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 self.awaiting_answer = true;
                 return Ok(());
             }
+        }
+        if self.ask_activation_division(
+            player,
+            source,
+            ability_index,
+            effects,
+            targets.clone(),
+            chosen_players.clone(),
+        ) {
+            return Ok(());
         }
         // The mana is the payment window's question when this seat can still
         // make some (CR 601.2g, by 602.2b): only the rest is asked here, and
@@ -1075,6 +1099,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
         }
         let answers = std::mem::take(&mut self.activation_cost_choices);
         let counter_removals = std::mem::take(&mut self.activation_counter_removals);
+        let division = std::mem::take(&mut self.activation_division);
         self.activation_pending_counter_object = None;
         // Taken rather than read, for `activation_cost_choices`' reason one
         // line up: the number belongs to this activation and to no other.
@@ -1134,6 +1159,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
             ability_index,
             targets,
             chosen_players,
+            division,
             cost: cost.clone(),
             x,
             fixed_mana_cost,

@@ -473,7 +473,9 @@ fn the_shape_on_the_wire_and_the_number_that_names_it_move_together() {
     // (CR 701.38, CR 118.8; protocol 66 on binary frames).
     // 110: `PlayerView/SpectatorView::initiative`, `LogEvent::TookInitiative`,
     // and `Dungeon::Undercity` (CR 725; protocol 67 on binary frames).
-    const RECORDED: (u32, u64) = (110, 12_258_879_866_033_056_955);
+    // 111: `CastModeKind::RepeatedModes` (CR 700.2d) and
+    // `NumberPrompt::DivideCounters` (CR 601.2d; protocol 68 on binary frames).
+    const RECORDED: (u32, u64) = (111, 12_258_879_866_033_056_955);
 
     let samples = core_samples();
     let sampled: std::collections::BTreeSet<String> =

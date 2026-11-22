@@ -121,6 +121,7 @@ fn reads_event(effect: &Effect) -> bool {
         | Effect::Surveil { amount, .. }
         | Effect::AddMana { amount, .. }
         | Effect::AddCounter { amount, .. }
+        | Effect::PutCountersDivided { amount, .. }
         | Effect::AddCountersUpTo { amount, .. }
         | Effect::AddCounterFilter { amount, .. }
         | Effect::AddCounterCreatedTokens { amount, .. }
@@ -128,6 +129,18 @@ fn reads_event(effect: &Effect) -> bool {
         | Effect::CreateTokenN { amount, .. }
         | Effect::Monstrosity(amount)
         | Effect::ChooseAndCreateTokenCopy { amount, .. } => reads_amount(*amount),
+        Effect::CreateTokenSized {
+            amount,
+            power,
+            toughness,
+            who,
+            ..
+        } => {
+            reads_amount(*amount)
+                || reads_amount(*power)
+                || reads_amount(*toughness)
+                || reads_player(*who)
+        }
         Effect::Poison { amount, who }
         | Effect::DiscardAmountForPlayers { amount, who }
         | Effect::SacrificeAmountForPlayers { amount, who, .. }

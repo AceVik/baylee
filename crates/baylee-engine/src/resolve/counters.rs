@@ -535,6 +535,33 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
             }
             None
         }
+        Effect::PutCountersDivided { kind, .. } => {
+            let shares: smallvec::SmallVec<[(ObjectId, u16); 4]> = state
+                .divided
+                .iter()
+                .find(|(id, _)| *id == res.on_stack)
+                .map_or_default(|(_, shares)| {
+                    shares
+                        .iter()
+                        .filter_map(|(target, n)| match *target {
+                            crate::choice::TargetRef::Object(reference)
+                                if res.targets.contains(&reference.object)
+                                    && state.source_identity(reference.object)
+                                        == Some(reference) =>
+                            {
+                                Some((reference.object, u16::try_from(*n).unwrap_or(u16::MAX)))
+                            }
+                            _ => None,
+                        })
+                        .collect()
+                });
+            for (id, count) in shares {
+                if count > 0 {
+                    crate::replacement::put_counters_by(state, res.controller, id, kind, count);
+                }
+            }
+            None
+        }
         Effect::ModifyFilter {
             filter,
             controlled_by,

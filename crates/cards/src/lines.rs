@@ -159,6 +159,7 @@ pub fn face_modes(
         .iter()
         .find_map(|a| match a {
             AbilityDef::ModalSpell { modes, .. }
+            | AbilityDef::Modal { modes, .. }
             | AbilityDef::ModalTriggered { modes, .. }
             | AbilityDef::ModalActivated { modes, .. } => Some(*modes),
             _ => None,
@@ -374,6 +375,7 @@ pub fn grants_in(
         | AbilityDef::SagaChapter { effects, .. }
         | AbilityDef::Loyalty { effects, .. } => vec![*effects],
         AbilityDef::ModalSpell { modes, .. }
+        | AbilityDef::Modal { modes, .. }
         | AbilityDef::ModalTriggered { modes, .. }
         | AbilityDef::ModalActivated { modes, .. } => modes.iter().map(|m| m.effects).collect(),
         // Nothing here resolves through an effect list a card wrote: a
@@ -1345,8 +1347,6 @@ mod tests {
     /// exception cannot quietly widen.
     #[test]
     fn every_mode_and_alternative_cost_knows_its_printed_sentence() {
-        use baylee_cards_dsl::AbilityDef;
-
         let mut modes_known = 0usize;
         let mut modal_faces = 0usize;
         let mut alternatives_known = 0usize;
@@ -1356,9 +1356,7 @@ mod tests {
             for (face, lines) in card.iter().enumerate() {
                 let abilities = def.abilities_for_face(face);
                 let modes = super::face_modes(abilities);
-                let is_spell = abilities
-                    .iter()
-                    .any(|a| matches!(a, AbilityDef::ModalSpell { .. }));
+                let is_spell = abilities.iter().any(|a| a.modal_spell().is_some());
                 if !modes.is_empty() {
                     modal_faces += 1;
                 }
@@ -1446,7 +1444,7 @@ mod tests {
                 let abilities = def.abilities_for_face(face);
                 let spells = abilities
                     .iter()
-                    .filter(|a| matches!(a, AbilityDef::ModalSpell { .. }))
+                    .filter(|a| a.modal_spell().is_some())
                     .count();
                 assert!(
                     spells <= 1,
@@ -1457,6 +1455,7 @@ mod tests {
                     .iter()
                     .filter_map(|a| match a {
                         AbilityDef::ModalSpell { modes, .. }
+                        | AbilityDef::Modal { modes, .. }
                         | AbilityDef::ModalTriggered { modes, .. }
                         | AbilityDef::ModalActivated { modes, .. } => Some(*modes),
                         _ => None,

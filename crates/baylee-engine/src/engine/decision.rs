@@ -94,6 +94,7 @@ pub fn ability_effects(ability: &AbilityDef, mode: Option<usize>) -> &'static [E
         | AbilityDef::SagaChapter { effects, .. }
         | AbilityDef::Loyalty { effects, .. } => effects,
         AbilityDef::ModalSpell { modes, .. }
+        | AbilityDef::Modal { modes, .. }
         | AbilityDef::ModalTriggered { modes, .. }
         | AbilityDef::ModalActivated { modes, .. } => {
             mode.and_then(|i| modes.get(i)).map_or(&[], |m| m.effects)
@@ -116,11 +117,31 @@ fn asked_mode(
     {
         return Some(mode);
     }
-    abilities.iter().find_map(|a| match a {
-        AbilityDef::ModalSpell { modes, .. } => crate::casting::chosen_modes(modes, set)
+    abilities.iter().find_map(|a| {
+        let (modes, ..) = a.modal_spell()?;
+        crate::casting::chosen_modes(modes, set)
             .next()
-            .map(|(i, _)| i),
-        _ => None,
+            .map(|(i, _)| i)
+    })
+}
+
+fn asked_repeated_mode(
+    def: &baylee_cards_dsl::CardDef,
+    face: usize,
+    packed: u32,
+    clause_idx: Option<usize>,
+) -> Option<usize> {
+    let abilities = def.abilities_for_face(face);
+    if let Some(&(mode, _, _)) = crate::casting::repeated_modal_target_clauses(abilities, packed)
+        .get(clause_idx.unwrap_or(0))
+    {
+        return Some(mode);
+    }
+    abilities.iter().find_map(|a| {
+        let (modes, ..) = a.modal_spell()?;
+        crate::casting::chosen_repeated_modes(modes, packed)
+            .next()
+            .map(|(i, _)| i)
     })
 }
 
@@ -206,6 +227,12 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                     ..
                 }
                 | PlanKind::PayActivationCounterKind {
+                    source,
+                    ability_index,
+                    targets,
+                    ..
+                }
+                | PlanKind::DivideActivation {
                     source,
                     ability_index,
                     targets,
@@ -414,11 +441,17 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
             super::cast_wizard::WizardStage::ExtraTargets => Some(2 + wizard.extra_targets.len()),
             _ => None,
         };
-        let several = matches!(wizard.option, Some(CastModeKind::Modes(_)));
+        let several = matches!(
+            wizard.option,
+            Some(CastModeKind::Modes(_) | CastModeKind::RepeatedModes(_))
+        );
         let modal_clause = target_clause.and_then(|idx| self.wizard_modal_clause(wizard, idx));
         let mode = match wizard.option {
             Some(CastModeKind::Mode(i)) => Some(i),
             Some(CastModeKind::Modes(set)) => asked_mode(def, face, set, target_clause),
+            Some(CastModeKind::RepeatedModes(packed)) => {
+                asked_repeated_mode(def, face, packed, target_clause)
+            }
             _ => None,
         };
         let second_instance = if several {
@@ -464,14 +497,14 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
             ability_index: def
                 .abilities_for_face(face)
                 .iter()
-                .position(|a| matches!(a, AbilityDef::Spell { .. } | AbilityDef::ModalSpell { .. }))
+                .position(|a| matches!(a, AbilityDef::Spell { .. }) || a.modal_spell().is_some())
                 .and_then(|i| u32::try_from(i).ok()),
             mode,
             whole_spell: mode.is_none(),
             effects: def
                 .abilities_for_face(face)
                 .iter()
-                .find(|a| matches!(a, AbilityDef::Spell { .. } | AbilityDef::ModalSpell { .. }))
+                .find(|a| matches!(a, AbilityDef::Spell { .. }) || a.modal_spell().is_some())
                 .map_or(&[], |a| ability_effects(a, mode)),
             cast_mode: wizard.option,
             alternative_cost: wizard.alternative_cost,

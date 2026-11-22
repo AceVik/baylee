@@ -467,6 +467,7 @@ impl CardDef {
                 | AbilityDef::Triggered { effects, .. }
                 | AbilityDef::SagaChapter { effects, .. } => walk_slice(effects, &mut found),
                 AbilityDef::ModalSpell { modes, .. }
+                | AbilityDef::Modal { modes, .. }
                 | AbilityDef::ModalActivated { modes, .. }
                 | AbilityDef::ModalTriggered { modes, .. } => {
                     for mode in *modes {

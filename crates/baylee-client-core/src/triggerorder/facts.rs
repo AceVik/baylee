@@ -653,7 +653,7 @@ fn read_one(effect: &Effect, certain: bool, reading: &Reading<'_>, facts: &mut F
             facts.deeds.add(Deeds::PUMPS);
             facts.makes.add(Stuff::POWER);
         }
-        Effect::AddCounter { amount, .. } => {
+        Effect::AddCounter { amount, .. } | Effect::PutCountersDivided { amount, .. } => {
             facts.reads.add(counted(amount));
             facts.deeds.add(Deeds::PUMPS);
             facts.makes.add(Stuff::COUNTERS);
@@ -706,6 +706,17 @@ fn read_one(effect: &Effect, certain: bool, reading: &Reading<'_>, facts: &mut F
         }
         Effect::CreateTokenN { amount, .. } => {
             facts.reads.add(counted(amount));
+            facts.makes.add(Stuff::BOARD);
+        }
+        Effect::CreateTokenSized {
+            amount,
+            power,
+            toughness,
+            ..
+        } => {
+            facts.reads.add(counted(amount));
+            facts.reads.add(counted(power));
+            facts.reads.add(counted(toughness));
             facts.makes.add(Stuff::BOARD);
         }
         Effect::Myriad | Effect::CipherCastEncoded => {

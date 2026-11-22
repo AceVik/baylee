@@ -655,6 +655,12 @@ impl HeuristicAgent {
         {
             return self.cast_modes(view, object, modes, options);
         }
+        if options
+            .iter()
+            .any(|option| matches!(option.kind, CastModeKind::RepeatedModes(_)))
+        {
+            return self.cast_repeated_modes(view, object, modes, options);
+        }
         options
             .iter()
             .enumerate()
@@ -709,6 +715,90 @@ impl HeuristicAgent {
                 let idle = reaches.contains(&Some(false));
                 let reached = reaches.iter().filter(|r| **r == Some(true)).count();
                 (!idle, reached, std::cmp::Reverse(position))
+            })
+            .map_or(0, |(position, _)| position)
+    }
+
+    /// Which combination of repeating modes (`CR 700.2d`, e.g. Confluence
+    /// spells) to cast: rejects sets with an idle mode, over-drawn library,
+    /// or redundant single-shot removal/counter repetitions beyond available
+    /// hostile targets, then prefers more productive occurrences and higher
+    /// total worth.
+    fn cast_repeated_modes(
+        &self,
+        view: &PlayerView,
+        object: ObjectId,
+        modes: &[SpellMode],
+        options: &[CastModeDesc],
+    ) -> usize {
+        let lib = view.seat(view.seat).map_or(u32::MAX, |s| s.library_count);
+        options
+            .iter()
+            .enumerate()
+            .filter_map(|(position, option)| match option.kind {
+                CastModeKind::RepeatedModes(packed) => Some((position, packed)),
+                _ => None,
+            })
+            .max_by_key(|&(position, packed)| {
+                let mut idle = false;
+                let mut reached = 0usize;
+                let mut worth = 0i64;
+                let mut total_draws = 0u32;
+                for (i, mode) in modes.iter().enumerate() {
+                    let count = u32::from(baylee_engine::casting::mode_multiplicity(packed, i));
+                    if count == 0 {
+                        continue;
+                    }
+                    total_draws = total_draws.saturating_add(
+                        count.saturating_mul(crate::optional::self_draws(view, mode.effects, 0)),
+                    );
+                    let r = self.mode_reaches(view, mode, object);
+                    if r == Some(false) {
+                        idle = true;
+                        continue;
+                    }
+                    let m = crate::tactics::meaning(mode.effects, 0);
+                    let cap = if m.counter {
+                        u32::try_from(
+                            view.stack
+                                .iter()
+                                .filter(|o| self.hostile(o.controller, view.seat))
+                                .count(),
+                        )
+                        .unwrap_or(u32::MAX)
+                    } else if m.removal
+                        || mode
+                            .effects
+                            .iter()
+                            .any(|e| matches!(e, Effect::ReturnToHand { .. }))
+                    {
+                        u32::try_from(
+                            view.battlefield
+                                .iter()
+                                .filter(|o| {
+                                    self.hostile(o.controller, view.seat)
+                                        && !o.types.contains(baylee_core::types::TypeSet::LAND)
+                                })
+                                .count(),
+                        )
+                        .unwrap_or(u32::MAX)
+                    } else {
+                        count
+                    };
+                    if count > cap {
+                        idle = true;
+                    }
+                    let useful = count.min(cap);
+                    let w = self.mode_worth(view, mode, object);
+                    if r == Some(true) || w > 0 {
+                        reached += usize::try_from(useful).unwrap_or(0);
+                    }
+                    worth = worth.saturating_add(i64::from(useful).saturating_mul(w));
+                }
+                if total_draws > 0 && lib <= total_draws {
+                    idle = true;
+                }
+                (!idle, reached, worth, std::cmp::Reverse(position))
             })
             .map_or(0, |(position, _)| position)
     }
@@ -919,6 +1009,7 @@ impl HeuristicAgent {
             .iter()
             .filter_map(|ability| match ability {
                 AbilityDef::ModalSpell { modes, .. }
+                | AbilityDef::Modal { modes, .. }
                 | AbilityDef::ModalTriggered { modes, .. }
                 | AbilityDef::ModalActivated { modes, .. } => Some(*modes),
                 _ => None,

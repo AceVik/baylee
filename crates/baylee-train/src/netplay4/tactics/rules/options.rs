@@ -34,7 +34,7 @@ fn spell_parts(abilities: &'static [AbilityDef]) -> Vec<Part> {
             AbilityDef::Spell {
                 effects, targets, ..
             } => parts.push((*effects, *targets)),
-            AbilityDef::ModalSpell { modes, .. } => {
+            AbilityDef::ModalSpell { modes, .. } | AbilityDef::Modal { modes, .. } => {
                 parts.extend(modes.iter().map(|mode| (mode.effects, mode.targets)));
             }
             _ => {}

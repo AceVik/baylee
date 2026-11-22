@@ -24,6 +24,7 @@ impl Forest {
         }
         let modes = match ability {
             AbilityDef::ModalSpell { modes, .. }
+            | AbilityDef::Modal { modes, .. }
             | AbilityDef::ModalActivated { modes, .. }
             | AbilityDef::ModalTriggered { modes, .. } => *modes,
             _ => return,

@@ -81,7 +81,9 @@ impl Kind {
     #[doc(hidden)]
     pub const fn of(ability: &AbilityDef) -> Option<Self> {
         Some(match ability {
-            AbilityDef::Spell { .. } | AbilityDef::ModalSpell { .. } => Self::Spell,
+            AbilityDef::Spell { .. } | AbilityDef::ModalSpell { .. } | AbilityDef::Modal { .. } => {
+                Self::Spell
+            }
             AbilityDef::Activated {
                 mana_ability: true, ..
             }
@@ -332,7 +334,12 @@ fn spell_face(obj: &GameObject, lookup: &impl CardLookup) -> Option<PrintedFace>
     let list = printed(obj, lookup);
     list.abilities
         .iter()
-        .any(|a| matches!(a, AbilityDef::Spell { .. } | AbilityDef::ModalSpell { .. }))
+        .any(|a| {
+            matches!(
+                a,
+                AbilityDef::Spell { .. } | AbilityDef::ModalSpell { .. } | AbilityDef::Modal { .. }
+            )
+        })
         .then_some(list.printed)
         .flatten()
 }

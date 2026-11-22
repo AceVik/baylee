@@ -335,6 +335,7 @@ fn extract_named_partners_and_snow(def: &CardDef) -> (Vec<CardIndex>, bool, bool
                 collect_named_from_effects(effects, &mut names, &mut snow);
             }
             AbilityDef::ModalSpell { modes, .. }
+            | AbilityDef::Modal { modes, .. }
             | AbilityDef::ModalActivated { modes, .. }
             | AbilityDef::ModalTriggered { modes, .. } => {
                 for m in *modes {

@@ -675,6 +675,17 @@ fn layer_scalar(view: &PlayerView, pending: &Pending, scalar_pred: f32) -> f32 {
             min,
             max,
             reason:
+                baylee_engine::choice::NumberPrompt::DivideCounters {
+                    kind, target, left, ..
+                },
+            ..
+        } if *max > *min => {
+            divide_counters_scalar(view, *kind, *target, *left, *min, *max, scalar_pred)
+        }
+        Pending::ChooseNumber {
+            min,
+            max,
+            reason:
                 baylee_engine::choice::NumberPrompt::CombatDamage {
                     source,
                     recipient,
@@ -711,6 +722,57 @@ fn layer_scalar(view: &PlayerView, pending: &Pending, scalar_pred: f32) -> f32 {
         }
         _ => scalar_pred.clamp(0.0, 1.0),
     }
+}
+
+fn divide_counters_scalar(
+    view: &PlayerView,
+    kind: baylee_cards_dsl::CounterKind,
+    target: baylee_engine::choice::TargetRef,
+    left: u32,
+    min: u32,
+    max: u32,
+    scalar_pred: f32,
+) -> f32 {
+    use baylee_cards_dsl::CounterKind as K;
+    let assign = match kind {
+        K::Minus { toughness, .. } if toughness > 0 => {
+            let unit = i32::from(toughness);
+            let rem_t = match target {
+                baylee_engine::choice::TargetRef::Object(oid) => {
+                    view.object(oid.object).map_or(max, |o| {
+                        let t = i32::from(o.toughness.unwrap_or(1)).max(1);
+                        u32::try_from((t + unit - 1) / unit).unwrap_or(1)
+                    })
+                }
+                baylee_engine::choice::TargetRef::Player(_) => min,
+            };
+            rem_t.min(left).clamp(min, max)
+        }
+        K::Stun
+        | K::Finality
+        | K::Lifelink
+        | K::Deathtouch
+        | K::Flying
+        | K::Indestructible
+        | K::Hone
+        | K::Shadow
+        | K::Shield => 1u32.clamp(min, max),
+        K::Plus { .. } | K::Loyalty | K::Charge | K::Level | K::Energy => match target {
+            baylee_engine::choice::TargetRef::Object(oid) => {
+                if view
+                    .object(oid.object)
+                    .is_some_and(|o| o.controller == view.seat)
+                {
+                    max
+                } else {
+                    min
+                }
+            }
+            baylee_engine::choice::TargetRef::Player(_) => min,
+        },
+        _ => return scalar_pred,
+    };
+    normalize_scalar_choice(assign, min, max)
 }
 
 fn decoded_matches_sample(

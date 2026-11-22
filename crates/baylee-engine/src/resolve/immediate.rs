@@ -596,7 +596,8 @@ pub(super) fn exec_immediate(
         | Effect::PumpFilterPerKeyword { .. }
         | Effect::PumpTarget { .. }
         | Effect::PumpEventObject { .. }
-        | Effect::PumpTargetSlot { .. } => counters::exec(state, res, op),
+        | Effect::PumpTargetSlot { .. }
+        | Effect::PutCountersDivided { .. } => counters::exec(state, res, op),
         Effect::MarkLandWithCounter { .. }
         | Effect::ScheduleLinkedCounterCleanup { .. }
         | Effect::CleanLinkedCounters { .. } => linked_counters::exec(state, res, op),
@@ -623,7 +624,8 @@ pub(super) fn exec_immediate(
         | Effect::Incubate { .. }
         | Effect::CreateTokenCopy { .. }
         | Effect::ChooseAndCreateTokenCopy { .. }
-        | Effect::CreateTokenFromLinked { .. } => tokens::exec(state, res, op),
+        | Effect::CreateTokenFromLinked { .. }
+        | Effect::CreateTokenSized { .. } => tokens::exec(state, res, op),
         // --- Control ---------------------------------------------------
         Effect::ExchangeControlOrSacrifice => {
             let source = subjects::source(state, res)

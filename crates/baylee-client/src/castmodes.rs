@@ -347,15 +347,32 @@ fn offer_modal_override_modes(
     face: &baylee_cards_dsl::FaceDef,
     offer: &mut impl FnMut(CastModeKind, ManaCost),
 ) {
-    let Some(baylee_cards_dsl::AbilityDef::ModalSpell { modes, choose }) = def
+    let Some((modes, choose, can_repeat)) = def
         .abilities_for_face(face_index)
         .iter()
-        .find(|a| matches!(a, baylee_cards_dsl::AbilityDef::ModalSpell { .. }))
+        .find_map(baylee_cards_dsl::AbilityDef::modal_spell)
     else {
         return;
     };
+    if can_repeat && !choose.is_one() {
+        for packed in baylee_engine::casting::repeated_mode_sets(modes, choose) {
+            if baylee_engine::casting::chosen_repeated_modes(modes, packed).all(|(_, mode)| {
+                mode.targets
+                    .is_none_or(|req| crate::targeting::requirement_possible(view, req))
+                    && mode
+                        .second_targets
+                        .is_none_or(|req| crate::targeting::requirement_possible(view, req))
+            }) {
+                offer(
+                    CastModeKind::RepeatedModes(packed),
+                    baylee_engine::casting::repeated_mode_set_cost(face.mana_cost, modes, packed),
+                );
+            }
+        }
+        return;
+    }
     if !choose.is_one() {
-        for set in baylee_engine::casting::mode_sets(modes, *choose) {
+        for set in baylee_engine::casting::mode_sets(modes, choose) {
             if baylee_engine::casting::chosen_modes(modes, set).all(|(_, mode)| {
                 mode.targets
                     .is_none_or(|req| crate::targeting::requirement_possible(view, req))

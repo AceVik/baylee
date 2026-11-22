@@ -87,7 +87,8 @@ pub(crate) fn requirements(
         AbilityDef::SagaChapter { targets, .. } => (*targets, None),
         AbilityDef::ModalTriggered { modes, .. }
         | AbilityDef::ModalActivated { modes, .. }
-        | AbilityDef::ModalSpell { modes, .. } => mode
+        | AbilityDef::ModalSpell { modes, .. }
+        | AbilityDef::Modal { modes, .. } => mode
             .and_then(|index| modes.get(usize::from(index)))
             .map_or((None, None), |mode| (mode.targets, mode.second_targets)),
         _ => (None, None),

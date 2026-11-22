@@ -101,7 +101,9 @@ pub(super) fn ability_colors(ability: &AbilityDef) -> ColorSet {
         AbilityDef::Echo { cost }
         | AbilityDef::Suspend { cost, .. }
         | AbilityDef::PerExtraTargetCost(cost) => *cost,
-        AbilityDef::ModalSpell { modes, .. } | AbilityDef::ModalTriggered { modes, .. } => modes
+        AbilityDef::ModalSpell { modes, .. }
+        | AbilityDef::Modal { modes, .. }
+        | AbilityDef::ModalTriggered { modes, .. } => modes
             .iter()
             .filter_map(|mode| mode.cost_override)
             .fold(ManaCost::ZERO, |all, mode| all.combine(&mode)),

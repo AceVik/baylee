@@ -226,43 +226,49 @@ pub fn face_has_a_legal_target(
     // something, through every instance of the word each prints — one for
     // "choose one", two for "choose two" — and which ones is
     // `cast_options`' question, not this one's.
-    let mut modal = abilities.iter().filter_map(|a| match a {
-        baylee_cards_dsl::AbilityDef::ModalSpell { modes, choose } => Some((modes, choose)),
-        _ => None,
-    });
-    if let Some((modes, choose)) = modal.next() {
-        return mode_sets(modes, *choose).any(|set| {
-            let wall_only = crate::eval::target_domain::modes_wall_only(modes, set);
-            chosen_modes(modes, set).all(|(_, mode)| {
-                requirement_is_reachable_for(
-                    mode.targets,
-                    state,
-                    player,
-                    card,
-                    Some((def, face)),
-                    wall_only,
-                ) && second_is_reachable(
-                    mode.targets,
-                    mode.second_targets,
-                    state,
-                    player,
-                    card,
-                    Some((def, face)),
-                    wall_only,
-                )
-            })
-        });
+    let mut modal = abilities
+        .iter()
+        .filter_map(baylee_cards_dsl::AbilityDef::modal_spell);
+    if let Some((modes, choose, can_repeat)) = modal.next() {
+        return modal_face_has_legal_target(
+            state,
+            player,
+            card,
+            (def, face),
+            modes,
+            choose,
+            can_repeat,
+        );
     }
 
     let spell = abilities.iter().find_map(|a| match a {
         baylee_cards_dsl::AbilityDef::Spell {
+            effects,
             targets,
             second_targets,
             ..
-        } => Some((*targets, *second_targets)),
+        } => Some((*effects, *targets, *second_targets)),
         _ => None,
     });
-    let (req, second) = spell.unwrap_or_default();
+    let (effects, req, second) = spell.unwrap_or_default();
+    if let Some(r) = req
+        && r.min > 0
+        && def
+            .faces
+            .get(face)
+            .is_some_and(|f| !f.mana_cost.has_variable())
+        && let Some((_, total)) = crate::engine::division::effects_divided_spec(
+            effects,
+            state,
+            player,
+            crate::eval::live_context(state, card),
+            state.object(card).map(|o| o.version),
+            0,
+        )
+        && total < u32::from(r.min)
+    {
+        return false;
+    }
     // Every instance of the word has to be satisfiable (CR 601.2c): Khalni
     // Ambush with no creature on the other side of the table is not a spell
     // that can be cast, however many of the caster's own it could name.
@@ -296,6 +302,45 @@ pub fn face_has_a_legal_target(
             Some((def, face)),
             crate::eval::target_domain::walls(req, second),
         )
+}
+
+fn modal_face_has_legal_target(
+    state: &GameState,
+    player: PlayerId,
+    card: ObjectId,
+    printed: (&baylee_cards_dsl::CardDef, usize),
+    modes: &'static [baylee_cards_dsl::SpellMode],
+    choose: baylee_cards_dsl::ModeCount,
+    can_repeat: bool,
+) -> bool {
+    let set_ok = |set: u8| {
+        let wall_only = crate::eval::target_domain::modes_wall_only(modes, set);
+        chosen_modes(modes, set).all(|(_, mode)| {
+            requirement_is_reachable_for(
+                mode.targets,
+                state,
+                player,
+                card,
+                Some(printed),
+                wall_only,
+            ) && second_is_reachable(
+                mode.targets,
+                mode.second_targets,
+                state,
+                player,
+                card,
+                Some(printed),
+                wall_only,
+            )
+        })
+    };
+    if can_repeat {
+        repeated_mode_sets(modes, choose)
+            .into_iter()
+            .any(|packed| set_ok(repeated_modes_distinct_mask(packed)))
+    } else {
+        mode_sets(modes, choose).any(set_ok)
+    }
 }
 
 /// Whether `card` has at least one currently open castable face whose target
@@ -479,13 +524,11 @@ pub fn has_priced_ways(def: &baylee_cards_dsl::CardDef) -> bool {
                 ability,
                 baylee_cards_dsl::AbilityDef::Static(sa)
                     if matches!(sa.modifier, baylee_cards_dsl::Modifier::Sneak(_))
-            ) || matches!(
-                ability,
-                baylee_cards_dsl::AbilityDef::ModalSpell { modes, .. }
-                    if modes
-                        .iter()
-                        .any(|mode| mode.cost_override.is_some() || mode.additional_cost.is_some())
-            )
+            ) || ability.modal_spell().is_some_and(|(modes, _, _)| {
+                modes
+                    .iter()
+                    .any(|mode| mode.cost_override.is_some() || mode.additional_cost.is_some())
+            })
         })
 }
 
@@ -514,17 +557,34 @@ pub fn mode_has_a_legal_target(
     else {
         return true;
     };
-    let reqs = def.abilities.iter().find_map(|a| match a {
-        baylee_cards_dsl::AbilityDef::ModalSpell { modes, .. } => {
-            modes.get(mode).map(|m| (m.targets, m.second_targets))
-        }
-        _ => None,
+    let reqs = def.abilities.iter().find_map(|a| {
+        let (modes, ..) = a.modal_spell()?;
+        modes
+            .get(mode)
+            .map(|m| (m.effects, m.targets, m.second_targets))
     });
-    // Both instances of the word, as `face_has_a_legal_target` asks them
-    // (CR 601.2c): Archdruid's Charm's second mode with no creature on the
-    // other side of the table is not a mode that can be chosen (CR 700.2a).
     match reqs {
-        Some((first, second)) => requirements_are_reachable(first, second, state, player, card),
+        Some((effects, first, second)) => {
+            if let Some(r) = first
+                && r.min > 0
+                && def
+                    .faces
+                    .first()
+                    .is_some_and(|f| !f.mana_cost.has_variable())
+                && let Some((_, total)) = crate::engine::division::effects_divided_spec(
+                    effects,
+                    state,
+                    player,
+                    crate::eval::live_context(state, card),
+                    state.object(card).map(|o| o.version),
+                    0,
+                )
+                && total < u32::from(r.min)
+            {
+                return false;
+            }
+            requirements_are_reachable(first, second, state, player, card)
+        }
         None => true,
     }
 }
@@ -587,6 +647,97 @@ pub fn mode_set_cost(
     })
 }
 
+/// Multiplicity (`0..=15`) of mode `mode_index` (`< 8`) inside a packed
+/// `CastModeKind::RepeatedModes(packed)` value (`CR 700.2d`).
+#[must_use]
+pub const fn mode_multiplicity(packed: u32, mode_index: usize) -> u8 {
+    if mode_index < 8 {
+        ((packed >> (4 * mode_index)) & 0xF) as u8
+    } else {
+        0
+    }
+}
+
+/// Bitmask of distinct modes with nonzero multiplicity in `packed`.
+#[must_use]
+pub const fn repeated_modes_distinct_mask(packed: u32) -> u8 {
+    let mut mask = 0_u8;
+    let mut i = 0;
+    while i < 8 {
+        if ((packed >> (4 * i)) & 0xF) != 0 {
+            mask |= 1 << i;
+        }
+        i += 1;
+    }
+    mask
+}
+
+/// Every multiset of modes for a modal spell with `can_repeat_modes: true`
+/// (`CR 700.2d`), packed 4 bits per mode `0..8`, in deterministic order.
+#[must_use]
+pub fn repeated_mode_sets(
+    modes: &[baylee_cards_dsl::SpellMode],
+    choose: baylee_cards_dsl::ModeCount,
+) -> Vec<u32> {
+    fn enumerate(
+        mode_idx: usize,
+        num_modes: usize,
+        remaining: u8,
+        packed: u32,
+        out: &mut Vec<u32>,
+    ) {
+        if remaining == 0 {
+            out.push(packed);
+            return;
+        }
+        if mode_idx >= num_modes {
+            return;
+        }
+        if mode_idx + 1 == num_modes {
+            let add = u32::from(remaining) << (4 * mode_idx);
+            out.push(packed | add);
+            return;
+        }
+        for take in (0..=remaining).rev() {
+            let add = u32::from(take) << (4 * mode_idx);
+            enumerate(mode_idx + 1, num_modes, remaining - take, packed | add, out);
+        }
+    }
+    let n = modes.len().min(8);
+    let max = choose.max.min(8);
+    if n == 0 || choose.min > max {
+        return Vec::new();
+    }
+    let mut out = Vec::new();
+    for total in choose.min..=max {
+        enumerate(0, n, total, 0, &mut out);
+    }
+    out
+}
+
+/// Chosen mode occurrences for `packed` in printed order (`CR 700.2d`, `CR 608.2c`).
+pub fn chosen_repeated_modes(
+    modes: &'static [baylee_cards_dsl::SpellMode],
+    packed: u32,
+) -> impl Iterator<Item = (usize, &'static baylee_cards_dsl::SpellMode)> {
+    modes.iter().enumerate().take(8).flat_map(move |(i, mode)| {
+        std::iter::repeat_n((i, mode), usize::from(mode_multiplicity(packed, i)))
+    })
+}
+
+/// Mana cost of `base` plus each chosen mode occurrence's `additional_cost` (`CR 700.2h`).
+#[must_use]
+pub fn repeated_mode_set_cost(
+    base: ManaCost,
+    modes: &'static [baylee_cards_dsl::SpellMode],
+    packed: u32,
+) -> ManaCost {
+    chosen_repeated_modes(modes, packed).fold(base, |cost, (_, mode)| {
+        mode.additional_cost
+            .map_or(cost, |extra| cost.combine(&extra))
+    })
+}
+
 /// Every target clause across the chosen modes of `abilities` in printed order
 /// (`CR 700.2c`, `CR 608.2c`): `(mode_index, is_second_in_mode, req)`.
 pub(crate) fn modal_target_clauses(
@@ -595,7 +746,7 @@ pub(crate) fn modal_target_clauses(
 ) -> SmallVec<[(usize, bool, baylee_cards_dsl::TargetReq); 4]> {
     let mut out = SmallVec::new();
     for ability in abilities {
-        if let baylee_cards_dsl::AbilityDef::ModalSpell { modes, .. } = ability {
+        if let Some((modes, ..)) = ability.modal_spell() {
             for (mode_index, mode) in chosen_modes(modes, set) {
                 if let Some(first) = mode.targets {
                     out.push((mode_index, false, first));
@@ -608,6 +759,47 @@ pub(crate) fn modal_target_clauses(
         }
     }
     out
+}
+
+/// Every target clause across the repeated mode occurrences of `abilities` in
+/// printed order (`CR 700.2c`, `CR 700.2d`, `CR 608.2c`).
+pub(crate) fn repeated_modal_target_clauses(
+    abilities: &'static [baylee_cards_dsl::AbilityDef],
+    packed: u32,
+) -> SmallVec<[(usize, bool, baylee_cards_dsl::TargetReq); 4]> {
+    let mut out = SmallVec::new();
+    for ability in abilities {
+        if let Some((modes, ..)) = ability.modal_spell() {
+            for (mode_index, mode) in chosen_repeated_modes(modes, packed) {
+                if let Some(first) = mode.targets {
+                    out.push((mode_index, false, first));
+                }
+                if let Some(second) = mode.second_targets {
+                    out.push((mode_index, true, second));
+                }
+            }
+            break;
+        }
+    }
+    out
+}
+
+/// Whether every mode in `packed` has legal targets (`CR 700.2a`, `CR 700.2d`).
+#[must_use]
+pub fn repeated_mode_set_has_legal_targets(
+    state: &GameState,
+    lookup: &impl crate::state::CardLookup,
+    player: PlayerId,
+    card: ObjectId,
+    packed: u32,
+) -> bool {
+    mode_set_has_legal_targets(
+        state,
+        lookup,
+        player,
+        card,
+        repeated_modes_distinct_mask(packed),
+    )
 }
 
 /// Whether every mode in a set can be pointed at something: a mode that
@@ -629,10 +821,7 @@ pub fn mode_set_has_legal_targets(
     };
     def.abilities
         .iter()
-        .filter_map(|ability| match ability {
-            baylee_cards_dsl::AbilityDef::ModalSpell { modes, .. } => Some(*modes),
-            _ => None,
-        })
+        .filter_map(|ability| ability.modal_spell().map(|(modes, ..)| modes))
         .all(|modes| {
             let wall_only = crate::eval::target_domain::modes_wall_only(modes, set);
             chosen_modes(modes, set).all(|(_, mode)| {
@@ -669,9 +858,7 @@ pub fn modes_are_the_only_way(def: &baylee_cards_dsl::CardDef, face: usize) -> b
         return false;
     };
     let abilities = def.abilities_for_face(face);
-    abilities
-        .iter()
-        .any(|a| matches!(a, baylee_cards_dsl::AbilityDef::ModalSpell { .. }))
+    abilities.iter().any(|a| a.modal_spell().is_some())
         && !abilities
             .iter()
             .any(|a| matches!(a, baylee_cards_dsl::AbilityDef::Spell { .. }))
@@ -1573,37 +1760,50 @@ pub(crate) fn can_cast_form_paying(
                     allow,
                 )
             };
-            let any_mode = def.abilities.iter().any(|a| match a {
-                baylee_cards_dsl::AbilityDef::ModalSpell { modes, choose } if !choose.is_one() => {
-                    mode_sets(modes, *choose).any(|set| {
+            let any_mode = def.abilities.iter().any(|a| {
+                let Some((modes, choose, can_repeat)) = a.modal_spell() else {
+                    return false;
+                };
+                if can_repeat {
+                    repeated_mode_sets(modes, choose).into_iter().any(|packed| {
+                        probe_plot(&repeated_mode_set_cost(ManaCost::ZERO, modes, packed).with_x(0))
+                            && repeated_mode_set_has_legal_targets(
+                                state, lookup, player, card, packed,
+                            )
+                    })
+                } else if !choose.is_one() {
+                    mode_sets(modes, choose).any(|set| {
                         probe_plot(&mode_set_cost(ManaCost::ZERO, modes, set).with_x(0))
                             && mode_set_has_legal_targets(state, lookup, player, card, set)
                     })
-                }
-                baylee_cards_dsl::AbilityDef::ModalSpell { modes, .. } => {
+                } else {
                     modes.iter().enumerate().any(|(i, m)| {
                         m.cost_override.is_none()
                             && probe_plot(&ManaCost::ZERO)
                             && mode_has_a_legal_target(state, lookup, player, card, i)
                     })
                 }
-                _ => false,
             });
             if any_mode {
                 return Ok(());
             }
-            let any_targetable = def.abilities.iter().any(|a| match a {
-                baylee_cards_dsl::AbilityDef::ModalSpell { modes, choose } if !choose.is_one() => {
-                    mode_sets(modes, *choose)
+            let any_targetable = def.abilities.iter().any(|a| {
+                let Some((modes, choose, can_repeat)) = a.modal_spell() else {
+                    return false;
+                };
+                if can_repeat {
+                    repeated_mode_sets(modes, choose).into_iter().any(|packed| {
+                        repeated_mode_set_has_legal_targets(state, lookup, player, card, packed)
+                    })
+                } else if !choose.is_one() {
+                    mode_sets(modes, choose)
                         .any(|set| mode_set_has_legal_targets(state, lookup, player, card, set))
-                }
-                baylee_cards_dsl::AbilityDef::ModalSpell { modes, .. } => {
+                } else {
                     modes.iter().enumerate().any(|(i, m)| {
                         m.cost_override.is_none()
                             && mode_has_a_legal_target(state, lookup, player, card, i)
                     })
                 }
-                _ => false,
             });
             return Err(if any_targetable {
                 CastError::NotEnoughMana
@@ -1699,21 +1899,29 @@ pub(crate) fn can_cast_form_paying(
             face_additional_mana_floor(state, player, card, f)
         });
         let payable = if let Some(def) = printed.filter(|def| modes_are_the_only_way(def, 0)) {
-            def.abilities_for_face(0).iter().any(|a| match a {
-                baylee_cards_dsl::AbilityDef::ModalSpell { modes, choose } if !choose.is_one() => {
-                    mode_sets(modes, *choose).any(|set| {
+            def.abilities_for_face(0).iter().any(|a| {
+                let Some((modes, choose, can_repeat)) = a.modal_spell() else {
+                    return false;
+                };
+                if can_repeat {
+                    repeated_mode_sets(modes, choose).into_iter().any(|packed| {
+                        probe(&repeated_mode_set_cost(free_base, modes, packed))
+                            && repeated_mode_set_has_legal_targets(
+                                state, lookup, player, card, packed,
+                            )
+                    })
+                } else if !choose.is_one() {
+                    mode_sets(modes, choose).any(|set| {
                         probe(&mode_set_cost(free_base, modes, set))
                             && mode_set_has_legal_targets(state, lookup, player, card, set)
                     })
-                }
-                baylee_cards_dsl::AbilityDef::ModalSpell { modes, .. } => {
+                } else {
                     probe(&free_base)
                         && modes.iter().enumerate().any(|(i, mode)| {
                             mode.cost_override.is_none()
                                 && mode_has_a_legal_target(state, lookup, player, card, i)
                         })
                 }
-                _ => false,
             })
         } else {
             probe(&free_base)
@@ -2190,16 +2398,33 @@ pub(crate) fn can_cast_form_paying(
         // same intersection `cast_options` makes two files away, which is the
         // half that was already right.
         let any_mode = front_now
-            && def.abilities.iter().any(|a| match a {
-                baylee_cards_dsl::AbilityDef::ModalSpell { modes, choose } if !choose.is_one() => {
-                    mode_sets(modes, *choose).any(|set| {
+            && def.abilities.iter().any(|a| {
+                let Some((modes, choose, can_repeat)) = a.modal_spell() else {
+                    return false;
+                };
+                if can_repeat {
+                    repeated_mode_sets(modes, choose).into_iter().any(|packed| {
+                        (!flashback_only
+                            || mana_cost_mode(
+                                def,
+                                0,
+                                crate::choice::CastModeKind::RepeatedModes(packed),
+                            ))
+                            && probe_normal(
+                                &repeated_mode_set_cost(face.mana_cost, modes, packed).with_x(0),
+                            )
+                            && repeated_mode_set_has_legal_targets(
+                                state, lookup, player, card, packed,
+                            )
+                    })
+                } else if !choose.is_one() {
+                    mode_sets(modes, choose).any(|set| {
                         (!flashback_only
                             || mana_cost_mode(def, 0, crate::choice::CastModeKind::Modes(set)))
                             && probe_normal(&mode_set_cost(face.mana_cost, modes, set).with_x(0))
                             && mode_set_has_legal_targets(state, lookup, player, card, set)
                     })
-                }
-                baylee_cards_dsl::AbilityDef::ModalSpell { modes, .. } => {
+                } else {
                     modes.iter().enumerate().any(|(i, m)| {
                         (!flashback_only || m.cost_override.is_none())
                             && (if m.cost_override.is_some() {
@@ -2210,7 +2435,6 @@ pub(crate) fn can_cast_form_paying(
                             && mode_has_a_legal_target(state, lookup, player, card, i)
                     })
                 }
-                _ => false,
             });
         // And every other face the wizard would offer, at its own timing and
         // with its own target check (`a_back_face_castable` / `a_fused_castable`).
@@ -2341,15 +2565,21 @@ pub(crate) fn can_cast_form_paying(
             // player one land short, and telling them it is sends them
             // looking for the land.
             let a_mode_was_affordable = front_now
-                && def.abilities.iter().any(|a| match a {
-                    baylee_cards_dsl::AbilityDef::ModalSpell { modes, choose }
-                        if !choose.is_one() =>
-                    {
-                        mode_sets(modes, *choose).any(|set| {
+                && def.abilities.iter().any(|a| {
+                    let Some((modes, choose, can_repeat)) = a.modal_spell() else {
+                        return false;
+                    };
+                    if can_repeat {
+                        repeated_mode_sets(modes, choose).into_iter().any(|packed| {
+                            probe_normal(
+                                &repeated_mode_set_cost(face.mana_cost, modes, packed).with_x(0),
+                            )
+                        })
+                    } else if !choose.is_one() {
+                        mode_sets(modes, choose).any(|set| {
                             probe_normal(&mode_set_cost(face.mana_cost, modes, set).with_x(0))
                         })
-                    }
-                    baylee_cards_dsl::AbilityDef::ModalSpell { modes, .. } => {
+                    } else {
                         modes.iter().any(|m| {
                             if m.cost_override.is_some() {
                                 probe(&m.cost_override.unwrap_or(face.mana_cost).with_x(0))
@@ -2358,7 +2588,6 @@ pub(crate) fn can_cast_form_paying(
                             }
                         })
                     }
-                    _ => false,
                 });
             let front_castable_with_target = front_target_ok && (front_now || sneak_now);
             let no_face_targetable = has_castable_backs

@@ -13,7 +13,7 @@ use crate::casting;
 use crate::choice::{
     CastModeDesc, CastModeKind, ChoicePrompt, NumberPrompt, TargetPrompt, YesNoPrompt,
 };
-use baylee_cards_dsl::{AltCondition, CostPart, SpellMode, TargetReq, TargetSpec};
+use baylee_cards_dsl::{AltCondition, CostPart, TargetReq, TargetSpec};
 use baylee_core::mana::ManaCost;
 
 mod announced_costs;
@@ -1789,18 +1789,20 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
         let abilities = def.abilities_for_face(face_index);
         match wizard.option {
             Some(CastModeKind::Fused) => fused_target_req(def, 0),
-            Some(CastModeKind::Mode(i)) => abilities.iter().find_map(|a| match a {
-                AbilityDef::ModalSpell { modes, .. } => {
-                    modes.get(i).and_then(|m: &SpellMode| m.targets)
-                }
-                _ => None,
-            }),
+            Some(CastModeKind::Mode(i)) => abilities
+                .iter()
+                .find_map(|a| a.modal_spell()?.0.get(i).and_then(|m| m.targets)),
             // Several modes: the first of them that says "target" is the
             // spell's first instance of the word (CR 700.2c), the second
             // its second — `wizard_second_target_req`.
             Some(CastModeKind::Modes(set)) => casting::modal_target_clauses(abilities, set)
                 .first()
                 .map(|&(_, _, req)| req),
+            Some(CastModeKind::RepeatedModes(packed)) => {
+                casting::repeated_modal_target_clauses(abilities, packed)
+                    .first()
+                    .map(|&(_, _, req)| req)
+            }
             _ => abilities.iter().find_map(|a| match a {
                 AbilityDef::Spell { targets, .. } => *targets,
                 _ => None,
@@ -1816,18 +1818,24 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
         if wizard.masked {
             return None;
         }
-        let Some(CastModeKind::Modes(set)) = wizard.option else {
-            return None;
-        };
         let def = self
             .state
             .object(wizard.card)
             .and_then(|o| o.card)
             .and_then(|c| self.lookup.card(c.index))?;
         let face_index = wizard.face_index().min(def.faces.len() - 1);
-        casting::modal_target_clauses(def.abilities_for_face(face_index), set)
-            .get(clause_idx)
-            .copied()
+        let abilities = def.abilities_for_face(face_index);
+        match wizard.option {
+            Some(CastModeKind::Modes(set)) => casting::modal_target_clauses(abilities, set)
+                .get(clause_idx)
+                .copied(),
+            Some(CastModeKind::RepeatedModes(packed)) => {
+                casting::repeated_modal_target_clauses(abilities, packed)
+                    .get(clause_idx)
+                    .copied()
+            }
+            _ => None,
+        }
     }
 
     pub(super) fn wizard_extra_clause(
@@ -1881,14 +1889,17 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
         let mut is_second_in_mode = true;
         let mut req = match wizard.option {
             Some(CastModeKind::Fused) => fused_target_req(def, 1),
-            Some(CastModeKind::Mode(i)) => abilities.iter().find_map(|a| match a {
-                AbilityDef::ModalSpell { modes, .. } => {
-                    modes.get(i).and_then(|m: &SpellMode| m.second_targets)
-                }
-                _ => None,
-            }),
+            Some(CastModeKind::Mode(i)) => abilities
+                .iter()
+                .find_map(|a| a.modal_spell()?.0.get(i).and_then(|m| m.second_targets)),
             Some(CastModeKind::Modes(set)) => {
                 let (_, is_sec, r) = *casting::modal_target_clauses(abilities, set).get(1)?;
+                is_second_in_mode = is_sec;
+                Some(r)
+            }
+            Some(CastModeKind::RepeatedModes(packed)) => {
+                let (_, is_sec, r) =
+                    *casting::repeated_modal_target_clauses(abilities, packed).get(1)?;
                 is_second_in_mode = is_sec;
                 Some(r)
             }

@@ -388,6 +388,49 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
             }
             None
         }
+        Effect::CreateTokenSized {
+            token,
+            amount,
+            power,
+            toughness,
+            who,
+            tapped,
+            attacking,
+            haste_until_eot,
+            cleanup,
+        } => {
+            let count = amount2(&amount, state, you, res);
+            if count == 0 {
+                return None;
+            }
+            let p = i16::try_from(amount2(&power, state, you, res)).unwrap_or(i16::MAX);
+            let t = i16::try_from(amount2(&toughness, state, you, res)).unwrap_or(i16::MAX);
+            let entry = TokenEntry {
+                tapped,
+                temporary_haste_source: haste_until_eot.then_some(res.source),
+            };
+            let mut attacking_made = Vec::new();
+            for recipient in players_of(who, state, you, res) {
+                let made = create_tokens_entering_pt(
+                    state,
+                    recipient,
+                    token,
+                    Some((p, t)),
+                    count,
+                    res.text,
+                    entry,
+                );
+                copy_tokens::schedule_cleanup(state, res, recipient, &made, cleanup);
+                if attacking && recipient == you {
+                    attacking_made.extend(made);
+                }
+            }
+            if attacking && !attacking_made.is_empty() {
+                super::attacking_tokens::start(state, res, attacking_made)
+            } else {
+                None
+            }
+        }
         _ => unreachable!("not a token effect"),
     }
 }
@@ -661,6 +704,26 @@ fn create_tokens_entering(
     text: TextChangeMap,
     entry: TokenEntry,
 ) -> Vec<ObjectId> {
+    create_tokens_entering_pt(
+        state,
+        controller,
+        token,
+        size.map(|s| (s, s)),
+        count,
+        text,
+        entry,
+    )
+}
+
+fn create_tokens_entering_pt(
+    state: &mut GameState,
+    controller: PlayerId,
+    token: &'static baylee_cards_dsl::TokenDef,
+    size: Option<(i16, i16)>,
+    count: u32,
+    text: TextChangeMap,
+    entry: TokenEntry,
+) -> Vec<ObjectId> {
     // The player a token is created under owns it (CR 111.2), and nothing
     // is created for a player who has left the game (CR 800.4b, 800.4d).
     if count == 0 || state.has_left(controller) {
@@ -813,13 +876,13 @@ fn create_token_entering(
     state: &mut GameState,
     controller: PlayerId,
     token: &'static baylee_cards_dsl::TokenDef,
-    size: Option<i16>,
+    size: Option<(i16, i16)>,
     text: TextChangeMap,
     entry: TokenEntry,
 ) -> ObjectId {
     // Every Zombie of the same kind shares one printed face: the board this
     // has to survive is thousands of them.
-    let mut base = state.token_base(token, size);
+    let mut base = state.token_base_pt(token, size);
     if text != TextChangeMap::IDENTITY {
         let changed = std::sync::Arc::make_mut(&mut base);
         changed.colors = text.color_words(changed.colors);
@@ -902,7 +965,7 @@ fn create_attacking_tokens(
 enum ProspectiveToken {
     Def {
         token: &'static baylee_cards_dsl::TokenDef,
-        size: Option<i16>,
+        size: Option<(i16, i16)>,
         text: TextChangeMap,
         entry: TokenEntry,
         count: u32,
@@ -957,7 +1020,7 @@ impl ProspectiveToken {
             Self::Def {
                 token, size, text, ..
             } => {
-                let mut base = state.token_base(token, *size);
+                let mut base = state.token_base_pt(token, *size);
                 if *text != TextChangeMap::IDENTITY {
                     let changed = std::sync::Arc::make_mut(&mut base);
                     changed.colors = text.color_words(changed.colors);

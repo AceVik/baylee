@@ -186,6 +186,12 @@ pub fn mode_refs(cid: u32, face: u8, kind: &baylee_engine::choice::CastModeKind)
             usize::from(face),
             (0..8).filter(|i| bits & (1 << i) != 0).collect(),
         ),
+        K::RepeatedModes(packed) => (
+            usize::from(face),
+            (0..8)
+                .filter(|&i| baylee_engine::casting::mode_multiplicity(*packed, i) > 0)
+                .collect(),
+        ),
         K::EscapeGranted { face, modes, .. } => {
             (*face, (0..8).filter(|i| modes & (1 << i) != 0).collect())
         }
@@ -198,6 +204,7 @@ pub fn mode_refs(cid: u32, face: u8, kind: &baylee_engine::choice::CastModeKind)
     {
         let list = match ab {
             A::ModalSpell { modes, .. }
+            | A::Modal { modes, .. }
             | A::ModalActivated { modes, .. }
             | A::ModalTriggered { modes, .. } => *modes,
             _ => continue,

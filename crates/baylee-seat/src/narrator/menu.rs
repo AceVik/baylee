@@ -1929,6 +1929,7 @@ fn cast_mode_label(card: Option<baylee_view::CardIdentity>, option: &CastModeDes
             )
         }
         CastModeKind::Modes(set) => modes_label(card, face, set, &cost),
+        CastModeKind::RepeatedModes(packed) => repeated_modes_label(card, face, packed, &cost),
         CastModeKind::Face(i) | CastModeKind::PlayLandFace(i) => {
             let name = card
                 .and_then(|c| baylee_cards::by_index(c.index))
@@ -2228,6 +2229,42 @@ fn modes_label(
         "Cast it with these modes"
     };
     format!("{head} for {cost}: {}", words.join(" and "))
+}
+
+fn repeated_modes_label(
+    card: Option<baylee_view::CardIdentity>,
+    face: usize,
+    packed: u32,
+    cost: &str,
+) -> String {
+    let words: Vec<String> = (0..8usize)
+        .filter_map(|mode| {
+            let count = baylee_engine::casting::mode_multiplicity(packed, mode);
+            if count == 0 {
+                return None;
+            }
+            let phrase = card
+                .and_then(|c| {
+                    baylee_cards::lines::mode_line(c.index, face, mode)
+                        .and_then(|line| baylee_cards::oracle::sentence(c.index, face, line.line))
+                        .or_else(|| baylee_cards::lines::inline_mode_words(c.index, face, mode))
+                })
+                .map_or_else(|| format!("mode {}", mode + 1), |w| format!("\"{w}\""));
+            Some(if count > 1 {
+                format!("{count}\u{00d7} {phrase}")
+            } else {
+                phrase
+            })
+        })
+        .collect();
+    if words.is_empty() {
+        format!("Cast it with no modes for {cost}")
+    } else {
+        format!(
+            "Cast it with these modes for {cost}: {}",
+            words.join(" and ")
+        )
+    }
 }
 
 fn spoken_cost(cost: &baylee_core::mana::ManaCost) -> String {

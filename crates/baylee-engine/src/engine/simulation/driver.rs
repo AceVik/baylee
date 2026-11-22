@@ -81,6 +81,7 @@ pub(super) fn check_settled<L: CardLookup, D: crate::engine::LoopDetection>(
         activation_either_branches,
         activation_counter_removals,
         activation_pending_counter_object,
+        activation_division,
         activating_abilities,
         activating_grant,
         // Replaced by `forget_settings`.
@@ -152,6 +153,7 @@ pub(super) fn check_settled<L: CardLookup, D: crate::engine::LoopDetection>(
             !activation_counter_removals.is_empty() || activation_pending_counter_object.is_some(),
             "activation_counter_removals",
         ),
+        (!activation_division.is_empty(), "activation_division"),
         (activating_abilities.is_some(), "activating_abilities"),
         (activating_grant.is_some(), "activating_grant"),
         // Every event up to now has been read for triggers: the journal's
@@ -233,6 +235,7 @@ pub(super) fn duplicate<L: CardLookup + Clone, D: crate::engine::LoopDetection>(
         activation_either_branches,
         activation_counter_removals,
         activation_pending_counter_object,
+        activation_division,
         activating_abilities,
         activating_grant,
         capabilities,
@@ -285,6 +288,7 @@ pub(super) fn duplicate<L: CardLookup + Clone, D: crate::engine::LoopDetection>(
         activation_either_branches: activation_either_branches.clone(),
         activation_counter_removals: activation_counter_removals.clone(),
         activation_pending_counter_object: *activation_pending_counter_object,
+        activation_division: activation_division.clone(),
         activating_abilities: activating_abilities.clone(),
         activating_grant: *activating_grant,
         capabilities: capabilities.clone(),

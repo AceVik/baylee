@@ -208,12 +208,10 @@ pub(super) fn reachable(duel: &Duel) -> std::collections::HashSet<ObjectId> {
                         .abilities_for_face(usize::from(card.card.face))
                         .iter()
                         .any(|a| {
-                            matches!(
-                                a,
-                                baylee_cards_dsl::AbilityDef::ModalSpell { modes, choose }
-                                    if !choose.is_one()
-                                        && modes.iter().any(|m| m.additional_cost.is_some())
-                            )
+                            a.modal_spell().is_some_and(|(modes, choose, _)| {
+                                !choose.is_one()
+                                    && modes.iter().any(|m| m.additional_cost.is_some())
+                            })
                         })
             }) || crate::targeting::only_a_dearer_mode_is_left(view, card.card)
             {

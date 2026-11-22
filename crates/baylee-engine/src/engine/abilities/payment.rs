@@ -120,6 +120,7 @@ pub(crate) struct ActivationCompletion {
     pub ability_index: u32,
     pub targets: SmallVec<[ObjectId; 2]>,
     pub chosen_players: Vec<PlayerId>,
+    pub division: Vec<u32>,
     pub cost: ActivationPrice,
     pub x: u32,
     pub fixed_mana_cost: baylee_core::mana::ManaCost,
@@ -204,6 +205,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
         self.pending_plan = None;
         self.activation_cost_choices.clear();
         self.activation_counter_removals.clear();
+        self.activation_division.clear();
         self.activation_target_players.clear();
         self.activation_second_targets = None;
         self.activation_target_references = crate::sources::TargetReferences::default();
@@ -230,6 +232,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
             ability_index,
             targets,
             chosen_players,
+            division,
             cost,
             x,
             fixed_mana_cost,
@@ -514,6 +517,10 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 if let [only] = chosen_players[..] {
                     obj.chosen_player = Some(only);
                 }
+            }
+            if !division.is_empty() {
+                self.activation_division = division;
+                self.record_activation_division(ability, &chosen_players);
             }
             self.record_activation(
                 player,

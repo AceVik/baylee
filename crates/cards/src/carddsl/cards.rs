@@ -163,6 +163,7 @@ pub fn encode_card_face(def: &CardDef, face_idx: usize) -> CardDslFeatures {
             | AbilityDef::Spell { effects, .. }
             | AbilityDef::SagaChapter { effects, .. } => walk_effects(effects, &mut agg_ch),
             AbilityDef::ModalSpell { modes, .. }
+            | AbilityDef::Modal { modes, .. }
             | AbilityDef::ModalActivated { modes, .. }
             | AbilityDef::ModalTriggered { modes, .. } => {
                 for m in *modes {

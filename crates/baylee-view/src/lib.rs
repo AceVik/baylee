@@ -330,7 +330,10 @@ pub use turn::{DayNight, Phase, Step};
 /// Version 110 adds the initiative designation ([`PlayerView::initiative`],
 /// [`SpectatorView::initiative`], [`LogEvent::TookInitiative`], CR 725) and
 /// [`baylee_core::Dungeon::Undercity`] (CR 309.4c).
-pub const VIEW_VERSION: u32 = 110;
+/// Version 111 adds repeating modal choices (`CastModeKind::RepeatedModes`,
+/// CR 700.2d) and divided counter distribution (`NumberPrompt::DivideCounters`,
+/// CR 601.2d).
+pub const VIEW_VERSION: u32 = 111;
 
 // ------------------------------------------------------------------- targets
 

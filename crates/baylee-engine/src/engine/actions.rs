@@ -657,13 +657,31 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                     // One target's share of a division; the next is asked,
                     // or the last takes the rest.
                     Some(PlanKind::DivideDamage {
+                        kind,
                         on_stack,
                         targets,
                         mut shares,
                         total,
                     }) => {
                         shares.push(n);
-                        self.ask_division(player, on_stack, targets, shares, total);
+                        self.ask_division(player, on_stack, kind, targets, shares, total);
+                        return Ok(());
+                    }
+                    Some(PlanKind::DivideActivation {
+                        source,
+                        ability_index,
+                        targets,
+                        target_players,
+                    }) => {
+                        self.activation_division.push(n);
+                        self.activation_target_players = target_players;
+                        self.activation_targets_answered = true;
+                        if self
+                            .start_activation(player, source, ability_index, targets)
+                            .is_err()
+                        {
+                            self.reverse_activation(player);
+                        }
                         return Ok(());
                     }
                     // One creature's share of a combat damage division that
@@ -957,6 +975,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 self.activation_cost_choices.clear();
                 self.activation_counter_removals.clear();
                 self.activation_pending_counter_object = None;
+                self.activation_division.clear();
                 self.activation_x = None;
                 self.activation_phyrexian.clear();
                 self.activation_either_branches.clear();
@@ -1473,7 +1492,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                             "replacement questions are answered via YesNo or ChooseObjects"
                         )
                     }
-                    PlanKind::DivideDamage { .. } => {
+                    PlanKind::DivideDamage { .. } | PlanKind::DivideActivation { .. } => {
                         unreachable!("division plans are answered via ChooseNumber")
                     }
                     // Banding's questions are turn-based actions' own, asked
@@ -2740,6 +2759,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
         self.activation_cost_choices.clear();
         self.activation_counter_removals.clear();
         self.activation_pending_counter_object = None;
+        self.activation_division.clear();
         self.activation_x = None;
         self.activation_graveyard = None;
         self.activation_phyrexian.clear();

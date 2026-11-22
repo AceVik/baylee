@@ -112,6 +112,7 @@ pub(super) fn printed_branches(ability: &AbilityDef) -> Vec<Branch> {
             effects,
         }],
         AbilityDef::ModalSpell { modes, .. }
+        | AbilityDef::Modal { modes, .. }
         | AbilityDef::ModalTriggered { modes, .. }
         | AbilityDef::ModalActivated { modes, .. } => modal(modes),
         // Nothing that resolves through an effect list of its own: a

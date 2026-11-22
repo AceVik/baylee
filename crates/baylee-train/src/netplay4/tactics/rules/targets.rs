@@ -90,6 +90,7 @@ fn asked_effects(view: &PlayerView, source: ObjectId) -> Vec<&'static [Effect]> 
             | AbilityDef::ActivatedConditional { effects, .. }
             | AbilityDef::Triggered { effects, .. } => parts.push(*effects),
             AbilityDef::ModalSpell { modes, .. }
+            | AbilityDef::Modal { modes, .. }
             | AbilityDef::ModalActivated { modes, .. }
             | AbilityDef::ModalTriggered { modes, .. } => {
                 parts.extend(modes.iter().map(|mode| mode.effects));

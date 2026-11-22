@@ -1304,7 +1304,7 @@ fn encode_cast_mode_kind_into(kind: &CastModeKind, cost: &ManaCost, index: u8, f
         | CastModeKind::Impending
         | CastModeKind::Awaken => 28,
         CastModeKind::Mode(_) => 29,
-        CastModeKind::Modes(_) | CastModeKind::Fused => 30,
+        CastModeKind::Modes(_) | CastModeKind::RepeatedModes(_) | CastModeKind::Fused => 30,
         CastModeKind::Face(_) => 31,
         CastModeKind::PlayLandFace(_) => 32,
         CastModeKind::Prototype => 33,

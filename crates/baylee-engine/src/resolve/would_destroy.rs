@@ -35,16 +35,17 @@ pub(super) fn target_spell_would_destroy(
     };
     // A modal spell's modes were chosen as it was cast (CR 700.2a, 601.2b):
     // the effects of the chosen ones are what it would do.
+    let repeated = spell.repeated_modes_mask();
     let chosen = |index: usize| {
         spell.mode_index.map(usize::from) == Some(index)
-            || (index < 8 && spell.modes & (1 << index) != 0)
+            || (index < 8 && (spell.modes | repeated) & (1 << index) != 0)
     };
     let effects: Vec<Effect> = list
         .abilities
         .iter()
         .flat_map(|a| match a {
             AbilityDef::Spell { effects, .. } => effects.to_vec(),
-            AbilityDef::ModalSpell { modes, .. } => modes
+            AbilityDef::ModalSpell { modes, .. } | AbilityDef::Modal { modes, .. } => modes
                 .iter()
                 .enumerate()
                 .filter(|(index, _)| chosen(*index))

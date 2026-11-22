@@ -588,11 +588,13 @@ impl GameState {
                         work.push((id, slot_idx, stamp, *effects));
                     }
                     A::ModalSpell { modes, .. }
+                    | A::Modal { modes, .. }
                     | A::ModalTriggered { modes, .. }
                     | A::ModalActivated { modes, .. } => {
+                        let repeated = obj.repeated_modes_mask();
                         for (index, mode) in modes.iter().enumerate() {
                             if obj.mode_index == u8::try_from(index).ok()
-                                || (index < 8 && obj.modes & (1 << index) != 0)
+                                || (index < 8 && (obj.modes | repeated) & (1 << index) != 0)
                             {
                                 work.push((id, slot_idx, stamp, mode.effects));
                             }

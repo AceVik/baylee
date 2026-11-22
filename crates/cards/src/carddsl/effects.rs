@@ -288,6 +288,7 @@ fn accumulate_effect(effect: &Effect, ch: &mut EffectChannels) {
         | Effect::AddCounterSource { amount, .. }
         | Effect::AddCounterFilter { amount, .. }
         | Effect::AddCounterCreatedTokens { amount, .. }
+        | Effect::PutCountersDivided { amount, .. }
         | Effect::Bolster(amount)
         | Effect::Monstrosity(amount) => {
             ch.counters_add += amount_scalar(amount).max(1.0);
@@ -333,6 +334,7 @@ fn accumulate_effect(effect: &Effect, ch: &mut EffectChannels) {
         | Effect::CreateTokenN { .. }
         | Effect::CreateTokensFor { .. }
         | Effect::CreateTokenModified { .. }
+        | Effect::CreateTokenSized { .. }
         | Effect::CreateTokenAttacking { .. }
         | Effect::Mobilize(_)
         | Effect::CreateTokenThenCounters { .. }

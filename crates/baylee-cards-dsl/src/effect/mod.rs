@@ -5343,6 +5343,39 @@ pub enum Effect {
         /// Instructions executed sequentially for each snapshotted object.
         then: &'static [Effect],
     },
+    /// Create `amount` tokens of `token` under `who`'s control with copiable
+    /// base power and toughness set at creation time (`CR 111.3`, `CR 707.2`).
+    /// Appended to preserve replay identities.
+    CreateTokenSized {
+        /// Printed characteristics and abilities of the token.
+        token: &'static TokenDef,
+        /// Count before token-creation replacements.
+        amount: Amount,
+        /// Creation-time base power (`CR 111.3`).
+        power: Amount,
+        /// Creation-time base toughness (`CR 111.3`).
+        toughness: Amount,
+        /// Controller (and owner, `CR 111.2`) under whom the tokens are created.
+        who: PlayerRel,
+        /// Whether created tokens enter tapped.
+        tapped: bool,
+        /// Whether created tokens enter attacking (`CR 508.4`).
+        attacking: bool,
+        /// Whether created tokens gain haste until end of turn.
+        haste_until_eot: bool,
+        /// Optional delayed sacrifice or exile cleanup (`CR 603.7`).
+        cleanup: CopyCleanup,
+    },
+    /// Distribute `amount` counters of `kind` as you choose among one or more
+    /// target objects (`CR 601.2d`), announced before costs are paid (or as an
+    /// ability goes on the stack) with at least one counter assigned per chosen
+    /// target. Appended to preserve replay identities.
+    PutCountersDivided {
+        /// Counter type to distribute.
+        kind: CounterKind,
+        /// Total counters to distribute, evaluated at announcement time (`CR 601.2d`).
+        amount: Amount,
+    },
 }
 
 #[cfg(test)]

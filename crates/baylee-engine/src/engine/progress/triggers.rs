@@ -1210,7 +1210,41 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                     }
                 }
                 let offered = options.len() + player_options.len();
-                if offered < req.min as usize {
+                let (etb_x, div_total) =
+                    match self.trigger_abilities(&t).get(t.ability_index as usize) {
+                        Some(AbilityDef::Triggered {
+                            trigger, effects, ..
+                        }) => {
+                            let x = if matches!(trigger, &baylee_cards_dsl::Trigger::ETB) {
+                                self.state.object(t.source).map_or(0, |o| o.x_value)
+                            } else {
+                                0
+                            };
+                            let ctx = crate::text_changes::RuleContext {
+                                source: t.source,
+                                text: t.text,
+                                resolved_name: None,
+                                resolved_subtype: None,
+                                reference: t.event_object,
+                            };
+                            let div = crate::engine::division::effects_divided_spec(
+                                effects,
+                                &self.state,
+                                t.controller,
+                                ctx,
+                                t.source_version,
+                                x,
+                            )
+                            .map(|(_, total)| total);
+                            (x, div)
+                        }
+                        _ => (0, None),
+                    };
+                let (min, mut max) = req.bounds(etb_x);
+                if let Some(total) = div_total {
+                    max = max.min(total);
+                }
+                if min > max || u32::try_from(offered).unwrap_or(u32::MAX) < min {
                     // No legal target: the trigger is removed from the stack
                     // entirely (CR 603.3d). It was put there first, so a
                     // cleanup step's check has found it (CR 514.3a).
@@ -1273,19 +1307,13 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                     }
                     // Nobody has anything to point at: it stacks targeting
                     // nothing, like any "up to one" with nothing legal.
-                } else if offered > 0 {
+                } else if offered > 0 && max > 0 {
                     self.pending_plan = Some(PlanKind::Trigger {
                         source: t.source,
                         ability_index: t.ability_index,
                         mode: t.chosen_mode,
                         per_opponent: None,
                     });
-                    // Saturated, never truncated: a board of 256 legal
-                    // targets wrapped `offered as u8` to 0 and asked for
-                    // one target of at most none (l29 game 1930). `offered`
-                    // reaching `req.min` is checked above, so the count can
-                    // only cap the maximum, never undercut the minimum.
-                    let (min, max) = req.bounds(0);
                     let max = max.min(u32::try_from(offered).unwrap_or(u32::MAX));
                     self.pending = Pending::ChooseTargets {
                         player: match req.chooser {

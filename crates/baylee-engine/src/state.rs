@@ -373,6 +373,8 @@ pub enum StateError {
     CantBeSacrificed(ObjectId),
 }
 
+type TokenBaseKey = (usize, Option<(i16, i16)>);
+
 /// Printed characteristics, shared by every object that prints the same.
 ///
 /// A [`GameObject`] holds its printed face behind an [`Arc`]. Three places
@@ -399,10 +401,10 @@ pub struct BaseCache {
     /// ability on the stack, an emblem — keyed by its name.
     bare: FxHashMap<NameRef, Arc<Characteristics>>,
     /// Token faces, keyed by the definition they were printed from and the
-    /// size an effect may have overridden (Skyclave Apparition's Illusion).
+    /// `(power, toughness)` an effect may have overridden (`CR 111.3`).
     /// The definition is a `&'static`, so its address is its identity —
     /// two token kinds that share a name do not share a face.
-    tokens: FxHashMap<(usize, Option<i16>), Arc<Characteristics>>,
+    tokens: FxHashMap<TokenBaseKey, Arc<Characteristics>>,
 }
 
 impl CardLookup for BaseCache {

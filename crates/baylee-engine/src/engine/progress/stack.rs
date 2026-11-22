@@ -108,10 +108,13 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
         )
     }
 
-    /// The damage a triggered ability on the stack divides as its controller
-    /// chooses ([`baylee_cards_dsl::Effect::DealDamageDivided`]), read off
-    /// the list it was put on the stack with, as its second target is.
-    pub(in crate::engine) fn stack_divided_amount(&self, on_stack: ObjectId) -> Option<u32> {
+    /// The damage or counters a triggered ability on the stack divides as its
+    /// controller chooses (`CR 601.2d`), read off the list it was put on the
+    /// stack with.
+    pub(in crate::engine) fn stack_divided_spec(
+        &self,
+        on_stack: ObjectId,
+    ) -> Option<(crate::engine::division::DividedKind, u32)> {
         let obj = self.state.object(on_stack)?;
         let loc = obj.ability?;
         if obj.kind != ObjectKind::AbilityOnStack || loc.index == AbilityRef::SYNTHETIC {
@@ -130,12 +133,33 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
         let AbilityDef::Triggered { effects, .. } = abilities.get(loc.index as usize)? else {
             return None;
         };
-        effects.iter().find_map(|effect| match effect {
-            baylee_cards_dsl::Effect::DealDamageDivided { amount } => {
-                Some(amount.total(obj.x_value))
-            }
+        let source_version = obj.riders.iter().find_map(|r| match *r {
+            crate::object::Rider::AbilitySourceVersion(v) => Some(v),
             _ => None,
-        })
+        });
+        let context = crate::text_changes::RuleContext {
+            source: loc.source,
+            text: if obj.own_abilities.is_some() {
+                abilities.base_text(loc.index as usize)
+            } else {
+                crate::text_changes::TextChangeMap::IDENTITY
+            },
+            resolved_name: None,
+            resolved_subtype: None,
+            reference: obj.event_object,
+        };
+        crate::engine::division::effects_divided_spec(
+            effects,
+            &self.state,
+            obj.controller,
+            context,
+            source_version,
+            obj.x_value,
+        )
+    }
+
+    pub(in crate::engine) fn stack_divided_amount(&self, on_stack: ObjectId) -> Option<u32> {
+        self.stack_divided_spec(on_stack).map(|(_, total)| total)
     }
 
     /// What the top of the stack may target with its **second** instance of
@@ -222,17 +246,25 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
             return TargetLegality::NotAsked;
         };
         let modal_clauses = self.extended_stack_clauses(obj).or_else(|| {
-            (obj.modes != 0)
-                .then(|| {
-                    obj.card.and_then(|c| self.lookup.card(c.index)).map(|def| {
-                        crate::casting::modal_target_clauses(
-                            def.abilities_for_face(obj.face_index as usize),
-                            obj.modes,
-                        )
-                        .into_vec()
-                    })
+            if let Some(packed) = obj.repeated_modes() {
+                obj.card.and_then(|c| self.lookup.card(c.index)).map(|def| {
+                    crate::casting::repeated_modal_target_clauses(
+                        def.abilities_for_face(obj.face_index as usize),
+                        packed,
+                    )
+                    .into_vec()
                 })
-                .flatten()
+            } else if obj.modes != 0 {
+                obj.card.and_then(|c| self.lookup.card(c.index)).map(|def| {
+                    crate::casting::modal_target_clauses(
+                        def.abilities_for_face(obj.face_index as usize),
+                        obj.modes,
+                    )
+                    .into_vec()
+                })
+            } else {
+                None
+            }
         });
         let first_ref = match &modal_clauses {
             Some(clauses) => clauses
@@ -1123,9 +1155,9 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
     /// the spell's second instance of the word, and from there on they are
     /// the ones "target" means (`Resolution::retarget_left`).
     #[allow(clippy::type_complexity)]
-    fn build_multi_modal_steps(
+    fn build_multi_modal_steps<'a>(
         obj: &GameObject,
-        modes: &'static [baylee_cards_dsl::SpellMode],
+        chosen: impl Iterator<Item = &'a baylee_cards_dsl::SpellMode>,
     ) -> (
         Vec<Effect>,
         bool,
@@ -1156,7 +1188,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
         let mut program = Vec::new();
         let mut initial = None;
         let mut staged = Vec::new();
-        for (_, mode) in crate::casting::chosen_modes(modes, obj.modes) {
+        for mode in chosen {
             if mode.targets.is_some() || mode.second_targets.is_some() {
                 let (targets, target_players) = if mode.targets.is_some() {
                     take_clause()
@@ -1206,10 +1238,13 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
         let modes = def
             .abilities_for_face(obj.face_index as usize)
             .iter()
-            .find_map(|a| match a {
-                AbilityDef::ModalSpell { modes, .. } => Some(*modes),
-                _ => None,
-            })?;
+            .find_map(|a| a.modal_spell().map(|(modes, ..)| modes))?;
+        if let Some(packed) = obj.repeated_modes() {
+            return Some(Self::build_multi_modal_steps(
+                obj,
+                crate::casting::chosen_repeated_modes(modes, packed).map(|(_, m)| m),
+            ));
+        }
         if obj.modes != 0 {
             let any_second = crate::casting::chosen_modes(modes, obj.modes)
                 .any(|(_, mode)| mode.second_targets.is_some());
@@ -1229,7 +1264,10 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 let left = second.map(|at| program.len() - at);
                 return Some((program, targeting > 0, left, None, Vec::new()));
             }
-            return Some(Self::build_multi_modal_steps(obj, modes));
+            return Some(Self::build_multi_modal_steps(
+                obj,
+                crate::casting::chosen_modes(modes, obj.modes).map(|(_, m)| m),
+            ));
         }
         let mode = modes.get(usize::from(obj.mode_index?))?;
         Some((

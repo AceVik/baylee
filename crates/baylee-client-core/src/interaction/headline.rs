@@ -665,7 +665,44 @@ fn number_line(
                 &max,
             ],
         ),
+        NumberPrompt::DivideCounters { .. } => counter_share_line(lang, &min, &max, reason, name),
     }
+}
+
+fn counter_share_line(
+    lang: Lang,
+    min: &str,
+    max: &str,
+    reason: NumberPrompt,
+    name: &dyn Fn(ObjectId) -> Option<String>,
+) -> String {
+    let NumberPrompt::DivideCounters {
+        kind,
+        target,
+        index,
+        of,
+        left,
+    } = reason
+    else {
+        return String::new();
+    };
+    let label = counter_label(kind, lang);
+    let pos = (u64::from(index) + 1).to_string();
+    let total = of.to_string();
+    let remaining = left.to_string();
+    let named = match target {
+        baylee_core::ids::TargetRef::Object(reference) => name(reference.object),
+        baylee_core::ids::TargetRef::Player(_) => None,
+    };
+    named.map_or_else(
+        || Phrase::CounterShare.fill(lang, &[&label, &pos, &total, &remaining, min, max]),
+        |target_name| {
+            Phrase::CounterShareNamed.fill(
+                lang,
+                &[&label, &target_name, &pos, &total, &remaining, min, max],
+            )
+        },
+    )
 }
 
 /// A share of a trampler's damage, with what its number decides: what is

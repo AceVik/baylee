@@ -120,9 +120,12 @@ fn asking_effects(note: &DecisionNote) -> Vec<Effect> {
     let ability = match note.ability {
         Some(at) => usize::try_from(at).ok().and_then(|at| list.get(at)),
         // A spell names no ability: its face's spell ability asks.
-        None => list
-            .iter()
-            .find(|a| matches!(a, AbilityDef::Spell { .. } | AbilityDef::ModalSpell { .. })),
+        None => list.iter().find(|a| {
+            matches!(
+                a,
+                AbilityDef::Spell { .. } | AbilityDef::ModalSpell { .. } | AbilityDef::Modal { .. }
+            )
+        }),
     };
     let Some(ability) = ability else {
         return Vec::new();

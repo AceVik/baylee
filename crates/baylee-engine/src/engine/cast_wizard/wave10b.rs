@@ -69,11 +69,11 @@ fn push_base_clauses(
         Some(CastModeKind::Modes(set)) => {
             out.extend(casting::modal_target_clauses(abilities, set));
         }
+        Some(CastModeKind::RepeatedModes(packed)) => {
+            out.extend(casting::repeated_modal_target_clauses(abilities, packed));
+        }
         Some(CastModeKind::Mode(i)) => {
-            if let Some(mode) = abilities.iter().find_map(|a| match a {
-                AbilityDef::ModalSpell { modes, .. } => modes.get(i),
-                _ => None,
-            }) {
+            if let Some(mode) = abilities.iter().find_map(|a| a.modal_spell()?.0.get(i)) {
                 if let Some(r) = mode.targets {
                     out.push((i, false, r));
                 }
@@ -308,6 +308,8 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
         let face_idx = usize::from(obj.face_index).min(def.faces.len().saturating_sub(1));
         let option = if obj.riders.contains(&Rider::Fused) {
             Some(CastModeKind::Fused)
+        } else if let Some(packed) = obj.repeated_modes() {
+            Some(CastModeKind::RepeatedModes(packed))
         } else if obj.modes != 0 {
             Some(CastModeKind::Modes(obj.modes))
         } else {
@@ -392,11 +394,16 @@ fn push_base_segments(
         }
         return;
     }
-    if let Some(modes) = abilities.iter().find_map(|a| match a {
-        AbilityDef::ModalSpell { modes, .. } => Some(*modes),
-        _ => None,
-    }) {
-        if obj.modes != 0 {
+    if let Some(modes) = abilities.iter().find_map(|a| a.modal_spell().map(|t| t.0)) {
+        if let Some(packed) = obj.repeated_modes() {
+            for (_, m) in casting::chosen_repeated_modes(modes, packed) {
+                segments.push((
+                    crate::resolve::flatten(m.effects),
+                    m.targets.is_some(),
+                    m.second_targets.is_some(),
+                ));
+            }
+        } else if obj.modes != 0 {
             for (_, m) in casting::chosen_modes(modes, obj.modes) {
                 segments.push((
                     crate::resolve::flatten(m.effects),

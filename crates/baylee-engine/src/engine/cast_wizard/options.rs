@@ -300,9 +300,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
         // picked or not, and a plain `Spell` printed beside the modes is what
         // `progress` finds first.
         let abilities = def.abilities_for_face(0);
-        let modal_only = abilities
-            .iter()
-            .any(|a| matches!(a, baylee_cards_dsl::AbilityDef::ModalSpell { .. }))
+        let modal_only = abilities.iter().any(|a| a.modal_spell().is_some())
             && !abilities
                 .iter()
                 .any(|a| matches!(a, baylee_cards_dsl::AbilityDef::Spell { .. }))
@@ -984,7 +982,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
         // spell that chooses more than one, one per set of modes it may be
         // cast with, each priced with its modes' own costs (CR 700.2h).
         for ability in def.abilities {
-            let AbilityDef::ModalSpell { modes, choose } = ability else {
+            let Some((modes, choose, can_repeat)) = ability.modal_spell() else {
                 continue;
             };
             if !(front_additional_ok
@@ -992,8 +990,34 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
             {
                 continue;
             }
+            if can_repeat {
+                for packed in casting::repeated_mode_sets(modes, choose) {
+                    let cost = casting::repeated_mode_set_cost(modal_base, modes, packed);
+                    let affordable = if plot_only {
+                        afford_plot(&cost.with_x(0))
+                    } else {
+                        afford_normal(&cost.with_x(0))
+                    };
+                    if affordable
+                        && casting::repeated_mode_set_has_legal_targets(
+                            &self.state,
+                            &self.lookup,
+                            player,
+                            card,
+                            packed,
+                        )
+                    {
+                        options.push(CastModeDesc {
+                            index: (options.len()) as u32,
+                            kind: CastModeKind::RepeatedModes(packed),
+                            cost: modal_price(cost),
+                        });
+                    }
+                }
+                continue;
+            }
             if !choose.is_one() {
-                for set in casting::mode_sets(modes, *choose) {
+                for set in casting::mode_sets(modes, choose) {
                     let cost = casting::mode_set_cost(modal_base, modes, set);
                     let affordable = if plot_only {
                         afford_plot(&cost.with_x(0))
@@ -1122,7 +1146,9 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                     && casting::spell_condition_allows(&self.state, player, card, def, 0)
                     && !casting::cast_is_forbidden(&self.state, player, front_spell)
             }
-            CastModeKind::Mode(_) | CastModeKind::Modes(_) if plot_only => {
+            CastModeKind::Mode(_) | CastModeKind::Modes(_) | CastModeKind::RepeatedModes(_)
+                if plot_only =>
+            {
                 casting::sorcery_window(&self.state, player)
                     && !face.types.contains(baylee_core::types::TypeSet::LAND)
                     && casting::permitted_spell_types(&self.state, player, card, face.types, 0)
@@ -1186,7 +1212,12 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
         if plot_only {
             options.retain(|o| {
                 if modal_only {
-                    matches!(o.kind, CastModeKind::Mode(_) | CastModeKind::Modes(_))
+                    matches!(
+                        o.kind,
+                        CastModeKind::Mode(_)
+                            | CastModeKind::Modes(_)
+                            | CastModeKind::RepeatedModes(_)
+                    )
                 } else {
                     matches!(o.kind, CastModeKind::Plot)
                 }

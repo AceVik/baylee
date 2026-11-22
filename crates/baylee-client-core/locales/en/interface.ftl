@@ -3578,6 +3578,14 @@ ChooseNumberIn = Choose a number ({ $min }–{ $max })
 # Arguments: position, total, remaining, min, max
 DamageShare = Damage to target { $position } of { $total }, { $remaining } left to divide ({ $min }–{ $max })
 
+# One target's share of counters distributed as the player chooses (CR 601.2d).
+# Arguments: counter, position, total, remaining, min, max
+CounterShare = { $counter } to target { $position } of { $total }, { $remaining } left to distribute ({ $min }–{ $max })
+
+# The same share when the target object can be named.
+# Arguments: counter, target, position, total, remaining, min, max
+CounterShareNamed = { $counter } on { $target } ({ $position } of { $total }), { $remaining } left to distribute ({ $min }–{ $max })
+
 # One creature's share of combat damage this player divides
 # (CR 510.1c–d, 702.22j–k), when the creatures cannot be named.
 # Arguments: position, total, remaining, min, max

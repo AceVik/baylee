@@ -84,7 +84,11 @@ fn removes_one(effect: &Effect) -> bool {
         | Effect::ChangeController { .. }
         | Effect::DestroyAll { .. }
         | Effect::ExileAll { .. }
-        | Effect::ReturnAllToHand { .. } => true,
+        | Effect::ReturnAllToHand { .. }
+        | Effect::PutCountersDivided {
+            kind: baylee_cards_dsl::CounterKind::Minus { .. },
+            ..
+        } => true,
         Effect::PumpTarget {
             power, toughness, ..
         }
@@ -102,7 +106,7 @@ fn spell_effects(abilities: &'static [AbilityDef]) -> impl Iterator<Item = &'sta
         .flat_map(|ability| -> Vec<&'static [Effect]> {
             match ability {
                 AbilityDef::Spell { effects, .. } => vec![effects],
-                AbilityDef::ModalSpell { modes, .. } => {
+                AbilityDef::ModalSpell { modes, .. } | AbilityDef::Modal { modes, .. } => {
                     modes.iter().map(|mode| mode.effects).collect()
                 }
                 _ => Vec::new(),

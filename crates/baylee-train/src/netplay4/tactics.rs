@@ -2072,7 +2072,8 @@ fn is_spell_worth_casting_now_inner(view: &PlayerView, id: ObjectId) -> bool {
                                 AbilityDef::Spell { effects: se, .. } => se.iter().any(|e| {
                                     matches!(e, Effect::Destroy { .. } | Effect::Exile { .. })
                                 }),
-                                AbilityDef::ModalSpell { modes, .. } => {
+                                AbilityDef::ModalSpell { modes, .. }
+                                | AbilityDef::Modal { modes, .. } => {
                                     modes.iter().any(super::choices::mode_destroys_enchantment)
                                 }
                                 _ => false,
@@ -2489,7 +2490,7 @@ fn is_spell_worth_casting_now_inner(view: &PlayerView, id: ObjectId) -> bool {
                 }
             }
             any_open = true;
-        } else if let AbilityDef::ModalSpell { modes, .. } = ab {
+        } else if let AbilityDef::ModalSpell { modes, .. } | AbilityDef::Modal { modes, .. } = ab {
             any_spell = true;
             for mode in *modes {
                 if is_modal_mode_worth_casting(view, actor, mode) {
@@ -2686,7 +2687,7 @@ fn should_hold_draw_spell_for_creature(view: &PlayerView, id: ObjectId) -> bool 
                     _ => {}
                 }
             }
-        } else if let AbilityDef::ModalSpell { modes, .. } = ab {
+        } else if let AbilityDef::ModalSpell { modes, .. } | AbilityDef::Modal { modes, .. } = ab {
             if modes.iter().any(|m| {
                 is_hostile_object_effects(m.effects)
                     || is_pure_pump_effects(m.effects)
@@ -3753,6 +3754,7 @@ fn classify_ability_intent(view: &PlayerView, actor: PlayerId, ab: &AbilityDef) 
         | AbilityDef::ActivatedConditional { effects, .. }
         | AbilityDef::Triggered { effects, .. } => classify_effects_intent(view, actor, effects),
         AbilityDef::ModalSpell { modes, .. }
+        | AbilityDef::Modal { modes, .. }
         | AbilityDef::ModalActivated { modes, .. }
         | AbilityDef::ModalTriggered { modes, .. } => {
             // The view does not say which mode the target is for: the layer
@@ -3966,6 +3968,10 @@ fn is_pure_pump_effects(effects: &[Effect]) -> bool {
                 kind: CounterKind::P1P1,
                 ..
             }
+            | Effect::PutCountersDivided {
+                kind: CounterKind::P1P1,
+                ..
+            }
             | Effect::UntapTarget => true,
             _ => false,
         })
@@ -4020,6 +4026,10 @@ pub(super) fn is_hostile_object_effects(effects: &[Effect]) -> bool {
             | Effect::GoadAll { .. }
             | Effect::Fight {
                 fighter: baylee_cards_dsl::TargetSlot::This,
+                ..
+            }
+            | Effect::PutCountersDivided {
+                kind: CounterKind::Minus { .. } | CounterKind::Stun | CounterKind::Finality,
                 ..
             } => true,
             Effect::PumpTarget {

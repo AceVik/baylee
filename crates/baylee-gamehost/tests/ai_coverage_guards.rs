@@ -107,6 +107,7 @@ fn ability_effects(ability: &'static AbilityDef) -> Vec<&'static [Effect]> {
         | AbilityDef::SagaChapter { effects, .. }
         | AbilityDef::Loyalty { effects, .. } => vec![effects],
         AbilityDef::ModalSpell { modes, .. }
+        | AbilityDef::Modal { modes, .. }
         | AbilityDef::ModalTriggered { modes, .. }
         | AbilityDef::ModalActivated { modes, .. } => {
             modes.iter().map(|mode| mode.effects).collect()
@@ -141,6 +142,7 @@ fn ability_effects(ability: &'static AbilityDef) -> Vec<&'static [Effect]> {
 fn counters_put(effects: &'static [Effect], seen: &mut usize, found: &mut Vec<CounterKind>) {
     Effect::walk(effects, seen, &mut |effect| {
         if let Effect::AddCounter { kind, .. }
+        | Effect::PutCountersDivided { kind, .. }
         | Effect::AddCounterFilter { kind, .. }
         | Effect::DoubleCountersFilter { kind, .. } = effect
         {

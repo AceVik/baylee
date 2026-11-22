@@ -1268,6 +1268,10 @@ pub enum Rider {
     TributePaid,
     /// Class level designation above the default of one (CR 717.2b, 717.2d).
     ClassLevel(u8),
+    /// Packed per-mode multiplicities (`4` bits per mode `0..8`) for a modal
+    /// spell cast with `can_repeat_modes: true` (`CR 700.2d`). Appended to
+    /// preserve replay identities.
+    RepeatedModes(u32),
 }
 
 /// What ends an "exile … until …" (CR 610.3), as [`Rider::Linked`] carries
@@ -1424,7 +1428,8 @@ impl Rider {
             | Self::Spliced { .. }
             | Self::Awakened(_)
             | Self::ConspirePaid(_)
-            | Self::TributePaid => false,
+            | Self::TributePaid
+            | Self::RepeatedModes(_) => false,
         }
     }
 }
@@ -2060,6 +2065,31 @@ impl GameObject {
             Rider::ChosenOpponent(player) => Some(*player),
             _ => None,
         })
+    }
+
+    /// Packed per-mode multiplicities (`4` bits per mode `0..8`) for a modal
+    /// spell cast with `can_repeat_modes: true` (`CR 700.2d`), if any.
+    #[must_use]
+    pub fn repeated_modes(&self) -> Option<u32> {
+        self.riders.iter().find_map(|rider| match *rider {
+            Rider::RepeatedModes(packed) => Some(packed),
+            _ => None,
+        })
+    }
+
+    /// Bitmask of distinct modes chosen inside [`Self::repeated_modes`], or `0`.
+    #[must_use]
+    pub fn repeated_modes_mask(&self) -> u8 {
+        let Some(packed) = self.repeated_modes() else {
+            return 0;
+        };
+        let mut mask = 0_u8;
+        for i in 0..8 {
+            if ((packed >> (4 * i)) & 0xF) != 0 {
+                mask |= 1 << i;
+            }
+        }
+        mask
     }
 
     /// "That much": damage captured when this triggered ability was put

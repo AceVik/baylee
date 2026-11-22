@@ -55,41 +55,8 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                     None,
                 )
         };
-        let mut options = Vec::new();
-        for ability in def.abilities_for_face(1) {
-            let AbilityDef::ModalSpell { modes, choose } = ability else {
-                continue;
-            };
-            for set in casting::mode_sets(modes, *choose) {
-                let cost = casting::mode_set_cost(base, modes, set);
-                let wall_only = crate::eval::target_domain::modes_wall_only(modes, set);
-                if affordable(&cost)
-                    && casting::chosen_modes(modes, set).all(|(_, mode)| {
-                        mode.cost_override.is_none()
-                            && [mode.targets, mode.second_targets].into_iter().all(|req| {
-                                casting::requirement_is_reachable_for(
-                                    req,
-                                    &self.state,
-                                    player,
-                                    card.object,
-                                    Some((def, 1)),
-                                    wall_only,
-                                )
-                            })
-                    })
-                {
-                    options.push(CastModeDesc {
-                        index: u32::try_from(options.len()).expect("bounded modes"),
-                        kind: if choose.is_one() {
-                            CastModeKind::Mode(set.trailing_zeros() as usize)
-                        } else {
-                            CastModeKind::Modes(set)
-                        },
-                        cost,
-                    });
-                }
-            }
-        }
+        let mut options =
+            self.transformed_modal_options(player, card.object, def, base, &affordable);
         if !casting::modes_are_the_only_way(def, 1)
             && affordable(&base)
             && casting::face_has_a_legal_target(&self.state, &self.lookup, player, card.object, 1)
@@ -101,5 +68,66 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
             });
         }
         self.start_free_cast_options(player, card.object, options, true, Some(1))
+    }
+
+    fn transformed_modal_options(
+        &self,
+        player: PlayerId,
+        object: ObjectId,
+        def: &'static baylee_cards_dsl::CardDef,
+        base: ManaCost,
+        affordable: &impl Fn(&ManaCost) -> bool,
+    ) -> Vec<CastModeDesc> {
+        let mut options = Vec::new();
+        let mode_set_reachable = |modes: &'static [baylee_cards_dsl::SpellMode], set: u8| {
+            let wall_only = crate::eval::target_domain::modes_wall_only(modes, set);
+            casting::chosen_modes(modes, set).all(|(_, mode)| {
+                mode.cost_override.is_none()
+                    && [mode.targets, mode.second_targets].into_iter().all(|req| {
+                        casting::requirement_is_reachable_for(
+                            req,
+                            &self.state,
+                            player,
+                            object,
+                            Some((def, 1)),
+                            wall_only,
+                        )
+                    })
+            })
+        };
+        for ability in def.abilities_for_face(1) {
+            let Some((modes, choose, can_repeat)) = ability.modal_spell() else {
+                continue;
+            };
+            if can_repeat {
+                for packed in casting::repeated_mode_sets(modes, choose) {
+                    let cost = casting::repeated_mode_set_cost(base, modes, packed);
+                    let set = casting::repeated_modes_distinct_mask(packed);
+                    if affordable(&cost) && mode_set_reachable(modes, set) {
+                        options.push(CastModeDesc {
+                            index: u32::try_from(options.len()).expect("bounded modes"),
+                            kind: CastModeKind::RepeatedModes(packed),
+                            cost,
+                        });
+                    }
+                }
+            } else {
+                for set in casting::mode_sets(modes, choose) {
+                    let cost = casting::mode_set_cost(base, modes, set);
+                    if affordable(&cost) && mode_set_reachable(modes, set) {
+                        options.push(CastModeDesc {
+                            index: u32::try_from(options.len()).expect("bounded modes"),
+                            kind: if choose.is_one() {
+                                CastModeKind::Mode(set.trailing_zeros() as usize)
+                            } else {
+                                CastModeKind::Modes(set)
+                            },
+                            cost,
+                        });
+                    }
+                }
+            }
+        }
+        options
     }
 }

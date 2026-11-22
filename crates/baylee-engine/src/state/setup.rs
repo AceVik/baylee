@@ -353,25 +353,30 @@ impl GameState {
         base
     }
 
-    /// The shared printed face of a token, at the size the effect asked for.
-    ///
-    /// `size` is `None` for the printed size and `Some(x)` when the effect
-    /// computed one (Skyclave Apparition's Illusion is "X/X"); the two are
-    /// different faces of the same definition and are interned apart.
+    /// The shared printed face of a token, at the symmetric size the effect
+    /// asked for.
     pub fn token_base(
         &mut self,
         token: &'static baylee_cards_dsl::TokenDef,
         size: Option<i16>,
     ) -> Arc<Characteristics> {
-        // The definition is a `&'static` handed out by the card registry,
-        // so its address identifies it. Nothing hashes or orders on this —
-        // it is a lookup key inside one process — so a different address in
-        // a different run cannot change a game.
+        self.token_base_pt(token, size.map(|s| (s, s)))
+    }
+
+    /// The shared printed face of a token, at an optional creation-time
+    /// `(power, toughness)` override (`CR 111.3`).
+    pub fn token_base_pt(
+        &mut self,
+        token: &'static baylee_cards_dsl::TokenDef,
+        size: Option<(i16, i16)>,
+    ) -> Arc<Characteristics> {
         let key = (std::ptr::from_ref(token) as usize, size);
         if let Some(base) = self.bases.tokens.get(&key) {
             return Arc::clone(base);
         }
         let name = self.names.intern(token.name);
+        let (power, toughness) =
+            size.map_or((token.power, token.toughness), |(p, t)| (Some(p), Some(t)));
         let base = Arc::new(Characteristics {
             name,
             mana_cost: baylee_core::mana::ManaCost::ZERO,
@@ -380,8 +385,8 @@ impl GameState {
             supertypes: token.supertypes,
             subtypes: baylee_core::types::SubtypeSet::from_slice(token.subtypes),
             keywords: token.keywords,
-            power: size.or(token.power),
-            toughness: size.or(token.toughness),
+            power,
+            toughness,
             loyalty: token.loyalty,
             defense: token.defense,
             color_identity: baylee_core::color::ColorSet::EMPTY,

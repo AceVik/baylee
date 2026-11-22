@@ -67,7 +67,7 @@ fn cheapest_counter(hand: &[baylee_view::HandObject]) -> u32 {
             AbilityDef::Spell { effects, .. } => {
                 crate::timing::purpose(effects, 0) == crate::timing::Purpose::Counter
             }
-            AbilityDef::ModalSpell { modes, .. } => {
+            AbilityDef::ModalSpell { modes, .. } | AbilityDef::Modal { modes, .. } => {
                 modes.iter().any(|m| m.effects.iter().any(counter))
             }
             _ => false,
@@ -400,6 +400,80 @@ impl HeuristicAgent {
         }
         let need = crate::tactics::damage_to_finish(o);
         u32::try_from(need).unwrap_or(0).clamp(min, max)
+    }
+
+    /// One permanent's share of a counter division (`CR 601.2d`): lethal
+    /// `-X/-Y` counters on an opponent's permanent, a single counter per
+    /// target for stun, finality, shield, and keyword counters, and the largest
+    /// legal share for additive beneficial counters (`+1/+1`, loyalty, charge,
+    /// level, energy) on our highest-ranked permanent.
+    pub(crate) fn counter_share(
+        &self,
+        view: &PlayerView,
+        target: ObjectId,
+        kind: baylee_cards_dsl::CounterKind,
+        min: u32,
+        max: u32,
+    ) -> u32 {
+        use baylee_cards_dsl::CounterKind as K;
+        let Some(o) = view.object(target) else {
+            return min;
+        };
+        let hostile = self.hostile(o.controller, view.seat);
+        match kind {
+            K::Minus { toughness, .. } => {
+                if !hostile {
+                    return min;
+                }
+                if toughness == 0 {
+                    return max;
+                }
+                let left = i32::from(o.toughness.unwrap_or(0));
+                if left <= 0 {
+                    return min;
+                }
+                let unit = i32::from(toughness);
+                u32::try_from((left + unit - 1) / unit)
+                    .unwrap_or(max)
+                    .clamp(min, max)
+            }
+            K::Stun | K::Finality | K::Poison | K::Rad => {
+                if hostile {
+                    1u32.clamp(min, max)
+                } else {
+                    min
+                }
+            }
+            K::Lifelink
+            | K::Deathtouch
+            | K::Flying
+            | K::Indestructible
+            | K::Hone
+            | K::Shadow
+            | K::Shield => {
+                if hostile {
+                    min
+                } else {
+                    1u32.clamp(min, max)
+                }
+            }
+            K::Plus { .. }
+            | K::Loyalty
+            | K::Charge
+            | K::Level
+            | K::Energy
+            | K::Time
+            | K::Lore
+            | K::Bore
+            | K::Defense
+            | K::Custom(_) => {
+                if hostile {
+                    min
+                } else {
+                    max
+                }
+            }
+        }
     }
 
     /// One creature's share of a combat damage division this seat makes:
@@ -1522,7 +1596,7 @@ impl HeuristicAgent {
         // casting condition, Camouflage's piles) keeps it: `spell_score`
         // asks `optional::not_now` of it.
         let own_moment = spells.iter().any(|ability| match ability {
-            AbilityDef::ModalSpell { modes, .. } => {
+            AbilityDef::ModalSpell { modes, .. } | AbilityDef::Modal { modes, .. } => {
                 modes.iter().any(|m| m.effects.iter().any(counter))
             }
             AbilityDef::Spell {
@@ -1874,7 +1948,7 @@ impl HeuristicAgent {
                         return true;
                     }
                 }
-                AbilityDef::ModalSpell { modes, .. }
+                AbilityDef::ModalSpell { modes, .. } | AbilityDef::Modal { modes, .. }
                     if !modes
                         .iter()
                         .any(|mode| self.modal_mode_useful(view, id, mode)) =>
@@ -2564,7 +2638,8 @@ impl HeuristicAgent {
     ) -> i64 {
         let mut bonus = 0;
         for ability in spells {
-            let AbilityDef::ModalSpell { modes, .. } = ability else {
+            let (AbilityDef::ModalSpell { modes, .. } | AbilityDef::Modal { modes, .. }) = ability
+            else {
                 continue;
             };
             let useful: Vec<_> = modes
@@ -2657,7 +2732,7 @@ fn harmful_targeted(effect: &Effect) -> bool {
         | Effect::PumpTargetSlot {
             power, toughness, ..
         } => crate::tactics::amount(*power, 0) < 0 || crate::tactics::amount(*toughness, 0) < 0,
-        Effect::AddCounter { kind, .. } => matches!(
+        Effect::AddCounter { kind, .. } | Effect::PutCountersDivided { kind, .. } => matches!(
             kind,
             baylee_cards_dsl::CounterKind::Minus { .. }
                 | baylee_cards_dsl::CounterKind::Stun
@@ -4365,7 +4440,7 @@ fn gift_card_upside(card: CardIdentity, include_spell_fx: bool) -> i64 {
             AbilityDef::Spell { effects, .. } if include_spell_fx => {
                 upside += gift_effects_upside(effects);
             }
-            AbilityDef::ModalSpell { modes, .. } => {
+            AbilityDef::ModalSpell { modes, .. } | AbilityDef::Modal { modes, .. } => {
                 for mode in *modes {
                     upside += gift_effects_upside(mode.effects);
                 }

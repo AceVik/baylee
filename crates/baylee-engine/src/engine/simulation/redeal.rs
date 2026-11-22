@@ -700,6 +700,7 @@ const fn rider_object(rider: &Rider) -> Option<ObjectId> {
         | Rider::Spliced { .. }
         | Rider::Awakened(_)
         | Rider::ConspirePaid(_)
-        | Rider::TributePaid => None,
+        | Rider::TributePaid
+        | Rider::RepeatedModes(_) => None,
     }
 }

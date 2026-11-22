@@ -95,7 +95,9 @@ pub mod tape;
 /// Version 67 carries `PlayerView::initiative`, `SpectatorView::initiative`,
 /// `LogEvent::TookInitiative` (CR 725), and `Dungeon::Undercity` (CR 309.4c) on
 /// positional binary frames.
-pub const PROTOCOL_VERSION: u32 = 67;
+/// Version 68 carries `CastModeKind::RepeatedModes` (CR 700.2d) and
+/// `NumberPrompt::DivideCounters` (CR 601.2d) on positional binary frames.
+pub const PROTOCOL_VERSION: u32 = 68;
 
 /// Duration of the shared portal flight; clocks start after arrival.
 pub const TABLE_ENTRANCE_MS: u64 = 1_650;
@@ -433,7 +435,8 @@ mod tests {
         // `LogEvent::VotedOption`, and `ChoicePrompt::CostRemoveCounter`.
         // 67: `PlayerView/SpectatorView::initiative`, `LogEvent::TookInitiative`,
         // and `Dungeon::Undercity`.
-        assert_eq!(PROTOCOL_VERSION, 67);
+        // 68: `CastModeKind::RepeatedModes` and `NumberPrompt::DivideCounters`.
+        assert_eq!(PROTOCOL_VERSION, 68);
     }
 
     #[test]

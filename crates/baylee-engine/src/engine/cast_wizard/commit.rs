@@ -894,6 +894,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                     crate::object::Rider::Awakened(_)
                         | crate::object::Rider::Spliced { .. }
                         | crate::object::Rider::ConspirePaid(_)
+                        | crate::object::Rider::RepeatedModes(_)
                 )
             });
             if wizard.option == Some(CastModeKind::Awaken)
@@ -960,6 +961,9 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 Some(CastModeKind::Modes(set)) => set,
                 _ => 0,
             };
+            if let Some(CastModeKind::RepeatedModes(packed)) = wizard.option {
+                obj.riders.push(crate::object::Rider::RepeatedModes(packed));
+            }
         }
         if !wizard.spliced.is_empty() {
             let cards: Vec<ObjectId> = wizard.spliced.iter().map(|&(id, ..)| id).collect();

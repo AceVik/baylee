@@ -33,6 +33,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                         ability,
                         baylee_cards_dsl::AbilityDef::Spell { .. }
                             | baylee_cards_dsl::AbilityDef::ModalSpell { .. }
+                            | baylee_cards_dsl::AbilityDef::Modal { .. }
                     )
                 })
             })

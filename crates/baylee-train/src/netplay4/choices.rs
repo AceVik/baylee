@@ -123,22 +123,46 @@ pub(super) fn mask_non_priority_single_choice(
             {
                 let abilities = def.abilities_for_face(usize::from(ci.face));
                 let modal_modes = abilities.iter().find_map(|ab| match ab {
-                    AbilityDef::ModalSpell { modes, .. } => Some(*modes),
+                    AbilityDef::ModalSpell { modes, .. } | AbilityDef::Modal { modes, .. } => {
+                        Some(*modes)
+                    }
                     _ => None,
                 });
                 if let Some(modes) = modal_modes {
                     let mut trial = masked_logits.to_vec();
                     let urgent_opp_ench = opp_has_urgent_enchantment(view, actor);
                     let mut any_ench_removal = false;
+                    let selected_modes = |kind: baylee_engine::choice::CastModeKind| -> Option<
+                        Vec<&baylee_cards_dsl::SpellMode>,
+                    > {
+                        match kind {
+                            baylee_engine::choice::CastModeKind::Mode(m_idx) => {
+                                Some(vec![modes.get(m_idx)?])
+                            }
+                            baylee_engine::choice::CastModeKind::RepeatedModes(packed) => Some(
+                                (0..modes.len())
+                                    .filter(|&m_idx| {
+                                        baylee_engine::casting::mode_multiplicity(packed, m_idx) > 0
+                                    })
+                                    .filter_map(|m_idx| modes.get(m_idx))
+                                    .collect(),
+                            ),
+                            _ => None,
+                        }
+                    };
                     for (i, c) in cands.candidates.iter().enumerate() {
                         if let Some(PlayerAction::ChooseMode(opt_idx)) = c.action
                             && let Some(opt) = options.get(opt_idx)
-                            && let baylee_engine::choice::CastModeKind::Mode(m_idx) = opt.kind
-                            && let Some(mode) = modes.get(m_idx)
+                            && let Some(chosen) = selected_modes(opt.kind)
                         {
-                            if !is_modal_mode_worth_casting(view, actor, mode) {
+                            if chosen
+                                .iter()
+                                .any(|mode| !is_modal_mode_worth_casting(view, actor, mode))
+                            {
                                 trial[i] = f32::NEG_INFINITY;
-                            } else if urgent_opp_ench && mode_destroys_enchantment(mode) {
+                            } else if urgent_opp_ench
+                                && chosen.iter().any(|mode| mode_destroys_enchantment(mode))
+                            {
                                 any_ench_removal = true;
                             }
                         }
@@ -147,9 +171,8 @@ pub(super) fn mask_non_priority_single_choice(
                         for (i, c) in cands.candidates.iter().enumerate() {
                             if let Some(PlayerAction::ChooseMode(opt_idx)) = c.action
                                 && let Some(opt) = options.get(opt_idx)
-                                && let baylee_engine::choice::CastModeKind::Mode(m_idx) = opt.kind
-                                && let Some(mode) = modes.get(m_idx)
-                                && !mode_destroys_enchantment(mode)
+                                && let Some(chosen) = selected_modes(opt.kind)
+                                && !chosen.iter().any(|mode| mode_destroys_enchantment(mode))
                             {
                                 trial[i] = f32::NEG_INFINITY;
                             }

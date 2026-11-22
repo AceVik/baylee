@@ -287,6 +287,7 @@ const fn variant(ability: &AbilityDef) -> &'static str {
         AbilityDef::Splice { .. } => "Splice",
         AbilityDef::Awaken { .. } => "Awaken",
         AbilityDef::Champion { .. } => "Champion",
+        AbilityDef::Modal { .. } => "Modal",
     }
 }
 

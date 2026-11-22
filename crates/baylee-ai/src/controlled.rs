@@ -258,7 +258,7 @@ impl HeuristicAgent {
                 AbilityDef::Spell { .. } => return None,
                 // This seat chooses the mode as well (CR 700.2, 724.5), and
                 // the player would have chosen their own.
-                AbilityDef::ModalSpell { modes, .. } => modes
+                AbilityDef::ModalSpell { modes, .. } | AbilityDef::Modal { modes, .. } => modes
                     .iter()
                     .filter(|mode| mode.second_targets.is_none())
                     .filter_map(|mode| {

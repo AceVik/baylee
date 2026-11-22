@@ -50,6 +50,7 @@ pub struct Checkpoint<D: LoopDetection = DetectLoops> {
     activation_either_branches: Vec<bool>,
     activation_counter_removals: Vec<(ObjectId, baylee_cards_dsl::CounterKind)>,
     activation_pending_counter_object: Option<ObjectId>,
+    activation_division: Vec<u32>,
     activating_abilities: Option<(ObjectId, crate::object::AbilityList)>,
     activating_grant: Option<(ObjectId, u32, crate::effects::GrantedAbility)>,
     capabilities: Vec<baylee_core::preset::SeatCapabilities>,
@@ -119,6 +120,7 @@ impl<D: LoopDetection> Checkpoint<D> {
             activation_either_branches,
             activation_counter_removals,
             activation_pending_counter_object,
+            activation_division,
             activating_abilities,
             activating_grant,
             capabilities,
@@ -169,6 +171,7 @@ impl<D: LoopDetection> Checkpoint<D> {
             activation_either_branches: activation_either_branches.clone(),
             activation_counter_removals: activation_counter_removals.clone(),
             activation_pending_counter_object: *activation_pending_counter_object,
+            activation_division: activation_division.clone(),
             activating_abilities: activating_abilities.clone(),
             activating_grant: *activating_grant,
             capabilities: capabilities.clone(),
@@ -226,6 +229,7 @@ impl<D: LoopDetection> Checkpoint<D> {
             activation_either_branches,
             activation_counter_removals,
             activation_pending_counter_object,
+            activation_division,
             activating_abilities,
             activating_grant,
             capabilities,
@@ -276,6 +280,7 @@ impl<D: LoopDetection> Checkpoint<D> {
         *activation_either_branches = self.activation_either_branches;
         *activation_counter_removals = self.activation_counter_removals;
         *activation_pending_counter_object = self.activation_pending_counter_object;
+        *activation_division = self.activation_division;
         *activating_abilities = self.activating_abilities;
         *activating_grant = self.activating_grant;
         *capabilities = self.capabilities;

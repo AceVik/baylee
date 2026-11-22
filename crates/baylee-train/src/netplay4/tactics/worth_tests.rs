@@ -126,7 +126,8 @@ fn charm_counter_mode() -> &'static baylee_cards_dsl::SpellMode {
         .abilities_for_face(0)
         .iter()
         .find_map(|ability| match ability {
-            baylee_cards_dsl::AbilityDef::ModalSpell { modes, .. } => modes.first(),
+            baylee_cards_dsl::AbilityDef::ModalSpell { modes, .. }
+            | baylee_cards_dsl::AbilityDef::Modal { modes, .. } => modes.first(),
             _ => None,
         })
         .unwrap()

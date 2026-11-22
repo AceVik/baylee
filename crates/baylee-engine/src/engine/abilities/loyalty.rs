@@ -65,9 +65,11 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
         self.apply_ability_spend_riders(player, id);
         self.activating_grant = None;
         self.release_target_choice();
+        self.activation_targets_answered = false;
         self.state
             .bind_target_references(id, &self.activation_target_references);
         self.activation_target_references = crate::sources::TargetReferences::default();
+        self.record_activation_division(id, &[]);
         self.state.journal.record(GameEvent::AbilityActivated {
             ability: self.state.source_identity(id),
             source: self.state.source_identity(source).expect("loyalty source"),
@@ -151,6 +153,19 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 self.awaiting_answer = true;
                 return Ok(());
             }
+        }
+        if let Some(AbilityDef::Loyalty { effects, .. }) =
+            self.activation_definition(source, ability_index)
+            && self.ask_activation_division(
+                player,
+                source,
+                ability_index,
+                effects,
+                targets.clone(),
+                Vec::new(),
+            )
+        {
+            return Ok(());
         }
         self.pay_loyalty_and_finish(player, source, ability_index, targets, SmallVec::new())
     }
@@ -281,7 +296,8 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
         }
         // Choose targets first (CR 602.2b -> CR 601.2c) before paying loyalty
         // counters (CR 601.2h, CR 606.4).
-        if targets.is_empty()
+        if !self.activation_targets_answered
+            && targets.is_empty()
             && self.loyalty_player_choice.is_none()
             && let Some(req) = wanted
         {
@@ -324,12 +340,28 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
             // a question: there would be one answer to it. The ability goes
             // on the stack targeting nothing, which is what the printing says
             // it may do.
-            if !options.is_empty() && req.max > 0 {
+            let (min, mut max) = req.bounds(self.activation_x.unwrap_or(0));
+            if let Some(AbilityDef::Loyalty { effects, .. }) =
+                self.activation_definition(source, ability_index)
+                && let Some((_, total)) = crate::engine::division::effects_divided_spec(
+                    effects,
+                    &self.state,
+                    player,
+                    self.ability_rule_context(source, ability_index),
+                    self.state.object(source).map(|o| o.version),
+                    0,
+                )
+            {
+                max = max.min(total);
+            }
+            if min > max {
+                return Err(EngineError::IllegalAction("no legal targets"));
+            }
+            if !options.is_empty() && max > 0 {
                 self.pending_plan = Some(PlanKind::ActivateAbility {
                     source,
                     ability_index,
                 });
-                let (min, max) = req.bounds(self.activation_x.unwrap_or(0));
                 let max = max.min(u32::try_from(options.len()).unwrap_or(u32::MAX));
                 self.pending = Pending::ChooseTargets {
                     player,

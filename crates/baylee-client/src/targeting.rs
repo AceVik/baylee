@@ -706,10 +706,10 @@ pub(crate) fn only_a_dearer_mode_is_left(
     let Some(def) = baylee_cards::by_index(card.index) else {
         return false;
     };
-    let Some(baylee_cards_dsl::AbilityDef::ModalSpell { modes, .. }) = def
+    let Some((modes, _, _)) = def
         .abilities_for_face(usize::from(card.face))
         .iter()
-        .find(|a| matches!(a, baylee_cards_dsl::AbilityDef::ModalSpell { .. }))
+        .find_map(baylee_cards_dsl::AbilityDef::modal_spell)
     else {
         return false;
     };

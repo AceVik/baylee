@@ -159,6 +159,7 @@ pub(super) struct ActivationPayment {
     phyrexian: Vec<bool>,
     either_branches: Vec<bool>,
     counter_removals: Vec<(baylee_core::ids::ObjectId, baylee_cards_dsl::CounterKind)>,
+    division: Vec<u32>,
     abilities: Option<(baylee_core::ids::ObjectId, crate::object::AbilityList)>,
     grant: Option<(
         baylee_core::ids::ObjectId,
@@ -213,6 +214,12 @@ impl ActivationPayment {
         } else {
             b.wrapping_mul(31)
                 .wrapping_add(crate::state::structural_fingerprint(&self.counter_removals))
+        };
+        let b = if self.division.is_empty() {
+            b
+        } else {
+            b.wrapping_mul(31)
+                .wrapping_add(crate::state::structural_fingerprint(&self.division))
         };
         a.wrapping_mul(31)
             .wrapping_add(b)
@@ -480,6 +487,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
             phyrexian: std::mem::take(&mut self.activation_phyrexian),
             either_branches: std::mem::take(&mut self.activation_either_branches),
             counter_removals: std::mem::take(&mut self.activation_counter_removals),
+            division: std::mem::take(&mut self.activation_division),
             abilities: self.activating_abilities.take(),
             grant: self.activating_grant.take(),
             previous: self.mana_window.take().map(Box::new),
@@ -528,6 +536,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
         self.activation_phyrexian = payment.phyrexian;
         self.activation_either_branches = payment.either_branches;
         self.activation_counter_removals = payment.counter_removals;
+        self.activation_division = payment.division;
         self.activating_abilities = payment.abilities;
         self.activating_grant = payment.grant;
         if self

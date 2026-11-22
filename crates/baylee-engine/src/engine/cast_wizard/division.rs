@@ -1,42 +1,54 @@
-//! Casting-time damage distribution, retained through payment and copies.
+//! Casting-time damage and counter distribution, retained through payment and copies.
 
 use super::{
     AbilityDef, CardLookup, CastModeKind, CastWizard, Engine, EngineError, Pending, WizardStage,
 };
-use crate::choice::{NumberPrompt, TargetRef};
+use crate::choice::TargetRef;
+use crate::engine::division::{DividedKind, effects_divided_spec};
 
 impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
-    pub(super) fn wizard_divided_amount(&self, wizard: &CastWizard) -> Option<u32> {
+    pub(super) fn wizard_divided_spec(&self, wizard: &CastWizard) -> Option<(DividedKind, u32)> {
         if wizard.masked || matches!(wizard.option, Some(CastModeKind::Disguise)) {
             return None;
         }
-        let def = self
-            .state
-            .object(wizard.card)?
-            .card
-            .and_then(|c| self.lookup.card(c.index))?;
+        let obj = self.state.object(wizard.card)?;
+        let def = obj.card.and_then(|c| self.lookup.card(c.index))?;
         let face = match wizard.option {
             Some(CastModeKind::Face(i)) => i,
             _ => 0,
         };
+        let context = crate::eval::live_context(&self.state, wizard.card);
+        let version = Some(obj.version);
         def.abilities_for_face(face).iter().find_map(|ability| {
-            let AbilityDef::Spell { effects, .. } = ability else {
-                return None;
+            let effects = if let AbilityDef::Spell { effects, .. } = ability {
+                *effects
+            } else {
+                let (modes, ..) = ability.modal_spell()?;
+                let Some(CastModeKind::Mode(i)) = wizard.option else {
+                    return None;
+                };
+                modes.get(i)?.effects
             };
-            effects.iter().find_map(|effect| match effect {
-                baylee_cards_dsl::Effect::DealDamageDivided { amount } => {
-                    Some(amount.total(wizard.x))
-                }
-                _ => None,
-            })
+            effects_divided_spec(
+                effects,
+                &self.state,
+                wizard.player,
+                context,
+                version,
+                wizard.x,
+            )
         })
+    }
+
+    pub(super) fn wizard_divided_amount(&self, wizard: &CastWizard) -> Option<u32> {
+        self.wizard_divided_spec(wizard).map(|(_, total)| total)
     }
 
     pub(super) fn advance_damage_division(
         &mut self,
         mut wizard: CastWizard,
     ) -> Result<(), EngineError> {
-        if let Some(total) = self.wizard_divided_amount(&wizard) {
+        if let Some((kind, total)) = self.wizard_divided_spec(&wizard) {
             let targets = division_targets(&wizard);
             let asked = wizard.division.len();
             let left = total.saturating_sub(wizard.division.iter().sum());
@@ -46,18 +58,13 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                     player: wizard.player,
                     min: 1,
                     max: left - reserved,
-                    reason: NumberPrompt::DivideDamage {
-                        target: targets[asked],
-                        index: u8::try_from(asked).expect("division target index"),
-                        of: u8::try_from(targets.len()).expect("division target count"),
-                        left,
-                    },
+                    reason: kind.prompt(targets[asked], asked, targets.len(), left),
                 };
                 self.cast_wizard = Some(wizard);
                 self.awaiting_answer = true;
                 return Ok(());
             }
-            if asked < targets.len() {
+            if asked < targets.len() && total > 0 {
                 wizard.division.push(left);
             }
         }

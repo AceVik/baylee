@@ -1439,6 +1439,7 @@ fn payment_ability_effects(
         | AbilityDef::SagaChapter { effects, .. }
         | AbilityDef::Loyalty { effects, .. } => vec![effects],
         AbilityDef::ModalSpell { modes, .. }
+        | AbilityDef::Modal { modes, .. }
         | AbilityDef::ModalTriggered { modes, .. }
         | AbilityDef::ModalActivated { modes, .. } => {
             modes.iter().map(|mode| mode.effects).collect()

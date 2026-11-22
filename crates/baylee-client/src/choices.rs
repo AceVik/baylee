@@ -1265,6 +1265,27 @@ fn cast_label(
             .map(|i| mode_label(lang, object, names, i))
             .collect::<Vec<_>>()
             .join(" + "),
+        K::RepeatedModes(packed) => {
+            let parts: Vec<String> = (0..8usize)
+                .filter_map(|i| {
+                    let count = baylee_engine::casting::mode_multiplicity(packed, i);
+                    if count == 0 {
+                        return None;
+                    }
+                    let label = mode_label(lang, object, names, i);
+                    Some(if count > 1 {
+                        format!("{count}\u{00d7} {label}")
+                    } else {
+                        label
+                    })
+                })
+                .collect();
+            if parts.is_empty() {
+                "\u{2014}".to_string()
+            } else {
+                parts.join(" + ")
+            }
+        }
         K::Face(i) => names
             .of(object, i)
             .unwrap_or_else(|| Phrase::CastBackFace.text(lang).to_string()),

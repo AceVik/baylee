@@ -898,6 +898,14 @@ impl HeuristicAgent {
                     }
                     baylee_core::ids::TargetRef::Player(_) => min,
                 },
+                baylee_engine::choice::NumberPrompt::DivideCounters { kind, target, .. } => {
+                    match target {
+                        baylee_core::ids::TargetRef::Object(reference) => {
+                            self.counter_share(view, reference.object, kind, min, max)
+                        }
+                        baylee_core::ids::TargetRef::Player(_) => min,
+                    }
+                }
                 // A trampler's damage (CR 702.19b): what the engine calls
                 // lethal, so each blocker falls in turn and the rest goes
                 // past them, as in a game that does not ask.

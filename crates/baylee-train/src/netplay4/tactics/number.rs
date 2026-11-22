@@ -48,7 +48,7 @@ pub(in crate::netplay4) fn x_price(
         .iter()
         .filter_map(|ability| match ability {
             AbilityDef::Spell { effects, .. } => Some(Some(*effects)),
-            AbilityDef::ModalSpell { .. } => Some(None),
+            AbilityDef::ModalSpell { .. } | AbilityDef::Modal { .. } => Some(None),
             _ => None,
         });
     let effects = match (bodies.next(), bodies.next()) {

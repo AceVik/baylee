@@ -219,7 +219,7 @@ pub fn encode_ability_def(ab: &AbilityDef) -> [f32; ABILITY_DSL_WIDTH] {
             targ = targets.as_ref();
             walk_effects(effects, &mut ch);
         }
-        AbilityDef::ModalSpell { modes, .. } => {
+        AbilityDef::ModalSpell { modes, .. } | AbilityDef::Modal { modes, .. } => {
             out[4] = 1.0;
             for mode in *modes {
                 if targ.is_none() {

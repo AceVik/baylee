@@ -259,7 +259,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
     }
 
     /// Effective words captured for an activation, or live words before it starts.
-    pub(super) fn ability_rule_context(
+    pub(in crate::engine) fn ability_rule_context(
         &self,
         source: ObjectId,
         index: u32,
@@ -389,6 +389,37 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
             return true;
         }
         let wanted = req.min as usize;
+        if let Some(def) = self
+            .granted_definition(source, ability_index)
+            .map(|g| g.definition)
+            .or_else(|| self.activation_definition(source, ability_index))
+        {
+            let (effects, has_var) = match def {
+                AbilityDef::Activated { cost, effects, .. }
+                | AbilityDef::ActivatedConditional { cost, effects, .. } => {
+                    (Some(effects), cost.mana.has_variable())
+                }
+                AbilityDef::Loyalty { effects, .. } => (Some(effects), false),
+                _ => (None, false),
+            };
+            if let Some(effects) = effects
+                && !has_var
+            {
+                let ctx = self.ability_rule_context(source, ability_index);
+                let ver = self.state.object(source).map(|o| o.version);
+                if let Some((_, total)) = crate::engine::division::effects_divided_spec(
+                    effects,
+                    &self.state,
+                    player,
+                    ctx,
+                    ver,
+                    0,
+                ) && (total as usize) < wanted
+                {
+                    return false;
+                }
+            }
+        }
         // Both halves of one choice (CR 115.4): "any target" is a creature,
         // a planeswalker, a battle *or* a player, so only the sum says
         // whether the ability can be pointed anywhere. Splitting on the spec

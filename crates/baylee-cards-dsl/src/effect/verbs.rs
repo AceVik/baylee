@@ -1422,7 +1422,9 @@ impl Effect {
             | Effect::ReturnChampioned
             | Effect::Vote { .. }
             | Effect::ReduceNextSpellCost { .. }
-            | Effect::Play { .. } => (NONE, NONE),
+            | Effect::Play { .. }
+            | Effect::CreateTokenSized { .. }
+            | Effect::PutCountersDivided { .. } => (NONE, NONE),
             Effect::VoteObjects { if_no_votes, .. } => (NONE, if_no_votes),
         }
     }

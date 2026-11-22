@@ -1690,6 +1690,19 @@ pub enum AbilityDef {
         /// Quality of another controlled permanent that may be championed.
         filter: &'static Filter,
     },
+    /// A modal spell whose controller chooses `choose` modes (CR 700.2),
+    /// optionally allowing the same mode to be chosen more than once
+    /// (`can_repeat_modes: true`, CR 700.2d; Mystic Confluence, Fiery
+    /// Confluence, Planewide Celebration, Unite the Coalition). Appended to
+    /// preserve replay identities.
+    Modal {
+        /// The modes printed on the spell.
+        modes: &'static [SpellMode],
+        /// How many mode selections are made (`min..=max`).
+        choose: ModeCount,
+        /// Whether the same mode may be chosen more than once (CR 700.2d).
+        can_repeat_modes: bool,
+    },
 }
 
 impl AbilityDef {
@@ -2026,6 +2039,21 @@ impl AbilityDef {
     pub const fn champion(filter: &'static Filter) -> Self {
         Self::Champion { filter }
     }
+
+    /// If this entry is a modal spell ([`Self::ModalSpell`] or [`Self::Modal`]),
+    /// returns `(modes, choose, can_repeat_modes)`.
+    #[must_use]
+    pub const fn modal_spell(&self) -> Option<(&'static [SpellMode], ModeCount, bool)> {
+        match *self {
+            Self::ModalSpell { modes, choose } => Some((modes, choose, false)),
+            Self::Modal {
+                modes,
+                choose,
+                can_repeat_modes,
+            } => Some((modes, choose, can_repeat_modes)),
+            _ => None,
+        }
+    }
 }
 
 /// A modification applied after a clone copies its target.
@@ -2183,6 +2211,12 @@ impl ModeCount {
     pub const ONE: Self = Self { min: 1, max: 1 };
     /// "Choose two —" (Cryptic Command).
     pub const TWO: Self = Self { min: 2, max: 2 };
+    /// "Choose three —" (Mystic Confluence, Fiery Confluence).
+    pub const THREE: Self = Self { min: 3, max: 3 };
+    /// "Choose four —" (Planewide Celebration).
+    pub const FOUR: Self = Self { min: 4, max: 4 };
+    /// "Choose five —" (Unite the Coalition).
+    pub const FIVE: Self = Self { min: 5, max: 5 };
     /// "Choose one or more —" (Farewell), and what spree means
     /// (CR 702.172a).
     pub const ONE_OR_MORE: Self = Self {
@@ -2194,7 +2228,7 @@ impl ModeCount {
     /// rather than a set of them.
     #[must_use]
     pub const fn is_one(self) -> bool {
-        self.max == 1
+        self.min == 1 && self.max == 1
     }
 }
 

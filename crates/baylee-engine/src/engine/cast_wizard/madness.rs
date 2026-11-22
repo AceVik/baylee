@@ -74,13 +74,36 @@ pub(super) fn modes_with_base<L: CardLookup>(
 ) -> Vec<CastModeDesc> {
     let mut options = Vec::new();
     for ability in def.abilities_for_face(0) {
-        let AbilityDef::ModalSpell { modes, choose } = ability else {
+        let Some((modes, choose, can_repeat)) = ability.modal_spell() else {
             continue;
         };
+        if can_repeat {
+            for packed in casting::repeated_mode_sets(modes, choose) {
+                let cost = front_spell_price(
+                    state,
+                    lookup,
+                    player,
+                    card,
+                    casting::repeated_mode_set_cost(base, modes, packed),
+                );
+                if (make_mana || alternative_cost_affordable(state, lookup, player, card, cost))
+                    && casting::repeated_mode_set_has_legal_targets(
+                        state, lookup, player, card, packed,
+                    )
+                {
+                    options.push(CastModeDesc {
+                        index: u32::try_from(options.len()).unwrap_or(u32::MAX),
+                        kind: CastModeKind::RepeatedModes(packed),
+                        cost,
+                    });
+                }
+            }
+            continue;
+        }
         if !choose.is_one() {
             // For a set of modes, each mode's own cost is additional to the
             // alternative base (CR 118.9d), not another alternative cost.
-            for set in casting::mode_sets(modes, *choose) {
+            for set in casting::mode_sets(modes, choose) {
                 let cost = front_spell_price(
                     state,
                     lookup,

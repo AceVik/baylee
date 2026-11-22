@@ -164,6 +164,10 @@ pub enum CastModeKind {
     /// Vote for the `index`-th named [`baylee_cards_dsl::VoteOption`] during
     /// resolution (`CR 701.38`). Not a way of casting.
     VoteOption(u8),
+    /// Multiple chosen modes of a spell that allows choosing the same mode more
+    /// than once (`CR 700.2d`): nibble `i` (`(packed >> (4 * i)) & 0xF`, `i < 8`)
+    /// holds the multiplicity of mode `i`, carried out in printed order (`CR 608.2c`).
+    RepeatedModes(u32),
 }
 
 /// One way a resolved instant or sorcery can leave the stack in place of the
@@ -608,6 +612,22 @@ pub enum NumberPrompt {
         cost: baylee_core::mana::ManaCost,
         /// Non-mana parts paid per instance, if any.
         parts: BuybackParts,
+    },
+    /// "Distribute N [kind] counters as you choose" (CR 601.2d): how many of
+    /// the remaining counters go to one target, asked target by target in the
+    /// order they were chosen, with at least 1 assigned per target and the last
+    /// target automatically taking the rest.
+    DivideCounters {
+        /// Counter kind being distributed.
+        kind: baylee_cards_dsl::CounterKind,
+        /// Exact target object receiving this share.
+        target: TargetRef,
+        /// Zero-based position among the targets.
+        index: u8,
+        /// Total number of targets sharing the counters.
+        of: u8,
+        /// Counters not yet assigned to a target.
+        left: u32,
     },
 }
 

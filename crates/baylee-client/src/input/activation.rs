@@ -431,6 +431,7 @@ pub(super) fn cast_menu_for(duel: &Duel, object: ObjectId) -> Option<crate::Cast
                     | baylee_engine::choice::CastModeKind::Warp
                     | baylee_engine::choice::CastModeKind::Sneak
                     | baylee_engine::choice::CastModeKind::Modes(_)
+                    | baylee_engine::choice::CastModeKind::RepeatedModes(_)
                     | baylee_engine::choice::CastModeKind::Emerge
                     | baylee_engine::choice::CastModeKind::Mutate
                     | baylee_engine::choice::CastModeKind::Bestow

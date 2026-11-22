@@ -1051,6 +1051,10 @@ fn hash_spell_source_decisions(h: &mut Hasher, source: &crate::object::GameObjec
         if let crate::object::Rider::GiftPromisedTo(player) = rider {
             h.u8(182);
             h.u8(player.get());
+        } else if let crate::object::Rider::RepeatedModes(packed) = rider {
+            h.u8(255);
+            h.u16(306);
+            h.u32(*packed);
         }
     }
     source.replicated.hash(h);
@@ -1731,6 +1735,11 @@ fn hash_cast_keyword_rider(h: &mut Hasher, rider: &crate::object::Rider) {
         crate::object::Rider::TributePaid => {
             h.u8(255);
             h.u16(266);
+        }
+        crate::object::Rider::RepeatedModes(packed) => {
+            h.u8(255);
+            h.u16(306);
+            h.u32(*packed);
         }
         _ => {}
     }
@@ -2592,6 +2601,11 @@ fn hash_object(h: &mut Hasher, obj: &GameObject) {
             Rider::TributePaid => {
                 h.u8(255);
                 h.u16(266);
+            }
+            Rider::RepeatedModes(packed) => {
+                h.u8(255);
+                h.u16(306);
+                h.u32(*packed);
             }
         }
     }

@@ -2005,6 +2005,42 @@ impl HeuristicAgent {
                 evaluation.created_tokens = evaluation.created_tokens.saturating_add(n.max(0));
                 n * token_worth(token)
             }
+            Effect::CreateTokenSized {
+                token,
+                amount,
+                power,
+                toughness,
+                who,
+                cleanup,
+                ..
+            } => {
+                let n = count(*amount)?.max(0);
+                let p = count(*power)?.max(0);
+                let t = count(*toughness)?.max(0);
+                let recipients = self.players(view, *who, aim)?;
+                if t == 0 && token.types.contains(TypeSet::CREATURE) {
+                    0
+                } else {
+                    let body = p * 110 + t * 30;
+                    let mut one = 150 + body.max(if token.abilities.is_empty() { 0 } else { 100 });
+                    if !matches!(cleanup, baylee_cards_dsl::CopyCleanup::None) {
+                        one /= 2;
+                    }
+                    let mut total = 0_i64;
+                    for recipient in recipients {
+                        if recipient == me {
+                            evaluation.created_tokens = evaluation.created_tokens.saturating_add(n);
+                        }
+                        let val = n.saturating_mul(one);
+                        total = total.saturating_add(if self.hostile(recipient, me) {
+                            -val
+                        } else {
+                            val
+                        });
+                    }
+                    total
+                }
+            }
             Effect::AddCounterCreatedTokens { kind, amount } => {
                 tokens::counter_bonus(*kind, count(*amount)?, evaluation.created_tokens)?
             }
@@ -2593,10 +2629,12 @@ impl HeuristicAgent {
                     .map(|p| if self.hostile(p, me) { -40 * n } else { 40 * n })
                     .sum()
             }
-            Effect::AddCounter { kind, amount } => match subject {
-                Some(o) => self.counters(view, o, *kind, count(*amount)?)?,
-                None => 0,
-            },
+            Effect::AddCounter { kind, amount } | Effect::PutCountersDivided { kind, amount } => {
+                match subject {
+                    Some(o) => self.counters(view, o, *kind, count(*amount)?)?,
+                    None => 0,
+                }
+            }
             Effect::AddCounterSource { kind, amount } => match origin.object {
                 Some(o) => self.counters(view, o, *kind, count(*amount)?)?,
                 None => 0,

@@ -460,7 +460,9 @@ impl GameLog {
         if obj.zone != Zone::Stack {
             return None;
         }
-        let modes = obj.modes | obj.mode_index.filter(|i| *i < 8).map_or(0, |i| 1_u8 << i);
+        let modes = obj.modes
+            | obj.repeated_modes_mask()
+            | obj.mode_index.filter(|i| *i < 8).map_or(0, |i| 1_u8 << i);
         // A rule's own trigger (prowess, ward) carries the object it is about
         // as a target the card never printed: nothing was aimed.
         let synthetic = obj
@@ -527,7 +529,9 @@ impl GameLog {
         if obj.zone != Zone::Stack {
             return None;
         }
-        let modes = obj.modes | obj.mode_index.filter(|i| *i < 8).map_or(0, |i| 1_u8 << i);
+        let modes = obj.modes
+            | obj.repeated_modes_mask()
+            | obj.mode_index.filter(|i| *i < 8).map_or(0, |i| 1_u8 << i);
         if modes != held.modes {
             return Some(false);
         }

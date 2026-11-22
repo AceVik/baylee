@@ -309,10 +309,12 @@ impl HeuristicAgent {
         if context.second_instance
             || context.copying.is_some()
             || context.effects.is_empty()
-            || context
-                .effects
-                .iter()
-                .any(|e| matches!(e, Effect::DealDamageDivided { .. }))
+            || context.effects.iter().any(|e| {
+                matches!(
+                    e,
+                    Effect::DealDamageDivided { .. } | Effect::PutCountersDivided { .. }
+                )
+            })
         {
             return None;
         }
@@ -400,6 +402,14 @@ impl HeuristicAgent {
                         .enumerate()
                         .filter(|(i, _)| set & (1 << i) != 0)
                         .map(|(_, mode)| worst(mode))
+                        .sum::<Option<i64>>()?,
+                    CastModeKind::RepeatedModes(packed) => modes
+                        .iter()
+                        .enumerate()
+                        .filter_map(|(i, mode)| {
+                            let n = i64::from(baylee_engine::casting::mode_multiplicity(packed, i));
+                            (n > 0).then(|| worst(mode).map(|w| w.saturating_mul(n)))
+                        })
                         .sum::<Option<i64>>()?,
                     _ => return None,
                 };

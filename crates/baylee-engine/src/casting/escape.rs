@@ -115,12 +115,21 @@ pub(crate) fn mana_cost_mode(
             index == face && !def.faces[face].disturb && !def.faces[face].aftermath
         }
         CastModeKind::Mode(index) => def.abilities_for_face(face).iter().any(|ability| {
-            matches!(ability, baylee_cards_dsl::AbilityDef::ModalSpell { modes, .. }
-                if modes.get(index).is_some_and(|mode| mode.cost_override.is_none()))
+            ability.modal_spell().is_some_and(|(modes, ..)| {
+                modes
+                    .get(index)
+                    .is_some_and(|mode| mode.cost_override.is_none())
+            })
         }),
         CastModeKind::Modes(set) => def.abilities_for_face(face).iter().any(|ability| {
-            matches!(ability, baylee_cards_dsl::AbilityDef::ModalSpell { modes, .. }
-                if chosen_modes(modes, set).all(|(_, mode)| mode.cost_override.is_none()))
+            ability.modal_spell().is_some_and(|(modes, ..)| {
+                chosen_modes(modes, set).all(|(_, mode)| mode.cost_override.is_none())
+            })
+        }),
+        CastModeKind::RepeatedModes(packed) => def.abilities_for_face(face).iter().any(|ability| {
+            ability.modal_spell().is_some_and(|(modes, ..)| {
+                chosen_repeated_modes(modes, packed).all(|(_, mode)| mode.cost_override.is_none())
+            })
         }),
         _ => false,
     }

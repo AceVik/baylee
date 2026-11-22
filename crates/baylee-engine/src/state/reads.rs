@@ -217,7 +217,9 @@ pub(crate) fn ability_reads_crime(ability: &baylee_cards_dsl::AbilityDef) -> boo
                 || cost_reduction_reads_crime(cost_reduction.as_ref())
                 || effects_read_crime(effects)
         }
-        AbilityDef::ModalSpell { modes, .. } | AbilityDef::ModalActivated { modes, .. } => {
+        AbilityDef::ModalSpell { modes, .. }
+        | AbilityDef::Modal { modes, .. }
+        | AbilityDef::ModalActivated { modes, .. } => {
             modes.iter().any(|m| effects_read_crime(m.effects))
         }
         AbilityDef::SagaChapter { effects, .. } | AbilityDef::Loyalty { effects, .. } => {
@@ -354,7 +356,9 @@ pub(crate) fn ability_reads_expend(ability: &baylee_cards_dsl::AbilityDef) -> bo
         AbilityDef::ActivatedConditional {
             effects, condition, ..
         } => condition_reads_expend(condition) || effects_read_expend(effects),
-        AbilityDef::ModalSpell { modes, .. } | AbilityDef::ModalActivated { modes, .. } => {
+        AbilityDef::ModalSpell { modes, .. }
+        | AbilityDef::Modal { modes, .. }
+        | AbilityDef::ModalActivated { modes, .. } => {
             modes.iter().any(|m| effects_read_expend(m.effects))
         }
         AbilityDef::SagaChapter { effects, .. } | AbilityDef::Loyalty { effects, .. } => {
@@ -465,12 +469,23 @@ fn effects_read_expend(effects: &'static [baylee_cards_dsl::Effect]) -> bool {
             | Effect::LoseLife { amount, .. }
             | Effect::DealDamage { amount, .. }
             | Effect::AddCounter { amount, .. }
+            | Effect::PutCountersDivided { amount, .. }
             | Effect::AddCounterSource { amount, .. }
             | Effect::CreateTokenN { amount, .. }
             | Effect::NextSpellThisTurnCostsLess(amount)
             | Effect::ReduceNextSpellCost {
                 generic: amount, ..
             } => amount_reads_expend(amount),
+            Effect::CreateTokenSized {
+                amount,
+                power,
+                toughness,
+                ..
+            } => {
+                amount_reads_expend(amount)
+                    || amount_reads_expend(power)
+                    || amount_reads_expend(toughness)
+            }
             Effect::DamagePermanentAndController {
                 permanent_amount,
                 controller_amount,

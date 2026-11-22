@@ -348,6 +348,12 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 let max = self
                     .wizard_divided_amount(&wizard)
                     .map_or(max, |total| max.min(total));
+                if min > max {
+                    self.cast_wizard = None;
+                    return WizardStep::Yield(Err(EngineError::IllegalAction(
+                        "not enough divided amount for minimum targets",
+                    )));
+                }
                 let spec = req.spec;
                 if matches!(spec, TargetSpec::AnyPlayer | TargetSpec::AnyOpponent) {
                     let mut wizard = wizard;
@@ -442,7 +448,10 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                     self.cast_wizard = Some(wizard);
                     return WizardStep::Continue;
                 };
-                let reference = if matches!(wizard.option, Some(CastModeKind::Modes(_))) {
+                let reference = if matches!(
+                    wizard.option,
+                    Some(CastModeKind::Modes(_) | CastModeKind::RepeatedModes(_))
+                ) {
                     self.wizard_modal_clause(&wizard, 1)
                         .and_then(|(_, is_second, _)| {
                             is_second.then(|| wizard.targets.first().copied()).flatten()

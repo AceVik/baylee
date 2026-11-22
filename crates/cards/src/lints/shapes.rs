@@ -3,23 +3,80 @@
 
 use super::*;
 
-/// How many damage divisions (`Effect::DealDamageDivided`) a list holds,
-/// nested ones included.
+/// How many divisions (`Effect::DealDamageDivided` / `Effect::PutCountersDivided`)
+/// a list holds, nested ones included.
 pub(super) fn divisions_in(effects: &'static [Effect]) -> usize {
     let (mut found, mut seen) = (0_usize, 0_usize);
     Effect::walk(effects, &mut seen, &mut |effect| {
-        if matches!(effect, Effect::DealDamageDivided { .. }) {
+        if matches!(
+            effect,
+            Effect::DealDamageDivided { .. } | Effect::PutCountersDivided { .. }
+        ) {
             found += 1;
         }
     });
     found
 }
 
-/// Whether an ability that divides damage sits where the engine asks the
-/// division, and how not.
-///
-/// Spells announce division before costs; triggers announce it on the stack.
-/// Both read one top-level instruction and assign at least one per target.
+fn division_list_fault(
+    effects: &'static [Effect],
+    targets: Option<baylee_cards_dsl::TargetReq>,
+    trigger: bool,
+) -> Option<&'static str> {
+    let found = divisions_in(effects);
+    if found == 0 {
+        return None;
+    }
+    let top_level: Vec<&Effect> = effects
+        .iter()
+        .filter(|effect| {
+            matches!(
+                effect,
+                Effect::DealDamageDivided { .. } | Effect::PutCountersDivided { .. }
+            )
+        })
+        .collect();
+    if top_level.len() != found {
+        return Some("divides inside a carrier, where the division is not read");
+    }
+    if top_level.len() > 1 {
+        return Some("divides twice in one ability");
+    }
+    let Some(req) = targets else {
+        return Some("divides among no targets");
+    };
+    if req.max == 0 {
+        return Some("asks for zero targets when dividing");
+    }
+    match top_level[0] {
+        Effect::DealDamageDivided { amount } => {
+            if trigger && !objects_only(req.spec) {
+                return Some("triggered division currently requires object targets");
+            }
+            if trigger && !matches!(amount, baylee_cards_dsl::DivisionAmount::Fixed(_)) {
+                return Some("a triggered distribution needs a fixed announced total");
+            }
+            if trigger && u32::from(req.max) > amount.total(0) {
+                return Some("asks for more targets than there is damage to give each one");
+            }
+        }
+        Effect::PutCountersDivided { amount, .. } => {
+            if !objects_only(req.spec) {
+                return Some("divided counter placement requires object targets");
+            }
+            if let baylee_cards_dsl::Amount::Fixed(n) = amount
+                && (*n == 0 || u32::from(req.min) > *n || (trigger && u32::from(req.max) > *n))
+            {
+                return Some("asks for more targets than there are counters to give each one");
+            }
+        }
+        _ => {}
+    }
+    None
+}
+
+/// Whether an ability that divides damage or counters sits where the engine
+/// asks the division (`CR 601.2d`), and how not.
 pub(super) fn division_fault(ability: &AbilityDef) -> Option<&'static str> {
     let found: usize = resolving_lists(ability)
         .iter()
@@ -28,41 +85,39 @@ pub(super) fn division_fault(ability: &AbilityDef) -> Option<&'static str> {
     if found == 0 {
         return None;
     }
-    let (effects, targets, trigger) = match ability {
+    match ability {
         AbilityDef::Triggered {
             effects, targets, ..
-        } => (effects, targets, true),
+        } => division_list_fault(effects, *targets, true),
         AbilityDef::Spell {
             effects, targets, ..
-        } => (effects, targets, false),
-        _ => return Some("divides damage where no announcement stage asks the division"),
-    };
-    let amounts: Vec<baylee_cards_dsl::DivisionAmount> = effects
-        .iter()
-        .filter_map(|effect| match effect {
-            Effect::DealDamageDivided { amount } => Some(*amount),
-            _ => None,
-        })
-        .collect();
-    if amounts.len() != found {
-        return Some("divides damage inside a carrier, where the division is not read");
+        }
+        | AbilityDef::Activated {
+            effects,
+            targets,
+            mana_ability: false,
+            ..
+        }
+        | AbilityDef::ActivatedConditional {
+            effects,
+            targets,
+            mana_ability: false,
+            ..
+        }
+        | AbilityDef::Loyalty {
+            effects, targets, ..
+        } => division_list_fault(effects, *targets, false),
+        _ => {
+            if let Some((modes, choose, false)) = ability.modal_spell()
+                && choose.is_one()
+            {
+                return modes
+                    .iter()
+                    .find_map(|m| division_list_fault(m.effects, m.targets, false));
+            }
+            Some("divides damage or counters where no announcement stage asks the division")
+        }
     }
-    if amounts.len() > 1 {
-        return Some("divides damage twice in one ability");
-    }
-    let Some(req) = targets else {
-        return Some("divides damage among no targets");
-    };
-    if trigger && !objects_only(req.spec) {
-        return Some("triggered division currently requires object targets");
-    }
-    if trigger && !matches!(amounts[0], baylee_cards_dsl::DivisionAmount::Fixed(_)) {
-        return Some("a triggered distribution needs a fixed announced total");
-    }
-    if req.max == 0 || (trigger && u32::from(req.max) > amounts[0].total(0)) {
-        return Some("asks for more targets than there is damage to give each one");
-    }
-    None
 }
 
 /// Whether a second instance of the word "target" may ask for this: objects
@@ -85,11 +140,11 @@ pub(super) const fn objects_only(spec: TargetSpec) -> bool {
 /// [`None`] when it can, or when the ability is no modal spell.
 ///
 /// Choosing one mode may replace the card's cost (overload), and has no cost
-/// of its own to add. Choosing several (`CR 700.2d`) is `CastModeKind::Modes`,
-/// a set of at most eight bits where each chosen mode's additional cost is
-/// added to the spell's (`CR 700.2h`) and each target clause across the chosen
-/// modes (`targets` and `second_targets`) is asked in printed order (`CR 700.2c`,
-/// `CR 608.2c`).
+/// of its own to add. Choosing several (`CR 700.2d`) is `CastModeKind::Modes`
+/// (or `CastModeKind::RepeatedModes` when `can_repeat_modes` is `true`), where
+/// each chosen mode's additional cost is added to the spell's (`CR 700.2h`) and
+/// each target clause across the chosen modes (`targets` and `second_targets`)
+/// is asked in printed order (`CR 700.2c`, `CR 608.2c`).
 pub(super) fn modes_fault(ability: &AbilityDef) -> Option<&'static str> {
     if let AbilityDef::ModalActivated { modes, .. } = ability {
         if modes.is_empty() || modes.len() > usize::from(u8::MAX) {
@@ -100,16 +155,20 @@ pub(super) fn modes_fault(ability: &AbilityDef) -> Option<&'static str> {
             .any(|mode| mode.cost_override.is_some() || mode.additional_cost.is_some())
             .then_some("modal activation gives a mode an unsupported separate cost");
     }
-    let AbilityDef::ModalSpell { modes, choose } = ability else {
-        return None;
-    };
-    if choose.min == 0 || choose.min > choose.max {
+    let (modes, choose, can_repeat) = ability.modal_spell()?;
+    if modes.is_empty() {
+        return Some("prints no modes");
+    }
+    if choose.max == 0 || choose.min > choose.max || (!can_repeat && choose.min == 0) {
         return Some("chooses a count of modes that no cast can meet");
     }
-    if usize::from(choose.min) > modes.len() {
+    if !can_repeat && usize::from(choose.min) > modes.len() {
         return Some("chooses more modes than it prints");
     }
-    if choose.is_one() {
+    if can_repeat && choose.max > 8 {
+        return Some("repeats more modes than bounded selection allows");
+    }
+    if choose.is_one() && !can_repeat {
         if modes.iter().any(|m| m.additional_cost.is_some()) {
             return Some(
                 "gives a mode of a choose-one spell a cost of its own, which nothing adds",
@@ -123,11 +182,20 @@ pub(super) fn modes_fault(ability: &AbilityDef) -> Option<&'static str> {
     if modes.iter().any(|m| m.cost_override.is_some()) {
         return Some("replaces the card's cost in one of several modes");
     }
-    let total_target_clauses: usize = modes
-        .iter()
-        .map(|m| usize::from(m.targets.is_some()) + usize::from(m.second_targets.is_some()))
-        .sum();
-    if total_target_clauses > 16 {
+    let max_clauses = if can_repeat {
+        let per_mode = modes
+            .iter()
+            .map(|m| usize::from(m.targets.is_some()) + usize::from(m.second_targets.is_some()))
+            .max()
+            .unwrap_or(0);
+        usize::from(choose.max).saturating_mul(per_mode)
+    } else {
+        modes
+            .iter()
+            .map(|m| usize::from(m.targets.is_some()) + usize::from(m.second_targets.is_some()))
+            .sum()
+    };
+    if max_clauses > 16 {
         return Some("prints more than sixteen target clauses across its modes");
     }
     None

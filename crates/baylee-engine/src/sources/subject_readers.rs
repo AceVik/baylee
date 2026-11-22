@@ -129,6 +129,7 @@ pub(super) fn refers_to_subject(effects: &'static [Effect], implicit_source: boo
             | Effect::SetClassLevel(_)
             | Effect::IfNoCountersOnSelf { .. } => true,
             Effect::AddCounter { .. }
+            | Effect::PutCountersDivided { .. }
             | Effect::AddCountersUpTo { .. }
             | Effect::AtNextEndStep { .. }
             | Effect::AtNextCleanup { .. } => implicit_source,
