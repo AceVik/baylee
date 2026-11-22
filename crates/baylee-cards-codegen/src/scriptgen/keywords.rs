@@ -1754,6 +1754,9 @@ impl Tx<'_> {
                      Condition::SourceMatches(&Filter::CastFromHand)])"
                         .to_string()
                 }
+                "Card.Self+!token" | "Card.!token+Self" => {
+                    "Condition::SourceMatches(&Filter::Not(&Filter::IsToken))".to_string()
+                }
                 _ => return None,
             }
         } else if let Some(cond_raw) = p.take("Condition") {
@@ -1855,6 +1858,25 @@ impl Tx<'_> {
                     .checked_add(1)
                     .map(|k| format!("Condition::Not(&Condition::XAtLeast({k}))")),
                 None => None,
+            };
+        }
+        if def == "Count$TimesKicked" {
+            return Self::wave15_amount_cmp("Amount::TimesKicked", cmp);
+        }
+        if def == "Count$TimesKicked/Twice"
+            || def
+                .strip_prefix("Count$TimesKicked/Times.")
+                .and_then(|s| s.trim().parse::<u32>().ok())
+                .is_some_and(|n| n >= 1)
+        {
+            return match cmp {
+                "GE1" | "GT0" | "NE0" => {
+                    Some("Condition::AmountAtLeast(Amount::TimesKicked, 1)".to_string())
+                }
+                "EQ0" | "LE0" | "LT1" => Some(
+                    "Condition::Not(&Condition::AmountAtLeast(Amount::TimesKicked, 1))".to_string(),
+                ),
+                _ => None,
             };
         }
         if matches!(
@@ -2058,6 +2080,27 @@ impl Tx<'_> {
         }
         if def == "Count$TimesKicked" {
             return Some("Amount::TimesKicked".to_string());
+        }
+        if matches!(def, "Count$Party" | "Count$PartySize") {
+            return Some("Amount::PartySize(PlayerRel::You)".to_string());
+        }
+        if def == "Count$ThisTurnCast_Card.YouCtrl" {
+            return Some("Amount::SpellsCastThisTurn(PlayerRel::You)".to_string());
+        }
+        if def == "Count$ThisTurnCast_Card.OppCtrl" {
+            return Some("Amount::SpellsCastThisTurn(PlayerRel::EachOpponent)".to_string());
+        }
+        if def == "Count$ThisTurnCast_Card" {
+            return Some("Amount::SpellsCastThisTurn(PlayerRel::EachPlayer)".to_string());
+        }
+        if def == "Count$YouDrewThisTurn" {
+            return Some("Amount::CardsDrawnThisTurn(PlayerRel::You)".to_string());
+        }
+        if let Some(expr) = Self::wave26f_devotion_amount(def) {
+            return Some(expr);
+        }
+        if let Some(expr) = self.wave26f_greatest_or_total_amount(def, false, true) {
+            return Some(expr);
         }
         if def == "Count$ThisTurnEntered_Graveyard_from_Battlefield_Creature" {
             return Some("Amount::CreaturesDiedThisTurn".to_string());
@@ -3531,7 +3574,11 @@ impl Tx<'_> {
                         self.body.enter_modifiers.truncate(saved_enter_mods);
                         self.body.abilities.truncate(saved_abilities);
                         *self.unclaimed.borrow_mut() = saved_unclaimed;
-                        if self.wave24e_self_etb_moved_replacement(spec).is_some() {
+                        if self
+                            .wave24e_self_etb_moved_replacement(spec)
+                            .or_else(|| self.wave26f_moved_replacement(spec))
+                            .is_some()
+                        {
                             return Some(());
                         }
                         self.body.statics.truncate(saved_statics);
@@ -3634,14 +3681,22 @@ impl Tx<'_> {
         }
         if event == "Counter" {
             p.drop_prose();
-            if p.take("ValidCard").as_deref() == Some("Card.Self")
-                && p.take("ValidSA").as_deref() == Some("Spell")
-                && p.take("Layer").as_deref() == Some("CantHappen")
-                && p.exhausted()
+            if p.peek("ValidCard") == Some("Card.Self")
+                && p.peek("ValidSA") == Some("Spell")
+                && p.peek("Layer") == Some("CantHappen")
             {
-                self.body
-                    .keywords
-                    .push("KeywordSet::UNCOUNTERABLE".to_string());
+                let mut self_p = p.clone();
+                self_p.take("ValidCard");
+                self_p.take("ValidSA");
+                self_p.take("Layer");
+                if self_p.exhausted() {
+                    self.body
+                        .keywords
+                        .push("KeywordSet::UNCOUNTERABLE".to_string());
+                    return Some(());
+                }
+            }
+            if self.wave26f_counter_replacement(p).is_some() {
                 return Some(());
             }
             self.note("replacement `R: Event$ Counter` this rule cannot read".to_string());
@@ -3669,7 +3724,11 @@ impl Tx<'_> {
             return self.deny("replacement `Moved` with no `ReplaceWith$`".to_string());
         };
         if !about_self || !entering || !updated || !p.exhausted() {
-            if self.wave24e_self_etb_moved_replacement(spec).is_some() {
+            if self
+                .wave24e_self_etb_moved_replacement(spec)
+                .or_else(|| self.wave26f_moved_replacement(spec))
+                .is_some()
+            {
                 return Some(());
             }
             self.note("replacement `Moved` this rule cannot read".to_string());
@@ -3690,7 +3749,11 @@ impl Tx<'_> {
             )
             || body.take("ETB").as_deref() != Some("True")
         {
-            if self.wave24e_self_etb_moved_replacement(spec).is_some() {
+            if self
+                .wave24e_self_etb_moved_replacement(spec)
+                .or_else(|| self.wave26f_moved_replacement(spec))
+                .is_some()
+            {
                 return Some(());
             }
             self.note(format!("replacement `Moved` replacing with `{api}`"));
@@ -3734,6 +3797,18 @@ impl Tx<'_> {
                                 return None;
                             }
                         }
+                    } else if let Some(cond_raw) = body.take("Condition") {
+                        let Some(tap_cond) = Self::named_condition(&cond_raw)
+                            .or_else(|| Self::wave7_named_condition(&cond_raw))
+                            .or_else(|| Self::wave21c_named_condition(&cond_raw))
+                        else {
+                            self.note(format!(
+                                "replacement `Moved` tapping with `Condition$ {cond_raw}`"
+                            ));
+                            return None;
+                        };
+                        let unless = self.negate_etb_condition(tap_cond);
+                        format!("EnterModifier::TappedUnlessCondition({unless})")
                     } else if let Some(sub) = body.take("SubAbility") {
                         if !body.exhausted() {
                             self.note(format!(
@@ -3947,6 +4022,344 @@ impl Tx<'_> {
         }
 
         None
+    }
+
+    /// Wave 14d `R:Event$ Counter | Layer$ CantHappen` static uncounterability
+    /// -> `Modifier::SpellsCantBeCountered { who, filter }` (*Prowling Serpopard*,
+    /// *Destiny Spinner*, *Allosaurus Shepherd*, *Lier*, *Rhythm of the Wild*,
+    /// *Taigam, Ojutai Master*, *Spellbreaker Behemoth*, *Gaea's Herald*,
+    /// *Root Sliver*, *Chimil*, *Leyline of Lifeforce*).
+    fn wave26f_counter_replacement(&mut self, mut p: Params) -> Option<()> {
+        let saved_statics = self.body.statics.len();
+        let saved_unclaimed = self.unclaimed.borrow().clone();
+        let res = (|| {
+            let zone_arg = match p.take("ActiveZones").as_deref() {
+                Some("Battlefield") => "",
+                Some("Command") => ", zone = ZoneRef::Command",
+                _ => return None,
+            };
+            if !matches!(p.take("Secondary").as_deref(), None | Some("True")) {
+                return None;
+            }
+            let (who, filter_ref) = self.spells_cant_be_countered_parts(&mut p)?;
+            let cond = self.condition(&mut p)?;
+            if !p.exhausted() {
+                return None;
+            }
+            self.body.abilities.push(format!(
+                "static_ability!(Filter::Any, Modifier::SpellsCantBeCountered {{ \
+                 who: {who}, filter: {filter_ref} }}{zone_arg}{cond})"
+            ));
+            Some(())
+        })();
+        if res.is_none() {
+            self.body.statics.truncate(saved_statics);
+            *self.unclaimed.borrow_mut() = saved_unclaimed;
+        }
+        res
+    }
+
+    /// Wave 26f `R:Event$ Moved` replacement unlocks with atomic rollback:
+    /// 1. Self-ETB `AB$ StoreSVar | Cost$ Mandatory PayLife<X>` -> `EnterModifier::PayLifeUpTo`
+    ///    (*Minion of the Wastes*, *Phyrexian Processor*, *Nameless Race*).
+    /// 2. Self-ETB `DB$ AlterAttribute | Attributes$ Suspected` -> `EnterModifier::Suspected`.
+    /// 3. Self-ETB `DB$ PutCounter` (standalone, conditional, or chained with `PutCounter`/`Tap`).
+    /// 4. Self-ETB `DB$ Tap` gated on `R:`-header `Condition$`/`IsPresent$`/`CheckSVar$`.
+    /// 5. External `Other` `EnterTapped` / `EnterUntapped` (`ReplacementRule::EnterTapped` /
+    ///    `ReplacementRule::EnterUntapped`).
+    fn wave26f_moved_replacement(&mut self, spec: &str) -> Option<()> {
+        let saved_statics = self.body.statics.len();
+        let saved_enter_mods = self.body.enter_modifiers.len();
+        let saved_abilities = self.body.abilities.len();
+        let saved_unclaimed = self.unclaimed.borrow().clone();
+        let res = self.wave26f_moved_replacement_inner(spec);
+        if res.is_none() {
+            self.body.statics.truncate(saved_statics);
+            self.body.enter_modifiers.truncate(saved_enter_mods);
+            self.body.abilities.truncate(saved_abilities);
+            *self.unclaimed.borrow_mut() = saved_unclaimed;
+        }
+        res
+    }
+
+    #[allow(clippy::too_many_lines)]
+    fn wave26f_moved_replacement_inner(&mut self, spec: &str) -> Option<()> {
+        let (event, mut p) = Params::parse(spec)?;
+        if event != "Moved" {
+            return None;
+        }
+        p.drop_prose();
+        let valid_card = p.take("ValidCard")?;
+        if p.take("Destination").as_deref() != Some("Battlefield") {
+            return None;
+        }
+        let active_zones = p.take("ActiveZones");
+        let origin = p.take("Origin");
+        let secondary = p.take("Secondary");
+        let result_kind = p.take("ReplacementResult");
+        let with = p.take("ReplaceWith")?;
+        let body_str = self.svars.get(with.trim())?.clone();
+        let (api, mut body) = Params::parse(&body_str)?;
+        body.drop_prose();
+
+        // Shape 5: external `Other` `EnterTapped` / `EnterUntapped`.
+        if valid_card.contains("Other")
+            && !valid_card.contains("Self")
+            && active_zones.as_deref() == Some("Battlefield")
+            && origin.is_none()
+            && result_kind.as_deref() == Some("Updated")
+            && matches!(secondary.as_deref(), None | Some("True"))
+            && p.exhausted()
+            && body.take("ETB").as_deref() == Some("True")
+            && body.take("Defined").as_deref() == Some("ReplacedCard")
+            && body.exhausted()
+        {
+            let rule = match api.as_str() {
+                "Tap" => "EnterTapped",
+                "Untap"
+                    if valid_card
+                        .split(',')
+                        .all(|alt| alt.split(['.', '+']).any(|a| a.trim() == "YouCtrl")) =>
+                {
+                    "EnterUntapped"
+                }
+                _ => return None,
+            };
+            let expr = self.filter_expr(&valid_card)?;
+            let filter = self.body.filter_static("ENTER", &expr);
+            self.body.abilities.push(format!(
+                "AbilityDef::Replacement(ReplacementRule::{rule}(&{filter}))"
+            ));
+            return Some(());
+        }
+
+        if secondary.is_some()
+            || !matches!(origin.as_deref(), None | Some("Any"))
+            || !matches!(active_zones.as_deref(), None | Some("All"))
+        {
+            return None;
+        }
+
+        // Shape 1: `PayLifeUpTo` (*Minion of the Wastes*, *Phyrexian Processor*, *Nameless Race*).
+        if valid_card == "Card.Self"
+            && result_kind.as_deref() == Some("Updated")
+            && p.exhausted()
+            && api == "StoreSVar"
+            && body.take("SVar").as_deref() == Some("LifePaidOnETB")
+            && body.take("Type").as_deref() == Some("Calculate")
+            && let Some(cost_raw) = body.take("Cost")
+            && let Some(expr_var) = body.take("Expression")
+        {
+            let x_var = cost_raw
+                .trim()
+                .strip_prefix("Mandatory PayLife<")
+                .and_then(|s| s.strip_suffix('>'))?
+                .trim();
+            if x_var != expr_var.trim()
+                || self.svars.get(x_var).map(|s| s.trim()) != Some("Count$xPaid")
+            {
+                return None;
+            }
+            let cap = match body.take("XMax") {
+                None => "Amount::LifeTotal(PlayerRel::You)".to_string(),
+                Some(limit) => self.etb_wave6_amount(limit.trim())?,
+            };
+            if !body.exhausted() {
+                return None;
+            }
+            self.body
+                .enter_modifiers
+                .push(format!("EnterModifier::PayLifeUpTo({cap})"));
+            return Some(());
+        }
+
+        // Shape 2: `EnterModifier::Suspected`.
+        if valid_card == "Card.Self"
+            && matches!(result_kind.as_deref(), None | Some("Updated"))
+            && p.exhausted()
+            && api == "AlterAttribute"
+            && matches!(body.take("Defined").as_deref(), None | Some("Self"))
+            && body.take("Attributes").as_deref() == Some("Suspected")
+            && matches!(body.take("Activate").as_deref(), None | Some("True"))
+            && matches!(body.take("ETB").as_deref(), None | Some("True"))
+            && body.exhausted()
+        {
+            self.body
+                .enter_modifiers
+                .push("EnterModifier::Suspected".to_string());
+            return Some(());
+        }
+
+        // Parse optional `R:`-header condition for self-ETB Shapes 3 and 4.
+        let header_cond = if valid_card == "Card.Self" {
+            self.wave26f_take_etb_header_condition(&mut p).ok()?
+        } else {
+            if !p.exhausted() {
+                return None;
+            }
+            Some(self.etb_counter_condition(&format!("ValidCard$ {valid_card}"))?)
+        };
+        if !p.exhausted() {
+            return None;
+        }
+
+        // Shape 4: self-ETB `DB$ Tap` gated on an `R:`-header condition.
+        if api == "Tap"
+            && result_kind.as_deref() == Some("Updated")
+            && let Some(tap_cond) = header_cond.as_deref()
+            && matches!(
+                body.take("Defined").as_deref(),
+                Some("Self" | "ReplacedCard")
+            )
+            && body.take("ETB").as_deref() == Some("True")
+            && body.exhausted()
+        {
+            let unless = self.negate_etb_condition(tap_cond);
+            self.body
+                .enter_modifiers
+                .push(format!("EnterModifier::TappedUnlessCondition({unless})"));
+            return Some(());
+        }
+
+        // Shape 3: self-ETB `DB$ PutCounter` (standalone, conditional, or chained).
+        if api == "PutCounter"
+            && matches!(result_kind.as_deref(), None | Some("Updated"))
+            && body.take("ETB").as_deref() == Some("True")
+            && matches!(
+                body.take("Defined").as_deref(),
+                None | Some("Self" | "ReplacedCard")
+            )
+            && let Some(kind_raw) = body.take("CounterType")
+            && let Some(num_raw) = body.take("CounterNum")
+            && let Some(kind) = super::counter_kind(kind_raw.trim())
+            && let Some(amount) = self.etb_wave6_amount(num_raw.trim())
+        {
+            let sub = body.take("SubAbility");
+            let body_cond = self.wave26f_take_etb_body_condition(&mut body).ok()?;
+            if !body.exhausted() || (header_cond.is_some() && body_cond.is_some()) {
+                return None;
+            }
+            let cond = header_cond.or(body_cond);
+            if cond.is_some() && sub.is_some() {
+                return None;
+            }
+            let mut mods = Vec::new();
+            let first = match cond {
+                None => {
+                    format!("EnterModifier::WithCounters {{ kind: {kind}, amount: {amount} }}")
+                }
+                Some(c) => format!(
+                    "EnterModifier::WithCountersIf {{ kind: {kind}, count: {amount}, \
+                     condition: {c} }}"
+                ),
+            };
+            mods.push(first);
+            let mut next = sub;
+            let mut depth = 0usize;
+            while let Some(sub_name) = next.take() {
+                depth += 1;
+                if depth > 4 {
+                    return None;
+                }
+                let sub_str = self.svars.get(sub_name.trim())?.clone();
+                let (s_api, mut sp) = Params::parse(&sub_str)?;
+                sp.drop_prose();
+                next = sp.take("SubAbility");
+                match s_api.as_str() {
+                    "PutCounter"
+                        if sp.take("ETB").as_deref() == Some("True")
+                            && matches!(
+                                sp.take("Defined").as_deref(),
+                                None | Some("Self" | "ReplacedCard")
+                            ) =>
+                    {
+                        let sk = super::counter_kind(sp.take("CounterType")?.trim())?;
+                        let sa = self.etb_wave6_amount(sp.take("CounterNum")?.trim())?;
+                        if !sp.exhausted() {
+                            return None;
+                        }
+                        mods.push(format!(
+                            "EnterModifier::WithCounters {{ kind: {sk}, amount: {sa} }}"
+                        ));
+                    }
+                    "Tap"
+                        if sp.take("ETB").as_deref() == Some("True")
+                            && matches!(
+                                sp.take("Defined").as_deref(),
+                                None | Some("Self" | "ReplacedCard")
+                            )
+                            && sp.exhausted() =>
+                    {
+                        mods.push("EnterModifier::Tapped".to_string());
+                    }
+                    _ => return None,
+                }
+            }
+            self.body.enter_modifiers.extend(mods);
+            return Some(());
+        }
+
+        None
+    }
+
+    fn wave26f_take_etb_header_condition(&mut self, p: &mut Params) -> Result<Option<String>, ()> {
+        if let Some(c) = p.take("Condition") {
+            return self
+                .etb_counter_condition(&format!("Condition$ {c}"))
+                .map(Some)
+                .ok_or(());
+        }
+        if let Some(present) = p.take("IsPresent") {
+            let mut spec = format!("IsPresent$ {present}");
+            if let Some(cmp) = p.take("PresentCompare") {
+                spec.push_str(" | PresentCompare$ ");
+                spec.push_str(&cmp);
+            }
+            if let Some(def) = p.take("PresentDefined") {
+                spec.push_str(" | PresentDefined$ ");
+                spec.push_str(&def);
+            }
+            return self.etb_counter_condition(&spec).map(Some).ok_or(());
+        }
+        if let Some(var) = p.take("CheckSVar") {
+            let mut spec = format!("CheckSVar$ {var}");
+            if let Some(cmp) = p.take("SVarCompare") {
+                spec.push_str(" | SVarCompare$ ");
+                spec.push_str(&cmp);
+            }
+            return self.etb_counter_condition(&spec).map(Some).ok_or(());
+        }
+        Ok(None)
+    }
+
+    fn wave26f_take_etb_body_condition(&mut self, p: &mut Params) -> Result<Option<String>, ()> {
+        if let Some(c) = p.take("Condition") {
+            return self
+                .etb_counter_condition(&format!("Condition$ {c}"))
+                .map(Some)
+                .ok_or(());
+        }
+        if let Some(present) = p.take("ConditionPresent") {
+            let mut spec = format!("IsPresent$ {present}");
+            if let Some(cmp) = p.take("ConditionCompare") {
+                spec.push_str(" | PresentCompare$ ");
+                spec.push_str(&cmp);
+            }
+            if let Some(def) = p.take("ConditionDefined") {
+                spec.push_str(" | PresentDefined$ ");
+                spec.push_str(&def);
+            }
+            return self.etb_counter_condition(&spec).map(Some).ok_or(());
+        }
+        if let Some(var) = p.take("ConditionCheckSVar") {
+            let mut spec = format!("CheckSVar$ {var}");
+            if let Some(cmp) = p.take("ConditionSVarCompare") {
+                spec.push_str(" | SVarCompare$ ");
+                spec.push_str(&cmp);
+            }
+            return self.etb_counter_condition(&spec).map(Some).ok_or(());
+        }
+        Ok(None)
     }
 
     #[allow(clippy::too_many_lines)]

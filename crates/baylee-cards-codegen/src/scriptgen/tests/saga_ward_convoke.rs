@@ -3976,10 +3976,6 @@ fn wave14b_refusal_boundaries() {
          R:Event$ DamageDone | ActiveZones$ Battlefield | ValidSource$ Spell | ValidTarget$ Permanent,Player | ReplaceWith$ Minus1\n\
          SVar:Minus1:DB$ ReplaceEffect | VarName$ DamageAmount | VarValue$ X\n\
          SVar:X:ReplaceCount$DamageAmount/Minus.1",
-        "Name:BadHalfScale\nTypes:Enchantment\n\
-         R:Event$ DamageDone | ActiveZones$ Battlefield | ValidTarget$ You | ReplaceWith$ Half\n\
-         SVar:Half:DB$ ReplaceEffect | VarName$ DamageAmount | VarValue$ X\n\
-         SVar:X:ReplaceCount$DamageAmount/HalfUp",
         "Name:BadYouDontCtrlRecip\nTypes:Enchantment\n\
          R:Event$ DamageDone | ActiveZones$ Battlefield | ValidTarget$ Opponent,Permanent.YouDontCtrl | ReplaceWith$ Dbl\n\
          SVar:Dbl:DB$ ReplaceEffect | VarName$ DamageAmount | VarValue$ ReplaceCount$DamageAmount/Twice",

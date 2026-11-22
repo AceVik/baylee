@@ -2796,6 +2796,7 @@ impl Tx<'_> {
             && self.block_line.is_none()
             && let Some((api, mut cp)) = Params::parse(&body)
             && api == "Charm"
+            && !cp.has("ChoiceRestriction")
         {
             cp.drop_prose();
             let Some(choices) = cp.take("Choices") else {
@@ -2870,7 +2871,7 @@ impl Tx<'_> {
             let after_first_statics = self.body.statics.len();
             let after_first_unclaimed = self.unclaimed.borrow().clone();
             self.body.statics.truncate(saved_statics);
-            *self.unclaimed.borrow_mut() = saved_unclaimed;
+            (*self.unclaimed.borrow_mut()).clone_from(&saved_unclaimed);
             if self
                 .wave24e_dig_trigger_chain(&body, &mut dig_chain)
                 .is_some()
@@ -2880,6 +2881,23 @@ impl Tx<'_> {
             } else {
                 self.body.statics.truncate(after_first_statics);
                 *self.unclaimed.borrow_mut() = after_first_unclaimed;
+            }
+        }
+        if chain_ok.is_none() {
+            let mut tok_chain = Chain::default();
+            let after_prev_statics = self.body.statics.len();
+            let after_prev_unclaimed = self.unclaimed.borrow().clone();
+            self.body.statics.truncate(saved_statics);
+            *self.unclaimed.borrow_mut() = saved_unclaimed;
+            if self
+                .wave26f_token_found_trigger_chain(&body, &mut tok_chain)
+                .is_some()
+            {
+                chain = tok_chain;
+                chain_ok = Some(());
+            } else {
+                self.body.statics.truncate(after_prev_statics);
+                *self.unclaimed.borrow_mut() = after_prev_unclaimed;
             }
         }
         if is_attackers_at_target {
@@ -4729,8 +4747,17 @@ impl Tx<'_> {
             "Count$YourLifeTotal" => {
                 Self::wave15_amount_cmp("Amount::LifeTotal(PlayerRel::You)", cmp)
             }
-            "Count$ValidHand Card.YouOwn" => {
+            "Count$ValidHand Card.YouOwn" | "Count$CardsInYourHand" => {
                 Self::wave15_amount_cmp("Amount::HandSize(PlayerRel::You)", cmp)
+            }
+            "Count$Party" | "Count$PartySize" => {
+                Self::wave15_amount_cmp("Amount::PartySize(PlayerRel::You)", cmp)
+            }
+            "PlayerCountOpponents$Amount" => {
+                Self::wave15_amount_cmp("Amount::Players(PlayerRel::EachOpponent)", cmp)
+            }
+            "PlayerCountPlayers$Amount" => {
+                Self::wave15_amount_cmp("Amount::Players(PlayerRel::EachPlayer)", cmp)
             }
             "Count$ValidGraveyard Card.YouOwn" => Self::wave16_graveyard_count_cmp(cmp),
             _ => Self::wave18c_svar_condition(raw, cmp),
@@ -4769,8 +4796,14 @@ impl Tx<'_> {
                 "GE1" | "GT0" => {
                     Some("Condition::Not(&Condition::YouCastNoSpellThisTurn)".to_string())
                 }
-                _ => None,
+                _ => Self::wave15_amount_cmp("Amount::SpellsCastThisTurn(PlayerRel::You)", cmp),
             },
+            "Count$ThisTurnCast_Card.OppCtrl" => {
+                Self::wave15_amount_cmp("Amount::SpellsCastThisTurn(PlayerRel::EachOpponent)", cmp)
+            }
+            "Count$ThisTurnCast_Card" => {
+                Self::wave15_amount_cmp("Amount::SpellsCastThisTurn(PlayerRel::EachPlayer)", cmp)
+            }
             "Count$ManaExpendedThisTurn" | "Count$ManaSpentOnSpellsThisTurn" => {
                 if let Some(n) = cmp
                     .strip_prefix("GE")
@@ -5146,10 +5179,248 @@ impl Tx<'_> {
                  op: {op}, right: &{rhs_amt} }}"
             ));
         }
+        if let Some(cond) = self.wave26f_svar_condition(raw, cmp) {
+            return Some(cond);
+        }
         if self.trigger_mode.as_deref() == Some("Phase") {
             return self.wave19c_phase_triggered_player_condition(raw, cmp);
         }
         None
+    }
+
+    pub(super) fn wave26f_devotion_amount(raw: &str) -> Option<String> {
+        let color_const = |c: &str| match c.trim() {
+            "White" => Some("Color::White"),
+            "Blue" => Some("Color::Blue"),
+            "Black" => Some("Color::Black"),
+            "Red" => Some("Color::Red"),
+            "Green" => Some("Color::Green"),
+            _ => None,
+        };
+        if let Some(c_raw) = raw.strip_prefix("Count$Devotion.") {
+            let c = color_const(c_raw)?;
+            return Some(format!(
+                "Amount::Devotion {{ who: PlayerRel::You, colors: ColorSet::from_slice(&[{c}]) }}"
+            ));
+        }
+        if let Some(pair) = raw.strip_prefix("Count$DevotionDual.") {
+            let (c1_raw, c2_raw) = pair.split_once('.')?;
+            if c2_raw.contains('.') {
+                return None;
+            }
+            let c1 = color_const(c1_raw)?;
+            let c2 = color_const(c2_raw)?;
+            if c1 == c2 {
+                return None;
+            }
+            return Some(format!(
+                "Amount::Devotion {{ who: PlayerRel::You, colors: ColorSet::from_slice(&[{c1}, {c2}]) }}"
+            ));
+        }
+        None
+    }
+
+    pub(super) fn wave26f_greatest_or_total_amount(
+        &mut self,
+        raw: &str,
+        allow_total_power: bool,
+        strip_etb_other: bool,
+    ) -> Option<String> {
+        let strip_other = |spec: &str| -> String {
+            if !strip_etb_other || spec.contains('$') || spec.contains("Self") {
+                return spec.to_string();
+            }
+            spec.split(',')
+                .map(|alt| {
+                    let alt = alt.trim();
+                    let Some((base, atoms)) = alt.split_once('.') else {
+                        return alt.to_string();
+                    };
+                    let kept: Vec<&str> = atoms
+                        .split('+')
+                        .map(str::trim)
+                        .filter(|a| !a.is_empty() && *a != "Other" && *a != "StrictlyOther")
+                        .collect();
+                    if kept.is_empty() {
+                        base.trim().to_string()
+                    } else {
+                        format!("{}.{}", base.trim(), kept.join("+"))
+                    }
+                })
+                .collect::<Vec<_>>()
+                .join(",")
+        };
+        let to_filter_ref = |this: &mut Self, expr: &str| -> String {
+            match expr {
+                "Filter::Any" => "&Filter::Any".to_string(),
+                "Filter::CREATURE" => "&Filter::CREATURE".to_string(),
+                "Filter::YOUR_CREATURE" => "&Filter::YOUR_CREATURE".to_string(),
+                "Filter::ControlledByYou" => "&Filter::ControlledByYou".to_string(),
+                "Filter::InZone(ZoneRef::Graveyard)" => {
+                    "&Filter::InZone(ZoneRef::Graveyard)".to_string()
+                }
+                "Filter::InZone(ZoneRef::Exile)" => "&Filter::InZone(ZoneRef::Exile)".to_string(),
+                _ => format!("&{}", this.body.filter_static("COUNT", expr)),
+            }
+        };
+        if allow_total_power {
+            let total_spec = raw.strip_prefix("Count$TotalPower ").or_else(|| {
+                raw.strip_prefix("Count$Valid ")
+                    .and_then(|s| s.strip_suffix("$CardPower"))
+            });
+            if let Some(spec_raw) = total_spec {
+                let spec = strip_other(spec_raw.trim());
+                if spec.is_empty()
+                    || spec.contains('$')
+                    || spec.contains('/')
+                    || spec.contains("Self")
+                {
+                    return None;
+                }
+                let expr = self.filter_expr(&spec)?;
+                let f_ref = to_filter_ref(self, &expr);
+                return Some(format!("Amount::TotalPowerAmong({f_ref})"));
+            }
+        }
+        let (rest, zone_wrap) = if let Some(r) = raw
+            .strip_prefix("Count$Valid ")
+            .or_else(|| raw.strip_prefix("Count$LastStateBattlefield "))
+        {
+            (r, None)
+        } else if let Some(r) = raw
+            .strip_prefix("Count$ValidGraveyard ")
+            .or_else(|| raw.strip_prefix("Count$LastStateGraveyard "))
+        {
+            (r, Some("ZoneRef::Graveyard"))
+        } else {
+            let r = raw.strip_prefix("Count$ValidExile ")?;
+            (r, Some("ZoneRef::Exile"))
+        };
+        let (spec_raw, variant) = if let Some(s) = rest.strip_suffix("$GreatestCardPower") {
+            (s, "Amount::GreatestPowerAmong")
+        } else {
+            let s = rest.strip_suffix("$GreatestCardManaCost")?;
+            (s, "Amount::GreatestManaValueAmong")
+        };
+        let spec = if zone_wrap.is_none() {
+            strip_other(spec_raw.trim())
+        } else {
+            spec_raw.trim().to_string()
+        };
+        if spec.is_empty() || spec.contains('$') || spec.contains('/') {
+            return None;
+        }
+        if strip_etb_other && spec.contains("Self") {
+            return None;
+        }
+        let inner = self.filter_expr_in_zone(&spec, zone_wrap.is_some())?;
+        let full = match zone_wrap {
+            None => inner,
+            Some(z) if inner == "Filter::Any" => format!("Filter::InZone({z})"),
+            Some(z) => format!("Filter::And(&[Filter::InZone({z}), {inner}])"),
+        };
+        let f_ref = to_filter_ref(self, &full);
+        Some(format!("{variant}({f_ref})"))
+    }
+
+    fn wave26f_svar_condition(&mut self, raw: &str, cmp: &str) -> Option<String> {
+        if let Some(amt) = Self::wave26f_devotion_amount(raw) {
+            return Self::wave15_amount_cmp(&amt, cmp);
+        }
+        let allow_total_power = self.trigger_mode.as_deref() == Some("Phase");
+        if let Some(amt) = self.wave26f_greatest_or_total_amount(raw, allow_total_power, false) {
+            return Self::wave15_amount_cmp(&amt, cmp);
+        }
+        if matches!(
+            raw,
+            "Count$OpponentsLifeLostThisTurn" | "Count$LifeOppsLostThisTurn"
+        ) {
+            return Self::wave15_amount_cmp("Amount::OpponentsLifeLostThisTurn", cmp);
+        }
+        if let Some(valid) = raw.strip_prefix("Count$ValidGraveyard ")
+            && !valid.contains(['$', '/'])
+        {
+            return self.wave26f_graveyard_count_condition(valid.trim(), cmp);
+        }
+        None
+    }
+
+    fn wave26f_graveyard_count_condition(&mut self, valid: &str, cmp: &str) -> Option<String> {
+        if valid.is_empty() {
+            return None;
+        }
+        let mut common_who: Option<&'static str> = None;
+        let mut cleaned_alts = Vec::new();
+        for alt in valid.split(',').map(str::trim) {
+            if alt.is_empty() {
+                return None;
+            }
+            let (base, atoms_raw) = alt.split_once('.').unwrap_or((alt, ""));
+            let mut alt_who: Option<&'static str> = None;
+            let mut kept = Vec::new();
+            for atom in atoms_raw
+                .split('+')
+                .map(str::trim)
+                .filter(|a| !a.is_empty())
+            {
+                match atom {
+                    "YouOwn" => {
+                        if alt_who.is_some() {
+                            return None;
+                        }
+                        alt_who = Some("PlayerRel::You");
+                    }
+                    "OppOwn" => {
+                        if alt_who.is_some() {
+                            return None;
+                        }
+                        alt_who = Some("PlayerRel::EachOpponent");
+                    }
+                    other => {
+                        if other.contains("Own")
+                            || other.contains("Ctrl")
+                            || other.contains("Self")
+                            || other.contains("Remembered")
+                        {
+                            return None;
+                        }
+                        kept.push(other);
+                    }
+                }
+            }
+            let who = alt_who.unwrap_or("PlayerRel::EachPlayer");
+            match common_who {
+                None => common_who = Some(who),
+                Some(prev) if prev != who => return None,
+                Some(_) => {}
+            }
+            if kept.is_empty() {
+                cleaned_alts.push(base.trim().to_string());
+            } else {
+                cleaned_alts.push(format!("{}.{}", base.trim(), kept.join("+")));
+            }
+        }
+        let who = common_who?;
+        let cleaned = cleaned_alts.join(",");
+        let filter_expr = if cleaned == "Card" {
+            "Filter::Any".to_string()
+        } else {
+            self.filter_expr_in_zone(&cleaned, true)?
+        };
+        let filter_ref = match filter_expr.as_str() {
+            "Filter::Any" => "&Filter::Any".to_string(),
+            "Filter::CREATURE" => "&Filter::CREATURE".to_string(),
+            "Filter::PERMANENT" => "&Filter::PERMANENT".to_string(),
+            "Filter::LAND" => "&Filter::LAND".to_string(),
+            "Filter::ARTIFACT" => "&Filter::ARTIFACT".to_string(),
+            "Filter::ENCHANTMENT" => "&Filter::ENCHANTMENT".to_string(),
+            "Filter::INSTANT_OR_SORCERY" => "&Filter::INSTANT_OR_SORCERY".to_string(),
+            _ => format!("&{}", self.body.filter_static("CHECK", &filter_expr)),
+        };
+        let amt = format!(
+            "Amount::CountOf {{ filter: {filter_ref}, zone: ZoneSel::GraveyardOf({who}) }}"
+        );
+        Self::wave15_amount_cmp(&amt, cmp)
     }
 
     fn wave19c_sacrificed_subtype_condition(&self, sub: &str, cmp: &str) -> Option<String> {
@@ -5393,21 +5664,75 @@ impl Tx<'_> {
             "TriggeredPlayer$DomainPlayer" => {
                 "Amount::BasicLandTypesAmong(&Filter::And(&[Filter::LAND, Filter::ControlledByActivePlayer]))"
             }
+            "Count$ThisTurnCast_Card.ControlledBy TriggeredPlayer" => {
+                "Amount::SpellsCastThisTurn(PlayerRel::ActivePlayer)"
+            }
+            "Count$YourLifeTotal" => "Amount::LifeTotal(PlayerRel::You)",
+            "Count$CardsInYourHand" | "Count$ValidHand Card.YouOwn" => {
+                "Amount::HandSize(PlayerRel::You)"
+            }
             _ => return None,
         };
         if let Some(res) = Self::wave15_amount_cmp(lhs, cmp) {
             return Some(res);
         }
-        if raw == "TriggeredPlayer$LifeTotal"
-            && let Some((op_code, rhs_var)) = cmp.split_at_checked(2)
+        if let Some((op_code, rhs_var)) = cmp.split_at_checked(2)
             && let Some(op) = Self::wave19c_amount_op(op_code)
-            && let Some((rhs_amt, _)) = self.wave19c_starting_life_rhs(rhs_var, true)
         {
-            return Some(format!(
-                "Condition::AmountCompare {{ left: &{lhs}, op: {op}, right: &{rhs_amt} }}"
-            ));
+            if raw == "TriggeredPlayer$LifeTotal"
+                && let Some((rhs_amt, _)) = self.wave19c_starting_life_rhs(rhs_var, true)
+            {
+                return Some(format!(
+                    "Condition::AmountCompare {{ left: &{lhs}, op: {op}, right: &{rhs_amt} }}"
+                ));
+            }
+            if let Some(rhs_amt) = self.wave26f_phase_player_rhs(rhs_var) {
+                return Some(format!(
+                    "Condition::AmountCompare {{ left: &{lhs}, op: {op}, right: &{rhs_amt} }}"
+                ));
+            }
         }
         None
+    }
+
+    fn wave26f_phase_player_rhs(&self, rhs_var: &str) -> Option<String> {
+        let def = self.svars.get(rhs_var.trim())?.trim();
+        let (base_raw, tail) = def
+            .split_once('/')
+            .map_or((def, ""), |(b, t)| (b.trim(), t.trim()));
+        let base = match base_raw {
+            "Count$YourLifeTotal" => "Amount::LifeTotal(PlayerRel::You)",
+            "Count$CardsInYourHand" | "Count$ValidHand Card.YouOwn" => {
+                "Amount::HandSize(PlayerRel::You)"
+            }
+            "TriggeredPlayer$LifeTotal" => "Amount::LifeTotal(PlayerRel::ActivePlayer)",
+            "TriggeredPlayer$CardsInHand" => "Amount::HandSize(PlayerRel::ActivePlayer)",
+            _ => return None,
+        };
+        if tail.is_empty() {
+            return Some(base.to_string());
+        }
+        if tail == "HalfDown" {
+            return Some(format!("Amount::Half {{ base: &{base}, round_up: false }}"));
+        }
+        if tail == "HalfUp" {
+            return Some(format!("Amount::Half {{ base: &{base}, round_up: true }}"));
+        }
+        if tail == "Twice" {
+            return Some(format!("Amount::Times {{ base: &{base}, factor: 2 }}"));
+        }
+        if let Some(n) = tail
+            .strip_prefix("Plus.")
+            .and_then(|s| s.trim().parse::<u32>().ok())
+        {
+            return Some(format!("Amount::Plus {{ base: &{base}, offset: {n} }}"));
+        }
+        let n = tail
+            .strip_prefix("Minus.")
+            .and_then(|s| s.trim().parse::<u32>().ok())?;
+        Some(format!(
+            "Amount::SaturatingSub {{ base: &{base}, subtract: {n} }}"
+        ))
     }
 
     /// Wave-15c lowering for `SP$/AB$/DB$ Effect` carrying `Triggers$` (or a
@@ -6492,6 +6817,30 @@ impl Tx<'_> {
             return Some(());
         }
 
+        // Pattern B2: `DB$ Goad | Defined$ TriggeredAttackers` ->
+        // `Effect::Goad { target: TargetSpec::EventObject }` (Wave 14e).
+        if api == "Goad" && p.peek("Defined") == Some("TriggeredAttackers") && !p.has("ValidTgts") {
+            p.take("Defined");
+            let sub = p.take("SubAbility");
+            if !p.exhausted() {
+                return None;
+            }
+            let single = "Effect::Goad { target: TargetSpec::EventObject }".to_string();
+            if exact_count_is_one {
+                chain.effects.push(single);
+            } else {
+                chain.effects.push(format!(
+                    "Effect::RepeatEachObject {{ zone: ZoneSel::Battlefield, \
+                     filter: &Filter::Any, only_found: true, then: &[{single}] }}"
+                ));
+            }
+            if let Some(sub_name) = sub {
+                let sub_body = self.svars.get(sub_name.trim())?.clone();
+                self.chain(&sub_body, chain)?;
+            }
+            return Some(());
+        }
+
         // Pattern C: `DB$ LoseLife | Defined$ TriggeredAttackedTarget` (*Archnemesis*).
         if api == "LoseLife" && p.peek("Defined") == Some("TriggeredAttackedTarget") {
             p.take("Defined");
@@ -6845,5 +7194,205 @@ impl Tx<'_> {
              link_to_source: {link_to_source}, counter: {counter_expr} }})"
         ));
         Some(())
+    }
+
+    /// Wave 14e triggered `DB$ Token | RememberTokens$ True` / `DB$ CopyPermanent |
+    /// RememberTokens$ True` chains operating on the created tokens via
+    /// `SubjectContext::found` (`Effect::UntapFound`, `Effect::RepeatEachObject {
+    /// only_found: true }` + `EventObject` ops, and `TriggerRemember::EachCreatedToken`).
+    #[allow(clippy::too_many_lines)]
+    fn wave26f_token_found_trigger_chain(&mut self, body: &str, chain: &mut Chain) -> Option<()> {
+        let (api, mut p) = Params::parse(body)?;
+        p.drop_prose();
+        if !matches!(api.as_str(), "Token" | "CopyPermanent")
+            || p.peek("RememberTokens") != Some("True")
+            || !p.has("SubAbility")
+            || p.has("Condition")
+            || p.has("ConditionDefined")
+            || p.has("ConditionPresent")
+            || p.has("ConditionCheckSVar")
+            || p.has("TargetMin")
+            || p.has("TargetMax")
+            || p.has("Optional")
+            || p.has("TargetType")
+        {
+            return None;
+        }
+        p.take("RememberTokens");
+        let mut next_sub = p.take("SubAbility");
+        let targets_here = if let Some(valid_tgts) = p.take("ValidTgts") {
+            let spec = self.target_spec(&valid_tgts, &api)?;
+            chain.target = Some(spec);
+            true
+        } else {
+            false
+        };
+        let target_ref = chain.target.clone();
+        let targets_a_player = target_ref
+            .as_deref()
+            .is_some_and(|t| matches!(t, "TargetSpec::AnyPlayer" | "TargetSpec::AnyOpponent"));
+        let created = if api == "Token" {
+            self.token_effect(&mut p, target_ref.as_deref(), targets_a_player)?
+        } else {
+            self.copy_permanent_effect(
+                &mut p,
+                target_ref.as_deref(),
+                targets_here,
+                targets_a_player,
+            )?
+        };
+        if !p.exhausted() || created.is_empty() {
+            return None;
+        }
+        chain.effects.extend(created);
+
+        let flush_per_token = |ops: &mut Vec<String>, out: &mut Vec<String>| {
+            if !ops.is_empty() {
+                out.push(format!(
+                    "Effect::RepeatEachObject {{ zone: ZoneSel::Battlefield, \
+                     filter: &Filter::Any, only_found: true, then: &[{}] }}",
+                    ops.join(", ")
+                ));
+                ops.clear();
+            }
+        };
+
+        let mut per_token_ops: Vec<String> = Vec::new();
+        let mut saw_remembered_op = false;
+        let mut cleared = false;
+        let mut steps = 0usize;
+        while let Some(sub_name) = next_sub.take() {
+            steps += 1;
+            if steps > 8 {
+                return None;
+            }
+            let sub_body = self.svars.get(sub_name.trim())?.clone();
+            let (s_api, mut sp) = Params::parse(&sub_body)?;
+            sp.drop_prose();
+            if sp.has("Condition")
+                || sp.has("ConditionDefined")
+                || sp.has("ConditionPresent")
+                || sp.has("ConditionCheckSVar")
+            {
+                return None;
+            }
+            if s_api == "Cleanup" && sp.take("ClearRemembered").as_deref() == Some("True") {
+                let tail = sp.take("SubAbility");
+                if !sp.exhausted() {
+                    return None;
+                }
+                flush_per_token(&mut per_token_ops, &mut chain.effects);
+                cleared = true;
+                if let Some(tail_name) = tail {
+                    let tail_body = self.svars.get(tail_name.trim())?.clone();
+                    self.chain(&tail_body, chain)?;
+                }
+                break;
+            }
+            let step_sub = sp.take("SubAbility");
+            match s_api.as_str() {
+                "Goad" if sp.take("Defined").as_deref() == Some("Remembered") => {
+                    if !sp.exhausted() {
+                        return None;
+                    }
+                    per_token_ops
+                        .push("Effect::Goad { target: TargetSpec::EventObject }".to_string());
+                    saw_remembered_op = true;
+                }
+                "Tap" if sp.take("Defined").as_deref() == Some("Remembered") => {
+                    if !sp.exhausted() {
+                        return None;
+                    }
+                    per_token_ops.push("Effect::TapEventObject".to_string());
+                    saw_remembered_op = true;
+                }
+                "Untap" if sp.take("Defined").as_deref() == Some("Remembered") => {
+                    if !sp.exhausted() {
+                        return None;
+                    }
+                    flush_per_token(&mut per_token_ops, &mut chain.effects);
+                    chain.effects.push("Effect::UntapFound".to_string());
+                    saw_remembered_op = true;
+                }
+                "Pump" if sp.take("Defined").as_deref() == Some("Remembered") => {
+                    sp.take("IsCurse");
+                    if !matches!(
+                        sp.take("Duration").as_deref(),
+                        None | Some("UntilEndOfTurn" | "EOT" | "EndOfTurn")
+                    ) {
+                        return None;
+                    }
+                    let num_att = sp.take("NumAtt");
+                    let num_def = sp.take("NumDef");
+                    let kw_raw = sp.take("KW");
+                    if (num_att.is_none() && num_def.is_none() && kw_raw.is_none())
+                        || !sp.exhausted()
+                    {
+                        return None;
+                    }
+                    let power = match num_att.as_deref() {
+                        None => "Amount::Fixed(0)".to_string(),
+                        Some(raw) => pump_amount(raw, self.svars, false)?,
+                    };
+                    let toughness = match num_def.as_deref() {
+                        None => "Amount::Fixed(0)".to_string(),
+                        Some(raw) => pump_amount(raw, self.svars, false)?,
+                    };
+                    let keywords = match kw_raw.as_deref() {
+                        None => "KeywordSet::EMPTY".to_string(),
+                        Some(kw) => Self::wave25c_pump_kw_bits(kw)?,
+                    };
+                    per_token_ops.push(format!(
+                        "Effect::PumpEventObject {{ power: {power}, toughness: {toughness}, \
+                         keywords: {keywords}, duration: Duration::UntilEndOfTurn }}"
+                    ));
+                    saw_remembered_op = true;
+                }
+                "PutCounter" if sp.take("Defined").as_deref() == Some("Remembered") => {
+                    let kind = counter_kind(sp.take("CounterType")?.trim())?;
+                    let amount = match sp.take("CounterNum").as_deref() {
+                        None => "Amount::Fixed(1)".to_string(),
+                        Some(raw) => self.amount_or_count_ext(raw)?,
+                    };
+                    if !sp.exhausted() {
+                        return None;
+                    }
+                    per_token_ops.push(format!(
+                        "Effect::AddCounterFilter {{ filter: &Filter::Reference, kind: {kind}, \
+                         amount: {amount} }}"
+                    ));
+                    saw_remembered_op = true;
+                }
+                "Attach"
+                    if !self.on_a_spell && sp.take("Defined").as_deref() == Some("Remembered") =>
+                {
+                    let obj_ok = match sp.take("Object").as_deref() {
+                        None | Some("Self") => true,
+                        Some("TriggeredCardLKICopy") => self.trigger_is_self,
+                        _ => false,
+                    };
+                    if !obj_ok || !sp.exhausted() {
+                        return None;
+                    }
+                    per_token_ops
+                        .push("Effect::AttachSelf { target: TargetSpec::EventObject }".to_string());
+                    saw_remembered_op = true;
+                }
+                "DelayedTrigger"
+                    if matches!(
+                        sp.peek("RememberObjects"),
+                        Some("Remembered" | "RememberedLKI" | "RememberedCard")
+                    ) =>
+                {
+                    flush_per_token(&mut per_token_ops, &mut chain.effects);
+                    let eff = self.delayed_trigger(&mut sp, target_ref.as_deref(), false, chain)?;
+                    chain.effects.push(eff);
+                    saw_remembered_op = true;
+                }
+                _ => return None,
+            }
+            next_sub = step_sub;
+        }
+        (saw_remembered_op && cleared).then_some(())
     }
 }

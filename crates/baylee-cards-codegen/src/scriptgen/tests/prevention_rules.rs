@@ -361,9 +361,6 @@ fn counter_damage_prevention_and_refusals() {
         "Name:ChainedTrigger\nTypes:Creature\nPT:2/2\n\
          R:Event$ DamageDone | ActiveZones$ Battlefield | ValidTarget$ Card.Self+counters_GE1_P1P1 | ReplaceWith$ Shed | PreventionEffect$ True | AlwaysReplace$ True\n\
          SVar:Shed:DB$ RemoveCounter | Defined$ ReplacedTarget | CounterType$ P1P1 | CounterNum$ ReplaceCount$DamageAmount | RememberRemoved$ True",
-        "Name:PutOnDamage\nTypes:Creature\nPT:2/2\n\
-         R:Event$ DamageDone | ActiveZones$ Battlefield | ValidTarget$ Card.Self | ReplaceWith$ Grow | PreventionEffect$ True | AlwaysReplace$ True\n\
-         SVar:Grow:DB$ PutCounter | Defined$ ReplacedTarget | CounterType$ P1P1 | CounterNum$ ReplaceCount$DamageAmount",
     ] {
         assert!(refused(bad), "must refuse:\n{bad}");
     }
