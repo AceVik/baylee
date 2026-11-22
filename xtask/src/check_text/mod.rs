@@ -454,6 +454,7 @@ const OFFERS_A_CHOICE: &[&str] = &[
     "can_repeat_modes: true",
     "WishToHand",
     "SacrificeX(",
+    "GrantFlash",
 ];
 
 pub(crate) fn check_optional_clauses_are_offered(
@@ -953,14 +954,18 @@ pub(crate) fn check_scope_matches_the_text(
         || built.contains("Domain(You)")
         || built.contains("Revolt")
         || built.contains("ControlPlayerNextTurn")
-        || built.contains("controller_lki: Some(You)");
+        || built.contains("controller_lki: Some(You)")
+        || built.contains("SpellsCantBeCountered { who: You")
+        || built.contains("SacrificeAnyNumber { who: You");
     let filters_theirs = compares_controllers
         || built.contains("ControlledByOpponent")
         || built.contains("ObjectOfEachOpponent(")
         || built.contains("PlayersOrTheirPermanents(Opponent)")
         || built.contains("PlayersOrTheirPermanents(EachOpponent)")
         || (built.contains("AnyOpponent")
-            && built.contains("controlled_by: Some(Chosen)"))
+            && (built.contains("controlled_by: Some(Chosen)")
+                || built.contains("ControlledBy(Chosen)")
+                || built.contains("ControlledCount { who: Chosen")))
         || built.contains("OpponentControlCountAtMost(")
         || built.contains("PayLifeForPtCapWhiteOpponents")
         // These restrict the controller of the effect/spell/ability,
