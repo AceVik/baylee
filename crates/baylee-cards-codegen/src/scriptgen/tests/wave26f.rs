@@ -333,10 +333,8 @@ fn wave26f_phase_check_svar_wave14b_metrics() {
          SVar:TrigGain:DB$ GainLife | LifeAmount$ 2",
     );
     assert!(
-        party_and_hand.abilities[0].contains(
-            "Condition::AmountCompare { left: &Amount::PartySize(PlayerRel::You), \
-             op: AmountCmp::AtLeast, right: &Amount::Fixed(4) }"
-        ),
+        party_and_hand.abilities[0]
+            .contains("Condition::AmountAtLeast(Amount::PartySize(PlayerRel::You), 4)"),
         "ability: {}",
         party_and_hand.abilities[0]
     );
@@ -415,7 +413,7 @@ fn wave26f_etb_counter_unlocks() {
     assert_eq!(
         zegana.enter_modifiers,
         ["EnterModifier::WithCounters { kind: CounterKind::P1P1, \
-             amount: Amount::GreatestPowerAmong(&Filter::YOUR_CREATURE) }"]
+             amount: Amount::GreatestPowerAmong(&Filter::ANOTHER_CREATURE_YOU_CONTROL) }"]
     );
 
     let ulamog = read(

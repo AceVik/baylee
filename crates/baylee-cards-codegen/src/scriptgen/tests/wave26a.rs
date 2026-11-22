@@ -202,8 +202,9 @@ fn adjust_spell_cost_by_amount_wave14_reductions_and_dynamic_taxes() {
     );
     assert!(
         alliance.abilities.iter().any(|a| {
-            a.contains("Modifier::AdjustSpellCostByAmount")
-                && a.contains("amount: &Amount::PartySize(PlayerRel::You)")
+            (a.contains("Modifier::SpellsCostLessByAmount(Amount::PartySize(PlayerRel::You))")
+                || (a.contains("Modifier::AdjustSpellCostByAmount")
+                    && a.contains("amount: &Amount::PartySize(PlayerRel::You)")))
                 && a.contains("zone = ZoneRef::Stack")
         }),
         "{:?}",

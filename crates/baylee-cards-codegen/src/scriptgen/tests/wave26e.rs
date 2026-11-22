@@ -419,7 +419,11 @@ fn targets_dynamic_amount_filters_and_controlled_owned_specs() {
         s_all.contains("Filter::CmcAtMostAmount(&Amount::CountOf"),
         "{s_all}"
     );
-    assert!(s_all.contains("ZoneSel::GraveyardYou"), "{s_all}");
+    assert!(
+        s_all.contains("ZoneSel::GraveyardOf(PlayerRel::You)")
+            || s_all.contains("ZoneSel::GraveyardYou"),
+        "{s_all}"
+    );
 
     // Beseech the Queen: `ChangeType$ Card.cmcLEX` with `Count$Valid Land.YouCtrl`.
     let beseech = read_w26e(
