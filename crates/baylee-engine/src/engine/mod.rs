@@ -641,9 +641,9 @@ pub struct Engine<L: CardLookup, D: LoopDetection = DetectLoops> {
     synthetic_fx: rustc_hash::FxHashMap<ObjectId, &'static [baylee_cards_dsl::Effect]>,
     /// A spell being cast step by step (modes/targets/X/kicker/pitch).
     #[cfg(feature = "test-support")]
-    pub cast_wizard: Option<cast_wizard::CastWizard>,
+    pub cast_wizard: Option<Box<cast_wizard::CastWizard>>,
     #[cfg(not(feature = "test-support"))]
-    cast_wizard: Option<cast_wizard::CastWizard>,
+    cast_wizard: Option<Box<cast_wizard::CastWizard>>,
     /// Triggers collected but not yet stacked (target choices first).
     #[cfg(feature = "test-support")]
     pub trigger_queue: VecDeque<trigger::PendingTrigger>,

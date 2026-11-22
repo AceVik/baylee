@@ -74,7 +74,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
             progress.current = Some(seat);
             let min = progress.min_per_player;
             wizard.one_per_player = Some(progress);
-            self.cast_wizard = Some(wizard.clone());
+            self.cast_wizard = Some(Box::new(wizard.clone()));
             self.pending = Pending::ChooseTargets {
                 player: wizard.player,
                 options: seat_options,
@@ -141,7 +141,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                     player: wizard.player,
                     options: groups,
                 };
-                self.cast_wizard = Some(wizard.clone());
+                self.cast_wizard = Some(Box::new(wizard.clone()));
                 self.awaiting_answer = true;
                 GroupNarrow::Yielded
             }

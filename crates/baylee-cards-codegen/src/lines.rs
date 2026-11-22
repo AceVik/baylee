@@ -595,6 +595,7 @@ fn step_begin_words(step: StepKind) -> &'static [&'static str] {
         StepKind::CombatEnd => &["end of combat"],
         StepKind::End => &["end step"],
         StepKind::FirstMain => &["first main phase"],
+        StepKind::SecondMain => &["second main phase", "postcombat main phase"],
     }
 }
 
@@ -671,7 +672,8 @@ pub fn trigger_words(trigger: &baylee_cards_dsl::Trigger) -> &'static [&'static 
         T::Attacks(_)
         | T::OneOrMoreAttack(_)
         | T::AttackWithAtLeast(_)
-        | T::AttackWithAtLeastMatching { .. } => &["attack"],
+        | T::AttackWithAtLeastMatching { .. }
+        | T::AttackersDeclaredAtTarget { .. } => &["attack"],
         T::AttacksAlone(_) => &["exalted", "attacks alone"],
         // Cockatrice, "Whenever this creature blocks or becomes blocked by
         // a non-Wall creature". Its filter is the *other* creature, so it
@@ -818,6 +820,9 @@ fn whose_trigger_fits(trigger: &Trigger, line: &str) -> bool {
         | Trigger::Attacks(filter)
         | Trigger::AttacksAlone(filter)
         | Trigger::OneOrMoreAttack(filter)
+        | Trigger::AttackersDeclaredAtTarget {
+            attackers: filter, ..
+        }
         | Trigger::Blocks(filter)
         | Trigger::ControlledBecomesBlocked(filter)
         | Trigger::AttacksAndIsntBlocked(filter)

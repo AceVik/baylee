@@ -58,7 +58,7 @@ pub struct Checkpoint<D: LoopDetection = DetectLoops> {
     entry_questions: VecDeque<(ObjectId, PlayerId, progress::EntryAsk)>,
     delayed_queue: VecDeque<(PlayerId, crate::state::DelayedAction)>,
     synthetic_fx: rustc_hash::FxHashMap<ObjectId, &'static [baylee_cards_dsl::Effect]>,
-    cast_wizard: Option<cast_wizard::CastWizard>,
+    cast_wizard: Option<Box<cast_wizard::CastWizard>>,
     trigger_queue: VecDeque<trigger::PendingTrigger>,
     agreed_draw: bool,
     automation: Vec<crate::choice::SeatAutomation>,

@@ -117,7 +117,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
         let wizard = match self.cast_wizard.take() {
             Some(wizard) => wizard,
             None => match self.mana_window.take().map(|w| w.suspended) {
-                Some(super::PaymentContinuation::Miracle { wizard, .. }) => *wizard,
+                Some(super::PaymentContinuation::Miracle { wizard, .. }) => wizard,
                 _ => unreachable!("cancellable_cast found the cast in one of the two"),
             },
         };

@@ -46,7 +46,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
 
     pub(super) fn advance_damage_division(
         &mut self,
-        mut wizard: CastWizard,
+        mut wizard: Box<CastWizard>,
     ) -> Result<(), EngineError> {
         if let Some((kind, total)) = self.wizard_divided_spec(&wizard) {
             let targets = division_targets(&wizard);

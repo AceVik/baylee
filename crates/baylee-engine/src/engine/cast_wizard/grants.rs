@@ -43,7 +43,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 "not enough other cards in the graveyard to escape",
             ));
         }
-        let mut wizard = wizard.clone();
+        let mut wizard = Box::new(wizard.clone());
         wizard.stage = WizardStage::Escape;
         self.pending = crate::choice::Pending::ChooseCards {
             player: wizard.player,
@@ -60,7 +60,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
 
     pub(super) fn choose_graveyard_permission(
         &mut self,
-        mut wizard: CastWizard,
+        mut wizard: Box<CastWizard>,
     ) -> Result<(), EngineError> {
         use crate::casting::GraveyardPermission;
         let own_cost_permission = wizard.escapes()

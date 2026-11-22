@@ -32,7 +32,10 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
         }
     }
 
-    pub(super) fn ask_north_star(&mut self, mut wizard: CastWizard) -> Result<(), EngineError> {
+    pub(super) fn ask_north_star(
+        &mut self,
+        mut wizard: Box<CastWizard>,
+    ) -> Result<(), EngineError> {
         if self.north_star_component(&wizard).is_some()
             && casting::north_star_effect(&self.state, wizard.player).is_some()
         {

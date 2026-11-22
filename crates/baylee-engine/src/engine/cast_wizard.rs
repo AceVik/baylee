@@ -213,7 +213,7 @@ pub struct CastWizard {
     /// Whether the caster has already decided `FaceDef::optional_cost` on this cast.
     pub optional_cost_decided: bool,
     /// Chosen graveyard card groups for `CostPart::CollectEvidence` (`CR 701.59a`).
-    pub evidence_exiles: SmallVec<[Vec<ObjectId>; 2]>,
+    pub evidence_exiles: Vec<Vec<ObjectId>>,
     /// Whether the spell's offspring additional cost was announced (`CR 702.175a`).
     pub offspring: bool,
     /// Whether the spell's casualty additional cost was announced (`CR 702.153a`).
@@ -441,7 +441,7 @@ impl CastWizard {
             bargained: false,
             optional_cost_paid: false,
             optional_cost_decided: false,
-            evidence_exiles: SmallVec::new(),
+            evidence_exiles: Vec::new(),
             offspring: false,
             casualty: false,
             gift_promised: false,
@@ -912,7 +912,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 selected: None,
             })
         });
-        let mut wizard = CastWizard {
+        let mut wizard = Box::new(CastWizard {
             alternative_cost: plot_modal.then_some(CastModeKind::Plot),
             alt_cast,
             by_effect: self.commanded_card(card).then_some(EffectCast::Plain),
@@ -923,7 +923,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
             },
             started: (!self.commanded_card(card)).then(|| self.cast_start()),
             ..CastWizard::new(card, player, WizardStage::ChooseMode, options)
-        };
+        });
         if wizard.options.len() == 1 {
             let def = self
                 .state
@@ -966,13 +966,13 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
             kind: CastModeKind::Normal,
             cost,
         }];
-        self.cast_wizard = Some(CastWizard {
+        self.cast_wizard = Some(Box::new(CastWizard {
             option: Some(CastModeKind::Normal),
             free: true,
             masked: true,
             by_effect: Some(EffectCast::Plain),
             ..CastWizard::new(card, player, WizardStage::Done, options)
-        });
+        }));
         self.advance_cast_wizard()
     }
 
@@ -1007,13 +1007,13 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
         } else {
             WizardStage::ChooseMode
         };
-        let wizard = CastWizard {
+        let wizard = Box::new(CastWizard {
             option: single,
             alternative_cost: Some(CastModeKind::Madness),
             by_effect: Some(EffectCast::Plain),
             window_start: Some(Box::new(self.window_start(player))),
             ..CastWizard::new(card, player, stage, options)
-        };
+        });
         self.cast_wizard = Some(wizard);
         self.advance_cast_wizard()
     }
@@ -1068,7 +1068,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
 
     /// The wizard a miracle cast of `card` starts with, or `None` when the
     /// card prints no miracle or `player` may not cast it now.
-    fn miracle_wizard(&self, player: PlayerId, card: ObjectId) -> Option<CastWizard> {
+    fn miracle_wizard(&self, player: PlayerId, card: ObjectId) -> Option<Box<CastWizard>> {
         let object = self.state.object(card)?;
         let def = object.card.and_then(|c| self.lookup.card(c.index))?;
         let cost = def.faces[0].miracle?;
@@ -1103,7 +1103,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
             kind: CastModeKind::Miracle,
             cost: self.front_spell_price(player, card, cost),
         }];
-        Some(CastWizard {
+        Some(Box::new(CastWizard {
             option: Some(CastModeKind::Miracle),
             // A miracle cost is paid "rather than its mana cost" (CR 702.94a),
             // which makes it an alternative cost, and an alternative cost
@@ -1111,7 +1111,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
             // Entreat the Dead's `{X}{B}{B}` was cast for X = 0 and returned
             // nobody. `XValue` falls through to `Targets` when there is none.
             ..CastWizard::new(card, player, WizardStage::XValue, options)
-        })
+        }))
     }
 
     /// Price an alternative/front-face cost through the same increases and
@@ -1229,14 +1229,14 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
         };
         // `XValue` fixes a waived mana-cost X at zero, but still asks about
         // independent additional costs such as Toxic Deluge's X life.
-        let wizard = CastWizard {
+        let wizard = Box::new(CastWizard {
             option,
             forced_face,
             free: true,
             from_suspend,
             by_effect: by_effect.then_some(EffectCast::Plain),
             ..CastWizard::new(card, player, stage, options)
-        };
+        });
         self.cast_wizard = Some(wizard);
         self.advance_cast_wizard()
     }
@@ -1276,11 +1276,11 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
         } else {
             WizardStage::ChooseMode
         };
-        let wizard = CastWizard {
+        let wizard = Box::new(CastWizard {
             option: if single { option } else { None },
             free: true,
             ..CastWizard::new(card, player, stage, options)
-        };
+        });
         self.cast_wizard = Some(wizard);
         self.advance_cast_wizard()
     }
@@ -1327,7 +1327,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
             kind: CastModeKind::Normal,
             cost: self.front_spell_price(player, card, cost),
         }];
-        let wizard = CastWizard {
+        let wizard = Box::new(CastWizard {
             option: Some(CastModeKind::Normal),
             by_effect: Some(if any_mana {
                 EffectCast::AnyMana
@@ -1338,7 +1338,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
             }),
             window_start: Some(opened),
             ..CastWizard::new(card, player, WizardStage::XValue, options)
-        };
+        });
         self.cast_wizard = Some(wizard);
         self.advance_cast_wizard()
     }
@@ -1680,7 +1680,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 }
             }
         }
-        let mut wizard = wizard.clone();
+        let mut wizard = Box::new(wizard.clone());
         wizard.phyrexian = answers;
         if wizard.phyrexian.len() < symbols {
             let card = self.state.object(wizard.card).and_then(|o| o.card);
@@ -1715,7 +1715,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
     /// back to priority for want of mana they could have made. From then on
     /// it is paid as a cast from `payable` is, so a window closed short
     /// hands the caster their priority back (CR 734.1).
-    fn cast_or_make_miracle_mana(&mut self, wizard: CastWizard) -> Result<(), EngineError> {
+    fn cast_or_make_miracle_mana(&mut self, wizard: Box<CastWizard>) -> Result<(), EngineError> {
         let cost = self.wizard_paid(&wizard);
         if self.commanded_card(wizard.card) || !self.wizard_pool_can_pay(&wizard, cost) {
             let mut legal = self.compute_legal(wizard.player);
@@ -1743,7 +1743,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                     suspended: super::PaymentContinuation::Miracle {
                         cost: self
                             .north_star_payment(&wizard, self.miracle_window_cost(&wizard, cost)),
-                        wizard: Box::new(wizard),
+                        wizard,
                         version,
                         opened,
                     },

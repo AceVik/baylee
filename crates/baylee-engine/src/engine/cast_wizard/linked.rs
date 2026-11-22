@@ -191,14 +191,14 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 (false, Some(alt), EffectCast::Plain)
             }
         };
-        let wizard = CastWizard {
+        let wizard = Box::new(CastWizard {
             option,
             free,
             override_mana_cost,
             exile_instead_of_graveyard,
             by_effect: Some(effect_cast),
             ..CastWizard::new(card, player, stage, options)
-        };
+        });
         self.cast_wizard = Some(wizard);
         self.advance_cast_wizard()
     }
