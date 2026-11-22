@@ -7,13 +7,22 @@
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes;
 
-static PLAY1: Filter = Filter::CmcAtMostAmount(&Amount::CountOf {
-    filter: &Filter::And(&[
-        Filter::HasSubtype(subtypes::land::MOUNTAIN),
-        Filter::ControlledByYou,
-    ]),
-    zone: ZoneSel::Battlefield,
-});
+static PLAY1: Filter = Filter::And(&[
+    Filter::CmcAtMostAmount(&Amount::CountOf {
+        filter: &Filter::And(&[
+            Filter::HasSubtype(subtypes::land::MOUNTAIN),
+            Filter::ControlledByYou,
+        ]),
+        zone: ZoneSel::Battlefield,
+    }),
+    Filter::Not(&Filter::CmcEqualsAmount(&Amount::CountOf {
+        filter: &Filter::And(&[
+            Filter::HasSubtype(subtypes::land::MOUNTAIN),
+            Filter::ControlledByYou,
+        ]),
+        zone: ZoneSel::Battlefield,
+    })),
+]);
 
 card!(
     index = index::SOLSTICE_REVELATIONS,

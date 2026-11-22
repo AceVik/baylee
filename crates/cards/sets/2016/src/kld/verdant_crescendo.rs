@@ -26,7 +26,7 @@ card!(
             finds: &[Find::BATTLEFIELD_TAPPED],
             optional: false
         },
-        Effect::SearchLibraryOrGraveyard {
+        Effect::SearchLibraryAndGraveyard {
             filter: &SEARCH2,
             find: &Find::HAND
         }
