@@ -38,7 +38,10 @@ mod tests {
         let before = baylee_cards::ranked::registration("standard", &private, &[], &[]).unwrap();
         let played = baylee_cards::ranked::registration("standard", &rows, &[], &[]).unwrap();
         assert_eq!(before.digest, played.digest);
-        assert_eq!(before.pool, played.pool);
+        assert_eq!(
+            baylee_cards::ranked::rating_pool(&before),
+            baylee_cards::ranked::rating_pool(&played)
+        );
     }
 
     #[test]

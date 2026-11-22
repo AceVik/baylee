@@ -84,59 +84,7 @@ pub(super) fn draw(
         for e in &roots {
             commands.entity(e).try_despawn();
         }
-        let body = commands
-            .spawn((
-                Body,
-                Node {
-                    width: percent(100),
-                    flex_direction: FlexDirection::Column,
-                    row_gap: kit.m.px(10.0),
-                    flex_shrink: 0.0,
-                    ..default()
-                },
-            ))
-            .id();
-        let anonymous = model::account_id(handle).is_some();
-        let name = if anonymous {
-            Phrase::RankedUnnamed.text(lang)
-        } else {
-            handle
-        };
-        let image = avatar::disc(&mut commands, &fonts, name, kit.m.scaled(62.0));
-        if anonymous {
-            commands
-                .entity(image)
-                .insert(super::PortraitKey(handle.to_owned()));
-        }
-        let refresh = controls::button(
-            &mut commands,
-            kit,
-            Phrase::ProfileReadAgain.text(lang),
-            Weight::Secondary,
-            Live::Yes,
-            None,
-            (Action::Refresh, Stop::new(ORDER.name, "refresh")),
-        );
-        let header = SheetHeader::new(name)
-            .lead(image)
-            .subtitle(Phrase::RankedPlayerProfile.text(lang))
-            .close((Action::Close, Stop::new(ORDER.name, "close")));
-        let sheet = surfaces::sheet_box_fixed(
-            &mut commands,
-            kit,
-            SheetWidth::Large,
-            header,
-            &[body],
-            &[refresh],
-        );
-        let root = surfaces::scrim(
-            &mut commands,
-            kit,
-            crate::social::window::G_PANEL + 88,
-            (),
-            sheet,
-        );
-        commands.entity(root).insert(Root);
+        let body = sheet_body(&mut commands, kit, handle);
         last.shell = Some((handle.to_owned(), lang, metrics));
         body
     };
@@ -164,6 +112,64 @@ pub(super) fn draw(
         own_trophies(&mut commands, content, kit, awards);
     }
     last.version = Some((version, own, private.cloned().unwrap_or_default()));
+}
+
+fn sheet_body(commands: &mut Commands, kit: Kit, handle: &str) -> Entity {
+    let lang = kit.lang();
+    let body = commands
+        .spawn((
+            Body,
+            Node {
+                width: percent(100),
+                flex_direction: FlexDirection::Column,
+                row_gap: kit.m.px(10.0),
+                flex_shrink: 0.0,
+                ..default()
+            },
+        ))
+        .id();
+    let anonymous = model::account_id(handle).is_some();
+    let name = if anonymous {
+        Phrase::RankedUnnamed.text(lang)
+    } else {
+        handle
+    };
+    let image = avatar::disc(commands, kit.fonts, name, kit.m.scaled(62.0));
+    if anonymous {
+        commands
+            .entity(image)
+            .insert(super::PortraitKey(handle.to_owned()));
+    }
+    let refresh = controls::button(
+        commands,
+        kit,
+        Phrase::ProfileReadAgain.text(lang),
+        Weight::Secondary,
+        Live::Yes,
+        None,
+        (Action::Refresh, Stop::new(ORDER.name, "refresh")),
+    );
+    let header = SheetHeader::new(name)
+        .lead(image)
+        .subtitle(Phrase::RankedPlayerProfile.text(lang))
+        .close((Action::Close, Stop::new(ORDER.name, "close")));
+    let sheet = surfaces::sheet_box_fixed(
+        commands,
+        kit,
+        SheetWidth::Large,
+        header,
+        &[body],
+        &[refresh],
+    );
+    let root = surfaces::scrim(
+        commands,
+        kit,
+        crate::social::window::G_PANEL + 88,
+        (),
+        sheet,
+    );
+    commands.entity(root).insert(Root);
+    body
 }
 
 fn section(commands: &mut Commands, root: Entity, kit: Kit, title: &str) -> Entity {
@@ -397,44 +403,7 @@ fn standing(
         |s| s.rank,
     );
     let line = row(commands, root, kit);
-    if let Some(badge) = model::badge(rank, track) {
-        if track == Track::Deck
-            && let Some(frame) = model::deck_frame(rank)
-        {
-            let disc = icon(commands, line, kit, (), 62.0);
-            let width = frame.portrait_scale() * 100.0;
-            let inset = percent((100.0 - width) * 0.5);
-            let fan = commands
-                .spawn((
-                    Node {
-                        position_type: PositionType::Absolute,
-                        top: inset,
-                        left: inset,
-                        width: percent(width),
-                        height: percent(width),
-                        ..default()
-                    },
-                    badge,
-                    Pickable::IGNORE,
-                ))
-                .id();
-            let e = commands
-                .spawn((
-                    Node {
-                        position_type: PositionType::Absolute,
-                        width: percent(100),
-                        height: percent(100),
-                        ..default()
-                    },
-                    frame,
-                    Pickable::IGNORE,
-                ))
-                .id();
-            commands.entity(disc).add_children(&[fan, e]);
-        } else {
-            icon(commands, line, kit, badge, 62.0);
-        }
-    }
+    standing_icon(commands, line, kit, rank, track);
     let words = column(commands, line, kit);
     let track = if track == Track::Deck {
         Phrase::ProfileDeck
@@ -485,6 +454,47 @@ fn standing(
             stats(kit, Phrase::ProfileCareer, s.career),
         ] {
             label(commands, words, kit, &text, tokens::MUTED);
+        }
+    }
+}
+
+fn standing_icon(commands: &mut Commands, line: Entity, kit: Kit, rank: Rank, track: Track) {
+    if let Some(badge) = model::badge(rank, track) {
+        if track == Track::Deck
+            && let Some(frame) = model::deck_frame(rank)
+        {
+            let disc = icon(commands, line, kit, (), 62.0);
+            let width = frame.portrait_scale() * 100.0;
+            let inset = percent((100.0 - width) * 0.5);
+            let fan = commands
+                .spawn((
+                    Node {
+                        position_type: PositionType::Absolute,
+                        top: inset,
+                        left: inset,
+                        width: percent(width),
+                        height: percent(width),
+                        ..default()
+                    },
+                    badge,
+                    Pickable::IGNORE,
+                ))
+                .id();
+            let e = commands
+                .spawn((
+                    Node {
+                        position_type: PositionType::Absolute,
+                        width: percent(100),
+                        height: percent(100),
+                        ..default()
+                    },
+                    frame,
+                    Pickable::IGNORE,
+                ))
+                .id();
+            commands.entity(disc).add_children(&[fan, e]);
+        } else {
+            icon(commands, line, kit, badge, 62.0);
         }
     }
 }

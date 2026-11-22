@@ -128,7 +128,7 @@ impl RankedDeck {
 /// @tag Ranked
 /// @security bearer
 /// @insert `SessionRefusals`
-/// @path-param match_id: String "Central match UUIDv7"
+/// @path-param match_id: String "Version 7 UUID for the Central match"
 /// @body `$RankedPlay` "Frozen registered deck or previously bound game"
 /// @return 200: `$SeatGrant` "Assigned player's seat capability"
 /// @return 202: "Waiting for the other player"
@@ -137,6 +137,10 @@ impl RankedDeck {
 /// @return 409: `$ErrorBody` "Assignment, commitment or existing participation conflicts"
 /// @return 429: `$ErrorBody` "Ranked admission is busy"
 /// @return 503: `$ErrorBody` "Central, storage, catalog or engine unavailable"
+#[expect(
+    clippy::doc_markdown,
+    reason = "oas-forge reads the route and match_id parameter literally, including any Markdown backticks"
+)]
 pub(crate) async fn play(
     State(state): State<Shared>,
     headers: HeaderMap,

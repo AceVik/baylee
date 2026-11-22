@@ -1,7 +1,6 @@
 //! Real authenticated gateway, migrated PostgreSQL and two socket seats at one
 //! actual engine. Only the external Central service is replaced by a wire peer.
 use crate::{common, stub_central};
-use baylee_catalog::{Catalog, scryfall};
 use baylee_protocol::v1::{self, Envelope, envelope::Msg};
 use central_api::ranked::Outcome;
 use std::time::Duration;
@@ -11,26 +10,7 @@ async fn ranked_duel_claims_both_seats_and_delivers_after_retry() {
     let stub = stub_central::Stub::serve(Duration::ZERO);
     let (gw, _settings) = stub_central::gateway(&stub, "ranked_duel");
     let home = [1, 2, 3].map(|key| stub_central::linked(&gw, &stub, key));
-    let catalog = Catalog::connect(&gw.database_url()).await.unwrap();
-    let forest = baylee_cards::by_index(baylee_cards::decks::by_name("Forest").unwrap()).unwrap();
-    catalog
-        .upsert(&[scryfall::Card {
-            id: uuid::Uuid::now_v7().to_string(),
-            oracle_id: Some(forest.oracle_id.into()),
-            lang: "en".into(),
-            set: "tst".into(),
-            collector_number: "1".into(),
-            name: "Forest".into(),
-            type_line: Some("Basic Land — Forest".into()),
-            legalities: ["standard", "vintage", "commander"]
-                .map(|key| (key.into(), "legal".into()))
-                .into(),
-            ..Default::default()
-        }])
-        .await
-        .unwrap();
-    catalog.bump_data_version().await.unwrap();
-    let _agent = common::attach_agent(&gw).await;
+    let _agent = common::ranked::provision(&gw).await;
     tokio::time::timeout(Duration::from_secs(40), async {
         while stub.ranked_capacity() == 0 {
             tokio::time::sleep(Duration::from_millis(100)).await;
@@ -42,39 +22,7 @@ async fn ranked_duel_claims_both_seats_and_delivers_after_retry() {
         baylee_cards::ranked::registration("standard", &["60 Forest".into()], &[], &[]).unwrap();
     let id = stub.reserve_ranked([1, 2], [reg.digest; 2]);
     let accounts = [1, 2, 3].map(|key| stub.game_bearer(gw.port, key, id));
-    for path in ["/me", "/decks", "/lobby/games"] {
-        assert_eq!(
-            common::http(gw.port, "GET", path, Some(&accounts[0]), "").0,
-            401
-        );
-    }
-    assert_eq!(
-        common::http(
-            gw.port,
-            "POST",
-            "/auth/session/renew",
-            Some(&accounts[0]),
-            "{}"
-        )
-        .0,
-        401
-    );
-    let other = format!("/ranked/{}/play", uuid::Uuid::now_v7());
-    assert_eq!(
-        common::http(
-            gw.port,
-            "POST",
-            &other,
-            Some(&accounts[0]),
-            r#"{"game":"019afcb6-1234-7001-8421-000000000000"}"#
-        )
-        .0,
-        401
-    );
-    assert_eq!(
-        common::http(gw.port, "GET", "/me", Some(&home[0]), "").0,
-        200
-    );
+    assert_scoped_access(gw.port, &accounts[0], &home[0]);
     let path = format!("/ranked/{id}/play");
     let body=serde_json::json!({"format":"standard","cards":["60 Forest"],"sideboard":[],"commanders":[]}).to_string();
     let claim =
@@ -120,41 +68,7 @@ async fn ranked_duel_claims_both_seats_and_delivers_after_retry() {
     let mut first =
         common::dial_seat(gw.port, game, common::json_field(&reissued, "seat_token")).await;
     let mut second = common::dial_seat(gw.port, game, common::json_field(&b, "seat_token")).await;
-    for socket in [&mut first, &mut second] {
-        common::send(
-            socket,
-            &Envelope {
-                msg: Some(Msg::SeatReady(v1::SeatReady {})),
-            },
-        )
-        .await;
-    }
-    tokio::time::timeout(common::WAIT_BUDGET, async {
-        while let Some(msg) = common::next_msg(&mut first).await {
-            if matches!(msg, Msg::ChoiceRequest(_)) {
-                return;
-            }
-        }
-        panic!("ranked seat closed before first decision");
-    })
-    .await
-    .unwrap();
-    assert_eq!(
-        common::http(gw.port, "POST", "/lobby/depart", Some(&home[1]), "").0,
-        204,
-        "leaving the home lobby must preserve the second ranked seat"
-    );
-    common::send(
-        &mut first,
-        &Envelope {
-            msg: Some(Msg::PlayerAction(v1::PlayerActionMsg {
-                game_id: String::new(),
-                seat_token: String::new(),
-                action: baylee_core::wire::encode(&baylee_engine::choice::PlayerAction::Concede),
-            })),
-        },
-    )
-    .await;
+    depart_lobby_and_concede(gw.port, &home[1], &mut first, &mut second).await;
     tokio::time::timeout(Duration::from_secs(40), async {
         while stub.ranked_result().is_none() || gw.scalar("SELECT count(*) FROM ranked_run") != 0 {
             tokio::time::sleep(Duration::from_millis(150)).await;
@@ -170,4 +84,70 @@ async fn ranked_duel_claims_both_seats_and_delivers_after_retry() {
         common::http(gw.port, "GET", "/me", Some(&home[0]), "").0,
         200
     );
+}
+
+fn assert_scoped_access(port: u16, scoped: &str, home: &str) {
+    for path in ["/me", "/decks", "/lobby/games"] {
+        assert_eq!(common::http(port, "GET", path, Some(scoped), "").0, 401);
+    }
+    assert_eq!(
+        common::http(port, "POST", "/auth/session/renew", Some(scoped), "{}").0,
+        401
+    );
+    let other = format!("/ranked/{}/play", uuid::Uuid::now_v7());
+    assert_eq!(
+        common::http(
+            port,
+            "POST",
+            &other,
+            Some(scoped),
+            r#"{"game":"019afcb6-1234-7001-8421-000000000000"}"#
+        )
+        .0,
+        401
+    );
+    assert_eq!(common::http(port, "GET", "/me", Some(home), "").0, 200);
+}
+
+async fn depart_lobby_and_concede(
+    port: u16,
+    home: &str,
+    first: &mut common::Socket,
+    second: &mut common::Socket,
+) {
+    for socket in [&mut *first, second] {
+        common::send(
+            socket,
+            &Envelope {
+                msg: Some(Msg::SeatReady(v1::SeatReady {})),
+            },
+        )
+        .await;
+    }
+    tokio::time::timeout(common::WAIT_BUDGET, async {
+        while let Some(msg) = common::next_msg(first).await {
+            if matches!(msg, Msg::ChoiceRequest(_)) {
+                return;
+            }
+        }
+        panic!("ranked seat closed before first decision");
+    })
+    .await
+    .unwrap();
+    assert_eq!(
+        common::http(port, "POST", "/lobby/depart", Some(home), "").0,
+        204,
+        "leaving the home lobby must preserve the second ranked seat"
+    );
+    common::send(
+        first,
+        &Envelope {
+            msg: Some(Msg::PlayerAction(v1::PlayerActionMsg {
+                game_id: String::new(),
+                seat_token: String::new(),
+                action: baylee_core::wire::encode(&baylee_engine::choice::PlayerAction::Concede),
+            })),
+        },
+    )
+    .await;
 }

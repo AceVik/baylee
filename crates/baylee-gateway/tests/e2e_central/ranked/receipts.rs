@@ -117,6 +117,109 @@ fn verify_boards(served: &Served, profiles: &[Response; 2]) {
     }
 }
 
+fn verify_player(
+    player: &Player,
+    assignment: &Assignment,
+    receipt: &QueueState,
+    profile: &Response,
+    outcome: Outcome,
+    won: bool,
+) {
+    let QueueState::Finished {
+        key,
+        match_id,
+        seat,
+        format,
+        elo,
+        delta,
+        before,
+        after,
+        outcome: confirmed,
+        deck,
+    } = receipt
+    else {
+        unreachable!()
+    };
+    assert_eq!(
+        (*key, *match_id, *seat, *format, *confirmed),
+        (
+            player.key,
+            assignment.match_id,
+            assignment.seat,
+            Format::Standard,
+            outcome
+        )
+    );
+    assert_eq!(
+        (
+            before.league,
+            after.league,
+            deck.before.league,
+            deck.after.league
+        ),
+        (
+            League::Unranked,
+            League::Unranked,
+            League::Unranked,
+            League::Unranked
+        )
+    );
+    assert_eq!(delta.signum(), if won { 1 } else { -1 });
+    assert_eq!(deck.delta.signum(), delta.signum());
+    assert_eq!(deck.placement_games, 1);
+    let Response::Profile {
+        account,
+        formats,
+        awards,
+        ..
+    } = profile
+    else {
+        panic!("published profile")
+    };
+    assert_eq!(*account, assignment.account);
+    assert!(awards.is_empty(), "no badge before placements finish");
+    let expected = Record {
+        games: 1,
+        wins: u32::from(won),
+        losses: u32::from(!won),
+        draws: 0,
+    };
+    for (track, rating) in [(Track::Player, *elo), (Track::Deck, deck.elo)] {
+        let row = formats
+            .iter()
+            .find(|s| s.format == Format::Standard && s.track == track)
+            .expect("settled ladder standing");
+        assert_eq!(
+            (row.placement_games, row.rank.league, row.elo),
+            (1, League::Unranked, rating)
+        );
+        assert_eq!(row.career, expected);
+        assert_eq!(
+            (row.games, row.wins, row.losses, row.draws),
+            (
+                expected.games,
+                expected.wins,
+                expected.losses,
+                expected.draws
+            )
+        );
+        assert_eq!(row.deck.is_some(), track == Track::Deck);
+        assert_ne!(
+            row.deck,
+            Some(player.commitment),
+            "a public deck identifier is opaque"
+        );
+    }
+    assert!(
+        formats
+            .iter()
+            .filter(|s| s.format != Format::Standard)
+            .all(|s| s.career.games == 0)
+    );
+    let public = serde_json::to_string(profile).unwrap();
+    assert!(!public.contains("Forest") && !public.contains("Private forest"));
+}
+
 pub(super) fn verify(
     served: &Served,
     home: &Registered,
@@ -129,101 +232,14 @@ pub(super) fn verify(
     let receipts = players.each_ref().map(receipt);
     let profiles = assignments.each_ref().map(|a| profile(served, a));
     for i in 0..2 {
-        let QueueState::Finished {
-            key,
-            match_id,
-            seat,
-            format,
-            elo,
-            delta,
-            before,
-            after,
-            outcome: confirmed,
-            deck,
-        } = &receipts[i]
-        else {
-            unreachable!()
-        };
-        let assignment = &assignments[i];
-        assert_eq!(
-            (*key, *match_id, *seat, *format, *confirmed),
-            (
-                players[i].key,
-                assignment.match_id,
-                assignment.seat,
-                Format::Standard,
-                outcome
-            )
+        verify_player(
+            &players[i],
+            &assignments[i],
+            &receipts[i],
+            &profiles[i],
+            outcome,
+            i == 1,
         );
-        assert_eq!(
-            (
-                before.league,
-                after.league,
-                deck.before.league,
-                deck.after.league
-            ),
-            (
-                League::Unranked,
-                League::Unranked,
-                League::Unranked,
-                League::Unranked
-            )
-        );
-        let won = i == 1;
-        assert_eq!(delta.signum(), if won { 1 } else { -1 });
-        assert_eq!(deck.delta.signum(), delta.signum());
-        assert_eq!(deck.placement_games, 1);
-        let Response::Profile {
-            account,
-            formats,
-            awards,
-            ..
-        } = &profiles[i]
-        else {
-            panic!("published profile")
-        };
-        assert_eq!(*account, assignment.account);
-        assert!(awards.is_empty(), "no badge before placements finish");
-        let expected = Record {
-            games: 1,
-            wins: u32::from(won),
-            losses: u32::from(!won),
-            draws: 0,
-        };
-        for (track, rating) in [(Track::Player, *elo), (Track::Deck, deck.elo)] {
-            let row = formats
-                .iter()
-                .find(|s| s.format == Format::Standard && s.track == track)
-                .expect("settled ladder standing");
-            assert_eq!(
-                (row.placement_games, row.rank.league, row.elo),
-                (1, League::Unranked, rating)
-            );
-            assert_eq!(row.career, expected);
-            assert_eq!(
-                (row.games, row.wins, row.losses, row.draws),
-                (
-                    expected.games,
-                    expected.wins,
-                    expected.losses,
-                    expected.draws
-                )
-            );
-            assert_eq!(row.deck.is_some(), track == Track::Deck);
-            assert_ne!(
-                row.deck,
-                Some(players[i].commitment),
-                "a public deck identifier is opaque"
-            );
-        }
-        assert!(
-            formats
-                .iter()
-                .filter(|s| s.format != Format::Standard)
-                .all(|s| s.career.games == 0)
-        );
-        let public = serde_json::to_string(&profiles[i]).unwrap();
-        assert!(!public.contains("Forest") && !public.contains("Private forest"));
     }
     assert!(baylee_account::ranked_read(&served.endpoint, Request::Status).is_err());
     let http = CentralHttp::new(served.endpoint.clone());

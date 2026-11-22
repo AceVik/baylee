@@ -42,7 +42,7 @@ pub(super) struct Look {
     played: Option<api::Id>,
     error: Option<baylee_account::Error>,
     pub(super) queue: QueueState,
-    deck: Option<(uuid::Uuid, String)>,
+    pub(super) deck: Option<(uuid::Uuid, String)>,
     // Only the six visible deck labels and the next-page sentinel can affect the picker.
     options: Vec<(uuid::Uuid, String)>,
     picker: bool,
@@ -345,14 +345,13 @@ fn waiting(commands: &mut Commands, parent: Entity, kit: Kit, format: Format, qu
 
 fn deck_picker(commands: &mut Commands, parent: Entity, kit: Kit, state: &LobbyState, look: &Look) {
     let lang = kit.lang();
-    let selection = selected(state);
-    if let Some((_, d)) = selection {
+    if let Some((selected, name)) = &look.deck {
         let line = parts::caption(commands, kit, Phrase::RankedChosenDeck.text(lang));
         commands.entity(parent).add_child(line);
         let picker = parts::menu_button(
             commands,
             kit,
-            &d.name,
+            name,
             Weight::Secondary,
             Press::Ranked(Action::ToggleDecks),
         );
@@ -376,7 +375,7 @@ fn deck_picker(commands: &mut Commands, parent: Entity, kit: Kit, state: &LobbyS
                     &d.name,
                     Action::Deck(*id),
                     ("deck-choice", idx),
-                    Some(*id) == selection.map(|(a, _)| a),
+                    id == selected,
                 );
             }
             if decks.len() > DECK_PAGE {

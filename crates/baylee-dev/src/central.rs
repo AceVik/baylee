@@ -220,6 +220,24 @@ fn all_passed(output: &str) -> bool {
     })
 }
 
+/// Resolve the optional real publisher used by the Tower evidence scenario.
+fn integration_publisher() -> Result<Option<PathBuf>> {
+    if std::env::var_os("BAYLEE_CENTRAL_TOWER_EVIDENCE").is_none() {
+        return Ok(None);
+    }
+    let path = std::env::var_os("BAYLEE_CHALLENGE_BINARY").map_or_else(
+        || PathBuf::from("target/debug").join(format!("challenge{}", std::env::consts::EXE_SUFFIX)),
+        PathBuf::from,
+    );
+    let path = std::fs::canonicalize(path)
+        .context("build the matching challenge publisher before Tower integration")?;
+    ensure!(
+        path.is_file(),
+        "the Tower publisher must be an existing executable"
+    );
+    Ok(Some(path))
+}
+
 /// `integration`: builds first, so the bounded handoff to a UI run is spent
 /// on the test and not the compile; then bootstraps Central's roles and runs
 /// the selected end-to-end scenarios. `cancel` ends it early when it exists.
@@ -231,24 +249,7 @@ pub fn integration(
     ranked_only: bool,
 ) -> Result<i32> {
     let options = cargo_options(config)?;
-    let publisher = if std::env::var_os("BAYLEE_CENTRAL_TOWER_EVIDENCE").is_some() {
-        let path = std::env::var_os("BAYLEE_CHALLENGE_BINARY").map_or_else(
-            || {
-                PathBuf::from("target/debug")
-                    .join(format!("challenge{}", std::env::consts::EXE_SUFFIX))
-            },
-            PathBuf::from,
-        );
-        let path = std::fs::canonicalize(path)
-            .context("build the matching challenge publisher before Tower integration")?;
-        ensure!(
-            path.is_file(),
-            "the Tower publisher must be an existing executable"
-        );
-        Some(path)
-    } else {
-        None
-    };
+    let publisher = integration_publisher()?;
     let build = Owned::spawn(&mut test_command(
         &options,
         &["-p", "baylee-gateway", "--test", "e2e", "--no-run"],

@@ -330,6 +330,8 @@ async fn an_account_over_the_snapshot_bound_is_not_linked() {
 /// A verified archived source binds all old versions, including versions with equal heads.
 #[tokio::test]
 async fn closed_archive_binds_the_large_original_deck_history() {
+    use sha2::{Digest, Sha256};
+
     let sandbox = Sandbox::open("central_archive_history").await;
     let owner = Account::insert(an_account("archive@example.invalid"))
         .exec(&sandbox.db)
@@ -366,7 +368,6 @@ async fn closed_archive_binds_the_large_original_deck_history() {
         .try_get::<String>("", "source")
         .unwrap();
     assert!(exported.len() > baylee_db::central::MAX_SNAPSHOT_BYTES);
-    use sha2::{Digest, Sha256};
     let digest: [u8; 32] = Sha256::digest(exported.as_bytes()).into();
     let central = *Uuid::now_v7().as_bytes();
     let owner = owner.to_string();

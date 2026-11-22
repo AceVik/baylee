@@ -11,6 +11,7 @@
 #![allow(dead_code)] // each test file uses its own slice of this
 
 pub mod central;
+pub mod ranked;
 
 use baylee_engine_server::EngineRunner;
 use baylee_protocol::v1::{self, Envelope};

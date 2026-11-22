@@ -68,9 +68,9 @@ fn respond(mut stream: TcpStream) -> std::io::Result<()> {
         reader.read_exact(&mut body)?;
     }
     let request: Value = serde_json::from_slice(&body).unwrap_or(Value::Null);
-    let current = json!({"id":vec![1u8;16],"name":"Solstice","starts":1_798_761_600,"ends":null});
+    let current = json!({"id":vec![1u8;16],"name":"Solstice","starts":1_782_864_000,"ends":null});
     let past =
-        json!({"id":vec![2u8;16],"name":"Equinox","starts":1_767_225_600,"ends":1_798_761_600});
+        json!({"id":vec![2u8;16],"name":"Equinox","starts":1_767_225_600,"ends":1_782_864_000});
     let reply = if request.pointer("/request/seasons").is_some() {
         json!({"seasons":{"items":[current,past],"next":null}})
     } else if request.pointer("/request/profile/target/handle") == Some(&json!("Mistral-01#0001")) {
@@ -118,12 +118,34 @@ fn respond(mut stream: TcpStream) -> std::io::Result<()> {
 fn standing(query: &Value, n: u8) -> Value {
     let placed = query["league"] != "unranked";
     let deck = (query["track"] == "deck").then(|| vec![n; 32]);
-    let (games, wins, losses, draws) = if placed {
-        (2100, 1490, 590, 20)
+    let (elo, games, wins, losses, draws, career) = if query["league"] == "champion" {
+        (
+            3030 - i32::from(n),
+            1340,
+            901,
+            426,
+            13,
+            json!({"games":3540,"wins":2394,"losses":1114,"draws":32}),
+        )
+    } else if placed {
+        (
+            1775,
+            310,
+            188,
+            118,
+            4,
+            json!({"games":650,"wins":388,"losses":255,"draws":7}),
+        )
     } else {
-        (7, 4, 3, 0)
+        (
+            1516 - i32::from(n),
+            7,
+            4,
+            3,
+            0,
+            json!({"games":7,"wins":4,"losses":3,"draws":0}),
+        )
     };
-    let record = json!({"games":games,"wins":wins,"losses":losses,"draws":draws});
     let names = ["Linden", "Mistral", "Ember", "Willow", "Sable"];
     let name = format!("{}-{n:02}", names[usize::from(n) % names.len()]);
     let place = (query["league"] == "champion").then_some(n);
@@ -131,8 +153,8 @@ fn standing(query: &Value, n: u8) -> Value {
         "account":vec![n;16],"name":name,"tag":u32::from(n),
         "standing":{
             "format":query["format"],"track":query["track"],"deck":deck,
-            "elo":3030-i32::from(n),"games":games,"wins":wins,"losses":losses,"draws":draws,
-            "placement_games":if placed{10}else{7},"career":record,
+            "elo":elo,"games":games,"wins":wins,"losses":losses,"draws":draws,
+            "placement_games":if placed{10}else{7},"career":career,
             "rank":{"league":query["league"],"division":query["division"],"champion_place":place}
         }
     })
@@ -145,6 +167,27 @@ fn presented(screen: &Screen, text: &str) -> bool {
             && screen.window().contains(&node.rect, 1.0)
             && screen.clipped_by(index).is_none()
     })
+}
+
+/// An isolated Metal window can hand the renderer a cleared drawable during
+/// screenshot attachment. Accept a frame only after the UI has reached the
+/// pixel buffer. This also fails if a regression permanently renders black.
+fn capture(client: &mut Client, name: &str) -> Result<()> {
+    for _ in 0..4 {
+        let path = client.screenshot(name)?;
+        let image = image::open(&path)?.into_rgb8();
+        let mut dark = 0;
+        let mut light = 0;
+        for pixel in image.pixels().step_by(283) {
+            dark += usize::from(pixel.0.iter().all(|&channel| channel < 48));
+            light += usize::from(pixel.0.iter().any(|&channel| channel > 142));
+        }
+        if dark >= 32 && light >= 32 {
+            return Ok(());
+        }
+        std::fs::remove_file(path)?;
+    }
+    anyhow::bail!("no rendered pixels in four captures of {name}")
 }
 
 #[test]
@@ -160,12 +203,15 @@ fn ranked_public_board_filters_and_scrolls_without_an_account() {
         let board = client.wait_until("the public Champion ladder", |s| s.shows("Mistral-01"))?;
         board.expect_shows("Sign in with Baylee Central")?;
         board.expect_not_shown("Find opponent")?;
-        client.screenshot("ranked-champion")?;
+        capture(client, "ranked-champion")?;
         client.click(text("Mistral-01#0001"))?;
         client.wait_until("the named player's public profile", |s| {
-            s.shows("Player profile") && s.shows("Career · 2100 games") && s.shows("Ranked honours")
+            s.shows("Player profile")
+                && s.shows("Career · 3540 games")
+                && s.shows("1775 Elo")
+                && s.shows("Ranked honours")
         })?;
-        client.screenshot("ranked-profile")?;
+        capture(client, "ranked-profile")?;
         client.press(Key::named("Escape"))?;
         client.wait_until("return from the profile to its ladder", |s| {
             !s.shows("Player profile") && s.shows("Mistral-01")
@@ -187,7 +233,7 @@ fn ranked_public_board_filters_and_scrolls_without_an_account() {
         client.click(press("Ranked(ToggleLeagues)"))?;
         client.click(press("Ranked(League(Unranked))"))?;
         client.wait_until("seven completed placements", |s| s.shows("7/10 placements"))?;
-        client.screenshot("ranked-placement")?;
+        capture(client, "ranked-placement")?;
         client.click(press("Ranked(Track(Deck))"))?;
         client.wait_until("deck-version identifier", |s| s.shows("01010101"))?;
         client.click(press("Ranked(Seasons)"))?;
@@ -223,16 +269,16 @@ fn ranked_wait_and_both_promotions_render_in_the_private_screen_fixture() {
                 && s.shows("Gegner für Standard wird gesucht")
                 && s.shows("7/10 Platzierungsspiele")
         })?;
-        client.screenshot("ranked-queue-fixture")?;
+        capture(client, "ranked-queue-fixture")?;
         client.click(press("Ranked(Format(Commander))"))?;
         client.wait_until("player division promotion", |s| {
             presented(s, "Commander · Spieler · Gold I")
         })?;
-        client.screenshot("ranked-division-fixture")?;
+        capture(client, "ranked-division-fixture")?;
         client.wait_until("deck league promotion", |s| {
             presented(s, "Commander · Deck · Platin IV")
         })?;
-        client.screenshot("ranked-league-fixture")?;
+        capture(client, "ranked-league-fixture")?;
         Ok(())
     });
 }

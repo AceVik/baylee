@@ -1970,6 +1970,7 @@ name = "baylee-client-e2e"
 version = "0.2.0-beta.o1"
 dependencies = [
  "anyhow",
+ "image",
  "serde_json",
 ]
 

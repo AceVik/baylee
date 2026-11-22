@@ -1385,7 +1385,7 @@ paths:
       - name: match_id
         in: path
         required: true
-        description: Central match UUIDv7
+        description: Version 7 UUID for the Central match
         schema:
           type: string
       security:

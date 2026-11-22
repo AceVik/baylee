@@ -19,7 +19,7 @@ pub(super) fn fingerprint(draft: &Draft) -> [u8; 32] {
 #[derive(Clone)]
 pub(crate) struct Private {
     key: Arc<Zeroizing<[u8; 32]>>,
-    file: String,
+    file: Arc<str>,
 }
 
 /// Stored only inside the account's authenticated local recovery envelope.
@@ -49,7 +49,7 @@ impl Private {
         file.push_str(".sealed");
         Self {
             key: Arc::new(key),
-            file,
+            file: file.into(),
         }
     }
 

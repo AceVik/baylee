@@ -235,6 +235,35 @@ fn central_login_migrates_then_restores_and_admits_without_the_legacy_password()
     integration(false);
 }
 
+async fn integration_stores(
+    name: &str,
+) -> (sea_orm::DatabaseConnection, AccountStore, LegacyStore) {
+    let operator = central_postgres::connect_dev(fixture_database(
+        name,
+        "central_migrator",
+        "CENTRAL_TEST_MIGRATOR_PASSWORD",
+    ))
+    .await
+    .unwrap();
+    central_migration::apply(&operator).await.unwrap();
+    operator.execute_unprepared(GRANTS).await.unwrap();
+    let store = AccountStore::connect_dev(fixture_database(
+        name,
+        "central_runtime",
+        "CENTRAL_TEST_RUNTIME_PASSWORD",
+    ))
+    .await
+    .unwrap();
+    let legacy = LegacyStore::connect_dev(fixture_database(
+        name,
+        "central_legacy",
+        "CENTRAL_TEST_LEGACY_PASSWORD",
+    ))
+    .await
+    .unwrap();
+    (operator, store, legacy)
+}
+
 fn integration(ranked_only: bool) {
     let runtime = Runtime::new().unwrap();
     let name = if ranked_only {
@@ -242,31 +271,7 @@ fn integration(ranked_only: bool) {
     } else {
         "central_native_test"
     };
-    let operator = runtime
-        .block_on(central_postgres::connect_dev(fixture_database(
-            name,
-            "central_migrator",
-            "CENTRAL_TEST_MIGRATOR_PASSWORD",
-        )))
-        .unwrap();
-    runtime.block_on(async {
-        central_migration::apply(&operator).await.unwrap();
-        operator.execute_unprepared(GRANTS).await.unwrap();
-    });
-    let store = runtime
-        .block_on(AccountStore::connect_dev(fixture_database(
-            name,
-            "central_runtime",
-            "CENTRAL_TEST_RUNTIME_PASSWORD",
-        )))
-        .unwrap();
-    let legacy = runtime
-        .block_on(LegacyStore::connect_dev(fixture_database(
-            name,
-            "central_legacy",
-            "CENTRAL_TEST_LEGACY_PASSWORD",
-        )))
-        .unwrap();
+    let (operator, store, legacy) = runtime.block_on(integration_stores(name));
     let served = serve(&runtime, &store, &legacy, "central", None);
     let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
         if ranked_only {

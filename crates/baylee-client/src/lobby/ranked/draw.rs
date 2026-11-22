@@ -161,7 +161,17 @@ fn page_root(commands: &mut Commands, root: Entity, kit: Kit, compact: bool) -> 
 }
 
 fn masthead(commands: &mut Commands, page: Entity, kit: Kit) -> Entity {
-    let top = parts::row(commands, kit, true);
+    let top = surfaces::panel(commands, kit, percent(100));
+    commands
+        .entity(top)
+        .entry::<Node>()
+        .and_modify(move |mut node| {
+            node.flex_direction = FlexDirection::Row;
+            node.flex_wrap = FlexWrap::Wrap;
+            node.align_items = AlignItems::Center;
+            node.column_gap = kit.m.space(1);
+            node.padding = UiRect::axes(kit.m.space(2), kit.m.space(1));
+        });
     commands.entity(page).add_child(top);
     let back = controls::button_compact(
         commands,

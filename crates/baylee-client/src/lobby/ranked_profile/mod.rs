@@ -406,6 +406,10 @@ fn tick(now: f64, state: &LobbyState, page: &mut Page, book: &mut Book, discs: &
             book.revision = book.revision.wrapping_add(1);
         }
     }
+    request_profile(book, handle, own);
+}
+
+fn request_profile(book: &mut Book, handle: String, own: bool) {
     let (worker, mailbox) = mpsc::sync_channel(1);
     if own && let Some(owner) = book.owner.as_ref() {
         // The authority resolves the owner from its native session, even before

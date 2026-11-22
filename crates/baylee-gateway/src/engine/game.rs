@@ -247,7 +247,7 @@ async fn pump_engine(
                         if ended.game_id != game_id { continue; }
                         tracing::info!(game_id, winners = ?ended.winners, reason = ended.reason, "game over");
                         let ranked = state.lobby.lock().games.get(game_id).is_some_and(|g| g.ranked.is_some());
-                        let valid_duel = record.complete() && matches!(ended.winners.as_slice(), [] | [0] | [1]);
+                        let valid_duel = record.complete() && matches!(ended.winners.as_slice(), [] | [0 | 1]);
                         record.ended(crate::record::Ending {
                             winners: ended
                                 .winners

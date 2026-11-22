@@ -1,5 +1,4 @@
 use super::{Assignment, Player, Registered, common};
-use baylee_catalog::{Catalog, scryfall};
 use baylee_core::ids::PlayerId;
 use baylee_engine::{
     choice::{Pending, PlayerAction},
@@ -8,29 +7,6 @@ use baylee_engine::{
 use baylee_protocol::v1::{self, Envelope, envelope::Msg};
 use tokio::runtime::Runtime;
 use uuid::Uuid;
-
-pub(super) async fn provision(gateway: &common::Gateway) -> tokio::task::JoinHandle<()> {
-    let catalog = Catalog::connect(&gateway.database_url()).await.unwrap();
-    let forest = baylee_cards::by_index(baylee_cards::decks::by_name("Forest").unwrap()).unwrap();
-    catalog
-        .upsert(&[scryfall::Card {
-            id: Uuid::now_v7().to_string(),
-            oracle_id: Some(forest.oracle_id.into()),
-            lang: "en".into(),
-            set: "tst".into(),
-            collector_number: "1".into(),
-            name: "Forest".into(),
-            type_line: Some("Basic Land — Forest".into()),
-            legalities: ["standard", "vintage", "commander"]
-                .map(|key| (key.into(), "legal".into()))
-                .into(),
-            ..Default::default()
-        }])
-        .await
-        .unwrap();
-    catalog.bump_data_version().await.unwrap();
-    common::attach_agent(gateway).await
-}
 
 pub(super) fn seats(
     rt: &Runtime,

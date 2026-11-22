@@ -180,7 +180,7 @@ pub(super) fn run(
     );
     let home = registered(rt, served, store, operator, names[0], false);
     let host = registered(rt, served, store, operator, names[1], true);
-    let agent = rt.block_on(game::provision(&host.gateway));
+    let agent = rt.block_on(common::ranked::provision(&host.gateway));
     capacity(rt, operator, &host);
     let players = [player(one, &home, 60), player(two, &host, 61)];
     receipts::before(served, &players);
