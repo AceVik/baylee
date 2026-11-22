@@ -26,11 +26,11 @@ Beide Reihen enthalten je elf Ligaabzeichen und 24 Divisionsabzeichen. Drei Sond
 | Grandmaster | [Helm](player/grandmaster.png) | [Karten](deck/grandmaster.png) | – |
 | Champion | [Helm](player/champion.png) | [Karten](deck/champion.png) | – |
 
-| Champion-Platz | Spielerhelm |
-| --- | --- |
-| 3 | [Lorbeerhelm](player/champion-3.png) |
-| 2 | [Flügelhelm](player/champion-2.png) |
-| 1 | [Kronenhelm](player/champion-1.png) |
+| Champion-Platz | Spielerhelm | Mittelstein und Fassung |
+| --- | --- | --- |
+| 3 | [Lorbeerhelm](player/champion-3.png) | Roséfarbener Diamant im Drachenschliff zwischen kupfernen Lorbeerblättern |
+| 2 | [Flügelhelm](player/champion-2.png) | Breiter blauer Diamant im achteckigen Stufenschliff, zwei helle Baguettes und silberne Schläfenflügel |
+| 1 | [Kronenhelm](player/champion-1.png) | Großer heller Brillant mit farbigem Feuer, Pavé-Kranz und gravierten Sonnenstrahlen im Golddiadem |
 
 Die 28 spielbaren Rangstufen und die Vergabe der weltweit höchstens 100 Champion-Plätze beziehen sich im [PoC](../../../tools/league-lab/README.md) auf Spielerkonten. Deckversionen besitzen eigene Elo-Werte. Die Zuordnung dieser Werte zu Deckligen ist offen.
 
@@ -52,7 +52,7 @@ Der [Materialshader](finish.wgsl) legt Licht auf die gemalten Oberflächen. Auf 
 | Grandmaster | Zwei rubinrote Lichtbögen laufen durch den Stein, sein Roségold antwortet versetzt | 9 s |
 | Champion | Auf hellem Perlmutt wandert ein Opalschimmer zwischen Rosé, Eisblau und Grün | 12 s |
 
-Ein Divisionsaufstieg verstärkt den Reflex am Rand der Spange um einen kleinen Schritt. Die Mitte mit der römischen Zahl bleibt lesbar. Alle Divisionen einer Liga teilen deren Tempo. Die drei Champion-Spielerhelme behalten den gemeinsamen Opalschimmer. Platz 3 fängt einen einzelnen warmen Reflex am Lorbeerreif. Bei Platz 2 trifft das Licht beide Schläfenflügel und den Saphir. Bei Platz 1 laufen vom Stirnopal goldene Reflexe in die Strahlen des Diadems.
+Ein Divisionsaufstieg verstärkt den Reflex am Rand der Spange um einen kleinen Schritt. Die Mitte mit der römischen Zahl bleibt lesbar. Alle Divisionen einer Liga teilen deren Tempo. Die drei Champion-Spielerhelme behalten den gemeinsamen Opalschimmer. Bei Platz 3 folgt ein warmer Lichtstrich dem Rosédiamanten und den Blattspitzen. Bei Platz 2 fangen die Stufen des blauen Diamanten, die Baguettes und die silbernen Flügel das Licht nacheinander auf. Bei Platz 1 bricht es sich farbig auf den Facetten des Brillanten und erreicht den Kranz kleiner Diamanten und die Goldgravur.
 
 ### Vorschau öffnen
 
@@ -70,7 +70,7 @@ Die Vorschau nutzt eine RGBA8-Unorm-Textur und ein Unorm-Ausgabeziel mit sRGB-ko
 
 Die 22 Grundmotive wurden am 22. November 2026 mit ImageGen einzeln für Baylee gestaltet. Die Vorgaben waren ein freigestelltes Relief in Frontalansicht, Licht von links oben, ein geschlossener Helm auf einem spitzen Schild für Spieler und ein Fächer aus Kartenrücken mit Rautenschließe für Decks. Die Materialreihe reicht von Papier und Holz über Metall bis zu blauem Kristall, Amethyst, Rubin und gekröntem Opal. Eingaben waren ausschließlich Textbeschreibungen. Für die Beschriftung verwendet der Export die vorhandenen Schriften Faustina und Alegreya Sans aus dem Client. Ihre Lizenzen liegen [bei den Schriften](../../../crates/baylee-client/assets/fonts/licenses).
 
-Für das Podium wurde der fertige Champion-Spielerhelm als Bildvorlage verwendet. Jede der drei Bearbeitungen verändert die Schmiedearbeit direkt am Helm. Die 22 normalisierten Liga-PNGs und die drei fertigen Sonderhelme sind die Quellen für die 48 Divisionsbilder und drei Tafeln. Der Rust-Exporter liest die Divisionen aus der aktuellen Rangliste. Zur Reproduktion im Verzeichnis `tools/league-lab` ausführen.
+Für das Podium wurde der fertige Champion-Spielerhelm als Bildvorlage verwendet. Eine zweite ImageGen-Bearbeitung der drei vorhandenen Podiumshelme vergrößerte ihre Mittelsteine und gab ihnen unterschiedliche Schliffe, Fassungen und Verzierungen. Die 22 normalisierten Liga-PNGs und die drei fertigen Sonderhelme sind die Quellen für die 48 Divisionsbilder und drei Tafeln. Der Rust-Exporter liest die Divisionen aus der aktuellen Rangliste. Zur Reproduktion im Verzeichnis `tools/league-lab` ausführen.
 
 ```sh
 mkdir -p target

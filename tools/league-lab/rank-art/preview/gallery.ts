@@ -144,9 +144,9 @@ function schedule() {
 }
 const accents = [
   "",
-  " Am Stirndiadem wandert ein Lichtsaum vom Opal in die goldenen Strahlen.",
-  " Die silbernen Schläfenflügel antworten paarweise auf den Saphir.",
-  " Ein einzelner warmer Reflex streift den Lorbeerreif.",
+  " Im großen Brillanten bricht sich das Licht in Farben. Danach erreicht es den Kranz kleiner Diamanten und das goldene Diadem.",
+  " Die Stufen des blauen Diamanten fangen den Reflex zuerst auf, dann die beiden Seitensteine und die silbernen Federn.",
+  " Ein warmer Lichtstrich trifft den roséfarbenen Diamanten und die Blattspitzen des Lorbeerreifs.",
 ];
 function present() {
   const v = badge();

@@ -107,25 +107,35 @@ fn finish_light(uv: vec2<f32>, c: vec3<f32>, path: f32, tone: f32) -> vec3<f32> 
 }
 
 fn podium_light(uv: vec2<f32>, c: vec3<f32>) -> vec3<f32> {
-    let brow = vec2<f32>(0.50, 0.427);
+    // Centers measured after the paintings have been trimmed to the game canvas.
+    let brow = vec2<f32>(0.50, select(0.427, 0.390, fx.place == 3u));
     let p = uv - brow;
     let mirror = vec2<f32>(abs(p.x),p.y);
     let t = fx.phase;
     switch fx.place {
-        case 3u: { // A warm reflected line follows the short laurel leaves.
-            return vec3<f32>(0.46,0.17,0.08)*spot(mirror,vec2<f32>(0.080,-0.028),vec2<f32>(0.072,0.054))
-                * band(abs(p.x)*3.2 - p.y,t,0.18);
+        case 3u: { // Rose diamond and chased copper laurel.
+            let gem = spot(uv,brow,vec2<f32>(0.047,0.074));
+            let leaves = spot(mirror,vec2<f32>(0.103,0.008),vec2<f32>(0.081,0.055));
+            return vec3<f32>(0.48,0.19,0.22)*gem*band(0.36+4.0*p.x-2.0*p.y,t,0.13)
+                + vec3<f32>(0.33,0.14,0.07)*leaves*band(abs(p.x)*3.2-p.y,t,0.18);
         }
-        case 2u: { // Paired light on the silver temple wings and the sapphire.
-            let wings = spot(mirror,vec2<f32>(0.10,-0.024),vec2<f32>(0.085,0.091));
-            return vec3<f32>(0.32,0.47,0.62)*wings*band(abs(p.x)*3.0-p.y,t,0.19)
-                + vec3<f32>(0.07,0.26,0.59)*spot(uv,brow,vec2<f32>(0.041,0.052))*band(0.35,t,0.23);
+        case 2u: { // A stepped blue cut, followed by both side stones and silver feathers.
+            let wings = spot(mirror,vec2<f32>(0.146,-0.014),vec2<f32>(0.117,0.086));
+            let sides = spot(mirror,vec2<f32>(0.098,0.034),vec2<f32>(0.033,0.023));
+            let gem = spot(uv,brow,vec2<f32>(0.078,0.078));
+            let cut = max(abs(p.x),0.83*abs(p.y))+0.15*min(abs(p.x),abs(p.y));
+            return vec3<f32>(0.08,0.33,0.55)*gem*band(0.18+5.4*cut,t,0.135)
+                + vec3<f32>(0.29,0.42,0.50)*(wings*band(abs(p.x)*3.0-p.y,t,0.18)+sides*band(0.59,t,0.17));
         }
-        case 1u: { // Opal and the engraved rays in the diadem itself.
-            let gem = spot(uv,brow,vec2<f32>(0.048,0.061));
-            let rays = spot(uv,brow-vec2<f32>(0.0,0.048),vec2<f32>(0.15,0.11));
-            let fire = 0.53+0.47*cos(TAU*t+vec3<f32>(0.0,2.1,4.2));
-            return fire*0.61*gem + vec3<f32>(0.50,0.31,0.1)*rays*band(length(p)*3.8,t,0.14)*c.r;
+        case 1u: { // Prismatic fire breaks over the brilliant before it reaches the pavé halo.
+            let cut = abs(p.x)+0.98*abs(p.y);
+            let gem = 1.0-smoothstep(0.066,0.086,cut);
+            let setting = (1.0-smoothstep(0.009,0.023,abs(cut-0.097)));
+            let rays = spot(uv,brow-vec2<f32>(0.0,0.045),vec2<f32>(0.19,0.112));
+            let fire = 0.55+0.45*cos(TAU*(t+2.4*p.x)+vec3<f32>(0.0,2.1,4.2));
+            let facet = band(0.35+3.9*p.x-2.8*p.y+0.13*sign(p.x*p.y),t,0.18);
+            return fire*0.53*gem*facet + vec3<f32>(0.34,0.30,0.24)*setting*band(0.5+p.x*3.2,t,0.14)
+                + vec3<f32>(0.36,0.23,0.09)*rays*band(length(p)*3.8,t+0.13,0.14)*c.r;
         }
         default: {return vec3<f32>(0.0);}
     }
