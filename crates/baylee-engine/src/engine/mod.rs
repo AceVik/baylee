@@ -1479,9 +1479,9 @@ impl<L: CardLookup, D: LoopDetection> Engine<L, D> {
                         preventable_damage: amount,
                     },
                 )),
-                Some(crate::resolve::AwaitingOp::ManaForNumber { player, min, max, .. }) => {
-                    Some((player, ManaPayment::Variable { min, max }))
-                }
+                Some(crate::resolve::AwaitingOp::ManaForNumber {
+                    player, min, max, ..
+                }) => Some((player, ManaPayment::Variable { min, max })),
                 _ => None,
             },
         }
