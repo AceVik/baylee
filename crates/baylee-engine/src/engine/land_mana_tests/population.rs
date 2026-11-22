@@ -364,16 +364,23 @@ fn every_other_permanent_in_the_pool_makes_the_mana_its_card_prints() {
 /// 764 colours proven over 308 routes, 301 promises plus 3 opponent-land
 /// promises, and 133 creature promises across 434 non-summoning-sick
 /// creatures (209 costly lines, 79 triggered, 92 granted, 142 unparsed).
+/// Pass E16 (+543 Paper cards and 30 upgraded pool stubs) brings the nonland
+/// mana population to 329 Generated faces (241 wholly readable) alongside
+/// the 447 Implemented faces (387 wholly readable) and 13 remaining
+/// partial/unimplemented faces: 770 colours proven over 310 routes, 303
+/// promises plus 3 opponent-land promises, and 133 creature promises across
+/// 441 non-summoning-sick creatures (209 costly lines, 82 triggered, 94
+/// granted, 150 unparsed).
 const FULL_CORPUS_OTHER_PERMANENTS: Bounds = Bounds {
-    colors: 764,
-    routes: 308,
-    promises: 301..=301,
+    colors: 770,
+    routes: 310,
+    promises: 303..=303,
     creature_promises: 133..=133,
-    unparsed: 142..=142,
-    fully_read: 622,
+    unparsed: 150..=150,
+    fully_read: 628,
     costly_lines: 209..=209,
-    triggered_lines: 79..=79,
-    granted_lines: 92..=92,
+    triggered_lines: 82..=82,
+    granted_lines: 94..=94,
     self_granted: 11..=11,
     busy: 0,
     not_implemented: 0,
@@ -409,17 +416,17 @@ fn check_other_permanent_population(tally: &Tally) {
     );
     assert_eq!(
         eligible,
-        [447, 315, 13],
+        [447, 329, 13],
         "the coverage-tier population changed"
     );
     assert_eq!(
         readable,
-        [387, 235, 0],
+        [387, 241, 0],
         "the readable coverage tiers changed"
     );
     let expected: usize = readable.iter().sum();
     assert_eq!(
-        expected, 622,
+        expected, 628,
         "the independently enumerated full-corpus population changed; review additions/removals before updating its pin"
     );
     assert_eq!(
@@ -435,10 +442,10 @@ fn check_other_permanent_population(tally: &Tally) {
             tally.promises,
             tally.opponents_lands
         ),
-        (764, 308, 301, 3)
+        (770, 310, 303, 3)
     );
-    assert_eq!((tally.creatures, tally.creature_promises), (434, 133));
-    assert_eq!((tally.triggered_lines, tally.unparsed.len()), (79, 142));
+    assert_eq!((tally.creatures, tally.creature_promises), (441, 133));
+    assert_eq!((tally.triggered_lines, tally.unparsed.len()), (82, 150));
     assert_eq!(
         (
             tally.conditional,
@@ -447,7 +454,7 @@ fn check_other_permanent_population(tally: &Tally) {
             tally.dual_typed,
             tally.self_typed
         ),
-        (13, 162, 149, 0, 0),
+        (13, 162, 155, 0, 0),
         "the measured skip categories changed"
     );
 }

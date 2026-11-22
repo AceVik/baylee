@@ -490,6 +490,9 @@ const EVENT_OBJECT_READ: &[&str] = &[
     "source: Subject(EventObject),",
     "Suspect { target: EventObject }",
     "MoveAndModify { subject: Target(EventObject),",
+    "GainControlEx { target: EventObject,",
+    "ExileIfDiesThisTurn { target: EventObject }",
+    "MoveAttachment { attachment: EventObject,",
 ];
 
 /// The same census for `EventObject`, which is the **second** implicit spec

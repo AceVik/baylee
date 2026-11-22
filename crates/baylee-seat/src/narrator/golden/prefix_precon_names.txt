@@ -38,6 +38,7 @@ Main deck:
   1× Meteor Golem
   1× Molimo, Maro-Sorcerer
   1× Mulldrifter
+  1× Peel from Reality
   1× Rampaging Baloths
   1× Rampant Growth
   1× Ramunap Excavator
@@ -93,4 +94,3 @@ Main deck:
   1× Frontier Bivouac
   1× Fury
   1× Garruk's Uprising
-  1× Horde of Notions

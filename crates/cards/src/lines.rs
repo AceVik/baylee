@@ -873,6 +873,8 @@ mod tests {
     /// Unholy Annex), and Oko, Lorwyn Liege.
     /// Pass E15 adds Nissa, Vastwood Seer, Harvest Hand, Graveyard Trespasser,
     /// Biolume Egg, Ashling, Rekindled, and Sygg, Wanderwine Wisdom.
+    /// Pass E16 adds Halvar, God of Battle, Henrika Domnathi, Ayara, Widow of
+    /// the Realm, Sun-Blessed Guardian, and Eddie Brock.
     #[test]
     fn the_back_of_a_card_is_a_rarity() {
         let named: Vec<&str> = crate::generated::BY_INDEX
@@ -964,6 +966,7 @@ mod tests {
         "Profane Procession",
         "Birgi, God of Storytelling",
         "Esika, God of the Tree",
+        "Halvar, God of Battle",
         "Baneblade Scoundrel",
         "Brutal Cathar",
         "Burly Breaker",
@@ -985,6 +988,7 @@ mod tests {
         "Havengul Laboratory",
         "Avabruck Caretaker",
         "Biolume Egg",
+        "Henrika Domnathi",
         "Ill-Tempered Loner",
         "Infestation Expert",
         "Lambholt Raconteur",
@@ -997,6 +1001,7 @@ mod tests {
         "The Long Reach of Night",
         "The Restoration of Eiganjo",
         "Tribute to Horobi",
+        "Ayara, Widow of the Realm",
         "Blightreaper Thallid",
         "Captive Weird",
         "Gnottvold Hermit",
@@ -1019,6 +1024,7 @@ mod tests {
         "Pyretic Prankster",
         "Seraph of New Capenna",
         "Sheoldred",
+        "Sun-Blessed Guardian",
         "Aclazotz, Deepest Betrayal",
         "Brass's Tunnel-Grinder",
         "Clay-Fired Bricks",
@@ -1064,6 +1070,7 @@ mod tests {
         "Sidequest: Raise a Chocobo",
         "Venat, Heart of Hydaelyn",
         "Vincent Valentine",
+        "Eddie Brock",
         "The Legend of Roku",
         "Ashling, Rekindled",
         "Oko, Lorwyn Liege",

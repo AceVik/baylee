@@ -83,8 +83,9 @@ fn the_census_tells_a_filter_it_can_read_from_one_it_cannot() {
 /// Exact unread spell-target membership (`min >= 1`) that genuinely requires
 /// turn history, unannounced X, stack ability source/kind, wire-untranslated
 /// counter kind, or `Enchanted` absent from [`PlayerView`].
-const EXPECTED_BLIND: [&str; 26] = [
+const EXPECTED_BLIND: [&str; 31] = [
     "Bind",
+    "Blazing Hope",
     "Blue Sun's Twilight",
     "Brainspoil",
     "Cradle to Grave",
@@ -99,14 +100,18 @@ const EXPECTED_BLIND: [&str; 26] = [
     "Glyph of Delusion",
     "Interdict",
     "Kaervek's Purge",
+    "Killing Glare",
+    "Lay Down Arms",
     "Mirrodin Avenged",
     "Mutant's Prey",
+    "Postmortem Lunge",
     "Reenact the Crime",
     "Rust",
     "Sizzling Barrage",
     "Spell Blast",
     "Spell Burst",
     "Squelch",
+    "Squirming Emergence",
     "Stir the Grave",
     "Venomous Vines",
     "You Are Already Dead",

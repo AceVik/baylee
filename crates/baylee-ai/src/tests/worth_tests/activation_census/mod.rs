@@ -623,7 +623,10 @@ fn the_table_reads_most_of_what_the_pool_activates() {
     // 89 read and 133 total non-mana activations.
     // Pass E15 (+494 generated cards) adds 71 read and 123 total non-mana
     // activations across newly harvested cards.
-    assert_eq!((read, of), (5669, 7317), "activated/loyalty reader census");
+    // Pass E16 (+543 generated cards and 30 upgraded pool stubs, holding back
+    // buggy Padishah and Loyalty:X Nissa) + Wave 26 adds 104 read and 157
+    // total non-mana activations.
+    assert_eq!((read, of), (5773, 7474), "activated/loyalty reader census");
 
     // Pin the new readable rows to their cards rather than only to the census.
     for (name, label) in [
