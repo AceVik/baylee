@@ -282,7 +282,7 @@ pub(crate) fn printed_mana_offered(printed: &str) -> PrintedMana {
             .filter(|w| w[0] == b'{' && w[2] == b'}' && b"wubrgc".contains(&w[1]))
             .map(|w| w[1] as char)
             .collect();
-        if clause.contains("any") && symbols.is_empty() {
+        if (clause.contains("any") || clause.contains("different color")) && symbols.is_empty() {
             return PrintedMana::InWords;
         }
         saw_a_clause = true;

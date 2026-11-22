@@ -449,6 +449,7 @@ const OFFERS_A_CHOICE: &[&str] = &[
     "MayCopyCastLinkedExile",
     "Cipher",
     "MayEffectFromOpeningHand",
+    "rider: Copy",
 ];
 
 pub(crate) fn check_optional_clauses_are_offered(
@@ -941,7 +942,12 @@ pub(crate) fn check_scope_matches_the_text(
         || built.contains("UnlessYouControlMoreCreaturesThan")
         // This cumulative coin-flip effect untaps only lands its controller controls.
         || built.contains("FlipCoinsUntilLossOrStopCumulative")
-        || built.contains("PlayersOrTheirPermanents(You)");
+        || built.contains("PlayersOrTheirPermanents(You)")
+        // `RemoveAnyCounter` / `RemoveAnyCounterX` enforce `obj.controller == player`.
+        || built.contains("RemoveAnyCounter")
+        || built.contains("Domain(You)")
+        || built.contains("Revolt")
+        || built.contains("ControlPlayerNextTurn");
     let filters_theirs = compares_controllers
         || built.contains("ControlledByOpponent")
         || built.contains("ObjectOfEachOpponent(")
@@ -955,7 +961,8 @@ pub(crate) fn check_scope_matches_the_text(
         // rather than the controller of a permanent selected by a filter.
         || built.contains("TargetedByOpponent")
         || built.contains("DiscardedThisByOpponent")
-        || built.contains("MayRevealOpponentDiscardToLibraryTop");
+        || built.contains("MayRevealOpponentDiscardToLibraryTop")
+        || built.contains("opponents_only: true");
 
     if says_you && !filters_you {
         println!(
