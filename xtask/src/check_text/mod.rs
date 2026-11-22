@@ -440,6 +440,15 @@ const OFFERS_A_CHOICE: &[&str] = &[
     "PeekAndReveal",
     "RevealFromHand",
     "SoulbondPair",
+    "MayAssignCombatDamageAsThoughUnblocked",
+    "may_play_this_turn: true",
+    "optional_before_first: true",
+    "PutAnyFromHandOnBottom",
+    "LookAtTopExileFaceDown",
+    "ExileChosenFromHandWithSourceAndCast",
+    "MayCopyCastLinkedExile",
+    "Cipher",
+    "MayEffectFromOpeningHand",
 ];
 
 pub(crate) fn check_optional_clauses_are_offered(
