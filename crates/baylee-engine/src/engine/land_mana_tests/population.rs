@@ -344,22 +344,23 @@ fn every_other_permanent_in_the_pool_makes_the_mana_its_card_prints() {
 ///
 /// Full-corpus codegen waves (including Kyren Toy, Mana Cache, Overlaid Terrain,
 /// general Aura host attachment, X=1 counter placement for X-counter arrivals,
-/// level-gated strip classification, and monochrome bundle reading on Ulvenwald
-/// Abomination) bring the nonland mana population to 238 Generated faces (181
-/// wholly readable) alongside the 447 Implemented faces (387 wholly readable)
-/// and 15 remaining partial/unimplemented faces: 709 colours proven over 286
-/// routes, 285 promises plus 3 opponent-land promises, and 124 creature
-/// promises across 391 non-summoning-sick creatures.
+/// level-gated strip classification, monochrome bundle reading on Ulvenwald
+/// Abomination, and refusing multi-mana `DifferentColors` in `simple_mana` so
+/// Firemind Vessel stays skipped) bring the nonland mana population to 282
+/// Generated faces (209 wholly readable) alongside the 447 Implemented faces
+/// (387 wholly readable) and 14 remaining partial/unimplemented faces: 753
+/// colours proven over 302 routes, 295 promises plus 3 opponent-land promises,
+/// and 129 creature promises across 414 non-summoning-sick creatures.
 const FULL_CORPUS_OTHER_PERMANENTS: Bounds = Bounds {
-    colors: 709,
-    routes: 286,
-    promises: 285..=285,
-    creature_promises: 124..=124,
-    unparsed: 118..=118,
-    fully_read: 568,
-    costly_lines: 194..=194,
-    triggered_lines: 65..=65,
-    granted_lines: 81..=81,
+    colors: 753,
+    routes: 302,
+    promises: 295..=295,
+    creature_promises: 129..=129,
+    unparsed: 135..=135,
+    fully_read: 596,
+    costly_lines: 201..=201,
+    triggered_lines: 75..=75,
+    granted_lines: 83..=83,
     self_granted: 11..=11,
     busy: 0,
     not_implemented: 0,
@@ -395,17 +396,17 @@ fn check_other_permanent_population(tally: &Tally) {
     );
     assert_eq!(
         eligible,
-        [447, 238, 15],
+        [447, 282, 14],
         "the coverage-tier population changed"
     );
     assert_eq!(
         readable,
-        [387, 181, 0],
+        [387, 209, 0],
         "the readable coverage tiers changed"
     );
     let expected: usize = readable.iter().sum();
     assert_eq!(
-        expected, 568,
+        expected, 596,
         "the independently enumerated full-corpus population changed; review additions/removals before updating its pin"
     );
     assert_eq!(
@@ -421,10 +422,10 @@ fn check_other_permanent_population(tally: &Tally) {
             tally.promises,
             tally.opponents_lands
         ),
-        (709, 286, 285, 3)
+        (753, 302, 295, 3)
     );
-    assert_eq!((tally.creatures, tally.creature_promises), (391, 124));
-    assert_eq!((tally.triggered_lines, tally.unparsed.len()), (65, 118));
+    assert_eq!((tally.creatures, tally.creature_promises), (414, 129));
+    assert_eq!((tally.triggered_lines, tally.unparsed.len()), (75, 135));
     assert_eq!(
         (
             tally.conditional,
@@ -433,7 +434,7 @@ fn check_other_permanent_population(tally: &Tally) {
             tally.dual_typed,
             tally.self_typed
         ),
-        (13, 148, 131, 0, 0),
+        (13, 154, 141, 0, 0),
         "the measured skip categories changed"
     );
 }

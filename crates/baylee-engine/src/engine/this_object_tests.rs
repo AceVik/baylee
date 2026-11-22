@@ -360,6 +360,7 @@ const THIS_OBJECT_READ: &[&str] = &[
     "DealDamage { amount: Fixed(2), target: ThisObject }",
     "DealDamage { amount: Fixed(3), target: ThisObject }",
     "ObjectMatches { what: ThisObject, filter:",
+    "Play { source: Subject(ThisObject),",
 ];
 
 /// Which effects may be spelled with `ThisObject`, held against the pool.

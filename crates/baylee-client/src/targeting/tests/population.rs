@@ -83,9 +83,10 @@ fn the_census_tells_a_filter_it_can_read_from_one_it_cannot() {
 /// Exact unread spell-target membership (`min >= 1`) that genuinely requires
 /// turn history, unannounced X, stack ability source/kind, wire-untranslated
 /// counter kind, or `Enchanted` absent from [`PlayerView`].
-const EXPECTED_BLIND: [&str; 24] = [
+const EXPECTED_BLIND: [&str; 25] = [
     "Bind",
     "Blue Sun's Twilight",
+    "Brainspoil",
     "Cradle to Grave",
     "Crushing Pain",
     "Cut the Earthly Bond",

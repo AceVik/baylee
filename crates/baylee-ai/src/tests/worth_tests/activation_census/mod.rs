@@ -617,7 +617,9 @@ fn the_table_reads_most_of_what_the_pool_activates() {
     // Peace's Equip activation: -1 read, -2 total).
     // Wizard Class's level-three activation is now a readable level change.
     // Its draw trigger comes from the level's static ability.
-    assert_eq!((read, of), (5066, 6476), "activated/loyalty reader census");
+    // Pass E13 (+1,221 generated cards) adds 443 read and 585 total non-mana
+    // activations across newly harvested cards.
+    assert_eq!((read, of), (5509, 7061), "activated/loyalty reader census");
 
     // Pin the new readable rows to their cards rather than only to the census.
     for (name, label) in [

@@ -73,6 +73,8 @@ fn the_counter_gate_lets_only_a_cantrip_resolve() {
             "Deliberate",
             "Dream Cache",
             "Dreams of Laguna",
+            "Everdream",
+            "Evermind",
             "Glimpse of Freedom",
             "Index",
             "Introduction to Prophecy",

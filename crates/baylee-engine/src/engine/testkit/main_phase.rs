@@ -66,6 +66,19 @@ pub fn walk_to_own_main(engine: &mut Engine<RegistryLookup>, seat: PlayerId) -> 
                     },
                 )
                 .is_err(),
+            Pending::ChooseCards {
+                player,
+                options,
+                min,
+                ..
+            } => engine
+                .apply(
+                    player,
+                    PlayerAction::ChooseObjects {
+                        objects: options.into_iter().take(usize::from(min)).collect(),
+                    },
+                )
+                .is_err(),
             Pending::ChooseSubtype { player, options } => match options.first().copied() {
                 Some(first) => engine
                     .apply(player, PlayerAction::ChooseSubtype(first))

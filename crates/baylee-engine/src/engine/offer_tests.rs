@@ -1295,10 +1295,10 @@ fn a_printed_zero_is_a_cost_and_the_spell_is_still_castable() {
 fn a_face_with_no_mana_cost_has_another_way_out_of_the_hand() {
     let mut blank: Vec<&str> = Vec::new();
     for def in baylee_cards::all() {
-        let suspends = def
+        let suspends_or_splices = def
             .abilities
             .iter()
-            .any(|a| matches!(a, AbilityDef::Suspend { .. }));
+            .any(|a| matches!(a, AbilityDef::Suspend { .. } | AbilityDef::Splice { .. }));
         for face in def.faces {
             if face.mana_cost.symbols().next().is_some()
                 || !face.castable_from_hand
@@ -1306,7 +1306,7 @@ fn a_face_with_no_mana_cost_has_another_way_out_of_the_hand() {
             {
                 continue;
             }
-            if !suspends && face.alternative_costs.is_empty() {
+            if !suspends_or_splices && face.alternative_costs.is_empty() {
                 blank.push(face.name);
             }
         }

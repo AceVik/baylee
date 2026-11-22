@@ -254,6 +254,9 @@ pub fn mana_offer(cost: &Cost, effects: &[Effect]) -> Option<(ManaSource, Option
 /// Two additions in one ability answer `None` rather than the first of them:
 /// a row saying "adds {G}" about an ability that adds `{G}` *and* `{U}` is
 /// worse than a row saying nothing, because it is a claim rather than a gap.
+/// Similarly, [`ManaDistribution::DifferentColors`] for more than one mana
+/// (such as Firemind Vessel's "two mana of different colors") returns `None`
+/// rather than falsely promising two mana of a single chosen colour.
 #[must_use]
 pub fn mana_written(effects: &[Effect]) -> Option<(ManaSource, Option<u8>, bool)> {
     let mut written = None;
@@ -261,8 +264,8 @@ pub fn mana_written(effects: &[Effect]) -> Option<(ManaSource, Option<u8>, bool)
         let Effect::AddMana {
             source,
             amount,
+            distribution,
             restriction,
-            ..
         } = effect
         else {
             continue;
@@ -274,6 +277,9 @@ pub fn mana_written(effects: &[Effect]) -> Option<(ManaSource, Option<u8>, bool)
             Amount::Fixed(amount) => Some(u8::try_from(*amount).unwrap_or(u8::MAX)),
             _ => None,
         };
+        if matches!(distribution, crate::ManaDistribution::DifferentColors) && amount != Some(1) {
+            return None;
+        }
         // A rider alone restricts nothing: that mana is ordinary (#232).
         written = Some((
             *source,
@@ -809,6 +815,44 @@ mod tests {
                 Some(1),
                 false
             ))
+        );
+    }
+
+    /// Firemind Vessel adds two mana of different colors: it cannot make `{W}{W}`,
+    /// so every single-source reader must refuse it rather than promise two of a
+    /// chosen colour, while `DifferentColors` for 1 mana and `AnyCombination` for
+    /// 2 mana continue to read.
+    #[test]
+    fn different_colors_for_more_than_one_mana_is_refused() {
+        let two_different = [Effect::mana_different_colors(
+            crate::ALL_MANA_COLORS,
+            Amount::Fixed(2),
+        )];
+        assert_eq!(mana_written(&two_different), None);
+        assert_eq!(mana_shape(&tap(), &two_different), None);
+        assert_eq!(mana_made(&tap(), &two_different), None);
+        assert_eq!(simple_mana(&tap(), &two_different), None);
+        assert_eq!(mana_offer(&tap(), &two_different), None);
+
+        let one_different = [Effect::mana_different_colors(
+            crate::ALL_MANA_COLORS,
+            Amount::Fixed(1),
+        )];
+        assert_eq!(
+            mana_written(&one_different),
+            Some((ManaSource::Choice(crate::ALL_MANA_COLORS), Some(1), false))
+        );
+
+        let two_combination = [Effect::mana_combination(
+            crate::ALL_MANA_COLORS,
+            Amount::Fixed(2),
+        )];
+        assert_eq!(
+            simple_mana(&tap(), &two_combination),
+            Some(SimpleMana {
+                colors: crate::ALL_MANA_COLORS.to_vec(),
+                amount: 2,
+            })
         );
     }
 }

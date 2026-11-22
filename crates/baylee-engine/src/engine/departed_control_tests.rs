@@ -703,6 +703,7 @@ fn every_card_that_controls_a_player_has_a_departure_rule() {
                 .any(|a| {
                     matches!(a, baylee_cards_dsl::AbilityDef::Activated { effects, .. }
                     | baylee_cards_dsl::AbilityDef::ActivatedConditional { effects, .. }
+                    | baylee_cards_dsl::AbilityDef::Loyalty { effects, .. }
                     if effects.iter().any(|e| matches!(
                         e,
                         baylee_cards_dsl::Effect::ControlPlayerNextTurn { .. }
