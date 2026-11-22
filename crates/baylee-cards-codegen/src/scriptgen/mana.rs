@@ -1832,7 +1832,7 @@ impl Tx<'_> {
     /// Resolves an alphabetic `SVar` name to a const-promotable inline `Amount`
     /// expression for `Filter::{CmcAtMostAmount, CmcEqualsAmount,
     /// PowerAtMostAmount, PowerAtLeastAmount}`. Strictly pure Paper-MTG only.
-    fn dynamic_filter_amount(&self, var: &str, depth: u8) -> Option<String> {
+    pub(super) fn dynamic_filter_amount(&self, var: &str, depth: u8) -> Option<String> {
         if depth >= 3 {
             return None;
         }
