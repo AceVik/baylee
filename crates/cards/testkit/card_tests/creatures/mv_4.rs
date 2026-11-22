@@ -127,6 +127,7 @@ mod emiel_the_blessed;
 mod emperor_crocodile;
 mod erhnam_djinn;
 mod ertai_resurrected;
+mod everquill_phoenix;
 mod extravagant_spirit;
 mod faceless_butcher;
 mod fetid_horror;

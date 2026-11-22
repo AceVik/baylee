@@ -22,8 +22,8 @@
 //! token on the battlefield was inert whatever its name said.
 
 use baylee_cards_dsl::{
-    AbilityDef, Effect, Filter, KeywordSet, Modifier, PtCount, TokenDef, Trigger, activated, cost,
-    mana_ability, static_ability, triggered,
+    AbilityDef, Effect, Filter, KeywordSet, Modifier, PlayerRel, PtCount, TargetSpec, TokenDef,
+    Trigger, activated, cost, mana_ability, static_ability, triggered,
 };
 pub use baylee_cards_dsl::{INCUBATOR_TOKEN, PHYREXIAN_TOKEN, SPIRIT_X_X_WHITE};
 use baylee_core::color::{Color, ColorSet};
@@ -234,6 +234,28 @@ pub static ELEMENTAL_X_X_GREEN_WHITE: TokenDef = TokenDef {
     abilities: POWER_IS_CREATURES_YOU_CONTROL,
     // 2XM #20, Voice of Resurgence's own set.
     scryfall_id: "8676704a-419e-4a00-a052-bca2ad34ecae",
+    ..TokenDef::DEFAULT
+};
+
+const PHOENIX_IN_YOUR_GRAVEYARD: TargetSpec =
+    TargetSpec::CardInGraveyard(&Filter::HasSubtype(creature::PHOENIX), PlayerRel::You);
+
+/// Everquill Phoenix's Feather. The upstream token script adds a tap cost.
+pub static FEATHER_RED_A49C2DBA7: TokenDef = TokenDef {
+    name: "Feather",
+    colors: ColorSet::from_slice(&[Color::Red]),
+    types: TypeSet::ARTIFACT,
+    abilities: &[activated!(
+        cost!("{1}", SacrificeSelf),
+        &[Effect::GraveyardToBattlefieldModified {
+            target: PHOENIX_IN_YOUR_GRAVEYARD,
+            owner_control: false,
+            tapped: true,
+            counters: None,
+            modifiers: &[],
+        }],
+        target = Some(PHOENIX_IN_YOUR_GRAVEYARD)
+    )],
     ..TokenDef::DEFAULT
 };
 

@@ -15,7 +15,7 @@ card!(
     scryfall_id = "333db3bc-98e9-4635-b1b0-a7e57ee59165",
     color_identity = ColorSet::from_slice(&[Color::Red]),
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Everquill Phoenix",
         mana_cost = mana!("{2}{R}{R}"),

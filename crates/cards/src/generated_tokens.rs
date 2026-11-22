@@ -26,8 +26,8 @@ use crate::tokens;
 pub use crate::tokens::{
     ALLY_1_1_WHITE, ANGEL_4_4_WHITE_FLYING, ARMY_0_0_BLACK, BEAST_5_5_GREEN, BIRD_1_1_WHITE_FLYING,
     BLOOD, BOAR_2_2_GREEN, BRISELA_VOICE_OF_NIGHTMARES, CLUE, CONSTRUCT_ARTIFACT_0_0,
-    ELEMENTAL_X_X_GREEN_WHITE, FOOD, GNOME_SOLDIER_WHITE_DYNAMIC, GOBLIN_SHAMAN_2_2_RED,
-    HANWEIR_THE_WRITHING_TOWNSHIP, HUMAN_SOLDIER_1_1_WHITE, ILLUSION_X_BLUE,
+    ELEMENTAL_X_X_GREEN_WHITE, FEATHER_RED_A49C2DBA7, FOOD, GNOME_SOLDIER_WHITE_DYNAMIC,
+    GOBLIN_SHAMAN_2_2_RED, HANWEIR_THE_WRITHING_TOWNSHIP, HUMAN_SOLDIER_1_1_WHITE, ILLUSION_X_BLUE,
     JACE_PLANESWALKER_BLUE, JUNK, KNIGHT_2_2_WHITE_BLUE_VIGILANCE, MAP, PHYREXIAN_GERM_0_0_BLACK,
     PHYREXIAN_MITE_1_1, PILOT_1_1_COLORLESS, POWERSTONE, SERVO_1_1, SHAPESHIFTER_1_1_CHANGELING,
     SHAPESHIFTER_2_2_BLUE_CHANGELING, SNAKE_1_1_ARTIFACT_POISON, SOLDIER_1_1_WHITE,
@@ -6140,31 +6140,6 @@ pub static ILLUSION_ARTIFACT_3_3: TokenDef = TokenDef {
     ..TokenDef::DEFAULT
 };
 
-/// red Feather.
-pub static FEATHER_RED_A49C2DBA7: TokenDef = TokenDef {
-    name: "Feather",
-    colors: ColorSet::from_slice(&[Color::Red]),
-    types: TypeSet::ARTIFACT,
-    abilities: &[activated!(
-        cost!("{1}", TapSelf, SacrificeSelf),
-        &[Effect::GraveyardToBattlefieldModified {
-            target: TargetSpec::CardInGraveyard(
-                &Filter::HasSubtype(creature::PHOENIX),
-                PlayerRel::You
-            ),
-            owner_control: false,
-            tapped: true,
-            counters: None,
-            modifiers: &[]
-        }],
-        target = Some(TargetSpec::CardInGraveyard(
-            &Filter::HasSubtype(creature::PHOENIX),
-            PlayerRel::You
-        ))
-    )],
-    ..TokenDef::DEFAULT
-};
-
 /// 1/1 green Elf Druid.
 pub static ELF_DRUID_1_1_GREEN_A550D8680: TokenDef = TokenDef {
     name: "Elf Druid",
@@ -8427,7 +8402,7 @@ pub static ALL: &[&TokenDef] = &[
     &WOLF_2_2_BLACK_GREEN_A26E23A3D,
     &INSECT_ARTIFACT_1_1_FLYING,
     &ILLUSION_ARTIFACT_3_3,
-    &FEATHER_RED_A49C2DBA7,
+    &tokens::FEATHER_RED_A49C2DBA7,
     &ELF_DRUID_1_1_GREEN_A550D8680,
     &FROG_1_1_GREEN,
     &PHYREXIAN_SAPROLING_1_1_GREEN,
@@ -8981,7 +8956,6 @@ pub static GENERATED: &[&TokenDef] = &[
     &WOLF_2_2_BLACK_GREEN_A26E23A3D,
     &INSECT_ARTIFACT_1_1_FLYING,
     &ILLUSION_ARTIFACT_3_3,
-    &FEATHER_RED_A49C2DBA7,
     &ELF_DRUID_1_1_GREEN_A550D8680,
     &FROG_1_1_GREEN,
     &PHYREXIAN_SAPROLING_1_1_GREEN,
