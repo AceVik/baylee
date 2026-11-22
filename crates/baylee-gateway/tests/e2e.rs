@@ -56,6 +56,7 @@ mod e2e_play;
 mod e2e_pool_facts;
 mod e2e_processes;
 mod e2e_protocol;
+mod e2e_ranked;
 mod e2e_record_export;
 mod e2e_registration;
 mod e2e_rematch;

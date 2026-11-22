@@ -13,6 +13,8 @@ impl Plugin for LobbyPlugin {
         crate::prefs::install(app);
         app.add_message::<bevy::window::FileDragAndDrop>();
         crate::ambience::install(app);
+        #[cfg(not(target_arch = "wasm32"))]
+        crate::rank_art::install(app);
         // A deletion waiting for its Undo goes out as the client closes.
         #[cfg(not(target_arch = "wasm32"))]
         app.add_systems(Last, decks::flush_on_exit);
@@ -32,7 +34,11 @@ impl Plugin for LobbyPlugin {
         crate::loading::install(app);
         crate::shellkit::install(app);
         header::install(app);
+        #[cfg(not(target_arch = "wasm32"))]
+        ranked_profile::install(app);
         challenges::install(app);
+        #[cfg(not(target_arch = "wasm32"))]
+        ranked::install(app);
         echoes::install(app);
         install_builder(app);
         // A `baylee:` link the lobby follows once it can (`links`): after

@@ -14,6 +14,9 @@
 //!   at 1920, three at 1180, two narrower; two on a phone, where the
 //!   toolbar is one 44-px row (M4-6).
 
+#[cfg(not(target_arch = "wasm32"))]
+pub(super) mod migration;
+
 use super::menus::{self, ShellMenu};
 use super::orders;
 use super::parts;
@@ -148,6 +151,8 @@ pub(crate) enum DecksPress {
     Undo,
     /// The builder on a new deck.
     NewDeck,
+    #[cfg(not(target_arch = "wasm32"))]
+    Migrate(migration::Action),
     /// The builder with the import dialog over it.
     Import,
     /// A house deck's cards, in a sheet.
@@ -278,6 +283,11 @@ pub(super) fn draw(
     let (sort_anchor, mut format_anchor) = toolbar(commands, panel, state, metrics, kit);
     if kit.m.frame != ShellFrame::Phone {
         format_anchor = Some(filter_strip(commands, panel, state, prefs, kit));
+    }
+
+    #[cfg(not(target_arch = "wasm32"))]
+    if ui.tab == DecksTab::Mine && state.has_central_account() {
+        migration::draw(commands, panel, state, kit);
     }
 
     // What went wrong last, in the panel: a library failure with its retry.
@@ -3298,6 +3308,8 @@ impl DecksPress {
                     );
                 }
             }
+            #[cfg(not(target_arch = "wasm32"))]
+            DecksPress::Migrate(action) => migration::press(state, mailbox, action),
             DecksPress::Import => {
                 let request = state.lobby.flush_delete();
                 dispatch(state, mailbox, request);
@@ -3597,6 +3609,20 @@ pub(super) fn flush_on_exit(mut exits: MessageReader<AppExit>, mut state: ResMut
     let Some(request) = state.lobby.flush_delete() else {
         return;
     };
+    if let LobbyRequest::DeleteDeck { deck_id } = &request
+        && state.has_central_account()
+        && let Some(handle) = state.central_handle()
+    {
+        if let Err(error) = handle.flush_deck_delete(deck_id) {
+            bevy::log::warn!(%error, "could not finish the Central deck deletion");
+        }
+        return;
+    }
+    let lang = state.lobby.lang();
+    if let Some(offline) = state.offline.as_mut() {
+        let _ = offline.perform(request, lang);
+        return;
+    }
     let token = state.lobby.token().map(str::to_string);
     let (http, _) = super::http::build(&state.gateway, token.as_deref(), &state.lang, request);
     let outcome = crate::transport::fetch_blocking(&http);

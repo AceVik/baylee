@@ -11,10 +11,11 @@ workspace = true
 
 [features]
 default = []
-client = ["dep:central-client", "dep:baylee-tower-api"]
+client = ["dep:central-client", "dep:baylee-tower-api", "dep:time", "dep:baylee-core"]
 tower-host = ["dep:baylee-tower-api", "dep:bytes", "dep:http-body-util", "dep:hyper", "dep:hyper-rustls", "dep:hyper-util", "dep:tokio"]
 
 [dependencies]
+baylee-core = { workspace = true, optional = true }
 central-api.workspace = true
 baylee-tower-api = { workspace = true, optional = true }
 central-client = { workspace = true, optional = true }
@@ -24,6 +25,7 @@ serde_json.workspace = true
 sha2.workspace = true
 ureq.workspace = true
 url.workspace = true
+time = { workspace = true, features = ["parsing"], optional = true }
 uuid.workspace = true
 zeroize.workspace = true
 bytes = { workspace = true, optional = true }

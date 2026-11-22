@@ -3,6 +3,7 @@
 //! answers, the session check) stays there.
 
 mod catalog;
+pub(super) mod deck_export;
 mod deck_lines;
 mod decks;
 mod info;
@@ -19,6 +20,7 @@ pub(crate) mod seat_socket;
 mod settings;
 pub(crate) mod signin;
 mod stats;
+mod submitted_deck;
 mod table_view;
 mod tables;
 mod terms;

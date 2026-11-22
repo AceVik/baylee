@@ -962,3 +962,4 @@ CardOwnGames =
 
 # The same line before any game was played.
 CardNoGames = No games played yet
+PlayerProfile = Player profile

@@ -4,6 +4,19 @@ use std::io::Read as _;
 use zeroize::Zeroize;
 
 #[cfg(feature = "client")]
+#[path = "gateway/deck_import.rs"]
+mod deck_import;
+
+#[cfg(feature = "client")]
+#[path = "gateway/published_deck.rs"]
+mod published_deck;
+#[cfg(feature = "client")]
+#[path = "gateway/ranked.rs"]
+mod ranked;
+#[cfg(feature = "client")]
+pub use ranked::{RankedDeck, RankedSeat};
+
+#[cfg(feature = "client")]
 #[path = "gateway/tower.rs"]
 mod tower;
 #[cfg(feature = "client")]

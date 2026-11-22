@@ -36,6 +36,8 @@ use uuid::Uuid;
 
 #[path = "schema/challenges.rs"]
 mod challenges;
+#[path = "schema/ranked.rs"]
+mod ranked;
 
 /// A database to run against, and the schema to run in.
 struct Sandbox {

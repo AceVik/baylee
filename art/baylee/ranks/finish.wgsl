@@ -37,7 +37,7 @@ fn srgb(c: vec3<f32>) -> vec3<f32> {
 
 // The front card and the two fanned cards catch light on different planes.
 // A helm curves symmetrically away from its polished central ridge.
-fn light_path(uv: vec2<f32>) -> f32 {
+fn light_path(fx: Finish, uv: vec2<f32>) -> f32 {
     let x = uv.x - 0.5;
     if fx.deck == 1u {
         let side = smoothstep(0.13, 0.25, abs(x)) * sign(x);
@@ -46,7 +46,7 @@ fn light_path(uv: vec2<f32>) -> f32 {
     return 0.78 * uv.x + 0.26 * uv.y + 0.70 * x*x;
 }
 
-fn finish_light(uv: vec2<f32>, c: vec3<f32>, path: f32, tone: f32) -> vec3<f32> {
+fn finish_light(fx: Finish, uv: vec2<f32>, c: vec3<f32>, path: f32, tone: f32) -> vec3<f32> {
     let t = fx.phase;
     let relief = smoothstep(0.18, 0.71, tone);
     let blue = smoothstep(0.03, 0.32, c.b - c.r);
@@ -106,7 +106,7 @@ fn finish_light(uv: vec2<f32>, c: vec3<f32>, path: f32, tone: f32) -> vec3<f32> 
     }
 }
 
-fn podium_light(uv: vec2<f32>, c: vec3<f32>) -> vec3<f32> {
+fn podium_light(fx: Finish, uv: vec2<f32>, c: vec3<f32>) -> vec3<f32> {
     // Centers measured after the paintings have been trimmed to the game canvas.
     let brow = vec2<f32>(0.50, select(0.427, 0.390, fx.place == 3u));
     let p = uv - brow;
@@ -141,22 +141,28 @@ fn podium_light(uv: vec2<f32>, c: vec3<f32>) -> vec3<f32> {
     }
 }
 
-@fragment fn fs(in: Vertex) -> @location(0) vec4<f32> {
-    let src = textureSample(art, art_sampler, in.uv);
-    if fx.enabled == 0u || src.a == 0.0 {return src;}
-    let uv = in.uv;
-    let path = light_path(uv);
+// Both the standalone sRGB gallery and the linear Bevy UI call this finish.
+fn finished_linear(fx: Finish, src: vec4<f32>, original: vec4<f32>, uv: vec2<f32>) -> vec4<f32> {
+    if fx.enabled == 0u || src.a == 0.0 {return original;}
+    let path = light_path(fx,uv);
     let tone = dot(src.rgb, vec3<f32>(0.2126,0.7152,0.0722));
-    var light = finish_light(uv,src.rgb,path,tone);
-    if fx.tier == 10u && fx.deck == 0u {light += podium_light(uv,src.rgb);}
+    var light = finish_light(fx,uv,src.rgb,path,tone);
+    if fx.tier == 10u && fx.deck == 0u {light += podium_light(fx,uv,src.rgb);}
     if fx.division > 0u {
         // Keep the Roman numeral and its enamel bed exactly as painted.
-        if abs(uv.x-0.5) < 0.112 && uv.y > 0.79 && uv.y < 0.907 {return src;}
+        if abs(uv.x-0.5) < 0.112 && uv.y > 0.79 && uv.y < 0.907 {return original;}
         let clasp = smoothstep(0.75,0.81,uv.y)*(1.0-smoothstep(0.19,0.26,abs(uv.x-0.5)));
         let phase = select(fx.phase,0.46,fx.tier < 2u);
         light += vec3<f32>(1.0,0.86,0.66)*0.025*f32(fx.division)*clasp*band(path,phase,0.14)*tone;
     }
     // Dark recesses, including the black visor, retain depth.
-    let result = clamp(linear(src.rgb) + light*smoothstep(0.035,0.30,tone),vec3<f32>(0.0),vec3<f32>(1.0));
-    return vec4<f32>(srgb(result),src.a);
+    let result = clamp(original.rgb + light*smoothstep(0.035,0.30,tone),vec3<f32>(0.0),vec3<f32>(1.0));
+    return vec4<f32>(result,src.a);
+}
+
+@fragment fn fs(in: Vertex) -> @location(0) vec4<f32> {
+    let src = textureSample(art, art_sampler, in.uv);
+    if fx.enabled == 0u || src.a == 0.0 {return src;}
+    let result = finished_linear(fx,src,vec4<f32>(linear(src.rgb),src.a),in.uv);
+    return vec4<f32>(srgb(result.rgb),result.a);
 }

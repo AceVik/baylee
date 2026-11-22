@@ -136,6 +136,8 @@ pub struct EngineRunner<
 > {
     /// The game this process was started for.
     game_id: String,
+    /// Private execution policy from the assigned gateway preset.
+    ranked_duel: bool,
     /// Set by `GameSetup`; every other frame is ignored until then.
     session: Option<Session<D, R>>,
     /// Which seats have a live socket. The clock only runs for a seat that
@@ -201,6 +203,7 @@ impl<D: LoopDetection, R: SessionRegistry, T: crate::recording::Transport> Defau
     fn default() -> Self {
         Self {
             game_id: String::new(),
+            ranked_duel: false,
             session: None,
             attached: Vec::new(),
             spectators: 0,

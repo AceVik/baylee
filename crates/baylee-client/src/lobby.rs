@@ -48,6 +48,8 @@ use crate::{DuelCommand, DuelPhase, InstalledHost};
 
 #[cfg(not(target_arch = "wasm32"))]
 pub(crate) mod central;
+#[cfg(not(target_arch = "wasm32"))]
+pub(crate) mod ranked_profile;
 
 /// The ground the lobby sits on — dark enough that the felt never flashes
 /// through on the way into a duel.
@@ -143,6 +145,8 @@ pub struct LobbyState {
     /// Whether the chosen gateway mirrors card art, as its `/auth/config`
     /// said. Used only while signed in there (`systems::art_follows_the_session`).
     pub(crate) art_cache: bool,
+    /// Gateway selection whose auth config explicitly accepts a frozen account deck.
+    submitted_decks_epoch: Option<u64>,
     /// The language the card pool is asked for, from the same setting the
     /// duel reads card text in — a builder in English over a table in German
     /// would be the same card under two names.
@@ -204,8 +208,7 @@ pub struct LobbyState {
     /// eventually grants is marked local so the shell installs an in-process
     /// engine rather than dialling a socket.
     pub(crate) offline: Option<offline::Offline>,
-    /// Local deck store used when signed in to Baylee Central before a gateway
-    /// is selected, so Decks and the Deckbuilder work immediately in the lobby.
+    /// Bundled card catalogue and public starters before choosing a gateway.
     pub(crate) local_decks: Option<offline::Offline>,
     /// The header popover that is open (WP0b-3).
     pub(crate) header_menu: Option<header::HeaderMenu>,
@@ -254,11 +257,17 @@ pub struct LobbyState {
     pub(crate) menu: Option<menus::ShellMenu>,
     /// The Decks screen's own choices (WP3).
     pub(crate) decks: decks::DecksUi,
+    #[cfg(not(target_arch = "wasm32"))]
+    deck_import: decks::migration::Ui,
     /// The Play screen's own choices and sheets (WP2).
     pub(crate) play: play::PlayUi,
     /// The Replays tab, and a replay being opened.
     pub(crate) replays: replays::ReplaysUi,
     pub(crate) challenges: challenges::Ui,
+    #[cfg(not(target_arch = "wasm32"))]
+    pub(crate) ranked: ranked::Ui,
+    #[cfg(not(target_arch = "wasm32"))]
+    pub(crate) ranked_net: ranked::native::Worker,
     pub(crate) echoes: echoes::Ui,
     /// The Undo the toast lane offers (S-10).
     pub(crate) undo: Option<decks::Undo>,
@@ -372,6 +381,8 @@ pub(crate) enum Hub {
     /// Watching games again (desktop only, `replays::SHOWN`).
     Replays,
     Challenges,
+    #[cfg(not(target_arch = "wasm32"))]
+    Ranked,
 }
 
 impl LobbyState {
@@ -560,6 +571,7 @@ impl LobbyState {
             website_code: None,
             community_dialog: None,
             art_cache: false,
+            submitted_decks_epoch: None,
             gateway_selected: false,
             left_central: LeftCentral::No,
             gateway_epoch: 0,
@@ -613,9 +625,15 @@ impl LobbyState {
             settings_view: SettingsView::default(),
             menu: None,
             decks: decks::DecksUi::default(),
+            #[cfg(not(target_arch = "wasm32"))]
+            deck_import: decks::migration::Ui::default(),
             play: play::PlayUi::default(),
             replays: replays::ReplaysUi::default(),
             challenges: challenges::Ui::default(),
+            #[cfg(not(target_arch = "wasm32"))]
+            ranked: ranked::Ui::default(),
+            #[cfg(not(target_arch = "wasm32"))]
+            ranked_net: ranked::native::Worker::default(),
             echoes: echoes::Ui::default(),
             undo: None,
             room_away: false,
@@ -795,7 +813,17 @@ impl LobbyState {
 
     /// Whether a deck save is out to this gateway.
     pub(crate) fn deck_save_out(&self) -> bool {
-        self.deck_saves.busy(self.gateway_epoch)
+        self.deck_saves.busy(self.deck_epoch())
+    }
+
+    fn deck_epoch(&self) -> u64 {
+        #[cfg(not(target_arch = "wasm32"))]
+        if self.has_central_account()
+            && let Some(handle) = self.central_handle()
+        {
+            return handle.library_epoch();
+        }
+        self.gateway_epoch
     }
 
     /// Signed in to Baylee Central without an active gateway session.
@@ -862,7 +890,7 @@ impl LobbyState {
     /// Whether gateway-stored deck version history (`GET /decks/{id}/history`) is available.
     #[must_use]
     pub(crate) fn can_use_deck_history(&self) -> bool {
-        self.lobby.can_use_deck_history()
+        self.has_central_account() || self.lobby.can_use_deck_history()
     }
 
     /// Whether gateway banlists (`GET /banlists`) are available.
@@ -872,33 +900,11 @@ impl LobbyState {
     }
 
     /// Transitions the lobby state machine to [`Screen::Table`] for a Central
-    /// session before a gateway is selected, loading local decks.
+    /// session before a gateway is selected, reading its encrypted library.
     fn ensure_central_lobby(&mut self, mailbox: &Mailbox) {
         if self.central_without_gateway() && matches!(self.lobby.screen(), Screen::SignIn { .. }) {
-            self.local_decks.get_or_insert_with(offline::Offline::load);
-            let lang = self.lobby.lang();
-            let mut request = self.lobby.enter_central();
-            while let Some(req) = request {
-                if let Some(local) = self.local_decks.as_mut() {
-                    let event = local.perform(req, lang);
-                    request = self.lobby.apply(event);
-                } else {
-                    http::dispatch(self, mailbox, Some(req));
-                    break;
-                }
-            }
-            if self.lobby.decks().is_empty()
-                && self.lobby.library().house.is_empty()
-                && let Some(req) = self.lobby.browse_house()
-            {
-                if let Some(local) = self.local_decks.as_mut() {
-                    let event = local.perform(req, lang);
-                    let next = self.lobby.apply(event);
-                    http::dispatch(self, mailbox, next);
-                } else {
-                    http::dispatch(self, mailbox, Some(req));
-                }
-            }
+            let request = self.lobby.enter_central();
+            http::dispatch(self, mailbox, request);
         }
     }
 }
@@ -941,6 +947,12 @@ enum Reply {
     /// pairing lives in Central's state and ends with it.
     #[cfg(not(target_arch = "wasm32"))]
     Pairing(u64, central::pairing::News),
+    #[cfg(not(target_arch = "wasm32"))]
+    LibrarySession(central::Handle, Box<Reply>),
+    #[cfg(not(target_arch = "wasm32"))]
+    PlayDeck(Box<http::submitted::Prepared>),
+    #[cfg(not(target_arch = "wasm32"))]
+    DeckImport(decks::migration::Update),
     /// The gateway refused to renew the bearer: the gateway token may still
     /// carry the session on.
     BearerLost,
@@ -960,6 +972,7 @@ enum Reply {
     Registration {
         registration: Registration,
         art_cache: bool,
+        submitted_decks: bool,
         /// Whether it takes guests (#269).
         guests: bool,
         /// Whether it takes Baylee Central sign-ins; a native client then
@@ -1067,6 +1080,8 @@ mod feed;
 mod field;
 mod focusing;
 mod header;
+#[cfg(not(target_arch = "wasm32"))]
+pub(crate) mod ranked;
 #[cfg(test)]
 pub(crate) use feed::feed_url;
 pub(crate) mod front;

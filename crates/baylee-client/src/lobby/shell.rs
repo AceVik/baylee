@@ -569,6 +569,10 @@ pub(super) fn ui(
     }
 
     match state.lobby.screen() {
+        #[cfg(not(target_arch = "wasm32"))]
+        Screen::SignIn { .. } if state.hub == Hub::Ranked && !state.central_ready() => {
+            super::ranked::draw(&mut commands, root, &state, metrics, kit, &scrolled_to);
+        }
         Screen::SignIn { .. } if state.central_ready() && !state.showing_gateway_hub() => {
             table(
                 &mut commands,

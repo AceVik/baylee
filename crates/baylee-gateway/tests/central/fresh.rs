@@ -54,7 +54,7 @@ pub fn run(
     } else {
         DOCUMENT.to_vec()
     };
-    let account = register(runtime, service, endpoint, "fresh_player", &document);
+    let mut account = register(runtime, service, endpoint, "fresh_player", &document);
     assert_eq!(
         account.data().gateways,
         vec![if demo {
@@ -74,6 +74,10 @@ pub fn run(
     let (_, second) = common::http(gateway.port, "GET", "/me", Some(&again.token), "");
     let id = |body: &str| serde_json::from_str::<serde_json::Value>(body).unwrap()["id"].clone();
     assert_eq!(id(&body), id(&second), "one projection per Central account");
+    if !demo {
+        let other = register(runtime, service, endpoint, "import_observer", &document);
+        super::deck_import::run(&mut account, &other, gateway.port, origin);
+    }
     super::challenges::run(runtime, endpoint, gateway, &account, bridge, operator);
 }
 

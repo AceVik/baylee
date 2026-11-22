@@ -38,6 +38,7 @@ impl<D: LoopDetection, R: SessionRegistry, T: crate::recording::Transport> Engin
         session.mark_guests(setup.seat_guests.clone());
         session.tell_time(self.now);
         self.game_id.clone_from(&setup.game_id);
+        self.ranked_duel = preset.house_rules.ranked_duel;
         // The header is waiting from here.
         self.record_sent_at = self.now;
         self.record_waiting_since = Some(self.now);

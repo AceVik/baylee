@@ -548,6 +548,7 @@ pub(crate) async fn auth_config(State(state): State<Shared>) -> Json<AuthConfig>
         auth_mode: mode,
         art_cache: state.art.enabled(),
         deck_images: state.deck_images.enabled(),
+        submitted_decks: true,
         clocks: clock::PRESETS
             .iter()
             .map(|preset| ClockOffer {
@@ -568,6 +569,9 @@ pub(crate) async fn auth_config(State(state): State<Shared>) -> Json<AuthConfig>
     reason = "the answer's shape: each bool is a switch a client reads"
 )]
 pub(crate) struct AuthConfig {
+    /// @description Whether games can be opened, joined or configured with
+    /// a frozen library deck sent directly to the table.
+    submitted_decks: bool,
     /// @description Always `false`: nobody registers or signs in with a
     /// password at a gateway; accounts are Baylee Central's. Kept for
     /// clients from before, which offer a sign-up form only where it is

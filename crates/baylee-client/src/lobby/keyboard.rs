@@ -314,6 +314,23 @@ pub(super) fn keyboard(
         crate::seatpanel::keys(&mut keys, &codes, &mut state, clipboard.as_deref_mut());
         return;
     }
+    // A public ladder can be reached directly from sign-in. Its hidden
+    // account form must never consume text, pasted credentials or Enter.
+    #[cfg(not(target_arch = "wasm32"))]
+    if state.hub == Hub::Ranked
+        && matches!(state.lobby.screen(), Screen::Table | Screen::SignIn { .. })
+    {
+        keys.clear();
+        if codes.just_pressed(KeyCode::Escape)
+            && focus
+                .get()
+                .and_then(|e| stops.get(e).ok())
+                .is_some_and(|s| s.table == super::ranked::ORDER.name)
+        {
+            super::ranked::escape(&mut state);
+        }
+        return;
+    }
     // A deck's history, over Decks or the builder (`DESIGN` §C.3): its
     // arrows and its Esc ladder; nothing behind it hears a key.
     if state.library_open() && state.menu.is_none() && state.confirmation.is_none() {
@@ -512,6 +529,10 @@ fn shell_layer_keys(codes: &ButtonInput<KeyCode>, state: &mut ResMut<LobbyState>
 /// starting-board search only in its open drawer, a locked row's password
 /// only on the list. A field that is not drawn takes no keys.
 pub(super) fn field_drawn(state: &LobbyState) -> bool {
+    #[cfg(not(target_arch = "wasm32"))]
+    if state.hub == Hub::Ranked && !state.settings.is_open() {
+        return false;
+    }
     let sheet = state.play.sheet.is_some() || state.play.password_for.is_some();
     let room = state.lobby.awaiting().is_some() && !state.room_away;
     match state.lobby.focus() {

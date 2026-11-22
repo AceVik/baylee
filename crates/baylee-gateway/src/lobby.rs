@@ -315,6 +315,8 @@ impl RoomList {
 
 /// A lobby game.
 pub struct LobbyGame {
+    /// Present only on a two-account table admitted by Central.
+    pub(crate) ranked: Option<uuid::Uuid>,
     /// Private Central attempt; never included in room listings or game views.
     pub(crate) challenge: Option<[u8; 16]>,
     /// Public task identity, carried only in its player's authenticated seat grant.
@@ -323,7 +325,7 @@ pub struct LobbyGame {
     /// Exact artifact reserved before an engine sees the private game setup.
     pub(crate) execution: Option<baylee_protocol::execution::Identity>,
     /// The ordered writer is still committing this game's authoritative outcome.
-    pub(crate) challenge_finalizing: bool,
+    pub(crate) record_finalizing: bool,
     /// Game id (`UUIDv7`).
     pub id: String,
     /// State.
@@ -624,11 +626,12 @@ impl LobbyGame {
     pub(crate) fn blank(id: String, created_at: u64) -> Self {
         Self {
             id,
+            ranked: None,
             challenge: None,
             challenge_task: None,
             challenge_executor: None,
             execution: None,
-            challenge_finalizing: false,
+            record_finalizing: false,
             state: LobbyState::Waiting,
             host: None,
             name: String::new(),
@@ -1007,7 +1010,7 @@ impl Lobby {
         let mut matched: Vec<&LobbyGame> = self
             .games
             .values()
-            .filter(|g| g.state != LobbyState::Over)
+            .filter(|g| g.state != LobbyState::Over && g.ranked.is_none())
             .filter(|g| {
                 query.matches(
                     g,
@@ -1098,7 +1101,7 @@ impl Lobby {
     pub fn tables(&self, me: &str, names: &crate::namebook::Names) -> Vec<LobbyTable> {
         self.games
             .values()
-            .filter(|g| g.state != LobbyState::Over)
+            .filter(|g| g.state != LobbyState::Over && g.ranked.is_none())
             .map(|g| self.row(g, me, names))
             .collect()
     }

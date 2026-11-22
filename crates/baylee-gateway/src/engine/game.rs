@@ -246,18 +246,25 @@ async fn pump_engine(
                     Incoming::Msg(v1::envelope::Msg::GameEnded(ended)) => {
                         if ended.game_id != game_id { continue; }
                         tracing::info!(game_id, winners = ?ended.winners, reason = ended.reason, "game over");
+                        let ranked = state.lobby.lock().games.get(game_id).is_some_and(|g| g.ranked.is_some());
+                        let valid_duel = record.complete() && matches!(ended.winners.as_slice(), [] | [0] | [1]);
                         record.ended(crate::record::Ending {
                             winners: ended
                                 .winners
                                 .iter()
                                 .filter_map(|&w| u8::try_from(w).ok())
                                 .collect(),
-                            turn: Some(ended.turn).filter(|&t| t != 0),
+                            turn: Some(ended.turn).filter(|&t| t != 0 && (!ranked || valid_duel)),
                             reason: ended.reason.clone(),
                         });
                         if let Some(result) = crate::challenges::completion(state, game_id, &ended)
                             && let Some(stored) = record.challenge(result) {
-                            crate::challenges::finalizing(state, game_id, stored);
+                            crate::record::finalizing(state, game_id, stored);
+                        }
+                        if ranked {
+                            let (done, stored) = tokio::sync::oneshot::channel();
+                            record.flushed(done);
+                            crate::record::finalizing(state, game_id, stored);
                         }
                         end_game(state, game_id);
                         return;

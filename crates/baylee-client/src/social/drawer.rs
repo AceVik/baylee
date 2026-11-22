@@ -963,13 +963,25 @@ fn sync_door(
 /// (`shellkit::avatar`: their picture, or their monogram on their tint),
 /// held back while they are offline, with their presence as a dot at its
 /// foot.
-fn person_avatar(commands: &mut Commands, fonts: &UiFonts, name: &str, shown: Shown) -> Entity {
+fn person_avatar(
+    commands: &mut Commands,
+    fonts: &UiFonts,
+    name: &str,
+    shown: Shown,
+    guest: bool,
+) -> Entity {
     let dot_fill = super::card::presence_ink(shown);
     let disc =
         crate::shellkit::avatar::disc_as(commands, fonts, name, z(28.0), shown == Shown::Offline);
+    #[cfg(not(target_arch = "wasm32"))]
+    if guest {
+        commands
+            .entity(disc)
+            .insert(crate::lobby::ranked_profile::Guest);
+    }
     // The dot hangs past the disc's rim, so it is the disc's sibling in a
     // holder and not its child: the disc clips what it holds to its circle.
-    commands
+    let holder = commands
         .spawn((
             Node {
                 width: zpx(28.0),
@@ -996,7 +1008,18 @@ fn person_avatar(commands: &mut Commands, fonts: &UiFonts, name: &str, shown: Sh
             )],
         ))
         .add_child(disc)
-        .id()
+        .id();
+    #[cfg(not(target_arch = "wasm32"))]
+    if !guest {
+        commands.entity(holder).insert((
+            UiButton,
+            Pickable::default(),
+            crate::lobby::ranked_profile::OpenProfile(name.to_owned()),
+        ));
+    }
+    #[cfg(target_arch = "wasm32")]
+    let _ = guest;
+    holder
 }
 
 /// The words of the player's own choice.
@@ -1552,7 +1575,13 @@ fn sync_drawer(
                 Pickable::default(),
                 crate::shellkit::avatar::PersonLink::row(person.handle.clone(), person.guest),
             ));
-            let avatar = person_avatar(&mut commands, &fonts, &person.handle, Shown::Online);
+            let avatar = person_avatar(
+                &mut commands,
+                &fonts,
+                &person.handle,
+                Shown::Online,
+                person.guest,
+            );
             let name = label(
                 &mut commands,
                 &fonts,
@@ -1581,7 +1610,13 @@ fn sync_drawer(
                 Pickable::default(),
                 crate::shellkit::avatar::PersonLink::row(person.handle.clone(), person.guest),
             ));
-            let avatar = person_avatar(&mut commands, &fonts, &person.handle, Shown::Offline);
+            let avatar = person_avatar(
+                &mut commands,
+                &fonts,
+                &person.handle,
+                Shown::Offline,
+                person.guest,
+            );
             let name = label(
                 &mut commands,
                 &fonts,
@@ -1734,6 +1769,7 @@ fn sync_drawer(
                 &fonts,
                 &friend.person.handle,
                 friend.presence.status,
+                false,
             );
             let words = commands
                 .spawn((
@@ -1987,7 +2023,13 @@ fn sync_drawer(
                 Pickable::default(),
                 crate::shellkit::avatar::PersonLink::row(player.handle.clone(), player.guest),
             ));
-            let avatar = person_avatar(&mut commands, &fonts, &player.handle, Shown::Offline);
+            let avatar = person_avatar(
+                &mut commands,
+                &fonts,
+                &player.handle,
+                Shown::Offline,
+                player.guest,
+            );
             let name = label(
                 &mut commands,
                 &fonts,

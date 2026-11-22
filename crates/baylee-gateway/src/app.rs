@@ -47,6 +47,7 @@ pub(super) struct AppState {
     /// five minutes, on a budget of their own beside [`Self::limiter`].
     pub(super) sign_in_limiter: auth::RateLimiter,
     pub(super) lobby: Mutex<Lobby>,
+    pub(super) ranked: crate::ranked::Host,
     pub(super) challenge_starts: tokio::sync::Mutex<()>,
     pub(super) challenge_owner: std::sync::atomic::AtomicBool,
     /// Who may come in new (`BAYLEE_REGISTRATION`): anybody (`open`) or

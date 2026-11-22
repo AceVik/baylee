@@ -1058,6 +1058,7 @@ fn issue_187_no_account_request_without_an_explicit_gateway() {
             Box::new(Reply::Registration {
                 registration: Registration::Open,
                 art_cache: false,
+                submitted_decks: false,
                 guests: false,
                 central: false,
                 guests_only: false,

@@ -533,6 +533,7 @@ pub(crate) fn deck_routes() -> Router<Shared> {
     Router::new()
         .route("/decks", get(list_decks).post(create_deck))
         .route("/decks/shared", get(list_shared_decks))
+        .route("/decks/private-export", get(super::deck_export::read))
         .route("/cards/blocked", get(blocked_cards))
         .route(
             "/decks/{id}",

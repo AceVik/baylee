@@ -646,6 +646,15 @@ AccountPasswordInvalid = Choose a password with 8–256 characters, different fr
 
 # A library reply was not a valid response.
 LibraryReadFailed = The library response could not be read. Please try again.
+GatewayDeckSubmissionUnavailable = This gateway cannot accept account decks. Choose another gateway or ask its operator to update it.
+DeckMigrateOpen = Import saved decks
+DeckMigrateDevice = From this device
+DeckMigrateGateway = From the selected gateway
+DeckMigrateHelp = Copied to Central. The originals remain available.
+# Arguments: scanned, imported
+DeckMigrateProgress = Checked { $scanned } · Imported { $imported }
+DeckMigrateFailed = Import paused. Check the source and connection, then retry. Saved decks stay in your collection.
+DeckMigrateDone = Import complete
 
 # Library and front-door interface.
 WelcomeTitle = Your next game starts here.
@@ -10764,3 +10773,90 @@ EchoesRewardDuplicateShort = Owned · +{ $gold }g
 # Arguments: count
 EchoesRewardViewDeck = View deck ({ $count })
 EchoesRewardCurveLabel = Mana curve
+
+RankPromotionDivision = Division promotion
+RankPromotionLeague = League promotion
+RankPromotionElite = Elite rank earned
+RankedPlayerProfile = Player profile
+ProfileReadAgain = Refresh profile
+ProfileReadFailed = Central could not refresh this profile.
+ProfileNoPublicHandle = Public standings appear here once your account has a public name and tag.
+ProfileRankedAwards = Ranked honours
+ProfileNoAwards = No honours earned yet.
+ProfilePeak = Personal best
+ProfileSeasonFinish = Season finish
+ProfileDeck = Best deck
+ProfilePlayer = Player
+ProfileSeason = Season
+ProfileCareer = Career
+# Arguments: period, games, wins, losses, draws, rate
+ProfileResults = { $period } · { $games } games · { $wins } W / { $losses } L / { $draws } D · { $rate } wins
+# Arguments: rank
+ProfileNext = Next rank · { $rank }
+ProfileTrophies = My Tower and challenge medals
+ProfileAwardsFailed = Some medals could not be refreshed.
+
+
+# Central's competitive one-on-one ladders.
+RankedTitle = Ranked play
+RankedBoard = Leaderboards
+RankedQueue = Find a ranked opponent
+RankedPlayers = Players
+RankedDecks = Decks
+RankedAllDivisions = All divisions
+RankedChosenDeck = Your deck
+RankedStart = Find opponent
+RankedCancel = Leave queue
+RankedRestore = Restore deck
+RankedSignIn = Sign in with Baylee Central to enter the ranked queue.
+RankedConnect = Choose a home gateway to enter the ranked queue.
+RankedBoardEmpty = No standings in this group yet.
+RankedBoardFailed = Central could not refresh this leaderboard. Try Refresh.
+RankedNoPage = No further page available
+RankedUnnamed = Unnamed player
+RankedNoDeck = Save a legal deck in this format in your deck library.
+RankedJoining = Confirming your deck with Central…
+RankedRecover = Select the deck you originally queued with to reclaim your seat.
+RankedServiceError = Could not reach the ranked service. Retry when the connection returns.
+RankedBusy = The ranked service is busy. Try again shortly.
+RankedRejected = Central could not accept this request. Check your deck and try again.
+RankedDeckChanged = Your deck or queue entry changed. Refresh and select your deck again.
+RankedTerms = Accept the current Central terms to play ranked.
+RankedUpdate = Update your client to play ranked.
+RankedWon = Victory
+RankedLost = Defeat
+RankedDrawn = Draw
+RankedPlacementHelp = Complete 10 placement games to earn your first league. Each format tracks you and each deck separately.
+RankedUnranked = Unranked
+RankedPaper = Paper
+RankedWood = Wood
+RankedIron = Iron
+RankedBronze = Bronze
+RankedSilver = Silver
+RankedGold = Gold
+RankedPlatinum = Platinum
+RankedDiamond = Diamond
+RankedMaster = Master
+RankedGrandmaster = Grandmaster
+RankedChampion = Champion
+# Arguments: elapsed
+RankedElapsed = Waiting { $elapsed }
+# Arguments: format
+RankedSearching = Searching for a { $format } opponent
+# Arguments: format
+RankedAssigned = { $format } opponent found. Connecting to the match…
+# Arguments: format, result, delta, elo
+RankedReceipt = { $format } · { $result } · { $delta } Elo ({ $elo })
+# Arguments: wins, losses, draws
+RankedRecord = { $wins } W · { $losses } L · { $draws } D
+# Arguments: elo
+RankedElo = { $elo } Elo
+# Arguments: number
+RankedPage = Page { $number }
+# Arguments: number
+RankedPlacements = { $number }/10 placements
+# Arguments: format
+RankedPublicHelp = In { $format }, your player and deck standings are public. Other players and spectators cannot inspect the submitted deck list.
+# Arguments: delta, elo, rank
+RankedDeckResult = Deck · { $delta } Elo ({ $elo }) · { $rank }
+RankedResume = Return to ranked match

@@ -149,6 +149,15 @@ impl<D: LoopDetection, R: SessionRegistry, T: crate::recording::Transport> Engin
             }
         }
         self.attached.retain(|s| *s != seat);
+        if self.ranked_duel && detached.left && !self.ended {
+            if self.curtain.is_some() {
+                return self.closed(
+                    "A ranked player left before play began.",
+                    "ranked preparation cancelled",
+                );
+            }
+            return self.forfeit_ranked(PlayerId::new(seat));
+        }
         if let Some(barrier) = self.curtain.as_mut() {
             barrier.ready = barrier.ready.iter().filter(|p| p.get() != seat).collect();
             self.enter_at = None;
@@ -233,6 +242,12 @@ impl<D: LoopDetection, R: SessionRegistry, T: crate::recording::Transport> Engin
         if self.ended || self.another_player_here(session, None) {
             return Vec::new();
         }
+        if self.ranked_duel {
+            return self.closed(
+                "Both ranked players disconnected.",
+                "ranked table abandoned",
+            );
+        }
         if session.is_challenge() {
             return self.closed(
                 "challenge connection expired",
@@ -247,6 +262,21 @@ impl<D: LoopDetection, R: SessionRegistry, T: crate::recording::Transport> Engin
         for seat in away {
             routed.extend(session.concede_for_absent(seat).unwrap_or_default());
         }
+        let mut out = self.route(&routed);
+        out.extend(self.ending());
+        out
+    }
+
+    /// Let the rules engine settle a ranked concession, including the record and
+    /// the normal game-over view for the remaining player.
+    pub(crate) fn forfeit_ranked(&mut self, seat: PlayerId) -> Vec<Envelope> {
+        let Some(routed) = self
+            .session
+            .as_mut()
+            .and_then(|s| s.concede_for_absent(seat))
+        else {
+            return Vec::new();
+        };
         let mut out = self.route(&routed);
         out.extend(self.ending());
         out

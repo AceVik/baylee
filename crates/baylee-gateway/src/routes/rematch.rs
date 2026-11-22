@@ -76,7 +76,12 @@ pub(crate) async fn rematch(
             LobbyState::Over => Some(
                 game.seats
                     .iter()
-                    .map(|s| s.deck.as_ref().map(|d| d.id.clone()))
+                    .map(|s| {
+                        s.deck
+                            .as_ref()
+                            .filter(|d| d.kind != "submitted")
+                            .map(|d| d.id.clone())
+                    })
                     .collect(),
             ),
             // The room itself. Both ends address the same rematch, because
@@ -175,6 +180,12 @@ fn may_rematch(game: &LobbyGame, account: &str) -> Result<(), (StatusCode, Json<
         .any(|seat| seat.account_id.as_deref() == Some(account))
     {
         return Err(err(StatusCode::FORBIDDEN, "you were not at that table"));
+    }
+    if game.ranked.is_some() {
+        return Err(err(
+            StatusCode::CONFLICT,
+            "join the ranked queue to play again",
+        ));
     }
     if game.challenge.is_some() {
         return Err(err(

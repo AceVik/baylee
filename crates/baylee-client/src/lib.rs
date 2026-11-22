@@ -103,6 +103,8 @@ pub mod platemat;
 pub mod portraits;
 pub mod prefs;
 pub mod quality;
+#[cfg(not(target_arch = "wasm32"))]
+pub(crate) mod rank_art;
 pub(crate) mod records;
 pub mod replay;
 pub mod report;

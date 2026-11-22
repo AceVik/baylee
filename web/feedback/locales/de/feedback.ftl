@@ -689,6 +689,7 @@ central-disabled = Gesperrt
 central-allows = Erlaubt
 central-sso = Anmeldung
 central-listing = Listeneintrag
+central-ranked = Ranglistenspiele ausrichten
 central-expires = Gültig bis
 central-pendingHint = Bis ein Admin von Baylee Central das Gateway freigibt, steht es nicht in der öffentlichen Liste. Sein Token meldet Spieler aber schon an.
 central-paste = Token einfügen

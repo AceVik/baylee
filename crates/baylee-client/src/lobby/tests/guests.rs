@@ -38,6 +38,7 @@ fn welcoming() -> App {
             Box::new(Reply::Registration {
                 registration: Registration::Open,
                 art_cache: false,
+                submitted_decks: false,
                 guests: true,
                 central: false,
                 guests_only: false,

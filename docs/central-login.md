@@ -755,7 +755,7 @@ operator file: its owner registers the gateway's origin on baylee.app
 of Central approves the gateway for the public list only (a token signs
 players in while the gateway awaits that, and not once it is disabled) (baylee-central `docs/gateway-registry.md`
 §"Gateway tokens"): named, scoped (`sso` signs players in, `listing` keeps the
-directory entry), expiring within a year, revocable, shown once, stored at
+directory entry, `ranked` authorizes ranked host operations), expiring within a year, revocable, shown once, stored at
 Central as its digest. An admin pastes it into the gateway's console
 (`/admin/central`, through the feedback service's UI:
 `docs/protocol.md` §"Linking the gateway to Baylee Central").
@@ -782,6 +782,11 @@ Central as its digest. An admin pastes it into the gateway's console
   name when unset or refused) and its own version, on its origin.
 - `BAYLEE_CENTRAL_ENDPOINT` (`live` unless a numeric-loopback development
   origin) names where a pasted token talks to.
+- A ranked game host needs `sso` for its two players and `ranked` for host
+  admission and result delivery. A Central administrator explicitly verifies the
+  gateway for ranked play. Central checks that verification on every ranked
+  host operation. The competitive loop engine and a populated legality catalog
+  must be available before the gateway advertises game capacity.
 - `BAYLEE_CENTRAL_CONFIG_FILE` takes precedence: the console shows a link
   from it and cannot change it (`409`). The official gateway keeps its
   bridge file.

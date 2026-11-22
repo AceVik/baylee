@@ -24,6 +24,7 @@ baylee-cards-base.workspace = true
 # Serde and nothing else, so the engine never sees it through here.
 baylee-cardtext.workspace = true
 serde.workspace = true
+sha2.workspace = true
 uuid.workspace = true
 
 [dev-dependencies]

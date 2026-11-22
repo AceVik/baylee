@@ -609,6 +609,7 @@ export const KEYS = [
   "central.allows",
   "central.sso",
   "central.listing",
+  "central.ranked",
   "central.expires",
   "central.pendingHint",
   "central.paste",

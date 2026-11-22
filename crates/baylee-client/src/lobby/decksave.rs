@@ -114,6 +114,11 @@ fn read_save(lang: Lang, result: &ehttp::Result<ehttp::Response>) -> Vec<Reply> 
 /// Sends a save the line let out, its answer coming back through the
 /// mailbox.
 fn send_save(state: &LobbyState, mailbox: &Mailbox, save: &DeckSave) {
+    #[cfg(not(target_arch = "wasm32"))]
+    if state.has_central_account() {
+        super::central::decks::autosave(state, mailbox, save);
+        return;
+    }
     let Some(token) = state.lobby.token() else {
         return;
     };
@@ -272,11 +277,11 @@ pub(crate) fn auto_save_deck(state: &mut LobbyState, mailbox: &Mailbox) {
     let Some(request) = deck.save() else {
         return;
     };
-    if state.offline.is_some() || state.central_without_gateway() {
+    if state.offline.is_some() {
         save_on_the_device(state, request);
         return;
     }
-    if state.gateway.is_empty() || state.lobby.token().is_none() {
+    if !state.has_central_account() && (state.gateway.is_empty() || state.lobby.token().is_none()) {
         return;
     }
     let save = DeckSave {
@@ -285,7 +290,8 @@ pub(crate) fn auto_save_deck(state: &mut LobbyState, mailbox: &Mailbox) {
         format: deck.format().to_string(),
         versioned: !deck.saves_in_place(),
     };
-    if let Some(now) = state.deck_saves.offer(save, state.gateway_epoch) {
+    let epoch = state.deck_epoch();
+    if let Some(now) = state.deck_saves.offer(save, epoch) {
         send_save(state, mailbox, &now);
     }
 }

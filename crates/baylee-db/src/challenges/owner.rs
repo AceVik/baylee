@@ -11,6 +11,17 @@ impl Owner {
     /// # Errors
     /// Database connectivity or lock failure.
     pub async fn acquire(db: &DatabaseConnection) -> Result<Option<Self>, DbErr> {
+        Self::scope(db, "/baylee/challenges/v1").await
+    }
+
+    /// Try to own ranked launches and orphan recovery for this schema.
+    /// # Errors
+    /// Database connectivity or lock failure.
+    pub async fn acquire_ranked(db: &DatabaseConnection) -> Result<Option<Self>, DbErr> {
+        Self::scope(db, "/baylee/ranked/v1").await
+    }
+
+    async fn scope(db: &DatabaseConnection, scope: &str) -> Result<Option<Self>, DbErr> {
         // Keep the same TLS, credentials and URL-configured search_path without
         // serializing them. A long-lived pool checkout would starve ordinary
         // requests when BAYLEE_DB_POOL is small, even while this owner is idle.
@@ -21,8 +32,8 @@ impl Owner {
             .await
             .map_err(database_error)?;
         let owned: bool = sqlx::query_scalar(
-            "SELECT pg_try_advisory_lock(hashtext(current_database()), hashtext(current_schema() || '/baylee/challenges/v1'))",
-        ).fetch_one(&mut connection).await.map_err(database_error)?;
+            "SELECT pg_try_advisory_lock(hashtext(current_database()), hashtext(current_schema() || $1))",
+        ).bind(scope).fetch_one(&mut connection).await.map_err(database_error)?;
         if owned {
             Ok(Some(Self(connection)))
         } else {

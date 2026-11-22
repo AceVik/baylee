@@ -49,6 +49,8 @@ pub struct TabOrder {
 
 /// Every table the kit knows, so a stop's table name finds its order.
 pub const TABLES: &[&TabOrder] = &[
+    #[cfg(not(target_arch = "wasm32"))]
+    &crate::lobby::ranked_profile::ORDER,
     &super::overlay::OVERLAY_ORDER,
     &crate::lobby::front::keys::GATEWAY,
     &crate::lobby::front::keys::SIGN_IN,
@@ -62,6 +64,8 @@ pub const TABLES: &[&TabOrder] = &[
     &crate::settingsui::keys::PROFILE_SHEET,
     // The lobby's screens and sheets (WP2, WP3; `lobby::orders`).
     &crate::lobby::orders::PLAY,
+    #[cfg(not(target_arch = "wasm32"))]
+    &crate::lobby::ranked::ORDER,
     &crate::lobby::orders::DECKS,
     &crate::lobby::orders::CHALLENGES,
     &crate::lobby::orders::CHALLENGE_CONFIRM,

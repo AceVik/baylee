@@ -26,6 +26,8 @@ pub(crate) struct RowMenu;
 #[derive(Component, Clone, Debug, PartialEq, Eq)]
 pub(crate) enum RowPress {
     Copy,
+    #[cfg(not(target_arch = "wasm32"))]
+    Profile(String),
     Whisper(String),
     AddFriend(String),
     Ignore(String),
@@ -326,6 +328,9 @@ fn clicks_on_lines(
 
 fn presses(
     mut clicks: Clicks<RowPress>,
+    #[cfg(not(target_arch = "wasm32"))] mut profile: Option<
+        ResMut<crate::lobby::ranked_profile::Page>,
+    >,
     mut host: ResMut<SocialHost>,
     mut ui: ResMut<ChatUi>,
     selected: Option<Res<Selected>>,
@@ -337,6 +342,12 @@ fn presses(
     };
     for press in clicked {
         match press {
+            #[cfg(not(target_arch = "wasm32"))]
+            RowPress::Profile(handle) => {
+                if let Some(profile) = profile.as_deref_mut() {
+                    profile.open(&handle);
+                }
+            }
             RowPress::Copy => {
                 let multi = selected.as_ref().and_then(|sel| {
                     let range = sel.range().filter(|r| r.start() < r.end())?;
@@ -448,6 +459,13 @@ fn sync(
     let scale = scale.map_or(1.0, |s| s.0);
     let mut items: Vec<(ChatPhrase, RowPress)> = vec![(ChatPhrase::CopyButton, RowPress::Copy)];
     if let LineKind::Message { from, mine, .. } = &line.kind {
+        #[cfg(not(target_arch = "wasm32"))]
+        if !from.guest {
+            items.push((
+                ChatPhrase::PlayerProfile,
+                RowPress::Profile(from.handle.clone()),
+            ));
+        }
         if *mine {
             if line.state == LineState::Failed {
                 items.push((ChatPhrase::RetryButton, RowPress::Retry));
@@ -505,6 +523,8 @@ fn spawn_row_menu_item(
 ) -> Entity {
     let (icon, danger) = match &press {
         RowPress::Copy => (glyph::LOG, false),
+        #[cfg(not(target_arch = "wasm32"))]
+        RowPress::Profile(_) => (glyph::INFO, false),
         RowPress::Whisper(_) => (glyph::CHAT, false),
         RowPress::AddFriend(_) => (glyph::PLUS, false),
         RowPress::Ignore(_) => (glyph::EYE_SLASH, false),

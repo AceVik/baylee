@@ -5,6 +5,7 @@
 
 #![allow(dead_code)] // each test binary uses its own part of this
 
+pub mod ranked;
 use super::common;
 use baylee_account::wire::{Request, Response};
 use baylee_account::{Endpoint, SignedToken, Token};
@@ -40,6 +41,8 @@ pub struct Shared {
     key: SigningKey,
     /// What it answers.
     says: Mutex<Says>,
+    ranked: Mutex<Option<ranked::Reservation>>,
+    ranked_capacity: AtomicU64,
     /// The account each first byte names.
     accounts: Mutex<HashMap<u8, uuid::Uuid>>,
     /// The revoked sessions in the order they ended: number one is first.
@@ -120,6 +123,8 @@ impl Stub {
             origin: origin_of(port),
             key: SigningKey::from_seed(&seed),
             says: Mutex::new(Says::Good),
+            ranked: Mutex::default(),
+            ranked_capacity: AtomicU64::new(0),
             accounts: Mutex::default(),
             revoked: Mutex::default(),
             gateway: Mutex::default(),
@@ -301,6 +306,10 @@ fn good_answer(line: &str, body: &[u8], shared: &Shared) -> Answer {
         return ("200 OK", "application/jwk-set+json", document);
     }
     match central_api::decode::<Request>(body) {
+        Ok(Request::RankedHost { request }) => match ranked::reply(shared, request) {
+            Some(response) => json(&Response::RankedHost { response }),
+            None => ("409 Conflict", "application/json", Vec::new()),
+        },
         Ok(Request::RegisterInvalidate { .. }) => json(&Response::Done),
         Ok(Request::GatewayRevocations { after }) => {
             let last = shared.last();

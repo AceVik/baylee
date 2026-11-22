@@ -27,13 +27,15 @@ below remain the basis for runtime card images and finishes.
 
 ## Guardrails for every change
 
-The 22 November offline league badge gallery uses original text-prompted
+The 22 November league badge gallery and desktop client use original text-prompted
 helmets and abstract card backs. Its generated paintings, Rust-made division
 clasps, procedural material shader and use of the bundled OFL fonts are recorded in the
 [art notes](../art/baylee/ranks/README.md). We rechecked the
 [Wizards Fan Content Policy and FAQ](https://company.wizards.com/en/legal/fancontentpolicy),
 including “Please respect other people’s IP.” Baylee's unofficial notice is
-in `NOTICE`. The gallery uses no third-party game artwork or card data. The
+in `NOTICE`. The client embeds the same 73 paintings. Its avatar bezels,
+placement marks and promotion light rings are original procedural drawings.
+The gallery uses no third-party game artwork or card data. The
 [Scryfall API](https://scryfall.com/docs/api) and
 [image terms](https://scryfall.com/docs/api/images) both returned HTTP 403
 during this review.

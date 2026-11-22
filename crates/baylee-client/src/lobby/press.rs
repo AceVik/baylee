@@ -40,6 +40,8 @@ pub(crate) enum Press {
     Replays(super::replays::ReplaysPress),
     /// Central's global Daily and Weekly tasks.
     Challenges(baylee_client_core::challenges::Action),
+    #[cfg(not(target_arch = "wasm32"))]
+    Ranked(super::ranked::Action),
     /// The global Tower authority's gateway-hosted expeditions.
     Echoes(super::echoes::Action),
 }
@@ -220,6 +222,8 @@ pub(super) fn run(press: Press, cx: Cx<'_, '_, '_, '_, '_>) {
         Press::Replays(press) => press.handle(cx),
         Press::Challenges(action) => super::challenges::press(action, cx),
         Press::Echoes(action) => super::echoes::press(action, cx),
+        #[cfg(not(target_arch = "wasm32"))]
+        Press::Ranked(action) => super::ranked::press(action, cx),
     }
 }
 

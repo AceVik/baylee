@@ -37,6 +37,7 @@ pub(crate) enum List {
     SettingsNav,
     /// The Replays tab's list.
     Replays,
+    Ranked,
     /// Play's deck picker (Change deck).
     DeckPicker,
     /// The Create table / Edit rules sheet, independent of the deck check.
@@ -71,6 +72,7 @@ pub(crate) struct Scrolled {
     profile_sheet: f32,
     settings_nav: f32,
     replays: f32,
+    ranked: f32,
     deck_picker: f32,
     table_rules: f32,
 }
@@ -98,6 +100,7 @@ impl Scrolled {
             List::ProfileSheet => self.profile_sheet,
             List::SettingsNav => self.settings_nav,
             List::Replays => self.replays,
+            List::Ranked => self.ranked,
             List::DeckPicker => self.deck_picker,
             List::TableRules => self.table_rules,
         }
@@ -125,6 +128,7 @@ impl Scrolled {
             List::ProfileSheet => self.profile_sheet = at,
             List::SettingsNav => self.settings_nav = at,
             List::Replays => self.replays = at,
+            List::Ranked => self.ranked = at,
             List::DeckPicker => self.deck_picker = at,
             List::TableRules => self.table_rules = at,
         }

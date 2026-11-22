@@ -64,7 +64,13 @@ cargo run --locked -- ladder > target/ladder.csv
 cargo run --locked -p baylee-rank-art -- shaders target/ladder.csv target/rangabzeichen-shader.html
 ```
 
-Die Vorschau nutzt eine RGBA8-Unorm-Textur und ein Unorm-Ausgabeziel mit sRGB-kodierten Farben und geradem Alpha. Der Shader rechnet das Licht in linearem RGB. Bei späterer Client-Anbindung mit sRGB-Hardwaredekodierung und -kodierung gehören die beiden Transferfunktionen an die jeweilige Pipelinegrenze. Die Phase ist ein normalisierter Umlauf von 0 bis 1. Der veröffentlichte Rang bestimmt Liga, Divisionsschritt und Podiumsplatz.
+Die Vorschau nutzt eine RGBA8-Unorm-Textur und ein Unorm-Ausgabeziel mit sRGB-kodierten Farben und geradem Alpha. Der Spielclient nutzt denselben Materialshader in seiner linearen Bevy-Oberfläche. Die Original-PNGs liegen im Programm und laden bei der ersten Anzeige einer Variante. Die im Bild aufgedruckte Ziffer und die Transparenz bleiben beim Beleuchten erhalten.
+
+### Profilrahmen und Platzierung
+
+Der Spielerrahmen folgt dem runden Porträt. Der Deckrahmen hat abgerundete, fast quadratische Schultern. Beide lassen die Bildmitte durchsichtig. Papier und Holz haben ein ruhendes Relief. Metallrahmen tragen gravierte Drähte und für jede erreichte Division ein weiteres Blattpaar am Fuß. Ab Gold sitzt ein Stein am oberen Rand, ab Diamant kommen Seitensteine hinzu. Die drei Champion-Spielerrahmen übernehmen Rosé, Saphirblau und Perlmutt des zugehörigen Helms. Während der Platzierung tragen Spieler einen schlichten grauen Helm und Decks zwei graue Kartenrücken mit matten Rahmen.
+
+Divisionen steigen mit einem kleinen Lichtkranz auf. Beim Ligaaufstieg kommt ein zweiter gravierter Bogen hinzu, bei Eliterängen ein Strahlenkranz. Die Karte liegt über dem Lobbyinhalt und verschiebt die Bedienelemente nicht. Reduzierte Bewegung hält die Materialphase bei 0,34 und die Aufstiegskarte in ihrer Endgröße.
 
 ## Herkunft und Reproduktion
 

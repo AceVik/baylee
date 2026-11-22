@@ -9,6 +9,8 @@ use baylee_client_core::cardsearch::Gesture;
 /// the settings standing over the table.
 #[derive(bevy::ecs::system::SystemParam)]
 pub struct KeyClaims<'w> {
+    #[cfg(not(target_arch = "wasm32"))]
+    profile: Option<Res<'w, crate::lobby::ranked_profile::Page>>,
     desk: Option<Res<'w, crate::report::ReportDesk>>,
     arrangements: Option<ResMut<'w, crate::arrangement::ArrangementFrame>>,
     stack_text: Option<ResMut<'w, crate::hud::StackTextScroll>>,
@@ -24,6 +26,10 @@ impl KeyClaims<'_> {
     /// (`lobby::table_settings`), and the `Esc` that closes them is taken
     /// off the keys before the table could hear it.
     fn held(&self) -> bool {
+        #[cfg(not(target_arch = "wasm32"))]
+        if self.profile.as_ref().is_some_and(|page| page.holds_keys()) {
+            return true;
+        }
         self.desk.as_ref().is_some_and(|desk| desk.holds_keyboard())
             || self.chat.as_ref().is_some_and(|c| c.holds_keyboard())
             || self.lobby.as_ref().is_some_and(|l| l.settings_over_table())

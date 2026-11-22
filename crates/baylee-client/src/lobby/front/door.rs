@@ -1514,6 +1514,24 @@ pub(super) fn community_row(
         ),
     );
     commands.entity(row).add_child(website);
+    #[cfg(not(target_arch = "wasm32"))]
+    {
+        let ranked = community_pill(
+            commands,
+            kit,
+            Phrase::RankedBoard.text(lang),
+            crate::hud::glyph::TROPHY,
+            tokens::GOLD,
+            WEBSITE_PILL_BG,
+            WEBSITE_PILL_HOT,
+            tokens::GOLD.with_alpha(0.55),
+            (
+                Press::Ranked(crate::lobby::ranked::Action::Open),
+                Stop::new(table, "ranked"),
+            ),
+        );
+        commands.entity(row).add_child(ranked);
+    }
     row
 }
 

@@ -73,6 +73,10 @@ pub struct HouseRules {
     /// Absent on ordinary presets and old records, preserving their wire bytes.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub challenge_policy_seed: Option<u64>,
+    /// Two-person rated table. Disconnection expires in a concession and
+    /// the house may never play a ranked chair.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub ranked_duel: bool,
     /// Per-seat opening overrides for custom modes. Empty preserves ordinary
     /// seven-card openings and the table's free-mulligan policy, including old
     /// serialized presets and replay hashes.
@@ -117,6 +121,7 @@ impl Default for HouseRules {
             divide_trample: false,
             hand_sharing: HandSharingRule::default(),
             challenge_policy_seed: None,
+            ranked_duel: false,
             opening: Vec::new(),
             supplies: Vec::new(),
             rule_pack: None,

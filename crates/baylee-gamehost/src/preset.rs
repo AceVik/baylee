@@ -84,6 +84,7 @@ pub fn from_proto(msg: &v1::GamePresetMsg) -> Result<GamePreset, String> {
         hand_sharing: baylee_core::preset::HandSharingRule::default(),
         // The public setup message never enables official challenge execution.
         challenge_policy_seed: None,
+        ranked_duel: false,
         opening: Vec::new(),
         supplies: Vec::new(),
         decision_timeout_secs: h.decision_timeout_secs,

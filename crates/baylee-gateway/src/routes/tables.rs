@@ -273,7 +273,7 @@ pub(crate) fn room_preset(
 }
 
 /// Resolves every unresolved physical printing against trusted catalog facts.
-async fn hydrate_rules(
+pub(crate) async fn hydrate_rules(
     state: &Shared,
     preset: &mut baylee_core::preset::GamePreset,
 ) -> Result<(), (StatusCode, Json<ErrorBody>)> {

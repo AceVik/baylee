@@ -126,9 +126,10 @@ async fn pass(state: &Shared) -> Result<(), ()> {
                 continue;
             }
         }
-        let active = state.lobby.lock().games.get(&game_id).is_some_and(|game| {
-            game.state == crate::LobbyState::Playing || game.challenge_finalizing
-        });
+        let active =
+            state.lobby.lock().games.get(&game_id).is_some_and(|game| {
+                game.state == crate::LobbyState::Playing || game.record_finalizing
+            });
         // A just-reserved local binding may be awaiting Claim or engine launch.
         if !active && !has_result && run.age < 120 {
             baylee_db::challenges::touch(&state.db, run.attempt)

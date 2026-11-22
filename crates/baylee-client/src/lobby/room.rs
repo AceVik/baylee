@@ -756,6 +756,16 @@ fn seat_card(
         .id();
     commands.entity(who).add_child(title);
     if let Some(handle) = person {
+        #[cfg(not(target_arch = "wasm32"))]
+        if !seat.guest {
+            commands.entity(title).insert((
+                crate::ui_button::UiButton,
+                super::ranked_profile::OpenProfile(handle.clone()),
+            ));
+            let portrait =
+                crate::shellkit::avatar::disc(commands, kit.fonts, &handle, kit.m.scaled(32.0));
+            commands.entity(line).add_child(portrait);
+        }
         commands.entity(title).insert((
             Pickable::default(),
             crate::shellkit::avatar::PersonLink::named(handle, seat.guest),

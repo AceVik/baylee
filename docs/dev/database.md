@@ -108,3 +108,13 @@ RUST_LOG=baylee_catalog=info cargo run -p baylee-catalog -- ingest   # all langu
 - The projection joins `type_names` (committed `data/type-names.tsv`, keyed on English name, never `SubtypeId`) inside its `INSERT`, each word into its language's row; no second `UPDATE`, no padded `LIKE`. `mine-types` needs a full catalog and writes only fully understood pairs; ties: most frequent form, then newest printing.
 - Migrations: `unaccent` `WITH SCHEMA public`; no unqualified `CREATE EXTENSION`/`DROP INDEX`; `information_schema` lookups filter `table_schema = current_schema()`. Two tests keep a schema behind the sandbox to catch escapes.
 - `released_at` is `date`; render it with `to_char(released_at, 'YYYY-MM-DD')`, not `::text` (sqlx pins `DateStyle` to ISO today; the SQL should not depend on the driver); `finishes`, `frame_effects`, `rarity`, `layout`, `border_color` stay `text` deliberately.
+
+## Ranked host bindings
+
+`ranked_run` maps a Central match UUID to one immutable local game UUID. The
+gateway persists the binding before asking Central to start and consumes its
+launch permission before exposing the opening. The existing complete engine
+record provides the terminal evidence for delivery. The worker reads a bounded
+batch ordered by service time and deletes acknowledged bindings. The table
+holds neither player credentials nor deck contents. Central owns the leagues,
+deck histories, seasons and rankings.

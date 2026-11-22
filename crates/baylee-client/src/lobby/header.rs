@@ -73,6 +73,8 @@ pub(crate) enum HeaderPress {
     ChatPrivacy,
     /// The account menu: open permanent Tower badges / collection.
     TowerBadges,
+    #[cfg(not(target_arch = "wasm32"))]
+    PlayerProfile,
     /// The account menu: quit / close the client.
     Quit,
 }
@@ -81,6 +83,8 @@ pub(crate) enum HeaderPress {
 /// reach (the kit's overlay, the report form).
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub(crate) enum ShellAsk {
+    #[cfg(not(target_arch = "wasm32"))]
+    PlayerProfile,
     /// Open the `?` overlay.
     Shortcuts,
     /// Open the report form.
@@ -190,11 +194,15 @@ fn active(state: &LobbyState) -> Option<usize> {
     }
     let tab = match state.lobby.screen() {
         Screen::Table => match state.hub {
+            #[cfg(not(target_arch = "wasm32"))]
+            Hub::Ranked => NavTab::Play,
             Hub::Decks => NavTab::Decks,
             Hub::Replays => NavTab::Replays,
             Hub::Play | Hub::Tables | Hub::Gateways | Hub::Challenges => NavTab::Play,
         },
         Screen::SignIn { .. } if state.central_ready() => match state.hub {
+            #[cfg(not(target_arch = "wasm32"))]
+            Hub::Ranked => NavTab::Play,
             Hub::Decks => NavTab::Decks,
             Hub::Replays => NavTab::Replays,
             Hub::Play | Hub::Tables | Hub::Gateways | Hub::Challenges => NavTab::Play,
@@ -304,6 +312,8 @@ fn brand_table(state: &LobbyState) -> &'static str {
         return super::orders::ROOM.name;
     }
     match state.hub {
+        #[cfg(not(target_arch = "wasm32"))]
+        Hub::Ranked => super::ranked::ORDER.name,
         Hub::Challenges if state.echoes.opened => super::echoes::keys::ORDER.name,
         Hub::Challenges if state.can_enter_challenges() => super::orders::CHALLENGES.name,
         Hub::Decks => super::orders::DECKS.name,
@@ -1200,6 +1210,15 @@ fn popover(commands: &mut Commands, state: &LobbyState, kit: Kit, menu: HeaderMe
         }
         HeaderMenu::Account => {
             let mut items = Vec::new();
+            #[cfg(not(target_arch = "wasm32"))]
+            if state.central_ready() {
+                items.push(MenuItem {
+                    text: Phrase::RankedPlayerProfile.text(lang),
+                    keys: None,
+                    destructive: false,
+                    action: Press::Header(HeaderPress::PlayerProfile),
+                });
+            }
             if state.can_enter_tower() {
                 items.push(MenuItem {
                     text: Phrase::EchoesCollection.text(lang),
@@ -2183,6 +2202,7 @@ pub(super) fn carry_out(
     desk: Option<ResMut<crate::report::ReportDesk>>,
     mut chat: Option<ResMut<crate::social::ChatUi>>,
     mut host: Option<ResMut<crate::social::SocialHost>>,
+    #[cfg(not(target_arch = "wasm32"))] mut profile: Option<ResMut<super::ranked_profile::Page>>,
 ) {
     if state.shell_asks.is_empty() {
         return;
@@ -2191,6 +2211,17 @@ pub(super) fn carry_out(
     let asks = std::mem::take(&mut state.bypass_change_detection().shell_asks);
     for ask in asks {
         match ask {
+            #[cfg(not(target_arch = "wasm32"))]
+            ShellAsk::PlayerProfile => {
+                if let Some(page) = profile.as_deref_mut()
+                    && let Some(handle) = state
+                        .central
+                        .as_ref()
+                        .and_then(|c| c.profile_handle.as_deref())
+                {
+                    page.open_own(handle);
+                }
+            }
             ShellAsk::Shortcuts => {
                 fired.write(crate::shellkit::keys::ShellFired(
                     baylee_client_core::shellkeys::ShellAction::Overlay,

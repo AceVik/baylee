@@ -12,6 +12,7 @@ use bevy::prelude::*;
 pub(crate) const PLAY: TabOrder = TabOrder {
     name: "play",
     stops: &[
+        "ranked",
         "tower",
         "daily",
         "weekly",
@@ -40,7 +41,17 @@ pub(crate) const PLAY: TabOrder = TabOrder {
 pub(crate) const DECKS: TabOrder = TabOrder {
     name: "decks",
     stops: &[
-        "tabs", "search", "formats", "sort", "new", "import", "tiles", "baylee",
+        "tabs",
+        "search",
+        "formats",
+        "sort",
+        "new",
+        "import",
+        "migrate",
+        "migrate-second",
+        "migrate-close",
+        "tiles",
+        "baylee",
     ],
     modal: false,
 };

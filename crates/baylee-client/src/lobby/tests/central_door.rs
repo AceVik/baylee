@@ -20,6 +20,7 @@ fn says(app: &mut App, central: bool, guests: bool) {
             Box::new(Reply::Registration {
                 registration: Registration::Open,
                 art_cache: false,
+                submitted_decks: false,
                 guests,
                 central,
                 guests_only: false,
@@ -718,6 +719,7 @@ fn turned_away_by(app: &mut App, central: bool, guests: bool) {
         Reply::Registration {
             registration: Registration::Open,
             art_cache: false,
+            submitted_decks: false,
             guests,
             central,
             guests_only: false,
@@ -830,6 +832,7 @@ fn the_guest_door_waits_for_a_refusal_and_goes_with_the_next_admission() {
         Reply::Registration {
             registration: Registration::Open,
             art_cache: false,
+            submitted_decks: false,
             guests: true,
             central: false,
             guests_only: false,

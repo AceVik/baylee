@@ -27,6 +27,8 @@ pub(super) fn stack_of(state: &LobbyState) -> ShellStack {
             return ShellStack::default();
         }
         _ if state.settings.is_open() => Context::Settings,
+        #[cfg(not(target_arch = "wasm32"))]
+        Screen::SignIn { .. } if state.hub == Hub::Ranked => Context::Play,
         Screen::SignIn { .. } if !state.central_ready() || state.showing_gateway_hub() => {
             Context::Front
         }
@@ -34,6 +36,8 @@ pub(super) fn stack_of(state: &LobbyState) -> ShellStack {
         Screen::Build => Context::Builder,
         Screen::Table if state.lobby.awaiting().is_some() && !state.room_away => Context::Room,
         Screen::Table => match state.hub {
+            #[cfg(not(target_arch = "wasm32"))]
+            Hub::Ranked => Context::Play,
             Hub::Play | Hub::Tables | Hub::Challenges => Context::Play,
             Hub::Gateways => Context::Front,
             Hub::Decks => Context::Decks,

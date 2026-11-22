@@ -7,6 +7,8 @@ mod server;
 use server::{Served, serve};
 #[path = "e2e_central/chat.rs"]
 mod chat;
+#[path = "e2e_central/private_decks.rs"]
+mod private_decks;
 #[path = "central/tower_awards.rs"]
 mod tower_awards;
 #[path = "central/tower_native/mod.rs"]
@@ -14,6 +16,8 @@ mod tower_native;
 use crate::common;
 #[path = "central/challenges.rs"]
 mod challenges;
+#[path = "central/deck_import.rs"]
+mod deck_import;
 #[path = "central/demo.rs"]
 mod demo;
 #[path = "central/fresh.rs"]
@@ -456,6 +460,7 @@ fn run(
 ) {
     // An account from before the cutover, with game data and settings.
     let old_token = common::login(gateway.port, "synthetic", "Synthetic");
+    private_decks::seed_gateway(gateway.port, &old_token);
     assert_eq!(
         common::http(
             gateway.port,
@@ -566,6 +571,7 @@ fn restored_account(
         .save(Some(serde_json::json!({"device_one":1})), None)
         .unwrap();
     let chat = chat::first_device(&mut first, origin);
+    let deck = private_decks::first_device(&mut first);
     let admitted = first.admit(origin).unwrap();
     let old_gateway_token = admitted.token.clone();
     assert_eq!(
@@ -602,6 +608,7 @@ fn restored_account(
     assert_eq!(second.data().preferences["device_one"], 1);
     assert_eq!(second.data().preferences["device_two"], 2);
     chat::second_device(&mut first, &mut second, chat);
+    private_decks::second_device(&mut first, &mut second, deck);
     let admitted = second.admit(origin).unwrap();
     let token = admitted.token.as_str();
     assert_eq!(common::http(port, "GET", "/me", Some(token), "").0, 200);

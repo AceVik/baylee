@@ -4556,6 +4556,34 @@ Everything but `/info`, the three auth calls and `/auth/config` takes
 status, and the string is written to be shown to a player as-is — the lobby
 does.
 
+**Playing a private library deck.** Opening a game, joining one and choosing
+a chair's deck accept `submitted_deck` in place of `deck_id` when
+`GET /auth/config` advertises `submitted_decks: true`. Its fields are
+`name`, `cards`, optional `format`, `sideboard`, `commanders`, `sleeve` and
+`playmat`. Card rows use the saved-deck grammar. Providing both sources
+returns 400. Empty-seat and deck-reference requests keep their existing
+meaning. The destination gateway checks row limits, commander eligibility,
+physical printings, local card blocks and its caller's ownership of every
+submitted cosmetic. The room keeps the validated snapshot. No gateway
+library row is created. Starting a room checks its current card policies
+again. A rematch reuses the snapshot played at that table.
+
+**Importing an existing gateway library.** A linked Central session can
+read `GET /decks/private-export` to migrate its own gateway rows. The first
+request has no parameters. Each page carries the signed-in Central ID, the
+local owner, deck ID, a SHA-256 generation, current head revision and one
+version's draft and timestamp. The source gateway scopes both queries to the
+authenticated owner and reads head and history in one read-only transaction.
+For another version of the same deck send `?deck=<id>&version=<last>`.
+After the head use `?after=<id>` for the next deck. A JSON null ends the scan.
+A rename or an in-place save also changes the generation. The importer
+discards partial contents on a generation conflict. One deck has at most
+50 historical versions and the head. The client validates every bounded
+page and supplies its authenticated origin for cosmetic and copy references.
+Each complete deck and its migration marker publish together to the
+encrypted account library. A retry skips previously published generations.
+The original gateway rows stay available to their owner.
+
 **A card row may be written either way a card is printed.** `1 Sheoldred` and
 `1 Sheoldred // The True Scriptures` are the same row: the first is what this
 pool calls the card, the second is Scryfall's spelling and what a deck site
@@ -6400,3 +6428,39 @@ record. A technical refusal/disconnect emits no synthetic rules result. Ordinary
 artifacts retain their previous loop; the Tower artifact uses its frozen Expert
 policy and one-step pump rather than operator foresight/pump environment settings.
 The public gateway lifecycle/seat-start path and visible client flow remain pending.
+
+## Gateway-hosted ranked duels
+
+A player keeps their original lobby and social connection. Central matches two
+accounts in one format (Standard, Highlander or Commander), chooses a currently
+verified host and returns its origin. The game connection authenticates
+separately to that origin with a gateway-specific Central admission. Only the
+selected host receives its own credential and the private deck registrations.
+
+On that host, `POST /ranked/{match_id}/play` takes its local session bearer and
+a JSON object with `format`, `cards`, `sideboard` and `commanders` in the same
+row notation as the deck shelf. Each player submits only their own frozen deck.
+The host checks legality and computes the registered deck commitment before
+asking Central to confirm the caller's account, seat, format and commitment.
+It returns `202` while waiting for the second registration. Both players retry
+the same request until it returns a normal `200` seat grant. The player then
+uses the selected host's seat ticket and game socket. An account may resume its
+own running seat on that host through `POST /lobby/games/{game}/seat`.
+
+No waiting room is exposed. The host freezes two human seats, both decks and
+the preset, binds one PostgreSQL game UUID at Central, and orders at most one
+engine. No user owns the table or can configure its rules, delegate a chair,
+or start a rematch with the ranked assignment. After both clients finish
+loading, a deliberate departure or expired decision clock concedes through
+the rules engine. A dropped connection has a reconnect window. When both
+connections are lost the host waits for recovery, then closes the abandoned
+game without awarding either seat a win.
+
+The gateway advertises eligible engine capacity to Central every 20 seconds.
+A single PostgreSQL session lock owns ranked launches and recovery in each
+gateway schema. Only a completed, authenticated engine record with a valid
+terminal turn and winner seats supplies a result. The host retries delivery
+across Central failures and gateway restarts. An interrupted launch, failed
+loading or aborted engine releases the assignment without charging either
+player a loss. The game-over view on each connected player's seat socket
+comes directly from the engine. Central publishes the resulting ratings.

@@ -517,3 +517,47 @@ fn the_frames_a_timeout_sends_say_the_clock_answered() {
         Some(HouseAnswer::Clock)
     );
 }
+
+#[test]
+fn ranked_disconnect_waits_then_scores_the_engine_concession() {
+    let mut runner = EngineRunner::new();
+    let mut preset = two_humans_window(60, 30);
+    preset.house_rules.ranked_duel = true;
+    setup(&mut runner, &preset);
+    sit_both(&mut runner);
+    detach(&mut runner, 0);
+    let expired = clock_of(&runner, 0).unwrap();
+    attach(&mut runner, 0);
+    assert!(runner.timeout(expired).is_empty());
+    detach(&mut runner, 0);
+    let expired = clock_of(&runner, 0).unwrap();
+    let frames = runner.timeout(expired);
+    let ending = frames
+        .iter()
+        .find_map(|f| match &f.msg {
+            Some(v1::envelope::Msg::GameEnded(ended)) => Some(ended),
+            _ => None,
+        })
+        .unwrap();
+    assert_eq!(ending.winners, [1]);
+    assert!(ending.turn > 0);
+}
+
+#[test]
+fn ranked_abandonment_of_both_chairs_cannot_award_the_second_seat() {
+    let mut runner = EngineRunner::new();
+    let mut preset = two_humans_window(60, 30);
+    preset.house_rules.ranked_duel = true;
+    setup(&mut runner, &preset);
+    sit_both(&mut runner);
+    detach(&mut runner, 0);
+    detach(&mut runner, 1);
+    let clock = runner
+        .clocks()
+        .into_iter()
+        .find(|c| c.what == Deadline::Hold)
+        .unwrap();
+    assert_eq!(clock.secs, 30);
+    let frames = runner.timeout(clock);
+    assert!(frames.iter().any(|f|matches!(&f.msg,Some(v1::envelope::Msg::GameEnded(end)) if end.turn == 0 && end.winners.is_empty())));
+}

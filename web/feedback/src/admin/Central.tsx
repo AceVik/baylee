@@ -40,7 +40,11 @@ function Status({ lang, link }: { lang: Lang; link: CentralLink }) {
                 [t(lang, "central.state"), <Badge key="s" tone={STATE[central.state].tone} dot>{t(lang, STATE[central.state].word)}</Badge>],
                 [
                   t(lang, "central.allows"),
-                  [central.sso ? t(lang, "central.sso") : null, central.listing ? t(lang, "central.listing") : null].filter((x) => x !== null).join(" · "),
+                  [
+                    central.sso ? t(lang, "central.sso") : null,
+                    central.listing ? t(lang, "central.listing") : null,
+                    central.ranked ? t(lang, "central.ranked") : null,
+                  ].filter((x) => x !== null).join(" · "),
                 ],
                 [t(lang, "central.expires"), formatWhen(lang, central.expires_at)],
               ] as [string, ReactNode][])),

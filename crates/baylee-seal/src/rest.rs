@@ -38,6 +38,8 @@ pub enum RestKind {
     State,
     /// A conversation's history file (`"history"`).
     History,
+    /// Per-account local recovery of an unsaved deck builder visit.
+    BuilderDraft,
 }
 
 impl RestKind {
@@ -45,6 +47,7 @@ impl RestKind {
         match self {
             Self::State => b"state",
             Self::History => b"history",
+            Self::BuilderDraft => b"builder_draft",
         }
     }
 }

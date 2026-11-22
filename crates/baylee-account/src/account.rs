@@ -9,11 +9,17 @@ use zeroize::Zeroizing;
 
 mod archive;
 mod challenges;
+mod decks;
+mod gateway_import;
+mod legacy_decks;
 mod pairing;
+mod ranked;
 mod social;
 mod tower;
 
+pub use gateway_import::GatewayDeckImport;
 pub use pairing::{PairedSession, PairingClaim};
+pub use ranked::{RankedHost, RankedPlay, ranked_read};
 pub use tower::TowerPlay;
 
 /// Restored native account. All network operations are blocking and belong on a worker.
@@ -516,6 +522,7 @@ fn from_source(
             decks: source.decks,
         }),
         chat: crate::chat::ChatArchive::default(),
+        deck_library: None,
     })
 }
 

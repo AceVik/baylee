@@ -236,6 +236,93 @@ fn assert_refused(answer: &(u16, Value), deck: &str, card: &str, reason: &str) {
     assert!(said.ends_with(&format!(": {reason}")), "{said}");
 }
 
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn private_submissions_play_without_creating_gateway_library_rows() {
+    let c = console("submitted");
+    let port = c.gw.port;
+    let _agent = attach_agent(&c.gw).await;
+    let host = login(port, "submithost", "submithost");
+    let guest = login(port, "submitguest", "submitguest");
+    assert_eq!(get(port, &host, "/auth/config").1["submitted_decks"], true);
+    let host_deck = lands("Frozen Host");
+    let guest_deck = deck_with("Frozen Guest", "Baleful Strix");
+    for (bad, status) in [
+        (
+            json!({"name":"Bad count","cards":["4000000000 Forest"]}),
+            400,
+        ),
+        (
+            json!({"name":"Bad leader","cards":["60 Forest"],"commanders":["Forest"]}),
+            400,
+        ),
+        (
+            json!({"name":"Forged print","cards":["60 Forest scryfall=00000000-0000-0000-0000-000000000001"]}),
+            400,
+        ),
+        (
+            json!({"name":"Foreign picture","cards":["60 Forest"],"sleeve":"foreign"}),
+            403,
+        ),
+    ] {
+        let answer = post(port, &host, "/lobby/games", &json!({"submitted_deck":bad}));
+        assert_eq!(answer.0, status, "{answer:?}");
+    }
+    let chosen = json!({"submitted_deck":host_deck});
+    let (status, room) = post(port, &host, "/lobby/games", &chosen);
+    assert_eq!(status, 200, "{room}");
+    let id = room["game_id"].as_str().unwrap();
+    let join = format!("/lobby/games/{id}/join");
+    let seat = format!("/lobby/games/{id}/seats/1");
+    for path in ["/lobby/games", &join, &seat] {
+        let answer = post(
+            port,
+            &guest,
+            path,
+            &json!({"deck_id":"other","submitted_deck":guest_deck}),
+        );
+        assert_eq!(answer.0, 400, "{answer:?}");
+    }
+    let (status, body) = post(port, &guest, &join, &chosen);
+    assert_eq!(status, 200, "{body}");
+    let guest_choice = json!({"submitted_deck":guest_deck});
+    let (status, body) = post(port, &guest, &seat, &guest_choice);
+    assert_eq!(status, 200, "{body}");
+    assert!(
+        !get(port, &host, "/decks")
+            .1
+            .to_string()
+            .contains("Frozen Host")
+    );
+    assert!(
+        !get(port, &guest, "/decks")
+            .1
+            .to_string()
+            .contains("Frozen Guest")
+    );
+    let ready = format!("/lobby/games/{id}/ready");
+    let (status, body) = post(port, &guest, &ready, &json!({"ready":true}));
+    assert_eq!(status, 200, "{body}");
+    let active = block(&c, card("Baleful Strix"), REASON, None);
+    let start = format!("/lobby/games/{id}/start");
+    assert_refused(
+        &post(port, &host, &start, &json!({})),
+        "Frozen Guest",
+        "Baleful Strix",
+        REASON,
+    );
+    assert_refused(
+        &post(port, &guest, &seat, &guest_choice),
+        "Frozen Guest",
+        "Baleful Strix",
+        REASON,
+    );
+    lift(&c, active["id"].as_str().unwrap());
+    let (status, body) = post(port, &guest, &ready, &json!({"ready":true}));
+    assert_eq!(status, 200, "{body}");
+    let (status, body) = post(port, &host, &start, &json!({}));
+    assert_eq!(status, 200, "{body}");
+}
+
 /// Opens a room with `deck`, for two chairs, and returns its id.
 fn open_room(port: u16, host: &str, deck: &str) -> String {
     let (status, body) = post(

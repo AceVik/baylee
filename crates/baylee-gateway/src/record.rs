@@ -25,6 +25,22 @@ use baylee_protocol::v1;
 use parking_lot::Mutex;
 use tokio::sync::{mpsc, oneshot};
 
+/// Keep rated-game reconciliation from voiding a game while its final record
+/// and result are still being written. A failed writer drops the sender.
+pub(crate) fn finalizing(state: &crate::Shared, game_id: &str, stored: oneshot::Receiver<()>) {
+    if let Some(game) = state.lobby.lock().games.get_mut(game_id) {
+        game.record_finalizing = true;
+    }
+    let state = state.clone();
+    let game_id = game_id.to_owned();
+    tokio::spawn(async move {
+        let _ = stored.await;
+        if let Some(game) = state.lobby.lock().games.get_mut(&game_id) {
+            game.record_finalizing = false;
+        }
+    });
+}
+
 /// The most one game's record may take in the database, compressed. A
 /// two-seat game of the acceptance decks sends 17–29 KB; this is a bound on
 /// an engine that misbehaves, not on a long game.
@@ -248,13 +264,18 @@ impl Sink {
         let _ = self.tx.send(Entry::Ended(ending));
     }
 
+    /// All chunks arrived once, in order, including the final chunk.
+    pub(crate) fn complete(&self) -> bool {
+        self.last && !self.full
+    }
+
     /// Queue the result only after every contiguous piece, including `last`.
     /// A storage error closes the writer before it can store this outcome.
     pub(crate) fn challenge(
         &mut self,
         result: central_api::challenges::Completion,
     ) -> Option<oneshot::Receiver<()>> {
-        if self.last && !self.full {
+        if self.complete() {
             let (done, stored) = oneshot::channel();
             self.tx.send(Entry::Challenge(result, done)).ok()?;
             Some(stored)

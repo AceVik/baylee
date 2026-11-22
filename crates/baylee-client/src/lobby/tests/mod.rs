@@ -32,6 +32,8 @@ mod header;
 mod legality;
 mod perf;
 mod printings;
+#[cfg(not(target_arch = "wasm32"))]
+mod ranked;
 mod remembrance;
 mod report;
 mod settings;

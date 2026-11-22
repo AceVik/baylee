@@ -484,6 +484,8 @@ pub(crate) fn header_ask(host: &mut SocialHost, ui: &mut ChatUi, ask: crate::lob
         }
         ShellAsk::Friends => ui.drawer = !ui.drawer,
         ShellAsk::ChatPrivacy => ui.sheet = Some(sheet::Sheet::Privacy),
+        #[cfg(not(target_arch = "wasm32"))]
+        ShellAsk::PlayerProfile => {}
         ShellAsk::Shortcuts | ShellAsk::Report | ShellAsk::DismissToast(_) | ShellAsk::Quit => {}
     }
 }

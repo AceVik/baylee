@@ -43,6 +43,7 @@ mod m20261106_000029_central_sessions_in_memory;
 mod m20261110_000030_drop_invites;
 mod m20261113_000031_challenges;
 mod m20261119_000032_drop_account_password;
+mod m20261122_000033_ranked;
 
 /// The migrator the gateway runs on connect.
 pub struct Migrator;
@@ -88,6 +89,7 @@ impl MigratorTrait for Migrator {
             Box::new(m20261110_000030_drop_invites::Migration),
             Box::new(m20261113_000031_challenges::Migration),
             Box::new(m20261119_000032_drop_account_password::Migration),
+            Box::new(m20261122_000033_ranked::Migration),
         ]
     }
 }

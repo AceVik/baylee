@@ -41,6 +41,23 @@ impl super::Agents {
             .map(|(id, _)| (id.clone(), identity.clone()))
     }
 
+    /// Room for ranked duels on this release, using the competitive loop rules.
+    pub(crate) fn ranked_spare(&self) -> usize {
+        let required = native(Variant::StandardLoops);
+        self.connected
+            .values()
+            .filter(|a| a.engines.contains(&required))
+            .map(|a| {
+                if a.capacity == 0 {
+                    64
+                } else {
+                    (a.capacity as usize).saturating_sub(a.games.len()).min(64)
+                }
+            })
+            .sum::<usize>()
+            .min(64)
+    }
+
     /// Installed compatibility survives full agents; availability is a separate subset.
     pub(crate) fn tower_inventory(&self) -> Option<TowerInventory> {
         let mut installed = Vec::new();

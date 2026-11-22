@@ -689,6 +689,7 @@ central-disabled = Disabled
 central-allows = Allows
 central-sso = sign-in
 central-listing = list entry
+central-ranked = host ranked games
 central-expires = Valid until
 central-pendingHint = Until an administrator of Baylee Central approves the gateway, it is not in the public list. Its token already signs players in.
 central-paste = Paste a token

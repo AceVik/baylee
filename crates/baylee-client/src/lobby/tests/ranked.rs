@@ -1,0 +1,97 @@
+//! Regression coverage for retained public standings and validated result notifications.
+use super::{headless, presses, settle, sized};
+use crate::{
+    lobby::{Hub, LobbyState, Press, ranked::Action},
+    rank_art::RankArt,
+};
+use baylee_account::ranked as api;
+use bevy::prelude::*;
+
+fn rank(league: api::League) -> api::Rank {
+    api::Rank {
+        league,
+        division: None,
+        champion_place: None,
+    }
+}
+
+fn standings() -> api::Response {
+    let entries = (1..=30u8)
+        .map(|n| api::Row {
+            account: [n; 16],
+            name: Some(format!("Player {n:02}")),
+            tag: Some(u32::from(n)),
+            standing: api::Standing {
+                format: api::Format::Standard,
+                track: api::Track::Player,
+                deck: None,
+                elo: 1370 + i32::from(n),
+                games: 5,
+                wins: 3,
+                losses: 2,
+                draws: 0,
+                placement_games: 5,
+                career: api::Record {
+                    games: 5,
+                    wins: 3,
+                    losses: 2,
+                    draws: 0,
+                },
+                rank: rank(api::League::Unranked),
+            },
+        })
+        .collect();
+    api::Response::Board {
+        season: api::Season {
+            id: [7; 16],
+            name: "Solstice".into(),
+            starts: 1,
+            ends: None,
+        },
+        entries,
+        next: None,
+    }
+}
+
+#[test]
+fn public_rows_keep_entities_and_scroll_region_on_a_same_page_refresh() {
+    let mut app = headless();
+    sized(&mut app, 1440.0);
+    {
+        let mut state = app.world_mut().resource_mut::<LobbyState>();
+        state.hub = Hub::Ranked;
+        state.ranked_net.board = Some(standings());
+    }
+    settle(&mut app);
+    let controls = presses(&mut app);
+    assert!(controls.contains(&Press::Ranked(Action::Back)));
+    assert!(!controls.contains(&Press::Ranked(Action::Join)));
+    let art_entities = |app: &mut App| {
+        let mut query = app.world_mut().query_filtered::<Entity, With<RankArt>>();
+        let mut rows: Vec<_> = query.iter(app.world()).collect();
+        rows.sort();
+        rows
+    };
+    let before = art_entities(&mut app);
+    assert_eq!(before.len(), 30);
+    let list = |app: &mut App| {
+        let mut query = app
+            .world_mut()
+            .query::<(Entity, &crate::lobby::Scrollable)>();
+        query
+            .iter(app.world())
+            .find(|(_, s)| s.0 == crate::lobby::List::Ranked)
+            .unwrap()
+            .0
+    };
+    let scroller = list(&mut app);
+    {
+        let mut state = app.world_mut().resource_mut::<LobbyState>();
+        let work = &mut state.bypass_change_detection().ranked_net;
+        work.board_busy = true;
+        work.revision += 1;
+    }
+    app.update();
+    assert_eq!(art_entities(&mut app), before);
+    assert_eq!(list(&mut app), scroller);
+}

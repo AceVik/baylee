@@ -84,7 +84,11 @@ impl<D: LoopDetection, R: SessionRegistry, T: crate::recording::Transport> Engin
             seat,
             what: Deadline::Hold,
             seq: 0,
-            secs: HOLD_SECS,
+            secs: if self.ranked_duel {
+                session.reconnect_window_secs()
+            } else {
+                HOLD_SECS
+            },
         })
     }
 
@@ -147,6 +151,17 @@ impl<D: LoopDetection, R: SessionRegistry, T: crate::recording::Transport> Engin
         }
         if clock.what == Deadline::Hold {
             return self.hold_expired();
+        }
+        if self.ranked_duel {
+            // A detach/reattach can race a queued timer for the same question.
+            let current = self
+                .session
+                .as_ref()
+                .and_then(|s| self.clock_for(s, clock.seat));
+            if current.is_none_or(|active| active.what != clock.what || active.seq != clock.seq) {
+                return Vec::new();
+            }
+            return self.forfeit_ranked(clock.seat);
         }
         let budget = self.pump_budget;
         let Some(session) = self.session.as_mut() else {

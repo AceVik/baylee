@@ -164,6 +164,8 @@ pub(super) fn table(
     // The two screens under the header (WP2, WP3): the header's nav is
     // the way between them.
     match state.hub {
+        #[cfg(not(target_arch = "wasm32"))]
+        Hub::Ranked => super::ranked::draw(commands, root, state, metrics, kit, scrolled_to),
         Hub::Challenges if state.can_enter_challenges() => {
             super::challenges::draw(commands, root, state, metrics, kit, scrolled_to);
         }
@@ -267,6 +269,11 @@ impl HubPress {
                 sign_out(state, prefs, scrolled, mailbox, settings);
             }
             HubPress::Refresh => {
+                #[cfg(not(target_arch = "wasm32"))]
+                if state.hub == Hub::Ranked {
+                    super::ranked::refresh(state.bypass_change_detection());
+                    return;
+                }
                 #[cfg(not(target_arch = "wasm32"))]
                 if state.hub == Hub::Challenges {
                     if !state.can_enter_challenges() {

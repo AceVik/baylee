@@ -20,6 +20,9 @@ use bevy::prelude::*;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 
+#[cfg(not(target_arch = "wasm32"))]
+pub(crate) mod private;
+
 /// The document the drafts live in.
 const FILE: &str = "builder-drafts.json";
 
@@ -34,6 +37,13 @@ const SAVE_SETTLE_SECS: f64 = 0.4;
 /// first time it is asked for and written through from then on.
 #[derive(Default, Serialize, Deserialize)]
 pub(crate) struct Drafts {
+    #[cfg(not(target_arch = "wasm32"))]
+    #[serde(skip)]
+    private: Option<private::Private>,
+    #[serde(skip)]
+    epoch: u64,
+    #[serde(skip)]
+    unreadable: bool,
     #[serde(default)]
     decks: BTreeMap<String, Draft>,
     /// Whether the document has been read.
@@ -49,9 +59,30 @@ fn key(editing: Option<&str>) -> String {
 }
 
 impl Drafts {
+    #[cfg(not(target_arch = "wasm32"))]
+    pub(crate) fn bind(&mut self, epoch: u64, private: Option<private::Private>) {
+        if self.epoch != epoch {
+            *self = Self {
+                epoch,
+                private,
+                ..Self::default()
+            };
+        }
+    }
+
     fn decks(&mut self) -> &mut BTreeMap<String, Draft> {
         if !self.read {
             self.read = true;
+            #[cfg(not(target_arch = "wasm32"))]
+            if self.epoch != 0 {
+                if let Some(private) = &self.private {
+                    match private.read() {
+                        Ok(decks) => self.decks = decks,
+                        Err(()) => self.unreadable = true,
+                    }
+                }
+                return &mut self.decks;
+            }
             let kept: Option<Self> = crate::settings::store::read_named(FILE)
                 .and_then(|text| serde_json::from_str(&text).ok());
             if let Some(kept) = kept {
@@ -62,6 +93,15 @@ impl Drafts {
     }
 
     fn write(&self) {
+        #[cfg(not(target_arch = "wasm32"))]
+        if self.epoch != 0 {
+            if !self.unreadable
+                && let Some(private) = &self.private
+            {
+                private.write(&self.decks);
+            }
+            return;
+        }
         if self.decks.is_empty() {
             crate::settings::store::remove_named(FILE);
         } else if let Ok(text) = serde_json::to_string(self) {
@@ -190,6 +230,22 @@ pub(crate) fn keep_the_draft(
     time: Option<Res<Time<Real>>>,
     mut kept: Local<Keeper>,
 ) {
+    #[cfg(not(target_arch = "wasm32"))]
+    {
+        let scope = state
+            .central_handle()
+            .filter(|_| state.has_central_account());
+        let epoch = scope
+            .as_ref()
+            .map_or(0, crate::lobby::central::Handle::library_epoch);
+        if state.drafts.epoch != epoch {
+            state
+                .bypass_change_detection()
+                .drafts
+                .bind(epoch, scope.and_then(|s| s.draft_store()));
+            *kept = Keeper::default();
+        }
+    }
     let on_screen = matches!(state.lobby.screen(), Screen::Build);
     if state.lobby.scoped_builder() {
         if kept.visiting {

@@ -1,10 +1,10 @@
 //! The lobby's rooms: opening one, sitting down, getting ready, starting,
 //! handing the host on, and leaving.
 
+use super::submitted_deck::SubmittedDeck;
 use crate::{
     Deserialize, ErrorBody, HeaderMap, Json, LobbyGame, LobbyState, MAX_SEATS, Path, Shared, State,
     StatusCode, ai_preset, auth, authed, chair, clock, engine, err, err_saying, listing, lobby,
-    own_deck,
     routes::{LobbyListing, SeatGrant},
     table_prints, try_start,
 };
@@ -38,6 +38,8 @@ pub(crate) struct CreateGameBody {
     /// before the game starts.
     #[serde(default)]
     deck_id: String,
+    /// @description Frozen account-library deck for this table, in place of a gateway deck ID.
+    submitted_deck: Option<SubmittedDeck>,
     /// @description `ai` is the one-tap game against the house AI, which
     /// starts at once; anything else (`open`) opens a room the host
     /// arranges.
@@ -130,11 +132,13 @@ pub(crate) async fn create_game(
     let account_id = authed(&state, &headers).await?;
     may_make_a_game(&state, &account_id)?;
     let central_session = crate::central::seat_binding(&state, &headers)?;
-    let chosen = if body.deck_id.is_empty() {
-        None
-    } else {
-        Some(own_deck(&state, &account_id, &body.deck_id).await?)
-    };
+    let chosen = super::submitted_deck::chosen(
+        &state,
+        &account_id,
+        (!body.deck_id.is_empty()).then_some(body.deck_id.as_str()),
+        body.submitted_deck,
+    )
+    .await?;
     let game_id = auth::new_id();
     let seat_token = auth::new_token();
     // Before anything is built, because a room refused for its clock should
@@ -159,6 +163,9 @@ pub(crate) async fn create_game(
             .ok_or_else(|| err(StatusCode::BAD_REQUEST, "no such difficulty"))?;
         {
             let mut preset = ai_preset(&state.blocks, &deck, auth::new_game_seed())?;
+            if deck.kind == "submitted" {
+                super::hydrate_rules(&state, &mut preset).await?;
+            }
             preset.house_rules = house_rules.clone();
             preset.seats[0].controller = baylee_core::preset::SeatController::Open;
             preset.seats[1].controller = baylee_core::preset::SeatController::Ai(profile);
@@ -261,6 +268,8 @@ pub(crate) struct JoinGameBody {
     /// down without one, to be picked before saying ready.
     #[serde(default)]
     deck_id: String,
+    /// @description Frozen account-library deck for this table, in place of a gateway deck ID.
+    submitted_deck: Option<SubmittedDeck>,
     /// @description Which chair to take; the first open person's chair
     /// when absent.
     /// @internal
@@ -306,11 +315,13 @@ pub(crate) async fn join_game(
 ) -> Result<Json<SeatGrant>, (StatusCode, Json<ErrorBody>)> {
     let account_id = authed(&state, &headers).await?;
     let central_session = crate::central::seat_binding(&state, &headers)?;
-    let chosen = if body.deck_id.is_empty() {
-        None
-    } else {
-        Some(own_deck(&state, &account_id, &body.deck_id).await?)
-    };
+    let chosen = super::submitted_deck::chosen(
+        &state,
+        &account_id,
+        (!body.deck_id.is_empty()).then_some(body.deck_id.as_str()),
+        body.submitted_deck,
+    )
+    .await?;
     let guard = super::room_list::guard(&state, &id).await?;
     let seat_token = auth::new_token();
     let seat = {
@@ -515,6 +526,8 @@ pub(crate) struct SeatBody {
     /// The deck this chair plays.
     #[serde(default)]
     deck_id: Option<String>,
+    /// @description Frozen account-library deck for this table, in place of a gateway deck ID.
+    submitted_deck: Option<SubmittedDeck>,
     /// @description The side the chair plays for: teams are numbered from
     /// 1, and `0` puts the chair back on a side of its own. The host's.
     /// @internal
@@ -570,10 +583,13 @@ pub(crate) async fn set_seat(
     let account_id = authed(&state, &headers).await?;
     // Looked up before the lobby lock: the store has its own, and taking two
     // in one order here and the other order elsewhere is how deadlocks start.
-    let chosen = match &body.deck_id {
-        Some(deck_id) => Some(own_deck(&state, &account_id, deck_id).await?),
-        None => None,
-    };
+    let chosen = super::submitted_deck::chosen(
+        &state,
+        &account_id,
+        body.deck_id.as_deref(),
+        body.submitted_deck,
+    )
+    .await?;
     let guard = match &chosen {
         Some(_) => super::room_list::guard(&state, &id).await?,
         None => None,

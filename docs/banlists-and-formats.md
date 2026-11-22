@@ -23,6 +23,37 @@ sideboard limit. Published lists are frozen rather than regenerated at enrollmen
 House-rule overrides per lobby are out of scope for now: a lobby's host picks one
 list or none, and that is all a lobby can say about legality.
 
+## Ranked duels
+
+Each ranked table has two human seats. The assigned gateway validates every
+copy, including the sideboard and command zone, against its compiled registry,
+local card blocks and current catalog. It checks both decks again at start.
+An absent verdict or an incomplete card script prevents ranked play. Cards
+marked `Generated` and `Implemented` both have rules-complete coverage.
+
+| Ranked format | Deck shape | Catalog key | Starting life |
+| --- | --- | --- | --- |
+| Standard | At least 60 main, up to 15 sideboard, four copies outside basic lands | `standard` | 20 |
+| Baylee Highlander | Exactly 100 main, up to 15 sideboard, one copy outside basic lands over both zones | `vintage` | 20 |
+| Commander | Ordinary Commander, 100 including the leaders, singleton, no sideboard, commander identity including circled colors | `commander` | 40 |
+
+Baylee Highlander uses its existing singleton shape with Vintage paper-card
+legality. The catalog has no separate Baylee Highlander verdict. Commander
+retains the game's ordinary commander rules for a two-player table. Every
+ranked duel uses zero free opening mulligans, a randomly selected starting
+player and automatic draws for mandatory loops. The Standard legality check
+happens on the gateway. Its engine preset uses the existing Freeform mode
+with the ranked starting life and mulligan settings.
+
+The client freezes the registration when entering a queue. The assigned
+gateway reconstructs the exact same versioned SHA-256 commitment over the
+format and separate sorted main, side and commander lists. Each entry covers
+its Oracle UUID, physical printing UUID and per-copy rules choices. Notes,
+row order, finishes and language do not affect play. For Deck Elo the host
+reports counts by Oracle identity and commander role. Main and sideboard
+counts are merged, so moving a copy between those zones leaves the rating
+pool intact. A ranked registration admits up to 250 copies across all zones.
+
 ## Built: the data and the filter keys
 
 Step 1 of the plan below, 4 November 2026.

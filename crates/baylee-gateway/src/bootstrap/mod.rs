@@ -185,6 +185,7 @@ pub(super) async fn run() {
         ),
         sign_in_limiter: auth::RateLimiter::new(std::time::Duration::from_secs(300), 8),
         lobby: Mutex::new(Lobby::default()),
+        ranked: crate::ranked::Host::default(),
         challenge_starts: tokio::sync::Mutex::new(()),
         challenge_owner: std::sync::atomic::AtomicBool::new(false),
         // Small: a receiver that falls this far behind is one whose socket is
@@ -281,6 +282,7 @@ pub(super) async fn run() {
     }
     let _central_heartbeat = central::Heartbeat::start(state.clone());
     let _tower_heartbeat = tower::Heartbeat::start(state.clone());
+    let _ranked_host = crate::ranked::worker(state.clone());
     let _challenge_delivery = challenges::start_delivery(state.clone());
     central::spawn_terms_publisher(state.clone());
     social::sweep::sweep(&state).await;

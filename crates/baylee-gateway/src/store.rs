@@ -41,6 +41,8 @@ use std::collections::{BTreeSet, HashMap, HashSet};
 use time::OffsetDateTime;
 use uuid::Uuid;
 
+pub(crate) mod deck_export;
+
 /// What asking to play as a guest supplies (#269): a name to be seen by and
 /// a language, and nothing to sign in with.
 #[derive(Clone, Debug)]

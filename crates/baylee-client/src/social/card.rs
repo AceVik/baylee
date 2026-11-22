@@ -629,6 +629,12 @@ fn build(
 
     // The disc, set into the band's foot.
     let disc = avatar::disc(commands, fonts, &card.handle, z(DISC));
+    #[cfg(not(target_arch = "wasm32"))]
+    if card.guest {
+        commands
+            .entity(disc)
+            .insert(crate::lobby::ranked_profile::Guest);
+    }
     let setting = commands
         .spawn((
             PanelDisc { panel },
@@ -744,6 +750,23 @@ fn build(
             ))
             .id();
         commands.entity(words).add_child(place);
+    }
+    #[cfg(not(target_arch = "wasm32"))]
+    if !card.guest {
+        let ranks = commands
+            .spawn((
+                crate::lobby::ranked_profile::CompactRanks(card.handle.clone()),
+                Text::default(),
+                tf(fonts, z(11.5)),
+                TextColor(tokens::GOLD),
+                Node {
+                    display: Display::None,
+                    ..default()
+                },
+                Pickable::IGNORE,
+            ))
+            .id();
+        commands.entity(words).add_child(ranks);
     }
     let head = commands
         .spawn(Node {

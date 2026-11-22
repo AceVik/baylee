@@ -1341,6 +1341,80 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorBody"
+  "/ranked/{match_id}/play":
+    post:
+      summary: Claim or resume your ranked duel on its assigned host
+      description: >-
+        Each participant presents their own authenticated host session and frozen deck.
+        The host waits for both legal registrations before ordering one engine.
+      operationId: playRanked
+      tags:
+      - Ranked
+      parameters:
+      - name: match_id
+        in: path
+        required: true
+        description: Central match UUIDv7
+        schema:
+          type: string
+      security:
+      - bearer: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RankedDeck"
+        required: true
+        description: Frozen registered deck
+      responses:
+        "200":
+          description: Assigned player's seat capability
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SeatGrant"
+        "202":
+          description: Waiting for the other player
+        "400":
+          description: Invalid deck, format or assignment ID
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+        "401":
+          description: No bearer token, or one that is invalid or expired
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+        "403":
+          description: |-
+            - The account is banned (`ban`) or must accept the terms in force first (`terms_required`)
+            - Wrong host or player
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+        "409":
+          description: Assignment, commitment or existing participation conflicts
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+        "429":
+          description: Ranked admission is busy
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+        "503":
+          description: |-
+            - The account store is unavailable
+            - Central, storage, catalog or engine unavailable
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
   /client/reports:
     post:
       summary: Send a report from a client signed in nowhere
@@ -1837,6 +1911,81 @@ paths:
           description: |-
             - The account store is unavailable
             - This gateway has no card catalog, its account store is unavailable, or too many searches are on their way
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+  /decks/private-export:
+    get:
+      summary: Read one owned gateway deck save for migration
+      description: |-
+        Returns one save in ascending version order, including the head.
+        A null page ends the scan. Each response binds the Central identity, local
+        owner and full head generation. The source is read in a read-only transaction.
+      operationId: readPrivateDeckSave
+      tags:
+      - Decks
+      parameters:
+      - name: after
+        in: query
+        required: false
+        description: Start the next deck after this ID. Absent starts at the first owned deck.
+        schema:
+          type: string
+          format: uuid
+      - name: deck
+        in: query
+        required: false
+        description: Continue this particular owned deck.
+        schema:
+          type: string
+          format: uuid
+      - name: version
+        in: query
+        required: false
+        description: Last received historical version of that deck.
+        schema:
+          type: integer
+          format: int32
+      security:
+      - bearer: []
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type:
+                - object
+                - "null"
+        "400":
+          description: Invalid cursor
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+        "401":
+          description: No bearer token, or one that is invalid or expired
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+        "403":
+          description: |-
+            - The account is banned (`ban`) or must accept the terms in force first (`terms_required`)
+            - A linked Central session is required
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+        "409":
+          description: The source deck changed or was removed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+        "503":
+          description: The account store is unavailable
           content:
             application/json:
               schema:
@@ -6021,6 +6170,11 @@ components:
     AuthConfig:
       type: object
       properties:
+        submitted_decks:
+          type: boolean
+          description: >-
+            Whether games can be opened, joined or configured with a frozen library deck
+            sent directly to the table.
         registration_enabled:
           type: boolean
           description: "Always `false`: nobody registers or signs in with a password at a gateway; accounts are Baylee Central's. Kept for clients from before, which offer a sign-up form only where it is true."
@@ -6048,6 +6202,7 @@ components:
             $ref: "#/components/schemas/ClockOffer"
           description: The clocks a room may be opened at; the first is the default.
       required:
+      - submitted_decks
       - registration_enabled
       - registration
       - guests_enabled
@@ -6680,6 +6835,11 @@ components:
         deck_id:
           type: string
           description: "One of the caller's decks (`GET /decks`). Required for `mode: ai`; a room may be opened without one, and its host picks one before the game starts."
+        submitted_deck:
+          anyOf:
+          - $ref: "#/components/schemas/SubmittedDeck"
+          - type: "null"
+          description: Frozen account-library deck for this table, in place of a gateway deck ID.
         mode:
           type: string
           description: "`ai` is the one-tap game against the house AI, which starts at once; anything else (`open`) opens a room the host arranges."
@@ -8065,6 +8225,11 @@ components:
           description: >-
             One of the caller's decks (`GET /decks`); empty sits down without one, to be
             picked before saying ready.
+        submitted_deck:
+          anyOf:
+          - $ref: "#/components/schemas/SubmittedDeck"
+          - type: "null"
+          description: Frozen account-library deck for this table, in place of a gateway deck ID.
         seat:
           type:
           - integer
@@ -9241,6 +9406,34 @@ components:
       - tag
       - handle
       description: What `GET /players/{handle}` answers.
+    RankedDeck:
+      type: object
+      properties:
+        format:
+          type: string
+          description: Ranked format (standard, highlander or commander).
+        cards:
+          type: array
+          items:
+            type: string
+          description: Main deck rows, including commanders as on the player's deck shelf.
+        sideboard:
+          type: array
+          items:
+            type: string
+          description: Sideboard rows.
+        commanders:
+          type: array
+          items:
+            type: string
+          description: Commanders marked in the main deck.
+      required:
+      - format
+      - cards
+      - sideboard
+      - commanders
+      additionalProperties: false
+      description: The exact source deck version selected for this ranked entry.
     ReadyBody:
       type: object
       properties:
@@ -9743,6 +9936,11 @@ components:
           description: >-
             The deck the chair plays, one of the caller's own (`GET /decks`). Changing it
             takes back that chair's ready.
+        submitted_deck:
+          anyOf:
+          - $ref: "#/components/schemas/SubmittedDeck"
+          - type: "null"
+          description: Frozen account-library deck for this table, in place of a gateway deck ID.
         team:
           type:
           - integer
@@ -10003,6 +10201,47 @@ components:
       - kind
       - amount
       description: One kind of counter a starting permanent carries, and how many.
+    SubmittedDeck:
+      type: object
+      properties:
+        name:
+          type: string
+          description: Public name at this table, 1–64 bytes.
+        format:
+          type:
+          - string
+          - "null"
+          description: Format of the submitted deck. Derived from its commanders when absent.
+        cards:
+          type: array
+          items:
+            type: string
+          description: Main-deck rows in the same form as a saved deck.
+        sideboard:
+          type: array
+          items:
+            type: string
+          description: Optional sideboard rows.
+        commanders:
+          type: array
+          items:
+            type: string
+          description: Up to two commanders named as in a saved deck.
+        sleeve:
+          type:
+          - string
+          - "null"
+          description: A sleeve uploaded by the caller on this gateway.
+        playmat:
+          type:
+          - string
+          - "null"
+          description: A playmat uploaded by the caller on this gateway.
+      required:
+      - name
+      - cards
+      additionalProperties: false
+      description: A deck supplied for this table in place of a gateway library reference.
     TableClock:
       type: object
       properties:

@@ -50,6 +50,7 @@ pub mod print_rules;
 /// Which kinds of mana a card's printed mana abilities name (`/pool`'s
 /// `produces`).
 pub mod produces;
+pub mod ranked;
 /// Whether a card has a back to show, and whether it is double-faced.
 pub mod sides;
 pub use baylee_cards_base::{filters, generated, generated_tokens, tokens};

@@ -9,26 +9,6 @@ use uuid::Uuid;
 mod delivery;
 pub(crate) use delivery::start as start_delivery;
 
-/// A slow record write is not a failed game. Keep reconciliation from voiding
-/// it until the writer has either committed or explicitly failed.
-pub(crate) fn finalizing(
-    state: &Shared,
-    game_id: &str,
-    stored: tokio::sync::oneshot::Receiver<()>,
-) {
-    if let Some(game) = state.lobby.lock().games.get_mut(game_id) {
-        game.challenge_finalizing = true;
-    }
-    let state = state.clone();
-    let game_id = game_id.to_owned();
-    tokio::spawn(async move {
-        let _ = stored.await;
-        if let Some(game) = state.lobby.lock().games.get_mut(&game_id) {
-            game.challenge_finalizing = false;
-        }
-    });
-}
-
 /// @route POST /challenges/{attempt}/play
 /// @scope public
 /// @summary Play or resume a reserved global challenge

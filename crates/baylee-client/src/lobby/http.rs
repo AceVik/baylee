@@ -9,6 +9,8 @@
 use super::*;
 
 mod seat;
+#[cfg(not(target_arch = "wasm32"))]
+pub(super) mod submitted;
 
 // ------------------------------------------------------------------ HTTP
 
@@ -58,22 +60,25 @@ pub(super) fn dispatch(state: &mut LobbyState, mailbox: &Mailbox, request: Optio
         }
         return;
     }
+    #[cfg(not(target_arch = "wasm32"))]
+    let request = match super::central::decks::dispatch(state, mailbox, request) {
+        Some(other) => other,
+        None => return,
+    };
+    #[cfg(not(target_arch = "wasm32"))]
+    let request = match submitted::resolve(state, mailbox, request) {
+        Some(other) => other,
+        None => return,
+    };
     if state.central_without_gateway() {
         match request {
-            LobbyRequest::ListDecks
-            | LobbyRequest::LoadPool
+            LobbyRequest::LoadPool
             | LobbyRequest::LoadPrintings { .. }
-            | LobbyRequest::LoadDeck { .. }
-            | LobbyRequest::SaveDeck { .. }
-            | LobbyRequest::DeleteDeck { .. }
             | LobbyRequest::Library(_) => {
-                let is_sync_build = matches!(
-                    request,
-                    LobbyRequest::LoadPool
-                        | LobbyRequest::LoadDeck { .. }
-                        | LobbyRequest::ListDecks
-                );
-                let local = state.local_decks.get_or_insert_with(offline::Offline::load);
+                let is_sync_build = matches!(request, LobbyRequest::LoadPool);
+                let local = state
+                    .local_decks
+                    .get_or_insert_with(offline::Offline::catalogue);
                 let event = local.perform(request, lang);
                 if is_sync_build {
                     let next = state.lobby.apply(event);
@@ -191,12 +196,22 @@ pub(super) fn dispatch(state: &mut LobbyState, mailbox: &Mailbox, request: Optio
 /// Separate from [`dispatch`] so the mapping onto the gateway's routes can be
 /// tested without a socket: a wrong path or a misspelled field would otherwise
 /// only show up as a 404 in somebody's hands.
-#[allow(clippy::too_many_lines)] // one arm per route, read top to bottom
 pub(super) fn build(
     base: &str,
     token: Option<&str>,
     lang: &str,
     request: LobbyRequest,
+) -> (ehttp::Request, Expect) {
+    build_with_deck(base, token, lang, request, None)
+}
+
+#[allow(clippy::too_many_lines)] // one arm per route, read top to bottom
+fn build_with_deck(
+    base: &str,
+    token: Option<&str>,
+    lang: &str,
+    request: LobbyRequest,
+    submitted: Option<serde_json::Value>,
 ) -> (ehttp::Request, Expect) {
     // A gateway URL out of a `.env` file very often ends in one.
     let base = base.trim_end_matches('/');
@@ -397,7 +412,7 @@ pub(super) fn build(
                 body["ai"] = serde_json::Value::String(ai);
             }
             (
-                json_post(&format!("{base}/lobby/games"), &body),
+                play_post(&format!("{base}/lobby/games"), body, submitted),
                 Expect::Seat,
             )
         }
@@ -408,9 +423,10 @@ pub(super) fn build(
             password,
             invite,
         } => (
-            json_post(
+            play_post(
                 &format!("{base}/lobby/games/{game_id}/join"),
-                &join_body(&deck_id, seat, &password, invite.as_deref()),
+                join_body(&deck_id, seat, &password, invite.as_deref()),
+                submitted,
             ),
             Expect::Seat,
         ),
@@ -438,9 +454,9 @@ pub(super) fn build(
             deck_id,
             team,
         } => (
-            json_post(
+            play_post(
                 &format!("{base}/lobby/games/{game_id}/seats/{seat}"),
-                &serde_json::json!({
+                serde_json::json!({
                     "kind": kind.map(|k| match k {
                         SeatKind::Human => "human",
                         SeatKind::Ai => "ai",
@@ -449,6 +465,7 @@ pub(super) fn build(
                     "deck_id": deck_id,
                     "team": team,
                 }),
+                submitted,
             ),
             // The answer says what the whole lobby looks like; this client
             // is reading one page of it, so what it takes from the reply is
@@ -519,6 +536,23 @@ pub(super) fn build(
         ),
     };
     (bearer(request, token), expect)
+}
+
+/// With a Central snapshot the gateway gets only its play fields. Its private
+/// Central id is never a gateway-local deck reference.
+fn play_post(
+    url: &str,
+    mut body: serde_json::Value,
+    submitted: Option<serde_json::Value>,
+) -> ehttp::Request {
+    if let Some(deck) = submitted {
+        let object = body
+            .as_object_mut()
+            .expect("lobby play requests are objects");
+        object.remove("deck_id");
+        object.insert("submitted_deck".into(), deck);
+    }
+    json_post(url, &body)
 }
 
 /// A JSON `POST`. Built by hand rather than through `ehttp`'s `json` feature,
@@ -961,6 +995,8 @@ struct AuthConfig {
     /// already did.
     #[serde(default)]
     art_cache: bool,
+    #[serde(default)]
+    submitted_decks: bool,
     /// Whether it takes guests (#269). Defaulted to no: a gateway from before
     /// guests has no route to offer.
     #[serde(default)]
@@ -1026,6 +1062,7 @@ pub(super) fn auth_config(body: &str) -> Option<Reply> {
     Some(Reply::Registration {
         registration: Registration::read(body.registration_enabled, body.registration.as_deref()),
         art_cache: body.art_cache,
+        submitted_decks: body.submitted_decks,
         guests: body.guests_enabled,
         central: body.central,
         // No gateway has a password of its own: past the cutover an account

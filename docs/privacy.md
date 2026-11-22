@@ -8,6 +8,10 @@ the pointers, because line numbers move.
 
 "Kept until deleted by hand" means no code path removes it.
 
+## Global ranked games and private decks
+
+Competitive Ranked games publish the participating account's public handle, league, division and seasonal results. Deck leaderboard rows use an opaque ID. Central stores the match and seat identities, confirmed result, rating changes, timestamps and card-identity digests with copy counts for version restoration and edit calculation. Those digests can be compared with the known card catalogue. The assigned host receives the selected playable deck. The private deck library uses Central's client-encrypted account objects. Personal chat keys and account vault keys stay on the client. A ranked account's private queue and rating rows are removed by account-deletion foreign-key cascades.
+
 ## Tower authority personal bests
 
 Tower Echoes runs in a separate Baylee service/database. Migration 014 adds one

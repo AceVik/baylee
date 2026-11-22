@@ -34,6 +34,9 @@ use baylee_core::preset::{AIProfile, GamePreset, SeatController};
 /// the client runs and nothing new had to be invented to hold them.
 const DECKS: &str = "offline-decks.json";
 
+#[cfg(not(target_arch = "wasm32"))]
+pub(super) mod migrate;
+
 /// The id of the one room offline play arranges.
 ///
 /// A constant rather than a generated id because there is exactly one table
@@ -196,6 +199,16 @@ pub(crate) struct Offline {
 }
 
 impl Offline {
+    /// Public starters and card catalogue for Central's gateway-free lobby.
+    pub(crate) fn catalogue() -> Self {
+        Self {
+            decks: builtin_decks(),
+            room: None,
+            started: None,
+            persist: false,
+        }
+    }
+
     /// Reads the deck file and stands the built-in decks beside it.
     ///
     /// Row by row, never all-or-nothing — see [`read_decks`].

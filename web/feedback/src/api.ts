@@ -622,6 +622,7 @@ export interface CentralLink {
     state: "pending" | "approved" | "disabled";
     sso: boolean;
     listing: boolean;
+    ranked?: boolean;
     expires_at: string;
   } | null;
   check: "ok" | "rejected" | "unavailable" | null;

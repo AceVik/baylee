@@ -22,6 +22,10 @@ pub(super) fn build(state: &Shared) -> Router {
         .route("/social/ws", get(social::socket::social_ws))
         .route("/lobby/games", get(list_games).post(create_game))
         .route("/challenges/{attempt}/play", post(challenges::play))
+        .route(
+            "/ranked/{match_id}/play",
+            post(crate::ranked::play).layer(axum::extract::DefaultBodyLimit::max(64 * 1024)),
+        )
         .route("/tower", get(tower::routes::available))
         .route("/tower/{run}/play", post(tower::routes::play))
         .route("/lobby/seats", get(list_seats))

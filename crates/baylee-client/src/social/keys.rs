@@ -29,8 +29,12 @@ pub(crate) fn install(app: &mut App) {
         .add_systems(
             Update,
             (
-                doors_by_key.before(crate::input::keyboard),
-                typing.before(crate::input::keyboard),
+                doors_by_key
+                    .before(crate::input::keyboard)
+                    .run_if(profile_allows_keys),
+                typing
+                    .before(crate::input::keyboard)
+                    .run_if(profile_allows_keys),
                 let_go_on_a_press_elsewhere,
                 link_a_right_pressed_card,
                 feed_candidates,
@@ -39,6 +43,15 @@ pub(crate) fn install(app: &mut App) {
             )
                 .chain(),
         );
+}
+
+fn profile_allows_keys(
+    #[cfg(not(target_arch = "wasm32"))] profile: Option<Res<crate::lobby::ranked_profile::Page>>,
+) -> bool {
+    #[cfg(not(target_arch = "wasm32"))]
+    return profile.is_none_or(|p| !p.holds_keys());
+    #[cfg(target_arch = "wasm32")]
+    true
 }
 
 /// The frame after the composer let go, the keys are the table's again.

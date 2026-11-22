@@ -156,6 +156,25 @@ proof files remain in the run's restricted evidence directory and must not be
 read during a blind difficulty check. Monitor selection follows the current
 workstation's dedicated-display requirement.
 
+## Player profiles and ranked portrait frames
+
+The native client opens a player's profile from the account menu, an occupied
+human seat, the portrait in a contacts row, a chat author's menu or a named
+leaderboard entry. Each format shows its independent placements, player standing,
+best published deck and season and career records. The profile's listed honours
+come from Central. An authenticated reader opening their own profile also sees
+earned medals from Daily and Weekly tasks, the weekly Tower and Tower Echoes.
+Those three collections use the owner's existing authenticated account worker.
+
+Avatar discs and social hover cards share a bounded memory cache keyed by full
+Central handle. The highest confirmed player standing across formats supplies
+the portrait frame. Each public reply must match the complete name and tag.
+Only one background public read runs at a time, and a confirmed match receipt
+refreshes the owner's record. Account changes detach the previous mailboxes.
+An unavailable read preserves the last confirmed record, while a rejected
+identity removes its cached frame. Replacing the body of an open profile
+preserves its scroll container, header and focus targets.
+
 ## Accounts and decks
 
 The account screens reuse the table hand HUD's `FrontalMaterial`: leather,
@@ -196,6 +215,15 @@ until a table uses it. A deck a table's list turns away is told why in a sheet o
 whatever screen it came from (`confirm::draw_refusal`, `Lobby::refusal_lines`), a
 sentence a reason, in the same words the deck builder uses. Offline there are no
 lists: they live on a gateway. The rules are `docs/banlists-and-formats.md`.
+
+For a signed-in Central account, creating or joining a casual table and assigning a
+deck to a chair resolve that one saved deck on the account worker. The client sends
+the playable rows, commander names, deck name and format to the selected gateway.
+A sleeve or playmat travels only to the gateway that owns it. Row notes, edit
+messages, source links and library identities stay private. Gateway selection and
+account session are checked again after the read. A gateway announces frozen deck
+support with `submitted_decks` in `GET /auth/config`. A client selecting an account
+deck at an older gateway can choose a compatible host.
 
 House decks are read-only server publications. Copying one refreshes the account
 deck list and opens its private copy. Only a persisted deck belonging to the

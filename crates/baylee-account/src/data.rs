@@ -17,6 +17,9 @@ pub struct AccountData {
     /// Account-encrypted logical chat identities and known installations; old documents start empty.
     #[serde(default)]
     pub chat: crate::chat::ChatArchive,
+    /// Authenticated immutable root of the operational private deck library.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub deck_library: Option<crate::decks::LibraryRef>,
 }
 
 /// Source-preserving legacy backup. Password hashes and session credentials are excluded.
@@ -59,6 +62,9 @@ impl AccountData {
 
     fn validate(&self) -> Result<(), Error> {
         self.chat.validate()?;
+        if let Some(root) = &self.deck_library {
+            root.validate()?;
+        }
         if self.version != 1 || self.gateways.len() > 128 || !self.preferences.is_object() {
             return Err(Error::Rejected);
         }
@@ -107,6 +113,7 @@ mod tests {
             preferences: serde_json::json!({"future_setting": {"value": 3}}),
             legacy: None,
             chat: crate::chat::ChatArchive::default(),
+            deck_library: None,
         };
         let restored = AccountData::read(&original.write().unwrap()).unwrap();
         assert_eq!(restored.gateways, original.gateways);

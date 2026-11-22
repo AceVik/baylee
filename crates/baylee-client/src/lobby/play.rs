@@ -213,6 +213,8 @@ pub(super) fn draw(
     }
     let lane = lane.id();
     commands.entity(body).add_child(lane);
+    #[cfg(not(target_arch = "wasm32"))]
+    super::ranked::entry(commands, lane, kit);
     let activities = state.can_play_online() && !state.lobby.guest();
     let hero_more = if activities {
         activities::draw(commands, lane, state, kit);

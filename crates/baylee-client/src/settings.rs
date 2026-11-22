@@ -532,7 +532,7 @@ pub(crate) mod store {
     /// A config-dir file location, and `None` in a process that has not
     /// opened the store ([`super::store_is_open`]): every function here goes
     /// through this one.
-    fn path(name: &str) -> Option<std::path::PathBuf> {
+    pub(crate) fn path(name: &str) -> Option<std::path::PathBuf> {
         if !super::store_is_open() {
             return None;
         }

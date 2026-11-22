@@ -122,6 +122,7 @@ fn hold_the_keyboard(
         Res<gallery::Gallery>,
     >,
     chat: Option<Res<crate::social::ChatUi>>,
+    #[cfg(not(target_arch = "wasm32"))] profile: Option<Res<crate::lobby::ranked_profile::Page>>,
     mut holds: ResMut<KitHolds>,
 ) {
     #[cfg(all(feature = "dev-control", not(target_arch = "wasm32")))]
@@ -136,6 +137,8 @@ fn hold_the_keyboard(
     // have the caret (the beta.8 social design §12.1).
     let chat = chat.is_some_and(|c| c.holds_keyboard());
     let now = overlay::holds(&overlay) || gallery || typing || chat;
+    #[cfg(not(target_arch = "wasm32"))]
+    let now = now || profile.is_some_and(|page| page.holds_keys());
     if holds.0 != now {
         holds.0 = now;
     }

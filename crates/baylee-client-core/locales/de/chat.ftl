@@ -328,3 +328,4 @@ CardOwnGames =
        *[other] { $count } Spiele · { $wins } gewonnen
     }
 CardNoGames = Noch kein Spiel gespielt
+PlayerProfile = Spielerprofil

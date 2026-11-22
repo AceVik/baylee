@@ -52,6 +52,11 @@ impl HeaderPress {
                 }
             }
             HeaderPress::TowerBadges => open_tower_badges(cx),
+            #[cfg(not(target_arch = "wasm32"))]
+            HeaderPress::PlayerProfile => {
+                cx.state.header_menu = None;
+                cx.state.shell_asks.push(ShellAsk::PlayerProfile);
+            }
             HeaderPress::SwitchGateway => {
                 cx.state.header_menu = None;
                 if cx.state.central_ready() {

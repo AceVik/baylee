@@ -139,6 +139,17 @@ impl Link {
 }
 
 impl Bridge {
+    /// Central authenticates this host credential and its current ranked verification.
+    pub(crate) async fn ranked(
+        &self,
+        request: central_api::ranked::HostRequest,
+    ) -> Result<central_api::ranked::HostResponse, StatusCode> {
+        match self.exchange(wire::Request::RankedHost { request }).await? {
+            wire::Response::RankedHost { response } => Ok(response),
+            _ => Err(StatusCode::SERVICE_UNAVAILABLE),
+        }
+    }
+
     /// Official challenge authority, never available to an ordinary gateway token.
     pub(crate) async fn challenge(
         &self,

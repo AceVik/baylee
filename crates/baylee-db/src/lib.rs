@@ -77,6 +77,7 @@ pub mod llm_access;
 pub mod migration;
 pub mod pictures;
 pub mod precons;
+pub mod ranked;
 pub mod records;
 pub mod social;
 pub mod stats;

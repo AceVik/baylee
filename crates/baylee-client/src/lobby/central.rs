@@ -18,6 +18,7 @@ use std::sync::{
 };
 
 mod challenge_session;
+pub(super) mod decks;
 pub(crate) mod pairing;
 
 pub(crate) type Job = Box<dyn FnOnce(&mut Account) + Send>;
@@ -91,6 +92,9 @@ struct PendingSave {
 /// Handle to a serial worker; the UI cannot read or print its tokens or keys.
 #[derive(Clone)]
 pub(crate) struct Handle {
+    draft_store: Option<crate::buildui::draft::private::Private>,
+    library: Arc<Mutex<decks::Versions>>,
+    library_epoch: u64,
     send: mpsc::SyncSender<Job>,
     active: Arc<AtomicBool>,
     /// The worker leaves the Central session open when it stops.
@@ -168,6 +172,9 @@ impl Handle {
     #[cfg(any(test, feature = "dev-control"))]
     fn from_sender(send: mpsc::SyncSender<Job>) -> Self {
         Self {
+            draft_store: None,
+            library: Arc::default(),
+            library_epoch: decks::new_epoch(),
             send,
             active: Arc::new(AtomicBool::new(true)),
             stays: Arc::new(AtomicBool::new(false)),
@@ -325,6 +332,7 @@ impl Handle {
     }
 
     fn start(mut account: Account) -> Result<Self, Error> {
+        let draft_store = crate::buildui::draft::private::Private::for_account(&account)?;
         let (send, receive) = mpsc::sync_channel::<Job>(64);
         let active = Arc::new(AtomicBool::new(true));
         let worker_active = active.clone();
@@ -413,6 +421,9 @@ impl Handle {
             })
             .map_err(|_| Error::Unavailable)?;
         Ok(Self {
+            draft_store: Some(draft_store),
+            library: Arc::default(),
+            library_epoch: decks::new_epoch(),
             send,
             active,
             stays,
@@ -793,7 +804,7 @@ const ATTACH_LIMIT: usize = 8;
     )),
     allow(clippy::unnecessary_wraps)
 )] // The dev override can fail.
-fn endpoint() -> Result<Endpoint, Error> {
+pub(crate) fn endpoint() -> Result<Endpoint, Error> {
     // A unit test never reaches the live Central: a sign-in or a pairing it
     // starts meets a loopback port nobody answers on.
     if cfg!(test) {

@@ -17,20 +17,25 @@ pub use tower_host::{Refused as TowerRefused, TowerHost};
 pub mod chat;
 pub mod client_record;
 pub mod data;
+pub mod decks;
 pub mod reports;
 #[cfg(feature = "client")]
 pub use account::TowerPlay;
 #[cfg(feature = "client")]
-pub use account::{Account, PairedSession, PairingClaim};
+pub use account::{Account, GatewayDeckImport, PairedSession, PairingClaim};
+#[cfg(feature = "client")]
+pub use account::{RankedHost, RankedPlay, ranked_read};
 #[path = "gateway.rs"]
 mod admission;
 mod http;
 #[cfg(feature = "client")]
 pub use admission::TowerSeat;
 pub use admission::{Admission, ChallengeSeat, GatewayHttp, Turned};
+#[cfg(feature = "client")]
+pub use admission::{RankedDeck, RankedSeat};
 pub use central_api::{
     Bearer, Endpoint, Error, SignedToken, Token, challenges, chat as chat_api, gateway, groups,
-    owner, social, terms, wire,
+    owner, ranked, social, terms, wire,
 };
 #[cfg(feature = "client")]
 pub use central_client as sdk;

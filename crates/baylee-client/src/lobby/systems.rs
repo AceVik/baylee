@@ -87,6 +87,10 @@ pub(super) fn poll(
     // Absent in a headless test, which has no settings file to write to.
     mut settings: Option<ResMut<crate::settings::ClientSettings>>,
 ) {
+    #[cfg(not(target_arch = "wasm32"))]
+    if state.deck_import.stale(&state) {
+        state.deck_import.reset();
+    }
     for pass in 0..8 {
         let replies = {
             let Ok(mut box_) = mailbox.0.lock() else {
@@ -112,6 +116,16 @@ pub(super) fn poll(
         };
         for reply in replies {
             let reply = match reply {
+                #[cfg(not(target_arch = "wasm32"))]
+                Reply::LibrarySession(session, reply) => {
+                    if !state
+                        .central_handle()
+                        .is_some_and(|h| h.same_session(&session))
+                    {
+                        continue;
+                    }
+                    *reply
+                }
                 Reply::Remote(epoch, reply) if epoch == state.gateway_epoch => *reply,
                 Reply::Remote(_, _) => continue,
                 reply => reply,
@@ -183,6 +197,14 @@ pub(super) fn poll(
                     super::central::pairing::receive(&mut state, &mut prefs, &mailbox, id, news);
                 }
                 Reply::Remote(_, _) | Reply::PrintingCatalog(_) | Reply::PoolLanguage(_, _) => {}
+                #[cfg(not(target_arch = "wasm32"))]
+                Reply::LibrarySession(_, _) => {}
+                #[cfg(not(target_arch = "wasm32"))]
+                Reply::PlayDeck(prepared) => prepared.send(&mut state, &mailbox),
+                #[cfg(not(target_arch = "wasm32"))]
+                Reply::DeckImport(update) => {
+                    super::decks::migration::receive(&mut state, &mailbox, update)
+                }
                 Reply::VaultLogin(login) => state.vault_login = Some(login),
                 Reply::Event(event) => {
                     #[cfg(not(target_arch = "wasm32"))]
@@ -348,10 +370,12 @@ pub(super) fn poll(
                 Reply::Registration {
                     registration,
                     art_cache,
+                    submitted_decks,
                     guests,
                     central,
                     guests_only,
                 } => {
+                    state.submitted_decks_epoch = submitted_decks.then_some(state.gateway_epoch);
                     state.auth_config(registration, art_cache, guests, central);
                     state.lobby.set_guests_only(guests_only);
                 }
