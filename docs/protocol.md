@@ -270,6 +270,8 @@ same effect offers a graveyard search. After accepting, the seat can choose a
 card from either zone using `ChoicePrompt::SearchLibraryOrGraveyard`. Only
 the searching seat receives the inspected library cards. Accepting
 shuffles the library even if the seat takes a graveyard card or no card.
+Declining searches only the public graveyard and requires a matching card
+when there is one.
 
 ## Composed ability origins (compatible addition)
 

@@ -4027,7 +4027,7 @@ LogClassLevel = { $object } reached Class level { $level }
 
 # Optional additional vote (`Modifier::AdditionalVotes { optional: true }`, CR 701.38c).
 AdditionalVoteAsk = Vote an additional time?
-SearchLibraryAsk = Search your library? If you do, shuffle it afterward.
+SearchLibraryAsk = Search your library and shuffle it afterward? Choose No to search only your graveyard.
 
 # What an empty search box in the question's sheet says (report 16).
 FilterPlaceholder = type to search…

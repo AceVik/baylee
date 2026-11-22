@@ -1255,7 +1255,7 @@ fn yes_no_words(table: &Table<'_>, prompt: &YesNoPrompt) -> (String, String, Str
         YesNoPrompt::SearchLibrary => (
             "Search your library? If you do, you'll shuffle it afterward.".into(),
             "search the library".into(),
-            "skip the library search".into(),
+            "search only the graveyard".into(),
         ),
         YesNoPrompt::OpeningHandBattlefield => (
             "Begin the game with this card from your opening hand on the battlefield?".into(),

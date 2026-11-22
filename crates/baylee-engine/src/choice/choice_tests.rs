@@ -248,7 +248,7 @@ fn a_timed_out_seat_does_nothing_wherever_the_question_allows_it() {
             no.clone(),
         ),
         (yes_no(YesNoPrompt::AdditionalVote), no.clone()),
-        (yes_no(YesNoPrompt::SearchLibrary), no.clone()),
+        (yes_no(YesNoPrompt::SearchLibrary), None),
         (
             yes_no(YesNoPrompt::GuessNamedCardInHand {
                 holder: p,

@@ -43,7 +43,13 @@ fn no_reveal(state: &GameState) {
 #[test]
 fn library_or_graveyard_search_requires_consent_before_inspection_or_shuffle() {
     let you = PlayerId::new(0);
-    for (graveyard_match, accept) in [(false, false), (false, true), (true, false), (true, true)] {
+    for (graveyard_match, accept, take_graveyard) in [
+        (false, false, false),
+        (false, true, false),
+        (true, false, true),
+        (true, true, true),
+        (true, true, false),
+    ] {
         let (mut state, source, _) = table(3);
         let mut res = resolution(
             source,
@@ -61,21 +67,7 @@ fn library_or_graveyard_search_requires_consent_before_inspection_or_shuffle() {
             Arc::make_mut(&mut object.base).types = baylee_cards_dsl::TypeSet::CREATURE;
             card
         });
-        let first = if let Some(card) = graveyard {
-            let Flow::Wait(Pending::ChooseCards {
-                prompt: ChoicePrompt::FromGraveyard,
-                options,
-                min: 0,
-                ..
-            }) = run(&mut state, &mut res)
-            else {
-                panic!("expected an optional graveyard find");
-            };
-            assert_eq!(options, [card]);
-            resume(&mut state, &mut res, &[])
-        } else {
-            run(&mut state, &mut res)
-        };
+        let first = run(&mut state, &mut res);
         assert!(matches!(
             first,
             Flow::Wait(Pending::YesNo {
@@ -86,11 +78,13 @@ fn library_or_graveyard_search_requires_consent_before_inspection_or_shuffle() {
         ));
         assert_eq!(state.journal.last_seq(), before);
         let flow = resume_yes_no(&mut state, &mut res, accept);
+        let chosen = graveyard.filter(|_| take_graveyard);
         if accept {
             let Flow::Wait(Pending::ChooseCards {
                 player,
                 prompt: ChoicePrompt::SearchLibraryOrGraveyard,
                 options,
+                min: 0,
                 max,
                 ..
             }) = flow
@@ -101,7 +95,26 @@ fn library_or_graveyard_search_requires_consent_before_inspection_or_shuffle() {
             assert_eq!(options, graveyard.as_slice());
             assert_eq!(max, u8::from(graveyard_match));
             assert!(matches!(
-                resume(&mut state, &mut res, graveyard.as_slice()),
+                resume(&mut state, &mut res, chosen.as_slice()),
+                Flow::Complete
+            ));
+        } else if let Some(card) = graveyard {
+            let Flow::Wait(Pending::ChooseCards {
+                player,
+                prompt: ChoicePrompt::FromGraveyard,
+                options,
+                min: 1,
+                max: 1,
+                ..
+            }) = flow
+            else {
+                panic!("expected a required public graveyard find");
+            };
+            assert_eq!(player, you);
+            assert_eq!(options, [card]);
+            assert_eq!(state.journal.last_seq(), before);
+            assert!(matches!(
+                resume(&mut state, &mut res, &[card]),
                 Flow::Complete
             ));
         } else {
@@ -110,7 +123,7 @@ fn library_or_graveyard_search_requires_consent_before_inspection_or_shuffle() {
         if let Some(card) = graveyard {
             assert_eq!(
                 state.object(card).unwrap().zone,
-                if accept {
+                if take_graveyard {
                     crate::zone::Zone::Battlefield
                 } else {
                     crate::zone::Zone::Graveyard

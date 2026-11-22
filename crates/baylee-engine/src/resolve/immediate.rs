@@ -2747,20 +2747,7 @@ pub(super) fn exec_immediate(
             search::begin_mixed_search(state, res, filter, find, true)
         }
         Effect::SearchLibraryOrGraveyard { filter, find } => {
-            res.subject.found.clear();
-            let buried = search::graveyard_matches(state, res, filter);
-            if buried.is_empty() {
-                return search::ask_library_search(state, res, filter, find);
-            }
-            res.awaiting = Some(AwaitingOp::GraveyardOrLibrary { filter, find });
-            Some(Pending::ChooseCards {
-                player: you,
-                options: buried,
-                min: 0,
-                max: 1,
-                prompt: ChoicePrompt::FromGraveyard,
-                total: None,
-            })
+            search::begin_optional_mixed_search(state, res, filter, find)
         }
         Effect::DiscardUpToThenDraw { count } => {
             let hand: Vec<ObjectId> = state.zones.list(ZoneLocation::Hand(you)).clone();

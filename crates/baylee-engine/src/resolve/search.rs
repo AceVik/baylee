@@ -125,7 +125,7 @@ fn search_matches(
     })
 }
 
-pub(super) fn graveyard_matches(
+fn graveyard_matches(
     state: &GameState,
     res: &Resolution,
     filter: &baylee_cards_dsl::Filter,
@@ -278,6 +278,9 @@ fn begin_search_in_zones(
     let require_graveyard_find = graveyard
         .as_ref()
         .is_some_and(|search| search.mandatory && !search.options.is_empty());
+    let require_unfiltered_library_find = graveyard.is_some()
+        && matches!(filter, baylee_cards_dsl::Filter::Any)
+        && !options.is_empty();
     let prompt = if let Some(graveyard) = graveyard {
         options.extend(graveyard.options);
         if can_search_library {
@@ -294,7 +297,7 @@ fn begin_search_in_zones(
     }
     let want = u8::try_from(most_found(count, finds, options.len())).unwrap_or(u8::MAX);
     // CR 701.23b: a hidden-zone search with a stated quality may fail to find.
-    let least = if require_graveyard_find {
+    let least = if require_graveyard_find || require_unfiltered_library_find {
         1
     } else if optional || !matches!(filter, baylee_cards_dsl::Filter::Any) {
         0
@@ -546,24 +549,50 @@ pub(super) fn bottom_in_random_order(state: &mut GameState, you: PlayerId, cards
     state.put_on_bottom_in_random_order(you, cards);
 }
 
-/// Ask before inspecting any part of the library, even if there were no
-/// graveyard matches. The answer controls the conditional shuffle.
+/// Choose whether to search the library before inspecting any of its cards.
+/// When it cannot be searched, the remaining instruction searches the graveyard.
 #[allow(clippy::trivially_copy_pass_by_ref)]
-pub(super) fn ask_library_search(
+pub(super) fn begin_optional_mixed_search(
     state: &GameState,
     res: &mut Resolution,
     filter: &'static baylee_cards_dsl::Filter,
     find: &'static baylee_cards_dsl::effect::Find,
 ) -> Option<Pending> {
+    res.subject.found.clear();
     let you = res.controller;
     if !allowed(state, res, you, you) {
-        return None;
+        return graveyard_only(state, res, filter, find);
     }
     res.awaiting = Some(AwaitingOp::ConfirmLibrarySearch { filter, find });
     Some(Pending::YesNo {
         player: you,
         prompt: YesNoPrompt::SearchLibrary,
         source: resolving_ability(state, res),
+    })
+}
+
+#[allow(clippy::trivially_copy_pass_by_ref)]
+fn graveyard_only(
+    state: &GameState,
+    res: &mut Resolution,
+    filter: &'static baylee_cards_dsl::Filter,
+    find: &'static baylee_cards_dsl::Find,
+) -> Option<Pending> {
+    if state.has_left(res.controller) {
+        return None;
+    }
+    let options = graveyard_matches(state, res, filter);
+    if options.is_empty() {
+        return None;
+    }
+    res.awaiting = Some(AwaitingOp::GraveyardFind { find });
+    Some(Pending::ChooseCards {
+        player: res.controller,
+        options,
+        min: 1,
+        max: 1,
+        prompt: ChoicePrompt::FromGraveyard,
+        total: None,
     })
 }
 
@@ -635,7 +664,7 @@ pub(super) fn resume_consent(
             if answer && allowed(state, res, you, you) {
                 begin_mixed_search(state, res, filter, find, false)
             } else {
-                None
+                graveyard_only(state, res, filter, find)
             }
         }
         _ => return None,

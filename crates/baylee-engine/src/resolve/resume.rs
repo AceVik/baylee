@@ -663,25 +663,23 @@ pub(super) fn resume_inner(
                 return next_choice(state, res, since, pending);
             }
         }
-        AwaitingOp::GraveyardOrLibrary { filter, find } => {
+        AwaitingOp::GraveyardFind { find } => {
             let you = res.controller;
-            match chosen.first() {
-                // A graveyard card, still there, is the whole search.
-                Some(&card)
-                    if state
-                        .zones
-                        .list(ZoneLocation::Graveyard(you))
-                        .contains(&card) =>
-                {
-                    if find.tapped && find.dest == SearchDest::Battlefield {
-                        state.set_tapped(card, true);
-                    }
-                    search::put_found_with_link(state, res, you, card, *find);
+            if let Some(&card) = chosen.first()
+                && state.zones.list(ZoneLocation::Graveyard(you)).contains(&card)
+            {
+                let find = search::resolve_find(state, res, you, *find, card);
+                state.entries.set_putter(you);
+                if find.tapped && find.dest == SearchDest::Battlefield {
+                    state.set_tapped(card, true);
                 }
-                Some(_) => {}
-                None => {
-                    if let Some(question) = search::ask_library_search(state, res, filter, find) {
-                        return next_choice(state, res, since, question);
+                search::put_found_with_link(state, res, you, card, find);
+                if find.dest == SearchDest::Battlefield {
+                    if let Some((kind, count)) = find.counter {
+                        crate::entry::put_counters(state, you, card, kind, count);
+                    }
+                    if let Some(reference) = crate::entry::battlefield_reference(state, card) {
+                        res.subject.found.push(reference);
                     }
                 }
             }

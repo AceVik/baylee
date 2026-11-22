@@ -2589,14 +2589,13 @@ hashes, layers and does nothing. This paragraph said THREE until
 - **`Effect::SearchLibraryOrGraveyard { filter, find }`** (Finale of
   Devastation): "search your library and/or graveyard for a [filter] card and
   put it [where `find` says]. If you search your library this way, shuffle."
-  The graveyard is public, so its matches come first: a `ChooseCards` with
-  `min: 0`, `max: 1`, prompt `FromGraveyard`. A card named there is the whole
-  search, and nothing is shuffled. Naming none, or a graveyard with no match,
-  offers `YesNoPrompt::SearchLibrary` before any library cards are inspected.
-  Accepting offers a single pick from both zones using
-  `ChoicePrompt::SearchLibraryOrGraveyard`. The library is shuffled even
-  when the player picks a graveyard card or finds nothing. Declining ends
-  the search.
+  `YesNoPrompt::SearchLibrary` comes before any private inspection.
+  Declining searches only the graveyard, requiring one match when available,
+  without shuffling. Accepting offers a single pick from both zones using
+  `ChoicePrompt::SearchLibraryOrGraveyard`. An empty answer to a search for a
+  stated quality represents searching only the hidden zone and failing to
+  find. The library shuffles even when the player takes a graveyard card or
+  finds nothing.
 - **`Effect::SearchLibraryAndGraveyard { filter, find }`** (Verdant
   Crescendo) searches both zones, with no consent question, and shuffles
   after placement. A matching graveyard card makes the find mandatory

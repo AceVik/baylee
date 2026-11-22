@@ -1123,12 +1123,11 @@ pub enum Effect {
     },
     /// "Search your library and/or graveyard for a [filter] card and put it
     /// [where `find` says]. If you search your library this way, shuffle."
-    /// (Finale of Devastation.) One card from either zone: the graveyard is
-    /// public, so its matches are offered first. Taking a graveyard card
-    /// completes the search. If no graveyard card is taken, the player may
-    /// inspect the library and take a card from either zone. The library is
-    /// shuffled even if they take a graveyard card or find nothing. Declining
-    /// leaves the library untouched.
+    /// (Finale of Devastation.) The player chooses the search zones before
+    /// inspecting any library cards. Searching only the graveyard requires
+    /// taking a match when one exists. Searching the library lets the player
+    /// take a card from either zone or fail to find in the hidden zone. The
+    /// library is shuffled only if it was searched.
     SearchLibraryOrGraveyard {
         /// What may be found.
         filter: &'static Filter,

@@ -699,15 +699,12 @@ pub enum AwaitingOp {
         /// "Mana of any type can be spent to cast that spell."
         any_mana: bool,
     },
-    /// After `SearchLibraryOrGraveyard` offered its graveyard matches: the
-    /// card named goes where `find` says; none named offers the library search.
-    GraveyardOrLibrary {
-        /// What may be found in the library.
-        filter: &'static baylee_cards_dsl::Filter,
+    /// A graveyard-only search must find a match when one exists.
+    GraveyardFind {
         /// Where the card goes.
         find: &'static baylee_cards_dsl::effect::Find,
     },
-    /// Whether to inspect the library after resolving the graveyard option.
+    /// Whether to include the library in the choice of search zones.
     ConfirmLibrarySearch {
         /// What may be found in the library.
         filter: &'static baylee_cards_dsl::Filter,
@@ -1663,6 +1660,9 @@ impl AwaitingOp {
             Self::RevealLibrarySearch => 66,
             Self::ConfirmLibrarySearch { filter, find } => {
                 crate::state::structural_fingerprint(&("confirm-library-search", filter, find))
+            }
+            Self::GraveyardFind { find } => {
+                crate::state::structural_fingerprint(&("graveyard-find", find))
             }
             Self::GuessNamedCardInHand {
                 guesser,

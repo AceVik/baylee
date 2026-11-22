@@ -1070,7 +1070,7 @@ pub enum YesNoPrompt {
     /// Vote an additional time while voting (`Modifier::AdditionalVotes { optional: true }`,
     /// CR 701.38c; Ballot Broker, Tivit, Seller of Secrets)?
     AdditionalVote,
-    /// Search your library now, and shuffle after the search?
+    /// Include the library in the search and shuffle, or search only the graveyard?
     SearchLibrary,
 }
 
@@ -1152,15 +1152,16 @@ impl YesNoPrompt {
             | Self::Conspire
             | Self::Tribute { .. }
             | Self::AdditionalVote
-            | Self::SearchLibrary
             | Self::Generic => true,
             // Declining discover moves the card into the hand: a card for
             // the player, but not nothing, and a free spell is not a
             // question to answer by the clock. Declining madness likewise
             // moves the exiled card to its owner's graveyard (CR 702.35a),
             // so the house decides rather than the clock. A guess is a guess
-            // either way: "no" is not passing it up.
+            // either way: "no" is not passing it up. Skipping a library
+            // search can require taking a card from the graveyard.
             Self::RemoveCountersInsteadOfUntapping { .. }
+            | Self::SearchLibrary
             | Self::UseDamageClearingReplacement { .. }
             | Self::UseShieldCounter { .. }
             | Self::ApplyAdditionalCountersNext { .. }
