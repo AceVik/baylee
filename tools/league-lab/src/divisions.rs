@@ -124,13 +124,26 @@ pub struct Comparison {
 }
 
 impl Comparison {
+    pub fn selected(n: usize) -> Self {
+        Self::new(SELECTED, n)
+    }
+    pub fn movement(&self) -> (u64, u64, u64) {
+        self.counts
+            .iter()
+            .fold((0, 0, 0), |(days, changes, back), c| {
+                (days + c.days, changes + c.up + c.down, back + c.reversals)
+            })
+    }
     pub fn variants(n: usize) -> [Self; VARIANTS.len()] {
-        VARIANTS.map(|(divisions, buffer)| Self {
+        VARIANTS.map(|layout| Self::new(layout, n))
+    }
+    fn new((divisions, buffer): (Layout, i32), n: usize) -> Self {
+        Self {
             scale: Scale::new(divisions, buffer),
             previous: vec![Rank::default(); n],
             two_days_ago: vec![Rank::default(); n],
             counts: std::array::from_fn(|_| Counts::default()),
-        })
+        }
     }
     pub fn update(&mut self, tiers: &[usize], records: &[Record], day: u16) {
         for (id, (&tier, &record)) in tiers.iter().zip(records).enumerate() {

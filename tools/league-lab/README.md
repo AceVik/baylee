@@ -2,9 +2,11 @@
 
 Offline Rust prototype, 22 November 2026. The league experiment runs a global 1v1 ladder of accounts. The deck experiment measures the cost of edits to ranked lists. Both sample wins and losses. The two experiments use separate ratings.
 
+The current ranked model runs a timed queue, individually capped upset stakes and the league publication together. Its default command, evidence, and controlled comparisons are in [Ranked matchmaking and upset scoring](MATCHMAKING.md).
+
 ## Proposed player leagues
 
-The global 1v1 ladder publishes the highest earned rank once a day. Accounts start in Papier with 1500 player Elo. Matchmaking and Elo updates use the player's rating. Match count, rating and the date of the first ranked match carry across seasons. A win or loss transfers the rounded value of `24 × (score − expected)` points between the two accounts.
+The global 1v1 ladder publishes the highest earned rank once a day. Accounts start in Papier with 1500 player Elo. Matchmaking and Elo updates use the player's rating. Match count, rating and the date of the first ranked match carry across seasons. The original threshold calibration below uses classic K=24 Elo. The current ranked model reuses the resulting thresholds with the individually capped stakes.
 
 | League | Entry Elo | Lifetime ranked matches | Divisions in ascending order |
 | --- | ---: | ---: | --- |
@@ -96,6 +98,9 @@ After the rebuild, each final pool plays 120 more matches against rated opponent
 From this directory, using the pinned lockfile:
 
 ```sh
+cargo run --release --locked -- ranked > ranked.csv
+cargo run --release --locked -- rating-trials > rating-trials.csv
+cargo run --release --locked -- ranked-decks > ranked-decks.csv
 cargo run --release --locked -- all > leagues.csv
 cargo run --release --locked -- divisions > divisions.csv
 cargo run --release --locked -- ladder

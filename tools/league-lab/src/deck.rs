@@ -121,15 +121,19 @@ impl Registry {
     /// Rehydrate an already established reference and its persisted rating.
     pub fn established(key: &Pool, rating: i32, power: f64) -> Self {
         let mut registry = Self::new(power);
-        registry.references.insert(key.clone(), rating);
-        registry.versions.insert(
+        registry.restore_reference(key, rating);
+        registry
+    }
+
+    pub fn restore_reference(&mut self, key: &Pool, rating: i32) {
+        self.references.insert(key.clone(), rating);
+        self.versions.insert(
             key.clone(),
             Version {
                 rating,
                 season_games: 0,
             },
         );
-        registry
     }
 }
 

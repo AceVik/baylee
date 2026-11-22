@@ -1,3 +1,4 @@
+mod competitive;
 mod deck;
 mod deck_sim;
 mod divisions;
@@ -32,9 +33,29 @@ fn suite(name: &'static str) -> Vec<Scenario> {
 
 fn main() {
     let args: Vec<_> = std::env::args().skip(1).collect();
+    if args.is_empty() {
+        competitive::run(None);
+        return;
+    }
+    if args.as_slice() == ["ranked-decks"] {
+        competitive::deck_trials();
+        return;
+    }
+    if args.as_slice() == ["payouts"] {
+        competitive::examples();
+        return;
+    }
+    if args.as_slice() == ["rating-trials"] {
+        competitive::rating_trials();
+        return;
+    }
+    if args.first().is_some_and(|s| s == "ranked") && args.len() <= 2 {
+        competitive::run(args.get(1).map(String::as_str));
+        return;
+    }
     let usage = || -> ! {
         eprintln!(
-            "Usage: baylee-league-lab all|pilot|tune|verify|fresh|small|narrow|wide|cap|ladder|divisions|decks\n       baylee-league-lab edit REFERENCE_ELO REGISTERED_COPIES CHANGED_COPIES"
+            "Usage: baylee-league-lab ranked [duel|night|town|city|peak|pilot]\n       baylee-league-lab payouts|rating-trials|ranked-decks|ladder|divisions|decks|all|pilot|tune|verify|fresh|small|narrow|wide|cap\n       baylee-league-lab edit REFERENCE_ELO REGISTERED_COPIES CHANGED_COPIES"
         );
         std::process::exit(2)
     };
