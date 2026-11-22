@@ -151,6 +151,7 @@ fn abeyance_locks_targeted_player_instants_sorceries_and_non_mana_abilities() {
             effects: MANA_ABILITY,
             targets: None,
             second_targets: None,
+            third_targets: None,
             timing: ActivationTiming::InstantSpeed,
             mana_ability: true,
             zone: ActivationZone::Battlefield,
@@ -166,6 +167,7 @@ fn abeyance_locks_targeted_player_instants_sorceries_and_non_mana_abilities() {
         }],
         targets: None,
         second_targets: None,
+        third_targets: None,
         timing: ActivationTiming::InstantSpeed,
         mana_ability: false,
         zone: ActivationZone::Hand,
@@ -178,6 +180,7 @@ fn abeyance_locks_targeted_player_instants_sorceries_and_non_mana_abilities() {
         effects: NON_MANA_PING,
         targets: None,
         second_targets: None,
+        third_targets: None,
     }];
 
     let abeyance = card(

@@ -386,7 +386,8 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
         }
         let variable_mana = printed_cost.mana.has_variable();
         let targets_resolved = (first.is_none() || self.activation_targets_answered)
-            && (second.is_none() || self.activation_second_targets.is_some());
+            && (second.is_none() || self.activation_second_targets.is_some())
+            && (third.is_none() || self.activation_target_choice.third_targets.is_some());
         let chosen_so_far: SmallVec<[ObjectId; 4]> = targets
             .iter()
             .copied()
@@ -394,6 +395,12 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 self.activation_second_targets
                     .iter()
                     .flat_map(|second_ts| second_ts.iter().copied()),
+            )
+            .chain(
+                self.activation_target_choice
+                    .third_targets
+                    .iter()
+                    .flat_map(|third_ts| third_ts.iter().copied()),
             )
             .collect();
         let initial_target_pricing = if targets_resolved {
@@ -1155,6 +1162,12 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                     self.activation_second_targets
                         .iter()
                         .flat_map(|second_ts| second_ts.iter().copied()),
+                )
+                .chain(
+                    self.activation_target_choice
+                        .third_targets
+                        .iter()
+                        .flat_map(|third_ts| third_ts.iter().copied()),
                 )
                 .collect();
             let final_pricing = super::costs::ActivationTargetPricing::Chosen(&final_targets);

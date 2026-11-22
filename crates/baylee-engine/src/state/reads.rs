@@ -403,7 +403,8 @@ fn amount_reads_crime_at(amount: &baylee_cards_dsl::Amount, depth: u8) -> bool {
         | Amount::ControlledCount { filter: f, .. }
         | Amount::DamageThisTurn { by: f, .. }
         | Amount::GreatestPowerAmong(f)
-        | Amount::GreatestManaValueAmong(f) => filter_reads_crime(f, depth + 1),
+        | Amount::GreatestManaValueAmong(f)
+        | Amount::TotalPowerAmong(f) => filter_reads_crime(f, depth + 1),
         Amount::Negated(a)
         | Amount::Plus { base: a, .. }
         | Amount::SaturatingSub { base: a, .. }
@@ -650,7 +651,8 @@ fn amount_reads_expend_at(amount: &baylee_cards_dsl::Amount, depth: u8) -> bool 
         | Amount::ControlledCount { filter: f, .. }
         | Amount::DamageThisTurn { by: f, .. }
         | Amount::GreatestPowerAmong(f)
-        | Amount::GreatestManaValueAmong(f) => filter_reads_expend(f, depth + 1),
+        | Amount::GreatestManaValueAmong(f)
+        | Amount::TotalPowerAmong(f) => filter_reads_expend(f, depth + 1),
         Amount::Negated(a)
         | Amount::Plus { base: a, .. }
         | Amount::SaturatingSub { base: a, .. }

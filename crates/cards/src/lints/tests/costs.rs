@@ -193,6 +193,7 @@ fn the_announcement_lint_catches_a_cost_that_asks_before_it_shows() {
         effects: &[],
         targets: target.map(TargetReq::one),
         second_targets: None,
+        third_targets: None,
         timing: ActivationTiming::InstantSpeed,
         mana_ability: false,
         zone: ActivationZone::Battlefield,

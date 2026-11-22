@@ -637,7 +637,11 @@ pub(crate) fn matches(view: &PlayerView, object: &PublicObject, filter: &Filter)
         | Filter::SameManaValueAsSource
         | Filter::SharesColorWithSource
         | Filter::CmcEqualsYourUnspentMana
-        | Filter::ControlledByChooser => return None,
+        | Filter::ControlledByChooser
+        | Filter::CmcAtMostAmount(_)
+        | Filter::CmcEqualsAmount(_)
+        | Filter::PowerAtMostAmount(_)
+        | Filter::PowerAtLeastAmount(_) => return None,
         Filter::ControlledBy(rel) => match rel {
             baylee_cards_dsl::PlayerRel::You => object.controller == you(view),
             baylee_cards_dsl::PlayerRel::Opponent | baylee_cards_dsl::PlayerRel::EachOpponent => {

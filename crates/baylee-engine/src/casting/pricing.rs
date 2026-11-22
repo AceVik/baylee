@@ -1501,56 +1501,60 @@ fn pair_matches_target_filter(
     face: usize,
     first: Option<baylee_cards_dsl::TargetReq>,
     second: Option<baylee_cards_dsl::TargetReq>,
+    third: Option<baylee_cards_dsl::TargetReq>,
     rule: &TargetConditionalRule,
 ) -> (bool, bool) {
-    let wall_only = crate::eval::target_domain::walls(first, second);
-    let (a1, g1) = first.map_or((false, false), |req| {
+    let wall_only = crate::eval::target_domain::walls3(first, second, third);
+    let (mut achievable, mut guaranteed) = first.map_or((false, false), |req| {
         clause_matches_target_filter(state, player, card, def, face, req, wall_only, rule)
     });
-    let (a2, g2) = match (first, second) {
-        (Some(r1), Some(r2)) if super::spec_reads_reference(r2.spec) => {
-            let first_objs = crate::eval::spell_target_options_for(
-                &r1.spec,
-                state,
-                player,
-                card,
-                Some((def, face)),
-                None,
-                wall_only,
-            );
-            let any_second = first_objs.into_iter().any(|reference| {
-                let sec_objs = crate::eval::spell_target_options_relative(
-                    &r2.spec,
+    for extra in [second, third].into_iter().flatten() {
+        let (a, g) = match first {
+            Some(r1) if super::spec_reads_reference(extra.spec) => {
+                let first_objs = crate::eval::spell_target_options_for(
+                    &r1.spec,
                     state,
                     player,
                     card,
                     Some((def, face)),
                     None,
                     wall_only,
-                    Some(reference),
                 );
-                sec_objs.len() >= usize::from(r2.min)
-                    && (r2.count_is_x || r2.max > 0)
-                    && sec_objs.into_iter().any(|id| {
-                        state.object(id).is_some_and(|o| {
-                            crate::eval::matches_with_context(
-                                rule.target_filter,
-                                state,
-                                o,
-                                rule.controller,
-                                rule.context,
-                            )
+                let any_extra = first_objs.into_iter().any(|reference| {
+                    let sec_objs = crate::eval::spell_target_options_relative(
+                        &extra.spec,
+                        state,
+                        player,
+                        card,
+                        Some((def, face)),
+                        None,
+                        wall_only,
+                        Some(reference),
+                    );
+                    sec_objs.len() >= usize::from(extra.min)
+                        && (extra.count_is_x || extra.max > 0)
+                        && sec_objs.into_iter().any(|id| {
+                            state.object(id).is_some_and(|o| {
+                                crate::eval::matches_with_context(
+                                    rule.target_filter,
+                                    state,
+                                    o,
+                                    rule.controller,
+                                    rule.context,
+                                )
+                            })
                         })
-                    })
-            });
-            (any_second, false)
-        }
-        (_, Some(req)) => {
-            clause_matches_target_filter(state, player, card, def, face, req, wall_only, rule)
-        }
-        (_, None) => (false, false),
-    };
-    (a1 || a2, g1 || g2)
+                });
+                (any_extra, false)
+            }
+            _ => {
+                clause_matches_target_filter(state, player, card, def, face, extra, wall_only, rule)
+            }
+        };
+        achievable |= a;
+        guaranteed |= g;
+    }
+    (achievable, guaranteed)
 }
 
 fn modal_matches_target_filter(
@@ -1594,6 +1598,7 @@ fn modal_matches_target_filter(
             face_idx,
             mode.targets,
             mode.second_targets,
+            None,
             rule,
         );
         any_achievable |= a;
@@ -1653,15 +1658,16 @@ fn face_matches_target_filter(
             let Some(face) = def.faces.get(face_idx) else {
                 return (false, false);
             };
-            if let Some((first, second)) =
+            if let Some((first, second, third)) =
                 def.abilities_for_face(face_idx)
                     .iter()
                     .find_map(|a| match a {
                         baylee_cards_dsl::AbilityDef::Spell {
                             targets,
                             second_targets,
+                            third_targets,
                             ..
-                        } => Some((*targets, *second_targets)),
+                        } => Some((*targets, *second_targets, *third_targets)),
                         _ => None,
                     })
             {
@@ -1671,7 +1677,7 @@ fn face_matches_target_filter(
                     first
                 };
                 return pair_matches_target_filter(
-                    state, player, card, def, face_idx, eff_first, second, rule,
+                    state, player, card, def, face_idx, eff_first, second, third, rule,
                 );
             }
             if let Some((modes, ..)) = def
@@ -1719,6 +1725,63 @@ pub(crate) fn preview_cast_metric_bounds(
     )
 }
 
+fn preview_distinct_target_bounds(
+    state: &GameState,
+    player: PlayerId,
+    card: ObjectId,
+    def: &'static baylee_cards_dsl::CardDef,
+    face_idx: usize,
+    face: &baylee_cards_dsl::FaceDef,
+) -> (u32, u32, bool) {
+    let mut min_d = 0_u32;
+    let mut max_d = 0_u32;
+    let mut count_is_x = false;
+    if let Some((first, second, third)) =
+        def.abilities_for_face(face_idx)
+            .iter()
+            .find_map(|a| match a {
+                baylee_cards_dsl::AbilityDef::Spell {
+                    targets,
+                    second_targets,
+                    third_targets,
+                    ..
+                } => Some((*targets, *second_targets, *third_targets)),
+                _ => None,
+            })
+    {
+        (min_d, max_d, count_is_x) =
+            clauses_preview_targets(state, player, card, def, face_idx, &[first, second, third]);
+    } else if let Some((modes, ..)) = def
+        .abilities_for_face(face_idx)
+        .iter()
+        .find_map(baylee_cards_dsl::AbilityDef::modal_spell)
+    {
+        let mut best_min = u32::MAX;
+        let mut best_max = 0_u32;
+        let mut any_x = false;
+        for mode in modes {
+            let (m_min, m_max, m_x) = clauses_preview_targets(
+                state,
+                player,
+                card,
+                def,
+                face_idx,
+                &[mode.targets, mode.second_targets],
+            );
+            best_min = best_min.min(m_min);
+            best_max = best_max.max(m_max);
+            any_x |= m_x;
+        }
+        min_d = if best_min == u32::MAX { 0 } else { best_min };
+        max_d = best_max;
+        count_is_x = any_x;
+    }
+    if face.bestow.is_some() || face.mutate.is_some() {
+        max_d = max_d.max(1);
+    }
+    (min_d, max_d, count_is_x)
+}
+
 /// Computes preview dynamic cost bounds for a specific cast form and target
 /// mode (`Face`, `Kicked`, `Bestow`, `Mutate`, `Fused`).
 #[must_use]
@@ -1749,58 +1812,8 @@ pub(crate) fn preview_cast_metric_bounds_for(
         .generic_total()
         .saturating_sub(face.mana_cost.with_x(0).generic_total());
     if adjustment.per_distinct_target_delta != 0 {
-        let mut min_d = 0_u32;
-        let mut max_d = 0_u32;
-        let mut count_is_x = false;
-        if let Some((first, second, third)) =
-            def.abilities_for_face(face_idx)
-                .iter()
-                .find_map(|a| match a {
-                    baylee_cards_dsl::AbilityDef::Spell {
-                        targets,
-                        second_targets,
-                        third_targets,
-                        ..
-                    } => Some((*targets, *second_targets, *third_targets)),
-                    _ => None,
-                })
-        {
-            (min_d, max_d, count_is_x) = clauses_preview_targets(
-                state,
-                player,
-                card,
-                def,
-                face_idx,
-                &[first, second, third],
-            );
-        } else if let Some((modes, ..)) = def
-            .abilities_for_face(face_idx)
-            .iter()
-            .find_map(baylee_cards_dsl::AbilityDef::modal_spell)
-        {
-            let mut best_min = u32::MAX;
-            let mut best_max = 0_u32;
-            let mut any_x = false;
-            for mode in modes {
-                let (m_min, m_max, m_x) = clauses_preview_targets(
-                    state,
-                    player,
-                    card,
-                    def,
-                    face_idx,
-                    &[mode.targets, mode.second_targets],
-                );
-                best_min = best_min.min(m_min);
-                best_max = best_max.max(m_max);
-                any_x |= m_x;
-            }
-            min_d = if best_min == u32::MAX { 0 } else { best_min };
-            max_d = best_max;
-            count_is_x = any_x;
-        }
-        if face.bestow.is_some() || face.mutate.is_some() {
-            max_d = max_d.max(1);
-        }
+        let (min_d, max_d, count_is_x) =
+            preview_distinct_target_bounds(state, player, card, def, face_idx, face);
         if adjustment.per_distinct_target_delta > 0 {
             let unit = adjustment.per_distinct_target_delta.unsigned_abs();
             out.min_increase = out.min_increase.saturating_add(unit.saturating_mul(min_d));

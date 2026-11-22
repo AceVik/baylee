@@ -1284,3 +1284,22 @@ fn choose_number_ex_and_move_attachment_bodies_are_visited() {
     assert_eq!(seen, 4);
     assert!(dealt && untapped);
 }
+
+#[test]
+fn prevent_next_damage_with_then_body_is_visited() {
+    static EFFECTS: &[Effect] = &[Effect::PreventNextDamageWithThen {
+        sources: TargetSpec::AnyTarget,
+        recipients: TargetSpec::AnyTarget,
+        combat_only: false,
+        then: &[Effect::GainLife {
+            amount: Amount::ThisWay(crate::ThisWay::DamagePrevented),
+        }],
+    }];
+    let mut seen = 0;
+    let mut gained = false;
+    Effect::walk(EFFECTS, &mut seen, &mut |effect| {
+        gained |= matches!(effect, Effect::GainLife { .. });
+    });
+    assert_eq!(seen, 2);
+    assert!(gained);
+}

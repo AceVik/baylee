@@ -18,6 +18,7 @@ fn the_lint_catches_the_bug_it_was_written_for() {
             &NONCREATURE_ARTIFACT,
         ))),
         second_targets: None,
+        third_targets: None,
     };
     assert!(
         target_reuse(&broken).is_some(),
@@ -32,6 +33,7 @@ fn the_lint_catches_the_bug_it_was_written_for() {
             &NONCREATURE_ARTIFACT,
         ))),
         second_targets: None,
+        third_targets: None,
     };
     assert!(
         target_reuse(&fixed).is_none(),
@@ -43,6 +45,7 @@ fn the_lint_catches_the_bug_it_was_written_for() {
         effects: &WRATH,
         targets: None,
         second_targets: None,
+        third_targets: None,
         condition: None,
     };
     assert!(target_reuse(&wrath).is_none(), "a wrath is not a mistake");
@@ -52,6 +55,7 @@ fn the_lint_catches_the_bug_it_was_written_for() {
         effects: &OTHER_SWEEP,
         targets: Some(TargetReq::one(TargetSpec::Object(&Filter::CREATURE))),
         second_targets: None,
+        third_targets: None,
         condition: None,
     };
     assert!(
@@ -70,6 +74,7 @@ fn the_lint_reads_a_damage_sweep_as_a_sweep() {
         effects: &BURN_EVERY_ONE,
         targets: Some(TargetReq::one(TargetSpec::Object(&Filter::CREATURE))),
         second_targets: None,
+        third_targets: None,
         condition: None,
     };
     assert!(
@@ -111,6 +116,7 @@ fn conditional_sweep_beside_targeted_effect_is_allowed_but_lone_conditional_swee
         effects: &ALLOWED_EFFECTS,
         targets: Some(TargetReq::up_to_one(TargetSpec::Object(&Filter::CREATURE))),
         second_targets: None,
+        third_targets: None,
         zone: TriggerZone::Battlefield,
         once_per_turn: false,
         condition: None,
@@ -126,6 +132,7 @@ fn conditional_sweep_beside_targeted_effect_is_allowed_but_lone_conditional_swee
         effects: &LONE_SWEEP,
         targets: Some(TargetReq::up_to_one(TargetSpec::Object(&Filter::CREATURE))),
         second_targets: None,
+        third_targets: None,
         zone: TriggerZone::Battlefield,
         once_per_turn: false,
         condition: None,
@@ -191,6 +198,7 @@ fn the_player_target_lint_catches_ashioks_minus_one() {
         effects: &MILL_THE_CONTROLLER,
         targets: Some(TargetReq::one(TargetSpec::AnyPlayer)),
         second_targets: None,
+        third_targets: None,
     };
     assert_eq!(
         controller_of_a_player_target(&broken),
@@ -204,6 +212,7 @@ fn the_player_target_lint_catches_ashioks_minus_one() {
         effects: &MILL_THE_CHOSEN,
         targets: Some(TargetReq::one(TargetSpec::AnyPlayer)),
         second_targets: None,
+        third_targets: None,
     };
     assert!(
         controller_of_a_player_target(&fixed).is_none(),
@@ -217,6 +226,7 @@ fn the_player_target_lint_catches_ashioks_minus_one() {
         effects: &MILL_THE_CONTROLLER,
         targets: Some(TargetReq::one(TargetSpec::Object(&Filter::CREATURE))),
         second_targets: None,
+        third_targets: None,
     };
     assert!(
         controller_of_a_player_target(&object).is_none(),
@@ -312,6 +322,7 @@ fn the_layer_lint_catches_a_modifier_on_the_wrong_layer() {
         }],
         targets: None,
         second_targets: None,
+        third_targets: None,
         condition: None,
     };
     assert_eq!(
@@ -340,6 +351,7 @@ fn the_layer_lint_looks_inside_a_conditional() {
         }],
         targets: None,
         second_targets: None,
+        third_targets: None,
         condition: None,
     };
     assert_eq!(
@@ -427,6 +439,7 @@ fn divided_counters_beside_team_pump_is_allowed_but_lone_team_pump_is_caught() {
             4,
         )),
         second_targets: None,
+        third_targets: None,
         condition: None,
     };
     assert!(
@@ -441,6 +454,7 @@ fn divided_counters_beside_team_pump_is_allowed_but_lone_team_pump_is_caught() {
             4,
         )),
         second_targets: None,
+        third_targets: None,
         condition: None,
     };
     assert_eq!(

@@ -1260,6 +1260,7 @@ pub fn upkeep_bounce_cost(
             effects,
             targets: None,
             second_targets: None,
+            third_targets: None,
             condition: None,
             ..
         } = ability

@@ -539,6 +539,7 @@ fn two_clause_bouncers_beatdown_and_state_filters_reduce_accurately() {
             second_targets: Some(TargetReq::one(TargetSpec::Object(
                 &Filter::OPPONENT_CREATURE,
             ))),
+            third_targets: None,
             condition: None,
         },
     ];
@@ -899,6 +900,7 @@ static EQUIP_1_ABILITIES: &[AbilityDef] = &[AbilityDef::Activated {
     }],
     targets: Some(TargetReq::one(TargetSpec::Object(&Filter::YOUR_CREATURE))),
     second_targets: None,
+    third_targets: None,
     timing: ActivationTiming::SorcerySpeed,
     mana_ability: false,
     zone: ActivationZone::Battlefield,
@@ -1071,6 +1073,7 @@ fn activated_colored_target_reduction_and_floor_composition() {
         effects: &[Effect::TapTarget],
         targets: Some(TargetReq::one(TargetSpec::Object(&Filter::CREATURE))),
         second_targets: None,
+        third_targets: None,
         timing: ActivationTiming::InstantSpeed,
         mana_ability: false,
         zone: ActivationZone::Battlefield,

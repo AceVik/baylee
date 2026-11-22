@@ -1424,7 +1424,7 @@ impl Trigger {
 }
 
 /// An ability definition on a [`crate::CardDef`].
-#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum AbilityDef {
     /// Placeholder for unimplemented stubs.
     Unimplemented,
@@ -1775,6 +1775,212 @@ pub enum AbilityDef {
         /// Whether the same mode may be chosen more than once (CR 700.2d).
         can_repeat_modes: bool,
     },
+}
+
+impl core::hash::Hash for AbilityDef {
+    // Manual impl matches `#[derive(Hash)]` byte-for-byte for every ability
+    // whose `third_targets` is `None` (so existing `Modifier::Grant*Definition`
+    // replay hashes stay unchanged), hashing `third_targets` only when `Some`
+    // under Wave 14c's disjoint tag `343_u16`.
+    #[allow(clippy::too_many_lines)]
+    fn hash<H: core::hash::Hasher>(&self, state: &mut H) {
+        core::mem::discriminant(self).hash(state);
+        match self {
+            Self::Unimplemented | Self::StartYourEngines => {}
+            Self::Spell {
+                effects,
+                targets,
+                second_targets,
+                third_targets,
+                condition,
+            } => {
+                effects.hash(state);
+                targets.hash(state);
+                second_targets.hash(state);
+                condition.hash(state);
+                if let Some(third) = third_targets {
+                    (255_u8, 343_u16, third).hash(state);
+                }
+            }
+            Self::Activated {
+                cost,
+                effects,
+                targets,
+                second_targets,
+                third_targets,
+                timing,
+                mana_ability,
+                zone,
+                limit,
+                x_value,
+                cost_reduction,
+            } => {
+                cost.hash(state);
+                effects.hash(state);
+                targets.hash(state);
+                second_targets.hash(state);
+                timing.hash(state);
+                mana_ability.hash(state);
+                zone.hash(state);
+                limit.hash(state);
+                x_value.hash(state);
+                cost_reduction.hash(state);
+                if let Some(third) = third_targets {
+                    (255_u8, 343_u16, third).hash(state);
+                }
+            }
+            Self::Triggered {
+                trigger,
+                zone,
+                effects,
+                targets,
+                second_targets,
+                third_targets,
+                once_per_turn,
+                condition,
+                resolves_if_targets_illegal,
+            } => {
+                trigger.hash(state);
+                zone.hash(state);
+                effects.hash(state);
+                targets.hash(state);
+                second_targets.hash(state);
+                once_per_turn.hash(state);
+                condition.hash(state);
+                resolves_if_targets_illegal.hash(state);
+                if let Some(third) = third_targets {
+                    (255_u8, 343_u16, third).hash(state);
+                }
+            }
+            Self::Ward { mana } => mana.hash(state),
+            Self::Toxic { poison } => poison.hash(state),
+            Self::ActivatedConditional {
+                cost,
+                effects,
+                targets,
+                second_targets,
+                third_targets,
+                timing,
+                mana_ability,
+                zone,
+                condition,
+                limit,
+                x_value,
+                cost_reduction,
+            } => {
+                cost.hash(state);
+                effects.hash(state);
+                targets.hash(state);
+                second_targets.hash(state);
+                timing.hash(state);
+                mana_ability.hash(state);
+                zone.hash(state);
+                condition.hash(state);
+                limit.hash(state);
+                x_value.hash(state);
+                cost_reduction.hash(state);
+                if let Some(third) = third_targets {
+                    (255_u8, 343_u16, third).hash(state);
+                }
+            }
+            Self::SagaChapter {
+                chapter,
+                effects,
+                targets,
+            } => {
+                chapter.hash(state);
+                effects.hash(state);
+                targets.hash(state);
+            }
+            Self::Prepared { card, face } => {
+                card.hash(state);
+                face.hash(state);
+            }
+            Self::Echo { cost } | Self::PerExtraTargetCost(cost) => cost.hash(state),
+            Self::Static(sa) => sa.hash(state),
+            Self::Replacement(rule) => rule.hash(state),
+            Self::ModalSpell { modes, choose } => {
+                modes.hash(state);
+                choose.hash(state);
+            }
+            Self::Suspend { counters, cost } => {
+                counters.hash(state);
+                cost.hash(state);
+            }
+            Self::CopyOnEnterUntilEot { target, mods } | Self::CopyOnEnter { target, mods } => {
+                target.hash(state);
+                mods.hash(state);
+            }
+            Self::Loyalty {
+                cost,
+                effects,
+                targets,
+                second_targets,
+                third_targets,
+            } => {
+                cost.hash(state);
+                effects.hash(state);
+                targets.hash(state);
+                second_targets.hash(state);
+                if let Some(third) = third_targets {
+                    (255_u8, 343_u16, third).hash(state);
+                }
+            }
+            Self::ModalActivated {
+                cost,
+                modes,
+                timing,
+                mana_ability,
+                zone,
+                condition,
+                limit,
+                x_value,
+                cost_reduction,
+            } => {
+                cost.hash(state);
+                modes.hash(state);
+                timing.hash(state);
+                mana_ability.hash(state);
+                zone.hash(state);
+                condition.hash(state);
+                limit.hash(state);
+                x_value.hash(state);
+                cost_reduction.hash(state);
+            }
+            Self::ModalTriggered {
+                trigger,
+                zone,
+                modes,
+                once_per_turn,
+                condition,
+            } => {
+                trigger.hash(state);
+                zone.hash(state);
+                modes.hash(state);
+                once_per_turn.hash(state);
+                condition.hash(state);
+            }
+            Self::Unearth { cost } | Self::Encore { cost } => cost.hash(state),
+            Self::Splice { onto, cost } => {
+                onto.hash(state);
+                cost.hash(state);
+            }
+            Self::Awaken { count, cost } => {
+                count.hash(state);
+                cost.hash(state);
+            }
+            Self::Champion { filter } => filter.hash(state),
+            Self::Modal {
+                modes,
+                choose,
+                can_repeat_modes,
+            } => {
+                modes.hash(state);
+                choose.hash(state);
+                can_repeat_modes.hash(state);
+            }
+        }
+    }
 }
 
 impl AbilityDef {

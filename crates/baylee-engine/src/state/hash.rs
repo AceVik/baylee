@@ -3140,7 +3140,8 @@ fn amount_filter_depth_exceeds(amt: &baylee_cards_dsl::Amount, depth: u8) -> boo
         | A::ControlledCount { filter: f, .. }
         | A::DamageThisTurn { by: f, .. }
         | A::GreatestPowerAmong(f)
-        | A::GreatestManaValueAmong(f) => filter_amount_depth_exceeds(f, depth),
+        | A::GreatestManaValueAmong(f)
+        | A::TotalPowerAmong(f) => filter_amount_depth_exceeds(f, depth),
         A::ThisWay(tw) | A::ThisWayBy { what: tw, .. } => match tw {
             TW::Died(f)
             | TW::Destroyed(f)

@@ -267,11 +267,12 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
         ability_index: u32,
         first: Option<baylee_cards_dsl::TargetReq>,
         second: Option<baylee_cards_dsl::TargetReq>,
+        third: Option<baylee_cards_dsl::TargetReq>,
         controller: PlayerId,
         rule_ctx: crate::text_changes::RuleContext,
         target_filter: &'static baylee_cards_dsl::Filter,
     ) -> bool {
-        let wall_only = eval::target_domain::walls(first, second);
+        let wall_only = eval::target_domain::walls3(first, second, third);
         let ab_ctx = self.ability_rule_context(source, ability_index);
         let matches_any = |options: &[ObjectId]| {
             options.iter().any(|&tid| {
@@ -303,28 +304,31 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
         {
             return true;
         }
-        if let Some(req) = second
-            && (req.count_is_x || req.max > 0)
-        {
-            if casting::spec_reads_reference(req.spec) {
-                if let Some((_, ref f_opts)) = first_opts {
-                    return f_opts.iter().any(|&reference| {
+        for extra in [second, third].into_iter().flatten() {
+            if !(extra.count_is_x || extra.max > 0) {
+                continue;
+            }
+            if casting::spec_reads_reference(extra.spec) {
+                if let Some((_, ref f_opts)) = first_opts
+                    && f_opts.iter().any(|&reference| {
                         let mut ctx = ab_ctx;
                         ctx.reference = Some(reference);
                         let opts = eval::target_options_in_domain(
-                            &req.spec,
+                            &extra.spec,
                             &self.state,
                             player,
                             ctx,
                             self.activation_x,
                             wall_only,
                         );
-                        opts.len() >= usize::from(req.min) && matches_any(&opts)
-                    });
+                        opts.len() >= usize::from(extra.min) && matches_any(&opts)
+                    })
+                {
+                    return true;
                 }
             } else {
                 let opts = eval::target_options_in_domain(
-                    &req.spec,
+                    &extra.spec,
                     &self.state,
                     player,
                     ab_ctx,
@@ -355,11 +359,13 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
             AbilityDef::Activated {
                 targets,
                 second_targets,
+                third_targets,
                 ..
             }
             | AbilityDef::ActivatedConditional {
                 targets,
                 second_targets,
+                third_targets,
                 ..
             } => self.ability_pair_has_matching_target(
                 player,
@@ -367,6 +373,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 ability_index,
                 targets,
                 second_targets,
+                third_targets,
                 controller,
                 rule_ctx,
                 target_filter,
@@ -381,6 +388,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                         ability_index,
                         mode.targets,
                         mode.second_targets,
+                        None,
                         controller,
                         rule_ctx,
                         target_filter,
@@ -393,12 +401,14 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                         ability_index,
                         mode.targets,
                         mode.second_targets,
+                        None,
                     ) && self.ability_pair_has_matching_target(
                         player,
                         source,
                         ability_index,
                         mode.targets,
                         mode.second_targets,
+                        None,
                         controller,
                         rule_ctx,
                         target_filter,
