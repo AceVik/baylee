@@ -130,30 +130,35 @@ fn library_or_graveyard_search_requires_consent_before_inspection_or_shuffle() {
                 }
             );
         }
-        assert_eq!(
-            state
-                .journal
-                .entries()
-                .iter()
-                .filter(|entry| matches!(
-                    entry.event,
-                    GameEvent::LibrarySearched { player } if entry.seq > before && player == you
-                ))
-                .count(),
-            usize::from(accept)
-        );
-        assert_eq!(
-            state
-                .journal
-                .entries()
-                .iter()
-                .filter(|entry| matches!(
-                    entry.event,
-                    GameEvent::Shuffled { player, .. } if entry.seq > before && player == you
-                ))
-                .count(),
-            usize::from(accept)
-        );
+        assert_search_and_shuffle(&state, you, before, accept);
+    }
+}
+
+fn assert_search_and_shuffle(state: &GameState, you: PlayerId, since: u64, searched: bool) {
+    let events: Vec<_> = state
+        .journal
+        .entries()
+        .iter()
+        .filter(|entry| entry.seq > since)
+        .filter_map(|entry| match &entry.event {
+            GameEvent::LibrarySearched { player } | GameEvent::Shuffled { player, .. }
+                if *player == you =>
+            {
+                Some(&entry.event)
+            }
+            _ => None,
+        })
+        .collect();
+    if searched {
+        assert!(matches!(
+            events.as_slice(),
+            [
+                GameEvent::LibrarySearched { .. },
+                GameEvent::Shuffled { .. }
+            ]
+        ));
+    } else {
+        assert!(events.is_empty());
     }
 }
 
