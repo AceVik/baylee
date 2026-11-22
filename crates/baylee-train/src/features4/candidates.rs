@@ -1118,8 +1118,13 @@ fn single_object_mana_production(obj: &PublicObject) -> u32 {
                     baylee_cards_dsl::CostPart::RemoveCounterSelf { n, .. } => {
                         obj.counters.iter().map(|c| c.count).sum::<u16>() < *n
                     }
-                    baylee_cards_dsl::CostPart::RemoveCounterSelfX { .. } => {
+                    baylee_cards_dsl::CostPart::RemoveCounterSelfX { .. }
+                    | baylee_cards_dsl::CostPart::RemoveAnyCounterX { .. } => {
                         obj.counters.iter().map(|c| c.count).sum::<u16>() < 1
+                    }
+                    baylee_cards_dsl::CostPart::RemoveAnyCounter { count, .. } => {
+                        *count > 0
+                            && obj.counters.iter().map(|c| c.count).sum::<u16>() < u16::from(*count)
                     }
                     baylee_cards_dsl::CostPart::TapOther(_)
                     | baylee_cards_dsl::CostPart::TapX(_)
@@ -1309,7 +1314,9 @@ fn encode_cast_mode_kind_into(kind: &CastModeKind, cost: &ManaCost, index: u8, f
         // Where a resolving spell goes, as a mutating spell's position is:
         // its slot, so the candidate width the trained nets read stays the
         // same. Which ending is told apart in the scalar below.
-        CastModeKind::MutatePosition(_) | CastModeKind::SpellEnding(_) => 40,
+        CastModeKind::MutatePosition(_)
+        | CastModeKind::SpellEnding(_)
+        | CastModeKind::VoteOption(_) => 40,
         CastModeKind::Dungeon(_) | CastModeKind::DungeonRoom { .. } => 41,
         CastModeKind::Escape | CastModeKind::EscapeGranted { .. } => 42,
         // Both are zone permissions rather than a printed alternative cost.
@@ -1328,6 +1335,9 @@ fn encode_cast_mode_kind_into(kind: &CastModeKind, cost: &ManaCost, index: u8, f
         }
         CastModeKind::SpellEnding(ending) => {
             feat[46] = unit(f32::from(*ending as u8 + 1), 6.0);
+        }
+        CastModeKind::VoteOption(idx) => {
+            feat[46] = unit(f32::from(*idx + 1), 6.0);
         }
         CastModeKind::LibraryTopLife { life, .. } => {
             feat[46] = unit(*life as f32, 20.0);

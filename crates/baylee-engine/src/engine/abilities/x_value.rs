@@ -108,6 +108,14 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
             let max = held.saturating_sub(fixed) / u32::try_from(variables).unwrap_or(u32::MAX);
             bound = Some(bound.map_or(max, |previous: u32| previous.min(max)));
         }
+        if let Some(counter_max) = cost_wizard::counter_remove::activation_counter_x_max(
+            &self.state,
+            player,
+            eval::live_context(&self.state, source),
+            &price.parts,
+        ) {
+            bound = Some(bound.map_or(counter_max, |previous: u32| previous.min(counter_max)));
+        }
         bound
     }
 

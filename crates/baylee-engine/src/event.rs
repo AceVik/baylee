@@ -723,6 +723,16 @@ pub enum GameEvent {
         /// Whether the identity of the permanent was concealed at this event.
         face_down: bool,
     },
+    /// A player cast a named-option ballot in an [`baylee_cards_dsl::Effect::Vote`]
+    /// (`CR 701.38`).
+    VotedOption {
+        /// The voter.
+        player: PlayerId,
+        /// Source spell/permanent whose vote option was chosen.
+        source: ObjectId,
+        /// Zero-based index into `options`.
+        option: u8,
+    },
 }
 
 /// Where in a library a card was put.

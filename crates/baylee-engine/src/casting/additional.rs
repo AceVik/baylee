@@ -262,6 +262,67 @@ fn undecided_either_capacity(
     best
 }
 
+fn moved_permanents_for_counter_costs(
+    state: &GameState,
+    choice: CostChoice,
+    expanded: &[CostPart],
+    assignments: &[ObjectId],
+    parts: &[CostPart],
+    chosen: &[ObjectId],
+) -> SmallVec<[ObjectId; 4]> {
+    let mut moved_permanents: SmallVec<[ObjectId; 4]> = SmallVec::new();
+    if let Some(emerge) = choice.emerge_sacrifice {
+        moved_permanents.push(emerge);
+    }
+    if let Some(ret) = choice.returned {
+        moved_permanents.push(ret);
+    }
+    for (&part, &assigned) in expanded.iter().zip(assignments.iter()) {
+        if matches!(
+            part,
+            CostPart::Sacrifice(_)
+                | CostPart::SacrificeX(_)
+                | CostPart::ExilePermanent(_)
+                | CostPart::ReturnToHand(_)
+        ) && !moved_permanents.contains(&assigned)
+        {
+            moved_permanents.push(assigned);
+        }
+    }
+    let mut cursor = 0_usize;
+    for &part in parts {
+        if cursor >= chosen.len() {
+            break;
+        }
+        if matches!(part, CostPart::Forage) {
+            if state
+                .object(chosen[cursor])
+                .is_some_and(|o| o.zone == crate::zone::Zone::Battlefield)
+            {
+                if !moved_permanents.contains(&chosen[cursor]) {
+                    moved_permanents.push(chosen[cursor]);
+                }
+                cursor += 1;
+            } else {
+                cursor = cursor.saturating_add(3).min(chosen.len());
+            }
+        } else {
+            if matches!(
+                part,
+                CostPart::Sacrifice(_)
+                    | CostPart::SacrificeX(_)
+                    | CostPart::ExilePermanent(_)
+                    | CostPart::ReturnToHand(_)
+            ) && !moved_permanents.contains(&chosen[cursor])
+            {
+                moved_permanents.push(chosen[cursor]);
+            }
+            cursor += 1;
+        }
+    }
+    moved_permanents
+}
+
 fn settled_additional_payment_capacity(
     state: &GameState,
     player: PlayerId,
@@ -320,6 +381,25 @@ fn settled_additional_payment_capacity(
         else {
             continue;
         };
+        let moved_permanents = moved_permanents_for_counter_costs(
+            state,
+            choice,
+            &expanded,
+            &assignments,
+            &parts,
+            chosen,
+        );
+        if !crate::engine::cost_wizard::counter_remove::spell_counter_costs_payable(
+            state,
+            player,
+            card,
+            face,
+            choice,
+            x,
+            &moved_permanents,
+        ) {
+            continue;
+        }
         let mut paid: Vec<_> = chosen.iter().copied().chain(assignments).collect();
         if random > 0 {
             let left = state

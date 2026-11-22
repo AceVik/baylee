@@ -332,6 +332,7 @@ pub fn locks_its_set(modifier: &Modifier) -> bool {
         | Modifier::GraveyardVampireOnce
         | Modifier::NextSpellUncounterable
         | Modifier::OneSpellManaAnyType
+        | Modifier::AdditionalVotes { .. }
         | Modifier::NextDrawWish
         | Modifier::NextDrawFromTop { .. }
         | Modifier::MayRedirectDamageToYou
@@ -372,6 +373,9 @@ pub enum EffectOrigin {
     GrantedStatic(EffectId),
     /// A keyword counter grants an ability independently of printed abilities.
     Counter(baylee_cards_dsl::CounterKind),
+    /// A resolution-created spell-cost reduction consumed as soon as its
+    /// beneficiary finishes casting one matching spell (`CR 601.2f`).
+    NextMatchingSpell,
 }
 
 impl EffectOrigin {
@@ -2032,6 +2036,10 @@ mod tests {
                 opponents_only: false,
             },
             Modifier::Sneak(baylee_cards_dsl::Cost::FREE),
+            Modifier::AdditionalVotes {
+                count: 1,
+                optional: false,
+            },
         ]
     }
 
@@ -2070,7 +2078,7 @@ mod tests {
 
         assert_eq!(
             declared.len(),
-            222,
+            223,
             "read {} variants out of the declaration, which is not the enum",
             declared.len()
         );
@@ -2188,7 +2196,8 @@ mod tests {
         // MayAssignCombatDamageAsThoughUnblocked, PlayersCantGainLife, and CantBeSacrificed
         // modify combat, life-gain, and sacrifice rules (+5 rules-only -> 164).
         // Sneak grants an ability on Layer::Ability (+1 locking -> 58).
-        assert_eq!((locking, all.len() - locking), (58, 164));
+        // AdditionalVotes modifies voting rules (+1 rules-only -> 165).
+        assert_eq!((locking, all.len() - locking), (58, 165));
     }
 
     /// An `ObjectId` alone is not an identity: an id is stable for a whole

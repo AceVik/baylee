@@ -324,7 +324,10 @@ pub use turn::{DayNight, Phase, Step};
 /// `YesNoPrompt::{Conspire, Tribute}`).
 /// Version 108 makes the Class level designation public (CR 717) on
 /// [`PublicObject`] and records its changes as [`LogEvent::ClassLevel`].
-pub const VIEW_VERSION: u32 = 108;
+/// Version 109 adds named-option voting (`CastModeKind::VoteOption`,
+/// `YesNoPrompt::AdditionalVote`, [`LogEvent::VotedOption`]; CR 701.38) and
+/// `ChoicePrompt::CostRemoveCounter`.
+pub const VIEW_VERSION: u32 = 109;
 
 // ------------------------------------------------------------------- targets
 

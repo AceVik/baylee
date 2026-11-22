@@ -918,6 +918,21 @@ impl GameLog {
                     vec![sees],
                 );
             }
+            GameEvent::VotedOption {
+                player,
+                source,
+                option,
+            } => {
+                let (source, sees) = self.refer(state, *source);
+                self.push(
+                    LogEvent::VotedOption {
+                        player: *player,
+                        source,
+                        option: *option,
+                    },
+                    vec![sees],
+                );
+            }
             GameEvent::CoinFlipped { player, won } => self.push(
                 LogEvent::CoinFlipped {
                     player: *player,

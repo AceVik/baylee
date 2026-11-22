@@ -243,6 +243,11 @@ pub(super) fn count(
                 },
                 ThisWay::LifeLost,
             ) if new < old && mine(*player) => old.abs_diff(*new),
+            (GameEvent::VotedOption { player, option, .. }, ThisWay::VoteCount(wanted))
+                if *option == wanted && mine(*player) =>
+            {
+                1
+            }
             _ => 0,
         };
         total = total.saturating_add(n);

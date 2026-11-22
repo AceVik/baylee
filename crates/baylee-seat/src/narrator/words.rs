@@ -354,6 +354,9 @@ pub fn choice_prompt(prompt: ChoicePrompt) -> String {
             "Choose what to return to its owner's hand to pay the cost".into()
         }
         ChoicePrompt::CostExile => "Choose the cards to exile to pay the cost".into(),
+        ChoicePrompt::CostRemoveCounter => {
+            "Choose a permanent to remove a counter from to pay the cost".into()
+        }
         ChoicePrompt::LeaveTapped => "Choose the permanents that stay tapped".into(),
         ChoicePrompt::Untap => "Choose the permanents that untap".into(),
         ChoicePrompt::Band { .. } => {

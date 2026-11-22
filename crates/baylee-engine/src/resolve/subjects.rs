@@ -82,6 +82,7 @@ pub struct SubjectContext {
     pub(super) coins_won: u32,
     pub(super) repeat_frames: Vec<super::wave3_ops::RepeatFrame>,
     pub(super) repeat_processes: Vec<RepeatProcessFrame>,
+    pub(super) vote_queue: Option<Box<super::vote::VoteQueue>>,
 }
 impl SubjectContext {
     /// Preserve the independent player targets of the second target instance.
@@ -148,6 +149,7 @@ impl SubjectContext {
             coins_won: 0,
             repeat_frames: Vec::new(),
             repeat_processes: Vec::new(),
+            vote_queue: None,
         }
     }
 
@@ -279,6 +281,14 @@ impl SubjectContext {
                 .wrapping_mul(31)
                 .wrapping_add(crate::state::structural_fingerprint(count));
         }
+        h = self.fingerprint_tail(h);
+        // Checkpoints exist only during synchronous resume calls. Every
+        // public resume wrapper flushes before returning a held resolution.
+        debug_assert!(self.checkpoint.is_none());
+        h.wrapping_mul(31).wrapping_add(links)
+    }
+
+    fn fingerprint_tail(&self, mut h: u64) -> u64 {
         // Only once a creature type was chosen during this resolution, keeping
         // existing replay hashes unchanged for all other resolutions.
         if let Some(subtype) = self.chosen_subtype {
@@ -320,10 +330,12 @@ impl SubjectContext {
                     &self.repeat_processes,
                 )));
         }
-        // Checkpoints exist only during synchronous resume calls. Every
-        // public resume wrapper flushes before returning a held resolution.
-        debug_assert!(self.checkpoint.is_none());
-        h.wrapping_mul(31).wrapping_add(links)
+        if let Some(vq) = &self.vote_queue {
+            h = h
+                .wrapping_mul(31)
+                .wrapping_add(crate::state::structural_fingerprint(&(99_u8, vq)));
+        }
+        h
     }
 }
 

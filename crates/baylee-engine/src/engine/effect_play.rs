@@ -12,13 +12,21 @@ pub struct EffectPlay {
     linked: Option<LinkedPlay>,
     awaiting_land_entry: bool,
     offered: Option<ObjectId>,
+    play_attempt: Option<PlayAttempt>,
 }
 
 #[derive(Clone, Copy, Debug, Hash)]
 struct LinkedPlay {
     card: baylee_core::ids::DamageSourceRef,
+    player: PlayerId,
     face_down: bool,
     opened: bool,
+}
+
+#[derive(Clone, Copy, Debug, Hash)]
+struct PlayAttempt {
+    original: baylee_core::ids::DamageSourceRef,
+    target: baylee_core::ids::DamageSourceRef,
 }
 
 impl EffectPlay {
@@ -30,7 +38,8 @@ impl EffectPlay {
         self.control.map(|(_, _, card)| card).or(self.offered)
     }
     pub(super) fn fingerprint(&self) -> u64 {
-        self.resolution
+        let hash = self
+            .resolution
             .program_fingerprint()
             .wrapping_mul(31)
             .wrapping_add(
@@ -45,7 +54,13 @@ impl EffectPlay {
                 self.linked,
                 self.awaiting_land_entry,
                 self.offered,
-            )))
+            )));
+        if let Some(attempt) = self.play_attempt {
+            hash.wrapping_mul(31)
+                .wrapping_add(crate::state::structural_fingerprint(&(278u16, attempt)))
+        } else {
+            hash
+        }
     }
 }
 
@@ -53,6 +68,36 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
     /// Probe the same cast procedure that accepting a room offer will start.
     /// Otherwise an AI can repeatedly select an uncastable card without progress.
     pub(super) fn filter_dungeon_plays(&mut self) -> bool {
+        if let Some(AwaitingOp::PlayCards(offer)) =
+            self.resolution.as_ref().and_then(|r| r.awaiting.as_ref())
+        {
+            let crate::choice::Pending::ChooseCards {
+                player, options, ..
+            } = &self.pending
+            else {
+                return false;
+            };
+            let player = *player;
+            let cost_mode = offer.cost;
+            let cast_only = offer.flags.cast_only || offer.flags.copy;
+            let available: Vec<_> = options
+                .iter()
+                .copied()
+                .filter(|&card| {
+                    self.effect_play_options(player, card, cost_mode, cast_only)
+                        .is_ok_and(|modes| !modes.is_empty())
+                })
+                .collect();
+            if available.is_empty() {
+                self.awaiting_answer = false;
+                self.answer_play_cards(player, &[]);
+                return true;
+            }
+            if let crate::choice::Pending::ChooseCards { options, .. } = &mut self.pending {
+                *options = available;
+            }
+            return false;
+        }
         let Some(AwaitingOp::DungeonPlay(play)) =
             self.resolution.as_ref().and_then(|r| r.awaiting.as_ref())
         else {
@@ -109,6 +154,10 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 self.answer_linked_play(player, cards);
                 return Some(Ok(()));
             }
+            AwaitingOp::PlayCards(_) => {
+                self.answer_play_cards(player, cards);
+                return Some(Ok(()));
+            }
             AwaitingOp::MaskedCast => None,
             AwaitingOp::ControlledCard { player } => Some(*player),
             _ => return None,
@@ -134,6 +183,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
             linked: None,
             awaiting_land_entry: false,
             offered: None,
+            play_attempt: None,
         });
         let result = cards.first().map_or(
             Err(EngineError::IllegalAction("casting declined")),
@@ -164,6 +214,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
             linked: None,
             awaiting_land_entry: false,
             offered: None,
+            play_attempt: None,
         });
         if cards.first() != Some(&card.object)
             || self.start_transformed_free_cast(player, card).is_err()
@@ -213,6 +264,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 }
                 LinkedPlay {
                     card,
+                    player,
                     face_down,
                     opened,
                 }
@@ -223,6 +275,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
             linked,
             awaiting_land_entry: false,
             offered: None,
+            play_attempt: None,
         });
         if let Some(linked) = linked {
             if self
@@ -271,6 +324,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 }
                 LinkedPlay {
                     card,
+                    player,
                     face_down: false,
                     opened,
                 }
@@ -281,6 +335,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
             linked,
             awaiting_land_entry: false,
             offered: chosen.map(|r| r.object),
+            play_attempt: None,
         });
         let result = chosen.map_or(Err(EngineError::IllegalAction("play declined")), |r| {
             if free {
@@ -292,6 +347,117 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
         if result.is_err() {
             self.finish_nested_cast();
         }
+    }
+
+    fn answer_play_cards(&mut self, player: PlayerId, cards: &[ObjectId]) {
+        let mut resolution = self.resolution.take().expect("effect play resolution");
+        let Some(AwaitingOp::PlayCards(offer)) = resolution.awaiting.as_mut() else {
+            unreachable!("effect play continuation")
+        };
+        let original = cards
+            .first()
+            .and_then(|id| offer.cards.iter().find(|r| r.object == *id))
+            .copied();
+        let copy = offer.flags.copy;
+        let cost_mode = offer.cost;
+        let cast_only = offer.flags.cast_only || copy;
+        let exile_instead = offer.flags.exile_instead_of_graveyard;
+        if original.is_none() {
+            offer.cards.clear();
+        }
+        let target = original.and_then(|orig| {
+            if copy {
+                self.copy_card_for_play(orig, player)
+            } else {
+                Some(orig)
+            }
+        });
+        let linked = target
+            .filter(|r| {
+                self.state
+                    .object(r.object)
+                    .is_some_and(|o| o.zone == crate::zone::Zone::Exile && o.version == r.version)
+            })
+            .map(|card| {
+                let face_down = self.state.reveal_exiled_card(card.object);
+                let object = self.state.object_mut(card.object).expect("chosen exile");
+                let rider = crate::object::Rider::PlayableFromExileFor(player);
+                let opened = !object.riders.contains(&rider);
+                if opened {
+                    object.riders.push(rider);
+                }
+                LinkedPlay {
+                    card,
+                    player,
+                    face_down,
+                    opened,
+                }
+            });
+        let play_attempt = original
+            .zip(target)
+            .map(|(original, target)| PlayAttempt { original, target });
+        self.effect_plays.push(EffectPlay {
+            resolution: Box::new(resolution),
+            control: None,
+            linked,
+            awaiting_land_entry: false,
+            offered: target.map(|r| r.object),
+            play_attempt,
+        });
+        if let Some(target) = target {
+            if self
+                .start_effect_play_card(player, target.object, cost_mode, cast_only, exile_instead)
+                .is_err()
+            {
+                self.finish_nested_cast();
+            }
+        } else {
+            self.finish_nested_cast();
+        }
+    }
+
+    fn copy_card_for_play(
+        &mut self,
+        original: baylee_core::ids::DamageSourceRef,
+        player: PlayerId,
+    ) -> Option<baylee_core::ids::DamageSourceRef> {
+        let orig_obj = self
+            .state
+            .object(original.object)
+            .filter(|object| object.version == original.version)?;
+        let base = (*orig_obj.base).clone();
+        let card_ref = orig_obj.card;
+        let face_index = orig_obj.face_index;
+        let timestamp = self.state.next_timestamp();
+        let id = self.state.arena.insert_with(|id| {
+            let mut object = crate::object::GameObject::new_bare(
+                id,
+                player,
+                crate::object::ObjectKind::Card,
+                base,
+            );
+            object.timestamp = timestamp;
+            object.controlled_since = timestamp;
+            object.zone = crate::zone::Zone::Exile;
+            object.zone_owner = Some(player);
+            object.card = card_ref;
+            object.face_index = face_index;
+            object.riders.push(crate::object::Rider::SpellCopy);
+            object
+        });
+        self.state.zones.insert(
+            id,
+            crate::zone::ZoneLocation::Exile(player),
+            crate::zone::ZonePosition::Top,
+            true,
+        );
+        let version = self.state.object(id)?.version;
+        self.state.watch_token_cleanup(id);
+        self.state.invalidate_projections();
+        Some(baylee_core::ids::DamageSourceRef {
+            object: id,
+            version,
+        })
     }
 
     /// Create the exact spell copy a linked-copy instruction casts, leaving
@@ -362,6 +528,34 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
         }
     }
 
+    fn resume_play_cards_continuation(&mut self, mut parent: EffectPlay) -> Result<(), EffectPlay> {
+        if !matches!(parent.resolution.awaiting, Some(AwaitingOp::PlayCards(_))) {
+            return Err(parent);
+        }
+        let Some(AwaitingOp::PlayCards(mut offer)) = parent.resolution.awaiting.take() else {
+            return Err(parent);
+        };
+        if let Some(attempt) = parent.play_attempt {
+            let played = self
+                .state
+                .object(attempt.target.object)
+                .is_none_or(|o| o.version != attempt.target.version);
+            offer.cards.retain(|r| *r != attempt.original);
+            if played && let Some(rem) = offer.remaining_plays.as_mut() {
+                *rem = rem.saturating_sub(1);
+            }
+        }
+        if let Some(question) =
+            crate::resolve::play_cards::continue_play(&self.state, &mut parent.resolution, *offer)
+        {
+            self.resolution = Some(*parent.resolution);
+            self.pending = question;
+            self.awaiting_answer = true;
+            return Ok(());
+        }
+        Err(parent)
+    }
+
     /// Called before ordinary priority/SBA processing when the nested cast ends.
     pub(super) fn finish_nested_cast(&mut self) -> bool {
         let Some(mut parent) = self.effect_plays.pop() else {
@@ -389,11 +583,14 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
             if linked.opened
                 && let Some(object) = self.state.object_mut(linked.card.object)
             {
-                let rider =
-                    crate::object::Rider::PlayableFromExileFor(parent.resolution.controller);
+                let rider = crate::object::Rider::PlayableFromExileFor(linked.player);
                 object.riders.retain(|r| *r != rider);
             }
         }
+        parent = match self.resume_play_cards_continuation(parent) {
+            Ok(()) => return true,
+            Err(parent) => parent,
+        };
         if let Some(AwaitingOp::DungeonPlay(play)) = parent.resolution.awaiting.as_ref() {
             let mut play = play.clone();
             // A rejected/cancelled cast does not consume this permission.

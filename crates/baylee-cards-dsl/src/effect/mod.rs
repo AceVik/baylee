@@ -5185,6 +5185,88 @@ pub enum Effect {
         /// resets per pass; when `false`, `Amount::ThisWay` accumulates across passes.
         per_pass_this_way: bool,
     },
+    /// Starting with the resolving controller and proceeding in turn order, each
+    /// player votes among named `options` (`CR 701.38a–d`, Will of the council,
+    /// Council's dilemma, Secret council), honoring [`crate::Modifier::AdditionalVotes`]
+    /// (`CR 701.38c`) and resolving according to `outcome` while recording vote
+    /// totals for [`Amount::VoteCount`]. Appended to preserve replay identities.
+    Vote {
+        /// Named ballot options in printed order.
+        options: &'static [VoteOption],
+        /// How vote totals determine which option effects run.
+        outcome: VoteOutcome,
+        /// When `true` (*Secret council*, `CR 701.38d`), ballots remain hidden
+        /// from public views until every player has finished voting.
+        secret: bool,
+    },
+    /// Starting with the resolving controller and proceeding in turn order, each
+    /// player votes for an object in `zone` matching `filter` (`CR 701.38`),
+    /// honoring [`crate::Modifier::AdditionalVotes`], then applies `action` to
+    /// all objects tied for the most votes (or runs `if_no_votes` when zero
+    /// votes were cast). Appended to preserve replay identities.
+    VoteObjects {
+        /// Zone holding candidate objects (`Battlefield` or controller's `Graveyard`).
+        zone: crate::filter::ZoneRef,
+        /// Filter candidate objects must match relative to the resolving controller.
+        filter: &'static Filter,
+        /// Whether voters may decline to vote (`UpTo$ True`, e.g. *Vault 11*).
+        optional: bool,
+        /// Whether ballots stay hidden until all players finish voting (`CR 701.38d`).
+        secret: bool,
+        /// Action performed on every object tied for the most votes (`>= 1` vote).
+        action: VoteObjectAction,
+        /// Effects executed when zero votes were cast for any object.
+        if_no_votes: &'static [Effect],
+    },
+    /// Reduce the cost of spells cast by `who` matching `filter` by `generic`
+    /// (evaluated on resolution per `CR 608.2h`) and/or `mana` (`colored_only`),
+    /// either consumed on the next matching spell cast (`next_only: true`, e.g.
+    /// *Kaza, Roil Chaser*, *Elminster*, *Peerless Samurai*) or active for all
+    /// matching spells across `duration` (`next_only: false`, e.g. *Will, Scion
+    /// of Peace*, *Rowan, Scion of War*, *Will Kenrith*). Appended to preserve
+    /// replay identities.
+    ReduceNextSpellCost {
+        /// Player(s) whose matching spells receive the cost reduction.
+        who: PlayerRel,
+        /// Filter matching prospective spells on the stack.
+        filter: &'static Filter,
+        /// Generic mana reduction evaluated as this instruction resolves.
+        generic: Amount,
+        /// Colored/specific mana reduction (`ManaCost::ZERO` when generic-only).
+        mana: ManaCost,
+        /// When `true`, `mana` reduces colored pips only (`CR 118.7c`).
+        colored_only: bool,
+        /// When `true`, expires after `who` finishes casting one matching spell.
+        next_only: bool,
+        /// How long the reduction lasts (`UntilEndOfTurn`, `UntilYourNextTurn`, `Indefinitely`).
+        duration: super::Duration,
+    },
+    /// Immediately play or cast (`cast_only`) `count` matching card(s) (or copies
+    /// when `copy` is `true`) from `source` controlled by `controller` under
+    /// `cost` during resolution (`CR 608.2g`), suspending and resuming any
+    /// trailing `Effect`s in the instruction slice after the nested play(s)
+    /// finish and recording played objects in `ThisWay`. Appended to preserve
+    /// replay identities.
+    Play {
+        /// Where candidate card(s) are gathered from.
+        source: PlaySource,
+        /// Filter candidate card(s) / prospective spells must match.
+        filter: &'static Filter,
+        /// Player who chooses and plays/casts the card(s).
+        controller: PlayerRel,
+        /// How many cards from the candidate set may be played/cast.
+        count: PlayCount,
+        /// Mana cost regime (`WithoutPayingManaCost`, `Normal`, `AnyManaColor`, `Alternative`).
+        cost: PlayCostMode,
+        /// `true` restricts to casting spells (`CR 305.9`); `false` also permits land drops.
+        cast_only: bool,
+        /// `true` copies each chosen card in exile and casts the copy (`CopyCard$ True`).
+        copy: bool,
+        /// `true` puts `Rider::ExileInsteadOfGraveyard` on spells cast this way.
+        exile_instead_of_graveyard: bool,
+        /// `true` lets `controller` decline (`min = 0`); `false` requires playing if able.
+        optional: bool,
+    },
 }
 
 #[cfg(test)]

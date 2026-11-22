@@ -1090,6 +1090,11 @@ NounCardsToExile =
         [one] Karte aus deinem Friedhof, die ins Exil geschickt wird
        *[other] Karten aus deinem Friedhof, die ins Exil geschickt werden
     }
+NounPermanentsToRemoveCounter =
+    { $count ->
+        [one] Permanent, von dem eine Marke entfernt wird
+       *[other] Permanents, von denen Marken entfernt werden
+    }
 NounPermanentsToLeaveTapped =
     { $count ->
         [one] Permanent, das getappt bleibt
@@ -1331,6 +1336,7 @@ LevelShort = St. { $level }
 LevelLong = Stufe { $level }
 ClassLevel = Klassenstufe { $level }
 LogClassLevel = { $object } hat Klassenstufe { $level } erreicht
+AdditionalVoteAsk = Ein weiteres Mal abstimmen?
 FilterPlaceholder = zum Suchen tippen…
 PutInOrder = Bringe diese in eine Reihenfolge
 OrderGraveyard = Friedhof ordnen: erste Karte oben

@@ -2601,6 +2601,16 @@ fn alternative_parts_payable(
         CostPart::RemoveCounterSelf { kind, n } => state
             .object(card)
             .is_some_and(|o| o.counters.get(*kind) >= *n),
+        CostPart::RemoveAnyCounter { .. } => {
+            crate::engine::cost_wizard::counter_remove::can_afford_counter_parts(
+                state,
+                player,
+                crate::eval::live_context(state, card),
+                parts,
+                0,
+                &[],
+            )
+        }
         // The rest are payable, most of them because they are paid off the
         // card or the board rather than out of a count. `RemoveCounterSelfX`
         // joins them for its own reason: zero is a legal number to announce,
@@ -2642,6 +2652,7 @@ fn alternative_parts_payable(
         | CostPart::ExileSelf
         | CostPart::ReturnSelfToHand
         | CostPart::RemoveCounterSelfX { .. }
+        | CostPart::RemoveAnyCounterX { .. }
         | CostPart::PutCounterSelf { .. }
         | CostPart::DealDamageToYou(_)
         | CostPart::Forage

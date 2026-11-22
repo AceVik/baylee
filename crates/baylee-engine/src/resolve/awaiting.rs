@@ -1446,6 +1446,10 @@ pub enum AwaitingOp {
         /// Evaluated maximum passes (`None` = bounded only by engine safety cap).
         max_times: Option<u32>,
     },
+    /// Named-option APNAP vote (`Effect::Vote`, `CR 701.38a–d`).
+    OptionVote(super::vote::OptionVote),
+    /// Composable mid-resolution play/cast offer (`Effect::Play`, `CR 608.2g`).
+    PlayCards(Box<super::play_cards::PlayOffer>),
 }
 
 /// Work to resume after an optional life payment.
@@ -1870,6 +1874,8 @@ impl AwaitingOp {
                 completed,
                 max_times,
             } => crate::state::structural_fingerprint(&(212_u8, completed, max_times)),
+            Self::OptionVote(vote) => crate::state::structural_fingerprint(&(215_u8, vote)),
+            Self::PlayCards(offer) => crate::state::structural_fingerprint(&(216_u8, offer)),
             _ => 0,
         }
     }

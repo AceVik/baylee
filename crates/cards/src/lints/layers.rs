@@ -21,6 +21,12 @@ pub(super) fn declared_layers(effect: &Effect) -> Vec<(Layer, Modifier)> {
     {
         return vec![(*layer, *modifier)];
     }
+    if let Effect::Vote { options, .. } = effect {
+        return options
+            .iter()
+            .flat_map(|opt| opt.effects.iter().flat_map(declared_layers))
+            .collect();
+    }
     let (then, otherwise) = effect.branches();
     then.iter()
         .chain(otherwise)

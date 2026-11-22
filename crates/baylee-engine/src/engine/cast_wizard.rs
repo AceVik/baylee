@@ -131,6 +131,8 @@ pub(crate) enum WizardStage {
     Splice,
     /// Optional additional tap-two-creatures cost for conspire (`CR 702.78a–b`).
     Conspire,
+    /// Choosing `(permanent, counter_kind)` pairs for `RemoveAnyCounter` / `RemoveAnyCounterX`.
+    RemoveCounters,
 }
 
 /// A spell being cast step by step.
@@ -251,6 +253,14 @@ pub struct CastWizard {
     /// Objects chosen for asking cost parts, one answer per object in cost
     /// order. A `TapN` part consumes N distinct answers.
     pub cost_objects: SmallVec<[ObjectId; 4]>,
+    /// Chosen `(permanent, counter_kind)` pairs for `RemoveAnyCounter` / `RemoveAnyCounterX`.
+    pub counter_removals: SmallVec<[(ObjectId, baylee_cards_dsl::CounterKind); 4]>,
+    /// Permanent chosen for the next counter removal while awaiting counter-kind disambiguation.
+    pub pending_counter_object: Option<ObjectId>,
+    /// Explicit mana cost imposed by an effect (`PlayCostMode::Alternative`).
+    pub override_mana_cost: Option<ManaCost>,
+    /// Whether an effect casting this spell exiles it as it resolves instead of putting it into a graveyard.
+    pub exile_instead_of_graveyard: bool,
     /// How each Phyrexian symbol of the chosen option's cost is paid, in the
     /// cost's own order: `true` is 2 life, `false` its mana (CR 107.4f),
     /// announced with the other costs (CR 601.2b) and charged as the cost
@@ -389,6 +399,10 @@ impl CastWizard {
             escape_exiles: SmallVec::new(),
             convoke_taps: SmallVec::new(),
             cost_objects: SmallVec::new(),
+            counter_removals: SmallVec::new(),
+            pending_counter_object: None,
+            override_mana_cost: None,
+            exile_instead_of_graveyard: false,
             phyrexian: SmallVec::new(),
             stage,
             options,
@@ -538,6 +552,21 @@ impl CastWizard {
                     &self.spliced,
                 )));
         }
+        if !self.counter_removals.is_empty()
+            || self.pending_counter_object.is_some()
+            || self.override_mana_cost.is_some()
+            || self.exile_instead_of_graveyard
+        {
+            hash = hash
+                .wrapping_mul(31)
+                .wrapping_add(crate::state::structural_fingerprint(&(
+                    277u16,
+                    &self.counter_removals,
+                    self.pending_counter_object,
+                    self.override_mana_cost,
+                    self.exile_instead_of_graveyard,
+                )));
+        }
         hash = hash
             .wrapping_mul(2)
             .wrapping_add(u64::from(self.reduction.is_some()));
@@ -635,6 +664,7 @@ pub(crate) fn paid_as_an_alternative_cost(part: &CostPart) -> bool {
         | CostPart::Sacrifice(_)
         | CostPart::ReturnToHand(_)
         | CostPart::TapN { .. }
+        | CostPart::RemoveAnyCounter { .. }
         | CostPart::Forage => true,
         CostPart::Either(a, b) => {
             a.parts.iter().all(paid_as_an_alternative_cost)
@@ -669,6 +699,8 @@ pub(crate) fn paid_as_a_mandatory_additional_cost(part: &CostPart) -> bool {
         | CostPart::TapOther(_)
         | CostPart::TapX(_)
         | CostPart::TapN { .. }
+        | CostPart::RemoveAnyCounter { .. }
+        | CostPart::RemoveAnyCounterX { .. }
         | CostPart::Forage => true,
         CostPart::Either(a, b) => {
             a.parts.iter().all(paid_as_a_mandatory_additional_cost)
@@ -687,6 +719,7 @@ pub(crate) fn paid_as_a_buyback_cost(part: &CostPart) -> bool {
         | CostPart::Sacrifice(_)
         | CostPart::Discard(_)
         | CostPart::DiscardRandom
+        | CostPart::RemoveAnyCounter { .. }
         | CostPart::Forage => true,
         CostPart::Either(a, b) => {
             a.parts.iter().all(paid_as_a_buyback_cost) && b.parts.iter().all(paid_as_a_buyback_cost)

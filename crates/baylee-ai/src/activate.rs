@@ -374,6 +374,8 @@ fn consumes(cost: &Cost) -> bool {
             // and because the conservative answer to "can this repeat?" is
             // the one that does not hang the game.
             | CostPart::RemoveCounterSelfX { .. }
+            | CostPart::RemoveAnyCounter { .. }
+            | CostPart::RemoveAnyCounterX { .. }
             // A counter put **on** the source changes the source, so the
             // next offer is built from a different board. The bound is the
             // counter rather than the cost: Devoted Druid's -1/-1s reach its

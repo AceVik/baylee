@@ -439,6 +439,16 @@ pub fn asked(pending: &Pending) -> &'static str {
         {
             "where the resolved spell goes"
         }
+        Pending::ChooseCastMode { options, .. }
+            if options.iter().any(|option| {
+                matches!(
+                    option.kind,
+                    baylee_engine::choice::CastModeKind::VoteOption(_)
+                )
+            }) =>
+        {
+            "a vote"
+        }
         Pending::ChooseCastMode { options, .. } if colours_only(options) => "a colour",
         Pending::ChooseCastMode { .. } => "how to cast it",
         Pending::ChooseNumber { .. } => "a number",

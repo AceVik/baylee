@@ -1115,5 +1115,6 @@ const fn pays_a_cost(prompt: &ChoicePrompt) -> bool {
             | ChoicePrompt::CostTap
             | ChoicePrompt::CostReturn
             | ChoicePrompt::CostExile
+            | ChoicePrompt::CostRemoveCounter
     )
 }

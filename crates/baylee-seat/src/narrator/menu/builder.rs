@@ -1779,6 +1779,14 @@ impl Builder<'_, '_> {
                  graveyard. You choose which applies; the others then do nothing.",
                 table.named(object)
             ));
+        } else if options
+            .iter()
+            .any(|option| matches!(option.kind, CastModeKind::VoteOption(_)))
+        {
+            self.line(format!(
+                "QUESTION: Cast your vote for {}:",
+                table.named(object)
+            ));
         } else if chooses_on_the_table(table.view, object, options) {
             self.line(format!("QUESTION: Choose one for {}:", table.named(object)));
         } else {

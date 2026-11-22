@@ -347,6 +347,8 @@ fn encode_cost_into(cost: &Cost, dst: &mut [f32]) {
             }
             CostPart::RemoveCounterSelf { .. }
             | CostPart::RemoveCounterSelfX { .. }
+            | CostPart::RemoveAnyCounter { .. }
+            | CostPart::RemoveAnyCounterX { .. }
             | CostPart::PutCounterSelf { .. }
             | CostPart::PutCounterOnOther { .. }
             | CostPart::PayEnergy(_)

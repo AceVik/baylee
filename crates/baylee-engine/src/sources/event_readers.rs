@@ -306,6 +306,19 @@ fn reads_event(effect: &Effect) -> bool {
                 || post_condition.as_ref().is_some_and(reads_condition)
         }
         Effect::SoulbondPair { with_event_object } => *with_event_object,
+        Effect::ReduceNextSpellCost { who, generic, .. } => {
+            reads_player(*who) || reads_amount(*generic)
+        }
+        Effect::Play {
+            source, controller, ..
+        } => {
+            reads_player(*controller)
+                || match source {
+                    baylee_cards_dsl::PlaySource::Subject(spec) => reads_target(*spec),
+                    baylee_cards_dsl::PlaySource::Zone { owner, .. } => reads_player(*owner),
+                    baylee_cards_dsl::PlaySource::LinkedExile => false,
+                }
+        }
         _ => false,
     }
 }

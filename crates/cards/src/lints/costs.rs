@@ -57,6 +57,9 @@ pub(super) const fn needs_the_source(part: &CostPart) -> bool {
         | CostPart::ExileFromGraveyardX(_)
         | CostPart::Forage
         | CostPart::CraftMaterials { .. } => false,
+        CostPart::RemoveAnyCounter { filter, .. } | CostPart::RemoveAnyCounterX { filter, .. } => {
+            matches!(filter, Filter::This)
+        }
         CostPart::Either(a, b) => any_needs_the_source(a.parts) || any_needs_the_source(b.parts),
     }
 }
@@ -85,6 +88,8 @@ pub(super) const fn moves_the_source(part: &CostPart) -> bool {
         | CostPart::ExertSelf
         | CostPart::RemoveCounterSelf { .. }
         | CostPart::RemoveCounterSelfX { .. }
+        | CostPart::RemoveAnyCounter { .. }
+        | CostPart::RemoveAnyCounterX { .. }
         | CostPart::PutCounterSelf { .. }
         | CostPart::Sacrifice(_)
         | CostPart::SacrificeGrantor

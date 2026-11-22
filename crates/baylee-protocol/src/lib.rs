@@ -89,7 +89,10 @@ pub mod tape;
 /// `YesNoPrompt::{Conspire, Tribute}`) on positional binary frames.
 /// Version 65 carries `PublicObject::class_level` and `LogEvent::ClassLevel`
 /// for Class designations (CR 717) on positional binary frames.
-pub const PROTOCOL_VERSION: u32 = 65;
+/// Version 66 carries `CastModeKind::VoteOption`, `YesNoPrompt::AdditionalVote`,
+/// `LogEvent::VotedOption` (CR 701.38), and `ChoicePrompt::CostRemoveCounter`
+/// on positional binary frames.
+pub const PROTOCOL_VERSION: u32 = 66;
 
 /// Duration of the shared portal flight; clocks start after arrival.
 pub const TABLE_ENTRANCE_MS: u64 = 1_650;
@@ -423,7 +426,9 @@ mod tests {
         // `OpeningHandReveal`, `Sneak`, `Endure`, `Awaken`, `Splice`, `CipherEncode`,
         // `Champion`, `Conspire`, and `Tribute`) on positional binary frames.
         // 65: `PublicObject::class_level` and `LogEvent::ClassLevel`.
-        assert_eq!(PROTOCOL_VERSION, 65);
+        // 66: `CastModeKind::VoteOption`, `YesNoPrompt::AdditionalVote`,
+        // `LogEvent::VotedOption`, and `ChoicePrompt::CostRemoveCounter`.
+        assert_eq!(PROTOCOL_VERSION, 66);
     }
 
     #[test]

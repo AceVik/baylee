@@ -1247,6 +1247,11 @@ fn yes_no_words(table: &Table<'_>, prompt: &YesNoPrompt) -> (String, String, Str
             "pay the first cost option".into(),
             "pay the second cost option".into(),
         ),
+        YesNoPrompt::AdditionalVote => (
+            "Vote an additional time?".into(),
+            "vote an additional time".into(),
+            "do not vote an additional time".into(),
+        ),
         YesNoPrompt::OpeningHandBattlefield => (
             "Begin the game with this card from your opening hand on the battlefield?".into(),
             "begin with it on the battlefield".into(),
@@ -1991,6 +1996,15 @@ fn cast_mode_label(card: Option<baylee_view::CardIdentity>, option: &CastModeDes
             if top { "Put on top" } else { "Put underneath" }.to_string()
         }
         CastModeKind::SpellEnding(ending) => spell_ending_label(ending).to_string(),
+        CastModeKind::VoteOption(idx) => {
+            let name = card
+                .and_then(|c| baylee_cards::by_index(c.index))
+                .and_then(|def| def.vote_option_name(face, idx));
+            name.map_or_else(
+                || format!("Vote for option {}", u16::from(idx) + 1),
+                |n| format!("Vote for \"{n}\""),
+            )
+        }
         CastModeKind::Mutate => format!("Cast it with mutate for {cost}"),
         CastModeKind::Bestow => format!("Cast it bestowed as an Aura for {cost}"),
         CastModeKind::Awaken => {

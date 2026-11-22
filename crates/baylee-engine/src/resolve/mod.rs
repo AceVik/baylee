@@ -144,15 +144,16 @@ pub(crate) mod tap_group;
 use permissions::grant_play;
 mod graveyard_top;
 pub(crate) mod hidden_exile;
+pub(crate) mod play_cards;
 mod resume;
 mod search;
 mod search_group;
 mod settle;
 mod shared_land;
 mod upgrade;
-mod vote;
+pub(crate) mod vote;
 pub use for_each::HeldChoice;
-pub use vote::Ballot;
+pub use vote::{Ballot, OptionBallot};
 
 pub use answers::*;
 pub use awaiting::*;

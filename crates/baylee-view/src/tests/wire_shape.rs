@@ -468,7 +468,10 @@ fn the_shape_on_the_wire_and_the_number_that_names_it_move_together() {
     // `Champion`, `Conspire`, and `Tribute`; protocol 64 on binary frames).
     // 108: `PublicObject::class_level` and `LogEvent::ClassLevel` (CR 717;
     // protocol 65 on binary frames).
-    const RECORDED: (u32, u64) = (108, 17_548_864_900_884_604_084);
+    // 109: `LogEvent::VotedOption`, `CastModeKind::VoteOption`,
+    // `ChoicePrompt::CostRemoveCounter`, and `YesNoPrompt::AdditionalVote`
+    // (CR 701.38, CR 118.8; protocol 66 on binary frames).
+    const RECORDED: (u32, u64) = (109, 17_548_864_900_884_604_084);
 
     let samples = core_samples();
     let sampled: std::collections::BTreeSet<String> =

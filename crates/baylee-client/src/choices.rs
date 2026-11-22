@@ -1242,6 +1242,13 @@ fn cast_label(
             .text(lang)
             .to_string()
         }
+        K::VoteOption(idx) => cast_card(names, object)
+            .and_then(baylee_cards::by_index)
+            .and_then(|def| def.vote_option_name(0, idx))
+            .map_or_else(
+                || Phrase::CastModeNumber.fill(lang, &[&(u16::from(idx) + 1).to_string()]),
+                ToString::to_string,
+            ),
         K::Normal => String::new(),
         K::Kicked => Phrase::CastKicked.text(lang).to_string(),
         K::Alternative(i) => {

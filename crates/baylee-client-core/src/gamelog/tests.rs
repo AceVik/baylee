@@ -876,10 +876,11 @@ fn variant(event: &LogEvent) -> usize {
         LogEvent::Voted { .. } => 37,
         LogEvent::CardsChosen { .. } => 38,
         LogEvent::ClassLevel { .. } => 39,
+        LogEvent::VotedOption { .. } => 40,
     }
 }
 
-const VARIANTS: usize = 40;
+const VARIANTS: usize = 41;
 
 /// Every kind of line, about `player`, with every answer, cause, zone and
 /// counter a line can carry.
@@ -887,6 +888,11 @@ const VARIANTS: usize = 40;
 fn every_line_about(player: PlayerId) -> Vec<LogEvent> {
     let card = bolt(3);
     let mut out = vec![
+        LogEvent::VotedOption {
+            player,
+            source: card.clone(),
+            option: 0,
+        },
         LogEvent::ClassLevel {
             object: token(4, "Druid Class"),
             level: 2,
@@ -1270,6 +1276,7 @@ fn about_whom(event: &LogEvent) -> Option<PlayerId> {
         | LogEvent::CardsKept { player, .. }
         | LogEvent::CardsChosen { player, .. }
         | LogEvent::Voted { player, .. }
+        | LogEvent::VotedOption { player, .. }
         | LogEvent::Revealed { player, .. }
         | LogEvent::Shuffled { player }
         | LogEvent::BecameMonarch { player }

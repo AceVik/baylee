@@ -561,6 +561,15 @@ pub enum LogEvent {
         /// Its new Class level.
         level: u8,
     },
+    /// A player voted for a named option on `source` (`CR 701.38a–d`).
+    VotedOption {
+        /// The voting seat.
+        player: PlayerId,
+        /// The spell or permanent holding the vote options.
+        source: LogObject,
+        /// Zero-based index into `Effect::Vote::options`.
+        option: u8,
+    },
 }
 
 impl LogEvent {
@@ -599,6 +608,7 @@ impl LogEvent {
             | Self::ControlChanged { object: o, .. }
             | Self::TurnedFaceUp { object: o }
             | Self::Voted { object: o, .. }
+            | Self::VotedOption { source: o, .. }
             | Self::Transformed { object: o } => out.push(o),
             Self::Drew { cards, .. }
             | Self::Revealed { cards, .. }
@@ -666,6 +676,7 @@ impl LogEvent {
             | Self::ControlChanged { object: o, .. }
             | Self::TurnedFaceUp { object: o }
             | Self::Voted { object: o, .. }
+            | Self::VotedOption { source: o, .. }
             | Self::Transformed { object: o } => out.push(o),
             Self::Drew { cards, .. }
             | Self::Revealed { cards, .. }

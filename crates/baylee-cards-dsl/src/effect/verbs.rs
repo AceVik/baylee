@@ -1399,7 +1399,11 @@ impl Effect {
             | Effect::Cipher
             | Effect::CipherCastEncoded
             | Effect::Champion { .. }
-            | Effect::ReturnChampioned => (NONE, NONE),
+            | Effect::ReturnChampioned
+            | Effect::Vote { .. }
+            | Effect::ReduceNextSpellCost { .. }
+            | Effect::Play { .. } => (NONE, NONE),
+            Effect::VoteObjects { if_no_votes, .. } => (NONE, if_no_votes),
         }
     }
 
@@ -1416,6 +1420,11 @@ impl Effect {
         for effect in effects {
             *seen += 1;
             visit(effect);
+            if let Effect::Vote { options, .. } = effect {
+                for opt in *options {
+                    Self::walk(opt.effects, seen, visit);
+                }
+            }
             let (then, otherwise) = effect.branches();
             Self::walk(then, seen, visit);
             Self::walk(otherwise, seen, visit);

@@ -38,6 +38,13 @@ pub(super) fn exec_immediate(
             })
         }
         Effect::ExileMostVotedNotControlledByYou { filter } => vote::start(state, res, filter),
+        Effect::Vote {
+            options,
+            outcome,
+            secret,
+        } => vote::start_options(state, res, options, outcome, secret, op),
+        Effect::VoteObjects { .. } => vote::start_objects(state, res, &op),
+        Effect::Play { .. } => play_cards::start(state, res, &op),
         Effect::ExileAttackingForThenMaySearchBasicLands { player } => {
             settle::start(state, res, player)
         }
@@ -1392,6 +1399,71 @@ pub(super) fn exec_immediate(
                 .get_mut(usize::from(you.get()))
             {
                 *reduction = reduction.saturating_add(amount);
+            }
+            None
+        }
+        Effect::ReduceNextSpellCost {
+            who,
+            filter,
+            generic,
+            mana,
+            colored_only,
+            next_only,
+            duration,
+        } => {
+            let generic_amt = amount2(&generic, state, you, res);
+            let mut seats = baylee_core::ids::SeatSet::new();
+            for p in players_of(who, state, you, res) {
+                if !state.has_left(p) {
+                    seats.insert(p);
+                }
+            }
+            if seats.is_empty() {
+                return None;
+            }
+            let origin = if next_only {
+                crate::effects::EffectOrigin::NextMatchingSpell
+            } else {
+                crate::effects::EffectOrigin::Resolution
+            };
+            let fx_filter = crate::effects::EffectFilter::DslControlledBy(filter, seats);
+            let source = (res.source != ObjectId::NO_SOURCE).then_some(res.source);
+            if generic_amt > 0 {
+                let ts = state.next_timestamp();
+                let id = state.effects.register(crate::effects::ContinuousEffect {
+                    id: baylee_core::ids::EffectId::new(0),
+                    source,
+                    controller: you,
+                    origin,
+                    layer: baylee_cards_dsl::Layer::Text,
+                    timestamp: ts,
+                    duration,
+                    filter: fx_filter,
+                    modifier: baylee_cards_dsl::Modifier::SpellsCostLess(generic_amt),
+                });
+                state
+                    .effect_text_overrides
+                    .push((id, crate::text_changes::TextOrigin::Frozen(res.text)));
+            }
+            if mana != baylee_core::mana::ManaCost::ZERO {
+                let ts = state.next_timestamp();
+                let id = state.effects.register(crate::effects::ContinuousEffect {
+                    id: baylee_core::ids::EffectId::new(0),
+                    source,
+                    controller: you,
+                    origin,
+                    layer: baylee_cards_dsl::Layer::Text,
+                    timestamp: ts,
+                    duration,
+                    filter: fx_filter,
+                    modifier: baylee_cards_dsl::Modifier::SpellsCostLessMana {
+                        cost: mana,
+                        colored_only,
+                    },
+                });
+                state
+                    .effect_text_overrides
+                    .push((id, crate::text_changes::TextOrigin::Frozen(res.text)));
             }
             None
         }

@@ -1292,6 +1292,17 @@ pub enum Modifier {
     /// and attacking the same player, planeswalker, or battle. Appended to
     /// preserve replay identities.
     Sneak(crate::cost::Cost),
+    /// While voting (`CR 701.38c`), affected player gets `count` additional
+    /// votes (`optional: false` for mandatory extra votes like *Brago's
+    /// Representative*, `optional: true` for *"you may vote an additional time"*
+    /// like *Ballot Broker* and *Tivit, Seller of Secrets*). Appended to
+    /// preserve replay identities.
+    AdditionalVotes {
+        /// Number of extra ballots granted per instance.
+        count: u8,
+        /// Whether each extra ballot is optional (`true`) or mandatory (`false`).
+        optional: bool,
+    },
 }
 
 /// What a [`Modifier::CharacteristicPT`] counts.
@@ -1493,6 +1504,7 @@ impl Modifier {
             | Self::GraveyardVampireOnce
             | Self::NextSpellUncounterable
             | Self::OneSpellManaAnyType
+            | Self::AdditionalVotes { .. }
             | Self::NextDrawWish
             | Self::NextDrawFromTop { .. }
             | Self::CreatureAbilityManaAnyColor
@@ -2298,6 +2310,10 @@ mod tests {
             Modifier::GraveyardVampireOnce,
             Modifier::NextSpellUncounterable,
             Modifier::OneSpellManaAnyType,
+            Modifier::AdditionalVotes {
+                count: 1,
+                optional: false,
+            },
             Modifier::NextDrawWish,
             Modifier::NextDrawFromTop { count: 3 },
             Modifier::SpellsCostLess(3),

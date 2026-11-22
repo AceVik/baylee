@@ -1383,6 +1383,7 @@ fn apply(
         | Modifier::GraveyardVampireOnce
         | Modifier::NextSpellUncounterable
         | Modifier::OneSpellManaAnyType
+        | Modifier::AdditionalVotes { .. }
         | Modifier::NextDrawWish
         | Modifier::NextDrawFromTop { .. }
         | Modifier::CreatureAbilityManaAnyColor

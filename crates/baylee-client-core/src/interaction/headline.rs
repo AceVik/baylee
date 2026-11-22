@@ -393,6 +393,7 @@ fn choice_noun(reason: ChoicePrompt) -> Phrase {
         | ChoicePrompt::CostSaddle { .. } => Phrase::NounPermanentsToTap,
         ChoicePrompt::CostReturn => Phrase::NounPermanentsToReturn,
         ChoicePrompt::CostExile => Phrase::NounCardsToExile,
+        ChoicePrompt::CostRemoveCounter => Phrase::NounPermanentsToRemoveCounter,
         ChoicePrompt::LeaveTapped => Phrase::NounPermanentsToLeaveTapped,
         ChoicePrompt::Untap => Phrase::NounPermanentsToUntap,
         ChoicePrompt::Band { .. } => Phrase::NounAttackersToBand,
@@ -916,6 +917,7 @@ fn yes_no_line(
         YesNoPrompt::ChooseFirstCostBranch { .. } => {
             Phrase::ChooseFirstCostBranchAsk.text(lang).to_string()
         }
+        YesNoPrompt::AdditionalVote => Phrase::AdditionalVoteAsk.text(lang).to_string(),
         YesNoPrompt::OpeningHandBattlefield => {
             Phrase::OpeningHandBattlefieldAsk.text(lang).to_string()
         }

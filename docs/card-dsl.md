@@ -714,7 +714,14 @@ express at all yet.
   additional cost to cast this spell, [cost A] or [cost B]" or an activated
   ability's "[cost A] or [cost B]: …"; prompts `YesNoPrompt::ChooseFirstCostBranch`
   when both branches are payable and auto-selects the sole payable branch when
-  only one can be paid).
+  only one can be paid),
+  `RemoveAnyCounter { count, kind, filter }` (remove `count` counters of `kind`
+  or of any kind when `kind == None` from among permanents you control matching
+  `filter`, including `Filter::This`; prompts `ChoicePrompt::CostRemoveCounter`
+  and `CastModeKind::Counter` when ambiguous),
+  `RemoveAnyCounterX { kind, filter }` (announce X and remove X counters of
+  `kind` or any kind from among permanents you control matching `filter`,
+  binding `Amount::X`).
 
   `CostPart::ExertSelf` exerts the source as an activation cost. It does not
   tap the permanent, require it to be untapped, or impose summoning sickness;
@@ -5882,3 +5889,9 @@ Each triggers once per keyword instance (`layers::keyword_instances`):
   - Draw replacements (`CR 121.2`, `CR 614.5`): `ReplacementRule::ReplaceDrawWithDraws { who, skip_first_in_draw_step, condition, count }` (*Thought Reflection*, *Teferi's Ageless Insight*), `ReplacementRule::OpponentsExtraDrawsYouDraw` (*Notion Thief*), `ReplacementRule::SkipDrawInstead { who, optional, empty_library_only }` (*Obstinate Familiar*, *Omen Machine*), `ReplacementRule::WinOnEmptyLibraryDraw` (*Laboratory Maniac*), `ReplacementRule::ReplaceDrawLookTop { count, rest_to_graveyard }` (*Underrealm Lich*, *Tomorrow, Azami's Familiar*), and `ReplacementRule::ReplaceDrawExileTop { who, face_down, may_play_this_turn }` (*Uba Mask*).
   - General exile resolution counting & simultaneous library placement: `ThisWay::Exiled(&Filter)` counts cards or permanents actually put into exile from any zone during the current resolution (using LKI for battlefield departures per `CR 608.2h`, and exile characteristics otherwise, alongside `ThisWay::ExiledFromGraveyard`); `Effect::PutTargetOnTopOfLibrary` and `Effect::PutTargetOnBottomOfLibrary` ask each owner of two or more simultaneously placed cards to choose their relative library order via `Pending::Arrange` (`CR 401.4`, *Plow Under*).
   - Process repetition (`Effect::RepeatProcess { effects, max_times, pre_condition, post_condition, optional, optional_before_first, per_pass_this_way }`): repeats `effects` with optional pre-pass and post-pass `Condition` checks, optional `"you may repeat this process"` `YesNo` prompts, optional `Amount` iteration bounds, and selectable per-pass vs cumulative `Amount::ThisWay` tracking (*Kindle the Carnage*, *Dance with Calamity*).
+
+- **Counter-Removal Costs, Voting, One-Shot Spell Cost Reductions, and Nested `Effect::Play` (`CR 118.3`, `CR 601.2f`, `CR 608.2g`, `CR 701.38`):**
+  - Counter-removal costs (`CR 118.3`): `CostPart::RemoveAnyCounter { count, kind, filter }` and `CostPart::RemoveAnyCounterX { kind, filter }` remove counters (`kind: None` for any counter kind, `Some(k)` for a specific kind) from `Filter::This` or from among controlled permanents matching `filter` across both activated abilities and spell costs.
+  - Voting (`CR 701.38a–d`): `Effect::Vote { options, outcome, secret }` (`VoteOption`, `VoteOutcome::{MajorityOrTied, AllWinners, PerOptionCount, RepeatPerVote}`, `Amount::VoteCount(idx)`, `CastModeKind::VoteOption(idx)`) and `Effect::VoteObjects { zone, filter, optional, secret, action, if_no_votes }` (`VoteObjectAction`) prompt voters in turn order starting with the resolving controller while honoring `Modifier::AdditionalVotes { count, optional }` (`CR 701.38c`).
+  - Temporary & one-shot spell cost reductions (`CR 601.2f`, `CR 608.2h`): `Effect::ReduceNextSpellCost { who, filter, generic, mana, colored_only, next_only, duration }` evaluates `generic` on resolution and applies generic and/or colored reductions either until `who` finishes casting one matching spell (`next_only: true`) or across `duration` (`next_only: false`).
+  - Nested resolution plays (`CR 608.2g`): `Effect::Play { source, filter, controller, count, cost, cast_only, copy, exile_instead_of_graveyard, optional }` (`PlaySource`, `PlayCount`, `PlayCostMode`) offers matching cards (or copies) to `controller` mid-resolution via `EffectPlay`, recording played cards in `ThisWay` and resuming any trailing `Effect`s after the nested cast(s) complete.

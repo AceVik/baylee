@@ -276,8 +276,32 @@ pub(crate) fn options_with_context(
         }
         return out;
     }
-    if let CostPart::CraftMaterials { filter, .. } = part {
-        return craft_material_options(state, player, context, filter);
+    match part {
+        CostPart::CraftMaterials { filter, .. } => {
+            return craft_material_options(state, player, context, filter);
+        }
+        CostPart::RemoveAnyCounter {
+            count,
+            kind,
+            filter,
+        } => {
+            let needed = u16::from(*count);
+            return state
+                .battlefield_view()
+                .into_iter()
+                .filter(|&id| {
+                    state.object(id).is_some_and(|o| {
+                        o.controller == player
+                            && eval::matches_with_context(filter, state, o, player, context)
+                            && match kind {
+                                Some(wanted) => o.counters.get(*wanted) >= needed,
+                                None => o.counters.iter().any(|(_, n)| n >= needed),
+                            }
+                    })
+                })
+                .collect();
+        }
+        _ => {}
     }
     let (zone, controlled, untapped) = match part {
         CostPart::Sacrifice(_)
@@ -444,11 +468,15 @@ pub(crate) const fn prompt(part: &CostPart) -> ChoicePrompt {
         | CostPart::ExileFromSingleGraveyard { .. }
         | CostPart::CraftMaterials { .. }
         | CostPart::ExilePermanent(_) => ChoicePrompt::CostExile,
+        CostPart::RemoveAnyCounter { .. } | CostPart::RemoveAnyCounterX { .. } => {
+            ChoicePrompt::CostRemoveCounter
+        }
         CostPart::PutCounterOnOther { .. } => ChoicePrompt::Generic,
         _ => ChoicePrompt::CostSacrifice,
     }
 }
 
+pub(crate) mod counter_remove;
 mod power;
 pub(crate) use power::PowerPayment;
 
@@ -483,6 +511,33 @@ pub(crate) fn pay(
     part: &CostPart,
     chosen: ObjectId,
 ) -> Result<(), EngineError> {
+    if let CostPart::RemoveAnyCounter { count, kind, .. } = part {
+        let needed = u16::from(*count);
+        if needed == 0 {
+            return Ok(());
+        }
+        let chosen_kind = match kind {
+            Some(wanted) => *wanted,
+            None => state
+                .object(chosen)
+                .and_then(|o| {
+                    o.counters
+                        .iter()
+                        .find_map(|(ck, n)| (n >= needed).then_some(ck))
+                })
+                .ok_or(EngineError::IllegalAction(
+                    "not enough counters to pay the cost",
+                ))?,
+        };
+        if crate::replacement::remove_counters_by(state, chosen, chosen_kind, needed, Some(player))
+            < needed
+        {
+            return Err(EngineError::IllegalAction(
+                "not enough counters to pay the cost",
+            ));
+        }
+        return Ok(());
+    }
     if let CostPart::PutCounterOnOther { kind, n, .. } = part {
         crate::replacement::record_counters_by(state, player, chosen, *kind, *n);
         if !crate::replacement::counter_order::has_pending(state) {

@@ -496,8 +496,9 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 }
                 (false, false) => {
                     self.activation_either_branches.clear();
-                    self.activation_either_branches.clear();
                     self.activation_phyrexian.clear();
+                    self.activation_counter_removals.clear();
+                    self.activation_pending_counter_object = None;
                     self.activation_x = None;
                     return Err(EngineError::IllegalAction("cannot pay the cost"));
                 }
@@ -550,6 +551,8 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 (false, false) => {
                     self.activation_either_branches.clear();
                     self.activation_phyrexian.clear();
+                    self.activation_counter_removals.clear();
+                    self.activation_pending_counter_object = None;
                     self.activation_x = None;
                     return Err(EngineError::IllegalAction("cannot pay the cost"));
                 }
@@ -759,6 +762,8 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
             || !self.state.can_pay_life(player, activation_life)
         {
             self.activation_cost_choices.clear();
+            self.activation_counter_removals.clear();
+            self.activation_pending_counter_object = None;
             self.activation_x = None;
             self.activation_phyrexian.clear();
             self.activation_either_branches.clear();
@@ -936,6 +941,120 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
             self.awaiting_answer = true;
             return Ok(());
         }
+        let excluded_for_counters: SmallVec<[ObjectId; 4]> = cost_wizard::asking_parts(priced_cost)
+            .zip(self.activation_cost_choices.iter())
+            .filter(|(part, _)| {
+                matches!(
+                    part,
+                    CostPart::Sacrifice(_)
+                        | CostPart::SacrificeX(_)
+                        | CostPart::ExilePermanent(_)
+                        | CostPart::ReturnToHand(_)
+                        | CostPart::ReturnUnblockedAttacker
+                        | CostPart::Forage
+                        | CostPart::CraftMaterials { .. }
+                )
+            })
+            .flat_map(|(_, ans)| ans.iter().copied())
+            .filter(|&id| {
+                self.state
+                    .object(id)
+                    .is_some_and(|o| o.zone == crate::zone::Zone::Battlefield)
+            })
+            .collect();
+        let counter_ctx = self.ability_rule_context(source, ability_index);
+        loop {
+            if let Some(chosen_obj) = self.activation_pending_counter_object {
+                let kinds = cost_wizard::counter_remove::valid_kinds_for_chosen_object(
+                    &self.state,
+                    player,
+                    counter_ctx,
+                    (priced_cost, settled_x),
+                    &excluded_for_counters,
+                    &self.activation_counter_removals,
+                    chosen_obj,
+                );
+                match kinds.as_slice() {
+                    [] => {
+                        self.activation_cost_choices.clear();
+                        self.activation_counter_removals.clear();
+                        self.activation_pending_counter_object = None;
+                        self.activation_x = None;
+                        return Err(EngineError::IllegalAction("nothing can pay this cost"));
+                    }
+                    [only] => {
+                        self.activation_pending_counter_object = None;
+                        self.activation_counter_removals.push((chosen_obj, *only));
+                        continue;
+                    }
+                    _ => {
+                        self.pending_plan = Some(PlanKind::PayActivationCounterKind {
+                            source,
+                            ability_index,
+                            targets,
+                            target_players: chosen_players,
+                        });
+                        self.pending = Pending::ChooseCastMode {
+                            player,
+                            object: chosen_obj,
+                            options: kinds
+                                .into_iter()
+                                .enumerate()
+                                .map(|(index, ck)| crate::choice::CastModeDesc {
+                                    index: u32::try_from(index).unwrap_or(u32::MAX),
+                                    kind: crate::choice::CastModeKind::Counter(ck),
+                                    cost: baylee_core::mana::ManaCost::ZERO,
+                                })
+                                .collect(),
+                        };
+                        self.awaiting_answer = true;
+                        return Ok(());
+                    }
+                }
+            }
+            match cost_wizard::counter_remove::next_counter_step(
+                &self.state,
+                player,
+                counter_ctx,
+                priced_cost,
+                settled_x,
+                &excluded_for_counters,
+                &self.activation_counter_removals,
+            ) {
+                cost_wizard::counter_remove::CounterStep::Complete => break,
+                cost_wizard::counter_remove::CounterStep::Impossible => {
+                    self.activation_cost_choices.clear();
+                    self.activation_counter_removals.clear();
+                    self.activation_pending_counter_object = None;
+                    self.activation_x = None;
+                    return Err(EngineError::IllegalAction("nothing can pay this cost"));
+                }
+                cost_wizard::counter_remove::CounterStep::AutoPick(obj, ck) => {
+                    self.activation_counter_removals.push((obj, ck));
+                }
+                cost_wizard::counter_remove::CounterStep::AskKind { object, .. } => {
+                    self.activation_pending_counter_object = Some(object);
+                }
+                cost_wizard::counter_remove::CounterStep::AskObject { options } => {
+                    self.pending_plan = Some(PlanKind::PayActivationCounterObject {
+                        source,
+                        ability_index,
+                        targets,
+                        target_players: chosen_players,
+                    });
+                    self.pending = Pending::ChooseCards {
+                        player,
+                        options,
+                        min: 1,
+                        max: 1,
+                        prompt: crate::choice::ChoicePrompt::CostRemoveCounter,
+                        total: None,
+                    };
+                    self.awaiting_answer = true;
+                    return Ok(());
+                }
+            }
+        }
         if !self.can_pay_activation_price(
             player,
             source,
@@ -955,6 +1074,8 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
             );
         }
         let answers = std::mem::take(&mut self.activation_cost_choices);
+        let counter_removals = std::mem::take(&mut self.activation_counter_removals);
+        self.activation_pending_counter_object = None;
         // Taken rather than read, for `activation_cost_choices`' reason one
         // line up: the number belongs to this activation and to no other.
         let x = self.activation_x.take().unwrap_or(0);
@@ -1031,8 +1152,15 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
             first,
             mode_index: self.activation_mode.take().map(|mode| mode.mode),
         };
-        let mut work =
-            super::payment::CostPayment::new(&self.state, player, source, cost, answers, x);
+        let mut work = super::payment::CostPayment::new(
+            &self.state,
+            player,
+            source,
+            cost,
+            answers,
+            counter_removals,
+            x,
+        );
         if !self.begin_cost_payment(&mut work)? {
             self.activation_payment = Some(super::payment::ActivationPayment::new(
                 super::payment::ActivationPaymentKind::Ordinary(Box::new(

@@ -223,7 +223,9 @@ fn raw_option_cost(
 ) -> ManaCost {
     let library_top = matches!(wizard.announced, Some(CastModeKind::LibraryTopLife { .. }));
     let plot_alt = wizard.alternative_cost == Some(CastModeKind::Plot);
-    let normal = if wizard.free || wizard.masked || library_top || plot_alt {
+    let normal = if let Some(override_cost) = wizard.override_mana_cost {
+        override_cost
+    } else if wizard.free || wizard.masked || library_top || plot_alt {
         ManaCost::ZERO
     } else if wizard.alternative_cost == Some(CastModeKind::Madness) {
         face.madness.expect("madness").mana
@@ -285,7 +287,8 @@ fn raw_option_cost(
             | CastModeKind::Permission(_)
             | CastModeKind::EscapeGranted { .. }
             | CastModeKind::LibraryTopLife { .. }
-            | CastModeKind::SpellEnding(_),
+            | CastModeKind::SpellEnding(_)
+            | CastModeKind::VoteOption(_),
         ) => {
             unreachable!("resolution choices are not spell costs")
         }

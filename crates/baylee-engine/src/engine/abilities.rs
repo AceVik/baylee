@@ -174,6 +174,8 @@ pub(crate) const fn paid_by_the_casting_wizard(part: &CostPart) -> bool {
         | CostPart::ReturnSelfToHand
         | CostPart::RemoveCounterSelf { .. }
         | CostPart::RemoveCounterSelfX { .. }
+        | CostPart::RemoveAnyCounter { .. }
+        | CostPart::RemoveAnyCounterX { .. }
         | CostPart::PutCounterSelf { .. }
         | CostPart::PutCounterOnOther { .. }
         | CostPart::ExileFromSingleGraveyard { .. }
@@ -210,6 +212,8 @@ const fn can_refuse_part_way(part: &CostPart) -> bool {
         | CostPart::ReturnSelfToHand
         | CostPart::RemoveCounterSelf { .. }
         | CostPart::RemoveCounterSelfX { .. }
+        | CostPart::RemoveAnyCounter { .. }
+        | CostPart::RemoveAnyCounterX { .. }
         | CostPart::Sacrifice(_)
         | CostPart::ExilePermanent(_)
         | CostPart::SacrificeX(_)

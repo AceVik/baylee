@@ -4185,7 +4185,8 @@ fn mana_action_pain_tier(view: &PlayerView, action: &PlayerAction) -> u8 {
                 CostPart::Sacrifice(_)
                 | CostPart::SacrificeSelf
                 | CostPart::SacrificeX(_)
-                | CostPart::RemoveCounterSelf { .. } => return 2,
+                | CostPart::RemoveCounterSelf { .. }
+                | CostPart::RemoveAnyCounter { .. } => return 2,
                 _ => {}
             }
         }

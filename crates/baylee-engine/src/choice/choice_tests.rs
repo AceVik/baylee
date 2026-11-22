@@ -554,6 +554,7 @@ fn kind_of(pending: &Pending) -> usize {
                 YesNoPrompt::ClashBottom { .. } => 50,
                 YesNoPrompt::Conspire => 51,
                 YesNoPrompt::Tribute { .. } => 52,
+                YesNoPrompt::AdditionalVote => 53,
             }
         }
         Pending::ChoosePile { .. } => 17 + 17,
@@ -806,6 +807,7 @@ fn expected_automatable(prompt: YesNoPrompt) -> bool {
         | YesNoPrompt::ClashBottom { .. }
         | YesNoPrompt::Conspire
         | YesNoPrompt::Tribute { .. }
+        | YesNoPrompt::AdditionalVote
         | YesNoPrompt::Generic => false,
     }
 }
@@ -898,6 +900,7 @@ fn only_the_questions_whose_answer_cannot_go_stale_are_automatable() {
         YesNoPrompt::TopOfLibrary { card: object() },
         YesNoPrompt::ClashBottom { card: object() },
         YesNoPrompt::Conspire,
+        YesNoPrompt::AdditionalVote,
         YesNoPrompt::Tribute {
             permanent: object(),
             counters: 2,

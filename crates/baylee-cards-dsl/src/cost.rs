@@ -322,6 +322,28 @@ pub enum CostPart {
     /// both branches are payable and auto-selects the sole payable branch when
     /// only one can be paid. Appended to preserve replay identities.
     Either(&'static Cost, &'static Cost),
+    /// Remove `count` counters (`kind == None` for any counter kind, `Some(k)`
+    /// for `k`) from among permanents you control matching `filter`
+    /// (`Filter::This` restricts to the source permanent itself; CR 118.3).
+    /// Appended to preserve replay identities.
+    RemoveAnyCounter {
+        /// Total number of counters to remove.
+        count: u8,
+        /// Specific counter kind required, or `None` for any counter kind.
+        kind: Option<crate::effect::CounterKind>,
+        /// Filter that permanents losing counters must match (evaluated under the payer's control).
+        filter: &'static Filter,
+    },
+    /// Announce X and remove `X` counters (`kind == None` for any counter kind,
+    /// `Some(k)` for `k`) from among permanents you control matching `filter`,
+    /// binding `X` for [`crate::Amount::X`] (CR 107.3a, CR 118.3). Appended to
+    /// preserve replay identities.
+    RemoveAnyCounterX {
+        /// Specific counter kind required, or `None` for any counter kind.
+        kind: Option<crate::effect::CounterKind>,
+        /// Filter that permanents losing counters must match (evaluated under the payer's control).
+        filter: &'static Filter,
+    },
 }
 
 /// A cost reduction printed on a card (Surgical Metamorph) or on one of its

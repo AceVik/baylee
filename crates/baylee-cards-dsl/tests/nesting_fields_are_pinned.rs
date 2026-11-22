@@ -103,7 +103,9 @@
 // body each; RevealTop adds two walker-tested bodies.
 // Clash adds two walker-tested bodies (`on_win` and `on_loss`).
 // RepeatProcess adds one walker-tested body (`effects`).
-const NESTING_FIELDS: usize = 106;
+// VoteObjects adds one walker-tested body (`if_no_votes`; VoteOption bodies are
+// also walked by `Effect::walk` and tested in `vote_options_and_vote_objects_fallback_are_visited`).
+const NESTING_FIELDS: usize = 107;
 
 /// How many variants those twenty-one fields are spread across.
 ///
@@ -175,7 +177,8 @@ const NESTING_FIELDS: usize = 106;
 /// (`repeat_each_choose_card_peek_and_reveal_branches_are_visited`).
 /// `Clash` is the ninety-second (`clash_branches_and_additional_combat_phase_are_visited`).
 /// `RepeatProcess` is the ninety-third (`repeat_process_body_is_visited`).
-const CARRYING_VARIANTS: usize = 93;
+/// `VoteObjects` is the ninety-fourth (`vote_options_and_vote_objects_fallback_are_visited`).
+const CARRYING_VARIANTS: usize = 94;
 
 /// The floor under the reader itself.
 ///

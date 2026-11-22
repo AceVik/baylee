@@ -107,7 +107,8 @@ fn accumulate_effect(effect: &Effect, ch: &mut EffectChannels) {
         | Effect::RevealTopAllMatching { .. }
         | Effect::Cascade
         | Effect::Discover { .. }
-        | Effect::DiscoverAmount { .. } => {
+        | Effect::DiscoverAmount { .. }
+        | Effect::Play { .. } => {
             ch.draw += 1.0;
         }
         Effect::Scry { amount } | Effect::Surveil { amount } | Effect::ScryFor { amount, .. } => {
@@ -160,7 +161,8 @@ fn accumulate_effect(effect: &Effect, ch: &mut EffectChannels) {
         | Effect::AddManaLikeEvent { .. }
         | Effect::AddCombatMana { .. }
         | Effect::DelayedManaAtNextMain { .. }
-        | Effect::AddManaUnlessAnyPlayerPays { .. } => {
+        | Effect::AddManaUnlessAnyPlayerPays { .. }
+        | Effect::ReduceNextSpellCost { .. } => {
             ch.mana_add += 1.5;
         }
         Effect::DealDamage { amount, .. }

@@ -174,6 +174,7 @@ fn for_each_object(event: &mut GameEvent, f: &mut impl FnMut(&mut ObjectId)) {
         | GameEvent::SpellWarped { object, .. }
         | GameEvent::BecameMonstrous { object, .. }
         | GameEvent::ClassLevelChanged { object, .. }
+        | GameEvent::VotedOption { source: object, .. }
         | GameEvent::PlayerFirebent { source: object, .. } => f(object),
         GameEvent::RingTempted { ring_bearer, .. } => {
             if let Some(id) = ring_bearer {

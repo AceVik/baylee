@@ -37,6 +37,7 @@ fn settled_x(wizard: &CastWizard) -> Option<u32> {
         | WizardStage::Delve
         | WizardStage::Convoke
         | WizardStage::Sacrifice
+        | WizardStage::RemoveCounters
         | WizardStage::Escape
         | WizardStage::Done => Some(wizard.x),
     }

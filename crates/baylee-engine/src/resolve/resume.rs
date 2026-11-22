@@ -588,7 +588,9 @@ pub(super) fn resume_inner(
                 label: None,
             });
         }
-        AwaitingOp::InspectHand => {}
+        // Active `PlayCards` offers route through `Engine::answer_effect_play`;
+        // this arm is reached only when `decline_for_the_departed` unwinds one.
+        AwaitingOp::InspectHand | AwaitingOp::PlayCards(_) => {}
         AwaitingOp::DirectedSearch(selection) => {
             return directed_search::resume(state, res, *selection, chosen);
         }
@@ -1659,6 +1661,7 @@ pub(super) fn resume_inner(
         | AwaitingOp::Dungeon { .. }
         | AwaitingOp::MutatePosition
         | AwaitingOp::ChooseEffect { .. }
+        | AwaitingOp::OptionVote(_)
         | AwaitingOp::LinkedPlay { .. }
         | AwaitingOp::MaskedCast
         | AwaitingOp::BattleDefeatCast { .. }

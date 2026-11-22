@@ -192,12 +192,26 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
         }
         let mut first: &[ObjectId] = &[];
         let handle = match &self.pending_plan {
-            Some(PlanKind::ActivateAbilitySecondTargets {
-                source,
-                ability_index,
-                targets,
-                ..
-            }) => {
+            Some(
+                PlanKind::ActivateAbilitySecondTargets {
+                    source,
+                    ability_index,
+                    targets,
+                    ..
+                }
+                | PlanKind::PayActivationCounterObject {
+                    source,
+                    ability_index,
+                    targets,
+                    ..
+                }
+                | PlanKind::PayActivationCounterKind {
+                    source,
+                    ability_index,
+                    targets,
+                    ..
+                },
+            ) => {
                 first = targets;
                 Some((
                     *source,

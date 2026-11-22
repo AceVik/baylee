@@ -120,7 +120,9 @@ fn cost_moves_library(part: &CostPart) -> bool {
         | CostPart::DiscardX(_)
         | CostPart::ExileFromGraveyardX(_)
         | CostPart::Forage
-        | CostPart::CraftMaterials { .. } => false,
+        | CostPart::CraftMaterials { .. }
+        | CostPart::RemoveAnyCounter { .. }
+        | CostPart::RemoveAnyCounterX { .. } => false,
         CostPart::Either(a, b) => {
             a.parts.iter().any(cost_moves_library) || b.parts.iter().any(cost_moves_library)
         }
@@ -184,7 +186,15 @@ fn moves_library(effect: &Effect) -> bool {
         | Effect::BottomCardFromHand { .. }
         | Effect::OptionalBasicLandSearchFor { .. }
         | Effect::SearchOpponentSplits { .. }
-        | Effect::SearchLibraryOrGraveyard { .. } => true,
+        | Effect::SearchLibraryOrGraveyard { .. }
+        | Effect::Play {
+            source:
+                crate::effect::PlaySource::Zone {
+                    zone: crate::filter::ZoneRef::Library,
+                    ..
+                },
+            ..
+        } => true,
         Effect::RevealUntil { found, .. } => outside_library(*found),
         Effect::RevealUntilMatching {
             matched, otherwise, ..
@@ -205,6 +215,9 @@ fn moves_library(effect: &Effect) -> bool {
         | Effect::SearchLibraryOf { finds, .. } => {
             finds.iter().any(|find| outside_library(find.dest))
         }
+        Effect::Vote { options, .. } => options
+            .iter()
+            .any(|opt| opt.effects.iter().any(moves_library)),
         // Scry, reordering, revealing and shuffling alone do not move a card
         // to/from this zone. They can nevertheless be irreversible under
         // CR 734.1; that is a separate question from being a mana ability.

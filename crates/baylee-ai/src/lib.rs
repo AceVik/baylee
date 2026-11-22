@@ -1045,7 +1045,9 @@ impl HeuristicAgent {
                 YesNoPrompt::ChooseFirstCostBranch { index } => {
                     PlayerAction::YesNo(self.prefers_first_cost_branch(view, context, index))
                 }
-                YesNoPrompt::OpeningHandBattlefield | YesNoPrompt::OpeningHandReveal => {
+                YesNoPrompt::OpeningHandBattlefield
+                | YesNoPrompt::OpeningHandReveal
+                | YesNoPrompt::AdditionalVote => {
                     PlayerAction::YesNo(true)
                 }
                 YesNoPrompt::Endure(_) => {

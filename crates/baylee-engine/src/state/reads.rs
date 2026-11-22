@@ -455,7 +455,10 @@ fn effects_read_expend(effects: &'static [baylee_cards_dsl::Effect]) -> bool {
             | Effect::AddCounter { amount, .. }
             | Effect::AddCounterSource { amount, .. }
             | Effect::CreateTokenN { amount, .. }
-            | Effect::NextSpellThisTurnCostsLess(amount) => amount_reads_expend(amount),
+            | Effect::NextSpellThisTurnCostsLess(amount)
+            | Effect::ReduceNextSpellCost {
+                generic: amount, ..
+            } => amount_reads_expend(amount),
             Effect::DamagePermanentAndController {
                 permanent_amount,
                 controller_amount,

@@ -124,7 +124,7 @@ pub fn mode_kind(kind: &CastModeKind) -> i16 {
         CastModeKind::Colors(_) => 13,
         // A spell's ending is, like a counter kind, chosen during resolution
         // and no way to cast.
-        CastModeKind::Counter(_) | CastModeKind::SpellEnding(_) => 14,
+        CastModeKind::Counter(_) | CastModeKind::SpellEnding(_) | CastModeKind::VoteOption(_) => 14,
         // A zone permission, with its life price carried by the cast offer.
         CastModeKind::Permission(_) | CastModeKind::LibraryTopLife { .. } => 15,
         CastModeKind::EscapeGranted { .. } => 16,

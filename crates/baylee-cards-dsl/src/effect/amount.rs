@@ -441,6 +441,10 @@ pub enum ThisWay {
     /// exiled from the battlefield, CR 608.2h, or as they exist in exile when
     /// exiled from any other zone). Appended to preserve replay identities.
     Exiled(&'static Filter),
+    /// Number of votes cast for option `index` in the most recent
+    /// [`crate::Effect::Vote`] of this resolution (Council's dilemma,
+    /// CR 701.38). Appended to preserve replay identities.
+    VoteCount(u8),
 }
 
 impl Amount {

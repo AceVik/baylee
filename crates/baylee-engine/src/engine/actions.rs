@@ -373,6 +373,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                                 | resolve::AwaitingOp::ChooseEffect { .. }
                                 | resolve::AwaitingOp::Colors { .. }
                                 | resolve::AwaitingOp::MoveCounter { .. }
+                                | resolve::AwaitingOp::OptionVote(_)
                         )
                     )
                 }) {
@@ -499,7 +500,53 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                         self.finish_spell(spell, Some(ending));
                         return Ok(());
                     }
+                    Some(PlanKind::PayActivationCounterKind {
+                        source,
+                        ability_index,
+                        targets,
+                        target_players,
+                    }) => {
+                        let CastModeKind::Counter(ck) = kind else {
+                            self.pending_plan = Some(PlanKind::PayActivationCounterKind {
+                                source,
+                                ability_index,
+                                targets,
+                                target_players,
+                            });
+                            return Err(EngineError::IllegalAction("not a counter kind"));
+                        };
+                        let Some(chosen_obj) = self.activation_pending_counter_object.take() else {
+                            return Err(EngineError::IllegalAction("no counter permanent pending"));
+                        };
+                        self.activation_counter_removals.push((chosen_obj, ck));
+                        self.activation_target_players = target_players;
+                        if self
+                            .start_activation(player, source, ability_index, targets)
+                            .is_err()
+                        {
+                            self.reverse_activation(player);
+                        }
+                        return Ok(());
+                    }
                     other => self.pending_plan = other,
+                }
+                if self
+                    .cast_wizard
+                    .as_ref()
+                    .is_some_and(|w| w.stage == cast_wizard::WizardStage::RemoveCounters)
+                {
+                    let CastModeKind::Counter(ck) = kind else {
+                        return Err(EngineError::IllegalAction("not a counter kind"));
+                    };
+                    let mut wizard = self.cast_wizard.take().expect("wizard active");
+                    let Some(chosen_obj) = wizard.pending_counter_object.take() else {
+                        self.cast_wizard = Some(wizard);
+                        return Err(EngineError::IllegalAction("no counter permanent pending"));
+                    };
+                    wizard.counter_removals.push((chosen_obj, ck));
+                    self.cast_wizard = Some(wizard);
+                    self.continue_cast_wizard();
+                    return Ok(());
                 }
                 if let Some(wizard) = self.cast_wizard.as_mut()
                     && wizard.stage == cast_wizard::WizardStage::Permission
@@ -908,6 +955,8 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 // through its questions would otherwise hand what it had
                 // collected to the next one.
                 self.activation_cost_choices.clear();
+                self.activation_counter_removals.clear();
+                self.activation_pending_counter_object = None;
                 self.activation_x = None;
                 self.activation_phyrexian.clear();
                 self.activation_either_branches.clear();
@@ -1161,7 +1210,9 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                     // how this arm came to be written at all. Refused with
                     // the plan put back, so a refusal leaves the engine as
                     // it found it.
-                    PlanKind::PayActivationCost { .. } => {
+                    PlanKind::PayActivationCost { .. }
+                    | PlanKind::PayActivationCounterObject { .. }
+                    | PlanKind::PayActivationCounterKind { .. } => {
                         self.pending_plan = Some(plan);
                         return Err(EngineError::IllegalAction(
                             "an activation cost is not a target choice",
@@ -2328,6 +2379,17 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                     self.continue_cast_wizard();
                     return Ok(());
                 }
+                if self
+                    .cast_wizard
+                    .as_ref()
+                    .is_some_and(|w| w.stage == cast_wizard::WizardStage::RemoveCounters)
+                {
+                    let mut wizard = self.cast_wizard.take().expect("wizard active");
+                    wizard.pending_counter_object = objects.first().copied();
+                    self.cast_wizard = Some(wizard);
+                    self.continue_cast_wizard();
+                    return Ok(());
+                }
                 // Activation-cost path: the answer to "sacrifice a creature"
                 // or "discard a card". It goes back into the same
                 // `start_activation` the target answer re-enters, one
@@ -2439,6 +2501,22 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                             return Ok(());
                         }
                         self.activation_cost_choices.push(chosen);
+                        self.activation_target_players = target_players;
+                        if self
+                            .start_activation(player, source, ability_index, targets)
+                            .is_err()
+                        {
+                            self.reverse_activation(player);
+                        }
+                        return Ok(());
+                    }
+                    Some(PlanKind::PayActivationCounterObject {
+                        source,
+                        ability_index,
+                        targets,
+                        target_players,
+                    }) => {
+                        self.activation_pending_counter_object = objects.first().copied();
                         self.activation_target_players = target_players;
                         if self
                             .start_activation(player, source, ability_index, targets)
@@ -2660,6 +2738,8 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
     /// every refusal `start_activation` has left on its way to the stack.
     pub(super) fn reverse_activation(&mut self, player: PlayerId) {
         self.activation_cost_choices.clear();
+        self.activation_counter_removals.clear();
+        self.activation_pending_counter_object = None;
         self.activation_x = None;
         self.activation_graveyard = None;
         self.activation_phyrexian.clear();

@@ -161,6 +161,9 @@ pub enum CastModeKind {
     /// land you control, puts N +1/+1 counters on that land, and makes it a 0/0
     /// Elemental creature with haste that's still a land.
     Awaken,
+    /// Vote for the `index`-th named [`baylee_cards_dsl::VoteOption`] during
+    /// resolution (`CR 701.38`). Not a way of casting.
+    VoteOption(u8),
 }
 
 /// One way a resolved instant or sorcery can leave the stack in place of the
@@ -484,6 +487,9 @@ pub enum ChoicePrompt {
     /// Champion (CR 702.72a): exile another matching permanent you control, or
     /// choose none and sacrifice this permanent.
     Champion,
+    /// Choose a permanent you control from which to remove a counter to pay a
+    /// cost (`CostPart::RemoveAnyCounter` / `RemoveAnyCounterX`, CR 118.3).
+    CostRemoveCounter,
 }
 
 /// What a [`Pending::ChooseNumber`] counts (UI hint).
@@ -1016,6 +1022,9 @@ pub enum YesNoPrompt {
         /// Number of +1/+1 counters placed if tribute is paid.
         counters: u16,
     },
+    /// Vote an additional time while voting (`Modifier::AdditionalVotes { optional: true }`,
+    /// CR 701.38c; Ballot Broker, Tivit, Seller of Secrets)?
+    AdditionalVote,
 }
 
 impl YesNoPrompt {
@@ -1095,6 +1104,7 @@ impl YesNoPrompt {
             | Self::ClashBottom { .. }
             | Self::Conspire
             | Self::Tribute { .. }
+            | Self::AdditionalVote
             | Self::Generic => true,
             // Declining discover moves the card into the hand: a card for
             // the player, but not nothing, and a free spell is not a

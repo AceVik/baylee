@@ -132,6 +132,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
         // One ordered answer stream feeds both the selected alternative cost
         // and any mandatory additional costs. No object can pay two parts.
         let mut cost_objects = wizard.cost_objects.iter();
+        let mut counter_removals = wizard.counter_removals.iter();
         let mut sacrificed_lki = None;
         let mut sacrificed_object = None;
         // Each selected card pays exactly one exile-from-hand part.
@@ -236,6 +237,17 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                                 ))?;
                         super::super::cost_wizard::pay(&mut self.state, player, part, chosen)?;
                     }
+                }
+                CostPart::RemoveAnyCounter { .. } | CostPart::RemoveAnyCounterX { .. } => {
+                    let ctx = eval::live_context(&self.state, wizard.card);
+                    super::super::cost_wizard::counter_remove::pay_counter_removals(
+                        &mut self.state,
+                        player,
+                        ctx,
+                        part,
+                        wizard.x,
+                        &mut counter_removals,
+                    )?;
                 }
                 // Pitch cards were moved above; keep every other no-op variant
                 // named so a new cost cannot silently become free.
@@ -520,6 +532,17 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                         super::super::cost_wizard::pay(&mut self.state, player, part, chosen)?;
                     }
                 }
+                CostPart::RemoveAnyCounter { .. } | CostPart::RemoveAnyCounterX { .. } => {
+                    let ctx = eval::live_context(&self.state, wizard.card);
+                    super::super::cost_wizard::counter_remove::pay_counter_removals(
+                        &mut self.state,
+                        player,
+                        ctx,
+                        part,
+                        wizard.x,
+                        &mut counter_removals,
+                    )?;
+                }
                 CostPart::ExileTopOfLibrary(n) => {
                     let count = usize::from(*n);
                     if self.state.zones.list(ZoneLocation::Library(player)).len() < count {
@@ -642,6 +665,17 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                         .copied()
                         .ok_or(EngineError::IllegalAction("an unanswered buyback cost"))?;
                     super::super::cost_wizard::pay(&mut self.state, player, part, chosen)?;
+                }
+                CostPart::RemoveAnyCounter { .. } => {
+                    let ctx = eval::live_context(&self.state, wizard.card);
+                    super::super::cost_wizard::counter_remove::pay_counter_removals(
+                        &mut self.state,
+                        player,
+                        ctx,
+                        part,
+                        wizard.x,
+                        &mut counter_removals,
+                    )?;
                 }
                 _ => {}
             }
@@ -977,6 +1011,13 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 .expect("cast spell")
                 .riders
                 .push(crate::object::Rider::Foretold { turn });
+        }
+        if wizard.exile_instead_of_graveyard {
+            self.state
+                .object_mut(card)
+                .expect("cast spell")
+                .riders
+                .push(crate::object::Rider::ExileInsteadOfGraveyard);
         }
         self.state
             .object_mut(card)

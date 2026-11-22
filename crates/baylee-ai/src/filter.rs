@@ -568,6 +568,12 @@ impl HeuristicAgent {
         if let Some(ending) = crate::endings::own(view, object, options) {
             return ending;
         }
+        if options
+            .iter()
+            .any(|option| matches!(option.kind, CastModeKind::VoteOption(_)))
+        {
+            return self.vote_option_mode(view, object, options);
+        }
         // A free alternative beats paying for the same spell. The engine
         // offers `Normal` only when the pool already covers it, so taking it
         // spent floating mana on a Deadly Rollick that was free.
@@ -727,6 +733,74 @@ impl HeuristicAgent {
     /// through `baylee_cards::by_index`, so there is no synthetic card to
     /// build one with either. The day that lint goes red is the day this
     /// branch starts running, and the lint is the test that says so.
+    fn vote_option_mode(
+        &self,
+        view: &PlayerView,
+        object: ObjectId,
+        options: &[CastModeDesc],
+    ) -> usize {
+        let Some(rules) = view
+            .hand
+            .iter()
+            .find(|held| held.id == object)
+            .map(|held| RulesFace::from(held.card))
+            .or_else(|| view.object(object).and_then(|seen| seen.rules))
+        else {
+            return 0;
+        };
+        let Some(def) = baylee_cards::by_index(rules.card) else {
+            return 0;
+        };
+        let mut vote_list: Option<&'static [baylee_cards_dsl::VoteOption]> = None;
+        for ability in def.abilities_for_face(usize::from(rules.face)) {
+            let effects = match ability {
+                AbilityDef::Spell { effects, .. }
+                | AbilityDef::Triggered { effects, .. }
+                | AbilityDef::Activated { effects, .. }
+                | AbilityDef::ActivatedConditional { effects, .. }
+                | AbilityDef::Loyalty { effects, .. } => *effects,
+                _ => &[],
+            };
+            baylee_cards_dsl::Effect::walk(effects, &mut 0, &mut |effect| {
+                if let Effect::Vote { options: opts, .. } = effect
+                    && vote_list.is_none()
+                {
+                    vote_list = Some(opts);
+                }
+            });
+        }
+        let Some(vote_opts) = vote_list else {
+            return 0;
+        };
+        let is_controller = view
+            .object(object)
+            .is_none_or(|seen| seen.controller == view.seat);
+        options
+            .iter()
+            .enumerate()
+            .filter_map(|(position, option)| match option.kind {
+                CastModeKind::VoteOption(idx) => Some((position, vote_opts.get(usize::from(idx))?)),
+                _ => None,
+            })
+            .max_by_key(|(position, vote_opt)| {
+                let synth_mode = SpellMode {
+                    effects: vote_opt.effects,
+                    targets: None,
+                    second_targets: None,
+                    cost_override: None,
+                    additional_cost: None,
+                };
+                let worth = self.mode_worth(view, &synth_mode, object);
+                let signed = if is_controller {
+                    worth
+                } else {
+                    worth.saturating_neg()
+                };
+                (signed, std::cmp::Reverse(*position))
+            })
+            .map_or(0, |(position, _)| position)
+    }
+
     pub(crate) fn modal_modes(view: &PlayerView, object: ObjectId) -> Option<&'static [SpellMode]> {
         // A card in hand is only ever itself; an object anywhere else may be
         // a copy, whose modes are the copied card's (CR 707.2).

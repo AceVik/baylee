@@ -1089,3 +1089,46 @@ fn repeat_process_body_is_visited() {
     assert_eq!(seen, 3);
     assert!(drew && gained);
 }
+
+#[test]
+fn vote_options_and_vote_objects_fallback_are_visited() {
+    static OPTIONS: &[crate::VoteOption] = &[
+        crate::VoteOption {
+            name: "time",
+            effects: &[Effect::TakeExtraTurn],
+        },
+        crate::VoteOption {
+            name: "knowledge",
+            effects: &[Effect::draw(3)],
+        },
+        crate::VoteOption {
+            name: "wealth",
+            effects: &[Effect::gain_life(4)],
+        },
+    ];
+    static EFFECTS: &[Effect] = &[
+        Effect::Vote {
+            options: OPTIONS,
+            outcome: crate::VoteOutcome::MajorityOrTied { tied_option: 1 },
+            secret: false,
+        },
+        Effect::VoteObjects {
+            zone: crate::ZoneRef::Battlefield,
+            filter: &Filter::CREATURE,
+            optional: true,
+            secret: true,
+            action: crate::VoteObjectAction::Destroy { no_regen: false },
+            if_no_votes: &[Effect::scry(1)],
+        },
+    ];
+    let mut seen = 0;
+    let (mut extra_turn, mut drew, mut gained, mut scried) = (false, false, false, false);
+    Effect::walk(EFFECTS, &mut seen, &mut |effect| {
+        extra_turn |= matches!(effect, Effect::TakeExtraTurn);
+        drew |= matches!(effect, Effect::DrawCards { .. });
+        gained |= matches!(effect, Effect::GainLife { .. });
+        scried |= matches!(effect, Effect::Scry { .. });
+    });
+    assert_eq!(seen, 6);
+    assert!(extra_turn && drew && gained && scried);
+}

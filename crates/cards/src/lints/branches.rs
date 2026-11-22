@@ -197,6 +197,12 @@ pub(super) fn swept_filters(effect: &Effect) -> Vec<&'static Filter> {
         // three — `Sequence` and both halves of "unless you pay" — so a
         // sweep behind a Karoo's price was a sweep this lint never read.
         _ => {
+            if let Effect::Vote { options, .. } = effect {
+                return options
+                    .iter()
+                    .flat_map(|opt| opt.effects.iter().flat_map(swept_filters))
+                    .collect();
+            }
             let (then, otherwise) = effect.branches();
             then.iter()
                 .chain(otherwise)

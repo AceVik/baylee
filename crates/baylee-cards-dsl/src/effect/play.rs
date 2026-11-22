@@ -115,3 +115,87 @@ pub struct ExilePlay {
     /// `None` permits both casting spells and playing lands.
     pub spell_types: Option<TypeSet>,
 }
+
+/// One named option in an [`super::Effect::Vote`] ballot (`CR 701.38`).
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
+pub struct VoteOption {
+    /// Option label shown to voters (for example `"time"`, `"knowledge"`).
+    pub name: &'static str,
+    /// Effects executed when this option is selected by the vote's [`VoteOutcome`].
+    pub effects: &'static [super::Effect],
+}
+
+/// How an [`super::Effect::Vote`] resolves once all ballots are cast (`CR 701.38`).
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
+pub enum VoteOutcome {
+    /// **Will of the council**: run the option with strictly the most votes, or
+    /// `options[tied_option]` if tied for most votes.
+    MajorityOrTied {
+        /// Zero-based option index executed on a tie for most votes.
+        tied_option: u8,
+    },
+    /// Run every option tied for the most votes in printed order (*Council Guardian*).
+    AllWinners,
+    /// **Council's dilemma**: record vote totals for [`super::Amount::VoteCount`]
+    /// and execute each option's `effects` (whenever `votes[i] > 0`) in printed order.
+    PerOptionCount,
+    /// **Per-vote repetition** (*Expropriate*): for each option in printed order,
+    /// execute its `effects` once per ballot cast for it with `EventPlayer` bound
+    /// to that ballot's voter.
+    RepeatPerVote,
+}
+
+/// What [`super::Effect::VoteObjects`] does to every object tied for the most votes.
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
+pub enum VoteObjectAction {
+    /// Exile each winning object.
+    Exile,
+    /// Destroy each winning permanent (`no_regen` forbids regeneration).
+    Destroy {
+        /// Whether winning permanents can't be regenerated.
+        no_regen: bool,
+    },
+    /// Return each winning object to its owner's hand.
+    ReturnToHand,
+}
+
+/// Where [`super::Effect::Play`] gathers candidate cards from (`CR 608.2g`).
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
+pub enum PlaySource {
+    /// Objects resolved through a [`super::TargetSpec`] (`FirstTarget`,
+    /// `EventObject`, `Chosen`, `These`, etc.).
+    Subject(super::TargetSpec),
+    /// Cards exiled with the resolving source's current acquisition (`Rider::LinkedExile`).
+    LinkedExile,
+    /// Cards in `zone` (`Hand`, `Graveyard`, `Exile`, or `Library` top) owned by `owner`.
+    Zone {
+        /// Zone inspected for candidate cards.
+        zone: crate::filter::ZoneRef,
+        /// Player(s) whose zone is inspected.
+        owner: super::PlayerRel,
+    },
+}
+
+/// How many candidate cards [`super::Effect::Play`] offers to play/cast.
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
+pub enum PlayCount {
+    /// Play/cast at most one matching card (`Amount$ 1`).
+    One,
+    /// Play/cast up to `n` matching cards.
+    UpTo(u8),
+    /// Play/cast any number of matching cards from the candidate set (`Amount$ All`).
+    All,
+}
+
+/// Cost regime used by [`super::Effect::Play`] (`CR 118.9`, `CR 608.2g`).
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
+pub enum PlayCostMode {
+    /// Cast without paying its mana cost (`CR 118.9`).
+    WithoutPayingManaCost,
+    /// Pay the spell's normal mana cost (`CR 608.2g`).
+    Normal,
+    /// Pay the spell's normal mana cost, spending mana as though it were mana of any type.
+    AnyManaColor,
+    /// Pay an explicit alternative mana cost rather than the card's mana cost (`PlayCost$`).
+    Alternative(baylee_core::mana::ManaCost),
+}

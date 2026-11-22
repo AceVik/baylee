@@ -230,6 +230,7 @@ impl HeuristicAgent {
             ChoicePrompt::CostSacrifice
             | ChoicePrompt::CostDiscard
             | ChoicePrompt::CostExile
+            | ChoicePrompt::CostRemoveCounter
             | ChoicePrompt::Discard
             | ChoicePrompt::PutBackOnTop
             | ChoicePrompt::PutOnBottom => best(min),
@@ -507,6 +508,7 @@ impl HeuristicAgent {
             | YesNoPrompt::Buyback { .. }
             | YesNoPrompt::EnterTappedForCounters { .. }
             | YesNoPrompt::SacrificeToEnter { .. }
+            | YesNoPrompt::AdditionalVote
             | YesNoPrompt::Generic => false,
             YesNoPrompt::Endure(_) => !self.endures_counters(theirs, context.source),
             YesNoPrompt::Tribute {

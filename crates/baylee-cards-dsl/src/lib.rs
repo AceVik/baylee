@@ -137,9 +137,10 @@ pub use effect::{
     DamageRedirectTo, DamageTo, DelayedDuration, DelayedObservation, DelayedStep,
     DelayedTriggerWhen, DivisionAmount, Effect, ExileMana, ExilePermission, ExilePlay, ExileUntil,
     Find, LookRest, ManaDistribution, ManaRestriction, ManaSource, ManaUse, ManaValueBound,
-    ManaValueCmp, PeekPickDest, PeekRestDest, PlayWindow, PlayerRel, ReflexiveEvent, ReflexiveWhen,
-    RepeatDomain, SearchDest, SpendRider, TargetChooser, TargetReq, TargetSlot, TargetSpec,
-    ThisWay, TokenDef, TriggerRemember, ZoneSel,
+    ManaValueCmp, PeekPickDest, PeekRestDest, PlayCostMode, PlayCount, PlaySource, PlayWindow,
+    PlayerRel, ReflexiveEvent, ReflexiveWhen, RepeatDomain, SearchDest, SpendRider, TargetChooser,
+    TargetReq, TargetSlot, TargetSpec, ThisWay, TokenDef, TriggerRemember, VoteObjectAction,
+    VoteOption, VoteOutcome, ZoneSel,
 };
 pub use filter::{Filter, OriginalExpansion, ZoneRef, ZoneRef as ZoneKind};
 pub use manaread::{
@@ -440,6 +441,45 @@ impl CardDef {
         (0..self.faces.len().max(1))
             .map(|f| self.keywords_for_face(f))
             .fold(self.keywords, KeywordSet::union)
+    }
+
+    /// Returns the label of the `option`-th [`VoteOption`] printed on `face`
+    /// (`CR 701.38`), if any.
+    #[must_use]
+    pub fn vote_option_name(&self, face: usize, option: u8) -> Option<&'static str> {
+        let mut found = None;
+        let walk_slice = |slice: &'static [Effect], out: &mut Option<&'static str>| {
+            let mut seen = 0;
+            Effect::walk(slice, &mut seen, &mut |effect| {
+                if out.is_none()
+                    && let Effect::Vote { options, .. } = effect
+                {
+                    *out = options.get(usize::from(option)).map(|o| o.name);
+                }
+            });
+        };
+        for ability in self.abilities_for_face(face) {
+            match ability {
+                AbilityDef::Spell { effects, .. }
+                | AbilityDef::Activated { effects, .. }
+                | AbilityDef::ActivatedConditional { effects, .. }
+                | AbilityDef::Loyalty { effects, .. }
+                | AbilityDef::Triggered { effects, .. }
+                | AbilityDef::SagaChapter { effects, .. } => walk_slice(effects, &mut found),
+                AbilityDef::ModalSpell { modes, .. }
+                | AbilityDef::ModalActivated { modes, .. }
+                | AbilityDef::ModalTriggered { modes, .. } => {
+                    for mode in *modes {
+                        walk_slice(mode.effects, &mut found);
+                    }
+                }
+                _ => {}
+            }
+            if found.is_some() {
+                return found;
+            }
+        }
+        None
     }
 
     /// Returns the combined per-extra-target mana cost (`CR 207.2c` Strive /

@@ -788,6 +788,35 @@ impl Writer<'_> {
                 Phrase::LogVoted,
                 vec![self.object(object)],
             ),
+            LogEvent::VotedOption {
+                player,
+                source,
+                option,
+            } => {
+                let label = match source {
+                    baylee_view::LogObject::Known {
+                        card: Some(card), ..
+                    } => baylee_cards::by_index(card.index)
+                        .and_then(|def| def.vote_option_name(usize::from(card.face), *option))
+                        .map_or_else(
+                            || {
+                                Phrase::CastModeNumber.fill(
+                                    self.wording.lang,
+                                    &[&(u16::from(*option) + 1).to_string()],
+                                )
+                            },
+                            |name| Phrase::LogQuoted.fill(self.wording.lang, &[name]),
+                        ),
+                    _ => Phrase::CastModeNumber
+                        .fill(self.wording.lang, &[&(u16::from(*option) + 1).to_string()]),
+                };
+                self.about(
+                    *player,
+                    Phrase::LogVotedYou,
+                    Phrase::LogVoted,
+                    vec![Piece::plain(label)],
+                )
+            }
             LogEvent::Revealed { player, cards } => self.about(
                 *player,
                 Phrase::LogRevealedYou,

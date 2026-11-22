@@ -67,7 +67,11 @@ pub(super) fn refers_to_subject(effects: &'static [Effect], implicit_source: boo
             | Effect::Detain { target }
             | Effect::Goad { target }
             | Effect::Suspect { target }
-            | Effect::Unsuspect { target } => matches!(target, TargetSpec::ThisObject),
+            | Effect::Unsuspect { target }
+            | Effect::Play {
+                source: baylee_cards_dsl::PlaySource::Subject(target),
+                ..
+            } => matches!(target, TargetSpec::ThisObject),
             Effect::CreateContinuousEffect { filter, .. }
             | Effect::BecomeChosenCreatureType { filter, .. }
             | Effect::GrantProtectionFromChosenColorUntilEot { filter }
@@ -83,6 +87,10 @@ pub(super) fn refers_to_subject(effects: &'static [Effect], implicit_source: boo
                     | baylee_cards_dsl::DamageRedirectTo::Target(TargetSpec::ThisObject)
             ),
             Effect::PreventNextDamageFromSource { .. }
+            | Effect::Play {
+                source: baylee_cards_dsl::PlaySource::LinkedExile,
+                ..
+            }
             | Effect::PreventNextDamageToAttached { .. }
             | Effect::ReflectNextChosenSourceDamage
             | Effect::MustBlockSourceIfAbleThisCombat

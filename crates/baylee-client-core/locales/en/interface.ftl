@@ -3263,6 +3263,14 @@ NounCardsToExile =
        *[other] cards to exile from your graveyard
     }
 
+# permanent to remove a counter from
+# Arguments: count
+NounPermanentsToRemoveCounter =
+    { $count ->
+        [one] permanent to remove a counter from
+       *[other] permanents to remove counters from
+    }
+
 # permanent to leave tapped
 # Arguments: count
 NounPermanentsToLeaveTapped =
@@ -3979,6 +3987,9 @@ ClassLevel = Class level { $level }
 # The permanent reached a different Class level.
 # Arguments: object, level
 LogClassLevel = { $object } reached Class level { $level }
+
+# Optional additional vote (`Modifier::AdditionalVotes { optional: true }`, CR 701.38c).
+AdditionalVoteAsk = Vote an additional time?
 
 # What an empty search box in the question's sheet says (report 16).
 FilterPlaceholder = type to search…

@@ -916,7 +916,10 @@ impl HeuristicAgent {
             // refusal, and an agent answering `min` there lost the permanent
             // the price was protecting, every time and silently. An
             // activation asks with `min: 1`, where this is the same answer.
-            ChoicePrompt::CostSacrifice | ChoicePrompt::CostDiscard | ChoicePrompt::CostExile => {
+            ChoicePrompt::CostSacrifice
+            | ChoicePrompt::CostDiscard
+            | ChoicePrompt::CostExile
+            | ChoicePrompt::CostRemoveCounter => {
                 Self::sort_cost_price(view, prompt, &mut ranked, &value);
                 usize::from(min.max(1).min(max))
             }

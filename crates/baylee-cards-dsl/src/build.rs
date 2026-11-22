@@ -1156,9 +1156,10 @@ pub mod prelude {
         DamageRedirectTo, DamageTo, DelayedDuration, DelayedObservation, DelayedStep,
         DelayedTriggerWhen, DivisionAmount, Effect, ExileMana, ExilePermission, ExilePlay,
         ExileUntil, Find, LookRest, ManaDistribution, ManaRestriction, ManaSource, ManaUse,
-        ManaValueBound, ManaValueCmp, PeekPickDest, PeekRestDest, PlayWindow, PlayerRel,
-        ReflexiveEvent, ReflexiveWhen, RepeatDomain, SearchDest, SpendRider, TargetChooser,
-        TargetReq, TargetSlot, TargetSpec, ThisWay, TokenDef, TriggerRemember, ZoneSel,
+        ManaValueBound, ManaValueCmp, PeekPickDest, PeekRestDest, PlayCostMode, PlayCount,
+        PlaySource, PlayWindow, PlayerRel, ReflexiveEvent, ReflexiveWhen, RepeatDomain, SearchDest,
+        SpendRider, TargetChooser, TargetReq, TargetSlot, TargetSpec, ThisWay, TokenDef,
+        TriggerRemember, VoteObjectAction, VoteOption, VoteOutcome, ZoneSel,
     };
     pub use crate::filter::{Filter, OriginalExpansion, ZoneRef, ZoneRef as ZoneKind};
     pub use crate::static_ability::{

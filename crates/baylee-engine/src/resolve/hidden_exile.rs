@@ -19,7 +19,7 @@ fn link(state: &GameState, res: &Resolution) -> Option<Rider> {
     })
 }
 
-fn linked(state: &GameState, res: &Resolution) -> Vec<DamageSourceRef> {
+pub(crate) fn linked(state: &GameState, res: &Resolution) -> Vec<DamageSourceRef> {
     let Some(link) = link(state, res) else {
         return Vec::new();
     };

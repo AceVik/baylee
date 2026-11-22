@@ -1424,6 +1424,7 @@ fn stack_object_announces_x(state: &GameState, on_stack: ObjectId) -> bool {
                     | baylee_cards_dsl::CostPart::DiscardX(_)
                     | baylee_cards_dsl::CostPart::ExileFromGraveyardX(_)
                     | baylee_cards_dsl::CostPart::RemoveCounterSelfX { .. }
+                    | baylee_cards_dsl::CostPart::RemoveAnyCounterX { .. }
             )
         })
 }

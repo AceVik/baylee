@@ -431,6 +431,9 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
             }
             (Pending::YesNo { .. }, _) => resolve::resume_yes_no(state, &mut res, false),
             (Pending::ChooseCards { .. }, _) => resolve::resume(state, &mut res, &[]),
+            (Pending::ChooseCastMode { .. }, Some(AwaitingOp::OptionVote(_))) => {
+                resolve::vote::skip_departed_option_voter(state, &mut res)
+            }
             (Pending::ChooseDamageSource { .. }, _) => {
                 resolve::resume_source(state, &mut res, None)
             }

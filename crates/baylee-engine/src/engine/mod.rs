@@ -572,6 +572,10 @@ pub struct Engine<L: CardLookup, D: LoopDetection = DetectLoops> {
     activation_phyrexian: Vec<bool>,
     /// Settled `CostPart::Either` branches for an activation in progress (`true` = first, `false` = second).
     activation_either_branches: Vec<bool>,
+    /// Chosen `(permanent, counter_kind)` pairs for `RemoveAnyCounter` / `RemoveAnyCounterX` activation costs.
+    activation_counter_removals: Vec<(ObjectId, baylee_cards_dsl::CounterKind)>,
+    /// Permanent chosen for the next counter removal while awaiting counter-kind disambiguation.
+    activation_pending_counter_object: Option<ObjectId>,
     /// The ability list the next push to the stack should use instead of
     /// asking the source — read before its cost is paid, or carried on a
     /// trigger that is looking back in time.
@@ -1026,6 +1030,28 @@ enum PlanKind {
         /// Earlier pages of this one cost; nothing has been paid yet.
         chosen: Vec<ObjectId>,
     },
+    /// An activation waiting for a permanent to remove a counter from (`CostPart::RemoveAnyCounter`).
+    PayActivationCounterObject {
+        /// The permanent whose ability is being activated.
+        source: ObjectId,
+        /// Ability index.
+        ability_index: u32,
+        /// The targets already chosen.
+        targets: SmallVec<[ObjectId; 2]>,
+        /// The seats already chosen.
+        target_players: Vec<PlayerId>,
+    },
+    /// An activation waiting for which counter kind to remove from the chosen permanent.
+    PayActivationCounterKind {
+        /// The permanent whose ability is being activated.
+        source: ObjectId,
+        /// Ability index.
+        ability_index: u32,
+        /// The targets already chosen.
+        targets: SmallVec<[ObjectId; 2]>,
+        /// The seats already chosen.
+        target_players: Vec<PlayerId>,
+    },
     /// A resolved spell still on the stack, waiting for its controller to
     /// say which of its competing endings applies (CR 616.1e).
     SpellEnding {
@@ -1111,6 +1137,8 @@ impl<L: CardLookup, D: LoopDetection> Engine<L, D> {
             activation_graveyard: None,
             activation_phyrexian: Vec::new(),
             activation_either_branches: Vec::new(),
+            activation_counter_removals: Vec::new(),
+            activation_pending_counter_object: None,
             activating_abilities: None,
             activating_grant: None,
             entry_scan_seq: 0,
@@ -1182,6 +1210,16 @@ impl<L: CardLookup, D: LoopDetection> Engine<L, D> {
     pub fn ballots(&self) -> &[resolve::Ballot] {
         match self.resolution.as_ref().and_then(|r| r.awaiting.as_ref()) {
             Some(resolve::AwaitingOp::Vote(vote)) => vote.ballots(),
+            _ => &[],
+        }
+    }
+
+    /// Publicly announced named-option ballots for an `Effect::Vote` in progress
+    /// (`&[]` outside such a vote or while `secret: true` is in progress).
+    #[must_use]
+    pub fn option_ballots(&self) -> &[resolve::OptionBallot] {
+        match self.resolution.as_ref().and_then(|r| r.awaiting.as_ref()) {
+            Some(resolve::AwaitingOp::OptionVote(vote)) => vote.ballots(),
             _ => &[],
         }
     }
@@ -1588,6 +1626,17 @@ impl<L: CardLookup, D: LoopDetection> Engine<L, D> {
                 &self.activation_payment,
                 &self.activation_mode,
             )));
+        if !self.activation_counter_removals.is_empty()
+            || self.activation_pending_counter_object.is_some()
+        {
+            extra = extra
+                .wrapping_mul(31)
+                .wrapping_add(crate::state::structural_fingerprint(&(
+                    276u16,
+                    &self.activation_counter_removals,
+                    self.activation_pending_counter_object,
+                )));
+        }
         if let Some(work) = &self.combat_damage {
             extra = extra.wrapping_mul(31).wrapping_add(work.fingerprint());
         }
@@ -1814,6 +1863,8 @@ impl<L: CardLookup, D: LoopDetection> Engine<L, D> {
             activation_graveyard,
             activation_phyrexian,
             activation_either_branches,
+            activation_counter_removals,
+            activation_pending_counter_object,
             activating_abilities,
             activating_grant,
             capabilities,
@@ -1887,6 +1938,10 @@ impl<L: CardLookup, D: LoopDetection> Engine<L, D> {
             (
                 "activation_either_branches",
                 format!("{activation_either_branches:?}"),
+            ),
+            (
+                "activation_counter_removals",
+                format!("{activation_counter_removals:?} {activation_pending_counter_object:?}"),
             ),
             ("activating_abilities", format!("{activating_abilities:?}")),
             ("activating_grant", format!("{activating_grant:?}")),
@@ -2135,6 +2190,8 @@ impl<L: CardLookup, D: LoopDetection> Engine<L, D> {
                         | PlanKind::ChoosePhyrexianLife { .. }
                         | PlanKind::ChooseActivationCostBranch { .. }
                         | PlanKind::PayActivationCost { .. }
+                        | PlanKind::PayActivationCounterObject { .. }
+                        | PlanKind::PayActivationCounterKind { .. }
                         | PlanKind::LoyaltyPlayer { .. }
                         | PlanKind::EntryCounters { .. }
                         | PlanKind::EntryTap { .. }

@@ -8,6 +8,8 @@ pub(crate) struct CostPayment {
     pub source: ObjectId,
     pub cost: ActivationPrice,
     pub chosen: Vec<Vec<ObjectId>>,
+    pub counter_removals: Vec<(ObjectId, baylee_cards_dsl::CounterKind)>,
+    pub counter_cursor: usize,
     pub x: u32,
     pub paid: crate::object::PaidRecord,
     pub next: usize,
@@ -25,6 +27,7 @@ impl CostPayment {
         source: ObjectId,
         cost: ActivationPrice,
         chosen: Vec<Vec<ObjectId>>,
+        counter_removals: Vec<(ObjectId, baylee_cards_dsl::CounterKind)>,
         x: u32,
     ) -> Self {
         Self {
@@ -32,6 +35,8 @@ impl CostPayment {
             source,
             cost,
             chosen,
+            counter_removals,
+            counter_cursor: 0,
             x,
             paid: crate::object::PaidRecord::default(),
             next: 0,
@@ -198,6 +203,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
         self.activation_mode = None;
         self.pending_plan = None;
         self.activation_cost_choices.clear();
+        self.activation_counter_removals.clear();
         self.activation_target_players.clear();
         self.activation_second_targets = None;
         self.activation_target_references = crate::sources::TargetReferences::default();

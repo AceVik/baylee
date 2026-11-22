@@ -158,6 +158,7 @@ pub(super) struct ActivationPayment {
     graveyard: Option<PlayerId>,
     phyrexian: Vec<bool>,
     either_branches: Vec<bool>,
+    counter_removals: Vec<(baylee_core::ids::ObjectId, baylee_cards_dsl::CounterKind)>,
     abilities: Option<(baylee_core::ids::ObjectId, crate::object::AbilityList)>,
     grant: Option<(
         baylee_core::ids::ObjectId,
@@ -207,6 +208,12 @@ impl ActivationPayment {
                 .as_ref()
                 .map(|(id, list)| (id, &list.abilities, list.printed, list.token)),
         ));
+        let b = if self.counter_removals.is_empty() {
+            b
+        } else {
+            b.wrapping_mul(31)
+                .wrapping_add(crate::state::structural_fingerprint(&self.counter_removals))
+        };
         a.wrapping_mul(31)
             .wrapping_add(b)
             .wrapping_mul(31)
@@ -472,6 +479,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
             graveyard: self.activation_graveyard.take(),
             phyrexian: std::mem::take(&mut self.activation_phyrexian),
             either_branches: std::mem::take(&mut self.activation_either_branches),
+            counter_removals: std::mem::take(&mut self.activation_counter_removals),
             abilities: self.activating_abilities.take(),
             grant: self.activating_grant.take(),
             previous: self.mana_window.take().map(Box::new),
@@ -519,6 +527,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
         self.activation_graveyard = payment.graveyard;
         self.activation_phyrexian = payment.phyrexian;
         self.activation_either_branches = payment.either_branches;
+        self.activation_counter_removals = payment.counter_removals;
         self.activating_abilities = payment.abilities;
         self.activating_grant = payment.grant;
         if self

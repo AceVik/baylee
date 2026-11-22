@@ -206,6 +206,30 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
     }
 
     pub(super) fn apply_next_spell_grants(&mut self, player: PlayerId, card: ObjectId) {
+        if let Some(spell_obj) = self.state.object(card)
+            && self
+                .state
+                .effects
+                .iter()
+                .any(|fx| fx.origin == crate::effects::EffectOrigin::NextMatchingSpell)
+        {
+            let projected = crate::casting::projected_spell(&self.state, player, spell_obj);
+            let matching_ids: smallvec::SmallVec<[baylee_core::ids::EffectId; 4]> = self
+                .state
+                .effects
+                .iter()
+                .filter(|fx| {
+                    fx.origin == crate::effects::EffectOrigin::NextMatchingSpell
+                        && crate::effects::applies_to(&self.state, fx, &projected)
+                })
+                .map(|fx| fx.id)
+                .collect();
+            if !matching_ids.is_empty() {
+                self.state
+                    .effects
+                    .remove_where(|fx| matching_ids.contains(&fx.id));
+            }
+        }
         let applies = |effect: &crate::effects::ContinuousEffect| {
             effect.controller == player && effect.modifier == Modifier::NextSpellUncounterable
         };

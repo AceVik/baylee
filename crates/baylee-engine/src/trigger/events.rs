@@ -444,6 +444,7 @@ pub(super) fn event_object_of(event: &GameEvent) -> Option<ObjectId> {
         | GameEvent::SpellWarped { object, .. }
         | GameEvent::BecameMonstrous { object, .. }
         | GameEvent::ClassLevelChanged { object, .. }
+        | GameEvent::VotedOption { source: object, .. }
         | GameEvent::PlayerFirebent { source: object, .. }
         | GameEvent::RingTempted {
             ring_bearer: Some(object),

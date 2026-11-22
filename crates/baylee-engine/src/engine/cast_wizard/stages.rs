@@ -260,8 +260,14 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                                     | CostPart::TapX(_)
                                     | CostPart::DiscardX(_)
                                     | CostPart::ExileFromGraveyardX(_)
+                                    | CostPart::RemoveAnyCounterX { .. }
                             )
                         }) {
+                            let counter_cap =
+                                super::super::cost_wizard::counter_remove::total_battlefield_counters(
+                                    &self.state,
+                                    wizard.player,
+                                );
                             let cap = u32::try_from(
                                 self.state
                                     .battlefield_view()
@@ -279,7 +285,8 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                                             .len(),
                                     ),
                             )
-                            .unwrap_or(u32::MAX);
+                            .unwrap_or(u32::MAX)
+                            .max(counter_cap);
                             max = casting::greatest_affordable(max.min(cap), |x| {
                                 casting::additional_payment_capacity_for_x(
                                     &self.state,
@@ -691,11 +698,17 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                             ),
                     )
                     .unwrap_or(u32::MAX);
+                    let counter_cap =
+                        super::super::cost_wizard::counter_remove::total_battlefield_counters(
+                            &self.state,
+                            wizard.player,
+                        );
                     let life_cap = u32::try_from(self.state.life_payable(wizard.player))
                         .unwrap_or(0)
                         .max(u32::from(
                             self.state.players[usize::from(wizard.player.get())].energy,
-                        ));
+                        ))
+                        .max(counter_cap);
                     max = casting::greatest_affordable(max.min(cap.max(life_cap)), |x| {
                         casting::additional_payment_capacity_for_x(
                             &self.state,
@@ -1157,7 +1170,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                     casting::remaining_spell_card_costs(&self.state, &parts, &wizard.cost_objects);
                 let Some(part) = tail.first() else {
                     let mut wizard = wizard;
-                    wizard.stage = WizardStage::Done;
+                    wizard.stage = WizardStage::RemoveCounters;
                     self.cast_wizard = Some(wizard);
                     return WizardStep::Continue;
                 };
@@ -1213,6 +1226,167 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 };
                 self.awaiting_answer = true;
                 WizardStep::Yield(Ok(()))
+            }
+            WizardStage::RemoveCounters => {
+                let face = self.wizard_face(&wizard);
+                let all_parts: SmallVec<[CostPart; 4]> =
+                    super::wizard_cost_parts(face, wizard.cost_choice())
+                        .copied()
+                        .collect();
+                if !all_parts.iter().any(|p| {
+                    matches!(
+                        p,
+                        CostPart::RemoveAnyCounter { .. } | CostPart::RemoveAnyCounterX { .. }
+                    )
+                }) {
+                    let mut wizard = wizard;
+                    wizard.stage = WizardStage::Done;
+                    self.cast_wizard = Some(wizard);
+                    return WizardStep::Continue;
+                }
+                let card_parts = additional_card_costs_for_x(
+                    &self.state,
+                    wizard.player,
+                    wizard.card,
+                    face,
+                    wizard.cost_choice(),
+                    wizard.x,
+                );
+                let mut excluded: SmallVec<[ObjectId; 4]> = SmallVec::new();
+                if let Some(emerge) = wizard.emerge_sacrifice {
+                    excluded.push(emerge);
+                }
+                if let Some(ret) = wizard.returned {
+                    excluded.push(ret);
+                }
+                let mut cursor = 0_usize;
+                for &part in &card_parts {
+                    if cursor >= wizard.cost_objects.len() {
+                        break;
+                    }
+                    if matches!(part, CostPart::Forage) {
+                        if self
+                            .state
+                            .object(wizard.cost_objects[cursor])
+                            .is_some_and(|o| o.zone == crate::zone::Zone::Battlefield)
+                        {
+                            if !excluded.contains(&wizard.cost_objects[cursor]) {
+                                excluded.push(wizard.cost_objects[cursor]);
+                            }
+                            cursor += 1;
+                        } else {
+                            cursor = cursor.saturating_add(3).min(wizard.cost_objects.len());
+                        }
+                    } else {
+                        if matches!(
+                            part,
+                            CostPart::Sacrifice(_)
+                                | CostPart::SacrificeX(_)
+                                | CostPart::ExilePermanent(_)
+                                | CostPart::ReturnToHand(_)
+                        ) && !excluded.contains(&wizard.cost_objects[cursor])
+                        {
+                            excluded.push(wizard.cost_objects[cursor]);
+                        }
+                        cursor += 1;
+                    }
+                }
+                let ctx = eval::live_context(&self.state, wizard.card);
+                if let Some(chosen_obj) = wizard.pending_counter_object {
+                    let kinds =
+                        super::super::cost_wizard::counter_remove::valid_kinds_for_chosen_object(
+                            &self.state,
+                            wizard.player,
+                            ctx,
+                            (&all_parts, wizard.x),
+                            &excluded,
+                            &wizard.counter_removals,
+                            chosen_obj,
+                        );
+                    match kinds.as_slice() {
+                        [] => {
+                            self.cast_wizard = None;
+                            return WizardStep::Yield(Err(EngineError::IllegalAction(
+                                "nothing can pay this cost",
+                            )));
+                        }
+                        [only] => {
+                            let mut wizard = wizard;
+                            wizard.pending_counter_object = None;
+                            wizard.counter_removals.push((chosen_obj, *only));
+                            self.cast_wizard = Some(wizard);
+                            return WizardStep::Continue;
+                        }
+                        _ => {
+                            self.pending = Pending::ChooseCastMode {
+                                player: wizard.player,
+                                object: chosen_obj,
+                                options: kinds
+                                    .into_iter()
+                                    .enumerate()
+                                    .map(|(index, ck)| CastModeDesc {
+                                        index: u32::try_from(index).unwrap_or(u32::MAX),
+                                        kind: CastModeKind::Counter(ck),
+                                        cost: ManaCost::ZERO,
+                                    })
+                                    .collect(),
+                            };
+                            self.awaiting_answer = true;
+                            return WizardStep::Yield(Ok(()));
+                        }
+                    }
+                }
+                match super::super::cost_wizard::counter_remove::next_counter_step(
+                    &self.state,
+                    wizard.player,
+                    ctx,
+                    &all_parts,
+                    wizard.x,
+                    &excluded,
+                    &wizard.counter_removals,
+                ) {
+                    super::super::cost_wizard::counter_remove::CounterStep::Complete => {
+                        let mut wizard = wizard;
+                        wizard.stage = WizardStage::Done;
+                        self.cast_wizard = Some(wizard);
+                        WizardStep::Continue
+                    }
+                    super::super::cost_wizard::counter_remove::CounterStep::Impossible => {
+                        self.cast_wizard = None;
+                        WizardStep::Yield(Err(EngineError::IllegalAction(
+                            "nothing can pay this cost",
+                        )))
+                    }
+                    super::super::cost_wizard::counter_remove::CounterStep::AutoPick(obj, ck) => {
+                        let mut wizard = wizard;
+                        wizard.counter_removals.push((obj, ck));
+                        self.cast_wizard = Some(wizard);
+                        WizardStep::Continue
+                    }
+                    super::super::cost_wizard::counter_remove::CounterStep::AskKind {
+                        object,
+                        ..
+                    } => {
+                        let mut wizard = wizard;
+                        wizard.pending_counter_object = Some(object);
+                        self.cast_wizard = Some(wizard);
+                        WizardStep::Continue
+                    }
+                    super::super::cost_wizard::counter_remove::CounterStep::AskObject {
+                        options,
+                    } => {
+                        self.pending = Pending::ChooseCards {
+                            player: wizard.player,
+                            options,
+                            min: 1,
+                            max: 1,
+                            prompt: ChoicePrompt::CostRemoveCounter,
+                            total: None,
+                        };
+                        self.awaiting_answer = true;
+                        WizardStep::Yield(Ok(()))
+                    }
+                }
             }
             WizardStage::Done => WizardStep::Yield(self.cast_or_make_miracle_mana(wizard)),
         }

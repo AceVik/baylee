@@ -376,6 +376,16 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
         if !self.can_pay_mana(player, what, &mana) {
             return false;
         }
+        if !cost_wizard::counter_remove::can_afford_counter_parts(
+            &self.state,
+            player,
+            eval::live_context(&self.state, source),
+            parts,
+            self.activation_x.unwrap_or(0),
+            &[],
+        ) {
+            return false;
+        }
         for part in parts {
             match part {
                 CostPart::PayEnergy(_) => {
@@ -542,6 +552,8 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 | CostPart::UntapSelf
                 | CostPart::ExertSelf
                 | CostPart::RemoveCounterSelf { .. }
+                | CostPart::RemoveAnyCounter { .. }
+                | CostPart::RemoveAnyCounterX { .. }
                 | CostPart::DiscardHand
                 | CostPart::SacrificeAll(_)
                 | CostPart::SacrificeSelf
@@ -658,6 +670,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
             source,
             cost.clone(),
             chosen.to_vec(),
+            Vec::new(),
             x,
         );
         if self.advance_cost_payment(&mut work)? {
@@ -702,6 +715,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
         let cost = work.cost.clone();
         let x = work.x;
         let mut answers = work.chosen[work.answer..].iter();
+        let mut counter_removals = work.counter_removals[work.counter_cursor..].iter();
         let mut paid = std::mem::take(&mut work.paid);
         let subject_before = work.subject_before;
         let subject_seq = work.subject_seq;
@@ -1086,6 +1100,17 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                         ));
                     }
                 }
+                CostPart::RemoveAnyCounter { .. } | CostPart::RemoveAnyCounterX { .. } => {
+                    let ctx = eval::live_context(&self.state, source);
+                    cost_wizard::counter_remove::pay_counter_removals(
+                        &mut self.state,
+                        player,
+                        ctx,
+                        part,
+                        x,
+                        &mut counter_removals,
+                    )?;
+                }
                 // Preserve one answer per asking part, including an empty
                 // answer to crew/saddle 0. A following cost owns its own answer.
                 CostPart::TapN { count, .. } => {
@@ -1273,6 +1298,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
             }
             if crate::replacement::counter_order::has_pending(&self.state) {
                 work.answer = work.chosen.len() - answers.len();
+                work.counter_cursor = work.counter_removals.len() - counter_removals.len();
                 work.paid = paid;
                 return Ok(false);
             }

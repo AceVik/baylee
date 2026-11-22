@@ -68,7 +68,7 @@ pub enum DrawReplacement {
 
 /// What the replacements have done so far to the draw at the front of
 /// [`GameState::draws_to_offer`]; default between draws.
-#[derive(Clone, Debug, Default, PartialEq, Eq, Hash)]
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct FrontDraw {
     /// Island Sanctuaries whose skip the player declined for this draw.
     pub declined: Vec<ObjectId>,
@@ -86,6 +86,27 @@ pub struct FrontDraw {
     pub active_drawer: Option<PlayerId>,
     /// Extra draws spawned by `ReplaceDrawWithDraws`, carrying already-applied sources.
     pub spawned: Vec<(PlayerId, Vec<ObjectId>)>,
+}
+
+impl std::hash::Hash for FrontDraw {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.declined.hash(state);
+        self.dredge_declined.hash(state);
+        self.applied.hash(state);
+        self.looked.hash(state);
+        self.replaced.hash(state);
+        self.denial.hash(state);
+        // Only emit bytes when active so idle `FrontDraw::default()` preserves
+        // historical replay hashes bit-for-bit.
+        if let Some(drawer) = self.active_drawer {
+            252_u8.hash(state);
+            drawer.hash(state);
+        }
+        if !self.spawned.is_empty() {
+            253_u8.hash(state);
+            self.spawned.hash(state);
+        }
+    }
 }
 
 /// A replacement that applies to the draw whether its player likes it or

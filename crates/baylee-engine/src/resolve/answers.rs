@@ -1064,6 +1064,22 @@ pub(super) fn resume_yes_no_inner(
         res.pc += 1;
         return run(state, res);
     }
+    if matches!(res.awaiting, Some(AwaitingOp::Vote(_))) {
+        let Some(AwaitingOp::Vote(vote)) = res.awaiting.take() else {
+            unreachable!()
+        };
+        let since = state.journal.last_seq();
+        if let Some(pending) = super::vote::resume_object_extra_vote(state, res, vote, answer) {
+            return next_choice(state, res, since, pending);
+        }
+        return finish_choice(state, res, since);
+    }
+    if matches!(res.awaiting, Some(AwaitingOp::OptionVote(_))) {
+        let Some(AwaitingOp::OptionVote(vote)) = res.awaiting.take() else {
+            unreachable!()
+        };
+        return super::vote::resume_option_extra_vote(state, res, vote, answer);
+    }
     let AwaitingOp::PayLifeOrTapSelf { amount } =
         res.awaiting.take().expect("resume without awaiting op")
     else {
@@ -1520,6 +1536,14 @@ pub fn resume_effect_choice(state: &mut GameState, res: &mut Resolution, index: 
     }
     if matches!(res.awaiting, Some(AwaitingOp::Colors { .. })) {
         let flow = colors::resume(state, res, index);
+        subjects::flush(state, res);
+        return flow;
+    }
+    if matches!(res.awaiting, Some(AwaitingOp::OptionVote(_))) {
+        let Some(AwaitingOp::OptionVote(vote)) = res.awaiting.take() else {
+            unreachable!()
+        };
+        let flow = super::vote::resume_option_choice(state, res, vote, index);
         subjects::flush(state, res);
         return flow;
     }

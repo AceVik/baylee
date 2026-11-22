@@ -25,14 +25,20 @@ pub(super) fn hash(h: &mut Hasher, state: &GameState, position: &impl Fn(ObjectI
     } else {
         h.u8(0);
     }
-    front.active_drawer.hash(h);
-    h.u32(u32::try_from(front.spawned.len()).unwrap_or(u32::MAX));
-    for (player, applied) in &front.spawned {
-        player.hash(h);
-        let mut positions: Vec<_> = applied.iter().map(|&id| position(id)).collect();
-        positions.sort_unstable();
-        positions.dedup();
-        positions.hash(h);
+    if let Some(drawer) = front.active_drawer {
+        h.u8(252);
+        drawer.hash(h);
+    }
+    if !front.spawned.is_empty() {
+        h.u8(253);
+        h.u32(u32::try_from(front.spawned.len()).unwrap_or(u32::MAX));
+        for (player, applied) in &front.spawned {
+            player.hash(h);
+            let mut positions: Vec<_> = applied.iter().map(|&id| position(id)).collect();
+            positions.sort_unstable();
+            positions.dedup();
+            positions.hash(h);
+        }
     }
     // Past instruction draws are not a future rule input on their own: a new
     // instruction starts at the ledger's current length. An active loot hashes

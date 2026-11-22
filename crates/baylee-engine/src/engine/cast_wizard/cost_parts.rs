@@ -416,7 +416,8 @@ pub(crate) fn part_scales_with_x(part: &CostPart) -> bool {
         | CostPart::SacrificeX(_)
         | CostPart::TapX(_)
         | CostPart::DiscardX(_)
-        | CostPart::ExileFromGraveyardX(_) => true,
+        | CostPart::ExileFromGraveyardX(_)
+        | CostPart::RemoveAnyCounterX { .. } => true,
         CostPart::Either(a, b) => {
             a.parts.iter().any(part_scales_with_x) || b.parts.iter().any(part_scales_with_x)
         }

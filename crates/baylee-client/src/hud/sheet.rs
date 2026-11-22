@@ -1357,6 +1357,7 @@ pub(super) fn casts_beside_card(prompt: &Prompt) -> bool {
     matches!(prompt, Prompt::CastMode { options, .. } if !options.iter().any(|o| matches!(o.kind,
         CastModeKind::MutatePosition(_) | CastModeKind::Dungeon(_) | CastModeKind::DungeonRoom { .. }
         | CastModeKind::Colors(_) | CastModeKind::Counter(_) | CastModeKind::SpellEnding(_)
+        | CastModeKind::VoteOption(_)
     )))
 }
 
