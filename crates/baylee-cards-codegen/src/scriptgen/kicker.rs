@@ -720,7 +720,12 @@ impl Tx<'_> {
             .filter(|part| !part.starts_with("Cost$"))
             .collect();
         let mut chain = Chain::default();
-        self.chain(&stripped.join(" | "), &mut chain)?;
+        if self.chain(&stripped.join(" | "), &mut chain).is_none() {
+            if self.unclaimed.borrow().is_none() {
+                self.note("an unreadable granted activated ability chain".to_string());
+            }
+            return None;
+        }
         if chain.target.is_some() {
             return self.deny("a granted ability with a target".to_string());
         }
@@ -764,7 +769,12 @@ impl Tx<'_> {
         let ok = self.chain(&exec_body, &mut chain);
         self.trigger_mode = prev_mode;
         self.trigger_is_self = prev_self;
-        ok?;
+        if ok.is_none() {
+            if self.unclaimed.borrow().is_none() {
+                self.note("an unreadable granted trigger ability chain".to_string());
+            }
+            return None;
+        }
         if chain.effects.is_empty()
             || chain.second_target.is_some()
             || chain.target_up_to.is_some()
@@ -936,13 +946,9 @@ impl Tx<'_> {
             .strip_prefix("SubCounter<")
             .and_then(|t| t.strip_suffix('>'))
             .and_then(|t| t.split_once('/'))
-            && rest
-                .split('/')
-                .next()
-                .is_some_and(|k| k.eq_ignore_ascii_case("any"))
         {
             let prev = std::mem::replace(&mut self.on_a_spell, true);
-            let part = self.sub_counter_any_cost(n, rest, token);
+            let part = self.sub_counter_spell_cost(n, rest, token);
             self.on_a_spell = prev;
             return Some(vec![part?]);
         }

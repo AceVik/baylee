@@ -632,10 +632,24 @@ fn a_counter_removed_as_a_cost_and_a_count_of_the_turns_deaths() {
         ),
         "{a}"
     );
+    let non_any_sub = read(
+        "Name:X\nTypes:Artifact\n\
+         A:AB$ Draw | Cost$ SubCounter<1/P1P1/Creature.YouCtrl/a creature you control> | NumCards$ 1",
+    );
+    assert_eq!(
+        non_any_sub.abilities,
+        [
+            "activated!(cost!(RemoveAnyCounter { count: 1, kind: Some(CounterKind::P1P1), filter: &Filter::CREATURE }), &[Effect::draw(1)])"
+        ]
+    );
     for cost in [
         "SubCounter<X/CHARGE>",
         "SubCounter<1/LOYALTY>",
-        "SubCounter<1/P1P1/Creature.YouCtrl/a creature you control>",
+        "SubCounter<1/P1P1/Creature.OppCtrl/an opponent's creature>",
+        "SubCounter<1/TIME/Permanent.inZoneBattlefield;Card.suspended/a permanent or suspended card/Battlefield,Exile>",
+        "SubCounter<0/P1P1/Creature.YouCtrl>",
+        "SubCounter<256/P1P1/Creature.YouCtrl>",
+        "SubCounter<All/AIM/OriginalHost/Host>",
     ] {
         assert!(
             refused(&format!(

@@ -142,10 +142,9 @@ impl Tx<'_> {
         persistent: bool,
     ) -> Option<Vec<String>> {
         let mut out = if let Some((filter, uses, ability_filter)) = restrict {
-            let [only] = &effects[..] else {
-                self.note("`Mana.RestrictValid` on more than one mana".to_string());
-                return None;
-            };
+            if effects.is_empty() {
+                return self.deny("`Mana.RestrictValid` with no mana produced".to_string());
+            }
             let rider = match spend_rider {
                 ManaSpendRider::RestrictUncounterable => "SpendRider::Uncounterable",
                 ManaSpendRider::None => "SpendRider::None",
@@ -154,19 +153,26 @@ impl Tx<'_> {
                 }
             };
             let name = self.body.filter_static("SPEND", &filter);
-            let mut expr = match uses {
-                None => format!("{only}.restricted(&{name}, {rider})"),
-                Some(uses) => format!("{only}.restricted_for(&{name}, {rider}, {uses})"),
-            };
-            if let Some(ab_filter) = ability_filter {
-                let ab_ref = if ab_filter == "Filter::Any" {
+            let ab_ref = ability_filter.map(|ab_filter| {
+                if ab_filter == "Filter::Any" {
                     "Filter::Any".to_string()
                 } else {
                     self.body.filter_static("SPEND_ABILITY", &ab_filter)
-                };
-                expr = format!("{expr}.for_abilities_matching(&{ab_ref})");
-            }
-            vec![expr]
+                }
+            });
+            effects
+                .into_iter()
+                .map(|only| {
+                    let mut expr = match uses {
+                        None => format!("{only}.restricted(&{name}, {rider})"),
+                        Some(uses) => format!("{only}.restricted_for(&{name}, {rider}, {uses})"),
+                    };
+                    if let Some(ref ab) = ab_ref {
+                        expr = format!("{expr}.for_abilities_matching(&{ab})");
+                    }
+                    expr
+                })
+                .collect()
         } else if let ManaSpendRider::WhenSpent { filter, rider } = spend_rider {
             let [only] = &effects[..] else {
                 return self.deny("a mana spend rider on more than one mana".to_string());
@@ -1237,7 +1243,9 @@ impl Tx<'_> {
             return super::counter_kind(kind)
                 .map(|kind| format!("Amount::CountersOnSource({kind})"));
         }
-        if let Some(valid) = def.strip_prefix("Count$ValidBattlefield,Graveyard ")
+        if let Some(valid) = def
+            .strip_prefix("Count$ValidBattlefield,Graveyard ")
+            .or_else(|| def.strip_prefix("Count$ValidGraveyard,Battlefield "))
             && !valid.contains('$')
             && !valid.contains('/')
         {
@@ -2142,12 +2150,19 @@ impl Tx<'_> {
     }
 
     pub(super) fn remove_any_counter_cost(&mut self, inner: &str, token: &str) -> Option<String> {
-        let mut fields = inner.splitn(4, '/');
-        let (Some(count_raw), Some(kind_raw), Some(spec)) =
-            (fields.next(), fields.next(), fields.next())
-        else {
+        let fields: Vec<&str> = inner.split('/').collect();
+        if fields.len() < 3 || fields.len() > 5 {
             return self.deny(format!("cost `{token}`"));
-        };
+        }
+        if let Some(zone) = fields.get(4).copied().map(str::trim)
+            && !zone.is_empty()
+            && zone != "Battlefield"
+        {
+            return self.deny(format!("cost `{token}` outside the battlefield"));
+        }
+        let count_raw = fields[0].trim();
+        let kind_raw = fields[1].trim();
+        let spec = fields[2].trim();
         let kind = if kind_raw.eq_ignore_ascii_case("any") {
             None
         } else {
@@ -2159,21 +2174,35 @@ impl Tx<'_> {
         self.parse_remove_any_counter(count_raw, kind.as_deref(), spec, token)
     }
 
-    pub(super) fn sub_counter_any_cost(
+    pub(super) fn sub_counter_spell_cost(
         &mut self,
         n: &str,
         rest: &str,
         token: &str,
     ) -> Option<String> {
-        let mut fields = rest.splitn(3, '/');
-        let Some(kind_raw) = fields.next() else {
+        let fields: Vec<&str> = rest.split('/').collect();
+        if fields.is_empty() || fields.len() > 4 {
             return self.deny(format!("cost `{token}`"));
-        };
-        if !kind_raw.eq_ignore_ascii_case("any") {
-            return self.deny(format!("a counter cost from `{rest}`"));
         }
-        let spec = fields.next().unwrap_or("CARDNAME");
-        self.parse_remove_any_counter(n, None, spec, token)
+        if let Some(zone) = fields.get(3).copied().map(str::trim)
+            && !zone.is_empty()
+            && zone != "Battlefield"
+        {
+            return self.deny(format!("cost `{token}` outside the battlefield"));
+        }
+        let kind_raw = fields[0].trim();
+        let spec_opt = fields.get(1).copied().map(str::trim);
+        if kind_raw.eq_ignore_ascii_case("any") {
+            let spec = spec_opt.unwrap_or("CARDNAME");
+            return self.parse_remove_any_counter(n, None, spec, token);
+        }
+        let Some(spec) = spec_opt else {
+            return self.deny(format!("cost `{token}` naming itself"));
+        };
+        let Some(kind) = counter_kind(kind_raw) else {
+            return self.deny(format!("counter `{kind_raw}`"));
+        };
+        self.parse_remove_any_counter(n, Some(&kind), spec, token)
     }
 
     fn parse_remove_any_counter(
@@ -2183,9 +2212,12 @@ impl Tx<'_> {
         spec: &str,
         token: &str,
     ) -> Option<String> {
-        let on_spell_or_alt = self.on_a_spell || self.in_alternative_cost;
+        let disallow_self = self.on_a_spell
+            || self.in_alternative_cost
+            || self.in_graveyard_activation
+            || self.in_hand_activation;
         let filter = if matches!(spec.trim(), "CARDNAME" | "NICKNAME") {
-            if on_spell_or_alt || self.in_graveyard_activation || self.in_hand_activation {
+            if disallow_self {
                 return self.deny(format!("cost `{token}` naming itself"));
             }
             if kind == Some("CounterKind::Loyalty") {
@@ -2193,7 +2225,7 @@ impl Tx<'_> {
             }
             "Filter::This".to_string()
         } else {
-            let Some(cleaned) = normalize_remove_any_counter_spec(spec, on_spell_or_alt) else {
+            let Some(cleaned) = normalize_remove_any_counter_spec(spec, disallow_self) else {
                 return self.deny(format!("cost `{token}`"));
             };
             let Some(expr) = self.filter_expr(&cleaned) else {
@@ -2229,34 +2261,49 @@ impl Tx<'_> {
     }
 
     fn sub_counter_cost(&mut self, n: &str, kind: &str, token: &str) -> Option<String> {
-        // "Remove a corpse counter from this creature" as a cost: a fixed
-        // number of one kind, from the source (`SubCounter<1/CORPSE>` or
-        // `SubCounter<1/OIL/CARDNAME[/desc]>`), or `X` on a non-spell
-        // activation, plus `SubCounter<N|X/Any/...>` via `RemoveAnyCounter`.
-        // Loyalty costs (CR 606.3-4) and non-`Any` counters removed from
-        // another permanent stay refused.
-        let mut fields = kind.splitn(3, '/');
-        let Some(kind_raw) = fields.next() else {
+        // "Remove a counter from ..." as a cost:
+        // - `SubCounter<N|X/KIND>` or `SubCounter<N|X/KIND/CARDNAME[/desc]>`
+        //   removes from the source via `RemoveCounterSelf{,X}` (battlefield
+        //   only; loyalty costs CR 606.3-4 stay refused).
+        // - `SubCounter<N|X/Any/...>` and non-self `SubCounter<N|X/KIND/Filter[/desc][/Battlefield]>`
+        //   lower via `RemoveAnyCounter{,X}`, refusing opponent permanents,
+        //   non-battlefield zones, zero/overflow counts, and unsupported filters.
+        let fields: Vec<&str> = kind.split('/').collect();
+        if fields.is_empty() || fields.len() > 4 {
             return self.deny(format!("cost `{token}`"));
-        };
+        }
+        if let Some(zone) = fields.get(3).copied().map(str::trim)
+            && !zone.is_empty()
+            && zone != "Battlefield"
+        {
+            return self.deny(format!("cost `{token}` outside the battlefield"));
+        }
+        let kind_raw = fields[0].trim();
+        let spec_opt = fields.get(1).copied().map(str::trim);
         if kind_raw.eq_ignore_ascii_case("any") {
-            let spec = fields.next().unwrap_or("CARDNAME");
+            let spec = spec_opt.unwrap_or("CARDNAME");
             return self.parse_remove_any_counter(n, None, spec, token);
         }
-        if let Some(target) = fields.next()
+        if let Some(target) = spec_opt
             && !matches!(target, "CARDNAME" | "NICKNAME")
         {
-            return self.deny(format!("a counter cost from `{kind}`"));
+            let Some(kind_expr) = counter_kind(kind_raw) else {
+                return self.deny(format!("counter `{kind_raw}`"));
+            };
+            return self.parse_remove_any_counter(n, Some(&kind_expr), target, token);
+        }
+        if self.on_a_spell
+            || self.in_alternative_cost
+            || self.in_graveyard_activation
+            || self.in_hand_activation
+        {
+            return self.deny(format!("cost `{token}` naming itself"));
         }
         if kind_raw == "LOYALTY" {
             return self.deny("a loyalty cost".to_string());
         }
         if n == "X" {
-            if self.on_a_spell
-                || self.in_alternative_cost
-                || !self.has_x
-                || self.svars.get("X").map(String::as_str) != Some("Count$xPaid")
-            {
+            if !self.has_x || self.svars.get("X").map(String::as_str) != Some("Count$xPaid") {
                 return self.deny("counter count `X`".to_string());
             }
             let Some(kind) = counter_kind(kind_raw) else {

@@ -627,3 +627,36 @@ fn wave21a_alternative_cost_remove_any_counter_and_wave11c_conditions() {
         assert!(refused(bad), "must refuse: {bad}");
     }
 }
+
+#[test]
+fn wave22a_alternative_cost_sub_counter_non_any() {
+    let body = read(
+        "Name:SubCounterAlt\nManaCost:3 B\nTypes:Instant\n\
+         S:Mode$ AlternativeCost | ValidSA$ Spell.Self | EffectZone$ All | Cost$ SubCounter<1/P1P1/Creature.YouCtrl/a creature you control>\n\
+         A:SP$ Draw | NumCards$ 1",
+    );
+    assert_eq!(
+        body.alternative_costs,
+        [
+            "AlternativeCost { cost: cost!(RemoveAnyCounter { count: 1, kind: Some(CounterKind::P1P1), filter: &Filter::CREATURE }), condition: AltCondition::Always }"
+        ]
+    );
+
+    for bad in [
+        "Name:X\nManaCost:3 B\nTypes:Instant\nS:Mode$ AlternativeCost | ValidSA$ Spell.Self | EffectZone$ All | Cost$ SubCounter<1/P1P1>\nA:SP$ Draw | NumCards$ 1",
+        "Name:X\nManaCost:3 B\nTypes:Instant\nS:Mode$ AlternativeCost | ValidSA$ Spell.Self | EffectZone$ All | Cost$ SubCounter<1/P1P1/CARDNAME>\nA:SP$ Draw | NumCards$ 1",
+        "Name:X\nManaCost:3 B\nTypes:Instant\nS:Mode$ AlternativeCost | ValidSA$ Spell.Self | EffectZone$ All | Cost$ SubCounter<1/P1P1/Creature.OppCtrl>\nA:SP$ Draw | NumCards$ 1",
+        "Name:X\nManaCost:3 B\nTypes:Instant\nS:Mode$ AlternativeCost | ValidSA$ Spell.Self | EffectZone$ All | Cost$ SubCounter<1/P1P1/Creature.YouCtrl/desc/Exile>\nA:SP$ Draw | NumCards$ 1",
+        "Name:X\nManaCost:3 B\nTypes:Instant\nS:Mode$ AlternativeCost | ValidSA$ Spell.Self | EffectZone$ All | Cost$ SubCounter<0/P1P1/Creature.YouCtrl>\nA:SP$ Draw | NumCards$ 1",
+    ] {
+        let parsed = parse(bad);
+        assert!(
+            transcode(&parsed, &cats(), None).is_none(),
+            "must refuse: {bad}"
+        );
+        assert!(
+            refusal_reason(&parsed, &cats(), None).is_some(),
+            "must record refusal reason: {bad}"
+        );
+    }
+}

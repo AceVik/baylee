@@ -798,13 +798,40 @@ fn wave21a_kicker_and_spell_remove_any_counter() {
         ]
     );
 
+    let sub_spell = read(
+        "Name:SubSpell\nManaCost:B\nTypes:Sorcery\n\
+         A:SP$ Draw | Cost$ B SubCounter<1/P1P1/Creature.YouCtrl/a creature you control> | NumCards$ 1",
+    );
+    assert_eq!(
+        sub_spell.mandatory_additional_costs,
+        [
+            "CostPart::RemoveAnyCounter { count: 1, kind: Some(CounterKind::P1P1), filter: &Filter::CREATURE }"
+        ]
+    );
+
+    let sub_kicker = read(
+        "Name:SubKicker\nManaCost:G\nTypes:Instant\n\
+         K:Kicker:SubCounter<1/P1P1/Creature.YouCtrl>\n\
+         A:SP$ Draw | NumCards$ 1",
+    );
+    assert_eq!(
+        sub_kicker.additional_costs,
+        [
+            "cost!(RemoveAnyCounter { count: 1, kind: Some(CounterKind::P1P1), filter: &Filter::CREATURE })"
+        ]
+    );
+
     for bad in [
         "Name:X\nManaCost:B\nTypes:Sorcery\nA:SP$ Draw | Cost$ B RemoveAnyCounter<1/Any/CARDNAME> | NumCards$ 1",
         "Name:X\nManaCost:B\nTypes:Sorcery\nA:SP$ Draw | Cost$ B RemoveAnyCounter<1/Any/Creature.Other> | NumCards$ 1",
         "Name:X\nManaCost:B\nTypes:Sorcery\nA:SP$ Draw | Cost$ B RemoveAnyCounter<X1+/P1P1/Creature> | NumCards$ X\nSVar:X:Count$xPaid",
         "Name:X\nManaCost:B\nTypes:Sorcery\nA:SP$ Draw | Cost$ B SubCounter<1/Any/CARDNAME> | NumCards$ 1",
-        "Name:X\nManaCost:B\nTypes:Sorcery\nA:SP$ Draw | Cost$ B SubCounter<1/P1P1/Creature.YouCtrl> | NumCards$ 1",
+        "Name:X\nManaCost:B\nTypes:Sorcery\nA:SP$ Draw | Cost$ B SubCounter<1/P1P1> | NumCards$ 1",
+        "Name:X\nManaCost:B\nTypes:Sorcery\nA:SP$ Draw | Cost$ B SubCounter<1/P1P1/CARDNAME> | NumCards$ 1",
+        "Name:X\nManaCost:B\nTypes:Sorcery\nA:SP$ Draw | Cost$ B SubCounter<1/P1P1/Creature.OppCtrl> | NumCards$ 1",
+        "Name:X\nManaCost:B\nTypes:Sorcery\nA:SP$ Draw | Cost$ B SubCounter<1/P1P1/Creature.YouCtrl/desc/Exile> | NumCards$ 1",
         "Name:X\nManaCost:G\nTypes:Instant\nK:Kicker:RemoveAnyCounter<1/Any/CARDNAME>\nA:SP$ Draw | NumCards$ 1",
+        "Name:X\nManaCost:G\nTypes:Instant\nK:Kicker:SubCounter<1/P1P1>\nA:SP$ Draw | NumCards$ 1",
     ] {
         assert!(refused(bad), "must refuse: {bad}");
     }

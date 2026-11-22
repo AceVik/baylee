@@ -3185,7 +3185,7 @@ fn hand_activation_and_cost_reductions() {
 
     for bad in [
         "Name:BadFieldSelfDiscard\nManaCost:1 G\nTypes:Creature\nPT:2/2\nA:AB$ Draw | Cost$ Discard<1/CARDNAME> | NumCards$ 1",
-        "Name:BadHandMana\nManaCost:1 G\nTypes:Creature\nPT:2/2\nA:AB$ Mana | Cost$ Discard<1/CARDNAME> | Produced$ G | ActivationZone$ Hand",
+        "Name:BadCommandMana\nManaCost:1 G\nTypes:Creature\nPT:2/2\nA:AB$ Mana | Cost$ Sac<1/Food> | Produced$ G | ActivationZone$ Command",
         "Name:BadHandPlayer\nManaCost:1 G\nTypes:Creature\nPT:2/2\nA:AB$ Draw | Cost$ Discard<1/CARDNAME> | NumCards$ 1 | Activator$ Player | ActivationZone$ Hand",
         "Name:BadHandReveal\nManaCost:1 U\nTypes:Creature\nPT:2/2\nA:AB$ Draw | Cost$ 1 U Reveal<1/CARDNAME> | NumCards$ 1 | ActivationZone$ Hand",
         "Name:BadDoubleHandDiscard\nManaCost:1 G\nTypes:Creature\nPT:2/2\nA:AB$ Draw | Cost$ Discard<2/CARDNAME> | NumCards$ 1 | ActivationZone$ Hand",
@@ -5289,7 +5289,7 @@ fn wave19a_devotion_mana_any_different_and_sub_counter_self() {
         "Name:X\nTypes:Land\nA:AB$ Mana | Cost$ T | Produced$ Combo AnyDifferent | Amount$ 2 | Each$ 2",
         "Name:X\nTypes:Land\nA:AB$ Mana | Cost$ T | Produced$ Combo Chosen AnyDifferent | Amount$ 2",
         "Name:X\nTypes:Artifact\nA:AB$ Draw | Cost$ SubCounter<1/LOYALTY/CARDNAME> | NumCards$ 1",
-        "Name:X\nTypes:Artifact\nA:AB$ Draw | Cost$ SubCounter<1/OIL/Creature.YouCtrl> | NumCards$ 1",
+        "Name:X\nTypes:Artifact\nA:AB$ Draw | Cost$ SubCounter<1/OIL/Creature.OppCtrl> | NumCards$ 1",
     ] {
         assert!(refused(bad), "must refuse: {bad}");
     }
@@ -5711,24 +5711,30 @@ fn wave21a_remove_any_counter_fixed_and_variable_x() {
 }
 
 #[test]
-fn wave21a_remove_any_counter_refusals_and_wave22_deferral() {
+fn wave21a_remove_any_counter_refusals() {
     for bad in [
-        // Non-Any SubCounter on another permanent stays deferred cleanly to Wave 22.
-        "Name:X\nTypes:Artifact\nA:AB$ Draw | Cost$ SubCounter<1/P1P1/Creature.YouCtrl/a creature you control> | NumCards$ 1",
         // Loyalty removal from self stays restricted to Planeswalker$ True.
         "Name:X\nTypes:Planeswalker\nLoyalty:3\nA:AB$ Draw | Cost$ RemoveAnyCounter<1/LOYALTY/CARDNAME> | NumCards$ 1",
         "Name:X\nTypes:Planeswalker\nLoyalty:3\nA:AB$ Draw | Cost$ RemoveAnyCounter<1/LOYALTY/Card.Self> | NumCards$ 1",
+        "Name:X\nTypes:Planeswalker\nLoyalty:3\nA:AB$ Draw | Cost$ SubCounter<1/LOYALTY/Card.Self> | NumCards$ 1",
         // Invalid counts, non-controller/non-battlefield filters, unannounced X.
         "Name:X\nTypes:Artifact\nA:AB$ Draw | Cost$ RemoveAnyCounter<0/Any/Permanent> | NumCards$ 1",
         "Name:X\nTypes:Artifact\nA:AB$ Draw | Cost$ RemoveAnyCounter<256/Any/Permanent> | NumCards$ 1",
         "Name:X\nTypes:Artifact\nA:AB$ Draw | Cost$ RemoveAnyCounter<1/Any/Creature.OppCtrl> | NumCards$ 1",
         "Name:X\nTypes:Artifact\nA:AB$ Draw | Cost$ RemoveAnyCounter<1/Any/Card.YouOwn+inZoneExile+suspended> | NumCards$ 1",
         "Name:X\nTypes:Artifact\nA:AB$ Draw | Cost$ RemoveAnyCounter<X/P1P1/Creature> | NumCards$ 1",
+        "Name:X\nTypes:Artifact\nA:AB$ Draw | Cost$ SubCounter<0/P1P1/Creature.YouCtrl> | NumCards$ 1",
+        "Name:X\nTypes:Artifact\nA:AB$ Draw | Cost$ SubCounter<256/P1P1/Creature.YouCtrl> | NumCards$ 1",
+        "Name:X\nTypes:Artifact\nA:AB$ Draw | Cost$ SubCounter<1/P1P1/Creature.OppCtrl> | NumCards$ 1",
+        "Name:X\nTypes:Artifact\nA:AB$ Draw | Cost$ SubCounter<1/P1P1/Creature.YouCtrl/desc/Exile> | NumCards$ 1",
+        "Name:X\nTypes:Artifact\nA:AB$ Draw | Cost$ SubCounter<All/AIM/OriginalHost/Host> | NumCards$ 1",
         // Conflicting XMin vs X1+, or self counter removal outside battlefield.
         "Name:X\nTypes:Artifact\nA:AB$ Draw | Cost$ XMin2 RemoveAnyCounter<X1+/P1P1/Creature> | NumCards$ X\nSVar:X:Count$xPaid",
         "Name:X\nTypes:Artifact\nA:AB$ Draw | Cost$ RemoveAnyCounter<X1+/P1P1/Creature> | XMin$ 2 | NumCards$ X\nSVar:X:Count$xPaid",
         "Name:X\nTypes:Artifact\nA:AB$ Draw | Cost$ RemoveAnyCounter<1/Any/CARDNAME> | ActivationZone$ Graveyard | NumCards$ 1",
         "Name:X\nTypes:Artifact\nA:AB$ Draw | Cost$ RemoveAnyCounter<1/Any/CARDNAME> | ActivationZone$ Hand | NumCards$ 1",
+        "Name:X\nTypes:Artifact\nA:AB$ Draw | Cost$ SubCounter<1/P1P1/Card.Self> | ActivationZone$ Graveyard | NumCards$ 1",
+        "Name:X\nTypes:Artifact\nA:AB$ Draw | Cost$ SubCounter<1/P1P1> | ActivationZone$ Hand | NumCards$ 1",
     ] {
         let parsed = parse(bad);
         assert!(
@@ -5799,5 +5805,312 @@ fn wave21a_monarch_initiative_and_completed_dungeon_conditions() {
         "Name:X\nTypes:Artifact\nA:AB$ Draw | Cost$ 1 | NumCards$ 1 | Condition$ Monarch | CheckDefinedPlayer$ You.withMostLife",
     ] {
         assert!(refused(bad), "must refuse: {bad}");
+    }
+}
+
+#[test]
+fn wave22a_subcounter_non_any_costs_and_refusals() {
+    let body = read(
+        "Name:CounterChanneler\nManaCost:2 G\nTypes:Creature\nPT:2/2\n\
+         A:AB$ Pump | Cost$ BG SubCounter<1/M1M1/Creature/a creature you control> | NumAtt$ +3 | NumDef$ +3\n\
+         A:AB$ Draw | Cost$ 2 U SubCounter<1/P1P1/Creature.YouCtrl/a creature you control> | NumCards$ 1\n\
+         A:AB$ DealDamage | Cost$ 1 R SubCounter<1/CHARGE/Permanent/permanent you control/Battlefield> | ValidTgts$ Any | NumDmg$ 2\n\
+         A:AB$ Draw | Cost$ SubCounter<X/P1P1/Creature.YouCtrl> | NumCards$ X\n\
+         SVar:X:Count$xPaid",
+    );
+    assert_eq!(
+        body.abilities,
+        [
+            "activated!(cost!(\"{B/G}\", RemoveAnyCounter { count: 1, kind: Some(CounterKind::M1M1), filter: &Filter::CREATURE }), &[Effect::PumpFilter { filter: &Filter::This, controlled_by: None, power: Amount::Fixed(3), toughness: Amount::Fixed(3), keywords: KeywordSet::EMPTY, duration: Duration::UntilEndOfTurn }])",
+            "activated!(cost!(\"{2}{U}\", RemoveAnyCounter { count: 1, kind: Some(CounterKind::P1P1), filter: &Filter::CREATURE }), &[Effect::draw(1)])",
+            "activated!(cost!(\"{1}{R}\", RemoveAnyCounter { count: 1, kind: Some(CounterKind::Charge), filter: &Filter::Any }), &[Effect::DealDamage { amount: Amount::Fixed(2), target: TargetSpec::AnyTarget }], target = Some(TargetSpec::AnyTarget))",
+            "activated!(cost!(RemoveAnyCounterX { kind: Some(CounterKind::P1P1), filter: &Filter::CREATURE }), &[Effect::DrawCards { amount: Amount::X }])",
+        ]
+    );
+
+    for bad in [
+        "Name:X\nTypes:Artifact\nA:AB$ Draw | Cost$ SubCounter<1/P1P1/Creature.OppCtrl/an opponent's creature> | NumCards$ 1",
+        "Name:X\nTypes:Artifact\nA:AB$ Draw | Cost$ SubCounter<1/TIME/Permanent.inZoneBattlefield;Card.suspended/a permanent or suspended card/Battlefield,Exile> | NumCards$ 1",
+        "Name:X\nTypes:Artifact\nA:AB$ Draw | Cost$ SubCounter<1/P1P1/Creature.YouCtrl/desc/Exile> | NumCards$ 1",
+        "Name:X\nTypes:Artifact\nA:AB$ Draw | Cost$ SubCounter<1/Any/Permanent/desc/Battlefield,Exile> | NumCards$ 1",
+        "Name:X\nTypes:Artifact\nA:AB$ Draw | Cost$ RemoveAnyCounter<1/Any/Permanent/desc/Exile> | NumCards$ 1",
+        "Name:X\nTypes:Artifact\nA:AB$ Draw | Cost$ SubCounter<0/P1P1/Creature.YouCtrl> | NumCards$ 1",
+        "Name:X\nTypes:Artifact\nA:AB$ Draw | Cost$ SubCounter<256/P1P1/Creature.YouCtrl> | NumCards$ 1",
+        "Name:X\nTypes:Artifact\nA:AB$ Draw | Cost$ SubCounter<All/AIM/OriginalHost/Host> | NumCards$ 1",
+        "Name:X\nTypes:Planeswalker\nLoyalty:3\nA:AB$ Draw | Cost$ SubCounter<1/LOYALTY/Card.Self> | NumCards$ 1",
+        "Name:X\nTypes:Artifact\nA:AB$ Draw | Cost$ SubCounter<1/P1P1/Creature.YouCtrl/a/Battlefield/extra> | NumCards$ 1",
+    ] {
+        let parsed = parse(bad);
+        assert!(
+            transcode(&parsed, &cats(), None).is_none(),
+            "must refuse: {bad}"
+        );
+        assert!(
+            refusal_reason(&parsed, &cats(), None).is_some(),
+            "must record refusal reason: {bad}"
+        );
+    }
+}
+
+#[test]
+fn wave22a_mana_priority_only_zones_multi_restrict_and_graveyard_battlefield_count() {
+    let led = read(
+        "Name:PriorityDiamond\nManaCost:0\nTypes:Artifact\n\
+         A:AB$ Mana | Cost$ Sac<1/CARDNAME> Discard<0/Hand> | Produced$ Any | Amount$ 3 | InstantSpeed$ True",
+    );
+    assert_eq!(
+        led.abilities,
+        [
+            "mana_ability!(cost!(SacrificeSelf, DiscardHand), &[Effect::mana_choice_dynamic(ALL_MANA_COLORS, Amount::Fixed(3))], timing = ActivationTiming::PriorityOnly)"
+        ]
+    );
+
+    let zone_mana = read(
+        "Name:ZoneGuide\nManaCost:2 G\nTypes:Creature\nPT:2/2\n\
+         A:AB$ Mana | Cost$ ExileFromHand<1/CARDNAME> | Produced$ G | ActivationZone$ Hand\n\
+         A:AB$ Mana | Cost$ 1 ExileFromGrave<1/CARDNAME> | Produced$ Any | ActivationZone$ Graveyard",
+    );
+    assert_eq!(
+        zone_mana.abilities,
+        [
+            "mana_ability!(cost!(ExileSelf), &[Effect::mana(ManaColor::Green, 1)], zone = ActivationZone::Hand)",
+            "mana_ability!(cost!(\"{1}\", ExileSelf), &[Effect::mana_of_any_color()], zone = ActivationZone::Graveyard)",
+        ]
+    );
+
+    let multi_restrict = read(
+        "Name:TriSpellRock\nManaCost:2\nTypes:Artifact\n\
+         A:AB$ Mana | Cost$ T | Produced$ U B R | RestrictValid$ Spell.Instant,Spell.Sorcery\n\
+         A:AB$ Mana | Cost$ T | Produced$ C U | RestrictValid$ Activated\n\
+         A:AB$ Mana | Cost$ T | Produced$ W U | RestrictValid$ Spell.Creature,Activated.Artifact",
+    );
+    assert_eq!(
+        multi_restrict.abilities,
+        [
+            "mana_ability!(&[Effect::mana(ManaColor::Blue, 1).restricted(&Filter::INSTANT_OR_SORCERY, SpendRider::None), Effect::mana(ManaColor::Black, 1).restricted(&Filter::INSTANT_OR_SORCERY, SpendRider::None), Effect::mana(ManaColor::Red, 1).restricted(&Filter::INSTANT_OR_SORCERY, SpendRider::None)])",
+            "mana_ability!(&[Effect::mana(ManaColor::Colorless, 1).restricted_for(&Filter::Any, SpendRider::None, ManaUse::Abilities), Effect::mana(ManaColor::Blue, 1).restricted_for(&Filter::Any, SpendRider::None, ManaUse::Abilities)])",
+            "mana_ability!(&[Effect::mana(ManaColor::White, 1).restricted_for(&Filter::CREATURE, SpendRider::None, ManaUse::SpellsOrAbilities).for_abilities_matching(&Filter::ARTIFACT), Effect::mana(ManaColor::Blue, 1).restricted_for(&Filter::CREATURE, SpendRider::None, ManaUse::SpellsOrAbilities).for_abilities_matching(&Filter::ARTIFACT)])",
+        ]
+    );
+
+    let cave_count = read(
+        "Name:CaveTally\nManaCost:2 G\nTypes:Sorcery\n\
+         A:SP$ Draw | NumCards$ X\n\
+         SVar:X:Count$ValidGraveyard,Battlefield Creature.YouCtrl",
+    );
+    assert!(
+        cave_count.abilities[0].contains("Amount::Sum")
+            && cave_count.abilities[0].contains("ZoneSel::Battlefield")
+            && cave_count.abilities[0].contains("ZoneSel::GraveyardOf(PlayerRel::You)"),
+        "{:?}",
+        cave_count.abilities
+    );
+
+    for bad in [
+        "Name:X\nTypes:Artifact\nA:AB$ Draw | Cost$ T | NumCards$ 1 | InstantSpeed$ True",
+        "Name:X\nTypes:Artifact\nA:AB$ Mana | Cost$ T | Produced$ G | SorcerySpeed$ True | InstantSpeed$ True",
+        "Name:X\nTypes:Planeswalker\nLoyalty:3\nA:AB$ Mana | Cost$ AddCounter<1/LOYALTY> | Planeswalker$ True | Produced$ G | InstantSpeed$ True",
+        "Name:X\nManaCost:U\nTypes:Instant\nA:SP$ Draw | NumCards$ 1 | InstantSpeed$ True",
+        "Name:X\nTypes:Artifact\nA:AB$ Mana | Cost$ T | Produced$ G | InstantSpeed$ False",
+        "Name:X\nTypes:Artifact\nA:AB$ Mana | Cost$ T | Produced$ G | ActivationZone$ Command",
+        "Name:X\nTypes:Artifact\nA:AB$ Mana | Cost$ T | Produced$ G U | AddsKeywords$ Haste | AddsKeywordsValid$ Spell.Creature",
+    ] {
+        let parsed = parse(bad);
+        assert!(
+            transcode(&parsed, &cats(), None).is_none(),
+            "must refuse: {bad}"
+        );
+        assert!(
+            refusal_reason(&parsed, &cats(), None).is_some(),
+            "must record refusal reason: {bad}"
+        );
+    }
+}
+
+#[test]
+fn wave22a_present_hand_library_desert_and_disjunctive() {
+    let hand_checks = read(
+        "Name:HandOracle\nManaCost:2 U\nTypes:Artifact\n\
+         A:AB$ Draw | Cost$ T | NumCards$ 1 | PresentZone$ Hand | IsPresent$ Card.YouOwn | PresentCompare$ EQ7\n\
+         A:AB$ Draw | Cost$ T | NumCards$ 1 | PresentZone$ Hand | IsPresent$ Card.YouCtrl | PresentCompare$ EQ0\n\
+         A:AB$ Draw | Cost$ T | NumCards$ 1 | PresentZone$ Hand | IsPresent$ Card.YouCtrl | PresentCompare$ LE3\n\
+         A:AB$ Draw | Cost$ T | NumCards$ 1 | PresentZone$ Hand | IsPresent$ Card.YouOwn | PresentCompare$ GE7\n\
+         A:AB$ Draw | Cost$ T | NumCards$ 1 | PresentZone$ Hand | IsPresent$ Card | PresentPlayer$ You\n\
+         A:AB$ Draw | Cost$ T | NumCards$ 1 | PresentZone$ Hand | IsPresent$ Land.YouOwn | PresentCompare$ EQ0",
+    );
+    assert_eq!(
+        hand_checks.abilities,
+        [
+            "activated!(Cost::TAP, &[Effect::draw(1)], condition = Some(Condition::HandSizeExactly(7)))",
+            "activated!(Cost::TAP, &[Effect::draw(1)], condition = Some(Condition::HandSizeAtMost(0)))",
+            "activated!(Cost::TAP, &[Effect::draw(1)], condition = Some(Condition::HandSizeAtMost(3)))",
+            "activated!(Cost::TAP, &[Effect::draw(1)], condition = Some(Condition::AmountAtLeast(Amount::HandSize(PlayerRel::You), 7)))",
+            "activated!(Cost::TAP, &[Effect::draw(1)], condition = Some(Condition::AmountAtLeast(Amount::HandSize(PlayerRel::You), 1)))",
+            "activated!(Cost::TAP, &[Effect::draw(1)], condition = Some(Condition::Not(&Condition::AmountAtLeast(Amount::CountOf { filter: &Filter::LAND, zone: ZoneSel::HandYou }, 1))))",
+        ]
+    );
+
+    let library_checks = read(
+        "Name:LibraryOracle\nManaCost:3 U U\nTypes:Enchantment\n\
+         T:Mode$ Phase | Phase$ Upkeep | ValidPlayer$ You | IsPresent$ Card.YouCtrl | PresentZone$ Library | PresentCompare$ GE200 | Execute$ Win\n\
+         T:Mode$ ChangesZone | Origin$ Any | Destination$ Battlefield | ValidCard$ Card.Self | IsPresent$ Land.YouCtrl+nonBasic | PresentZone$ Library | PresentCompare$ EQ0 | Execute$ Ping\n\
+         SVar:Win:DB$ WinsGame | Defined$ You\n\
+         SVar:Ping:DB$ Draw | NumCards$ 1",
+    );
+    assert!(
+        library_checks.abilities[0]
+            .contains("Condition::AmountAtLeast(Amount::LibrarySize(PlayerRel::You), 200)"),
+        "{:?}",
+        library_checks.abilities
+    );
+    assert!(
+        library_checks.abilities[1].contains("ZoneSel::LibraryYou"),
+        "{:?}",
+        library_checks.abilities
+    );
+
+    let desert_and_verge = read(
+        "Name:DesertSanctuary\nTypes:Land\n\
+         A:AB$ Draw | Cost$ T | NumCards$ 1 | PresentZone$ Battlefield,Graveyard | IsPresent$ Land | PresentPlayer$ You\n\
+         A:AB$ Draw | Cost$ T | NumCards$ 1 | PresentZone$ Battlefield,Graveyard | IsPresent$ Land.YouCtrl | PresentCompare$ GE2\n\
+         A:AB$ Mana | Cost$ T | Produced$ Combo G W | IsPresent$ Card.Self+ThisTurnEntered,Land.Basic+YouCtrl\n\
+         A:AB$ Draw | Cost$ T | NumCards$ 1 | ActivationPhases$ Upkeep->Main1,Main2->Cleanup\n\
+         A:AB$ Draw | Cost$ T | NumCards$ 1 | CheckSVar$ Gy | SVarCompare$ LT7\n\
+         A:AB$ Draw | Cost$ T | NumCards$ 1 | CheckSVar$ Lib | SVarCompare$ GE50\n\
+         SVar:Gy:Count$ValidGraveyard Card.YouOwn\n\
+         SVar:Lib:Count$CardsInYourLibrary",
+    );
+    assert!(
+        desert_and_verge.abilities[0]
+            .contains("Condition::Any(&[Condition::ControlCount(&Filter::LAND, 1), Condition::AmountAtLeast(Amount::CountOf { filter: &Filter::LAND, zone: ZoneSel::GraveyardOf(PlayerRel::You) }, 1)])"),
+        "{:?}",
+        desert_and_verge.abilities[0]
+    );
+    assert!(
+        desert_and_verge.abilities[1].contains("Amount::Sum")
+            && desert_and_verge.abilities[1].contains("ZoneSel::Battlefield")
+            && desert_and_verge.abilities[1].contains("ZoneSel::GraveyardOf(PlayerRel::You)"),
+        "{:?}",
+        desert_and_verge.abilities[1]
+    );
+    assert!(
+        desert_and_verge.abilities[2].contains("Condition::Any(&[Condition::SourceMatches(")
+            && desert_and_verge.abilities[2].contains("Condition::ControlCount("),
+        "{:?}",
+        desert_and_verge.abilities[2]
+    );
+    assert_eq!(
+        desert_and_verge.abilities[3],
+        "activated!(Cost::TAP, &[Effect::draw(1)], condition = Some(Condition::Not(&Condition::DuringCombat)))"
+    );
+    assert_eq!(
+        desert_and_verge.abilities[4],
+        "activated!(Cost::TAP, &[Effect::draw(1)], condition = Some(Condition::Not(&Condition::GraveyardCountAtLeast(7))))"
+    );
+    assert_eq!(
+        desert_and_verge.abilities[5],
+        "activated!(Cost::TAP, &[Effect::draw(1)], condition = Some(Condition::AmountAtLeast(Amount::LibrarySize(PlayerRel::You), 50)))"
+    );
+
+    for bad in [
+        "Name:X\nTypes:Artifact\nA:AB$ Draw | Cost$ T | NumCards$ 1 | PresentZone$ Hand | IsPresent$ Card.DefenderCtrl",
+        "Name:X\nTypes:Artifact\nA:AB$ Draw | Cost$ T | NumCards$ 1 | PresentZone$ Hand | IsPresent$ Card.ControlledBy TriggeredPlayer",
+        "Name:X\nTypes:Artifact\nA:AB$ Draw | Cost$ T | NumCards$ 1 | PresentZone$ Library | IsPresent$ Card.StrictlySelf",
+        "Name:X\nTypes:Artifact\nA:AB$ Draw | Cost$ T | NumCards$ 1 | PresentZone$ Battlefield,Graveyard | IsPresent$ Land.OppCtrl",
+        "Name:X\nTypes:Land\nA:AB$ Mana | Cost$ T | Produced$ G | IsPresent$ Card.Self+ThisTurnEntered,Land.Basic+YouCtrl | PresentCompare$ GE2",
+    ] {
+        let parsed = parse(bad);
+        assert!(
+            transcode(&parsed, &cats(), None).is_none(),
+            "must refuse: {bad}"
+        );
+        assert!(
+            refusal_reason(&parsed, &cats(), None).is_some(),
+            "must record refusal reason: {bad}"
+        );
+    }
+}
+
+#[test]
+fn wave22a_spell_turn_and_phase_restrictions() {
+    let spell_windows = read(
+        "Name:CombatWindow\nManaCost:1 W\nTypes:Instant\n\
+         A:SP$ Draw | NumCards$ 1 | ActivationPhases$ BeginCombat->EndCombat",
+    );
+    assert_eq!(
+        spell_windows.abilities,
+        ["spell!(&[Effect::draw(1)], condition = Some(Condition::DuringCombat))"]
+    );
+
+    let spell_turn_and_step = read(
+        "Name:EndStepStudy\nManaCost:2 B\nTypes:Instant\n\
+         A:SP$ Draw | NumCards$ 1 | PlayerTurn$ True | ActivationPhases$ End of Turn",
+    );
+    assert_eq!(
+        spell_turn_and_step.abilities,
+        [
+            "spell!(&[Effect::draw(1)], condition = Some(Condition::All(&[Condition::YourTurn, Condition::DuringStep(StepKind::End)])))"
+        ]
+    );
+
+    let spell_before_blockers = read(
+        "Name:BeforeBlockers\nManaCost:R\nTypes:Instant\n\
+         A:SP$ Draw | NumCards$ 1 | ActivationPhases$ BeginCombat->Declare Attackers",
+    );
+    assert_eq!(
+        spell_before_blockers.abilities,
+        [
+            "spell!(&[Effect::draw(1)], condition = Some(Condition::Any(&[Condition::DuringStep(StepKind::CombatBegin), Condition::DuringStep(StepKind::DeclareAttackers)])))"
+        ]
+    );
+
+    let spell_after_combat = read(
+        "Name:AfterCombatSpell\nManaCost:U\nTypes:Instant\n\
+         A:SP$ Draw | NumCards$ 1 | OpponentTurn$ True | ActivationPhases$ Main2->Cleanup",
+    );
+    assert_eq!(
+        spell_after_combat.abilities,
+        [
+            "spell!(&[Effect::draw(1)], condition = Some(Condition::All(&[Condition::OpponentsTurn, Condition::AfterCombat])))"
+        ]
+    );
+
+    for bad in [
+        "Name:X\nManaCost:U\nTypes:Instant\nA:SP$ Draw | NumCards$ 1 | IsPresent$ Island.YouCtrl",
+        "Name:X\nManaCost:U\nTypes:Instant\nA:SP$ Draw | NumCards$ 1 | Activation$ Threshold",
+        "Name:X\nManaCost:U\nTypes:Instant\nA:SP$ Draw | NumCards$ 1 | CheckSVar$ X\nSVar:X:Count$Valid Creature.YouCtrl",
+        "Name:X\nManaCost:U\nTypes:Instant\nA:SP$ Draw | NumCards$ 1 | PlayerTurn$ True | OpponentTurn$ True",
+    ] {
+        let parsed = parse(bad);
+        assert!(
+            transcode(&parsed, &cats(), None).is_none(),
+            "must refuse: {bad}"
+        );
+        assert!(
+            refusal_reason(&parsed, &cats(), None).is_some(),
+            "must record refusal reason: {bad}"
+        );
+    }
+}
+
+#[test]
+fn wave22a_explicit_refusal_reasons_no_silent_none() {
+    for bad in [
+        // Divided damage with unsupported shape must record a refusal reason.
+        "Name:X\nManaCost:2 R\nTypes:Instant\nA:SP$ DealDamage | ValidTgts$ Any | NumDmg$ 3 | DividedAsYouChoose$ 3 | SubAbility$ Extra\nSVar:Extra:DB$ Draw | NumCards$ 1",
+        // Unreadable A:SP$ / A:AB$ / Charm mode chains must record a refusal reason.
+        "Name:X\nManaCost:1 U\nTypes:Instant\nA:SP$ GainControl | Defined$ Self | NewController$ Opponent",
+        "Name:X\nManaCost:1 U\nTypes:Artifact\nA:AB$ Mana | Cost$ T | Produced$ Any | SubAbility$ Extra\nSVar:Extra:DB$ GainControl | Defined$ Self | NewController$ Opponent",
+        "Name:X\nManaCost:1 U\nTypes:Instant\nA:SP$ Charm | Choices$ M1,M2\nSVar:M1:DB$ Draw | NumCards$ 1\nSVar:M2:DB$ GainControl | Defined$ Self | NewController$ Opponent",
+    ] {
+        let parsed = parse(bad);
+        assert!(
+            transcode(&parsed, &cats(), None).is_none(),
+            "must refuse: {bad}"
+        );
+        assert!(
+            refusal_reason(&parsed, &cats(), None).is_some(),
+            "must record refusal reason (no silent None): {bad}"
+        );
     }
 }

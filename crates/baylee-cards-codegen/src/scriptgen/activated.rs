@@ -74,6 +74,7 @@ struct ExtractedAbilitySpec {
     zone_suffix: &'static str,
     activator: ActivatorRestriction,
     sorcery_speed: bool,
+    instant_speed: bool,
     kind: ActivationKind,
     condition: String,
     cost_reduction: String,
@@ -89,6 +90,11 @@ impl Tx<'_> {
     ) -> Option<&'static str> {
         let clause = match phases {
             "BeginCombat->EndCombat" => "Condition::DuringCombat",
+            "BeginCombat->Declare Attackers" => {
+                "Condition::Any(&[Condition::DuringStep(StepKind::CombatBegin), Condition::DuringStep(StepKind::DeclareAttackers)])"
+            }
+            "Main2->Cleanup" => "Condition::AfterCombat",
+            "Upkeep->Main1,Main2->Cleanup" => "Condition::Not(&Condition::DuringCombat)",
             "Upkeep" => "Condition::DuringStep(StepKind::Upkeep)",
             "Draw" => "Condition::DuringStep(StepKind::Draw)",
             "BeginCombat" => "Condition::DuringStep(StepKind::CombatBegin)",
@@ -129,14 +135,14 @@ impl Tx<'_> {
         Some(clause)
     }
 
-    /// When an ability may be activated, beyond its `IsPresent$` clause: a
-    /// restriction on activating (CR 602.5) that the `condition` field says,
-    /// and so only where no other clause already fills it. Hands back the
-    /// keys it claimed.
+    /// When an ability may be activated (CR 602.5) or a spell may be cast
+    /// (CR 601.3), beyond its `IsPresent$` clause: a restriction that the
+    /// `condition` field says. Hands back the keys it claimed.
     ///
     /// - `PlayerTurn$ True` / `OpponentTurn$ True`: turn-owner gating.
     /// - `ActivationPhases$`: combat phase, individual turn steps, or bounded
-    ///   pre-combat/pre-attacker/post-blocker windows.
+    ///   pre-combat/pre-attacker/post-blocker/post-combat windows.
+    /// - `Activation$` / `CheckSVar$`: activated abilities only.
     pub(super) fn activation_restriction(
         &mut self,
         probe: &mut Params,
@@ -151,26 +157,20 @@ impl Tx<'_> {
             .into_iter()
             .collect();
         if let Some(your_turn) = probe.take("PlayerTurn") {
-            if your_turn != "True" || !is_activated {
+            if your_turn != "True" {
                 return self.deny(format!("`PlayerTurn$ {your_turn}` beside another clause"));
             }
             clauses.push("Condition::YourTurn".to_string());
             claimed.push("PlayerTurn$");
         }
         if let Some(opp_turn) = probe.take("OpponentTurn") {
-            if opp_turn != "True"
-                || !is_activated
-                || clauses.iter().any(|c| c == "Condition::YourTurn")
-            {
+            if opp_turn != "True" || clauses.iter().any(|c| c == "Condition::YourTurn") {
                 return self.deny(format!("`OpponentTurn$ {opp_turn}` beside another clause"));
             }
             clauses.push("Condition::OpponentsTurn".to_string());
             claimed.push("OpponentTurn$");
         }
         if let Some(phases) = probe.take("ActivationPhases") {
-            if !is_activated {
-                return self.deny(format!("`ActivationPhases$ {phases}`"));
-            }
             let clause = self.activation_phase_condition(probe, &phases, &mut claimed)?;
             clauses.push(clause.to_string());
             claimed.push("ActivationPhases$");
@@ -488,7 +488,11 @@ impl Tx<'_> {
             && api == "DealDamage"
             && p.has("DividedAsYouChoose")
         {
-            return self.divided_damage_spell(p);
+            let res = self.divided_damage_spell(p);
+            if res.is_none() && self.unclaimed.borrow().is_none() {
+                self.note("an unsupported `DividedAsYouChoose` damage spell".to_string());
+            }
+            return res;
         }
         if let Some((api, p)) = Params::parse(spec)
             && api == "ManaReflected"
@@ -647,11 +651,18 @@ impl Tx<'_> {
         };
         let zone_handled = is_activated && activation_zone.is_some();
         let sorcery_speed = is_activated && probe.take("SorcerySpeed").as_deref() == Some("True");
+        let instant_speed = is_activated && probe.peek("InstantSpeed") == Some("True");
+        if instant_speed {
+            probe.take("InstantSpeed");
+        }
         let had_life_total = probe.has("LifeTotal");
         let had_present_player = probe.has("PresentPlayer");
         let had_defined_player = probe.has("CheckDefinedPlayer");
         let mut condition = self.condition_with_prose(&mut probe, &line_prose)?;
         let present_read = !condition.is_empty();
+        if !is_activated && present_read {
+            return self.deny("`IsPresent$` on a spell line".to_string());
+        }
         let life_total_read = had_life_total && !probe.has("LifeTotal");
         let present_player_read = had_present_player && !probe.has("PresentPlayer");
         let defined_player_read = had_defined_player && !probe.has("CheckDefinedPlayer");
@@ -666,6 +677,7 @@ impl Tx<'_> {
             (activator != ActivatorRestriction::Default, "Activator$"),
             (zone_handled, "ActivationZone$"),
             (sorcery_speed, "SorcerySpeed$"),
+            (instant_speed, "InstantSpeed$"),
             (life_total_read, "LifeTotal$"),
             (life_total_read, "LifeAmount$"),
             (present_player_read, "PresentPlayer$"),
@@ -696,6 +708,7 @@ impl Tx<'_> {
             zone_suffix,
             activator,
             sorcery_speed,
+            instant_speed,
             kind,
             condition,
             cost_reduction,
@@ -725,7 +738,13 @@ impl Tx<'_> {
         let chain_ok = self.chain(&stripped.join(" | "), &mut chain);
         self.cost_sacrifices_self = false;
         self.cost_sacrifices_other = false;
-        chain_ok?;
+        if chain_ok.is_none() {
+            if self.unclaimed.borrow().is_none() {
+                let api = Params::parse(spec).map_or_else(|| "ability".to_string(), |(a, _)| a);
+                self.note(format!("an unreadable `{api}` ability chain"));
+            }
+            return None;
+        }
         if chain.effects.is_empty() {
             return self.deny("an ability that reads as no effect at all".to_string());
         }
@@ -798,6 +817,35 @@ impl Tx<'_> {
         })
     }
 
+    fn activated_timing_suffix(
+        &self,
+        spec: &ExtractedAbilitySpec,
+        mana_ability: bool,
+    ) -> Option<&'static str> {
+        if !spec.zone_suffix.is_empty()
+            && mana_ability
+            && !matches!(
+                spec.zone_suffix,
+                ", zone = ActivationZone::Hand" | ", zone = ActivationZone::Graveyard"
+            )
+        {
+            return self.deny("a non-default activation zone on a mana ability".to_string());
+        }
+        if spec.sorcery_speed && mana_ability {
+            return self.deny("`SorcerySpeed$ True` on a mana ability".to_string());
+        }
+        if spec.instant_speed && (!mana_ability || spec.sorcery_speed) {
+            return self.deny("`InstantSpeed$ True` on a non-mana ability".to_string());
+        }
+        Some(if spec.sorcery_speed {
+            ", timing = ActivationTiming::SorcerySpeed"
+        } else if spec.instant_speed {
+            ", timing = ActivationTiming::PriorityOnly"
+        } else {
+            ""
+        })
+    }
+
     fn build_activated_parts(&mut self, spec: &ExtractedAbilitySpec) -> Option<ParsedActivated> {
         if spec.kind == ActivationKind::Loyalty {
             return self.build_loyalty_parts(spec);
@@ -823,17 +871,7 @@ impl Tx<'_> {
         let mana_ability =
             spec.chain.could_add_mana && !spec.chain.moves_library && spec.chain.target.is_none();
         self.reject_non_mana_counter_x(&cost, mana_ability, has_targets)?;
-        if !zone.is_empty() && mana_ability {
-            return self.deny("a non-default activation zone on a mana ability".to_string());
-        }
-        if spec.sorcery_speed && mana_ability {
-            return self.deny("`SorcerySpeed$ True` on a mana ability".to_string());
-        }
-        let timing = if spec.sorcery_speed {
-            ", timing = ActivationTiming::SorcerySpeed"
-        } else {
-            ""
-        };
+        let timing = self.activated_timing_suffix(spec, mana_ability)?;
         if spec.chain.target_is_x {
             return self.deny("`TargetMin$/TargetMax$ X` on an activated ability".to_string());
         }
@@ -867,6 +905,7 @@ impl Tx<'_> {
             && !spec.non_battlefield_zone
             && spec.activator == ActivatorRestriction::Default
             && !spec.sorcery_speed
+            && !spec.instant_speed
             && limit_str.is_empty()
             && x_min == 0
             && condition.is_empty()
@@ -925,6 +964,9 @@ impl Tx<'_> {
         }
         if spec.sorcery_speed {
             return self.deny("`SorcerySpeed$` on a loyalty ability".to_string());
+        }
+        if spec.instant_speed {
+            return self.deny("`InstantSpeed$` on a loyalty ability".to_string());
         }
         if !spec.condition.is_empty() {
             return self.deny("an activation condition on a loyalty ability".to_string());
@@ -1063,12 +1105,6 @@ impl Tx<'_> {
             // unclaimed-parameter fault one level down.
             return self.deny("`ActivationLimit$` on a spell line".to_string());
         }
-        if !condition.is_empty() {
-            // The same, for the same reason: `spell!` has no
-            // precondition, and a restriction on casting is a rule this
-            // DSL does not have (CR 601.2 has no place for one).
-            return self.deny("`IsPresent$` on a spell line".to_string());
-        }
         if let Some(raw) = cost {
             self.spell_mana_cost(raw)?;
         }
@@ -1086,9 +1122,9 @@ impl Tx<'_> {
                 format!(", targets = Some(TargetReq::{req_fn}({t}))")
             }
         });
-        self.body
-            .abilities
-            .push(format!("spell!({effects}{targets}{second_targets})"));
+        self.body.abilities.push(format!(
+            "spell!({effects}{targets}{second_targets}{condition})"
+        ));
         Some(())
     }
 
@@ -1263,7 +1299,14 @@ impl Tx<'_> {
             };
             let stripped = kept_parts.join(" | ");
             let mut chain = Chain::default();
-            self.chain(&stripped, &mut chain)?;
+            if self.chain(&stripped, &mut chain).is_none() {
+                if self.unclaimed.borrow().is_none() {
+                    let api =
+                        Params::parse(&stripped).map_or_else(|| "mode".to_string(), |(a, _)| a);
+                    self.note(format!("an unreadable `{api}` charm mode"));
+                }
+                return None;
+            }
             if chain.effects.is_empty() {
                 return self.deny("a charm mode that reads as no effect at all".to_string());
             }
@@ -2205,28 +2248,71 @@ impl Tx<'_> {
                 });
             }
             return match bound {
-                Some(Bound::AtMost(n)) => Some(format!("Condition::HandSizeAtMost({n})")),
+                Some(Bound::AtMost(n)) => u8::try_from(n)
+                    .ok()
+                    .map(|n| format!("Condition::HandSizeAtMost({n})")),
                 Some(Bound::AtLeast(n)) => Some(format!(
                     "Condition::AmountAtLeast(Amount::HandSize(PlayerRel::You), {n})"
                 )),
                 None => None,
             };
         }
-        if raw == "Count$ValidGraveyard Card.YouOwn"
-            && let Some(Bound::AtLeast(n)) = bound
-        {
-            return Some(format!("Condition::GraveyardCountAtLeast({n})"));
+        if matches!(
+            raw.as_str(),
+            "Count$ValidLibrary Card.YouOwn" | "Count$CardsInYourLibrary"
+        ) {
+            return self.amount_bound_condition(
+                "Amount::LibrarySize(PlayerRel::You)",
+                bound,
+                eq_num,
+            );
+        }
+        if raw == "Count$ValidGraveyard Card.YouOwn" {
+            return match bound {
+                Some(Bound::AtLeast(n)) if n >= 1 => u8::try_from(n)
+                    .ok()
+                    .map(|n| format!("Condition::GraveyardCountAtLeast({n})")),
+                Some(Bound::AtMost(n)) => {
+                    u8::try_from(n)
+                        .ok()
+                        .and_then(|v| v.checked_add(1))
+                        .map(|above| {
+                            format!("Condition::Not(&Condition::GraveyardCountAtLeast({above}))")
+                        })
+                }
+                _ => None,
+            };
         }
         if raw == "Count$ValidGraveyard Card.YouOwn$CardTypes" {
             return match bound {
-                Some(Bound::AtLeast(n)) => Some(format!("Condition::GraveyardTypesAtLeast({n})")),
+                Some(Bound::AtLeast(n)) if n >= 1 => u8::try_from(n)
+                    .ok()
+                    .map(|n| format!("Condition::GraveyardTypesAtLeast({n})")),
+                Some(Bound::AtMost(n)) => {
+                    u8::try_from(n)
+                        .ok()
+                        .and_then(|v| v.checked_add(1))
+                        .map(|above| {
+                            format!("Condition::Not(&Condition::GraveyardTypesAtLeast({above}))")
+                        })
+                }
                 _ => None,
             };
         }
         if raw == "Count$ValidGraveyard Card.OppOwn" {
             return match bound {
-                Some(Bound::AtLeast(n)) => {
-                    Some(format!("Condition::OpponentGraveyardCountAtLeast({n})"))
+                Some(Bound::AtLeast(n)) if n >= 1 => u8::try_from(n)
+                    .ok()
+                    .map(|n| format!("Condition::OpponentGraveyardCountAtLeast({n})")),
+                Some(Bound::AtMost(n)) => {
+                    u8::try_from(n)
+                        .ok()
+                        .and_then(|v| v.checked_add(1))
+                        .map(|above| {
+                            format!(
+                                "Condition::Not(&Condition::OpponentGraveyardCountAtLeast({above}))"
+                            )
+                        })
                 }
                 _ => None,
             };
@@ -2497,6 +2583,18 @@ impl Tx<'_> {
         {
             return self.graveyard_present_clause(p, valid, line_prose);
         }
+        if p.peek("PresentZone") == Some("Hand") {
+            return self.hand_present_clause(p, valid);
+        }
+        if p.peek("PresentZone") == Some("Library") {
+            return self.library_present_clause(p, valid);
+        }
+        if matches!(
+            p.peek("PresentZone"),
+            Some("Battlefield,Graveyard" | "Graveyard,Battlefield")
+        ) {
+            return self.battlefield_or_graveyard_present_clause(p, valid);
+        }
         if let Some(who) = p.take("PresentPlayer") {
             return self.deny(format!("`PresentPlayer$ {who}`"));
         }
@@ -2534,11 +2632,27 @@ impl Tx<'_> {
             return Some(format!("Condition::CountersOnSelf({kind}, {n})"));
         }
         let pins_self = |alt: &str| alt.split(['.', '+']).any(|atom| atom.trim() == "Self");
-        let about_source = match p.take("PresentDefined").as_deref() {
+        let defined = p.take("PresentDefined");
+        let about_source = match defined.as_deref() {
             Some("Self") => true,
             Some(other) => return self.deny(format!("`PresentDefined$ {other}`")),
             None => valid.split(',').all(pins_self),
         };
+        // A disjunctive `GE1` clause mixing source predicates with a
+        // battlefield count (e.g. "if this land entered this turn or you
+        // control a basic land") lowers to `Condition::Any`.
+        if !about_source && defined.is_none() && compare == "GE1" && valid.split(',').any(pins_self)
+        {
+            let (self_alts, other_alts): (Vec<&str>, Vec<&str>) =
+                valid.split(',').partition(|alt| pins_self(alt));
+            let self_expr = self.filter_expr(&self_alts.join(","))?;
+            let zoned = on_the_battlefield(&self_expr);
+            let self_name = self.body.filter_static("CHECK", &zoned);
+            let other_cond = self.battlefield_count_present_clause(&other_alts.join(","), "GE1")?;
+            return Some(format!(
+                "Condition::Any(&[Condition::SourceMatches(&{self_name}), {other_cond}])"
+            ));
+        }
         // Both readings need a number before the filter is worth building,
         // so that a refusal names the clause rather than an atom inside it.
         if !about_source {
@@ -2722,6 +2836,150 @@ impl Tx<'_> {
             }
             None => self.deny(format!("`PresentCompare$ {compare}`")),
         }
+    }
+
+    fn present_amount_condition(&self, amt: &str, compare: &str) -> Option<String> {
+        if let Some(eq_raw) = compare.strip_prefix("EQ")
+            && let Ok(n) = eq_raw.parse::<u32>()
+            && n >= 1
+            && let Some(above) = n.checked_add(1)
+        {
+            return Some(format!(
+                "Condition::All(&[Condition::AmountAtLeast({amt}, {n}), Condition::Not(&Condition::AmountAtLeast({amt}, {above}))])"
+            ));
+        }
+        match count_bound(compare) {
+            Some(Bound::AtLeast(n)) if n >= 1 => {
+                Some(format!("Condition::AmountAtLeast({amt}, {n})"))
+            }
+            Some(Bound::AtMost(n)) => {
+                let Some(above) = u32::from(n).checked_add(1) else {
+                    return self.deny(format!("`PresentCompare$ {compare}`"));
+                };
+                Some(format!(
+                    "Condition::Not(&Condition::AmountAtLeast({amt}, {above}))"
+                ))
+            }
+            _ => self.deny(format!("`PresentCompare$ {compare}`")),
+        }
+    }
+
+    fn hand_present_clause(&mut self, p: &mut Params, valid: &str) -> Option<String> {
+        p.take("PresentZone");
+        if let Some(other) = p.take("PresentDefined") {
+            return self.deny(format!("`PresentDefined$ {other}`"));
+        }
+        let has_you = match p.take("PresentPlayer").as_deref() {
+            None => false,
+            Some("You") => true,
+            Some(who) => return self.deny(format!("`PresentPlayer$ {who}`")),
+        };
+        let compare = p
+            .take("PresentCompare")
+            .unwrap_or_else(|| "GE1".to_string());
+        if matches!(valid.trim(), "Card.YouOwn" | "Card.YouCtrl")
+            || (has_you && valid.trim() == "Card")
+        {
+            if let Some(eq_raw) = compare.strip_prefix("EQ") {
+                let Ok(n) = eq_raw.parse::<u8>() else {
+                    return self.deny(format!("`PresentCompare$ {compare}`"));
+                };
+                return Some(if n == 0 {
+                    "Condition::HandSizeAtMost(0)".to_string()
+                } else {
+                    format!("Condition::HandSizeExactly({n})")
+                });
+            }
+            return match count_bound(&compare) {
+                Some(Bound::AtMost(n)) => {
+                    let Ok(n) = u8::try_from(n) else {
+                        return self.deny(format!("`PresentCompare$ {compare}`"));
+                    };
+                    Some(format!("Condition::HandSizeAtMost({n})"))
+                }
+                Some(Bound::AtLeast(n)) if n >= 1 => Some(format!(
+                    "Condition::AmountAtLeast(Amount::HandSize(PlayerRel::You), {n})"
+                )),
+                _ => self.deny(format!("`PresentCompare$ {compare}`")),
+            };
+        }
+        let Some(stripped) = strip_your_zone_filter(valid, !has_you) else {
+            return self.deny(format!("`IsPresent$ {valid}` in hand"));
+        };
+        let expr = self.filter_expr_in_zone(&stripped, true)?;
+        let name = self.body.filter_static("CHECK", &expr);
+        let amt = format!("Amount::CountOf {{ filter: &{name}, zone: ZoneSel::HandYou }}");
+        self.present_amount_condition(&amt, &compare)
+    }
+
+    fn library_present_clause(&mut self, p: &mut Params, valid: &str) -> Option<String> {
+        p.take("PresentZone");
+        if let Some(other) = p.take("PresentDefined") {
+            return self.deny(format!("`PresentDefined$ {other}`"));
+        }
+        let has_you = match p.take("PresentPlayer").as_deref() {
+            None => false,
+            Some("You") => true,
+            Some(who) => return self.deny(format!("`PresentPlayer$ {who}`")),
+        };
+        let compare = p
+            .take("PresentCompare")
+            .unwrap_or_else(|| "GE1".to_string());
+        let amt = if matches!(valid.trim(), "Card.YouOwn" | "Card.YouCtrl")
+            || (has_you && valid.trim() == "Card")
+        {
+            "Amount::LibrarySize(PlayerRel::You)".to_string()
+        } else {
+            let Some(stripped) = strip_your_zone_filter(valid, !has_you) else {
+                return self.deny(format!("`IsPresent$ {valid}` in library"));
+            };
+            let expr = self.filter_expr_in_zone(&stripped, true)?;
+            let name = self.body.filter_static("CHECK", &expr);
+            format!("Amount::CountOf {{ filter: &{name}, zone: ZoneSel::LibraryYou }}")
+        };
+        self.present_amount_condition(&amt, &compare)
+    }
+
+    fn battlefield_or_graveyard_present_clause(
+        &mut self,
+        p: &mut Params,
+        valid: &str,
+    ) -> Option<String> {
+        p.take("PresentZone");
+        if let Some(other) = p.take("PresentDefined") {
+            return self.deny(format!("`PresentDefined$ {other}`"));
+        }
+        let has_you = match p.take("PresentPlayer").as_deref() {
+            None => false,
+            Some("You") => true,
+            Some(who) => return self.deny(format!("`PresentPlayer$ {who}`")),
+        };
+        let compare = p
+            .take("PresentCompare")
+            .unwrap_or_else(|| "GE1".to_string());
+        let Some(stripped) = strip_your_zone_filter(valid, !has_you) else {
+            return self.deny(format!("`IsPresent$ {valid}` in battlefield or graveyard"));
+        };
+        let bf_expr = self.filter_expr(&stripped)?;
+        let gy_expr = self.filter_expr_in_zone(&stripped, true)?;
+        if compare == "GE1" {
+            let bf_name = self.body.filter_static("CHECK", &bf_expr);
+            let gy_name = self.body.filter_static("CHECK", &gy_expr);
+            return Some(format!(
+                "Condition::Any(&[Condition::ControlCount(&{bf_name}, 1), Condition::AmountAtLeast(Amount::CountOf {{ filter: &{gy_name}, zone: ZoneSel::GraveyardOf(PlayerRel::You) }}, 1)])"
+            ));
+        }
+        let bf_you_expr = if bf_expr == "Filter::Any" {
+            "Filter::ControlledByYou".to_string()
+        } else {
+            format!("Filter::And(&[{bf_expr}, Filter::ControlledByYou])")
+        };
+        let bf_you_name = self.body.filter_static("CHECK", &bf_you_expr);
+        let gy_name = self.body.filter_static("CHECK", &gy_expr);
+        let sum = format!(
+            "Amount::Sum {{ left: &Amount::CountOf {{ filter: &{bf_you_name}, zone: ZoneSel::Battlefield }}, right: &Amount::CountOf {{ filter: &{gy_name}, zone: ZoneSel::GraveyardOf(PlayerRel::You) }} }}"
+        );
+        self.present_amount_condition(&sum, &compare)
     }
 
     fn params_prose(p: &Params) -> String {
@@ -2941,4 +3199,51 @@ fn strip_graveyard_filter(valid: &str, require_you_own: bool) -> Option<(String,
         }
     }
     Some((cleaned_alts.join(","), saw_above.unwrap_or(false)))
+}
+
+fn strip_your_zone_filter(valid: &str, require_you: bool) -> Option<String> {
+    let mut cleaned_alts = Vec::new();
+    for alt in valid.split(',') {
+        let mut parts = alt
+            .split('.')
+            .flat_map(|s| s.split('+'))
+            .map(str::trim)
+            .filter(|a| !a.is_empty());
+        let base = parts.next()?;
+        if matches!(
+            base,
+            "CARDNAME" | "NICKNAME" | "Self" | "Other" | "StrictlyOther"
+        ) || base.contains("Ctrl")
+            || base.contains("Own")
+        {
+            return None;
+        }
+        let mut has_you = false;
+        let mut kept = Vec::new();
+        for atom in parts {
+            match atom {
+                "YouOwn" | "YouCtrl" => has_you = true,
+                "Self" | "Other" | "StrictlyOther" | "Above" | "DirectlyAbove" | "EnchantedBy"
+                | "EquippedBy" | "AttachedBy" | "Attached" => return None,
+                other
+                    if other.contains("Ctrl")
+                        || other.contains("Own")
+                        || other.contains("ControlledBy")
+                        || other.contains("OwnedBy") =>
+                {
+                    return None;
+                }
+                other => kept.push(other),
+            }
+        }
+        if require_you && !has_you {
+            return None;
+        }
+        if kept.is_empty() {
+            cleaned_alts.push(base.to_string());
+        } else {
+            cleaned_alts.push(format!("{base}.{}", kept.join("+")));
+        }
+    }
+    (!cleaned_alts.is_empty()).then(|| cleaned_alts.join(","))
 }
