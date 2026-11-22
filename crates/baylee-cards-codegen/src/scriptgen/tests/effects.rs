@@ -4796,6 +4796,49 @@ fn wave21b_effect_play_sources_and_modes() {
 }
 
 #[test]
+fn play_preserves_printed_graveyard_scope() {
+    for (printed_owner, expected_owner) in [("a", "EachPlayer"), ("your", "You")] {
+        let body = read(&format!(
+            "Name:Grave Reader\nManaCost:3 U\nTypes:Creature Wizard\nPT:3/2\n\
+             T:Mode$ ChangesZone | Origin$ Any | Destination$ Battlefield | ValidCard$ Card.Self | Execute$ Replay\n\
+             SVar:Replay:DB$ Play | ValidZone$ Graveyard | Valid$ Card.YouOwn | ValidSA$ Instant.cmcLEX,Sorcery.cmcLEX | WithoutManaCost$ True | Optional$ True | ReplaceGraveyard$ Exile\n\
+             SVar:X:Count$Valid Wizard.YouCtrl\n\
+             Oracle:When this creature enters, you may cast an instant or sorcery spell with mana value less than or equal to the number of Wizards you control from {printed_owner} graveyard without paying its mana cost. If that spell would be put into a graveyard, exile it instead."
+        ));
+        assert!(
+            body.abilities[0].contains(&format!(
+                "zone: ZoneRef::Graveyard, owner: PlayerRel::{expected_owner} }}"
+            )),
+            "{:?}",
+            body.abilities
+        );
+    }
+}
+
+#[test]
+fn play_preserves_strict_printed_mana_value_bound() {
+    for (comparison, strict) in [("less than", true), ("less than or equal to", false)] {
+        let body = read(&format!(
+            "Name:Unearth a Spell\nManaCost:2 R\nTypes:Instant\n\
+             A:SP$ DigUntil | Valid$ Card.nonLand | FoundDestination$ Exile | RevealedDestination$ Exile | RememberFound$ True | SubAbility$ TryCast\n\
+             SVar:TryCast:DB$ Play | Defined$ Remembered | ValidSA$ Spell.cmcLEX | WithoutManaCost$ True | Optional$ True | SubAbility$ TakeCard\n\
+             SVar:TakeCard:DB$ ChangeZone | Defined$ Remembered | Origin$ Exile | Destination$ Hand | SubAbility$ Clear\n\
+             SVar:Clear:DB$ Cleanup | ClearRemembered$ True\n\
+             SVar:X:Count$Valid Mountain.YouCtrl\n\
+             Oracle:Exile cards from the top of your library until you exile a nonland card. You may cast that card without paying its mana cost if the spell's mana value is {comparison} the number of Mountains you control. If you don't cast that card this way, put it into your hand."
+        ));
+        assert!(body.statics.contains("Filter::CmcAtMostAmount("));
+        assert_eq!(
+            body.statics
+                .contains("Filter::Not(&Filter::CmcEqualsAmount("),
+            strict,
+            "{}",
+            body.statics
+        );
+    }
+}
+
+#[test]
 fn wave21b_effect_play_refusals() {
     for bad in [
         // AllowRepeats$ not supported by Effect::Play

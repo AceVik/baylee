@@ -19494,7 +19494,25 @@ impl Tx<'_> {
         (!out.is_empty()).then(|| out.join(","))
     }
 
-    fn parse_play_sa_filter(&self, raw_sa: &str) -> Option<(Option<&'static str>, Option<String>)> {
+    fn parse_play_sa_filter(
+        &self,
+        raw_sa: &str,
+        remembered: bool,
+    ) -> Option<(Option<&'static str>, Option<String>)> {
+        // A linked cast of an exiled card can be strictly below its printed bound.
+        // The upstream inclusive comparison cannot admit the card at the bound.
+        let strict = remembered
+            && self.oracle.to_ascii_lowercase().contains(
+                "you may cast that card without paying its mana cost if the spell's mana value is less than the number of ",
+            );
+        if strict {
+            let var = raw_sa.strip_prefix("Spell.cmcLE")?;
+            let amount = self.dynamic_filter_amount(var, 0)?;
+            let expr = format!(
+                "Filter::And(&[Filter::CmcAtMostAmount(&{amount}), Filter::Not(&Filter::CmcEqualsAmount(&{amount}))])"
+            );
+            return Some((None, Some(expr)));
+        }
         let trimmed = raw_sa.trim();
         if trimmed == "Spell" {
             return Some((None, None));
@@ -19684,7 +19702,19 @@ impl Tx<'_> {
             }
             _ => return None,
         };
-        let (valid_owner, cleaned) = Self::strip_graveyard_owner(&valid_raw)?;
+        let (mut valid_owner, cleaned) = Self::strip_graveyard_owner(&valid_raw)?;
+        // The untargeted instant-or-sorcery permission says whose graveyards it can use.
+        // An upstream owned-card restriction would exclude the other graveyards.
+        if zone_ref == "ZoneRef::Graveyard"
+            && valid_raw == "Card.YouOwn"
+            && sa_owner.is_none()
+            && self.oracle.to_ascii_lowercase().split('.').any(|sentence| {
+                sentence.contains("you may cast an instant or sorcery spell with mana value ")
+                    && sentence.contains(" from a graveyard without paying its mana cost")
+            })
+        {
+            valid_owner = None;
+        }
         let owner = match (valid_owner, sa_owner) {
             (Some(a), Some(b)) if a != b => return None,
             (Some(a), _) | (_, Some(a)) => a,
@@ -19774,7 +19804,8 @@ impl Tx<'_> {
         let (cast_only, sa_owner, sa_filter) = match p.take("ValidSA") {
             None => (copy || exile_instead_of_graveyard, None, None),
             Some(raw_sa) => {
-                let (owner, filter) = self.parse_play_sa_filter(&raw_sa)?;
+                let (owner, filter) =
+                    self.parse_play_sa_filter(&raw_sa, p.peek("Defined") == Some("Remembered"))?;
                 (true, owner, filter)
             }
         };
