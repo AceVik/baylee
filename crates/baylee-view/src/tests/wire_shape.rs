@@ -481,9 +481,10 @@ fn the_shape_on_the_wire_and_the_number_that_names_it_move_together() {
     // 112: `CounterKind::{FirstStrike, DoubleStrike, Haste, Hexproof, Menace,
     // Reach, Trample, Vigilance}` (CR 122.1b), `CastModeKind::OptionalCost`
     // (CR 118.8b), `ChoicePrompt::CollectEvidence` (CR 701.59a), and
-    // `Pending/PlayerAction::ChooseCounterKind` (CR 122.1; protocol 69 on
-    // binary frames).
-    const RECORDED: (u32, u64) = (112, 7_989_785_976_964_826_993);
+    // `Pending/PlayerAction::ChooseCounterKind` (CR 122.1),
+    // `ManaPayment::Variable`, and `NumberPrompt::VariableManaPayment`
+    // (CR 605.3a; protocol 69 on binary frames).
+    const RECORDED: (u32, u64) = (112, 3_136_744_088_015_566_784);
 
     let samples = core_samples();
     let sampled: std::collections::BTreeSet<String> =
