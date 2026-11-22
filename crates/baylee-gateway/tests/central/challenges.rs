@@ -32,9 +32,11 @@ pub(super) fn run(
     let daily = generator
         .generate(api::Kind::Daily, 41, Limits::default())
         .unwrap();
-    // The Weekly deck samples the current card pool. A fixed seed may
-    // legitimately fail certification after that pool changes.
-    let weekly = (64..80)
+    // Seed 66 certifies on the current paper pool. Seeds 64 and 65 each
+    // exhaust 192 simulations. Keep every alternative for future pool changes.
+    let preferred_seed = 66;
+    let weekly = std::iter::once(preferred_seed)
+        .chain((64..80).filter(|&seed| seed != preferred_seed))
         .find_map(|seed| {
             generator
                 .generate(api::Kind::Weekly, seed, Limits::default())
