@@ -361,6 +361,10 @@ const THIS_OBJECT_READ: &[&str] = &[
     "DealDamage { amount: Fixed(3), target: ThisObject }",
     "ObjectMatches { what: ThisObject, filter:",
     "Play { source: Subject(ThisObject),",
+    // Ojutai Exemplars's "Exile this creature, then return it...":
+    // `resolve::reanimation::move_and_modify` reads `ThisObject` via
+    // `resolve::zones::moving_objects` -> `subjects::moving_source`.
+    "MoveAndModify { subject: Target(ThisObject),",
 ];
 
 /// Which effects may be spelled with `ThisObject`, held against the pool.

@@ -621,7 +621,9 @@ fn the_table_reads_most_of_what_the_pool_activates() {
     // activations across newly harvested cards.
     // Pass E14 (+507 generated cards and 32 upgraded pool cards) + Wave 13 adds
     // 89 read and 133 total non-mana activations.
-    assert_eq!((read, of), (5598, 7194), "activated/loyalty reader census");
+    // Pass E15 (+494 generated cards) adds 71 read and 123 total non-mana
+    // activations across newly harvested cards.
+    assert_eq!((read, of), (5669, 7317), "activated/loyalty reader census");
 
     // Pin the new readable rows to their cards rather than only to the census.
     for (name, label) in [

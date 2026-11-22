@@ -309,6 +309,7 @@ fn self_only_time_and_lore_counter_arrivals_never_target_clock_score() {
     probe_soultether_and_lavacore();
     probe_kes_and_scroll();
     probe_as_foretold_and_myth_realized();
+    probe_cursed_recording_and_wilfred_mott();
 }
 
 fn probe_soultether_and_lavacore() {
@@ -534,6 +535,70 @@ fn probe_as_foretold_and_myth_realized() {
     assert_eq!(
         time_counters_on(&v6, myth, baylee_view::CounterKind::Lore),
         2
+    );
+}
+
+fn probe_cursed_recording_and_wilfred_mott() {
+    let me = PlayerId::new(0);
+    // Cursed Recording adds a self-only time counter when its controller casts
+    // an instant or sorcery spell (no target).
+    let p7 = position(&["Dark Ritual"], &["Cursed Recording", "Swamp"]);
+    let mut e7 = Engine::new(&p7, RegistryLookup).unwrap();
+    let v7 = advance_to_step(&mut e7, me, 1, baylee_view::Step::Main);
+    let recording = untapped(&v7, "Cursed Recording")[0];
+    assert_eq!(
+        time_counters_on(&v7, recording, baylee_view::CounterKind::Time),
+        0
+    );
+    float(&mut e7, &untapped(&v7, "Swamp")[..1]);
+    let ritual = v7.hand.iter().find(|c| c.name == "Dark Ritual").unwrap().id;
+    e7.apply(me, PlayerAction::CastSpell { card: ritual })
+        .unwrap();
+    settle(&mut e7, &[]);
+    let v7_after = asked_view(e7.state(), me, 0, e7.pending());
+    assert_eq!(
+        time_counters_on(&v7_after, recording, baylee_view::CounterKind::Time),
+        1,
+        "Cursed Recording puts a self-only time counter without targeting"
+    );
+
+    // Wilfred Mott adds a self-only time counter on upkeep and peeks without
+    // targeting (`min_pick: 0`).
+    let p8 = position(&[], &["Wilfred Mott"]);
+    let mut e8 = Engine::new(&p8, RegistryLookup).unwrap();
+    let v8 = 'main: {
+        for seq in 0..250 {
+            let pending = e8.pending().clone();
+            let seat = pending_player(&pending).expect("live game");
+            let view = asked_view(e8.state(), seat, seq, &pending);
+            if view.turn == 1
+                && view.active == me
+                && view.step == baylee_view::Step::Main
+                && view.stack.is_empty()
+            {
+                break 'main view;
+            }
+            let action = match pending {
+                Pending::Mulligan { .. } => PlayerAction::MulliganKeep,
+                Pending::Priority { .. } => PlayerAction::PassPriority,
+                Pending::ChooseAttackers { .. } => {
+                    PlayerAction::DeclareAttackers { attackers: vec![] }
+                }
+                Pending::ChooseBlockers { .. } => {
+                    PlayerAction::DeclareBlockers { blockers: vec![] }
+                }
+                Pending::ChooseCards { .. } => PlayerAction::ChooseObjects { objects: vec![] },
+                other => panic!("unexpected prompt for Wilfred Mott: {other:?}"),
+            };
+            e8.apply(seat, action).expect("legal pass");
+        }
+        panic!("Wilfred Mott never reached turn 1 main");
+    };
+    let wilfred = untapped(&v8, "Wilfred Mott")[0];
+    assert_eq!(
+        time_counters_on(&v8, wilfred, baylee_view::CounterKind::Time),
+        1,
+        "Wilfred Mott puts a self-only time counter on upkeep without targeting"
     );
 }
 

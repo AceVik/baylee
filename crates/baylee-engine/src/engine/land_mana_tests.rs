@@ -1184,8 +1184,11 @@ fn types_itself(def: &CardDef, index: usize) -> bool {
                 layer: baylee_cards_dsl::Layer::Type,
                 modifier,
                 ..
-            }) if matches!(modifier, baylee_cards_dsl::Modifier::AddChosenBasicLandType)
-                || matches!(modifier, baylee_cards_dsl::Modifier::AddSubtype(s) if is_a_basic_type(*s))
+            }) if matches!(
+                modifier,
+                baylee_cards_dsl::Modifier::AddChosenBasicLandType
+                    | baylee_cards_dsl::Modifier::SetLandTypeToChosen
+            ) || matches!(modifier, baylee_cards_dsl::Modifier::AddSubtype(s) if is_a_basic_type(*s))
         )
     })
 }

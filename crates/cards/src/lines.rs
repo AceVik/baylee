@@ -871,6 +871,8 @@ mod tests {
     /// Pass E14 adds Invasion of Muraganda, Invasion of Theros, Huatli, Poet of
     /// Unity, thirteen Wave 23c Duskmourn Rooms (Bottomless Pool through
     /// Unholy Annex), and Oko, Lorwyn Liege.
+    /// Pass E15 adds Nissa, Vastwood Seer, Harvest Hand, Graveyard Trespasser,
+    /// Biolume Egg, Ashling, Rekindled, and Sygg, Wanderwine Wisdom.
     #[test]
     fn the_back_of_a_card_is_a_rarity() {
         let named: Vec<&str> = crate::generated::BY_INDEX
@@ -916,6 +918,7 @@ mod tests {
         "Lambholt Elder",
         "Scorned Villager",
         "Wolfbitten Captive",
+        "Nissa, Vastwood Seer",
         "Archangel Avacyn",
         "Arlinn Kord",
         "Avacynian Missionaries",
@@ -926,6 +929,7 @@ mod tests {
         "Elusive Tormentor",
         "Gatstaf Arsonists",
         "Hanweir Militia Captain",
+        "Harvest Hand",
         "Hermit of the Natterknolls",
         "Hinterland Logger",
         "Kessig Forgemaster",
@@ -965,6 +969,7 @@ mod tests {
         "Burly Breaker",
         "Dennick, Pious Apprentice",
         "Fangblade Brigand",
+        "Graveyard Trespasser",
         "Hostile Hostel",
         "Hound Tamer",
         "Jerren, Corrupted Bishop",
@@ -979,6 +984,7 @@ mod tests {
         "Tovolar's Huntmaster",
         "Havengul Laboratory",
         "Avabruck Caretaker",
+        "Biolume Egg",
         "Ill-Tempered Loner",
         "Infestation Expert",
         "Lambholt Raconteur",
@@ -1059,7 +1065,9 @@ mod tests {
         "Venat, Heart of Hydaelyn",
         "Vincent Valentine",
         "The Legend of Roku",
+        "Ashling, Rekindled",
         "Oko, Lorwyn Liege",
+        "Sygg, Wanderwine Wisdom",
         "Trystan, Callous Cultivator",
         "Bruce Banner",
         "King T'Challa",

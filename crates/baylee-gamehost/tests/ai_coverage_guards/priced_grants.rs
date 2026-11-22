@@ -76,6 +76,9 @@ fn no_granted_mana_ability_charges_more_than_the_tap() {
     // is sacrificed for exactly {B}, without using the stack; later and
     // opposing lands receive no grant, and it expires at end of turn.
     // This card test proves the paid activation, not a gamehost projection.
+    // `baylee-gamehost::view::tests::grants::granted_mana_refuses_a_priced_grant`
+    // also builds Ninja Pizza + Bagel and Schmear, asserts the projection
+    // omits free mana, sacrifices the Food, and verifies `{G}` enters the pool.
     // None of these grants can be planned by the AI today;
     // docs/ai-coverage-todo.md records the price-aware planning debt.
     // Sort names so this is membership, independent of generated index order.
@@ -83,7 +86,12 @@ fn no_granted_mana_ability_charges_more_than_the_tap() {
     priced.sort_unstable();
     assert_eq!(
         priced,
-        ["Basal Sliver", "Forgotten Monument", "Rain of Filth"],
+        [
+            "Basal Sliver",
+            "Forgotten Monument",
+            "Ninja Pizza",
+            "Rain of Filth"
+        ],
         "the pool's priced granted mana abilities have changed. Each one is \
          dropped from `PublicObject::granted_mana` rather than reported free \
          — see `baylee_cards_dsl::tap_only` — and each owes a test with a \

@@ -68,6 +68,9 @@ use super::*;
 ///   creature pump (the target is the creature, never `clock_score`); not a Saga.
 /// - `Soultether Golem`: vanishing + self-only creature-ETB trigger; no target.
 ///
+/// - `Cursed Recording`: self-only instant/sorcery-cast time counter; no target.
+/// - `Wilfred Mott`: self-only upkeep time counter + untargeted library peek; no target.
+///
 /// Covered in `ai_decisions/time_counters.rs`:
 /// `infinite_hourglass_counts_upkeep_pumps_all_creatures_and_allows_upkeep_removal`
 /// and `self_only_time_and_lore_counter_arrivals_never_target_clock_score`.
@@ -83,6 +86,7 @@ fn only_the_named_cards_put_a_lore_or_time_counter_on_anything() {
     // failure message and not a number to bump.
     const REACHABLE_CLOCKS: &[&str] = &[
         "As Foretold",
+        "Cursed Recording",
         "Infinite Hourglass",
         "Kes, Evolving Telepath",
         "Lavacore Elemental",
@@ -91,6 +95,7 @@ fn only_the_named_cards_put_a_lore_or_time_counter_on_anything() {
         "Soultether Golem",
         "Time Bomb",
         "Trenzalore Clocktower",
+        "Wilfred Mott",
     ];
     let mut seen = 0;
     let mut kinds = Vec::new();

@@ -448,8 +448,8 @@ fn every_station_is_the_ability_its_keyword_spells() {
     }
     assert!(wrong.is_empty(), "{wrong:#?}");
     assert!(
-        (3..=50).contains(&checked),
-        "read {checked} stations out of the pool, and forty-four were checked"
+        (3..=60).contains(&checked),
+        "read {checked} stations out of the pool, and fifty-one were checked"
     );
 }
 

@@ -646,6 +646,64 @@ fn granted_mana_refuses_a_priced_grant() {
         2,
         "the paid mana ability resolves immediately"
     );
+    check_ninja_pizza_priced_grant();
+}
+
+/// Ninja Pizza's Food grant costs `{T}` plus `SacrificeSelf`, so `granted_mana`
+/// omits it while the real board sacrifices the Food and adds one mana.
+fn check_ninja_pizza_priced_grant() {
+    let me = PlayerId::new(0);
+    let ninja_pizza = by_oracle_id("58c615f3-8c3b-47bf-8032-809fc4232ccb")
+        .expect("Ninja Pizza is in the pool")
+        .index;
+    let bagel_and_schmear = by_oracle_id("1389c9fa-fec2-4212-a7aa-6dfb318dc202")
+        .expect("Bagel and Schmear is in the pool")
+        .index;
+    let (mut pizza_engine, pizza_source, pizza_food, pizza_ability) =
+        priced_grant_board(ninja_pizza, bagel_and_schmear);
+    assert_eq!(pizza_engine.state().players[0].mana_pool.total(), 0);
+    pizza_engine
+        .apply(
+            me,
+            PlayerAction::ActivateAbility {
+                source: pizza_food,
+                ability_index: pizza_ability,
+            },
+        )
+        .expect("Ninja Pizza's granted sacrifice mana ability activates");
+    if let Pending::ChooseColor { player, .. } = pizza_engine.pending().clone() {
+        pizza_engine
+            .apply(player, PlayerAction::ChooseColor(ManaColor::Green))
+            .expect("choosing green mana resolves Ninja Pizza's grant");
+    }
+    assert!(matches!(
+        pizza_engine.pending(),
+        Pending::Priority { player, .. } if *player == me
+    ));
+    assert!(
+        pizza_engine
+            .state()
+            .zones
+            .list(ZoneLocation::Stack)
+            .is_empty()
+    );
+    let pizza_state = pizza_engine.state();
+    assert!(
+        pizza_state
+            .zones
+            .list(ZoneLocation::Graveyard(me))
+            .contains(&pizza_food),
+        "Ninja Pizza sacrifices the granted Food, not itself"
+    );
+    let pizza_battlefield = pizza_state.zones.list(ZoneLocation::Battlefield);
+    assert!(pizza_battlefield.contains(&pizza_source));
+    assert!(!pizza_battlefield.contains(&pizza_food));
+    assert_eq!(
+        pizza_engine.state().players[0]
+            .mana_pool
+            .available(ManaColor::Green),
+        1
+    );
 }
 
 /// A real board and legal offer under a priced static grant. Neither public

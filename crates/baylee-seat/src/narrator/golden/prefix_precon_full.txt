@@ -144,6 +144,10 @@ Main deck:
     Retrace
   1× Sporemound {3}{G}{G} · Creature — Fungus · 3/3
     Landfall — Whenever a land you control enters, create a 1/1 green Saproling creature token.
+  1× Stormtide Leviathan {5}{U}{U}{U} · Creature — Leviathan · 8/8
+    Islandwalk
+    All lands are Islands in addition to their other types.
+    Creatures without flying or islandwalk can't attack.
   1× Swiftfoot Boots {2} · Artifact — Equipment
     Equipped creature has hexproof and haste.
     Equip {1} ({1}: Attach to target creature you control. Equip only as a sorcery.)
@@ -195,6 +199,8 @@ Main deck:
   1× Chromatic Lantern {3} · Artifact
     Lands you control have "{T}: Add one mana of any color."
     {T}: Add one mana of any color.
+  1× Cream of the Crop {1}{G} · Enchantment
+    Whenever a creature you control enters, you may look at the top X cards of your library, where X is that creature's power. If you do, put one of those cards on top of your library and the rest on the bottom of your library in any order.
   1× Crib Swap {2}{W} · Kindred Instant — Shapeshifter
     Changeling
     Exile target creature. Its controller creates a 1/1 colorless Shapeshifter creature token with changeling.
@@ -243,9 +249,3 @@ Main deck:
   1× Horde of Notions {W}{U}{B}{R}{G} · Legendary Creature — Elemental · 5/5
     Vigilance, trample, haste
     {W}{U}{B}{R}{G}: You may play target Elemental card from your graveyard without paying its mana cost.
-  1× Impulsivity {6}{R} · Creature — Elemental Incarnation · 7/5
-    When this creature enters, you may cast target instant or sorcery card from a graveyard without paying its mana cost. If that spell would be put into a graveyard, exile it instead.
-    Encore {7}{R}{R} ({7}{R}{R}, Exile this card from your graveyard: For each opponent, create a token copy that attacks that opponent this turn if able. They gain haste. Sacrifice them at the beginning of the next end step. Activate only as a sorcery.)
-  1× Ingot Chewer {4}{R} · Creature — Elemental · 3/3
-    When this creature enters, destroy target artifact.
-    Evoke {R} (You may cast this spell for its evoke cost. If you do, it's sacrificed when it enters.)
