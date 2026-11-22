@@ -39,10 +39,16 @@ pub(crate) fn splice_ability_for(
         })
 }
 
+#[allow(clippy::type_complexity)]
 pub(crate) fn spell_face_parts(
     def: &'static CardDef,
     face_idx: usize,
-) -> Option<(&'static [Effect], Option<TargetReq>, Option<TargetReq>)> {
+) -> Option<(
+    &'static [Effect],
+    Option<TargetReq>,
+    Option<TargetReq>,
+    Option<TargetReq>,
+)> {
     let idx = face_idx.min(def.faces.len().saturating_sub(1));
     def.abilities_for_face(idx)
         .iter()
@@ -51,8 +57,9 @@ pub(crate) fn spell_face_parts(
                 effects,
                 targets,
                 second_targets,
+                third_targets,
                 ..
-            } => Some((*effects, *targets, *second_targets)),
+            } => Some((*effects, *targets, *second_targets, *third_targets)),
             _ => None,
         })
 }
@@ -84,11 +91,14 @@ fn push_base_clauses(
         }
         Some(CastModeKind::Fused) => {
             for f in 0..def.faces.len().min(2) {
-                if let Some((_, t1, t2)) = spell_face_parts(def, f) {
+                if let Some((_, t1, t2, t3)) = spell_face_parts(def, f) {
                     if let Some(r) = t1 {
                         out.push((f, false, r));
                     }
                     if let Some(r) = t2 {
+                        out.push((f, true, r));
+                    }
+                    if let Some(r) = t3 {
                         out.push((f, true, r));
                     }
                 }
@@ -99,11 +109,14 @@ fn push_base_clauses(
                 out.push((0, false, req));
                 return;
             }
-            if let Some((_, t1, t2)) = spell_face_parts(def, face_idx) {
+            if let Some((_, t1, t2, t3)) = spell_face_parts(def, face_idx) {
                 if let Some(r) = t1 {
                     out.push((0, false, r));
                 }
                 if let Some(r) = t2 {
+                    out.push((0, true, r));
+                }
+                if let Some(r) = t3 {
                     out.push((0, true, r));
                 }
             }
@@ -183,7 +196,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
             let Some((onto, cost)) = splice_ability_for(def, face_idx) else {
                 continue;
             };
-            let Some((_, t1, t2)) = spell_face_parts(def, face_idx) else {
+            let Some((_, t1, t2, t3)) = spell_face_parts(def, face_idx) else {
                 continue;
             };
             if !eval::matches_with_context(
@@ -197,6 +210,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
             }
             if t1.is_some_and(|r| !self.req_has_legal_targets(wizard, r))
                 || t2.is_some_and(|r| !self.req_has_legal_targets(wizard, r))
+                || t3.is_some_and(|r| !self.req_has_legal_targets(wizard, r))
             {
                 continue;
             }
@@ -278,12 +292,15 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
         }
         for &(_, card_idx, face, _) in &wizard.spliced {
             if let Some(s_def) = self.lookup.card(card_idx)
-                && let Some((_, t1, t2)) = spell_face_parts(s_def, usize::from(face))
+                && let Some((_, t1, t2, t3)) = spell_face_parts(s_def, usize::from(face))
             {
                 if let Some(r) = t1 {
                     out.push((seg, false, r));
                 }
                 if let Some(r) = t2 {
+                    out.push((seg, true, r));
+                }
+                if let Some(r) = t3 {
                     out.push((seg, true, r));
                 }
                 seg += 1;
@@ -325,12 +342,15 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
         for rider in &obj.riders {
             if let Rider::Spliced { card, face } = *rider
                 && let Some(s_def) = self.lookup.card(card)
-                && let Some((_, t1, t2)) = spell_face_parts(s_def, usize::from(face))
+                && let Some((_, t1, t2, t3)) = spell_face_parts(s_def, usize::from(face))
             {
                 if let Some(r) = t1 {
                     out.push((seg, false, r));
                 }
                 if let Some(r) = t2 {
+                    out.push((seg, true, r));
+                }
+                if let Some(r) = t3 {
                     out.push((seg, true, r));
                 }
                 seg += 1;
@@ -362,17 +382,22 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
             return None;
         }
         let def = obj.card.and_then(|c| self.lookup.card(c.index))?;
-        let mut segments: Vec<(Vec<Effect>, bool, bool)> = Vec::new();
+        let mut segments: Vec<(Vec<Effect>, bool, bool, bool)> = Vec::new();
         push_base_segments(&mut segments, obj, def);
         if let Some(count) = awaken_count {
-            segments.push((vec![Effect::AwakenLand { count }], true, false));
+            segments.push((vec![Effect::AwakenLand { count }], true, false, false));
         }
         for rider in &obj.riders {
             if let Rider::Spliced { card, face } = *rider
                 && let Some(s_def) = self.lookup.card(card)
-                && let Some((fx, t1, t2)) = spell_face_parts(s_def, usize::from(face))
+                && let Some((fx, t1, t2, t3)) = spell_face_parts(s_def, usize::from(face))
             {
-                segments.push((crate::resolve::flatten(fx), t1.is_some(), t2.is_some()));
+                segments.push((
+                    crate::resolve::flatten(fx),
+                    t1.is_some(),
+                    t2.is_some(),
+                    t3.is_some(),
+                ));
             }
         }
         Some(assemble_segment_steps(obj, segments))
@@ -380,7 +405,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
 }
 
 fn push_base_segments(
-    segments: &mut Vec<(Vec<Effect>, bool, bool)>,
+    segments: &mut Vec<(Vec<Effect>, bool, bool, bool)>,
     obj: &GameObject,
     def: &'static CardDef,
 ) {
@@ -388,8 +413,13 @@ fn push_base_segments(
     let abilities = def.abilities_for_face(face_idx);
     if obj.riders.contains(&Rider::Fused) {
         for f in 0..def.faces.len().min(2) {
-            if let Some((fx, t1, t2)) = spell_face_parts(def, f) {
-                segments.push((crate::resolve::flatten(fx), t1.is_some(), t2.is_some()));
+            if let Some((fx, t1, t2, t3)) = spell_face_parts(def, f) {
+                segments.push((
+                    crate::resolve::flatten(fx),
+                    t1.is_some(),
+                    t2.is_some(),
+                    t3.is_some(),
+                ));
             }
         }
         return;
@@ -401,6 +431,7 @@ fn push_base_segments(
                     crate::resolve::flatten(m.effects),
                     m.targets.is_some(),
                     m.second_targets.is_some(),
+                    false,
                 ));
             }
         } else if obj.modes != 0 {
@@ -409,6 +440,7 @@ fn push_base_segments(
                     crate::resolve::flatten(m.effects),
                     m.targets.is_some(),
                     m.second_targets.is_some(),
+                    false,
                 ));
             }
         } else if let Some(m) = obj.mode_index.and_then(|i| modes.get(usize::from(i))) {
@@ -416,20 +448,26 @@ fn push_base_segments(
                 crate::resolve::flatten(m.effects),
                 m.targets.is_some(),
                 m.second_targets.is_some(),
+                false,
             ));
         }
         return;
     }
-    if let Some((fx, t1, t2)) = spell_face_parts(def, face_idx) {
+    if let Some((fx, t1, t2, t3)) = spell_face_parts(def, face_idx) {
         let has_t1 = t1.is_some() || (obj.kicked() && def.faces[face_idx].kicked_targets.is_some());
-        segments.push((crate::resolve::flatten(fx), has_t1, t2.is_some()));
+        segments.push((
+            crate::resolve::flatten(fx),
+            has_t1,
+            t2.is_some(),
+            t3.is_some(),
+        ));
     }
 }
 
 #[allow(clippy::type_complexity)]
 fn assemble_segment_steps(
     obj: &GameObject,
-    segments: Vec<(Vec<Effect>, bool, bool)>,
+    segments: Vec<(Vec<Effect>, bool, bool, bool)>,
 ) -> (
     Vec<Effect>,
     bool,
@@ -457,11 +495,11 @@ fn assemble_segment_steps(
         cursor += 1;
         item
     };
-    let any_targeted = segments.iter().any(|(_, t1, t2)| *t1 || *t2);
+    let any_targeted = segments.iter().any(|(_, t1, t2, t3)| *t1 || *t2 || *t3);
     let mut program = Vec::new();
     let mut initial = None;
     let mut staged = Vec::new();
-    for (fx, has_t1, has_t2) in segments {
+    for (fx, has_t1, has_t2, has_t3) in segments {
         if any_targeted {
             let (targets, target_players) = if has_t1 {
                 take()
@@ -473,12 +511,19 @@ fn assemble_segment_steps(
             } else {
                 (SmallVec::new(), baylee_core::ids::SeatSet::new())
             };
+            let (third_targets, third_players) = if has_t3 {
+                take()
+            } else {
+                (SmallVec::new(), baylee_core::ids::SeatSet::new())
+            };
             let step = crate::resolve::ModalTargetStep {
                 left_from_end: program.len(),
                 targets,
                 target_players,
                 second_targets: sec_objs.into_iter().collect(),
                 second_players,
+                third_targets,
+                third_players,
             };
             if initial.is_none() {
                 initial = Some(step);

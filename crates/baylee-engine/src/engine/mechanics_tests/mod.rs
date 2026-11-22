@@ -80,6 +80,7 @@ mod wave13c_relative_costs_targets;
 mod wave13d_optional_cost_counters;
 mod wave14a_zone_play_flash_dynamic_filters;
 mod wave14b_target_and_dynamic_cost_reductions;
+mod wave14c_multi_target_chains;
 mod wave2_bugs_copy_and_dice;
 mod wave3_repeat_choose_color;
 mod wave3_rules;
@@ -206,6 +207,7 @@ pub(super) const fn paid(
         effects,
         targets,
         second_targets: None,
+        third_targets: None,
         timing: ActivationTiming::InstantSpeed,
         mana_ability: false,
         zone: ActivationZone::Battlefield,

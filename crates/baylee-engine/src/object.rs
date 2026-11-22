@@ -317,6 +317,25 @@ pub fn ability_second_target_req(
     }
 }
 
+/// The third target requirement of `abilities[index]`, mirroring
+/// [`ability_second_target_req`].
+#[must_use]
+pub fn ability_third_target_req(
+    abilities: impl Into<AbilityDefs>,
+    index: u32,
+    _mode_index: Option<u8>,
+) -> Option<baylee_cards_dsl::TargetReq> {
+    use baylee_cards_dsl::AbilityDef;
+    let abilities = abilities.into();
+    match abilities.get(index as usize)? {
+        AbilityDef::Activated { third_targets, .. }
+        | AbilityDef::ActivatedConditional { third_targets, .. }
+        | AbilityDef::Loyalty { third_targets, .. }
+        | AbilityDef::Triggered { third_targets, .. } => *third_targets,
+        _ => None,
+    }
+}
+
 #[cfg(test)]
 thread_local! {
     /// Set, a split card is its left half off the stack, as the engine read
@@ -2237,6 +2256,88 @@ impl GameObject {
                         extra,
                     })
                 });
+    }
+
+    /// Objects chosen for the third instance of "target" (`extra[0]`).
+    #[must_use]
+    pub fn third_targets(&self) -> &[ObjectId] {
+        self.extra_target_instances()
+            .first()
+            .map_or(&[], |e| e.targets.as_slice())
+    }
+
+    /// Players chosen for the third instance of "target" (`extra[0]`).
+    #[must_use]
+    pub fn third_target_players(&self) -> SeatSet {
+        self.extra_target_instances()
+            .first()
+            .map_or_else(SeatSet::new, |e| e.players)
+    }
+
+    /// Requirement recorded for the third instance of "target" (`extra[0]`).
+    #[must_use]
+    pub fn third_target_req(&self) -> Option<baylee_cards_dsl::TargetReq> {
+        self.extra_target_instances().first().and_then(|e| e.req)
+    }
+
+    /// Sets the third instance's player targets (`extra[0]`) without changing
+    /// its object targets.
+    pub fn set_third_players(&mut self, players: SeatSet) {
+        if !players.is_empty() || !self.extra_target_instances().is_empty() {
+            let second = self.second.get_or_insert_with(Default::default);
+            if second.extra.is_empty() {
+                second.extra.push(ExtraTargetInstance::default());
+            }
+            second.extra[0].players = players;
+            if second.extra.len() == 1
+                && second.extra[0].targets.is_empty()
+                && second.extra[0].players.is_empty()
+                && second.extra[0].req.is_none()
+            {
+                second.extra.clear();
+                if second.targets.is_empty() && second.players.is_empty() && second.req.is_none() {
+                    self.second = None;
+                }
+            }
+        }
+    }
+
+    /// Writes the third instance (`extra[0]`), allocating only when non-empty.
+    pub fn set_third(
+        &mut self,
+        targets: SmallVec<[ObjectId; 2]>,
+        req: Option<baylee_cards_dsl::TargetReq>,
+    ) {
+        let players = self.third_target_players();
+        if !targets.is_empty() || !players.is_empty() || req.is_some() {
+            let second = self.second.get_or_insert_with(Default::default);
+            if second.extra.is_empty() {
+                second.extra.push(ExtraTargetInstance {
+                    players,
+                    targets,
+                    req,
+                });
+            } else {
+                second.extra[0] = ExtraTargetInstance {
+                    players,
+                    targets,
+                    req,
+                };
+            }
+        } else if let Some(second) = &mut self.second {
+            if second.extra.len() <= 1 {
+                second.extra.clear();
+            } else {
+                second.extra[0] = ExtraTargetInstance::default();
+            }
+            if second.extra.is_empty()
+                && second.targets.is_empty()
+                && second.players.is_empty()
+                && second.req.is_none()
+            {
+                self.second = None;
+            }
+        }
     }
 
     /// Creates a card-less object (token, emblem).

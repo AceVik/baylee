@@ -64,6 +64,8 @@ pub const fn acts_elsewhere(effect: &Effect) -> bool {
             | Effect::ForEachTarget { .. }
             | Effect::WheneverCombatEventThisTurn { .. }
             | Effect::GrantTriggeredIfAbsent { .. }
+            | Effect::WithSecondTarget(..)
+            | Effect::WithThirdTarget(..)
     )
 }
 
@@ -178,6 +180,10 @@ pub fn effect_benefit(effect: &Effect, x: u32) -> Option<i32> {
         | Effect::ExileAndReturnAtEndStep
         | Effect::UntapTarget
         | Effect::UntapTargetSlot(baylee_cards_dsl::TargetSlot::First)
+        | Effect::AttachSlot {
+            to: baylee_cards_dsl::TargetSlot::First,
+            ..
+        }
         | Effect::CreateTokenCopy { .. }
         | Effect::GrantFlashback
         | Effect::GraveyardToHand { .. }

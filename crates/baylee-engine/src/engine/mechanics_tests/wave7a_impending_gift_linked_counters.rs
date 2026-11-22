@@ -214,6 +214,7 @@ fn kill_spell() -> &'static CardDef {
         }],
         targets: Some(TargetReq::one(TargetSpec::Object(&Filter::CREATURE))),
         second_targets: None,
+        third_targets: None,
         condition: None,
     }];
     leak(
@@ -292,6 +293,7 @@ fn creature_doom() -> &'static CardDef {
         }],
         targets: Some(TargetReq::one(TargetSpec::Object(&Filter::CREATURE))),
         second_targets: None,
+        third_targets: None,
         condition: None,
     }];
     leak(
@@ -355,6 +357,7 @@ fn counter_instant() -> &'static CardDef {
         effects: &[Effect::CounterTargetSpell],
         targets: Some(TargetReq::one(TargetSpec::Spell(&Filter::Any))),
         second_targets: None,
+        third_targets: None,
         condition: None,
     }];
     leak(

@@ -108,6 +108,7 @@ impl HeuristicAgent {
                 effects,
                 targets: Some(req),
                 second_targets: None,
+                third_targets: None,
                 ..
             } = ability
             else {
@@ -180,6 +181,12 @@ impl HeuristicAgent {
 /// card. Zero for everything else.
 fn unread_benefit(effect: &Effect) -> i32 {
     use baylee_cards_dsl::{Modifier, PlayerRel};
+    if matches!(
+        effect,
+        Effect::WithSecondTarget(..) | Effect::WithThirdTarget(..)
+    ) {
+        return 0;
+    }
     let own = match effect {
         Effect::Regenerate { .. } => 1,
         Effect::CreateContinuousEffect { modifier, .. } => match modifier {
@@ -207,28 +214,64 @@ fn unread_benefit(effect: &Effect) -> i32 {
         .sum::<i32>()
 }
 
-/// The sign of what `effects` do to their second target: the power and
-/// toughness a `PumpTargetSlot` for that slot gives or takes. `None` where
-/// no effect names the second slot.
+fn with_second_target_slice(effects: &[Effect]) -> Option<&[Effect]> {
+    for effect in effects {
+        match effect {
+            Effect::WithSecondTarget(inner) => return Some(inner),
+            Effect::WithThirdTarget(..) => {}
+            _ => {
+                let (then, otherwise) = effect.branches();
+                if let Some(found) =
+                    with_second_target_slice(then).or_else(|| with_second_target_slice(otherwise))
+                {
+                    return Some(found);
+                }
+            }
+        }
+    }
+    None
+}
+
+/// The sign of what `effects` do to their second (or forwarded third) target:
+/// `PumpTargetSlot`, `TapTargetSlot`, `UntapTargetSlot`, `DestroyTargetSlots`,
+/// and `AttachSlot`. `None` where no effect names that slot.
 fn second_slot_sign(effects: &[Effect], x: u32) -> Option<i32> {
     use baylee_cards_dsl::TargetSlot;
     let mut sign = None;
+    let mut add = |own: i32| {
+        sign = Some(sign.unwrap_or(0) + own);
+    };
     for effect in effects {
-        if let Effect::PumpTargetSlot {
-            slot: TargetSlot::Second,
-            power,
-            toughness,
-            keywords,
-            ..
-        } = effect
-        {
-            let points = crate::tactics::amount(*power, x) + crate::tactics::amount(*toughness, x);
-            let own = if points == 0 && keywords.bits() != 0 {
-                1
-            } else {
-                points.signum()
-            };
-            sign = Some(sign.unwrap_or(0) + own);
+        match effect {
+            Effect::PumpTargetSlot {
+                slot: TargetSlot::Second | TargetSlot::Third,
+                power,
+                toughness,
+                keywords,
+                ..
+            } => {
+                let points =
+                    crate::tactics::amount(*power, x) + crate::tactics::amount(*toughness, x);
+                let own = if points == 0 && keywords.bits() != 0 {
+                    1
+                } else {
+                    points.signum()
+                };
+                add(own);
+            }
+            Effect::TapTargetSlot(TargetSlot::Second | TargetSlot::Third) => add(-1),
+            Effect::UntapTargetSlot(TargetSlot::Second | TargetSlot::Third)
+            | Effect::AttachSlot {
+                to: TargetSlot::Second | TargetSlot::Third,
+                ..
+            } => add(1),
+            Effect::DestroyTargetSlots { targets, .. }
+                if targets.contains(&TargetSlot::Second)
+                    || targets.contains(&TargetSlot::Third) =>
+            {
+                add(-1);
+            }
+            _ => {}
         }
     }
     sign
@@ -237,20 +280,26 @@ fn second_slot_sign(effects: &[Effect], x: u32) -> Option<i32> {
 impl HeuristicAgent {
     /// What the effects a target question is asked for mean, with the side
     /// readings of [`AIProfile::SIDE_READS`] beside the shared reader's: the
-    /// rows of [`unread_benefit`], and for a spell's second target the sign
-    /// of what it does to that target alone (Consume Strength's −2/−2 goes
-    /// on an opponent's creature, Martial Glory's +0/+3 on this seat's).
+    /// rows of [`unread_benefit`], and for a spell's second or third target
+    /// the meaning of what it does to that target alone (Consume Strength's
+    /// −2/−2 goes on an opponent's creature, Martial Glory's +0/+3 on this
+    /// seat's, Aether Helix's graveyard return on this seat's).
     pub(crate) fn sided_meaning(&self, context: &DecisionContext<'_>) -> crate::tactics::Meaning {
         let mut m = crate::tactics::meaning(context.effects, context.x);
         if !self.profile.plays(AIProfile::SIDE_READS) {
             return m;
         }
-        if context.second_instance
-            && let Some(sign) = second_slot_sign(context.effects, context.x)
-        {
-            let mut second = crate::tactics::Meaning::default();
-            second.benefit = sign;
-            return second;
+        if context.second_instance {
+            if let Some(inner) = with_second_target_slice(context.effects) {
+                let mut second = crate::tactics::meaning(inner, context.x);
+                second.benefit += inner.iter().map(unread_benefit).sum::<i32>();
+                return second;
+            }
+            if let Some(sign) = second_slot_sign(context.effects, context.x) {
+                let mut second = crate::tactics::Meaning::default();
+                second.benefit = sign;
+                return second;
+            }
         }
         m.benefit += context.effects.iter().map(unread_benefit).sum::<i32>();
         m

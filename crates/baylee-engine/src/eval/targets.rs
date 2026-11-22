@@ -766,3 +766,193 @@ pub fn one_per_player_satisfied(
                 .any(|&id| same_controller_group(state, id) == Some(p))
         })
 }
+
+/// Candidate pool for one target group when checking joint completability under
+/// [`baylee_cards_dsl::TargetConstraint::DistinctFromPriorTargetGroups`].
+#[derive(Clone, Debug)]
+pub(crate) struct DistinctGroupPool {
+    pub needed: usize,
+    pub distinct_from_prior: bool,
+    pub objects: Vec<ObjectId>,
+    pub players: Vec<PlayerId>,
+}
+
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum DistinctItem {
+    Object(ObjectId),
+    Player(PlayerId),
+}
+
+fn choose_distinct_and_complete(
+    candidates: &[DistinctItem],
+    start: usize,
+    to_pick: usize,
+    prior_objects: &mut Vec<ObjectId>,
+    prior_players: baylee_core::ids::SeatSet,
+    tail: &[DistinctGroupPool],
+) -> bool {
+    if to_pick == 0 {
+        return can_complete_target_groups(prior_objects, prior_players, tail);
+    }
+    if candidates.len().saturating_sub(start) < to_pick {
+        return false;
+    }
+    let max_idx = candidates.len() - to_pick;
+    for i in start..=max_idx {
+        match candidates[i] {
+            DistinctItem::Object(id) => {
+                let added = !prior_objects.contains(&id);
+                if added {
+                    prior_objects.push(id);
+                }
+                let ok = choose_distinct_and_complete(
+                    candidates,
+                    i + 1,
+                    to_pick - 1,
+                    prior_objects,
+                    prior_players,
+                    tail,
+                );
+                if added {
+                    prior_objects.pop();
+                }
+                if ok {
+                    return true;
+                }
+            }
+            DistinctItem::Player(p) => {
+                let mut next_players = prior_players;
+                next_players.insert(p);
+                if choose_distinct_and_complete(
+                    candidates,
+                    i + 1,
+                    to_pick - 1,
+                    prior_objects,
+                    next_players,
+                    tail,
+                ) {
+                    return true;
+                }
+            }
+        }
+    }
+    false
+}
+
+/// Whether `remaining` target groups have at least one valid joint assignment
+/// given `prior_objects` and `prior_players` already chosen in earlier groups
+/// (CR 601.2c, CR 602.2b, CR 603.3d).
+pub(crate) fn can_complete_target_groups(
+    prior_objects: &[ObjectId],
+    prior_players: baylee_core::ids::SeatSet,
+    remaining: &[DistinctGroupPool],
+) -> bool {
+    let Some(first_mandatory) = remaining.iter().position(|g| g.needed > 0) else {
+        return true;
+    };
+    let active = &remaining[first_mandatory..];
+    let head = &active[0];
+    let tail = &active[1..];
+    let avail_objs: Vec<ObjectId> = if head.distinct_from_prior {
+        head.objects
+            .iter()
+            .copied()
+            .filter(|id| !prior_objects.contains(id))
+            .collect()
+    } else {
+        head.objects.clone()
+    };
+    let avail_players: Vec<PlayerId> = if head.distinct_from_prior {
+        head.players
+            .iter()
+            .copied()
+            .filter(|p| !prior_players.contains(*p))
+            .collect()
+    } else {
+        head.players.clone()
+    };
+    if avail_objs.len() + avail_players.len() < head.needed {
+        return false;
+    }
+    if !tail.iter().any(|g| g.needed > 0 && g.distinct_from_prior) {
+        return can_complete_target_groups(prior_objects, prior_players, tail);
+    }
+    // Hall / pigeonhole bound: later groups consume at most `later_demand`
+    // items, so testing `head.needed + later_demand` available items from
+    // `head` (free items first) is both necessary and sufficient.
+    let total_demand: usize = active.iter().map(|g| g.needed).sum();
+    let mut bounded: Vec<DistinctItem> = Vec::with_capacity(total_demand);
+    let in_later = |item: DistinctItem| {
+        tail.iter()
+            .filter(|g| g.needed > 0 && g.distinct_from_prior)
+            .any(|g| match item {
+                DistinctItem::Object(id) => g.objects.contains(&id),
+                DistinctItem::Player(p) => g.players.contains(&p),
+            })
+    };
+    for &id in &avail_objs {
+        if bounded.len() < total_demand && !in_later(DistinctItem::Object(id)) {
+            bounded.push(DistinctItem::Object(id));
+        }
+    }
+    for &p in &avail_players {
+        if bounded.len() < total_demand && !in_later(DistinctItem::Player(p)) {
+            bounded.push(DistinctItem::Player(p));
+        }
+    }
+    for &id in &avail_objs {
+        if bounded.len() < total_demand && in_later(DistinctItem::Object(id)) {
+            bounded.push(DistinctItem::Object(id));
+        }
+    }
+    for &p in &avail_players {
+        if bounded.len() < total_demand && in_later(DistinctItem::Player(p)) {
+            bounded.push(DistinctItem::Player(p));
+        }
+    }
+    let mut prior_vec = prior_objects.to_vec();
+    choose_distinct_and_complete(
+        &bounded,
+        0,
+        head.needed,
+        &mut prior_vec,
+        prior_players,
+        tail,
+    )
+}
+
+/// Applies [`baylee_cards_dsl::TargetConstraint::DistinctFromPriorTargetGroups`]
+/// (both backward exclusion of `prior_objects` / `prior_players` and forward
+/// completability across `later_groups` when choosing a single target).
+pub(crate) fn retain_distinct_group_options(
+    req: baylee_cards_dsl::TargetReq,
+    options: &mut Vec<ObjectId>,
+    player_options: &mut Vec<PlayerId>,
+    prior_objects: &[ObjectId],
+    prior_players: baylee_core::ids::SeatSet,
+    later_groups: &[DistinctGroupPool],
+) {
+    if req.constraint() == Some(baylee_cards_dsl::TargetConstraint::DistinctFromPriorTargetGroups) {
+        options.retain(|id| !prior_objects.contains(id));
+        player_options.retain(|p| !prior_players.contains(*p));
+    }
+    if req.max == 1
+        && !req.count_is_x
+        && later_groups
+            .iter()
+            .any(|g| g.needed > 0 && g.distinct_from_prior)
+    {
+        options.retain(|&id| {
+            let mut next_objs = prior_objects.to_vec();
+            if !next_objs.contains(&id) {
+                next_objs.push(id);
+            }
+            can_complete_target_groups(&next_objs, prior_players, later_groups)
+        });
+        player_options.retain(|&p| {
+            let mut next_players = prior_players;
+            next_players.insert(p);
+            can_complete_target_groups(prior_objects, next_players, later_groups)
+        });
+    }
+}

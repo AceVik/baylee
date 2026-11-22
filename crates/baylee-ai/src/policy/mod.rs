@@ -2755,10 +2755,13 @@ pub(crate) fn removal(effect: &Effect) -> bool {
             | Effect::Exile { .. }
             | Effect::ExileTargetsWithSource
             | Effect::PutTargetOnBottomOfLibrary
-    ) || {
+    ) || (!matches!(
+        effect,
+        Effect::WithSecondTarget(..) | Effect::WithThirdTarget(..)
+    ) && {
         let (then, otherwise) = effect.branches();
         then.iter().chain(otherwise).any(removal)
-    }
+    })
 }
 
 /// An offensive or disruptive targeted effect that must not be cast when
@@ -2768,6 +2771,7 @@ fn harmful_targeted(effect: &Effect) -> bool {
         return true;
     }
     match effect {
+        Effect::WithSecondTarget(..) | Effect::WithThirdTarget(..) => false,
         Effect::DealDamage { .. }
         | Effect::DamagePermanentAndController { .. }
         | Effect::DealDamageWithCappedLifeGain { .. }

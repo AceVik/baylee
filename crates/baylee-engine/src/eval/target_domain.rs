@@ -29,6 +29,15 @@ pub(crate) fn walls(first: Option<TargetReq>, second: Option<TargetReq>) -> bool
     wall_requirements([first, second].into_iter().flatten())
 }
 
+/// Optional target instances across up to three target groups.
+pub(crate) fn walls3(
+    first: Option<TargetReq>,
+    second: Option<TargetReq>,
+    third: Option<TargetReq>,
+) -> bool {
+    wall_requirements([first, second, third].into_iter().flatten())
+}
+
 pub(crate) fn wall_requirements(requirements: impl IntoIterator<Item = TargetReq>) -> bool {
     let mut any = false;
     for req in requirements {
@@ -54,50 +63,57 @@ pub(crate) fn modes_wall_only(modes: &[baylee_cards_dsl::SpellMode], set: u8) ->
 }
 
 /// The actual selected definition, including grants from another printed card.
-pub(crate) fn requirements(
+pub(crate) fn requirements3(
     definition: &AbilityDef,
     mode: Option<u8>,
-) -> (Option<TargetReq>, Option<TargetReq>) {
+) -> (Option<TargetReq>, Option<TargetReq>, Option<TargetReq>) {
     match definition {
         AbilityDef::Activated {
             targets,
             second_targets,
+            third_targets,
             ..
         }
         | AbilityDef::ActivatedConditional {
             targets,
             second_targets,
+            third_targets,
             ..
         }
         | AbilityDef::Loyalty {
             targets,
             second_targets,
+            third_targets,
             ..
         }
         | AbilityDef::Triggered {
             targets,
             second_targets,
+            third_targets,
             ..
         }
         | AbilityDef::Spell {
             targets,
             second_targets,
+            third_targets,
             ..
-        } => (*targets, *second_targets),
-        AbilityDef::SagaChapter { targets, .. } => (*targets, None),
+        } => (*targets, *second_targets, *third_targets),
+        AbilityDef::SagaChapter { targets, .. } => (*targets, None, None),
         AbilityDef::ModalTriggered { modes, .. }
         | AbilityDef::ModalActivated { modes, .. }
         | AbilityDef::ModalSpell { modes, .. }
         | AbilityDef::Modal { modes, .. } => mode
             .and_then(|index| modes.get(usize::from(index)))
-            .map_or((None, None), |mode| (mode.targets, mode.second_targets)),
-        _ => (None, None),
+            .map_or((None, None, None), |mode| {
+                (mode.targets, mode.second_targets, None)
+            }),
+        _ => (None, None, None),
     }
 }
 
 pub(crate) fn ability_walls(definition: &AbilityDef, mode: Option<u8>) -> bool {
-    let (first, second) = requirements(definition, mode);
-    walls(first, second)
+    let (first, second, third) = requirements3(definition, mode);
+    walls3(first, second, third)
 }
 
 /// Frozen requirements win over a definition and do not require a live source.
@@ -108,13 +124,14 @@ pub(crate) fn stack_walls(object: &GameObject) -> bool {
             object.own_abilities.as_ref().and_then(|list| {
                 crate::copiable_abilities::AbilityDefs::from(list)
                     .get(location.index as usize)
-                    .map(|definition| requirements(definition, object.mode_index))
+                    .map(|definition| requirements3(definition, object.mode_index))
             })
         })
         .unwrap_or_default();
-    walls(
+    walls3(
         object.target_req.or(inherited.0),
         object.second_target_req().or(inherited.1),
+        object.third_target_req().or(inherited.2),
     )
 }
 

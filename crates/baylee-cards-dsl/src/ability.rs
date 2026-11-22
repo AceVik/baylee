@@ -1442,6 +1442,9 @@ pub enum AbilityDef {
         /// illegal target *and the position it held*. An effect reaches this
         /// list only by naming [`crate::effect::TargetSlot::Second`].
         second_targets: Option<crate::effect::TargetReq>,
+        /// A third instance of the word "target" (CR 115.3), chosen after the
+        /// second and kept apart from the first two (*Cone of Flame*).
+        third_targets: Option<crate::effect::TargetReq>,
         /// "Cast this spell only [when]" (CR 506.8, 601.3): asked before the
         /// spell may be cast, as an activated ability's condition is asked
         /// before it may be activated. `None` for the spell every other
@@ -1463,6 +1466,9 @@ pub enum AbilityDef {
         /// A second instance of the word "target", as on
         /// [`AbilityDef::Spell::second_targets`] (Contested Cliffs).
         second_targets: Option<crate::effect::TargetReq>,
+        /// A third instance of the word "target", as on
+        /// [`AbilityDef::Spell::third_targets`].
+        third_targets: Option<crate::effect::TargetReq>,
         /// Timing restriction.
         timing: ActivationTiming,
         /// Mana abilities don't use the stack (CR 605.1).
@@ -1493,6 +1499,10 @@ pub enum AbilityDef {
         /// Fells' "and 2 damage to up to one target creature that player or
         /// that planeswalker's controller controls".
         second_targets: Option<crate::effect::TargetReq>,
+        /// A third instance of the word "target", as on
+        /// [`AbilityDef::Spell::third_targets`], chosen after the second as
+        /// the ability goes on the stack (CR 603.3d).
+        third_targets: Option<crate::effect::TargetReq>,
         /// Fires at most once each turn (Jin-Gitaxias).
         once_per_turn: bool,
         /// The intervening-`if` clause, if the card prints one (CR 603.4).
@@ -1543,6 +1553,9 @@ pub enum AbilityDef {
         /// A second instance of the word "target", as on the unconditional
         /// twin.
         second_targets: Option<crate::effect::TargetReq>,
+        /// A third instance of the word "target", as on the unconditional
+        /// twin.
+        third_targets: Option<crate::effect::TargetReq>,
         /// Instant/sorcery timing.
         timing: ActivationTiming,
         /// Whether this is a mana ability.
@@ -1646,6 +1659,9 @@ pub enum AbilityDef {
         /// [`AbilityDef::Spell::second_targets`] (Oko, Thief of Crowns' −5:
         /// one of yours, one of theirs).
         second_targets: Option<crate::effect::TargetReq>,
+        /// A third instance of the word "target", as on
+        /// [`AbilityDef::Spell::third_targets`].
+        third_targets: Option<crate::effect::TargetReq>,
     },
     /// An activated ability whose controller chooses exactly one mode during
     /// announcement, before selecting targets and paying the activation cost.
@@ -1855,6 +1871,7 @@ impl AbilityDef {
                 effects,
                 targets,
                 second_targets,
+                third_targets,
                 mana_ability,
                 ..
             }
@@ -1863,6 +1880,7 @@ impl AbilityDef {
                 effects,
                 targets,
                 second_targets,
+                third_targets,
                 mana_ability,
                 ..
             } => {
@@ -1870,7 +1888,7 @@ impl AbilityDef {
                     && crate::mana_rule::activated_mana_ability(
                         cost,
                         effects,
-                        targets.is_some() || second_targets.is_some(),
+                        targets.is_some() || second_targets.is_some() || third_targets.is_some(),
                     )
             }
             _ => false,
@@ -1895,6 +1913,7 @@ impl AbilityDef {
                 trigger: Trigger::TappedForMana { .. },
                 targets: None,
                 second_targets: None,
+                third_targets: None,
                 effects,
                 ..
             } if crate::mana_rule::could_add_mana(effects)
@@ -1959,6 +1978,7 @@ impl AbilityDef {
             effects: &DRAW_ONE,
             targets: None,
             second_targets: None,
+            third_targets: None,
             zone: TriggerZone::Battlefield,
             condition: Some(Condition::XAtLeast(5)),
             once_per_turn: false,
@@ -1983,6 +2003,7 @@ impl AbilityDef {
             effects: &MAY_MOVE,
             targets: None,
             second_targets: None,
+            third_targets: None,
             zone: TriggerZone::Battlefield,
             condition: Some(Condition::CountersOnSelf(crate::CounterKind::P1P1, 1)),
             once_per_turn: false,
@@ -2013,6 +2034,7 @@ impl AbilityDef {
             }],
             targets: None,
             second_targets: None,
+            third_targets: None,
             timing: ActivationTiming::SorcerySpeed,
             mana_ability: false,
             zone: ActivationZone::Hand,
@@ -2046,6 +2068,7 @@ impl AbilityDef {
                 crate::effect::TargetSpec::Object(&Filter::CREATURE),
             )),
             second_targets: None,
+            third_targets: None,
             timing: ActivationTiming::SorcerySpeed,
             mana_ability: false,
             zone: ActivationZone::Graveyard,
@@ -2337,6 +2360,7 @@ mod tests {
             effects: TEST_MANA,
             targets: None,
             second_targets: None,
+            third_targets: None,
             timing: ActivationTiming::InstantSpeed,
             mana_ability,
             zone: ActivationZone::Battlefield,
@@ -2352,6 +2376,7 @@ mod tests {
             effects: TEST_MANA,
             targets: None,
             second_targets: None,
+            third_targets: None,
             timing: ActivationTiming::InstantSpeed,
             mana_ability,
             zone: ActivationZone::Battlefield,
@@ -2384,6 +2409,7 @@ mod tests {
             effects,
             targets: None,
             second_targets: None,
+            third_targets: None,
             timing: ActivationTiming::InstantSpeed,
             mana_ability: false,
             zone,
@@ -2434,6 +2460,7 @@ mod tests {
             effects,
             targets: None,
             second_targets: None,
+            third_targets: None,
             timing,
             mana_ability: false,
             zone: ActivationZone::Hand,
@@ -2475,6 +2502,7 @@ mod tests {
     /// does not have a shape for, and a spell that adds mana uses the stack
     /// like any other spell.
     #[test]
+    #[allow(clippy::too_many_lines)]
     fn no_other_kind_of_ability_is_a_mana_ability() {
         let others = [
             AbilityDef::Unimplemented,
@@ -2482,6 +2510,7 @@ mod tests {
                 effects: NOTHING,
                 targets: None,
                 second_targets: None,
+                third_targets: None,
                 condition: None,
             },
             AbilityDef::Triggered {
@@ -2489,6 +2518,7 @@ mod tests {
                 effects: NOTHING,
                 targets: None,
                 second_targets: None,
+                third_targets: None,
                 zone: TriggerZone::Battlefield,
                 once_per_turn: false,
                 condition: None,
@@ -2544,6 +2574,7 @@ mod tests {
                 effects: NOTHING,
                 targets: None,
                 second_targets: None,
+                third_targets: None,
             },
             AbilityDef::ModalTriggered {
                 trigger: Trigger::ETB,

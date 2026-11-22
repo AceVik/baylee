@@ -96,6 +96,7 @@ static CLOAK_AURA_ABILITIES: &[AbilityDef] = &[
         }],
         targets: Some(TargetReq::one(TargetSpec::Object(&Filter::CREATURE))),
         second_targets: None,
+        third_targets: None,
         condition: None,
     },
     static_ability!(
@@ -125,6 +126,7 @@ fn spell_card(
         effects,
         targets,
         second_targets: None,
+        third_targets: None,
         condition: None,
     }]));
     card(
@@ -246,6 +248,7 @@ fn granted_triggered_definition_enforces_intervening_if_both_checks_and_once_per
         }],
         targets: None,
         second_targets: None,
+        third_targets: None,
         zone: TriggerZone::Battlefield,
         once_per_turn: true,
         condition: None,
@@ -258,6 +261,7 @@ fn granted_triggered_definition_enforces_intervening_if_both_checks_and_once_per
         }],
         targets: None,
         second_targets: None,
+        third_targets: None,
         zone: TriggerZone::Battlefield,
         once_per_turn: true,
         condition: Some(Condition::LifeAtMost(20)),

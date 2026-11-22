@@ -72,6 +72,9 @@ pub(super) fn target_spell_would_destroy(
             baylee_cards_dsl::TargetSlot::Second => {
                 spell.second_targets().iter().copied().any(doomed)
             }
+            baylee_cards_dsl::TargetSlot::Third => {
+                spell.third_targets().iter().copied().any(doomed)
+            }
         }),
         Effect::Destroy {
             target:

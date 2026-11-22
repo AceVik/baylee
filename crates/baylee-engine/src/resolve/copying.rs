@@ -435,17 +435,8 @@ fn resolve_copy_subjects(
             .map(|s| s.object)
             .into_iter()
             .collect(),
-        TargetSlot::First => res
-            .targets
-            .iter()
-            .copied()
-            .filter(|&id| {
-                super::subjects::target(state, res, id)
-                    .is_some_and(|r| super::subjects::on_battlefield(state, r))
-            })
-            .collect(),
-        TargetSlot::Second => res
-            .second_targets
+        other => res
+            .slot_targets(other)
             .iter()
             .copied()
             .filter(|&id| {

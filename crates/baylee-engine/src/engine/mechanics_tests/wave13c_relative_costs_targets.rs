@@ -122,6 +122,7 @@ fn hinata_reduces_controller_spells_per_distinct_target_and_counts_shared_target
         effects: &[Effect::TapTarget],
         targets: Some(TargetReq::one(TargetSpec::Object(&Filter::CREATURE))),
         second_targets: Some(TargetReq::one(TargetSpec::Object(&Filter::CREATURE))),
+        third_targets: None,
         condition: None,
     }];
     static NO_TARGET: &[AbilityDef] = &[spell!(&[Effect::GainLife {
@@ -346,6 +347,7 @@ fn hinata_taxes_opponent_spells_per_distinct_target_including_shared_target() {
         effects: &[Effect::TapTarget],
         targets: Some(TargetReq::one(TargetSpec::Object(&Filter::CREATURE))),
         second_targets: Some(TargetReq::one(TargetSpec::Object(&Filter::CREATURE))),
+        third_targets: None,
         condition: None,
     }];
     static NO_TARGET: &[AbilityDef] = &[spell!(&[Effect::GainLife {
@@ -560,6 +562,7 @@ fn hollow_one_reduction_tracks_cycling_and_effect_discards_and_resets_next_turn(
         }],
         targets: None,
         second_targets: None,
+        third_targets: None,
         timing: ActivationTiming::InstantSpeed,
         mana_ability: false,
         zone: ActivationZone::Hand,
@@ -1182,6 +1185,7 @@ fn one_per_player_vaevictis_trigger_spell_and_ability_in_3p_mandatory_vs_optiona
         }],
         targets: Some(MANDATORY_NONLAND),
         second_targets: None,
+        third_targets: None,
         condition: None,
         zone: TriggerZone::Battlefield,
         once_per_turn: false,

@@ -636,6 +636,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                         zone,
                         targets,
                         second_targets,
+                        third_targets,
                         limit,
                         cost_reduction,
                         ..
@@ -681,6 +682,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                             payable,
                             *targets,
                             *second_targets,
+                            *third_targets,
                             &mut legal,
                         );
                     }
@@ -691,6 +693,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                         condition,
                         targets,
                         second_targets,
+                        third_targets,
                         limit,
                         cost_reduction,
                         ..
@@ -744,6 +747,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                             payable,
                             *targets,
                             *second_targets,
+                            *third_targets,
                             &mut legal,
                         );
                     }
@@ -751,6 +755,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                         cost,
                         targets,
                         second_targets,
+                        third_targets,
                         ..
                     } => {
                         // Loyalty abilities: sorcery timing, once per turn
@@ -766,7 +771,14 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                         if *cost < 0 && loyalty < (-*cost) as u16 {
                             continue;
                         }
-                        if !self.ability_has_targets(player, id, i, *targets, *second_targets) {
+                        if !self.ability_has_targets(
+                            player,
+                            id,
+                            i,
+                            *targets,
+                            *second_targets,
+                            *third_targets,
+                        ) {
                             continue;
                         }
                         legal.abilities.push((id, i));
@@ -817,6 +829,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                             zone,
                             targets,
                             second_targets,
+                            third_targets,
                             limit,
                             cost_reduction,
                             ..
@@ -871,6 +884,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                                 payable,
                                 *targets,
                                 *second_targets,
+                                *third_targets,
                                 &mut legal,
                             );
                         }
@@ -881,6 +895,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                             condition,
                             targets,
                             second_targets,
+                            third_targets,
                             limit,
                             cost_reduction,
                             ..
@@ -943,6 +958,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                                 payable,
                                 *targets,
                                 *second_targets,
+                                *third_targets,
                                 &mut legal,
                             );
                         }
@@ -1113,6 +1129,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
         payable: bool,
         targets: Option<baylee_cards_dsl::TargetReq>,
         second_targets: Option<baylee_cards_dsl::TargetReq>,
+        third_targets: Option<baylee_cards_dsl::TargetReq>,
         legal: &mut LegalActions,
     ) {
         let minimum = self.activation_x_minimum(player, source, index);
@@ -1133,7 +1150,14 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                     self.mana_activation_life(source, index),
                 ));
         if payable {
-            if self.ability_has_targets(player, source, index, targets, second_targets) {
+            if self.ability_has_targets(
+                player,
+                source,
+                index,
+                targets,
+                second_targets,
+                third_targets,
+            ) {
                 legal.abilities.push((source, index));
             }
         } else if cost.mana != baylee_core::mana::ManaCost::ZERO
@@ -1144,7 +1168,14 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 &[],
                 self.mana_activation_life(source, index),
             )
-            && self.ability_has_targets(player, source, index, targets, second_targets)
+            && self.ability_has_targets(
+                player,
+                source,
+                index,
+                targets,
+                second_targets,
+                third_targets,
+            )
         {
             legal.abilities.push((source, index));
             legal.unpaid_abilities.push((source, index, cost.mana));

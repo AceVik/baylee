@@ -35,6 +35,7 @@ pub(super) fn selected_definition(definition: &AbilityDef, mode: &SpellMode) -> 
             effects: mode.effects,
             targets: mode.targets,
             second_targets: mode.second_targets,
+            third_targets: None,
             timing,
             mana_ability,
             zone,
@@ -49,6 +50,7 @@ pub(super) fn selected_definition(definition: &AbilityDef, mode: &SpellMode) -> 
             effects: mode.effects,
             targets: mode.targets,
             second_targets: mode.second_targets,
+            third_targets: None,
             timing,
             mana_ability,
             zone,
@@ -79,7 +81,14 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
     ) -> bool {
         mode.cost_override.is_none()
             && mode.additional_cost.is_none()
-            && self.ability_has_targets(player, source, index, mode.targets, mode.second_targets)
+            && self.ability_has_targets(
+                player,
+                source,
+                index,
+                mode.targets,
+                mode.second_targets,
+                None,
+            )
     }
 
     /// Offers use the same selected requirements as announcement, without storing a choice.
@@ -96,6 +105,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 effects: &[],
                 targets: None,
                 second_targets: None,
+                third_targets: None,
                 timing: baylee_cards_dsl::ActivationTiming::SorcerySpeed,
                 mana_ability: false,
                 zone: baylee_cards_dsl::ActivationZone::Graveyard,

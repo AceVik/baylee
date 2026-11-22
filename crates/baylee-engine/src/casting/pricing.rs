@@ -1118,7 +1118,7 @@ fn clause_preview_targets(
             };
             (min_c, max_c)
         }
-        None => {
+        None | Some(baylee_cards_dsl::TargetConstraint::DistinctFromPriorTargetGroups) => {
             let avail = u32::try_from(objs.len() + pls.len()).unwrap_or(u32::MAX);
             let min_c = if req.count_is_x {
                 0
@@ -1136,51 +1136,59 @@ fn clause_preview_targets(
     (min_c, max_c, req.count_is_x, objs, pls)
 }
 
-fn pair_preview_targets(
+fn clauses_preview_targets(
     state: &GameState,
     player: PlayerId,
     card: ObjectId,
     def: &'static baylee_cards_dsl::CardDef,
     face: usize,
-    first: Option<baylee_cards_dsl::TargetReq>,
-    second: Option<baylee_cards_dsl::TargetReq>,
+    clauses: &[Option<baylee_cards_dsl::TargetReq>],
 ) -> (u32, u32, bool) {
-    let wall_only = crate::eval::target_domain::walls(first, second);
-    match (first, second) {
-        (None, None) => (0, 0, false),
-        (Some(req), None) | (None, Some(req)) => {
-            let (min_c, max_c, is_x, _, _) =
-                clause_preview_targets(state, player, card, def, face, req, wall_only);
-            (min_c, max_c, is_x)
+    let wall_only =
+        crate::eval::target_domain::wall_requirements(clauses.iter().copied().flatten());
+    let mut min_d = 0_u32;
+    let mut max_sum = 0_u32;
+    let mut any_x = false;
+    let mut union_objs: Vec<ObjectId> = Vec::new();
+    let mut union_pls: Vec<PlayerId> = Vec::new();
+    let mut seen_clause = false;
+    for req in clauses.iter().copied().flatten() {
+        let (min_c, max_c, is_x, objs, pls) =
+            clause_preview_targets(state, player, card, def, face, req, wall_only);
+        any_x |= is_x;
+        max_sum = max_sum.saturating_add(max_c);
+        if !seen_clause {
+            min_d = min_c;
+            union_objs = objs;
+            union_pls = pls;
+            seen_clause = true;
+            continue;
         }
-        (Some(r1), Some(r2)) => {
-            let (min1, max1, x1, o1, p1) =
-                clause_preview_targets(state, player, card, def, face, r1, wall_only);
-            let (min2, max2, x2, o2, p2) =
-                clause_preview_targets(state, player, card, def, face, r2, wall_only);
-            let disjoint = !o1.iter().any(|o| o2.contains(o)) && !p1.iter().any(|p| p2.contains(p));
-            let min_d = if disjoint {
-                min1.saturating_add(min2)
-            } else {
-                min1.max(min2)
-            };
-            let mut union_objs = o1;
-            for id in o2 {
-                if !union_objs.contains(&id) {
-                    union_objs.push(id);
-                }
+        let disjoint = req.constraint()
+            == Some(baylee_cards_dsl::TargetConstraint::DistinctFromPriorTargetGroups)
+            || (!union_objs.iter().any(|o| objs.contains(o))
+                && !union_pls.iter().any(|p| pls.contains(p)));
+        min_d = if disjoint {
+            min_d.saturating_add(min_c)
+        } else {
+            min_d.max(min_c)
+        };
+        for id in objs {
+            if !union_objs.contains(&id) {
+                union_objs.push(id);
             }
-            let mut union_pls = p1;
-            for p in p2 {
-                if !union_pls.contains(&p) {
-                    union_pls.push(p);
-                }
+        }
+        for p in pls {
+            if !union_pls.contains(&p) {
+                union_pls.push(p);
             }
-            let union_cap = u32::try_from(union_objs.len() + union_pls.len()).unwrap_or(u32::MAX);
-            let max_d = union_cap.min(max1.saturating_add(max2));
-            (min_d, max_d, x1 || x2)
         }
     }
+    if !seen_clause {
+        return (0, 0, false);
+    }
+    let union_cap = u32::try_from(union_objs.len() + union_pls.len()).unwrap_or(u32::MAX);
+    (min_d, union_cap.min(max_sum), any_x)
 }
 
 pub(crate) fn preview_max_mandatory_x(
@@ -1717,17 +1725,27 @@ pub(crate) fn preview_cast_metric_bounds_for(
         let mut min_d = 0_u32;
         let mut max_d = 0_u32;
         let mut count_is_x = false;
-        if let Some((first, second)) = def.abilities_for_face(face_idx).iter().find_map(|a| match a
+        if let Some((first, second, third)) =
+            def.abilities_for_face(face_idx)
+                .iter()
+                .find_map(|a| match a {
+                    baylee_cards_dsl::AbilityDef::Spell {
+                        targets,
+                        second_targets,
+                        third_targets,
+                        ..
+                    } => Some((*targets, *second_targets, *third_targets)),
+                    _ => None,
+                })
         {
-            baylee_cards_dsl::AbilityDef::Spell {
-                targets,
-                second_targets,
-                ..
-            } => Some((*targets, *second_targets)),
-            _ => None,
-        }) {
-            (min_d, max_d, count_is_x) =
-                pair_preview_targets(state, player, card, def, face_idx, first, second);
+            (min_d, max_d, count_is_x) = clauses_preview_targets(
+                state,
+                player,
+                card,
+                def,
+                face_idx,
+                &[first, second, third],
+            );
         } else if let Some((modes, ..)) = def
             .abilities_for_face(face_idx)
             .iter()
@@ -1737,14 +1755,13 @@ pub(crate) fn preview_cast_metric_bounds_for(
             let mut best_max = 0_u32;
             let mut any_x = false;
             for mode in modes {
-                let (m_min, m_max, m_x) = pair_preview_targets(
+                let (m_min, m_max, m_x) = clauses_preview_targets(
                     state,
                     player,
                     card,
                     def,
                     face_idx,
-                    mode.targets,
-                    mode.second_targets,
+                    &[mode.targets, mode.second_targets],
                 );
                 best_min = best_min.min(m_min);
                 best_max = best_max.max(m_max);

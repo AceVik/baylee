@@ -23,6 +23,7 @@ static LESSON_ABILITIES: &[AbilityDef] = &[AbilityDef::Spell {
     effects: &[Effect::gain_life(1)],
     targets: Some(TargetReq::one(TargetSpec::Object(&Filter::CREATURE))),
     second_targets: None,
+    third_targets: None,
     condition: None,
 }];
 

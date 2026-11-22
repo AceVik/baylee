@@ -1063,9 +1063,42 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 }
             }
         }
-        self.wizard_second_target_req(&wizard).is_none_or(|req| {
-            self.wizard_target_options(&wizard, &req.spec).len() >= usize::from(req.min)
-        })
+        let second_ok = self.wizard_second_target_req(&wizard).is_none_or(|req| {
+            let players = eval::target_player_options_from(
+                &self.state,
+                &req.spec,
+                player,
+                eval::live_context(&self.state, card),
+            );
+            self.wizard_target_options(&wizard, &req.spec).len() + players.len()
+                >= usize::from(req.min)
+        });
+        let third_ok = self.wizard_third_target_req(&wizard).is_none_or(|req| {
+            let players = eval::target_player_options_from(
+                &self.state,
+                &req.spec,
+                player,
+                eval::live_context(&self.state, card),
+            );
+            self.wizard_target_options(&wizard, &req.spec).len() + players.len()
+                >= usize::from(req.min)
+        });
+        if !second_ok || !third_ok {
+            return false;
+        }
+        let (_, _, later) = self.wizard_prior_and_later_pools(&wizard, 0);
+        if later.iter().any(|g| g.needed > 0 && g.distinct_from_prior)
+            && let Some(first_req) = self.wizard_target_req(&wizard)
+        {
+            let mut all_pools = Vec::with_capacity(1 + later.len());
+            all_pools.push(self.wizard_clause_distinct_pool(&wizard, first_req));
+            all_pools.extend(later);
+            if !eval::can_complete_target_groups(&[], baylee_core::ids::SeatSet::new(), &all_pools)
+            {
+                return false;
+            }
+        }
+        true
     }
 
     /// The wizard a miracle cast of `card` starts with, or `None` when the
@@ -1917,9 +1950,10 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
             wizard.card,
             Some((def, face)),
             form,
-            eval::target_domain::walls(
+            eval::target_domain::walls3(
                 self.wizard_target_req(wizard),
                 self.wizard_second_target_req(wizard),
+                self.wizard_third_target_req(wizard),
             ),
             reference,
         )
@@ -2043,8 +2077,19 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
         let (mode_idx, is_second, mut req) =
             if let Some(clauses) = self.extended_wizard_clauses(wizard) {
                 *clauses.get(clause_idx)?
+            } else if let Some(clause) = self.wizard_modal_clause(wizard, clause_idx) {
+                clause
+            } else if wizard.option == Some(CastModeKind::Fused) {
+                let def = self
+                    .state
+                    .object(wizard.card)
+                    .and_then(|o| o.card)
+                    .and_then(|c| self.lookup.card(c.index))?;
+                (0, false, fused_target_req(def, clause_idx)?)
+            } else if clause_idx == 2 {
+                (0, true, self.wizard_third_target_req(wizard)?)
             } else {
-                self.wizard_modal_clause(wizard, clause_idx)?
+                return None;
             };
         if is_second
             && let TargetSpec::CardInFirstTargetsGraveyard(filter) = req.spec
@@ -2053,6 +2098,129 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
             req.spec = TargetSpec::CardInPlayersGraveyard(filter, player);
         }
         Some((mode_idx, is_second, req))
+    }
+
+    pub(super) fn wizard_third_target_req(&self, wizard: &CastWizard) -> Option<TargetReq> {
+        if wizard.masked || matches!(wizard.option, Some(CastModeKind::Disguise)) {
+            return None;
+        }
+        let def = self
+            .state
+            .object(wizard.card)
+            .and_then(|o| o.card)
+            .and_then(|c| self.lookup.card(c.index))?;
+        let face_index = wizard.face_index().min(def.faces.len() - 1);
+        match wizard.option {
+            Some(
+                CastModeKind::Modes(_)
+                | CastModeKind::RepeatedModes(_)
+                | CastModeKind::Mode(_)
+                | CastModeKind::Fused,
+            ) => None,
+            _ => def
+                .abilities_for_face(face_index)
+                .iter()
+                .find_map(|a| match a {
+                    AbilityDef::Spell { third_targets, .. } => *third_targets,
+                    _ => None,
+                }),
+        }
+    }
+
+    pub(super) fn wizard_clause_distinct_pool(
+        &self,
+        wizard: &CastWizard,
+        req: TargetReq,
+    ) -> eval::DistinctGroupPool {
+        let distinct_from_prior = req.constraint()
+            == Some(baylee_cards_dsl::TargetConstraint::DistinctFromPriorTargetGroups);
+        let (min, _) = req.bounds(wizard.x);
+        if min == 0
+            || matches!(
+                req.spec,
+                TargetSpec::Player(rel) if rel != baylee_cards_dsl::PlayerRel::You
+            )
+        {
+            return eval::DistinctGroupPool {
+                needed: 0,
+                distinct_from_prior,
+                objects: Vec::new(),
+                players: Vec::new(),
+            };
+        }
+        let objects = self.wizard_target_options(wizard, &req.spec);
+        let players = eval::target_player_options_from(
+            &self.state,
+            &req.spec,
+            wizard.player,
+            eval::live_context(&self.state, wizard.card),
+        );
+        eval::DistinctGroupPool {
+            needed: usize::try_from(min).unwrap_or(usize::MAX),
+            distinct_from_prior,
+            objects,
+            players,
+        }
+    }
+
+    pub(super) fn wizard_prior_and_later_pools(
+        &self,
+        wizard: &CastWizard,
+        clause_idx: usize,
+    ) -> (
+        Vec<ObjectId>,
+        baylee_core::ids::SeatSet,
+        Vec<eval::DistinctGroupPool>,
+    ) {
+        let mut prior_objs = Vec::new();
+        let mut prior_players = baylee_core::ids::SeatSet::new();
+        if clause_idx >= 1 {
+            for &id in &wizard.targets {
+                if !prior_objs.contains(&id) {
+                    prior_objs.push(id);
+                }
+            }
+            for p in wizard.target_players.iter() {
+                prior_players.insert(p);
+            }
+            if let Some(p) = wizard.chosen_player {
+                prior_players.insert(p);
+            }
+        }
+        if clause_idx >= 2 {
+            for &id in &wizard.second_targets {
+                if !prior_objs.contains(&id) {
+                    prior_objs.push(id);
+                }
+            }
+            for p in wizard.second_target_players.iter() {
+                prior_players.insert(p);
+            }
+        }
+        if clause_idx > 2 {
+            for (objs, pls) in wizard.extra_targets.iter().take(clause_idx - 2) {
+                for &id in objs {
+                    if !prior_objs.contains(&id) {
+                        prior_objs.push(id);
+                    }
+                }
+                for p in pls.iter() {
+                    prior_players.insert(p);
+                }
+            }
+        }
+        let mut later = Vec::new();
+        if clause_idx == 0
+            && let Some(req) = self.wizard_second_target_req(wizard)
+        {
+            later.push(self.wizard_clause_distinct_pool(wizard, req));
+        }
+        let mut next_extra = clause_idx.max(1) + 1;
+        while let Some((_, _, req)) = self.wizard_extra_clause(wizard, next_extra) {
+            later.push(self.wizard_clause_distinct_pool(wizard, req));
+            next_extra += 1;
+        }
+        (prior_objs, prior_players, later)
     }
 
     /// The spell's requirement for a second instance of the word "target",
@@ -2768,9 +2936,12 @@ fn fused_target_req(def: &baylee_cards_dsl::CardDef, slot: usize) -> Option<Targ
                     AbilityDef::Spell {
                         targets,
                         second_targets,
+                        third_targets,
                         ..
-                    } => [*targets, *second_targets].into_iter().flatten(),
-                    _ => [None, None].into_iter().flatten(),
+                    } => [*targets, *second_targets, *third_targets]
+                        .into_iter()
+                        .flatten(),
+                    _ => [None, None, None].into_iter().flatten(),
                 })
         })
         .nth(slot)

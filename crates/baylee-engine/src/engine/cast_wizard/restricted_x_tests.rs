@@ -30,6 +30,7 @@ fn probe_spell(reduction: u32, restricted: bool, damage: bool) -> &'static CardD
             },
             targets: damage.then_some(TargetReq::one(TargetSpec::AnyTarget)),
             second_targets: None,
+            third_targets: None,
             condition: None,
         }])),
         index: template.index,
@@ -114,6 +115,7 @@ fn an_exact_x_target_spell_selects_and_pays_for_more_than_255_targets() {
                 &baylee_cards_dsl::Filter::LAND,
             ))),
             second_targets: None,
+            third_targets: None,
             condition: None,
         }])),
         ..*template
@@ -198,6 +200,7 @@ fn target_cost_increases_join_x_before_unused_generic_reductions() {
             effects: &[Effect::GainLife { amount: Amount::X }],
             targets: Some(TargetReq::up_to(TargetSpec::AnyTarget, 2)),
             second_targets: None,
+            third_targets: None,
             condition: None,
         }])),
         ..*template

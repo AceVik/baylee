@@ -253,6 +253,7 @@ impl HeuristicAgent {
                     effects,
                     targets,
                     second_targets: None,
+                    third_targets: None,
                     ..
                 } => self.ends(theirs, origin, Some(printed), effects, targets.as_ref(), x)?,
                 AbilityDef::Spell { .. } => return None,

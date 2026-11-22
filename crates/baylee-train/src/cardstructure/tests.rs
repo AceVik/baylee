@@ -338,3 +338,18 @@ fn labels_say_what_a_face_is_costs_and_does() {
     assert_eq!(bears.types, TypeSet::CREATURE.bits());
     assert!(bears.families.is_empty());
 }
+
+#[test]
+fn ability_without_third_targets_keeps_frozen_child_count() {
+    use baylee_cards_dsl::{TargetReq, TargetSpec, spell};
+    let children = |f: &Forest, id: u32| f.nodes[id as usize].children.len();
+    let mut f = Forest::new();
+    let plain = spell!(&[]).tree(&mut f);
+    let with_third = spell!(
+        &[],
+        third_targets = Some(TargetReq::one(TargetSpec::AnyTarget))
+    )
+    .tree(&mut f);
+    assert_eq!(children(&f, plain), 4);
+    assert_eq!(children(&f, with_third), 5);
+}

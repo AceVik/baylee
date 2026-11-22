@@ -1447,8 +1447,12 @@ impl Effect {
             | Effect::CreateTokenSized { .. }
             | Effect::PutCountersDivided { .. }
             | Effect::MoveAndModify { .. }
-            | Effect::PutCounterChoice { .. } => (NONE, NONE),
+            | Effect::PutCounterChoice { .. }
+            | Effect::AttachSlot { .. } => (NONE, NONE),
             Effect::VoteObjects { if_no_votes, .. } => (NONE, if_no_votes),
+            Effect::WithSecondTarget(effects) | Effect::WithThirdTarget(effects) => {
+                (effects, NONE)
+            }
         }
     }
 

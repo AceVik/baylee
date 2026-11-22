@@ -272,6 +272,7 @@ fn tap_target_isolates_first_slot_while_tap_target_slot_taps_second() {
         ],
         targets: Some(TargetReq::one(TargetSpec::Object(&Filter::CREATURE))),
         second_targets: Some(TargetReq::one(TargetSpec::Object(&Filter::CREATURE))),
+        third_targets: None,
         timing: ActivationTiming::InstantSpeed,
         mana_ability: false,
         zone: ActivationZone::Battlefield,
@@ -286,6 +287,7 @@ fn tap_target_isolates_first_slot_while_tap_target_slot_taps_second() {
         second_targets: Some(TargetReq::one(TargetSpec::Object(
             &Filter::OPPONENT_CREATURE,
         ))),
+        third_targets: None,
         timing: ActivationTiming::InstantSpeed,
         mana_ability: false,
         zone: ActivationZone::Battlefield,

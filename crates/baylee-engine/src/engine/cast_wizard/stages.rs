@@ -548,11 +548,21 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                     return WizardStep::Yield(Ok(()));
                 }
                 self.cast_wizard = Some(wizard.clone());
-                let player_options = eval::target_player_options_from(
+                let mut player_options = eval::target_player_options_from(
                     &self.state,
                     &spec,
                     wizard.player,
                     eval::live_context(&self.state, wizard.card),
+                );
+                let (prior_objs, prior_players, later_pools) =
+                    self.wizard_prior_and_later_pools(&wizard, 0);
+                eval::retain_distinct_group_options(
+                    req,
+                    &mut options,
+                    &mut player_options,
+                    &prior_objs,
+                    prior_players,
+                    &later_pools,
                 );
                 // "Any target" is one set: a burn spell with every creature
                 // hexproofed is still castable at a player's face, so the
@@ -669,11 +679,21 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                     return WizardStep::Yield(Ok(()));
                 }
                 self.cast_wizard = Some(wizard.clone());
-                let player_options = eval::target_player_options_from(
+                let mut player_options = eval::target_player_options_from(
                     &self.state,
                     &req.spec,
                     wizard.player,
                     eval::live_context(&self.state, wizard.card),
+                );
+                let (prior_objs, prior_players, later_pools) =
+                    self.wizard_prior_and_later_pools(&wizard, 1);
+                eval::retain_distinct_group_options(
+                    req,
+                    &mut options,
+                    &mut player_options,
+                    &prior_objs,
+                    prior_players,
+                    &later_pools,
                 );
                 if options.len() + player_options.len() < min as usize {
                     self.cast_wizard = None;
@@ -755,11 +775,21 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                     return WizardStep::Yield(Ok(()));
                 }
                 self.cast_wizard = Some(wizard.clone());
-                let player_options = eval::target_player_options_from(
+                let mut player_options = eval::target_player_options_from(
                     &self.state,
                     &req.spec,
                     wizard.player,
                     eval::live_context(&self.state, wizard.card),
+                );
+                let (prior_objs, prior_players, later_pools) =
+                    self.wizard_prior_and_later_pools(&wizard, clause_idx);
+                eval::retain_distinct_group_options(
+                    req,
+                    &mut options,
+                    &mut player_options,
+                    &prior_objs,
+                    prior_players,
+                    &later_pools,
                 );
                 if options.len() + player_options.len() < min as usize {
                     self.cast_wizard = None;
@@ -810,15 +840,27 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 // the caster is out of it — and so is a teammate. Listing
                 // every living player here was a hole even before teams: a
                 // "target opponent" spell offered its own caster.
-                let spec = self
-                    .wizard_target_req(&wizard)
-                    .map_or(TargetSpec::AnyPlayer, |req| req.spec);
-                let options = eval::target_player_options_from(
+                let req_opt = self.wizard_target_req(&wizard);
+                let spec = req_opt.map_or(TargetSpec::AnyPlayer, |req| req.spec);
+                let mut options = eval::target_player_options_from(
                     &self.state,
                     &spec,
                     wizard.player,
                     eval::live_context(&self.state, wizard.card),
                 );
+                if let Some(req) = req_opt {
+                    let (prior_objs, prior_players, later_pools) =
+                        self.wizard_prior_and_later_pools(&wizard, 0);
+                    let mut dummy_objs = Vec::new();
+                    eval::retain_distinct_group_options(
+                        req,
+                        &mut dummy_objs,
+                        &mut options,
+                        &prior_objs,
+                        prior_players,
+                        &later_pools,
+                    );
+                }
                 // No player can be chosen (every opponent has hexproof, say):
                 // the spell cannot take the step and cannot be cast (CR
                 // 601.2c, 601.2), and an empty menu is a question with no

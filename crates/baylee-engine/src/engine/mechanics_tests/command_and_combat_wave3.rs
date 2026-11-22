@@ -530,6 +530,7 @@ static GOAD_AURA_ABILITIES: &[AbilityDef] = &[
         }],
         targets: Some(TargetReq::one(TargetSpec::Object(&Filter::CREATURE))),
         second_targets: None,
+        third_targets: None,
         condition: None,
     },
     static_ability!(ENCHANTED_CREATURE, Modifier::ModifyPT(2, 2)),

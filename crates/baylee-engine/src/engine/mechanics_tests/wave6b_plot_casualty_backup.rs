@@ -181,6 +181,7 @@ fn wave6b_cards() -> Vec<&'static CardDef> {
         }],
         targets: None,
         second_targets: None,
+        third_targets: None,
         condition: None,
     }];
     static PLOT_X_ABILS: [AbilityDef; 1] = [AbilityDef::Spell {
@@ -192,6 +193,7 @@ fn wave6b_cards() -> Vec<&'static CardDef> {
         }],
         targets: None,
         second_targets: None,
+        third_targets: None,
         condition: None,
     }];
     static PLOT_WATCHER_ABILS: [AbilityDef; 1] = [triggered!(
@@ -209,6 +211,7 @@ fn wave6b_cards() -> Vec<&'static CardDef> {
         }],
         targets: Some(TargetReq::one(TargetSpec::Spell(&Filter::Any))),
         second_targets: None,
+        third_targets: None,
         condition: None,
     }];
     static PLOT_TOP_ABILS: [AbilityDef; 1] = [free(
@@ -224,6 +227,7 @@ fn wave6b_cards() -> Vec<&'static CardDef> {
         }],
         targets: None,
         second_targets: None,
+        third_targets: None,
         condition: None,
     }];
     static TAX_ABILS: [AbilityDef; 1] = [static_ability!(Filter::Any, Modifier::SpellsCostMore(1))];
@@ -236,6 +240,7 @@ fn wave6b_cards() -> Vec<&'static CardDef> {
             &Filter::CREATURE,
         ))),
         second_targets: None,
+        third_targets: None,
         condition: None,
     }];
     static CASUALTY_BARGAIN_ABILS: [AbilityDef; 1] = [AbilityDef::Spell {
@@ -244,12 +249,14 @@ fn wave6b_cards() -> Vec<&'static CardDef> {
         }],
         targets: None,
         second_targets: None,
+        third_targets: None,
         condition: None,
     }];
     static COUNTER_ABILS: [AbilityDef; 1] = [AbilityDef::Spell {
         effects: &[Effect::CounterTargetSpell],
         targets: Some(TargetReq::one(TargetSpec::Spell(&Filter::Any))),
         second_targets: None,
+        third_targets: None,
         condition: None,
     }];
     static PUMP_ABILS: [AbilityDef; 1] = [AbilityDef::Spell {
@@ -261,6 +268,7 @@ fn wave6b_cards() -> Vec<&'static CardDef> {
         }],
         targets: Some(TargetReq::one(TargetSpec::Object(&Filter::CREATURE))),
         second_targets: None,
+        third_targets: None,
         condition: None,
     }];
     static BACKUP_GRANTED_ABILS: [AbilityDef; 2] = [
@@ -287,6 +295,7 @@ fn wave6b_cards() -> Vec<&'static CardDef> {
             }],
             targets: Some(TargetReq::one(TargetSpec::Object(&Filter::CREATURE))),
             second_targets: None,
+            third_targets: None,
             zone: baylee_cards_dsl::TriggerZone::Battlefield,
             once_per_turn: false,
             condition: None,
@@ -302,6 +311,7 @@ fn wave6b_cards() -> Vec<&'static CardDef> {
         }],
         targets: Some(TargetReq::one(TargetSpec::Object(&Filter::CREATURE))),
         second_targets: None,
+        third_targets: None,
         condition: None,
     }];
 

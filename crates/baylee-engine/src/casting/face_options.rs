@@ -242,28 +242,21 @@ pub(crate) fn replaced_cost_options(
                         mana_ready,
                     });
                 };
-                let reachable = |first, second, selected_domain: Option<bool>| {
+                let reachable = |first, second, third, selected_domain: Option<bool>| {
                     let first = if kicked {
                         face.kicked_targets.or(first)
                     } else {
                         first
                     };
-                    requirement_is_reachable_for(
+                    crate::casting::requirements3_are_reachable_for(
                         first,
-                        state,
-                        player,
-                        card,
-                        Some((def, index)),
-                        selected_domain
-                            .unwrap_or_else(|| crate::eval::target_domain::walls(first, second)),
-                    ) && requirement_is_reachable_for(
                         second,
+                        third,
                         state,
                         player,
                         card,
                         Some((def, index)),
-                        selected_domain
-                            .unwrap_or_else(|| crate::eval::target_domain::walls(first, second)),
+                        selected_domain,
                     )
                 };
                 if !modes_are_the_only_way(def, index)
@@ -274,8 +267,9 @@ pub(crate) fn replaced_cost_options(
                             baylee_cards_dsl::AbilityDef::Spell {
                                 targets,
                                 second_targets,
+                                third_targets,
                                 ..
-                            } => reachable(*targets, *second_targets, None),
+                            } => reachable(*targets, *second_targets, *third_targets, None),
                             _ => true,
                         })
                 {
@@ -291,6 +285,7 @@ pub(crate) fn replaced_cost_options(
                                 && reachable(
                                     mode.targets,
                                     mode.second_targets,
+                                    None,
                                     Some(crate::eval::target_domain::modes_wall_only(modes, set)),
                                 )
                         }) {

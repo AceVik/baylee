@@ -1202,3 +1202,28 @@ fn choose_card_ex_and_separate_into_two_piles_branches_are_visited() {
     assert_eq!(seen, 6);
     assert!(drew && scried && gained && milled);
 }
+
+#[test]
+fn with_second_and_third_target_bodies_are_visited() {
+    static EFFECTS: &[Effect] = &[
+        Effect::WithSecondTarget(&[Effect::bounce(TargetSpec::Object(&Filter::CREATURE))]),
+        Effect::WithThirdTarget(&[Effect::DealDamage {
+            target: TargetSpec::AnyTarget,
+            amount: Amount::Fixed(3),
+        }]),
+        Effect::AttachSlot {
+            object: crate::TargetSlot::First,
+            to: crate::TargetSlot::Second,
+            optional: true,
+        },
+    ];
+    let mut seen = 0;
+    let (mut bounced, mut dealt, mut attached) = (false, false, false);
+    Effect::walk(EFFECTS, &mut seen, &mut |effect| {
+        bounced |= matches!(effect, Effect::ReturnToHand { .. });
+        dealt |= matches!(effect, Effect::DealDamage { .. });
+        attached |= matches!(effect, Effect::AttachSlot { .. });
+    });
+    assert_eq!(seen, 5);
+    assert!(bounced && dealt && attached);
+}

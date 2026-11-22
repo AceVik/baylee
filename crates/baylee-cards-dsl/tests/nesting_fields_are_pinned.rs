@@ -108,7 +108,8 @@
 // RevealUntilThen and RepeatEachObject add one walker-tested body each (`then`).
 // ChooseCardEx (`then`, `for_unchosen`) and SeparateIntoTwoPiles (`chosen_pile`,
 // `unchosen_pile`) add two walker-tested bodies each.
-const NESTING_FIELDS: usize = 113;
+// WithSecondTarget and WithThirdTarget add one walker-tested body each.
+const NESTING_FIELDS: usize = 115;
 
 /// How many variants those twenty-one fields are spread across.
 ///
@@ -185,7 +186,9 @@ const NESTING_FIELDS: usize = 113;
 /// (`reveal_until_then_and_repeat_each_object_bodies_are_visited`).
 /// `ChooseCardEx` and `SeparateIntoTwoPiles` are the ninety-seventh and ninety-eighth
 /// (`choose_card_ex_and_separate_into_two_piles_branches_are_visited`).
-const CARRYING_VARIANTS: usize = 98;
+/// `WithSecondTarget` and `WithThirdTarget` are the ninety-ninth and hundredth
+/// (`with_second_and_third_target_bodies_are_visited`).
+const CARRYING_VARIANTS: usize = 100;
 
 /// The floor under the reader itself.
 ///

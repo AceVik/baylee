@@ -519,6 +519,7 @@ fn a_triggered_mana_ability_is_mana_on_both_sides() {
         effects: &GREEN,
         targets: None,
         second_targets: None,
+        third_targets: None,
         zone: baylee_cards_dsl::TriggerZone::Battlefield,
         once_per_turn: false,
         condition: None,

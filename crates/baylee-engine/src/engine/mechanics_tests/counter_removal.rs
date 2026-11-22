@@ -35,12 +35,14 @@ static NOTHING: &[AbilityDef] = &[AbilityDef::Spell {
     effects: &[],
     targets: None,
     second_targets: None,
+    third_targets: None,
     condition: None,
 }];
 static TARGETED: &[AbilityDef] = &[AbilityDef::Spell {
     effects: &[],
     targets: Some(TargetReq::one(TargetSpec::Object(&Filter::Any))),
     second_targets: None,
+    third_targets: None,
     condition: None,
 }];
 static ONE_GREEN: &[AlternativeCost] = &[AlternativeCost {

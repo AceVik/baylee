@@ -146,3 +146,104 @@ pub(super) fn attach_to(
         state.attach(source.object, host);
     }
 }
+
+pub(super) fn can_attach_object_to_host(
+    state: &GameState,
+    source: DamageSourceRef,
+    host: DamageSourceRef,
+) -> bool {
+    if !subjects::on_battlefield(state, source)
+        || !subjects::on_battlefield(state, host)
+        || source.object == host.object
+    {
+        return false;
+    }
+    let Some(object) = state.object(source.object) else {
+        return false;
+    };
+    if object
+        .characteristics()
+        .types
+        .intersects(TypeSet::CREATURE.union(TypeSet::BATTLE))
+    {
+        return false;
+    }
+    if object
+        .characteristics()
+        .subtypes
+        .contains(subtypes::enchantment::AURA)
+    {
+        crate::aura_bindings::can_attach(state, source.object, host.object)
+    } else {
+        let required = if object
+            .characteristics()
+            .subtypes
+            .contains(subtypes::artifact::EQUIPMENT)
+        {
+            TypeSet::CREATURE
+        } else if object
+            .characteristics()
+            .subtypes
+            .contains(subtypes::artifact::FORTIFICATION)
+        {
+            TypeSet::LAND
+        } else {
+            return false;
+        };
+        state.object(host.object).is_some_and(|h| {
+            h.zone == Zone::Battlefield
+                && h.characteristics().types.contains(required)
+                && !h.status.contains(Status::PHASED_OUT)
+        }) && !crate::eval::protected_from(state, host.object, source.object)
+    }
+}
+
+fn slot_references(
+    state: &GameState,
+    res: &Resolution,
+    slot: baylee_cards_dsl::TargetSlot,
+) -> Vec<DamageSourceRef> {
+    match slot {
+        baylee_cards_dsl::TargetSlot::This => subjects::source(state, res).into_iter().collect(),
+        other => res
+            .slot_targets(other)
+            .iter()
+            .filter_map(|&id| subjects::target(state, res, id))
+            .collect(),
+    }
+}
+
+pub(super) fn attach_slot(
+    state: &mut GameState,
+    res: &mut Resolution,
+    object: baylee_cards_dsl::TargetSlot,
+    to: baylee_cards_dsl::TargetSlot,
+    optional: bool,
+) -> Option<super::Pending> {
+    let host = slot_references(state, res, to)
+        .into_iter()
+        .find(|&r| subjects::on_battlefield(state, r))?;
+    let objects: Vec<DamageSourceRef> = slot_references(state, res, object)
+        .into_iter()
+        .filter(|&att| can_attach_object_to_host(state, att, host))
+        .collect();
+    if objects.is_empty() {
+        return None;
+    }
+    if optional {
+        if state.has_left(res.controller) {
+            return None;
+        }
+        let source = super::resolving_ability(state, res);
+        res.awaiting = Some(super::AwaitingOp::AttachSlot { objects, host });
+        return Some(super::Pending::YesNo {
+            player: res.controller,
+            prompt: crate::choice::YesNoPrompt::MayDo,
+            source,
+        });
+    }
+    for att in objects {
+        attach_to(state, att, host.object, false);
+    }
+    None
+}

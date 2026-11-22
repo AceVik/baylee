@@ -168,6 +168,23 @@ pub(super) fn cause(state: &GameState, res: &Resolution) -> Option<crate::damage
             }
         }
     }
+    for (group_idx, inst) in object.extra_target_instances().iter().enumerate() {
+        let Ok(extra_group) = u32::try_from(group_idx) else {
+            continue;
+        };
+        for (index, &target) in inst.targets.iter().enumerate() {
+            if let Some(reference) = state
+                .recorded_extra_target_reference(
+                    res.on_stack,
+                    extra_group,
+                    u32::try_from(index).ok()?,
+                )
+                .or_else(|| state.source_identity(target))
+            {
+                targets.push(reference);
+            }
+        }
+    }
     Some(crate::damage::DamageCause {
         object: state.source_identity(res.on_stack)?,
         targets,

@@ -320,70 +320,128 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
         ability_index: u32,
         first: Option<baylee_cards_dsl::TargetReq>,
         second: Option<baylee_cards_dsl::TargetReq>,
+        third: Option<baylee_cards_dsl::TargetReq>,
     ) -> bool {
-        let wall_only = eval::target_domain::walls(first, second);
-        if !self.ability_has_target_in_domain(player, source, ability_index, first, wall_only) {
+        let wall_only = eval::target_domain::walls3(first, second, third);
+        if !self.ability_has_target_in_domain(player, source, ability_index, first, wall_only)
+            || !self.ability_has_target_in_domain(player, source, ability_index, third, wall_only)
+        {
             return false;
         }
-        let (Some(first), Some(second_req)) = (first, second) else {
-            return self.ability_has_target_in_domain(
-                player,
-                source,
-                ability_index,
-                second,
-                wall_only,
-            );
-        };
-        if second_req.min == 0 || !crate::casting::spec_reads_reference(second_req.spec) {
-            return self.ability_has_target_in_domain(
-                player,
-                source,
-                ability_index,
-                second,
-                wall_only,
-            );
-        }
         let context = self.ability_rule_context(source, ability_index);
-        eval::target_options_in_domain(&first.spec, &self.state, player, context, None, wall_only)
-            .into_iter()
-            .any(|reference| {
-                let second_objs = eval::target_options_in_domain(
-                    &second_req.spec,
+        let second_ok = match (first, second) {
+            (Some(first_req), Some(second_req))
+                if second_req.min > 0 && crate::casting::spec_reads_reference(second_req.spec) =>
+            {
+                eval::target_options_in_domain(
+                    &first_req.spec,
                     &self.state,
                     player,
-                    crate::text_changes::RuleContext {
-                        resolved_name: None,
-                        resolved_subtype: None,
-
-                        reference: Some(reference),
-                        ..context
-                    },
+                    context,
                     None,
                     wall_only,
-                );
-                if second_req.constraint()
-                    == Some(baylee_cards_dsl::TargetConstraint::SameController)
-                {
-                    !eval::eligible_same_controller_groups(
-                        &self.state,
-                        &second_objs,
-                        u32::from(second_req.min),
-                    )
-                    .is_empty()
-                } else if second_req.constraint()
-                    == Some(baylee_cards_dsl::TargetConstraint::OnePerPlayer)
-                {
-                    eval::one_per_player_satisfied(
-                        &self.state,
+                )
+                .into_iter()
+                .any(|reference| {
+                    let second_objs = eval::target_options_in_domain(
                         &second_req.spec,
+                        &self.state,
                         player,
-                        &second_objs,
-                        second_req.min,
-                    )
-                } else {
-                    second_objs.len() >= usize::from(second_req.min)
-                }
-            })
+                        crate::text_changes::RuleContext {
+                            resolved_name: None,
+                            resolved_subtype: None,
+                            reference: Some(reference),
+                            ..context
+                        },
+                        None,
+                        wall_only,
+                    );
+                    if second_req.constraint()
+                        == Some(baylee_cards_dsl::TargetConstraint::SameController)
+                    {
+                        !eval::eligible_same_controller_groups(
+                            &self.state,
+                            &second_objs,
+                            u32::from(second_req.min),
+                        )
+                        .is_empty()
+                    } else if second_req.constraint()
+                        == Some(baylee_cards_dsl::TargetConstraint::OnePerPlayer)
+                    {
+                        eval::one_per_player_satisfied(
+                            &self.state,
+                            &second_req.spec,
+                            player,
+                            &second_objs,
+                            second_req.min,
+                        )
+                    } else {
+                        second_objs.len() >= usize::from(second_req.min)
+                    }
+                })
+            }
+            _ => {
+                self.ability_has_target_in_domain(player, source, ability_index, second, wall_only)
+            }
+        };
+        if !second_ok {
+            return false;
+        }
+        if [second, third].into_iter().flatten().any(|r| {
+            r.min > 0
+                && !r.count_is_x
+                && r.constraint()
+                    == Some(baylee_cards_dsl::TargetConstraint::DistinctFromPriorTargetGroups)
+        }) {
+            let pools: Vec<_> = [first, second, third]
+                .into_iter()
+                .flatten()
+                .map(|r| self.ability_clause_distinct_pool(player, context, r, None, wall_only))
+                .collect();
+            if !eval::can_complete_target_groups(&[], baylee_core::ids::SeatSet::new(), &pools) {
+                return false;
+            }
+        }
+        true
+    }
+
+    pub(super) fn ability_clause_distinct_pool(
+        &self,
+        player: PlayerId,
+        context: crate::text_changes::RuleContext,
+        req: baylee_cards_dsl::TargetReq,
+        x: Option<u32>,
+        wall_only: bool,
+    ) -> eval::DistinctGroupPool {
+        let distinct_from_prior = req.constraint()
+            == Some(baylee_cards_dsl::TargetConstraint::DistinctFromPriorTargetGroups);
+        let min = if req.count_is_x {
+            x.unwrap_or(0)
+        } else {
+            u32::from(req.min)
+        };
+        if min == 0
+            || matches!(
+                req.spec,
+                baylee_cards_dsl::TargetSpec::Player(rel) if rel != baylee_cards_dsl::PlayerRel::You
+            )
+        {
+            return eval::DistinctGroupPool {
+                needed: 0,
+                distinct_from_prior,
+                objects: Vec::new(),
+                players: Vec::new(),
+            };
+        }
+        let objects =
+            eval::target_options_in_domain(&req.spec, &self.state, player, context, x, wall_only);
+        let players = eval::target_player_options_from(&self.state, &req.spec, player, context);
+        eval::DistinctGroupPool {
+            needed: usize::try_from(min).unwrap_or(usize::MAX),
+            distinct_from_prior,
+            objects,
+            players,
+        }
     }
 
     fn ability_has_target_in_domain(

@@ -1766,12 +1766,13 @@ fn init_resolution_lki(state: &GameState, res: &mut Resolution) {
         res.targets
             .iter()
             .chain(res.second_targets.iter())
-            .chain(
-                res.subject
-                    .modal_steps()
+            .chain(res.subject.third_targets().iter())
+            .chain(res.subject.modal_steps().iter().flat_map(|step| {
+                step.targets
                     .iter()
-                    .flat_map(|step| step.targets.iter().chain(step.second_targets.iter())),
-            )
+                    .chain(step.second_targets.iter())
+                    .chain(step.third_targets.iter())
+            }))
             .filter_map(|&id| {
                 state.object(id).map(|o| TargetLki {
                     id,
@@ -1853,6 +1854,8 @@ fn run_inner(state: &mut GameState, res: &mut Resolution) -> Flow {
                 .flatten();
             res.second_targets = step.second_targets;
             res.subject.set_second_players(step.second_players);
+            res.subject.set_third_targets(step.third_targets);
+            res.subject.set_third_players(step.third_players);
         }
         let op = res.effects[res.pc];
         // Continuous effects apply at all times (CR 613), so an effect of
@@ -2256,6 +2259,8 @@ fn run_nested_with(
     effects: Vec<Effect>,
     targets: SmallVec<[ObjectId; 2]>,
 ) -> Option<Pending> {
+    let frames_before = res.subject.target_restore_frames.len();
+    let outer_after_len = res.effects.len().saturating_sub(res.pc + 1);
     let mut nested = Resolution {
         source: res.source,
         on_stack: res.on_stack,
@@ -2272,7 +2277,7 @@ fn run_nested_with(
         awaiting: None,
         mana_ability: false,
         countered_source: res.countered_source,
-        target_lki: None,
+        target_lki: res.target_lki.clone(),
         subject: res.subject.clone(),
         text: res.text,
         event_mana: res.event_mana,
@@ -2287,6 +2292,15 @@ fn run_nested_with(
     match flow {
         Flow::Complete => None,
         Flow::Enter => {
+            if res.subject.target_restore_frames.len() > frames_before {
+                res.targets = nested.targets;
+                res.target_players = nested.target_players;
+                res.chosen_player = nested.chosen_player;
+                res.targeted = nested.targeted;
+                for frame in &mut res.subject.target_restore_frames[frames_before..] {
+                    frame.tail_from_end += outer_after_len;
+                }
+            }
             res.awaiting = nested.awaiting;
             res.loot = nested.loot;
             res.coin_stake = nested.coin_stake;
@@ -2299,6 +2313,15 @@ fn run_nested_with(
             None
         }
         Flow::Wait(pending) => {
+            if res.subject.target_restore_frames.len() > frames_before {
+                res.targets = nested.targets;
+                res.target_players = nested.target_players;
+                res.chosen_player = nested.chosen_player;
+                res.targeted = nested.targeted;
+                for frame in &mut res.subject.target_restore_frames[frames_before..] {
+                    frame.tail_from_end += outer_after_len;
+                }
+            }
             res.awaiting = nested.awaiting;
             res.loot = nested.loot;
             res.coin_stake = nested.coin_stake;
@@ -2306,6 +2329,19 @@ fn run_nested_with(
             let tail = nested.effects.split_off(nested.pc);
             res.effects.splice(res.pc..=res.pc, tail);
             Some(pending)
+        }
+    }
+}
+
+impl Resolution {
+    /// Object IDs currently bound to an explicit [`TargetSlot`] (`First`,
+    /// `Second`, or `Third`).
+    pub(super) fn slot_targets(&self, slot: TargetSlot) -> &[ObjectId] {
+        match slot {
+            TargetSlot::First => self.subject.first_slot_targets(&self.targets),
+            TargetSlot::Second => &self.second_targets,
+            TargetSlot::Third => self.subject.third_targets(),
+            TargetSlot::This => &[],
         }
     }
 }

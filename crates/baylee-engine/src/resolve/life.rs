@@ -1404,8 +1404,7 @@ pub(super) fn recipients(
 fn slot_object(res: &Resolution, slot: TargetSlot) -> Option<ObjectId> {
     match slot {
         TargetSlot::This => Some(res.source),
-        TargetSlot::First => res.targets.first().copied(),
-        TargetSlot::Second => res.second_targets.first().copied(),
+        other => res.slot_targets(other).first().copied(),
     }
 }
 

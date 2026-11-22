@@ -274,6 +274,7 @@ pub fn ability_shape(ability: &baylee_cards_dsl::AbilityDef) -> LineShape {
             effects,
             targets,
             second_targets,
+            third_targets,
             mana_ability,
             ..
         }
@@ -282,6 +283,7 @@ pub fn ability_shape(ability: &baylee_cards_dsl::AbilityDef) -> LineShape {
             effects,
             targets,
             second_targets,
+            third_targets,
             mana_ability,
             ..
         } => {
@@ -289,7 +291,7 @@ pub fn ability_shape(ability: &baylee_cards_dsl::AbilityDef) -> LineShape {
                 && baylee_cards_dsl::mana_rule::activated_mana_ability(
                     cost,
                     effects,
-                    targets.is_some() || second_targets.is_some(),
+                    targets.is_some() || second_targets.is_some() || third_targets.is_some(),
                 )
             {
                 LineShape::Mana

@@ -198,6 +198,31 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
         crate::object::ability_second_target_req(abilities, loc.index, obj.mode_index)
     }
 
+    pub(in crate::engine) fn stack_third_target_req(
+        &self,
+        on_stack: ObjectId,
+    ) -> Option<TargetReq> {
+        let obj = self.state.object(on_stack)?;
+        if obj.kind != ObjectKind::AbilityOnStack || obj.third_target_req().is_some() {
+            return obj.third_target_req();
+        }
+        let loc = obj.ability?;
+        if loc.index == AbilityRef::SYNTHETIC || crate::choice::granted_slot(loc.index).is_some() {
+            return None;
+        }
+        let abilities = obj.own_abilities.as_ref().map_or_else(
+            || {
+                self.state
+                    .object(loc.source)
+                    .map_or(crate::copiable_abilities::AbilityDefs::EMPTY, |o| {
+                        o.printed_abilities(&self.lookup)
+                    })
+            },
+            crate::copiable_abilities::AbilityDefs::from,
+        );
+        crate::object::ability_third_target_req(abilities, loc.index, obj.mode_index)
+    }
+
     /// CR 608.2b, asked of the top of the stack as it begins to resolve.
     ///
     /// > If the spell or ability specifies targets, it checks whether the
@@ -220,22 +245,27 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
             .iter()
             .enumerate()
             .map(|(group_idx, inst)| {
-                let is_sec = modal_clauses
-                    .and_then(|c| c.get(2 + group_idx))
-                    .is_some_and(|&(_, is_sec, _)| is_sec);
-                let prev_ref = is_sec
-                    .then(|| {
-                        if group_idx == 0 {
-                            self.state.recorded_target_reference(obj.id, true, 0)
-                        } else {
-                            self.state.recorded_extra_target_reference(
-                                obj.id,
-                                u32::try_from(group_idx - 1).expect("extra target group"),
-                                0,
-                            )
-                        }
-                    })
-                    .flatten();
+                let prev_ref = match modal_clauses {
+                    Some(c) => c
+                        .get(2 + group_idx)
+                        .is_some_and(|&(_, is_sec, _)| is_sec)
+                        .then(|| {
+                            if group_idx == 0 {
+                                self.state.recorded_target_reference(obj.id, true, 0)
+                            } else {
+                                self.state.recorded_extra_target_reference(
+                                    obj.id,
+                                    u32::try_from(group_idx - 1).expect("extra target group"),
+                                    0,
+                                )
+                            }
+                        })
+                        .flatten(),
+                    None => self
+                        .state
+                        .recorded_target_reference(obj.id, true, 0)
+                        .or_else(|| self.state.recorded_target_reference(obj.id, false, 0)),
+                };
                 self.extra_instance_legality(obj, group_idx, inst, prev_ref)
             })
             .collect()
@@ -413,15 +443,33 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
             let anchor = eval::same_controller_group(&self.state, objects[0]);
             objects.retain(|id| eval::same_controller_group(&self.state, *id) == anchor);
         }
+        let distinct_prior = !players
+            && req.constraint()
+                == Some(baylee_cards_dsl::TargetConstraint::DistinctFromPriorTargetGroups);
+        let first_players = if distinct_prior {
+            eval::first_target_players(obj)
+        } else {
+            SeatSet::new()
+        };
         let mut kept = SeatSet::new();
         for player in chosen_players.iter() {
-            if legal_players.contains(&player) {
+            if legal_players.contains(&player) && !first_players.contains(player) {
                 kept.insert(player);
             }
+        }
+        if distinct_prior {
+            objects.retain(|id| {
+                let cur = self.state.source_identity(*id);
+                !(0..obj.targets.len()).any(|i| {
+                    let slot = u32::try_from(i).expect("target slot");
+                    self.state.recorded_target_reference(obj.id, false, slot) == cur
+                })
+            });
         }
         Some((objects, kept))
     }
 
+    #[allow(clippy::too_many_lines)]
     fn extra_instance_legality(
         &self,
         obj: &crate::object::GameObject,
@@ -429,7 +477,11 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
         inst: &crate::object::ExtraTargetInstance,
         reference: Option<baylee_core::ids::DamageSourceRef>,
     ) -> Option<(SmallVec<[ObjectId; 2]>, SeatSet)> {
-        let req = inst.req?;
+        let req = inst.req.or_else(|| {
+            (group_idx == 0)
+                .then(|| self.stack_third_target_req(obj.id))
+                .flatten()
+        })?;
         if matches!(req.spec, TargetSpec::EventObject)
             || matches!(req.spec, TargetSpec::Player(rel) if rel != baylee_cards_dsl::PlayerRel::You)
         {
@@ -483,11 +535,57 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
             let anchor = eval::same_controller_group(&self.state, objects[0]);
             objects.retain(|id| eval::same_controller_group(&self.state, *id) == anchor);
         }
+        let distinct_prior = req.constraint()
+            == Some(baylee_cards_dsl::TargetConstraint::DistinctFromPriorTargetGroups);
+        let prior_players = if distinct_prior {
+            let mut prior = eval::first_target_players(obj);
+            for p in obj.second_target_players().iter() {
+                prior.insert(p);
+            }
+            for earlier in obj.extra_target_instances().iter().take(group_idx) {
+                for p in earlier.players.iter() {
+                    prior.insert(p);
+                }
+            }
+            prior
+        } else {
+            SeatSet::new()
+        };
         let mut kept = SeatSet::new();
         for player in inst.players.iter() {
-            if legal_players.contains(&player) {
+            if legal_players.contains(&player) && !prior_players.contains(player) {
                 kept.insert(player);
             }
+        }
+        if distinct_prior {
+            objects.retain(|id| {
+                let cur = self.state.source_identity(*id);
+                let in_first = (0..obj.targets.len()).any(|i| {
+                    self.state.recorded_target_reference(
+                        obj.id,
+                        false,
+                        u32::try_from(i).expect("slot"),
+                    ) == cur
+                });
+                let in_second = (0..obj.second_targets().len()).any(|i| {
+                    self.state.recorded_target_reference(
+                        obj.id,
+                        true,
+                        u32::try_from(i).expect("slot"),
+                    ) == cur
+                });
+                let in_extra = (0..group_idx).any(|g| {
+                    let g_u32 = u32::try_from(g).expect("group");
+                    (0..obj.extra_target_instances()[g].targets.len()).any(|i| {
+                        self.state.recorded_extra_target_reference(
+                            obj.id,
+                            g_u32,
+                            u32::try_from(i).expect("slot"),
+                        ) == cur
+                    })
+                });
+                !in_first && !in_second && !in_extra
+            });
         }
         Some((objects, kept))
     }
@@ -623,6 +721,8 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
             target_lki: None,
             subject: crate::resolve::SubjectContext::default()
                 .with_second_players(obj.second_target_players())
+                .with_third_targets(SmallVec::from_slice(obj.third_targets()))
+                .with_third_players(obj.third_target_players())
                 .with_found(
                     obj.riders
                         .iter()
@@ -941,6 +1041,8 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                     target_lki: None,
                     subject: crate::resolve::SubjectContext::default()
                         .with_second_players(obj.second_target_players())
+                        .with_third_targets(SmallVec::from_slice(obj.third_targets()))
+                        .with_third_players(obj.third_target_players())
                         .with_found(
                             obj.riders
                                 .iter()
@@ -997,6 +1099,8 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 target_lki: None,
                 subject: crate::resolve::SubjectContext::default()
                     .with_second_players(obj.second_target_players())
+                    .with_third_targets(SmallVec::from_slice(obj.third_targets()))
+                    .with_third_players(obj.third_target_players())
                     .with_found(
                         obj.riders
                             .iter()
@@ -1154,27 +1258,38 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
         }
         if let Some((program, targeted, retarget_left)) = spell_fx {
             let obj = &resolution_object;
-            let (init_targets, init_players, init_chosen, init_second, init_second_players) =
-                if let Some(step) = modal_initial {
-                    let chosen = (step.target_players.len() == 1)
-                        .then(|| step.target_players.iter().next())
-                        .flatten();
-                    (
-                        step.targets,
-                        step.target_players,
-                        chosen,
-                        step.second_targets,
-                        step.second_players,
-                    )
-                } else {
-                    (
-                        obj.targets.clone(),
-                        obj.target_players,
-                        obj.chosen_player,
-                        SmallVec::from_slice(obj.second_targets()),
-                        obj.second_target_players(),
-                    )
-                };
+            let (
+                init_targets,
+                init_players,
+                init_chosen,
+                init_second,
+                init_second_players,
+                init_third,
+                init_third_players,
+            ) = if let Some(step) = modal_initial {
+                let chosen = (step.target_players.len() == 1)
+                    .then(|| step.target_players.iter().next())
+                    .flatten();
+                (
+                    step.targets,
+                    step.target_players,
+                    chosen,
+                    step.second_targets,
+                    step.second_players,
+                    step.third_targets,
+                    step.third_players,
+                )
+            } else {
+                (
+                    obj.targets.clone(),
+                    obj.target_players,
+                    obj.chosen_player,
+                    SmallVec::from_slice(obj.second_targets()),
+                    obj.second_target_players(),
+                    SmallVec::from_slice(obj.third_targets()),
+                    obj.third_target_players(),
+                )
+            };
             let mut res = Resolution {
                 source: top,
                 on_stack: top,
@@ -1194,6 +1309,8 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 target_lki: None,
                 subject: crate::resolve::SubjectContext::default()
                     .with_second_players(init_second_players)
+                    .with_third_targets(init_third)
+                    .with_third_players(init_third_players)
                     .with_modal_steps(modal_steps),
                 text: crate::text_changes::TextChangeMap::IDENTITY,
                 retarget_left,
@@ -1287,6 +1404,8 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                     target_players,
                     second_targets: second_objs.into_iter().collect(),
                     second_players,
+                    third_targets: SmallVec::new(),
+                    third_players: SeatSet::new(),
                 };
                 if initial.is_none() {
                     initial = Some(step);

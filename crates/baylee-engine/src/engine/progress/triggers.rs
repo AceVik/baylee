@@ -1222,11 +1222,18 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 // choice, so the counts add up.
                 let (mut options, mut player_options) =
                     self.trigger_target_options(&t, req.spec, wall_only);
-                if let Some(second_req) = crate::object::ability_second_target_req(
+                let second_req = crate::object::ability_second_target_req(
                     self.trigger_abilities(&t),
                     t.ability_index,
                     t.chosen_mode,
-                ) && second_req.min > 0
+                );
+                let third_req = crate::object::ability_third_target_req(
+                    self.trigger_abilities(&t),
+                    t.ability_index,
+                    t.chosen_mode,
+                );
+                if let Some(second_req) = second_req
+                    && second_req.min > 0
                 {
                     if Self::trigger_second_depends_on_first(second_req.spec) {
                         if req.max == 1 && !req.count_is_x {
@@ -1255,6 +1262,32 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                         self.cleanup_check_acted();
                         self.trigger_queue.pop_front();
                         continue;
+                    }
+                }
+                if let Some(third_req) = third_req
+                    && third_req.min > 0
+                    && !Self::trigger_second_depends_on_first(third_req.spec)
+                    && !self
+                        .trigger_second_satisfied_for_first(&t, third_req, wall_only, None, None)
+                {
+                    self.cleanup_check_acted();
+                    self.trigger_queue.pop_front();
+                    continue;
+                }
+                let mut later_pools: Vec<eval::DistinctGroupPool> = Vec::new();
+                for later_req in [second_req, third_req].into_iter().flatten() {
+                    if !Self::trigger_second_depends_on_first(later_req.spec) {
+                        let (objs_l, pls_l) =
+                            self.trigger_target_options(&t, later_req.spec, wall_only);
+                        later_pools.push(eval::DistinctGroupPool {
+                            needed: usize::from(later_req.min),
+                            distinct_from_prior: later_req.constraint()
+                                == Some(
+                                    baylee_cards_dsl::TargetConstraint::DistinctFromPriorTargetGroups,
+                                ),
+                            objects: objs_l,
+                            players: pls_l,
+                        });
                     }
                 }
                 let chooser = match req.chooser {
@@ -1387,6 +1420,36 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                                     return;
                                 }
                             }
+                        }
+                    }
+                    eval::retain_distinct_group_options(
+                        req,
+                        &mut options,
+                        &mut player_options,
+                        &[],
+                        baylee_core::ids::SeatSet::new(),
+                        &later_pools,
+                    );
+                    if later_pools
+                        .iter()
+                        .any(|p| p.distinct_from_prior && p.needed > 0)
+                    {
+                        let mut all_pools = Vec::with_capacity(1 + later_pools.len());
+                        all_pools.push(eval::DistinctGroupPool {
+                            needed: min as usize,
+                            distinct_from_prior: false,
+                            objects: options.clone(),
+                            players: player_options.clone(),
+                        });
+                        all_pools.extend(later_pools);
+                        if !eval::can_complete_target_groups(
+                            &[],
+                            baylee_core::ids::SeatSet::new(),
+                            &all_pools,
+                        ) {
+                            self.cleanup_check_acted();
+                            self.trigger_queue.pop_front();
+                            continue;
                         }
                     }
                     let offered = options.len() + player_options.len();

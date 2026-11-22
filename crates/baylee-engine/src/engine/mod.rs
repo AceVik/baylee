@@ -1175,6 +1175,44 @@ enum PlanKind {
     /// The triggers at the queue's front, which its controller is putting
     /// in the order they go on the stack (CR 603.3b).
     TriggerOrder,
+    /// A trigger's third instance of "target", asked once the trigger is on
+    /// the stack with its first two (*Cone of Flame*-style triggered chains).
+    TriggerThirdTarget {
+        /// The triggered ability on the stack.
+        on_stack: ObjectId,
+        /// Per-player targeting state when the third clause uses `OnePerPlayer`.
+        per_opponent: Option<Box<PerOpponent>>,
+    },
+    /// A triggered ability on the stack asking which controller/graveyard
+    /// group its third target clause comes from (`TargetConstraint::SameController`).
+    ChooseTriggerThirdGroup {
+        /// The triggered ability on the stack.
+        on_stack: ObjectId,
+    },
+    /// An activation asking which controller/graveyard group its third
+    /// target clause comes from (`TargetConstraint::SameController`).
+    ChooseActivationThirdGroup {
+        /// The permanent whose ability is being activated.
+        source: ObjectId,
+        /// Ability index.
+        ability_index: u32,
+        /// The first instance's targets, already chosen.
+        targets: SmallVec<[ObjectId; 2]>,
+        /// The first instance's seats, put back before the re-entry.
+        target_players: Vec<PlayerId>,
+    },
+    /// An activation waiting for the targets of its third instance of the
+    /// word "target" (CR 601.2c, CR 115.3).
+    ActivateAbilityThirdTargets {
+        /// The permanent whose ability is being activated.
+        source: ObjectId,
+        /// Ability index.
+        ability_index: u32,
+        /// The first instance's targets, already chosen.
+        targets: SmallVec<[ObjectId; 2]>,
+        /// The first instance's seats, put back before the re-entry.
+        target_players: Vec<PlayerId>,
+    },
 }
 
 impl<L: CardLookup> Engine<L> {
@@ -2312,9 +2350,11 @@ impl<L: CardLookup, D: LoopDetection> Engine<L, D> {
                     PlanKind::ModalActivation { .. }
                         | PlanKind::ActivateAbility { .. }
                         | PlanKind::ActivateAbilitySecondTargets { .. }
+                        | PlanKind::ActivateAbilityThirdTargets { .. }
                         | PlanKind::ChooseActivationX { .. }
                         | PlanKind::ChooseActivationGraveyard { .. }
                         | PlanKind::ChooseActivationSecondGroup { .. }
+                        | PlanKind::ChooseActivationThirdGroup { .. }
                         | PlanKind::ChoosePhyrexianLife { .. }
                         | PlanKind::ChooseActivationCostBranch { .. }
                         | PlanKind::PayActivationCost { .. }

@@ -179,7 +179,7 @@ impl HeuristicAgent {
             let fighter = match brawl.fighter {
                 TargetSlot::First => context.first_targets.first().copied(),
                 TargetSlot::This => context.source,
-                TargetSlot::Second => None,
+                TargetSlot::Second | TargetSlot::Third => None,
             }
             .and_then(|id| view.object(id))?;
             objects

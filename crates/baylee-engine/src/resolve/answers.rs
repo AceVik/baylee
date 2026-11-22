@@ -998,6 +998,18 @@ pub(super) fn resume_yes_no_inner(
         res.pc += 1;
         return run(state, res);
     }
+    if matches!(res.awaiting, Some(AwaitingOp::AttachSlot { .. })) {
+        let Some(AwaitingOp::AttachSlot { objects, host }) = res.awaiting.take() else {
+            unreachable!("just matched")
+        };
+        if answer && subjects::on_battlefield(state, host) {
+            for att in objects {
+                super::attachments::attach_to(state, att, host.object, false);
+            }
+        }
+        res.pc += 1;
+        return run(state, res);
+    }
     if let Some(AwaitingOp::PlayerMayPayDamageToYou {
         on_payment,
         player,

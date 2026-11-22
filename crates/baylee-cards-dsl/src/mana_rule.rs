@@ -409,6 +409,9 @@ mod triggered_tests {
         parts.targets = None;
         parts.second_targets = Some(TargetReq::one(TargetSpec::AnyTarget));
         assert!(!parts.build().is_triggered_mana_ability());
+        parts.second_targets = None;
+        parts.third_targets = Some(TargetReq::one(TargetSpec::AnyTarget));
+        assert!(!parts.build().is_triggered_mana_ability());
         let delayed = TriggeredParts::new(trigger, DELAYED);
         assert!(!delayed.build().is_triggered_mana_ability());
     }

@@ -37,6 +37,7 @@ static SELF_DISCARD_ABILITIES: &[AbilityDef] = &[AbilityDef::Activated {
     }],
     targets: None,
     second_targets: None,
+    third_targets: None,
     timing: baylee_cards_dsl::ActivationTiming::InstantSpeed,
     mana_ability: false,
     zone: baylee_cards_dsl::ActivationZone::Hand,
@@ -48,6 +49,7 @@ static X_SPELL_ABILITIES: &[AbilityDef] = &[AbilityDef::Spell {
     effects: GAIN_X,
     targets: None,
     second_targets: None,
+    third_targets: None,
     condition: None,
 }];
 static LIFE_COST: &[CostPart] = &[CostPart::PayLife(8)];
@@ -57,6 +59,7 @@ static TARGETED_SPELL: &[AbilityDef] = &[AbilityDef::Spell {
     }],
     targets: Some(TargetReq::one(TargetSpec::Object(&CREATURE))),
     second_targets: None,
+    third_targets: None,
     condition: None,
 }];
 static MODAL_SPELL: &[AbilityDef] = &[AbilityDef::ModalSpell {
@@ -109,6 +112,7 @@ static COUNTER_ABILITY: &[AbilityDef] = &[AbilityDef::Spell {
     effects: &[Effect::CounterTargetAbility],
     targets: Some(TargetReq::one(TargetSpec::AbilityOnStack(&Filter::Any))),
     second_targets: None,
+    third_targets: None,
     condition: None,
 }];
 

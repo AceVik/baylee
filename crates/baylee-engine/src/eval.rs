@@ -46,7 +46,10 @@ pub use relations::{
     controller_of_attached, defending_player_of, enchanted_player, most_life, players,
     players_for_source,
 };
-pub(crate) use targets::defenders_target_filter;
+pub(crate) use targets::{
+    DistinctGroupPool, can_complete_target_groups, defenders_target_filter,
+    retain_distinct_group_options,
+};
 pub use targets::{
     choice_options, choice_options_with_context, eligible_same_controller_groups,
     first_target_players, living_players_in_turn_order, one_per_player_satisfied,

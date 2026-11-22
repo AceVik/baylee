@@ -5524,6 +5524,33 @@ pub enum Effect {
         /// Number of counters of the chosen kind to place.
         amount: Amount,
     },
+    /// Execute nested `effects` with the active target group temporarily
+    /// swapped to the ability's second target group (`second_targets` and its
+    /// player targets) and restore the outer target group afterward,
+    /// preserving suspension safety across any nested `Pending` choice
+    /// (*Aether Helix*, *Aether Tradewinds*, *Badlands Revival*, *Angrath's
+    /// Fury*, *Assassin Gauntlet*). Appended to preserve replay identities.
+    WithSecondTarget(&'static [Effect]),
+    /// Execute nested `effects` with the active target group temporarily
+    /// swapped to the ability's third target group (`third_targets` and its
+    /// player targets) and restore the outer target group afterward,
+    /// preserving suspension safety across any nested `Pending` choice
+    /// (*Cone of Flame*). Appended to preserve replay identities.
+    WithThirdTarget(&'static [Effect]),
+    /// Attach permanent(s) in `object` slot (Equipment, Aura, or Fortification
+    /// on the battlefield, enforcing `CR 301.5c`, `CR 303.4d`, `CR 701.3`, and
+    /// `CR 702.16c`) to the permanent in `to` slot (*Aura Finesse*, *Barret,
+    /// Avalanche Leader*, *Cloud, Ex-SOLDIER*, *Amy Rose*). Appended to
+    /// preserve replay identities.
+    AttachSlot {
+        /// Slot naming the attachment permanent(s) to move.
+        object: TargetSlot,
+        /// Slot naming the recipient permanent on the battlefield.
+        to: TargetSlot,
+        /// When `true`, ask the controller via `YesNoPrompt::MayDo` before
+        /// attaching.
+        optional: bool,
+    },
 }
 
 #[cfg(test)]

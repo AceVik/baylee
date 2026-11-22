@@ -155,6 +155,7 @@ static PUMP_ABILITIES: &[AbilityDef] = &[AbilityDef::Spell {
     effects: PUMP_EFFECTS,
     targets: Some(TargetReq::one(TargetSpec::Object(&CREATURE_F))),
     second_targets: None,
+    third_targets: None,
     condition: None,
 }];
 
@@ -171,6 +172,7 @@ static STEAL_ABILITIES: &[AbilityDef] = &[AbilityDef::Spell {
     effects: STEAL_EFFECTS,
     targets: Some(TargetReq::one(TargetSpec::Object(&CREATURE_F))),
     second_targets: None,
+    third_targets: None,
     condition: None,
 }];
 
@@ -187,6 +189,7 @@ static KROSA_ABILITIES: &[AbilityDef] = &[AbilityDef::Spell {
     effects: KROSA_EFFECTS,
     targets: Some(TargetReq::one(TargetSpec::Object(&CREATURE_F))),
     second_targets: None,
+    third_targets: None,
     condition: None,
 }];
 
@@ -201,6 +204,7 @@ static BOLT_ABILITIES: &[AbilityDef] = &[AbilityDef::Spell {
     effects: BOLT_EFFECTS,
     targets: Some(TargetReq::one(TargetSpec::AnyTarget)),
     second_targets: None,
+    third_targets: None,
     condition: None,
 }];
 
@@ -220,6 +224,7 @@ static CYCLER_ABILITIES: &[AbilityDef] = &[AbilityDef::ActivatedConditional {
     effects: CYCLER_EFFECTS,
     targets: None,
     second_targets: None,
+    third_targets: None,
     timing: baylee_cards_dsl::ActivationTiming::InstantSpeed,
     mana_ability: false,
     zone: baylee_cards_dsl::ActivationZone::Hand,
@@ -243,6 +248,7 @@ static FONT_ABILITIES: &[AbilityDef] = &[AbilityDef::ActivatedConditional {
     effects: CYCLER_EFFECTS,
     targets: None,
     second_targets: None,
+    third_targets: None,
     timing: baylee_cards_dsl::ActivationTiming::InstantSpeed,
     mana_ability: false,
     zone: baylee_cards_dsl::ActivationZone::Battlefield,

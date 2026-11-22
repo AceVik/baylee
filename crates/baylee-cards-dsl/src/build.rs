@@ -77,6 +77,9 @@ pub struct ActivatedParts {
     /// A second instance of the word "target", if the card prints one —
     /// see [`AbilityDef::Activated::second_targets`].
     pub second_targets: Option<TargetReq>,
+    /// A third instance of the word "target", if the card prints one —
+    /// see [`AbilityDef::Activated::third_targets`].
+    pub third_targets: Option<TargetReq>,
     /// When it may be activated.
     pub timing: ActivationTiming,
     /// Whether it is a mana ability (CR 605.1 — does not use the stack).
@@ -120,6 +123,7 @@ impl ActivatedParts {
             target: None,
             targets: None,
             second_targets: None,
+            third_targets: None,
             timing: ActivationTiming::InstantSpeed,
             mana_ability: false,
             zone: ActivationZone::Battlefield,
@@ -148,7 +152,12 @@ impl ActivatedParts {
     pub const fn build_modal(self, modes: &'static [crate::SpellMode]) -> AbilityDef {
         assert!(!modes.is_empty() && modes.len() <= u8::MAX as usize);
         assert!(self.effects.is_empty());
-        assert!(self.target.is_none() && self.targets.is_none() && self.second_targets.is_none());
+        assert!(
+            self.target.is_none()
+                && self.targets.is_none()
+                && self.second_targets.is_none()
+                && self.third_targets.is_none()
+        );
         let mut index = 0;
         while index < modes.len() {
             assert!(modes[index].cost_override.is_none());
@@ -191,6 +200,7 @@ impl ActivatedParts {
                 effects: self.effects,
                 targets,
                 second_targets: self.second_targets,
+                third_targets: self.third_targets,
                 timing: self.timing,
                 mana_ability: self.mana_ability,
                 zone: self.zone,
@@ -203,6 +213,7 @@ impl ActivatedParts {
                 effects: self.effects,
                 targets,
                 second_targets: self.second_targets,
+                third_targets: self.third_targets,
                 timing: self.timing,
                 mana_ability: self.mana_ability,
                 zone: self.zone,
@@ -228,6 +239,8 @@ pub struct TriggeredParts {
     pub targets: Option<TargetReq>,
     /// A second instance of "target", chosen after the first.
     pub second_targets: Option<TargetReq>,
+    /// A third instance of "target", chosen after the second.
+    pub third_targets: Option<TargetReq>,
     /// Whether it fires at most once each turn.
     pub once_per_turn: bool,
     /// The intervening-`if` clause, if the card prints one (CR 603.4).
@@ -248,6 +261,7 @@ impl TriggeredParts {
             effects,
             targets: None,
             second_targets: None,
+            third_targets: None,
             once_per_turn: false,
             condition: None,
             resolves_if_targets_illegal: false,
@@ -263,6 +277,7 @@ impl TriggeredParts {
             effects: self.effects,
             targets: self.targets,
             second_targets: self.second_targets,
+            third_targets: self.third_targets,
             once_per_turn: self.once_per_turn,
             condition: self.condition,
             resolves_if_targets_illegal: self.resolves_if_targets_illegal,
@@ -323,6 +338,9 @@ pub struct SpellParts {
     /// A second instance of the word "target", if the card prints one —
     /// see [`AbilityDef::Spell::second_targets`].
     pub second_targets: Option<TargetReq>,
+    /// A third instance of the word "target", if the card prints one —
+    /// see [`AbilityDef::Spell::third_targets`].
+    pub third_targets: Option<TargetReq>,
     /// "Cast this spell only [when]" — see [`AbilityDef::Spell::condition`].
     pub condition: Option<crate::Condition>,
 }
@@ -335,6 +353,7 @@ impl SpellParts {
             effects,
             targets: None,
             second_targets: None,
+            third_targets: None,
             condition: None,
         }
     }
@@ -346,6 +365,7 @@ impl SpellParts {
             effects: self.effects,
             targets: self.targets,
             second_targets: self.second_targets,
+            third_targets: self.third_targets,
             condition: self.condition,
         }
     }
@@ -363,6 +383,9 @@ pub struct LoyaltyParts {
     /// A second instance of the word "target"; see
     /// [`AbilityDef::Loyalty::second_targets`].
     pub second_targets: Option<crate::effect::TargetReq>,
+    /// A third instance of the word "target"; see
+    /// [`AbilityDef::Loyalty::third_targets`].
+    pub third_targets: Option<crate::effect::TargetReq>,
 }
 
 impl LoyaltyParts {
@@ -374,6 +397,7 @@ impl LoyaltyParts {
             effects,
             targets: None,
             second_targets: None,
+            third_targets: None,
         }
     }
 
@@ -385,6 +409,7 @@ impl LoyaltyParts {
             effects: self.effects,
             targets: self.targets,
             second_targets: self.second_targets,
+            third_targets: self.third_targets,
         }
     }
 }
@@ -465,6 +490,8 @@ pub struct SagaChapterParts {
     pub targets: Option<TargetReq>,
     /// A second instance of the word "target", if the chapter prints one.
     pub second_targets: Option<TargetReq>,
+    /// A third instance of the word "target", if the chapter prints one.
+    pub third_targets: Option<TargetReq>,
     /// An intervening-`if` clause on the chapter trigger, if printed (CR 603.4).
     pub condition: Option<Condition>,
 }
@@ -479,20 +506,23 @@ impl SagaChapterParts {
             effects,
             targets: None,
             second_targets: None,
+            third_targets: None,
             condition: None,
         }
     }
 
     /// Turns the parts into the ability, preserving [`AbilityDef::SagaChapter`]
     /// for plain single-chapter abilities and producing [`Trigger::Chapter`]
-    /// when `second_targets` or `condition` is specified.
+    /// when `second_targets`, `third_targets`, or `condition` is specified.
     ///
     /// # Panics
     ///
-    /// When `second_targets` or `condition` is set on a chapter number `>= 16`.
+    /// When `second_targets`, `third_targets`, or `condition` is set on a
+    /// chapter number `>= 16`.
     #[must_use]
     pub const fn build(self) -> AbilityDef {
-        if self.second_targets.is_none() && self.condition.is_none() {
+        if self.second_targets.is_none() && self.third_targets.is_none() && self.condition.is_none()
+        {
             AbilityDef::SagaChapter {
                 chapter: self.chapter,
                 effects: self.effects,
@@ -507,6 +537,7 @@ impl SagaChapterParts {
                 effects: self.effects,
                 targets: self.targets,
                 second_targets: self.second_targets,
+                third_targets: self.third_targets,
                 once_per_turn: false,
                 condition: self.condition,
                 resolves_if_targets_illegal: false,
@@ -1286,6 +1317,7 @@ mod tests {
                 effects: EFFECTS,
                 targets: None,
                 second_targets: None,
+                third_targets: None,
                 timing: ActivationTiming::InstantSpeed,
                 mana_ability: false,
                 zone: ActivationZone::Battlefield,
@@ -1302,6 +1334,7 @@ mod tests {
                 effects: EFFECTS,
                 targets: None,
                 second_targets: None,
+                third_targets: None,
                 timing: ActivationTiming::InstantSpeed,
                 mana_ability: false,
                 zone: ActivationZone::Battlefield,
@@ -1405,6 +1438,7 @@ mod tests {
             }],
             targets: Some(TargetReq::one(TargetSpec::Object(&CREATURE_YOU_CONTROL))),
             second_targets: None,
+            third_targets: None,
             timing: ActivationTiming::SorcerySpeed,
             mana_ability: false,
             zone: ActivationZone::Battlefield,

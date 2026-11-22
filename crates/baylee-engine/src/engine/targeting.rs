@@ -255,7 +255,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
             return false;
         }
         let Some(mut req) = self.stack_second_target_req(top) else {
-            return false;
+            return self.ask_trigger_third_target();
         };
         req.spec = bind_to_first_targets_player(&self.state, obj, req.spec);
         let event_player = obj.riders.iter().find_map(|rider| match rider {
@@ -282,8 +282,39 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
             .targets
             .first()
             .and_then(|id| self.state.source_identity(*id));
-        let (mut options, player_options) =
+        let (mut options, mut player_options) =
             eval::stack_target_options_relative(&self.state, obj, &req.spec, reference);
+        let prior_objs: Vec<ObjectId> = obj.targets.iter().copied().collect();
+        let prior_players = eval::first_target_players(obj);
+        let later_pools: Vec<eval::DistinctGroupPool> = self
+            .stack_third_target_req(top)
+            .into_iter()
+            .map(|r3| {
+                let mut spec3 = bind_to_first_targets_player(&self.state, obj, r3.spec);
+                if let (baylee_cards_dsl::TargetSpec::ObjectOfEventPlayer(filter), Some(player)) =
+                    (spec3, event_player)
+                {
+                    spec3 = baylee_cards_dsl::TargetSpec::ObjectControlledBy(filter, player);
+                }
+                let (objs3, pls3) =
+                    eval::stack_target_options_relative(&self.state, obj, &spec3, reference);
+                eval::DistinctGroupPool {
+                    needed: usize::from(r3.min),
+                    distinct_from_prior: r3.constraint()
+                        == Some(baylee_cards_dsl::TargetConstraint::DistinctFromPriorTargetGroups),
+                    objects: objs3,
+                    players: pls3,
+                }
+            })
+            .collect();
+        eval::retain_distinct_group_options(
+            req,
+            &mut options,
+            &mut player_options,
+            &prior_objs,
+            prior_players,
+            &later_pools,
+        );
         let (min, max) = req.bounds(0);
         if req.constraint() == Some(baylee_cards_dsl::TargetConstraint::OnePerPlayer) {
             if !eval::one_per_player_satisfied(
@@ -304,7 +335,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 obj.set_second(SmallVec::new(), Some(req));
             }
             if req.max == 0 {
-                return false;
+                return self.ask_trigger_third_target();
             }
             let seats = eval::one_per_player_seats(&self.state, &req.spec, controller);
             let asking = PerOpponent::one_per_player(req.spec, seats, req.min, chooser);
@@ -312,10 +343,11 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 if let Some(obj) = self.state.object_mut(top) {
                     obj.set_second(done.gathered.into_iter().collect(), Some(req));
                 }
+                self.state.capture_source_references();
                 if !done.groups.is_empty() {
                     self.state.bind_one_per_player_groups(top, 1, &done.groups);
                 }
-                return false;
+                return self.ask_trigger_third_target();
             }
             return true;
         }
@@ -357,12 +389,217 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
             let _ = self.state.arena.remove(top);
             return false;
         }
-        if options.is_empty() && player_options.is_empty() {
+        if (options.is_empty() && player_options.is_empty()) || req.max == 0 {
             // "Up to one" with nothing to point at: nothing to decide.
-            return false;
+            return self.ask_trigger_third_target();
         }
         let max = max.min(u32::try_from(options.len() + player_options.len()).unwrap_or(u32::MAX));
         self.pending_plan = Some(PlanKind::TriggerSecondTarget {
+            on_stack: top,
+            per_opponent: None,
+        });
+        self.pending = Pending::ChooseTargets {
+            player: chooser,
+            options,
+            player_options,
+            min,
+            max,
+            reason: TargetPrompt::Targets,
+        };
+        self.awaiting_answer = true;
+        true
+    }
+
+    pub(super) fn ask_next_trigger_third_per_player(
+        &mut self,
+        on_stack: ObjectId,
+        mut asking: PerOpponent,
+    ) -> Option<PerOpponent> {
+        let obj = self.state.object(on_stack)?.clone();
+        let reference = obj
+            .second_targets()
+            .first()
+            .or_else(|| obj.targets.first())
+            .and_then(|id| self.state.source_identity(*id));
+        let (all_options, _) =
+            eval::stack_target_options_relative(&self.state, &obj, &asking.spec, reference);
+        while !asking.remaining.is_empty() {
+            let seat = asking.remaining.remove(0);
+            let options: Vec<ObjectId> = all_options
+                .iter()
+                .copied()
+                .filter(|&id| eval::same_controller_group(&self.state, id) == Some(seat))
+                .collect();
+            if options.is_empty() {
+                continue;
+            }
+            asking.current = Some(seat);
+            let chooser = asking.chooser;
+            let min = asking.min_per_player;
+            self.pending_plan = Some(PlanKind::TriggerThirdTarget {
+                on_stack,
+                per_opponent: Some(Box::new(asking)),
+            });
+            self.pending = Pending::ChooseTargets {
+                player: chooser,
+                options,
+                player_options: Vec::new(),
+                min,
+                max: 1,
+                reason: TargetPrompt::Targets,
+            };
+            self.awaiting_answer = true;
+            return None;
+        }
+        Some(asking)
+    }
+
+    /// Asks the third instance of "target" of the triggered ability on top of
+    /// the stack, if it prints one (CR 603.3d, CR 115.3).
+    #[allow(clippy::too_many_lines)]
+    pub(crate) fn ask_trigger_third_target(&mut self) -> bool {
+        let Some(top) = self
+            .state
+            .zones
+            .list(crate::zone::ZoneLocation::Stack)
+            .last()
+            .copied()
+        else {
+            return false;
+        };
+        let Some(obj) = self.state.object(top) else {
+            return false;
+        };
+        if obj.kind != crate::object::ObjectKind::AbilityOnStack || obj.third_target_req().is_some()
+        {
+            return false;
+        }
+        let Some(mut req) = self.stack_third_target_req(top) else {
+            return false;
+        };
+        req.spec = bind_to_first_targets_player(&self.state, obj, req.spec);
+        let event_player = obj.riders.iter().find_map(|rider| match rider {
+            crate::object::Rider::EventPlayer(player) => Some(*player),
+            _ => None,
+        });
+        if let (baylee_cards_dsl::TargetSpec::ObjectOfEventPlayer(filter), Some(player)) =
+            (req.spec, event_player)
+        {
+            req.spec = baylee_cards_dsl::TargetSpec::ObjectControlledBy(filter, player);
+        }
+        let controller = obj.controller;
+        let chooser = match req.chooser {
+            baylee_cards_dsl::TargetChooser::Controller
+            | baylee_cards_dsl::TargetChooser::ConstrainedController(_) => controller,
+            baylee_cards_dsl::TargetChooser::EventPlayer => {
+                event_player.expect("event-player target chooser requires a captured event player")
+            }
+            baylee_cards_dsl::TargetChooser::Opponent => {
+                panic!("opponent chooser requires an activation announcement")
+            }
+        };
+        let reference = obj
+            .second_targets()
+            .first()
+            .or_else(|| obj.targets.first())
+            .and_then(|id| self.state.source_identity(*id));
+        let (mut options, mut player_options) =
+            eval::stack_target_options_relative(&self.state, obj, &req.spec, reference);
+        let mut prior_objs: Vec<ObjectId> = obj.targets.iter().copied().collect();
+        for &id in obj.second_targets() {
+            if !prior_objs.contains(&id) {
+                prior_objs.push(id);
+            }
+        }
+        let mut prior_players = eval::first_target_players(obj);
+        for p in obj.second_target_players().iter() {
+            prior_players.insert(p);
+        }
+        eval::retain_distinct_group_options(
+            req,
+            &mut options,
+            &mut player_options,
+            &prior_objs,
+            prior_players,
+            &[],
+        );
+        let (min, max) = req.bounds(0);
+        if req.constraint() == Some(baylee_cards_dsl::TargetConstraint::OnePerPlayer) {
+            if !eval::one_per_player_satisfied(
+                &self.state,
+                &req.spec,
+                controller,
+                &options,
+                req.min,
+            ) {
+                self.cleanup_check_acted();
+                self.state
+                    .zones
+                    .remove(top, crate::zone::ZoneLocation::Stack);
+                let _ = self.state.arena.remove(top);
+                return false;
+            }
+            if let Some(obj) = self.state.object_mut(top) {
+                obj.set_third(SmallVec::new(), Some(req));
+            }
+            if req.max == 0 {
+                return false;
+            }
+            let seats = eval::one_per_player_seats(&self.state, &req.spec, controller);
+            let asking = PerOpponent::one_per_player(req.spec, seats, req.min, chooser);
+            if let Some(done) = self.ask_next_trigger_third_per_player(top, asking) {
+                if let Some(obj) = self.state.object_mut(top) {
+                    obj.set_third(done.gathered.into_iter().collect(), Some(req));
+                }
+                self.state.capture_source_references();
+                if !done.groups.is_empty() {
+                    self.state.bind_one_per_player_groups(top, 2, &done.groups);
+                }
+                return false;
+            }
+            return true;
+        }
+        if req.constraint() == Some(baylee_cards_dsl::TargetConstraint::SameController) {
+            if let Some(chosen) = self.activation_graveyard.take() {
+                options.retain(|id| eval::same_controller_group(&self.state, *id) == Some(chosen));
+            } else {
+                let groups = eval::eligible_same_controller_groups(&self.state, &options, min);
+                match groups.as_slice() {
+                    [] => options.clear(),
+                    [only] => {
+                        options.retain(|id| {
+                            eval::same_controller_group(&self.state, *id) == Some(*only)
+                        });
+                    }
+                    _ => {
+                        self.pending_plan =
+                            Some(PlanKind::ChooseTriggerThirdGroup { on_stack: top });
+                        self.pending = Pending::ChoosePlayer {
+                            player: chooser,
+                            options: groups,
+                        };
+                        self.awaiting_answer = true;
+                        return true;
+                    }
+                }
+            }
+        }
+        if let Some(obj) = self.state.object_mut(top) {
+            obj.set_third(SmallVec::new(), Some(req));
+        }
+        if options.len() + player_options.len() < usize::from(req.min) {
+            self.cleanup_check_acted();
+            self.state
+                .zones
+                .remove(top, crate::zone::ZoneLocation::Stack);
+            let _ = self.state.arena.remove(top);
+            return false;
+        }
+        if (options.is_empty() && player_options.is_empty()) || req.max == 0 {
+            return false;
+        }
+        let max = max.min(u32::try_from(options.len() + player_options.len()).unwrap_or(u32::MAX));
+        self.pending_plan = Some(PlanKind::TriggerThirdTarget {
             on_stack: top,
             per_opponent: None,
         });
@@ -408,6 +645,12 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
             first.chosen_mode,
         )
         .is_some()
+            || crate::object::ability_third_target_req(
+                self.trigger_abilities(first),
+                first.ability_index,
+                first.chosen_mode,
+            )
+            .is_some()
         {
             return 0;
         }
@@ -724,9 +967,12 @@ pub(super) struct ActivationTargetChoice {
     pub controller: Option<PlayerId>,
     pub opponent: Option<PlayerId>,
     pub second_players: baylee_core::ids::SeatSet,
+    pub third_targets: Option<SmallVec<[ObjectId; 2]>>,
+    pub third_players: baylee_core::ids::SeatSet,
     pub per_player: Option<Box<PerOpponent>>,
     pub first_groups: SmallVec<[PlayerId; 4]>,
     pub second_groups: SmallVec<[PlayerId; 4]>,
+    pub third_groups: SmallVec<[PlayerId; 4]>,
 }
 
 impl std::hash::Hash for ActivationTargetChoice {
@@ -741,6 +987,15 @@ impl std::hash::Hash for ActivationTargetChoice {
             self.per_player.hash(state);
             self.first_groups.hash(state);
             self.second_groups.hash(state);
+        }
+        if self.third_targets.is_some()
+            || !self.third_players.is_empty()
+            || !self.third_groups.is_empty()
+        {
+            342_u16.hash(state);
+            self.third_targets.hash(state);
+            self.third_players.hash(state);
+            self.third_groups.hash(state);
         }
     }
 }

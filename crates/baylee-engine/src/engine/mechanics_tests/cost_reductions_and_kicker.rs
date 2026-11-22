@@ -43,6 +43,7 @@ static NOTHING_SPELL: &[AbilityDef] = &[AbilityDef::Spell {
     effects: &[],
     targets: None,
     second_targets: None,
+    third_targets: None,
     condition: None,
 }];
 
@@ -341,6 +342,7 @@ fn cycling_cost_reduction_makes_two_generic_cycling_free_for_controller_only() {
         effects: &[Effect::draw(1)],
         targets: None,
         second_targets: None,
+        third_targets: None,
         timing: ActivationTiming::InstantSpeed,
         mana_ability: false,
         zone: ActivationZone::Hand,
@@ -527,6 +529,7 @@ fn stack_zone_self_reduction_and_target_dependent_stack_tax_work_end_to_end() {
             effects: &[],
             targets: None,
             second_targets: None,
+            third_targets: None,
             condition: None,
         },
     ];
@@ -534,6 +537,7 @@ fn stack_zone_self_reduction_and_target_dependent_stack_tax_work_end_to_end() {
         effects: &[Effect::CounterTargetSpell],
         targets: Some(TargetReq::one(TargetSpec::Spell(&Filter::Any))),
         second_targets: None,
+        third_targets: None,
         condition: None,
     }];
 

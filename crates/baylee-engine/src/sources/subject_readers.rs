@@ -11,6 +11,13 @@ pub(super) fn refers_to_subject(effects: &'static [Effect], implicit_source: boo
             Effect::TapTargetSlot(slot) | Effect::UntapTargetSlot(slot) => {
                 matches!(slot, baylee_cards_dsl::TargetSlot::This)
             }
+            Effect::AttachSlot { object, to, .. } => {
+                matches!(
+                    (object, to),
+                    (baylee_cards_dsl::TargetSlot::This, _)
+                        | (_, baylee_cards_dsl::TargetSlot::This)
+                )
+            }
             Effect::BecomeCopy {
                 subject,
                 subject_filter,

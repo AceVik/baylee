@@ -491,6 +491,7 @@ fn remove_any_counter_x_bounds_activation_x_and_spell_cost_rolls_back_on_cancel(
         effects: SPELL_FX,
         targets: None,
         second_targets: None,
+        third_targets: None,
         condition: None,
     }];
 
@@ -699,6 +700,7 @@ fn vote_will_of_the_council_majority_vs_tie_and_public_turn_order() {
         effects: VOTE_FX,
         targets: None,
         second_targets: None,
+        third_targets: None,
         condition: None,
     }];
 
@@ -799,6 +801,7 @@ fn vote_councils_dilemma_this_way_vote_count_and_additional_votes() {
         effects: PLEA_FX,
         targets: None,
         second_targets: None,
+        third_targets: None,
         condition: None,
     }];
     static REP_ABILITIES: &[AbilityDef] = &[static_ability!(
@@ -908,6 +911,7 @@ fn vote_repeat_per_vote_binds_voter_as_event_player_and_secret_vote_hides_ballot
         effects: SECRET_FX,
         targets: None,
         second_targets: None,
+        third_targets: None,
         condition: None,
     }];
 
@@ -983,6 +987,7 @@ fn vote_objects_supports_destroy_ties_and_if_no_votes_fallback() {
         effects: VOTE_OBJ_FX,
         targets: None,
         second_targets: None,
+        third_targets: None,
         condition: None,
     }];
 
@@ -1075,6 +1080,7 @@ fn reduce_next_spell_cost_next_only_skips_nonmatching_survives_cancel_and_consum
         effects: TUTOR_FX,
         targets: None,
         second_targets: None,
+        third_targets: None,
         condition: None,
     }];
     static GAIN_ONE: &[Effect] = &[Effect::GainLife {
@@ -1084,6 +1090,7 @@ fn reduce_next_spell_cost_next_only_skips_nonmatching_survives_cancel_and_consum
         effects: GAIN_ONE,
         targets: None,
         second_targets: None,
+        third_targets: None,
         condition: None,
     }];
 
@@ -1205,6 +1212,7 @@ fn reduce_next_spell_cost_duration_mode_and_colored_pips_discount_multiple_spell
         effects: DISCOUNTER_FX,
         targets: None,
         second_targets: None,
+        third_targets: None,
         condition: None,
     }];
     static PING_SELF_GAIN: &[Effect] = &[Effect::GainLife {
@@ -1214,6 +1222,7 @@ fn reduce_next_spell_cost_duration_mode_and_colored_pips_discount_multiple_spell
         effects: PING_SELF_GAIN,
         targets: None,
         second_targets: None,
+        third_targets: None,
         condition: None,
     }];
 
@@ -1294,6 +1303,7 @@ fn effect_play_free_cast_resumes_trailing_subability_and_applies_exile_rider() {
         effects: PLAY_CHAIN,
         targets: None,
         second_targets: None,
+        third_targets: None,
         condition: None,
     }];
     static PAYOFF_FX: &[Effect] = &[Effect::GainLife {
@@ -1303,6 +1313,7 @@ fn effect_play_free_cast_resumes_trailing_subability_and_applies_exile_rider() {
         effects: PAYOFF_FX,
         targets: None,
         second_targets: None,
+        third_targets: None,
         condition: None,
     }];
 
@@ -1394,6 +1405,7 @@ fn effect_play_copies_from_graveyard_and_supports_opponent_alternative_cost() {
         effects: MASTERY_FX,
         targets: None,
         second_targets: None,
+        third_targets: None,
         condition: None,
     }];
 
@@ -1422,6 +1434,7 @@ fn effect_play_copies_from_graveyard_and_supports_opponent_alternative_cost() {
             chooser: TargetChooser::Controller,
         }),
         second_targets: None,
+        third_targets: None,
         condition: None,
     }];
     static GAIN_THREE: &[Effect] = &[Effect::GainLife {
@@ -1431,6 +1444,7 @@ fn effect_play_copies_from_graveyard_and_supports_opponent_alternative_cost() {
         effects: GAIN_THREE,
         targets: None,
         second_targets: None,
+        third_targets: None,
         condition: None,
     }];
 

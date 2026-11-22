@@ -218,6 +218,14 @@ pub enum AwaitingOp {
         /// Evaluated counter count to place of the chosen kind.
         amount: u16,
     },
+    /// Optional attachment confirmation (`Effect::AttachSlot { optional: true }`,
+    /// CR 701.3).
+    AttachSlot {
+        /// Exact attachment permanent incarnations to move onto `host`.
+        objects: Vec<baylee_core::ids::DamageSourceRef>,
+        /// Exact recipient permanent incarnation on the battlefield.
+        host: baylee_core::ids::DamageSourceRef,
+    },
     /// Counter-bearing permanent and player selections, committed together.
     Proliferate(Box<super::proliferate::Selection>),
     /// Optional energy payment, with unpaid fallback.
@@ -1919,6 +1927,9 @@ impl AwaitingOp {
                 players,
                 amount,
             } => crate::state::structural_fingerprint(&(224_u8, objects, players, amount)),
+            Self::AttachSlot { objects, host } => {
+                crate::state::structural_fingerprint(&(231_u8, objects, host))
+            }
             _ => 0,
         }
     }

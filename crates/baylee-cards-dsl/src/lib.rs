@@ -57,6 +57,7 @@ static INCUBATOR_TRANSFORM_ABILITIES: &[AbilityDef] = &[AbilityDef::Activated {
     effects: &[Effect::TransformSource],
     targets: None,
     second_targets: None,
+    third_targets: None,
     timing: ActivationTiming::InstantSpeed,
     mana_ability: false,
     zone: ActivationZone::Battlefield,

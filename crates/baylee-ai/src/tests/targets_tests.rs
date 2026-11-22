@@ -759,3 +759,82 @@ fn removal_and_fights_prefer_keyworded_threats_and_respect_indestructible() {
         "a fight targets the mortal 3/3 rather than the indestructible 3/3"
     );
 }
+
+#[test]
+fn with_second_and_third_target_chains_aim_each_slot_by_its_own_effect() {
+    use baylee_cards_dsl::{Amount, Effect, KeywordSet, TargetSlot, TargetSpec};
+    use baylee_engine::choice::TargetPrompt;
+    use baylee_engine::engine::DecisionContext;
+    static HELIX: &[Effect] = &[
+        Effect::ReturnToHand {
+            target: TargetSpec::Object(&baylee_cards_dsl::Filter::CREATURE),
+        },
+        Effect::WithSecondTarget(&[Effect::PumpTarget {
+            power: Amount::Fixed(2),
+            toughness: Amount::Fixed(2),
+            keywords: KeywordSet::EMPTY,
+            duration: baylee_cards_dsl::Duration::UntilEndOfTurn,
+        }]),
+    ];
+    static ATTACH: &[Effect] = &[Effect::AttachSlot {
+        object: TargetSlot::First,
+        to: TargetSlot::Second,
+        optional: false,
+    }];
+
+    let me = PlayerId::new(0);
+    let them = PlayerId::new(1);
+    let mine = permanent(obj(1), me, 2);
+    let theirs = permanent(obj(2), them, 2);
+    let v = view(0, &[20, 20], vec![mine, theirs]);
+    let pending = Pending::ChooseTargets {
+        player: me,
+        options: vec![obj(1), obj(2)],
+        player_options: vec![],
+        min: 1,
+        max: 1,
+        reason: TargetPrompt::Targets,
+    };
+    // Aether Helix shape: bounce first target (-1), pump/help second target (+1).
+    let first_ctx = DecisionContext {
+        effects: HELIX,
+        second_instance: false,
+        ..Default::default()
+    };
+    assert_eq!(
+        agent().act_with_context(&v, &pending, &first_ctx),
+        PlayerAction::ChooseTargets {
+            objects: vec![obj(2)],
+            players: vec![],
+        },
+        "first slot bounces the opponent's creature without second-slot pump polluting it"
+    );
+    let second_ctx = DecisionContext {
+        effects: HELIX,
+        second_instance: true,
+        ..Default::default()
+    };
+    assert_eq!(
+        agent().act_with_context(&v, &pending, &second_ctx),
+        PlayerAction::ChooseTargets {
+            objects: vec![obj(1)],
+            players: vec![],
+        },
+        "second slot unwraps WithSecondTarget and pumps our own creature"
+    );
+
+    // AttachSlot targeting our creature in the second slot aims at our creature.
+    let attach_ctx = DecisionContext {
+        effects: ATTACH,
+        second_instance: true,
+        ..Default::default()
+    };
+    assert_eq!(
+        agent().act_with_context(&v, &pending, &attach_ctx),
+        PlayerAction::ChooseTargets {
+            objects: vec![obj(1)],
+            players: vec![],
+        },
+        "AttachSlot destination aims at our own creature"
+    );
+}

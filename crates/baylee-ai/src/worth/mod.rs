@@ -348,6 +348,7 @@ impl HeuristicAgent {
                 effects,
                 targets,
                 second_targets,
+                third_targets,
                 mana_ability: false,
                 ..
             }
@@ -356,10 +357,11 @@ impl HeuristicAgent {
                 effects,
                 targets,
                 second_targets,
+                third_targets,
                 mana_ability: false,
                 ..
             } => {
-                if second_targets.is_some() {
+                if second_targets.is_some() || third_targets.is_some() {
                     return None;
                 }
                 // Setup permissions must leave enough resources for the spell
@@ -382,6 +384,7 @@ impl HeuristicAgent {
                 effects,
                 targets,
                 second_targets,
+                third_targets,
             } => {
                 // A walker's text this table cannot read is still a walker's
                 // text: its plus is loyalty gained, and ticking it is what
@@ -391,7 +394,7 @@ impl HeuristicAgent {
                 // alone, Teferi, Time Raveler's +1 and Karn, the Great
                 // Creator's +1 were never used and both walkers spent
                 // themselves on their minus.
-                let aimed = if second_targets.is_some() {
+                let aimed = if second_targets.is_some() || third_targets.is_some() {
                     None
                 } else {
                     self.aimed(view, origin, effects, targets.as_ref(), 0, pick)
@@ -714,6 +717,7 @@ impl HeuristicAgent {
                         effects,
                         targets,
                         second_targets: None,
+                        third_targets: None,
                         ..
                     } => match targets {
                         None => self.effects_worth(view, origin, effects, Aim::Source, 0)?,
@@ -2707,7 +2711,9 @@ impl HeuristicAgent {
                 let target = match slot {
                     baylee_cards_dsl::TargetSlot::This => origin.object,
                     baylee_cards_dsl::TargetSlot::First => subject,
-                    baylee_cards_dsl::TargetSlot::Second => return None,
+                    baylee_cards_dsl::TargetSlot::Second | baylee_cards_dsl::TargetSlot::Third => {
+                        return None;
+                    }
                 };
                 let objects: Vec<&PublicObject> = target.into_iter().collect();
                 let p = i32::try_from(count(*power)?).unwrap_or(0);

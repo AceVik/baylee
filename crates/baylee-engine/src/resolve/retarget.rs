@@ -106,7 +106,9 @@ pub(super) fn start_copy(
     res: &mut Resolution,
     copy: ObjectId,
 ) -> Option<Pending> {
-    if state.object(copy).is_none_or(|o| o.target_req.is_none()) {
+    if state.object(copy).is_none_or(|o| {
+        o.target_req.is_none() && o.second_target_req().is_none() && o.third_target_req().is_none()
+    }) {
         record_new_targets(state, copy, &[], &[]);
         return None;
     }
@@ -130,7 +132,9 @@ fn begin(
     state.capture_source_references();
     let state_ref = &*state;
     let obj = state_ref.object(spell).filter(|o| o.zone == Zone::Stack)?;
-    let req = obj.target_req?;
+    let first_players = obj
+        .target_req
+        .map_or_else(SeatSet::new, |req| eval::targeted_players(obj, &req.spec));
     let was: Vec<(u8, Aim)> = obj
         .targets
         .iter()
@@ -149,11 +153,7 @@ fn begin(
                 ),
             )
         })
-        .chain(
-            eval::targeted_players(obj, &req.spec)
-                .iter()
-                .map(|p| (0, Aim::Player(p))),
-        )
+        .chain(first_players.iter().map(|p| (0, Aim::Player(p))))
         .chain(obj.second_targets().iter().enumerate().map(|(index, _)| {
             (
                 1,
@@ -205,7 +205,7 @@ fn begin(
                 }),
         )
         .collect();
-    if change_to.is_some() && was.len() != 1 {
+    if was.is_empty() || (change_to.is_some() && was.len() != 1) {
         return None;
     }
     if players_only && was.first() != Some(&(0, Aim::Player(res.controller))) {
@@ -523,6 +523,7 @@ fn can_finish(state: &GameState, retarget: &Retarget, candidate: Aim) -> bool {
     };
     if !dependent::can_finish(state, obj, retarget, candidate)
         || !paired::can_finish(state, obj, retarget, candidate)
+        || !distinct_groups_can_finish(state, obj, retarget, candidate)
     {
         return false;
     }
@@ -599,6 +600,117 @@ fn can_finish(state: &GameState, retarget: &Retarget, candidate: Aim) -> bool {
         available.retain(|aim| value(*aim).is_none_or(|value| values.insert(value)));
     }
     available.len() >= remaining.len()
+}
+
+fn distinct_groups_can_finish(
+    state: &GameState,
+    obj: &crate::object::GameObject,
+    retarget: &Retarget,
+    candidate: Aim,
+) -> bool {
+    let any_distinct = retarget.was.iter().any(|&(g, _)| {
+        requirement(obj, g).is_some_and(|r| {
+            r.constraint()
+                == Some(baylee_cards_dsl::TargetConstraint::DistinctFromPriorTargetGroups)
+        })
+    });
+    if !any_distinct {
+        return true;
+    }
+    let slot = retarget.now.len();
+    let cur_group = retarget.was[slot].0;
+    let mut chosen: smallvec::SmallVec<[(u8, Aim); 4]> = retarget.was[..slot]
+        .iter()
+        .zip(&retarget.now)
+        .map(|(&(g, old), &new)| (g, new.unwrap_or(old)))
+        .collect();
+    let cur_distinct = requirement(obj, cur_group).is_some_and(|r| {
+        r.constraint() == Some(baylee_cards_dsl::TargetConstraint::DistinctFromPriorTargetGroups)
+    });
+    if chosen.iter().any(|&(cg, prev)| {
+        prev == candidate && (cg == cur_group || (cur_distinct && cg < cur_group))
+    }) {
+        return false;
+    }
+    chosen.push((cur_group, candidate));
+    can_complete_retarget_distinct(state, obj, retarget, slot + 1, &mut chosen)
+}
+
+fn can_complete_retarget_distinct(
+    state: &GameState,
+    obj: &crate::object::GameObject,
+    retarget: &Retarget,
+    idx: usize,
+    chosen: &mut smallvec::SmallVec<[(u8, Aim); 4]>,
+) -> bool {
+    if idx >= retarget.was.len() {
+        return true;
+    }
+    let (g, old_aim) = retarget.was[idx];
+    let first_choice = chosen.iter().find(|&&(cg, _)| cg == 0).map(|&(_, a)| a);
+    let Some(r) = dependent::requirement(obj, retarget, g, first_choice) else {
+        return false;
+    };
+    let distinct_prior =
+        r.constraint() == Some(baylee_cards_dsl::TargetConstraint::DistinctFromPriorTargetGroups);
+    let collides = |aim: Aim, chosen: &[(u8, Aim)]| {
+        chosen
+            .iter()
+            .any(|&(cg, prev)| prev == aim && (cg == g || (distinct_prior && cg < g)))
+    };
+    if retarget.change_to.is_none()
+        && !collides(old_aim, chosen)
+        && dependent::may_keep(state, obj, retarget, g, old_aim)
+    {
+        chosen.push((g, old_aim));
+        let ok = can_complete_retarget_distinct(state, obj, retarget, idx + 1, chosen);
+        chosen.pop();
+        if ok {
+            return true;
+        }
+    }
+    let (objs, pls) = eval::stack_retarget_options(state, obj, &r.spec);
+    let rem = retarget.was.len() - idx;
+    let obj_cap = if !r.distinct_mana_values
+        && r.constraint() != Some(baylee_cards_dsl::TargetConstraint::SameController)
+    {
+        rem
+    } else {
+        usize::MAX
+    };
+    let mut tested_objs = 0_usize;
+    for id in objs {
+        let Some(reference) = state.source_identity(id) else {
+            continue;
+        };
+        let aim = Aim::Object(reference);
+        if aim == old_aim || collides(aim, chosen) {
+            continue;
+        }
+        tested_objs += 1;
+        chosen.push((g, aim));
+        let ok = can_complete_retarget_distinct(state, obj, retarget, idx + 1, chosen);
+        chosen.pop();
+        if ok {
+            return true;
+        }
+        if tested_objs >= obj_cap {
+            break;
+        }
+    }
+    for p in pls {
+        let aim = Aim::Player(p);
+        if aim == old_aim || collides(aim, chosen) {
+            continue;
+        }
+        chosen.push((g, aim));
+        let ok = can_complete_retarget_distinct(state, obj, retarget, idx + 1, chosen);
+        chosen.pop();
+        if ok {
+            return true;
+        }
+    }
+    false
 }
 
 /// Journal each newly acquired target once, objects and players. Copies pass

@@ -7,8 +7,7 @@ use baylee_core::{ids::DamageSourceRef, mana::ManaCost};
 fn subject(state: &GameState, res: &Resolution, slot: TargetSlot) -> Option<DamageSourceRef> {
     match slot {
         TargetSlot::This => subjects::source(state, res),
-        TargetSlot::First => subjects::target(state, res, *res.targets.first()?),
-        TargetSlot::Second => subjects::target(state, res, *res.second_targets.first()?),
+        other => subjects::target(state, res, *res.slot_targets(other).first()?),
     }
 }
 

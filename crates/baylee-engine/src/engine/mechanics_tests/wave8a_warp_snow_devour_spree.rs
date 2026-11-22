@@ -139,6 +139,7 @@ static WARP_WATCHER_ABILITIES: &[AbilityDef] = &[
         effects: &[Effect::gain_life(1)],
         targets: None,
         second_targets: None,
+        third_targets: None,
         timing: ActivationTiming::InstantSpeed,
         mana_ability: false,
         zone: ActivationZone::Battlefield,

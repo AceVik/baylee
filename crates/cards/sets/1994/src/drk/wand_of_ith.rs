@@ -49,6 +49,7 @@ card!(
         ],
         targets: Some(TargetReq::one(TargetSpec::AnyPlayer)),
         second_targets: None,
+        third_targets: None,
         timing: ActivationTiming::InstantSpeed,
         mana_ability: false,
         zone: ActivationZone::Battlefield,

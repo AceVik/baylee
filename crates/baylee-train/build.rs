@@ -4,6 +4,7 @@ use sha2::{Digest, Sha256};
 use std::{env, fmt::Write as _, fs, path::Path};
 use syn::{Fields, Item, Visibility};
 
+#[allow(clippy::too_many_lines)]
 fn fields_code(fields: &Fields, label: &str, target: &str, is_enum: bool) -> (String, String) {
     let mut pattern = Vec::new();
     let mut code = String::from("let mut children = vec![\n");
@@ -84,6 +85,19 @@ fn fields_code(fields: &Fields, label: &str, target: &str, is_enum: bool) -> (St
             writeln!(
                 present_only,
                 "if self.{field}.is_some() {{ children.push(b.field(\"{label}.{field}\", {access})); }}"
+            )
+            .unwrap();
+            continue;
+        }
+        if field == "third_targets" {
+            let cond = if is_enum {
+                format!("{access}.is_some()")
+            } else {
+                format!("self.{field}.is_some()")
+            };
+            writeln!(
+                present_only,
+                "if {cond} {{ children.push(b.field(\"{label}.{field}\", {access})); }}"
             )
             .unwrap();
             continue;

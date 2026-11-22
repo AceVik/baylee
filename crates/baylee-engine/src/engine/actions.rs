@@ -831,6 +831,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                     Some(
                         PlanKind::ActivateAbility { .. }
                             | PlanKind::ActivateAbilitySecondTargets { .. }
+                            | PlanKind::ActivateAbilityThirdTargets { .. }
                     )
                 ) {
                     self.activation_target_choice.opponent = Some(chosen);
@@ -841,6 +842,12 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                                 ability_index,
                             } => (source, ability_index, SmallVec::new()),
                             PlanKind::ActivateAbilitySecondTargets {
+                                source,
+                                ability_index,
+                                targets,
+                                target_players,
+                            }
+                            | PlanKind::ActivateAbilityThirdTargets {
                                 source,
                                 ability_index,
                                 targets,
@@ -897,6 +904,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 {
                     let player = self.activation_target_choice.controller.unwrap_or(player);
                     self.activation_graveyard = Some(chosen);
+                    self.activation_target_players = target_players;
                     if self.loyalty_second_targets(source, ability_index).is_some() {
                         if self
                             .continue_loyalty_activation(player, source, ability_index, targets)
@@ -904,14 +912,48 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                         {
                             self.reverse_activation(player);
                         }
-                    } else {
-                        self.activation_target_players = target_players;
+                    } else if self
+                        .start_activation(player, source, ability_index, targets)
+                        .is_err()
+                    {
+                        self.reverse_activation(player);
+                    }
+                    self.activation_graveyard = None;
+                    return Ok(());
+                }
+                if matches!(
+                    self.pending_plan,
+                    Some(PlanKind::ChooseActivationThirdGroup { .. })
+                ) && let Some(PlanKind::ChooseActivationThirdGroup {
+                    source,
+                    ability_index,
+                    targets,
+                    target_players,
+                }) = self.pending_plan.take()
+                {
+                    let player = self.activation_target_choice.controller.unwrap_or(player);
+                    self.activation_graveyard = Some(chosen);
+                    self.activation_target_players = target_players;
+                    if self.loyalty_third_targets(source, ability_index).is_some() {
+                        let second_targets =
+                            self.activation_second_targets.take().unwrap_or_default();
                         if self
-                            .start_activation(player, source, ability_index, targets)
+                            .continue_loyalty_third_targets(
+                                player,
+                                source,
+                                ability_index,
+                                targets,
+                                second_targets,
+                            )
                             .is_err()
                         {
                             self.reverse_activation(player);
                         }
+                    } else if self
+                        .start_activation(player, source, ability_index, targets)
+                        .is_err()
+                    {
+                        self.reverse_activation(player);
                     }
                     self.activation_graveyard = None;
                     return Ok(());
@@ -942,6 +984,16 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                     self.pending_plan = None;
                     self.activation_graveyard = Some(chosen);
                     let _ = self.ask_trigger_second_target();
+                    self.activation_graveyard = None;
+                    return Ok(());
+                }
+                if matches!(
+                    self.pending_plan,
+                    Some(PlanKind::ChooseTriggerThirdGroup { .. })
+                ) {
+                    self.pending_plan = None;
+                    self.activation_graveyard = Some(chosen);
+                    let _ = self.ask_trigger_third_target();
                     self.activation_graveyard = None;
                     return Ok(());
                 }
@@ -1269,9 +1321,11 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                     }
                     PlanKind::ChooseActivationGraveyard { .. }
                     | PlanKind::ChooseActivationSecondGroup { .. }
+                    | PlanKind::ChooseActivationThirdGroup { .. }
                     | PlanKind::ChooseTriggerTargetGroup { .. }
                     | PlanKind::ChooseSyntheticTriggerGroup { .. }
-                    | PlanKind::ChooseTriggerSecondGroup { .. } => {
+                    | PlanKind::ChooseTriggerSecondGroup { .. }
+                    | PlanKind::ChooseTriggerThirdGroup { .. } => {
                         unreachable!("a target group or graveyard is answered via ChoosePlayer")
                     }
                     PlanKind::ChoosePhyrexianLife { .. } => {
@@ -1325,9 +1379,12 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                         self.activation_target_references.second =
                             self.state.capture_target_group(&targets);
                         let second = targets.into_iter().collect();
+                        self.activation_target_choice.second_players =
+                            players.iter().copied().collect();
+                        self.activation_target_players = target_players;
                         if self.loyalty_second_targets(source, ability_index).is_some() {
                             if self
-                                .pay_loyalty_and_finish(
+                                .continue_loyalty_third_targets(
                                     player,
                                     source,
                                     ability_index,
@@ -1340,15 +1397,90 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                             }
                         } else {
                             self.activation_second_targets = Some(second);
-                            self.activation_target_choice.second_players =
-                                players.iter().copied().collect();
-                            self.activation_target_players = target_players;
                             if self
                                 .start_activation(player, source, ability_index, first)
                                 .is_err()
                             {
                                 self.reverse_activation(player);
                             }
+                        }
+                    }
+                    PlanKind::ActivateAbilityThirdTargets {
+                        source,
+                        ability_index,
+                        targets: first,
+                        target_players,
+                    } => {
+                        let player = self.activation_target_choice.controller.unwrap_or(player);
+                        let targets = if let Some(mut asking) =
+                            self.activation_target_choice.per_player.take()
+                        {
+                            asking.record_answer(&targets);
+                            let mut ctx = self.ability_rule_context(source, ability_index);
+                            ctx.reference = first.first().copied();
+                            let plan = PlanKind::ActivateAbilityThirdTargets {
+                                source,
+                                ability_index,
+                                targets: first.clone(),
+                                target_players: target_players.clone(),
+                            };
+                            match self.ask_next_activation_per_player(
+                                player,
+                                ctx,
+                                self.activation_x,
+                                self.activation_wall_only(source, ability_index),
+                                *asking,
+                                plan,
+                            ) {
+                                None => return Ok(()),
+                                Some(done) => {
+                                    self.activation_target_choice.third_groups = done.groups;
+                                    done.gathered
+                                }
+                            }
+                        } else {
+                            targets
+                        };
+                        self.activation_target_references.extra =
+                            vec![self.state.capture_target_group(&targets)];
+                        self.activation_target_choice.third_targets = Some(targets);
+                        self.activation_target_choice.third_players =
+                            players.iter().copied().collect();
+                        self.activation_target_players = target_players;
+                        if self.loyalty_third_targets(source, ability_index).is_some() {
+                            let second_targets =
+                                self.activation_second_targets.take().unwrap_or_default();
+                            if let Some(AbilityDef::Loyalty { effects, .. }) =
+                                self.activation_definition(source, ability_index)
+                                && self.ask_activation_division(
+                                    player,
+                                    source,
+                                    ability_index,
+                                    effects,
+                                    first.clone(),
+                                    self.activation_target_players.clone(),
+                                )
+                            {
+                                self.activation_second_targets = Some(second_targets);
+                                return Ok(());
+                            }
+                            if self
+                                .pay_loyalty_and_finish(
+                                    player,
+                                    source,
+                                    ability_index,
+                                    first,
+                                    second_targets,
+                                )
+                                .is_err()
+                            {
+                                self.reverse_activation(player);
+                            }
+                        } else if self
+                            .start_activation(player, source, ability_index, first)
+                            .is_err()
+                        {
+                            self.reverse_activation(player);
                         }
                     }
                     PlanKind::ActivateAbility {
@@ -1387,6 +1519,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                         // (no guard, no re-payment). Asked of the same list
                         // `start_activation` asked when it chose that path,
                         // which for a copied walker is not its card's.
+                        self.activation_target_players.clone_from(&players);
                         if self.loyalty_cost(source, ability_index).is_some() {
                             if self
                                 .continue_loyalty_activation(player, source, ability_index, targets)
@@ -1395,11 +1528,6 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                                 self.reverse_activation(player);
                             }
                         } else {
-                            // Only on this arm. A loyalty ability shares the
-                            // plan and finishes elsewhere, so setting the
-                            // field for one would leave it standing for
-                            // whichever activation came next.
-                            self.activation_target_players.clone_from(&players);
                             self.activation_targets_answered = true;
                             if self
                                 .start_activation(player, source, ability_index, targets)
@@ -1538,6 +1666,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                         // without any effect or follow-up question.
                         if !self.discard_empty_trigger_without_effect(top)
                             && !self.ask_trigger_second_target()
+                            && self.state.object(top).is_some()
                         {
                             self.note_crime_if_any(controller, top);
                             self.ask_trigger_division();
@@ -1562,12 +1691,45 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                             obj.set_second(targets.into_iter().collect(), req);
                             obj.set_second_players(players.iter().copied().collect());
                         }
+                        self.state.capture_source_references();
                         if !target_groups.is_empty() {
                             self.state
                                 .bind_one_per_player_groups(on_stack, 1, &target_groups);
                         }
+                        if !self.ask_trigger_third_target()
+                            && let Some(ctrl) = self.state.object(on_stack).map(|o| o.controller)
+                        {
+                            self.note_crime_if_any(ctrl, on_stack);
+                            self.ask_trigger_division();
+                        }
+                    }
+                    PlanKind::TriggerThirdTarget {
+                        on_stack,
+                        per_opponent,
+                    } => {
+                        let (targets, target_groups) = match per_opponent {
+                            Some(mut asking) => {
+                                asking.record_answer(&targets);
+                                match self.ask_next_trigger_third_per_player(on_stack, *asking) {
+                                    None => return Ok(()),
+                                    Some(done) => (done.gathered, done.groups),
+                                }
+                            }
+                            None => (targets, SmallVec::new()),
+                        };
+                        if let Some(obj) = self.state.object_mut(on_stack) {
+                            let req = obj.third_target_req();
+                            obj.set_third(targets.into_iter().collect(), req);
+                            obj.set_third_players(players.iter().copied().collect());
+                        }
+                        self.state.capture_source_references();
+                        if !target_groups.is_empty() {
+                            self.state
+                                .bind_one_per_player_groups(on_stack, 2, &target_groups);
+                        }
                         if let Some(ctrl) = self.state.object(on_stack).map(|o| o.controller) {
                             self.note_crime_if_any(ctrl, on_stack);
+                            self.ask_trigger_division();
                         }
                     }
                     PlanKind::EntryCounters { .. } | PlanKind::EntryTap { .. } => {

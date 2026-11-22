@@ -78,6 +78,7 @@ fn reflexive_trigger_sacrificed_lki_power_and_priority_window() {
         effects: &[Effect::CounterTargetAbility],
         targets: Some(TargetReq::one(TargetSpec::AbilityOnStack(&Filter::Any))),
         second_targets: None,
+        third_targets: None,
         condition: None,
     }];
 
@@ -287,6 +288,7 @@ fn reflexive_trigger_this_way_once_vs_per_occurrence_and_intervening_if() {
         effects: &[Effect::destroy(TargetSpec::Object(&Filter::CREATURE))],
         targets: Some(TargetReq::one(TargetSpec::Object(&Filter::CREATURE))),
         second_targets: None,
+        third_targets: None,
         condition: None,
     }];
 
@@ -548,6 +550,7 @@ fn delayed_trigger_at_step_targeting_expiry_and_intervening_if() {
         effects: &[Effect::destroy(TargetSpec::Object(&Filter::ARTIFACT))],
         targets: Some(TargetReq::one(TargetSpec::Object(&Filter::ARTIFACT))),
         second_targets: None,
+        third_targets: None,
         condition: None,
     }];
 
@@ -749,12 +752,14 @@ fn delayed_trigger_on_event_one_shot_vs_recurring_and_watched_departure() {
         effects: &[Effect::bounce(TargetSpec::Object(&Filter::CREATURE))],
         targets: Some(TargetReq::one(TargetSpec::Object(&Filter::CREATURE))),
         second_targets: None,
+        third_targets: None,
         condition: None,
     }];
     static SLAY: &[AbilityDef] = &[AbilityDef::Spell {
         effects: &[Effect::destroy(TargetSpec::Object(&Filter::CREATURE))],
         targets: Some(TargetReq::one(TargetSpec::Object(&Filter::CREATURE))),
         second_targets: None,
+        third_targets: None,
         condition: None,
     }];
     static CANTRIP_PING: &[AbilityDef] = &[AbilityDef::Spell {
@@ -764,6 +769,7 @@ fn delayed_trigger_on_event_one_shot_vs_recurring_and_watched_departure() {
         }],
         targets: None,
         second_targets: None,
+        third_targets: None,
         condition: None,
     }];
 

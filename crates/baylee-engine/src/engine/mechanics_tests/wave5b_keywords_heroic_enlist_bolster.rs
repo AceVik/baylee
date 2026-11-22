@@ -101,6 +101,7 @@ static DESTROY_CREATURE: &[AbilityDef] = &[AbilityDef::Spell {
     }],
     targets: Some(TargetReq::one(TargetSpec::Object(&Filter::CREATURE))),
     second_targets: None,
+    third_targets: None,
     condition: None,
 }];
 
@@ -264,6 +265,7 @@ static PUMP_TARGET_2_2: &[AbilityDef] = &[AbilityDef::Spell {
     }],
     targets: Some(TargetReq::one(TargetSpec::Object(&Filter::CREATURE))),
     second_targets: None,
+    third_targets: None,
     condition: None,
 }];
 
@@ -409,6 +411,7 @@ static DUAL_TARGET_SPELL: &[AbilityDef] = &[AbilityDef::Spell {
     ],
     targets: Some(TargetReq::one(TargetSpec::Object(&Filter::CREATURE))),
     second_targets: Some(TargetReq::one(TargetSpec::Object(&Filter::CREATURE))),
+    third_targets: None,
     condition: None,
 }];
 
@@ -422,6 +425,7 @@ static COPY_STACK_SPELL: &[AbilityDef] = &[AbilityDef::Spell {
     }],
     targets: Some(TargetReq::one(TargetSpec::Spell(&Filter::Any))),
     second_targets: None,
+    third_targets: None,
     condition: None,
 }];
 
@@ -527,6 +531,7 @@ static RAISE_DEAD_SPELL: &[AbilityDef] = &[AbilityDef::Spell {
         PlayerRel::You,
     ))),
     second_targets: None,
+    third_targets: None,
     condition: None,
 }];
 

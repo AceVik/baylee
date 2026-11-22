@@ -93,6 +93,7 @@ fn flashback_with_nonmana_sacrifice_cost_gates_offer_and_exiles_on_resolution() 
         }],
         targets: None,
         second_targets: None,
+        third_targets: None,
         condition: None,
     }];
 
@@ -196,6 +197,7 @@ fn jump_start_requires_discard_from_hand_and_exiles_on_resolution_or_counter() {
         }],
         targets: None,
         second_targets: None,
+        third_targets: None,
         condition: None,
     }];
     static COUNTER_TARGET: &[Effect] = &[Effect::CounterTargetSpellOrAbility];
@@ -365,6 +367,7 @@ fn aftermath_split_card_combines_cmc_blocks_hand_cast_and_casts_from_graveyard_t
         }],
         targets: None,
         second_targets: None,
+        third_targets: None,
         condition: None,
     }];
     static DRAIN_OPP: &[AbilityDef] = &[AbilityDef::Spell {
@@ -374,6 +377,7 @@ fn aftermath_split_card_combines_cmc_blocks_hand_cast_and_casts_from_graveyard_t
         }],
         targets: None,
         second_targets: None,
+        third_targets: None,
         condition: None,
     }];
 

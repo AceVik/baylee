@@ -260,7 +260,9 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
             // An activation, likewise (CR 602.2b). Its targets come before
             // its costs, so nothing has been paid.
             Some(
-                PlanKind::ActivateAbility { .. } | PlanKind::ActivateAbilitySecondTargets { .. },
+                PlanKind::ActivateAbility { .. }
+                | PlanKind::ActivateAbilitySecondTargets { .. }
+                | PlanKind::ActivateAbilityThirdTargets { .. },
             ) => {
                 let activator = self.pending.asked().expect("a target choice asks somebody");
                 self.pending = Pending::Priority {

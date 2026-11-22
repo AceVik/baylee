@@ -39,6 +39,10 @@ pub struct ModalTargetStep {
     pub second_targets: smallvec::SmallVec<[baylee_core::ids::ObjectId; 1]>,
     /// Legal player targets of this mode's second target clause.
     pub second_players: baylee_core::ids::SeatSet,
+    /// Legal object targets of this segment's third target clause, if any.
+    pub third_targets: smallvec::SmallVec<[baylee_core::ids::ObjectId; 2]>,
+    /// Legal player targets of this segment's third target clause, if any.
+    pub third_players: baylee_core::ids::SeatSet,
 }
 
 /// Per-nesting-level state for [`baylee_cards_dsl::Effect::RepeatProcess`].
@@ -50,10 +54,32 @@ pub(in crate::resolve) struct RepeatProcessFrame {
     pub(super) saved_this_way_from: Option<usize>,
 }
 
+/// Which target group is currently active in `res.targets` / `res.target_players`.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub(in crate::resolve) enum ActiveTargetGroup {
+    Second,
+    Third,
+}
+
+/// Saved outer target bindings pushed on entry to
+/// [`baylee_cards_dsl::Effect::WithSecondTarget`] or
+/// [`baylee_cards_dsl::Effect::WithThirdTarget`].
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+pub(in crate::resolve) struct TargetRestoreFrame {
+    pub(super) tail_from_end: usize,
+    pub(super) active_group: ActiveTargetGroup,
+    pub(super) saved_targets: smallvec::SmallVec<[baylee_core::ids::ObjectId; 2]>,
+    pub(super) saved_target_players: baylee_core::ids::SeatSet,
+    pub(super) saved_chosen_player: Option<baylee_core::ids::PlayerId>,
+    pub(super) saved_targeted: bool,
+}
+
 /// Public-zone objects found through earlier instructions of this resolution.
 #[derive(Clone, Debug, Default)]
 pub struct SubjectContext {
     second_target_players: baylee_core::ids::SeatSet,
+    third_targets: smallvec::SmallVec<[baylee_core::ids::ObjectId; 2]>,
+    third_target_players: baylee_core::ids::SeatSet,
     modal_steps: Vec<ModalTargetStep>,
     followed: Vec<DamageSourceRef>,
     pub(super) reanimation_links: Vec<super::linked_reanimation::PendingLink>,
@@ -84,6 +110,7 @@ pub struct SubjectContext {
     pub(super) repeat_processes: Vec<RepeatProcessFrame>,
     pub(super) vote_queue: Option<Box<super::vote::VoteQueue>>,
     pub(super) branch_frames: Vec<super::wave13a::BranchFrame>,
+    pub(super) target_restore_frames: Vec<TargetRestoreFrame>,
 }
 impl SubjectContext {
     /// Preserve the independent player targets of the second target instance.
@@ -99,6 +126,53 @@ impl SubjectContext {
 
     pub(crate) fn set_second_players(&mut self, players: baylee_core::ids::SeatSet) {
         self.second_target_players = players;
+    }
+
+    /// Preserve the independent object targets of the third target instance.
+    pub(crate) fn with_third_targets(
+        mut self,
+        targets: smallvec::SmallVec<[baylee_core::ids::ObjectId; 2]>,
+    ) -> Self {
+        self.third_targets = targets;
+        self
+    }
+
+    /// Preserve the independent player targets of the third target instance.
+    pub(crate) fn with_third_players(mut self, players: baylee_core::ids::SeatSet) -> Self {
+        self.third_target_players = players;
+        self
+    }
+
+    /// Current third-instance object targets, already narrowed for legality.
+    pub(crate) fn third_targets(&self) -> &[baylee_core::ids::ObjectId] {
+        &self.third_targets
+    }
+
+    /// Current third-instance player targets, already narrowed for legality.
+    pub(crate) fn third_players(&self) -> baylee_core::ids::SeatSet {
+        self.third_target_players
+    }
+
+    pub(crate) fn set_third_targets(
+        &mut self,
+        targets: smallvec::SmallVec<[baylee_core::ids::ObjectId; 2]>,
+    ) {
+        self.third_targets = targets;
+    }
+
+    pub(crate) fn set_third_players(&mut self, players: baylee_core::ids::SeatSet) {
+        self.third_target_players = players;
+    }
+
+    /// Original first-slot object targets even while nested inside
+    /// `WithSecondTarget` or `WithThirdTarget`.
+    pub(crate) fn first_slot_targets<'a>(
+        &'a self,
+        current_targets: &'a [baylee_core::ids::ObjectId],
+    ) -> &'a [baylee_core::ids::ObjectId] {
+        self.target_restore_frames
+            .first()
+            .map_or(current_targets, |frame| frame.saved_targets.as_slice())
     }
 
     pub(crate) fn with_modal_steps(mut self, steps: Vec<ModalTargetStep>) -> Self {
@@ -126,6 +200,8 @@ impl SubjectContext {
     pub(crate) fn after_cost(paid: &crate::object::PaidRecord) -> Self {
         Self {
             second_target_players: baylee_core::ids::SeatSet::new(),
+            third_targets: smallvec::SmallVec::new(),
+            third_target_players: baylee_core::ids::SeatSet::new(),
             modal_steps: Vec::new(),
             followed: paid.source_after_cost.into_iter().collect(),
             reanimation_links: Vec::new(),
@@ -152,6 +228,7 @@ impl SubjectContext {
             repeat_processes: Vec::new(),
             vote_queue: None,
             branch_frames: Vec::new(),
+            target_restore_frames: Vec::new(),
         }
     }
 
@@ -350,6 +427,23 @@ impl SubjectContext {
                 .wrapping_add(crate::state::structural_fingerprint(&(
                     100_u8,
                     &self.branch_frames,
+                )));
+        }
+        if !self.target_restore_frames.is_empty() {
+            h = h
+                .wrapping_mul(31)
+                .wrapping_add(crate::state::structural_fingerprint(&(
+                    340_u16,
+                    &self.target_restore_frames,
+                )));
+        }
+        if !self.third_targets.is_empty() || !self.third_target_players.is_empty() {
+            h = h
+                .wrapping_mul(31)
+                .wrapping_add(crate::state::structural_fingerprint(&(
+                    341_u16,
+                    &self.third_targets,
+                    self.third_target_players,
                 )));
         }
         h
@@ -568,9 +662,18 @@ pub(super) fn names_targets(state: &GameState, res: &Resolution) -> bool {
     }
     res.targeted
         && (res.target_players.is_empty()
-            || state
-                .object(res.on_stack)
-                .is_some_and(|announced| !announced.targets.is_empty()))
+            || state.object(res.on_stack).is_some_and(|announced| {
+                match res
+                    .subject
+                    .target_restore_frames
+                    .last()
+                    .map(|f| f.active_group)
+                {
+                    None => !announced.targets.is_empty(),
+                    Some(ActiveTargetGroup::Second) => !announced.second_targets().is_empty(),
+                    Some(ActiveTargetGroup::Third) => !announced.third_targets().is_empty(),
+                }
+            }))
 }
 /// The creature the resolving trigger is about besides its event object
 /// (`Rider::EventSubject`), as it was when the trigger fired.

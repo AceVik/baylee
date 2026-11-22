@@ -25,6 +25,7 @@ card!(
         }],
         targets: None,
         second_targets: None,
+        third_targets: None,
         condition: Some(Condition::All(&[
             Condition::OpponentsTurn,
             Condition::DuringStep(StepKind::Upkeep),

@@ -38,6 +38,7 @@ static MARSH_ABILITIES: &[AbilityDef] = &[
         effects: MANA_C,
         targets: None,
         second_targets: None,
+        third_targets: None,
         timing: ActivationTiming::InstantSpeed,
         mana_ability: true,
         zone: ActivationZone::Battlefield,

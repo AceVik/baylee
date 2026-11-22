@@ -172,7 +172,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
         if self.announce_activation_mode(player, source, ability_index)? {
             return Ok(());
         }
-        let (cost, effects, (first, second), mana_ability, zone, limit, cost_reduction) = {
+        let (cost, effects, (first, second, third), mana_ability, zone, limit, cost_reduction) = {
             let _obj = self
                 .state
                 .object(source)
@@ -213,7 +213,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 AbilityDef::Unearth { cost } | AbilityDef::Encore { cost } => (
                     *cost,
                     &[][..],
-                    (None, None),
+                    (None, None, None),
                     false,
                     ActivationZone::Graveyard,
                     ActivationLimit::Unlimited,
@@ -224,6 +224,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                     effects,
                     targets: first,
                     second_targets,
+                    third_targets,
                     mana_ability,
                     zone,
                     limit,
@@ -232,12 +233,12 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 } => (
                     *cost,
                     *effects,
-                    (*first, *second_targets),
+                    (*first, *second_targets, *third_targets),
                     *mana_ability
                         && baylee_cards_dsl::mana_rule::activated_mana_ability(
                             cost,
                             effects,
-                            first.is_some() || second_targets.is_some(),
+                            first.is_some() || second_targets.is_some() || third_targets.is_some(),
                         ),
                     *zone,
                     *limit,
@@ -248,6 +249,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                     effects,
                     targets: first,
                     second_targets,
+                    third_targets,
                     mana_ability,
                     zone,
                     condition,
@@ -266,12 +268,14 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                     (
                         *cost,
                         *effects,
-                        (*first, *second_targets),
+                        (*first, *second_targets, *third_targets),
                         *mana_ability
                             && baylee_cards_dsl::mana_rule::activated_mana_ability(
                                 cost,
                                 effects,
-                                first.is_some() || second_targets.is_some(),
+                                first.is_some()
+                                    || second_targets.is_some()
+                                    || third_targets.is_some(),
                             ),
                         *zone,
                         *limit,
@@ -605,6 +609,8 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
         // paying, which is neither what it does nor what the rules say
         // (CR 601.2c chooses targets, CR 601.2h pays; an activation follows
         // the same order by CR 602.2b).
+        let wall_only = eval::target_domain::walls3(first, second, third);
+        let base_context = self.ability_rule_context(source, ability_index);
         if !self.activation_targets_answered
             && let Some(req) = first
         {
@@ -617,7 +623,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 effects,
                 &self.state,
                 player,
-                self.ability_rule_context(source, ability_index),
+                base_context,
                 self.state.object(source).map(|o| o.version),
                 self.activation_x.unwrap_or(0),
             ) {
@@ -631,9 +637,9 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 &req.spec,
                 &self.state,
                 player,
-                self.ability_rule_context(source, ability_index),
+                base_context,
                 self.activation_x,
-                eval::target_domain::walls(first, second),
+                wall_only,
             );
             if req.constraint() == Some(baylee_cards_dsl::TargetConstraint::OnePerPlayer) {
                 if !eval::one_per_player_satisfied(
@@ -664,9 +670,9 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                     );
                     if let Some(done) = self.ask_next_activation_per_player(
                         player,
-                        self.ability_rule_context(source, ability_index),
+                        base_context,
                         self.activation_x,
-                        eval::target_domain::walls(first, second),
+                        wall_only,
                         asking,
                         plan,
                     ) {
@@ -727,18 +733,28 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                         }
                     }
                 }
-                // Players are the other half of the same choice, and asking for
-                // objects alone made three implemented lands dead: Nephalia
-                // Drownyard, Duskmantle and Orzhova all say "target player",
-                // whose object list is empty by construction — so each was
-                // offered in `LegalActions` (which does add the two counts) and
-                // then refused here with "no legal targets", the two-probes
-                // disagreement this engine treats as the worst kind.
-                let player_options = eval::target_player_options_from(
-                    &self.state,
-                    &req.spec,
-                    player,
-                    self.ability_rule_context(source, ability_index),
+                let mut player_options =
+                    eval::target_player_options_from(&self.state, &req.spec, player, base_context);
+                let later_pools: Vec<eval::DistinctGroupPool> = [second, third]
+                    .into_iter()
+                    .flatten()
+                    .map(|r| {
+                        self.ability_clause_distinct_pool(
+                            player,
+                            base_context,
+                            r,
+                            self.activation_x,
+                            wall_only,
+                        )
+                    })
+                    .collect();
+                eval::retain_distinct_group_options(
+                    req,
+                    &mut options,
+                    &mut player_options,
+                    &[],
+                    baylee_core::ids::SeatSet::new(),
+                    &later_pools,
                 );
                 if options.len() + player_options.len() < min as usize {
                     // The number was answered before this question was asked, so
@@ -780,15 +796,13 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
         }
         // The second instance of the word "target" (Contested Cliffs), asked
         // once the first has its answer and before anything is paid — both
-        // are CR 601.2c, and the cost is CR 601.2h. Its options leave in what
-        // the first instance chose, because CR 115.3 lets one object be
-        // chosen once for each instance.
+        // are CR 601.2c, and the cost is CR 601.2h.
         if let Some(req) = second
             && self.activation_second_targets.is_none()
         {
             // A requirement naming the first target (Gauntlets of Chaos:
             // "that shares one of those types with it") reads it here.
-            let mut context = self.ability_rule_context(source, ability_index);
+            let mut context = base_context;
             context.reference = targets.first().copied();
             let (min, max) = req.bounds(self.activation_x.unwrap_or(0));
             let mut options = eval::target_options_in_domain(
@@ -797,7 +811,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 player,
                 context,
                 self.activation_x,
-                eval::target_domain::walls(first, second),
+                wall_only,
             );
             if req.constraint() == Some(baylee_cards_dsl::TargetConstraint::OnePerPlayer) {
                 if !eval::one_per_player_satisfied(
@@ -832,7 +846,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                         player,
                         context,
                         self.activation_x,
-                        eval::target_domain::walls(first, second),
+                        wall_only,
                         asking,
                         plan,
                     ) {
@@ -891,11 +905,29 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                         }
                     }
                 }
-                let player_options = eval::target_player_options_from(
-                    &self.state,
-                    &req.spec,
-                    player,
-                    self.ability_rule_context(source, ability_index),
+                let mut player_options =
+                    eval::target_player_options_from(&self.state, &req.spec, player, base_context);
+                let prior_players: baylee_core::ids::SeatSet =
+                    chosen_players.iter().copied().collect();
+                let later_pools: Vec<eval::DistinctGroupPool> = third
+                    .into_iter()
+                    .map(|r3| {
+                        self.ability_clause_distinct_pool(
+                            player,
+                            base_context,
+                            r3,
+                            self.activation_x,
+                            wall_only,
+                        )
+                    })
+                    .collect();
+                eval::retain_distinct_group_options(
+                    req,
+                    &mut options,
+                    &mut player_options,
+                    &targets,
+                    prior_players,
+                    &later_pools,
                 );
                 if options.len() + player_options.len() < min as usize {
                     self.activation_x = None;
@@ -905,6 +937,174 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                     self.activation_second_targets = Some(SmallVec::new());
                 } else {
                     let plan = PlanKind::ActivateAbilitySecondTargets {
+                        source,
+                        ability_index,
+                        targets: targets.clone(),
+                        target_players: chosen_players.clone(),
+                    };
+                    let Some(chooser) =
+                        self.activation_target_chooser(req, player, plan.clone())?
+                    else {
+                        return Ok(());
+                    };
+                    self.pending_plan = Some(plan);
+                    let max = max.min(
+                        u32::try_from(options.len() + player_options.len()).unwrap_or(u32::MAX),
+                    );
+                    self.pending = Pending::ChooseTargets {
+                        player: chooser,
+                        options,
+                        player_options,
+                        min,
+                        max,
+                        reason: TargetPrompt::Targets,
+                    };
+                    self.awaiting_answer = true;
+                    return Ok(());
+                }
+            }
+        }
+        if let Some(req) = third
+            && self.activation_target_choice.third_targets.is_none()
+        {
+            let mut context = base_context;
+            context.reference = self
+                .activation_second_targets
+                .as_ref()
+                .and_then(|s| s.first().copied())
+                .or_else(|| targets.first().copied());
+            let (min, max) = req.bounds(self.activation_x.unwrap_or(0));
+            let mut options = eval::target_options_in_domain(
+                &req.spec,
+                &self.state,
+                player,
+                context,
+                self.activation_x,
+                wall_only,
+            );
+            if req.constraint() == Some(baylee_cards_dsl::TargetConstraint::OnePerPlayer) {
+                if !eval::one_per_player_satisfied(
+                    &self.state,
+                    &req.spec,
+                    player,
+                    &options,
+                    req.min,
+                ) {
+                    self.activation_x = None;
+                    return Err(EngineError::IllegalAction("no legal targets"));
+                }
+                if max == 0 {
+                    self.activation_target_choice.third_targets = Some(SmallVec::new());
+                } else {
+                    let plan = PlanKind::ActivateAbilityThirdTargets {
+                        source,
+                        ability_index,
+                        targets: targets.clone(),
+                        target_players: chosen_players.clone(),
+                    };
+                    let Some(chooser) =
+                        self.activation_target_chooser(req, player, plan.clone())?
+                    else {
+                        return Ok(());
+                    };
+                    let seats = eval::one_per_player_seats(&self.state, &req.spec, player);
+                    let asking = super::super::PerOpponent::one_per_player(
+                        req.spec, seats, req.min, chooser,
+                    );
+                    if let Some(done) = self.ask_next_activation_per_player(
+                        player,
+                        context,
+                        self.activation_x,
+                        wall_only,
+                        asking,
+                        plan,
+                    ) {
+                        self.activation_target_references.extra =
+                            vec![self.state.capture_target_group(&done.gathered)];
+                        self.activation_target_choice.third_groups = done.groups;
+                        self.activation_target_choice.third_targets = Some(done.gathered);
+                    } else {
+                        return Ok(());
+                    }
+                }
+            } else {
+                if req.constraint() == Some(baylee_cards_dsl::TargetConstraint::SameController)
+                    || matches!(
+                        req.spec,
+                        baylee_cards_dsl::TargetSpec::CardInGraveyard(
+                            _,
+                            baylee_cards_dsl::PlayerRel::Chosen
+                        )
+                    )
+                {
+                    if let Some(chosen) = self.activation_graveyard.take() {
+                        options.retain(|id| {
+                            eval::same_controller_group(&self.state, *id) == Some(chosen)
+                        });
+                    } else {
+                        let groups =
+                            eval::eligible_same_controller_groups(&self.state, &options, min);
+                        match groups.as_slice() {
+                            [] => options.clear(),
+                            [only] => {
+                                options.retain(|id| {
+                                    eval::same_controller_group(&self.state, *id) == Some(*only)
+                                });
+                            }
+                            _ => {
+                                let plan = PlanKind::ChooseActivationThirdGroup {
+                                    source,
+                                    ability_index,
+                                    targets,
+                                    target_players: chosen_players,
+                                };
+                                let Some(chooser) =
+                                    self.activation_target_chooser(req, player, plan.clone())?
+                                else {
+                                    return Ok(());
+                                };
+                                self.pending_plan = Some(plan);
+                                self.pending = Pending::ChoosePlayer {
+                                    player: chooser,
+                                    options: groups,
+                                };
+                                self.awaiting_answer = true;
+                                return Ok(());
+                            }
+                        }
+                    }
+                }
+                let mut player_options =
+                    eval::target_player_options_from(&self.state, &req.spec, player, base_context);
+                let mut prior_objs: Vec<ObjectId> = targets.iter().copied().collect();
+                if let Some(sec) = &self.activation_second_targets {
+                    for &id in sec {
+                        if !prior_objs.contains(&id) {
+                            prior_objs.push(id);
+                        }
+                    }
+                }
+                let mut prior_players: baylee_core::ids::SeatSet =
+                    chosen_players.iter().copied().collect();
+                for p in self.activation_target_choice.second_players.iter() {
+                    prior_players.insert(p);
+                }
+                eval::retain_distinct_group_options(
+                    req,
+                    &mut options,
+                    &mut player_options,
+                    &prior_objs,
+                    prior_players,
+                    &[],
+                );
+                if options.len() + player_options.len() < min as usize {
+                    self.activation_x = None;
+                    return Err(EngineError::IllegalAction("no legal targets"));
+                }
+                if (options.is_empty() && player_options.is_empty()) || max == 0 {
+                    self.activation_target_choice.third_targets = Some(SmallVec::new());
+                } else {
+                    let plan = PlanKind::ActivateAbilityThirdTargets {
                         source,
                         ability_index,
                         targets: targets.clone(),
@@ -1430,6 +1630,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
             effects,
             mana_ability,
             granted,
+            third,
             second,
             first,
             mode_index: self.activation_mode.take().map(|mode| mode.mode),

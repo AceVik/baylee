@@ -1701,6 +1701,7 @@ pub(super) fn resume_inner(
         | AwaitingOp::Colors { .. }
         | AwaitingOp::MoveCounter { .. }
         | AwaitingOp::PutCounterChoice { .. }
+        | AwaitingOp::AttachSlot { .. }
         | AwaitingOp::Counters { .. }
         | AwaitingOp::RemoveUpToCountersTarget { .. }
         | AwaitingOp::ContinueRemovingCounters { .. }

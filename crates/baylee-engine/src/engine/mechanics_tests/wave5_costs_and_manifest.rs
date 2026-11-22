@@ -183,6 +183,7 @@ fn wave5_cards() -> Vec<&'static CardDef> {
         }],
         targets: Some(TargetReq::one(TargetSpec::Spell(&Filter::Any))),
         second_targets: None,
+        third_targets: None,
         condition: None,
     }];
     static KILL_ABILS: [AbilityDef; 1] = [AbilityDef::Spell {
@@ -192,6 +193,7 @@ fn wave5_cards() -> Vec<&'static CardDef> {
         }],
         targets: Some(TargetReq::one(TargetSpec::Object(&Filter::CREATURE))),
         second_targets: None,
+        third_targets: None,
         condition: None,
     }];
     static LEFT_BURN_ABILS: [AbilityDef; 1] = [AbilityDef::Spell {
@@ -201,12 +203,14 @@ fn wave5_cards() -> Vec<&'static CardDef> {
         }],
         targets: Some(TargetReq::one(TargetSpec::Object(&Filter::CREATURE))),
         second_targets: None,
+        third_targets: None,
         condition: None,
     }];
     static RIGHT_TAP_DRAW_ABILS: [AbilityDef; 1] = [AbilityDef::Spell {
         effects: &[Effect::TapTarget, Effect::draw(1)],
         targets: Some(TargetReq::one(TargetSpec::Object(&Filter::CREATURE))),
         second_targets: None,
+        third_targets: None,
         condition: None,
     }];
     static ELECTROMANCER_ABILS: [AbilityDef; 1] = [static_ability!(

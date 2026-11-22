@@ -3108,10 +3108,7 @@ pub(super) fn exec_immediate(
                     .map(|s| s.object)
                     .into_iter()
                     .collect(),
-                baylee_cards_dsl::TargetSlot::First => res.targets.clone(),
-                baylee_cards_dsl::TargetSlot::Second => {
-                    res.second_targets.iter().copied().collect()
-                }
+                other => res.slot_targets(other).iter().copied().collect(),
             };
             for target in targets {
                 tap(state, target);
@@ -3125,10 +3122,7 @@ pub(super) fn exec_immediate(
                     .map(|s| s.object)
                     .into_iter()
                     .collect(),
-                baylee_cards_dsl::TargetSlot::First => res.targets.clone(),
-                baylee_cards_dsl::TargetSlot::Second => {
-                    res.second_targets.iter().copied().collect()
-                }
+                other => res.slot_targets(other).iter().copied().collect(),
             };
             for target in targets {
                 untap(state, target);
@@ -4287,7 +4281,71 @@ pub(super) fn exec_immediate(
             wave4_combat::detain_filter(state, res, filter);
             None
         }
+        Effect::WithSecondTarget(effects) => {
+            with_target_group(res, op, effects, super::subjects::ActiveTargetGroup::Second);
+            None
+        }
+        Effect::WithThirdTarget(effects) => {
+            with_target_group(res, op, effects, super::subjects::ActiveTargetGroup::Third);
+            None
+        }
+        Effect::AttachSlot {
+            object,
+            to,
+            optional,
+        } => attachments::attach_slot(state, res, object, to, optional),
     }
+}
+
+fn with_target_group(
+    res: &mut Resolution,
+    op: Effect,
+    effects: &'static [Effect],
+    group: super::subjects::ActiveTargetGroup,
+) {
+    let after_len = res.effects.len().saturating_sub(res.pc + 1);
+    if let Some(frame) = res
+        .subject
+        .target_restore_frames
+        .pop_if(|frame| frame.tail_from_end == after_len && frame.active_group == group)
+    {
+        res.targets = frame.saved_targets;
+        res.target_players = frame.saved_target_players;
+        res.chosen_player = frame.saved_chosen_player;
+        res.targeted = frame.saved_targeted;
+        return;
+    }
+    if effects.is_empty() {
+        return;
+    }
+    let (new_targets, new_players): (SmallVec<[ObjectId; 2]>, baylee_core::ids::SeatSet) =
+        match group {
+            super::subjects::ActiveTargetGroup::Second => (
+                SmallVec::from_slice(&res.second_targets),
+                res.subject.second_players(),
+            ),
+            super::subjects::ActiveTargetGroup::Third => (
+                SmallVec::from_slice(res.subject.third_targets()),
+                res.subject.third_players(),
+            ),
+        };
+    res.subject
+        .target_restore_frames
+        .push(super::subjects::TargetRestoreFrame {
+            tail_from_end: after_len,
+            active_group: group,
+            saved_targets: std::mem::replace(&mut res.targets, new_targets),
+            saved_target_players: std::mem::replace(&mut res.target_players, new_players),
+            saved_chosen_player: res.chosen_player,
+            saved_targeted: std::mem::replace(&mut res.targeted, true),
+        });
+    res.chosen_player = (new_players.len() == 1)
+        .then(|| new_players.iter().next())
+        .flatten();
+    let mut body = flatten(effects);
+    body.push(op);
+    let next = res.pc + 1;
+    res.effects.splice(next..next, body);
 }
 
 pub(super) fn cleansing_advance(

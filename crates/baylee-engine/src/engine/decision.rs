@@ -60,8 +60,7 @@ pub struct DecisionContext<'a> {
     /// its second, so an agent reading "this spell is beneficial" for both
     /// would decline to name any creature it is meant to fight.
     pub second_instance: bool,
-    /// What the first instance already chose, while the second is asked —
-    /// the fighter an agent weighs each candidate against.
+    /// What the first instance already chose, while the second is asked.
     pub first_targets: &'a [ObjectId],
     /// What the copy changes, while the question is which object the
     /// source enters as a copy of (CR 707.2, asked before it enters by CR
@@ -101,6 +100,56 @@ pub fn ability_effects(ability: &AbilityDef, mode: Option<usize>) -> &'static [E
         }
         _ => &[],
     }
+}
+
+/// Effects explaining a third-target question (`third_targets` /
+/// [`baylee_cards_dsl::TargetSlot::Third`]): unwraps `Effect::WithThirdTarget`
+/// or isolates the single `TargetSlot::Third` instruction so downstream AI
+/// readers score only what acts on the third target.
+fn third_target_effects(effects: &[Effect]) -> &[Effect] {
+    use baylee_cards_dsl::{TargetSlot, TargetSpec};
+    const TAP: &[Effect] = &[Effect::TapTarget];
+    const UNTAP: &[Effect] = &[Effect::UntapTarget];
+    const DESTROY: &[Effect] = &[Effect::Destroy {
+        target: TargetSpec::Object(&baylee_cards_dsl::Filter::Any),
+        no_regen: false,
+    }];
+    const ATTACH: &[Effect] = &[Effect::AttachSlot {
+        object: TargetSlot::This,
+        to: TargetSlot::First,
+        optional: false,
+    }];
+    for effect in effects {
+        match effect {
+            Effect::WithThirdTarget(inner) => return inner,
+            Effect::WithSecondTarget(..) => {}
+            Effect::PumpTargetSlot {
+                slot: TargetSlot::Third,
+                ..
+            } => return std::slice::from_ref(effect),
+            Effect::TapTargetSlot(TargetSlot::Third) => return TAP,
+            Effect::UntapTargetSlot(TargetSlot::Third) => return UNTAP,
+            Effect::DestroyTargetSlots { targets, .. } if targets.contains(&TargetSlot::Third) => {
+                return DESTROY;
+            }
+            Effect::AttachSlot {
+                to: TargetSlot::Third,
+                ..
+            } => return ATTACH,
+            _ => {
+                let (then, otherwise) = effect.branches();
+                let from_then = third_target_effects(then);
+                if !from_then.is_empty() {
+                    return from_then;
+                }
+                let from_else = third_target_effects(otherwise);
+                if !from_else.is_empty() {
+                    return from_else;
+                }
+            }
+        }
+    }
+    &[]
 }
 
 /// Which of several chosen modes a cast is asking about: the mode owning the
@@ -224,7 +273,19 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                     targets,
                     ..
                 }
+                | PlanKind::ActivateAbilityThirdTargets {
+                    source,
+                    ability_index,
+                    targets,
+                    ..
+                }
                 | PlanKind::ChooseActivationSecondGroup {
+                    source,
+                    ability_index,
+                    targets,
+                    ..
+                }
+                | PlanKind::ChooseActivationThirdGroup {
                     source,
                     ability_index,
                     targets,
@@ -313,6 +374,8 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
             Some(
                 PlanKind::TriggerSecondTarget { on_stack, .. }
                 | PlanKind::ChooseTriggerSecondGroup { on_stack }
+                | PlanKind::TriggerThirdTarget { on_stack, .. }
+                | PlanKind::ChooseTriggerThirdGroup { on_stack }
                 | PlanKind::DivideDamage { on_stack, .. },
             ) => self.state.object(*on_stack).and_then(|o| {
                 first = &o.targets;
@@ -331,6 +394,8 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
             Some(
                 PlanKind::TriggerSecondTarget { on_stack, .. }
                 | PlanKind::ChooseTriggerSecondGroup { on_stack }
+                | PlanKind::TriggerThirdTarget { on_stack, .. }
+                | PlanKind::ChooseTriggerThirdGroup { on_stack }
                 | PlanKind::DivideDamage { on_stack, .. },
             ) => controller(*on_stack),
             _ => self
@@ -339,7 +404,30 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 .or_else(|| self.pending.asked()),
         };
         if let Some((source, index, mode)) = handle {
+            let is_second = matches!(
+                self.pending_plan,
+                Some(
+                    PlanKind::ActivateAbilitySecondTargets { .. }
+                        | PlanKind::ChooseActivationSecondGroup { .. }
+                        | PlanKind::TriggerSecondTarget { .. }
+                        | PlanKind::ChooseTriggerSecondGroup { .. }
+                )
+            );
+            let is_third = matches!(
+                self.pending_plan,
+                Some(
+                    PlanKind::ActivateAbilityThirdTargets { .. }
+                        | PlanKind::ChooseActivationThirdGroup { .. }
+                        | PlanKind::TriggerThirdTarget { .. }
+                        | PlanKind::ChooseTriggerThirdGroup { .. }
+                )
+            );
             if let Some(grant) = self.granted_definition(source, index) {
+                let effects = if is_third {
+                    third_target_effects(grant.effects)
+                } else {
+                    grant.effects
+                };
                 return DecisionContext {
                     actor,
                     source: Some(source),
@@ -349,17 +437,9 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                         .and_then(crate::object::AbilityOrigin::printed),
                     provenance: grant.provenance,
                     ability_index: Some(grant.provenance.map_or(index, |p| p.index)),
-                    effects: grant.effects,
+                    effects,
                     x: self.activation_x.unwrap_or(0),
-                    second_instance: matches!(
-                        self.pending_plan,
-                        Some(
-                            PlanKind::ActivateAbilitySecondTargets { .. }
-                                | PlanKind::ChooseActivationSecondGroup { .. }
-                                | PlanKind::TriggerSecondTarget { .. }
-                                | PlanKind::ChooseTriggerSecondGroup { .. }
-                        )
-                    ),
+                    second_instance: is_second || is_third,
                     first_targets: first,
                     ..DecisionContext::default()
                 };
@@ -371,6 +451,8 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 Some(
                     PlanKind::TriggerSecondTarget { on_stack, .. }
                     | PlanKind::ChooseTriggerSecondGroup { on_stack }
+                    | PlanKind::TriggerThirdTarget { on_stack, .. }
+                    | PlanKind::ChooseTriggerThirdGroup { on_stack }
                     | PlanKind::DivideDamage { on_stack, .. },
                 ) => self
                     .state
@@ -388,6 +470,9 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                     .map(|o| o.printed_ability_list(&self.lookup))
             });
             let provenance = list.as_ref().map(|list| list.origin(index as usize));
+            let base_effects = list
+                .and_then(|list| list.abilities.get(index as usize))
+                .map_or(&[][..], |a| ability_effects(a, mode));
             return DecisionContext {
                 actor,
                 source: Some(source),
@@ -397,19 +482,13 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 provenance,
                 ability_index: Some(provenance.map_or(index, |origin| origin.index)),
                 mode,
-                effects: list
-                    .and_then(|list| list.abilities.get(index as usize))
-                    .map_or(&[], |a| ability_effects(a, mode)),
+                effects: if is_third {
+                    third_target_effects(base_effects)
+                } else {
+                    base_effects
+                },
                 x: self.activation_x.unwrap_or(0),
-                second_instance: matches!(
-                    self.pending_plan,
-                    Some(
-                        PlanKind::ActivateAbilitySecondTargets { .. }
-                            | PlanKind::ChooseActivationSecondGroup { .. }
-                            | PlanKind::TriggerSecondTarget { .. }
-                            | PlanKind::ChooseTriggerSecondGroup { .. }
-                    )
-                ),
+                second_instance: is_second || is_third,
                 first_targets: first,
                 ..DecisionContext::default()
             };
@@ -497,6 +576,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
     }
 
     /// [`Self::decision_context`] while a cast is being announced.
+    #[allow(clippy::too_many_lines)]
     fn wizard_context<'a>(
         &'a self,
         wizard: &'a super::cast_wizard::CastWizard,
@@ -513,6 +593,23 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
         let face = wizard_context_face(def, wizard, second_stage);
         let (mode, second_instance, first_targets) =
             self.wizard_target_clause_info(def, face, wizard, second_stage);
+        let third_instance = wizard.stage == super::cast_wizard::WizardStage::ExtraTargets
+            && wizard.extra_targets.is_empty()
+            && !matches!(
+                wizard.option,
+                Some(
+                    CastModeKind::Modes(_)
+                        | CastModeKind::RepeatedModes(_)
+                        | CastModeKind::Mode(_)
+                        | CastModeKind::Fused
+                )
+            )
+            && self.wizard_third_target_req(wizard).is_some();
+        let base_effects = def
+            .abilities_for_face(face)
+            .iter()
+            .find(|a| matches!(a, AbilityDef::Spell { .. }) || a.modal_spell().is_some())
+            .map_or(&[][..], |a| ability_effects(a, mode));
         DecisionContext {
             actor: Some(wizard.player),
             source: Some(wizard.card),
@@ -527,11 +624,11 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 .and_then(|i| u32::try_from(i).ok()),
             mode,
             whole_spell: mode.is_none(),
-            effects: def
-                .abilities_for_face(face)
-                .iter()
-                .find(|a| matches!(a, AbilityDef::Spell { .. }) || a.modal_spell().is_some())
-                .map_or(&[], |a| ability_effects(a, mode)),
+            effects: if third_instance {
+                third_target_effects(base_effects)
+            } else {
+                base_effects
+            },
             cast_mode: wizard.option,
             alternative_cost: wizard.alternative_cost,
             cost: wizard
@@ -590,7 +687,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                     .len();
                     u32::try_from(objects + players).unwrap_or(u32::MAX)
                 }),
-            second_instance,
+            second_instance: second_instance || third_instance,
             first_targets,
             // A clone chooses as it resolves, never while it is being cast.
             copying: None,

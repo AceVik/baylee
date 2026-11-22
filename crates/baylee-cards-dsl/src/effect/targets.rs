@@ -298,6 +298,12 @@ pub enum TargetConstraint {
     /// e.g. *Vaevictis Asmadi, the Dire*, CR 115.1). Appended to preserve
     /// replay identities.
     OnePerPlayer,
+    /// Every target chosen for this target group must be distinct from all
+    /// targets (objects and players) already chosen in earlier target groups
+    /// of the same spell or ability (`TargetUnique$ True` across independent
+    /// target clauses; e.g. *Arm the Cathars*, *Cone of Flame*, CR 115.3,
+    /// CR 115.7, CR 601.2c). Appended to preserve replay identities.
+    DistinctFromPriorTargetGroups,
 }
 
 /// Who chooses targets without changing the spell or ability's controller.
@@ -471,4 +477,7 @@ pub enum TargetSlot {
     /// The object chosen for its second instance
     /// (`second_targets` on the ability).
     Second,
+    /// The object chosen for its third instance
+    /// (`third_targets` on the ability).
+    Third,
 }

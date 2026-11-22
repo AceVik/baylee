@@ -37,6 +37,7 @@ static NOTHING: &[AbilityDef] = &[AbilityDef::Spell {
     effects: &[],
     targets: None,
     second_targets: None,
+    third_targets: None,
     condition: None,
 }];
 

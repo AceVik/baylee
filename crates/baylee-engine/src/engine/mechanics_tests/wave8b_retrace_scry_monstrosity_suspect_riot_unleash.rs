@@ -230,6 +230,7 @@ fn flicker_instant() -> &'static CardDef {
         }],
         targets: Some(TargetReq::one(TargetSpec::Object(&Filter::CREATURE))),
         second_targets: None,
+        third_targets: None,
         condition: None,
     }];
     leak(
@@ -248,6 +249,7 @@ fn suspect_spell() -> &'static CardDef {
         }],
         targets: Some(TargetReq::one(TargetSpec::Object(&Filter::CREATURE))),
         second_targets: None,
+        third_targets: None,
         condition: None,
     }];
     leak(
@@ -266,6 +268,7 @@ fn unsuspect_spell() -> &'static CardDef {
         }],
         targets: Some(TargetReq::one(TargetSpec::Object(&Filter::CREATURE))),
         second_targets: None,
+        third_targets: None,
         condition: None,
     }];
     leak(
@@ -352,6 +355,7 @@ fn grow_instant() -> &'static CardDef {
         }],
         targets: Some(TargetReq::one(TargetSpec::Object(&Filter::CREATURE))),
         second_targets: None,
+        third_targets: None,
         condition: None,
     }];
     leak(
@@ -371,6 +375,7 @@ fn shrink_counter_instant() -> &'static CardDef {
         }],
         targets: Some(TargetReq::one(TargetSpec::Object(&Filter::CREATURE))),
         second_targets: None,
+        third_targets: None,
         condition: None,
     }];
     leak(

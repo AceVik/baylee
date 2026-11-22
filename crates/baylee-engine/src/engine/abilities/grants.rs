@@ -24,6 +24,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 effects: &[],
                 targets: None,
                 second_targets: None,
+                third_targets: None,
                 timing: baylee_cards_dsl::ActivationTiming::InstantSpeed,
                 mana_ability: false,
                 zone: baylee_cards_dsl::ActivationZone::Battlefield,

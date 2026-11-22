@@ -27,6 +27,7 @@ enum Body {
         effects: &'static [Effect],
         targets: Option<TargetReq>,
         second_targets: Option<TargetReq>,
+        third_targets: Option<TargetReq>,
         condition: Option<baylee_cards_dsl::Condition>,
     },
     /// A choice of them (CR 603.3c).
@@ -47,12 +48,14 @@ impl Body {
                 effects,
                 targets,
                 second_targets,
+                third_targets,
                 condition,
                 ..
             }) => Self::Effects {
                 effects,
                 targets: *targets,
                 second_targets: *second_targets,
+                third_targets: *third_targets,
                 condition: *condition,
             },
             Some(AbilityDef::SagaChapter {
@@ -61,6 +64,7 @@ impl Body {
                 effects,
                 targets: *targets,
                 second_targets: None,
+                third_targets: None,
                 condition: None,
             },
             Some(AbilityDef::ModalTriggered {
@@ -404,6 +408,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 effects,
                 targets: t.synthetic_target,
                 second_targets: None,
+                third_targets: None,
                 condition: None,
             };
         }

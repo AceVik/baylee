@@ -791,11 +791,7 @@ fn pump_slot_filters(
             .into_iter()
             .collect();
     }
-    let targets = match slot {
-        TargetSlot::First => res.targets.as_slice(),
-        TargetSlot::Second => res.second_targets.as_slice(),
-        TargetSlot::This => unreachable!("handled source"),
-    };
+    let targets = res.slot_targets(slot);
     targets
         .iter()
         .filter_map(|target| super::subjects::target(state, res, *target))

@@ -58,6 +58,7 @@ static LOOPING_CARD: CardDef = CardDef {
             effects: BLINK_SELF,
             targets: Some(TargetReq::one(TargetSpec::ThisObject)),
             second_targets: None,
+            third_targets: None,
             zone: baylee_cards_dsl::TriggerZone::Battlefield,
             once_per_turn: false,
             condition: None,
@@ -70,6 +71,7 @@ static LOOPING_CARD: CardDef = CardDef {
             effects: BLINK_SELF,
             targets: Some(TargetReq::one(TargetSpec::ThisObject)),
             second_targets: None,
+            third_targets: None,
             zone: baylee_cards_dsl::TriggerZone::Battlefield,
             once_per_turn: false,
             condition: None,
@@ -370,6 +372,7 @@ fn arrival_history_normalizes_only_proven_threshold_readers() {
         effects: &[],
         targets: None,
         second_targets: None,
+        third_targets: None,
         condition: Some(Condition::AmountAtLeast(
             Amount::CreaturesEnteredUnderYourControlThisTurn,
             3,
@@ -381,6 +384,7 @@ fn arrival_history_normalizes_only_proven_threshold_readers() {
         }],
         targets: None,
         second_targets: None,
+        third_targets: None,
         condition: None,
     }];
     static UNRECOGNIZED: &[AbilityDef] = &[AbilityDef::Spell {
@@ -389,6 +393,7 @@ fn arrival_history_normalizes_only_proven_threshold_readers() {
         }],
         targets: None,
         second_targets: None,
+        third_targets: None,
         condition: None,
     }];
     let mut engine = looping_game(LoopPolicy::RunOnceThenBreak);

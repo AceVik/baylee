@@ -256,11 +256,12 @@ pub fn face_has_a_legal_target(
             effects,
             targets,
             second_targets,
+            third_targets,
             ..
-        } => Some((*effects, *targets, *second_targets)),
+        } => Some((*effects, *targets, *second_targets, *third_targets)),
         _ => None,
     });
-    let (effects, req, second) = spell.unwrap_or_default();
+    let (effects, req, second, third) = spell.unwrap_or_default();
     if let Some(r) = req
         && r.min > 0
         && def
@@ -282,36 +283,31 @@ pub fn face_has_a_legal_target(
     // Every instance of the word has to be satisfiable (CR 601.2c): Khalni
     // Ambush with no creature on the other side of the table is not a spell
     // that can be cast, however many of the caster's own it could name.
-    (requirement_is_reachable_for(
+    requirements3_are_reachable_for(
         req,
+        second,
+        third,
         state,
         player,
         card,
         Some((def, face)),
-        crate::eval::target_domain::walls(req, second),
+        None,
     ) || def
         .faces
         .get(face)
         .and_then(|f| f.kicked_targets)
-        .is_some_and(|req| {
-            requirement_is_reachable_for(
-                Some(req),
+        .is_some_and(|kicked_req| {
+            requirements3_are_reachable_for(
+                Some(kicked_req),
+                second,
+                third,
                 state,
                 player,
                 card,
                 Some((def, face)),
-                crate::eval::target_domain::walls(Some(req), second),
+                None,
             )
-        }))
-        && second_is_reachable(
-            req,
-            second,
-            state,
-            player,
-            card,
-            Some((def, face)),
-            crate::eval::target_domain::walls(req, second),
-        )
+        })
 }
 
 fn modal_face_has_legal_target(
@@ -326,21 +322,15 @@ fn modal_face_has_legal_target(
     let set_ok = |set: u8| {
         let wall_only = crate::eval::target_domain::modes_wall_only(modes, set);
         chosen_modes(modes, set).all(|(_, mode)| {
-            requirement_is_reachable_for(
-                mode.targets,
-                state,
-                player,
-                card,
-                Some(printed),
-                wall_only,
-            ) && second_is_reachable(
+            requirements3_are_reachable_for(
                 mode.targets,
                 mode.second_targets,
+                None,
                 state,
                 player,
                 card,
                 Some(printed),
-                wall_only,
+                Some(wall_only),
             )
         })
     };
@@ -478,8 +468,18 @@ pub(crate) fn ordinary_targets_reachable(
         baylee_cards_dsl::AbilityDef::Spell {
             targets,
             second_targets,
+            third_targets,
             ..
-        } => requirements_are_reachable(*targets, *second_targets, state, player, card),
+        } => requirements3_are_reachable_for(
+            *targets,
+            *second_targets,
+            *third_targets,
+            state,
+            player,
+            card,
+            Some((def, 0)),
+            None,
+        ),
         _ => true,
     })
 }
@@ -886,9 +886,91 @@ fn requirements_are_reachable(
     player: PlayerId,
     card: ObjectId,
 ) -> bool {
-    let wall_only = crate::eval::target_domain::walls(first, second);
-    requirement_is_reachable_for(first, state, player, card, None, wall_only)
-        && second_is_reachable(first, second, state, player, card, None, wall_only)
+    requirements3_are_reachable_for(first, second, None, state, player, card, None, None)
+}
+
+pub(crate) fn spell_clause_distinct_pool(
+    req: baylee_cards_dsl::TargetReq,
+    state: &GameState,
+    player: PlayerId,
+    card: ObjectId,
+    face: Option<(&baylee_cards_dsl::CardDef, usize)>,
+    wall_only: bool,
+) -> crate::eval::DistinctGroupPool {
+    let distinct_from_prior =
+        req.constraint() == Some(baylee_cards_dsl::TargetConstraint::DistinctFromPriorTargetGroups);
+    if req.min == 0
+        || req.count_is_x
+        || matches!(
+            req.spec,
+            baylee_cards_dsl::TargetSpec::Player(rel) if rel != baylee_cards_dsl::PlayerRel::You
+        )
+    {
+        return crate::eval::DistinctGroupPool {
+            needed: 0,
+            distinct_from_prior,
+            objects: Vec::new(),
+            players: Vec::new(),
+        };
+    }
+    let (objects, players) = if matches!(req.spec, baylee_cards_dsl::TargetSpec::ThisObject) {
+        (vec![card], Vec::new())
+    } else {
+        (
+            crate::eval::spell_target_options_for(
+                &req.spec, state, player, card, face, None, wall_only,
+            ),
+            crate::eval::target_player_options_from(
+                state,
+                &req.spec,
+                player,
+                crate::eval::live_context(state, card),
+            ),
+        )
+    };
+    crate::eval::DistinctGroupPool {
+        needed: usize::from(req.min),
+        distinct_from_prior,
+        objects,
+        players,
+    }
+}
+
+#[allow(clippy::too_many_arguments)]
+pub(crate) fn requirements3_are_reachable_for(
+    first: Option<baylee_cards_dsl::TargetReq>,
+    second: Option<baylee_cards_dsl::TargetReq>,
+    third: Option<baylee_cards_dsl::TargetReq>,
+    state: &GameState,
+    player: PlayerId,
+    card: ObjectId,
+    face: Option<(&baylee_cards_dsl::CardDef, usize)>,
+    selected_domain: Option<bool>,
+) -> bool {
+    let wall_only =
+        selected_domain.unwrap_or_else(|| crate::eval::target_domain::walls3(first, second, third));
+    if !requirement_is_reachable_for(first, state, player, card, face, wall_only)
+        || !second_is_reachable(first, second, state, player, card, face, wall_only)
+        || !requirement_is_reachable_for(third, state, player, card, face, wall_only)
+    {
+        return false;
+    }
+    if [second, third].into_iter().flatten().any(|r| {
+        r.min > 0
+            && !r.count_is_x
+            && r.constraint()
+                == Some(baylee_cards_dsl::TargetConstraint::DistinctFromPriorTargetGroups)
+    }) {
+        let pools: Vec<_> = [first, second, third]
+            .into_iter()
+            .flatten()
+            .map(|r| spell_clause_distinct_pool(r, state, player, card, face, wall_only))
+            .collect();
+        if !crate::eval::can_complete_target_groups(&[], baylee_core::ids::SeatSet::new(), &pools) {
+            return false;
+        }
+    }
+    true
 }
 
 /// Target requirement for casting a spell bestowed (CR 702.103b): "enchant creature".
@@ -908,7 +990,7 @@ pub const MUTATE_TARGET_REQ: baylee_cards_dsl::TargetReq = baylee_cards_dsl::Tar
     ])),
 );
 
-/// Kicker replaces the first targeting group, retaining the second group.
+/// Kicker replaces the first targeting group, retaining the second and third groups.
 pub(crate) fn kicked_targets_reachable(
     state: &GameState,
     def: &baylee_cards_dsl::CardDef,
@@ -916,11 +998,28 @@ pub(crate) fn kicked_targets_reachable(
     card: ObjectId,
     first: baylee_cards_dsl::TargetReq,
 ) -> bool {
-    let second = def.abilities.iter().find_map(|ability| match ability {
-        baylee_cards_dsl::AbilityDef::Spell { second_targets, .. } => *second_targets,
-        _ => None,
-    });
-    requirements_are_reachable(Some(first), second, state, player, card)
+    let (second, third) = def
+        .abilities
+        .iter()
+        .find_map(|ability| match ability {
+            baylee_cards_dsl::AbilityDef::Spell {
+                second_targets,
+                third_targets,
+                ..
+            } => Some((*second_targets, *third_targets)),
+            _ => None,
+        })
+        .unwrap_or_default();
+    requirements3_are_reachable_for(
+        Some(first),
+        second,
+        third,
+        state,
+        player,
+        card,
+        Some((def, 0)),
+        None,
+    )
 }
 
 pub(crate) fn requirement_is_reachable_for(

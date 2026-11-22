@@ -39,14 +39,9 @@ pub(super) fn destroy(
     for slot in slots {
         match slot {
             TargetSlot::This => references.extend(subjects::source(state, res)),
-            TargetSlot::First | TargetSlot::Second => {
-                let targets = if *slot == TargetSlot::First {
-                    res.targets.as_slice()
-                } else {
-                    res.second_targets.as_slice()
-                };
+            other => {
                 references.extend(
-                    targets
+                    res.slot_targets(*other)
                         .iter()
                         .filter_map(|&id| subjects::target(state, res, id)),
                 );

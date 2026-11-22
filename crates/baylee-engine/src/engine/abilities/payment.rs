@@ -137,6 +137,7 @@ pub(crate) struct ActivationCompletion {
     pub effects: &'static [baylee_cards_dsl::Effect],
     pub mana_ability: bool,
     pub granted: Option<crate::effects::GrantedAbility>,
+    pub third: Option<baylee_cards_dsl::TargetReq>,
     pub second: Option<baylee_cards_dsl::TargetReq>,
     pub first: Option<baylee_cards_dsl::TargetReq>,
     pub mode_index: Option<u8>,
@@ -247,6 +248,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
             effects,
             mana_ability,
             granted,
+            third,
             second,
             first,
             mode_index,
@@ -461,6 +463,12 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 obj.set_second(second_targets, second);
                 obj.set_second_players(self.activation_target_choice.second_players);
             }
+            if let Some(third_targets) = self.activation_target_choice.third_targets.take()
+                && let Some(obj) = self.state.object_mut(ability)
+            {
+                obj.set_third(third_targets, third);
+                obj.set_third_players(self.activation_target_choice.third_players);
+            }
             self.state
                 .bind_target_references(ability, &self.activation_target_references);
             if !self.activation_target_choice.first_groups.is_empty() {
@@ -473,6 +481,11 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                     std::mem::take(&mut self.activation_target_choice.second_groups);
                 self.state
                     .bind_one_per_player_groups(ability, 1, &second_groups);
+            }
+            if !self.activation_target_choice.third_groups.is_empty() {
+                let third_groups = std::mem::take(&mut self.activation_target_choice.third_groups);
+                self.state
+                    .bind_one_per_player_groups(ability, 2, &third_groups);
             }
             self.activation_target_references = crate::sources::TargetReferences::default();
             // The number this activation announced, carried on the ability
