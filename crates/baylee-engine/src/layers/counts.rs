@@ -483,6 +483,14 @@ fn cards_in_selected_graveyards(
 }
 
 /// Maximum number of creatures in `player`'s party (up to one each of Cleric,
+/// Rogue, Warrior, and Wizard, `0..=4`, CR 700.8a–c) using live projected
+/// characteristics on the battlefield.
+pub(crate) fn live_party_size(state: &GameState, player: PlayerId) -> u32 {
+    let size = party_size_matching(state, player, |_, other| other.characteristics());
+    u32::try_from(size).unwrap_or(4)
+}
+
+/// Maximum number of creatures in `player`'s party (up to one each of Cleric,
 /// Rogue, Warrior, and Wizard, `0..=4`, CR 700.8a–c), computed via exact
 /// subset matching over the 4 party roles.
 fn party_size_of(
@@ -490,6 +498,20 @@ fn party_size_of(
     obj: &GameObject,
     c: &Characteristics,
     player: PlayerId,
+) -> usize {
+    party_size_matching(state, player, |id, other| {
+        if id == obj.id {
+            c
+        } else {
+            other.characteristics()
+        }
+    })
+}
+
+fn party_size_matching<'a>(
+    state: &'a GameState,
+    player: PlayerId,
+    mut chars_for: impl FnMut(ObjectId, &'a GameObject) -> &'a Characteristics,
 ) -> usize {
     use baylee_core::generated::subtypes::creature;
     const ROLES: [baylee_core::ids::SubtypeId; 4] = [
@@ -506,11 +528,7 @@ fn party_size_of(
         if other.controller != player {
             continue;
         }
-        let chars = if id == obj.id {
-            c
-        } else {
-            other.characteristics()
-        };
+        let chars = chars_for(id, other);
         if !chars.types.contains(baylee_core::types::TypeSet::CREATURE) {
             continue;
         }

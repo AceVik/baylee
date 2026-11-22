@@ -109,6 +109,35 @@ pub(crate) fn entry_sacrifices_on(state: &GameState, source: ObjectId) -> u32 {
     })
 }
 
+const MAX_AMOUNT_EVAL_DEPTH: u8 = 16;
+
+thread_local! {
+    static AMOUNT_EVAL_DEPTH: std::cell::Cell<u8> = const { std::cell::Cell::new(0) };
+}
+
+struct AmountEvalDepthGuard;
+
+impl AmountEvalDepthGuard {
+    fn enter() -> Option<Self> {
+        AMOUNT_EVAL_DEPTH.with(|depth| {
+            let current = depth.get();
+            if current >= MAX_AMOUNT_EVAL_DEPTH {
+                return None;
+            }
+            depth.set(current + 1);
+            Some(Self)
+        })
+    }
+}
+
+impl Drop for AmountEvalDepthGuard {
+    fn drop(&mut self) {
+        AMOUNT_EVAL_DEPTH.with(|depth| {
+            depth.set(depth.get().saturating_sub(1));
+        });
+    }
+}
+
 /// Evaluates an [`Amount`].
 #[must_use]
 pub fn amount(
@@ -131,6 +160,9 @@ pub fn amount_with_context(
     context: RuleContext,
     x: Option<u32>,
 ) -> u32 {
+    let Some(_guard) = AmountEvalDepthGuard::enter() else {
+        return 0;
+    };
     let this = context.source;
     match amount {
         Amount::Fixed(n) | Amount::NegXFixed(n) => *n,
@@ -334,6 +366,40 @@ pub fn amount_with_context(
         Amount::GreatestManaValueAmong(filter) => {
             greatest_among(state, you, filter, context, false)
         }
+        Amount::Devotion { who, colors } => {
+            super::players_for_source(*who, state, you, Some(context.source))
+                .map_or(0, |seats| devotion_for_players(state, &seats, *colors))
+        }
+        Amount::PartySize(who) => super::players_for_source(*who, state, you, Some(context.source))
+            .map_or(0, |seats| {
+                seats
+                    .into_iter()
+                    .map(|seat| crate::layers::counts::live_party_size(state, seat))
+                    .max()
+                    .unwrap_or(0)
+            }),
+        Amount::SpellsCastThisTurn(who) => {
+            super::players_for_source(*who, state, you, Some(context.source)).map_or(0, |seats| {
+                seats
+                    .into_iter()
+                    .fold(0_u32, |acc, p| acc.saturating_add(state.per_turn.spells_cast_by(p)))
+            })
+        }
+        Amount::CardsDrawnThisTurn(who) => {
+            super::players_for_source(*who, state, you, Some(context.source)).map_or(0, |seats| {
+                seats.into_iter().fold(0_u32, |acc, p| {
+                    acc.saturating_add(
+                        state
+                            .per_turn
+                            .draws
+                            .get(usize::from(p.get()))
+                            .copied()
+                            .unwrap_or(0),
+                    )
+                })
+            })
+        }
+        Amount::TotalPowerAmong(filter) => total_power_among(state, you, filter, context),
     }
 }
 
@@ -374,6 +440,59 @@ fn greatest_among(
             .max()
             .unwrap_or(0)
     }
+}
+
+/// Devotion to `colors` across `seats` (`CR 700.5`): counts each mana symbol
+/// whose colors intersect `colors` once per symbol among permanents controlled
+/// by those players on the battlefield, excluding nonmodal DFC / disturb / meld
+/// back faces which have no mana cost (`CR 712.8e`).
+pub(crate) fn devotion_for_players(
+    state: &GameState,
+    seats: &[PlayerId],
+    colors: baylee_core::color::ColorSet,
+) -> u32 {
+    if colors.is_empty() || seats.is_empty() {
+        return 0;
+    }
+    let mut total = 0_u32;
+    for id in state.battlefield_seen() {
+        let Some(object) = state.object(id) else {
+            continue;
+        };
+        if !seats.contains(&object.controller) {
+            continue;
+        }
+        let chars = object.characteristics();
+        if chars.front_mana_value.is_some() {
+            continue;
+        }
+        for symbol in chars.mana_cost.symbols() {
+            if symbol.colors().intersects(colors) {
+                total = total.saturating_add(1);
+            }
+        }
+    }
+    total
+}
+
+fn total_power_among(
+    state: &GameState,
+    you: PlayerId,
+    filter: &Filter,
+    context: RuleContext,
+) -> u32 {
+    let mut sum: i64 = 0;
+    for id in state.battlefield_seen() {
+        let Some(obj) = state.object(id) else {
+            continue;
+        };
+        if matches_with_context(filter, state, obj, you, context)
+            && let Some(power) = obj.characteristics().power
+        {
+            sum = sum.saturating_add(i64::from(power));
+        }
+    }
+    u32::try_from(sum.max(0)).unwrap_or(u32::MAX)
 }
 
 fn greatest_commander_mana_value(state: &GameState, you: PlayerId) -> u32 {

@@ -26,8 +26,8 @@ use baylee_core::ids::{ObjectId, PlayerId};
 
 pub use amounts::{amount, amount_with_context, public_linked_exile_cards, tapped_power};
 pub(crate) use amounts::{
-    colors_among, colors_in_zone, count_controlled_by, entry_sacrifices_on, linked_exile_cards,
-    mana_spent_on, object_snow_mana_spent, snow_mana_spent_on,
+    colors_among, colors_in_zone, count_controlled_by, devotion_for_players, entry_sacrifices_on,
+    linked_exile_cards, mana_spent_on, object_snow_mana_spent, snow_mana_spent_on,
 };
 pub(crate) use conditions::{
     attached_for_ability, condition_reads_event, condition_with_event, discarded_for_cost,

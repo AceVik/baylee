@@ -386,7 +386,9 @@ pub fn locks_its_set(modifier: &Modifier) -> bool {
         | Modifier::MayCastWithAltCost { .. }
         | Modifier::AdjustSpellCostByCast { .. }
         | Modifier::MayLookAtTopOfLibrary { .. }
-        | Modifier::GrantFlash { .. } => false,
+        | Modifier::GrantFlash { .. }
+        | Modifier::ReduceCostIfTargets { .. }
+        | Modifier::AdjustSpellCostByAmount { .. } => false,
     }
 }
 
@@ -741,6 +743,11 @@ impl EffectTable {
                     | Modifier::BuybackCostsLess(_)
                     | Modifier::SpellsCostSacrificePerManaSymbol { .. }
                     | Modifier::AdjustSpellCostByCast { .. }
+                    | Modifier::ReduceCostIfTargets {
+                        abilities: false,
+                        ..
+                    }
+                    | Modifier::AdjustSpellCostByAmount { .. }
             ),
         );
         self.hints.insert_if(
@@ -752,6 +759,10 @@ impl EffectTable {
                     | Modifier::AbilitiesCostLess { .. }
                     | Modifier::EquipCostsLess(_)
                     | Modifier::CyclingCostsLess(_)
+                    | Modifier::ReduceCostIfTargets {
+                        abilities: true,
+                        ..
+                    }
                     | Modifier::CantActivate
                     | Modifier::CantActivateNonMana
                     | Modifier::CantActivateArtifacts
@@ -2147,6 +2158,19 @@ mod tests {
                 who: baylee_cards_dsl::PlayerRel::You,
                 filter: &Filter::Any,
             },
+            Modifier::ReduceCostIfTargets {
+                who: PlayerRel::You,
+                spell_filter: &Filter::This,
+                target_filter: &Filter::ControlledByYou,
+                reduction: baylee_core::mana::ManaCost::parse("{1}{U}"),
+                abilities: false,
+            },
+            Modifier::AdjustSpellCostByAmount {
+                who: PlayerRel::You,
+                filter: &Filter::This,
+                increase: false,
+                amount: &baylee_cards_dsl::Amount::Fixed(1),
+            },
         ]
     }
 
@@ -2185,7 +2209,7 @@ mod tests {
 
         assert_eq!(
             declared.len(),
-            232,
+            234,
             "read {} variants out of the declaration, which is not the enum",
             declared.len()
         );
@@ -2310,7 +2334,8 @@ mod tests {
         // MayCastWithAltCost modifies casting/playing rules (+1 rules-only -> 166).
         // AdjustSpellCostByCast modifies spell costs (+1 rules-only -> 167).
         // MayLookAtTopOfLibrary and GrantFlash modify visibility/timing rules (+2 rules-only -> 169).
-        assert_eq!((locking, all.len() - locking), (63, 169));
+        // ReduceCostIfTargets and AdjustSpellCostByAmount modify costs (+2 rules-only -> 171).
+        assert_eq!((locking, all.len() - locking), (63, 171));
     }
 
     /// An `ObjectId` alone is not an identity: an id is stable for a whole

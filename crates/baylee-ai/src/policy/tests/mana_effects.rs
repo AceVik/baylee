@@ -199,4 +199,54 @@ fn apply_colored_spell_reductions_matches_colored_only_and_generic_combinations(
         ManaCost::parse("{1}"),
         "non-colored-only {{G}}{{G}} reduces {{G}} and 1 generic (CR 118.7c)"
     );
+    let one_u = ManaCost::parse("{1}{U}");
+    assert_eq!(
+        apply_colored_spell_reductions(ManaCost::parse("{1}{U}{U}"), 2, &ManaCost::ZERO, &one_u),
+        ManaCost::parse("{U}"),
+        "Brush Off-style {{1}}{{U}} target reduction reduces {{1}}{{U}}{{U}} to {{U}}"
+    );
+    assert_eq!(
+        apply_colored_spell_reductions(ManaCost::parse("{3}{U}{U}"), 4, &ManaCost::ZERO, &one_u),
+        ManaCost::parse("{U}"),
+        "Brush Off-style {{1}}{{U}} reduction composes with {{2}} dynamic generic reduction"
+    );
+}
+
+#[test]
+fn spell_price_applies_dynamic_adjustments_from_legal_actions() {
+    let view = base_view();
+    let spell = ObjectId::new(88, 0);
+    let reduced = LegalActions {
+        spell_reductions: vec![(spell, CastModeKind::Normal, 3)],
+        ..LegalActions::default()
+    };
+    assert_eq!(
+        crate::spell_price(
+            &view,
+            spell,
+            None,
+            &reduced,
+            CastModeKind::Normal,
+            ManaCost::parse("{4}{W}"),
+        ),
+        ManaCost::parse("{1}{W}"),
+        "dynamic generic reduction reduces generic mana before clamping at 0"
+    );
+    let taxed_and_reduced = LegalActions {
+        spell_increases: vec![(spell, CastModeKind::Normal, 2)],
+        spell_reductions: vec![(spell, CastModeKind::Normal, 3)],
+        ..LegalActions::default()
+    };
+    assert_eq!(
+        crate::spell_price(
+            &view,
+            spell,
+            None,
+            &taxed_and_reduced,
+            CastModeKind::Normal,
+            ManaCost::parse("{1}{G}{G}"),
+        ),
+        ManaCost::parse("{G}{G}"),
+        "dynamic RaiseCost tax applies before dynamic ReduceCost reduction (CR 601.2f)"
+    );
 }

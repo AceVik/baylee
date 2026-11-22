@@ -375,6 +375,35 @@ pub enum Amount {
     /// non-battlefield zones; *Shadow of Mortality*, *Yuriko*-likes). Appended
     /// to preserve replay identities.
     GreatestManaValueAmong(&'static Filter),
+    /// Devotion of player(s) matching `who` to `colors` (`CR 700.5`): number of
+    /// mana symbols in the mana costs of permanents controlled by `who` that
+    /// include at least one color in `colors` (each symbol counted once even
+    /// when a hybrid symbol matches two colors in `colors`; nonmodal back
+    /// faces / tokens without copied mana costs contribute 0; e.g. *Daybreak
+    /// Chimera*). Appended to preserve replay identities.
+    Devotion {
+        /// Whose permanents are counted.
+        who: super::PlayerRel,
+        /// Color(s) included in the devotion count.
+        colors: baylee_core::color::ColorSet,
+    },
+    /// Number of creatures in the party of `who` (up to one each of Cleric,
+    /// Rogue, Warrior, and Wizard, `0..=4`, `CR 700.8a–c`; e.g. *Deadly
+    /// Alliance*). Appended to preserve replay identities.
+    PartySize(super::PlayerRel),
+    /// Total spells cast this turn by players matching `who` (e.g.
+    /// `PlayerRel::Opponent` / `PlayerRel::EachOpponent` for *Delightful
+    /// Discovery*). Appended to preserve replay identities.
+    SpellsCastThisTurn(super::PlayerRel),
+    /// Total cards drawn this turn by players matching `who` (e.g.
+    /// `PlayerRel::You` for *Deem Inferior*). Appended to preserve replay
+    /// identities.
+    CardsDrawnThisTurn(super::PlayerRel),
+    /// Sum of projected powers of permanents on the battlefield matching
+    /// `filter`, floored at `0` (`CR 107.1b`; negative powers reduce the sum
+    /// before flooring at `0`, e.g. *Ghalta, Primal Hunger*). Appended to
+    /// preserve replay identities.
+    TotalPowerAmong(&'static Filter),
 }
 
 /// The recipient [`Amount::DamageThisTurn`] counts.

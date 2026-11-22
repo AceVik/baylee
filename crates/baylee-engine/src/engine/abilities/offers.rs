@@ -96,6 +96,10 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                             delta_per_unit: 1..=i8::MAX,
                             ..
                         }
+                        | baylee_cards_dsl::Modifier::AdjustSpellCostByAmount {
+                            increase: true,
+                            ..
+                        }
                 )
             });
         let next = self
@@ -116,6 +120,14 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                             | baylee_cards_dsl::Modifier::SpellsCostLessPerCounter(_)
                             | baylee_cards_dsl::Modifier::AdjustSpellCostByCast {
                                 delta_per_unit: i8::MIN..=-1,
+                                ..
+                            }
+                            | baylee_cards_dsl::Modifier::ReduceCostIfTargets {
+                                abilities: false,
+                                ..
+                            }
+                            | baylee_cards_dsl::Modifier::AdjustSpellCostByAmount {
+                                increase: false,
                                 ..
                             }
                     )
@@ -251,7 +263,21 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
         let preview = if matches!(form, Some(casting::SpellForm::Disguise)) {
             casting::PreviewDynamicDelta::default()
         } else {
-            casting::preview_cast_metric_bounds(&self.state, player, card, def, face, &adjustment)
+            let preview_kind = if matches!(form, Some(casting::SpellForm::Bestow(_))) {
+                casting::PreviewCastKind::Bestow
+            } else {
+                casting::PreviewCastKind::Face
+            };
+            casting::preview_cast_metric_bounds_for(
+                &self.state,
+                player,
+                card,
+                def,
+                face,
+                form,
+                preview_kind,
+                &adjustment,
+            )
         };
         let with_inc = raw_cost
             .with_x(0)
@@ -273,6 +299,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 .saturating_add(preview.min_reduction)
                 .saturating_add(own)
                 .saturating_add(adjustment.mana_reduction.cmc())
+                .saturating_add(preview.min_mana_reduction.cmc())
                 .saturating_add(colored_only_saved),
         )
     }

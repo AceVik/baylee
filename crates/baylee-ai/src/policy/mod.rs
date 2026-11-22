@@ -27,7 +27,8 @@ pub(crate) use full_casts::{pay_owed_full, pays_phyrexian_with_life};
 #[cfg(test)]
 use mana_effects::spell_mana_increase;
 pub(crate) use mana_effects::{
-    apply_triggered_mana_bonus, less_delve, spell_price, taps_set_off_a_trigger,
+    ability_target_mana_reduction, apply_triggered_mana_bonus, less_delve, spell_price,
+    taps_set_off_a_trigger,
 };
 use mana_effects::{tap_destroys_or_locks, tap_trigger_harm};
 

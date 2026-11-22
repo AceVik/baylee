@@ -373,23 +373,42 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
             ));
         }
         let _ = zone;
+        let printed_cost = cost;
         let resource_price =
-            self.activation_price(player, source, ability_index, &cost, cost_reduction);
+            self.activation_price(player, source, ability_index, &printed_cost, cost_reduction);
         if self.announce_activation_x(player, source, ability_index, &resource_price)? {
             return Ok(());
         }
-        let variable_mana = cost.mana.has_variable();
+        let variable_mana = printed_cost.mana.has_variable();
+        let targets_resolved = (first.is_none() || self.activation_targets_answered)
+            && (second.is_none() || self.activation_second_targets.is_some());
+        let chosen_so_far: SmallVec<[ObjectId; 4]> = targets
+            .iter()
+            .copied()
+            .chain(
+                self.activation_second_targets
+                    .iter()
+                    .flat_map(|second_ts| second_ts.iter().copied()),
+            )
+            .collect();
+        let initial_target_pricing = if targets_resolved {
+            super::costs::ActivationTargetPricing::Chosen(&chosen_so_far)
+        } else {
+            super::costs::ActivationTargetPricing::Preview
+        };
+        let had_locked_price = locked_price.is_some();
         let (mut cost, mut fixed_mana_cost, additional_life) = locked_price.unwrap_or_else(|| {
             let price = |x| {
-                self.activation_price(
+                self.activation_price_for_targets(
                     player,
                     source,
                     ability_index,
                     &Cost {
-                        mana: cost.mana.with_x(x),
-                        parts: cost.parts,
+                        mana: printed_cost.mana.with_x(x),
+                        parts: printed_cost.parts,
                     },
                     cost_reduction,
+                    initial_target_pricing,
                 )
             };
             let selected = price(self.activation_x.unwrap_or(0));
@@ -570,7 +589,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
             .ok_or(EngineError::IllegalAction(
                 "activation life cost exceeds available life",
             ))?;
-        let cost = cost.with_mana(cost.mana.with_phyrexian_settled(by_life));
+        let mut cost = cost.with_mana(cost.mana.with_phyrexian_settled(by_life));
         // Targets, unless this activation has already answered them. That is
         // a flag and not a look at the lists, because an empty list is an
         // answer too: "up to one" answered with nothing re-enters here with
@@ -923,10 +942,64 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
         ) {
             return Ok(());
         }
+        // If targets were auto-resolved on this pass (e.g. `max == 0` or empty
+        // options), finalize target-dependent cost reductions against the actual
+        // chosen targets instead of keeping the pre-target optimistic preview.
+        let has_target_reduction = self.has_target_conditional_ability_reduction(player, source);
+        if !had_locked_price && !targets_resolved && has_target_reduction {
+            let final_targets: SmallVec<[ObjectId; 4]> = targets
+                .iter()
+                .copied()
+                .chain(
+                    self.activation_second_targets
+                        .iter()
+                        .flat_map(|second_ts| second_ts.iter().copied()),
+                )
+                .collect();
+            let final_pricing = super::costs::ActivationTargetPricing::Chosen(&final_targets);
+            let mut repriced = self.activation_price_for_targets(
+                player,
+                source,
+                ability_index,
+                &Cost {
+                    mana: printed_cost.mana.with_x(settled_x),
+                    parts: printed_cost.parts,
+                },
+                cost_reduction,
+                final_pricing,
+            );
+            let mut repriced_fixed = self
+                .activation_price_for_targets(
+                    player,
+                    source,
+                    ability_index,
+                    &Cost {
+                        mana: printed_cost.mana.with_x(0),
+                        parts: printed_cost.parts,
+                    },
+                    cost_reduction,
+                    final_pricing,
+                )
+                .mana;
+            for &take_first in &self.activation_either_branches {
+                let Some((at, CostPart::Either(a, b))) = repriced
+                    .parts
+                    .iter()
+                    .enumerate()
+                    .find(|(_, p)| matches!(p, CostPart::Either(_, _)))
+                else {
+                    break;
+                };
+                let chosen = if take_first { *a } else { *b };
+                splice_either(&mut repriced, &mut repriced_fixed, at, chosen);
+            }
+            cost = repriced.with_mana(repriced.mana.with_phyrexian_settled(by_life));
+            fixed_mana_cost = repriced_fixed;
+        }
         // The mana is the payment window's question when this seat can still
         // make some (CR 601.2g, by 602.2b): only the rest is asked here, and
         // the window below is opened for the mana the pool does not cover.
-        let deferred = variable_mana
+        let deferred = (variable_mana || has_target_reduction)
             && !self.can_pay_activation_price(
                 player,
                 source,

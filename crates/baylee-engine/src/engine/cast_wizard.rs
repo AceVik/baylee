@@ -1601,6 +1601,51 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
     /// where neither does the cast is refused. `None` once every symbol is
     /// answered, or for a cast that pays no mana cost. The reader is
     /// `casting::phyrexian_affordable`, the one the offer asked.
+    fn phyrexian_preview_price(
+        &self,
+        wizard: &CastWizard,
+        face: &'static baylee_cards_dsl::FaceDef,
+        unsettled: &CastWizard,
+    ) -> ManaCost {
+        let mut price = wizard_total_cost(face, unsettled);
+        if let Some(def) = self
+            .state
+            .object(wizard.card)
+            .and_then(|o| o.card)
+            .and_then(|c| self.lookup.card(c.index))
+        {
+            let adj = casting::face_adjustment(
+                &self.state,
+                wizard.player,
+                wizard.card,
+                def,
+                wizard.face_index(),
+                None,
+            );
+            if adj.has_target_conditional_reduction {
+                let kind = match wizard.option {
+                    Some(CastModeKind::Kicked) => casting::PreviewCastKind::Kicked,
+                    Some(CastModeKind::Bestow) => casting::PreviewCastKind::Bestow,
+                    Some(CastModeKind::Mutate) => casting::PreviewCastKind::Mutate,
+                    Some(CastModeKind::Fused) => casting::PreviewCastKind::Fused,
+                    _ => casting::PreviewCastKind::Face,
+                };
+                let preview = casting::preview_cast_metric_bounds_for(
+                    &self.state,
+                    wizard.player,
+                    wizard.card,
+                    def,
+                    wizard.face_index(),
+                    None,
+                    kind,
+                    &adj,
+                );
+                price = price.with_less_mana(&preview.max_mana_reduction, false);
+            }
+        }
+        price
+    }
+
     fn ask_phyrexian(&mut self, wizard: &CastWizard) -> Option<Result<(), EngineError>> {
         if wizard.free {
             return None;
@@ -1617,7 +1662,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
         // answer some later choice could pay.
         let mut unsettled = wizard.clone();
         unsettled.phyrexian.clear();
-        let price = wizard_total_cost(face, &unsettled);
+        let price = self.phyrexian_preview_price(wizard, face, &unsettled);
         let spendable =
             casting::spendable_pool(&self.state, wizard.player, spend_for(wizard, face));
         let pool = spendable
@@ -2295,6 +2340,26 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                     casting::preview_max_mandatory_x(&self.state, wizard.player, wizard.card, face);
                 let per = adj.per_x_paid_delta.unsigned_abs();
                 bound = bound.saturating_add(per.saturating_mul(max_x));
+            }
+            if adj.has_target_conditional_reduction {
+                let kind = match wizard.option {
+                    Some(CastModeKind::Kicked) => casting::PreviewCastKind::Kicked,
+                    Some(CastModeKind::Bestow) => casting::PreviewCastKind::Bestow,
+                    Some(CastModeKind::Mutate) => casting::PreviewCastKind::Mutate,
+                    Some(CastModeKind::Fused) => casting::PreviewCastKind::Fused,
+                    _ => casting::PreviewCastKind::Face,
+                };
+                let preview = casting::preview_cast_metric_bounds_for(
+                    &self.state,
+                    wizard.player,
+                    wizard.card,
+                    def,
+                    wizard.face_index(),
+                    None,
+                    kind,
+                    &adj,
+                );
+                bound = bound.saturating_add(preview.max_mana_reduction.cmc());
             }
         }
         for (enabled, count) in [

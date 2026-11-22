@@ -159,38 +159,14 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
         adjustment.price(emerge.cost, printed.saturating_add(sacrificed_mv))
     }
 
-    /// Recomputes cast-time dynamic cost modifiers (CR 601.2b/c -> 601.2f, such
-    /// as `AbilityDef::PerExtraTargetCost` for Strive, `Filter::SpellTargetingAffected`,
-    /// `Filter::TargetsPermanentYouControl`, and `Modifier::AdjustSpellCostByCast`
-    /// for `DistinctTargets` and `XPaid`). Idempotent across X and target stages.
-    pub(in crate::engine) fn refresh_target_cost_adjustments(&self, wizard: &mut CastWizard) {
-        let Some(object) = self.state.object(wizard.card) else {
-            return;
-        };
-        let Some(def) = object.card.and_then(|c| self.lookup.card(c.index)) else {
-            return;
-        };
-        let face_idx = wizard.face_index();
-        let extra = wizard.extra_target_count();
-        let strive_increase = if wizard.masked || wizard.option == Some(CastModeKind::Disguise) {
-            ManaCost::ZERO
-        } else {
-            def.per_extra_target_cost(face_idx)
-                .map_or(ManaCost::ZERO, |per| ManaCost::ZERO.combine_n(&per, extra))
-        };
-        let self_statics = !wizard.masked
-            && wizard.option != Some(CastModeKind::Disguise)
-            && casting::card_has_self_spell_cost_statics(def);
-        if !self.state.effects.may_change_spell_costs() && !self_statics {
-            wizard.target_increase = strive_increase;
-            return;
-        }
-        let face = self.wizard_face(wizard);
-        let form = match spend_for(wizard, face) {
-            casting::SpendFor::SpellAs(_, form) => Some(form),
-            casting::SpendFor::KickedSpell(_, _, form) => form,
-            _ => None,
-        };
+    fn build_target_pricing_objects(
+        &self,
+        wizard: &CastWizard,
+        object: &crate::object::GameObject,
+        def: &'static baylee_cards_dsl::CardDef,
+        face_idx: usize,
+        form: Option<casting::SpellForm>,
+    ) -> (crate::object::GameObject, crate::object::GameObject) {
         let is_fused = wizard.option == Some(CastModeKind::Fused);
         let mut baseline = object.clone();
         baseline.x_value = 0;
@@ -212,9 +188,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
         if let Some(form) = form {
             baseline = form.project(&baseline);
         }
-        let without =
-            casting::spell_adjustment_with_def(&self.state, wizard.player, &baseline, Some(def));
-        let mut targeted = baseline;
+        let mut targeted = baseline.clone();
         targeted.x_value = wizard.x;
         targeted.targets.clone_from(&wizard.targets);
         targeted.target_players = wizard.target_players;
@@ -243,6 +217,46 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 .collect();
             targeted.set_extra_targets(extra);
         }
+        (baseline, targeted)
+    }
+
+    /// Recomputes cast-time dynamic cost modifiers (CR 601.2b/c -> 601.2f, such
+    /// as `AbilityDef::PerExtraTargetCost` for Strive, `Filter::SpellTargetingAffected`,
+    /// `Filter::TargetsPermanentYouControl`, `Modifier::ReduceCostIfTargets`, and
+    /// `Modifier::AdjustSpellCostByCast` for `DistinctTargets` and `XPaid`).
+    /// Idempotent across X and target stages.
+    pub(in crate::engine) fn refresh_target_cost_adjustments(&self, wizard: &mut CastWizard) {
+        let Some(object) = self.state.object(wizard.card) else {
+            return;
+        };
+        let Some(def) = object.card.and_then(|c| self.lookup.card(c.index)) else {
+            return;
+        };
+        let face_idx = wizard.face_index();
+        let extra = wizard.extra_target_count();
+        let strive_increase = if wizard.masked || wizard.option == Some(CastModeKind::Disguise) {
+            ManaCost::ZERO
+        } else {
+            def.per_extra_target_cost(face_idx)
+                .map_or(ManaCost::ZERO, |per| ManaCost::ZERO.combine_n(&per, extra))
+        };
+        let self_statics = !wizard.masked
+            && wizard.option != Some(CastModeKind::Disguise)
+            && casting::card_has_self_spell_cost_statics(def);
+        if !self.state.effects.may_change_spell_costs() && !self_statics {
+            wizard.target_increase = strive_increase;
+            return;
+        }
+        let face = self.wizard_face(wizard);
+        let form = match spend_for(wizard, face) {
+            casting::SpendFor::SpellAs(_, form) => Some(form),
+            casting::SpendFor::KickedSpell(_, _, form) => form,
+            _ => None,
+        };
+        let (baseline, targeted) =
+            self.build_target_pricing_objects(wizard, object, def, face_idx, form);
+        let without =
+            casting::spell_adjustment_with_def(&self.state, wizard.player, &baseline, Some(def));
         let with_targets =
             casting::spell_adjustment_with_def(&self.state, wizard.player, &targeted, Some(def));
         wizard.target_increase = strive_increase.combine(
@@ -251,16 +265,24 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 .with_less_mana(&without.mana_increase, true)
                 .with_more_generic(with_targets.increase.saturating_sub(without.increase)),
         );
+        let extra_colored_only = with_targets
+            .colored_only_reduction
+            .with_less_mana(&without.colored_only_reduction, true);
+        let extra_mana_red = with_targets
+            .mana_reduction
+            .with_less_mana(&without.mana_reduction, true);
         let extra_red = with_targets.reduction.saturating_sub(without.reduction);
         let mut frozen = self.frozen_spell_reduction_from(wizard, def, &without);
         frozen.total = frozen.total.saturating_add(extra_red);
         frozen.remainder = frozen.remainder.saturating_add(extra_red);
+        frozen.colored_only_remainder = frozen.colored_only_remainder.combine(&extra_colored_only);
+        frozen.mana_remainder = frozen.mana_remainder.combine(&extra_mana_red);
         frozen.allowance = casting::base_allowance(&self.state, spend_for(wizard, face)).adjusted(
             with_targets.eligible_increase,
             with_targets
                 .increase
                 .saturating_sub(with_targets.eligible_increase),
-            frozen.total,
+            frozen.total.saturating_add(extra_mana_red.generic_total()),
         );
         wizard.reduction = Some(frozen);
     }

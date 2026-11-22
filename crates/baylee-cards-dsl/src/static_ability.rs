@@ -1429,6 +1429,59 @@ pub enum Modifier {
         /// Prospective spell filter evaluated relative to the effect's controller.
         filter: &'static crate::Filter,
     },
+    /// Target-dependent spell or activated-ability cost reduction (`CR 601.2f`,
+    /// `CR 602.2b`, `ReduceCost.ValidTarget`): when a player matching `who`
+    /// (relative to the effect's controller) casts a spell (when `!abilities`)
+    /// or activates an ability (when `abilities`) whose spell/source matches
+    /// `spell_filter` and at least one of its chosen object targets matches
+    /// `target_filter`, its total cost is reduced by `reduction` (generic
+    /// and/or colored mana per `CR 118.7a–d`, with unused colored symbols
+    /// spilling into generic mana). Works on both self-statics in
+    /// `ZoneRef::Stack` and board statics (*Ajani's Response*, *Animist's
+    /// Might*, *Banish from Edoras*, *Bitter Downfall*, *Bladegraft Aspirant*,
+    /// *Bouncer's Beatdown*, *Brush Off*, *Bury in Books*, *This Town Ain't Big
+    /// Enough*). Appended to preserve replay identities.
+    ReduceCostIfTargets {
+        /// Which casting/activating players are affected, relative to the
+        /// effect's controller (`PlayerRel::You`, `PlayerRel::EachOpponent`,
+        /// `PlayerRel::EachPlayer`, …).
+        who: crate::effect::PlayerRel,
+        /// Filter evaluated against the prospective/stack spell (when
+        /// `!abilities`) or the activated ability's source object (when
+        /// `abilities`).
+        spell_filter: &'static crate::Filter,
+        /// Filter evaluated against each chosen object target; if at least one
+        /// target matches, `reduction` applies once for this modifier.
+        target_filter: &'static crate::Filter,
+        /// Mana reduction applied (supports generic and colored reductions,
+        /// e.g. `{1}{U}` for *Brush Off*).
+        reduction: baylee_core::mana::ManaCost,
+        /// When `false`, applies to spells; when `true`, applies to activated
+        /// abilities of matching sources (e.g. *Bladegraft Aspirant*).
+        abilities: bool,
+    },
+    /// Generalized dynamic generic spell cost adjustment evaluated during
+    /// `CR 601.2f` pricing (`S: Mode$ ReduceCost` / `S: Mode$ RaiseCost` with
+    /// dynamic `Amount`). Works on both self-statics in `ZoneRef::Stack` and
+    /// board statics, evaluated with a cycle-safe depth guard (*Daybreak
+    /// Chimera* devotion, *Deadly Alliance* party, *Delightful Discovery*
+    /// opponents' spells cast this turn, *Deem Inferior* cards drawn this turn,
+    /// *Ghalta, Primal Hunger* total power, dynamic `RaiseCost` taxes).
+    /// Appended to preserve replay identities.
+    AdjustSpellCostByAmount {
+        /// Which casting players are affected, relative to the effect's
+        /// controller.
+        who: crate::effect::PlayerRel,
+        /// Spell filter evaluated against the prospective/stack spell.
+        filter: &'static crate::Filter,
+        /// When `true`, increases generic cost by `amount` (tax); when `false`,
+        /// reduces generic cost by `amount` (`CR 601.2f` applies increases
+        /// before reductions).
+        increase: bool,
+        /// Dynamic generic mana amount evaluated against the effect's
+        /// controller and source.
+        amount: &'static crate::Amount,
+    },
 }
 
 /// Quantity evaluated during CR 601.2f spell cost determination by
@@ -1917,7 +1970,9 @@ impl Modifier {
             | Self::MayCastWithAltCost { .. }
             | Self::AdjustSpellCostByCast { .. }
             | Self::MayLookAtTopOfLibrary { .. }
-            | Self::GrantFlash { .. } => Layer::Text,
+            | Self::GrantFlash { .. }
+            | Self::ReduceCostIfTargets { .. }
+            | Self::AdjustSpellCostByAmount { .. } => Layer::Text,
         }
     }
 }
@@ -2852,6 +2907,19 @@ mod tests {
             Modifier::GrantFlash {
                 who: crate::PlayerRel::You,
                 filter: &Filter::Historic,
+            },
+            Modifier::ReduceCostIfTargets {
+                who: crate::PlayerRel::You,
+                spell_filter: &Filter::This,
+                target_filter: &Filter::Any,
+                reduction: baylee_core::mana::ManaCost::parse("{1}{U}"),
+                abilities: false,
+            },
+            Modifier::AdjustSpellCostByAmount {
+                who: crate::PlayerRel::You,
+                filter: &Filter::This,
+                increase: false,
+                amount: &crate::Amount::Fixed(1),
             },
         ] {
             assert_eq!(

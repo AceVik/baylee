@@ -168,18 +168,25 @@ pub(crate) fn replaced_cost_options(
                 None
             };
             let adjustment = face_adjustment(state, player, card, def, index, form);
-            let preview_adjustment = adjustment.for_preview(preview_cast_metric_bounds(
-                state,
-                player,
-                card,
-                def,
-                index,
-                &adjustment,
-            ));
             for kicked in [false, true] {
                 if kicked && face.additional_costs.is_empty() {
                     continue;
                 }
+                let preview_kind = if kicked {
+                    PreviewCastKind::Kicked
+                } else {
+                    PreviewCastKind::Face
+                };
+                let preview_adjustment = adjustment.for_preview(preview_cast_metric_bounds_for(
+                    state,
+                    player,
+                    card,
+                    def,
+                    index,
+                    form,
+                    preview_kind,
+                    &adjustment,
+                ));
                 let what = if kicked {
                     SpendFor::KickedSpell(card, index, form)
                 } else if let Some(form) = form {

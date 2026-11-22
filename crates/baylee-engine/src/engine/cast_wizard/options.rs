@@ -494,13 +494,30 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
             let kicked_pool = restricted
                 .as_ref()
                 .unwrap_or(&self.state.players[usize::from(player.get())].mana_pool);
+            let kicked_preview =
+                if face.kicked_targets.is_some() && adjustment.has_target_conditional_reduction {
+                    adjustment
+                        .for_preview(casting::preview_cast_metric_bounds_for(
+                            &self.state,
+                            player,
+                            card,
+                            def,
+                            0,
+                            None,
+                            casting::PreviewCastKind::Kicked,
+                            &adjustment,
+                        ))
+                        .price(cost, printed_reduction)
+                } else {
+                    preview_price(cost)
+                };
             if (defer_mana
                 || casting::source_affordable(
                     &self.state,
                     player,
                     casting::SpendFor::KickedSpell(card, 0, None),
                     kicked_pool,
-                    &less(preview_price(cost).with_x(0)),
+                    &less(kicked_preview.with_x(0)),
                     &[],
                     Some(allowance),
                 )
@@ -510,7 +527,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                         player,
                         casting::SpendFor::KickedSpell(card, 0, None),
                         kicked_pool,
-                        &less(preview_price(cost).with_x(0)),
+                        &less(kicked_preview.with_x(0)),
                         &face.mana_cost,
                         allowance,
                     ))
@@ -643,7 +660,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                     mana: if defer_mana {
                         ManaCost::ZERO
                     } else {
-                        price(alt.cost.mana)
+                        preview_price(alt.cost.mana)
                     },
                     ..alt.cost
                 };
@@ -681,7 +698,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 mana: if defer_mana {
                     ManaCost::ZERO
                 } else {
-                    price(dash)
+                    preview_price(dash)
                 },
                 parts: &[],
             };
@@ -699,7 +716,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 mana: if defer_mana {
                     ManaCost::ZERO
                 } else {
-                    price(blitz.mana)
+                    preview_price(blitz.mana)
                 },
                 ..blitz
             };
@@ -731,7 +748,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 mana: if defer_mana {
                     ManaCost::ZERO
                 } else {
-                    price(warp.mana)
+                    preview_price(warp.mana)
                 },
                 ..warp
             };
@@ -765,7 +782,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 mana: if defer_mana {
                     ManaCost::ZERO
                 } else {
-                    price(sneak.mana)
+                    preview_price(sneak.mana)
                 },
                 ..sneak
             };
@@ -786,7 +803,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 mana: if defer_mana {
                     ManaCost::ZERO
                 } else {
-                    price(awaken.mana)
+                    preview_price(awaken.mana)
                 },
                 ..awaken
             };
@@ -820,8 +837,8 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 .into_iter()
                 .filter_map(|(_, mv)| {
                     let cost_for_mv =
-                        adjustment.price(emerge.cost, printed_reduction.saturating_add(mv));
-                    let allow = adjustment.allowance(
+                        preview_adjustment.price(emerge.cost, printed_reduction.saturating_add(mv));
+                    let allow = preview_adjustment.allowance(
                         &self.state,
                         casting::SpendFor::Spell(card),
                         printed_reduction
@@ -859,11 +876,27 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 casting::MUTATE_TARGET_REQ,
             )
         {
+            let mutate_preview = if adjustment.has_target_conditional_reduction {
+                adjustment
+                    .for_preview(casting::preview_cast_metric_bounds_for(
+                        &self.state,
+                        player,
+                        card,
+                        def,
+                        0,
+                        None,
+                        casting::PreviewCastKind::Mutate,
+                        &adjustment,
+                    ))
+                    .price(mutate, printed_reduction)
+            } else {
+                preview_price(mutate)
+            };
             let taxed = baylee_cards_dsl::Cost {
                 mana: if defer_mana {
                     ManaCost::ZERO
                 } else {
-                    price(mutate)
+                    mutate_preview
                 },
                 parts: &[],
             };
@@ -951,6 +984,16 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
             let raw_obj = self.state.object(card).expect("card in hand");
             let fused_adj =
                 casting::spell_adjustment_with_def(&self.state, player, raw_obj, Some(def));
+            let fused_preview_adj = fused_adj.for_preview(casting::preview_cast_metric_bounds_for(
+                &self.state,
+                player,
+                card,
+                def,
+                0,
+                None,
+                casting::PreviewCastKind::Fused,
+                &fused_adj,
+            ));
             let fused_printed =
                 casting::printed_reduction(&self.state, &def.faces[0], player, card)
                     .saturating_add(casting::printed_reduction(
@@ -961,7 +1004,8 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                     ));
             let raw_fused = casting::fused_mana_cost(def);
             let fused_cost = fused_adj.price(raw_fused, fused_printed);
-            let fused_allow = fused_adj.allowance(
+            let fused_preview_cost = fused_preview_adj.price(raw_fused, fused_printed);
+            let fused_allow = fused_preview_adj.allowance(
                 &self.state,
                 casting::SpendFor::Spell(card),
                 fused_printed.saturating_add(reduction),
@@ -973,7 +1017,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                         player,
                         casting::SpendFor::Spell(card),
                         pool,
-                        &less(fused_cost.with_x(0)),
+                        &less(fused_preview_cost.with_x(0)),
                         &[],
                         Some(fused_allow),
                     )
@@ -983,7 +1027,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                             player,
                             casting::SpendFor::Spell(card),
                             pool,
-                            &less(fused_cost.with_x(0)),
+                            &less(fused_preview_cost.with_x(0)),
                             &raw_fused,
                             fused_allow,
                         ))
@@ -1025,7 +1069,17 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
         });
         let afford_plot = |cost: &ManaCost| {
             let adj = plot_adjustment.expect("plot_only");
-            let allow = adj.allowance(
+            let preview_adj = adj.for_preview(casting::preview_cast_metric_bounds_for(
+                &self.state,
+                player,
+                card,
+                def,
+                0,
+                Some(casting::SpellForm::Plot),
+                casting::PreviewCastKind::Face,
+                &adj,
+            ));
+            let allow = preview_adj.allowance(
                 &self.state,
                 casting::SpendFor::SpellAs(card, casting::SpellForm::Plot),
                 printed_reduction,
@@ -1036,7 +1090,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                     player,
                     casting::SpendFor::SpellAs(card, casting::SpellForm::Plot),
                     plot_pool,
-                    &adj.price(*cost, printed_reduction),
+                    &preview_adj.price(*cost, printed_reduction),
                     &[],
                     Some(allow),
                 )

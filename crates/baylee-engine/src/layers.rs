@@ -1485,6 +1485,8 @@ fn apply(
         | Modifier::AdjustSpellCostByCast { .. }
         | Modifier::MayLookAtTopOfLibrary { .. }
         | Modifier::GrantFlash { .. }
+        | Modifier::ReduceCostIfTargets { .. }
+        | Modifier::AdjustSpellCostByAmount { .. }
         | Modifier::GrantStatic { .. }
         | Modifier::SpellsHaveFlash(_)
         | Modifier::SorceriesHaveFlash

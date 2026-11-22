@@ -58,10 +58,12 @@ pub(super) fn reachable(
                 | CostPart::PayCommanderColors
         )
     });
+    let target_reduction = crate::policy::ability_target_mana_reduction(view, source);
     let cost = cost
         .mana
         .with_x(minimum)
-        .with_more_generic(legal.activation_increase(source));
+        .with_more_generic(legal.activation_increase(source))
+        .with_less_mana(&target_reduction, false);
     let spending = view
         .object(source)
         .map_or(seat.mana_pool.spending, |o| o.ability_mana_spending);

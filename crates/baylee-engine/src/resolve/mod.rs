@@ -1015,6 +1015,34 @@ pub(super) fn amount2(amount: &Amount, state: &GameState, you: PlayerId, res: &R
             .fold(0u32, |acc, p| {
                 acc.saturating_add(state.per_turn.mana_expended_by(p))
             }),
+        Amount::Devotion { who, colors } => {
+            let seats = players_of(*who, state, you, res);
+            eval::devotion_for_players(state, &seats, *colors)
+        }
+        Amount::PartySize(who) => players_of(*who, state, you, res)
+            .into_iter()
+            .map(|seat| crate::layers::counts::live_party_size(state, seat))
+            .max()
+            .unwrap_or(0),
+        Amount::SpellsCastThisTurn(who) => players_of(*who, state, you, res)
+            .into_iter()
+            .fold(0_u32, |acc, p| {
+                acc.saturating_add(state.per_turn.spells_cast_by(p))
+            }),
+        Amount::CardsDrawnThisTurn(who) => {
+            players_of(*who, state, you, res)
+                .into_iter()
+                .fold(0_u32, |acc, p| {
+                    acc.saturating_add(
+                        state
+                            .per_turn
+                            .draws
+                            .get(usize::from(p.get()))
+                            .copied()
+                            .unwrap_or(0),
+                    )
+                })
+        }
         Amount::CountOf {
             filter,
             zone: baylee_cards_dsl::ZoneSel::LinkedExile,

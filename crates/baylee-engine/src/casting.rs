@@ -61,8 +61,8 @@ pub(crate) use payment::*;
 pub use payment::{SpellForm, SpendFor, pay_mana_for, spendable_units};
 pub(crate) use permissions::*;
 pub(crate) use pricing::{
-    PreviewDynamicDelta, card_has_self_spell_cost_statics, preview_cast_metric_bounds,
-    preview_max_mandatory_x,
+    PreviewCastKind, PreviewDynamicDelta, card_has_self_spell_cost_statics,
+    preview_cast_metric_bounds, preview_cast_metric_bounds_for, preview_max_mandatory_x,
 };
 #[cfg(feature = "test-support")]
 pub use pricing::{
@@ -1834,8 +1834,22 @@ pub(crate) fn can_cast_form_paying(
     let preview_delta = if matches!(form, Some(SpellForm::Disguise)) {
         PreviewDynamicDelta::default()
     } else {
+        let preview_kind = if matches!(form, Some(SpellForm::Bestow(_))) {
+            PreviewCastKind::Bestow
+        } else {
+            PreviewCastKind::Face
+        };
         printed.map_or_else(PreviewDynamicDelta::default, |def| {
-            preview_cast_metric_bounds(state, player, card, def, 0, &raw_adjustment)
+            preview_cast_metric_bounds_for(
+                state,
+                player,
+                card,
+                def,
+                0,
+                form,
+                preview_kind,
+                &raw_adjustment,
+            )
         })
     };
     let adjustment = raw_adjustment.for_preview(preview_delta);
@@ -2142,7 +2156,17 @@ pub(crate) fn can_cast_form_paying(
                     && face_has_a_legal_target(state, lookup, player, card, 0)
                     && face_has_a_legal_target(state, lookup, player, card, 1)
                     && {
-                        let adj = spell_adjustment_with_def(state, player, raw_obj, Some(def));
+                        let raw_adj = spell_adjustment_with_def(state, player, raw_obj, Some(def));
+                        let adj = raw_adj.for_preview(preview_cast_metric_bounds_for(
+                            state,
+                            player,
+                            card,
+                            def,
+                            0,
+                            None,
+                            PreviewCastKind::Fused,
+                            &raw_adj,
+                        ));
                         let printed_red = printed_reduction(state, &def.faces[0], player, card)
                             .saturating_add(printed_reduction(state, &def.faces[1], player, card));
                         let kw_red = keyword_reduction(state, &def.faces[0], player, card);
@@ -2319,13 +2343,32 @@ pub(crate) fn can_cast_form_paying(
             || face_has_a_legal_target(state, lookup, player, card, 0),
             |req| kicked_targets_reachable(state, def, player, card, req),
         );
+        let kicked_adj =
+            if face.kicked_targets.is_some() && raw_adjustment.has_target_conditional_reduction {
+                raw_adjustment.for_preview(preview_cast_metric_bounds_for(
+                    state,
+                    player,
+                    card,
+                    def,
+                    0,
+                    form,
+                    PreviewCastKind::Kicked,
+                    &raw_adjustment,
+                ))
+            } else {
+                adjustment
+            };
         let kicked_cost = kicked_mana_cost(face)
             .with_x(0)
-            .combine(&adjustment.mana_increase)
-            .with_more_generic(tax)
-            .with_less_mana(&adjustment.colored_only_reduction, true)
-            .with_less_mana(&adjustment.mana_reduction, false)
-            .with_less_generic(reduction);
+            .combine(&kicked_adj.mana_increase)
+            .with_more_generic(kicked_adj.increase)
+            .with_less_mana(&kicked_adj.colored_only_reduction, true)
+            .with_less_mana(&kicked_adj.mana_reduction, false)
+            .with_less_generic(
+                kicked_adj
+                    .reduction
+                    .saturating_add(reduction.saturating_sub(adjustment.reduction)),
+            );
         if kicked_parts_ok
             && reachable
             && (affordable(
@@ -2643,8 +2686,34 @@ pub(crate) fn can_cast_form_paying(
             && front_target_ok
             && !flashback_only
             && face.mutate.is_some_and(|mutate| {
-                kicked_targets_reachable(state, def, player, card, MUTATE_TARGET_REQ)
-                    && probe(&mutate)
+                kicked_targets_reachable(state, def, player, card, MUTATE_TARGET_REQ) && {
+                    if raw_adjustment.has_target_conditional_reduction {
+                        let m_adj = raw_adjustment.for_preview(preview_cast_metric_bounds_for(
+                            state,
+                            player,
+                            card,
+                            def,
+                            0,
+                            None,
+                            PreviewCastKind::Mutate,
+                            &raw_adjustment,
+                        ));
+                        let m_cost = m_adj.price(
+                            mutate.with_x(0),
+                            reduction.saturating_sub(adjustment.reduction),
+                        );
+                        affordable(
+                            state,
+                            player,
+                            pool,
+                            &m_cost,
+                            SpendFor::Spell(card),
+                            allowance,
+                        )
+                    } else {
+                        probe(&mutate)
+                    }
+                }
             });
         // Sneak (CR 702.190a), the offer's `CastModeKind::Sneak`.
         let any_sneak = sneak_now

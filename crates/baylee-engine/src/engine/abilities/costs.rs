@@ -4,6 +4,15 @@ use super::*;
 
 mod triggers;
 
+/// Whether activation pricing evaluates `Modifier::ReduceCostIfTargets`
+/// optimistically against legal target options (`Preview`) or against the
+/// finalized chosen object targets (`Chosen`).
+#[derive(Clone, Copy, Debug)]
+pub(super) enum ActivationTargetPricing<'a> {
+    Preview,
+    Chosen(&'a [ObjectId]),
+}
+
 impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
     pub(super) fn mana_activation_life(&self, source: ObjectId, index: u32) -> u32 {
         if self.state.effects.may_tax_mana_life()
@@ -43,6 +52,25 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
         ability_index: u32,
         cost: &Cost,
         reduction: Option<baylee_cards_dsl::CostReduction>,
+    ) -> ActivationPrice {
+        self.activation_price_for_targets(
+            player,
+            source,
+            ability_index,
+            cost,
+            reduction,
+            ActivationTargetPricing::Preview,
+        )
+    }
+
+    pub(super) fn activation_price_for_targets(
+        &self,
+        player: PlayerId,
+        source: ObjectId,
+        ability_index: u32,
+        cost: &Cost,
+        reduction: Option<baylee_cards_dsl::CostReduction>,
+        target_pricing: ActivationTargetPricing<'_>,
     ) -> ActivationPrice {
         if ability_index == crate::choice::TURN_FACE_UP {
             let spend = self.state.source_identity(source).map_or(
@@ -114,7 +142,16 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
         // an independent unrestricted reduction applied afterwards. External
         // non-mana costs also apply when the printed activation has no generic mana.
         self.apply_activation_effect_adjustments(
-            player, source, &base_mana, &full, equip, cycling, &mut mana, &mut parts,
+            player,
+            source,
+            ability_index,
+            &base_mana,
+            &full,
+            equip,
+            cycling,
+            target_pricing,
+            &mut mana,
+            &mut parts,
         );
         mana = mana.with_less_generic(off);
         let imposed = parts.len() - cost.parts.len();
@@ -126,9 +163,246 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 .adjusted(
                     eligible,
                     ordinary,
-                    full.generic_total() - mana.generic_total(),
+                    full.generic_total().saturating_sub(mana.generic_total()),
                 ),
             grantor,
+        }
+    }
+
+    pub(super) fn has_target_conditional_ability_reduction(
+        &self,
+        player: PlayerId,
+        source: ObjectId,
+    ) -> bool {
+        if !self.state.effects.may_change_or_forbid_abilities() {
+            return false;
+        }
+        let Some(object) = self.state.object(source) else {
+            return false;
+        };
+        self.state.effects.iter().any(|effect| {
+            let baylee_cards_dsl::Modifier::ReduceCostIfTargets {
+                who,
+                spell_filter,
+                reduction,
+                abilities: true,
+                ..
+            } = effect.modifier
+            else {
+                return false;
+            };
+            reduction != baylee_core::mana::ManaCost::ZERO
+                && self.ability_target_reduction_source_matches(
+                    player,
+                    source,
+                    object,
+                    effect,
+                    who,
+                    spell_filter,
+                )
+        })
+    }
+
+    fn ability_target_reduction_source_matches(
+        &self,
+        player: PlayerId,
+        source: ObjectId,
+        object: &GameObject,
+        effect: &crate::effects::ContinuousEffect,
+        who: baylee_cards_dsl::PlayerRel,
+        spell_filter: &'static baylee_cards_dsl::Filter,
+    ) -> bool {
+        let player_matches =
+            eval::players_for_source(who, &self.state, effect.controller, effect.source)
+                .is_some_and(|players| players.contains(&player));
+        if !player_matches {
+            return false;
+        }
+        let outer_matches = matches!(
+            effect.filter,
+            crate::effects::EffectFilter::Dsl(
+                baylee_cards_dsl::Filter::Any | baylee_cards_dsl::Filter::This
+            ) | crate::effects::EffectFilter::DslControlledBy(_, _)
+        ) || crate::effects::applies_to(&self.state, effect, object);
+        if !outer_matches {
+            return false;
+        }
+        let context = crate::text_changes::RuleContext {
+            source: effect.source.unwrap_or(source),
+            text: self.state.effect_text(effect),
+            resolved_name: None,
+            resolved_subtype: effect.filter.chosen_subtype(),
+            reference: None,
+        };
+        if object.zone == crate::zone::Zone::Battlefield {
+            eval::matches_with_context(
+                spell_filter,
+                &self.state,
+                object,
+                effect.controller,
+                context,
+            )
+        } else {
+            let mut offboard = object.clone();
+            offboard.controller = player;
+            offboard.base_controller = player;
+            eval::matches_with_context(
+                spell_filter,
+                &self.state,
+                &offboard,
+                effect.controller,
+                context,
+            )
+        }
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    fn ability_pair_has_matching_target(
+        &self,
+        player: PlayerId,
+        source: ObjectId,
+        ability_index: u32,
+        first: Option<baylee_cards_dsl::TargetReq>,
+        second: Option<baylee_cards_dsl::TargetReq>,
+        controller: PlayerId,
+        rule_ctx: crate::text_changes::RuleContext,
+        target_filter: &'static baylee_cards_dsl::Filter,
+    ) -> bool {
+        let wall_only = eval::target_domain::walls(first, second);
+        let ab_ctx = self.ability_rule_context(source, ability_index);
+        let matches_any = |options: &[ObjectId]| {
+            options.iter().any(|&tid| {
+                self.state.object(tid).is_some_and(|target| {
+                    eval::matches_with_context(
+                        target_filter,
+                        &self.state,
+                        target,
+                        controller,
+                        rule_ctx,
+                    )
+                })
+            })
+        };
+        let first_opts = first.map(|req| {
+            let opts = eval::target_options_in_domain(
+                &req.spec,
+                &self.state,
+                player,
+                ab_ctx,
+                self.activation_x,
+                wall_only,
+            );
+            (req, opts)
+        });
+        if let Some((req, ref opts)) = first_opts
+            && (req.count_is_x || req.max > 0)
+            && matches_any(opts)
+        {
+            return true;
+        }
+        if let Some(req) = second
+            && (req.count_is_x || req.max > 0)
+        {
+            if casting::spec_reads_reference(req.spec) {
+                if let Some((_, ref f_opts)) = first_opts {
+                    return f_opts.iter().any(|&reference| {
+                        let mut ctx = ab_ctx;
+                        ctx.reference = Some(reference);
+                        let opts = eval::target_options_in_domain(
+                            &req.spec,
+                            &self.state,
+                            player,
+                            ctx,
+                            self.activation_x,
+                            wall_only,
+                        );
+                        opts.len() >= usize::from(req.min) && matches_any(&opts)
+                    });
+                }
+            } else {
+                let opts = eval::target_options_in_domain(
+                    &req.spec,
+                    &self.state,
+                    player,
+                    ab_ctx,
+                    self.activation_x,
+                    wall_only,
+                );
+                if matches_any(&opts) {
+                    return true;
+                }
+            }
+        }
+        false
+    }
+
+    fn ability_preview_has_matching_target(
+        &self,
+        player: PlayerId,
+        source: ObjectId,
+        ability_index: u32,
+        controller: PlayerId,
+        rule_ctx: crate::text_changes::RuleContext,
+        target_filter: &'static baylee_cards_dsl::Filter,
+    ) -> bool {
+        let Some(ability) = self.activation_definition(source, ability_index) else {
+            return false;
+        };
+        match ability {
+            AbilityDef::Activated {
+                targets,
+                second_targets,
+                ..
+            }
+            | AbilityDef::ActivatedConditional {
+                targets,
+                second_targets,
+                ..
+            } => self.ability_pair_has_matching_target(
+                player,
+                source,
+                ability_index,
+                targets,
+                second_targets,
+                controller,
+                rule_ctx,
+                target_filter,
+            ),
+            AbilityDef::ModalActivated { modes, .. } => {
+                if let Some(mode_idx) = self.activation_mode_index(source, ability_index)
+                    && let Some(mode) = modes.get(usize::from(mode_idx))
+                {
+                    return self.ability_pair_has_matching_target(
+                        player,
+                        source,
+                        ability_index,
+                        mode.targets,
+                        mode.second_targets,
+                        controller,
+                        rule_ctx,
+                        target_filter,
+                    );
+                }
+                modes.iter().any(|mode| {
+                    self.ability_has_targets(
+                        player,
+                        source,
+                        ability_index,
+                        mode.targets,
+                        mode.second_targets,
+                    ) && self.ability_pair_has_matching_target(
+                        player,
+                        source,
+                        ability_index,
+                        mode.targets,
+                        mode.second_targets,
+                        controller,
+                        rule_ctx,
+                        target_filter,
+                    )
+                })
+            }
+            _ => false,
         }
     }
 
@@ -137,10 +411,12 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
         &self,
         player: PlayerId,
         source: ObjectId,
+        ability_index: u32,
         base_mana: &baylee_core::mana::ManaCost,
         full: &baylee_core::mana::ManaCost,
         equip: bool,
         cycling: bool,
+        target_pricing: ActivationTargetPricing<'_>,
         mana: &mut baylee_core::mana::ManaCost,
         parts: &mut SmallVec<[CostPart; 4]>,
     ) {
@@ -188,6 +464,63 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                     casting::extend_sacrifices_per_mana_symbol(parts, base_mana, color, sacrifice);
                 }
                 _ => {}
+            }
+        }
+        // Apply unrestricted target-conditional reductions after floored
+        // reductions so a `minimum` on `AbilitiesCostLess` never caps them.
+        for effect in self.state.effects.iter() {
+            let baylee_cards_dsl::Modifier::ReduceCostIfTargets {
+                who,
+                spell_filter,
+                target_filter,
+                reduction,
+                abilities: true,
+            } = effect.modifier
+            else {
+                continue;
+            };
+            if reduction == baylee_core::mana::ManaCost::ZERO
+                || !self.ability_target_reduction_source_matches(
+                    player,
+                    source,
+                    object,
+                    effect,
+                    who,
+                    spell_filter,
+                )
+            {
+                continue;
+            }
+            let context = crate::text_changes::RuleContext {
+                source: effect.source.unwrap_or(source),
+                text: self.state.effect_text(effect),
+                resolved_name: None,
+                resolved_subtype: effect.filter.chosen_subtype(),
+                reference: None,
+            };
+            let target_matches = match target_pricing {
+                ActivationTargetPricing::Chosen(chosen) => chosen.iter().any(|&tid| {
+                    self.state.object(tid).is_some_and(|target| {
+                        eval::matches_with_context(
+                            target_filter,
+                            &self.state,
+                            target,
+                            effect.controller,
+                            context,
+                        )
+                    })
+                }),
+                ActivationTargetPricing::Preview => self.ability_preview_has_matching_target(
+                    player,
+                    source,
+                    ability_index,
+                    effect.controller,
+                    context,
+                    target_filter,
+                ),
+            };
+            if target_matches {
+                *mana = mana.with_less_mana(&reduction, false);
             }
         }
     }

@@ -434,6 +434,8 @@ fn modifier_reads_crime(modifier: &baylee_cards_dsl::Modifier) -> bool {
             max_mana_value: Some(amt),
             ..
         } => amount_reads_crime_at(amt, 0),
+        Modifier::SpellsCostLessByAmount(amount) => amount_reads_crime_at(amount, 0),
+        Modifier::AdjustSpellCostByAmount { amount, .. } => amount_reads_crime_at(amount, 0),
         _ => false,
     }
 }
@@ -682,6 +684,8 @@ fn modifier_reads_expend(modifier: &baylee_cards_dsl::Modifier) -> bool {
             max_mana_value: Some(amt),
             ..
         } => amount_reads_expend_at(amt, 0),
+        Modifier::SpellsCostLessByAmount(amount) => amount_reads_expend_at(amount, 0),
+        Modifier::AdjustSpellCostByAmount { amount, .. } => amount_reads_expend_at(amount, 0),
         _ => false,
     }
 }

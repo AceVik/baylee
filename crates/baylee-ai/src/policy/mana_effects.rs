@@ -317,6 +317,242 @@ pub(crate) fn spell_mana_increase(
     colored.with_more_generic(rest)
 }
 
+fn any_target_matches_in_view(
+    agent: &HeuristicAgent,
+    view: &PlayerView,
+    target_filter: &Filter,
+    source_id: Option<ObjectId>,
+    allow_unknown: bool,
+) -> bool {
+    let matches_in = |obj: &baylee_view::PublicObject, zone: baylee_cards_dsl::ZoneRef| match agent
+        .filter_matches(target_filter, view, obj, zone, source_id)
+    {
+        Some(true) => true,
+        None => allow_unknown,
+        Some(false) => false,
+    };
+    view.battlefield
+        .iter()
+        .any(|o| !o.status.is_phased_out() && matches_in(o, baylee_cards_dsl::ZoneRef::Battlefield))
+        || view
+            .stack
+            .iter()
+            .any(|o| matches_in(o, baylee_cards_dsl::ZoneRef::Stack))
+}
+
+/// Optimistic colored+generic mana reduction from battlefield
+/// `Modifier::ReduceCostIfTargets { abilities: true, .. }` statics matching
+/// `source` for the seat currently acting in `view`.
+pub(crate) fn ability_target_mana_reduction(view: &PlayerView, source: ObjectId) -> ManaCost {
+    let Some(source_obj) = view.object(source) else {
+        return ManaCost::ZERO;
+    };
+    let you = resource_player(view);
+    let agent = HeuristicAgent::new(crate::AIProfile::default());
+    let mut total = ManaCost::ZERO;
+    for perm in &view.battlefield {
+        for ability in active_abilities(perm) {
+            let AbilityDef::Static(baylee_cards_dsl::StaticAbility {
+                filter,
+                modifier:
+                    baylee_cards_dsl::Modifier::ReduceCostIfTargets {
+                        who,
+                        spell_filter,
+                        target_filter,
+                        reduction,
+                        abilities: true,
+                    },
+                ..
+            }) = ability
+            else {
+                continue;
+            };
+            if *reduction == ManaCost::ZERO || !player_rel_hits_you(*who, perm.controller == you) {
+                continue;
+            }
+            let outer_ok = matches!(filter, Filter::Any | Filter::This)
+                || agent.filter_matches(
+                    filter,
+                    view,
+                    source_obj,
+                    baylee_cards_dsl::ZoneRef::Battlefield,
+                    Some(perm.id),
+                ) == Some(true);
+            let inner_ok = matches!(spell_filter, Filter::Any)
+                || (matches!(spell_filter, Filter::This) && perm.id == source_obj.id)
+                || agent.filter_matches(
+                    spell_filter,
+                    view,
+                    source_obj,
+                    baylee_cards_dsl::ZoneRef::Battlefield,
+                    Some(perm.id),
+                ) == Some(true);
+            if outer_ok
+                && inner_ok
+                && any_target_matches_in_view(&agent, view, target_filter, Some(perm.id), true)
+            {
+                total = total.combine(reduction);
+            }
+        }
+    }
+    total
+}
+
+#[derive(Default)]
+struct SpellManaReductions {
+    colored_only: ManaCost,
+    mana: ManaCost,
+    target_only: ManaCost,
+}
+
+fn collect_board_spell_reductions(
+    agent: &HeuristicAgent,
+    view: &PlayerView,
+    obj: &baylee_view::PublicObject,
+    allow_unknown_target: bool,
+    out: &mut SpellManaReductions,
+) {
+    let you = resource_player(view);
+    for perm in &view.battlefield {
+        for ability in active_abilities(perm) {
+            let AbilityDef::Static(sa) = ability else {
+                continue;
+            };
+            match sa.modifier {
+                baylee_cards_dsl::Modifier::SpellsCostLessMana {
+                    cost: less,
+                    colored_only,
+                } => {
+                    if agent.filter_matches(
+                        &sa.filter,
+                        view,
+                        obj,
+                        baylee_cards_dsl::ZoneRef::Stack,
+                        Some(perm.id),
+                    ) == Some(true)
+                    {
+                        if colored_only {
+                            out.colored_only = out.colored_only.combine(&less);
+                        } else {
+                            out.mana = out.mana.combine(&less);
+                        }
+                    }
+                }
+                baylee_cards_dsl::Modifier::ReduceCostIfTargets {
+                    who,
+                    spell_filter,
+                    target_filter,
+                    reduction,
+                    abilities: false,
+                } if reduction != ManaCost::ZERO
+                    && player_rel_hits_you(who, perm.controller == you) =>
+                {
+                    let outer_ok = matches!(sa.filter, Filter::Any | Filter::This)
+                        || agent.filter_matches(
+                            &sa.filter,
+                            view,
+                            obj,
+                            baylee_cards_dsl::ZoneRef::Stack,
+                            Some(perm.id),
+                        ) == Some(true);
+                    let inner_ok = matches!(spell_filter, Filter::Any)
+                        || agent.filter_matches(
+                            spell_filter,
+                            view,
+                            obj,
+                            baylee_cards_dsl::ZoneRef::Stack,
+                            Some(perm.id),
+                        ) == Some(true);
+                    if outer_ok
+                        && inner_ok
+                        && any_target_matches_in_view(
+                            agent,
+                            view,
+                            target_filter,
+                            Some(perm.id),
+                            allow_unknown_target,
+                        )
+                    {
+                        out.mana = out.mana.combine(&reduction);
+                        out.target_only = out.target_only.combine(&reduction);
+                    }
+                }
+                _ => {}
+            }
+        }
+    }
+}
+
+fn collect_self_spell_reductions(
+    agent: &HeuristicAgent,
+    view: &PlayerView,
+    id: ObjectId,
+    card: CardIdentity,
+    obj: &baylee_view::PublicObject,
+    allow_unknown_target: bool,
+    out: &mut SpellManaReductions,
+) {
+    let Some(def) = baylee_cards::by_index(card.index) else {
+        return;
+    };
+    for ability in def.abilities_for_face(usize::from(card.face)) {
+        let AbilityDef::Static(sa) = ability else {
+            continue;
+        };
+        if sa.source_zone != baylee_cards_dsl::ZoneRef::Stack {
+            continue;
+        }
+        match sa.modifier {
+            baylee_cards_dsl::Modifier::SpellsCostLessMana {
+                cost: less,
+                colored_only,
+            } if matches!(sa.filter, Filter::This | Filter::Any) => {
+                if colored_only {
+                    out.colored_only = out.colored_only.combine(&less);
+                } else {
+                    out.mana = out.mana.combine(&less);
+                }
+            }
+            baylee_cards_dsl::Modifier::ReduceCostIfTargets {
+                who,
+                spell_filter,
+                target_filter,
+                reduction,
+                abilities: false,
+            } if reduction != ManaCost::ZERO
+                && player_rel_hits_you(who, true)
+                && (matches!(sa.filter, Filter::This | Filter::Any)
+                    || agent.filter_matches(
+                        &sa.filter,
+                        view,
+                        obj,
+                        baylee_cards_dsl::ZoneRef::Stack,
+                        Some(id),
+                    ) == Some(true))
+                && (matches!(spell_filter, Filter::This | Filter::Any)
+                    || agent.filter_matches(
+                        spell_filter,
+                        view,
+                        obj,
+                        baylee_cards_dsl::ZoneRef::Stack,
+                        Some(id),
+                    ) == Some(true))
+                && any_target_matches_in_view(
+                    agent,
+                    view,
+                    target_filter,
+                    Some(id),
+                    allow_unknown_target,
+                ) =>
+            {
+                out.mana = out.mana.combine(&reduction);
+                out.target_only = out.target_only.combine(&reduction);
+            }
+            _ => {}
+        }
+    }
+}
+
 fn spell_mana_reduction(
     view: &PlayerView,
     id: ObjectId,
@@ -326,7 +562,8 @@ fn spell_mana_reduction(
     increased: ManaCost,
 ) -> ManaCost {
     let total = legal.spell_reduction(id, mode);
-    if total == 0 {
+    let offered = legal.castable_once_paid(id);
+    if total == 0 && !offered {
         return increased;
     }
     if let baylee_engine::choice::CastModeKind::Face(index) = mode {
@@ -335,8 +572,7 @@ fn spell_mana_reduction(
         };
         card.face = index;
     }
-    let mut colored_only_red = ManaCost::ZERO;
-    let mut mana_red = ManaCost::ZERO;
+    let mut reductions = SpellManaReductions::default();
     if mode != baylee_engine::choice::CastModeKind::Disguise
         && let Some(f) = face(card)
     {
@@ -352,38 +588,40 @@ fn spell_mana_reduction(
             apply_bestow_projection(&mut obj);
         }
         let agent = HeuristicAgent::new(crate::AIProfile::default());
-        for perm in &view.battlefield {
-            for ability in active_abilities(perm) {
-                let AbilityDef::Static(baylee_cards_dsl::StaticAbility {
-                    filter,
-                    modifier:
-                        baylee_cards_dsl::Modifier::SpellsCostLessMana {
-                            cost: less,
-                            colored_only,
-                        },
-                    ..
-                }) = ability
-                else {
-                    continue;
-                };
-                if agent.filter_matches(
-                    filter,
-                    view,
-                    &obj,
-                    baylee_cards_dsl::ZoneRef::Stack,
-                    Some(perm.id),
-                ) == Some(true)
-                {
-                    if *colored_only {
-                        colored_only_red = colored_only_red.combine(less);
-                    } else {
-                        mana_red = mana_red.combine(less);
-                    }
-                }
-            }
-        }
+        let allow_unknown_target = total > 0 || offered;
+        collect_board_spell_reductions(&agent, view, &obj, allow_unknown_target, &mut reductions);
+        collect_self_spell_reductions(
+            &agent,
+            view,
+            id,
+            card,
+            &obj,
+            allow_unknown_target,
+            &mut reductions,
+        );
     }
-    apply_colored_spell_reductions(increased, total, &colored_only_red, &mana_red)
+    let colored_only_saved = increased.cmc().saturating_sub(
+        increased
+            .with_less_mana(&reductions.colored_only, true)
+            .cmc(),
+    );
+    let effective_total = if offered
+        && reductions.target_only != ManaCost::ZERO
+        && colored_only_saved.saturating_add(reductions.mana.cmc()) > total
+    {
+        total.saturating_add(reductions.target_only.cmc())
+    } else {
+        total
+    };
+    if effective_total == 0 {
+        return increased;
+    }
+    apply_colored_spell_reductions(
+        increased,
+        effective_total,
+        &reductions.colored_only,
+        &reductions.mana,
+    )
 }
 
 pub(crate) fn apply_colored_spell_reductions(
