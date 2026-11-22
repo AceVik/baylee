@@ -6329,7 +6329,11 @@ impl Tx<'_> {
         }
         p.take("Reveal");
         p.take("Hidden");
-        p.take("Optional");
+        let optional = match p.take("Optional").as_deref() {
+            None | Some("False") => false,
+            Some("True") => true,
+            Some(_) => return None,
+        };
         let tapped = match p.take("Tapped").as_deref() {
             None | Some("False") => false,
             Some("True") => true,
@@ -6354,9 +6358,13 @@ impl Tx<'_> {
         let cleaned = Self::strip_your_graveyard_owner(&valid).unwrap_or(valid);
         let filter = self.filter_expr_in_zone(&cleaned, true)?;
         let name = self.body.filter_static("SEARCH", &filter);
-        Some(vec![format!(
-            "Effect::SearchLibraryOrGraveyard {{ filter: &{name}, find: &{find} }}"
-        )])
+        let effect =
+            format!("Effect::SearchLibraryOrGraveyard {{ filter: &{name}, find: &{find} }}");
+        Some(vec![if optional {
+            format!("Effect::MayDo(&[{effect}])")
+        } else {
+            effect
+        }])
     }
 
     /// Resolve whether a `SearchLibrary` branch of `count` cards may settle for

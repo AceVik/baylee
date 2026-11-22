@@ -1427,9 +1427,21 @@ fn wave18b_change_zone_origin_alternative_defined_player_and_remember_changed() 
     );
     assert!(
         gy_or_lib.abilities[0].contains("Effect::SearchLibraryOrGraveyard")
-            && gy_or_lib.abilities[0].contains("find: &Find::BATTLEFIELD_TAPPED"),
+            && gy_or_lib.abilities[0].contains("find: &Find::BATTLEFIELD_TAPPED")
+            && !gy_or_lib.abilities[0].contains("MayDo"),
         "{:?}",
         gy_or_lib.abilities
+    );
+    let optional_tutor = read(
+        "Name:OptionalGraveTutor\nManaCost:2 W\nTypes:Sorcery\n\
+         A:SP$ ChangeZone | Origin$ Library | OriginAlternative$ Graveyard | Destination$ Hand | \
+         ChangeType$ Card.YouOwn+namedAjani | Optional$ True | ShuffleNonMandatory$ True",
+    );
+    assert!(
+        optional_tutor.abilities[0].contains("Effect::MayDo(&[Effect::SearchLibraryOrGraveyard {")
+            && optional_tutor.abilities[0].contains("find: &Find::HAND"),
+        "{:?}",
+        optional_tutor.abilities
     );
 
     // `ChangeZone.DefinedPlayer`: target's controller searches their own library.
