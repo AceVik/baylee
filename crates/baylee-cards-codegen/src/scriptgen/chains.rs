@@ -20,27 +20,21 @@ pub(super) struct LineFlags {
 impl Tx<'_> {
     /// One effect and everything its `SubAbility$` chain adds.
     pub(super) fn chain(&mut self, spec: &str, chain: &mut Chain) -> Option<()> {
-        let Some((api, p)) = Params::parse(spec) else {
-            return self.deny("an ability spec with no `$` in it".to_string());
-        };
         let chosen = chain
             .effects
             .iter()
             .any(|e| e.starts_with("Effect::ChooseNumberEx {"));
         let saved = std::mem::replace(&mut self.has_resolution_chosen_number, chosen);
-        let result = self.chain_inner(spec, chain, api, p);
+        let result = self.chain_inner(spec, chain);
         self.has_resolution_chosen_number = saved;
         result
     }
 
     #[allow(clippy::too_many_lines)]
-    fn chain_inner(
-        &mut self,
-        spec: &str,
-        chain: &mut Chain,
-        api: String,
-        mut p: Params,
-    ) -> Option<()> {
+    fn chain_inner(&mut self, spec: &str, chain: &mut Chain) -> Option<()> {
+        let Some((api, mut p)) = Params::parse(spec) else {
+            return self.deny("an ability spec with no `$` in it".to_string());
+        };
         let starts_whenever = api == "ImmediateTrigger"
             && p.peek("TriggerDescription")
                 .or_else(|| p.peek("SpellDescription"))
@@ -1474,7 +1468,9 @@ impl Tx<'_> {
             let followup = chain.effects.drain(choice_index + 1..).collect::<Vec<_>>();
             let choice = &mut chain.effects[choice_index];
             choice.truncate(choice.len() - "then: &[] }".len());
-            choice.push_str(&format!("then: &[{}] }}", followup.join(", ")));
+            choice.push_str("then: &[");
+            choice.push_str(&followup.join(", "));
+            choice.push_str("] }");
         }
         Some(())
     }

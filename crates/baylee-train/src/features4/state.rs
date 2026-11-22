@@ -1,3 +1,22 @@
+/// Shared turn-step positions in the global state features of encoders 4 and 7.
+pub(crate) const fn global_step_index(step: Step, phase: Phase) -> usize {
+    match step {
+        Step::Untap => 0,
+        Step::Upkeep => 1,
+        Step::Draw => 2,
+        Step::Main if matches!(phase, Phase::SecondMain) => 10,
+        Step::Main => 3,
+        Step::CombatBegin => 4,
+        Step::DeclareAttackers => 5,
+        Step::DeclareBlockers => 6,
+        Step::CombatDamageFirst => 7,
+        Step::CombatDamage => 8,
+        Step::CombatEnd => 9,
+        Step::End => 11,
+        Step::Cleanup => 12,
+    }
+}
+
 /// Zone identifiers for tokenized entities (`0..12`).
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[repr(u8)]
@@ -869,27 +888,7 @@ fn encode_global4(
 ) {
     let g = &mut state.global_feat;
     g[0] = unit(view.turn as f32, 20.0);
-    let step_idx = match view.step {
-        Step::Untap => 0,
-        Step::Upkeep => 1,
-        Step::Draw => 2,
-        Step::Main => {
-            if matches!(view.phase, Phase::SecondMain) {
-                10
-            } else {
-                3
-            }
-        }
-        Step::CombatBegin => 4,
-        Step::DeclareAttackers => 5,
-        Step::DeclareBlockers => 6,
-        Step::CombatDamageFirst => 7,
-        Step::CombatDamage => 8,
-        Step::CombatEnd => 9,
-        Step::End => 11,
-        Step::Cleanup => 12,
-    };
-    g[1 + step_idx] = 1.0; // [1..14]
+    g[1 + global_step_index(view.step, view.phase)] = 1.0; // [1..14]
 
     let rel_act = rel_seat(viewer, Some(view.active), seat_count);
     let rel_awt = rel_seat(viewer, view.awaiting, seat_count);

@@ -20,15 +20,15 @@ use baylee_core::mana::{ManaColor, ManaPayment, ManaSpending, ManaSymbol};
 use baylee_core::types::{SupertypeSet, TypeSet};
 use baylee_engine::choice::Pending;
 use baylee_view::{
-    CommanderView, CounterKind, DayNight, HandObject, ObjectStatus, Phase, PlayerView,
-    PublicObject, StackItem, Step,
+    CommanderView, CounterKind, DayNight, HandObject, ObjectStatus, PlayerView, PublicObject,
+    StackItem,
 };
 
 use crate::carddsl::UNKNOWN_CARD;
 use crate::features4::{
     ENTITY_TOKEN_OFFSET, EdgeRel4, EncodedState4, EntityZone4, KnownCardMemory4, MAX_EDGES,
     MAX_ENTITIES, MAX_SEATS, PendingKind4, SEAT_FEAT_WIDTH, SEAT_TOKEN_OFFSET, SeatKnowledge4,
-    abs_seat, offered_to_cast, pack_object_id, rel_seat,
+    abs_seat, global_step_index, offered_to_cast, pack_object_id, rel_seat,
 };
 use crate::features7::grouping::group_battlefield_permanents;
 
@@ -1189,27 +1189,7 @@ fn encode_global7(
 ) {
     let g = &mut state.global_feat;
     g[0] = raw_unit(view.turn as f32, 20.0);
-    let step_idx = match view.step {
-        Step::Untap => 0,
-        Step::Upkeep => 1,
-        Step::Draw => 2,
-        Step::Main => {
-            if matches!(view.phase, Phase::SecondMain) {
-                10
-            } else {
-                3
-            }
-        }
-        Step::CombatBegin => 4,
-        Step::DeclareAttackers => 5,
-        Step::DeclareBlockers => 6,
-        Step::CombatDamageFirst => 7,
-        Step::CombatDamage => 8,
-        Step::CombatEnd => 9,
-        Step::End => 11,
-        Step::Cleanup => 12,
-    };
-    g[1 + step_idx] = 1.0; // [1..14]
+    g[1 + global_step_index(view.step, view.phase)] = 1.0; // [1..14]
 
     let rel_act = rel_seat(viewer, Some(view.active), seat_count);
     let rel_awt = rel_seat(viewer, view.awaiting, seat_count);
