@@ -1259,6 +1259,16 @@ pub(super) fn resume_arranged_inner(
             let target_lib = ZoneLocation::Library(player);
             for &card in bottom {
                 let _ = state.move_object(card, target_lib, ZonePosition::Bottom, Cause::Effect);
+                if res.event_object == Some(card) {
+                    super::wave3_ops::bind_remembered_object(state, res, card);
+                }
+                if let Some(updated) = state.source_identity(card) {
+                    for found in &mut res.subject.found {
+                        if found.object == card {
+                            *found = updated;
+                        }
+                    }
+                }
             }
         }
         // CR 701.22a–d: any number on the bottom in any order, the rest on top

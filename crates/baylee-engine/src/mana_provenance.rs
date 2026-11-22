@@ -351,6 +351,7 @@ fn reads_source(filter: &Filter) -> bool {
         | Filter::Monstrous
         | Filter::Suspected
         | Filter::RingBearer
+        | Filter::Modified
         | Filter::InZone(_) => false,
         _ => true,
     }

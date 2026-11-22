@@ -1514,7 +1514,13 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                     crate::object::Rider::SyntheticCondition(cond) => Some(**cond),
                     _ => None,
                 })
-                .filter(|c| !matches!(c, baylee_cards_dsl::Condition::Station(_)))
+                .filter(|c| {
+                    !matches!(
+                        c,
+                        baylee_cards_dsl::Condition::Station(_)
+                            | baylee_cards_dsl::Condition::TriggerOnly(_)
+                    )
+                })
         } else {
             let abilities = obj.own_abilities.as_ref().map_or_else(
                 || {
@@ -1529,7 +1535,13 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
             abilities
                 .get(loc.index as usize)
                 .and_then(crate::trigger::intervening_clause)
-                .filter(|c| !matches!(c, baylee_cards_dsl::Condition::Station(_)))
+                .filter(|c| {
+                    !matches!(
+                        c,
+                        baylee_cards_dsl::Condition::Station(_)
+                            | baylee_cards_dsl::Condition::TriggerOnly(_)
+                    )
+                })
         };
         if condition.is_none() {
             return false;

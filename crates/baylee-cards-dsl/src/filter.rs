@@ -463,6 +463,11 @@ pub enum Filter {
     /// (conspire, CR 702.78a). Matches nothing when either object is
     /// colorless. Appended to preserve replay identities.
     SharesColorWithSource,
+    /// Modified creature (CR 700.9): a creature on the battlefield (or in
+    /// battlefield-departure LKI, CR 603.10a / CR 608.2h) that is equipped,
+    /// enchanted by an Aura controlled by that creature's controller, or has
+    /// any counter on it. Appended to preserve replay identities.
+    Modified,
 }
 
 /// Zone references for filters (engine zones, DSL view).
@@ -827,6 +832,8 @@ impl Filter {
     pub const SOULBOND_PAIR: Self = Self::Or(&[Self::This, Self::PairedWithSource]);
     /// Your Ring-bearer (`CR 701.54a–e`), noun first like [`Self::YOUR_CREATURE`].
     pub const YOUR_RING_BEARER: Self = Self::And(&[Self::RingBearer, Self::ControlledByYou]);
+    /// A modified creature you control (`CR 700.9`), noun first like [`Self::YOUR_RING_BEARER`].
+    pub const YOUR_MODIFIED_CREATURE: Self = Self::And(&[Self::Modified, Self::ControlledByYou]);
 }
 
 #[cfg(test)]
@@ -882,6 +889,7 @@ mod tests {
         ),
         ("SOULBOND_PAIR", Filter::SOULBOND_PAIR),
         ("YOUR_RING_BEARER", Filter::YOUR_RING_BEARER),
+        ("YOUR_MODIFIED_CREATURE", Filter::YOUR_MODIFIED_CREATURE),
     ];
 
     /// The table above is the file below. Read out of the source for the

@@ -1027,6 +1027,7 @@ fn bound_to_this_step(view: &PlayerView, legal: &LegalActions) -> bool {
     fn during_a_step(condition: &Condition) -> bool {
         match condition {
             Condition::DuringStep(_) | Condition::InCombatAfterBlockers => true,
+            Condition::TriggerOnly(inner) => during_a_step(inner),
             Condition::All(all) => all.iter().any(during_a_step),
             _ => false,
         }

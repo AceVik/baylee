@@ -288,6 +288,24 @@ impl HeuristicAgent {
             Filter::Monocolored => Some(object.colors.len() == 1),
             Filter::FaceDown => Some(object.status.contains(baylee_view::ObjectStatus::FACE_DOWN)),
             Filter::Suspected => Some(object.suspected),
+            Filter::Modified => {
+                use baylee_core::generated::subtypes::{artifact::EQUIPMENT, enchantment::AURA};
+                if zone != ZoneRef::Battlefield
+                    || object.status.contains(baylee_view::ObjectStatus::PHASED_OUT)
+                    || !object.types.contains(baylee_core::types::TypeSet::CREATURE)
+                {
+                    return Some(false);
+                }
+                if !object.counters.is_empty() {
+                    return Some(true);
+                }
+                Some(view.battlefield.iter().any(|att| {
+                    !att.status.contains(baylee_view::ObjectStatus::PHASED_OUT)
+                        && att.attached_to == Some(object.id)
+                        && (att.subtypes.contains(EQUIPMENT)
+                            || (att.subtypes.contains(AURA) && att.controller == object.controller))
+                }))
+            }
             Filter::SharesCreatureTypeWith(Filter::This) => this.and_then(|id| {
                 let src = view.object(id)?;
                 Some(

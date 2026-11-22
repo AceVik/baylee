@@ -815,6 +815,39 @@ fn read_one(effect: &Effect, certain: bool, reading: &Reading<'_>, facts: &mut F
             facts.deeds.add(Deeds::REMOVES);
             facts.reads.add(Stuff::POWER);
         }
+        Effect::RevealUntilThen { found, rest, .. } => {
+            match found {
+                baylee_cards::dsl::RevealUntilFound::Hand => facts.makes.add(Stuff::HAND),
+                baylee_cards::dsl::RevealUntilFound::Battlefield { .. } => {
+                    facts.makes.add(Stuff::BOARD);
+                }
+                baylee_cards::dsl::RevealUntilFound::Graveyard => {
+                    facts.makes.add(Stuff::GRAVEYARD);
+                }
+                _ => {}
+            }
+            match rest {
+                baylee_cards::dsl::RevealUntilRest::BottomChosenOrder => {
+                    facts.deeds.add(Deeds::ASKS);
+                }
+                baylee_cards::dsl::RevealUntilRest::ShuffleIntoLibrary => {
+                    facts.deeds.add(Deeds::SHUFFLES);
+                }
+                baylee_cards::dsl::RevealUntilRest::Hand => facts.makes.add(Stuff::HAND),
+                baylee_cards::dsl::RevealUntilRest::Graveyard => {
+                    facts.makes.add(Stuff::GRAVEYARD);
+                }
+                _ => {}
+            }
+        }
+        Effect::RepeatEachObject { zone, .. } => match zone {
+            baylee_cards::dsl::ZoneSel::Battlefield => facts.reads.add(Stuff::BOARD),
+            baylee_cards::dsl::ZoneSel::GraveyardYou
+            | baylee_cards::dsl::ZoneSel::GraveyardOf(_)
+            | baylee_cards::dsl::ZoneSel::GraveyardOpponents
+            | baylee_cards::dsl::ZoneSel::GraveyardAll => facts.reads.add(Stuff::GRAVEYARD),
+            _ => {}
+        },
         _ => {}
     }
 }

@@ -501,6 +501,24 @@ pub(crate) fn matches(view: &PlayerView, object: &PublicObject, filter: &Filter)
                 .sum();
             total >= u32::from(*min)
         }
+        Filter::Modified => {
+            use baylee_core::generated::subtypes::{artifact::EQUIPMENT, enchantment::AURA};
+            if !view.battlefield.iter().any(|b| b.id == object.id)
+                || object.status.contains(baylee_view::ObjectStatus::PHASED_OUT)
+                || !object.types.contains(baylee_core::types::TypeSet::CREATURE)
+            {
+                return Some(false);
+            }
+            if !object.counters.is_empty() {
+                return Some(true);
+            }
+            view.battlefield.iter().any(|att| {
+                !att.status.contains(baylee_view::ObjectStatus::PHASED_OUT)
+                    && att.attached_to == Some(object.id)
+                    && (att.subtypes.contains(EQUIPMENT)
+                        || (att.subtypes.contains(AURA) && att.controller == object.controller))
+            })
+        }
         Filter::AttachedTo(inner) => {
             let Some(host) = object.attached_to else {
                 return Some(false);

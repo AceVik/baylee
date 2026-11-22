@@ -5295,6 +5295,54 @@ pub enum Effect {
         /// Duration of the layer-7b base P/T effect.
         duration: super::Duration,
     },
+    /// Composable reveal-until-matching (or exile-until-matching when
+    /// `exile_while_revealing` is `true`) library operation (`CR 701.20a`,
+    /// `DigUntil.RememberFound`): turns over cards from the top of `library`
+    /// (up to `max_revealed` when `Some`) until `count` cards matching `filter`
+    /// are found or the library ends, places matched cards at `found` and
+    /// remaining cards at `rest`, and — whenever at least one matching card was
+    /// found — binds the found card(s) to [`TargetSpec::EventObject`] and
+    /// `SubjectContext::found` (plus `Rider::Linked` when `found` is
+    /// [`RevealUntilFound::ExileLinked`]) and executes `then`. Appended to
+    /// preserve replay identities.
+    RevealUntilThen {
+        /// Whose library is revealed or exiled from.
+        library: PlayerRel,
+        /// Filter each card is tested against relative to the resolving controller.
+        filter: &'static Filter,
+        /// How many matching cards to stop at (`Amount::Fixed(1)` for single hit).
+        count: Amount,
+        /// Optional cap on total cards turned over (`None` = whole library).
+        max_revealed: Option<Amount>,
+        /// `true` exiles each card from top of library as it turns over; `false` reveals from the library first.
+        exile_while_revealing: bool,
+        /// Destination for matched card(s).
+        found: RevealUntilFound,
+        /// Destination for all other turned-over card(s) (and matched cards when `found` is `SameAsRest`).
+        rest: RevealUntilRest,
+        /// Effects executed when at least one matching card was found, with `EventObject` and `found` bound.
+        then: &'static [Effect],
+    },
+    /// Sequentially execute `then` once for each object in `zone` matching
+    /// `filter` (additionally restricted to `SubjectContext::found` when
+    /// `only_found` is `true`), snapshotted in deterministic order when the
+    /// loop begins (`CR 101.4`, `CR 608.2h`: controller APNAP + battlefield
+    /// order on the battlefield; owner APNAP + zone order in non-battlefield
+    /// zones). Skips snapshotted objects that left their zone mid-loop
+    /// (`CR 400.7`), binds [`TargetSpec::EventObject`] and
+    /// [`PlayerRel::EventPlayer`] on each pass, supports interactive `Pending`
+    /// choices and nested loops, and restores outer event bindings afterward.
+    /// Appended to preserve replay identities.
+    RepeatEachObject {
+        /// Zone whose objects are snapshotted when the loop begins.
+        zone: ZoneSel,
+        /// Filter each candidate object must match when snapshotted.
+        filter: &'static Filter,
+        /// When `true`, only objects recorded in `SubjectContext::found` earlier in this resolution are iterated.
+        only_found: bool,
+        /// Instructions executed sequentially for each snapshotted object.
+        then: &'static [Effect],
+    },
 }
 
 #[cfg(test)]

@@ -42,6 +42,7 @@ mod copying;
 mod damage_returns;
 pub(crate) mod for_each;
 mod wave10b;
+mod wave12a;
 mod weakest;
 use copying::{copy_spell, copy_target_ability};
 mod coin;
@@ -853,6 +854,7 @@ pub(super) fn amount2(amount: &Amount, state: &GameState, you: PlayerId, res: &R
         // amount.
         Amount::EventManaValue => state
             .object(res.on_stack)
+            .filter(|object| object.event_object == res.event_object)
             .and_then(|object| {
                 object.riders.iter().find_map(|rider| match rider {
                     crate::object::Rider::EventManaValue(value) => Some(*value),
@@ -1027,6 +1029,36 @@ pub(super) fn amount2(amount: &Amount, state: &GameState, you: PlayerId, res: &R
             players_of(PlayerRel::Chosen, state, you, res)
                 .into_iter()
                 .flat_map(|p| state.zones.list(ZoneLocation::Hand(p)).iter().copied())
+                .filter(|&id| {
+                    state
+                        .object(id)
+                        .is_some_and(|o| eval::matches_with_context(filter, state, o, you, context))
+                })
+                .count() as u32
+        }
+        Amount::CountOf {
+            filter,
+            zone: baylee_cards_dsl::ZoneSel::HandOf(who),
+        } => {
+            let context = res.rule_context();
+            players_of(*who, state, you, res)
+                .into_iter()
+                .flat_map(|p| state.zones.list(ZoneLocation::Hand(p)).iter().copied())
+                .filter(|&id| {
+                    state
+                        .object(id)
+                        .is_some_and(|o| eval::matches_with_context(filter, state, o, you, context))
+                })
+                .count() as u32
+        }
+        Amount::CountOf {
+            filter,
+            zone: baylee_cards_dsl::ZoneSel::LibraryOf(who),
+        } => {
+            let context = res.rule_context();
+            players_of(*who, state, you, res)
+                .into_iter()
+                .flat_map(|p| state.zones.list(ZoneLocation::Library(p)).iter().copied())
                 .filter(|&id| {
                     state
                         .object(id)

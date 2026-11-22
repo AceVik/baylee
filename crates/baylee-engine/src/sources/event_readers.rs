@@ -32,7 +32,10 @@ fn reads_amount(value: Amount) -> bool {
         | Amount::StartingLifeTotal(who)
         | Amount::LifeGainedThisTurn(who)
         | Amount::CountOf {
-            zone: baylee_cards_dsl::ZoneSel::GraveyardOf(who),
+            zone:
+                baylee_cards_dsl::ZoneSel::GraveyardOf(who)
+                | baylee_cards_dsl::ZoneSel::HandOf(who)
+                | baylee_cards_dsl::ZoneSel::LibraryOf(who),
             ..
         } => reads_player(who),
         Amount::Half { base, .. }
@@ -190,6 +193,14 @@ fn reads_event(effect: &Effect) -> bool {
             ..
         }
         | Effect::RevealTop { player, count, .. } => reads_player(*player) || reads_amount(*count),
+        Effect::RevealUntilThen {
+            library,
+            count,
+            max_revealed,
+            ..
+        } => {
+            reads_player(*library) || reads_amount(*count) || max_revealed.is_some_and(reads_amount)
+        }
         Effect::ChooseExiledToPlay { owner, .. }
         | Effect::RemoveCountersFromChosenExile { owner, .. }
         | Effect::CreateTokenCopiesOfGraveyard { player: owner, .. } => reads_player(*owner),
@@ -209,7 +220,14 @@ fn reads_event(effect: &Effect) -> bool {
         Effect::AtEndOfCombat { about, .. } | Effect::AtEndOfCombatThisTurn { about, .. } => {
             reads_target(*about)
         }
-        Effect::BecomeMonarch(who)
+        Effect::RepeatEachObject {
+            zone:
+                baylee_cards_dsl::ZoneSel::GraveyardOf(who)
+                | baylee_cards_dsl::ZoneSel::HandOf(who)
+                | baylee_cards_dsl::ZoneSel::LibraryOf(who),
+            ..
+        }
+        | Effect::BecomeMonarch(who)
         | Effect::TakeInitiative(who)
         | Effect::DestroyChosenForPlayers { who, .. }
         | Effect::DiscardForPlayers { who, .. }

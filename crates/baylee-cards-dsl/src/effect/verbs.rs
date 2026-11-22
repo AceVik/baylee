@@ -826,6 +826,22 @@ impl Effect {
                 min: _,
                 max: _,
                 if_revealed: then,
+            }
+            | Effect::RevealUntilThen {
+                library: _,
+                filter: _,
+                count: _,
+                max_revealed: _,
+                exile_while_revealing: _,
+                found: _,
+                rest: _,
+                then,
+            }
+            | Effect::RepeatEachObject {
+                zone: _,
+                filter: _,
+                only_found: _,
+                then,
             } => (then, NONE),
             Effect::PlayerMayPayThenElse { player: _, mana: _, paid: then, unpaid: otherwise }
             | Effect::PlayerMayPayManaAndLifeEachThenElse { paid: then, unpaid: otherwise, .. }

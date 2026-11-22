@@ -138,9 +138,9 @@ pub use effect::{
     DelayedTriggerWhen, DivisionAmount, Effect, ExileMana, ExilePermission, ExilePlay, ExileUntil,
     Find, LookRest, ManaDistribution, ManaRestriction, ManaSource, ManaUse, ManaValueBound,
     ManaValueCmp, PeekPickDest, PeekRestDest, PlayCostMode, PlayCount, PlaySource, PlayWindow,
-    PlayerRel, ReflexiveEvent, ReflexiveWhen, RepeatDomain, SearchDest, SpendRider, TargetChooser,
-    TargetReq, TargetSlot, TargetSpec, ThisWay, TokenDef, TriggerRemember, VoteObjectAction,
-    VoteOption, VoteOutcome, ZoneSel,
+    PlayerRel, ReflexiveEvent, ReflexiveWhen, RepeatDomain, RevealUntilFound, RevealUntilRest,
+    SearchDest, SpendRider, TargetChooser, TargetReq, TargetSlot, TargetSpec, ThisWay, TokenDef,
+    TriggerRemember, VoteObjectAction, VoteOption, VoteOutcome, ZoneSel,
 };
 pub use filter::{Filter, OriginalExpansion, ZoneRef, ZoneRef as ZoneKind};
 pub use manaread::{

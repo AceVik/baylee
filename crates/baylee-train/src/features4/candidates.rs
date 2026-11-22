@@ -1070,6 +1070,9 @@ pub fn public_object_matches_basic_filter(
         baylee_cards_dsl::Filter::FaceDown => obj.status.contains(ObjectStatus::FACE_DOWN),
         baylee_cards_dsl::Filter::Suspected => obj.suspected,
         baylee_cards_dsl::Filter::RingBearer => false,
+        baylee_cards_dsl::Filter::Modified => {
+            obj.types.contains(baylee_core::types::TypeSet::CREATURE)
+        }
         baylee_cards_dsl::Filter::HasAnyCounter => !obj.counters.is_empty(),
         _ => true,
     }

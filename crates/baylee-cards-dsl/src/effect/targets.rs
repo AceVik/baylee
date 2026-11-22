@@ -38,6 +38,15 @@ pub enum ZoneSel {
     /// Cards in exile that were exiled with the ability's source (CR 406.6,
     /// 607.2a).
     LinkedExile,
+    /// All cards in exile across all owners. Appended to preserve replay
+    /// identities.
+    ExileAll,
+    /// Hand(s) of the player(s) named by `PlayerRel`. Appended to preserve
+    /// replay identities.
+    HandOf(PlayerRel),
+    /// Library/libraries of the player(s) named by `PlayerRel`. Appended to
+    /// preserve replay identities.
+    LibraryOf(PlayerRel),
 }
 
 /// Relative player references.

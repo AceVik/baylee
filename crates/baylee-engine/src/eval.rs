@@ -846,6 +846,7 @@ pub(crate) fn matches_projected_with_choices(
                     .unwrap_or(false)
             }
         }
+        Filter::Modified => object_is_modified(state, obj, chars),
         Filter::SameManaValueAsSource => {
             source_mana_value(state, this).is_some_and(|mv| chars.mana_value() == mv)
         }
@@ -1219,6 +1220,81 @@ pub(crate) fn matches_for_x(
         }
         other => matches_with_context(other, state, obj, you, context),
     }
+}
+
+/// CR 700.9: a creature on the battlefield (or in battlefield-departure LKI,
+/// CR 603.10a / CR 608.2h) that has any counter on it, is equipped, or is
+/// enchanted by an Aura controlled by that creature's controller.
+fn object_is_modified(
+    state: &GameState,
+    obj: &GameObject,
+    chars: &crate::object::Characteristics,
+) -> bool {
+    use baylee_core::generated::subtypes::{artifact::EQUIPMENT, enchantment::AURA};
+    use baylee_core::types::TypeSet;
+    if obj.zone == Zone::Battlefield {
+        if obj.status.contains(crate::object::Status::PHASED_OUT)
+            || !chars.types.contains(TypeSet::CREATURE)
+        {
+            return false;
+        }
+        if obj.counters.iter().any(|(_, n)| n > 0) {
+            return true;
+        }
+        return state.battlefield_seen().any(|id| {
+            state.object(id).is_some_and(|att| {
+                att.attached_to == Some(obj.id)
+                    && (att.characteristics().subtypes.contains(EQUIPMENT)
+                        || (att.characteristics().subtypes.contains(AURA)
+                            && att.controller == obj.controller))
+            })
+        });
+    }
+    let departed_battlefield = state
+        .ltb_versions
+        .iter()
+        .any(|&(id, v)| id == obj.id && (v == obj.version || v.wrapping_add(1) == obj.version));
+    if !departed_battlefield {
+        return false;
+    }
+    let lki_chars = state.last_known_characteristics(obj.id).unwrap_or(chars);
+    if !lki_chars.types.contains(TypeSet::CREATURE) {
+        return false;
+    }
+    if obj.counters.iter().any(|(_, n)| n > 0)
+        || state
+            .ltb_counters
+            .iter()
+            .any(|(id, c)| *id == obj.id && c.iter().any(|(_, n)| n > 0))
+    {
+        return true;
+    }
+    let host_ctrl = state
+        .last_known_controller(obj.id)
+        .unwrap_or(obj.controller);
+    state
+        .ltb_attachments
+        .iter()
+        .find(|(host, _)| *host == obj.id)
+        .is_some_and(|(_, worn)| {
+            worn.iter().any(|&att_id| {
+                if let Some(live) = state.object(att_id).filter(|o| o.zone == Zone::Battlefield) {
+                    let sub = live.characteristics().subtypes;
+                    return sub.contains(EQUIPMENT)
+                        || (sub.contains(AURA) && live.controller == host_ctrl);
+                }
+                let Some(att_chars) = state.last_known_characteristics(att_id).or_else(|| {
+                    state
+                        .object_or_departed(att_id)
+                        .map(GameObject::characteristics)
+                }) else {
+                    return false;
+                };
+                att_chars.subtypes.contains(EQUIPMENT)
+                    || (att_chars.subtypes.contains(AURA)
+                        && state.last_known_controller(att_id) == Some(host_ctrl))
+            })
+        })
 }
 
 #[cfg(test)]

@@ -134,6 +134,30 @@ fn outside_library(destination: SearchDest) -> bool {
     !matches!(destination, SearchDest::TopOfLibrary)
 }
 
+fn reveal_until_then_moves_library(
+    exile_while_revealing: bool,
+    found: crate::RevealUntilFound,
+    rest: crate::RevealUntilRest,
+    then: &[Effect],
+) -> bool {
+    exile_while_revealing
+        || !matches!(
+            found,
+            crate::RevealUntilFound::SameAsRest
+                | crate::RevealUntilFound::StayInLibrary
+                | crate::RevealUntilFound::TopOfLibrary
+        )
+        || !matches!(
+            rest,
+            crate::RevealUntilRest::StayInLibrary
+                | crate::RevealUntilRest::TopOfLibrary
+                | crate::RevealUntilRest::BottomRandom
+                | crate::RevealUntilRest::BottomChosenOrder
+                | crate::RevealUntilRest::ShuffleIntoLibrary
+        )
+        || then.iter().any(moves_library)
+}
+
 fn moves_library(effect: &Effect) -> bool {
     match effect {
         Effect::DrawCards { .. }
@@ -196,6 +220,13 @@ fn moves_library(effect: &Effect) -> bool {
             ..
         } => true,
         Effect::RevealUntil { found, .. } => outside_library(*found),
+        Effect::RevealUntilThen {
+            exile_while_revealing,
+            found,
+            rest,
+            then,
+            ..
+        } => reveal_until_then_moves_library(*exile_while_revealing, *found, *rest, then),
         Effect::RevealUntilMatching {
             matched, otherwise, ..
         }

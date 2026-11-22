@@ -1962,6 +1962,33 @@ pub(super) fn exec_immediate(
         Effect::RepeatEach { domain, effects } => {
             super::wave3_ops::repeat_each(state, res, domain, effects, op)
         }
+        Effect::RepeatEachObject {
+            zone,
+            filter,
+            only_found,
+            then,
+        } => super::wave12a::repeat_each_object(state, res, zone, filter, only_found, then, op),
+        Effect::RevealUntilThen {
+            library,
+            filter,
+            count,
+            max_revealed,
+            exile_while_revealing,
+            found,
+            rest,
+            then,
+        } => super::wave12a::reveal_until_then(
+            state,
+            res,
+            library,
+            filter,
+            count,
+            max_revealed,
+            exile_while_revealing,
+            found,
+            rest,
+            then,
+        ),
         Effect::RepeatProcess {
             effects,
             max_times,
@@ -4412,6 +4439,7 @@ fn resolution_condition(
         Condition::All(parts) => parts.iter().all(|c| resolution_condition(state, res, *c)),
         Condition::Any(parts) => parts.iter().any(|c| resolution_condition(state, res, *c)),
         Condition::Not(inner) => !resolution_condition(state, res, *inner),
+        Condition::TriggerOnly(inner) => resolution_condition(state, res, *inner),
         Condition::TargetSpellWouldDestroy(filter) => {
             super::would_destroy::target_spell_would_destroy(state, res, filter)
         }

@@ -270,3 +270,60 @@ pub enum PeekRestDest {
     /// Exile unchosen card(s).
     Exile,
 }
+
+/// Destination for matching card(s) found by [`super::Effect::RevealUntilThen`]
+/// (`CR 701.20a`).
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
+pub enum RevealUntilFound {
+    /// Leave matched card(s) in the revealed batch so [`RevealUntilRest`]
+    /// places every revealed card together (*Treasure Hunt*, *Mutant's Prey*).
+    SameAsRest,
+    /// Leave matched card(s) in the library without moving them.
+    StayInLibrary,
+    /// Put each matched card into its owner's hand.
+    Hand,
+    /// Put each matched card onto the battlefield (`tapped` when `true`; under
+    /// the resolving controller's control when `under_your_control` is `true`,
+    /// or the library owner's control when `false`).
+    Battlefield {
+        /// Whether the card enters tapped.
+        tapped: bool,
+        /// `true` puts it under the resolving controller's control; `false`
+        /// puts it under the library owner's control (*Oath of Druids*).
+        under_your_control: bool,
+    },
+    /// Put each matched card on top of the library.
+    TopOfLibrary,
+    /// Put each matched card into its owner's graveyard.
+    Graveyard,
+    /// Exile each matched card.
+    Exile,
+    /// Exile each matched card and link it to the resolving ability's source
+    /// (`Rider::Linked { host: source, until: None }`, CR 607.2a) so
+    /// [`super::PlaySource::LinkedExile`] and linked-exile readers see it.
+    ExileLinked,
+}
+
+/// Destination for non-matching card(s) turned over by
+/// [`super::Effect::RevealUntilThen`] (and matched card(s) when
+/// [`RevealUntilFound::SameAsRest`] is used).
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
+pub enum RevealUntilRest {
+    /// Leave the cards in the library without moving them.
+    StayInLibrary,
+    /// Put the cards on top of the library.
+    TopOfLibrary,
+    /// Put the cards on the bottom of that library in a random order.
+    BottomRandom,
+    /// Put the cards on the bottom of that library in any order chosen by the
+    /// resolving controller (`Pending::Arrange`).
+    BottomChosenOrder,
+    /// Return any exiled cards to that library and shuffle it.
+    ShuffleIntoLibrary,
+    /// Put the cards into their owner's hand.
+    Hand,
+    /// Put the cards into their owner's graveyard.
+    Graveyard,
+    /// Exile the cards.
+    Exile,
+}

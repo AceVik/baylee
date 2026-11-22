@@ -528,6 +528,34 @@ fn visit_zone(
             }
             return;
         }
+        ZoneSel::ExileAll => {
+            for player in &state.players {
+                for &id in state.zones.list(ZoneLocation::Exile(player.id)) {
+                    visit(id);
+                }
+            }
+            return;
+        }
+        ZoneSel::HandOf(who) => {
+            for player in
+                super::players_for_source(who, state, you, Some(context.source)).unwrap_or_default()
+            {
+                for &id in state.zones.list(ZoneLocation::Hand(player)) {
+                    visit(id);
+                }
+            }
+            return;
+        }
+        ZoneSel::LibraryOf(who) => {
+            for player in
+                super::players_for_source(who, state, you, Some(context.source)).unwrap_or_default()
+            {
+                for &id in state.zones.list(ZoneLocation::Library(player)) {
+                    visit(id);
+                }
+            }
+            return;
+        }
         ZoneSel::LibraryYou => ZoneLocation::Library(you),
         ZoneSel::GraveyardYou => ZoneLocation::Graveyard(you),
         ZoneSel::HandActivePlayer => ZoneLocation::Hand(state.turn.active),

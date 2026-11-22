@@ -4072,6 +4072,7 @@ fn condition_closed(view: &PlayerView, actor: PlayerId, cond: &Condition) -> boo
             StepKind::End => view.step == Step::End,
             StepKind::FirstMain => true,
         },
+        Condition::TriggerOnly(inner) => condition_closed(view, actor, inner),
         Condition::All(parts) => parts.iter().any(|p| condition_closed(view, actor, p)),
         _ => false,
     }

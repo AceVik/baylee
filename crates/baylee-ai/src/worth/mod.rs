@@ -922,10 +922,18 @@ impl HeuristicAgent {
             ZoneSel::LibraryYou if matches!(filter, Filter::Any) => {
                 return view.seat(view.seat).map(|s| i64::from(s.library_count));
             }
+            ZoneSel::ExileAll => {
+                if view.exile.iter().flatten().any(|o| o.status.is_face_down()) {
+                    return None;
+                }
+                (view.exile.iter().flatten().collect(), ZoneRef::Exile)
+            }
             ZoneSel::HandYou
             | ZoneSel::HandActivePlayer
             | ZoneSel::HandChosen
+            | ZoneSel::HandOf(_)
             | ZoneSel::LibraryYou
+            | ZoneSel::LibraryOf(_)
             | ZoneSel::LinkedExile => return None,
         };
         objects.into_iter().try_fold(0i64, |n, o| {
@@ -1722,6 +1730,46 @@ impl HeuristicAgent {
         }
         if let Effect::RepeatEach { domain, effects } = effect {
             return self.repeat_each_worth(view, *domain, effects, evaluation);
+        }
+        if let Effect::RepeatEachObject {
+            zone,
+            filter,
+            only_found,
+            then,
+        } = effect
+        {
+            if matches!(zone, baylee_cards_dsl::ZoneSel::Battlefield) && !*only_found {
+                return self.repeat_each_worth(
+                    view,
+                    baylee_cards_dsl::RepeatDomain::EachMatchingPermanent(filter),
+                    then,
+                    evaluation,
+                );
+            }
+            return self.effects_worth_in(view, then, evaluation);
+        }
+        if let Effect::RevealUntilThen {
+            count, found, then, ..
+        } = effect
+        {
+            let n = self.count(view, origin, *count, aim, x)?.max(0);
+            if n == 0 {
+                return Some(0);
+            }
+            let base = match found {
+                baylee_cards_dsl::RevealUntilFound::Hand
+                | baylee_cards_dsl::RevealUntilFound::Battlefield { .. } => n.min(3) * 350,
+                baylee_cards_dsl::RevealUntilFound::Exile
+                | baylee_cards_dsl::RevealUntilFound::ExileLinked => n.min(3) * 200,
+                _ => 120,
+            };
+            let bonus = if then.is_empty() {
+                0
+            } else {
+                let mut sub = *evaluation;
+                self.effects_worth_in(view, then, &mut sub)?.max(0) / 2
+            };
+            return Some(base + bonus);
         }
         if let Effect::RepeatProcess { effects, .. } = effect {
             return self.effects_worth_in(view, effects, evaluation);

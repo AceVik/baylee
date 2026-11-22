@@ -24,6 +24,12 @@ pub(crate) enum RepeatStep {
         controller: PlayerId,
         require_battlefield: bool,
     },
+    /// A snapshotted object in a specific zone (`Effect::RepeatEachObject`).
+    ObjectInZone {
+        identity: DamageSourceRef,
+        zone: crate::zone::Zone,
+        event_player: PlayerId,
+    },
 }
 
 /// Remaining iteration state of an active [`RepeatFrame`].
@@ -221,7 +227,7 @@ fn build_domain_steps(state: &GameState, res: &Resolution, domain: RepeatDomain)
     }
 }
 
-fn advance_repeat_frame(
+pub(super) fn advance_repeat_frame(
     state: &mut GameState,
     res: &mut Resolution,
     effects: &'static [Effect],
@@ -265,6 +271,25 @@ fn advance_repeat_frame(
                     bind_remembered_object(state, res, identity.object);
                     res.subject.set_event_player(Some(controller));
                 }
+            }
+            Some(Ok(RepeatStep::ObjectInZone {
+                identity,
+                zone,
+                event_player,
+            })) => {
+                let Some(obj) = state
+                    .object(identity.object)
+                    .filter(|o| o.zone == zone && o.version == identity.version)
+                else {
+                    continue;
+                };
+                let player = if zone == crate::zone::Zone::Battlefield {
+                    obj.controller
+                } else {
+                    event_player
+                };
+                bind_remembered_object(state, res, identity.object);
+                res.subject.set_event_player(Some(player));
             }
             Some(Err(())) => {}
             None => {

@@ -92,6 +92,14 @@ pub(super) fn refers_to_subject(effects: &'static [Effect], implicit_source: boo
                 source: baylee_cards_dsl::PlaySource::LinkedExile,
                 ..
             }
+            | Effect::RevealUntilThen {
+                found: baylee_cards_dsl::RevealUntilFound::ExileLinked,
+                ..
+            }
+            | Effect::RepeatEachObject {
+                zone: baylee_cards_dsl::ZoneSel::LinkedExile,
+                ..
+            }
             | Effect::PreventNextDamageToAttached { .. }
             | Effect::ReflectNextChosenSourceDamage
             | Effect::MustBlockSourceIfAbleThisCombat

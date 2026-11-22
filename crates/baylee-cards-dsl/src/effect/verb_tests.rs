@@ -1132,3 +1132,33 @@ fn vote_options_and_vote_objects_fallback_are_visited() {
     assert_eq!(seen, 6);
     assert!(extra_turn && drew && gained && scried);
 }
+
+#[test]
+fn reveal_until_then_and_repeat_each_object_bodies_are_visited() {
+    static EFFECTS: &[Effect] = &[
+        Effect::RevealUntilThen {
+            library: crate::PlayerRel::You,
+            filter: &Filter::NONLAND,
+            count: Amount::Fixed(1),
+            max_revealed: None,
+            exile_while_revealing: true,
+            found: crate::RevealUntilFound::ExileLinked,
+            rest: crate::RevealUntilRest::BottomRandom,
+            then: &[Effect::draw(1)],
+        },
+        Effect::RepeatEachObject {
+            zone: crate::ZoneSel::Battlefield,
+            filter: &Filter::YOUR_MODIFIED_CREATURE,
+            only_found: false,
+            then: &[Effect::gain_life(2)],
+        },
+    ];
+    let mut seen = 0;
+    let (mut drew, mut gained) = (false, false);
+    Effect::walk(EFFECTS, &mut seen, &mut |effect| {
+        drew |= matches!(effect, Effect::DrawCards { .. });
+        gained |= matches!(effect, Effect::GainLife { .. });
+    });
+    assert_eq!(seen, 4);
+    assert!(drew && gained);
+}

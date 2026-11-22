@@ -38,6 +38,7 @@ pub(crate) fn filter_reads_board_state(filter: &baylee_cards_dsl::Filter) -> boo
         | Filter::Monstrous
         | Filter::Suspected
         | Filter::RingBearer
+        | Filter::Modified
         | Filter::SharesAColorWith(_)
         | Filter::SharesCreatureTypeWith(_)
         | Filter::SharesColorWithExiledWithSource
@@ -253,7 +254,7 @@ fn condition_reads_crime(cond: &baylee_cards_dsl::Condition) -> bool {
     use baylee_cards_dsl::Condition;
     match cond {
         Condition::CommittedCrimeThisTurn(_) => true,
-        Condition::Not(inner) => condition_reads_crime(inner),
+        Condition::Not(inner) | Condition::TriggerOnly(inner) => condition_reads_crime(inner),
         Condition::All(parts) | Condition::Any(parts) => parts.iter().any(condition_reads_crime),
         _ => false,
     }
@@ -385,7 +386,7 @@ fn condition_reads_expend(cond: &baylee_cards_dsl::Condition) -> bool {
         Condition::AmountCompare { left, right, .. } => {
             amount_reads_expend(left) || amount_reads_expend(right)
         }
-        Condition::Not(inner) => condition_reads_expend(inner),
+        Condition::Not(inner) | Condition::TriggerOnly(inner) => condition_reads_expend(inner),
         Condition::All(parts) | Condition::Any(parts) => parts.iter().any(condition_reads_expend),
         _ => false,
     }

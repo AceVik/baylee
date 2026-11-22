@@ -102,6 +102,7 @@ fn accumulate_effect(effect: &Effect, ch: &mut EffectChannels) {
         | Effect::LookAtTopMayTake { .. }
         | Effect::LookAtTopKeepBottomPlay { .. }
         | Effect::PeekAndReveal { .. }
+        | Effect::RevealUntilThen { .. }
         | Effect::RevealTop { .. }
         | Effect::RevealTopOnePerType { .. }
         | Effect::RevealTopAllMatching { .. }

@@ -105,7 +105,8 @@
 // RepeatProcess adds one walker-tested body (`effects`).
 // VoteObjects adds one walker-tested body (`if_no_votes`; VoteOption bodies are
 // also walked by `Effect::walk` and tested in `vote_options_and_vote_objects_fallback_are_visited`).
-const NESTING_FIELDS: usize = 107;
+// RevealUntilThen and RepeatEachObject add one walker-tested body each (`then`).
+const NESTING_FIELDS: usize = 109;
 
 /// How many variants those twenty-one fields are spread across.
 ///
@@ -178,7 +179,9 @@ const NESTING_FIELDS: usize = 107;
 /// `Clash` is the ninety-second (`clash_branches_and_additional_combat_phase_are_visited`).
 /// `RepeatProcess` is the ninety-third (`repeat_process_body_is_visited`).
 /// `VoteObjects` is the ninety-fourth (`vote_options_and_vote_objects_fallback_are_visited`).
-const CARRYING_VARIANTS: usize = 94;
+/// `RevealUntilThen` and `RepeatEachObject` are the ninety-fifth and ninety-sixth
+/// (`reveal_until_then_and_repeat_each_object_bodies_are_visited`).
+const CARRYING_VARIANTS: usize = 96;
 
 /// The floor under the reader itself.
 ///

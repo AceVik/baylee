@@ -2878,6 +2878,7 @@ fn filter_hash(h: &mut Hasher, f: &baylee_cards_dsl::Filter) {
         F::RingBearer => h.u8(195),
         F::SameManaValueAsSource => h.u8(231),
         F::SharesColorWithSource => h.u8(232),
+        F::Modified => h.u8(233),
     }
 }
 

@@ -774,6 +774,7 @@ pub fn condition_holds_with_context(
                 })
             })
         }
+        Condition::TriggerOnly(inner) => condition_holds_with_context(state, you, context, *inner),
     }
 }
 
@@ -951,6 +952,7 @@ pub(crate) fn intervening_if_for_incarnation(
             version.is_none_or(|version| state.object(source).is_some_and(|o| o.version == version))
                 && intervening_if(state, condition, you, source)
         }
+        Some(Condition::Station(_) | Condition::TriggerOnly(_)) | None => true,
         Some(condition) => condition_with_event(
             state,
             you,
@@ -959,7 +961,6 @@ pub(crate) fn intervening_if_for_incarnation(
             version,
             event,
         ),
-        None => true,
     }
 }
 
@@ -979,7 +980,9 @@ pub(crate) fn condition_reads_event(condition: Condition) -> bool {
         Condition::All(conditions) | Condition::Any(conditions) => {
             conditions.iter().copied().any(condition_reads_event)
         }
-        Condition::Not(condition) => condition_reads_event(*condition),
+        Condition::Not(condition) | Condition::TriggerOnly(condition) => {
+            condition_reads_event(*condition)
+        }
         _ => false,
     }
 }
@@ -1060,6 +1063,9 @@ pub(crate) fn condition_with_event(
         }),
         Condition::Not(condition) => {
             !condition_with_event(state, you, context, *condition, source_version, event)
+        }
+        Condition::TriggerOnly(condition) => {
+            condition_with_event(state, you, context, *condition, source_version, event)
         }
         Condition::SoulbondSelfCanPair => {
             state.is_unpaired_creature_controlled_by(context.source, source_version, you)

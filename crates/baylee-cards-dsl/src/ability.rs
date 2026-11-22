@@ -712,6 +712,13 @@ pub enum Condition {
     /// A player matching `PlayerRel` has completed at least one dungeon this
     /// game (CR 309.7). Appended to preserve replay identities.
     CompletedADungeon(crate::PlayerRel),
+    /// Trigger-time-only condition (`NoResolvingCheck`, CR 603.4): evaluated
+    /// when determining whether a triggered ability triggers, and **not**
+    /// re-checked as an intervening `if` clause when the ability resolves
+    /// (Battalion, Pack Tactics, `"Whenever ~ attacks while [condition]"`).
+    /// May sit at top level or inside [`Self::All`] alongside a genuine
+    /// intervening `if` clause. Appended to preserve replay identities.
+    TriggerOnly(&'static Self),
 }
 
 /// Trigger conditions for triggered abilities.
