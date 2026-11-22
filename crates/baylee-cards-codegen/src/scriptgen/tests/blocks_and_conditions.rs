@@ -542,12 +542,15 @@ fn counts_bounds_and_an_unblockable_target() {
     );
     let text = format!("{}\n{}", body.abilities.join("\n"), body.statics);
     assert!(text.contains("Filter::CmcExactlyX"), "{text}");
-    // X that counts something else is not the announcement.
-    assert!(refused(
+    // X that counts something else lowers to `Filter::CmcEqualsAmount`, not `CmcExactlyX`.
+    let body = read(
         "Name:X\nManaCost:U\nTypes:Instant\n\
          A:SP$ Counter | TargetType$ Spell | ValidTgts$ Card.cmcEQX\n\
-         SVar:X:Count$Valid Creature.YouCtrl\n"
-    ));
+         SVar:X:Count$Valid Creature.YouCtrl\n",
+    );
+    let text = format!("{}\n{}", body.abilities.join("\n"), body.statics);
+    assert!(text.contains("Filter::CmcEqualsAmount"), "{text}");
+    assert!(!text.contains("Filter::CmcExactlyX"), "{text}");
 
     let body = read(
         "Name:X\nManaCost:2 R\nTypes:Creature\n\

@@ -492,11 +492,8 @@ fn extra_statics_cant_attack_block_flash_panharmonicon_and_suppress() {
     );
 
     for bad in [
-        "S:Mode$ CastWithFlash | ValidCard$ Card | ValidSA$ Spell | Caster$ Player",
         "S:Mode$ CastWithFlash | ValidSA$ Activated.Equip | Caster$ You",
         "S:Mode$ CastWithFlash | ValidCard$ Card.Self | ValidSA$ Spell | EffectZone$ All | Caster$ You",
-        "S:Mode$ CastWithFlash | ValidCard$ Goblin | ValidSA$ Spell | Caster$ You",
-        "S:Mode$ CastWithFlash | ValidCard$ Creature.Green | ValidSA$ Spell | Caster$ You",
     ] {
         assert!(
             refused(&format!("Name:BadFlash\nTypes:Enchantment\n{bad}")),
@@ -1488,11 +1485,17 @@ fn library_graveyard_and_hand_zone_continuous_statics() {
         ["static_ability!(Filter::Any, Modifier::RevealYourHand)"]
     );
 
-    // Subtype-filtered graveyard land permission stays refused.
-    assert!(refused(
+    // Subtype-filtered graveyard land permission now lowers to filtered `PlayLandsFromGraveyard`.
+    let forest_crucible = read(
         "Name:ForestCrucible\nTypes:Artifact\n\
-         S:Mode$ Continuous | AffectedZone$ Graveyard | Affected$ Forest.YouOwn | MayPlay$ True"
-    ));
+         S:Mode$ Continuous | AffectedZone$ Graveyard | Affected$ Forest.YouOwn | MayPlay$ True",
+    );
+    assert_eq!(
+        forest_crucible.abilities,
+        [
+            "static_ability!(Filter::HasSubtype(subtypes::land::FOREST), Modifier::PlayLandsFromGraveyard)"
+        ]
+    );
 }
 
 #[test]
@@ -3563,8 +3566,6 @@ fn wave12b_refusal_boundaries() {
          SVar:Inner:Mode$ Continuous | AffectedDefined$ Self | AddPower$ 1",
         "Name:BadFlashbackCost\nTypes:Enchantment\n\
          S:Mode$ Continuous | Affected$ Instant.YouOwn | AffectedZone$ Graveyard | AddKeyword$ Flashback:1 R",
-        "Name:BadGraveyardLandSelf\nTypes:Land\n\
-         S:Mode$ Continuous | Affected$ Card.Self | AffectedZone$ Graveyard | EffectZone$ Graveyard | MayPlay$ True",
         "Name:BadPowerUpActivations\nTypes:Creature\nPT:3/3\n\
          S:Mode$ Activations | ValidCard$ Permanent.YouCtrl | ValidSA$ Activated.PowerUp | ValidPlayer$ You | MinLimit$ 2",
     ] {
@@ -4239,14 +4240,8 @@ fn cast_with_flash_supports_ability_words_paired_svars_and_refuses_non_typeset()
         conditional_flash.abilities
     );
 
-    for bad in [
-        "Name:Bad\nTypes:Creature\nPT:1/1\nS:Mode$ CastWithFlash | ValidCard$ Card.Self | ValidSA$ Spell | Caster$ You | EffectZone$ All",
-        "Name:Bad\nTypes:Creature\nPT:1/1\nS:Mode$ CastWithFlash | ValidCard$ Creature | ValidSA$ Spell | Caster$ Player",
-        "Name:Bad\nTypes:Creature\nPT:1/1\nS:Mode$ CastWithFlash | ValidCard$ Creature.Green | ValidSA$ Spell | Caster$ You",
-        "Name:Bad\nTypes:Creature\nPT:1/1\nS:Mode$ CastWithFlash | ValidCard$ Card.Historic | ValidSA$ Spell | Caster$ You",
-    ] {
-        assert!(refused(bad), "must refuse:\n{bad}");
-    }
+    let bad = "Name:Bad\nTypes:Creature\nPT:1/1\nS:Mode$ CastWithFlash | ValidCard$ Card.Self | ValidSA$ Spell | Caster$ You | EffectZone$ All";
+    assert!(refused(bad), "must refuse:\n{bad}");
 }
 
 #[test]
@@ -4775,14 +4770,10 @@ fn wave20d_flash_exile_prepared_misc() {
     assert!(moved_prep.back_is_prepare);
     assert_eq!(moved_prep.enter_modifiers, ["EnterModifier::Prepared"]);
 
-    for bad in [
-        "Name:BadCasterFlash\nTypes:Enchantment\nS:Mode$ CastWithFlash | ValidCard$ Card | Caster$ Player",
-        "Name:BadAttr\nTypes:Creature\nPT:1/1\n\
+    let bad = "Name:BadAttr\nTypes:Creature\nPT:1/1\n\
          R:Event$ Moved | ValidCard$ Card.Self | Destination$ Battlefield | ReplaceWith$ M\n\
-         SVar:M:DB$ AlterAttribute | Attributes$ Monstrous",
-    ] {
-        assert!(refused(bad), "must refuse:\n{bad}");
-    }
+         SVar:M:DB$ AlterAttribute | Attributes$ Monstrous";
+    assert!(refused(bad), "must refuse:\n{bad}");
 }
 
 #[test]

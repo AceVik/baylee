@@ -174,9 +174,10 @@ impl Tx<'_> {
                 })
                 .collect()
         } else if let ManaSpendRider::WhenSpent { filter, rider } = spend_rider {
-            let [only] = &effects[..] else {
-                return self.deny("a mana spend rider on more than one mana".to_string());
-            };
+            if effects.len() != 1 {
+                return self.deny("a mana spend rider on multi-effect mana".to_string());
+            }
+            let only = effects.into_iter().next().expect("len == 1");
             let name = if filter == "Filter::Any" {
                 "Filter::Any".to_string()
             } else {
@@ -441,32 +442,13 @@ impl Tx<'_> {
             return self.mana_reflected_is(p);
         }
         if p.peek("ReflectProperty") == Some("Produce")
-            && p.peek("Cost") == Some("T")
-            && p.peek("ColorOrType") == Some("Type")
-            && p.peek("Valid") == Some("Gate.YouCtrl")
-        {
-            p.drop_prose();
-            p.take("Cost");
-            p.take("ReflectProperty");
-            p.take("ColorOrType");
-            p.take("Valid");
-            if let Some(amount) = p.take("Amount")
-                && amount != "1"
-            {
-                return self.deny("reflected Gate amount other than one".into());
-            }
-            if !p.exhausted() {
-                return self.deny("unclaimed reflected Gate mana parameter".into());
-            }
-            self.body.abilities.push(
-                "mana_ability!(&[Effect::mana_from_lands(&Filter::HasSubtype(subtypes::land::GATE), true, true)])"
-                    .to_string(),
-            );
-            return Some(());
-        }
-        if p.peek("ReflectProperty") == Some("Produce")
-            && p.peek("Cost") == Some("T PayLife<1>")
-            && matches!(p.peek("Valid"), Some("Land.YouCtrl" | "Land.OppCtrl"))
+            && matches!(
+                p.peek("Valid"),
+                Some("Gate.YouCtrl" | "Basic.YouCtrl" | "Land.YouCtrl" | "Land.OppCtrl")
+            )
+            && !(p.peek("Cost") == Some("T")
+                && matches!(p.peek("Valid"), Some("Land.YouCtrl" | "Land.OppCtrl")))
+            && !(p.peek("Valid") == Some("Gate.YouCtrl") && p.peek("Cost") != Some("T"))
         {
             p.drop_prose();
             let cost_raw = p.take("Cost")?;
@@ -480,6 +462,12 @@ impl Tx<'_> {
                 }
             };
             let effect = match p.take("Valid").as_deref() {
+                Some("Gate.YouCtrl") => format!(
+                    "Effect::mana_from_lands(&Filter::HasSubtype(subtypes::land::GATE), true, {any_type})"
+                ),
+                Some("Basic.YouCtrl") => {
+                    format!("Effect::mana_from_lands(&Filter::BASIC_LAND, true, {any_type})")
+                }
                 Some("Land.YouCtrl") => {
                     format!("Effect::mana_from_lands(&Filter::ControlledByYou, true, {any_type})")
                 }
@@ -493,13 +481,33 @@ impl Tx<'_> {
             {
                 return self.deny("reflected Gate amount other than one".into());
             }
+            let persistent = match p.take("PersistentMana").as_deref() {
+                None => false,
+                Some("True") => true,
+                Some(other) => {
+                    return self.deny(format!("`ManaReflected.PersistentMana$ {other}`"));
+                }
+            };
+            let restrict = match p.take("RestrictValid") {
+                None => None,
+                Some(valid) => Some(self.spend_restriction(&valid)?),
+            };
             if !p.exhausted() {
                 return self.deny("unclaimed reflected Gate mana parameter".into());
             }
+            let effects = self.apply_mana_modifiers(
+                vec![effect],
+                restrict,
+                ManaSpendRider::None,
+                persistent,
+            )?;
             let cost = self.parse_activated_cost(&cost_raw, None)?;
-            self.body
-                .abilities
-                .push(format!("mana_ability!({cost}, &[{effect}])"));
+            let ability = if cost == "Cost::TAP" {
+                format!("mana_ability!(&[{}])", effects.join(", "))
+            } else {
+                format!("mana_ability!({cost}, &[{}])", effects.join(", "))
+            };
+            self.body.abilities.push(ability);
             return Some(());
         }
         self.gond_mana_reflected(p)
@@ -1069,6 +1077,15 @@ impl Tx<'_> {
             if def == "Sacrificed$TotalCardPower" && self.cost_sacrifices_other {
                 return Some("Amount::SacrificedTotalPower".to_string());
             }
+            if def == "Sacrificed$TotalCardToughness" && self.cost_sacrifices_other {
+                return Some("Amount::SacrificedTotalToughness".to_string());
+            }
+            if def == "Sacrificed$TotalCardManaCost" && self.cost_sacrifices_other {
+                return Some("Amount::SacrificedTotalManaValue".to_string());
+            }
+            if def == "Sacrificed$Colors" && self.cost_sacrifices_other {
+                return Some("Amount::SacrificedDistinctColors".to_string());
+            }
             if (matches!(def, "Count$TotalManaSpent" | "Count$CastTotalManaSpent")
                 && (self.on_a_spell || self.is_etb_self_trigger))
                 || (def == "TriggeredCard$CastTotalManaSpent" && self.is_etb_self_trigger)
@@ -1224,6 +1241,9 @@ impl Tx<'_> {
         if def == "Count$Domain" {
             return Some("Amount::BasicLandTypesAmong(&Filter::YOUR_LAND)".to_string());
         }
+        if def == "Count$Party" {
+            return Some("Amount::PartySize(PlayerRel::You)".to_string());
+        }
         if def == "Count$ThisTurnEntered_Graveyard_from_Battlefield_Creature" {
             return Some("Amount::CreaturesDiedThisTurn".to_string());
         }
@@ -1366,6 +1386,14 @@ impl Tx<'_> {
             let expr = self.filter_expr(basic_valid)?;
             let name = self.body.filter_static("COUNT", &expr);
             return Some(format!("Amount::BasicLandTypesAmong(&{name})"));
+        }
+        if let Some(mv_valid) = valid.strip_suffix("$GreatestCardManaCost")
+            && !mv_valid.contains('/')
+            && !mv_valid.contains('$')
+        {
+            let expr = self.filter_expr(mv_valid)?;
+            let name = self.body.filter_static("COUNT", &expr);
+            return Some(format!("Amount::GreatestManaValueAmong(&{name})"));
         }
         let expr = self.filter_expr(valid)?;
         let name = self.body.filter_static("COUNT", &expr);
@@ -1685,27 +1713,39 @@ impl Tx<'_> {
         stat_atom(atom)
             .or_else(|| self.source_power_atom(atom))
             .or_else(|| self.cmc_atom(atom))
+            .or_else(|| self.dynamic_power_atom(atom))
             .or_else(|| keyword_atom(atom))
     }
 
-    /// `powerLTX`, `powerLEX`, and `toughnessLTX` where `X` is `Count$CardPower`,
-    /// the source's own power. Any other comparison or `X` is refused.
+    /// `powerLT<var>`, `powerLE<var>`, and `toughnessLT<var>` where `<var>` is
+    /// `Count$CardPower`, the source's own power.
     pub(super) fn source_power_atom(&self, atom: &str) -> Option<String> {
-        if self.svars.get("X").map(|x| x.trim()) != Some("Count$CardPower") {
+        let (kind, var) = if let Some(var) = atom.strip_prefix("powerLT") {
+            (0u8, var)
+        } else if let Some(var) = atom.strip_prefix("powerLE") {
+            (1u8, var)
+        } else {
+            let var = atom.strip_prefix("toughnessLT")?;
+            (2u8, var)
+        };
+        if var.is_empty()
+            || !var.chars().all(|c| c.is_ascii_alphabetic())
+            || self.svars.get(var).map(|x| x.trim()) != Some("Count$CardPower")
+        {
             return None;
         }
-        match atom {
-            "powerLTX" => Some("Filter::PowerLessThanSourcePower".to_string()),
-            "powerLEX" => Some("Filter::PowerAtMostSourcePower".to_string()),
-            "toughnessLTX" => Some("Filter::ToughnessLessThanSourcePower".to_string()),
-            _ => None,
-        }
+        Some(
+            match kind {
+                0 => "Filter::PowerLessThanSourcePower",
+                1 => "Filter::PowerAtMostSourcePower",
+                _ => "Filter::ToughnessLessThanSourcePower",
+            }
+            .to_string(),
+        )
     }
 
-    /// `cmcLE2`, `cmcGE4`, `cmcEQX`: a mana value against a fixed number,
-    /// or against the X announced for this spell or ability — only where
-    /// `X` is that announcement ([`amount`] gives the reason), since the
-    /// filter reads it off the source and a trigger announced none.
+    /// `cmcLE2`, `cmcGE4`, `cmcEQX`, or dynamic Wave 14a `SVar` comparisons
+    /// (`Filter::CmcAtMostAmount`, `Filter::CmcEqualsAmount`).
     pub(super) fn cmc_atom(&self, atom: &str) -> Option<String> {
         let (cmp, number) = atom.strip_prefix("cmc")?.split_at_checked(2)?;
         if !number.is_empty() && number.chars().all(|c| c.is_ascii_alphabetic()) {
@@ -1742,7 +1782,16 @@ impl Tx<'_> {
                 let kind = counter_kind(kind_code)?;
                 return Some(format!("Filter::CmcEqualsCountersOnSource({kind})"));
             }
-            return None;
+            let amt = self.dynamic_filter_amount(number, 0)?;
+            return match cmp {
+                "LE" => Some(format!("Filter::CmcAtMostAmount(&{amt})")),
+                "EQ" => Some(format!("Filter::CmcEqualsAmount(&{amt})")),
+                "GT" => Some(format!("Filter::Not(&Filter::CmcAtMostAmount(&{amt}))")),
+                "GE" => Some(format!(
+                    "Filter::Or(&[Filter::CmcEqualsAmount(&{amt}), Filter::Not(&Filter::CmcAtMostAmount(&{amt}))])"
+                )),
+                _ => None,
+            };
         }
         let n: u32 = number.parse().ok()?;
         Some(match cmp {
@@ -1753,6 +1802,352 @@ impl Tx<'_> {
             "EQ" => format!("Filter::And(&[Filter::CmcAtMost({n}), Filter::CmcAtLeast({n})])"),
             _ => return None,
         })
+    }
+
+    /// Wave 14a dynamic `SVar` power atoms (`powerLE<var>`, `powerGE<var>`,
+    /// `powerGT<var>`, `powerEQ<var>` -> `Filter::PowerAtMostAmount` /
+    /// `Filter::PowerAtLeastAmount`).
+    fn dynamic_power_atom(&self, atom: &str) -> Option<String> {
+        let (cmp, var) = atom.strip_prefix("power")?.split_at_checked(2)?;
+        if var.is_empty()
+            || !var.chars().all(|c| c.is_ascii_alphabetic())
+            || matches!(var, "toughness" | "basePower" | "Chosen")
+        {
+            return None;
+        }
+        let amt = self.dynamic_filter_amount(var, 0)?;
+        match cmp {
+            "LE" => Some(format!("Filter::PowerAtMostAmount(&{amt})")),
+            "GE" => Some(format!("Filter::PowerAtLeastAmount(&{amt})")),
+            "GT" => Some(format!(
+                "Filter::PowerAtLeastAmount(&Amount::Plus {{ base: &{amt}, offset: 1 }})"
+            )),
+            "EQ" => Some(format!(
+                "Filter::And(&[Filter::PowerAtLeastAmount(&{amt}), Filter::PowerAtMostAmount(&{amt})])"
+            )),
+            _ => None,
+        }
+    }
+
+    /// Resolves an alphabetic `SVar` name to a const-promotable inline `Amount`
+    /// expression for `Filter::{CmcAtMostAmount, CmcEqualsAmount,
+    /// PowerAtMostAmount, PowerAtLeastAmount}`. Strictly pure Paper-MTG only.
+    fn dynamic_filter_amount(&self, var: &str, depth: u8) -> Option<String> {
+        if depth >= 3 {
+            return None;
+        }
+        let def = self.svars.get(var.trim())?.trim();
+        self.dynamic_filter_amount_def(def, depth)
+    }
+
+    fn dynamic_filter_amount_def(&self, def: &str, depth: u8) -> Option<String> {
+        let def = def.trim();
+        if depth >= 3
+            || def.contains("Intensity")
+            || def.contains("Sticker")
+            || def.contains("Attraction")
+            || def.contains("Contraption")
+        {
+            return None;
+        }
+        if let Some(n_str) = def.strip_prefix("Number$")
+            && let Ok(n) = n_str.trim().parse::<u32>()
+        {
+            return Some(format!("Amount::Fixed({n})"));
+        }
+        if let Some(inner_var) = def.strip_prefix("SVar$")
+            && !inner_var.contains('/')
+        {
+            return self.dynamic_filter_amount(inner_var.trim(), depth + 1);
+        }
+        if let Some((lhs, rhs)) = def.rsplit_once('/') {
+            return self.dynamic_filter_arith(lhs.trim(), rhs.trim(), depth);
+        }
+        self.dynamic_filter_atom(def, depth)
+    }
+
+    fn dynamic_filter_arith(&self, lhs: &str, rhs: &str, depth: u8) -> Option<String> {
+        let base = if let Some(var) = lhs.strip_prefix("SVar$") {
+            self.dynamic_filter_amount(var.trim(), depth + 1)?
+        } else {
+            self.dynamic_filter_amount_def(lhs, depth + 1)?
+        };
+        if rhs == "Twice" {
+            return Some(if base == "Amount::X" {
+                "Amount::DoubleX".to_string()
+            } else {
+                format!("Amount::Times {{ base: &{base}, factor: 2 }}")
+            });
+        }
+        if rhs == "Thrice" {
+            return Some(format!("Amount::Times {{ base: &{base}, factor: 3 }}"));
+        }
+        if rhs == "HalfDown" {
+            return Some(format!("Amount::Half {{ base: &{base}, round_up: false }}"));
+        }
+        if rhs == "HalfUp" {
+            return Some(format!("Amount::Half {{ base: &{base}, round_up: true }}"));
+        }
+        if let Some(n_str) = rhs.strip_prefix("Plus.") {
+            if let Ok(offset) = n_str.trim().parse::<u32>() {
+                return Some(format!(
+                    "Amount::Plus {{ base: &{base}, offset: {offset} }}"
+                ));
+            }
+            let right = self.dynamic_filter_amount(n_str.trim(), depth + 1)?;
+            return Some(format!("Amount::Sum {{ left: &{base}, right: &{right} }}"));
+        }
+        if let Some(n_str) = rhs.strip_prefix("Minus.") {
+            if let Ok(subtract) = n_str.trim().parse::<u32>() {
+                return Some(format!(
+                    "Amount::SaturatingSub {{ base: &{base}, subtract: {subtract} }}"
+                ));
+            }
+            let right = self.dynamic_filter_amount(n_str.trim(), depth + 1)?;
+            return Some(format!(
+                "Amount::Difference {{ left: &{base}, right: &{right} }}"
+            ));
+        }
+        if let Some(n_str) = rhs.strip_prefix("Times.")
+            && let Ok(factor) = n_str.trim().parse::<u32>()
+            && factor >= 1
+        {
+            return Some(format!(
+                "Amount::Times {{ base: &{base}, factor: {factor} }}"
+            ));
+        }
+        None
+    }
+
+    fn dynamic_filter_atom(&self, def: &str, depth: u8) -> Option<String> {
+        let can_read_x =
+            self.has_x || (self.is_etb_self_trigger && self.has_x_mana_cost && !self.in_delayed);
+        if def == "Count$xPaid" && can_read_x {
+            return Some("Amount::X".to_string());
+        }
+        if (matches!(def, "Count$TotalManaSpent" | "Count$CastTotalManaSpent")
+            && (self.on_a_spell || self.is_etb_self_trigger))
+            || (def == "TriggeredCard$CastTotalManaSpent" && self.is_etb_self_trigger)
+        {
+            return Some("Amount::ManaSpentToCast".to_string());
+        }
+        if def == "Count$CardPower" && !self.on_a_spell {
+            return Some("Amount::SourcePower".to_string());
+        }
+        if let Some(kind_code) = def.strip_prefix("Count$CardCounters.")
+            && (self.trigger_mode.is_some() || !self.cost_sacrifices_self)
+        {
+            return counter_kind(kind_code).map(|k| format!("Amount::CountersOnSource({k})"));
+        }
+        if def == "Count$ChosenNumber"
+            && self.on_a_spell
+            && !self.in_delayed
+            && !self
+                .body
+                .enter_modifiers
+                .iter()
+                .any(|m| m.contains("ChooseNumber"))
+        {
+            return Some("Amount::ResolutionChosenNumber".to_string());
+        }
+        if let Some(event) = self.dynamic_filter_event_or_target_atom(def) {
+            return Some(event);
+        }
+        if let Some(scalar) = dynamic_filter_scalar_atom(def) {
+            return Some(scalar);
+        }
+        if depth == 0 {
+            return self.dynamic_filter_counted_atom(def);
+        }
+        None
+    }
+
+    fn dynamic_filter_event_or_target_atom(&self, def: &str) -> Option<String> {
+        if (def == "TriggerCount$DamageAmount"
+            && matches!(
+                self.trigger_mode.as_deref(),
+                Some("DamageDone" | "DamageDoneOnce" | "DamageDealtOnce")
+            ))
+            || (def == "TriggerCount$LifeAmount"
+                && matches!(
+                    self.trigger_mode.as_deref(),
+                    Some("LifeGained" | "LifeLost")
+                ))
+            || (def == "TriggerCount$Amount"
+                && matches!(
+                    self.trigger_mode.as_deref(),
+                    Some("ChangesZoneAll" | "AttackersDeclared" | "AttackersDeclaredOneTarget")
+                ))
+        {
+            return Some("Amount::EventAmount".to_string());
+        }
+        if (matches!(
+            def,
+            "TriggeredCard$CardManaCost"
+                | "TriggeredCard$CardManaCostLKI"
+                | "TriggeredSpellAbility$CardManaCostLKI"
+                | "TriggeredSpellAbility$CardManaCost"
+        ) && self.trigger_mode.as_deref() == Some("SpellCast"))
+            || (matches!(
+                def,
+                "TriggeredCard$CardManaCost"
+                    | "TriggeredCard$CardManaCostLKI"
+                    | "TriggeredCardLKICopy$CardManaCost"
+            ) && matches!(
+                self.trigger_mode.as_deref(),
+                Some(
+                    "ChangesZone"
+                        | "Sacrificed"
+                        | "Discarded"
+                        | "Cycled"
+                        | "Taps"
+                        | "Untaps"
+                        | "TapsForMana"
+                        | "TurnFaceUp"
+                )
+            ))
+        {
+            return Some("Amount::EventManaValue".to_string());
+        }
+        if (matches!(
+            def,
+            "TriggeredCard$CardPower" | "TriggeredCardLKICopy$CardPower"
+        ) && matches!(
+            self.trigger_mode.as_deref(),
+            Some("ChangesZone" | "Sacrificed" | "Taps" | "Untaps" | "TapsForMana" | "TurnFaceUp")
+        )) || (matches!(
+            def,
+            "TriggeredAttacker$CardPower" | "TriggeredAttackerLKICopy$CardPower"
+        ) && matches!(
+            self.trigger_mode.as_deref(),
+            Some("Attacks" | "AttackerUnblocked")
+        )) {
+            return Some("Amount::EventPower".to_string());
+        }
+        match def {
+            "Targeted$CardPower" | "ParentTargeted$CardPower" => {
+                Some("Amount::TargetPower".to_string())
+            }
+            "Targeted$CardToughness" | "ParentTargeted$CardToughness" => {
+                Some("Amount::TargetToughness".to_string())
+            }
+            "Targeted$CardManaCost" | "ParentTargeted$CardManaCost" => {
+                Some("Amount::TargetCmc".to_string())
+            }
+            "Sacrificed$CardPower" if self.cost_sacrifices_other => {
+                Some("Amount::SacrificedPower".to_string())
+            }
+            "Sacrificed$CardToughness" if self.cost_sacrifices_other => {
+                Some("Amount::SacrificedToughness".to_string())
+            }
+            "Sacrificed$CardManaCost" if self.cost_sacrifices_other => {
+                Some("Amount::SacrificedManaValue".to_string())
+            }
+            "Sacrificed$TotalCardPower" if self.cost_sacrifices_other => {
+                Some("Amount::SacrificedTotalPower".to_string())
+            }
+            "Sacrificed$TotalCardToughness" if self.cost_sacrifices_other => {
+                Some("Amount::SacrificedTotalToughness".to_string())
+            }
+            "Sacrificed$TotalCardManaCost" if self.cost_sacrifices_other => {
+                Some("Amount::SacrificedTotalManaValue".to_string())
+            }
+            "Sacrificed$Colors" if self.cost_sacrifices_other => {
+                Some("Amount::SacrificedDistinctColors".to_string())
+            }
+            _ => None,
+        }
+    }
+
+    fn dynamic_filter_counted_atom(&self, def: &str) -> Option<String> {
+        let has_dynamic_stat = |s: &str| {
+            s.split([',', '.', '+']).any(|atom| {
+                atom.strip_prefix("cmc")
+                    .or_else(|| atom.strip_prefix("power"))
+                    .or_else(|| atom.strip_prefix("toughness"))
+                    .and_then(|rest| rest.get(2..))
+                    .is_some_and(|tail| {
+                        !tail.is_empty() && tail.chars().all(|c| c.is_ascii_alphabetic())
+                    })
+            })
+        };
+        if let Some(valid) = def.strip_prefix("Count$TotalPower ")
+            && !valid.contains('$')
+            && !valid.contains('/')
+            && !has_dynamic_stat(valid)
+        {
+            let expr = self.filter_expr(valid)?;
+            return Some(format!("Amount::TotalPowerAmong(&{expr})"));
+        }
+        if let Some(valid) = def.strip_prefix("Count$ValidGraveyard ")
+            && !valid.contains('$')
+            && !valid.contains('/')
+            && !has_dynamic_stat(valid)
+        {
+            let valid_owned = normalize_graveyard_entered(valid);
+            let valid = valid_owned.as_str();
+            if !valid.contains("Ctrl") && !valid.contains("Own") {
+                let expr = self.filter_expr_in_zone(valid, true)?;
+                return Some(format!(
+                    "Amount::CountOf {{ filter: &{expr}, zone: ZoneSel::GraveyardAll }}"
+                ));
+            }
+            if let Some(stripped) = Self::strip_your_graveyard_owner(valid) {
+                let expr = self.filter_expr_in_zone(&stripped, true)?;
+                return Some(format!(
+                    "Amount::CountOf {{ filter: &{expr}, zone: ZoneSel::GraveyardOf(PlayerRel::You) }}"
+                ));
+            }
+            return None;
+        }
+        let valid = def.strip_prefix("Count$Valid ")?;
+        if let Some(sub) = valid.strip_suffix("$GreatestCardPower")
+            && !sub.contains('$')
+            && !sub.contains('/')
+            && !has_dynamic_stat(sub)
+        {
+            let expr = self.filter_expr(sub)?;
+            return Some(format!("Amount::GreatestPowerAmong(&{expr})"));
+        }
+        if let Some(sub) = valid.strip_suffix("$GreatestCardManaCost")
+            && !sub.contains('$')
+            && !sub.contains('/')
+            && !has_dynamic_stat(sub)
+        {
+            let expr = self.filter_expr(sub)?;
+            return Some(format!("Amount::GreatestManaValueAmong(&{expr})"));
+        }
+        if let Some(sub) = valid.strip_suffix("$CardPower")
+            && !sub.contains('$')
+            && !sub.contains('/')
+            && !has_dynamic_stat(sub)
+        {
+            let expr = self.filter_expr(sub)?;
+            return Some(format!("Amount::TotalPowerAmong(&{expr})"));
+        }
+        if let Some(sub) = valid.strip_suffix("$Colors")
+            && !sub.contains('$')
+            && !sub.contains('/')
+            && !has_dynamic_stat(sub)
+        {
+            let expr = self.filter_expr(sub)?;
+            return Some(format!("Amount::DistinctColorsAmong(&{expr})"));
+        }
+        if let Some(sub) = valid.strip_suffix("$BasicLandTypes")
+            && !sub.contains('$')
+            && !sub.contains('/')
+            && !has_dynamic_stat(sub)
+        {
+            let expr = self.filter_expr(sub)?;
+            return Some(format!("Amount::BasicLandTypesAmong(&{expr})"));
+        }
+        if valid.contains('$') || valid.contains('/') || has_dynamic_stat(valid) {
+            return None;
+        }
+        let expr = self.filter_expr(valid)?;
+        Some(format!(
+            "Amount::CountOf {{ filter: &{expr}, zone: ZoneSel::Battlefield }}"
+        ))
     }
 
     /// [`amount`], or else a count of permanents ([`Self::count_expr`]):
@@ -2559,8 +2954,85 @@ fn normalize_object_cost_spec(spec: &str, variant: &str, controlled: bool) -> St
     }
 }
 
+fn dynamic_filter_scalar_atom(def: &str) -> Option<String> {
+    if let Some(rest) = def
+        .strip_prefix("Count$Devotion.")
+        .or_else(|| def.strip_prefix("Count$DevotionDual."))
+    {
+        let mut colors = Vec::new();
+        for part in rest.split('.') {
+            let color = match part.trim() {
+                "White" => "Color::White",
+                "Blue" => "Color::Blue",
+                "Black" => "Color::Black",
+                "Red" => "Color::Red",
+                "Green" => "Color::Green",
+                _ => return None,
+            };
+            if !colors.contains(&color) {
+                colors.push(color);
+            }
+        }
+        if colors.is_empty() {
+            return None;
+        }
+        return Some(format!(
+            "Amount::Devotion {{ who: PlayerRel::You, colors: ColorSet::from_slice(&[{}]) }}",
+            colors.join(", ")
+        ));
+    }
+    Some(
+        match def {
+            "Count$LifeYouGainedThisTurn" => "Amount::LifeGainedThisTurn(PlayerRel::You)",
+            "Count$LifeOppsLostThisTurn" => "Amount::OpponentsLifeLostThisTurn",
+            "Count$YourLifeTotal" => "Amount::LifeTotal(PlayerRel::You)",
+            "Count$CardsInYourHand" | "Count$ValidHand Card.YouOwn" => {
+                "Amount::HandSize(PlayerRel::You)"
+            }
+            "Count$CardsInYourLibrary" | "Count$ValidLibrary Card.YouOwn" => {
+                "Amount::LibrarySize(PlayerRel::You)"
+            }
+            "Count$Domain" => "Amount::BasicLandTypesAmong(&Filter::YOUR_LAND)",
+            "Count$Party" => "Amount::PartySize(PlayerRel::You)",
+            "Count$YouDrewThisTurn" | "Count$CardsDrawnThisTurn" => {
+                "Amount::CardsDrawnThisTurn(PlayerRel::You)"
+            }
+            "Count$ThisTurnCast_Card.YouCtrl" => "Amount::SpellsCastThisTurn(PlayerRel::You)",
+            "Count$ThisTurnCast_Card.OppCtrl" => {
+                "Amount::SpellsCastThisTurn(PlayerRel::EachOpponent)"
+            }
+            "Count$ThisTurnCast_Card" => "Amount::SpellsCastThisTurn(PlayerRel::EachPlayer)",
+            "Count$ThisTurnEntered_Graveyard_from_Battlefield_Creature" => {
+                "Amount::CreaturesDiedThisTurn"
+            }
+            "Count$ThisTurnEntered_Battlefield_Creature.YouCtrl" => {
+                "Amount::CreaturesEnteredUnderYourControlThisTurn"
+            }
+            "Count$TimesKicked" | "Count$KickedTimes" => "Amount::TimesKicked",
+            "Count$YourPoisonCounters" | "Count$YourCountersPoison" => {
+                "Amount::CountersOnYou(CounterKind::Poison)"
+            }
+            "Count$YourEnergyCounters" | "Count$YourCountersEnergy" => {
+                "Amount::CountersOnYou(CounterKind::Energy)"
+            }
+            "Count$YourRadCounters" | "Count$YourCountersRAD" => {
+                "Amount::CountersOnYou(CounterKind::Rad)"
+            }
+            "Count$DamageYouTookThisTurn" => "Amount::DamageDealtToYouThisTurn",
+            "PlayerCountOpponents$Amount" => "Amount::Players(PlayerRel::Opponent)",
+            "PlayerCountPlayers$Amount" => "Amount::Players(PlayerRel::EachPlayer)",
+            "Count$ValidExile Card.ExiledWithSource" => {
+                "Amount::CountOf { filter: &Filter::Any, zone: ZoneSel::LinkedExile }"
+            }
+            _ => return None,
+        }
+        .to_string(),
+    )
+}
+
 fn normalize_spend_valid(raw: &str) -> String {
     let s = raw.trim();
+    let s = if s == "Kicked" { "Card.kicked" } else { s };
     if let Some(plus) = s.find('+')
         && !s[..plus].contains('.')
     {

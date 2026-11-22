@@ -4185,11 +4185,10 @@ fn wave19b_filters_addendum_choose_card_reveal_hand_and_token_refusals() {
         choose_opp_ctrl.statics
     );
 
-    // Honest refusals: `modified`, bare `wasCast` filter, non-X `cmcLEX`, non-Addendum `Card.wasCast`,
+    // Honest refusals: `modified`, bare `wasCast` filter, non-Addendum `Card.wasCast`,
     // `RevealHand` `Look$ True` on non-chosen seat, dynamic `Token.{TokenPower,TokenToughness}`.
     for bad in [
         "Name:BadWasCastFilter\nManaCost:1 U\nTypes:Instant\nA:SP$ Destroy | ValidTgts$ Creature.wasCast",
-        "Name:BadNonXCmcLe\nManaCost:W\nTypes:Sorcery\nA:SP$ ChangeZone | ValidTgts$ Creature.cmcLEX | Origin$ Battlefield | Destination$ Exile\nSVar:X:Count$Valid Plains.YouCtrl",
         "Name:BadNonYouWasCast\nManaCost:3 W\nTypes:Artifact\nT:Mode$ ChangesZone | Origin$ Any | Destination$ Battlefield | ValidCard$ Card.Self | Execute$ D\nSVar:D:DB$ Draw | ConditionDefined$ Self | ConditionPresent$ Card.wasCast\nOracle:When this enters, if it was cast, draw a card.",
         "Name:BadLookNonChosen\nManaCost:2 U\nTypes:Creature Ninja\nPT:1/2\nT:Mode$ DamageDone | ValidSource$ Card.Self | ValidTarget$ Player | CombatDamage$ True | Execute$ L\nSVar:L:DB$ RevealHand | Defined$ TriggeredTarget | Look$ True",
         "Name:BadSizedToken\nManaCost:X G\nTypes:Sorcery\nA:SP$ Token | TokenScript$ g_x_x_wurm | TokenPower$ X | TokenToughness$ X\nSVar:X:Count$xPaid",

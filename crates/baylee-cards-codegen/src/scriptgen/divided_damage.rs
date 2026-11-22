@@ -31,26 +31,54 @@ impl Tx<'_> {
         }
         let mut effects = vec![format!("Effect::DealDamageDivided {{ amount: {total} }}")];
         let second = if let Some(next) = next {
-            let body = self.svars.get(&next)?;
-            let (api, mut gain) = Params::parse(body)?;
+            let body = self.svars.get(&next)?.clone();
+            let (api, mut gain) = Params::parse(&body)?;
             gain.drop_prose();
-            gain.claim_label("ValidTgtsDesc", "ValidTgts");
-            if api != "GainLife"
-                || gain.take("ValidTgts").as_deref() != Some("Opponent")
-                || gain.take("Defined").is_some_and(|v| v != "Targeted")
-                || gain.take("TargetMin").is_some_and(|v| v != "1")
-                || gain.take("TargetMax").is_some_and(|v| v != "1")
-            {
-                return self.deny("an unsupported continuation after divided damage".into());
+            if api == "GainLife" && gain.has("ValidTgts") {
+                gain.claim_label("ValidTgtsDesc", "ValidTgts");
+                if gain.take("ValidTgts").as_deref() != Some("Opponent")
+                    || gain.take("Defined").is_some_and(|v| v != "Targeted")
+                    || gain.take("TargetMin").is_some_and(|v| v != "1")
+                    || gain.take("TargetMax").is_some_and(|v| v != "1")
+                {
+                    return self.deny("an unsupported continuation after divided damage".into());
+                }
+                let n = amount(&gain.take("LifeAmount")?, self.svars, self.has_x)?;
+                if let Some(key) = gain.first_key() {
+                    return self.deny(format!("unclaimed parameter `GainLife.{key}`"));
+                }
+                effects.push(format!(
+                    "Effect::GainLifeFor {{ amount: {n}, who: PlayerRel::SecondTargetPlayerOrController }}"
+                ));
+                ", second_targets = Some(TargetReq::one(TargetSpec::AnyOpponent))"
+            } else {
+                let initial_up_to = match maximum.as_str() {
+                    "1" => None,
+                    "u8::MAX" => Some(u8::MAX),
+                    num => num.parse::<u8>().ok(),
+                };
+                let mut follow = Chain {
+                    effects: effects.clone(),
+                    target: Some(target.clone()),
+                    target_up_to: initial_up_to,
+                    ..Chain::default()
+                };
+                self.chain(&body, &mut follow)?;
+                if follow.target.as_deref() != Some(target.as_str())
+                    || follow.second_target.is_some()
+                    || follow.target_is_x
+                    || follow.target_up_to != initial_up_to
+                    || follow.target_exact.is_some()
+                    || follow.could_add_mana
+                    || follow.effects.iter().skip(1).any(|e| {
+                        e.contains("DealDamageDivided") || e.contains("PutCountersDivided")
+                    })
+                {
+                    return self.deny("an unsupported continuation after divided damage".into());
+                }
+                effects = follow.effects;
+                ""
             }
-            let n = amount(&gain.take("LifeAmount")?, self.svars, self.has_x)?;
-            if let Some(key) = gain.first_key() {
-                return self.deny(format!("unclaimed parameter `GainLife.{key}`"));
-            }
-            effects.push(format!(
-                "Effect::GainLifeFor {{ amount: {n}, who: PlayerRel::SecondTargetPlayerOrController }}"
-            ));
-            ", second_targets = Some(TargetReq::one(TargetSpec::AnyOpponent))"
         } else {
             ""
         };
@@ -61,13 +89,20 @@ impl Tx<'_> {
         Some(())
     }
 
-    /// A fixed total or an announced X with one nonnegative offset.
+    /// A fixed total, an announced X with one nonnegative offset, or
+    /// `DivisionAmount::XDoubleFrom` (`Shatterskull Smashing`).
     fn divided_total(&self, raw: &str) -> Option<String> {
+        let raw = raw.trim();
         if let Ok(n) = raw.parse::<u32>() {
             return Some(format!("DivisionAmount::Fixed({n})"));
         }
         let definition = self.svars.get(raw)?.trim();
         if let Ok(n) = definition.parse::<u32>() {
+            return Some(format!("DivisionAmount::Fixed({n})"));
+        }
+        if let Some(n_str) = definition.strip_prefix("Number$")
+            && let Ok(n) = n_str.trim().parse::<u32>()
+        {
             return Some(format!("DivisionAmount::Fixed({n})"));
         }
         if !self.has_x {
@@ -76,14 +111,69 @@ impl Tx<'_> {
         if definition == "Count$xPaid" {
             return Some("DivisionAmount::XPlus(0)".into());
         }
-        let (base, offset) = definition.strip_prefix("SVar$")?.split_once("/Plus.")?;
-        let offset = offset.parse::<u32>().ok()?;
-        (self.svars.get(base).map(|v| v.trim()) == Some("Count$xPaid"))
-            .then(|| format!("DivisionAmount::XPlus({offset})"))
+        if let Some(offset) = definition
+            .strip_prefix("Count$xPaid/Plus.")
+            .and_then(|s| s.trim().parse::<u32>().ok())
+        {
+            return Some(format!("DivisionAmount::XPlus({offset})"));
+        }
+        if let Some((base, offset)) = definition
+            .strip_prefix("SVar$")
+            .and_then(|s| s.split_once("/Plus."))
+            && let Ok(offset) = offset.trim().parse::<u32>()
+            && self.svars.get(base.trim()).map(|v| v.trim()) == Some("Count$xPaid")
+        {
+            return Some(format!("DivisionAmount::XPlus({offset})"));
+        }
+        self.divided_x_double_from(definition)
+    }
+
+    fn divided_x_double_from(&self, definition: &str) -> Option<String> {
+        let rest = definition.strip_prefix("Count$Compare ")?;
+        let (lhs, else_arm) = rest.rsplit_once('.')?;
+        let (cond, then_arm) = lhs.rsplit_once('.')?;
+        let (var, cmp) = cond.trim().rsplit_once(' ')?;
+        let is_x = |name: &str| {
+            let n = name.trim();
+            n == "Count$xPaid" || self.svars.get(n).map(|s| s.trim()) == Some("Count$xPaid")
+        };
+        let is_2x = |name: &str| {
+            let n = name.trim();
+            let def = self.svars.get(n).map_or(n, |s| s.trim());
+            matches!(def, "Count$xPaid/Twice" | "Count$xPaid/Times.2")
+                || def
+                    .strip_prefix("SVar$")
+                    .and_then(|s| {
+                        s.strip_suffix("/Twice")
+                            .or_else(|| s.strip_suffix("/Times.2"))
+                    })
+                    .is_some_and(is_x)
+        };
+        if !is_x(var) {
+            return None;
+        }
+        if let Some(k_str) = cmp.strip_prefix("LT")
+            && let Ok(k) = k_str.parse::<u32>()
+            && k >= 1
+            && is_x(then_arm)
+            && is_2x(else_arm)
+        {
+            return Some(format!("DivisionAmount::XDoubleFrom({k})"));
+        }
+        if let Some(k_str) = cmp.strip_prefix("GE")
+            && let Ok(k) = k_str.parse::<u32>()
+            && k >= 1
+            && is_2x(then_arm)
+            && is_x(else_arm)
+        {
+            return Some(format!("DivisionAmount::XDoubleFrom({k})"));
+        }
+        None
     }
 
     /// A printed bound, the total itself, or a count covering every target.
     fn divided_maximum(&self, raw: &str, total: &str, valid: &str) -> Option<String> {
+        let raw = raw.trim();
         if let Ok(n) = raw.parse::<u8>() {
             // 255 means unbounded in TargetReq; do not misread a literal cap.
             return (n < u8::MAX).then(|| n.to_string());
@@ -91,12 +181,13 @@ impl Tx<'_> {
         if self.divided_total(raw).as_deref() == Some(total) {
             return Some("u8::MAX".into());
         }
+        let def = self.svars.get(raw)?.trim();
+        if def.strip_prefix("Count$Valid ").map(str::trim) == Some(valid.trim()) {
+            return Some("u8::MAX".into());
+        }
         // An all-players plus all-permanents count is only an upper bound;
         // the target menu and the positive division narrow it further.
-        let counted = self
-            .svars
-            .get(raw)?
-            .strip_prefix("PlayerCountPlayers$Amount/Plus.")?;
+        let counted = def.strip_prefix("PlayerCountPlayers$Amount/Plus.")?;
         (valid == "Any" && self.svars.get(counted).map(String::as_str) == Some("Count$Valid Any"))
             .then(|| "u8::MAX".into())
     }
@@ -180,7 +271,15 @@ impl Tx<'_> {
                 return self.deny("divided counter maximum targets exceeds counter total".into());
             }
             n.to_string()
-        } else if raw_max.trim() == raw_num.trim() || raw_max.trim() == raw_div.trim() {
+        } else if raw_max.trim() == raw_num.trim()
+            || raw_max.trim() == raw_div.trim()
+            || self
+                .svars
+                .get(raw_max.trim())
+                .and_then(|s| s.trim().strip_prefix("Count$Valid "))
+                .map(str::trim)
+                == Some(valid.trim())
+        {
             "u8::MAX".to_string()
         } else {
             return self.deny(format!(
@@ -257,26 +356,42 @@ impl Tx<'_> {
             "TargetsPutIntoGraveyard",
         ];
         let trimmed = raw.trim();
-        if let Some(def) = self.svars.get(trimmed).map(|s| s.trim())
-            && let Some(valid) = def.strip_prefix("Count$LastStateGraveyardWithFallback ")
-        {
-            let mut stripped_alts = Vec::new();
-            for alt in valid.split(',').map(str::trim) {
-                let cleaned = alt
-                    .strip_suffix(".YouOwn")
-                    .or_else(|| alt.strip_suffix("+YouOwn"))
-                    .or_else(|| alt.strip_suffix(".YouCtrl"))
-                    .or_else(|| alt.strip_suffix("+YouCtrl"))?;
-                if cleaned.contains("Ctrl") || cleaned.contains("Own") {
-                    return None;
-                }
-                stripped_alts.push(cleaned);
+        if let Some(def) = self.svars.get(trimmed).map(|s| s.trim().to_string()) {
+            if let Some(valid) = def.strip_prefix("Count$LastStateBattlefield ")
+                && !valid.contains('$')
+                && !valid.contains('/')
+            {
+                let expr = self.filter_expr(valid.trim())?;
+                let name = self.body.filter_static("COUNT", &expr);
+                return Some(format!(
+                    "Amount::CountOf {{ filter: &{name}, zone: ZoneSel::Battlefield }}"
+                ));
             }
-            let expr = self.filter_expr_in_zone(&stripped_alts.join(","), true)?;
-            let name = self.body.filter_static("COUNT", &expr);
-            return Some(format!(
-                "Amount::CountOf {{ filter: &{name}, zone: ZoneSel::GraveyardYou }}"
-            ));
+            if let Some(valid) = def.strip_prefix("Count$LastStateGraveyardWithFallback ") {
+                let valid = valid.trim();
+                if !valid.contains("Ctrl") && !valid.contains("Own") {
+                    let expr = self.filter_expr_in_zone(valid, true)?;
+                    let name = self.body.filter_static("COUNT", &expr);
+                    return Some(format!(
+                        "Amount::CountOf {{ filter: &{name}, zone: ZoneSel::GraveyardAll }}"
+                    ));
+                }
+                if let Some(stripped) = Self::strip_your_graveyard_owner(valid) {
+                    let expr = self.filter_expr_in_zone(&stripped, true)?;
+                    let name = self.body.filter_static("COUNT", &expr);
+                    return Some(format!(
+                        "Amount::CountOf {{ filter: &{name}, zone: ZoneSel::GraveyardYou }}"
+                    ));
+                }
+                if let Some(stripped) = Self::strip_opp_graveyard_owner(valid) {
+                    let expr = self.filter_expr_in_zone(&stripped, true)?;
+                    let name = self.body.filter_static("COUNT", &expr);
+                    return Some(format!(
+                        "Amount::CountOf {{ filter: &{name}, zone: ZoneSel::GraveyardOpponents }}"
+                    ));
+                }
+                return None;
+            }
         }
         let expr = self.amount_or_count_ext(trimmed)?;
         if RESOLUTION_ONLY.iter().any(|bad| expr.contains(bad)) {

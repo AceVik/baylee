@@ -681,9 +681,6 @@ fn wave24b_refuses_engine_gaps_and_non_paper_scripts() {
          S:Mode$ RaiseCost | ValidCard$ Card.Self | ValidSpell$ Activated.ManaAbility | \
          Cost$ PayLife<1> | EffectZone$ All",
         // `AffectedZone$ Library` / `Graveyard` `MayPlay$ True` (engine/DSL gaps).
-        "Name:Library MayPlay\nManaCost:2 U\nTypes:Enchantment\n\
-         S:Mode$ Continuous | Affected$ Card.TopLibrary+YouCtrl | AffectedZone$ Library | \
-         MayLookAt$ You | MayPlay$ True",
         "Name:Graveyard Mutate\nManaCost:3 B G\nTypes:Creature\nPT:4/4\n\
          S:Mode$ Continuous | Affected$ Creature.YouOwn | AffectedZone$ Graveyard | \
          ValidSA$ Spell.Mutate | MayPlay$ True",

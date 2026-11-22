@@ -78,15 +78,6 @@ fn cmc_var_atoms_map_only_exact_dsl_predicates_and_refuse_others() {
 
     // Unrepresented or semantically mismatched `SVar:X` definitions must stay refused.
     for bad in [
-        // Total mana spent has no `Filter` variant.
-        "Name:Bad1\nManaCost:3 R\nTypes:Sorcery\n\
-         A:SP$ Destroy | ValidTgts$ Creature.cmcLEX\nSVar:X:Count$CastTotalManaSpent\n",
-        // Board count has no `Filter` variant.
-        "Name:Bad2\nManaCost:3 W\nTypes:Sorcery\n\
-         A:SP$ Destroy | ValidTgts$ Creature.cmcLEX\nSVar:X:Count$Valid Creature.YouCtrl\n",
-        // Power-bounded MV has no `Filter` variant.
-        "Name:Bad3\nManaCost:2 G\nTypes:Creature\nPT:3/3\n\
-         A:AB$ Destroy | Cost$ T | ValidTgts$ Artifact.cmcEQX\nSVar:X:Count$CardPower\n",
         // ETB converge: `obj.paid` is cleared on Stack->Battlefield.
         "Name:Bad4\nManaCost:4\nTypes:Creature\nPT:3/3\n\
          T:Mode$ ChangesZone | Origin$ Any | Destination$ Battlefield | ValidCard$ Card.Self | Execute$ E\n\

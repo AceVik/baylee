@@ -31,9 +31,10 @@ impl Tx<'_> {
         }
         p.peek("ConditionDefined") == Some("Self")
             && p.peek("ConditionPresent").is_some_and(|present| {
-                present
-                    .split(['.', '+'])
-                    .any(|atom| atom.trim() == "kicked")
+                present.split(['.', '+']).any(|atom| {
+                    let a = atom.trim();
+                    a == "kicked" || a.starts_with("kicked ")
+                })
             })
     }
 
@@ -387,24 +388,45 @@ impl Tx<'_> {
         effects: &[String],
     ) -> Result<Option<Vec<String>>, ()> {
         // 1. `ConditionDefined$ Self | ConditionPresent$ Card.kicked` / `Card.!kicked`
+        //    and dual-kicker `Card.kicked <1|2>` / `Card.!kicked <1|2>`.
         // Handled BEFORE `present_clause` so ETB triggers read `res.on_stack`
-        // via `Effect::IfKicked` instead of `Condition::SourceMatches`.
+        // via `Effect::IfKicked` / `Condition::KickedWith` instead of `Condition::SourceMatches`.
         if p.peek("ConditionDefined") == Some("Self")
-            && matches!(
-                p.peek("ConditionPresent"),
-                Some("Card.kicked" | "Card.!kicked")
-            )
             && matches!(p.peek("ConditionCompare"), None | Some("GE1"))
+            && let Some(present) = p.peek("ConditionPresent").map(str::to_string)
         {
-            if !self.can_check_kicked() {
-                self.note("kicked condition on `Self` outside a spell or self-ETB trigger".into());
-                return Err(());
+            if matches!(present.as_str(), "Card.kicked" | "Card.!kicked") {
+                if !self.can_check_kicked() {
+                    self.note(
+                        "kicked condition on `Self` outside a spell or self-ETB trigger".into(),
+                    );
+                    return Err(());
+                }
+                let kicked = present == "Card.kicked";
+                p.take("ConditionDefined");
+                p.take("ConditionPresent");
+                p.take("ConditionCompare");
+                p.take("ConditionDescription");
+                return self.finish_if_kicked(api, p, effects, kicked);
             }
-            let kicked = p.take("ConditionPresent").as_deref() == Some("Card.kicked");
-            p.take("ConditionDefined");
-            p.take("ConditionCompare");
-            p.take("ConditionDescription");
-            return self.finish_if_kicked(api, p, effects, kicked);
+            if let Some((slot, kicked)) = present
+                .strip_prefix("Card.kicked ")
+                .map(|s| (s, true))
+                .or_else(|| present.strip_prefix("Card.!kicked ").map(|s| (s, false)))
+                && let Some(idx) = self.dual_kicker_index(slot)
+            {
+                if !self.can_check_kicked() {
+                    self.note(
+                        "kicked condition on `Self` outside a spell or self-ETB trigger".into(),
+                    );
+                    return Err(());
+                }
+                p.take("ConditionDefined");
+                p.take("ConditionPresent");
+                p.take("ConditionCompare");
+                p.take("ConditionDescription");
+                return self.finish_if_kicked_with(api, p, effects, idx, kicked);
+            }
         }
 
         // 2. `ConditionDefined$ Targeted | ConditionPresent$ Spell.kicked`
@@ -467,21 +489,66 @@ impl Tx<'_> {
         }
 
         // 4. `ConditionCheckSVar$ <var> | ConditionSVarCompare$ <cmp>` over
-        //    `Count$Kicked.1.0` or `Count$TimesKicked`.
-        if let (Some(var), Some(cmp)) = (
+        //    `Count$Kicked.1.0`, `Count$Kicked.0.1`, `Count$Kicked1.1.0`,
+        //    `Count$Kicked2.1.0`, or `Count$TimesKicked`.
+        self.wrap_kicked_svar_condition(api, p, effects)
+    }
+
+    fn wrap_kicked_svar_condition(
+        &self,
+        api: &str,
+        p: &mut Params,
+        effects: &[String],
+    ) -> Result<Option<Vec<String>>, ()> {
+        let (Some(var), Some(cmp)) = (
             p.peek("ConditionCheckSVar").map(str::to_string),
             p.peek("ConditionSVarCompare").map(str::to_string),
-        ) && let Some(def) = self.svars.get(var.trim()).map(|s| s.trim())
-            && matches!(def, "Count$Kicked.1.0" | "Count$TimesKicked")
+        ) else {
+            return Ok(None);
+        };
+        let Some(def) = self.svars.get(var.trim()).map(|s| s.trim()) else {
+            return Ok(None);
+        };
+        if matches!(
+            def,
+            "Count$Kicked.1.0" | "Count$Kicked.0.1" | "Count$TimesKicked"
+        ) {
+            if !self.can_check_kicked() {
+                self.note("kicked condition outside a spell or self-ETB trigger".into());
+                return Err(());
+            }
+            let raw_holds = match cmp.trim() {
+                "EQ0" | "LT1" | "LE0" => false,
+                "GE1" | "GT0" | "NE0" => true,
+                "EQ1" if self.has_single_kicker || def != "Count$TimesKicked" => true,
+                other => {
+                    self.note(format!("kicked comparison `{def}` `{other}`"));
+                    return Err(());
+                }
+            };
+            let kicked = if def == "Count$Kicked.0.1" {
+                !raw_holds
+            } else {
+                raw_holds
+            };
+            p.take("ConditionCheckSVar");
+            p.take("ConditionSVarCompare");
+            p.take("ConditionDescription");
+            return self.finish_if_kicked(api, p, effects, kicked);
+        }
+        if let Some(slot) = match def {
+            "Count$Kicked1.1.0" => Some("1"),
+            "Count$Kicked2.1.0" => Some("2"),
+            _ => None,
+        } && let Some(idx) = self.dual_kicker_index(slot)
         {
             if !self.can_check_kicked() {
                 self.note("kicked condition outside a spell or self-ETB trigger".into());
                 return Err(());
             }
             let kicked = match cmp.trim() {
-                "EQ0" => false,
-                "GE1" => true,
-                "EQ1" if self.has_single_kicker => true,
+                "EQ0" | "LT1" | "LE0" => false,
+                "GE1" | "EQ1" | "GT0" | "NE0" => true,
                 other => {
                     self.note(format!("kicked comparison `{def}` `{other}`"));
                     return Err(());
@@ -490,9 +557,8 @@ impl Tx<'_> {
             p.take("ConditionCheckSVar");
             p.take("ConditionSVarCompare");
             p.take("ConditionDescription");
-            return self.finish_if_kicked(api, p, effects, kicked);
+            return self.finish_if_kicked_with(api, p, effects, idx, kicked);
         }
-
         Ok(None)
     }
 
@@ -644,19 +710,27 @@ impl Tx<'_> {
         let cmp = p.peek("ConditionSVarCompare").map_or("GE1", str::trim);
         let paid = if matches!(
             def,
-            "Count$OptionalGenericCostPaid.1.0" | "CastSA>Count$OptionalGenericCostPaid.1.0"
+            "Count$OptionalGenericCostPaid.1.0"
+                | "CastSA>Count$OptionalGenericCostPaid.1.0"
+                | "Count$OptionalGenericCostPaid.0.1"
+                | "CastSA>Count$OptionalGenericCostPaid.0.1"
         ) {
             if !self.can_check_optional_cost() {
                 self.note("optional-cost condition without `FaceDef::optional_cost`".into());
                 return Err(());
             }
-            match cmp {
+            let raw_holds = match cmp {
                 "GE1" | "EQ1" | "GT0" | "NE0" => true,
                 "EQ0" | "LE0" | "LT1" | "NE1" => false,
                 other => {
                     self.note(format!("optional-cost comparison `{def}` `{other}`"));
                     return Err(());
                 }
+            };
+            if def.ends_with(".0.1") {
+                !raw_holds
+            } else {
+                raw_holds
             }
         } else if matches!(def, "Collected$Amount" | "CastSA>Collected$Amount") {
             if !self.can_check_optional_cost() || !has_collect_evidence {
@@ -722,6 +796,31 @@ impl Tx<'_> {
             format!("Effect::IfKicked {{ then: &[{body}], otherwise: &[] }}")
         } else {
             format!("Effect::IfKicked {{ then: &[], otherwise: &[{body}] }}")
+        };
+        Ok(Some(vec![expr]))
+    }
+
+    fn finish_if_kicked_with(
+        &self,
+        api: &str,
+        p: &Params,
+        effects: &[String],
+        idx: u8,
+        kicked: bool,
+    ) -> Result<Option<Vec<String>>, ()> {
+        if let Some(key) = p.first_key() {
+            self.note(format!("unclaimed parameter `{api}.{key}`"));
+            return Err(());
+        }
+        let body = effects.join(", ");
+        let expr = if kicked {
+            format!(
+                "Effect::IfCondition {{ condition: Condition::KickedWith({idx}), then: &[{body}], otherwise: &[] }}"
+            )
+        } else {
+            format!(
+                "Effect::IfCondition {{ condition: Condition::KickedWith({idx}), then: &[], otherwise: &[{body}] }}"
+            )
         };
         Ok(Some(vec![expr]))
     }
@@ -1036,6 +1135,8 @@ impl Tx<'_> {
                 mana.push_str(&pair);
             } else if token.starts_with("XMin") {
                 return self.deny("a variable-X `Kicker` cost".to_string());
+            } else if token == "Forage" {
+                parts.push("Forage".to_string());
             } else if token == "Discard<1/Hand>"
                 || token == "Discard<0/Hand>"
                 || token.starts_with("Discard<1/Hand/")
@@ -1072,6 +1173,12 @@ impl Tx<'_> {
             return self.deny("a second `Kicker` cost".to_string());
         }
         let arms: Vec<&str> = rest.split(':').collect();
+        if arms
+            .iter()
+            .any(|arm| super::cost_parts(arm).iter().any(|t| t == "Forage"))
+        {
+            return self.deny("cost `Forage`".to_string());
+        }
         match arms.as_slice() {
             [single] => {
                 let (expr, uses_x) = self.parse_kicker_cost_expr(single)?;
@@ -1132,6 +1239,10 @@ impl Tx<'_> {
         if token.starts_with("Behold<") {
             return Some(vec![self.parse_behold_cost_token(token)?]);
         }
+        if let Some(inner) = token.strip_prefix("RevealOrChoose<") {
+            let as_behold = format!("Behold<{inner}");
+            return Some(vec![self.parse_behold_cost_token(&as_behold)?]);
+        }
         if token.starts_with("CollectEvidence<") {
             return Some(vec![self.parse_collect_evidence_cost_token(token)?]);
         }
@@ -1186,6 +1297,7 @@ impl Tx<'_> {
             "Sac"
                 | "Return"
                 | "Discard"
+                | "Exile"
                 | "ExileFromHand"
                 | "ExileFromGrave"
                 | "ExileFromTop"
@@ -1247,8 +1359,8 @@ impl Tx<'_> {
         }
 
         let (controlled, card_zone) = match kind {
-            "Sac" | "Return" | "tapXType" => (true, false),
-            "ExileFromHand" => (false, true),
+            "Sac" | "Return" | "tapXType" | "Exile" => (true, false),
+            "ExileFromHand" | "ExileFromGrave" => (false, true),
             _ => (false, false),
         };
         let normalized = Self::normalize_spell_cost_spec(spec, kind, controlled);
@@ -1266,6 +1378,10 @@ impl Tx<'_> {
             "Sac" if n == "All" => Some(vec![format!("SacrificeAll(&{filter_name})")]),
             "Sac" if announced_x => Some(vec![format!("SacrificeX(&{filter_name})")]),
             "tapXType" if announced_x => Some(vec![format!("TapX(&{filter_name})")]),
+            "Discard" if announced_x => Some(vec![format!("DiscardX(&{filter_name})")]),
+            "ExileFromGrave" if announced_x && !spec.contains("Ctrl") => {
+                Some(vec![format!("ExileFromGraveyardX(&{filter_name})")])
+            }
             "tapXType" => {
                 let Some(count) = n.parse::<u32>().ok().filter(|c| (1..=10).contains(c)) else {
                     return self.deny(format!("a cost naming `{n}` objects"));
@@ -1275,13 +1391,19 @@ impl Tx<'_> {
                 )])
             }
             _ => {
-                let Some(count) = n.parse::<usize>().ok().filter(|&c| (1..=3).contains(&c)) else {
+                let max_count = if kind == "ExileFromGrave" { 4 } else { 3 };
+                let Some(count) = n
+                    .parse::<usize>()
+                    .ok()
+                    .filter(|&c| (1..=max_count).contains(&c))
+                else {
                     return self.deny(format!("a cost naming `{n}` objects"));
                 };
                 let variant = match kind {
                     "Sac" => "Sacrifice",
                     "Return" => "ReturnToHand",
                     "Discard" => "Discard",
+                    "Exile" => "ExilePermanent",
                     "ExileFromHand" => "ExileFromHand",
                     _ => "ExileFromGraveyard",
                 };

@@ -332,6 +332,12 @@ impl Tx<'_> {
         if let Some(body) = rest.strip_prefix("Sac<").and_then(|s| s.strip_suffix('>')) {
             return self.ward_sacrifice(body, rest);
         }
+        if let Some(body) = rest
+            .strip_prefix("Blight<")
+            .and_then(|s| s.strip_suffix('>'))
+        {
+            return self.ward_blight(body, rest);
+        }
         if !rest.contains('<') {
             let mana = self.parse_fixed_mana_cost(rest, "Ward")?;
             return Some(format!(
@@ -410,6 +416,27 @@ impl Tx<'_> {
         Some(format!(
             "Effect::PlayerMayPayCostOr {{ player: PlayerRel::ControllerOfTarget, \
              cost: &CostPart::Discard(&{filter}), effect: &Effect::CounterTargetSpellOrAbility }}"
+        ))
+    }
+
+    fn ward_blight(&self, body: &str, full: &str) -> Option<String> {
+        let mut parts = body.split('/');
+        let raw = parts.next()?.trim();
+        let _desc = parts.next();
+        if parts.next().is_some() {
+            return self.deny(format!("ward `{full}`"));
+        }
+        let Ok(n) = raw.parse::<u16>() else {
+            return self.deny(format!("ward `{full}`"));
+        };
+        if n == 0 {
+            return self.deny(format!("ward `{full}`"));
+        }
+        Some(format!(
+            "Effect::PlayerMayPayCostOr {{ player: PlayerRel::ControllerOfTarget, \
+             cost: &CostPart::PutCounterOnOther {{ filter: &Filter::YOUR_CREATURE, \
+             kind: CounterKind::MinusOneMinusOne, n: {n} }}, \
+             effect: &Effect::CounterTargetSpellOrAbility }}"
         ))
     }
 
@@ -855,9 +882,13 @@ impl Tx<'_> {
 
     fn cast_with_flash(&mut self, mut p: Params) -> Option<()> {
         p.drop_prose();
-        if p.take("Caster").as_deref() != Some("You")
-            || !matches!(p.take("ValidSA").as_deref(), None | Some("Spell"))
-        {
+        let who = match p.take("Caster").as_deref() {
+            Some("You") => "PlayerRel::You",
+            Some("Player") => "PlayerRel::EachPlayer",
+            Some("Opponent" | "Player.Opponent") => "PlayerRel::EachOpponent",
+            _ => return self.deny("static ability `S: Mode$ CastWithFlash`".to_string()),
+        };
+        if !matches!(p.take("ValidSA").as_deref(), None | Some("Spell")) {
             return self.deny("static ability `S: Mode$ CastWithFlash`".to_string());
         }
         let zone_arg = match p.take("EffectZone").as_deref() {
@@ -910,8 +941,15 @@ impl Tx<'_> {
         if !p.exhausted() {
             return self.deny("static ability `S: Mode$ CastWithFlash`".to_string());
         }
-        let Some(modifier) = flash_modifier_for_valid(&valid_card) else {
-            return self.deny("static ability `S: Mode$ CastWithFlash`".to_string());
+        let modifier = if who == "PlayerRel::You"
+            && let Some(legacy) = flash_modifier_for_valid(&valid_card)
+        {
+            legacy
+        } else {
+            let Some(filter_ref) = self.grant_flash_filter(&valid_card) else {
+                return self.deny("static ability `S: Mode$ CastWithFlash`".to_string());
+            };
+            format!("Modifier::GrantFlash {{ who: {who}, filter: &{filter_ref} }}")
         };
         let condition = match clauses.as_slice() {
             [] => String::new(),
@@ -926,6 +964,43 @@ impl Tx<'_> {
         }
         self.body.abilities.push(expr);
         Some(())
+    }
+
+    fn grant_flash_filter(&mut self, valid_card: &str) -> Option<String> {
+        let trimmed = valid_card.trim();
+        if trimmed == "Card" {
+            return Some("Filter::Any".to_string());
+        }
+        if trimmed.split(',').any(|alt| {
+            alt.split(['.', '+']).any(|atom| {
+                let a = atom.trim();
+                a.contains("Ctrl")
+                    || a.contains("Own")
+                    || a.contains("Remembered")
+                    || a.contains("Targeted")
+                    || a.contains("Triggered")
+                    || matches!(
+                        a,
+                        "Self"
+                            | "Other"
+                            | "StrictlyOther"
+                            | "Equipped"
+                            | "Enchanted"
+                            | "Attached"
+                            | "EquippedBy"
+                            | "EnchantedBy"
+                            | "AttachedBy"
+                    )
+            })
+        }) {
+            return None;
+        }
+        let expr = self.filter_expr_in_zone(trimmed, true)?;
+        Some(if expr == "Filter::Any" {
+            "Filter::Any".to_string()
+        } else {
+            self.body.filter_static("FLASH", &expr)
+        })
     }
 
     fn panharmonicon_static(&mut self, mut p: Params) -> Option<()> {
@@ -1395,20 +1470,20 @@ impl Tx<'_> {
             ) {
                 return ZoneContinuousOutcome::Handled(self.continuous_library_top_command(p));
             }
-            return ZoneContinuousOutcome::Handled(self.continuous_library_top(p));
+            return ZoneContinuousOutcome::Handled(self.continuous_library_top_dispatch(p));
         }
         if p.peek("AffectedZone") == Some("Graveyard")
             && matches!(p.peek("EffectZone"), None | Some("Battlefield"))
             && p.peek("MayPlay") == Some("True")
         {
-            return ZoneContinuousOutcome::Handled(self.continuous_graveyard_play(p));
+            return ZoneContinuousOutcome::Handled(self.continuous_graveyard_play_dispatch(p));
         }
         if p.peek("AffectedZone") == Some("Graveyard")
             && p.peek("EffectZone") == Some("Graveyard")
             && p.peek("Affected") == Some("Card.Self")
             && p.peek("MayPlay") == Some("True")
         {
-            return ZoneContinuousOutcome::Handled(self.continuous_graveyard_self_play(p));
+            return ZoneContinuousOutcome::Handled(self.continuous_graveyard_self_play_wave14a(p));
         }
         if p.peek("AffectedZone") == Some("Graveyard")
             && matches!(
@@ -1751,6 +1826,348 @@ impl Tx<'_> {
             }
         }
         Some(())
+    }
+
+    fn continuous_library_top_dispatch(&mut self, p: Params) -> Option<()> {
+        let legacy_look_only = p.has("MayLookAt") && !p.has("MayPlay");
+        let legacy_land_only = !p.has("MayLookAt")
+            && p.peek("MayPlay") == Some("True")
+            && !p.has("MayPlayLimit")
+            && !p.has("MayPlayWithFlash")
+            && !p.has("RaiseCost")
+            && !p.has("MayPlayAltManaCost")
+            && p.peek("Affected").is_some_and(|a| {
+                matches!(
+                    a.trim(),
+                    "Land.TopLibrary+YouCtrl"
+                        | "Land.YouCtrl+TopLibrary"
+                        | "Land.TopLibrary+YouOwn"
+                        | "Land.YouOwn+TopLibrary"
+                )
+            });
+        let legacy_citadel = !p.has("MayLookAt")
+            && p.peek("MayPlay") == Some("True")
+            && p.peek("MayPlayAltManaCost") == Some("PayLife<ConvertedManaCost>")
+            && !p.has("MayPlayLimit")
+            && !p.has("MayPlayWithFlash")
+            && !p.has("RaiseCost")
+            && p.peek("Affected").is_some_and(|a| {
+                matches!(
+                    a.trim(),
+                    "Card.TopLibrary+YouCtrl"
+                        | "Card.YouCtrl+TopLibrary"
+                        | "Card.TopLibrary+YouOwn"
+                        | "Card.YouOwn+TopLibrary"
+                )
+            });
+        if legacy_look_only || legacy_land_only || legacy_citadel {
+            return self.continuous_library_top(p);
+        }
+        self.continuous_library_top_wave14a(p)
+    }
+
+    fn continuous_library_top_wave14a(&mut self, mut p: Params) -> Option<()> {
+        let deny = |tx: &Self| tx.deny("static ability reaching `AffectedZone$ Library`".into());
+        p.drop_prose();
+        if p.take("AffectedZone").as_deref() != Some("Library")
+            || !matches!(p.take("EffectZone").as_deref(), None | Some("Battlefield"))
+            || !matches!(p.take("Secondary").as_deref(), None | Some("True"))
+            || p.take("MayPlay").as_deref() != Some("True")
+        {
+            return deny(self);
+        }
+        let Some(affected) = p.take("Affected") else {
+            return deny(self);
+        };
+        let may_look = p.take("MayLookAt");
+        let with_flash = match p.take("MayPlayWithFlash").as_deref() {
+            None => false,
+            Some("True") => true,
+            Some(_) => return deny(self),
+        };
+        let once_per_turn = match p.take("MayPlayLimit").as_deref() {
+            None => false,
+            Some("1") => true,
+            Some(_) => return deny(self),
+        };
+        let alt_cost = p.take("MayPlayAltManaCost");
+        let raise_cost = p.take("RaiseCost");
+        let cond = self.condition_any(&mut p)?;
+        if !p.exhausted() {
+            return deny(self);
+        }
+        let price = match (alt_cost.as_deref(), raise_cost.as_deref()) {
+            (None, None) => "AltCastPrice::Normal".to_string(),
+            (Some("PayLife<ConvertedManaCost>"), None) => {
+                "AltCastPrice::PayLifeEqualToManaValue".to_string()
+            }
+            (None, Some(raw)) => {
+                let cost_lit = self.parse_normal_plus_cost(raw)?;
+                format!("AltCastPrice::NormalPlus({cost_lit})")
+            }
+            _ => return deny(self),
+        };
+        let Some(shape) = strip_top_library_yours(&affected) else {
+            return deny(self);
+        };
+        let is_unfiltered_card = shape.cleaned == "Card";
+        if let Some(look_who) = may_look {
+            // Only emit unconditional look/reveal when `Affected$` covers any top card.
+            if !is_unfiltered_card {
+                return deny(self);
+            }
+            let look_mod = match look_who.trim() {
+                "You" => "Modifier::MayLookAtTopOfLibrary { who: PlayerRel::You }",
+                "Player" => "Modifier::RevealLibraryTop",
+                _ => return deny(self),
+            };
+            self.push_static_with_cond("Filter::Any", look_mod, &cond);
+        }
+        let filter = if shape.cleaned == "Card" {
+            "Filter::Any".to_string()
+        } else {
+            let Some(expr) = self.filter_expr_in_zone(&shape.cleaned, true) else {
+                return deny(self);
+            };
+            expr
+        };
+        let allow_lands = self.zone_play_allows_lands(&shape, alt_cost.is_some());
+        let modifier = format!(
+            "Modifier::MayCastWithAltCost {{ who: PlayerRel::You, \
+             zones: AltCastZones::TopOfLibrary, grant_zone_permission: true, \
+             allow_lands: {allow_lands}, with_flash: {with_flash}, \
+             max_mana_value: None, once_per_turn: {once_per_turn}, price: {price} }}"
+        );
+        self.push_static_with_cond(&filter, &modifier, &cond);
+        Some(())
+    }
+
+    fn continuous_graveyard_play_dispatch(&mut self, p: Params) -> Option<()> {
+        let has_wave14a_param =
+            p.has("RaiseCost") || p.has("MayPlayWithFlash") || p.has("ValidAfterStack");
+        if !has_wave14a_param {
+            let is_legacy_affected = p.peek("Affected").is_some_and(|a| {
+                matches!(
+                    a.trim(),
+                    "Land.YouOwn"
+                        | "Land.YouCtrl"
+                        | "Card.YouOwn"
+                        | "Card.YouCtrl"
+                        | "Permanent.nonLand+YouOwn"
+                        | "Permanent.YouOwn+nonLand"
+                        | "Permanent.nonLand+YouCtrl"
+                        | "Permanent.YouCtrl+nonLand"
+                )
+            });
+            let is_legacy_once =
+                p.peek("MayPlayLimit") == Some("1") && p.peek("ReplaceGraveyard") == Some("Exile");
+            if (is_legacy_affected && !p.has("MayPlayLimit")) || is_legacy_once {
+                return self.continuous_graveyard_play(p);
+            }
+        }
+        self.continuous_graveyard_play_wave14a(p)
+    }
+
+    fn continuous_graveyard_play_wave14a(&mut self, mut p: Params) -> Option<()> {
+        let deny = |tx: &Self| tx.deny("static ability reaching `AffectedZone$ Graveyard`".into());
+        let desc_has_unmodeled_rider = p.peek("Description").is_some_and(|d| {
+            let lower = d.to_ascii_lowercase();
+            lower.contains("finality counter") || lower.contains("exile it instead")
+        });
+        p.drop_prose();
+        if p.take("AffectedZone").as_deref() != Some("Graveyard")
+            || !matches!(p.take("EffectZone").as_deref(), None | Some("Battlefield"))
+            || !matches!(p.take("Secondary").as_deref(), None | Some("True"))
+            || p.take("MayPlay").as_deref() != Some("True")
+            || desc_has_unmodeled_rider
+        {
+            return deny(self);
+        }
+        let Some(affected) = p.take("Affected") else {
+            return deny(self);
+        };
+        let with_flash = match p.take("MayPlayWithFlash").as_deref() {
+            None => false,
+            Some("True") => true,
+            Some(_) => return deny(self),
+        };
+        let once_per_turn = match p.take("MayPlayLimit").as_deref() {
+            None => false,
+            Some("1") => true,
+            Some(_) => return deny(self),
+        };
+        let raise_cost = p.take("RaiseCost");
+        let valid_after_stack = p.take("ValidAfterStack");
+        let cond = self.condition_any(&mut p)?;
+        if !p.exhausted() {
+            return deny(self);
+        }
+        if let Some(vas) = valid_after_stack.as_deref()
+            && !valid_after_stack_is_redundant(vas, &affected)
+        {
+            return deny(self);
+        }
+        let Some(shape) = strip_graveyard_yours(&affected) else {
+            return deny(self);
+        };
+        // Filtered graveyard land permission (`Modifier::PlayLandsFromGraveyard` with filter).
+        // Land-only grants with `with_flash`, `once_per_turn`, or `raise_cost` stay refused
+        // because land drops do not go through spell-cast pricing/timing.
+        if !shape.has_nonland_all && self.all_alts_are_land_only(&shape.cleaned) {
+            if with_flash || once_per_turn || raise_cost.is_some() {
+                return deny(self);
+            }
+            let Some(filter) = self.filter_expr_in_zone(&shape.cleaned, true) else {
+                return deny(self);
+            };
+            self.push_static_with_cond(&filter, "Modifier::PlayLandsFromGraveyard", &cond);
+            return Some(());
+        }
+        // `Instant,Sorcery` once-per-turn graveyard grants without `ReplaceGraveyard$ Exile`
+        // (Kess without its exile replacement) stay refused; real Instant/Sorcery GY cards
+        // either carry `ReplaceGraveyard$ Exile` (legacy Kess) or `RaiseCost$` (Festival of Embers).
+        if once_per_turn
+            && raise_cost.is_none()
+            && matches!(
+                shape.cleaned.as_str(),
+                "Instant,Sorcery" | "Sorcery,Instant"
+            )
+        {
+            return deny(self);
+        }
+        let price = match raise_cost.as_deref() {
+            None => "AltCastPrice::Normal".to_string(),
+            Some(raw) => {
+                let cost_lit = self.parse_normal_plus_cost(raw)?;
+                format!("AltCastPrice::NormalPlus({cost_lit})")
+            }
+        };
+        let Some(base_filter) = self.filter_expr_in_zone(&shape.cleaned, true) else {
+            return deny(self);
+        };
+        // `AltCastZones::Zones(&[ZoneRef::Graveyard])` matches graveyard zone without
+        // checking zone owner; always scope to `Filter::OwnedByYou`.
+        let owned_filter = if base_filter == "Filter::Any" {
+            "Filter::OwnedByYou".to_string()
+        } else {
+            format!("Filter::And(&[{base_filter}, Filter::OwnedByYou])")
+        };
+        let allow_lands = self.zone_play_allows_lands(&shape, false);
+        let modifier = format!(
+            "Modifier::MayCastWithAltCost {{ who: PlayerRel::You, \
+             zones: AltCastZones::Zones(&[ZoneRef::Graveyard]), grant_zone_permission: true, \
+             allow_lands: {allow_lands}, with_flash: {with_flash}, \
+             max_mana_value: None, once_per_turn: {once_per_turn}, price: {price} }}"
+        );
+        self.push_static_with_cond(&owned_filter, &modifier, &cond);
+        Some(())
+    }
+
+    fn continuous_graveyard_self_play_wave14a(&mut self, mut p: Params) -> Option<()> {
+        let is_land = self.type_line.split_whitespace().any(|w| w == "Land");
+        let has_extra = p.has("RaiseCost") || p.has("MayPlayWithFlash") || p.has("MayPlayLimit");
+        if !is_land && !has_extra {
+            return self.continuous_graveyard_self_play(p);
+        }
+        let deny = |tx: &Self| tx.deny("static ability reaching `AffectedZone$ Graveyard`".into());
+        let desc_mentions_finality = p
+            .peek("Description")
+            .is_some_and(|d| d.to_ascii_lowercase().contains("finality counter"));
+        p.drop_prose();
+        if p.take("AffectedZone").as_deref() != Some("Graveyard")
+            || p.take("EffectZone").as_deref() != Some("Graveyard")
+            || p.take("Affected").as_deref() != Some("Card.Self")
+            || p.take("MayPlay").as_deref() != Some("True")
+            || !matches!(p.take("Secondary").as_deref(), None | Some("True"))
+            || desc_mentions_finality
+        {
+            return deny(self);
+        }
+        let with_flash = match p.take("MayPlayWithFlash").as_deref() {
+            None => false,
+            Some("True") => true,
+            Some(_) => return deny(self),
+        };
+        let once_per_turn = match p.take("MayPlayLimit").as_deref() {
+            None => false,
+            Some("1") => true,
+            Some(_) => return deny(self),
+        };
+        let raise_cost = p.take("RaiseCost");
+        let cond = self.condition_any(&mut p)?;
+        if !p.exhausted() {
+            return deny(self);
+        }
+        if is_land {
+            if with_flash || once_per_turn || raise_cost.is_some() {
+                return deny(self);
+            }
+            self.body.abilities.push(format!(
+                "static_ability!(Filter::This, Modifier::PlayLandsFromGraveyard, \
+                 zone = ZoneRef::Graveyard{cond})"
+            ));
+            return Some(());
+        }
+        let price = match raise_cost.as_deref() {
+            None => "AltCastPrice::Normal".to_string(),
+            Some(raw) => {
+                let cost_lit = self.parse_normal_plus_cost(raw)?;
+                format!("AltCastPrice::NormalPlus({cost_lit})")
+            }
+        };
+        self.body.abilities.push(format!(
+            "static_ability!(Filter::This, Modifier::MayCastWithAltCost {{ \
+             who: PlayerRel::You, zones: AltCastZones::Zones(&[ZoneRef::Graveyard]), \
+             grant_zone_permission: true, allow_lands: false, with_flash: {with_flash}, \
+             max_mana_value: None, once_per_turn: {once_per_turn}, price: {price} }}, \
+             zone = ZoneRef::Graveyard{cond})"
+        ));
+        Some(())
+    }
+
+    fn parse_normal_plus_cost(&mut self, raw: &str) -> Option<String> {
+        let saved = self.unclaimed.borrow().clone();
+        let res = self.parse_kicker_cost_expr(raw);
+        let Some((expr, uses_x)) = res else {
+            *self.unclaimed.borrow_mut() = saved;
+            return None;
+        };
+        if uses_x {
+            *self.unclaimed.borrow_mut() = saved;
+            return None;
+        }
+        Some(expr)
+    }
+
+    fn all_alts_are_land_only(&self, cleaned: &str) -> bool {
+        let mut saw = false;
+        for alt in cleaned.split(',') {
+            let base = alt.trim().split('.').next().unwrap_or("").trim();
+            if base.is_empty() {
+                return false;
+            }
+            let is_land = base == "Land"
+                || self
+                    .cats
+                    .const_path_of(baylee_core::types::SubtypeKind::Land, base)
+                    .is_some();
+            if !is_land {
+                return false;
+            }
+            saw = true;
+        }
+        saw
+    }
+
+    fn zone_play_allows_lands(&self, shape: &ZonePlayShape, force_allow: bool) -> bool {
+        if force_allow || shape.any_land_base {
+            return true;
+        }
+        if shape.has_nonland_all || shape.all_nonland_bases {
+            return false;
+        }
+        let lower = self.oracle.to_ascii_lowercase();
+        !lower.contains("cast ") || lower.contains("play ")
     }
 
     fn continuous_library_top_command(&mut self, mut p: Params) -> Option<()> {
@@ -2105,11 +2522,8 @@ impl Tx<'_> {
                 _ => None,
             };
         }
-        if raw == "Count$Morbid.1.0" && matches!(cmp, "GE1" | "GT0") {
-            return Some("Condition::CreaturesDiedThisTurnAtLeast(1)".to_string());
-        }
-        if raw == "Count$Morbid.0.1" && matches!(cmp, "GE1" | "GT0") {
-            return Some("Condition::Not(&Condition::CreaturesDiedThisTurnAtLeast(1))".to_string());
+        if let Some(cond) = Self::extra_svar_condition_wave26g(raw, cmp) {
+            return Some(cond);
         }
         if raw == "Count$ThisTurnCast_Creature.YouCtrl" {
             return match cmp {
@@ -2176,6 +2590,41 @@ impl Tx<'_> {
             }
         }
         Self::extra_svar_condition_wave7(raw, cmp)
+    }
+
+    fn extra_svar_condition_wave26g(raw: &str, cmp: &str) -> Option<String> {
+        let (cond, inverted) = match raw {
+            "Count$Morbid.1.0" => ("Condition::CreaturesDiedThisTurnAtLeast(1)", false),
+            "Count$Morbid.0.1" => ("Condition::CreaturesDiedThisTurnAtLeast(1)", true),
+            "Count$wasCastFromYourHandByYou.1.0" => (
+                "Condition::All(&[Condition::SourceWasCastByYou, Condition::SourceMatches(&Filter::CastFromHand)])",
+                false,
+            ),
+            "Count$Raid.1.0" | "Count$AttackedThisTurn.1.0" => {
+                ("Condition::AttackedWithAtLeast(1)", false)
+            }
+            "Count$Revolt.1.0" => ("Condition::Revolt", false),
+            "Count$Threshold.1.0" => ("Condition::GraveyardCountAtLeast(7)", false),
+            "Count$Delirium.1.0" => ("Condition::GraveyardTypesAtLeast(4)", false),
+            "PlayerCountOpponents$HasPropertyIsCorrupted" => {
+                ("Condition::OpponentPoisonAtLeast(3)", false)
+            }
+            "PlayerCountOpponents$HasPropertywasDealtDamageThisTurn"
+            | "PlayerCountRegisteredOpponents$HasPropertywasDealtDamageThisTurn" => {
+                ("Condition::OpponentDealtDamageThisTurn", false)
+            }
+            _ => return None,
+        };
+        let holds = match cmp {
+            "GE1" | "GT0" | "EQ1" => true,
+            "EQ0" | "LT1" | "LE0" => false,
+            _ => return None,
+        };
+        if holds ^ inverted {
+            Some(cond.to_string())
+        } else {
+            Some(format!("Condition::Not(&{cond})"))
+        }
     }
 
     fn extra_svar_condition_wave7(raw: &str, cmp: &str) -> Option<String> {
@@ -4658,4 +5107,102 @@ fn flash_modifier_for_valid(valid_card: &str) -> Option<String> {
             Some(format!("Modifier::SpellsHaveFlash(Some({joined}))"))
         }
     }
+}
+
+#[allow(clippy::struct_excessive_bools)]
+struct ZonePlayShape {
+    cleaned: String,
+    has_nonland_all: bool,
+    all_nonland_bases: bool,
+    any_land_base: bool,
+}
+
+fn strip_top_library_yours(affected: &str) -> Option<ZonePlayShape> {
+    strip_zone_play_yours(affected, true)
+}
+
+fn strip_graveyard_yours(affected: &str) -> Option<ZonePlayShape> {
+    strip_zone_play_yours(affected, false)
+}
+
+fn strip_zone_play_yours(affected: &str, require_top_library: bool) -> Option<ZonePlayShape> {
+    let mut cleaned = Vec::new();
+    let mut has_nonland_all = true;
+    let mut all_nonland_bases = true;
+    let mut any_land_base = false;
+    for alt in affected.split(',') {
+        let mut parts = alt
+            .split('.')
+            .flat_map(|s| s.split('+'))
+            .map(str::trim)
+            .filter(|a| !a.is_empty());
+        let base = parts.next()?;
+        if matches!(base, "Self" | "Other" | "StrictlyOther")
+            || base.contains("Ctrl")
+            || base.contains("Own")
+        {
+            return None;
+        }
+        let mut saw_top = false;
+        let mut saw_you = false;
+        let mut alt_nonland = false;
+        let mut kept = Vec::new();
+        for atom in parts {
+            match atom {
+                "TopLibrary" if require_top_library => saw_top = true,
+                "YouCtrl" | "YouOwn" => saw_you = true,
+                "nonLand" => {
+                    alt_nonland = true;
+                    kept.push(atom);
+                }
+                other
+                    if other.contains("Ctrl")
+                        || other.contains("Own")
+                        || other.contains("Remembered")
+                        || matches!(other, "Self" | "Other" | "StrictlyOther" | "TopLibrary") =>
+                {
+                    return None;
+                }
+                other => kept.push(other),
+            }
+        }
+        if !saw_you || (require_top_library && !saw_top) {
+            return None;
+        }
+        if !alt_nonland {
+            has_nonland_all = false;
+        }
+        if base == "Land" {
+            any_land_base = true;
+        }
+        if !matches!(
+            base,
+            "Instant" | "Sorcery" | "Planeswalker" | "Battle" | "Aura" | "Equipment"
+        ) {
+            all_nonland_bases = false;
+        }
+        if kept.is_empty() {
+            cleaned.push(base.to_string());
+        } else {
+            cleaned.push(format!("{base}.{}", kept.join("+")));
+        }
+    }
+    (!cleaned.is_empty()).then(|| ZonePlayShape {
+        cleaned: cleaned.join(","),
+        has_nonland_all,
+        all_nonland_bases,
+        any_land_base,
+    })
+}
+
+fn valid_after_stack_is_redundant(valid_after_stack: &str, affected: &str) -> bool {
+    let Some(atom) = valid_after_stack.trim().strip_prefix("Spell.") else {
+        return false;
+    };
+    if atom.is_empty() || atom.contains(',') || atom.contains('+') {
+        return false;
+    }
+    affected
+        .split(',')
+        .all(|alt| alt.split(['.', '+']).any(|a| a.trim() == atom))
 }
