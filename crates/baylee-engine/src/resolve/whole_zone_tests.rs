@@ -154,6 +154,68 @@ fn each_player_shuffles_hand_and_graveyard_into_their_own_library() {
 }
 
 #[test]
+fn shared_hand_redraw_finishes_all_shuffles_then_draws_in_apnap_order() {
+    let (mut state, source) = table();
+    let active = PlayerId::new(1);
+    state.turn.active = active;
+    let name = state.names.intern("Third card");
+    state.create_bare(active, ObjectKind::Card, name, ZoneLocation::Hand(active));
+
+    let effects = [
+        Effect::ShuffleIntoLibrary {
+            who: PlayerRel::EachPlayer,
+            hand: true,
+            graveyard: false,
+        },
+        Effect::DrawCardsFor {
+            who: PlayerRel::EachPlayer,
+            amount: Amount::ThisWayBy {
+                what: baylee_cards_dsl::ThisWay::PutIntoLibraryFromHand,
+                who: PlayerRel::Recipient,
+            },
+        },
+    ];
+    let mut res = resolution(source, &effects, active);
+    state
+        .journal
+        .record(GameEvent::StackObjectResolved { object: source });
+    let start = state.journal.len();
+    assert!(matches!(run(&mut state, &mut res), Flow::Complete));
+
+    let events = &state.journal.entries()[start..];
+    let draws: Vec<_> = events
+        .iter()
+        .enumerate()
+        .filter_map(|(i, entry)| match &entry.event {
+            GameEvent::CardsDrawn { player, count, .. } => Some((i, *player, *count)),
+            _ => None,
+        })
+        .collect();
+    assert_eq!(
+        draws
+            .iter()
+            .map(|&(_, player, n)| (player, n))
+            .collect::<Vec<_>>(),
+        [(active, 3), (PlayerId::new(0), 2)]
+    );
+    let first_draw = draws[0].0;
+    assert_eq!(
+        events[..first_draw]
+            .iter()
+            .filter(|entry| matches!(
+                entry.event,
+                GameEvent::ZoneChanged {
+                    from: Zone::Hand,
+                    to: Zone::Library,
+                    ..
+                }
+            ))
+            .count(),
+        5
+    );
+}
+
+#[test]
 fn the_controller_orders_the_top_of_the_chosen_players_library() {
     let (mut state, spell) = table();
     let them = PlayerId::new(1);

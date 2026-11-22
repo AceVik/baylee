@@ -786,7 +786,9 @@ pub(super) fn exec_immediate(
         Effect::DrawCardsFor { amount, who } => {
             // Every count is read before anybody draws: a draw is a later
             // event than the instruction's own numbers (CR 608.2c).
-            let draws: Vec<(PlayerId, usize)> = players_of(who, state, you, res)
+            let mut players = players_of(who, state, you, res);
+            super::chosen::order_apnap(state, &mut players);
+            let draws: Vec<(PlayerId, usize)> = players
                 .into_iter()
                 .map(|player| {
                     let n = super::amount_for_player(&amount, state, you, res, player);
