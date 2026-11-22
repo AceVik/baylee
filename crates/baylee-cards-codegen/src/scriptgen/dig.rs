@@ -2448,6 +2448,16 @@ impl Tx<'_> {
     }
 
     fn parse_dig_play_sa_filter(&self, raw: &str) -> Option<DigPlaySaFilter> {
+        // Upstream may encode this printed strict comparison as an inclusive one.
+        if self.oracle.to_ascii_lowercase().contains(
+            "you may cast that card without paying its mana cost if the spell's mana value is less than the number of ",
+        ) {
+            let var = raw.strip_prefix("Spell.cmcLE").or_else(|| raw.strip_prefix("Spell.cmcLT"))?;
+            let amount = self.dynamic_filter_amount(var, 0)?;
+            return Some(DigPlaySaFilter::Filtered(format!(
+                "Filter::And(&[Filter::CmcAtMostAmount(&{amount}), Filter::Not(&Filter::CmcEqualsAmount(&{amount}))])"
+            )));
+        }
         let mut alts = Vec::new();
         for part in raw.split(',').map(str::trim) {
             if part == "Spell" {
