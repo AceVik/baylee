@@ -17,11 +17,11 @@ card!(
         types = TypeSet::INSTANT,
     ),],
     abilities = &[spell!(&[
-        Effect::continuous(
-            &Filter::Any,
-            Modifier::PreventDamageToYouFrom(&Filter::Any),
-            Duration::UntilEndOfTurn
-        ),
+        Effect::PreventAllDamageFromMatchingThisTurn {
+            target: Some(TargetSpec::Player(PlayerRel::You)),
+            sources: &Filter::Any,
+            combat_only: false
+        },
         Effect::continuous(
             &Filter::ControlledByYou,
             Modifier::PreventDamageFrom(&Filter::Any),

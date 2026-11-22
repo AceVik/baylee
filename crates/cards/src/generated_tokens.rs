@@ -6480,6 +6480,59 @@ pub static AVATAR_X_X_WHITE_AA53C9B55: TokenDef = TokenDef {
     ..TokenDef::DEFAULT
 };
 
+/// */* black Phyrexian Minion.
+pub static PHYREXIAN_MINION_X_X_BLACK: TokenDef = TokenDef {
+    name: "Phyrexian Minion",
+    colors: ColorSet::from_slice(&[Color::Black]),
+    types: TypeSet::CREATURE,
+    subtypes: &[creature::PHYREXIAN, creature::MINION],
+    ..TokenDef::DEFAULT
+};
+
+/// */* black Spirit.
+pub static SPIRIT_X_X_BLACK: TokenDef = TokenDef {
+    name: "Spirit",
+    colors: ColorSet::from_slice(&[Color::Black]),
+    types: TypeSet::CREATURE,
+    subtypes: &[creature::SPIRIT],
+    ..TokenDef::DEFAULT
+};
+
+/// */* colorless ChosenType.
+pub static CHOSENTYPE_X_X: TokenDef = TokenDef {
+    name: "ChosenType",
+    types: TypeSet::CREATURE,
+    ..TokenDef::DEFAULT
+};
+
+/// */* blue Illusion.
+pub static ILLUSION_X_X_BLUE: TokenDef = TokenDef {
+    name: "Illusion",
+    colors: ColorSet::from_slice(&[Color::Blue]),
+    types: TypeSet::CREATURE,
+    subtypes: &[creature::ILLUSION],
+    ..TokenDef::DEFAULT
+};
+
+/// */* blue Orb with flying.
+pub static ORB_X_X_BLUE_FLYING: TokenDef = TokenDef {
+    name: "Orb",
+    colors: ColorSet::from_slice(&[Color::Blue]),
+    types: TypeSet::CREATURE,
+    subtypes: &[creature::ORB],
+    keywords: KeywordSet::FLYING,
+    ..TokenDef::DEFAULT
+};
+
+/// */* white Reflection.
+pub static REFLECTION_X_X_WHITE: TokenDef = TokenDef {
+    name: "Reflection",
+    colors: ColorSet::from_slice(&[Color::White]),
+    types: TypeSet::CREATURE,
+    subtypes: &[creature::REFLECTION],
+    ..TokenDef::DEFAULT
+};
+
 /// Every token there is, in the order ids were assigned.
 pub static ALL: &[&TokenDef] = &[
     &tokens::ALLY_1_1_WHITE,
@@ -7762,6 +7815,12 @@ pub static ALL: &[&TokenDef] = &[
     &HUMAN_ROGUE_1_1_WHITE,
     &KNIGHT_2_2_WHITE_PROTECTION_FROM_RED,
     &AVATAR_X_X_WHITE_AA53C9B55,
+    &PHYREXIAN_MINION_X_X_BLACK,
+    &SPIRIT_X_X_BLACK,
+    &CHOSENTYPE_X_X,
+    &ILLUSION_X_X_BLUE,
+    &ORB_X_X_BLUE_FLYING,
+    &REFLECTION_X_X_WHITE,
 ];
 
 /// The entries a reader wrote, as a subset of [`ALL`] — never a second
@@ -8256,6 +8315,12 @@ pub static GENERATED: &[&TokenDef] = &[
     &HUMAN_ROGUE_1_1_WHITE,
     &KNIGHT_2_2_WHITE_PROTECTION_FROM_RED,
     &AVATAR_X_X_WHITE_AA53C9B55,
+    &PHYREXIAN_MINION_X_X_BLACK,
+    &SPIRIT_X_X_BLACK,
+    &CHOSENTYPE_X_X,
+    &ILLUSION_X_X_BLUE,
+    &ORB_X_X_BLUE_FLYING,
+    &REFLECTION_X_X_WHITE,
 ];
 
 /// Legacy duplicate ids and the canonical ids they now resolve to.

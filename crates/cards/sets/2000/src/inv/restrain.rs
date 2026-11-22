@@ -19,10 +19,11 @@ card!(
     ),],
     abilities = &[spell!(
         &[
-            Effect::ModifyTargets {
-                modifier: Modifier::PreventDamageFromIt,
-                duration: Duration::UntilEndOfTurn
-            },
+            Effect::continuous(
+                &Filter::This,
+                Modifier::PreventDamageFromIt,
+                Duration::UntilEndOfTurn
+            ),
             Effect::draw(1)
         ],
         targets = Some(TargetReq::one(TargetSpec::Object(

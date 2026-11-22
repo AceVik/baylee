@@ -8,14 +8,6 @@
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes;
 
-static CHECK1: Condition = Condition::AmountAtLeast(
-    Amount::CountOf {
-        filter: &Filter::Any,
-        zone: ZoneSel::GraveyardOf(PlayerRel::You),
-    },
-    7,
-);
-
 card!(
     index = index::PROFT_SINISTER_MASTERMIND,
     oracle_id = "a350856c-87f2-4605-999f-4e26aa362a55",
@@ -34,7 +26,7 @@ card!(
         toughness = Some(5),
     ),],
     abilities = &[
-        spell!(&[], condition = Some(CHECK1)),
+        spell!(&[], condition = Some(Condition::GraveyardCountAtLeast(7))),
         activated!(
             cost!("{B}", DiscardSelf),
             &[Effect::PumpTarget {

@@ -17,10 +17,11 @@ card!(
         types = TypeSet::INSTANT,
     ),],
     abilities = &[spell!(
-        &[Effect::ModifyTargets {
-            modifier: Modifier::PreventDamageFromIt,
-            duration: Duration::UntilEndOfTurn
-        }],
+        &[Effect::continuous(
+            &Filter::This,
+            Modifier::PreventDamageFromIt,
+            Duration::UntilEndOfTurn
+        )],
         targets = Some(TargetReq::x_targets(TargetSpec::Object(&Filter::CREATURE)))
     ),],
 );

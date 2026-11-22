@@ -7,14 +7,6 @@
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes;
 
-static CHECK1: Condition = Condition::AmountAtLeast(
-    Amount::CountOf {
-        filter: &Filter::Any,
-        zone: ZoneSel::GraveyardOf(PlayerRel::You),
-    },
-    5,
-);
-
 card!(
     index = index::RIVER_SERPENT,
     oracle_id = "d6f8c69f-e603-41f5-8f25-da8a102f7c8d",
@@ -38,7 +30,7 @@ card!(
         static_ability!(
             Filter::This,
             Modifier::AddKeyword(KeywordSet::CANT_ATTACK),
-            condition = Some(Condition::Not(&CHECK1))
+            condition = Some(Condition::Not(&Condition::GraveyardCountAtLeast(5)))
         ),
     ],
 );

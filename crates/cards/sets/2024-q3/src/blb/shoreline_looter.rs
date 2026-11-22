@@ -7,14 +7,6 @@
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes;
 
-static CHECK1: Condition = Condition::AmountAtLeast(
-    Amount::CountOf {
-        filter: &Filter::Any,
-        zone: ZoneSel::GraveyardOf(PlayerRel::You),
-    },
-    7,
-);
-
 card!(
     index = index::SHORELINE_LOOTER,
     oracle_id = "c15cad77-e70f-42cc-a9f5-50e1fd8c9c96",
@@ -36,7 +28,7 @@ card!(
             &[
                 Effect::draw(1),
                 Effect::IfCondition {
-                    condition: Condition::Not(&CHECK1),
+                    condition: Condition::Not(&Condition::GraveyardCountAtLeast(7)),
                     then: &[Effect::DiscardForPlayers {
                         who: PlayerRel::You,
                         count: 1

@@ -40,6 +40,6 @@ card!(
         &[Effect::CreateToken {
             token: &generated_tokens::TREASURE
         }],
-        condition = Some(Condition::ControlCount(&CHECK1, 1))
+        condition = Some(Condition::BattlefieldCount(&CHECK1, 1))
     ),],
 );

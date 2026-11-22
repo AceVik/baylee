@@ -86,6 +86,7 @@ card!(
                         amount: Amount::Fixed(3),
                         target: TargetSpec::AnyTarget
                     }],
+                    zone = TriggerZone::Command,
                     targets = Some(TargetReq::one(TargetSpec::AnyTarget))
                 )]
             }]
