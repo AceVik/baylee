@@ -4085,9 +4085,7 @@ impl Tx<'_> {
                             effects
                         } else if target.is_none() && snapshot.peek("ReplacementEffects").is_some()
                         {
-                            *p = Params {
-                                entries: Vec::new(),
-                            };
+                            *p = Params::default();
                             *self.unclaimed.borrow_mut() = saved_unclaimed;
                             self.body.statics.truncate(saved_statics_len);
                             let mut dummy_chain = Chain::default();

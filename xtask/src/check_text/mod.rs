@@ -450,6 +450,8 @@ const OFFERS_A_CHOICE: &[&str] = &[
     "Cipher",
     "MayEffectFromOpeningHand",
     "rider: Copy",
+    "MayCastWithAltCost",
+    "can_repeat_modes: true",
 ];
 
 pub(crate) fn check_optional_clauses_are_offered(
@@ -953,8 +955,8 @@ pub(crate) fn check_scope_matches_the_text(
         || built.contains("ObjectOfEachOpponent(")
         || built.contains("PlayersOrTheirPermanents(Opponent)")
         || built.contains("PlayersOrTheirPermanents(EachOpponent)")
-        || (built.contains("TargetSpec::AnyOpponent")
-            && built.contains("controlled_by: Some(PlayerRel::Chosen)"))
+        || (built.contains("AnyOpponent")
+            && built.contains("controlled_by: Some(Chosen)"))
         || built.contains("OpponentControlCountAtMost(")
         || built.contains("PayLifeForPtCapWhiteOpponents")
         // These restrict the controller of the effect/spell/ability,

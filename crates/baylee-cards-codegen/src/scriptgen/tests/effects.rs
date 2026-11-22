@@ -5811,3 +5811,19 @@ fn wave23b_excess_damage_refusals() {
         assert!(refused(bad), "must refuse: {bad}");
     }
 }
+
+#[test]
+fn pump_opponents_only_lure_uses_opponent_creature_filter() {
+    let tarrasque = read(
+        "Name:You Look Upon the Tarrasque\nManaCost:4 G\nTypes:Instant\n\
+         A:SP$ Pump | ValidTgts$ Creature | NumAtt$ +5 | NumDef$ +5 \
+         | KW$ Indestructible & HIDDEN All creatures able to block CARDNAME do so. \
+         | SpellDescription$ Gather Your Courage — Target creature gets +5/+5 and gains indestructible until end of turn. All creatures your opponents control able to block that creature this turn do so.\n",
+    );
+    assert!(
+        tarrasque.abilities[0]
+            .contains("Modifier::MustBeBlockedByAllAbleMatching(&Filter::OPPONENT_CREATURE)"),
+        "{:?}",
+        tarrasque.abilities
+    );
+}

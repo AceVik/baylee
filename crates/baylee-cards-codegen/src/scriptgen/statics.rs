@@ -4315,7 +4315,10 @@ impl Tx<'_> {
                 entries.push((dst_key.to_string(), val));
             }
         }
-        Some(Params { entries })
+        Some(Params {
+            entries,
+            opponents_only_lure: false,
+        })
     }
 
     fn try_take_extended_present(

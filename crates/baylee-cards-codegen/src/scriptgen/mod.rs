@@ -249,6 +249,7 @@ const PROSE_KEYS: &[&str] = &[
 #[derive(Debug, Default, Clone)]
 struct Params {
     entries: Vec<(String, String)>,
+    opponents_only_lure: bool,
 }
 
 impl Params {
@@ -271,7 +272,18 @@ impl Params {
             let (key, value) = part.split_once('$')?;
             entries.push((key.trim().to_string(), value.trim().to_string()));
         }
-        Some((api, Self { entries }))
+        let opponents_only_lure = entries.iter().any(|(k, v)| {
+            k == "SpellDescription"
+                && v.to_ascii_lowercase()
+                    .contains("creatures your opponents control able to block")
+        });
+        Some((
+            api,
+            Self {
+                entries,
+                opponents_only_lure,
+            },
+        ))
     }
 
     fn take(&mut self, key: &str) -> Option<String> {

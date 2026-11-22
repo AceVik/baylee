@@ -3417,9 +3417,7 @@ impl Tx<'_> {
                 if p.peek("IsPresent") == Some(valid.as_str()) {
                     p.take("IsPresent");
                 }
-                let mut tmp = Params {
-                    entries: Vec::new(),
-                };
+                let mut tmp = Params::default();
                 if let Some(cmp) = p.take("ConditionCompare") {
                     tmp.entries.push(("PresentCompare".to_string(), cmp));
                 }

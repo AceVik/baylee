@@ -562,8 +562,16 @@ pub fn fetch_subtype_catalogs(
     // CR 205.3g (2026-09-25) and printed token type lines already include
     // these artifact types; Scryfall's catalog endpoint still omits them.
     // Keep the cached response unmodified and merge the documented supplement.
-    cats.artifact
-        .extend(["Heartwood", "Lander", "Mutagen", "Vibranium"].map(str::to_owned));
+    cats.artifact.extend(
+        [
+            "Communicator",
+            "Heartwood",
+            "Lander",
+            "Mutagen",
+            "Vibranium",
+        ]
+        .map(str::to_owned),
+    );
     cats.creature.extend(
         [
             "Aenar",
@@ -572,16 +580,27 @@ pub fn fetch_subtype_catalogs(
             "Betazoid",
             "Bolian",
             "Brikar",
+            "Cardassian",
             "Denobulan",
+            "Edosian",
             "El-Aurian",
+            "Excalbian",
             "Ferengi",
+            "Hirogen",
+            "Illyrian",
             "Jem'Hadar",
             "Kwejian",
+            "Medusan",
+            "Melkotian",
+            "Mindless-One",
+            "Na'kuhl",
             "Ocampa",
             "Romulan",
             "Talaxian",
+            "Tamarian",
             "Tribble",
             "Trill",
+            "Vau-N'Akat",
         ]
         .map(str::to_owned),
     );

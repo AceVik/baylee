@@ -769,20 +769,24 @@ impl Tx<'_> {
             }
             p.take("KW");
             p.take("IsCurse");
+            let lure = if p.opponents_only_lure {
+                "Modifier::MustBeBlockedByAllAbleMatching(&Filter::OPPONENT_CREATURE)"
+            } else {
+                "Modifier::MustBeBlockedByAllAble"
+            };
             return match p.take("Defined").as_deref() {
-                Some("Self") => Some(vec![
-                    "Effect::continuous(&Filter::This, Modifier::MustBeBlockedByAllAble, Duration::UntilEndOfTurn)"
-                        .to_string(),
-                ]),
-                None if target == "TargetSpec::AnyPlayer" && !self.on_a_spell => Some(vec![
-                    "Effect::continuous(&Filter::This, Modifier::MustBeBlockedByAllAble, Duration::UntilEndOfTurn)"
-                        .to_string(),
-                ]),
+                Some("Self") => Some(vec![format!(
+                    "Effect::continuous(&Filter::This, {lure}, Duration::UntilEndOfTurn)"
+                )]),
+                None if target == "TargetSpec::AnyPlayer" && !self.on_a_spell => {
+                    Some(vec![format!(
+                        "Effect::continuous(&Filter::This, {lure}, Duration::UntilEndOfTurn)"
+                    )])
+                }
                 None | Some("Targeted" | "ParentTarget") if target != "TargetSpec::AnyPlayer" => {
-                    Some(vec![
-                        "Effect::ModifyTargets { modifier: Modifier::MustBeBlockedByAllAble, duration: Duration::UntilEndOfTurn }"
-                            .to_string(),
-                    ])
+                    Some(vec![format!(
+                        "Effect::ModifyTargets {{ modifier: {lure}, duration: Duration::UntilEndOfTurn }}"
+                    )])
                 }
                 _ => None,
             };
@@ -840,7 +844,7 @@ impl Tx<'_> {
         let toughness = self.pump_side_ext(p.take("NumDef").as_deref().unwrap_or("0"))?;
         let (keywords, prevent_mods) = match p.take("KW") {
             None => ("KeywordSet::EMPTY".to_string(), Vec::new()),
-            Some(kw) => Self::pump_kw_and_prevent(&kw)?,
+            Some(kw) => Self::pump_kw_and_prevent(&kw, p.opponents_only_lure)?,
         };
         let kw_choices = match p.take("KWChoice") {
             None => None,
@@ -1159,7 +1163,10 @@ impl Tx<'_> {
         })
     }
 
-    fn pump_kw_and_prevent(kw: &str) -> Option<(String, Vec<&'static str>)> {
+    fn pump_kw_and_prevent(
+        kw: &str,
+        opponents_only_lure: bool,
+    ) -> Option<(String, Vec<&'static str>)> {
         let mut normal = Vec::new();
         let mut prevent = Vec::new();
         for part in kw.split('&').map(str::trim).filter(|s| !s.is_empty()) {
@@ -1185,7 +1192,13 @@ impl Tx<'_> {
                     prevent.push("Modifier::PreventAllDamageFromIt");
                 }
                 "HIDDEN All creatures able to block CARDNAME do so." => {
-                    prevent.push("Modifier::MustBeBlockedByAllAble");
+                    if opponents_only_lure {
+                        prevent.push(
+                            "Modifier::MustBeBlockedByAllAbleMatching(&Filter::OPPONENT_CREATURE)",
+                        );
+                    } else {
+                        prevent.push("Modifier::MustBeBlockedByAllAble");
+                    }
                 }
                 "HIDDEN CARDNAME attacks each combat if able." => {
                     prevent.push("Modifier::AttacksEachCombat");
@@ -1388,7 +1401,7 @@ impl Tx<'_> {
         let toughness = self.pump_all_side(p.take("NumDef").as_deref().unwrap_or("0"))?;
         let (keywords, extra_mods) = match p.take("KW") {
             None => ("KeywordSet::EMPTY".to_string(), Vec::new()),
-            Some(kw) => Self::pump_kw_and_prevent(&kw)?,
+            Some(kw) => Self::pump_kw_and_prevent(&kw, p.opponents_only_lure)?,
         };
         if !extra_mods.is_empty() && controlled_by != "None" {
             return None;
@@ -16086,7 +16099,7 @@ impl Tx<'_> {
                 let toughness = resolve_pump(sp.take("NumDef").as_deref().unwrap_or("0"))?;
                 let (keywords, extra_mods) = match sp.take("KW") {
                     None => ("KeywordSet::EMPTY".to_string(), Vec::new()),
-                    Some(kw) => Self::pump_kw_and_prevent(&kw)?,
+                    Some(kw) => Self::pump_kw_and_prevent(&kw, sp.opponents_only_lure)?,
                 };
                 let duration = match sp.take("Duration").as_deref() {
                     None | Some("UntilEndOfTurn") => "Duration::UntilEndOfTurn",
