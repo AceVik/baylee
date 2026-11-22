@@ -731,20 +731,13 @@ impl GameState {
         if self.per_turn.sacrificed_permanents.tracked
             && !self.per_turn.sacrificed_permanents.items.is_empty()
         {
-            let entries: Vec<_> = self
-                .per_turn
-                .sacrificed_permanents
-                .items
-                .iter()
-                .map(|rec| {
-                    (
-                        rec.controller,
-                        position(rec.source.object),
-                        rec.snapshot.characteristics().types,
-                    )
-                })
-                .collect();
-            entries.hash(h);
+            let records = &self.per_turn.sacrificed_permanents.items;
+            h.usize(records.len());
+            for record in records {
+                h.u8(record.controller.get());
+                h.u32(position(record.source.object));
+                hash_object_situation(h, &record.snapshot, self, position);
+            }
         }
     }
 
@@ -2334,6 +2327,12 @@ fn hash_sources_remembering(
         h.u64(digest);
         memo.push((Arc::clone(source), digest));
     }
+}
+
+pub(super) fn sacrifice_snapshot_digest(snapshot: &GameObject) -> u64 {
+    let mut hash = Hasher::new();
+    hash_object(&mut hash, snapshot);
+    hash.finish()
 }
 
 #[allow(clippy::too_many_lines)] // one line per field: the list is the guard

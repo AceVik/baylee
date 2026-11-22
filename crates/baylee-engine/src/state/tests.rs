@@ -1647,6 +1647,25 @@ fn actual_turn_counts_participate_in_snapshot_identity() {
     }
 }
 
+#[test]
+fn sacrificed_permanent_characteristics_participate_in_both_hashes() {
+    let (mut first, id) = hash_fixture();
+    let object = first.object(id).unwrap().clone();
+    let source = first.source_identity(id).unwrap();
+    let records = &mut first.per_turn.sacrificed_permanents;
+    records.tracked = true;
+    records.items.push(SacrificedPermanentRecord {
+        source,
+        controller: object.controller,
+        snapshot: Arc::new(object),
+    });
+    let mut second = first.clone();
+    let snapshot = Arc::make_mut(&mut second.per_turn.sacrificed_permanents.items[0].snapshot);
+    Arc::make_mut(&mut snapshot.base).power = Some(7);
+    assert_ne!(first.snapshot_hash(), second.snapshot_hash());
+    assert_ne!(first.loop_signature(), second.loop_signature());
+}
+
 /// A pool's producer affects future cast triggers, but production IDs and
 /// splitting one production into several equal batches do not affect rules.
 #[test]

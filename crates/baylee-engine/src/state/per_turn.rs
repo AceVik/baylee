@@ -324,6 +324,7 @@ pub struct SacrificedPermanentRecord {
 impl std::hash::Hash for SacrificedPermanentRecord {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
         (self.source, self.controller).hash(state);
+        super::hash::sacrifice_snapshot_digest(&self.snapshot).hash(state);
     }
 }
 
