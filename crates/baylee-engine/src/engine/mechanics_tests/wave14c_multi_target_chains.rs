@@ -1244,12 +1244,10 @@ fn attach_slot_moves_an_enchant_player_aura_to_the_chosen_player() {
         vec![aura, spell],
         [Seat::default().holding(&[C0, C1]), Seat::default()],
     );
-    let player_target = |player| PlayerAction::ChooseTargets {
-        objects: vec![],
-        players: vec![player],
-    };
     let curse = cast_from_hand(&mut engine, me(), C0);
-    engine.apply(me(), player_target(me())).unwrap();
+    engine
+        .apply(me(), PlayerAction::ChoosePlayer(me()))
+        .unwrap();
     settle(&mut engine, me());
     assert_eq!(
         engine.state().object(curse).unwrap().attached_player(),
@@ -1265,7 +1263,15 @@ fn attach_slot_moves_an_enchant_player_aura_to_the_chosen_player() {
             },
         )
         .unwrap();
-    engine.apply(me(), player_target(them())).unwrap();
+    engine
+        .apply(
+            me(),
+            PlayerAction::ChooseTargets {
+                objects: vec![],
+                players: vec![them()],
+            },
+        )
+        .unwrap();
     engine.apply(me(), PlayerAction::PassPriority).unwrap();
     engine.apply(them(), PlayerAction::PassPriority).unwrap();
     engine.apply(me(), PlayerAction::YesNo(true)).unwrap();
