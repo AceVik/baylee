@@ -109,7 +109,9 @@
 // ChooseCardEx (`then`, `for_unchosen`) and SeparateIntoTwoPiles (`chosen_pile`,
 // `unchosen_pile`) add two walker-tested bodies each.
 // WithSecondTarget and WithThirdTarget add one walker-tested body each.
-const NESTING_FIELDS: usize = 115;
+// PreventNextDamageWithThen (`then`) adds one walker-tested body.
+// ChooseOneRestricted (`choices`) adds one walker-tested body.
+const NESTING_FIELDS: usize = 117;
 
 /// How many variants those twenty-one fields are spread across.
 ///
@@ -188,7 +190,10 @@ const NESTING_FIELDS: usize = 115;
 /// (`choose_card_ex_and_separate_into_two_piles_branches_are_visited`).
 /// `WithSecondTarget` and `WithThirdTarget` are the ninety-ninth and hundredth
 /// (`with_second_and_third_target_bodies_are_visited`).
-const CARRYING_VARIANTS: usize = 100;
+/// `PreventNextDamageWithThen` is the hundred-first.
+/// `ChooseOneRestricted` is the hundred-second
+/// (`choose_one_restricted_branches_and_sacrifice_any_number_are_visited`).
+const CARRYING_VARIANTS: usize = 102;
 
 /// The floor under the reader itself.
 ///

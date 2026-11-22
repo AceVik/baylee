@@ -106,9 +106,10 @@ pub enum Amount {
     /// Moaning Well): likewise, its toughness. Never negative.
     SacrificedToughness,
     /// "The total power of the creatures sacrificed this way" (Sword of the
-    /// Ages): the sum of the powers the permanents a `CostPart::SacrificeX`
-    /// sacrificed had as they last existed on the battlefield (CR 608.2h;
-    /// the ruling), floored at 0 (CR 107.1b).
+    /// Ages, Angelic Aberration, Disciple of Bolas): the sum of the powers the
+    /// permanents sacrificed during this resolution or via a `CostPart::Sacrifice*`
+    /// payment had as they last existed on the battlefield (CR 608.2h), floored
+    /// at 0 (CR 107.1b).
     SacrificedTotalPower,
     /// "The amount of mana spent to cast this spell" (Memory Deluge): what
     /// the cast paid in mana (CR 601.2h), read off the stack object where
@@ -404,6 +405,20 @@ pub enum Amount {
     /// before flooring at `0`, e.g. *Ghalta, Primal Hunger*). Appended to
     /// preserve replay identities.
     TotalPowerAmong(&'static Filter),
+    /// Total toughness of permanents sacrificed during this resolution or as
+    /// part of paying this spell's or ability's cost, as they last existed on
+    /// the battlefield (CR 608.2h), floored at 0 (CR 107.1b). Appended to
+    /// preserve replay identities.
+    SacrificedTotalToughness,
+    /// Total mana value of permanents sacrificed during this resolution or as
+    /// part of paying this spell's or ability's cost, as they last existed on
+    /// the battlefield (CR 608.2h). Appended to preserve replay identities.
+    SacrificedTotalManaValue,
+    /// Number of distinct colors among permanents sacrificed during this
+    /// resolution or as part of paying this spell's or ability's cost, as they
+    /// last existed on the battlefield (CR 608.2h; *Bound*). Appended to
+    /// preserve replay identities.
+    SacrificedDistinctColors,
 }
 
 /// The recipient [`Amount::DamageThisTurn`] counts.
@@ -508,6 +523,10 @@ pub enum ThisWay {
     /// [`crate::Modifier::ReplaceOrPreventDamageWithThen`]. Appended to
     /// preserve replay identities.
     DamagePrevented,
+    /// Number of permanents sacrificed earlier in this resolution (CR 701.21a),
+    /// including permanents sent elsewhere by a replacement effect (such as
+    /// exile under Rest in Peace). Appended to preserve replay identities.
+    SacrificedCount,
 }
 
 impl Amount {

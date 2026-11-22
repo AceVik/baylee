@@ -222,7 +222,7 @@ fn advance(
             })
             .map(|(_, held)| held.object)
             .collect();
-        sacrifice_together(state, &victims, Some(res.controller));
+        let _ = sacrifice_in_resolution(state, res, &victims, Some(res.controller));
         return None;
     }
 }

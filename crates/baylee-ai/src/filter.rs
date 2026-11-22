@@ -600,6 +600,7 @@ impl HeuristicAgent {
         view: &PlayerView,
         object: ObjectId,
         options: &[CastModeDesc],
+        effects: &[Effect],
     ) -> usize {
         // Not a cast at all: where a resolved spell goes (CR 616.1e).
         if let Some(ending) = crate::endings::own(view, object, options) {
@@ -666,7 +667,7 @@ impl HeuristicAgent {
             return room_choice;
         }
         let Some(modes) = Self::modal_modes(view, object) else {
-            return 0;
+            return self.choose_inline_mode(view, object, options, effects);
         };
         if options
             .iter()
@@ -1163,6 +1164,143 @@ impl HeuristicAgent {
         found.all(|other| std::ptr::eq(other, only)).then_some(only)
     }
 
+    /// Extracts inline `ChooseOne` / `ChooseOneRestricted` choices from the
+    /// resolving `effects` slice, falling back to `object`'s printed face.
+    pub(crate) fn inline_choices(
+        view: &PlayerView,
+        object: ObjectId,
+        effects: &[Effect],
+    ) -> Option<&'static [Effect]> {
+        fn find_in(effects: &[Effect]) -> Option<&'static [Effect]> {
+            for effect in effects {
+                match effect {
+                    Effect::ChooseOne { choices } | Effect::ChooseOneRestricted { choices, .. } => {
+                        return Some(choices);
+                    }
+                    _ => {
+                        let (a, b) = effect.branches();
+                        if let Some(found) = find_in(a).or_else(|| find_in(b)) {
+                            return Some(found);
+                        }
+                    }
+                }
+            }
+            None
+        }
+        if let Some(found) = find_in(effects) {
+            return Some(found);
+        }
+        let rules = view
+            .hand
+            .iter()
+            .find(|held| held.id == object)
+            .map(|held| RulesFace::from(held.card))
+            .or_else(|| view.object(object).and_then(|seen| seen.rules))?;
+        let mut found = baylee_cards::by_index(rules.card)?
+            .abilities_for_face(usize::from(rules.face))
+            .iter()
+            .filter_map(|ability| {
+                let slice = match ability {
+                    AbilityDef::Spell { effects, .. }
+                    | AbilityDef::Activated { effects, .. }
+                    | AbilityDef::ActivatedConditional { effects, .. }
+                    | AbilityDef::Triggered { effects, .. }
+                    | AbilityDef::SagaChapter { effects, .. }
+                    | AbilityDef::Loyalty { effects, .. } => *effects,
+                    _ => return None,
+                };
+                find_in(slice)
+            });
+        let only = found.next()?;
+        found.all(|other| std::ptr::eq(other, only)).then_some(only)
+    }
+
+    /// Whether an inline effect causes its resolving controller to lose the game.
+    pub(crate) fn effect_causes_self_loss(effect: &Effect) -> bool {
+        match effect {
+            Effect::LoseGame => true,
+            Effect::Sequence(parts) => parts.iter().any(Self::effect_causes_self_loss),
+            _ => false,
+        }
+    }
+
+    fn choose_inline_mode(
+        &self,
+        view: &PlayerView,
+        object: ObjectId,
+        options: &[CastModeDesc],
+        effects: &[Effect],
+    ) -> usize {
+        let Some(choices) = Self::inline_choices(view, object, effects) else {
+            return 0;
+        };
+        options
+            .iter()
+            .enumerate()
+            .filter_map(|(position, option)| match option.kind {
+                CastModeKind::Mode(orig_idx) => Some((position, choices.get(orig_idx)?)),
+                _ => None,
+            })
+            .max_by_key(|&(position, effect)| {
+                if Self::effect_causes_self_loss(effect) {
+                    return (-1_i8, -1_000_000_i64, std::cmp::Reverse(position));
+                }
+                let slice = std::slice::from_ref(effect);
+                let reach = match self.effects_reach(view, slice, object) {
+                    Some(true) => 2_i8,
+                    None => 1_i8,
+                    Some(false) => 0_i8,
+                };
+                let worth = self
+                    .aimed_worth(view, crate::worth::Origin::of(view, object), slice, None, 0)
+                    .map_or_else(
+                        || self.untargeted_effects_worth(view, slice, object),
+                        |(w, _)| w,
+                    );
+                (reach, worth, std::cmp::Reverse(position))
+            })
+            .map_or(0, |(position, _)| position)
+    }
+
+    fn untargeted_effects_worth(
+        &self,
+        view: &PlayerView,
+        effects: &[Effect],
+        this: ObjectId,
+    ) -> i64 {
+        effects
+            .iter()
+            .map(|effect| match effect {
+                Effect::SacrificeFilter { who, filter } => self
+                    .seats(*who, view)
+                    .unwrap_or_default()
+                    .into_iter()
+                    .filter_map(|seat| {
+                        let loss = view
+                            .battlefield_of(seat)
+                            .filter(|o| {
+                                self.filter_matches(
+                                    filter,
+                                    view,
+                                    o,
+                                    ZoneRef::Battlefield,
+                                    Some(this),
+                                ) == Some(true)
+                            })
+                            .map(|o| Self::permanent_worth(view, o))
+                            .min()?;
+                        Some(if self.hostile(seat, view.seat) {
+                            loss
+                        } else {
+                            -loss
+                        })
+                    })
+                    .sum(),
+                _ => 0,
+            })
+            .sum()
+    }
+
     /// Whether a mode reaches anything at all.
     ///
     /// A mode that needs a target is never asked: the engine offers a modal
@@ -1217,37 +1355,7 @@ impl HeuristicAgent {
         {
             return worth;
         }
-        mode.effects
-            .iter()
-            .map(|effect| match effect {
-                Effect::SacrificeFilter { who, filter } => self
-                    .seats(*who, view)
-                    .unwrap_or_default()
-                    .into_iter()
-                    .filter_map(|seat| {
-                        let loss = view
-                            .battlefield_of(seat)
-                            .filter(|o| {
-                                self.filter_matches(
-                                    filter,
-                                    view,
-                                    o,
-                                    ZoneRef::Battlefield,
-                                    Some(this),
-                                ) == Some(true)
-                            })
-                            .map(|o| Self::permanent_worth(view, o))
-                            .min()?;
-                        Some(if self.hostile(seat, view.seat) {
-                            loss
-                        } else {
-                            -loss
-                        })
-                    })
-                    .sum(),
-                _ => 0,
-            })
-            .sum()
+        self.untargeted_effects_worth(view, mode.effects, this)
     }
 
     /// Which seats a [`PlayerRel`] names, from the view alone.
@@ -1358,6 +1466,7 @@ impl HeuristicAgent {
                 _ => None,
             },
             Effect::SacrificeFilter { who, filter }
+            | Effect::SacrificeAnyNumber { who, filter }
             | Effect::DestroyChosenForPlayers { who, filter }
             | Effect::TapAllOf { who, filter } => {
                 self.battlefield_has(filter, view, &self.seats(*who, view)?, Some(this))

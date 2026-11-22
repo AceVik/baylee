@@ -74,6 +74,39 @@ pub(in crate::resolve) struct TargetRestoreFrame {
     pub(super) saved_targeted: bool,
 }
 
+/// Cumulative last-known-information stats across permanents sacrificed during
+/// this resolution (`CR 608.2h`, `CR 107.1b`).
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
+pub struct SacrificeStats {
+    /// Number of permanents actually sacrificed during this resolution.
+    pub count: u32,
+    /// Signed sum of LKI powers (floored at 0 when evaluated per `CR 107.1b`).
+    pub total_power: i64,
+    /// Signed sum of LKI toughnesses (floored at 0 when evaluated per `CR 107.1b`).
+    pub total_toughness: i64,
+    /// Saturating sum of LKI mana values.
+    pub total_mana_value: u32,
+    /// Union of LKI colors across all sacrificed permanents.
+    pub colors: baylee_core::color::ColorSet,
+}
+
+impl SacrificeStats {
+    /// Accumulate one sacrificed permanent's pre-departure LKI snapshot.
+    pub(crate) fn record(
+        &mut self,
+        lki: crate::object::SacrificedLki,
+        colors: baylee_core::color::ColorSet,
+    ) {
+        self.count = self.count.saturating_add(1);
+        self.total_power = self.total_power.saturating_add(i64::from(lki.power));
+        self.total_toughness = self
+            .total_toughness
+            .saturating_add(i64::from(lki.toughness));
+        self.total_mana_value = self.total_mana_value.saturating_add(lki.mana_value);
+        self.colors = self.colors.union(colors);
+    }
+}
+
 /// Public-zone objects found through earlier instructions of this resolution.
 #[derive(Clone, Debug, Default)]
 pub struct SubjectContext {
@@ -90,6 +123,7 @@ pub struct SubjectContext {
     pub(super) chosen_subtype: Option<baylee_core::ids::SubtypeId>,
     pub(super) chosen_color: Option<baylee_core::mana::ManaColor>,
     pub(super) sacrificed: Option<crate::object::SacrificedLki>,
+    pub(super) sacrifice_stats: SacrificeStats,
     circled_colors: baylee_core::color::ColorSet,
     acquisition: Option<u64>,
     /// Original ability source, separate from any successor found by its costs.
@@ -222,6 +256,7 @@ impl SubjectContext {
             chosen_subtype: None,
             chosen_color: None,
             sacrificed: paid.sacrificed_lki,
+            sacrifice_stats: SacrificeStats::default(),
             circled_colors: baylee_core::color::ColorSet::EMPTY,
             acquisition: None,
             source_version: None,
@@ -467,6 +502,14 @@ impl SubjectContext {
                     self.third_target_players,
                 )));
         }
+        if self.sacrifice_stats.count > 0 {
+            h = h
+                .wrapping_mul(31)
+                .wrapping_add(crate::state::structural_fingerprint(&(
+                    360_u16,
+                    self.sacrifice_stats,
+                )));
+        }
         h
     }
 }
@@ -558,7 +601,7 @@ fn aura_successor(state: &GameState, res: &Resolution) -> Option<DamageSourceRef
 }
 
 /// Event incarnation, or its successful public successor in this resolution.
-pub(super) fn event(state: &GameState, res: &Resolution) -> Option<DamageSourceRef> {
+pub(crate) fn event(state: &GameState, res: &Resolution) -> Option<DamageSourceRef> {
     let object = res
         .subject
         .event_identity
@@ -708,7 +751,7 @@ pub(super) fn event_subject(state: &GameState, res: &Resolution) -> Option<Damag
             _ => None,
         })
 }
-pub(super) fn is_current(state: &GameState, reference: DamageSourceRef) -> bool {
+pub(crate) fn is_current(state: &GameState, reference: DamageSourceRef) -> bool {
     state.object(reference.object).is_some_and(|o| {
         o.version == reference.version && !o.status.contains(crate::object::Status::PHASED_OUT)
     })

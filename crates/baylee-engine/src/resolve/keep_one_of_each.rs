@@ -222,6 +222,6 @@ fn advance(
             })
         })
         .collect();
-    super::sacrifice_together(state, &victims, Some(res.controller));
+    let _ = super::sacrifice_in_resolution(state, res, &victims, Some(res.controller));
     None
 }

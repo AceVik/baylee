@@ -1227,3 +1227,26 @@ fn with_second_and_third_target_bodies_are_visited() {
     assert_eq!(seen, 5);
     assert!(bounced && dealt && attached);
 }
+
+#[test]
+fn choose_one_restricted_branches_and_sacrifice_any_number_are_visited() {
+    static EFFECTS: &[Effect] = &[
+        Effect::SacrificeAnyNumber {
+            who: crate::PlayerRel::You,
+            filter: &Filter::CREATURE,
+        },
+        Effect::ChooseOneRestricted {
+            choices: &[Effect::draw(2), Effect::gain_life(4)],
+            restriction: crate::ModalRestriction::OncePerPermanent,
+        },
+    ];
+    let mut seen = 0;
+    let (mut sac, mut drew, mut gained) = (false, false, false);
+    Effect::walk(EFFECTS, &mut seen, &mut |effect| {
+        sac |= matches!(effect, Effect::SacrificeAnyNumber { .. });
+        drew |= matches!(effect, Effect::DrawCards { .. });
+        gained |= matches!(effect, Effect::GainLife { .. });
+    });
+    assert_eq!(seen, 4);
+    assert!(sac && drew && gained);
+}

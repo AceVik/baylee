@@ -400,6 +400,12 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
             (Pending::ChooseCastMode { player: p, .. }, PlayerAction::ChooseMode(index))
                 if *p == player =>
             {
+                let Some(kind) = (match &self.pending {
+                    Pending::ChooseCastMode { options, .. } => options.get(index).map(|o| o.kind),
+                    _ => None,
+                }) else {
+                    return Err(EngineError::IllegalAction("no such cast mode"));
+                };
                 if self.resolution.as_ref().is_some_and(|res| {
                     matches!(
                         res.awaiting,
@@ -407,6 +413,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                             resolve::AwaitingOp::Dungeon { .. }
                                 | resolve::AwaitingOp::MutatePosition
                                 | resolve::AwaitingOp::ChooseEffect { .. }
+                                | resolve::AwaitingOp::ChooseEffectRestricted { .. }
                                 | resolve::AwaitingOp::Colors { .. }
                                 | resolve::AwaitingOp::MoveCounter { .. }
                                 | resolve::AwaitingOp::OptionVote(_)
@@ -440,12 +447,6 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 // either back: the question stayed on the table with nothing
                 // behind it, and the next answer to it, however legal,
                 // panicked on the missing wizard.
-                let Some(kind) = (match &self.pending {
-                    Pending::ChooseCastMode { options, .. } => options.get(index).map(|o| o.kind),
-                    _ => None,
-                }) else {
-                    return Err(EngineError::IllegalAction("no such cast mode"));
-                };
                 // `take` once. Two `if let Some(…) = self.pending_plan.take()`
                 // in a row is one condition and two takes: the first arm
                 // *consumes* the plan whatever it holds, so the second could

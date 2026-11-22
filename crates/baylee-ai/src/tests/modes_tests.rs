@@ -427,3 +427,54 @@ fn cataclysm_is_scored_by_the_permanents_actually_sacrificed() {
         "each artifact creature covers two choices while the extra opposing creature dies"
     );
 }
+
+#[test]
+fn choose_one_restricted_avoids_lose_game_while_other_modes_remain() {
+    use baylee_cards_dsl::{Amount, Effect, ModalRestriction};
+    use baylee_core::mana::ManaCost;
+    use baylee_engine::choice::{CastModeDesc, CastModeKind};
+    static PACT_MODES: &[Effect] = &[
+        Effect::LoseGame,
+        Effect::GainLife {
+            amount: Amount::Fixed(4),
+        },
+        Effect::DrawCards {
+            amount: Amount::Fixed(2),
+        },
+    ];
+    static PACT_EFFECTS: &[Effect] = &[Effect::ChooseOneRestricted {
+        choices: PACT_MODES,
+        restriction: ModalRestriction::OncePerPermanent,
+    }];
+
+    let me = PlayerId::new(0);
+    let v = view(0, &[20, 20], vec![permanent(obj(10), me, 0)]);
+    let pending = Pending::ChooseCastMode {
+        player: me,
+        object: obj(10),
+        options: vec![
+            CastModeDesc {
+                index: 0,
+                kind: CastModeKind::Mode(0),
+                cost: ManaCost::ZERO,
+            },
+            CastModeDesc {
+                index: 1,
+                kind: CastModeKind::Mode(1),
+                cost: ManaCost::ZERO,
+            },
+        ],
+    };
+    let ctx = baylee_engine::engine::DecisionContext {
+        source: Some(obj(10)),
+        effects: PACT_EFFECTS,
+        ..Default::default()
+    };
+
+    let action = agent().act_with_context(&v, &pending, &ctx);
+    assert_eq!(
+        action,
+        PlayerAction::ChooseMode(1),
+        "AI avoids LoseGame (orig mode 0) when GainLife (orig mode 1) is available"
+    );
+}

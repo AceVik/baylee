@@ -44,10 +44,12 @@ pub(super) fn create_for_target(
     let you = res.controller;
     let count = amount2(&amount, state, you, res);
     if count == 0 {
+        res.subject.found.clear();
         return None;
     }
     let originals = resolve_originals(state, res, target);
     if originals.is_empty() {
+        res.subject.found.clear();
         return None;
     }
     let recipients = players_of(controller, state, you, res);
@@ -61,6 +63,7 @@ pub(super) fn create_for_target(
             all_made.extend(made);
         }
     }
+    super::remember_created_tokens(state, res, &all_made);
     if spec.attacking {
         attacking_tokens::start(state, res, all_made)
     } else {
@@ -78,6 +81,7 @@ pub(super) fn choose_and_create(
     let you = res.controller;
     let count = amount2(&amount, state, you, res);
     if count == 0 {
+        res.subject.found.clear();
         return None;
     }
     let context = res.rule_context();
@@ -90,7 +94,10 @@ pub(super) fn choose_and_create(
         })
         .collect();
     match options.as_slice() {
-        [] => None,
+        [] => {
+            res.subject.found.clear();
+            None
+        }
         [only] => finish_chosen(state, res, &[*only], count, spec),
         _ => {
             res.awaiting = Some(AwaitingOp::ChooseTokenCopy { count, spec });
@@ -117,6 +124,7 @@ pub(in crate::resolve) fn finish_chosen(
     let you = res.controller;
     let made = super::create_modified_token_copies_for(state, res, you, original, spec.mods, count);
     apply_token_riders(state, res, you, &made, spec);
+    super::remember_created_tokens(state, res, &made);
     if spec.attacking {
         attacking_tokens::start(state, res, made)
     } else {

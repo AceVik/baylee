@@ -793,6 +793,7 @@ impl GameState {
                             | crate::object::Rider::Suspected
                             | crate::object::Rider::RiotHaste
                             | crate::object::Rider::ExhaustedAbility(_)
+                            | crate::object::Rider::OncePerPermanentUsedMask { .. }
                             | crate::object::Rider::EntrySacrifices(_)
                             | crate::object::Rider::SecondChosenSubtype(_)
                             | crate::object::Rider::ChosenCardType(_)
@@ -876,6 +877,7 @@ impl GameState {
             obj.riders.retain(|rider| match rider {
                 crate::object::Rider::Uncounterable => to.zone() == Zone::Stack,
                 crate::object::Rider::Manifested => to.zone() == Zone::Battlefield,
+                crate::object::Rider::OncePerPermanentUsedMask { .. } => false,
                 // Foretell lasts for as long as the card remains exiled
                 // (CR 702.143a); a move from exile to exile does not end
                 // that. Every other move makes a new object (CR 400.7): the

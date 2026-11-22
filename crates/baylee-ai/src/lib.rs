@@ -931,7 +931,7 @@ impl HeuristicAgent {
             }
             Pending::ChooseCastMode {
                 object, options, ..
-            } => PlayerAction::ChooseMode(self.cast_mode(view, object, &options)),
+            } => PlayerAction::ChooseMode(self.cast_mode(view, object, &options, context.effects)),
             // Raging River's label: the side that stops this attacker least.
             Pending::ChoosePile {
                 piles,

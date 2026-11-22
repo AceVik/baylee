@@ -340,6 +340,33 @@ pub fn reduction_amount(
     }
 }
 
+/// Full mana-cost reduction (including colored and colorless symbols per
+/// CR 118.7a–g) contributed by a printed [`baylee_cards_dsl::CostReduction`].
+///
+/// Used by Power-up (`CostReduction::OwnManaCostIfEnteredThisTurn`), which
+/// reduces the activation's mana cost by the permanent's own printed/copiable
+/// mana cost if it entered the battlefield this turn.
+#[must_use]
+pub fn mana_cost_reduction(
+    state: &GameState,
+    reduction: Option<baylee_cards_dsl::CostReduction>,
+    source: ObjectId,
+) -> Option<ManaCost> {
+    match reduction {
+        Some(baylee_cards_dsl::CostReduction::OwnManaCostIfEnteredThisTurn) => {
+            let object = state.object(source)?;
+            if object.zone != Zone::Battlefield
+                || !state.per_turn.entered_battlefield.contains(&source)
+            {
+                return None;
+            }
+            let own = object.characteristics().mana_cost.with_x(0);
+            (own != ManaCost::ZERO).then_some(own)
+        }
+        _ => None,
+    }
+}
+
 /// CR 903.8's tax on casting `card` from the command zone, in generic mana:
 /// `{2}` for each previous cast of *this* commander from there.
 ///

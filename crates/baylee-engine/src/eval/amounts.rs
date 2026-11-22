@@ -297,7 +297,10 @@ pub fn amount_with_context(
         | Amount::ThisWayBy { .. }
         // A payment's sacrifices, read off the stack object
         // (`resolve::amount2`).
-        | Amount::SacrificedTotalPower => 0,
+        | Amount::SacrificedTotalPower
+        | Amount::SacrificedTotalToughness
+        | Amount::SacrificedTotalManaValue
+        | Amount::SacrificedDistinctColors => 0,
         Amount::DamageThisTurn { to, by, combat } => {
             damage_this_turn(state, you, context, *to, by, *combat)
         }

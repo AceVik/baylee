@@ -383,9 +383,10 @@ impl Resolution {
             Some(AwaitingOp::DestroyChosen { chosen, .. }) => {
                 chosen::held_choices(state, chosen, crate::event::ChosenAction::Destroy)
             }
-            Some(AwaitingOp::SacrificeFilter { chosen, .. }) => {
-                chosen::held_choices(state, chosen, crate::event::ChosenAction::Sacrifice)
-            }
+            Some(
+                AwaitingOp::SacrificeFilter { chosen, .. }
+                | AwaitingOp::SacrificeAnyNumber { chosen, .. },
+            ) => chosen::held_choices(state, chosen, crate::event::ChosenAction::Sacrifice),
             Some(AwaitingOp::ReturnChosen { chosen, .. }) => {
                 chosen::held_choices(state, chosen, crate::event::ChosenAction::ReturnToHand)
             }
@@ -906,17 +907,113 @@ pub(super) fn amount2(amount: &Amount, state: &GameState, you: PlayerId, res: &R
             .object(res.on_stack)
             .and_then(|o| o.paid.as_ref())
             .map_or(0, |p| p.mana_types_spent_on_x[color.index()]),
-        Amount::SacrificedTotalPower => state
-            .object(res.on_stack)
-            .and_then(|o| o.paid.as_ref())
-            .map_or(0, |p| {
-                let total: i64 = p
-                    .sacrificed_many
-                    .iter()
-                    .map(|(_, _, power)| i64::from(*power))
-                    .sum();
-                u32::try_from(total.max(0)).unwrap_or(u32::MAX)
-            }),
+        Amount::SacrificedTotalPower => {
+            if res.subject.sacrifice_stats.count > 0 {
+                u32::try_from(res.subject.sacrifice_stats.total_power.max(0)).unwrap_or(u32::MAX)
+            } else if let Some(p) = state.object(res.on_stack).and_then(|o| o.paid.as_ref()) {
+                if p.sacrificed_many.is_empty() {
+                    p.sacrificed_lki
+                        .map_or(0, |lki| u32::try_from(lki.power.max(0)).unwrap_or(0))
+                } else {
+                    let total: i64 = p
+                        .sacrificed_many
+                        .iter()
+                        .map(|(_, _, power)| i64::from(*power))
+                        .sum();
+                    u32::try_from(total.max(0)).unwrap_or(u32::MAX)
+                }
+            } else {
+                res.subject
+                    .sacrificed
+                    .map_or(0, |lki| u32::try_from(lki.power.max(0)).unwrap_or(0))
+            }
+        }
+        Amount::SacrificedTotalToughness => {
+            if res.subject.sacrifice_stats.count > 0 {
+                u32::try_from(res.subject.sacrifice_stats.total_toughness.max(0))
+                    .unwrap_or(u32::MAX)
+            } else if let Some(p) = state.object(res.on_stack).and_then(|o| o.paid.as_ref()) {
+                if p.sacrificed_many.is_empty() {
+                    p.sacrificed_lki
+                        .map_or(0, |lki| u32::try_from(lki.toughness.max(0)).unwrap_or(0))
+                } else {
+                    let total: i64 = p
+                        .sacrificed_many
+                        .iter()
+                        .map(|&(id, _, _)| {
+                            state
+                                .last_known_characteristics(id)
+                                .or_else(|| {
+                                    state
+                                        .object_or_departed(id)
+                                        .map(GameObject::characteristics)
+                                })
+                                .and_then(|c| c.toughness)
+                                .map_or(0, i64::from)
+                        })
+                        .sum();
+                    u32::try_from(total.max(0)).unwrap_or(u32::MAX)
+                }
+            } else {
+                res.subject
+                    .sacrificed
+                    .map_or(0, |lki| u32::try_from(lki.toughness.max(0)).unwrap_or(0))
+            }
+        }
+        Amount::SacrificedTotalManaValue => {
+            if res.subject.sacrifice_stats.count > 0 {
+                res.subject.sacrifice_stats.total_mana_value
+            } else if let Some(p) = state.object(res.on_stack).and_then(|o| o.paid.as_ref()) {
+                if p.sacrificed_many.is_empty() {
+                    p.sacrificed_lki.map_or(0, |lki| lki.mana_value)
+                } else {
+                    p.sacrificed_many
+                        .iter()
+                        .map(|&(id, _, _)| {
+                            state
+                                .last_known_characteristics(id)
+                                .or_else(|| {
+                                    state
+                                        .object_or_departed(id)
+                                        .map(GameObject::characteristics)
+                                })
+                                .map_or(0, Characteristics::mana_value)
+                        })
+                        .fold(0_u32, u32::saturating_add)
+                }
+            } else {
+                res.subject.sacrificed.map_or(0, |lki| lki.mana_value)
+            }
+        }
+        Amount::SacrificedDistinctColors => {
+            if res.subject.sacrifice_stats.count > 0 {
+                u32::from(res.subject.sacrifice_stats.colors.len())
+            } else if let Some(p) = state.object(res.on_stack).and_then(|o| o.paid.as_ref()) {
+                let mut colors = ColorSet::EMPTY;
+                if !p.sacrificed_many.is_empty() {
+                    for &(id, _, _) in &p.sacrificed_many {
+                        if let Some(c) = state.last_known_characteristics(id).or_else(|| {
+                            state
+                                .object_or_departed(id)
+                                .map(GameObject::characteristics)
+                        }) {
+                            colors = colors.union(c.colors);
+                        }
+                    }
+                } else if let Some((id, _)) = p.sacrificed
+                    && let Some(c) = state.last_known_characteristics(id).or_else(|| {
+                        state
+                            .object_or_departed(id)
+                            .map(GameObject::characteristics)
+                    })
+                {
+                    colors = colors.union(c.colors);
+                }
+                u32::from(colors.len())
+            } else {
+                0
+            }
+        }
         Amount::TappedPower => eval::tapped_power(state, res.on_stack),
         Amount::ThisWay(what) => this_way::count(state, res, *what, None),
         Amount::ThisWayBy { what, who } => players_of(*who, state, you, res)
@@ -2092,6 +2189,7 @@ fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> Option<Pendi
         | Effect::RaidingParty
         | Effect::ChoosePhaseToSkipThisTurn
         | Effect::ChooseOne { .. }
+        | Effect::ChooseOneRestricted { .. }
         | Effect::MayBehold { .. }
         | Effect::ChooseCardName { .. }
         | Effect::ChooseCreatureType { .. }
@@ -2367,9 +2465,67 @@ pub(super) fn run_nested_ops(
     run_nested_with(state, res, ops, targets)
 }
 
+/// Sacrifices `victims` simultaneously during a resolution (`CR 101.4`,
+/// `CR 603.10a`, `CR 701.21a`), capturing every pre-departure LKI snapshot
+/// before any permanent leaves the battlefield (`CR 608.2h`). Populates
+/// `res.subject.found` with the sacrificed objects' post-move identities,
+/// records `res.subject.sacrificed`, and accumulates
+/// `res.subject.sacrifice_stats`. Returns the victims actually sacrificed.
+pub(crate) fn sacrifice_in_resolution(
+    state: &mut GameState,
+    res: &mut Resolution,
+    victims: &[ObjectId],
+    cause_controller: Option<PlayerId>,
+) -> Vec<ObjectId> {
+    let entries: Vec<_> = victims
+        .iter()
+        .copied()
+        .filter(|&id| state.can_be_sacrificed(id, cause_controller))
+        .filter_map(|id| {
+            let obj = state
+                .object(id)
+                .filter(|o| o.zone == crate::zone::Zone::Battlefield)?;
+            let pre_version = obj.version;
+            let lki = crate::object::SacrificedLki::of(obj);
+            let colors = obj.characteristics().colors;
+            let departure = state.departure_snapshot(id);
+            Some((id, pre_version, lki, colors, departure))
+        })
+        .collect();
+    res.subject.found.clear();
+    let mut actually_sacrificed = Vec::with_capacity(entries.len());
+    for (victim, pre_version, lki, colors, departure) in entries {
+        if !state
+            .object(victim)
+            .is_some_and(|o| o.zone == crate::zone::Zone::Battlefield && o.version == pre_version)
+        {
+            continue;
+        }
+        if let Some(obj) = state.object_mut(victim) {
+            obj.kind = ObjectKind::Card;
+        }
+        let ok = state
+            .sacrifice_object_with_departure(victim, Cause::Effect, departure)
+            .is_ok();
+        let moved = state
+            .object(victim)
+            .is_none_or(|o| o.version != pre_version);
+        if ok && moved {
+            res.subject.sacrificed = Some(lki);
+            res.subject.sacrifice_stats.record(lki, colors);
+            if let Some(identity) = state.source_identity(victim) {
+                res.subject.found.push(identity);
+            }
+            actually_sacrificed.push(victim);
+        }
+    }
+    actually_sacrificed
+}
+
 /// Sacrifices `victims` as one event: every departure is read before any of
 /// them leaves, so a creature and the Aura on it go together and each
 /// leave trigger sees the board as it was (Lich's rulings).
+#[allow(dead_code)] // kept beside `sacrifice_in_resolution` for any resolution-free caller
 pub(super) fn sacrifice_together(
     state: &mut GameState,
     victims: &[ObjectId],
@@ -2427,7 +2583,7 @@ fn sacrifice_amount_or_lose(
             total: None,
         });
     }
-    sacrifice_together(state, &options, Some(you));
+    sacrifice_in_resolution(state, res, &options, Some(you));
     if options.len() < n {
         let _ = sba::lose_by_effect(state, you);
     }

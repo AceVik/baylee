@@ -14,6 +14,20 @@ struct TokenEntry {
     temporary_haste_source: Option<ObjectId>,
 }
 
+/// Records tokens created by the current instruction in `res.subject.found`
+/// (`Token.RememberTokens`) so follow-up instructions (`RepeatEachObject {
+/// only_found: true }`, `ChooseCardEx { zone: ChooseZone::Found }`,
+/// `UntapFound`, etc.) can act on them without altering `ThisWay` counters or
+/// clobbering `res.event_object`.
+pub(super) fn remember_created_tokens(state: &GameState, res: &mut Resolution, made: &[ObjectId]) {
+    res.subject.found.clear();
+    for &id in made {
+        if let Some(reference) = crate::entry::battlefield_reference(state, id) {
+            res.subject.found.push(reference);
+        }
+    }
+}
+
 /// Executes one token-creation effect.
 #[allow(clippy::too_many_lines)] // the family is one flat table
 pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> Option<Pending> {
@@ -32,7 +46,10 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
                 // the controller it had as it last existed on the
                 // battlefield (CR 608.2h), not the field on the exiled card.
                 let controller = state.last_known_controller(target_id).unwrap_or(you);
-                create_tokens_with_text(state, controller, token, None, 1, res.text);
+                let made = create_tokens_with_text(state, controller, token, None, 1, res.text);
+                remember_created_tokens(state, res, &made);
+            } else {
+                res.subject.found.clear();
             }
             None
         }
@@ -60,7 +77,10 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
             // that became an Elf is a copy of the Elf (CR 707.2), and `base`
             // is the artifact underneath it.
             if let Some(reference) = original {
-                create_modified_token_copies_for(state, res, you, reference, &[], count);
+                let made = create_modified_token_copies_for(state, res, you, reference, &[], count);
+                remember_created_tokens(state, res, &made);
+            } else {
+                res.subject.found.clear();
             }
             None
         }
@@ -78,6 +98,7 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
                 })
                 .collect();
             if options.is_empty() {
+                res.subject.found.clear();
                 return None;
             }
             res.awaiting = Some(AwaitingOp::Populate);
@@ -103,7 +124,10 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
             if let Some(id) = token
                 && let Some(base) = crate::layers::copiable_values(state, id)
             {
-                create_token_copies(state, you, id, &base, 1);
+                let made = create_token_copies(state, you, id, &base, 1);
+                remember_created_tokens(state, res, &made);
+            } else {
+                res.subject.found.clear();
             }
             None
         }
@@ -113,6 +137,7 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
         } => {
             if let Some(original) = res.targets.first().copied() {
                 let made = create_modified_token_copies(state, res, original, mods, 1);
+                remember_created_tokens(state, res, &made);
                 // One delayed trigger per token, naming that token and no
                 // other object: a token that has left and been replaced is
                 // not "it" (CR 400.7), and the version says so.
@@ -126,6 +151,8 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
                         });
                     }
                 }
+            } else {
+                res.subject.found.clear();
             }
             None
         }
@@ -156,14 +183,19 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
                         }),
                 );
             }
+            let mut all_made = Vec::new();
             for original in originals {
-                create_modified_token_copies(state, res, original, mods, 1);
+                all_made.extend(create_modified_token_copies(state, res, original, mods, 1));
             }
+            remember_created_tokens(state, res, &all_made);
             None
         }
         Effect::CreateTokenCopyOfSource { mods } => {
             if let Some(original) = subjects::source(state, res) {
-                create_modified_token_copies_for(state, res, you, original, mods, 1);
+                let made = create_modified_token_copies_for(state, res, you, original, mods, 1);
+                remember_created_tokens(state, res, &made);
+            } else {
+                res.subject.found.clear();
             }
             None
         }
@@ -173,7 +205,10 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
                 .is_some_and(crate::object::GameObject::kicked);
             let count = 1 + if kicked { u32::from(kicked_bonus) } else { 0 };
             if let Some(equipped) = state.object(res.source).and_then(|o| o.attached_to) {
-                create_modified_token_copies(state, res, equipped, mods, count);
+                let made = create_modified_token_copies(state, res, equipped, mods, count);
+                remember_created_tokens(state, res, &made);
+            } else {
+                res.subject.found.clear();
             }
             None
         }
@@ -183,14 +218,19 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
             amount,
         } => {
             let count = amount2(&amount, state, you, res);
+            let mut all_made = Vec::new();
             for controller in players_of(player, state, you, res) {
-                create_tokens_with_text(state, controller, token, None, count, res.text);
+                all_made.extend(create_tokens_with_text(
+                    state, controller, token, None, count, res.text,
+                ));
             }
+            remember_created_tokens(state, res, &all_made);
             None
         }
         Effect::CreateTokenN { token, amount } => {
             let count = amount2(&amount, state, you, res);
-            create_tokens_with_text(state, you, token, None, count, res.text);
+            let made = create_tokens_with_text(state, you, token, None, count, res.text);
+            remember_created_tokens(state, res, &made);
             None
         }
         Effect::CreateTokenModified {
@@ -200,7 +240,7 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
             haste,
         } => {
             let count = amount2(&amount, state, you, res);
-            create_tokens_entering(
+            let made = create_tokens_entering(
                 state,
                 you,
                 token,
@@ -212,6 +252,7 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
                     temporary_haste_source: haste.then_some(res.source),
                 },
             );
+            remember_created_tokens(state, res, &made);
             None
         }
         Effect::CreateTokenAttacking {
@@ -240,6 +281,7 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
             amount,
         } => {
             let created = create_tokens_with_text(state, you, token, None, 1, res.text);
+            remember_created_tokens(state, res, &created);
             let n = u16::try_from(amount2(&amount, state, you, res)).unwrap_or(u16::MAX);
             for id in created {
                 crate::entry::put_counters(state, res.controller, id, kind, n);
@@ -255,7 +297,9 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
             // One effect per token: `EffectFilter::ObjectIs` names exactly
             // one object, so a doubled token that shared its twin's effect
             // would be the printed 0/0 the definition leaves behind.
-            for id in create_tokens_with_text(state, you, token, None, 1, res.text) {
+            let created = create_tokens_with_text(state, you, token, None, 1, res.text);
+            remember_created_tokens(state, res, &created);
+            for id in created {
                 let modifier = baylee_cards_dsl::Modifier::ModifyPTPerCount { filter, p, t };
                 let list = state
                     .printed_ability_list(id)
@@ -293,11 +337,13 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
             None
         }
         Effect::CreateToken { token } => {
-            create_tokens_with_text(state, res.controller, token, None, 1, res.text);
+            let made = create_tokens_with_text(state, res.controller, token, None, 1, res.text);
+            remember_created_tokens(state, res, &made);
             None
         }
         Effect::Incubate { who, count } => {
             let n = u16::try_from(amount2(&count, state, you, res)).unwrap_or(u16::MAX);
+            let mut all_made = Vec::new();
             for controller in players_of(who, state, you, res) {
                 let created = create_tokens_with_text(
                     state,
@@ -307,7 +353,7 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
                     1,
                     res.text,
                 );
-                for id in created {
+                for &id in &created {
                     crate::entry::put_entry_counters(
                         state,
                         id,
@@ -315,7 +361,9 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
                         n,
                     );
                 }
+                all_made.extend(created);
             }
+            remember_created_tokens(state, res, &all_made);
             None
         }
         Effect::CreateTokenCopy {
@@ -384,7 +432,11 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
                 }
             }
             if let Some(owner) = owner {
-                create_tokens_with_text(state, owner, token, Some(cmc as i16), 1, res.text);
+                let made =
+                    create_tokens_with_text(state, owner, token, Some(cmc as i16), 1, res.text);
+                remember_created_tokens(state, res, &made);
+            } else {
+                res.subject.found.clear();
             }
             None
         }
@@ -401,6 +453,7 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
         } => {
             let count = amount2(&amount, state, you, res);
             if count == 0 {
+                res.subject.found.clear();
                 return None;
             }
             let p = i16::try_from(amount2(&power, state, you, res)).unwrap_or(i16::MAX);
@@ -409,6 +462,7 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
                 tapped,
                 temporary_haste_source: haste_until_eot.then_some(res.source),
             };
+            let mut all_made = Vec::new();
             let mut attacking_made = Vec::new();
             for recipient in players_of(who, state, you, res) {
                 let made = create_tokens_entering_pt(
@@ -421,10 +475,12 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
                     entry,
                 );
                 copy_tokens::schedule_cleanup(state, res, recipient, &made, cleanup);
+                all_made.extend(made.iter().copied());
                 if attacking && recipient == you {
                     attacking_made.extend(made);
                 }
             }
+            remember_created_tokens(state, res, &all_made);
             if attacking && !attacking_made.is_empty() {
                 super::attacking_tokens::start(state, res, attacking_made)
             } else {
@@ -764,9 +820,11 @@ fn create_tokens_entering_pt(
 /// definitions before any of the new objects is created.
 /// Creates the copy of `token` that populate chose (CR 701.36a), from its
 /// copiable values (CR 707.2).
-pub(super) fn populate(state: &mut GameState, you: PlayerId, token: ObjectId) {
+pub(super) fn populate(state: &mut GameState, you: PlayerId, token: ObjectId) -> Vec<ObjectId> {
     if let Some(base) = crate::layers::copiable_values(state, token) {
-        create_token_copies(state, you, token, &base, 1);
+        create_token_copies(state, you, token, &base, 1)
+    } else {
+        Vec::new()
     }
 }
 
@@ -948,6 +1006,7 @@ fn create_attacking_tokens(
             temporary_haste_source: None,
         },
     );
+    remember_created_tokens(state, res, &made);
     if sacrifice_at_next_end_step {
         for &id in &made {
             let version = state.object(id).map_or(0, |o| o.version);

@@ -129,7 +129,7 @@ impl HeuristicAgent {
             Pending::ChooseCastMode {
                 object, options, ..
             } => self
-                .mode_against(theirs, *object, options)
+                .mode_against(theirs, *object, options, context.effects)
                 .map(PlayerAction::ChooseMode),
             Pending::ChooseCounterKind { choices, .. } => choices
                 .iter()
@@ -255,6 +255,19 @@ impl HeuristicAgent {
                     .all(|id| theirs.battlefield_of(theirs.seat).any(|o| o.id == *id)) =>
             {
                 best(min)
+            }
+            // "You may sacrifice any number of ...": under opponent control,
+            // force them to sacrifice as many of their best permanents as legal.
+            ChoicePrompt::Generic
+                if context
+                    .effects
+                    .iter()
+                    .any(|e| matches!(e, Effect::SacrificeAnyNumber { .. }))
+                    && options
+                        .iter()
+                        .all(|id| theirs.battlefield_of(theirs.seat).any(|o| o.id == *id)) =>
+            {
+                best(max)
             }
             ChoicePrompt::Generic
                 if context
@@ -384,6 +397,7 @@ impl HeuristicAgent {
         theirs: &PlayerView,
         object: ObjectId,
         options: &[CastModeDesc],
+        effects: &[Effect],
     ) -> Option<usize> {
         if let Some(ending) = crate::endings::against(theirs, object, options) {
             return Some(ending);
@@ -397,7 +411,28 @@ impl HeuristicAgent {
         {
             return Some(normal);
         }
-        let modes = Self::modal_modes(theirs, object)?;
+        let Some(modes) = Self::modal_modes(theirs, object) else {
+            let choices = Self::inline_choices(theirs, object, effects)?;
+            let origin = Origin::of(theirs, object);
+            return options
+                .iter()
+                .enumerate()
+                .filter_map(|(position, option)| {
+                    let CastModeKind::Mode(i) = option.kind else {
+                        return None;
+                    };
+                    let effect = choices.get(i)?;
+                    let harm = if Self::effect_causes_self_loss(effect) {
+                        -1_000_000
+                    } else {
+                        self.ends(theirs, origin, None, std::slice::from_ref(effect), None, 0)
+                            .map_or(0, |(low, _)| low)
+                    };
+                    Some((harm, position))
+                })
+                .min()
+                .map(|(_, position)| position);
+        };
         let origin = Origin::of(theirs, object);
         let worst = |mode: &baylee_cards_dsl::SpellMode| -> Option<i64> {
             if mode.second_targets.is_some() {

@@ -117,6 +117,8 @@ impl GameState {
             starting_player: _,
             // Rewritten: entries naming a dealt card's old id are dropped.
             ability_fires: _,
+            // Rewritten: entries naming a dealt card's old id are dropped.
+            modal_modes_used: _,
             // Rewritten: the policy seed's `future` stream.
             rng: _,
             // Rewritten: `engine::simulation::transcript`.

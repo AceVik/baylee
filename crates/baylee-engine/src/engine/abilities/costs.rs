@@ -153,6 +153,9 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
             &mut mana,
             &mut parts,
         );
+        if let Some(own_reduction) = casting::mana_cost_reduction(&self.state, reduction, source) {
+            mana = mana.with_less_mana(&own_reduction, false);
+        }
         mana = mana.with_less_generic(off);
         let imposed = parts.len() - cost.parts.len();
         ActivationPrice {

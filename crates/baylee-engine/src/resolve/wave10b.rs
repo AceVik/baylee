@@ -190,7 +190,11 @@ pub(super) fn resolve_champion(
 }
 
 /// Resume `AwaitingOp::ChampionExile` (`CR 702.72a`).
-pub(super) fn resume_champion_exile(state: &mut GameState, res: &Resolution, chosen: &[ObjectId]) {
+pub(super) fn resume_champion_exile(
+    state: &mut GameState,
+    res: &mut Resolution,
+    chosen: &[ObjectId],
+) {
     let you = res.controller;
     if let Some(&card) = chosen.first()
         && let Some(owner) = state
@@ -235,7 +239,7 @@ pub(super) fn resume_champion_exile(state: &mut GameState, res: &Resolution, cho
     }
 }
 
-fn sacrifice_champion_self(state: &mut GameState, res: &Resolution) {
+fn sacrifice_champion_self(state: &mut GameState, res: &mut Resolution) {
     let Some(source) = super::subjects::source(state, res) else {
         return;
     };
@@ -244,7 +248,7 @@ fn sacrifice_champion_self(state: &mut GameState, res: &Resolution) {
             .object(source.object)
             .is_some_and(|o| o.controller == res.controller)
     {
-        let _ = state.sacrifice_object(source.object, Cause::Effect);
+        let _ = super::sacrifice_in_resolution(state, res, &[source.object], Some(res.controller));
     }
 }
 

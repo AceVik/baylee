@@ -91,6 +91,7 @@ impl GameState {
             previous_turn,
             starting_player,
             ability_fires,
+            modal_modes_used,
             rng,
             // A record of what happened, not an input to what happens next.
             // The two rules that used to read this turn's entries now read
@@ -299,6 +300,11 @@ impl GameState {
             entry[13..].copy_from_slice(&uses.to_le_bytes());
             xxhash_rust::xxh3::xxh3_64(&entry)
         });
+        if !modal_modes_used.is_empty() {
+            h.u8(255);
+            h.u16(362);
+            modal_modes_used.hash(&mut h);
+        }
         h.finish()
     }
 
@@ -1177,6 +1183,58 @@ fn hash_ability_tallies(state: &GameState, h: &mut Hasher, position: &impl Fn(Ob
         h.u32(index);
         h.u32(n);
     }
+    if !state.per_turn.modal_modes_this_turn.0.is_empty() {
+        let mut turn_masks: Vec<(u32, u8, u32, u64)> = state
+            .per_turn
+            .modal_modes_this_turn
+            .0
+            .iter()
+            .filter(|((id, _), mask)| {
+                **mask != 0
+                    && (state.source_identity(id.object) == Some(*id)
+                        || state.is_source_referenced(*id))
+            })
+            .map(|((id, index), mask)| {
+                (
+                    position(id.object),
+                    moves_since(state.object(id.object), id.version),
+                    *index,
+                    *mask,
+                )
+            })
+            .collect();
+        if !turn_masks.is_empty() {
+            turn_masks.sort_unstable();
+            h.u8(255);
+            h.u16(361);
+            turn_masks.hash(h);
+        }
+    }
+    if !state.modal_modes_used.is_empty() {
+        let mut perm_masks: Vec<(u32, u8, u32, u64)> = state
+            .modal_modes_used
+            .iter()
+            .filter(|((id, _), mask)| {
+                **mask != 0
+                    && (state.source_identity(id.object) == Some(*id)
+                        || state.is_source_referenced(*id))
+            })
+            .map(|((id, index), mask)| {
+                (
+                    position(id.object),
+                    moves_since(state.object(id.object), id.version),
+                    *index,
+                    *mask,
+                )
+            })
+            .collect();
+        if !perm_masks.is_empty() {
+            perm_masks.sort_unstable();
+            h.u8(255);
+            h.u16(362);
+            perm_masks.hash(h);
+        }
+    }
 }
 
 fn hash_attack_tap_rules(h: &mut Hasher, state: &GameState, position: &impl Fn(ObjectId) -> u32) {
@@ -1833,6 +1891,12 @@ fn hash_cast_keyword_rider(h: &mut Hasher, rider: &crate::object::Rider) {
         crate::object::Rider::OptionalCostPaid => {
             h.u8(255);
             h.u16(307);
+        }
+        crate::object::Rider::OncePerPermanentUsedMask { word, mask } => {
+            h.u8(255);
+            h.u16(363);
+            h.u16(*word);
+            h.u64(*mask);
         }
         _ => {}
     }
@@ -2708,6 +2772,12 @@ fn hash_object(h: &mut Hasher, obj: &GameObject) {
             Rider::OptionalCostPaid => {
                 h.u8(255);
                 h.u16(307);
+            }
+            Rider::OncePerPermanentUsedMask { word, mask } => {
+                h.u8(255);
+                h.u16(363);
+                h.u16(*word);
+                h.u64(*mask);
             }
         }
     }

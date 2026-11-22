@@ -233,6 +233,21 @@ pub enum CopyCleanup {
     ExileAtEndOfCombat,
 }
 
+/// Repeat-selection restriction on [`Effect::ChooseOneRestricted`]
+/// (`CR 700.2i`, `CR 400.7`; *Demonic Pact*, *Henrika Domnathi*).
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
+pub enum ModalRestriction {
+    /// No repeat restriction — any mode may be chosen each time.
+    None,
+    /// Each mode may be chosen at most once per turn on this permanent
+    /// incarnation; cleared at end of turn.
+    OncePerTurn,
+    /// Each mode may be chosen at most once on this permanent incarnation
+    /// ("choose one that hasn't been chosen"); cleared on zone change per
+    /// `CR 400.7`.
+    OncePerPermanent,
+}
+
 /// A single effect operation.
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 pub enum Effect {
@@ -5641,6 +5656,28 @@ pub enum Effect {
         untap: bool,
         /// Whether each affected permanent gains haste until end of turn.
         haste_until_eot: bool,
+    },
+    /// Each player matching `who` (in APNAP order, CR 101.4) chooses any number
+    /// of permanents they control matching `filter` (`min: 0`, `max: all`),
+    /// then all chosen permanents are sacrificed simultaneously (CR 603.10a,
+    /// CR 701.21a), populating `SubjectContext::found` and resolution LKI
+    /// sacrifice accumulators (*Angelic Aberration*, *Bound*). Appended to
+    /// preserve replay identities.
+    SacrificeAnyNumber {
+        /// Which player(s) may sacrifice any number of matching permanents.
+        who: PlayerRel,
+        /// Permanent filter evaluated from the resolving ability's controller.
+        filter: &'static Filter,
+    },
+    /// Like [`Self::ChooseOne`], but filters out modes disallowed by
+    /// `restriction` (`ModalRestriction::OncePerTurn` or
+    /// `ModalRestriction::OncePerPermanent`, CR 700.2i, CR 400.7; *Henrika
+    /// Domnathi*, *Demonic Pact*). Appended to preserve replay identities.
+    ChooseOneRestricted {
+        /// Inline resolution branches, indexed `0..choices.len()`.
+        choices: &'static [Effect],
+        /// Repeat-selection restriction scoped to the source permanent incarnation.
+        restriction: ModalRestriction,
     },
 }
 

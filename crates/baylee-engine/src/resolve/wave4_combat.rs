@@ -654,7 +654,7 @@ pub(super) fn start_exploit(state: &mut GameState, res: &mut Resolution) -> Opti
 
 /// Resumes `Effect::Exploit` once the controller picks `0` or `1` creature to
 /// sacrifice, recording `GameEvent::CreatureExploited` with pre-sacrifice LKI.
-pub(super) fn resume_exploit(state: &mut GameState, res: &Resolution, chosen: &[ObjectId]) {
+pub(super) fn resume_exploit(state: &mut GameState, res: &mut Resolution, chosen: &[ObjectId]) {
     let Some(&sac_id) = chosen.first() else {
         return;
     };
@@ -676,22 +676,12 @@ pub(super) fn resume_exploit(state: &mut GameState, res: &Resolution, chosen: &[
             object: res.source,
             version: state.object(res.source).map_or(0, |o| o.version),
         });
-    let before_version = state.object(sac_id).map(|o| o.version);
-    let departure = state.departure_snapshot(sac_id);
-    let mut departure_event = departure.as_ref().map(|d| d.event.clone());
+    let mut departure_event = state.departure_snapshot(sac_id).map(|d| d.event);
     if let Some(dep) = &mut departure_event {
         dep.sacrificed = true;
     }
-    if let Some(obj) = state.object_mut(sac_id)
-        && obj.is_card()
-    {
-        obj.kind = ObjectKind::Card;
-    }
-    let _ = state.sacrifice_object_with_departure(sac_id, Cause::Effect, departure);
-    if state
-        .object(sac_id)
-        .is_none_or(|o| o.zone != Zone::Battlefield || Some(o.version) != before_version)
-    {
+    let sacrificed = super::sacrifice_in_resolution(state, res, &[sac_id], Some(you));
+    if !sacrificed.is_empty() {
         state.journal.record_departure(
             GameEvent::CreatureExploited {
                 exploiter,

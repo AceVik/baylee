@@ -139,11 +139,11 @@ pub use effect::{
     DamageRedirectTo, DamageTo, DelayedDuration, DelayedObservation, DelayedStep,
     DelayedTriggerWhen, DivisionAmount, Effect, ExileMana, ExilePermission, ExilePlay, ExileUntil,
     Find, LookRest, ManaDistribution, ManaRestriction, ManaSource, ManaUse, ManaValueBound,
-    ManaValueCmp, MoveSubject, PeekPickDest, PeekRestDest, PlayCostMode, PlayCount, PlaySource,
-    PlayWindow, PlayerRel, ReflexiveEvent, ReflexiveWhen, RepeatDomain, RevealUntilFound,
-    RevealUntilRest, SearchDest, SourceLeaveAction, SpendRider, TargetChooser, TargetConstraint,
-    TargetReq, TargetSlot, TargetSpec, ThisWay, TokenDef, TriggerRemember, VoteObjectAction,
-    VoteOption, VoteOutcome, ZoneSel,
+    ManaValueCmp, ModalRestriction, MoveSubject, PeekPickDest, PeekRestDest, PlayCostMode,
+    PlayCount, PlaySource, PlayWindow, PlayerRel, ReflexiveEvent, ReflexiveWhen, RepeatDomain,
+    RevealUntilFound, RevealUntilRest, SearchDest, SourceLeaveAction, SpendRider, TargetChooser,
+    TargetConstraint, TargetReq, TargetSlot, TargetSpec, ThisWay, TokenDef, TriggerRemember,
+    VoteObjectAction, VoteOption, VoteOutcome, ZoneSel,
 };
 pub use filter::{Filter, OriginalExpansion, ZoneRef, ZoneRef as ZoneKind};
 pub use manaread::{

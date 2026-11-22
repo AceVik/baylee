@@ -270,7 +270,7 @@ pub(super) fn resume_inner(
                     })
                 })
             {
-                sacrifice_together(state, chosen, Some(res.controller));
+                let _ = super::sacrifice_in_resolution(state, res, chosen, Some(res.controller));
                 if on_payment {
                     return run_fallback(state, res, std::slice::from_ref(effect));
                 }
@@ -371,19 +371,9 @@ pub(super) fn resume_inner(
                     o.zone == crate::zone::Zone::Battlefield && o.controller == res.controller
                 });
                 if eligible {
-                    let sacrificed = state
-                        .object(victim)
-                        .map(|object| (object.version, crate::object::SacrificedLki::of(object)));
-                    sacrifice_together(state, chosen, Some(res.controller));
-                    let succeeded = sacrificed.filter(|(version, _)| {
-                        state
-                            .object(victim)
-                            .is_none_or(|object| object.version != *version)
-                    });
-                    if let Some((_, lki)) = succeeded {
-                        res.subject.sacrificed = Some(lki);
-                    }
-                    if qualifies && succeeded.is_some() {
+                    let sacrificed =
+                        super::sacrifice_in_resolution(state, res, &[victim], Some(res.controller));
+                    if qualifies && !sacrificed.is_empty() {
                         return run_fallback(state, res, std::slice::from_ref(effect));
                     }
                 }
@@ -462,7 +452,7 @@ pub(super) fn resume_inner(
                     })
                     .map(|o| o.owner)
             {
-                let _ = state.sacrifice_object(victim, Cause::Effect);
+                let _ = super::sacrifice_in_resolution(state, res, &[victim], Some(res.controller));
             }
         }
         AwaitingOp::SearchLibrary {
@@ -1381,7 +1371,53 @@ pub(super) fn resume_inner(
                     },
                 );
             }
-            chosen::sacrifice_held(state, &held, res.controller);
+            chosen::sacrifice_held(state, res, &held, res.controller);
+        }
+        AwaitingOp::SacrificeAnyNumber {
+            asked,
+            filter,
+            mut remaining,
+            chosen: mut held,
+        } => {
+            let was_multi = !held.is_empty();
+            let recorded = chosen::record_choices(state, asked, chosen, &mut held);
+            let next = chosen::next_sacrifice_asked(
+                state,
+                &mut remaining,
+                filter,
+                res.controller,
+                res.source,
+            );
+            if !recorded.is_empty() && (was_multi || next.is_some()) {
+                state.journal.record(crate::event::GameEvent::CardsChosen {
+                    player: asked,
+                    cards: recorded,
+                    action: crate::event::ChosenAction::Sacrifice,
+                });
+            }
+            if let Some((player, options)) = next {
+                let max = u8::try_from(options.len()).unwrap_or(u8::MAX);
+                res.awaiting = Some(AwaitingOp::SacrificeAnyNumber {
+                    asked: player,
+                    filter,
+                    remaining,
+                    chosen: held,
+                });
+                return next_choice(
+                    state,
+                    res,
+                    since,
+                    Pending::ChooseCards {
+                        player,
+                        options,
+                        min: 0,
+                        max,
+                        prompt: ChoicePrompt::Generic,
+                        total: None,
+                    },
+                );
+            }
+            chosen::sacrifice_held(state, res, &held, res.controller);
         }
         AwaitingOp::HeldSacrifice { player } => {
             super::for_each::held(state, res, player, chosen);
@@ -1399,22 +1435,14 @@ pub(super) fn resume_inner(
                         res.rule_context(),
                     )
                 });
-                let before = state
-                    .object(victim)
-                    .filter(|object| {
-                        object.zone == crate::zone::Zone::Battlefield
-                            && object.controller == res.controller
-                    })
-                    .map(|object| (object.version, crate::object::SacrificedLki::of(object)));
-                if let Some((version, lki)) = before {
-                    let paid = state.sacrifice_object(victim, Cause::Effect).is_ok()
-                        && state
-                            .object(victim)
-                            .is_none_or(|object| object.version != version);
-                    if paid {
-                        res.subject.sacrificed = Some(lki);
-                    }
-                    if paid
+                let eligible = state.object(victim).is_some_and(|object| {
+                    object.zone == crate::zone::Zone::Battlefield
+                        && object.controller == res.controller
+                });
+                if eligible {
+                    let sacrificed =
+                        super::sacrifice_in_resolution(state, res, &[victim], Some(res.controller));
+                    if !sacrificed.is_empty()
                         && was
                         && let Some(pending) = run_nested(state, res, then)
                     {
@@ -1423,7 +1451,9 @@ pub(super) fn resume_inner(
                 }
             }
         }
-        AwaitingOp::SacrificeAllChosen => sacrifice_together(state, chosen, Some(res.controller)),
+        AwaitingOp::SacrificeAllChosen => {
+            let _ = super::sacrifice_in_resolution(state, res, chosen, Some(res.controller));
+        }
         AwaitingOp::ReturnChosen {
             asked,
             filter,
@@ -1514,7 +1544,8 @@ pub(super) fn resume_inner(
         }
         AwaitingOp::Populate => {
             if let Some(&id) = chosen.first() {
-                tokens::populate(state, res.controller, id);
+                let made = tokens::populate(state, res.controller, id);
+                tokens::remember_created_tokens(state, res, &made);
             }
         }
         AwaitingOp::DiscardUpToForPlayers {
@@ -1560,7 +1591,7 @@ pub(super) fn resume_inner(
                     })
                 })
             {
-                sacrifice_together(state, chosen, Some(res.controller));
+                let _ = super::sacrifice_in_resolution(state, res, chosen, Some(res.controller));
                 return super::answers::run_fallback(state, res, effects);
             }
             if let Some(pending) = super::immediate::any_player_sac_or_damage_advance(
@@ -1674,6 +1705,7 @@ pub(super) fn resume_inner(
         | AwaitingOp::Dungeon { .. }
         | AwaitingOp::MutatePosition
         | AwaitingOp::ChooseEffect { .. }
+        | AwaitingOp::ChooseEffectRestricted { .. }
         | AwaitingOp::OptionVote(_)
         | AwaitingOp::LinkedPlay { .. }
         | AwaitingOp::MaskedCast
@@ -1794,15 +1826,32 @@ pub(super) fn resume_inner(
             required,
             effect,
         } => {
+            let is_sacrifice_x = matches!(cost, baylee_cards_dsl::CostPart::SacrificeX(_));
+            if is_sacrifice_x {
+                res.subject.found.clear();
+            }
             let count_ok = required.is_none_or(|req| chosen.len() == usize::from(req));
             let mut paid_count = 0u32;
             if count_ok && !chosen.is_empty() {
+                let pre_lki: Vec<_> = if is_sacrifice_x {
+                    chosen
+                        .iter()
+                        .map(|&card| {
+                            state.object(card).map(|o| {
+                                (
+                                    i32::from(o.characteristics().power.unwrap_or(0)),
+                                    crate::object::SacrificedLki::of(o),
+                                    o.characteristics().colors,
+                                )
+                            })
+                        })
+                        .collect()
+                } else {
+                    Vec::new()
+                };
                 let mut batch = crate::graveyard_order::PaymentBatch::new(state);
                 batch.before_part(state, cost);
-                for &card in chosen {
-                    let power = state
-                        .object(card)
-                        .map(|o| i32::from(o.characteristics().power.unwrap_or(0)));
+                for (idx, &card) in chosen.iter().enumerate() {
                     let disc_ref = state.source_identity(card);
                     if cost_wizard::pay(state, player, cost, card).is_ok() {
                         paid_count += 1;
@@ -1816,16 +1865,23 @@ pub(super) fn resume_inner(
                                 .discarded
                                 .push(reference);
                         }
-                        if matches!(cost, baylee_cards_dsl::CostPart::SacrificeX(_))
-                            && let Some(power) = power
-                            && let Some(version) = state.object(card).map(|o| o.version)
-                            && let Some(stack) = state.object_mut(res.on_stack)
+                        if is_sacrifice_x
+                            && let Some((power, lki, colors)) = pre_lki.get(idx).copied().flatten()
                         {
-                            stack
-                                .paid
-                                .get_or_insert_with(Default::default)
-                                .sacrificed_many
-                                .push((card, version, power));
+                            res.subject.sacrificed = Some(lki);
+                            res.subject.sacrifice_stats.record(lki, colors);
+                            if let Some(identity) = state.source_identity(card) {
+                                res.subject.found.push(identity);
+                            }
+                            if let Some(version) = state.object(card).map(|o| o.version)
+                                && let Some(stack) = state.object_mut(res.on_stack)
+                            {
+                                stack
+                                    .paid
+                                    .get_or_insert_with(Default::default)
+                                    .sacrificed_many
+                                    .push((card, version, power));
+                            }
                         }
                     }
                 }
@@ -1895,14 +1951,21 @@ pub(super) fn resume_inner(
             // same reading as `resume_tax_choice`: the answer was legal
             // when it was offered, so a refusal here is a rules outcome
             // and never a reason to abandon the resolution.
+            let is_sacrifice_cost = matches!(
+                cost,
+                baylee_cards_dsl::CostPart::Sacrifice(_)
+                    | baylee_cards_dsl::CostPart::SacrificeSelf
+                    | baylee_cards_dsl::CostPart::SacrificeGrantor
+            );
             let receipt = chosen
                 .first()
                 .and_then(|id| state.object(*id))
-                .filter(|_| matches!(cost, baylee_cards_dsl::CostPart::Sacrifice(_)))
+                .filter(|_| is_sacrifice_cost)
                 .map(|object| {
                     (
                         (object.id, object.version),
                         crate::object::SacrificedLki::of(object),
+                        object.characteristics().colors,
                     )
                 });
             let paid = chosen.first().is_some_and(|&chosen| {
@@ -1912,13 +1975,20 @@ pub(super) fn resume_inner(
                         .is_some_and(|source| subjects::is_current(state, source)))
                     && cost_wizard::pay(state, player, cost, chosen).is_ok()
             });
-            if paid
-                && let Some((sacrificed, lki)) = receipt
-                && let Some(stack) = state.object_mut(res.on_stack)
-            {
-                let record = stack.paid.get_or_insert_with(Default::default);
-                record.sacrificed = Some(sacrificed);
-                record.sacrificed_lki = Some(lki);
+            if is_sacrifice_cost {
+                res.subject.found.clear();
+            }
+            if paid && let Some((sacrificed, lki, colors)) = receipt {
+                res.subject.sacrificed = Some(lki);
+                res.subject.sacrifice_stats.record(lki, colors);
+                if let Some(identity) = state.source_identity(sacrificed.0) {
+                    res.subject.found.push(identity);
+                }
+                if let Some(stack) = state.object_mut(res.on_stack) {
+                    let record = stack.paid.get_or_insert_with(Default::default);
+                    record.sacrificed = Some(sacrificed);
+                    record.sacrificed_lki = Some(lki);
+                }
             }
             if paid == on_payment {
                 return run_fallback(state, res, std::slice::from_ref(effect));

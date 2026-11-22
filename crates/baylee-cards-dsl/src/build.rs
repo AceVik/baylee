@@ -109,6 +109,13 @@ pub struct ActivatedParts {
     ///
     /// `None` is the rules default: an ability costs what it prints.
     pub cost_reduction: Option<crate::cost::CostReduction>,
+    /// Shorthand for `limit = ActivationLimit::OncePerPermanent` (`CR 400.7`,
+    /// Power-up / once-per-permanent activations).
+    pub once_per_permanent: bool,
+    /// Shorthand for
+    /// `cost_reduction = Some(CostReduction::OwnManaCostIfEnteredThisTurn)`
+    /// (Power-up activation discount on the turn this permanent entered).
+    pub reduce_by_own_mana_cost_if_entered_this_turn: bool,
 }
 
 impl ActivatedParts {
@@ -131,6 +138,35 @@ impl ActivatedParts {
             limit: ActivationLimit::Unlimited,
             x_value: crate::ActivationX::Any,
             cost_reduction: None,
+            once_per_permanent: false,
+            reduce_by_own_mana_cost_if_entered_this_turn: false,
+        }
+    }
+
+    const fn resolved_limit(&self) -> ActivationLimit {
+        if self.once_per_permanent {
+            assert!(
+                matches!(
+                    self.limit,
+                    ActivationLimit::Unlimited | ActivationLimit::OncePerPermanent
+                ),
+                "an activated ability cannot combine `once_per_permanent = true` with another `limit`"
+            );
+            ActivationLimit::OncePerPermanent
+        } else {
+            self.limit
+        }
+    }
+
+    const fn resolved_cost_reduction(&self) -> Option<crate::cost::CostReduction> {
+        if self.reduce_by_own_mana_cost_if_entered_this_turn {
+            assert!(
+                self.cost_reduction.is_none(),
+                "an activated ability cannot combine `reduce_by_own_mana_cost_if_entered_this_turn = true` with another `cost_reduction`"
+            );
+            Some(crate::cost::CostReduction::OwnManaCostIfEnteredThisTurn)
+        } else {
+            self.cost_reduction
         }
     }
 
@@ -164,6 +200,8 @@ impl ActivatedParts {
             assert!(modes[index].additional_cost.is_none());
             index += 1;
         }
+        let limit = self.resolved_limit();
+        let cost_reduction = self.resolved_cost_reduction();
         AbilityDef::ModalActivated {
             cost: self.cost,
             modes,
@@ -171,9 +209,9 @@ impl ActivatedParts {
             mana_ability: self.mana_ability,
             zone: self.zone,
             condition: self.condition,
-            limit: self.limit,
+            limit,
             x_value: self.x_value,
-            cost_reduction: self.cost_reduction,
+            cost_reduction,
         }
     }
 
@@ -194,6 +232,8 @@ impl ActivatedParts {
                 panic!("an activated ability says `target` or `targets`, never both")
             }
         };
+        let limit = self.resolved_limit();
+        let cost_reduction = self.resolved_cost_reduction();
         match self.condition {
             None => AbilityDef::Activated {
                 cost: self.cost,
@@ -204,9 +244,9 @@ impl ActivatedParts {
                 timing: self.timing,
                 mana_ability: self.mana_ability,
                 zone: self.zone,
-                limit: self.limit,
+                limit,
                 x_value: self.x_value,
-                cost_reduction: self.cost_reduction,
+                cost_reduction,
             },
             Some(condition) => AbilityDef::ActivatedConditional {
                 cost: self.cost,
@@ -218,9 +258,9 @@ impl ActivatedParts {
                 mana_ability: self.mana_ability,
                 zone: self.zone,
                 condition,
-                limit: self.limit,
+                limit,
                 x_value: self.x_value,
-                cost_reduction: self.cost_reduction,
+                cost_reduction,
             },
         }
     }
@@ -1188,9 +1228,9 @@ pub mod prelude {
         DamageRedirectTo, DamageTo, DelayedDuration, DelayedObservation, DelayedStep,
         DelayedTriggerWhen, DivisionAmount, Effect, ExileMana, ExilePermission, ExilePlay,
         ExileUntil, Find, LookRest, ManaDistribution, ManaRestriction, ManaSource, ManaUse,
-        ManaValueBound, ManaValueCmp, MoveSubject, PeekPickDest, PeekRestDest, PlayCostMode,
-        PlayCount, PlaySource, PlayWindow, PlayerRel, ReflexiveEvent, ReflexiveWhen, RepeatDomain,
-        RevealUntilFound, RevealUntilRest, SearchDest, SourceLeaveAction, SpendRider,
+        ManaValueBound, ManaValueCmp, ModalRestriction, MoveSubject, PeekPickDest, PeekRestDest,
+        PlayCostMode, PlayCount, PlaySource, PlayWindow, PlayerRel, ReflexiveEvent, ReflexiveWhen,
+        RepeatDomain, RevealUntilFound, RevealUntilRest, SearchDest, SourceLeaveAction, SpendRider,
         TargetChooser, TargetConstraint, TargetReq, TargetSlot, TargetSpec, ThisWay, TokenDef,
         TriggerRemember, VoteObjectAction, VoteOption, VoteOutcome, ZoneSel,
     };

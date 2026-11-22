@@ -136,6 +136,7 @@ impl GameState {
             previous_turn: None,
             starting_player,
             ability_fires: rustc_hash::FxHashMap::default(),
+            modal_modes_used: std::collections::BTreeMap::new(),
             rng,
             journal: Journal::default(),
             names: Names::default(),

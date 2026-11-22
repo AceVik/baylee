@@ -82,6 +82,25 @@ impl<T: Hash> Hash for PerTurnTracked<T> {
     }
 }
 
+/// Per-turn chosen-mode bitmasks (`Effect::ChooseOneRestricted` with
+/// `ModalRestriction::OncePerTurn`, CR 700.2i), keyed by `(incarnation, ability_index)`.
+/// Writes nothing into [`Hash`] while empty so existing snapshot hashes are preserved;
+/// tags populated maps with disjoint hash tag `361_u16`.
+#[derive(Clone, Default, PartialEq, Eq, Debug)]
+pub struct PerTurnModalMasks(
+    pub std::collections::BTreeMap<(baylee_core::ids::DamageSourceRef, u32), u64>,
+);
+
+impl Hash for PerTurnModalMasks {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        if !self.0.is_empty() {
+            255_u8.hash(state);
+            361_u16.hash(state);
+            self.0.hash(state);
+        }
+    }
+}
+
 /// Pair-specific blocking requirement ("`blocker` blocks `attacker` this
 /// combat / this turn if able", CR 509.1c, CR 702.39a).
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
@@ -285,6 +304,9 @@ pub struct PerTurn {
     /// pre-departure snapshots for
     /// [`baylee_cards_dsl::SpellCastMetric::PermanentsSacrificedThisTurn`].
     pub sacrificed_permanents: PerTurnTracked<SacrificedPermanentRecord>,
+    /// Per-incarnation chosen-mode bitmasks for `ModalRestriction::OncePerTurn`
+    /// (`Effect::ChooseOneRestricted`, CR 700.2i), cleared at end of turn.
+    pub modal_modes_this_turn: PerTurnModalMasks,
 }
 
 /// One permanent sacrificed from the battlefield this turn
@@ -613,6 +635,7 @@ impl PerTurn {
             extra_phases_created: PerTurnCount::default(),
             cards_discarded: PerTurnTracked::default(),
             sacrificed_permanents: PerTurnTracked::default(),
+            modal_modes_this_turn: PerTurnModalMasks::default(),
         }
     }
 
@@ -751,6 +774,7 @@ impl PerTurn {
         self.extra_phases_created.0 = 0;
         self.cards_discarded.items.clear();
         self.sacrificed_permanents.items.clear();
+        self.modal_modes_this_turn.0.clear();
     }
 
     /// Resets all counters (called at every turn start).
@@ -819,6 +843,7 @@ impl PerTurn {
             extra_phases_created: _,
             cards_discarded: _,
             sacrificed_permanents: _,
+            modal_modes_this_turn: _,
         } = self;
         *untapped_lands_at_start = 0;
         *hand_size_at_start = 0;

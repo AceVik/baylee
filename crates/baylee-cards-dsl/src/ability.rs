@@ -52,6 +52,11 @@ pub enum ActivationLimit {
     /// Boast: this exact creature must have attacked this turn; normally once.
     /// Rules effects may allow a second activation during its controller's turn.
     Boast,
+    /// Once per permanent incarnation (`CR 400.7`; Power-up and non-Exhaust
+    /// "Activate only once" abilities). Tracked via a per-incarnation
+    /// activation bitmask and reset whenever the permanent changes zones.
+    /// Appended to preserve replay identities.
+    OncePerPermanent,
 }
 
 /// Where an activated ability may be activated from.

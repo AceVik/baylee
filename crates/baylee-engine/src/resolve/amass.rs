@@ -18,6 +18,7 @@ pub(super) fn start(
     if candidates(state, res.controller).is_empty() {
         let created =
             super::tokens::create_tokens_with_text(state, res.controller, token, None, 1, res.text);
+        super::tokens::remember_created_tokens(state, res, &created);
         if created.iter().any(|id| state.entries.contains(*id)) || state.entries.has_after() {
             res.awaiting = Some(AwaitingOp::Entry {
                 next: None,

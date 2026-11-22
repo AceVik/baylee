@@ -194,6 +194,39 @@ pub(super) fn record_choice(
     Some(id)
 }
 
+/// Records every distinct valid battlefield pick `asked` chose for an
+/// "any number" simultaneous sacrifice (`CR 101.4`, `CR 603.10a`).
+pub(super) fn record_choices(
+    state: &GameState,
+    asked: PlayerId,
+    chosen: &[ObjectId],
+    held: &mut Vec<(PlayerId, DamageSourceRef)>,
+) -> Vec<ObjectId> {
+    let mut recorded = Vec::new();
+    for &id in chosen {
+        if recorded.contains(&id) {
+            continue;
+        }
+        let Some(obj) = state.object(id).filter(|o| {
+            o.zone == Zone::Battlefield
+                && o.controller == asked
+                && !o.status.contains(Status::PHASED_OUT)
+        }) else {
+            continue;
+        };
+        let pick = DamageSourceRef {
+            object: id,
+            version: obj.version,
+        };
+        if held.iter().any(|(_, existing)| *existing == pick) {
+            continue;
+        }
+        held.push((asked, pick));
+        recorded.push(id);
+    }
+    recorded
+}
+
 /// Projects held battlefield choices for `PlayerView::held_choices` while
 /// later players in APNAP order still have choices to make (CR 101.4b).
 pub(super) fn held_choices(
@@ -228,6 +261,7 @@ pub(super) fn held_choices(
 /// remains on the battlefield under their control (CR 701.21a).
 pub(super) fn sacrifice_held(
     state: &mut GameState,
+    res: &mut super::Resolution,
     held: &[(PlayerId, DamageSourceRef)],
     cause_controller: PlayerId,
 ) {
@@ -244,7 +278,7 @@ pub(super) fn sacrifice_held(
         })
         .map(|(_, pick)| pick.object)
         .collect();
-    super::sacrifice_together(state, &victims, Some(cause_controller));
+    let _ = super::sacrifice_in_resolution(state, res, &victims, Some(cause_controller));
 }
 
 /// Destroys every held pick simultaneously (CR 101.4, CR 603.10a), retaining

@@ -685,6 +685,9 @@ impl Effect {
             | Effect::GrantTriggeredIfAbsent { target: _, trigger: _, effects, duration: _ }
             | Effect::AnyPlayerMayPayManaOr { effects, .. }
             | Effect::ChooseOne { choices: effects }
+            | Effect::ChooseOneRestricted {
+                choices: effects, ..
+            }
             | Effect::Sequence(effects)
             | Effect::IfCastFromGraveyard { effects }
             | Effect::MayDo { effects }
@@ -1458,7 +1461,8 @@ impl Effect {
             | Effect::PutCountersDivided { .. }
             | Effect::MoveAndModify { .. }
             | Effect::PutCounterChoice { .. }
-            | Effect::AttachSlot { .. } => (NONE, NONE),
+            | Effect::AttachSlot { .. }
+            | Effect::SacrificeAnyNumber { .. } => (NONE, NONE),
             Effect::VoteObjects { if_no_votes, .. } => (NONE, if_no_votes),
             Effect::WithSecondTarget(effects) | Effect::WithThirdTarget(effects) => {
                 (effects, NONE)

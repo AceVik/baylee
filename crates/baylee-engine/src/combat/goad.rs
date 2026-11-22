@@ -79,19 +79,10 @@ pub(crate) fn resolve_target(
             }
         }
         TargetSpec::EventObject => {
-            if let Some(id) = res.event_object {
-                let expected_version = state.object(res.on_stack).and_then(|o| {
-                    o.riders.iter().find_map(|r| match r {
-                        Rider::EventObjectIdentity(v, _) => Some(*v),
-                        _ => None,
-                    })
-                });
-                if state
-                    .object(id)
-                    .is_some_and(|o| expected_version.is_none_or(|v| o.version == v))
-                {
-                    goad_creature(state, id, goader);
-                }
+            if let Some(reference) = crate::resolve::subjects::event(state, res)
+                .filter(|r| crate::resolve::subjects::is_current(state, *r))
+            {
+                goad_creature(state, reference.object, goader);
             }
         }
         _ => {

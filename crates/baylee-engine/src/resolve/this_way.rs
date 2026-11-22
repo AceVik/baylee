@@ -271,6 +271,19 @@ pub(super) fn count(
             {
                 entry.excess_damage
             }
+            (
+                GameEvent::ZoneChanged {
+                    from: Zone::Battlefield,
+                    cause: Cause::Effect,
+                    ..
+                },
+                ThisWay::SacrificedCount,
+            ) => u32::from(
+                entry
+                    .departure
+                    .as_ref()
+                    .is_some_and(|d| d.sacrificed && mine(d.controller)),
+            ),
             _ => 0,
         };
         total = total.saturating_add(n);

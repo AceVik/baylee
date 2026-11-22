@@ -272,6 +272,73 @@ pub(super) fn exec_choice(
             res.awaiting = Some(AwaitingOp::ChooseEffect { choices });
             Some(pending)
         }
+        Effect::ChooseOneRestricted {
+            choices,
+            restriction,
+        } => {
+            let source = subjects::source(state, res);
+            let ability_index = state
+                .object(res.on_stack)
+                .and_then(|o| o.ability)
+                .map_or(0, |a| a.index);
+            let used_mask = match (restriction, source) {
+                (baylee_cards_dsl::ModalRestriction::None, _) | (_, None) => 0,
+                (baylee_cards_dsl::ModalRestriction::OncePerTurn, Some(src)) => state
+                    .per_turn
+                    .modal_modes_this_turn
+                    .0
+                    .get(&(src, ability_index))
+                    .copied()
+                    .unwrap_or(0),
+                (baylee_cards_dsl::ModalRestriction::OncePerPermanent, Some(src)) => state
+                    .modal_modes_used
+                    .get(&(src, ability_index))
+                    .copied()
+                    .unwrap_or(0),
+            };
+            // CR 700.2i / CR 608.2d: omit already-chosen modes under the
+            // restriction and impossible `UntapSelf` choices.
+            let filtered: Vec<(u8, &'static Effect)> = choices
+                .iter()
+                .enumerate()
+                .filter(|&(orig_idx, effect)| {
+                    if orig_idx < 64 && (used_mask & (1u64 << orig_idx)) != 0 {
+                        return false;
+                    }
+                    !matches!(effect, Effect::UntapSelf)
+                        || source.is_some_and(|src| {
+                            subjects::on_battlefield(state, src)
+                                && state.object(src.object).is_some_and(|object| {
+                                    object.status.contains(crate::object::Status::TAPPED)
+                                })
+                        })
+                })
+                .filter_map(|(orig_idx, effect)| u8::try_from(orig_idx).ok().map(|i| (i, effect)))
+                .collect();
+            if filtered.is_empty() {
+                return None;
+            }
+            let pending = Pending::ChooseCastMode {
+                player: you,
+                object: res.source,
+                options: filtered
+                    .iter()
+                    .enumerate()
+                    .map(|(pos, &(orig_idx, _))| crate::choice::CastModeDesc {
+                        index: u32::try_from(pos).expect("at most 256 choices"),
+                        kind: crate::choice::CastModeKind::Mode(usize::from(orig_idx)),
+                        cost: baylee_core::mana::ManaCost::ZERO,
+                    })
+                    .collect(),
+            };
+            res.awaiting = Some(AwaitingOp::ChooseEffectRestricted {
+                choices: filtered,
+                restriction,
+                source,
+                ability_index,
+            });
+            Some(pending)
+        }
         Effect::PayManaToPreventDamage { player, amount } => {
             let player = players_of(player, state, you, res).first().copied()?;
             let amount = amount2(&amount, state, you, res);

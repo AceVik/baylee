@@ -328,6 +328,30 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                     .push(crate::object::Rider::ExhaustedAbility(ability_index));
             }
         }
+        if limit == ActivationLimit::OncePerPermanent {
+            // Costs may have moved the source. Do not mark a new incarnation (CR 400.7).
+            if let Some(object) = self.state.object_mut(source)
+                && Some(object.version) == activated_source_version
+            {
+                let word = u16::try_from(ability_index / 64).unwrap_or(u16::MAX);
+                let bit = 1_u64 << (ability_index % 64);
+                if let Some(crate::object::Rider::OncePerPermanentUsedMask { mask, .. }) =
+                    object.riders.iter_mut().find(|r| {
+                        matches!(
+                            r,
+                            crate::object::Rider::OncePerPermanentUsedMask { word: w, .. }
+                                if *w == word
+                        )
+                    })
+                {
+                    *mask |= bit;
+                } else {
+                    object
+                        .riders
+                        .push(crate::object::Rider::OncePerPermanentUsedMask { word, mask: bit });
+                }
+            }
+        }
         if ability_index == crate::choice::TURN_FACE_UP {
             self.release_activation_capture();
             self.activation_target_choice =

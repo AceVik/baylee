@@ -545,6 +545,7 @@ pub(super) fn exec_immediate(
         | Effect::LookAtRandomFromHand { .. }
         | Effect::LookHandDiscard { .. }
         | Effect::SacrificeFilter { .. }
+        | Effect::SacrificeAnyNumber { .. }
         | Effect::SacrificeOneThen { .. }
         | Effect::ReturnChosenToHand { .. }
         | Effect::UntapChosen { .. }
@@ -635,7 +636,7 @@ pub(super) fn exec_immediate(
                 .zip(res.targets.first().copied())
                 .is_some_and(|(source, target)| control::exchange(state, source.object, target));
             if !exchanged && let Some(source) = source {
-                let _ = state.sacrifice_object(source.object, Cause::Effect);
+                let _ = super::sacrifice_in_resolution(state, res, &[source.object], Some(you));
             }
             None
         }
@@ -4148,6 +4149,7 @@ pub(super) fn exec_immediate(
         | Effect::ReturnChosenLinkedToBattlefield { .. }
         | Effect::MayPayEnergyOr { .. }
         | Effect::ChooseOne { .. }
+        | Effect::ChooseOneRestricted { .. }
         | Effect::MayBehold { .. }
         | Effect::ChooseCardName { .. }
         | Effect::ChooseCreatureType { .. }

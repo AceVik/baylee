@@ -183,6 +183,7 @@ fn remove_counters_self_create_tokens(
                 u32::from(removed),
                 res.text,
             );
+            tokens::remember_created_tokens(state, res, &created);
             for id in created {
                 if let Some(tok) = state.object_mut(id) {
                     tok.riders.push(crate::object::Rider::CreatedBy(source));
@@ -1568,6 +1569,46 @@ pub fn resume_effect_choice(state: &mut GameState, res: &mut Resolution, index: 
             unreachable!()
         };
         let flow = super::vote::resume_option_choice(state, res, vote, index);
+        subjects::flush(state, res);
+        return flow;
+    }
+    if matches!(
+        res.awaiting,
+        Some(AwaitingOp::ChooseEffectRestricted { .. })
+    ) {
+        let Some(AwaitingOp::ChooseEffectRestricted {
+            choices,
+            restriction,
+            source,
+            ability_index,
+        }) = res.awaiting.take()
+        else {
+            unreachable!()
+        };
+        let (orig_idx, selected) = *choices.get(index).expect("offered choice");
+        if orig_idx < 64
+            && let Some(src) = source
+        {
+            let bit = 1u64 << orig_idx;
+            match restriction {
+                baylee_cards_dsl::ModalRestriction::None => {}
+                baylee_cards_dsl::ModalRestriction::OncePerTurn => {
+                    *state
+                        .per_turn
+                        .modal_modes_this_turn
+                        .0
+                        .entry((src, ability_index))
+                        .or_insert(0) |= bit;
+                }
+                baylee_cards_dsl::ModalRestriction::OncePerPermanent => {
+                    *state
+                        .modal_modes_used
+                        .entry((src, ability_index))
+                        .or_insert(0) |= bit;
+                }
+            }
+        }
+        let flow = run_fallback(state, res, std::slice::from_ref(selected));
         subjects::flush(state, res);
         return flow;
     }

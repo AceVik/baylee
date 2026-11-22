@@ -840,6 +840,12 @@ pub struct GameState {
     /// the same kind of state and is **not** hashed, because it does not
     /// live here; that is a known hole and not this field's.
     pub ability_fires: rustc_hash::FxHashMap<(baylee_core::ids::DamageSourceRef, u32), u32>,
+    /// Per-incarnation chosen-mode bitmasks for `ModalRestriction::OncePerPermanent`
+    /// (`Effect::ChooseOneRestricted`, CR 700.2i, CR 400.7), keyed by
+    /// `(source_incarnation, ability_index)`. Zone changes increment the object
+    /// version, so a returning permanent starts with a fresh mask (`0`), while a
+    /// stack ability whose source departed retains its incarnation's mask (CR 608.2h).
+    pub modal_modes_used: std::collections::BTreeMap<(baylee_core::ids::DamageSourceRef, u32), u64>,
     /// Seeded randomness.
     pub rng: GameRng,
     /// The event journal.
@@ -1014,6 +1020,7 @@ impl GameState {
             previous_turn,
             starting_player,
             ability_fires,
+            modal_modes_used,
             rng,
             journal,
             names,
@@ -1145,6 +1152,7 @@ impl GameState {
             ("state.previous_turn", format!("{previous_turn:?}")),
             ("state.starting_player", format!("{starting_player:?}")),
             ("state.ability_fires", format!("{fires:?}")),
+            ("state.modal_modes_used", format!("{modal_modes_used:?}")),
             ("state.rng", format!("{rng:?}")),
             (
                 "state.journal",

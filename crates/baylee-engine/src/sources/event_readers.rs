@@ -316,6 +316,7 @@ fn reads_event(effect: &Effect) -> bool {
         | Effect::DiscardForPlayers { who, .. }
         | Effect::DiscardHand { who, .. }
         | Effect::SacrificeFilter { who, .. }
+        | Effect::SacrificeAnyNumber { who, .. }
         | Effect::ReturnChosenToHand { who, .. }
         | Effect::ShuffleIntoLibrary { who, .. }
         | Effect::ShuffleLibrary { who, .. }

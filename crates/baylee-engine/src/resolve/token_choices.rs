@@ -18,7 +18,7 @@ pub(super) fn fabricate(
                 .is_some_and(|o| o.zone == crate::zone::Zone::Battlefield)
         });
     let Some(source) = source else {
-        tokens::create_tokens_with_text(
+        let made = tokens::create_tokens_with_text(
             state,
             res.controller,
             token,
@@ -26,6 +26,7 @@ pub(super) fn fabricate(
             u32::from(count),
             res.text,
         );
+        tokens::remember_created_tokens(state, res, &made);
         return None;
     };
     res.awaiting = Some(AwaitingOp::Fabricate {
@@ -45,7 +46,7 @@ pub(super) fn fabricate(
 
 pub(super) fn finish_fabricate(
     state: &mut GameState,
-    res: &Resolution,
+    res: &mut Resolution,
     chosen: &[ObjectId],
     source: DamageSourceRef,
     count: u16,
@@ -57,6 +58,7 @@ pub(super) fn finish_fabricate(
             .object(source.object)
             .is_some_and(|o| o.zone == crate::zone::Zone::Battlefield)
     {
+        res.subject.found.clear();
         crate::replacement::put_counters_by(
             state,
             res.controller,
@@ -65,7 +67,7 @@ pub(super) fn finish_fabricate(
             count,
         );
     } else {
-        tokens::create_tokens_with_text(
+        let made = tokens::create_tokens_with_text(
             state,
             res.controller,
             token,
@@ -73,6 +75,7 @@ pub(super) fn finish_fabricate(
             u32::from(count),
             res.text,
         );
+        tokens::remember_created_tokens(state, res, &made);
     }
 }
 
@@ -84,6 +87,7 @@ pub(super) fn living_weapon(
     // Creation happens even if the Equipment has already left the battlefield.
     let source = subjects::source(state, res).filter(|id| subjects::is_current(state, *id));
     let created = tokens::create_tokens_with_text(state, res.controller, token, None, 1, res.text);
+    tokens::remember_created_tokens(state, res, &created);
     let source = source.filter(|id| {
         state
             .object(id.object)
@@ -130,7 +134,7 @@ pub(super) fn endure(
             .unwrap_or(res.controller);
         if !state.has_left(controller) {
             let size = i16::try_from(n).unwrap_or(i16::MAX);
-            tokens::create_tokens_with_text(
+            let made = tokens::create_tokens_with_text(
                 state,
                 controller,
                 &baylee_cards_dsl::SPIRIT_X_X_WHITE,
@@ -138,6 +142,7 @@ pub(super) fn endure(
                 1,
                 res.text,
             );
+            tokens::remember_created_tokens(state, res, &made);
         }
         return None;
     };
@@ -164,7 +169,7 @@ pub(super) fn endure(
 /// on `source`; `false` = create an `N/N` white Spirit creature token).
 pub(super) fn finish_endure(
     state: &mut GameState,
-    res: &Resolution,
+    res: &mut Resolution,
     answer: bool,
     source: DamageSourceRef,
     controller: PlayerId,
@@ -179,6 +184,7 @@ pub(super) fn finish_endure(
             .object(source.object)
             .is_some_and(|o| o.zone == crate::zone::Zone::Battlefield)
     {
+        res.subject.found.clear();
         crate::replacement::put_counters_by(
             state,
             controller,
@@ -188,7 +194,7 @@ pub(super) fn finish_endure(
         );
     } else {
         let size = i16::try_from(count).unwrap_or(i16::MAX);
-        tokens::create_tokens_with_text(
+        let made = tokens::create_tokens_with_text(
             state,
             controller,
             &baylee_cards_dsl::SPIRIT_X_X_WHITE,
@@ -196,5 +202,6 @@ pub(super) fn finish_endure(
             1,
             res.text,
         );
+        tokens::remember_created_tokens(state, res, &made);
     }
 }

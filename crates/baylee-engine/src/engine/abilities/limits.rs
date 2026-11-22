@@ -31,6 +31,19 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                         .contains(&crate::object::Rider::ExhaustedAbility(index))
                 });
             }
+            ActivationLimit::OncePerPermanent => {
+                let word = u16::try_from(index / 64).unwrap_or(u16::MAX);
+                let bit = 1_u64 << (index % 64);
+                return self.state.object(source).is_none_or(|o| {
+                    o.riders.iter().any(|r| {
+                        matches!(
+                            *r,
+                            crate::object::Rider::OncePerPermanentUsedMask { word: w, mask }
+                                if w == word && (mask & bit) != 0
+                        )
+                    })
+                });
+            }
             ActivationLimit::PerTurn(n) => u32::from(n),
             ActivationLimit::PerTurnAmount(amount) => {
                 crate::eval::amount(&amount, &self.state, player, source, None)

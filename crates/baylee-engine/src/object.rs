@@ -1301,6 +1301,16 @@ pub enum Rider {
     /// becomes (`CR 400.7d`) and onto spell copies (`CR 707.10`). Appended to
     /// preserve replay identities.
     OptionalCostPaid,
+    /// Per-incarnation bitmask of `ActivationLimit::OncePerPermanent` abilities
+    /// already activated (`word * 64 + bit` = ability index, `CR 400.7`;
+    /// Power-up & non-Exhaust once-per-permanent activations). Cleared on every
+    /// zone change. Appended to preserve replay identities.
+    OncePerPermanentUsedMask {
+        /// 64-bit word index (`ability_index / 64`).
+        word: u16,
+        /// Bitmask of activated abilities in this 64-ability block.
+        mask: u64,
+    },
 }
 
 /// What ends an "exile … until …" (CR 610.3), as [`Rider::Linked`] carries
@@ -1460,7 +1470,8 @@ impl Rider {
             | Self::ConspirePaid(_)
             | Self::TributePaid
             | Self::RepeatedModes(_)
-            | Self::OptionalCostPaid => false,
+            | Self::OptionalCostPaid
+            | Self::OncePerPermanentUsedMask { .. } => false,
         }
     }
 }

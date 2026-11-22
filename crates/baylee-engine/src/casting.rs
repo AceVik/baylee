@@ -78,8 +78,8 @@ pub(crate) use pricing::{
 };
 pub use pricing::{
     ability_mana_spending, commander_tax, convoke_sources, delve_sources, has_improvise,
-    keyword_priced, keyword_reduction, mana_is_wild, mana_spending, printed_reduction,
-    reduction_amount, tap_colors, tap_to_pay_sources, waterbend_sources,
+    keyword_priced, keyword_reduction, mana_cost_reduction, mana_is_wild, mana_spending,
+    printed_reduction, reduction_amount, tap_colors, tap_to_pay_sources, waterbend_sources,
 };
 
 /// Whether `player` can pay all non-mana flashback parts and mandatory

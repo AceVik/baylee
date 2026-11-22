@@ -460,6 +460,18 @@ fn this_way_entry_context(
             ctx.amount = Some(entry.excess_damage);
             Some(ctx)
         }
+        (
+            GameEvent::ZoneChanged {
+                object,
+                from: Zone::Battlefield,
+                cause: Cause::Effect,
+                ..
+            },
+            ThisWay::SacrificedCount,
+        ) => entry.departure.as_deref().and_then(|dep| {
+            dep.sacrificed
+                .then(|| super::delayed_general::context_from_departure(state, *object, dep))
+        }),
         _ => None,
     }
 }

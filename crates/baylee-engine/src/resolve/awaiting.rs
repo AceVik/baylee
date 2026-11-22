@@ -1494,6 +1494,30 @@ pub enum AwaitingOp {
         /// Grant haste until end of turn.
         haste_until_eot: bool,
     },
+    /// After `SacrificeAnyNumber`: record every chosen permanent (0 or more),
+    /// ask the next remaining player in APNAP order, and sacrifice all chosen
+    /// permanents simultaneously once all have answered (`CR 101.4`, `CR 603.10a`).
+    SacrificeAnyNumber {
+        /// Player answering the open choice.
+        asked: PlayerId,
+        /// Permanent filter evaluated from the resolving ability's controller.
+        filter: &'static baylee_cards_dsl::Filter,
+        /// Players still to ask in APNAP order.
+        remaining: Vec<PlayerId>,
+        /// Permanents already chosen by earlier players.
+        chosen: Vec<(PlayerId, baylee_core::ids::DamageSourceRef)>,
+    },
+    /// Inline restricted modal choice (`Effect::ChooseOneRestricted`, `CR 700.2i`).
+    ChooseEffectRestricted {
+        /// Still-available `(original_mode_index, effect)` pairs in displayed order.
+        choices: Vec<(u8, &'static Effect)>,
+        /// Repeat-selection restriction recorded when a mode is selected.
+        restriction: baylee_cards_dsl::ModalRestriction,
+        /// Source permanent incarnation to record the chosen mode under.
+        source: Option<baylee_core::ids::DamageSourceRef>,
+        /// Ability index on the source permanent.
+        ability_index: u32,
+    },
 }
 
 /// Work to resume after an optional life payment.
@@ -1953,6 +1977,24 @@ impl AwaitingOp {
                 untap,
                 haste_until_eot,
             )),
+            Self::SacrificeAnyNumber {
+                asked,
+                filter,
+                remaining,
+                chosen,
+            } => crate::state::structural_fingerprint(&(240_u8, asked, filter, remaining, chosen)),
+            Self::ChooseEffectRestricted {
+                choices,
+                restriction,
+                source,
+                ability_index,
+            } => crate::state::structural_fingerprint(&(
+                241_u8,
+                choices,
+                restriction,
+                source,
+                ability_index,
+            )),
             _ => 0,
         }
     }
@@ -1964,6 +2006,7 @@ impl AwaitingOp {
         match self {
             Self::DestroyChosen { chosen, .. }
             | Self::SacrificeFilter { chosen, .. }
+            | Self::SacrificeAnyNumber { chosen, .. }
             | Self::ReturnChosen { chosen, .. } => chosen,
             _ => &[],
         }

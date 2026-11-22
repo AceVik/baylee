@@ -1002,10 +1002,7 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
             if !can_sacrifice_self(state, res) {
                 return None;
             }
-            if let Some(obj) = state.object_mut(res.source) {
-                obj.kind = ObjectKind::Card;
-            }
-            let _ = state.sacrifice_object(res.source, Cause::Effect);
+            let _ = super::sacrifice_in_resolution(state, res, &[res.source], Some(you));
             None
         }
         Effect::SacrificeGrantor => {
@@ -1013,10 +1010,7 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
                 return None;
             }
             let grantor = super::granted_source(state, res.on_stack)?;
-            if let Some(object) = state.object_mut(grantor.object) {
-                object.kind = ObjectKind::Card;
-            }
-            let _ = state.sacrifice_object(grantor.object, Cause::Effect);
+            let _ = super::sacrifice_in_resolution(state, res, &[grantor.object], Some(you));
             None
         }
         // "Sacrifice that creature": by the ability's controller, and only a
@@ -1030,7 +1024,7 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
                         .is_some_and(|o| sweep_filter::matches(filter, state, o, res))
                 })
                 .collect();
-            super::sacrifice_together(state, &all, Some(you));
+            let _ = super::sacrifice_in_resolution(state, res, &all, Some(you));
             None
         }
         // CR 701.21a: a player sacrifices only a permanent they control.
@@ -1043,10 +1037,7 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
                     && state.can_be_sacrificed(id, Some(res.controller)))
                 .then_some(o.owner)
             })?;
-            if let Some(obj) = state.object_mut(id) {
-                obj.kind = ObjectKind::Card;
-            }
-            let _ = state.sacrifice_object(id, Cause::Effect);
+            let _ = super::sacrifice_in_resolution(state, res, &[id], Some(you));
             None
         }
         Effect::PutTargetOnTopOfLibrary | Effect::PutTargetOnBottomOfLibrary => {
@@ -1480,8 +1471,12 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
             }
             let mut players = players_of(who, state, you, res);
             chosen::order_apnap(state, &mut players);
-            let (player, options) =
-                chosen::next_sacrifice_asked(state, &mut players, filter, you, res.source)?;
+            let Some((player, options)) =
+                chosen::next_sacrifice_asked(state, &mut players, filter, you, res.source)
+            else {
+                res.subject.found.clear();
+                return None;
+            };
             res.awaiting = Some(AwaitingOp::SacrificeFilter {
                 asked: player,
                 filter,
@@ -1493,6 +1488,31 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
                 options,
                 min: 1,
                 max: 1,
+                prompt: ChoicePrompt::Generic,
+                total: None,
+            })
+        }
+        Effect::SacrificeAnyNumber { who, filter } => {
+            let mut players = players_of(who, state, you, res);
+            chosen::order_apnap(state, &mut players);
+            let Some((player, options)) =
+                chosen::next_sacrifice_asked(state, &mut players, filter, you, res.source)
+            else {
+                res.subject.found.clear();
+                return None;
+            };
+            let max = u8::try_from(options.len()).unwrap_or(u8::MAX);
+            res.awaiting = Some(AwaitingOp::SacrificeAnyNumber {
+                asked: player,
+                filter,
+                remaining: players,
+                chosen: Vec::new(),
+            });
+            Some(Pending::ChooseCards {
+                player,
+                options,
+                min: 0,
+                max,
                 prompt: ChoicePrompt::Generic,
                 total: None,
             })
@@ -2010,9 +2030,11 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
                     }
                 }
             }
+            let mut all_made = Vec::new();
             for (controller, count) in per_controller {
-                tokens::create_tokens(state, controller, token, None, count);
+                all_made.extend(tokens::create_tokens(state, controller, token, None, count));
             }
+            tokens::remember_created_tokens(state, res, &all_made);
             None
         }
         Effect::CounterTargetAbility => {

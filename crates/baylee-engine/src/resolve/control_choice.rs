@@ -151,7 +151,7 @@ pub(super) fn sacrifice_n_or_else(
             prompt: crate::choice::ChoicePrompt::Generic,
         });
     }
-    super::sacrifice_together(state, &options, Some(res.controller));
+    let _ = super::sacrifice_in_resolution(state, res, &options, Some(res.controller));
     if options.len() < usize::from(count) {
         return super::run_nested(state, res, otherwise);
     }

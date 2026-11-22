@@ -380,6 +380,12 @@ pub enum CostReduction {
         /// Generic mana taken off per unit.
         each: u32,
     },
+    /// Power-up cost reduction: reduces the activation's mana cost by the
+    /// source permanent's own printed/copiable mana cost (`CR 118.7a–g`,
+    /// reducing matching colored, colorless, and generic pips with excess
+    /// colored spillover into generic) if this permanent entered the
+    /// battlefield this turn. Appended to preserve replay identities.
+    OwnManaCostIfEnteredThisTurn,
 }
 
 /// When an alternative cost may be used.

@@ -309,6 +309,14 @@ impl<'a> Deal<'a> {
         state
             .ability_fires
             .retain(|(source, _), _| !gone(&source.object));
+        state
+            .modal_modes_used
+            .retain(|(source, _), _| !gone(&source.object));
+        state
+            .per_turn
+            .modal_modes_this_turn
+            .0
+            .retain(|(source, _), _| !gone(&source.object));
     }
 
     /// Forgets the incarnations the game kept of objects as they left a
@@ -703,6 +711,7 @@ const fn rider_object(rider: &Rider) -> Option<ObjectId> {
         | Rider::ConspirePaid(_)
         | Rider::TributePaid
         | Rider::RepeatedModes(_)
-        | Rider::OptionalCostPaid => None,
+        | Rider::OptionalCostPaid
+        | Rider::OncePerPermanentUsedMask { .. } => None,
     }
 }

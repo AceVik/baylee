@@ -1,7 +1,7 @@
 //! Tomb payments: everyone chooses before any payment or life loss happens.
 use super::{
     AwaitingOp, Cause, ChoicePrompt, CostPart, DiscardThen, Filter, GameState, ObjectId, Pending,
-    PlayerId, Resolution, sacrifice_together,
+    PlayerId, Resolution,
 };
 
 /// Frozen APNAP choices for one room's simultaneous payments.
@@ -161,11 +161,8 @@ fn advance(state: &mut GameState, res: &mut Resolution, mut tax: Box<Tax>) -> Op
             state.discard_card(card, player, Cause::Effect, Some(res.controller));
         }
     } else {
-        sacrifice_together(
-            state,
-            &payments.iter().map(|(card, _)| *card).collect::<Vec<_>>(),
-            Some(res.controller),
-        );
+        let victims: Vec<_> = payments.iter().map(|(card, _)| *card).collect();
+        let _ = super::super::sacrifice_in_resolution(state, res, &victims, Some(res.controller));
     }
     for (&player, card) in tax.players.iter().zip(&tax.chosen) {
         if !tax.oubliette && card.is_none() && !state.has_left(player) {

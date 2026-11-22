@@ -150,7 +150,7 @@ pub(crate) fn finish_reanimation(state: &mut GameState, finish: ReanimationFinis
 
 /// "That creature's controller sacrifices it" follows the object even if
 /// control or card types changed, but never follows it through a zone change.
-pub(crate) fn sacrifice_event(state: &mut GameState, res: &Resolution) {
+pub(crate) fn sacrifice_event(state: &mut GameState, res: &mut Resolution) {
     let Some(event) = event_reference(state, res) else {
         return;
     };
@@ -164,5 +164,6 @@ pub(crate) fn sacrifice_event(state: &mut GameState, res: &Resolution) {
     if state.has_left(controller) || !state.can_be_sacrificed(event.object, Some(res.controller)) {
         return;
     }
-    let _ = state.sacrifice_object(event.object, Cause::Effect);
+    let _ =
+        crate::resolve::sacrifice_in_resolution(state, res, &[event.object], Some(res.controller));
 }
