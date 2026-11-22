@@ -410,7 +410,15 @@ fn hinata_previews_all_selected_modal_targets_and_charges_for_distinct_targets()
             .expect("tap mode twice");
         engine.apply(me(), PlayerAction::ChooseMode(twice)).unwrap();
         for target in [first, second] {
-            aim_objects(&mut engine, me(), &[target]);
+            engine
+                .apply(
+                    me(),
+                    PlayerAction::ChooseTargets {
+                        objects: vec![target],
+                        players: vec![],
+                    },
+                )
+                .expect("choose a target for one mode occurrence");
         }
         assert_eq!(engine.state().zones.list(ZoneLocation::Stack), &[spell]);
         assert_eq!(
