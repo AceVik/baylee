@@ -38,7 +38,7 @@ card!(
         ),
         triggered!(
             Trigger::StepBegin {
-                step: StepKind::SecondMain,
+                step: StepKind::PostcombatMain,
                 whose: PlayerRel::You
             },
             &[Effect::mana_dynamic(
