@@ -29,11 +29,10 @@ card!(
                 keywords: KeywordSet::UNBLOCKABLE,
                 duration: Duration::UntilEndOfTurn
             },
-            Effect::continuous(
-                &Filter::This,
-                Modifier::GrantTriggeredDefinition(&GRANTED_TRIGGER_1),
-                Duration::UntilEndOfTurn
-            )
+            Effect::ModifyTargets {
+                modifier: Modifier::GrantTriggeredDefinition(&GRANTED_TRIGGER_1),
+                duration: Duration::UntilEndOfTurn
+            }
         ],
         targets = Some(TargetReq::x_targets(TargetSpec::Object(&Filter::CREATURE)))
     ),],

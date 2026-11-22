@@ -25,7 +25,7 @@ card!(
             )),
             Effect::CreateTokenN {
                 token: &generated_tokens::ZOMBIE_2_2_BLACK,
-                amount: Amount::X
+                amount: Amount::ThisWay(ThisWay::Exiled(&Filter::Any))
             }
         ],
         targets = Some(TargetReq::x_targets(TargetSpec::CardInGraveyard(

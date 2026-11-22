@@ -10,18 +10,16 @@ use crate::generated_tokens;
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes;
 
-static COUNT1: Filter = Filter::And(&[
-    Filter::CREATURE,
-    Filter::ControlledByYou,
-    Filter::HasColor(ColorSet::from_slice(&[Color::Red])),
-    Filter::Another,
-]);
-
 static COUNT2: Filter = Filter::And(&[
     Filter::CREATURE,
     Filter::ControlledByYou,
+    Filter::HasColor(ColorSet::from_slice(&[Color::Red])),
+]);
+
+static COUNT3: Filter = Filter::And(&[
+    Filter::CREATURE,
+    Filter::ControlledByYou,
     Filter::HasColor(ColorSet::from_slice(&[Color::Green])),
-    Filter::Another,
 ]);
 
 card!(
@@ -43,11 +41,11 @@ card!(
             kind: CounterKind::P1P1,
             amount: Amount::Sum {
                 left: &Amount::CountOf {
-                    filter: &COUNT1,
+                    filter: &COUNT2,
                     zone: ZoneSel::Battlefield
                 },
                 right: &Amount::CountOf {
-                    filter: &COUNT2,
+                    filter: &COUNT3,
                     zone: ZoneSel::Battlefield
                 }
             }
