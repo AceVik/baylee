@@ -888,6 +888,8 @@ impl Tx<'_> {
             let step = match phase.trim() {
                 "Upkeep" => "StepKind::Upkeep",
                 "Draw" => "StepKind::Draw",
+                "Main1" => "StepKind::FirstMain",
+                "Main2" => "StepKind::SecondMain",
                 "BeginCombat" => "StepKind::CombatBegin",
                 "Declare Attackers" => "StepKind::DeclareAttackers",
                 "Declare Blockers" => "StepKind::DeclareBlockers",
@@ -3031,6 +3033,7 @@ impl Tx<'_> {
     }
 
     fn moved_exile_instead_of_graveyard(&mut self, mut p: Params) -> Option<()> {
+        let fallback = p.clone();
         p.drop_prose();
         let active_zones = p.take("ActiveZones");
         if p.take("Destination").as_deref() != Some("Graveyard")
@@ -3061,10 +3064,8 @@ impl Tx<'_> {
         }
         let body_origin = body.take("Origin");
         let counter_raw = body.take("WithCountersType");
-        if !body.exhausted() {
-            return self.deny("replacement `Moved` this rule cannot read".to_string());
-        }
-        if matches!(origin.as_deref(), None | Some("All"))
+        if body.exhausted()
+            && matches!(origin.as_deref(), None | Some("All"))
             && matches!(body_origin.as_deref(), None | Some("All"))
         {
             if valid == "Card.Self"
@@ -3098,6 +3099,9 @@ impl Tx<'_> {
                 ));
                 return Some(());
             }
+        }
+        if self.lki_exile_instead_of_graveyard(fallback).is_some() {
+            return Some(());
         }
         self.deny("replacement `Moved` this rule cannot read".to_string())
     }

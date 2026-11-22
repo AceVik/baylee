@@ -3020,10 +3020,21 @@ impl Tx<'_> {
     /// `PlayerTurn$`, ability-word flags, `Activator$` on battlefield ability
     /// taxes, and general `PayLife<N>` mana-ability taxes.
     fn mode_raise_cost(&mut self, mut p: Params) -> Option<()> {
+        let hum_of_the_radix = p.peek("Relative") == Some("True")
+            && p.peek("Amount").is_some_and(|a| {
+                self.svars
+                    .get(a.trim())
+                    .is_some_and(|d| d.trim().starts_with("Count$Valid "))
+            });
+        let dynamic_spell_tax = p.peek("Type") == Some("Spell")
+            && !p.has("Cost")
+            && p.peek("Amount")
+                .is_some_and(|a| a.trim().parse::<u8>().is_err());
         if !p.has("Secondary")
             && !p.has("PlayerTurn")
             && !p.has("Affected")
             && !p.has("ForEachShard")
+            && (hum_of_the_radix || (p.peek("Relative") != Some("True") && !dynamic_spell_tax))
             && !matches!(
                 p.peek("Activator"),
                 Some("Player.!Active" | "Player.Active")
@@ -3230,18 +3241,27 @@ impl Tx<'_> {
         } else {
             return self.deny("static ability `S: Mode$ RaiseCost`".into());
         };
-        let target_filter: Option<&'static str> = match valid_target.as_deref() {
-            None => None,
-            Some("Spell.Self") if stack_self_target => Some("Filter::SpellTargetingAffected"),
-            Some("Card.Self" | "Creature.Self" | "Permanent.Self") if !stack_self_target => {
-                Some("Filter::SpellTargetingAffected")
+        if p.peek("Relative") == Some("True")
+            || (!p.has("Cost")
+                && p.peek("Amount")
+                    .is_some_and(|a| a.trim().parse::<u8>().is_err()))
+        {
+            if valid_target.is_none()
+                && !stack_self_target
+                && self
+                    .adjust_spell_cost_by_cast(p, true, self_stack_tax, zone)
+                    .is_some()
+            {
+                return Some(());
             }
-            Some(
-                "Permanent.YouCtrl"
-                | "Permanent.YouCtrl+inZoneBattlefield"
-                | "Card.YouCtrl+inZoneBattlefield",
-            ) if !stack_self_target => Some("Filter::TargetsPermanentYouControl"),
-            Some(_) => return self.deny("static ability `S: Mode$ RaiseCost`".into()),
+            return self.deny("static ability `S: Mode$ RaiseCost`".into());
+        }
+        let target_filter = match valid_target.as_deref() {
+            None => None,
+            Some(raw) => Some(
+                Self::raise_cost_target_filter(raw, stack_self_target)
+                    .or_else(|| self.deny("static ability `S: Mode$ RaiseCost`".into()))?,
+            ),
         };
         let (raw_card, act_filter) = if self_stack_tax {
             p.take("Activator");
@@ -3268,25 +3288,8 @@ impl Tx<'_> {
         {
             return self.raise_cost_self_mandatory_non_mana(p);
         }
-        let modifier = match (p.take("Amount"), p.take("Cost")) {
-            (Some(amount), None) => {
-                let Some(amount) = amount.trim().parse::<u8>().ok().filter(|&n| n > 0) else {
-                    return self.deny("static ability `S: Mode$ RaiseCost`".into());
-                };
-                format!("Modifier::SpellsCostMore({amount})")
-            }
-            (None, Some(cost)) => {
-                let Some(mana) = super::printed_mana(&cost) else {
-                    return self.deny("static ability `S: Mode$ RaiseCost`".into());
-                };
-                if let Some(amount) = super::generic_mana(&mana) {
-                    format!("Modifier::SpellsCostMore({amount})")
-                } else {
-                    format!("Modifier::SpellsCostMoreMana(mana!(\"{mana}\"))")
-                }
-            }
-            _ => return self.deny("static ability `S: Mode$ RaiseCost`".into()),
-        };
+        let modifier = Self::raise_cost_amount_modifier(p.take("Amount"), p.take("Cost"))
+            .or_else(|| self.deny("static ability `S: Mode$ RaiseCost`".into()))?;
         let cond = self.reduce_cost_condition(&mut p)?;
         if !p.exhausted() {
             return self.deny("static ability `S: Mode$ RaiseCost`".into());
@@ -3302,6 +3305,44 @@ impl Tx<'_> {
             .abilities
             .push(Self::format_static_expr(&filter, &modifier, zone, &cond));
         Some(())
+    }
+
+    fn raise_cost_target_filter(
+        valid_target: &str,
+        stack_self_target: bool,
+    ) -> Option<&'static str> {
+        match valid_target {
+            "Spell.Self" if stack_self_target => Some("Filter::SpellTargetingAffected"),
+            "Card.Self" | "Creature.Self" | "Permanent.Self" if !stack_self_target => {
+                Some("Filter::SpellTargetingAffected")
+            }
+            "Permanent.YouCtrl"
+            | "Permanent.YouCtrl+inZoneBattlefield"
+            | "Card.YouCtrl+inZoneBattlefield"
+                if !stack_self_target =>
+            {
+                Some("Filter::TargetsPermanentYouControl")
+            }
+            _ => None,
+        }
+    }
+
+    fn raise_cost_amount_modifier(amount: Option<String>, cost: Option<String>) -> Option<String> {
+        match (amount, cost) {
+            (Some(amount), None) => {
+                let amount = amount.trim().parse::<u8>().ok().filter(|&n| n > 0)?;
+                Some(format!("Modifier::SpellsCostMore({amount})"))
+            }
+            (None, Some(cost)) => {
+                let mana = super::printed_mana(&cost)?;
+                if let Some(amount) = super::generic_mana(&mana) {
+                    Some(format!("Modifier::SpellsCostMore({amount})"))
+                } else {
+                    Some(format!("Modifier::SpellsCostMoreMana(mana!(\"{mana}\"))"))
+                }
+            }
+            _ => None,
+        }
     }
 
     fn raise_cost_self_mandatory_non_mana(&mut self, mut p: Params) -> Option<()> {
@@ -3408,44 +3449,47 @@ impl Tx<'_> {
         } else {
             None
         };
-        let mut valid_card = match p.take("ValidCard") {
-            Some(vc) => vc,
-            None if matches!(valid_spell.as_deref(), None | Some("Spell"))
-                && matches!(spell_type.as_deref(), None | Some("Spell"))
-                && !is_self_zone =>
-            {
-                "Card".to_string()
-            }
-            None => return self.deny("static ability `S: Mode$ ReduceCost`".into()),
-        };
-        let act_filter = if is_self_zone {
-            if valid_card != "Card.Self" {
+        if p.peek("Relative") == Some("True") {
+            if face_down || target_filter.is_some() {
                 return self.deny("static ability `S: Mode$ ReduceCost`".into());
             }
-            if !matches!(p.take("Activator").as_deref(), None | Some("You")) {
-                return self.deny("static ability `S: Mode$ ReduceCost`".into());
-            }
-            if face_down {
-                valid_card = "Card.Self+faceDown".to_string();
-            }
-            None
-        } else {
-            if valid_card == "Card.Self" {
-                return self.deny("static ability `S: Mode$ ReduceCost`".into());
-            }
-            if face_down {
-                valid_card = Self::append_reduce_atom(&valid_card, "faceDown");
-            }
-            let Some((with_act, act_filter)) =
-                Self::apply_spell_activator(&valid_card, p.take("Activator").as_deref())
-            else {
-                return self.deny("static ability `S: Mode$ ReduceCost`".into());
-            };
-            valid_card = with_act;
-            act_filter
-        };
+            return self
+                .adjust_spell_cost_by_cast(p, false, is_self_zone, zone)
+                .or_else(|| self.deny("static ability `S: Mode$ ReduceCost`".into()));
+        }
+        let adjust_fallback =
+            (!face_down && target_filter.is_none() && !p.has("Color")).then(|| {
+                (
+                    p.clone(),
+                    self.body.statics.len(),
+                    self.unclaimed.borrow().clone(),
+                )
+            });
+        let (valid_card, act_filter) = self.resolve_reduce_cost_card(
+            &mut p,
+            spell_type.as_deref(),
+            valid_spell.as_deref(),
+            is_self_zone,
+            face_down,
+        )?;
         let cond = self.reduce_cost_condition(&mut p)?;
-        let modifier = self.reduce_cost_modifier(&mut p)?;
+        let Some(modifier) = self.reduce_cost_modifier(&mut p) else {
+            if let Some((saved_p, saved_statics, saved_unclaimed)) = adjust_fallback {
+                let after_statics = self.body.statics.len();
+                let after_unclaimed = self.unclaimed.borrow().clone();
+                self.body.statics.truncate(saved_statics);
+                *self.unclaimed.borrow_mut() = saved_unclaimed;
+                if self
+                    .adjust_spell_cost_by_cast(saved_p, false, is_self_zone, zone)
+                    .is_some()
+                {
+                    return Some(());
+                }
+                self.body.statics.truncate(after_statics);
+                *self.unclaimed.borrow_mut() = after_unclaimed;
+            }
+            return None;
+        };
         if let Some(key) = p.first_key() {
             return self.deny(format!("unclaimed parameter `ReduceCost.{key}`"));
         }
@@ -3456,6 +3500,50 @@ impl Tx<'_> {
             .abilities
             .push(Self::format_static_expr(&filter, &modifier, zone, &cond));
         Some(())
+    }
+
+    fn resolve_reduce_cost_card(
+        &self,
+        p: &mut Params,
+        spell_type: Option<&str>,
+        valid_spell: Option<&str>,
+        is_self_zone: bool,
+        face_down: bool,
+    ) -> Option<(String, Option<&'static str>)> {
+        let mut valid_card = match p.take("ValidCard") {
+            Some(vc) => vc,
+            None if matches!(valid_spell, None | Some("Spell"))
+                && matches!(spell_type, None | Some("Spell"))
+                && !is_self_zone =>
+            {
+                "Card".to_string()
+            }
+            None => return self.deny("static ability `S: Mode$ ReduceCost`".into()),
+        };
+        if is_self_zone {
+            if valid_card != "Card.Self" {
+                return self.deny("static ability `S: Mode$ ReduceCost`".into());
+            }
+            if !matches!(p.take("Activator").as_deref(), None | Some("You")) {
+                return self.deny("static ability `S: Mode$ ReduceCost`".into());
+            }
+            if face_down {
+                valid_card = "Card.Self+faceDown".to_string();
+            }
+            return Some((valid_card, None));
+        }
+        if valid_card == "Card.Self" {
+            return self.deny("static ability `S: Mode$ ReduceCost`".into());
+        }
+        if face_down {
+            valid_card = Self::append_reduce_atom(&valid_card, "faceDown");
+        }
+        let Some((with_act, act_filter)) =
+            Self::apply_spell_activator(&valid_card, p.take("Activator").as_deref())
+        else {
+            return self.deny("static ability `S: Mode$ ReduceCost`".into());
+        };
+        Some((with_act, act_filter))
     }
 
     fn reduce_cost_target_filter(
@@ -3520,6 +3608,166 @@ impl Tx<'_> {
         };
         let amt_expr = self.static_count_expr_ext(&amt_def)?;
         Some(format!("Modifier::SpellsCostLessByAmount({amt_expr})"))
+    }
+
+    fn adjust_spell_cost_by_cast(
+        &mut self,
+        mut p: Params,
+        increase: bool,
+        is_self_zone: bool,
+        zone: StaticEffectZone,
+    ) -> Option<()> {
+        let relative = match p.take("Relative").as_deref() {
+            None | Some("False") => false,
+            Some("True") => true,
+            Some(_) => return None,
+        };
+        let (outer_filter, who, inner_filter) = if is_self_zone {
+            if !matches!(p.take("Activator").as_deref(), None | Some("You")) {
+                return None;
+            }
+            let raw_card = p.take("ValidCard").or_else(|| p.take("Affected"))?;
+            if raw_card != "Card.Self" {
+                return None;
+            }
+            (
+                "Filter::This",
+                "PlayerRel::You",
+                "&Filter::This".to_string(),
+            )
+        } else {
+            let who = match p.take("Activator").as_deref() {
+                None | Some("Player") => "PlayerRel::EachPlayer",
+                Some("You") => "PlayerRel::You",
+                Some("Opponent" | "Player.Opponent") => "PlayerRel::EachOpponent",
+                Some("EnchantedPlayer" | "Player.EnchantedBy" | "Player.EnchantedPlayer") => {
+                    "PlayerRel::EnchantedPlayer"
+                }
+                Some(_) => return None,
+            };
+            let raw_card = p.take("ValidCard").unwrap_or_else(|| "Card".to_string());
+            if raw_card == "Card.Self" {
+                return None;
+            }
+            // In `Relative$ True` Forge statics, `YouCtrl`/`OppCtrl`/`YouOwn`/`OppOwn` inside
+            // `ValidCard$` bind to the casting player, whereas `Modifier::AdjustSpellCostByCast`'s
+            // `filter` evaluates relative to the static's controller; refuse when those differ.
+            if relative
+                && who != "PlayerRel::You"
+                && (raw_card.contains("Ctrl") || raw_card.contains("Own"))
+            {
+                return None;
+            }
+            let expr = self.filter_expr_in_zone(&raw_card, true)?;
+            let inner = if simple_const_filter(&expr) {
+                format!("&{expr}")
+            } else {
+                format!("&{}", self.body.filter_static("COST_SPELL", &expr))
+            };
+            ("Filter::Any", who, inner)
+        };
+        let amt_raw = p.take("Amount")?;
+        let cond = self.reduce_cost_condition(&mut p)?;
+        if !p.exhausted() {
+            return None;
+        }
+        let (metric, factor) =
+            self.parse_spell_cast_metric(&amt_raw, relative, is_self_zone, who)?;
+        let delta_per_unit = if increase { factor } else { -factor };
+        let modifier = format!(
+            "Modifier::AdjustSpellCostByCast {{ who: {who}, filter: {inner_filter}, delta_per_unit: {delta_per_unit}, metric: {metric} }}"
+        );
+        self.body.abilities.push(Self::format_static_expr(
+            outer_filter,
+            &modifier,
+            zone,
+            &cond,
+        ));
+        Some(())
+    }
+
+    fn parse_spell_cast_metric(
+        &mut self,
+        amt_raw: &str,
+        relative: bool,
+        is_self_zone: bool,
+        who: &str,
+    ) -> Option<(String, i8)> {
+        let mut expr = amt_raw.trim().to_string();
+        let mut factor: i32 = 1;
+        for _ in 0..8 {
+            if let Some(base) = expr.strip_suffix("/Twice") {
+                factor = factor.checked_mul(2)?;
+                expr = base.trim().to_string();
+                continue;
+            }
+            if let Some((base, mult_str)) = expr.rsplit_once("/Times.") {
+                let mult: i32 = mult_str.trim().parse().ok()?;
+                if mult <= 0 {
+                    return None;
+                }
+                factor = factor.checked_mul(mult)?;
+                expr = base.trim().to_string();
+                continue;
+            }
+            if expr.contains('/') {
+                return None;
+            }
+            if let Some(var) = expr.strip_prefix("SVar$") {
+                let def = self.svars.get(var.trim())?.trim().to_string();
+                expr = def;
+                continue;
+            }
+            if !expr.contains('$') {
+                let def = self.svars.get(expr.as_str())?.trim().to_string();
+                expr = def;
+                continue;
+            }
+            break;
+        }
+        if expr.contains('/') {
+            return None;
+        }
+        let factor = i8::try_from(factor).ok().filter(|&n| n > 0)?;
+        let per_turn_ok = relative || who == "PlayerRel::You";
+        let metric = match expr.as_str() {
+            "TargetedObjectsDistinct$Amount" if relative => {
+                "SpellCastMetric::DistinctTargets".to_string()
+            }
+            "Count$xPaid" if relative && is_self_zone => "SpellCastMetric::XPaid".to_string(),
+            "PlayerCountPropertyYou$CardsDiscardedThisTurn" if per_turn_ok => {
+                "SpellCastMetric::CardsDiscardedThisTurn".to_string()
+            }
+            "Count$LifeYouGainedThisTurn" if per_turn_ok => {
+                "SpellCastMetric::LifeGainedThisTurn".to_string()
+            }
+            "Count$LifeOppsLostThisTurn" if per_turn_ok => {
+                "SpellCastMetric::LifeLostByOpponentsThisTurn".to_string()
+            }
+            "Count$ThisTurnCast_Card.YouCtrl" if per_turn_ok => {
+                "SpellCastMetric::SpellsCastThisTurn".to_string()
+            }
+            "Count$YouDrewThisTurn" if per_turn_ok => {
+                "SpellCastMetric::CardsDrawnThisTurn".to_string()
+            }
+            other => {
+                let sac_raw = other
+                    .strip_prefix("PlayerCountPropertyYou$SacrificedThisTurn ")
+                    .filter(|_| per_turn_ok)?
+                    .trim();
+                if sac_raw.is_empty() || sac_raw.contains('$') || sac_raw.contains('/') {
+                    return None;
+                }
+                let sac_expr = self.filter_expr(sac_raw)?;
+                let sac_ref = if simple_const_filter(&sac_expr) {
+                    format!("&{sac_expr}")
+                } else {
+                    format!("&{}", self.body.filter_static("SAC_METRIC", &sac_expr))
+                };
+                format!("SpellCastMetric::PermanentsSacrificedThisTurn({sac_ref})")
+            }
+        };
+        Some((metric, factor))
     }
 
     fn reduce_cost_cycling(&mut self, mut p: Params) -> Option<()> {
@@ -4673,9 +4921,19 @@ impl Tx<'_> {
         let Some(raw_zones) = p.take("AffectedZone") else {
             return self.deny("`MayPlay` static with no `AffectedZone$`".into());
         };
-        let Some(zone_plan) =
-            plan_alt_cast_zones(&raw_zones, &affected, dont_grant_zone, who, effect_zone)
-        else {
+        let has_exile_gy_replacement = self
+            .body
+            .abilities
+            .iter()
+            .any(|a| a.contains("ReplacementRule::ExileInsteadOfGraveyard"));
+        let Some(zone_plan) = plan_alt_cast_zones(
+            &raw_zones,
+            &affected,
+            dont_grant_zone,
+            who,
+            effect_zone,
+            has_exile_gy_replacement,
+        ) else {
             return self.deny(format!(
                 "static ability reaching `AffectedZone$ {raw_zones}`"
             ));
@@ -4698,6 +4956,13 @@ impl Tx<'_> {
             "Modifier::MayCastWithAltCost {{ who: {who}, zones: {}, grant_zone_permission: {}, allow_lands: {allow_lands}, with_flash: {with_flash}, max_mana_value: {max_mv_expr}, once_per_turn: {once_per_turn}, price: {price} }}",
             zone_plan.zones_expr, zone_plan.grant_zone_permission
         );
+        if zone_plan.zones_expr == "AltCastZones::LinkedExile" {
+            for ability in &mut self.body.abilities {
+                if ability.contains("ReplacementRule::ExileInsteadOfGraveyard") {
+                    *ability = ability.replace("link_to_source: false", "link_to_source: true");
+                }
+            }
+        }
         self.body.abilities.push(Self::format_static_expr(
             &card_filter,
             &modifier,
@@ -5379,6 +5644,8 @@ fn static_phase_condition(phases: &str) -> Option<&'static str> {
         "Upkeep->Main1,Main2->Cleanup" => "Condition::Not(&Condition::DuringCombat)",
         "Upkeep" => "Condition::DuringStep(StepKind::Upkeep)",
         "Draw" => "Condition::DuringStep(StepKind::Draw)",
+        "Main1" => "Condition::DuringStep(StepKind::FirstMain)",
+        "Main2" => "Condition::DuringStep(StepKind::SecondMain)",
         "BeginCombat" => "Condition::DuringStep(StepKind::CombatBegin)",
         "Declare Attackers" => "Condition::DuringStep(StepKind::DeclareAttackers)",
         "Declare Blockers" => "Condition::DuringStep(StepKind::DeclareBlockers)",
@@ -5542,7 +5809,7 @@ fn parse_svar_amount_compare(cmp: &str) -> Option<(&'static str, &str)> {
 enum AltCastZoneKind {
     Generic,
     HandOnly,
-    LinkedExile,
+    LinkedExile { requires_imprinted: bool },
 }
 
 struct AltCastZonePlan {
@@ -5570,7 +5837,11 @@ fn clean_alt_cast_alt(
         return None;
     }
     let is_hand_only = plan.kind == AltCastZoneKind::HandOnly;
-    let is_linked_exile = plan.kind == AltCastZoneKind::LinkedExile;
+    let linked_requires_imprinted = match plan.kind {
+        AltCastZoneKind::LinkedExile { requires_imprinted } => Some(requires_imprinted),
+        AltCastZoneKind::Generic | AltCastZoneKind::HandOnly => None,
+    };
+    let is_linked_exile = linked_requires_imprinted.is_some();
     let mut saw_you_owner_or_ctrl = false;
     let mut saw_nonland = base != "Card";
     let mut saw_exiled_with = false;
@@ -5622,7 +5893,9 @@ fn clean_alt_cast_alt(
             other => kept.push(other),
         }
     }
-    if is_linked_exile && (!saw_exiled_with || !saw_imprinted) {
+    if let Some(requires_imprinted) = linked_requires_imprinted
+        && (!saw_exiled_with || (requires_imprinted && !saw_imprinted))
+    {
         return None;
     }
     if is_hand_only && !dont_grant_zone && !saw_you_owner_or_ctrl {
@@ -5642,6 +5915,7 @@ fn plan_alt_cast_zones(
     dont_grant_zone: bool,
     who: &str,
     effect_zone: Option<&'static str>,
+    has_exile_gy_replacement: bool,
 ) -> Option<AltCastZonePlan> {
     let mut zones: Vec<&str> = Vec::new();
     for z in raw_zones
@@ -5678,7 +5952,7 @@ fn plan_alt_cast_zones(
         });
     }
     if zones == ["Exile"] && !dont_grant_zone {
-        let all_imprinted_linked = affected.split(',').all(|alt| {
+        let all_linked = affected.split(',').all(|alt| {
             let mut has_exiled = false;
             let mut has_imprinted = false;
             for a in alt.split(['.', '+']).map(str::trim) {
@@ -5688,13 +5962,15 @@ fn plan_alt_cast_zones(
                     has_imprinted = true;
                 }
             }
-            has_exiled && has_imprinted
+            has_exiled && (has_imprinted || has_exile_gy_replacement)
         });
-        if all_imprinted_linked && effect_zone.is_none() && who == "PlayerRel::You" {
+        if all_linked && effect_zone.is_none() && who == "PlayerRel::You" {
             return Some(AltCastZonePlan {
                 zones_expr: "AltCastZones::LinkedExile".to_string(),
                 grant_zone_permission: true,
-                kind: AltCastZoneKind::LinkedExile,
+                kind: AltCastZoneKind::LinkedExile {
+                    requires_imprinted: !has_exile_gy_replacement,
+                },
             });
         }
         return None;

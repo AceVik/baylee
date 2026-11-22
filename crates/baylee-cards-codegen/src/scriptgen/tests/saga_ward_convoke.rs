@@ -983,24 +983,43 @@ fn moved_external_enter_cant_enter_and_exile_replacements() {
         ["static_ability!(Filter::Any, Modifier::ExileInsteadOfYourGraveyard)"]
     );
 
-    // Refusals: Origin-scoped CantEnterBattlefield, opp-scoped EnterUntapped, non-!token GY exile.
-    assert!(refused(
-        "Name:CageOnly\nTypes:Artifact\n\
-         R:Event$ Moved | ActiveZones$ Battlefield | Origin$ Graveyard | \
-         Destination$ Battlefield | ValidCard$ Creature | Prevent$ True | Layer$ CantHappen"
-    ));
-    assert!(refused(
-        "Name:OppUntap\nTypes:Enchantment\n\
-         R:Event$ Moved | ValidCard$ Creature.OppCtrl | Destination$ Battlefield | \
-         ActiveZones$ Battlefield | ReplacementResult$ Updated | ReplaceWith$ ETBUntapped\n\
-         SVar:ETBUntapped:DB$ Untap | Defined$ ReplacedCard | ETB$ True"
-    ));
-    assert!(refused(
+    let token_gy_exile = read(
         "Name:TokenGyExile\nTypes:Enchantment\n\
          R:Event$ Moved | ActiveZones$ Battlefield | ValidCard$ Card.YouOwn | \
          Destination$ Graveyard | ReplaceWith$ ExileYou\n\
-         SVar:ExileYou:DB$ ChangeZone | Defined$ ReplacedCard | Origin$ All | Destination$ Exile"
-    ));
+         SVar:ExileYou:DB$ ChangeZone | Defined$ ReplacedCard | Origin$ All | Destination$ Exile",
+    );
+    assert_eq!(
+        token_gy_exile.abilities,
+        [
+            "AbilityDef::Replacement(ReplacementRule::ExileInsteadOfGraveyard { \
+             filter: &Filter::Any, origin: None, owner: Some(PlayerRel::You), \
+             controller_lki: None, damaged_by: DamagedByScope::Any, \
+             link_to_source: false, counter: None })"
+        ]
+    );
+
+    // Refusals: Origin-scoped CantEnterBattlefield, opp-scoped EnterUntapped,
+    // and unsupported GY-exile origin/active zone (`Origin$ Stack`, `ActiveZones$ Command`).
+    for bad in [
+        "Name:CageOnly\nTypes:Artifact\n\
+         R:Event$ Moved | ActiveZones$ Battlefield | Origin$ Graveyard | \
+         Destination$ Battlefield | ValidCard$ Creature | Prevent$ True | Layer$ CantHappen",
+        "Name:OppUntap\nTypes:Enchantment\n\
+         R:Event$ Moved | ValidCard$ Creature.OppCtrl | Destination$ Battlefield | \
+         ActiveZones$ Battlefield | ReplacementResult$ Updated | ReplaceWith$ ETBUntapped\n\
+         SVar:ETBUntapped:DB$ Untap | Defined$ ReplacedCard | ETB$ True",
+        "Name:StackOriginGyExile\nTypes:Enchantment\n\
+         R:Event$ Moved | ActiveZones$ Battlefield | Origin$ Stack | ValidCard$ Card.YouOwn | \
+         Destination$ Graveyard | ReplaceWith$ ExileYou\n\
+         SVar:ExileYou:DB$ ChangeZone | Defined$ ReplacedCard | Origin$ Stack | Destination$ Exile",
+        "Name:CommandZoneGyExile\nTypes:Enchantment\n\
+         R:Event$ Moved | ActiveZones$ Command | ValidCard$ Card.YouOwn | \
+         Destination$ Graveyard | ReplaceWith$ ExileYou\n\
+         SVar:ExileYou:DB$ ChangeZone | Defined$ ReplacedCard | Origin$ All | Destination$ Exile",
+    ] {
+        assert!(refused(bad), "must refuse: {bad}");
+    }
 }
 
 #[test]

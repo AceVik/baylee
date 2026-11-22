@@ -945,9 +945,9 @@ fn a_refused_script_always_says_why() {
         ),
         (
             "Name:X\nTypes:Creature\n\
-             T:Mode$ Phase | Phase$ Main2 | ValidPlayer$ You | Execute$ TrigDraw\n\
+             T:Mode$ Phase | Phase$ Cleanup | ValidPlayer$ You | Execute$ TrigDraw\n\
              SVar:TrigDraw:DB$ Draw | NumCards$ 1",
-            "trigger at step `Main2`",
+            "trigger at step `Cleanup`",
         ),
         (
             "Name:X\nTypes:Creature\n\

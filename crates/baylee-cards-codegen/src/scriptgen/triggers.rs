@@ -3,8 +3,9 @@
 
 use super::{
     BlockHalf, BlockRole, Bound, Chain, Params, Tx, activated::OptionalTriggerPrice,
-    card_type_const, color_word, count_bound, counter_kind,
+    card_type_const, color_word, count_bound, counter_kind, keyword_const, pump_amount,
 };
+use baylee_core::types::SubtypeKind;
 
 enum LegacyPhase {
     Handled(String),
@@ -946,6 +947,22 @@ impl Tx<'_> {
             "Upkeep" => "StepKind::Upkeep",
             "Draw" => "StepKind::Draw",
             "Main1" => "StepKind::FirstMain",
+            "Main2" => {
+                if let Some(count) = p.peek("PhaseCount") {
+                    return self.deny(format!(
+                        "trigger at step `Main2` with `PhaseCount$ {count}`"
+                    ));
+                }
+                "StepKind::SecondMain"
+            }
+            "Main" => match p.take("PhaseCount").as_deref() {
+                Some("1") => "StepKind::FirstMain",
+                Some("2") => "StepKind::SecondMain",
+                Some(other) => {
+                    return self.deny(format!("trigger at step `Main` with `PhaseCount$ {other}`"));
+                }
+                None => return self.deny("trigger at step `Main`".to_string()),
+            },
             "BeginCombat" => "StepKind::CombatBegin",
             "EndCombat" | "End of Combat" => "StepKind::CombatEnd",
             "End of Turn" => "StepKind::End",
@@ -1179,35 +1196,165 @@ impl Tx<'_> {
             None | Some("True") => {}
             Some(other) => return self.deny(format!("`Secondary$ {other}`")),
         }
-        if p.has("ValidAttackersAmount") {
-            return None;
-        }
-        if let Some(att) = p.take("ValidAttackers")
-            && att != "Creature"
+        let (exec_uses_attacking_player, exec_uses_attacked_or_attackers) = p
+            .peek("Execute")
+            .map_or((false, false), |name| self.wave25c_exec_attack_refs(name));
+
+        // Preserve existing `Trigger::PlayerAttacked(who)` lowering for plain
+        // unfiltered player-attacked triggers (where `EventPlayer` is the
+        // attacking player) whenever the body does not reference the attacked
+        // defender or the matched attackers group.
+        if !p.has("ValidAttackersAmount")
+            && !exec_uses_attacked_or_attackers
+            && matches!(p.peek("ValidAttackers"), None | Some("Creature"))
+            && let Some(target_raw) = p.peek("AttackedTarget")
+            && let Some(who) = Self::attacked_player_rel(target_raw)
         {
-            return self.deny(format!(
-                "`AttackersDeclaredOneTarget` with `ValidAttackers$ {att}`"
-            ));
+            let attacker_ok = match p.peek("AttackingPlayer") {
+                None | Some("Player") => true,
+                Some("Opponent" | "Player.Opponent") => who == "PlayerRel::You",
+                Some(_) => false,
+            };
+            if attacker_ok {
+                p.take("ValidAttackers");
+                p.take("AttackedTarget");
+                p.take("AttackingPlayer");
+                return Some(format!("Trigger::PlayerAttacked({who})"));
+            }
         }
+
+        // `Trigger::AttackersDeclaredAtTarget` binds `EventPlayer` to the
+        // attacked defender (not the attacking player), so refuse bodies that
+        // read `TriggeredAttackingPlayer` / `TriggeredPlayer`.
+        if exec_uses_attacking_player {
+            return self.deny(
+                "`AttackersDeclaredOneTarget` body referencing attacking player".to_string(),
+            );
+        }
+
         let Some(target_raw) = p.take("AttackedTarget") else {
             return self.deny("`AttackersDeclaredOneTarget` with no `AttackedTarget$`".to_string());
         };
-        let Some(who) = Self::attacked_player_rel(&target_raw) else {
+        let valid_attackers = p.take("ValidAttackers");
+        let attacking_player = p.take("AttackingPlayer");
+        let exact_count: Option<u8> = match p.take("ValidAttackersAmount").as_deref() {
+            None => None,
+            Some("EQ1") => {
+                // `exact_count: Some(1)` checks total attackers declared at
+                // that defender (CR 508.3 "attacks a player alone"), which
+                // matches Forge's `ValidAttackersAmount$ EQ1` strictly when
+                // `ValidAttackers$` does not filter below all of a player's
+                // creatures.
+                if !matches!(
+                    valid_attackers.as_deref(),
+                    None | Some("Creature" | "Creature.YouCtrl" | "Creature.OppCtrl")
+                ) {
+                    return self.deny(format!(
+                        "`AttackersDeclaredOneTarget` `ValidAttackersAmount$ EQ1` with filtered \
+                         `ValidAttackers$ {}`",
+                        valid_attackers.as_deref().unwrap_or_default()
+                    ));
+                }
+                Some(1)
+            }
+            Some(other) => {
+                return self.deny(format!(
+                    "`AttackersDeclaredOneTarget` with `ValidAttackersAmount$ {other}`"
+                ));
+            }
+        };
+
+        let (attackers_ref, all_you_ctrl) =
+            self.wave25c_attackers_filter(valid_attackers.as_deref(), attacking_player.as_deref())?;
+        let Some(attacked) = Self::wave25c_attacked_target_kind(&target_raw, all_you_ctrl) else {
             return self.deny(format!(
                 "`AttackersDeclaredOneTarget` target `{target_raw}`"
             ));
         };
-        if let Some(attacker) = p.take("AttackingPlayer") {
-            let ok = attacker == "Player"
-                || (who == "PlayerRel::You"
-                    && matches!(attacker.as_str(), "Opponent" | "Player.Opponent"));
-            if !ok {
+        let exact_expr = match exact_count {
+            Some(n) => format!("Some({n})"),
+            None => "None".to_string(),
+        };
+        Some(format!(
+            "Trigger::AttackersDeclaredAtTarget {{ attackers: {attackers_ref}, \
+             attacked: {attacked}, exact_count: {exact_expr} }}"
+        ))
+    }
+
+    fn wave25c_attackers_filter(
+        &mut self,
+        valid_attackers: Option<&str>,
+        attacking_player: Option<&str>,
+    ) -> Option<(String, bool)> {
+        let ctrl_atom = match attacking_player {
+            None | Some("Player") => None,
+            Some("You") => Some("YouCtrl"),
+            Some("Opponent" | "Player.Opponent") => Some("OppCtrl"),
+            Some(other) => {
                 return self.deny(format!(
-                    "`AttackersDeclaredOneTarget` with `AttackingPlayer$ {attacker}`"
+                    "`AttackersDeclaredOneTarget` with `AttackingPlayer$ {other}`"
                 ));
             }
+        };
+        let raw_attackers = valid_attackers.unwrap_or("Creature");
+        let mut combined_alts = Vec::new();
+        let mut all_you_ctrl = true;
+        for alt in raw_attackers.split(',').map(str::trim) {
+            if alt.is_empty() {
+                return None;
+            }
+            let has_you = alt.split(['.', '+']).skip(1).any(|a| a.trim() == "YouCtrl");
+            let has_opp = alt.split(['.', '+']).skip(1).any(|a| a.trim() == "OppCtrl");
+            let mut s = alt.to_string();
+            match ctrl_atom {
+                Some("YouCtrl") => {
+                    if has_opp {
+                        return self.deny(format!(
+                            "`AttackersDeclaredOneTarget` conflicting attacker control `{alt}`"
+                        ));
+                    }
+                    if !has_you {
+                        let sep = if s.contains('.') { '+' } else { '.' };
+                        s.push(sep);
+                        s.push_str("YouCtrl");
+                    }
+                }
+                Some("OppCtrl") => {
+                    if has_you {
+                        return self.deny(format!(
+                            "`AttackersDeclaredOneTarget` conflicting attacker control `{alt}`"
+                        ));
+                    }
+                    if !has_opp {
+                        let sep = if s.contains('.') { '+' } else { '.' };
+                        s.push(sep);
+                        s.push_str("OppCtrl");
+                    }
+                    all_you_ctrl = false;
+                }
+                _ => {
+                    if !has_you {
+                        all_you_ctrl = false;
+                    }
+                }
+            }
+            combined_alts.push(s);
         }
-        Some(format!("Trigger::PlayerAttacked({who})"))
+        let combined = combined_alts.join(",");
+        let attackers_ref = if combined == "Card.Self" {
+            "&Filter::This".to_string()
+        } else {
+            let expr = self.filter_expr(&combined)?;
+            match expr.as_str() {
+                "Filter::Any" => "&Filter::Any".to_string(),
+                "Filter::This" => "&Filter::This".to_string(),
+                "Filter::CREATURE" => "&Filter::CREATURE".to_string(),
+                "Filter::YOUR_CREATURE" => "&Filter::YOUR_CREATURE".to_string(),
+                "Filter::OPPONENT_CREATURE" => "&Filter::OPPONENT_CREATURE".to_string(),
+                _ => format!("&{}", self.body.filter_static("TRIGGER", &expr)),
+            }
+        };
+        Some((attackers_ref, all_you_ctrl))
     }
 
     fn phase_trigger(&mut self, p: &mut Params, out: bool) -> Option<String> {
@@ -2690,9 +2837,34 @@ impl Tx<'_> {
             Some(OptionalTriggerPrice::CostPart(p))
                 if p.starts_with("Sacrifice(") && p != "Sacrifice(&Filter::This)"
         );
+        let is_attackers_at_target = trigger.starts_with("Trigger::AttackersDeclaredAtTarget");
+        let saved_trigger_mode = if is_attackers_at_target {
+            self.trigger_mode
+                .replace("AttackersDeclaredAtTarget".to_string())
+        } else {
+            None
+        };
         let saved_statics = self.body.statics.len();
         let saved_unclaimed = self.unclaimed.borrow().clone();
         let mut chain_ok = self.chain(&body, &mut chain);
+        if chain_ok.is_none() && is_attackers_at_target {
+            let mut at_chain = Chain::default();
+            let after_first_statics = self.body.statics.len();
+            let after_first_unclaimed = self.unclaimed.borrow().clone();
+            self.body.statics.truncate(saved_statics);
+            (*self.unclaimed.borrow_mut()).clone_from(&saved_unclaimed);
+            let exact_one = trigger.contains("exact_count: Some(1)");
+            if self
+                .wave25c_attackers_at_target_chain(&body, exact_one, &mut at_chain)
+                .is_some()
+            {
+                chain = at_chain;
+                chain_ok = Some(());
+            } else {
+                self.body.statics.truncate(after_first_statics);
+                *self.unclaimed.borrow_mut() = after_first_unclaimed;
+            }
+        }
         if chain_ok.is_none() {
             let mut dig_chain = Chain::default();
             let after_first_statics = self.body.statics.len();
@@ -2709,6 +2881,9 @@ impl Tx<'_> {
                 self.body.statics.truncate(after_first_statics);
                 *self.unclaimed.borrow_mut() = after_first_unclaimed;
             }
+        }
+        if is_attackers_at_target {
+            self.trigger_mode = saved_trigger_mode;
         }
         self.trigger_is_self = false;
         self.is_etb_self_trigger = false;
@@ -3883,6 +4058,7 @@ impl Tx<'_> {
             "Upkeep" => Some("Condition::DuringStep(StepKind::Upkeep)"),
             "Draw" => Some("Condition::DuringStep(StepKind::Draw)"),
             "Main1" => Some("Condition::DuringStep(StepKind::FirstMain)"),
+            "Main2" => Some("Condition::DuringStep(StepKind::SecondMain)"),
             "BeginCombat" => Some("Condition::DuringStep(StepKind::CombatBegin)"),
             "Declare Attackers" => Some("Condition::DuringStep(StepKind::DeclareAttackers)"),
             "Declare Blockers" => Some("Condition::DuringStep(StepKind::DeclareBlockers)"),
@@ -6122,5 +6298,552 @@ impl Tx<'_> {
         let (effects, targets) =
             self.parse_delayed_body_str(&body_to_parse, Some(mode.to_string()), optional)?;
         Some((effects, targets, remember))
+    }
+
+    /// Scans a trigger's `Execute$` `SVar` chain (following `SubAbility$` and
+    /// `Choices$`, bounded depth) for references to `TriggeredAttackingPlayer`
+    /// / `TriggeredPlayer` vs `TriggeredAttackedTarget` / `TriggeredAttackers`.
+    fn wave25c_exec_attack_refs(&self, start: &str) -> (bool, bool) {
+        let mut uses_attacking_player = false;
+        let mut uses_attacked_or_attackers = false;
+        let mut queue = vec![start.trim().to_string()];
+        let mut visited = std::collections::BTreeSet::new();
+        while let Some(name) = queue.pop() {
+            if visited.len() >= 16 || !visited.insert(name.clone()) {
+                continue;
+            }
+            let Some(body) = self.svars.get(&name) else {
+                continue;
+            };
+            if body.contains("TriggeredAttackingPlayer") || body.contains("TriggeredPlayer") {
+                uses_attacking_player = true;
+            }
+            if body.contains("TriggeredAttackedTarget") || body.contains("TriggeredAttackers") {
+                uses_attacked_or_attackers = true;
+            }
+            if let Some((_, mut ep)) = Params::parse(body) {
+                if let Some(sub) = ep.take("SubAbility") {
+                    queue.push(sub.trim().to_string());
+                }
+                if let Some(choices) = ep.take("Choices") {
+                    for c in choices.split(',').map(str::trim).filter(|s| !s.is_empty()) {
+                        queue.push(c.to_string());
+                    }
+                }
+            }
+        }
+        (uses_attacking_player, uses_attacked_or_attackers)
+    }
+
+    fn wave25c_attacked_target_kind(raw: &str, all_you_ctrl: bool) -> Option<&'static str> {
+        let mut parts: Vec<&str> = raw
+            .split(',')
+            .map(str::trim)
+            .filter(|s| !s.is_empty())
+            .collect();
+        if parts.is_empty() {
+            return None;
+        }
+        parts.sort_unstable();
+        parts.dedup();
+        Some(match parts.as_slice() {
+            ["Any"] | ["Battle", "Planeswalker", "Player"] => "AttackedTargetKind::Any",
+            ["Player"] => "AttackedTargetKind::Player",
+            ["Opponent" | "Player.Opponent"] => "AttackedTargetKind::Opponent",
+            ["You" | "Player.You"] => "AttackedTargetKind::You",
+            ["Planeswalker"] => "AttackedTargetKind::Planeswalker",
+            ["Battle"] => "AttackedTargetKind::Battle",
+            ["Planeswalker.YouCtrl", "Player.You" | "You"] => {
+                "AttackedTargetKind::YouOrYourPlaneswalker"
+            }
+            ["Opponent", "Planeswalker.OppCtrl"] | ["Planeswalker.OppCtrl", "Player.Opponent"] => {
+                "AttackedTargetKind::OpponentOrTheirPlaneswalker"
+            }
+            // CR 508.1b: a player may only declare attackers against opponents,
+            // planeswalkers opponents control, or battles — so when every
+            // matching attacker is `YouCtrl`, `Player,Planeswalker` is exact
+            // for `OpponentOrTheirPlaneswalker` (excluding battles).
+            ["Planeswalker", "Player"] if all_you_ctrl => {
+                "AttackedTargetKind::OpponentOrTheirPlaneswalker"
+            }
+            ["EnchantedPlayer" | "Player.EnchantedBy"] => "AttackedTargetKind::EnchantedPlayer",
+            _ => return None,
+        })
+    }
+
+    fn wave25c_pump_kw_bits(kw: &str) -> Option<String> {
+        let mut bits = Vec::new();
+        for part in kw.split('&').map(str::trim) {
+            let bit = match part {
+                "HIDDEN CARDNAME can't attack or block." => {
+                    "KeywordSet::CANT_ATTACK.union(KeywordSet::CANT_BLOCK)"
+                }
+                "HIDDEN CARDNAME can't block." | "CARDNAME can't block." => {
+                    "KeywordSet::CANT_BLOCK"
+                }
+                "HIDDEN CARDNAME can't attack." => "KeywordSet::CANT_ATTACK",
+                "HIDDEN CARDNAME can't be blocked." => "KeywordSet::UNBLOCKABLE",
+                other => keyword_const(other)?,
+            };
+            bits.push(bit);
+        }
+        if bits.is_empty() {
+            return None;
+        }
+        let mut out = bits[0].to_string();
+        for b in &bits[1..] {
+            out = format!("{out}.union({b})");
+        }
+        Some(out)
+    }
+
+    /// Lowers `Execute$` chains specific to `Trigger::AttackersDeclaredAtTarget`
+    /// where `EventPlayer` is the attacked defender (`TriggeredAttackedTarget`),
+    /// `EventObject` is the first matching attacker, and `SubjectContext::found`
+    /// holds all matching attackers toward that defender (`TriggeredAttackers`).
+    #[allow(clippy::too_many_lines)]
+    fn wave25c_attackers_at_target_chain(
+        &mut self,
+        body: &str,
+        exact_count_is_one: bool,
+        chain: &mut Chain,
+    ) -> Option<()> {
+        let (api, mut p) = Params::parse(body)?;
+        p.drop_prose();
+
+        // Pattern A: `DB$ Pump | Defined$ TriggeredAttackers` (*Yuriko, Blade of the Mighty*,
+        // *Frontier Warmonger*, *Frenzied Gorespawn*, *Garruk, Curse Breaker*).
+        if api == "Pump"
+            && p.peek("Defined") == Some("TriggeredAttackers")
+            && !p.has("ValidTgts")
+            && !p.has("TargetsWithDefinedController")
+        {
+            p.take("Defined");
+            p.take("IsCurse");
+            if !matches!(p.take("Duration").as_deref(), None | Some("UntilEndOfTurn")) {
+                return None;
+            }
+            let num_att = p.take("NumAtt");
+            let num_def = p.take("NumDef");
+            let kw_raw = p.take("KW");
+            if num_att.is_none() && num_def.is_none() && kw_raw.is_none() {
+                return None;
+            }
+            let sub = p.take("SubAbility");
+            if !p.exhausted() {
+                return None;
+            }
+            let power = match num_att.as_deref() {
+                None => "Amount::Fixed(0)".to_string(),
+                Some(raw) => pump_amount(raw, self.svars, false)?,
+            };
+            let toughness = match num_def.as_deref() {
+                None => "Amount::Fixed(0)".to_string(),
+                Some(raw) => pump_amount(raw, self.svars, false)?,
+            };
+            let keywords = match kw_raw.as_deref() {
+                None => "KeywordSet::EMPTY".to_string(),
+                Some(kw) => Self::wave25c_pump_kw_bits(kw)?,
+            };
+            let single = format!(
+                "Effect::PumpEventObject {{ power: {power}, toughness: {toughness}, \
+                 keywords: {keywords}, duration: Duration::UntilEndOfTurn }}"
+            );
+            if exact_count_is_one {
+                chain.effects.push(single);
+            } else {
+                chain.effects.push(format!(
+                    "Effect::RepeatEachObject {{ zone: ZoneSel::Battlefield, \
+                     filter: &Filter::Any, only_found: true, then: &[{single}] }}"
+                ));
+            }
+            if let Some(sub_name) = sub {
+                let sub_body = self.svars.get(sub_name.trim())?.clone();
+                self.chain(&sub_body, chain)?;
+            }
+            return Some(());
+        }
+
+        // Pattern B: `DB$ PutCounter | Defined$ TriggeredAttackers` when
+        // `exact_count: Some(1)` (sole attacker is `EventObject`).
+        if api == "PutCounter"
+            && exact_count_is_one
+            && p.peek("Defined") == Some("TriggeredAttackers")
+            && !p.has("ValidTgts")
+        {
+            p.take("Defined");
+            let kind = counter_kind(p.take("CounterType")?.trim())?;
+            let amount = match p.take("CounterNum").as_deref() {
+                None => "Amount::Fixed(1)".to_string(),
+                Some(raw) => self.amount_num(raw)?,
+            };
+            let sub = p.take("SubAbility");
+            if !p.exhausted() {
+                return None;
+            }
+            chain.effects.push(format!(
+                "Effect::PutCounter {{ target: TargetSpec::EventObject, kind: {kind}, \
+                 amount: {amount} }}"
+            ));
+            if let Some(sub_name) = sub {
+                let sub_body = self.svars.get(sub_name.trim())?.clone();
+                self.chain(&sub_body, chain)?;
+            }
+            return Some(());
+        }
+
+        // Pattern C: `DB$ LoseLife | Defined$ TriggeredAttackedTarget` (*Archnemesis*).
+        if api == "LoseLife" && p.peek("Defined") == Some("TriggeredAttackedTarget") {
+            p.take("Defined");
+            let amount = self.amount_num(&p.take("LifeAmount")?)?;
+            let sub = p.take("SubAbility");
+            if !p.exhausted() {
+                return None;
+            }
+            chain.effects.push(format!(
+                "Effect::LoseLife {{ target: PlayerRel::EventPlayer, amount: {amount} }}"
+            ));
+            if let Some(sub_name) = sub {
+                let sub_body = self.svars.get(sub_name.trim())?.clone();
+                self.chain(&sub_body, chain)?;
+            }
+            return Some(());
+        }
+
+        // Pattern D: `TargetsWithDefinedController$ TriggeredAttackedTarget`
+        // -> `TargetSpec::ObjectOfEventPlayer(&<filter>)` (*Whirlwind, Killer Cyclone*,
+        // *Seifer, Balamb Rival*, *Firkraag, Cunning Instigator*, *Gornog, the Red Reaper*).
+        if p.peek("TargetsWithDefinedController") == Some("TriggeredAttackedTarget")
+            && p.has("ValidTgts")
+            && !p.has("Defined")
+            && !p.has("TargetMin")
+            && !p.has("TargetMax")
+            && !p.has("Optional")
+        {
+            p.take("TargetsWithDefinedController");
+            let valid_tgts = p.take("ValidTgts")?;
+            if valid_tgts.contains("Ctrl")
+                || valid_tgts.contains("Own")
+                || valid_tgts.contains("ControlledBy")
+                || valid_tgts.contains("OwnedBy")
+                || valid_tgts.contains("Self")
+            {
+                return None;
+            }
+            let tgt_expr = self.filter_expr(&valid_tgts)?;
+            let tgt_ref = match tgt_expr.as_str() {
+                "Filter::Any" => "&Filter::Any".to_string(),
+                "Filter::CREATURE" => "&Filter::CREATURE".to_string(),
+                "Filter::ARTIFACT" => "&Filter::ARTIFACT".to_string(),
+                "Filter::LAND" => "&Filter::LAND".to_string(),
+                "Filter::ENCHANTMENT" => "&Filter::ENCHANTMENT".to_string(),
+                "Filter::PERMANENT" => "&Filter::PERMANENT".to_string(),
+                _ => format!("&{}", self.body.filter_static("TARGET", &tgt_expr)),
+            };
+            let target_spec = format!("TargetSpec::ObjectOfEventPlayer({tgt_ref})");
+            let sub = p.take("SubAbility");
+            let effect = match api.as_str() {
+                "Pump" => {
+                    p.take("IsCurse");
+                    if !matches!(p.take("Duration").as_deref(), None | Some("UntilEndOfTurn")) {
+                        return None;
+                    }
+                    let num_att = p.take("NumAtt");
+                    let num_def = p.take("NumDef");
+                    let kw_raw = p.take("KW");
+                    if num_att.is_none() && num_def.is_none() && kw_raw.is_none() {
+                        return None;
+                    }
+                    if !p.exhausted() {
+                        return None;
+                    }
+                    let power = match num_att.as_deref() {
+                        None => "Amount::Fixed(0)".to_string(),
+                        Some(raw) => pump_amount(raw, self.svars, false)?,
+                    };
+                    let toughness = match num_def.as_deref() {
+                        None => "Amount::Fixed(0)".to_string(),
+                        Some(raw) => pump_amount(raw, self.svars, false)?,
+                    };
+                    let keywords = match kw_raw.as_deref() {
+                        None => "KeywordSet::EMPTY".to_string(),
+                        Some(kw) => Self::wave25c_pump_kw_bits(kw)?,
+                    };
+                    format!(
+                        "Effect::PumpTarget {{ power: {power}, toughness: {toughness}, \
+                         keywords: {keywords}, duration: Duration::UntilEndOfTurn }}"
+                    )
+                }
+                "Goad" => {
+                    p.take("IsCurse");
+                    if !p.exhausted() {
+                        return None;
+                    }
+                    format!("Effect::Goad {{ target: {target_spec} }}")
+                }
+                "Tap" => {
+                    p.take("IsCurse");
+                    if !p.exhausted() {
+                        return None;
+                    }
+                    "Effect::TapTarget".to_string()
+                }
+                "Animate" => {
+                    p.take("IsCurse");
+                    if p.take("RemoveCreatureTypes").as_deref() != Some("True") {
+                        return None;
+                    }
+                    let duration = match p.take("Duration").as_deref() {
+                        None | Some("UntilEndOfTurn") => "Duration::UntilEndOfTurn",
+                        Some("Permanent") => "Duration::Indefinitely",
+                        Some(_) => return None,
+                    };
+                    let raw_type = p.take("Types")?;
+                    if raw_type.contains([',', '&', ' ', '.']) || !p.exhausted() {
+                        return None;
+                    }
+                    let path = self
+                        .cats
+                        .const_path_of(SubtypeKind::Creature, raw_type.trim())?;
+                    format!(
+                        "Effect::ModifyTargets {{ modifier: Modifier::ReplaceCreatureTypes({path}), \
+                         duration: {duration} }}"
+                    )
+                }
+                _ => return None,
+            };
+            chain.target = Some(target_spec);
+            chain.effects.push(effect);
+            if let Some(sub_name) = sub {
+                let sub_body = self.svars.get(sub_name.trim())?.clone();
+                self.chain(&sub_body, chain)?;
+            }
+            return Some(());
+        }
+
+        None
+    }
+
+    /// Wave 25c LKI graveyard-exile replacement lowering (`CR 603.10a`, `CR 614.6`):
+    /// lowers `R:Event$ Moved | Destination$ Graveyard` into
+    /// `ReplacementRule::ExileInsteadOfGraveyard { filter, origin, owner, controller_lki,
+    /// damaged_by, link_to_source, counter }` (*Etching of Kumano*, *Incendiary Oracle*,
+    /// *Valgavoth, Terror Eater*, *Gisa, Glorious Resurrector*, *Rest in Peace*,
+    /// *Anafenza, the Foremost*, *Dryad Militant*, *Sanctifier en-Vec*, etc.).
+    #[allow(clippy::too_many_lines)]
+    pub(super) fn lki_exile_instead_of_graveyard(&mut self, mut p: Params) -> Option<()> {
+        p.drop_prose();
+        if p.take("ActiveZones").as_deref() != Some("Battlefield")
+            || p.take("Destination").as_deref() != Some("Graveyard")
+            || !matches!(p.take("Secondary").as_deref(), None | Some("True"))
+        {
+            return None;
+        }
+        let r_origin = p.take("Origin");
+        let (valid, is_lki) = match (p.take("ValidCard"), p.take("ValidLKI")) {
+            (Some(v), None) => (v, false),
+            (None, Some(v)) => (v, true),
+            _ => return None,
+        };
+        let with = p.take("ReplaceWith")?;
+        if !p.exhausted() {
+            return None;
+        }
+        let (api, mut body) = self.svars.get(&with).and_then(|s| Params::parse(s))?;
+        body.drop_prose();
+        if api != "ChangeZone"
+            || body.take("Defined").as_deref() != Some("ReplacedCard")
+            || body.take("Destination").as_deref() != Some("Exile")
+            || !matches!(body.take("Hidden").as_deref(), None | Some("True"))
+        {
+            return None;
+        }
+        let body_origin = body.take("Origin");
+        let counter_raw = body.take("WithCountersType");
+        if let Some(cnt_amt) = body.take("WithCountersAmount")
+            && (counter_raw.is_none() || cnt_amt.trim() != "1")
+        {
+            return None;
+        }
+        if !body.exhausted() {
+            return None;
+        }
+        let origin = match (r_origin.as_deref(), body_origin.as_deref()) {
+            (Some("Battlefield"), None | Some("All" | "Battlefield")) => {
+                Some("ZoneRef::Battlefield")
+            }
+            (None | Some("All"), None | Some("All")) => None,
+            // Forge writes `ValidLKI$ Creature.DamagedBy*` with `Origin$ Battlefield`
+            // on the `ReplaceWith$` `ChangeZone` rather than on the `R:` header
+            // (*Incendiary Oracle*, *Etching of Kumano*, *Frostwielder*, *Kumano*).
+            (None | Some("All"), Some("Battlefield")) if is_lki && valid.contains("DamagedBy") => {
+                Some("ZoneRef::Battlefield")
+            }
+            _ => return None,
+        };
+        let counter_expr = match counter_raw {
+            None => "None".to_string(),
+            Some(code) => format!("Some({})", counter_kind(code.trim())?),
+        };
+
+        // Parse each comma-separated alternative, extracting owner, controller_lki,
+        // and damaged_by uniformly across all alternatives.
+        let mut common_owner: Option<Option<&'static str>> = None;
+        let mut common_ctrl: Option<Option<&'static str>> = None;
+        let mut common_dmg: Option<&'static str> = None;
+        let mut cleaned_alts = Vec::new();
+        for raw_alt in valid.split(',') {
+            let alt = raw_alt.trim();
+            if alt.is_empty() {
+                return None;
+            }
+            let (base, atoms_raw) = alt.split_once('.').unwrap_or((alt, ""));
+            let base = base.trim();
+            let mut alt_owner: Option<&'static str> = None;
+            let mut alt_ctrl: Option<&'static str> = None;
+            let mut alt_dmg: &'static str = "DamagedByScope::Any";
+            let mut kept = Vec::new();
+            for atom in atoms_raw
+                .split('+')
+                .map(str::trim)
+                .filter(|a| !a.is_empty())
+            {
+                match atom {
+                    "DamagedBy" => {
+                        if origin != Some("ZoneRef::Battlefield")
+                            || !is_lki
+                            || alt_dmg != "DamagedByScope::Any"
+                        {
+                            return None;
+                        }
+                        alt_dmg = "DamagedByScope::SourceThisTurn";
+                    }
+                    "DamagedByCard.YouCtrl;Emblem.YouCtrl" | "DamagedByCard.YouCtrl" => {
+                        if origin != Some("ZoneRef::Battlefield")
+                            || !is_lki
+                            || alt_dmg != "DamagedByScope::Any"
+                        {
+                            return None;
+                        }
+                        alt_dmg = "DamagedByScope::SourceControllerThisTurn";
+                    }
+                    "OppOwn" => {
+                        if alt_owner.is_some() {
+                            return None;
+                        }
+                        alt_owner = Some("PlayerRel::EachOpponent");
+                    }
+                    "YouOwn" => {
+                        if alt_owner.is_some() {
+                            return None;
+                        }
+                        alt_owner = Some("PlayerRel::You");
+                    }
+                    "OppCtrl" => {
+                        if alt_ctrl.is_some() {
+                            return None;
+                        }
+                        alt_ctrl = Some("PlayerRel::EachOpponent");
+                    }
+                    "YouCtrl" => {
+                        if alt_ctrl.is_some() {
+                            return None;
+                        }
+                        alt_ctrl = Some("PlayerRel::You");
+                    }
+                    "YouDontCtrl" => {
+                        if alt_ctrl.is_some() {
+                            return None;
+                        }
+                        alt_ctrl = Some("PlayerRel::EachOtherPlayer");
+                    }
+                    other => {
+                        if other.contains("DamagedBy")
+                            || other.contains("Ctrl")
+                            || other.contains("Own")
+                            || other.contains("ControlledBy")
+                            || other.contains("OwnedBy")
+                            || other.contains("CastSa")
+                            || other.contains("MayPlaySource")
+                            || other.contains("IsRemembered")
+                            || other.contains(';')
+                        {
+                            return None;
+                        }
+                        kept.push(other);
+                    }
+                }
+            }
+            match common_owner {
+                None => common_owner = Some(alt_owner),
+                Some(prev) if prev != alt_owner => return None,
+                Some(_) => {}
+            }
+            match common_ctrl {
+                None => common_ctrl = Some(alt_ctrl),
+                Some(prev) if prev != alt_ctrl => return None,
+                Some(_) => {}
+            }
+            match common_dmg {
+                None => common_dmg = Some(alt_dmg),
+                Some(prev) if prev != alt_dmg => return None,
+                Some(_) => {}
+            }
+            if kept.is_empty() {
+                cleaned_alts.push(base.to_string());
+            } else {
+                cleaned_alts.push(format!("{base}.{}", kept.join("+")));
+            }
+        }
+        let owner = common_owner?;
+        let controller_lki = common_ctrl?;
+        let damaged_by = common_dmg?;
+        let cleaned = cleaned_alts.join(",");
+
+        let filter_expr = if cleaned == "Card.Self" {
+            if owner.is_some() || controller_lki.is_some() || damaged_by != "DamagedByScope::Any" {
+                return None;
+            }
+            "Filter::This".to_string()
+        } else if cleaned == "Card"
+            || (cleaned == "Permanent" && origin == Some("ZoneRef::Battlefield"))
+        {
+            "Filter::Any".to_string()
+        } else {
+            self.filter_expr_in_zone(&cleaned, origin.is_none())?
+        };
+        let filter_ref = match filter_expr.as_str() {
+            "Filter::Any" => "&Filter::Any".to_string(),
+            "Filter::This" => "&Filter::This".to_string(),
+            "Filter::CREATURE" => "&Filter::CREATURE".to_string(),
+            "Filter::NONTOKEN_CREATURE" => "&Filter::NONTOKEN_CREATURE".to_string(),
+            "Filter::ANOTHER_CREATURE" => "&Filter::ANOTHER_CREATURE".to_string(),
+            "Filter::INSTANT_OR_SORCERY" => "&Filter::INSTANT_OR_SORCERY".to_string(),
+            "Filter::ARTIFACT" => "&Filter::ARTIFACT".to_string(),
+            "Filter::LAND" => "&Filter::LAND".to_string(),
+            "Filter::ENCHANTMENT" => "&Filter::ENCHANTMENT".to_string(),
+            "Filter::PLANESWALKER" => "&Filter::PLANESWALKER".to_string(),
+            "Filter::PERMANENT" => "&Filter::PERMANENT".to_string(),
+            _ => format!("&{}", self.body.filter_static("REPLACE", &filter_expr)),
+        };
+
+        let link_to_source = cleaned != "Card.Self"
+            && (self.svars.values().any(|v| v.contains("ExiledWith"))
+                || self
+                    .body
+                    .abilities
+                    .iter()
+                    .any(|a| a.contains("LinkedExile"))
+                || self.oracle.to_ascii_lowercase().contains("exiled with"));
+        let origin_expr = origin.map_or_else(|| "None".to_string(), |z| format!("Some({z})"));
+        let owner_expr = owner.map_or_else(|| "None".to_string(), |o| format!("Some({o})"));
+        let ctrl_expr = controller_lki.map_or_else(|| "None".to_string(), |c| format!("Some({c})"));
+        self.body.abilities.push(format!(
+            "AbilityDef::Replacement(ReplacementRule::ExileInsteadOfGraveyard {{ \
+             filter: {filter_ref}, origin: {origin_expr}, owner: {owner_expr}, \
+             controller_lki: {ctrl_expr}, damaged_by: {damaged_by}, \
+             link_to_source: {link_to_source}, counter: {counter_expr} }})"
+        ));
+        Some(())
     }
 }
