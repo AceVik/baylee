@@ -641,6 +641,9 @@ pub fn condition_holds_with_context(
             baylee_cards_dsl::StepKind::SecondMain => {
                 state.turn.step == crate::turn::Step::Main && state.per_turn.main_phases_begun == 2
             }
+            baylee_cards_dsl::StepKind::PostcombatMain => {
+                state.turn.step == crate::turn::Step::Main && state.per_turn.main_phases_begun > 1
+            }
             other => state.turn.step.kind() == Some(other),
         },
         // CR 506.8: "before" a point of the turn is before that point's
@@ -650,7 +653,7 @@ pub fn condition_holds_with_context(
                 state.per_turn.main_phases_begun == 0
                     && state.turn.position() < crate::turn::position_of(kind)
             }
-            baylee_cards_dsl::StepKind::SecondMain => {
+            baylee_cards_dsl::StepKind::SecondMain | baylee_cards_dsl::StepKind::PostcombatMain => {
                 state.per_turn.main_phases_begun < 2
                     && state.turn.position() < crate::turn::position_of(kind)
             }

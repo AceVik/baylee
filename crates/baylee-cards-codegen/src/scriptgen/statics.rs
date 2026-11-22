@@ -6350,7 +6350,7 @@ fn static_phase_condition(phases: &str) -> Option<&'static str> {
         "Upkeep" => "Condition::DuringStep(StepKind::Upkeep)",
         "Draw" => "Condition::DuringStep(StepKind::Draw)",
         "Main1" => "Condition::DuringStep(StepKind::FirstMain)",
-        "Main2" => "Condition::DuringStep(StepKind::SecondMain)",
+        "Main2" => "Condition::DuringStep(StepKind::PostcombatMain)",
         "BeginCombat" => "Condition::DuringStep(StepKind::CombatBegin)",
         "Declare Attackers" => "Condition::DuringStep(StepKind::DeclareAttackers)",
         "Declare Blockers" => "Condition::DuringStep(StepKind::DeclareBlockers)",

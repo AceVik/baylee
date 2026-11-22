@@ -1462,8 +1462,9 @@ face and projected abilities. This family is not a generic delayed trigger.
 `StepKind::FirstMain` means the first main phase actually begun during the turn;
 `StepKind::SecondMain` means the second main phase actually begun during the turn
 (`CR 505.1a`, `Phase.PhaseCount$ 2`, including under extra combat/main phases — a
-third main phase triggers neither). Both work with `Trigger::StepBegin`,
-`Condition::DuringStep`, and `Condition::BeforeStep`.
+third main phase triggers neither). `StepKind::PostcombatMain` covers each
+main phase after the first (Forge `Phase$ Main2`). All three work with
+`Trigger::StepBegin`, `Condition::DuringStep`, and `Condition::BeforeStep`.
 `Condition::SacrificedSubtypeThisTurn` counts actual sacrifice events with the
 subtype and controller captured at departure, even if the graveyard destination
 was replaced. `Condition::DescendedThisTurn` instead records a permanent **card**

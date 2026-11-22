@@ -149,6 +149,8 @@ pub enum StepKind {
     /// phase or the second main phase under extra combat/main phases).
     /// Appended to preserve replay identities.
     SecondMain,
+    /// Each main phase after the first actual main phase of the turn (CR 505.1a).
+    PostcombatMain,
 }
 
 /// Which kind of attacked defender [`Trigger::AttackersDeclaredAtTarget`] listens

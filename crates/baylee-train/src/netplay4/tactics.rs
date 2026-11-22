@@ -4081,7 +4081,7 @@ fn condition_closed(view: &PlayerView, actor: PlayerId, cond: &Condition) -> boo
             StepKind::CombatEnd => view.step == Step::CombatEnd,
             StepKind::End => view.step == Step::End,
             StepKind::FirstMain => true,
-            StepKind::SecondMain => {
+            StepKind::SecondMain | StepKind::PostcombatMain => {
                 view.step == Step::Main && view.phase == baylee_view::Phase::SecondMain
             }
         },

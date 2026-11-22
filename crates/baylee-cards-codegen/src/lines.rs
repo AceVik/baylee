@@ -600,7 +600,8 @@ fn step_begin_words(step: StepKind) -> &'static [&'static str] {
         StepKind::CombatEnd => &["end of combat"],
         StepKind::End => &["end step"],
         StepKind::FirstMain => &["first main phase"],
-        StepKind::SecondMain => &["second main phase", "postcombat main phase"],
+        StepKind::SecondMain => &["second main phase"],
+        StepKind::PostcombatMain => &["postcombat main phase"],
     }
 }
 

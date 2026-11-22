@@ -110,7 +110,7 @@ pub const fn position_of(kind: StepKind) -> u8 {
         StepKind::DeclareBlockers => 6,
         StepKind::CombatDamage => 7,
         StepKind::CombatEnd => 9,
-        StepKind::SecondMain => 10,
+        StepKind::SecondMain | StepKind::PostcombatMain => 10,
         StepKind::End => 11,
     }
 }

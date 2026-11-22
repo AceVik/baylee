@@ -953,7 +953,7 @@ impl Tx<'_> {
                         "trigger at step `Main2` with `PhaseCount$ {count}`"
                     ));
                 }
-                "StepKind::SecondMain"
+                "StepKind::PostcombatMain"
             }
             "Main" => match p.take("PhaseCount").as_deref() {
                 Some("1") => "StepKind::FirstMain",
@@ -4085,7 +4085,7 @@ impl Tx<'_> {
             "Upkeep" => Some("Condition::DuringStep(StepKind::Upkeep)"),
             "Draw" => Some("Condition::DuringStep(StepKind::Draw)"),
             "Main1" => Some("Condition::DuringStep(StepKind::FirstMain)"),
-            "Main2" => Some("Condition::DuringStep(StepKind::SecondMain)"),
+            "Main2" => Some("Condition::DuringStep(StepKind::PostcombatMain)"),
             "BeginCombat" => Some("Condition::DuringStep(StepKind::CombatBegin)"),
             "Declare Attackers" => Some("Condition::DuringStep(StepKind::DeclareAttackers)"),
             "Declare Blockers" => Some("Condition::DuringStep(StepKind::DeclareBlockers)"),

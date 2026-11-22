@@ -726,6 +726,9 @@ fn begins_step(
         baylee_cards_dsl::StepKind::SecondMain => {
             began == crate::turn::Step::Main && state.per_turn.main_phases_begun == 2
         }
+        baylee_cards_dsl::StepKind::PostcombatMain => {
+            began == crate::turn::Step::Main && state.per_turn.main_phases_begun > 1
+        }
         other => began.kind() == Some(other),
     }
 }

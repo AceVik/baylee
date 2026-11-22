@@ -77,7 +77,7 @@ fn refused_w25c(text: &str) -> bool {
 // ---------------------------------------------------------------------------
 
 #[test]
-fn second_main_phase_triggers_and_phase_conditions() {
+fn ordinal_and_postcombat_main_phase_triggers_and_phase_conditions() {
     // Neheb, the Eternal shape: `Phase$ Main2`.
     let neheb = read_w25c(
         "Name:Neheb Proxy\nManaCost:3 R R\nTypes:Legendary Creature Zombie Minotaur Warrior\nPT:4/6\n\
@@ -88,7 +88,7 @@ fn second_main_phase_triggers_and_phase_conditions() {
     assert_eq!(
         neheb.abilities,
         [
-            "triggered!(Trigger::StepBegin { step: StepKind::SecondMain, whose: PlayerRel::You }, \
+            "triggered!(Trigger::StepBegin { step: StepKind::PostcombatMain, whose: PlayerRel::You }, \
              &[Effect::mana_dynamic(ManaColor::Red, Amount::OpponentsLifeLostThisTurn)])"
         ]
     );
@@ -151,17 +151,17 @@ fn second_main_phase_triggers_and_phase_conditions() {
     );
     assert!(
         gated.abilities[0]
-            .contains("Condition::TriggerOnly(&Condition::DuringStep(StepKind::SecondMain))"),
+            .contains("Condition::TriggerOnly(&Condition::DuringStep(StepKind::PostcombatMain))"),
         "{:?}",
         gated.abilities
     );
     assert!(
-        gated.abilities[1].contains("Condition::DuringStep(StepKind::SecondMain)"),
+        gated.abilities[1].contains("Condition::DuringStep(StepKind::PostcombatMain)"),
         "{:?}",
         gated.abilities
     );
     assert!(
-        gated.abilities[2].contains("Condition::DuringStep(StepKind::SecondMain)"),
+        gated.abilities[2].contains("Condition::DuringStep(StepKind::PostcombatMain)"),
         "{:?}",
         gated.abilities
     );

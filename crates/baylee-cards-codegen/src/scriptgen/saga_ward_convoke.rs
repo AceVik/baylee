@@ -920,7 +920,7 @@ impl Tx<'_> {
                 "Upkeep" => "StepKind::Upkeep",
                 "Draw" => "StepKind::Draw",
                 "Main1" => "StepKind::FirstMain",
-                "Main2" => "StepKind::SecondMain",
+                "Main2" => "StepKind::PostcombatMain",
                 "BeginCombat" => "StepKind::CombatBegin",
                 "Declare Attackers" => "StepKind::DeclareAttackers",
                 "Declare Blockers" => "StepKind::DeclareBlockers",

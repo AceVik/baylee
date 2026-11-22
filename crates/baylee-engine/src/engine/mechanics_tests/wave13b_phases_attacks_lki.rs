@@ -206,17 +206,102 @@ fn second_main_trigger_fires_only_on_second_main_not_first_or_third_after_extra_
 }
 
 #[test]
+fn neheb_triggers_on_every_postcombat_main_and_fireglass_only_on_second_main() {
+    static EXTRA_COMBAT: &[AbilityDef] = &[free(
+        &[Effect::AdditionalCombatPhase {
+            followed_by_main_phase: true,
+        }],
+        None,
+    )];
+
+    let neheb = baylee_cards::by_oracle_id("b0d3fd57-1420-4dd1-8410-9d659655287f").unwrap();
+    let fireglass = baylee_cards::by_oracle_id("b173245e-2009-48ff-ac42-5f28d12aec79").unwrap();
+    let extra_combat = card(
+        C0,
+        face("Extra Combat Engine", "{0}", TypeSet::ARTIFACT),
+        KeywordSet::EMPTY,
+        EXTRA_COMBAT,
+    );
+    let mut engine = bench(
+        1303,
+        vec![neheb, fireglass, extra_combat],
+        [
+            Seat::with(&[neheb.index.get(), fireglass.index.get(), C0]),
+            Seat::default(),
+        ],
+    );
+    let neheb = the(&engine, ZoneLocation::Battlefield, neheb.index.get());
+    let fireglass = the(&engine, ZoneLocation::Battlefield, fireglass.index.get());
+    let extra_combat = the(&engine, ZoneLocation::Battlefield, C0);
+    let neheb_trigger_count = |engine: &Bench| {
+        engine
+            .journal()
+            .entries()
+            .iter()
+            .filter(|entry| {
+                matches!(entry.event, crate::event::GameEvent::AbilityTriggered {
+                    source, ability_index: 1, ..
+                } if source == neheb)
+            })
+            .count()
+    };
+
+    walk_to_main_count(&mut engine, me(), 1);
+    assert_eq!(neheb_trigger_count(&engine), 0);
+    assert_eq!(triggered(&engine, fireglass), 0);
+    engine
+        .state
+        .change_life(PlayerId::new(1), -2, Cause::Effect);
+    activate(&mut engine, me(), extra_combat, 0);
+    settle(&mut engine, me());
+
+    walk_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseCards { .. })
+    });
+    assert_eq!(engine.state().per_turn.main_phases_begun, 2);
+    let Pending::ChooseCards {
+        player, options, ..
+    } = engine.pending().clone()
+    else {
+        unreachable!();
+    };
+    assert_eq!(options.len(), 2);
+    engine
+        .apply(
+            player,
+            PlayerAction::ChooseObjects {
+                objects: vec![options[0]],
+            },
+        )
+        .unwrap();
+    walk_to_main_count(&mut engine, me(), 2);
+    assert_eq!(neheb_trigger_count(&engine), 1);
+    assert_eq!(triggered(&engine, fireglass), 1);
+
+    walk_to_main_count(&mut engine, me(), 3);
+    assert_eq!(neheb_trigger_count(&engine), 2);
+    assert_eq!(triggered(&engine, fireglass), 1);
+}
+
+#[test]
 fn second_main_during_step_and_before_step_conditions_respect_main_phase_count() {
     static FIRST_MAIN_ONLY: &[AbilityDef] = &[activated!(
         Cost::FREE,
         &[Effect::gain_life(1)],
         condition = Some(Condition::DuringStep(StepKind::FirstMain))
     )];
-    static SECOND_MAIN_ONLY: &[AbilityDef] = &[activated!(
-        Cost::FREE,
-        &[Effect::gain_life(1)],
-        condition = Some(Condition::DuringStep(StepKind::SecondMain))
-    )];
+    static SECOND_MAIN_CHECKS: &[AbilityDef] = &[
+        activated!(
+            Cost::FREE,
+            &[Effect::gain_life(1)],
+            condition = Some(Condition::DuringStep(StepKind::SecondMain))
+        ),
+        activated!(
+            Cost::FREE,
+            &[Effect::gain_life(1)],
+            condition = Some(Condition::DuringStep(StepKind::PostcombatMain))
+        ),
+    ];
     static BEFORE_SECOND_MAIN: &[AbilityDef] = &[activated!(
         Cost::FREE,
         &[Effect::gain_life(1)],
@@ -239,7 +324,7 @@ fn second_main_during_step_and_before_step_conditions_respect_main_phase_count()
         C1,
         face("During Second", "{0}", TypeSet::ARTIFACT),
         KeywordSet::EMPTY,
-        SECOND_MAIN_ONLY,
+        SECOND_MAIN_CHECKS,
     );
     let c_before = card(
         C2,
@@ -276,6 +361,7 @@ fn second_main_during_step_and_before_step_conditions_respect_main_phase_count()
     let (_, legal) = offer(&engine);
     assert!(legal.abilities.contains(&(a_first, 0)));
     assert!(!legal.abilities.contains(&(a_second, 0)));
+    assert!(!legal.abilities.contains(&(a_second, 1)));
     assert!(legal.abilities.contains(&(a_before, 0)));
 
     // Queue an extra combat + main phase so Main #2 is followed by Combat #2 and Main #3.
@@ -294,6 +380,7 @@ fn second_main_during_step_and_before_step_conditions_respect_main_phase_count()
     let (_, legal) = offer(&engine);
     assert!(!legal.abilities.contains(&(a_first, 0)));
     assert!(legal.abilities.contains(&(a_second, 0)));
+    assert!(legal.abilities.contains(&(a_second, 1)));
     assert!(!legal.abilities.contains(&(a_before, 0)));
 
     // Combat #2 (AFTER Main #2!): BeforeStep(SecondMain) MUST remain closed!
@@ -306,7 +393,7 @@ fn second_main_during_step_and_before_step_conditions_respect_main_phase_count()
         "BeforeStep(SecondMain) stays false during extra combat after main #2"
     );
 
-    // Main #3: ALL THREE are closed!
+    // Main #3: Only DuringStep(PostcombatMain) is open.
     walk_to_main_count(&mut engine, me(), 3);
     let (_, legal) = offer(&engine);
     assert!(!legal.abilities.contains(&(a_first, 0)));
@@ -314,6 +401,7 @@ fn second_main_during_step_and_before_step_conditions_respect_main_phase_count()
         !legal.abilities.contains(&(a_second, 0)),
         "DuringStep(SecondMain) is false in main phase #3"
     );
+    assert!(legal.abilities.contains(&(a_second, 1)));
     assert!(!legal.abilities.contains(&(a_before, 0)));
 
     // End step: all three closed.
