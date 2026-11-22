@@ -16,20 +16,12 @@ use baylee_catalog::{Catalog, scryfall};
 use common::{attach_agent, http, json_field, login, spawn_gateway};
 use serde_json::{Value, json};
 
-/// A card's oracle id, as `/pool` lists it.
-fn oracle_of(port: u16, token: &str, name: &str) -> String {
-    let (status, body) = http(port, "GET", "/pool?lang=en", Some(token), "");
-    assert_eq!(status, 200, "{body}");
-    let pool: Value = serde_json::from_str(&body).expect("the pool is JSON");
-    pool["cards"]
-        .as_array()
-        .expect("a list of cards")
-        .iter()
-        .find(|card| card["english_name"] == name)
-        .expect("the card is in the pool")["oracle_id"]
-        .as_str()
-        .expect("an oracle id")
-        .to_owned()
+/// A fixture card's oracle id from the registry linked by the gateway.
+fn oracle_of(name: &str) -> &'static str {
+    let index = baylee_cards::decks::by_name(name).expect("the fixture card has a pool index");
+    baylee_cards::by_index(index)
+        .expect("the fixture card is in the registry")
+        .oracle_id
 }
 
 fn printing(n: u32, name: &str, oracle_id: &str, verdicts: &[(&str, &str)]) -> scryfall::Card {
@@ -159,8 +151,8 @@ async fn a_list_is_read_and_written_by_its_owner_alone() {
     let (status, _) = http(gw.port, "POST", "/banlists", Some(&bob), &copy);
     assert_eq!(status, 404, "nor can it be copied");
 
-    let ring = oracle_of(gw.port, &alice, "Sol Ring");
-    let written = write_cards(gw.port, &alice, id, &[(&ring, "restricted")]);
+    let ring = oracle_of("Sol Ring");
+    let written = write_cards(gw.port, &alice, id, &[(ring, "restricted")]);
 
     // The listing carries a list's cards by index, which is what `list:`
     // searches by, and only to the one who may read it.
@@ -205,7 +197,7 @@ async fn a_list_is_held_to_its_bounds() {
     }
     let list = new_list(gw.port, &alice, "Fine", "freeform");
     let path = format!("/banlists/{}", id_of(&list));
-    let ring = oracle_of(gw.port, &alice, "Sol Ring");
+    let ring = oracle_of("Sol Ring");
     let twice = json!({"entries": [
         {"oracle_id": ring, "status": "banned"},
         {"oracle_id": ring, "status": "restricted"},
@@ -223,8 +215,8 @@ async fn a_list_is_held_to_its_bounds() {
 async fn an_official_list_follows_the_feed_and_is_copied_whole() {
     let gw = spawn_gateway("banlist_official");
     let alice = login(gw.port, "alice", "Alice");
-    let ring = oracle_of(gw.port, &alice, "Sol Ring");
-    let stone = oracle_of(gw.port, &alice, "Mind Stone");
+    let ring = oracle_of("Sol Ring");
+    let stone = oracle_of("Mind Stone");
 
     let (status, body) = http(gw.port, "GET", "/banlists", Some(&alice), "");
     assert_eq!(status, 200);
@@ -242,13 +234,13 @@ async fn an_official_list_follows_the_feed_and_is_copied_whole() {
             printing(
                 1,
                 "Sol Ring",
-                &ring,
+                ring,
                 &[("modern", "banned"), ("vintage", "restricted")],
             ),
             printing(
                 2,
                 "Mind Stone",
-                &stone,
+                stone,
                 &[("modern", "legal"), ("vintage", "legal")],
             ),
             // A card outside the pool stays out of what this gateway serves.
@@ -301,7 +293,7 @@ async fn a_table_with_a_list_turns_a_deck_away_with_its_reasons() {
     let gw = spawn_gateway("banlist_join");
     let host = login(gw.port, "host", "Host");
     let guest = login(gw.port, "guest", "Guest");
-    let ring = oracle_of(gw.port, &host, "Sol Ring");
+    let ring = oracle_of("Sol Ring");
 
     let clean = make_deck(gw.port, &guest, "Clean", &["60 Forest"], "freeform");
     let ringed = make_deck(
@@ -328,7 +320,7 @@ async fn a_table_with_a_list_turns_a_deck_away_with_its_reasons() {
     assert_eq!(status, 204);
 
     let list = new_list(gw.port, &host, "No rings", "freeform");
-    write_cards(gw.port, &host, id_of(&list), &[(&ring, "banned")]);
+    write_cards(gw.port, &host, id_of(&list), &[(ring, "banned")]);
     pick_list(gw.port, &host, &game, id_of(&list));
 
     // The door: the deck stays outside and the player reads why.
@@ -369,7 +361,7 @@ async fn a_deck_a_new_list_rejects_is_told_at_ready_and_its_cards_stay_its_own()
     let _agent = attach_agent(&gw).await;
     let host = login(gw.port, "host", "Host");
     let guest = login(gw.port, "guest", "Guest");
-    let ring = oracle_of(gw.port, &host, "Sol Ring");
+    let ring = oracle_of("Sol Ring");
     let mine = make_deck(gw.port, &host, "Mine", &["60 Forest"], "freeform");
     let ringed = make_deck(
         gw.port,
@@ -398,7 +390,7 @@ async fn a_deck_a_new_list_rejects_is_told_at_ready_and_its_cards_stay_its_own()
     // The host picks a list the seated deck breaks: a new table, so the
     // chair's ready goes.
     let list = new_list(gw.port, &host, "No rings", "freeform");
-    write_cards(gw.port, &host, id_of(&list), &[(&ring, "banned")]);
+    write_cards(gw.port, &host, id_of(&list), &[(ring, "banned")]);
     pick_list(gw.port, &host, &game, id_of(&list));
     let row = table(gw.port, &guest, &game);
     assert_eq!(row["seats"][1]["ready"], false, "{row}");
@@ -432,12 +424,12 @@ async fn a_deck_a_new_list_rejects_is_told_at_ready_and_its_cards_stay_its_own()
     assert_eq!(row["seats"][1]["off_list"], false, "another deck passes");
     let (status, body) = http(gw.port, "POST", &ready, Some(&guest), "{}");
     assert_eq!(status, 200, "{body}");
-    let stone = oracle_of(gw.port, &host, "Mind Stone");
+    let stone = oracle_of("Mind Stone");
     write_cards(
         gw.port,
         &host,
         id_of(&list),
-        &[(&ring, "banned"), (&stone, "banned")],
+        &[(ring, "banned"), (stone, "banned")],
     );
     let start = format!("/lobby/games/{game}/start");
     let (status, body) = http(gw.port, "POST", &start, Some(&host), "");
@@ -457,9 +449,9 @@ async fn a_rooms_list_is_seen_by_those_at_the_table() {
     let host = login(gw.port, "host", "Host");
     let guest = login(gw.port, "guest", "Guest");
     let passer = login(gw.port, "passer", "Passer");
-    let ring = oracle_of(gw.port, &host, "Sol Ring");
+    let ring = oracle_of("Sol Ring");
     let list = new_list(gw.port, &host, "Our secret list", "freeform");
-    write_cards(gw.port, &host, id_of(&list), &[(&ring, "banned")]);
+    write_cards(gw.port, &host, id_of(&list), &[(ring, "banned")]);
     let game = open_room(gw.port, &host);
 
     // Someone else's list cannot be picked, and reads as none.
@@ -518,9 +510,9 @@ async fn a_room_keeps_the_list_it_read() {
     let gw = spawn_gateway("banlist_kept");
     let host = login(gw.port, "host", "Host");
     let guest = login(gw.port, "guest", "Guest");
-    let ring = oracle_of(gw.port, &host, "Sol Ring");
+    let ring = oracle_of("Sol Ring");
     let list = new_list(gw.port, &host, "No rings", "freeform");
-    write_cards(gw.port, &host, id_of(&list), &[(&ring, "banned")]);
+    write_cards(gw.port, &host, id_of(&list), &[(ring, "banned")]);
     let game = open_room(gw.port, &host);
     pick_list(gw.port, &host, &game, id_of(&list));
     let (status, _) = http(
@@ -566,10 +558,10 @@ async fn an_edit_does_not_reach_a_running_game() {
     let gw = spawn_gateway("banlist_frozen");
     let _agent = attach_agent(&gw).await;
     let host = login(gw.port, "host", "Host");
-    let ring = oracle_of(gw.port, &host, "Sol Ring");
-    let stone = oracle_of(gw.port, &host, "Mind Stone");
+    let ring = oracle_of("Sol Ring");
+    let stone = oracle_of("Mind Stone");
     let list = new_list(gw.port, &host, "Own", "freeform");
-    let written = write_cards(gw.port, &host, id_of(&list), &[(&ring, "banned")]);
+    let written = write_cards(gw.port, &host, id_of(&list), &[(ring, "banned")]);
     let frozen = written["version"].as_i64().expect("a version");
     let deck = make_deck(
         gw.port,
@@ -586,7 +578,7 @@ async fn an_edit_does_not_reach_a_running_game() {
     assert_eq!(row["rules"]["list"]["version"], frozen);
 
     // The edit lands, and would refuse this very deck.
-    let edited = write_cards(gw.port, &host, id_of(&list), &[(&stone, "banned")]);
+    let edited = write_cards(gw.port, &host, id_of(&list), &[(stone, "banned")]);
     assert_eq!(edited["version"], frozen + 1);
 
     let row = table(gw.port, &host, &game);
@@ -605,7 +597,7 @@ async fn an_edit_does_not_reach_a_running_game() {
     let room = open_room(gw.port, &guest);
     let theirs = new_list(gw.port, &guest, "Theirs", "freeform");
     pick_list(gw.port, &guest, &room, id_of(&theirs));
-    write_cards(gw.port, &guest, id_of(&theirs), &[(&stone, "banned")]);
+    write_cards(gw.port, &guest, id_of(&theirs), &[(stone, "banned")]);
     let path = format!("/lobby/games/{room}/list");
     let (status, body) = http(gw.port, "GET", &path, Some(&guest), "");
     assert_eq!(status, 200, "{body}");
@@ -621,17 +613,17 @@ async fn a_refresh_of_an_official_list_does_not_reach_a_running_game() {
     let gw = spawn_gateway("banlist_refresh");
     let _agent = attach_agent(&gw).await;
     let host = login(gw.port, "host", "Host");
-    let ring = oracle_of(gw.port, &host, "Sol Ring");
-    let stone = oracle_of(gw.port, &host, "Mind Stone");
-    let forest = oracle_of(gw.port, &host, "Forest");
+    let ring = oracle_of("Sol Ring");
+    let stone = oracle_of("Mind Stone");
+    let forest = oracle_of("Forest");
     let catalog = Catalog::connect(&gw.database_url())
         .await
         .expect("connecting to the gateway's schema");
     catalog
         .upsert(&[
-            printing(1, "Sol Ring", &ring, &[("modern", "banned")]),
-            printing(2, "Mind Stone", &stone, &[("modern", "legal")]),
-            printing(3, "Forest", &forest, &[("modern", "legal")]),
+            printing(1, "Sol Ring", ring, &[("modern", "banned")]),
+            printing(2, "Mind Stone", stone, &[("modern", "legal")]),
+            printing(3, "Forest", forest, &[("modern", "legal")]),
         ])
         .await
         .expect("seeding");
@@ -654,7 +646,7 @@ async fn a_refresh_of_an_official_list_does_not_reach_a_running_game() {
 
     // The feed bans the card this very deck holds.
     catalog
-        .upsert(&[printing(2, "Mind Stone", &stone, &[("modern", "banned")])])
+        .upsert(&[printing(2, "Mind Stone", stone, &[("modern", "banned")])])
         .await
         .expect("seeding");
     catalog.bump_data_version().await.expect("the stamp");
@@ -686,15 +678,15 @@ async fn a_refresh_of_an_official_list_does_not_reach_a_running_game() {
 async fn a_deck_is_never_refused_for_being_illegal_and_is_told_so() {
     let gw = spawn_gateway("banlist_saved");
     let alice = login(gw.port, "alice", "Alice");
-    let ring = oracle_of(gw.port, &alice, "Sol Ring");
-    let forest = oracle_of(gw.port, &alice, "Forest");
+    let ring = oracle_of("Sol Ring");
+    let forest = oracle_of("Forest");
     let catalog = Catalog::connect(&gw.database_url())
         .await
         .expect("connecting to the gateway's schema");
     catalog
         .upsert(&[
-            printing(1, "Sol Ring", &ring, &[("modern", "legal")]),
-            printing(2, "Forest", &forest, &[("modern", "legal")]),
+            printing(1, "Sol Ring", ring, &[("modern", "legal")]),
+            printing(2, "Forest", forest, &[("modern", "legal")]),
         ])
         .await
         .expect("seeding");
@@ -735,7 +727,7 @@ async fn a_deck_is_never_refused_for_being_illegal_and_is_told_so() {
 
     // Illegal tomorrow.
     catalog
-        .upsert(&[printing(1, "Sol Ring", &ring, &[("modern", "banned")])])
+        .upsert(&[printing(1, "Sol Ring", ring, &[("modern", "banned")])])
         .await
         .expect("seeding");
     catalog.bump_data_version().await.expect("the stamp");

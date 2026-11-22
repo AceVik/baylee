@@ -476,13 +476,25 @@ pub fn http(port: u16, method: &str, path: &str, token: Option<&str>, body: &str
     stream.write_all(request.as_bytes()).expect("write http");
     let mut raw = String::new();
     stream.read_to_string(&mut raw).expect("read http");
-    let status: u16 = raw
+    let (head, body) = raw.split_once("\r\n\r\n").expect("a header block");
+    let status: u16 = head
         .split_whitespace()
         .nth(1)
         .and_then(|s| s.parse().ok())
         .expect("http status");
-    let body = raw.split("\r\n\r\n").nth(1).unwrap_or("").to_string();
-    (status, body)
+    if method != "HEAD" && status != 204 && status != 304 {
+        for (name, value) in head.lines().skip(1).filter_map(|line| line.split_once(':')) {
+            if name.eq_ignore_ascii_case("content-length") {
+                let expected: usize = value.trim().parse().expect("numeric Content-Length");
+                assert_eq!(
+                    body.len(),
+                    expected,
+                    "incomplete HTTP response for {method} (status {status})"
+                );
+            }
+        }
+    }
+    (status, body.to_owned())
 }
 
 /// The value of a **numeric** field in a JSON response body.
