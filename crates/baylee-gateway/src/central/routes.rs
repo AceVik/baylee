@@ -181,6 +181,9 @@ async fn sign_in(state: &Shared, token: &str, purpose: Purpose) -> Result<Json<V
         return Err(StatusCode::UNAUTHORIZED.into());
     }
     let central = claims.account().ok_or(StatusCode::UNAUTHORIZED)?;
+    if purpose == Purpose::Ranked {
+        return ranked_session(state, &bridge.trust, &claims, central).map_err(Into::into);
+    }
     // The barrier drains the requests of a legacy account while its link is
     // fixed, and that is the only sign-in with anything to wait for: a new
     // projection has no requests, and one refused leaves nothing. Taking it
@@ -243,8 +246,7 @@ async fn sign_in(state: &Shared, token: &str, purpose: Purpose) -> Result<Json<V
         account = allowed(state, &account_id).await?;
     }
     let now = sessions::now();
-    let mut signed = Signed::new(central, admin, claims.terms.clone());
-    signed.ranked_match = claims.ranked_match;
+    let signed = Signed::new(central, admin, claims.terms.clone());
     let live = opened(
         &state.sessions,
         &bridge.trust,
@@ -257,14 +259,6 @@ async fn sign_in(state: &Shared, token: &str, purpose: Purpose) -> Result<Json<V
         .sessions
         .issue(&live, now)
         .ok_or(StatusCode::UNAUTHORIZED)?;
-    if purpose == Purpose::Ranked {
-        let mut answer = json!({
-            "token": issued.token,
-            "renew_in": ((live.expires_at() - now) / 2).max(1),
-        });
-        crate::routes::mark_standing(state, super::standing(state, &live), &mut answer);
-        return Ok(Json(answer));
-    }
     let mut answer = json!({
         "token": issued.token,
         "expires_at": issued.expires_at,
@@ -280,6 +274,44 @@ async fn sign_in(state: &Shared, token: &str, purpose: Purpose) -> Result<Json<V
         crate::routes::mark_standing(state, super::standing(state, &live), &mut answer);
     }
     Ok(Json(answer))
+}
+
+/// The ranked subject is an alias usable only on this host and in this match.
+/// A namespaced in-memory owner can neither join ordinary account projections
+/// nor become a player ID in a durable game record.
+fn ranked_session(
+    state: &Shared,
+    trust: &super::trust::Trust,
+    claims: &GatewayClaims,
+    alias: [u8; 16],
+) -> Result<Json<Value>, StatusCode> {
+    if claims.ranked_match.is_none()
+        || claims.ranked_generation == Some(0)
+        || claims.name.is_some()
+        || claims.tag.is_some()
+        || claims.legacy_id.is_some()
+        || claims.legacy_deck_source.is_some()
+        || claims.terms.is_some()
+    {
+        return Err(StatusCode::UNAUTHORIZED);
+    }
+    let account = format!("ranked/{}", uuid::Uuid::from_bytes(alias));
+    if !state.ranked.seat_logins.allow(&account) {
+        return Err(StatusCode::TOO_MANY_REQUESTS);
+    }
+    let mut signed = Signed::new(alias, false, None);
+    signed.ranked_match = claims.ranked_match;
+    signed.ranked_generation = claims.ranked_generation;
+    let now = sessions::now();
+    let live = opened(&state.sessions, trust, claims, &account, now, signed)?;
+    let issued = state
+        .sessions
+        .issue(&live, now)
+        .ok_or(StatusCode::UNAUTHORIZED)?;
+    Ok(Json(json!({
+        "token": issued.token,
+        "renew_in": ((live.expires_at() - now) / 2).max(1),
+    })))
 }
 
 /// Whether this address may have a token checked now. A signature is checked
@@ -357,17 +389,18 @@ async fn login(
 /// @return 403: "Player or ranked admission refused"
 /// @return 429: "Too many admissions"
 /// @return 503: "Central or host unavailable"
-async fn ranked_login(
-    State(state): State<Shared>,
-    ConnectInfo(addr): ConnectInfo<SocketAddr>,
-    headers: HeaderMap,
-    body: Bytes,
-) -> Response {
-    if !within_budget(&state, addr, &headers) {
-        return StatusCode::TOO_MANY_REQUESTS.into_response();
-    }
+async fn ranked_login(State(state): State<Shared>, body: Bytes) -> Response {
     if !state.auth_mode.current().central() {
         return StatusCode::FORBIDDEN.into_response();
+    }
+    // All legitimate seats can arrive from the same relay. Bound signature
+    // work independently of ordinary logins and allocate each verified match
+    // alias its own reconnect allowance in ranked_session.
+    let Ok(_slot) = state.ranked.login_slots.try_acquire() else {
+        return StatusCode::TOO_MANY_REQUESTS.into_response();
+    };
+    if !state.ranked.login_attempts.allow("ranked") {
+        return StatusCode::TOO_MANY_REQUESTS.into_response();
     }
     match read_token(&body) {
         Ok(token) => answered(sign_in(&state, &token, Purpose::Ranked).await),
@@ -833,6 +866,7 @@ mod tests {
                 exp: NOW + 3600,
                 purpose: Purpose::Admit,
                 ranked_match: None,
+                ranked_generation: None,
                 name: None,
                 tag: None,
                 legacy_id: None,

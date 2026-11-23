@@ -1024,7 +1024,12 @@ pub(crate) fn sheet(
     let mut answers: Vec<Entity> = Vec::new();
     let central = state.terms_subject == Subject::Central;
     let ranked = state.terms_subject == Subject::Ranked;
+    #[cfg(not(target_arch = "wasm32"))]
+    let host_set = ranked && super::super::ranked::native::consent::host_set(state);
+    #[cfg(target_arch = "wasm32")]
+    let host_set = false;
     let caption_text = match state.terms.sheet() {
+        _ if host_set => String::new(),
         Sheet::Reading(r) => {
             let mut said = if central {
                 Phrase::CentralTermsVersion
@@ -1052,7 +1057,9 @@ pub(crate) fn sheet(
         // A press on the sheet's own ground is no press behind it.
         Press::Shared(super::super::SharedPress::PickerNothing),
     );
-    let title = if central {
+    let title = if host_set {
+        Phrase::RankedHostsTitle.text(lang).to_string()
+    } else if central {
         Phrase::CentralTermsTitle.text(lang).to_string()
     } else {
         Phrase::TermsTitle.fill(lang, &[&name])
@@ -1264,7 +1271,12 @@ pub(crate) fn sheet(
             let accept = controls::button(
                 commands,
                 kit,
-                Phrase::TermsAccept.text(lang),
+                if host_set {
+                    Phrase::RankedHostsApprove
+                } else {
+                    Phrase::TermsAccept
+                }
+                .text(lang),
                 Weight::Primary,
                 live,
                 Some("Enter"),

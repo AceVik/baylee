@@ -1,4 +1,4 @@
-use super::{Assignment, Player, Registered, common};
+use super::{Assignment, Player, Registered, Served, common, relay};
 use baylee_core::ids::PlayerId;
 use baylee_engine::{
     choice::{Pending, PlayerAction},
@@ -10,6 +10,7 @@ use uuid::Uuid;
 
 pub(super) fn seats(
     rt: &Runtime,
+    served: &Served,
     host: &Registered,
     players: &[Player; 2],
     assignments: &[Assignment; 2],
@@ -38,14 +39,8 @@ pub(super) fn seats(
     assert_eq!(second.seat.seat, u32::from(assignments[1].seat));
     let game = first.seat.game_id;
     rt.block_on(async {
-        let mut a =
-            common::dial_seat(host.gateway.port, &game.to_string(), &first.seat.seat_token).await;
-        let mut b = common::dial_seat(
-            host.gateway.port,
-            &game.to_string(),
-            &second.seat.seat_token,
-        )
-        .await;
+        let mut a = relay::connect(served, &first, 0).await;
+        let mut b = relay::connect(served, &second, 1).await;
         for s in [&mut a, &mut b] {
             common::send(
                 s,
@@ -67,6 +62,8 @@ pub(super) fn seats(
                     _ => {}
                 }
             }
+            relay::verify_peers(served, host);
+            relay::reject(served, first.seat.seat_token.as_bytes()).await;
             common::send(
                 &mut a,
                 &Envelope {

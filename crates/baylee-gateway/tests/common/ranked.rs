@@ -4,6 +4,12 @@ use uuid::Uuid;
 
 /// Advertise one legal card in all three formats and attach a real engine agent.
 pub async fn provision(gateway: &super::Gateway) -> tokio::task::JoinHandle<()> {
+    seed(gateway).await;
+    super::attach_agent(gateway).await
+}
+
+/// Populate the authoritative catalog without supplying an execution agent.
+pub async fn seed(gateway: &super::Gateway) {
     let catalog = Catalog::connect(&gateway.database_url()).await.unwrap();
     let forest = baylee_cards::by_index(baylee_cards::decks::by_name("Forest").unwrap()).unwrap();
     catalog
@@ -23,5 +29,4 @@ pub async fn provision(gateway: &super::Gateway) -> tokio::task::JoinHandle<()> 
         .await
         .unwrap();
     catalog.bump_data_version().await.unwrap();
-    super::attach_agent(gateway).await
 }

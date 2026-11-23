@@ -13,6 +13,14 @@ use super::{Envelope, LobbyState, Shared, auth, execution, lifecycle, v1};
 /// mark the game playing before they call this, so a deploy that reads
 /// `/health` after placing the hold counts every game this let through.
 pub fn start_engine(state: &Shared, game_id: &str) -> Result<(), &'static str> {
+    start(state, game_id, None)
+}
+
+pub(crate) fn start_replica(state: &Shared, game_id: &str, job: &str) -> Result<(), &'static str> {
+    start(state, game_id, Some(job))
+}
+
+fn start(state: &Shared, game_id: &str, replica_job: Option<&str>) -> Result<(), &'static str> {
     if state.admission.held() {
         return Err(crate::admission::HELD);
     }
@@ -22,17 +30,22 @@ pub fn start_engine(state: &Shared, game_id: &str) -> Result<(), &'static str> {
         // All other users release either lock before acquiring the other one.
         let mut lobby = state.lobby.lock();
         let game = lobby.games.get_mut(game_id).ok_or("no such game")?;
+        if game.ranked.is_some_and(|b| b.replica.is_some()) != replica_job.is_some() {
+            return Err("ranked engine incarnation changed");
+        }
         if game.state != LobbyState::Playing || game.agent_id.is_some() {
             return Err("game does not need an engine");
         }
         let preset = game.preset.as_ref().ok_or("no game preset")?;
         let variant = execution::standard_variant(preset.house_rules.loop_policy);
         let mut agents = state.agents.lock();
-        let (id, execution) = if let Some(required) = game
-            .execution
-            .as_ref()
-            .filter(|identity| identity.variant == baylee_protocol::execution::Variant::Tower)
-        {
+        let pinned = game.execution.as_ref().filter(|identity| {
+            game.ranked.is_some() || identity.variant == baylee_protocol::execution::Variant::Tower
+        });
+        let (id, execution) = if let Some(required) = pinned {
+            if game.ranked.is_some() && required.variant != variant {
+                return Err("incompatible ranked rules");
+            }
             agents.pick_exact(required)
         } else {
             agents.pick_variant(variant, game.challenge_executor.as_deref())
@@ -41,7 +54,7 @@ pub fn start_engine(state: &Shared, game_id: &str) -> Result<(), &'static str> {
         let agent = agents.connected.get_mut(&id).ok_or("the agent went away")?;
         let order = Envelope {
             msg: Some(v1::envelope::Msg::StartEngine(v1::StartEngine {
-                game_id: game_id.to_string(),
+                game_id: replica_job.unwrap_or(game_id).to_string(),
                 engine_token: engine_token.clone(),
                 gateway_url: state.engine_url.clone(),
                 execution: execution.to_metadata(),
@@ -50,7 +63,8 @@ pub fn start_engine(state: &Shared, game_id: &str) -> Result<(), &'static str> {
         if agent.tx.send(order).is_err() {
             return Err("the agent went away");
         }
-        agent.games.push(game_id.to_string());
+        agent.games.push(replica_job.unwrap_or(game_id).to_string());
+        game.engine_job = replica_job.map(str::to_owned);
         game.engine_token_hash = Some(auth::token_hash(&engine_token));
         game.agent_id = Some(id.clone());
         game.engine_local = agent.local;
@@ -58,6 +72,10 @@ pub fn start_engine(state: &Shared, game_id: &str) -> Result<(), &'static str> {
         tracing::info!(game_id, agent_id = id, agent = agent.name, "engine ordered");
         id
     };
-    lifecycle::watch_start(state.clone(), game_id.to_string(), agent_id);
+    lifecycle::watch_start(
+        state.clone(),
+        replica_job.unwrap_or(game_id).to_string(),
+        agent_id,
+    );
     Ok(())
 }

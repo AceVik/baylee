@@ -81,6 +81,29 @@ fn format_catalog_is_authoritative_for_every_zone() {
 }
 
 #[test]
+fn ranked_host_rows_hide_personal_notes_and_retain_the_playable_commitment() {
+    let registered = register(
+        "highlander",
+        &[
+            "1 Forest (UNH) 140 [de] *F* # Alice's private list",
+            "1 Cryptic Spires circles=WU",
+        ],
+        &["1 Swamp # secret"],
+        &["Forest"],
+    );
+    let [main, side, commanders] = playable_rows(&registered.deck).unwrap();
+    assert!(
+        main.iter()
+            .chain(&side)
+            .all(|line| !line.contains('#') && !line.contains("UNH") && !line.contains("[de]"))
+    );
+    let restored = registration("highlander", &main, &side, &commanders).unwrap();
+    assert_eq!(restored.digest, registered.digest);
+    assert_eq!(rating_pool(&restored), rating_pool(&registered));
+    assert_eq!(commanders, ["Forest"]);
+}
+
+#[test]
 fn highlander_has_its_own_shape_even_when_a_vintage_verdict_is_legal() {
     let catalog = facts("vintage", &[("Forest", "legal"), ("Sol Ring", "legal")]);
     let good = register("highlander", &["99 Forest", "1 Sol Ring"], &[], &[]);

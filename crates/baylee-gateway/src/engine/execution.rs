@@ -44,9 +44,21 @@ impl super::Agents {
     /// Room for ranked duels on this release, using the competitive loop rules.
     pub(crate) fn ranked_spare(&self) -> usize {
         let required = native(Variant::StandardLoops);
+        self.installed_spare(&required).unwrap_or(0)
+    }
+
+    /// The current competitive artifact is still installed when its last slot
+    /// is busy. Keeping it visible allows an occupied replica to renew its lease.
+    pub(crate) fn ranked_replica_capacity(&self) -> Option<(Identity, usize)> {
+        let identity = native(Variant::StandardLoops);
+        identity.ranked_compatibility()?;
+        self.installed_spare(&identity).map(|free| (identity, free))
+    }
+
+    fn installed_spare(&self, required: &Identity) -> Option<usize> {
         self.connected
             .values()
-            .filter(|a| a.engines.contains(&required))
+            .filter(|a| a.engines.contains(required))
             .map(|a| {
                 if a.capacity == 0 {
                     64
@@ -54,8 +66,7 @@ impl super::Agents {
                     (a.capacity as usize).saturating_sub(a.games.len()).min(64)
                 }
             })
-            .sum::<usize>()
-            .min(64)
+            .reduce(|total, free| (total + free).min(64))
     }
 
     /// Installed compatibility survives full agents; availability is a separate subset.

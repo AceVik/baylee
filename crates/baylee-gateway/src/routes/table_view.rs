@@ -107,6 +107,9 @@ pub(crate) async fn game_cosmetics(
 pub(crate) async fn seat_guests(state: &Shared, game_id: &str) -> Vec<bool> {
     let accounts: Vec<Option<String>> = {
         let lobby = state.lobby.lock();
+        if lobby.games.get(game_id).is_some_and(|g| g.ranked.is_some()) {
+            return vec![false; 2];
+        }
         lobby.games.get(game_id).map_or_else(Vec::new, |game| {
             game.seats.iter().map(|s| s.account_id.clone()).collect()
         })
@@ -129,6 +132,7 @@ pub(crate) async fn seat_names(state: &Shared, game_id: &str) -> Vec<String> {
     let (accounts, delegates): (Vec<Option<String>>, Vec<Option<String>>) = {
         let lobby = state.lobby.lock();
         match lobby.games.get(game_id) {
+            Some(game) if game.ranked.is_some() => return crate::ranked::seat_names(),
             Some(game) => game
                 .seats
                 .iter()

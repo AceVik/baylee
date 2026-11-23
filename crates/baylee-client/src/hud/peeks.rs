@@ -146,11 +146,11 @@ pub fn columns(duel: &Duel, lang: Lang) -> (Vec<PeekFacts>, Vec<PeekFacts>) {
             name: crate::hud::seatbar::called(
                 lang,
                 duel.reader(),
-                duel.statics.as_ref(),
+                duel.display_statics(),
                 player,
                 role,
             ),
-            colour: crate::hud::seat_colour(view.seat, duel.statics.as_ref(), player),
+            colour: crate::hud::seat_colour(view.seat, duel.display_statics(), player),
             life: seat.life,
             hand: seat.hand_count,
             turn: view.active == player,

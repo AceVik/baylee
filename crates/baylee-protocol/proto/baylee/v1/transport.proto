@@ -577,6 +577,64 @@ message RecordFlushed {
   uint32 pieces = 3;
 }
 
+// Protected ranked engines are attached to exactly one immutable match. The
+// outer engine job id may be local; setup.game_id is the shared logical game.
+message RankedEngineSetup {
+  bytes match_id = 1;
+  uint64 generation = 2;
+  bool primary = 3;
+  GameSetup setup = 4;
+}
+message RankedEngineStep {
+  uint64 generation = 1;
+  uint64 position = 2;
+  bytes command_id = 3;
+  uint32 seat = 4;
+  bytes operation = 5;
+  // True only for an event minted by the Central journal authority.
+  bool authority = 6;
+}
+message RankedEngineVote {
+  uint64 generation = 1;
+  uint64 position = 2;
+  bytes command_id = 3;
+  bytes evidence = 4;
+  bool accepted = 5;
+  uint32 awaiting = 6;
+  // 0 playing, 1 seat zero won, 2 seat one won, 3 draw.
+  uint32 outcome = 7;
+  optional uint64 asked_zero = 8;
+  optional uint64 asked_one = 9;
+}
+message RankedEngineCommit {
+  uint64 generation = 1;
+  uint64 position = 2;
+  bytes evidence = 3;
+  bool publish = 4;
+  // Central's durable journal commitment, conveyed with every visible frame.
+  bytes chain = 5;
+}
+message RankedEngineSnapshot {
+  uint64 generation = 1;
+  uint64 position = 2;
+  uint32 seat = 3;
+}
+// Central journal only. Both executors validate the seat and the current
+// decision before replaying the house concession. Neither consults a clock.
+message RankedAuthorityEvent {
+  uint32 seat = 1;
+  optional uint64 decision = 2;
+  // 1: decision time expired. 2: disconnected while owing the decision.
+  uint32 reason = 3;
+}
+// Inside a SeatFrame: the one projection this authenticated seat earned.
+message RankedSeatProjection {
+  uint64 generation = 1;
+  uint64 position = 2;
+  bytes chain = 3;
+  bytes envelope = 4;
+}
+
 message Envelope {
   // 1 was `Hello`, which nothing ever sent (#271).
   reserved 1;
@@ -648,6 +706,13 @@ message Envelope {
     TapeChunk tape_chunk = 41;
     SeatParticipationEnded seat_participation_ended = 42;
     TowerFrame tower_frame = 43;
+    RankedEngineSetup ranked_engine_setup = 44;
+    RankedEngineStep ranked_engine_step = 45;
+    RankedEngineVote ranked_engine_vote = 46;
+    RankedEngineCommit ranked_engine_commit = 47;
+    RankedEngineSnapshot ranked_engine_snapshot = 48;
+    RankedSeatProjection ranked_seat_projection = 49;
+    RankedAuthorityEvent ranked_authority_event = 50;
   }
 
 }

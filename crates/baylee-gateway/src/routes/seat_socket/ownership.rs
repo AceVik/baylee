@@ -17,6 +17,9 @@ pub(super) struct Ownership {
 impl Ownership {
     /// Reserve before waiting for the engine or Central. Caller holds the lobby lock.
     pub(super) fn reserve(game: &mut LobbyGame, seat: usize, hash: &str) -> Option<Self> {
+        if game.ranked.is_some_and(|b| !b.seats_live()) {
+            return None;
+        }
         let chair = game.seats.get_mut(seat)?;
         if chair.participation_ended || chair.seat_token_hash.as_deref() != Some(hash) {
             return None;
@@ -31,6 +34,9 @@ impl Ownership {
 
     /// Commit ownership and its engine announcement in the same critical section.
     pub(super) fn attach(&self, game: &mut LobbyGame, seat: usize) -> Option<lobby::EngineLink> {
+        if game.ranked.is_some_and(|b| !b.seats_live()) {
+            return None;
+        }
         let chair = game.seats.get_mut(seat)?;
         if chair.participation_ended
             || chair.socket_pending != Some(self.generation)
@@ -52,10 +58,11 @@ impl Ownership {
 
     /// Current socket and current capability; a replacement invalidates both directions.
     pub(super) fn active(&self, game: &LobbyGame, seat: usize) -> bool {
-        game.seats.get(seat).is_some_and(|chair| {
-            chair.socket_owner == Some(self.generation)
-                && chair.seat_token_hash.as_deref() == Some(self.hash.as_str())
-        })
+        game.ranked.is_none_or(crate::ranked::Binding::seats_live)
+            && game.seats.get(seat).is_some_and(|chair| {
+                chair.socket_owner == Some(self.generation)
+                    && chair.seat_token_hash.as_deref() == Some(self.hash.as_str())
+            })
     }
 
     /// Check and enqueue atomically with respect to replacement, including resyncs.
@@ -83,6 +90,9 @@ impl Ownership {
             return;
         }
         chair.socket_owner = None;
+        if game.ranked.is_some_and(|b| !b.seats_live()) {
+            return;
+        }
         to_engine(
             link,
             v1::envelope::Msg::SeatDetached(v1::SeatDetached {

@@ -314,7 +314,7 @@ pub(crate) fn spawn_finish(
     // The seat and its team, the same way the prompt bar used to find them: a
     // `Victor::Team` is answered by one comparison, and the seat's own team is
     // in the roster, which no view carries.
-    let statics = duel.statics.as_ref();
+    let statics = duel.display_statics();
     if statics.is_none() && duel.closed.is_none() {
         // No roster, so no way to say whose win this is. That is a game that
         // never really started, and a screen telling a player who never sat

@@ -220,13 +220,10 @@ fn verify_player(
     assert!(!public.contains("Forest") && !public.contains("Private forest"));
 }
 
-pub(super) fn verify(
+pub(super) fn settled(
     served: &Served,
-    home: &Registered,
-    host: &Registered,
     players: &[Player; 2],
     assignments: &[Assignment; 2],
-    game: Uuid,
     outcome: Outcome,
 ) {
     let receipts = players.each_ref().map(receipt);
@@ -242,17 +239,6 @@ pub(super) fn verify(
         );
     }
     assert!(baylee_account::ranked_read(&served.endpoint, Request::Status).is_err());
-    let http = CentralHttp::new(served.endpoint.clone());
-    let finish = HostRequest::Finish {
-        match_id: assignments[0].match_id,
-        game: *game.as_bytes(),
-        outcome,
-    };
-    assert!(sdk::ranked::host(&http, &home.token, finish.clone()).is_err());
-    assert_eq!(
-        sdk::ranked::host(&http, &host.token, finish).unwrap(),
-        HostResponse::Done
-    );
     verify_boards(served, &profiles);
     for i in 0..2 {
         assert_eq!(receipt(&players[i]), receipts[i]);
@@ -265,4 +251,31 @@ pub(super) fn verify(
             profiles[i]
         );
     }
+}
+
+pub(super) fn verify(
+    served: &Served,
+    home: &Registered,
+    host: &Registered,
+    players: &[Player; 2],
+    assignments: &[Assignment; 2],
+    game: Uuid,
+    outcome: Outcome,
+) {
+    // First wait for the actual host delivery, then replay once and check
+    // both player and deck game counts, private receipts, and public boards.
+    let confirmed = players.each_ref().map(receipt);
+    let http = CentralHttp::new(served.endpoint.clone());
+    let finish = HostRequest::Finish {
+        match_id: assignments[0].match_id,
+        game: *game.as_bytes(),
+        outcome,
+    };
+    assert!(sdk::ranked::host(&http, &home.token, finish.clone()).is_err());
+    assert_eq!(
+        sdk::ranked::host(&http, &host.token, finish).unwrap(),
+        HostResponse::Done
+    );
+    assert_eq!(players.each_ref().map(receipt), confirmed);
+    settled(served, players, assignments, outcome);
 }

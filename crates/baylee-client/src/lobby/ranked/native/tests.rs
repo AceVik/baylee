@@ -102,6 +102,11 @@ fn only_the_assigned_game_receives_the_one_seat_capability() {
     let game = Uuid::now_v7();
     assignment.game = Some(*game.as_bytes());
     let play = RankedPlay {
+        fence: baylee_account::ranked::replica::Fence {
+            match_id: assignment.match_id,
+            generation: 1,
+        },
+        relay_origin: "https://central.invalid".into(),
         assignment,
         renew_at: Instant::now(),
         seat: RankedSeat {
@@ -111,7 +116,7 @@ fn only_the_assigned_game_receives_the_one_seat_capability() {
         },
     };
     let game_only = ticket(play);
-    assert_eq!(game_only.gateway, "https://playing.invalid");
+    assert_eq!(game_only.gateway, "https://central.invalid");
     assert_eq!(game_only.game_id, game.to_string());
     assert_eq!(game_only.seat.get(), 1);
     assert_eq!(game_only.seat_token, "one seat");

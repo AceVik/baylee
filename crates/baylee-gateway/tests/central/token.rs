@@ -45,6 +45,10 @@ pub(super) fn paste(admin: u16, token: &str) -> (u16, String) {
 /// A gateway with a console and no operator file, talking to `endpoint`;
 /// its console's port.
 pub(super) fn spawn(endpoint: &Endpoint) -> (common::Gateway, u16) {
+    spawn_with_terms(endpoint, false)
+}
+
+pub(super) fn spawn_with_terms(endpoint: &Endpoint, terms: bool) -> (common::Gateway, u16) {
     let port_file = std::env::temp_dir().join(format!(
         "baylee-central-token-console-{}.port",
         uuid::Uuid::now_v7()
@@ -61,6 +65,7 @@ pub(super) fn spawn(endpoint: &Endpoint) -> (common::Gateway, u16) {
             ("BAYLEE_CENTRAL_ENDPOINT", endpoint.origin().to_owned()),
             ("BAYLEE_BIND", "127.0.0.1".into()),
             ("BAYLEE_REGISTRATION", "open".into()),
+            ("BAYLEE_TERMS_PATH", if terms { "" } else { "off" }.into()),
             ("BAYLEE_GATEWAY_NAME", "Token table".into()),
         ],
     );

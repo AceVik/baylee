@@ -71,6 +71,9 @@ pub enum HostMessage {
 /// the table came back.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum LinkState {
+    /// Central is confirming an input or recovering the ranked seat. The
+    /// account worker obtains a fresh scoped ticket before play continues.
+    RankedHold(baylee_client_core::Phrase),
     /// There is no network connection: a locally owned engine.
     Local,
     /// Connected, or opening for the first time.
@@ -99,6 +102,18 @@ pub enum LinkState {
 /// frame and may not wait on I/O. A networked implementation drains a channel
 /// its transport task fills.
 pub trait DuelHost: Send + Sync + 'static {
+    /// Updated authoritative ranked clocks, including after a replacement
+    /// view. The renderer drives their interpolation between Central reads.
+    fn take_ranked_clocks(&mut self, _new_view: bool) -> Option<RankedClocks> {
+        None
+    }
+    /// Position of the certified seat projection currently on the screen.
+    /// Prevents queued UI input from being reinterpreted if a newer position
+    /// arrives between an input event and the normal outbound flush.
+    fn ranked_cursor(&self) -> Option<(u64, u64, [u8; 32])> {
+        None
+    }
+
     /// Everything that arrived since the last call.
     fn poll(&mut self) -> Vec<HostMessage>;
 
@@ -218,6 +233,16 @@ pub trait DuelHost: Send + Sync + 'static {
     fn game_id(&self) -> Option<&str> {
         None
     }
+}
+
+/// Public timeout information for a two-seat protected table.
+pub struct RankedClocks {
+    /// Remaining decision seconds per seat.
+    pub decisions: [Option<u16>; 2],
+    /// Remaining reconnection seconds per seat.
+    pub reconnect: [Option<u16>; 2],
+    /// Whether elapsed time is currently chargeable.
+    pub running: bool,
 }
 
 /// What a restart needs to rebuild a game this client hosts

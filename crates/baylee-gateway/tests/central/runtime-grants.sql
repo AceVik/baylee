@@ -23,6 +23,7 @@ GRANT SELECT, INSERT, DELETE ON central_identity.gateway_admins TO central_runti
 -- never rewrite.
 GRANT SELECT, INSERT, UPDATE ON central_identity.gateway_streams TO central_runtime;
 GRANT SELECT, INSERT, DELETE ON central_identity.gateway_sids, central_identity.gateway_revocations TO central_runtime;
+GRANT UPDATE (ranked_proof_until) ON central_identity.gateway_sids TO central_runtime;
 GRANT SELECT, INSERT ON central_identity.gateway_terms, central_identity.gateway_terms_texts,
   central_identity.terms_acceptances TO central_runtime;
 -- Registration open or closed: read by every registration, changed by an
@@ -121,19 +122,29 @@ GRANT SELECT ON central_identity.donation_sums, central_identity.donation_count 
 
 -- Ranked authority. Only the operator publishes seasons. The host offer and the
 -- two occupied seats can change during a match, but its identity, players,
--- commitments and gateway assignment cannot be rewritten. Receipts are append-only.
+-- commitments remain immutable across verified routing changes. Receipts are append-only.
 GRANT SELECT ON central_identity.ranked_seasons, central_identity.ranked_hosts,
   central_identity.ranked_matches, central_identity.ranked_tickets TO central_runtime;
-GRANT INSERT (host_id, ranked_epoch, capacity, seen_at), UPDATE (ranked_epoch, capacity, seen_at, continuity_since)
+GRANT SELECT, INSERT (match_id, host_id) ON central_identity.ranked_host_aliases TO central_runtime;
+GRANT SELECT, INSERT (match_id, host_id, seat, epoch, origin, version, digest, allowed),
+  UPDATE (epoch, origin, version, digest, allowed)
+  ON central_identity.ranked_host_permissions TO central_runtime;
+GRANT INSERT (host_id, ranked_epoch, capacity, seen_at, compatibility), UPDATE (ranked_epoch, capacity, seen_at, continuity_since, compatibility)
   ON central_identity.ranked_hosts TO central_runtime;
 GRANT INSERT (season_id, format, account_a, account_b, commitment_a, commitment_b, host_id, ranked_epoch, origin),
-  UPDATE (claimed_a, claimed_b, game_id, start_fingerprint, deck_a, deck_b, state, outcome, finished_at, lease_until)
+  UPDATE (claimed_a, claimed_b, game_id, start_fingerprint, deck_a, deck_b, state, outcome, finished_at, lease_until, host_id, ranked_epoch, origin)
   ON central_identity.ranked_matches TO central_runtime;
-GRANT INSERT (account_id, request_id, season_id, format, commitment, queue_elo), UPDATE (state, match_id)
+GRANT INSERT (account_id, request_id, season_id, format, commitment, queue_elo, replicable), UPDATE (state, match_id)
   ON central_identity.ranked_tickets TO central_runtime;
 GRANT SELECT, INSERT, UPDATE (elo, queue_elo, score, placement, allowance, games, wins, losses, draws, league, division, last_at)
   ON central_identity.ranked_ratings TO central_runtime;
 GRANT SELECT, INSERT, UPDATE (elo, anchor) ON central_identity.ranked_deck_versions TO central_runtime;
+GRANT SELECT, INSERT (match_id,standby_id,standby_epoch,compatibility),
+  UPDATE (seed,generation,standby_id,standby_epoch,primary_until,standby_until,paused_until,phase,position,head_digest,state_digest,opening_chain,setup,initial_pools,initial_evidence,evidence,journal_bytes,retire_at)
+  ON central_identity.ranked_replicas TO central_runtime;
+GRANT SELECT, INSERT, DELETE, UPDATE (evidence) ON central_identity.ranked_commands TO central_runtime;
+GRANT SELECT, INSERT, DELETE ON central_identity.ranked_witnesses TO central_runtime;
+GRANT SELECT, INSERT, DELETE, UPDATE (checkpoint) ON central_identity.ranked_clocks TO central_runtime;
 GRANT SELECT, INSERT, UPDATE (elo, games, season_games, wins, losses, draws, league, division, last_at)
   ON central_identity.ranked_deck_ratings TO central_runtime;
 GRANT SELECT, INSERT ON central_identity.ranked_receipts TO central_runtime;

@@ -280,7 +280,7 @@ version = "1.1.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "40c48f72fd53cd289104fc64099abca73db4166ad86ea0b4341abe65af83dadc"
 dependencies = [
- "windows-sys 0.61.2",
+ "windows-sys 0.60.2",
 ]
 
 [[package]]
@@ -291,7 +291,7 @@ checksum = "291e6a250ff86cd4a820112fb8898808a366d8f9f58ce16d1f538353ad55747d"
 dependencies = [
  "anstyle",
  "once_cell_polyfill",
- "windows-sys 0.61.2",
+ "windows-sys 0.60.2",
 ]
 
 [[package]]
@@ -333,7 +333,7 @@ dependencies = [
  "objc2-foundation 0.3.2",
  "parking_lot 0.12.5",
  "percent-encoding",
- "windows-sys 0.61.2",
+ "windows-sys 0.59.0",
  "wl-clipboard-rs",
  "x11rb",
 ]
@@ -1909,7 +1909,7 @@ dependencies = [
  "web-sys",
  "web-time",
  "webbrowser",
- "webpki-roots 1.0.11",
+ "webpki-roots 1.0.12",
  "windows-sys 0.61.2",
  "winit",
  "winresource",
@@ -3573,7 +3573,7 @@ dependencies = [
  "wasm-bindgen",
  "wasm-bindgen-futures",
  "web-time",
- "windows-sys 0.61.2",
+ "windows-sys 0.59.0",
 ]
 
 [[package]]
@@ -4441,7 +4441,7 @@ dependencies = [
 [[package]]
 name = "central-api"
 version = "0.1.0"
-source = "git+https://github.com/AceVik/baylee-central.git?rev=52f8bd3049b7bf804516d4e9dc6277b152834634#52f8bd3049b7bf804516d4e9dc6277b152834634"
+source = "git+https://github.com/AceVik/baylee-central.git?rev=7de6dd72eb79da87add4c55ae526debd60cf6b0e#7de6dd72eb79da87add4c55ae526debd60cf6b0e"
 dependencies = [
  "getrandom 0.4.3",
  "serde",
@@ -4454,7 +4454,7 @@ dependencies = [
 [[package]]
 name = "central-client"
 version = "0.1.0"
-source = "git+https://github.com/AceVik/baylee-central.git?rev=52f8bd3049b7bf804516d4e9dc6277b152834634#52f8bd3049b7bf804516d4e9dc6277b152834634"
+source = "git+https://github.com/AceVik/baylee-central.git?rev=7de6dd72eb79da87add4c55ae526debd60cf6b0e#7de6dd72eb79da87add4c55ae526debd60cf6b0e"
 dependencies = [
  "central-api",
  "central-crypto",
@@ -4466,7 +4466,7 @@ dependencies = [
 [[package]]
 name = "central-crypto"
 version = "0.1.0"
-source = "git+https://github.com/AceVik/baylee-central.git?rev=52f8bd3049b7bf804516d4e9dc6277b152834634#52f8bd3049b7bf804516d4e9dc6277b152834634"
+source = "git+https://github.com/AceVik/baylee-central.git?rev=7de6dd72eb79da87add4c55ae526debd60cf6b0e#7de6dd72eb79da87add4c55ae526debd60cf6b0e"
 dependencies = [
  "argon2",
  "base64ct",
@@ -4492,7 +4492,7 @@ dependencies = [
 [[package]]
 name = "central-funding"
 version = "0.1.0"
-source = "git+https://github.com/AceVik/baylee-central.git?rev=52f8bd3049b7bf804516d4e9dc6277b152834634#52f8bd3049b7bf804516d4e9dc6277b152834634"
+source = "git+https://github.com/AceVik/baylee-central.git?rev=7de6dd72eb79da87add4c55ae526debd60cf6b0e#7de6dd72eb79da87add4c55ae526debd60cf6b0e"
 dependencies = [
  "central-api",
  "form_urlencoded",
@@ -4506,28 +4506,34 @@ dependencies = [
 [[package]]
 name = "central-http"
 version = "0.1.0"
-source = "git+https://github.com/AceVik/baylee-central.git?rev=52f8bd3049b7bf804516d4e9dc6277b152834634#52f8bd3049b7bf804516d4e9dc6277b152834634"
+source = "git+https://github.com/AceVik/baylee-central.git?rev=7de6dd72eb79da87add4c55ae526debd60cf6b0e#7de6dd72eb79da87add4c55ae526debd60cf6b0e"
 dependencies = [
  "axum",
  "base64 0.22.1",
  "central-api",
  "central-identity",
+ "central-outbound",
  "central-picture",
  "central-policy",
+ "getrandom 0.4.3",
  "http-body-util",
+ "httparse",
  "hyper",
  "hyper-util",
+ "rustls",
+ "serde",
  "sha1 0.11.0",
  "tokio",
  "tower",
  "tower-http",
+ "webpki-roots 1.0.12",
  "zeroize",
 ]
 
 [[package]]
 name = "central-identity"
 version = "0.1.0"
-source = "git+https://github.com/AceVik/baylee-central.git?rev=52f8bd3049b7bf804516d4e9dc6277b152834634#52f8bd3049b7bf804516d4e9dc6277b152834634"
+source = "git+https://github.com/AceVik/baylee-central.git?rev=7de6dd72eb79da87add4c55ae526debd60cf6b0e#7de6dd72eb79da87add4c55ae526debd60cf6b0e"
 dependencies = [
  "central-api",
  "central-crypto",
@@ -4545,7 +4551,7 @@ dependencies = [
 [[package]]
 name = "central-mail"
 version = "0.1.0"
-source = "git+https://github.com/AceVik/baylee-central.git?rev=52f8bd3049b7bf804516d4e9dc6277b152834634#52f8bd3049b7bf804516d4e9dc6277b152834634"
+source = "git+https://github.com/AceVik/baylee-central.git?rev=7de6dd72eb79da87add4c55ae526debd60cf6b0e#7de6dd72eb79da87add4c55ae526debd60cf6b0e"
 dependencies = [
  "central-api",
  "getrandom 0.4.3",
@@ -4558,15 +4564,23 @@ dependencies = [
 [[package]]
 name = "central-migration"
 version = "0.1.0"
-source = "git+https://github.com/AceVik/baylee-central.git?rev=52f8bd3049b7bf804516d4e9dc6277b152834634#52f8bd3049b7bf804516d4e9dc6277b152834634"
+source = "git+https://github.com/AceVik/baylee-central.git?rev=7de6dd72eb79da87add4c55ae526debd60cf6b0e#7de6dd72eb79da87add4c55ae526debd60cf6b0e"
 dependencies = [
  "sea-orm",
 ]
 
 [[package]]
+name = "central-outbound"
+version = "0.1.0"
+source = "git+https://github.com/AceVik/baylee-central.git?rev=7de6dd72eb79da87add4c55ae526debd60cf6b0e#7de6dd72eb79da87add4c55ae526debd60cf6b0e"
+dependencies = [
+ "ureq",
+]
+
+[[package]]
 name = "central-picture"
 version = "0.1.0"
-source = "git+https://github.com/AceVik/baylee-central.git?rev=52f8bd3049b7bf804516d4e9dc6277b152834634#52f8bd3049b7bf804516d4e9dc6277b152834634"
+source = "git+https://github.com/AceVik/baylee-central.git?rev=7de6dd72eb79da87add4c55ae526debd60cf6b0e#7de6dd72eb79da87add4c55ae526debd60cf6b0e"
 dependencies = [
  "sha2 0.11.1",
 ]
@@ -4574,18 +4588,19 @@ dependencies = [
 [[package]]
 name = "central-policy"
 version = "0.1.0"
-source = "git+https://github.com/AceVik/baylee-central.git?rev=52f8bd3049b7bf804516d4e9dc6277b152834634#52f8bd3049b7bf804516d4e9dc6277b152834634"
+source = "git+https://github.com/AceVik/baylee-central.git?rev=7de6dd72eb79da87add4c55ae526debd60cf6b0e#7de6dd72eb79da87add4c55ae526debd60cf6b0e"
 
 [[package]]
 name = "central-postgres"
 version = "0.1.0"
-source = "git+https://github.com/AceVik/baylee-central.git?rev=52f8bd3049b7bf804516d4e9dc6277b152834634#52f8bd3049b7bf804516d4e9dc6277b152834634"
+source = "git+https://github.com/AceVik/baylee-central.git?rev=7de6dd72eb79da87add4c55ae526debd60cf6b0e#7de6dd72eb79da87add4c55ae526debd60cf6b0e"
 dependencies = [
  "central-api",
  "central-crypto",
  "num-traits",
  "sea-orm",
  "secrecy",
+ "serde",
  "sha2 0.11.1",
  "subtle",
  "url",
@@ -5639,7 +5654,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "39cab71617ae0d63f51a36d69f866391735b51691dbda63cf6f96d042b63efeb"
 dependencies = [
  "libc",
- "windows-sys 0.61.2",
+ "windows-sys 0.59.0",
 ]
 
 [[package]]
@@ -6101,7 +6116,7 @@ dependencies = [
  "gobject-sys",
  "libc",
  "system-deps 9.0.1",
- "windows-sys 0.61.2",
+ "windows-sys 0.59.0",
 ]
 
 [[package]]
@@ -6495,7 +6510,7 @@ dependencies = [
  "tokio",
  "tokio-rustls",
  "tower-service",
- "webpki-roots 1.0.11",
+ "webpki-roots 1.0.12",
 ]
 
 [[package]]
@@ -7582,7 +7597,7 @@ version = "0.50.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7957b9740744892f114936ab4a57b3f487491bbeafaf8083688b16841a4240e5"
 dependencies = [
- "windows-sys 0.61.2",
+ "windows-sys 0.59.0",
 ]
 
 [[package]]
@@ -8206,7 +8221,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7d8fae84b431384b68627d0f9b3b1245fcf9f46f6c0e3dc902e9dce64edd1967"
 dependencies = [
  "libc",
- "windows-sys 0.61.2",
+ "windows-sys 0.45.0",
 ]
 
 [[package]]
@@ -8677,7 +8692,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "03da047801ff44bb6a4d407d4860c05fd70bb81714e6b2f3812603d5b145b042"
 dependencies = [
  "heck 0.5.0",
- "itertools 0.14.0",
+ "itertools 0.13.0",
  "log",
  "multimap",
  "petgraph",
@@ -8696,7 +8711,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b570b25f7617e43d59005d0990ccb79e950a423952cea19671b7a876da390adf"
 dependencies = [
  "anyhow",
- "itertools 0.14.0",
+ "itertools 0.13.0",
  "proc-macro2",
  "quote",
  "syn 2.0.119",
@@ -9227,7 +9242,7 @@ dependencies = [
  "errno",
  "libc",
  "linux-raw-sys 0.12.1",
- "windows-sys 0.61.2",
+ "windows-sys 0.59.0",
 ]
 
 [[package]]
@@ -9284,7 +9299,7 @@ dependencies = [
  "security-framework",
  "security-framework-sys",
  "webpki-root-certs",
- "windows-sys 0.61.2",
+ "windows-sys 0.59.0",
 ]
 
 [[package]]
@@ -9879,7 +9894,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c3d1e2c7f27f8d4cb10542a02c49005dbd6e93095799d6f3be745fae9f8fedd4"
 dependencies = [
  "libc",
- "windows-sys 0.61.2",
+ "windows-sys 0.60.2",
 ]
 
 [[package]]
@@ -9959,7 +9974,7 @@ dependencies = [
  "tracing",
  "url",
  "uuid",
- "webpki-roots 1.0.11",
+ "webpki-roots 1.0.12",
 ]
 
 [[package]]
@@ -10353,7 +10368,7 @@ dependencies = [
  "getrandom 0.4.3",
  "once_cell",
  "rustix 1.1.6",
- "windows-sys 0.61.2",
+ "windows-sys 0.59.0",
 ]
 
 [[package]]
@@ -11024,7 +11039,7 @@ dependencies = [
  "serde_json",
  "ureq-proto",
  "utf8-zero",
- "webpki-roots 1.0.11",
+ "webpki-roots 1.0.12",
 ]
 
 [[package]]
@@ -11428,14 +11443,14 @@ version = "0.26.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "521bc38abb08001b01866da9f51eb7c5d647a19260e00054a8c7fd5f9e57f7a9"
 dependencies = [
- "webpki-roots 1.0.11",
+ "webpki-roots 1.0.12",
 ]
 
 [[package]]
 name = "webpki-roots"
-version = "1.0.11"
+version = "1.0.12"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f5f280bbb2b287bc8e7de7e3852945a0ff50d1bbcb5ed42b6c7a568c546df171"
+checksum = "7265c9301c16a8711c992c2d8da90ee77ef54b1ed51482d6dfeb00dc756b1297"
 dependencies = [
  "rustls-pki-types",
 ]
@@ -11695,7 +11710,7 @@ version = "0.1.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c2a7b1c03c876122aa43f3020e6c3c3ee5c05081c9a00739faf7503aeba10d22"
 dependencies = [
- "windows-sys 0.61.2",
+ "windows-sys 0.59.0",
 ]
 
 [[package]]

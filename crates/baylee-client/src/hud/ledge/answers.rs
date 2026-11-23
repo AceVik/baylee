@@ -305,7 +305,7 @@ pub(super) fn shelf_headline(
 ) -> Option<String> {
     let headline = base_shelf_headline(duel, lang, texts)?;
     if let Some(player) = duel.deciding_for() {
-        let who = baylee_client_core::i18n::seat_name(lang, duel.statics.as_ref(), player);
+        let who = baylee_client_core::i18n::seat_name(lang, duel.display_statics(), player);
         return Some(Phrase::ForPlayer.fill(lang, &[&who, &headline]));
     }
     Some(headline)

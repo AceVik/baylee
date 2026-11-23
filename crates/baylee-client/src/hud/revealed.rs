@@ -199,7 +199,7 @@ pub fn sync(
     for sheet in &standing {
         commands.entity(sheet).try_despawn();
     }
-    let (Some(reveal), Some(statics), Ok(root)) = (shown, duel.statics.as_ref(), roots.single())
+    let (Some(reveal), Some(statics), Ok(root)) = (shown, duel.display_statics(), roots.single())
     else {
         return;
     };

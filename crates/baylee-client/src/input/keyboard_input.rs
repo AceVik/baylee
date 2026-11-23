@@ -514,7 +514,7 @@ fn visible_types(duel: &Duel, lang: baylee_client_core::Lang) -> Vec<crate::choi
             crate::choices::options(
                 &p,
                 lang,
-                duel.statics.as_ref(),
+                duel.display_statics(),
                 duel.chooser_search(),
                 crate::choices::FaceNames::default(),
             )

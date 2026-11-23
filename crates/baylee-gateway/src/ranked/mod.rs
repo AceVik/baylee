@@ -14,6 +14,8 @@ use uuid::Uuid;
 
 mod deck;
 mod delivery;
+mod replica_table;
+pub(crate) mod replicate;
 pub(crate) use delivery::worker;
 
 type Failure = (StatusCode, Json<ErrorBody>);
@@ -25,7 +27,12 @@ pub(crate) struct Host {
     /// entry loses no score and a player's next retry can supply the deck again.
     waiting: parking_lot::Mutex<HashMap<Uuid, (Instant, Arc<Table>)>>,
     limiter: auth::RateLimiter,
+    /// Shared anonymous verification budget for the relay's ranked endpoint.
+    pub(crate) login_attempts: auth::RateLimiter,
+    pub(crate) login_slots: tokio::sync::Semaphore,
+    pub(crate) seat_logins: auth::RateLimiter,
     admissions: tokio::sync::Semaphore,
+    replicas: replicate::Registry,
 }
 
 impl Default for Host {
@@ -34,7 +41,11 @@ impl Default for Host {
             owner: AtomicBool::new(false),
             waiting: parking_lot::Mutex::default(),
             limiter: auth::RateLimiter::new(Duration::from_secs(60), 60),
+            login_attempts: auth::RateLimiter::new(Duration::from_secs(1), 64),
+            login_slots: tokio::sync::Semaphore::new(8),
+            seat_logins: auth::RateLimiter::new(Duration::from_secs(60), 12),
             admissions: tokio::sync::Semaphore::new(16),
+            replicas: replicate::Registry::default(),
         }
     }
 }
@@ -78,6 +89,10 @@ struct Arrival {
     pool: Vec<PoolEntry>,
 }
 
+pub(crate) fn seat_names() -> Vec<String> {
+    ["Seat A", "Seat B"].map(str::to_owned).into()
+}
+
 /// Frozen local evidence for reclaiming an already-running game without
 /// uploading either deck a second time.
 #[derive(Clone, Copy)]
@@ -85,6 +100,15 @@ pub(crate) struct Binding {
     pub(crate) id: Uuid,
     format: Format,
     decks: [[u8; 32]; 2],
+    pub(crate) replica: Option<replica_table::Role>,
+}
+
+impl Binding {
+    /// Single-host tables retain their normal admission. Replicas expose seats
+    /// only while this primary's locally measured Central lease still stands.
+    pub(crate) fn seats_live(self) -> bool {
+        self.replica.is_none_or(replica_table::Role::serving)
+    }
 }
 
 #[derive(serde::Deserialize)]
@@ -96,7 +120,7 @@ pub(crate) enum RankedPlay {
 
 /// @description The exact source deck version selected for this ranked entry.
 /// @openapi
-#[derive(serde::Deserialize)]
+#[derive(Clone, serde::Deserialize, serde::Serialize)]
 #[serde(deny_unknown_fields)]
 pub(crate) struct RankedDeck {
     /// @description Ranked format (standard, highlander or commander).
@@ -186,14 +210,8 @@ pub(crate) async fn play(
         .central
         .get()
         .ok_or_else(|| err(StatusCode::SERVICE_UNAVAILABLE, "Central unavailable"))?;
-    // The stable session key is internal. Ordinary authorization never
-    // resolves the restricted bearer to this key.
-    let session = crate::central::resolve_digest(&state, live.key().to_vec())
-        .await
-        .map_err(|s| err(s, "ranked authorization unavailable"))?
-        .ok_or_else(|| err(StatusCode::UNAUTHORIZED, "ranked session expired"))?;
-    crate::moderation::admit(&session)?;
-    crate::terms_admit(&session)?;
+    // Central checked the matched player's eligibility and terms before issuing
+    // this pseudonymous admission; the host has no ordinary account to resolve.
     match body {
         RankedPlay::Submit(deck) => register(&state, &bridge, id, live, account, deck).await,
         RankedPlay::Resume { game } => resume(&state, &bridge, id, game, &live, account).await,
@@ -217,7 +235,7 @@ async fn register(
         &body.commanders,
     )
     .await?;
-    let assignment = claim(bridge, id, account, digest).await?;
+    let assignment = claim(bridge, id, &live, account, digest).await?;
     let seat = assigned_seat(&assignment, id, format, account, digest)?;
     let table = state.ranked.table(id)?;
     let mut arrivals = table.lock().await;
@@ -231,6 +249,11 @@ async fn register(
         .map(|g| g.id.clone());
     if let Some(game) = running {
         return grant(state, &live, id, game);
+    }
+    if live.signed().is_some_and(|s| s.ranked_generation.is_some()) && assignment.game.is_some() {
+        // The committed setup can be restoring on this host. Never reopen the
+        // deck-registration flow or reserve a new game for that assignment.
+        return Ok(StatusCode::ACCEPTED.into_response());
     }
     arrivals[seat] = Some(Arrival {
         live: live.clone(),
@@ -259,12 +282,19 @@ async fn register(
 async fn claim(
     bridge: &crate::central::Bridge,
     id: Uuid,
+    live: &crate::sessions::Live,
     account: Id,
     digest: [u8; 32],
 ) -> Result<HostAssignment, Failure> {
     let request = HostRequest::Claim {
         match_id: *id.as_bytes(),
         account,
+        proof: live
+            .key()
+            .strip_prefix(b"central:")
+            .and_then(|sid| std::str::from_utf8(sid).ok())
+            .and_then(|sid| central_api::ranked::SeatProof::from_sid(sid).ok())
+            .ok_or_else(|| err(StatusCode::UNAUTHORIZED, "missing ranked seat proof"))?,
         deck: digest,
     };
     match bridge.ranked(request).await {
@@ -286,7 +316,16 @@ async fn resume(
     account: Id,
 ) -> Result<Response, Failure> {
     let game_id = game.to_string();
-    let (seat, binding) = {
+    let (seat, binding) = if let Some(generation) = live.signed().and_then(|s| s.ranked_generation)
+    {
+        if id != game {
+            return Err(err(StatusCode::FORBIDDEN, "wrong ranked game"));
+        }
+        let Some(assignment) = replica_table::assigned(state, id, generation, account)? else {
+            return Ok(StatusCode::ACCEPTED.into_response());
+        };
+        assignment
+    } else {
         let lobby = state.lobby.lock();
         lobby
             .games
@@ -296,7 +335,7 @@ async fn resume(
             .ok_or_else(|| err(StatusCode::FORBIDDEN, "no matching ranked seat"))?
     };
     let digest = binding.decks[seat];
-    let a = claim(bridge, id, account, digest).await?;
+    let a = claim(bridge, id, live, account, digest).await?;
     if assigned_seat(&a, id, binding.format, account, digest)? != seat
         || a.game != Some(*game.as_bytes())
     {
@@ -313,6 +352,9 @@ fn grant(
 ) -> Result<Response, Failure> {
     if !live.stands(crate::sessions::now()) {
         return Err(err(StatusCode::UNAUTHORIZED, "ranked session expired"));
+    }
+    if let Some(generation) = live.signed().and_then(|s| s.ranked_generation) {
+        return replica_table::grant(state, live, id, &game, generation);
     }
     crate::routes::claim_seat(
         state,
@@ -349,13 +391,6 @@ async fn launch(
     players: [&Arrival; 2],
 ) -> Result<String, Failure> {
     state.ranked.require_owner()?;
-    let preset = deck::preset(
-        state,
-        assignment.format,
-        [&players[0].deck, &players[1].deck],
-        auth::new_game_seed(),
-    )
-    .await?;
     let players_available = |lobby: &crate::lobby::Lobby| -> Result<(), Failure> {
         for player in players {
             if !player.live.stands(crate::sessions::now()) {
@@ -366,6 +401,20 @@ async fn launch(
         Ok(())
     };
     players_available(&state.lobby.lock())?;
+    let generations = players.map(|p| p.live.signed().and_then(|s| s.ranked_generation));
+    if generations[0] != generations[1] {
+        return Err(err(StatusCode::CONFLICT, "ranked generation changed"));
+    }
+    if let Some(generation) = generations[0] {
+        return replicate::freeze(state, bridge, assignment, players, generation).await;
+    }
+    let preset = deck::preset(
+        state,
+        assignment.format,
+        [&players[0].deck, &players[1].deck],
+        auth::new_game_seed(),
+    )
+    .await?;
     let game = baylee_db::ranked::reserve(&state.db, id)
         .await
         .map_err(|e| crate::db_down(&e.into()))?;
@@ -408,7 +457,6 @@ async fn launch(
             // Mark the seat claimed. Only take_seat can issue a usable capability to its owner.
             s.seat_token_hash = Some(auth::token_hash(&auth::new_token()));
             s.central_session = Some(p.live.key().to_vec());
-            s.deck_name.clone_from(&p.deck.name);
             s
         })
         .collect();
@@ -419,6 +467,7 @@ async fn launch(
         id,
         format: assignment.format,
         decks: assignment.decks,
+        replica: None,
     });
     game.house_rules = rules;
     game.allow_spectators = false;

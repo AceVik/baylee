@@ -3,7 +3,7 @@
 use crate::{
     DuelCommand, DuelPhase, InstalledHost,
     lobby::{LobbyState, central},
-    net::{NetworkHost, SeatTicket},
+    net::{NetworkHost, SeatTicket, replica::Table},
 };
 use baylee_account::{
     Account, Error, RankedConsent, RankedHost, RankedPlay,
@@ -20,16 +20,23 @@ use uuid::Uuid;
 
 pub(in crate::lobby) mod consent;
 mod deck;
+mod host_documents;
 mod preview;
 pub(crate) use preview::{clear_preview, preview};
 mod public;
+mod replication;
 
 enum Reply {
     Frozen(u64, Result<deck::Frozen, Error>),
     Queue(Request, Result<QueueState, Error>),
     Seat(Box<SeatReply>),
     Accepted(Result<(), Error>),
-    Renewed(Id, Result<Instant, Error>),
+    Renewed(
+        baylee_account::ranked::replica::Fence,
+        Result<Instant, Error>,
+    ),
+    Authority(Request, Result<replication::Route, Error>),
+    Submitted(Id, Result<replication::Submission, Error>),
 }
 
 struct SeatReply {
@@ -40,7 +47,11 @@ struct SeatReply {
 type Inbox = Arc<Mutex<Option<Reply>>>;
 
 #[derive(Resource)]
-pub(crate) struct RankedSocket;
+pub(crate) struct RankedSocket {
+    pub(crate) match_id: Id,
+    pub(crate) game_id: Id,
+    pub(crate) protected: bool,
+}
 
 pub(crate) fn close_game_transport(mut commands: Commands, live: Option<Res<RankedSocket>>) {
     if live.is_some() {
@@ -51,6 +62,7 @@ pub(crate) fn close_game_transport(mut commands: Commands, live: Option<Res<Rank
 
 pub(crate) fn clear_game_marker(mut commands: Commands, live: Option<Res<RankedSocket>>) {
     if live.is_some() {
+        commands.remove_resource::<InstalledHost>();
         commands.remove_resource::<RankedSocket>();
     }
 }
@@ -73,12 +85,16 @@ pub(crate) struct Worker {
     preview_jobs: preview::Jobs,
     pub(crate) revision: u64,
     pub(crate) played: Option<Id>,
+    table: Table,
     session: Option<central::Handle>,
     inbox: Option<Inbox>,
     selecting: Option<(u64, Format, deck::Source)>,
     frozen: Option<Arc<deck::Frozen>>,
     host: Option<RankedHost>,
     consent: Option<RankedConsent>,
+    documents: Option<Arc<baylee_account::RankedHostDocuments>>,
+    displayed_documents: Option<Arc<baylee_account::RankedHostDocuments>>,
+    host_choice: Option<bool>,
     accepting: bool,
     renew_at: Option<Instant>,
     intent: Option<Request>,
@@ -108,12 +124,16 @@ impl Default for Worker {
             preview_jobs: preview::Jobs::default(),
             revision: 0,
             played: None,
+            table: Table::default(),
             session: None,
             inbox: None,
             selecting: None,
             frozen: None,
             host: None,
             consent: None,
+            documents: None,
+            displayed_documents: None,
+            host_choice: None,
             accepting: false,
             renew_at: None,
             intent: None,
@@ -135,6 +155,10 @@ const MAX_DELAY: Duration = Duration::from_secs(30);
 impl Worker {
     fn changed(&mut self) {
         self.revision = self.revision.wrapping_add(1);
+    }
+
+    pub(super) fn waiting_consent(&self) -> bool {
+        self.table.waiting_consent()
     }
 
     fn failed(&mut self, error: Error) {
@@ -216,6 +240,8 @@ impl Worker {
             // Drop the inbox as well as credentials; an old worker still
             // finishing a request can only publish to its own detached slot.
             self.session = handle;
+            self.table.unavailable();
+            self.table = Table::default();
             self.inbox = None;
             self.selecting = None;
             self.queue = QueueState::Idle;
@@ -225,6 +251,9 @@ impl Worker {
             self.consent = None;
             self.accepting = false;
             self.play_paused = false;
+            self.documents = None;
+            self.displayed_documents = None;
+            self.host_choice = None;
             self.recheck = false;
             self.needs_deck = false;
             self.busy = false;
@@ -329,10 +358,19 @@ pub(crate) fn poll(
     let state = lobby.bypass_change_detection();
     public::poll(&mut state.ranked_net);
     if !state.has_central_account() || state.central_terms_pending() {
+        if socket.is_some() && !closed {
+            opening.write(DuelCommand::Close);
+        }
         return;
     }
     let desk_open = closed && super::inline::preview_visible(state);
     preview::poll(&mut state.ranked_net, desk_open);
+    let live = socket.as_deref().filter(|_| {
+        !closed
+            && phase
+                .as_deref()
+                .is_some_and(|phase| *phase.get() != DuelPhase::Finished)
+    });
     let can_play = ready(state) && closed;
     let epoch = state.gateway_epoch;
     let worker = &mut state.ranked_net;
@@ -341,26 +379,49 @@ pub(crate) fn poll(
         .as_ref()
         .and_then(|inbox| inbox.try_lock().ok()?.take());
     if let Some(reply) = reply {
-        let notify = !can_play
-            && matches!(&reply, Reply::Queue(_, Ok(QueueState::Assigned { assignment, .. }))
-            if !matches!(&worker.queue, QueueState::Assigned {assignment: old, ..} if old.match_id == assignment.match_id));
+        let notify = !can_play && live.is_none() && replication::new_assignment(worker, &reply);
         worker.inbox = None;
         if let Some(play) = finish(worker, epoch, reply) {
-            if !can_play {
+            let taking_over = live.is_some_and(|live| live.match_id == play.assignment.match_id);
+            if !can_play && !taking_over {
                 worker.played = None;
                 worker.recheck = true;
                 return;
             }
             // Only the seat capability is installed in the duel. The separate
             // admission and all its rights are dropped here.
-            if let Ok(host) = NetworkHost::connect(ticket(play)) {
+            if let Ok((host, marker)) =
+                replication::connect(worker, play, live.map(|live| live.protected))
+            {
                 commands.insert_resource(InstalledHost(Box::new(host)));
-                commands.insert_resource(RankedSocket);
-                opening.write(DuelCommand::Open);
+                commands.insert_resource(marker);
+                if !taking_over {
+                    opening.write(DuelCommand::Open);
+                }
             } else {
                 worker.played = None;
                 worker.failed(Error::Unavailable);
             }
+            return;
+        }
+        if live.is_some() && (worker.consent.is_some() || worker.documents.is_some()) {
+            worker.played = None;
+            opening.write(DuelCommand::Close);
+            let lang = lobby.lobby.lang();
+            lobby
+                .lobby
+                .note_said(baylee_client_core::Phrase::RankedNewHostTerms.text(lang));
+            return;
+        }
+        if live.is_some() && matches!(worker.queue, QueueState::Idle | QueueState::Finished { .. })
+        {
+            if matches!(worker.queue, QueueState::Idle) {
+                let lang = lobby.lobby.lang();
+                lobby
+                    .lobby
+                    .note_said(baylee_client_core::Phrase::RankedSeatReleased.text(lang));
+            }
+            opening.write(DuelCommand::Close);
             return;
         }
         if notify {
@@ -373,7 +434,9 @@ pub(crate) fn poll(
     }
     if worker.session.is_none()
         || worker.inbox.is_some()
-        || worker.next.is_none_or(|at| at > Instant::now())
+        || (worker.next.is_none_or(|at| at > Instant::now())
+            && !worker.table.has_submission(Instant::now())
+            && !worker.table.presence_due(Instant::now()))
     {
         return;
     }
@@ -382,7 +445,7 @@ pub(crate) fn poll(
 
 fn ticket(mut play: RankedPlay) -> SeatTicket {
     SeatTicket {
-        gateway: play.assignment.origin,
+        gateway: play.relay_origin,
         game_id: play.seat.game_id.to_string(),
         seat: PlayerId::new(play.assignment.seat),
         watch: false,
@@ -391,18 +454,35 @@ fn ticket(mut play: RankedPlay) -> SeatTicket {
 }
 
 fn dispatch(worker: &mut Worker, can_play: bool, playing: bool) {
+    if let Some(presence) = worker.table.take_presence(Instant::now()) {
+        let documents = worker.documents.clone();
+        worker.submit(move |account| {
+            Reply::Authority(
+                Request::Status,
+                replication::read(account, Request::Status, Some(presence), documents),
+            )
+        });
+        return;
+    }
+    if replication::send_pending(worker) {
+        return;
+    }
+    if host_documents::answer(worker) {
+        return;
+    }
     if playing
         && worker.renew_at.is_some_and(|t| t <= Instant::now())
         && let QueueState::Assigned { key, assignment } = &worker.queue
         && worker.played == Some(assignment.match_id)
         && assignment.game.is_some()
+        && let Some(authority) = worker.table.expected(assignment)
     {
         let key = *key;
         let assignment = assignment.clone();
         worker.submit(move |account| {
             Reply::Renewed(
-                assignment.match_id,
-                account.renew_ranked_game(key, &assignment),
+                authority.fence,
+                account.renew_ranked_replica(key, &assignment, authority.fence),
             )
         });
         return;
@@ -421,33 +501,35 @@ fn dispatch(worker: &mut Worker, can_play: bool, playing: bool) {
         }
         return;
     }
-    if can_play
+    let reticket = playing && worker.table.needs_ticket();
+    if (can_play || reticket)
         && worker.intent.is_none()
         && !worker.needs_deck
         && !worker.play_paused
         && worker.consent.is_none()
+        && worker.documents.is_none()
         && !worker.recheck
         && let QueueState::Assigned { key, assignment } = &worker.queue
-        && worker.played != Some(assignment.match_id)
+        && (worker.played != Some(assignment.match_id) || reticket)
+        && let Some(authority) = worker.table.expected(assignment)
     {
         let key = *key;
         let frozen = worker.frozen.clone();
         let mut host = worker.host.take();
         worker.submit(move |account| {
             let snapshot = frozen.as_ref().map(|f| (f.digest, &f.deck));
-            let play = account.play_ranked(key, snapshot, &mut host);
+            let play = account.play_ranked_replica(key, &authority, snapshot, &mut host);
             Reply::Seat(Box::new(SeatReply { host, play }))
         });
         return;
     }
     let request = worker.intent.clone().unwrap_or(Request::Status);
+    let documents = worker.documents.clone();
     worker.submit(move |account| {
-        let result = match account.ranked(request.clone()) {
-            Ok(Response::Queue { state }) => Ok(state),
-            Ok(_) => Err(Error::Rejected),
-            Err(error) => Err(error),
-        };
-        Reply::Queue(request, result)
+        Reply::Authority(
+            request.clone(),
+            replication::read(account, request, None, documents),
+        )
     });
 }
 
@@ -455,6 +537,17 @@ fn finish(worker: &mut Worker, epoch: u64, reply: Reply) -> Option<RankedPlay> {
     let now = Instant::now();
     worker.next = Some(now + POLL);
     match reply {
+        Reply::Submitted(id, result) => {
+            replication::answered(&worker.table, id, result, now);
+            worker.next = Some(now);
+        }
+        Reply::Authority(request, result) => {
+            let queue = result.map(|route| replication::observe(worker, route));
+            if queue.is_err() {
+                worker.table.unavailable();
+            }
+            return finish(worker, epoch, Reply::Queue(request, queue));
+        }
         Reply::Frozen(source_epoch, result) => {
             let frozen = match result {
                 Ok(frozen) if epoch == source_epoch => frozen,
@@ -514,8 +607,9 @@ fn finish(worker: &mut Worker, epoch: u64, reply: Reply) -> Option<RankedPlay> {
                 worker.failed(error);
             }
         },
-        Reply::Renewed(id, result) => {
-            if worker.played == Some(id) {
+        Reply::Renewed(fence, result) => {
+            if matches!(&worker.queue, QueueState::Assigned{assignment,..} if worker.table.expected(assignment).is_some_and(|s| s.fence == fence))
+            {
                 match result {
                     Ok(renew_at) => worker.renew_at = Some(renew_at),
                     Err(error) => {
@@ -527,6 +621,7 @@ fn finish(worker: &mut Worker, epoch: u64, reply: Reply) -> Option<RankedPlay> {
         }
         Reply::Accepted(result) => {
             worker.consent = None;
+            worker.documents = None;
             worker.host = None;
             worker.recheck = true;
             match result {

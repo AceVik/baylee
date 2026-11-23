@@ -5,6 +5,36 @@ use baylee_protocol::v1::{self, Envelope, envelope::Msg};
 use central_api::ranked::Outcome;
 use std::time::Duration;
 
+#[test]
+fn relay_seats_have_separate_reconnect_allowances_behind_one_address() {
+    let stub = stub_central::Stub::serve(Duration::ZERO);
+    let (gw, _settings) = stub_central::gateway(&stub, "ranked_budget");
+    stub.knows(1);
+    stub.knows(2);
+    let id = stub.reserve_ranked([1, 2], [[0; 32]; 2]);
+    let first = stub.game_login(gw.port, 1, id);
+    let second = stub.game_login(gw.port, 2, id);
+    let admit =
+        |credential: &str| common::http(gw.port, "POST", "/auth/ranked/login", None, credential).0;
+    let mut forged: serde_json::Value = serde_json::from_str(&first).unwrap();
+    let mut token = forged["token"].as_str().unwrap().to_owned();
+    let signature = token.rfind('.').unwrap() + 1;
+    let replacement = if token.as_bytes()[signature] == b'A' {
+        "B"
+    } else {
+        "A"
+    };
+    token.replace_range(signature..signature + 1, replacement);
+    forged["token"] = token.into();
+    assert_eq!(admit(&forged.to_string()), 401);
+    for _ in 0..12 {
+        assert_eq!(admit(&first), 200);
+    }
+    assert_eq!(admit(&first), 429);
+    assert_eq!(admit(&second), 200);
+    assert_eq!(stub.sign_in(gw.port, 1).0, 200);
+}
+
 #[tokio::test(flavor = "multi_thread")]
 async fn ranked_duel_claims_both_seats_and_delivers_after_retry() {
     let stub = stub_central::Stub::serve(Duration::ZERO);
@@ -21,7 +51,13 @@ async fn ranked_duel_claims_both_seats_and_delivers_after_retry() {
     let reg =
         baylee_cards::ranked::registration("standard", &["60 Forest".into()], &[], &[]).unwrap();
     let id = stub.reserve_ranked([1, 2], [reg.digest; 2]);
+    let local_accounts = gw.scalar("SELECT count(*) FROM account");
     let accounts = [1, 2, 3].map(|key| stub.game_bearer(gw.port, key, id));
+    assert_eq!(
+        gw.scalar("SELECT count(*) FROM account"),
+        local_accounts,
+        "match aliases must never become ordinary local accounts"
+    );
     assert_scoped_access(gw.port, &accounts[0], &home[0]);
     let path = format!("/ranked/{id}/play");
     let body=serde_json::json!({"format":"standard","cards":["60 Forest"],"sideboard":[],"commanders":[]}).to_string();

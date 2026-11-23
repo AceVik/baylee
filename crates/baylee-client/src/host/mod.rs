@@ -28,7 +28,7 @@ pub mod process;
 pub(crate) mod snapshot;
 
 mod types;
-pub use types::{Closure, DuelHost, HostMessage, LinkState, ResumePoint};
+pub use types::{Closure, DuelHost, HostMessage, LinkState, RankedClocks, ResumePoint};
 
 /// `text`, as one short line of what can be seen.
 fn one_line(text: &str) -> String {

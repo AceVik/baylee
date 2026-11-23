@@ -361,6 +361,8 @@ pub struct LobbyGame {
     /// of authority: it is issued when the engine is ordered and is useless
     /// for anything but attaching to this game.
     pub engine_token_hash: Option<String>,
+    /// A protected engine incarnation has its own agent job ID across replays.
+    pub(crate) engine_job: Option<String>,
     /// The agent that was asked to run this game, so the gateway knows who to
     /// tell when it is over.
     pub agent_id: Option<String>,
@@ -444,6 +446,14 @@ pub struct LobbyGame {
 }
 
 impl LobbyGame {
+    /// A chair whose capability may be exercised. Replicated seats are
+    /// available only on a caught-up primary with an unexpired generation lease.
+    pub(crate) fn ranked_seat(&self, index: usize) -> Option<&LobbySeat> {
+        self.ranked
+            .is_none_or(crate::ranked::Binding::seats_live)
+            .then(|| self.seats.get(index))
+            .flatten()
+    }
     /// Whether an account sits in each chair, in seat order: what the engine
     /// is told as `GameSetup.seat_accounts`. A seat bridge its host handed a
     /// chair to has none (its `Delegate` names the host), and plays on when
@@ -642,6 +652,7 @@ impl LobbyGame {
             format: None,
             list: None,
             engine_token_hash: None,
+            engine_job: None,
             agent_id: None,
             engine_local: false,
             engine: None,

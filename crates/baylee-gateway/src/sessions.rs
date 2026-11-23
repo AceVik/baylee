@@ -77,6 +77,8 @@ pub(crate) struct Signed {
     /// Present only for a signed game-host admission. Such a bearer is
     /// invisible to every ordinary gateway and admin auth lookup.
     pub(crate) ranked_match: Option<[u8; 16]>,
+    /// Present only for an admission to one replicated primary generation.
+    pub(crate) ranked_generation: Option<u64>,
     /// The newest terms of this gateway the account accepted.
     terms: Mutex<Option<central_crypto::jwt::TermsClaim>>,
 }
@@ -91,6 +93,7 @@ impl Signed {
             central,
             admin,
             ranked_match: None,
+            ranked_generation: None,
             terms: Mutex::new(terms),
         }
     }
@@ -392,7 +395,7 @@ impl Book {
         let mut index = self.index.lock();
         if let Some(live) = index.by_key.get(&key).cloned() {
             if live.stands(now) && live.account() == account {
-                let scope = |s: &Signed| (s.central, s.admin, s.ranked_match);
+                let scope = |s: &Signed| (s.central, s.admin, s.ranked_match, s.ranked_generation);
                 if live.signed().map(scope) != signed.as_ref().map(scope) {
                     return Err(Full);
                 }

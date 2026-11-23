@@ -121,10 +121,12 @@ pub fn count_down_the_decision(
     // cue queue the time: a clock ticking is not the duel changing, and a
     // write through `DerefMut` reported the whole duel as moved on every
     // frame. A cue it hands over is a change, and is written as one.
-    let clock = &mut duel.bypass_change_detection().clock;
-    clock.advance(time.delta_secs());
-    if let Some(cue) = clock.claim() {
-        duel.cues.push(cue);
+    if !duel.clock_paused() {
+        let clock = &mut duel.bypass_change_detection().clock;
+        clock.advance(time.delta_secs());
+        if let Some(cue) = clock.claim() {
+            duel.cues.push(cue);
+        }
     }
     let Ok((mut text, colour, beside)) = label.single_mut() else {
         return;

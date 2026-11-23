@@ -27,6 +27,8 @@
 //! HTTP (see [`crate::settings::gateway_url`]).
 
 mod clock;
+#[cfg(not(target_arch = "wasm32"))]
+pub(crate) mod replica;
 
 use crate::host::{DuelHost, HostMessage, LinkState, SeatViews, host_message};
 use baylee_client_core::wsticket::{Socket as TicketSocket, Step, TicketAnswer, TicketDial};
@@ -304,6 +306,10 @@ impl Connection {
 /// Holds no game state of its own: the table is authoritative about every
 /// part of it, including which seat this client is sitting in.
 pub struct NetworkHost {
+    #[cfg(not(target_arch = "wasm32"))]
+    protected: Option<replica::Binding>,
+    #[cfg(not(target_arch = "wasm32"))]
+    relay_ticket: Option<zeroize::Zeroizing<String>>,
     /// How to reach the table, and how to prove which chair this is.
     ticket: SeatTicket,
     /// The socket, once a ticket has been had for it (#294).
@@ -365,14 +371,22 @@ impl NetworkHost {
     /// the link reports. Kept a `Result` for the callers that already handle
     /// one.
     pub fn connect(ticket: SeatTicket) -> Result<Self, String> {
-        let (dial, _) = TicketDial::start();
         let pending = Some(request_ticket(
             &ticket.gateway,
             &ticket.seat_token,
             ticket_socket(&ticket),
         ));
+        Ok(Self::new(ticket, pending))
+    }
+
+    fn new(ticket: SeatTicket, pending: Option<PendingTicket>) -> Self {
+        let (dial, _) = TicketDial::start();
         let watch = ticket.watch;
-        Ok(Self {
+        Self {
+            #[cfg(not(target_arch = "wasm32"))]
+            protected: None,
+            #[cfg(not(target_arch = "wasm32"))]
+            relay_ticket: None,
             seat: ticket.seat,
             ticket,
             link: Mutex::new(None),
@@ -396,7 +410,28 @@ impl NetworkHost {
             next_probe: 0,
             pending_ready: false,
             clock_open: !watch,
-        })
+        }
+    }
+
+    #[cfg(not(target_arch = "wasm32"))]
+    pub(crate) fn ranked(
+        mut ticket: SeatTicket,
+        binding: replica::Binding,
+    ) -> Result<Self, String> {
+        let endpoint = replica::socket_url(&ticket.gateway)?;
+        let secret = zeroize::Zeroizing::new(std::mem::take(&mut ticket.seat_token));
+        if secret.len() != 64
+            || !secret
+                .bytes()
+                .all(|c| c.is_ascii_digit() || (b'a'..=b'f').contains(&c))
+        {
+            return Err("invalid ranked relay ticket".to_owned());
+        }
+        let mut host = Self::new(ticket, None);
+        host.link = Mutex::new(Some(open_socket(endpoint)?));
+        host.protected = Some(binding);
+        host.relay_ticket = Some(secret);
+        Ok(host)
     }
 
     /// Re-dials, and asks the table for whatever this seat missed.
@@ -414,6 +449,11 @@ impl NetworkHost {
     /// # Errors
     /// Never, today; see [`NetworkHost::connect`].
     pub fn redial(&mut self) -> Result<(), String> {
+        #[cfg(not(target_arch = "wasm32"))]
+        if let Some(binding) = &self.protected {
+            binding.lost();
+            return Ok(());
+        }
         *self.link.get_mut().unwrap_or_else(PoisonError::into_inner) = None;
         let (dial, _) = TicketDial::start();
         self.dial = dial;
@@ -472,6 +512,10 @@ impl NetworkHost {
 
     /// Does what the dial said to do next.
     fn perform(&mut self, mut step: Step) {
+        #[cfg(not(target_arch = "wasm32"))]
+        if self.protected.is_some() {
+            return;
+        }
         loop {
             match step {
                 Step::Dial(ticket) => match open_socket(self.ticket.socket_url(&ticket)) {
@@ -590,6 +634,95 @@ impl NetworkHost {
     }
 
     /// Sends everything that was waiting for the socket to open.
+    /// False discards the rest of a socket batch after a seat binding mismatch.
+    fn receive(&mut self, envelope: Envelope, out: &mut Vec<HostMessage>) -> bool {
+        #[cfg(not(target_arch = "wasm32"))]
+        if self.protected.as_ref().is_some_and(|b| !b.current()) {
+            return true;
+        }
+        #[cfg(not(target_arch = "wasm32"))]
+        let (envelope, stamp) = if let Some(binding) = &self.protected
+            && binding.mirrored
+        {
+            let Some(projection) = binding.decode(envelope) else {
+                return true;
+            };
+            projection
+        } else {
+            (envelope, None)
+        };
+        let now = self.clock_origin.elapsed().as_millis() as u64;
+        match &envelope.msg {
+            Some(v1::envelope::Msg::Curtain(_)) => self.clock_open = false,
+            Some(v1::envelope::Msg::ClockProbe(probe)) => {
+                self.clock
+                    .sample(probe.client_time_ms, now, probe.server_time_ms);
+            }
+            Some(v1::envelope::Msg::TableLoading(status)) => {
+                out.push(HostMessage::Preparing {
+                    ready: status.ready,
+                    total: status.total,
+                    starts_in: (status.enter_at_ms != 0)
+                        .then(|| self.clock.until(now, status.enter_at_ms))
+                        .flatten(),
+                });
+            }
+            _ => {}
+        }
+        self.note_seq(&envelope);
+        self.note_refusal(&envelope);
+        if !crate::host::try_merge_log_chunk(out, &envelope)
+            && let Some(message) = host_message(envelope, &mut self.views)
+        {
+            #[cfg(not(target_arch = "wasm32"))]
+            if let Some(binding) = &self.protected
+                && match &message {
+                    HostMessage::Static(s) => s.your_seat != self.ticket.seat,
+                    HostMessage::View(v, _) => v.seat != self.ticket.seat,
+                    _ => false,
+                }
+            {
+                binding.lost();
+                out.clear();
+                return false;
+            }
+            #[cfg(not(target_arch = "wasm32"))]
+            if let (Some(binding), Some(head)) = (&mut self.protected, stamp) {
+                binding.rendered(head, &message);
+            }
+            #[cfg(not(target_arch = "wasm32"))]
+            if let Some(binding) = &mut self.protected
+                && !binding.mirrored
+                && matches!(&message, HostMessage::View(..))
+            {
+                binding.single_snapshot();
+            }
+            if let HostMessage::Static(statics) = &message {
+                // The table decides which chair this is; a
+                // ticket could only ever guess at it.
+                self.seat = statics.your_seat;
+            }
+            out.push(message);
+        }
+        self.ask_for_a_whole_view();
+        true
+    }
+
+    fn send_input(&mut self, envelope: Envelope) {
+        #[cfg(not(target_arch = "wasm32"))]
+        if let Some(binding) = &self.protected {
+            if binding.hold().is_some() {
+                return;
+            }
+            if binding.mirrored {
+                binding.enqueue(&envelope);
+                return;
+            }
+        }
+        self.outbox.push(envelope);
+        self.flush();
+    }
+
     fn flush(&mut self) {
         if !self.connection.open || self.outbox.is_empty() {
             return;
@@ -636,6 +769,15 @@ fn a_person_answers() -> Envelope {
 }
 
 impl DuelHost for NetworkHost {
+    #[cfg(not(target_arch = "wasm32"))]
+    fn take_ranked_clocks(&mut self, new_view: bool) -> Option<crate::host::RankedClocks> {
+        self.protected.as_mut()?.clocks(new_view)
+    }
+    #[cfg(not(target_arch = "wasm32"))]
+    fn ranked_cursor(&self) -> Option<(u64, u64, [u8; 32])> {
+        self.protected.as_ref()?.cursor()
+    }
+
     fn poll(&mut self) -> Vec<HostMessage> {
         let mut out = std::mem::take(&mut self.pending_out);
         self.collect_ticket();
@@ -652,6 +794,17 @@ impl DuelHost for NetworkHost {
             self.note_closing(&event);
             match &event {
                 WsEvent::Opened => {
+                    #[cfg(not(target_arch = "wasm32"))]
+                    if let Some(secret) = self.relay_ticket.take()
+                        && let Some(link) = self
+                            .link
+                            .get_mut()
+                            .unwrap_or_else(PoisonError::into_inner)
+                            .as_mut()
+                    {
+                        link.sender
+                            .send(WsMessage::Binary(secret.as_bytes().to_vec()));
+                    }
                     self.dial.opened();
                     self.ticket_refusals = 0;
                 }
@@ -672,44 +825,24 @@ impl DuelHost for NetworkHost {
                 WsEvent::Message(_) => {}
             }
             self.connection.observe(&event);
+            #[cfg(not(target_arch = "wasm32"))]
+            if let Some(binding) = &self.protected {
+                binding.connection(self.connection.open);
+            }
+            #[cfg(not(target_arch = "wasm32"))]
+            if self.connection.lost
+                && !self.connection.dialling
+                && let Some(binding) = &self.protected
+            {
+                binding.lost();
+            }
             match event {
                 WsEvent::Message(WsMessage::Binary(bytes)) => {
                     match Envelope::decode(bytes.as_slice()) {
                         Ok(envelope) => {
-                            let now = self.clock_origin.elapsed().as_millis() as u64;
-                            match &envelope.msg {
-                                Some(v1::envelope::Msg::Curtain(_)) => self.clock_open = false,
-                                Some(v1::envelope::Msg::ClockProbe(probe)) => {
-                                    self.clock.sample(
-                                        probe.client_time_ms,
-                                        now,
-                                        probe.server_time_ms,
-                                    );
-                                }
-                                Some(v1::envelope::Msg::TableLoading(status)) => {
-                                    out.push(HostMessage::Preparing {
-                                        ready: status.ready,
-                                        total: status.total,
-                                        starts_in: (status.enter_at_ms != 0)
-                                            .then(|| self.clock.until(now, status.enter_at_ms))
-                                            .flatten(),
-                                    });
-                                }
-                                _ => {}
+                            if !self.receive(envelope, &mut out) {
+                                break;
                             }
-                            self.note_seq(&envelope);
-                            self.note_refusal(&envelope);
-                            if !crate::host::try_merge_log_chunk(&mut out, &envelope)
-                                && let Some(message) = host_message(envelope, &mut self.views)
-                            {
-                                if let HostMessage::Static(statics) = &message {
-                                    // The table decides which chair this is; a
-                                    // ticket could only ever guess at it.
-                                    self.seat = statics.your_seat;
-                                }
-                                out.push(message);
-                            }
-                            self.ask_for_a_whole_view();
                         }
                         Err(e) => out.push(HostMessage::Failed(format!("unreadable frame: {e}"))),
                     }
@@ -746,7 +879,7 @@ impl DuelHost for NetworkHost {
         if self.ticket.watch {
             return;
         }
-        self.outbox.push(Envelope {
+        let envelope = Envelope {
             msg: Some(v1::envelope::Msg::PlayerAction(v1::PlayerActionMsg {
                 game_id: self.ticket.game_id.clone(),
                 // The socket is already bound to one seat of one game. Sending
@@ -755,20 +888,19 @@ impl DuelHost for NetworkHost {
                 seat_token: String::new(),
                 action: baylee_core::wire::encode(&action),
             })),
-        });
-        self.flush();
+        };
+        self.send_input(envelope);
     }
 
     fn seat_setting(&mut self, setting: baylee_view::SeatSetting) {
         if self.ticket.watch {
             return;
         }
-        self.outbox.push(Envelope {
+        self.send_input(Envelope {
             msg: Some(v1::envelope::Msg::SeatSetting(v1::SeatSettingMsg {
                 setting: baylee_core::wire::encode(&setting),
             })),
         });
-        self.flush();
     }
 
     fn ready(&mut self) {
@@ -788,6 +920,22 @@ impl DuelHost for NetworkHost {
     }
 
     fn link(&self) -> LinkState {
+        #[cfg(not(target_arch = "wasm32"))]
+        if let Some(binding) = &self.protected {
+            if self.connection.lost && !self.connection.dialling
+                || self.closed.is_some()
+                || self.refused.is_some()
+            {
+                binding.lost();
+            }
+            if let Some(phrase) = binding.hold() {
+                return LinkState::RankedHold(phrase);
+            }
+            if self.connection.lost || self.closed.is_some() || self.refused.is_some() {
+                binding.lost();
+                return LinkState::RankedHold(baylee_client_core::Phrase::RankedHostHold);
+            }
+        }
         if let Some(table) = self.refused {
             return LinkState::Refused { table };
         }

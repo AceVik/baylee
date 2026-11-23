@@ -915,11 +915,20 @@ play, recovery and evaluation pipeline. The runner sets the test-process-only
 `BAYLEE_CENTRAL_CHALLENGES_ONLY=1`; neither production server reads it. The default
 integration mode still runs every existing scenario.
 
-`cargo dev central integration --ranked-only` plays a synthetic Standard duel on
-the sole verified host using two registered gateways. It checks both players'
-original lobby sessions after seat recovery, the engine result, the personal
-receipts, public standings and idempotent host delivery. The default integration
-run includes this scenario in a separate fixture database.
+`cargo dev central integration --ranked-only` runs two synthetic Standard duels
+against separate PostgreSQL databases. One has a single verified host. The
+other uses independently operated gateways running actual `baylee-agent` and
+`baylee-engine-server` processes. Run this check on a clean Git commit with
+build stamping enabled so the agents advertise the same identifiable rules build.
+
+Each player approves the named recipients and their published terms. The
+replicated scenario commits a mulligan, kills its primary gateway, waits for
+the real lease to expire and compares both players' recovered hands. A third
+verified operator receives private replay data after both participants approve
+it. On Linux the clients use two distinct loopback addresses so the test can
+check which addresses Central and the serving gateway see on real sockets.
+Both scenarios verify the original lobby sessions, player and deck results,
+and public standings. The default integration run includes both.
 
 For an explicitly requested interactive demo, set `BAYLEE_CENTRAL_DEMO=1`
 with `--challenges-only`, an owned `BAYLEE_CENTRAL_UI_READY` path and

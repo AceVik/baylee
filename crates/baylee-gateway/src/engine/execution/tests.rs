@@ -18,6 +18,32 @@ fn agent(engine: &Identity, occupied: bool) -> Agent {
 }
 
 #[test]
+fn ranked_inventory_distinguishes_full_from_missing_and_counts_only_the_exact_build() {
+    let current = native(Variant::StandardLoops);
+    let mut incompatible = current.clone();
+    incompatible.rules = "different-rules".into();
+    let mut agents = Agents::default();
+    agents
+        .connected
+        .insert("other".into(), agent(&incompatible, false));
+    assert_eq!(agents.installed_spare(&current), None);
+    agents
+        .connected
+        .insert("occupied".into(), agent(&current, true));
+    assert_eq!(agents.installed_spare(&current), Some(0));
+    agents
+        .connected
+        .insert("free".into(), agent(&current, false));
+    assert_eq!(agents.installed_spare(&current), Some(1));
+    assert_eq!(agents.ranked_spare(), 1);
+    if current.ranked_compatibility().is_some() {
+        assert_eq!(agents.ranked_replica_capacity(), Some((current, 1)));
+    } else {
+        assert!(agents.ranked_replica_capacity().is_none());
+    }
+}
+
+#[test]
 fn tower_inventory_and_assignment_never_substitute_another_build_or_full_agent() {
     let identity = native(Variant::Tower);
     assert_eq!(identity.ai, "tower-house-23");

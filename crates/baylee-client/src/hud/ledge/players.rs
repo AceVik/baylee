@@ -546,7 +546,7 @@ pub(in crate::hud) fn roster(duel: &Duel, lang: Lang) -> Vec<SeatFacts> {
     let (Some(view), Some(board)) = (duel.view.as_ref(), duel.board.as_ref()) else {
         return Vec::new();
     };
-    let statics = duel.statics.as_ref();
+    let statics = duel.display_statics();
     let team =
         |player: PlayerId| statics.and_then(|s| s.seats.iter().find(|i| i.player == player)?.team);
     let mut order: Vec<PlayerId> = board.pods.iter().map(|pod| pod.player).collect();
@@ -901,7 +901,7 @@ pub fn show_the_control_badges(
         let said = control_badge(
             view,
             &duel.perspective,
-            duel.statics.as_ref(),
+            duel.display_statics(),
             lang,
             badge.player,
         );

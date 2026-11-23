@@ -208,9 +208,11 @@ pub fn tick_plate_clocks(
 ) {
     // Past change detection, as `count_down_the_decision` counts its own: a
     // clock ticking is not the duel changing.
-    duel.bypass_change_detection()
-        .seat_clocks
-        .advance(time.delta_secs());
+    if !duel.clock_paused() {
+        duel.bypass_change_detection()
+            .seat_clocks
+            .advance(time.delta_secs());
+    }
     let lens = shown.rig().zip(windows.single().ok()).map(|(rig, window)| {
         crate::table::Lens::new(rig, crate::hud::scale::space(window, ui.as_deref()))
     });

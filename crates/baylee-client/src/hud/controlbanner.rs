@@ -118,7 +118,7 @@ pub fn show_control_banner(
     }
     *shown = Some((line, lang));
     if let Some(line) = line {
-        let said = line.text(lang, duel.statics.as_ref());
+        let said = line.text(lang, duel.display_statics());
         text.0 = duel.view.as_ref().map_or_else(
             || said.clone(),
             |view| with_source(said.clone(), line, view),

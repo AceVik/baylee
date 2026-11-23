@@ -111,10 +111,22 @@ RUST_LOG=baylee_catalog=info cargo run -p baylee-catalog -- ingest   # all langu
 
 ## Ranked host bindings
 
-`ranked_run` maps a Central match UUID to one immutable local game UUID. The
-gateway persists the binding before asking Central to start and consumes its
-launch permission before exposing the opening. The existing complete engine
-record provides the terminal evidence for delivery. The worker reads a bounded
-batch ordered by service time and deletes acknowledged bindings. The table
-holds neither player credentials nor deck contents. Central owns the leagues,
-deck histories, seasons and rankings.
+`ranked_run` maps a Central match UUID to one immutable game UUID. In a
+single-host match, `generation` and `primary_host` are null. The gateway
+persists the binding before asking Central to start and consumes its launch
+permission before exposing the opening. The completed engine record provides
+terminal evidence. The delivery worker reads a bounded batch ordered by
+service time and deletes acknowledged bindings.
+
+Replicated matches use the Central match UUID as their game UUID on every
+host. Each host stores its assigned generation and whether it is primary.
+Retries preserve that binding, and promotion requires a higher generation.
+Cleanup only removes the matching generation. The single-host delivery index
+and all of its operations exclude these rows. The gateway's PostgreSQL
+`schema::ranked` tests exercise both paths through migration 34.
+When a host restarts after a match has already closed, the reconciliation
+worker removes leftover rows after a day, using a complete and authenticated
+list of assigned and pending matches.
+
+Player aliases, seat capabilities and lease deadlines exist only in gateway
+memory. Central owns the leagues, deck histories, seasons and rankings.

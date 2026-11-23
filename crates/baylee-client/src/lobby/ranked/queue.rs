@@ -35,6 +35,7 @@ pub(super) fn selected(state: &LobbyState) -> Option<(uuid::Uuid, &DeckSummary)>
 #[derive(PartialEq, Eq)]
 #[allow(clippy::struct_excessive_bools)] // independent worker, table and picker states
 pub(super) struct Look {
+    waiting_consent: bool,
     format: Format,
     pub(super) eligible: bool,
     held: bool,
@@ -54,6 +55,7 @@ pub(super) struct Look {
 
 pub(super) fn look(state: &LobbyState, own: Option<OwnRank>) -> Look {
     Look {
+        waiting_consent: state.ranked_net.waiting_consent(),
         format: effective_format(state),
         eligible: state.has_central_account(),
         held: state.lobby.awaiting().is_some(),
@@ -237,7 +239,11 @@ fn show_status(commands: &mut Commands, parent: Entity, kit: Kit, look: &Look) -
             }
         }
         QueueState::Assigned { assignment, .. } => {
-            let words = Phrase::RankedAssigned.fill(lang, &[format_name(assignment.format, lang)]);
+            let words = if look.waiting_consent {
+                Phrase::RankedHostsWaiting.text(lang).to_owned()
+            } else {
+                Phrase::RankedAssigned.fill(lang, &[format_name(assignment.format, lang)])
+            };
             label(commands, parent, kit, &words, kit.m.text, tokens::ACCENT);
             if look.played == Some(assignment.match_id) && !look.busy {
                 btn(

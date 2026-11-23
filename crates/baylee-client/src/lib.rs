@@ -99,6 +99,7 @@ pub mod music;
 pub mod net;
 pub mod platemat;
 // Profile pictures from Baylee Central, where `baylee-avif` builds.
+mod participant_names;
 #[cfg(not(any(target_arch = "wasm32", target_os = "android", target_os = "ios")))]
 pub mod portraits;
 pub mod prefs;
@@ -479,6 +480,7 @@ pub const FOLLOW_DWELL: f32 = 1.0;
 // comparisons.
 #[allow(clippy::struct_excessive_bools)]
 pub struct Duel {
+    participant_names: participant_names::Names,
     /// Finite identical may decisions explicitly approved together.
     pub(crate) yes_batch: yes_batch::YesBatch,
     pub(crate) combat_auto: Option<baylee_client_core::combat_auto::CombatAuto>,
@@ -847,6 +849,8 @@ pub struct Duel {
     /// the counting is what makes it a second of arc rather than a figure
     /// that changes when the table does.
     pub clock: baylee_client_core::decisionclock::DecisionClock,
+    /// Whether Central is charging time in the protected ranked duel.
+    pub ranked_clock_running: Option<bool>,
     /// Every seat's decision clock, counted between views: what each
     /// player's plate draws beside it (`PlayerView::clocks`, owner
     /// 08.10.2026). [`Self::clock`] is the awaited seat's and rings; this
@@ -1114,6 +1118,7 @@ fn receive_static(
     if seed != 0 {
         duel.table_pattern = feltmat::TablePattern::from_seed(seed);
     }
+    duel.participant_names.refresh(&statics);
     duel.statics = Some(statics);
     // The seat's own decklist, where this host knows it.
     if duel.own_deck.is_empty() {
@@ -1132,6 +1137,26 @@ fn receive_static(
     // decided the answer for the whole game, and a permanent whose
     // entry arrived a frame late never drew its art again.
     textures.forget_unresolved();
+}
+
+fn collect_projection(
+    host: &mut dyn DuelHost,
+    duel: &mut ResMut<Duel>,
+) -> (Vec<HostMessage>, bool) {
+    let watching = host.watching();
+    if duel.watching != watching {
+        duel.watching = watching;
+    }
+    let last_position = host.ranked_cursor();
+    let messages = host.poll();
+    let new_view = messages
+        .iter()
+        .any(|message| matches!(message, HostMessage::View(..)));
+    if last_position != host.ranked_cursor() {
+        duel.outbox.clear();
+        duel.seat_settings_outbox.clear();
+    }
+    (messages, new_view)
 }
 
 /// Drains the host and keeps the client's state current.
@@ -1154,12 +1179,9 @@ fn poll_host(
         return;
     }
     let host = &mut host.bypass_change_detection().0;
-    let watching = host.watching();
-    if duel.watching != watching {
-        duel.watching = watching;
-    }
     let mut jumped = false;
-    for message in host.poll() {
+    let (messages, new_view) = collect_projection(&mut **host, &mut duel);
+    for message in messages {
         match message {
             HostMessage::Jump => jumped = jump(&mut duel, &phase, &mut next, &mut placing),
             HostMessage::Spectators(count) => {
@@ -1263,6 +1285,9 @@ fn poll_host(
                 reports.write(DuelReport::Failed(reason));
             }
         }
+    }
+    if let Some(clocks) = host.take_ranked_clocks(new_view) {
+        duel.sync_ranked_clocks(host.seat(), &clocks);
     }
     follow_the_replay(&mut duel, host.replay(), jumped);
 }
@@ -1503,6 +1528,12 @@ fn keep_the_table_connected(
         )
     };
     match host.0.link() {
+        LinkState::RankedHold(phrase) => {
+            let note = Some(LinkNote::just(phrase));
+            if duel.link_note != note {
+                duel.link_note = note;
+            }
+        }
         // `Local` is a host with no socket to lose, and the schedule must
         // never start on one: an in-process engine would otherwise be
         // "reconnected" to twelve times and then declared unreachable.
@@ -1619,6 +1650,13 @@ fn flush_outbox(host: Option<ResMut<InstalledHost>>, mut duel: ResMut<Duel>) {
     let Some(mut host) = host else {
         return;
     };
+    if matches!(host.0.link(), LinkState::RankedHold(_)) {
+        if !duel.outbox.is_empty() || !duel.seat_settings_outbox.is_empty() {
+            duel.outbox.clear();
+            duel.seat_settings_outbox.clear();
+        }
+        return;
+    }
     if !duel.seat_settings_outbox.is_empty() {
         for setting in std::mem::take(&mut duel.seat_settings_outbox) {
             host.0.seat_setting(setting);

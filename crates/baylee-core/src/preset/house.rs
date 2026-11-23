@@ -163,6 +163,19 @@ impl HouseRules {
         }
     }
 
+    /// Rules shared by ranked registration and both independently started engines.
+    #[must_use]
+    pub fn ranked() -> Self {
+        Self {
+            ranked_duel: true,
+            mulligan_free_first: false,
+            free_mulligans: Some(0),
+            loop_policy: LoopPolicy::CompRulesDraw,
+            time_extension_votes: false,
+            ..Self::for_a_table()
+        }
+    }
+
     /// Rules for a newly created ordinary table. Keep the legacy constructors
     /// stable for recorded games and certified challenge packages.
     #[must_use]
