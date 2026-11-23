@@ -2,6 +2,94 @@ use super::{Book, Screen, api};
 use api::{Door, DoorState, Request, Response};
 
 #[test]
+fn advent_puzzle_screen_contains_the_players_real_life_moves_and_hint_numbers_in_both_languages() {
+    use crate::{hud::UiFonts, lobby::advent::puzzle, shellkit::controls::Kit};
+    use api::puzzle::{Goal, Phase, Puzzle, Step, Unit};
+    use bevy::{ecs::system::RunSystemOnce, prelude::*};
+    let unit = Unit {
+        power: 2,
+        toughness: 2,
+        keywords: vec![],
+        tapped: false,
+    };
+    let encounter = Puzzle {
+        goal: Goal::Defeat,
+        life: [17, 2],
+        mana: 3,
+        units: [vec![unit], vec![]],
+        hand: vec![],
+        steps: vec![Step {
+            new_turn: None,
+            draw: None,
+            phase: Phase::Attack { guards: [None; 3] },
+        }],
+    };
+    for german in [true, false] {
+        let mut app = App::new();
+        let mut book = Book::default();
+        book.accept(
+            Request::CurrentCalendar {},
+            Ok(canonical(OPEN, DoorState::Open)),
+        );
+        book.screen = Screen::Door(1);
+        book.accept(
+            Request::Puzzle {
+                year: 2026,
+                door: 1,
+            },
+            Ok(Response::Puzzle {
+                year: 2026,
+                door: 1,
+                puzzle: encounter.clone(),
+            }),
+        );
+        app.insert_resource(book);
+        app.world_mut()
+            .run_system_once(move |mut cmd: Commands, book: Res<Book>| {
+                let root = cmd.spawn(Node::default()).id();
+                let fonts = UiFonts::default();
+                let kit = Kit {
+                    fonts: &fonts,
+                    m: crate::lobby::header::kit_metrics(1100., 720., default(), default()),
+                    german,
+                };
+                puzzle::draw(&mut cmd, root, kit, &book, 1);
+            })
+            .unwrap();
+        let world = app.world_mut();
+        let texts = world
+            .query::<&Text>()
+            .iter(world)
+            .map(|t| &*t.0)
+            .collect::<Vec<_>>();
+        let expected = if german {
+            [
+                "Tür 1",
+                "Du · 17 Leben",
+                "Angriff mit A",
+                "Deine Entscheidung · 3 Mana",
+                "Kostenloser Hinweis 1",
+            ]
+        } else {
+            [
+                "Door 1",
+                "You · 17 life",
+                "Attack with A",
+                "Your decision · 3 mana",
+                "Free hint 1",
+            ]
+        };
+        for line in expected {
+            assert!(texts.contains(&line), "{line:?} absent from {texts:?}");
+        }
+        assert!(
+            texts.iter().all(|s| !s.contains('{') && !s.contains('}')),
+            "{texts:?}"
+        );
+    }
+}
+
+#[test]
 fn physical_clicks_open_the_full_width_plaque_and_its_shell_controls() {
     use crate::{
         hud::UiFonts,

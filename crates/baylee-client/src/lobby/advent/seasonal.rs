@@ -102,6 +102,18 @@ pub(super) fn install(app: &mut App) {
 #[derive(Component, Clone, Copy)]
 struct DoorLight {
     special: bool,
+    open: bool,
+}
+impl DoorLight {
+    fn edge(self) -> Color {
+        if self.open {
+            Color::srgb(0.55, 0.98, 0.88)
+        } else if self.special {
+            Color::srgb(0.99, 0.76, 0.43)
+        } else {
+            Color::srgba(0.96, 0.89, 0.73, 0.65)
+        }
+    }
 }
 fn light_doors(
     mut doors: Query<(
@@ -124,14 +136,7 @@ fn light_doors(
                 Color::srgb(1., 0.82, 0.51),
             )
         } else {
-            (
-                Color::srgba(0.055, 0.042, 0.032, 0.38),
-                if style.special {
-                    Color::srgb(0.99, 0.76, 0.43)
-                } else {
-                    Color::srgba(0.96, 0.89, 0.73, 0.65)
-                },
-            )
+            (Color::srgba(0.055, 0.042, 0.032, 0.38), style.edge())
         };
         if bg.0 != background {
             bg.0 = background;
@@ -306,10 +311,9 @@ fn tile(commands: &mut Commands, mosaic: Entity, kit: Kit, door: &api::Door, p: 
         api::DoorState::Open | api::DoorState::Solved | api::DoorState::Claimed
     );
     let special = matches!(n, 6 | 13 | 20 | 24);
-    let edge = if special {
-        Color::srgb(0.99, 0.76, 0.43)
-    } else {
-        Color::srgba(0.96, 0.89, 0.73, 0.65)
+    let style = DoorLight {
+        special,
+        open: door.state == api::DoorState::Open,
     };
     let name = format!(
         "{} · {}",
@@ -332,13 +336,13 @@ fn tile(commands: &mut Commands, mosaic: Entity, kit: Kit, door: &api::Door, p: 
                 top: percent(p.y),
                 width: percent(p.w),
                 height: percent(p.h),
-                border: UiRect::all(px(if special { 2.0 } else { 1.0 })),
+                border: UiRect::all(px(if special || style.open { 2.0 } else { 1.0 })),
                 border_radius: BorderRadius::all(px(5)),
                 align_items: AlignItems::Center,
                 justify_content: JustifyContent::Center,
                 ..default()
             },
-            BorderColor::all(edge),
+            BorderColor::all(style.edge()),
             BackgroundColor(Color::srgba(
                 0.055,
                 0.042,
@@ -350,20 +354,28 @@ fn tile(commands: &mut Commands, mosaic: Entity, kit: Kit, door: &api::Door, p: 
     if active {
         commands.entity(e).insert((
             UiButton,
-            DoorLight { special },
+            style,
             Action::Door(n),
             Stop::item(ORDER.name, "door", n),
         ));
     }
+    let plate = number_plate(commands, kit, door, special);
+    commands.entity(e).add_child(plate);
+    commands.entity(mosaic).add_child(e);
+}
+fn number_plate(commands: &mut Commands, kit: Kit, door: &api::Door, special: bool) -> Entity {
+    let n = door.door;
     let plate = commands
         .spawn((
             Node {
+                align_items: AlignItems::Center,
+                column_gap: kit.m.px(4.),
                 padding: UiRect::axes(kit.m.px(6.), kit.m.px(2.)),
                 border_radius: BorderRadius::all(px(4)),
                 ..default()
             },
             BackgroundColor(if door.state == api::DoorState::Open {
-                Color::srgba(0.35, 0.16, 0.04, 0.95)
+                Color::srgba(0.04, 0.19, 0.17, 0.95)
             } else {
                 Color::srgba(0.07, 0.04, 0.025, 0.86)
             }),
@@ -384,8 +396,18 @@ fn tile(commands: &mut Commands, mosaic: Entity, kit: Kit, door: &api::Door, p: 
         ))
         .id();
     commands.entity(plate).add_child(text);
-    commands.entity(e).add_child(plate);
-    commands.entity(mosaic).add_child(e);
+    if door.state == api::DoorState::Open {
+        let star = commands
+            .spawn((
+                Text::new(crate::lobby::parts::STAR.to_string()),
+                crate::hud::icon_tf(kit.fonts, kit.m.small * 0.80),
+                TextColor(tokens::GOLD),
+                Pickable::IGNORE,
+            ))
+            .id();
+        commands.entity(plate).add_child(star);
+    }
+    plate
 }
 fn state_label(state: api::DoorState) -> Phrase {
     match state {

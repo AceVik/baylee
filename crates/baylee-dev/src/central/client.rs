@@ -251,7 +251,17 @@ fn stop(
         }
     }
     let _ = fs::write(ready.with_extension("stop"), "stop");
-    if !fixture.wait_for(Duration::from_secs(15)).unwrap_or(false) {
+    // After the UI signals success the fixture verifies all saved frames,
+    // signs in again and plays its scoped owner/guest match before teardown.
+    let grace = if ready.with_extension("advent-complete").is_file() {
+        120
+    } else {
+        15
+    };
+    if !fixture
+        .wait_for(Duration::from_secs(grace))
+        .unwrap_or(false)
+    {
         let _ = fs::write(run_dir.join("cancel"), "cancel");
     }
     match fixture.wait(Duration::from_secs(30), None) {

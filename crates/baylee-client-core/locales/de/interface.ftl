@@ -4387,6 +4387,7 @@ AdventImageLoading = Das private Motiv wird geladen …
 AdventImageFailed = Das Bild konnte nicht geladen werden.
 AdventApplyDeck = Auf ein Deck anwenden
 AdventEmpty = Deine eingesammelten Adventsbelohnungen erscheinen hier.
+# Arguments: door
 AdventDoor = Tür { $door }
 AdventLocked = Noch geschlossen
 AdventAvailable = Rätsel verfügbar
@@ -4424,19 +4425,27 @@ AdventOpponent = Gegner
 AdventPass = Passen
 AdventNoAttack = Keine Angreifer
 AdventNoBlocks = Nicht blocken
+# Arguments: units
 AdventAttackWith = Angriff mit { $units }
 AdventCast = Zaubern oder passen
+# Arguments: pairs
 AdventGuards = Angriff · gegnerische Blocker → eigene Angreifer { $pairs }
+# Arguments: units
 AdventAttackers = Blocken · gegnerische Angreifer { $units }
 AdventSurvive = Überlebe die Begegnung oder besiege den Gegner vorher.
 AdventDefeat = Besiege den Gegner und überlebe.
+# Arguments: side, life
 AdventLife = { $side } · { $life } Leben
 AdventTapped = Getappt
+# Arguments: amount
 AdventDamage = { $amount } Schaden
 AdventMana = Mana
+# Arguments: card
 AdventDraw = Fester Zug vom Stapel · { $card }
 AdventLost = Diese Zugfolge verfehlt das Ziel. Du kannst es erneut versuchen.
 AdventSubmit = Zugfolge auswerten
+# Arguments: mana
 AdventChoose = Deine Entscheidung · { $mana } Mana
+# Arguments: number
 AdventHint = Kostenloser Hinweis { $number }
 AdventReset = Rätsel neu beginnen
