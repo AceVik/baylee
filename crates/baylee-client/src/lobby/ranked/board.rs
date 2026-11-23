@@ -23,7 +23,7 @@ pub(super) fn filters(commands: &mut Commands, p: Entity, kit: Kit, ui: &Ui) {
             kit,
             phrase.text(lang),
             Action::Track(track),
-            ("track", i),
+            (&ORDER, "track", i),
             ui.track == track,
         );
     }
@@ -48,7 +48,7 @@ pub(super) fn filters(commands: &mut Commands, p: Entity, kit: Kit, ui: &Ui) {
                 kit,
                 league_name(league, lang),
                 Action::League(league),
-                ("league-choice", i),
+                (&ORDER, "league-choice", i),
                 league == ui.league,
             );
         }
@@ -63,7 +63,7 @@ pub(super) fn filters(commands: &mut Commands, p: Entity, kit: Kit, ui: &Ui) {
             kit,
             Phrase::RankedAllDivisions.text(lang),
             Action::Division(None),
-            ("division", 0),
+            (&ORDER, "division", 0),
             ui.division.is_none(),
         );
         for (i, div) in (1..=count).rev().enumerate() {
@@ -73,7 +73,7 @@ pub(super) fn filters(commands: &mut Commands, p: Entity, kit: Kit, ui: &Ui) {
                 kit,
                 numeral(div),
                 Action::Division(Some(div)),
-                ("division", i + 1),
+                (&ORDER, "division", i + 1),
                 ui.division == Some(div),
             );
         }
@@ -279,7 +279,7 @@ pub(super) fn seasons(
         kit,
         Phrase::RankedCurrentSeason.text(lang),
         Action::Season(None),
-        ("season-choice", 0),
+        (&ORDER, "season-choice", 0),
         true,
     );
     if failed || busy && seasons.is_empty() {
@@ -308,7 +308,7 @@ pub(super) fn seasons(
             kit,
             &date,
             Action::Season(Some(s.id)),
-            ("season-choice", i + 1),
+            (&ORDER, "season-choice", i + 1),
             false,
         );
     }

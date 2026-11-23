@@ -331,9 +331,7 @@ pub(crate) fn poll(
     if !state.has_central_account() || state.central_terms_pending() {
         return;
     }
-    let desk_open = closed
-        && state.hub == crate::lobby::Hub::Ranked
-        && matches!(state.lobby.screen(), Screen::Table);
+    let desk_open = closed && super::inline::preview_visible(state);
     preview::poll(&mut state.ranked_net, desk_open);
     let can_play = ready(state) && closed;
     let epoch = state.gateway_epoch;

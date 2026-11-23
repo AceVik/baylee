@@ -145,3 +145,107 @@ fn declining_an_assigned_hosts_terms_only_cancels_that_reserved_match() {
     assert_eq!(state.terms_subject, Subject::Gateway);
     assert!(!state.terms.up());
 }
+
+/// Real Bevy presses through the inline card and native queue worker. Hold the
+/// account job in flight so the test can observe the selected input and linearize
+/// its two authenticated replies without needing a window or live credentials.
+#[test]
+fn inline_play_presses_freeze_the_chosen_deck_once_and_cancel_the_joined_ticket() {
+    use crate::lobby::{
+        LobbyEvent, Press,
+        ranked::Action,
+        tests::{headless, press, settle, stocked},
+    };
+    use baylee_client_core::lobby::DeckSummary;
+
+    let mut app = headless();
+    stocked(&mut app);
+    let wanted = Uuid::now_v7();
+    let (handle, _jobs) = central::Handle::queued_for_test();
+    let epoch = {
+        let mut state = app.world_mut().resource_mut::<LobbyState>();
+        central::enable(&mut state);
+        state.gateway_selected = true;
+        state.central.as_mut().unwrap().handle = Some(handle.clone());
+        let decks = [Uuid::now_v7(), wanted]
+            .into_iter()
+            .map(|id| {
+                handle.set_listed_revision_for_test(id, 3);
+                DeckSummary {
+                    id: id.to_string(),
+                    name: id.to_string(),
+                    format: Format::Highlander.as_str().into(),
+                    ..Default::default()
+                }
+            })
+            .collect();
+        state.lobby.apply(LobbyEvent::Decks(decks));
+        state.ranked_net.session(Some(handle));
+        state.ranked_net.inbox = Some(Arc::default());
+        state.gateway_epoch
+    };
+    settle(&mut app);
+    let tap = |app: &mut App, action| {
+        press(app, Press::Ranked(action));
+        settle(app);
+    };
+    tap(&mut app, Action::ToggleQueue);
+    tap(&mut app, Action::QueueFormat(Format::Highlander));
+    tap(&mut app, Action::ToggleDecks);
+    tap(&mut app, Action::Deck(wanted));
+    tap(&mut app, Action::Join);
+    let ticket = {
+        let mut state = app.world_mut().resource_mut::<LobbyState>();
+        let worker = &mut state.ranked_net;
+        let (from, format, selected) = worker.selecting.take().expect("real freeze request");
+        assert_eq!(
+            (from, format, selected.id()),
+            (epoch, Format::Highlander, wanted)
+        );
+        assert!(worker.intent.is_none());
+        let mut answer = frozen();
+        answer.deck.format = format;
+        // This is the authenticated freeze completion the account job delivers.
+        finish(worker, epoch, Reply::Frozen(epoch, Ok(answer)));
+        worker.intent.clone().unwrap()
+    };
+    let Request::Join {
+        key,
+        format: Format::Highlander,
+        deck,
+    } = ticket
+    else {
+        panic!("expected the Highlander queue request for the frozen deck");
+    };
+    assert_eq!(deck, [1; 32]);
+    tap(&mut app, Action::ToggleQueue);
+    tap(&mut app, Action::ToggleQueue);
+    {
+        let mut state = app.world_mut().resource_mut::<LobbyState>();
+        let worker = &mut state.ranked_net;
+        assert_eq!(worker.intent.as_ref(), Some(&ticket));
+        assert!(
+            worker.selecting.is_none(),
+            "returning to the card must not refreeze"
+        );
+        finish(
+            worker,
+            epoch,
+            Reply::Queue(
+                ticket,
+                Ok(QueueState::Waiting {
+                    key,
+                    format: Format::Highlander,
+                    queued_at: 3,
+                }),
+            ),
+        );
+    }
+    settle(&mut app);
+    tap(&mut app, Action::Cancel);
+    tap(&mut app, Action::ToggleQueue);
+    tap(&mut app, Action::ToggleQueue);
+    let worker = &app.world().resource::<LobbyState>().ranked_net;
+    assert_eq!(worker.intent, Some(Request::Cancel { key }));
+    assert!(worker.selecting.is_none());
+}

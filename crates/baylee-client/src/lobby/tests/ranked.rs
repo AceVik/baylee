@@ -1,5 +1,6 @@
 //! Regression coverage for retained public standings and validated result notifications.
 use super::{headless, presses, settle, sized};
+use crate::shellkit::focus::Stop;
 use crate::{
     lobby::ranked_profile::OpenProfile,
     lobby::{Hub, LobbyState, Press, ranked::Action},
@@ -102,4 +103,61 @@ fn public_rows_keep_entities_and_scroll_region_on_a_same_page_refresh() {
     app.update();
     assert_eq!(row_entities(&mut app), before);
     assert_eq!(list(&mut app), scroller);
+}
+
+#[test]
+fn the_ranked_card_expands_in_play_and_the_public_ladder_has_only_spectator_controls() {
+    use super::{press, press_target, stocked, tap_control};
+    use crate::lobby::{orders, play::PlayPress};
+
+    let mut app = headless();
+    sized(&mut app, 1440.0);
+    stocked(&mut app);
+    settle(&mut app);
+    let open = Press::Ranked(Action::ToggleQueue);
+    let board = Press::Ranked(Action::Open);
+    let create = Press::Play(PlayPress::CreateTable);
+    let card = press_target(&mut app, open);
+    let tables = press_target(&mut app, create);
+    assert_eq!(
+        app.world().get::<Stop>(card),
+        Some(&Stop::new(orders::PLAY.name, "ranked"))
+    );
+    let hidden_link = press_target(&mut app, board);
+    assert!(app.world().get::<Stop>(hidden_link).is_none());
+    let mut artwork = app.world_mut().query::<&crate::challenge_art::Scene>();
+    assert!(
+        artwork
+            .iter(app.world())
+            .any(|scene| matches!(scene, crate::challenge_art::Scene::Ranked))
+    );
+
+    press(&mut app, open);
+    settle(&mut app);
+    assert_eq!(app.world().resource::<LobbyState>().hub, Hub::Play);
+    assert_eq!(press_target(&mut app, open), card);
+    assert_eq!(press_target(&mut app, create), tables);
+    // A gateway-only account may inspect the public leaderboard. Central is
+    // required before the search button can be used.
+    assert!(!presses(&mut app).contains(&Press::Ranked(Action::Join)));
+    let link = press_target(&mut app, board);
+    assert_eq!(
+        app.world().get::<Stop>(link),
+        Some(&Stop::new(orders::PLAY.name, "ranked-board"))
+    );
+    tap_control(&mut app, "open standings", |p| *p == board);
+    assert_eq!(app.world().resource::<LobbyState>().hub, Hub::Ranked);
+    let actions = presses(&mut app);
+    assert!(!actions.contains(&open));
+    assert!(!actions.contains(&Press::Ranked(Action::Join)));
+    tap_control(&mut app, "return to Play", |p| {
+        *p == Press::Ranked(Action::Back)
+    });
+    assert_eq!(app.world().resource::<LobbyState>().hub, Hub::Play);
+    let link = press_target(&mut app, board);
+    assert!(app.world().get::<Stop>(link).is_some());
+    press(&mut app, open);
+    settle(&mut app);
+    let hidden_link = press_target(&mut app, board);
+    assert!(app.world().get::<Stop>(hidden_link).is_none());
 }

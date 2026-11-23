@@ -1,7 +1,7 @@
 //! Explicit, owner-only projection for the selected shelf deck.
 use super::{
-    Action, Kit, Lang, League, Live, LobbyState, ORDER, Phrase, Press, Weight, api, controls,
-    draw::label, league_name, orders, parts, queue, rank_name, tokens,
+    Action, Kit, Lang, League, Live, LobbyState, Phrase, Press, Weight, api, controls, draw::label,
+    league_name, orders, parts, queue, rank_name, tokens,
 };
 use api::{DeckPreview, PreviewSource};
 use bevy::prelude::*;
@@ -123,7 +123,7 @@ pub(super) fn draw(commands: &mut Commands, parent: Entity, kit: Kit, look: &Loo
         Press::Ranked(Action::Preview),
     );
     if !look.busy {
-        orders::stop(commands, button, &ORDER, "preview");
+        orders::stop(commands, button, &orders::PLAY, "preview");
     }
     commands.entity(parent).add_child(button);
 }

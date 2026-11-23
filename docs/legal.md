@@ -27,6 +27,11 @@ below remain the basis for runtime card images and finishes.
 
 ## Guardrails for every change
 
+The Ranked lobby tile uses an original generated arena. Its artwork and prompt
+provenance are recorded in the [activity art notes](../crates/baylee-client/assets/tower/scenes/README.md#ranked-arena--23-november-2026).
+The 23 November review checked the [Wizards Fan Content Policy](https://company.wizards.com/en/legal/fancontentpolicy).
+The illustration depicts Baylee's own arena and uses no franchise imagery.
+
 The 22 November league badge gallery and desktop client use original text-prompted
 helmets and abstract card backs. Its generated paintings, Rust-made division
 clasps, procedural material shader and use of the bundled OFL fonts are recorded in the

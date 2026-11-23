@@ -2,10 +2,16 @@
 
 ## Ranked play
 
-Leaderboards on the front door opens the same seasonal ladder as Ranked play
-in the lobby. Guests can read it immediately. A Central account adds the deck
-selector and the matchmaking queue. Standard, Highlander and Commander each
-have independent player and deck standings. The league menu offers the
+The illustrated Ranked activity sits beside the table list, with Tower, Daily
+and Weekly. Expanding the arena tile reveals the format, the deck selector
+and the matchmaking controls in place. A Central account can queue for a duel,
+check its status and cancel from that tile. Opening or folding the tile never
+enters or leaves the queue.
+
+The optional Leaderboards action opens the same public seasonal ladder as
+the front door. Guests can read it immediately. Its format filter is independent
+of the format selected for play. Standard, Highlander and Commander each
+have separate player and deck standings. The league menu offers the
 divisions that exist in that league. The season button also lists past seasons.
 The list keeps its scroll position during a refresh and starts at the top
 after a filter or page change. Each row opens its player's public profile.
@@ -32,10 +38,11 @@ terms, the client shows the verified origin and the version published at
 Central. Accept continues that assignment. Decline releases the reservation.
 Long games renew their own admission while the original seat remains open.
 
-On macOS the passive window test `cargo dev e2e ranked_` exercises the public
-board against loopback data. A second test renders private queue and promotion
-examples on the same native desk. Its fixture requires the development harness
-and an explicit environment opt-in and operates on the displayed copy only.
+On macOS the passive window tests selected by `cargo dev e2e ranked_`
+exercise the public board against loopback data and drive the inline queue
+in the native lobby. The latter uses a synthetic account and queue replies
+through an explicit development fixture. The gateway integration test covers
+the separate network path through Central and the assigned game host.
 
 ## Tower Echoes run client
 
@@ -67,7 +74,7 @@ If technical recovery has replaced the game identity, the old game's seat cannot
 be reclaimed; the saved expedition's explicit Resume follows its fresh authority
 location instead.
 
-After gateway selection, the authenticated Lobby places Tower, Daily and Weekly
+After gateway selection, the authenticated Lobby places Ranked, Tower, Daily and Weekly
 tiles beside the table list. There is no Tasks navigation tab. Each new Echoes
 run chooses one of five 39+1 Commander starters and enters its own shop. The
 current shop displays six equipment slots, private supplies, a duplicate-capable

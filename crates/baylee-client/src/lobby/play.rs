@@ -179,48 +179,20 @@ pub(super) fn draw(
         ))
         .id();
     commands.entity(root).add_child(body);
-    let mut lane = commands.spawn((
-        Node {
-            width: if phone {
-                px(if metrics.frame == Frame::Compact {
-                    220
-                } else {
-                    280
-                })
-            } else if side {
-                percent(30)
-            } else {
-                percent(100)
-            },
-            max_width: if side && !phone {
-                kit.m.px(460.0)
-            } else {
-                Val::Auto
-            },
-            flex_shrink: 0.0,
-            flex_direction: FlexDirection::Column,
-            row_gap: px_fixed(kit.m.body),
-            max_height: percent(100),
-            overflow: Overflow::scroll_y(),
-            ..default()
-        },
-        Scrollable(List::Discovery),
-        ScrollPosition(Vec2::new(0.0, scrolled.get(List::Discovery))),
-        Pickable::default(),
-    ));
-    if side && !phone {
-        lane.insert(crate::vista::Framed(crate::vista::Vista::Interior));
-    }
-    let lane = lane.id();
-    commands.entity(body).add_child(lane);
+    let lane = activity_lane(commands, body, metrics, kit, scrolled);
     #[cfg(not(target_arch = "wasm32"))]
-    super::ranked::entry(commands, lane, kit);
+    if !state.lobby.offline() {
+        activities::ranked(commands, lane, kit);
+    }
     let activities = state.can_play_online() && !state.lobby.guest();
     let hero_more = if activities {
         activities::draw(commands, lane, state, kit);
         HeroAnchors::default()
     } else if state.lobby.offline() {
-        hero(commands, lane, state, metrics, kit)
+        let hero = hero(commands, lane, state, metrics, kit);
+        #[cfg(not(target_arch = "wasm32"))]
+        activities::leaderboards(commands, lane, kit);
+        hero
     } else {
         discovery::sidebar(commands, lane, state, kit);
         HeroAnchors::default()
@@ -245,6 +217,62 @@ pub(super) fn draw(
             commands, root, state, metrics, kit, draft, *editing, scrolled,
         );
     }
+}
+
+fn activity_lane(
+    commands: &mut Commands,
+    body: Entity,
+    metrics: Metrics,
+    kit: Kit,
+    scrolled: &Scrolled,
+) -> Entity {
+    let phone = kit.m.frame == ShellFrame::Phone;
+    let wide = matches!(kit.m.frame, ShellFrame::Wide | ShellFrame::Vast);
+    let lane = commands
+        .spawn((
+            Node {
+                flex_direction: FlexDirection::Column,
+                row_gap: px_fixed(kit.m.body),
+                overflow: Overflow::scroll_y(),
+                min_height: px(0),
+                ..default()
+            },
+            Scrollable(List::Discovery),
+            ScrollPosition(Vec2::new(0.0, scrolled.get(List::Discovery))),
+            Pickable::default(),
+        ))
+        .id();
+    if wide {
+        commands
+            .entity(lane)
+            .insert(crate::vista::Framed(crate::vista::Vista::Interior));
+    }
+    let band = super::scrollbars::band_stable(commands, lane, phone);
+    commands
+        .entity(band)
+        .entry::<Node>()
+        .and_modify(move |mut n| {
+            n.width = if phone {
+                px(if metrics.frame == Frame::Compact {
+                    220
+                } else {
+                    280
+                })
+            } else if wide {
+                percent(30)
+            } else {
+                percent(100)
+            };
+            n.max_width = if wide { kit.m.px(460.0) } else { Val::Auto };
+            n.max_height = if phone || wide {
+                percent(100)
+            } else {
+                Val::Vh(42.0)
+            };
+            n.flex_shrink = 0.0;
+        });
+    commands.entity(body).add_child(band);
+    lane
 }
 
 /// Anchors the hero hands back: the difficulty caret and the `⋯`.

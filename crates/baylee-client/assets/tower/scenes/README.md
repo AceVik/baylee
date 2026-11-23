@@ -17,3 +17,12 @@ All prompts requested landscape 3:2, central 70% crop safety, polished original
 3D fantasy game artwork, no existing game designs, characters, logos, card faces,
 typography or borders. Generated source files remain in the session's
 `~/.codex/generated_images/01a1d418-8db5-7b62-bef0-20ef43ae63d3/` directory.
+
+## Ranked arena — 23 November 2026
+
+`ranked-arena.png` is an original text-to-image illustration made with the
+built-in ImageGen tool for the lobby. The brief called for an open-air
+amphitheatre at blue hour, a round stone duelling table and two facing chairs
+under copper and teal pennants. The table sits at the vertical midpoint so
+the horizontal crop keeps both seats visible. The image contains no interface
+text. No reference image was supplied.

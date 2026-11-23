@@ -8,6 +8,7 @@ pub(crate) enum Scene {
     Tower,
     Victory,
     Defeat,
+    Ranked,
 }
 
 impl Scene {
@@ -18,20 +19,22 @@ impl Scene {
             Self::Tower => 2,
             Self::Victory => 3,
             Self::Defeat => 4,
+            Self::Ranked => 5,
         }
     }
 }
 
-const PATHS: [&str; 5] = [
+const PATHS: [&str; 6] = [
     "tower/scenes/daily.png",
     "tower/scenes/weekly.png",
     "tower/scenes/tower.png",
     "tower/run-victory.png",
     "tower/run-defeat.png",
+    "tower/scenes/ranked-arena.png",
 ];
 
 #[derive(Resource, Default)]
-struct Landscapes([Option<Handle<Image>>; 5]);
+struct Landscapes([Option<Handle<Image>>; PATHS.len()]);
 
 fn dress(
     mut commands: Commands,
