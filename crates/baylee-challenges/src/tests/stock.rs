@@ -220,3 +220,28 @@ fn only_an_exact_confirmation_counts_as_published() {
     });
     assert!(matches!(shrug, Err(Error::Invalid)));
 }
+
+#[test]
+fn a_pass_publishes_only_the_slots_that_are_still_empty() {
+    let daily = held(&certified(slot(Kind::Daily, MONDAY)), 1);
+    let mut sent = Vec::new();
+    let report = reconcile(
+        MONDAY,
+        1,
+        |request| match request {
+            HostRequest::Inventory { .. } => Ok(HostResponse::Inventory {
+                challenges: vec![daily.clone()],
+            }),
+            HostRequest::Publish { publication } => {
+                sent.push(publication.description.period);
+                let challenge = held(&publication, 2);
+                Ok(HostResponse::Challenge { challenge })
+            }
+            _ => panic!("unexpected request"),
+        },
+        |period| Ok(certified(period)),
+    )
+    .unwrap();
+    assert_eq!((report.present, report.published), (1, 1));
+    assert_eq!(sent, [slot(Kind::Weekly, MONDAY)]);
+}
