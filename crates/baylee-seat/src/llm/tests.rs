@@ -1522,6 +1522,7 @@ mod extras;
 mod claims;
 
 mod controlled;
+mod hostile;
 
 #[tokio::test]
 async fn managed_sessions_keep_the_transcript_across_turns_and_close_only_their_seat() {
