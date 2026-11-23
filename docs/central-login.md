@@ -146,7 +146,7 @@ reaches Central, so nobody's load can cost another account its session.
 ## Bigint advisory scope
 
 The replicated ranked SDK pins Central to
-`3f52e018bc9ec688c10e5561343fe87305ce121c`. Compared with
+`41ea44171665507ab23eb81232132d77ee08ae21`. Compared with
 `52f8bd30`, four files in `central-crypto` change. Gateway JWT validation
 checks the new seat purpose, alias, generation and absence of identifying
 fields. The existing token lifetime constant moves to the crate root and its
@@ -155,7 +155,7 @@ signing and verification routines are byte-identical across the two pins.
 Baylee checks the exact Git revision and the all-feature reverse dependency
 graph. Central's source check binds the whole reviewed crypto crate to SHA-256
 `fa10ed2a3713c2f3625bce90f1cda9bbd037d2b714e9b9ba495d1f272e66449a`.
-[Central's review at the pinned revision](https://github.com/AceVik/baylee-central/blob/3f52e018bc9ec688c10e5561343fe87305ce121c/docs/crypto-proposal/bigint-advisory.md#ranked-seat-credentials-and-scoped-proof-23-november-2026)
+[Central's review at the pinned revision](https://github.com/AceVik/baylee-central/blob/41ea44171665507ab23eb81232132d77ee08ae21/docs/crypto-proposal/bigint-advisory.md#ranked-seat-credentials-and-scoped-proof-23-november-2026)
 
 The ranked SDK revision `52f8bd3049b7bf804516d4e9dc6277b152834634`
 adds an exact match identifier to ranked admission
