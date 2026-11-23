@@ -214,6 +214,14 @@ fn frames(app: &mut App, count: usize) {
 /// A signed-in lobby speaking to `gateway`.
 fn signed_in(base: &str) -> App {
     let mut app = headless();
+    // This gateway serves deck HTTP requests. A failed WebSocket ticket would
+    // report a second, unrelated error over the save result we want to observe.
+    app.remove_systems_in_set(
+        Update,
+        super::super::feed::feed,
+        bevy::ecs::schedule::ScheduleCleanupPolicy::RemoveSystemsOnly,
+    )
+    .expect("the lobby feed is installed");
     stocked(&mut app);
     app.insert_resource(bevy::time::TimeUpdateStrategy::ManualDuration(FRAME));
     state_mut(&mut app).gateway = base.to_owned();
