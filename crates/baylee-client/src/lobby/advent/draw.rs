@@ -442,10 +442,7 @@ fn gallery(commands: &mut Commands, parent: Entity, kit: Kit, book: &Book) {
         } else {
             &item.title.en
         };
-        let kind = match item.kind {
-            api::Kind::Sleeve => Phrase::DeckAppearanceSleeve,
-            api::Kind::Playmat => Phrase::DeckAppearanceMat,
-        };
+        let kind = kind_phrase(item.kind);
         let meta = format!(
             "{} · {} · {}",
             kind.text(lang),
@@ -479,6 +476,39 @@ fn gallery(commands: &mut Commands, parent: Entity, kit: Kit, book: &Book) {
         book.inventory.len().div_ceil(6),
     );
 }
+fn kind_phrase(kind: api::Kind) -> Phrase {
+    match kind {
+        api::Kind::Sleeve => Phrase::DeckAppearanceSleeve,
+        api::Kind::Playmat => Phrase::DeckAppearanceMat,
+    }
+}
+fn item_title(commands: &mut Commands, parent: Entity, kit: Kit, title: &str, kind: api::Kind) {
+    let header = commands
+        .spawn(Node {
+            align_items: AlignItems::Center,
+            flex_wrap: FlexWrap::Wrap,
+            column_gap: kit.m.px(10.),
+            row_gap: kit.m.px(4.),
+            ..default()
+        })
+        .id();
+    let name = commands
+        .spawn((
+            Text::new(title),
+            crate::hud::tf_bold(kit.fonts, kit.m.head),
+            TextColor(tokens::INK),
+            Pickable::IGNORE,
+        ))
+        .id();
+    let tag = crate::lobby::parts::badge(
+        commands,
+        kit,
+        kind_phrase(kind).text(kit.lang()),
+        tokens::GOLD,
+    );
+    commands.entity(header).add_children(&[name, tag]);
+    commands.entity(parent).add_child(header);
+}
 fn item_view(commands: &mut Commands, parent: Entity, kit: Kit, book: &Book, id: api::Id) {
     let lang = kit.lang();
     let Some(reward) = book.inventory.iter().find(|r| r.id == id) else {
@@ -496,7 +526,7 @@ fn item_view(commands: &mut Commands, parent: Entity, kit: Kit, book: &Book, id:
     } else {
         &reward.title.en
     };
-    label(commands, parent, kit, title, tokens::GOLD);
+    item_title(commands, parent, kit, title, reward.kind);
     let art = commands
         .spawn((
             Node {

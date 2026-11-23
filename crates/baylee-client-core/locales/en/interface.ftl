@@ -10919,6 +10919,7 @@ AdventImageLoading = Loading your private artwork…
 AdventImageFailed = The artwork could not be loaded.
 AdventApplyDeck = Apply to a deck
 AdventEmpty = The Advent rewards you collect will appear here.
+# Arguments: door
 AdventDoor = Door { $door }
 AdventLocked = Not open yet
 AdventAvailable = Puzzle available
@@ -10956,19 +10957,27 @@ AdventOpponent = Opponent
 AdventPass = Pass
 AdventNoAttack = No attackers
 AdventNoBlocks = No blocks
+# Arguments: units
 AdventAttackWith = Attack with { $units }
 AdventCast = Cast or pass
+# Arguments: pairs
 AdventGuards = Attack · enemy blockers → your attackers { $pairs }
+# Arguments: units
 AdventAttackers = Block · opposing attackers { $units }
 AdventSurvive = Survive the encounter or defeat your opponent first.
 AdventDefeat = Defeat your opponent and survive.
+# Arguments: side, life
 AdventLife = { $side } · { $life } life
 AdventTapped = Tapped
+# Arguments: amount
 AdventDamage = { $amount } damage
 AdventMana = mana
+# Arguments: card
 AdventDraw = Fixed draw · { $card }
 AdventLost = This line missed the goal. You can try again.
 AdventSubmit = Check my solution
+# Arguments: mana
 AdventChoose = Your decision · { $mana } mana
+# Arguments: number
 AdventHint = Free hint { $number }
 AdventReset = Restart puzzle

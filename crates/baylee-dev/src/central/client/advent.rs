@@ -91,6 +91,14 @@ impl Visit<'_> {
     }
 
     fn capture(&mut self, name: &str) -> Result<()> {
+        let view = state(self.dev)?;
+        ensure!(
+            nodes(&view)
+                .filter(|n| visible(n))
+                .filter_map(|n| n["t"].as_str())
+                .all(|s| !s.contains("{$") && !s.contains("{ $")),
+            "untranslated variable in visible text on {name}"
+        );
         let path = self.dir.join(format!("advent-{name}.png"));
         for _ in 0..8 {
             let result = self.dev.post_within(
@@ -171,6 +179,8 @@ pub(super) fn visit(dev: &Devctl, client: &mut Owned, dir: &Path) -> Result<()> 
     qa.capture("02-calendar")?;
     qa.press(CAL, "door", 1)?;
     qa.button(CAL, "move", 1)?;
+    qa.words("Door 1")?;
+    qa.words("Free hint 1")?;
     qa.capture("03-puzzle")?;
     qa.press(CAL, "hint", 1)?;
     qa.words("Check the opposing life total.")?;
