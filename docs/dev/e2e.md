@@ -133,9 +133,13 @@ gateway, a synthetic account and an invented campaign. Build the client with
 driver visits the calendar, asks for a hint, retries a losing line, wins,
 collects and equips the reward on one of two private decks. It checks the
 live shader phase, stable button geometry, 24 door numbers and restored
-equipment on a fresh login. The printed `target/central-ui-*/` directory
-contains the separate CTA, mosaic, puzzle, solved, reward and equipment
-frames. Run `BAYLEE_CENTRAL_ADVENT_UI=1 cargo dev central integration`
+equipment on a fresh login. It also opens the calendar with Tab and Enter
+and closes it with Escape. The run captures the lobby entry, mosaic, puzzle,
+reward, equipment and gallery, plus the native ranked board for visual
+comparison. It checks each capture for contrast before leaving the screen.
+For a private visual review, `BAYLEE_CENTRAL_ADVENT_UI_HERO` can point to a
+local calendar illustration. Keep those captures outside version control.
+Run `BAYLEE_CENTRAL_ADVENT_UI=1 cargo dev central integration`
 to exercise the same synthetic campaign and signed account without a window.
 
 A test's client is closed when the test ends, also on failure, and its port
