@@ -802,12 +802,16 @@ impl Tx<'_> {
                 "Effect::PlayerMayDo {{ who: {who}, effects: &[{inner}] }}"
             )]);
         }
-        if strict && who == "PlayerRel::You" {
+        if strict
+            && who == "PlayerRel::You"
+            && !filter_expr.contains("Filter::Another")
+            && !filter_expr.contains("Filter::This")
+        {
             // "You may sacrifice N <F>s": exact-N optional sacrifice guarded by
-            // CountAtLeast so a player with fewer than N cannot partially sacrifice.
-            let cond = format!("Condition::CountAtLeast(&{filter_name}, {amount})");
+            // ControlCount so a player with fewer than N cannot partially sacrifice.
+            let cond = format!("Condition::ControlCount(&{filter_name}, {amount})");
             let sac_n = format!(
-                "Effect::SacrificeFilterN {{ who: PlayerRel::You, filter: &{filter_name}, \
+                "Effect::SacrificeAmountForPlayers {{ who: PlayerRel::You, filter: &{filter_name}, \
                  amount: Amount::Fixed({amount}) }}"
             );
             return Some(vec![format!(

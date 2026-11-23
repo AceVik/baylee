@@ -168,7 +168,8 @@ fn capture_affected_sacrifice_branches_and_lki_amounts() {
     );
     assert!(
         giant.abilities[0].contains("Effect::CaptureAffected")
-            && giant.abilities[0].contains("Condition::CountAtLeast")
+            && giant.abilities[0].contains("Condition::ControlCount")
+            && giant.abilities[0].contains("Effect::SacrificeAmountForPlayers")
             && giant.abilities[0].contains("right: &Amount::Fixed(2)")
             && giant.abilities[0].contains("right: &Amount::Fixed(0)"),
         "Giant Opportunity: {}",

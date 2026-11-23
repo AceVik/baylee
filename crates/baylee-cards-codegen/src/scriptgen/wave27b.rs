@@ -1374,7 +1374,7 @@ impl Tx<'_> {
         let att_name = self.body.filter_static("ATTACH_CHOSEN", &att_expr);
         Some(format!(
             "Effect::CaptureAffected {{ \
-             first: &[Effect::CreateToken {{ token: {token}, amount: Amount::Fixed(1) }}], \
+             first: &[Effect::CreateToken {{ token: {token} }}], \
              then: &[Effect::ForEachRemembered {{ filter: &Filter::Any, \
              effects: &[Effect::AttachChosen {{ filter: &{att_name}, \
              to: TargetSpec::EventObject, max: Amount::Fixed(1), optional: {optional} }}] }}] }}"
