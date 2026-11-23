@@ -341,6 +341,7 @@ pub(super) fn trigger_count_for_source(
 ) -> u32 {
     let event_kind = match trigger {
         Trigger::EntersBattlefield(_)
+        | Trigger::EntersBattlefieldEvoked
         | Trigger::EntersBattlefieldFromGraveyardOrCast(_)
         | Trigger::EnteredThisFrom(_)
         | Trigger::ChangesZoneAll {

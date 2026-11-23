@@ -119,6 +119,66 @@ fn panharmonicon_fires_your_enters_trigger_twice_and_theirs_once() {
     );
 }
 
+/// Evoke's sacrifice is an enters-the-battlefield triggered ability too, so
+/// Panharmonicon adds a second copy of it as well as of Mulldrifter's printed
+/// draw trigger. The second sacrifice finds nothing left to sacrifice, while
+/// both draw abilities resolve independently of their departed source.
+#[test]
+fn panharmonicon_multiplies_an_evoked_creatures_enters_triggers() {
+    let p0 = PlayerId::new(0);
+    let mulldrifter = card_index("24d0f5e7-0d9e-4b76-900e-a7274e80312d");
+    let mut engine = Duel::new(84, forest())
+        .battlefield(0, &[panharmonicon(), island(), island(), island()])
+        .hand(0, &[mulldrifter])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    cast_from_hand(&mut engine, p0, mulldrifter);
+    // Three Islands pay only evoke, so the cast wizard may select its one
+    // affordable mode without asking. Answer the choice where it does ask.
+    if let Pending::ChooseCastMode { options, .. } = engine.pending().clone() {
+        let evoke = options
+            .iter()
+            .position(|option| matches!(option.kind, crate::choice::CastModeKind::Alternative(_)))
+            .expect("the evoke cost is offered");
+        engine
+            .apply(p0, PlayerAction::ChooseMode(evoke))
+            .expect("the evoke cost is paid");
+    }
+    let library_before = library_of(&engine, p0);
+
+    pass_until(&mut engine, |e| {
+        on_battlefield(e, p0, mulldrifter).is_some() && !stack_is_empty(e)
+    });
+    assert_eq!(
+        engine
+            .state()
+            .zones
+            .list(crate::zone::ZoneLocation::Stack)
+            .len(),
+        4,
+        "two draw abilities and two evoke sacrifices wait on the stack"
+    );
+
+    pass_until(&mut engine, stack_is_empty);
+
+    assert_eq!(
+        library_before - library_of(&engine, p0),
+        4,
+        "Panharmonicon doubles Mulldrifter's draw trigger"
+    );
+    assert!(
+        on_battlefield(&engine, p0, mulldrifter).is_none(),
+        "the first of the doubled evoke triggers sacrifices Mulldrifter"
+    );
+    assert_eq!(
+        in_graveyard(&engine, p0, mulldrifter),
+        1,
+        "the sacrificed creature reaches its owner's graveyard"
+    );
+}
+
 /// Doubling Season's **second** sentence ("If an effect would put one or
 /// more counters on a permanent **you control**, it puts twice that many of
 /// those counters on that permanent instead") over the same Earth King's
