@@ -190,3 +190,153 @@ fn presence_pass_under_the_lobby_lock() {
         accounts.len()
     );
 }
+
+fn place_of(lobby: &Lobby, watching: &Watching, account: &str, share: bool) -> Place {
+    place(
+        Seating::of(lobby, account),
+        lobby,
+        watching,
+        account,
+        None,
+        share,
+        50,
+    )
+}
+
+fn game_of(place: &Place) -> Option<&str> {
+    match place {
+        Place::Playing { game, .. } | Place::Room { game, .. } | Place::Watching { game, .. } => {
+            game.as_deref()
+        }
+        _ => panic!("not at a table"),
+    }
+}
+
+/// A table's id is what a friend joins or watches by: it is told only by a
+/// player who shares it, and never of a table behind a password.
+#[test]
+fn a_table_is_named_only_by_who_shares_it_and_never_behind_a_password() {
+    let mut locked_game = table("locked-game", LobbyState::Playing, &["p"]);
+    locked_game.password_hash = Some("hash".into());
+    let mut games = tables();
+    games.push(locked_game);
+    let lobby = lobby_of(games);
+    let watching = Watching::from([
+        ("w".into(), BTreeMap::from([("playing".into(), 1)])),
+        ("lw".into(), BTreeMap::from([("locked-game".into(), 1)])),
+    ]);
+    for (account, game) in [("one", "playing"), ("waiting", "room"), ("w", "playing")] {
+        let shared = place_of(&lobby, &watching, account, true);
+        assert_eq!(game_of(&shared), Some(game), "{account}");
+        let kept = place_of(&lobby, &watching, account, false);
+        assert_eq!(game_of(&kept), None, "{account}");
+    }
+    for account in ["locked", "p", "lw"] {
+        for share in [true, false] {
+            let place = place_of(&lobby, &watching, account, share);
+            assert_eq!(game_of(&place), None, "{account}");
+        }
+    }
+}
+
+#[test]
+fn an_invisible_player_is_offline_wherever_they_are() {
+    let lobby = lobby_of(tables());
+    let place = place_of(&lobby, &Watching::new(), "one", true);
+    assert_eq!(
+        shown(Status::Invisible, place.clone()),
+        Presence::offline(),
+        "not even the table"
+    );
+    for (status, want) in [
+        (Status::Online, Shown::Online),
+        (Status::Away, Shown::Away),
+        (Status::Dnd, Shown::Dnd),
+    ] {
+        let presence = shown(status, place.clone());
+        assert_eq!(presence.status, want);
+        assert_eq!(presence.place.as_ref(), Some(&place));
+    }
+}
+
+fn online(account: &str, friends: &[&str]) -> OnlineView {
+    OnlineView {
+        account: account.into(),
+        me: Person {
+            tag: format!("t-{account}"),
+            handle: account.into(),
+            guest: false,
+        },
+        status: Status::Online,
+        activity: None,
+        share_table: true,
+        friends: friends.iter().map(|f| (*f).to_owned()).collect(),
+    }
+}
+
+#[test]
+fn a_running_clock_alone_is_no_new_presence() {
+    let social = Social::new(true, 30);
+    let lobby = lobby_of(tables());
+    let published = |social: &Social| social.published.lock().shown["one"].clone();
+    let at = |now: u64| presences(&lobby, vec![online("one", &[])], &Watching::new(), now);
+    push_presences(&social, at(50));
+    let (first, when) = published(&social);
+    push_presences(&social, at(5000));
+    assert_eq!(published(&social), (first, when));
+
+    // A real change inside the debounce waits for the next round.
+    let moved = || vec![(online("one", &[]), shown(Status::Away, Place::Lobby))];
+    push_presences(&social, moved());
+    assert_eq!(published(&social).1, when);
+    social.published.lock().shown.get_mut("one").unwrap().1 = when.checked_sub(DEBOUNCE).unwrap();
+    push_presences(&social, moved());
+    assert_eq!(published(&social).0.status, Shown::Away);
+    social.published.lock().forget("one");
+    assert!(social.published.lock().shown.is_empty());
+}
+
+#[test]
+fn a_tables_conversation_holds_its_players_and_a_teams_only_its_own() {
+    let mut game = table("g", LobbyState::Playing, &["a", "b", "c", "house"]);
+    for (seat, team) in [(0, Some(1)), (1, Some(1)), (2, Some(2)), (3, Some(2))] {
+        game.seats[seat].team = team;
+    }
+    game.seats[3].kind = SeatKind::Ai;
+    let empty = table("empty", LobbyState::Waiting, &[]);
+    let convs = conversations(&lobby_of(vec![game, empty]));
+    let members: Vec<_> = convs
+        .iter()
+        .map(|(conv, (_, members))| {
+            let members: Vec<&str> = members.iter().map(String::as_str).collect();
+            (conv.as_str(), members)
+        })
+        .collect();
+    assert_eq!(
+        members,
+        [
+            ("tbl:g", vec!["a", "b", "c"]),
+            ("team:g:1", vec!["a", "b"]),
+            ("team:g:2", vec!["c"]),
+        ]
+    );
+}
+
+#[test]
+fn table_mates_are_those_at_a_table_together_now() {
+    use crate::social::members::{share_a_table, table_mates};
+    let lobby = lobby_of(tables());
+    assert!(share_a_table(&lobby, "one", "both"));
+    assert!(share_a_table(&lobby, "both", "waiting"));
+    assert!(!share_a_table(&lobby, "one", "waiting"));
+    assert!(!share_a_table(&lobby, "one", "nobody"));
+    assert!(
+        !share_a_table(&lobby, "house", "house"),
+        "the house's chair is nobody's"
+    );
+    let mates = table_mates(&lobby, "both");
+    assert_eq!(
+        mates.iter().map(String::as_str).collect::<Vec<_>>(),
+        ["one", "waiting"]
+    );
+}
