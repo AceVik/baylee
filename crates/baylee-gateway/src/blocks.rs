@@ -294,4 +294,40 @@ mod tests {
         );
         assert!(!block(7, None).sentence("X").contains("until"));
     }
+
+    #[test]
+    fn a_blocked_card_is_found_wherever_a_list_names_it() {
+        let forest = baylee_cards::decks::by_name("Forest")
+            .expect("Forest")
+            .get();
+        let now = OffsetDateTime::now_utc();
+        let blocks = Blocks::default();
+        let rows =
+            |rows: &[&str]| -> Vec<String> { rows.iter().map(|row| (*row).to_owned()).collect() };
+        let found = |cards: &[&str], side: &[&str], leaders: &[&str]| {
+            blocks
+                .in_lines(&rows(cards), &rows(side), &rows(leaders), now)
+                .len()
+        };
+        assert_eq!(found(&["1 Forest"], &[], &[]), 0, "nothing is blocked");
+        blocks.set(vec![block(forest, None)]);
+        assert_eq!(found(&["1 Forest"], &[], &[]), 1);
+        assert_eq!(found(&[], &["1 Forest (M11) 249 *F*"], &[]), 1);
+        assert_eq!(found(&[], &[], &["Forest"]), 1);
+        assert_eq!(
+            found(&["1 Forest", "2 Forest"], &["1 Forest"], &["Forest"]),
+            1,
+            "each card once"
+        );
+        assert_eq!(
+            found(&["1 Island", "Forest", "x Forest"], &[], &["1 Forest"]),
+            0
+        );
+        assert!(blocks.of(forest, now).is_some());
+        assert!(blocks.of(forest + 1, now).is_none());
+        assert_eq!(blocks.now_in_force(now).len(), 1);
+        blocks.set(vec![block(forest, Some(now))]);
+        assert!(blocks.of(forest, now).is_none(), "over at its end");
+        assert!(blocks.now_in_force(now).is_empty());
+    }
 }

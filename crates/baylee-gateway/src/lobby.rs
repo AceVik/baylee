@@ -2016,4 +2016,91 @@ mod tests {
         );
         assert!(!lobby.forget_account("gone", 101), "nothing left of it");
     }
+
+    /// An engine names the seats whose part in the game is over; one that
+    /// names a chair the table does not have is not believed in any of them.
+    #[test]
+    fn an_engine_ends_the_part_of_chairs_the_table_has_and_of_no_others() {
+        let table = || {
+            let mut game = LobbyGame::blank("g".into(), 0);
+            game.seats = vec![occupied(0, "a", 1), occupied(1, "b", 2)];
+            game.state = LobbyState::Playing;
+            game
+        };
+        let ended = |game: &LobbyGame| -> Vec<bool> {
+            game.seats.iter().map(|s| s.participation_ended).collect()
+        };
+        for bad in [&[2][..], &[1, 2], &[u32::MAX], &[0, 1, 0], &[0, 0, 0, 0]] {
+            let mut game = table();
+            assert!(!game.end_participation(bad), "{bad:?}");
+            assert_eq!(ended(&game), [false, false], "{bad:?}");
+        }
+        let mut game = table();
+        assert!(!game.end_participation(&[]), "nothing to end");
+        assert!(game.end_participation(&[1]));
+        assert_eq!(ended(&game), [false, true]);
+        assert!(!game.end_participation(&[1]), "already");
+        assert!(game.end_participation(&[0, 1]), "one of them new");
+        for state in [LobbyState::Waiting, LobbyState::Over] {
+            let mut game = table();
+            game.state = state;
+            assert!(!game.end_participation(&[0]));
+            assert_eq!(ended(&game), [false, false]);
+        }
+    }
+
+    #[test]
+    fn a_chair_is_gone_back_to_only_by_its_player_while_the_game_goes_on() {
+        let mut game = LobbyGame::blank("g".into(), 0);
+        game.seats = vec![occupied(0, "a", 1), occupied(1, "b", 2)];
+        game.state = LobbyState::Playing;
+        assert_eq!(game.resumable_seat("b"), Some(1));
+        assert_eq!(game.resumable_seat("c"), None);
+        assert_eq!(game.resumable_seat(""), None);
+        game.seats[1].participation_ended = true;
+        assert_eq!(game.resumable_seat("b"), None);
+        game.seats[0].seat_token_hash = None;
+        assert_eq!(game.resumable_seat("a"), None, "a chair kept for it");
+        game.seats[0].seat_token_hash = Some("hash".into());
+        game.state = LobbyState::Over;
+        assert_eq!(game.resumable_seat("a"), None);
+    }
+
+    /// The host goes with the chair it handed to a bridge, and the table
+    /// with the last person at it.
+    #[test]
+    fn a_host_who_leaves_takes_the_bridges_it_seated_along() {
+        let bridge = |seat: usize, by: &str| {
+            let mut chair = LobbySeat::open(seat);
+            chair.delegate = Some(Delegate {
+                by: by.into(),
+                name: "LLM-x".into(),
+                ready: true,
+                reported: false,
+            });
+            chair
+        };
+        let mut lobby = Lobby::default();
+        let mut game = LobbyGame::blank("g".into(), 0);
+        game.host = Some("a".into());
+        game.seats = vec![
+            occupied(0, "a", 1),
+            bridge(1, "a"),
+            occupied(2, "b", 5),
+            bridge(3, "b"),
+        ];
+        lobby.games.insert("g".into(), game);
+        assert!(lobby.leave_waiting_rooms("stranger", 9).is_empty());
+        assert_eq!(lobby.leave_waiting_rooms("a", 9), ["g"]);
+        let game = &lobby.games["g"];
+        assert_eq!(game.host.as_deref(), Some("b"));
+        let taken: Vec<bool> = game.seats.iter().map(LobbySeat::occupied).collect();
+        assert_eq!(taken, [false, false, true, true]);
+        assert!(game.seats[0].seat_token_hash.is_none());
+        assert_eq!(lobby.leave_waiting_rooms("b", 9), ["g"]);
+        let game = &lobby.games["g"];
+        assert_eq!(game.state, LobbyState::Over, "a bridge hosts nothing");
+        assert!(game.seats.iter().all(|s| !s.occupied()));
+        assert!(lobby.leave_waiting_rooms("b", 9).is_empty(), "once");
+    }
 }
