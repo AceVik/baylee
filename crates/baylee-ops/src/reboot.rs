@@ -205,3 +205,6 @@ fn local_hour() -> u32 {
         .and_then(|h| h.trim().parse().ok())
         .unwrap_or(12)
 }
+
+#[cfg(test)]
+mod tests;
