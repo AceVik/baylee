@@ -462,6 +462,14 @@ express at all yet.
   `Amount::TimesKicked`). Read by `Condition::OptionalCostPaid` (both during
   spell resolution via `Effect::IfCondition` / `Amount::IfCondition` and on
   `Trigger::ETB` / LKI of the permanent the spell became, CR 400.7d).
+- `FaceDef.optional_cost_grants_flash: bool` — paying `optional_cost` also lets
+  the spell be cast as though it had flash (CR 118.8b, CR 702.8a). The ordinary
+  route keeps its printed timing and price; only `CastModeKind::OptionalCost`
+  adds the optional mana and instant timing. The reader accepts a fixed mana
+  cost on the front face's ordinary, nonmodal hand cast, without kicker or
+  prototype. This does not give alternative-cost routes instant timing.
+  `K:MayFlashCost:<mana>` emits both fields; duplicate, conflicting, non-mana
+  and X-cost forms stay refused.
 - `waterbend = true` — "you may waterbend {N}": the additional cost above is
   a waterbend cost, so once it is paid, artifacts and creatures may be tapped
   for its generic mana and nothing else (CR 701.67b). It is not

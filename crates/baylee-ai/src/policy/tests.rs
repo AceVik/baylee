@@ -771,3 +771,47 @@ fn spell_can_be_cast_now_checks_the_engines_word_then_conditions_and_mandatory_c
         &view, &legal, spell_id, sacrifice
     ));
 }
+
+#[test]
+fn optional_flash_cost_is_paid_only_when_the_ordinary_timing_is_closed() {
+    use baylee_core::mana::ManaCost;
+    use baylee_view::HandObject;
+
+    let card = test_identity("Rout");
+    let id = super::ObjectId::new(42, 0);
+    let face = super::face(card).expect("Rout's face");
+    let mut view = base_view();
+    view.hand = vec![HandObject {
+        id,
+        card,
+        name: "Rout".into(),
+        mana_value: face.mana_cost.cmc(),
+        colors: baylee_core::color::ColorSet::from_slice(&[baylee_core::color::Color::White]),
+        types: face.types,
+        commander: false,
+    }];
+    view.seats[0].mana_pool.white = 7;
+
+    assert_eq!(
+        super::optional_cost_price(&view, Some(card), face, &[], face.mana_cost),
+        None,
+        "the ordinary main-phase cast needs no flash surcharge"
+    );
+    assert!(!super::optional_option_payable_and_worth(
+        &view,
+        id,
+        ManaCost::parse("{5}{W}{W}")
+    ));
+
+    view.active = baylee_core::ids::PlayerId::new(1);
+    assert_eq!(
+        super::optional_cost_price(&view, Some(card), face, &[], face.mana_cost),
+        Some(ManaCost::parse("{5}{W}{W}")),
+        "the opponent's turn leaves only the instant-speed route"
+    );
+    assert!(super::optional_option_payable_and_worth(
+        &view,
+        id,
+        ManaCost::parse("{5}{W}{W}")
+    ));
+}

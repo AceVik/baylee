@@ -227,6 +227,9 @@ impl Tx<'_> {
             self.body.offspring = Some(expr);
             return Some(());
         }
+        if let Some(rest) = line.strip_prefix("MayFlashCost:") {
+            return self.may_flash_cost(rest);
+        }
         if line == "CARDNAME can be your commander."
             && (self.oracle.is_empty()
                 || self
@@ -2344,6 +2347,23 @@ impl Tx<'_> {
         let cost = crate::body::cost_literal(&mana, &parts);
         self.body.notes.push(kw.to_ascii_lowercase());
         Some(format!("Some({cost})"))
+    }
+
+    /// `K:MayFlashCost:<cost>`: an optional additional mana cost that also
+    /// grants flash (CR 702.8a) on the ordinary cast from hand.
+    fn may_flash_cost(&mut self, rest: &str) -> Option<()> {
+        if self.type_line.is_empty() || self.is_land_card_type() {
+            return self.deny("`MayFlashCost` on a land or untyped card".to_string());
+        }
+        if self.body.optional_cost.is_some() || self.body.optional_cost_grants_flash {
+            return self.deny("a second optional additional cost on one face".to_string());
+        }
+        let (mana, _) = self.parse_alt_cost_pieces("MayFlashCost", rest, false, true)?;
+        let cost = crate::body::cost_literal(&mana, &[]);
+        self.body.optional_cost = Some(format!("Some({cost})"));
+        self.body.optional_cost_grants_flash = true;
+        self.body.notes.push("optional flash cost".to_string());
+        Some(())
     }
 
     /// `K:Miracle:<cost>` (`CR 702.94a`): mana-only alternative cast cost when

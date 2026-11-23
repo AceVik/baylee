@@ -65,7 +65,15 @@ fn fields_code(fields: &Fields, label: &str, target: &str, is_enum: bool) -> (St
             .unwrap();
             continue;
         }
-        if label == "FaceDef" && ["jump_start", "aftermath", "bargain"].contains(&field.as_str()) {
+        if label == "FaceDef"
+            && [
+                "jump_start",
+                "aftermath",
+                "bargain",
+                "optional_cost_grants_flash",
+            ]
+            .contains(&field.as_str())
+        {
             writeln!(
                 present_only,
                 "if self.{field} {{ children.push(b.field(\"{label}.{field}\", {access})); }}"

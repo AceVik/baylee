@@ -79,6 +79,13 @@ Four orthogonal concepts:
    → + increases → − reductions → floors (Trinisphere). Applies to `{0}`
    alternative costs too.
 
+An optional additional cost that grants flash changes timing only on its paid
+route. It adds to the printed cost and passes through the same X, increase,
+reduction and floor pipeline; the ordinary route retains its printed timing and
+price. `LegalActions::cast_ways` publishes that route and its full mana price,
+so the client and every seat plan the optional payment rather than infer it
+from the card's printed cost.
+
 **The planners see the pipeline's two generic steps, not its result.** A seat
 taps lands before it casts, when the engine has priced nothing yet, so
 `LegalActions` publishes per card and way of casting what the wizard will add

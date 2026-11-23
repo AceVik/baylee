@@ -298,3 +298,66 @@ pub(crate) fn replaced_cost_options(
     }
     options
 }
+
+/// The printed-cost route whose optional additional payment grants flash.
+///
+/// Keep this deliberately narrower than the ordinary optional-cost reader:
+/// the public `OptionalCost` mode carries no alternative-cost face, mode or
+/// kicker selection. It therefore describes exactly the nonmodal front face
+/// cast from hand. Other zones and alternative costs keep their existing
+/// routes instead of being combined into a cast the wizard cannot represent.
+pub(crate) fn optional_flash_cost_options(
+    state: &GameState,
+    lookup: &impl crate::state::CardLookup,
+    player: PlayerId,
+    card: ObjectId,
+    paying: Paying,
+) -> Vec<ReplacedCostOption> {
+    let mut options = Vec::new();
+    let Some(object) = state.object(card) else {
+        return options;
+    };
+    if object.zone != crate::zone::Zone::Hand || object.zone_owner != Some(player) {
+        return options;
+    }
+    let Some(def) = object.card.and_then(|card| lookup.card(card.index)) else {
+        return options;
+    };
+    let Some(face) = def.faces.first() else {
+        return options;
+    };
+    if !face.optional_cost_grants_flash
+        || !permitted_spell_types(state, player, card, face.types, 0)
+    {
+        return options;
+    }
+    let Some(optional) = face.optional_cost else {
+        return options;
+    };
+    for choice in replaced_cost_options(
+        state,
+        lookup,
+        player,
+        card,
+        paying,
+        CostBasis::printed_plus(optional.mana).with_flash(true),
+    ) {
+        if choice.face == 0
+            && choice.modes == 0
+            && !choice.kicked
+            && !choice.prototype
+            && additional_payment_capacity_for(
+                state,
+                player,
+                card,
+                face,
+                Some(CastModeKind::OptionalCost),
+                &[],
+            )
+            .is_some()
+        {
+            options.push(choice);
+        }
+    }
+    options
+}

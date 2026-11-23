@@ -859,6 +859,9 @@ pub struct FaceDef {
     /// [`crate::Condition::OptionalCostPaid`] without kicking the spell or
     /// triggering kicker synergies.
     pub optional_cost: Option<crate::cost::Cost>,
+    /// Paying `optional_cost` also lets this spell be cast as though it had
+    /// flash. The ordinary route keeps its printed timing and cost.
+    pub optional_cost_grants_flash: bool,
 }
 
 impl FaceDef {
@@ -956,6 +959,7 @@ impl FaceDef {
         gift: None,
         warp: None,
         optional_cost: None,
+        optional_cost_grants_flash: false,
     };
 }
 

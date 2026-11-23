@@ -105,13 +105,21 @@ fn cheapest_held(hand: &[baylee_view::HandObject], is: impl Fn(&[AbilityDef]) ->
         .unwrap_or(0)
 }
 
-fn has_instant_speed(card: CardIdentity, face: &FaceDef) -> bool {
+fn printed_instant_speed(card: CardIdentity, face: &FaceDef) -> bool {
     face.types.contains(TypeSet::INSTANT)
         || baylee_cards::by_index(card.index).is_some_and(|definition| {
             definition
                 .keywords_for_face(usize::from(card.face))
                 .contains(KeywordSet::FLASH)
         })
+}
+
+fn has_instant_speed(card: CardIdentity, face: &FaceDef) -> bool {
+    printed_instant_speed(card, face) || face.optional_cost_grants_flash
+}
+
+fn ordinary_cast_timing_open(view: &PlayerView, card: CardIdentity, face: &FaceDef) -> bool {
+    baylee_client_core::timing::allows(view, face.types, printed_instant_speed(card, face))
 }
 
 /// The land face of a card held in hand, whichever side it is printed on.
@@ -4755,6 +4763,11 @@ fn optional_cost_price(
     cost: baylee_core::mana::ManaCost,
 ) -> Option<baylee_core::mana::ManaCost> {
     let opt = face.optional_cost?;
+    if face.optional_cost_grants_flash
+        && card.is_some_and(|card| ordinary_cast_timing_open(view, card, face))
+    {
+        return None;
+    }
     if !kicker_parts_worth(view, opt.parts, card) {
         return None;
     }
@@ -4796,6 +4809,11 @@ pub(crate) fn optional_option_payable_and_worth(
     let Some(f) = card.and_then(face) else {
         return false;
     };
+    if f.optional_cost_grants_flash
+        && card.is_some_and(|card| ordinary_cast_timing_open(view, card, f))
+    {
+        return false;
+    }
     let Some(opt) = f.optional_cost else {
         return false;
     };

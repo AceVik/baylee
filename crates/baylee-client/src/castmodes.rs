@@ -164,8 +164,17 @@ pub fn reachable_modes(
         && (face.kicked_targets.is_none()
             || !crate::targeting::ordinary_targetless(view, hand.card))
     {
-        offer(CastModeKind::Normal, face.mana_cost);
+        let printed_flash = def
+            .keywords_for_face(face_index)
+            .contains(baylee_cards_dsl::KeywordSet::FLASH);
+        let ordinary_timing = baylee_client_core::timing::allows(view, hand.types, printed_flash);
+        if ordinary_timing {
+            offer(CastModeKind::Normal, face.mana_cost);
+        }
         if let Some(opt_cost) = face.optional_cost
+            && (ordinary_timing
+                || face.optional_cost_grants_flash
+                    && baylee_client_core::timing::allows(view, hand.types, true))
             && parts_payable(view, card, opt_cost.parts)
         {
             offer(
@@ -1010,6 +1019,26 @@ mod tests {
 
     fn kinds(modes: &[ReachableMode]) -> Vec<CastModeKind> {
         modes.iter().map(|m| m.kind).collect()
+    }
+
+    #[test]
+    fn optional_flash_cost_replaces_the_sorcery_route_only_when_timing_requires_it() {
+        let mut rout = card_in_hand(1, "Rout", &[Color::White]);
+        rout.types = TypeSet::SORCERY;
+        let (mut view, legal) = table(vec![rout.clone()], 7);
+        assert_eq!(
+            kinds(&reachable_modes(&view, &legal, rout.id)),
+            [CastModeKind::Normal, CastModeKind::OptionalCost]
+        );
+
+        view.active = PlayerId::new(1);
+        let modes = reachable_modes(&view, &legal, rout.id);
+        assert_eq!(kinds(&modes), [CastModeKind::OptionalCost]);
+        assert_eq!(modes[0].cost, ManaCost::parse("{5}{W}{W}"));
+        assert_eq!(modes[0].plan.taps(), 7);
+
+        view.sorcery_lock = Some(ObjectId::new(500, 0));
+        assert!(reachable_modes(&view, &legal, rout.id).is_empty());
     }
 
     #[test]

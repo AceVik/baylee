@@ -415,7 +415,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
         let front_additional_ok =
             casting::additional_payment_capacity_for(&self.state, player, card, face, None, &[])
                 .is_some();
-        if front_timing_ok
+        let normal_route_ok = front_timing_ok
             && front_additional_ok
             && !modal_only
             && ((foretell_cost.is_none() && !plot_ok)
@@ -434,8 +434,8 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
             && casting::has_a_printed_cost(&face.mana_cost)
             && afford_normal(&min_normal_cost.with_x(0))
             && (face.kicked_targets.is_none()
-                || casting::ordinary_targets_reachable(&self.state, def, player, card))
-        {
+                || casting::ordinary_targets_reachable(&self.state, def, player, card));
+        if normal_route_ok {
             // Keep the ordinary cast first beside alternative graveyard costs.
             // The final pass assigns indices after every option is assembled.
             options.insert(
@@ -446,29 +446,41 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                     cost: price(normal_cost),
                 },
             );
-            if let Some(opt_cost) = face.optional_cost {
-                let opt_mana = normal_cost.combine(&opt_cost.mana);
-                let min_opt_mana = min_normal_cost.combine(&opt_cost.mana);
-                if afford_normal(&min_opt_mana.with_x(0))
-                    && casting::additional_payment_capacity_for(
-                        &self.state,
-                        player,
-                        card,
-                        face,
-                        Some(CastModeKind::OptionalCost),
-                        &[],
-                    )
-                    .is_some()
-                {
-                    options.insert(
-                        1,
-                        CastModeDesc {
-                            index: 1,
-                            kind: CastModeKind::OptionalCost,
-                            cost: price(opt_mana),
-                        },
-                    );
-                }
+        }
+        let optional_flash_options =
+            casting::optional_flash_cost_options(&self.state, &self.lookup, player, card, paying);
+        let optional_flash_timing_ok = !optional_flash_options.is_empty();
+        if let Some(opt_cost) = face.optional_cost {
+            let opt_mana = normal_cost.combine(&opt_cost.mana);
+            let min_opt_mana = min_normal_cost.combine(&opt_cost.mana);
+            let normal_optional = normal_route_ok
+                && afford_normal(&min_opt_mana.with_x(0))
+                && casting::additional_payment_capacity_for(
+                    &self.state,
+                    player,
+                    card,
+                    face,
+                    Some(CastModeKind::OptionalCost),
+                    &[],
+                )
+                .is_some();
+            let flash_option = optional_flash_options
+                .iter()
+                .find(|choice| choice.mana_ready);
+            if normal_optional || flash_option.is_some() {
+                let insert_at = usize::from(
+                    options
+                        .first()
+                        .is_some_and(|option| option.kind == CastModeKind::Normal),
+                );
+                options.insert(
+                    insert_at,
+                    CastModeDesc {
+                        index: u32::try_from(insert_at).expect("bounded cast options"),
+                        kind: CastModeKind::OptionalCost,
+                        cost: flash_option.map_or_else(|| price(opt_mana), |choice| choice.cost),
+                    },
+                );
             }
         }
         if front_timing_ok
@@ -1307,6 +1319,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                     && casting::spell_condition_allows(&self.state, player, card, def, 0)
                     && !casting::cast_is_forbidden(&self.state, player, front_spell)
             }
+            CastModeKind::OptionalCost if !front_now => optional_flash_timing_ok,
             _ => front_now,
         });
         if in_graveyard

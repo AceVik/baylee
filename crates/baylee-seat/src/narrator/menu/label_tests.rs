@@ -54,6 +54,50 @@ fn a_free_madness_cost_is_named_as_zero_mana() {
 }
 
 #[test]
+fn an_optional_cost_that_grants_flash_is_named_as_such() {
+    let index = baylee_cards::decks::by_name("Rout").expect("a pool card");
+    let option = CastModeDesc {
+        index: 0,
+        kind: CastModeKind::OptionalCost,
+        cost: ManaCost::parse("{5}{W}{W}"),
+    };
+    let label = cast_mode_label(
+        Some(baylee_view::CardIdentity {
+            index,
+            print: PrintRef::new(0),
+            face: 0,
+        }),
+        &option,
+    );
+    assert_eq!(
+        label,
+        "Cast it with flash by paying its optional additional cost for {5}{W}{W}"
+    );
+}
+
+#[test]
+fn another_optional_cost_keeps_its_ordinary_label() {
+    let index = baylee_cards::decks::by_name("Voltage Surge").expect("a pool card");
+    let option = CastModeDesc {
+        index: 0,
+        kind: CastModeKind::OptionalCost,
+        cost: ManaCost::parse("{1}{R}"),
+    };
+    let label = cast_mode_label(
+        Some(baylee_view::CardIdentity {
+            index,
+            print: PrintRef::new(0),
+            face: 0,
+        }),
+        &option,
+    );
+    assert_eq!(
+        label,
+        "Cast it with its optional additional cost for {1}{R}"
+    );
+}
+
+#[test]
 fn a_non_mana_flashback_names_its_printed_cost_instead_of_zero_mana() {
     let index = baylee_cards::decks::by_name("Lava Dart").expect("a pool card");
     let option = CastModeDesc {

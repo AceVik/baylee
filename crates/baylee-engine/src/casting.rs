@@ -49,7 +49,7 @@ pub(crate) use alt_grants::{
     consume_alt_cast_land_allowance, has_alt_cast_grant,
 };
 pub(crate) use escape::{escape_grants, granted_escape_options, mana_cost_mode};
-pub(crate) use face_options::ordinary_face_kind;
+pub(crate) use face_options::{optional_flash_cost_options, ordinary_face_kind};
 pub use intrinsic::*;
 pub use lands::*;
 pub use library_top::library_top_visible_to;
@@ -510,8 +510,8 @@ pub fn fused_mana_cost(def: &baylee_cards_dsl::CardDef) -> ManaCost {
 
 /// Whether a card prints a way of being cast at a price of its own, which
 /// `LegalActions::cast_ways` lists: entwine, a mode with its own cost
-/// (overload, spree), a kicker that changes the targets, an alternative cost
-/// with mana in it, dash, mutate, a prototype, or a back face.
+/// (overload, spree), a kicker that changes the targets, an optional or
+/// alternative cost, dash, mutate, a prototype, or a back face.
 #[must_use]
 pub fn has_priced_ways(def: &baylee_cards_dsl::CardDef) -> bool {
     let Some(face) = def.faces.first() else {
@@ -528,6 +528,7 @@ pub fn has_priced_ways(def: &baylee_cards_dsl::CardDef) -> bool {
         || face.impending.is_some()
         || face.has_face_down_cast()
         || face.prototype.is_some()
+        || face.optional_cost.is_some()
         || face.alternative_costs.iter().any(|alt| {
             alt.cost.mana != ManaCost::ZERO
                 || matches!(alt.condition, baylee_cards_dsl::AltCondition::If(_))
@@ -1551,6 +1552,15 @@ fn can_cast_paying(
             || matches!(best, Err(CastError::NotInHand | CastError::NoWayToCast)))
     {
         best = Err(diag);
+    }
+    if matches!(best, Err(CastError::BadTiming | CastError::NotEnoughMana)) {
+        let flash_options = optional_flash_cost_options(state, lookup, player, card, paying);
+        if flash_options.iter().any(|option| option.mana_ready) {
+            return Ok(());
+        }
+        if !flash_options.is_empty() && matches!(best, Err(CastError::BadTiming)) {
+            best = Err(CastError::NotEnoughMana);
+        }
     }
     best
 }

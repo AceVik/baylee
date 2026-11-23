@@ -4471,6 +4471,9 @@ CastKicked = With kicker
 # Cast with its optional additional cost paid (CR 118.8b).
 CastOptionalCost = With additional cost
 
+# Cast with the optional additional cost that grants flash (CR 702.8a).
+CastOptionalFlash = With flash
+
 # Cast face down using disguise.
 CastDisguise = Disguise — 2/2, ward {"{"}2{"}"}
 

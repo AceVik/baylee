@@ -31,6 +31,31 @@ fn buyback_refuses_a_part_the_cast_does_not_pay() {
     ));
 }
 
+/// `MayFlashCost` is the optional additional mana cost that grants flash;
+/// the ordinary casting route and its printed cost stay available.
+#[test]
+fn may_flash_cost_reads_mana_and_the_flash_rider() {
+    let body =
+        read("Name:X\nManaCost:R\nTypes:Sorcery\nK:MayFlashCost:2\nA:SP$ Draw | NumCards$ 1");
+    assert_eq!(body.optional_cost.as_deref(), Some("Some(cost!(\"{2}\"))"));
+    assert!(body.optional_cost_grants_flash);
+}
+
+#[test]
+fn may_flash_cost_refuses_invalid_or_conflicting_costs() {
+    for script in [
+        "Name:X\nTypes:Land\nK:MayFlashCost:2",
+        "Name:X\nK:MayFlashCost:2",
+        "Name:X\nTypes:Instant\nK:MayFlashCost:T",
+        "Name:X\nTypes:Instant\nK:MayFlashCost:X",
+        "Name:X\nTypes:Instant\nK:MayFlashCost:2\nK:MayFlashCost:3",
+        "Name:X\nTypes:Instant\nK:MayFlashCost:2\n\
+         S:Mode$ OptionalCost | EffectZone$ All | ValidCard$ Card.Self | ValidSA$ Spell | Cost$ 1",
+    ] {
+        assert!(refused(script), "must refuse: {script}");
+    }
+}
+
 /// Multikicker (CR 702.33c) is a mana cost on the face, and "for each time it
 /// was kicked" is the count the spell announced.
 #[test]
@@ -4733,7 +4758,7 @@ fn wave17a_retrace_monstrosity_cost_plumbing_and_refusals() {
         "Name:LureBeast\nManaCost:2 G\nTypes:Creature Beast\nPT:3/3\nK:CARDNAME must be blocked if able.",
         "Name:SoloBeast\nManaCost:2 W\nTypes:Creature Beast\nPT:3/3\nK:CARDNAME can't attack alone.",
         "Name:TwoBlockBeast\nManaCost:3 G\nTypes:Creature Beast\nPT:4/4\nK:CARDNAME must be blocked by two or more creatures if able.",
-        "Name:FlashExtra\nManaCost:1 U\nTypes:Creature Bird\nPT:2/2\nK:MayFlashCost:2",
+        "Name:FlashExtra\nManaCost:1 U\nTypes:Creature Bird\nPT:2/2\nK:MayFlashSac:2",
         "Name:SelPartner\nManaCost:2 W\nTypes:Legendary Creature Human\nPT:2/2\nK:Partner:Character select",
         "Name:HexBlack\nManaCost:1 U\nTypes:Creature Drake\nPT:2/2\nK:Hexproof:Black",
         "Name:UncomparedCount\nManaCost:2 G\nTypes:Creature Beast\nPT:2/2\n\

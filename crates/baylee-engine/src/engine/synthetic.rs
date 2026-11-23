@@ -93,6 +93,7 @@ pub fn land_face(name: &'static str) -> FaceDef {
         gift: None,
         warp: None,
         optional_cost: None,
+        optional_cost_grants_flash: false,
     }
 }
 

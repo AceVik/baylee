@@ -1264,7 +1264,18 @@ fn cast_label(
             ),
         K::Normal => String::new(),
         K::Kicked => Phrase::CastKicked.text(lang).to_string(),
-        K::OptionalCost => Phrase::CastOptionalCost.text(lang).to_string(),
+        K::OptionalCost => {
+            let grants_flash = cast_card(names, object)
+                .and_then(baylee_cards::by_index)
+                .is_some_and(|def| def.faces[0].optional_cost_grants_flash);
+            if grants_flash {
+                Phrase::CastOptionalFlash
+            } else {
+                Phrase::CastOptionalCost
+            }
+            .text(lang)
+            .to_string()
+        }
         K::Alternative(i) => {
             printed_sentence(names, object, baylee_cards::lines::alternative_line, i)
                 .unwrap_or_default()

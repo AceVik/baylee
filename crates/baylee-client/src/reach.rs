@@ -187,7 +187,13 @@ pub(super) fn reachable(duel: &Duel) -> std::collections::HashSet<ObjectId> {
         .filter(|card| legal.castable_once_paid(card.id))
         // Types off the view, because those are the *projected* ones; flash
         // off the printed card, because a `HandObject` carries no keywords.
-        .filter(|card| baylee_client_core::timing::allows(view, card.types, has_flash(card.card)))
+        .filter(|card| {
+            baylee_client_core::timing::allows(view, card.types, has_flash(card.card))
+                || printed_face(card.card).is_some_and(|face| {
+                    face.optional_cost_grants_flash
+                        && baylee_client_core::timing::allows(view, card.types, true)
+                })
+        })
         // And it has to print a cost at all (CR 202.1b). A blank cost is
         // payable by an empty pool, so a suspend-only card was "reachable"
         // with a plan of no taps at all: the click armed a run, the run

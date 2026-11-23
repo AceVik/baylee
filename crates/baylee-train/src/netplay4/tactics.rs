@@ -960,6 +960,7 @@ fn has_reachable_mana_sink(view: &PlayerView, legal: &LegalActions) -> bool {
                 pool_total < cost.cmc() || unmet_color_deficit(view, legal).iter().any(|&d| d > 0)
             }
             ManaPayment::AnyAmount { .. } => true,
+            ManaPayment::Variable { max, .. } => pool_total < *max,
         };
     }
     // Never tap lands in your own Untap, Upkeep, or Draw step on an empty stack:

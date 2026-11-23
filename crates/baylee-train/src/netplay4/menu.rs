@@ -142,8 +142,29 @@ pub(super) fn reachable(view: &PlayerView, legal: &LegalActions) -> Vec<(ObjectI
             let printed = printed.with_x(u32::from(printed.has_variable()));
             let price =
                 baylee_ai::spell_price(view, id, Some(card), legal, CastModeKind::Normal, printed);
-            let plan =
-                baylee_ai::plan_for_spell(&price, &pool, view, legal, id, CastModeKind::Normal)?;
+            let needs_optional_flash = baylee_cards::by_index(card.index).is_some_and(|def| {
+                let Some(face) = def.faces.get(usize::from(card.face)) else {
+                    return false;
+                };
+                let flash = def
+                    .keywords_for_face(usize::from(card.face))
+                    .contains(baylee_cards_dsl::KeywordSet::FLASH);
+                face.optional_cost_grants_flash
+                    && !baylee_client_core::timing::allows(view, face.types, flash)
+            });
+            let plan = if needs_optional_flash {
+                legal
+                    .cast_ways
+                    .iter()
+                    .filter(|(way, desc)| *way == id && desc.kind == CastModeKind::OptionalCost)
+                    .filter_map(|(_, desc)| {
+                        let price = desc.cost.with_x(u32::from(desc.cost.has_variable()));
+                        baylee_ai::plan_for_spell(&price, &pool, view, legal, id, desc.kind)
+                    })
+                    .min_by_key(Plan::taps)
+            } else {
+                baylee_ai::plan_for_spell(&price, &pool, view, legal, id, CastModeKind::Normal)
+            }?;
             (!plan.steps.is_empty()).then_some((id, plan))
         })
         .collect()
@@ -351,10 +372,10 @@ mod tests {
         }
     }
 
-    fn island(slot: u32) -> baylee_view::PublicObject {
-        let card = identity("Island");
-        let face = &baylee_cards::by_index(card.index).expect("Island").faces[0];
-        let mut object = token(slot, 0, "Island", 0, 0);
+    fn basic_land(slot: u32, name: &str) -> baylee_view::PublicObject {
+        let card = identity(name);
+        let face = &baylee_cards::by_index(card.index).expect(name).faces[0];
+        let mut object = token(slot, 0, name, 0, 0);
         object.card = Some(card);
         object.rules = Some(card.into());
         object.types = face.types;
@@ -363,6 +384,10 @@ mod tests {
         object.power = None;
         object.toughness = None;
         object
+    }
+
+    fn island(slot: u32) -> baylee_view::PublicObject {
+        basic_land(slot, "Island")
     }
 
     /// Ancestral Vision beside an untapped Island, the engine naming its
@@ -435,5 +460,51 @@ mod tests {
             ..LegalActions::default()
         };
         assert!(suspends(&view, &legal).is_empty());
+    }
+
+    #[test]
+    fn optional_flash_cost_is_the_only_price_planned_outside_ordinary_timing() {
+        let rout = ObjectId::new(61, 0);
+        let card = identity("Rout");
+        let lands: Vec<_> = (0..7).map(|slot| basic_land(70 + slot, "Plains")).collect();
+        let mut view = ViewBuilder::new(2).with_battlefield(0, lands).build();
+        view.hand = vec![HandObject {
+            id: rout,
+            card,
+            name: "Rout".into(),
+            mana_value: 5,
+            colors: baylee_core::color::ColorSet::from_slice(&[baylee_core::color::Color::White]),
+            types: baylee_core::types::TypeSet::SORCERY,
+            commander: false,
+        }];
+        let legal = LegalActions {
+            can_pass: true,
+            payable: vec![rout],
+            mana_abilities: (70..77).map(|slot| ObjectId::new(slot, 0)).collect(),
+            cast_ways: vec![(
+                rout,
+                baylee_engine::choice::CastModeDesc {
+                    index: 0,
+                    kind: CastModeKind::OptionalCost,
+                    cost: ManaCost::parse("{5}{W}{W}"),
+                },
+            )],
+            ..LegalActions::default()
+        };
+
+        let planned = reachable(&view, &legal);
+        assert_eq!(planned.len(), 1, "{planned:?}");
+        assert_eq!(planned[0].0, rout);
+        assert_eq!(planned[0].1.taps(), 5, "ordinary cost in my main");
+
+        view.active = PlayerId::new(1);
+        let planned = reachable(&view, &legal);
+        assert_eq!(planned.len(), 1, "{planned:?}");
+        assert_eq!(planned[0].0, rout);
+        assert_eq!(
+            planned[0].1.taps(),
+            7,
+            "printed cost plus optional {{2}} on their turn"
+        );
     }
 }

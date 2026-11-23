@@ -1915,7 +1915,15 @@ fn cast_mode_label(card: Option<baylee_view::CardIdentity>, option: &CastModeDes
         CastModeKind::Normal => format!("Cast it normally for {cost}"),
         CastModeKind::Kicked => format!("Cast it kicked for {cost}"),
         CastModeKind::OptionalCost => {
-            format!("Cast it with its optional additional cost for {cost}")
+            let grants_flash = card
+                .and_then(|c| baylee_cards::by_index(c.index))
+                .and_then(|def| def.faces.get(face))
+                .is_some_and(|f| f.optional_cost_grants_flash);
+            if grants_flash {
+                format!("Cast it with flash by paying its optional additional cost for {cost}")
+            } else {
+                format!("Cast it with its optional additional cost for {cost}")
+            }
         }
         CastModeKind::Alternative(i) => {
             let words = card

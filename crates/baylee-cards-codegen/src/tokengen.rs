@@ -1167,6 +1167,7 @@ fn abilities(
         || body.gift.is_some()
         || body.warp.is_some()
         || body.optional_cost.is_some()
+        || body.optional_cost_grants_flash
         || body.cost_reduction.is_some()
         || body.entwine.is_some()
         || body.buyback.is_some()

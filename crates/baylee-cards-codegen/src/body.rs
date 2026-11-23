@@ -115,6 +115,8 @@ pub struct CardBody {
     /// `optional_cost` (`Some(cost!(...))`) expression for the face, when present
     /// (`S: Mode$ OptionalCost`, CR 118.8b).
     pub optional_cost: Option<String>,
+    /// Paying `optional_cost` also grants flash (`K:MayFlashCost`, CR 702.8a).
+    pub optional_cost_grants_flash: bool,
     /// `cost_reduction` expression for the front face, when present.
     pub cost_reduction: Option<String>,
     /// `entwine` expression for the front face, when present.
@@ -189,6 +191,7 @@ impl CardBody {
             && self.gift.is_none()
             && self.warp.is_none()
             && self.optional_cost.is_none()
+            && !self.optional_cost_grants_flash
             && self.additional_costs.is_empty()
             && self.kicked_targets.is_none()
             && self.keywords.is_empty()

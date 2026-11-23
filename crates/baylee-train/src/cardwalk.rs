@@ -310,6 +310,9 @@ pub fn walk_card(def: &CardDef) -> Walk {
         if let Some(opt) = face.optional_cost {
             w.read("optional_cost", &format!("{opt:?}"));
         }
+        if face.optional_cost_grants_flash {
+            w.add("optional_cost_grants_flash>true".into());
+        }
         w.read("kicked_targets", &format!("{:?}", face.kicked_targets));
         for s in face.subtypes {
             w.add(format!("subtype>{}", s.get()));
