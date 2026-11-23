@@ -67,6 +67,50 @@ pub(super) fn start(
     )
 }
 
+/// Start combat-entry defender selection (CR 508.4, CR 506.3b) for any
+/// creature(s) put onto the battlefield attacking during the active player's
+/// combat phase (e.g. `Effect::PutOntoBattlefieldAttacking`), even when
+/// `owner_control` put them under the active player's control from an
+/// opponent's effect.
+pub(super) fn start_for_active(
+    state: &mut GameState,
+    res: &mut Resolution,
+    creatures: Vec<ObjectId>,
+) -> Option<Pending> {
+    let active = state.turn.active;
+    if creatures.is_empty() || state.has_left(active) || !enters_attacking(state, active) {
+        return None;
+    }
+    let eligible: Vec<ObjectId> = creatures
+        .into_iter()
+        .filter(|&id| {
+            state.object(id).is_some_and(|o| {
+                o.zone == crate::zone::Zone::Battlefield
+                    && o.controller == active
+                    && o.characteristics()
+                        .types
+                        .contains(baylee_core::types::TypeSet::CREATURE)
+                    && !o
+                        .characteristics()
+                        .types
+                        .contains(baylee_core::types::TypeSet::BATTLE)
+            })
+        })
+        .collect();
+    if eligible.is_empty() {
+        return None;
+    }
+    ask(
+        state,
+        res,
+        Tokens {
+            created: eligible,
+            placed: Vec::new(),
+            player: None,
+        },
+    )
+}
+
 /// The answer to "which player": the token's planeswalker question follows
 /// when that player controls one.
 pub(super) fn resume_player(
@@ -86,19 +130,20 @@ pub(super) fn resume_walker(
     mut tokens: Tokens,
     chosen: &[ObjectId],
 ) -> Option<Pending> {
+    let you = state.turn.active;
     let player = tokens.player.take();
     let defender = match chosen.first() {
-        Some(&object) => crate::combat::defender_options(state, res.controller).into_iter()
+        Some(&object) => crate::combat::defender_options(state, you).into_iter()
             .find(|defender| matches!(defender, Defender::Planeswalker(id) | Defender::Battle(id) if *id == object))
             .unwrap_or(Defender::Battle(object)),
-        None => Defender::Player(player.unwrap_or(res.controller)),
+        None => Defender::Player(player.unwrap_or(you)),
     };
     tokens.placed.push(defender);
     ask(state, res, tokens)
 }
 
 fn ask(state: &mut GameState, res: &mut Resolution, mut tokens: Tokens) -> Option<Pending> {
-    let you = res.controller;
+    let you = state.turn.active;
     while tokens.placed.len() < tokens.created.len() {
         let options = crate::combat::defender_options(state, you);
         let players: Vec<PlayerId> = options

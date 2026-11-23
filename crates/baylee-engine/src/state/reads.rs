@@ -37,6 +37,7 @@ pub(crate) fn filter_reads_board_state(filter: &baylee_cards_dsl::Filter) -> boo
         | Filter::FaceDown
         | Filter::Monstrous
         | Filter::Suspected
+        | Filter::Saddled
         | Filter::RingBearer
         | Filter::Modified
         | Filter::SharesAColorWith(_)
@@ -46,7 +47,11 @@ pub(crate) fn filter_reads_board_state(filter: &baylee_cards_dsl::Filter) -> boo
         | Filter::CmcAtMostAmount(_)
         | Filter::CmcEqualsAmount(_)
         | Filter::PowerAtMostAmount(_)
-        | Filter::PowerAtLeastAmount(_) => true,
+        | Filter::PowerAtLeastAmount(_)
+        | Filter::IsRemembered
+        | Filter::NotRemembered
+        | Filter::SharesCardTypeWithRemembered
+        | Filter::SharesNameWithRemembered => true,
         Filter::And(parts) | Filter::Or(parts) => parts.iter().any(filter_reads_board_state),
         Filter::Not(f) | Filter::ControllerControls(f) => filter_reads_board_state(f),
         _ => false,
@@ -104,7 +109,12 @@ fn amount_reads_reference_at(amount: &baylee_cards_dsl::Amount, depth: u8) -> bo
         | Amount::ControlledCount { filter: f, .. }
         | Amount::DamageThisTurn { by: f, .. }
         | Amount::GreatestPowerAmong(f)
-        | Amount::GreatestManaValueAmong(f) => filter_reads_reference_at(f, depth),
+        | Amount::GreatestManaValueAmong(f)
+        | Amount::TotalPowerAmong(f)
+        | Amount::EnteredThisTurn { filter: f, .. }
+        | Amount::SpellsCastMatchingThisTurn { filter: f, .. }
+        | Amount::CreaturesAttackedThisTurn { filter: f, .. }
+        | Amount::DistinctManaValuesInZone { filter: f, .. } => filter_reads_reference_at(f, depth),
         Amount::Half { base: a, .. }
         | Amount::Divided { base: a, .. }
         | Amount::Times { base: a, .. }
@@ -404,7 +414,11 @@ fn amount_reads_crime_at(amount: &baylee_cards_dsl::Amount, depth: u8) -> bool {
         | Amount::DamageThisTurn { by: f, .. }
         | Amount::GreatestPowerAmong(f)
         | Amount::GreatestManaValueAmong(f)
-        | Amount::TotalPowerAmong(f) => filter_reads_crime(f, depth + 1),
+        | Amount::TotalPowerAmong(f)
+        | Amount::EnteredThisTurn { filter: f, .. }
+        | Amount::SpellsCastMatchingThisTurn { filter: f, .. }
+        | Amount::CreaturesAttackedThisTurn { filter: f, .. }
+        | Amount::DistinctManaValuesInZone { filter: f, .. } => filter_reads_crime(f, depth + 1),
         Amount::Negated(a)
         | Amount::Plus { base: a, .. }
         | Amount::SaturatingSub { base: a, .. }
@@ -430,13 +444,20 @@ fn modifier_reads_crime(modifier: &baylee_cards_dsl::Modifier) -> bool {
         }
         Modifier::GrantTriggeredDefinition(ability) => ability_reads_crime(ability),
         Modifier::GrantActivated { effects, .. } => effects_read_crime(effects),
-        Modifier::GrantFlash { filter, .. } => filter_reads_crime(filter, 0),
+        Modifier::GrantFlash { filter, .. }
+        | Modifier::FirstSpellEachTurnCostAdjust { filter, .. } => filter_reads_crime(filter, 0),
         Modifier::MayCastWithAltCost {
             max_mana_value: Some(amt),
             ..
         } => amount_reads_crime_at(amt, 0),
         Modifier::SpellsCostLessByAmount(amount) => amount_reads_crime_at(amount, 0),
         Modifier::AdjustSpellCostByAmount { amount, .. } => amount_reads_crime_at(amount, 0),
+        Modifier::ActivatedAbilitiesCostLess { filter, amount, .. } => {
+            filter_reads_crime(filter, 0) || amount_reads_crime_at(amount, 0)
+        }
+        Modifier::PreventDamageRemovingCounters {
+            then: Some(rider), ..
+        } => effects_read_crime(rider.instruction()),
         _ => false,
     }
 }
@@ -652,7 +673,11 @@ fn amount_reads_expend_at(amount: &baylee_cards_dsl::Amount, depth: u8) -> bool 
         | Amount::DamageThisTurn { by: f, .. }
         | Amount::GreatestPowerAmong(f)
         | Amount::GreatestManaValueAmong(f)
-        | Amount::TotalPowerAmong(f) => filter_reads_expend(f, depth + 1),
+        | Amount::TotalPowerAmong(f)
+        | Amount::EnteredThisTurn { filter: f, .. }
+        | Amount::SpellsCastMatchingThisTurn { filter: f, .. }
+        | Amount::CreaturesAttackedThisTurn { filter: f, .. }
+        | Amount::DistinctManaValuesInZone { filter: f, .. } => filter_reads_expend(f, depth + 1),
         Amount::Negated(a)
         | Amount::Plus { base: a, .. }
         | Amount::SaturatingSub { base: a, .. }
@@ -681,13 +706,20 @@ fn modifier_reads_expend(modifier: &baylee_cards_dsl::Modifier) -> bool {
         Modifier::ModifyPTByAmount { power, toughness } => {
             amount_reads_expend(power) || amount_reads_expend(toughness)
         }
-        Modifier::GrantFlash { filter, .. } => filter_reads_expend(filter, 0),
+        Modifier::GrantFlash { filter, .. }
+        | Modifier::FirstSpellEachTurnCostAdjust { filter, .. } => filter_reads_expend(filter, 0),
         Modifier::MayCastWithAltCost {
             max_mana_value: Some(amt),
             ..
         } => amount_reads_expend_at(amt, 0),
         Modifier::SpellsCostLessByAmount(amount) => amount_reads_expend_at(amount, 0),
         Modifier::AdjustSpellCostByAmount { amount, .. } => amount_reads_expend_at(amount, 0),
+        Modifier::ActivatedAbilitiesCostLess { filter, amount, .. } => {
+            filter_reads_expend(filter, 0) || amount_reads_expend_at(amount, 0)
+        }
+        Modifier::PreventDamageRemovingCounters {
+            then: Some(rider), ..
+        } => effects_read_expend(rider.instruction()),
         _ => false,
     }
 }
@@ -737,7 +769,11 @@ fn effects_read_expend(effects: &'static [baylee_cards_dsl::Effect]) -> bool {
             | Effect::NextSpellThisTurnCostsLess(amount)
             | Effect::ReduceNextSpellCost {
                 generic: amount, ..
-            } => amount_reads_expend(amount),
+            }
+            | Effect::CreateTokenAttached { amount, .. }
+            | Effect::ChooseCardConstrained { max: amount, .. }
+            | Effect::SearchLibraryDistinctNames { count: amount, .. }
+            | Effect::AttachChosen { max: amount, .. } => amount_reads_expend(amount),
             Effect::CreateTokenSized {
                 amount,
                 power,
@@ -868,6 +904,597 @@ fn effects_have_spell_cast_metric(
             Effect::CreateEmblem { abilities } => abilities
                 .iter()
                 .any(|a| ability_has_spell_cast_metric(a, predicate)),
+            _ => false,
+        };
+    });
+    found
+}
+
+/// Whether `def` reads per-turn frozen zone-change snapshots (`Amount::EnteredThisTurn`).
+pub(crate) fn card_reads_zone_changes(def: &CardDef) -> bool {
+    card_reads_pred(def, &|_| false, &|amt| {
+        matches!(amt, baylee_cards_dsl::Amount::EnteredThisTurn { .. })
+    })
+}
+
+/// Whether `def` reads per-turn cast spell logs (`SpellsCastMatchingThisTurn`
+/// or `DistinctCardTypesCastThisTurn`).
+pub(crate) fn card_reads_spells_cast_log(def: &CardDef) -> bool {
+    card_reads_pred(def, &|_| false, &|amt| {
+        matches!(
+            amt,
+            baylee_cards_dsl::Amount::SpellsCastMatchingThisTurn { .. }
+                | baylee_cards_dsl::Amount::DistinctCardTypesCastThisTurn(_)
+        )
+    })
+}
+
+/// Whether `def` reads who placed counters on a permanent this turn
+/// (`Condition::CountersPlacedOnSourceThisTurn { by_you: true, .. }`).
+pub(crate) fn card_reads_counter_placers(def: &CardDef) -> bool {
+    card_reads_pred(
+        def,
+        &|cond| {
+            matches!(
+                cond,
+                baylee_cards_dsl::Condition::CountersPlacedOnSourceThisTurn { by_you: true, .. }
+            )
+        },
+        &|_| false,
+    )
+}
+
+fn card_reads_pred(
+    def: &CardDef,
+    cond_pred: &impl Fn(&baylee_cards_dsl::Condition) -> bool,
+    amt_pred: &impl Fn(&baylee_cards_dsl::Amount) -> bool,
+) -> bool {
+    let face_reads = def.faces.iter().any(|face| {
+        let cr = face.cost_reduction.as_ref().is_some_and(|c| match c {
+            baylee_cards_dsl::CostReduction::If { condition, .. } => {
+                cond_matches(condition, cond_pred, amt_pred, 0)
+            }
+            baylee_cards_dsl::CostReduction::PerCount { amount, .. } => {
+                amt_matches(amount, cond_pred, amt_pred, 0)
+            }
+            _ => false,
+        });
+        let alt = face.alternative_costs.iter().any(|a| {
+            matches!(
+                a.condition,
+                baylee_cards_dsl::AltCondition::If(c) if cond_matches(c, cond_pred, amt_pred, 0)
+            )
+        });
+        let em = face.enter_modifiers.iter().any(|m| match m {
+            baylee_cards_dsl::EnterModifier::TappedUnlessCondition(c) => {
+                cond_matches(c, cond_pred, amt_pred, 0)
+            }
+            baylee_cards_dsl::EnterModifier::WithCounters { amount, .. }
+            | baylee_cards_dsl::EnterModifier::PayLifeUpTo(amount)
+            | baylee_cards_dsl::EnterModifier::Bloodthirst(amount) => {
+                amt_matches(amount, cond_pred, amt_pred, 0)
+            }
+            baylee_cards_dsl::EnterModifier::WithCountersIf {
+                count, condition, ..
+            } => {
+                amt_matches(count, cond_pred, amt_pred, 0)
+                    || cond_matches(condition, cond_pred, amt_pred, 0)
+            }
+            _ => false,
+        });
+        cr || alt || em
+    });
+    face_reads
+        || (0..def.faces.len().max(1)).any(|face| {
+            def.abilities_for_face(face)
+                .iter()
+                .any(|ability| ability_matches(ability, cond_pred, amt_pred))
+        })
+}
+
+fn ability_matches(
+    ability: &baylee_cards_dsl::AbilityDef,
+    cond_pred: &impl Fn(&baylee_cards_dsl::Condition) -> bool,
+    amt_pred: &impl Fn(&baylee_cards_dsl::Amount) -> bool,
+) -> bool {
+    use baylee_cards_dsl::{AbilityDef, ActivationLimit, ActivationX, CostReduction};
+    let cr_hit = |cr: Option<&CostReduction>| {
+        cr.is_some_and(|c| match c {
+            CostReduction::If { condition, .. } => cond_matches(condition, cond_pred, amt_pred, 0),
+            CostReduction::PerCount { amount, .. } => amt_matches(amount, cond_pred, amt_pred, 0),
+            _ => false,
+        })
+    };
+    let lim_hit = |limit: ActivationLimit| matches!(limit, ActivationLimit::PerTurnAmount(a) if amt_matches(&a, cond_pred, amt_pred, 0));
+    let x_hit = |x_val: ActivationX| matches!(x_val, ActivationX::Defined(a) if amt_matches(&a, cond_pred, amt_pred, 0));
+    match ability {
+        AbilityDef::Triggered {
+            effects, condition, ..
+        } => {
+            condition
+                .as_ref()
+                .is_some_and(|c| cond_matches(c, cond_pred, amt_pred, 0))
+                || effects_match(effects, cond_pred, amt_pred)
+        }
+        AbilityDef::ModalTriggered {
+            modes, condition, ..
+        } => {
+            condition
+                .as_ref()
+                .is_some_and(|c| cond_matches(c, cond_pred, amt_pred, 0))
+                || modes
+                    .iter()
+                    .any(|m| effects_match(m.effects, cond_pred, amt_pred))
+        }
+        AbilityDef::Spell {
+            effects, condition, ..
+        } => {
+            condition
+                .as_ref()
+                .is_some_and(|c| cond_matches(c, cond_pred, amt_pred, 0))
+                || effects_match(effects, cond_pred, amt_pred)
+        }
+        AbilityDef::Activated {
+            effects,
+            cost_reduction,
+            limit,
+            x_value,
+            ..
+        } => {
+            cr_hit(cost_reduction.as_ref())
+                || lim_hit(*limit)
+                || x_hit(*x_value)
+                || effects_match(effects, cond_pred, amt_pred)
+        }
+        AbilityDef::ActivatedConditional {
+            effects,
+            condition,
+            cost_reduction,
+            limit,
+            x_value,
+            ..
+        } => {
+            cond_matches(condition, cond_pred, amt_pred, 0)
+                || cr_hit(cost_reduction.as_ref())
+                || lim_hit(*limit)
+                || x_hit(*x_value)
+                || effects_match(effects, cond_pred, amt_pred)
+        }
+        AbilityDef::ModalActivated {
+            modes, condition, ..
+        } => {
+            condition
+                .as_ref()
+                .is_some_and(|c| cond_matches(c, cond_pred, amt_pred, 0))
+                || modes
+                    .iter()
+                    .any(|m| effects_match(m.effects, cond_pred, amt_pred))
+        }
+        AbilityDef::ModalSpell { modes, .. } | AbilityDef::Modal { modes, .. } => modes
+            .iter()
+            .any(|m| effects_match(m.effects, cond_pred, amt_pred)),
+        AbilityDef::SagaChapter { effects, .. } | AbilityDef::Loyalty { effects, .. } => {
+            effects_match(effects, cond_pred, amt_pred)
+        }
+        AbilityDef::Static(sa) => {
+            sa.condition
+                .as_ref()
+                .is_some_and(|c| cond_matches(c, cond_pred, amt_pred, 0))
+                || filter_matches(&sa.filter, cond_pred, amt_pred, 0)
+                || modifier_matches(&sa.modifier, cond_pred, amt_pred)
+        }
+        AbilityDef::Replacement(
+            baylee_cards_dsl::ReplacementRule::AdditionalTokenCreation {
+                condition: Some(c), ..
+            }
+            | baylee_cards_dsl::ReplacementRule::SubstituteTokenCreation {
+                condition: Some(c), ..
+            }
+            | baylee_cards_dsl::ReplacementRule::ReplaceDrawWithDraws {
+                condition: Some(c), ..
+            },
+        ) => cond_matches(c, cond_pred, amt_pred, 0),
+        _ => false,
+    }
+}
+
+fn cond_matches(
+    cond: &baylee_cards_dsl::Condition,
+    cond_pred: &impl Fn(&baylee_cards_dsl::Condition) -> bool,
+    amt_pred: &impl Fn(&baylee_cards_dsl::Amount) -> bool,
+    depth: u8,
+) -> bool {
+    use baylee_cards_dsl::Condition;
+    if depth >= 8 {
+        return false;
+    }
+    if cond_pred(cond) {
+        return true;
+    }
+    match cond {
+        Condition::AmountAtLeast(amount, _) | Condition::AmountIsEven(amount) => {
+            amt_matches(amount, cond_pred, amt_pred, depth + 1)
+        }
+        Condition::AmountCompare { left, right, .. } => {
+            amt_matches(left, cond_pred, amt_pred, depth + 1)
+                || amt_matches(right, cond_pred, amt_pred, depth + 1)
+        }
+        Condition::ControlCount(f, _)
+        | Condition::ControlCountExceptEvent(f, _)
+        | Condition::ControlCountAtMost(f, _)
+        | Condition::BattlefieldCount(f, _)
+        | Condition::BattlefieldCountAtMost(f, _)
+        | Condition::ControlDistinctNames(f, _)
+        | Condition::OpponentControlCount(f, _)
+        | Condition::OpponentControlCountAtMost(f, _)
+        | Condition::OpponentControlsMore(f)
+        | Condition::OpponentControlsMoreBy(f, _)
+        | Condition::ControlMoreThanEachOtherPlayer(f)
+        | Condition::SomeDefendingPlayerControlsNone(f)
+        | Condition::ChosenOpponentControls(f)
+        | Condition::ChosenColorIsUniqueMostCommon(f)
+        | Condition::TargetSpellWouldDestroy(f)
+        | Condition::GraveyardCardsAbove(f, _)
+        | Condition::SourceMatches(f)
+        | Condition::AttachedMatches(f)
+        | Condition::CanSacrifice(f)
+        | Condition::SacrificedForCost(f)
+        | Condition::DiscardedForCost(f)
+        | Condition::ObjectMatches { filter: f, .. } => {
+            filter_matches(f, cond_pred, amt_pred, depth + 1)
+        }
+        Condition::EventBlockedByOthers { some, none } => {
+            filter_matches(some, cond_pred, amt_pred, depth + 1)
+                || filter_matches(none, cond_pred, amt_pred, depth + 1)
+        }
+        Condition::Not(inner) | Condition::TriggerOnly(inner) => {
+            cond_matches(inner, cond_pred, amt_pred, depth + 1)
+        }
+        Condition::All(parts) | Condition::Any(parts) => parts
+            .iter()
+            .any(|p| cond_matches(p, cond_pred, amt_pred, depth + 1)),
+        _ => false,
+    }
+}
+
+fn filter_matches(
+    filter: &baylee_cards_dsl::Filter,
+    cond_pred: &impl Fn(&baylee_cards_dsl::Condition) -> bool,
+    amt_pred: &impl Fn(&baylee_cards_dsl::Amount) -> bool,
+    depth: u8,
+) -> bool {
+    use baylee_cards_dsl::Filter;
+    if depth >= 8 {
+        return false;
+    }
+    match filter {
+        Filter::CmcAtMostAmount(a)
+        | Filter::CmcEqualsAmount(a)
+        | Filter::PowerAtMostAmount(a)
+        | Filter::PowerAtLeastAmount(a) => amt_matches(a, cond_pred, amt_pred, depth + 1),
+        Filter::And(parts) | Filter::Or(parts) => parts
+            .iter()
+            .any(|f| filter_matches(f, cond_pred, amt_pred, depth)),
+        Filter::Not(f)
+        | Filter::AttachedTo(f)
+        | Filter::BlockedThisTurnBy(f)
+        | Filter::LowestManaValueOnBattlefield(f)
+        | Filter::SharesAColorWith(f)
+        | Filter::SharesCreatureTypeWith(f)
+        | Filter::ControllerControls(f) => filter_matches(f, cond_pred, amt_pred, depth),
+        _ => false,
+    }
+}
+
+fn amt_matches(
+    amount: &baylee_cards_dsl::Amount,
+    cond_pred: &impl Fn(&baylee_cards_dsl::Condition) -> bool,
+    amt_pred: &impl Fn(&baylee_cards_dsl::Amount) -> bool,
+    depth: u8,
+) -> bool {
+    use baylee_cards_dsl::Amount;
+    if depth >= 8 {
+        return false;
+    }
+    if amt_pred(amount) {
+        return true;
+    }
+    match amount {
+        Amount::IfCondition {
+            condition,
+            then,
+            otherwise,
+        } => {
+            cond_matches(condition, cond_pred, amt_pred, depth + 1)
+                || amt_matches(then, cond_pred, amt_pred, depth + 1)
+                || amt_matches(otherwise, cond_pred, amt_pred, depth + 1)
+        }
+        Amount::DistinctColorsAmong(f)
+        | Amount::BasicLandTypesAmong(f)
+        | Amount::CountOf { filter: f, .. }
+        | Amount::ControlledCount { filter: f, .. }
+        | Amount::DamageThisTurn { by: f, .. }
+        | Amount::GreatestPowerAmong(f)
+        | Amount::GreatestManaValueAmong(f)
+        | Amount::TotalPowerAmong(f)
+        | Amount::EnteredThisTurn { filter: f, .. }
+        | Amount::SpellsCastMatchingThisTurn { filter: f, .. }
+        | Amount::CreaturesAttackedThisTurn { filter: f, .. }
+        | Amount::DistinctManaValuesInZone { filter: f, .. } => {
+            filter_matches(f, cond_pred, amt_pred, depth + 1)
+        }
+        Amount::Negated(a)
+        | Amount::Plus { base: a, .. }
+        | Amount::SaturatingSub { base: a, .. }
+        | Amount::ConstantMinus { subtract: a, .. }
+        | Amount::Half { base: a, .. }
+        | Amount::Divided { base: a, .. }
+        | Amount::Times { base: a, .. } => amt_matches(a, cond_pred, amt_pred, depth + 1),
+        Amount::Sum { left: a, right: b } | Amount::Difference { left: a, right: b } => {
+            amt_matches(a, cond_pred, amt_pred, depth + 1)
+                || amt_matches(b, cond_pred, amt_pred, depth + 1)
+        }
+        _ => false,
+    }
+}
+
+fn modifier_matches(
+    modifier: &baylee_cards_dsl::Modifier,
+    cond_pred: &impl Fn(&baylee_cards_dsl::Condition) -> bool,
+    amt_pred: &impl Fn(&baylee_cards_dsl::Amount) -> bool,
+) -> bool {
+    use baylee_cards_dsl::Modifier;
+    match modifier {
+        Modifier::GrantTriggered { effects, .. } | Modifier::GrantActivated { effects, .. } => {
+            effects_match(effects, cond_pred, amt_pred)
+        }
+        Modifier::GrantTriggeredDefinition(ability) => {
+            ability_matches(ability, cond_pred, amt_pred)
+        }
+        Modifier::ModifyPTByAmount { power, toughness } => {
+            amt_matches(power, cond_pred, amt_pred, 0)
+                || amt_matches(toughness, cond_pred, amt_pred, 0)
+        }
+        Modifier::GrantFlash { filter, .. } => filter_matches(filter, cond_pred, amt_pred, 0),
+        Modifier::MayCastWithAltCost {
+            max_mana_value: Some(amt),
+            ..
+        }
+        | Modifier::SpellsCostLessByAmount(amt) => amt_matches(amt, cond_pred, amt_pred, 0),
+        Modifier::AdjustSpellCostByAmount { amount, .. } => {
+            amt_matches(amount, cond_pred, amt_pred, 0)
+        }
+        Modifier::ActivatedAbilitiesCostLess { filter, amount, .. } => {
+            filter_matches(filter, cond_pred, amt_pred, 0)
+                || amt_matches(amount, cond_pred, amt_pred, 0)
+        }
+        Modifier::FirstSpellEachTurnCostAdjust { filter, .. } => {
+            filter_matches(filter, cond_pred, amt_pred, 0)
+        }
+        Modifier::PreventDamageRemovingCounters {
+            then: Some(rider), ..
+        } => effects_match(rider.instruction(), cond_pred, amt_pred),
+        _ => false,
+    }
+}
+
+#[allow(clippy::too_many_lines)] // One arm per Effect variant carrying an Amount or Condition.
+fn effects_match(
+    effects: &'static [baylee_cards_dsl::Effect],
+    cond_pred: &impl Fn(&baylee_cards_dsl::Condition) -> bool,
+    amt_pred: &impl Fn(&baylee_cards_dsl::Amount) -> bool,
+) -> bool {
+    let mut seen = 0;
+    let mut found = false;
+    baylee_cards_dsl::Effect::walk(effects, &mut seen, &mut |effect| {
+        use baylee_cards_dsl::Effect;
+        found |= match effect {
+            Effect::IfCondition { condition, .. } | Effect::RepeatWhile { condition, .. } => {
+                cond_matches(condition, cond_pred, amt_pred, 0)
+            }
+            Effect::RepeatProcess {
+                max_times,
+                pre_condition,
+                post_condition,
+                ..
+            } => {
+                max_times
+                    .as_ref()
+                    .is_some_and(|a| amt_matches(a, cond_pred, amt_pred, 0))
+                    || pre_condition
+                        .as_ref()
+                        .is_some_and(|c| cond_matches(c, cond_pred, amt_pred, 0))
+                    || post_condition
+                        .as_ref()
+                        .is_some_and(|c| cond_matches(c, cond_pred, amt_pred, 0))
+            }
+            Effect::ReflexiveTrigger { condition, .. }
+            | Effect::RegisterDelayedTrigger { condition, .. } => {
+                condition.is_some_and(|c| cond_matches(c, cond_pred, amt_pred, 0))
+            }
+            Effect::DrawCards { amount }
+            | Effect::DrawCardsFor { amount, .. }
+            | Effect::GainLife { amount }
+            | Effect::GainLifeFor { amount, .. }
+            | Effect::LoseLife { amount, .. }
+            | Effect::DealDamage { amount, .. }
+            | Effect::DealDamageEvenly { amount, .. }
+            | Effect::AddCounter { amount, .. }
+            | Effect::AddCounterFilter { amount, .. }
+            | Effect::AddCounterSource { amount, .. }
+            | Effect::PutCountersDivided { amount, .. }
+            | Effect::PutCounterChoice { amount, .. }
+            | Effect::CreateTokenN { amount, .. }
+            | Effect::CreateTokensFor { amount, .. }
+            | Effect::Mill { amount, .. }
+            | Effect::Scry { amount, .. }
+            | Effect::Surveil { amount, .. }
+            | Effect::AddMana { amount, .. }
+            | Effect::NextSpellThisTurnCostsLess(amount)
+            | Effect::ReduceNextSpellCost {
+                generic: amount, ..
+            }
+            | Effect::Bolster(amount)
+            | Effect::Monstrosity(amount)
+            | Effect::Firebend(amount)
+            | Effect::Mobilize(amount)
+            | Effect::Endure(amount) => amt_matches(amount, cond_pred, amt_pred, 0),
+            Effect::Repeat { times, .. } => amt_matches(times, cond_pred, amt_pred, 0),
+            Effect::CreateTokenSized {
+                amount,
+                power,
+                toughness,
+                ..
+            } => {
+                amt_matches(amount, cond_pred, amt_pred, 0)
+                    || amt_matches(power, cond_pred, amt_pred, 0)
+                    || amt_matches(toughness, cond_pred, amt_pred, 0)
+            }
+            Effect::DamagePermanentAndController {
+                permanent_amount,
+                controller_amount,
+                ..
+            } => {
+                amt_matches(permanent_amount, cond_pred, amt_pred, 0)
+                    || amt_matches(controller_amount, cond_pred, amt_pred, 0)
+            }
+            Effect::PumpTarget {
+                power, toughness, ..
+            }
+            | Effect::PumpFilter {
+                power, toughness, ..
+            }
+            | Effect::PumpEventObject {
+                power, toughness, ..
+            } => {
+                amt_matches(power, cond_pred, amt_pred, 0)
+                    || amt_matches(toughness, cond_pred, amt_pred, 0)
+            }
+            Effect::CreateContinuousEffect { modifier, .. }
+            | Effect::AddTempModifier { modifier, .. }
+            | Effect::AddGlobalTempModifier { modifier, .. } => {
+                modifier_matches(modifier, cond_pred, amt_pred)
+            }
+            Effect::CreateEmblem { abilities } => abilities
+                .iter()
+                .any(|a| ability_matches(a, cond_pred, amt_pred)),
+            Effect::Backup {
+                grant_abilities, ..
+            } => grant_abilities
+                .iter()
+                .any(|a| ability_matches(a, cond_pred, amt_pred)),
+            Effect::MoveAndModify {
+                counters,
+                modifiers,
+                ..
+            } => {
+                counters
+                    .iter()
+                    .any(|(_, amt)| amt_matches(amt, cond_pred, amt_pred, 0))
+                    || modifiers
+                        .iter()
+                        .any(|m| modifier_matches(m, cond_pred, amt_pred))
+            }
+            Effect::ChooseNumberEx { min, max, .. } => {
+                amt_matches(min, cond_pred, amt_pred, 0) || amt_matches(max, cond_pred, amt_pred, 0)
+            }
+            Effect::CreateTokenAttached { amount, host, .. } => {
+                amt_matches(amount, cond_pred, amt_pred, 0)
+                    || matches!(
+                        host,
+                        baylee_cards_dsl::AttachHost::ChosenPermanent(filter)
+                            if filter_matches(filter, cond_pred, amt_pred, 0)
+                    )
+            }
+            Effect::PutOntoBattlefieldAttached { subject, host, .. } => {
+                matches!(
+                    subject,
+                    baylee_cards_dsl::DefinedObjects::AllInZone { filter, .. }
+                        if filter_matches(filter, cond_pred, amt_pred, 0)
+                ) || matches!(
+                    host,
+                    baylee_cards_dsl::AttachHost::ChosenPermanent(filter)
+                        if filter_matches(filter, cond_pred, amt_pred, 0)
+                )
+            }
+            Effect::PutOntoBattlefieldAttacking { subject, .. }
+            | Effect::DiscardDefined { cards: subject } => matches!(
+                subject,
+                baylee_cards_dsl::DefinedObjects::AllInZone { filter, .. }
+                    if filter_matches(filter, cond_pred, amt_pred, 0)
+            ),
+            Effect::ChooseCardConstrained { filter, max, .. }
+            | Effect::AttachChosen { filter, max, .. } => {
+                filter_matches(filter, cond_pred, amt_pred, 0)
+                    || amt_matches(max, cond_pred, amt_pred, 0)
+            }
+            Effect::SearchLibraryDistinctNames { filter, count, .. } => {
+                filter_matches(filter, cond_pred, amt_pred, 0)
+                    || amt_matches(count, cond_pred, amt_pred, 0)
+            }
+            Effect::ForEachRemembered { filter, .. } => {
+                filter_matches(filter, cond_pred, amt_pred, 0)
+            }
+            _ => false,
+        };
+    });
+    found
+}
+
+pub(crate) fn card_reads_first_spell_each_turn(def: &CardDef) -> bool {
+    (0..def.faces.len().max(1)).any(|face| {
+        def.abilities_for_face(face)
+            .iter()
+            .any(ability_reads_first_spell_each_turn)
+    })
+}
+
+fn ability_reads_first_spell_each_turn(ability: &baylee_cards_dsl::AbilityDef) -> bool {
+    use baylee_cards_dsl::{AbilityDef, Modifier};
+    match ability {
+        AbilityDef::Static(sa) => {
+            matches!(sa.modifier, Modifier::FirstSpellEachTurnCostAdjust { .. })
+        }
+        AbilityDef::Spell { effects, .. }
+        | AbilityDef::Triggered { effects, .. }
+        | AbilityDef::Activated { effects, .. }
+        | AbilityDef::ActivatedConditional { effects, .. }
+        | AbilityDef::SagaChapter { effects, .. }
+        | AbilityDef::Loyalty { effects, .. } => effects_read_first_spell_each_turn(effects),
+        AbilityDef::ModalSpell { modes, .. }
+        | AbilityDef::Modal { modes, .. }
+        | AbilityDef::ModalActivated { modes, .. }
+        | AbilityDef::ModalTriggered { modes, .. } => modes
+            .iter()
+            .any(|m| effects_read_first_spell_each_turn(m.effects)),
+        _ => false,
+    }
+}
+
+fn effects_read_first_spell_each_turn(effects: &'static [baylee_cards_dsl::Effect]) -> bool {
+    let mut seen = 0;
+    let mut found = false;
+    baylee_cards_dsl::Effect::walk(effects, &mut seen, &mut |effect| {
+        use baylee_cards_dsl::{Effect, Modifier};
+        found |= match effect {
+            Effect::CreateContinuousEffect {
+                modifier: Modifier::FirstSpellEachTurnCostAdjust { .. },
+                ..
+            }
+            | Effect::AddTempModifier {
+                modifier: Modifier::FirstSpellEachTurnCostAdjust { .. },
+                ..
+            }
+            | Effect::AddGlobalTempModifier {
+                modifier: Modifier::FirstSpellEachTurnCostAdjust { .. },
+                ..
+            } => true,
+            Effect::MoveAndModify { modifiers, .. } => modifiers
+                .iter()
+                .any(|m| matches!(m, Modifier::FirstSpellEachTurnCostAdjust { .. })),
+            Effect::CreateEmblem { abilities } => {
+                abilities.iter().any(ability_reads_first_spell_each_turn)
+            }
             _ => false,
         };
     });

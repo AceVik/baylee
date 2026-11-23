@@ -33,7 +33,8 @@ fn reads_choose_zone(zone: baylee_cards_dsl::ChooseZone) -> bool {
         | baylee_cards_dsl::ChooseZone::Exile(p) => reads_player(p),
         baylee_cards_dsl::ChooseZone::Battlefield
         | baylee_cards_dsl::ChooseZone::LinkedExile
-        | baylee_cards_dsl::ChooseZone::Found => false,
+        | baylee_cards_dsl::ChooseZone::Found
+        | baylee_cards_dsl::ChooseZone::Remembered => false,
     }
 }
 fn reads_target(value: TargetSpec) -> bool {
@@ -43,6 +44,29 @@ fn reads_target(value: TargetSpec) -> bool {
         | TargetSpec::CardInGraveyard(_, who)
         | TargetSpec::CardInGraveyardBelowValue(_, who, _) => reads_player(who),
         _ => false,
+    }
+}
+fn reads_defined_objects(value: baylee_cards_dsl::DefinedObjects) -> bool {
+    match value {
+        baylee_cards_dsl::DefinedObjects::Spec(spec) => reads_target(spec),
+        baylee_cards_dsl::DefinedObjects::Found => false,
+        baylee_cards_dsl::DefinedObjects::AllInZone { zone, filter } => {
+            reads_filter(filter)
+                || matches!(
+                    zone,
+                    baylee_cards_dsl::ZoneSel::GraveyardOf(who)
+                        | baylee_cards_dsl::ZoneSel::HandOf(who)
+                        | baylee_cards_dsl::ZoneSel::LibraryOf(who)
+                        if reads_player(who)
+                )
+        }
+    }
+}
+fn reads_attach_host(value: baylee_cards_dsl::AttachHost) -> bool {
+    match value {
+        baylee_cards_dsl::AttachHost::Spec(spec) => reads_target(spec),
+        baylee_cards_dsl::AttachHost::ChosenPermanent(filter) => reads_filter(filter),
+        baylee_cards_dsl::AttachHost::ChosenPlayer(who) => reads_player(who),
     }
 }
 fn reads_amount(value: Amount) -> bool {
@@ -56,6 +80,7 @@ fn reads_amount(value: Amount) -> bool {
         | Amount::LifeTotal(who)
         | Amount::StartingLifeTotal(who)
         | Amount::LifeGainedThisTurn(who)
+        | Amount::DistinctCardTypesCastThisTurn(who)
         | Amount::CountOf {
             zone:
                 baylee_cards_dsl::ZoneSel::GraveyardOf(who)
@@ -63,6 +88,29 @@ fn reads_amount(value: Amount) -> bool {
                 | baylee_cards_dsl::ZoneSel::LibraryOf(who),
             ..
         } => reads_player(who),
+        Amount::EnteredThisTurn {
+            filter,
+            owner_or_ctrl: who,
+            ..
+        }
+        | Amount::SpellsCastMatchingThisTurn {
+            filter,
+            caster: who,
+        }
+        | Amount::CreaturesAttackedThisTurn {
+            filter,
+            controller: who,
+        } => reads_player(who) || reads_filter(filter),
+        Amount::DistinctManaValuesInZone { zone, filter } => {
+            reads_filter(filter)
+                || matches!(
+                    zone,
+                    baylee_cards_dsl::ZoneSel::GraveyardOf(who)
+                        | baylee_cards_dsl::ZoneSel::HandOf(who)
+                        | baylee_cards_dsl::ZoneSel::LibraryOf(who)
+                        if reads_player(who)
+                )
+        }
         Amount::Half { base, .. }
         | Amount::Divided { base, .. }
         | Amount::Times { base, .. }
@@ -211,6 +259,7 @@ fn reads_event(effect: &Effect) -> bool {
         | Effect::Suspect { target }
         | Effect::Unsuspect { target }
         | Effect::AddTempModifier { target, .. }
+        | Effect::PutEachCounterKindFromSource { target }
         | Effect::SacrificeObject { target, .. } => reads_target(*target),
         Effect::AddGlobalTempModifier { filter, .. } => reads_filter(filter),
         Effect::PreventNextDamageWithThen {
@@ -241,6 +290,13 @@ fn reads_event(effect: &Effect) -> bool {
             filter,
             max,
             ..
+        }
+        | Effect::ChooseCardConstrained {
+            chooser,
+            zone,
+            filter,
+            max,
+            ..
         } => {
             reads_player(*chooser)
                 || reads_amount(*max)
@@ -255,6 +311,22 @@ fn reads_event(effect: &Effect) -> bool {
             recipient_filter,
             ..
         } => reads_target(*attachment) || reads_filter(recipient_filter),
+        Effect::PutOntoBattlefieldAttached { subject, host, .. } => {
+            reads_defined_objects(*subject) || reads_attach_host(*host)
+        }
+        Effect::CreateTokenAttached { amount, host, .. } => {
+            reads_amount(*amount) || reads_attach_host(*host)
+        }
+        Effect::PutOntoBattlefieldAttacking {
+            subject: defined, ..
+        }
+        | Effect::DiscardDefined { cards: defined } => reads_defined_objects(*defined),
+        Effect::SearchLibraryDistinctNames { filter, count, .. } => {
+            reads_filter(filter) || reads_amount(*count)
+        }
+        Effect::AttachChosen {
+            filter, to, max, ..
+        } => reads_filter(filter) || reads_target(*to) || reads_amount(*max),
         Effect::SeparateIntoTwoPiles {
             separator,
             pile_chooser,

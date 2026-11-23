@@ -57,6 +57,7 @@ impl DamageWork {
                             .source
                             .and_then(|id| state.object(id).map(|o| o.version)),
                         event_object: first_event_source,
+                        damaged_player: super::rider_damaged_player(candidate.recipient, then),
                         prevented: replaced_total,
                         text: state.effect_text(fx),
                         chosen_subtype: fx.filter.chosen_subtype().or_else(|| {
@@ -251,15 +252,15 @@ impl DamageWork {
             return;
         }
         let key = match replacement {
-            DamageAmountReplacement::HalfDown | DamageAmountReplacement::HalfUp => {
-                EffectKey::ContinuousForSource(
-                    effect.id,
-                    baylee_core::ids::DamageSourceRef {
-                        object: part.view.source,
-                        version: part.source_version.unwrap_or(source.version),
-                    },
-                )
-            }
+            DamageAmountReplacement::HalfDown
+            | DamageAmountReplacement::HalfUp
+            | DamageAmountReplacement::Subtract(_) => EffectKey::ContinuousForSource(
+                effect.id,
+                baylee_core::ids::DamageSourceRef {
+                    object: part.view.source,
+                    version: part.source_version.unwrap_or(source.version),
+                },
+            ),
             DamageAmountReplacement::Cap(_) | DamageAmountReplacement::FloorAtEffectSourcePower => {
                 EffectKey::Continuous(effect.id)
             }
@@ -280,7 +281,7 @@ impl DamageWork {
         }
         let amount = match replacement {
             DamageAmountReplacement::Cap(cap) if total > cap => cap,
-            DamageAmountReplacement::Cap(_) => return,
+            DamageAmountReplacement::Cap(_) | DamageAmountReplacement::Subtract(0) => return,
             DamageAmountReplacement::FloorAtEffectSourcePower => {
                 let power = effect
                     .source
@@ -295,6 +296,7 @@ impl DamageWork {
             }
             DamageAmountReplacement::HalfDown => total / 2,
             DamageAmountReplacement::HalfUp => total.div_ceil(2),
+            DamageAmountReplacement::Subtract(sub) => total.saturating_sub(sub),
         };
         super::candidates::add(
             out,

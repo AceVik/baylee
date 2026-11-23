@@ -100,6 +100,10 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                             increase: true,
                             ..
                         }
+                        | baylee_cards_dsl::Modifier::FirstSpellEachTurnCostAdjust {
+                            increase: true,
+                            ..
+                        }
                 )
             });
         let next = self
@@ -127,6 +131,10 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                                 ..
                             }
                             | baylee_cards_dsl::Modifier::AdjustSpellCostByAmount {
+                                increase: false,
+                                ..
+                            }
+                            | baylee_cards_dsl::Modifier::FirstSpellEachTurnCostAdjust {
                                 increase: false,
                                 ..
                             }
@@ -1048,13 +1056,13 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
             .filter(|(source, index, mana)| {
                 !crate::choice::is_special_action(*index) && mana.has_variable() && {
                     let least = self.activation_x_minimum(player, *source, *index);
-                    self.reaches_activation_mana(
-                        player,
-                        &legal,
-                        *source,
-                        *index,
-                        &mana.with_x(least),
-                    )
+                    let least_mana = if least > 0 {
+                        self.activation_price_at_x(player, *source, *index, least)
+                            .map_or_else(|| mana.with_x(least), |p| p.mana)
+                    } else {
+                        mana.with_x(least)
+                    };
+                    self.reaches_activation_mana(player, &legal, *source, *index, &least_mana)
                 }
             })
             .map(|&(source, index, _)| (source, index))
@@ -1117,6 +1125,43 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
         }
     }
 
+    fn activation_price_at_x(
+        &self,
+        player: PlayerId,
+        source: ObjectId,
+        index: u32,
+        x: u32,
+    ) -> Option<ActivationPrice> {
+        let (AbilityDef::Activated {
+            cost: printed,
+            cost_reduction: reduction,
+            ..
+        }
+        | AbilityDef::ModalActivated {
+            cost: printed,
+            cost_reduction: reduction,
+            ..
+        }
+        | AbilityDef::ActivatedConditional {
+            cost: printed,
+            cost_reduction: reduction,
+            ..
+        }) = self.activation_definition(source, index)?
+        else {
+            return None;
+        };
+        Some(self.activation_price(
+            player,
+            source,
+            index,
+            &Cost {
+                mana: printed.mana.with_x(x),
+                parts: printed.parts,
+            },
+            reduction,
+        ))
+    }
+
     /// Check non-mana costs with the same reader as activation. An unpaid
     /// hint does not grant permission to activate or manufacture any mana.
     #[allow(clippy::too_many_arguments)]
@@ -1139,7 +1184,12 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
         {
             return;
         }
-        let minimum_cost = cost.with_mana(cost.mana.with_x(minimum));
+        let minimum_cost = if minimum > 0 && cost.mana.has_variable() {
+            self.activation_price_at_x(player, source, index, minimum)
+                .unwrap_or_else(|| cost.with_mana(cost.mana.with_x(minimum)))
+        } else {
+            cost.with_mana(cost.mana.with_x(minimum))
+        };
         let payable = payable
             && (minimum == 0
                 || self.activation_affordable(

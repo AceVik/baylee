@@ -191,7 +191,11 @@ fn recipient(
         .map(TargetRef::Player)
 }
 
-fn can_attach_to_recipient(state: &GameState, source: DamageSourceRef, host: TargetRef) -> bool {
+pub(super) fn can_attach_to_recipient(
+    state: &GameState,
+    source: DamageSourceRef,
+    host: TargetRef,
+) -> bool {
     subjects::on_battlefield(state, source)
         && match host {
             TargetRef::Object(target) => {

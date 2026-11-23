@@ -104,6 +104,7 @@ impl GameState {
             reflexive,
             resolution_chosen_color: _,
             resolution_chosen_number: _,
+            resolution_remembered: _,
             discovered,
             divided: _,
             synthetic_copies: _,

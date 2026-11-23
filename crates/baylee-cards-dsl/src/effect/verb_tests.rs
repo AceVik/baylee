@@ -1303,3 +1303,55 @@ fn prevent_next_damage_with_then_body_is_visited() {
     assert_eq!(seen, 2);
     assert!(gained);
 }
+
+#[test]
+fn wave15b_choose_card_constrained_body_is_visited() {
+    static EFFECTS: &[Effect] = &[Effect::ChooseCardConstrained {
+        chooser: crate::PlayerRel::You,
+        zone: crate::ChooseZone::Hand(crate::PlayerRel::You),
+        filter: &Filter::Any,
+        min: 1,
+        max: Amount::Fixed(2),
+        at_random: true,
+        distinct_names: true,
+        reveal_chosen: false,
+        movement: crate::ChooseMove::None,
+        then: &[Effect::DiscardDefined {
+            cards: crate::DefinedObjects::Found,
+        }],
+    }];
+    let mut seen = 0;
+    let mut discarded = false;
+    Effect::walk(EFFECTS, &mut seen, &mut |effect| {
+        discarded |= matches!(effect, Effect::DiscardDefined { .. });
+    });
+    assert_eq!(seen, 2);
+    assert!(discarded);
+}
+
+#[test]
+fn capture_affected_for_each_remembered_and_with_all_targets_are_visited() {
+    static EFFECTS: &[Effect] = &[
+        Effect::CaptureAffected {
+            first: &[Effect::SacrificeAll {
+                filter: &Filter::CREATURE,
+            }],
+            then: &[Effect::ForEachRemembered {
+                filter: &Filter::Any,
+                effects: &[Effect::GainLife {
+                    amount: Amount::RememberedCount,
+                }],
+            }],
+        },
+        Effect::WithAllTargets(&[Effect::UntapTarget]),
+    ];
+    let mut seen = 0;
+    let (mut sac, mut gained, mut untapped) = (false, false, false);
+    Effect::walk(EFFECTS, &mut seen, &mut |effect| {
+        sac |= matches!(effect, Effect::SacrificeAll { .. });
+        gained |= matches!(effect, Effect::GainLife { .. });
+        untapped |= matches!(effect, Effect::UntapTarget);
+    });
+    assert_eq!(seen, 6);
+    assert!(sac && gained && untapped);
+}

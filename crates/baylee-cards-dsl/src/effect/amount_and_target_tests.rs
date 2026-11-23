@@ -127,3 +127,44 @@ fn bounds_read_x_only_where_the_count_is_x() {
         "X target counts retain the full announced value"
     );
 }
+
+/// Wave 15a's turn-history counts and distinct-value counts are magnitudes:
+/// every one of them counts upwards, and a negation of one counts down.
+#[test]
+fn wave15a_turn_history_and_distinct_counts_count_upwards() {
+    const ENTERED: Amount = Amount::EnteredThisTurn {
+        filter: &Filter::CREATURE,
+        from: Some(crate::ZoneRef::Battlefield),
+        to: crate::ZoneRef::Graveyard,
+        owner_or_ctrl: PlayerRel::You,
+        exclude_source: false,
+    };
+    let upwards = [
+        ENTERED,
+        Amount::SpellsCastMatchingThisTurn {
+            filter: &Filter::INSTANT_OR_SORCERY,
+            caster: PlayerRel::You,
+        },
+        Amount::DistinctCardTypesCastThisTurn(PlayerRel::You),
+        Amount::CreaturesAttackedThisTurn {
+            filter: &Filter::CREATURE,
+            controller: PlayerRel::You,
+        },
+        Amount::DistinctManaValuesInZone {
+            zone: ZoneSel::GraveyardYou,
+            filter: &Filter::Any,
+        },
+        Amount::DistinctCounterKindsOnSource,
+        Amount::HighestOpponentHandSize,
+    ];
+    for amount in upwards {
+        assert!(!amount.is_negative(), "{amount:?} counts upwards");
+    }
+    assert!(Amount::Negated(&ENTERED).is_negative());
+    // Each is its own variant: two different questions never compare equal.
+    for (i, a) in upwards.iter().enumerate() {
+        for b in &upwards[i + 1..] {
+            assert_ne!(a, b);
+        }
+    }
+}

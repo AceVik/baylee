@@ -72,7 +72,7 @@ pub(crate) fn float_for(
                 continue;
             };
             let Some((price, timing, taps_self)) =
-                funding_cost(legal, agent.profile(), object.id, index, def)
+                funding_cost(view, legal, agent.profile(), object.id, index, def)
             else {
                 continue;
             };
@@ -92,7 +92,9 @@ pub(crate) fn float_for(
             {
                 continue;
             }
-            let Some(worth) = agent.activation_worth(view, Origin::of(view, object.id), def) else {
+            let Some(worth) =
+                agent.activation_worth_at_price(view, Origin::of(view, object.id), def, price)
+            else {
                 continue;
             };
             if worth > THRESHOLD
@@ -132,6 +134,7 @@ pub(crate) fn float_for(
 }
 
 fn funding_cost(
+    view: &PlayerView,
     legal: &LegalActions,
     profile: AIProfile,
     source: ObjectId,
@@ -143,7 +146,7 @@ fn funding_cost(
         timing,
         mana_ability: false,
         zone: ActivationZone::Battlefield,
-        limit: ActivationLimit::Unlimited,
+        limit: limit @ (ActivationLimit::Unlimited | ActivationLimit::Exhaust),
         cost_reduction: None,
         ..
     }
@@ -152,7 +155,7 @@ fn funding_cost(
         timing,
         mana_ability: false,
         zone: ActivationZone::Battlefield,
-        limit: ActivationLimit::Unlimited,
+        limit: limit @ (ActivationLimit::Unlimited | ActivationLimit::Exhaust),
         cost_reduction: None,
         condition: Condition::ClassLevelExactly(_),
         ..
@@ -167,9 +170,17 @@ fn funding_cost(
     if conditional && !profile.plays(AIProfile::CLASS_UPGRADES) {
         return None;
     }
-    let price = if !conditional && cost.parts.iter().all(|part| *part == CostPart::TapSelf) {
-        cost.mana
-            .with_more_generic(legal.activation_increase(source))
+    let unpaid_price = legal
+        .unpaid_abilities
+        .iter()
+        .find_map(|&(id, ability, mana)| (id == source && ability == index).then_some(mana));
+    let price = if !conditional
+        && *limit == ActivationLimit::Unlimited
+        && cost.parts.iter().all(|part| *part == CostPart::TapSelf)
+    {
+        unpaid_price.unwrap_or_else(|| {
+            crate::policy::ability_mana_price(view, legal, source, def, cost.mana)
+        })
     } else {
         if !conditional
             && (!profile.plays(AIProfile::PAY_LIFE_ACTIVATION_MANA)
@@ -180,12 +191,9 @@ fn funding_cost(
         {
             return None;
         }
-        // The engine has checked the current level or life payment, as well
-        // as timing, targets and locks. Each subsequent tap rechecks it.
-        legal
-            .unpaid_abilities
-            .iter()
-            .find_map(|&(id, ability, mana)| (id == source && ability == index).then_some(mana))?
+        // The engine has checked the current level, exhaust state, or life
+        // payment, as well as timing, targets and locks. Each subsequent tap rechecks it.
+        unpaid_price?
     };
     Some((price, *timing, cost.parts.contains(&CostPart::TapSelf)))
 }
@@ -260,7 +268,9 @@ fn float_graveyard_activations(
             if u64::from(price.cmc()) > room {
                 continue;
             }
-            let Some(worth) = agent.activation_worth(view, Origin::of(view, object.id), def) else {
+            let Some(worth) =
+                agent.activation_worth_at_price(view, Origin::of(view, object.id), def, price)
+            else {
                 continue;
             };
             if worth > THRESHOLD

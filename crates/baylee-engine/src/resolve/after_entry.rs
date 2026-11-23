@@ -27,6 +27,17 @@ pub enum AfterEntry {
     },
     /// Place deferred myriad token copies into combat once entry replacements finish.
     FinishMyriadCombat,
+    /// Place deferred entrants from `Effect::PutOntoBattlefieldAttacking` into
+    /// combat once entry replacements finish (CR 508.4).
+    FinishAttackingFound,
+    /// Attach a deferred Equipment/Fortification entrant to `host` once entry
+    /// replacements finish (CR 301.5c, CR 301.6).
+    AttachEntered {
+        /// Entering attachment permanent.
+        object: ObjectId,
+        /// Intended recipient permanent or player.
+        host: baylee_core::ids::TargetRef,
+    },
 }
 
 pub(super) fn resume(
@@ -45,6 +56,11 @@ pub(super) fn resume(
         }
         AfterEntry::FinishMyriadCombat => {
             super::wave4_combat::after_myriad_entry(state, res);
+            None
+        }
+        AfterEntry::FinishAttackingFound => super::wave15b::after_entry_attacking_found(state, res),
+        AfterEntry::AttachEntered { object, host } => {
+            super::wave15b::after_entry_attach(state, object, host);
             None
         }
     }

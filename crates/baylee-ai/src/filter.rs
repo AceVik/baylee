@@ -472,7 +472,8 @@ impl HeuristicAgent {
             // documentation with the reason each one is a refusal and not an
             // omission; a caller gets `None` and falls back.
             // Ability removal and granted mana abilities require engine evaluation.
-            Filter::Monstrous
+            Filter::Saddled
+            | Filter::Monstrous
             | Filter::OwnedBySourceOwner
             | Filter::HasWatermark
             | Filter::SharesWatermarkWithSource
@@ -546,7 +547,11 @@ impl HeuristicAgent {
         | Filter::CmcAtMostAmount(_)
         | Filter::CmcEqualsAmount(_)
         | Filter::PowerAtMostAmount(_)
-        | Filter::PowerAtLeastAmount(_) => None,
+        | Filter::PowerAtLeastAmount(_)
+        | Filter::IsRemembered
+        | Filter::NotRemembered
+        | Filter::SharesCardTypeWithRemembered
+        | Filter::SharesNameWithRemembered => None,
         }
     }
 
@@ -1419,9 +1424,13 @@ impl HeuristicAgent {
             | PlayerRel::GiftRecipient
             | PlayerRel::DefendingPlayer
             | PlayerRel::OwnerOfEvent
+            | PlayerRel::OwnerOfTarget
             | PlayerRel::ControllerOfTarget
             | PlayerRel::TargetPlayerOrController
+            | PlayerRel::FirstTargetPlayerOrController
             | PlayerRel::SecondTargetPlayerOrController
+            | PlayerRel::ThirdTargetPlayerOrController
+            | PlayerRel::RememberedController
             | PlayerRel::ControllerOfEvent
             | PlayerRel::DamagedPlayer
             | PlayerRel::EventPlayer

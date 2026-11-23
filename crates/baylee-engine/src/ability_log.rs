@@ -653,6 +653,26 @@ pub(crate) fn replaced_by(source: ObjectId, rule: ReplacementRule) {
     }
 }
 
+/// `source`'s `rule` changed an event from any zone (including a library,
+/// hand or the stack, where `sync_static_effects` never registered it).
+pub(crate) fn replaced_on(state: &GameState, source: ObjectId, rule: ReplacementRule) {
+    if !enabled() {
+        return;
+    }
+    let lookup = state.bases.as_ref();
+    if let Some(obj) = state.object(source) {
+        let list = obj.ability_list(lookup);
+        if let Some(at) = position(
+            &list.abilities,
+            |a| matches!(a, AbilityDef::Replacement(r) if *r == rule),
+        ) {
+            fired_ability(lookup, &list, at, Kind::Replacement);
+            return;
+        }
+    }
+    replaced_by(source, rule);
+}
+
 /// `copier` is entering as a copy of something: its "enter as a copy"
 /// ability did what it says (CR 707.9, a replacement of how it enters).
 pub(crate) fn copied_on_entry(state: &GameState, lookup: &impl CardLookup, copier: ObjectId) {

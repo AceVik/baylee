@@ -327,6 +327,18 @@ pub(super) fn trigger_count(
     source: ObjectId,
     controller: PlayerId,
 ) -> u32 {
+    let Some(source_obj) = state.object(source) else {
+        return 1;
+    };
+    trigger_count_for_source(state, trigger, source_obj, controller)
+}
+
+pub(super) fn trigger_count_for_source(
+    state: &GameState,
+    trigger: &Trigger,
+    source: &crate::object::GameObject,
+    controller: PlayerId,
+) -> u32 {
     let event_kind = match trigger {
         Trigger::EntersBattlefield(_)
         | Trigger::EntersBattlefieldFromGraveyardOrCast(_)
@@ -345,7 +357,7 @@ pub(super) fn trigger_count(
         _ => baylee_cards_dsl::TriggerEventKind::Any,
     };
     let _ = controller;
-    times_triggered(state, event_kind, source)
+    times_triggered_with_source(state, event_kind, source)
 }
 
 pub(super) fn tap_trigger_count(

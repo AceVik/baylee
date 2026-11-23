@@ -398,6 +398,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
     /// first check, which is the machine's own next pass (`Cleanup::Checking`).
     pub(crate) fn cleanup_ends_the_turns_effects(&mut self) {
         let mut reverted: Vec<ObjectId> = Vec::new();
+        let mut saddled_cleared = false;
         // Only objects with something to end are written, so the chunks of
         // an arena holding none stay shared with the answer's checkpoint.
         self.state.arena.update_where(
@@ -415,6 +416,9 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                     })
             },
             |obj| {
+                if obj.riders.contains(&crate::object::Rider::Saddled) {
+                    saddled_cleared = true;
+                }
                 obj.riders.retain(|rider| {
                     !matches!(
                         rider,
@@ -434,6 +438,9 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 }
             },
         );
+        if saddled_cleared {
+            self.state.invalidate_projections();
+        }
         crate::copiable_abilities::temporary::restore(&mut self.state);
         if self.state.text_changes.end_turn() {
             self.state.invalidate_projections();

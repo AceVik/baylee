@@ -180,7 +180,7 @@ struct MoveAndModifySpec {
     when_source_leaves: Option<baylee_cards_dsl::SourceLeaveAction>,
 }
 
-fn zone_sel_candidates(
+pub(super) fn zone_sel_candidates(
     state: &GameState,
     res: &Resolution,
     zone: baylee_cards_dsl::ZoneSel,

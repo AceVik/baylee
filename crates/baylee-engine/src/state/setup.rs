@@ -125,6 +125,7 @@ impl GameState {
             reflexive: Vec::new(),
             resolution_chosen_color: None,
             resolution_chosen_number: None,
+            resolution_remembered: None,
             discovered: Vec::new(),
             divided: Vec::new(),
             synthetic_copies: Vec::new(),
@@ -456,6 +457,11 @@ impl GameState {
         self.per_turn.cards_discarded.tracked |= super::reads::card_reads_discard_count(def);
         self.per_turn.sacrificed_permanents.tracked |=
             super::reads::card_reads_sacrificed_permanents(def);
+        self.per_turn.zone_changes.tracked |= super::reads::card_reads_zone_changes(def);
+        self.per_turn.spells_cast_log.tracked |= super::reads::card_reads_spells_cast_log(def);
+        self.per_turn.counter_placers.tracked |= super::reads::card_reads_counter_placers(def);
+        self.per_turn.cast_spells_this_turn.tracked |=
+            super::reads::card_reads_first_spell_each_turn(def);
         let base = self.card_base(def, entry.card);
         let card = CardRef {
             index: entry.card,
@@ -572,6 +578,11 @@ impl GameState {
         self.per_turn.cards_discarded.tracked |= super::reads::card_reads_discard_count(def);
         self.per_turn.sacrificed_permanents.tracked |=
             super::reads::card_reads_sacrificed_permanents(def);
+        self.per_turn.zone_changes.tracked |= super::reads::card_reads_zone_changes(def);
+        self.per_turn.spells_cast_log.tracked |= super::reads::card_reads_spells_cast_log(def);
+        self.per_turn.counter_placers.tracked |= super::reads::card_reads_counter_placers(def);
+        self.per_turn.cast_spells_this_turn.tracked |=
+            super::reads::card_reads_first_spell_each_turn(def);
         Ok(PrintedCard {
             base: self.card_base(def, index),
             cda: printed_pt_cda(def),

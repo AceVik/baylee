@@ -237,6 +237,11 @@ pub enum ChooseZone {
     /// Mentor*, *You Find Some Prisoners*, *Queen Kayla bin-Kroog*, *Truth or
     /// Tale*). Appended to preserve replay identities.
     Found,
+    /// Objects/cards remembered by the innermost enclosing
+    /// [`super::Effect::CaptureAffected`] in whichever zone each remembered
+    /// incarnation currently occupies (`CR 400.7`). Appended to preserve replay
+    /// identities.
+    Remembered,
 }
 
 /// Optional zone movement applied to each card or permanent chosen (or left

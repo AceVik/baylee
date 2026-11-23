@@ -1369,7 +1369,7 @@ fn collect_for_objects(
                     let times = if observes_tap {
                         matching::tap_trigger_count(state, source, controller)
                     } else {
-                        trigger_count(state, trigger, permanent, controller)
+                        matching::trigger_count_for_source(state, trigger, source, controller)
                     } * hit;
                     let event_subject = event_subject_for(trigger, &entry.event, permanent, state);
                     let event_ability = activated_stack_ability(&entry.event);
@@ -1532,8 +1532,12 @@ fn collect_for_objects(
                     )
                 });
                 if hit > 0 {
-                    let times =
-                        trigger_count(state, &blitz_trigger, permanent, departed.controller) * hit;
+                    let times = matching::trigger_count_for_source(
+                        state,
+                        &blitz_trigger,
+                        departed,
+                        departed.controller,
+                    ) * hit;
                     for _ in 0..times {
                         triggers.push(PendingTrigger {
                             text: TextChangeMap::IDENTITY,
@@ -1781,7 +1785,7 @@ fn collect_for_objects(
                     let times = if observes_tap {
                         matching::tap_trigger_count(state, source, controller)
                     } else {
-                        trigger_count(state, trigger, permanent, obj.controller)
+                        matching::trigger_count_for_source(state, trigger, source, obj.controller)
                     } * hit;
                     let event_object = event_object_for(trigger, &entry.event, permanent, state);
                     let event_damage =

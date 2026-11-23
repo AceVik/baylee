@@ -511,6 +511,41 @@ fn dredge_is_read_off_a_cards_printed_rules() {
 }
 
 #[test]
+fn wave15e_life_gain_replacement_rank_orders_add_before_multiply_before_terminal() {
+    use baylee_cards_dsl::prelude::static_ability;
+    use baylee_cards_dsl::{Filter, LifeGainOp, Modifier, PlayerRel};
+    let add = [static_ability!(
+        Filter::Any,
+        Modifier::ModifyLifeGain {
+            who: PlayerRel::You,
+            op: LifeGainOp::Add(1),
+        }
+    )];
+    let mul = [static_ability!(
+        Filter::Any,
+        Modifier::ModifyLifeGain {
+            who: PlayerRel::You,
+            op: LifeGainOp::Multiply(2),
+        }
+    )];
+    let draws = [static_ability!(
+        Filter::Any,
+        Modifier::LifeGainDrawsInstead {
+            who: PlayerRel::You,
+        }
+    )];
+    let none = [static_ability!(
+        Filter::Any,
+        Modifier::LifeGainNoLifeInstead {
+            who: PlayerRel::EachPlayer,
+        }
+    )];
+    assert!(policy::life_gain_replacement_rank(&add) < policy::life_gain_replacement_rank(&mul));
+    assert!(policy::life_gain_replacement_rank(&mul) < policy::life_gain_replacement_rank(&draws));
+    assert!(policy::life_gain_replacement_rank(&draws) < policy::life_gain_replacement_rank(&none));
+}
+
+#[test]
 fn private_hand_discard_takes_the_best_card_instead_of_the_first() {
     let (elves, wurm) = (obj(1), obj(2));
     let me = PlayerId::new(0);

@@ -583,7 +583,7 @@ pub(crate) fn put_counters(
     }
 }
 
-fn unavailable(state: &GameState) -> &BTreeSet<ObjectId> {
+pub(crate) fn unavailable(state: &GameState) -> &BTreeSet<ObjectId> {
     &state.entries.event_objects
 }
 

@@ -1549,6 +1549,35 @@ pub enum AwaitingOp {
         /// Follow-up instructions executed only if `attachment` actually attached.
         then_if_moved: &'static [Effect],
     },
+    /// Host permanent selection for `Effect::PutOntoBattlefieldAttached` (CR 303.4f).
+    PutAttachedHost(Box<super::wave15b::PutAttachedState>),
+    /// Host player selection for `Effect::PutOntoBattlefieldAttached` (CR 303.4f).
+    PutAttachedHostPlayer(Box<super::wave15b::PutAttachedState>),
+    /// Host permanent selection for `Effect::CreateTokenAttached` (CR 303.4f).
+    CreateTokenAttached {
+        /// Token definition to create.
+        token: &'static baylee_cards_dsl::TokenDef,
+        /// Number of tokens to create.
+        count: u32,
+        /// Whether the token is an Aura (cannot be created without a legal host).
+        is_aura: bool,
+    },
+    /// Host player selection for `Effect::CreateTokenAttached` (CR 303.4f).
+    CreateTokenAttachedPlayer {
+        /// Token definition to create.
+        token: &'static baylee_cards_dsl::TokenDef,
+        /// Number of tokens to create.
+        count: u32,
+        /// Whether the token is an Aura (cannot be created without a legal host).
+        is_aura: bool,
+    },
+    /// Card selection for `Effect::ChooseCardConstrained` (distinct-name or single-step).
+    ChooseCardConstrained(Box<super::wave15b::ChooseConstrainedState>),
+    /// Attachment selection for `Effect::AttachChosen` (CR 701.3a–b).
+    AttachChosen {
+        /// Recipient permanent or player to attach chosen permanents to.
+        host: baylee_core::ids::TargetRef,
+    },
 }
 
 /// Work to resume after an optional life payment.
@@ -2041,6 +2070,24 @@ impl AwaitingOp {
                 attachment,
                 then_if_moved,
             } => crate::state::structural_fingerprint(&(246_u8, attachment, then_if_moved)),
+            Self::PutAttachedHost(spec) => crate::state::structural_fingerprint(&(247_u8, spec)),
+            Self::PutAttachedHostPlayer(spec) => {
+                crate::state::structural_fingerprint(&(248_u8, spec))
+            }
+            Self::CreateTokenAttached {
+                token,
+                count,
+                is_aura,
+            } => crate::state::structural_fingerprint(&(249_u8, token, count, is_aura)),
+            Self::CreateTokenAttachedPlayer {
+                token,
+                count,
+                is_aura,
+            } => crate::state::structural_fingerprint(&(250_u8, token, count, is_aura)),
+            Self::ChooseCardConstrained(spec) => {
+                crate::state::structural_fingerprint(&(251_u8, spec))
+            }
+            Self::AttachChosen { host } => crate::state::structural_fingerprint(&(252_u8, host)),
             _ => 0,
         }
     }

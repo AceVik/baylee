@@ -119,6 +119,7 @@ fn grant_exile_permission(
         return;
     };
     let card_version = card_obj.version;
+    let card_owner = card_obj.owner;
     let source_ref = super::source_version(state, res)
         .or_else(|| state.object(res.source).map(|o| o.version))
         .filter(|&ver| {
@@ -141,16 +142,42 @@ fn grant_exile_permission(
     else {
         return;
     };
-    state.play_permissions.push(crate::state::PlayPermission {
-        player: res.controller,
-        card,
-        version: card_version,
-        free: permission.free,
-        mana_any_type: permission.mana == baylee_cards_dsl::ExileMana::AnyType,
-        cast_only: permission.cast_only,
-        spell_types: permission.spell_types,
-        window,
-    });
+    let grantees: smallvec::SmallVec<[PlayerId; 2]> = match permission.caster {
+        PlayerRel::OwnerOfTarget => (!state.has_left(card_owner))
+            .then_some(card_owner)
+            .into_iter()
+            .collect(),
+        PlayerRel::OwnerOfEvent => {
+            let from_event = players_of(PlayerRel::OwnerOfEvent, state, res.controller, res);
+            if from_event.is_empty() {
+                (!state.has_left(card_owner))
+                    .then_some(card_owner)
+                    .into_iter()
+                    .collect()
+            } else {
+                from_event
+                    .into_iter()
+                    .filter(|p| !state.has_left(*p))
+                    .collect()
+            }
+        }
+        other => players_of(other, state, res.controller, res)
+            .into_iter()
+            .filter(|p| !state.has_left(*p))
+            .collect(),
+    };
+    for player in grantees {
+        state.play_permissions.push(crate::state::PlayPermission {
+            player,
+            card,
+            version: card_version,
+            free: permission.free,
+            mana_any_type: permission.mana == baylee_cards_dsl::ExileMana::AnyType,
+            cast_only: permission.cast_only,
+            spell_types: permission.spell_types,
+            window,
+        });
+    }
 }
 
 /// Exiles up to `count` cards from the top of `who`'s library and grants

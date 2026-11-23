@@ -628,11 +628,47 @@ fn condition_holds(view: &PlayerView, condition: AltCondition) -> bool {
             baylee_cards_dsl::Condition::All(clauses) => clauses
                 .iter()
                 .all(|clause| condition_holds(view, AltCondition::If(clause))),
+            baylee_cards_dsl::Condition::AmountCompare { left, op, right } => {
+                match (view_amount(view, **left), view_amount(view, **right)) {
+                    (Some(l), Some(r)) => op.holds(l, r),
+                    _ => false,
+                }
+            }
             // Conditions whose inputs the view does not carry (graveyard
             // history, per-turn tallies, source counters) stay refused rather
             // than guessed at.
             _ => false,
         },
+    }
+}
+
+/// Evaluates an `Amount` when the `PlayerView` holds its exact value; returns
+/// `None` for any quantity the view cannot prove (so pre-tap never guesses).
+fn view_amount(view: &PlayerView, amount: baylee_cards_dsl::Amount) -> Option<u32> {
+    use baylee_cards_dsl::{Amount, PlayerRel, ZoneSel};
+    let payer = resource_player(view);
+    match amount {
+        Amount::Fixed(n) => Some(n),
+        Amount::HandSize(PlayerRel::You) => view.seat(payer).map(|s| s.hand_count),
+        Amount::LifeTotal(PlayerRel::You) => view
+            .seat(payer)
+            .map(|s| u32::try_from(s.life.max(0)).unwrap_or(0)),
+        Amount::HighestOpponentHandSize if view.seats.len() == 2 => view
+            .seats
+            .iter()
+            .filter(|s| s.loss.is_none() && s.player != payer)
+            .map(|s| s.hand_count)
+            .max()
+            .or(Some(0)),
+        Amount::DistinctManaValuesInZone {
+            zone: ZoneSel::GraveyardYou,
+            filter: &Filter::Any,
+        } => {
+            let gy = view.graveyards.get(usize::from(payer.get()))?;
+            let mvs: std::collections::BTreeSet<u32> = gy.iter().map(|o| o.mana_value).collect();
+            u32::try_from(mvs.len()).ok()
+        }
+        _ => None,
     }
 }
 

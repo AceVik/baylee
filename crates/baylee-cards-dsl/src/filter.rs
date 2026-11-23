@@ -499,6 +499,29 @@ pub enum Filter {
     /// filter evaluation; *Expel the Interlopers*). Appended to preserve replay
     /// identities.
     PowerAtLeastAmount(&'static crate::Amount),
+    /// Permanent on the battlefield with the saddled designation, which a
+    /// Mount has from the resolution of its saddle ability until end of turn
+    /// or until it leaves the battlefield (CR 702.171b). Appended to preserve
+    /// replay identities.
+    Saddled,
+    /// The exact incarnation of an object remembered by the innermost
+    /// enclosing [`crate::Effect::CaptureAffected`] (`CR 400.7`: a remembered
+    /// card that has moved again since is a new object and no longer
+    /// matches). Matches nothing outside a capture's `then`. With
+    /// [`crate::Effect::RepeatEachObject`] this is "for each of them".
+    /// Appended to preserve replay identities.
+    IsRemembered,
+    /// Not [`Self::IsRemembered`]: "that weren't put there this way"
+    /// (Bringer of the Last Gift). Outside a capture's `then` every object
+    /// matches, since nothing is remembered. Appended to preserve replay
+    /// identities.
+    NotRemembered,
+    /// Shares a card type (`CR 205.2a`) with at least one remembered object as
+    /// it last existed. Appended to preserve replay identities.
+    SharesCardTypeWithRemembered,
+    /// Has the same name (`CR 201.2`) as at least one remembered object as it
+    /// last existed. Appended to preserve replay identities.
+    SharesNameWithRemembered,
 }
 
 /// Zone references for filters (engine zones, DSL view).

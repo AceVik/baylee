@@ -47,6 +47,7 @@ mod wave13a;
 mod wave14d;
 mod wave14f;
 pub(crate) use wave14f::finish_variable_mana;
+mod wave15b;
 mod weakest;
 use copying::{copy_spell, copy_target_ability};
 mod coin;
@@ -88,6 +89,8 @@ pub(crate) mod mana_life_payment;
 mod milling;
 mod reanimation;
 mod reflexive;
+pub(crate) mod remembered;
+pub(crate) use remembered::{RememberedObject, matches_remembered_filter, remembered_amount};
 mod regeneration;
 mod retarget;
 mod reveal_put;
@@ -787,6 +790,13 @@ pub(super) fn amount2(amount: &Amount, state: &GameState, you: PlayerId, res: &R
         Amount::CountersOnSource(kind) => state
             .damage_source(res.source, source_version(state, res))
             .map_or(0, |object| u32::from(object.counters.get(*kind))),
+        Amount::DistinctCounterKindsOnSource => state
+            .damage_source(res.source, source_version(state, res))
+            .map_or(0, |object| {
+                u32::try_from(object.counters.iter().filter(|&(_, n)| n > 0).count())
+                    .unwrap_or(u32::MAX)
+            }),
+        Amount::HighestOpponentHandSize => eval::highest_opponent_hand_size(state, you),
         Amount::SourcePower => state
             .damage_source(res.source, source_version(state, res))
             .and_then(|source| source.characteristics().power)
@@ -840,6 +850,12 @@ pub(super) fn amount2(amount: &Amount, state: &GameState, you: PlayerId, res: &R
                         .and_then(|c| c.toughness)
                 })
                 .or_else(|| {
+                    res.subject
+                        .event_identity()
+                        .and_then(|(r, _)| res.subject.remembered_by_ref(r))
+                        .and_then(|rem| rem.lki.toughness)
+                })
+                .or_else(|| {
                     state
                         .damage_source(source, identity.map(|(v, _)| v))
                         .and_then(|o| o.characteristics().toughness)
@@ -866,6 +882,12 @@ pub(super) fn amount2(amount: &Amount, state: &GameState, you: PlayerId, res: &R
                 })
             })
             .or_else(|| {
+                res.subject
+                    .event_identity()
+                    .and_then(|(r, _)| res.subject.remembered_by_ref(r))
+                    .map(|rem| rem.lki.mana_value)
+            })
+            .or_else(|| {
                 res.event_object
                     .and_then(|id| state.object_or_departed(id))
                     .map(|o| o.characteristics().mana_value())
@@ -877,6 +899,10 @@ pub(super) fn amount2(amount: &Amount, state: &GameState, you: PlayerId, res: &R
         Amount::LastDieRoll => res.subject.last_die_roll.unwrap_or(0),
         Amount::CoinsWonThisResolution => res.subject.coins_won,
         Amount::ResolutionChosenNumber => res.subject.chosen_number.unwrap_or(0),
+        Amount::RememberedCount
+        | Amount::RememberedManaValue
+        | Amount::RememberedPower
+        | Amount::RememberedToughness => remembered_amount(amount, res.subject.remembered()),
         // Off the stack object, which is where the payment wrote it — a
         // spell's own, or the ability's rather than its permanent's.
         Amount::SacrificedManaValue | Amount::SacrificedPower | Amount::SacrificedToughness => {
@@ -1229,6 +1255,52 @@ pub(super) fn amount2(amount: &Amount, state: &GameState, you: PlayerId, res: &R
         Amount::GreatestManaValueAmong(filter) => {
             greatest_among_in_resolution(state, you, res, filter, false)
         }
+        Amount::EnteredThisTurn {
+            filter,
+            from,
+            to,
+            owner_or_ctrl,
+            exclude_source,
+        } => {
+            let seats = players_of(*owner_or_ctrl, state, you, res);
+            eval::entered_this_turn_for_seats(
+                state,
+                you,
+                res.rule_context(),
+                filter,
+                *from,
+                *to,
+                &seats,
+                *exclude_source,
+                source_version(state, res),
+            )
+        }
+        Amount::SpellsCastMatchingThisTurn { filter, caster } => {
+            let seats = players_of(*caster, state, you, res);
+            eval::spells_cast_matching_for_seats(state, you, res.rule_context(), filter, &seats)
+        }
+        Amount::DistinctCardTypesCastThisTurn(who) => {
+            let seats = players_of(*who, state, you, res);
+            eval::distinct_card_types_cast_for_seats(state, &seats)
+        }
+        Amount::CreaturesAttackedThisTurn { filter, controller } => {
+            let seats = players_of(*controller, state, you, res);
+            eval::creatures_attacked_for_seats(state, you, res.rule_context(), filter, &seats)
+        }
+        Amount::DistinctManaValuesInZone { zone, filter } => {
+            let require_card = !matches!(zone, baylee_cards_dsl::ZoneSel::Battlefield);
+            let candidates = wave12a::snapshot_zone_candidates(state, res, *zone);
+            let mut values = std::collections::BTreeSet::<u32>::new();
+            for id in candidates {
+                if let Some(o) = state.object(id)
+                    && (!require_card || o.is_card())
+                    && matches_in_resolution(filter, state, o, you, res, None)
+                {
+                    values.insert(o.characteristics().mana_value());
+                }
+            }
+            u32::try_from(values.len()).unwrap_or(u32::MAX)
+        }
         other => eval::amount_with_context(other, state, you, res.rule_context(), res.x),
     }
 }
@@ -1278,6 +1350,7 @@ fn greatest_among_in_resolution(
 /// the amount names `player` ("the number of Islands that player controls",
 /// "draws that many cards"), and every other amount reads as [`amount2`]
 /// reads it.
+#[allow(clippy::too_many_lines)] // One arm per Recipient-bearing Amount variant.
 pub(super) fn amount_for_player(
     amount: &Amount,
     state: &GameState,
@@ -1319,6 +1392,60 @@ pub(super) fn amount_for_player(
         }
         Amount::ManaExpendedOnSpellsThisTurn(PlayerRel::Recipient) => {
             state.per_turn.mana_expended_by(player)
+        }
+        Amount::EnteredThisTurn {
+            filter,
+            from,
+            to,
+            owner_or_ctrl: PlayerRel::Recipient,
+            exclude_source,
+        } => eval::entered_this_turn_for_seats(
+            state,
+            you,
+            res.rule_context(),
+            filter,
+            *from,
+            *to,
+            &[player],
+            *exclude_source,
+            source_version(state, res),
+        ),
+        Amount::SpellsCastMatchingThisTurn {
+            filter,
+            caster: PlayerRel::Recipient,
+        } => {
+            eval::spells_cast_matching_for_seats(state, you, res.rule_context(), filter, &[player])
+        }
+        Amount::DistinctCardTypesCastThisTurn(PlayerRel::Recipient) => {
+            eval::distinct_card_types_cast_for_seats(state, &[player])
+        }
+        Amount::CreaturesAttackedThisTurn {
+            filter,
+            controller: PlayerRel::Recipient,
+        } => eval::creatures_attacked_for_seats(state, you, res.rule_context(), filter, &[player]),
+        Amount::DistinctManaValuesInZone {
+            zone:
+                zone @ (baylee_cards_dsl::ZoneSel::GraveyardOf(PlayerRel::Recipient)
+                | baylee_cards_dsl::ZoneSel::HandOf(PlayerRel::Recipient)
+                | baylee_cards_dsl::ZoneSel::LibraryOf(PlayerRel::Recipient)),
+            filter,
+        } => {
+            let loc = match zone {
+                baylee_cards_dsl::ZoneSel::GraveyardOf(_) => ZoneLocation::Graveyard(player),
+                baylee_cards_dsl::ZoneSel::HandOf(_) => ZoneLocation::Hand(player),
+                baylee_cards_dsl::ZoneSel::LibraryOf(_) => ZoneLocation::Library(player),
+                _ => unreachable!(),
+            };
+            let mut values = std::collections::BTreeSet::<u32>::new();
+            for &id in state.zones.list(loc) {
+                if let Some(o) = state.object(id)
+                    && o.is_card()
+                    && matches_in_resolution(filter, state, o, you, res, None)
+                {
+                    values.insert(o.characteristics().mana_value());
+                }
+            }
+            u32::try_from(values.len()).unwrap_or(u32::MAX)
         }
         Amount::Plus { base, offset } => each(base).saturating_add(*offset),
         Amount::SaturatingSub { base, subtract } => each(base).saturating_sub(*subtract),
@@ -1482,7 +1609,12 @@ fn filter_reads_resolution_player_at(filter: &baylee_cards_dsl::Filter, depth: u
         return false;
     }
     match filter {
-        Filter::ControlledBy(_) | Filter::ControlledByChooser => true,
+        Filter::ControlledBy(_)
+        | Filter::ControlledByChooser
+        | Filter::IsRemembered
+        | Filter::NotRemembered
+        | Filter::SharesCardTypeWithRemembered
+        | Filter::SharesNameWithRemembered => true,
         Filter::CmcAtMostAmount(amt)
         | Filter::CmcEqualsAmount(amt)
         | Filter::PowerAtMostAmount(amt)
@@ -1509,10 +1641,22 @@ fn amount_reads_resolution_player_at(amount: &baylee_cards_dsl::Amount, depth: u
     let rel_needs_res = |rel: P| {
         matches!(
             rel,
-            P::Chosen | P::ControllerOfTarget | P::TargetPlayerOrController | P::Recipient
+            P::Chosen
+                | P::ControllerOfTarget
+                | P::OwnerOfTarget
+                | P::TargetPlayerOrController
+                | P::FirstTargetPlayerOrController
+                | P::SecondTargetPlayerOrController
+                | P::ThirdTargetPlayerOrController
+                | P::RememberedController
+                | P::Recipient
         )
     };
     match amount {
+        A::RememberedCount
+        | A::RememberedManaValue
+        | A::RememberedPower
+        | A::RememberedToughness => true,
         A::LibrarySize(r)
         | A::HandSize(r)
         | A::LifeTotal(r)
@@ -1520,9 +1664,31 @@ fn amount_reads_resolution_player_at(amount: &baylee_cards_dsl::Amount, depth: u
         | A::LifeGainedThisTurn(r)
         | A::Players(r)
         | A::SpellsWarpedThisTurn(r)
-        | A::ManaExpendedOnSpellsThisTurn(r) => rel_needs_res(*r),
-        A::ControlledCount { who, filter } => {
-            rel_needs_res(*who) || filter_reads_resolution_player_at(filter, depth + 1)
+        | A::ManaExpendedOnSpellsThisTurn(r)
+        | A::DistinctCardTypesCastThisTurn(r) => rel_needs_res(*r),
+        A::ControlledCount { who, filter }
+        | A::EnteredThisTurn {
+            owner_or_ctrl: who,
+            filter,
+            ..
+        }
+        | A::SpellsCastMatchingThisTurn {
+            caster: who,
+            filter,
+        }
+        | A::CreaturesAttackedThisTurn {
+            controller: who,
+            filter,
+        } => rel_needs_res(*who) || filter_reads_resolution_player_at(filter, depth + 1),
+        A::DistinctManaValuesInZone { zone, filter } => {
+            matches!(
+                zone,
+                baylee_cards_dsl::ZoneSel::GraveyardOf(r)
+                    | baylee_cards_dsl::ZoneSel::HandOf(r)
+                    | baylee_cards_dsl::ZoneSel::LibraryOf(r)
+                    if rel_needs_res(*r)
+            ) || matches!(zone, baylee_cards_dsl::ZoneSel::HandChosen)
+                || filter_reads_resolution_player_at(filter, depth + 1)
         }
         A::ThisWayBy { who, .. } => rel_needs_res(*who),
         A::DistinctColorsAmong(f)
@@ -1596,6 +1762,12 @@ pub(super) fn matches_in_resolution_with_chars(
             let mag = amount2(amt, state, you, res);
             eval::match_dynamic_amount_filter(filter, chars, mag, amt.is_negative())
         }
+        Filter::IsRemembered
+        | Filter::NotRemembered
+        | Filter::SharesCardTypeWithRemembered
+        | Filter::SharesNameWithRemembered => {
+            matches_remembered_filter(filter, state, obj, chars, res.subject.remembered())
+        }
         Filter::And(parts) => parts
             .iter()
             .all(|f| matches_in_resolution_with_chars(f, state, obj, chars, you, res, chooser)),
@@ -1636,6 +1808,7 @@ pub(super) fn matches_in_resolution_with_chars(
 /// `other` arm below is the only place in the module that may unwrap the
 /// state-only half, and its `expect` is unreachable because the two context
 /// relations are matched above it.
+#[allow(clippy::too_many_lines)] // Exhaustive PlayerRel resolution dispatch table.
 pub(super) fn players_of(
     rel: PlayerRel,
     state: &GameState,
@@ -1653,13 +1826,36 @@ pub(super) fn players_of(
         // Only an instruction applying to each player names one, and it
         // reads its amounts through `amount_for_player`.
         PlayerRel::Recipient => Vec::new(),
+        PlayerRel::FirstTargetPlayerOrController => target_groups::first_player(state, res)
+            .into_iter()
+            .collect(),
         PlayerRel::SecondTargetPlayerOrController => target_groups::second_player(state, res)
             .into_iter()
             .collect(),
+        PlayerRel::ThirdTargetPlayerOrController => target_groups::third_player(state, res)
+            .into_iter()
+            .collect(),
+        PlayerRel::RememberedController => {
+            remembered::remembered_controllers(state, res.subject.remembered())
+        }
         // A card has its owner wherever it is (CR 108.3).
         PlayerRel::OwnerOfEvent => res
-            .event_object
-            .and_then(|id| state.object_or_departed(id))
+            .subject
+            .event_identity()
+            .and_then(|(r, _)| res.subject.remembered_by_ref(r))
+            .map(|rem| rem.lki.owner)
+            .or_else(|| {
+                res.event_object
+                    .and_then(|id| state.object_or_departed(id))
+                    .map(|o| o.owner)
+            })
+            .filter(|p| !state.has_left(*p))
+            .into_iter()
+            .collect(),
+        PlayerRel::OwnerOfTarget => res
+            .targets
+            .first()
+            .and_then(|t| state.object_or_departed(*t))
             .map(|o| o.owner)
             .filter(|p| !state.has_left(*p))
             .into_iter()
@@ -1706,26 +1902,7 @@ pub(super) fn players_of(
         // there (an enter trigger) has no look-back entry and answers with
         // the controller it has now. A player who has since left the game
         // is nobody's "that player" (CR 800.4a).
-        PlayerRel::ControllerOfEvent => state
-            .object(res.on_stack)
-            .and_then(|o| {
-                o.riders.iter().find_map(|r| match r {
-                    crate::object::Rider::EventDeparture(controller, _) => Some(*controller),
-                    _ => None,
-                })
-            })
-            .or_else(|| {
-                res.event_object.and_then(|id| {
-                    if let Some((version, _)) = event_object_identity(state, res) {
-                        state
-                            .damage_source(id, Some(version))
-                            .map(|object| object.controller)
-                    } else {
-                        state.last_known_controller(id)
-                    }
-                })
-            })
-            .filter(|seat| !state.has_left(*seat))
+        PlayerRel::ControllerOfEvent => event_controller_of_resolution(state, res)
             .into_iter()
             .collect(),
         // Off the triggered ability, where stacking it wrote the player the
@@ -1762,6 +1939,35 @@ pub(super) fn players_of(
         other => eval::players(other, state, you)
             .expect("the context relations are matched above this arm"),
     }
+}
+
+fn event_controller_of_resolution(state: &GameState, res: &Resolution) -> Option<PlayerId> {
+    state
+        .object(res.on_stack)
+        .and_then(|o| {
+            o.riders.iter().find_map(|r| match r {
+                crate::object::Rider::EventDeparture(controller, _) => Some(*controller),
+                _ => None,
+            })
+        })
+        .or_else(|| {
+            res.subject
+                .event_identity()
+                .and_then(|(r, _)| res.subject.remembered_by_ref(r))
+                .map(|rem| rem.lki.controller)
+        })
+        .or_else(|| {
+            res.event_object.and_then(|id| {
+                if let Some((version, _)) = event_object_identity(state, res) {
+                    state
+                        .damage_source(id, Some(version))
+                        .map(|object| object.controller)
+                } else {
+                    state.last_known_controller(id)
+                }
+            })
+        })
+        .filter(|seat| !state.has_left(*seat))
 }
 
 /// The opponent a resolving Gift spell or permanent ability promised a gift to
@@ -1852,11 +2058,18 @@ pub enum Flow {
 pub fn run(state: &mut GameState, res: &mut Resolution) -> Flow {
     let prev_color = state.resolution_chosen_color;
     let prev_number = state.resolution_chosen_number;
+    let prev_remembered = state.resolution_remembered.take();
     state.resolution_chosen_color = res.subject.chosen_color.map(|c| (res.source, c));
     state.resolution_chosen_number = res.subject.chosen_number.map(|n| (res.source, n));
+    state.resolution_remembered = res
+        .subject
+        .remembered_objects
+        .as_ref()
+        .map(|r| (res.source, std::sync::Arc::clone(r)));
     let flow = run_inner(state, res);
     state.resolution_chosen_color = prev_color;
     state.resolution_chosen_number = prev_number;
+    state.resolution_remembered = prev_remembered;
     flow
 }
 
@@ -2175,6 +2388,7 @@ pub(crate) fn commit_damage_rider(
 }
 
 /// Executes one operation; returns `Some(pending)` when it suspends.
+#[allow(clippy::too_many_lines)] // flat dispatch table between choice and immediate ops
 fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> Option<Pending> {
     let before = subjects::before(state, res);
     let next_effect = state.effects.hashed_parts().2;
@@ -2196,6 +2410,7 @@ fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> Option<Pendi
         | Effect::OptionalBasicLandSearchFor { .. }
         | Effect::SearchLibraryOf { .. }
         | Effect::SearchLibraryUpTo { .. }
+        | Effect::SearchLibraryDistinctNames { .. }
         | Effect::SearchOpponentSplits { .. }
         | Effect::PlayerMayPayOr { .. }
         | Effect::PlayerMayPayThen { .. }
@@ -2229,6 +2444,7 @@ fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> Option<Pendi
         | Effect::ChooseNumber { .. }
         | Effect::ChooseNumberEx { .. }
         | Effect::MoveAttachment { .. }
+        | Effect::AttachChosen { .. }
         | Effect::DestroyWeakest { .. }
         | Effect::ExchangeGreatestManaValue { .. }
         | Effect::PlayerMayPayCostThen { .. }
@@ -2390,6 +2606,8 @@ fn run_nested_with(
     targets: SmallVec<[ObjectId; 2]>,
 ) -> Option<Pending> {
     let frames_before = res.subject.target_restore_frames.len();
+    let capture_before = res.subject.capture_frames.len();
+    let repeat_before = res.subject.repeat_frames.len();
     let outer_after_len = res.effects.len().saturating_sub(res.pc + 1);
     let mut nested = Resolution {
         source: res.source,
@@ -2421,6 +2639,11 @@ fn run_nested_with(
     res.subject = nested.subject.clone();
     state.resolution_chosen_color = res.subject.chosen_color.map(|c| (res.source, c));
     state.resolution_chosen_number = res.subject.chosen_number.map(|n| (res.source, n));
+    state.resolution_remembered = res
+        .subject
+        .remembered_objects
+        .as_ref()
+        .map(|r| (res.source, std::sync::Arc::clone(r)));
     match flow {
         Flow::Complete => None,
         Flow::Enter => {
@@ -2430,6 +2653,15 @@ fn run_nested_with(
                 res.chosen_player = nested.chosen_player;
                 res.targeted = nested.targeted;
                 for frame in &mut res.subject.target_restore_frames[frames_before..] {
+                    frame.tail_from_end += outer_after_len;
+                }
+            }
+            for frame in &mut res.subject.capture_frames[capture_before..] {
+                frame.tail_from_end += outer_after_len;
+            }
+            if res.subject.repeat_frames.len() > repeat_before {
+                res.event_object = nested.event_object;
+                for frame in &mut res.subject.repeat_frames[repeat_before..] {
                     frame.tail_from_end += outer_after_len;
                 }
             }
@@ -2451,6 +2683,15 @@ fn run_nested_with(
                 res.chosen_player = nested.chosen_player;
                 res.targeted = nested.targeted;
                 for frame in &mut res.subject.target_restore_frames[frames_before..] {
+                    frame.tail_from_end += outer_after_len;
+                }
+            }
+            for frame in &mut res.subject.capture_frames[capture_before..] {
+                frame.tail_from_end += outer_after_len;
+            }
+            if res.subject.repeat_frames.len() > repeat_before {
+                res.event_object = nested.event_object;
+                for frame in &mut res.subject.repeat_frames[repeat_before..] {
                     frame.tail_from_end += outer_after_len;
                 }
             }

@@ -82,18 +82,61 @@ struct Candidate {
     recipient: DamageTarget,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 struct PreventThenRider {
     key: EffectKey,
     controller: PlayerId,
     source: ObjectId,
     source_version: Option<u32>,
     event_object: Option<ObjectId>,
+    damaged_player: Option<PlayerId>,
     prevented: u32,
     text: crate::text_changes::TextChangeMap,
     chosen_subtype: Option<baylee_core::ids::SubtypeId>,
     chosen_color: Option<baylee_core::mana::ManaColor>,
     then: baylee_cards_dsl::DamageRider,
+}
+
+impl std::hash::Hash for PreventThenRider {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.key.hash(state);
+        self.controller.hash(state);
+        self.source.hash(state);
+        self.source_version.hash(state);
+        self.event_object.hash(state);
+        if let Some(player) = self.damaged_player {
+            player.hash(state);
+        }
+        self.prevented.hash(state);
+        self.text.hash(state);
+        self.chosen_subtype.hash(state);
+        self.chosen_color.hash(state);
+        self.then.hash(state);
+    }
+}
+
+pub(super) fn rider_damaged_player(
+    recipient: DamageTarget,
+    then: baylee_cards_dsl::DamageRider,
+) -> Option<PlayerId> {
+    use baylee_cards_dsl::{Effect, PlayerRel};
+    let DamageTarget::Player(player) = recipient else {
+        return None;
+    };
+    matches!(
+        then.instruction()[0],
+        Effect::ExileTop {
+            who: PlayerRel::DamagedPlayer | PlayerRel::EventPlayer,
+            ..
+        } | Effect::Mill {
+            target: PlayerRel::DamagedPlayer | PlayerRel::EventPlayer,
+            ..
+        } | Effect::Rad {
+            who: PlayerRel::DamagedPlayer | PlayerRel::EventPlayer,
+            ..
+        }
+    )
+    .then_some(player)
 }
 
 /// A damage event suspended only on its own replacement decisions.
@@ -880,6 +923,7 @@ impl DamageWork {
             .map(|p| p.view.source);
 
         let mut prevented = 0_u32;
+        let mut attempted = 0_u32;
         let mut used = false;
         for part in &mut self.parts {
             if !candidate.option.parts.contains(&part.view.id) {
@@ -924,6 +968,7 @@ impl DamageWork {
                 DamageEffectKind::PreventCombat
                 | DamageEffectKind::PreventAll
                 | DamageEffectKind::Protection => {
+                    attempted = attempted.saturating_add(part.view.amount);
                     if preventable {
                         prevented = prevented.saturating_add(part.view.amount);
                         part.view.amount = 0;
@@ -988,6 +1033,7 @@ impl DamageWork {
                 source: origin_source,
                 source_version: origin_version,
                 event_object: first_event_source,
+                damaged_player: rider_damaged_player(candidate.recipient, then),
                 prevented,
                 text,
                 chosen_subtype,
@@ -995,35 +1041,79 @@ impl DamageWork {
                 then,
             });
         }
-        if prevented > 0
-            && matches!(candidate.option.kind, DamageEffectKind::PreventAll)
+        if matches!(candidate.option.kind, DamageEffectKind::PreventAll)
             && let EffectKey::Continuous(fx_id) = candidate.key
-            && let Some(fx) = state.effects.iter().find(|fx| fx.id == fx_id)
-            && let baylee_cards_dsl::Modifier::ReplaceOrPreventDamageWithThen {
-                is_replacement: false,
-                then,
-                ..
-            } = fx.modifier
+            && let Some(fx) = state.effects.iter().find(|fx| fx.id == fx_id).cloned()
         {
-            self.record_then_rider(PreventThenRider {
-                key: EffectKey::Continuous(fx_id),
-                controller: fx.controller,
-                source: fx.source.unwrap_or(ObjectId::NO_SOURCE),
-                source_version: fx.source.and_then(|id| state.object(id).map(|o| o.version)),
-                event_object: first_event_source,
-                prevented,
-                text: state.effect_text(fx),
-                chosen_subtype: fx.filter.chosen_subtype().or_else(|| {
-                    fx.source
-                        .and_then(|id| state.object(id))
-                        .and_then(|o| o.chosen_subtype)
-                }),
-                chosen_color: fx
-                    .source
-                    .and_then(|id| state.object(id))
-                    .and_then(|o| o.chosen_color),
-                then,
-            });
+            match fx.modifier {
+                baylee_cards_dsl::Modifier::ReplaceOrPreventDamageWithThen {
+                    is_replacement: false,
+                    then,
+                    ..
+                } if prevented > 0 => {
+                    self.record_then_rider(PreventThenRider {
+                        key: EffectKey::Continuous(fx_id),
+                        controller: fx.controller,
+                        source: fx.source.unwrap_or(ObjectId::NO_SOURCE),
+                        source_version: fx
+                            .source
+                            .and_then(|id| state.object(id).map(|o| o.version)),
+                        event_object: first_event_source,
+                        damaged_player: rider_damaged_player(candidate.recipient, then),
+                        prevented,
+                        text: state.effect_text(&fx),
+                        chosen_subtype: fx.filter.chosen_subtype().or_else(|| {
+                            fx.source
+                                .and_then(|id| state.object(id))
+                                .and_then(|o| o.chosen_subtype)
+                        }),
+                        chosen_color: fx
+                            .source
+                            .and_then(|id| state.object(id))
+                            .and_then(|o| o.chosen_color),
+                        then,
+                    });
+                }
+                baylee_cards_dsl::Modifier::PreventDamageRemovingCounters { kind, then }
+                    if attempted > 0 =>
+                {
+                    if let DamageTarget::Object(target_id) = candidate.recipient {
+                        let remaining = self.counter_remaining(state, target_id, kind);
+                        let removed = attempted.min(remaining);
+                        if removed > 0
+                            && let Some(version) = state.object(target_id).map(|o| o.version)
+                        {
+                            self.counter_removals
+                                .push((target_id, version, kind, removed));
+                            if let Some(then) = then {
+                                self.record_then_rider(PreventThenRider {
+                                    key: EffectKey::Continuous(fx_id),
+                                    controller: fx.controller,
+                                    source: fx.source.unwrap_or(target_id),
+                                    source_version: fx
+                                        .source
+                                        .and_then(|id| state.object(id).map(|o| o.version)),
+                                    event_object: first_event_source,
+                                    damaged_player: None,
+                                    prevented: removed,
+                                    text: state.effect_text(&fx),
+                                    chosen_subtype: fx.filter.chosen_subtype().or_else(|| {
+                                        fx.source
+                                            .and_then(|id| state.object(id))
+                                            .and_then(|o| o.chosen_subtype)
+                                    }),
+                                    chosen_color: fx
+                                        .source
+                                        .and_then(|id| state.object(id))
+                                        .and_then(|o| o.chosen_color),
+                                    then,
+                                });
+                            }
+                        }
+                    }
+                }
+                _ => {}
+            }
         }
         if let DamageEffectKind::PreventFromSource {
             gain_life: true, ..
@@ -1047,7 +1137,11 @@ impl DamageWork {
         if rider.prevented == 0 {
             return;
         }
-        if let Some(existing) = self.then_riders.iter_mut().find(|r| r.key == rider.key) {
+        if let Some(existing) = self
+            .then_riders
+            .iter_mut()
+            .find(|r| r.key == rider.key && r.damaged_player == rider.damaged_player)
+        {
             existing.prevented = existing.prevented.saturating_add(rider.prevented);
         } else {
             self.then_riders.push(rider);

@@ -50,10 +50,8 @@ fn entry_additions_enable_counter_replacements_only_after_the_first_counter() {
             doubles,
             true,
         );
-        plan.additions.extend((0..entries).map(|_| CounterAddition {
-            kind: Some(CounterKind::P1P1),
-            n: 1,
-        }));
+        plan.additions
+            .extend((0..entries).map(|_| CounterAddition::single(CounterKind::P1P1, 1)));
         plan
     };
     assert_eq!(results(plan(1, vec![], 1)), BTreeSet::from([2]));
@@ -77,10 +75,8 @@ fn an_additional_counter_cannot_create_a_kind_that_has_not_been_added_yet() {
         true,
     );
     plan.counters.push((CounterKind::Charge, 1));
-    plan.additions.push(CounterAddition {
-        kind: Some(CounterKind::P1P1),
-        n: 1,
-    });
+    plan.additions
+        .push(CounterAddition::single(CounterKind::P1P1, 1));
     assert_eq!(results(plan), BTreeSet::from([1, 2]));
 }
 

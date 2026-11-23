@@ -148,13 +148,17 @@ pub fn players(rel: PlayerRel, state: &GameState, you: PlayerId) -> Option<Vec<P
         | PlayerRel::Recipient
         | PlayerRel::DefendingPlayer
         | PlayerRel::OwnerOfEvent
+        | PlayerRel::OwnerOfTarget
         | PlayerRel::Chosen
         | PlayerRel::DamagedPlayer
         | PlayerRel::EventPlayer
         | PlayerRel::OwnerOfSource
         | PlayerRel::ControllerOfAttached
         | PlayerRel::EnchantedPlayer
-        | PlayerRel::GiftRecipient => {
+        | PlayerRel::GiftRecipient
+        | PlayerRel::RememberedController
+        | PlayerRel::FirstTargetPlayerOrController
+        | PlayerRel::ThirdTargetPlayerOrController => {
             return None;
         }
     })

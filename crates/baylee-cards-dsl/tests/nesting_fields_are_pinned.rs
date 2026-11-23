@@ -112,7 +112,11 @@
 // ChooseOneRestricted (`choices`) adds one walker-tested body.
 // ChooseNumberEx (`then`) and MoveAttachment (`then_if_moved`) add one
 // walker-tested body each.
-const NESTING_FIELDS: usize = 119;
+// ChooseCardConstrained (`then`) adds one walker-tested body.
+// CaptureAffected (`first`, `then`) adds two walker-tested bodies;
+// ForEachRemembered (`effects`) and WithAllTargets add one walker-tested body
+// each.
+const NESTING_FIELDS: usize = 124;
 
 /// How many variants contain those fields.
 ///
@@ -196,7 +200,12 @@ const NESTING_FIELDS: usize = 119;
 /// (`choose_one_restricted_branches_and_sacrifice_any_number_are_visited`).
 /// `ChooseNumberEx` and `MoveAttachment` are the hundred-third and hundred-fourth
 /// (`choose_number_ex_and_move_attachment_bodies_are_visited`).
-const CARRYING_VARIANTS: usize = 104;
+/// `ChooseCardConstrained` is the hundred-fifth
+/// (`wave15b_choose_card_constrained_body_is_visited`).
+/// `CaptureAffected`, `ForEachRemembered`, and `WithAllTargets` are the
+/// hundred-sixth through hundred-eighth
+/// (`capture_affected_for_each_remembered_and_with_all_targets_are_visited`).
+const CARRYING_VARIANTS: usize = 108;
 
 /// The floor under the reader itself.
 ///

@@ -71,6 +71,49 @@ pub enum DamageAmountReplacement {
     /// Halve the damage, rounded up (`amount.div_ceil(2)`, CR 614.1a).
     /// Appended to preserve replay identities.
     HalfUp,
+    /// "That much damage minus N" (*Benevolent Unicorn*: "if a spell would
+    /// deal damage to a permanent or player, it deals that much damage minus
+    /// 1 to that permanent or player instead"; CR 614.1a), floored at zero
+    /// and applied once to each source's damage to each recipient. Not a
+    /// prevention effect. Appended to preserve replay identities.
+    Subtract(u32),
+}
+
+/// How a [`Modifier::ModifyLifeGain`] changes the amount of a life gain
+/// (CR 614.1a: "you gain twice that much life instead", "that much life
+/// plus 1 instead").
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
+pub enum LifeGainOp {
+    /// Multiply the gain (*Boon Reflection*, *Rhox Faithmender*,
+    /// *Alhammarret's Archive*: "twice that much").
+    Multiply(u32),
+    /// Add to the gain (*Cleric Class*: "that much life plus 1").
+    Add(u32),
+}
+
+impl LifeGainOp {
+    /// The gain this replacement turns `amount` into, saturating.
+    #[must_use]
+    pub const fn apply(self, amount: i32) -> i32 {
+        match self {
+            Self::Multiply(factor) => {
+                let factor = if factor > i32::MAX as u32 {
+                    i32::MAX
+                } else {
+                    factor as i32
+                };
+                amount.saturating_mul(factor)
+            }
+            Self::Add(extra) => {
+                let extra = if extra > i32::MAX as u32 {
+                    i32::MAX
+                } else {
+                    extra as i32
+                };
+                amount.saturating_add(extra)
+            }
+        }
+    }
 }
 
 /// Which damage recipients a [`Modifier::MultiplyDamageFrom`] or
@@ -1559,6 +1602,83 @@ pub enum Modifier {
         /// [`crate::ThisWay::DamagePrevented`] bound to the amount prevented/replaced.
         then: crate::DamageRider,
     },
+    /// Activated abilities of the affected objects matching `filter` cost
+    /// `amount` less generic mana to activate (CR 118.7a, CR 602.2b), `amount`
+    /// evaluated with the effect's source as "this" (*Agatha of the Vile
+    /// Cauldron*: "cost {X} less to activate, where X is Agatha's power"). The
+    /// reduction never takes the total mana in a cost below `min_mana` ("This
+    /// effect can't reduce the mana in that cost to less than one mana"), and a
+    /// cost with no generic mana is left alone. With `exhaust_only`, only
+    /// exhaust abilities (CR 702.177a) are reduced (*Boom Scholar*). Appended
+    /// to preserve replay identities.
+    ActivatedAbilitiesCostLess {
+        /// Filter matching objects whose activated abilities are reduced
+        /// (combined with any outer filter on the static ability/effect).
+        filter: &'static crate::Filter,
+        /// Generic mana taken off each matching activation cost.
+        amount: crate::Amount,
+        /// Floor on the total mana left in a reduced cost.
+        min_mana: u8,
+        /// Reduce only exhaust abilities.
+        exhaust_only: bool,
+    },
+    /// The first spell matching `filter` that a player matching `who` casts
+    /// each turn costs `cost` less (`increase: false`, *Artificer Class*: "The
+    /// first artifact spell you cast each turn costs {1} less") or more
+    /// (`increase: true`) to cast (CR 601.2f, CR 118.7). "First" is read from
+    /// the spells that player has already cast this turn, each as it was when
+    /// cast: the modifier applies only while none of them matched the same
+    /// filter. Appended to preserve replay identities.
+    FirstSpellEachTurnCostAdjust {
+        /// Which casting players are affected, relative to the effect's
+        /// controller (`PlayerRel::You`, `PlayerRel::EachOpponent`,
+        /// `PlayerRel::EachPlayer`, …).
+        who: crate::effect::PlayerRel,
+        /// Spell filter evaluated against both the prospective spell and
+        /// earlier spells cast by that player this turn.
+        filter: &'static crate::Filter,
+        /// Mana symbols added to or subtracted from the spell's total cost.
+        cost: baylee_core::mana::ManaCost,
+        /// `true` taxes, `false` reduces.
+        increase: bool,
+        /// When `false` and `increase: false`, excess colored reduction reduces
+        /// generic mana (CR 118.7b–c); when `true`, reduces colored mana only.
+        colored_only: bool,
+    },
+    /// The affected creature attacks the named player this turn if able
+    /// (*Alluring Siren*: "Target creature an opponent controls attacks you
+    /// this turn if able"): a requirement on the declaration of attackers
+    /// (CR 508.1d), obeyed only by attacking that player, read relative to
+    /// the effect's controller. A creature that can't attack that player is
+    /// under no requirement. Appended to preserve replay identities.
+    MustAttackPlayer(crate::effect::PlayerRel),
+    /// "If [who] would gain life, [they] gain [twice that much / that much
+    /// plus N] life instead" (*Boon Reflection*, *Alhammarret's Archive*,
+    /// *Cleric Class*; CR 614.1a). Each applies once to a gain (CR 614.5);
+    /// when the order of several matters the affected player chooses it
+    /// (CR 616.1, 616.1e), alongside [`Self::LifeGainNoLifeInstead`] and
+    /// [`Self::LifeGainDrawsInstead`]. Appended to preserve replay identities.
+    ModifyLifeGain {
+        /// Whose gains are modified, relative to the effect's controller.
+        who: crate::effect::PlayerRel,
+        /// How the amount changes.
+        op: LifeGainOp,
+    },
+    /// "If damage would be dealt to [the affected permanent] while it has a
+    /// [kind] counter on it, prevent that damage and remove that many [kind]
+    /// counters from it[, then …]" (*Bloatfly Swarm*, *Protean Hydra*;
+    /// CR 615.1). All of the damage is prevented, however few counters there
+    /// are; as many counters come off as there are (CR 609.3). `then` runs
+    /// once the damage event commits, with
+    /// [`crate::ThisWay::DamagePrevented`] bound to the number of counters
+    /// actually removed ("for each +1/+1 counter removed this way").
+    /// Appended to preserve replay identities.
+    PreventDamageRemovingCounters {
+        /// Counter whose presence turns the prevention on, and which is removed.
+        kind: crate::CounterKind,
+        /// Immediate follow-up, or `None`.
+        then: Option<crate::DamageRider>,
+    },
 }
 
 /// Quantity evaluated during CR 601.2f spell cost determination by
@@ -2055,7 +2175,12 @@ impl Modifier {
             | Self::SpellsCantBeCountered { .. }
             | Self::MustBlock
             | Self::ReplaceDamage { .. }
-            | Self::ReplaceOrPreventDamageWithThen { .. } => Layer::Text,
+            | Self::ReplaceOrPreventDamageWithThen { .. }
+            | Self::ActivatedAbilitiesCostLess { .. }
+            | Self::FirstSpellEachTurnCostAdjust { .. }
+            | Self::MustAttackPlayer(_)
+            | Self::ModifyLifeGain { .. }
+            | Self::PreventDamageRemovingCounters { .. } => Layer::Text,
         }
     }
 }
@@ -2512,6 +2637,35 @@ pub enum ReplacementRule {
         link_to_source: bool,
         /// Optional counter placed on the exiled card.
         counter: Option<crate::CounterKind>,
+    },
+    /// "If [an object matching `filter`] would be put into a graveyard from
+    /// anywhere, [reveal it and] shuffle it into its owner's library instead"
+    /// (*Blightsteel Colossus*, *Darksteel Colossus*, *Progenitus*; CR 614.1a,
+    /// CR 614.6). With `Filter::This` it is the card's own replacement and,
+    /// because it is about its own move "from anywhere", functions in every
+    /// zone the card can be put into a graveyard from (CR 113.6): from the
+    /// battlefield, a hand, a library, the stack and exile alike. The card
+    /// does not reach the graveyard, so it does not die (CR 700.4), is not
+    /// milled into the graveyard and no "put into a graveyard" trigger sees
+    /// it. Any other filter is a rule of a permanent on the battlefield.
+    /// Appended to preserve replay identities.
+    ShuffleIntoLibraryInsteadOfGraveyard {
+        /// Objects whose graveyard arrival is replaced (`&Filter::This`).
+        filter: &'static Filter,
+        /// Whether the card is revealed as it is shuffled in.
+        reveal: bool,
+    },
+    /// "For each kind of counter on [this], each [permanent matching
+    /// `filter`] enters with a counter of that kind on it" (*Blue, Loyal
+    /// Raptor*; CR 614.1c). Read as the permanent would enter, against the
+    /// source's counters at that moment; each kind is an additional counter
+    /// placement of the entry event, so counter replacements (Hardened
+    /// Scales, Doubling Season) modify it like any other (CR 614.16,
+    /// CR 616.1). Appended to preserve replay identities.
+    EnterWithCountersFromSource {
+        /// Prospective permanents affected, read with the rule's controller
+        /// as "you" (`Another` excludes the source itself).
+        filter: &'static Filter,
     },
 }
 
@@ -3036,6 +3190,38 @@ mod tests {
                 combat: None,
                 is_replacement: false,
                 then: RIDER,
+            },
+            Modifier::ActivatedAbilitiesCostLess {
+                filter: &Filter::YOUR_CREATURE,
+                amount: crate::Amount::SourcePower,
+                min_mana: 1,
+                exhaust_only: false,
+            },
+            Modifier::FirstSpellEachTurnCostAdjust {
+                who: crate::PlayerRel::You,
+                filter: &Filter::ARTIFACT,
+                cost: baylee_core::mana::ManaCost::parse("{1}"),
+                increase: false,
+                colored_only: false,
+            },
+            Modifier::MustAttackPlayer(crate::PlayerRel::You),
+            Modifier::ReplaceDamage {
+                sources: &Filter::Any,
+                recipients: DamageRecipients::Any,
+                combat: None,
+                replacement: DamageAmountReplacement::Subtract(1),
+            },
+            Modifier::ModifyLifeGain {
+                who: crate::PlayerRel::You,
+                op: LifeGainOp::Multiply(2),
+            },
+            Modifier::ModifyLifeGain {
+                who: crate::PlayerRel::You,
+                op: LifeGainOp::Add(1),
+            },
+            Modifier::PreventDamageRemovingCounters {
+                kind: crate::CounterKind::P1P1,
+                then: Some(RIDER),
             },
         ] {
             assert_eq!(

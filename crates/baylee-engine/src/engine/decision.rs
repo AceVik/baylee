@@ -119,10 +119,14 @@ fn third_target_effects(effects: &[Effect]) -> &[Effect] {
         to: TargetSlot::First,
         optional: false,
     }];
+    let mut all_fallback: &[Effect] = &[];
     for effect in effects {
         match effect {
             Effect::WithThirdTarget(inner) => return inner,
-            Effect::WithSecondTarget(..) => {}
+            Effect::WithAllTargets(inner) if all_fallback.is_empty() => {
+                all_fallback = inner;
+            }
+            Effect::WithSecondTarget(..) | Effect::WithAllTargets(..) => {}
             Effect::PumpTargetSlot {
                 slot: TargetSlot::Third,
                 ..
@@ -149,7 +153,7 @@ fn third_target_effects(effects: &[Effect]) -> &[Effect] {
             }
         }
     }
-    &[]
+    all_fallback
 }
 
 /// Which of several chosen modes a cast is asking about: the mode owning the

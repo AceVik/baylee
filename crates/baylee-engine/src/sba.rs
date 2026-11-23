@@ -771,7 +771,57 @@ fn attachment_sbas(
             unattaching.push(id);
         }
     }
+    collect_role_uniqueness_sbas(state, &mut falling_off, &unattaching);
     (falling_off, unattaching)
+}
+
+/// CR 704.5y: If a permanent has more than one Role controlled by the same
+/// player attached to it, each of those Roles except the one with the most
+/// recent timestamp is put into its owner's graveyard.
+fn collect_role_uniqueness_sbas(
+    state: &GameState,
+    falling_off: &mut smallvec::SmallVec<[baylee_core::ids::ObjectId; 4]>,
+    unattaching: &[baylee_core::ids::ObjectId],
+) {
+    let mut roles: smallvec::SmallVec<
+        [(
+            baylee_core::ids::ObjectId,
+            PlayerId,
+            u64,
+            baylee_core::ids::ObjectId,
+        ); 4],
+    > = smallvec::SmallVec::new();
+    for id in state.battlefield_seen() {
+        if falling_off.contains(&id) || unattaching.contains(&id) {
+            continue;
+        }
+        let Some(obj) = state.object(id) else {
+            continue;
+        };
+        if obj.kind == ObjectKind::Permanent
+            && let Some(host) = obj.attached_to
+            && obj
+                .characteristics()
+                .subtypes
+                .contains(baylee_core::generated::subtypes::enchantment::ROLE)
+        {
+            roles.push((host, obj.controller, obj.timestamp, id));
+        }
+    }
+    for i in 0..roles.len() {
+        let (host, controller, ts, id) = roles[i];
+        let superseded = roles
+            .iter()
+            .any(|&(other_host, other_ctrl, other_ts, other_id)| {
+                other_host == host
+                    && other_ctrl == controller
+                    && other_id != id
+                    && (other_ts > ts || (other_ts == ts && other_id > id))
+            });
+        if superseded && !falling_off.contains(&id) {
+            falling_off.push(id);
+        }
+    }
 }
 
 fn apply_attachment_sbas(

@@ -166,6 +166,28 @@ pub enum PlayerRel {
     /// while its ETB ability waited on the stack (CR 608.2h). Appended to
     /// preserve replay identities.
     GiftRecipient,
+    /// The owner of the targeted object (CR 108.3; e.g. *Aerial Extortionist*:
+    /// "its owner may cast it"). Unlike controller, ownership never changes
+    /// across zone transitions. Appended to preserve replay identities.
+    OwnerOfTarget,
+    /// The controller of each object remembered by the innermost enclosing
+    /// [`crate::Effect::CaptureAffected`], as it last existed before the
+    /// capturing instruction moved it (`CR 608.2h`): Act of Authority's "its
+    /// controller gains control of this enchantment" after exiling it.
+    /// Deduplicated in seat order; nobody when nothing is remembered.
+    /// Appended to preserve replay identities.
+    RememberedController,
+    /// The player chosen for the ability's first target group, or the
+    /// controller of its first object target (last known, `CR 608.2h`), read
+    /// through [`crate::Effect::WithSecondTarget`] and
+    /// [`crate::Effect::WithThirdTarget`] (Bazaar Trader: "target player gains
+    /// control of target artifact, creature, or land you control").
+    /// Appended to preserve replay identities.
+    FirstTargetPlayerOrController,
+    /// The player chosen for the ability's third target group, or the
+    /// controller of its third object target (last known, `CR 608.2h`), read
+    /// from any target scope. Appended to preserve replay identities.
+    ThirdTargetPlayerOrController,
 }
 
 impl PlayerRel {

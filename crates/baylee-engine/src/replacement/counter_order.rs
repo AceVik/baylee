@@ -8,21 +8,64 @@ use baylee_core::ids::{DamageSourceRef, PlayerId};
 use std::collections::VecDeque;
 
 /// One additive replacement. Ordinary additions affect every kind in the event;
-/// entry additions name exactly the kind printed by their ability.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+/// entry additions name the kind(s) introduced by their ability.
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub(crate) struct CounterAddition {
+    pub(crate) kind: Option<CounterKind>,
+    pub(crate) extra_kinds: smallvec::SmallVec<[CounterKind; 2]>,
+    pub(crate) n: u16,
+}
+
+impl std::hash::Hash for CounterAddition {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.kind.hash(state);
+        self.n.hash(state);
+        if !self.extra_kinds.is_empty() {
+            self.extra_kinds.hash(state);
+        }
+    }
+}
+
+/// Question payload returned when two counter replacements do not commute.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) struct CounterQuestion {
     pub(crate) kind: Option<CounterKind>,
     pub(crate) n: u16,
 }
 
 impl CounterAddition {
     fn all_kinds(n: u16) -> Self {
-        Self { kind: None, n }
+        Self {
+            kind: None,
+            extra_kinds: smallvec::SmallVec::new(),
+            n,
+        }
     }
 
-    fn applies_to(self, kind: CounterKind, amount: u16) -> bool {
-        self.kind
-            .map_or(amount > 0, |additional| additional == kind)
+    pub(crate) fn single(kind: CounterKind, n: u16) -> Self {
+        Self {
+            kind: Some(kind),
+            extra_kinds: smallvec::SmallVec::new(),
+            n,
+        }
+    }
+
+    fn applies_to(&self, kind: CounterKind, amount: u16) -> bool {
+        match self.kind {
+            None => amount > 0,
+            Some(primary) => primary == kind || self.extra_kinds.contains(&kind),
+        }
+    }
+
+    fn prompt(&self) -> CounterQuestion {
+        CounterQuestion {
+            kind: if self.extra_kinds.is_empty() {
+                self.kind
+            } else {
+                None
+            },
+            n: self.n,
+        }
     }
 }
 
@@ -44,6 +87,10 @@ impl CounterModStep {
     }
 }
 
+const APPLIED_DOUBLING: u8 = 1 << 0;
+const APPLIED_MOD_RULES: u8 = 1 << 1;
+const APPLIED_ENTRY_FROM_SOURCE: u8 = 1 << 2;
+
 /// A counter event awaiting replacement ordering; every amount shares its order.
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub(crate) struct CounterPlacementPlan {
@@ -56,8 +103,7 @@ pub(crate) struct CounterPlacementPlan {
     pub(crate) by_effect: bool,
     pub(crate) maximum: Option<u16>,
     next: usize,
-    applied_doubling: bool,
-    applied_mod_rules: bool,
+    applied_flags: u8,
 }
 
 impl CounterPlacementPlan {
@@ -83,8 +129,7 @@ impl CounterPlacementPlan {
             by_effect,
             maximum: None,
             next: 0,
-            applied_doubling: false,
-            applied_mod_rules: false,
+            applied_flags: 0,
         }
     }
 
@@ -103,7 +148,7 @@ impl CounterPlacementPlan {
     }
 
     fn double(&mut self) {
-        self.applied_doubling = true;
+        self.applied_flags |= APPLIED_DOUBLING;
         self.doubles -= 1;
         for (_, amount) in &mut self.counters {
             *amount = amount.saturating_mul(2);
@@ -136,14 +181,16 @@ impl CounterPlacementPlan {
             .iter()
             .any(|addition| addition.kind.is_none())
             || !self.additions.iter().any(|addition| {
-                addition
-                    .kind
-                    .is_some_and(|kind| self.counters.contains(&(kind, 0)))
+                addition.kind.is_some_and(|primary| {
+                    std::iter::once(primary)
+                        .chain(addition.extra_kinds.iter().copied())
+                        .any(|kind| self.counters.contains(&(kind, 0)))
+                })
             })
     }
 
     /// Return the proposed additive replacement, or finish every forced step.
-    pub(crate) fn question(&mut self) -> Option<CounterAddition> {
+    pub(crate) fn question(&mut self) -> Option<CounterQuestion> {
         if !self.modifiers.is_empty() {
             return self.question_with_modifiers();
         }
@@ -165,7 +212,7 @@ impl CounterPlacementPlan {
                     for (_, amount) in &mut self.counters {
                         *amount = amount.saturating_mul(multiplier);
                     }
-                    self.applied_doubling = true;
+                    self.applied_flags |= APPLIED_DOUBLING;
                     self.doubles = 0;
                     self.next = 0;
                 }
@@ -183,7 +230,7 @@ impl CounterPlacementPlan {
                 self.add(self.next);
                 continue;
             }
-            return Some(self.additions[self.next]);
+            return Some(self.additions[self.next].prompt());
         }
     }
 
@@ -202,7 +249,7 @@ impl CounterPlacementPlan {
     fn apply_mod_step(&mut self, index: usize) {
         use baylee_cards_dsl::CounterReplaceOp as Op;
         let step = self.modifiers.remove(index);
-        self.applied_mod_rules = true;
+        self.applied_flags |= APPLIED_MOD_RULES;
         for (kind, amount) in &mut self.counters {
             if !step.applies_to(*kind, *amount, self.by_effect) {
                 continue;
@@ -289,7 +336,7 @@ impl CounterPlacementPlan {
         }
     }
 
-    fn question_with_modifiers(&mut self) -> Option<CounterAddition> {
+    fn question_with_modifiers(&mut self) -> Option<CounterQuestion> {
         loop {
             let has_scale = self.has_applicable_scale();
             if self.next_additive_slot(0).is_none() {
@@ -318,7 +365,7 @@ impl CounterPlacementPlan {
             }
             let base_len = self.additions.len();
             return Some(if slot < base_len {
-                self.additions[slot]
+                self.additions[slot].prompt()
             } else {
                 let step = self.modifiers[slot - base_len];
                 let n = match step.op {
@@ -326,7 +373,7 @@ impl CounterPlacementPlan {
                     | baylee_cards_dsl::CounterReplaceOp::Sub(n) => n,
                     _ => 1,
                 };
-                CounterAddition { kind: step.kind, n }
+                CounterQuestion { kind: step.kind, n }
             });
         }
     }
@@ -479,15 +526,17 @@ pub(crate) fn build_plan(
                     if !normalized.iter().any(|(held, _)| *held == kind) {
                         normalized.push((kind, 0));
                     }
-                    additions.push(CounterAddition {
-                        kind: Some(kind),
-                        n,
-                    });
+                    additions.push(CounterAddition::single(kind, n));
                 }
             }
             _ => {}
         }
     }
+    let entry_from_source = if entering && object.zone == crate::zone::Zone::Battlefield {
+        collect_entry_counters_from_sources(state, object, &mut normalized, &mut additions)
+    } else {
+        false
+    };
     if normalized.is_empty() {
         return None;
     }
@@ -520,7 +569,67 @@ pub(crate) fn build_plan(
     plan.additions = additions;
     plan.modifiers = modifiers;
     plan.maximum = maximum;
+    if entry_from_source {
+        plan.applied_flags |= APPLIED_ENTRY_FROM_SOURCE;
+    }
     Some(plan)
+}
+
+fn collect_entry_counters_from_sources(
+    state: &GameState,
+    object: &crate::object::GameObject,
+    normalized: &mut Vec<(CounterKind, u16)>,
+    additions: &mut Vec<CounterAddition>,
+) -> bool {
+    let mut any = false;
+    let excluded = crate::entry::unavailable(state);
+    for entry in &state.replacement_rules {
+        let baylee_cards_dsl::ReplacementRule::EnterWithCountersFromSource { filter } = entry.rule
+        else {
+            continue;
+        };
+        if entry.source == object.id || excluded.contains(&entry.source) {
+            continue;
+        }
+        let Some(source_obj) = state.object(entry.source) else {
+            continue;
+        };
+        if source_obj.zone != crate::zone::Zone::Battlefield
+            || source_obj
+                .status
+                .contains(crate::object::Status::PHASED_OUT)
+            || source_obj.characteristics().abilities_lost.is_some()
+            || source_obj.characteristics().rules_text_lost
+        {
+            continue;
+        }
+        if !crate::eval::matches(filter, state, object, entry.controller, entry.source) {
+            continue;
+        }
+        let mut held_kinds = smallvec::SmallVec::<[CounterKind; 4]>::new();
+        for (kind, count) in source_obj.counters.iter() {
+            if count > 0
+                && !held_kinds.contains(&kind)
+                && super::counter_limits::room(state, object.id, kind) != Some(0)
+            {
+                held_kinds.push(kind);
+            }
+        }
+        if let Some((&primary, rest)) = held_kinds.split_first() {
+            for &kind in &held_kinds {
+                if !normalized.iter().any(|(held, _)| *held == kind) {
+                    normalized.push((kind, 0));
+                }
+            }
+            additions.push(CounterAddition {
+                kind: Some(primary),
+                extra_kinds: rest.iter().copied().collect(),
+                n: 1,
+            });
+            any = true;
+        }
+    }
+    any
 }
 
 /// Commit an entirely ordered event; the caller must finish `question` first.
@@ -532,14 +641,29 @@ pub(crate) fn commit_plan(state: &mut GameState, plan: CounterPlacementPlan) {
         return;
     }
     #[cfg(any(test, feature = "test-support"))]
-    if plan.applied_doubling || plan.applied_mod_rules {
+    if plan.applied_flags != 0 {
         let object = state
             .object(plan.recipient.object)
             .expect("checked recipient");
         for entry in &state.replacement_rules {
             match entry.rule {
+                baylee_cards_dsl::ReplacementRule::EnterWithCountersFromSource { filter }
+                    if (plan.applied_flags & APPLIED_ENTRY_FROM_SOURCE) != 0 =>
+                {
+                    if entry.source != object.id
+                        && crate::eval::matches(
+                            filter,
+                            state,
+                            object,
+                            entry.controller,
+                            entry.source,
+                        )
+                    {
+                        crate::ability_log::replaced(entry);
+                    }
+                }
                 baylee_cards_dsl::ReplacementRule::DoubleCounterPlacement { object_filter }
-                    if plan.applied_doubling =>
+                    if (plan.applied_flags & APPLIED_DOUBLING) != 0 =>
                 {
                     if crate::eval::matches(
                         object_filter,

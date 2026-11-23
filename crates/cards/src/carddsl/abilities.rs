@@ -461,6 +461,7 @@ fn encode_trigger_into(trigger: &Trigger, dst: &mut [f32]) {
     }
 }
 
+#[allow(clippy::too_many_lines)] // Modifier-to-channel dispatch table.
 fn encode_static_into(sa: &StaticAbility, ch: &mut EffectChannels) {
     match &sa.modifier {
         Modifier::ModifyPT(p, t) => {
@@ -518,11 +519,17 @@ fn encode_static_into(sa: &StaticAbility, ch: &mut EffectChannels) {
         Modifier::SpellsCostLessMana { cost, .. } => {
             ch.mana_add += (cost.cmc() as f32).max(1.0) * 0.5;
         }
-        Modifier::SpellsCostLessByAmount(_) | Modifier::GainActivatedAbilitiesOf { .. } => {
+        Modifier::SpellsCostLessByAmount(_)
+        | Modifier::ActivatedAbilitiesCostLess { .. }
+        | Modifier::FirstSpellEachTurnCostAdjust {
+            increase: false, ..
+        }
+        | Modifier::GainActivatedAbilitiesOf { .. } => {
             ch.mana_add += 0.5;
         }
         Modifier::SpellsCostMore(_)
         | Modifier::SpellsCostMoreMana(_)
+        | Modifier::FirstSpellEachTurnCostAdjust { increase: true, .. }
         | Modifier::SpellsCostSacrificePerManaSymbol { .. }
         | Modifier::AbilitiesCostMore(_)
         | Modifier::AbilitiesCostSacrificePerManaSymbol { .. }
@@ -539,6 +546,7 @@ fn encode_static_into(sa: &StaticAbility, ch: &mut EffectChannels) {
             ch.counter_spell += 0.5;
         }
         Modifier::Goaded
+        | Modifier::MustAttackPlayer(_)
         | Modifier::AssignCombatDamageUsingToughness
         | Modifier::AssignCombatDamageUsingToughnessIfToughnessGreater
         | Modifier::MayAssignCombatDamageAsThoughUnblocked
@@ -547,6 +555,20 @@ fn encode_static_into(sa: &StaticAbility, ch: &mut EffectChannels) {
         }
         Modifier::MultiplyDamageFrom { .. } | Modifier::AddDamageFrom { .. } => {
             ch.damage_any += 1.5;
+        }
+        Modifier::ModifyLifeGain { op, .. } => match op {
+            baylee_cards_dsl::LifeGainOp::Multiply(factor) => {
+                ch.life_gain += (*factor as f32).min(3.0);
+            }
+            baylee_cards_dsl::LifeGainOp::Add(extra) => {
+                ch.life_gain += (*extra as f32).min(3.0);
+            }
+        },
+        Modifier::PreventDamageRemovingCounters { then, .. } => {
+            ch.pump_pt += 0.5;
+            if let Some(rider) = then {
+                walk_effects(rider.instruction(), ch);
+            }
         }
         Modifier::MayCastWithAltCost { .. } => {
             ch.mana_add += 1.0;
@@ -566,6 +588,12 @@ fn encode_replacement_into(rule: &ReplacementRule, ch: &mut EffectChannels) {
     match rule {
         ReplacementRule::DoubleCounterPlacement { .. } => {
             ch.counters_add += 2.0;
+        }
+        ReplacementRule::EnterWithCountersFromSource { .. } => {
+            ch.counters_add += 1.5;
+        }
+        ReplacementRule::ShuffleIntoLibraryInsteadOfGraveyard { .. } => {
+            ch.reanimate += 0.5;
         }
         ReplacementRule::DoubleTokenCreation { .. }
         | ReplacementRule::MultiplyTypedTokens { .. }

@@ -15,7 +15,7 @@ pub fn protected_from(state: &GameState, object: ObjectId, source: ObjectId) -> 
     protected_from_object(state, object, src)
 }
 
-pub(super) fn protected_from_object(
+pub(crate) fn protected_from_object(
     state: &GameState,
     object: ObjectId,
     src: &crate::object::GameObject,
@@ -205,6 +205,15 @@ pub fn player_protected_from(state: &GameState, player: PlayerId, source: Object
     let Some(src) = state.object(source) else {
         return false;
     };
+    player_protected_from_object(state, player, src)
+}
+
+pub(crate) fn player_protected_from_object(
+    state: &GameState,
+    player: PlayerId,
+    src: &crate::object::GameObject,
+) -> bool {
+    let source = src.id;
     let affected = |fx: &crate::effects::ContinuousEffect, who: baylee_cards_dsl::PlayerRel| {
         if let Some(seats) = fx.filter.seats() {
             seats.contains(player)

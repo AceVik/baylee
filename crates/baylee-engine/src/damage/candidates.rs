@@ -633,6 +633,21 @@ impl DamageWork {
                     }
                     Kind::RemoveCounter { kind, remaining }
                 }
+                Modifier::PreventDamageRemovingCounters { kind, .. } => {
+                    let DamageTarget::Object(id) = part.view.recipient else {
+                        continue;
+                    };
+                    let Some(obj) = state
+                        .object(id)
+                        .filter(|o| crate::effects::applies_to(state, fx, o))
+                    else {
+                        continue;
+                    };
+                    if part.view.amount == 0 || self.counter_remaining(state, obj.id, kind) == 0 {
+                        continue;
+                    }
+                    Kind::PreventAll
+                }
                 Modifier::MayRedirectDamageToYou => {
                     let DamageTarget::Object(target) = part.view.recipient else {
                         continue;

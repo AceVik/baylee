@@ -350,6 +350,7 @@ fn reads_source(filter: &Filter) -> bool {
         | Filter::FaceDown
         | Filter::Monstrous
         | Filter::Suspected
+        | Filter::Saddled
         | Filter::RingBearer
         | Filter::Modified
         | Filter::InZone(_) => false,

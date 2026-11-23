@@ -113,7 +113,14 @@ impl GameState {
                 cards: vec![card],
             });
         }
-        let known = reveal || !matches!(answer, Some(Some(_))) || cause != Cause::Effect;
+        let gy_replacement =
+            crate::replacement::graveyard_destination(self, card, ZoneLocation::Graveyard(owner));
+        let unrevealed_library_replace =
+            gy_replacement.destination.zone() == Zone::Library && !gy_replacement.reveal_on_shuffle;
+        let known = (reveal
+            || (!matches!(answer, Some(Some(_))) && cause == Cause::Effect)
+            || cause != Cause::Effect)
+            && !unrevealed_library_replace;
         let types = self.record_discard(card, player, by, known);
         // Madness replaces the discard's destination, not the discard event
         // itself (CR 702.35a). A replacement that sends the card to its

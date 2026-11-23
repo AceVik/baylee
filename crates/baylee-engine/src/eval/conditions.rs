@@ -498,6 +498,9 @@ pub fn condition_holds_with_context(
             !player.has_lost()
                 && state.zones.list(ZoneLocation::Graveyard(player.id)).len() >= usize::from(min)
         }),
+        Condition::CountersPlacedOnSourceThisTurn { kind, by_you } => {
+            counters_placed_on_source_this_turn(state, you, source, None, kind, by_you)
+        }
         // Your own graveyard, and only yours — threshold counts the cards
         // the *controller* of the ability has, so the seat is `you` and not
         // a scan. The line above is the same question asked of an opponent
@@ -1017,6 +1020,7 @@ pub(crate) fn condition_reads_event(condition: Condition) -> bool {
 }
 
 /// Evaluate a condition with the source and event incarnations available.
+#[allow(clippy::too_many_lines)] // One arm per Condition variant inspecting source/event incarnations.
 pub(crate) fn condition_with_event(
     state: &GameState,
     you: PlayerId,
@@ -1116,6 +1120,28 @@ pub(crate) fn condition_with_event(
         Condition::OptionalCostPaid => state
             .damage_source(context.source, source_version)
             .is_some_and(object_optional_cost_paid),
+        Condition::CountersPlacedOnSourceThisTurn { kind, by_you } => {
+            counters_placed_on_source_this_turn(
+                state,
+                you,
+                context.source,
+                source_version,
+                kind,
+                by_you,
+            )
+        }
+        Condition::AmountCompare { left, op, right } => op.holds(
+            super::amounts::amount_with_version(left, state, you, context, None, source_version),
+            super::amounts::amount_with_version(right, state, you, context, None, source_version),
+        ),
+        Condition::AmountAtLeast(amount, minimum) => {
+            super::amounts::amount_with_version(&amount, state, you, context, None, source_version)
+                >= minimum
+        }
+        Condition::AmountIsEven(amount) => {
+            super::amounts::amount_with_version(&amount, state, you, context, None, source_version)
+                .is_multiple_of(2)
+        }
         _ => condition_holds_with_context(state, you, context, condition),
     }
 }
@@ -1320,4 +1346,39 @@ fn object_is_suspected(_state: &GameState, object: &crate::object::GameObject) -
     object.zone == Zone::Battlefield
         && !object.status.contains(crate::object::Status::PHASED_OUT)
         && object.riders.contains(&crate::object::Rider::Suspected)
+}
+
+pub(crate) fn counters_placed_on_source_this_turn(
+    state: &GameState,
+    you: PlayerId,
+    source: ObjectId,
+    source_version: Option<u32>,
+    kind: baylee_cards_dsl::CounterKind,
+    by_you: bool,
+) -> bool {
+    let Some(reference) = source_version
+        .map(|version| baylee_core::ids::DamageSourceRef {
+            object: source,
+            version,
+        })
+        .or_else(|| state.source_identity(source))
+    else {
+        return false;
+    };
+    if by_you {
+        state
+            .per_turn
+            .counter_placers
+            .items
+            .contains(&crate::state::CounterPlacerRecord {
+                target: reference,
+                kind,
+                by: you,
+            })
+    } else {
+        state
+            .per_turn
+            .counter_placements
+            .contains(&(reference, kind))
+    }
 }

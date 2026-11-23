@@ -64,6 +64,7 @@ pub const fn acts_elsewhere(effect: &Effect) -> bool {
             | Effect::ForEachTarget { .. }
             | Effect::WheneverCombatEventThisTurn { .. }
             | Effect::GrantTriggeredIfAbsent { .. }
+            | Effect::ForEachRemembered { .. }
             | Effect::WithSecondTarget(..)
             | Effect::WithThirdTarget(..)
     )
@@ -115,19 +116,7 @@ pub fn effect_benefit(effect: &Effect, x: u32) -> Option<i32> {
         Effect::AddCounter { kind, .. } | Effect::PutCountersDivided { kind, .. } => {
             counter_benefit(*kind)
         }
-        Effect::PutCounterChoice { choices, .. } => {
-            let mut sign: Option<i32> = None;
-            for &kind in *choices {
-                if let Some(s) = counter_benefit(kind) {
-                    match sign {
-                        None => sign = Some(s),
-                        Some(prev) if prev == s => {}
-                        Some(_) => return None,
-                    }
-                }
-            }
-            sign
-        }
+        Effect::PutCounterChoice { choices, .. } => put_counter_choice_benefit(choices),
         Effect::PumpTarget {
             power,
             toughness,
@@ -145,13 +134,7 @@ pub fn effect_benefit(effect: &Effect, x: u32) -> Option<i32> {
         }
         Effect::CreateContinuousEffect { modifier, .. }
         | Effect::AddTempModifier { modifier, .. }
-        | Effect::AddGlobalTempModifier { modifier, .. } => Some(match modifier {
-            Modifier::ModifyPT(p, t) => (i32::from(*p) + i32::from(*t)).signum(),
-            Modifier::AddKeyword(_) | Modifier::SpellsCantBeCountered { .. } => 1,
-            Modifier::PlayerCantCast { .. } | Modifier::PlayerCantActivateNonMana { .. } => -1,
-            Modifier::Goaded | Modifier::MustBlock => -2,
-            _ => 0,
-        }),
+        | Effect::AddGlobalTempModifier { modifier, .. } => Some(modifier_benefit(modifier)),
         Effect::GainControlEx { to, .. } => Some(match to {
             PlayerRel::You => -1,
             _ => 0,
@@ -174,7 +157,11 @@ pub fn effect_benefit(effect: &Effect, x: u32) -> Option<i32> {
         | Effect::DealDamageDivided { .. }
         | Effect::PhaseOutUntilSourceLeaves { .. }
         | Effect::TapTarget
-        | Effect::TapTargetSlot(baylee_cards_dsl::TargetSlot::First) => Some(-1),
+        | Effect::TapTargetSlot(baylee_cards_dsl::TargetSlot::First)
+        | Effect::TapAllOf {
+            who: PlayerRel::Chosen | PlayerRel::TargetPlayerOrController,
+            ..
+        } => Some(-1),
         Effect::PhaseOut { target: Some(spec) } => {
             Some(if spec_only_yours(*spec) { 1 } else { -1 })
         }
@@ -184,6 +171,7 @@ pub fn effect_benefit(effect: &Effect, x: u32) -> Option<i32> {
         | Effect::Goad { .. }
         | Effect::GoadAll { .. } => Some(-2),
         Effect::Blink { .. }
+        | Effect::PutEachCounterKindFromSource { .. }
         | Effect::ExileAndReturnAtEndStep
         | Effect::UntapTarget
         | Effect::UntapTargetSlot(baylee_cards_dsl::TargetSlot::First)
@@ -191,6 +179,10 @@ pub fn effect_benefit(effect: &Effect, x: u32) -> Option<i32> {
             to: baylee_cards_dsl::TargetSlot::First,
             ..
         }
+        | Effect::AttachChosen { .. }
+        | Effect::PutOntoBattlefieldAttached { .. }
+        | Effect::PutOntoBattlefieldAttacking { .. }
+        | Effect::CreateTokenAttached { .. }
         | Effect::CreateTokenCopy { .. }
         | Effect::GrantFlashback
         | Effect::GraveyardToHand { .. }
@@ -204,6 +196,30 @@ pub fn effect_benefit(effect: &Effect, x: u32) -> Option<i32> {
             ..
         } => Some(1),
         _ => None,
+    }
+}
+
+fn put_counter_choice_benefit(choices: &[baylee_cards_dsl::CounterKind]) -> Option<i32> {
+    let mut sign: Option<i32> = None;
+    for &kind in choices {
+        if let Some(s) = counter_benefit(kind) {
+            match sign {
+                None => sign = Some(s),
+                Some(prev) if prev == s => {}
+                Some(_) => return None,
+            }
+        }
+    }
+    sign
+}
+
+fn modifier_benefit(modifier: &Modifier) -> i32 {
+    match modifier {
+        Modifier::ModifyPT(p, t) => (i32::from(*p) + i32::from(*t)).signum(),
+        Modifier::AddKeyword(_) | Modifier::SpellsCantBeCountered { .. } => 1,
+        Modifier::PlayerCantCast { .. } | Modifier::PlayerCantActivateNonMana { .. } => -1,
+        Modifier::Goaded | Modifier::MustBlock | Modifier::MustAttackPlayer(_) => -2,
+        _ => 0,
     }
 }
 
@@ -448,7 +464,7 @@ pub fn aura_side(abilities: &[AbilityDef]) -> Option<TargetSide> {
                         effects, ..
                     }) => granted_trigger_sign(effects)?,
                     Modifier::CantAttack | Modifier::CantBlock(_) => -1,
-                    Modifier::Goaded => -2,
+                    Modifier::Goaded | Modifier::MustAttackPlayer(_) => -2,
                     _ => return None,
                 };
             }

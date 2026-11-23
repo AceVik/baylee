@@ -859,6 +859,7 @@ fn is_fetchland_ability_entry(view: &PlayerView, source: ObjectId, ability_index
             Effect::SearchLibrary { .. }
                 | Effect::SearchLibraryBeforeShuffle { .. }
                 | Effect::SearchLibraryUpTo { .. }
+                | Effect::SearchLibraryDistinctNames { .. }
         )
     })
 }
@@ -1710,6 +1711,7 @@ fn has_proactive_main_phase_play(view: &PlayerView, legal: &LegalActions) -> boo
                             Effect::SearchLibrary { .. }
                                 | Effect::SearchLibraryBeforeShuffle { .. }
                                 | Effect::SearchLibraryUpTo { .. }
+                                | Effect::SearchLibraryDistinctNames { .. }
                                 | Effect::DrawCards { .. }
                         )
                     }),
@@ -2672,6 +2674,7 @@ fn should_hold_draw_spell_for_creature(view: &PlayerView, id: ObjectId) -> bool 
                         has_draw = true;
                     }
                     Effect::SearchLibraryUpTo { find, .. }
+                    | Effect::SearchLibraryDistinctNames { find, .. }
                         if (matches!(find.dest, SearchDest::Hand | SearchDest::TopOfLibrary)
                             || total_reachable >= 5)
                             && find.instead_if.is_none() =>
@@ -2702,6 +2705,7 @@ fn should_hold_draw_spell_for_creature(view: &PlayerView, id: ObjectId) -> bool 
                             e,
                             Effect::SearchLibrary { .. }
                                 | Effect::SearchLibraryUpTo { .. }
+                                | Effect::SearchLibraryDistinctNames { .. }
                                 | Effect::DrawCards { .. }
                         )
                     })
@@ -3278,7 +3282,8 @@ fn is_activated_ability_worth_activating_now(
             Effect::LookAtTopMayTake { filter, .. }
             | Effect::SearchLibrary { filter, .. }
             | Effect::SearchLibraryBeforeShuffle { filter, .. }
-            | Effect::SearchLibraryUpTo { filter, .. } => Some(*filter),
+            | Effect::SearchLibraryUpTo { filter, .. }
+            | Effect::SearchLibraryDistinctNames { filter, .. } => Some(*filter),
             _ => None,
         };
         if let Some(filter) = filter_opt
@@ -4087,7 +4092,47 @@ fn condition_closed(view: &PlayerView, actor: PlayerId, cond: &Condition) -> boo
         },
         Condition::TriggerOnly(inner) => condition_closed(view, actor, inner),
         Condition::All(parts) => parts.iter().any(|p| condition_closed(view, actor, p)),
+        Condition::AmountCompare { left, op, right } => {
+            match (
+                view_known_amount(view, actor, **left),
+                view_known_amount(view, actor, **right),
+            ) {
+                (Some(l), Some(r)) => !op.holds(l, r),
+                _ => false,
+            }
+        }
         _ => false,
+    }
+}
+
+fn view_known_amount(
+    view: &PlayerView,
+    actor: PlayerId,
+    amount: baylee_cards_dsl::Amount,
+) -> Option<u32> {
+    use baylee_cards_dsl::{Amount, Filter, PlayerRel, ZoneSel};
+    match amount {
+        Amount::Fixed(n) => Some(n),
+        Amount::HandSize(PlayerRel::You) => view.seat(actor).map(|s| s.hand_count),
+        Amount::LifeTotal(PlayerRel::You) => view
+            .seat(actor)
+            .map(|s| u32::try_from(s.life.max(0)).unwrap_or(0)),
+        Amount::HighestOpponentHandSize if view.seats.len() == 2 => view
+            .seats
+            .iter()
+            .filter(|s| s.loss.is_none() && s.player != actor)
+            .map(|s| s.hand_count)
+            .max()
+            .or(Some(0)),
+        Amount::DistinctManaValuesInZone {
+            zone: ZoneSel::GraveyardYou,
+            filter: &Filter::Any,
+        } => {
+            let gy = view.graveyards.get(usize::from(actor.get()))?;
+            let mvs: std::collections::BTreeSet<u32> = gy.iter().map(|o| o.mana_value).collect();
+            u32::try_from(mvs.len()).ok()
+        }
+        _ => None,
     }
 }
 

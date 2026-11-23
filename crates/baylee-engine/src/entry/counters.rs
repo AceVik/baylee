@@ -23,6 +23,11 @@ pub(super) fn needs_entry(state: &GameState, id: ObjectId) -> bool {
                 | baylee_cards_dsl::Modifier::AdditionalCounterOnEntryByCount { .. }
                 | baylee_cards_dsl::Modifier::DoubleCountersPlacedByYou
         )
+    }) || state.replacement_rules.iter().any(|entry| {
+        matches!(
+            entry.rule,
+            baylee_cards_dsl::ReplacementRule::EnterWithCountersFromSource { .. }
+        )
     })
 }
 

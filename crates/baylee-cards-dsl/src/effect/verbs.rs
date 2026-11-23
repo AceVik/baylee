@@ -753,7 +753,11 @@ impl Effect {
             | Effect::WheneverCombatEventThisTurn { effects, .. }
             | Effect::AtEndOfCombat { about: _, effects }
             | Effect::AtEndOfCombatThisTurn { about: _, effects }
-            | Effect::WheneverYouAttackThisTurn { effects } => (effects, NONE),
+            | Effect::WheneverYouAttackThisTurn { effects }
+            | Effect::WithSecondTarget(effects)
+            | Effect::WithThirdTarget(effects)
+            | Effect::WithAllTargets(effects)
+            | Effect::ForEachRemembered { filter: _, effects } => (effects, NONE),
             Effect::RevealTopByNameThen { otherwise_effects: then, .. }
             | Effect::IfCreaturesDiedAtLeast { n: _, then }
             | Effect::MayExileFromYourGraveyardThen {
@@ -860,6 +864,18 @@ impl Effect {
                 must_change_recipient: _,
                 optional: _,
                 then_if_moved: then,
+            }
+            | Effect::ChooseCardConstrained {
+                chooser: _,
+                zone: _,
+                filter: _,
+                min: _,
+                max: _,
+                at_random: _,
+                distinct_names: _,
+                reveal_chosen: _,
+                movement: _,
+                then,
             } => (then, NONE),
             Effect::PreventNextDamageWithThen { then, .. } => (then.instruction(), NONE),
             Effect::PlayerMayPayThenElse { player: _, mana: _, paid: then, unpaid: otherwise }
@@ -933,6 +949,10 @@ impl Effect {
                 only_found: _,
                 chosen_pile: then,
                 unchosen_pile: otherwise,
+            }
+            | Effect::CaptureAffected {
+                first: then,
+                then: otherwise,
             } => (then, otherwise),
             // A single effect, not a list: the branch taken when the player
             // declines the price. `from_ref` is what makes it one shape with
@@ -1472,12 +1492,16 @@ impl Effect {
             | Effect::PutCountersDivided { .. }
             | Effect::MoveAndModify { .. }
             | Effect::PutCounterChoice { .. }
+            | Effect::PutEachCounterKindFromSource { .. }
             | Effect::AttachSlot { .. }
-            | Effect::SacrificeAnyNumber { .. } => (NONE, NONE),
+            | Effect::SacrificeAnyNumber { .. }
+            | Effect::PutOntoBattlefieldAttached { .. }
+            | Effect::CreateTokenAttached { .. }
+            | Effect::PutOntoBattlefieldAttacking { .. }
+            | Effect::SearchLibraryDistinctNames { .. }
+            | Effect::AttachChosen { .. }
+            | Effect::DiscardDefined { .. } => (NONE, NONE),
             Effect::VoteObjects { if_no_votes, .. } => (NONE, if_no_votes),
-            Effect::WithSecondTarget(effects) | Effect::WithThirdTarget(effects) => {
-                (effects, NONE)
-            }
         }
     }
 

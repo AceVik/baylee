@@ -314,14 +314,27 @@ fn read_list(effects: &[Effect], certain: bool, reading: &Reading<'_>, facts: &m
 /// What an amount counts as the trigger resolves.
 const fn counted(amount: Amount) -> Stuff {
     match amount {
-        Amount::CountersOnSource(..) => Stuff::OWN_COUNTERS,
+        Amount::CountersOnSource(..) | Amount::DistinctCounterKindsOnSource => Stuff::OWN_COUNTERS,
         Amount::CountersOnYou(..) => Stuff::COUNTERS,
         Amount::CountOf { .. }
         | Amount::ControlledCount { .. }
         | Amount::DistinctColorsAmong(..)
         | Amount::BasicLandTypesAmong(..)
-        | Amount::DevotionToManaColor => Stuff::BOARD,
-        Amount::HandSize(..) => Stuff::HAND,
+        | Amount::DevotionToManaColor
+        | Amount::EnteredThisTurn { .. }
+        | Amount::CreaturesAttackedThisTurn { .. } => Stuff::BOARD,
+        Amount::DistinctManaValuesInZone { zone, .. } => match zone {
+            baylee_cards_dsl::ZoneSel::GraveyardYou
+            | baylee_cards_dsl::ZoneSel::GraveyardOpponents
+            | baylee_cards_dsl::ZoneSel::GraveyardAll
+            | baylee_cards_dsl::ZoneSel::GraveyardOf(_) => Stuff::GRAVEYARD,
+            baylee_cards_dsl::ZoneSel::HandYou
+            | baylee_cards_dsl::ZoneSel::HandOf(_)
+            | baylee_cards_dsl::ZoneSel::HandActivePlayer
+            | baylee_cards_dsl::ZoneSel::HandChosen => Stuff::HAND,
+            _ => Stuff::BOARD,
+        },
+        Amount::HandSize(..) | Amount::HighestOpponentHandSize => Stuff::HAND,
         Amount::LifeTotal(..) => Stuff::LIFE,
         Amount::SourcePower | Amount::TargetPower | Amount::EventPower => Stuff::POWER,
         Amount::IfCondition {
@@ -506,6 +519,7 @@ fn read_one(effect: &Effect, certain: bool, reading: &Reading<'_>, facts: &mut F
         | Effect::SearchLibraryFor { .. }
         | Effect::SearchLibraryOf { .. }
         | Effect::SearchLibraryUpTo { .. }
+        | Effect::SearchLibraryDistinctNames { .. }
         | Effect::SearchLibraryOrGraveyard { .. }
         | Effect::SearchLibraryAndGraveyard { .. }
         | Effect::SearchSharedLandType
@@ -688,6 +702,12 @@ fn read_one(effect: &Effect, certain: bool, reading: &Reading<'_>, facts: &mut F
             facts.makes.add(Stuff::COUNTERS);
             facts.makes.add(Stuff::POWER);
         }
+        Effect::PutEachCounterKindFromSource { .. } => {
+            facts.reads.add(Stuff::OWN_COUNTERS);
+            facts.deeds.add(Deeds::PUMPS);
+            facts.makes.add(Stuff::COUNTERS);
+            facts.makes.add(Stuff::POWER);
+        }
         Effect::Bolster(amount) => {
             facts.reads.add(counted(amount));
             facts.reads.add(Stuff::BOARD);
@@ -811,7 +831,8 @@ fn read_one(effect: &Effect, certain: bool, reading: &Reading<'_>, facts: &mut F
         | Effect::PutNinjutsuOntoBattlefield
         | Effect::GraveyardToBattlefield { .. }
         | Effect::GraveyardToBattlefieldModified { .. }
-        | Effect::YourGraveyardToBattlefield { .. } => facts.makes.add(Stuff::BOARD),
+        | Effect::YourGraveyardToBattlefield { .. }
+        | Effect::PutOntoBattlefieldAttacking { .. } => facts.makes.add(Stuff::BOARD),
         Effect::DeliverGift(kind) => match kind {
             baylee_cards::dsl::GiftKind::Card => facts.makes.add(Stuff::HAND),
             baylee_cards::dsl::GiftKind::Food
@@ -903,6 +924,55 @@ fn read_one(effect: &Effect, certain: bool, reading: &Reading<'_>, facts: &mut F
                 | baylee_cards::dsl::ZoneSel::GraveyardAll => facts.reads.add(Stuff::GRAVEYARD),
                 _ => {}
             }
+        }
+        Effect::PutOntoBattlefieldAttached { host, .. } => {
+            if matches!(
+                host,
+                baylee_cards::dsl::AttachHost::ChosenPermanent(_)
+                    | baylee_cards::dsl::AttachHost::ChosenPlayer(_)
+            ) {
+                facts.deeds.add(Deeds::ASKS);
+            }
+            facts.makes.add(Stuff::BOARD);
+        }
+        Effect::CreateTokenAttached { amount, host, .. } => {
+            facts.reads.add(counted(amount));
+            if matches!(
+                host,
+                baylee_cards::dsl::AttachHost::ChosenPermanent(_)
+                    | baylee_cards::dsl::AttachHost::ChosenPlayer(_)
+            ) {
+                facts.deeds.add(Deeds::ASKS);
+            }
+            facts.makes.add(Stuff::BOARD);
+        }
+        Effect::ChooseCardConstrained {
+            at_random,
+            movement,
+            ..
+        } => {
+            if !at_random {
+                facts.deeds.add(Deeds::ASKS);
+            }
+            match movement {
+                baylee_cards::dsl::ChooseMove::Hand => facts.makes.add(Stuff::HAND),
+                baylee_cards::dsl::ChooseMove::Battlefield { .. } => {
+                    facts.makes.add(Stuff::BOARD);
+                }
+                baylee_cards::dsl::ChooseMove::Graveyard => facts.makes.add(Stuff::GRAVEYARD),
+                _ => {}
+            }
+        }
+        Effect::AttachChosen { optional, .. } => {
+            facts.deeds.add(Deeds::ASKS);
+            if optional {
+                facts.deeds.add(Deeds::MAY);
+            }
+            facts.deeds.add(Deeds::PUMPS);
+            facts.reads.add(Stuff::BOARD);
+        }
+        Effect::DiscardDefined { .. } => {
+            facts.makes.add(Stuff::GRAVEYARD);
         }
         _ => {}
     }

@@ -139,6 +139,7 @@ pub struct AttackRules<'a> {
     if_defender_controls: Vec<&'a crate::effects::ContinuousEffect>,
     except_by: Vec<&'a crate::effects::ContinuousEffect>,
     requirements: Vec<&'a crate::effects::ContinuousEffect>,
+    must_attack_player: Vec<&'a crate::effects::ContinuousEffect>,
     alone: Vec<&'a crate::effects::ContinuousEffect>,
     idle_defenders: Vec<&'a crate::effects::ContinuousEffect>,
     cant_attack_you: Vec<&'a crate::effects::ContinuousEffect>,
@@ -163,6 +164,7 @@ impl<'a> AttackRules<'a> {
         let mut if_defender_controls = Vec::new();
         let mut except_by = Vec::new();
         let mut requirements = Vec::new();
+        let mut must_attack_player = Vec::new();
         let mut alone = Vec::new();
         let mut idle_defenders = Vec::new();
         let mut cant_attack_you = Vec::new();
@@ -181,6 +183,7 @@ impl<'a> AttackRules<'a> {
                 Modifier::CantAttackPlayerIdleLastTurn => idle_defenders.push(fx),
                 Modifier::CantBeAttackedExceptBy { .. } => except_by.push(fx),
                 Modifier::AttacksEachCombat => requirements.push(fx),
+                Modifier::MustAttackPlayer(_) => must_attack_player.push(fx),
                 Modifier::AttacksAloneOnly => alone.push(fx),
                 Modifier::CantAttackYou => cant_attack_you.push(fx),
                 Modifier::AttackTaxLife { .. } => attack_tax_life.push(fx),
@@ -206,6 +209,7 @@ impl<'a> AttackRules<'a> {
             if_defender_controls,
             except_by,
             requirements,
+            must_attack_player,
             alone,
             idle_defenders,
             cant_attack_you,
@@ -250,6 +254,16 @@ impl<'a> AttackRules<'a> {
         let mut score = 0_u32;
         for fx in &self.requirements {
             if crate::effects::applies_to(self.state, fx, obj) {
+                score = score.saturating_add(1);
+            }
+        }
+        for fx in &self.must_attack_player {
+            if let baylee_cards_dsl::Modifier::MustAttackPlayer(who) = fx.modifier
+                && crate::effects::applies_to(self.state, fx, obj)
+                && let Defender::Player(attacked) = defender
+                && crate::eval::players_for_source(who, self.state, fx.controller, fx.source)
+                    .is_some_and(|players| players.contains(&attacked))
+            {
                 score = score.saturating_add(1);
             }
         }

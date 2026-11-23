@@ -367,6 +367,7 @@ const THIS_OBJECT_READ: &[&str] = &[
     // `resolve::reanimation::move_and_modify` reads `ThisObject` via
     // `resolve::zones::moving_objects` -> `subjects::moving_source`.
     "MoveAndModify { subject: Target(ThisObject),",
+    "PutEachCounterKindFromSource { target: ThisObject }",
 ];
 
 /// Which effects may be spelled with `ThisObject`, held against the pool.
@@ -493,6 +494,7 @@ const EVENT_OBJECT_READ: &[&str] = &[
     "GainControlEx { target: EventObject,",
     "ExileIfDiesThisTurn { target: EventObject }",
     "MoveAttachment { attachment: EventObject,",
+    "PutEachCounterKindFromSource { target: EventObject }",
 ];
 
 /// The same census for `EventObject`, which is the **second** implicit spec

@@ -650,6 +650,8 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
             || !obj.target_players.is_empty()
             || !obj.second_targets().is_empty()
             || !obj.second_target_players().is_empty()
+            || !obj.third_targets().is_empty()
+            || !obj.third_target_players().is_empty()
         {
             return false;
         }
@@ -658,6 +660,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
         };
         if req.min != 0
             || self.stack_second_target_req(top).is_some()
+            || self.stack_third_target_req(top).is_some()
             || self.stack_divided_amount(top).is_some()
         {
             return false;
@@ -892,7 +895,10 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                         .collect();
                     obj.set_extra_targets(narrowed);
                 }
-                if obj.target_players != players {
+                let had_player_target = self
+                    .stack_target_req(top)
+                    .is_some_and(|req| !eval::targeted_players(obj, &req.spec).is_empty());
+                if obj.target_players != players || had_player_target {
                     obj.target_players = players;
                     obj.chosen_player = obj.chosen_player.filter(|p| players.contains(*p));
                 }

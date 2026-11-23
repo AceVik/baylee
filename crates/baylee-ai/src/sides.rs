@@ -181,10 +181,22 @@ impl HeuristicAgent {
 /// card. Zero for everything else.
 fn unread_benefit(effect: &Effect) -> i32 {
     use baylee_cards_dsl::{Modifier, PlayerRel};
-    if matches!(
-        effect,
-        Effect::WithSecondTarget(..) | Effect::WithThirdTarget(..)
-    ) {
+    if let Effect::WithSecondTarget(inner) = effect {
+        return inner
+            .iter()
+            .map(|e| match e {
+                Effect::GainControlEx {
+                    to: PlayerRel::FirstTargetPlayerOrController,
+                    ..
+                }
+                | Effect::ChangeController {
+                    new_controller: PlayerRel::FirstTargetPlayerOrController,
+                } => 1,
+                _ => 0,
+            })
+            .sum();
+    }
+    if matches!(effect, Effect::WithThirdTarget(..)) {
         return 0;
     }
     let own = match effect {
@@ -217,10 +229,14 @@ fn unread_benefit(effect: &Effect) -> i32 {
 }
 
 fn with_second_target_slice(effects: &[Effect]) -> Option<&[Effect]> {
+    let mut all_fallback = None;
     for effect in effects {
         match effect {
             Effect::WithSecondTarget(inner) => return Some(inner),
-            Effect::WithThirdTarget(..) => {}
+            Effect::WithAllTargets(inner) if all_fallback.is_none() => {
+                all_fallback = Some(*inner);
+            }
+            Effect::WithThirdTarget(..) | Effect::WithAllTargets(..) => {}
             _ => {
                 let (then, otherwise) = effect.branches();
                 if let Some(found) =
@@ -231,7 +247,7 @@ fn with_second_target_slice(effects: &[Effect]) -> Option<&[Effect]> {
             }
         }
     }
-    None
+    all_fallback
 }
 
 /// The sign of what `effects` do to their second (or forwarded third) target:

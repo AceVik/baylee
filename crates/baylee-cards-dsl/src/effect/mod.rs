@@ -15,6 +15,7 @@ use baylee_core::types::{SupertypeSet, TypeSet};
 mod amount;
 mod counters;
 mod division;
+mod entry;
 mod mana;
 mod play;
 mod search;
@@ -24,6 +25,7 @@ mod verbs;
 pub use amount::*;
 pub use counters::*;
 pub use division::*;
+pub use entry::*;
 pub use mana::*;
 pub use play::*;
 pub use search::*;
@@ -51,6 +53,7 @@ impl DamageRider {
                     | Effect::ExileTop { .. }
                     | Effect::Mill { .. }
                     | Effect::CreateTokenN { .. }
+                    | Effect::Rad { .. }
             ),
             "a damage rider must commit a single immediate instruction"
         );
@@ -5791,6 +5794,182 @@ pub enum Effect {
         /// Where the card goes.
         find: &'static Find,
     },
+    /// Put each card `subject` names onto the battlefield attached to `host`
+    /// (*Academy Researchers*, *Retether*, *Zur the Enchanter*, *Armored
+    /// Skyhunter*, *Stonehewer Giant*). An Aura enters already attached and
+    /// with nothing legal to enchant stays in the zone it was in (CR 303.4f–g);
+    /// Equipment and Fortifications enter, then attach to a legal permanent
+    /// (CR 301.5c, CR 301.6). `SubjectContext::found` is rebound to the cards
+    /// that entered. Appended to preserve replay identities.
+    PutOntoBattlefieldAttached {
+        /// Card(s) to put onto the battlefield.
+        subject: DefinedObjects,
+        /// What each enters attached to.
+        host: AttachHost,
+        /// `true` puts each under its owner's control; `false` under the
+        /// resolving ability's controller.
+        owner_control: bool,
+        /// Whether each enters tapped.
+        tapped: bool,
+    },
+    /// Create `amount` copies of `token` attached to `host` (Role tokens,
+    /// Equipment tokens). An Aura token with nothing legal to enchant is not
+    /// created (CR 303.4g); an Equipment token enters and then attaches when
+    /// it legally can (CR 301.5c). Created tokens are recorded in
+    /// `SubjectContext::found`. Appended to preserve replay identities.
+    CreateTokenAttached {
+        /// The token created.
+        token: &'static TokenDef,
+        /// How many.
+        amount: Amount,
+        /// What each enters attached to.
+        host: AttachHost,
+    },
+    /// Put each card `subject` names onto the battlefield attacking (CR 508.4;
+    /// *Alesha, Who Smiles at Death*, *Kaalia of the Vast*, *Preeminent
+    /// Captain*): its controller chooses the player, planeswalker or battle it
+    /// attacks among those the attacking player could attack. Only during
+    /// combat of its controller's own turn does it attack (CR 506.3b); it was
+    /// never declared as an attacker, so "whenever ~ attacks" does not trigger
+    /// and it never counts as having attacked (CR 508.3a, CR 508.4).
+    /// `SubjectContext::found` is rebound to the cards that entered. Appended
+    /// to preserve replay identities.
+    PutOntoBattlefieldAttacking {
+        /// Card(s) to put onto the battlefield.
+        subject: DefinedObjects,
+        /// `true` puts each under its owner's control; `false` under the
+        /// resolving ability's controller.
+        owner_control: bool,
+        /// Whether each enters tapped ("tapped and attacking").
+        tapped: bool,
+    },
+    /// [`Self::ChooseCardEx`] with two constraints on the chosen set: chosen
+    /// `at_random` by the engine's seeded generator rather than by a player
+    /// (uniform over legal candidates), and/or with `distinct_names` ("cards
+    /// with different names", asked one card at a time when eligible cards
+    /// share a name). Chosen cards are moved by `movement` and `then` runs
+    /// with `SubjectContext::found` and `EventObject` bound to them. Appended
+    /// to preserve replay identities.
+    ChooseCardConstrained {
+        /// Which player makes the choice (or, `at_random`, for whom it is made).
+        chooser: PlayerRel,
+        /// Zone or `Found` collection from which options are offered.
+        zone: ChooseZone,
+        /// Eligibility filter evaluated from the resolving controller.
+        filter: &'static Filter,
+        /// Minimum selection count (`0` for "up to"); ignored `at_random`,
+        /// which always chooses as many as it can up to `max`.
+        min: u8,
+        /// Maximum selection count.
+        max: Amount,
+        /// Chosen uniformly at random from the game's seeded generator.
+        at_random: bool,
+        /// No two chosen cards may share a name.
+        distinct_names: bool,
+        /// Whether chosen card(s) are revealed (CR 701.20a).
+        reveal_chosen: bool,
+        /// Zone movement applied to each chosen object.
+        movement: ChooseMove,
+        /// Instructions executed when at least one object was chosen.
+        then: &'static [Effect],
+    },
+    /// Search your library for up to `count` cards matching `filter` with
+    /// different names, put them where `find` says, then shuffle (CR 701.23;
+    /// *Three Dreams*, *Gifts Ungiven*-style searches). Appended to preserve
+    /// replay identities.
+    SearchLibraryDistinctNames {
+        /// What may be found.
+        filter: &'static Filter,
+        /// The most cards found, read once as the search begins.
+        count: Amount,
+        /// Where every found card goes.
+        find: &'static Find,
+    },
+    /// The resolving controller chooses up to `max` Auras, Equipment or
+    /// Fortifications on the battlefield matching `filter` that can legally
+    /// become attached to `to` and attaches them to it (CR 701.3a–b; *Nahiri,
+    /// the Lithomancer*: "you may attach an Equipment you control to it";
+    /// *Balan*-likes). Not targeting (CR 115.1). `optional` lets the player
+    /// choose none; otherwise as many as possible up to `max` are chosen.
+    /// Appended to preserve replay identities.
+    AttachChosen {
+        /// Attachments that may be chosen.
+        filter: &'static Filter,
+        /// The object or player they are attached to.
+        to: TargetSpec,
+        /// The most attachments chosen.
+        max: Amount,
+        /// Whether choosing none is allowed ("you may attach").
+        optional: bool,
+    },
+    /// Each card `cards` names that is in its owner's hand is discarded by
+    /// that player (CR 701.9a): "discard the revealed cards", "discard that
+    /// card", a found or remembered card. A card no longer in a hand is not
+    /// discarded. Appended to preserve replay identities.
+    DiscardDefined {
+        /// The card(s) to discard.
+        cards: DefinedObjects,
+    },
+    /// "Put a counter of each kind on [this] on [target]" (`PutCounter` with
+    /// `EachFromSource`): for each kind of counter on the resolving source,
+    /// one counter of that kind on each object `target` names. Nothing is
+    /// removed from the source. All kinds go onto one object in a single
+    /// placement event, so counter replacements modify it (CR 122.6,
+    /// CR 614.16). A source that has left uses its last known counters
+    /// (CR 608.2h). Appended to preserve replay identities.
+    PutEachCounterKindFromSource {
+        /// Recipient object(s).
+        target: TargetSpec,
+    },
+    /// Run `first`, remember the objects it actually affected, then run
+    /// `then` with them remembered (`CR 608.2c`: later instructions refer to
+    /// what earlier ones did; `CR 608.2h`: as those objects last existed).
+    ///
+    /// What `first` affected is read off the game's own record of what
+    /// happened while it ran, so it is exactly the objects it moved (moved,
+    /// exiled, sacrificed, destroyed, milled, drawn, discarded, put on the
+    /// bottom), created, or revealed, and the objects its choices bound
+    /// (`ChooseCard`, `ChooseCardEx`, a search). Replacement effects are
+    /// included, since what they do is what happened (`CR 614.6`). Each is
+    /// remembered as the incarnation it became (`CR 400.7`) with frozen
+    /// last-known characteristics: controller, owner, mana value, power,
+    /// toughness, card types and name as it last existed before it moved.
+    ///
+    /// `then` reads them through [`Filter::IsRemembered`],
+    /// [`Filter::NotRemembered`], [`Filter::SharesCardTypeWithRemembered`],
+    /// [`Filter::SharesNameWithRemembered`], [`PlayerRel::RememberedController`]
+    /// and [`Amount::RememberedCount`] and its siblings. The memory is scoped:
+    /// a capture nested in `then` remembers its own objects and the outer ones
+    /// come back after it, and nothing is remembered once `then` is done.
+    /// Either list may suspend on a choice. Appended to preserve replay
+    /// identities.
+    CaptureAffected {
+        /// The instructions whose affected objects are remembered.
+        first: &'static [Effect],
+        /// The instructions that read what `first` affected.
+        then: &'static [Effect],
+    },
+    /// Execute `effects` sequentially once for each object remembered by the
+    /// innermost enclosing [`Self::CaptureAffected`] that matches `filter`
+    /// (against its live incarnation when still current per `CR 400.7`, or
+    /// against its frozen `CR 608.2h` LKI snapshot when it has moved on or
+    /// ceased to exist), binding [`TargetSpec::EventObject`],
+    /// [`PlayerRel::EventPlayer`], and LKI event stats on each pass, supporting
+    /// suspended `Pending` choices and nested loops, and restoring outer event
+    /// bindings afterward. Appended to preserve replay identities.
+    ForEachRemembered {
+        /// Filter each remembered object must satisfy.
+        filter: &'static Filter,
+        /// Instructions executed sequentially for each matching remembered object.
+        effects: &'static [Effect],
+    },
+    /// Execute `effects` with `res.targets` and `res.target_players` bound to
+    /// the deduplicated union of surviving legal targets across all target
+    /// groups (`First`, `Second`, and `Third`, `CR 608.2b`), restoring outer
+    /// target bindings afterward ("those creatures gain vigilance until end of
+    /// turn", "untap those permanents"). Suspension-safe across `Pending`
+    /// choices. Appended to preserve replay identities.
+    WithAllTargets(&'static [Effect]),
 }
 
 #[cfg(test)]

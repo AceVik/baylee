@@ -143,7 +143,10 @@ fn choose_move_touches_library(zone: crate::ChooseZone, movement: crate::ChooseM
             | crate::ChooseMove::BottomOfLibrary
             | crate::ChooseMove::BottomOfLibraryChosenOrder
             | crate::ChooseMove::BottomOfLibraryRandom
-    ) || (matches!(zone, crate::ChooseZone::Found) && !matches!(movement, crate::ChooseMove::None))
+    ) || (matches!(
+        zone,
+        crate::ChooseZone::Found | crate::ChooseZone::Remembered
+    ) && !matches!(movement, crate::ChooseMove::None))
 }
 
 fn reveal_until_then_moves_library(
@@ -261,7 +264,8 @@ fn moves_library(effect: &Effect) -> bool {
         Effect::LookAtTopMayPut {
             matched, otherwise, ..
         } => outside_library(matched.dest) || outside_library(*otherwise),
-        Effect::SearchLibraryUpTo { find, .. } => outside_library(find.dest),
+        Effect::SearchLibraryUpTo { find, .. }
+        | Effect::SearchLibraryDistinctNames { find, .. } => outside_library(find.dest),
         Effect::SearchLibrary { finds, .. }
         | Effect::SearchLibraryBeforeShuffle { finds, .. }
         | Effect::SearchLibraryOf { finds, .. } => {
@@ -275,7 +279,22 @@ fn moves_library(effect: &Effect) -> bool {
             movement,
             then,
             ..
+        }
+        | Effect::ChooseCardConstrained {
+            zone,
+            movement,
+            then,
+            ..
         } => choose_move_touches_library(*zone, *movement) || then.iter().any(moves_library),
+        Effect::PutOntoBattlefieldAttached { subject, .. }
+        | Effect::PutOntoBattlefieldAttacking { subject, .. } => matches!(
+            subject,
+            crate::DefinedObjects::Found
+                | crate::DefinedObjects::AllInZone {
+                    zone: crate::ZoneSel::LibraryYou | crate::ZoneSel::LibraryOf(_),
+                    ..
+                }
+        ),
         Effect::ChooseCardEx {
             zone,
             movement,

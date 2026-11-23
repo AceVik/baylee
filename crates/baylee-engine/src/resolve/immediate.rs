@@ -579,6 +579,7 @@ pub(super) fn exec_immediate(
         | Effect::MoveCounterToEvent { .. }
         | Effect::AddCounterSource { .. }
         | Effect::AddCounter { .. }
+        | Effect::PutEachCounterKindFromSource { .. }
         | Effect::AddCountersUpTo { .. }
         | Effect::RemoveCounterSelf { .. }
         | Effect::RemoveAllCountersSelf { .. }
@@ -2476,6 +2477,7 @@ pub(super) fn exec_immediate(
                 && !object.riders.contains(&crate::object::Rider::Saddled)
             {
                 object.riders.push(crate::object::Rider::Saddled);
+                state.invalidate_projections();
             }
             None
         }
@@ -4116,6 +4118,7 @@ pub(super) fn exec_immediate(
         | Effect::OptionalBasicLandSearchFor { .. }
         | Effect::SearchLibraryOf { .. }
         | Effect::SearchLibraryUpTo { .. }
+        | Effect::SearchLibraryDistinctNames { .. }
         | Effect::SearchOpponentSplits { .. }
         | Effect::PlayerMayPayOr { .. }
         | Effect::PlayerMayPayThen { .. }
@@ -4143,6 +4146,7 @@ pub(super) fn exec_immediate(
         | Effect::ChooseNumber { .. }
         | Effect::ChooseNumberEx { .. }
         | Effect::MoveAttachment { .. }
+        | Effect::AttachChosen { .. }
         | Effect::DestroyWeakest { .. }
         | Effect::ExchangeGreatestManaValue { .. }
         | Effect::PlayerMayPayCostThen { .. }
@@ -4329,11 +4333,77 @@ pub(super) fn exec_immediate(
             with_target_group(res, op, effects, super::subjects::ActiveTargetGroup::Third);
             None
         }
+        Effect::WithAllTargets(effects) => {
+            with_target_group(res, op, effects, super::subjects::ActiveTargetGroup::All);
+            None
+        }
+        Effect::CaptureAffected { first, then } => {
+            super::remembered::exec_capture_affected(state, res, first, then, op)
+        }
+        Effect::ForEachRemembered { filter, effects } => {
+            super::remembered::exec_for_each_remembered(state, res, filter, effects, op)
+        }
         Effect::AttachSlot {
             object,
             to,
             optional,
         } => attachments::attach_slot(state, res, object, to, optional),
+        Effect::PutOntoBattlefieldAttached {
+            subject,
+            host,
+            owner_control,
+            tapped,
+        } => super::wave15b::put_onto_battlefield_attached(
+            state,
+            res,
+            subject,
+            host,
+            owner_control,
+            tapped,
+        ),
+        Effect::CreateTokenAttached {
+            token,
+            amount,
+            host,
+        } => super::wave15b::create_token_attached(state, res, token, amount, host),
+        Effect::PutOntoBattlefieldAttacking {
+            subject,
+            owner_control,
+            tapped,
+        } => super::wave15b::put_onto_battlefield_attacking(
+            state,
+            res,
+            subject,
+            owner_control,
+            tapped,
+        ),
+        Effect::ChooseCardConstrained {
+            chooser,
+            zone,
+            filter,
+            min,
+            max,
+            at_random,
+            distinct_names,
+            reveal_chosen,
+            movement,
+            then,
+        } => super::wave15b::choose_card_constrained(
+            state,
+            res,
+            chooser,
+            zone,
+            filter,
+            min,
+            max,
+            at_random,
+            distinct_names,
+            reveal_chosen,
+            movement,
+            then,
+            op,
+        ),
+        Effect::DiscardDefined { cards } => super::wave15b::discard_defined(state, res, cards),
     }
 }
 
@@ -4368,6 +4438,34 @@ fn with_target_group(
                 SmallVec::from_slice(res.subject.third_targets()),
                 res.subject.third_players(),
             ),
+            super::subjects::ActiveTargetGroup::All => {
+                let mut all_targets: SmallVec<[ObjectId; 2]> = SmallVec::new();
+                for &id in res
+                    .subject
+                    .first_slot_targets(&res.targets)
+                    .iter()
+                    .chain(res.second_targets.iter())
+                    .chain(res.subject.third_targets().iter())
+                {
+                    if !all_targets.contains(&id) {
+                        all_targets.push(id);
+                    }
+                }
+                let mut all_players = res
+                    .subject
+                    .target_restore_frames
+                    .first()
+                    .map_or(res.target_players, |frame| frame.saved_target_players);
+                for p in res
+                    .subject
+                    .second_players()
+                    .iter()
+                    .chain(res.subject.third_players().iter())
+                {
+                    all_players.insert(p);
+                }
+                (all_targets, all_players)
+            }
         };
     res.subject
         .target_restore_frames
@@ -4659,6 +4757,16 @@ pub(super) fn resolution_condition(
                     .get(usize::from(p.get()))
                     .is_some_and(|pl| pl.dungeons_completed > 0)
             }),
+        Condition::CountersPlacedOnSourceThisTurn { kind, by_you } => {
+            eval::counters_placed_on_source_this_turn(
+                state,
+                res.controller,
+                res.source,
+                source_version(state, res),
+                kind,
+                by_you,
+            )
+        }
         _ => {
             eval::condition_holds_with_context(state, res.controller, res.rule_context(), condition)
         }
@@ -4845,6 +4953,7 @@ pub(super) fn resolution_bound_seats(
     | Modifier::PlayerProtectionFromEverything { who }
     | Modifier::PlayerProtectionFromOpponents { who }
     | Modifier::PlayersCantGainLife(who)
+    | Modifier::ModifyLifeGain { who, .. }
     | Modifier::PreventNoncombatDamageToPlayers { who, .. }
     | Modifier::MultiplyDamageFrom {
         recipients: DamageRecipients::Players(who) | DamageRecipients::PlayersOrTheirPermanents(who),
@@ -4861,7 +4970,9 @@ pub(super) fn resolution_bound_seats(
     | Modifier::ReplaceOrPreventDamageWithThen {
         recipients: DamageRecipients::Players(who) | DamageRecipients::PlayersOrTheirPermanents(who),
         ..
-    }) = *modifier
+    }
+    | Modifier::FirstSpellEachTurnCostAdjust { who, .. }
+    | Modifier::MustAttackPlayer(who)) = *modifier
     else {
         return None;
     };

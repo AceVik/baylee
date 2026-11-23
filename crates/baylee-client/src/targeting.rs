@@ -279,7 +279,10 @@ fn legal_targets_from(
                 | PlayerRel::MostLife
                 | PlayerRel::ControllerOfTarget
                 | PlayerRel::TargetPlayerOrController
+                | PlayerRel::FirstTargetPlayerOrController
                 | PlayerRel::SecondTargetPlayerOrController
+                | PlayerRel::ThirdTargetPlayerOrController
+                | PlayerRel::RememberedController
                 | PlayerRel::ControllerOfEvent
                 | PlayerRel::ControllerOfAttached
                 | PlayerRel::EnchantedPlayer
@@ -289,6 +292,7 @@ fn legal_targets_from(
                 | PlayerRel::GiftRecipient
                 | PlayerRel::EachOtherPlayer
                 | PlayerRel::OwnerOfEvent
+                | PlayerRel::OwnerOfTarget
                 | PlayerRel::MostLifeOrTied
                 | PlayerRel::LeastLifeOrTied
                 | PlayerRel::DefendingPlayer => {
@@ -633,6 +637,7 @@ pub(crate) fn matches(view: &PlayerView, object: &PublicObject, filter: &Filter)
         | Filter::SharesColorWithExiledWithSource
         | Filter::CmcAtMostSnowManaSpent
         | Filter::Monstrous
+        | Filter::Saddled
         | Filter::RingBearer
         | Filter::SameManaValueAsSource
         | Filter::SharesColorWithSource
@@ -641,7 +646,11 @@ pub(crate) fn matches(view: &PlayerView, object: &PublicObject, filter: &Filter)
         | Filter::CmcAtMostAmount(_)
         | Filter::CmcEqualsAmount(_)
         | Filter::PowerAtMostAmount(_)
-        | Filter::PowerAtLeastAmount(_) => return None,
+        | Filter::PowerAtLeastAmount(_)
+        | Filter::IsRemembered
+        | Filter::NotRemembered
+        | Filter::SharesCardTypeWithRemembered
+        | Filter::SharesNameWithRemembered => return None,
         Filter::ControlledBy(rel) => match rel {
             baylee_cards_dsl::PlayerRel::You => object.controller == you(view),
             baylee_cards_dsl::PlayerRel::Opponent | baylee_cards_dsl::PlayerRel::EachOpponent => {

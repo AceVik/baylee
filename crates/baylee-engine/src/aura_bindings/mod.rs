@@ -286,3 +286,93 @@ pub(crate) fn can_enchant(
             || (!crate::eval::protected_from(state, host.id, aura.id)
                 && crate::eval::permits_enchantment(state, host.id, aura.id)))
 }
+
+/// Whether a prospective Aura token (not yet inserted into the arena) can
+/// legally enter attached to `host` (CR 303.4f–g, CR 702.16c).
+pub(crate) fn can_attach_prospective_object(
+    state: &GameState,
+    aura: &GameObject,
+    host_id: ObjectId,
+) -> bool {
+    let Some(host) = state.object(host_id) else {
+        return false;
+    };
+    if aura
+        .characteristics()
+        .types
+        .intersects(TypeSet::CREATURE.union(TypeSet::BATTLE))
+        || host.zone != Zone::Battlefield
+        || host.status.contains(Status::PHASED_OUT)
+    {
+        return false;
+    }
+    let restriction = restriction(state, aura).unwrap_or(EnchantRestriction::Permanent(
+        &Filter::Any,
+        RuleContext {
+            source: aura.id,
+            text: crate::text_changes::TextChangeMap::IDENTITY,
+            resolved_name: None,
+            resolved_subtype: None,
+            reference: None,
+        },
+    ));
+    let permitted = match restriction {
+        EnchantRestriction::Permanent(filter, context)
+        | EnchantRestriction::PlayerOrPermanent {
+            filter, context, ..
+        } => crate::eval::matches_with_context(filter, state, host, aura.controller, context),
+        EnchantRestriction::Player(_)
+        | EnchantRestriction::GraveyardCard(..)
+        | EnchantRestriction::ReturnedBy(_) => false,
+    };
+    permitted
+        && crate::permanent_guards::permits_new_enchantment_on(state, host_id)
+        && !crate::eval::protected_from_object(state, host_id, aura)
+        && crate::eval::permits_enchantment(state, host_id, aura.id)
+}
+
+/// Whether a prospective Aura token (not yet inserted into the arena) can
+/// legally enter attached to `player` (CR 303.4f–g, CR 702.16c).
+pub(crate) fn can_attach_prospective_player(
+    state: &GameState,
+    aura: &GameObject,
+    player: PlayerId,
+) -> bool {
+    if state.has_left(player)
+        || aura
+            .characteristics()
+            .types
+            .intersects(TypeSet::CREATURE.union(TypeSet::BATTLE))
+    {
+        return false;
+    }
+    let Some(restriction) = restriction(state, aura) else {
+        return false;
+    };
+    let permitted = match restriction {
+        EnchantRestriction::Player(spec) => match spec {
+            TargetSpec::AnyPlayer => true,
+            TargetSpec::AnyOpponent => state.is_opponent(player, aura.controller),
+            TargetSpec::Player(rel) => {
+                crate::eval::players_for_source(rel, state, aura.controller, None)
+                    .is_some_and(|seats| seats.contains(&player))
+            }
+            TargetSpec::PlayerWhoAttackedThisTurn => state
+                .per_turn
+                .attacked
+                .iter()
+                .any(|&(_, _, who)| who == player),
+            TargetSpec::OpponentWithMoreThanActivePlayer(_) => {
+                state.is_opponent(player, aura.controller)
+            }
+            _ => false,
+        },
+        EnchantRestriction::PlayerOrPermanent { any_player, .. } => {
+            any_player || state.is_opponent(player, aura.controller)
+        }
+        EnchantRestriction::Permanent(..)
+        | EnchantRestriction::GraveyardCard(..)
+        | EnchantRestriction::ReturnedBy(_) => false,
+    };
+    permitted && !crate::eval::player_protected_from_object(state, player, aura)
+}

@@ -419,6 +419,140 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
         }
     }
 
+    pub(super) fn ability_is_exhaust(&self, source: ObjectId, ability_index: u32) -> bool {
+        self.activation_definition(source, ability_index)
+            .is_some_and(|ability| {
+                matches!(
+                    ability,
+                    AbilityDef::Activated {
+                        limit: ActivationLimit::Exhaust,
+                        ..
+                    } | AbilityDef::ActivatedConditional {
+                        limit: ActivationLimit::Exhaust,
+                        ..
+                    } | AbilityDef::ModalActivated {
+                        limit: ActivationLimit::Exhaust,
+                        ..
+                    }
+                )
+            })
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    pub(super) fn activated_ability_cost_reduction_matches(
+        &self,
+        player: PlayerId,
+        source: ObjectId,
+        object: &GameObject,
+        effect: &crate::effects::ContinuousEffect,
+        filter: &'static baylee_cards_dsl::Filter,
+        exhaust_only: bool,
+        ability_index: u32,
+    ) -> bool {
+        if exhaust_only && !self.ability_is_exhaust(source, ability_index) {
+            return false;
+        }
+        if !crate::effects::source_is_present(&self.state, effect) {
+            return false;
+        }
+        if *filter == baylee_cards_dsl::Filter::Any {
+            return crate::effects::applies_to(&self.state, effect, object);
+        }
+        let outer_matches = matches!(
+            effect.filter,
+            crate::effects::EffectFilter::Dsl(
+                baylee_cards_dsl::Filter::Any | baylee_cards_dsl::Filter::This
+            )
+        ) || crate::effects::applies_to(&self.state, effect, object);
+        if !outer_matches {
+            return false;
+        }
+        if !matches!(
+            object.zone,
+            crate::zone::Zone::Battlefield | crate::zone::Zone::Stack
+        ) && !crate::state::filter_reaches_other_zones(filter)
+        {
+            return false;
+        }
+        let context = crate::text_changes::RuleContext {
+            source: effect.source.unwrap_or(source),
+            text: self.state.effect_text(effect),
+            resolved_name: None,
+            resolved_subtype: effect.filter.chosen_subtype(),
+            reference: None,
+        };
+        if object.zone == crate::zone::Zone::Battlefield {
+            eval::matches_with_context(filter, &self.state, object, effect.controller, context)
+        } else {
+            let mut offboard = object.clone();
+            offboard.controller = player;
+            offboard.base_controller = player;
+            eval::matches_with_context(filter, &self.state, &offboard, effect.controller, context)
+        }
+    }
+
+    pub(super) fn eval_activated_cost_reduction(
+        &self,
+        source: ObjectId,
+        effect: &crate::effects::ContinuousEffect,
+        amount: baylee_cards_dsl::Amount,
+    ) -> u32 {
+        let context = crate::text_changes::RuleContext {
+            source: effect.source.unwrap_or(source),
+            text: self.state.effect_text(effect),
+            resolved_name: None,
+            resolved_subtype: effect.filter.chosen_subtype(),
+            reference: None,
+        };
+        eval::amount_with_context(&amount, &self.state, effect.controller, context, None)
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    fn apply_floored_activation_reductions(
+        &self,
+        player: PlayerId,
+        source: ObjectId,
+        ability_index: u32,
+        object: &GameObject,
+        full: &baylee_core::mana::ManaCost,
+        mana: &mut baylee_core::mana::ManaCost,
+    ) {
+        if full.generic_total() == 0 {
+            return;
+        }
+        for effect in self.state.effects.iter() {
+            match effect.modifier {
+                baylee_cards_dsl::Modifier::AbilitiesCostLess { amount, minimum }
+                    if minimum > 0 && crate::effects::applies_to(&self.state, effect, object) =>
+                {
+                    let reduction = amount.min(mana.cmc().saturating_sub(minimum));
+                    *mana = mana.with_less_generic(reduction);
+                }
+                baylee_cards_dsl::Modifier::ActivatedAbilitiesCostLess {
+                    filter,
+                    amount,
+                    min_mana,
+                    exhaust_only,
+                } if min_mana > 0
+                    && self.activated_ability_cost_reduction_matches(
+                        player,
+                        source,
+                        object,
+                        effect,
+                        filter,
+                        exhaust_only,
+                        ability_index,
+                    ) =>
+                {
+                    let eval_amt = self.eval_activated_cost_reduction(source, effect, amount);
+                    let reduction = eval_amt.min(mana.cmc().saturating_sub(u32::from(min_mana)));
+                    *mana = mana.with_less_generic(reduction);
+                }
+                _ => {}
+            }
+        }
+    }
+
     #[allow(clippy::too_many_arguments)]
     fn apply_activation_effect_adjustments(
         &self,
@@ -439,15 +573,36 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
         let Some(object) = self.state.object(source) else {
             return;
         };
+        // Pass 1 (CR 118.7a): floored reductions first so a local minimum never
+        // caps an independent unfloored reduction applied afterwards.
+        self.apply_floored_activation_reductions(player, source, ability_index, object, full, mana);
+        // Pass 2: unfloored generic reductions and non-mana imposed costs.
         for effect in self.state.effects.iter() {
             match effect.modifier {
-                baylee_cards_dsl::Modifier::AbilitiesCostLess { amount, minimum }
+                baylee_cards_dsl::Modifier::AbilitiesCostLess { amount, minimum: 0 }
                     if full.generic_total() > 0
                         && crate::effects::applies_to(&self.state, effect, object) =>
                 {
-                    // A minimum limits this reduction, never increases a free cost.
-                    let reduction = amount.min(mana.cmc().saturating_sub(minimum));
-                    *mana = mana.with_less_generic(reduction);
+                    *mana = mana.with_less_generic(amount);
+                }
+                baylee_cards_dsl::Modifier::ActivatedAbilitiesCostLess {
+                    filter,
+                    amount,
+                    min_mana: 0,
+                    exhaust_only,
+                } if full.generic_total() > 0
+                    && self.activated_ability_cost_reduction_matches(
+                        player,
+                        source,
+                        object,
+                        effect,
+                        filter,
+                        exhaust_only,
+                        ability_index,
+                    ) =>
+                {
+                    let eval_amt = self.eval_activated_cost_reduction(source, effect, amount);
+                    *mana = mana.with_less_generic(eval_amt);
                 }
                 baylee_cards_dsl::Modifier::EquipCostsLess(amount)
                     if full.generic_total() > 0
@@ -481,6 +636,25 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
         }
         // Apply unrestricted target-conditional reductions after floored
         // reductions so a `minimum` on `AbilitiesCostLess` never caps them.
+        self.apply_target_conditional_activation_reductions(
+            player,
+            source,
+            ability_index,
+            object,
+            target_pricing,
+            mana,
+        );
+    }
+
+    fn apply_target_conditional_activation_reductions(
+        &self,
+        player: PlayerId,
+        source: ObjectId,
+        ability_index: u32,
+        object: &GameObject,
+        target_pricing: ActivationTargetPricing<'_>,
+        mana: &mut baylee_core::mana::ManaCost,
+    ) {
         for effect in self.state.effects.iter() {
             let baylee_cards_dsl::Modifier::ReduceCostIfTargets {
                 who,

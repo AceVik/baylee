@@ -89,7 +89,10 @@ fn a_continuous_player_relation_is_one_the_state_can_answer() {
                     | PlayerRel::DefendingPlayer
                     | PlayerRel::ControllerOfTarget
                     | PlayerRel::TargetPlayerOrController
+                    | PlayerRel::FirstTargetPlayerOrController
                     | PlayerRel::SecondTargetPlayerOrController
+                    | PlayerRel::ThirdTargetPlayerOrController
+                    | PlayerRel::RememberedController
                     | PlayerRel::ControllerOfEvent
                     | PlayerRel::DamagedPlayer
                     | PlayerRel::EventPlayer => {
@@ -105,9 +108,10 @@ fn a_continuous_player_relation_is_one_the_state_can_answer() {
                                     | Modifier::AddDamageFrom { .. }
                             )
                     }
-                    PlayerRel::Recipient | PlayerRel::GiftRecipient | PlayerRel::OwnerOfEvent => {
-                        false
-                    }
+                    PlayerRel::Recipient
+                    | PlayerRel::GiftRecipient
+                    | PlayerRel::OwnerOfEvent
+                    | PlayerRel::OwnerOfTarget => false,
                 };
                 if !answerable {
                     wrong.push(format!("{}: {modifier:?}", def.name()));

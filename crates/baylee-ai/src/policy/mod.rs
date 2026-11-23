@@ -27,8 +27,8 @@ pub(crate) use full_casts::{pay_owed_full, pays_phyrexian_with_life};
 #[cfg(test)]
 use mana_effects::spell_mana_increase;
 pub(crate) use mana_effects::{
-    ability_target_mana_reduction, apply_triggered_mana_bonus, less_delve, spell_price,
-    taps_set_off_a_trigger,
+    ability_mana_price, apply_triggered_mana_bonus, effective_activation_mana, less_delve,
+    spell_price, taps_set_off_a_trigger,
 };
 use mana_effects::{tap_destroys_or_locks, tap_trigger_harm};
 
@@ -263,6 +263,36 @@ pub(crate) fn has_dredge(abilities: &[AbilityDef]) -> bool {
         .any(|a| matches!(a, AbilityDef::Replacement(ReplacementRule::Dredge(_))))
 }
 
+/// Orders life-gain replacement sources so `+N` precedes `×M`, and both precede
+/// complete replacements (`DrawsInstead` before `NoLifeInstead`).
+pub(crate) fn life_gain_replacement_rank(abilities: &[AbilityDef]) -> u8 {
+    let mut best = 4u8;
+    for ability in abilities {
+        let AbilityDef::Static(sa) = ability else {
+            continue;
+        };
+        let r = match sa.modifier {
+            baylee_cards_dsl::Modifier::ModifyLifeGain {
+                op: baylee_cards_dsl::LifeGainOp::Add(1..),
+                ..
+            } => 0,
+            baylee_cards_dsl::Modifier::ModifyLifeGain {
+                op: baylee_cards_dsl::LifeGainOp::Multiply(2..),
+                ..
+            } => 1,
+            baylee_cards_dsl::Modifier::LifeGainDrawsInstead { .. } => 2,
+            baylee_cards_dsl::Modifier::LifeGainNoLifeInstead { .. }
+            | baylee_cards_dsl::Modifier::ModifyLifeGain {
+                op: baylee_cards_dsl::LifeGainOp::Multiply(0),
+                ..
+            } => 3,
+            _ => 4,
+        };
+        best = best.min(r);
+    }
+    best
+}
+
 /// The answer to a replacement choice about a draw or life gain, or `None`
 /// for any other prompt.
 ///
@@ -288,9 +318,24 @@ fn replacement_answer(
     use baylee_engine::choice::ChoicePrompt;
     match prompt {
         ChoicePrompt::Dredge => Some(Vec::new()),
-        // Both complete replacements are legal; the stable source order makes
-        // the house's choice reproducible without a card-specific exception.
-        ChoicePrompt::LifeGainReplacement => Some(options.first().copied().into_iter().collect()),
+        // Prefer `+N` before `×M`, and modifiers before complete replacements
+        // (`DrawsInstead` over `NoLifeInstead`), falling back to stable order.
+        ChoicePrompt::LifeGainReplacement => {
+            let rank = |id: &ObjectId| -> u8 {
+                identity(view, *id)
+                    .and_then(|c| baylee_cards::by_index(c.index))
+                    .map_or(2, |def| life_gain_replacement_rank(def.abilities))
+            };
+            Some(
+                options
+                    .iter()
+                    .min_by_key(|id| rank(id))
+                    .or_else(|| options.first())
+                    .copied()
+                    .into_iter()
+                    .collect(),
+            )
+        }
         ChoicePrompt::DrawReplacement => {
             let dredges = |id: &ObjectId| {
                 identity(view, *id)
@@ -947,6 +992,27 @@ impl HeuristicAgent {
                 .effects
                 .iter()
                 .any(|e| matches!(e, baylee_cards_dsl::Effect::MoveAttachment { .. }))
+        {
+            return Some(self.move_attachment_answer(view, options, min, max, None, context));
+        }
+        if prompt == ChoicePrompt::Generic
+            && max > 0
+            && context
+                .effects
+                .iter()
+                .any(|e| matches!(e, baylee_cards_dsl::Effect::AttachChosen { .. }))
+        {
+            return Some(self.attach_chosen_answer(view, options, min, max, context));
+        }
+        if prompt == ChoicePrompt::Generic
+            && max > 0
+            && context.effects.iter().any(|e| {
+                matches!(
+                    e,
+                    baylee_cards_dsl::Effect::PutOntoBattlefieldAttached { .. }
+                        | baylee_cards_dsl::Effect::CreateTokenAttached { .. }
+                )
+            })
         {
             return Some(self.move_attachment_answer(view, options, min, max, None, context));
         }
@@ -5873,6 +5939,86 @@ impl HeuristicAgent {
 
         if !desired.is_empty() {
             desired.truncate(usize::from(max.max(1)));
+            return desired;
+        }
+        if min == 0 {
+            return Vec::new();
+        }
+        let mut fallback = options.to_vec();
+        fallback.sort_by_key(|id| {
+            (
+                view.object(*id)
+                    .map_or(0, |o| Self::permanent_worth(view, o)),
+                *id,
+            )
+        });
+        fallback.truncate(usize::from(min));
+        fallback
+    }
+
+    /// Answer `Pending::ChooseCards` for `Effect::AttachChosen`: select
+    /// beneficial attachments for friendly hosts (or harmful Auras for hostile
+    /// hosts), declining when `optional` (`min == 0`) and no attachment helps.
+    pub(crate) fn attach_chosen_answer(
+        &self,
+        view: &PlayerView,
+        options: &[ObjectId],
+        min: u8,
+        max: u8,
+        context: &DecisionContext<'_>,
+    ) -> Vec<ObjectId> {
+        use baylee_cards_dsl::{Effect, TargetSpec};
+        use baylee_core::types::TargetSide;
+
+        let me = view.seat;
+        let host_is_hostile = context
+            .effects
+            .iter()
+            .find_map(|e| match e {
+                Effect::AttachChosen { to, .. } => Some(*to),
+                _ => None,
+            })
+            .is_some_and(|to| match to {
+                TargetSpec::ThisObject => context
+                    .source
+                    .and_then(|id| view.object(id))
+                    .is_some_and(|o| self.hostile(o.controller, me)),
+                _ => view
+                    .top_of_stack()
+                    .and_then(|s| s.targets.first())
+                    .is_some_and(|t| match t {
+                        baylee_view::TargetRef::Object(r) => view
+                            .object(r.object)
+                            .is_some_and(|o| self.hostile(o.controller, me)),
+                        baylee_view::TargetRef::Player(p) => self.hostile(*p, me),
+                    }),
+            });
+
+        let mut desired: Vec<ObjectId> = options
+            .iter()
+            .copied()
+            .filter(|id| {
+                let is_harmful = view
+                    .object(*id)
+                    .and_then(|o| {
+                        baylee_engine::target_side::aura_side(crate::activate::printed_list(o))
+                    })
+                    .is_some_and(|side| side == TargetSide::Harmful);
+                is_harmful == host_is_hostile
+            })
+            .collect();
+
+        desired.sort_by_key(|id| {
+            (
+                std::cmp::Reverse(
+                    view.object(*id)
+                        .map_or(0, |o| Self::permanent_worth(view, o)),
+                ),
+                *id,
+            )
+        });
+        if !desired.is_empty() {
+            desired.truncate(usize::from(max));
             return desired;
         }
         if min == 0 {

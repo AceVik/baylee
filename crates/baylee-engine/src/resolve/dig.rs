@@ -178,6 +178,7 @@ pub(super) fn finish_with_destination(
         });
         return Some(pending);
     }
+    let placed_ids: Vec<ObjectId> = placed.iter().map(|&(c, _)| c).collect();
     for (card, find) in placed {
         if find.tapped && find.dest == SearchDest::Battlefield {
             state.restore_tapped(card, true);
@@ -189,6 +190,7 @@ pub(super) fn finish_with_destination(
             crate::entry::put_counters(state, res.controller, card, kind, count);
         }
     }
+    res.subject.note_captured_ids(&placed_ids);
     match destination {
         RestDestination::Move(destination) => {
             for card in remaining {

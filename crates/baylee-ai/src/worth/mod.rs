@@ -79,6 +79,42 @@ pub(crate) fn counter_view(kind: CounterKind) -> baylee_view::CounterKind {
     }
 }
 
+pub(crate) fn counter_from_view(kind: baylee_view::CounterKind) -> Option<CounterKind> {
+    use baylee_view::CounterKind as V;
+    Some(match kind {
+        V::Plus { power, toughness } => CounterKind::Plus { power, toughness },
+        V::Minus { power, toughness } => CounterKind::Minus { power, toughness },
+        V::Loyalty => CounterKind::Loyalty,
+        V::Lore => CounterKind::Lore,
+        V::Time => CounterKind::Time,
+        V::Charge => CounterKind::Charge,
+        V::Poison => CounterKind::Poison,
+        V::Energy => CounterKind::Energy,
+        V::Rad => CounterKind::Rad,
+        V::Lifelink => CounterKind::Lifelink,
+        V::Deathtouch => CounterKind::Deathtouch,
+        V::Level => CounterKind::Level,
+        V::Flying => CounterKind::Flying,
+        V::Shadow => CounterKind::Shadow,
+        V::Indestructible => CounterKind::Indestructible,
+        V::FirstStrike => CounterKind::FirstStrike,
+        V::DoubleStrike => CounterKind::DoubleStrike,
+        V::Haste => CounterKind::Haste,
+        V::Hexproof => CounterKind::Hexproof,
+        V::Menace => CounterKind::Menace,
+        V::Reach => CounterKind::Reach,
+        V::Trample => CounterKind::Trample,
+        V::Vigilance => CounterKind::Vigilance,
+        V::Hone => CounterKind::Hone,
+        V::Stun => CounterKind::Stun,
+        V::Finality => CounterKind::Finality,
+        V::Bore => CounterKind::Bore,
+        V::Shield => CounterKind::Shield,
+        V::Defense => CounterKind::Defense,
+        V::Custom(id) => CounterKind::Custom(u16::try_from(id).ok()?),
+    })
+}
+
 /// A card drawn: the unit the rest is measured against.
 const CARD: i64 = 400;
 /// Drawing from an empty library (CR 704.5b), or making an opponent do it.
@@ -227,6 +263,15 @@ pub fn mana_poured(view: &PlayerView, source: ObjectId, effects: &[Effect]) -> O
             .sum::<u16>();
         return Some(u8::try_from(held).unwrap_or(u8::MAX));
     }
+    if matches!(amount, Amount::DistinctCounterKindsOnSource) {
+        let kinds = view
+            .object(source)?
+            .counters
+            .iter()
+            .filter(|c| c.count > 0)
+            .count();
+        return Some(u8::try_from(kinds).unwrap_or(u8::MAX));
+    }
     if !countable(amount) {
         return None;
     }
@@ -247,8 +292,18 @@ fn countable(amount: Amount) -> bool {
         Amount::Fixed(_)
         | Amount::LifeTotal(_)
         | Amount::GreatestPowerAmong(_)
-        | Amount::GreatestManaValueAmong(_) => true,
+        | Amount::GreatestManaValueAmong(_)
+        | Amount::DistinctCounterKindsOnSource
+        | Amount::HighestOpponentHandSize => true,
         Amount::CountOf { zone, .. } => matches!(zone, ZoneSel::Battlefield),
+        Amount::DistinctManaValuesInZone { zone, .. } => matches!(
+            zone,
+            ZoneSel::Battlefield
+                | ZoneSel::GraveyardYou
+                | ZoneSel::GraveyardAll
+                | ZoneSel::GraveyardOpponents
+                | ZoneSel::ExileAll
+        ),
         Amount::Plus { base, .. } | Amount::Times { base, .. } | Amount::Divided { base, .. } => {
             countable(*base)
         }
@@ -331,7 +386,20 @@ impl HeuristicAgent {
         origin: Origin<'_>,
         def: &AbilityDef,
     ) -> Option<i64> {
-        self.activation_worth_at(view, origin, def, Pick::Best)
+        self.activation_worth_with_mana(view, origin, def, None, Pick::Best)
+    }
+
+    /// [`Self::activation_worth`] priced at an explicit engine-published
+    /// mana cost (`legal.unpaid_abilities`) so cost reductions from dynamic or
+    /// temporary effects are reflected in net activation worth.
+    pub(crate) fn activation_worth_at_price(
+        &self,
+        view: &PlayerView,
+        origin: Origin<'_>,
+        def: &AbilityDef,
+        mana_price: baylee_core::mana::ManaCost,
+    ) -> Option<i64> {
+        self.activation_worth_with_mana(view, origin, def, Some(mana_price), Pick::Best)
     }
 
     /// [`Self::activation_worth`] with the target taken from either end of
@@ -342,6 +410,34 @@ impl HeuristicAgent {
         view: &PlayerView,
         origin: Origin<'_>,
         def: &AbilityDef,
+        pick: Pick,
+    ) -> Option<i64> {
+        self.activation_worth_with_mana(view, origin, def, None, pick)
+    }
+
+    fn effective_cost_worth(
+        &self,
+        view: &PlayerView,
+        origin: Origin<'_>,
+        def: &AbilityDef,
+        cost: &Cost,
+        mana_override: Option<baylee_core::mana::ManaCost>,
+    ) -> Option<i64> {
+        let effective_cost = Cost {
+            mana: mana_override.unwrap_or_else(|| {
+                crate::policy::effective_activation_mana(view, origin.id, def, cost.mana)
+            }),
+            parts: cost.parts,
+        };
+        self.cost_worth(view, origin, &effective_cost)
+    }
+
+    fn activation_worth_with_mana(
+        &self,
+        view: &PlayerView,
+        origin: Origin<'_>,
+        def: &AbilityDef,
+        mana_override: Option<baylee_core::mana::ManaCost>,
         pick: Pick,
     ) -> Option<i64> {
         match def {
@@ -381,7 +477,7 @@ impl HeuristicAgent {
                     self.aimed(view, origin, effects, targets.as_ref(), 0, pick)
                         .map(|(gain, _)| gain)
                 })?;
-                Some(gain - self.cost_worth(view, origin, cost)?)
+                Some(gain - self.effective_cost_worth(view, origin, def, cost, mana_override)?)
             }
             AbilityDef::Loyalty {
                 cost,
@@ -439,7 +535,7 @@ impl HeuristicAgent {
             AbilityDef::Unearth { cost } if pick == Pick::Best => {
                 let obj = origin.object?;
                 let gain = i64::from(obj.power.unwrap_or(0).max(0)) * 120 + 80;
-                Some(gain - self.cost_worth(view, origin, cost)?)
+                Some(gain - self.effective_cost_worth(view, origin, def, cost, mana_override)?)
             }
             AbilityDef::Encore { cost } if pick == Pick::Best => {
                 let obj = origin.object?;
@@ -452,7 +548,7 @@ impl HeuristicAgent {
                     return None;
                 }
                 let gain = opponents * (i64::from(obj.power.unwrap_or(0).max(0)) * 120 + 80);
-                Some(gain - self.cost_worth(view, origin, cost)?)
+                Some(gain - self.effective_cost_worth(view, origin, def, cost, mana_override)?)
             }
             // This includes modal activations: their chosen mode is not bound
             // yet, so valuing all modes as if they resolve together is wrong.
@@ -891,6 +987,25 @@ impl HeuristicAgent {
             Amount::GreatestManaValueAmong(filter) => {
                 self.greatest_on_battlefield(view, origin, filter, false)?
             }
+            Amount::DistinctCounterKindsOnSource => i64::try_from(
+                origin
+                    .object?
+                    .counters
+                    .iter()
+                    .filter(|c| c.count > 0)
+                    .count(),
+            )
+            .ok()?,
+            Amount::HighestOpponentHandSize => view
+                .seats
+                .iter()
+                .filter(|s| s.loss.is_none() && self.hostile(s.player, view.seat))
+                .map(|s| i64::from(s.hand_count))
+                .max()
+                .unwrap_or(0),
+            Amount::DistinctManaValuesInZone { zone, filter } => {
+                self.distinct_mana_values_in_zone(view, origin, filter, zone, aim)?
+            }
             Amount::SourcePower => i64::from(origin.object?.power?),
             Amount::TargetPower => i64::from(target?.power?),
             Amount::TargetToughness => i64::from(target?.toughness?),
@@ -1004,18 +1119,96 @@ impl HeuristicAgent {
         })
     }
 
+    /// Number of distinct mana values among matching objects in `zone`; `None`
+    /// when the view cannot inspect that zone.
+    fn distinct_mana_values_in_zone(
+        &self,
+        view: &PlayerView,
+        origin: Origin<'_>,
+        filter: &Filter,
+        zone: ZoneSel,
+        aim: Aim,
+    ) -> Option<i64> {
+        let me = usize::from(view.seat.get());
+        let (objects, zone_ref): (Vec<&PublicObject>, ZoneRef) = match zone {
+            ZoneSel::Battlefield => (view.battlefield.iter().collect(), ZoneRef::Battlefield),
+            ZoneSel::GraveyardYou => (
+                view.graveyards.get(me).into_iter().flatten().collect(),
+                ZoneRef::Graveyard,
+            ),
+            ZoneSel::GraveyardOf(who) => {
+                let players = self.players(view, who, aim)?;
+                (
+                    view.graveyards
+                        .iter()
+                        .enumerate()
+                        .filter(|(index, _)| {
+                            u8::try_from(*index)
+                                .is_ok_and(|seat| players.contains(&PlayerId::new(seat)))
+                        })
+                        .flat_map(|(_, cards)| cards.iter())
+                        .collect(),
+                    ZoneRef::Graveyard,
+                )
+            }
+            ZoneSel::GraveyardAll => (
+                view.graveyards.iter().flatten().collect(),
+                ZoneRef::Graveyard,
+            ),
+            ZoneSel::GraveyardOpponents => (
+                view.graveyards
+                    .iter()
+                    .enumerate()
+                    .filter(|&(i, _)| {
+                        u8::try_from(i).is_ok_and(|p| self.hostile(PlayerId::new(p), view.seat))
+                    })
+                    .flat_map(|(_, g)| g.iter())
+                    .collect(),
+                ZoneRef::Graveyard,
+            ),
+            ZoneSel::ExileAll => {
+                if view.exile.iter().flatten().any(|o| o.status.is_face_down()) {
+                    return None;
+                }
+                (view.exile.iter().flatten().collect(), ZoneRef::Exile)
+            }
+            ZoneSel::HandYou
+            | ZoneSel::HandActivePlayer
+            | ZoneSel::HandChosen
+            | ZoneSel::HandOf(_)
+            | ZoneSel::LibraryYou
+            | ZoneSel::LibraryOf(_)
+            | ZoneSel::LinkedExile => return None,
+        };
+        let mut values = std::collections::BTreeSet::<u32>::new();
+        for o in objects {
+            if self.filter_matches(filter, view, o, zone_ref, Some(origin.id))? {
+                values.insert(o.mana_value);
+            }
+        }
+        i64::try_from(values.len()).ok()
+    }
+
     /// The players `rel` names from this seat, with the aim filling in
     /// "target player" and "that permanent's controller".
     fn players(&self, view: &PlayerView, rel: PlayerRel, aim: Aim) -> Option<Vec<PlayerId>> {
         match (rel, aim) {
-            (PlayerRel::Chosen | PlayerRel::TargetPlayerOrController, Aim::Player(p)) => {
-                Some(vec![p])
-            }
             (
-                PlayerRel::ControllerOfTarget | PlayerRel::TargetPlayerOrController,
+                PlayerRel::Chosen
+                | PlayerRel::TargetPlayerOrController
+                | PlayerRel::FirstTargetPlayerOrController,
+                Aim::Player(p),
+            ) => Some(vec![p]),
+            (
+                PlayerRel::ControllerOfTarget
+                | PlayerRel::TargetPlayerOrController
+                | PlayerRel::FirstTargetPlayerOrController,
                 Aim::Object(id),
             ) => view.object(id).map(|o| vec![o.controller]),
-            (PlayerRel::Chosen | PlayerRel::ControllerOfTarget, _) => Some(Vec::new()),
+            (PlayerRel::OwnerOfTarget, Aim::Object(id)) => view.object(id).map(|o| vec![o.owner]),
+            (PlayerRel::Chosen | PlayerRel::ControllerOfTarget | PlayerRel::OwnerOfTarget, _) => {
+                Some(Vec::new())
+            }
             _ => self.seats(rel, view),
         }
     }
@@ -1998,6 +2191,55 @@ impl HeuristicAgent {
                 evaluation,
             );
         }
+        if let Effect::ChooseCardConstrained {
+            chooser,
+            zone,
+            filter,
+            min,
+            max,
+            movement,
+            then,
+            ..
+        } = effect
+        {
+            return self.choose_card_worth(
+                view, *chooser, *zone, filter, *min, *max, *movement, then, evaluation,
+            );
+        }
+        if let Effect::SearchLibraryDistinctNames { count, find, .. } = effect {
+            let n = self.count(view, origin, *count, aim, x)?.clamp(0, 4);
+            let per_card = match find.dest {
+                baylee_cards_dsl::SearchDest::Battlefield => 420,
+                baylee_cards_dsl::SearchDest::Hand => 320,
+                baylee_cards_dsl::SearchDest::TopOfLibrary => 180,
+                baylee_cards_dsl::SearchDest::Graveyard | baylee_cards_dsl::SearchDest::Exile => 80,
+            };
+            return Some(n.saturating_mul(per_card));
+        }
+        if let Effect::PutOntoBattlefieldAttached { .. } = effect {
+            return Some(400);
+        }
+        if let Effect::CreateTokenAttached { amount, .. } = effect {
+            let n = self.count(view, origin, *amount, aim, x)?.max(0);
+            evaluation.created_tokens = evaluation.created_tokens.saturating_add(n);
+            return Some(n.saturating_mul(320));
+        }
+        if let Effect::PutOntoBattlefieldAttacking { .. } = effect {
+            return Some(450);
+        }
+        if let Effect::AttachChosen { max, .. } = effect {
+            let n = self.count(view, origin, *max, aim, x)?.clamp(0, 4);
+            return Some(n.saturating_mul(220));
+        }
+        if let Effect::DiscardDefined { cards } = effect {
+            let hostile_target = matches!(
+                cards,
+                baylee_cards_dsl::DefinedObjects::Spec(baylee_cards_dsl::TargetSpec::Player(
+                    PlayerRel::Opponent | PlayerRel::EachOpponent
+                ))
+            );
+            return Some(if hostile_target { 240 } else { -120 });
+        }
         let (then, otherwise) = effect.branches();
         if !then.is_empty() || !otherwise.is_empty() {
             let (mut yes, mut no) = (*evaluation, *evaluation);
@@ -2451,14 +2693,25 @@ impl HeuristicAgent {
                 n.saturating_mul(per_card)
             }
             Effect::ExileWithPermission { permission, .. } => {
-                let bonus = if permission.free { 240 } else { 140 };
-                subject.map_or(bonus, |o| {
+                let raw_bonus = if permission.free { 240 } else { 140 };
+                subject.map_or(raw_bonus, |o| {
                     let base = if self.hostile(o.controller, me) {
                         Self::permanent_worth(view, o).max(120)
                     } else {
                         -Self::permanent_worth(view, o)
                     };
-                    base.saturating_add(bonus)
+                    let grant_bonus = match permission.caster {
+                        PlayerRel::OwnerOfTarget | PlayerRel::OwnerOfEvent => {
+                            if self.hostile(o.owner, me) {
+                                -(raw_bonus / 2)
+                            } else {
+                                raw_bonus
+                            }
+                        }
+                        PlayerRel::You => raw_bonus,
+                        _ => 0,
+                    };
+                    base.saturating_add(grant_bonus)
                 })
             }
             Effect::GrantLinkedExilePermission { permission } => {
@@ -2943,6 +3196,17 @@ impl HeuristicAgent {
                 Some(o) => self.counters(view, o, *kind, count(*amount)?)?,
                 None => 0,
             },
+            Effect::PutEachCounterKindFromSource { .. } => match (subject, origin.object) {
+                (Some(target), Some(src)) => src
+                    .counters
+                    .iter()
+                    .filter(|entry| entry.count > 0)
+                    .filter_map(|entry| {
+                        self.counters(view, target, counter_from_view(entry.kind)?, 1)
+                    })
+                    .sum(),
+                _ => 0,
+            },
             Effect::SetClassLevel(level) => self.class_upgrade_worth(view, origin, *level)?,
             Effect::AddCountersUpTo {
                 kind,
@@ -3347,7 +3611,20 @@ impl HeuristicAgent {
                 self.pump(view, objects, (i32::from(*p), i32::from(*t), 0), duration)
             }
             Modifier::AddKeyword(k) => self.pump(view, objects, (0, 0, k.bits()), duration),
-            Modifier::Goaded => objects.iter().map(|o| self.goad_worth(view, o)).sum(),
+            Modifier::Goaded | Modifier::MustAttackPlayer(_) => {
+                objects.iter().map(|o| self.goad_worth(view, o)).sum()
+            }
+            Modifier::AssignsNoCombatDamage => objects
+                .iter()
+                .map(|o| {
+                    let dmg = i64::from(o.power.unwrap_or(0).max(0)) * 70;
+                    if self.hostile(o.controller, view.seat) {
+                        dmg
+                    } else {
+                        -dmg
+                    }
+                })
+                .sum(),
             Modifier::MustBlock => objects
                 .iter()
                 .map(|o| {
@@ -3402,6 +3679,7 @@ impl HeuristicAgent {
             Modifier::ExileInsteadOfLeavingBattlefield
             | Modifier::ReplaceDamage { .. }
             | Modifier::ReplaceOrPreventDamageWithThen { .. }
+            | Modifier::PreventDamageRemovingCounters { .. }
             | Modifier::AddType(_)
             | Modifier::RemoveType(_)
             | Modifier::AddSubtype(_)
@@ -3421,6 +3699,13 @@ impl HeuristicAgent {
         let per_player: i64 = match modifier {
             Modifier::PlayerCantCast { .. } | Modifier::PlayerCantActivateNonMana { .. } => -120,
             Modifier::SpellsCantBeCountered { .. } => 40,
+            Modifier::ModifyLifeGain { op, .. } => match op {
+                baylee_cards_dsl::LifeGainOp::Multiply(0) => -40,
+                baylee_cards_dsl::LifeGainOp::Multiply(1)
+                | baylee_cards_dsl::LifeGainOp::Add(0) => 0,
+                baylee_cards_dsl::LifeGainOp::Multiply(_)
+                | baylee_cards_dsl::LifeGainOp::Add(_) => 30,
+            },
             Modifier::ReplaceDamage { .. } | Modifier::ReplaceOrPreventDamageWithThen { .. } => 0,
             _ => return None,
         };
@@ -3941,7 +4226,7 @@ impl HeuristicAgent {
                 return self
                     .choose_own_hand_worth(view, filter, min, max_n, movement, then, evaluation);
             }
-            ChooseZone::Hand(_) | ChooseZone::Found => return Some(180),
+            ChooseZone::Hand(_) | ChooseZone::Found | ChooseZone::Remembered => return Some(180),
             _ => {}
         }
         let candidates = self.choose_public_candidates(view, zone, filter, origin, aim)?;
@@ -4066,7 +4351,7 @@ impl HeuristicAgent {
                     }
                 }
             }
-            ChooseZone::Hand(_) | ChooseZone::Found => {}
+            ChooseZone::Hand(_) | ChooseZone::Found | ChooseZone::Remembered => {}
         }
         Some(candidates)
     }

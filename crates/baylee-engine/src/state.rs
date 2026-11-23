@@ -56,9 +56,11 @@ pub use delayed::{
     DelayedAction, DelayedTrigger, DelayedTriggerSpec, DelayedWhen, PlayerTurnControl,
     RememberedContext,
 };
+pub(crate) use entry_history::freeze_object;
 pub use per_turn::{
-    AbilityResolved, BlockRecord, DamageLogEntry, GraveyardPlay, MustBlockRequirement, PerTurn,
-    PlayLifetime, PlayPermission, PreviousTurn, SacrificedPermanentRecord,
+    AbilityResolved, BlockRecord, CastSpellRecord, CounterPlacerRecord, DamageLogEntry,
+    GraveyardPlay, MustBlockRequirement, PerTurn, PlayLifetime, PlayPermission, PreviousTurn,
+    SacrificedPermanentRecord, SpellCastRecord, ZoneChangeRecord,
 };
 use reads::printed_pt_cda;
 pub(crate) use reads::{
@@ -764,6 +766,12 @@ pub struct GameState {
     /// `resolve::run`), where `Resolution::subject.chosen_number` carries the
     /// persisted state.
     pub(crate) resolution_chosen_number: Option<(ObjectId, u32)>,
+    /// Transient `(source, remembered_objects)` binding active only while
+    /// `resolve::run` is executing inside [`baylee_cards_dsl::Effect::CaptureAffected`];
+    /// always `None` at rest (between calls into `resolve::run`), where
+    /// `Resolution::subject.remembered_objects` carries the persisted state.
+    pub(crate) resolution_remembered:
+        Option<(ObjectId, std::sync::Arc<[crate::resolve::RememberedObject]>)>,
     /// Cards a resolving discover (CR 701.57a) exiled and stopped at:
     /// `(the discovering player, the card, its version in exile)`.
     ///
@@ -1015,6 +1023,7 @@ impl GameState {
             reflexive,
             resolution_chosen_color: _,
             resolution_chosen_number: _,
+            resolution_remembered: _,
             discovered,
             divided,
             synthetic_copies,

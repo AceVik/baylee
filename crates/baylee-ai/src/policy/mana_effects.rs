@@ -340,6 +340,161 @@ fn any_target_matches_in_view(
             .any(|o| matches_in(o, baylee_cards_dsl::ZoneRef::Stack))
 }
 
+/// Evaluates a simple battlefield-observable `Amount` on `perm` (used for
+/// `Modifier::ActivatedAbilitiesCostLess` such as *Agatha of the Vile Cauldron*).
+fn view_modifier_amount(amount: baylee_cards_dsl::Amount, perm: &baylee_view::PublicObject) -> u32 {
+    match amount {
+        baylee_cards_dsl::Amount::Fixed(n) => n,
+        baylee_cards_dsl::Amount::SourcePower => perm
+            .power
+            .and_then(|p| u32::try_from(p.max(0)).ok())
+            .unwrap_or(0),
+        baylee_cards_dsl::Amount::CountersOnSource(kind) => {
+            let kind = crate::worth::counter_view(kind);
+            perm.counters
+                .iter()
+                .filter(|c| c.kind == kind)
+                .map(|c| u32::from(c.count))
+                .sum()
+        }
+        _ => 0,
+    }
+}
+
+fn ability_def_is_exhaust(def: &AbilityDef) -> bool {
+    matches!(
+        def,
+        AbilityDef::Activated {
+            limit: baylee_cards_dsl::ActivationLimit::Exhaust,
+            ..
+        } | AbilityDef::ActivatedConditional {
+            limit: baylee_cards_dsl::ActivationLimit::Exhaust,
+            ..
+        } | AbilityDef::ModalActivated {
+            limit: baylee_cards_dsl::ActivationLimit::Exhaust,
+            ..
+        }
+    )
+}
+
+fn activation_reduction_matches_perm(
+    agent: &HeuristicAgent,
+    view: &PlayerView,
+    source_obj: &baylee_view::PublicObject,
+    perm: &baylee_view::PublicObject,
+    outer: &Filter,
+    inner: Option<&Filter>,
+) -> bool {
+    let outer_ok = if let Some(inner_f) = inner
+        && *inner_f != Filter::Any
+    {
+        matches!(outer, Filter::Any | Filter::This)
+            || agent.filter_matches(
+                outer,
+                view,
+                source_obj,
+                baylee_cards_dsl::ZoneRef::Battlefield,
+                Some(perm.id),
+            ) == Some(true)
+    } else {
+        agent.filter_matches(
+            outer,
+            view,
+            source_obj,
+            baylee_cards_dsl::ZoneRef::Battlefield,
+            Some(perm.id),
+        ) == Some(true)
+    };
+    outer_ok
+        && inner.is_none_or(|inner_f| {
+            *inner_f == Filter::Any
+                || agent.filter_matches(
+                    inner_f,
+                    view,
+                    source_obj,
+                    baylee_cards_dsl::ZoneRef::Battlefield,
+                    Some(perm.id),
+                ) == Some(true)
+        })
+}
+
+/// Effective mana cost of activating `def` on `source` after battlefield
+/// generic activation reductions (`AbilitiesCostLess`, `ActivatedAbilitiesCostLess`,
+/// CR 118.7a: floored reductions before unfloored reductions).
+pub(crate) fn effective_activation_mana(
+    view: &PlayerView,
+    source: ObjectId,
+    def: &AbilityDef,
+    base: ManaCost,
+) -> ManaCost {
+    if base.generic_total() == 0 {
+        return base;
+    }
+    let Some(source_obj) = view.object(source) else {
+        return base;
+    };
+    let agent = HeuristicAgent::new(crate::AIProfile::default());
+    let is_exhaust = ability_def_is_exhaust(def);
+    let mut mana = base;
+    for floored in [true, false] {
+        for perm in &view.battlefield {
+            for ability in active_abilities(perm) {
+                let AbilityDef::Static(sa) = ability else {
+                    continue;
+                };
+                match sa.modifier {
+                    baylee_cards_dsl::Modifier::AbilitiesCostLess { amount, minimum }
+                        if (minimum > 0) == floored
+                            && activation_reduction_matches_perm(
+                                &agent, view, source_obj, perm, &sa.filter, None,
+                            ) =>
+                    {
+                        let reduction = amount.min(mana.cmc().saturating_sub(minimum));
+                        mana = mana.with_less_generic(reduction);
+                    }
+                    baylee_cards_dsl::Modifier::ActivatedAbilitiesCostLess {
+                        filter,
+                        amount,
+                        min_mana,
+                        exhaust_only,
+                    } if (min_mana > 0) == floored
+                        && (!exhaust_only || is_exhaust)
+                        && activation_reduction_matches_perm(
+                            &agent,
+                            view,
+                            source_obj,
+                            perm,
+                            &sa.filter,
+                            Some(filter),
+                        ) =>
+                    {
+                        let amt = view_modifier_amount(amount, perm);
+                        let reduction = amt.min(mana.cmc().saturating_sub(u32::from(min_mana)));
+                        mana = mana.with_less_generic(reduction);
+                    }
+                    _ => {}
+                }
+            }
+        }
+    }
+    mana
+}
+
+/// Full mana price of activating `def` on `source` (increases, generic
+/// ability reductions, and target-conditional reductions).
+pub(crate) fn ability_mana_price(
+    view: &PlayerView,
+    legal: &LegalActions,
+    source: ObjectId,
+    def: &AbilityDef,
+    base: ManaCost,
+) -> ManaCost {
+    let increased = base.with_more_generic(legal.activation_increase(source));
+    let reduced = effective_activation_mana(view, source, def, increased);
+    let target_reduction = ability_target_mana_reduction(view, source);
+    reduced.with_less_mana(&target_reduction, false)
+}
+
 /// Optimistic colored+generic mana reduction from battlefield
 /// `Modifier::ReduceCostIfTargets { abilities: true, .. }` statics matching
 /// `source` for the seat currently acting in `view`.

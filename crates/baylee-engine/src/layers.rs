@@ -813,7 +813,8 @@ fn could_change_match(modifier: &Modifier, filter: &Filter, layer: Layer) -> boo
         Filter::Named(_)
         | Filter::NamedBySource
         | Filter::NameOriginallyPrintedIn(_)
-        | Filter::SameNameAsLinkedExile => {
+        | Filter::SameNameAsLinkedExile
+        | Filter::SharesNameWithRemembered => {
             matches!(modifier, Modifier::BecomeCopyOf(_))
         }
         Filter::LowestManaValueOnBattlefield(f) => {
@@ -844,6 +845,7 @@ fn could_change_match(modifier: &Modifier, filter: &Filter, layer: Layer) -> boo
         | Filter::MatchesChosenTypeOfSource
         | Filter::SharesCreatureTypeWithOtherTarget
         | Filter::SharesTypeWithReference(_)
+        | Filter::SharesCardTypeWithRemembered
         | Filter::SharesSubtypeWithCommander => {
             matches!(
                 modifier,
@@ -957,6 +959,7 @@ fn could_change_match(modifier: &Modifier, filter: &Filter, layer: Layer) -> boo
         Filter::Any
         | Filter::Monstrous
         | Filter::Suspected
+        | Filter::Saddled
         | Filter::IsCommander
         | Filter::HasAdventure
         | Filter::This
@@ -990,6 +993,8 @@ fn could_change_match(modifier: &Modifier, filter: &Filter, layer: Layer) -> boo
         | Filter::SpellTargetingAffected
         | Filter::BlockedBySource
         | Filter::Reference
+        | Filter::IsRemembered
+        | Filter::NotRemembered
         | Filter::BlockingReference
         | Filter::BlockedByReferenceThisTurn
         | Filter::BlockedReferenceThisTurn
@@ -1518,6 +1523,11 @@ fn apply(
         | Modifier::MustBlock
         | Modifier::ReplaceDamage { .. }
         | Modifier::ReplaceOrPreventDamageWithThen { .. }
+        | Modifier::ActivatedAbilitiesCostLess { .. }
+        | Modifier::FirstSpellEachTurnCostAdjust { .. }
+        | Modifier::MustAttackPlayer(_)
+        | Modifier::ModifyLifeGain { .. }
+        | Modifier::PreventDamageRemovingCounters { .. }
         | Modifier::GrantStatic { .. }
         | Modifier::SpellsHaveFlash(_)
         | Modifier::SorceriesHaveFlash

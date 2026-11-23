@@ -66,6 +66,18 @@ pub(super) fn refers_to_subject(effects: &'static [Effect], implicit_source: boo
             | Effect::MoveAttachment {
                 attachment: target, ..
             }
+            | Effect::AttachChosen { to: target, .. }
+            | Effect::PutOntoBattlefieldAttacking {
+                subject: baylee_cards_dsl::DefinedObjects::Spec(target),
+                ..
+            }
+            | Effect::DiscardDefined {
+                cards: baylee_cards_dsl::DefinedObjects::Spec(target),
+            }
+            | Effect::CreateTokenAttached {
+                host: baylee_cards_dsl::AttachHost::Spec(target),
+                ..
+            }
             | Effect::ExileLinked { target, .. }
             | Effect::SacrificeObject { target, .. }
             | Effect::RedirectNextDamage { target, .. }
@@ -80,6 +92,7 @@ pub(super) fn refers_to_subject(effects: &'static [Effect], implicit_source: boo
             | Effect::Unsuspect { target }
             | Effect::AddTempModifier { target, .. }
             | Effect::GainControlEx { target, .. }
+            | Effect::PutEachCounterKindFromSource { target }
             | Effect::Play {
                 source: baylee_cards_dsl::PlaySource::Subject(target),
                 ..
@@ -112,6 +125,19 @@ pub(super) fn refers_to_subject(effects: &'static [Effect], implicit_source: boo
                     || *attach_source
                     || when_source_leaves.is_some()
             }
+            Effect::PutOntoBattlefieldAttached { subject, host, .. } => {
+                matches!(
+                    subject,
+                    baylee_cards_dsl::DefinedObjects::Spec(TargetSpec::ThisObject)
+                        | baylee_cards_dsl::DefinedObjects::AllInZone {
+                            zone: baylee_cards_dsl::ZoneSel::LinkedExile,
+                            ..
+                        }
+                ) || matches!(
+                    host,
+                    baylee_cards_dsl::AttachHost::Spec(TargetSpec::ThisObject)
+                )
+            }
             Effect::CreateContinuousEffect { filter, .. }
             | Effect::AddGlobalTempModifier { filter, .. }
             | Effect::GainControlAllEx { filter, .. }
@@ -129,7 +155,30 @@ pub(super) fn refers_to_subject(effects: &'static [Effect], implicit_source: boo
                 baylee_cards_dsl::DamageRedirectTo::ThisObject
                     | baylee_cards_dsl::DamageRedirectTo::Target(TargetSpec::ThisObject)
             ),
-            Effect::PreventNextDamageFromSource { .. }
+            Effect::PutOntoBattlefieldAttacking {
+                subject:
+                    baylee_cards_dsl::DefinedObjects::AllInZone {
+                        zone: baylee_cards_dsl::ZoneSel::LinkedExile,
+                        ..
+                    },
+                ..
+            }
+            | Effect::DiscardDefined {
+                cards:
+                    baylee_cards_dsl::DefinedObjects::AllInZone {
+                        zone: baylee_cards_dsl::ZoneSel::LinkedExile,
+                        ..
+                    },
+            }
+            | Effect::ChooseCardConstrained {
+                zone: baylee_cards_dsl::ChooseZone::LinkedExile,
+                ..
+            }
+            | Effect::ChooseCardConstrained {
+                movement: baylee_cards_dsl::ChooseMove::ExileLinked,
+                ..
+            }
+            | Effect::PreventNextDamageFromSource { .. }
             | Effect::Play {
                 source: baylee_cards_dsl::PlaySource::LinkedExile,
                 ..
@@ -293,6 +342,17 @@ pub(super) fn moves_subject(effects: &'static [Effect]) -> bool {
                 | Effect::MoveAndModify {
                     subject: baylee_cards_dsl::MoveSubject::Target(TargetSpec::ThisObject),
                     ..
+                }
+                | Effect::PutOntoBattlefieldAttached {
+                    subject: baylee_cards_dsl::DefinedObjects::Spec(TargetSpec::ThisObject),
+                    ..
+                }
+                | Effect::PutOntoBattlefieldAttacking {
+                    subject: baylee_cards_dsl::DefinedObjects::Spec(TargetSpec::ThisObject),
+                    ..
+                }
+                | Effect::DiscardDefined {
+                    cards: baylee_cards_dsl::DefinedObjects::Spec(TargetSpec::ThisObject),
                 }
         );
     });

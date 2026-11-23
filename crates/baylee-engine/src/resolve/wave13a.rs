@@ -167,9 +167,17 @@ pub(super) fn collect_choose_zone_candidates(
             });
             cards
         }
-        ChooseZone::Found => {
+        ChooseZone::Found | ChooseZone::Remembered => {
             let mut out = Vec::new();
-            for &r in &res.subject.found {
+            let refs: Vec<baylee_core::ids::DamageSourceRef> = match zone {
+                ChooseZone::Found => res.subject.found.clone(),
+                ChooseZone::Remembered => res
+                    .subject
+                    .remembered()
+                    .map_or_else(Vec::new, |list| list.iter().map(|r| r.reference).collect()),
+                _ => unreachable!(),
+            };
+            for r in refs {
                 let Some(obj) = state.object(r.object) else {
                     continue;
                 };
@@ -385,6 +393,9 @@ fn finish_choose_card_ex_moves(
     valid_unchosen: &[ObjectId],
     spec: &ChooseCardExState,
 ) -> Option<Pending> {
+    if !valid_chosen.is_empty() {
+        res.subject.note_captured_ids(valid_chosen);
+    }
     let mut arrange_batches: Vec<(PlayerId, Vec<ObjectId>)> = Vec::new();
     let mut arrange_is_chosen: Vec<bool> = Vec::new();
     let chosen_refs = apply_batch_choose_move(

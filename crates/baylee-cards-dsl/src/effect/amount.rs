@@ -427,6 +427,97 @@ pub enum Amount {
     /// resolution or before a number is chosen. Appended to preserve replay
     /// identities.
     ResolutionChosenNumber,
+    /// Objects that moved into zone `to` this turn (from zone `from`, or from
+    /// anywhere including token creation when `None`), each counted once per
+    /// move and matched against `filter` **as it was** (CR 400.7, CR 608.2h):
+    /// an arrival on the battlefield as it entered, with every co-arrival
+    /// present (CR 603.6a), and a departure from the battlefield as it last
+    /// existed there. Departed objects still count.
+    ///
+    /// `owner_or_ctrl` names whose moves count: the player the object
+    /// entered under for a battlefield arrival, and the zone's owner (the
+    /// card's owner) for every other destination — celebration's "two or
+    /// more nonland permanents entered the battlefield under your control"
+    /// (Armory Mice), Asmira's "each creature put into your graveyard from
+    /// the battlefield this turn". `exclude_source` leaves out the ability's
+    /// own source as the object it is now ("another"). Appended to preserve
+    /// replay identities.
+    EnteredThisTurn {
+        /// What the object was as it moved.
+        filter: &'static Filter,
+        /// The zone it left, or `None` for any (including being created).
+        from: Option<crate::ZoneRef>,
+        /// The zone it entered.
+        to: crate::ZoneRef,
+        /// Controller (battlefield) or owner (other zones) relative to "you".
+        owner_or_ctrl: super::PlayerRel,
+        /// Leave out the ability's source as the object it is now.
+        exclude_source: bool,
+    },
+    /// Spells cast this turn by players matching `caster` that matched
+    /// `filter` as they were cast (CR 601.2i), countered or not: Arclight
+    /// Phoenix's "three or more instant and sorcery spells this turn".
+    /// Copies are not cast (CR 707.10). Appended to preserve replay
+    /// identities.
+    SpellsCastMatchingThisTurn {
+        /// What the spell was as it became cast.
+        filter: &'static Filter,
+        /// Who cast it, relative to "you".
+        caster: super::PlayerRel,
+    },
+    /// Distinct card types (CR 300.1, CR 205.2a) among spells players
+    /// matching the relation cast this turn, as they were cast (April
+    /// O'Neil). Supertypes and subtypes are not card types. Appended to
+    /// preserve replay identities.
+    DistinctCardTypesCastThisTurn(super::PlayerRel),
+    /// Distinct creatures declared as attackers this turn (CR 508.1, so a
+    /// creature put onto the battlefield attacking is not one, CR 508.4) by
+    /// players matching `controller`, matched against `filter` as each is
+    /// now, or as it last existed on the battlefield if it has left
+    /// (CR 608.2h). Appended to preserve replay identities.
+    CreaturesAttackedThisTurn {
+        /// What the attacker is (or last was).
+        filter: &'static Filter,
+        /// The attacking player, relative to "you".
+        controller: super::PlayerRel,
+    },
+    /// Number of different mana values (CR 202.3) among objects in the zone
+    /// matching the filter ("for each different mana value among cards in
+    /// your graveyard"). Zero is a mana value like any other. Appended to
+    /// preserve replay identities.
+    DistinctManaValuesInZone {
+        /// Where to look.
+        zone: ZoneSel,
+        /// What to count.
+        filter: &'static Filter,
+    },
+    /// Number of different kinds of counters on the ability's own source
+    /// (CR 122.1; "for each kind of counter on it"), read as
+    /// [`Self::CountersOnSource`] reads its source. Appended to preserve
+    /// replay identities.
+    DistinctCounterKindsOnSource,
+    /// The greatest number of cards in hand among "your" opponents still in
+    /// the game (CR 102.2, CR 800.4a), zero without one. Appended to preserve
+    /// replay identities.
+    HighestOpponentHandSize,
+    /// Number of objects remembered by the innermost enclosing
+    /// [`super::Effect::CaptureAffected`] ("that many": Arjun, the Shifting
+    /// Flame draws as many cards as it put on the bottom). Counts objects that
+    /// have since ceased to exist (a sacrificed token was still sacrificed).
+    /// `0` outside a capture's `then`. Appended to preserve replay identities.
+    RememberedCount,
+    /// Total mana value of the remembered objects, each as it last existed
+    /// before the capturing instruction moved it (`CR 608.2h`). Appended to
+    /// preserve replay identities.
+    RememberedManaValue,
+    /// Total power of the remembered objects as they last existed
+    /// (`CR 608.2h`), floored at 0 (`CR 107.1b`). Appended to preserve replay
+    /// identities.
+    RememberedPower,
+    /// Total toughness of the remembered objects as they last existed
+    /// (`CR 608.2h`), floored at 0 (`CR 107.1b`). Appended to preserve replay
+    /// identities.
+    RememberedToughness,
 }
 
 /// The recipient [`Amount::DamageThisTurn`] counts.

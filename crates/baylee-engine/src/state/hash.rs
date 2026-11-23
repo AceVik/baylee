@@ -80,6 +80,7 @@ impl GameState {
             // Transient scope bound only inside `resolve::run`; `None` at rest.
             resolution_chosen_color: _,
             resolution_chosen_number,
+            resolution_remembered,
             discovered,
             divided,
             synthetic_copies,
@@ -196,6 +197,11 @@ impl GameState {
             h.u16(370);
             src.hash(&mut h);
             h.u32(*number);
+        }
+        if let Some((src, remembered)) = resolution_remembered {
+            h.u16(431);
+            src.hash(&mut h);
+            remembered.as_ref().hash(&mut h);
         }
         game_end.hash(&mut h);
         format.hash(&mut h);
@@ -732,6 +738,80 @@ impl GameState {
             && !self.per_turn.sacrificed_permanents.items.is_empty()
         {
             let records = &self.per_turn.sacrificed_permanents.items;
+            h.usize(records.len());
+            for record in records {
+                h.u8(record.controller.get());
+                h.u32(position(record.source.object));
+                hash_object_situation(h, &record.snapshot, self, position);
+            }
+        }
+        self.hash_turn_activity_logs(h, position);
+    }
+
+    fn hash_turn_activity_logs(&self, h: &mut Hasher, position: &impl Fn(ObjectId) -> u32) {
+        if self.per_turn.zone_changes.tracked && !self.per_turn.zone_changes.items.is_empty() {
+            let records = &self.per_turn.zone_changes.items;
+            h.u16(371);
+            h.usize(records.len());
+            for record in records {
+                h.u32(position(record.object.object));
+                h.u8(moves_since(
+                    self.object_or_departed(record.object.object),
+                    record.object.version,
+                ));
+                record.from.hash(h);
+                record.to.hash(h);
+                h.u8(record.owner.get());
+                h.u8(record.controller.get());
+                h.boolean(record.snapshot.is_some());
+                if let Some(snapshot) = &record.snapshot {
+                    hash_object_situation(h, snapshot, self, position);
+                }
+            }
+        }
+        if self.per_turn.spells_cast_log.tracked && !self.per_turn.spells_cast_log.items.is_empty()
+        {
+            let records = &self.per_turn.spells_cast_log.items;
+            h.u16(372);
+            h.usize(records.len());
+            for record in records {
+                h.u32(position(record.spell.object));
+                h.u8(moves_since(
+                    self.object_or_departed(record.spell.object),
+                    record.spell.version,
+                ));
+                h.u8(record.caster.get());
+                hash_object_situation(h, &record.snapshot, self, position);
+            }
+        }
+        if self.per_turn.counter_placers.tracked && !self.per_turn.counter_placers.items.is_empty()
+        {
+            let mut placers: Vec<_> = self
+                .per_turn
+                .counter_placers
+                .items
+                .iter()
+                .map(|record| {
+                    (
+                        position(record.target.object),
+                        moves_since(
+                            self.object_or_departed(record.target.object),
+                            record.target.version,
+                        ),
+                        record.kind,
+                        record.by,
+                    )
+                })
+                .collect();
+            placers.sort_unstable();
+            h.u16(373);
+            placers.hash(h);
+        }
+        if self.per_turn.cast_spells_this_turn.tracked
+            && !self.per_turn.cast_spells_this_turn.items.is_empty()
+        {
+            let records = &self.per_turn.cast_spells_this_turn.items;
+            h.u16(374);
             h.usize(records.len());
             for record in records {
                 h.u8(record.controller.get());
@@ -3091,6 +3171,23 @@ fn filter_hash(h: &mut Hasher, f: &baylee_cards_dsl::Filter) {
             h.u8(239);
             hash_filter_amount(h, amt);
         }
+        F::Saddled => h.u8(240),
+        F::IsRemembered => {
+            h.u8(255);
+            h.u16(430);
+        }
+        F::NotRemembered => {
+            h.u8(255);
+            h.u16(431);
+        }
+        F::SharesCardTypeWithRemembered => {
+            h.u8(255);
+            h.u16(432);
+        }
+        F::SharesNameWithRemembered => {
+            h.u8(255);
+            h.u16(433);
+        }
     }
 }
 
@@ -3140,7 +3237,11 @@ fn amount_filter_depth_exceeds(amt: &baylee_cards_dsl::Amount, depth: u8) -> boo
         | A::DamageThisTurn { by: f, .. }
         | A::GreatestPowerAmong(f)
         | A::GreatestManaValueAmong(f)
-        | A::TotalPowerAmong(f) => filter_amount_depth_exceeds(f, depth),
+        | A::TotalPowerAmong(f)
+        | A::EnteredThisTurn { filter: f, .. }
+        | A::SpellsCastMatchingThisTurn { filter: f, .. }
+        | A::CreaturesAttackedThisTurn { filter: f, .. }
+        | A::DistinctManaValuesInZone { filter: f, .. } => filter_amount_depth_exceeds(f, depth),
         A::ThisWay(tw) | A::ThisWayBy { what: tw, .. } => match tw {
             TW::Died(f)
             | TW::Destroyed(f)

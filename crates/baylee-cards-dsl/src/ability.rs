@@ -762,6 +762,18 @@ pub enum Condition {
     /// At least one player still in the game has N cards in their graveyard.
     /// Appended to preserve replay identities.
     AnyGraveyardCountAtLeast(u16),
+    /// "If a [kind] counter was put on this permanent this turn": at least
+    /// one counter of `kind` was actually put on this exact source
+    /// incarnation since the turn began (CR 122.6, CR 400.7). A placement
+    /// that a replacement reduced to nothing put none. With `by_you`, only a
+    /// placement made by the ability's controller counts ("you put").
+    /// Appended to preserve replay identities.
+    CountersPlacedOnSourceThisTurn {
+        /// The counter kind that must have been put on the source.
+        kind: crate::effect::CounterKind,
+        /// Only placements made by "you" (the ability's controller) count.
+        by_you: bool,
+    },
 }
 
 /// Trigger conditions for triggered abilities.

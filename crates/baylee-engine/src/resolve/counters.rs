@@ -272,6 +272,58 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
             }
             None
         }
+        Effect::PutEachCounterKindFromSource { target } => {
+            let counters: Vec<(baylee_cards_dsl::CounterKind, u16)> = state
+                .damage_source(res.source, source_version(state, res))
+                .map_or_else(Vec::new, |src| {
+                    src.counters
+                        .iter()
+                        .filter_map(|(kind, count)| (count > 0).then_some((kind, 1)))
+                        .collect()
+                });
+            if counters.is_empty() {
+                return None;
+            }
+            let recipients: smallvec::SmallVec<[ObjectId; 2]> = match target {
+                baylee_cards_dsl::TargetSpec::ThisObject => subjects::source(state, res)
+                    .filter(|&r| subjects::on_battlefield(state, r))
+                    .map(|r| r.object)
+                    .into_iter()
+                    .collect(),
+                baylee_cards_dsl::TargetSpec::EventObject => subjects::event(state, res)
+                    .filter(|&r| subjects::on_battlefield(state, r))
+                    .map(|r| r.object)
+                    .into_iter()
+                    .collect(),
+                _ => zones::spec_objects(state, res, target)
+                    .into_iter()
+                    .filter(|&target_id| {
+                        subjects::target(state, res, target_id)
+                            .is_some_and(|r| subjects::is_current(state, r))
+                            && state
+                                .object(target_id)
+                                .is_some_and(|o| o.zone == crate::zone::Zone::Battlefield)
+                    })
+                    .collect(),
+            };
+            let plans: Vec<_> = recipients
+                .into_iter()
+                .filter_map(|recipient| {
+                    crate::replacement::counter_order::plan(
+                        state,
+                        res.controller,
+                        recipient,
+                        counters.clone(),
+                        true,
+                        None,
+                    )
+                })
+                .collect();
+            if !plans.is_empty() {
+                crate::replacement::counter_order::enqueue_batch(state, plans, Vec::new());
+            }
+            None
+        }
         // As an effect, remove as many as possible (CR 609.3). A `MayDo`
         // cost separately checks that the complete removal is possible.
         Effect::RemoveCounterSelf { kind, n } => {

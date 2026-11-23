@@ -43,6 +43,10 @@ pub struct ExilePermission {
     pub free: bool,
     /// Mana spending relaxation while casting this card (CR 609.4b).
     pub mana: ExileMana,
+    /// Who receives the permission (`PlayerRel::You` by default;
+    /// `PlayerRel::OwnerOfTarget` / `PlayerRel::OwnerOfEvent` grants the
+    /// exiled card's owner permission, e.g. *Aerial Extortionist*).
+    pub caster: super::PlayerRel,
 }
 
 impl ExilePermission {
@@ -55,6 +59,7 @@ impl ExilePermission {
             spell_types: None,
             free: false,
             mana: ExileMana::Exact,
+            caster: super::PlayerRel::You,
         }
     }
 
@@ -67,7 +72,17 @@ impl ExilePermission {
             spell_types: None,
             free: false,
             mana: ExileMana::Exact,
+            caster: super::PlayerRel::You,
         }
+    }
+
+    /// Grant this permission to `caster` instead of only the resolving
+    /// controller (for example `PlayerRel::OwnerOfTarget` for "its owner may
+    /// cast it", *Aerial Extortionist*).
+    #[must_use]
+    pub const fn for_player(mut self, caster: super::PlayerRel) -> Self {
+        self.caster = caster;
+        self
     }
 
     /// Restrict casting to spells intersecting `spell_types` (implies `cast_only: true`).

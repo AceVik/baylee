@@ -30,6 +30,8 @@ pub(crate) enum RepeatStep {
         zone: crate::zone::Zone,
         event_player: PlayerId,
     },
+    /// A remembered object from `Effect::CaptureAffected` (`Effect::ForEachRemembered`).
+    Remembered(super::remembered::RememberedObject),
 }
 
 /// Remaining iteration state of an active [`RepeatFrame`].
@@ -291,6 +293,12 @@ pub(super) fn advance_repeat_frame(
                 bind_remembered_object(state, res, identity.object);
                 res.subject.set_event_player(Some(player));
             }
+            Some(Ok(RepeatStep::Remembered(rem))) => {
+                let power = rem.lki.power.unwrap_or(0);
+                res.event_object = Some(rem.reference.object);
+                res.subject.set_event_identity(Some((rem.reference, power)));
+                res.subject.set_event_player(Some(rem.lki.controller));
+            }
             Some(Err(())) => {}
             None => {
                 let frame = res.subject.repeat_frames.pop()?;
@@ -351,7 +359,8 @@ pub(super) fn choose_card_start(
         ChooseZone::Hand(_)
         | ChooseZone::Exile(_)
         | ChooseZone::LinkedExile
-        | ChooseZone::Found => {
+        | ChooseZone::Found
+        | ChooseZone::Remembered => {
             super::wave13a::collect_choose_zone_candidates(state, res, zone, filter, ask_player)
                 .into_iter()
                 .map(|(id, _, _)| id)
@@ -409,6 +418,10 @@ pub(super) fn choose_card_finish(
                     .found
                     .iter()
                     .any(|r| r.object == id && r.version == o.version),
+                ChooseZone::Remembered => res.subject.remembered().is_some_and(|list| {
+                    list.iter()
+                        .any(|r| r.reference.object == id && r.reference.version == o.version)
+                }),
             })
         })
         .collect();
@@ -439,6 +452,8 @@ pub(super) fn choose_card_finish(
         apply_choose_move(state, res, you, id, movement);
         final_objects.push((id, controller));
     }
+    let captured_ids: Vec<ObjectId> = final_objects.iter().map(|&(id, _)| id).collect();
+    res.subject.note_captured_ids(&captured_ids);
     if let Some(&(first_id, _)) = final_objects.first() {
         bind_remembered_object(state, res, first_id);
     }
@@ -816,6 +831,13 @@ pub(super) fn peek_and_reveal_finish(
     }
     for &card in chosen {
         place_peek_picked(state, res.controller, lib_owner, card, picked);
+    }
+    if !chosen.is_empty() {
+        res.subject.note_captured_ids(chosen);
+    } else if remaining.len() == looked.len()
+        && matches!(rest, PeekRestDest::StayInOrder | PeekRestDest::TopAnyOrder)
+    {
+        res.subject.note_captured_ids(&looked);
     }
     if let Some(&first) = chosen.first() {
         bind_remembered_object(state, res, first);

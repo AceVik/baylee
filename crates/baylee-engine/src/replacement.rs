@@ -48,6 +48,11 @@ pub(crate) struct GraveyardReplacement {
     pub exile_counter: Option<baylee_cards_dsl::CounterKind>,
     /// Firestorm Phoenix: returned to hand revealed and unplayable until owner's next turn.
     pub revealed_in_hand: bool,
+    /// Blightsteel Colossus / Progenitus: shuffle into destination library instead of
+    /// entering the graveyard, revealing first when `reveal_on_shuffle` is set.
+    pub shuffle_into_library: bool,
+    /// Reveal the card as part of `shuffle_into_library`.
+    pub reveal_on_shuffle: bool,
     /// Optional replacement source `(id, version, acquisition)` to link the exiled
     /// card to (`Rider::Linked` / `Rider::ExiledWith` / `Rider::LinkedExile`).
     pub link_source: Option<(ObjectId, u32, u64)>,
@@ -59,6 +64,8 @@ impl GraveyardReplacement {
             destination,
             exile_counter: None,
             revealed_in_hand: false,
+            shuffle_into_library: false,
+            reveal_on_shuffle: false,
             link_source: None,
         }
     }
@@ -125,6 +132,8 @@ pub(crate) fn graveyard_destination(
             destination: ZoneLocation::Hand(card.owner),
             exile_counter: None,
             revealed_in_hand: true,
+            shuffle_into_library: false,
+            reveal_on_shuffle: false,
             link_source: None,
         };
     }
@@ -164,6 +173,45 @@ pub(crate) fn graveyard_destination(
             return GraveyardReplacement::unchanged(ZoneLocation::Exile(card.owner));
         }
     }
+    // "If [this] would be put into a graveyard from anywhere, [reveal it and]
+    // shuffle it into its owner's library instead" (Blightsteel Colossus,
+    // Darksteel Colossus, Progenitus; CR 113.6, CR 614.6). Read off the
+    // object's active abilities in its current zone so it works from the
+    // battlefield, hand, library, stack and face-up exile while respecting
+    // ability loss and face-down status.
+    if !card.riders.contains(&Rider::SpellCopy)
+        && card.kind != ObjectKind::AbilityOnStack
+        && let Some(reveal) = card
+            .abilities(state.bases.as_ref())
+            .iter()
+            .find_map(|a| match a {
+                baylee_cards_dsl::AbilityDef::Replacement(
+                    baylee_cards_dsl::ReplacementRule::ShuffleIntoLibraryInsteadOfGraveyard {
+                        filter,
+                        reveal,
+                    },
+                ) if **filter == baylee_cards_dsl::Filter::This => Some(*reveal),
+                _ => None,
+            })
+    {
+        #[cfg(any(test, feature = "test-support"))]
+        crate::ability_log::replaced_on(
+            state,
+            id,
+            baylee_cards_dsl::ReplacementRule::ShuffleIntoLibraryInsteadOfGraveyard {
+                filter: &baylee_cards_dsl::Filter::This,
+                reveal,
+            },
+        );
+        return GraveyardReplacement {
+            destination: ZoneLocation::Library(card.owner),
+            exile_counter: None,
+            revealed_in_hand: false,
+            shuffle_into_library: true,
+            reveal_on_shuffle: reveal,
+            link_source: None,
+        };
+    }
     for entry in &state.replacement_rules {
         match entry.rule {
             baylee_cards_dsl::ReplacementRule::ExileOpponentsGraveyard { counter }
@@ -179,6 +227,8 @@ pub(crate) fn graveyard_destination(
                     destination: ZoneLocation::Exile(card.owner),
                     exile_counter: counter,
                     revealed_in_hand: false,
+                    shuffle_into_library: false,
+                    reveal_on_shuffle: false,
                     link_source: None,
                 };
             }
@@ -304,7 +354,49 @@ pub(crate) fn graveyard_destination(
                     destination: ZoneLocation::Exile(card.owner),
                     exile_counter: counter,
                     revealed_in_hand: false,
+                    shuffle_into_library: false,
+                    reveal_on_shuffle: false,
                     link_source,
+                };
+            }
+            baylee_cards_dsl::ReplacementRule::ShuffleIntoLibraryInsteadOfGraveyard {
+                filter,
+                reveal,
+            } => {
+                if card.riders.contains(&Rider::SpellCopy)
+                    || card.kind == ObjectKind::AbilityOnStack
+                {
+                    continue;
+                }
+                if state.object(entry.source).is_some_and(|o| {
+                    o.zone == Zone::Battlefield
+                        && (o.status.contains(Status::PHASED_OUT)
+                            || o.characteristics().abilities_lost.is_some()
+                            || o.characteristics().rules_text_lost)
+                }) {
+                    continue;
+                }
+                let filter_ok = if !matches!(card.zone, Zone::Battlefield | Zone::Stack)
+                    && card.controller != card.owner
+                {
+                    let mut normalized = card.clone();
+                    normalized.controller = card.owner;
+                    eval::matches(filter, state, &normalized, entry.controller, entry.source)
+                } else {
+                    eval::matches(filter, state, card, entry.controller, entry.source)
+                };
+                if !filter_ok {
+                    continue;
+                }
+                #[cfg(any(test, feature = "test-support"))]
+                crate::ability_log::replaced(entry);
+                return GraveyardReplacement {
+                    destination: ZoneLocation::Library(card.owner),
+                    exile_counter: None,
+                    revealed_in_hand: false,
+                    shuffle_into_library: true,
+                    reveal_on_shuffle: reveal,
+                    link_source: None,
                 };
             }
             _ => {}

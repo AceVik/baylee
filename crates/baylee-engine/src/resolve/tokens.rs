@@ -12,6 +12,7 @@ pub(in crate::resolve) mod copy_tokens;
 struct TokenEntry {
     tapped: bool,
     temporary_haste_source: Option<ObjectId>,
+    attach: Option<baylee_core::ids::TargetRef>,
 }
 
 /// Records tokens created by the current instruction in `res.subject.found`
@@ -250,6 +251,7 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
                 TokenEntry {
                     tapped,
                     temporary_haste_source: haste.then_some(res.source),
+                    attach: None,
                 },
             );
             remember_created_tokens(state, res, &made);
@@ -461,6 +463,7 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
             let entry = TokenEntry {
                 tapped,
                 temporary_haste_source: haste_until_eot.then_some(res.source),
+                attach: None,
             };
             let mut all_made = Vec::new();
             let mut attacking_made = Vec::new();
@@ -642,6 +645,28 @@ pub(super) fn create_tokens_with_text(
         count,
         text,
         TokenEntry::default(),
+    )
+}
+
+pub(super) fn create_tokens_attached(
+    state: &mut GameState,
+    controller: PlayerId,
+    token: &'static baylee_cards_dsl::TokenDef,
+    count: u32,
+    text: TextChangeMap,
+    attach: Option<baylee_core::ids::TargetRef>,
+) -> Vec<ObjectId> {
+    create_tokens_entering(
+        state,
+        controller,
+        token,
+        None,
+        count,
+        text,
+        TokenEntry {
+            attach,
+            ..TokenEntry::default()
+        },
     )
 }
 
@@ -920,7 +945,7 @@ fn arrive(state: &mut GameState, id: ObjectId) {
     // invisible until something asks for the pass.
     state.invalidate_projections();
     state.per_turn.entered_battlefield.push(id);
-    state.note_entry_history(id);
+    state.note_entry_history(id, None);
     state.journal.record(crate::event::GameEvent::ZoneChanged {
         object: id,
         from: crate::zone::Zone::OutsideGame,
@@ -964,6 +989,21 @@ fn create_token_entering(
         }
         obj
     });
+    match entry.attach {
+        Some(baylee_core::ids::TargetRef::Object(host))
+            if subjects::on_battlefield(state, host) =>
+        {
+            if let Some(obj) = state.object_mut(id) {
+                obj.attached_to = Some(host.object);
+            }
+        }
+        Some(baylee_core::ids::TargetRef::Player(player)) if !state.has_left(player) => {
+            if let Some(obj) = state.object_mut(id) {
+                obj.set_attached_player(Some(player));
+            }
+        }
+        _ => {}
+    }
     if entry.tapped {
         state.set_tapped(id, true);
     }
@@ -1004,6 +1044,7 @@ fn create_attacking_tokens(
         TokenEntry {
             tapped: true,
             temporary_haste_source: None,
+            attach: None,
         },
     );
     remember_created_tokens(state, res, &made);

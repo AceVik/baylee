@@ -136,6 +136,7 @@ fn main() {
         ("effect/amount.rs", "effect::"),
         ("effect/counters.rs", "effect::"),
         ("effect/division.rs", "effect::"),
+        ("effect/entry.rs", "effect::"),
         ("effect/mana.rs", "effect::"),
         ("effect/play.rs", "effect::"),
         ("effect/search.rs", "effect::"),

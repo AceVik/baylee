@@ -120,6 +120,49 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
     }
 
     /// Returns true when the announcement suspended for a player choice.
+    fn activation_x_reduction_credit(
+        &self,
+        player: PlayerId,
+        source: ObjectId,
+        index: u32,
+        reduction: Option<baylee_cards_dsl::CostReduction>,
+    ) -> u32 {
+        self.state.object(source).map_or(0, |object| {
+            self.state
+                .effects
+                .iter()
+                .filter_map(|effect| match effect.modifier {
+                    baylee_cards_dsl::Modifier::AbilitiesCostLess { amount, .. }
+                        if crate::effects::applies_to(&self.state, effect, object) =>
+                    {
+                        Some(amount)
+                    }
+                    baylee_cards_dsl::Modifier::ActivatedAbilitiesCostLess {
+                        filter,
+                        amount,
+                        exhaust_only,
+                        ..
+                    } if self.activated_ability_cost_reduction_matches(
+                        player,
+                        source,
+                        object,
+                        effect,
+                        filter,
+                        exhaust_only,
+                        index,
+                    ) =>
+                    {
+                        Some(self.eval_activated_cost_reduction(source, effect, amount))
+                    }
+                    _ => None,
+                })
+                .fold(
+                    casting::reduction_amount(&self.state, reduction, player, source),
+                    u32::saturating_add,
+                )
+        })
+    }
+
     pub(super) fn announce_activation_x(
         &mut self,
         player: PlayerId,
@@ -166,23 +209,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
             else {
                 return Err(EngineError::IllegalAction("not an activated ability"));
             };
-            let credit = self.state.object(source).map_or(0, |object| {
-                self.state
-                    .effects
-                    .iter()
-                    .filter_map(|effect| match effect.modifier {
-                        baylee_cards_dsl::Modifier::AbilitiesCostLess { amount, .. }
-                            if crate::effects::applies_to(&self.state, effect, object) =>
-                        {
-                            Some(amount)
-                        }
-                        _ => None,
-                    })
-                    .fold(
-                        casting::reduction_amount(&self.state, reduction, player, source),
-                        u32::saturating_add,
-                    )
-            });
+            let credit = self.activation_x_reduction_credit(player, source, index, reduction);
             let upper =
                 casting::spendable_units(&self.state, player, casting::SpendFor::Ability(source))
                     .saturating_add(self.state.granted_colorless_capacity(player))

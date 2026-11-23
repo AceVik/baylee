@@ -386,7 +386,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 obj.zone = Zone::Battlefield;
             }
             self.state.per_turn.entered_battlefield.push(id);
-            self.state.note_entry_history(id);
+            self.state.note_entry_history(id, None);
             self.state.journal.record(GameEvent::ZoneChanged {
                 object: id,
                 from: Zone::OutsideGame,

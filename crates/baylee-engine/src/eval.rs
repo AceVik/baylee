@@ -26,21 +26,26 @@ use baylee_core::ids::{ObjectId, PlayerId};
 
 pub use amounts::{amount, amount_with_context, public_linked_exile_cards, tapped_power};
 pub(crate) use amounts::{
-    colors_among, colors_in_zone, count_controlled_by, devotion_for_players, entry_sacrifices_on,
-    linked_exile_cards, mana_spent_on, object_snow_mana_spent, snow_mana_spent_on,
+    colors_among, colors_in_zone, count_controlled_by, creatures_attacked_for_seats,
+    devotion_for_players, distinct_card_types_cast_for_seats, entered_this_turn_for_seats,
+    entry_sacrifices_on, highest_opponent_hand_size, linked_exile_cards, mana_spent_on,
+    object_snow_mana_spent, snow_mana_spent_on, spells_cast_matching_for_seats,
 };
 pub(crate) use conditions::{
-    attached_for_ability, condition_reads_event, condition_with_event, discarded_for_cost,
-    evolve_holds, intervening_if_for_incarnation, sacrificed_for_cost,
+    attached_for_ability, condition_reads_event, condition_with_event,
+    counters_placed_on_source_this_turn, discarded_for_cost, evolve_holds,
+    intervening_if_for_incarnation, sacrificed_for_cost,
 };
 pub use conditions::{
     condition_holds, condition_holds_with_context, controlled_matching,
     controlled_matching_with_context, intervening_if,
 };
-pub(crate) use protection::protection_from_exiled_types;
 pub use protection::{
     permits_enchantment, player_protected_from, protected_from, untargetable_by,
     untargetable_by_source,
+};
+pub(crate) use protection::{
+    player_protected_from_object, protected_from_object, protection_from_exiled_types,
 };
 pub use relations::{
     controller_of_attached, defending_player_of, enchanted_player, most_life, players,
@@ -827,6 +832,11 @@ pub(crate) fn matches_projected_with_choices(
                 && !obj.status.contains(crate::object::Status::PHASED_OUT)
                 && obj.riders.contains(&crate::object::Rider::Suspected)
         }
+        Filter::Saddled => {
+            obj.zone == Zone::Battlefield
+                && !obj.status.contains(crate::object::Status::PHASED_OUT)
+                && obj.riders.contains(&crate::object::Rider::Saddled)
+        }
         Filter::RingBearer => {
             if obj.zone == Zone::Battlefield {
                 !obj.status.contains(crate::object::Status::PHASED_OUT)
@@ -873,7 +883,8 @@ pub(crate) fn matches_projected_with_choices(
                     .reference
                     .and_then(|id| state.last_known_controller(id))
                     .is_some_and(|seat| !state.has_left(seat) && seat == obj.controller),
-                baylee_cards_dsl::PlayerRel::OwnerOfEvent => context
+                baylee_cards_dsl::PlayerRel::OwnerOfEvent
+                | baylee_cards_dsl::PlayerRel::OwnerOfTarget => context
                     .reference
                     .and_then(|id| state.object_or_departed(id))
                     .is_some_and(|o| !state.has_left(o.owner) && o.owner == obj.controller),
@@ -980,6 +991,17 @@ pub(crate) fn matches_projected_with_choices(
                 Some(announced_x(state, this)),
             );
             match_dynamic_amount_filter(filter, chars, mag, amt.is_negative())
+        }
+        Filter::IsRemembered
+        | Filter::NotRemembered
+        | Filter::SharesCardTypeWithRemembered
+        | Filter::SharesNameWithRemembered => {
+            let rem = state
+                .resolution_remembered
+                .as_ref()
+                .filter(|(src, _)| *src == this)
+                .map(|(_, r)| r.as_ref());
+            crate::resolve::matches_remembered_filter(filter, state, obj, chars, rem)
         }
     }
 }
@@ -1318,7 +1340,12 @@ fn amount_reads_announced_x(amt: &baylee_cards_dsl::Amount, depth: u8) -> bool {
         | A::ControlledCount { filter: f, .. }
         | A::DamageThisTurn { by: f, .. }
         | A::GreatestPowerAmong(f)
-        | A::GreatestManaValueAmong(f) => reads_announced_x_at(f, depth + 1),
+        | A::GreatestManaValueAmong(f)
+        | A::TotalPowerAmong(f)
+        | A::EnteredThisTurn { filter: f, .. }
+        | A::SpellsCastMatchingThisTurn { filter: f, .. }
+        | A::CreaturesAttackedThisTurn { filter: f, .. }
+        | A::DistinctManaValuesInZone { filter: f, .. } => reads_announced_x_at(f, depth + 1),
         _ => false,
     }
 }

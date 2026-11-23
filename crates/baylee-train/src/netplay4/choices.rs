@@ -3471,7 +3471,9 @@ fn is_pure_search_library_card(view: &PlayerView, oid: ObjectId) -> bool {
             AbilityDef::Spell { effects, .. } => effects.iter().any(|e| {
                 matches!(
                     e,
-                    Effect::SearchLibrary { .. } | Effect::SearchLibraryUpTo { .. }
+                    Effect::SearchLibrary { .. }
+                        | Effect::SearchLibraryUpTo { .. }
+                        | Effect::SearchLibraryDistinctNames { .. }
                 )
             }),
             _ => false,

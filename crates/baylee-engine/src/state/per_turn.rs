@@ -307,6 +307,114 @@ pub struct PerTurn {
     /// Per-incarnation chosen-mode bitmasks for `ModalRestriction::OncePerTurn`
     /// (`Effect::ChooseOneRestricted`, CR 700.2i), cleared at end of turn.
     pub modal_modes_this_turn: PerTurnModalMasks,
+    /// Every zone change this turn with a frozen snapshot of the object as it
+    /// was (`Amount::EnteredThisTurn`). Written only while some card in the
+    /// game reads it (`tracked`), so a game without one keeps every digest.
+    pub zone_changes: PerTurnTracked<ZoneChangeRecord>,
+    /// Every spell cast this turn, frozen as it became cast
+    /// (`Amount::SpellsCastMatchingThisTurn`,
+    /// `Amount::DistinctCardTypesCastThisTurn`). Written only while tracked.
+    pub spells_cast_log: PerTurnTracked<SpellCastRecord>,
+    /// Who put which kind of counter on which exact incarnation this turn
+    /// (`Condition::CountersPlacedOnSourceThisTurn { by_you: true, .. }`),
+    /// each triple once. Hashed when tracked.
+    pub counter_placers: PerTurnTracked<CounterPlacerRecord>,
+    /// Spells cast this turn, with frozen stack-time snapshots for
+    /// [`baylee_cards_dsl::Modifier::FirstSpellEachTurnCostAdjust`].
+    pub cast_spells_this_turn: PerTurnTracked<CastSpellRecord>,
+}
+
+/// One `(target, counter kind, placing player)` fact from this turn
+/// ([`PerTurn::counter_placers`]).
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub struct CounterPlacerRecord {
+    /// Exact permanent incarnation receiving the counter.
+    pub target: baylee_core::ids::DamageSourceRef,
+    /// Kind of counter placed.
+    pub kind: CounterKind,
+    /// Player who put the counter on `target`.
+    pub by: PlayerId,
+}
+
+impl std::hash::Hash for CounterPlacerRecord {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        (373_u16, self.target, self.kind, self.by).hash(state);
+    }
+}
+
+/// One zone change this turn ([`PerTurn::zone_changes`]).
+#[derive(Clone, Debug)]
+pub struct ZoneChangeRecord {
+    /// The object as the incarnation it became in `to` (CR 400.7).
+    pub object: baylee_core::ids::DamageSourceRef,
+    /// The zone it left; `None` for an object created there (a token).
+    pub from: Option<crate::zone::Zone>,
+    /// The zone it entered.
+    pub to: crate::zone::Zone,
+    /// Its owner.
+    pub owner: PlayerId,
+    /// Who controlled it: as it entered, for an arrival on the battlefield;
+    /// as it left, for a departure from it; its owner otherwise.
+    pub controller: PlayerId,
+    /// Its characteristics as it was: as it entered the battlefield (filled
+    /// once every co-arrival is present, `GameState::capture_entry_history`),
+    /// as it last existed there for a departure, as it is in `to` otherwise.
+    /// `None` only for an arrival whose projection is still pending.
+    pub snapshot: Option<std::sync::Arc<crate::object::GameObject>>,
+}
+
+impl std::hash::Hash for ZoneChangeRecord {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        (
+            371_u16,
+            self.object,
+            self.from,
+            self.to,
+            self.owner,
+            self.controller,
+        )
+            .hash(state);
+        self.snapshot
+            .as_deref()
+            .map(super::hash::sacrifice_snapshot_digest)
+            .hash(state);
+    }
+}
+
+/// One spell cast this turn ([`PerTurn::spells_cast_log`]).
+#[derive(Clone, Debug)]
+pub struct SpellCastRecord {
+    /// The spell as the object it was on the stack.
+    pub spell: baylee_core::ids::DamageSourceRef,
+    /// Who cast it.
+    pub caster: PlayerId,
+    /// The spell's characteristics as it became cast (CR 601.2i).
+    pub snapshot: std::sync::Arc<crate::object::GameObject>,
+}
+
+impl std::hash::Hash for SpellCastRecord {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        (372_u16, self.spell, self.caster).hash(state);
+        super::hash::sacrifice_snapshot_digest(&self.snapshot).hash(state);
+    }
+}
+
+/// One spell cast this turn ([`PerTurn::cast_spells_this_turn`]).
+#[derive(Clone, Debug)]
+pub struct CastSpellRecord {
+    /// Exact stack incarnation of the spell that was cast.
+    pub source: baylee_core::ids::DamageSourceRef,
+    /// Player who cast the spell.
+    pub controller: PlayerId,
+    /// Frozen snapshot of the spell's characteristics as it was cast.
+    pub snapshot: std::sync::Arc<crate::object::GameObject>,
+}
+
+impl std::hash::Hash for CastSpellRecord {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        (self.source, self.controller).hash(state);
+        super::hash::sacrifice_snapshot_digest(&self.snapshot).hash(state);
+    }
 }
 
 /// One permanent sacrificed from the battlefield this turn
@@ -637,6 +745,10 @@ impl PerTurn {
             cards_discarded: PerTurnTracked::default(),
             sacrificed_permanents: PerTurnTracked::default(),
             modal_modes_this_turn: PerTurnModalMasks::default(),
+            zone_changes: PerTurnTracked::default(),
+            spells_cast_log: PerTurnTracked::default(),
+            counter_placers: PerTurnTracked::default(),
+            cast_spells_this_turn: PerTurnTracked::default(),
         }
     }
 
@@ -776,6 +888,10 @@ impl PerTurn {
         self.cards_discarded.items.clear();
         self.sacrificed_permanents.items.clear();
         self.modal_modes_this_turn.0.clear();
+        self.zone_changes.items.clear();
+        self.spells_cast_log.items.clear();
+        self.counter_placers.items.clear();
+        self.cast_spells_this_turn.items.clear();
     }
 
     /// Resets all counters (called at every turn start).
@@ -845,6 +961,10 @@ impl PerTurn {
             cards_discarded: _,
             sacrificed_permanents: _,
             modal_modes_this_turn: _,
+            zone_changes: _,
+            spells_cast_log: _,
+            counter_placers: _,
+            cast_spells_this_turn: _,
         } = self;
         *untapped_lands_at_start = 0;
         *hand_size_at_start = 0;

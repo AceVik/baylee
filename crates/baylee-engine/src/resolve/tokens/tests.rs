@@ -647,6 +647,7 @@ fn populate_does_not_copy_a_created_tokens_entry_status_or_temporary_haste() {
         TokenEntry {
             tapped: true,
             temporary_haste_source: Some(source),
+            attach: None,
         },
     );
     let original = created[0];

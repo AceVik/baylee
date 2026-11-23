@@ -253,6 +253,12 @@ pub(super) fn exec_choice(
             optional,
             then_if_moved,
         ),
+        Effect::AttachChosen {
+            filter,
+            to,
+            max,
+            optional,
+        } => super::wave15b::attach_chosen(state, res, filter, to, max, optional),
         Effect::DestroyWeakest { filter, no_regen } => {
             super::weakest::start(state, res, filter, no_regen)
         }
@@ -433,6 +439,11 @@ pub(super) fn exec_choice(
                 },
             )
         }
+        Effect::SearchLibraryDistinctNames {
+            filter,
+            count,
+            find,
+        } => super::wave15b::search_library_distinct_names(state, res, filter, count, find),
         Effect::SearchOpponentSplits {
             filter,
             up_to,

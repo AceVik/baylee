@@ -152,7 +152,6 @@ pub fn amount(
 
 /// Evaluate an amount using the captured semantic text for its nested filters.
 #[must_use]
-#[allow(clippy::too_many_lines)] // One arm per `Amount` variant; splitting it hides the match.
 pub fn amount_with_context(
     amount: &Amount,
     state: &GameState,
@@ -160,10 +159,28 @@ pub fn amount_with_context(
     context: RuleContext,
     x: Option<u32>,
 ) -> u32 {
+    amount_with_version(amount, state, you, context, x, None)
+}
+
+/// Evaluate an amount using captured semantic text and an optional exact source
+/// incarnation (CR 400.7 / CR 608.2h for intervening-`if` resolution checks
+/// after the source has departed).
+#[must_use]
+#[allow(clippy::too_many_lines)] // One arm per `Amount` variant; splitting it hides the match.
+pub(crate) fn amount_with_version(
+    amount: &Amount,
+    state: &GameState,
+    you: PlayerId,
+    context: RuleContext,
+    x: Option<u32>,
+    source_version: Option<u32>,
+) -> u32 {
     let Some(_guard) = AmountEvalDepthGuard::enter() else {
         return 0;
     };
     let this = context.source;
+    let eval_nested =
+        |inner: &Amount| amount_with_version(inner, state, you, context, x, source_version);
     match amount {
         Amount::Fixed(n) | Amount::NegXFixed(n) => *n,
         Amount::CreaturesEnteredUnderYourControlThisTurn => state.per_turn.creatures_entered
@@ -186,16 +203,10 @@ pub fn amount_with_context(
         }
         // The magnitude, like every other arm here: the sign is
         // `Amount::is_negative`'s question and no caller of this reads one.
-        Amount::Negated(inner) => self::amount_with_context(inner, state, you, context, x),
-        Amount::Plus { base, offset } => {
-            self::amount_with_context(base, state, you, context, x).saturating_add(*offset)
-        }
-        Amount::SaturatingSub { base, subtract } => {
-            self::amount_with_context(base, state, you, context, x).saturating_sub(*subtract)
-        }
-        Amount::ConstantMinus { constant, subtract } => {
-            constant.saturating_sub(self::amount_with_context(subtract, state, you, context, x))
-        }
+        Amount::Negated(inner) => eval_nested(inner),
+        Amount::Plus { base, offset } => eval_nested(base).saturating_add(*offset),
+        Amount::SaturatingSub { base, subtract } => eval_nested(base).saturating_sub(*subtract),
+        Amount::ConstantMinus { constant, subtract } => constant.saturating_sub(eval_nested(subtract)),
         Amount::GreatestCommanderManaValue => greatest_commander_mana_value(state, you),
         Amount::HandSize(who) => super::players_for_source(*who, state, you, Some(context.source))
             .and_then(|p| p.first().copied())
@@ -240,22 +251,16 @@ pub fn amount_with_context(
                 })
         }
         Amount::Half { base, round_up } => {
-            let n = self::amount_with_context(base, state, you, context, x);
+            let n = eval_nested(base);
             if *round_up { n.div_ceil(2) } else { n / 2 }
         }
         Amount::Divided { base, divisor, round_up } => {
-            let n = self::amount_with_context(base, state, you, context, x);
+            let n = eval_nested(base);
             if *round_up { n.div_ceil(divisor.get()) } else { n / divisor.get() }
         }
-        Amount::Times { base, factor } => {
-            self::amount_with_context(base, state, you, context, x).saturating_mul(*factor)
-        }
-        Amount::Sum { left, right } => self::amount_with_context(left, state, you, context, x)
-            .saturating_add(self::amount_with_context(right, state, you, context, x)),
-        Amount::Difference { left, right } => {
-            self::amount_with_context(left, state, you, context, x)
-                .saturating_sub(self::amount_with_context(right, state, you, context, x))
-        }
+        Amount::Times { base, factor } => eval_nested(base).saturating_mul(*factor),
+        Amount::Sum { left, right } => eval_nested(left).saturating_add(eval_nested(right)),
+        Amount::Difference { left, right } => eval_nested(left).saturating_sub(eval_nested(right)),
         Amount::Players(who) => super::players_for_source(*who, state, you, Some(context.source))
             .map_or(0, |seats| u32::try_from(seats.len()).unwrap_or(u32::MAX)),
         Amount::DoubleX => x.unwrap_or(0).saturating_mul(2),
@@ -278,9 +283,53 @@ pub fn amount_with_context(
             .into_iter()
             .find_map(|(k, n)| (k == *kind).then_some(u32::from(n)))
             .unwrap_or(0),
-        Amount::CountersOnSource(kind) => state
-            .object(this)
+        Amount::CountersOnSource(kind) => source_object_for_version(state, this, source_version)
             .map_or(0, |o| u32::from(o.counters.get(*kind))),
+        Amount::DistinctCounterKindsOnSource => {
+            source_object_for_version(state, this, source_version).map_or(0, |o| {
+                u32::try_from(o.counters.iter().filter(|&(_, n)| n > 0).count()).unwrap_or(u32::MAX)
+            })
+        }
+        Amount::HighestOpponentHandSize => highest_opponent_hand_size(state, you),
+        Amount::EnteredThisTurn {
+            filter,
+            from,
+            to,
+            owner_or_ctrl,
+            exclude_source,
+        } => super::players_for_source(*owner_or_ctrl, state, you, Some(context.source))
+            .map_or(0, |seats| {
+                entered_this_turn_for_seats(
+                    state,
+                    you,
+                    context,
+                    filter,
+                    *from,
+                    *to,
+                    &seats,
+                    *exclude_source,
+                    source_version,
+                )
+            }),
+        Amount::SpellsCastMatchingThisTurn { filter, caster } => {
+            super::players_for_source(*caster, state, you, Some(context.source))
+                .map_or(0, |seats| {
+                    spells_cast_matching_for_seats(state, you, context, filter, &seats)
+                })
+        }
+        Amount::DistinctCardTypesCastThisTurn(who) => {
+            super::players_for_source(*who, state, you, Some(context.source))
+                .map_or(0, |seats| distinct_card_types_cast_for_seats(state, &seats))
+        }
+        Amount::CreaturesAttackedThisTurn { filter, controller } => {
+            super::players_for_source(*controller, state, you, Some(context.source))
+                .map_or(0, |seats| {
+                    creatures_attacked_for_seats(state, you, context, filter, &seats)
+                })
+        }
+        Amount::DistinctManaValuesInZone { zone, filter } => {
+            distinct_mana_values_in_zone(filter, *zone, state, you, context)
+        }
         // Resolved in resolve.rs, which has the stack object these read.
         Amount::DevotionToManaColor
         | Amount::TargetPower
@@ -305,6 +354,17 @@ pub fn amount_with_context(
             .resolution_chosen_number
             .filter(|(src, _)| *src == this)
             .map_or(0, |(_, n)| n),
+        Amount::RememberedCount
+        | Amount::RememberedManaValue
+        | Amount::RememberedPower
+        | Amount::RememberedToughness => {
+            let rem = state
+                .resolution_remembered
+                .as_ref()
+                .filter(|(src, _)| *src == this)
+                .map(|(_, r)| r.as_ref());
+            crate::resolve::remembered_amount(amount, rem)
+        }
         Amount::DamageThisTurn { to, by, combat } => {
             damage_this_turn(state, you, context, *to, by, *combat)
         }
@@ -362,12 +422,14 @@ pub fn amount_with_context(
             then,
             otherwise,
         } => {
-            let branch = if super::condition_holds_with_context(state, you, context, **condition) {
-                then
-            } else {
-                otherwise
+            let holds = match source_version {
+                Some(_) => {
+                    super::condition_with_event(state, you, context, **condition, source_version, None)
+                }
+                None => super::condition_holds_with_context(state, you, context, **condition),
             };
-            self::amount_with_context(branch, state, you, context, x)
+            let branch = if holds { then } else { otherwise };
+            eval_nested(branch)
         }
         Amount::GreatestPowerAmong(filter) => greatest_among(state, you, filter, context, true),
         Amount::GreatestManaValueAmong(filter) => {
@@ -839,4 +901,180 @@ pub(crate) fn count_controlled_by(
             .count(),
     )
     .unwrap_or(u32::MAX)
+}
+
+fn source_object_for_version(
+    state: &GameState,
+    this: ObjectId,
+    source_version: Option<u32>,
+) -> Option<&crate::object::GameObject> {
+    match source_version {
+        Some(v) => state.damage_source(this, Some(v)),
+        None => state.object(this),
+    }
+}
+
+/// Greatest number of cards in hand among active opponents of `you` (`0` if none).
+pub(crate) fn highest_opponent_hand_size(state: &GameState, you: PlayerId) -> u32 {
+    state
+        .players
+        .iter()
+        .filter(|p| !state.has_left(p.id) && state.is_opponent(p.id, you))
+        .map(|p| {
+            u32::try_from(state.zones.list(ZoneLocation::Hand(p.id)).len()).unwrap_or(u32::MAX)
+        })
+        .max()
+        .unwrap_or(0)
+}
+
+/// Count of frozen per-turn zone changes matching `filter`, `from`, `to`, and `seats`.
+#[allow(clippy::too_many_arguments)]
+pub(crate) fn entered_this_turn_for_seats(
+    state: &GameState,
+    you: PlayerId,
+    context: RuleContext,
+    filter: &Filter,
+    from: Option<baylee_cards_dsl::ZoneRef>,
+    to: baylee_cards_dsl::ZoneRef,
+    seats: &[PlayerId],
+    exclude_source: bool,
+    source_version: Option<u32>,
+) -> u32 {
+    if seats.is_empty() {
+        return 0;
+    }
+    let excluded = exclude_source
+        .then(|| {
+            source_version
+                .map(|version| baylee_core::ids::DamageSourceRef {
+                    object: context.source,
+                    version,
+                })
+                .or_else(|| state.source_identity(context.source))
+        })
+        .flatten();
+    let mut count = 0_u32;
+    for record in &state.per_turn.zone_changes.items {
+        if !record.to.matches_ref(to) {
+            continue;
+        }
+        if let Some(expected_from) = from
+            && !record.from.is_some_and(|rf| rf.matches_ref(expected_from))
+        {
+            continue;
+        }
+        if excluded.is_some_and(|ex| record.object == ex) {
+            continue;
+        }
+        let Some(obj) = record.snapshot.as_deref().or_else(|| {
+            state
+                .object(record.object.object)
+                .filter(|o| o.version == record.object.version)
+        }) else {
+            continue;
+        };
+        let seat = if record.to.is_shared() {
+            if record.snapshot.is_none() {
+                obj.controller
+            } else {
+                record.controller
+            }
+        } else {
+            record.owner
+        };
+        if !seats.contains(&seat) {
+            continue;
+        }
+        if matches_with_context(filter, state, obj, you, context) {
+            count = count.saturating_add(1);
+        }
+    }
+    count
+}
+
+/// Spells cast this turn by any player in `seats` matching `filter` as cast.
+pub(crate) fn spells_cast_matching_for_seats(
+    state: &GameState,
+    you: PlayerId,
+    context: RuleContext,
+    filter: &Filter,
+    seats: &[PlayerId],
+) -> u32 {
+    if seats.is_empty() {
+        return 0;
+    }
+    let mut count = 0_u32;
+    for record in &state.per_turn.spells_cast_log.items {
+        if seats.contains(&record.caster)
+            && matches_with_context(filter, state, &record.snapshot, you, context)
+        {
+            count = count.saturating_add(1);
+        }
+    }
+    count
+}
+
+/// Distinct CR 205.2a card types among spells cast this turn by players in `seats`.
+pub(crate) fn distinct_card_types_cast_for_seats(state: &GameState, seats: &[PlayerId]) -> u32 {
+    use baylee_core::types::TypeSet;
+    if seats.is_empty() {
+        return 0;
+    }
+    let mut types = TypeSet::EMPTY;
+    for record in &state.per_turn.spells_cast_log.items {
+        if seats.contains(&record.caster) {
+            types = types.union(record.snapshot.characteristics().types);
+        }
+    }
+    // CR 205.2a / CR 205.3g: Attraction is an artifact subtype, not a card type.
+    types.difference(TypeSet::ATTRACTION).bits().count_ones()
+}
+
+/// Distinct creature incarnations declared as attackers this turn by players in
+/// `seats` that match `filter` (live if still present, or LKI if departed).
+pub(crate) fn creatures_attacked_for_seats(
+    state: &GameState,
+    you: PlayerId,
+    context: RuleContext,
+    filter: &Filter,
+    seats: &[PlayerId],
+) -> u32 {
+    if seats.is_empty() {
+        return 0;
+    }
+    let mut seen = std::collections::BTreeSet::new();
+    let mut count = 0_u32;
+    for &(id, version, attacking_player) in &state.per_turn.attacked {
+        if !seats.contains(&attacking_player) || !seen.insert((id, version)) {
+            continue;
+        }
+        let Some(obj) = state.damage_source(id, Some(version)) else {
+            continue;
+        };
+        if matches_with_context(filter, state, obj, you, context) {
+            count = count.saturating_add(1);
+        }
+    }
+    count
+}
+
+/// Number of distinct mana values (CR 202.3) among matching objects in `zone`.
+fn distinct_mana_values_in_zone(
+    filter: &Filter,
+    zone: ZoneSel,
+    state: &GameState,
+    you: PlayerId,
+    context: RuleContext,
+) -> u32 {
+    let require_card = !matches!(zone, ZoneSel::Battlefield);
+    let mut values = std::collections::BTreeSet::<u32>::new();
+    visit_zone(zone, state, you, context, |id| {
+        if let Some(object) = state.object(id)
+            && (!require_card || object.is_card())
+            && matches_with_context(filter, state, object, you, context)
+        {
+            values.insert(object.characteristics().mana_value());
+        }
+    });
+    u32::try_from(values.len()).unwrap_or(u32::MAX)
 }

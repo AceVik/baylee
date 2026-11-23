@@ -861,6 +861,35 @@ pub(super) fn resume_inner(
         } => {
             super::wave14f::move_attachment_resume(state, res, attachment, then_if_moved, chosen);
         }
+        AwaitingOp::PutAttachedHost(spec) => {
+            if let Some(pending) =
+                super::wave15b::resume_put_attached_card(state, res, *spec, chosen)
+            {
+                return next_choice(state, res, since, pending);
+            }
+            if matches!(res.awaiting, Some(AwaitingOp::Entry { .. })) {
+                return Flow::Enter;
+            }
+        }
+        AwaitingOp::CreateTokenAttached {
+            token,
+            count,
+            is_aura,
+        } => {
+            super::wave15b::resume_create_token_attached_card(
+                state, res, token, count, is_aura, chosen,
+            );
+        }
+        AwaitingOp::ChooseCardConstrained(spec) => {
+            if let Some(pending) =
+                super::wave15b::resume_choose_card_constrained(state, res, *spec, chosen)
+            {
+                return next_choice(state, res, since, pending);
+            }
+        }
+        AwaitingOp::AttachChosen { host } => {
+            super::wave15b::resume_attach_chosen(state, host, chosen);
+        }
         AwaitingOp::UntapPayingEach { player, each } => {
             let chosen: Vec<(ObjectId, u32)> = chosen
                 .iter()
@@ -1786,6 +1815,8 @@ pub(super) fn resume_inner(
         | AwaitingOp::TwoPilesPickSeparator(_)
         | AwaitingOp::TwoPilesPickChooser(_)
         | AwaitingOp::TwoPilesChoosePile(_)
+        | AwaitingOp::PutAttachedHostPlayer(_)
+        | AwaitingOp::CreateTokenAttachedPlayer { .. }
         | AwaitingOp::SoulbondConfirmPair { .. }
         | AwaitingOp::ClashBottom { .. }
         | AwaitingOp::PutTargetsInLibraryOrder { .. }

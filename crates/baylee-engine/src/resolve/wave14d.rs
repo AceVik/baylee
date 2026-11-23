@@ -159,6 +159,31 @@ pub(super) fn exec_add_temp_modifier(
         return None;
     }
 
+    // Resolution-bound `MustAttackPlayer(Chosen / EventPlayer / ...)` cannot
+    // recover the resolved player later through `eval::players_for_source`, so
+    // record a per-turn `MustAttackPlayerThisTurn` rider on each target creature.
+    if let Modifier::MustAttackPlayer(who) = modifier
+        && duration == Duration::UntilEndOfTurn
+        && crate::eval::players_for_source(who, state, you, Some(res.source)).is_none()
+    {
+        let attacked_players: SmallVec<[PlayerId; 2]> = players_of(who, state, you, res)
+            .into_iter()
+            .filter(|p| !state.has_left(*p))
+            .collect();
+        for filter in &filters {
+            if let EffectFilter::ObjectIs(id, version) = *filter
+                && let Some(obj) = state.object_mut(id)
+                && obj.version == version
+            {
+                for &attacked in &attacked_players {
+                    obj.riders
+                        .push(crate::object::Rider::MustAttackPlayerThisTurn(attacked));
+                }
+            }
+        }
+        return None;
+    }
+
     register_temp_effects(state, res, you, modifier, duration, &filters);
     None
 }
@@ -259,10 +284,11 @@ fn register_temp_effects(
         registered_any = true;
     }
     if registered_any {
+        state.invalidate_projections();
         if matches!(modifier, Modifier::GrantStatic { .. }) {
             state.refresh_characteristics();
             crate::effects::sync_granted_statics(state);
-        } else if matches!(modifier, Modifier::GainControl) {
+        } else if matches!(modifier, Modifier::GainControl) || layer != Layer::Text {
             state.refresh_characteristics();
         }
     }

@@ -165,8 +165,20 @@ impl HeuristicAgent {
             Pending::ChooseAttackers {
                 attackers,
                 defenders,
+                required,
+                alone,
+                minimum_required,
+                limits,
                 ..
-            } => attack_candidates(attackers, defenders, own),
+            } => attack_candidates(
+                attackers,
+                defenders,
+                required,
+                alone,
+                *minimum_required,
+                limits,
+                own,
+            ),
             Pending::ChooseBlockers { blockers, .. } => block_candidates(blockers, own),
             _ => Vec::new(),
         };
@@ -378,6 +390,10 @@ fn priority_candidates(
 fn attack_candidates(
     attackers: &[ObjectId],
     defenders: &[Defender],
+    required: &[ObjectId],
+    alone: &[ObjectId],
+    minimum_required: Option<u32>,
+    limits: &[baylee_engine::choice::AttackLimit],
     own: &PlayerAction,
 ) -> Vec<PlayerAction> {
     let PlayerAction::DeclareAttackers { attackers: chosen } = own else {
@@ -390,8 +406,16 @@ fn attack_candidates(
     else {
         return Vec::new();
     };
-    let declare =
-        |attackers: Vec<(ObjectId, Defender)>| PlayerAction::DeclareAttackers { attackers };
+    let declare = |candidate: Vec<(ObjectId, Defender)>| PlayerAction::DeclareAttackers {
+        attackers: crate::combat::obey_attack_rules(
+            candidate,
+            required,
+            alone,
+            minimum_required,
+            limits,
+            defenders,
+        ),
+    };
     let mut out = vec![
         declare(attackers.iter().map(|&id| (id, target)).collect()),
         declare(Vec::new()),

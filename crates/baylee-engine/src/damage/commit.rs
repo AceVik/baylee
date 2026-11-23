@@ -246,8 +246,9 @@ impl DamageWork {
 }
 
 fn run_prevent_then(state: &mut GameState, rider: &super::PreventThenRider) {
-    let mut subject =
-        crate::resolve::SubjectContext::default().with_source_version(rider.source_version);
+    let mut subject = crate::resolve::SubjectContext::default()
+        .with_source_version(rider.source_version)
+        .with_event_player(rider.damaged_player);
     subject.damage_prevented = rider.prevented;
     if let Some(subtype) = rider.chosen_subtype {
         subject.set_chosen_subtype(subtype);

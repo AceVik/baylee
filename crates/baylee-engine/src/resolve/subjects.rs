@@ -59,6 +59,7 @@ pub(in crate::resolve) struct RepeatProcessFrame {
 pub(in crate::resolve) enum ActiveTargetGroup {
     Second,
     Third,
+    All,
 }
 
 /// Saved outer target bindings pushed on entry to
@@ -148,6 +149,11 @@ pub struct SubjectContext {
     pub(super) vote_queue: Option<Box<super::vote::VoteQueue>>,
     pub(super) branch_frames: Vec<super::wave13a::BranchFrame>,
     pub(super) target_restore_frames: Vec<TargetRestoreFrame>,
+    /// Objects remembered by the innermost enclosing
+    /// [`baylee_cards_dsl::Effect::CaptureAffected`], active while its `then`
+    /// runs (`CR 400.7`, `CR 608.2h`).
+    pub(crate) remembered_objects: Option<std::sync::Arc<[super::remembered::RememberedObject]>>,
+    pub(in crate::resolve) capture_frames: Vec<super::remembered::CaptureFrame>,
     /// Damage prevented or replaced by an enclosing prevention/replacement-with-rider
     /// shield or static modifier (`ThisWay::DamagePrevented`, CR 615.5).
     pub(crate) damage_prevented: u32,
@@ -223,6 +229,37 @@ impl SubjectContext {
         self.chosen_color = Some(color);
     }
 
+    pub(crate) fn remembered(&self) -> Option<&[super::remembered::RememberedObject]> {
+        self.remembered_objects.as_deref()
+    }
+
+    pub(crate) fn remembered_by_ref(
+        &self,
+        reference: DamageSourceRef,
+    ) -> Option<&super::remembered::RememberedObject> {
+        self.remembered_objects
+            .as_deref()?
+            .iter()
+            .find(|r| r.reference == reference)
+    }
+
+    /// Record explicit picked/chosen object IDs (`Dig`, `PeekAndReveal`,
+    /// `ChooseCard`, `ChooseCardEx`) into an enclosing `CaptureAffected`'s
+    /// `first` phase so unchosen/bottomed cards are not conflated with kept ones.
+    pub(crate) fn note_captured_ids(&mut self, ids: &[ObjectId]) {
+        if let Some(super::remembered::CaptureFrame {
+            phase: super::remembered::CapturePhase::RunningFirst { explicit_ids, .. },
+            ..
+        }) = self.capture_frames.last_mut()
+        {
+            for &id in ids {
+                if !explicit_ids.contains(&id) {
+                    explicit_ids.push(id);
+                }
+            }
+        }
+    }
+
     pub(crate) fn with_modal_steps(mut self, steps: Vec<ModalTargetStep>) -> Self {
         self.modal_steps = steps;
         self
@@ -280,6 +317,8 @@ impl SubjectContext {
             vote_queue: None,
             branch_frames: Vec::new(),
             target_restore_frames: Vec::new(),
+            remembered_objects: None,
+            capture_frames: Vec::new(),
             damage_prevented: 0,
         }
     }
@@ -524,6 +563,26 @@ impl SubjectContext {
                 .wrapping_mul(31)
                 .wrapping_add(crate::state::structural_fingerprint(&(370_u16, number)));
         }
+        self.fingerprint_capture(h)
+    }
+
+    fn fingerprint_capture(&self, mut h: u64) -> u64 {
+        if !self.capture_frames.is_empty() {
+            h = h
+                .wrapping_mul(31)
+                .wrapping_add(crate::state::structural_fingerprint(&(
+                    430_u16,
+                    &self.capture_frames,
+                )));
+        }
+        if let Some(remembered) = &self.remembered_objects {
+            h = h
+                .wrapping_mul(31)
+                .wrapping_add(crate::state::structural_fingerprint(&(
+                    431_u16,
+                    remembered.as_ref(),
+                )));
+        }
         h
     }
 }
@@ -750,6 +809,11 @@ pub(super) fn names_targets(state: &GameState, res: &Resolution) -> bool {
                     None => !announced.targets.is_empty(),
                     Some(ActiveTargetGroup::Second) => !announced.second_targets().is_empty(),
                     Some(ActiveTargetGroup::Third) => !announced.third_targets().is_empty(),
+                    Some(ActiveTargetGroup::All) => {
+                        !announced.targets.is_empty()
+                            || !announced.second_targets().is_empty()
+                            || !announced.third_targets().is_empty()
+                    }
                 }
             }))
 }

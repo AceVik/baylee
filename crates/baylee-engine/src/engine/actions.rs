@@ -1054,6 +1054,8 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                                 | resolve::AwaitingOp::ClashOpponent { .. }
                                 | resolve::AwaitingOp::TwoPilesPickSeparator(_)
                                 | resolve::AwaitingOp::TwoPilesPickChooser(_)
+                                | resolve::AwaitingOp::PutAttachedHostPlayer(_)
+                                | resolve::AwaitingOp::CreateTokenAttachedPlayer { .. }
                         )
                     )
                 }) {

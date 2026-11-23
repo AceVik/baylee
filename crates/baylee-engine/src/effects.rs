@@ -394,7 +394,12 @@ pub fn locks_its_set(modifier: &Modifier) -> bool {
         | Modifier::SpellsCantBeCountered { .. }
         | Modifier::MustBlock
         | Modifier::ReplaceDamage { .. }
-        | Modifier::ReplaceOrPreventDamageWithThen { .. } => false,
+        | Modifier::ReplaceOrPreventDamageWithThen { .. }
+        | Modifier::ActivatedAbilitiesCostLess { .. }
+        | Modifier::FirstSpellEachTurnCostAdjust { .. }
+        | Modifier::MustAttackPlayer(_)
+        | Modifier::ModifyLifeGain { .. }
+        | Modifier::PreventDamageRemovingCounters { .. } => false,
     }
 }
 
@@ -761,6 +766,7 @@ impl EffectTable {
                         ..
                     }
                     | Modifier::AdjustSpellCostByAmount { .. }
+                    | Modifier::FirstSpellEachTurnCostAdjust { .. }
             ),
         );
         self.hints.insert_if(
@@ -770,6 +776,7 @@ impl EffectTable {
                 Modifier::AbilitiesCostMore(_)
                     | Modifier::AbilitiesCostSacrificePerManaSymbol { .. }
                     | Modifier::AbilitiesCostLess { .. }
+                    | Modifier::ActivatedAbilitiesCostLess { .. }
                     | Modifier::EquipCostsLess(_)
                     | Modifier::CyclingCostsLess(_)
                     | Modifier::ReduceCostIfTargets {
@@ -860,6 +867,7 @@ impl EffectTable {
                     | Modifier::NoLossForZeroLife { .. }
                     | Modifier::LifeGainDrawsInstead { .. }
                     | Modifier::LifeGainNoLifeInstead { .. }
+                    | Modifier::ModifyLifeGain { .. }
                     | Modifier::PlayersCantGainLife(_)
                     | Modifier::CantBeSacrificed { .. }
                     | Modifier::PlayersCantLose
@@ -2217,6 +2225,28 @@ mod tests {
                 is_replacement: false,
                 then: RIDER,
             },
+            Modifier::ActivatedAbilitiesCostLess {
+                filter: &Filter::YOUR_CREATURE,
+                amount: baylee_cards_dsl::Amount::SourcePower,
+                min_mana: 1,
+                exhaust_only: false,
+            },
+            Modifier::FirstSpellEachTurnCostAdjust {
+                who: baylee_cards_dsl::PlayerRel::You,
+                filter: &Filter::ARTIFACT,
+                cost: baylee_core::mana::ManaCost::parse("{1}"),
+                increase: false,
+                colored_only: false,
+            },
+            Modifier::MustAttackPlayer(baylee_cards_dsl::PlayerRel::You),
+            Modifier::ModifyLifeGain {
+                who: baylee_cards_dsl::PlayerRel::You,
+                op: baylee_cards_dsl::LifeGainOp::Multiply(2),
+            },
+            Modifier::PreventDamageRemovingCounters {
+                kind: baylee_cards_dsl::CounterKind::P1P1,
+                then: Some(RIDER),
+            },
         ]
     }
 
@@ -2255,7 +2285,7 @@ mod tests {
 
         assert_eq!(
             declared.len(),
-            240,
+            245,
             "read {} variants out of the declaration, which is not the enum",
             declared.len()
         );
@@ -2383,7 +2413,9 @@ mod tests {
         // ReduceCostIfTargets and AdjustSpellCostByAmount modify costs (+2 rules-only -> 171).
         // PlayerCantCast, PlayerCantActivateNonMana, SpellsCantBeCountered, MustBlock,
         // ReplaceDamage, and ReplaceOrPreventDamageWithThen modify rules only (+6 -> 177).
-        assert_eq!((locking, all.len() - locking), (63, 177));
+        // ActivatedAbilitiesCostLess, FirstSpellEachTurnCostAdjust, MustAttackPlayer,
+        // ModifyLifeGain, and PreventDamageRemovingCounters modify rules only (+5 -> 182).
+        assert_eq!((locking, all.len() - locking), (63, 182));
     }
 
     /// An `ObjectId` alone is not an identity: an id is stable for a whole

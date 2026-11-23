@@ -531,6 +531,7 @@ const fn is_spell_cost_modifier(modifier: baylee_cards_dsl::Modifier) -> bool {
                 ..
             }
             | baylee_cards_dsl::Modifier::AdjustSpellCostByAmount { .. }
+            | baylee_cards_dsl::Modifier::FirstSpellEachTurnCostAdjust { .. }
     )
 }
 
@@ -724,6 +725,71 @@ fn spell_cost_effect_applies(
 }
 
 #[allow(clippy::too_many_arguments)]
+fn apply_first_spell_cost_adjust(
+    state: &GameState,
+    player: PlayerId,
+    spell: &crate::object::GameObject,
+    controller: PlayerId,
+    source: Option<ObjectId>,
+    context: crate::text_changes::RuleContext,
+    who: baylee_cards_dsl::PlayerRel,
+    filter: &'static baylee_cards_dsl::Filter,
+    cost: ManaCost,
+    increase: bool,
+    colored_only: bool,
+    adjustment: &mut SpellAdjustment,
+) {
+    if cost == ManaCost::ZERO
+        || crate::eval::players_for_source(who, state, controller, source)
+            .is_some_and(|players| !players.contains(&player))
+        || !crate::eval::matches_with_context(filter, state, spell, controller, context)
+    {
+        return;
+    }
+    let already_cast = if state.per_turn.cast_spells_this_turn.tracked {
+        state
+            .per_turn
+            .cast_spells_this_turn
+            .items
+            .iter()
+            .any(|rec| {
+                rec.controller == player
+                    && !(rec.source.object == spell.id && rec.source.version == spell.version)
+                    && crate::eval::matches_with_context(
+                        filter,
+                        state,
+                        &rec.snapshot,
+                        controller,
+                        context,
+                    )
+            })
+    } else {
+        *filter == baylee_cards_dsl::Filter::Any && state.per_turn.spells_cast_by(player) > 0
+    };
+    if already_cast {
+        return;
+    }
+    if increase {
+        if cost.generic_total() == cost.cmc() {
+            adjustment.increase = adjustment.increase.saturating_add(cost.generic_total());
+            if super::effect_is_un(state, source) {
+                adjustment.eligible_increase = adjustment
+                    .eligible_increase
+                    .saturating_add(cost.generic_total());
+            }
+        } else {
+            adjustment.mana_increase = adjustment.mana_increase.combine(&cost);
+        }
+    } else if colored_only {
+        adjustment.colored_only_reduction = adjustment.colored_only_reduction.combine(&cost);
+    } else if cost.generic_total() == cost.cmc() {
+        adjustment.reduction = adjustment.reduction.saturating_add(cost.generic_total());
+    } else {
+        adjustment.mana_reduction = adjustment.mana_reduction.combine(&cost);
+    }
+}
+
+#[allow(clippy::too_many_arguments, clippy::too_many_lines)]
 fn apply_dynamic_spell_cost_modifier(
     state: &GameState,
     player: PlayerId,
@@ -827,6 +893,26 @@ fn apply_dynamic_spell_cost_modifier(
                 adjustment.reduction = adjustment.reduction.saturating_add(value);
             }
         }
+        baylee_cards_dsl::Modifier::FirstSpellEachTurnCostAdjust {
+            who,
+            filter,
+            cost,
+            increase,
+            colored_only,
+        } => apply_first_spell_cost_adjust(
+            state,
+            player,
+            spell,
+            controller,
+            source,
+            context,
+            who,
+            filter,
+            cost,
+            increase,
+            colored_only,
+            adjustment,
+        ),
         _ => {}
     }
 }
@@ -896,7 +982,8 @@ fn apply_spell_cost_modifier(
         }
         baylee_cards_dsl::Modifier::AdjustSpellCostByCast { .. }
         | baylee_cards_dsl::Modifier::ReduceCostIfTargets { .. }
-        | baylee_cards_dsl::Modifier::AdjustSpellCostByAmount { .. } => {
+        | baylee_cards_dsl::Modifier::AdjustSpellCostByAmount { .. }
+        | baylee_cards_dsl::Modifier::FirstSpellEachTurnCostAdjust { .. } => {
             let context = crate::text_changes::RuleContext {
                 source: source.unwrap_or(spell.id),
                 text,
@@ -965,7 +1052,8 @@ pub fn spell_adjustment_with_def(
                 abilities: false,
                 ..
             }
-            | baylee_cards_dsl::Modifier::AdjustSpellCostByAmount { who, .. } => {
+            | baylee_cards_dsl::Modifier::AdjustSpellCostByAmount { who, .. }
+            | baylee_cards_dsl::Modifier::FirstSpellEachTurnCostAdjust { who, .. } => {
                 spell_cost_effect_applies(state, effect, who, player, &spell)
             }
             _ => crate::effects::applies_to(state, effect, &spell),

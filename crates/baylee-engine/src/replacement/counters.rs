@@ -175,14 +175,21 @@ pub(crate) fn commit_counters_by(
     let (old, version) = (obj.counters.get(kind), obj.version);
     let new = obj.counters.add(kind, n);
     let placed = new > old;
-    let first_this_turn = placed
-        && state.per_turn.counter_placements.insert((
-            DamageSourceRef {
-                object: id,
-                version,
-            },
+    let reference = DamageSourceRef {
+        object: id,
+        version,
+    };
+    let first_this_turn = placed && state.per_turn.counter_placements.insert((reference, kind));
+    if placed {
+        let placer = crate::state::CounterPlacerRecord {
+            target: reference,
             kind,
-        ));
+            by,
+        };
+        if !state.per_turn.counter_placers.items.contains(&placer) {
+            state.per_turn.counter_placers.items.push(placer);
+        }
+    }
     state.journal.record(GameEvent::CounterChanged {
         object: id,
         version,

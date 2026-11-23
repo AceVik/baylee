@@ -129,6 +129,7 @@ fn accumulate_effect(effect: &Effect, ch: &mut EffectChannels) {
         | Effect::SearchLibraryAndGraveyard { .. }
         | Effect::SearchLibraryOf { .. }
         | Effect::SearchLibraryUpTo { .. }
+        | Effect::SearchLibraryDistinctNames { .. }
         | Effect::OptionalBasicLandSearchFor { .. }
         | Effect::ExileAttackingForThenMaySearchBasicLands { .. }
         | Effect::Recruit { .. }
@@ -152,6 +153,7 @@ fn accumulate_effect(effect: &Effect, ch: &mut EffectChannels) {
         | Effect::DiscardMatching { .. }
         | Effect::DiscardRandomMatching { .. }
         | Effect::DiscardUpToForPlayers { .. }
+        | Effect::DiscardDefined { .. }
         | Effect::DungeonExileTwo => {
             ch.discard += 1.5;
         }
@@ -327,6 +329,7 @@ fn accumulate_effect(effect: &Effect, ch: &mut EffectChannels) {
         | Effect::DoubleCountersFilter { .. }
         | Effect::MoveCounter { .. }
         | Effect::MoveCounterToEvent { .. }
+        | Effect::PutEachCounterKindFromSource { .. }
         | Effect::Amass { .. }
         | Effect::Energy { .. }
         | Effect::Poison { .. } => {
@@ -359,6 +362,9 @@ fn accumulate_effect(effect: &Effect, ch: &mut EffectChannels) {
         | Effect::Populate => {
             ch.tokens_create += 1.5;
         }
+        Effect::CreateTokenAttached { amount, .. } => {
+            ch.tokens_create += amount_scalar(amount).max(1.0);
+        }
         Effect::PutNinjutsuOntoBattlefield
         | Effect::GraveyardToBattlefield { .. }
         | Effect::GraveyardToBattlefieldModified { .. }
@@ -367,6 +373,8 @@ fn accumulate_effect(effect: &Effect, ch: &mut EffectChannels) {
         | Effect::AllGraveyardCreaturesToBattlefield
         | Effect::EachPlayerGraveyardToBattlefield { .. }
         | Effect::ReturnSourceFromGraveyard { .. }
+        | Effect::PutOntoBattlefieldAttached { .. }
+        | Effect::PutOntoBattlefieldAttacking { .. }
         | Effect::GraveyardToHand { .. }
         | Effect::GraveyardAllToHand { .. }
         | Effect::RandomGraveyardToHand { .. }
@@ -427,23 +435,33 @@ fn accumulate_effect(effect: &Effect, ch: &mut EffectChannels) {
             baylee_cards_dsl::GiftKind::ExtraTurn => ch.extra_turn_or_win -= 1.0,
             _ => ch.tokens_create -= 0.5,
         },
+        Effect::AttachChosen { .. } => {
+            ch.pump_pt += 1.0;
+        }
         Effect::ChooseCardEx {
             movement,
             not_chosen_movement,
             ..
         } => {
-            for mv in [*movement, *not_chosen_movement] {
-                match mv {
-                    baylee_cards_dsl::ChooseMove::Hand => ch.draw += 1.0,
-                    baylee_cards_dsl::ChooseMove::Battlefield { .. } => ch.reanimate += 1.0,
-                    baylee_cards_dsl::ChooseMove::Exile
-                    | baylee_cards_dsl::ChooseMove::ExileLinked => ch.exile_single += 1.0,
-                    _ => {}
-                }
-            }
+            accumulate_choose_move(*movement, ch);
+            accumulate_choose_move(*not_chosen_movement, ch);
+        }
+        Effect::ChooseCardConstrained { movement, .. } => {
+            accumulate_choose_move(*movement, ch);
         }
         Effect::SeparateIntoTwoPiles { .. } => {
             ch.draw += 0.5;
+        }
+        _ => {}
+    }
+}
+
+fn accumulate_choose_move(mv: baylee_cards_dsl::ChooseMove, ch: &mut EffectChannels) {
+    match mv {
+        baylee_cards_dsl::ChooseMove::Hand => ch.draw += 1.0,
+        baylee_cards_dsl::ChooseMove::Battlefield { .. } => ch.reanimate += 1.0,
+        baylee_cards_dsl::ChooseMove::Exile | baylee_cards_dsl::ChooseMove::ExileLinked => {
+            ch.exile_single += 1.0;
         }
         _ => {}
     }

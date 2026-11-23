@@ -365,6 +365,9 @@ pub(crate) fn meaning(effects: &[Effect], x: u32) -> Meaning {
                         .find(|k| matches!(k, CounterKind::Minus { .. }));
                 }
             }
+            Effect::PutEachCounterKindFromSource { .. } => {
+                m.size_counter = Some(CounterKind::P1P1);
+            }
             Effect::Destroy { .. } | Effect::DestroyTargetSlots { .. } => {
                 m.removal = true;
                 m.destroy = true;

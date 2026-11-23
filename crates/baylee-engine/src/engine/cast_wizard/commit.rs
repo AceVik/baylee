@@ -1222,6 +1222,26 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
         {
             *v = v.saturating_add(1);
         }
+        if self.state.per_turn.cast_spells_this_turn.tracked
+            && let Some(obj) = self.state.object(card)
+        {
+            let mut snap = obj.clone();
+            snap.base = std::sync::Arc::new(obj.characteristics().clone());
+            snap.cache.clear();
+            let version = obj.version;
+            self.state
+                .per_turn
+                .cast_spells_this_turn
+                .items
+                .push(crate::state::CastSpellRecord {
+                    source: baylee_core::ids::DamageSourceRef {
+                        object: card,
+                        version,
+                    },
+                    controller: player,
+                    snapshot: std::sync::Arc::new(snap),
+                });
+        }
         // "The next spell you cast this turn has improvise" is spent by this
         // cast, whatever it tapped (Archway of Innovation).
         if let Some(flag) = self
@@ -1298,6 +1318,20 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
         };
         if wizard.option == Some(CastModeKind::Warp) {
             self.state.per_turn.spells_warped.0.push(player);
+        }
+        if self.state.per_turn.spells_cast_log.tracked {
+            self.state.refresh_characteristics();
+        }
+        if let Some(object) = self.state.object(card) {
+            let record = crate::state::SpellCastRecord {
+                spell: baylee_core::ids::DamageSourceRef {
+                    object: card,
+                    version: object.version,
+                },
+                caster: player,
+                snapshot: crate::state::freeze_object(object),
+            };
+            self.state.per_turn.spells_cast_log.items.push(record);
         }
         self.state.journal.record(GameEvent::SpellCast {
             instant_number,

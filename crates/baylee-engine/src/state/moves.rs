@@ -580,9 +580,29 @@ impl GameState {
         let to = replacement.destination;
         let exile_counter = replacement.exile_counter;
         let revealed_in_hand = replacement.revealed_in_hand;
+        let shuffle_into_library = replacement.shuffle_into_library;
+        let reveal_on_shuffle = replacement.reveal_on_shuffle;
         let exile_link_source = replacement.link_source;
         let component_destination = if commander_redirected { requested } else { to };
         let from_loc = ZoneLocation::of(from_zone, from_player);
+        // CR 400.7, CR 614.6: a card already in its owner's library whose move
+        // to the graveyard is replaced with shuffling into that library never
+        // changes zones; reveal it (when printed) and shuffle the library.
+        if shuffle_into_library && from_loc == to {
+            if let ZoneLocation::Library(owner) = to {
+                if reveal_on_shuffle
+                    || (self.library_top_revealed(from_player)
+                        && self.zones.list(from_loc).last() == Some(&id))
+                {
+                    self.journal.record(GameEvent::Revealed {
+                        player: owner,
+                        cards: vec![id],
+                    });
+                }
+                self.shuffle_library(owner);
+            }
+            return Ok(id);
+        }
         // A creature dies when it is put into a graveyard from the
         // battlefield (CR 700.4), and whether it was a creature is what it
         // was there: a land an effect animated dies as a creature, and the
@@ -641,6 +661,13 @@ impl GameState {
                 );
             }
         }
+        let departed = (from_zone == Zone::Battlefield && to.zone() != Zone::Battlefield)
+            .then(|| {
+                self.object(id).map(|object| {
+                    super::entry_history::freeze_departure(object, departure.as_ref())
+                })
+            })
+            .flatten();
         if from_zone == Zone::Battlefield
             && to.zone() != Zone::Battlefield
             && let Some(object) = self.object(id)
@@ -734,6 +761,9 @@ impl GameState {
                     obj.riders
                         .push(crate::object::Rider::RevealedInHandCantPlayUntilTurn);
                 }
+            }
+            if shuffle_into_library && to.zone() == Zone::Library && obj.is_card() {
+                obj.kind = ObjectKind::Card;
             }
             // CR 400.7: it becomes a new object. The old projection must
             // not survive the move — the refresh pass only revisits the
@@ -1215,7 +1245,7 @@ impl GameState {
                 }
             }
             if from_zone != Zone::Battlefield {
-                self.note_entry_history(id);
+                self.note_entry_history(id, (from_zone != Zone::OutsideGame).then_some(from_zone));
             }
         }
         // "For as long as you control [this]" ends as its source leaves
@@ -1243,6 +1273,9 @@ impl GameState {
                 self.per_turn.descended[owner] = true;
             }
         }
+        if to.zone() != Zone::Battlefield {
+            self.note_zone_change(id, from_zone, departed);
+        }
         // Read off `to` after the redirects above, so a commander that went
         // to the command zone instead names no place in a library.
         let place = match to {
@@ -1258,6 +1291,16 @@ impl GameState {
             }
             snapshot.event
         });
+        if shuffle_into_library
+            && reveal_on_shuffle
+            && !(from_zone == Zone::Library && self.library_top_revealed(from_player))
+            && let ZoneLocation::Library(owner) = to
+        {
+            self.journal.record(GameEvent::Revealed {
+                player: owner,
+                cards: vec![id],
+            });
+        }
         self.journal.record_departure(
             GameEvent::ZoneChanged {
                 object: id,
@@ -1314,6 +1357,9 @@ impl GameState {
                 player: owner,
                 cards: vec![id],
             });
+        }
+        if shuffle_into_library && let ZoneLocation::Library(owner) = to {
+            self.shuffle_library(owner);
         }
         // What this permanent held "until it leaves the battlefield" comes
         // back now, immediately after the event and before anything else
@@ -1529,7 +1575,26 @@ impl GameState {
             .take(count)
             .copied()
             .collect();
+        let mut shuffled = smallvec::SmallVec::<[ObjectId; 2]>::new();
         for &card in &top {
+            if crate::replacement::graveyard_destination(
+                self,
+                card,
+                ZoneLocation::Graveyard(player),
+            )
+            .shuffle_into_library
+            {
+                shuffled.push(card);
+            } else {
+                let _ = self.move_object(
+                    card,
+                    ZoneLocation::Graveyard(player),
+                    ZonePosition::Top,
+                    Cause::Effect,
+                );
+            }
+        }
+        for card in shuffled {
             let _ = self.move_object(
                 card,
                 ZoneLocation::Graveyard(player),

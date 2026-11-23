@@ -231,6 +231,35 @@ pub fn resume_chosen_player(state: &mut GameState, res: &mut Resolution, chosen:
             super::subjects::flush(state, res);
             flow
         }
+        Some(AwaitingOp::PutAttachedHostPlayer(spec)) => {
+            let since = state.journal.last_seq();
+            super::subjects::begin_resume(state, res);
+            let flow = if let Some(pending) =
+                super::wave15b::resume_put_attached_player(state, res, *spec, chosen)
+            {
+                super::next_choice(state, res, since, pending)
+            } else if matches!(res.awaiting, Some(AwaitingOp::Entry { .. })) {
+                Flow::Enter
+            } else {
+                super::finish_choice(state, res, since)
+            };
+            super::subjects::flush(state, res);
+            flow
+        }
+        Some(AwaitingOp::CreateTokenAttachedPlayer {
+            token,
+            count,
+            is_aura,
+        }) => {
+            let since = state.journal.last_seq();
+            super::subjects::begin_resume(state, res);
+            super::wave15b::resume_create_token_attached_player(
+                state, res, token, count, is_aura, chosen,
+            );
+            let flow = super::finish_choice(state, res, since);
+            super::subjects::flush(state, res);
+            flow
+        }
         _ => panic!("no player choice suspended"),
     }
 }

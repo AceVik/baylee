@@ -130,6 +130,23 @@ pub fn permits_new_enchantment(state: &GameState, host: ObjectId, aura: ObjectId
     })
 }
 
+/// Whether `host` accepts a brand-new Aura that is not yet in the arena
+/// (for prospective Aura token entry checks, CR 303.4f–g).
+pub(crate) fn permits_new_enchantment_on(state: &GameState, host: ObjectId) -> bool {
+    if !state.effects.may_guard_permanents() {
+        return true;
+    }
+    let Some(object) = state.object(host) else {
+        return false;
+    };
+    !state.effects.iter().any(|effect| {
+        matches!(
+            effect.modifier,
+            Modifier::CantBecomeEnchanted | Modifier::CantBeEnchanted
+        ) && guards(state, object, object.characteristics(), effect)
+    })
+}
+
 /// Check a newly resolving control instruction before registering its effect.
 #[doc(hidden)]
 pub fn can_gain_control(state: &GameState, id: ObjectId, player: PlayerId) -> bool {
