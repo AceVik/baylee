@@ -17,6 +17,7 @@ mod contacts;
 mod disk;
 mod keys;
 mod notify;
+mod sealing;
 mod select;
 mod tabs;
 mod text;
