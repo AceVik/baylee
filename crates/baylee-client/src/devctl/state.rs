@@ -313,8 +313,19 @@ pub(super) struct Believed<'w, 's> {
             (&'static ComputedNode, &'static UiGlobalTransform),
             With<crate::arrangement::ArrangementPanel>,
         >,
-        Query<'w, 's, (&'static crate::table::SeatMat, &'static Transform)>,
+        Query<
+            'w,
+            's,
+            (
+                &'static crate::table::SeatMat,
+                &'static Transform,
+                &'static MeshMaterial3d<crate::matmat::MatMaterial>,
+            ),
+        >,
     ),
+    /// These are read at the actual seat mesh when reporting a bound print.
+    mat_assets: Option<Res<'w, Assets<crate::matmat::MatMaterial>>>,
+    mat_images: Option<Res<'w, Assets<Image>>>,
     /// The two top-edge lines (turn, priority) on the strip's seat buttons
     /// and the seats' plates, and whether each shows (shown and inked: the
     /// chip's turn line fades rather than hides); then the chips and the plates themselves:
@@ -1548,13 +1559,19 @@ fn arrangement_json(believed: &Believed, duel: &Duel) -> String {
         "parked": duel.layout.as_ref().map(|l| l.slots.iter().filter(|s| s.parked).map(|s| s.player.get()).collect::<Vec<_>>()),
         // Every mat drawn, where it is (table space) and how it is turned,
         // beside where its seat's slot says it belongs.
-        "mats": seat_mats.iter().map(|(mat, at)| {
+        "mats": seat_mats.iter().map(|(mat, at, material)| {
             let slot = duel.layout.as_ref().and_then(|l| l.slot(mat.0));
-            serde_json::json!({
+            let mut row = serde_json::json!({
                 "seat": mat.0.get(),
                 "at": [at.translation.x, -at.translation.z, at.translation.y],
                 "slot": slot.map(|s| [s.center.x, s.center.y, s.facing]),
-            })
+            });
+            if let Some(print) = believed.mat_assets.as_ref().and_then(|a| a.get(material))
+                && believed.mat_images.as_ref().is_some_and(|images| print.has_loaded_print(images))
+            {
+                row["print_bound"] = true.into();
+            }
+            row
         }).collect::<Vec<_>>(),
         "tear": duel.tear.as_ref().map(|t| t.t),
         "follow_settling": duel.follow_settling,

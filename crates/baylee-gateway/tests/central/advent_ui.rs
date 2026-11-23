@@ -147,6 +147,15 @@ fn signed(endpoint: &Endpoint) -> Account {
     .unwrap()
 }
 
+fn register_home(rt: &Runtime, operator: &DatabaseConnection, origin: &str) {
+    rt.block_on(operator.execute_raw(statement(
+        "INSERT INTO central_identity.gateways (official,origin,name,version,website)
+         VALUES(true,$1,'Synthetic official','0',$2) ON CONFLICT DO NOTHING",
+        [origin.into(), format!("{origin}/").into()],
+    )))
+    .unwrap();
+}
+
 pub(super) fn exercise(
     rt: &Runtime,
     operator: &DatabaseConnection,
@@ -155,6 +164,9 @@ pub(super) fn exercise(
     origin: &str,
 ) {
     let (year, reward) = rt.block_on(campaign(operator));
+    if std::env::var("BAYLEE_CENTRAL_RANK_COLLECTION_UI").as_deref() == Ok("1") {
+        register_home(rt, operator, origin);
+    }
     let mut account = signed(endpoint);
     let Response::Calendar {
         doors,

@@ -2,7 +2,7 @@
 //! reads it, including after both seats are reclaimed. No operator art is used.
 use super::{Account, DeckDraft, Endpoint, Runtime, common, signed, statement};
 use central_api::advent::{self, table};
-use sea_orm::{ConnectionTrait, DatabaseConnection};
+use sea_orm::DatabaseConnection;
 use serde_json::{Value, json};
 use uuid::Uuid;
 #[path = "table/framing.rs"]
@@ -241,12 +241,7 @@ pub(super) fn exercise(
     account: &Account,
     deck: &DeckDraft,
 ) {
-    rt.block_on(operator.execute_raw(statement(
-        "INSERT INTO central_identity.gateways (official,origin,name,version,website)
-        VALUES(true,$1,'Synthetic official','0',$2) ON CONFLICT DO NOTHING",
-        [origin.into(), format!("{origin}/").into()],
-    )))
-    .unwrap();
+    super::register_home(rt, operator, origin);
     let agent = rt.block_on(common::attach_agent(host));
     let admission = account.admit(origin).unwrap();
     let table = Table::start(host.port, &admission.token, deck);

@@ -6,6 +6,7 @@ use std::time::{Duration, Instant};
 
 const CAL: &str = "advent";
 const EQUIP: &str = "deck-appearance";
+mod collection;
 
 fn nodes(view: &Value) -> impl Iterator<Item = &Value> {
     ["shell_nodes", "ui_nodes"]
@@ -83,70 +84,6 @@ impl Visit<'_> {
         Ok(())
     }
 
-    fn named_row(&mut self, table: &str, id: &str, title: &str) -> Result<()> {
-        let view = self.wait(title, |v| {
-            nodes(v).any(|n| visible(n) && n["t"].as_str() == Some(title))
-        })?;
-        let word = nodes(&view)
-            .find(|n| visible(n) && n["t"].as_str() == Some(title))
-            .context("missing visible row title")?;
-        let midpoint = |axis: &str, size: &str| {
-            word[axis]
-                .as_f64()
-                .zip(word[size].as_f64())
-                .map(|(x, w)| x + w / 2.)
-        };
-        let x = midpoint("x", "w").context("row text x")?;
-        let y = midpoint("y", "h").context("row text y")?;
-        let row = nodes(&view)
-            .find(|row| {
-                visible(row)
-                    && row["stop"]["table"] == table
-                    && row["stop"]["id"] == id
-                    && ["x", "y", "w", "h"].iter().all(|k| row[*k].is_number())
-                    && (row["x"].as_f64().unwrap()
-                        ..row["x"].as_f64().unwrap() + row["w"].as_f64().unwrap())
-                        .contains(&x)
-                    && (row["y"].as_f64().unwrap()
-                        ..row["y"].as_f64().unwrap() + row["h"].as_f64().unwrap())
-                        .contains(&y)
-            })
-            .context("title must belong to a visible focusable row")?;
-        self.press(
-            table,
-            id,
-            u8::try_from(row["stop"]["item"].as_u64().context("row index")?)?,
-        )
-    }
-
-    fn ranked_items(&mut self) -> Result<()> {
-        self.words("Card sleeve · Rank reward · Gold II")?;
-        self.words("Playmat · Rank reward · Gold II")?;
-        self.capture("12-ranked-collection")?;
-        for (title, frame) in [
-            ("QA Gilded Hall", "13-ranked-playmat"),
-            ("QA Sunburst", "15-ranked-sleeve"),
-        ] {
-            self.named_row(CAL, "item", title)?;
-            self.words("Rank reward · Gold II")?;
-            self.wait("ranked private collection asset", |v| {
-                nodes(v).any(|n| visible(n) && n["cosmetic_preview"] == true)
-            })?;
-            self.capture(frame)?;
-            self.press(CAL, "deck", 0)?;
-            self.named_row(EQUIP, "item", "Private forest 61")?;
-            self.words("Rank reward · Gold II")?;
-            self.press(EQUIP, "apply", 0)?;
-            self.words("Saved for this deck")?;
-            if title == "QA Gilded Hall" {
-                self.capture("14-ranked-deck-picker")?;
-            }
-            self.press(EQUIP, "close", 0)?;
-            self.press(CAL, "gallery", 0)?;
-        }
-        Ok(())
-    }
-
     fn words(&mut self, expected: &str) -> Result<()> {
         self.wait(expected, |view| {
             nodes(view).any(|row| visible(row) && row["t"].as_str() == Some(expected))
@@ -210,6 +147,22 @@ impl Visit<'_> {
             nodes(v).any(|row| visible(row) && row["calendar_image"] == true)
         })?;
         self.capture("11-kalender-de")?;
+        Ok(())
+    }
+
+    fn compare_lobby(&mut self) -> Result<()> {
+        self.keyboard_open()?;
+        self.press(CAL, "close", 0)?;
+        self.press("play", "ranked", 0)?;
+        self.press("play", "ranked-board", 0)?;
+        self.button("ranked", "back", 0)?;
+        self.capture("09-ranked-reference")?;
+        if std::env::var("BAYLEE_CENTRAL_ADVENT_UI_DE").as_deref() == Ok("1") {
+            self.german_preview()?;
+        }
+        if std::env::var("BAYLEE_CENTRAL_RANK_COLLECTION_UI").as_deref() == Ok("1") {
+            self.ranked_table()?;
+        }
         Ok(())
     }
 
@@ -319,15 +272,7 @@ pub(super) fn visit(dev: &Devctl, client: &mut Owned, dir: &Path) -> Result<()> 
         "resolved calendar still draws attention"
     );
     qa.capture("08-entry-resolved")?;
-    qa.keyboard_open()?;
-    qa.press(CAL, "close", 0)?;
-    qa.press("play", "ranked", 0)?;
-    qa.press("play", "ranked-board", 0)?;
-    qa.button("ranked", "back", 0)?;
-    qa.capture("09-ranked-reference")?;
-    if std::env::var("BAYLEE_CENTRAL_ADVENT_UI_DE").as_deref() == Ok("1") {
-        qa.german_preview()?;
-    }
+    qa.compare_lobby()?;
     fs::write(
         dir.join("advent-motion.json"),
         serde_json::to_vec_pretty(&json!({"before":first,"next":next,"resolved":after}))?,

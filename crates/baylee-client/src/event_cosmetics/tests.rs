@@ -104,6 +104,17 @@ fn identical_sleeves_per_owner_and_mats_follow_their_own_seat_then_restore() {
         Some(&paint.image)
     );
     assert_eq!(mats.get(&handles[1]).unwrap().decoration.x, 3);
+    #[cfg(feature = "dev-control")]
+    {
+        assert!(mats.get(&handles[1]).unwrap().has_loaded_print(&images));
+        assert!(!mats.get(&handles[0]).unwrap().has_loaded_print(&images));
+        assert!(
+            !mats
+                .get(&handles[1])
+                .unwrap()
+                .has_loaded_print(&Assets::default())
+        );
+    }
     app.insert_resource(Worn::default());
     app.update();
     assert_eq!(slabs.map(|s| read(&app, s)), [resident.id(); 3]);

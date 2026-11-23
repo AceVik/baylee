@@ -50,6 +50,16 @@ async fn prepare(db: &DatabaseConnection, players: &[super::Player; 2]) {
         ))
         .await
         .unwrap();
+        if kind == "playmat" {
+            tx.execute_raw(Statement::from_sql_and_values(
+                DbBackend::Postgres,
+                r#"INSERT INTO central_identity.playmat_framing(art_id,framing)
+                   VALUES ($1,'{"duel":{"focus":[4800,5500],"safe":[1000,3000,9000,8500]}}')"#,
+                [art.into()],
+            ))
+            .await
+            .unwrap();
+        }
     }
     tx.commit().await.unwrap();
 }

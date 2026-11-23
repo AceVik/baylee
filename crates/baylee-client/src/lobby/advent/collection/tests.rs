@@ -132,9 +132,8 @@ fn a_settlement_during_pagination_reloads_the_account_after_the_old_last_page() 
     book.invalidate_inventory();
     book.invalidate_inventory();
     assert_eq!(book.work.len(), 1);
-    assert_eq!(
-        book.work.pop_front(),
-        Some(api::Request::Collection { after: cursor })
+    assert!(
+        matches!(book.work.pop_front(), Some(api::Request::Collection { after }) if after == cursor)
     );
     book.accept(
         api::Request::Collection { after: cursor },
@@ -143,10 +142,10 @@ fn a_settlement_during_pagination_reloads_the_account_after_the_old_last_page() 
             next: None,
         }),
     );
-    assert_eq!(
+    assert!(matches!(
         book.work.pop_front(),
         Some(api::Request::Collection { after: None })
-    );
+    ));
     assert!(book.work.is_empty());
     assert_eq!(book.inventory, owned);
 }
