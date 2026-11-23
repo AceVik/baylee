@@ -1,8 +1,8 @@
 //! A single displayed deck choice, explicit queue actions, and the last settled result.
 use super::draw::{btn, label};
 use super::{
-    Action, Format, Kit, Lang, League, Live, LobbyState, ORDER, OwnRank, Phrase, Press, Weight,
-    api, controls, format_name, league_name, orders, parts, preview, rank_name, tokens,
+    Action, Format, Kit, Lang, League, Live, LobbyState, OwnRank, Phrase, Press, Weight, api,
+    controls, format_name, league_name, orders, parts, preview, rank_name, tokens,
 };
 use crate::hud::glyph;
 use api::{Outcome, QueueState};
@@ -10,14 +10,11 @@ use baylee_client_core::lobby::DeckSummary;
 use bevy::prelude::*;
 
 pub(super) fn effective_format(state: &LobbyState) -> Format {
-    if state.ranked_net.needs_deck {
-        match &state.ranked_net.queue {
-            QueueState::Assigned { assignment, .. } => return assignment.format,
-            QueueState::Waiting { format, .. } => return *format,
-            _ => {}
-        }
+    match &state.ranked_net.queue {
+        QueueState::Assigned { assignment, .. } => assignment.format,
+        QueueState::Waiting { format, .. } => *format,
+        _ => state.ranked.queue_format,
     }
-    state.ranked.format
 }
 fn choices(state: &LobbyState) -> impl Iterator<Item = (uuid::Uuid, &DeckSummary)> {
     let f = effective_format(state).as_str();
@@ -210,7 +207,7 @@ fn error(commands: &mut Commands, parent: Entity, kit: Kit, look: &Look) {
             kit,
             Phrase::ShellRetry.text(lang),
             Action::Refresh,
-            ("queue", 2),
+            (&orders::PLAY, "queue", 2),
             false,
         );
     }
@@ -231,7 +228,7 @@ fn show_status(commands: &mut Commands, parent: Entity, kit: Kit, look: &Look) -
                     kit,
                     Phrase::RankedCancel.text(lang),
                     Action::Cancel,
-                    ("queue", 1),
+                    (&orders::PLAY, "queue", 1),
                     false,
                 );
             }
@@ -249,7 +246,7 @@ fn show_status(commands: &mut Commands, parent: Entity, kit: Kit, look: &Look) -
                     kit,
                     Phrase::RankedResume.text(lang),
                     Action::Resume,
-                    ("queue", 0),
+                    (&orders::PLAY, "queue", 0),
                     true,
                 );
             }
@@ -359,7 +356,7 @@ fn deck_picker(commands: &mut Commands, parent: Entity, kit: Kit, state: &LobbyS
             Weight::Secondary,
             Press::Ranked(Action::ToggleDecks),
         );
-        orders::stop(commands, picker, &ORDER, "deck");
+        orders::stop(commands, picker, &orders::PLAY, "deck");
         commands.entity(parent).add_child(picker);
         if look.picker {
             let decks = choices(state).collect::<Vec<_>>();
@@ -378,7 +375,7 @@ fn deck_picker(commands: &mut Commands, parent: Entity, kit: Kit, state: &LobbyS
                     kit,
                     &d.name,
                     Action::Deck(*id),
-                    ("deck-choice", idx),
+                    (&orders::PLAY, "deck-choice", idx),
                     id == selected,
                 );
             }
@@ -392,7 +389,7 @@ fn deck_picker(commands: &mut Commands, parent: Entity, kit: Kit, state: &LobbyS
                         kit,
                         Phrase::ChallengePrevious.text(lang),
                         Action::DeckPage(page - 1),
-                        ("deck-choice", DECK_PAGE),
+                        (&orders::PLAY, "deck-choice", DECK_PAGE),
                         false,
                     );
                 }
@@ -403,7 +400,7 @@ fn deck_picker(commands: &mut Commands, parent: Entity, kit: Kit, state: &LobbyS
                         kit,
                         Phrase::ChallengeNext.text(lang),
                         Action::DeckPage(page + 1),
-                        ("deck-choice", DECK_PAGE + 1),
+                        (&orders::PLAY, "deck-choice", DECK_PAGE + 1),
                         false,
                     );
                 }
@@ -439,7 +436,7 @@ fn join_button(commands: &mut Commands, parent: Entity, kit: Kit, look: &Look) {
         Press::Ranked(Action::Join),
     );
     if reason.is_none() {
-        orders::stop(commands, join, &ORDER, "queue");
+        orders::stop(commands, join, &orders::PLAY, "queue");
     }
     commands.entity(parent).add_child(join);
     if let Some(r) = reason {

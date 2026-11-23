@@ -1,8 +1,52 @@
-//! Three compact entrances beside the selected gateway's table list.
+//! Illustrated game modes beside the selected gateway's table list.
 #[allow(clippy::wildcard_imports)]
 use super::*;
 use crate::{challenge_art::Scene, hud::glyph};
 use baylee_client_core::challenges::{Action, api};
+
+#[cfg(not(target_arch = "wasm32"))]
+pub(super) fn leaderboards(commands: &mut Commands, parent: Entity, kit: Kit) {
+    let link = controls::button_compact(
+        commands,
+        kit,
+        Some(glyph::TROPHY),
+        Phrase::RankedBoard.text(kit.lang()),
+        Weight::Ghost,
+        Live::Yes,
+        Press::Ranked(super::super::ranked::Action::Open),
+    );
+    orders::stop(commands, link, &orders::PLAY, "ranked-board");
+    commands.entity(parent).add_child(link);
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+pub(super) fn ranked(commands: &mut Commands, parent: Entity, kit: Kit) {
+    let arrow = commands
+        .spawn((
+            Text::new(glyph::CHEVRON_DOWN.to_string()),
+            crate::hud::icon_tf(kit.fonts, kit.m.small * 0.8),
+            TextColor(tokens::ACCENT),
+            Pickable::IGNORE,
+        ))
+        .id();
+    let card = tile(
+        commands,
+        parent,
+        kit,
+        Tile {
+            stop: "ranked",
+            trailing: &[arrow],
+            title: Phrase::RankedTitle.text(kit.lang()),
+            description: Phrase::RankedModeEntry.text(kit.lang()),
+            scene: Scene::Ranked,
+            icon: glyph::TROPHY,
+            action: Press::Ranked(super::super::ranked::Action::ToggleQueue),
+            live: Live::Yes,
+            accent: tokens::ACCENT,
+        },
+    );
+    super::super::ranked::entry(commands, card, arrow, kit);
+}
 
 pub(super) fn draw(commands: &mut Commands, parent: Entity, state: &LobbyState, kit: Kit) {
     commands
@@ -18,6 +62,7 @@ pub(super) fn draw(commands: &mut Commands, parent: Entity, state: &LobbyState, 
         kit,
         Tile {
             stop: "tower",
+            trailing: &[],
             title: Phrase::TowerRunTitle.text(lang),
             description: Phrase::TowerRunEntry.text(lang),
             scene: Scene::Tower,
@@ -71,6 +116,7 @@ pub(super) fn draw(commands: &mut Commands, parent: Entity, state: &LobbyState, 
                 } else {
                     "weekly"
                 },
+                trailing: &[],
                 title,
                 description,
                 scene: if kind == api::Kind::Daily {
@@ -107,6 +153,7 @@ pub(super) fn draw(commands: &mut Commands, parent: Entity, state: &LobbyState, 
 
 struct Tile<'a> {
     stop: &'static str,
+    trailing: &'a [Entity],
     title: &'a str,
     description: &'a str,
     scene: Scene,
@@ -116,7 +163,7 @@ struct Tile<'a> {
     accent: Color,
 }
 
-fn tile(commands: &mut Commands, parent: Entity, kit: Kit, tile: Tile<'_>) {
+fn tile(commands: &mut Commands, parent: Entity, kit: Kit, tile: Tile<'_>) -> Entity {
     let card = surfaces::panel(commands, kit, percent(100));
     commands
         .entity(card)
@@ -152,7 +199,7 @@ fn tile(commands: &mut Commands, parent: Entity, kit: Kit, tile: Tile<'_>) {
             node.flex_grow = 0.0;
             node.min_width = px(0);
         });
-    let button = controls::button_compact(
+    let button = controls::button_compact_with(
         commands,
         kit,
         Some(tile.icon),
@@ -163,6 +210,7 @@ fn tile(commands: &mut Commands, parent: Entity, kit: Kit, tile: Tile<'_>) {
             Weight::Secondary
         },
         tile.live,
+        tile.trailing,
         tile.action,
     );
     orders::stop(commands, button, &orders::PLAY, tile.stop);
@@ -171,4 +219,5 @@ fn tile(commands: &mut Commands, parent: Entity, kit: Kit, tile: Tile<'_>) {
         .insert(BorderColor::all(tile.accent.with_alpha(0.4)));
     commands.entity(card).add_children(&[picture, button, copy]);
     commands.entity(parent).add_child(card);
+    card
 }

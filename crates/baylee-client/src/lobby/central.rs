@@ -193,6 +193,16 @@ impl Handle {
         drop(receive);
         Self::from_sender(send)
     }
+    /// A passive rendering fixture may show account-only controls. It cannot
+    /// dispatch an account job or acquire a credential.
+    #[cfg(feature = "dev-control")]
+    pub(in crate::lobby) fn inert_fixture_handle() -> Self {
+        let (send, receive) = mpsc::sync_channel(1);
+        drop(receive);
+        let handle = Self::from_sender(send);
+        handle.active.store(false, Ordering::Release);
+        handle
+    }
     /// A handle whose jobs the test receives, instead of a worker.
     #[cfg(test)]
     pub(crate) fn queued_for_test() -> (Self, mpsc::Receiver<Job>) {

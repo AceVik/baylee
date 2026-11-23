@@ -10798,6 +10798,7 @@ ProfileAwardsFailed = Some medals could not be refreshed.
 
 # Central's competitive one-on-one ladders.
 RankedTitle = Ranked play
+RankedModeEntry = Play a 1v1 match for player and deck Elo.
 RankedBoard = Leaderboards
 RankedQueue = Find a ranked opponent
 RankedPlayers = Players

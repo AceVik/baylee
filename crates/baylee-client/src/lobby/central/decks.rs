@@ -39,6 +39,11 @@ pub(super) fn new_epoch() -> u64 {
 }
 
 impl Handle {
+    #[cfg(test)]
+    pub(in crate::lobby) fn set_listed_revision_for_test(&self, id: Uuid, revision: u64) {
+        self.library.lock().unwrap().listed.insert(id, revision);
+    }
+
     pub(crate) fn listed_deck_revision(&self, id: Uuid) -> Result<u64, Error> {
         self.library
             .try_lock()

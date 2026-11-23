@@ -90,7 +90,7 @@ fn answer(status: u16, body: &str) -> ehttp::Response {
 
 /// A headless app wired exactly as the plugin wires a real one. No
 /// renderer, so this exercises the systems and the node tree, not pixels.
-fn headless() -> App {
+pub(in crate::lobby) fn headless() -> App {
     let mut app = App::new();
     // Node carries InheritedVisibility; propagate it just as the real client
     // does so keyboard tests exercise visible controls instead of hidden defaults.
@@ -161,7 +161,7 @@ fn to_gateway_face(app: &mut App) {
 
 /// Lands the front door on the panel the lobby asks for, as if its motion
 /// had run its course, and draws that panel.
-fn settle(app: &mut App) {
+pub(in crate::lobby) fn settle(app: &mut App) {
     app.world_mut()
         .resource_scope(|world, mut motion: Mut<super::front::FrontMotion>| {
             motion.settle(world.resource::<LobbyState>());
@@ -359,7 +359,7 @@ fn pool_cards() -> Vec<baylee_client_core::PoolCard> {
 }
 
 /// A lobby signed in, with a deck listed and the pool loaded.
-fn stocked(app: &mut App) {
+pub(in crate::lobby) fn stocked(app: &mut App) {
     let mut state = app.world_mut().resource_mut::<LobbyState>();
     state.lobby.apply(LobbyEvent::LoggedIn {
         token: "tok".to_string(),
@@ -397,7 +397,7 @@ fn sign_out_from_the_header(app: &mut App) {
 }
 
 /// Presses one control by name, in one line.
-fn press(app: &mut App, wanted: Press) {
+pub(in crate::lobby) fn press(app: &mut App, wanted: Press) {
     let target = press_target(app, wanted);
     tap(app, target);
     app.update();

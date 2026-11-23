@@ -1,9 +1,9 @@
 //! Retained board body. The scroll region and its scrollbar survive network refreshes.
 use super::board::{board_row, filters};
 use super::{
-    Action, Format, Kit, Lang, League, List, Live, LobbyState, Metrics, ORDER, OwnRank, Phrase,
-    Press, Scrolled, Track, Ui, Weight, api, board, controls, format_name, league_name, orders,
-    parts, queue, tokens,
+    Action, Format, Kit, Lang, League, List, Live, LobbyState, Metrics, ORDER, Phrase, Press,
+    Scrolled, Track, Ui, Weight, api, board, controls, format_name, league_name, orders, parts,
+    tokens,
 };
 use crate::hud::glyph;
 use crate::lobby::{Scrollable, scrollbars};
@@ -12,9 +12,8 @@ use bevy::prelude::*;
 
 #[derive(Component)]
 pub(super) struct Page {
-    pub(super) metrics: ShellMetrics,
+    metrics: ShellMetrics,
     formats: Entity,
-    pub(super) queue: Entity,
     board: Board,
 }
 
@@ -27,11 +26,10 @@ struct Board {
 
 #[derive(Default)]
 pub(super) struct Painted {
-    key: Option<(Entity, u64, u64, Option<OwnRank>)>,
+    key: Option<(Entity, u64, u64)>,
     scroll: Option<Viewport>,
     format: Option<Format>,
     filters: Option<(Track, League, Option<u8>, bool)>,
-    queue: Option<queue::Look>,
     rows: Option<(Vec<api::Row>, usize, Option<Phrase>)>,
     seasons: Option<(Vec<api::Season>, bool, bool)>,
     pager: Option<Pager>,
@@ -91,31 +89,10 @@ pub(in crate::lobby) fn draw(
     );
     let page = page_root(commands, root, kit, compact);
     let formats = masthead(commands, page, kit);
-    let content = commands
-        .spawn((
-            Node {
-                width: percent(100),
-                min_height: px(0),
-                flex_grow: 1.0,
-                flex_direction: if compact {
-                    FlexDirection::Column
-                } else {
-                    FlexDirection::Row
-                },
-                column_gap: kit.m.space(2),
-                row_gap: kit.m.space(2),
-                ..default()
-            },
-            Pickable::IGNORE,
-        ))
-        .id();
-    commands.entity(page).add_child(content);
-    let queue = queue_panel(commands, content, kit, compact);
-    let board = board_panel(commands, content, kit, metrics, compact, scrolled);
+    let board = board_panel(commands, page, kit, metrics, compact, scrolled);
     commands.entity(page).insert(Page {
         metrics: kit.m,
         formats,
-        queue,
         board,
     });
 }
@@ -191,7 +168,7 @@ fn masthead(commands: &mut Commands, page: Entity, kit: Kit) -> Entity {
     let title = parts::line(
         commands,
         kit,
-        Phrase::RankedTitle.text(kit.lang()),
+        Phrase::RankedBoard.text(kit.lang()),
         kit.m.h1,
         tokens::INK,
     );
@@ -204,44 +181,6 @@ fn masthead(commands: &mut Commands, page: Entity, kit: Kit) -> Entity {
         .entity(top)
         .add_children(&[back, title, grow, formats]);
     formats
-}
-
-fn queue_panel(commands: &mut Commands, content: Entity, kit: Kit, compact: bool) -> Entity {
-    let queue = surfaces::panel(
-        commands,
-        kit,
-        if compact { percent(100) } else { percent(30) },
-    );
-    commands
-        .entity(queue)
-        .entry::<Node>()
-        .and_modify(move |mut n| {
-            n.align_self = AlignSelf::FlexStart;
-            n.flex_shrink = 0.0;
-            n.row_gap = kit.m.space(2);
-            if !compact {
-                n.max_height = percent(100);
-                n.overflow = Overflow::scroll_y();
-            }
-        });
-    if compact {
-        commands.entity(content).add_child(queue);
-    } else {
-        commands
-            .entity(queue)
-            .insert((ScrollPosition::default(), surfaces::SheetScroller));
-        let queue_band = scrollbars::band_stable(commands, queue, false);
-        commands
-            .entity(queue_band)
-            .entry::<Node>()
-            .and_modify(|mut n| {
-                n.width = percent(30);
-                n.align_self = AlignSelf::FlexStart;
-                n.max_height = percent(100);
-            });
-        commands.entity(content).add_child(queue_band);
-    }
-    queue
 }
 
 fn board_panel(
@@ -339,7 +278,11 @@ pub(super) fn btn(
     kit: Kit,
     words: &str,
     action: Action,
-    stop: (&'static str, usize),
+    stop: (
+        &'static crate::shellkit::focus::TabOrder,
+        &'static str,
+        usize,
+    ),
     chosen: bool,
 ) {
     let b = controls::button_compact(
@@ -355,7 +298,7 @@ pub(super) fn btn(
         Live::Yes,
         Press::Ranked(action),
     );
-    orders::item(commands, b, &ORDER, stop.0, stop.1);
+    orders::item(commands, b, stop.0, stop.1, stop.2);
     commands.entity(parent).add_child(b);
 }
 
@@ -375,7 +318,6 @@ pub(super) fn patch(
     state: Res<LobbyState>,
     fonts: Option<Res<crate::hud::UiFonts>>,
     pages: Query<(Entity, &Page)>,
-    book: Option<Res<crate::lobby::ranked_profile::Book>>,
     mut positions: Query<&mut ScrollPosition>,
     mut painted: Local<Painted>,
 ) {
@@ -384,25 +326,7 @@ pub(super) fn patch(
     };
     let net = &state.ranked_net;
     let ui = &state.ranked;
-    let own = book
-        .as_ref()
-        .filter(|_| state.has_central_account())
-        .and_then(|book| {
-            let format = queue::effective_format(&state);
-            if let Some(s) = book.own_player(format) {
-                return Some((s.rank, s.placement_games, Some(s.elo)));
-            }
-            book.own_loaded().then_some((
-                api::Rank {
-                    league: League::Unranked,
-                    division: None,
-                    champion_place: None,
-                },
-                0,
-                None,
-            ))
-        });
-    let key = (page, ui.revision, net.revision, own);
+    let key = (page, ui.revision, net.revision);
     if painted.key == Some(key) && !state.is_changed() {
         return;
     }
@@ -433,12 +357,6 @@ pub(super) fn patch(
         painted.scroll = Some(viewport);
     }
     paint_controls(&mut commands, slots, kit, ui, &mut painted);
-    let queue = queue::look(&state, own);
-    if painted.queue.as_ref() != Some(&queue) {
-        commands.entity(slots.queue).despawn_children();
-        queue::draw(&mut commands, slots.queue, kit, &state, &queue);
-        painted.queue = Some(queue);
-    }
     paint_board(&mut commands, &slots.board, kit, &state, &mut painted);
 }
 
@@ -454,7 +372,7 @@ fn paint_controls(commands: &mut Commands, slots: &Page, kit: Kit, ui: &Ui, pain
                 kit,
                 format_name(format, lang),
                 Action::Format(format),
-                ("format", i),
+                (&ORDER, "format", i),
                 format == ui.format,
             );
         }

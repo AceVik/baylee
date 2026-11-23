@@ -13,12 +13,13 @@ use bevy::prelude::*;
 
 mod board;
 mod draw;
+mod inline;
 pub(crate) mod native;
 mod preview;
 mod queue;
 mod receipt;
 #[cfg(feature = "dev-control")]
-mod visual_fixture;
+pub(crate) mod visual_fixture;
 pub(super) use draw::draw;
 type OwnRank = (api::Rank, u8, Option<i32>);
 
@@ -27,10 +28,6 @@ pub(crate) const ORDER: TabOrder = TabOrder {
     stops: &[
         "back",
         "format",
-        "deck",
-        "deck-choice",
-        "preview",
-        "queue",
         "track",
         "league",
         "league-choice",
@@ -64,6 +61,8 @@ const LEAGUES: [League; 12] = [
 pub(crate) enum Action {
     Open,
     Back,
+    ToggleQueue,
+    QueueFormat(Format),
     Format(Format),
     Track(Track),
     ToggleLeagues,
@@ -84,6 +83,9 @@ pub(crate) enum Action {
 
 pub(crate) struct Ui {
     format: Format,
+    queue_format: Format,
+    // An outstanding reservation is visible upon returning on another device.
+    expanded: Option<bool>,
     track: Track,
     league: League,
     division: Option<u8>,
@@ -106,6 +108,8 @@ impl Default for Ui {
     fn default() -> Self {
         Self {
             format: Format::Standard,
+            queue_format: Format::Standard,
+            expanded: None,
             track: Track::Player,
             league: League::Champion,
             division: None,
@@ -187,8 +191,19 @@ pub(super) fn install(app: &mut App) {
     .add_systems(OnEnter(crate::DuelPhase::Closed), native::clear_game_marker);
     app.add_systems(Update, native::poll.after(super::poll).before(super::ui));
     app.add_systems(
+        PostUpdate,
+        inline::reveal_focus
+            .after(bevy::ui::UiSystems::Layout)
+            .run_if(in_state(crate::DuelPhase::Closed)),
+    );
+    app.add_systems(
         Update,
-        (draw::patch, queue::animate, receipt::promotion)
+        (
+            draw::patch,
+            inline::patch,
+            queue::animate,
+            receipt::promotion,
+        )
             .chain()
             .after(super::ui)
             .run_if(in_state(crate::DuelPhase::Closed)),
@@ -198,18 +213,13 @@ pub(super) fn install(app: &mut App) {
 pub(super) fn refresh(state: &mut LobbyState) {
     let request = state.ranked.board_request();
     native::board(state, request);
-    if state.central_ready() {
-        native::refresh(state);
-    }
 }
 pub(super) fn escape(state: &mut ResMut<LobbyState>) {
-    if state.ranked.show_decks || state.ranked.show_leagues {
+    if state.ranked.show_leagues {
         let ui = &mut state.bypass_change_detection().ranked;
-        ui.show_decks = false;
         ui.show_leagues = false;
         ui.revision = ui.revision.wrapping_add(1);
     } else {
-        native::clear_preview(state.bypass_change_detection());
         state.hub = state.ranked.previous;
     }
 }
@@ -224,17 +234,7 @@ fn open(cx: Cx<'_, '_, '_, '_, '_>) {
     cx.state.header_menu = None;
     cx.state.front_menu = false;
     cx.state.lobby.park_caret();
-    if cx.state.has_central_account() {
-        if cx.state.central_without_gateway()
-            && matches!(cx.state.lobby.screen(), super::Screen::SignIn { .. })
-        {
-            cx.state.ensure_central_lobby(cx.mailbox);
-        } else {
-            super::dispatch(cx.state, cx.mailbox, Some(LobbyRequest::ListDecks));
-        }
-    }
     cx.state.ranked.reset_pages();
-    native::clear_preview(cx.state);
     refresh(cx.state);
 }
 
@@ -244,32 +244,25 @@ pub(super) fn press(action: Action, cx: Cx<'_, '_, '_, '_, '_>) {
         return;
     }
     if cx.state.hub != Hub::Ranked {
+        inline::press(action, cx);
         return;
     }
     if action == Action::Back {
-        native::clear_preview(cx.state);
         let previous = cx.state.ranked.previous;
         cx.state.hub = previous;
         return;
     }
     // A filter, a page and the network mailbox are local to the retained page.
     let state = cx.state.bypass_change_detection();
-    if online_action(state, action) {
+    if action == Action::Refresh {
+        refresh(state);
         return;
-    }
-    match action {
-        Action::Deck(id) if Some(id) != state.ranked.deck_id => native::clear_preview(state),
-        Action::Format(f) if f != state.ranked.format => native::clear_preview(state),
-        _ => {}
     }
     let ui = &mut state.ranked;
     let mut reset_pages = false;
     match action {
         Action::Format(format) if ui.format != format => {
             ui.format = format;
-            ui.deck_id = None;
-            ui.show_decks = false;
-            ui.deck_page = 0;
             reset_pages = true;
         }
         Action::Track(track) if ui.track != track => {
@@ -288,12 +281,6 @@ pub(super) fn press(action: Action, cx: Cx<'_, '_, '_, '_, '_>) {
         Action::Division(division) if ui.division != division => {
             ui.division = division;
             reset_pages = true;
-        }
-        Action::ToggleDecks => ui.show_decks = !ui.show_decks,
-        Action::DeckPage(page) => ui.deck_page = page,
-        Action::Deck(id) => {
-            ui.deck_id = Some(id);
-            ui.show_decks = false;
         }
         Action::Seasons => {
             ui.browsing_seasons = !ui.browsing_seasons;
@@ -326,19 +313,8 @@ pub(super) fn press(action: Action, cx: Cx<'_, '_, '_, '_, '_>) {
     state.ranked.revision = state.ranked.revision.wrapping_add(1);
 }
 
-pub(super) fn entry(commands: &mut Commands, parent: Entity, kit: Kit) {
-    let button = controls::button_compact(
-        commands,
-        kit,
-        Some(crate::hud::glyph::TROPHY),
-        Phrase::RankedTitle.text(kit.lang()),
-        Weight::Secondary,
-        Live::Yes,
-        Press::Ranked(Action::Open),
-    );
-    orders::stop(commands, button, &orders::PLAY, "ranked");
-    commands.entity(parent).add_child(button);
-}
+pub(super) use inline::preview_visible;
+pub(super) use inline::{entry, escape_queue};
 
 fn join(state: &mut LobbyState) {
     if !state.has_central_account() || state.lobby.awaiting().is_some() || state.ranked_net.busy {
@@ -349,22 +325,6 @@ fn join(state: &mut LobbyState) {
         native::clear_preview(state);
         native::join(state, format, &id.to_string());
     }
-}
-
-fn online_action(state: &mut LobbyState, action: Action) -> bool {
-    match action {
-        Action::Preview => {
-            if let Some((id, _)) = queue::selected(state) {
-                native::preview(state, queue::effective_format(state), &id.to_string());
-            }
-        }
-        Action::Join => join(state),
-        Action::Cancel => native::cancel(state),
-        Action::Resume => native::resume(state),
-        Action::Refresh => refresh(state),
-        _ => return false,
-    }
-    true
 }
 
 fn divisions(league: League) -> u8 {

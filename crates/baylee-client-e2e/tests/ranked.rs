@@ -226,6 +226,40 @@ fn capture(client: &mut Client, name: &str) -> Result<()> {
     anyhow::bail!("no rendered pixels in four captures of {name}")
 }
 
+fn narrow_queue_remains_playable(client: &mut Client) -> Result<()> {
+    client.resize(Viewport::NARROW)?;
+    let opened = client.wait_until("compact inline controls", |s| {
+        s.is_at(Viewport::NARROW) && presented(s, "Ranglistenspiel")
+    })?;
+    let table = opened.locate(&press("Play(CreateTable)"))?;
+    anyhow::ensure!(
+        opened.window().contains(&table, 1.0),
+        "tables are outside the compact window"
+    );
+    capture(client, "ranked-play-narrow")?;
+    // Scroll the activity rail exactly as a player would until the action can
+    // actually be clicked. The table pane must stay stationary underneath.
+    let (x, y) = opened.locate(&press("Ranked(ToggleQueue)"))?.centre();
+    for _ in 0..15 {
+        if presented(&client.screen()?, "Gegner suchen") {
+            break;
+        }
+        client.scroll(at(x, y), 1.0)?;
+    }
+    let scrolled = client.wait_until("search reachable by scrolling the compact rail", |s| {
+        presented(s, "Gegner suchen")
+    })?;
+    anyhow::ensure!(scrolled.locate(&press("Play(CreateTable)"))? == table);
+    client.click(press("Ranked(Join)"))?;
+    client.wait_until("compact queue confirmation", |s| {
+        s.shows("Gegner für Highlander wird gesucht")
+    })?;
+    client.resize(Viewport::LAPTOP)?;
+    client.click(press("Ranked(Cancel)"))?;
+    client.wait_until("compact search cancelled", |s| s.shows("Sternenmeer"))?;
+    Ok(())
+}
+
 #[test]
 #[ignore = "opens a client window: cargo dev e2e"]
 fn ranked_public_board_filters_and_scrolls_without_an_account() {
@@ -237,7 +271,7 @@ fn ranked_public_board_filters_and_scrolls_without_an_account() {
     e2e::run_with(launch, |client| {
         client.click(press("Ranked(Open)"))?;
         let board = client.wait_until("the public Champion ladder", |s| s.shows("Mistral-01"))?;
-        board.expect_shows("Sign in with Baylee Central")?;
+        board.expect_not_shown("Sign in with Baylee Central")?;
         board.expect_not_shown("Find opponent")?;
         capture(client, "ranked-champion")?;
         client.click(text("Mistral-01#0001"))?;
@@ -291,7 +325,7 @@ fn ranked_public_board_filters_and_scrolls_without_an_account() {
 
 #[test]
 #[ignore = "opens a passive client window: cargo dev e2e"]
-fn ranked_wait_and_both_promotions_render_in_the_private_screen_fixture() {
+fn ranked_play_card_searches_and_cancels_beside_other_modes_and_tables() {
     let fixture = PublicLadder::new();
     let launch = Launch::new()
         .viewport(Viewport::LAPTOP)
@@ -299,14 +333,70 @@ fn ranked_wait_and_both_promotions_render_in_the_private_screen_fixture() {
         .env("BAYLEE_CENTRAL_DEV_ENDPOINT", &fixture.origin)
         .env("BAYLEE_E2E_RANKED_FIXTURE", "1");
     e2e::run_with(launch, |client| {
-        client.click(press("Ranked(Open)"))?;
-        client.wait_until("public ladder and synthetic waiting queue", |s| {
-            s.shows("Mistral-01")
-                && s.shows("Gegner für Standard wird gesucht")
-                && s.shows("7/10 Platzierungsspiele")
+        let seeded = client
+            .devctl()
+            .post("shell", &json!({ "ranked_lobby": true }))?;
+        anyhow::ensure!(seeded["ranked_lobby"] == true, "fixture scene was refused");
+        let lobby = client.wait_until("the four game modes and the gateway's tables", |s| {
+            [
+                "Ranglistenspiel",
+                "Tower-Run",
+                "Tagesaufgabe",
+                "Wochenaufgabe",
+                "Abendrunde",
+            ]
+            .iter()
+            .all(|name| s.shows(name))
         })?;
-        capture(client, "ranked-queue-fixture")?;
+        let opener = "Ranked(ToggleQueue)";
+        let table = "Play(CreateTable)";
+        let card = lobby.locate(&press(opener))?;
+        let original_table = lobby.locate(&press(table))?;
+        anyhow::ensure!(lobby.window().contains(&card, 1.0) && card.right() < original_table.x);
+        capture(client, "ranked-play-lobby")?;
+        client.click(press(opener))?;
+        let open = client.wait_until("inline format and deck choice", |s| {
+            s.control("Ranked(QueueFormat(Standard))").is_some() && s.shows("Morgenrot")
+        })?;
+        anyhow::ensure!(
+            open.locate(&press(table))? == original_table,
+            "table moved on expanding"
+        );
+        client.click(press("Ranked(ToggleDecks)"))?;
+        client.click(text("Waldwache"))?;
+        client.wait_until("chosen deck", |s| {
+            s.shows("Waldwache") && !s.shows("Morgenrot")
+        })?;
+        client.click(press("Ranked(QueueFormat(Highlander))"))?;
+        client.wait_until("only the Highlander deck is offered", |s| {
+            s.shows("Sternenmeer")
+        })?;
+        capture(client, "ranked-play-expanded")?;
+        client.click(press("Ranked(Join)"))?;
+        let waiting = client.wait_until("the waiting queue within Play", |s| {
+            s.shows("Gegner für Highlander wird gesucht") && s.shows("Abendrunde")
+        })?;
+        anyhow::ensure!(
+            waiting.locate(&press(table))? == original_table,
+            "table moved while searching"
+        );
+        capture(client, "ranked-play-waiting")?;
+        client.click(press("Ranked(Cancel)"))?;
+        client.wait_until("back in the same format after cancelling", |s| {
+            s.shows("Sternenmeer") && s.control("Ranked(Join)").is_some()
+        })?;
+        client.click(press("Ranked(Open)"))?;
+        client.wait_until("optional public standings", |s| s.shows("Mistral-01"))?;
         client.click(press("Ranked(Format(Commander))"))?;
+        client.click(press("Ranked(Back)"))?;
+        client.wait_until(
+            "separate matchmaking format survives leaderboard filtering",
+            |s| s.shows("Sternenmeer") && s.shows("Abendrunde"),
+        )?;
+        narrow_queue_remains_playable(client)?;
+        client.click(press("Ranked(QueueFormat(Commander))"))?;
+        client.wait_until("Commander deck", |s| s.shows("Solstice"))?;
+        client.click(press("Ranked(Join)"))?;
         client.wait_until("player division promotion", |s| {
             presented(s, "Commander · Spieler · Gold I")
         })?;

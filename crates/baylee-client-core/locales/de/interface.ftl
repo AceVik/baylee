@@ -4275,7 +4275,8 @@ ProfileTrophies = Meine Turm- und Aufgabenmedaillen
 ProfileAwardsFailed = Einige Medaillen konnten nicht aktualisiert werden.
 
 
-RankedTitle = Ranglistenspiele
+RankedTitle = Ranglistenspiel
+RankedModeEntry = Spiele im 1-gegen-1 um Spieler- und Deck-Elo.
 RankedBoard = Bestenlisten
 RankedQueue = Ranglistengegner finden
 RankedPlayers = Spieler
