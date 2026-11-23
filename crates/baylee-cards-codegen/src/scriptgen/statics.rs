@@ -6216,7 +6216,7 @@ impl Tx<'_> {
         if let Some(rest) = trimmed.strip_prefix("Count$Valid ") {
             return self.wave14_valid_stat_amount(rest, allow_power_scan);
         }
-        None
+        self.wave27a_static_amount(trimmed, allow_power_scan, allow_turn_counts)
     }
 
     fn wave14_amount_arith(
@@ -7603,9 +7603,9 @@ mod wave16b_tests {
         );
         assert!(
             refused(
-                "Name:Entered Permanent\nManaCost:1 B\nTypes:Creature\nPT:1/1\n\
+                "Name:Entered Hand\nManaCost:1 B\nTypes:Creature\nPT:1/1\n\
                  S:Mode$ Continuous | AffectedDefined$ Self | AddKeyword$ Flying | CheckSVar$ S\n\
-                 SVar:S:Count$ThisTurnEntered_Battlefield_Permanent.YouCtrl"
+                 SVar:S:Count$ThisTurnEntered_Hand_from_Battlefield_Permanent.YouOwn"
             )
             .is_some()
         );

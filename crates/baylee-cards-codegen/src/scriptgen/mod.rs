@@ -69,6 +69,7 @@ mod targets;
 mod transform48;
 mod triggers;
 mod wall52;
+mod wave27a;
 
 use atoms::{
     Bound, amount, color_atom, count_bound, hybrid_pair, keyword_atom, mana_color_const,

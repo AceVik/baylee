@@ -659,12 +659,12 @@ fn wave24b_refuses_engine_gaps_and_non_paper_scripts() {
         "Name:Umbris Shape\nManaCost:3 U B\nTypes:Creature\nPT:1/1\n\
          S:Mode$ Continuous | Affected$ Card.Self | AddPower$ X | AddToughness$ X\n\
          SVar:X:Count$ValidExile Card.OppOwn",
-        // `AmountCompare` with multiplayer-max SVar (`HighestCardsInHand`).
-        "Name:Okina Nightwatch Shape\nManaCost:4 G\nTypes:Creature\nPT:4/3\n\
+        // `AmountCompare` with all-players-max SVar (`PlayerCountPlayers$HighestCardsInHand`).
+        "Name:AllPlayersHighestHand Shape\nManaCost:4 G\nTypes:Creature\nPT:4/3\n\
          S:Mode$ Continuous | Affected$ Card.Self | AddPower$ 3 | AddToughness$ 3 | \
          CheckSVar$ X | SVarCompare$ GTY\n\
          SVar:X:Count$ValidHand Card.YouOwn\n\
-         SVar:Y:PlayerCountOpponents$HighestCardsInHand",
+         SVar:Y:PlayerCountPlayers$HighestCardsInHand",
         // `RaiseCost` `Discard<X/...>` without `X` in ManaCost / `Count$xPaid`.
         "Name:BadDiscardXNoX\nManaCost:2 U\nTypes:Sorcery\n\
          S:Mode$ RaiseCost | ValidCard$ Card.Self | Activator$ You | Type$ Spell | \

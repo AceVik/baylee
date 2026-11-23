@@ -2431,6 +2431,7 @@ impl Tx<'_> {
         self.extra_svar_condition(var, cmp)
             .or_else(|| self.extra_svar_condition_wave5(var, cmp))
             .or_else(|| self.extra_svar_amount_condition(var, cmp))
+            .or_else(|| self.wave27a_svar_condition(var, cmp))
     }
 
     /// General `CheckSVar$` fallback over any static-safe `Amount` via
