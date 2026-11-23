@@ -3,6 +3,39 @@
 #[allow(clippy::wildcard_imports)] // this module's own vocabulary
 pub use super::*;
 
+/// Casts a sorcery whose only currently legal route is its optional flash
+/// cost. The engine skips the mode question for a single route, but answer it
+/// as well so this helper remains correct if that presentation ever changes.
+#[track_caller]
+pub fn cast_sorcery_with_optional_flash(
+    engine: &mut Engine<RegistryLookup>,
+    seat: PlayerId,
+    card: CardIndex,
+) {
+    let spell = in_hand(engine, seat, card).expect("the spell is in hand");
+    let legal = priority_offer(engine);
+    let options: Vec<_> = legal
+        .cast_ways
+        .iter()
+        .filter(|(object, _)| *object == spell)
+        .collect();
+    assert_eq!(options.len(), 1, "only the paid flash route: {options:?}");
+    assert_eq!(
+        options[0].1.kind,
+        baylee_engine::choice::CastModeKind::OptionalCost
+    );
+    cast_with_floating(engine, seat, card);
+    if let Pending::ChooseCastMode { options, .. } = engine.pending().clone() {
+        let slot = options
+            .iter()
+            .position(|o| o.kind == baylee_engine::choice::CastModeKind::OptionalCost)
+            .expect("the paid flash route is on the mode menu");
+        engine
+            .apply(seat, PlayerAction::ChooseMode(slot))
+            .expect("the offered optional flash route is selectable");
+    }
+}
+
 // oracle_id = "3d6fa57a-aa53-4b5c-b8af-a7612c823117"
 pub fn faithless_looting() -> baylee_core::ids::CardIndex {
     card_index("3d6fa57a-aa53-4b5c-b8af-a7612c823117")

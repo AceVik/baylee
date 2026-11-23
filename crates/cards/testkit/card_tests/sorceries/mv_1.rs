@@ -28,6 +28,7 @@ mod fireball;
 mod firebolt;
 mod forgotten_lore;
 mod gamble;
+mod ghitu_fire;
 mod gitaxian_probe;
 mod goblin_grenade;
 mod goblin_war_strike;

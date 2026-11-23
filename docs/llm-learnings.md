@@ -6,6 +6,25 @@ the two lanes in use now are remote and cheap, which changes the constraint
 from "one at a time" to "what is each one actually good at". Maintained by
 the orchestrator; entries dated, newest first.
 
+## 2026-11-23 — Optional additional costs that grant flash
+
+`FaceDef.optional_cost_grants_flash` reuses `CastModeKind::OptionalCost`: the
+ordinary cast keeps its printed timing and price, while paying the optional
+mana adds instant timing through the existing total-cost pipeline. The reader
+accepts `K:MayFlashCost` only as a fixed mana cost on the ordinary front-face
+hand cast and refuses duplicates, conflicting optional modes, non-mana costs
+and X costs. Ghitu Fire, Saproling Symbiosis, Rout and Twilight's Call now have
+played tests on the opponent's turn, covering X and full payment, the creature
+count, a purchased regeneration shield, and creature returns for both owners.
+
+The card tests caught an integration gap that a direct wizard test did not:
+`casting::has_priced_ways` must include `optional_cost`, or `LegalActions` never
+publishes the route in `cast_ways` for a hand cast. The house AI, language-model
+seat, trained planner and desktop client all consume that public route; their
+ordinary timing checks keep the normal sorcery cast free of the surcharge.
+Breaking Wave remains unread because `UntapAll.RememberUntapped` is still an
+unclaimed parameter, not because of the optional flash reader.
+
 ## 2026-11-21 — Independent review of the final PR 439 card batches
 
 Reviewed the Wave 16 unholds (`34b765a07`), E11 (`a7f3822e9`) and E12

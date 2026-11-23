@@ -40,6 +40,7 @@ mod planar_despair;
 mod reign_of_terror;
 mod restock;
 mod rhystic_syphon;
+mod rout;
 mod sever_soul;
 mod song_mad_treachery;
 mod soul_feast;

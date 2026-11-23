@@ -358,6 +358,7 @@ mod stolen_grain;
 mod thassa_s_bounty;
 mod their_name_is_death;
 mod time_spiral;
+mod twilight_s_call;
 mod upheaval;
 mod vanquish_the_foul;
 mod wake_the_dragon;

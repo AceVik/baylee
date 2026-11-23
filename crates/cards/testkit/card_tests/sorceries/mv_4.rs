@@ -70,6 +70,7 @@ mod reprocess;
 mod resurrection;
 mod reverent_silence;
 mod ritual_of_the_machine;
+mod saproling_symbiosis;
 mod scorching_missile;
 mod shatterstorm;
 mod skyshroud_claim;
