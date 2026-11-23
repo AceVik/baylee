@@ -145,7 +145,7 @@ reaches Central, so nobody's load can cost another account its session.
 
 ## Bigint advisory scope
 
-The Advent SDK pins Central to `b54c960a7ec3dab9ffbb8f6cc0f176b072cae3d4`.
+The Advent and division cosmetics SDK pins Central to `fa3c1475cce4db0002af42ed93eefc00d8f9a332`.
 It has the same complete `central-crypto` Git tree
 (`651a67f5f17c9ed57caa2b63922cef9e01362a90`), crate manifest and
 workspace lockfile as the reviewed replicated ranked revision below. The native
