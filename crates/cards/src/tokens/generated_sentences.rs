@@ -480,4 +480,94 @@ pub(super) static ROWS: &[(&TokenDef, &[&str])] = &[
         &token::TRIBBLE_1_1_WHITE_AA6F088A4,
         &["This token can't block."],
     ),
+    // Vren, the Relentless.
+    (
+        &token::RAT_1_1_BLACK_AB5894BA6,
+        &["This token gets +1/+1 for each other Rat you control."],
+    ),
+    // Cybernetica Datasmith.
+    (
+        &token::ROBOT_ARTIFACT_4_4_AA6F088A4,
+        &["This token can't block."],
+    ),
+    // Estrid, the Masked.
+    (
+        &token::MASK_WHITE_ENCHANT_PERMANENT_UMBRA_ARMOR,
+        &["Enchant permanent"],
+    ),
+    // Cursed Role (Wilds of Eldraine).
+    (
+        &token::CURSED_ENCHANT_CREATURE_A10F098BB,
+        &[
+            "Enchant creature",
+            "Enchanted creature has base power and toughness 1/1.",
+        ],
+    ),
+    // Monster Role (Wilds of Eldraine).
+    (
+        &token::MONSTER_ENCHANT_CREATURE_AD419DDA4,
+        &[
+            "Enchant creature",
+            "Enchanted creature gets +1/+1.",
+            "Enchanted creature has trample.",
+        ],
+    ),
+    // Royal Role (Wilds of Eldraine).
+    (
+        &token::ROYAL_ENCHANT_CREATURE_AAB276179,
+        &[
+            "Enchant creature",
+            "Enchanted creature gets +1/+1.",
+            "Enchanted creature has ward {1}.",
+        ],
+    ),
+    // Sorcerer Role (Wilds of Eldraine).
+    (
+        &token::SORCERER_ENCHANT_CREATURE_A77120B1D,
+        &[
+            "Enchant creature",
+            "Enchanted creature gets +1/+1.",
+            "Enchanted creature has \"Whenever this creature attacks, scry 1.\"",
+        ],
+    ),
+    // Virtuous Role (Wilds of Eldraine).
+    (
+        &token::VIRTUOUS_ENCHANT_CREATURE_AABA4C452,
+        &[
+            "Enchant creature",
+            "Enchanted creature gets +1/+1 for each enchantment you control.",
+        ],
+    ),
+    // Wicked Role (Wilds of Eldraine).
+    (
+        &token::WICKED_ENCHANT_CREATURE_AAA10B008,
+        &[
+            "Enchant creature",
+            "Enchanted creature gets +1/+1.",
+            "When this token is put into a graveyard, each opponent loses 1 life.",
+        ],
+    ),
+    // Young Hero Role (Wilds of Eldraine).
+    (
+        &token::YOUNG_HERO_ENCHANT_CREATURE_A6CE89E44,
+        &[
+            "Enchant creature",
+            "Enchanted creature has \"Whenever this creature attacks, if its toughness is 3 or less, put a +1/+1 counter on it.\"",
+        ],
+    ),
+    // Preston Garvey, Minuteman.
+    (
+        &token::SETTLEMENT_GREEN_ENCHANT_LAND_A9179052F,
+        &[
+            "Enchant land",
+            "Enchanted land has \"{T}: Add one mana of any color.\"",
+        ],
+    ),
+    // The Prydwen, Steel Flagship.
+    (
+        &token::HUMAN_KNIGHT_2_2_WHITE_A94B73029,
+        &[
+            "This token gets +2/+2 as long as an artifact entered the battlefield under your control this turn.",
+        ],
+    ),
 ];
