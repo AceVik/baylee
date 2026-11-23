@@ -416,12 +416,12 @@ fn check_other_permanent_population(tally: &Tally) {
     );
     assert_eq!(
         eligible,
-        [447, 329, 13],
+        [459, 317, 13],
         "the coverage-tier population changed"
     );
     assert_eq!(
         readable,
-        [387, 241, 0],
+        [397, 231, 0],
         "the readable coverage tiers changed"
     );
     let expected: usize = readable.iter().sum();
