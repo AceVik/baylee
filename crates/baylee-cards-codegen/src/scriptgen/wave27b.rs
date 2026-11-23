@@ -1061,15 +1061,15 @@ impl Tx<'_> {
                 return None;
             }
             let mut then_fx = vec![
-                "Effect::continuous(&Filter::Reference, Modifier::ChangeController(PlayerRel::You), Duration::UntilEndOfTurn)"
+                "Effect::continuous(&Filter::Reference, Modifier::GainControl, Duration::UntilEndOfTurn)"
                     .to_string(),
             ];
             if untap {
-                then_fx.push("Effect::UntapEventObject".to_string());
+                then_fx.push("Effect::UntapAll { filter: &Filter::Reference }".to_string());
             }
             if let Some(k) = kw {
                 then_fx.push(format!(
-                    "Effect::continuous(&Filter::Reference, Modifier::GrantKeywords({k}), Duration::UntilEndOfTurn)"
+                    "Effect::continuous(&Filter::Reference, Modifier::AddKeyword({k}), Duration::UntilEndOfTurn)"
                 ));
             }
             let trailing = if let Some(next_name) = next {

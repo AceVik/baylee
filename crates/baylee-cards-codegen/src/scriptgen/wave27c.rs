@@ -237,7 +237,7 @@ impl Tx<'_> {
         }
 
         // 2. Inside CaptureAffected::then: `ChangeZoneAll` moving `<F>.IsRemembered`
-        //    from `Graveyard,Exile` / `Exile` / `Graveyard` -> `Hand` / `Battlefield` / `Exile` / `Graveyard`.
+        //    from `Graveyard,Exile` / `Exile` / `Graveyard` -> `Hand` / `Battlefield` / `Exile`.
         let scope = self.capture_scope.as_ref()?;
         if targets_a_player || (target.is_some() && !prior_target_used) {
             return None;
@@ -248,7 +248,7 @@ impl Tx<'_> {
         if !matches!(
             origin,
             "Graveyard,Exile" | "Exile,Graveyard" | "Exile" | "Graveyard"
-        ) || !matches!(dest, "Hand" | "Battlefield" | "Exile" | "Graveyard")
+        ) || !matches!(dest, "Hand" | "Battlefield" | "Exile")
         {
             return None;
         }
@@ -267,11 +267,6 @@ impl Tx<'_> {
         let inner_effect = match dest {
             "Hand" => "Effect::ReturnToHand { target: TargetSpec::EventObject }".to_string(),
             "Exile" => "Effect::exile(TargetSpec::EventObject)".to_string(),
-            "Graveyard" if origin == "Exile" => {
-                "Effect::MoveToZone { subject: MoveSubject::Target(TargetSpec::EventObject), \
-                 destination: ZoneRef::Graveyard }"
-                    .to_string()
-            }
             "Battlefield" => {
                 let tapped = match probe.take("Tapped").as_deref() {
                     None | Some("False") => false,
@@ -290,9 +285,11 @@ impl Tx<'_> {
                     _ => "None",
                 };
                 format!(
-                    "Effect::MoveToBattlefield {{ subject: MoveSubject::Target(TargetSpec::EventObject), \
-                     origin: {origin_ref}, tapped: {tapped}, owner_control: {owner_control}, \
-                     modifiers: &[], duration: Duration::Indefinitely }}"
+                    "Effect::MoveAndModify {{ subject: MoveSubject::Target(TargetSpec::EventObject), \
+                     expected_origin: {origin_ref}, blink: false, owner_control: {owner_control}, \
+                     tapped: {tapped}, face: None, counters: None, modifiers: &[], \
+                     duration: Duration::Indefinitely, attach_source: false, \
+                     when_source_leaves: None }}"
                 )
             }
             _ => return None,
@@ -1284,9 +1281,11 @@ impl Tx<'_> {
                             _ => "None",
                         };
                         format!(
-                            "Effect::MoveToBattlefield {{ subject: MoveSubject::Target(TargetSpec::EventObject), \
-                             origin: {origin_ref}, tapped: {tapped}, owner_control: {owner_control}, \
-                             modifiers: &[], duration: Duration::Indefinitely }}"
+                            "Effect::MoveAndModify {{ subject: MoveSubject::Target(TargetSpec::EventObject), \
+                             expected_origin: {origin_ref}, blink: false, owner_control: {owner_control}, \
+                             tapped: {tapped}, face: None, counters: None, modifiers: &[], \
+                             duration: Duration::Indefinitely, attach_source: false, \
+                             when_source_leaves: None }}"
                         )
                     }
                     _ => return None,
