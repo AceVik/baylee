@@ -68,7 +68,7 @@ pub(super) fn art_file(n: u8) -> (u32, u32, Vec<u8>) {
     }
     let (width, height) = match n {
         0 => (600_u32, 400_u32),
-        2 => (360, 144),
+        2 | 102 => (360, 144),
         _ => (180, 252),
     };
     let pixels = image::RgbImage::from_fn(width, height, |x, y| {

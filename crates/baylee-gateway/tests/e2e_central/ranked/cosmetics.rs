@@ -32,8 +32,8 @@ async fn prepare(db: &DatabaseConnection, players: &[super::Player; 2]) {
             [Uuid::from_bytes(entry.account.public_id()).into(),elo.into()])).await.unwrap();
     }
     for (kind, title, variant) in [
-        ("sleeve", "QA Sunburst", 1),
-        ("playmat", "QA Gilded Hall", 2),
+        ("sleeve", "QA Sunburst", 101),
+        ("playmat", "QA Gilded Hall", 102),
     ] {
         let (width, height, bytes) = super::super::advent_ui::art_file(variant);
         let art = tx.query_one_raw(Statement::from_sql_and_values(DbBackend::Postgres,
