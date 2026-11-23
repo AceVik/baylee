@@ -312,6 +312,9 @@ fn moves_library(effect: &Effect) -> bool {
 }
 
 #[cfg(test)]
+mod movement_tests;
+
+#[cfg(test)]
 mod tests {
     use super::*;
     use crate::{Amount, ManaColor, PlayerRel};

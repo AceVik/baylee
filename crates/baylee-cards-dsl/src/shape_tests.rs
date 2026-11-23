@@ -623,3 +623,137 @@ fn a_found_card_goes_where_its_search_says_and_as_it_says() {
     );
     assert_eq!(instead.dest, SearchDest::Hand);
 }
+
+#[test]
+fn a_comparison_holds_below_at_and_above_exactly_as_it_reads() {
+    use AmountCmp::{AtLeast, AtMost, Equal, GreaterThan, LessThan, NotEqual};
+    for (cmp, below, at, above) in [
+        (AtLeast, false, true, true),
+        (GreaterThan, false, false, true),
+        (AtMost, true, true, false),
+        (LessThan, true, false, false),
+        (Equal, false, true, false),
+        (NotEqual, true, false, true),
+    ] {
+        assert_eq!(
+            [cmp.holds(4, 5), cmp.holds(5, 5), cmp.holds(6, 5)],
+            [below, at, above],
+            "{cmp:?}"
+        );
+    }
+}
+
+#[test]
+fn an_eminence_trigger_functions_in_both_zones_and_the_others_in_one() {
+    // CR 113.6b.
+    for (zone, battlefield, command) in [
+        (TriggerZone::Battlefield, true, false),
+        (TriggerZone::Command, false, true),
+        (TriggerZone::BattlefieldOrCommand, true, true),
+    ] {
+        assert_eq!(zone.functions_on_battlefield(), battlefield, "{zone:?}");
+        assert_eq!(zone.functions_in_command(), command, "{zone:?}");
+    }
+}
+
+#[test]
+fn a_saga_chapter_is_read_with_its_numbers_and_nothing_else_is_one() {
+    let chapter = |chapter| AbilityDef::SagaChapter {
+        chapter,
+        effects: &[],
+        targets: None,
+    };
+    for number in [1, 2, 5] {
+        let chapter = chapter(number);
+        assert_eq!(chapter.saga_chapters(), [number]);
+        assert!(chapter.is_saga_chapter());
+        assert_eq!(chapter.max_saga_chapter(), number);
+    }
+    let plain = activated(ManaCost::ZERO, ActivationZone::Battlefield, &[]);
+    assert!(plain.saga_chapters().is_empty());
+    assert!(!plain.is_saga_chapter());
+    assert_eq!(plain.max_saga_chapter(), 0);
+}
+
+#[test]
+fn a_modal_spell_says_its_modes_its_count_and_whether_they_repeat() {
+    const MODES: &[SpellMode] = &[SpellMode {
+        effects: &[Effect::TransformSource],
+        targets: None,
+        second_targets: None,
+        cost_override: None,
+        additional_cost: None,
+    }];
+    let spell = AbilityDef::ModalSpell {
+        modes: MODES,
+        choose: ModeCount::TWO,
+    };
+    assert_eq!(spell.modal_spell(), Some((MODES, ModeCount::TWO, false)));
+    for can_repeat_modes in [false, true] {
+        let modal = AbilityDef::Modal {
+            modes: MODES,
+            choose: ModeCount::THREE,
+            can_repeat_modes,
+        };
+        assert_eq!(
+            modal.modal_spell(),
+            Some((MODES, ModeCount::THREE, can_repeat_modes))
+        );
+    }
+    let plain = activated(ManaCost::ZERO, ActivationZone::Battlefield, &[]);
+    assert_eq!(plain.modal_spell(), None);
+
+    assert!(ModeCount::ONE.is_one());
+    for count in [
+        ModeCount::TWO,
+        ModeCount::ONE_OR_MORE,
+        ModeCount { min: 0, max: 1 },
+        ModeCount { min: 2, max: 1 },
+    ] {
+        assert!(!count.is_one(), "{count:?}");
+    }
+}
+
+#[test]
+fn a_mana_bundle_is_two_or_more_decided_manas_for_no_mana() {
+    use crate::manaread::{mana_bundle, tap_only};
+    use baylee_core::mana::ManaColor::{Blue, White};
+    const W: Effect = Effect::mana(White, 1);
+    const U: Effect = Effect::mana(Blue, 1);
+    const TAP: Cost = Cost {
+        mana: ManaCost::ZERO,
+        parts: &[CostPart::TapSelf],
+    };
+    const PRICED: Cost = Cost {
+        mana: baylee_core::mana!("{1}"),
+        parts: &[CostPart::TapSelf],
+    };
+    const LIFE: Cost = Cost {
+        mana: ManaCost::ZERO,
+        parts: &[CostPart::TapSelf, CostPart::PayLife(1)],
+    };
+    assert_eq!(mana_bundle(&TAP, &[W, U]), Some(vec![White, Blue]));
+    assert_eq!(
+        mana_bundle(&TAP, &[W, W, U]),
+        Some(vec![White, White, Blue])
+    );
+    // A rider changes no mana, so it is no reason to refuse.
+    assert_eq!(
+        mana_bundle(&TAP, &[W, Effect::TransformSource, U]),
+        Some(vec![White, Blue])
+    );
+    // One mana is another reader's question.
+    assert_eq!(mana_bundle(&TAP, &[W]), None);
+    assert_eq!(mana_bundle(&TAP, &[]), None);
+    // A count that would be wrong is refused, never guessed.
+    assert_eq!(mana_bundle(&PRICED, &[W, U]), None);
+    assert_eq!(mana_bundle(&TAP, &[W, Effect::mana(Blue, 2)]), None);
+    assert_eq!(mana_bundle(&TAP, &[W, Effect::mana_of_any_color()]), None);
+    // A draw moves the library: this is no mana ability at all.
+    assert_eq!(mana_bundle(&TAP, &[W, U, Effect::draw(1)]), None);
+
+    assert!(tap_only(&TAP));
+    assert!(tap_only(&Cost::FREE));
+    assert!(!tap_only(&PRICED));
+    assert!(!tap_only(&LIFE));
+}
