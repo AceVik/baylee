@@ -2103,4 +2103,61 @@ mod tests {
         assert!(game.seats.iter().all(|s| !s.occupied()));
         assert!(lobby.leave_waiting_rooms("b", 9).is_empty(), "once");
     }
+
+    /// The listing is every signed-in player's, strangers included: names and
+    /// facts, and nothing that opens a door or names an account.
+    #[test]
+    fn the_listing_tells_no_secret_and_no_account() {
+        let mut lobby = Lobby::default();
+        let mut game = LobbyGame::blank("table".into(), 1);
+        game.state = LobbyState::Waiting;
+        game.name = "Table".into();
+        game.host = Some("account-host".into());
+        game.password_hash = Some("secret-password".into());
+        game.engine_token_hash = Some("secret-engine".into());
+        game.engine_job = Some("secret-job".into());
+        game.agent_id = Some("secret-agent".into());
+        let mut host = occupied(0, "account-host", 1);
+        host.seat_token_hash = Some("secret-seat".into());
+        host.deck.as_mut().unwrap().cards = vec!["60 Secret Tech".into()];
+        host.deck.as_mut().unwrap().id = "secret-deck-id".into();
+        let mut bridge = LobbySeat::open(1);
+        bridge.delegate = Some(Delegate {
+            by: "account-host".into(),
+            name: "LLM-x".into(),
+            ready: false,
+            reported: false,
+        });
+        let mut hosted = LobbySeat::open(2);
+        hosted.hosted = Some(HostedChair {
+            order: "secret-order".into(),
+            host: "secret-host".into(),
+            profile: "p".into(),
+            label: "Label".into(),
+            vendor: "V".into(),
+            model: "m".into(),
+            note: None,
+        });
+        game.seats = vec![host, bridge, hosted];
+        lobby.games.insert("table".into(), game);
+        let names: crate::namebook::Names = names_of(&[("account-host", "Host#0001")]).into();
+        for me in ["stranger", "", "account-host"] {
+            let row = &lobby.list_for(me, &names)[0];
+            let text = row.to_string();
+            for hidden in ["secret", "Secret", "account-"] {
+                assert!(!text.contains(hidden), "{hidden} to {me:?}: {text}");
+            }
+            assert_eq!(row["locked"], true);
+            assert_eq!(row["host"], "Host#0001");
+            assert_eq!(row["seats"][1]["player"], "LLM-x");
+            assert_eq!(row["seats"][1]["delegated_by"], "Host#0001");
+            let mine = me == "account-host";
+            assert_eq!(row["yours"], mine);
+            assert_eq!(row["seats"][0]["you"], mine);
+            assert_eq!(
+                row["seats"][1]["you"], false,
+                "a bridge's chair is nobody's"
+            );
+        }
+    }
 }
