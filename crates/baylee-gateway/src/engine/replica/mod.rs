@@ -200,3 +200,49 @@ fn forward(state: &Shared, run: &Run, published: &projections::Releases, frame: 
         let _ = game.outbox(frame.seat as usize).send(frame.envelope);
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn frame(seat: u32, inner: Option<Msg>) -> Envelope {
+        Envelope {
+            msg: Some(Msg::SeatFrame(v1::SeatFrame {
+                seat,
+                envelope: Envelope { msg: inner }.encode_to_vec().into(),
+            })),
+        }
+    }
+
+    /// Which frames of the player side ask for a seat's whole view; anything
+    /// else a player sends must not be answered with one.
+    #[test]
+    fn only_a_seat_that_sits_down_or_asks_again_is_sent_a_snapshot() {
+        let attached = Envelope {
+            msg: Some(Msg::SeatAttached(v1::SeatAttached {
+                seat: 1,
+                resync: false,
+            })),
+        };
+        assert_eq!(snapshot_seat(attached), Some(1));
+        let ready = Msg::SeatReady(v1::SeatReady::default());
+        let resume = Msg::Resume(v1::ResumeGame::default());
+        assert_eq!(snapshot_seat(frame(0, Some(ready))), Some(0));
+        assert_eq!(snapshot_seat(frame(1, Some(resume))), Some(1));
+        for other in [
+            None,
+            Some(Msg::PlayerAction(v1::PlayerActionMsg::default())),
+            Some(Msg::SeatDetached(v1::SeatDetached::default())),
+        ] {
+            assert_eq!(snapshot_seat(frame(0, other)), None);
+        }
+        let garbage = Envelope {
+            msg: Some(Msg::SeatFrame(v1::SeatFrame {
+                seat: 0,
+                envelope: vec![0xFF; 9].into(),
+            })),
+        };
+        assert_eq!(snapshot_seat(garbage), None);
+        assert_eq!(snapshot_seat(Envelope { msg: None }), None);
+    }
+}

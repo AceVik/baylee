@@ -342,3 +342,18 @@ pub(crate) struct PublicPlayer {
     /// @description The display name and tag (`Alice#af03`).
     handle: String,
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn a_language_is_a_short_plain_tag_or_none() {
+        for good in ["de", "pt-BR", "zh-Hans-CN", &"a".repeat(16)] {
+            assert_eq!(language_tag(good.into()), good);
+        }
+        for bad in ["d e", "de_DE", "de\n", "d\u{e9}", "../x", &"a".repeat(17)] {
+            assert_eq!(language_tag(bad.into()), "", "{bad:?}");
+        }
+    }
+}
