@@ -113,6 +113,7 @@ impl Visit<'_> {
             self.press("ranked", "back", 0)?;
         }
         self.press("play", "create", 0)?;
+        self.lobby_press("Play(Players(2))")?;
         self.press("create-table", "open", 0)?;
         self.lobby_press("Room(RoomDeckPicker(0))")?;
         self.named_row("room", "seats", "Private forest 61")?;
@@ -124,15 +125,20 @@ impl Visit<'_> {
         let view = self.wait(
             "the authorized Gold II playmat on the owner's live 1v1 surface",
             |v| {
-                v["arrangement"]["mats"].as_array().is_some_and(|mats| {
-                    mats.len() == 2
-                        && mats
-                            .iter()
-                            .any(|m| m["seat"] == 0 && m["print_bound"] == true)
-                        && mats
-                            .iter()
-                            .any(|m| m["seat"] == 1 && m["print_bound"] != true)
-                })
+                v["phase"] == "Playing"
+                    && v["loading"]["destination"] == "hidden"
+                    && v["buttons"]
+                        .as_array()
+                        .is_some_and(|buttons| buttons.iter().any(|b| b["label"] == "Keep"))
+                    && v["arrangement"]["mats"].as_array().is_some_and(|mats| {
+                        mats.len() == 2
+                            && mats
+                                .iter()
+                                .any(|m| m["seat"] == 0 && m["print_bound"] == true)
+                            && mats
+                                .iter()
+                                .any(|m| m["seat"] == 1 && m["print_bound"] != true)
+                    })
             },
         )?;
         std::fs::write(

@@ -154,6 +154,16 @@ impl Visit<'_> {
         self.keyboard_open()?;
         self.press(CAL, "close", 0)?;
         self.press("play", "ranked", 0)?;
+        if std::env::var("BAYLEE_CENTRAL_RANK_COLLECTION_UI").as_deref() == Ok("1") {
+            // The result receipt places the leaderboard below this rail's fold.
+            let card = self.button("play", "ranked", 0)?;
+            self.dev.post(
+                "pointer",
+                &json!({"x":card["x"].as_f64().unwrap()+16.,
+                "y":card["y"].as_f64().unwrap()+16.}),
+            )?;
+            self.dev.post("scroll", &json!({"y":-7}))?;
+        }
         self.press("play", "ranked-board", 0)?;
         self.button("ranked", "back", 0)?;
         self.capture("09-ranked-reference")?;
@@ -192,6 +202,11 @@ impl Visit<'_> {
 
 pub(super) fn visit(dev: &Devctl, client: &mut Owned, dir: &Path) -> Result<()> {
     let mut qa = Visit { dev, client, dir };
+    if std::env::var("BAYLEE_CENTRAL_RANK_COLLECTION_UI").as_deref() == Ok("1") {
+        // The confirmed game's receipt expands the ranked card on sign-in.
+        qa.words("Gold II")?;
+        qa.press("play", "ranked", 0)?;
+    }
     let first = qa.entry(true)?;
     qa.capture("01-entry")?;
     std::thread::sleep(Duration::from_millis(260));
