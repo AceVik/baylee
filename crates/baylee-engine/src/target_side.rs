@@ -150,6 +150,7 @@ pub fn effect_benefit(effect: &Effect, x: u32) -> Option<i32> {
         | Effect::CounterTargetAbility
         | Effect::CounterTargetSpellOrAbility
         | Effect::DealDamage { .. }
+        | Effect::TargetDealsDamageToController { .. }
         | Effect::DamagePermanentAndController { .. }
         | Effect::DealDamageEvenly { .. }
         | Effect::DealDamageWithCappedLifeGain { .. }

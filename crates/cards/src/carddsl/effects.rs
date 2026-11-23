@@ -172,6 +172,7 @@ fn accumulate_effect(effect: &Effect, ch: &mut EffectChannels) {
         Effect::DealDamage { amount, .. }
         | Effect::DealDamageToBothTargetInstances { amount }
         | Effect::DealDamageToMatchingTargets { amount, .. }
+        | Effect::TargetDealsDamageToController { amount }
         | Effect::DealDamageToTargetController { amount }
         | Effect::DealDamageToAttached { amount }
         | Effect::DealDamageWithCappedLifeGain { amount, .. }

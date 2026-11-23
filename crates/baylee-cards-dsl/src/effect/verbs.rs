@@ -1076,6 +1076,7 @@ impl Effect {
             | Effect::EventObjectDealsDamageEqualToPower { .. }
             | Effect::EventObjectDealsDamage { .. }
             | Effect::SacrificeEventDealDamageToEachBlocker { .. }
+            | Effect::TargetDealsDamageToController { .. }
             | Effect::DealDamageToTargetController { .. }
             | Effect::DealDamageToAttached { .. }
             | Effect::DealDamageEach { .. }

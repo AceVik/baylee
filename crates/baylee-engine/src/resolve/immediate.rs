@@ -446,6 +446,7 @@ pub(super) fn exec_immediate(
         | Effect::EventObjectDealsDamageEqualToPower { .. }
         | Effect::EventObjectDealsDamage { .. }
         | Effect::DealDamageEvenlyToFilter { .. }
+        | Effect::TargetDealsDamageToController { .. }
         | Effect::DealDamageToTargetController { .. }
         | Effect::DealDamageToAttached { .. }
         | Effect::DealDamageDivided { .. }

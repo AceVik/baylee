@@ -38,6 +38,7 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
         | Effect::EventObjectDealsDamageEqualToPower { .. }
         | Effect::EventObjectDealsDamage { .. }
         | Effect::DealDamageEvenlyToFilter { .. }
+        | Effect::TargetDealsDamageToController { .. }
         | Effect::DealDamageToTargetController { .. }
         | Effect::DealDamageEach { .. }
         | Effect::DealDamageToEachOpponentAndPlaneswalkerDamagedThisGame { .. } => {
@@ -1151,6 +1152,24 @@ fn assignments(state: &GameState, res: &Resolution, op: Effect) -> Vec<Assignmen
             targets
                 .into_iter()
                 .map(|to| assignment(state, res, res.source, to, share))
+                .collect()
+        }
+        Effect::TargetDealsDamageToController { amount } => {
+            let Some(source) = fighting(state, res.targets.first().copied()) else {
+                return Vec::new();
+            };
+            let controller = state.object(source).map(|object| object.controller);
+            controller
+                .into_iter()
+                .map(|player| {
+                    assignment(
+                        state,
+                        res,
+                        source,
+                        DamageTarget::Player(player),
+                        amount2(&amount, state, you, res),
+                    )
+                })
                 .collect()
         }
         Effect::DealDamageToTargetController { amount } => res

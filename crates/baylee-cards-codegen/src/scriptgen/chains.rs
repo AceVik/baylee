@@ -3303,6 +3303,7 @@ impl Tx<'_> {
                     return None;
                 }
                 if matches!(damage_source.as_deref(), Some("Targeted" | "ParentTarget")) {
+                    let defined = p.take("Defined");
                     if (damage_source.as_deref() == Some("ParentTarget") && targets_here)
                         || !target.is_some_and(|t| t.starts_with("TargetSpec::Object("))
                         || !self.is_power_of(
@@ -3312,14 +3313,21 @@ impl Tx<'_> {
                     {
                         return None;
                     }
-                    let to_slot = match p.take("Defined").as_deref() {
-                        None if targets_here => "TargetSlot::First",
-                        Some("Self") if !self.on_a_spell => "TargetSlot::This",
+                    let dmg = match defined.as_deref() {
+                        Some("TargetedController" | "ParentTargetController") => {
+                            "Effect::TargetDealsDamageToController { amount: Amount::TargetPower }"
+                                .to_string()
+                        }
+                        None if targets_here => {
+                            "Effect::DamageEqualToPower { dealer: TargetSlot::First, to: TargetSlot::First }"
+                                .to_string()
+                        }
+                        Some("Self") if !self.on_a_spell => {
+                            "Effect::DamageEqualToPower { dealer: TargetSlot::First, to: TargetSlot::This }"
+                                .to_string()
+                        }
                         _ => return None,
                     };
-                    let dmg = format!(
-                        "Effect::DamageEqualToPower {{ dealer: TargetSlot::First, to: {to_slot} }}"
-                    );
                     return Some(if may {
                         vec![format!("Effect::MayDo {{ effects: &[{dmg}] }}")]
                     } else {

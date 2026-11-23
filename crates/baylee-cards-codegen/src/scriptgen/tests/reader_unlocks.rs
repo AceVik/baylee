@@ -3891,6 +3891,20 @@ fn wave11b_pass2_unlocks_and_honesty_guards() {
         counter_punch.abilities[0]
     );
 
+    // The target, not the spell, deals its power to its own controller.
+    let backlash = read(
+        "Name:Backlash\nManaCost:1 B R\nTypes:Instant\n\
+         A:SP$ Tap | ValidTgts$ Creature.untapped | SubAbility$ DBDamage\n\
+         SVar:DBDamage:DB$ DealDamage | Defined$ TargetedController | DamageSource$ Targeted | NumDmg$ X\n\
+         SVar:X:Targeted$CardPower",
+    );
+    assert!(
+        backlash.abilities[0]
+            .contains("Effect::TargetDealsDamageToController { amount: Amount::TargetPower }"),
+        "{}",
+        backlash.abilities[0]
+    );
+
     // Effect APIs: CantActivate, CantBlock(&Filter::This), CantAttackYou, AttackTaxMana,
     // UntilHostLeavesPlayOrEOT on EffectSource, and Grace win/loss/life-floor replacements.
 }

@@ -1863,9 +1863,10 @@ the guard is there for undying and persist, which target nothing at all.
 Life/draw: `GainLife`, `GainLifeFor`, `GainLifeDoubleX`, `LoseLife`,
 `DrawCards`, `DrawCardsFor`, `Scry`, `ScryFor`, `Mill`,
 `RearrangeTopLibrary`/`ReorderTopLibrary`.
-Combat/damage: `DealDamage`, `DealDamageToTargetController`,
-`DealDamageEach` (`Effect::damage_each(n, &filter)`), `Fight`,
-`DamageEqualToPower`, `DamagePermanentAndController`.
+Combat/damage: `DealDamage`, `TargetDealsDamageToController`,
+`DealDamageToTargetController`, `DealDamageEach`
+(`Effect::damage_each(n, &filter)`), `Fight`, `DamageEqualToPower`,
+`DamagePermanentAndController`.
 
 The printed recipient determines the damage effect:
 
@@ -1878,6 +1879,10 @@ The printed recipient determines the damage effect:
 - **"… to each creature …"** is `DealDamageEach { amount, filter }`: every
   permanent the filter matches as it resolves, none of them a target, so
   hexproof does not stop it (CR 115.10a).
+- **"that creature deals … to its controller"** is
+  `TargetDealsDamageToController { amount }`: the first target is both the
+  damage source and the object whose controller receives it, so lifelink and
+  the target's other damage characteristics apply (Backlash).
 - **"… to that permanent and … to its controller"** is
   `DamagePermanentAndController { target, permanent_amount, controller_amount }`.
   It deals both amounts in one event (CR 120.4b, CR 614.9). If a condition

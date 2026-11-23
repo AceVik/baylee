@@ -322,3 +322,34 @@ fn greatest_exchange_ties_are_chosen_in_active_player_order() {
     assert_eq!(state.object(mine[1]).unwrap().controller, me());
     assert_eq!(state.object(theirs[1]).unwrap().controller, them());
 }
+
+#[test]
+fn a_target_deals_its_own_power_to_its_current_controller() {
+    let (mut state, target) = taken();
+    let before = (state.players[0].life, state.players[1].life);
+    let entries = state.journal.len();
+    resolve(
+        &mut state,
+        &[target],
+        vec![Effect::TargetDealsDamageToController {
+            amount: Amount::TargetPower,
+        }],
+    );
+
+    assert_eq!(
+        (state.players[0].life, state.players[1].life),
+        (before.0 - 3, before.1),
+        "the current controller, not the owner or the caster, takes it"
+    );
+    assert!(state.journal.entries()[entries..].iter().any(|entry| {
+        matches!(
+            entry.event,
+            crate::event::GameEvent::DamageDealt {
+                source: Some(source),
+                target: crate::event::DamageTarget::Player(player),
+                amount: 3,
+                is_combat: false,
+            } if source == target && player == me()
+        )
+    }));
+}
