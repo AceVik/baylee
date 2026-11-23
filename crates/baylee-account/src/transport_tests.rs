@@ -370,6 +370,50 @@ fn a_report_longer_than_central_takes_is_not_sent() {
 }
 
 #[test]
+fn a_report_is_filed_again_while_central_is_busy() {
+    let filed = format!("{{\"report_id\":\"{}\"}}", "ab".repeat(16));
+    let server = Server::new(vec![Reply::new(429), Reply::json(201, filed)]);
+    let id = server.central().file_report(&intake(), &token());
+    assert_eq!(id, Ok(REPORT));
+    let seen = server.seen();
+    assert_eq!(seen.len(), 2);
+    assert_eq!(seen[0].body, seen[1].body);
+}
+
+#[test]
+fn a_report_of_exactly_the_longest_length_is_sent() {
+    let empty = crate::reports::ReportIntake {
+        text: String::new(),
+        ..intake()
+    };
+    let bare = serde_json::to_vec(&empty).unwrap().len();
+    let longest = crate::reports::ReportIntake {
+        text: "x".repeat(crate::reports::MAX_INTAKE_BYTES - bare),
+        ..empty
+    };
+    let server = Server::new(vec![Reply::new(409)]);
+    let refused = server.central().file_report(&longest, &token());
+    assert_eq!(refused, Err(Error::Conflict));
+    let seen = server.seen();
+    assert_eq!(seen[0].body.len(), crate::reports::MAX_INTAKE_BYTES);
+}
+
+#[test]
+fn an_answer_is_read_to_the_last_byte_of_the_limit_and_not_past_it() {
+    let admit = |length: usize| {
+        let mut body = serde_json::json!({ "token": HEX }).to_string();
+        body.push_str(&" ".repeat(length - body.len()));
+        Server::new(vec![Reply::json(200, body)])
+            .gateway()
+            .admit(&signed())
+            .map(drop)
+            .map_err(|turned| turned.error)
+    };
+    assert_eq!(admit(central_api::MAX_WIRE_BYTES), Ok(()));
+    assert_eq!(admit(central_api::MAX_WIRE_BYTES + 1), Err(Error::Rejected));
+}
+
+#[test]
 fn a_part_is_put_under_its_report_as_the_bytes_it_is() {
     let server = Server::new(vec![Reply::new(204)]);
     let bearer = token();
@@ -712,5 +756,133 @@ mod seats {
         assert!(looks[0].sleeve.is_none());
         assert_eq!(ask(body(8, 9)).err(), Some(Error::Rejected));
         assert_eq!(ask(body(7, 0)).err(), Some(Error::Rejected));
+    }
+
+    /// A picture no compression makes smaller than one page, and its meta.
+    fn picture() -> (AssetMeta, Vec<u8>) {
+        use sha2::{Digest as _, Sha256};
+        let mut noise = 1_u32;
+        let pixels: Vec<u8> = (0..320 * 320 * 3)
+            .map(|_| {
+                noise = noise.wrapping_mul(1_664_525).wrapping_add(1_013_904_223);
+                noise.to_be_bytes()[0]
+            })
+            .collect();
+        let mut bytes = Vec::new();
+        image::codecs::webp::WebPEncoder::new_lossless(&mut bytes)
+            .encode(&pixels, 320, 320, image::ExtendedColorType::Rgb8)
+            .unwrap();
+        let meta = AssetMeta {
+            digest: Sha256::digest(&bytes).into(),
+            width: 320,
+            height: 320,
+            ..meta(u32::try_from(bytes.len()).unwrap())
+        };
+        (meta, bytes)
+    }
+
+    fn page(asset: AssetMeta, offset: u32, bytes: &[u8]) -> Reply {
+        let page = crate::advent::AssetPage {
+            asset,
+            offset,
+            bytes: bytes.to_vec(),
+        };
+        let body = serde_json::to_vec(&crate::advent::Response::Asset { page }).unwrap();
+        Reply::json(200, body)
+    }
+
+    /// Downloads `meta` from a table that answers with these pages.
+    fn download(meta: &AssetMeta, pages: Vec<Reply>) -> (Result<Vec<u8>, Error>, Vec<Seen>) {
+        let server = Server::new(pages);
+        let game = Uuid::now_v7();
+        let result = server
+            .gateway()
+            .advent_table_asset(game, HEX, 3, Kind::Playmat, meta, || true);
+        (result, server.seen())
+    }
+
+    #[test]
+    fn table_art_is_fetched_page_by_page_and_checked_as_a_whole() {
+        let (meta, bytes) = picture();
+        let cut = crate::advent::PAGE_BYTES as usize;
+        assert!(bytes.len() > cut && bytes.len() < 2 * cut, "two pages");
+        let pages = vec![
+            page(meta, 0, &bytes[..cut]),
+            page(meta, crate::advent::PAGE_BYTES, &bytes[cut..]),
+        ];
+        let (result, seen) = download(&meta, pages);
+        assert_eq!(result, Ok(bytes));
+        assert_eq!(seen.len(), 2, "and nothing is asked after the last byte");
+        for (asked, offset) in seen.iter().zip([0, crate::advent::PAGE_BYTES]) {
+            let body: serde_json::Value = serde_json::from_slice(&asked.body).unwrap();
+            assert_eq!(
+                body,
+                serde_json::json!({"seat": 3, "kind": Kind::Playmat, "offset": offset})
+            );
+            let bearer = format!("Bearer {HEX}");
+            assert_eq!(asked.header("Authorization"), Some(bearer.as_str()));
+        }
+    }
+
+    #[test]
+    fn a_page_of_other_art_another_place_or_another_size_ends_the_download() {
+        let (meta, bytes) = picture();
+        let cut = crate::advent::PAGE_BYTES as usize;
+        let refused = |reply| {
+            let (result, seen) = download(&meta, vec![reply]);
+            assert_eq!(seen.len(), 1);
+            result.map(drop)
+        };
+        let other = AssetMeta {
+            digest: [9; 32],
+            ..meta
+        };
+        assert_eq!(refused(page(other, 0, &bytes[..cut])), Err(Error::Conflict));
+        assert_eq!(refused(page(meta, 1, &bytes[..cut])), Err(Error::Rejected));
+        assert_eq!(
+            refused(page(meta, 0, &bytes[..cut - 1])),
+            Err(Error::Rejected)
+        );
+        let exchange = Reply::json(200, "{\"answer\":\"updated\"}");
+        assert_eq!(refused(exchange), Err(Error::Rejected));
+    }
+
+    #[test]
+    fn art_whose_bytes_are_not_the_ones_promised_is_not_shown() {
+        let (meta, mut bytes) = picture();
+        let cut = crate::advent::PAGE_BYTES as usize;
+        *bytes.last_mut().unwrap() ^= 1;
+        let pages = vec![
+            page(meta, 0, &bytes[..cut]),
+            page(meta, crate::advent::PAGE_BYTES, &bytes[cut..]),
+        ];
+        assert_eq!(download(&meta, pages).0.map(drop), Err(Error::Rejected));
+    }
+
+    #[test]
+    fn a_game_of_another_variant_of_identifier_is_not_asked_about() {
+        let server = Server::new(Vec::new());
+        let mut bytes = *Uuid::now_v7().as_bytes();
+        bytes[8] |= 0xC0;
+        let game = Uuid::from_bytes(bytes);
+        let looks = server.gateway().advent_table_looks(game, HEX);
+        assert_eq!(looks.err(), Some(Error::Rejected));
+        assert_eq!(server.seen().len(), 0);
+    }
+
+    #[test]
+    fn every_field_of_a_published_deck_is_copied() {
+        let id = Uuid::now_v7();
+        let server = Server::new(vec![published(id, |deck| {
+            deck["description"] = "Burn them.".into();
+            deck["commanders"] = serde_json::json!(["Krenko, Mob Boss"]);
+        })]);
+        let draft = server.gateway().published_deck("bearer", id, 3).unwrap();
+        assert_eq!(draft.format, "modern");
+        assert_eq!(draft.description, "Burn them.");
+        assert_eq!(draft.commanders, ["Krenko, Mob Boss"]);
+        let seen = server.seen();
+        assert_eq!(seen[0].line(), format!("GET /decks/{id} HTTP/1.1"));
+        assert_eq!(seen[0].header("Authorization"), Some("Bearer bearer"));
     }
 }
