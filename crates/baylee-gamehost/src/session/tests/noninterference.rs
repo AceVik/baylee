@@ -33,8 +33,8 @@ fn duel_preset(theirs: &[(&str, usize)], print: u128, hand: Option<usize>) -> Ga
     let mut preset = split_preset();
     preset.prints[1] = PrintInfo {
         scryfall_id: uuid::Uuid::from_u128(print),
-        lang: if print % 2 == 0 { "DE" } else { "JA" }.into(),
-        finish: if print % 2 == 0 {
+        lang: if print.is_multiple_of(2) { "DE" } else { "JA" }.into(),
+        finish: if print.is_multiple_of(2) {
             Finish::Foil
         } else {
             Finish::Normal
