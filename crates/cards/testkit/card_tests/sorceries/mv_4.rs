@@ -20,6 +20,7 @@ mod barter_in_blood;
 mod battle_screech;
 mod bee_sting;
 mod break_asunder;
+mod breaking_wave;
 mod calming_verse;
 mod cataclysm;
 mod chain_of_acid;
