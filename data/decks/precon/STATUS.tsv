@@ -4,14 +4,14 @@ deck	set	type	released	name	cards	playable
 10E/black-deck-b	10E	Sample Deck	2008-05-02	Black Deck B	30	yes
 10E/blue-deck-a	10E	Sample Deck	2008-05-02	Blue Deck A	30	no
 10E/blue-deck-b	10E	Sample Deck	2008-05-02	Blue Deck B	30	no
-10E/cho-manno-s-resolve	10E	Theme Deck	2007-07-13	Cho-Manno's Resolve	40	no
+10E/cho-manno-s-resolve	10E	Theme Deck	2007-07-13	Cho-Manno's Resolve	40	yes
 10E/evincar-s-tyranny	10E	Theme Deck	2007-07-13	Evincar's Tyranny	40	no
 10E/green-deck-a	10E	Sample Deck	2008-05-02	Green Deck A	30	no
 10E/green-deck-b	10E	Sample Deck	2008-05-02	Green Deck B	30	no
 10E/kamahl-s-temper	10E	Theme Deck	2007-07-13	Kamahl's Temper	40	no
 10E/molimo-s-might	10E	Theme Deck	2007-07-13	Molimo's Might	40	no
 10E/red-deck-a	10E	Sample Deck	2008-05-02	Red Deck A	30	no
-10E/red-deck-b	10E	Sample Deck	2008-05-02	Red Deck B	30	no
+10E/red-deck-b	10E	Sample Deck	2008-05-02	Red Deck B	30	yes
 10E/white-deck-a	10E	Sample Deck	2008-05-02	White Deck A	30	no
 10E/white-deck-b	10E	Sample Deck	2008-05-02	White Deck B	30	no
 40K/forces-of-the-imperium-collector-s-edition	40K	Commander Deck	2022-10-07	Forces of the Imperium Collector's Edition	100	no
@@ -29,28 +29,28 @@ deck	set	type	released	name	cards	playable
 5ED/deck-a	5ED	Starter Deck	1997-04-24	Deck A	30	yes
 5ED/deck-b	5ED	Starter Deck	1997-04-24	Deck B	30	yes
 6ED/deck-a	6ED	Starter Deck	1999-04-21	Deck A	40	no
-6ED/deck-b	6ED	Starter Deck	1999-04-21	Deck B	40	no
+6ED/deck-b	6ED	Starter Deck	1999-04-21	Deck B	40	yes
 7ED/armada	7ED	Theme Deck	2001-04-11	Armada	40	yes
 7ED/bomber	7ED	Theme Deck	2001-04-11	Bomber	40	no
 7ED/decay	7ED	Theme Deck	2001-04-11	Decay	40	no
-7ED/gold-deck	7ED	Starter Deck	2001-04-11	Gold Deck	30	no
-7ED/infestation	7ED	Theme Deck	2001-04-11	Infestation	40	no
-7ED/silver-deck	7ED	Starter Deck	2001-04-11	Silver Deck	30	no
+7ED/gold-deck	7ED	Starter Deck	2001-04-11	Gold Deck	30	yes
+7ED/infestation	7ED	Theme Deck	2001-04-11	Infestation	40	yes
+7ED/silver-deck	7ED	Starter Deck	2001-04-11	Silver Deck	30	yes
 7ED/way-wild	7ED	Theme Deck	2001-04-11	Way Wild	40	no
 8ED/expulsion	8ED	Theme Deck	2003-07-28	Expulsion	40	yes
-8ED/gold-deck	8ED	Starter Deck	2003-07-28	Gold Deck	33	no
+8ED/gold-deck	8ED	Starter Deck	2003-07-28	Gold Deck	33	yes
 8ED/heavy-hitters	8ED	Theme Deck	2003-07-28	Heavy Hitters	40	no
-8ED/life-boost	8ED	Theme Deck	2003-07-28	Life Boost	40	no
+8ED/life-boost	8ED	Theme Deck	2003-07-28	Life Boost	40	yes
 8ED/silver-deck	8ED	Starter Deck	2003-07-28	Silver Deck	33	yes
-8ED/sky-slam	8ED	Theme Deck	2003-07-28	Sky Slam	40	no
-8ED/speed-scorch	8ED	Theme Deck	2003-07-28	Speed Scorch	40	no
+8ED/sky-slam	8ED	Theme Deck	2003-07-28	Sky Slam	40	yes
+8ED/speed-scorch	8ED	Theme Deck	2003-07-28	Speed Scorch	40	yes
 9ED/army-of-justice	9ED	Theme Deck	2005-07-29	Army of Justice	40	yes
 9ED/custom-creatures	9ED	Theme Deck	2005-07-29	Custom Creatures	40	yes
 9ED/dead-again	9ED	Theme Deck	2005-07-29	Dead Again	40	yes
-9ED/gold-deck	9ED	Starter Deck	2005-08-09	Gold Deck	33	no
+9ED/gold-deck	9ED	Starter Deck	2005-08-09	Gold Deck	33	yes
 9ED/lofty-heights	9ED	Theme Deck	2005-07-29	Lofty Heights	40	no
 9ED/silver-deck	9ED	Starter Deck	2005-08-09	Silver Deck	33	yes
-9ED/world-aflame	9ED	Theme Deck	2005-07-29	World Aflame	40	no
+9ED/world-aflame	9ED	Theme Deck	2005-07-29	World Aflame	40	yes
 ACR/ancient-arsenal	ACR	Starter Kit	2024-07-05	Ancient Arsenal	60	no
 ACR/brotherhood-agents	ACR	Starter Kit	2024-07-05	Brotherhood Agents	60	no
 AER/ajani-valiant-protector	AER	Planeswalker Deck	2017-01-20	Ajani, Valiant Protector	60	no
@@ -682,7 +682,7 @@ MBS/path-of-blight	MBS	Intro Pack	2011-02-04	Path of Blight	60	no
 MD1/march-of-the-multitudes	MD1	Modern Event Deck	2014-05-30	March of the Multitudes	75	no
 ME2/band-together	ME2	MTGO Theme Deck	2008-09-22	Band Together	60	no
 ME2/deathbreed	ME2	MTGO Theme Deck	2008-09-22	Deathbreed	60	no
-ME2/haze-of-spores	ME2	MTGO Theme Deck	2008-09-22	Haze of Spores	60	no
+ME2/haze-of-spores	ME2	MTGO Theme Deck	2008-09-22	Haze of Spores	60	yes
 ME2/orc-attack	ME2	MTGO Theme Deck	2008-09-22	Orc Attack	60	no
 MIC/coven-counters	MIC	Commander Deck	2021-09-24	Coven Counters	100	no
 MIC/undead-unleashed	MIC	Commander Deck	2021-09-24	Undead Unleashed	100	no
@@ -801,11 +801,11 @@ OTJ/second-chance	OTJ	Arena Starter Deck	2024-07-08	Second Chance	60	no
 OTJ/snack-time	OTJ	Arena Starter Deck	2024-07-08	Snack Time	60	no
 P02/goblin-fire	P02	Theme Deck	1998-06-24	Goblin Fire	40	no
 P02/martial-law	P02	Theme Deck	1998-06-24	Martial Law	40	no
-P02/nature-s-assault	P02	Theme Deck	1998-06-24	Nature's Assault	40	no
-P02/preconstructed-deck-1	P02	Starter Deck	1998-06-24	Preconstructed deck 1	30	no
+P02/nature-s-assault	P02	Theme Deck	1998-06-24	Nature's Assault	40	yes
+P02/preconstructed-deck-1	P02	Starter Deck	1998-06-24	Preconstructed deck 1	30	yes
 P02/preconstructed-deck-2	P02	Starter Deck	1998-06-24	Preconstructed deck 2	30	no
 P02/spellweaver	P02	Theme Deck	1998-06-24	Spellweaver	40	no
-P02/the-nightstalkers	P02	Theme Deck	1998-06-24	The Nightstalkers	40	no
+P02/the-nightstalkers	P02	Theme Deck	1998-06-24	The Nightstalkers	40	yes
 PAST/aga-galneer	PAST	Shandalar Enemy Deck	1997-04-01	Aga Galneer	69	no
 PAST/alt-a-kesh	PAST	Shandalar Enemy Deck	1997-04-01	Alt-A-Kesh	62	no
 PAST/ape-lord	PAST	Shandalar Enemy Deck	1997-04-01	Ape Lord	60	yes
@@ -921,7 +921,7 @@ PTC/mark-justice-quarterfinalist	PTC	Pro Tour Deck	1996-05-01	Mark Justice, Quar
 PTC/michael-loconto-champion	PTC	Pro Tour Deck	1996-05-01	Michael Loconto, Champion	77	no
 PTC/preston-poulter-semifinalist	PTC	Pro Tour Deck	1996-05-01	Preston Poulter, Semifinalist	75	no
 PTC/shawn-hammer-regnier-quarterfinalist	PTC	Pro Tour Deck	1996-05-01	Shawn Hammer Regnier, Quarterfinalist	75	no
-PTK/preconstructed-deck-1	PTK	Starter Deck	1999-05-01	Preconstructed deck 1	30	no
+PTK/preconstructed-deck-1	PTK	Starter Deck	1999-05-01	Preconstructed deck 1	30	yes
 PTK/preconstructed-deck-2	PTK	Starter Deck	1999-05-01	Preconstructed deck 2	30	no
 PTK/shu-kingdom	PTK	Theme Deck	1999-05-01	Shu Kingdom	40	no
 PTK/wei-kingdom	PTK	Theme Deck	1999-05-01	Wei Kingdom	40	no
@@ -980,13 +980,13 @@ RTR/izzet-ingenuity	RTR	Intro Pack	2012-10-05	Izzet Ingenuity	60	no
 RTR/rakdos-raid	RTR	Intro Pack	2012-10-05	Rakdos Raid	60	no
 RTR/selesnya-surge	RTR	Intro Pack	2012-10-05	Selesnya Surge	60	no
 RTR/wrack-and-rage	RTR	Event Deck	2012-10-26	Wrack and Rage	75	no
-S00/player-a-s-deck	S00	Starter Deck	2000-04-24	Player A's deck	22	no
-S00/player-b-s-deck	S00	Starter Deck	2000-04-24	Player B's deck	22	no
+S00/player-a-s-deck	S00	Starter Deck	2000-04-24	Player A's deck	22	yes
+S00/player-b-s-deck	S00	Starter Deck	2000-04-24	Player B's deck	22	yes
 S99/blinding-fury	S99	Theme Deck	1999-07-12	Blinding Fury	40	no
-S99/deadly-instinct	S99	Theme Deck	1999-07-12	Deadly Instinct	40	no
+S99/deadly-instinct	S99	Theme Deck	1999-07-12	Deadly Instinct	40	yes
 S99/goblin-assault	S99	Theme Deck	1999-07-12	Goblin Assault	40	no
 S99/impaler	S99	Theme Deck	1999-07-12	Impaler	40	no
-S99/preconstructed-deck-1	S99	Starter Deck	1999-07-12	Preconstructed deck 1	40	no
+S99/preconstructed-deck-1	S99	Starter Deck	1999-07-12	Preconstructed deck 1	40	yes
 S99/preconstructed-deck-2	S99	Starter Deck	1999-07-12	Preconstructed deck 2	40	no
 S99/time-curse	S99	Theme Deck	1999-07-12	Time Curse	40	no
 SCD/chaos-incarnate	SCD	Commander Deck	2022-12-02	Chaos Incarnate	100	no
