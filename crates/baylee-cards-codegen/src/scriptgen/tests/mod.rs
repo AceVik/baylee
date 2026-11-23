@@ -36,6 +36,7 @@ mod wave26e;
 mod wave26f;
 mod wave26g;
 mod wave26h;
+mod wave27a;
 mod wave27b;
 mod wave27d;
 mod wave27e;

@@ -696,8 +696,10 @@ impl Tx<'_> {
         if let Some(n) = self.amount_num(raw) {
             return Some(n);
         }
-        let Some(def) = self.svars.get(raw.trim()).cloned() else {
-            return self.deny(format!("mana amount `{}`", raw.trim()));
+        let def = match self.svars.get(raw.trim()) {
+            Some(def) => def.clone(),
+            None if raw.trim().contains('$') => raw.trim().to_string(),
+            None => return self.deny(format!("mana amount `{}`", raw.trim())),
         };
         match self.count_expr(&def) {
             Some(expr) => Some(expr),
@@ -746,7 +748,12 @@ impl Tx<'_> {
     }
 
     #[allow(clippy::too_many_lines)]
-    fn count_expr_depth(&mut self, def: &str, depth: u8, static_only: bool) -> Option<String> {
+    pub(super) fn count_expr_depth(
+        &mut self,
+        def: &str,
+        depth: u8,
+        static_only: bool,
+    ) -> Option<String> {
         let def = def.trim();
         if let Some(n_str) = def.strip_prefix("Number$")
             && let Ok(n) = n_str.trim().parse::<u32>()
@@ -1262,6 +1269,9 @@ impl Tx<'_> {
         if let Some(kind) = def.strip_prefix("Count$CardCounters.") {
             return super::counter_kind(kind)
                 .map(|kind| format!("Amount::CountersOnSource({kind})"));
+        }
+        if let Some(expr) = self.wave27a_count_expr(def, depth, static_only) {
+            return Some(expr);
         }
         if let Some(valid) = def
             .strip_prefix("Count$ValidBattlefield,Graveyard ")

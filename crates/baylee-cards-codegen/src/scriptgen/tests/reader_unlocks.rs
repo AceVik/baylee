@@ -5020,13 +5020,18 @@ fn wave15c_phase_svars_change_zone_pump_hidden_sacrifice_n_and_coin_wins() {
         "{}",
         cast_trig.abilities[0]
     );
-    // Count >= 3 cannot lower to boolean `CastInstantOrSorceryThisTurn`.
-    assert!(refused(
+    // Count >= 3 lowers via Wave 15a `Amount::SpellsCastMatchingThisTurn` (Arclight Phoenix).
+    let three_cast = read(
         "Name:ThreeSpellWatch\nManaCost:1 U\nTypes:Creature\nPT:1/2\n\
          T:Mode$ Phase | Phase$ End of Turn | ValidPlayer$ You | TriggerZones$ Battlefield | CheckSVar$ C | SVarCompare$ GE3 | Execute$ D\n\
          SVar:D:DB$ Draw | NumCards$ 1\n\
-         SVar:C:Count$ThisTurnCast_Instant.YouCtrl,Sorcery.YouCtrl"
-    ));
+         SVar:C:Count$ThisTurnCast_Instant.YouCtrl,Sorcery.YouCtrl",
+    );
+    assert!(
+        three_cast.abilities[0].contains("Amount::SpellsCastMatchingThisTurn"),
+        "{}",
+        three_cast.abilities[0]
+    );
 
     // Omitted `Defined$` on spell `Origin$ Stack | Destination$ Exile` -> `Effect::ExileSource`.
     let exile_self = read(

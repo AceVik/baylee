@@ -4644,21 +4644,25 @@ impl Tx<'_> {
         }
         if let Some(rest) = raw.strip_prefix("Count$ThisTurnEntered_Battlefield_")
             && let Some(sub_consts) = self.wave15_entered_subtype_consts(rest)
-        {
-            return bool_flag(&format!(
+            && let Some(cond) = bool_flag(&format!(
                 "Condition::EnteredSubtypeUnderYourControlThisTurn(&[{}])",
                 sub_consts.join(", ")
-            ));
+            ))
+        {
+            return Some(cond);
         }
         if matches!(
             raw,
             "Count$ThisTurnCast_Instant.YouCtrl,Sorcery.YouCtrl"
                 | "Count$ThisTurnCast_Sorcery.YouCtrl,Instant.YouCtrl"
-        ) {
-            return bool_flag("Condition::CastInstantOrSorceryThisTurn");
+        ) && let Some(cond) = bool_flag("Condition::CastInstantOrSorceryThisTurn")
+        {
+            return Some(cond);
         }
-        if raw == "Count$ThisTurnCast_Creature.YouCtrl" {
-            return bool_flag("Condition::CastCreatureThisTurn");
+        if raw == "Count$ThisTurnCast_Creature.YouCtrl"
+            && let Some(cond) = bool_flag("Condition::CastCreatureThisTurn")
+        {
+            return Some(cond);
         }
         if raw == "Count$ThisTurnEntered_Graveyard_from_Battlefield_Creature" {
             if let Some(n) = cmp
@@ -4686,7 +4690,9 @@ impl Tx<'_> {
         if raw == "Count$LifeYouGainedThisTurn" {
             return Self::wave15_amount_cmp("Amount::LifeGainedThisTurn(PlayerRel::You)", cmp);
         }
-        Self::wave16_svar_condition(raw, cmp).or_else(|| self.wave19c_svar_condition(raw, cmp))
+        Self::wave16_svar_condition(raw, cmp)
+            .or_else(|| self.wave19c_svar_condition(raw, cmp))
+            .or_else(|| self.wave27a_trigger_svar_condition(raw, cmp))
     }
 
     /// Wave-16c shared `CheckSVar$` / `ConditionCheckSVar$` clauses for Wave 7b/8a

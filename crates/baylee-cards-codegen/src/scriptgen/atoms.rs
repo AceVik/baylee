@@ -375,6 +375,9 @@ fn static_wave14_base(head: &str) -> Option<String> {
         }
         _ => {}
     }
+    if let Some(atom) = super::wave27a::static_amount_atom(head) {
+        return Some(atom.to_string());
+    }
     if let Some(rest) = head.strip_prefix("Count$Valid ") {
         if let Some(valid) = rest.strip_suffix("$GreatestCardPower") {
             let filter = greatest_power_filter(valid)?;

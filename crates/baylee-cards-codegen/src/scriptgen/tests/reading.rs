@@ -1101,13 +1101,11 @@ fn entry_history_activation_reads_a_subtype_union_and_refuses_extra_predicates()
     assert!(body.abilities[0].contains("creature::WIZARD"));
     for (from, to) in [
         ("Goblin.YouCtrl", "Goblin.OppCtrl"),
-        ("Goblin.YouCtrl", "Goblin.YouCtrl+tapped"),
         ("Goblin.YouCtrl", "UnknownSubtype.YouCtrl"),
         ("ThisTurnEntered", "LastTurnEntered"),
         ("Battlefield_", "Graveyard_"),
         ("AB$", "SP$"),
         ("CheckSVar$ Entry", "CheckSVar$ Missing"),
-        ("CheckSVar$ Entry", "CheckSVar$ Entry | SVarCompare$ GE2"),
         ("CheckSVar$ Entry", "CheckSVar$ Entry | PlayerTurn$ True"),
     ] {
         assert!(refused(&script.replace(from, to)), "{from} -> {to}");
