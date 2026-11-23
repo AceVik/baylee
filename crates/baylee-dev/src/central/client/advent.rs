@@ -130,6 +130,25 @@ impl Visit<'_> {
         }
         bail!("calendar CTA unreachable through the native tab order");
     }
+    fn german_preview(&mut self) -> Result<()> {
+        self.press("ranked", "back", 0)?;
+        // Returning from the reference leaves its tall lobby card expanded.
+        self.press("play", "ranked", 0)?;
+        super::click(self.dev, "Header(Language)")?;
+        super::wait_control(self.dev, self.client, "Shared(PickLang(De))")?;
+        super::click(self.dev, "Shared(PickLang(De))")?;
+        self.entry(false)?;
+        self.words("Adventskalender")?;
+        self.capture("10-plakette-de")?;
+        self.press("play", "advent", 0)?;
+        self.words("Wintertaverne · Adventskalender")?;
+        self.wait("German calendar hero", |v| {
+            nodes(v).any(|row| visible(row) && row["calendar_image"] == true)
+        })?;
+        self.capture("11-kalender-de")?;
+        Ok(())
+    }
+
     fn entry(&mut self, moving: bool) -> Result<Value> {
         let view = self.wait("rendered calendar CTA material", |v| {
             control(v, "play", "advent", 0)
@@ -239,6 +258,9 @@ pub(super) fn visit(dev: &Devctl, client: &mut Owned, dir: &Path) -> Result<()> 
     qa.press("play", "ranked-board", 0)?;
     qa.button("ranked", "back", 0)?;
     qa.capture("09-ranked-reference")?;
+    if std::env::var("BAYLEE_CENTRAL_ADVENT_UI_DE").as_deref() == Ok("1") {
+        qa.german_preview()?;
+    }
     fs::write(
         dir.join("advent-motion.json"),
         serde_json::to_vec_pretty(&json!({"before":first,"next":next,"resolved":after}))?,
