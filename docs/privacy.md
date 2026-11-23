@@ -524,6 +524,22 @@ any of it to another.
   with it by cascade. The sleeve and mat files stay while an account claims
   them (see below).
 
+An account deck can also select a sleeve and playmat from its owner's event
+inventory. The encrypted deck revision holds those selections. For a casual
+game the owner authorizes Central to share the selected surfaces at one
+registered gateway, for one game and seat. The host keeps the confirmed
+invitation and appearance metadata in memory. A participant, including a
+guest, can read the equipped image while their chair and the wearer's
+permission remain active. An appearance response contains its finish,
+dimensions, format, size and content digest. The gateway transfers event
+appearances separately from the rules record and replay.
+
+Central retains the invitation digest for up to five minutes before
+confirmation, then allows image reads for up to ten minutes. A confirmed
+selection can be recovered on a fresh sign-in by the same account at the
+same gateway, game and seat for up to 24 hours. The host reports game end
+to retire these records. Central's retention sweep removes expired rows.
+
 ## Ban lists
 
 `crates/baylee-db/src/banlists.rs`, `crates/baylee-gateway/src/banlists.rs`.

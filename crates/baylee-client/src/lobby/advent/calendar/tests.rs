@@ -1,6 +1,54 @@
 use super::{Book, Screen, api};
 use api::{Door, DoorState, Request, Response};
 
+#[test]
+fn physical_clicks_open_the_full_width_plaque_and_its_shell_controls() {
+    use crate::{
+        hud::UiFonts,
+        lobby::{
+            advent::{Action, draw, seasonal},
+            deck_appearance::EquipReward,
+            header::kit_metrics,
+        },
+        shellkit::{controls::Kit, focus::Activated},
+        ui_button::testing,
+    };
+    use bevy::{ecs::system::RunSystemOnce, prelude::*};
+    let mut app = testing::app();
+    let mut book = Book::default();
+    book.accept(
+        Request::CurrentCalendar {},
+        Ok(canonical(OPEN, DoorState::Open)),
+    );
+    app.insert_resource(book)
+        .add_message::<Activated>()
+        .add_message::<EquipReward>()
+        .add_systems(Update, draw::actions);
+    let (plaque, gallery) = app
+        .world_mut()
+        .run_system_once(|mut commands: Commands| {
+            let fonts = UiFonts::default();
+            let kit = Kit {
+                fonts: &fonts,
+                m: kit_metrics(1100., 720., default(), default()),
+                german: false,
+            };
+            (
+                seasonal::plaque(&mut commands, kit),
+                draw::button(&mut commands, kit, "Gallery", Action::Gallery, "gallery", 0),
+            )
+        })
+        .unwrap();
+    app.update();
+    let fixed = app.world().get::<Node>(plaque).unwrap().clone();
+    assert_eq!(fixed.width, percent(100.));
+    testing::click(&mut app, plaque);
+    assert_eq!(app.world().resource::<Book>().screen, Screen::Calendar);
+    testing::click(&mut app, gallery);
+    assert_eq!(app.world().resource::<Book>().screen, Screen::Gallery);
+    assert_eq!(app.world().get::<Node>(plaque).unwrap(), &fixed);
+}
+
 const DAY: i64 = 86400;
 // 1 December 2026 00:00 UTC and the server-selected close, 7 January midnight.
 const OPEN: i64 = 1_796_083_200;

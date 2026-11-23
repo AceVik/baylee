@@ -13,7 +13,9 @@ pub(super) fn check_captures() {
         "04-solved",
         "05-reward",
         "06-equipped",
-        "07-entry-resolved",
+        "07-gallery",
+        "08-entry-resolved",
+        "09-ranked-reference",
     ] {
         let path = dir.join(format!("advent-{frame}.png"));
         let decoded =

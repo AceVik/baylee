@@ -11,6 +11,11 @@ pub fn client(monitor: &str, challenges: bool, seasonal: bool, hold_seconds: u64
     let (index, panel) = display(monitor)?;
     let run_dir = PathBuf::from("target").join(format!("central-ui-{}", crate::secret::hex(5)?));
     fs::create_dir_all(&run_dir)?;
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt as _;
+        fs::set_permissions(&run_dir, fs::Permissions::from_mode(0o700))?;
+    }
     let run_dir = fs::canonicalize(&run_dir)?;
     let ready = run_dir.join("fixture.json");
     let target =
@@ -78,9 +83,10 @@ pub fn client(monitor: &str, challenges: bool, seasonal: bool, hold_seconds: u64
         );
         let client = client.insert(started);
         let devctl = Devctl::new(port);
-        scenario(&devctl, client, index, panel, &run_dir)?;
+        scenario(&devctl, client, index, panel, &run_dir, seasonal)?;
         if seasonal {
             advent::visit(&devctl, client, &run_dir)?;
+            fs::write(ready.with_extension("advent-complete"), b"completed")?;
         }
         if challenges {
             challenge_visit(&devctl, client, port, &run_dir, hold_seconds)?;
@@ -88,6 +94,9 @@ pub fn client(monitor: &str, challenges: bool, seasonal: bool, hold_seconds: u64
         Ok(())
     })();
 
+    if let Err(error) = &result {
+        let _ = fs::write(run_dir.join("scenario-error.log"), format!("{error:#}"));
+    }
     let errors = stop(client, fixture, &ready, &run_dir, port);
     if !errors.is_empty() {
         anyhow::bail!(
@@ -268,6 +277,7 @@ fn scenario(
     monitor: u32,
     panel: Option<baylee_client_e2e::monitor::BuiltIn>,
     run_dir: &Path,
+    seasonal: bool,
 ) -> Result<()> {
     let deadline = Instant::now() + Duration::from_secs(45);
     while devctl.get("health", Duration::from_secs(2)).is_err() {
@@ -313,6 +323,11 @@ fn scenario(
         "screenshot",
         &json!({ "path": run_dir.join("01-login.png") }),
     )?;
+    if seasonal {
+        sign_in(devctl)?;
+        wait_account(devctl, client, run_dir, restored)?;
+        return enter_fixture_gateway(devctl, client, run_dir);
+    }
     hover(devctl, "Front(OpenCommunityDialog(WhatsApp))")?;
     hover(devctl, "Memorial(Open)")?;
     std::thread::sleep(Duration::from_millis(450));
@@ -357,9 +372,15 @@ fn scenario(
 }
 
 fn confirm_position(devctl: &Devctl, panel: &Value, dir: &Path) -> Result<()> {
-    let deadline = Instant::now() + Duration::from_secs(10);
+    let deadline = Instant::now() + Duration::from_secs(75);
     loop {
-        let health = devctl.get("health", Duration::from_secs(3))?;
+        // The first Metal pipeline compilation can block a frame after the
+        // socket is ready. Only accept a fresh, complete geometry reading.
+        let health = match devctl.get("health", Duration::from_secs(12)) {
+            Ok(reading) => reading,
+            Err(_) if Instant::now() < deadline => continue,
+            Err(error) => return Err(error.context("reading native window geometry")),
+        };
         fs::write(dir.join("window.json"), health.to_string())?;
         if let (Some(x), Some(y), Some(scale)) = (
             health["position"][0].as_f64(),
@@ -382,6 +403,36 @@ fn confirm_position(devctl: &Devctl, panel: &Value, dir: &Path) -> Result<()> {
             "native window geometry did not match built-in monitor"
         );
         std::thread::sleep(Duration::from_millis(100));
+    }
+}
+
+/// The same fixture account may already have acknowledged the chat notice.
+fn enter_fixture_gateway(devctl: &Devctl, client: &mut Owned, dir: &Path) -> Result<()> {
+    let deadline = Instant::now() + Duration::from_secs(40);
+    loop {
+        let view = state(devctl)?;
+        if view["account"]["gateway_authenticated"] == true && view["account"]["offline"] == false {
+            return Ok(());
+        }
+        if let Some(n) = view["chat"]["controls"]
+            .as_array()
+            .and_then(|rows| rows.iter().find(|n| n["press"] == "GotIt"))
+        {
+            devctl.post(
+                "pointer",
+                &json!({"x":n["x"],"y":n["y"],"button":"left","press":true}),
+            )?;
+        } else if view["lobby_controls"].as_array().is_some_and(|rows| {
+            rows.iter()
+                .any(|row| row["press"] == "Front(SelectGateway(0))")
+        }) {
+            click(devctl, "Front(SelectGateway(0))")?;
+        }
+        if Instant::now() >= deadline || client.exited() {
+            fs::write(dir.join("failure-state.json"), view.to_string())?;
+            bail!("the signed-in account did not enter its fixture gateway");
+        }
+        std::thread::sleep(Duration::from_millis(500));
     }
 }
 

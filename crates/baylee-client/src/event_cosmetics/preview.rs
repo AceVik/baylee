@@ -40,6 +40,12 @@ impl UiMaterial for Lacquer {
 }
 
 type Surfaces = HashMap<(AssetId<Image>, u8, bool), AssetId<Lacquer>>;
+type PreviewSlot<'w> = (
+    Entity,
+    Ref<'w, CosmeticPreview>,
+    Option<&'w MaterialNode<Lacquer>>,
+);
+
 pub(super) fn install(app: &mut App) {
     app.add_plugins(UiMaterialPlugin::<Lacquer>::default())
         .add_systems(Update, show);
@@ -50,7 +56,7 @@ fn show(
     prefs: Option<Res<crate::prefs::Prefs>>,
     mut assets: ResMut<Assets<Lacquer>>,
     mut shared: Local<Surfaces>,
-    previews: Query<(Entity, Ref<CosmeticPreview>, Option<&MaterialNode<Lacquer>>)>,
+    previews: Query<PreviewSlot>,
     mut removed: RemovedComponents<CosmeticPreview>,
     mut was_still: Local<bool>,
 ) {

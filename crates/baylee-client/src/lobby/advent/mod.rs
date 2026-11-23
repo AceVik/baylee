@@ -55,6 +55,7 @@ enum Screen {
     Item(Id),
 }
 #[derive(Clone, Copy, Component)]
+#[require(crate::ui_button::UiButton)]
 enum Action {
     Open,
     Close,
@@ -134,7 +135,7 @@ impl Default for Book {
             work: VecDeque::new(),
             pending: None,
             error: None,
-            media: Default::default(),
+            media: assets::Library::default(),
         }
     }
 }
@@ -252,10 +253,11 @@ fn tick(
     phase: Option<Res<State<crate::DuelPhase>>>,
     mut refresh: MessageReader<RefreshInventory>,
     mut show: MessageReader<ShowReward>,
+    entries: Query<(), With<draw::Entry>>,
 ) {
-    let handle = lobby
-        .central_handle()
-        .filter(|h| h.is_active() && lobby.has_central_account());
+    let handle = lobby.central_handle().filter(|h| {
+        h.is_active() && lobby.has_central_account() && !super::central::terms_pending(&lobby)
+    });
     let change = match (&book.owner, &handle) {
         (Some(a), Some(b)) => !a.same_session(b),
         (None, None) => false,
@@ -266,11 +268,6 @@ fn tick(
             owner: handle,
             ..Default::default()
         };
-        if book.owner.is_some() {
-            book.push(api::Request::CurrentCalendar {});
-            book.refresh = Instant::now() + Duration::from_secs(60);
-            book.request_inventory();
-        }
     }
     let Some(owner) = book.owner.clone() else {
         return;
@@ -309,9 +306,12 @@ fn tick(
             b.accept(job.request, response);
         }
     }
-    if Instant::now() >= b.refresh {
+    if (!entries.is_empty() || b.visible()) && Instant::now() >= b.refresh {
         b.refresh = Instant::now() + Duration::from_secs(60);
         b.push(api::Request::CurrentCalendar {});
+        if !b.inventory_loaded && b.inventory_retry.is_none() {
+            b.request_inventory();
+        }
     }
     if b.pending.is_none()
         && let Some(request) = b.work.pop_front()

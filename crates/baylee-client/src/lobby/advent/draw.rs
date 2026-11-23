@@ -34,25 +34,14 @@ pub(super) struct Entry {
 pub(super) struct EntryMark;
 
 pub(in crate::lobby) fn entry(commands: &mut Commands, parent: Entity, kit: Kit) {
-    let e = controls::button_with_icon(
-        commands,
-        kit,
-        crate::lobby::parts::STAR,
-        Phrase::AdventCalendar.text(kit.lang()),
-        Weight::Secondary,
-        Live::Yes,
-        None,
-        (
-            Action::Open,
-            Stop::new(super::super::orders::PLAY.name, "advent"),
-        ),
-    );
+    let e = seasonal::plaque(commands, kit);
     let holder = commands
         .spawn((
             Entry {
                 parent: e,
                 gallery: false,
             },
+            Visibility::Hidden,
             Node {
                 display: Display::None,
                 width: percent(100),
@@ -79,6 +68,7 @@ pub(in crate::lobby) fn entry(commands: &mut Commands, parent: Entity, kit: Kit)
                 parent: e,
                 gallery: true,
             },
+            Visibility::Hidden,
             Node {
                 display: Display::None,
                 width: percent(100),
@@ -92,9 +82,15 @@ pub(in crate::lobby) fn entry(commands: &mut Commands, parent: Entity, kit: Kit)
 pub(super) fn entries(
     mut commands: Commands,
     book: Res<Book>,
-    mut entry: Query<(Entity, &Entry, &mut Node, Option<&EntryMark>)>,
+    mut entry: Query<(
+        Entity,
+        &Entry,
+        &mut Node,
+        &mut Visibility,
+        Option<&EntryMark>,
+    )>,
 ) {
-    for (holder, e, mut node, mark) in &mut entry {
+    for (holder, e, mut node, mut visibility, mark) in &mut entry {
         let show = book.owner.is_some()
             && if e.gallery {
                 !book.released() && !book.inventory.is_empty()
@@ -104,6 +100,14 @@ pub(super) fn entries(
         let display = if show { Display::Flex } else { Display::None };
         if node.display != display {
             node.display = display;
+        }
+        let visible = if show {
+            Visibility::Inherited
+        } else {
+            Visibility::Hidden
+        };
+        if *visibility != visible {
+            *visibility = visible;
         }
         if show && !e.gallery && mark.is_none() {
             commands.entity(e.parent).insert(seasonal::ButtonGlow);
@@ -186,6 +190,7 @@ pub(super) fn actions(
 pub(super) struct Paint {
     shell: Option<(Lang, crate::shellkit::ShellMetrics, bool)>,
     body: Option<(Screen, u64)>,
+    navigation: Option<(Entity, Option<bool>)>,
 }
 #[allow(clippy::too_many_arguments)]
 pub(super) fn render(
@@ -207,6 +212,7 @@ pub(super) fn render(
                 commands.entity(root).try_despawn();
             }
             paint.body = None;
+            paint.navigation = None;
         }
         return;
     }
@@ -239,13 +245,23 @@ pub(super) fn render(
         for root in &roots {
             commands.entity(root).try_despawn();
         }
-        let body = sheet(&mut commands, kit, book.released());
+        let (body, navigation) = sheet(&mut commands, kit, book.released());
+        paint.navigation = Some((navigation, None));
         paint.shell = Some(shell);
         body
     };
+    let in_gallery = matches!(book.screen, Screen::Item(_) | Screen::Gallery);
+    if let Some((navigation, selected)) = paint.navigation.as_mut()
+        && *selected != Some(in_gallery)
+    {
+        commands.entity(*navigation).despawn_children();
+        let tabs = section_tabs(&mut commands, kit, book.released(), in_gallery);
+        commands.entity(*navigation).add_child(tabs);
+        *selected = Some(in_gallery);
+    }
     match book.screen {
         Screen::Calendar => {
-            super::seasonal::mosaic(&mut commands, body, kit, &book, (h - 205.).max(190.) * 1.5)
+            super::seasonal::mosaic(&mut commands, body, kit, &book, (h - 205.).max(190.) * 1.5);
         }
         Screen::Door(n) => super::puzzle::draw(&mut commands, body, kit, &book, n),
         Screen::Gallery | Screen::Item(_) => gallery(&mut commands, body, kit, &book),
@@ -274,7 +290,7 @@ pub(super) fn render(
     paint.body = Some(cd);
 }
 
-fn sheet(commands: &mut Commands, kit: Kit, released: bool) -> Entity {
+fn sheet(commands: &mut Commands, kit: Kit, released: bool) -> (Entity, Entity) {
     let lang = kit.lang();
     let body = commands
         .spawn((
@@ -287,28 +303,13 @@ fn sheet(commands: &mut Commands, kit: Kit, released: bool) -> Entity {
             },
         ))
         .id();
-    let gallery = button(
-        commands,
-        kit,
-        Phrase::AdventGallery.text(lang),
-        Action::Gallery,
-        "gallery",
-        0,
-    );
-    let calendar = button(
-        commands,
-        kit,
-        Phrase::AdventDoors.text(lang),
-        Action::Calendar,
-        "calendar",
-        0,
-    );
-    let footer = if released {
-        vec![calendar, gallery]
-    } else {
-        commands.entity(calendar).try_despawn();
-        vec![gallery]
-    };
+    let navigation = commands
+        .spawn(Node {
+            width: percent(100),
+            justify_content: JustifyContent::Center,
+            ..default()
+        })
+        .id();
     let sheet = surfaces::sheet_box_fixed(
         commands,
         kit,
@@ -321,9 +322,10 @@ fn sheet(commands: &mut Commands, kit: Kit, released: bool) -> Entity {
             }
             .text(lang),
         )
+        .icon_colored(crate::lobby::parts::STAR, tokens::GOLD)
         .close((Action::Close, Stop::new(ORDER.name, "close"))),
         &[body],
-        &footer,
+        &[navigation],
     );
     let root = surfaces::scrim(
         commands,
@@ -335,7 +337,28 @@ fn sheet(commands: &mut Commands, kit: Kit, released: bool) -> Entity {
     commands
         .entity(root)
         .insert((Root, DespawnOnExit(crate::DuelPhase::Closed)));
-    body
+    (body, navigation)
+}
+fn section_tabs(commands: &mut Commands, kit: Kit, released: bool, in_gallery: bool) -> Entity {
+    let lang = kit.lang();
+    let tabs = [
+        (Phrase::AdventDoors.text(lang), None),
+        (Phrase::AdventGallery.text(lang), None),
+    ];
+    let start = usize::from(!released);
+    let selected = usize::from(in_gallery).saturating_sub(start);
+    controls::tabs(commands, kit, &tabs[start..], selected, move |index| {
+        let (action, stop) = if index + start == 0 {
+            (Action::Calendar, "calendar")
+        } else {
+            (Action::Gallery, "gallery")
+        };
+        (
+            action,
+            Stop::new(ORDER.name, stop),
+            crate::shellkit::focus::Current(index == selected),
+        )
+    })
 }
 
 pub(super) fn button(
@@ -350,7 +373,12 @@ pub(super) fn button(
         commands,
         kit,
         words,
-        Weight::Secondary,
+        match action {
+            Action::Claim | Action::Deck => Weight::Gold,
+            Action::Submit => Weight::Primary,
+            Action::Reset | Action::Hint(_) => Weight::Ghost,
+            _ => Weight::Secondary,
+        },
         Live::Yes,
         None,
         (action, Stop::item(ORDER.name, stop, index)),
@@ -414,16 +442,34 @@ fn gallery(commands: &mut Commands, parent: Entity, kit: Kit, book: &Book) {
         } else {
             &item.title.en
         };
-        let text = format!("{} · {} · {}", item.year, item.door, title);
-        tile_action(
-            commands,
-            parent,
-            kit,
-            &text,
-            Action::Item(item.id),
-            "item",
-            i as u8,
+        let kind = match item.kind {
+            api::Kind::Sleeve => Phrase::DeckAppearanceSleeve,
+            api::Kind::Playmat => Phrase::DeckAppearanceMat,
+        };
+        let meta = format!(
+            "{} · {} · {}",
+            kind.text(lang),
+            item.year,
+            Phrase::AdventDoor.fill(lang, &[&item.door.to_string()])
         );
+        let row = surfaces::list_row(
+            commands,
+            kit,
+            title,
+            &meta,
+            &[],
+            (
+                Action::Item(item.id),
+                Stop::item(ORDER.name, "item", i as u8),
+            ),
+        );
+        commands
+            .entity(row)
+            .insert(crate::ambience::Feel::tinting_to(
+                Color::NONE,
+                tokens::HOVER,
+            ));
+        commands.entity(parent).add_child(row);
     }
     pages(
         commands,

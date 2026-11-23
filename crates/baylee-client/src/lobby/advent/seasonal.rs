@@ -16,6 +16,51 @@ use bevy::{
 
 #[derive(Component)]
 pub(super) struct ButtonGlow;
+
+pub(super) fn plaque(commands: &mut Commands, kit: Kit) -> Entity {
+    let mut access = accesskit::Node::new(accesskit::Role::Button);
+    access.set_label(Phrase::AdventCalendar.text(kit.lang()));
+    let button = commands
+        .spawn((
+            Action::Open,
+            Stop::new(super::super::orders::PLAY.name, "advent"),
+            bevy::a11y::AccessibilityNode(access),
+            Name::new("Winter tavern calendar"),
+            Node {
+                width: percent(100),
+                min_height: kit.m.px(70.),
+                flex_shrink: 0.,
+                flex_direction: FlexDirection::Column,
+                align_items: AlignItems::Center,
+                justify_content: JustifyContent::Center,
+                overflow: Overflow::clip(),
+                border_radius: BorderRadius::all(kit.m.px(9.)),
+                border: UiRect::all(kit.m.px(1.)),
+                ..default()
+            },
+            BorderColor::all(Color::srgb(0.77, 0.59, 0.32)),
+            BackgroundColor(Color::srgb(0.033, 0.17, 0.18)),
+        ))
+        .id();
+    let tavern = commands
+        .spawn((
+            Text::new(Phrase::AdventTavern.text(kit.lang())),
+            crate::hud::tf(kit.fonts, kit.m.small),
+            TextColor(Color::srgb(0.94, 0.79, 0.55)),
+            Pickable::IGNORE,
+        ))
+        .id();
+    let event = commands
+        .spawn((
+            Text::new(Phrase::AdventName.text(kit.lang())),
+            crate::hud::tf_bold(kit.fonts, kit.m.head),
+            TextColor(Color::srgb(1., 0.96, 0.84)),
+            Pickable::IGNORE,
+        ))
+        .id();
+    commands.entity(button).add_children(&[tavern, event]);
+    button
+}
 #[derive(Component)]
 struct Glow {
     button: Entity,
@@ -118,7 +163,7 @@ fn attach(
                 Pickable::IGNORE,
             ))
             .id();
-        commands.entity(button).add_child(e);
+        commands.entity(button).insert_child(0, e);
     }
 }
 fn animate(
@@ -354,7 +399,12 @@ fn state_label(state: api::DoorState) -> Phrase {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use super::{NUMBERS, place};
+    #[test]
+    fn the_advent_door_shader_accepts_the_native_ui_vertex_input() {
+        let prelude = "struct UiVertexOutput { @builtin(position) position: vec4<f32>, @location(0) uv: vec2<f32> };";
+        crate::cardmat::tests::check_wgsl(include_str!("light.wesl"), prelude);
+    }
     #[test]
     fn twenty_four_doors_are_unique_inside_the_same_image_without_overlap() {
         let mut ids = NUMBERS.to_vec();

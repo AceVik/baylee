@@ -44,11 +44,32 @@ fn position() -> Puzzle {
     }
 }
 
-async fn art(db: &DatabaseTransaction, n: u8) -> Uuid {
-    let (kind, width, height) = if n == 0 {
-        ("hero", 600_u32, 400_u32)
+fn art_file(n: u8) -> (u32, u32, Vec<u8>) {
+    if n == 0
+        && let Some(path) = std::env::var_os("BAYLEE_CENTRAL_ADVENT_UI_HERO")
+    {
+        // Only an explicitly supplied local hero is used for a private art review.
+        // Door rewards and all positions belong to the invented fixture.
+        use std::io::Read as _;
+        let limit = u64::from(central_api::advent::MAX_ART_BYTES);
+        let mut bytes = Vec::new();
+        std::fs::File::open(path)
+            .expect("open local QA hero")
+            .take(limit + 1)
+            .read_to_end(&mut bytes)
+            .unwrap();
+        assert!(u64::try_from(bytes.len()).unwrap() <= limit);
+        let (width, height) =
+            image::ImageReader::with_format(Cursor::new(&bytes), image::ImageFormat::WebP)
+                .into_dimensions()
+                .unwrap();
+        assert!((1..=4096).contains(&width) && (1..=4096).contains(&height));
+        return (width, height, bytes);
+    }
+    let (width, height) = if n == 0 {
+        (600_u32, 400_u32)
     } else {
-        ("sleeve", 180, 252)
+        (180, 252)
     };
     let pixels = image::RgbImage::from_fn(width, height, |x, y| {
         let band = ((x + y / 2) / (width / 8)) % 3;
@@ -65,8 +86,13 @@ async fn art(db: &DatabaseTransaction, n: u8) -> Uuid {
     image::DynamicImage::ImageRgb8(pixels)
         .write_to(&mut encoded, image::ImageFormat::WebP)
         .unwrap();
+    (width, height, encoded.into_inner())
+}
+
+async fn art(db: &DatabaseTransaction, n: u8) -> Uuid {
+    let kind = if n == 0 { "hero" } else { "sleeve" };
+    let (width, height, bytes) = art_file(n);
     let name = format!("Fixture aurora {n:02}");
-    let bytes = encoded.into_inner();
     db.query_one_raw(statement(
         "INSERT INTO central_identity.advent_art
         (kind,title_de,title_en,mime,width,height,size,digest,content)
@@ -155,9 +181,16 @@ pub(super) fn exercise(
             .unwrap()
             .id
     });
-    if std::env::var_os("BAYLEE_CENTRAL_UI_READY").is_some() {
+    if let Some(ready) = std::env::var_os("BAYLEE_CENTRAL_UI_READY") {
         drop(account);
         ui_fixture(rt, endpoint, host, origin);
+        if !std::path::PathBuf::from(ready)
+            .with_extension("advent-complete")
+            .is_file()
+        {
+            // The driver reports the failing UI step and requests teardown.
+            return;
+        }
         check_captures();
     } else {
         // Same signed API and fixed synthetic choices as the UI path.
