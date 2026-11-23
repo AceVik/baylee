@@ -25,6 +25,8 @@ pub mod angelic_quartermaster;
 pub mod anje_maid_of_dishonor;
 #[path = "vow/apprentice_sharpshooter.rs"]
 pub mod apprentice_sharpshooter;
+#[path = "vow/arm_the_cathars.rs"]
+pub mod arm_the_cathars;
 #[path = "voc/arterial_alchemy.rs"]
 pub mod arterial_alchemy;
 #[path = "pvow/ascendant_packleader.rs"]
@@ -165,6 +167,8 @@ pub mod headless_rider;
 pub mod henrika_domnathi;
 #[path = "vow/heron_blessed_geist.rs"]
 pub mod heron_blessed_geist;
+#[path = "vow/heron_of_hope.rs"]
+pub mod heron_of_hope;
 #[path = "voc/hollowhenge_overlord.rs"]
 pub mod hollowhenge_overlord;
 #[path = "vow/honeymoon_hearse.rs"]
@@ -177,6 +181,8 @@ pub mod hookhand_mariner;
 pub mod hopeful_initiate;
 #[path = "pvow/howling_moon.rs"]
 pub mod howling_moon;
+#[path = "pvow/howlpack_piper.rs"]
+pub mod howlpack_piper;
 #[path = "vow/hungry_ridgewolf.rs"]
 pub mod hungry_ridgewolf;
 #[path = "pvow/ill_tempered_loner.rs"]
@@ -353,6 +359,8 @@ pub mod vampires_vengeance;
 pub mod vilespawn_spider;
 #[path = "pvow/voice_of_the_blessed.rs"]
 pub mod voice_of_the_blessed;
+#[path = "pvow/volatile_arsonist.rs"]
+pub mod volatile_arsonist;
 #[path = "vow/voldaren_epicure.rs"]
 pub mod voldaren_epicure;
 #[path = "pvow/voldaren_estate.rs"]

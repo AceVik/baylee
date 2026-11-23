@@ -7145,6 +7145,389 @@ pub static CLERIC_ENCHANTMENT_2_1_WHITE: TokenDef = TokenDef {
     ..TokenDef::DEFAULT
 };
 
+/// 1/1 black Rat.
+pub static RAT_1_1_BLACK_AB5894BA6: TokenDef = TokenDef {
+    name: "Rat",
+    colors: ColorSet::from_slice(&[Color::Black]),
+    types: TypeSet::CREATURE,
+    subtypes: &[creature::RAT],
+    power: Some(1),
+    toughness: Some(1),
+    abilities: &[static_ability!(
+        Filter::This,
+        Modifier::ModifyPTByCount(PtCount::YouControl(&Filter::And(&[
+            Filter::HasSubtype(creature::RAT),
+            Filter::Another,
+            Filter::ControlledByYou
+        ])))
+    )],
+    ..TokenDef::DEFAULT
+};
+
+/// */* black Vampire.
+pub static VAMPIRE_X_X_BLACK: TokenDef = TokenDef {
+    name: "Vampire",
+    colors: ColorSet::from_slice(&[Color::Black]),
+    types: TypeSet::CREATURE,
+    subtypes: &[creature::VAMPIRE],
+    ..TokenDef::DEFAULT
+};
+
+/// 3/3 black red green Cat Dragon with flying.
+pub static CAT_DRAGON_3_3_BLACK_RED_GREEN_FLYING: TokenDef = TokenDef {
+    name: "Cat Dragon",
+    colors: ColorSet::from_slice(&[Color::Black, Color::Red, Color::Green]),
+    types: TypeSet::CREATURE,
+    subtypes: &[creature::CAT, creature::DRAGON],
+    power: Some(3),
+    toughness: Some(3),
+    keywords: KeywordSet::FLYING,
+    ..TokenDef::DEFAULT
+};
+
+/// 0/3 colorless Wall with defender and reach.
+pub static WALL_0_3_DEFENDER_REACH: TokenDef = TokenDef {
+    name: "Wall",
+    types: TypeSet::CREATURE,
+    subtypes: &[creature::WALL],
+    power: Some(0),
+    toughness: Some(3),
+    keywords: KeywordSet::DEFENDER.union(KeywordSet::REACH),
+    ..TokenDef::DEFAULT
+};
+
+/// 4/4 colorless artifact Robot.
+pub static ROBOT_ARTIFACT_4_4_AA6F088A4: TokenDef = TokenDef {
+    name: "Robot",
+    types: TypeSet::ARTIFACT.union(TypeSet::CREATURE),
+    subtypes: &[creature::ROBOT],
+    power: Some(4),
+    toughness: Some(4),
+    abilities: &[static_ability!(
+        Filter::And(&[Filter::CREATURE, Filter::This]),
+        Modifier::AddKeyword(KeywordSet::CANT_BLOCK)
+    )],
+    ..TokenDef::DEFAULT
+};
+
+/// 2/2 green Lizard.
+pub static LIZARD_2_2_GREEN: TokenDef = TokenDef {
+    name: "Lizard",
+    colors: ColorSet::from_slice(&[Color::Green]),
+    types: TypeSet::CREATURE,
+    subtypes: &[creature::LIZARD],
+    power: Some(2),
+    toughness: Some(2),
+    ..TokenDef::DEFAULT
+};
+
+/// 4/2 green Plant Warrior with reach.
+pub static PLANT_WARRIOR_4_2_GREEN_REACH: TokenDef = TokenDef {
+    name: "Plant Warrior",
+    colors: ColorSet::from_slice(&[Color::Green]),
+    types: TypeSet::CREATURE,
+    subtypes: &[creature::PLANT, creature::WARRIOR],
+    power: Some(4),
+    toughness: Some(2),
+    keywords: KeywordSet::REACH,
+    ..TokenDef::DEFAULT
+};
+
+/// 7/7 green Giant.
+pub static GIANT_7_7_GREEN: TokenDef = TokenDef {
+    name: "Giant",
+    colors: ColorSet::from_slice(&[Color::Green]),
+    types: TypeSet::CREATURE,
+    subtypes: &[creature::GIANT],
+    power: Some(7),
+    toughness: Some(7),
+    ..TokenDef::DEFAULT
+};
+
+/// white Mask with enchant permanent and umbra armor.
+pub static MASK_WHITE_ENCHANT_PERMANENT_UMBRA_ARMOR: TokenDef = TokenDef {
+    name: "Mask",
+    colors: ColorSet::from_slice(&[Color::White]),
+    types: TypeSet::ENCHANTMENT,
+    subtypes: &[enchantment::AURA],
+    keywords: KeywordSet::UMBRA_ARMOR,
+    abilities: &[spell!(
+        &[Effect::AttachSelf {
+            target: TargetSpec::Object(&Filter::Any)
+        }],
+        targets = Some(TargetReq::one(TargetSpec::Object(&Filter::Any)))
+    )],
+    ..TokenDef::DEFAULT
+};
+
+/// 4/4 red Hellion.
+pub static HELLION_4_4_RED: TokenDef = TokenDef {
+    name: "Hellion",
+    colors: ColorSet::from_slice(&[Color::Red]),
+    types: TypeSet::CREATURE,
+    subtypes: &[creature::HELLION],
+    power: Some(4),
+    toughness: Some(4),
+    ..TokenDef::DEFAULT
+};
+
+/// colorless Cursed with enchant creature.
+pub static CURSED_ENCHANT_CREATURE_A10F098BB: TokenDef = TokenDef {
+    name: "Cursed",
+    types: TypeSet::ENCHANTMENT,
+    subtypes: &[enchantment::AURA, enchantment::ROLE],
+    abilities: &[
+        spell!(
+            &[Effect::AttachSelf {
+                target: TargetSpec::Object(&Filter::CREATURE)
+            }],
+            targets = Some(TargetReq::one(TargetSpec::Object(&Filter::CREATURE)))
+        ),
+        static_ability!(
+            Filter::And(&[Filter::CREATURE, Filter::AttachedToBySource]),
+            Modifier::SetPT(1, 1)
+        ),
+    ],
+    ..TokenDef::DEFAULT
+};
+
+/// colorless Monster with enchant creature.
+pub static MONSTER_ENCHANT_CREATURE_AD419DDA4: TokenDef = TokenDef {
+    name: "Monster",
+    types: TypeSet::ENCHANTMENT,
+    subtypes: &[enchantment::AURA, enchantment::ROLE],
+    abilities: &[
+        spell!(
+            &[Effect::AttachSelf {
+                target: TargetSpec::Object(&Filter::CREATURE)
+            }],
+            targets = Some(TargetReq::one(TargetSpec::Object(&Filter::CREATURE)))
+        ),
+        static_ability!(
+            Filter::And(&[Filter::CREATURE, Filter::AttachedToBySource]),
+            Modifier::ModifyPT(1, 1)
+        ),
+        static_ability!(
+            Filter::And(&[Filter::CREATURE, Filter::AttachedToBySource]),
+            Modifier::AddKeyword(KeywordSet::TRAMPLE)
+        ),
+    ],
+    ..TokenDef::DEFAULT
+};
+
+/// colorless Royal with enchant creature.
+pub static ROYAL_ENCHANT_CREATURE_AAB276179: TokenDef = TokenDef {
+    name: "Royal",
+    types: TypeSet::ENCHANTMENT,
+    subtypes: &[enchantment::AURA, enchantment::ROLE],
+    abilities: &[
+        spell!(
+            &[Effect::AttachSelf {
+                target: TargetSpec::Object(&Filter::CREATURE)
+            }],
+            targets = Some(TargetReq::one(TargetSpec::Object(&Filter::CREATURE)))
+        ),
+        static_ability!(
+            Filter::And(&[Filter::CREATURE, Filter::AttachedToBySource]),
+            Modifier::ModifyPT(1, 1)
+        ),
+        static_ability!(
+            Filter::And(&[Filter::CREATURE, Filter::AttachedToBySource]),
+            Modifier::GrantTriggered {
+                trigger: Trigger::Ward,
+                effects: &[Effect::PlayerMayPayOr {
+                    player: PlayerRel::ControllerOfTarget,
+                    mana: Amount::Fixed(1),
+                    effect: &Effect::CounterTargetSpellOrAbility
+                }],
+                target: None
+            }
+        ),
+    ],
+    ..TokenDef::DEFAULT
+};
+
+/// colorless Sorcerer with enchant creature.
+pub static SORCERER_ENCHANT_CREATURE_A77120B1D: TokenDef = TokenDef {
+    name: "Sorcerer",
+    types: TypeSet::ENCHANTMENT,
+    subtypes: &[enchantment::AURA, enchantment::ROLE],
+    abilities: &[
+        spell!(
+            &[Effect::AttachSelf {
+                target: TargetSpec::Object(&Filter::CREATURE)
+            }],
+            targets = Some(TargetReq::one(TargetSpec::Object(&Filter::CREATURE)))
+        ),
+        static_ability!(
+            Filter::And(&[Filter::CREATURE, Filter::AttachedToBySource]),
+            Modifier::ModifyPT(1, 1)
+        ),
+        static_ability!(
+            Filter::And(&[Filter::CREATURE, Filter::AttachedToBySource]),
+            Modifier::GrantTriggeredDefinition(&triggered!(
+                Trigger::Attacks(&Filter::This),
+                &[Effect::scry(1)]
+            ))
+        ),
+    ],
+    ..TokenDef::DEFAULT
+};
+
+/// colorless Virtuous with enchant creature.
+pub static VIRTUOUS_ENCHANT_CREATURE_AABA4C452: TokenDef = TokenDef {
+    name: "Virtuous",
+    types: TypeSet::ENCHANTMENT,
+    subtypes: &[enchantment::AURA, enchantment::ROLE],
+    abilities: &[
+        spell!(
+            &[Effect::AttachSelf {
+                target: TargetSpec::Object(&Filter::CREATURE)
+            }],
+            targets = Some(TargetReq::one(TargetSpec::Object(&Filter::CREATURE)))
+        ),
+        static_ability!(
+            Filter::And(&[Filter::CREATURE, Filter::AttachedToBySource]),
+            Modifier::ModifyPTByCount(PtCount::YouControl(&Filter::And(&[
+                Filter::ENCHANTMENT,
+                Filter::ControlledByYou
+            ])))
+        ),
+    ],
+    ..TokenDef::DEFAULT
+};
+
+/// colorless Wicked with enchant creature.
+pub static WICKED_ENCHANT_CREATURE_AAA10B008: TokenDef = TokenDef {
+    name: "Wicked",
+    types: TypeSet::ENCHANTMENT,
+    subtypes: &[enchantment::AURA, enchantment::ROLE],
+    abilities: &[
+        spell!(
+            &[Effect::AttachSelf {
+                target: TargetSpec::Object(&Filter::CREATURE)
+            }],
+            targets = Some(TargetReq::one(TargetSpec::Object(&Filter::CREATURE)))
+        ),
+        static_ability!(
+            Filter::And(&[Filter::CREATURE, Filter::AttachedToBySource]),
+            Modifier::ModifyPT(1, 1)
+        ),
+        triggered!(
+            Trigger::Dies(&Filter::This),
+            &[Effect::LoseLife {
+                amount: Amount::Fixed(1),
+                target: PlayerRel::Opponent
+            }]
+        ),
+    ],
+    ..TokenDef::DEFAULT
+};
+
+/// colorless Young Hero with enchant creature.
+pub static YOUNG_HERO_ENCHANT_CREATURE_A6CE89E44: TokenDef = TokenDef {
+    name: "Young Hero",
+    types: TypeSet::ENCHANTMENT,
+    subtypes: &[enchantment::AURA, enchantment::ROLE],
+    abilities: &[
+        spell!(
+            &[Effect::AttachSelf {
+                target: TargetSpec::Object(&Filter::CREATURE)
+            }],
+            targets = Some(TargetReq::one(TargetSpec::Object(&Filter::CREATURE)))
+        ),
+        static_ability!(
+            Filter::And(&[Filter::CREATURE, Filter::AttachedToBySource]),
+            Modifier::GrantTriggeredDefinition(&triggered!(
+                Trigger::Attacks(&Filter::This),
+                &[Effect::AddCounter {
+                    kind: CounterKind::P1P1,
+                    amount: Amount::Fixed(1)
+                }],
+                condition = Some(Condition::SourceMatches(&Filter::And(&[
+                    Filter::InZone(ZoneRef::Battlefield),
+                    Filter::This,
+                    Filter::ToughnessAtMost(3)
+                ])))
+            ))
+        ),
+    ],
+    ..TokenDef::DEFAULT
+};
+
+/// green Settlement with enchant land.
+pub static SETTLEMENT_GREEN_ENCHANT_LAND_A9179052F: TokenDef = TokenDef {
+    name: "Settlement",
+    colors: ColorSet::from_slice(&[Color::Green]),
+    types: TypeSet::ENCHANTMENT,
+    subtypes: &[enchantment::AURA],
+    abilities: &[
+        spell!(
+            &[Effect::AttachSelf {
+                target: TargetSpec::Object(&Filter::LAND)
+            }],
+            targets = Some(TargetReq::one(TargetSpec::Object(&Filter::LAND)))
+        ),
+        static_ability!(
+            Filter::AttachedToBySource,
+            Modifier::GrantActivated {
+                cost: Cost::TAP,
+                effects: &[Effect::mana_of_any_color()],
+                mana_ability: true
+            }
+        ),
+    ],
+    ..TokenDef::DEFAULT
+};
+
+/// 1/1 white Sheep.
+pub static SHEEP_1_1_WHITE: TokenDef = TokenDef {
+    name: "Sheep",
+    colors: ColorSet::from_slice(&[Color::White]),
+    types: TypeSet::CREATURE,
+    subtypes: &[creature::SHEEP],
+    power: Some(1),
+    toughness: Some(1),
+    ..TokenDef::DEFAULT
+};
+
+/// 2/2 white Human Knight.
+pub static HUMAN_KNIGHT_2_2_WHITE_A94B73029: TokenDef = TokenDef {
+    name: "Human Knight",
+    colors: ColorSet::from_slice(&[Color::White]),
+    types: TypeSet::CREATURE,
+    subtypes: &[creature::HUMAN, creature::KNIGHT],
+    power: Some(2),
+    toughness: Some(2),
+    abilities: &[static_ability!(
+        Filter::This,
+        Modifier::ModifyPT(2, 2),
+        condition = Some(Condition::AmountAtLeast(
+            Amount::EnteredThisTurn {
+                filter: &Filter::ARTIFACT,
+                from: None,
+                to: ZoneRef::Battlefield,
+                owner_or_ctrl: PlayerRel::You,
+                exclude_source: false
+            },
+            1
+        ))
+    )],
+    ..TokenDef::DEFAULT
+};
+
+/// 3/3 white Angel with flying.
+pub static ANGEL_3_3_WHITE_FLYING: TokenDef = TokenDef {
+    name: "Angel",
+    colors: ColorSet::from_slice(&[Color::White]),
+    types: TypeSet::CREATURE,
+    subtypes: &[creature::ANGEL],
+    power: Some(3),
+    toughness: Some(3),
+    keywords: KeywordSet::FLYING,
+    ..TokenDef::DEFAULT
+};
+
 /// Every token there is, in the order ids were assigned.
 pub static ALL: &[&TokenDef] = &[
     &tokens::ALLY_1_1_WHITE,
@@ -8487,6 +8870,27 @@ pub static ALL: &[&TokenDef] = &[
     &GIANT_WIZARD_4_4_BLUE,
     &KOR_WARRIOR_1_1_WHITE,
     &CLERIC_ENCHANTMENT_2_1_WHITE,
+    &RAT_1_1_BLACK_AB5894BA6,
+    &VAMPIRE_X_X_BLACK,
+    &CAT_DRAGON_3_3_BLACK_RED_GREEN_FLYING,
+    &WALL_0_3_DEFENDER_REACH,
+    &ROBOT_ARTIFACT_4_4_AA6F088A4,
+    &LIZARD_2_2_GREEN,
+    &PLANT_WARRIOR_4_2_GREEN_REACH,
+    &GIANT_7_7_GREEN,
+    &MASK_WHITE_ENCHANT_PERMANENT_UMBRA_ARMOR,
+    &HELLION_4_4_RED,
+    &CURSED_ENCHANT_CREATURE_A10F098BB,
+    &MONSTER_ENCHANT_CREATURE_AD419DDA4,
+    &ROYAL_ENCHANT_CREATURE_AAB276179,
+    &SORCERER_ENCHANT_CREATURE_A77120B1D,
+    &VIRTUOUS_ENCHANT_CREATURE_AABA4C452,
+    &WICKED_ENCHANT_CREATURE_AAA10B008,
+    &YOUNG_HERO_ENCHANT_CREATURE_A6CE89E44,
+    &SETTLEMENT_GREEN_ENCHANT_LAND_A9179052F,
+    &SHEEP_1_1_WHITE,
+    &HUMAN_KNIGHT_2_2_WHITE_A94B73029,
+    &ANGEL_3_3_WHITE_FLYING,
 ];
 
 /// The entries a reader wrote, as a subset of [`ALL`] — never a second
@@ -9040,6 +9444,27 @@ pub static GENERATED: &[&TokenDef] = &[
     &GIANT_WIZARD_4_4_BLUE,
     &KOR_WARRIOR_1_1_WHITE,
     &CLERIC_ENCHANTMENT_2_1_WHITE,
+    &RAT_1_1_BLACK_AB5894BA6,
+    &VAMPIRE_X_X_BLACK,
+    &CAT_DRAGON_3_3_BLACK_RED_GREEN_FLYING,
+    &WALL_0_3_DEFENDER_REACH,
+    &ROBOT_ARTIFACT_4_4_AA6F088A4,
+    &LIZARD_2_2_GREEN,
+    &PLANT_WARRIOR_4_2_GREEN_REACH,
+    &GIANT_7_7_GREEN,
+    &MASK_WHITE_ENCHANT_PERMANENT_UMBRA_ARMOR,
+    &HELLION_4_4_RED,
+    &CURSED_ENCHANT_CREATURE_A10F098BB,
+    &MONSTER_ENCHANT_CREATURE_AD419DDA4,
+    &ROYAL_ENCHANT_CREATURE_AAB276179,
+    &SORCERER_ENCHANT_CREATURE_A77120B1D,
+    &VIRTUOUS_ENCHANT_CREATURE_AABA4C452,
+    &WICKED_ENCHANT_CREATURE_AAA10B008,
+    &YOUNG_HERO_ENCHANT_CREATURE_A6CE89E44,
+    &SETTLEMENT_GREEN_ENCHANT_LAND_A9179052F,
+    &SHEEP_1_1_WHITE,
+    &HUMAN_KNIGHT_2_2_WHITE_A94B73029,
+    &ANGEL_3_3_WHITE_FLYING,
 ];
 
 /// Legacy duplicate ids and the canonical ids they now resolve to.

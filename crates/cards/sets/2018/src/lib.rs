@@ -87,6 +87,8 @@ pub mod arcane_encyclopedia;
 pub mod arcane_flight;
 #[path = "prix/arch_of_orazca.rs"]
 pub mod arch_of_orazca;
+#[path = "grn/arclight_phoenix.rs"]
+pub mod arclight_phoenix;
 #[path = "m19/arisen_gorgon.rs"]
 pub mod arisen_gorgon;
 #[path = "gs1/armored_whirl_turtle.rs"]
@@ -433,6 +435,8 @@ pub mod epicure_of_blood;
 pub mod erratic_cyclops;
 #[path = "grn/erstwhile_trooper.rs"]
 pub mod erstwhile_trooper;
+#[path = "c18/estrid_the_masked.rs"]
+pub mod estrid_the_masked;
 #[path = "dom/eviscerate.rs"]
 pub mod eviscerate;
 #[path = "dom/excavation_elephant.rs"]
@@ -765,6 +769,8 @@ pub mod kumena_s_awakening;
 pub mod kumena_tyrant_of_orazca;
 #[path = "dom/kwende_pride_of_femeref.rs"]
 pub mod kwende_pride_of_femeref;
+#[path = "bbd/last_one_standing.rs"]
+pub mod last_one_standing;
 #[path = "pm19/lathliss_dragon_queen.rs"]
 pub mod lathliss_dragon_queen;
 #[path = "grn/lava_coil.rs"]
@@ -807,6 +813,8 @@ pub mod lingering_phantom;
 pub mod llanowar_envoy;
 #[path = "dom/llanowar_scout.rs"]
 pub mod llanowar_scout;
+#[path = "c18/lord_windgrace.rs"]
+pub mod lord_windgrace;
 #[path = "bbd/lore_weaver.rs"]
 pub mod lore_weaver;
 #[path = "grn/lotleth_giant.rs"]
@@ -915,6 +923,8 @@ pub mod necrotic_wound;
 pub mod needletooth_raptor;
 #[path = "c18/nesting_dragon.rs"]
 pub mod nesting_dragon;
+#[path = "m19/nexus_of_fate.rs"]
+pub mod nexus_of_fate;
 #[path = "dom/niambi_faithful_healer.rs"]
 pub mod niambi_faithful_healer;
 #[path = "c18/night_incarnate.rs"]
@@ -1067,8 +1077,12 @@ pub mod reckless_rage;
 pub mod regal_bloodlord;
 #[path = "prix/rekindling_phoenix.rs"]
 pub mod rekindling_phoenix;
+#[path = "prix/release_to_the_wind.rs"]
+pub mod release_to_the_wind;
 #[path = "rix/relentless_raptor.rs"]
 pub mod relentless_raptor;
+#[path = "dom/relic_runner.rs"]
+pub mod relic_runner;
 #[path = "m19/remorseful_cleric.rs"]
 pub mod remorseful_cleric;
 #[path = "m19/resplendent_angel.rs"]
@@ -1489,6 +1503,8 @@ pub mod vraska_s_stoneglare;
 pub mod wall_of_mist;
 #[path = "grn/wand_of_vertebrae.rs"]
 pub mod wand_of_vertebrae;
+#[path = "dom/warcry_phoenix.rs"]
+pub mod warcry_phoenix;
 #[path = "prix/warkite_marauder.rs"]
 pub mod warkite_marauder;
 #[path = "dom/warlord_s_fury.rs"]

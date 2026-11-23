@@ -181,6 +181,8 @@ pub mod buried_alive;
 pub mod burning_cloak;
 #[path = "tmp/caldera_lake.rs"]
 pub mod caldera_lake;
+#[path = "past/call_from_the_grave.rs"]
+pub mod call_from_the_grave;
 #[path = "wth/call_of_the_wild.rs"]
 pub mod call_of_the_wild;
 #[path = "tmp/canopy_spider.rs"]

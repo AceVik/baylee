@@ -29,6 +29,8 @@ pub mod acrobatic_leap;
 pub mod adaptive_gemguard;
 #[path = "who/adric_mathematical_genius.rs"]
 pub mod adric_mathematical_genius;
+#[path = "lci/akal_pakal_first_among_equals.rs"]
+pub mod akal_pakal_first_among_equals;
 #[path = "lci/akawalli_the_seething_tower.rs"]
 pub mod akawalli_the_seething_tower;
 #[path = "who/alistair_the_brigadier.rs"]
@@ -63,6 +65,8 @@ pub mod bessie_the_doctor_s_roadster;
 pub mod bitter_triumph;
 #[path = "lci/bloodthorn_flail.rs"]
 pub mod bloodthorn_flail;
+#[path = "rex/blue_loyal_raptor.rs"]
+pub mod blue_loyal_raptor;
 #[path = "lci/brackish_blunder.rs"]
 pub mod brackish_blunder;
 #[path = "lci/braided_net.rs"]
@@ -71,6 +75,10 @@ pub mod braided_net;
 pub mod brass_s_tunnel_grinder;
 #[path = "lci/brazen_blademaster.rs"]
 pub mod brazen_blademaster;
+#[path = "lci/breeches_eager_pillager.rs"]
+pub mod breeches_eager_pillager;
+#[path = "lci/bringer_of_the_last_gift.rs"]
+pub mod bringer_of_the_last_gift;
 #[path = "lcc/broadside_bombardiers.rs"]
 pub mod broadside_bombardiers;
 #[path = "lci/broodrage_mycoid.rs"]
@@ -297,6 +305,8 @@ pub mod hunter_s_blowgun;
 pub mod idol_of_the_deep_king;
 #[path = "lcc/illustrious_wanderglyph.rs"]
 pub mod illustrious_wanderglyph;
+#[path = "who/impending_flux.rs"]
+pub mod impending_flux;
 #[path = "who/iraxxa_empress_of_mars.rs"]
 pub mod iraxxa_empress_of_mars;
 #[path = "lci/ironpaw_aspirant.rs"]
@@ -307,6 +317,8 @@ pub mod ixalli_s_lorekeeper;
 pub mod jamie_mc_crimmon;
 #[path = "who/jenny_flint.rs"]
 pub mod jenny_flint;
+#[path = "lci/join_the_dead.rs"]
+pub mod join_the_dead;
 #[path = "who/k_9_mark_i.rs"]
 pub mod k_9_mark_i;
 #[path = "who/karvanista_loyal_lupari.rs"]
@@ -401,6 +413,8 @@ pub mod plundering_pirate;
 pub mod poison_dart_frog;
 #[path = "lci/primordial_gnawer.rs"]
 pub mod primordial_gnawer;
+#[path = "lcc/promise_of_aclazotz.rs"]
+pub mod promise_of_aclazotz;
 #[path = "lci/promising_vein.rs"]
 pub mod promising_vein;
 #[path = "lci/pugnacious_hammerskull.rs"]
@@ -455,6 +469,8 @@ pub mod sally_sparrow;
 pub mod sanguine_evangelist;
 #[path = "who/sarah_jane_smith.rs"]
 pub mod sarah_jane_smith;
+#[path = "rex/savage_order.rs"]
+pub mod savage_order;
 #[path = "lci/scampering_surveyor.rs"]
 pub mod scampering_surveyor;
 #[path = "lcc/scion_of_calamity.rs"]
@@ -471,6 +487,8 @@ pub mod self_reflection;
 pub mod sentinel_of_the_nameless_city;
 #[path = "who/sergeant_john_benton.rs"]
 pub mod sergeant_john_benton;
+#[path = "lci/shipwreck_sentry.rs"]
+pub mod shipwreck_sentry;
 #[path = "lcc/singer_of_swift_rivers.rs"]
 pub mod singer_of_swift_rivers;
 #[path = "lci/sinuous_benthisaur.rs"]
@@ -489,6 +507,8 @@ pub mod sonic_screwdriver;
 pub mod soulcoil_viper;
 #[path = "lci/souls_of_the_lost.rs"]
 pub mod souls_of_the_lost;
+#[path = "lci/spelunking.rs"]
+pub mod spelunking;
 #[path = "rex/spitting_dilophosaurus.rs"]
 pub mod spitting_dilophosaurus;
 #[path = "lci/spring_loaded_sawblades.rs"]
@@ -513,6 +533,8 @@ pub mod sunfrill_imitator;
 pub mod sunken_citadel;
 #[path = "lci/sunshot_militia.rs"]
 pub mod sunshot_militia;
+#[path = "who/surge_of_brilliance.rs"]
+pub mod surge_of_brilliance;
 #[path = "lci/synapse_necromage.rs"]
 pub mod synapse_necromage;
 #[path = "lci/tarrian_s_journal.rs"]

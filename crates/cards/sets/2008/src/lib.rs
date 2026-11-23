@@ -137,6 +137,8 @@ pub mod boggart_ram_gang;
 pub mod boldwyr_heavyweights;
 #[path = "ala/bone_splinters.rs"]
 pub mod bone_splinters;
+#[path = "shm/boon_reflection.rs"]
+pub mod boon_reflection;
 #[path = "mor/borderland_behemoth.rs"]
 pub mod borderland_behemoth;
 #[path = "mor/bosk_banneret.rs"]
@@ -223,6 +225,8 @@ pub mod crabapple_cohort;
 pub mod cradle_of_vitality;
 #[path = "eve/crag_puca.rs"]
 pub mod crag_puca;
+#[path = "shm/cragganwick_cremator.rs"]
+pub mod cragganwick_cremator;
 #[path = "eve/creakwood_ghoul.rs"]
 pub mod creakwood_ghoul;
 #[path = "eve/creakwood_liege.rs"]
@@ -461,6 +465,8 @@ pub mod glen_elendra_liege;
 pub mod gloomlance;
 #[path = "shm/gloomwidow.rs"]
 pub mod gloomwidow;
+#[path = "shm/gloomwidow_s_feast.rs"]
+pub mod gloomwidow_s_feast;
 #[path = "shm/gnarled_effigy.rs"]
 pub mod gnarled_effigy;
 #[path = "ala/goblin_assault.rs"]
@@ -547,6 +553,8 @@ pub mod idle_thoughts;
 pub mod idyllic_tutor;
 #[path = "eve/impelled_giant.rs"]
 pub mod impelled_giant;
+#[path = "shm/incremental_blight.rs"]
+pub mod incremental_blight;
 #[path = "ala/incurable_ogre.rs"]
 pub mod incurable_ogre;
 #[path = "eve/indigo_faerie.rs"]
@@ -847,6 +855,8 @@ pub mod polluted_bonds;
 pub mod power_of_fire;
 #[path = "ala/predator_dragon.rs"]
 pub mod predator_dragon;
+#[path = "mor/preeminent_captain.rs"]
+pub mod preeminent_captain;
 #[path = "shm/presence_of_gond.rs"]
 pub mod presence_of_gond;
 #[path = "mor/prickly_boggart.rs"]
@@ -1151,6 +1161,8 @@ pub mod stingmoggie;
 pub mod stinkdrinker_bandit;
 #[path = "ala/stoic_angel.rs"]
 pub mod stoic_angel;
+#[path = "mor/stonehewer_giant.rs"]
+pub mod stonehewer_giant;
 #[path = "mor/stonybrook_banneret.rs"]
 pub mod stonybrook_banneret;
 #[path = "mor/stonybrook_schoolmaster.rs"]
@@ -1179,6 +1191,8 @@ pub mod swerve;
 pub mod swirling_spriggan;
 #[path = "eve/syphon_life.rs"]
 pub mod syphon_life;
+#[path = "eve/talara_s_battalion.rs"]
+pub mod talara_s_battalion;
 #[path = "eve/talonrend.rs"]
 pub mod talonrend;
 #[path = "ala/tar_fiend.rs"]

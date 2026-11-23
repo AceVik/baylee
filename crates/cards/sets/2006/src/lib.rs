@@ -83,6 +83,8 @@ pub mod beastmaster_s_magemark;
 pub mod benalish_cavalry;
 #[path = "tsp/bewilder.rs"]
 pub mod bewilder;
+#[path = "dis/biomantic_mastery.rs"]
+pub mod biomantic_mastery;
 #[path = "gpt/bioplasm.rs"]
 pub mod bioplasm;
 #[path = "tsp/blazing_blade_askari.rs"]
@@ -419,6 +421,10 @@ pub mod havenwood_wurm;
 pub mod heidar_rimewind_master;
 #[path = "dis/helium_squirter.rs"]
 pub mod helium_squirter;
+#[path = "dis/hellhole_rats.rs"]
+pub mod hellhole_rats;
+#[path = "dis/hide.rs"]
+pub mod hide;
 #[path = "csp/highland_weald.rs"]
 pub mod highland_weald;
 #[path = "gpt/hissing_miasma.rs"]
@@ -723,6 +729,8 @@ pub mod sandstorm_eidolon;
 pub mod sangrophage;
 #[path = "tsp/scarwood_treefolk.rs"]
 pub mod scarwood_treefolk;
+#[path = "gpt/schismotivate.rs"]
+pub mod schismotivate;
 #[path = "gpt/scorched_rusalka.rs"]
 pub mod scorched_rusalka;
 #[path = "tsp/screeching_sliver.rs"]
@@ -1035,6 +1043,8 @@ pub mod wrecking_ball;
 pub mod wurmcalling;
 #[path = "gpt/wurmweaver_coil.rs"]
 pub mod wurmweaver_coil;
+#[path = "gpt/yore_tiller_nephilim.rs"]
+pub mod yore_tiller_nephilim;
 #[path = "tsp/zealot_il_vec.rs"]
 pub mod zealot_il_vec;
 #[path = "csp/zombie_musher.rs"]

@@ -27,6 +27,8 @@ pub mod agent_bishop_man_in_black;
 pub mod ajani_outland_chaperone;
 #[path = "tmt/anchovy_banana_pizza.rs"]
 pub mod anchovy_banana_pizza;
+#[path = "tmt/april_o_neil_hacktivist.rs"]
+pub mod april_o_neil_hacktivist;
 #[path = "tmc/april_o_neil_human_element.rs"]
 pub mod april_o_neil_human_element;
 #[path = "tmt/april_o_neil_kunoichi_trainee.rs"]
@@ -89,6 +91,8 @@ pub mod bre_of_clan_stoutarm;
 pub mod brigid_s_command;
 #[path = "ecl/bristlebane_battler.rs"]
 pub mod bristlebane_battler;
+#[path = "ecl/bristlebane_outrider.rs"]
+pub mod bristlebane_outrider;
 #[path = "tmt/broadcast_takeover.rs"]
 pub mod broadcast_takeover;
 #[path = "ecl/burdened_stoneback.rs"]
@@ -117,6 +121,8 @@ pub mod collective_inferno;
 pub mod containment_protocol;
 #[path = "tmt/cool_but_rude.rs"]
 pub mod cool_but_rude;
+#[path = "pw26/courier_of_comestibles.rs"]
+pub mod courier_of_comestibles;
 #[path = "tmt/cowabunga.rs"]
 pub mod cowabunga;
 #[path = "ecl/creakwood_safewright.rs"]
@@ -195,6 +201,8 @@ pub mod end_blaze_epiphany;
 pub mod enraged_flamecaster;
 #[path = "tmt/epf_point_squad.rs"]
 pub mod epf_point_squad;
+#[path = "tmt/everything_pizza.rs"]
+pub mod everything_pizza;
 #[path = "tmc/exploding_barrel.rs"]
 pub mod exploding_barrel;
 #[path = "ecl/explosive_prodigy.rs"]
@@ -323,6 +331,8 @@ pub mod keep_out;
 pub mod kinbinding;
 #[path = "ecl/kinsbaile_aspirant.rs"]
 pub mod kinsbaile_aspirant;
+#[path = "ecl/kinscaer_sentry.rs"]
+pub mod kinscaer_sentry;
 #[path = "ecl/kithkeeper.rs"]
 pub mod kithkeeper;
 #[path = "tmt/kitsune_s_technique.rs"]
@@ -359,6 +369,8 @@ pub mod lessons_from_life;
 pub mod liminal_hold;
 #[path = "tmt/lita_little_orphan_amphibian.rs"]
 pub mod lita_little_orphan_amphibian;
+#[path = "ecl/lluwen_imperfect_naturalist.rs"]
+pub mod lluwen_imperfect_naturalist;
 #[path = "ecl/loch_mare.rs"]
 pub mod loch_mare;
 #[path = "ecl/lofty_dreams.rs"]
@@ -407,6 +419,8 @@ pub mod mirrorform;
 pub mod mischievous_sneakling;
 #[path = "ecl/mistmeadow_council.rs"]
 pub mod mistmeadow_council;
+#[path = "tmc/mole_module.rs"]
+pub mod mole_module;
 #[path = "tmc/mona_lisa_ever_adaptable.rs"]
 pub mod mona_lisa_ever_adaptable;
 #[path = "tmt/mona_lisa_science_geek.rs"]
@@ -575,6 +589,8 @@ pub mod shore_lurker;
 pub mod shredder_s_armor;
 #[path = "tmt/shredder_s_revenge.rs"]
 pub mod shredder_s_revenge;
+#[path = "tmt/shredder_s_technique.rs"]
+pub mod shredder_s_technique;
 #[path = "tmt/shredder_unrelenting.rs"]
 pub mod shredder_unrelenting;
 #[path = "ecl/silvergill_mentor.rs"]
@@ -707,6 +723,8 @@ pub mod wanderbrine_preacher;
 pub mod wanderbrine_trapper;
 #[path = "ecl/wanderwine_distracter.rs"]
 pub mod wanderwine_distracter;
+#[path = "ecl/wary_farmer.rs"]
+pub mod wary_farmer;
 #[path = "tmt/weather_maker.rs"]
 pub mod weather_maker;
 #[path = "tmt/west_wind_avatar.rs"]

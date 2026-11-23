@@ -175,6 +175,8 @@ pub mod command_subadjunct;
 pub mod commander_raffi_musiker;
 #[path = "trc/commander_william_riker.rs"]
 pub mod commander_william_riker;
+#[path = "trk/conquest_mission.rs"]
+pub mod conquest_mission;
 #[path = "trk/consider_the_prime_directive.rs"]
 pub mod consider_the_prime_directive;
 #[path = "trk/constable_odo.rs"]
@@ -229,6 +231,8 @@ pub mod davvol_evincar_of_rath;
 pub mod de_evolve;
 #[path = "fra/dedicated_commons.rs"]
 pub mod dedicated_commons;
+#[path = "trk/deep_space_9.rs"]
+pub mod deep_space_9;
 #[path = "trc/defense_force_aggressor.rs"]
 pub mod defense_force_aggressor;
 #[path = "trc/deliver_from_chaos.rs"]
@@ -291,6 +295,8 @@ pub mod fatehold_annex;
 pub mod fatehold_chronologist;
 #[path = "fra/fateshaper_aspirant.rs"]
 pub mod fateshaper_aspirant;
+#[path = "fra/fblthp_knows_the_way.rs"]
+pub mod fblthp_knows_the_way;
 #[path = "trk/federation_field_medic.rs"]
 pub mod federation_field_medic;
 #[path = "trk/federation_outpost.rs"]
@@ -359,6 +365,8 @@ pub mod gorn_captain;
 pub mod grakk_the_pacifist;
 #[path = "trk/grand_nagus_zek.rs"]
 pub mod grand_nagus_zek;
+#[path = "trk/gray_and_adira_forever_joined.rs"]
+pub mod gray_and_adira_forever_joined;
 #[path = "fra/greenhouse_propagator.rs"]
 pub mod greenhouse_propagator;
 #[path = "trc/grilka_widowed_warrior.rs"]
@@ -425,6 +433,8 @@ pub mod isolinear_processor;
 pub mod istvan_butcher_of_eln;
 #[path = "mbc/jabs_mistress_of_mockery.rs"]
 pub mod jabs_mistress_of_mockery;
+#[path = "mbc/jandor_fortuned_traveler.rs"]
+pub mod jandor_fortuned_traveler;
 #[path = "trc/janice_rand_essential_aide.rs"]
 pub mod janice_rand_essential_aide;
 #[path = "trc/jean_luc_picard_luminary.rs"]
@@ -463,6 +473,8 @@ pub mod kirk_commanding_officer;
 pub mod kirk_man_of_action;
 #[path = "trc/klingon_strike_force.rs"]
 pub mod klingon_strike_force;
+#[path = "trk/kobayashi_maru_scenario.rs"]
+pub mod kobayashi_maru_scenario;
 #[path = "trc/kolinahr_priest.rs"]
 pub mod kolinahr_priest;
 #[path = "trc/koloth_tribble_hunter.rs"]
@@ -771,6 +783,8 @@ pub mod stable_wormhole;
 pub mod starfleet_crew;
 #[path = "trk/starfleet_security.rs"]
 pub mod starfleet_security;
+#[path = "trk/starfleet_spanner_jockey.rs"]
+pub mod starfleet_spanner_jockey;
 #[path = "trc/starship_enterprise.rs"]
 pub mod starship_enterprise;
 #[path = "fra/stingcaster_mage.rs"]
@@ -789,6 +803,8 @@ pub mod subspace_anomaly;
 pub mod sulu_space_swashbuckler;
 #[path = "trc/supplementation_node.rs"]
 pub mod supplementation_node;
+#[path = "trk/support_mission.rs"]
+pub mod support_mission;
 #[path = "fra/sureshot_sower.rs"]
 pub mod sureshot_sower;
 #[path = "fra/surgical_precision.rs"]
@@ -815,6 +831,8 @@ pub mod tasha_yar_out_of_time;
 pub mod tea_earl_grey_hot;
 #[path = "trk/temporal_anomaly.rs"]
 pub mod temporal_anomaly;
+#[path = "trk/temporal_conqueror.rs"]
+pub mod temporal_conqueror;
 #[path = "trc/temporal_tribulation.rs"]
 pub mod temporal_tribulation;
 #[path = "trk/tenacious_drone.rs"]
@@ -861,6 +879,8 @@ pub mod the_measure_of_a_man;
 pub mod the_naked_time;
 #[path = "trk/the_needs_of_the_many.rs"]
 pub mod the_needs_of_the_many;
+#[path = "trc/the_promise_of_kahless.rs"]
+pub mod the_promise_of_kahless;
 #[path = "trc/the_sword_of_kahless.rs"]
 pub mod the_sword_of_kahless;
 #[path = "fra/the_theorist_jace_beleren.rs"]
@@ -885,6 +905,10 @@ pub mod tom_paris_risk_taker;
 pub mod tomik_izzet_sparkmage;
 #[path = "fra/transformative_commons.rs"]
 pub mod transformative_commons;
+#[path = "trc/transwarp_hub.rs"]
+pub mod transwarp_hub;
+#[path = "fra/traxos_academy_guardian.rs"]
+pub mod traxos_academy_guardian;
 #[path = "fra/traxos_scourge_eternal.rs"]
 pub mod traxos_scourge_eternal;
 #[path = "trc/trelane_squire_of_gothos.rs"]
@@ -943,6 +967,8 @@ pub mod unflinching_hortimancer;
 pub mod uugguu_the_omniplasm;
 #[path = "trk/v_ger_the_intruder.rs"]
 pub mod v_ger_the_intruder;
+#[path = "trk/vengeance_mission.rs"]
+pub mod vengeance_mission;
 #[path = "frc/venser_fervent_forger.rs"]
 pub mod venser_fervent_forger;
 #[path = "fra/verdant_kraken.rs"]

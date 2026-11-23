@@ -49,6 +49,8 @@ pub mod akroan_sergeant;
 pub mod alchemist_s_vial;
 #[path = "frf/alesha_s_vanguard.rs"]
 pub mod alesha_s_vanguard;
+#[path = "ori/alhammarret_s_archive.rs"]
+pub mod alhammarret_s_archive;
 #[path = "bfz/ally_encampment.rs"]
 pub mod ally_encampment;
 #[path = "dtk/ambuscade_shaman.rs"]
@@ -89,6 +91,8 @@ pub mod archangel_of_tithes;
 pub mod archers_of_qarsi;
 #[path = "frf/archfiend_of_depravity.rs"]
 pub mod archfiend_of_depravity;
+#[path = "c15/arjun_the_shifting_flame.rs"]
+pub mod arjun_the_shifting_flame;
 #[path = "dtk/artful_maneuver.rs"]
 pub mod artful_maneuver;
 #[path = "ori/artificer_s_epiphany.rs"]
@@ -257,6 +261,8 @@ pub mod commune_with_lava;
 pub mod complete_disregard;
 #[path = "ori/conclave_naturalists.rs"]
 pub mod conclave_naturalists;
+#[path = "bfz/conduit_of_ruin.rs"]
+pub mod conduit_of_ruin;
 #[path = "dtk/conifer_strider.rs"]
 pub mod conifer_strider;
 #[path = "ori/consecrated_by_blood.rs"]
@@ -305,6 +311,8 @@ pub mod defiant_bloodlord;
 pub mod defiant_ogre;
 #[path = "bfz/demon_s_grasp.rs"]
 pub mod demon_s_grasp;
+#[path = "ori/demonic_pact.rs"]
+pub mod demonic_pact;
 #[path = "dtk/den_protector.rs"]
 pub mod den_protector;
 #[path = "bfz/desolation_twin.rs"]
@@ -449,6 +457,8 @@ pub mod flatten;
 pub mod forerunner_of_slaughter;
 #[path = "bfz/fortified_rampart.rs"]
 pub mod fortified_rampart;
+#[path = "dtk/foul_renewal.rs"]
+pub mod foul_renewal;
 #[path = "dtk/foul_tongue_shriek.rs"]
 pub mod foul_tongue_shriek;
 #[path = "ori/foundry_of_the_consuls.rs"]
@@ -763,6 +773,8 @@ pub mod mystic_confluence;
 pub mod myth_realized;
 #[path = "bfz/natural_connection.rs"]
 pub mod natural_connection;
+#[path = "ori/necromantic_summons.rs"]
+pub mod necromantic_summons;
 #[path = "dtk/necromaster_dragon.rs"]
 pub mod necromaster_dragon;
 #[path = "bfz/nettle_drone.rs"]
@@ -989,6 +1001,8 @@ pub mod segmented_krotiq;
 pub mod seismic_elemental;
 #[path = "dtk/seismic_rupture.rs"]
 pub mod seismic_rupture;
+#[path = "dtk/self_inflicted_wound.rs"]
+pub mod self_inflicted_wound;
 #[path = "ori/sentinel_of_the_eternal_watch.rs"]
 pub mod sentinel_of_the_eternal_watch;
 #[path = "ori/separatist_voidmage.rs"]
@@ -1151,6 +1165,8 @@ pub mod tajuru_beastmaster;
 pub mod tajuru_warcaller;
 #[path = "bfz/tandem_tactics.rs"]
 pub mod tandem_tactics;
+#[path = "dtk/tapestry_of_the_ages.rs"]
+pub mod tapestry_of_the_ages;
 #[path = "frf/tasigur_s_cruelty.rs"]
 pub mod tasigur_s_cruelty;
 #[path = "frf/temporal_trespass.rs"]

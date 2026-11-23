@@ -171,6 +171,8 @@ pub mod boneyard_scourge;
 pub mod bontu_s_last_reckoning;
 #[path = "akh/bontu_s_monument.rs"]
 pub mod bontu_s_monument;
+#[path = "akh/bontu_the_glorified.rs"]
+pub mod bontu_the_glorified;
 #[path = "hou/brambleweft_behemoth.rs"]
 pub mod brambleweft_behemoth;
 #[path = "xln/brazen_buccaneers.rs"]
@@ -279,6 +281,8 @@ pub mod crocodile_of_the_crossing;
 pub mod crook_of_condemnation;
 #[path = "aer/cruel_finality.rs"]
 pub mod cruel_finality;
+#[path = "akh/cruel_reality.rs"]
+pub mod cruel_reality;
 #[path = "xln/crushing_canopy.rs"]
 pub mod crushing_canopy;
 #[path = "hou/crypt_of_the_eternals.rs"]
@@ -511,6 +515,8 @@ pub mod foundry_assembler;
 pub mod foundry_hornet;
 #[path = "aer/fourth_bridge_prowler.rs"]
 pub mod fourth_bridge_prowler;
+#[path = "hou/fraying_sanity.rs"]
+pub mod fraying_sanity;
 #[path = "aer/freejam_regent.rs"]
 pub mod freejam_regent;
 #[path = "xln/frenzied_raptor.rs"]
@@ -661,6 +667,8 @@ pub mod hour_of_revelation;
 pub mod huatli_dinosaur_knight;
 #[path = "xln/huatli_s_snubhorn.rs"]
 pub mod huatli_s_snubhorn;
+#[path = "xln/huatli_s_spurring.rs"]
+pub mod huatli_s_spurring;
 #[path = "aer/hungry_flames.rs"]
 pub mod hungry_flames;
 #[path = "c17/hungry_lynx.rs"]
@@ -1147,6 +1155,8 @@ pub mod scrounger_of_souls;
 pub mod search_for_azcanta;
 #[path = "ust/secret_base.rs"]
 pub mod secret_base;
+#[path = "akh/seeker_of_insight.rs"]
+pub mod seeker_of_insight;
 #[path = "xln/seekers_squire.rs"]
 pub mod seekers_squire;
 #[path = "hou/seer_of_the_last_tomorrow.rs"]
@@ -1323,6 +1333,8 @@ pub mod tenacious_hunter;
 pub mod territorial_hammerskull;
 #[path = "aer/tezzeret_s_betrayal.rs"]
 pub mod tezzeret_s_betrayal;
+#[path = "aer/tezzeret_s_simulacrum.rs"]
+pub mod tezzeret_s_simulacrum;
 #[path = "aer/tezzeret_s_touch.rs"]
 pub mod tezzeret_s_touch;
 #[path = "aer/tezzeret_the_schemer.rs"]
@@ -1375,6 +1387,8 @@ pub mod trophy_mage;
 pub mod trueheart_duelist;
 #[path = "akh/trueheart_twins.rs"]
 pub mod trueheart_twins;
+#[path = "hou/uncage_the_menagerie.rs"]
+pub mod uncage_the_menagerie;
 #[path = "pxln/unclaimed_territory.rs"]
 pub mod unclaimed_territory;
 #[path = "hou/unconventional_tactics.rs"]
@@ -1447,6 +1461,8 @@ pub mod wander_in_death;
 pub mod wanted_scoundrels;
 #[path = "akh/warfire_javelineer.rs"]
 pub mod warfire_javelineer;
+#[path = "c17/wasitora_nekoru_queen.rs"]
+pub mod wasitora_nekoru_queen;
 #[path = "hou/wasp_of_the_bitter_end.rs"]
 pub mod wasp_of_the_bitter_end;
 #[path = "akh/wasteland_scorpion.rs"]

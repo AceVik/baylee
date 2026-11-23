@@ -17,6 +17,8 @@ pub use baylee_cards_base::{filters, generated_tokens, tokens};
 pub mod academy_raider;
 #[path = "m14/accursed_spirit.rs"]
 pub mod accursed_spirit;
+#[path = "c13/act_of_authority.rs"]
+pub mod act_of_authority;
 #[path = "gtc/adaptive_snapjaw.rs"]
 pub mod adaptive_snapjaw;
 #[path = "dgm/advent_of_the_wurm.rs"]
@@ -129,6 +131,8 @@ pub mod benthic_giant;
 pub mod biomass_mutation;
 #[path = "gtc/biovisionary.rs"]
 pub mod biovisionary;
+#[path = "dgm/blast_of_genius.rs"]
+pub mod blast_of_genius;
 #[path = "m14/blightcaster.rs"]
 pub mod blightcaster;
 #[path = "gtc/blind_obedience.rs"]
@@ -269,6 +273,8 @@ pub mod dauntless_onslaught;
 pub mod dawnstrike_paladin;
 #[path = "ths/daxos_of_meletis.rs"]
 pub mod daxos_of_meletis;
+#[path = "dgm/deadbridge_chant.rs"]
+pub mod deadbridge_chant;
 #[path = "gtc/death_s_approach.rs"]
 pub mod death_s_approach;
 #[path = "ths/deathbellow_raider.rs"]
@@ -477,6 +483,8 @@ pub mod hellkite_tyrant;
 pub mod hellraiser_goblin;
 #[path = "ths/hero_s_downfall.rs"]
 pub mod hero_s_downfall;
+#[path = "dgm/hidden_strings.rs"]
+pub mod hidden_strings;
 #[path = "gtc/high_priest_of_penance.rs"]
 pub mod high_priest_of_penance;
 #[path = "gtc/hindervines.rs"]
@@ -653,6 +661,8 @@ pub mod mistcutter_hydra;
 pub mod molten_birth;
 #[path = "gtc/molten_primordial.rs"]
 pub mod molten_primordial;
+#[path = "dgm/morgue_burst.rs"]
+pub mod morgue_burst;
 #[path = "gtc/mortus_strider.rs"]
 pub mod mortus_strider;
 #[path = "gtc/mugging.rs"]
@@ -1029,6 +1039,8 @@ pub mod swan_song;
 pub mod sydri_galvanic_genius;
 #[path = "pths/sylvan_caryatid.rs"]
 pub mod sylvan_caryatid;
+#[path = "gtc/sylvan_primordial.rs"]
+pub mod sylvan_primordial;
 #[path = "gtc/syndic_of_tithes.rs"]
 pub mod syndic_of_tithes;
 #[path = "gtc/syndicate_enforcer.rs"]

@@ -24470,3 +24470,439 @@ Make It So
 Planet Killer
 The Inner Light
 Salinae, the Ocean Mother
+Call from the Grave
+Vulshok Battlemaster
+Darksteel Colossus
+Pulse of the Grid
+Stand Together
+Acquire
+Ashen-Skin Zubera
+Dripping-Tongue Zubera
+Ember-Fist Zubera
+Floating-Dream Zubera
+Sift Through Sands
+Silent-Chant Zubera
+Okina Nightwatch
+Heed the Mists
+Toils of Night and Day
+Akuta, Born of Ash
+Death of a Thousand Stings
+Descendant of Kiyomaro
+Exile into Darkness
+Kitsune Bonesetter
+Secretkeeper
+Sink into Takenuma
+Three Dreams
+Drooling Groodion
+Mindmoil
+Twisted Justice
+Woebringer Demon
+Schismotivate
+Yore-Tiller Nephilim
+Biomantic Mastery
+Hellhole Rats
+Hide // Seek
+Retether
+Patrician's Scorn
+Incremental Growth
+Warren Pilferers
+Preeminent Captain
+Stonehewer Giant
+Boon Reflection
+Cragganwick Cremator
+Gloomwidow's Feast
+Incremental Blight
+Talara's Battalion
+Malfegor
+Martial Coup
+Predatory Advantage
+Spellbound Dragon
+Alluring Siren
+Baloth Cage Trap
+Kalitas, Bloodchief of Ghet
+Quest for the Holy Relic
+Bazaar Trader
+Permafrost Trap
+Ricochet Trap
+Brood Birthing
+Hellion Eruption
+Vengevine
+Mass Polymorph
+Blightsteel Colossus
+Fresh Meat
+Zedruu the Greathearted
+Monomania
+Mindshrieker
+Moldgraf Monstrosity
+Rhox Faithmender
+Psychic Spiral
+Sylvan Primordial
+Blast of Genius
+Deadbridge Chant
+Hidden Strings
+Morgue Burst
+Act of Authority
+Reign of the Pit
+Rotfeaster Maggot
+Crater's Claws
+Feed the Clan
+Stitcher Geralf
+Foul Renewal
+Self-Inflicted Wound
+Tapestry of the Ages
+Alhammarret's Archive
+Demonic Pact
+Necromantic Summons
+Conduit of Ruin
+Arjun, the Shifting Flame
+Oath of Chandra
+Vile Redeemer
+Gryff's Boon
+Silburlind Snapper
+Harmless Offering
+Oath of Liliana
+Noxious Gearhulk
+Saheeli Rai
+Thrasios, Triton Hero
+Tezzeret's Simulacrum
+Bontu the Glorified
+Cruel Reality
+Seeker of Insight
+Fraying Sanity
+Uncage the Menagerie
+Wasitora, Nekoru Queen
+Huatli's Spurring
+Release to the Wind
+Relic Runner
+Warcry Phoenix
+Last One Standing
+Nexus of Fate
+Estrid, the Masked
+Lord Windgrace
+Arclight Phoenix
+Chandra's Triumph
+Gideon's Triumph
+Jace's Triumph
+Bellowing Elk
+Saddled Rimestag
+Smoke Shroud
+Angel of Vitality
+Leafkin Druid
+Shared Summons
+Kadena, Slinking Sorcerer
+Doom Foretold
+Giant Opportunity
+Deathbellow War Cry
+Ilysian Caryatid
+Eerie Ultimatum
+Alpine Houndmaster
+Gadrak, the Crown-Scourge
+Liliana's Standard Bearer
+Lofty Denial
+Rookie Mistake
+Adventure Awaits
+Nahiri, Heir of the Ancients
+Nimble Trapfinder
+Resolute Strike
+Valakut Exploration
+Vine Gecko
+Zareth San, the Trickster
+Wrong Turn
+Armed and Armored
+Cinderheart Giant
+Frost Bite
+Kardur, Doomscourge
+Rise of the Dread Marn
+Roots of Wisdom
+Skull Raid
+Blex, Vexing Pest // Search for Blex
+Culling Ritual
+Gyome, Master Chef
+Honor Troll
+Rionya, Fire Dancer
+Rowan, Scholar of Sparks // Will, Scholar of Frost
+Teachings of the Archaics
+Zimone, Quandrix Prodigy
+Inevitable Betrayal
+Blue Dragon
+Hobgoblin Bandit Lord
+Minion of the Mighty
+Sudden Insight
+Tiamat
+Wandering Troubadour
+Bereaved Survivor // Dauntless Avenger
+Empty the Laboratory
+Tomb Tyrant
+Arm the Cathars
+Heron of Hope
+Howlpack Piper // Wildsong Howler
+Volatile Arsonist // Dire-Strain Anarchist
+Invoke Despair
+Kami of Transience
+All-Seeing Arbiter
+Aerial Extortionist
+Angel of Suffering
+Aven Heartstabber
+Body Count
+First Responder
+For the Family
+Graveyard Shift
+Hostile Takeover
+Oskar, Rubbish Reclaimer
+Public Enemy
+Sanguine Spy
+Sewer Crocodile
+Snooping Newsie
+Structural Assault
+Syndicate Infiltrator
+Tainted Indulgence
+Acolyte of Bahamut
+Ambitious Dragonborn
+Artificer Class
+Cloakwood Hermit
+Monster Manual // Zoological Study
+Nemesis Phoenix
+Raphael, Fiendish Savior
+Safana, Calimport Cutthroat
+Sword Coast Serpent // Capsizing Wave
+Tomb of Horrors Adventurer
+Undermountain Adventurer
+Cult Conscript
+Knight of Dawn's Light
+The Lady of Otaria
+Tobias, Doomed Conqueror
+Acolyte Hybrid
+Cybernetica Datasmith
+Lictor
+Tallyman of Nurgle
+Airlift Chaplain
+Power Plant Worker
+Tomakul Scrapsmith
+Malcator, Purity Overseer
+White Sun's Twilight
+Begin the Invasion
+Brimaz, Blight of Oreskos
+Ichor Shade
+Invasion of Azgol // Ashen Reaper
+Bilbo, Birthday Celebrant
+Denethor, Ruling Steward
+Entish Restoration
+Gandalf the Grey
+Nasty End
+Phial of Galadriel
+Shadowfax, Lord of Horses
+Sméagol, Helpful Guide
+Éowyn, Shieldmaiden
+Agatha of the Vile Cauldron
+Armory Mice
+Ash, Party Crasher
+Belligerent of the Ball
+Beluna Grandsquall // Seek Thrills
+Besotted Knight // Betroth the Beast
+Bespoke Battlegarb
+Bramble Familiar // Fetch Quest
+Break the Spell
+Charmed Clothier
+Charming Scoundrel
+Conceited Witch // Price of Beauty
+Cursed Courtier
+Cut In
+Diminisher Witch
+Ellivere of the Wild Court
+Embereth Veteran
+Eriette's Whisper
+Faunsbane Troll
+Ferocious Werefox // Guard Change
+Gadwick's First Duel
+Gallant Pie-Wielder
+Giant Inheritance
+Grand Ball Guest
+Gylwain, Casting Director
+Lady of Laughter
+Living Lectern
+Lord Skitter's Blessing
+Merry Bards
+Monstrous Rage
+Not Dead After All
+Pests of Honor
+Picklock Prankster // Free the Fae
+Protective Parents
+Redtooth Genealogist
+Rowdy Research
+Royal Treatment
+Shatter the Oath
+Spellbook Vendor
+Spiteful Hexmage
+Splashy Spellcaster
+Syr Armont, the Redeemer
+The Witch's Vanity
+Tuinvale Guide
+Twisted Fealty
+Unassuming Sage
+Vantress Transmuter // Croaking Curse
+Witch's Mark
+Witchstalker Frenzy
+Impending Flux
+Surge of Brilliance
+Riders of the Mark
+Akal Pakal, First Among Equals
+Blue, Loyal Raptor
+Breeches, Eager Pillager
+Bringer of the Last Gift
+Join the Dead
+Promise of Aclazotz // Foul Rebirth
+Savage Order
+Shipwreck Sentry
+Spelunking
+Agency Coroner
+Galvanize
+Macabre Reconstruction
+Magnetic Snuffler
+Melek, Reforged Researcher
+Tunnel Tipster
+Dimir Strandcatcher
+Bloatfly Swarm
+Paladin Elizabeth Taggerdy
+Preston Garvey, Minuteman
+Sentinel Sarah Lyons
+The Nipton Lottery
+The Prydwen, Steel Flagship
+White Glove Gourmand
+Boom Box
+Bounding Felidar
+Bridled Bighorn
+Canyon Crab
+Caustic Bronco
+Congregation Gryff
+Drover Grizzly
+Eris, Roar of the Storm
+Gila Courser
+Inventive Wingsmith
+Jem Lightfoote, Sky Explorer
+Nurturing Pixie
+One Last Job
+Ornery Tumblewagg
+Pyretic Charge
+Quilled Charger
+Seraphic Steed
+Smuggler's Surprise
+Take the Fall
+Trained Arynx
+Vengeful Regrowth
+Wrangler of the Damned
+Assassin Gauntlet
+Battlefield Improvisation
+Phantom Blade
+Senu, Keen-Eyed Protector
+Dazzling Denial
+Mabel's Mettle
+Persistent Marshstalker
+Starfall Invocation
+Vren, the Relentless
+Waterspout Warden
+Convert to Slime
+Greenhouse // Rickety Gazebo
+Leyline of Hope
+Nashi, Searcher in the Dark
+Silent Hallcreeper
+Lunar Insight
+Alacrian Jaguar
+Autarch Mammoth
+Boom Scholar
+Brightfield Glider
+Brightfield Mustang
+Bulwark Ox
+Cloudspire Coordinator
+District Mascot
+Dracosaur Auxiliary
+Fearless Swashbuckler
+Gilded Ghoda
+Gloryheath Lynx
+Guardian Sunmare
+Lagorin, Soul of Alacria
+Priest of the Crossing
+Unswerving Sloth
+Venomsac Lagac
+Ainok Wayfarer
+Eshki Dragonclaw
+Welcome the Dead
+Beatrix, Loyal General
+Elixir
+Interceptor, Shadow's Hound
+Lyse Hext
+Ninja's Blades
+Reach the Horizon
+Serah Farron // Crystallized Serah
+Sidequest: Hunt the Mark // Yiazmat, Ultimate Mark
+The Wind Crystal
+Town Greeter
+You're Not Alone
+Yuffie, Materia Hunter
+Amy Rose
+Invasive Maneuvers
+Mechan Shieldmate
+Thaumaton Torpedo
+Maximum Carnage
+Rhino, Barreling Brute
+The Mary Janes
+Avatar Destiny
+Earth Rumble Wrestlers
+How to Start a Riot
+Momo, Friendly Flier
+Ostrich-Horse
+Raucous Audience
+The Destined Black Mage
+The Destined Warrior
+The Destined White Mage
+Courier of Comestibles
+Bristlebane Outrider
+Kinscaer Sentry
+Lluwen, Imperfect Naturalist
+Wary Farmer
+April O'Neil, Hacktivist
+Everything Pizza
+Mole Module
+Shredder's Technique
+Applied Geometry
+Dissection Practice
+Ennis, Debate Moderator
+Essenceknit Scholar
+Mind Roots
+Pest Rescuer
+Vastlands Scavenger // Bind to Life
+Avengers Assemble!
+Beast, Erudite Aerialist
+Doctor Strange, Surgeon
+Fixer, Techno Terror
+Franklin Richards, Ascendant
+H.E.R.B.I.E., Lovable Robot
+Invisible Woman
+Iron Man, Master of Machines
+Jocasta, Automaton Avenger
+King Solomon's Frogs
+Nick Fury, Spymaster
+Origin of the Avengers
+The Fantastic Four
+Ultron, Artificial Malevolence
+Winter Soldier, Icy Assassin
+Cantankerous Keepers
+Eagle's Rescue
+Most Decrepit Old Bird // Speak Secrets
+Radagast of Rhosgobel
+Silvan Reveler
+Thranduil, Sindarin Liege // Silvan Rally
+Vow to Erebor
+Fblthp, Knows the Way
+Jandor, Fortuned Traveler
+Support Mission
+Traxos, Academy Guardian
+Doctor Strange, Master of Magic
+Conquest Mission
+Deep Space 9
+Gray and Adira, Forever Joined
+Kobayashi Maru Scenario
+Starfleet Spanner Jockey
+Temporal Conqueror
+The Promise of Kahless
+Transwarp Hub
+Vengeance Mission

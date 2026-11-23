@@ -787,6 +787,8 @@ pub mod preyseizer_dragon;
 pub mod primal_huntbeast;
 #[path = "m13/prized_elephant.rs"]
 pub mod prized_elephant;
+#[path = "rtr/psychic_spiral.rs"]
+pub mod psychic_spiral;
 #[path = "rtr/pursuit_of_flight.rs"]
 pub mod pursuit_of_flight;
 #[path = "dka/pyreheart_wolf.rs"]
@@ -835,6 +837,8 @@ pub mod rest_in_peace;
 pub mod restoration_angel;
 #[path = "avr/revenge_of_the_hunted.rs"]
 pub mod revenge_of_the_hunted;
+#[path = "m13/rhox_faithmender.rs"]
+pub mod rhox_faithmender;
 #[path = "avr/riders_of_gavony.rs"]
 pub mod riders_of_gavony;
 #[path = "rtr/righteous_authority.rs"]

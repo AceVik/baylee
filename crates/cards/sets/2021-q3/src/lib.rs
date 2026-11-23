@@ -51,6 +51,8 @@ pub mod bat_whisperer;
 pub mod battle_cry_goblin;
 #[path = "mid/beloved_beggar.rs"]
 pub mod beloved_beggar;
+#[path = "mid/bereaved_survivor.rs"]
+pub mod bereaved_survivor;
 #[path = "mid/bird_admirer.rs"]
 pub mod bird_admirer;
 #[path = "afr/black_dragon.rs"]
@@ -67,6 +69,8 @@ pub mod blood_pact;
 pub mod bloodline_culling;
 #[path = "mid/bloodtithe_collector.rs"]
 pub mod bloodtithe_collector;
+#[path = "afr/blue_dragon.rs"]
+pub mod blue_dragon;
 #[path = "afr/boots_of_speed.rs"]
 pub mod boots_of_speed;
 #[path = "mid/borrowed_time.rs"]
@@ -215,6 +219,8 @@ pub mod electric_revelation;
 pub mod eloise_nephalia_sleuth;
 #[path = "afr/elturgard_ranger.rs"]
 pub mod elturgard_ranger;
+#[path = "mic/empty_the_laboratory.rs"]
+pub mod empty_the_laboratory;
 #[path = "afr/eye_of_vecna.rs"]
 pub mod eye_of_vecna;
 #[path = "afr/eyes_of_the_beholder.rs"]
@@ -317,6 +323,8 @@ pub mod hive_of_the_eye_tyrant;
 pub mod hoard_robber;
 #[path = "afr/hoarding_ogre.rs"]
 pub mod hoarding_ogre;
+#[path = "afr/hobgoblin_bandit_lord.rs"]
+pub mod hobgoblin_bandit_lord;
 #[path = "afr/hobgoblin_captain.rs"]
 pub mod hobgoblin_captain;
 #[path = "mid/homestead_courage.rs"]
@@ -403,6 +411,8 @@ pub mod midnight_pathlighter;
 pub mod mimic;
 #[path = "afr/mind_flayer.rs"]
 pub mod mind_flayer;
+#[path = "afr/minion_of_the_mighty.rs"]
+pub mod minion_of_the_mighty;
 #[path = "afc/minn_wily_illusionist.rs"]
 pub mod minn_wily_illusionist;
 #[path = "afr/minsc_beloved_ranger.rs"]
@@ -585,6 +595,8 @@ pub mod storm_the_festival;
 pub mod stromkirk_bloodthief;
 #[path = "mid/stuffed_bear.rs"]
 pub mod stuffed_bear;
+#[path = "afr/sudden_insight.rs"]
+pub mod sudden_insight;
 #[path = "mid/sungold_barrage.rs"]
 pub mod sungold_barrage;
 #[path = "mid/suspicious_stowaway.rs"]
@@ -609,8 +621,12 @@ pub mod the_meathook_massacre;
 pub mod thieves_tools;
 #[path = "afc/thorough_investigation.rs"]
 pub mod thorough_investigation;
+#[path = "afr/tiamat.rs"]
+pub mod tiamat;
 #[path = "mid/tireless_hauler.rs"]
 pub mod tireless_hauler;
+#[path = "mic/tomb_tyrant.rs"]
+pub mod tomb_tyrant;
 #[path = "mid/tovolar_s_huntmaster.rs"]
 pub mod tovolar_s_huntmaster;
 #[path = "afr/treasure_vault.rs"]
@@ -647,6 +663,8 @@ pub mod voldaren_ambusher;
 pub mod voldaren_stinger;
 #[path = "afc/wand_of_orcus.rs"]
 pub mod wand_of_orcus;
+#[path = "afr/wandering_troubadour.rs"]
+pub mod wandering_troubadour;
 #[path = "afr/werewolf_pack_leader.rs"]
 pub mod werewolf_pack_leader;
 #[path = "afr/westgate_regent.rs"]

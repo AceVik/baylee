@@ -15,12 +15,16 @@ pub use baylee_cards_base::{filters, generated_tokens, tokens};
 
 #[path = "40k/aberrant.rs"]
 pub mod aberrant;
+#[path = "40k/acolyte_hybrid.rs"]
+pub mod acolyte_hybrid;
 #[path = "bro/aeronaut_cavalry.rs"]
 pub mod aeronaut_cavalry;
 #[path = "bro/aeronaut_s_wings.rs"]
 pub mod aeronaut_s_wings;
 #[path = "bro/air_marshal.rs"]
 pub mod air_marshal;
+#[path = "bro/airlift_chaplain.rs"]
+pub mod airlift_chaplain;
 #[path = "j22/alandra_sky_dreamer.rs"]
 pub mod alandra_sky_dreamer;
 #[path = "bro/alloy_animist.rs"]
@@ -147,6 +151,8 @@ pub mod convergence_of_dominion;
 pub mod cradle_clearcutter;
 #[path = "40k/cryptothrall.rs"]
 pub mod cryptothrall;
+#[path = "40k/cybernetica_datasmith.rs"]
+pub mod cybernetica_datasmith;
 #[path = "j22/daring_piracy.rs"]
 pub mod daring_piracy;
 #[path = "j22/deadly_plot.rs"]
@@ -171,6 +177,8 @@ pub mod desynchronize;
 pub mod disciples_of_gix;
 #[path = "j22/distinguished_conjurer.rs"]
 pub mod distinguished_conjurer;
+#[path = "slc/doctor_strange_master_of_magic.rs"]
+pub mod doctor_strange_master_of_magic;
 #[path = "bro/draconic_destiny.rs"]
 pub mod draconic_destiny;
 #[path = "bro/drafna_founder_of_lat_nam.rs"]
@@ -343,6 +351,8 @@ pub mod lay_down_arms;
 pub mod let_the_galaxy_burn;
 #[path = "bro/levitating_statue.rs"]
 pub mod levitating_statue;
+#[path = "40k/lictor.rs"]
+pub mod lictor;
 #[path = "j22/lita_mechanical_engineer.rs"]
 pub mod lita_mechanical_engineer;
 #[path = "40k/lokhust_heavy_destroyer.rs"]
@@ -447,6 +457,8 @@ pub mod platoon_dispenser;
 pub mod plundering_predator;
 #[path = "bro/portal_to_phyrexia.rs"]
 pub mod portal_to_phyrexia;
+#[path = "bro/power_plant_worker.rs"]
+pub mod power_plant_worker;
 #[path = "bro/powerstone_engineer.rs"]
 pub mod powerstone_engineer;
 #[path = "bro/powerstone_fracture.rs"]
@@ -577,6 +589,8 @@ pub mod swiftgear_drake;
 pub mod szarekh_the_silent_king;
 #[path = "bro/take_flight.rs"]
 pub mod take_flight;
+#[path = "40k/tallyman_of_nurgle.rs"]
+pub mod tallyman_of_nurgle;
 #[path = "bro/tawnos_s_tinkering.rs"]
 pub mod tawnos_s_tinkering;
 #[path = "bro/tawnos_the_toymaker.rs"]
@@ -635,6 +649,8 @@ pub mod tocasia_s_onulet;
 pub mod tocasia_s_welcome;
 #[path = "bro/tomakul_honor_guard.rs"]
 pub mod tomakul_honor_guard;
+#[path = "bro/tomakul_scrapsmith.rs"]
+pub mod tomakul_scrapsmith;
 #[path = "40k/tomb_fortress.rs"]
 pub mod tomb_fortress;
 #[path = "j22/towering_gibbon.rs"]

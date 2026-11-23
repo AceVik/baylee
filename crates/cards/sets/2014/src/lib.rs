@@ -229,6 +229,8 @@ pub mod courser_of_kruphix;
 pub mod covenant_of_blood;
 #[path = "ktk/cranial_archive.rs"]
 pub mod cranial_archive;
+#[path = "ktk/crater_s_claws.rs"]
+pub mod crater_s_claws;
 #[path = "c14/creeperhulk.rs"]
 pub mod creeperhulk;
 #[path = "m15/crowd_s_favor.rs"]
@@ -377,6 +379,8 @@ pub mod fate_unraveler;
 pub mod feast_of_dreams;
 #[path = "ktk/feat_of_resistance.rs"]
 pub mod feat_of_resistance;
+#[path = "ktk/feed_the_clan.rs"]
+pub mod feed_the_clan;
 #[path = "c14/feldon_of_the_third_path.rs"]
 pub mod feldon_of_the_third_path;
 #[path = "bng/felhide_brawler.rs"]
@@ -881,6 +885,8 @@ pub mod reap_what_is_sown;
 pub mod reckless_reveler;
 #[path = "pm15/reclamation_sage.rs"]
 pub mod reclamation_sage;
+#[path = "cns/reign_of_the_pit.rs"]
+pub mod reign_of_the_pit;
 #[path = "jou/renowned_weaver.rs"]
 pub mod renowned_weaver;
 #[path = "m15/research_assistant.rs"]
@@ -915,6 +921,8 @@ pub mod roar_of_challenge;
 pub mod rogue_s_gloves;
 #[path = "jou/rollick_of_abandon.rs"]
 pub mod rollick_of_abandon;
+#[path = "m15/rotfeaster_maggot.rs"]
+pub mod rotfeaster_maggot;
 #[path = "jou/rotted_hulk.rs"]
 pub mod rotted_hulk;
 #[path = "ktk/rotting_mastodon.rs"]
@@ -1073,6 +1081,8 @@ pub mod squelching_leeches;
 pub mod starfall;
 #[path = "m15/statute_of_denial.rs"]
 pub mod statute_of_denial;
+#[path = "c14/stitcher_geralf.rs"]
+pub mod stitcher_geralf;
 #[path = "f14/stoke_the_flames.rs"]
 pub mod stoke_the_flames;
 #[path = "bng/stormcaller_of_keranos.rs"]

@@ -15,6 +15,8 @@ pub use baylee_cards_base::{filters, generated_tokens, tokens};
 
 #[path = "5dn/abuna_s_chant.rs"]
 pub mod abuna_s_chant;
+#[path = "5dn/acquire.rs"]
+pub mod acquire;
 #[path = "5dn/advanced_hoverguard.rs"]
 pub mod advanced_hoverguard;
 #[path = "dst/aether_vial.rs"]
@@ -63,6 +65,8 @@ pub mod arcbound_worker;
 pub mod armed_response;
 #[path = "5dn/artificer_s_intuition.rs"]
 pub mod artificer_s_intuition;
+#[path = "chk/ashen_skin_zubera.rs"]
+pub mod ashen_skin_zubera;
 #[path = "chk/aura_of_dominion.rs"]
 pub mod aura_of_dominion;
 #[path = "5dn/auriok_champion.rs"]
@@ -181,6 +185,8 @@ pub mod dance_of_shadows;
 pub mod darksteel_brute;
 #[path = "dst/darksteel_citadel.rs"]
 pub mod darksteel_citadel;
+#[path = "dst/darksteel_colossus.rs"]
+pub mod darksteel_colossus;
 #[path = "dst/darksteel_forge.rs"]
 pub mod darksteel_forge;
 #[path = "dst/darksteel_gargoyle.rs"]
@@ -209,6 +215,8 @@ pub mod distress;
 pub mod dragon_s_claw;
 #[path = "dst/drill_skimmer.rs"]
 pub mod drill_skimmer;
+#[path = "chk/dripping_tongue_zubera.rs"]
+pub mod dripping_tongue_zubera;
 #[path = "dst/drooling_ogre.rs"]
 pub mod drooling_ogre;
 #[path = "5dn/dross_crocodile.rs"]
@@ -227,6 +235,8 @@ pub mod eerie_procession;
 pub mod eiganjo_castle;
 #[path = "chk/eight_and_a_half_tails.rs"]
 pub mod eight_and_a_half_tails;
+#[path = "chk/ember_fist_zubera.rs"]
+pub mod ember_fist_zubera;
 #[path = "dst/emissary_of_despair.rs"]
 pub mod emissary_of_despair;
 #[path = "dst/emissary_of_hope.rs"]
@@ -263,6 +273,8 @@ pub mod fill_with_fright;
 pub mod fist_of_suns;
 #[path = "5dn/fleshgrafter.rs"]
 pub mod fleshgrafter;
+#[path = "chk/floating_dream_zubera.rs"]
+pub mod floating_dream_zubera;
 #[path = "chk/forbidden_orchard.rs"]
 pub mod forbidden_orchard;
 #[path = "chk/frostwielder.rs"]
@@ -623,6 +635,8 @@ pub mod psychic_puppetry;
 pub mod pteron_ghost;
 #[path = "chk/pull_under.rs"]
 pub mod pull_under;
+#[path = "dst/pulse_of_the_grid.rs"]
+pub mod pulse_of_the_grid;
 #[path = "dst/purge.rs"]
 pub mod purge;
 #[path = "dst/quicksilver_behemoth.rs"]
@@ -723,8 +737,12 @@ pub mod shizo_death_s_storehouse;
 pub mod shriveling_rot;
 #[path = "dst/shunt.rs"]
 pub mod shunt;
+#[path = "chk/sift_through_sands.rs"]
+pub mod sift_through_sands;
 #[path = "5dn/silent_arbiter.rs"]
 pub mod silent_arbiter;
+#[path = "chk/silent_chant_zubera.rs"]
+pub mod silent_chant_zubera;
 #[path = "chk/sire_of_the_storm.rs"]
 pub mod sire_of_the_storm;
 #[path = "5dn/skullcage.rs"]
@@ -785,6 +803,8 @@ pub mod squelch;
 pub mod staff_of_domination;
 #[path = "5dn/stand_firm.rs"]
 pub mod stand_firm;
+#[path = "dst/stand_together.rs"]
+pub mod stand_together;
 #[path = "5dn/stasis_cocoon.rs"]
 pub mod stasis_cocoon;
 #[path = "dst/steelshaper_apprentice.rs"]

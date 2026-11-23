@@ -29,6 +29,8 @@ pub mod aerie_mystics;
 pub mod aether_figment;
 #[path = "zen/akoum_refuge.rs"]
 pub mod akoum_refuge;
+#[path = "m10/alluring_siren.rs"]
+pub mod alluring_siren;
 #[path = "con_/ancient_ziggurat.rs"]
 pub mod ancient_ziggurat;
 #[path = "m10/angel_s_mercy.rs"]
@@ -57,6 +59,8 @@ pub mod aven_squire;
 pub mod aven_trailblazer;
 #[path = "m10/awakener_druid.rs"]
 pub mod awakener_druid;
+#[path = "zen/baloth_cage_trap.rs"]
+pub mod baloth_cage_trap;
 #[path = "zen/baloth_woodcrasher.rs"]
 pub mod baloth_woodcrasher;
 #[path = "m10/baneslayer_angel.rs"]
@@ -455,6 +459,8 @@ pub mod kabira_crossroads;
 pub mod kabira_evangel;
 #[path = "con_/kaleidostone.rs"]
 pub mod kaleidostone;
+#[path = "zen/kalitas_bloodchief_of_ghet.rs"]
+pub mod kalitas_bloodchief_of_ghet;
 #[path = "m10/kalonian_behemoth.rs"]
 pub mod kalonian_behemoth;
 #[path = "arb/karrthus_tyrant_of_jund.rs"]
@@ -555,6 +561,8 @@ pub mod magosi_the_waterveil;
 pub mod makindi_shieldmate;
 #[path = "zen/malakir_bloodwitch.rs"]
 pub mod malakir_bloodwitch;
+#[path = "pcon/malfegor.rs"]
+pub mod malfegor;
 #[path = "con_/manaforce_mace.rs"]
 pub mod manaforce_mace;
 #[path = "arb/marisi_s_twinclaws.rs"]
@@ -569,6 +577,8 @@ pub mod marrow_chomper;
 pub mod marsh_casualties;
 #[path = "zen/marsh_flats.rs"]
 pub mod marsh_flats;
+#[path = "con_/martial_coup.rs"]
+pub mod martial_coup;
 #[path = "arb/mask_of_riddles.rs"]
 pub mod mask_of_riddles;
 #[path = "con_/master_transmuter.rs"]
@@ -695,6 +705,8 @@ pub mod piranha_marsh;
 pub mod planar_cleansing;
 #[path = "zen/plated_geopede.rs"]
 pub mod plated_geopede;
+#[path = "arb/predatory_advantage.rs"]
+pub mod predatory_advantage;
 #[path = "zen/predatory_urge.rs"]
 pub mod predatory_urge;
 #[path = "zen/primal_bellow.rs"]
@@ -713,6 +725,8 @@ pub mod quest_for_pure_flame;
 pub mod quest_for_the_gemblades;
 #[path = "zen/quest_for_the_gravelord.rs"]
 pub mod quest_for_the_gravelord;
+#[path = "zen/quest_for_the_holy_relic.rs"]
+pub mod quest_for_the_holy_relic;
 #[path = "con_/rakka_mar.rs"]
 pub mod rakka_mar;
 #[path = "p09/rampaging_baloths.rs"]
@@ -853,6 +867,8 @@ pub mod soul_s_majesty;
 pub mod soul_stair_expedition;
 #[path = "zen/spell_pierce.rs"]
 pub mod spell_pierce;
+#[path = "arb/spellbound_dragon.rs"]
+pub mod spellbound_dragon;
 #[path = "arb/spellbreaker_behemoth.rs"]
 pub mod spellbreaker_behemoth;
 #[path = "zen/sphinx_of_jwar_isle.rs"]

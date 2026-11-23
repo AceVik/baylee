@@ -197,6 +197,8 @@ pub mod leyline_axe;
 pub mod loot_exuberant_explorer;
 #[path = "fdn/luminous_rebuke.rs"]
 pub mod luminous_rebuke;
+#[path = "fdn/lunar_insight.rs"]
+pub mod lunar_insight;
 #[path = "fdn/midnight_snack.rs"]
 pub mod midnight_snack;
 #[path = "fdn/mischievous_mystic.rs"]

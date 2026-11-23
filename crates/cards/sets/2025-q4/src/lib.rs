@@ -43,6 +43,8 @@ pub mod animal_attendant;
 pub mod appa_aang_s_companion;
 #[path = "tle/appa_the_vigilant.rs"]
 pub mod appa_the_vigilant;
+#[path = "ptla/avatar_destiny.rs"]
+pub mod avatar_destiny;
 #[path = "tla/avatar_enthusiasts.rs"]
 pub mod avatar_enthusiasts;
 #[path = "tle/avatar_kyoshi_earthbender.rs"]
@@ -133,6 +135,8 @@ pub mod earth_kingdom_jailer;
 pub mod earth_kingdom_protectors;
 #[path = "tla/earth_kingdom_soldier.rs"]
 pub mod earth_kingdom_soldier;
+#[path = "tla/earth_rumble_wrestlers.rs"]
+pub mod earth_rumble_wrestlers;
 #[path = "tla/earth_village_ruffians.rs"]
 pub mod earth_village_ruffians;
 #[path = "tla/earthbending_lesson.rs"]
@@ -237,6 +241,8 @@ pub mod hippo_cows;
 pub mod hog_monkey;
 #[path = "tle/hook_swords.rs"]
 pub mod hook_swords;
+#[path = "tla/how_to_start_a_riot.rs"]
+pub mod how_to_start_a_riot;
 #[path = "tla/iguana_parrot.rs"]
 pub mod iguana_parrot;
 #[path = "tle/inspired_insurgent.rs"]
@@ -331,6 +337,8 @@ pub mod meteor_sword;
 pub mod misty_palms_oasis;
 #[path = "tle/moku_meandering_drummer.rs"]
 pub mod moku_meandering_drummer;
+#[path = "ptla/momo_friendly_flier.rs"]
+pub mod momo_friendly_flier;
 #[path = "tla/momo_playful_pet.rs"]
 pub mod momo_playful_pet;
 #[path = "tle/momo_rambunctious_rascal.rs"]
@@ -347,6 +355,8 @@ pub mod octopus_form;
 pub mod omashu_city;
 #[path = "tla/origin_of_metalbending.rs"]
 pub mod origin_of_metalbending;
+#[path = "tla/ostrich_horse.rs"]
+pub mod ostrich_horse;
 #[path = "tla/otter_penguin.rs"]
 pub mod otter_penguin;
 #[path = "tle/overwhelming_victory.rs"]
@@ -373,6 +383,8 @@ pub mod purple_pentapus;
 pub mod rabaroo_troop;
 #[path = "ptla/ran_and_shaw.rs"]
 pub mod ran_and_shaw;
+#[path = "tla/raucous_audience.rs"]
+pub mod raucous_audience;
 #[path = "ptla/raven_eagle.rs"]
 pub mod raven_eagle;
 #[path = "tla/razor_rings.rs"]

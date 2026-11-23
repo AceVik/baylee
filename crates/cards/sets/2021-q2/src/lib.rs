@@ -93,6 +93,8 @@ pub mod blade_historian;
 pub mod blazing_rootwalla;
 #[path = "mh2/blessed_respite.rs"]
 pub mod blessed_respite;
+#[path = "pstx/blex_vexing_pest.rs"]
+pub mod blex_vexing_pest;
 #[path = "c21/blight_mound.rs"]
 pub mod blight_mound;
 #[path = "stx/blood_age_general.rs"]
@@ -175,6 +177,8 @@ pub mod crack_open;
 pub mod creative_outburst;
 #[path = "stx/crushing_disappointment.rs"]
 pub mod crushing_disappointment;
+#[path = "pstx/culling_ritual.rs"]
+pub mod culling_ritual;
 #[path = "pstx/culmination_of_studies.rs"]
 pub mod culmination_of_studies;
 #[path = "stx/curate.rs"]
@@ -337,6 +341,8 @@ pub mod grist_the_hunger_tide;
 pub mod guardian_augmenter;
 #[path = "mh2/guardian_kirin.rs"]
 pub mod guardian_kirin;
+#[path = "c21/gyome_master_chef.rs"]
+pub mod gyome_master_chef;
 #[path = "stx/hall_monitor.rs"]
 pub mod hall_monitor;
 #[path = "pstx/hall_of_oracles.rs"]
@@ -353,12 +359,16 @@ pub mod heated_debate;
 pub mod hell_mongrel;
 #[path = "mh2/herd_baloth.rs"]
 pub mod herd_baloth;
+#[path = "stx/honor_troll.rs"]
+pub mod honor_troll;
 #[path = "pmh2/ignoble_hierarch.rs"]
 pub mod ignoble_hierarch;
 #[path = "pstx/illuminate_history.rs"]
 pub mod illuminate_history;
 #[path = "stx/illustrious_historian.rs"]
 pub mod illustrious_historian;
+#[path = "pmh2/inevitable_betrayal.rs"]
+pub mod inevitable_betrayal;
 #[path = "stx/infuse_with_vitality.rs"]
 pub mod infuse_with_vitality;
 #[path = "stx/inkling_summoning.rs"]
@@ -565,6 +575,8 @@ pub mod returned_pastcaller;
 pub mod revolutionist;
 #[path = "mh2/rift_sower.rs"]
 pub mod rift_sower;
+#[path = "c21/rionya_fire_dancer.rs"]
+pub mod rionya_fire_dancer;
 #[path = "stx/rip_apart.rs"]
 pub mod rip_apart;
 #[path = "pmh2/rishadan_dockhand.rs"]
@@ -573,6 +585,8 @@ pub mod rishadan_dockhand;
 pub mod road;
 #[path = "c21/rousing_refrain.rs"]
 pub mod rousing_refrain;
+#[path = "pstx/rowan_scholar_of_sparks.rs"]
+pub mod rowan_scholar_of_sparks;
 #[path = "mh2/rustvale_bridge.rs"]
 pub mod rustvale_bridge;
 #[path = "mh2/said.rs"]
@@ -709,6 +723,8 @@ pub mod tangletrap;
 pub mod tavern_scoundrel;
 #[path = "stx/teach_by_example.rs"]
 pub mod teach_by_example;
+#[path = "pstx/teachings_of_the_archaics.rs"]
+pub mod teachings_of_the_archaics;
 #[path = "stx/team_pennant.rs"]
 pub mod team_pennant;
 #[path = "pstx/tempted_by_the_oriq.rs"]
@@ -817,3 +833,5 @@ pub mod wren_s_run_hydra;
 pub mod yavimaya_cradle_of_growth;
 #[path = "stx/zephyr_boots.rs"]
 pub mod zephyr_boots;
+#[path = "stx/zimone_quandrix_prodigy.rs"]
+pub mod zimone_quandrix_prodigy;

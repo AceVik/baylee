@@ -17,6 +17,8 @@ pub use baylee_cards_base::{filters, generated_tokens, tokens};
 pub mod acquired_mutation;
 #[path = "mkm/aftermath_analyst.rs"]
 pub mod aftermath_analyst;
+#[path = "mkm/agency_coroner.rs"]
+pub mod agency_coroner;
 #[path = "pip/agent_frank_horrigan.rs"]
 pub mod agent_frank_horrigan;
 #[path = "mkm/agrus_kos_spirit_of_justice.rs"]
@@ -61,6 +63,8 @@ pub mod behind_the_mask;
 pub mod benthic_criminologists;
 #[path = "clu/billiard_room.rs"]
 pub mod billiard_room;
+#[path = "pip/bloatfly_swarm.rs"]
+pub mod bloatfly_swarm;
 #[path = "mkm/bolrac_clan_basher.rs"]
 pub mod bolrac_clan_basher;
 #[path = "pip/boomer_scrapper.rs"]
@@ -157,6 +161,8 @@ pub mod desolate_mire;
 pub mod detective_of_the_month;
 #[path = "pip/diamond_city.rs"]
 pub mod diamond_city;
+#[path = "clu/dimir_strandcatcher.rs"]
+pub mod dimir_strandcatcher;
 #[path = "clu/dining_room.rs"]
 pub mod dining_room;
 #[path = "pip/dogmeat_ever_loyal.rs"]
@@ -215,6 +221,8 @@ pub mod forum_familiar;
 pub mod frenzied_gorespawn;
 #[path = "mkm/fuss.rs"]
 pub mod fuss;
+#[path = "mkm/galvanize.rs"]
+pub mod galvanize;
 #[path = "pip/gary_clone.rs"]
 pub mod gary_clone;
 #[path = "mkm/gearbane_orangutan.rs"]
@@ -307,6 +315,10 @@ pub mod loxodon_eavesdropper;
 pub mod lush_portico;
 #[path = "pip/mac_cready_lamplight_mayor.rs"]
 pub mod mac_cready_lamplight_mayor;
+#[path = "mkm/macabre_reconstruction.rs"]
+pub mod macabre_reconstruction;
+#[path = "mkm/magnetic_snuffler.rs"]
+pub mod magnetic_snuffler;
 #[path = "mkm/make_your_move.rs"]
 pub mod make_your_move;
 #[path = "mkm/makeshift_binding.rs"]
@@ -321,6 +333,8 @@ pub mod massacre_girl_known_killer;
 pub mod meddling_youths;
 #[path = "pip/megaton_s_fate.rs"]
 pub mod megaton_s_fate;
+#[path = "mkm/melek_reforged_researcher.rs"]
+pub mod melek_reforged_researcher;
 #[path = "mkc/merchant_of_truth.rs"]
 pub mod merchant_of_truth;
 #[path = "mkm/meticulous_archive.rs"]
@@ -361,6 +375,8 @@ pub mod out_cold;
 pub mod overflowing_basin;
 #[path = "pip/paladin_danse_steel_maverick.rs"]
 pub mod paladin_danse_steel_maverick;
+#[path = "pip/paladin_elizabeth_taggerdy.rs"]
+pub mod paladin_elizabeth_taggerdy;
 #[path = "mkm/person_of_interest.rs"]
 pub mod person_of_interest;
 #[path = "mkm/persuasive_interrogators.rs"]
@@ -375,6 +391,8 @@ pub mod piper_wright_publick_reporter;
 pub mod powder_ganger;
 #[path = "pip/pre_war_formalwear.rs"]
 pub mod pre_war_formalwear;
+#[path = "pip/preston_garvey_minuteman.rs"]
+pub mod preston_garvey_minuteman;
 #[path = "mkm/presumed_dead.rs"]
 pub mod presumed_dead;
 #[path = "mkm/private_eye.rs"]
@@ -425,6 +443,8 @@ pub mod secret_passage;
 pub mod securitron_squadron;
 #[path = "clu/senator_peacock.rs"]
 pub mod senator_peacock;
+#[path = "pip/sentinel_sarah_lyons.rs"]
+pub mod sentinel_sarah_lyons;
 #[path = "mkm/shadowy_backstreet.rs"]
 pub mod shadowy_backstreet;
 #[path = "pip/shaun_father_of_synths.rs"]
@@ -465,6 +485,10 @@ pub mod tangletrove_kelp;
 pub mod tesak_judith_s_hellhound;
 #[path = "mkm/the_chase_is_on.rs"]
 pub mod the_chase_is_on;
+#[path = "pip/the_nipton_lottery.rs"]
+pub mod the_nipton_lottery;
+#[path = "pip/the_prydwen_steel_flagship.rs"]
+pub mod the_prydwen_steel_flagship;
 #[path = "mkm/they_went_this_way.rs"]
 pub mod they_went_this_way;
 #[path = "mkm/thinking_cap.rs"]
@@ -483,6 +507,8 @@ pub mod toxin_analysis;
 pub mod tribune_of_rot;
 #[path = "mkm/trostani_three_whispers.rs"]
 pub mod trostani_three_whispers;
+#[path = "mkm/tunnel_tipster.rs"]
+pub mod tunnel_tipster;
 #[path = "mkm/unauthorized_exit.rs"]
 pub mod unauthorized_exit;
 #[path = "mkm/undercity_eliminator.rs"]
@@ -521,6 +547,8 @@ pub mod voja_jaws_of_the_conclave;
 pub mod warleader_s_call;
 #[path = "pip/wasteland_raider.rs"]
 pub mod wasteland_raider;
+#[path = "pip/white_glove_gourmand.rs"]
+pub mod white_glove_gourmand;
 #[path = "pip/wild_wasteland.rs"]
 pub mod wild_wasteland;
 #[path = "mkm/wispdrinker_vampire.rs"]

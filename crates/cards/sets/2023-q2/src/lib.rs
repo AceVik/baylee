@@ -67,8 +67,12 @@ pub mod banquet_guests;
 pub mod barad_dur;
 #[path = "ltr/battle_scarred_goblin.rs"]
 pub mod battle_scarred_goblin;
+#[path = "moc/begin_the_invasion.rs"]
+pub mod begin_the_invasion;
 #[path = "ltc/beregond_of_the_guard.rs"]
 pub mod beregond_of_the_guard;
+#[path = "ltc/bilbo_birthday_celebrant.rs"]
+pub mod bilbo_birthday_celebrant;
 #[path = "ltr/bilbo_retired_burglar.rs"]
 pub mod bilbo_retired_burglar;
 #[path = "ltr/bilbo_s_ring.rs"]
@@ -109,6 +113,8 @@ pub mod botanical_brawler;
 pub mod brandywine_farmer;
 #[path = "moc/bright_palm_soul_awakener.rs"]
 pub mod bright_palm_soul_awakener;
+#[path = "moc/brimaz_blight_of_oreskos.rs"]
+pub mod brimaz_blight_of_oreskos;
 #[path = "mom/burning_sun_s_fury.rs"]
 pub mod burning_sun_s_fury;
 #[path = "ltr/butterbur_bree_innkeeper.rs"]
@@ -181,6 +187,8 @@ pub mod deceive_the_messenger;
 pub mod delighted_halfling;
 #[path = "moc/deluxe_dragster.rs"]
 pub mod deluxe_dragster;
+#[path = "ltr/denethor_ruling_steward.rs"]
+pub mod denethor_ruling_steward;
 #[path = "ltc/denethor_stone_seer.rs"]
 pub mod denethor_stone_seer;
 #[path = "mom/disturbing_conversion.rs"]
@@ -221,12 +229,16 @@ pub mod enraged_huorn;
 pub mod ent_draught_basin;
 #[path = "ltr/ent_s_fury.rs"]
 pub mod ent_s_fury;
+#[path = "ltr/entish_restoration.rs"]
+pub mod entish_restoration;
 #[path = "ltc/eomer_king_of_rohan.rs"]
 pub mod eomer_king_of_rohan;
 #[path = "ltr/eomer_marshal_of_rohan.rs"]
 pub mod eomer_marshal_of_rohan;
 #[path = "ltr/eowyn_lady_of_rohan.rs"]
 pub mod eowyn_lady_of_rohan;
+#[path = "ltc/eowyn_shieldmaiden.rs"]
+pub mod eowyn_shieldmaiden;
 #[path = "mom/ephara_s_dispersal.rs"]
 pub mod ephara_s_dispersal;
 #[path = "ltr/erebor_flamesmith.rs"]
@@ -305,6 +317,8 @@ pub mod galadhrim_guide;
 pub mod galadriel_gift_giver;
 #[path = "ltc/galadriel_light_of_valinor.rs"]
 pub mod galadriel_light_of_valinor;
+#[path = "ltr/gandalf_the_grey.rs"]
+pub mod gandalf_the_grey;
 #[path = "ltr/generous_ent.rs"]
 pub mod generous_ent;
 #[path = "mom/ghalta_and_mavren.rs"]
@@ -399,6 +413,8 @@ pub mod horn_of_gondor;
 pub mod horses_of_the_bruinen;
 #[path = "mom/ichor_drinker.rs"]
 pub mod ichor_drinker;
+#[path = "mom/ichor_shade.rs"]
+pub mod ichor_shade;
 #[path = "ltr/improvised_club.rs"]
 pub mod improvised_club;
 #[path = "ltc/in_the_darkness_bind_them.rs"]
@@ -413,6 +429,8 @@ pub mod inherited_envelope;
 pub mod injector_crocodile;
 #[path = "mom/interdisciplinary_mascot.rs"]
 pub mod interdisciplinary_mascot;
+#[path = "mom/invasion_of_azgol.rs"]
+pub mod invasion_of_azgol;
 #[path = "mom/invasion_of_belenon.rs"]
 pub mod invasion_of_belenon;
 #[path = "mom/invasion_of_dominaria.rs"]
@@ -581,6 +599,8 @@ pub mod motivated_pony;
 pub mod mount_doom;
 #[path = "ltr/mushroom_watchdogs.rs"]
 pub mod mushroom_watchdogs;
+#[path = "ltr/nasty_end.rs"]
+pub mod nasty_end;
 #[path = "ltc/nazgul_battle_mace.rs"]
 pub mod nazgul_battle_mace;
 #[path = "moc/nesting_dovehawk.rs"]
@@ -633,6 +653,8 @@ pub mod pain_distributor;
 pub mod pelargir_survivor;
 #[path = "ltr/peregrin_took.rs"]
 pub mod peregrin_took;
+#[path = "ltr/phial_of_galadriel.rs"]
+pub mod phial_of_galadriel;
 #[path = "mom/phyrexian_archivist.rs"]
 pub mod phyrexian_archivist;
 #[path = "mom/phyrexian_awakening.rs"]
@@ -701,6 +723,8 @@ pub mod reprieve;
 pub mod revive_the_shire;
 #[path = "ltc/riders_of_rohan.rs"]
 pub mod riders_of_rohan;
+#[path = "ltr/riders_of_the_mark.rs"]
+pub mod riders_of_the_mark;
 #[path = "ltr/ringwraiths.rs"]
 pub mod ringwraiths;
 #[path = "ltr/rising_of_the_day.rs"]
@@ -757,6 +781,8 @@ pub mod seraph_of_new_capenna;
 pub mod serpent_blade_assailant;
 #[path = "ltr/shadow_summoning.rs"]
 pub mod shadow_summoning;
+#[path = "ltr/shadowfax_lord_of_horses.rs"]
+pub mod shadowfax_lord_of_horses;
 #[path = "ltr/shagrat_loot_bearer.rs"]
 pub mod shagrat_loot_bearer;
 #[path = "mom/shatter_the_source.rs"]
@@ -785,6 +811,8 @@ pub mod sigarda_font_of_blessings;
 pub mod sigiled_sentinel;
 #[path = "ltr/slip_on_the_ring.rs"]
 pub mod slip_on_the_ring;
+#[path = "ltr/smeagol_helpful_guide.rs"]
+pub mod smeagol_helpful_guide;
 #[path = "ltr/snarling_warg.rs"]
 pub mod snarling_warg;
 #[path = "ltr/soldier_of_the_grey_host.rs"]

@@ -39,6 +39,8 @@ pub mod agent_of_kotis;
 pub mod aggressive_negotiations;
 #[path = "fin/ahriman.rs"]
 pub mod ahriman;
+#[path = "tdm/ainok_wayfarer.rs"]
+pub mod ainok_wayfarer;
 #[path = "fin/airship_crash.rs"]
 pub mod airship_crash;
 #[path = "fin/al_bhed_salvagers.rs"]
@@ -91,6 +93,8 @@ pub mod barret_wallace;
 pub mod battle_menu;
 #[path = "tdm/bearer_of_glory.rs"]
 pub mod bearer_of_glory;
+#[path = "fin/beatrix_loyal_general.rs"]
+pub mod beatrix_loyal_general;
 #[path = "tdc/become_the_avalanche.rs"]
 pub mod become_the_avalanche;
 #[path = "tdm/bewildering_blizzard.rs"]
@@ -255,6 +259,8 @@ pub mod effortless_master;
 pub mod eject;
 #[path = "fic/elena_turk_recruit.rs"]
 pub mod elena_turk_recruit;
+#[path = "fin/elixir.rs"]
+pub mod elixir;
 #[path = "tdc/elsha_threefold_master.rs"]
 pub mod elsha_threefold_master;
 #[path = "ptdm/elspeth_storm_slayer.rs"]
@@ -267,6 +273,8 @@ pub mod emet_selch_unsundered;
 pub mod encroaching_dragonstorm;
 #[path = "tdm/equilibrium_adept.rs"]
 pub mod equilibrium_adept;
+#[path = "ptdm/eshki_dragonclaw.rs"]
+pub mod eshki_dragonclaw;
 #[path = "fin/ether.rs"]
 pub mod ether;
 #[path = "fin/evil_reawakened.rs"]
@@ -379,6 +387,8 @@ pub mod insomnia_crown_city;
 pub mod inspirited_vanguard;
 #[path = "fin/instant_ramen.rs"]
 pub mod instant_ramen;
+#[path = "fic/interceptor_shadow_s_hound.rs"]
+pub mod interceptor_shadow_s_hound;
 #[path = "tdm/iridescent_tiger.rs"]
 pub mod iridescent_tiger;
 #[path = "fin/iron_giant.rs"]
@@ -445,6 +455,8 @@ pub mod loxodon_battle_priest;
 pub mod lulu_stern_guardian;
 #[path = "fin/lunatic_pandora.rs"]
 pub mod lunatic_pandora;
+#[path = "fic/lyse_hext.rs"]
+pub mod lyse_hext;
 #[path = "fin/machinist_s_arsenal.rs"]
 pub mod machinist_s_arsenal;
 #[path = "ptdm/maelstrom_of_the_spirit_dragon.rs"]
@@ -493,6 +505,8 @@ pub mod narset_s_rebuke;
 pub mod neriv_heart_of_the_storm;
 #[path = "tdm/nightblade_brigade.rs"]
 pub mod nightblade_brigade;
+#[path = "fin/ninja_s_blades.rs"]
+pub mod ninja_s_blades;
 #[path = "fic/o_aka_traveling_merchant.rs"]
 pub mod o_aka_traveling_merchant;
 #[path = "tdm/osseous_exhale.rs"]
@@ -537,6 +551,8 @@ pub mod rally_the_monastery;
 pub mod rampart_architect;
 #[path = "fin/raubahn_bull_of_ala_mhigo.rs"]
 pub mod raubahn_bull_of_ala_mhigo;
+#[path = "fin/reach_the_horizon.rs"]
+pub mod reach_the_horizon;
 #[path = "tdm/rebellious_strike.rs"]
 pub mod rebellious_strike;
 #[path = "fin/red_mage_s_rapier.rs"]
@@ -619,6 +635,8 @@ pub mod seize_opportunity;
 pub mod sephiroth_planet_s_heir;
 #[path = "fin/sephiroth_s_intervention.rs"]
 pub mod sephiroth_s_intervention;
+#[path = "fin/serah_farron.rs"]
+pub mod serah_farron;
 #[path = "fic/setzer_wandering_gambler.rs"]
 pub mod setzer_wandering_gambler;
 #[path = "fin/seymour_flux.rs"]
@@ -645,6 +663,8 @@ pub mod sibsig_appraiser;
 pub mod sidequest_card_collection;
 #[path = "fin/sidequest_catch_a_fish.rs"]
 pub mod sidequest_catch_a_fish;
+#[path = "fin/sidequest_hunt_the_mark.rs"]
+pub mod sidequest_hunt_the_mark;
 #[path = "fin/sidequest_raise_a_chocobo.rs"]
 pub mod sidequest_raise_a_chocobo;
 #[path = "ptdm/sidisi_regent_of_the_mire.rs"]
@@ -747,6 +767,12 @@ pub mod teval_the_balanced_scale;
 pub mod thancred_waters;
 #[path = "fin/the_crystal_s_chosen.rs"]
 pub mod the_crystal_s_chosen;
+#[path = "fic/the_destined_black_mage.rs"]
+pub mod the_destined_black_mage;
+#[path = "fic/the_destined_warrior.rs"]
+pub mod the_destined_warrior;
+#[path = "fic/the_destined_white_mage.rs"]
+pub mod the_destined_white_mage;
 #[path = "fin/the_earth_crystal.rs"]
 pub mod the_earth_crystal;
 #[path = "fic/the_falcon_airship_restored.rs"]
@@ -761,6 +787,8 @@ pub mod the_lunar_whale;
 pub mod the_regalia;
 #[path = "fin/the_wandering_minstrel.rs"]
 pub mod the_wandering_minstrel;
+#[path = "fin/the_wind_crystal.rs"]
+pub mod the_wind_crystal;
 #[path = "fin/thief_s_knife.rs"]
 pub mod thief_s_knife;
 #[path = "ptdm/thunder_of_unity.rs"]
@@ -769,6 +797,8 @@ pub mod thunder_of_unity;
 pub mod tidus_blitzball_star;
 #[path = "fin/tonberry.rs"]
 pub mod tonberry;
+#[path = "fin/town_greeter.rs"]
+pub mod town_greeter;
 #[path = "fin/travel_the_overworld.rs"]
 pub mod travel_the_overworld;
 #[path = "fin/treno_dark_city.rs"]
@@ -823,6 +853,8 @@ pub mod warrior_s_sword;
 pub mod watcher_of_the_wayside;
 #[path = "tdm/wayspeaker_bodyguard.rs"]
 pub mod wayspeaker_bodyguard;
+#[path = "tdc/welcome_the_dead.rs"]
+pub mod welcome_the_dead;
 #[path = "fin/white_auracite.rs"]
 pub mod white_auracite;
 #[path = "fin/white_mage_s_staff.rs"]
@@ -843,6 +875,10 @@ pub mod wrecking_ball_arm;
 pub mod xande_dark_mage;
 #[path = "tdm/yathan_tombguard.rs"]
 pub mod yathan_tombguard;
+#[path = "fin/you_re_not_alone.rs"]
+pub mod you_re_not_alone;
+#[path = "fic/yuffie_materia_hunter.rs"]
+pub mod yuffie_materia_hunter;
 #[path = "fin/yuna_hope_of_spira.rs"]
 pub mod yuna_hope_of_spira;
 #[path = "fic/yuna_s_whistle.rs"]

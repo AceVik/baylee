@@ -187,6 +187,8 @@ pub mod kemba_s_banner;
 pub mod kuldotha_cackler;
 #[path = "one/leonin_lightbringer.rs"]
 pub mod leonin_lightbringer;
+#[path = "one/malcator_purity_overseer.rs"]
+pub mod malcator_purity_overseer;
 #[path = "one/malcator_s_watcher.rs"]
 pub mod malcator_s_watcher;
 #[path = "one/mandible_justiciar.rs"]
@@ -383,5 +385,7 @@ pub mod vulshok_splitter;
 pub mod watchful_blisterzoa;
 #[path = "one/whisper_of_the_dross.rs"]
 pub mod whisper_of_the_dross;
+#[path = "one/white_sun_s_twilight.rs"]
+pub mod white_sun_s_twilight;
 #[path = "one/zealot_s_conviction.rs"]
 pub mod zealot_s_conviction;

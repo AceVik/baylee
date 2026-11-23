@@ -23,6 +23,8 @@ pub mod alrund_s_epiphany;
 pub mod arachnoform;
 #[path = "khm/arctic_treeline.rs"]
 pub mod arctic_treeline;
+#[path = "khm/armed_and_armored.rs"]
+pub mod armed_and_armored;
 #[path = "khm/arni_slays_the_troll.rs"]
 pub mod arni_slays_the_troll;
 #[path = "khm/ascendant_spirit.rs"]
@@ -77,6 +79,8 @@ pub mod brinebarrow_intruder;
 pub mod calamity_bearer;
 #[path = "khm/canopy_tactician.rs"]
 pub mod canopy_tactician;
+#[path = "khm/cinderheart_giant.rs"]
+pub mod cinderheart_giant;
 #[path = "khm/clarion_spirit.rs"]
 pub mod clarion_spirit;
 #[path = "khm/cleaving_reaper.rs"]
@@ -163,6 +167,8 @@ pub mod firja_s_retribution;
 pub mod forging_the_tyrite_sword;
 #[path = "khm/frost_augur.rs"]
 pub mod frost_augur;
+#[path = "khm/frost_bite.rs"]
+pub mod frost_bite;
 #[path = "khm/frostpeak_yeti.rs"]
 pub mod frostpeak_yeti;
 #[path = "khm/funeral_longboat.rs"]
@@ -237,6 +243,8 @@ pub mod iron_verdict;
 pub mod jarl_of_the_forsaken;
 #[path = "khm/jaspera_sentinel.rs"]
 pub mod jaspera_sentinel;
+#[path = "khm/kardur_doomscourge.rs"]
+pub mod kardur_doomscourge;
 #[path = "khm/karfell_kennel_master.rs"]
 pub mod karfell_kennel_master;
 #[path = "khm/kaya_s_onslaught.rs"]
@@ -307,8 +315,12 @@ pub mod renegade_reaper;
 pub mod righteous_valkyrie;
 #[path = "khm/rimewood_falls.rs"]
 pub mod rimewood_falls;
+#[path = "khm/rise_of_the_dread_marn.rs"]
+pub mod rise_of_the_dread_marn;
 #[path = "khm/rootless_yew.rs"]
 pub mod rootless_yew;
+#[path = "khm/roots_of_wisdom.rs"]
+pub mod roots_of_wisdom;
 #[path = "khm/run_ashore.rs"]
 pub mod run_ashore;
 #[path = "khm/rune_of_flight.rs"]
@@ -351,6 +363,8 @@ pub mod sigrid_god_favored;
 pub mod skemfar_avenger;
 #[path = "khm/skemfar_elderhall.rs"]
 pub mod skemfar_elderhall;
+#[path = "khm/skull_raid.rs"]
+pub mod skull_raid;
 #[path = "khm/smashing_success.rs"]
 pub mod smashing_success;
 #[path = "khm/snakeskin_veil.rs"]

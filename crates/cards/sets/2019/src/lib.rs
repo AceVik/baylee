@@ -41,10 +41,14 @@ pub mod all_that_glitters;
 pub mod alpine_guide;
 #[path = "mh1/amorphous_axe.rs"]
 pub mod amorphous_axe;
+#[path = "sld/amy_rose.rs"]
+pub mod amy_rose;
 #[path = "m20/ancestral_blade.rs"]
 pub mod ancestral_blade;
 #[path = "rna/angel_of_grace.rs"]
 pub mod angel_of_grace;
+#[path = "m20/angel_of_vitality.rs"]
+pub mod angel_of_vitality;
 #[path = "rna/angelic_exaltation.rs"]
 pub mod angelic_exaltation;
 #[path = "pwar/angrath_captain_of_chaos.rs"]
@@ -143,6 +147,8 @@ pub mod bedeck;
 pub mod bedevil;
 #[path = "eld/belle_of_the_brawl.rs"]
 pub mod belle_of_the_brawl;
+#[path = "mh1/bellowing_elk.rs"]
+pub mod bellowing_elk;
 #[path = "eld/beloved_princess.rs"]
 pub mod beloved_princess;
 #[path = "prna/benthic_biomancer.rs"]
@@ -271,6 +277,8 @@ pub mod challenger_troll;
 pub mod chandra_novice_pyromancer;
 #[path = "m20/chandra_s_embercat.rs"]
 pub mod chandra_s_embercat;
+#[path = "war/chandra_s_triumph.rs"]
+pub mod chandra_s_triumph;
 #[path = "mh1/changeling_outcast.rs"]
 pub mod changeling_outcast;
 #[path = "sld/chani_blade_of_sietch_tabr.rs"]
@@ -415,6 +423,8 @@ pub mod domri_city_smasher;
 pub mod domri_s_ambush;
 #[path = "rna/domri_s_nodorog.rs"]
 pub mod domri_s_nodorog;
+#[path = "eld/doom_foretold.rs"]
+pub mod doom_foretold;
 #[path = "c19/doomed_artisan.rs"]
 pub mod doomed_artisan;
 #[path = "rna/dovin_grand_arbiter.rs"]
@@ -665,12 +675,16 @@ pub mod ghired_conclave_exile;
 pub mod ghor_clan_wrecker;
 #[path = "eld/giant_killer.rs"]
 pub mod giant_killer;
+#[path = "eld/giant_opportunity.rs"]
+pub mod giant_opportunity;
 #[path = "eld/giant_s_skewer.rs"]
 pub mod giant_s_skewer;
 #[path = "war/gideon_s_battle_cry.rs"]
 pub mod gideon_s_battle_cry;
 #[path = "war/gideon_s_company.rs"]
 pub mod gideon_s_company;
+#[path = "war/gideon_s_triumph.rs"]
+pub mod gideon_s_triumph;
 #[path = "war/gideon_the_oathsworn.rs"]
 pub mod gideon_the_oathsworn;
 #[path = "eld/gilded_goose.rs"]
@@ -871,6 +885,8 @@ pub mod jace_arcane_strategist;
 pub mod jace_s_projection;
 #[path = "war/jace_s_ruse.rs"]
 pub mod jace_s_ruse;
+#[path = "war/jace_s_triumph.rs"]
+pub mod jace_s_triumph;
 #[path = "pwar/jace_wielder_of_mysteries.rs"]
 pub mod jace_wielder_of_mysteries;
 #[path = "war/jaya_s_greeting.rs"]
@@ -883,6 +899,8 @@ pub mod jiang_yanggu_wildcrafter;
 pub mod jousting_dummy;
 #[path = "prna/judith_the_scourge_diva.rs"]
 pub mod judith_the_scourge_diva;
+#[path = "c19/kadena_slinking_sorcerer.rs"]
+pub mod kadena_slinking_sorcerer;
 #[path = "pwar/karn_s_bastion.rs"]
 pub mod karn_s_bastion;
 #[path = "pwar/karn_the_great_creator.rs"]
@@ -947,6 +965,8 @@ pub mod lazotep_behemoth;
 pub mod lazotep_plating;
 #[path = "war/lazotep_reaver.rs"]
 pub mod lazotep_reaver;
+#[path = "m20/leafkin_druid.rs"]
+pub mod leafkin_druid;
 #[path = "m20/leyline_of_abundance.rs"]
 pub mod leyline_of_abundance;
 #[path = "war/leyline_prowler.rs"]
@@ -1337,6 +1357,8 @@ pub mod rubblebelt_rioters;
 pub mod rubblebelt_runner;
 #[path = "mh1/ruination_rioter.rs"]
 pub mod ruination_rioter;
+#[path = "mh1/saddled_rimestag.rs"]
+pub mod saddled_rimestag;
 #[path = "mh1/sadistic_obsession.rs"]
 pub mod sadistic_obsession;
 #[path = "eld/sage_of_the_falls.rs"]
@@ -1413,6 +1435,8 @@ pub mod settle_beyond_reality;
 pub mod sevinne_s_reclamation;
 #[path = "eld/shambling_suit.rs"]
 pub mod shambling_suit;
+#[path = "m20/shared_summons.rs"]
+pub mod shared_summons;
 #[path = "rna/sharktocrab.rs"]
 pub mod sharktocrab;
 #[path = "mh1/shatter_assumptions.rs"]
@@ -1475,6 +1499,8 @@ pub mod smelt_ward_ignus;
 pub mod smiting_helix;
 #[path = "eld/smitten_swordmaster.rs"]
 pub mod smitten_swordmaster;
+#[path = "mh1/smoke_shroud.rs"]
+pub mod smoke_shroud;
 #[path = "prna/smothering_tithe.rs"]
 pub mod smothering_tithe;
 #[path = "war/snarespinner.rs"]

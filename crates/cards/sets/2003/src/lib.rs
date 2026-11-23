@@ -1019,6 +1019,8 @@ pub mod voidmage_apprentice;
 pub mod vorrac_battlehorns;
 #[path = "mrd/vulshok_battlegear.rs"]
 pub mod vulshok_battlegear;
+#[path = "mrd/vulshok_battlemaster.rs"]
+pub mod vulshok_battlemaster;
 #[path = "mrd/vulshok_berserker.rs"]
 pub mod vulshok_berserker;
 #[path = "mrd/vulshok_gauntlets.rs"]

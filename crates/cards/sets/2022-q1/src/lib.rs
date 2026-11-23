@@ -169,6 +169,8 @@ pub mod imperial_subduer;
 pub mod inkrise_infiltrator;
 #[path = "neo/invigorating_hot_spring.rs"]
 pub mod invigorating_hot_spring;
+#[path = "neo/invoke_despair.rs"]
+pub mod invoke_despair;
 #[path = "neo/invoke_the_winds.rs"]
 pub mod invoke_the_winds;
 #[path = "neo/ironhoof_boar.rs"]
@@ -195,6 +197,8 @@ pub mod kami_of_industry;
 pub mod kami_of_restless_shadows;
 #[path = "neo/kami_of_terrible_secrets.rs"]
 pub mod kami_of_terrible_secrets;
+#[path = "neo/kami_of_transience.rs"]
+pub mod kami_of_transience;
 #[path = "neo/kami_s_flare.rs"]
 pub mod kami_s_flare;
 #[path = "nec/kappa_cannoneer.rs"]

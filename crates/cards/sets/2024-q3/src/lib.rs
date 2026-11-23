@@ -43,6 +43,8 @@ pub mod arno_dorian;
 pub mod artist_s_talent;
 #[path = "acr/assassin_den.rs"]
 pub mod assassin_den;
+#[path = "acr/assassin_gauntlet.rs"]
+pub mod assassin_gauntlet;
 #[path = "acr/assassin_initiate.rs"]
 pub mod assassin_initiate;
 #[path = "dsk/attack_in_the_box.rs"]
@@ -65,6 +67,8 @@ pub mod baseball_bat;
 pub mod bashful_beastie;
 #[path = "acr/basim_ibn_ishaq.rs"]
 pub mod basim_ibn_ishaq;
+#[path = "acr/battlefield_improvisation.rs"]
+pub mod battlefield_improvisation;
 #[path = "acr/bayek_of_siwa.rs"]
 pub mod bayek_of_siwa;
 #[path = "blb/baylen_the_haymaker.rs"]
@@ -163,6 +167,8 @@ pub mod coiling_rebirth;
 pub mod commune_with_evil;
 #[path = "blb/conduct_electricity.rs"]
 pub mod conduct_electricity;
+#[path = "dsc/convert_to_slime.rs"]
+pub mod convert_to_slime;
 #[path = "blb/coruscation_mage.rs"]
 pub mod coruscation_mage;
 #[path = "dsc/cramped_vents.rs"]
@@ -185,6 +191,8 @@ pub mod daring_waverider;
 pub mod darkstar_augur;
 #[path = "blb/dawn_s_truce.rs"]
 pub mod dawn_s_truce;
+#[path = "blb/dazzling_denial.rs"]
+pub mod dazzling_denial;
 #[path = "dsk/defiant_survivor.rs"]
 pub mod defiant_survivor;
 #[path = "dsk/defiled_crypt.rs"]
@@ -333,6 +341,8 @@ pub mod gobland;
 pub mod grand_entryway;
 #[path = "dsk/grasping_longneck.rs"]
 pub mod grasping_longneck;
+#[path = "dsk/greenhouse.rs"]
+pub mod greenhouse;
 #[path = "dsk/hand_that_feeds.rs"]
 pub mod hand_that_feeds;
 #[path = "dsk/hardened_escort.rs"]
@@ -439,6 +449,8 @@ pub mod labyrinth_adversary;
 pub mod lakeside_shack;
 #[path = "acr/layla_hassan.rs"]
 pub mod layla_hassan;
+#[path = "dsk/leyline_of_hope.rs"]
+pub mod leyline_of_hope;
 #[path = "dsk/leyline_of_mutation.rs"]
 pub mod leyline_of_mutation;
 #[path = "dsk/leyline_of_resonance.rs"]
@@ -471,6 +483,8 @@ pub mod lupinflower_village;
 pub mod lydia_frye;
 #[path = "blb/mabel_heir_to_cragflame.rs"]
 pub mod mabel_heir_to_cragflame;
+#[path = "blb/mabel_s_mettle.rs"]
+pub mod mabel_s_mettle;
 #[path = "mb2/magus_of_the_chains.rs"]
 pub mod magus_of_the_chains;
 #[path = "blb/maha_its_feathers_night.rs"]
@@ -519,6 +533,8 @@ pub mod muerra_trash_tactician;
 pub mod murky_sewer;
 #[path = "blc/murmuration.rs"]
 pub mod murmuration;
+#[path = "dsk/nashi_searcher_in_the_dark.rs"]
+pub mod nashi_searcher_in_the_dark;
 #[path = "dsk/neglected_manor.rs"]
 pub mod neglected_manor;
 #[path = "mb2/new_master_of_arms.rs"]
@@ -563,6 +579,10 @@ pub mod pearl_of_wisdom;
 pub mod peculiar_lighthouse;
 #[path = "blc/perch_protection.rs"]
 pub mod perch_protection;
+#[path = "blb/persistent_marshstalker.rs"]
+pub mod persistent_marshstalker;
+#[path = "acr/phantom_blade.rs"]
+pub mod phantom_blade;
 #[path = "dsk/piggy_bank.rs"]
 pub mod piggy_bank;
 #[path = "blb/pileated_provisioner.rs"]
@@ -663,6 +683,8 @@ pub mod secret_arcade;
 pub mod seedpod_squire;
 #[path = "dsk/seized_from_slumber.rs"]
 pub mod seized_from_slumber;
+#[path = "acr/senu_keen_eyed_protector.rs"]
+pub mod senu_keen_eyed_protector;
 #[path = "acr/settlement_blacksmith.rs"]
 pub mod settlement_blacksmith;
 #[path = "acr/shao_jun.rs"]
@@ -683,6 +705,8 @@ pub mod shrewd_storyteller;
 pub mod shrike_force;
 #[path = "dsk/shroudstomper.rs"]
 pub mod shroudstomper;
+#[path = "dsk/silent_hallcreeper.rs"]
+pub mod silent_hallcreeper;
 #[path = "blb/sinister_monolith.rs"]
 pub mod sinister_monolith;
 #[path = "blb/skyskipper_duo.rs"]
@@ -713,6 +737,8 @@ pub mod split_up;
 pub mod sporogenic_infection;
 #[path = "acr/staff_of_eden_vault_s_key.rs"]
 pub mod staff_of_eden_vault_s_key;
+#[path = "blb/starfall_invocation.rs"]
+pub mod starfall_invocation;
 #[path = "blb/starforged_sword.rs"]
 pub mod starforged_sword;
 #[path = "blb/starscape_cleric.rs"]
@@ -859,6 +885,8 @@ pub mod viewpoint_synchronization;
 pub mod vinereap_mentor;
 #[path = "dsk/violent_urge.rs"]
 pub mod violent_urge;
+#[path = "blb/vren_the_relentless.rs"]
+pub mod vren_the_relentless;
 #[path = "dsk/walk_in_closet.rs"]
 pub mod walk_in_closet;
 #[path = "blb/wandertale_mentor.rs"]
@@ -871,6 +899,8 @@ pub mod warren_elder;
 pub mod warren_warleader;
 #[path = "dsk/wary_watchdog.rs"]
 pub mod wary_watchdog;
+#[path = "blb/waterspout_warden.rs"]
+pub mod waterspout_warden;
 #[path = "blb/wax_wane_witness.rs"]
 pub mod wax_wane_witness;
 #[path = "dsk/wickerfolk_thresher.rs"]

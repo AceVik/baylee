@@ -395,6 +395,8 @@ pub mod imp_s_mischief;
 pub mod imperious_perfect;
 #[path = "lrw/incandescent_soulstoke.rs"]
 pub mod incandescent_soulstoke;
+#[path = "lrw/incremental_growth.rs"]
+pub mod incremental_growth;
 #[path = "fut/infiltrator_il_kor.rs"]
 pub mod infiltrator_il_kor;
 #[path = "lrw/ingot_chewer.rs"]
@@ -601,6 +603,8 @@ pub mod pact_of_the_titan;
 pub mod pallid_mycoderm;
 #[path = "lrw/paperfin_rascal.rs"]
 pub mod paperfin_rascal;
+#[path = "fut/patrician_s_scorn.rs"]
+pub mod patrician_s_scorn;
 #[path = "lrw/peppersmoke.rs"]
 pub mod peppersmoke;
 #[path = "lrw/pestermite.rs"]
@@ -653,6 +657,8 @@ pub mod reality_strobe;
 pub mod reckless_wurm;
 #[path = "plc/reflex_sliver.rs"]
 pub mod reflex_sliver;
+#[path = "plc/retether.rs"]
+pub mod retether;
 #[path = "plc/revered_dead.rs"]
 pub mod revered_dead;
 #[path = "plc/ridged_kusite.rs"]
@@ -877,6 +883,8 @@ pub mod wanderwine_hub;
 pub mod wanderwine_prophets;
 #[path = "plc/waning_wurm.rs"]
 pub mod waning_wurm;
+#[path = "lrw/warren_pilferers.rs"]
+pub mod warren_pilferers;
 #[path = "lrw/warren_scourge_elf.rs"]
 pub mod warren_scourge_elf;
 #[path = "lrw/weed_strangle.rs"]

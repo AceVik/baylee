@@ -25,6 +25,8 @@ pub mod akki_drillmaster;
 pub mod akki_raider;
 #[path = "sok/akki_underling.rs"]
 pub mod akki_underling;
+#[path = "sok/akuta_born_of_ash.rs"]
+pub mod akuta_born_of_ash;
 #[path = "sok/araba_mothrider.rs"]
 pub mod araba_mothrider;
 #[path = "sok/arashi_the_sky_asunder.rs"]
@@ -139,12 +141,16 @@ pub mod darkblast;
 pub mod day_of_destiny;
 #[path = "sok/death_denied.rs"]
 pub mod death_denied;
+#[path = "sok/death_of_a_thousand_stings.rs"]
+pub mod death_of_a_thousand_stings;
 #[path = "sok/deathknell_kami.rs"]
 pub mod deathknell_kami;
 #[path = "sok/deathmask_nezumi.rs"]
 pub mod deathmask_nezumi;
 #[path = "sok/dense_canopy.rs"]
 pub mod dense_canopy;
+#[path = "sok/descendant_of_kiyomaro.rs"]
+pub mod descendant_of_kiyomaro;
 #[path = "psal/detainment_spell.rs"]
 pub mod detainment_spell;
 #[path = "rav/devouring_light.rs"]
@@ -181,6 +187,8 @@ pub mod dreamcatcher;
 pub mod drift_of_phantasms;
 #[path = "rav/dromad_purebred.rs"]
 pub mod dromad_purebred;
+#[path = "rav/drooling_groodion.rs"]
+pub mod drooling_groodion;
 #[path = "rav/duskmantle_house_of_shadow.rs"]
 pub mod duskmantle_house_of_shadow;
 #[path = "sok/elder_pine_of_jukai.rs"]
@@ -193,6 +201,8 @@ pub mod enshrined_memories;
 pub mod ethereal_usher;
 #[path = "sok/evermind.rs"]
 pub mod evermind;
+#[path = "sok/exile_into_darkness.rs"]
+pub mod exile_into_darkness;
 #[path = "rav/faith_s_fetters.rs"]
 pub mod faith_s_fetters;
 #[path = "rav/farseek.rs"]
@@ -333,6 +343,8 @@ pub mod harbinger_of_spring;
 pub mod haru_onna;
 #[path = "bok/heartless_hidetsugu.rs"]
 pub mod heartless_hidetsugu;
+#[path = "bok/heed_the_mists.rs"]
+pub mod heed_the_mists;
 #[path = "psal/helldozer.rs"]
 pub mod helldozer;
 #[path = "psal/herd_gnarr.rs"]
@@ -443,6 +455,8 @@ pub mod kemuri_onna;
 pub mod kiku_s_shadow;
 #[path = "sok/kiri_onna.rs"]
 pub mod kiri_onna;
+#[path = "sok/kitsune_bonesetter.rs"]
+pub mod kitsune_bonesetter;
 #[path = "sok/kitsune_dawnblade.rs"]
 pub mod kitsune_dawnblade;
 #[path = "sok/kitsune_loreweaver.rs"]
@@ -503,6 +517,8 @@ pub mod mending_hands;
 pub mod mikokoro_center_of_the_sea;
 #[path = "bok/minamo_sightbender.rs"]
 pub mod minamo_sightbender;
+#[path = "rav/mindmoil.rs"]
+pub mod mindmoil;
 #[path = "sok/miren_the_moaning_well.rs"]
 pub mod miren_the_moaning_well;
 #[path = "bok/mistblade_shinobi.rs"]
@@ -555,6 +571,8 @@ pub mod oboro_palace_in_the_clouds;
 pub mod ogre_recluse;
 #[path = "bok/okiba_gang_shinobi.rs"]
 pub mod okiba_gang_shinobi;
+#[path = "pal05/okina_nightwatch.rs"]
+pub mod okina_nightwatch;
 #[path = "sok/one_with_nothing.rs"]
 pub mod one_with_nothing;
 #[path = "sok/oni_of_wild_places.rs"]
@@ -679,6 +697,8 @@ pub mod scourge_of_numai;
 pub mod scroll_of_origins;
 #[path = "rav/searing_meditation.rs"]
 pub mod searing_meditation;
+#[path = "sok/secretkeeper.rs"]
+pub mod secretkeeper;
 #[path = "sok/seed_the_land.rs"]
 pub mod seed_the_land;
 #[path = "rav/seeds_of_strength.rs"]
@@ -727,6 +747,8 @@ pub mod shuko;
 pub mod siege_wurm;
 #[path = "bok/silverstorm_samurai.rs"]
 pub mod silverstorm_samurai;
+#[path = "sok/sink_into_takenuma.rs"]
+pub mod sink_into_takenuma;
 #[path = "psal/sinstriker_s_will.rs"]
 pub mod sinstriker_s_will;
 #[path = "rav/sisters_of_stone_death.rs"]
@@ -829,6 +851,8 @@ pub mod thoughtpicker_witch;
 pub mod thoughts_of_ruin;
 #[path = "bok/threads_of_disloyalty.rs"]
 pub mod threads_of_disloyalty;
+#[path = "psal/three_dreams.rs"]
+pub mod three_dreams;
 #[path = "bok/three_tragedies.rs"]
 pub mod three_tragedies;
 #[path = "bok/throat_slitter.rs"]
@@ -837,6 +861,8 @@ pub mod throat_slitter;
 pub mod thundersong_trumpeter;
 #[path = "rav/tidewater_minion.rs"]
 pub mod tidewater_minion;
+#[path = "bok/toils_of_night_and_day.rs"]
+pub mod toils_of_night_and_day;
 #[path = "psal/tolsimir_wolfblood.rs"]
 pub mod tolsimir_wolfblood;
 #[path = "sok/tomb_of_urami.rs"]
@@ -859,6 +885,8 @@ pub mod trophy_hunter;
 pub mod twilight_drover;
 #[path = "sok/twincast.rs"]
 pub mod twincast;
+#[path = "rav/twisted_justice.rs"]
+pub mod twisted_justice;
 #[path = "bok/umezawa_s_jitte.rs"]
 pub mod umezawa_s_jitte;
 #[path = "bok/unchecked_growth.rs"]
@@ -911,6 +939,8 @@ pub mod whitemane_lion;
 pub mod wine_of_blood_and_iron;
 #[path = "rav/wizened_snitches.rs"]
 pub mod wizened_snitches;
+#[path = "rav/woebringer_demon.rs"]
+pub mod woebringer_demon;
 #[path = "rav/woodwraith_corrupter.rs"]
 pub mod woodwraith_corrupter;
 #[path = "rav/woodwraith_strangler.rs"]

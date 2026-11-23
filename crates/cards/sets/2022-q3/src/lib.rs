@@ -87,6 +87,8 @@ pub mod cosmic_epiphany;
 pub mod cryptic_spires;
 #[path = "dmu/crystal_grotto.rs"]
 pub mod crystal_grotto;
+#[path = "dmu/cult_conscript.rs"]
+pub mod cult_conscript;
 #[path = "dmu/deathbloom_gardener.rs"]
 pub mod deathbloom_gardener;
 #[path = "dmu/destroy_evil.rs"]
@@ -197,6 +199,8 @@ pub mod juniper_order_rootweaver;
 pub mod keldon_strike_team;
 #[path = "dmu/king_darien_xlviii.rs"]
 pub mod king_darien_xlviii;
+#[path = "dmu/knight_of_dawn_s_light.rs"]
+pub mod knight_of_dawn_s_light;
 #[path = "dmu/knight_of_dusk_s_shadow.rs"]
 pub mod knight_of_dusk_s_shadow;
 #[path = "dmu/lagomos_hand_of_hatred.rs"]
@@ -355,6 +359,8 @@ pub mod tetsuo_imperial_champion;
 pub mod the_cruelty_of_gix;
 #[path = "dmu/the_elder_dragon_war.rs"]
 pub mod the_elder_dragon_war;
+#[path = "dmc/the_lady_of_otaria.rs"]
+pub mod the_lady_of_otaria;
 #[path = "dmc/the_mana_rig.rs"]
 pub mod the_mana_rig;
 #[path = "dmc/the_reaver_cleaver.rs"]
@@ -369,6 +375,8 @@ pub mod tidepool_turtle;
 pub mod timeless_lotus;
 #[path = "dmu/timely_interference.rs"]
 pub mod timely_interference;
+#[path = "dmc/tobias_doomed_conqueror.rs"]
+pub mod tobias_doomed_conqueror;
 #[path = "dmu/tolarian_geyser.rs"]
 pub mod tolarian_geyser;
 #[path = "dmu/tolarian_terror.rs"]

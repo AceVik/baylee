@@ -95,6 +95,8 @@ pub mod bladed_sentinel;
 pub mod blasphemous_act;
 #[path = "nph/blighted_agent.rs"]
 pub mod blighted_agent;
+#[path = "mbs/blightsteel_colossus.rs"]
+pub mod blightsteel_colossus;
 #[path = "mbs/blightwidow.rs"]
 pub mod blightwidow;
 #[path = "nph/blind_zealot.rs"]
@@ -311,6 +313,8 @@ pub mod forbidden_alchemy;
 pub mod forced_worship;
 #[path = "isd/fortress_crab.rs"]
 pub mod fortress_crab;
+#[path = "nph/fresh_meat.rs"]
+pub mod fresh_meat;
 #[path = "isd/frightful_delusion.rs"]
 pub mod frightful_delusion;
 #[path = "m12/frost_breath.rs"]
@@ -589,6 +593,8 @@ pub mod midnight_haunting;
 pub mod mindcrank;
 #[path = "nph/mindculling.rs"]
 pub mod mindculling;
+#[path = "isd/mindshrieker.rs"]
+pub mod mindshrieker;
 #[path = "pmbs/mirran_crusader.rs"]
 pub mod mirran_crusader;
 #[path = "mbs/mirran_spy.rs"]
@@ -597,10 +603,14 @@ pub mod mirran_spy;
 pub mod mirrorworks;
 #[path = "isd/moan_of_the_unhallowed.rs"]
 pub mod moan_of_the_unhallowed;
+#[path = "isd/moldgraf_monstrosity.rs"]
+pub mod moldgraf_monstrosity;
 #[path = "nph/moltensteel_dragon.rs"]
 pub mod moltensteel_dragon;
 #[path = "isd/moment_of_heroism.rs"]
 pub mod moment_of_heroism;
+#[path = "m12/monomania.rs"]
+pub mod monomania;
 #[path = "isd/moon_heron.rs"]
 pub mod moon_heron;
 #[path = "isd/moorland_haunt.rs"]
@@ -1077,3 +1087,5 @@ pub mod wreath_of_geists;
 pub mod wring_flesh;
 #[path = "nph/xenograft.rs"]
 pub mod xenograft;
+#[path = "cmd/zedruu_the_greathearted.rs"]
+pub mod zedruu_the_greathearted;

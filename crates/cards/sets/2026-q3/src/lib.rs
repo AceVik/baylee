@@ -55,6 +55,8 @@ pub mod bothersome_noisemaker;
 pub mod boughside_wanderers;
 #[path = "hob/burn_burn_tree_and_fern.rs"]
 pub mod burn_burn_tree_and_fern;
+#[path = "hob/cantankerous_keepers.rs"]
+pub mod cantankerous_keepers;
 #[path = "hoc/chief_of_the_wilds.rs"]
 pub mod chief_of_the_wilds;
 #[path = "hob/confusticate_and_bebother.rs"]
@@ -95,6 +97,8 @@ pub mod dwarven_provisioner;
 pub mod dwarven_shortsword;
 #[path = "hob/eagle_of_the_great_shelf.rs"]
 pub mod eagle_of_the_great_shelf;
+#[path = "hob/eagle_s_rescue.rs"]
+pub mod eagle_s_rescue;
 #[path = "hob/elrond_moon_reader.rs"]
 pub mod elrond_moon_reader;
 #[path = "hob/elven_passage.rs"]
@@ -185,6 +189,8 @@ pub mod mirkwood_nurturer;
 pub mod mirkwood_pathmaker;
 #[path = "hob/misty_mountains_raider.rs"]
 pub mod misty_mountains_raider;
+#[path = "hob/most_decrepit_old_bird.rs"]
+pub mod most_decrepit_old_bird;
 #[path = "hob/my_precious.rs"]
 pub mod my_precious;
 #[path = "hob/nasty_little_rabbit.rs"]
@@ -213,6 +219,8 @@ pub mod ori_plate_stacker;
 pub mod pinecone_strike;
 #[path = "hob/quarrel.rs"]
 pub mod quarrel;
+#[path = "hob/radagast_of_rhosgobel.rs"]
+pub mod radagast_of_rhosgobel;
 #[path = "hob/rage_into_the_valley.rs"]
 pub mod rage_into_the_valley;
 #[path = "hob/ragged_short_spear.rs"]
@@ -227,6 +235,8 @@ pub mod reverent_howl;
 pub mod rhovanion_rampager;
 #[path = "hob/roll_roll_roll_roll.rs"]
 pub mod roll_roll_roll_roll;
+#[path = "hob/silvan_reveler.rs"]
+pub mod silvan_reveler;
 #[path = "hob/smaug_s_fury.rs"]
 pub mod smaug_s_fury;
 #[path = "hob/smaug_the_great_calamity.rs"]
@@ -263,6 +273,8 @@ pub mod thorin_king_of_durin_s_folk;
 pub mod thorin_oakenshield;
 #[path = "hob/thorin_s_last_stand.rs"]
 pub mod thorin_s_last_stand;
+#[path = "hob/thranduil_sindarin_liege.rs"]
+pub mod thranduil_sindarin_liege;
 #[path = "hob/thranduil_the_elvenking.rs"]
 pub mod thranduil_the_elvenking;
 #[path = "hoc/thranduil_the_strategist.rs"]
@@ -275,6 +287,8 @@ pub mod troll_negotiations;
 pub mod troop_of_ponies;
 #[path = "hob/uneasy_partings.rs"]
 pub mod uneasy_partings;
+#[path = "hob/vow_to_erebor.rs"]
+pub mod vow_to_erebor;
 #[path = "hob/warg_tactics.rs"]
 pub mod warg_tactics;
 #[path = "hob/wargling.rs"]

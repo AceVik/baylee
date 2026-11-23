@@ -621,6 +621,8 @@ pub mod grip_of_the_roil;
 pub mod grizzled_angler;
 #[path = "soi/grotesque_mutation.rs"]
 pub mod grotesque_mutation;
+#[path = "soi/gryff_s_boon.rs"]
+pub mod gryff_s_boon;
 #[path = "emn/guardian_of_pilgrims.rs"]
 pub mod guardian_of_pilgrims;
 #[path = "kld/guardian_of_the_great_conduit.rs"]
@@ -631,6 +633,8 @@ pub mod hanweir_battlements;
 pub mod hanweir_garrison;
 #[path = "psoi/hanweir_militia_captain.rs"]
 pub mod hanweir_militia_captain;
+#[path = "emn/harmless_offering.rs"]
+pub mod harmless_offering;
 #[path = "kld/harsh_scrutiny.rs"]
 pub mod harsh_scrutiny;
 #[path = "soi/harvest_hand.rs"]
@@ -943,10 +947,16 @@ pub mod nissa_vital_force;
 pub mod nissa_voice_of_zendikar;
 #[path = "emn/noose_constrictor.rs"]
 pub mod noose_constrictor;
+#[path = "kld/noxious_gearhulk.rs"]
+pub mod noxious_gearhulk;
 #[path = "ogw/null_caller.rs"]
 pub mod null_caller;
+#[path = "ogw/oath_of_chandra.rs"]
+pub mod oath_of_chandra;
 #[path = "ogw/oath_of_jace.rs"]
 pub mod oath_of_jace;
+#[path = "emn/oath_of_liliana.rs"]
+pub mod oath_of_liliana;
 #[path = "ogw/oblivion_strike.rs"]
 pub mod oblivion_strike;
 #[path = "soi/obsessive_skinner.rs"]
@@ -1111,6 +1121,8 @@ pub mod saddleback_lagac;
 pub mod sage_of_ancient_lore;
 #[path = "kld/sage_of_shaila_s_claim.rs"]
 pub mod sage_of_shaila_s_claim;
+#[path = "kld/saheeli_rai.rs"]
+pub mod saheeli_rai;
 #[path = "kld/saheeli_s_artistry.rs"]
 pub mod saheeli_s_artistry;
 #[path = "kld/salivating_gremlins.rs"]
@@ -1171,6 +1183,8 @@ pub mod sifter_of_skulls;
 pub mod sigarda_heron_s_grace;
 #[path = "emn/sigardian_priest.rs"]
 pub mod sigardian_priest;
+#[path = "soi/silburlind_snapper.rs"]
+pub mod silburlind_snapper;
 #[path = "soi/silent_observer.rs"]
 pub mod silent_observer;
 #[path = "soi/silverstrike.rs"]
@@ -1375,6 +1389,8 @@ pub mod thraben_gargoyle;
 pub mod thraben_inspector;
 #[path = "emn/thraben_standard_bearer.rs"]
 pub mod thraben_standard_bearer;
+#[path = "c16/thrasios_triton_hero.rs"]
+pub mod thrasios_triton_hero;
 #[path = "cn2/throne_of_the_high_city.rs"]
 pub mod throne_of_the_high_city;
 #[path = "cn2/throne_warden.rs"]
@@ -1463,6 +1479,8 @@ pub mod veteran_cathar;
 pub mod vexing_scuttler;
 #[path = "emn/vildin_pack_outcast.rs"]
 pub mod vildin_pack_outcast;
+#[path = "ogw/vile_redeemer.rs"]
+pub mod vile_redeemer;
 #[path = "soi/village_messenger.rs"]
 pub mod village_messenger;
 #[path = "ogw/vines_of_the_recluse.rs"]

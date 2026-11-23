@@ -103,6 +103,8 @@ pub mod basilisk_collar;
 pub mod battle_hurda;
 #[path = "roe/battle_rattle_shaman.rs"]
 pub mod battle_rattle_shaman;
+#[path = "wwk/bazaar_trader.rs"]
+pub mod bazaar_trader;
 #[path = "roe/bear_umbra.rs"]
 pub mod bear_umbra;
 #[path = "roe/beastbreaker_of_bala_ged.rs"]
@@ -147,6 +149,8 @@ pub mod bramblesnap;
 pub mod brindle_boar;
 #[path = "m11/brittle_effigy.rs"]
 pub mod brittle_effigy;
+#[path = "roe/brood_birthing.rs"]
+pub mod brood_birthing;
 #[path = "roe/broodwarden.rs"]
 pub mod broodwarden;
 #[path = "wwk/bull_rush.rs"]
@@ -471,6 +475,8 @@ pub mod harmless_assault;
 pub mod heavy_arbalest;
 #[path = "wwk/hedron_rover.rs"]
 pub mod hedron_rover;
+#[path = "roe/hellion_eruption.rs"]
+pub mod hellion_eruption;
 #[path = "som/hoard_smelter_dragon.rs"]
 pub mod hoard_smelter_dragon;
 #[path = "wwk/horizon_drake.rs"]
@@ -619,6 +625,8 @@ pub mod manic_vandal;
 pub mod maritime_guard;
 #[path = "wwk/marsh_threader.rs"]
 pub mod marsh_threader;
+#[path = "m11/mass_polymorph.rs"]
+pub mod mass_polymorph;
 #[path = "som/melt_terrain.rs"]
 pub mod melt_terrain;
 #[path = "som/memnite.rs"]
@@ -735,6 +743,8 @@ pub mod pennon_blade;
 pub mod perilous_myr;
 #[path = "wwk/perimeter_captain.rs"]
 pub mod perimeter_captain;
+#[path = "wwk/permafrost_trap.rs"]
+pub mod permafrost_trap;
 #[path = "roe/pestilence_demon.rs"]
 pub mod pestilence_demon;
 #[path = "roe/phantasmal_abomination.rs"]
@@ -813,6 +823,8 @@ pub mod repel_the_darkness;
 pub mod reverberate;
 #[path = "som/revoke_existence.rs"]
 pub mod revoke_existence;
+#[path = "wwk/ricochet_trap.rs"]
+pub mod ricochet_trap;
 #[path = "som/riddlesmith.rs"]
 pub mod riddlesmith;
 #[path = "m11/roc_egg.rs"]
@@ -1055,6 +1067,8 @@ pub mod vault_skyward;
 pub mod vector_asp;
 #[path = "som/vedalken_certarch.rs"]
 pub mod vedalken_certarch;
+#[path = "roe/vengevine.rs"]
+pub mod vengevine;
 #[path = "som/venser_s_journal.rs"]
 pub mod venser_s_journal;
 #[path = "som/venser_the_sojourner.rs"]
