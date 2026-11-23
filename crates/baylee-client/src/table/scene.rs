@@ -36,12 +36,13 @@ pub fn sync_scene(
     texts: Res<crate::cardtext::CardTexts>,
     // How the player asked to see the table, and where from: the plate and
     // the badge read upright to the camera as it stands this frame.
-    (mode, settings, prefs, shown, mut offered): (
+    (mode, settings, prefs, shown, mut offered, cosmetics): (
         Res<crate::face::FaceMode>,
         Res<crate::settings::ClientSettings>,
         Res<crate::prefs::Prefs>,
         Res<ShownRig>,
         Option<ResMut<crate::table::HoveredOffer>>,
+        Option<Res<crate::event_cosmetics::Worn>>,
     ),
     sheen: Res<crate::sheen::Sheen>,
     // The fonts, and what has arrived of them: a face is measured in one.
@@ -213,10 +214,22 @@ pub fn sync_scene(
         let Some(textures_ref) = textures.as_deref() else {
             return;
         };
-        let show_face = face::wants_face(&mode, &settings, textures_ref, placement.art);
         let object = objects
             .as_ref()
             .and_then(|view| view.object(placement.object));
+        let owner = object
+            .and_then(crate::event_cosmetics::concealed)
+            .or_else(|| {
+                placement
+                    .fan
+                    .filter(|(_, kind)| *kind == PileKind::Library)
+                    .map(|_| placement.slot.player)
+            });
+        let sleeve = owner
+            .and_then(|seat| cosmetics.as_ref()?.sleeve(seat))
+            .filter(|_| placement.art.is_none());
+        let show_face = face::wants_face(&mode, &settings, textures_ref, placement.art)
+            && (sleeve.is_none() || mode.held || settings.prefer_text_view);
 
         // What the card is physically: the finish is a property of the
         // printing, so it comes from the print table — which is per seat, and
@@ -262,6 +275,7 @@ pub fn sync_scene(
             fanned.insert(placement.object, (place, placement.slot.player, kind));
         }
         let input = CardInput {
+            sleeve: sleeve.map(Handle::id),
             decorations,
             placement: *placement,
             eye,
@@ -344,7 +358,10 @@ pub fn sync_scene(
                         handle
                     }
                 }
-                None => blank.clone().unwrap_or_default(),
+                None => sleeve
+                    .cloned()
+                    .or_else(|| blank.clone())
+                    .unwrap_or_default(),
             }
         };
 

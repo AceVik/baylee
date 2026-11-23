@@ -50,10 +50,18 @@ pub struct DeckDraft {
     pub playmat: Option<String>,
     /// Gateway origin that owns both cosmetic references.
     pub cosmetic_origin: Option<String>,
+    /// Account-owned designs selected for this deck revision. Actual ownership
+    /// is checked by Central before either player's table can request the art.
+    #[serde(default, skip_serializing_if = "no_event_look")]
+    pub look: central_api::advent::Equipment,
     /// Original private row on a migrated gateway.
     pub source: Option<DeckSource>,
     /// Source of an explicit deck copy.
     pub copied_from: Option<DeckSource>,
+}
+
+fn no_event_look(look: &central_api::advent::Equipment) -> bool {
+    look.sleeve.is_none() && look.playmat.is_none()
 }
 
 /// Plaintext snapshot returned only to the authenticated caller.

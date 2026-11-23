@@ -180,6 +180,13 @@ pub(super) fn poll(
                 }
             }
             let reply = match reply {
+                #[cfg(not(target_arch = "wasm32"))]
+                Reply::SubmittedLook(selection, reply) => {
+                    if !selection.admit(&mut state, &reply) {
+                        continue;
+                    }
+                    *reply
+                }
                 Reply::PrintingCatalog(event) => Reply::Event(event),
                 Reply::PoolLanguage(lang, event) if lang == state.lobby.lang() => {
                     Reply::Event(event)
@@ -201,6 +208,8 @@ pub(super) fn poll(
                 Reply::LibrarySession(_, _) => {}
                 #[cfg(not(target_arch = "wasm32"))]
                 Reply::PlayDeck(prepared) => prepared.send(&mut state, &mailbox),
+                #[cfg(not(target_arch = "wasm32"))]
+                Reply::SubmittedLook(_, _) => {}
                 #[cfg(not(target_arch = "wasm32"))]
                 Reply::DeckImport(update) => {
                     super::decks::migration::receive(&mut state, &mailbox, update);
@@ -521,8 +530,17 @@ pub(super) fn poll(
         watch,
         seat_token: handover.seat_token,
     };
+    // Official challenge and Tower seats carry their own purpose-bound grant.
+    #[cfg(not(target_arch = "wasm32"))]
+    let event_seat = (state.challenges.playing.is_none() && state.echoes.playing.is_none())
+        .then(|| super::advent_table::HomeSeat::from_ticket(&ticket, state.gateway_epoch))
+        .flatten();
     match NetworkHost::connect(ticket) {
         Ok(host) => {
+            #[cfg(not(target_arch = "wasm32"))]
+            if let Some(seat) = event_seat {
+                commands.insert_resource(seat);
+            }
             state.connected = true;
             commands.insert_resource(InstalledHost(Box::new(host)));
             opens.write(DuelCommand::Open);

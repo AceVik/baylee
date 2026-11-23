@@ -7,7 +7,9 @@ use central_api::legacy::LegacySnapshot;
 use central_client::Session;
 use zeroize::Zeroizing;
 
+mod advent;
 mod archive;
+pub use advent::check_advent_image;
 mod challenges;
 mod decks;
 mod gateway_import;

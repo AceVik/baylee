@@ -80,6 +80,7 @@ fn convert(origin: &str, account: Uuid, head: Head) -> Result<ImportedDeck, Erro
         sleeve: head.sleeve.clone(),
         playmat: head.playmat.clone(),
         cosmetic_origin: cosmetic_origin.clone(),
+        look: central_api::advent::Equipment::default(),
         source: Some(source(origin, Some(account), head.id, revision)),
         copied_from: copied_from.clone(),
     };

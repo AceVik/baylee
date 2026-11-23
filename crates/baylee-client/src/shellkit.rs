@@ -123,6 +123,10 @@ fn hold_the_keyboard(
     >,
     chat: Option<Res<crate::social::ChatUi>>,
     #[cfg(not(target_arch = "wasm32"))] profile: Option<Res<crate::lobby::ranked_profile::Page>>,
+    #[cfg(not(target_arch = "wasm32"))] appearance: Option<
+        Res<crate::lobby::deck_appearance::Page>,
+    >,
+    #[cfg(not(target_arch = "wasm32"))] advent: Option<Res<crate::lobby::advent::Book>>,
     mut holds: ResMut<KitHolds>,
 ) {
     #[cfg(all(feature = "dev-control", not(target_arch = "wasm32")))]
@@ -138,7 +142,10 @@ fn hold_the_keyboard(
     let chat = chat.is_some_and(|c| c.holds_keyboard());
     let now = overlay::holds(&overlay) || gallery || typing || chat;
     #[cfg(not(target_arch = "wasm32"))]
-    let now = now || profile.is_some_and(|page| page.holds_keys());
+    let now = now
+        || profile.is_some_and(|page| page.holds_keys())
+        || appearance.is_some_and(|page| page.holds_keys())
+        || advent.is_some_and(|book| book.holds_keys());
     if holds.0 != now {
         holds.0 = now;
     }

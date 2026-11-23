@@ -480,6 +480,7 @@ impl Plugin for DuelPlugin {
         if !app.is_plugin_added::<bevy::ui_widgets::ScrollbarPlugin>() {
             app.add_plugins(bevy::ui_widgets::ScrollbarPlugin);
         }
+        crate::event_cosmetics::install(app);
         app.add_plugins(cardmat::CardMaterialPlugin)
             .add_plugins(markatlas::MarkAtlasPlugin)
             .add_plugins(marksmat::MarksMaterialPlugin)

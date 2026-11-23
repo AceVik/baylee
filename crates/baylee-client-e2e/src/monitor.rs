@@ -50,7 +50,7 @@ impl Monitor {
 
     /// The `BAYLEE_DEV_MONITOR` value the client takes, with the built-in
     /// display's physical size to check `/monitors` against.
-    pub(crate) fn resolve(self) -> Result<(Option<String>, Option<BuiltIn>)> {
+    pub fn resolve(self) -> Result<(Option<String>, Option<BuiltIn>)> {
         Ok(match self {
             Self::PlatformDefault => (None, None),
             Self::Primary => (Some("primary".to_owned()), None),
@@ -65,9 +65,12 @@ impl Monitor {
 
 /// The built-in display: its native index and its size in physical pixels.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub(crate) struct BuiltIn {
+pub struct BuiltIn {
+    /// Index in the ordered set of active native displays.
     pub index: u32,
+    /// Physical panel width.
     pub width: u32,
+    /// Physical panel height.
     pub height: u32,
 }
 

@@ -39,6 +39,21 @@ pub(super) fn new_epoch() -> u64 {
 }
 
 impl Handle {
+    /// Advance only a revision this worker had actually seen. A newer edit on
+    /// another device must still conflict with a stale open builder.
+    pub(in crate::lobby) fn appearance_saved(&self, id: Uuid, previous: u64, saved: u64) {
+        if let Ok(mut versions) = self.library.lock() {
+            if versions.edited.get(&id) == Some(&previous) {
+                versions.edited.insert(id, saved);
+            }
+            versions
+                .listed
+                .entry(id)
+                .and_modify(|r| *r = (*r).max(saved))
+                .or_insert(saved);
+        }
+    }
+
     #[cfg(test)]
     pub(in crate::lobby) fn set_listed_revision_for_test(&self, id: Uuid, revision: u64) {
         self.library.lock().unwrap().listed.insert(id, revision);

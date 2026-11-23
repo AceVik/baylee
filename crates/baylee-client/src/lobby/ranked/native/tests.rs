@@ -3,6 +3,7 @@ use baylee_account::{RankedDeck, RankedSeat, ranked::Assignment};
 
 fn frozen() -> deck::Frozen {
     deck::Frozen {
+        look: baylee_account::advent::Equipment::default(),
         deck: RankedDeck {
             format: Format::Standard,
             cards: vec!["1 Island".into()],
@@ -42,10 +43,23 @@ fn queue_keeps_its_operation_and_deck_after_an_ambiguous_reply() {
         Reply::Queue(request.clone(), Err(Error::Unavailable)),
     );
     assert_eq!(w.intent.as_ref(), Some(&request));
-    assert_eq!(w.frozen.as_ref().unwrap().digest, [1; 32]);
+    assert_eq!(w.frozen.as_ref().unwrap().1.digest, [1; 32]);
     finish(&mut w, 7, Reply::Queue(request, Ok(assigned(key))));
     assert!(w.intent.is_none());
     assert!(!w.needs_deck);
+}
+
+#[test]
+fn another_devices_queue_with_identical_cards_does_not_wear_this_devices_frozen_look() {
+    let mut worker = Worker::default();
+    finish(&mut worker, 7, Reply::Frozen(7, Ok(frozen())));
+    let Some(Request::Join { key, .. }) = worker.intent.clone() else {
+        panic!("expected an admission key")
+    };
+    worker.observe(assigned(key));
+    assert!(worker.frozen.is_some());
+    worker.observe(assigned(*Uuid::now_v7().as_bytes()));
+    assert!(worker.frozen.is_none() && worker.needs_deck);
 }
 
 #[test]

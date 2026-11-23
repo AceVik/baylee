@@ -139,6 +139,17 @@ impl Link {
 }
 
 impl Bridge {
+    /// The host credential can present only an owner's time-limited invitation.
+    pub(crate) async fn casual_appearance(
+        &self,
+        request: central_api::advent::table::HostRequest,
+    ) -> Result<central_api::advent::table::HostResponse, StatusCode> {
+        match self.exchange(wire::Request::AdventHost { request }).await? {
+            wire::Response::AdventHost { response } => Ok(response),
+            _ => Err(StatusCode::SERVICE_UNAVAILABLE),
+        }
+    }
+
     /// Central authenticates this host credential and its current ranked verification.
     pub(crate) async fn ranked(
         &self,

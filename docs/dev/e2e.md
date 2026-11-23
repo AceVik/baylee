@@ -126,6 +126,18 @@ framework refuses any click on a gateway row that has no bin
 (`Screen::refuse_a_real_gateway`), so no test signs in there. The card
 images come from Scryfall, as in every client.
 
+The signed Advent scenario uses an owned PostgreSQL 18, a loopback Central and
+gateway, a synthetic account and an invented campaign. Build the client with
+`cargo build -p baylee-client --features dev-control`, then run
+`cargo dev central client --advent --monitor builtin` on the Mac. The
+driver visits the calendar, asks for a hint, retries a losing line, wins,
+collects and equips the reward on one of two private decks. It checks the
+live shader phase, stable button geometry, 24 door numbers and restored
+equipment on a fresh login. The printed `target/central-ui-*/` directory
+contains the separate CTA, mosaic, puzzle, solved, reward and equipment
+frames. Run `BAYLEE_CENTRAL_ADVENT_UI=1 cargo dev central integration`
+to exercise the same synthetic campaign and signed account without a window.
+
 A test's client is closed when the test ends, also on failure, and its port
 proven closed; `cargo dev e2e` then checks that no process of the run's
 client is left and kills and reports one that is. A test process that

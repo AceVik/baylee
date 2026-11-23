@@ -315,6 +315,8 @@ impl RoomList {
 
 /// A lobby game.
 pub struct LobbyGame {
+    /// Participant-only cosmetic presentations for this running casual game.
+    pub(crate) event_looks: crate::routes::event_looks::Looks,
     /// Present only on a two-account table admitted by Central.
     pub(crate) ranked: Option<crate::ranked::Binding>,
     /// Private Central attempt; never included in room listings or game views.
@@ -637,6 +639,7 @@ impl LobbyGame {
         Self {
             id,
             ranked: None,
+            event_looks: crate::routes::event_looks::Looks::default(),
             challenge: None,
             challenge_task: None,
             challenge_executor: None,
@@ -721,6 +724,7 @@ impl LobbyGame {
     /// Marks the game finished. Idempotent: the engine says a game is over
     /// and its socket then closes, and both paths land here.
     pub fn finish(&mut self, now: u64) {
+        self.event_looks.finish();
         if self.state != LobbyState::Over {
             self.state = LobbyState::Over;
             self.finished_at = Some(now);

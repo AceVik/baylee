@@ -507,13 +507,22 @@ pub struct SeatCosmetics {
     /// Image id of the deck's playmat, if it set one.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub playmat: Option<String>,
+    /// @description Metadata for a released event sleeve equipped at this table.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub event_sleeve: Option<central_api::advent::AssetMeta>,
+    /// @description Metadata for a released event playmat equipped at this table.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub event_playmat: Option<central_api::advent::AssetMeta>,
 }
 
 impl SeatCosmetics {
     /// Whether this seat set anything at all.
     #[must_use]
     pub const fn is_empty(&self) -> bool {
-        self.sleeve.is_none() && self.playmat.is_none()
+        self.sleeve.is_none()
+            && self.playmat.is_none()
+            && self.event_sleeve.is_none()
+            && self.event_playmat.is_none()
     }
 }
 

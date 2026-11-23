@@ -2661,6 +2661,70 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorBody"
+  "/games/{id}/event-look":
+    post:
+      summary: Present equipped event rewards to this table
+      description: >-
+        Confirm the wearer's short-lived invitation for the actual chair in a running
+        casual game.
+      operationId: present_event_look
+      tags:
+      - Lobby
+      parameters:
+      - name: id
+        in: path
+        required: true
+        description: The game's id
+        schema:
+          type: string
+      security:
+      - seatToken: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PresentLook"
+        required: true
+      responses:
+        "204":
+          description: The selected event surfaces are visible to the game's participants
+  "/games/{id}/event-art":
+    post:
+      summary: Read a current participant's equipped event image
+      description: >-
+        Return a bounded range or validate an exact cache digest after checking the
+        viewer and wearer.
+      operationId: read_event_art
+      tags:
+      - Lobby
+      parameters:
+      - name: id
+        in: path
+        required: true
+        description: The game's id
+        schema:
+          type: string
+      security:
+      - seatToken: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EventArt"
+        required: true
+      responses:
+        "200":
+          description: The authorized chunk or validated cache entry
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EventArtReply"
+        "403":
+          description: There is no current appearance for this seat
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
   /source:
     get:
       summary: The source of exactly this build
@@ -4308,15 +4372,13 @@ paths:
       - seatToken: []
       responses:
         "200":
-          description: OK
+          description: Visible table appearances by seat index
           content:
             application/json:
               schema:
                 type: object
                 additionalProperties:
                   $ref: "#/components/schemas/SeatCosmetics"
-                propertyNames:
-                  pattern: ^[0-9]+$
         "401":
           description: >-
             No seat token, one that is not this game's (`invalid seat token`, `ticket
@@ -6204,6 +6266,41 @@ components:
       - open
       - held
       description: "Whether a new game may start: `unmanaged` (no hold configured), `open`, or `held` (a deploy holds new games back)."
+    AssetMeta:
+      type: object
+      additionalProperties: false
+      required:
+      - tier
+      - digest
+      - size
+      - mime
+      - width
+      - height
+      properties:
+        tier:
+          type: string
+          enum:
+          - standard
+          - special
+          - finale
+        digest:
+          $ref: "#/components/schemas/Digest"
+        size:
+          type: integer
+          minimum: 1
+          maximum: 16777216
+        mime:
+          type: string
+          enum:
+          - image/webp
+        width:
+          type: integer
+          minimum: 1
+          maximum: 4096
+        height:
+          type: integer
+          minimum: 1
+          maximum: 4096
     AuthConfig:
       type: object
       properties:
@@ -7237,6 +7334,11 @@ components:
           - string
           - "null"
           description: Gateway origin that owns both cosmetic references.
+        look:
+          $ref: "#/components/schemas/Equipment"
+          description: >-
+            Account-owned designs selected for this deck revision. Actual ownership is
+            checked by Central before either player's table can request the art.
         source:
           anyOf:
           - $ref: "#/components/schemas/DeckSource"
@@ -7766,6 +7868,12 @@ components:
       - added_at
       - seen_at
       description: One of this account's devices, as `GET /social/devices` lists it.
+    Digest:
+      type: array
+      minItems: 32
+      maxItems: 32
+      items:
+        $ref: "#/components/schemas/EventOctet"
     Direct:
       type: object
       properties:
@@ -7800,6 +7908,14 @@ components:
       description: >-
         A report from a client signed in to no gateway; every field named, no other
         taken.
+    Equipment:
+      type: object
+      additionalProperties: false
+      properties:
+        sleeve:
+          $ref: "#/components/schemas/OptionalEventItem"
+        playmat:
+          $ref: "#/components/schemas/OptionalEventItem"
     ErrorBody:
       type: object
       properties:
@@ -7823,6 +7939,80 @@ components:
       required:
       - error
       description: "A refusal: one English sentence in `error`, and the parts a client words itself where a refusal has them."
+    EventArt:
+      type: object
+      properties:
+        seat:
+          type: integer
+          format: int32
+          minimum: 0
+          maximum: 255
+          description: Wearer's seat index.
+        kind:
+          $ref: "#/components/schemas/Kind"
+          description: Which equipped surface to read.
+        offset:
+          type: integer
+          format: int64
+          minimum: 0
+          maximum: 4294967295
+          description: Aligned offset in bytes.
+        cached:
+          anyOf:
+          - $ref: "#/components/schemas/Digest"
+          - type: "null"
+          description: Optional digest of the previously authorized image at offset zero.
+      required:
+      - seat
+      - kind
+      - offset
+      additionalProperties: false
+      description: A released appearance on one of the participants' chairs.
+    EventArtReply:
+      oneOf:
+      - type: object
+        required:
+        - asset
+        additionalProperties: false
+        properties:
+          asset:
+            type: object
+            required:
+            - page
+            properties:
+              page:
+                type: object
+                required:
+                - asset
+                - offset
+                - bytes
+                properties:
+                  asset:
+                    $ref: "#/components/schemas/AssetMeta"
+                  offset:
+                    type: integer
+                    minimum: 0
+                    multipleOf: 196608
+                  bytes:
+                    type: string
+                    maxLength: 393216
+                    pattern: ^[0-9a-f]+$
+      - type: object
+        required:
+        - cached
+        additionalProperties: false
+        properties:
+          cached:
+            type: object
+            required:
+            - asset
+            properties:
+              asset:
+                $ref: "#/components/schemas/AssetMeta"
+    EventOctet:
+      type: integer
+      minimum: 0
+      maximum: 255
     FaceText:
       type: object
       properties:
@@ -8459,6 +8649,11 @@ components:
       required:
       - keys
       description: "`GET /social/keys?tag=…`: only the tags this account may write to; any other tag is left out rather than refused."
+    Kind:
+      type: string
+      enum:
+      - sleeve
+      - playmat
     ListBody:
       type: object
       properties:
@@ -8872,6 +9067,14 @@ components:
       - oracle_id
       - status
       description: One card of a list being written.
+    OptionalEventItem:
+      type:
+      - array
+      - "null"
+      minItems: 16
+      maxItems: 16
+      items:
+        $ref: "#/components/schemas/EventOctet"
     OrderBody:
       type: object
       properties:
@@ -9141,6 +9344,18 @@ components:
       - code
       - name
       description: One set a pool card was printed in.
+    PresentLook:
+      type: object
+      properties:
+        proof:
+          anyOf:
+          - $ref: "#/components/schemas/Proof"
+          - type: "null"
+          description: >-
+            Secret proof from the wearer's current native session, or null to remove the
+            appearance.
+      additionalProperties: false
+      description: A temporary table invitation returned to the wearer by Central.
     PrintingsBody:
       type: object
       properties:
@@ -9583,6 +9798,11 @@ components:
       - tag
       - handle
       description: What `GET /me` answers.
+    Proof:
+      description: Random invitation bound to the wearer's session, gateway, game and seat.
+      allOf:
+      - $ref: "#/components/schemas/Digest"
+      writeOnly: true
     PublicPlayer:
       type: object
       properties:
@@ -10193,6 +10413,16 @@ components:
           - string
           - "null"
           description: The image id of the seat's playmat, absent for none.
+        event_sleeve:
+          anyOf:
+          - $ref: "#/components/schemas/AssetMeta"
+          - type: "null"
+          description: Metadata for a released event sleeve equipped at this table.
+        event_playmat:
+          anyOf:
+          - $ref: "#/components/schemas/AssetMeta"
+          - type: "null"
+          description: Metadata for a released event playmat equipped at this table.
       description: The sleeve and playmat one seat is playing with.
     SeatGrant:
       type: object

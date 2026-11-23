@@ -1,0 +1,67 @@
+# Imported Central wire types used by the native deck library and the gateway.
+components:
+  schemas:
+    EventOctet:
+      type: integer
+      minimum: 0
+      maximum: 255
+    Equipment:
+      type: object
+      additionalProperties: false
+      properties:
+        sleeve: { $ref: '#/components/schemas/OptionalEventItem' }
+        playmat: { $ref: '#/components/schemas/OptionalEventItem' }
+    OptionalEventItem:
+      type: [array, 'null']
+      minItems: 16
+      maxItems: 16
+      items: { $ref: '#/components/schemas/EventOctet' }
+    Digest:
+      type: array
+      minItems: 32
+      maxItems: 32
+      items: { $ref: '#/components/schemas/EventOctet' }
+    Proof:
+      description: Random invitation bound to the wearer's session, gateway, game and seat.
+      allOf: [{ $ref: '#/components/schemas/Digest' }]
+      writeOnly: true
+    Kind:
+      type: string
+      enum: [sleeve, playmat]
+    AssetMeta:
+      type: object
+      additionalProperties: false
+      required: [tier, digest, size, mime, width, height]
+      properties:
+        tier: { type: string, enum: [standard, special, finale] }
+        digest: { $ref: '#/components/schemas/Digest' }
+        size: { type: integer, minimum: 1, maximum: 16777216 }
+        mime: { type: string, enum: [image/webp] }
+        width: { type: integer, minimum: 1, maximum: 4096 }
+        height: { type: integer, minimum: 1, maximum: 4096 }
+    EventArtReply:
+      oneOf:
+        - type: object
+          required: [asset]
+          additionalProperties: false
+          properties:
+            asset:
+              type: object
+              required: [page]
+              properties:
+                page:
+                  type: object
+                  required: [asset, offset, bytes]
+                  properties:
+                    asset: { $ref: '#/components/schemas/AssetMeta' }
+                    offset: { type: integer, minimum: 0, multipleOf: 196608 }
+                    bytes: { type: string, maxLength: 393216, pattern: '^[0-9a-f]+$' }
+        - type: object
+          required: [cached]
+          additionalProperties: false
+          properties:
+            cached:
+              type: object
+              required: [asset]
+              properties:
+                asset: { $ref: '#/components/schemas/AssetMeta' }
