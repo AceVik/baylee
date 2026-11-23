@@ -264,20 +264,7 @@ fn show_status(commands: &mut Commands, parent: Entity, kit: Kit, look: &Look) -
             after,
             ..
         } => {
-            let result = match (outcome, seat) {
-                (Outcome::FirstWins, 0) | (Outcome::SecondWins, 1) => Phrase::RankedWon,
-                (Outcome::Draw, _) => Phrase::RankedDrawn,
-                _ => Phrase::RankedLost,
-            };
-            let receipt = Phrase::RankedReceipt.fill(
-                lang,
-                &[
-                    format_name(*format, lang),
-                    result.text(lang),
-                    &format!("{delta:+}"),
-                    &elo.to_string(),
-                ],
-            );
+            let receipt = receipt(lang, *format, *outcome, *seat, *elo, *delta);
             label(commands, parent, kit, &receipt, kit.m.text, tokens::GOLD);
             let progress = if deck.after.league == League::Unranked {
                 Phrase::RankedPlacements.fill(lang, &[&deck.placement_games.to_string()])
@@ -312,6 +299,30 @@ fn show_status(commands: &mut Commands, parent: Entity, kit: Kit, look: &Look) -
     }
 
     true
+}
+
+pub(super) fn receipt(
+    lang: Lang,
+    format: Format,
+    outcome: Outcome,
+    seat: u8,
+    elo: i32,
+    delta: i32,
+) -> String {
+    let result = match (outcome, seat) {
+        (Outcome::FirstWins, 0) | (Outcome::SecondWins, 1) => Phrase::RankedWon,
+        (Outcome::Draw, _) => Phrase::RankedDrawn,
+        _ => Phrase::RankedLost,
+    };
+    Phrase::RankedReceipt.fill(
+        lang,
+        &[
+            format_name(format, lang),
+            result.text(lang),
+            &format!("{delta:+}"),
+            &elo.to_string(),
+        ],
+    )
 }
 
 fn waiting(commands: &mut Commands, parent: Entity, kit: Kit, format: Format, queued_at: i64) {

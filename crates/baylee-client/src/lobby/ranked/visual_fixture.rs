@@ -17,6 +17,13 @@ fn enabled() -> bool {
         && std::env::var_os("BAYLEE_DEV_CONTROL").is_some()
         && std::env::var("BAYLEE_GATEWAY").as_deref() == Ok("http://127.0.0.1:9")
 }
+fn fixture_session(state: &LobbyState) -> bool {
+    // A real Central account has a UUIDv7 and a real gateway bearer.
+    state.lobby.token() == Some("")
+        && state
+            .central_handle()
+            .is_some_and(|h| h.public_id == Some([0; 16]))
+}
 
 pub(super) fn install(app: &mut App) {
     if enabled() {
@@ -34,7 +41,9 @@ pub(crate) fn populate(state: &mut LobbyState) -> bool {
     };
     account.handle = Some(central::Handle::inert_fixture_handle());
     account.profile_handle = Some("Laurel#0001".into());
-    state.gateway = "http://127.0.0.1:9".into();
+    // This fixture supplies its two table rows in memory. As in the ordinary
+    // headless lobby harness, no endpoint means there is no live feed to dial.
+    state.gateway.clear();
     state.gateway_selected = true;
     state.hub = Hub::Play;
     state.lobby.apply(LobbyEvent::LoggedIn {
@@ -91,10 +100,7 @@ pub(crate) fn populate(state: &mut LobbyState) -> bool {
 // The first account tick invalidates any previous account's challenge data.
 // Seed this fixture's catalogue after that tick, as an actual reply arrives.
 fn challenges(mut state: ResMut<LobbyState>, mut stage: Local<u8>) {
-    if *stage >= 2
-        || state.lobby.token() != Some("")
-        || !state.central_handle().is_some_and(|h| !h.is_active())
-    {
+    if *stage >= 2 || !fixture_session(&state) {
         return;
     }
     *stage += 1;
@@ -102,6 +108,7 @@ fn challenges(mut state: ResMut<LobbyState>, mut stage: Local<u8>) {
         return;
     }
     let model = &mut state.challenges.model;
+    model.busy = false;
     model.loaded = true;
     model.now = time::OffsetDateTime::now_utc().unix_timestamp();
     model.catalogue = [
@@ -135,11 +142,7 @@ fn challenges(mut state: ResMut<LobbyState>, mut stage: Local<u8>) {
 }
 
 pub(super) fn reply(state: &mut LobbyState, action: Action) -> bool {
-    if !matches!(action, Action::Join | Action::Cancel)
-        || !enabled()
-        || state.lobby.token() != Some("")
-        || !state.central_handle().is_some_and(|h| !h.is_active())
-    {
+    if !matches!(action, Action::Join | Action::Cancel) || !enabled() || !fixture_session(state) {
         return false;
     }
     let format = queue::effective_format(state);

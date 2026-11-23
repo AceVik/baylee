@@ -29,7 +29,7 @@ pub(super) fn ranked(commands: &mut Commands, parent: Entity, kit: Kit) {
             Pickable::IGNORE,
         ))
         .id();
-    let card = tile(
+    let (card, caption) = tile(
         commands,
         parent,
         kit,
@@ -45,7 +45,7 @@ pub(super) fn ranked(commands: &mut Commands, parent: Entity, kit: Kit) {
             accent: tokens::ACCENT,
         },
     );
-    super::super::ranked::entry(commands, card, arrow, kit);
+    super::super::ranked::entry(commands, card, caption, arrow, kit);
 }
 
 pub(super) fn draw(commands: &mut Commands, parent: Entity, state: &LobbyState, kit: Kit) {
@@ -163,7 +163,7 @@ struct Tile<'a> {
     accent: Color,
 }
 
-fn tile(commands: &mut Commands, parent: Entity, kit: Kit, tile: Tile<'_>) -> Entity {
+fn tile(commands: &mut Commands, parent: Entity, kit: Kit, tile: Tile<'_>) -> (Entity, Entity) {
     let card = surfaces::panel(commands, kit, percent(100));
     commands
         .entity(card)
@@ -219,5 +219,5 @@ fn tile(commands: &mut Commands, parent: Entity, kit: Kit, tile: Tile<'_>) -> En
         .insert(BorderColor::all(tile.accent.with_alpha(0.4)));
     commands.entity(card).add_children(&[picture, button, copy]);
     commands.entity(parent).add_child(card);
-    card
+    (card, copy)
 }

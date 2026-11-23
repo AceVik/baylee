@@ -25,8 +25,9 @@ both engine fingerprints against the archived reference and compares each
 seat's outgoing messages. One session pauses
 for 16 inputs and then catches up in order. Both engines identify seat 0 as
 the winner on turn 29. A different legal opening mulligan changes the
-fingerprint. This test runs within one process and exercises the game logic.
-The network handover still needs a separate end-to-end test.
+fingerprint. Separate runs on Linux x86-64 and macOS ARM64 matched the same
+archived sequence. Each run used two sessions in one process. Automatic
+handover between network hosts still needs a separate end-to-end test.
 [Twin session regression](../../crates/baylee-gamehost/src/session/tests/twins.rs)
 
 ## Independent replay
