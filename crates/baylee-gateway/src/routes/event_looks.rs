@@ -23,6 +23,11 @@ use uuid::Uuid;
 type Failure = (StatusCode, Json<ErrorBody>);
 pub(super) const PRIVATE: [(axum::http::HeaderName, &str); 1] =
     [(axum::http::header::CACHE_CONTROL, "private, no-store")];
+
+pub(super) fn accepts_framing(headers: &HeaderMap) -> bool {
+    let mut values = headers.get_all(advent::framing::CAPABILITY_HEADER).iter();
+    matches!((values.next(), values.next()), (Some(value), None) if value.as_bytes() == b"1")
+}
 // Media traffic uses at most three of this host's sixteen Central exchange
 // slots, leaving room for other operations and revocation synchronization.
 static EXCHANGES: tokio::sync::Semaphore = tokio::sync::Semaphore::const_new(3);
@@ -247,6 +252,7 @@ pub(crate) struct EventArt {
 /// @security `seatToken`
 /// @operation-id `read_event_art`
 /// @path-param id: String "The game's id"
+/// @header-param baylee-mat-framing: String optional `pattern=^1$` "Send 1 once to receive available playmat composition with image pages and cache hits"
 /// @body `$EventArt`
 /// @return 200: `$EventArtReply` "The authorized chunk or validated cache entry"
 /// @return 403: `$ErrorBody` "There is no current appearance for this seat"
@@ -276,7 +282,7 @@ pub(crate) async fn art(
     let game = Uuid::parse_str(&id).map_err(|_| denied())?.into_bytes();
     let _slot = capacity()?;
     let bridge = state.central.get().ok_or_else(denied)?;
-    let response = match bridge
+    let mut response = match bridge
         .casual_appearance(HostRequest::Art {
             game,
             seat: body.seat,
@@ -304,6 +310,9 @@ pub(crate) async fn art(
         .is_none_or(|item| item.proof.digest() != digest)
     {
         return Err(denied());
+    }
+    if !accepts_framing(&headers) {
+        response.omit_framing();
     }
     Ok((PRIVATE, Json(response)))
 }

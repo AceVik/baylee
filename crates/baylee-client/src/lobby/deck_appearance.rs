@@ -111,7 +111,7 @@ impl Page {
             book.inventory()
                 .iter()
                 .find(|r| r.id == id && r.kind == kind)
-                .map(|r| (id, r.asset))
+                .map(|r| Box::new((id, r.asset)))
         });
         if selected.is_none() && self.selected.is_some() {
             return;
@@ -232,9 +232,7 @@ fn open(
         });
     if let Some(origin) = origin {
         page.open(handle, origin);
-        if !book.inventory_loaded() {
-            refresh.write(RefreshInventory);
-        }
+        refresh.write(RefreshInventory);
     }
 }
 

@@ -40,15 +40,14 @@ pub(crate) struct CosmeticsParams {
 /// @route GET /games/{id}/cosmetics
 /// @scope public
 /// @summary What every seat at a table wears
-/// @description Every seat's sleeve and playmat (image ids for
-/// `GET /images/{id}`), keyed by seat number, for the holder of one of the
-/// table's seat tokens. A seat that set neither is left out, so a table
-/// where nobody uploaded anything answers `{}` and the client draws the
-/// generated card back.
+/// @description Visible appearances keyed by seat number. Uploaded images use
+/// `GET /images/{id}`. Participants read equipped event images through
+/// `POST /games/{id}/event-art`. A seat with no visible appearance is omitted.
 /// @tag Lobby
 /// @operation-id `game_cosmetics`
 /// @security `seatToken`
 /// @path-param id: String "The game's id"
+/// @header-param baylee-mat-framing: String optional `pattern=^1$` "Send 1 once to receive available playmat composition with the equipped image metadata"
 /// @query-params `$CosmeticsParams`
 /// @return 200: `{ type: object, additionalProperties: { $ref: "#/components/schemas/SeatCosmetics" } }` "Visible table appearances by seat index"
 /// @return 401: `$ErrorBody` "No seat token, one that is not this game's (`invalid seat token`, `ticket expired or used`), or a token in the address after its end"
@@ -84,11 +83,15 @@ pub(crate) async fn game_cosmetics(
     // to "no entry" and to "an entry with no sleeve" has to be the same thing
     // anyway — draw the generated back.
     let mut seats = cosmetics::TableCosmetics::new();
+    let framing = super::event_looks::accepts_framing(&headers);
     for seat in &game.seats {
-        let event = events
+        let mut event = events
             .then(|| game.event_looks.get(game, seat.seat))
             .flatten()
             .map_or_default(|item| item.worn);
+        if !framing {
+            event.omit_framing();
+        }
         let worn = cosmetics::SeatCosmetics {
             sleeve: seat.deck.as_ref().and_then(|deck| deck.sleeve.clone()),
             playmat: seat.deck.as_ref().and_then(|deck| deck.playmat.clone()),

@@ -2,7 +2,7 @@ use super::{Action, Book, ORDER, Origin, Page, worker};
 use crate::{
     event_cosmetics::CosmeticPreview,
     hud::UiFonts,
-    lobby::LobbyState,
+    lobby::{LobbyState, advent::collection},
     shellkit::{
         InputClass, ShellMetrics,
         controls::{self, Kit, Live, Weight},
@@ -11,7 +11,7 @@ use crate::{
         tokens,
     },
 };
-use baylee_account::advent::{Id, Kind, Reward};
+use baylee_account::advent::{Id, Kind, collection::Item};
 use baylee_client_core::i18n::{Lang, Phrase};
 use bevy::prelude::*;
 
@@ -21,7 +21,7 @@ pub(super) struct Preview(Id);
 #[derive(Default)]
 pub(super) struct Paint {
     shell: Option<(Entity, Entity, Entity, ShellMetrics, Lang)>,
-    inventory: Option<(usize, bool, bool, bool)>,
+    inventory: Option<(u64, bool, bool, bool)>,
 }
 
 fn column(c: &mut Commands, kit: Kit) -> Entity {
@@ -76,13 +76,6 @@ fn stop(key: &'static str) -> Stop {
 fn choice(index: usize) -> Stop {
     Stop::item(ORDER.name, "item", u8::try_from(index).unwrap_or_default())
 }
-fn name(r: &Reward, lang: Lang) -> &str {
-    if lang == Lang::De {
-        &r.title.de
-    } else {
-        &r.title.en
-    }
-}
 fn title(kind: Kind) -> Phrase {
     match kind {
         Kind::Sleeve => Phrase::DeckAppearanceSleeve,
@@ -114,7 +107,7 @@ fn paging(c: &mut Commands, body: Entity, kit: Kit, page: usize, length: usize) 
     }
 }
 
-fn preview(c: &mut Commands, body: Entity, kit: Kit, reward: &Reward, book: &Book) {
+fn preview(c: &mut Commands, body: Entity, kit: Kit, reward: &Item, book: &Book) {
     let (w, h) = match reward.kind {
         Kind::Sleeve => (100., 150.),
         Kind::Playmat => (200., 112.),
@@ -161,7 +154,11 @@ fn preview(c: &mut Commands, body: Entity, kit: Kit, reward: &Reward, book: &Boo
         line(c, root, kit, Phrase::ChallengeLoading.text(kit.lang()));
     }
     c.entity(body).add_child(root);
-    line(c, body, kit, name(reward, kit.lang()));
+    let lang = kit.lang();
+    line(c, body, kit, collection::title(reward, lang));
+    if let Some(source) = collection::ranked_label(reward.source, lang) {
+        line(c, body, kit, &source);
+    }
 }
 
 fn deck_list(c: &mut Commands, body: Entity, kit: Kit, p: &Page) {
@@ -183,7 +180,7 @@ fn deck_list(c: &mut Commands, body: Entity, kit: Kit, p: &Page) {
     paging(c, body, kit, p.list_index, p.decks.len());
 }
 
-fn contents(c: &mut Commands, body: Entity, foot: Entity, kit: Kit, p: &Page, b: &Book) {
+pub(super) fn contents(c: &mut Commands, body: Entity, foot: Entity, kit: Kit, p: &Page, b: &Book) {
     let lang = kit.lang();
     if p.problem.is_some() || b.inventory_error().is_some() {
         let why = if p.problem == Some(baylee_account::Error::Conflict) {
@@ -201,7 +198,9 @@ fn contents(c: &mut Commands, body: Entity, foot: Entity, kit: Kit, p: &Page, b:
             stop("retry"),
             false,
         );
-        return;
+        if p.problem.is_some() || !b.inventory_loaded() {
+            return;
+        }
     }
     if p.pending.is_some() || !b.inventory_loaded() {
         line(c, body, kit, Phrase::ChallengeLoading.text(lang));
@@ -294,11 +293,14 @@ fn designs(c: &mut Commands, body: Entity, kit: Kit, p: &Page, b: &Book, kind: K
         .take(PER_PAGE)
         .enumerate()
     {
+        let name = collection::title(item, lang);
+        let caption = collection::ranked_label(item.source, lang)
+            .map_or_else(|| name.to_owned(), |rank| format!("{name} · {rank}"));
         button(
             c,
             body,
             kit,
-            name(item, lang),
+            &caption,
             Action::Select(Some(item.id)),
             choice(idx),
             Some(item.id) == p.selected,
@@ -352,7 +354,7 @@ pub(super) fn render(
         .shell
         .is_some_and(|(_, _, _, old, old_lang)| old == metrics && old_lang == lang);
     let inventory = (
-        book.inventory().len(),
+        book.inventory_revision(),
         book.inventory_loaded(),
         book.inventory_error().is_some(),
         page.selected

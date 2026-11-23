@@ -2,9 +2,11 @@
 //! reads it, including after both seats are reclaimed. No operator art is used.
 use super::{Account, DeckDraft, Endpoint, Runtime, common, signed, statement};
 use central_api::advent::{self, table};
-use sea_orm::{ConnectionTrait, DatabaseConnection};
+use sea_orm::DatabaseConnection;
 use serde_json::{Value, json};
 use uuid::Uuid;
+#[path = "table/framing.rs"]
+mod framing;
 
 struct Table {
     port: u16,
@@ -117,7 +119,7 @@ impl Table {
             &json!({"seat":0,"kind":kind,"offset":0,"cached":cached}).to_string(),
         )
     }
-    fn verify_guest(&self, seat: &str, meta: advent::AssetMeta) {
+    fn verify_guest(&self, seat: &str, meta: &advent::AssetMeta) {
         let (status, roster) =
             common::http(self.port, "GET", &self.path("cosmetics"), Some(seat), "");
         assert_eq!(status, 200);
@@ -130,15 +132,15 @@ impl Table {
                 .unwrap();
         let game = Uuid::parse_str(&self.id).unwrap();
         let seats = client.advent_table_looks(game, seat).unwrap();
-        assert_eq!(seats[0].sleeve, Some(meta));
+        assert_eq!(seats[0].sleeve.as_ref(), Some(meta));
         let bytes = client
-            .advent_table_asset(game, seat, 0, advent::Kind::Sleeve, &meta, || true)
+            .advent_table_asset(game, seat, 0, advent::Kind::Sleeve, meta, || true)
             .unwrap();
         assert_eq!(bytes.len(), meta.size as usize);
         let (status, body) = self.page(seat, advent::Kind::Sleeve, Some(meta.digest));
         assert_eq!(status, 200);
         assert!(
-            matches!(serde_json::from_str(&body).unwrap(),advent::Response::Cached{asset} if asset==meta)
+            matches!(serde_json::from_str(&body).unwrap(),advent::Response::Cached{asset} if &asset==meta)
         );
         assert_eq!(
             self.page(seat, advent::Kind::Playmat, Some(meta.digest)).0,
@@ -239,12 +241,7 @@ pub(super) fn exercise(
     account: &Account,
     deck: &DeckDraft,
 ) {
-    rt.block_on(operator.execute_raw(statement(
-        "INSERT INTO central_identity.gateways (official,origin,name,version,website)
-        VALUES(true,$1,'Synthetic official','0',$2) ON CONFLICT DO NOTHING",
-        [origin.into(), format!("{origin}/").into()],
-    )))
-    .unwrap();
+    super::register_home(rt, operator, origin);
     let agent = rt.block_on(common::attach_agent(host));
     let admission = account.admit(origin).unwrap();
     let table = Table::start(host.port, &admission.token, deck);
@@ -255,11 +252,11 @@ pub(super) fn exercise(
     else {
         panic!("owner inventory")
     };
-    let meta = items
+    let sleeve = items
         .iter()
         .find(|item| Some(item.id) == deck.look.sleeve)
-        .unwrap()
-        .asset;
+        .unwrap();
+    let meta = sleeve.asset;
     let grant = proof(
         account,
         table::Request::Begin {
@@ -272,7 +269,7 @@ pub(super) fn exercise(
     assert_eq!(table.present(&table.guest_seat, &grant), 403);
     assert_eq!(table.present(&table.owner_seat, &grant), 204);
     assert_eq!(table.page(&table.guest, advent::Kind::Sleeve, None).0, 403);
-    table.verify_guest(&table.guest_seat, meta);
+    table.verify_guest(&table.guest_seat, &meta);
     let new_guest = table.reclaim(&table.guest);
     assert_eq!(
         table
@@ -292,7 +289,16 @@ pub(super) fn exercise(
     assert_ne!(grant.digest(), replacement.digest());
     assert_eq!(table.present(&table.owner_seat, &grant), 403);
     assert_eq!(table.present(&new_owner, &replacement), 204);
-    table.verify_guest(&new_guest, meta);
+    table.verify_guest(&new_guest, &meta);
+    let mat = framing::earn(rt, operator, &restored, sleeve.year);
+    framing::verify(
+        &table,
+        &restored,
+        origin,
+        [&new_owner, &new_guest],
+        sleeve,
+        &mat,
+    );
     table.end(rt, &new_owner, &new_guest);
     let retired = rt.block_on(async {
         for _ in 0..common::WAIT_TRIES {

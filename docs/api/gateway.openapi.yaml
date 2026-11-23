@@ -2704,6 +2704,15 @@ paths:
         description: The game's id
         schema:
           type: string
+      - name: baylee-mat-framing
+        in: header
+        required: false
+        description: >-
+          Send 1 once to receive available playmat composition with image pages and cache
+          hits
+        schema:
+          type: string
+          pattern: ^1$
       security:
       - seatToken: []
       requestBody:
@@ -4344,11 +4353,9 @@ paths:
     get:
       summary: What every seat at a table wears
       description: |-
-        Every seat's sleeve and playmat (image ids for
-        `GET /images/{id}`), keyed by seat number, for the holder of one of the
-        table's seat tokens. A seat that set neither is left out, so a table
-        where nobody uploaded anything answers `{}` and the client draws the
-        generated card back.
+        Visible appearances keyed by seat number. Uploaded images use
+        `GET /images/{id}`. Participants read equipped event images through
+        `POST /games/{id}/event-art`. A seat with no visible appearance is omitted.
       operationId: game_cosmetics
       tags:
       - Lobby
@@ -4359,6 +4366,15 @@ paths:
         description: The game's id
         schema:
           type: string
+      - name: baylee-mat-framing
+        in: header
+        required: false
+        description: >-
+          Send 1 once to receive available playmat composition with the equipped image
+          metadata
+        schema:
+          type: string
+          pattern: ^1$
       - name: token
         in: query
         required: false
@@ -6277,6 +6293,8 @@ components:
       - width
       - height
       properties:
+        mat_framing:
+          $ref: "#/components/schemas/MatFraming"
         tier:
           type: string
           enum:
@@ -9029,6 +9047,69 @@ components:
       - "Off"
       default: RunOnceThenBreak
       description: "Automatic repetition handling: `Off`, `RunOnceThenBreak`, or `CompRulesDraw`. New ordinary tables use `Off`."
+    MatComposition:
+      type: object
+      additionalProperties: false
+      description: Position in ten-thousandths of the original image, measured from its top left.
+      required:
+      - focus
+      properties:
+        focus:
+          type: array
+          minItems: 2
+          maxItems: 2
+          items:
+            $ref: "#/components/schemas/MatCoordinate"
+        safe:
+          description: Left, top, right and bottom of a nonempty rectangle containing the focus.
+          type: array
+          minItems: 4
+          maxItems: 4
+          items:
+            $ref: "#/components/schemas/MatCoordinate"
+    MatCoordinate:
+      type: integer
+      minimum: 0
+      maximum: 10000
+    MatFraming:
+      type: object
+      additionalProperties: false
+      required:
+      - duel
+      properties:
+        duel:
+          $ref: "#/components/schemas/MatComposition"
+        variants:
+          description: >-
+            Unique table configurations viewed from the mat owner's seat. Unlisted
+            configurations use duel.
+          type: array
+          maxItems: 8
+          items:
+            type: object
+            additionalProperties: false
+            required:
+            - seats
+            - allies
+            - sides
+            - framing
+            properties:
+              seats:
+                type: integer
+                minimum: 3
+                maximum: 8
+              allies:
+                type: integer
+                minimum: 1
+                maximum: 7
+                description: Size of the owner's team including the owner.
+              sides:
+                type: integer
+                minimum: 2
+                maximum: 8
+                description: Count of teams including each unallied player.
+              framing:
+                $ref: "#/components/schemas/MatComposition"
     NewBanlist:
       type: object
       properties:

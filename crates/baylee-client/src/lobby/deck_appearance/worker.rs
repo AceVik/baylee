@@ -21,7 +21,7 @@ pub(super) enum Job {
         deck: Uuid,
         kind: Kind,
         previous: Option<Id>,
-        selected: Option<(Id, AssetMeta)>,
+        selected: Option<Box<(Id, AssetMeta)>>,
     },
 }
 
@@ -115,7 +115,14 @@ pub(super) fn submit(owner: &Handle, job: Job) -> Result<Receiver<Result<Reply, 
                 kind,
                 previous,
                 selected,
-            } => apply(account, &handle, deck, kind, previous, selected),
+            } => apply(
+                account,
+                &handle,
+                deck,
+                kind,
+                previous,
+                selected.map(|picked| *picked),
+            ),
         };
         let _ = send.send(result);
     });

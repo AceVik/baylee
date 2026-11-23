@@ -28,11 +28,52 @@ components:
     Kind:
       type: string
       enum: [sleeve, playmat]
+    MatCoordinate:
+      type: integer
+      minimum: 0
+      maximum: 10000
+    MatComposition:
+      type: object
+      additionalProperties: false
+      description: Position in ten-thousandths of the original image, measured from its top left.
+      required: [focus]
+      properties:
+        focus:
+          type: array
+          minItems: 2
+          maxItems: 2
+          items: { $ref: '#/components/schemas/MatCoordinate' }
+        safe:
+          description: Left, top, right and bottom of a nonempty rectangle containing the focus.
+          type: array
+          minItems: 4
+          maxItems: 4
+          items: { $ref: '#/components/schemas/MatCoordinate' }
+    MatFraming:
+      type: object
+      additionalProperties: false
+      required: [duel]
+      properties:
+        duel: { $ref: '#/components/schemas/MatComposition' }
+        variants:
+          description: Unique table configurations viewed from the mat owner's seat. Unlisted configurations use duel.
+          type: array
+          maxItems: 8
+          items:
+            type: object
+            additionalProperties: false
+            required: [seats, allies, sides, framing]
+            properties:
+              seats: { type: integer, minimum: 3, maximum: 8 }
+              allies: { type: integer, minimum: 1, maximum: 7, description: Size of the owner's team including the owner. }
+              sides: { type: integer, minimum: 2, maximum: 8, description: Count of teams including each unallied player. }
+              framing: { $ref: '#/components/schemas/MatComposition' }
     AssetMeta:
       type: object
       additionalProperties: false
       required: [tier, digest, size, mime, width, height]
       properties:
+        mat_framing: { $ref: '#/components/schemas/MatFraming' }
         tier: { type: string, enum: [standard, special, finale] }
         digest: { $ref: '#/components/schemas/Digest' }
         size: { type: integer, minimum: 1, maximum: 16777216 }

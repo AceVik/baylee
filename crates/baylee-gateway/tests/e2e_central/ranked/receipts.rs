@@ -6,7 +6,7 @@ use super::{
 use baylee_account::ranked::{HostRequest, HostResponse, League, ProfileTarget, Record, Track};
 use std::time::{Duration, Instant};
 
-fn receipt(player: &Player) -> QueueState {
+pub(super) fn receipt(player: &Player) -> QueueState {
     let deadline = Instant::now() + Duration::from_secs(45);
     loop {
         match player.account.ranked(Request::Status).unwrap() {

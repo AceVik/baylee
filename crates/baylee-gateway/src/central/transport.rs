@@ -116,6 +116,7 @@ impl Transport {
     ) -> Result<wire::Response, Error> {
         let mut request = hyper::Request::post(self.url.as_str())
             .header(CONTENT_TYPE, "application/json")
+            .header(central_api::advent::framing::CAPABILITY_HEADER, "1")
             .header(central_api::PROTOCOL_HEADER, central_api::PROTOCOL_VERSION)
             .body(Full::new(body))
             .map_err(|_| Error::Unavailable)?;

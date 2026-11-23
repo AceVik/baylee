@@ -20,6 +20,7 @@ fn synthetic() -> (AssetMeta, Vec<u8>) {
             height: 2,
             tier: Finish::Special,
             mime: Mime::Webp,
+            mat_framing: None,
         },
         bytes,
     )

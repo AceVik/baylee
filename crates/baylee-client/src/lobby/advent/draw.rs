@@ -1,4 +1,4 @@
-use super::{Action, Book, Screen, api, seasonal};
+use super::{Action, Book, Screen, api, collection, seasonal};
 use crate::{
     hud::UiFonts,
     shellkit::{
@@ -188,7 +188,7 @@ pub(super) fn actions(
 
 #[derive(Default)]
 pub(super) struct Paint {
-    shell: Option<(Lang, crate::shellkit::ShellMetrics, bool)>,
+    shell: Option<(Lang, crate::shellkit::ShellMetrics, bool, bool)>,
     body: Option<(Screen, u64)>,
     navigation: Option<(Entity, Option<bool>)>,
 }
@@ -232,7 +232,15 @@ pub(super) fn render(
         german: lang == Lang::De,
     };
     let cd = (book.screen, book.revision);
-    let shell = (lang, metrics, book.released());
+    let calendar = book.released();
+    let seasonal_title = calendar
+        && match book.screen {
+            Screen::Item(id) => book.inventory.iter().any(|item| {
+                item.id == id && matches!(item.source, api::collection::Source::Advent { .. })
+            }),
+            _ => true,
+        };
+    let shell = (lang, metrics, calendar, seasonal_title);
     if paint.shell.as_ref() == Some(&shell) && paint.body == Some(cd) {
         return;
     }
@@ -245,7 +253,7 @@ pub(super) fn render(
         for root in &roots {
             commands.entity(root).try_despawn();
         }
-        let (body, navigation) = sheet(&mut commands, kit, book.released());
+        let (body, navigation) = sheet(&mut commands, kit, seasonal_title);
         paint.navigation = Some((navigation, None));
         paint.shell = Some(shell);
         body
@@ -407,7 +415,7 @@ pub(super) fn tile_action(
     let e = button(commands, kit, text, action, stop, index);
     commands.entity(parent).add_child(e);
 }
-fn gallery(commands: &mut Commands, parent: Entity, kit: Kit, book: &Book) {
+pub(super) fn gallery(commands: &mut Commands, parent: Entity, kit: Kit, book: &Book) {
     let lang = kit.lang();
     if let Screen::Item(id) = book.screen {
         item_view(commands, parent, kit, book, id);
@@ -437,22 +445,13 @@ fn gallery(commands: &mut Commands, parent: Entity, kit: Kit, book: &Book) {
     }
     let page = book.inventory_page.min((book.inventory.len() - 1) / 6);
     for (i, item) in book.inventory.iter().skip(page * 6).take(6).enumerate() {
-        let title = if lang == Lang::De {
-            &item.title.de
-        } else {
-            &item.title.en
-        };
-        let kind = kind_phrase(item.kind);
-        let meta = format!(
-            "{} · {} · {}",
-            kind.text(lang),
-            item.year,
-            Phrase::AdventDoor.fill(lang, &[&item.door.to_string()])
-        );
+        let kind = kind_phrase(item.kind).text(lang);
+        let meta = collection::source_label(item.source, lang)
+            .map_or_else(|| kind.to_owned(), |source| format!("{kind} · {source}"));
         let row = surfaces::list_row(
             commands,
             kit,
-            title,
+            collection::title(item, lang),
             &meta,
             &[],
             (
@@ -521,12 +520,16 @@ fn item_view(commands: &mut Commands, parent: Entity, kit: Kit, book: &Book, id:
         );
         return;
     };
-    let title = if lang == Lang::De {
-        &reward.title.de
-    } else {
-        &reward.title.en
-    };
-    item_title(commands, parent, kit, title, reward.kind);
+    item_title(
+        commands,
+        parent,
+        kit,
+        collection::title(reward, lang),
+        reward.kind,
+    );
+    if let Some(source) = collection::ranked_label(reward.source, lang) {
+        label(commands, parent, kit, &source, tokens::MUTED);
+    }
     let art = commands
         .spawn((
             Node {

@@ -90,6 +90,24 @@ pub struct MatMaterial {
     /// 0 selects resident felt, 1–3 select ordinary, special and finale ink.
     #[uniform(3)]
     pub(crate) decoration: UVec4,
+    /// The 1v1 composition projected into this seat's battlefield (UV origin/span).
+    #[uniform(4)]
+    pub(crate) viewport: Vec4,
+}
+
+#[cfg(feature = "dev-control")]
+impl MatMaterial {
+    /// The admitted print is bound on this mesh and its texture is resident.
+    pub(crate) fn has_loaded_print(&self, images: &Assets<Image>) -> bool {
+        (1..=3).contains(&self.decoration.x)
+            && self.viewport.is_finite()
+            && self.viewport.z > 0.0
+            && self.viewport.w > 0.0
+            && self
+                .artwork
+                .as_ref()
+                .is_some_and(|art| images.contains(art.id()))
+    }
 }
 
 impl Material for MatMaterial {

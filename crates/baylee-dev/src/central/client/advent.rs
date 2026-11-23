@@ -6,6 +6,7 @@ use std::time::{Duration, Instant};
 
 const CAL: &str = "advent";
 const EQUIP: &str = "deck-appearance";
+mod collection;
 
 fn nodes(view: &Value) -> impl Iterator<Item = &Value> {
     ["shell_nodes", "ui_nodes"]
@@ -149,6 +150,32 @@ impl Visit<'_> {
         Ok(())
     }
 
+    fn compare_lobby(&mut self) -> Result<()> {
+        self.keyboard_open()?;
+        self.press(CAL, "close", 0)?;
+        self.press("play", "ranked", 0)?;
+        if std::env::var("BAYLEE_CENTRAL_RANK_COLLECTION_UI").as_deref() == Ok("1") {
+            // The result receipt places the leaderboard below this rail's fold.
+            let card = self.button("play", "ranked", 0)?;
+            self.dev.post(
+                "pointer",
+                &json!({"x":card["x"].as_f64().unwrap()+16.,
+                "y":card["y"].as_f64().unwrap()+16.}),
+            )?;
+            self.dev.post("scroll", &json!({"y":-7}))?;
+        }
+        self.press("play", "ranked-board", 0)?;
+        self.button("ranked", "back", 0)?;
+        self.capture("09-ranked-reference")?;
+        if std::env::var("BAYLEE_CENTRAL_ADVENT_UI_DE").as_deref() == Ok("1") {
+            self.german_preview()?;
+        }
+        if std::env::var("BAYLEE_CENTRAL_RANK_COLLECTION_UI").as_deref() == Ok("1") {
+            self.ranked_table()?;
+        }
+        Ok(())
+    }
+
     fn entry(&mut self, moving: bool) -> Result<Value> {
         let view = self.wait("rendered calendar CTA material", |v| {
             control(v, "play", "advent", 0)
@@ -175,6 +202,11 @@ impl Visit<'_> {
 
 pub(super) fn visit(dev: &Devctl, client: &mut Owned, dir: &Path) -> Result<()> {
     let mut qa = Visit { dev, client, dir };
+    if std::env::var("BAYLEE_CENTRAL_RANK_COLLECTION_UI").as_deref() == Ok("1") {
+        // The confirmed game's receipt expands the ranked card on sign-in.
+        qa.words("Gold II")?;
+        qa.press("play", "ranked", 0)?;
+    }
     let first = qa.entry(true)?;
     qa.capture("01-entry")?;
     std::thread::sleep(Duration::from_millis(260));
@@ -241,6 +273,9 @@ pub(super) fn visit(dev: &Devctl, client: &mut Owned, dir: &Path) -> Result<()> 
     qa.press(CAL, "gallery", 0)?;
     qa.button(CAL, "item", 0)?;
     qa.capture("07-gallery")?;
+    if std::env::var("BAYLEE_CENTRAL_RANK_COLLECTION_UI").as_deref() == Ok("1") {
+        qa.ranked_items()?;
+    }
     qa.dev.post("key", &json!({"name":"Escape"}))?;
     qa.wait("keyboard close of calendar", |v| {
         control(v, CAL, "close", 0).is_none()
@@ -252,15 +287,7 @@ pub(super) fn visit(dev: &Devctl, client: &mut Owned, dir: &Path) -> Result<()> 
         "resolved calendar still draws attention"
     );
     qa.capture("08-entry-resolved")?;
-    qa.keyboard_open()?;
-    qa.press(CAL, "close", 0)?;
-    qa.press("play", "ranked", 0)?;
-    qa.press("play", "ranked-board", 0)?;
-    qa.button("ranked", "back", 0)?;
-    qa.capture("09-ranked-reference")?;
-    if std::env::var("BAYLEE_CENTRAL_ADVENT_UI_DE").as_deref() == Ok("1") {
-        qa.german_preview()?;
-    }
+    qa.compare_lobby()?;
     fs::write(
         dir.join("advent-motion.json"),
         serde_json::to_vec_pretty(&json!({"before":first,"next":next,"resolved":after}))?,

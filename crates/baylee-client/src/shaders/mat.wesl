@@ -29,7 +29,7 @@
 
 import bevy_pbr::render::forward_io::VertexOutput;
 import bevy_pbr::render::mesh_view_bindings::globals;
-import baylee_client::shaders::card_common::{cover_uv, varnish};
+import baylee_client::shaders::card_common::varnish;
 
 struct MatParams {
     /// The seat's colour, and `w` how brightly the mat is drawn at all — the
@@ -66,6 +66,7 @@ struct MatParams {
 @group(constants::MATERIAL_BIND_GROUP) @binding(1) var artwork: texture_2d<f32>;
 @group(constants::MATERIAL_BIND_GROUP) @binding(2) var art_sampler: sampler;
 @group(constants::MATERIAL_BIND_GROUP) @binding(3) var<uniform> decoration: vec4<u32>;
+@group(constants::MATERIAL_BIND_GROUP) @binding(4) var<uniform> viewport: vec4<f32>;
 
 const TAU: f32 = 6.2831855;
 
@@ -354,10 +355,13 @@ fn fragment(in: VertexOutput) -> @location(0) vec4<f32> {
     let alpha = 1.0 - (1.0 - shade) * (1.0 - light);
     if decoration.x > 0u {
         let surface_uv = field_p / (field_half * 2.0) + vec2<f32>(0.5);
-        let uv = cover_uv(surface_uv, field_half * 2.0, vec2<f32>(textureDimensions(artwork)));
-        let art = textureSampleLevel(artwork, art_sampler, uv, 0.0);
+        let uv = viewport.xy + surface_uv * viewport.zw;
+        let image_inset = min(uv, vec2<f32>(1.0) - uv);
+        let feather = max(fwidth(uv), vec2<f32>(0.00001));
+        let ink_area = clamp(min(image_inset.x / feather.x, image_inset.y / feather.y) + 0.5, 0.0, 1.0);
+        let art = textureSampleLevel(artwork, art_sampler, clamp(uv, vec2<f32>(0.0), vec2<f32>(1.0)), 0.0);
         let pigment = varnish(art.rgb, uv, globals.time * params.motion, decoration.x - 1u);
-        let paint = 0.74 * art.a * params.accent.w;
+        let paint = 0.74 * art.a * params.accent.w * ink_area;
         let opacity = alpha + (1.0 - alpha) * paint;
         let rgb = colour * light + (1.0 - alpha) * paint * pigment;
         return vec4<f32>(rgb / max(opacity, 1e-4), opacity * coverage);

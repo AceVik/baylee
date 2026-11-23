@@ -11,6 +11,63 @@ use baylee_account::advent::Kind;
 use bevy::prelude::*;
 use uuid::Uuid;
 
+#[test]
+fn collection_deck_picker_labels_ranked_designs_and_keeps_unknown_items_selectable() {
+    use super::{Deck, Origin, Page, draw};
+    use crate::lobby::advent::{
+        Book,
+        collection::tests::{collection, kit, words},
+    };
+    use bevy::ecs::system::RunSystemOnce;
+
+    let id = Uuid::now_v7();
+    for (german, kind) in [(true, Kind::Sleeve), (false, Kind::Playmat)] {
+        let mut app = App::new();
+        app.insert_resource(collection());
+        let selected = if kind == Kind::Sleeve {
+            [2; 16]
+        } else {
+            [3; 16]
+        };
+        app.world_mut()
+            .run_system_once(move |mut cmd: Commands, book: Res<Book>| {
+                let fonts = UiFonts::default();
+                let page = Page {
+                    origin: Some(Origin::Editor(id)),
+                    kind: Some(kind),
+                    selected: Some(selected),
+                    deck: Some(Deck {
+                        id,
+                        name: "Mistral".into(),
+                        look: baylee_account::advent::Equipment::default(),
+                    }),
+                    ..Page::default()
+                };
+                let body = cmd.spawn(Node::default()).id();
+                let foot = cmd.spawn(Node::default()).id();
+                draw::contents(&mut cmd, body, foot, kit(&fonts, german), &page, &book);
+            })
+            .unwrap();
+        let text = words(app.world_mut());
+        let (name, source) = if german {
+            ("Sol", "Rangbelohnung · Gold II")
+        } else {
+            ("Luna", "Rank reward · Diamond III")
+        };
+        assert!(text.iter().any(|s| s == source), "{text:?}");
+        assert!(text.contains(&format!("{name} · {source}")));
+        if kind == Kind::Sleeve {
+            assert!(text.iter().any(|s| s == "Nova"));
+            assert!(
+                app.world_mut()
+                    .query::<&Action>()
+                    .iter(app.world())
+                    .any(|a| *a == Action::Select(Some([4; 16])))
+            );
+        }
+    }
+}
+
 #[derive(Resource, Default)]
 struct Clicked {
     editor: usize,

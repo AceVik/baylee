@@ -4,6 +4,8 @@ DeckAppearanceOffline = Sign in to Central to choose a sleeve and playmat.
 DeckAppearancePrivate = Save a deck in your Central library to choose its appearance.
 DeckAppearanceSleeve = Card sleeve
 DeckAppearanceMat = Playmat
+# Arguments: rank
+CosmeticRankReward = Rank reward · { $rank }
 DeckAppearanceDefault = Standard design
 DeckAppearanceNoItems = You have not collected a design for this slot yet.
 DeckAppearanceApply = Apply to this deck

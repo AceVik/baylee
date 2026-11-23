@@ -44,7 +44,7 @@ fn position() -> Puzzle {
     }
 }
 
-fn art_file(n: u8) -> (u32, u32, Vec<u8>) {
+pub(super) fn art_file(n: u8) -> (u32, u32, Vec<u8>) {
     if n == 0
         && let Some(path) = std::env::var_os("BAYLEE_CENTRAL_ADVENT_UI_HERO")
     {
@@ -66,10 +66,10 @@ fn art_file(n: u8) -> (u32, u32, Vec<u8>) {
         assert!((1..=4096).contains(&width) && (1..=4096).contains(&height));
         return (width, height, bytes);
     }
-    let (width, height) = if n == 0 {
-        (600_u32, 400_u32)
-    } else {
-        (180, 252)
+    let (width, height) = match n {
+        0 => (600_u32, 400_u32),
+        2 | 102 => (360, 144),
+        _ => (180, 252),
     };
     let pixels = image::RgbImage::from_fn(width, height, |x, y| {
         let band = ((x + y / 2) / (width / 8)) % 3;
@@ -90,7 +90,11 @@ fn art_file(n: u8) -> (u32, u32, Vec<u8>) {
 }
 
 async fn art(db: &DatabaseTransaction, n: u8) -> Uuid {
-    let kind = if n == 0 { "hero" } else { "sleeve" };
+    let kind = match n {
+        0 => "hero",
+        2 => "playmat",
+        _ => "sleeve",
+    };
     let (width, height, bytes) = art_file(n);
     let name = format!("Fixture aurora {n:02}");
     db.query_one_raw(statement(
@@ -143,6 +147,15 @@ fn signed(endpoint: &Endpoint) -> Account {
     .unwrap()
 }
 
+fn register_home(rt: &Runtime, operator: &DatabaseConnection, origin: &str) {
+    rt.block_on(operator.execute_raw(statement(
+        "INSERT INTO central_identity.gateways (official,origin,name,version,website)
+         VALUES(true,$1,'Synthetic official','0',$2) ON CONFLICT DO NOTHING",
+        [origin.into(), format!("{origin}/").into()],
+    )))
+    .unwrap();
+}
+
 pub(super) fn exercise(
     rt: &Runtime,
     operator: &DatabaseConnection,
@@ -151,6 +164,9 @@ pub(super) fn exercise(
     origin: &str,
 ) {
     let (year, reward) = rt.block_on(campaign(operator));
+    if std::env::var("BAYLEE_CENTRAL_RANK_COLLECTION_UI").as_deref() == Ok("1") {
+        register_home(rt, operator, origin);
+    }
     let mut account = signed(endpoint);
     let Response::Calendar {
         doors,

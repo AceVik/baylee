@@ -118,7 +118,7 @@ enum Reply {
         presented: bool,
     },
     File {
-        slot: Slot,
+        slot: Box<Slot>,
         bytes: Vec<u8>,
     },
 }
@@ -212,10 +212,8 @@ impl Bridge {
                 }
                 self.next = Some(now + Duration::from_secs(5));
             }
-            Ok(Reply::File {
-                slot: (seat, kind, asset),
-                bytes,
-            }) if self.known.contains(&(seat, kind, asset)) => {
+            Ok(Reply::File { slot, bytes }) if self.known.contains(slot.as_ref()) => {
+                let (seat, kind, asset) = *slot;
                 out.decode.write(DecodeCasual {
                     scope: AssetScope::Equipped {
                         match_id: table,
@@ -267,7 +265,7 @@ impl Bridge {
                                 return Err(Error::Rejected);
                             };
                             let mut all = [SeatLooks::default(); 8];
-                            all[..2].copy_from_slice(&seats);
+                            all[..2].copy_from_slice(seats.as_slice());
                             Ok(Reply::Looks {
                                 seats: Box::new(all),
                                 presented,
@@ -302,7 +300,10 @@ impl Bridge {
                                 .advent_table_asset(game, &token, seat, kind, &asset, || {
                                     active.load(Ordering::Acquire)
                                 })
-                                .map(|bytes| Reply::File { slot, bytes }),
+                                .map(|bytes| Reply::File {
+                                    slot: Box::new(slot),
+                                    bytes,
+                                }),
                         };
                         let _ = send.send(result);
                     })

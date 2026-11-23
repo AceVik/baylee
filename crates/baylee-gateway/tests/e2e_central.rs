@@ -322,7 +322,15 @@ fn integration(scenario: Scenario) {
             &served.bridge,
         );
         if std::env::var("BAYLEE_CENTRAL_ADVENT_UI").as_deref() == Ok("1") {
+            let earned = (std::env::var("BAYLEE_CENTRAL_RANK_COLLECTION_UI").as_deref() == Ok("1"))
+                .then(|| ranked::cosmetics::earn(&runtime, &served, &store, &operator));
             advent_ui::exercise(&runtime, &operator, endpoint, gateway, origin);
+            if let Some(earned) = earned
+                && std::env::var_os("BAYLEE_CENTRAL_UI_READY")
+                    .is_some_and(|p| PathBuf::from(p).with_extension("advent-complete").is_file())
+            {
+                earned.verify(&served);
+            }
             return;
         }
         renewal::run(

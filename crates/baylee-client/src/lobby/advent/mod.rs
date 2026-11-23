@@ -3,7 +3,8 @@ use super::{LobbyState, central::Handle as AccountHandle};
 use baylee_account::{
     Error,
     advent::{
-        self as api, AssetMeta, AssetScope, DoorState, Id, Reward,
+        self as api, AssetMeta, AssetScope, DoorState, Id,
+        collection::Item,
         puzzle::{Line, Move, Puzzle},
     },
 };
@@ -15,6 +16,7 @@ use std::{
 };
 mod assets;
 mod calendar;
+pub(in crate::lobby) mod collection;
 mod draw;
 mod puzzle;
 mod seasonal;
@@ -83,8 +85,10 @@ pub(crate) struct Book {
     just_closed: bool,
     puzzle: Option<Challenge>,
     revision: u64,
-    inventory: Vec<Reward>,
-    inventory_sync: Vec<Reward>,
+    inventory: Vec<Item>,
+    inventory_sync: Vec<Item>,
+    inventory_revision: u64,
+    inventory_refresh_due: bool,
     inventory_loaded: bool,
     inventory_error: Option<Error>,
     inventory_retry: Option<Instant>,
@@ -127,6 +131,8 @@ impl Default for Book {
             revision: 0,
             inventory: Vec::new(),
             inventory_sync: Vec::new(),
+            inventory_revision: 0,
+            inventory_refresh_due: false,
             inventory_loaded: false,
             inventory_error: None,
             inventory_retry: None,
@@ -147,8 +153,11 @@ impl Book {
                 .as_ref()
                 .is_some_and(|owner| owner.same_session(handle))
     }
-    pub(crate) fn inventory(&self) -> &[Reward] {
+    pub(crate) fn inventory(&self) -> &[Item] {
         &self.inventory
+    }
+    pub(super) fn inventory_revision(&self) -> u64 {
+        self.inventory_revision
     }
     pub(crate) fn inventory_loaded(&self) -> bool {
         self.inventory_loaded
@@ -216,15 +225,28 @@ impl Book {
         if self
             .pending
             .as_ref()
-            .is_some_and(|p| matches!(p.request, api::Request::Inventory { .. }))
+            .is_some_and(|p| matches!(p.request, api::Request::Collection { .. }))
             || self
                 .work
                 .iter()
-                .any(|r| matches!(r, api::Request::Inventory { .. }))
+                .any(|r| matches!(r, api::Request::Collection { .. }))
         {
             return;
         }
-        self.push(api::Request::Inventory { after: None });
+        self.push(api::Request::Collection { after: None });
+    }
+
+    fn invalidate_inventory(&mut self) {
+        // A rank may settle while an older collection page is in flight.
+        self.inventory_refresh_due = self
+            .pending
+            .as_ref()
+            .is_some_and(|job| matches!(job.request, api::Request::Collection { .. }))
+            || self
+                .work
+                .iter()
+                .any(|r| matches!(r, api::Request::Collection { after: Some(_) }));
+        self.request_inventory();
     }
 }
 pub(super) fn install(app: &mut App) {
@@ -275,7 +297,7 @@ fn tick(
     let starting = book.revision;
     let b = book.bypass_change_detection();
     if refresh.read().count() > 0 {
-        b.request_inventory();
+        b.invalidate_inventory();
     }
     if b.inventory_retry.is_some_and(|when| Instant::now() >= when) {
         b.inventory_retry = None;
