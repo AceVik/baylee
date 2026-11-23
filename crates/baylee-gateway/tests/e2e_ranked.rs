@@ -24,7 +24,7 @@ fn relay_seats_have_separate_reconnect_allowances_behind_one_address() {
     } else {
         "A"
     };
-    token.replace_range(signature..signature + 1, replacement);
+    token.replace_range(signature..=signature, replacement);
     forged["token"] = token.into();
     assert_eq!(admit(&forged.to_string()), 401);
     for _ in 0..12 {

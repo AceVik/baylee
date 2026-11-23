@@ -133,12 +133,13 @@ fn replace(
 fn finish(
     f: &Fixture<'_>,
     players: &[Player; 2],
-    leader: &Registered,
+    pair: [&Registered; 2],
     saved: &Saved,
     recovered: &SeatStatus,
     assignments: &[Assignment; 2],
 ) {
     let match_id = saved.route.fence.match_id;
+    let leader = pair[0];
     super::relay::admissions(f.rt, f.served, leader, players, match_id);
     let tickets = seats::bind(players, match_id, false);
     for (ticket, assigned) in tickets.iter().zip(assignments) {
@@ -155,6 +156,7 @@ fn finish(
     authority::submit(&players[0], &concede);
     let terminal = authority::wait(&players[1], match_id, |s| s.phase == Phase::Finished);
     assert_eq!(terminal.head.position, recovered.head.position + 1);
+    witnesses::quorum(f.rt, f.db, &terminal, pair.map(|h| h.id));
     sockets.terminal(f.rt, &terminal);
     // Losing the acknowledgement cannot turn one confirmed result into two.
     let _ = players[0].account.replica(concede);
@@ -164,6 +166,7 @@ fn finish(
         Outcome::FirstWins
     };
     receipts::settled(f.served, players, assignments, outcome);
+    witnesses::receipts(f.rt, f.db, match_id, 2);
 }
 
 pub(in super::super) fn run(
@@ -238,6 +241,7 @@ pub(in super::super) fn run(
     assert_eq!(alone.host_id, hosts[standby].registered.id);
     assert_eq!(alone.game, saved.route.game);
     assert_eq!(alone.head, saved.route.head);
+    witnesses::receipts(rt, db, match_id, 0);
     assert_eq!(
         alone.phase,
         Phase::Paused,
@@ -250,12 +254,12 @@ pub(in super::super) fn run(
             .is_err()
     );
     assert_eq!(identities, home_identity(&home, &players));
-    let (_replacement, recovered) =
+    let (replacement, recovered) =
         replace(&fixture, &players, &hosts[standby].registered, &saved, seed);
     finish(
         &fixture,
         &players,
-        &hosts[standby].registered,
+        [&hosts[standby].registered, &replacement.registered],
         &saved,
         &recovered,
         &assignments,

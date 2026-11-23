@@ -183,7 +183,12 @@ impl Ui {
 }
 
 pub(super) fn install(app: &mut App) {
-    app.add_systems(Update, participants::poll.after(crate::DuelSet::Sync).before(crate::DuelSet::Present));
+    app.add_systems(
+        Update,
+        participants::poll
+            .after(crate::DuelSet::Sync)
+            .before(crate::DuelSet::Present),
+    );
     #[cfg(feature = "dev-control")]
     visual_fixture::install(app);
     app.add_systems(

@@ -16,7 +16,7 @@ pub(in crate::ranked) async fn poll(state: &Shared) {
     beat.set_missed_tick_behavior(MissedTickBehavior::Skip);
     loop {
         beat.tick().await;
-        let compatible=state.agents.lock().ranked_replica_capacity().is_some();
+        let compatible = state.agents.lock().ranked_replica_capacity().is_some();
         if !compatible && state.ranked.replicas.lock().is_empty() {
             continue;
         }

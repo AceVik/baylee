@@ -11,6 +11,16 @@ use baylee_account::{
 use sea_orm::{ConnectionTrait, DbBackend, Statement};
 use uuid::Uuid;
 
+pub(super) fn receipts(rt: &Runtime, db: &DatabaseConnection, id: Id, expected: i64) {
+    let query = Statement::from_sql_and_values(
+        DbBackend::Postgres,
+        "SELECT count(DISTINCT account_id) AS seats FROM central_identity.ranked_receipts WHERE match_id=$1",
+        [Uuid::from_bytes(id).into()],
+    );
+    let row = rt.block_on(db.query_one_raw(query)).unwrap().unwrap();
+    assert_eq!(row.try_get::<i64>("", "seats").unwrap(), expected);
+}
+
 pub(super) fn assignments(
     served: &Served,
     players: &[Player; 2],
