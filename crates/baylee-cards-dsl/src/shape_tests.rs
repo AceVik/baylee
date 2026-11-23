@@ -373,3 +373,253 @@ fn the_predefined_tokens_are_what_the_rules_print() {
     assert_eq!(endure.colors, ColorSet::from_slice(&[Color::White]));
     assert_eq!((endure.power, endure.toughness), (None, None));
 }
+
+const VOTE: Effect = Effect::Vote {
+    options: &[
+        VoteOption {
+            name: "time",
+            effects: &[],
+        },
+        VoteOption {
+            name: "knowledge",
+            effects: &[],
+        },
+    ],
+    outcome: VoteOutcome::AllWinners,
+    secret: false,
+};
+
+#[test]
+fn a_vote_is_named_wherever_the_face_prints_it() {
+    // CR 701.38.
+    let named = |list: Vec<AbilityDef>, face_index, option| {
+        CardDef {
+            abilities: abilities(list),
+            ..card(vec![face(TypeSet::SORCERY), face(TypeSet::SORCERY)])
+        }
+        .vote_option_name(face_index, option)
+    };
+    let plain = || {
+        activated(
+            ManaCost::ZERO,
+            ActivationZone::Battlefield,
+            &[Effect::TransformSource, VOTE],
+        )
+    };
+    let none = || {
+        activated(
+            ManaCost::ZERO,
+            ActivationZone::Battlefield,
+            &[Effect::TransformSource],
+        )
+    };
+    let modal = || AbilityDef::ModalActivated {
+        cost: Cost::FREE,
+        modes: &[
+            SpellMode {
+                effects: &[Effect::TransformSource],
+                targets: None,
+                second_targets: None,
+                cost_override: None,
+                additional_cost: None,
+            },
+            SpellMode {
+                effects: &[VOTE],
+                targets: None,
+                second_targets: None,
+                cost_override: None,
+                additional_cost: None,
+            },
+        ],
+        timing: ActivationTiming::InstantSpeed,
+        mana_ability: false,
+        zone: ActivationZone::Battlefield,
+        condition: None,
+        limit: ActivationLimit::Unlimited,
+        x_value: ActivationX::Any,
+        cost_reduction: None,
+    };
+    for list in [vec![plain()], vec![none(), plain()], vec![modal()]] {
+        assert_eq!(named(list.clone(), 0, 0), Some("time"));
+        assert_eq!(named(list.clone(), 0, 1), Some("knowledge"));
+        assert_eq!(named(list.clone(), 0, 2), None);
+        // The back face prints no vote.
+        assert_eq!(named(list, 1, 0), None);
+    }
+    assert_eq!(named(vec![none()], 0, 0), None);
+    assert_eq!(named(vec![], 0, 0), None);
+}
+
+#[test]
+fn every_extra_target_cost_on_a_face_is_paid_together() {
+    const ONE: ManaCost = baylee_core::mana!("{1}");
+    const RED: ManaCost = baylee_core::mana!("{R}");
+    let cost = |list: Vec<AbilityDef>| {
+        CardDef {
+            abilities: abilities(list),
+            ..card(vec![face(TypeSet::INSTANT)])
+        }
+        .per_extra_target_cost(0)
+    };
+    assert_eq!(cost(vec![]), None);
+    assert_eq!(cost(vec![AbilityDef::PerExtraTargetCost(ONE)]), Some(ONE));
+    assert_eq!(
+        cost(vec![
+            AbilityDef::PerExtraTargetCost(ONE),
+            AbilityDef::PerExtraTargetCost(RED)
+        ]),
+        Some(ONE.combine(&RED))
+    );
+}
+
+#[test]
+fn a_face_down_spell_is_turned_up_for_the_cost_its_own_keyword_prints() {
+    // CR 702.37e, 702.37b (megamorph), 702.168 (disguise).
+    const ONE: ManaCost = baylee_core::mana!("{1}");
+    const TWO: ManaCost = baylee_core::mana!("{2}");
+    const THREE: ManaCost = baylee_core::mana!("{3}");
+    let of = |disguise, megamorph, morph| FaceDef {
+        disguise,
+        morph,
+        megamorph,
+        ..face(TypeSet::CREATURE)
+    };
+    let up = |f: &FaceDef| f.turn_face_up_cost().map(|(mana, _, mega)| (mana, mega));
+    let plain = of(None, None, None);
+    assert!(!plain.has_face_down_cast());
+    assert_eq!(up(&plain), None);
+    for (printed, expected) in [
+        (of(Some(ONE), None, None), (ONE, false)),
+        (of(None, Some(TWO), None), (TWO, true)),
+        (of(None, None, Some(THREE)), (THREE, false)),
+    ] {
+        assert!(printed.has_face_down_cast());
+        assert_eq!(up(&printed), Some(expected));
+    }
+}
+
+#[test]
+fn casualty_asks_for_a_creature_of_at_least_the_printed_power() {
+    // CR 702.153a.
+    for power in [0, 1, 2, 127, 255] {
+        let Filter::And(clauses) = casualty_creature_filter(power) else {
+            panic!("casualty {power}")
+        };
+        assert_eq!(
+            *clauses,
+            [Filter::CREATURE, Filter::PowerAtLeast(i16::from(power))]
+        );
+    }
+}
+
+#[test]
+fn taking_keywords_away_leaves_exactly_the_others() {
+    let two = KeywordSet::FLYING.union(KeywordSet::TRAMPLE);
+    assert_eq!(two.difference(KeywordSet::FLYING), KeywordSet::TRAMPLE);
+    assert_eq!(two.difference(KeywordSet::REACH), two);
+    assert_eq!(two.difference(two), KeywordSet::EMPTY);
+    assert_eq!(
+        KeywordSet::EMPTY.difference(KeywordSet::FLYING),
+        KeywordSet::EMPTY
+    );
+    assert_eq!(
+        two.bits(),
+        KeywordSet::FLYING.bits() | KeywordSet::TRAMPLE.bits()
+    );
+    assert_eq!(KeywordSet::EMPTY.bits(), 0);
+    assert_ne!(KeywordSet::FLYING.bits(), KeywordSet::TRAMPLE.bits());
+}
+
+#[test]
+fn an_energy_cost_adds_up_and_never_wraps_into_a_discount() {
+    let pays = |parts: &'static [CostPart], x| {
+        Cost {
+            mana: ManaCost::ZERO,
+            parts,
+        }
+        .energy_payment(x)
+    };
+    assert_eq!(pays(&[], 7), 0);
+    assert_eq!(pays(&[CostPart::PayEnergy(3)], 7), 3);
+    assert_eq!(pays(&[CostPart::PayEnergyX], 7), 7);
+    assert_eq!(
+        pays(
+            &[
+                CostPart::PayEnergy(3),
+                CostPart::PayEnergyX,
+                CostPart::PayEnergyX
+            ],
+            7
+        ),
+        17
+    );
+    assert_eq!(
+        pays(&[CostPart::PayEnergyX, CostPart::PayEnergy(1)], u32::MAX),
+        u32::MAX
+    );
+}
+
+#[test]
+fn only_a_controllers_constraint_binds_a_target_group() {
+    let target = TargetReq::one(TargetSpec::Object(&Filter::CREATURE));
+    assert_eq!(target.constraint(), None);
+    assert_eq!(target.chosen_by_opponent().constraint(), None);
+    for constraint in [
+        TargetConstraint::SameController,
+        TargetConstraint::OnePerPlayer,
+    ] {
+        assert_eq!(
+            target.with_constraint(constraint).constraint(),
+            Some(constraint)
+        );
+    }
+}
+
+const UP: &Amount = &Amount::Fixed(2);
+const DOWN: &Amount = &Amount::NegX;
+
+#[test]
+fn a_conditional_amount_counts_down_only_when_both_branches_do() {
+    let either = |then, otherwise| {
+        Amount::IfCondition {
+            condition: &Condition::OptionalCostPaid,
+            then,
+            otherwise,
+        }
+        .is_negative()
+    };
+    assert!(either(DOWN, DOWN));
+    assert!(!either(DOWN, UP));
+    assert!(!either(UP, DOWN));
+    assert!(!either(UP, UP));
+    assert!(Amount::Negated(UP).is_negative());
+    assert!(!Amount::Negated(DOWN).is_negative());
+}
+
+#[test]
+fn a_found_card_goes_where_its_search_says_and_as_it_says() {
+    use crate::effect::{Find, SearchDest};
+    for (find, dest) in [
+        (Find::HAND, SearchDest::Hand),
+        (Find::EXILE, SearchDest::Exile),
+        (Find::EXILE_LINKED, SearchDest::Exile),
+        (Find::GRAVEYARD, SearchDest::Graveyard),
+        (Find::BATTLEFIELD, SearchDest::Battlefield),
+        (Find::BATTLEFIELD_TAPPED, SearchDest::Battlefield),
+        (Find::TOP_OF_LIBRARY, SearchDest::TopOfLibrary),
+    ] {
+        assert_eq!(find.dest, dest);
+        assert_eq!(find.tapped, find == Find::BATTLEFIELD_TAPPED);
+        assert_eq!(find.linked_exile, find == Find::EXILE_LINKED);
+        assert!(!find.repeats);
+    }
+    let any = Find::BATTLEFIELD_TAPPED.any_number();
+    assert!(any.repeats && any.tapped);
+    assert_eq!(any.dest, SearchDest::Battlefield);
+    let instead = Find::HAND.when_matching(&Filter::CREATURE, &Find::BATTLEFIELD);
+    assert_eq!(
+        instead.instead_if,
+        Some((&Filter::CREATURE, &Find::BATTLEFIELD))
+    );
+    assert_eq!(instead.dest, SearchDest::Hand);
+}

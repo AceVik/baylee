@@ -868,6 +868,9 @@ impl Filter {
 }
 
 #[cfg(test)]
+mod expansion_tests;
+
+#[cfg(test)]
 mod tests {
     use super::*;
 
