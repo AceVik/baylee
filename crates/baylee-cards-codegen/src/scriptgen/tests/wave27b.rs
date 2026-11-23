@@ -530,6 +530,10 @@ fn choose_card_constrained_random_and_distinct_and_refusals() {
         "Name:CapriciousBad\nManaCost:3 R R R\nTypes:Creature\nPT:4/4\n\
          A:SP$ ChangeZone | Origin$ Graveyard | Destination$ Exile | AtRandom$ True | Hidden$ True | ChangeType$ Card.YouOwn | ChangeNum$ 3 | RememberChanged$ True"
     ));
+    assert!(refused27b(
+        "Name:UnscopedGraveyardBad\nManaCost:2 B\nTypes:Sorcery\n\
+         A:SP$ ChangeZone | ChangeType$ Creature | ChangeNum$ 1 | Hidden$ True | Origin$ Graveyard | Destination$ Battlefield | AtRandom$ True | GainControl$ True"
+    ));
 }
 
 #[test]

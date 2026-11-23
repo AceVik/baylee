@@ -623,7 +623,7 @@ impl Tx<'_> {
         let (zone_expr, is_own_zone, filter_expr) = match origin {
             "Graveyard" => {
                 let (owner_rel, stripped) = Self::wave27b_strip_zone_owner(&raw_valid)?;
-                let rel = owner_rel.unwrap_or("PlayerRel::You");
+                let rel = owner_rel?;
                 let expr = self.filter_expr_in_zone(&stripped, true)?;
                 (
                     format!("ChooseZone::Graveyard({rel})"),
@@ -638,7 +638,7 @@ impl Tx<'_> {
             }
             "Exile" => {
                 let (owner_rel, stripped) = Self::wave27b_strip_zone_owner(&raw_valid)?;
-                let rel = owner_rel.unwrap_or("PlayerRel::You");
+                let rel = owner_rel?;
                 let expr = self.filter_expr_in_zone(&stripped, true)?;
                 (
                     format!("ChooseZone::Exile({rel})"),

@@ -6650,10 +6650,7 @@ pub static ORACLE: &[&[&str]] = &[
         "Flanking (Whenever a creature without flanking blocks this creature, the blocking creature gets -1/-1 until end of turn.)\n{1}{W}: The next 1 damage that would be dealt to this creature this turn is dealt to any target instead.",
     ],
     &[],
-    // Call from the Grave
-    &[
-        "Put a random creature from a random graveyard into play under your control. Call from the Grave deals to you an amount of damage equal to that creature's casting cost.",
-    ],
+    &[],
     &[],
     &[],
     &[],

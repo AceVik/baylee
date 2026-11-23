@@ -8525,7 +8525,7 @@ pub static UNCOMMON: [CardIndex; 7848] = [
 ];
 
 /// Cards whose reference printing is rare.
-pub static RARE: [CardIndex; 6466] = [
+pub static RARE: [CardIndex; 6465] = [
     CardIndex::new(5),
     CardIndex::new(7),
     CardIndex::new(8),
@@ -9155,7 +9155,6 @@ pub static RARE: [CardIndex; 6466] = [
     CardIndex::new(2067),
     CardIndex::new(2070),
     CardIndex::new(2075),
-    CardIndex::new(2077),
     CardIndex::new(2097),
     CardIndex::new(2102),
     CardIndex::new(2109),
@@ -30639,13 +30638,6 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
     ),
     (
         CardIndex::new(2075),
-        baylee_core::card_metadata::ReferencePrintRules {
-            watermarks: &[None],
-            is_un: false,
-        },
-    ),
-    (
-        CardIndex::new(2077),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
             is_un: false,
