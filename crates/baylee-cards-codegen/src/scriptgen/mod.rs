@@ -69,6 +69,7 @@ mod targets;
 mod transform48;
 mod triggers;
 mod wall52;
+mod wave27b;
 mod wave27e;
 
 use atoms::{

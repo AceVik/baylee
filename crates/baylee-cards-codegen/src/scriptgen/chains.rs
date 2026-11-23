@@ -319,6 +319,14 @@ impl Tx<'_> {
             let targets_a_player =
                 targets_here && target.as_deref() == Some("TargetSpec::Player(PlayerRel::Chosen)");
             return match api.as_str() {
+                "ChooseCard" if p.has("AtRandom") || p.has("DifferentNames") => self
+                    .wave27b_choose_card_chain(
+                        p,
+                        sub.as_deref(),
+                        target.as_deref(),
+                        targets_a_player,
+                        chain,
+                    ),
                 "ChooseCard" => self.choose_card_chain(
                     p,
                     sub.as_deref(),
@@ -2484,6 +2492,7 @@ impl Tx<'_> {
                             | "Branch"
                     )
                     || (api == "DealDamage" && !p.has("DividedAsYouChoose"))
+                    || (api == "Token" && (p.has("AttachedTo") || p.has("AttachedToPlayer")))
                     || (api == "ChangeZone"
                         && matches!(
                             (p.peek("Origin"), p.peek("Destination")),
@@ -3644,6 +3653,9 @@ impl Tx<'_> {
                     Some(valid) => self.filter_expr_in_zone(valid, true)?,
                 };
                 vec![format!("Effect::RevealHandDiscard {{ filter: &{filter} }}")]
+            }
+            "Discard" if p.peek("Mode") == Some("Defined") => {
+                self.wave27b_discard_defined(p, target, targets_a_player)?
             }
             "Discard" => {
                 // Refuse other modes instead of turning a chosen discard
@@ -4908,6 +4920,12 @@ impl Tx<'_> {
                     Some("True") => true,
                     Some(_) => return None,
                 };
+                if p.has("Choices")
+                    || p.peek("Object")
+                        .is_some_and(|o| o.starts_with("Valid ") || o == "ThisTargetedCard")
+                {
+                    return self.wave27b_attach_effect(p, target, targets_here, optional);
+                }
                 match (p.take("Object").as_deref(), p.take("Defined").as_deref()) {
                     (None | Some("Self"), Some(def)) => {
                         if optional || target.is_some() || !self.is_event_object_defined(def) {

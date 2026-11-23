@@ -146,7 +146,6 @@ fn tokengen_reads_bushido_soulshift_nested_tokens_and_refuses_non_paper() {
          A:AB$ MakeCard | Cost$ T | Name$ Lightning Bolt",
         "Name:Seek Token\nManaCost:no cost\nTypes:Creature Wizard\nPT:1/1\n\
          A:AB$ Seek | Cost$ T | Type$ Land",
-        "Name:Role Token\nManaCost:no cost\nTypes:Enchantment Aura Role\nK:Enchant:Creature",
     ] {
         assert!(read_token(bad, &cats).is_none(), "must refuse: {bad}");
     }
