@@ -145,3 +145,68 @@ fn hostile_saved_state_is_rejected_before_economy_arithmetic() {
         .is_err()
     );
 }
+
+#[test]
+fn a_relic_sells_for_half_of_everything_paid_for_it_rounded_down_once() {
+    for (relic, rank, value) in [
+        (Relic::Heartwood, 1, 3),
+        (Relic::Heartwood, 2, 7),
+        (Relic::Heartwood, 3, 13),
+        (Relic::Compass, 1, 6),
+        (Relic::Compass, 2, 14),
+        (Relic::Satchel, 1, 7),
+        (Relic::Seedling, 1, 4),
+    ] {
+        assert_eq!(relic.sale(rank), Ok(value), "{relic:?} at rank {rank}");
+    }
+    for relic in [
+        Relic::Heartwood,
+        Relic::Compass,
+        Relic::Satchel,
+        Relic::Seedling,
+    ] {
+        for rank in [0, relic.max_rank() + 1, u8::MAX] {
+            assert_eq!(
+                relic.sale(rank),
+                Err(Refusal::Invalid),
+                "{relic:?} at {rank}"
+            );
+        }
+    }
+}
+
+#[test]
+fn a_sale_pays_into_the_wallet_takes_the_relic_and_stops_at_the_wallets_bound() {
+    let held = Economy {
+        gold: 20,
+        ..Economy::default()
+    }
+    .bought(offer(Relic::Heartwood, 1))
+    .unwrap()
+    .bought(offer(Relic::Compass, 1))
+    .unwrap();
+    assert_eq!(held.gold, 2);
+    let sold = held.sold(Relic::Heartwood).unwrap();
+    assert_eq!(sold.gold, 5);
+    assert_eq!(
+        sold.equipment,
+        [Equipment {
+            relic: Relic::Compass,
+            rank: 1
+        }]
+    );
+    assert_eq!(sold.sold(Relic::Heartwood), Err(Refusal::Unavailable));
+
+    let full = |gold| Economy {
+        gold,
+        ..held.clone()
+    };
+    assert_eq!(
+        full(MAX_GOLD - 3).sold(Relic::Heartwood).unwrap().gold,
+        MAX_GOLD
+    );
+    assert_eq!(
+        full(MAX_GOLD - 2).sold(Relic::Heartwood),
+        Err(Refusal::Capacity)
+    );
+}
