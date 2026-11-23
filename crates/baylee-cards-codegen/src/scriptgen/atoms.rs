@@ -653,6 +653,9 @@ const PRINTED_KEYWORDS: &[&str] = &[
 /// Matches both spaced (`withFirst Strike`) and unspaced (`withFirstStrike`)
 /// spellings against every engine-enforced keyword bit.
 pub(super) fn keyword_atom(atom: &str) -> Option<String> {
+    if let Some(saddled) = super::wave27d::saddled_filter_atom(atom) {
+        return Some(saddled);
+    }
     // CR 700.9: modified creature predicate (`Creature.modified`,
     // `Card.Self+modified`, `Creature.isModified`, `Creature.!modified`).
     match atom {

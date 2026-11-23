@@ -1999,6 +1999,9 @@ impl Tx<'_> {
     /// they attack if able, a requirement about the pair the engine does
     /// not know, and stays unclaimed.
     pub(super) fn must_attack(&mut self, mut p: Params) -> Option<()> {
+        if p.has("MustAttack") {
+            return self.wave27d_must_attack_static(p);
+        }
         p.drop_prose();
         let zone = self.take_static_effect_zone(&mut p, "MustAttack")?;
         match p.take("Secondary").as_deref() {
@@ -3175,6 +3178,9 @@ impl Tx<'_> {
     /// `PlayerTurn$`, ability-word flags, `Activator$` on battlefield ability
     /// taxes, and general `PayLife<N>` mana-ability taxes.
     fn mode_raise_cost(&mut self, mut p: Params) -> Option<()> {
+        if p.peek("OnlyFirstSpell") == Some("True") {
+            return self.wave27d_first_spell_cost_adjust(p, true);
+        }
         let hum_of_the_radix = p.peek("Relative") == Some("True")
             && p.peek("Amount").is_some_and(|a| {
                 self.svars
@@ -3569,6 +3575,9 @@ impl Tx<'_> {
     /// `Color$` / `IgnoreGeneric$`, face-down, shared creature type), plus
     /// `CyclingCostsLess` (`ValidSpell$ Activated.Cycling`).
     fn mode_reduce_cost(&mut self, mut p: Params) -> Option<()> {
+        if p.peek("OnlyFirstSpell") == Some("True") {
+            return self.wave27d_first_spell_cost_adjust(p, false);
+        }
         // Keep `final_portals::reduce_cost` handling plain battlefield fixed
         // generic spell reductions unchanged.
         if Self::is_plain_battlefield_reduce_cost(&p) {
@@ -3585,6 +3594,9 @@ impl Tx<'_> {
         }
         if p.peek("ValidSpell") == Some("Activated.Equip") {
             return self.reduce_cost_equip(p);
+        }
+        if p.peek("ValidSpell") == Some("Activated.Exhaust") {
+            return self.wave27d_activated_abilities_cost_less(p, true);
         }
         if p.peek("ValidSpell") == Some("Spell.Buyback") {
             return self.reduce_cost_buyback(p);
@@ -4031,6 +4043,11 @@ impl Tx<'_> {
         if p.has("ValidTarget") {
             return self.reduce_cost_ability_if_targets(p);
         }
+        if p.peek("Amount")
+            .is_some_and(|a| a.trim().parse::<u32>().is_err())
+        {
+            return self.wave27d_activated_abilities_cost_less(p, false);
+        }
         let (filter, amount, minimum, zone, cond) =
             self.parse_ability_reduction(p, true, true, true)?;
         self.body.abilities.push(Self::format_static_expr(
@@ -4385,7 +4402,7 @@ impl Tx<'_> {
         Some((filter, amount, minimum, zone, cond))
     }
 
-    fn append_reduce_atom(valid: &str, atom: &str) -> String {
+    pub(super) fn append_reduce_atom(valid: &str, atom: &str) -> String {
         valid
             .split(',')
             .map(|alt| {
@@ -4402,7 +4419,7 @@ impl Tx<'_> {
             .join(",")
     }
 
-    fn strip_in_zone_graveyard(valid: &str) -> Option<String> {
+    pub(super) fn strip_in_zone_graveyard(valid: &str) -> Option<String> {
         let mut out = Vec::new();
         for raw_alt in valid.split(',') {
             let alt = raw_alt.trim();
@@ -4461,7 +4478,7 @@ impl Tx<'_> {
         }
     }
 
-    fn apply_reduce_activator(valid: &str, activator: Option<&str>) -> Option<String> {
+    pub(super) fn apply_reduce_activator(valid: &str, activator: Option<&str>) -> Option<String> {
         match activator {
             None | Some("Player") => Some(valid.to_string()),
             Some("You") => Some(Self::append_reduce_atom(valid, "YouCtrl")),
@@ -4475,7 +4492,7 @@ impl Tx<'_> {
         }
     }
 
-    fn reduce_cost_condition(&mut self, p: &mut Params) -> Option<String> {
+    pub(super) fn reduce_cost_condition(&mut self, p: &mut Params) -> Option<String> {
         let mut clauses = Vec::new();
         Self::take_ability_word_flags(p, &mut clauses)?;
         if let Some(pt) = p.take("PlayerTurn") {
@@ -6080,7 +6097,7 @@ impl Tx<'_> {
     /// delegates to `static_count_expr`, plus `Count$ValidGraveyard,Exile`
     /// (*Huskburster Swarm*, *Sailors' Bane*) and `Count$ValidHand Card.ChosenCtrl`
     /// (*Nyxathid*, guarded by `EnterModifier::ChooseOpponent`).
-    fn static_count_expr_ext(&mut self, def: &str) -> Option<String> {
+    pub(super) fn static_count_expr_ext(&mut self, def: &str) -> Option<String> {
         if let Some(expr) = self.static_count_expr(def) {
             return Some(expr);
         }

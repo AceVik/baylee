@@ -466,6 +466,18 @@ impl Tx<'_> {
             && api == "ChangeZone"
             && matches!(p.peek("Origin"), Some("Battlefield" | "Graveyard"))
             && p.peek("Destination") == Some("Exile")
+            && self.sub_is_owner_exile_play_effect(sub.as_deref())
+        {
+            self.wave27d_owner_exile_with_permission(
+                &mut p,
+                &mut sub,
+                target.as_deref(),
+                targets_here,
+            )?
+        } else if !second_target_here
+            && api == "ChangeZone"
+            && matches!(p.peek("Origin"), Some("Battlefield" | "Graveyard"))
+            && p.peek("Destination") == Some("Exile")
             && p.peek("RememberChanged") == Some("True")
             && self.sub_is_api(sub.as_deref(), "Effect")
         {

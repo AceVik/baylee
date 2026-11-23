@@ -2893,16 +2893,7 @@ impl Tx<'_> {
         }
         match mode {
             "CantBlockBy" => self.effect_cant_block_by(st, subject, duration),
-            "MustAttack" => {
-                let valid = st.take("ValidCreature")?;
-                st.exhausted().then_some(())?;
-                self.emit_effect_modifiers(
-                    subject,
-                    &valid,
-                    &["Modifier::AttacksEachCombat".to_string()],
-                    duration,
-                )
-            }
+            "MustAttack" => self.wave27d_effect_must_attack(st, subject, target, duration),
             "MustBlock" => {
                 let valid = st.take("ValidCreature")?;
                 st.exhausted().then_some(())?;
@@ -3453,7 +3444,7 @@ impl Tx<'_> {
         })
     }
 
-    fn emit_effect_modifiers(
+    pub(super) fn emit_effect_modifiers(
         &mut self,
         subject: EffectSubject,
         valid: &str,
@@ -4323,6 +4314,9 @@ impl Tx<'_> {
         amount_expr: &str,
         sub: &mut Option<String>,
     ) -> Option<Vec<String>> {
+        if let Some(effects) = self.wave27d_exile_top_non_you_owner(who, amount_expr, sub) {
+            return Some(effects);
+        }
         let Some(eff_name) = sub.take() else {
             return self.deny("top-of-library exile without `SubAbility$`".into());
         };
@@ -5434,7 +5428,7 @@ impl Tx<'_> {
         Some((saw_nonland, Some(expr)))
     }
 
-    fn consume_optional_remember_cleanup(
+    pub(super) fn consume_optional_remember_cleanup(
         &mut self,
         cname: String,
         sub: &mut Option<String>,
