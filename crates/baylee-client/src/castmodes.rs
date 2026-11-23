@@ -168,7 +168,7 @@ pub fn reachable_modes(
             .keywords_for_face(face_index)
             .contains(baylee_cards_dsl::KeywordSet::FLASH);
         let ordinary_timing = baylee_client_core::timing::allows(view, hand.types, printed_flash);
-        if ordinary_timing {
+        if ordinary_timing || !face.optional_cost_grants_flash {
             offer(CastModeKind::Normal, face.mana_cost);
         }
         if let Some(opt_cost) = face.optional_cost
