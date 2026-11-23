@@ -37,6 +37,7 @@ mod wave26f;
 mod wave26g;
 mod wave26h;
 mod wave27b;
+mod wave27d;
 mod wave27e;
 
 fn cats() -> SubtypeCatalogs {

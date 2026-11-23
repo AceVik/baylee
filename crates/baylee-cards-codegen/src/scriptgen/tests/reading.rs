@@ -358,7 +358,7 @@ fn attack_requirements_and_island_restrictions_are_read() {
         body.statics
     );
     for refused_line in [
-        "S:Mode$ MustAttack | ValidCreature$ Card.Self | MustAttack$ CardOwner",
+        "S:Mode$ MustAttack | ValidCreature$ Card.Self | MustAttack$ EffectSource",
         "S:Mode$ CantAttack | ValidCard$ Card.Self | UnlessDefender$ isMonarch",
         "S:Mode$ CantAttack | ValidCard$ Card.Self | UnlessDefender$ !controlsLand.untapped",
         "S:Mode$ CantAttack | ValidCard$ Card.Self",

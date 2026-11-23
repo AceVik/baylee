@@ -89,6 +89,7 @@ impl Tx<'_> {
             None | Some("Player") => "",
             Some("You") => ".YouCtrl",
             Some("Opponent" | "Player.Opponent") => ".OppCtrl",
+            Some("Player.Other") => ".YouDontCtrl",
             Some(other) => {
                 return self.deny(format!("a spell cast by `{other}`"));
             }
@@ -103,6 +104,7 @@ impl Tx<'_> {
                 "" => "PlayerRel::EachPlayer",
                 ".YouCtrl" => "PlayerRel::You",
                 ".OppCtrl" => "PlayerRel::EachOpponent",
+                ".YouDontCtrl" => "PlayerRel::EachOtherPlayer",
                 _ => unreachable!("player relation was checked above"),
             };
             let filter = if valid == "Card" {
@@ -130,6 +132,7 @@ impl Tx<'_> {
                     "" => "PlayerRel::EachPlayer",
                     ".YouCtrl" => "PlayerRel::You",
                     ".OppCtrl" => "PlayerRel::EachOpponent",
+                    ".YouDontCtrl" => "PlayerRel::EachOtherPlayer",
                     _ => unreachable!("player relation was checked above"),
                 };
                 return Some(format!("Trigger::InstantCastAfterFirst {{ who: {who} }}"));
@@ -208,6 +211,7 @@ impl Tx<'_> {
             None | Some("Player") => "",
             Some("You") => ".YouCtrl",
             Some("Opponent" | "Player.Opponent") => ".OppCtrl",
+            Some("Player.Other") => ".YouDontCtrl",
             Some(other) => {
                 return self.deny(format!("a spell cast or copied by `{other}`"));
             }
@@ -243,6 +247,7 @@ impl Tx<'_> {
             "" => "PlayerRel::EachPlayer",
             ".YouCtrl" => "PlayerRel::You",
             ".OppCtrl" => "PlayerRel::EachOpponent",
+            ".YouDontCtrl" => "PlayerRel::EachOtherPlayer",
             _ => unreachable!("player relation was checked above"),
         };
         let mut targets_you = false;
