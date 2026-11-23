@@ -267,6 +267,7 @@ pub fn integration(
     let options = cargo_options(config)?;
     let publisher = integration_publisher()?;
     let special = challenges_only
+        || std::env::var("BAYLEE_CENTRAL_ADVENT_UI").as_deref() == Ok("1")
         || publisher.is_some()
         || std::env::var_os("BAYLEE_CENTRAL_UI_READY").is_some()
         || std::env::var_os("BAYLEE_CENTRAL_TOWER_AWARDS_ONLY").is_some()
@@ -278,7 +279,14 @@ pub fn integration(
         &options,
         &["-p", "baylee-gateway", "--test", "e2e", "--no-run"],
     ))?
-    .wait(Duration::from_secs(300), cancel)?;
+    .wait(
+        Duration::from_secs(if std::env::var_os("BAYLEE_CENTRAL_UI_READY").is_some() {
+            900
+        } else {
+            300
+        }),
+        cancel,
+    )?;
     print!("{}{}", build.stdout, build.stderr);
     ensure!(
         build.status.success(),

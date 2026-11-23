@@ -7,6 +7,7 @@ use bevy::prelude::World;
 fn input() -> CardInput {
     let board = duel(vec![creature(1, Vec::new())]);
     CardInput {
+        sleeve: None,
         decorations: DecorationReady::default(),
         placement: placements(&board).remove(0),
         eye: Transform::IDENTITY,

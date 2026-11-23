@@ -50,6 +50,7 @@ pub(crate) struct CosmeticsParams {
 /// @security `seatToken`
 /// @path-param id: String "The game's id"
 /// @query-params `$CosmeticsParams`
+/// @return 200: `{ type: object, additionalProperties: { $ref: "#/components/schemas/SeatCosmetics" } }` "Visible table appearances by seat index"
 /// @return 401: `$ErrorBody` "No seat token, one that is not this game's (`invalid seat token`, `ticket expired or used`), or a token in the address after its end"
 /// @return 404: `$ErrorBody` "No such game"
 pub(crate) async fn game_cosmetics(
@@ -57,7 +58,7 @@ pub(crate) async fn game_cosmetics(
     Path(id): Path<String>,
     headers: HeaderMap,
     Query(params): Query<CosmeticsParams>,
-) -> Result<Json<BTreeMap<usize, cosmetics::SeatCosmetics>>, (StatusCode, Json<ErrorBody>)> {
+) -> Result<impl axum::response::IntoResponse, (StatusCode, Json<ErrorBody>)> {
     // A header since #294: this is an ordinary request, so nothing forces
     // the secret into its address.
     let token = match (bearer_token(&headers), params.token.as_deref()) {
@@ -65,34 +66,44 @@ pub(crate) async fn game_cosmetics(
         (None, Some(old)) => legacy_token(&state, Some(old), "/games/{id}/cosmetics")?,
         (None, None) => return Err(err(StatusCode::UNAUTHORIZED, "missing bearer token")),
     };
-    super::seat_socket::authorize_seat_token(&state, &id, token).await?;
+    let live = super::seat_socket::authorize_seat_token(&state, &id, token).await?;
     let lobby = state.lobby.lock();
     let game = lobby
         .games
         .get(&id)
         .ok_or_else(|| err(StatusCode::NOT_FOUND, "no such game"))?;
-    if seat_of_token(game, token).is_none() {
+    let viewer = seat_of_token(game, token)
+        .ok_or_else(|| err(StatusCode::UNAUTHORIZED, "invalid seat token"))?;
+    if !live.stands(crate::sessions::now()) {
         return Err(err(StatusCode::UNAUTHORIZED, "invalid seat token"));
     }
+    let events = super::event_looks::participant(game, viewer)
+        && game.seats[viewer].account_id.as_deref() == Some(live.account());
     // Seats with nothing set are left out rather than sent as empty objects:
     // a table where nobody uploaded anything is `{}`, and the client's answer
     // to "no entry" and to "an entry with no sleeve" has to be the same thing
     // anyway — draw the generated back.
     let mut seats = cosmetics::TableCosmetics::new();
     for seat in &game.seats {
-        let Some(deck) = seat.deck.as_ref() else {
-            continue;
-        };
+        let event = events
+            .then(|| game.event_looks.get(game, seat.seat))
+            .flatten()
+            .map_or_default(|item| item.worn);
         let worn = cosmetics::SeatCosmetics {
-            sleeve: deck.sleeve.clone(),
-            playmat: deck.playmat.clone(),
+            sleeve: seat.deck.as_ref().and_then(|deck| deck.sleeve.clone()),
+            playmat: seat.deck.as_ref().and_then(|deck| deck.playmat.clone()),
+            event_sleeve: event.event_sleeve,
+            event_playmat: event.event_playmat,
         };
         if !worn.is_empty() {
             seats.insert(seat.seat, worn);
         }
     }
     // By seat number, as the `json!` this replaced wrote them.
-    Ok(Json(seats.into_iter().collect()))
+    Ok((
+        super::event_looks::PRIVATE,
+        Json(seats.into_iter().collect::<BTreeMap<_, _>>()),
+    ))
 }
 
 /// The names shown at each seat of a game, in seat order.

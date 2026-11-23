@@ -876,8 +876,12 @@ fn health(frame: u64, window: Option<&Window>, clock: &Time<Virtual>) -> String 
     // while it captures (`window::lift_while_capturing`).
     let on_top =
         window.is_some_and(|window| window.window_level == bevy::window::WindowLevel::AlwaysOnTop);
+    let position = match window.map(|w| w.position) {
+        Some(bevy::window::WindowPosition::At(at)) => format!("[{},{}]", at.x, at.y),
+        _ => "null".to_owned(),
+    };
     format!(
-        "{{\"ok\":true,\"frame\":{frame},\"width\":{w},\"height\":{h},\"scale\":{scale},\
+        "{{\"ok\":true,\"frame\":{frame},\"width\":{w},\"height\":{h},\"scale\":{scale},\"position\":{position},\
          \"speed\":{},\"paused\":{},\"on_top\":{on_top}}}",
         clock.relative_speed(),
         clock.is_paused(),

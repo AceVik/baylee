@@ -330,7 +330,7 @@ impl Handle {
         self.call(move |account| account.upload_chat_history(&device, &files))
     }
 
-    fn call<T: Send + 'static>(
+    pub(super) fn call<T: Send + 'static>(
         &self,
         operation: impl FnOnce(&mut Account) -> Result<T, Error> + Send + 'static,
     ) -> Result<T, Error> {

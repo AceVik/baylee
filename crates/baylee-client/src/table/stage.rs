@@ -541,6 +541,10 @@ pub(super) fn spawn_piles(
                 DuelStage,
                 Mesh3d(quad.clone()),
                 MeshMaterial3d(index.blank.clone().unwrap_or_default()),
+                crate::event_cosmetics::LibrarySleeve(
+                    slot.player,
+                    index.blank.clone().unwrap_or_default(),
+                ),
                 card_transform(slot, at, false, lift),
             ));
             // The deck under the top slab is depth, not cards, so it is as

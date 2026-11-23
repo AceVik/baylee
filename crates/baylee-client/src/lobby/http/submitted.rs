@@ -5,13 +5,14 @@ use crate::lobby::central;
 use baylee_account::decks::DeckDraft;
 use baylee_client_core::lobby::gateway_list;
 use uuid::Uuid;
+pub(in crate::lobby) mod worn;
 
 /// Work returned by Central and consumed on the lobby thread, before any
 /// network request is signed or any card data leaves for a gateway.
 pub(in crate::lobby) struct Prepared {
     epoch: u64,
     request: LobbyRequest,
-    deck: Result<serde_json::Value, Phrase>,
+    deck: Result<(serde_json::Value, baylee_account::advent::Equipment), Phrase>,
 }
 
 fn selected(request: &LobbyRequest) -> Option<&str> {
@@ -100,7 +101,8 @@ pub(super) fn resolve(
                 if snapshot.id != id || snapshot.revision != revision {
                     return Err(baylee_account::Error::Rejected);
                 }
-                play_fields(snapshot.draft, &destination)
+                let look = snapshot.draft.look;
+                play_fields(snapshot.draft, &destination).map(|deck| (deck, look))
             })
             .map_err(|_| Phrase::LibraryReadFailed);
         let prepared = Prepared {
@@ -134,10 +136,14 @@ impl Prepared {
             fail(state, Phrase::GatewayDeckSubmissionUnavailable);
             return;
         }
-        let deck = match self.deck {
+        let (deck, look) = match self.deck {
             Ok(deck) => deck,
             Err(why) => return fail(state, why),
         };
+        let Some(account) = state.central_handle() else {
+            return;
+        };
+        let selection = worn::Selection::new(account, look, &self.request);
         let (request, expect) = build_with_deck(
             &state.gateway,
             Some(token),
@@ -147,7 +153,7 @@ impl Prepared {
         );
         fetch(
             request,
-            expect,
+            selection.map_or(expect, |look| super::Expect::Submitted(Box::new(look))),
             state.lobby.lang(),
             true,
             self.epoch,
@@ -171,6 +177,10 @@ mod tests {
             sideboard: vec!["2 Mountain # secret boarding guide".into()],
             description: "private journal".into(),
             summary: Some("test build".into()),
+            look: baylee_account::advent::Equipment {
+                sleeve: Some(*Uuid::now_v7().as_bytes()),
+                playmat: Some(*Uuid::now_v7().as_bytes()),
+            },
             cosmetic_origin: Some("https://home.invalid".into()),
             sleeve: Some("home-only".into()),
             ..Default::default()

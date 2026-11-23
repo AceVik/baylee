@@ -4536,7 +4536,9 @@ from a curl recipe into a contract:
 | put one back | `POST /decks/{id}/versions/{v}/revert` | `{version}` — the **new** number |
 | upload a sleeve or mat | `POST /images?kind=sleeve\|playmat`, the image as the raw body | `{id, kind}`; `403` for a guest |
 | fetch one | `GET /images/{id}` | the stored JPEG |
-| what a table wears | `GET /games/{id}/cosmetics`, `Authorization: Bearer <seat token>` | `{"<seat>":{sleeve, playmat}}` |
+| what a table wears | `GET /games/{id}/cosmetics`, `Authorization: Bearer <seat token>` | Per-seat optional `sleeve` and `playmat` upload IDs and `event_sleeve` and `event_playmat` metadata |
+| present a casual event appearance | `POST /games/{id}/event-look` with the wearer's seat bearer | `{"proof":...}` confirms the native player's short-lived Central invitation. A null proof removes the local appearance. |
+| read an equipped casual image | `POST /games/{id}/event-art` with the viewer's seat bearer | `{seat,kind,offset,cached}` returns one authorized image page or a verified cache digest. |
 | the card pool | `GET /pool?lang=de` | `{total, pool_hash, lang, has_text, cards:[…]}` |
 | what a pool card is filtered by | `GET /pool/facts?have=` (§"Pool facts") | `{version, formats, sets, verdicts, cards}`; `304` when `have` is the version |
 | a card's printings | `GET /printings?card=42` | `{card, english_name, from_catalog, printings:[…]}` |

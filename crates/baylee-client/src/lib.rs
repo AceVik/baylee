@@ -68,6 +68,7 @@ pub mod depart;
 #[cfg(all(feature = "dev-control", not(target_arch = "wasm32")))]
 pub mod devctl;
 pub mod dial;
+pub(crate) mod event_cosmetics;
 pub mod face;
 pub mod feltmat;
 pub mod filterui;

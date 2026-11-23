@@ -454,6 +454,33 @@ fn floor_light(uv: vec2<f32>, glow: u32, t: f32, m: f32, now: f32) -> vec3<f32> 
     return out;
 }
 
+// Transparent varnish over the same immutable print. The coordinates are
+// local to the sheet. Every hidden card in a seat has identical markings,
+// including the position and phase of each highlight.
+fn varnish(ink: vec3<f32>, uv: vec2<f32>, time: f32, tier: u32) -> vec3<f32> {
+    if tier == 0u { return ink; }
+    let edges = min(uv, vec2<f32>(1.0) - uv);
+    let edge = min(edges.x, edges.y);
+    let border = 1.0 - smoothstep(0.018, 0.14, edge);
+    let travel = 0.60 + 0.68 * sin(time * 0.24);
+    let band = 1.0 - smoothstep(0.025, 0.21, abs(uv.x + uv.y * 0.55 - travel));
+    let gilded = vec3<f32>(0.96, 0.68, 0.34) * (0.020 + band * 0.085) * (0.19 + border * 0.81);
+    var shine = gilded;
+    if tier == 2u {
+        let seam = abs(edge - 0.047);
+        let fillet = 1.0 - smoothstep(0.003, 0.010, seam);
+        let facet = 0.5 + 0.5 * cos(9.0 * uv.x - 7.0 * uv.y + time * 0.32);
+        shine += vec3<f32>(0.42, 0.72, 0.92) * (fillet * 0.095 + border * band * facet * 0.055);
+    }
+    return ink + (vec3<f32>(1.0) - clamp(ink, vec3<f32>(0.0), vec3<f32>(1.0))) * shine;
+}
+
+// Centered cover, preserving the authored art's aspect ratio.
+fn cover_uv(uv: vec2<f32>, size: vec2<f32>, pixels: vec2<f32>) -> vec2<f32> {
+    let ratio = (size.x / max(size.y, 0.001)) * pixels.y / max(pixels.x, 1.0);
+    return vec2<f32>(0.5) + (uv - vec2<f32>(0.5)) * min(vec2<f32>(1.0), vec2<f32>(ratio, 1.0 / max(ratio, 0.001)));
+}
+
 /// A restrained coating shaped by the printed image. Screen blending keeps
 /// highlights bounded; black ink and white rules boxes retain their contrast.
 /// Derivatives reuse the existing artwork sample, with no extra texture reads.
@@ -475,6 +502,9 @@ fn print_finish(
     let edge = 1.0 - smoothstep(0.004, 0.020, abs(corner_sdf(uv)));
     let edge_light = edge * (0.25 + 0.75 * band) * clamp(strength, 0.0, 1.0);
     var light = vec3<f32>(0.0);
+    if finish == 6u || finish == 7u {
+        return vec4<f32>(varnish(printed.rgb, uv, time, finish - 5u), printed.a);
+    }
     if finish == 1u {
         // Pigment shifts the interference phase and the reflected hue, so
         // different artwork cannot receive the same generic rainbow wash.

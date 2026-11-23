@@ -86,3 +86,13 @@ oversized damaged tails, valid records larger than 2 MiB, unchanged oversized
 local files, silent/trickling HTTP and WebSocket peers, reflected-ticket refusal
 diagnostics, and queue byte/count/closure/order boundaries. No live gateway,
 GPU client, user credential store or installed certificate is used.
+
+Event artwork is authorized by its place of use. The native client asks Central
+for owned items and for equipped art in its current ranked match. Players and
+guests at ordinary tables can read the equipped art through the home gateway
+using their current seat capability. That capability is bound to the game's
+UUID and the gateway's origin and session epoch. Spectating and official
+challenge seats do not enable this access. The client checks each bounded
+page against the expected offset and asset metadata, then verifies the SHA-256
+digest and static WebP dimensions before decoding. Leaving the table, changing
+account or replacing a seat invalidates its private in-memory art.

@@ -132,6 +132,11 @@ pub(super) fn connect(
         return Err(Error::Conflict);
     }
     let marker = RankedSocket {
+        generation: authority.fence.generation,
+        look: worker
+            .frozen
+            .as_ref()
+            .and_then(|(_, frozen)| (frozen.digest == play.assignment.deck).then_some(frozen.look)),
         match_id: authority.fence.match_id,
         game_id: *play.seat.game_id.as_bytes(),
         protected: authority.phase != Phase::Single,

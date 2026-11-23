@@ -479,6 +479,16 @@ pub(in crate::hud) fn spawn_stack_entry(
         cards.as_deref_mut(),
         &faces.widths,
     );
+    if item.face_down
+        && resolved_art.is_none()
+        && let Some(seat) = view
+            .object(item.id)
+            .and_then(crate::event_cosmetics::concealed)
+    {
+        commands
+            .entity(art)
+            .insert(crate::event_cosmetics::HiddenPreview(seat));
+    }
     if let Some(light) = picks.light(item.id) {
         commands.entity(art).insert(light);
     }

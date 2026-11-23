@@ -44,6 +44,24 @@ in the native lobby. The latter uses a synthetic account and queue replies
 through an explicit development fixture. The gateway integration test covers
 the separate network path through Central and the assigned game host.
 
+## The Advent calendar
+
+Signed-in players enter the calendar from the Play tab. Central selects the
+campaign and supplies its clock. Its 24 doors stay in the same positions on
+the tavern illustration. Every day opens another puzzle. Released doors
+stay playable through 6 January. The button glows while a released door
+still needs attention. Reduced motion keeps the light still. Each available
+door has a keyboard stop and an accessible label with its number and state.
+
+A puzzle shows both sides, fixed future draws and the opponent’s announced
+combat assignments. The player can reveal two hints, retry and submit the
+complete move sequence. Central verifies that sequence and writes a winning
+reward to the account inventory in the same transaction. The reveal button
+then opens the reward and its deck selection. Earned artwork stays in the
+collection after the event closes. The client fetches the campaign illustration
+and earned designs through authorized Central requests and keeps decoded
+images in memory only.
+
 ## Tower Echoes run client
 
 `baylee-client-core::echoes` is the new renderer-free state machine for the

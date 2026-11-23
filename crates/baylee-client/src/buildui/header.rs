@@ -278,6 +278,34 @@ pub(super) fn draw(commands: &mut Commands, holder: Entity, env: &Env) {
         kids.push(del_btn);
     }
 
+    #[cfg(not(target_arch = "wasm32"))]
+    if deck.limited().is_none() {
+        let signed_in = env.state.central_handle().is_some_and(|h| h.is_active());
+        let enabled = signed_in
+            && deck
+                .editing()
+                .and_then(|s| uuid::Uuid::parse_str(s).ok())
+                .is_some();
+        let hint = if enabled {
+            Phrase::DeckAppearance
+        } else if !signed_in {
+            Phrase::DeckAppearanceOffline
+        } else {
+            Phrase::DeckAppearancePrivate
+        };
+        kids.push(tool_icon_button(
+            commands,
+            kit,
+            '\u{f53f}',
+            enabled,
+            hint.text(lang).to_owned(),
+            &[],
+            (
+                crate::lobby::deck_appearance::OpenEditor,
+                stop("appearance"),
+            ),
+        ));
+    }
     kids.push(save_button(commands, env));
 
     commands.entity(bar).add_children(&kids);

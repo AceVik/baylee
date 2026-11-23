@@ -29,6 +29,7 @@
 
 import bevy_pbr::render::forward_io::VertexOutput;
 import bevy_pbr::render::mesh_view_bindings::globals;
+import baylee_client::shaders::card_common::{cover_uv, varnish};
 
 struct MatParams {
     /// The seat's colour, and `w` how brightly the mat is drawn at all — the
@@ -62,6 +63,9 @@ struct MatParams {
 }
 
 @group(constants::MATERIAL_BIND_GROUP) @binding(0) var<uniform> params: MatParams;
+@group(constants::MATERIAL_BIND_GROUP) @binding(1) var artwork: texture_2d<f32>;
+@group(constants::MATERIAL_BIND_GROUP) @binding(2) var art_sampler: sampler;
+@group(constants::MATERIAL_BIND_GROUP) @binding(3) var<uniform> decoration: vec4<u32>;
 
 const TAU: f32 = 6.2831855;
 
@@ -196,7 +200,7 @@ const TRAY_LIGHT: vec2<f32> = vec2<f32>(-0.5, -0.866);
 const FRAME_INK: vec3<f32> = vec3<f32>(0.31, 0.245, 0.15);
 
 /// A rounded rectangle's signed distance: negative inside, positive outside.
-fn sd_round_box(p: vec2<f32>, half: vec2<f32>, r: f32) -> f32 {
+fn mat_round_box(p: vec2<f32>, half: vec2<f32>, r: f32) -> f32 {
     let q = abs(p) - half + vec2<f32>(r);
     return length(max(q, vec2<f32>(0.0))) + min(max(q.x, q.y), 0.0) - r;
 }
@@ -216,7 +220,7 @@ fn fragment(in: VertexOutput) -> @location(0) vec4<f32> {
     let sign = select(1.0, -1.0, params.ledge_outer > 0.5);
     let field_half = vec2<f32>(half.x, half.y - band * 0.5);
     let field_p = p - vec2<f32>(0.0, band * sign * 0.5);
-    let d = sd_round_box(field_p, field_half, min(params.corner, min(field_half.x, field_half.y)));
+    let d = mat_round_box(field_p, field_half, min(params.corner, min(field_half.x, field_half.y)));
 
     // One pixel of edge, whatever the mat's size and wherever the camera is.
     let aa = max(fwidth(d), 1e-5);
@@ -348,5 +352,15 @@ fn fragment(in: VertexOutput) -> @location(0) vec4<f32> {
     );
     let light = clamp(value, 0.0, 1.0);
     let alpha = 1.0 - (1.0 - shade) * (1.0 - light);
+    if decoration.x > 0u {
+        let surface_uv = field_p / (field_half * 2.0) + vec2<f32>(0.5);
+        let uv = cover_uv(surface_uv, field_half * 2.0, vec2<f32>(textureDimensions(artwork)));
+        let art = textureSampleLevel(artwork, art_sampler, uv, 0.0);
+        let pigment = varnish(art.rgb, uv, globals.time * params.motion, decoration.x - 1u);
+        let paint = 0.74 * art.a * params.accent.w;
+        let opacity = alpha + (1.0 - alpha) * paint;
+        let rgb = colour * light + (1.0 - alpha) * paint * pigment;
+        return vec4<f32>(rgb / max(opacity, 1e-4), opacity * coverage);
+    }
     return vec4<f32>(colour * light / max(alpha, 1e-4), alpha * coverage);
 }

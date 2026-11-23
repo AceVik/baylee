@@ -462,6 +462,23 @@ library uses an original resident sleeve with matching geometric inlays;
 opening a pile follows the existing motion targets, as a hand of at most
 four cards (`layout::FAN_MAX`).
 
+At an authenticated participant's table, accepted equipment can replace the
+resident sleeve and add a print under each seat's lane markings. Every hidden
+card with the same visible owner uses the same texture and finish, including
+library slabs, concealed permanents and spells. A control change keeps the
+owner's sleeve. Turning a single-faced card over in the preview shows its
+owner's sleeve. A double-faced card still reveals its authorized second face.
+Text mode keeps the available public rules text on concealed battlefield objects.
+Spectators, replays and seats with unavailable artwork use the resident
+materials. Leaving a table releases its image handles.
+
+The inventory, deck editor and table share the same finish calculation.
+Special artwork has a warm travelling reflection near the edges. Finale
+artwork adds a narrow silver-blue border and a second reflection. Reduced
+motion holds both reflections still. Neither finish changes card geometry,
+hit targets or lane contrast. The client receives the finish alongside
+authorized artwork from the server.
+
 Under the cards, everything is generated rather than shipped:
 `baylee-client-core/src/tabletop.rs` computes the felt and a
 seat's mat into plain RGBA8 buffers. Three reasons, and the first is the one
@@ -5223,6 +5240,16 @@ The rule that keeps old decks clean: **a choice that changes nothing writes
 nothing.** Picking the default printing leaves `4 Lightning Bolt` exactly as
 it was, so a deck built before any of this existed can be re-saved without
 gaining a single character.
+
+**Deck appearance.** A player signed in to Central can choose a card sleeve
+and playmat for each saved private deck through the builder header. From an
+earned reward, *Apply to a deck* opens the same sheet with that design selected.
+Previewing a design leaves the deck untouched until the player applies it.
+*Standard design* clears just the selected slot. The account worker verifies
+ownership and updates the encrypted deck revision, preserving edits to cards
+or the other slot. A conflicting change to that same slot asks the player to
+reload. The selected designs follow the deck across devices. Ranked uses its
+existing card registration and rating pool when the appearance changes.
 
 **Saving must not surprise.** `DeckBuilder::problems` is a mirror of what
 `POST /decks` enforces, split into blocking and advisory. Blocking is the

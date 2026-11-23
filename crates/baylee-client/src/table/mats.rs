@@ -534,7 +534,11 @@ pub fn sync_zones(
             });
             continue;
         }
-        let mat_material = mats.add(crate::matmat::MatMaterial { params });
+        let mat_material = mats.add(crate::matmat::MatMaterial {
+            params,
+            artwork: None,
+            decoration: UVec4::ZERO,
+        });
         let mat = commands
             .spawn((
                 DuelStage,

@@ -69,6 +69,14 @@ pub(super) fn build(state: &Shared) -> Router {
         .route("/games/{id}/ws", get(game_ws))
         .route("/games/{id}/watch", get(watch_ws))
         .route("/games/{id}/cosmetics", get(game_cosmetics))
+        .route(
+            "/games/{id}/event-look",
+            post(routes::event_looks::present).layer(axum::extract::DefaultBodyLimit::max(1024)),
+        )
+        .route(
+            "/games/{id}/event-art",
+            post(routes::event_looks::art).layer(axum::extract::DefaultBodyLimit::max(1024)),
+        )
         // The control and engine planes. Neither carries a player's traffic
         // and neither accepts a player's token; see `engine.rs`.
         .route("/agent/ws", get(engine::agent_ws))

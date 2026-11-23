@@ -36,9 +36,17 @@ impl Plugin for LobbyPlugin {
         header::install(app);
         #[cfg(not(target_arch = "wasm32"))]
         ranked_profile::install(app);
+        #[cfg(not(target_arch = "wasm32"))]
+        deck_appearance::install(app);
         challenges::install(app);
         #[cfg(not(target_arch = "wasm32"))]
         ranked::install(app);
+        #[cfg(not(target_arch = "wasm32"))]
+        advent::install(app);
+        #[cfg(not(target_arch = "wasm32"))]
+        app.add_systems(Update, http::submitted::worn::renew.after(poll));
+        #[cfg(not(target_arch = "wasm32"))]
+        advent_table::install(app);
         echoes::install(app);
         install_builder(app);
         // A `baylee:` link the lobby follows once it can (`links`): after

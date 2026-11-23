@@ -198,6 +198,9 @@ impl Account {
             revision: rev,
         };
         let mut draft = page.draft;
+        // A gateway export describes only its own uploaded images. The owner
+        // selects private event items in their account after the import.
+        draft.look = central_api::advent::Equipment::default();
         draft.source = Some(src(id, revision, Some(local)));
         draft.copied_from = page.copied.map(|(deck, rev)| src(deck, rev, None));
         if draft.sleeve.is_some() || draft.playmat.is_some() {

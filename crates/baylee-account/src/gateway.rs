@@ -8,6 +8,9 @@ use zeroize::Zeroize;
 mod deck_import;
 
 #[cfg(feature = "client")]
+#[path = "gateway/event_art.rs"]
+mod event_art;
+#[cfg(feature = "client")]
 #[path = "gateway/published_deck.rs"]
 mod published_deck;
 #[cfg(feature = "client")]

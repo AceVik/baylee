@@ -76,6 +76,7 @@ pub(crate) const BUILDER_ORDER: TabOrder = TabOrder {
         "title",
         "import",
         "export",
+        "appearance",
         "history",
         "save",
         "retry",

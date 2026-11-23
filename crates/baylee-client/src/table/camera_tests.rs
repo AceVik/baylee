@@ -892,7 +892,11 @@ struct VertexOutput {
 struct Globals { time: f32 };
 @group(0) @binding(11) var<uniform> globals: Globals;
 ";
-    crate::cardmat::tests::check_wgsl(include_str!("../shaders/mat.wesl"), prelude);
+    let common = include_str!("../shaders/card_common.wesl");
+    crate::cardmat::tests::check_wgsl(
+        include_str!("../shaders/mat.wesl"),
+        &format!("{prelude}{common}"),
+    );
 }
 
 /// The felt's own shader, which nothing compiled until the firewheel was
