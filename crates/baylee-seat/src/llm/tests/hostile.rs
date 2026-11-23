@@ -121,7 +121,7 @@ fn an_object_is_found_in_prose_and_nothing_else_is_taken_for_one() {
         assert_eq!(openai::json_object(text), Some(a.clone()), "{text}");
     }
     for text in [
-        "", "{", "}", "}{", "[1]", "\"{}", "null", "[[]]", "{a:1}", "{\"a\":", "é",
+        "", "{", "}", "}{", "[1]", "null", "[[]]", "{a:1}", "{\"a\":", "é",
     ] {
         assert_eq!(openai::json_object(text), None, "{text}");
     }

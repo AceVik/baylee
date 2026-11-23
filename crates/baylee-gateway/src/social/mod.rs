@@ -927,8 +927,7 @@ mod bounds {
                 .watching
                 .lock()
                 .get("a")
-                .map(|games| games.keys().cloned().collect())
-                .unwrap_or_default()
+                .map_or_default(|games| games.keys().cloned().collect())
         };
         social.watch_end("a", "g");
         assert_eq!(games(), ["g", "h"]);
