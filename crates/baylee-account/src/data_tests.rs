@@ -125,6 +125,7 @@ fn a_saved_gateway_is_a_web_address_without_credentials_query_or_fragment() {
     for bad in [
         "",
         "a.example",
+        "ftp://a.example",
         "file:///etc/passwd",
         "javascript:alert(1)",
         "https://user@a.example",
