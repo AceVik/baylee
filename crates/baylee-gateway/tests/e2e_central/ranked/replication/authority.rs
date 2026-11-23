@@ -95,6 +95,7 @@ pub(super) fn intent(route: &SeatStatus, action: &PlayerAction) -> SeatRequest {
 
 pub(super) fn submit(p: &Player, request: &SeatRequest) {
     let SeatRequest::Submit {
+        fence,
         expected,
         command_id,
         ..
@@ -102,11 +103,25 @@ pub(super) fn submit(p: &Player, request: &SeatRequest) {
     else {
         unreachable!()
     };
-    assert_eq!(
-        p.account.replica(request.clone()).unwrap(),
-        SeatResponse::Receipt {
-            command_id: *command_id,
-            position: expected.position + 1,
+    let until = Instant::now() + Duration::from_secs(20);
+    loop {
+        match p.account.replica(request.clone()).unwrap() {
+            SeatResponse::Status { status } => {
+                // A newly attached seat can receive its first view before both
+                // executors have pulsed. Retry only the original signed intent.
+                assert_eq!((status.fence, status.head), (*fence, *expected));
+                assert_eq!(status.phase, Phase::Playing);
+                assert!(Instant::now() < until, "intent remained unacknowledged");
+                std::thread::sleep(Duration::from_millis(350));
+            }
+            SeatResponse::Receipt {
+                command_id: id,
+                position,
+            } => {
+                assert_eq!((id, position), (*command_id, expected.position + 1));
+                return;
+            }
+            _ => panic!("unexpected response to a participant's intent"),
         }
-    );
+    }
 }
