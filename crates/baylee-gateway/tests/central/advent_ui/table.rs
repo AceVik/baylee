@@ -208,7 +208,7 @@ async fn entrance(socket: &mut common::Socket) {
                             msg: Some(Msg::SeatReady(v1::SeatReady {})),
                         },
                     )
-                    .await
+                    .await;
                 }
                 Some(Msg::Curtain(_)) => return,
                 Some(_) => {}
