@@ -55,7 +55,7 @@ pub(super) fn refresh(
     book: Option<Res<Book>>,
     prefs: Option<Res<crate::prefs::Prefs>>,
     duel: Option<Res<crate::Duel>>,
-    mut was_visible: Local<bool>,
+    mut previous: Local<(bool, super::framing::Roster)>,
     mut worn: ResMut<Worn>,
     materials: Option<ResMut<Assets<cardmat::CardMaterial>>>,
 ) {
@@ -63,15 +63,28 @@ pub(super) fn refresh(
         return;
     };
     let motion_changed = prefs.as_ref().is_some_and(Res::is_changed);
-    let visible = book.is_some() && duel.is_some_and(|d| !d.watching && d.replay.is_none());
-    if visible == *was_visible
+    let visible = looks.table.is_some()
+        && book.is_some()
+        && duel
+            .as_ref()
+            .is_some_and(|d| !d.watching && d.replay.is_none());
+    let roster = super::framing::Roster::new(
+        duel.as_ref()
+            .filter(|_| visible)
+            .and_then(|d| d.statics.as_ref())
+            .into_iter()
+            .flat_map(|s| &s.seats)
+            .map(|s| (s.player, s.team)),
+    );
+    if visible == previous.0
+        && previous.1 == roster
         && !looks.is_changed()
         && !book.as_ref().is_some_and(Res::is_changed)
         && !motion_changed
     {
         return;
     }
-    *was_visible = visible;
+    *previous = (visible, roster);
     let motion = cardmat::motion_of(prefs.as_ref().is_some_and(|p| p.all().reduce_motion));
     for (seat, slot) in (0u8..).zip(&looks.slots) {
         let paint = |kind, meta: Option<&AssetMeta>| -> Option<Paint> {
@@ -116,7 +129,13 @@ pub(super) fn refresh(
         {
             m.params.motion = motion;
         }
-        let mat = paint(Kind::Playmat, slot.mat.as_ref());
+        let mat = slot.mat.as_ref().and_then(|meta| {
+            Some(super::MatPaint {
+                paint: paint(Kind::Playmat, Some(meta))?,
+                pixels: Vec2::new(f32::from(meta.width), f32::from(meta.height)),
+                framing: previous.1.framing(seat, meta.mat_framing.as_ref()),
+            })
+        });
         if worn.0[index].mat != mat {
             worn.0[index].mat = mat;
         }

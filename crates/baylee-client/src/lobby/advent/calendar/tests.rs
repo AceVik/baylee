@@ -225,6 +225,7 @@ fn reward(id: u8) -> api::Reward {
             en: "Test".into(),
         },
         asset: api::AssetMeta {
+            mat_framing: None,
             mime: api::Mime::Webp,
             tier: api::Finish::Standard,
             digest: [id; 32],
@@ -240,19 +241,19 @@ fn reward(id: u8) -> api::Reward {
 #[test]
 fn pagination_keeps_the_published_gallery_intact_until_the_final_page() {
     let mut book = Book::default();
-    let one = reward(1);
-    let two = reward(2);
+    let one = api::collection::Item::from(reward(1));
+    let two = api::collection::Item::from(reward(2));
     book.accept(
-        Request::Inventory { after: None },
-        Ok(Response::Inventory {
+        Request::Collection { after: None },
+        Ok(Response::Collection {
             items: vec![one.clone()],
             next: None,
         }),
     );
     let unchanged = book.revision;
     book.accept(
-        Request::Inventory { after: None },
-        Ok(Response::Inventory {
+        Request::Collection { after: None },
+        Ok(Response::Collection {
             items: vec![two.clone()],
             next: Some(two.id),
         }),
@@ -260,7 +261,7 @@ fn pagination_keeps_the_published_gallery_intact_until_the_final_page() {
     assert_eq!(book.inventory, std::slice::from_ref(&one));
     assert_eq!(book.revision, unchanged);
     book.accept(
-        Request::Inventory {
+        Request::Collection {
             after: Some(two.id),
         },
         Err(baylee_account::Error::Unavailable),
@@ -268,17 +269,17 @@ fn pagination_keeps_the_published_gallery_intact_until_the_final_page() {
     assert!(book.inventory_retry.is_some());
     assert_eq!(book.inventory, std::slice::from_ref(&one));
     book.accept(
-        Request::Inventory { after: None },
-        Ok(Response::Inventory {
+        Request::Collection { after: None },
+        Ok(Response::Collection {
             items: vec![two.clone()],
             next: Some(two.id),
         }),
     );
     book.accept(
-        Request::Inventory {
+        Request::Collection {
             after: Some(two.id),
         },
-        Ok(Response::Inventory {
+        Ok(Response::Collection {
             items: vec![one.clone()],
             next: None,
         }),

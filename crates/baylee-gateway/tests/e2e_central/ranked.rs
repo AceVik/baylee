@@ -14,6 +14,8 @@ use uuid::Uuid;
 
 #[path = "ranked/consent.rs"]
 mod consent;
+#[path = "ranked/cosmetics.rs"]
+pub(super) mod cosmetics;
 #[path = "ranked/game.rs"]
 mod game;
 #[path = "ranked/receipts.rs"]

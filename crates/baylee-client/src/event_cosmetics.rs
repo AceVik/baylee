@@ -7,6 +7,7 @@ use bevy::prelude::*;
 mod admission;
 #[cfg(not(target_arch = "wasm32"))]
 pub(crate) use admission::MatchLooks;
+mod framing;
 mod preview;
 #[cfg(test)]
 mod tests;
@@ -22,7 +23,14 @@ pub(crate) struct Paint {
 #[derive(Default)]
 struct Seat {
     sleeve: Option<(Paint, Handle<crate::cardmat::CardMaterial>)>,
-    mat: Option<Paint>,
+    mat: Option<MatPaint>,
+}
+
+#[derive(Clone, PartialEq)]
+struct MatPaint {
+    paint: Paint,
+    pixels: Vec2,
+    framing: framing::Framing,
 }
 
 /// Only the current participant's authorized images, released on table change.
@@ -37,7 +45,7 @@ impl Worn {
             .as_ref()
             .map(|(_, m)| m)
     }
-    pub(crate) fn mat(&self, seat: PlayerId) -> Option<&Paint> {
+    fn mat(&self, seat: PlayerId) -> Option<&MatPaint> {
         self.0.get(usize::from(seat.get()))?.mat.as_ref()
     }
     pub(crate) fn sleeve_paint(&self, seat: PlayerId) -> Option<&Paint> {
@@ -176,16 +184,24 @@ fn apply_surfaces(
         if !worn.is_changed() && !seat.is_added() {
             continue;
         }
-        let paint = worn.mat(seat.0);
-        let image = paint.map(|p| &p.image);
-        let decoration = UVec4::new(paint.map_or(0, |p| u32::from(p.tier) + 1), 0, 0, 0);
-        if assets
-            .get(handle)
-            .is_some_and(|m| m.artwork.as_ref() != image || m.decoration != decoration)
+        let Some(current) = assets.get(handle) else {
+            continue;
+        };
+        let mat = worn.mat(seat.0);
+        let image = mat.map(|m| &m.paint.image);
+        let decoration = UVec4::new(mat.map_or(0, |m| u32::from(m.paint.tier) + 1), 0, 0, 0);
+        let viewport = mat.map_or(Vec4::ZERO, |m| {
+            m.framing
+                .viewport(current.params.size, m.pixels, current.params.corner)
+        });
+        if (current.artwork.as_ref() != image
+            || current.decoration != decoration
+            || current.viewport != viewport)
             && let Some(mut m) = assets.get_mut(handle)
         {
             m.artwork = image.cloned();
             m.decoration = decoration;
+            m.viewport = viewport;
         }
     }
     for (sleeve, mut material) in &mut libraries {

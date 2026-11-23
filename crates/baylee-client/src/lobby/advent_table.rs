@@ -267,7 +267,7 @@ impl Bridge {
                                 return Err(Error::Rejected);
                             };
                             let mut all = [SeatLooks::default(); 8];
-                            all[..2].copy_from_slice(&seats);
+                            all[..2].copy_from_slice(seats.as_slice());
                             Ok(Reply::Looks {
                                 seats: Box::new(all),
                                 presented,

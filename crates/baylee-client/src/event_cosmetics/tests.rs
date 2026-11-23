@@ -45,7 +45,11 @@ fn identical_sleeves_per_owner_and_mats_follow_their_own_seat_then_restore() {
     let (paint, sleeve) = card(&mut images, &mut cards);
     let mut worn = Worn::default();
     worn.0[0].sleeve = Some((paint.clone(), sleeve.clone()));
-    worn.0[1].mat = Some(paint.clone());
+    worn.0[1].mat = Some(MatPaint {
+        paint: paint.clone(),
+        pixels: Vec2::new(1600., 900.),
+        framing: framing::Framing::default(),
+    });
     let mut mats = Assets::<MatMaterial>::default();
     let ground = || MatMaterial {
         params: MatParams {
@@ -61,6 +65,7 @@ fn identical_sleeves_per_owner_and_mats_follow_their_own_seat_then_restore() {
         },
         artwork: None,
         decoration: UVec4::ZERO,
+        viewport: Vec4::ZERO,
     };
     let handles = [mats.add(ground()), mats.add(ground())];
     for (id, handle) in (0u8..).zip(&handles) {

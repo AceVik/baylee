@@ -8,7 +8,7 @@ use std::time::{Duration, Instant};
 impl Book {
     pub(super) fn accept(&mut self, request: api::Request, reply: Result<api::Response, Error>) {
         let result = reply.and_then(|reply| self.apply(&request, reply));
-        if matches!(request, api::Request::Inventory { .. }) {
+        if matches!(request, api::Request::Collection { .. }) {
             let error = result.as_ref().err().copied();
             if error.is_some() {
                 self.inventory_retry = Some(Instant::now() + Duration::from_secs(30));
@@ -127,7 +127,7 @@ impl Book {
             {
                 self.receive_reward(reward);
             }
-            (Request::Inventory { after }, Response::Inventory { items, next }) => {
+            (Request::Collection { after }, Response::Collection { items, next }) => {
                 return self.receive_inventory(*after, items, next);
             }
             _ => return Err(Error::Rejected),
@@ -202,16 +202,18 @@ impl Book {
             self.media
                 .want(api::AssetScope::Owned { item: reward.id }, reward.asset);
         }
+        let reward = api::collection::Item::from(reward);
         self.inventory.retain(|item| item.id != reward.id);
         if self
             .work
             .iter()
-            .any(|request| matches!(request, api::Request::Inventory { after: Some(_) }))
+            .any(|request| matches!(request, api::Request::Collection { after: Some(_) }))
             && !self.inventory_sync.iter().any(|item| item.id == reward.id)
         {
             self.inventory_sync.insert(0, reward.clone());
         }
         self.inventory.insert(0, reward);
+        self.inventory_revision = self.inventory_revision.wrapping_add(1);
         if recovery {
             if let Some(&(year, door)) = self.recovery.last() {
                 self.push(api::Request::Claim { year, door });
@@ -226,7 +228,7 @@ impl Book {
     fn receive_inventory(
         &mut self,
         after: Option<api::Id>,
-        items: Vec<api::Reward>,
+        items: Vec<api::collection::Item>,
         next: Option<api::Id>,
     ) -> Result<bool, Error> {
         if after.is_none() {
@@ -238,19 +240,25 @@ impl Book {
             }
         }
         if let Some(cursor) = next {
-            if after == Some(cursor) {
+            if after.is_some_and(|previous| cursor <= previous) {
                 return Err(Error::Conflict);
             }
-            self.push(api::Request::Inventory {
+            self.push(api::Request::Collection {
                 after: Some(cursor),
             });
             return Ok(false);
         }
 
         let changed = !self.inventory_loaded || self.inventory != self.inventory_sync;
+        if changed {
+            self.inventory_revision = self.inventory_revision.wrapping_add(1);
+        }
         self.inventory = std::mem::take(&mut self.inventory_sync);
         self.inventory_loaded = true;
         self.inventory_retry = None;
+        if std::mem::take(&mut self.inventory_refresh_due) {
+            self.request_inventory();
+        }
         if let Screen::Item(id) = self.screen {
             self.load_owned(id);
         }
@@ -312,10 +320,14 @@ impl Book {
                 door,
             }),
             api::DoorState::Claimed => {
+                let source = api::collection::Source::Advent {
+                    year: self.year(),
+                    door,
+                };
                 if let Some(id) = self
                     .inventory
                     .iter()
-                    .find(|r| r.year == self.year() && r.door == door)
+                    .find(|item| item.source == source)
                     .map(|r| r.id)
                 {
                     self.screen = Screen::Item(id);

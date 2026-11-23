@@ -1,5 +1,6 @@
 //! Match-local notification of a confirmed settlement.
 use super::{Format, Lang, LobbyState, Phrase, Track, api, format_name, league_name, rank_name};
+use crate::lobby::advent::RefreshInventory;
 use api::QueueState;
 use bevy::prelude::*;
 
@@ -10,6 +11,7 @@ pub(super) fn promotion(
     mut seen: Local<Option<api::Id>>,
     mut events: MessageWriter<crate::rank_art::Promotion>,
     mut refresh: MessageWriter<crate::lobby::ranked_profile::RefreshOwn>,
+    mut collection: MessageWriter<RefreshInventory>,
 ) {
     let QueueState::Finished {
         deck,
@@ -27,6 +29,9 @@ pub(super) fn promotion(
     }
     *seen = Some(*match_id);
     refresh.write(crate::lobby::ranked_profile::RefreshOwn);
+    if before != after {
+        collection.write(RefreshInventory);
+    }
     for (before, after, track) in [
         (*before, *after, Track::Player),
         (deck.before, deck.after, Track::Deck),
@@ -109,8 +114,14 @@ mod tests {
         app.insert_resource(state)
             .add_message::<Promotion>()
             .add_message::<RefreshOwn>()
+            .add_message::<RefreshInventory>()
             .add_systems(Update, promotion);
         app.update();
+        assert!(
+            app.world()
+                .resource::<Messages<RefreshInventory>>()
+                .is_empty()
+        );
         assert_eq!(
             app.world_mut()
                 .resource_mut::<Messages<Promotion>>()
@@ -125,12 +136,24 @@ mod tests {
         app.update();
         assert_eq!(
             app.world_mut()
+                .resource_mut::<Messages<RefreshInventory>>()
+                .drain()
+                .count(),
+            1
+        );
+        assert_eq!(
+            app.world_mut()
                 .resource_mut::<Messages<Promotion>>()
                 .drain()
                 .count(),
             2
         );
         app.update();
+        assert!(
+            app.world()
+                .resource::<Messages<RefreshInventory>>()
+                .is_empty()
+        );
         assert_eq!(
             app.world_mut()
                 .resource_mut::<Messages<Promotion>>()

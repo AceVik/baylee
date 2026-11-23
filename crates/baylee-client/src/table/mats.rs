@@ -538,6 +538,7 @@ pub fn sync_zones(
             params,
             artwork: None,
             decoration: UVec4::ZERO,
+            viewport: Vec4::ZERO,
         });
         let mat = commands
             .spawn((

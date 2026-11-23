@@ -142,6 +142,13 @@ local calendar illustration. Keep those captures outside version control.
 Run `BAYLEE_CENTRAL_ADVENT_UI=1 cargo dev central integration`
 to exercise the same synthetic campaign and signed account without a window.
 
+Set `BAYLEE_CENTRAL_RANK_COLLECTION_UI=1` on the native Advent command to
+exercise ranked cosmetics. Two synthetic players start one confirmed game
+short of Gold II. The host runs their match and reports the result to Central.
+The client opens the newly earned sleeve and playmat, equips both on the
+winning deck and verifies the saved selection and unchanged deck Elo after
+a fresh login. The rewards in these captures use synthetic artwork.
+
 A test's client is closed when the test ends, also on failure, and its port
 proven closed; `cargo dev e2e` then checks that no process of the run's
 client is left and kills and reports one that is. A test process that

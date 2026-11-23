@@ -334,7 +334,7 @@ fn join(state: &mut LobbyState) {
     }
 }
 
-fn divisions(league: League) -> u8 {
+pub(super) fn divisions(league: League) -> u8 {
     match league {
         League::Wood | League::Iron | League::Bronze | League::Silver => 3,
         League::Gold | League::Platinum | League::Diamond => 4,

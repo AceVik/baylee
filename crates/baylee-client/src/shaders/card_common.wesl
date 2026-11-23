@@ -475,12 +475,6 @@ fn varnish(ink: vec3<f32>, uv: vec2<f32>, time: f32, tier: u32) -> vec3<f32> {
     return ink + (vec3<f32>(1.0) - clamp(ink, vec3<f32>(0.0), vec3<f32>(1.0))) * shine;
 }
 
-// Centered cover, preserving the authored art's aspect ratio.
-fn cover_uv(uv: vec2<f32>, size: vec2<f32>, pixels: vec2<f32>) -> vec2<f32> {
-    let ratio = (size.x / max(size.y, 0.001)) * pixels.y / max(pixels.x, 1.0);
-    return vec2<f32>(0.5) + (uv - vec2<f32>(0.5)) * min(vec2<f32>(1.0), vec2<f32>(ratio, 1.0 / max(ratio, 0.001)));
-}
-
 /// A restrained coating shaped by the printed image. Screen blending keeps
 /// highlights bounded; black ink and white rules boxes retain their contrast.
 /// Derivatives reuse the existing artwork sample, with no extra texture reads.

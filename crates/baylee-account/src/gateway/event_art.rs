@@ -43,6 +43,7 @@ impl GatewayHttp {
         let reply = self
             .agent
             .get(format!("{}/games/{game}/cosmetics", self.origin))
+            .header(advent::framing::CAPABILITY_HEADER, "1")
             .header("Authorization", format!("Bearer {seat_token}"))
             .call()
             .map_err(|_| Error::Unavailable)?;
@@ -102,6 +103,7 @@ impl GatewayHttp {
             let reply = self
                 .agent
                 .post(&url)
+                .header(advent::framing::CAPABILITY_HEADER, "1")
                 .header("Authorization", format!("Bearer {seat_token}"))
                 .header("Content-Type", "application/json")
                 .send(body.as_slice())

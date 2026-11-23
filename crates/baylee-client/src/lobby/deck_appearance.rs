@@ -232,9 +232,7 @@ fn open(
         });
     if let Some(origin) = origin {
         page.open(handle, origin);
-        if !book.inventory_loaded() {
-            refresh.write(RefreshInventory);
-        }
+        refresh.write(RefreshInventory);
     }
 }
 

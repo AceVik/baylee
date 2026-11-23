@@ -4,6 +4,8 @@ DeckAppearanceOffline = Melde dich bei Central an, um Hülle und Spielmatte ausz
 DeckAppearancePrivate = Speichere ein Deck in deiner Central-Bibliothek, um sein Aussehen zu wählen.
 DeckAppearanceSleeve = Kartenhülle
 DeckAppearanceMat = Spielmatte
+# Arguments: rank
+CosmeticRankReward = Rangbelohnung · { $rank }
 DeckAppearanceDefault = Standarddesign
 DeckAppearanceNoItems = Du hast für diesen Platz noch kein Design gesammelt.
 DeckAppearanceApply = Für dieses Deck ausrüsten

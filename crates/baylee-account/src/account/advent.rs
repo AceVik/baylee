@@ -70,6 +70,7 @@ mod tests {
             digest: Sha256::digest(&bytes).into(),
             size: u32::try_from(bytes.len()).unwrap(),
             mime: Mime::Webp,
+            mat_framing: None,
             width: 4,
             height: 2,
         };

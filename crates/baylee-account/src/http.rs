@@ -117,6 +117,7 @@ impl CentralHttp {
                     .agent
                     .post(self.endpoint.native_url())
                     .header("Content-Type", "application/json")
+                    .header(central_api::advent::framing::CAPABILITY_HEADER, "1")
                     .header(central_api::PROTOCOL_HEADER, central_api::PROTOCOL_VERSION);
                 if let Some(token) = bearer {
                     asked = asked.header("Authorization", token.header().as_str());

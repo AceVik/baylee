@@ -479,6 +479,27 @@ motion holds both reflections still. Neither finish changes card geometry,
 hit targets or lane contrast. The client receives the finish alongside
 authorized artwork from the server.
 
+An artist composes a playmat for one seat in a duel. Image coordinates
+start at the top left as seen from the owner's chair. The top faces the
+table centre. The name and life shelf takes about 22% of the mesh depth
+outside the pictured battlefield. The native renderer measures the remaining
+pane after the current arrangement, hand drawer and command strip have
+determined the seat's dimensions. Image pixels stay square in that plane.
+On a 1920×1080 Ring with UI scale 1, a duel seat has about 4.86:1 of
+paintable space with its command strip, or 5.08:1 when that space is reclaimed.
+On a 390×844 canvas these values are about 2.36:1 and 2.62:1.
+
+With no framing metadata, the whole image rests on the resident felt.
+An optional focus positions the print within the seat and an optional
+safe rectangle limits the crop. When a wide or narrow seat cannot fill its
+pane without cutting the protected region, the remaining area shows the
+felt. The campaign artist can supply up to eight alternate compositions keyed by total
+seats, own team size including the owner, and number of sides. In a 3v2
+game, the trio uses (5, 3, 2) and the pair uses (5, 2, 2). Each unteamed
+seat counts as a side. Every unmatched arrangement inherits the duel
+composition. Visiting a seat or folding another seat out of view preserves
+the match roster. Inventory and deck previews show the entire original image.
+
 Under the cards, everything is generated rather than shipped:
 `baylee-client-core/src/tabletop.rs` computes the felt and a
 seat's mat into plain RGBA8 buffers. Three reasons, and the first is the one

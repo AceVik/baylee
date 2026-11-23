@@ -90,6 +90,9 @@ pub struct MatMaterial {
     /// 0 selects resident felt, 1–3 select ordinary, special and finale ink.
     #[uniform(3)]
     pub(crate) decoration: UVec4,
+    /// The 1v1 composition projected into this seat's battlefield (UV origin/span).
+    #[uniform(4)]
+    pub(crate) viewport: Vec4,
 }
 
 impl Material for MatMaterial {

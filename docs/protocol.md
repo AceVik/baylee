@@ -4558,6 +4558,22 @@ Everything but `/info`, the three auth calls and `/auth/config` takes
 status, and the string is written to be shown to a player as-is — the lobby
 does.
 
+**Playmat composition.** A native client can send `baylee-mat-framing: 1`
+when reading the table's appearances or an equipped image. After checking
+the seat, a supporting gateway includes the playmat's optional composition
+alongside its dimensions and digest. The original wire shape remains
+available to clients that omit the header. The same negotiation applies to
+the gateway and account transports at Central.
+
+The duel composition locates the focal point in the original artwork. A
+protected rectangle can keep significant details in view. Coordinates run
+from 0 to 10,000 across each axis starting at the upper left. Up to eight
+overrides can use the total seats, the mat owner's team size and the number
+of sides. A five-seat, two-team game can therefore use distinct crops for
+the team of two and the team of three. The renderer chooses the crop from
+the actual seat surface and keeps the artwork's proportions. Unlisted
+layouts inherit the duel composition.
+
 **Playing a private library deck.** Opening a game, joining one and choosing
 a chair's deck accept `submitted_deck` in place of `deck_id` when
 `GET /auth/config` advertises `submitted_decks: true`. Its fields are
