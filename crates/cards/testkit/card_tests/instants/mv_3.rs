@@ -13,6 +13,7 @@ mod archdruid_s_charm;
 mod army_of_allah;
 mod astral_steel;
 mod aven_warcraft;
+mod backlash;
 mod barbed_lightning;
 mod battle_cry;
 mod battle_frenzy;
