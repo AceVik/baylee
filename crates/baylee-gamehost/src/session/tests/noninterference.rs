@@ -224,3 +224,50 @@ fn a_card_that_could_be_cast_now_is_not_told_by_who_is_asked() {
     assert!(pair.turn() > 5);
     assert!(pair.told_apart);
 }
+
+/// A card everyone sees being cast looks at a library nobody else may: the
+/// look, what is done with it and the card drawn stay the caster's.
+#[test]
+fn a_look_at_the_library_tells_nobody_else_what_was_on_top() {
+    let table = |theirs: &[(&str, usize)], print| {
+        let mut preset = duel_preset(theirs, print, Some(0));
+        let spec = &mut preset.seats[1];
+        spec.starting_hand = Some(entries(&[("Opt", 1)], 0));
+        spec.starting_battlefield = entries(&[("Island", 1)], 0);
+        seated(&preset)
+    };
+    let mut pair = Pair::new(
+        table(&[("Forest", 60)], 2),
+        table(&[("Lightning Bolt", 30), ("Mountain", 30)], 3),
+    );
+    let island = (0..100).find_map(|_| {
+        if let Pending::Priority { player, legal } = pair.one.pending()
+            && *player == THEM
+            && pair.one.state().turn.active == THEM
+            && let Some(source) = legal.mana_abilities.first()
+        {
+            return Some(*source);
+        }
+        pair.step();
+        None
+    });
+    let source = island.expect("their Island can be tapped");
+    let tap = PlayerAction::ActivateManaAbility { source };
+    pair.act(THEM, tap.clone(), tap);
+    let card = seat_view(&pair.one, THEM).hand[0].id;
+    let cast = PlayerAction::CastSpell { card };
+    pair.act(THEM, cast.clone(), cast);
+    let mut looked = false;
+    for _ in 0..100 {
+        looked |= matches!(
+            pair.one.pending(),
+            Pending::Arrange { player, .. } if *player == THEM
+        );
+        if pair.turn() > 3 {
+            break;
+        }
+        pair.step();
+    }
+    assert!(looked, "Opt looks at the top card");
+    assert!(pair.told_apart && pair.turn() > 3);
+}
