@@ -965,6 +965,7 @@ pub(crate) fn check_scope_matches_the_text(
         || (built.contains("AnyOpponent")
             && (built.contains("controlled_by: Some(Chosen)")
                 || built.contains("ControlledBy(Chosen)")
+                || built.contains("TapAllOf { who: Chosen")
                 || built.contains("ControlledCount { who: Chosen")))
         || built.contains("OpponentControlCountAtMost(")
         || built.contains("PayLifeForPtCapWhiteOpponents")
