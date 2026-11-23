@@ -1,6 +1,32 @@
 use super::*;
 
 #[test]
+fn advent_appearance_is_private_per_deck_and_preserves_the_legacy_upload() {
+    let a = DeckDraft {
+        name: "A".into(),
+        sleeve: Some("private-upload".into()),
+        cosmetic_origin: Some("https://saved.example".into()),
+        ..DeckDraft::default()
+    };
+    let old = serde_json::to_string(&a).unwrap();
+    assert!(!old.contains("\"look\""));
+    let mut worn: DeckDraft = serde_json::from_str(&old).unwrap();
+    worn.look.sleeve = Some(*Uuid::now_v7().as_bytes());
+    let b = DeckDraft {
+        name: "B".into(),
+        cards: worn.cards.clone(),
+        ..DeckDraft::default()
+    };
+    assert_ne!(b.look, worn.look);
+    let saved: DeckDraft = serde_json::from_str(&serde_json::to_string(&worn).unwrap()).unwrap();
+    assert_eq!(saved.look, worn.look);
+    assert_eq!(saved.sleeve, a.sleeve);
+    assert_eq!(saved.cosmetic_origin, a.cosmetic_origin);
+    worn.look = central_api::advent::Equipment::default();
+    assert_eq!(serde_json::to_string(&worn).unwrap(), old);
+}
+
+#[test]
 fn draft_limits_apply_before_allocation_of_storage_objects() {
     let mut draft = DeckDraft {
         name: "First".into(),

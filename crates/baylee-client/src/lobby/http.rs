@@ -177,7 +177,11 @@ pub(super) fn dispatch(state: &mut LobbyState, mailbox: &Mailbox, request: Optio
             |body| Reply::Event(LobbyEvent::BlockedCards(body.blocked)),
         );
     }
+    #[cfg(not(target_arch = "wasm32"))]
+    let recover = submitted::worn::Selection::recover(state, &request);
     let (request, expect) = build(&state.gateway, token, &state.lang, request);
+    #[cfg(not(target_arch = "wasm32"))]
+    let expect = recover.map_or(expect, |selection| Expect::Submitted(Box::new(selection)));
     fetch(
         request,
         expect,
@@ -600,6 +604,11 @@ fn fetch(
     mut login: Option<crate::social::vault_access::Login>,
 ) {
     let box_ = Arc::clone(&mailbox.0);
+    #[cfg(not(target_arch = "wasm32"))]
+    let (expect, submitted) = match expect {
+        Expect::Submitted(selection) => (selection.expects(), Some(selection)),
+        ordinary => (ordinary, None),
+    };
     let library = matches!(expect, Expect::Library(_));
     let pool = matches!(expect, Expect::Pool);
     // A request that names no gateway cannot have lost one.
@@ -688,6 +697,11 @@ fn fetch(
                 login.accept(token);
                 box_.push(Reply::Remote(epoch, Box::new(Reply::VaultLogin(login))));
             }
+            #[cfg(not(target_arch = "wasm32"))]
+            let reply = match submitted {
+                Some(selection) => Reply::SubmittedLook(selection, Box::new(reply)),
+                None => reply,
+            };
             box_.push(Reply::Remote(epoch, Box::new(reply)));
         }
     };
@@ -827,6 +841,8 @@ pub(super) fn decode(lang: Lang, expect: Expect, response: &ehttp::Response) -> 
             .map_or_else(|| unreadable(lang, Phrase::TheGameList), LobbyEvent::Seats),
         // The body is the whole lobby, which is not what is being read.
         Expect::Moved => LobbyEvent::Moved,
+        #[cfg(not(target_arch = "wasm32"))]
+        Expect::Submitted(selection) => decode(lang, selection.expects(), response),
         Expect::Seat => seat::decode(body).unwrap_or_else(|| unreadable(lang, Phrase::TheSeat)),
         // Nothing comes back, so the lobby re-reads the list to find out what
         // the table looks like without us.

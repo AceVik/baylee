@@ -1,5 +1,7 @@
 //! Synthetic real gateway + Central + PostgreSQL migration, never production services.
 #![forbid(unsafe_code)]
+#[path = "central/advent_ui.rs"]
+mod advent_ui;
 #[path = "central/aliases.rs"]
 mod aliases;
 #[path = "central/server.rs"]
@@ -319,6 +321,10 @@ fn integration(scenario: Scenario) {
             &operator,
             &served.bridge,
         );
+        if std::env::var("BAYLEE_CENTRAL_ADVENT_UI").as_deref() == Ok("1") {
+            advent_ui::exercise(&runtime, &operator, endpoint, gateway, origin);
+            return;
+        }
         renewal::run(
             gateway,
             endpoint,

@@ -146,7 +146,7 @@ pub(crate) struct Ui {
     reads: VecDeque<Read>,
     loaded: bool,
     withdrawn: bool,
-    playing: Option<(Uuid, Uuid)>,
+    pub(super) playing: Option<(Uuid, Uuid)>,
     /// An authenticated gateway seat may arrive before the first Central worker.
     returning: Option<Uuid>,
     #[cfg(not(target_arch = "wasm32"))]

@@ -22,6 +22,8 @@ pub mod reports;
 #[cfg(feature = "client")]
 pub use account::TowerPlay;
 #[cfg(feature = "client")]
+pub use account::check_advent_image;
+#[cfg(feature = "client")]
 pub use account::{Account, GatewayDeckImport, PairedSession, PairingClaim};
 #[cfg(feature = "client")]
 pub use account::{
@@ -36,8 +38,8 @@ pub use admission::{Admission, ChallengeSeat, GatewayHttp, Turned};
 #[cfg(feature = "client")]
 pub use admission::{RankedDeck, RankedSeat};
 pub use central_api::{
-    Bearer, Endpoint, Error, SignedToken, Token, challenges, chat as chat_api, gateway, groups,
-    owner, profile, ranked, social, terms, wire,
+    Bearer, Endpoint, Error, SignedToken, Token, advent, challenges, chat as chat_api, gateway,
+    groups, owner, profile, ranked, social, terms, wire,
 };
 #[cfg(feature = "client")]
 pub use central_client as sdk;

@@ -154,3 +154,14 @@ GRANT SELECT, INSERT, UPDATE (place) ON central_identity.ranked_badge_peaks TO c
 
 -- Only the operator stages a legacy source. The authenticated transfer advances or retires it.
 GRANT SELECT, DELETE, UPDATE (next_page) ON central_identity.legacy_deck_transfers TO central_runtime;
+
+-- Only the offline publisher provisions campaign data. Players can insert
+-- their first solution/claim and present their selected deck slots through Central.
+GRANT SELECT ON central_identity.advent_art,central_identity.advent_campaigns,central_identity.advent_doors TO central_runtime;
+GRANT SELECT, INSERT (account_id,year,door) ON central_identity.advent_solutions TO central_runtime;
+GRANT SELECT, INSERT (account_id,year,door,art_id) ON central_identity.advent_entitlements TO central_runtime;
+GRANT SELECT, INSERT, DELETE ON central_identity.advent_ranked_looks TO central_runtime;
+GRANT SELECT, DELETE, INSERT (proof,account_id,gateway_id,sid,game,seat,sleeve,playmat),
+      UPDATE (confirmed,expires_at) ON central_identity.advent_table_looks TO central_runtime;
+GRANT SELECT, DELETE, INSERT (account_id,gateway_id,game,seat,stream,sleeve,playmat)
+  ON central_identity.advent_table_outfits TO central_runtime;

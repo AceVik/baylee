@@ -172,6 +172,9 @@ fn sheet_body(commands: &mut Commands, kit: Kit, handle: &str) -> Entity {
     body
 }
 
+#[cfg(test)]
+mod pointer_tests;
+
 fn section(commands: &mut Commands, root: Entity, kit: Kit, title: &str) -> Entity {
     let panel = commands
         .spawn((

@@ -145,6 +145,12 @@ reaches Central, so nobody's load can cost another account its session.
 
 ## Bigint advisory scope
 
+The Advent SDK pins Central to `847272f0001ebc8a7e5de2fa642032226a6438c8`.
+It has the same complete `central-crypto` Git tree
+(`651a67f5f17c9ed57caa2b63922cef9e01362a90`), crate manifest and
+workspace lockfile as the reviewed replicated ranked revision below. The native
+shipping gate checks the all-feature reverse dependency graph at this pin.
+
 The replicated ranked SDK pins Central to
 `41ea44171665507ab23eb81232132d77ee08ae21`. Compared with
 `52f8bd30`, four files in `central-crypto` change. Gateway JWT validation

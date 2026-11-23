@@ -876,8 +876,12 @@ fn health(frame: u64, window: Option<&Window>, clock: &Time<Virtual>) -> String 
     // while it captures (`window::lift_while_capturing`).
     let on_top =
         window.is_some_and(|window| window.window_level == bevy::window::WindowLevel::AlwaysOnTop);
+    let position = match window.map(|w| w.position) {
+        Some(bevy::window::WindowPosition::At(at)) => format!("[{},{}]", at.x, at.y),
+        _ => "null".to_owned(),
+    };
     format!(
-        "{{\"ok\":true,\"frame\":{frame},\"width\":{w},\"height\":{h},\"scale\":{scale},\
+        "{{\"ok\":true,\"frame\":{frame},\"width\":{w},\"height\":{h},\"scale\":{scale},\"position\":{position},\
          \"speed\":{},\"paused\":{},\"on_top\":{on_top}}}",
         clock.relative_speed(),
         clock.is_paused(),
@@ -1632,10 +1636,26 @@ fn write_screenshot(
 ) -> impl FnMut(bevy::ecs::observer::On<ScreenshotCaptured>) {
     move |captured| {
         let answer = match captured.image.clone().try_into_dynamic() {
-            Ok(image) => match image.to_rgb8().save(&path) {
-                Ok(()) => format!("{{\"ok\":true,\"path\":\"{path}\"}}"),
-                Err(err) => format!("{{\"error\":\"cannot write {path}: {err}\"}}"),
-            },
+            Ok(image) => {
+                let frame = image.to_rgb8();
+                let mut dark = 0_usize;
+                let mut light = 0_usize;
+                for pixel in frame.pixels().step_by(283) {
+                    let sum: u16 = pixel.0.into_iter().map(u16::from).sum();
+                    dark += usize::from(sum < 220);
+                    light += usize::from(sum > 440);
+                    if dark >= 32 && light >= 32 {
+                        break;
+                    }
+                }
+                match frame.save(&path) {
+                    Ok(()) => {
+                        serde_json::json!({"ok":true,"path":path,"contrast":dark>=32 && light>=32})
+                            .to_string()
+                    }
+                    Err(err) => format!("{{\"error\":\"cannot write {path}: {err}\"}}"),
+                }
+            }
             Err(err) => format!("{{\"error\":\"unreadable frame: {err}\"}}"),
         };
         let _ = reply.send(answer);

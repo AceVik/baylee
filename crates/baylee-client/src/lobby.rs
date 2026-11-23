@@ -49,6 +49,8 @@ use crate::{DuelCommand, DuelPhase, InstalledHost};
 #[cfg(not(target_arch = "wasm32"))]
 pub(crate) mod central;
 #[cfg(not(target_arch = "wasm32"))]
+pub(crate) mod deck_appearance;
+#[cfg(not(target_arch = "wasm32"))]
 pub(crate) mod ranked_profile;
 
 /// The ground the lobby sits on — dark enough that the felt never flashes
@@ -147,6 +149,8 @@ pub struct LobbyState {
     pub(crate) art_cache: bool,
     /// Gateway selection whose auth config explicitly accepts a frozen account deck.
     submitted_decks_epoch: Option<u64>,
+    #[cfg(not(target_arch = "wasm32"))]
+    casual_worn: Option<std::sync::Arc<http::submitted::worn::Binding>>,
     /// The language the card pool is asked for, from the same setting the
     /// duel reads card text in — a builder in English over a table in German
     /// would be the same card under two names.
@@ -572,6 +576,8 @@ impl LobbyState {
             community_dialog: None,
             art_cache: false,
             submitted_decks_epoch: None,
+            #[cfg(not(target_arch = "wasm32"))]
+            casual_worn: None,
             gateway_selected: false,
             left_central: LeftCentral::No,
             gateway_epoch: 0,
@@ -952,6 +958,8 @@ enum Reply {
     #[cfg(not(target_arch = "wasm32"))]
     PlayDeck(Box<http::submitted::Prepared>),
     #[cfg(not(target_arch = "wasm32"))]
+    SubmittedLook(Box<http::submitted::worn::Selection>, Box<Reply>),
+    #[cfg(not(target_arch = "wasm32"))]
     DeckImport(decks::migration::Update),
     /// The gateway refused to renew the bearer: the gateway token may still
     /// carry the session on.
@@ -1022,6 +1030,8 @@ enum Reply {
 /// What the shell should make of a successful response body.
 #[derive(Clone)]
 enum Expect {
+    #[cfg(not(target_arch = "wasm32"))]
+    Submitted(Box<http::submitted::worn::Selection>),
     /// `GET /banlists`.
     Banlists,
     /// One list and its cards, and what it was asked for.
@@ -1067,6 +1077,10 @@ enum Expect {
     HostedProfiles,
 }
 
+#[cfg(not(target_arch = "wasm32"))]
+pub(crate) mod advent;
+#[cfg(not(target_arch = "wasm32"))]
+mod advent_table;
 mod build_press;
 pub(crate) mod card_fill;
 mod challenges;

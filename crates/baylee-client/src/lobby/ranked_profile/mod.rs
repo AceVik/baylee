@@ -56,6 +56,7 @@ pub(crate) struct CompactRanks(pub String);
 pub(crate) struct RefreshOwn;
 
 #[derive(Component, Clone, Copy)]
+#[require(crate::ui_button::UiButton)]
 enum Action {
     Close,
     Refresh,

@@ -113,7 +113,31 @@ pub(crate) fn install(app: &mut App) {
     }
 }
 
-/// Keeps [`KitHolds`] true while the overlay or the gallery is up.
+#[cfg(not(target_arch = "wasm32"))]
+#[derive(bevy::ecs::system::SystemParam)]
+struct AccountOverlays<'w> {
+    profile: Option<Res<'w, crate::lobby::ranked_profile::Page>>,
+    appearance: Option<Res<'w, crate::lobby::deck_appearance::Page>>,
+    advent: Option<Res<'w, crate::lobby::advent::Book>>,
+}
+#[cfg(not(target_arch = "wasm32"))]
+impl AccountOverlays<'_> {
+    fn holds_keys(&self) -> bool {
+        self.profile
+            .as_deref()
+            .is_some_and(crate::lobby::ranked_profile::Page::holds_keys)
+            || self
+                .appearance
+                .as_deref()
+                .is_some_and(crate::lobby::deck_appearance::Page::holds_keys)
+            || self
+                .advent
+                .as_deref()
+                .is_some_and(crate::lobby::advent::Book::holds_keys)
+    }
+}
+
+/// Keeps [`KitHolds`] true while a foreground control owns the keyboard.
 fn hold_the_keyboard(
     overlay: Res<overlay::Overlay>,
     focus: Option<Res<bevy::input_focus::InputFocus>>,
@@ -122,7 +146,7 @@ fn hold_the_keyboard(
         Res<gallery::Gallery>,
     >,
     chat: Option<Res<crate::social::ChatUi>>,
-    #[cfg(not(target_arch = "wasm32"))] profile: Option<Res<crate::lobby::ranked_profile::Page>>,
+    #[cfg(not(target_arch = "wasm32"))] account: AccountOverlays,
     mut holds: ResMut<KitHolds>,
 ) {
     #[cfg(all(feature = "dev-control", not(target_arch = "wasm32")))]
@@ -138,7 +162,7 @@ fn hold_the_keyboard(
     let chat = chat.is_some_and(|c| c.holds_keyboard());
     let now = overlay::holds(&overlay) || gallery || typing || chat;
     #[cfg(not(target_arch = "wasm32"))]
-    let now = now || profile.is_some_and(|page| page.holds_keys());
+    let now = now || account.holds_keys();
     if holds.0 != now {
         holds.0 = now;
     }

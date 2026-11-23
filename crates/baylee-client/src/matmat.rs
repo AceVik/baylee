@@ -80,9 +80,16 @@ pub struct MatParams {
 /// One seat's mat.
 #[derive(Asset, TypePath, AsBindGroup, Clone, Debug)]
 pub struct MatMaterial {
-    /// Everything the shader reads. No textures: see the module header.
+    /// The procedural field, functional lane lines and seat signals.
     #[uniform(0)]
     pub params: MatParams,
+    /// Authorized artwork for this chair, available only in an admitted match.
+    #[texture(1)]
+    #[sampler(2)]
+    pub(crate) artwork: Option<Handle<Image>>,
+    /// 0 selects resident felt, 1–3 select ordinary, special and finale ink.
+    #[uniform(3)]
+    pub(crate) decoration: UVec4,
 }
 
 impl Material for MatMaterial {

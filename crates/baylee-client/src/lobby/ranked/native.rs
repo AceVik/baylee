@@ -48,6 +48,8 @@ type Inbox = Arc<Mutex<Option<Reply>>>;
 
 #[derive(Resource)]
 pub(crate) struct RankedSocket {
+    pub(crate) generation: u64,
+    pub(crate) look: Option<baylee_account::advent::Equipment>,
     pub(crate) match_id: Id,
     pub(crate) game_id: Id,
     pub(crate) protected: bool,
@@ -89,7 +91,7 @@ pub(crate) struct Worker {
     session: Option<central::Handle>,
     inbox: Option<Inbox>,
     selecting: Option<(u64, Format, deck::Source)>,
-    frozen: Option<Arc<deck::Frozen>>,
+    frozen: Option<(Id, Arc<deck::Frozen>)>,
     host: Option<RankedHost>,
     consent: Option<RankedConsent>,
     documents: Option<Arc<baylee_account::RankedHostDocuments>>,
@@ -191,6 +193,26 @@ impl Worker {
         }
     }
 
+    fn keep_deck(&mut self, frozen: deck::Frozen) -> Result<(), Error> {
+        let key = match &self.queue {
+            QueueState::Assigned { assignment, .. } if assignment.deck != frozen.digest => {
+                return Err(Error::Conflict);
+            }
+            QueueState::Waiting { key, .. } | QueueState::Assigned { key, .. } => *key,
+            QueueState::Idle | QueueState::Finished { .. } => {
+                let key = *Uuid::now_v7().as_bytes();
+                self.intent = Some(Request::Join {
+                    key,
+                    format: frozen.deck.format,
+                    deck: frozen.digest,
+                });
+                key
+            }
+        };
+        self.frozen = Some((key, Arc::new(frozen)));
+        Ok(())
+    }
+
     fn observe(&mut self, queue: QueueState) {
         if self.consent.as_ref().is_some_and(|c| !c.matches(&queue)) {
             self.consent = None;
@@ -200,6 +222,11 @@ impl Worker {
         if self.queue != queue {
             self.play_paused = false;
         }
+        if let QueueState::Waiting { key, .. } | QueueState::Assigned { key, .. } = &queue
+            && self.frozen.as_ref().is_some_and(|(old, _)| old != key)
+        {
+            self.frozen = None;
+        }
         let old_needs = self.needs_deck;
         self.needs_deck = match &queue {
             QueueState::Waiting { .. } => self.frozen.is_none(),
@@ -208,7 +235,7 @@ impl Worker {
                     && self
                         .frozen
                         .as_ref()
-                        .is_none_or(|f| f.digest != assignment.deck)
+                        .is_none_or(|(_, f)| f.digest != assignment.deck)
             }
             QueueState::Idle | QueueState::Finished { .. } => {
                 self.frozen = None;
@@ -517,7 +544,7 @@ fn dispatch(worker: &mut Worker, can_play: bool, playing: bool) {
         let frozen = worker.frozen.clone();
         let mut host = worker.host.take();
         worker.submit(move |account| {
-            let snapshot = frozen.as_ref().map(|f| (f.digest, &f.deck));
+            let snapshot = frozen.as_ref().map(|(_, f)| (f.digest, &f.deck));
             let play = account.play_ranked_replica(key, &authority, snapshot, &mut host);
             Reply::Seat(Box::new(SeatReply { host, play }))
         });
@@ -560,20 +587,10 @@ fn finish(worker: &mut Worker, epoch: u64, reply: Reply) -> Option<RankedPlay> {
                     return None;
                 }
             };
-            if let QueueState::Assigned { assignment, .. } = &worker.queue
-                && assignment.deck != frozen.digest
-            {
-                worker.failed(Error::Conflict);
+            if let Err(error) = worker.keep_deck(frozen) {
+                worker.failed(error);
                 return None;
             }
-            if matches!(worker.queue, QueueState::Idle | QueueState::Finished { .. }) {
-                worker.intent = Some(Request::Join {
-                    key: *Uuid::now_v7().as_bytes(),
-                    format: frozen.deck.format,
-                    deck: frozen.digest,
-                });
-            }
-            worker.frozen = Some(Arc::new(frozen));
             worker.busy = worker.intent.is_some();
             worker.needs_deck = false;
             worker.play_paused = false;

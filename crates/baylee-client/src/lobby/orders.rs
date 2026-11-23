@@ -13,6 +13,7 @@ pub(crate) const PLAY: TabOrder = TabOrder {
     name: "play",
     stops: &[
         "ranked",
+        "advent",
         "rank-format",
         "deck",
         "deck-choice",

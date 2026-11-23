@@ -156,6 +156,8 @@ mod tests {
         let (first, _jobs_a) = Handle::queued_for_test();
         let (second, _jobs_b) = Handle::queued_for_test();
         let mut socket = RankedSocket {
+            generation: 1,
+            look: None,
             match_id: *uuid::Uuid::now_v7().as_bytes(),
             game_id: *uuid::Uuid::now_v7().as_bytes(),
             protected: true,

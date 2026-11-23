@@ -279,14 +279,14 @@ pub(crate) async fn authorize_seat_bearer(
 ) -> Result<(), (StatusCode, Json<ErrorBody>)> {
     let token = crate::bearer_token(headers)
         .ok_or_else(|| err(StatusCode::UNAUTHORIZED, "missing seat token"))?;
-    authorize_seat_token(state, game_id, token).await
+    authorize_seat_token(state, game_id, token).await.map(drop)
 }
 
 pub(crate) async fn authorize_seat_token(
     state: &Shared,
     game_id: &str,
     token: &str,
-) -> Result<(), (StatusCode, Json<ErrorBody>)> {
+) -> Result<Arc<Live>, (StatusCode, Json<ErrorBody>)> {
     let seat = {
         let lobby = state.lobby.lock();
         let game = lobby
@@ -297,10 +297,10 @@ pub(crate) async fn authorize_seat_token(
     };
     let grant = SeatAuthorization::read(state, game_id, seat, &auth::token_hash(token))
         .ok_or_else(|| err(StatusCode::UNAUTHORIZED, TICKET_REFUSED))?;
-    if grant.session(state, game_id, seat).await.is_none() {
-        return Err(err(StatusCode::UNAUTHORIZED, TICKET_REFUSED));
-    }
-    Ok(())
+    grant
+        .session(state, game_id, seat)
+        .await
+        .ok_or_else(|| err(StatusCode::UNAUTHORIZED, TICKET_REFUSED))
 }
 
 /// The one frame a seat socket of another protocol is sent before it closes

@@ -89,6 +89,21 @@ type ChatControlFilter = Or<(
     With<crate::social::vault_ui::Press>,
 )>;
 
+/// Nodes that have received an actual calendar image or a scoped cosmetic preview.
+type ArtNodes<'w, 's> = Query<
+    'w,
+    's,
+    (
+        Option<&'static Name>,
+        Has<ImageNode>,
+        Has<crate::event_cosmetics::CosmeticPreview>,
+    ),
+    Or<(
+        With<ImageNode>,
+        With<crate::event_cosmetics::CosmeticPreview>,
+    )>,
+>;
+
 /// Every UI tree's root that `shell_nodes` does not walk (the table's HUD,
 /// the chat, the updater's card), with its box for a stable order.
 type OtherUiRoots<'w, 's> = Query<
@@ -132,6 +147,10 @@ pub(super) struct Believed<'w, 's> {
     /// The lobby, for the builder's keyboard place.
     lobby: Option<Res<'w, crate::lobby::LobbyState>>,
     front_motion: Option<Res<'w, crate::lobby::front::FrontMotion>>,
+    /// Keyboard stop identifiers in published node geometry for native UI drivers.
+    stops: Query<'w, 's, &'static crate::shellkit::focus::Stop>,
+    advent_light: crate::lobby::advent::ShaderProbe<'w, 's>,
+    art_nodes: ArtNodes<'w, 's>,
     /// The report form's buttons, where a pointer would press them.
     desk_controls: Query<
         'w,
@@ -792,6 +811,7 @@ fn walk_tree(
             let _ = std::fmt::Write::write_fmt(&mut row, format_args!(",\"{key}\":\"{how}\""));
         }
     }
+    control_geometry(&mut row, believed, entity);
     if pressable {
         row.push_str(",\"i\":true");
     }
@@ -807,6 +827,34 @@ fn walk_tree(
     out.push(row);
     for child in children.into_iter().flatten() {
         walk_tree(believed, *child, depth + 1, None, out);
+    }
+}
+
+fn control_geometry(row: &mut String, believed: &Believed, entity: Entity) {
+    if let Ok((name, image, preview)) = believed.art_nodes.get(entity) {
+        if image && name.is_some_and(|n| n.as_str() == "Advent winter tavern") {
+            row.push_str(",\"calendar_image\":true");
+        }
+        if preview {
+            row.push_str(",\"cosmetic_preview\":true");
+        }
+    }
+    if let Ok(stop) = believed.stops.get(entity) {
+        if stop.id == "advent"
+            && let Some(params) = believed.advent_light.button(entity)
+        {
+            row.push_str(",\"advent_light\":");
+            row.push_str(&serde_json::json!(params).to_string());
+        }
+        let _ = std::fmt::Write::write_fmt(
+            row,
+            format_args!(
+                ",\"stop\":{{\"table\":{},\"id\":{},\"item\":{}}}",
+                quoted(stop.table),
+                quoted(stop.id),
+                stop.item
+            ),
+        );
     }
 }
 

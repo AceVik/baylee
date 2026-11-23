@@ -622,6 +622,16 @@ pub fn sync_overlay(
                 cards.as_mut(),
                 &faces.widths,
             );
+            if built.is_none()
+                && key.is_none()
+                && let Some(seat) = hovered
+                    .and_then(|id| view.object(id))
+                    .and_then(crate::event_cosmetics::concealed)
+            {
+                commands
+                    .entity(visual)
+                    .insert(crate::event_cosmetics::HiddenPreview(seat));
+            }
             // The strip, lying on the art where it lies on the table (#274,
             // #298): an object of its own over the card, at the same place in
             // card widths, saying what it says there. The preview is the
@@ -781,7 +791,8 @@ pub fn sync_overlay(
             // A card read by rotating has no back to turn to: the owner's
             // rule for a card with two faces on its front (13.10.2026).
             if reading.over {
-                let (art, look) = match far_face(key, has_back_image(view, hovered)) {
+                let reverse = far_face(key, has_back_image(view, hovered));
+                let (art, look) = match reverse {
                     Some(back) => (
                         textures.get(back, statics, &assets),
                         CardLook::art(back, finish_of(statics, Some(back))),
@@ -804,6 +815,14 @@ pub fn sync_overlay(
                     cards.as_mut(),
                     &faces.widths,
                 );
+                if reverse.is_none()
+                    && let Some(owner) =
+                        hovered.and_then(|id| crate::event_cosmetics::visible_owner(view, id))
+                {
+                    commands
+                        .entity(far)
+                        .insert(crate::event_cosmetics::HiddenPreview(owner));
+                }
                 commands.entity(far).insert((
                     crate::flip::Side::Back,
                     // Hidden until the turn passes the quarter, where the
@@ -1130,6 +1149,14 @@ pub fn sync_overlay(
                             cards.as_mut(),
                             &faces.widths,
                         );
+                        if let Some(owner) = view
+                            .object(group.representative)
+                            .and_then(crate::event_cosmetics::concealed)
+                        {
+                            commands
+                                .entity(card)
+                                .insert(crate::event_cosmetics::HiddenPreview(owner));
+                        }
                         commands.entity(card).insert(upward_shadow());
                         commands.entity(column).add_child(card);
                     }

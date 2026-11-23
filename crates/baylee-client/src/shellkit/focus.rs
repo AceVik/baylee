@@ -50,6 +50,10 @@ pub struct TabOrder {
 /// Every table the kit knows, so a stop's table name finds its order.
 pub const TABLES: &[&TabOrder] = &[
     #[cfg(not(target_arch = "wasm32"))]
+    &crate::lobby::deck_appearance::ORDER,
+    #[cfg(not(target_arch = "wasm32"))]
+    &crate::lobby::advent::ORDER,
+    #[cfg(not(target_arch = "wasm32"))]
     &crate::lobby::ranked_profile::ORDER,
     &super::overlay::OVERLAY_ORDER,
     &crate::lobby::front::keys::GATEWAY,

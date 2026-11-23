@@ -49,6 +49,12 @@ pub(super) fn ranked(commands: &mut Commands, parent: Entity, kit: Kit) {
 }
 
 pub(super) fn draw(commands: &mut Commands, parent: Entity, state: &LobbyState, kit: Kit) {
+    #[cfg(not(target_arch = "wasm32"))]
+    super::super::advent::entry(commands, parent, kit);
+    challenges(commands, parent, state, kit);
+}
+
+fn challenges(commands: &mut Commands, parent: Entity, state: &LobbyState, kit: Kit) {
     commands
         .entity(parent)
         .entry::<Node>()

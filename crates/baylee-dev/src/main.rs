@@ -186,9 +186,13 @@ enum Central {
     },
     /// The dev-control client signing in against the integration fixture.
     Client {
-        /// The additional left monitor's index.
-        #[arg(long, default_value_t = 0)]
-        monitor: i64,
+        /// A non-primary display index or the Mac's built-in display.
+        #[arg(long)]
+        #[cfg_attr(target_os = "macos", arg(default_value = "builtin"))]
+        monitor: String,
+        /// Visit a synthetic Advent calendar, solve a door and equip its reward.
+        #[arg(long, conflicts_with = "challenges")]
+        advent: bool,
         /// Publish fresh certified tasks with the real CLI and open Challenges.
         #[arg(long)]
         challenges: bool,
@@ -333,10 +337,11 @@ fn central_task(check: Central) -> (&'static str, anyhow::Result<i32>) {
         Central::Client {
             monitor,
             challenges,
+            advent,
             hold_seconds,
         } => (
             "central client",
-            central::client(monitor, challenges, hold_seconds),
+            central::client(&monitor, challenges, advent, hold_seconds),
         ),
     }
 }

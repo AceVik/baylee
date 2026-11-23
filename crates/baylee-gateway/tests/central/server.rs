@@ -69,6 +69,9 @@ pub(super) fn serve(
     if let Some(tower) = &tower {
         environment.extend(tower.environment());
     }
+    if std::env::var("BAYLEE_CENTRAL_ADVENT_UI").as_deref() == Ok("1") {
+        environment.push(("BAYLEE_AUTH_MODE", "mixed".into()));
+    }
     let gateway = common::spawn_gateway_with(label, &environment);
     let gateway_address = format!("127.0.0.1:{}", gateway.port).parse().unwrap();
     let origin = format!("http://{gateway_address}");

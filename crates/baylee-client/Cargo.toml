@@ -169,7 +169,7 @@ baylee-account = { workspace = true, features = ["client"] }
 # The report form's screenshot (`src/report/shot.rs`, #309) and the
 # `dev-control` harness's, and the size a card picture says it has
 # (`src/artreader.rs`), which is why it reads JPEG too.
-image = { workspace = true, features = ["jpeg"] }
+image = { workspace = true, features = ["jpeg", "webp"] }
 # Card art over HTTP(S) with a disk cache (`src/artreader.rs`, #250).
 # `platform-verifier` so a gateway's mirror is trusted the way the system
 # trusts it, as bevy's reader did.

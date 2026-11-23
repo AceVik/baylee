@@ -1,4 +1,22 @@
 ### One thing the interface says.
+DeckAppearance = Deck-Aussehen
+DeckAppearanceOffline = Melde dich bei Central an, um Hülle und Spielmatte auszuwählen.
+DeckAppearancePrivate = Speichere ein Deck in deiner Central-Bibliothek, um sein Aussehen zu wählen.
+DeckAppearanceSleeve = Kartenhülle
+DeckAppearanceMat = Spielmatte
+DeckAppearanceDefault = Standarddesign
+DeckAppearanceNoItems = Du hast für diesen Platz noch kein Design gesammelt.
+DeckAppearanceApply = Für dieses Deck ausrüsten
+DeckAppearanceSaved = Für dieses Deck gespeichert
+DeckAppearanceCurrent = An diesem Deck ausgerüstet
+DeckAppearanceUnavailable = Das ausgewählte Design ist nicht verfügbar.
+DeckAppearanceRetry = Erneut versuchen
+DeckAppearanceChanged = Die Auswahl wurde auf einem anderen Gerät geändert. Lade das Deck erneut, um fortzufahren.
+DeckAppearanceFailed = Central konnte die Auswahl nicht laden oder speichern.
+DeckAppearancePrevious = Vorherige Seite
+DeckAppearanceNext = Nächste Seite
+DeckAppearanceNoDecks = Deine private Deckbibliothek ist leer.
+DeckAppearanceChooseDeck = Deck auswählen
 
 NounArmiesToAmass =
     { $count ->
@@ -4356,3 +4374,78 @@ RankedPreviewNew = Dieses Deck startet mit einer neuen Wertung.
 RankedPreviewRecorded = Diese exakte Deckversion behält ihre gespeicherte Wertung.
 # Arguments: changed, compared, loss
 RankedPreviewInherited = { $changed } von { $compared } Kopien geändert · Änderungsabzug { $loss } Elo
+
+AdventCalendar = Wintertaverne · Adventskalender
+AdventTavern = Wintertaverne
+AdventName = Adventskalender
+AdventGallery = Meine Sammlung
+AdventDoors = Kalender
+AdventUnavailable = Central konnte die Anfrage nicht abschließen.
+AdventRetry = Erneut laden
+AdventLoading = Wird von Central geladen …
+AdventImageLoading = Das private Motiv wird geladen …
+AdventImageFailed = Das Bild konnte nicht geladen werden.
+AdventApplyDeck = Auf ein Deck anwenden
+AdventEmpty = Deine eingesammelten Adventsbelohnungen erscheinen hier.
+# Arguments: door
+AdventDoor = Tür { $door }
+AdventLocked = Noch geschlossen
+AdventAvailable = Rätsel verfügbar
+AdventSolved = Gelöst
+AdventClaimed = Eingesammelt
+AdventExpired = Beendet
+AdventWon = Rätsel gelöst. Deine Belohnung ist bereit.
+AdventUnguarded = Angriff · keine gegnerischen Blocker
+AdventReveal = Belohnung ansehen
+AdventMight = Stärke
+AdventSpark = Funke
+AdventBolt = Blitz
+AdventFrost = Frost
+AdventWings = Flügel
+AdventEdge = Erstschlag
+AdventRally = Sammelruf
+AdventMend = Heilung
+AdventMightRule = Eine eigene Kreatur erhält bis zum Zugende +2/+2.
+AdventSparkRule = Fügt einem Ziel 1 Schaden zu.
+AdventBoltRule = Fügt einem Ziel 3 Schaden zu.
+AdventFrostRule = Tappe eine Kreatur.
+AdventWingsRule = Eine eigene Kreatur erhält Flugfähigkeit bis zum Zugende.
+AdventEdgeRule = Eine eigene Kreatur erhält Erstschlag bis zum Zugende.
+AdventRallyRule = Eigene Kreaturen erhalten bis zum Zugende +1/+1.
+AdventMendRule = Du erhältst 3 Lebenspunkte.
+AdventFlying = Fliegend
+AdventReach = Reichweite
+AdventFirstStrike = Erstschlag
+AdventDeathtouch = Todesberührung
+AdventTrample = Trampelschaden
+AdventLifelink = Lebensverknüpfung
+AdventVigilance = Wachsamkeit
+AdventYou = Du
+AdventOpponent = Gegner
+AdventPass = Passen
+AdventNoAttack = Keine Angreifer
+AdventNoBlocks = Nicht blocken
+# Arguments: units
+AdventAttackWith = Angriff mit { $units }
+AdventCast = Zaubern oder passen
+# Arguments: pairs
+AdventGuards = Angriff · gegnerische Blocker → eigene Angreifer { $pairs }
+# Arguments: units
+AdventAttackers = Blocken · gegnerische Angreifer { $units }
+AdventSurvive = Überlebe die Begegnung oder besiege den Gegner vorher.
+AdventDefeat = Besiege den Gegner und überlebe.
+# Arguments: side, life
+AdventLife = { $side } · { $life } Leben
+AdventTapped = Getappt
+# Arguments: amount
+AdventDamage = { $amount } Schaden
+AdventMana = Mana
+# Arguments: card
+AdventDraw = Fester Zug vom Stapel · { $card }
+AdventLost = Diese Zugfolge verfehlt das Ziel. Du kannst es erneut versuchen.
+AdventSubmit = Zugfolge auswerten
+# Arguments: mana
+AdventChoose = Deine Entscheidung · { $mana } Mana
+# Arguments: number
+AdventHint = Kostenloser Hinweis { $number }
+AdventReset = Rätsel neu beginnen

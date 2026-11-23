@@ -57,6 +57,7 @@ impl DecorationReady {
 
 #[derive(Clone, Copy, PartialEq)]
 pub(super) struct CardInput {
+    pub(super) sleeve: Option<bevy::asset::AssetId<crate::cardmat::CardMaterial>>,
     pub(super) decorations: DecorationReady,
     pub(super) placement: Placement,
     pub(super) eye: Transform,

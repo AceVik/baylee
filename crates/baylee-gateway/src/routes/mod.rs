@@ -6,6 +6,7 @@ mod catalog;
 pub(super) mod deck_export;
 mod deck_lines;
 mod decks;
+pub(crate) mod event_looks;
 mod info;
 mod listing;
 mod lobby_feed;

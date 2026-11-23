@@ -7,12 +7,21 @@ use super::*;
 /// signs in again and is admitted to the gateway with a one-use ticket. The
 /// client runs on monitor `monitor` (the additional left display) and every
 /// owned process and port is proven gone afterwards.
-pub fn client(monitor: i64, challenges: bool, hold_seconds: u64) -> Result<i32> {
+pub fn client(monitor: &str, challenges: bool, seasonal: bool, hold_seconds: u64) -> Result<i32> {
+    let (index, panel) = display(monitor)?;
     let run_dir = PathBuf::from("target").join(format!("central-ui-{}", crate::secret::hex(5)?));
     fs::create_dir_all(&run_dir)?;
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt as _;
+        fs::set_permissions(&run_dir, fs::Permissions::from_mode(0o700))?;
+    }
     let run_dir = fs::canonicalize(&run_dir)?;
     let ready = run_dir.join("fixture.json");
-    let exe = PathBuf::from("target/debug")
+    let target =
+        std::env::var_os("CARGO_TARGET_DIR").map_or_else(|| PathBuf::from("target"), PathBuf::from);
+    let exe = target
+        .join("debug")
         .join(format!("baylee-client{}", std::env::consts::EXE_SUFFIX));
     ensure!(
         exe.is_file(),
@@ -24,11 +33,13 @@ pub fn client(monitor: i64, challenges: bool, hold_seconds: u64) -> Result<i32> 
         &run_dir,
         &ready,
         challenges,
+        seasonal,
         hold_seconds,
     )?)?;
     let mut client: Option<Owned> = None;
     let result = (|| -> Result<()> {
-        let deadline = Instant::now() + Duration::from_secs(if challenges { 900 } else { 240 });
+        let deadline =
+            Instant::now() + Duration::from_secs(if challenges || seasonal { 900 } else { 240 });
         while !ready.exists() {
             ensure!(
                 !fixture.exited(),
@@ -40,20 +51,7 @@ pub fn client(monitor: i64, challenges: bool, hold_seconds: u64) -> Result<i32> 
             );
             std::thread::sleep(Duration::from_millis(250));
         }
-        let config: Value = serde_json::from_str(&fs::read_to_string(&ready)?)?;
-        let origin = |key: &str| -> Result<String> {
-            let value = config[key].as_str().unwrap_or_default();
-            ensure!(
-                loopback_origin(value),
-                "unexpected fixture origin for {key}"
-            );
-            Ok(value.to_owned())
-        };
-        ensure!(
-            config["mode"] == "synthetic-only",
-            "unexpected fixture mode"
-        );
-        let (central, gateway) = (origin("central")?, origin("gateway")?);
+        let (central, gateway) = fixture_origins(&ready)?;
 
         let home = run_dir.join("config");
         fs::create_dir_all(home.join("baylee"))?;
@@ -68,7 +66,7 @@ pub fn client(monitor: i64, challenges: bool, hold_seconds: u64) -> Result<i32> 
                 .env("XDG_DATA_HOME", run_dir.join("data"))
                 .env("BAYLEE_DEV_CONTROL", port.to_string())
                 .env("BAYLEE_DEV_PASSIVE", "1")
-                .env("BAYLEE_DEV_MONITOR", monitor.to_string())
+                .env("BAYLEE_DEV_MONITOR", index.to_string())
                 .env("BAYLEE_DEV_WINDOW", "1280x800")
                 .env("BAYLEE_DEV_SOUND", "")
                 .env("BAYLEE_CENTRAL_DEV_ENDPOINT", &central)
@@ -85,13 +83,20 @@ pub fn client(monitor: i64, challenges: bool, hold_seconds: u64) -> Result<i32> 
         );
         let client = client.insert(started);
         let devctl = Devctl::new(port);
-        scenario(&devctl, client, monitor, &run_dir)?;
+        scenario(&devctl, client, index, panel, &run_dir, seasonal)?;
+        if seasonal {
+            advent::visit(&devctl, client, &run_dir)?;
+            fs::write(ready.with_extension("advent-complete"), b"completed")?;
+        }
         if challenges {
             challenge_visit(&devctl, client, port, &run_dir, hold_seconds)?;
         }
         Ok(())
     })();
 
+    if let Err(error) = &result {
+        let _ = fs::write(run_dir.join("scenario-error.log"), format!("{error:#}"));
+    }
     let errors = stop(client, fixture, &ready, &run_dir, port);
     if !errors.is_empty() {
         anyhow::bail!(
@@ -108,10 +113,45 @@ pub fn client(monitor: i64, challenges: bool, hold_seconds: u64) -> Result<i32> 
     Ok(0)
 }
 
+fn display(monitor: &str) -> Result<(u32, Option<baylee_client_e2e::monitor::BuiltIn>)> {
+    use baylee_client_e2e::Monitor;
+    let requested = Monitor::parse(monitor)?;
+    ensure!(
+        matches!(requested, Monitor::BuiltIn | Monitor::Index(_)),
+        "select builtin or a non-primary display index"
+    );
+    let (selector, panel) = requested.resolve()?;
+    let selector = selector.context("a test display is required")?;
+    let index: u32 = selector.parse()?;
+    ensure!(
+        panel.is_some() || index > 0,
+        "select an additional monitor or builtin"
+    );
+    Ok((index, panel))
+}
+
+fn fixture_origins(ready: &Path) -> Result<(String, String)> {
+    let config: Value = serde_json::from_str(&fs::read_to_string(ready)?)?;
+    let origin = |key: &str| -> Result<String> {
+        let value = config[key].as_str().unwrap_or_default();
+        ensure!(
+            loopback_origin(value),
+            "unexpected fixture origin for {key}"
+        );
+        Ok(value.to_owned())
+    };
+    ensure!(
+        config["mode"] == "synthetic-only",
+        "unexpected fixture mode"
+    );
+    Ok((origin("central")?, origin("gateway")?))
+}
+
 fn fixture_command(
     run_dir: &Path,
     ready: &Path,
     challenges: bool,
+    seasonal: bool,
     hold_seconds: u64,
 ) -> Result<Command> {
     let mut command = Command::new(std::env::current_exe()?);
@@ -121,8 +161,11 @@ fn fixture_command(
         .env("BAYLEE_CENTRAL_UI_READY", ready)
         .env(
             "BAYLEE_CENTRAL_UI_HOLD_SECS",
-            (hold_seconds + 180).to_string(),
+            (hold_seconds + if seasonal { 480 } else { 180 }).to_string(),
         );
+    if seasonal {
+        command.env("BAYLEE_CENTRAL_ADVENT_UI", "1");
+    }
     if challenges {
         let publisher = fs::canonicalize(
             Path::new("target/debug").join(format!("challenge{}", std::env::consts::EXE_SUFFIX)),
@@ -208,7 +251,17 @@ fn stop(
         }
     }
     let _ = fs::write(ready.with_extension("stop"), "stop");
-    if !fixture.wait_for(Duration::from_secs(15)).unwrap_or(false) {
+    // After the UI signals success the fixture verifies all saved frames,
+    // signs in again and plays its scoped owner/guest match before teardown.
+    let grace = if ready.with_extension("advent-complete").is_file() {
+        120
+    } else {
+        15
+    };
+    if !fixture
+        .wait_for(Duration::from_secs(grace))
+        .unwrap_or(false)
+    {
         let _ = fs::write(run_dir.join("cancel"), "cancel");
     }
     match fixture.wait(Duration::from_secs(30), None) {
@@ -227,7 +280,15 @@ fn stop(
     errors
 }
 
-fn scenario(devctl: &Devctl, client: &mut Owned, monitor: i64, run_dir: &Path) -> Result<()> {
+mod advent;
+fn scenario(
+    devctl: &Devctl,
+    client: &mut Owned,
+    monitor: u32,
+    panel: Option<baylee_client_e2e::monitor::BuiltIn>,
+    run_dir: &Path,
+    seasonal: bool,
+) -> Result<()> {
     let deadline = Instant::now() + Duration::from_secs(45);
     while devctl.get("health", Duration::from_secs(2)).is_err() {
         ensure!(
@@ -245,9 +306,14 @@ fn scenario(devctl: &Devctl, client: &mut Owned, monitor: i64, run_dir: &Path) -
         .filter(|m| m["index"] == monitor)
         .collect();
     ensure!(
-        chosen.len() == 1 && chosen[0]["index"].as_i64().is_some_and(|index| index > 0),
-        "the selected monitor is not an additional non-primary display"
+        chosen.len() == 1
+            && panel.map_or(monitor > 0, |p| chosen[0]["width"] == p.width
+                && chosen[0]["height"] == p.height),
+        "the client did not confirm the selected monitor's native geometry"
     );
+    if panel.is_some() {
+        confirm_position(devctl, chosen[0], run_dir)?;
+    }
     let deadline = Instant::now() + Duration::from_secs(40);
     while state(devctl)?["loading"]["destination"] != "hidden" {
         ensure!(
@@ -267,6 +333,11 @@ fn scenario(devctl: &Devctl, client: &mut Owned, monitor: i64, run_dir: &Path) -
         "screenshot",
         &json!({ "path": run_dir.join("01-login.png") }),
     )?;
+    if seasonal {
+        sign_in(devctl)?;
+        wait_account(devctl, client, run_dir, restored)?;
+        return enter_fixture_gateway(devctl, client, run_dir);
+    }
     hover(devctl, "Front(OpenCommunityDialog(WhatsApp))")?;
     hover(devctl, "Memorial(Open)")?;
     std::thread::sleep(Duration::from_millis(450));
@@ -308,6 +379,71 @@ fn scenario(devctl: &Devctl, client: &mut Owned, monitor: i64, run_dir: &Path) -
     fs::write(run_dir.join("result.json"), summary.to_string())?;
     println!("Native Central login, restored gateway list and ticket admission passed.");
     Ok(())
+}
+
+fn confirm_position(devctl: &Devctl, panel: &Value, dir: &Path) -> Result<()> {
+    let deadline = Instant::now() + Duration::from_secs(75);
+    loop {
+        // The first Metal pipeline compilation can block a frame after the
+        // socket is ready. Only accept a fresh, complete geometry reading.
+        let health = match devctl.get("health", Duration::from_secs(12)) {
+            Ok(reading) => reading,
+            Err(_) if Instant::now() < deadline => continue,
+            Err(error) => return Err(error.context("reading native window geometry")),
+        };
+        fs::write(dir.join("window.json"), health.to_string())?;
+        if let (Some(x), Some(y), Some(scale)) = (
+            health["position"][0].as_f64(),
+            health["position"][1].as_f64(),
+            health["scale"].as_f64(),
+        ) {
+            let on_panel = |pos: f64, start: &str, extent: &str| -> Result<bool> {
+                let lower = panel[start].as_f64().context("missing monitor origin")?;
+                let upper = lower + panel[extent].as_f64().context("missing monitor extent")?;
+                let center =
+                    pos + health[extent].as_f64().context("missing window extent")? * scale / 2.;
+                Ok((lower..upper).contains(&center))
+            };
+            if on_panel(x, "x", "width")? && on_panel(y, "y", "height")? {
+                return Ok(());
+            }
+        }
+        ensure!(
+            Instant::now() < deadline,
+            "native window geometry did not match built-in monitor"
+        );
+        std::thread::sleep(Duration::from_millis(100));
+    }
+}
+
+/// The same fixture account may already have acknowledged the chat notice.
+fn enter_fixture_gateway(devctl: &Devctl, client: &mut Owned, dir: &Path) -> Result<()> {
+    let deadline = Instant::now() + Duration::from_secs(40);
+    loop {
+        let view = state(devctl)?;
+        if view["account"]["gateway_authenticated"] == true && view["account"]["offline"] == false {
+            return Ok(());
+        }
+        if let Some(n) = view["chat"]["controls"]
+            .as_array()
+            .and_then(|rows| rows.iter().find(|n| n["press"] == "GotIt"))
+        {
+            devctl.post(
+                "pointer",
+                &json!({"x":n["x"],"y":n["y"],"button":"left","press":true}),
+            )?;
+        } else if view["lobby_controls"].as_array().is_some_and(|rows| {
+            rows.iter()
+                .any(|row| row["press"] == "Front(SelectGateway(0))")
+        }) {
+            click(devctl, "Front(SelectGateway(0))")?;
+        }
+        if Instant::now() >= deadline || client.exited() {
+            fs::write(dir.join("failure-state.json"), view.to_string())?;
+            bail!("the signed-in account did not enter its fixture gateway");
+        }
+        std::thread::sleep(Duration::from_millis(500));
+    }
 }
 
 fn sign_in(devctl: &Devctl) -> Result<()> {
