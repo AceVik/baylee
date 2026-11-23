@@ -2188,4 +2188,156 @@ mod tests {
         let c = conditions(&filter("q=0192f3ab"), None, None).ok().unwrap();
         assert!(c.sql.join(" ").contains("id::text LIKE"));
     }
+
+    /// Every value a filter takes is bound, never written into the statement.
+    #[test]
+    fn no_word_of_a_filter_reaches_the_statement_itself() {
+        let evil = "x'%3B%20DROP%20TABLE%20feedback_report%3B--%20%3F%20%24%31%20%28";
+        let query = ["gateway", "reporter", "game_id", "q", "source", "assignee"]
+            .map(|field| format!("{field}={evil}"))
+            .join("&");
+        let c = conditions(&filter(&query), None, None).ok().expect("bound");
+        let sql = c.clause();
+        for word in ["DROP", ";", "--", "x'"] {
+            assert!(!sql.contains(word), "{word}: {sql}");
+        }
+        // One parameter each, two for the search box (its words and its
+        // pattern), and the viewer's; the statement names every one of them.
+        assert_eq!(c.values.len(), 8);
+        for at in 2..=c.values.len() {
+            assert!(sql.contains(&format!("${at}")), "${at}: {sql}");
+        }
+        assert!(!sql.contains('?'), "every mark is a parameter: {sql}");
+    }
+
+    #[test]
+    fn a_word_that_is_not_one_of_the_list_is_refused_wherever_it_stands() {
+        for query in [
+            "status=new,open",
+            "status=",
+            "status=,",
+            "kind=bug,x",
+            "kind=%20",
+            "priority=high,x",
+            "priority=,",
+            "label=",
+            "source=",
+            "source=!",
+            "source=a%00b",
+            "signature=0123456789abcdeg",
+            "signature=0123456789abcde",
+            "signature=0123456789abcdef0",
+            "from=2026-02-30",
+            "to=2026-1-01",
+            "to=20260101",
+        ] {
+            assert!(conditions(&filter(query), None, None).is_err(), "{query}");
+        }
+        let long = format!("q={}", "a%20".repeat(101));
+        assert!(conditions(&filter(&long), None, None).is_err());
+    }
+
+    #[test]
+    fn a_source_filter_names_one_the_others_or_those_without_one() {
+        assert_eq!(source_filter("llm-seat"), Some((false, Some("llm-seat"))));
+        assert_eq!(source_filter("!llm-seat"), Some((true, Some("llm-seat"))));
+        assert_eq!(source_filter("none"), Some((false, None)));
+        assert_eq!(source_filter("!none"), Some((true, None)));
+        assert_eq!(source_filter("!!x"), Some((true, Some("!x"))));
+        let longest = "ä".repeat(64);
+        assert_eq!(source_filter(&longest), Some((false, Some(&*longest))));
+        assert_eq!(
+            source_filter(&format!("!{longest}")).map(|s| s.0),
+            Some(true)
+        );
+        for bad in ["", "!", "a\nb", &"ä".repeat(65)] {
+            assert_eq!(source_filter(bad), None, "{bad:?}");
+        }
+    }
+
+    #[test]
+    fn the_trash_is_listed_only_when_asked_for() {
+        let clause = |query: &str| {
+            conditions(&filter(query), None, None)
+                .ok()
+                .unwrap()
+                .clause()
+        };
+        assert_eq!(clause(""), "WHERE deleted_at IS NULL");
+        assert_eq!(clause("trash=false"), "WHERE deleted_at IS NULL");
+        assert_eq!(clause("trash=true"), "WHERE deleted_at IS NOT NULL");
+        assert_eq!(
+            clause("has_record=false"),
+            "WHERE deleted_at IS NULL AND record IS NULL"
+        );
+    }
+
+    #[test]
+    fn a_list_is_sorted_by_its_own_words_and_always_to_the_end() {
+        let sorted = |query: &str| order(&filter(query)).ok();
+        for query in ["", "sort=", "sort=received&dir=", "dir=desc"] {
+            let sql = sorted(query).expect(query);
+            assert!(
+                sql.starts_with("feedback_report.created_at DESC, "),
+                "{sql}"
+            );
+        }
+        for word in [
+            "received", "changed", "priority", "status", "kind", "reporter", "gateway",
+        ] {
+            let sql = sorted(&format!("sort={word}&dir=asc")).expect(word);
+            assert!(sql.contains(" ASC, "), "{sql}");
+            // Equal rows still have one order, or a page repeats a report.
+            assert!(sql.ends_with("feedback_report.id DESC"), "{sql}");
+        }
+        for bad in [
+            "sort=id",
+            "sort=Received",
+            "sort=kind;",
+            "dir=DESC",
+            "dir=asc,id",
+        ] {
+            assert!(sorted(bad).is_none(), "{bad}");
+        }
+    }
+
+    #[test]
+    fn a_cell_keeps_every_formula_start_out_and_stays_one_cell() {
+        for start in ['=', '+', '-', '@', '\t', '\r'] {
+            let text = format!("{start}1");
+            assert_eq!(cell(&text), format!("\"'{text}\""));
+        }
+        assert_eq!(cell("\"=1\""), "\"\"\"=1\"\"\"");
+        assert_eq!(cell("a,b\nc"), "\"a,b\nc\"");
+        assert_eq!(cell(""), "\"\"");
+    }
+
+    #[test]
+    fn a_label_set_is_trimmed_and_bounded_after_its_repeats() {
+        let set = |labels: &[String]| label_set(labels).ok();
+        assert_eq!(set(&[" ui ".into()]), Some(vec!["ui".into()]));
+        assert_eq!(set(&[]), Some(vec![]));
+        assert_eq!(set(&["ui".into(), "U".into()]), None);
+        assert_eq!(set(&["a".repeat(32)]), Some(vec!["a".repeat(32)]));
+        let most: Vec<String> = (0..MAX_LABELS).map(|n| format!("l{n}")).collect();
+        let twice = [most.clone(), most.clone()].concat();
+        assert_eq!(set(&twice).map(|s| s.len()), Some(MAX_LABELS));
+    }
+
+    #[test]
+    fn a_piece_of_an_id_is_hex_and_dashes_of_six_to_thirty_six() {
+        for (text, want) in [
+            ("abcdef", true),
+            ("abcde", false),
+            (&*"a".repeat(36), true),
+            (&*"a".repeat(37), false),
+            ("0192-f3", true),
+            ("0192%f3", false),
+            ("0192_f3", false),
+            ("ａｂｃｄｅｆ", false),
+        ] {
+            assert_eq!(id_fragment(text).is_some(), want, "{text}");
+        }
+        assert_eq!(id_fragment("  ABCDEF "), Some("abcdef".into()));
+    }
 }
