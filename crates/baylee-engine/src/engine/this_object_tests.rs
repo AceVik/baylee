@@ -368,6 +368,10 @@ const THIS_OBJECT_READ: &[&str] = &[
     // `resolve::zones::moving_objects` -> `subjects::moving_source`.
     "MoveAndModify { subject: Target(ThisObject),",
     "PutEachCounterKindFromSource { target: ThisObject }",
+    "GainControlEx { target: ThisObject,",
+    "subject: Spec(ThisObject),",
+    "host: Spec(ThisObject)",
+    "to: ThisObject,",
 ];
 
 /// Which effects may be spelled with `ThisObject`, held against the pool.
@@ -495,6 +499,9 @@ const EVENT_OBJECT_READ: &[&str] = &[
     "ExileIfDiesThisTurn { target: EventObject }",
     "MoveAttachment { attachment: EventObject,",
     "PutEachCounterKindFromSource { target: EventObject }",
+    "host: Spec(EventObject)",
+    "to: EventObject,",
+    "DealDamage { amount: Fixed(7), target: EventObject }",
 ];
 
 /// The same census for `EventObject`, which is the **second** implicit spec

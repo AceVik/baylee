@@ -875,6 +875,9 @@ mod tests {
     /// Biolume Egg, Ashling, Rekindled, and Sygg, Wanderwine Wisdom.
     /// Pass E16 adds Halvar, God of Battle, Henrika Domnathi, Ayara, Widow of
     /// the Realm, Sun-Blessed Guardian, and Eddie Brock.
+    /// Pass E17 adds Rowan, Scholar of Sparks, Bereaved Survivor, Howlpack
+    /// Piper, Volatile Arsonist, Invasion of Azgol, Greenhouse, and
+    /// Sidequest: Hunt the Mark.
     #[test]
     fn the_back_of_a_card_is_a_rarity() {
         let named: Vec<&str> = crate::generated::BY_INDEX
@@ -967,7 +970,9 @@ mod tests {
         "Birgi, God of Storytelling",
         "Esika, God of the Tree",
         "Halvar, God of Battle",
+        "Rowan, Scholar of Sparks",
         "Baneblade Scoundrel",
+        "Bereaved Survivor",
         "Brutal Cathar",
         "Burly Breaker",
         "Dennick, Pious Apprentice",
@@ -989,12 +994,14 @@ mod tests {
         "Avabruck Caretaker",
         "Biolume Egg",
         "Henrika Domnathi",
+        "Howlpack Piper",
         "Ill-Tempered Loner",
         "Infestation Expert",
         "Lambholt Raconteur",
         "Mirrorhall Mimic",
         "Panicked Bystander",
         "Restless Bloodseeker",
+        "Volatile Arsonist",
         "Wolfkin Outcast",
         "Fable of the Mirror-Breaker",
         "Teachings of the Kirin",
@@ -1006,6 +1013,7 @@ mod tests {
         "Captive Weird",
         "Gnottvold Hermit",
         "Herbology Instructor",
+        "Invasion of Azgol",
         "Invasion of Eldraine",
         "Invasion of Ergamon",
         "Invasion of Ixalan",
@@ -1052,6 +1060,7 @@ mod tests {
         "Funeral Room",
         "Glassworks",
         "Grand Entryway",
+        "Greenhouse",
         "Meat Locker",
         "Painter's Studio",
         "Roaring Furnace",
@@ -1067,6 +1076,7 @@ mod tests {
         "Jecht, Reluctant Guardian",
         "Sidequest: Card Collection",
         "Sidequest: Catch a Fish",
+        "Sidequest: Hunt the Mark",
         "Sidequest: Raise a Chocobo",
         "Venat, Heart of Hydaelyn",
         "Vincent Valentine",

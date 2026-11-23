@@ -534,6 +534,18 @@ const REACHES_FURTHER: &[(&str, &str)] = &[
          after dealing 5 damage to target creature, the spell pumps and grants trample to \
          every controlled creature, including bystanding Elves",
     ),
+    (
+        "Hostile Takeover",
+        "\"Then Hostile Takeover deals 3 damage to each creature\": after changing base \
+         power and toughness of up to two target creatures, the damage sweep hits \
+         bystanding Llanowar Elves too",
+    ),
+    (
+        "How to Start a Riot",
+        "\"Creatures target player controls get +2/+0 until end of turn\": after granting \
+         menace to a target creature, the second target chooses a player and pumps all \
+         of that player's creatures, including bystanding Llanowar Elves",
+    ),
 ];
 
 /// How small the sweep may get before it has stopped measuring anything.

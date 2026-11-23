@@ -286,7 +286,11 @@ pub(super) fn target_reuse(ability: &AbilityDef) -> Option<&'static Filter> {
             // is intentional when another top-level effect already uses
             // the target. A lone conditional or pump sweep without a targeted
             // effect is still caught.
-            if (has_target_effect && matches!(effect, Effect::IfCondition { .. }))
+            if (has_target_effect
+                && matches!(
+                    effect,
+                    Effect::IfCondition { .. } | Effect::DealDamageEach { .. }
+                ))
                 || (has_divided_counters && matches!(effect, Effect::PumpFilter { .. }))
                 || matches!(effect, Effect::WithSecondTarget(_))
             {

@@ -628,7 +628,9 @@ fn the_table_reads_most_of_what_the_pool_activates() {
     // total non-mana activations; restoring basic Landwalk to KeywordSet::*WALK
     // makes 19 more activated abilities readable (+19 read, 0 total delta).
     // The paper-only pass removes First Little Pig's readable exile activation.
-    assert_eq!((read, of), (5791, 7473), "activated/loyalty reader census");
+    // Pass E17 (+436 generated cards, 30 promoted stubs) + Wave 27 adds 62 read
+    // and 119 total non-mana activations.
+    assert_eq!((read, of), (5853, 7592), "activated/loyalty reader census");
 
     // Pin the new readable rows to their cards rather than only to the census.
     for (name, label) in [
