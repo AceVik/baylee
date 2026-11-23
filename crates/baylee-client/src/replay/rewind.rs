@@ -75,6 +75,7 @@ impl Duel {
             cues: Default::default(),
             strikes: Vec::new(),
             clock: Default::default(),
+            ranked_clock_running: None,
             seat_clocks: Default::default(),
             lost_seats: Default::default(),
             // ---- forgotten: the log, told again from line 0, and the
@@ -103,6 +104,8 @@ impl Duel {
             hand_order: old.hand_order,
             hand_groups: old.hand_groups,
             statics: old.statics,
+            // The replay roster contains only the names on its own tape.
+            participant_names: Default::default(),
             layout: old.layout,
             visiting: old.visiting,
             arrangement: old.arrangement,

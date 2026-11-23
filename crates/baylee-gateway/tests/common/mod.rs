@@ -58,6 +58,14 @@ impl Gateway {
         self.child.id()
     }
 
+    /// Crash this fixture's owned process while keeping its isolated store for inspection.
+    pub fn crash(&mut self) {
+        assert!(self.child.try_wait().unwrap().is_none());
+        self.child.kill().unwrap();
+        assert!(!self.child.wait().unwrap().success());
+        assert!(std::net::TcpStream::connect(("127.0.0.1", self.port)).is_err());
+    }
+
     /// The test database, scoped to this gateway's own schema: where a test
     /// seeds what the gateway will read, such as catalog rows.
     pub fn database_url(&self) -> String {

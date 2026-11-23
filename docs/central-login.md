@@ -145,6 +145,18 @@ reaches Central, so nobody's load can cost another account its session.
 
 ## Bigint advisory scope
 
+The replicated ranked SDK pins Central to
+`41ea44171665507ab23eb81232132d77ee08ae21`. Compared with
+`52f8bd30`, four files in `central-crypto` change. Gateway JWT validation
+checks the new seat purpose, alias, generation and absence of identifying
+fields. The existing token lifetime constant moves to the crate root and its
+former module re-exports it. The crate manifest, OPAQUE suite and Ed25519
+signing and verification routines are byte-identical across the two pins.
+Baylee checks the exact Git revision and the all-feature reverse dependency
+graph. Central's source check binds the whole reviewed crypto crate to SHA-256
+`fa10ed2a3713c2f3625bce90f1cda9bbd037d2b714e9b9ba495d1f272e66449a`.
+[Central's review at the pinned revision](https://github.com/AceVik/baylee-central/blob/41ea44171665507ab23eb81232132d77ee08ae21/docs/crypto-proposal/bigint-advisory.md#ranked-seat-credentials-and-scoped-proof-23-november-2026)
+
 The ranked SDK revision `52f8bd3049b7bf804516d4e9dc6277b152834634`
 adds an exact match identifier to ranked admission
 and an optional source digest to legacy migration. Within `central-crypto`
@@ -915,11 +927,20 @@ play, recovery and evaluation pipeline. The runner sets the test-process-only
 `BAYLEE_CENTRAL_CHALLENGES_ONLY=1`; neither production server reads it. The default
 integration mode still runs every existing scenario.
 
-`cargo dev central integration --ranked-only` plays a synthetic Standard duel on
-the sole verified host using two registered gateways. It checks both players'
-original lobby sessions after seat recovery, the engine result, the personal
-receipts, public standings and idempotent host delivery. The default integration
-run includes this scenario in a separate fixture database.
+`cargo dev central integration --ranked-only` runs two synthetic Standard duels
+against separate PostgreSQL databases. One has a single verified host. The
+other uses independently operated gateways running actual `baylee-agent` and
+`baylee-engine-server` processes. Run this check on a clean Git commit with
+build stamping enabled so the agents advertise the same identifiable rules build.
+
+Each player approves the named recipients and their published terms. The
+replicated scenario commits a mulligan, kills its primary gateway, waits for
+the real lease to expire and compares both players' recovered hands. A third
+verified operator receives private replay data after both participants approve
+it. On Linux the clients use two distinct loopback addresses so the test can
+check which addresses Central and the serving gateway see on real sockets.
+Both scenarios verify the original lobby sessions, player and deck results,
+and public standings. The default integration run includes both.
 
 For an explicitly requested interactive demo, set `BAYLEE_CENTRAL_DEMO=1`
 with `--challenges-only`, an owned `BAYLEE_CENTRAL_UI_READY` path and

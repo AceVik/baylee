@@ -803,7 +803,7 @@ fn cast_opening(duel: &Duel, lang: Lang, faces: &crate::cardtext::CardTexts) -> 
     let mut options = crate::choices::options(
         &prompt,
         lang,
-        duel.statics.as_ref(),
+        duel.display_statics(),
         duel.chooser_search(),
         crate::choices::FaceNames {
             view: duel.view.as_ref(),

@@ -15,6 +15,7 @@ mod board;
 mod draw;
 mod inline;
 pub(crate) mod native;
+mod participants;
 mod preview;
 mod queue;
 mod receipt;
@@ -182,6 +183,12 @@ impl Ui {
 }
 
 pub(super) fn install(app: &mut App) {
+    app.add_systems(
+        Update,
+        participants::poll
+            .after(crate::DuelSet::Sync)
+            .before(crate::DuelSet::Present),
+    );
     #[cfg(feature = "dev-control")]
     visual_fixture::install(app);
     app.add_systems(

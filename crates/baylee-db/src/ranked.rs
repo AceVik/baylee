@@ -3,6 +3,8 @@
 use sea_orm::{ConnectionTrait, DbErr, Statement, Value};
 use uuid::Uuid;
 
+pub mod replica;
+
 fn statement(db: &impl ConnectionTrait, sql: &str, values: Vec<Value>) -> Statement {
     Statement::from_sql_and_values(db.get_database_backend(), sql, values)
 }
@@ -16,6 +18,7 @@ pub async fn reserve(db: &impl ConnectionTrait, match_id: Uuid) -> Result<Uuid, 
         "INSERT INTO ranked_run(match_id,game) VALUES ($1,uuidv7())
          ON CONFLICT(match_id) DO UPDATE SET seen_at=CASE WHEN ranked_run.launched
              THEN ranked_run.seen_at ELSE clock_timestamp() END
+         WHERE ranked_run.generation IS NULL
          RETURNING game",
         vec![match_id.into()],
     ))
@@ -36,7 +39,7 @@ pub async fn launch_once(
         .execute_raw(statement(
             db,
             "UPDATE ranked_run SET launched=true,seen_at=clock_timestamp()
-         WHERE match_id=$1 AND game=$2 AND NOT launched",
+         WHERE match_id=$1 AND game=$2 AND NOT launched AND generation IS NULL",
             vec![match_id.into(), game.into()],
         ))
         .await?
@@ -66,7 +69,7 @@ pub async fn pending(db: &impl ConnectionTrait) -> Result<Vec<Run>, DbErr> {
         "SELECT b.match_id,b.game,extract(epoch FROM clock_timestamp()-b.seen_at)::bigint AS absent,
             CASE WHEN b.launched AND r.complete AND r.turn>0 THEN r.winners END AS winners
          FROM ranked_run b LEFT JOIN game_record r ON r.game_id=b.game::text
-         ORDER BY b.serviced_at,b.match_id LIMIT 32",
+         WHERE b.generation IS NULL ORDER BY b.serviced_at,b.match_id LIMIT 32",
         vec![],
     )).await?;
     rows.into_iter()
@@ -99,7 +102,7 @@ pub async fn touch(db: &impl ConnectionTrait, match_id: Uuid, living: bool) -> R
     db.execute_raw(statement(
         db,
         "UPDATE ranked_run SET serviced_at=clock_timestamp(),
-        seen_at=CASE WHEN $2 THEN clock_timestamp() ELSE seen_at END WHERE match_id=$1",
+        seen_at=CASE WHEN $2 THEN clock_timestamp() ELSE seen_at END WHERE match_id=$1 AND generation IS NULL",
         vec![match_id.into(), living.into()],
     ))
     .await?;
@@ -112,7 +115,7 @@ pub async fn touch(db: &impl ConnectionTrait, match_id: Uuid, living: bool) -> R
 pub async fn delivered(db: &impl ConnectionTrait, match_id: Uuid) -> Result<(), DbErr> {
     db.execute_raw(statement(
         db,
-        "DELETE FROM ranked_run WHERE match_id=$1",
+        "DELETE FROM ranked_run WHERE match_id=$1 AND generation IS NULL",
         vec![match_id.into()],
     ))
     .await?;

@@ -20,7 +20,9 @@ mod tower;
 
 pub use gateway_import::GatewayDeckImport;
 pub use pairing::{PairedSession, PairingClaim};
-pub use ranked::{RankedConsent, RankedHost, RankedPlay, ranked_read};
+pub use ranked::{
+    RankedConsent, RankedHost, RankedHostDocument, RankedHostDocuments, RankedPlay, ranked_read,
+};
 pub use tower::TowerPlay;
 
 /// Restored native account. All network operations are blocking and belong on a worker.

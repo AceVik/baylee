@@ -470,7 +470,9 @@ pub(crate) fn claim_seat(
             .games
             .get_mut(&id)
             .ok_or_else(|| err(StatusCode::NOT_FOUND, "no such game"))?;
-        if game.ranked.map(|binding| binding.id) != ranked {
+        if game.ranked.map(|binding| binding.id) != ranked
+            || game.ranked.is_some_and(|b| b.replica.is_some())
+        {
             return Err(err(
                 StatusCode::FORBIDDEN,
                 "a matching game admission is required",

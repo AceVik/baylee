@@ -96,6 +96,31 @@ impl Identity {
         serde_json::to_vec(self).expect("execution metadata serializes")
     }
 
+    /// Compatibility key for two independently running ranked engines. Unstamped
+    /// and dirty builds can share a version label despite having different rules.
+    /// Only a clean, source-identified competitive engine can offer this key.
+    #[must_use]
+    pub fn ranked_compatibility(&self) -> Option<[u8; 32]> {
+        let revision = self.cards.strip_prefix("registry@")?;
+        let (_, stamp) = self.build.rsplit_once(" (")?;
+        let short = stamp.strip_suffix(')')?;
+        if !self.valid()
+            || self.variant != Variant::StandardLoops
+            || !matches!(revision.len(), 40 | 64)
+            || !revision
+                .bytes()
+                .all(|b| b.is_ascii_hexdigit() && !b.is_ascii_uppercase())
+            || short.len() < 10
+            || !revision.starts_with(short)
+        {
+            return None;
+        }
+        let mut digest = Sha256::new();
+        digest.update(b"baylee/ranked/engine-compatibility/v1\0");
+        digest.update(self.to_metadata());
+        Some(digest.finalize().into())
+    }
+
     /// Rejects malformed, oversized and incompatible metadata before it is advertised.
     #[must_use]
     pub fn valid(&self) -> bool {
@@ -208,6 +233,48 @@ mod tests {
         invalid = valid;
         invalid.cards = "x".repeat(97);
         assert!(!invalid.valid());
+    }
+
+    #[test]
+    fn ranked_peers_require_a_stamped_build_and_the_same_rules_and_registry() {
+        let revision = "d102ca933e0ec8827d7579ec57cbe3f88d7349ad";
+        let clean = Identity::native(Variant::StandardLoops, "test (d102ca933e)", revision, 32);
+        let key = clean.ranked_compatibility().unwrap();
+        let round_trip = Identity::from_metadata(&clean.to_metadata()).unwrap();
+        assert_eq!(round_trip.ranked_compatibility(), Some(key));
+
+        let mut other = clean.clone();
+        other.cards = format!("registry@{}00", &revision[..38]);
+        assert_ne!(other.ranked_compatibility().unwrap(), key);
+        for (field, changed) in [
+            ("build", "different (d102ca933e)"),
+            ("rules", "standard-3"),
+            ("ai", "standard-house-33"),
+            ("features", &"f".repeat(64)),
+        ] {
+            let mut value = serde_json::to_value(&clean).unwrap();
+            value[field] = changed.into();
+            let other: Identity = serde_json::from_value(value).unwrap();
+            assert_ne!(other.ranked_compatibility().unwrap(), key, "{field}");
+        }
+        for stamp in [
+            "unidentified",
+            "test (d102ca933e-dirty)",
+            "test (a102ca933e)",
+        ] {
+            other.build = stamp.into();
+            assert_eq!(other.ranked_compatibility(), None);
+        }
+        assert!(
+            Identity::native(Variant::Standard, &clean.build, revision, 32)
+                .ranked_compatibility()
+                .is_none()
+        );
+        assert!(
+            Identity::native(Variant::StandardLoops, &clean.build, "unknown", 32)
+                .ranked_compatibility()
+                .is_none()
+        );
     }
 
     #[test]

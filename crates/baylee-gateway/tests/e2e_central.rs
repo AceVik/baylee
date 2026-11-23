@@ -232,7 +232,7 @@ fn auth_config_says_whether_the_gateway_takes_central_sign_ins() {
 #[test]
 #[ignore = "requires owned PostgreSQL fixture from cargo dev central integration"]
 fn central_login_migrates_then_restores_and_admits_without_the_legacy_password() {
-    integration(false);
+    integration(Scenario::Migration);
 }
 
 async fn integration_stores(
@@ -264,19 +264,29 @@ async fn integration_stores(
     (operator, store, legacy)
 }
 
-fn integration(ranked_only: bool) {
+#[derive(Clone, Copy)]
+enum Scenario {
+    Migration,
+    Ranked,
+    Replicated,
+}
+
+fn integration(scenario: Scenario) {
     let runtime = Runtime::new().unwrap();
-    let name = if ranked_only {
-        "central_ranked_test"
-    } else {
-        "central_native_test"
+    let name = match scenario {
+        Scenario::Migration => "central_native_test",
+        Scenario::Ranked => "central_ranked_test",
+        Scenario::Replicated => "central_replica_test",
     };
     let (operator, store, legacy) = runtime.block_on(integration_stores(name));
     let served = serve(&runtime, &store, &legacy, "central", None);
     let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-        if ranked_only {
-            ranked::run(&runtime, &served, &store, &operator);
-            return;
+        match scenario {
+            Scenario::Ranked => return ranked::run(&runtime, &served, &store, &operator),
+            Scenario::Replicated => {
+                return ranked::replication::run(&runtime, &served, &store, &operator);
+            }
+            Scenario::Migration => {}
         }
         let (gateway, endpoint, origin) = (&served.gateway, &served.endpoint, &served.origin);
         if tower_awards::enabled() {

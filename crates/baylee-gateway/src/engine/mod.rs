@@ -31,6 +31,7 @@ use uuid::Uuid;
 
 pub(crate) mod execution;
 mod lifecycle;
+mod replica;
 mod tower;
 mod wire;
 use wire::{
@@ -118,15 +119,21 @@ impl Agents {
 
 mod start;
 pub use start::start_engine;
+pub(crate) use start::start_replica;
 
 /// Tells whoever is running a game that it can stop.
 fn stop_engine(state: &Shared, game_id: &str) {
-    let agent_id = {
+    let (agent_id, job) = {
         let mut lobby = state.lobby.lock();
         let Some(game) = lobby.games.get_mut(game_id) else {
             return;
         };
-        game.agent_id.take()
+        (
+            game.agent_id.take(),
+            game.engine_job
+                .take()
+                .unwrap_or_else(|| game_id.to_string()),
+        )
     };
     let Some(agent_id) = agent_id else { return };
     let mut agents = state.agents.lock();
@@ -134,12 +141,12 @@ fn stop_engine(state: &Shared, game_id: &str) {
         &agent_id,
         Envelope {
             msg: Some(v1::envelope::Msg::StopEngine(v1::StopEngine {
-                game_id: game_id.to_string(),
+                game_id: job.clone(),
             })),
         },
     );
     if let Some(agent) = agents.connected.get_mut(&agent_id) {
-        agent.games.retain(|g| g != game_id);
+        agent.games.retain(|g| g != &job);
     }
 }
 
@@ -386,7 +393,12 @@ fn report(state: &Shared, agent_id: &str, status: &v1::EngineStatus) {
                 "engine failed to start"
             );
             // Nobody is coming. Saying so beats a table that waits forever.
-            if status.game_id.starts_with(crate::replays::JOB_PREFIX) {
+            if status
+                .game_id
+                .starts_with(crate::ranked::replicate::JOB_PREFIX)
+            {
+                lifecycle::owner_lost(state, &status.game_id);
+            } else if status.game_id.starts_with(crate::replays::JOB_PREFIX) {
                 crate::replays::failed(state, &status.game_id);
             } else {
                 end_game(state, &status.game_id);
@@ -456,6 +468,11 @@ fn report(state: &Shared, agent_id: &str, status: &v1::EngineStatus) {
 /// @receive `GameEnded`: proto(baylee.v1.Envelope) application/x-protobuf "Envelope case `game_ended`: the game is over. `winners` (empty for a draw or a game an admin closed), `reason`, and `turn` (0 from an older engine). The gateway marks the game over and its agent is sent `StopEngine`."
 /// @receive `TapeChunk`: proto(baylee.v1.Envelope) application/x-protobuf "Envelope case `tape_chunk`, replay jobs only: a piece of the tape for `job`; `data` is one gzip member, the pieces in `seq` order are one gzip stream, and the `last` piece ends the job."
 /// @send `GameSetup`: proto(baylee.v1.Envelope) application/x-protobuf "Envelope case `game_setup`: everything needed to build the game. `preset_json` is the game's `GamePreset` as JSON; `seat_names` are the seats' names in seat order."
+/// @send `RankedEngineSetup`: proto(baylee.v1.Envelope) application/x-protobuf "Protected duel opening with the immutable game, role and generation."
+/// @send `RankedEngineStep`: proto(baylee.v1.Envelope) application/x-protobuf "One ordered, authenticated journal operation."
+/// @receive `RankedEngineVote`: proto(baylee.v1.Envelope) application/x-protobuf "Private execution evidence for independent certification."
+/// @send `RankedEngineCommit`: proto(baylee.v1.Envelope) application/x-protobuf "Release the certified position. Only the active primary may publish seat frames."
+/// @send `RankedEngineSnapshot`: proto(baylee.v1.Envelope) application/x-protobuf "Request the authorized seat's current certified projection."
 /// @send `SeatAttached`: proto(baylee.v1.Envelope) application/x-protobuf "Envelope case `seat_attached`: seat `seat` has a socket now. With `resync` true the seat is already in the game and its socket fell behind: send it a snapshot rather than advancing the game."
 /// @send `SeatDetached`: proto(baylee.v1.Envelope) application/x-protobuf "Envelope case `seat_detached`: seat `seat` has no socket any more. With `left` true its player left on purpose (`POST /lobby/depart`): the house takes the chair at once, or the game ends when no other player is at the table."
 /// @send `SeatFrameFromSeat`: proto(baylee.v1.Envelope) application/x-protobuf "Envelope case `seat_frame`: `envelope` is a frame exactly as seat `seat`'s socket sent it, the seat stamped by the gateway."

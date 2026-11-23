@@ -163,7 +163,7 @@ pub(super) fn head_of(duel: &Duel, lang: Lang, texts: &crate::cardtext::CardText
     }
     let targets = matches!(interaction.pending(), Pending::ChooseTargets { .. });
     let detail = if targets {
-        crate::choices::target_question(interaction, view, lang, texts, duel.statics.as_ref())
+        crate::choices::target_question(interaction, view, lang, texts, duel.display_statics())
     } else {
         Vec::new()
     };

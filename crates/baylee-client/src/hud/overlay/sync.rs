@@ -369,7 +369,7 @@ pub fn sync_overlay(
     let mut previewed = false;
 
     // ---- bottom: the hand zone (always on top) ---------------------------
-    if let Some(statics) = duel.statics.as_ref() {
+    if let Some(statics) = duel.display_statics() {
         let available = crate::hud::scale::window_space(&windows, ui.as_deref())
             .map_or(1200.0, |w| hand_available(w.x));
         let layout = grouped_hand_layout(board.hand.len(), available, &duel.hand_groups);
@@ -399,7 +399,7 @@ pub fn sync_overlay(
         // Shown from a controlled player's chair (CR 724.5): the hand says
         // whose it is, in a frame of its own, under the cards.
         if let Some(player) = duel.perspective.other() {
-            let name = baylee_client_core::i18n::seat_name(lang, duel.statics.as_ref(), player);
+            let name = baylee_client_core::i18n::seat_name(lang, duel.display_statics(), player);
             let frame = crate::hud::hand::control_frame(
                 &mut commands,
                 &fonts,
@@ -1223,7 +1223,7 @@ pub fn sync_overlay(
     if let (false, false, Some(statics)) = (
         duel.ending().is_some(),
         board.stack.is_empty(),
-        duel.statics.as_ref(),
+        duel.display_statics(),
     ) {
         // The window is in the revision, so one crossing a phone's height
         // rebuilds the sentence's box at its other height.

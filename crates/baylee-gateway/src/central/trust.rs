@@ -299,6 +299,7 @@ mod tests {
             exp: NOW + 3600,
             purpose: Purpose::Admit,
             ranked_match: None,
+            ranked_generation: None,
             name: None,
             tag: None,
             legacy_id: None,

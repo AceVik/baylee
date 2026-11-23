@@ -10846,6 +10846,21 @@ RankedSearching = Searching for a { $format } opponent
 # Arguments: format
 RankedAssigned = { $format } opponent found. Connecting to the match…
 RankedOpponentWaiting = Your ranked opponent is ready. Return to the lobby to play.
+RankedHostHold = Connecting to the verified match host. Play and decision clocks are paused.
+RankedReviewHold = The match hosts disagree on the last move. Central has paused play for verification.
+RankedVerifierHold = Central is restoring verified hosting. The match is paused at the last confirmed move.
+RankedSeatsHold = Waiting for both players to reach the table. Decision clocks start together.
+RankedSeatReleased = Central has released this ranked seat. Your home lobby is open.
+RankedCommandHold = Confirming your move with the match hosts…
+RankedNewHostTerms = The match has moved to another verified host. Review its terms to resume your seat.
+RankedHostsTitle = Hosts for this ranked match
+RankedHostsPurpose = Both players choose whether to share their playable deck and private moves with the operators below. Central relays your connection to the game host. A verifier, when listed, independently checks each move and may take over. Your home lobby stays connected. Declining releases the match without an Elo change.
+RankedHostPlayerFacing = Game host
+RankedHostVerifier = Verifier and backup host
+RankedSingleHost = One verified host is available for this match. Independent verification and host failover are unavailable.
+RankedHostsApprove = Allow these hosts for this match
+RankedHostsWaiting = Waiting for the other player to approve the match hosts.
+RankedClockExpired = The reconnect window has ended. Waiting for Central to resolve the match.
 PrivateDeckChanged = This deck changed on another device. Load its current version before saving.
 PrivateDraftRecoveredCopy = This deck changed on another device. Your unsaved edits opened as a separate copy.
 # Arguments: format, result, delta, elo

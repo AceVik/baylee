@@ -129,7 +129,7 @@ fn recipient(
             view: duel.view.as_ref(),
             texts: Some(faces),
         },
-        duel.statics.as_ref(),
+        duel.display_statics(),
     );
     Some(Phrase::GrantedRecipient.fill(lang, &[&label]))
 }

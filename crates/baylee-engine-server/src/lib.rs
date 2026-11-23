@@ -40,6 +40,8 @@ mod driver;
 pub mod foresight;
 mod frames;
 pub mod projection;
+#[cfg(all(feature = "loop-detection", not(feature = "tower")))]
+pub mod ranked;
 pub mod recording;
 mod startup;
 #[cfg(any(test, feature = "tower"))]

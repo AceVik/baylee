@@ -816,7 +816,7 @@ pub(super) fn key_of<T: std::hash::Hash>(value: &T) -> u64 {
 /// at this table (§5).
 fn swatch_of(duel: Option<&Duel>, tag: Option<&str>) -> Option<Color> {
     let duel = duel?;
-    let statics = duel.statics.as_ref()?;
+    let statics = duel.display_statics()?;
     let tag = tag?;
     let seat = statics
         .seats

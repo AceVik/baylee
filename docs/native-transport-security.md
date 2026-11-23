@@ -1,5 +1,16 @@
 # Native client transport security
 
+Ranked players keep their home lobby sessions during the game. The account
+worker sends seat admissions, frozen playable decks and seat renewals through
+its configured Central endpoint. Both players approve the named operators and
+their current terms for the match before Central releases private game data.
+A replacement operator requires fresh approval. The client opens its game
+WebSocket at Central's fixed `/v1/ranked/socket` path. The first binary frame
+contains a one-use relay ticket. The verified hosting origin shown in the
+consent dialog identifies the operator receiving match data. Central makes
+the connection to that operator. Host promotion repeats admission under a new
+generation while the existing lobby session continues.
+
 The gateway HTTP/WebSocket transport in `baylee-client/src/transport.rs` verifies
 TLS certificates in **every** build profile. Debug builds no longer accept
 arbitrary self-signed certificates. HTTPS and WSS use the same public root set;

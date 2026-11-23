@@ -1,7 +1,7 @@
 //! Host-side ranked admission and the only supported ranked table configuration.
 
 use baylee_cards::decks::LoadedDeck;
-use baylee_core::preset::{FormatId, GamePreset, HouseRules, LoopPolicy, SeatController};
+use baylee_core::preset::{FormatId, GamePreset, HouseRules, SeatController};
 use central_api::ranked::{Format, PoolEntry};
 
 use crate::{ErrorBody, Json, Shared, StatusCode, db_down, err, err_saying};
@@ -50,22 +50,37 @@ pub(super) async fn validate(
     Ok((reg.deck, reg.digest, pool))
 }
 
-fn duel(format: Format, decks: [&LoadedDeck; 2], seed: u64) -> GamePreset {
-    let mut preset = baylee_cards::decks::preset_for_all(seed, &decks);
-    let (engine_format, life) = match format {
+fn mode(format: Format) -> (FormatId, i32) {
+    match format {
         Format::Standard => (FormatId::Freeform, 20),
         Format::Highlander => (FormatId::Highlander, 20),
         Format::Commander => (FormatId::Commander, 40),
-    };
+    }
+}
+
+pub(super) fn safe_setup(format: Format, preset: &GamePreset) -> bool {
+    let (expected, life) = mode(format);
+    preset.format == expected
+        && preset.house_rules == HouseRules::ranked()
+        && preset.modifiers.is_empty()
+        && preset.seats.len() == 2
+        && preset.seats.iter().all(|s| {
+            matches!(s.controller, SeatController::Open)
+                && s.capabilities == baylee_core::preset::SeatCapabilities::default()
+                && s.starting_life == Some(life)
+                && s.starting_hand.is_none()
+                && s.starting_battlefield.is_empty()
+                && s.team.is_none()
+                && s.emblems.is_empty()
+        })
+        && preset.validate().is_ok()
+}
+
+pub(super) fn duel(format: Format, decks: [&LoadedDeck; 2], seed: u64) -> GamePreset {
+    let mut preset = baylee_cards::decks::preset_for_all(seed, &decks);
+    let (engine_format, life) = mode(format);
     preset.format = engine_format;
-    preset.house_rules = HouseRules {
-        ranked_duel: true,
-        mulligan_free_first: false,
-        free_mulligans: Some(0),
-        loop_policy: LoopPolicy::CompRulesDraw,
-        time_extension_votes: false,
-        ..HouseRules::for_a_table()
-    };
+    preset.house_rules = HouseRules::ranked();
     for seat in &mut preset.seats {
         seat.controller = SeatController::Open;
         seat.starting_life = Some(life);
@@ -95,6 +110,7 @@ pub(super) async fn preset(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use baylee_core::preset::LoopPolicy;
 
     #[test]
     fn ranked_duels_have_two_ordinary_human_seats_and_immutable_rules() {

@@ -92,6 +92,12 @@ where
                 if let Some(v1::envelope::Msg::Error(refused)) = envelope.msg {
                     return Err(refused.message.into());
                 }
+                #[cfg(feature = "loop-detection")]
+                if runner.session().is_none()
+                    && let Some(v1::envelope::Msg::RankedEngineSetup(order)) = envelope.msg
+                {
+                    return protected(ws, order, progress).await;
+                }
                 // Started for a replay job, not a game (`docs/protocol.md`
                 // §"Replays"): project the record, send the tape, exit.
                 if runner.session().is_none()
@@ -121,6 +127,34 @@ where
     // Everything queued is already flushed by `send`; this is the polite
     // close the gateway logs as an ordinary end rather than a drop.
     let _ = ws.close(None).await;
+    Ok(())
+}
+
+/// Protected processes have no independent clock, disconnect fallback or
+/// ordinary game control path. Only certified journal activity can move them.
+#[cfg(feature = "loop-detection")]
+async fn protected<S>(
+    mut ws: tokio_tungstenite::WebSocketStream<S>,
+    order: v1::RankedEngineSetup,
+    mut progress: baylee_worker::Reporter<std::io::Stdout>,
+) -> Result<(), Box<dyn std::error::Error + Send + Sync>>
+where
+    S: tokio::io::AsyncRead + tokio::io::AsyncWrite + Unpin,
+{
+    let (mut replica, vote) =
+        progress.work(|| baylee_engine_server::ranked::Replica::open(order))??;
+    send_batch(&mut ws, &vote).await?;
+    while let Some(message) = ws.next().await {
+        let message = message?;
+        if message.is_close() {
+            break;
+        }
+        if message.is_binary() {
+            let envelope = Envelope::decode(message.into_data())?;
+            let replies = progress.work(|| replica.handle(envelope))??;
+            send_batch(&mut ws, &replies).await?;
+        }
+    }
     Ok(())
 }
 

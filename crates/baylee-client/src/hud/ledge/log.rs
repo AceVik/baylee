@@ -206,6 +206,7 @@ impl Default for LogZoom {
 /// What the panel was last drawn from.
 #[derive(Resource, Default, Debug)]
 pub struct LogRevision {
+    roster: u64,
     /// The panel it was drawn into. The overlay can spawn a new one.
     panel: Option<Entity>,
     /// Whether it is open.
@@ -230,6 +231,7 @@ impl LogRevision {
     /// Whether what is drawn can be kept and only added to.
     fn extends(&self, next: &Self, len: usize) -> bool {
         self.panel == next.panel
+            && self.roster == next.roster
             && self.open
             && next.open
             && self.lang == next.lang
@@ -439,6 +441,7 @@ pub fn sync_log(
     // does not run in `Finished`, so its cross would answer nothing. The end
     // screen shows the whole log instead.
     let next = LogRevision {
+        roster: duel.roster_revision(),
         panel: Some(panel),
         open: duel.log_open && duel.ending().is_none(),
         lang: Some(lang),
@@ -917,7 +920,7 @@ pub(crate) fn wording<'a>(
     Wording {
         lang,
         seat: duel.reader(),
-        statics: duel.statics.as_ref(),
+        statics: duel.display_statics(),
         texts,
     }
 }

@@ -1,10 +1,14 @@
 //! Central chooses the host and both seats. A pending gateway admission can
 //! only be reused for the same account, destination, assignment and queue entry.
 use super::{Account, Error};
+use crate::ranked::replica::{self, Fence, SeatRequest, SeatResponse};
+mod documents;
+mod relay;
 use crate::{
-    CentralHttp, Endpoint, GatewayHttp, RankedDeck, RankedSeat,
+    CentralHttp, Endpoint, RankedDeck, RankedSeat,
     ranked::{Assignment, Id, QueueState, Request, Response},
 };
+pub use documents::{RankedHostDocument, RankedHostDocuments};
 
 /// Read a public Ranked leaderboard, season or published profile without logging in.
 ///
@@ -20,8 +24,8 @@ pub struct RankedHost {
     endpoint: Endpoint,
     key: Id,
     assignment: Assignment,
-    gateway: GatewayHttp,
-    bearer: zeroize::Zeroizing<String>,
+    fence: Fence,
+    bearer: replica::relay::Secret,
     consent: Option<RankedConsent>,
     renew_at: std::time::Instant,
 }
@@ -85,6 +89,10 @@ impl RankedConsent {
 
 /// A seated 1v1 whose gateway response was confirmed by a second Central read.
 pub struct RankedPlay {
+    /// Trusted Central origin of the socket relay.
+    pub relay_origin: String,
+    /// Leadership observed while acquiring the one-use ticket.
+    pub fence: Fence,
     /// Fresh Central assignment for the exact account and deck.
     pub assignment: Assignment,
     /// Private game seat at that gateway.
@@ -94,6 +102,14 @@ pub struct RankedPlay {
 }
 
 impl Account {
+    /// Execute an authenticated ranked seat operation against this account's Central.
+    ///
+    /// # Errors
+    /// Refuses a mismatched authority, invalid request, or expired session.
+    pub fn replica(&self, request: SeatRequest) -> Result<SeatResponse, Error> {
+        self.session.replica(&self.http, request)
+    }
+
     /// Read the private Elo projection for the deck pool the owner selected.
     ///
     /// # Errors
@@ -114,11 +130,11 @@ impl Account {
         self.session.ranked(&self.http, request)
     }
 
-    /// Submit a frozen snapshot using an account-scoped gateway admission.
-    /// `None` means a pending host needs consent or is waiting for its peer.
-    /// When [`RankedHost::consent`] is present, show its document. Drop the
-    /// pending admission after successful acceptance to acquire fresh standing.
-    /// Keep `pending` and the same snapshot when polling again.
+    /// Submit a frozen snapshot through Central's authenticated relay.
+    /// `None` means play is waiting on a peer, consent or recovery. On
+    /// `TermsRequired`, show [`Account::ranked_host_documents`] and obtain
+    /// the participant's explicit choice before retrying. Reuse the frozen
+    /// snapshot and pending admission while this assignment remains current.
     ///
     /// # Errors
     /// Refuses a replaced queue, changed assignment, stale admission, foreign
@@ -129,121 +145,36 @@ impl Account {
         snapshot: Option<([u8; 32], &RankedDeck)>,
         pending: &mut Option<RankedHost>,
     ) -> Result<Option<RankedPlay>, Error> {
-        let own = self.session.identity().account;
-        let selected = self.ranked_assignment(key)?;
-        if selected.account != own
-            || selected.seat > 1
-            || selected.game.is_none()
-                && snapshot.is_none_or(|(digest, deck)| {
-                    selected.format != deck.format || selected.deck != digest
-                })
-        {
-            return Err(Error::Conflict);
-        }
-        let reused = pending.as_ref().is_some_and(|host| {
-            host.endpoint == *self.http.endpoint()
-                && host.key == key
-                && same_match(&selected, &host.assignment)
-        });
-        if !reused {
-            *pending = None;
-            let (gateway, ticket) =
-                self.gateway_token_for(&selected.origin, crate::wire::GatewayPurpose::Ranked)?;
-            let (bearer, stale, renew_in) = gateway.ranked_admit(&ticket).map_err(gateway_error)?;
-            let consent = if stale {
-                let document = central_client::gateway_terms(&self.http, &selected.origin)?
-                    .ok_or(Error::Conflict)?;
-                if !same_match(&selected, &self.ranked_assignment(key)?) {
-                    return Err(Error::Conflict);
-                }
-                Some(RankedConsent {
-                    key,
-                    assignment: selected.clone(),
-                    document,
-                })
-            } else {
-                None
-            };
-            *pending = Some(RankedHost {
-                endpoint: self.http.endpoint().clone(),
-                key,
-                assignment: selected.clone(),
-                gateway,
-                bearer,
-                consent,
-                renew_at: std::time::Instant::now() + renew_in,
-            });
-        }
-        let host = pending.as_ref().ok_or(Error::Conflict)?;
-        if host.consent.is_some() {
-            return Ok(None);
-        }
-        // The live game already holds the frozen decks. Account-bound seat
-        // recovery works on another device even if the shelf has since changed.
-        let reply = if let Some(game) = selected.game {
-            host.gateway
-                .ranked_reclaim(&host.bearer, selected.match_id, game)
-        } else if let Some((_, deck)) = snapshot
-            .filter(|(digest, deck)| selected.deck == *digest && selected.format == deck.format)
-        {
-            host.gateway
-                .ranked_play(&host.bearer, selected.match_id, deck)
-        } else {
-            return Err(Error::Conflict);
-        };
-        let seat = match reply {
-            Ok(Some(seat)) => seat,
-            Ok(None) => return Ok(None),
-            Err(error) => {
-                if matches!(error, Error::Rejected | Error::TermsRequired) {
-                    *pending = None;
-                    // The short HTTP bearer or the host's standing may have
-                    // changed while waiting for the other player. Refresh
-                    // once. A fresh admission's refusal retains its meaning.
-                    if reused {
-                        return Err(Error::Conflict);
-                    }
-                }
-                return Err(gateway_error(error));
-            }
-        };
-        let after = self.ranked_assignment(key)?;
-        if !confirmed(&selected, &after, &seat) {
-            *pending = None;
-            return Err(Error::Conflict);
-        }
-        let renew_at = host.renew_at;
-        *pending = None;
-        Ok(Some(RankedPlay {
-            assignment: after,
-            seat,
-            renew_at,
-        }))
+        let id = self.ranked_assignment(key)?.match_id;
+        let status = self.replica_status(id)?;
+        self.play_ranked_replica(key, &status, snapshot, pending)
     }
 
-    /// Extend the live game's ranked SID without rotating its seat or opening a lobby.
+    /// Refresh a single-host ranked session through Central's authenticated relay.
     ///
     /// # Errors
-    /// Refuses to renew a changed assignment, closed game or changed standing.
+    /// Refuses a changed assignment, protected game or closed game.
     pub fn renew_ranked_game(
         &self,
         key: Id,
         game: &Assignment,
     ) -> Result<std::time::Instant, Error> {
-        let current = self.ranked_assignment(key)?;
-        if game.game.is_none()
-            || current != *game
-            || current.account != self.session.identity().account
-        {
-            return Err(Error::Conflict);
-        }
-        let (gateway, ticket) =
-            self.gateway_token_for(&current.origin, crate::wire::GatewayPurpose::Ranked)?;
-        let (_, stale, renew_in) = gateway.ranked_admit(&ticket).map_err(gateway_error)?;
-        if stale {
+        self.renew_ranked_replica(
+            key,
+            game,
+            Fence {
+                match_id: game.match_id,
+                generation: 0,
+            },
+        )
+    }
+
+    fn replica_status(&self, match_id: Id) -> Result<replica::SeatStatus, Error> {
+        let SeatResponse::Status { status } = self.replica(SeatRequest::Status { match_id })?
+        else {
             return Err(Error::Rejected);
-        }
-        Ok(std::time::Instant::now() + renew_in)
+        };
+        Ok(status)
     }
 
     fn ranked_assignment(&self, key: Id) -> Result<Assignment, Error> {
@@ -257,13 +188,6 @@ impl Account {
             } if current == key => Ok(assignment),
             _ => Err(Error::Conflict),
         }
-    }
-}
-
-fn gateway_error(error: Error) -> Error {
-    match error {
-        Error::TermsRequired => Error::Rejected,
-        other => other,
     }
 }
 

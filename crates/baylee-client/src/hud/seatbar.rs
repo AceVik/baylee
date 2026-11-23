@@ -299,6 +299,7 @@ pub(in crate::hud) fn role_of(duel: &Duel, player: PlayerId) -> SeatRole {
 /// what `drawer::reading` is built this way for too.
 #[derive(Resource, Default, PartialEq)]
 pub struct BarRevision {
+    roster: u64,
     /// The snapshot the seats, life and counts came from.
     seq: Option<u64>,
     /// The standing orders, which decide every tile's frame.
@@ -483,6 +484,7 @@ pub fn sync_seat_bars(
         .map(|(player, shelf)| (*player, shelf.density))
         .collect();
     let fresh = BarRevision {
+        roster: duel.roster_revision(),
         seq: duel.board.as_ref().map(|b| b.seq),
         orders: Some(orders.clone()),
         focus: duel.visiting,
@@ -565,7 +567,7 @@ pub fn sync_seat_bars(
                 lang,
                 duel.reader(),
                 view,
-                duel.statics.as_ref(),
+                duel.display_statics(),
                 seat,
                 role_of(&duel, seat.player),
                 &orders,
@@ -581,7 +583,7 @@ pub fn sync_seat_bars(
             lang,
             duel.reader(),
             view,
-            duel.statics.as_ref(),
+            duel.display_statics(),
             seat,
             role_of(&duel, seat.player),
             shelf,

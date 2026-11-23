@@ -74,13 +74,15 @@ impl Source {
             &draft.commanders,
         )
         .map_err(|_| Error::Rejected)?;
+        let [cards, sideboard, commanders] =
+            baylee_cards::ranked::playable_rows(&registration.deck).map_err(|_| Error::Rejected)?;
         Ok(Snapshot {
             revision: snapshot.revision,
             deck: RankedDeck {
                 format,
-                cards: draft.cards,
-                sideboard: draft.sideboard,
-                commanders: draft.commanders,
+                cards,
+                sideboard,
+                commanders,
             },
             registration,
         })

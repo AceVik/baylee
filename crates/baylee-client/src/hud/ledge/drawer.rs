@@ -430,7 +430,7 @@ pub fn sync_drawer(
         .iter()
         .map(|target| {
             let key = target.art?;
-            let statics = duel.statics.as_ref()?;
+            let statics = duel.display_statics()?;
             Some(
                 textures
                     .as_deref_mut()?
@@ -806,7 +806,7 @@ fn picture_of(
     assets: Option<&AssetServer>,
 ) -> Option<Handle<Image>> {
     let key = revision.head.as_ref()?.source?.art?;
-    let statics = duel.statics.as_ref()?;
+    let statics = duel.display_statics()?;
     Some(textures?.get(key, statics, assets?))
 }
 
@@ -938,7 +938,7 @@ fn choice_rows(
             crate::choices::options(
                 &p,
                 lang,
-                duel.statics.as_ref(),
+                duel.display_statics(),
                 duel.chooser_search(),
                 crate::choices::FaceNames {
                     view: duel.view.as_ref(),
@@ -959,7 +959,7 @@ fn resolving_lines(
         && matches!(i.prompt(), Prompt::TextReplacement { .. })
     {
         lines.extend(
-            crate::choices::target_question(i, view, lang, texts, duel.statics.as_ref())
+            crate::choices::target_question(i, view, lang, texts, duel.display_statics())
                 .into_iter()
                 .map(|text| Line {
                     text,
@@ -1216,7 +1216,7 @@ fn combat_lines(
         .interaction
         .as_ref()
         .filter(|i| i.is_combat() && !waiting)
-        .and_then(|i| crate::hud::rail::combat_line(i, view, duel.statics.as_ref(), texts, lang))
+        .and_then(|i| crate::hud::rail::combat_line(i, view, duel.display_statics(), texts, lang))
     {
         lines.push(Line {
             text: aim,
@@ -1232,7 +1232,7 @@ fn combat_lines(
         duel.reader(),
         view,
         duel.interaction.as_ref(),
-        duel.statics.as_ref(),
+        duel.display_statics(),
         texts,
         lang,
     ) {
@@ -1973,7 +1973,7 @@ fn target_seat_name(duel: &Duel, lang: Lang, seat: baylee_core::ids::PlayerId) -
         .as_ref()
         .and_then(|s| s.seats.iter().find(|s| s.player == seat))
         .map_or(SeatRole::Present, SeatRole::of);
-    crate::hud::seatbar::called(lang, duel.reader(), duel.statics.as_ref(), seat, role)
+    crate::hud::seatbar::called(lang, duel.reader(), duel.display_statics(), seat, role)
 }
 
 /// Whether a target list is long enough to page, or filtered already: the
@@ -2074,7 +2074,7 @@ fn target_reading(
     };
     // Under a sheet's head the source and its sentence are the head's.
     if !headed {
-        for line in crate::choices::target_question(i, view, lang, texts, duel.statics.as_ref()) {
+        for line in crate::choices::target_question(i, view, lang, texts, duel.display_statics()) {
             say(line);
         }
     }
@@ -2198,7 +2198,7 @@ fn prevention_line(
                 &effect,
                 &[],
                 lang,
-                duel.statics.as_ref(),
+                duel.display_statics(),
                 crate::choices::FaceNames {
                     view: duel.view.as_ref(),
                     texts: Some(texts),

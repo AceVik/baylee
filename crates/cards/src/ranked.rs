@@ -45,6 +45,53 @@ pub fn rating_pool(registration: &Registration) -> Vec<([u8; 32], u16)> {
     pool
 }
 
+/// Project a validated deck to exactly the fields bound by its playable
+/// commitment. Shelf notes, personal labels and unverified printing hints have
+/// no representation in what either ranked host receives.
+///
+/// # Errors
+/// A card is absent from the installed registry.
+pub fn playable_rows(deck: &LoadedDeck) -> Result<[Vec<String>; 3], String> {
+    fn name(copy: &DeckCard) -> Result<&'static str, String> {
+        crate::decks::whole_name(copy.index)
+            .or_else(|| {
+                crate::by_index(copy.index)?
+                    .faces
+                    .first()
+                    .map(|face| face.name)
+            })
+            .ok_or_else(|| "unknown ranked card".to_owned())
+    }
+    fn rows(copies: &[DeckCard]) -> Result<Vec<String>, String> {
+        let mut out = Vec::new();
+        for group in copies.chunk_by(|a, b| {
+            a.index == b.index
+                && a.print.scryfall_id == b.print.scryfall_id
+                && a.choices == b.choices
+        }) {
+            let copy = &group[0];
+            let mut row = deckrow::Row::plain(
+                u32::try_from(group.len()).map_err(|_| "deck too large")?,
+                name(copy)?,
+            );
+            row.print.scryfall_id = Some(copy.print.scryfall_id.to_string());
+            row.print.choices = copy.choices;
+            out.push(row.to_string());
+        }
+        Ok(out)
+    }
+    // registration takes the first matching copy for each commander. Keep
+    // that copy ahead of any matching card in the library.
+    let mut main = rows(&deck.commanders)?;
+    main.extend(rows(&deck.main)?);
+    let names = deck
+        .commanders
+        .iter()
+        .map(|c| name(c).map(str::to_owned))
+        .collect::<Result<_, _>>()?;
+    Ok([main, rows(&deck.sideboard)?, names])
+}
+
 /// Loads the three lists in the form returned by the gateway's deck route.
 /// Leader rows already present in the main list move to the command zone.
 ///

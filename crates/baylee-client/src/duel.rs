@@ -99,7 +99,7 @@ impl Duel {
         let mut headline = prompt.headline_naming_targets(
             lang,
             turn,
-            self.statics.as_ref(),
+            self.display_statics(),
             self.view.as_ref().is_some_and(|v| v.owed.is_some()),
             &name,
             &|source| {
@@ -110,7 +110,7 @@ impl Duel {
                         view: self.view.as_ref(),
                         texts: Some(texts),
                     },
-                    self.statics.as_ref(),
+                    self.display_statics(),
                 ))
             },
         );
@@ -132,7 +132,7 @@ impl Duel {
                 lang,
                 self.reader(),
                 view,
-                self.statics.as_ref(),
+                self.display_statics(),
                 &name,
             ) {
                 headline = format!("{headline} {ballots}");
@@ -141,7 +141,7 @@ impl Duel {
                 lang,
                 self.reader(),
                 view,
-                self.statics.as_ref(),
+                self.display_statics(),
                 &name,
             ) {
                 headline = format!("{headline} {held}");
@@ -165,6 +165,9 @@ impl Duel {
     /// one system boundary, which is what lets input handlers stay plain
     /// functions of the board model.
     pub fn submit(&mut self, action: PlayerAction) {
+        if self.ranked_hold() {
+            return;
+        }
         if self.trigger_sheet.is_some()
             && let PlayerAction::Arrange { piles } = &action
         {
@@ -227,6 +230,70 @@ impl Duel {
             .then_some(*prompt);
         }
         self.outbox.push(action);
+    }
+
+    pub(crate) fn ranked_hold(&self) -> bool {
+        self.link_note.is_some_and(|note| {
+            matches!(
+                note.phrase,
+                Phrase::RankedHostHold
+                    | Phrase::RankedReviewHold
+                    | Phrase::RankedCommandHold
+                    | Phrase::RankedSeatsHold
+                    | Phrase::RankedVerifierHold
+            )
+        })
+    }
+
+    /// Both per-seat clocks read the same Central pause.
+    pub(crate) fn clock_paused(&self) -> bool {
+        self.ranked_clock_running == Some(false)
+            || self.link_note.is_some_and(|note| {
+                matches!(
+                    note.phrase,
+                    Phrase::RankedHostHold
+                        | Phrase::RankedReviewHold
+                        | Phrase::RankedSeatsHold
+                        | Phrase::RankedVerifierHold
+                )
+            })
+    }
+
+    pub(crate) fn sync_ranked_clocks(&mut self, me: PlayerId, clocks: &host::RankedClocks) {
+        self.ranked_clock_running = Some(clocks.running);
+        let ms = |seconds: u16| u32::from(seconds) * 1000;
+        self.clock.sync(
+            clocks
+                .decisions
+                .get(usize::from(me.get()))
+                .copied()
+                .flatten()
+                .map(ms),
+            true,
+        );
+        let seats = [PlayerId::new(0), PlayerId::new(1)];
+        let decisions = seats
+            .into_iter()
+            .zip(clocks.decisions)
+            .filter_map(|(seat, left)| {
+                Some(baylee_view::SeatClock {
+                    seat,
+                    remaining_ms: ms(left?),
+                })
+            })
+            .collect::<Vec<_>>();
+        self.seat_clocks.sync(&decisions);
+        let reconnect = seats
+            .into_iter()
+            .zip(clocks.reconnect)
+            .filter_map(|(seat, left)| {
+                Some(baylee_view::LostSeat {
+                    seat,
+                    remaining_ms: Some(ms(left?)),
+                })
+            })
+            .collect::<Vec<_>>();
+        self.lost_seats.sync(&reconnect);
     }
 
     /// Installs the question the host is asking.

@@ -96,11 +96,19 @@ pub fn tick_lost_banner(
     mut shown: Local<Option<(Option<Banner>, Lang)>>,
 ) {
     // Past change detection: a wait counting down is not the duel changing.
-    duel.bypass_change_detection()
-        .lost_seats
-        .advance(time.delta_secs());
+    if !duel.clock_paused() {
+        duel.bypass_change_detection()
+            .lost_seats
+            .advance(time.delta_secs());
+    }
     let me = duel.view.as_ref().map(|v| v.seat);
-    let banner = me.and_then(|me| duel.lost_seats.banner(duel.statics.as_ref(), me));
+    let banner = me.and_then(|me| {
+        if duel.ranked_clock_running.is_some() {
+            duel.lost_seats.ranked_banner(me)
+        } else {
+            duel.lost_seats.banner(duel.display_statics(), me)
+        }
+    });
     let lang = Lang::of(&settings.lang);
     let (Ok(mut node), Ok(mut text)) = (pill.single_mut(), text.single_mut()) else {
         *shown = None;
@@ -111,7 +119,7 @@ pub fn tick_lost_banner(
     }
     *shown = Some((banner, lang));
     if let Some(banner) = banner {
-        text.0 = banner.line(lang, duel.statics.as_ref());
+        text.0 = banner.line(lang, duel.display_statics());
         node.display = Display::Flex;
     } else {
         text.0.clear();

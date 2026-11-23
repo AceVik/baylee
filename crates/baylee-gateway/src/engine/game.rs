@@ -27,6 +27,10 @@ pub(super) async fn run_engine_socket(
         return;
     }
     let game_id = hello.game_id.clone();
+    if game_id.starts_with(crate::ranked::replicate::JOB_PREFIX) {
+        super::replica::run(&state, socket, &hello).await;
+        return;
+    }
     let (tx, mut rx) = mpsc::unbounded_channel();
     let setup = {
         let names = crate::seat_names(&state, &game_id).await;
@@ -45,7 +49,11 @@ pub(super) async fn run_engine_socket(
             .engine_token_hash
             .as_ref()
             .is_some_and(|h| auth::ct_eq(h, &auth::token_hash(&hello.token)));
-        if !authorized || game.state != LobbyState::Playing || game.engine.is_some() {
+        if !authorized
+            || game.state != LobbyState::Playing
+            || game.engine.is_some()
+            || game.ranked.is_some_and(|binding| binding.replica.is_some())
+        {
             tracing::warn!(game_id, "engine attach refused");
             return;
         }

@@ -24,7 +24,9 @@ pub use account::TowerPlay;
 #[cfg(feature = "client")]
 pub use account::{Account, GatewayDeckImport, PairedSession, PairingClaim};
 #[cfg(feature = "client")]
-pub use account::{RankedConsent, RankedHost, RankedPlay, ranked_read};
+pub use account::{
+    RankedConsent, RankedHost, RankedHostDocument, RankedHostDocuments, RankedPlay, ranked_read,
+};
 #[path = "gateway.rs"]
 mod admission;
 mod http;

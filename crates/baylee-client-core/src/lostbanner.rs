@@ -21,6 +21,8 @@ use baylee_view::{GameStatic, LostSeat};
 /// shown second (or the case) changes.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Banner {
+    /// Central is applying the protected reconnection clock.
+    RankedExpired,
     /// The table waits for `seat`, `secs` left (rounded up).
     Waiting {
         /// Whose connection is lost.
@@ -45,6 +47,7 @@ impl Banner {
     #[must_use]
     pub fn line(self, lang: Lang, statics: Option<&GameStatic>) -> String {
         match self {
+            Self::RankedExpired => Phrase::RankedClockExpired.text(lang).to_owned(),
             Self::Waiting { seat, secs } => {
                 Phrase::LostWaiting.fill(lang, &[&seat_name(lang, statics, seat), &mmss(secs)])
             }
@@ -66,6 +69,24 @@ pub struct LostSeats {
 }
 
 impl LostSeats {
+    /// A protected seat is never controlled by the house. Central owns
+    /// timeout arbitration when this display reaches zero.
+    #[must_use]
+    pub fn ranked_banner(&self, me: PlayerId) -> Option<Banner> {
+        let &(seat, left) = self
+            .left
+            .iter()
+            .find(|(seat, _)| *seat != me)
+            .or_else(|| self.left.first())?;
+        Some(match left {
+            Some(left) if left <= 0.0 => Banner::RankedExpired,
+            Some(left) => Banner::Waiting {
+                seat,
+                secs: left.ceil() as u32,
+            },
+            None => Banner::Paused { seat },
+        })
+    }
     /// Takes what a view says.
     pub fn sync(&mut self, lost: &[LostSeat]) {
         self.left.clear();

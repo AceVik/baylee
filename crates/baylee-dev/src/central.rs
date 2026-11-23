@@ -92,6 +92,22 @@ fn test_command(options: &[String], args: &[&str]) -> Command {
     command
 }
 
+/// The process-level ranked scenario launches these siblings of the gateway
+/// test executable. The engine's default build advertises `StandardLoops`.
+fn build_ranked_agents(options: &[String], cancel: Option<&Path>) -> Result<()> {
+    let mut cmd = cargo();
+    cmd.arg("build")
+        .args(options)
+        .args(["-p", "baylee-agent", "-p", "baylee-engine-server"]);
+    let result = Owned::spawn(&mut cmd)?.wait(Duration::from_mins(15), cancel)?;
+    print!("{}{}", result.stdout, result.stderr);
+    ensure!(
+        result.status.success(),
+        "building ranked agent and engine failed"
+    );
+    Ok(())
+}
+
 /// Runs `body` against a fresh container and always cleans up; the body's
 /// error and a cleanup failure are both reported.
 fn with_postgres(
@@ -250,6 +266,14 @@ pub fn integration(
 ) -> Result<i32> {
     let options = cargo_options(config)?;
     let publisher = integration_publisher()?;
+    let special = challenges_only
+        || publisher.is_some()
+        || std::env::var_os("BAYLEE_CENTRAL_UI_READY").is_some()
+        || std::env::var_os("BAYLEE_CENTRAL_TOWER_AWARDS_ONLY").is_some()
+        || std::env::var_os("BAYLEE_CENTRAL_DEMO").is_some();
+    if !failure && (ranked_only || !special) {
+        build_ranked_agents(&options, cancel)?;
+    }
     let build = Owned::spawn(&mut test_command(
         &options,
         &["-p", "baylee-gateway", "--test", "e2e", "--no-run"],
@@ -276,23 +300,15 @@ pub fn integration(
             "Testing real PostgreSQL {} with isolated migration and runtime roles.",
             pg.version()?
         );
-        let special = challenges_only
-            || publisher.is_some()
-            || std::env::var_os("BAYLEE_CENTRAL_UI_READY").is_some()
-            || std::env::var_os("BAYLEE_CENTRAL_TOWER_AWARDS_ONLY").is_some()
-            || std::env::var_os("BAYLEE_CENTRAL_DEMO").is_some();
         let (selector, expected) = if ranked_only {
-            (
-                "e2e_central::ranked::ranked_two_gateways_settle_and_restore_home",
-                1,
-            )
+            ("e2e_central::ranked::", 2)
         } else if special {
             (
                 "e2e_central::central_login_migrates_then_restores_and_admits_without_the_legacy_password",
                 1,
             )
         } else {
-            ("e2e_central::", 2)
+            ("e2e_central::", 3)
         };
         let mut test = test_command(
             &options,
@@ -362,6 +378,7 @@ fn bootstrap(migrator: &str, runtime: &str, legacy: &str) -> String {
         "central_test",
         "central_native_test",
         "central_ranked_test",
+        "central_replica_test",
     ]));
     sql
 }
@@ -470,7 +487,12 @@ mod tests {
         let sql = bootstrap("aa", "bb", "cc");
         assert!(sql.contains("central_migrator") && sql.contains("PASSWORD 'aa'"));
         assert!(sql.contains("ROLE central_legacy") && sql.contains("PASSWORD 'cc'"));
-        for db in ["central_test", "central_native_test", "central_ranked_test"] {
+        for db in [
+            "central_test",
+            "central_native_test",
+            "central_ranked_test",
+            "central_replica_test",
+        ] {
             assert!(sql.contains(&format!("CREATE DATABASE {db} OWNER central_migrator;")));
             assert!(sql.contains(&format!(
                 "\\connect {db}\nREVOKE CREATE, TEMP ON DATABASE {db} FROM PUBLIC;\nREVOKE CREATE ON SCHEMA public FROM PUBLIC;"

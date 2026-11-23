@@ -33,9 +33,11 @@ pub(crate) fn worker(state: Shared) -> Worker {
                 ()=monitor(&state,&mut owner)=>{},
                 ()=advertise(&state)=>{},
                 ()=reconcile(&state)=>{},
+                ()=super::replicate::poll(&state)=>{},
             }
             state.ranked.owner.store(false, Ordering::Release);
             state.ranked.waiting.lock().clear();
+            state.ranked.replicas.lock().clear();
             let running: Vec<_> = state
                 .lobby
                 .lock()
@@ -104,7 +106,23 @@ async fn advertise(state: &Shared) {
             });
         let capacity = if complete_catalog { capacity(state) } else { 0 };
         // A lost connection can recover; explicit revocation stops rated games.
-        let ready = bridge.ranked(HostRequest::Ready { capacity }).await;
+        let compatible = state
+            .agents
+            .lock()
+            .ranked_replica_capacity()
+            .and_then(|(id, _)| id.ranked_compatibility());
+        let ready = if let Some(compatibility) = compatible {
+            let request = central_api::ranked::replica::HostRequest::Ready {
+                capacity,
+                compatibility,
+            };
+            super::replicate::rpc(&bridge, request).await.map(|_| ())
+        } else {
+            bridge
+                .ranked(HostRequest::Ready { capacity })
+                .await
+                .map(|_| ())
+        };
         if matches!(
             ready,
             Err(crate::StatusCode::FORBIDDEN | crate::StatusCode::UNAUTHORIZED)

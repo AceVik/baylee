@@ -196,7 +196,7 @@ pub(crate) struct SeatAuthorization {
 impl SeatAuthorization {
     pub(crate) fn read(state: &Shared, game: &str, seat: usize, hash: &str) -> Option<Self> {
         let lobby = state.lobby.lock();
-        let chair = lobby.games.get(game)?.seats.get(seat)?;
+        let chair = lobby.games.get(game)?.ranked_seat(seat)?;
         if chair.seat_token_hash.as_deref() != Some(hash) {
             return None;
         }
@@ -218,7 +218,7 @@ impl SeatAuthorization {
             .lock()
             .games
             .get(game)
-            .and_then(|g| g.seats.get(seat))
+            .and_then(|g| g.ranked_seat(seat))
             .is_some_and(|chair| chair.seat_token_hash.as_deref() == Some(self.hash.as_str()))
     }
 
@@ -332,6 +332,9 @@ pub(crate) async fn refuse_seat(mut socket: WebSocket, why: String, theirs: u32)
 
 /// The seat of `game` whose token is `token`, compared in constant time.
 pub(crate) fn seat_of_token(game: &LobbyGame, token: &str) -> Option<usize> {
+    if game.ranked.is_some_and(|b| !b.seats_live()) {
+        return None;
+    }
     let token_hash = auth::token_hash(token);
     game.seats
         .iter()

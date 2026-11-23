@@ -223,6 +223,9 @@ fn caption(state: &LobbyState, open: bool) -> String {
                 return Phrase::RankedSearching.fill(lang, &[format_name(format, lang)]);
             }
             api::QueueState::Assigned { ref assignment, .. } => {
+                if state.ranked_net.waiting_consent() {
+                    return Phrase::RankedHostsWaiting.text(lang).to_owned();
+                }
                 return Phrase::RankedAssigned.fill(lang, &[format_name(assignment.format, lang)]);
             }
             api::QueueState::Finished {

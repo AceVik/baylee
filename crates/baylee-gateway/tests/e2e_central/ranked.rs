@@ -8,19 +8,25 @@ use baylee_account::{
 };
 use central_postgres::AccountStore;
 use sea_orm::{ConnectionTrait, DatabaseConnection, DbBackend, Statement};
-use std::time::{Duration, Instant};
+use std::time::Duration;
 use tokio::runtime::Runtime;
 use uuid::Uuid;
 
+#[path = "ranked/consent.rs"]
+mod consent;
 #[path = "ranked/game.rs"]
 mod game;
 #[path = "ranked/receipts.rs"]
 mod receipts;
+#[path = "ranked/relay.rs"]
+mod relay;
+#[path = "ranked/replication.rs"]
+pub(super) mod replication;
 
 #[test]
 #[ignore = "requires owned PostgreSQL 18 fixture from cargo dev central integration --ranked-only"]
 fn ranked_two_gateways_settle_and_restore_home() {
-    super::integration(true);
+    super::integration(super::Scenario::Ranked);
 }
 
 struct Registered {
@@ -38,7 +44,7 @@ fn registered(
     username: &str,
     verified: bool,
 ) -> Registered {
-    let (gateway, admin) = token::spawn(&served.endpoint);
+    let (gateway, admin) = token::spawn_with_terms(&served.endpoint, verified);
     let origin = format!("http://127.0.0.1:{}", gateway.port);
     let http = CentralHttp::new(served.endpoint.clone());
     let Discovery::Central { identity } = sdk::discover(&http, username.to_owned()).unwrap() else {
@@ -50,6 +56,9 @@ fn registered(
         200
     );
     common::central_ready(gateway.port);
+    if verified {
+        consent::wait_for_terms(&http, &origin);
+    }
     Registered {
         gateway,
         id,
@@ -66,7 +75,7 @@ struct Player {
     home: baylee_account::Admission,
 }
 
-fn player(mut account: Account, gateway: &Registered, count: u32) -> Player {
+fn player(mut account: Account, served: &Served, gateway: &Registered, count: u32) -> Player {
     // Exercise the private library the real ranked client reads before joining.
     let id = account
         .save_deck(
@@ -96,6 +105,18 @@ fn player(mut account: Account, gateway: &Registered, count: u32) -> Player {
         sideboard: draft.sideboard,
         commanders: draft.commanders,
     };
+    if let Some(doc) =
+        sdk::gateway_terms(&CentralHttp::new(served.endpoint.clone()), &gateway.origin).unwrap()
+    {
+        account
+            .accept_terms(
+                baylee_account::terms::TermsSubject::Gateway {
+                    origin: gateway.origin.clone(),
+                },
+                &doc.version,
+            )
+            .unwrap();
+    }
     let home = account.admit(&gateway.origin).unwrap();
     assert_eq!(
         common::http(gateway.gateway.port, "GET", "/me", Some(&home.token), "").0,
@@ -134,28 +155,6 @@ fn capacity(rt: &Runtime, operator: &DatabaseConnection, host: &Registered) {
     });
 }
 
-fn assigned(player: &Player, host: &Registered) -> Assignment {
-    let deadline = Instant::now() + Duration::from_secs(40);
-    loop {
-        match player.account.ranked(Request::Status).unwrap() {
-            Response::Queue {
-                state: QueueState::Assigned { key, assignment },
-            } => {
-                assert_eq!(key, player.key);
-                assert_eq!(assignment.host_id, host.id);
-                assert_eq!(assignment.origin, host.origin);
-                assert_eq!(assignment.deck, player.commitment);
-                assert_eq!(assignment.format, Format::Standard);
-                return assignment;
-            }
-            Response::Queue {
-                state: QueueState::Waiting { .. },
-            } if Instant::now() < deadline => std::thread::sleep(Duration::from_millis(250)),
-            _ => panic!("both queued players must be assigned to the only eligible host"),
-        }
-    }
-}
-
 pub(super) fn run(
     rt: &Runtime,
     served: &Served,
@@ -182,29 +181,41 @@ pub(super) fn run(
     let host = registered(rt, served, store, operator, names[1], true);
     let agent = rt.block_on(common::ranked::provision(&host.gateway));
     capacity(rt, operator, &host);
-    let players = [player(one, &home, 60), player(two, &host, 61)];
+    let players = [
+        player(one, served, &home, 60),
+        player(two, served, &host, 61),
+    ];
     receipts::before(served, &players);
     let original = [&home, &host].map(|g| g.gateway.port);
     let me = std::array::from_fn::<_, 2, _>(|i| {
         common::http(original[i], "GET", "/me", Some(&players[i].home.token), "").1
     });
     for p in &players {
-        assert!(matches!(
+        assert_eq!(
             p.account
                 .ranked(Request::Join {
                     key: p.key,
                     format: Format::Standard,
                     deck: p.commitment
                 })
-                .unwrap(),
-            Response::Queue { .. }
-        ));
+                .unwrap_err(),
+            baylee_account::Error::UpdateRequired
+        );
     }
-    let seats = players.each_ref().map(|p| assigned(p, &host));
+    let seats = replication::join(&players);
+    for assignment in &seats {
+        assert_eq!(assignment.host_id, host.id);
+        assert_eq!(assignment.origin, host.origin);
+        assert_eq!(assignment.format, Format::Standard);
+    }
     assert_eq!(seats[0].match_id, seats[1].match_id);
     assert_ne!(seats[0].seat, seats[1].seat);
     assert_ne!(seats[0].account, seats[1].account);
-    let game = game::seats(rt, &host, &players, &seats);
+    consent::approve(&players, seats[0].match_id, &[&host], |_| {
+        consent::unopened(rt, operator, seats[0].match_id);
+    });
+    relay::admissions(rt, served, &host, &players, seats[0].match_id);
+    let game = game::seats(rt, served, &host, &players, &seats);
     let outcome = if seats[0].seat == 0 {
         Outcome::SecondWins
     } else {

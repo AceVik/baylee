@@ -6473,5 +6473,63 @@ loading or aborted engine releases the assignment without charging either
 player a loss. The game-over view on each connected player's seat socket
 comes directly from the engine. Central publishes the resulting ratings.
 
-The [two-engine feasibility study](proposals/ranked-replication.md) describes
-the replay evidence and the protocol changes needed for cross-host failover.
+### Engine control for a protected ranked assignment
+
+On the authenticated engine link, `RankedEngineSetup` selects a dedicated
+runner. The two processes require the same logical game UUID, frozen preset,
+roster and clean, revision-stamped `StandardLoops` execution identity. The
+versioned ranked compatibility key includes the build revision, rule and
+feature identities, and card registry. The opening is position zero. Each process initially returns only
+its private `RankedEngineVote`.
+
+A `RankedEngineStep` carries the generation, next journal position, command
+UUID, source, seat and exact operation bytes. A seat can submit its ordinary
+encoded `PlayerAction` or `SeatSetting`. The command carries no session or
+seat token. Central's authority can supply a clock ruling bound to the
+affected seat's outstanding decision. A stale ruling or an illegal player
+choice yields a negative vote at that position. A conflicting retry, journal
+gap or invalid commit terminates the execution. The gateway can rebuild it
+from the certified prefix. Socket loss and local time passage produce no
+autonomous gameplay.
+
+The protected preset allows 180 seconds per question and 60 seconds to
+reconnect. Central starts the decision clocks after both engines certify
+the opening and both admitted clients report their game sockets. Each native
+account and the primary report presence every five seconds. A shorter
+reconnect clock requires both sources to agree that the seat is away. The
+same question keeps its spent decision time and its accumulated away time
+through reconnects and the opponent's moves. Both seats can owe different
+questions simultaneously. When both leave for 60 seconds, either initial
+admission fails to complete within 60 seconds of healthy observation, or two
+deadlines expire together, Central closes the match without rating it.
+
+Central pauses elapsed time during an authority outage and refunds time
+after the last bilateral heartbeat on recovery. Before ordering a concession
+it requires both assigned executors to renew their leases after observing
+the deadline. It writes one authority input with the seat, question identity
+and reason. Both engines reproduce the concession before settlement. The
+native seat status exposes rounded seconds for the two public clocks and
+whether they are running.
+
+Each engine binds its evidence to the complete setup and the preceding
+evidence with SHA-256. An input adds its identity, source and exact bytes, the
+private record produced by the engine, its replay checksum, pending decision,
+both seat observations, per-seat decision-clock anchors and actual terminal
+outcome. Both human seats may owe an opening decision simultaneously.
+Certifying a move requires an independent host vote through Central. These
+private votes and the original record remain on the service plane.
+
+`RankedEngineCommit` authorizes release of the staged position and carries
+Central's journal commitment. The primary wraps each ordinary player frame in
+`RankedSeatProjection`, binding its content to that generation, position and
+commitment. Each wrapper travels in the entitled player's `SeatFrame`.
+A standby releases no seat frames. During recovery a fresh primary consumes
+the original positions under the new generation and commits them silently.
+After it catches up, `RankedEngineSnapshot` supplies the requested seat with
+its roster, curtain, full projected state, log and current choice. A pending
+uncertified position also holds reconnect snapshots. A duplicate commit
+produces no second batch of frames. Central settles the independently
+attested terminal outcome.
+
+The [two-engine design and replay evidence](proposals/ranked-replication.md)
+describe the failure domains and the independent deterministic replay test.

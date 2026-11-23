@@ -378,7 +378,7 @@ fn wanted_labels(duel: &Duel, lang: Lang, detail: bool) -> Vec<(ObjectId, String
                 let called = super::seatbar::called(
                     lang,
                     duel.reader(),
-                    duel.statics.as_ref(),
+                    duel.display_statics(),
                     protector,
                     super::seatbar::role_of(duel, protector),
                 );
@@ -390,7 +390,7 @@ fn wanted_labels(duel: &Duel, lang: Lang, detail: bool) -> Vec<(ObjectId, String
                     super::seatbar::called(
                         lang,
                         duel.reader(),
-                        duel.statics.as_ref(),
+                        duel.display_statics(),
                         player,
                         super::seatbar::role_of(duel, player),
                     ),
@@ -402,7 +402,7 @@ fn wanted_labels(duel: &Duel, lang: Lang, detail: bool) -> Vec<(ObjectId, String
                     super::seatbar::called(
                         lang,
                         duel.reader(),
-                        duel.statics.as_ref(),
+                        duel.display_statics(),
                         opponent,
                         super::seatbar::role_of(duel, opponent),
                     ),

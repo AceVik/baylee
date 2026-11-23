@@ -813,7 +813,7 @@ pub fn sync_tray(
     }
     reveal.arrives(!drawn, !browser.sheet.for_choice());
 
-    let (Some(view), Some(statics)) = (duel.view.as_ref(), duel.statics.as_ref()) else {
+    let (Some(view), Some(statics)) = (duel.view.as_ref(), duel.display_statics()) else {
         return;
     };
 
