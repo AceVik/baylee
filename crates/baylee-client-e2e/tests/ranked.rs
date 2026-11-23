@@ -218,7 +218,23 @@ fn capture(client: &mut Client, name: &str) -> Result<()> {
             dark += usize::from(pixel.0.iter().all(|&channel| channel < 48));
             light += usize::from(pixel.0.iter().any(|&channel| channel > 142));
         }
-        if dark >= 32 && light >= 32 {
+        // Play's retained tree may already exist during the rendered entrance
+        // passage. The bright portal still lacks the dark Play header.
+        let has_header = !name.starts_with("ranked-play-") || {
+            let width = image.width() as usize;
+            image
+                .rows()
+                .nth((image.height() / 60) as usize)
+                .is_some_and(|row| {
+                    row.skip(width / 3)
+                        .take(width / 4)
+                        .step_by(7)
+                        .filter(|pixel| pixel.0.iter().all(|&channel| channel < 100))
+                        .count()
+                        >= width / 50
+                })
+        };
+        if dark >= 32 && light >= 32 && has_header {
             return Ok(());
         }
         std::fs::remove_file(path)?;
@@ -347,6 +363,9 @@ fn ranked_play_card_searches_and_cancels_beside_other_modes_and_tables() {
             ]
             .iter()
             .all(|name| s.shows(name))
+                && s.at_rest()
+                && !s.flag("/account/entrance_active")
+                && !s.flag("/account/journey_active")
         })?;
         let opener = "Ranked(ToggleQueue)";
         let table = "Play(CreateTable)";

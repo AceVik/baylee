@@ -223,14 +223,12 @@ fn board_panel(
             Pickable::IGNORE,
         ))
         .id();
-    let text = parts::line(
-        commands,
-        kit,
-        Phrase::RankedBoard.text(kit.lang()),
-        kit.m.head,
-        tokens::GOLD,
-    );
-    let grow = parts::grow(commands);
+    commands.entity(head).add_child(mark);
+    let filters = column(commands, head, kit);
+    commands
+        .entity(filters)
+        .entry::<Node>()
+        .and_modify(|mut n| n.flex_grow = 1.0);
     let refresh = controls::button_compact(
         commands,
         kit,
@@ -241,11 +239,8 @@ fn board_panel(
         Press::Ranked(Action::Refresh),
     );
     orders::stop(commands, refresh, &ORDER, "refresh");
-    commands
-        .entity(head)
-        .add_children(&[mark, text, grow, refresh]);
+    commands.entity(head).add_child(refresh);
     commands.entity(board).add_child(head);
-    let filters = column(commands, board, kit);
     let list = commands
         .spawn((
             Node {

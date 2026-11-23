@@ -10,12 +10,19 @@ use bevy::prelude::*;
 pub(super) struct Desk {
     metrics: ShellMetrics,
     arrow: Entity,
+    caption: Entity,
     formats: Entity,
     queue: Entity,
     board: Entity,
 }
 
-pub(in crate::lobby) fn entry(commands: &mut Commands, card: Entity, arrow: Entity, kit: Kit) {
+pub(in crate::lobby) fn entry(
+    commands: &mut Commands,
+    card: Entity,
+    caption: Entity,
+    arrow: Entity,
+    kit: Kit,
+) {
     let root = draw::column(commands, card, kit);
     commands
         .entity(root)
@@ -37,6 +44,7 @@ pub(in crate::lobby) fn entry(commands: &mut Commands, card: Entity, arrow: Enti
     commands.entity(root).insert(Desk {
         metrics: kit.m,
         arrow,
+        caption,
         formats,
         queue,
         board,
@@ -204,6 +212,46 @@ pub(super) struct Painted {
     open: bool,
     formats: Option<Format>,
     queue: Option<queue::Look>,
+    caption: String,
+}
+
+fn caption(state: &LobbyState, open: bool) -> String {
+    let lang = state.lobby.lang();
+    if !open {
+        match state.ranked_net.queue {
+            api::QueueState::Waiting { format, .. } => {
+                return Phrase::RankedSearching.fill(lang, &[format_name(format, lang)]);
+            }
+            api::QueueState::Assigned { ref assignment, .. } => {
+                return Phrase::RankedAssigned.fill(lang, &[format_name(assignment.format, lang)]);
+            }
+            api::QueueState::Finished {
+                format,
+                outcome,
+                seat,
+                elo,
+                delta,
+                ..
+            } => return queue::receipt(lang, format, outcome, seat, elo, delta),
+            api::QueueState::Idle => {}
+        }
+    }
+    Phrase::RankedModeEntry.text(lang).to_owned()
+}
+
+fn own_rank(book: &Book, format: Format) -> Option<OwnRank> {
+    if let Some(s) = book.own_player(format) {
+        return Some((s.rank, s.placement_games, Some(s.elo)));
+    }
+    book.own_loaded().then_some((
+        api::Rank {
+            league: League::Unranked,
+            division: None,
+            champion_place: None,
+        },
+        0,
+        None,
+    ))
 }
 
 pub(super) fn patch(
@@ -219,22 +267,9 @@ pub(super) fn patch(
     };
     let format = queue::effective_format(&state);
     let own = book
-        .as_ref()
+        .as_deref()
         .filter(|_| state.has_central_account())
-        .and_then(|book| {
-            if let Some(s) = book.own_player(format) {
-                return Some((s.rank, s.placement_games, Some(s.elo)));
-            }
-            book.own_loaded().then_some((
-                api::Rank {
-                    league: League::Unranked,
-                    division: None,
-                    champion_place: None,
-                },
-                0,
-                None,
-            ))
-        });
+        .and_then(|book| own_rank(book, format));
     let key = (root, state.ranked.revision, state.ranked_net.revision, own);
     if painted.key == Some(key) && !state.is_changed() {
         return;
@@ -244,6 +279,13 @@ pub(super) fn patch(
     }
     painted.key = Some(key);
     let open = expanded(&state);
+    let words = caption(&state, open);
+    if painted.caption != words {
+        commands
+            .entity(desk.caption)
+            .insert(Text::new(words.clone()));
+        painted.caption = words;
+    }
     if open != painted.open {
         painted.open = open;
         commands

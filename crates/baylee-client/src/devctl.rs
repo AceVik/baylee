@@ -249,6 +249,13 @@ fn shell_knobs(
             crate::lobby::central::demo_central_lobby(lobby);
             said.push("\"central_lobby\":true".to_string());
         }
+        #[cfg(not(target_arch = "wasm32"))]
+        if field(body, "ranked_lobby") == Some("true")
+            && let Some(lobby) = lobby.as_mut()
+        {
+            let populated = crate::lobby::ranked::visual_fixture::populate(lobby);
+            said.push(format!("\"ranked_lobby\":{populated}"));
+        }
         if let (Some(stage), Some(mem)) = (field(body, "auth_demo"), auth_progress.as_mut()) {
             use crate::lobby::front::progress::AuthDemo;
             mem.demo = match stage {
