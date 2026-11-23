@@ -11,7 +11,7 @@ card!(
     oracle_id = "b173245e-2009-48ff-ac42-5f28d12aec79",
     scryfall_id = "b78fbaa3-c580-4290-9c28-b74169aab2fc",
     color_identity = ColorSet::from_slice(&[Color::Black, Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Fireglass Mentor",
         mana_cost = mana!("{B}{R}"),

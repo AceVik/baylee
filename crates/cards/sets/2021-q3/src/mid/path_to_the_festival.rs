@@ -20,16 +20,16 @@ card!(
         types = TypeSet::SORCERY,
         flashback = Some(mana!("{4}{G}")),
     ),],
-    abilities = &[spell!(&[
-        Effect::SearchLibrary {
+    abilities = &[spell!(&[Effect::CaptureAffected {
+        first: &[Effect::SearchLibrary {
             filter: &SEARCH1,
             finds: &[Find::BATTLEFIELD_TAPPED],
             optional: false
-        },
-        Effect::IfCondition {
+        }],
+        then: &[Effect::IfCondition {
             condition: Condition::AmountAtLeast(Amount::BasicLandTypesAmong(&Filter::YOUR_LAND), 3),
             then: &[Effect::scry(1)],
             otherwise: &[]
-        }
-    ]),],
+        }]
+    }]),],
 );

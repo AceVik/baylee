@@ -14,7 +14,7 @@ card!(
     color_identity = ColorSet::from_slice(&[Color::Red]),
     commander = CommanderRule::Legendary,
     keywords = KeywordSet::AFFLICT,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Neheb, the Eternal",
         mana_cost = mana!("{3}{R}{R}"),

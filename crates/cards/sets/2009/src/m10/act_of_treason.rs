@@ -10,7 +10,7 @@ card!(
     oracle_id = "9d08af23-9f4a-4097-9abc-3b17475ab744",
     scryfall_id = "a1a9d323-fb40-411b-a0e7-64024bc6ba58",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Act of Treason",
         mana_cost = mana!("{2}{R}"),

@@ -38,8 +38,8 @@ card!(
             color_indicator = ColorSet::from_slice(&[Color::Red, Color::White]),
             abilities = &[triggered!(
                 Trigger::Attacks(&Filter::This),
-                &[
-                    Effect::CreateTokenCopy {
+                &[Effect::CaptureAffected {
+                    first: &[Effect::CreateTokenCopy {
                         target: TargetSpec::ThisObject,
                         controller: PlayerRel::You,
                         amount: Amount::Fixed(1),
@@ -48,18 +48,13 @@ card!(
                         attacking: true,
                         haste_until_eot: false,
                         cleanup: CopyCleanup::SacrificeAtNextEndStep
-                    },
-                    Effect::RepeatEachObject {
-                        zone: ZoneSel::Battlefield,
-                        filter: &Filter::Any,
-                        only_found: true,
-                        then: &[Effect::AddCounterFilter {
-                            filter: &Filter::Reference,
-                            kind: CounterKind::P1P1,
-                            amount: Amount::CountersOnSource(CounterKind::P1P1)
-                        }]
-                    }
-                ]
+                    }],
+                    then: &[Effect::AddCounterFilter {
+                        filter: &Filter::IsRemembered,
+                        kind: CounterKind::P1P1,
+                        amount: Amount::CountersOnSource(CounterKind::P1P1)
+                    }]
+                }]
             ),],
             castable_from_hand = false,
         ),
