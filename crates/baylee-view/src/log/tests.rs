@@ -19,6 +19,7 @@ const fn player() -> PlayerId {
 }
 
 /// Every kind of line that names objects, with the objects it names in order.
+#[expect(clippy::too_many_lines, reason = "a table, one row per kind of line")]
 fn naming() -> Vec<(LogEvent, Vec<u16>)> {
     vec![
         (
