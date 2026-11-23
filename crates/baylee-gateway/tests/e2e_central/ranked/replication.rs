@@ -10,6 +10,8 @@ use baylee_engine::choice::PlayerAction;
 
 #[path = "replication/authority.rs"]
 mod authority;
+#[path = "replication/home.rs"]
+mod home;
 #[path = "replication/host.rs"]
 mod host;
 #[path = "replication/seats.rs"]
@@ -93,14 +95,6 @@ fn advance(f: &Fixture<'_>, players: &[Player; 2], host: &Registered, match_id: 
         views: current,
         live,
     }
-}
-
-fn home_identity(home: &Registered, players: &[Player; 2]) -> [String; 2] {
-    players.each_ref().map(|p| {
-        let (code, body) = common::http(home.gateway.port, "GET", "/me", Some(&p.home.token), "");
-        assert_eq!(code, 200, "original lobby bearer must still be usable");
-        common::json_field(&body, "id").to_owned()
-    })
 }
 
 /// Admit a fresh independent operator after the existing standby was promoted.
@@ -198,7 +192,8 @@ pub(in super::super) fn run(
         player(second, served, &home, 61),
     ];
     receipts::before(served, &players);
-    let identities = home_identity(&home, &players);
+    let sessions = players.each_ref().map(|p| home::Session::start(&home, p));
+    let identities = sessions.each_ref().map(home::Session::identity);
     let mut hosts = [fixture.host("mirror_one"), fixture.host("mirror_two")];
     let assignments = authority::join(&players);
     let match_id = assignments[0].match_id;
@@ -253,7 +248,7 @@ pub(in super::super) fn run(
             .replica(authority::intent(&saved.route, &PlayerAction::Concede))
             .is_err()
     );
-    assert_eq!(identities, home_identity(&home, &players));
+    assert_eq!(identities, sessions.each_ref().map(home::Session::identity));
     let (replacement, recovered) =
         replace(&fixture, &players, &hosts[standby].registered, &saved, seed);
     finish(
@@ -264,5 +259,5 @@ pub(in super::super) fn run(
         &recovered,
         &assignments,
     );
-    assert_eq!(identities, home_identity(&home, &players));
+    assert_eq!(identities, sessions.each_ref().map(home::Session::identity));
 }
