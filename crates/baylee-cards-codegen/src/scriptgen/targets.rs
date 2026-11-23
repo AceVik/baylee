@@ -1079,6 +1079,11 @@ impl Tx<'_> {
             "!sharesNameWith ExiledWith" | "!sharesNameWith Imprinted" => {
                 "Filter::Not(&Filter::SameNameAsLinkedExile)".to_string()
             }
+            atom if self.capture_scope.is_some()
+                && self.wave27c_remembered_filter_atom(atom).is_some() =>
+            {
+                self.wave27c_remembered_filter_atom(atom).expect("checked")
+            }
             "sharesCreatureTypeWith" | "sharesCreatureTypeWith Self" => {
                 "Filter::SharesCreatureTypeWith(&Filter::This)".to_string()
             }
@@ -2024,6 +2029,9 @@ impl Tx<'_> {
                 ) =>
             {
                 "PlayerRel::DefendingPlayer"
+            }
+            other if self.wave27c_remembered_player_rel(other).is_some() => {
+                self.wave27c_remembered_player_rel(other)?
             }
             _ => return None,
         })

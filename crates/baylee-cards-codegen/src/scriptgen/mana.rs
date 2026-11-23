@@ -914,6 +914,9 @@ impl Tx<'_> {
                     _ => {}
                 }
             }
+            if let Some(expr) = self.wave27c_remembered_amount(def) {
+                return Some(expr);
+            }
             if def == "TriggerCount$DamageAmount"
                 && matches!(
                     self.trigger_mode.as_deref(),
@@ -2232,6 +2235,9 @@ impl Tx<'_> {
             None => return None,
         };
         if matches!(def.trim(), "Remembered$Amount" | "Count$RememberedSize") {
+            if self.capture_scope.is_some() {
+                return Some("Amount::RememberedCount".to_string());
+            }
             let mut removals = self.svars.values().filter_map(|body| {
                 let (api, mut p) = Params::parse(body)?;
                 if api != "RemoveCounter"

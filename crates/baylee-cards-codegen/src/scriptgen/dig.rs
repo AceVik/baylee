@@ -3406,7 +3406,7 @@ impl Tx<'_> {
         spec
     }
 
-    fn strip_filter_attr(raw: &str, attr: &str) -> Option<String> {
+    pub(super) fn strip_filter_attr(raw: &str, attr: &str) -> Option<String> {
         let mut alts = Vec::new();
         for alt in raw.split(',') {
             let trimmed = alt.trim();

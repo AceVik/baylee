@@ -1675,6 +1675,11 @@ impl Tx<'_> {
         targets_a_player: bool,
         prior_target_used: bool,
     ) -> Option<Vec<String>> {
+        if let Some(effs) =
+            self.wave27c_change_zone_all_extra(p, target, targets_a_player, prior_target_used)
+        {
+            return Some(effs);
+        }
         if p.peek("Origin") == Some("Library") && p.peek("Destination") == Some("Exile") {
             if p.take("ChangeType").as_deref() != Some("Card.YouOwn") {
                 return None;
@@ -3873,12 +3878,17 @@ impl Tx<'_> {
         })
     }
 
-    fn gain_control_ex_new_controller(
+    pub(super) fn gain_control_ex_new_controller(
         &self,
         raw: Option<&str>,
         target: Option<&str>,
         targets_a_player: bool,
     ) -> Option<&'static str> {
+        if let Some(r) = raw
+            && let Some(rel) = self.wave27c_gain_control_new_controller(r, false)
+        {
+            return Some(rel);
+        }
         match raw {
             None | Some("You") => Some("PlayerRel::You"),
             Some("TriggeredSourceController")
@@ -3896,7 +3906,10 @@ impl Tx<'_> {
         }
     }
 
-    fn gain_control_ex_riders(&self, p: &mut Params) -> Option<(&'static str, bool, bool)> {
+    pub(super) fn gain_control_ex_riders(
+        &self,
+        p: &mut Params,
+    ) -> Option<(&'static str, bool, bool)> {
         let duration = self.gain_control_ex_duration(p.take("LoseControl").as_deref())?;
         let untap = match p.take("Untap").as_deref() {
             None | Some("False") => false,
@@ -3936,6 +3949,11 @@ impl Tx<'_> {
         }
         if targets_a_player && p.peek("AllValid").is_some() {
             return self.gain_control_all_ex(p, target, true);
+        }
+        if p.peek("Defined") == Some("Self")
+            && let Some(effs) = self.wave27c_gain_control_self_remembered(p)
+        {
+            return Some(effs);
         }
         if target.is_none() && !targets_a_player {
             return self.gain_control_untargeted(p);
@@ -4060,8 +4078,10 @@ impl Tx<'_> {
             && !p.has("AllValid")
         {
             let who_raw = p.peek("NewController")?.to_string();
-            if let Some(who) = self.player_of_line(Some(&who_raw), None, false)
-                && Self::is_single_player_rel(who)
+            if let Some(who) = self
+                .wave27c_gain_control_new_controller(&who_raw, false)
+                .or_else(|| self.player_of_line(Some(&who_raw), None, false))
+                && (who == "PlayerRel::RememberedController" || Self::is_single_player_rel(who))
             {
                 p.take("NewController");
                 p.take("Defined");
@@ -10690,6 +10710,8 @@ impl Tx<'_> {
                 | "PlayerRel::ControllerOfAttached"
                 | "PlayerRel::OwnerOfSource"
                 | "PlayerRel::EnchantedPlayer"
+                | "PlayerRel::FirstTargetPlayerOrController"
+                | "PlayerRel::ThirdTargetPlayerOrController"
         )
     }
 

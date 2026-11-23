@@ -1399,18 +1399,9 @@ impl Tx<'_> {
         })
     }
 
-    /// Formats a `TargetReq` from a chain's second target fields.
+    /// Formats a `TargetReq` from a chain's second (and optional third) target fields.
     pub(super) fn second_target_req_expr(chain: &Chain) -> Option<String> {
-        let t = chain.second_target.as_deref()?;
-        Some(if let Some(max) = chain.second_target_up_to {
-            if max == 1 {
-                format!("TargetReq::up_to_one({t})")
-            } else {
-                format!("TargetReq::up_to({t}, {max})")
-            }
-        } else {
-            format!("TargetReq::one({t})")
-        })
+        Self::wave27c_extra_target_req_expr(chain)
     }
 
     /// Reads the `Choices$` list of a `Charm` ability into [`CharmMode`] tuples.
@@ -1518,6 +1509,9 @@ impl Tx<'_> {
             }
             let targets = Self::target_req_expr(&chain)
                 .map_or_default(|req| format!(", targets = Some({req})"));
+            if chain.third_target.is_some() {
+                return None;
+            }
             let has_second = chain.second_target.is_some();
             let second = Self::second_target_req_expr(&chain)
                 .map_or_default(|req| format!(", second_targets = Some({req})"));

@@ -7221,7 +7221,11 @@ impl Tx<'_> {
     /// `SubjectContext::found` (`Effect::UntapFound`, `Effect::RepeatEachObject {
     /// only_found: true }` + `EventObject` ops, and `TriggerRemember::EachCreatedToken`).
     #[allow(clippy::too_many_lines)]
-    fn wave26f_token_found_trigger_chain(&mut self, body: &str, chain: &mut Chain) -> Option<()> {
+    pub(super) fn wave26f_token_found_trigger_chain(
+        &mut self,
+        body: &str,
+        chain: &mut Chain,
+    ) -> Option<()> {
         let (api, mut p) = Params::parse(body)?;
         p.drop_prose();
         if !matches!(api.as_str(), "Token" | "CopyPermanent")

@@ -2104,12 +2104,24 @@ fn wave7_mill_take_one_and_remembered_sacrifice_rules() {
         "{}",
         mill_take.abilities[0]
     );
+    let mandatory_mill = read(
+        "Name:MandatoryMillTake\nManaCost:1 G\nTypes:Sorcery\n\
+         A:SP$ Mill | Defined$ You | NumCards$ 4 | RememberMilled$ True | SubAbility$ Take\n\
+         SVar:Take:DB$ ChangeZone | Origin$ Graveyard,Exile | Destination$ Hand | Hidden$ True | Mandatory$ True | ChangeType$ Creature.IsRemembered",
+    );
+    assert!(
+        mandatory_mill.abilities[0].contains("Effect::CaptureAffected")
+            && mandatory_mill.abilities[0].contains("ChooseZone::Remembered")
+            && mandatory_mill.abilities[0].contains("min: 1,"),
+        "{}",
+        mandatory_mill.abilities[0]
+    );
     assert_eq!(
         refusal_reason(
             &parse(
-                "Name:MandatoryMillTake\nManaCost:1 G\nTypes:Sorcery\n\
+                "Name:UnmodelledMillTake\nManaCost:1 G\nTypes:Sorcery\n\
                  A:SP$ Mill | Defined$ You | NumCards$ 4 | RememberMilled$ True | SubAbility$ Take\n\
-                 SVar:Take:DB$ ChangeZone | Origin$ Graveyard,Exile | Destination$ Hand | Hidden$ True | Mandatory$ True | ChangeType$ Creature.IsRemembered"
+                 SVar:Take:DB$ ChangeZone | Origin$ Graveyard,Exile | Destination$ Hand | Hidden$ True | Mandatory$ True | ForgetOnMoved$ Graveyard | ChangeType$ Creature.IsRemembered"
             ),
             &cats(),
             None,
