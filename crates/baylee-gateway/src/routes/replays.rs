@@ -698,3 +698,6 @@ pub(crate) async fn archive_replay(
         .map_err(|e| crate::db_down(&anyhow::Error::from(e)))?;
     Ok(Json(ask))
 }
+
+#[cfg(test)]
+mod tests;
