@@ -177,3 +177,100 @@ fn malformed_interleaved_partial_and_oversized_operations_never_become_acknowled
         assert!(Control::decode(TowerFrame { control, data }).is_err());
     }
 }
+
+#[test]
+fn only_a_chunk_carries_data_and_it_carries_between_one_byte_and_the_limit() {
+    let acknowledgement = Acknowledged {
+        fence: 3,
+        prefix: Prefix::default(),
+    };
+    for bare in [
+        Control::Read { index: 0 },
+        Control::Acknowledged { acknowledgement },
+        Control::Seal {
+            expected: Prefix::default(),
+        },
+        Control::Sealed { acknowledgement },
+        Control::Finished {},
+    ] {
+        assert!(bare.envelope(Vec::new()).is_ok());
+        assert_eq!(bare.envelope(vec![0]).err(), Some(Refusal::Capacity));
+    }
+    for chunk in [
+        Control::Recovery { index: 0 },
+        part(0, 1, Prefix::default()),
+    ] {
+        assert_eq!(chunk.envelope(Vec::new()).err(), Some(Refusal::Capacity));
+        assert!(chunk.envelope(vec![b'x'; MAX_CHUNK_BYTES]).is_ok());
+        assert_eq!(
+            chunk.envelope(vec![b'x'; MAX_CHUNK_BYTES + 1]).err(),
+            Some(Refusal::Capacity)
+        );
+    }
+}
+
+#[test]
+fn an_append_names_a_live_fence_and_a_part_of_a_bounded_batch() {
+    let send = |fence, chunks, index| {
+        Control::Append {
+            fence,
+            expected: Prefix::default(),
+            chunks,
+            index,
+        }
+        .envelope(b"x".to_vec())
+        .err()
+    };
+    assert_eq!(send(1, 1, 0), None);
+    assert_eq!(send(u64::MAX, 64, 63), None);
+    assert_eq!(send(0, 1, 0), Some(Refusal::Invalid));
+    assert_eq!(send(1, 0, 0), Some(Refusal::Invalid));
+    assert_eq!(send(1, 2, 2), Some(Refusal::Invalid));
+    assert_eq!(send(1, 65, 0), Some(Refusal::Invalid));
+    assert_eq!(send(1, u8::MAX, u8::MAX), Some(Refusal::Invalid));
+}
+
+#[test]
+fn a_received_frame_is_judged_by_the_same_rules_as_a_sent_one() {
+    let receive = |control: &str, data: &[u8]| {
+        Control::decode(TowerFrame {
+            control: control.as_bytes().to_vec(),
+            data: data.to_vec(),
+        })
+        .err()
+    };
+    assert_eq!(receive(r#"{"operation":"read","index":4}"#, b""), None);
+    assert_eq!(receive(r#"{"operation":"finished"}"#, b""), None);
+    // A data byte smuggled behind a control that has none.
+    assert_eq!(
+        receive(r#"{"operation":"read","index":4}"#, b"x"),
+        Some(Refusal::Capacity)
+    );
+    assert_eq!(
+        receive(r#"{"operation":"recovery","index":4}"#, b""),
+        Some(Refusal::Capacity)
+    );
+    for strange in [
+        "",
+        "{}",
+        "null",
+        r#"{"operation":"award","gold":1}"#,
+        r#"{"operation":"read"}"#,
+        r#"{"operation":"read","index":-1}"#,
+        r#"{"operation":"read","index":4,"path":"/bin/sh"}"#,
+        r#"{"operation":"finished","winner":0}"#,
+        r#"{"operation":"read","index":4}{"operation":"finished"}"#,
+    ] {
+        assert_eq!(receive(strange, b""), Some(Refusal::Invalid), "{strange}");
+    }
+    // Size is judged before the text is parsed, so padding is not a way in.
+    let padded = format!("{}{}", " ".repeat(MAX_CONTROL_BYTES), "{}");
+    assert_eq!(receive(&padded, b""), Some(Refusal::Capacity));
+    assert_eq!(
+        receive(
+            r#"{"operation":"recovery","index":4}"#,
+            &vec![b'x'; MAX_CHUNK_BYTES + 1]
+        ),
+        Some(Refusal::Capacity)
+    );
+}

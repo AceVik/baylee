@@ -125,3 +125,6 @@ impl Board {
         self.leaders.iter().filter(|s| s.yours).count() <= 1
     }
 }
+
+#[cfg(test)]
+mod tests;
