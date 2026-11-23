@@ -2604,11 +2604,17 @@ fn wave8b_choose_card_battlefield_and_graveyard() {
          A:SP$ ChooseCard | ChoiceZone$ Hand | Choices$ Card.YouOwn | Mandatory$ True | SubAbility$ Move\n\
          SVar:Move:DB$ ChangeZone | Defined$ ChosenCard | Origin$ Hand | Destination$ Graveyard"
     ));
-    assert!(refused(
-        "Name:BadRandPick\nManaCost:1 R\nTypes:Sorcery\n\
+    // Wave 27b: `ChooseCard | AtRandom$ True` now lowers onto `Effect::ChooseCardConstrained`.
+    let rand_pick = read(
+        "Name:RandPick\nManaCost:1 R\nTypes:Sorcery\n\
          A:SP$ ChooseCard | ChoiceZone$ Battlefield | Choices$ Creature | AtRandom$ True | SubAbility$ Kill\n\
-         SVar:Kill:DB$ Destroy | Defined$ ChosenCard"
-    ));
+         SVar:Kill:DB$ Destroy | Defined$ ChosenCard",
+    );
+    assert!(
+        rand_pick.abilities[0].contains("Effect::ChooseCardConstrained"),
+        "{}",
+        rand_pick.abilities[0]
+    );
     // Single-card non-You graveyard return without `GainControl$ True` lowers via
     // `MoveAndModify { owner_control: true }`; multi-card (`Amount$ 2`) stays refused.
     let opp_owner_rean = read(

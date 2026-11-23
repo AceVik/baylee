@@ -150,6 +150,9 @@ impl Tx<'_> {
         // That is the trap [`Self::player_rel_of`] was written for, so the
         // absent key is read the same way it reads one there: as the target
         // where this line targets a player, and as you where it does not.
+        if p.has("AttachedTo") || p.has("AttachedToPlayer") {
+            return self.wave27b_token_attached(p, target, targets_a_player);
+        }
         let raw_owner = p.take("TokenOwner");
         let raw_power = p.take("TokenPower");
         let raw_toughness = p.take("TokenToughness");
@@ -5740,6 +5743,12 @@ impl Tx<'_> {
     ) -> Option<Vec<String>> {
         let origin = p.take("Origin")?;
         let destination = p.take("Destination")?;
+        if destination == "Battlefield" && (p.has("AttachedTo") || p.has("AttachedToPlayer")) {
+            return self.wave27b_change_zone_attached(p, &origin, target, targets_here);
+        }
+        if destination == "Battlefield" && p.has("Attacking") {
+            return self.wave27b_change_zone_attacking(p, &origin, target, targets_here);
+        }
         p.claim_label("ChangeTypeDesc", "ChangeType");
         if !targets_here
             && origin == "Command"
@@ -6069,6 +6078,15 @@ impl Tx<'_> {
         }
         // Without a target this would move nothing at all.
         if !itself && target == "TargetSpec::AnyPlayer" {
+            if let Some(fx) = self.wave27b_change_zone_constrained(
+                p,
+                &origin,
+                &destination,
+                Some(target),
+                targets_here,
+            ) {
+                return Some(fx);
+            }
             return self.deny("`ChangeZone` with neither a target nor `Defined$`".to_string());
         }
         // Targeted `ChangeZone` in MTG is mandatory by default unless `Optional$`
@@ -8245,6 +8263,30 @@ impl Tx<'_> {
                 && (lower_oracle.contains("search their library for up to ")
                     || lower_oracle.contains("library for up to ")));
         let raw_num = p.take("ChangeNum");
+        if p.has("DifferentNames") {
+            return self.wave27b_search_distinct_names(
+                p,
+                destination,
+                is_own_library,
+                optional,
+                mandatory,
+                up_to,
+                reveal_requested,
+                &base_find,
+                raw_num.as_deref(),
+            );
+        }
+        if destination == "Battlefield" && p.has("AttachAfter") {
+            return self.wave27b_search_attach_after(
+                p,
+                is_own_library,
+                optional,
+                mandatory,
+                up_to,
+                &base_find,
+                raw_num.as_deref(),
+            );
+        }
         if is_own_library
             && let Some(var) = raw_num.as_deref()
             && let Some(pair) = self
@@ -9004,7 +9046,9 @@ impl Tx<'_> {
         ) {
             return None;
         }
-        let effect = if next_api == "Attach" {
+        let effect = if next_api == "Attach" && np.has("Choices") {
+            self.wave27b_token_then_attach_chosen(&mut np, &token)?
+        } else if next_api == "Attach" {
             let obj_ok = match np.take("Object").as_deref() {
                 None | Some("Self") => true,
                 Some("TriggeredCard" | "TriggeredCardLKICopy") if self.trigger_is_self => true,
@@ -14050,6 +14094,22 @@ impl Tx<'_> {
         };
         let (api, mut sp) = Params::parse(&body)?;
         sp.drop_prose();
+
+        // 0. Hand `Discard | Mode$ Defined` -> `Effect::DiscardDefined`.
+        if expected_origin == "Hand"
+            && api == "Discard"
+            && sp.peek("Mode") == Some("Defined")
+            && let Some((then_effects, for_unchosen, trailing_sub)) =
+                self.wave27b_choose_card_discard_followup(sp.clone(), zone_owner, choices_raw)
+        {
+            return Some(ChooseCardFollowup {
+                movement: "ChooseMove::None".to_string(),
+                not_chosen_movement: "ChooseMove::None".to_string(),
+                then_effects,
+                for_unchosen,
+                trailing_sub,
+            });
+        }
 
         // 1. Direct `ChangeZone` on `ChosenCard` from `expected_origin`.
         if api == "ChangeZone"

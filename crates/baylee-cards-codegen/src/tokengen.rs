@@ -441,12 +441,10 @@ fn token_shape_ok(raw: &RawToken, types: &TypeLine) -> bool {
     if !is_equipment && raw.ability_keywords.iter().any(|k| k.starts_with("Equip:")) {
         return false;
     }
-    // CR 303.7 Role uniqueness SBA is not yet enforced in the engine; keep
-    // Role Aura tokens refused while allowing plain Aura tokens.
-    let is_non_role_aura = !types.is_creature
-        && types.subtypes.iter().any(|s| s == "enchantment::AURA")
-        && !types.subtypes.iter().any(|s| s == "enchantment::ROLE");
-    is_non_role_aura
+    // CR 303.7 Role uniqueness SBA is enforced in `sba.rs`, so both plain and
+    // Role Aura tokens are legal to generate.
+    let is_aura = !types.is_creature && types.subtypes.iter().any(|s| s == "enchantment::AURA");
+    is_aura
         || !raw
             .ability_keywords
             .iter()
@@ -2422,14 +2420,13 @@ mod tests {
             aura_tok.constant
         );
 
-        // Role Aura tokens stay refused while CR 303.7 is unmodeled.
-        assert!(
-            read(
-                "Name:Role Token\nTypes:Enchantment Aura Role\nK:Enchant:Creature",
-                &cats()
-            )
-            .is_none()
-        );
+        // Role Aura tokens are now supported with CR 303.7 enforced in `sba.rs`.
+        let role_tok = read(
+            "Name:Role Token\nTypes:Enchantment Aura Role\nK:Enchant:Creature",
+            &cats(),
+        )
+        .expect("role aura token");
+        assert!(role_tok.literal.contains("enchantment::ROLE"));
     }
 
     #[test]
