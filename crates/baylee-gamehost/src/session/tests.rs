@@ -24,6 +24,7 @@ mod teacher;
 mod team_exercise;
 mod trample_division;
 mod trigger_order;
+mod twins;
 
 /// The awaited seat's clock answer, as a one-seat table asks it.
 fn timeout(session: &Session) -> Option<(PlayerId, PlayerAction)> {

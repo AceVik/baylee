@@ -6472,3 +6472,6 @@ across Central failures and gateway restarts. An interrupted launch, failed
 loading or aborted engine releases the assignment without charging either
 player a loss. The game-over view on each connected player's seat socket
 comes directly from the engine. Central publishes the resulting ratings.
+
+The [two-engine feasibility study](proposals/ranked-replication.md) describes
+the replay evidence and the protocol changes needed for cross-host failover.
