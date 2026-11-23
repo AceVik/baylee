@@ -3125,6 +3125,10 @@ Filters, conditions, modifiers and durations:
   choosing it is declining. The yes or no is asked as the effect resolves,
   which is when the printed choice is made; a pair of modes would ask it on
   casting.
+- **`Effect::ToggleTapAll { filter }`** is the untargeted, simultaneous whole-
+  battlefield form: capture every matching permanent and its old tapped state
+  once, then untap the tapped ones and tap the untapped ones. An object newly
+  untapped by this effect is not considered again by its tapping half.
 - **`Effect::DiscardHand { who }`** is "each player discards their hand"
   (Wheel of Fortune): every card of each named hand, nobody choosing, each
   journaled as a discard of its own.

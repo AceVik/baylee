@@ -56,6 +56,16 @@ impl Tx<'_> {
                     .peek("Origin")
                     .is_some_and(|zones| zones.split(',').any(|zone| zone == "Library"))
                     != (p.peek("Destination") == Some("Library"))));
+        if api == "UntapAll"
+            && p.peek("RememberUntapped") == Some("True")
+            && chain.target.is_none()
+            && chain.second_target.is_none()
+            && chain.third_target.is_none()
+        {
+            let effect = self.toggle_tap_all_effect(&p)?;
+            chain.effects.push(effect);
+            return Some(());
+        }
         let had_second_target = chain.second_target.is_some();
         let had_third_target = chain.third_target.is_some();
         if api == "Effect"
@@ -1636,6 +1646,48 @@ impl Tx<'_> {
             return self.deny(format!("`SubAbility$ {name}` names no SVar"));
         };
         self.chain(&body, chain)
+    }
+
+    /// Read the reference's remembered-object encoding of one simultaneous
+    /// tap/untap sweep. The first line remembers exactly the tapped matches;
+    /// the second taps their untapped complement. The technical cleanup has
+    /// no rules effect because the DSL captures both sets in one snapshot.
+    fn toggle_tap_all_effect(&self, line: &Params) -> Option<String> {
+        let mut p = line.clone();
+        let first = p.take("ValidCards")?;
+        let base = first.strip_suffix(".tapped")?;
+        if base.is_empty() || p.take("RememberUntapped").as_deref() != Some("True") {
+            return None;
+        }
+        let sub = p.take("SubAbility")?;
+        if !p.exhausted() {
+            return None;
+        }
+        let body = self.svars.get(sub.trim())?;
+        let (api, mut sp) = Params::parse(body)?;
+        if api != "TapAll" {
+            return None;
+        }
+        sp.drop_prose();
+        let complement = sp.take("ValidCards")?;
+        if complement != format!("{base}.untapped+!IsRemembered") {
+            return None;
+        }
+        let cleanup = sp.take("SubAbility")?;
+        if !sp.exhausted() {
+            return None;
+        }
+        let cleanup_body = self.svars.get(cleanup.trim())?;
+        let (cleanup_api, mut cp) = Params::parse(cleanup_body)?;
+        cp.drop_prose();
+        if cleanup_api != "Cleanup"
+            || cp.take("ClearRemembered").as_deref() != Some("True")
+            || !cp.exhausted()
+        {
+            return None;
+        }
+        let filter = self.filter_expr(base)?;
+        Some(format!("Effect::ToggleTapAll {{ filter: &{filter} }}"))
     }
 
     // The requirement and the effect name the target differently when it

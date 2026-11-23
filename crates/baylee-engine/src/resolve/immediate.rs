@@ -3541,6 +3541,26 @@ pub(super) fn exec_immediate(
             }
             None
         }
+        Effect::ToggleTapAll { filter } => {
+            let you = res.controller;
+            let all: Vec<(ObjectId, bool)> = state
+                .battlefield_seen()
+                .filter_map(|id| {
+                    state.object(id).and_then(|o| {
+                        eval::matches_with_context(filter, state, o, you, res.rule_context())
+                            .then_some((id, o.status.contains(crate::object::Status::TAPPED)))
+                    })
+                })
+                .collect();
+            for (id, was_tapped) in all {
+                if was_tapped {
+                    untap(state, id);
+                } else {
+                    tap(state, id);
+                }
+            }
+            None
+        }
         // Mana Short's "tap all lands target player controls": the seats
         // are the resolution's (a targeted player is `Chosen`), and the
         // permanents are whatever they control as this resolves.

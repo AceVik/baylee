@@ -1139,6 +1139,7 @@ impl Effect {
             | Effect::GoadAll { .. }
             | Effect::ToggleTapTarget
             | Effect::TapAll { .. }
+            | Effect::ToggleTapAll { .. }
             | Effect::TapAllOf { .. }
             | Effect::LoseUnspentMana { .. }
             | Effect::UntapAll { .. }

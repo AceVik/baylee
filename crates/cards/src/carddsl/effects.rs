@@ -254,6 +254,7 @@ fn accumulate_effect(effect: &Effect, ch: &mut EffectChannels) {
         | Effect::TapEventObject
         | Effect::ToggleTapTarget
         | Effect::TapAll { .. }
+        | Effect::ToggleTapAll { .. }
         | Effect::TapAllOf { .. }
         | Effect::UntapTarget
         | Effect::UntapTargetSlot(_)

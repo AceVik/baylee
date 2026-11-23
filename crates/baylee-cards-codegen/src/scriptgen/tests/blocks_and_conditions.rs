@@ -356,6 +356,31 @@ fn tapping_all_of_a_players_lands_and_their_mana_reads_the_chains_player() {
     );
 }
 
+#[test]
+fn complementary_tap_and_untap_sweeps_read_as_one_snapshot() {
+    let toggle = read(
+        "Name:X\nTypes:Sorcery\n\
+         A:SP$ UntapAll | ValidCards$ Creature.tapped | RememberUntapped$ True | SubAbility$ Second\n\
+         SVar:Second:DB$ TapAll | ValidCards$ Creature.untapped+!IsRemembered | SubAbility$ Finish\n\
+         SVar:Finish:DB$ Cleanup | ClearRemembered$ True",
+    );
+    let abilities = toggle.abilities.join("");
+    assert!(
+        abilities.contains("Effect::ToggleTapAll { filter: &Filter::CREATURE }"),
+        "{abilities}"
+    );
+    assert_eq!(abilities.matches("Effect::ToggleTapAll").count(), 1);
+    assert!(!abilities.contains("Effect::UntapAll"), "{abilities}");
+    assert!(!abilities.contains("Effect::TapAll {"), "{abilities}");
+
+    assert!(refused(
+        "Name:X\nTypes:Sorcery\n\
+         A:SP$ UntapAll | ValidCards$ Creature.tapped | RememberUntapped$ True | SubAbility$ Second\n\
+         SVar:Second:DB$ TapAll | ValidCards$ Land.untapped+!IsRemembered | SubAbility$ Finish\n\
+         SVar:Finish:DB$ Cleanup | ClearRemembered$ True"
+    ));
+}
+
 /// Pestilence, Karma, Spell Blast, Dwarven Warriors: counts of
 /// everybody's permanents, the active player's permanents, a mana value
 /// of exactly X, and a creature nobody can block this turn.
