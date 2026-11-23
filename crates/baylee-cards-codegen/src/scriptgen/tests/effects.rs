@@ -112,7 +112,8 @@ fn repeated_targets_without_slot_support_are_refused_even_when_types_match() {
         let text = format!(
             "Name:Independent target boundary\nTypes:Instant\nManaCost:2 G\n\
              A:SP$ Pump | ValidTgts$ Creature | NumAtt$ 4 | SubAbility$ Next\n\
-             SVar:Next:{next}\nSVar:Third:DB$ Pump | ValidTgts$ Creature | NumDef$ 2\n"
+             SVar:Next:{next}\nSVar:Third:DB$ Pump | ValidTgts$ Creature | NumDef$ 2 | SubAbility$ Fourth\n\
+             SVar:Fourth:DB$ Pump | ValidTgts$ Creature | NumDef$ 3\n"
         );
         assert!(refused(&text), "independent target collapsed: {text}");
     }
@@ -151,8 +152,21 @@ fn independent_counter_targets_are_refused_until_counter_slots_are_supported() {
          SVar:Next:DB$ PutCounter | ValidTgts$ Creature | CounterType$ P1P1 | CounterNum$ 4 | SubAbility$ Third\n\
          SVar:Third:DB$ PutCounter | ValidTgts$ Creature | CounterType$ P1P1 | CounterNum$ 6\n"
     );
+    let triple_body = read(&triple);
+    assert!(
+        triple_body.abilities[0].contains("Effect::WithThirdTarget(&[Effect::AddCounter { kind: CounterKind::P1P1, amount: Amount::Fixed(6) }])")
+            && triple_body.abilities[0].contains("third_targets = Some(TargetReq::one(TargetSpec::Object(&Filter::CREATURE)))"),
+        "three independent PutCounter clauses now lower via WithThirdTarget: {}",
+        triple_body.abilities[0]
+    );
+    let quad = format!(
+        "{head} | SubAbility$ Next\n\
+         SVar:Next:DB$ PutCounter | ValidTgts$ Creature | CounterType$ P1P1 | CounterNum$ 4 | SubAbility$ Third\n\
+         SVar:Third:DB$ PutCounter | ValidTgts$ Creature | CounterType$ P1P1 | CounterNum$ 6 | SubAbility$ Fourth\n\
+         SVar:Fourth:DB$ PutCounter | ValidTgts$ Creature | CounterType$ P1P1 | CounterNum$ 8\n"
+    );
     assert_eq!(
-        refusal_reason(&parse(&triple), &cats(), None).as_deref(),
+        refusal_reason(&parse(&quad), &cats(), None).as_deref(),
         Some("unsupported independent target in one chain")
     );
 }
@@ -4702,7 +4716,7 @@ fn wave20b_mana_reflected_db_and_sacrifice_refusals() {
         "Name:BadSacEnch\nManaCost:1 B\nTypes:Enchantment Aura\nK:Enchant:Creature\nT:Mode$ Phase | Phase$ End of Turn | ValidPlayer$ You | TriggerZones$ Battlefield | Execute$ S\nSVar:S:DB$ SacrificeAll | Defined$ Enchanted",
         "Name:BadSacCtrl\nManaCost:2 B\nTypes:Sorcery\nA:SP$ SacrificeAll | ValidCards$ Creature | Controller$ Opponent",
         "Name:BadMultiSacCount\nManaCost:4 R\nTypes:Sorcery\nA:SP$ SacrificeAll | ValidCards$ Creature.YouCtrl | RememberSacrificed$ True | SubAbility$ T\nSVar:T:DB$ Token | TokenScript$ r_1_1_goblin | TokenAmount$ X\nSVar:X:Remembered$Amount",
-        "Name:BadOppSacLki\nManaCost:2 B\nTypes:Instant\nA:SP$ Sacrifice | ValidTgts$ Opponent | SacValid$ Creature | RememberSacrificed$ True | SubAbility$ G\nSVar:G:DB$ GainLife | Defined$ You | LifeAmount$ X\nSVar:X:RememberedLKI$CardToughness",
+        "Name:BadOppSacCounters\nManaCost:2 B\nTypes:Instant\nA:SP$ Sacrifice | ValidTgts$ Opponent | SacValid$ Creature | RememberSacrificed$ True | SubAbility$ G\nSVar:G:DB$ GainLife | Defined$ You | LifeAmount$ X\nSVar:X:RememberedLKI$CardCounters.ALL",
         "Name:BadManaReflectOpp\nManaCost:2 R\nTypes:Enchantment\nT:Mode$ TapsForMana | ValidCard$ Land | Activator$ Opponent | Execute$ M | TriggerZones$ Battlefield | Static$ True\nSVar:M:DB$ ManaReflected | ColorOrType$ Type | ReflectProperty$ Produced | Defined$ You\nOracle:Whenever an opponent taps a land for mana, add one mana of any type that land produced.",
     ] {
         assert!(refused(bad), "must refuse: {bad}");

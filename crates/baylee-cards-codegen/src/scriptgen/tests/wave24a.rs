@@ -762,29 +762,41 @@ fn non_paper_and_unsupported_remember_changed_chains_stay_refused() {
          SVar:DBCleanup:DB$ Cleanup | ClearRemembered$ True",
     ));
 
-    // Act of Authority: `Effect::ChangeController` uses `subjects::this`, which
-    // resolves to the object target instead of `res.source` when targeted.
-    assert!(refused(
+    // Act of Authority: Wave 27c lowers this via CaptureAffected + GainControlEx(ThisObject, RememberedController).
+    let act = read(
         "Name:Act of Authority\nManaCost:1 W W\nTypes:Enchantment\n\
          T:Mode$ Phase | Phase$ Upkeep | ValidPlayer$ You | Execute$ TrigExile | TriggerZones$ Battlefield | OptionalDecider$ You\n\
          SVar:TrigExile:DB$ ChangeZone | ValidTgts$ Artifact,Enchantment | Origin$ Battlefield | Destination$ Exile | RememberChanged$ True | SubAbility$ DBGainControl\n\
          SVar:DBGainControl:DB$ GainControl | Defined$ Self | NewController$ RememberedController | ConditionCheckSVar$ X | SubAbility$ DBCleanup\n\
          SVar:DBCleanup:DB$ Cleanup | ClearRemembered$ True\n\
          SVar:X:Remembered$Amount",
-    ));
+    );
+    assert!(
+        act.abilities[0].contains("Effect::CaptureAffected")
+            && act.abilities[0].contains("target: TargetSpec::ThisObject")
+            && act.abilities[0].contains("to: PlayerRel::RememberedController"),
+        "{}",
+        act.abilities[0]
+    );
 
-    // Riders of the Mark: no `Amount::SourceToughness` in DSL.
-    assert!(refused_w24(
+    // Riders of the Mark: Wave 27c lowers this via CaptureAffected + Amount::RememberedToughness.
+    let riders = read_w24(
         "Name:Riders of the Mark\nManaCost:6 R\nTypes:Creature\nPT:7/4\n\
          T:Mode$ Phase | TriggerZones$ Battlefield | Phase$ End of Turn | ValidPlayer$ You | Execute$ TrigChangeZone\n\
          SVar:TrigChangeZone:DB$ ChangeZone | Defined$ Self | Origin$ Battlefield | Destination$ Hand | RememberChanged$ True | SubAbility$ DBToken\n\
          SVar:DBToken:DB$ Token | TokenScript$ w_1_1_spirit_flying | TokenOwner$ You | TokenAmount$ Y | ConditionDefined$ Remembered | ConditionPresent$ Card | SubAbility$ DBCleanup\n\
          SVar:DBCleanup:DB$ Cleanup | ClearRemembered$ True\n\
          SVar:Y:RememberedLKI$CardToughness",
-    ));
+    );
+    assert!(
+        riders.abilities[0].contains("Effect::CaptureAffected")
+            && riders.abilities[0].contains("Amount::RememberedToughness"),
+        "{}",
+        riders.abilities[0]
+    );
 
     // Alchemy Perpetual / Planechase must stay refused.
-    assert!(refused(
+    assert!(refused_w24(
         "Name:Divine Purge\nManaCost:1 W W\nTypes:Sorcery\n\
          A:SP$ ChangeZoneAll | Origin$ Battlefield | Destination$ Exile | ChangeType$ Creature | RememberChanged$ True | SubAbility$ DBAnimate\n\
          SVar:DBAnimate:DB$ Animate | Duration$ Perpetual | Defined$ Remembered | StaticAbilities$ RaiseCost\n\

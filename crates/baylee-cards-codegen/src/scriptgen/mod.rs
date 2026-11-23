@@ -69,6 +69,7 @@ mod targets;
 mod transform48;
 mod triggers;
 mod wall52;
+mod wave27c;
 
 use atoms::{
     Bound, amount, color_atom, count_bound, hybrid_pair, keyword_atom, mana_color_const,
@@ -354,6 +355,10 @@ struct Chain {
     target_constraint: Option<&'static str>,
     second_target: Option<String>,
     second_target_up_to: Option<u8>,
+    second_target_constraint: Option<&'static str>,
+    third_target: Option<String>,
+    third_target_up_to: Option<u8>,
+    third_target_constraint: Option<&'static str>,
     could_add_mana: bool,
     moves_library: bool,
 }
@@ -531,6 +536,8 @@ struct Tx<'a> {
     class_next_level: u8,
     /// Stashed `K:Overload:<mana>` cost for post-rule modal rewriting in `apply_overload`.
     overload_cost: Option<String>,
+    /// Active Wave 27c `Effect::CaptureAffected::then` scope, if any.
+    capture_scope: Option<wave27c::CaptureScope>,
     body: CardBody,
     /// The first `Api.Key` no rule claimed, if that is why this
     /// script was refused. Recorded rather than derived, because a
@@ -611,6 +618,7 @@ impl<'a> Tx<'a> {
             backup_grants: BTreeMap::new(),
             class_next_level: 2,
             overload_cost: None,
+            capture_scope: None,
             body: CardBody::default(),
             unclaimed: std::cell::RefCell::new(None),
         }

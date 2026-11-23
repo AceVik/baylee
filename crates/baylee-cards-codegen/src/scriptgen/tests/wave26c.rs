@@ -332,12 +332,18 @@ fn with_second_target_target_only_unique_and_first_target_graveyard() {
          SVar:DBShuffle:DB$ ChangeZone | TargetMin$ 0 | TargetMax$ 3 | TargetsWithDefinedController$ ParentTarget | Origin$ Graveyard | Destination$ Library | Shuffle$ True | ValidTgts$ Card"
     ));
 
-    // ChangeZone with TargetUnique$ True stays refused until TargetConstraint::DistinctFromPriorTargetGroups is wired.
-    assert!(refused_w26c(
+    // Wave 27c: ChangeZone with TargetUnique$ True now lowers via DistinctFromPriorTargetGroups.
+    let withdraw = read_w26c(
         "Name:Withdraw\nManaCost:U U\nTypes:Instant\n\
          A:SP$ ChangeZone | ValidTgts$ Creature | Origin$ Battlefield | Destination$ Hand | SubAbility$ DBBounce\n\
-         SVar:DBBounce:DB$ ChangeZone | ValidTgts$ Creature | TargetUnique$ True | Origin$ Battlefield | Destination$ Hand | UnlessCost$ 1 | UnlessPayer$ TargetedController"
-    ));
+         SVar:DBBounce:DB$ ChangeZone | ValidTgts$ Creature | TargetUnique$ True | Origin$ Battlefield | Destination$ Hand | UnlessCost$ 1 | UnlessPayer$ TargetedController",
+    );
+    assert!(
+        withdraw.abilities[0].contains("TargetConstraint::DistinctFromPriorTargetGroups")
+            && withdraw.abilities[0].contains("Effect::WithSecondTarget(&[Effect::PlayerMayPayOr"),
+        "{}",
+        withdraw.abilities[0]
+    );
 }
 
 // ---------------------------------------------------------------------------
@@ -527,7 +533,7 @@ fn restricted_triggers_use_stack_modal_choices() {
 
 #[test]
 fn wave26c_soundness_and_non_paper_refusals() {
-    // 1. 3-target chains stay cleanly refused until Chain::third_target is wired.
+    // 1. 4-target chains (and 3-target DamageMap+DamageResolve) stay cleanly refused.
     assert!(refused_w26c(
         "Name:Cone of Flame\nManaCost:3 R R\nTypes:Sorcery\n\
          A:SP$ DealDamage | ValidTgts$ Any | NumDmg$ 1 | DamageMap$ True | SubAbility$ DB2\n\
@@ -538,10 +544,11 @@ fn wave26c_soundness_and_non_paper_refusals() {
     assert_eq!(
         refusal_reason(
             &parse(
-                "Name:Three Distinct Targets\nManaCost:3 R R\nTypes:Sorcery\n\
+                "Name:Four Distinct Targets\nManaCost:3 R R\nTypes:Sorcery\n\
                  A:SP$ DealDamage | ValidTgts$ Creature | NumDmg$ 1 | SubAbility$ DB2\n\
                  SVar:DB2:DB$ DealDamage | ValidTgts$ Player | NumDmg$ 2 | SubAbility$ DB3\n\
-                 SVar:DB3:DB$ DealDamage | ValidTgts$ Planeswalker | NumDmg$ 3"
+                 SVar:DB3:DB$ DealDamage | ValidTgts$ Planeswalker | NumDmg$ 3 | SubAbility$ DB4\n\
+                 SVar:DB4:DB$ DealDamage | ValidTgts$ Creature | NumDmg$ 4"
             ),
             &w26c_cats(),
             None
@@ -557,13 +564,20 @@ fn wave26c_soundness_and_non_paper_refusals() {
          SVar:BounceTwo:DB$ ChangeZone | ValidTgts$ Creature | Origin$ Battlefield | Destination$ Hand | TargetMin$ 2 | TargetMax$ 2"
     ));
 
-    // 3. TargetUnique$ True on 2nd target when 1st target is multi-target must stay refused
-    //    (Filter::Not(&Filter::Reference) only excludes the first object).
-    assert!(refused_w26c(
+    // 3. Wave 27c: TargetUnique$ True on 2nd target when 1st target is multi-target
+    //    now lowers via TargetConstraint::DistinctFromPriorTargetGroups (which excludes
+    //    every object in prior target groups, not just Filter::Reference).
+    let multi_unique = read_w26c(
         "Name:MultiFirstUniqueSecond\nManaCost:3 U\nTypes:Sorcery\n\
          A:SP$ Tap | ValidTgts$ Creature | TargetMin$ 2 | TargetMax$ 2 | SubAbility$ BounceOther\n\
-         SVar:BounceOther:DB$ ChangeZone | ValidTgts$ Creature | TargetUnique$ True | Origin$ Battlefield | Destination$ Hand"
-    ));
+         SVar:BounceOther:DB$ ChangeZone | ValidTgts$ Creature | TargetUnique$ True | Origin$ Battlefield | Destination$ Hand",
+    );
+    assert!(
+        multi_unique.abilities[0].contains("TargetConstraint::DistinctFromPriorTargetGroups")
+            && !multi_unique.statics.contains("Filter::Reference"),
+        "{}",
+        multi_unique.abilities[0]
+    );
 
     // 4. UnlessResolveSubs$ on 2nd target must stay refused.
     assert!(refused_w26c(
@@ -580,13 +594,18 @@ fn wave26c_soundness_and_non_paper_refusals() {
          SVar:Bounce:DB$ ChangeZone | ValidTgts$ Creature | Origin$ Battlefield | Destination$ Hand | ConditionDefined$ ParentTarget | ConditionPresent$ Creature.tapped"
     ));
 
-    // 6. Trailing Defined$ Targeted after 2nd target must stay refused.
-    assert!(refused_w26c(
+    // 6. Wave 27c: trailing Defined$ Targeted after 2nd target now lowers via Effect::WithAllTargets.
+    let trailing = read_w26c(
         "Name:TrailingTargeted\nManaCost:2 U\nTypes:Instant\n\
          A:SP$ Tap | ValidTgts$ Creature | SubAbility$ Second\n\
          SVar:Second:DB$ PutCounter | ValidTgts$ Creature | CounterType$ P1P1 | CounterNum$ 1 | SubAbility$ Third\n\
-         SVar:Third:DB$ Untap | Defined$ Targeted"
-    ));
+         SVar:Third:DB$ Untap | Defined$ Targeted",
+    );
+    assert!(
+        trailing.abilities[0].contains("Effect::WithAllTargets(&[Effect::UntapTarget])"),
+        "{}",
+        trailing.abilities[0]
+    );
 }
 
 #[test]

@@ -970,7 +970,8 @@ fn a_refused_script_always_says_why() {
             "Name:X\nTypes:Instant\n\
              A:SP$ DealDamage | ValidTgts$ Creature | NumDmg$ 1 | SubAbility$ Second\n\
              SVar:Second:DB$ DealDamage | ValidTgts$ Player | NumDmg$ 1 | SubAbility$ Third\n\
-             SVar:Third:DB$ DealDamage | ValidTgts$ Creature | NumDmg$ 1",
+             SVar:Third:DB$ DealDamage | ValidTgts$ Creature | NumDmg$ 1 | SubAbility$ Fourth\n\
+             SVar:Fourth:DB$ DealDamage | ValidTgts$ Player | NumDmg$ 1",
             "unsupported independent target in one chain",
         ),
         // Both doors a counter noun comes through. A word the registry

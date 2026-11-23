@@ -57,6 +57,7 @@ impl Tx<'_> {
                     .is_some_and(|zones| zones.split(',').any(|zone| zone == "Library"))
                     != (p.peek("Destination") == Some("Library"))));
         let had_second_target = chain.second_target.is_some();
+        let had_third_target = chain.third_target.is_some();
         if api == "Effect"
             && chain.target.is_none()
             && p.has("ValidTgts")
@@ -191,6 +192,7 @@ impl Tx<'_> {
             (targets_here, p.take("SubAbility"))
         };
         let second_target_here = !had_second_target && chain.second_target.is_some();
+        let third_target_here = !had_third_target && chain.third_target.is_some();
         if api == "DealDamage"
             && self.prints_simultaneous_damage_to_controller()
             && let Some((effects, next)) =
@@ -420,6 +422,7 @@ impl Tx<'_> {
         };
 
         let mut wrap_in_second_target = false;
+        let mut wave27c_multi_wrap: Option<super::wave27c::MultiTargetAction> = None;
         let effects = if !second_target_here
             && api != "Branch"
             && let Some(split) = self
@@ -708,7 +711,13 @@ impl Tx<'_> {
         {
             self.dig_look_at_top_exile_face_down_effect(&mut p, &mut sub, targets_here)?
         } else if api == "TargetOnly" {
-            if second_target_here && !had_second_target {
+            if third_target_here {
+                p.take("IsCurse");
+                if !p.exhausted() {
+                    return None;
+                }
+                Vec::new()
+            } else if second_target_here && !had_second_target {
                 if unless.is_some() || dying.is_some() || at_end.is_some() || optional_counter {
                     return self.deny("`TargetOnly` modifier with `SubAbility$`".to_string());
                 }
@@ -719,7 +728,11 @@ impl Tx<'_> {
                     }
                     return None;
                 }
-                self.two_target_only_followup(&mut sub, chain)?
+                if self.wave27c_is_chained_target_only_slot2(sub.as_deref()) {
+                    Vec::new()
+                } else {
+                    self.two_target_only_followup(&mut sub, chain)?
+                }
             } else if !targets_here || second_target_here || had_second_target {
                 return self.deny("`TargetOnly` without a single first target".to_string());
             } else {
@@ -760,20 +773,48 @@ impl Tx<'_> {
             && sub.is_some()
             && !self.sub_is_api(sub.as_deref(), "ImmediateTrigger")
         {
-            let Some(effects) = self.sacrifice_remembered_effect(
+            let saved_p = p.clone();
+            let saved_sub = sub.clone();
+            let saved_unclaimed = self.unclaimed.borrow().clone();
+            let saved_statics_len = self.body.statics.len();
+            if let Some(effects) = self.sacrifice_remembered_effect(
                 &api,
                 &mut p,
                 &mut sub,
                 target.as_deref(),
                 targets_a_player,
                 chain,
-            ) else {
-                if self.unclaimed.borrow().is_none() {
-                    self.note("a sacrifice naming `RememberSacrificed`".to_string());
-                }
-                return None;
-            };
-            effects
+            ) {
+                effects
+            } else {
+                p = saved_p;
+                sub = saved_sub;
+                *self.unclaimed.borrow_mut() = saved_unclaimed;
+                self.body.statics.truncate(saved_statics_len);
+                let Some(effects) = self.wave27c_try_capture_affected_chain(
+                    spec,
+                    &api,
+                    &mut p,
+                    &mut sub,
+                    target.as_deref(),
+                    LineFlags {
+                        targets_here,
+                        targets_a_player,
+                        single_target: chain.target_exact.is_none()
+                            && !chain.target_is_x
+                            && chain.target_constraint.is_none()
+                            && chain.target_up_to.is_none_or(|n| n <= 1),
+                        prior_target_used: !targets_here && !chain.effects.is_empty(),
+                    },
+                    chain,
+                ) else {
+                    if self.unclaimed.borrow().is_none() {
+                        self.note("a sacrifice naming `RememberSacrificed`".to_string());
+                    }
+                    return None;
+                };
+                effects
+            }
         } else if !second_target_here
             && api == "Phases"
             && targets_here
@@ -1161,7 +1202,61 @@ impl Tx<'_> {
             } else {
                 None
             };
+            let remembered_effects = remembered_effects.or_else(|| {
+                if second_target_here
+                    || third_target_here
+                    || sub.is_none()
+                    || self.sub_is_api(sub.as_deref(), "ImmediateTrigger")
+                    || self.sub_is_api(sub.as_deref(), "DelayedTrigger")
+                    || unless.is_some()
+                    || dying.is_some()
+                    || at_end.is_some()
+                    || optional_counter
+                {
+                    return None;
+                }
+                self.wave27c_try_capture_affected_chain(
+                    spec,
+                    &api,
+                    &mut p,
+                    &mut sub,
+                    target.as_deref(),
+                    LineFlags {
+                        targets_here,
+                        targets_a_player,
+                        single_target,
+                        prior_target_used,
+                    },
+                    chain,
+                )
+            });
             if let Some(effects) = remembered_effects {
+                effects
+            } else if let Some((effects, wrap)) = self.wave27c_multi_target_step(
+                &api,
+                &mut p,
+                &mut sub,
+                chain,
+                third_target_here,
+                had_second_target,
+                targets_here,
+            ) {
+                wave27c_multi_wrap = wrap;
+                effects
+            } else if !second_target_here
+                && !third_target_here
+                && let Some(effects) = self.wave27c_remembered_step(
+                    &api,
+                    &mut p,
+                    target.as_deref(),
+                    LineFlags {
+                        targets_here,
+                        targets_a_player,
+                        single_target,
+                        prior_target_used,
+                    },
+                )
+            {
                 effects
             } else {
                 self.claim_followed_remember_flag(&api, &mut p, sub.as_deref());
@@ -1313,16 +1408,13 @@ impl Tx<'_> {
                         }
                         _ => {
                             wrap_in_second_target = true;
-                            let raw = self.effect_of_inner(
+                            let raw = self.wave27c_slot2_or_slot3_effect(
                                 &api,
                                 &mut p,
                                 target.as_deref(),
-                                LineFlags {
-                                    targets_here: true,
-                                    targets_a_player,
-                                    single_target: second_single,
-                                    prior_target_used: false,
-                                },
+                                targets_a_player,
+                                second_single,
+                                true,
                             );
                             if api == "GainControl"
                                 && !second_single
@@ -1435,6 +1527,20 @@ impl Tx<'_> {
                 "Effect::WithSecondTarget(&[{}])",
                 effects.join(", ")
             )]
+        } else if let Some(action) = wave27c_multi_wrap
+            && !effects.is_empty()
+        {
+            match action {
+                super::wave27c::MultiTargetAction::ThirdTarget => {
+                    vec![format!(
+                        "Effect::WithThirdTarget(&[{}])",
+                        effects.join(", ")
+                    )]
+                }
+                super::wave27c::MultiTargetAction::AllTargets => {
+                    vec![format!("Effect::WithAllTargets(&[{}])", effects.join(", "))]
+                }
+            }
         } else {
             effects
         };
@@ -1476,7 +1582,7 @@ impl Tx<'_> {
     }
 
     /// Whether a line further down the `SubAbility$` chain declares a target.
-    fn later_line_targets(&self, first: Option<&str>) -> bool {
+    pub(super) fn later_line_targets(&self, first: Option<&str>) -> bool {
         let mut seen = 0;
         let mut next = first.map(str::to_string);
         while let Some(name) = next.take() {
@@ -1582,6 +1688,9 @@ impl Tx<'_> {
             return Some(wrapped);
         }
         if let Some(wrapped) = self.wrap_optional_cost_condition(api, p, &effects).ok()? {
+            return Some(wrapped);
+        }
+        if let Some(wrapped) = self.wave27c_wrap_remembered_condition(p, &effects) {
             return Some(wrapped);
         }
         if !p.has("ConditionPresent") {
@@ -2170,6 +2279,9 @@ impl Tx<'_> {
             // A fresh ValidTgts declares another target instance even
             // when its restriction is identical. Never alias it to the
             // earlier list.
+            if self.wave27c_chain_extra_target(api, p, valid, &spec, chain)? {
+                return Some(());
+            }
             if chain.second_target.is_some() {
                 return self.deny("unsupported independent target in one chain".to_string());
             }
@@ -2950,7 +3062,7 @@ impl Tx<'_> {
     }
 
     #[allow(clippy::too_many_lines)]
-    fn effect_of_inner(
+    pub(super) fn effect_of_inner(
         &mut self,
         api: &str,
         p: &mut Params,
@@ -6110,7 +6222,7 @@ impl Tx<'_> {
             })
     }
 
-    fn rewrite_multi_target_gain_control(effs: Vec<String>) -> Option<Vec<String>> {
+    pub(super) fn rewrite_multi_target_gain_control(effs: Vec<String>) -> Option<Vec<String>> {
         effs.into_iter()
             .map(|eff| {
                 if let Some(inner) = eff
@@ -6303,7 +6415,7 @@ impl Tx<'_> {
         (!out.is_empty()).then(|| out.join(","))
     }
 
-    fn same_valid_atoms(a: &str, b: &str) -> bool {
+    pub(super) fn same_valid_atoms(a: &str, b: &str) -> bool {
         let normalize = |s: &str| -> Vec<(String, Vec<String>)> {
             let mut alts: Vec<(String, Vec<String>)> = s
                 .split(',')
@@ -6643,6 +6755,7 @@ impl Tx<'_> {
             "Amount::ThisWay",
             "Amount::Sacrificed",
             "Amount::ManaSpent",
+            "Amount::Remembered",
             "Amount::ManaTypeSpentOnX",
             "Amount::TappedPower",
             "PlayerRel::Chosen",
@@ -9172,7 +9285,7 @@ impl Tx<'_> {
 
     /// Wave 26c: true when a 2nd-target line safely handles `TargetReq::up_to(..., max)`
     /// with `max > 1` (multiple objects chosen in `second_targets`).
-    fn wave26c_second_target_multi_ok(api: &str, p: &Params) -> bool {
+    pub(super) fn wave26c_second_target_multi_ok(api: &str, p: &Params) -> bool {
         matches!(
             api,
             "Destroy"
