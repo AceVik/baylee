@@ -223,6 +223,64 @@ mod tests {
     }
 
     #[test]
+    fn every_recipe_has_an_ordinal_of_its_own_and_the_ordinal_gives_it_back() {
+        assert_eq!(Recipe::COUNT, Sigil::ALL.len() * Vessel::ALL.len());
+        let mut index = 0;
+        for sigil in Sigil::ALL {
+            for vessel in Vessel::ALL {
+                let recipe = Recipe { sigil, vessel };
+                assert_eq!(recipe.index(), index, "{recipe:?}");
+                assert_eq!(Recipe::from_index(index), Some(recipe));
+                index += 1;
+            }
+        }
+        for past in [index, index + 1, usize::MAX] {
+            assert_eq!(Recipe::from_index(past), None, "{past}");
+        }
+    }
+
+    #[test]
+    fn no_two_sigils_and_no_two_vessels_are_told_apart_by_nothing() {
+        use std::collections::BTreeSet;
+        let distinct = |texts: &[&str]| {
+            assert!(texts.iter().all(|text| !text.trim().is_empty()));
+            texts.iter().collect::<BTreeSet<_>>().len()
+        };
+        assert_eq!(distinct(&Sigil::ALL.map(Sigil::title)), Sigil::ALL.len());
+        assert_eq!(distinct(&Sigil::ALL.map(Sigil::event)), Sigil::ALL.len());
+        assert_eq!(distinct(&Vessel::ALL.map(Vessel::title)), Vessel::ALL.len());
+        let rewards = Vessel::ALL.map(|vessel| vessel.reward(2));
+        assert_eq!(
+            distinct(&rewards.each_ref().map(String::as_str)),
+            Vessel::ALL.len()
+        );
+        for vessel in Vessel::ALL {
+            assert!(vessel.bonus_text().ends_with('.'), "{vessel:?}");
+        }
+    }
+
+    #[test]
+    fn a_reward_that_grows_says_the_amount_it_grew_to() {
+        for vessel in Vessel::ALL {
+            let amounts: Vec<_> = (0..4)
+                .map(|tier| vessel.level(tier).unwrap().amount)
+                .collect();
+            let grows = amounts.iter().any(|amount| *amount != amounts[0]);
+            let says = vessel.reward(17).contains("17");
+            assert_eq!(says, grows, "{vessel:?}: {}", vessel.reward(17));
+        }
+    }
+
+    #[test]
+    fn a_rarity_past_mythic_has_no_level() {
+        for index in 0..Recipe::COUNT {
+            let recipe = Recipe::from_index(index).unwrap();
+            assert_eq!(recipe.level(4), None);
+            assert_eq!(recipe.level(usize::MAX), None);
+        }
+    }
+
+    #[test]
     fn no_single_mythic_relic_self_loops_for_zero_mana_or_snowballs_surplus_charges() {
         for index in 0..Recipe::COUNT {
             let recipe = Recipe::from_index(index).unwrap();
