@@ -10908,6 +10908,8 @@ RankedPreviewRecorded = This exact deck version keeps its recorded rating.
 RankedPreviewInherited = { $changed } of { $compared } copies changed · edit deduction { $loss } Elo
 
 AdventCalendar = Winter Tavern · Advent calendar
+AdventTavern = Winter Tavern
+AdventName = Advent calendar
 AdventGallery = My collection
 AdventDoors = Calendar
 AdventUnavailable = Central couldn’t complete the request.

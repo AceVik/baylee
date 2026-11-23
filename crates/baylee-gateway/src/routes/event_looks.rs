@@ -85,7 +85,7 @@ impl Looks {
 
 impl Drop for Looks {
     fn drop(&mut self) {
-        self.finish()
+        self.finish();
     }
 }
 

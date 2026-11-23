@@ -4376,6 +4376,8 @@ RankedPreviewRecorded = Diese exakte Deckversion behält ihre gespeicherte Wertu
 RankedPreviewInherited = { $changed } von { $compared } Kopien geändert · Änderungsabzug { $loss } Elo
 
 AdventCalendar = Wintertaverne · Adventskalender
+AdventTavern = Wintertaverne
+AdventName = Adventskalender
 AdventGallery = Meine Sammlung
 AdventDoors = Kalender
 AdventUnavailable = Central konnte die Anfrage nicht abschließen.

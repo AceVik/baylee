@@ -156,19 +156,14 @@ impl Table {
             "seat_token",
         )
     }
-    fn end(&self, rt: &Runtime, owner: &str) {
+    fn end(&self, rt: &Runtime, owner: &str, guest: &str) {
         use baylee_protocol::v1::{self, Envelope, envelope::Msg};
         rt.block_on(async {
-            let mut socket = common::dial_seat(self.port, &self.id, owner).await;
-            tokio::time::timeout(common::WAIT_BUDGET, async {
-                while let Some(msg) = common::next_msg(&mut socket).await {
-                    if matches!(msg, Msg::GameStatic(_)) {
-                        break;
-                    }
-                }
-            })
-            .await
-            .unwrap();
+            let (mut socket, mut other) = tokio::join!(
+                common::dial_seat(self.port, &self.id, owner),
+                common::dial_seat(self.port, &self.id, guest)
+            );
+            tokio::join!(entrance(&mut socket), entrance(&mut other));
             common::send(
                 &mut socket,
                 &Envelope {
@@ -182,8 +177,47 @@ impl Table {
                 },
             )
             .await;
+            tokio::time::timeout(common::WAIT_BUDGET, async {
+                while let Some(msg) = common::next_msg(&mut socket).await {
+                    if let Msg::ChoiceRequest(choice) = msg
+                        && matches!(
+                            baylee_core::wire::decode(&choice.pending),
+                            Ok(baylee_engine::choice::Pending::GameOver(_))
+                        )
+                    {
+                        return;
+                    }
+                }
+                panic!("owner socket closed before terminal outcome");
+            })
+            .await
+            .expect("the hosted duel ended after the concession");
         });
     }
+}
+
+async fn entrance(socket: &mut common::Socket) {
+    use baylee_protocol::v1::{self, Envelope, envelope::Msg};
+    tokio::time::timeout(common::WAIT_BUDGET, async {
+        loop {
+            match common::next_msg(socket).await {
+                Some(Msg::GameStatic(_)) => {
+                    common::send(
+                        socket,
+                        &Envelope {
+                            msg: Some(Msg::SeatReady(v1::SeatReady {})),
+                        },
+                    )
+                    .await
+                }
+                Some(Msg::Curtain(_)) => return,
+                Some(_) => {}
+                None => panic!("participant disconnected before the shared opening"),
+            }
+        }
+    })
+    .await
+    .unwrap();
 }
 
 fn proof(account: &Account, request: table::Request) -> table::Proof {
@@ -259,7 +293,7 @@ pub(super) fn exercise(
     assert_eq!(table.present(&table.owner_seat, &grant), 403);
     assert_eq!(table.present(&new_owner, &replacement), 204);
     table.verify_guest(&new_guest, meta);
-    table.end(rt, &new_owner);
+    table.end(rt, &new_owner, &new_guest);
     let retired = rt.block_on(async {
         for _ in 0..common::WAIT_TRIES {
             if table

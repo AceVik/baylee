@@ -254,6 +254,11 @@ fn integration_publisher() -> Result<Option<PathBuf>> {
     Ok(Some(path))
 }
 
+fn build_timeout() -> Duration {
+    let interactive = std::env::var_os("BAYLEE_CENTRAL_UI_READY").is_some();
+    Duration::from_secs(if interactive { 900 } else { 300 })
+}
+
 /// `integration`: builds first, so the bounded handoff to a UI run is spent
 /// on the test and not the compile; then bootstraps Central's roles and runs
 /// the selected end-to-end scenarios. `cancel` ends it early when it exists.
@@ -279,14 +284,7 @@ pub fn integration(
         &options,
         &["-p", "baylee-gateway", "--test", "e2e", "--no-run"],
     ))?
-    .wait(
-        Duration::from_secs(if std::env::var_os("BAYLEE_CENTRAL_UI_READY").is_some() {
-            900
-        } else {
-            300
-        }),
-        cancel,
-    )?;
+    .wait(build_timeout(), cancel)?;
     print!("{}{}", build.stdout, build.stderr);
     ensure!(
         build.status.success(),

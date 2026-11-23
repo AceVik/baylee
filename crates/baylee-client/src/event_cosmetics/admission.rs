@@ -111,7 +111,7 @@ pub(super) fn refresh(
             && let Some((_, handle)) = &worn.0[index].sleeve
             && materials
                 .get(handle)
-                .is_some_and(|m| m.params.motion != motion)
+                .is_some_and(|m| m.params.motion.to_bits() != motion.to_bits())
             && let Some(mut m) = materials.get_mut(handle)
         {
             m.params.motion = motion;

@@ -205,7 +205,7 @@ impl Bridge {
                         Scope::Home(..)
                             if !self.delivered.contains(&slot) && !self.queue.contains(&slot) =>
                         {
-                            self.queue.push_back(slot)
+                            self.queue.push_back(slot);
                         }
                         Scope::Home(..) => {}
                     }
@@ -335,7 +335,7 @@ fn poll(
         } else {
             home.as_deref().filter(|h|
                 matches!(state.lobby.screen(),baylee_client_core::lobby::Screen::Seated(s)
-                    if !s.local && !s.watching() && Uuid::try_parse(&s.game_id).ok().is_some_and(|g|h.matches(&state.gateway,state.gateway_epoch,g,&s.seat_token))))
+                    if !s.local && !s.watching() && Uuid::try_parse(&s.game_id).is_ok_and(|g|h.matches(&state.gateway,state.gateway_epoch,g,&s.seat_token))))
                 .map(|h|Scope::Home(*h.game.as_bytes(),h.epoch))
         }
     } else {
@@ -347,7 +347,7 @@ fn poll(
         _ => false,
     };
     let replaced_home = matches!(scope, Some(Scope::Home(..)))
-        && home.as_ref().is_some_and(|seat| seat.is_changed());
+        && home.as_ref().is_some_and(DetectChanges::is_changed);
     if replaced_home
         || scope != bridge.scope
         || !same_account && (bridge.scope.is_some() || scope.is_some())

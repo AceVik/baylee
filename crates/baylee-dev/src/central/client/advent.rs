@@ -92,27 +92,36 @@ impl Visit<'_> {
 
     fn capture(&mut self, name: &str) -> Result<()> {
         let path = self.dir.join(format!("advent-{name}.png"));
-        self.dev.post("screenshot", &json!({"path":path}))?;
-        let deadline = Instant::now() + Duration::from_secs(10);
-        loop {
-            if let Ok(bytes) = fs::read(&path)
-                && bytes.starts_with(b"\x89PNG\r\n\x1a\n")
-                && bytes
-                    .windows(4)
-                    .rev()
-                    .take(12)
-                    .any(|marker| marker == b"IEND")
-            {
+        for _ in 0..8 {
+            let result = self.dev.post_within(
+                "screenshot",
+                &json!({"path":path}),
+                Duration::from_secs(20),
+            )?;
+            if result["contrast"] == true {
                 return Ok(());
             }
-            ensure!(
-                Instant::now() < deadline,
-                "incomplete screen capture: {name}"
-            );
-            std::thread::sleep(Duration::from_millis(100));
+            ensure!(result["ok"] == true, "could not write {name}");
+            // Metal may yield the previous empty drawable on the first frame
+            // after raising a passive client. Keep the scene and request a fresh one.
+            std::thread::sleep(Duration::from_millis(260));
         }
+        bail!("no rendered pixels in eight frames of {name}");
     }
 
+    fn keyboard_open(&mut self) -> Result<()> {
+        for _ in 0..40 {
+            let view = state(self.dev)?;
+            let focus = &view["shell"]["focus"];
+            if focus["table"] == "play" && focus["id"] == "advent" {
+                self.dev.post("key", &json!({"name":"Enter"}))?;
+                self.button(CAL, "door", 1)?;
+                return Ok(());
+            }
+            self.dev.post("key", &json!({"name":"Tab"}))?;
+        }
+        bail!("calendar CTA unreachable through the native tab order");
+    }
     fn entry(&mut self, moving: bool) -> Result<Value> {
         let view = self.wait("rendered calendar CTA material", |v| {
             control(v, "play", "advent", 0)
@@ -196,15 +205,30 @@ pub(super) fn visit(dev: &Devctl, client: &mut Owned, dir: &Path) -> Result<()> 
     qa.press(CAL, "deck", 0)?;
     qa.press(EQUIP, "item", 0)?;
     qa.words("Equipped on this deck")?;
-    qa.press(EQUIP, "close", 0)?;
-    qa.press(CAL, "close", 0)?;
+    qa.dev.post("key", &json!({"name":"Escape"}))?;
+    qa.wait("keyboard close of deck picker", |v| {
+        control(v, EQUIP, "close", 0).is_none()
+    })?;
+    qa.press(CAL, "gallery", 0)?;
+    qa.button(CAL, "item", 0)?;
+    qa.capture("07-gallery")?;
+    qa.dev.post("key", &json!({"name":"Escape"}))?;
+    qa.wait("keyboard close of calendar", |v| {
+        control(v, CAL, "close", 0).is_none()
+    })?;
     let after = qa.entry(false)?;
     Visit::same_rect(&first, &after)?;
     ensure!(
         after["advent_light"][0] == 0.0 && after["advent_light"][3] == 0.0,
         "resolved calendar still draws attention"
     );
-    qa.capture("07-entry-resolved")?;
+    qa.capture("08-entry-resolved")?;
+    qa.keyboard_open()?;
+    qa.press(CAL, "close", 0)?;
+    qa.press("play", "ranked", 0)?;
+    qa.press("play", "ranked-board", 0)?;
+    qa.button("ranked", "back", 0)?;
+    qa.capture("09-ranked-reference")?;
     fs::write(
         dir.join("advent-motion.json"),
         serde_json::to_vec_pretty(&json!({"before":first,"next":next,"resolved":after}))?,

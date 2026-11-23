@@ -20,6 +20,8 @@ use std::sync::{
 };
 use uuid::Uuid;
 mod draw;
+#[cfg(test)]
+mod tests;
 mod worker;
 use worker::{Deck, Job, Reply};
 
@@ -37,9 +39,11 @@ pub(crate) struct EquipReward {
 }
 
 #[derive(Component, Clone, Copy)]
+#[require(crate::ui_button::UiButton)]
 pub(crate) struct OpenEditor;
 
-#[derive(Component, Clone, Copy)]
+#[derive(Component, Clone, Copy, Debug, PartialEq, Eq)]
+#[require(crate::ui_button::UiButton)]
 enum Action {
     Close,
     Deck(Uuid),
@@ -68,7 +72,7 @@ pub(crate) struct Page {
     selected: Option<Id>,
     pending: Option<Mutex<Receiver<Result<Reply, Error>>>>,
     problem: Option<Error>,
-    page: usize,
+    list_index: usize,
     saved: bool,
     escape_held: bool,
 }
@@ -91,7 +95,7 @@ impl Page {
     fn read(&mut self, id: Uuid) {
         self.reading = Some(id);
         self.deck = None;
-        self.page = 0;
+        self.list_index = 0;
         self.request(Job::Read(id));
     }
 
@@ -133,12 +137,11 @@ impl Page {
     }
 
     fn loaded(&mut self, deck: Deck, saved: bool, images: &mut MessageWriter<LoadReward>) {
-        let (kind, selected) = match self.origin {
-            Some(Origin::Reward(id, kind)) => (kind, Some(id)),
-            _ => {
-                let kind = self.kind.unwrap_or(Kind::Sleeve);
-                (kind, worker::slot(deck.look, kind))
-            }
+        let (kind, selected) = if let Some(Origin::Reward(id, kind)) = self.origin {
+            (kind, Some(id))
+        } else {
+            let kind = self.kind.unwrap_or(Kind::Sleeve);
+            (kind, worker::slot(deck.look, kind))
         };
         self.kind = Some(kind);
         self.selected = selected;
@@ -293,7 +296,7 @@ fn act(
             Action::Deck(id) if page.decks.iter().any(|(d, _)| *d == id) => page.read(id),
             Action::Slot(kind) if matches!(page.origin, Some(Origin::Editor(_))) => {
                 page.kind = Some(kind);
-                page.page = 0;
+                page.list_index = 0;
                 page.saved = false;
                 page.problem = None;
                 page.selected = page.deck.as_ref().and_then(|d| worker::slot(d.look, kind));
@@ -316,7 +319,7 @@ fn act(
                     images.write(LoadReward(id));
                 }
             }
-            Action::Page(n) => page.page = n,
+            Action::Page(n) => page.list_index = n,
             Action::Retry => {
                 refresh.write(RefreshInventory);
                 if let Some(id) = page.reading {

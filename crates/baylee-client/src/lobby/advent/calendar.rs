@@ -302,6 +302,8 @@ impl Book {
             return;
         }
         self.screen = Screen::Door(door);
+        self.work
+            .retain(|job| !matches!(job, api::Request::Puzzle { .. } | api::Request::Hint { .. }));
         self.puzzle = None;
         self.inventory_page = 0;
         match state {

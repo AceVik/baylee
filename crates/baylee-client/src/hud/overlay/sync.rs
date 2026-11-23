@@ -1149,6 +1149,14 @@ pub fn sync_overlay(
                             cards.as_mut(),
                             &faces.widths,
                         );
+                        if let Some(owner) = view
+                            .object(group.representative)
+                            .and_then(crate::event_cosmetics::concealed)
+                        {
+                            commands
+                                .entity(card)
+                                .insert(crate::event_cosmetics::HiddenPreview(owner));
+                        }
                         commands.entity(card).insert(upward_shadow());
                         commands.entity(column).add_child(card);
                     }

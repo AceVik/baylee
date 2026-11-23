@@ -160,6 +160,7 @@ pub(super) fn write_stack(
     desk: Option<Res<crate::report::ReportDesk>>,
     chat: Option<Res<crate::social::ChatUi>>,
     #[cfg(not(target_arch = "wasm32"))] appearance: Option<Res<super::deck_appearance::Page>>,
+    #[cfg(not(target_arch = "wasm32"))] advent: Option<Res<super::advent::Book>>,
     mut shell: ResMut<ShellStack>,
 ) {
     let held = journey.as_ref().is_some_and(|j| j.active())
@@ -167,7 +168,9 @@ pub(super) fn write_stack(
         || desk.is_some_and(|d| d.holds_keyboard())
         || chat.is_some_and(|c| c.holds_keyboard());
     #[cfg(not(target_arch = "wasm32"))]
-    let held = held || appearance.is_some_and(|p| p.holds_keys());
+    let held = held
+        || appearance.is_some_and(|p| p.holds_keys())
+        || advent.is_some_and(|book| book.holds_keys());
     // The seat panel's boxes walk with Tab themselves.
     // So does the account deletion's confirmation over the terms sheet
     // (its Decline): its password box is a lobby field with no stop, and

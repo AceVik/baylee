@@ -193,6 +193,26 @@ impl Worker {
         }
     }
 
+    fn keep_deck(&mut self, frozen: deck::Frozen) -> Result<(), Error> {
+        let key = match &self.queue {
+            QueueState::Assigned { assignment, .. } if assignment.deck != frozen.digest => {
+                return Err(Error::Conflict);
+            }
+            QueueState::Waiting { key, .. } | QueueState::Assigned { key, .. } => *key,
+            QueueState::Idle | QueueState::Finished { .. } => {
+                let key = *Uuid::now_v7().as_bytes();
+                self.intent = Some(Request::Join {
+                    key,
+                    format: frozen.deck.format,
+                    deck: frozen.digest,
+                });
+                key
+            }
+        };
+        self.frozen = Some((key, Arc::new(frozen)));
+        Ok(())
+    }
+
     fn observe(&mut self, queue: QueueState) {
         if self.consent.as_ref().is_some_and(|c| !c.matches(&queue)) {
             self.consent = None;
@@ -567,25 +587,10 @@ fn finish(worker: &mut Worker, epoch: u64, reply: Reply) -> Option<RankedPlay> {
                     return None;
                 }
             };
-            if let QueueState::Assigned { assignment, .. } = &worker.queue
-                && assignment.deck != frozen.digest
-            {
-                worker.failed(Error::Conflict);
+            if let Err(error) = worker.keep_deck(frozen) {
+                worker.failed(error);
                 return None;
             }
-            let key = match &worker.queue {
-                QueueState::Waiting { key, .. } | QueueState::Assigned { key, .. } => *key,
-                QueueState::Idle | QueueState::Finished { .. } => {
-                    let key = *Uuid::now_v7().as_bytes();
-                    worker.intent = Some(Request::Join {
-                        key,
-                        format: frozen.deck.format,
-                        deck: frozen.digest,
-                    });
-                    key
-                }
-            };
-            worker.frozen = Some((key, Arc::new(frozen)));
             worker.busy = worker.intent.is_some();
             worker.needs_deck = false;
             worker.play_paused = false;

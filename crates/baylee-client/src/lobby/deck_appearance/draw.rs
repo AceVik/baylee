@@ -174,13 +174,13 @@ fn deck_list(c: &mut Commands, body: Entity, kit: Kit, p: &Page) {
     for (idx, (id, name)) in p
         .decks
         .iter()
-        .skip(p.page.saturating_mul(PER_PAGE))
+        .skip(p.list_index.saturating_mul(PER_PAGE))
         .take(PER_PAGE)
         .enumerate()
     {
         button(c, body, kit, name, Action::Deck(*id), choice(idx), false);
     }
-    paging(c, body, kit, p.page, p.decks.len());
+    paging(c, body, kit, p.list_index, p.decks.len());
 }
 
 fn contents(c: &mut Commands, body: Entity, foot: Entity, kit: Kit, p: &Page, b: &Book) {
@@ -290,7 +290,7 @@ fn designs(c: &mut Commands, body: Entity, kit: Kit, p: &Page, b: &Book, kind: K
     }
     for (idx, item) in items
         .iter()
-        .skip(p.page.saturating_mul(PER_PAGE))
+        .skip(p.list_index.saturating_mul(PER_PAGE))
         .take(PER_PAGE)
         .enumerate()
     {
@@ -304,14 +304,14 @@ fn designs(c: &mut Commands, body: Entity, kit: Kit, p: &Page, b: &Book, kind: K
             Some(item.id) == p.selected,
         );
     }
-    paging(c, body, kit, p.page, items.len());
+    paging(c, body, kit, p.list_index, items.len());
 }
 
 #[allow(clippy::too_many_arguments)]
 pub(super) fn render(
-    mut c: Commands,
-    p: Res<Page>,
-    b: Res<Book>,
+    mut commands: Commands,
+    page: Res<Page>,
+    book: Res<Book>,
     lobby: Res<LobbyState>,
     fonts: Res<UiFonts>,
     windows: Query<&Window>,
@@ -320,45 +320,55 @@ pub(super) fn render(
     mut paint: Local<Paint>,
     previews: Query<(Entity, &Preview), Without<CosmeticPreview>>,
 ) {
-    if p.origin.is_none() || p.owner.as_ref().is_none_or(|owner| !b.belongs_to(owner)) {
+    if page.origin.is_none()
+        || page
+            .owner
+            .as_ref()
+            .is_none_or(|owner| !book.belongs_to(owner))
+    {
         if let Some((root, ..)) = paint.shell.take() {
-            c.entity(root).try_despawn();
+            commands.entity(root).try_despawn();
             paint.inventory = None;
         }
         return;
     }
     let lang = lobby.lobby.lang();
-    let (w, h) = windows
+    let (width, height) = windows
         .iter()
         .next()
-        .map_or((1024., 720.), |w| (w.width(), w.height()));
-    let m = crate::lobby::header::kit_metrics(
-        w,
-        h,
+        .map_or((1024., 720.), |window| (window.width(), window.height()));
+    let metrics = crate::lobby::header::kit_metrics(
+        width,
+        height,
         settings.as_deref().map_or_default(|s| s.text_size),
         input.as_deref().copied().unwrap_or_default(),
     );
     let kit = Kit {
-        m,
+        m: metrics,
         fonts: &fonts,
         german: lang == Lang::De,
     };
     let same_shell = paint
         .shell
-        .is_some_and(|(_, _, _, old, old_lang)| old == m && old_lang == lang);
+        .is_some_and(|(_, _, _, old, old_lang)| old == metrics && old_lang == lang);
     let inventory = (
-        b.inventory().len(),
-        b.inventory_loaded(),
-        b.inventory_error().is_some(),
-        p.selected.is_some_and(|id| b.image_error(id).is_some()),
+        book.inventory().len(),
+        book.inventory_loaded(),
+        book.inventory_error().is_some(),
+        page.selected
+            .is_some_and(|id| book.image_error(id).is_some()),
     );
-    if same_shell && !p.is_changed() && paint.inventory == Some(inventory) {
-        if b.is_changed() {
+    if same_shell && !page.is_changed() && paint.inventory == Some(inventory) {
+        if book.is_changed() {
             for (entity, preview) in &previews {
-                if let Some(image) = b.image(preview.0)
-                    && let Some(reward) = b.inventory().iter().find(|r| r.id == preview.0)
+                if let Some(image) = book.image(preview.0)
+                    && let Some(reward) = book
+                        .inventory()
+                        .iter()
+                        .find(|reward| reward.id == preview.0)
                 {
-                    c.entity(entity)
+                    commands
+                        .entity(entity)
                         .despawn_children()
                         .insert(CosmeticPreview::new(
                             image.clone(),
@@ -371,23 +381,35 @@ pub(super) fn render(
         return;
     }
     let (body, foot) = if same_shell && let Some((_, body, foot, ..)) = paint.shell {
-        c.entity(body).despawn_children();
-        c.entity(foot).despawn_children();
+        commands.entity(body).despawn_children();
+        commands.entity(foot).despawn_children();
         (body, foot)
     } else {
         if let Some((old, ..)) = paint.shell.take() {
-            c.entity(old).try_despawn();
+            commands.entity(old).try_despawn();
         }
-        let body = column(&mut c, kit);
-        let foot = column(&mut c, kit);
+        let body = column(&mut commands, kit);
+        let foot = column(&mut commands, kit);
         let header = SheetHeader::new(Phrase::DeckAppearance.text(lang))
             .close((Action::Close, stop("close")));
-        let sheet =
-            surfaces::sheet_box_fixed(&mut c, kit, SheetWidth::Medium, header, &[body], &[foot]);
-        let root = surfaces::scrim(&mut c, kit, crate::social::window::G_PANEL + 180, (), sheet);
-        paint.shell = Some((root, body, foot, m, lang));
+        let sheet = surfaces::sheet_box_fixed(
+            &mut commands,
+            kit,
+            SheetWidth::Medium,
+            header,
+            &[body],
+            &[foot],
+        );
+        let root = surfaces::scrim(
+            &mut commands,
+            kit,
+            crate::social::window::G_PANEL + 180,
+            (),
+            sheet,
+        );
+        paint.shell = Some((root, body, foot, metrics, lang));
         (body, foot)
     };
-    contents(&mut c, body, foot, kit, &p, &b);
+    contents(&mut commands, body, foot, kit, &page, &book);
     paint.inventory = Some(inventory);
 }

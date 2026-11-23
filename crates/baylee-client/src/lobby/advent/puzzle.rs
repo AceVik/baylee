@@ -56,7 +56,7 @@ pub(super) fn act(book: &mut Book, action: Action) {
         Action::Hint(number)
             if matches!(number, 1 | 2) && p.hints[usize::from(number - 1)].is_none() =>
         {
-            book.push(api::Request::Hint { year, door, number })
+            book.push(api::Request::Hint { year, door, number });
         }
         Action::Submit
             if p.submitted.is_none()
@@ -234,18 +234,16 @@ fn battlefield(cmd: &mut Commands, parent: Entity, kit: Kit, board: &api::puzzle
         .id();
     cmd.entity(parent).add_child(row);
     for (s, side_id) in [Side::You, Side::Opponent].into_iter().enumerate() {
-        let col = cmd
-            .spawn((
-                Node {
-                    flex_grow: 1.,
-                    min_width: kit.m.px(160.),
-                    flex_direction: FlexDirection::Column,
-                    padding: UiRect::all(kit.m.px(7.)),
-                    ..default()
-                },
-                BackgroundColor(tokens::PANEL),
-            ))
-            .id();
+        let col = crate::shellkit::surfaces::panel(cmd, kit, Val::Auto);
+        cmd.entity(col)
+            .entry::<Node>()
+            .and_modify(move |mut panel| {
+                panel.flex_grow = 1.;
+                panel.flex_basis = px(0);
+                panel.min_width = kit.m.px(160.);
+                panel.row_gap = kit.m.px(4.);
+                panel.padding = UiRect::all(kit.m.px(9.));
+            });
         cmd.entity(row).add_child(col);
         let head = Phrase::AdventLife.fill(
             lang,
