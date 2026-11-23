@@ -866,8 +866,9 @@ mod tests {
         let now = Instant::now();
         let mut lobby = room("host");
         let game = lobby.games.get_mut("g1").unwrap();
-        game.seats[2].account_id = Some("guest".into());
-        game.seats[2].central_session = Some(vec![2]);
+        game.seats[0].account_id = Some("guest".into());
+        game.seats[0].central_session = Some(vec![2]);
+        game.seats[2].account_id = Some("host".into());
         let session = |lobby: &lobby::Lobby| {
             let ticket = hand_over(lobby, &tickets, "g1", 1, "host".into(), None, now)
                 .ok()
@@ -889,7 +890,7 @@ mod tests {
             }
         };
         assert_eq!(session(&lobby), None);
-        lobby.games.get_mut("g1").unwrap().seats[0].central_session = Some(vec![1]);
+        lobby.games.get_mut("g1").unwrap().seats[2].central_session = Some(vec![1]);
         assert_eq!(session(&lobby), Some(vec![1]));
     }
 
