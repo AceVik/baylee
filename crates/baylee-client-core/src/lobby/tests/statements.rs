@@ -14,8 +14,11 @@ fn update() -> RoomUpdate {
     }
 }
 
+/// One press.
+type Say = fn(&mut Lobby) -> Option<LobbyRequest>;
+
 /// Every statement about a room, by what it sends.
-fn statements() -> Vec<(&'static str, fn(&mut Lobby) -> Option<LobbyRequest>)> {
+fn statements() -> Vec<(&'static str, Say)> {
     vec![
         ("configure", |l| l.configure_room("g", update())),
         ("list", |l| l.choose_room_list("g", None)),
@@ -170,9 +173,12 @@ fn a_wish_to_play_again_is_spent_on_one_request() {
     assert_eq!(lobby.rematch_wanted(), None);
 }
 
+/// One way out of a seat.
+type Leave = fn(&mut Lobby);
+
 #[test]
 fn the_ways_out_of_a_seat_differ_in_tone_alone() {
-    let out: [(fn(&mut Lobby), Tone); 2] = [
+    let out: [(Leave, Tone); 2] = [
         (|l| l.unseat("the table is gone"), Tone::Refusal),
         (|l| l.stand_up(Phrase::SignedOut, &[]), Tone::Note),
     ];
