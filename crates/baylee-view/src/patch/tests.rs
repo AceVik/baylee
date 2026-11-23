@@ -936,6 +936,10 @@ fn a_list_that_only_grew_shrank_or_slid_carries_only_what_is_new() {
     let both = ListEdit::of(&[1, 9, 1, 2, 3], &[1, 8, 1, 2, 3]);
     assert_eq!((both.dropped, both.kept, both.tail), (0, 1, 3));
     assert_eq!(both.added, [8]);
+    // So it is here, where the list also slid, but by less.
+    let ends = ListEdit::of(&[0, 1, 2, 1], &[1, 2, 1, 0, 1, 2, 1]);
+    assert_eq!(ends.added, [1, 2, 1]);
+    assert_eq!((ends.dropped, ends.kept, ends.tail), (0, 0, 4));
 }
 
 #[test]
