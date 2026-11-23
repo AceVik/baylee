@@ -3714,6 +3714,14 @@ impl Tx<'_> {
                     let n = self.amount_or_count_ext(&bolster)?;
                     return Some(vec![format!("Effect::Bolster({n})")]);
                 }
+                if p.peek("CounterType") == Some("EachFromSource") {
+                    return self.wave27e_put_each_counter_kind_from_source(
+                        p,
+                        target,
+                        targets_here,
+                        targets_a_player,
+                    );
+                }
                 let specs = if let Some(code) = p.take("CounterType") {
                     let Some(kind) = counter_kind(&code) else {
                         return self.deny(format!("counter `{code}`"));

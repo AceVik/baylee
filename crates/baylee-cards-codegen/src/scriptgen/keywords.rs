@@ -2106,6 +2106,9 @@ impl Tx<'_> {
         if let Some(expr) = self.wave26f_greatest_or_total_amount(def, false, true) {
             return Some(expr);
         }
+        if let Some(expr) = self.wave27e_etb_amount(def) {
+            return Some(expr);
+        }
         if def == "Count$ThisTurnEntered_Graveyard_from_Battlefield_Creature" {
             return Some("Amount::CreaturesDiedThisTurn".to_string());
         }
@@ -3581,6 +3584,7 @@ impl Tx<'_> {
                         if self
                             .wave24e_self_etb_moved_replacement(spec)
                             .or_else(|| self.wave26f_moved_replacement(spec))
+                            .or_else(|| self.wave27e_replacement(spec))
                             .is_some()
                         {
                             return Some(());

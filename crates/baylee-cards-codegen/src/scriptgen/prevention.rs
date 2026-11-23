@@ -82,20 +82,28 @@ impl Tx<'_> {
                     return self
                         .deny("a persistent spell prevention with another zone or result".into());
                 }
-                return self.counters_prevent_damage_rule(p);
+                return self
+                    .wave27e_prevent_damage_removing_counters(&p)
+                    .or_else(|| self.counters_prevent_damage_rule(p));
             }
             if p.has("DamageAmount") && !p.has("PreventionEffect") && !p.has("Prevent") {
                 if !zone_arg.is_empty() {
                     return self
                         .deny("a persistent spell prevention with another zone or result".into());
                 }
-                return self.replace_player_damage_rule(p);
+                return self
+                    .wave27e_replace_damage_amount(&p)
+                    .or_else(|| self.replace_player_damage_rule(p));
             }
             if !p.has("PreventionEffect") && !p.has("Prevent") {
                 if replace_api.as_deref() == Some("ReplaceEffect") {
-                    return self.damage_multiplier_or_adder_rule(p, zone_arg);
+                    return self
+                        .wave27e_damage_subtract_rule(&p, zone_arg)
+                        .or_else(|| self.damage_multiplier_or_adder_rule(p, zone_arg));
                 }
-                return self.replace_or_prevent_damage_with_then_rule(p, zone_arg, true);
+                return self
+                    .wave27e_damage_then_rule(&p, zone_arg, true)
+                    .or_else(|| self.replace_or_prevent_damage_with_then_rule(p, zone_arg, true));
             }
             if replace_api.as_deref() == Some("ReplaceDamage") {
                 if !zone_arg.is_empty() {
@@ -104,7 +112,9 @@ impl Tx<'_> {
                 }
                 return self.per_source_damage_prevention(p);
             }
-            return self.replace_or_prevent_damage_with_then_rule(p, zone_arg, false);
+            return self
+                .wave27e_damage_then_rule(&p, zone_arg, false)
+                .or_else(|| self.replace_or_prevent_damage_with_then_rule(p, zone_arg, false));
         }
         if p.take("Prevent").as_deref() != Some("True") {
             return self.deny("a persistent spell prevention with another zone or result".into());
@@ -644,7 +654,7 @@ impl Tx<'_> {
         Some(effect)
     }
 
-    fn damage_recipients_expr(&mut self, valid_target: Option<&str>) -> Option<String> {
+    pub(super) fn damage_recipients_expr(&mut self, valid_target: Option<&str>) -> Option<String> {
         let Some(raw) = valid_target else {
             return Some("DamageRecipients::Any".to_string());
         };
@@ -1106,7 +1116,7 @@ impl Tx<'_> {
         Some((kind_raw, kind))
     }
 
-    fn prevention_condition(&mut self, p: &mut Params) -> Option<String> {
+    pub(super) fn prevention_condition(&mut self, p: &mut Params) -> Option<String> {
         let your_turn = match p.take("PlayerTurn").as_deref() {
             None => false,
             Some("True") => true,
