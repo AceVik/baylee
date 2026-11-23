@@ -716,3 +716,6 @@ impl LogEvent {
         out.into_iter()
     }
 }
+
+#[cfg(test)]
+mod tests;

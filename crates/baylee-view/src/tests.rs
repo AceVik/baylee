@@ -7,6 +7,7 @@ use std::borrow::Cow;
 
 mod accessors;
 mod display;
+mod lookups;
 mod objects;
 mod table;
 mod wire_shape;
