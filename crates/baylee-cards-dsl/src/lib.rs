@@ -1670,6 +1670,9 @@ pub const PRINTED_KEYWORDS: &[(KeywordSet, &str)] = &[
 ];
 
 #[cfg(test)]
+mod shape_tests;
+
+#[cfg(test)]
 mod printed_keyword_tests {
     use super::{KeywordSet, PRINTED_KEYWORDS};
 
