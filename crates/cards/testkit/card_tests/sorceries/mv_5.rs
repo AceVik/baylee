@@ -24,6 +24,7 @@ mod extinction;
 mod extortion;
 mod frenzied_tilling;
 mod fumarole;
+mod global_ruin;
 mod hellfire;
 mod hymn_of_rebirth;
 mod implode;

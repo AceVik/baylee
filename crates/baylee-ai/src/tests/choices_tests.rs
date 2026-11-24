@@ -683,6 +683,59 @@ fn cataclysm_choice_preserves_the_best_whole_keep_set() {
     );
 }
 
+#[test]
+fn global_ruin_choice_preserves_the_dual_land_and_another_mountain() {
+    use baylee_core::generated::subtypes::land;
+
+    let me = PlayerId::new(0);
+    let volcanic = obj(10);
+    let mountain = obj(11);
+    let other_mountain = obj(12);
+    let mut dual = carded(permanent(volcanic, me, 4), "Volcanic Island", TypeSet::LAND);
+    dual.subtypes.insert(land::ISLAND);
+    dual.subtypes.insert(land::MOUNTAIN);
+    let mut mountain_object = carded(permanent(mountain, me, 1), "Mountain", TypeSet::LAND);
+    mountain_object.subtypes.insert(land::MOUNTAIN);
+    let mut other_object = carded(permanent(other_mountain, me, 1), "Mountain", TypeSet::LAND);
+    other_object.subtypes.insert(land::MOUNTAIN);
+    let v = view(0, &[20, 20], vec![dual, mountain_object, other_object]);
+    let global_ruin = hand_card(20, "Global Ruin");
+    let effects = baylee_cards::by_index(global_ruin.card.index)
+        .and_then(|definition| {
+            definition
+                .abilities
+                .iter()
+                .find_map(|ability| match ability {
+                    AbilityDef::Spell { effects, .. } => Some(*effects),
+                    _ => None,
+                })
+        })
+        .unwrap();
+    let pending = Pending::ChooseCards {
+        player: me,
+        options: vec![volcanic, mountain, other_mountain],
+        min: 1,
+        max: 1,
+        prompt: baylee_engine::choice::ChoicePrompt::KeepPermanents,
+        total: None,
+    };
+
+    assert_eq!(
+        HeuristicAgent::new(AIProfile::EXPERT).act_with_context(
+            &v,
+            &pending,
+            &baylee_engine::engine::DecisionContext {
+                effects,
+                ..Default::default()
+            },
+        ),
+        PlayerAction::ChooseObjects {
+            objects: vec![mountain],
+        },
+        "Volcanic Island already covers Island, so a separate Mountain must cover this choice",
+    );
+}
+
 /// A price is paid, and paid with the card this seat misses least.
 ///
 /// "Sacrifice Endless Wurm unless you sacrifice an enchantment" asks
