@@ -253,6 +253,50 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
             );
             None
         }
+        Effect::PreventFromChosenSourceWithLifeCondition {
+            target,
+            sources,
+            gain_life_sources,
+        } => {
+            let protects = match target {
+                None => vec![Shielded::Everything],
+                Some(spec) => recipients(state, res, you, spec)
+                    .into_iter()
+                    .filter_map(|recipient| match recipient {
+                        DamageTarget::Player(player) => Some(Shielded::Player(player)),
+                        DamageTarget::Object(id) => state
+                            .object(id)
+                            .map(|obj| Shielded::Object(id, obj.version)),
+                    })
+                    .collect(),
+            };
+            if protects.is_empty() {
+                return None;
+            }
+            let chosen_color = res.source_chosen_color(state);
+            let chosen_subtype = res.source_chosen_subtype(state);
+            let options = crate::prevention::source_options_with_choices(
+                state,
+                sources,
+                you,
+                res.rule_context(),
+                chosen_color,
+                chosen_subtype,
+            );
+            if options.is_empty() {
+                return None;
+            }
+            res.awaiting = Some(AwaitingOp::ShieldFromChosenSourceWithLifeCondition {
+                protects,
+                sources,
+                gain_life_sources,
+            });
+            Some(Pending::ChooseDamageSource {
+                player: you,
+                choice: state.next_source_choice(),
+                options,
+            })
+        }
         // The source is chosen as this resolves (CR 609.7a), and the choice
         // is an instruction, so `min: 1`; with no source to choose there is
         // no shield and no question (CR 609.3).

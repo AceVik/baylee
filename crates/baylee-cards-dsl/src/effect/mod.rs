@@ -5996,6 +5996,18 @@ pub enum Effect {
         /// Consequence if nobody pays.
         effects: &'static [Effect],
     },
+    /// Prevent all damage from a chosen source this turn; its controller gains
+    /// the prevented amount only when the source also matches a second filter
+    /// at the moment damage would be dealt (CR 609.7, CR 615.5).
+    /// Appended to preserve replay identities.
+    PreventFromChosenSourceWithLifeCondition {
+        /// Protected recipient(s), or `None` for any recipient.
+        target: Option<TargetSpec>,
+        /// Eligibility and damage-time source filter (CR 609.7a–b).
+        sources: &'static Filter,
+        /// Additional source criterion for gaining the prevented amount as life.
+        gain_life_sources: &'static Filter,
+    },
 }
 
 #[cfg(test)]

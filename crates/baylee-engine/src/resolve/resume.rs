@@ -1730,6 +1730,7 @@ pub(super) fn resume_inner(
         }
         AwaitingOp::DamageShieldSource { .. }
         | AwaitingOp::ShieldFromChosenSource { .. }
+        | AwaitingOp::ShieldFromChosenSourceWithLifeCondition { .. }
         | AwaitingOp::RedirectFromChosenSource { .. } => {
             unreachable!("source decisions resume through resume_source")
         }
@@ -2122,6 +2123,44 @@ pub(super) fn resume_source_inner(
                         crate::prevention::Shield {
                             protects: protected,
                             kind,
+                            controller: you,
+                        },
+                        Some(origin),
+                    );
+                }
+            }
+        }
+        AwaitingOp::ShieldFromChosenSourceWithLifeCondition {
+            protects,
+            sources,
+            gain_life_sources,
+        } => {
+            let you = res.controller;
+            let chosen_color = res.source_chosen_color(state);
+            let chosen_subtype = res.source_chosen_subtype(state);
+            if let Some(source) = chosen.and_then(|id| {
+                crate::prevention::ChosenSource::new_with_choices(
+                    state,
+                    id,
+                    sources,
+                    you,
+                    res.rule_context(),
+                    chosen_color,
+                    chosen_subtype,
+                )
+            }) {
+                let origin = crate::prevention::ShieldOrigin {
+                    source: res.source,
+                    ability: resolving_ability(state, res),
+                };
+                for protected in protects {
+                    state.shields.push_from(
+                        crate::prevention::Shield {
+                            protects: protected,
+                            kind: crate::prevention::ShieldKind::AllFromWithLifeCondition {
+                                source,
+                                gain_life_sources,
+                            },
                             controller: you,
                         },
                         Some(origin),

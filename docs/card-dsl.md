@@ -5562,6 +5562,12 @@ is `true` or at cleanup otherwise).
   resolving source incarnation's `chosen_color` and `chosen_subtype` (Story
   Circle, Prismatic Circle) so source removal or blink-and-rechoose never
   alters or erases the shield's criterion (CR 113.7a, CR 400.7, CR 609.7b).
+- `Effect::PreventFromChosenSourceWithLifeCondition { target, sources, gain_life_sources }`
+  creates a persistent `ShieldKind::AllFromWithLifeCondition`: every damage
+  event from the chosen source is prevented, and its controller gains the
+  prevented amount only when the actual source also matches `gain_life_sources`
+  at that moment (Samite Ministration). The second filter does not narrow which
+  source is chosen or which damage is prevented, and the shield is not consumed.
 - `Effect::PreventNextFromMatchingSources { target, sources, combat_only }`
   creates a one-shot `ShieldKind::NextMatching` shield without choosing a
   source on resolution (Circle of Solace, Trained Pronghorn). When multiple

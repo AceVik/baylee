@@ -258,6 +258,7 @@ pub(super) fn refers_to_subject(effects: &'static [Effect], implicit_source: boo
                     || matches!(attacker, TargetSpec::ThisObject)
             }
             Effect::PreventFromChosenSource { target, .. }
+            | Effect::PreventFromChosenSourceWithLifeCondition { target, .. }
             | Effect::PreventNextFromMatchingSources { target, .. }
             | Effect::PreventAllDamageFromMatchingThisTurn { target, .. } => {
                 matches!(target, Some(TargetSpec::ThisObject))

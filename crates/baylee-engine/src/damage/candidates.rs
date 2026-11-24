@@ -43,6 +43,39 @@ impl DamageWork {
                     {
                         Kind::PreventAll
                     }
+                    ShieldKind::AllFromWithLifeCondition {
+                        source,
+                        gain_life_sources,
+                    } => {
+                        let Some(actual) =
+                            state.damage_source(part.view.source, part.source_version)
+                        else {
+                            continue;
+                        };
+                        if !source.deals_as(state, actual) {
+                            continue;
+                        }
+                        let gain_life = crate::eval::matches_damage_source_with_choices(
+                            gain_life_sources,
+                            state,
+                            actual,
+                            shield.controller,
+                            crate::text_changes::RuleContext {
+                                source: source.this,
+                                text: source.text,
+                                resolved_name: None,
+                                resolved_subtype: source.chosen_subtype,
+                                reference: None,
+                            },
+                            source.chosen_color,
+                            source.chosen_subtype,
+                        );
+                        Kind::PreventFromSource {
+                            source: source.id,
+                            all_but: 0,
+                            gain_life,
+                        }
+                    }
                     ShieldKind::NextFrom {
                         source,
                         all_but,

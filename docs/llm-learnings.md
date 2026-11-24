@@ -8740,3 +8740,15 @@ unfiltered cards. The eight additional cards come from typecycling and dredge.
 - Forge's omitted `NumCards` on a one-card random discard still means one
   captured object. Preserve that default when deriving `CaptureScope`; the
   remembered condition can then become a single-object `ForEachRemembered`.
+
+## 2026-11-25 — Conditional life with a persistent chosen-source shield
+
+- A turn-long prevention shield with an immediate life-gain trigger is not a
+  one-shot `gain_life` shield. Keep the shield after each damage event and test
+  the trigger's `ReplacedSource$Valid` filter separately when damage would be
+  dealt. Samite Ministration therefore prevents a newly white chosen source's
+  damage without gaining life, while red or black damage also gains life.
+- Claim the complete `ImmediateTrigger`, its damage-amount SVar and its
+  condition before emitting the effect. The existing `ChooseDamageSource`
+  protocol already covers resolution, so the reader and engine need no new
+  client or seat question.
