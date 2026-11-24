@@ -156,6 +156,7 @@ mod roar_of_the_kha;
 mod rouse;
 mod rune_snag;
 mod sacred_boon;
+mod samite_ministration;
 mod scent_of_nightshade;
 mod searing_spear;
 mod sejiri_shelter;
