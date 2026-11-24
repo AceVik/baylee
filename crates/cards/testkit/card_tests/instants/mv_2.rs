@@ -22,6 +22,7 @@ mod aura_blast;
 mod aura_extraction;
 mod aura_mutation;
 mod backdraft;
+mod barrin_s_unmaking;
 mod beyeen_veil;
 mod bind;
 mod blessed_reversal;
