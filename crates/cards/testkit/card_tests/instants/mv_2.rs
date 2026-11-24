@@ -34,6 +34,7 @@ mod break_open;
 mod burnout;
 mod cabal_ritual;
 mod call_to_glory;
+mod chaotic_strike;
 mod chill_haunting;
 mod clear;
 mod constant_mists;
