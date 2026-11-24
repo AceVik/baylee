@@ -1679,12 +1679,6 @@ pub enum Modifier {
         /// Immediate follow-up, or `None`.
         then: Option<crate::DamageRider>,
     },
-    /// If one source would deal at most this much damage to the affected
-    /// permanent in a damage event, prevent all of that source's damage to it
-    /// (*Callous Giant*; CR 615.1, CR 615.12). This is prevention, not an amount
-    /// replacement, so damage that can't be prevented is still dealt in full.
-    /// Appended to preserve replay identities.
-    PreventDamageToAffectedIfAtMost(u32),
 }
 
 /// Quantity evaluated during CR 601.2f spell cost determination by
@@ -2186,8 +2180,7 @@ impl Modifier {
             | Self::FirstSpellEachTurnCostAdjust { .. }
             | Self::MustAttackPlayer(_)
             | Self::ModifyLifeGain { .. }
-            | Self::PreventDamageRemovingCounters { .. }
-            | Self::PreventDamageToAffectedIfAtMost(_) => Layer::Text,
+            | Self::PreventDamageRemovingCounters { .. } => Layer::Text,
         }
     }
 }
@@ -3230,7 +3223,6 @@ mod tests {
                 kind: crate::CounterKind::P1P1,
                 then: Some(RIDER),
             },
-            Modifier::PreventDamageToAffectedIfAtMost(3),
         ] {
             assert_eq!(
                 modifier.layer(),

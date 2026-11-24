@@ -240,7 +240,7 @@ fn order_matters(options: &[Candidate]) -> bool {
     }
     options.iter().any(|option| match option.option.kind {
         DamageEffectKind::Redirect { .. } => false,
-        _ if never_spent(option) => false,
+        kind if never_spent(kind) => false,
         DamageEffectKind::ReplaceAmount { .. }
             if matches!(option.key, EffectKey::ContinuousForSource(..))
                 && destination.is_none() =>
@@ -254,16 +254,14 @@ fn order_matters(options: &[Candidate]) -> bool {
 /// Prevention that prevents all the damage it applies to and is never spent
 /// doing so (protection, Fog, "all damage that would be dealt by
 /// artifacts"): damage a redirection brings to its recipient meets it the
-/// same way whenever it arrives. Per-source prevention may instead carry an
-/// amount threshold, so its eligibility can change with another replacement.
-fn never_spent(candidate: &Candidate) -> bool {
-    !matches!(candidate.key, EffectKey::ContinuousForSource(..))
-        && matches!(
-            candidate.option.kind,
-            DamageEffectKind::Protection
-                | DamageEffectKind::PreventAll
-                | DamageEffectKind::PreventCombat
-        )
+/// same way whenever it arrives.
+fn never_spent(kind: DamageEffectKind) -> bool {
+    matches!(
+        kind,
+        DamageEffectKind::Protection
+            | DamageEffectKind::PreventAll
+            | DamageEffectKind::PreventCombat
+    )
 }
 
 /// An effect that prevents some or all of the damage it was offered for and

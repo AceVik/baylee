@@ -1528,7 +1528,6 @@ fn apply(
         | Modifier::MustAttackPlayer(_)
         | Modifier::ModifyLifeGain { .. }
         | Modifier::PreventDamageRemovingCounters { .. }
-        | Modifier::PreventDamageToAffectedIfAtMost(_)
         | Modifier::GrantStatic { .. }
         | Modifier::SpellsHaveFlash(_)
         | Modifier::SorceriesHaveFlash
