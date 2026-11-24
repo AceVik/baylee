@@ -8740,3 +8740,18 @@ unfiltered cards. The eight additional cards come from typecycling and dredge.
 - Forge's omitted `NumCards` on a one-card random discard still means one
   captured object. Preserve that default when deriving `CaptureScope`; the
   remembered condition can then become a single-object `ForEachRemembered`.
+
+
+## 2026-11-24 — Countering a land-targeting spell or ability
+
+- Read the stack item's current target incarnations, not only the permanent's
+  present characteristics: `TargetsYouControl` checks every target instance,
+  including secondary and additional targets, for a matching permanent under
+  the responding player's control. Target legality on resolution therefore
+  follows CR 608.2b and skips the whole effect list, including its card draw,
+  when the target no longer matches.
+- A counter rider that destroys an ability's source needs memory from the
+  counter effect itself. `CounterTargetSpellOrAbility` now routes abilities
+  through `counter_ability`, and `DestroyCounteredAbilitySource` acts only on
+  that recorded source if it remains on the battlefield; spells, uncounterable
+  abilities and sources that already left do not qualify.
