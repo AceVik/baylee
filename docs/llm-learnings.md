@@ -8774,3 +8774,12 @@ unfiltered cards. The eight additional cards come from typecycling and dredge.
   in a subability. Only when that subability exists may the reader discard the
   zero-damage main arm as a placeholder; the same zero arm without a
   subability remains unread and refused.
+
+## 2026-11-25 — A source exchanging control with its target
+
+- `ExchangeControl | Defined$ Self` plus one object target is a two-sided
+  exchange, not a one-sided control gain. Resolve both battlefield subjects
+  against the same pre-exchange board, leave their owners unchanged, and use
+  the existing indefinite layer-2 control effects. Phyrexian Infiltrator's
+  tests cover activation and payment, both controllers, persistence across a
+  full turn, and an only target leaving the battlefield before resolution.
