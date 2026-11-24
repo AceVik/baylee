@@ -12805,6 +12805,8 @@ impl Tx<'_> {
             let mut stripped = trimmed.to_string();
             for suffix in [suffix_a, suffix_b] {
                 stripped = stripped
+                    .replace(&format!(".{suffix}+"), ".")
+                    .replace(&format!("+{suffix}+"), "+")
                     .replace(&format!(".{suffix}"), "")
                     .replace(&format!("+{suffix}"), "");
             }

@@ -2575,8 +2575,11 @@ fn wave8b_repeat_each_domains_and_refusals() {
         chosen_color_damage_map.abilities[0].contains("Effect::ChooseColor")
             && chosen_color_damage_map.abilities[0].contains("Effect::DealDamage {")
             && chosen_color_damage_map.abilities[0].contains("PlayerRel::Recipient")
-            && chosen_color_damage_map.abilities[0].contains("Filter::ChosenColor"),
-        "{}",
+            && chosen_color_damage_map
+                .statics
+                .contains("Filter::And(&[Filter::CREATURE, Filter::OfSourceChosenColor])"),
+        "{} {}",
+        chosen_color_damage_map.statics,
         chosen_color_damage_map.abilities[0]
     );
 
