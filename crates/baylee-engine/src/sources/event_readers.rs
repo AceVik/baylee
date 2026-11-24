@@ -416,6 +416,7 @@ fn reads_event(effect: &Effect) -> bool {
         | Effect::CreateTokenCopyOf { target, .. }
         | Effect::PhaseOut { target, .. }
         | Effect::PreventFromChosenSource { target, .. }
+        | Effect::PreventFromChosenSourceWithLifeCondition { target, .. }
         | Effect::PreventNextFromMatchingSources { target, .. }
         | Effect::PreventAllDamageFromMatchingThisTurn { target, .. } => {
             target.is_some_and(reads_target)

@@ -1073,6 +1073,7 @@ impl GameState {
                 out.insert(DamageSourceRef { object, version });
             }
             if let ShieldKind::AllFrom { source }
+            | ShieldKind::AllFromWithLifeCondition { source, .. }
             | ShieldKind::NextFrom { source, .. }
             | ShieldKind::RedirectNextFrom { source, .. }
             | ShieldKind::RedirectSource { source, .. }

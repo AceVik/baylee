@@ -1001,6 +1001,7 @@ impl DamageWork {
                             state.shields[i].kind,
                             ShieldKind::RedirectSource { next: false, .. }
                                 | ShieldKind::RedirectCombat { .. }
+                                | ShieldKind::AllFromWithLifeCondition { .. }
                         )
                     {
                         if state.shields[i].protects == crate::prevention::Shielded::Everything

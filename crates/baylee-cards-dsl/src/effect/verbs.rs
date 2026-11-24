@@ -1099,6 +1099,7 @@ impl Effect {
             | Effect::ChooseDamageSourcePreventAllThisTurnMatching(_)
             | Effect::PreventNextFromChosenSource { .. }
             | Effect::PreventFromChosenSource { .. }
+            | Effect::PreventFromChosenSourceWithLifeCondition { .. }
             | Effect::PreventNextFromMatchingSources { .. }
             | Effect::PreventAllDamageFromMatchingThisTurn { .. }
             | Effect::RedirectNextFromChosenSource { .. }

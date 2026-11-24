@@ -559,6 +559,7 @@ fn read_one(effect: &Effect, certain: bool, reading: &Reading<'_>, facts: &mut F
         | Effect::PeekAndReveal { .. }
         | Effect::RevealFromHand { .. }
         | Effect::PreventFromChosenSource { .. }
+        | Effect::PreventFromChosenSourceWithLifeCondition { .. }
         | Effect::DiscardCount { .. }
         | Effect::DiscardMatching { .. }
         | Effect::DiscardUpToThenDraw { .. }

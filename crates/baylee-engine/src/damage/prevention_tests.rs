@@ -238,6 +238,46 @@ fn a_chosen_source_shield_waits_for_its_source_and_rechecks_it() {
     assert_eq!(apply(&mut state, chosen, to_p1, 2, false), 2);
 }
 
+/// A turn-long conditional shield persists across damage events. Its life
+/// condition reads the source's current (or last-known) characteristics,
+/// independently of the identity filter that selected it.
+#[test]
+fn chosen_source_conditional_life_persists_and_rechecks_the_life_filter() {
+    let (mut state, chosen) = board();
+    painted(&mut state, chosen, ColorSet::from_slice(&[Color::Red]));
+    let other = another(&mut state);
+    let source = ChosenSource::new(
+        &state,
+        state.source_identity(chosen).unwrap(),
+        &Filter::Any,
+        P1,
+        chosen,
+    )
+    .expect("chosen on the board");
+    state.shields.push(Shield {
+        protects: Shielded::Player(P1),
+        kind: ShieldKind::AllFromWithLifeCondition {
+            source,
+            gain_life_sources: &RED,
+        },
+        controller: P1,
+    });
+    let to_p1 = DamageTarget::Player(P1);
+
+    assert_eq!(apply(&mut state, chosen, to_p1, 2, false), 0);
+    assert_eq!(state.players[1].life, 22);
+    assert_eq!(apply(&mut state, chosen, to_p1, 3, false), 0);
+    assert_eq!(state.players[1].life, 25, "life is gained each time");
+    assert_eq!(state.shields.len(), 1, "the turn-long shield remains");
+    assert_eq!(apply(&mut state, other, to_p1, 4, false), 4);
+    assert_eq!(state.players[1].life, 25);
+
+    painted(&mut state, chosen, ColorSet::from_slice(&[Color::White]));
+    assert_eq!(apply(&mut state, chosen, to_p1, 5, false), 0);
+    assert_eq!(state.players[1].life, 25, "white damage gives no life");
+    assert_eq!(state.shields.len(), 1);
+}
+
 /// The pinger killed in response: its ability still deals the damage,
 /// from the source it was, and the shield on that source still applies
 /// (CR 609.7a) — rechecked against what it last was. The card that came

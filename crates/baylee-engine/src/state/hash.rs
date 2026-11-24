@@ -1053,6 +1053,15 @@ fn hash_shield_kind(
             chosen_subtype.hash(h);
             chosen_color.hash(h);
         }
+        crate::prevention::ShieldKind::AllFromWithLifeCondition {
+            source,
+            gain_life_sources,
+        } => {
+            h.u8(255);
+            h.u16(351);
+            hash_chosen_source(h, state, &source, position);
+            filter_hash(h, gain_life_sources);
+        }
     }
 }
 
