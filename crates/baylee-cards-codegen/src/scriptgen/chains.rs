@@ -25,7 +25,14 @@ impl Tx<'_> {
             .iter()
             .any(|e| e.starts_with("Effect::ChooseNumberEx {"));
         let saved = std::mem::replace(&mut self.has_resolution_chosen_number, chosen);
+        let chosen_color = self.has_chosen_color()
+            || chain
+                .effects
+                .iter()
+                .any(|effect| effect == "Effect::ChooseColor");
+        let saved_color = std::mem::replace(&mut self.has_resolution_chosen_color, chosen_color);
         let result = self.chain_inner(spec, chain);
+        self.has_resolution_chosen_color = saved_color;
         self.has_resolution_chosen_number = saved;
         result
     }
@@ -3898,7 +3905,15 @@ impl Tx<'_> {
                 {
                     return None;
                 }
-                let filter = match p.take("DiscardValid").as_deref() {
+                let valid = p.take("DiscardValid");
+                if let Some(description) = p.take("DiscardValidDesc")
+                    && (valid.as_deref() != Some("Card.ChosenColor")
+                        || description != "card of that color"
+                        || !self.has_resolution_chosen_color)
+                {
+                    return None;
+                }
+                let filter = match valid.as_deref() {
                     None | Some("Card") => "Filter::Any".to_string(),
                     Some(valid) => self.filter_expr_in_zone(valid, true)?,
                 };

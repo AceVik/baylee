@@ -485,6 +485,8 @@ struct Tx<'a> {
     in_delayed: bool,
     /// An earlier unconditional effect in this resolution chain chose a number.
     has_resolution_chosen_number: bool,
+    /// This permanent or an earlier effect in this resolution chain chose a color.
+    has_resolution_chosen_color: bool,
     /// Whether the activated ability being read sacrifices `CARDNAME` in its cost.
     cost_sacrifices_self: bool,
     /// Whether the activated ability being read sacrifices another object in its cost.
@@ -618,6 +620,7 @@ impl<'a> Tx<'a> {
             block_half: None,
             in_delayed: false,
             has_resolution_chosen_number: false,
+            has_resolution_chosen_color: false,
             cost_sacrifices_self: false,
             cost_sacrifices_other: false,
             has_x_mana_cost: script.has_x_mana_cost,

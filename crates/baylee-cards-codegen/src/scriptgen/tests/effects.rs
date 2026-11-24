@@ -20,6 +20,34 @@ fn revealed_hand_discard_distinguishes_permanents_from_other_nonlands() {
 }
 
 #[test]
+fn revealed_hand_discard_only_claims_a_matching_chosen_color_description() {
+    let script = "Name:Private color choice\nManaCost:1 B\nTypes:Sorcery\n\
+         A:SP$ ChooseColor | Defined$ You | SubAbility$ DBRevealDiscard\n\
+         SVar:DBRevealDiscard:DB$ Discard | Mode$ RevealYouChoose | DiscardValid$ Card.ChosenColor | DiscardValidDesc$ card of that color | ValidTgts$ Player";
+    let body = read(script);
+    assert!(
+        body.abilities[0].contains("Effect::ChooseColor")
+            && body.abilities[0]
+                .contains("Effect::RevealHandDiscard { filter: &Filter::OfSourceChosenColor }"),
+        "{}",
+        body.abilities[0]
+    );
+
+    assert!(refused(&script.replace(
+        "DiscardValid$ Card.ChosenColor",
+        "DiscardValid$ Card.nonLand"
+    )));
+    assert!(refused(&script.replace(
+        "DiscardValidDesc$ card of that color",
+        "DiscardValidDesc$ nonland card"
+    )));
+    assert!(refused(
+        "Name:Private unchosen color\nManaCost:1 B\nTypes:Sorcery\n\
+         A:SP$ Discard | Mode$ RevealYouChoose | DiscardValid$ Card.ChosenColor | DiscardValidDesc$ card of that color | ValidTgts$ Player"
+    ));
+}
+
+#[test]
 fn a_sweep_exempts_its_source_from_each_printed_type() {
     for (instruction, exceptions) in [
         (
