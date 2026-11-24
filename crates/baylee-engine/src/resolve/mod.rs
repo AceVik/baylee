@@ -182,6 +182,10 @@ mod host_tests;
 #[cfg(test)]
 mod toggle_tests;
 
+/// A resolving permanent exchanges control with its target indefinitely.
+#[cfg(test)]
+mod source_exchange_tests;
+
 /// Mana Short: "tap all lands target player controls and that player loses
 /// all unspent mana". The player is the resolution's chosen one, and
 /// nothing of anybody else's is touched.

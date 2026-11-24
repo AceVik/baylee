@@ -1409,6 +1409,7 @@ impl Effect {
             | Effect::TargetPlayersCreaturesDontUntapNextUntap
             | Effect::AddManaAmountFor { .. }
             | Effect::ExchangeControlOfEventAndTarget
+            | Effect::ExchangeControlOfSourceAndTarget
             | Effect::UnattachAllEquipmentFromTarget
             | Effect::SkipNextCombatPhase { .. }
             | Effect::ChoosePhaseToSkipThisTurn

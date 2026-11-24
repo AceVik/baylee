@@ -6014,6 +6014,11 @@ pub enum Effect {
         /// Initial damage recipients.
         target: TargetSpec,
     },
+    /// Exchange control of the resolving source and the first target
+    /// indefinitely (CR 701.12a–b). Both permanents must still be on the
+    /// battlefield under different controllers; otherwise nothing changes.
+    /// Appended to preserve replay identities.
+    ExchangeControlOfSourceAndTarget,
 }
 
 #[cfg(test)]

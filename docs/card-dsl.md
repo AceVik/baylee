@@ -2067,7 +2067,9 @@ Battle Cry's "it gets +0/+1"), all of which carry a `KeywordSet` so
 `SetPTFilter`, `ChangeController`, `AllCreaturesToOwner`,
 `ExchangeControlOrSacrifice` (Gilded Drake), `ExchangeControl` (the first
 target's controller and the second's swap them, CR 701.12a–b: all or
-nothing, and nothing between two permanents of one player), `PhaseOut`,
+nothing, and nothing between two permanents of one player),
+`ExchangeControlOfSourceAndTarget` (the resolving source and first target,
+indefinitely, under the same all-or-nothing rule), `PhaseOut`,
 `AttachSelf`, `UntapChosen { filter, count }` ("untap up to N lands" with no
 "target": chosen as it resolves, Treachery), `Populate` (CR 701.36: a choice
 on resolution, never a target, Nesting Dovehawk).

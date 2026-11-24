@@ -5553,6 +5553,16 @@ fn wave17c_radiation_exchange_move_lose_skip_and_sweeps() {
         "{}",
         exch.abilities[0]
     );
+    let source_exchange = read(
+        "Name:SourceSwap\nManaCost:2 B\nTypes:Creature\nPT:2/2\n\
+         A:AB$ ExchangeControl | Cost$ 2 U U | Defined$ Self | ValidTgts$ Creature | SpellDescription$ Swap with target creature.",
+    );
+    assert!(
+        source_exchange.abilities[0].contains("Effect::ExchangeControlOfSourceAndTarget")
+            && source_exchange.abilities[0].contains("targets = Some(TargetReq::one"),
+        "{}",
+        source_exchange.abilities[0]
+    );
     assert!(refused(
         "Name:BadTwoTargetSwap\nManaCost:3 U\nTypes:Sorcery\n\
          A:SP$ ExchangeControl | TargetMin$ 2 | TargetMax$ 2 | ValidTgts$ Creature"

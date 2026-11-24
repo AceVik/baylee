@@ -4241,6 +4241,22 @@ pub(super) fn exec_immediate(
             }
             None
         }
+        Effect::ExchangeControlOfSourceAndTarget => {
+            let source = subjects::source(state, res)
+                .filter(|r| subjects::on_battlefield(state, *r))
+                .map(|r| r.object);
+            let target = res
+                .targets
+                .first()
+                .copied()
+                .and_then(|id| subjects::target(state, res, id))
+                .filter(|r| subjects::on_battlefield(state, *r))
+                .map(|r| r.object);
+            if let (Some(a), Some(b)) = (source, target) {
+                control::exchange(state, a, b);
+            }
+            None
+        }
         Effect::UnattachAllEquipmentFromTarget => {
             let &host = res.targets.first()?;
             if !state

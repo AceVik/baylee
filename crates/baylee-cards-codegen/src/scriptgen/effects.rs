@@ -16149,6 +16149,9 @@ impl Tx<'_> {
         if self.is_event_object_defined(&defined) {
             return Some(vec!["Effect::ExchangeControlOfEventAndTarget".to_string()]);
         }
+        if defined == "Self" {
+            return Some(vec!["Effect::ExchangeControlOfSourceAndTarget".to_string()]);
+        }
         None
     }
 
