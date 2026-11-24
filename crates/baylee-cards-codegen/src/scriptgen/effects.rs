@@ -13607,6 +13607,13 @@ impl Tx<'_> {
         p.take("ChoiceTitle");
         p.take("ChoiceDesc");
         p.take("IsCurse");
+        let each_basic_type = match p.take("EachBasicType").as_deref() {
+            None => false,
+            Some("True") => true,
+            Some(other) => {
+                return self.deny(format!("`ChooseCard` with `EachBasicType$ {other}`"));
+            }
+        };
         let outer_cond = self.take_wave8_line_condition(&mut p).ok()?;
         let raw_defined = p.take("Defined");
         let chooser =
@@ -13739,7 +13746,11 @@ impl Tx<'_> {
                         }
                     }
                 };
-                let name = self.body.filter_static("CHOOSE", &expr);
+                let name = if each_basic_type {
+                    "Filter::LAND".to_string()
+                } else {
+                    self.body.filter_static("CHOOSE", &expr)
+                };
                 (
                     "ChooseZone::Battlefield".to_string(),
                     None,
@@ -13880,6 +13891,44 @@ impl Tx<'_> {
             &stripped_choices,
             &max_expr,
         )?;
+        if each_basic_type {
+            // This Forge form leaves `Mandatory` unset: `EachBasicType` itself
+            // requires one choice for every available basic land type.
+            let sacrifices_unchosen_lands = followup.movement == "ChooseMove::None"
+                && followup.not_chosen_movement == "ChooseMove::None"
+                && followup.then_effects.is_empty()
+                && followup.for_unchosen.len() == 1
+                && followup.for_unchosen[0].contains("Effect::SacrificeEvent");
+            if raw_defined.as_deref() != Some("Player")
+                || chooser != "PlayerRel::EachPlayer"
+                || controlled_by != ControlledBySpec::Chooser
+                || origin_name != "Battlefield"
+                || choices_raw != "Land"
+                || stripped_choices != "Land"
+                || min > 1
+                || max_expr != "Amount::Fixed(1)"
+                || !sacrifices_unchosen_lands
+            {
+                return self.deny(
+                    "`ChooseCard` `EachBasicType` outside the per-player land keep-and-sacrifice form"
+                        .to_string(),
+                );
+            }
+            let keep = "Effect::KeepOneOfEachAndSacrificeRestMatching { filters: &[\
+                &Filter::And(&[Filter::LAND, Filter::HasSubtype(subtypes::land::PLAINS)]), \
+                &Filter::And(&[Filter::LAND, Filter::HasSubtype(subtypes::land::ISLAND)]), \
+                &Filter::And(&[Filter::LAND, Filter::HasSubtype(subtypes::land::SWAMP)]), \
+                &Filter::And(&[Filter::LAND, Filter::HasSubtype(subtypes::land::MOUNTAIN)]), \
+                &Filter::And(&[Filter::LAND, Filter::HasSubtype(subtypes::land::FOREST)])], \
+                rest: &Filter::LAND }";
+            chain.effects.push(match outer_cond {
+                Some(c) => format!(
+                    "Effect::IfCondition {{ condition: {c}, then: &[{keep}], otherwise: &[] }}"
+                ),
+                None => keep.to_string(),
+            });
+            return self.chain_sub_ability(followup.trailing_sub, chain);
+        }
         if (chain.target.is_some() || chain.second_target.is_some())
             && followup
                 .then_effects

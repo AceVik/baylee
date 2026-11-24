@@ -5996,6 +5996,15 @@ pub enum Effect {
         /// Consequence if nobody pays.
         effects: &'static [Effect],
     },
+    /// Each player keeps one controlled permanent for each of `filters`, then
+    /// sacrifices the unchosen permanents matching `rest`. A permanent may
+    /// satisfy more than one filter. Appended to preserve replay identities.
+    KeepOneOfEachAndSacrificeRestMatching {
+        /// The kinds to keep, in the order the choices are made.
+        filters: &'static [&'static Filter],
+        /// The permanents in each player's keep-or-sacrifice set.
+        rest: &'static Filter,
+    },
 }
 
 #[cfg(test)]

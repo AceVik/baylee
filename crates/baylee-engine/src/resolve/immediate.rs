@@ -536,6 +536,7 @@ pub(super) fn exec_immediate(
         | Effect::DestroyChosenForPlayers { .. }
         | Effect::EqualizePermanents { .. }
         | Effect::KeepOneOfEachAndSacrificeRest { .. }
+        | Effect::KeepOneOfEachAndSacrificeRestMatching { .. }
         | Effect::EqualizeHands
         | Effect::DiscardForPlayers { .. }
         | Effect::DiscardAmountForPlayers { .. }

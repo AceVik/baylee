@@ -1209,6 +1209,7 @@ impl Effect {
             | Effect::DestroyChosenForPlayers { .. }
             | Effect::EqualizePermanents { .. }
             | Effect::KeepOneOfEachAndSacrificeRest { .. }
+            | Effect::KeepOneOfEachAndSacrificeRestMatching { .. }
             | Effect::EqualizeHands
             | Effect::DiscardForPlayers { .. }
             | Effect::DiscardAmountForPlayers { .. }
