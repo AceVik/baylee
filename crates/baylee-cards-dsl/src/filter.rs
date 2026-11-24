@@ -522,10 +522,6 @@ pub enum Filter {
     /// Has the same name (`CR 201.2`) as at least one remembered object as it
     /// last existed. Appended to preserve replay identities.
     SharesNameWithRemembered,
-    /// A spell or ability with at least one target that is a permanent you
-    /// control matching the nested filter (`CR 115.1`, `CR 608.2b`).
-    /// Appended to preserve replay identities.
-    TargetsYouControl(&'static Filter),
 }
 
 /// Zone references for filters (engine zones, DSL view).

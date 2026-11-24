@@ -1944,10 +1944,7 @@ nothing, CR 201.2a), `Regenerate`, `Exile`, `CounterTargetSpell`,
 `TargetSourceLosesAbilities` (Tishana's Tidebinder: it reaches the permanent
 whose ability an *earlier* `CounterTargetAbility` in the same effect list
 countered, so it has to follow one; `source_filter` is the printed
-restriction on which permanents it reaches), `DestroyCounteredAbilitySource`
-(destroys that source if an earlier counter effect actually countered an
-activated or triggered ability and the source is still on the battlefield;
-it does nothing for spells or uncounterable abilities), `SacrificeFilter`, `ReturnToHand`,
+restriction on which permanents it reaches), `SacrificeFilter`, `ReturnToHand`,
 `ReturnAllToHand`, `ReturnChosenToHand`, `ChangeTarget { to }` ("change the
 target of target spell", CR 115.7a: Misdirection with `Filter::Any`,
 Hydroelectric Specimen's "to this creature" with `Filter::This`) and
@@ -2075,10 +2072,6 @@ True Scriptures I): the controller is asked once per opponent, in turn order,
 each question offering only that player's permanents. Triggers only for now.
 A spell "with a single target" is `TargetSpec::Spell(&Filter::WithSingleTarget)`
 (CR 115.9a: every instance of "target" and every player counted, Misdirection).
-A spell or ability "that targets a [matching] permanent you control" uses
-`Filter::TargetsYouControl(&FILTER)`: at least one current target incarnation
-must still be a permanent on the battlefield under your control and match the
-nested filter (CR 115.1, CR 608.2b).
 "If this would be put into a graveyard from anywhere, exile it instead" (every
 disturb back) is `AbilityDef::Replacement(ReplacementRule::ExileSelfInsteadOfGraveyard)`
 on that face: registered on the battlefield, carried on the stack by the cast.

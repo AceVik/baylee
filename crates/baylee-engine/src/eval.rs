@@ -360,26 +360,6 @@ pub(crate) fn matches_projected_with_choices(
                     }) && (pre_stack_projection || state.targets_current_object(obj.id, *id))
                 })
         }
-        Filter::TargetsYouControl(filter) => {
-            let pre_stack_projection = state
-                .object(obj.id)
-                .is_some_and(|live| live.zone != Zone::Stack);
-            obj.targets
-                .iter()
-                .chain(obj.second_targets())
-                .chain(
-                    obj.extra_target_instances()
-                        .iter()
-                        .flat_map(|inst| inst.targets.iter()),
-                )
-                .any(|id| {
-                    state.object(*id).is_some_and(|target| {
-                        target.zone == Zone::Battlefield
-                            && target.controller == you
-                            && matches_with_context(filter, state, target, you, context)
-                    }) && (pre_stack_projection || state.targets_current_object(obj.id, *id))
-                })
-        }
         Filter::WithSingleTarget => {
             let players = obj.target_players.len()
                 + usize::from(
