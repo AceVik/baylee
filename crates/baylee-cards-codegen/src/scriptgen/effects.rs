@@ -12802,15 +12802,16 @@ impl Tx<'_> {
         let mut parts = Vec::new();
         for alt in valid.split(',') {
             let trimmed = alt.trim();
-            let stripped = trimmed
-                .strip_suffix(&format!(".{suffix_a}"))
-                .or_else(|| trimmed.strip_suffix(&format!("+{suffix_a}")))
-                .or_else(|| trimmed.strip_suffix(&format!(".{suffix_b}")))
-                .or_else(|| trimmed.strip_suffix(&format!("+{suffix_b}")))?;
-            if stripped.contains("Remembered") {
+            let mut stripped = trimmed.to_string();
+            for suffix in [suffix_a, suffix_b] {
+                stripped = stripped
+                    .replace(&format!(".{suffix}"), "")
+                    .replace(&format!("+{suffix}"), "");
+            }
+            if stripped == trimmed || stripped.contains("Remembered") {
                 return None;
             }
-            parts.push(stripped.trim());
+            parts.push(stripped.trim().to_string());
         }
         if parts.is_empty() {
             return None;

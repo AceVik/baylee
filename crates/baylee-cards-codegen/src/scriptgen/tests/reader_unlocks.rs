@@ -2564,6 +2564,22 @@ fn wave8b_repeat_each_domains_and_refusals() {
         damage_map.abilities[0]
     );
 
+    let chosen_color_damage_map = read(
+        "Name:ChosenColorBurn\nManaCost:2 R\nTypes:Sorcery\n\
+         A:SP$ ChooseColor | Defined$ You | SubAbility$ Repeat\n\
+         SVar:Repeat:DB$ RepeatEach | RepeatPlayers$ Player | RepeatSubAbility$ Burn | DamageMap$ True\n\
+         SVar:Burn:DB$ DealDamage | Defined$ Remembered | NumDmg$ X\n\
+         SVar:X:Count$Valid Creature.RememberedPlayerCtrl+ChosenColor",
+    );
+    assert!(
+        chosen_color_damage_map.abilities[0].contains("Effect::ChooseColor")
+            && chosen_color_damage_map.abilities[0].contains("Effect::DealDamage {")
+            && chosen_color_damage_map.abilities[0].contains("PlayerRel::Recipient")
+            && chosen_color_damage_map.abilities[0].contains("Filter::ChosenColor"),
+        "{}",
+        chosen_color_damage_map.abilities[0]
+    );
+
     let wheel = read(
         "Name:EachWheel\nManaCost:R\nTypes:Sorcery\n\
          A:SP$ RepeatEach | RepeatPlayers$ Player | RepeatSubAbility$ Shuf\n\
