@@ -686,6 +686,155 @@ fn unpreventable_damage_still_takes_the_counters() {
     assert_eq!(p1p1(&state, it), 0);
 }
 
+fn callous_giant(state: &mut GameState, giant: ObjectId) {
+    let modifier = baylee_cards_dsl::Modifier::PreventDamageToAffectedIfAtMost(3);
+    state.effects.register(crate::effects::ContinuousEffect {
+        id: baylee_core::ids::EffectId::new(0),
+        source: Some(giant),
+        controller: P0,
+        origin: crate::effects::EffectOrigin::Static,
+        layer: modifier.layer(),
+        timestamp: 1,
+        duration: baylee_cards_dsl::Duration::WhileSourceOnBattlefield,
+        filter: crate::effects::EffectFilter::Dsl(&Filter::This),
+        modifier,
+    });
+}
+
+#[test]
+fn callous_giant_prevents_only_damage_events_at_or_below_three() {
+    let (mut state, giant) = board();
+    let source = another(&mut state);
+    let other = another(&mut state);
+    callous_giant(&mut state, giant);
+
+    for amount in [1, 2, 3] {
+        assert_eq!(
+            apply(
+                &mut state,
+                source,
+                DamageTarget::Object(giant),
+                amount,
+                false,
+            ),
+            0
+        );
+    }
+    assert_eq!(
+        apply(&mut state, source, DamageTarget::Object(giant), 4, false,),
+        4,
+        "four damage is not reduced to one or capped to three"
+    );
+    assert_eq!(
+        apply(&mut state, source, DamageTarget::Object(other), 2, false,),
+        2,
+        "another recipient is not covered"
+    );
+}
+
+#[test]
+fn callous_giant_counts_simultaneous_parts_from_one_source_together() {
+    for (amounts, expected) in [(&[1, 2][..], 0), (&[2, 2][..], 4)] {
+        let (mut state, giant) = board();
+        let source = another(&mut state);
+        callous_giant(&mut state, giant);
+        state.refresh_characteristics();
+        let version = state.object(source).map(|o| o.version);
+        let mut work = DamageWork::new(
+            &mut state,
+            amounts
+                .iter()
+                .map(|amount| Assignment {
+                    source,
+                    source_version: version,
+                    recipient: DamageTarget::Object(giant),
+                    amount: *amount,
+                    is_combat: false,
+                })
+                .collect(),
+        );
+        loop {
+            let options = work.candidates(&state);
+            if options.is_empty() {
+                break;
+            }
+            assert_eq!(options.len(), 1);
+            assert!(work.select(&mut state, options[0].clone(), false).is_none());
+        }
+        work.commit_additional(&mut state);
+        assert_eq!(work.dealt(), expected);
+    }
+}
+
+#[test]
+fn callous_giant_does_not_stop_unpreventable_damage() {
+    let (mut state, giant) = board();
+    let source = another(&mut state);
+    callous_giant(&mut state, giant);
+    let modifier = baylee_cards_dsl::Modifier::CombatDamageCantBePrevented;
+    state.effects.register(crate::effects::ContinuousEffect {
+        id: baylee_core::ids::EffectId::new(0),
+        source: None,
+        controller: P0,
+        origin: crate::effects::EffectOrigin::Resolution,
+        layer: modifier.layer(),
+        timestamp: 2,
+        duration: baylee_cards_dsl::Duration::UntilEndOfTurn,
+        filter: crate::effects::EffectFilter::Dsl(&Filter::Any),
+        modifier,
+    });
+
+    assert_eq!(
+        apply(&mut state, source, DamageTarget::Object(giant), 2, true,),
+        2
+    );
+    assert_eq!(
+        apply(&mut state, source, DamageTarget::Object(giant), 2, false,),
+        0
+    );
+}
+
+#[test]
+fn callous_giant_threshold_preserves_replacement_order() {
+    for prevent_first in [true, false] {
+        let (mut state, giant) = board();
+        let source = another(&mut state);
+        callous_giant(&mut state, giant);
+        let modifier = baylee_cards_dsl::Modifier::AddDamageFrom {
+            sources: &Filter::Any,
+            extra: 2,
+            combat_only: false,
+            noncombat_only: false,
+            recipients: baylee_cards_dsl::DamageRecipients::Any,
+        };
+        state.effects.register(crate::effects::ContinuousEffect {
+            id: baylee_core::ids::EffectId::new(0),
+            source: None,
+            controller: P0,
+            origin: crate::effects::EffectOrigin::Resolution,
+            layer: modifier.layer(),
+            timestamp: 2,
+            duration: baylee_cards_dsl::Duration::UntilEndOfTurn,
+            filter: crate::effects::EffectFilter::Dsl(&Filter::Any),
+            modifier,
+        });
+        let mut work = work(&mut state, source, DamageTarget::Object(giant), 3, false);
+        let options = work.candidates(&state);
+        assert_eq!(options.len(), 2);
+        assert!(order_matters(&options));
+        let candidate = options
+            .iter()
+            .find(|candidate| {
+                matches!(candidate.option.kind, DamageEffectKind::PreventAll) == prevent_first
+            })
+            .expect("the chosen effect is legal")
+            .clone();
+        assert!(work.select(&mut state, candidate, false).is_none());
+        work.commit_additional(&mut state);
+        assert_eq!(work.dealt(), if prevent_first { 0 } else { 5 });
+    }
+}
+
 // These focused predicate tests deliberately stop before damage results and
 // exercise the production candidate/application functions, never a second
 // prevention implementation. Competing effects require an explicit choice.
