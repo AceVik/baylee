@@ -166,7 +166,11 @@ pub fn parse(text: &str) -> CardScript {
 }
 
 fn parse_face(lines: &[&str]) -> CardScript {
+    const AFTER_BLOCKERS_TEXT: &str =
+        "Text:Cast CARDNAME only during combat after blockers are declared.";
+
     let mut out = CardScript::default();
+    let mut cast_only_after_blockers = false;
     for &line in lines {
         if line.is_empty() || line.starts_with('#') {
             continue;
@@ -204,6 +208,7 @@ fn parse_face(lines: &[&str]) -> CardScript {
             "Text" if rest.trim() == "CARDNAME can be your commander." => {
                 out.has_commander_text = true;
             }
+            "Text" if line == AFTER_BLOCKERS_TEXT => cast_only_after_blockers = true,
             "K" => out.keywords.push(rest.to_string()),
             "A" | "T" | "S" | "R" => out
                 .rules
@@ -217,6 +222,23 @@ fn parse_face(lines: &[&str]) -> CardScript {
             }
             _ if IGNORED_PREFIXES.contains(&prefix) => {}
             _ => out.unknown_lines.push(line.to_string()),
+        }
+    }
+    if cast_only_after_blockers {
+        let spells: Vec<&str> = out
+            .rules
+            .iter()
+            .filter(|(kind, spec)| *kind == 'A' && spec.trim_start().starts_with("SP$"))
+            .map(|(_, spec)| spec.as_str())
+            .collect();
+        if spells.is_empty()
+            || !spells.iter().all(|spec| {
+                spec.split(" | ").any(|part| {
+                    part.trim_start() == "ActivationPhases$ Declare Blockers->EndCombat"
+                })
+            })
+        {
+            out.unknown_lines.push(AFTER_BLOCKERS_TEXT.to_string());
         }
     }
     out

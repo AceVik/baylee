@@ -7543,3 +7543,38 @@ fn targeted_battlefield_two_piles_destroys_every_object_in_the_chosen_pile() {
         "SVar:Chosen:DB$ Destroy | Defined$ Targeted | NoRegen$ True"
     )));
 }
+
+#[test]
+fn post_blocker_text_is_checked_against_spell_timing() {
+    let script = "Name:Combat Coin\nManaCost:1 R\nTypes:Instant\n\
+         Text:Cast CARDNAME only during combat after blockers are declared.\n\
+         A:SP$ FlipCoin | ValidTgts$ Creature | WinSubAbility$ Pump | LoseSubAbility$ Draw | ActivationPhases$ Declare Blockers->EndCombat | ActivationAfterBlockers$ True\n\
+         SVar:Pump:DB$ Pump | Defined$ Targeted | NumAtt$ +1 | NumDef$ +1 | SubAbility$ Draw\n\
+         SVar:Draw:DB$ Draw";
+    let coin = read(script);
+    let ability = &coin.abilities[0];
+    assert!(
+        ability.contains("Condition::InCombatAfterBlockers")
+            && ability.contains("Effect::FlipCoin {")
+            && ability.contains("Effect::PumpTarget {")
+            && ability.contains("TargetReq::one(TargetSpec::Object(&Filter::CREATURE))"),
+        "{ability}"
+    );
+    assert_eq!(
+        ability.matches("Condition::InCombatAfterBlockers").count(),
+        1
+    );
+
+    assert!(refused(&script.replace(
+        "ActivationPhases$ Declare Blockers->EndCombat",
+        "ActivationPhases$ BeginCombat->EndCombat"
+    )));
+    assert!(refused(&script.replace(
+        "ActivationPhases$ Declare Blockers->EndCombat | ",
+        ""
+    )));
+    assert!(refused(&script.replace(
+        "Text:Cast CARDNAME only during combat after blockers are declared.",
+        "Text:Cast CARDNAME only before combat."
+    )));
+}
