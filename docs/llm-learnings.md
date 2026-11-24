@@ -8741,7 +8741,6 @@ unfiltered cards. The eight additional cards come from typecycling and dredge.
   captured object. Preserve that default when deriving `CaptureScope`; the
   remembered condition can then become a single-object `ForEachRemembered`.
 
-<<<<<<< HEAD
 ## 2026-11-24 — Chosen-color revealed-hand damage
 
 - Read `ChooseColor` followed by a remembered public `RevealHand` and an
