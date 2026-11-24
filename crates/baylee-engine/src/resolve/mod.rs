@@ -1627,6 +1627,7 @@ fn filter_reads_resolution_player_at(filter: &baylee_cards_dsl::Filter, depth: u
         | Filter::BlockedThisTurnBy(f)
         | Filter::LowestManaValueOnBattlefield(f)
         | Filter::SharesAColorWith(f)
+        | Filter::SharesColorWithMostCommon(f)
         | Filter::SharesCreatureTypeWith(f)
         | Filter::ControllerControls(f) => filter_reads_resolution_player_at(f, depth),
         _ => false,

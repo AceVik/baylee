@@ -827,6 +827,7 @@ fn could_change_match(modifier: &Modifier, filter: &Filter, layer: Layer) -> boo
         Filter::AttachedTo(_)
         | Filter::BlockedThisTurnBy(_)
         | Filter::SharesAColorWith(_)
+        | Filter::SharesColorWithMostCommon(_)
         | Filter::SharesCreatureTypeWith(_)
         | Filter::SharesColorWithExiledWithSource
         | Filter::SharesColorWithSource

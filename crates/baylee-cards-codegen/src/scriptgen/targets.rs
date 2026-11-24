@@ -1099,6 +1099,9 @@ impl Tx<'_> {
             "!SharesColorWith Equipped" | "!SharesColorWith Enchanted" => {
                 "Filter::Not(&Filter::SharesAColorWith(&Filter::AttachedToBySource))".to_string()
             }
+            "SharesColorWith MostProminentColor" => {
+                "Filter::SharesColorWithMostCommon(&Filter::Any)".to_string()
+            }
             "SharesColorWith" | "SharesColorWith Self" => {
                 "Filter::SharesColorWithSource".to_string()
             }

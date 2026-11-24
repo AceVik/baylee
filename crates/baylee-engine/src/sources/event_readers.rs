@@ -21,6 +21,7 @@ fn reads_filter(filter: &baylee_cards_dsl::Filter) -> bool {
         | F::BlockedThisTurnBy(inner)
         | F::LowestManaValueOnBattlefield(inner)
         | F::SharesAColorWith(inner)
+        | F::SharesColorWithMostCommon(inner)
         | F::SharesCreatureTypeWith(inner)
         | F::ControllerControls(inner) => reads_filter(inner),
         _ => false,

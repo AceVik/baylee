@@ -628,6 +628,7 @@ pub(crate) fn matches(view: &PlayerView, object: &PublicObject, filter: &Filter)
         | Filter::ChosenColor
         | Filter::OfSourceChosenCardType
         | Filter::SharesAColorWith(_)
+        | Filter::SharesColorWithMostCommon(_)
         | Filter::SharesCreatureTypeWith(_)
         | Filter::Equipped
         | Filter::CmcEqualsCountersOnSource(_)

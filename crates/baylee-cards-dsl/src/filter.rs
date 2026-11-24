@@ -522,6 +522,12 @@ pub enum Filter {
     /// Has the same name (`CR 201.2`) as at least one remembered object as it
     /// last existed. Appended to preserve replay identities.
     SharesNameWithRemembered,
+    /// Shares at least one color with a most-common color among battlefield
+    /// permanents matching the inner filter. A multicolor permanent contributes
+    /// once to each of its colors; colorless permanents contribute nothing and
+    /// match nothing. Zero is never a most-common color. Appended to preserve
+    /// replay identities.
+    SharesColorWithMostCommon(&'static Filter),
 }
 
 /// Zone references for filters (engine zones, DSL view).

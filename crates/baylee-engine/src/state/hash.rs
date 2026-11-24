@@ -3188,6 +3188,11 @@ fn filter_hash(h: &mut Hasher, f: &baylee_cards_dsl::Filter) {
             h.u8(255);
             h.u16(433);
         }
+        F::SharesColorWithMostCommon(inner) => {
+            h.u8(255);
+            h.u16(434);
+            filter_hash(h, inner);
+        }
     }
 }
 
@@ -3217,6 +3222,7 @@ fn filter_amount_depth_exceeds(filter: &baylee_cards_dsl::Filter, depth: u8) -> 
         | F::BlockedThisTurnBy(inner)
         | F::LowestManaValueOnBattlefield(inner)
         | F::SharesAColorWith(inner)
+        | F::SharesColorWithMostCommon(inner)
         | F::SharesCreatureTypeWith(inner)
         | F::ControllerControls(inner)
         | F::ActivatedAbilityFrom(inner) => filter_amount_depth_exceeds(inner, depth),

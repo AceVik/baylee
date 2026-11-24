@@ -3871,6 +3871,28 @@ fn wave18b_choose_number_choose_player_and_wave9_filters() {
 }
 
 #[test]
+fn targeted_valid_most_prominent_color_is_a_resolution_condition() {
+    assert_eq!(
+        filter("Card.SharesColorWith MostProminentColor"),
+        "Filter::SharesColorWithMostCommon(&Filter::Any)"
+    );
+    let script = "Name:Plurality Bounce\nManaCost:1 U\nTypes:Instant\n\
+         A:SP$ ChangeZone | ValidTgts$ Permanent | Origin$ Battlefield | Destination$ Hand | AITgts$ Card.SharesColorWith MostProminentColor | ConditionCheckSVar$ X\n\
+         SVar:X:Targeted$Valid Card.SharesColorWith MostProminentColor";
+    let body = read(script);
+    assert_eq!(refusal_reason(&parse(script), &cats(), None), None);
+    let ability = &body.abilities[0];
+    assert!(
+        ability.contains("TargetReq::one(TargetSpec::Object(&Filter::Any))")
+            && ability.contains("Effect::IfCondition")
+            && ability.contains("Condition::ObjectMatches")
+            && ability.contains("Filter::SharesColorWithMostCommon(&Filter::Any)")
+            && ability.contains("Effect::bounce(TargetSpec::Object(&Filter::Any))"),
+        "{ability}"
+    );
+}
+
+#[test]
 fn wave18b_target_min_zero_and_remember_this_way_chains() {
     // Omitted TargetMax$ with TargetMin$ 0 defaults to up to 1.
     let up_to_one_omitted = read(

@@ -626,6 +626,24 @@ pub(crate) fn matches_projected_with_choices(
                     .object_or_departed(this)
                     .is_some_and(|src| src.characteristics().colors.intersects(chars.colors))
         }
+        Filter::SharesColorWithMostCommon(inner) => {
+            use baylee_core::color::Color;
+            let mut counts = [0_u32; 5];
+            for other in state.battlefield_seen().filter_map(|id| state.object(id)) {
+                if matches_with_context(inner, state, other, you, context) {
+                    for color in Color::ALL {
+                        if other.characteristics().colors.contains(color) {
+                            counts[color as usize] = counts[color as usize].saturating_add(1);
+                        }
+                    }
+                }
+            }
+            let most_common = counts.iter().copied().max().unwrap_or(0);
+            most_common > 0
+                && Color::ALL.into_iter().any(|color| {
+                    counts[color as usize] == most_common && chars.colors.contains(color)
+                })
+        }
         Filter::CmcEqualsYourUnspentMana => state
             .players
             .get(usize::from(you.get()))
