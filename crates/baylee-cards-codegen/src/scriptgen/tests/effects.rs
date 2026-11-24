@@ -6002,3 +6002,33 @@ fn pump_opponents_only_lure_uses_opponent_creature_filter() {
         tarrasque.abilities
     );
 }
+
+#[test]
+fn destroy_with_a_name_twin_condition_is_checked_only_on_resolution() {
+    let script = "Name:Private pruning\nManaCost:1 W\nTypes:Instant\n\
+         A:SP$ Destroy | ValidTgts$ Permanent.nonLand | ConditionCheckSVar$ TwinCount | ConditionSVarCompare$ GE2 | SubAbility$ DBDraw\n\
+         SVar:DBDraw:DB$ Draw | Defined$ You | NumCards$ 1\n\
+         SVar:TwinCount:Count$Valid Permanent.sharesNameWith Targeted";
+    let body = read(script);
+    let ability = &body.abilities[0];
+    assert!(
+        ability.contains(
+            "Effect::IfTargetMatches { filter: &Filter::SharesNameWithAnotherPermanent, then: &[Effect::destroy(TargetSpec::Object(&Filter::NONLAND))] }"
+        ),
+        "{ability}"
+    );
+    assert!(
+        ability.find("IfTargetMatches").unwrap() < ability.find("Effect::draw(1)").unwrap(),
+        "the independent draw follows the conditional destruction: {ability}"
+    );
+    assert!(
+        ability.contains("targets = Some(TargetReq::one(TargetSpec::Object(&Filter::NONLAND)))"),
+        "the name condition must not restrict target selection: {ability}"
+    );
+
+    assert!(refused(&script.replace("GE2", "GT2")));
+    assert!(refused(&script.replace(
+        "Count$Valid Permanent.sharesNameWith Targeted",
+        "Count$Valid Creature.sharesNameWith Targeted"
+    )));
+}

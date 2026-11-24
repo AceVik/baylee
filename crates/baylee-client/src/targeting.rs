@@ -651,7 +651,9 @@ pub(crate) fn matches(view: &PlayerView, object: &PublicObject, filter: &Filter)
         | Filter::IsRemembered
         | Filter::NotRemembered
         | Filter::SharesCardTypeWithRemembered
-        | Filter::SharesNameWithRemembered => return None,
+        | Filter::SharesNameWithRemembered
+        // Winnow asks this only while resolving, never while choosing a target.
+        | Filter::SharesNameWithAnotherPermanent => return None,
         Filter::ControlledBy(rel) => match rel {
             baylee_cards_dsl::PlayerRel::You => object.controller == you(view),
             baylee_cards_dsl::PlayerRel::Opponent | baylee_cards_dsl::PlayerRel::EachOpponent => {

@@ -4527,7 +4527,23 @@ impl Tx<'_> {
                                     .block_line
                                     .as_ref()
                                     .is_some_and(|(r, _, _)| *r == super::BlockRole::Blocks))));
-                if remembered {
+                // Forge counts the target itself in this condition. GE2 therefore
+                // means another permanent shares its name, but the target remains
+                // legal without one: the condition belongs to resolution, not to
+                // target selection.
+                let gated_by_name_twin = targets_here
+                    && target.is_some()
+                    && p.peek("ConditionCheckSVar")
+                        .and_then(|var| self.svars.get(var.trim()))
+                        .is_some_and(|def| {
+                            def.trim() == "Count$Valid Permanent.sharesNameWith Targeted"
+                        })
+                    && p.peek("ConditionSVarCompare") == Some("GE2");
+                if gated_by_name_twin {
+                    p.take("ConditionCheckSVar");
+                    p.take("ConditionSVarCompare");
+                }
+                let effects = if remembered {
                     p.take("Defined");
                     vec![format!("Effect::{verb}(TargetSpec::EventObject)")]
                 } else if !self.on_a_spell && target.is_none() && p.peek("Defined") == Some("Self")
@@ -4539,6 +4555,14 @@ impl Tx<'_> {
                         p.take("Defined");
                     }
                     vec![format!("Effect::{verb}({aimed})")]
+                };
+                if gated_by_name_twin {
+                    vec![format!(
+                        "Effect::IfTargetMatches {{ filter: &Filter::SharesNameWithAnotherPermanent, then: &[{}] }}",
+                        effects.join(", ")
+                    )]
+                } else {
+                    effects
                 }
             }
             "SacrificeAll" => {

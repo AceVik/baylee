@@ -364,6 +364,15 @@ impl HeuristicAgent {
                 .plays(crate::AIProfile::CHOSEN_AND_LINKED_FILTERS)
                 .then(|| same_name_as_linked_exile(view, object, this))
                 .flatten(),
+            Filter::SharesNameWithAnotherPermanent => Some(
+                !object.status.is_face_down()
+                    && !object.name.is_empty()
+                    && view.battlefield.iter().any(|other| {
+                        other.id != object.id
+                            && !other.status.is_face_down()
+                            && other.name == object.name
+                    }),
+            ),
             Filter::SharesColorWithExiledWithSource => self
                 .profile
                 .plays(crate::AIProfile::CHOSEN_AND_LINKED_FILTERS)

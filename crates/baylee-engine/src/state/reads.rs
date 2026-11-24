@@ -52,7 +52,8 @@ pub(crate) fn filter_reads_board_state(filter: &baylee_cards_dsl::Filter) -> boo
         | Filter::IsRemembered
         | Filter::NotRemembered
         | Filter::SharesCardTypeWithRemembered
-        | Filter::SharesNameWithRemembered => true,
+        | Filter::SharesNameWithRemembered
+        | Filter::SharesNameWithAnotherPermanent => true,
         Filter::And(parts) | Filter::Or(parts) => parts.iter().any(filter_reads_board_state),
         Filter::Not(f) | Filter::ControllerControls(f) => filter_reads_board_state(f),
         _ => false,

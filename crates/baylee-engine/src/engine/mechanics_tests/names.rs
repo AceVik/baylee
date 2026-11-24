@@ -158,3 +158,68 @@ fn the_current_choice_overrides_a_different_name_remembered_by_the_source() {
         "the older matching name must not replace this resolution's mismatch"
     );
 }
+
+#[test]
+fn a_name_twin_is_another_permanent_not_the_object_itself() {
+    let mut engine = bench(
+        7405,
+        vec![
+            card(
+                NAMER,
+                face("Namer", "{0}", TypeSet::ARTIFACT),
+                KeywordSet::EMPTY,
+                &[],
+            ),
+            card(
+                NAMED,
+                creature_face("Named", "{0}", 2, 2),
+                KeywordSet::EMPTY,
+                &[],
+            ),
+        ],
+        [Seat::with(&[NAMER, NAMED, NAMED]), Seat::with(&[NAMED])],
+    );
+    to_main(&mut engine, me());
+    let source = the(&engine, ZoneLocation::Battlefield, NAMER);
+    for id in objects(&engine, ZoneLocation::Battlefield, NAMED) {
+        let object = engine.state().object(id).unwrap();
+        assert!(crate::eval::matches(
+            &Filter::SharesNameWithAnotherPermanent,
+            engine.state(),
+            object,
+            me(),
+            source,
+        ));
+    }
+    let object = engine.state().object(source).unwrap();
+    assert!(!crate::eval::matches(
+        &Filter::SharesNameWithAnotherPermanent,
+        engine.state(),
+        object,
+        me(),
+        source,
+    ));
+
+    let engine = bench(
+        7406,
+        vec![card(
+            NAMED,
+            creature_face("Named", "{0}", 2, 2),
+            KeywordSet::EMPTY,
+            &[],
+        )],
+        [Seat::with(&[NAMED]), Seat::default()],
+    );
+    let id = the(&engine, ZoneLocation::Battlefield, NAMED);
+    let object = engine.state().object(id).unwrap();
+    assert!(
+        !crate::eval::matches(
+            &Filter::SharesNameWithAnotherPermanent,
+            engine.state(),
+            object,
+            me(),
+            id,
+        ),
+        "an object is not another permanent with its own name"
+    );
+}

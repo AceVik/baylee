@@ -17,7 +17,7 @@ pub(crate) mod target_pair;
 mod targets;
 mod upkeep_history;
 
-use crate::object::{GameObject, Status};
+use crate::object::{GameObject, ObjectKind, Status};
 use crate::state::GameState;
 use crate::text_changes::{RuleContext, TextChangeMap};
 use crate::zone::Zone;
@@ -613,6 +613,18 @@ pub(crate) fn matches_projected_with_choices(
                 .into_iter()
                 .filter_map(|id| state.object(id))
                 .any(|exiled| exiled.characteristics().name == chars.name)
+        }
+        // CR 201.2a: two objects share a name only when both have that name.
+        // Phased-out permanents do not participate (CR 702.26b).
+        Filter::SharesNameWithAnotherPermanent => {
+            chars.name != crate::state::NAMELESS
+                && state.battlefield_seen().any(|id| {
+                    id != obj.id
+                        && state.object(id).is_some_and(|other| {
+                            other.kind == ObjectKind::Permanent
+                                && other.characteristics().name == chars.name
+                        })
+                })
         }
         Filter::SharesColorWithExiledWithSource => {
             linked_exile_cards(state, you, context, None, &Filter::Any)

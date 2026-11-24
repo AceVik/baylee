@@ -528,6 +528,11 @@ pub enum Filter {
     /// match nothing. Zero is never a most-common color. Appended to preserve
     /// replay identities.
     SharesColorWithMostCommon(&'static Filter),
+    /// Has the same name (`CR 201.2`) as another permanent on the battlefield.
+    /// The other permanent may have any controller and card type; a nameless
+    /// object shares a name with nothing (`CR 201.2a`). Appended to preserve
+    /// replay identities.
+    SharesNameWithAnotherPermanent,
 }
 
 /// Zone references for filters (engine zones, DSL view).

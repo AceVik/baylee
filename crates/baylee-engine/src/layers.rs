@@ -826,6 +826,7 @@ fn could_change_match(modifier: &Modifier, filter: &Filter, layer: Layer) -> boo
         // may move them.
         Filter::AttachedTo(_)
         | Filter::BlockedThisTurnBy(_)
+        | Filter::SharesNameWithAnotherPermanent
         | Filter::SharesAColorWith(_)
         | Filter::SharesColorWithMostCommon(_)
         | Filter::SharesCreatureTypeWith(_)

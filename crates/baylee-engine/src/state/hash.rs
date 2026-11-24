@@ -3193,6 +3193,10 @@ fn filter_hash(h: &mut Hasher, f: &baylee_cards_dsl::Filter) {
             h.u16(434);
             filter_hash(h, inner);
         }
+        F::SharesNameWithAnotherPermanent => {
+            h.u8(255);
+            h.u16(435);
+        }
     }
 }
 
