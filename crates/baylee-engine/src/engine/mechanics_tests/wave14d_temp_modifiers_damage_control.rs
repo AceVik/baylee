@@ -583,6 +583,82 @@ fn academic_dispute_must_block_enforces_at_least_one_block_without_overforcing()
 }
 
 #[test]
+fn counter_land_targeting_ability_destroys_its_source_but_not_the_land() {
+    static LAND_PING_AB: &[AbilityDef] = &[free(
+        &[Effect::GainLife {
+            amount: Amount::Fixed(4),
+        }],
+        Some(TargetReq::one(TargetSpec::Object(&Filter::LAND))),
+    )];
+    static RESPONSE_FILTER: Filter = Filter::And(&[
+        Filter::ControlledByOpponent,
+        Filter::TargetsYouControl(&Filter::LAND),
+    ]);
+    static RESPONSE_AB: &[AbilityDef] = &[spell!(
+        &[
+            Effect::CounterTargetSpellOrAbility,
+            Effect::DestroyCounteredAbilitySource,
+        ],
+        targets = Some(TargetReq::one(TargetSpec::SpellOrAbility(&RESPONSE_FILTER)))
+    )];
+
+    let land = card(
+        C0,
+        face("Targeted Land Probe", "{0}", TypeSet::LAND),
+        KeywordSet::EMPTY,
+        &[],
+    );
+    let bear = card(
+        C1,
+        creature_face("Land Ping Bear", "{0}", 2, 2),
+        KeywordSet::EMPTY,
+        LAND_PING_AB,
+    );
+    let response = card(
+        C2,
+        face("Land Response Probe", "{0}", TypeSet::INSTANT),
+        KeywordSet::EMPTY,
+        RESPONSE_AB,
+    );
+    let mut engine = bench(
+        14041,
+        vec![land, bear, response],
+        [Seat::with(&[C0]).holding(&[C2]), Seat::with(&[C1])],
+    );
+    to_main(&mut engine, them());
+    let land_id = the(&engine, ZoneLocation::Battlefield, C0);
+    let bear_id = the(&engine, ZoneLocation::Battlefield, C1);
+    let life_before = life(&engine, them());
+
+    activate(&mut engine, them(), bear_id, 0);
+    aim_object(&mut engine, them(), land_id);
+    let ability_id = *engine
+        .state()
+        .zones
+        .list(ZoneLocation::Stack)
+        .last()
+        .expect("ability on stack");
+    engine
+        .apply(them(), PlayerAction::PassPriority)
+        .expect("them passes");
+    let response_id = the(&engine, ZoneLocation::Hand(me()), C2);
+    cast_spell(&mut engine, me(), response_id);
+    aim_object(&mut engine, me(), ability_id);
+    settle(&mut engine, them());
+
+    assert!(engine.state().object(ability_id).is_none());
+    assert_eq!(
+        engine.state().object(bear_id).map(|o| o.zone),
+        Some(Zone::Graveyard)
+    );
+    assert_eq!(
+        engine.state().object(land_id).map(|o| o.zone),
+        Some(Zone::Battlefield)
+    );
+    assert_eq!(life(&engine, them()), life_before);
+}
+
+#[test]
 fn spells_cant_be_countered_protects_matching_spells_only_not_abilities() {
     static VEIL_EFFECTS: &[Effect] = &[Effect::AddGlobalTempModifier {
         filter: &Filter::Any,

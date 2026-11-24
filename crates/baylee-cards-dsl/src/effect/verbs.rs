@@ -1200,6 +1200,7 @@ impl Effect {
             | Effect::CounterTargetAbility
             | Effect::CounterTargetSpellOrAbility
             | Effect::TargetSourceLosesAbilities { .. }
+            | Effect::DestroyCounteredAbilitySource
             | Effect::DelayedManaAtNextMain { .. }
             | Effect::ChangeTarget { .. }
             | Effect::ChooseNewTargets

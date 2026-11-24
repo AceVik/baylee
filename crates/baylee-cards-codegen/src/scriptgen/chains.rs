@@ -2312,7 +2312,19 @@ impl Tx<'_> {
             // is.
             match p.take("TgtZone").as_deref() {
                 None | Some("Battlefield") => {
-                    if api == "Counter" {
+                    if api == "Counter"
+                        && valid == "Card.OppCtrl"
+                        && p.peek("TargetType") == Some("Spell,Activated,Triggered")
+                        && p.peek("TargetValidTargeting")
+                            == Some("Land.YouCtrl+inRealZoneBattlefield")
+                    {
+                        p.take("TargetValidTargeting");
+                        let name = self.body.filter_static(
+                            "TARGET",
+                            "Filter::And(&[Filter::ControlledByOpponent, Filter::TargetsYouControl(&Filter::LAND)])",
+                        );
+                        Some(format!("TargetSpec::SpellOrAbility(&{name})"))
+                    } else if api == "Counter" {
                         self.counter_or_stack_target(valid, p.peek("TargetType"), true)
                     } else if api == "CopySpellAbility" {
                         self.counter_or_stack_target(valid, p.peek("TargetType"), false)
@@ -5185,12 +5197,17 @@ impl Tx<'_> {
                     Some("Exile") => true,
                     Some(_) => return None,
                 };
+                let destroy_source = match p.take("DestroyPermanent").as_deref() {
+                    None | Some("False") => false,
+                    Some("True") => true,
+                    Some(_) => return None,
+                };
                 // The spec `counter_or_stack_target` read from `TargetType$`
                 // (or the parent line's, when inherited) says what is countered.
                 if target_type.is_none() && !(inherited_target || targets_here) {
                     return None;
                 }
-                match target {
+                let mut effects = match target {
                     Some(t) if t.starts_with("TargetSpec::Spell(") => {
                         if is_exile {
                             vec!["Effect::CounterTargetSpellToExile".to_string()]
@@ -5209,7 +5226,11 @@ impl Tx<'_> {
                         vec!["Effect::CounterTargetSpellOrAbility".to_string()]
                     }
                     _ => return None,
+                };
+                if destroy_source {
+                    effects.push("Effect::DestroyCounteredAbilitySource".to_string());
                 }
+                effects
             }
             "Attach" => {
                 let optional = match p.take("Optional").as_deref() {

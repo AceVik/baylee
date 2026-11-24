@@ -3188,6 +3188,11 @@ fn filter_hash(h: &mut Hasher, f: &baylee_cards_dsl::Filter) {
             h.u8(255);
             h.u16(433);
         }
+        F::TargetsYouControl(filter) => {
+            h.u8(255);
+            h.u16(434);
+            filter_hash(h, filter);
+        }
     }
 }
 
@@ -3219,6 +3224,7 @@ fn filter_amount_depth_exceeds(filter: &baylee_cards_dsl::Filter, depth: u8) -> 
         | F::SharesAColorWith(inner)
         | F::SharesCreatureTypeWith(inner)
         | F::ControllerControls(inner)
+        | F::TargetsYouControl(inner)
         | F::ActivatedAbilityFrom(inner) => filter_amount_depth_exceeds(inner, depth),
         _ => false,
     }

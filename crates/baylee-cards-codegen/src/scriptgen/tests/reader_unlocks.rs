@@ -4362,6 +4362,36 @@ fn wave13c_wave6b_plotted_trigger_and_plot_effects() {
 }
 
 #[test]
+fn counter_land_targeting_spell_or_ability_destroys_only_ability_source() {
+    let script = "Name:LandAnswer\nManaCost:1 U\nTypes:Instant\n\
+         A:SP$ Counter | TargetType$ Spell,Activated,Triggered | ValidTgts$ Card.OppCtrl | DestroyPermanent$ True | TargetValidTargeting$ Land.YouCtrl+inRealZoneBattlefield | SubAbility$ DBDraw\n\
+         SVar:DBDraw:DB$ Draw | NumCards$ 2";
+    let body = read(script);
+    let ability = &body.abilities[0];
+    assert!(
+        ability.contains("Effect::CounterTargetSpellOrAbility")
+            && ability.contains("Effect::DestroyCounteredAbilitySource")
+            && ability.contains("Effect::draw(2)"),
+        "{ability}"
+    );
+    assert!(
+        body.statics
+            .contains("Filter::TargetsYouControl(&Filter::LAND)")
+            && body.statics.contains("Filter::ControlledByOpponent"),
+        "{}",
+        body.statics
+    );
+    assert!(refused(&script.replace(
+        "Land.YouCtrl+inRealZoneBattlefield",
+        "Creature.YouCtrl+inRealZoneBattlefield"
+    )));
+    assert!(refused(&script.replace(
+        "DestroyPermanent$ True",
+        "DestroyPermanent$ Sometimes"
+    )));
+}
+
+#[test]
 #[allow(clippy::too_many_lines)]
 fn wave13c_stack_zone_change_counter_abilities_and_deal_damage() {
     let bounce_spell = read(
