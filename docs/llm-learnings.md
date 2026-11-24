@@ -8742,6 +8742,7 @@ unfiltered cards. The eight additional cards come from typecycling and dredge.
   remembered condition can then become a single-object `ForEachRemembered`.
 
 <<<<<<< HEAD
+<<<<<<< HEAD
 ## 2026-11-24 — Chosen-color revealed-hand damage
 
 - Read `ChooseColor` followed by a remembered public `RevealHand` and an
@@ -8805,3 +8806,15 @@ unfiltered cards. The eight additional cards come from typecycling and dredge.
   choices and per-player damage counts. The card tests exercise different
   counts for both players, a multicolored creature counted once, and a player
   with no matching creatures receiving zero damage.
+
+## 2026-11-25 — Lands with non-mana activated abilities
+
+- Read `Land.hasNonManaActivatedAbility` as a filter over the object's current
+  abilities, not as a cached printed-card fact. Activated, conditional, modal,
+  loyalty, unearth and encore abilities count when they are not mana abilities;
+  granted abilities count too, while pure mana abilities and lost abilities do
+  not. Reading `Object::abilities` keeps copies, active faces and CR 305.7 text
+  loss aligned with the abilities the engine actually offers.
+- A `doesn't untap` replacement reader needs `ValidStepTurnToController$ You`
+  in addition to `ValidCard$` and `Layer$ CantHappen`. Its synthetic reader test
+  must include that key or it refuses before reaching the new filter atom.
