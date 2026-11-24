@@ -4,6 +4,7 @@
 use super::*;
 
 mod aether_barrier;
+mod aether_rift;
 mod always_watching;
 mod arenson_s_aura;
 mod armistice;

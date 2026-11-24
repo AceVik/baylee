@@ -8724,3 +8724,19 @@ unfiltered cards. The eight additional cards come from typecycling and dredge.
   real regeneration shield, the unchosen creature and the caster's own creature.
 - A pure player target is answered through `Pending::ChoosePlayer` and
   `PlayerAction::ChoosePlayer`, not `ChooseTargets` with an empty object list.
+
+## 2026-11-24 — Any-player life payments for captured discards
+
+- Generalize the existing APNAP payment resumption to carry either mana or a
+  fixed life amount. Skip players who cannot pay the life, stop after the
+  first payer, and resolve the unpaid branch exactly once when nobody pays.
+  The existing `YesNoPrompt::PayLife` already serves the client and every
+  seat, so no new pending or protocol shape is needed.
+- A condition on a remembered zone change can gate the payment question as
+  well as the move. Keep that condition outside the any-player payment when
+  lowering the chain; otherwise even a discarded noncreature would ask for
+  life. Aether Rift's tests cover an unpaid return, APNAP order and the first
+  payment, and the absence of a question for a noncreature.
+- Forge's omitted `NumCards` on a one-card random discard still means one
+  captured object. Preserve that default when deriving `CaptureScope`; the
+  remembered condition can then become a single-object `ForEachRemembered`.
