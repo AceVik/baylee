@@ -8764,3 +8764,13 @@ unfiltered cards. The eight additional cards come from typecycling and dredge.
   need no protocol extension. Void's played test chooses one, checks artifacts,
   creatures and other mana values on both sides, then checks the nonland
   discards, retained land and reveal event for only the targeted player's hand.
+
+## 2026-11-24 — Unpreventable kicked direct damage
+
+- `NoPrevention$ True` forbids prevention only; do not add the separate
+  no-redirection flag. The damage work must retain ordinary redirection and
+  other replacement effects, and its test should prove both halves.
+- Kicker's “instead” damage can use `Count$Kicked.0.3` with the kicked damage
+  in a subability. Only when that subability exists may the reader discard the
+  zero-damage main arm as a placeholder; the same zero arm without a
+  subability remains unread and refused.
