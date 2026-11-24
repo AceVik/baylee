@@ -29,6 +29,7 @@ mod crater_hellion;
 mod craw_wurm;
 mod crosis_the_purger;
 mod dakmor_sorceress;
+mod darigaaz_the_igniter;
 mod deathcurse_ogre;
 mod demonic_hordes;
 mod disciple_of_freyalise;

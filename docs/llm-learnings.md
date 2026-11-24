@@ -8740,3 +8740,17 @@ unfiltered cards. The eight additional cards come from typecycling and dredge.
 - Forge's omitted `NumCards` on a one-card random discard still means one
   captured object. Preserve that default when deriving `CaptureScope`; the
   remembered condition can then become a single-object `ForEachRemembered`.
+
+
+## 2026-11-24 — Chosen-color revealed-hand damage
+
+- Read `ChooseColor` followed by a remembered public `RevealHand` and an
+  immediate `DealDamage` as the existing color choice, hand reveal and
+  `Amount::CountOf` over that same hand. No player acts between the reveal and
+  the count, so the technical remembered-object cleanup needs no engine state,
+  pending question or protocol shape; every seat and the client already answer
+  the existing payment and color choices.
+- `Filter::OfSourceChosenColor` counts each multicolored card once whenever it
+  contains the chosen color. Darigaaz's tests cover a monocolored and a
+  red-green card together, declining the mana payment, zero matching cards,
+  and Darigaaz as the source of the noncombat damage event.
