@@ -1540,8 +1540,21 @@ impl Tx<'_> {
                 effects
             }
         };
-        let mut effects =
-            self.wrap_line_condition(&api, &mut p, &mut sub, target.as_deref(), effects)?;
+        // A remembered-object condition gates the payment question as well as
+        // the zone change: do not ask any player to pay when no captured object
+        // matches. Other lines retain their established condition/payment order.
+        let condition_outside_unless = self.capture_scope.is_some()
+            && api == "ChangeZoneAll"
+            && unless.is_some()
+            && matches!(
+                p.peek("ConditionDefined"),
+                Some("Remembered" | "RememberedLKI")
+            );
+        let mut effects = if condition_outside_unless {
+            effects
+        } else {
+            self.wrap_line_condition(&api, &mut p, &mut sub, target.as_deref(), effects)?
+        };
         if prevent_damaged_regeneration {
             effects.push("Effect::DamagedThisWayCantBeRegenerated".to_string());
         }
@@ -1550,6 +1563,11 @@ impl Tx<'_> {
         let effects = match unless {
             Some(unless) => vec![self.unless_wrap(unless, effects, &mut sub, chain)?],
             None => effects,
+        };
+        let effects = if condition_outside_unless {
+            self.wrap_line_condition(&api, &mut p, &mut sub, target.as_deref(), effects)?
+        } else {
+            effects
         };
         let effects = if optional_counter {
             vec![format!(
@@ -2905,7 +2923,11 @@ impl Tx<'_> {
                     .and_then(|s| s.strip_suffix(')'))
                     .and_then(|s| s.parse::<u32>().ok())
                     .is_some(),
-                Price::Part(_) => false,
+                Price::Part(part) => part
+                    .strip_prefix("PayLife(")
+                    .and_then(|s| s.strip_suffix(')'))
+                    .and_then(|s| s.parse::<u32>().ok())
+                    .is_some(),
             };
             if !valid_any_player {
                 return self.deny("an unless-cost paid by `Player`".to_string());
@@ -3078,6 +3100,16 @@ impl Tx<'_> {
         };
         let list = effects.join(", ");
         if payer == "ANY_PLAYER" {
+            if let Price::Part(part) = &price
+                && let Some(life) = part
+                    .strip_prefix("PayLife(")
+                    .and_then(|s| s.strip_suffix(')'))
+                    .and_then(|s| s.parse::<u32>().ok())
+            {
+                return Some(format!(
+                    "Effect::AnyPlayerMayPayLifeOr {{ life: {life}, effects: &[{list}] }}"
+                ));
+            }
             let cost_expr = match price {
                 Price::Printed(cost) => format!("mana!(\"{cost}\")"),
                 Price::Generic(mana) => {

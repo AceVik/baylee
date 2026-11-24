@@ -441,16 +441,11 @@ fn an_unless_cost_wraps_the_line_whatever_it_says() {
         "{:?}",
         bought.abilities
     );
-    // Refused by name: a switched/non-mana `Player` cost, an absent payer on a
-    // line with no target to take one from, subs on one answer, and an
-    // unsupported cost part.
+    // Refused by name: a switched `Player` cost, an absent payer on a line
+    // with no target to take one from, and subs on one answer.
     for (line, reason) in [
         (
             "DB$ Sacrifice | UnlessPayer$ Player | UnlessCost$ 2 | UnlessSwitched$ True",
-            "an unless-cost paid by `Player`",
-        ),
-        (
-            "DB$ Sacrifice | UnlessPayer$ Player | UnlessCost$ PayLife<2>",
             "an unless-cost paid by `Player`",
         ),
         (
@@ -502,6 +497,19 @@ fn wave7_any_player_and_pay_life_unless_costs() {
         ),
         "{:?}",
         any_player.abilities
+    );
+    let any_player_life = read(
+        "Name:X\nTypes:Creature\nPT:1/1\n\
+         T:Mode$ Phase | Phase$ Upkeep | ValidPlayer$ You | TriggerZones$ Battlefield \
+         | Execute$ S | TriggerDescription$ x.\n\
+         SVar:S:DB$ Sacrifice | UnlessPayer$ Player | UnlessCost$ PayLife<5>",
+    );
+    assert!(
+        any_player_life.abilities[0].contains(
+            "Effect::AnyPlayerMayPayLifeOr { life: 5, effects: &[Effect::SacrificeSelf] }"
+        ),
+        "{:?}",
+        any_player_life.abilities
     );
     let pay_life = read(
         "Name:X\nTypes:Creature\nPT:1/1\n\

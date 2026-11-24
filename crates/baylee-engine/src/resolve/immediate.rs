@@ -69,8 +69,16 @@ pub(super) fn exec_immediate(
             unpaid,
         } => mana_life_payment::offer(state, res, player, mana, life, times, paid, unpaid),
         Effect::AnyPlayerMayPayManaOr { cost, effects } => {
-            any_player_payment::offer(state, res, cost, effects, 0)
+            any_player_payment::offer(state, res, cost, 0, effects, 0)
         }
+        Effect::AnyPlayerMayPayLifeOr { life, effects } => any_player_payment::offer(
+            state,
+            res,
+            baylee_core::mana::ManaCost::ZERO,
+            life,
+            effects,
+            0,
+        ),
         Effect::ForEachCreatureDamagedBySourceThatDiedThisTurn { effects } => {
             super::damage_returns::for_each(state, res, effects, op);
             None

@@ -582,3 +582,34 @@ fn wave27c_honest_refusals_and_pure_paper_guardrails() {
         assert!(refused_w27c(bad), "must refuse: {bad}");
     }
 }
+
+#[test]
+fn capture_random_discard_return_with_any_player_life_payment() {
+    let card = read_w27c(
+        "Name:Synthetic Rift\nManaCost:1 U\nTypes:Enchantment\n\
+         T:Mode$ Phase | Phase$ Upkeep | ValidPlayer$ You | Execute$ TrigDiscard | TriggerZones$ Battlefield\n\
+         SVar:TrigDiscard:DB$ Discard | Defined$ You | Mode$ Random | RememberDiscarded$ True | SubAbility$ DBReturn\n\
+         SVar:DBReturn:DB$ ChangeZoneAll | ChangeType$ Card.IsRemembered | Origin$ Graveyard | Destination$ Battlefield | ConditionDefined$ Remembered | ConditionPresent$ Card.Creature | ConditionCompare$ EQ1 | UnlessCost$ PayLife<5> | UnlessPayer$ Player | SubAbility$ DBCleanup\n\
+         SVar:DBCleanup:DB$ Cleanup | ClearRemembered$ True",
+    );
+    let ability = &card.abilities[0];
+    assert!(
+        ability.contains("Effect::CaptureAffected")
+            && ability.contains("Effect::DiscardRandom")
+            && ability.contains("Effect::AnyPlayerMayPayLifeOr { life: 5")
+            && ability.contains("Effect::ForEachRemembered")
+            && ability.contains("TargetSpec::EventObject"),
+        "{ability}"
+    );
+    let condition = ability
+        .find("Effect::ForEachRemembered { filter: &Filter::CREATURE")
+        .unwrap_or_else(|| panic!("missing remembered creature condition: {ability}"));
+    let payment = ability
+        .find("Effect::AnyPlayerMayPayLifeOr")
+        .expect("payment question");
+    let movement = ability.find("Effect::MoveAndModify").expect("zone change");
+    assert!(
+        condition < payment && payment < movement,
+        "the creature condition must gate the payment question: {ability}"
+    );
+}

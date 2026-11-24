@@ -5988,6 +5988,14 @@ pub enum Effect {
         /// How much; `Amount::TargetPower` reads the dealing target's power.
         amount: Amount,
     },
+    /// Offer a life price in APNAP order; the first payment prevents the effects.
+    /// Appended to preserve replay identities.
+    AnyPlayerMayPayLifeOr {
+        /// Full life price offered independently to each player who can pay it.
+        life: u32,
+        /// Consequence if nobody pays.
+        effects: &'static [Effect],
+    },
 }
 
 #[cfg(test)]

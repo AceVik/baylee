@@ -1603,6 +1603,8 @@ pub enum ManaPaymentOutcome {
     },
     /// Continue an APNAP payment sequence until one player pays.
     AnyPlayer {
+        /// Life paid instead of mana, or zero for a mana-only price.
+        life: u32,
         /// Consequence if every player declines.
         unpaid: &'static [Effect],
         /// Next APNAP offset.

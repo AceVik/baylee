@@ -1409,7 +1409,8 @@ pub(super) fn resume_tax_choice_inner(
     // not-paid fallback, exactly as if the player had declined.
     let what = super::payment_for(state, res);
     let life = match &outcome {
-        ManaPaymentOutcome::ManaAndLife { life, .. } => *life,
+        ManaPaymentOutcome::ManaAndLife { life, .. }
+        | ManaPaymentOutcome::AnyPlayer { life, .. } => *life,
         _ => 0,
     };
     let actually_paid = paid
@@ -1424,11 +1425,11 @@ pub(super) fn resume_tax_choice_inner(
     }
     debug_assert!(!paid || actually_paid, "tax was offered as payable");
     let (effects, on_payment) = match outcome {
-        ManaPaymentOutcome::AnyPlayer { unpaid, next } => {
+        ManaPaymentOutcome::AnyPlayer { life, unpaid, next } => {
             if !actually_paid {
                 let since = state.journal.last_seq();
                 if let Some(pending) =
-                    super::any_player_payment::offer(state, res, cost, unpaid, next)
+                    super::any_player_payment::offer(state, res, cost, life, unpaid, next)
                 {
                     return next_choice(state, res, since, pending);
                 }

@@ -5128,9 +5128,10 @@ non-targeted graveyard-card choice; the resolving controller may pay `cost`
 for another pass that excludes previous exact selections. The final chosen
 card is returned to `owner`.
 
-`Effect::AnyPlayerMayPayManaOr { cost, effects }` offers the full price to
-each player in APNAP order. The first complete payment stops the instruction;
-if nobody pays, `effects` runs.
+`Effect::AnyPlayerMayPayManaOr { cost, effects }` offers the full mana price
+to each player in APNAP order. `Effect::AnyPlayerMayPayLifeOr { life, effects }`
+does the same for a fixed life price, skipping players who cannot pay it. The
+first complete payment stops either instruction; if nobody pays, `effects` runs.
 `Effect::FlipCoinLifeExchangeRepeat { opponent, initial, multiplier }` flips
 for opposite life gain and loss between the controller and `opponent`. The
 winner may repeat with the stake multiplied by `multiplier`; the contest

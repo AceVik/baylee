@@ -5221,7 +5221,8 @@ fn payment_unpaid_effects(effect: &Effect) -> &[Effect] {
         Effect::PlayerMayPayOr { effect, .. } | Effect::PlayerMayPayManaOr { effect, .. } => {
             std::slice::from_ref(effect)
         }
-        Effect::AnyPlayerMayPayManaOr { effects, .. } => effects,
+        Effect::AnyPlayerMayPayManaOr { effects, .. }
+        | Effect::AnyPlayerMayPayLifeOr { effects, .. } => effects,
         _ => &[],
     }
 }

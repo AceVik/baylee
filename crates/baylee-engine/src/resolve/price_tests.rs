@@ -278,6 +278,68 @@ fn any_player_payment_stops_at_the_first_payer_and_runs_fallback_once() {
 }
 
 #[test]
+fn any_player_life_payment_skips_unable_players_and_stops_after_payment() {
+    static TAX: &[Effect] = &[Effect::AnyPlayerMayPayLifeOr {
+        life: 5,
+        effects: &[Effect::GainLife {
+            amount: Amount::Fixed(7),
+        }],
+    }];
+    for (active_life, second_pays) in [(20, false), (20, true), (4, false), (4, true)] {
+        let (mut state, mut res) = resolving(TAX, ManaColor::Colorless);
+        state.players[0].life = active_life;
+        let first = run(&mut state, &mut res);
+        let first_player = if active_life < 5 {
+            PlayerId::new(1)
+        } else {
+            me()
+        };
+        assert!(matches!(
+            first,
+            Flow::Wait(Pending::YesNo {
+                player,
+                prompt: YesNoPrompt::PayLife { amount: 5, permanent: None },
+                ..
+            }) if player == first_player
+        ));
+        if active_life >= 5 {
+            assert!(matches!(
+                resume_tax_choice(&mut state, &mut res, false),
+                Flow::Wait(Pending::YesNo {
+                    player,
+                    prompt: YesNoPrompt::PayLife { amount: 5, permanent: None },
+                    ..
+                }) if player == PlayerId::new(1)
+            ));
+        }
+        assert!(matches!(
+            resume_tax_choice(&mut state, &mut res, second_pays),
+            Flow::Complete
+        ));
+        let expected_active = if second_pays {
+            active_life
+        } else {
+            active_life + 7
+        };
+        assert_eq!(state.players[0].life, expected_active);
+        assert_eq!(state.players[1].life, if second_pays { 15 } else { 20 });
+    }
+
+    let (mut state, mut res) = resolving(TAX, ManaColor::Colorless);
+    state.players[0].life = 5;
+    assert!(matches!(
+        run(&mut state, &mut res),
+        Flow::Wait(Pending::YesNo { player, .. }) if player == me()
+    ));
+    assert!(matches!(
+        resume_tax_choice(&mut state, &mut res, true),
+        Flow::Complete
+    ));
+    assert_eq!(state.players[0].life, 0, "an exact life payment is legal");
+    assert_eq!(state.players[1].life, 20, "the first payment ends APNAP");
+}
+
+#[test]
 fn optional_life_payment_runs_paid_effects_only_after_actual_payment() {
     static PRICE: &[Effect] = &[Effect::PlayerMayPayLifeThen {
         player: PlayerRel::You,

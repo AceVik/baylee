@@ -294,7 +294,7 @@ impl Tx<'_> {
             }
             _ => return None,
         };
-        if !probe.exhausted() {
+        if !Self::only_condition_keys_left(&probe) {
             return None;
         }
         let expr = self.filter_expr_in_zone(&stripped, true)?;
@@ -425,7 +425,7 @@ impl Tx<'_> {
             }
             "Token" => matches!(p.peek("TokenAmount"), None | Some("1")),
             "Discard" => {
-                p.peek("NumCards") == Some("1")
+                matches!(p.peek("NumCards"), None | Some("1"))
                     && (flags.targets_a_player || matches!(p.peek("Defined"), None | Some("You")))
             }
             "Draw" => {

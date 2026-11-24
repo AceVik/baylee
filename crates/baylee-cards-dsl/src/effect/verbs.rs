@@ -684,6 +684,7 @@ impl Effect {
             Effect::ForEachCreatureDamagedBySourceThatDiedThisTurn { effects }
             | Effect::GrantTriggeredIfAbsent { target: _, trigger: _, effects, duration: _ }
             | Effect::AnyPlayerMayPayManaOr { effects, .. }
+            | Effect::AnyPlayerMayPayLifeOr { life: _, effects }
             | Effect::ChooseOne { choices: effects }
             | Effect::ChooseOneRestricted {
                 choices: effects, ..
