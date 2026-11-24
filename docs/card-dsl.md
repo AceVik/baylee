@@ -5167,9 +5167,11 @@ matches objects whose mana value equals the number of `k` counters on the
 source; `Filter::LowestManaValueOnBattlefield(f)` matches battlefield
 permanents satisfying `f` with the minimum mana value among all such
 permanents; `Filter::SameNameAsLinkedExile` matches objects sharing a name
-with a card exiled with the source; `Filter::CmcEqualsYourUnspentMana`
-matches objects whose mana value equals the controller's unspent mana pool
-total.
+with a card exiled with the source; `Filter::SharesNameWithAnotherPermanent`
+matches an object when a different permanent on the battlefield has its current
+name, regardless of controller or card type, and never matches a nameless
+object; `Filter::CmcEqualsYourUnspentMana` matches objects whose mana value
+equals the controller's unspent mana pool total.
 
 `Effect::PreventNextDamageFromTarget { gain_life }` prevents all damage the
 first target creature would deal the next time it would deal damage this

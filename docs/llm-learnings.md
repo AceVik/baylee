@@ -8783,3 +8783,12 @@ unfiltered cards. The eight additional cards come from typecycling and dredge.
   the existing indefinite layer-2 control effects. Phyrexian Infiltrator's
   tests cover activation and payment, both controllers, persistence across a
   full turn, and an only target leaving the battlefield before resolution.
+
+## 2026-11-25 — A same-name condition belongs to resolution
+
+- Forge's `Count$Valid Permanent.sharesNameWith Targeted` includes the targeted
+  permanent itself, so `GE2` means that another permanent shares its name. On
+  Winnow this gates only the destruction during resolution; it must not narrow
+  the nonland target requirement, and the following draw still happens when no
+  twin exists. `Filter::SharesNameWithAnotherPermanent` excludes the object
+  itself and nameless objects while accepting a twin of any type or controller.
