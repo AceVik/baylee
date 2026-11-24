@@ -8741,6 +8741,7 @@ unfiltered cards. The eight additional cards come from typecycling and dredge.
   captured object. Preserve that default when deriving `CaptureScope`; the
   remembered condition can then become a single-object `ForEachRemembered`.
 
+<<<<<<< HEAD
 ## 2026-11-24 — Chosen-color revealed-hand damage
 
 - Read `ChooseColor` followed by a remembered public `RevealHand` and an
@@ -8792,3 +8793,15 @@ unfiltered cards. The eight additional cards come from typecycling and dredge.
   the nonland target requirement, and the following draw still happens when no
   twin exists. `Filter::SharesNameWithAnotherPermanent` excludes the object
   itself and nameless objects while accepting a twin of any type or controller.
+
+## 2026-11-24 — Per-player chosen-color damage counts
+
+- A scoped `RepeatEach` count can place `RememberedPlayerCtrl` between the
+  object type and another qualifier. Strip that control qualifier without
+  losing the surrounding filter separator, then let the ordinary filter
+  reader handle the remaining conjunction. Searing Rays consequently uses
+  the existing simultaneous `DealDamage` operation with a `Recipient` count.
+- The engine and all choice consumers already support resolution-time color
+  choices and per-player damage counts. The card tests exercise different
+  counts for both players, a multicolored creature counted once, and a player
+  with no matching creatures receiving zero damage.
