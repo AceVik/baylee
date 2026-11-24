@@ -437,6 +437,9 @@ impl Tx<'_> {
             || (api == "Token"
                 && p.peek("TokenAttacking") == Some("True")
                 && p.peek("AtEOT") == Some("Sacrifice"))
+            || (api == "Animate"
+                && p.peek("Defined") == Some("Remembered")
+                && self.capture_scope.is_some())
         {
             None
         } else {
@@ -693,6 +696,13 @@ impl Tx<'_> {
                     .is_some_and(|(s_api, sp)| {
                         s_api == "Pump" && sp.peek("Duration") == Some("Permanent")
                     }))
+            // This specialized move-and-modify reader has no delayed zone move.
+            // Let the general CaptureAffected reader handle AtEOT chains instead.
+            && sub
+                .as_deref()
+                .and_then(|s| self.svars.get(s.trim()))
+                .and_then(|b| Params::parse(b))
+                .is_some_and(|(_, sp)| !sp.has("AtEOT"))
         {
             self.reanimate_remembered_modified(&mut p, &mut sub, target.as_deref(), targets_here)?
         } else if !second_target_here

@@ -497,6 +497,30 @@ fn multi_target_three_slot_arm_the_cathars_boom_box_and_convert_to_slime() {
     );
 }
 
+#[test]
+fn remembered_animate_delayed_zones_and_nested_optional_hand_choice() {
+    let dance = read_w27c(
+        "Name:Remembered Dance\nManaCost:4 B R\nTypes:Instant\n\
+         A:SP$ ChangeZone | Origin$ Graveyard | Destination$ Battlefield | ValidTgts$ Creature.YouCtrl | RememberChanged$ True | ActivationPhases$ BeginCombat->EndCombat | SubAbility$ FirstAnimate\n\
+         SVar:FirstAnimate:DB$ Animate | Keywords$ Haste | Duration$ Permanent | Defined$ Remembered | AtEOT$ Hand | SubAbility$ SecondMove\n\
+         SVar:SecondMove:DB$ ChangeZone | Origin$ Hand | Destination$ Battlefield | Optional$ You | ChangeType$ Creature | ChangeNum$ 1 | RememberChanged$ True | ForgetOtherRemembered$ True | SubAbility$ SecondAnimate\n\
+         SVar:SecondAnimate:DB$ Animate | Keywords$ Haste | Duration$ Permanent | Defined$ Remembered | AtEOT$ SacrificeCtrl | SubAbility$ Clean\n\
+         SVar:Clean:DB$ Cleanup | ClearRemembered$ True",
+    );
+    let ability = &dance.abilities[0];
+    assert!(
+        ability.contains("Effect::CaptureAffected")
+            && ability.contains("Effect::ForEachRemembered")
+            && ability.contains("Modifier::AddKeyword(KeywordSet::HASTE)")
+            && ability.contains("Effect::ReturnToHand { target: TargetSpec::EventObject }")
+            && ability.contains("Effect::SacrificeEvent")
+            && ability.contains("zone: ChooseZone::Hand(PlayerRel::You)")
+            && ability.contains("min: 0, max: Amount::Fixed(1)")
+            && ability.contains("condition = Some(Condition::DuringCombat)"),
+        "{ability}"
+    );
+}
+
 // ---------------------------------------------------------------------------
 // 7. Honest refusals & Pure Paper-MTG guardrails
 // ---------------------------------------------------------------------------

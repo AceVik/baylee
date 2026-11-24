@@ -536,6 +536,19 @@ impl Tx<'_> {
         flags: LineFlags,
         chain: &mut Chain,
     ) -> Option<Vec<String>> {
+        // A nested hand-to-battlefield choice followed by Animate/Pump already has
+        // a dedicated reader for the whole chain, including its delayed zone move.
+        // Let that reader consume the SubAbility chain instead of lowering only the
+        // choice here and then processing its follow-up a second time.
+        if self.capture_scope.is_some()
+            && api == "ChangeZone"
+            && p.peek("Origin") == Some("Hand")
+            && p.peek("Destination") == Some("Battlefield")
+            && (self.sub_is_api(sub.as_deref(), "Animate")
+                || self.sub_is_api(sub.as_deref(), "Pump"))
+        {
+            return None;
+        }
         // Yield to existing specialized trigger handlers (`wave24e` Dig triggers
         // and `wave26f` Token+RememberTokens triggers) so existing generated cards
         // keep their exact replay identities.
@@ -1189,6 +1202,46 @@ impl Tx<'_> {
                 }
                 *p = probe;
                 Some(effs)
+            }
+            "Animate" => {
+                let mut probe = p.clone();
+                probe.take("Defined");
+                probe.take("IsCurse");
+                let duration = match probe.take("Duration").as_deref() {
+                    None | Some("EOT" | "UntilEndOfTurn") => "Duration::UntilEndOfTurn",
+                    Some("UntilEndOfCombat") => "Duration::UntilEndOfCombat",
+                    Some("UntilYourNextTurn") => "Duration::UntilYourNextTurn",
+                    Some("Permanent") => "Duration::Indefinitely",
+                    Some(_) => return None,
+                };
+                let raw_keywords = probe.take("Keywords")?;
+                let keywords = Self::pump_keyword_bits(&raw_keywords)?;
+                let at_eot = probe.take("AtEOT");
+                if !Self::only_condition_keys_left(&probe) {
+                    return None;
+                }
+                let mut effects = vec![format!(
+                    "Effect::ModifyEvent {{ modifier: Modifier::AddKeyword({keywords}), duration: {duration} }}"
+                )];
+                if let Some(at_eot) = at_eot.as_deref() {
+                    let delayed = match at_eot {
+                        "Hand" => "Effect::ReturnToHand { target: TargetSpec::EventObject }",
+                        "Sacrifice" | "SacrificeCtrl" => "Effect::SacrificeEvent",
+                        "Exile" => "Effect::exile(TargetSpec::EventObject)",
+                        _ => return None,
+                    };
+                    effects.push(format!(
+                        "Effect::RegisterDelayedTrigger {{ when: DelayedTriggerWhen::AtStep {{ \
+                         step: DelayedStep::EndStep, whose: None, this_turn_only: false, \
+                         recurring: false }}, condition: None, targets: None, \
+                         remember: TriggerRemember::EventObject, effects: &[{delayed}] }}"
+                    ));
+                }
+                *p = probe;
+                Some(vec![format!(
+                    "Effect::ForEachRemembered {{ filter: &Filter::Any, effects: &[{}] }}",
+                    effects.join(", ")
+                )])
             }
             "PutCounter" => {
                 let mut probe = p.clone();

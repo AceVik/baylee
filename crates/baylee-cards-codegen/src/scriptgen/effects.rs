@@ -653,7 +653,7 @@ impl Tx<'_> {
         }
     }
 
-    fn pump_keyword_bits(kw: &str) -> Option<String> {
+    pub(super) fn pump_keyword_bits(kw: &str) -> Option<String> {
         let mut bits = Vec::new();
         for part in kw.split('&').map(str::trim) {
             let bit = match part {
@@ -17566,7 +17566,8 @@ impl Tx<'_> {
             }
             if let Some(eot) = at_eot.as_deref() {
                 let delayed_fx = match eot {
-                    "Sacrifice" => "Effect::SacrificeEvent",
+                    "Hand" => "Effect::ReturnToHand { target: TargetSpec::EventObject }",
+                    "Sacrifice" | "SacrificeCtrl" => "Effect::SacrificeEvent",
                     "Exile" => "Effect::exile(TargetSpec::EventObject)",
                     _ => return None,
                 };
@@ -17615,7 +17616,7 @@ impl Tx<'_> {
             probe.take("Optional").as_deref(),
         ) {
             (Some("True"), None | Some("False")) => 1u8,
-            (None | Some("False"), Some("True")) | (None, None) => 0u8,
+            (None | Some("False"), Some("True" | "You")) | (None, None) => 0u8,
             _ => return None,
         };
         let valid = probe.take("ChangeType")?;
