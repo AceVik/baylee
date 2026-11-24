@@ -62,6 +62,24 @@ fn life_payment_outcomes_are_visited() {
     assert!(counter_seen && reward_seen);
 }
 
+#[test]
+fn any_player_life_payment_fallback_is_visited() {
+    static EFFECTS: &[Effect] = &[Effect::AnyPlayerMayPayLifeOr {
+        life: 5,
+        effects: &[Effect::DiscardRandom {
+            who: PlayerRel::You,
+            count: Amount::Fixed(1),
+        }],
+    }];
+    let mut seen = 0;
+    let mut fallback_seen = false;
+    Effect::walk(EFFECTS, &mut seen, &mut |effect| {
+        fallback_seen |= matches!(effect, Effect::DiscardRandom { .. });
+    });
+    assert_eq!(seen, 2);
+    assert!(fallback_seen);
+}
+
 /// Crystal Rod's life gain sits behind the payment, and a pool walk has
 /// to find it there.
 #[test]

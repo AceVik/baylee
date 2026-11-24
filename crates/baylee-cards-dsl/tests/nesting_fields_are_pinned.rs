@@ -115,8 +115,8 @@
 // ChooseCardConstrained (`then`) adds one walker-tested body.
 // CaptureAffected (`first`, `then`) adds two walker-tested bodies;
 // ForEachRemembered (`effects`) and WithAllTargets add one walker-tested body
-// each.
-const NESTING_FIELDS: usize = 124;
+// each. AnyPlayerMayPayLifeOr (`effects`) adds one walker-tested body.
+const NESTING_FIELDS: usize = 125;
 
 /// How many variants contain those fields.
 ///
@@ -205,7 +205,9 @@ const NESTING_FIELDS: usize = 124;
 /// `CaptureAffected`, `ForEachRemembered`, and `WithAllTargets` are the
 /// hundred-sixth through hundred-eighth
 /// (`capture_affected_for_each_remembered_and_with_all_targets_are_visited`).
-const CARRYING_VARIANTS: usize = 108;
+/// `AnyPlayerMayPayLifeOr` is the hundred-ninth; its fallback walk is tested in
+/// `verb_tests::any_player_life_payment_fallback_is_visited`.
+const CARRYING_VARIANTS: usize = 109;
 
 /// The floor under the reader itself.
 ///
