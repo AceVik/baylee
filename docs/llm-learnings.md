@@ -8741,7 +8741,6 @@ unfiltered cards. The eight additional cards come from typecycling and dredge.
   captured object. Preserve that default when deriving `CaptureScope`; the
   remembered condition can then become a single-object `ForEachRemembered`.
 
-
 ## 2026-11-24 — Chosen-color revealed-hand damage
 
 - Read `ChooseColor` followed by a remembered public `RevealHand` and an
@@ -8754,3 +8753,14 @@ unfiltered cards. The eight additional cards come from typecycling and dredge.
   contains the chosen color. Darigaaz's tests cover a monocolored and a
   red-green card together, declining the mana payment, zero matching cards,
   and Darigaaz as the source of the noncombat damage event.
+
+## 2026-11-24 — Void
+
+- A `ChooseNumber` without `Max$` is a nonnegative choice bounded only by
+  `u32::MAX` when a `Count$ChosenNumber` consumer binds it. Void's battlefield
+  and hand filters share `Amount::ResolutionChosenNumber`, so one choice drives
+  both mana-value comparisons.
+- The existing `Pending::ChooseNumber` and `Pending::ChoosePlayer` questions
+  need no protocol extension. Void's played test chooses one, checks artifacts,
+  creatures and other mana values on both sides, then checks the nonland
+  discards, retained land and reveal event for only the targeted player's hand.
