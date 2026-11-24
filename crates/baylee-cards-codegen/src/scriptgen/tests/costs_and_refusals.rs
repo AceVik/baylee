@@ -2064,9 +2064,8 @@ fn prevention_per_source_and_chosen_color_or_source_shields() {
     // Callous Giant: prevent the whole event at three or less, never cap four.
     let giant = read(
         "Name:Synthetic Callous Giant\nManaCost:4 R R\nTypes:Creature Giant\nPT:4/4\n\
-         R:Event$ DamageDone | ActiveZones$ Battlefield | ValidTarget$ Card.Self | \
-         DamageAmount$ LE3 | ReplaceWith$ DBReplace | PreventionEffect$ True\n\
-         SVar:DBReplace:DB$ ReplaceDamage | Amount$ 0",
+         R:Event$ DamageDone | ActiveZones$ Battlefield | Prevent$ True | \
+         ValidTarget$ Card.Self | DamageAmount$ LE3",
     );
     assert_eq!(
         giant.abilities,
