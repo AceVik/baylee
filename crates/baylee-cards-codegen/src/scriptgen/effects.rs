@@ -16469,12 +16469,15 @@ impl Tx<'_> {
         }
         let list_title = p.take("ListTitle");
         let min_raw = p.take("Min");
-        let max_raw = p.take("Max")?;
+        let max_raw = p.take("Max");
         let min = match min_raw.as_deref() {
             None => "Amount::Fixed(0)".to_string(),
             Some(raw) => self.amount_or_count_ext(raw)?,
         };
-        let max = self.amount_or_count_ext(&max_raw)?;
+        let max = match max_raw.as_deref() {
+            None => "Amount::Fixed(u32::MAX)".to_string(),
+            Some(raw) => self.amount_or_count_ext(raw)?,
+        };
         if let (Some(a), Some(b)) = (
             min.strip_prefix("Amount::Fixed(")
                 .and_then(|s| s.strip_suffix(')'))
