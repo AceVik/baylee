@@ -3,6 +3,7 @@
 #[allow(clippy::wildcard_imports)] // the parent's vocabulary and helpers
 use super::*;
 
+mod addle;
 mod altar_of_bone;
 mod balance;
 mod borrowing_the_east_wind;
