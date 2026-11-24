@@ -3723,14 +3723,6 @@ pub enum Effect {
         /// What.
         filter: &'static Filter,
     },
-    /// Untap every tapped matching permanent and tap every untapped one as a
-    /// single simultaneous effect. The matching objects and their old tapped
-    /// states are captured once, so nothing newly untapped is tapped again.
-    /// Nothing is targeted (CR 115.1a, 701.26a–b).
-    ToggleTapAll {
-        /// What.
-        filter: &'static Filter,
-    },
     /// "Tap all lands target player controls" (Mana Short): [`Self::TapAll`]
     /// over the permanents a player in `who` controls as this resolves. The
     /// player may be the target; the permanents are not (CR 115.1a), so
@@ -5978,6 +5970,15 @@ pub enum Effect {
     /// turn", "untap those permanents"). Suspension-safe across `Pending`
     /// choices. Appended to preserve replay identities.
     WithAllTargets(&'static [Effect]),
+    /// Untap every tapped matching permanent and tap every untapped one as a
+    /// single simultaneous effect. The matching objects and their old tapped
+    /// states are captured once, so nothing newly untapped is tapped again.
+    /// Nothing is targeted (CR 115.1a, 701.26a–b). Appended to preserve replay
+    /// identities.
+    ToggleTapAll {
+        /// What.
+        filter: &'static Filter,
+    },
 }
 
 #[cfg(test)]
