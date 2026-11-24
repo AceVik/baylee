@@ -2027,13 +2027,16 @@ hand, the rest on the bottom in the player's order, seen only by the player
 digging): `LookAtTopPick` (no filter, rest on the bottom),
 `LookAtTopPickThenReorder` (rest back on top), `LookAtTopFind` (look, may take
 one matching card), `RevealTopAllMatching` (reveal, every matching card, rest
-on the bottom in any order), `RevealTopAndSort` (reveal one card, matching here
-and otherwise there), `RevealTopFind` (reveal, may take one matching card, rest
-to the graveyard or exile) and `ExileTop` (every card exiled). Only a dig in its
-controller's own library is read, except the exile. A pick whose rest goes to
-the graveyard or exile (Ancestral Memories, Browse), a revealed or optional
-pick without a filter, another chooser, and a dig that remembers or imprints
-what it moved stay refused, each by name.
+on the bottom in any order), `RevealTopAllNamed` (reveal, every card with the
+name chosen earlier in the same resolution to `matched`, the rest to
+`otherwise`; Desperate Research), `RevealTopAndSort` (reveal one card, matching
+here and otherwise there), `RevealTopFind` (reveal, may take one matching card,
+rest to the graveyard or exile) and `ExileTop` (every card exiled). Only a dig
+in its controller's own library is read, except the exile. A pick whose rest
+goes to the graveyard or exile (Ancestral Memories, Browse), a revealed or
+optional pick without a filter, another chooser except the exact named-card
+form above, and a dig that remembers or imprints what it moved stay refused,
+each by name.
 
 Two continuous player permissions describe Gwenom's attack trigger:
 `Modifier::LookAtLibraryTop` privately shows the effect controller their
@@ -2333,9 +2336,12 @@ that supertype. Existing printed World permanents use their entry timestamps.
 `Filter::NamedBySource` reads a name chosen during the current resolution
 first. `ChooseCardName` supplies that local choice whether or not `remember`
 is set and whether or not the source remains on the battlefield (CR 113.7a,
-608.2d). Without a local choice, the filter reads names remembered by the
-source's current rules acquisition. `remember` controls persistence for
-later abilities, not whether this resolution can use its choice.
+608.2d). Its `excluded_supertypes` refuses a printed face with any of those
+supertypes; `SupertypeSet::BASIC` expresses "other than a basic land card
+name" without excluding nonbasic lands. Without a local choice, the filter
+reads names remembered by the source's current rules acquisition. `remember`
+controls persistence for later abilities, not whether this resolution can use
+its choice.
 
 `ChosenNameCantActivate` is Pithing Needle's "activated abilities of sources
 with the chosen name can't be activated unless they're mana abilities",

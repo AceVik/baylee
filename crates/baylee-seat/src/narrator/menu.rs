@@ -103,8 +103,12 @@ enum Ask {
     Number { min: u32, max: u32 },
     /// A subtype, by name.
     Subtype { options: Vec<SubtypeId> },
-    /// A card name.
-    CardName,
+    /// A card name within the question's printed-face restrictions.
+    CardName {
+        types: baylee_core::types::TypeSet,
+        excluded_types: baylee_core::types::TypeSet,
+        excluded_supertypes: baylee_core::types::SupertypeSet,
+    },
     /// Cards into piles.
     Arrange {
         cards: Vec<ObjectId>,
@@ -522,9 +526,23 @@ impl Menu {
                     format!("choose {name}"),
                 ))
             }
-            Ask::CardName => {
+            Ask::CardName {
+                types,
+                excluded_types,
+                excluded_supertypes,
+            } => {
                 let name = named(decision)?;
                 let (card, face) = card_name(&name).ok_or_else(|| not_a_card_here(&name))?;
+                let eligible = baylee_cards::by_index(card)
+                    .and_then(|def| def.faces.get(usize::from(face)))
+                    .is_some_and(|printed| {
+                        (types.is_empty() || printed.types.intersects(*types))
+                            && !printed.types.intersects(*excluded_types)
+                            && !printed.supertypes.intersects(*excluded_supertypes)
+                    });
+                if !eligible {
+                    return Err(format!("«{name}» is not eligible for this naming question"));
+                }
                 Ok(now(
                     PlayerAction::ChooseCardName { card, face },
                     format!("name {name}"),

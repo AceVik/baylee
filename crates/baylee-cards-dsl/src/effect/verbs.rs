@@ -1160,6 +1160,7 @@ impl Effect {
             | Effect::RevealHandForGuess
             | Effect::DrawIfGuessWrong
             | Effect::RevealTopByName { .. }
+            | Effect::RevealTopAllNamed { .. }
             | Effect::RevealRandomDiscardNamed { .. }
             | Effect::ChooseNumber { .. }
             | Effect::DestroyWeakest { .. }

@@ -428,7 +428,12 @@ pub(super) fn offered(
         // Any card's name is an answer (CR 201.4); the one the asking
         // permanent or resolving spell is printed with is always a card of
         // the pool, and a restricted `types` falls back to a matching card.
-        Pending::ChooseCardName { types, .. } => {
+        Pending::ChooseCardName {
+            types,
+            excluded_types,
+            excluded_supertypes,
+            ..
+        } => {
             let source = match engine.pending_plan {
                 Some(PlanKind::ChooseCardName { object }) => Some(object),
                 _ => engine.resolution.as_ref().map(|res| res.source),
@@ -442,11 +447,13 @@ pub(super) fn offered(
                     face: 0,
                 });
             }
-            if !types.is_empty()
+            if (!types.is_empty() || !excluded_types.is_empty() || !excluded_supertypes.is_empty())
                 && let Some(def) = baylee_cards::all().find(|def| {
-                    def.faces
-                        .first()
-                        .is_some_and(|face| face.types.intersects(*types))
+                    def.faces.first().is_some_and(|face| {
+                        (types.is_empty() || face.types.intersects(*types))
+                            && !face.types.intersects(*excluded_types)
+                            && !face.supertypes.intersects(*excluded_supertypes)
+                    })
                 })
             {
                 out.push(PlayerAction::ChooseCardName {

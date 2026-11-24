@@ -2841,6 +2841,12 @@ pub(super) fn exec_immediate(
             matched,
             otherwise,
         } => names::reveal_top(state, res, player, matched, otherwise),
+        Effect::RevealTopAllNamed {
+            player,
+            count,
+            matched,
+            otherwise,
+        } => names::reveal_top_all_named(state, res, player, count, matched, otherwise),
         Effect::RevealRandomDiscardNamed { player, count } => {
             names::random_discard(state, res, player, count)
         }

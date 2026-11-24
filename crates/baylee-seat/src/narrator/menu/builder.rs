@@ -362,6 +362,7 @@ impl Builder<'_, '_> {
             Pending::ChooseCardName {
                 types,
                 excluded_types,
+                excluded_supertypes,
                 ..
             } => {
                 if !types.is_empty() {
@@ -374,12 +375,23 @@ impl Builder<'_, '_> {
                         words.join(", ")
                     ));
                 }
+                if !excluded_supertypes.is_empty() {
+                    let words: Vec<&str> = excluded_supertypes.words().collect();
+                    self.line(format!(
+                        "A card with these printed supertypes is not eligible: {}.",
+                        words.join(", ")
+                    ));
+                }
                 self.line(
                     "QUESTION: Choose a card name: any card this game has, as in its deckbuilder, \
                      by its English name (a single face's name is fine). Naming one nobody can \
                      hold simply misses.",
                 );
-                self.ask = Ask::CardName;
+                self.ask = Ask::CardName {
+                    types: *types,
+                    excluded_types: *excluded_types,
+                    excluded_supertypes: *excluded_supertypes,
+                };
                 self.answer("name=\"<the card's name>\"");
             }
             Pending::ChooseColor { options, .. } => self.color(options),

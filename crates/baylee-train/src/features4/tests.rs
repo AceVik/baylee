@@ -49,6 +49,7 @@ mod tests {
             player: PlayerId::new(0),
             types: TypeSet::CREATURE,
             excluded_types: TypeSet::EMPTY,
+            excluded_supertypes: baylee_core::types::SupertypeSet::EMPTY,
         };
         let state = encode_state4(&view, Some(&pending), None, &[]);
         let candidates = encode_candidates4(&state, &view, &pending);
@@ -86,6 +87,7 @@ mod tests {
             player: PlayerId::new(0),
             types: TypeSet::EMPTY,
             excluded_types: TypeSet::LAND,
+            excluded_supertypes: baylee_core::types::SupertypeSet::EMPTY,
         };
         let state = encode_state4(&view, Some(&pending), None, &[]);
         let candidates = encode_candidates4(&state, &view, &pending);
@@ -105,6 +107,33 @@ mod tests {
             let printed = &baylee_cards::by_index(card).unwrap().faces[usize::from(face)];
             assert!(!printed.types.intersects(TypeSet::LAND), "{}", printed.name);
         }
+    }
+
+    #[test]
+    fn naming_candidates_leave_out_basic_but_keep_nonbasic_lands() {
+        let d = HouseDeck::named("victory").unwrap();
+        let preset = table_for(42, &[&d, &d], &[AIProfile::STEADY; 2], &[]);
+        let session = Session::new(&preset).unwrap();
+        let view = session.observe_view(PlayerId::new(0));
+        let pending = Pending::ChooseCardName {
+            player: PlayerId::new(0),
+            types: TypeSet::EMPTY,
+            excluded_types: TypeSet::EMPTY,
+            excluded_supertypes: baylee_core::types::SupertypeSet::BASIC,
+        };
+        let state = encode_state4(&view, Some(&pending), None, &[]);
+        let candidates = encode_candidates4(&state, &view, &pending);
+        assert!(!candidates.candidates.is_empty());
+        let mut nonbasic_land = false;
+        for candidate in candidates.candidates {
+            let Some(PlayerAction::ChooseCardName { card, face }) = candidate.action else {
+                panic!("name action")
+            };
+            let printed = &baylee_cards::by_index(card).unwrap().faces[usize::from(face)];
+            assert!(!printed.supertypes.contains(baylee_core::types::SupertypeSet::BASIC));
+            nonbasic_land |= printed.types.intersects(TypeSet::LAND);
+        }
+        assert!(nonbasic_land, "a nonbasic land remains a legal name");
     }
 
     #[test]
@@ -261,6 +290,7 @@ mod tests {
             player: PlayerId::new(0),
             types: TypeSet::EMPTY,
             excluded_types: TypeSet::EMPTY,
+            excluded_supertypes: baylee_core::types::SupertypeSet::EMPTY,
         };
         let state = encode_state4(&view, Some(&pending), None, &[]);
         let cands = encode_candidates4(&state, &view, &pending);

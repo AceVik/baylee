@@ -106,6 +106,7 @@ fn accumulate_effect(effect: &Effect, ch: &mut EffectChannels) {
         | Effect::RevealTop { .. }
         | Effect::RevealTopOnePerType { .. }
         | Effect::RevealTopAllMatching { .. }
+        | Effect::RevealTopAllNamed { .. }
         | Effect::Cascade
         | Effect::Discover { .. }
         | Effect::DiscoverAmount { .. }

@@ -264,6 +264,7 @@ fn a_needle_names_the_opponents_permanent_it_would_stop() {
         player: v.seat,
         types: baylee_core::types::TypeSet::EMPTY,
         excluded_types: baylee_core::types::TypeSet::EMPTY,
+        excluded_supertypes: baylee_core::types::SupertypeSet::EMPTY,
     };
     assert_eq!(
         HeuristicAgent::new(AIProfile::EXPERT).act(&v, &pending),
@@ -305,6 +306,7 @@ fn a_nonland_name_choice_never_names_a_land() {
             player: v.seat,
             types: TypeSet::EMPTY,
             excluded_types: TypeSet::LAND,
+            excluded_supertypes: baylee_core::types::SupertypeSet::EMPTY,
         },
     ) else {
         panic!("a nonland name choice is answered with a card name");
@@ -315,6 +317,32 @@ fn a_nonland_name_choice_never_names_a_land() {
     assert!(
         !printed.types.intersects(TypeSet::LAND),
         "{} is not a land card name",
+        printed.name
+    );
+}
+
+#[test]
+fn a_nonbasic_name_choice_never_names_a_basic_card() {
+    let v = view(0, &[20, 20], vec![]);
+    let PlayerAction::ChooseCardName { card, face } = HeuristicAgent::new(AIProfile::EXPERT).act(
+        &v,
+        &Pending::ChooseCardName {
+            player: v.seat,
+            types: TypeSet::EMPTY,
+            excluded_types: TypeSet::EMPTY,
+            excluded_supertypes: baylee_core::types::SupertypeSet::BASIC,
+        },
+    ) else {
+        panic!("a nonbasic name choice is answered with a card name");
+    };
+    let printed = baylee_cards::by_index(card)
+        .and_then(|def| def.faces.get(usize::from(face)))
+        .expect("the agent names a printed face of a pool card");
+    assert!(
+        !printed
+            .supertypes
+            .intersects(baylee_core::types::SupertypeSet::BASIC),
+        "{} is not a basic card name",
         printed.name
     );
 }

@@ -344,7 +344,8 @@ pub use turn::{DayNight, Phase, Step};
 /// Bounded generic mana payments use `ManaPayment::Variable` during mana
 /// generation. `NumberPrompt` has bounded payment amounts for mana, energy
 /// and life.
-pub const VIEW_VERSION: u32 = 112;
+/// Version 113 adds excluded printed supertypes to card-name choices.
+pub const VIEW_VERSION: u32 = 113;
 
 // ------------------------------------------------------------------- targets
 
