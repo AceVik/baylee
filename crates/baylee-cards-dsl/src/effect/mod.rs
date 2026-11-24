@@ -1278,14 +1278,6 @@ pub enum Effect {
         /// What is dealt to.
         target: TargetSpec,
     },
-    /// The first target deals damage to its own controller (Backlash). The
-    /// target is the damage source, so its characteristics and lifelink apply
-    /// (CR 120.3), rather than those of the spell or ability carrying this
-    /// effect. An illegal or departed target deals nothing (CR 608.2b).
-    TargetDealsDamageToController {
-        /// How much; `Amount::TargetPower` reads the dealing target's power.
-        amount: Amount,
-    },
     /// Deal damage to the first target's controller (Tuktuk Scrapper).
     DealDamageToTargetController {
         /// How much.
@@ -5986,6 +5978,15 @@ pub enum Effect {
     ToggleTapAll {
         /// What.
         filter: &'static Filter,
+    },
+    /// The first target deals damage to its own controller (Backlash). The
+    /// target is the damage source, so its characteristics and lifelink apply
+    /// (CR 120.3), rather than those of the spell or ability carrying this
+    /// effect. An illegal or departed target deals nothing (CR 608.2b).
+    /// Appended to preserve replay identities.
+    TargetDealsDamageToController {
+        /// How much; `Amount::TargetPower` reads the dealing target's power.
+        amount: Amount,
     },
 }
 
