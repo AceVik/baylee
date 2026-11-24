@@ -21,6 +21,7 @@ mod demonic_tutor;
 mod diabolic_intent;
 mod diabolic_vision;
 mod disturbed_burial;
+mod do_or_die;
 mod drain_life;
 mod drain_power;
 mod elephant_resurgence;

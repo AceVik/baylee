@@ -8708,3 +8708,19 @@ unfiltered cards. The eight additional cards come from typecycling and dredge.
   targeted-self damage forms separate from `TargetedController` and
   `ParentTargetController`, so broadening the reader cannot retarget older
   cards.
+
+
+## 2026-11-24 — Targeted battlefield pile destruction
+
+- For direct battlefield `TwoPiles`, distinguish the two roles: the resolving
+  spell's controller separates the targeted player's matching permanents, and
+  the targeted player chooses the pile to destroy. The reader composes the
+  existing `SeparateIntoTwoPiles` and `RepeatEachObject` effects; no new pending
+  or protocol type is needed, so every seat and the client already answer both
+  questions.
+- `TargetSpec::EventObject` is singular even while `SubjectContext::found`
+  holds a whole pile. A chosen-pile `Destroy` therefore needs a per-object loop.
+  Do or Die's card test chooses a two-creature pile and checks both deaths, a
+  real regeneration shield, the unchosen creature and the caster's own creature.
+- A pure player target is answered through `Pending::ChoosePlayer` and
+  `PlayerAction::ChoosePlayer`, not `ChooseTargets` with an empty object list.
