@@ -187,6 +187,7 @@ mod sylvan_might;
 mod symbiosis;
 mod tangle;
 mod tear_asunder;
+mod teferi_s_response;
 mod tel_jilad_justice;
 mod temper;
 mod terminate;
