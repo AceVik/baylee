@@ -7503,3 +7503,43 @@ fn wave23c_attached_target_self_dies_and_refusals() {
         assert!(refused(bad), "must refuse:\n{bad}");
     }
 }
+
+#[test]
+fn targeted_battlefield_two_piles_destroys_every_object_in_the_chosen_pile() {
+    let script = "Name:Pile Doom\nManaCost:1 B\nTypes:Sorcery\n\
+         A:SP$ TwoPiles | ValidTgts$ Player | Separator$ You | ChosenPile$ Chosen | ValidCards$ Creature | Zone$ Battlefield\n\
+         SVar:Chosen:DB$ Destroy | Defined$ Remembered | NoRegen$ True";
+    let piles = read(script);
+    let ability = &piles.abilities[0];
+    assert!(
+        ability.contains("TargetReq::one(TargetSpec::AnyPlayer)")
+            && ability.contains("Effect::SeparateIntoTwoPiles {")
+            && ability.contains("separator: PlayerRel::You")
+            && ability.contains("pile_chooser: PlayerRel::Chosen")
+            && ability.contains("chosen_pile: &[Effect::RepeatEachObject {")
+            && ability.contains("only_found: true")
+            && ability.contains("Effect::destroy_no_regen(TargetSpec::EventObject)"),
+        "{ability}"
+    );
+    assert!(
+        piles
+            .statics
+            .contains("Filter::ControlledBy(PlayerRel::Chosen)"),
+        "{}",
+        piles.statics
+    );
+
+    let regenerable = read(&script.replace("NoRegen$ True", "NoRegen$ False"));
+    assert!(
+        regenerable.abilities[0].contains("Effect::destroy(TargetSpec::EventObject)"),
+        "{}",
+        regenerable.abilities[0]
+    );
+    assert!(refused(
+        &script.replace("Separator$ You", "Separator$ Opponent")
+    ));
+    assert!(refused(&script.replace(
+        "SVar:Chosen:DB$ Destroy | Defined$ Remembered | NoRegen$ True",
+        "SVar:Chosen:DB$ Destroy | Defined$ Targeted | NoRegen$ True"
+    )));
+}

@@ -265,6 +265,7 @@ pub const SUPPORTED_APIS: &[&str] = &[
     "MoveCounter",
     "LosesGame",
     "SkipPhase",
+    "TwoPiles",
 ];
 
 /// A cost token that names an object, split into its kind and its body.

@@ -1690,6 +1690,71 @@ impl Tx<'_> {
         Some(format!("Effect::ToggleTapAll {{ filter: &{filter} }}"))
     }
 
+    /// Read a targeted player's battlefield objects separated by the resolving
+    /// spell's controller, with the targeted player choosing the pile to
+    /// destroy (`CR 700.3`). `EventObject` is singular inside each iteration,
+    /// so the chosen pile needs an explicit per-object loop rather than one
+    /// `Destroy` that would affect only its first object.
+    fn targeted_battlefield_two_piles_effect(
+        &mut self,
+        p: &mut Params,
+        target: Option<&str>,
+        targets_here: bool,
+    ) -> Option<Vec<String>> {
+        if !targets_here
+            || target != Some("TargetSpec::Player(PlayerRel::Chosen)")
+            || p.take("Separator").as_deref() != Some("You")
+            || p.take("Zone").as_deref() != Some("Battlefield")
+        {
+            return None;
+        }
+        let valid = p.take("ValidCards")?;
+        let chosen = p.take("ChosenPile")?;
+        if !p.exhausted() {
+            return None;
+        }
+
+        let body = self.svars.get(chosen.trim())?.clone();
+        let (api, mut sp) = Params::parse(&body)?;
+        sp.drop_prose();
+        if api != "Destroy" || sp.take("Defined").as_deref() != Some("Remembered") {
+            return None;
+        }
+        let no_regen = match sp.take("NoRegen").as_deref() {
+            None | Some("False") => false,
+            Some("True") => true,
+            Some(_) => return None,
+        };
+        if !sp.exhausted() {
+            return None;
+        }
+
+        let base = self.filter_expr(&valid)?;
+        let filter = format!("Filter::And(&[{base}, Filter::ControlledBy(PlayerRel::Chosen)])");
+        let filter = self.body.filter_static("TWO_PILES", &filter);
+        let destroy = if no_regen {
+            "Effect::destroy_no_regen(TargetSpec::EventObject)"
+        } else {
+            "Effect::destroy(TargetSpec::EventObject)"
+        };
+        Some(vec![format!(
+            "Effect::SeparateIntoTwoPiles {{ \
+             separator: PlayerRel::You, \
+             pile_chooser: PlayerRel::Chosen, \
+             zone: ZoneSel::Battlefield, \
+             filter: &{filter}, \
+             only_found: false, \
+             chosen_pile: &[Effect::RepeatEachObject {{ \
+             zone: ZoneSel::Battlefield, \
+             filter: &Filter::Any, \
+             only_found: true, \
+             then: &[{destroy}] \
+             }}], \
+             unchosen_pile: &[] \
+             }}"
+        )])
+    }
+
     // The requirement and the effect name the target differently when it
     // is a player: the wizard resolves `AnyPlayer`/`AnyOpponent` into the
     // spell's chosen player, and the effect then reads it back as
@@ -3154,6 +3219,7 @@ impl Tx<'_> {
         // to the first target if there is one and to the source if not.
         let aimed = target.unwrap_or("TargetSpec::AnyPlayer");
         Some(match api {
+            "TwoPiles" => self.targeted_battlefield_two_piles_effect(p, target, targets_here)?,
             "Amass" => self.amass_effect(p, target, targets_a_player)?,
             "Incubate" => self.incubate_effect(p, target, targets_a_player)?,
             "MultiplyCounter" => self.multiply_counter_effect(
