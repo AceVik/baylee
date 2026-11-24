@@ -537,6 +537,10 @@ pub enum Filter {
     /// can currently be activated. Includes granted abilities and respects
     /// ability removal. Appended to preserve replay identities.
     HasNonManaActivatedAbility,
+    /// A spell or ability with at least one target that is a permanent you
+    /// control matching the nested filter (`CR 115.1`, `CR 608.2b`).
+    /// Appended to preserve replay identities.
+    TargetsYouControl(&'static Filter),
 }
 
 /// Zone references for filters (engine zones, DSL view).

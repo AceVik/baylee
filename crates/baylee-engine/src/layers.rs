@@ -958,6 +958,9 @@ fn could_change_match(modifier: &Modifier, filter: &Filter, layer: Layer) -> boo
         }
         Filter::ActivatedAbilityFrom(filter) => could_change_match(modifier, filter, layer),
         Filter::TargetsPermanentYouControl => matches!(layer, Layer::Control),
+        Filter::TargetsYouControl(filter) => {
+            matches!(layer, Layer::Control) || could_change_match(modifier, filter, layer)
+        }
         Filter::PairedWithSource | Filter::RingBearer | Filter::Modified => {
             matches!(layer, Layer::Control | Layer::Type)
         }

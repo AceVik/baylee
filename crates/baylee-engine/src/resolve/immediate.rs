@@ -3746,6 +3746,19 @@ pub(super) fn exec_immediate(
             }
             None
         }
+        Effect::DestroyCounteredAbilitySource => {
+            // Only an ability actually countered earlier in this resolution
+            // records its source. A spell, an uncounterable ability, or a
+            // source that has already left the battlefield destroys nothing.
+            if let Some(src) = res.countered_source
+                && state
+                    .object(src)
+                    .is_some_and(|o| o.zone == crate::zone::Zone::Battlefield)
+            {
+                crate::sba::destroy(state, src);
+            }
+            None
+        }
         Effect::CopyTargetSpell { mods } => {
             let &original = res.targets.first()?;
             let copy = copy_spell(state, state.source_identity(original)?, you, mods, res.text)?;

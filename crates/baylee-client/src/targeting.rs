@@ -442,6 +442,9 @@ pub(crate) fn matches(view: &PlayerView, object: &PublicObject, filter: &Filter)
         Filter::TargetsPermanentYouControl => {
             return targets_permanent_you_control(view, object);
         }
+        Filter::TargetsYouControl(filter) => {
+            return targets_you_control_matching(view, object, filter);
+        }
         Filter::HasKeyword(keywords) => {
             // `KeywordSet::contains` means ANY requested bit, not all bits.
             let present = object.keywords & keywords.bits();
@@ -714,6 +717,41 @@ fn targets_permanent_you_control(view: &PlayerView, object: &PublicObject) -> Op
         }
         if target.controller == you(view) {
             return Some(true);
+        }
+    }
+    (!unknown).then_some(false)
+}
+
+/// Whether any current target is a visible permanent you control matching
+/// `filter`. Unknown target identities keep the answer unknown rather than
+/// letting the client withhold a cast the engine could still allow.
+fn targets_you_control_matching(
+    view: &PlayerView,
+    object: &PublicObject,
+    filter: &'static baylee_cards_dsl::Filter,
+) -> Option<bool> {
+    let mut unknown = false;
+    for target in &object.targets {
+        let baylee_core::ids::TargetRef::Object(reference) = target else {
+            continue;
+        };
+        let Some(target) = view.target_object(*reference) else {
+            unknown = true;
+            continue;
+        };
+        if !target.is_current || target.zone != baylee_view::LogZone::Battlefield {
+            continue;
+        }
+        if target.card.is_none() && target.token.is_none() {
+            unknown = true;
+            continue;
+        }
+        if target.controller == you(view) {
+            match matches(view, target, filter) {
+                Some(true) => return Some(true),
+                Some(false) => {}
+                None => unknown = true,
+            }
         }
     }
     (!unknown).then_some(false)

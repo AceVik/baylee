@@ -536,6 +536,7 @@ impl HeuristicAgent {
         | Filter::HasAdventure
         | Filter::ActivatedAbilityFrom(_)
         | Filter::TargetsPermanentYouControl
+        | Filter::TargetsYouControl(_)
         | Filter::HasRampage
         | Filter::HasCumulativeUpkeep
         | Filter::HasAnyCounter

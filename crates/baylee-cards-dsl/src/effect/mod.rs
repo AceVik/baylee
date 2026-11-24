@@ -6031,6 +6031,12 @@ pub enum Effect {
         /// Additional source criterion for gaining the prevented amount as life.
         gain_life_sources: &'static Filter,
     },
+    /// Destroy the permanent whose ability an earlier counter effect in this
+    /// resolution actually countered. A spell, an uncounterable ability, an
+    /// ability whose source left the battlefield, and a nonpermanent source
+    /// remember nothing this instruction can destroy (`CR 701.6`, `CR 701.7`).
+    /// Appended to preserve replay identities.
+    DestroyCounteredAbilitySource,
 }
 
 #[cfg(test)]
