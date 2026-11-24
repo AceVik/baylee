@@ -533,6 +533,10 @@ pub enum Filter {
     /// object shares a name with nothing (`CR 201.2a`). Appended to preserve
     /// replay identities.
     SharesNameWithAnotherPermanent,
+    /// Has an activated ability that is not a mana ability, whether or not it
+    /// can currently be activated. Includes granted abilities and respects
+    /// ability removal. Appended to preserve replay identities.
+    HasNonManaActivatedAbility,
 }
 
 /// Zone references for filters (engine zones, DSL view).

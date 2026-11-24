@@ -383,6 +383,19 @@ pub(crate) fn matches_projected_with_choices(
                 || !crate::casting::intrinsic_mana_colors(state, obj.id).is_empty()
                 || crate::effects::granted_activated(state, obj.id).any(|a| a.mana_ability)
         }
+        Filter::HasNonManaActivatedAbility => {
+            obj.abilities(state.bases.as_ref()).iter().any(|ability| {
+                matches!(
+                    ability,
+                    baylee_cards_dsl::AbilityDef::Activated { .. }
+                        | baylee_cards_dsl::AbilityDef::ActivatedConditional { .. }
+                        | baylee_cards_dsl::AbilityDef::ModalActivated { .. }
+                        | baylee_cards_dsl::AbilityDef::Loyalty { .. }
+                        | baylee_cards_dsl::AbilityDef::Unearth { .. }
+                        | baylee_cards_dsl::AbilityDef::Encore { .. }
+                ) && !ability.is_mana_ability()
+            }) || crate::effects::granted_activated(state, obj.id).any(|a| !a.mana_ability)
+        }
         Filter::ControlledByYou => obj.controller == you,
         Filter::ControlledByOpponent => state.is_opponent(obj.controller, you),
         Filter::ControlledByActivePlayer => obj.controller == state.turn.active,

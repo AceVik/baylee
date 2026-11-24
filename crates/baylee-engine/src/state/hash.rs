@@ -3197,6 +3197,10 @@ fn filter_hash(h: &mut Hasher, f: &baylee_cards_dsl::Filter) {
             h.u8(255);
             h.u16(435);
         }
+        F::HasNonManaActivatedAbility => {
+            h.u8(255);
+            h.u16(436);
+        }
     }
 }
 

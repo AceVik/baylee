@@ -1059,6 +1059,10 @@ impl Tx<'_> {
             "faceUp" => "Filter::Not(&Filter::FaceDown)".to_string(),
             "hasManaAbility" => "Filter::HasManaAbility".to_string(),
             "!hasManaAbility" => "Filter::Not(&Filter::HasManaAbility)".to_string(),
+            "hasNonManaActivatedAbility" => "Filter::HasNonManaActivatedAbility".to_string(),
+            "!hasNonManaActivatedAbility" => {
+                "Filter::Not(&Filter::HasNonManaActivatedAbility)".to_string()
+            }
             "withRampage" => "Filter::HasRampage".to_string(),
             "!withRampage" => "Filter::Not(&Filter::HasRampage)".to_string(),
             "ThisTurnEntered" if !card_zone => "Filter::EnteredThisTurn".to_string(),

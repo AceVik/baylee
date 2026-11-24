@@ -511,6 +511,7 @@ impl HeuristicAgent {
             | Filter::Kicked
             | Filter::CastFromHand
             | Filter::HasManaAbility
+            | Filter::HasNonManaActivatedAbility
             | Filter::AttachedToBySource
             | Filter::AttachedToSource
             | Filter::CmcAtMostX

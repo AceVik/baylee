@@ -950,7 +950,10 @@ fn could_change_match(modifier: &Modifier, filter: &Filter, layer: Layer) -> boo
             modifier,
             Modifier::AddSupertype(_) | Modifier::RemoveSupertype(_)
         ),
-        Filter::HasRampage | Filter::HasCumulativeUpkeep | Filter::HasManaAbility => {
+        Filter::HasRampage
+        | Filter::HasCumulativeUpkeep
+        | Filter::HasManaAbility
+        | Filter::HasNonManaActivatedAbility => {
             matches!(layer, Layer::Ability | Layer::Type)
         }
         Filter::ActivatedAbilityFrom(filter) => could_change_match(modifier, filter, layer),

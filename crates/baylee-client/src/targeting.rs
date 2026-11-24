@@ -549,6 +549,7 @@ pub(crate) fn matches(view: &PlayerView, object: &PublicObject, filter: &Filter)
         | Filter::SharesWatermarkWithSource
         | Filter::UnCard
         | Filter::HasManaAbility
+        | Filter::HasNonManaActivatedAbility
         // This preflight has no resolving source or its chosen name.
         | Filter::NamedBySource
         | Filter::MatchesChosenTypeOfSource

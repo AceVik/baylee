@@ -3754,6 +3754,14 @@ Power Sink, whose unpaid branch sequences countering, tapping and emptying
 the targeted spell controller's pool. Resolution retains that controller
 when the countered spell leaves the stack.
 
+`Filter::HasNonManaActivatedAbility` asks whether an object has at least one
+activated ability that is not a mana ability, regardless of whether its cost or
+activation condition can currently be satisfied. It reads the active printed
+face or copied ability list, includes granted activated abilities, and respects
+lost abilities and the rules-text loss caused by becoming a basic land type.
+Pure mana abilities and triggered abilities do not match. Combining it with
+`Filter::LAND` expresses Tsabo's Web's untap restriction.
+
 `StepKind::CombatEnd` and `Condition::AttackedOrBlockedThisCombat` express
 Clockwork Beast's intervening condition. The combat history records declared
 attackers and blockers by incarnation, survives removal from combat, and
