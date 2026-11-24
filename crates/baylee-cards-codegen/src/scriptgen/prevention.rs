@@ -723,7 +723,57 @@ impl Tx<'_> {
         })
     }
 
+    /// `R:Event$ DamageDone | ValidTarget$ Card.Self | DamageAmount$ LE<n> |
+    /// PreventionEffect$ True | ReplaceWith$ <ReplaceDamage Amount$ 0>`
+    /// (*Callous Giant*) prevents the whole event only while its amount is at
+    /// most `n`; it is not a cap and does not reduce larger events.
+    fn at_most_damage_prevention(&mut self, mut p: Params) -> Option<()> {
+        if p.take("PreventionEffect").as_deref() != Some("True")
+            || p.has("IsCombat")
+            || p.has("ValidSource")
+        {
+            return self.deny("a persistent spell prevention with another zone or result".into());
+        }
+        let Some(maximum) = p
+            .take("DamageAmount")
+            .and_then(|cmp| cmp.trim().strip_prefix("LE").map(str::to_owned))
+            .and_then(|n| n.parse::<u32>().ok())
+        else {
+            return self.deny("a prevention threshold other than LE<n>".into());
+        };
+        if p.take("ValidTarget").as_deref() != Some("Card.Self") {
+            return self.deny("a prevention threshold on another recipient".into());
+        }
+        let cond = self.prevention_condition(&mut p)?;
+        let Some(replace_name) = p.take("ReplaceWith") else {
+            return self.deny("a persistent spell prevention with another zone or result".into());
+        };
+        if let Some(key) = p.first_key() {
+            return self.deny(format!("unclaimed parameter `DamageDone.{key}`"));
+        }
+        let Some((api, mut rep)) = self
+            .svars
+            .get(replace_name.trim())
+            .and_then(|body| Params::parse(body))
+        else {
+            return self.deny("a persistent spell prevention with another zone or result".into());
+        };
+        rep.drop_prose();
+        if api != "ReplaceDamage" || rep.take("Amount").as_deref() != Some("0") || !rep.exhausted()
+        {
+            return self.deny("a threshold prevention without ReplaceDamage Amount$ 0".into());
+        }
+        self.body.abilities.push(format!(
+            "static_ability!(Filter::This, \
+             Modifier::PreventDamageToAffectedIfAtMost({maximum}){cond})"
+        ));
+        Some(())
+    }
+
     fn per_source_damage_prevention(&mut self, mut p: Params) -> Option<()> {
+        if p.has("DamageAmount") {
+            return self.at_most_damage_prevention(p);
+        }
         if p.take("PreventionEffect").as_deref() != Some("True") {
             return self.deny("a persistent spell prevention with another zone or result".into());
         }
