@@ -85,6 +85,7 @@ pub(super) fn refers_to_subject(effects: &'static [Effect], implicit_source: boo
             | Effect::DealDamage { target, .. }
             | Effect::DamagePermanentAndController { target, .. }
             | Effect::DealDamageWithoutPreventionOrRedirection { target, .. }
+            | Effect::DealDamageWithoutPrevention { target, .. }
             | Effect::DealDamageEvenly { target, .. }
             | Effect::Detain { target }
             | Effect::Goad { target }

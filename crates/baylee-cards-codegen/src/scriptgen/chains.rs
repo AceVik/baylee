@@ -457,6 +457,7 @@ impl Tx<'_> {
                 .try_split_kicked_amount(
                     &api,
                     &mut p,
+                    sub.is_some(),
                     target.as_deref(),
                     targets_here,
                     targets_a_player,
@@ -3406,6 +3407,11 @@ impl Tx<'_> {
             "DealDamage" => {
                 let num_dmg = p.take("NumDmg")?;
                 let damage_source = p.take("DamageSource");
+                let no_prevention = match p.take("NoPrevention").as_deref() {
+                    None | Some("False") => false,
+                    Some("True") => true,
+                    Some(_) => return None,
+                };
                 let may = match p.take("OptionalDecider").as_deref() {
                     None => false,
                     Some("You") => true,
@@ -3418,6 +3424,9 @@ impl Tx<'_> {
                     return None;
                 }
                 if matches!(damage_source.as_deref(), Some("Targeted" | "ParentTarget")) {
+                    if no_prevention {
+                        return None;
+                    }
                     let defined = p.take("Defined");
                     if (damage_source.as_deref() == Some("ParentTarget") && targets_here)
                         || !target.is_some_and(|t| t.starts_with("TargetSpec::Object("))
@@ -3455,7 +3464,7 @@ impl Tx<'_> {
                     _ => None,
                 };
                 if turn_start_hand.is_some() {
-                    if damage_source.is_some() {
+                    if damage_source.is_some() || no_prevention {
                         return None;
                     }
                     p.take("Defined");
@@ -3463,6 +3472,7 @@ impl Tx<'_> {
                 if damage_source.is_none()
                     && turn_start_hand.is_none()
                     && !self.on_a_spell
+                    && !no_prevention
                     && matches!(p.peek("Defined"), Some("Enchanted" | "Equipped"))
                 {
                     p.take("Defined");
@@ -3582,10 +3592,15 @@ impl Tx<'_> {
                     return self
                         .deny("simultaneous damage to a permanent and its controller".to_string());
                 }
+                let damage_effect = if no_prevention {
+                    "DealDamageWithoutPrevention"
+                } else {
+                    "DealDamage"
+                };
                 let dmg = if let Some(src) = damage_source {
                     if src == "Self" {
                         let n = self.amount_or_count_ext(&num_dmg)?;
-                        format!("Effect::DealDamage {{ amount: {n}, target: {to} }}")
+                        format!("Effect::{damage_effect} {{ amount: {n}, target: {to} }}")
                     } else if src == "Targeted"
                         && to == "TargetSpec::ThisObject"
                         && target.is_some_and(|t| t.starts_with("TargetSpec::Object("))
@@ -3595,6 +3610,9 @@ impl Tx<'_> {
                         "Effect::DamageEqualToPower { dealer: TargetSlot::First, to: TargetSlot::This }"
                             .to_string()
                     } else {
+                        if no_prevention {
+                            return None;
+                        }
                         let power_names: &[&str] =
                             match (src.as_str(), self.trigger_mode.as_deref()) {
                                 (
@@ -3651,8 +3669,19 @@ impl Tx<'_> {
                         }
                     }
                 } else {
-                    let n = self.amount_or_count_ext(&num_dmg)?;
-                    format!("Effect::DealDamage {{ amount: {n}, target: {to} }}")
+                    let zero_kicked_damage = self.kicked_branch.is_some_and(|kicked| {
+                        self.kicked_pair(&num_dmg)
+                            .is_some_and(|(when_kicked, when_unkicked)| {
+                                (if kicked { when_kicked } else { when_unkicked }) == 0
+                            })
+                    });
+                    let n = if zero_kicked_damage {
+                        self.kicked_branch_used.set(true);
+                        "Amount::Fixed(0)".to_string()
+                    } else {
+                        self.amount_or_count_ext(&num_dmg)?
+                    };
+                    format!("Effect::{damage_effect} {{ amount: {n}, target: {to} }}")
                 };
                 let dmg = if turn_start_hand == Some(true) {
                     format!(

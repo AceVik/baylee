@@ -6005,6 +6005,15 @@ pub enum Effect {
         /// The permanents in each player's keep-or-sacrifice set.
         rest: &'static Filter,
     },
+    /// Deal damage that prevention effects cannot prevent, while leaving
+    /// redirection and other replacement effects applicable (CR 615.12).
+    /// Appended to preserve replay identities.
+    DealDamageWithoutPrevention {
+        /// Damage amount.
+        amount: Amount,
+        /// Initial damage recipients.
+        target: TargetSpec,
+    },
 }
 
 #[cfg(test)]

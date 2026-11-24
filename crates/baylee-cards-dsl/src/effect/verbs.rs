@@ -1071,6 +1071,7 @@ impl Effect {
             | Effect::DealDamage { .. }
             | Effect::GrantorDealsDamage { .. }
             | Effect::DealDamageWithoutPreventionOrRedirection { .. }
+            | Effect::DealDamageWithoutPrevention { .. }
             | Effect::PreventNextDamageToAttached { .. }
             | Effect::Fight { .. }
             | Effect::DamageEqualToPower { .. }

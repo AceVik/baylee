@@ -444,6 +444,7 @@ pub(super) fn exec_immediate(
         | Effect::DealDamage { .. }
         | Effect::GrantorDealsDamage { .. }
         | Effect::DealDamageWithoutPreventionOrRedirection { .. }
+        | Effect::DealDamageWithoutPrevention { .. }
         | Effect::PreventNextDamageToAttached { .. }
         | Effect::DealDamageToMatchingTargets { .. }
         | Effect::DealDamageWithCappedLifeGain { .. }

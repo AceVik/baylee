@@ -1872,6 +1872,11 @@ The printed recipient determines the damage effect:
 
 - **"… to target X"** is `DealDamage` with the choice on the ability's
   `targets`/`target`.
+- **"this damage can't be prevented"** is
+  `DealDamageWithoutPrevention { amount, target }`: prevention effects do
+  nothing, but redirection and other replacement effects still apply (CR
+  615.12). Do not use `DealDamageWithoutPreventionOrRedirection`, whose
+  recipient lock also excludes redirection.
 - **"… to each opponent / each player / you"** is
   `DealDamage { target: TargetSpec::Player(rel) }` with *no* `TargetReq`:
   `Player(EachOpponent)` is every opponent and nobody chooses (Mount Doom,

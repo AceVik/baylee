@@ -28,6 +28,7 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
         | Effect::DealDamage { .. }
         | Effect::GrantorDealsDamage { .. }
         | Effect::DealDamageWithoutPreventionOrRedirection { .. }
+        | Effect::DealDamageWithoutPrevention { .. }
         | Effect::DealDamageToBothTargetInstances { .. }
         | Effect::DamagePermanentAndController { .. }
         | Effect::DealDamageToMatchingTargets { .. }
@@ -609,6 +610,9 @@ fn start(state: &mut GameState, res: &mut Resolution, op: Effect) -> Option<Pend
     if let Effect::DealDamageWithoutPreventionOrRedirection { recipients, .. } = op {
         work = work.with_recipient_lock(recipients, res.controller, res.rule_context());
     }
+    if matches!(op, Effect::DealDamageWithoutPrevention { .. }) {
+        work = work.with_unpreventable();
+    }
     if let Some(cause) = cause {
         work = work.with_cause(&cause);
     }
@@ -968,7 +972,8 @@ fn assignments(state: &GameState, res: &Resolution, op: Effect) -> Vec<Assignmen
                 .collect()
         }
         Effect::DealDamage { amount, target }
-        | Effect::DealDamageWithoutPreventionOrRedirection { amount, target, .. } => {
+        | Effect::DealDamageWithoutPreventionOrRedirection { amount, target, .. }
+        | Effect::DealDamageWithoutPrevention { amount, target } => {
             recipients(state, res, you, target)
                 .into_iter()
                 .map(|to| {

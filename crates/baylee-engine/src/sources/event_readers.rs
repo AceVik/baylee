@@ -155,6 +155,7 @@ fn reads_event(effect: &Effect) -> bool {
         Effect::DealDamageEvenly { amount, target, .. }
         | Effect::DealDamage { amount, target, .. }
         | Effect::DealDamageWithoutPreventionOrRedirection { amount, target, .. }
+        | Effect::DealDamageWithoutPrevention { amount, target, .. }
         | Effect::PutCounterChoice { amount, target, .. } => {
             reads_amount(*amount) || reads_target(*target)
         }
