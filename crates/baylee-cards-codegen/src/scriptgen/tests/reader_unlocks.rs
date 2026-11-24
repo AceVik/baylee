@@ -2491,6 +2491,36 @@ fn wave8b_chosen_color_protection_and_sweeps() {
 }
 
 #[test]
+fn wave8b_chosen_color_reveal_hand_damage_counts_remembered_cards() {
+    // Synthetic grammar fixture, not a corpus card: the reference remembers
+    // the revealed hand only to count its chosen-color cards immediately.
+    let body = read(
+        "Name:Private chromatic dragon\nManaCost:4 R\nTypes:Creature Dragon\nPT:4/4\n\
+         T:Mode$ DamageDone | ValidSource$ Card.Self | ValidTarget$ Player | CombatDamage$ True | OptionalDecider$ You | Execute$ Pick | TriggerZones$ Battlefield | TriggerDescription$ Whenever CARDNAME deals combat damage to a player, you may pay {2}{R}. If you do, choose a color, then that player reveals their hand and CARDNAME deals damage to that player equal to the number of cards of that color revealed this way.\n\
+         SVar:Pick:AB$ ChooseColor | Cost$ 2 R | Defined$ You | SubAbility$ Show\n\
+         SVar:Show:DB$ RevealHand | Defined$ TriggeredTarget | RememberRevealed$ True | SubAbility$ Burn\n\
+         SVar:Burn:DB$ DealDamage | Defined$ TriggeredTarget | NumDmg$ N | SubAbility$ Forget\n\
+         SVar:Forget:DB$ Cleanup | ClearRemembered$ True\n\
+         SVar:N:Remembered$Valid Card.ChosenColor",
+    );
+    let ability = &body.abilities[0];
+    for expected in [
+        "Effect::PlayerMayPayManaThen",
+        "Effect::ChooseColor",
+        "Effect::RevealHand { who: PlayerRel::DamagedPlayer }",
+        "Amount::CountOf",
+        "Filter::OfSourceChosenColor",
+        "ZoneSel::HandOf(PlayerRel::DamagedPlayer)",
+        "TargetSpec::Player(PlayerRel::DamagedPlayer)",
+    ] {
+        assert!(
+            ability.contains(expected),
+            "missing `{expected}`: {ability}"
+        );
+    }
+}
+
+#[test]
 fn wave8b_repeat_each_domains_and_refusals() {
     let each_discard = read(
         "Name:EachDisc\nManaCost:2 B\nTypes:Sorcery\n\

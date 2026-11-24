@@ -12496,6 +12496,9 @@ impl Tx<'_> {
         if api == "Protection" {
             return self.choose_color_protection(&mut sp, chain);
         }
+        if api == "RevealHand" {
+            return self.choose_color_reveal_hand_damage(sp, chain);
+        }
         let sweep_ok = matches!(
             api.as_str(),
             "DestroyAll"
@@ -12525,6 +12528,74 @@ impl Tx<'_> {
         }
         chain.effects.push("Effect::ChooseColor".to_string());
         self.chain(&sub_body, chain)
+    }
+
+    /// A public hand reveal remembered solely for the immediately following
+    /// damage count. Counting that hand directly is equivalent: no player can
+    /// change it between the reveal and the count during this resolution.
+    fn choose_color_reveal_hand_damage(
+        &mut self,
+        mut reveal: Params,
+        chain: &mut super::Chain,
+    ) -> Option<()> {
+        reveal.drop_prose();
+        if reveal.take("RememberRevealed").as_deref() != Some("True") {
+            return self
+                .deny("`ChooseColor` `RevealHand` without `RememberRevealed$ True`".to_string());
+        }
+        let who = self.wave11_player_of_line(
+            reveal.take("Defined").as_deref(),
+            chain.target.as_deref(),
+            false,
+        )?;
+        let damage_name = reveal.take("SubAbility")?;
+        if let Some(key) = reveal.first_key() {
+            return self.deny(format!("unclaimed parameter `RevealHand.{key}`"));
+        }
+
+        let damage_body = self.svars.get(damage_name.trim())?.clone();
+        let (api, mut damage) = Params::parse(&damage_body)?;
+        if api != "DealDamage" {
+            return self.deny(format!("remembered hand followed by `{api}`"));
+        }
+        damage.drop_prose();
+        if damage.take("DamageSource").is_some() {
+            return self.deny("remembered hand damage with an explicit source".to_string());
+        }
+        let damaged = self.wave11_player_of_line(
+            damage.take("Defined").as_deref(),
+            chain.target.as_deref(),
+            false,
+        )?;
+        if damaged != who {
+            return self.deny("remembered hand and damage name different players".to_string());
+        }
+        let raw_amount = damage.take("NumDmg")?;
+        let trailing = damage.take("SubAbility");
+        if let Some(key) = damage.first_key() {
+            return self.deny(format!("unclaimed parameter `DealDamage.{key}`"));
+        }
+
+        let definition = self.svars.get(raw_amount.trim())?.trim().to_string();
+        let (head, suffix) = definition
+            .split_once('/')
+            .map_or((definition.as_str(), ""), |(h, s)| (h, s));
+        let valid = head.strip_prefix("Remembered$Valid ")?.trim();
+        let expr = self.filter_expr_in_zone(valid, true)?;
+        let filter = self.body.filter_static("HAND_COUNT", &expr);
+        let amount = Self::wrap_amount_suffix(
+            format!("Amount::CountOf {{ filter: &{filter}, zone: ZoneSel::HandOf({who}) }}"),
+            suffix,
+        )?;
+
+        chain.effects.push("Effect::ChooseColor".to_string());
+        chain
+            .effects
+            .push(format!("Effect::RevealHand {{ who: {who} }}"));
+        chain.effects.push(format!(
+            "Effect::DealDamage {{ amount: {amount}, target: TargetSpec::Player({who}) }}"
+        ));
+        self.chain_sub_ability(trailing, chain)
     }
 
     fn choose_color_protection_all(
