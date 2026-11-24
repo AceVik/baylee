@@ -743,7 +743,11 @@ fn targets_you_control_matching(
             continue;
         }
         if target.controller == you(view) {
-            match matches(view, target, filter) {
+            let Some(public) = view.object(reference.object) else {
+                unknown = true;
+                continue;
+            };
+            match matches(view, public, filter) {
                 Some(true) => return Some(true),
                 Some(false) => {}
                 None => unknown = true,
