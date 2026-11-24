@@ -17,6 +17,7 @@ mod assembled_alphas;
 mod autumn_willow;
 mod bartel_runeaxe;
 mod bloodshot_cyclops;
+mod callous_giant;
 mod canopy_dragon;
 mod carnage_tyrant;
 mod catacomb_dragon;

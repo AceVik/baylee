@@ -29836,7 +29836,14 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
         modes: &[],
         alternatives: &[],
     }],
-    &[],
+    // Callous Giant
+    &[FaceLines {
+        sentences: 1,
+        stackable: 0,
+        lines: &[None],
+        modes: &[],
+        alternatives: &[],
+    }],
     // Canopy Surge
     &[FaceLines {
         sentences: 2,
