@@ -3,6 +3,8 @@
 Frozen behavior probabilities and complete terminal side-utility targets are
 audited before updates. Every accepted update passes a whole-collection
 behavior-divergence gate; rejected updates restore weights, optimizer and RNG.
+The decisions without a certified probability pass the same gate against the
+frozen source, head by head (`policy_training4.drift`).
 """
 
 from __future__ import annotations
@@ -64,7 +66,8 @@ def main() -> None:
     from .checkpoint import load_policy,training_payload,restore_training,native_source_digest,native_verify_admission
     from .checkpoint import validate_resume_probability,FULL_PPO_CONTRACT_VERSION,BEHAVIOR_PROBABILITY_REFERENCES
     from .forward import episode_prefixes
-    from .optimization import transactional_update,collection_divergence
+    from .optimization import transactional_update,collection_divergence,source_readouts
+    from policy_training4.drift import Drift,CONTRACT as DRIFT_CONTRACT
     from .supervised import supervised_loss
     from policy_training4.targets import prepare_policy_targets,BEHAVIOR_DENOMINATORS
     ap=argparse.ArgumentParser(description='FP32 full-model recurrent PPO with current-policy burn-in and collection-wide KL rollback')
@@ -140,6 +143,9 @@ def main() -> None:
             print(json.dumps(dict(admission=admission,probability_replay=audit),sort_keys=True),flush=True)
             return
         prefixes=episode_prefixes(dataset)
+        # The frozen source at the decisions without a probability (attackers, blockers, numbers,
+        # payments, aliased menus): every update is held to it as it is to the recorded behavior.
+        source_rows=source_readouts(net,dataset,prefixes,device,args.batch_size)
         segments=[idx for tr in dataset.trajectories for idx in tr]
         anchor_dataset=anchor_prefixes=None
         if args.anchor_data and args.anchor_mix_weight:
@@ -153,7 +159,7 @@ def main() -> None:
             anchor_prefixes=episode_prefixes(anchor_dataset)
         contract=dict(version=FULL_PPO_CONTRACT_VERSION,
                       behavior_probability_reference=BEHAVIOR_PROBABILITY_REFERENCES[audit['behavior_denominator']],
-                      collection_audit='current_policy_streaming_v1',
+                      collection_audit='current_policy_streaming_v1',uncertified_drift=DRIFT_CONTRACT,
                       source_checkpoint_sha256=source_hash,dataset_fingerprint=dataset.fingerprint,
                       admission=admission,encoder_version=source['encoder_version'],
                       target='complete terminal side outcome; gamma=lambda=1',precision='float32',
@@ -192,7 +198,8 @@ def main() -> None:
                     indices=tuple(anchor_ids[start:start+args.batch_size])
                     extra=lambda:args.anchor_mix_weight*supervised_loss(net,anchor_dataset,indices,anchor_prefixes,device)
                 record=transactional_update(net,optimizer,dataset,groups[batch_index],prefixes,device,
-                                            args.target_kl,args.clip_eps,args.batch_size,args.beta_kl,extra)
+                                            args.target_kl,args.clip_eps,args.batch_size,args.beta_kl,extra,
+                                            source=source_rows)
                 progress['attempts']+=1
                 progress['accepted']+=int(record['accepted'])
                 progress['epoch']=epoch;progress['next_batch']=batch_index+1
@@ -205,11 +212,13 @@ def main() -> None:
             if stopped:break
             progress['epoch']=epoch+1;progress['next_batch']=0
             save()
+        drift=Drift(source_rows)
         try:
-            final_kl=collection_divergence(net,dataset,prefixes,device,args.batch_size)
+            final_kl=collection_divergence(net,dataset,prefixes,device,args.batch_size,drift)
         except FloatingPointError:
             final_kl=float("inf")
-        if not np.isfinite(final_kl) or final_kl>args.target_kl:
+        progress['final_uncertified_drift']=drift.report()
+        if not np.isfinite(final_kl) or final_kl>args.target_kl or drift.refused(args.target_kl):
             net.load_state_dict(source['state_dict'],strict=True)
             optimizer.load_state_dict(source_optimizer)
             progress.update(accepted=0,terminal=True,final_gate='rejected_published_unchanged_source')

@@ -210,6 +210,11 @@ class RecurrentPPO5(unittest.TestCase):
                            target={'single_idx':cursor%3,'scalar_norm':0.},
                            provenance={'source':'Net','has_logprob':decision,'behavior_logprob':0.,
                                        'temperature':.7,'thinking_steps':2 if decision else 0})
+                if cursor==2:
+                    # An attack: the net's own draw, outside the action-probability contract.
+                    row.update(is_decision=True,head=1,target={'single_idx':0,'scalar_norm':0.,
+                                                               'multi_mask':[1,0,0],'free_mask':[1,1,0]})
+                    row['provenance'].update(has_logprob=False,thinking_steps=2)
             def write_rows():
                 with gzip.open(data/'train/steps.jsonl.gz','wt') as stream:
                     for row in rows:stream.write(json.dumps(row)+'\n')
@@ -232,7 +237,7 @@ class RecurrentPPO5(unittest.TestCase):
                             lp,_=action_logprob_and_kl(*out[1:4],*out[1:4],host,t)
                             key=dataset.store.index[int(record)]
                             row=bykey[(int(key['game']),int(key['seat']),int(key['cursor']))]
-                            if row['is_decision']:
+                            if row['provenance']['has_logprob']:
                                 row['provenance']['behavior_logprob']=float(lp[0])
             self.net.clear_structure();dataset.store.close();write_rows()
             dataset=D.TrajectoryDataset4(data,unroll_len=3)
@@ -286,6 +291,9 @@ class RecurrentPPO5(unittest.TestCase):
             self.assertEqual(head_report['audit']['decisions_checked'],3)
             self.assertEqual(head_report['audit']['learner_trajectories'],1)
             self.assertTrue(head_report['checkpoint_is_unchanged_source'])
+            drift=head_report['uncertified_drift']['rollout_wide']
+            self.assertEqual((drift['subset'],[drift[kind]['decisions'] for kind in ('single','pair','scalar')]),
+                             (dict(decisions=1,mean_kl=0.,max_kl=0.),[0,0,0]))
             base=['train_rl4' ,'--init',str(source),'--rollout-data',str(data),'--admission',str(admission),
                   '--batch-size','1','--unroll','3','--device','cpu']
             def run(output,steps,resume=False):
@@ -302,6 +310,17 @@ class RecurrentPPO5(unittest.TestCase):
                 return torch.load(output/'net.pt',weights_only=False)
             partial=run(root/'resumed',1)
             self.assertEqual(partial['full_ppo_progress']['accepted'],1)
+            # The attack is measured with the update and within the gate.
+            drift=partial['full_ppo_progress']['updates'][0]['uncertified_drift']
+            self.assertEqual(drift['subset']['decisions'],1)
+            self.assertLess(abs(drift['subset']['mean_kl']),.02)
+            self.assertEqual(partial['full_ppo_progress']['final_uncertified_drift'],drift)
+            # An experiment under the older gate does not continue under this one.
+            other=root/'older';other.mkdir()
+            older=torch.load(root/'resumed/last.pt',weights_only=False)
+            del older['full_ppo_contract']['uncertified_drift']
+            torch.save(older,other/'last.pt')
+            with self.assertRaisesRegex(ValueError,'experiment contract differs'):run(other,2,True)
             resumed=run(root/'resumed',2,True)
             uninterrupted=run(root/'full',2)
             assert_state_equal(self,resumed['state_dict'],uninterrupted['state_dict'])

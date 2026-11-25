@@ -19,6 +19,7 @@ import torch.nn.functional as F
 import model4 as V4
 import model5 as V5
 from export_onnx4 import load_export_checkpoint, make_dummy_inputs
+from model4 import INPUT_NAMES as M_INPUTS
 from policy_training4 import driver
 from policy_training4.optimization import POLICY_PREFIXES, accept_final_state
 from value_calibration4.checkpoint import file_digest, load_source
@@ -60,6 +61,7 @@ class PolicyPublication5(unittest.TestCase):
         dataset = SimpleNamespace(structure=SimpleNamespace(digest=net.rules.digest),
                                   fingerprint='synthetic-publication-fixture',
                                   store=SimpleNamespace(close=lambda: None),
+                                  trajectories=[[0]],
                                   _policy_targets_directory=SimpleNamespace(cleanup=lambda: None),
                                   ppo_cache={'actor_mask': np.ones((1, count), dtype=bool)})
 
@@ -67,6 +69,26 @@ class PolicyPublication5(unittest.TestCase):
             # Repeated synthetic categorical choices supply real head gradients.
             lp = F.log_softmax(current(*inputs)[1], -1).gather(1, choice[:, None]).flatten()
             return lp.expand(count), old.expand(count), torch.ones(count)
+
+        # One attack (a subset row) beside the certified choices: recorded from the source, then
+        # measured after the step and at the end. The drifted modes move it far at that point.
+        cand_mask = inputs[M_INPUTS.index('cand_mask')]
+        attack = dict(step_valid=torch.ones(1, 1, dtype=torch.bool), is_decision=torch.ones(1, 1, dtype=torch.bool),
+                      source_kind=torch.zeros(1, 1, dtype=torch.long), actor_mask=torch.zeros(1, 1, dtype=torch.bool),
+                      head=torch.ones(1, 1, dtype=torch.long), single_idx=torch.zeros(1, 1, dtype=torch.long),
+                      temperature=torch.full((1, 1), .7), cand_mask=cand_mask[:, None],
+                      pair_mask=inputs[M_INPUTS.index('pair_mask')][:, None],
+                      cand_free_mask=cand_mask[:, None].float(), cand_target_mask=torch.zeros(1, 1, 4),
+                      pair_free_mask=torch.zeros(1, 1, 1), pair_target_mask=torch.zeros(1, 1, 1))
+        passes = []
+
+        def observe_outside(current, data, indices, device, board_chunk, observe):
+            passes.append(indices)
+            with torch.no_grad():
+                outputs = list(current(*inputs))
+            if len(passes) == dict(drifted=2, final_drifted=3).get(mode):
+                outputs[1] = outputs[1] + 9.
+            observe(indices, attack, 0, outputs)
 
         def final_gate(current, source, measured_kl, target_kl):
             return accept_final_state(current, source,
@@ -96,6 +118,7 @@ class PolicyPublication5(unittest.TestCase):
                                                                'learner_trajectories': 1}))
                 stack.enter_context(patch.object(driver, 'batch_rows', return_value=None))
                 stack.enter_context(patch.object(driver, 'actor_outputs', side_effect=actor_outputs))
+                stack.enter_context(patch.object(driver, 'observe_outside', side_effect=observe_outside))
                 stack.enter_context(patch.object(driver, 'accept_final_state', side_effect=final_gate))
                 stack.enter_context(contextlib.redirect_stdout(io.StringIO()))
                 driver.main()
@@ -124,7 +147,12 @@ class PolicyPublication5(unittest.TestCase):
                 if not torch.equal(original_tensor, published['state_dict'][key]):
                     changed.append(key)
                     self.assertTrue(key.startswith(POLICY_PREFIXES), key)
+            drift = report['uncertified_drift']['rollout_wide']
+            self.assertEqual(drift['subset']['decisions'], 1)
+            self.assertEqual([drift[kind]['decisions'] for kind in ('single', 'pair', 'scalar')], [0, 0, 0])
             if mode == 'accepted':
+                self.assertGreater(drift['subset']['mean_kl'], 0)   # the candidate scorer moved it, within the gate
+                self.assertEqual(report['updates'][0]['uncertified_drift'], drift)
                 self.assertTrue(changed)
                 self.assertEqual(published['provenance']['accepted_steps'], 1)
                 self.assertFalse(report['checkpoint_is_unchanged_source'])
@@ -138,6 +166,13 @@ class PolicyPublication5(unittest.TestCase):
                 elif mode == 'rejected':
                     self.assertFalse(report['updates'][0]['accepted'])
                     self.assertIn('post_step_behavior_kl', report['updates'][0]['reason'])
+                elif mode == 'drifted':
+                    self.assertFalse(report['updates'][0]['accepted'])
+                    self.assertIn('post_step_uncertified_drift: subset=', report['updates'][0]['reason'])
+                elif mode == 'final_drifted':
+                    self.assertTrue(report['updates'][0]['accepted'])
+                    self.assertGreater(drift['subset']['mean_kl'], .5)
+                    self.assertIn('rollout_wide_uncertified_drift_rejected (subset)', published['provenance']['reason'])
                 else:
                     self.assertTrue(report['updates'][0]['accepted'])
                     self.assertEqual(report['attempted_accepted_steps'], 1)
@@ -158,7 +193,7 @@ class PolicyPublication5(unittest.TestCase):
 
     def test_driver_roundtrip_preserves_supported_identities_and_update_outcomes(self):
         for family in ('v4', 'v5_r1', 'v5_legacy_r1', 'v5_r2'):
-            for mode in ('accepted', 'zero', 'rejected', 'final_rejected'):
+            for mode in ('accepted', 'zero', 'rejected', 'final_rejected', 'drifted', 'final_drifted'):
                 with self.subTest(family=family, mode=mode):
                     self.run_fixture(family, mode)
 

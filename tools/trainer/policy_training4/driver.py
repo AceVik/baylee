@@ -8,8 +8,9 @@ import torch
 import dataset4 as D
 from value_calibration4.checkpoint import file_digest, load_source, publish
 from value_calibration4.model_identity import source_identity
-from .forward import actor_outputs, batch_rows
+from .forward import actor_outputs, batch_rows, observe_outside
 from .admission import select_learner_histories, check_audit
+from .drift import Drift, SourceReadouts, CONTRACT as DRIFT_CONTRACT
 from .optimization import (POLICY_PREFIXES, accept_final_state, behavior_kl, plan_groups, select_policy_parameters,
                            surrogate_sum, transactional_step)
 
@@ -65,6 +66,18 @@ def _main(resources):
                                    denominator=args.behavior_denominator)
     resources.callback(dataset._policy_targets_directory.cleanup)
     check_audit(admission, audit)
+    # The frozen source at the decisions without a probability: the candidate scorer trains on the
+    # certified menus and reads attackers, payments and aliased menus too.
+    segments = tuple(index for trajectory in dataset.trajectories for index in trajectory)
+    def observe_segments(observe, indices):
+        for start in range(0, len(indices), args.batch_size):
+            observe_outside(net, dataset, indices[start:start+args.batch_size], device, args.board_chunk, observe)
+    source_rows = SourceReadouts()
+    observe_segments(source_rows.observe, segments)
+    def drift_of(microbatches):
+        drift = Drift(source_rows)
+        observe_segments(drift.observe, tuple(index for batch in microbatches for index in batch))
+        return drift
     parameters = select_policy_parameters(net)
     optimizer = torch.optim.AdamW(parameters, lr=args.lr, weight_decay=0)
     records, scheduling = [], []
@@ -82,7 +95,8 @@ def _main(resources):
                                     args.min_policy_decisions, args.batch_size)
         scheduling.append(dict(epoch=epoch+1, **stats))
         for microbatches, count in groups:
-            record = transactional_step(parameters, optimizer, microbatches, count, loss_sum, kl_sum, args.target_kl)
+            record = transactional_step(parameters, optimizer, microbatches, count, loss_sum, kl_sum, args.target_kl,
+                                        drift_of)
             records.append(dict(epoch=epoch+1, **record))
             print("[policy-step] " + json.dumps(records[-1]), flush=True)
             if not record["accepted"]:
@@ -106,11 +120,18 @@ def _main(resources):
                            for start in range(0, len(all_segments), args.batch_size)) / max(total_decisions, 1)
     except FloatingPointError:
         final_kl = float("inf")
+    # And every decision outside the contract, in every segment.
+    try:
+        final_drift = drift_of((segments,))
+        drifted, drift_report = final_drift.refused(args.target_kl), final_drift.report()
+    except FloatingPointError as error:
+        drifted, drift_report = [str(error)], None
     attempted_accepted = accepted
-    final_accepted = accept_final_state(net, saved["state_dict"], final_kl, args.target_kl)
+    final_accepted = accept_final_state(net, saved["state_dict"], float("inf") if drifted else final_kl, args.target_kl)
     if not final_accepted:
         accepted, accepted_decisions = 0, 0
-        reason = "rollout_wide_kl_rejected; published_unchanged_source"
+        reason = ("rollout_wide_kl_rejected; published_unchanged_source" if not drifted else
+                  f"rollout_wide_uncertified_drift_rejected ({', '.join(drifted)}); published_unchanged_source")
     state = {key: value.detach().cpu().clone() for key, value in net.state_dict().items()}
     for key, value in saved["state_dict"].items():
         if not key.startswith(POLICY_PREFIXES) and not torch.equal(value.cpu(), state[key]):
@@ -131,6 +152,7 @@ def _main(resources):
     report = dict(provenance=provenance, settings=vars(args), audit=audit, updates=records,
                   scheduling=scheduling, attempted_accepted_steps=attempted_accepted,
                   rollout_wide_behavior_kl=final_kl if np.isfinite(final_kl) else None,
+                  uncertified_drift=dict(contract=DRIFT_CONTRACT, rollout_wide=drift_report),
                   checkpoint_behavior_kl=final_kl if final_accepted else None,
                   checkpoint_is_unchanged_source=accepted == 0,
                   fallback_source_audited_max_logprob_error=audit["max_logprob_error"])

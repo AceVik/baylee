@@ -50,8 +50,10 @@ def surrogate_sum(logprob, recorded, advantage, clip_eps):
     return -torch.minimum(ratio * advantage, ratio.clamp(1-clip_eps, 1+clip_eps) * advantage).sum()
 
 
-def transactional_step(parameters, optimizer, microbatches, decisions, loss_sum, kl_sum, target_kl):
-    """Callbacks return numerators; no per-microbatch means enter the update."""
+def transactional_step(parameters, optimizer, microbatches, decisions, loss_sum, kl_sum, target_kl, drift=None):
+    """Callbacks return numerators; no per-microbatch means enter the update. `drift(microbatches)`
+    gives the `policy_training4.drift.Drift` of the decisions outside the probability contract in
+    these segments after the step, held to the same `target_kl` head by head; it enters no loss."""
     if decisions < 1:
         return dict(accepted=False, reason="zero_actor_decisions", decisions=0)
     weights = [p.detach().clone() for p in parameters]
@@ -75,8 +77,16 @@ def transactional_step(parameters, optimizer, microbatches, decisions, loss_sum,
             kl = sum(float(kl_sum(batch)) for batch in microbatches) / decisions
         if not np.isfinite(kl) or kl > target_kl:
             raise FloatingPointError(f"post_step_behavior_kl={kl}")
+        outside = {}
+        if drift is not None:
+            measured = drift(microbatches)
+            outside = dict(uncertified_drift=measured.report())
+            refused = measured.refused(target_kl)
+            if refused:
+                raise FloatingPointError("post_step_uncertified_drift: "
+                                         + ", ".join(f"{kind}={measured.mean(kind)}" for kind in refused))
         return dict(accepted=True, decisions=decisions, loss=total_loss/decisions,
-                    gradient_norm=float(gradient_norm), behavior_kl=kl)
+                    gradient_norm=float(gradient_norm), behavior_kl=kl, **outside)
     except (FloatingPointError, RuntimeError) as error:
         # Restore Adam counters/moments too: rejected attempts cannot affect retry.
         with torch.no_grad():

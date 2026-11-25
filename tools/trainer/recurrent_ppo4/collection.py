@@ -10,17 +10,21 @@ from policy_math4 import action_logprob_and_kl
 from .forward import advance
 
 
-def stream_collection_probabilities(net, dataset, prefixes, device, batch_size):
+def stream_collection_probabilities(net, dataset, prefixes, device, batch_size, observe=None):
     """Visit each segment once while weights are fixed for this entire audit.
 
     State starts at zero for each admitted history. It is carried only within
     that history, never taken from the behavior cache or an earlier audit. The
     optimizer's differentiable unroll/burn-in remains a separate computation.
     The caller owns no_grad and clears the rule cache on completion/failure.
+    `observe(indices, batch, t, output)` sees every frame's outputs as well, such
+    as `policy_training4.drift.Drift.observe`.
     """
-    for _, batch, outputs in stream_collection_batches(
+    for indices, batch, outputs in stream_collection_batches(
             net, dataset, prefixes, device, batch_size):
         for t, output in enumerate(outputs):
+            if observe is not None:
+                observe(indices, batch, t, output)
             mask = (batch["actor_mask"][:, t] & batch["step_valid"][:, t]).to(device).bool()
             logprob, _ = action_logprob_and_kl(
                 *output[1:4], *output[1:4], batch, t)
