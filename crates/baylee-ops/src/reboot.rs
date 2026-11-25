@@ -12,6 +12,12 @@
 //! of waiting, admission is held while the owner agent keeps its games alive.
 //! The reboot follows only after a fresh held-admission health response counts
 //! no local game. Closing the window removes only this command's own hold.
+//!
+//! A backup run (the separate `baylee-backup` service) holds
+//! `/run/baylee-backup/run.lock` while it dumps, uploads, prunes or restores.
+//! The reboot waits for it as it waits for a deploy, before it claims an
+//! admission hold, and keeps the lock to itself until it has asked for the
+//! reboot, so that no backup starts in between.
 use crate::{gateway, settings, sh};
 use std::{
     path::{Path, PathBuf},
@@ -20,6 +26,8 @@ use std::{
 
 const TAG: &str = "baylee-reboot";
 const HOLD_OWNER: &str = "baylee-reboot admission hold\n";
+/// The lock every run of `baylee-backup` holds; both repositories name it.
+const BACKUP_LOCK: &str = "/run/baylee-backup/run.lock";
 
 fn var(name: &str, default: &str) -> String {
     std::env::var(name).unwrap_or_else(|_| default.to_owned())
@@ -31,6 +39,7 @@ pub fn main(_args: &[String]) -> i32 {
     let run = PathBuf::from(var("BAYLEE_REBOOT_RUN", "/run"));
     let etc = PathBuf::from(var("BAYLEE_REBOOT_ETC", "/etc/baylee"));
     let deploy_lock = PathBuf::from(var("BAYLEE_REBOOT_DEPLOY_LOCK", "/opt/baylee/state/lock"));
+    let backup_lock = PathBuf::from(var("BAYLEE_REBOOT_BACKUP_LOCK", BACKUP_LOCK));
     let window = var("BAYLEE_REBOOT_WINDOW", "3-7");
     let drain_days: u64 = var("BAYLEE_REBOOT_DRAIN_DAYS", "3").parse().unwrap_or(3);
     let drained = run.join("baylee-reboot.drained");
@@ -50,22 +59,11 @@ pub fn main(_args: &[String]) -> i32 {
         undrain(admission.as_deref(), &drained);
         return 0;
     }
-    let (first, last) = window.split_once('-').map_or((3, 7), |(a, b)| {
-        (a.parse().unwrap_or(3), b.parse().unwrap_or(7))
-    });
-    let hour = local_hour();
-    if hour < first || hour > last {
+    if !in_window(&window, local_hour()) {
         undrain(admission.as_deref(), &drained);
         return 0;
     }
-    let field = if configured
-        .iter()
-        .any(|(k, v)| k == "BAYLEE_UNIX_SOCKET" && !v.is_empty())
-    {
-        "local_running"
-    } else {
-        "running"
-    };
+    let field = counted_games(&configured);
     let games = gateway::fetch("health", 5).and_then(|body| gateway::open_games(&body, field));
     let shown = |n: Option<u64>| n.map_or_else(|| "?".to_owned(), |n| n.to_string());
     let (running, waiting) = (games.map(|g| g.0), games.map(|g| g.1));
@@ -78,6 +76,12 @@ pub fn main(_args: &[String]) -> i32 {
     if !(drained.exists() || quiet) && age_days < drain_days {
         return 0;
     }
+    // Before any hold is claimed: a backup can take an hour, and admission
+    // must not stay closed for it. Held to the end, so none starts meanwhile.
+    let Ok(_no_backup) = hold(&backup_lock) else {
+        sh::log(TAG, "a backup is running; not now");
+        return 0;
+    };
     let Some(admission) = admission.filter(|p| p.is_absolute()) else {
         sh::log(
             TAG,
@@ -180,8 +184,8 @@ fn claim_hold(path: &Path) -> bool {
         .is_ok()
 }
 
-/// The deploy's lock, taken without waiting; a missing lock file holds
-/// nothing. `Err` when a deploy holds it.
+/// Another operation's lock (a deploy's, a backup's), taken without waiting;
+/// a missing lock file holds nothing. `Err` when that operation holds it.
 fn hold(lock: &Path) -> Result<Option<std::fs::File>, ()> {
     if !lock.exists() {
         return Ok(None);
@@ -197,6 +201,27 @@ fn age_secs(path: &Path) -> u64 {
         .ok()
         .and_then(|m| m.elapsed().ok())
         .map_or(0, |d| d.as_secs())
+}
+
+/// The `/health` count that names this machine's games: the local one where
+/// the gateway has its unix socket.
+fn counted_games(configured: &[(String, String)]) -> &'static str {
+    if configured
+        .iter()
+        .any(|(k, v)| k == "BAYLEE_UNIX_SOCKET" && !v.is_empty())
+    {
+        "local_running"
+    } else {
+        "running"
+    }
+}
+
+/// Whether the hour lies in a window `first-last`, both hours included.
+fn in_window(window: &str, hour: u32) -> bool {
+    let (first, last) = window.split_once('-').map_or((3, 7), |(a, b)| {
+        (a.parse().unwrap_or(3), b.parse().unwrap_or(7))
+    });
+    (first..=last).contains(&hour)
 }
 
 /// The local hour, as `date +%H` gives it (the server's own time zone).
