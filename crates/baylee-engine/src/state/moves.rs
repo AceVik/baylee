@@ -751,7 +751,7 @@ impl GameState {
                 });
         }
         let mut merged_components = smallvec::SmallVec::<[ObjectId; 2]>::new();
-        let track_mana_types = self.per_turn.track_mana_types_spent;
+        let track_mana_types = self.per_turn.track_mana_types_spent.0;
         {
             let obj = self.object_mut(id).expect("checked above");
             if !(from_zone == Zone::Stack && to.zone() == Zone::Battlefield) {

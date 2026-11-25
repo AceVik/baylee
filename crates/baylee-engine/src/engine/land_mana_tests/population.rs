@@ -381,12 +381,12 @@ fn every_other_permanent_in_the_pool_makes_the_mana_its_card_prints() {
 const FULL_CORPUS_OTHER_PERMANENTS: Bounds = Bounds {
     colors: 778,
     routes: 314,
-    promises: 307..=307,
+    promises: 310..=310,
     creature_promises: 136..=136,
-    unparsed: 155..=155,
-    fully_read: 635,
-    costly_lines: 210..=210,
-    triggered_lines: 82..=82,
+    unparsed: 161..=161,
+    fully_read: 643,
+    costly_lines: 215..=215,
+    triggered_lines: 85..=85,
     granted_lines: 97..=97,
     self_granted: 11..=11,
     busy: 0,
@@ -423,17 +423,17 @@ fn check_other_permanent_population(tally: &Tally) {
     );
     assert_eq!(
         eligible,
-        [460, 328, 13],
+        [460, 342, 13],
         "the coverage-tier population changed"
     );
     assert_eq!(
         readable,
-        [398, 237, 0],
+        [398, 245, 0],
         "the readable coverage tiers changed"
     );
     let expected: usize = readable.iter().sum();
     assert_eq!(
-        expected, 635,
+        expected, 643,
         "the independently enumerated full-corpus population changed; review additions/removals before updating its pin"
     );
     assert_eq!(
@@ -449,10 +449,10 @@ fn check_other_permanent_population(tally: &Tally) {
             tally.promises,
             tally.opponents_lands
         ),
-        (778, 314, 307, 3)
+        (778, 314, 310, 3)
     );
-    assert_eq!((tally.creatures, tally.creature_promises), (450, 136));
-    assert_eq!((tally.triggered_lines, tally.unparsed.len()), (82, 155));
+    assert_eq!((tally.creatures, tally.creature_promises), (464, 136));
+    assert_eq!((tally.triggered_lines, tally.unparsed.len()), (85, 161));
     assert_eq!(
         (
             tally.conditional,
@@ -461,7 +461,7 @@ fn check_other_permanent_population(tally: &Tally) {
             tally.dual_typed,
             tally.self_typed
         ),
-        (13, 162, 160, 0, 0),
+        (13, 165, 165, 0, 0),
         "the measured skip categories changed"
     );
 }
