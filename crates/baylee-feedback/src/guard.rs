@@ -20,11 +20,13 @@
 //!   cannot hold its slots with a body it never finishes.
 //!
 //! Memory only: a restart forgets every count, and no address is ever
-//! written down or logged.
+//! written down or logged. A lock a panic poisoned is taken as it is: the
+//! counts are only pushed, popped and summed, so whatever a panic left
+//! behind is still a count, and a guard never takes the service down.
 
 use std::collections::{HashMap, VecDeque};
 use std::net::{IpAddr, Ipv6Addr};
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, PoisonError};
 
 use axum::http::HeaderMap;
 use time::{Duration, OffsetDateTime};
@@ -83,16 +85,15 @@ pub fn is_local(peer: Option<IpAddr>, headers: &HeaderMap) -> bool {
 /// (`unknown`, a peer the service could not see) as it is.
 #[must_use]
 pub fn counted_as(address: &str) -> String {
-    match address.parse::<IpAddr>() {
-        Ok(IpAddr::V6(v6)) => match v6.to_ipv4_mapped() {
-            Some(v4) => v4.to_string(),
-            None => {
-                let s = v6.segments();
-                format!("{}/64", Ipv6Addr::new(s[0], s[1], s[2], s[3], 0, 0, 0, 0))
-            }
-        },
-        Ok(IpAddr::V4(v4)) => v4.to_string(),
-        Err(_) => address.to_owned(),
+    let Ok(ip) = address.parse::<IpAddr>() else {
+        return address.to_owned();
+    };
+    match ip.to_canonical() {
+        IpAddr::V4(v4) => v4.to_string(),
+        IpAddr::V6(v6) => {
+            let s = v6.segments();
+            format!("{}/64", Ipv6Addr::new(s[0], s[1], s[2], s[3], 0, 0, 0, 0))
+        }
     }
 }
 
@@ -220,7 +221,7 @@ impl Slots {
         let mine = self
             .per_gateway
             .lock()
-            .expect("the slots are never poisoned")
+            .unwrap_or_else(PoisonError::into_inner)
             .entry(gateway.to_owned())
             .or_insert_with(|| Arc::new(Semaphore::new(SLOTS_PER_GATEWAY)))
             .clone();
@@ -265,7 +266,7 @@ impl Guard {
     pub fn shut(&self, address: &str, now: OffsetDateTime) -> bool {
         self.failures
             .lock()
-            .expect("the failures are never poisoned")
+            .unwrap_or_else(PoisonError::into_inner)
             .shut(address, now)
     }
 
@@ -273,7 +274,7 @@ impl Guard {
     pub fn fail(&self, address: &str, now: OffsetDateTime) {
         self.failures
             .lock()
-            .expect("the failures are never poisoned")
+            .unwrap_or_else(PoisonError::into_inner)
             .fail(address, now);
     }
 
@@ -281,7 +282,7 @@ impl Guard {
     pub fn take(&self, gateway: &str, now: OffsetDateTime) -> bool {
         self.budget
             .lock()
-            .expect("the budget is never poisoned")
+            .unwrap_or_else(PoisonError::into_inner)
             .take(gateway, now)
     }
 
@@ -289,7 +290,7 @@ impl Guard {
     pub fn spent(&self, gateway: &str, bytes: u64) {
         self.budget
             .lock()
-            .expect("the budget is never poisoned")
+            .unwrap_or_else(PoisonError::into_inner)
             .spent(gateway, bytes);
     }
 

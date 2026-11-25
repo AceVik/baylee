@@ -822,6 +822,59 @@ fn fits(value: Option<&str>, chars: usize) -> bool {
     value.is_none_or(|v| v.chars().count() <= chars && !v.chars().any(char::is_control))
 }
 
+/// What the intake asks before it reads a report (`guard`): a gateway's
+/// token (a wrong one counted against its address), that gateway's budget
+/// for the hour, one of the intake's slots, and the body within its time
+/// and bound. The gateway, the slot to hold while the report is stored,
+/// and the body.
+async fn let_in<'a>(
+    shared: &'a Shared,
+    peer: Peer,
+    headers: &HeaderMap,
+    body: axum::body::Body,
+) -> Result<(&'a str, guard::Slot, Bytes), Refusal> {
+    let Shared { state, ui } = shared;
+    let gateway = ui.credential(
+        peer_ip(peer),
+        headers,
+        refuse(StatusCode::UNAUTHORIZED, "not a known gateway"),
+        || state.config.gateway(bearer(headers).unwrap_or_default()),
+    )?;
+    if !ui.intake_admits(gateway) {
+        tracing::warn!(gateway, "a gateway's intake budget for the hour is spent");
+        return Err(refuse(
+            StatusCode::TOO_MANY_REQUESTS,
+            "this gateway has sent its reports for the hour",
+        ));
+    }
+    let Some(slot) = ui.intake_slot(gateway).await else {
+        return Err(refuse(
+            StatusCode::SERVICE_UNAVAILABLE,
+            "the service is busy; send the report again later",
+        ));
+    };
+    let read = tokio::time::timeout(
+        guard::INTAKE_READ_TIME,
+        axum::body::to_bytes(body, MAX_INTAKE_BYTES),
+    )
+    .await
+    .map_err(|_| {
+        refuse(
+            StatusCode::REQUEST_TIMEOUT,
+            "the report did not arrive in time",
+        )
+    })?;
+    let Ok(body) = read else {
+        ui.intake_spent(gateway, MAX_INTAKE_BYTES);
+        return Err(refuse(
+            StatusCode::PAYLOAD_TOO_LARGE,
+            "the report is too large",
+        ));
+    };
+    ui.intake_spent(gateway, body.len());
+    Ok((gateway, slot, body))
+}
+
 /// @route POST /intake/reports
 /// @scope feedback
 /// @summary Take a report a gateway passes on
@@ -851,47 +904,10 @@ async fn intake(
     headers: HeaderMap,
     body: axum::body::Body,
 ) -> Result<(StatusCode, Json<Created>), Refusal> {
-    let Shared { state, ui } = &shared;
-    let gateway = ui.credential(
-        peer_ip(peer),
-        &headers,
-        refuse(StatusCode::UNAUTHORIZED, "not a known gateway"),
-        || state.config.gateway(bearer(&headers).unwrap_or_default()),
-    )?;
-    if !ui.intake_admits(gateway) {
-        tracing::warn!(gateway, "a gateway's intake budget for the hour is spent");
-        return Err(refuse(
-            StatusCode::TOO_MANY_REQUESTS,
-            "this gateway has sent its reports for the hour",
-        ));
-    }
-    // Held until the report is stored, the time its body, its decoded
-    // record and the statement's parameters are in memory.
-    let Some(_slot) = ui.intake_slot(gateway).await else {
-        return Err(refuse(
-            StatusCode::SERVICE_UNAVAILABLE,
-            "the service is busy; send the report again later",
-        ));
-    };
-    let read = tokio::time::timeout(
-        guard::INTAKE_READ_TIME,
-        axum::body::to_bytes(body, MAX_INTAKE_BYTES),
-    )
-    .await
-    .map_err(|_| {
-        refuse(
-            StatusCode::REQUEST_TIMEOUT,
-            "the report did not arrive in time",
-        )
-    })?;
-    let Ok(body) = read else {
-        ui.intake_spent(gateway, MAX_INTAKE_BYTES);
-        return Err(refuse(
-            StatusCode::PAYLOAD_TOO_LARGE,
-            "the report is too large",
-        ));
-    };
-    ui.intake_spent(gateway, body.len());
+    let state = &shared.state;
+    // The slot is held until the report is stored, the time its body, its
+    // decoded record and the statement's parameters are in memory.
+    let (gateway, _slot, body) = let_in(&shared, peer, &headers, body).await?;
     let bad = |why| refuse(StatusCode::BAD_REQUEST, why);
     let report: Intake = serde_json::from_slice(&body).map_err(|_| bad("not a report"))?;
     if !report.client.is_object() {
