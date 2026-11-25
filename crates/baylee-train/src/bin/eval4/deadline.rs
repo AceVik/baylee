@@ -179,7 +179,7 @@ impl Probe {
             SearchOutcome4::Skipped(baylee_train::netplay4::search::SearchSkip4::NotPolicy);
         let mut result = None;
         self.worker.reap_finished();
-        let outcome = match skip_reason(view, pending, &decision, config) {
+        let outcome = match skip_reason(view, pending, &decision, config, None) {
             Some(reason) => SearchOutcome4::Skipped(reason),
             None if ready >= until => {
                 status = "f_late";

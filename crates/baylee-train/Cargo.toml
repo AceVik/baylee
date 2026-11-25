@@ -308,3 +308,8 @@ required-features = ["play"]
 name = "scope_audit4"
 path = "src/bin/scope_audit4.rs"
 required-features = ["play"]
+
+[[bin]]
+name = "deck_unlocks"
+path = "src/bin/deck_unlocks.rs"
+required-features = ["play"]

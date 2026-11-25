@@ -203,6 +203,7 @@ fn frame(
         seat_input: None,
         distill: None,
         cand_classes: None,
+        behavior_mixture: None,
         search_root: None,
     }
 }

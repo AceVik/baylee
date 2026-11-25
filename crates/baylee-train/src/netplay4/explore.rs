@@ -42,8 +42,8 @@ use super::policy::{bernoulli_logprob, categorical_logprob, decode_target};
 use super::{TacticRules4, valid_raw_temperature};
 use crate::deckgen::Rng;
 use crate::features4::{
-    EncodedCandidates4, HeadKind4, TeacherTarget4, attacker_counts_may_move,
-    denormalize_scalar_choice, normalize_scalar_choice, pair_free_mask_of, subset_free_mask_of,
+    EncodedCandidates4, HeadKind4, TeacherTarget4, denormalize_scalar_choice,
+    normalize_scalar_choice, pair_free_mask_of, subset_free_mask_of,
 };
 
 /// The learner's explorer: the groups it proposes with, ε, and its stream.

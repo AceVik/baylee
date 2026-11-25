@@ -279,6 +279,7 @@ fn frame(is_decision: bool, mixture: Option<StepExploration>) -> Step4 {
         distill: None,
         cand_classes: None,
         behavior_mixture: mixture,
+        search_root: None,
     }
 }
 

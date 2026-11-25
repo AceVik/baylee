@@ -160,7 +160,7 @@ fn a_blocker_draw_without_probability_is_admitted_but_not_counted() {
     let (temp, checkpoint, manifest) = setup(|rows, _| undrawn(rows, 2, 0.0));
     let report = admit(temp.path(), &checkpoint, &manifest).unwrap();
     assert_eq!(report["decisions"], 1);
-    for (head, logprob) in [(0, 0.0), (2, -0.7)] {
+    for (head, logprob) in [(0, -0.7), (1, -0.7), (2, -0.7)] {
         let (temp, checkpoint, manifest) = setup(|rows, _| undrawn(rows, head, logprob));
         assert!(
             admit(temp.path(), &checkpoint, &manifest).is_err(),
