@@ -313,6 +313,7 @@ impl GameWriter {
 
     /// The BST4 payload `step` would be written as, without writing it: the
     /// bytes the afterstate checks compare.
+    #[cfg(feature = "onnx")]
     pub fn payload(&mut self, step: &Step4) -> anyhow::Result<Vec<u8>> {
         self.pack_bst4(step)?;
         Ok(self.bst4_buf.clone())
