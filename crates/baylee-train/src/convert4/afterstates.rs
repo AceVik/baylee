@@ -41,7 +41,7 @@ use std::collections::BTreeSet;
 
 use baylee_core::ids::{ObjectId, PlayerId};
 use baylee_engine::choice::{Pending, PlayerAction};
-use baylee_engine::engine::DeckKnowledge;
+use baylee_engine::engine::{DeckKnowledge, DetectLoops, LoopDetection};
 use baylee_engine::event::GameEvent;
 use baylee_engine::zone::{Zone, ZoneLocation};
 use baylee_gamehost::{Session, SimulationSession};
@@ -244,9 +244,9 @@ fn hidden_event(event: &GameEvent) -> bool {
 }
 
 /// What the replay knows at a root, for its afterstates.
-pub struct RootContext<'a> {
+pub struct RootContext<'a, D: LoopDetection = DetectLoops> {
     /// The replay's table at the root.
-    pub session: &'a Session,
+    pub session: &'a Session<D>,
     /// The root's seat.
     pub seat: PlayerId,
     /// The seat's view of the root (with context).
@@ -274,11 +274,11 @@ fn encode_state(
 }
 
 /// The fork of `root`'s table for fork `which`.
-fn fork(
-    root: &RootContext<'_>,
+fn fork<D: LoopDetection>(
+    root: &RootContext<'_, D>,
     prior: &baylee_engine::engine::PublicPrior,
     which: u64,
-) -> Option<SimulationSession> {
+) -> Option<SimulationSession<D>> {
     root.session
         .fork_for(
             root.seat,
@@ -307,7 +307,7 @@ impl Dealt {
     /// library, of another seat's hand and of another seat's cards outside
     /// the game, but those `root`'s view shows (a hand or a library top a
     /// rule reveals, a teammate's hand), which a fork keeps.
-    fn of(root: &RootContext<'_>, fork: &SimulationSession) -> Self {
+    fn of<D: LoopDetection>(root: &RootContext<'_, D>, fork: &SimulationSession<D>) -> Self {
         let shown: BTreeSet<ObjectId> = root
             .view
             .identities()
@@ -356,7 +356,7 @@ impl Dealt {
     /// Whether the seat was shown a dealt card: in a view it was watched
     /// through, or in a reveal, which every seat sees and which may be gone
     /// from the next view.
-    fn shown(&self, fork: &SimulationSession) -> bool {
+    fn shown<D: LoopDetection>(&self, fork: &SimulationSession<D>) -> bool {
         self.seen
             || self.events(fork).any(|event| {
                 matches!(event, GameEvent::Revealed { cards, .. }
@@ -365,7 +365,10 @@ impl Dealt {
     }
 
     /// What has happened in `fork` since the root.
-    fn events<'a>(&self, fork: &'a SimulationSession) -> impl Iterator<Item = &'a GameEvent> {
+    fn events<'a, D: LoopDetection>(
+        &self,
+        fork: &'a SimulationSession<D>,
+    ) -> impl Iterator<Item = &'a GameEvent> {
         fork.state()
             .journal
             .entries()
@@ -379,9 +382,9 @@ impl Dealt {
 /// Plays `candidate` in `fork` as the search played it, up to its last
 /// answer: (where it stopped short, or `Question` when it did not; answers
 /// applied).
-fn play(
-    root: &RootContext<'_>,
-    fork: &mut SimulationSession,
+fn play<D: LoopDetection>(
+    root: &RootContext<'_, D>,
+    fork: &mut SimulationSession<D>,
     dealt: &mut Dealt,
     candidate: &AfterCandidate4,
 ) -> (AfterStop4, u16) {
@@ -420,9 +423,9 @@ fn play(
 /// Answers the seat's target question with `target`, as a search with target
 /// candidates answers it (`netplay4::search`): whether the question is its
 /// next one and takes the answer.
-fn answer_target(
+fn answer_target<D: LoopDetection>(
     seat: PlayerId,
-    fork: &mut SimulationSession,
+    fork: &mut SimulationSession<D>,
     dealt: &mut Dealt,
     target: &PlayerAction,
 ) -> bool {
@@ -437,9 +440,9 @@ fn answer_target(
 
 /// The rest of a planned cast's script, answered from it while the seat is
 /// asked its questions.
-fn follow(
+fn follow<D: LoopDetection>(
     seat: PlayerId,
-    fork: &mut SimulationSession,
+    fork: &mut SimulationSession<D>,
     dealt: &mut Dealt,
     script: &mut Script4,
     answers: &mut u16,
@@ -467,9 +470,9 @@ fn follow(
 /// The seat's observation of `fork` as the replay would encode it at the
 /// next input: its question's view where it owes one, else what it observes;
 /// with whether it owes it and the next question's kind.
-fn observe(
-    root: &RootContext<'_>,
-    fork: &SimulationSession,
+fn observe<D: LoopDetection>(
+    root: &RootContext<'_, D>,
+    fork: &SimulationSession<D>,
     dealt: &mut Dealt,
 ) -> (AfterFrame4, bool, u8) {
     let (view, asked, kind) = if let Some((pending, view)) = fork.view_for_with_context(root.seat) {
@@ -526,8 +529,8 @@ impl Played {
 }
 
 /// One candidate's afterstate in fork `which`.
-fn one(
-    root: &RootContext<'_>,
+fn one<D: LoopDetection>(
+    root: &RootContext<'_, D>,
     prior: &baylee_engine::engine::PublicPrior,
     candidate: &AfterCandidate4,
     which: u64,
@@ -561,7 +564,10 @@ fn one(
 /// The afterstates of every candidate at `root`, in their order, with the
 /// first fork's frame of the root.
 #[must_use]
-pub fn capture(root: &RootContext<'_>, candidates: &[AfterCandidate4]) -> RootAfterstates4 {
+pub fn capture<D: LoopDetection>(
+    root: &RootContext<'_, D>,
+    candidates: &[AfterCandidate4],
+) -> RootAfterstates4 {
     let prior = root.session.public_prior(root.view);
     let root_frame = fork(root, &prior, 0).and_then(|fork| {
         let (pending, view) = fork.view_for_with_context(root.seat)?;

@@ -75,6 +75,8 @@ rustls = { version = "0.23", default-features = false, features = ["ring", "std"
 rustix = { workspace = true, features = ["process"] }
 
 [dev-dependencies]
+flate2.workspace = true
+baylee-cards-pool.workspace = true
 # The self-play driver the measurement and the batching test run on: the
 # host's `Session`, fed through the same seat core the socket feeds. Only in
 # tests — the bridge itself holds no engine, no host and no other seat.

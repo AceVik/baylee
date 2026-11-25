@@ -7,7 +7,10 @@ use serde_json::Value;
 use std::collections::BTreeMap;
 
 mod alignment;
+mod direct_target;
+pub(super) use direct_target::verified_direct_target;
 pub mod house_share;
+mod provider_audit;
 pub mod schema;
 #[cfg(test)]
 mod tests;

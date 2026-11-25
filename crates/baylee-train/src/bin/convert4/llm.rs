@@ -83,6 +83,19 @@ impl Source {
     pub(super) fn source_game(&self) -> &str {
         &self.manifest.source_game
     }
+    /// The single seat whose complete history will be published from a mixed-model game.
+    pub(super) fn focal_seat(&self, model: &str) -> anyhow::Result<u8> {
+        let mut seats = self
+            .manifest
+            .seats
+            .iter()
+            .filter(|seat| seat.model == model);
+        let seat = seats
+            .next()
+            .context("Focal model absent from the LLM game")?;
+        ensure!(seats.next().is_none(), "Focal model is on multiple seats");
+        Ok(seat.seat)
+    }
     pub(super) fn verify(&self, record: &[u8]) -> Result<LlmBc4, String> {
         let check = || -> anyhow::Result<LlmBc4> {
             let run = bounded(&self.run_path)?;

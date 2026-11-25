@@ -51,6 +51,9 @@ enum Commands {
         root: PathBuf,
         #[arg(long)]
         bin_dir: PathBuf,
+        /// Optional launcher taking the real gateway binary as its first argument.
+        #[arg(long)]
+        gateway_launcher: Option<PathBuf>,
         #[arg(long, default_value = "127.0.0.1:28768")]
         bind: String,
         /// Optional loopback admin listener; shared environment token or generated memory-only secret.
@@ -247,6 +250,8 @@ struct SelfHostedCliArgs {
     suite_root: PathBuf,
     #[arg(long)]
     bin_dir: PathBuf,
+    #[arg(long)]
+    gateway_launcher: Option<PathBuf>,
     #[arg(long, default_value = "127.0.0.1:28788")]
     bind: String,
     #[arg(long, default_value = "127.0.0.1:28789")]
@@ -257,6 +262,9 @@ struct SelfHostedCliArgs {
     profiles_config: PathBuf,
     #[arg(long)]
     deck_manifest: PathBuf,
+    /// Collect independent single-attempt Constructed TRAIN waves against this manifest.
+    #[arg(long, conflicts_with = "prior_root")]
+    train_manifest: Option<PathBuf>,
     /// Repeatable wave spec `NAME=PAIRINGS_FILE:MAX_ATTEMPTS`.
     #[arg(long, required = true)]
     wave: Vec<String>,
@@ -271,6 +279,9 @@ struct SelfHostedCliArgs {
     game_timeout_seconds: u64,
     #[arg(long)]
     starting_life: Option<i32>,
+    /// Forward the native filings from this many games per wave through the gateway.
+    #[arg(long, default_value_t = 0)]
+    report_games: usize,
 }
 
 #[tokio::main]
@@ -279,6 +290,7 @@ async fn main() -> anyhow::Result<()> {
         Commands::Serve {
             root,
             bin_dir,
+            gateway_launcher,
             bind,
             admin_bind,
             database_url,
@@ -290,6 +302,7 @@ async fn main() -> anyhow::Result<()> {
             run_serve(
                 &root,
                 &bin_dir,
+                gateway_launcher.as_deref(),
                 &bind,
                 admin_bind.as_deref(),
                 &database_url,
@@ -371,17 +384,20 @@ async fn run_self_hosted_cmd(args: &SelfHostedCliArgs) -> anyhow::Result<()> {
     run_self_hosted(
         &args.suite_root,
         &args.bin_dir,
+        args.gateway_launcher.as_deref(),
         &args.bind,
         &args.admin_bind,
         &args.database_url,
         &args.profiles_config,
         &args.deck_manifest,
+        args.train_manifest.as_deref(),
         &args.wave,
         &args.prior_root,
         args.concurrency,
         args.call_timeout_seconds,
         args.game_timeout_seconds,
         args.starting_life,
+        args.report_games,
     )
     .await
 }
@@ -671,6 +687,7 @@ async fn wait_ready(
 async fn run_serve(
     root: &Path,
     bin_dir: &Path,
+    gateway_launcher: Option<&Path>,
     bind: &str,
     admin_bind: Option<&str>,
     database_url: &str,
@@ -710,7 +727,13 @@ async fn run_serve(
     let mut sigint = tokio::signal::unix::signal(tokio::signal::unix::SignalKind::interrupt())?;
     let gw_out = std::fs::File::create(gw_dir.join("gateway.stdout.log"))?;
     let gw_err = std::fs::File::create(gw_dir.join("gateway.stderr.log"))?;
-    let mut gw_cmd = isolated_command(&gw_bin);
+    let mut gw_cmd = if let Some(launcher) = gateway_launcher {
+        let mut command = isolated_command(launcher);
+        command.arg(&gw_bin);
+        command
+    } else {
+        isolated_command(&gw_bin)
+    };
     gw_cmd
         .current_dir(&gw_dir)
         .stdin(Stdio::null())
@@ -1247,17 +1270,20 @@ async fn run_collect(
 async fn run_self_hosted(
     suite_root: &Path,
     bin_dir: &Path,
+    gateway_launcher: Option<&Path>,
     bind: &str,
     admin_bind: &str,
     database_url: &str,
     profiles_config: &Path,
     deck_manifest: &Path,
+    train_manifest: Option<&Path>,
     waves: &[String],
     prior_roots: &[PathBuf],
     concurrency: usize,
     call_timeout_seconds: u64,
     game_timeout_seconds: u64,
     starting_life: Option<i32>,
+    report_games: usize,
 ) -> anyhow::Result<()> {
     private_bind(bind)?;
     private_bind(admin_bind)?;
@@ -1273,6 +1299,12 @@ async fn run_self_hosted(
             .parse()
             .with_context(|| format!("invalid MAX_ATTEMPTS in {spec}"))?;
         ensure!(!name.is_empty() && max_attempts >= 1, "invalid wave {spec}");
+        if train_manifest.is_some() {
+            ensure!(
+                max_attempts == 1 && !suite_root.join(name).try_exists()?,
+                "A TRAIN wave needs a fresh root and exactly one attempt"
+            );
+        }
         parsed_waves.push((name.to_owned(), PathBuf::from(pairings), max_attempts));
     }
 
@@ -1303,6 +1335,9 @@ async fn run_self_hosted(
         .stdout(srv_out)
         .stderr(srv_err)
         .process_group(0);
+    if let Some(launcher) = gateway_launcher {
+        serve_cmd.arg("--gateway-launcher").arg(launcher);
+    }
     admin.configure_collector(&mut serve_cmd);
     let mut serve_child = serve_cmd.spawn().context("spawning self-hosted serve")?;
     let serve_pgid = i32::try_from(serve_child.id().unwrap_or(0)).unwrap_or(0);
@@ -1358,7 +1393,6 @@ async fn run_self_hosted(
                 .arg(pairings_file)
                 .arg("--deck-manifest")
                 .arg(deck_manifest)
-                .arg("--evaluation")
                 .arg("--concurrency")
                 .arg(concurrency.to_string())
                 .arg("--max-attempts")
@@ -1368,12 +1402,23 @@ async fn run_self_hosted(
                 .arg("--game-timeout-seconds")
                 .arg(game_timeout_seconds.to_string())
                 .arg("--report-games")
-                .arg("0");
+                .arg(report_games.to_string());
             if let Some(life) = starting_life {
                 collect_cmd.arg("--starting-life").arg(life.to_string());
             }
-            for prev in &completed_roots {
-                collect_cmd.arg("--balance-with").arg(prev);
+            if let Some(manifest) = train_manifest {
+                collect_cmd
+                    .arg("--train-manifest")
+                    .arg(manifest)
+                    .arg("--only")
+                    .arg("split=train")
+                    .arg("--only")
+                    .arg("format=constructed");
+            } else {
+                collect_cmd.arg("--evaluation");
+                for prev in &completed_roots {
+                    collect_cmd.arg("--balance-with").arg(prev);
+                }
             }
             admin.configure_collector(&mut collect_cmd);
             let status = collect_cmd

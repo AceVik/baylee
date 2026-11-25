@@ -86,6 +86,9 @@ struct Args {
     /// Verified executed external LLM labels only; all other policy weights zero.
     #[arg(long, conflicts_with = "shadow_bc")]
     llm_bc: bool,
+    /// Publish only the complete history of this model's single seat per verified LLM game.
+    #[arg(long, requires = "llm_bc")]
+    llm_bc_focal_model: Option<String>,
     /// With `--llm-bc`: leave out the games a failed conversion of the same
     /// runs could not replay on this build (its `rejected-games.json`; every
     /// entry must be a replay-audit refusal). The dataset records them.
@@ -184,6 +187,7 @@ struct GameRef {
     validation: bool,
     shadow: Option<shadow::Source>,
     llm: Option<llm::Source>,
+    llm_focal_seat: Option<u8>,
     /// The deck keys the game's row gives its seats, if any.
     deck_keys: Vec<Option<String>>,
 }
@@ -511,8 +515,13 @@ fn main() -> anyhow::Result<()> {
                 None
             };
             let policy_game = policy_game.map(|game| game.with_exploration(game_epsilon));
+            let llm_focal_seat = match (&llm, &args.llm_bc_focal_model) {
+                (Some(source), Some(model)) => Some(source.focal_seat(model)?),
+                _ => None,
+            };
             let game_id = (games.len() + 1) as u32;
             games.push(GameRef {
+                llm_focal_seat,
                 seat_weights,
                 explored: game_epsilon.is_some(),
                 on_policy: policy_game,
@@ -741,6 +750,15 @@ fn main() -> anyhow::Result<()> {
         meta["llm_bc_version"] = json!(1);
         meta["llm_bc_contract"] = json!("verified_executed_llm_v1");
         meta["llm_bc_status"] = json!("in_progress");
+        if let Some(model) = &args.llm_bc_focal_model {
+            meta["llm_bc_focal_model"] = json!(model);
+            meta["llm_bc_focal_seats"] = json!(
+                games_arc
+                    .iter()
+                    .map(|game| json!({"game_id":game.game_id, "seat":game.llm_focal_seat}))
+                    .collect::<Vec<_>>()
+            );
+        }
         meta["ppo_eligible"] = json!(false);
         meta["policy_provenance_version"] = Value::Null;
         meta["llm_bc_sources"] = json!(
@@ -879,9 +897,13 @@ fn main() -> anyhow::Result<()> {
                 let mut search_game = gref.search_roots.as_ref()
                     .map(|roots| search_advantage::GameLabels::new(roots, &root, gref.game_id, rule_roots.clone(), &bytes, with_afterstates))
                     .transpose()?;
+                let mut published_steps = 0;
                 let emit = |mut step: Step4| {
                     #[cfg(feature = "onnx")]
                     if let Some(game) = &mut search_game { game.apply(&mut step)?; }
+                    if gref.llm_focal_seat.is_some_and(|seat| seat != step.seat) {
+                        return Ok(());
+                    }
                     if let Some(seats) = &gref.seat_weights { self_imitation::apply(&mut step, seats); }
                     if gref.explored { exploration::apply(&mut step); }
                     if let Some(cursor) = &mut search_cursor { cursor.apply(&mut step); }
@@ -891,7 +913,9 @@ fn main() -> anyhow::Result<()> {
                     if write_probes { game_probes.extend(probes::Row::of(&step)); }
                     if let Some(labels) = &mut frame_labels { labels.push(&step)?; }
                     if let Some(labels)=&mut llm_labels {labels.push(&step)?;}
-                    writer.push(&step).map_err(|e|e.to_string())
+                    writer.push(&step).map_err(|e|e.to_string())?;
+                    published_steps += 1;
+                    Ok(())
                 };
                 // Every path shows teammates the hands the run's producer showed
                 // them, and refuses a team game whose producer does not say.
@@ -944,8 +968,12 @@ fn main() -> anyhow::Result<()> {
                 probe_rows.lock().expect("probe lock").append(&mut game_probes);
                 if let Some(labels) = frame_labels { labels.finish()?; }
                 if let Some(labels)=llm_labels {labels.finish()?;}
+                anyhow::ensure!(
+                    gref.llm_focal_seat.is_none() || published_steps > 0,
+                    "Verified replay published no focal seat frames"
+                );
                 let name = writer.finish()?;
-                publish_ready(&root, gref, &name, extracted.steps, &structure_sha256)?;
+                publish_ready(&root, gref, &name, published_steps, &structure_sha256)?;
                 #[cfg(feature = "onnx")]
                 if let Some(game) = search_game {
                     let (rows, counts, shard, after) = game.finish()?;
@@ -961,7 +989,7 @@ fn main() -> anyhow::Result<()> {
                     }
                 }
                 let rows = if gref.validation { &val_rows } else { &train_rows };
-                rows.lock().expect("row lock").push((gref.game_id, name, extracted.steps));
+                rows.lock().expect("row lock").push((gref.game_id, name, published_steps));
                 *replay_checks.lock().expect("replay check lock").entry(extracted.replay_check.name()).or_default() += 1;
                 journal_worker(&journal, gref, "complete")?;
                 let complete = converted.fetch_add(1, Ordering::Relaxed) + 1;

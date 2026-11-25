@@ -45,7 +45,11 @@ impl TeamHands {
     ///
     /// # Errors
     /// A team game whose producer does not say.
-    pub(super) fn apply(self, session: &mut Session, preset: &GamePreset) -> Result<(), String> {
+    pub(super) fn apply<D: baylee_engine::engine::LoopDetection>(
+        self,
+        session: &mut Session<D>,
+        preset: &GamePreset,
+    ) -> Result<(), String> {
         match self {
             Self::Shared => session.apply_team_hand_sharing(),
             Self::Unknown if has_teammates(preset) => {

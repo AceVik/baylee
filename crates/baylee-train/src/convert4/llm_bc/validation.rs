@@ -34,6 +34,14 @@ pub(super) fn load(
     let request = manifest.request.json()?;
     let receipt = manifest.admitted_receipt.json()?;
     let technical = manifest.technical_result.json()?;
+    let astra = manifest
+        .seats
+        .iter()
+        .any(|seat| seat.model == "gpt-6.2-astra");
+    ensure!(
+        astra == manifest.provider_audit.is_some(),
+        "Astra requires independent provider audit evidence"
+    );
     ensure!(
         receipt["status"] == "admitted"
             && receipt["request"] == request
@@ -124,6 +132,19 @@ pub(super) fn load(
     } else {
         None
     };
+    let audited = manifest
+        .provider_audit
+        .as_ref()
+        .map(|pin| {
+            super::provider_audit::AuditedGame::load(
+                pin,
+                &manifest,
+                &technical,
+                &request["models"],
+                input_receipt.as_ref(),
+            )
+        })
+        .transpose()?;
     // Beside who the teacher is, who answered: a game the house answered
     // more than 5 % of a seat's questions of is no teacher data
     // (`house_share`). convert4 leaves such a game out before it converts;
@@ -190,13 +211,19 @@ pub(super) fn load(
             &evidence.origins.sha256,
         )?;
         let origins = evidence.origins.json()?;
-        let eligible = alignment::verify(&json_lines(&transcript)?, &inputs, &origins)?;
+        let transcript = json_lines(&transcript)?;
+        let eligible = alignment::verify(&transcript, &inputs, &origins)?;
+        let direct = audited
+            .as_ref()
+            .map(|audit| audit.direct(seat, evidence, &transcript, &inputs, &origins))
+            .transpose()?;
         for (row, eligible) in inputs.into_iter().zip(eligible) {
             let action: PlayerAction = serde_json::from_value(row["action"].clone())?;
             if action.is_automation_setting() {
                 continue;
             }
             let n = row["n"].as_u64().context("LLM input number")?;
+            let eligible = eligible && direct.as_ref().is_none_or(|accepted| accepted.contains(&n));
             ensure!(
                 remaining
                     .insert(

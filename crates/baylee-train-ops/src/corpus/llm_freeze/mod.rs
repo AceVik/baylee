@@ -1,7 +1,7 @@
 //! Freeze the earliest technically admitted games, without semantic teacher filtering.
 mod evidence;
 mod identity;
-pub use identity::{chain_followed, requested_fallbacks, teacher};
+pub use identity::{chain_followed, requested_fallbacks, teacher, verify_provider_audit_identity};
 #[cfg(test)]
 mod tests;
 use crate::files;
@@ -105,11 +105,39 @@ fn suffixes(path: &Path) -> Result<String> {
 /// # Errors
 /// Rejects missing games, changed artifacts, duplicate records and invalid admission binding.
 pub fn prepare(collector: &Path, out: &Path, count: usize) -> Result<Value> {
+    prepare_inner(collector, out, count, None)
+}
+
+/// Freeze independent Codex provider evidence beside the original collector artifacts.
+///
+/// # Errors
+/// Rejects missing or inconsistent audit and collector artifacts.
+pub fn prepare_audited(collector: &Path, out: &Path, count: usize, audits: &Path) -> Result<Value> {
+    prepare_inner(collector, out, count, Some(audits))
+}
+
+fn prepare_inner(
+    collector: &Path,
+    out: &Path,
+    count: usize,
+    audits: Option<&Path>,
+) -> Result<Value> {
     let collector = collector.canonicalize()?;
     let selected = select(&collector, count)?;
-    prepare_selected(&collector, out, &selected)
+    prepare_selected_with_audits(&collector, out, &selected, audits)
 }
+
+#[cfg(test)]
 fn prepare_selected(collector: &Path, out: &Path, selected: &[Selected]) -> Result<Value> {
+    prepare_selected_with_audits(collector, out, selected, None)
+}
+
+fn prepare_selected_with_audits(
+    collector: &Path,
+    out: &Path,
+    selected: &[Selected],
+    audits: Option<&Path>,
+) -> Result<Value> {
     let out = output_path(out)?;
     let name = out
         .file_name()
@@ -135,6 +163,7 @@ fn prepare_selected(collector: &Path, out: &Path, selected: &[Selected]) -> Resu
             &mut rows,
             &mut sources,
             &mut seen_records,
+            audits,
         )?;
     }
     let collectors = sources
@@ -156,29 +185,17 @@ fn prepare_selected(collector: &Path, out: &Path, selected: &[Selected]) -> Resu
         json!({"root":out,"games":selected.len(),"run_sha256":files::sha256(&out.join("run.json"))?}),
     )
 }
-fn freeze_one(
-    staging: &Path,
-    out: &Path,
+
+/// The receipt binds exactly this request and result, and the result is a
+/// complete, technically checked, BC-only game.
+fn check_receipt(
     selected: &Selected,
-    rows: &mut Vec<Value>,
-    sources: &mut Vec<Value>,
-    seen: &mut BTreeSet<String>,
+    request: &Value,
+    technical: &Value,
+    game: &str,
 ) -> Result<()> {
-    let attempt = selected
-        .path
-        .parent()
-        .context("missing attempt directory")?
-        .canonicalize()?;
-    let game = attempt
-        .file_name()
-        .and_then(|s| s.to_str())
-        .context("invalid attempt name")?;
-    let request_raw = std::fs::read(attempt.join("request.json"))?;
-    let technical_raw = std::fs::read(attempt.join("technical-result.json"))?;
-    let request: Value = serde_json::from_slice(&request_raw)?;
-    let technical: Value = serde_json::from_slice(&technical_raw)?;
     ensure!(
-        request == selected.receipt["request"] && technical == selected.receipt["technical"],
+        *request == selected.receipt["request"] && *technical == selected.receipt["technical"],
         "Receipt does not bind exact request/result: {game}"
     );
     ensure!(
@@ -201,6 +218,93 @@ fn freeze_one(
         .all(|key| technical["checks"][key] == true),
         "Incomplete technical checks: {game}"
     );
+    Ok(())
+}
+
+/// A game whose provider audit is frozen with it.
+struct AuditedGame<'a> {
+    attempt: &'a Path,
+    game: &'a str,
+    request: &'a Value,
+    technical: &'a Value,
+    artifacts: &'a BTreeMap<String, Vec<u8>>,
+    record: &'a [u8],
+}
+
+/// Freezes the audit and each seat's provider transcript through `copy` and
+/// pins them in `manifest`. An Astra game needs one, every other game none.
+fn freeze_provider_audit(
+    source: &AuditedGame<'_>,
+    audits: Option<&Path>,
+    manifest: &mut Value,
+    copy: impl Fn(&str, &[u8]) -> Result<Value>,
+) -> Result<()> {
+    let models = source.request["models"]
+        .as_array()
+        .context("Missing declared models")?;
+    let astra = models.iter().any(|model| model == "gpt-6.2-astra");
+    ensure!(
+        astra == audits.is_some(),
+        "Astra requires independent provider audit evidence"
+    );
+    let Some(audits) = audits else {
+        return Ok(());
+    };
+    let audit_raw = std::fs::read(audits.join(format!("{}.json", source.game)))?;
+    let audit: Value = serde_json::from_slice(&audit_raw)?;
+    let raw_game = text(source.technical, "game_id")?;
+    ensure!(
+        raw_game.parse::<uuid::Uuid>().is_ok()
+            && audit["game_id"] == raw_game
+            && audit["record_artifact_sha256"] == digest(source.record),
+        "Provider audit game or record mismatch"
+    );
+    let input_receipt = source
+        .artifacts
+        .get("input_receipt")
+        .map(|bytes| serde_json::from_slice::<Value>(bytes))
+        .transpose()?;
+    verify_provider_audit_identity(&audit, &source.request["models"], input_receipt.as_ref())?;
+    manifest["provider_audit"] = copy("provider-audit.json", &audit_raw)?;
+    for seat in 0..models.len() {
+        let transcript = source
+            .attempt
+            .join("transcripts")
+            .join(format!("{raw_game}-seat{seat}-mind.jsonl"));
+        let bytes = std::fs::read(transcript)?;
+        ensure!(
+            audit["seats"][seat]["provider_transcript_sha256"] == digest(&bytes),
+            "Provider transcript changed after audit"
+        );
+        manifest["seats"][seat]["provider_transcript"] =
+            copy(&format!("provider-transcript-seat{seat}.jsonl"), &bytes)?;
+    }
+    Ok(())
+}
+
+fn freeze_one(
+    staging: &Path,
+    out: &Path,
+    selected: &Selected,
+    rows: &mut Vec<Value>,
+    sources: &mut Vec<Value>,
+    seen: &mut BTreeSet<String>,
+    audits: Option<&Path>,
+) -> Result<()> {
+    let attempt = selected
+        .path
+        .parent()
+        .context("missing attempt directory")?
+        .canonicalize()?;
+    let game = attempt
+        .file_name()
+        .and_then(|s| s.to_str())
+        .context("invalid attempt name")?;
+    let request_raw = std::fs::read(attempt.join("request.json"))?;
+    let technical_raw = std::fs::read(attempt.join("technical-result.json"))?;
+    let request: Value = serde_json::from_slice(&request_raw)?;
+    let technical: Value = serde_json::from_slice(&technical_raw)?;
+    check_receipt(selected, &request, &technical, game)?;
     let models = request["models"]
         .as_array()
         .filter(|m| m.len() == 2)
@@ -247,6 +351,19 @@ fn freeze_one(
         seats.push(json!({"seat":seat,"model":model,"transcript":pins.get(&format!("transcript_seat{seat}")).context("missing transcript artifact")?,"origins":pins.get(&format!("executed_provenance_seat{seat}")).context("missing provenance artifact")?}));
     }
     let mut manifest = json!({"schema_version":1,"contract":"admitted_executed_llm_v1","source_game":game,"frozen_game":frozen,"record_sha256":record_hash,"record_artifact_sha256":digest(compressed),"request":copy_bytes(staging,out,&evidence.join("request.json"),&request_raw)?,"admitted_receipt":copy_bytes(staging,out,&evidence.join("receipt.json"),&selected.raw)?,"technical_result":copy_bytes(staging,out,&evidence.join("technical-result.json"),&technical_raw)?,"seats":seats});
+    freeze_provider_audit(
+        &AuditedGame {
+            attempt: &attempt,
+            game,
+            request: &request,
+            technical: &technical,
+            artifacts,
+            record: compressed,
+        },
+        audits,
+        &mut manifest,
+        |name, raw| copy_bytes(staging, out, &evidence.join(name), raw),
+    )?;
     if let Some(pin) = pins.get("input_receipt") {
         let bound: Value = serde_json::from_slice(&artifacts["input_receipt"])?;
         if bound.get("requested_minds").is_some() {

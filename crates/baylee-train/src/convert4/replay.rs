@@ -115,12 +115,66 @@ enum FeaturePurpose {
 }
 
 #[allow(
-    clippy::too_many_lines,
     clippy::too_many_arguments,
+    reason = "Chooses the engine variant the record was played on"
+)]
+fn replay_feature_frames(
+    record: &[u8],
+    game_id: u32,
+    include_passive_obs: bool,
+    sidecar: Option<&[RolloutStepSidecar4]>,
+    shadow: Option<&mut super::shadow_bc::ShadowBc4>,
+    llm: Option<&mut super::llm_bc::LlmBc4>,
+    live_bc: bool,
+    encoder_version: u32,
+    team_hands: TeamHands,
+    purpose: FeaturePurpose,
+    asks: super::Asks4<'_>,
+    emit: impl FnMut(Step4, i32) -> Result<(), String>,
+) -> Result<super::streaming::FeatureReplaySummary, String> {
+    use baylee_core::preset::LoopPolicy;
+    use baylee_engine::engine::{DetectLoops, NoLoopDetection};
+    match baylee_gamehost::record::loop_policy(record).map_err(|error| format!("{error:?}"))? {
+        LoopPolicy::Off => replay_feature_frames_with::<NoLoopDetection>(
+            record,
+            game_id,
+            include_passive_obs,
+            sidecar,
+            shadow,
+            llm,
+            live_bc,
+            encoder_version,
+            team_hands,
+            purpose,
+            asks,
+            emit,
+        ),
+        LoopPolicy::RunOnceThenBreak | LoopPolicy::CompRulesDraw => {
+            replay_feature_frames_with::<DetectLoops>(
+                record,
+                game_id,
+                include_passive_obs,
+                sidecar,
+                shadow,
+                llm,
+                live_bc,
+                encoder_version,
+                team_hands,
+                purpose,
+                asks,
+                emit,
+            )
+        }
+    }
+}
+
+#[allow(
+    clippy::too_many_arguments,
+    clippy::too_many_lines,
     clippy::cast_precision_loss,
     reason = "Shared chronological feature replay; only explicit research prefix mode omits natural targets"
 )]
-fn replay_feature_frames(
+fn replay_feature_frames_with<D: baylee_engine::engine::LoopDetection>(
     record: &[u8],
     game_id: u32,
     include_passive_obs: bool,
@@ -176,13 +230,13 @@ fn replay_feature_frames(
         && shadow.is_none()
         && llm.is_none()
     {
-        cancelled_cast_inputs(&preset, record)?
+        cancelled_cast_inputs::<D>(&preset, record)?
     } else {
         std::collections::BTreeSet::new()
     };
 
-    let mut session =
-        Session::new(&preset).ok_or_else(|| "preset failed to build session".to_owned())?;
+    let mut session = Session::<D>::with_detection(&preset)
+        .ok_or_else(|| "preset failed to build session".to_owned())?;
     for s in 0..seat_count {
         session.take_over(PlayerId::new(s as u8));
     }
@@ -375,7 +429,7 @@ fn replay_feature_frames(
                         HeadKind4::ScalarValue => cands.max_choices <= cands.min_choices,
                     };
 
-                let llm_label = if matches!(by, Source::Seat) {
+                let mut llm_label = if matches!(by, Source::Seat) {
                     llm.as_deref_mut()
                         .map(|labels| labels.input(input_n, seat_u8, &action, is_forced))
                         .transpose()?
@@ -409,6 +463,15 @@ fn replay_feature_frames(
                 } else {
                     encode_teacher_action4(&cands, &pending, &action)
                 } {
+                    if llm_label
+                        .as_ref()
+                        .is_some_and(|label| label.model == "gpt-6.2-astra")
+                        && !super::llm_bc::verified_direct_target(
+                            &cands, &view, &pending, &target, &action,
+                        )
+                    {
+                        llm_label = None;
+                    }
                     let default_src = match by {
                         Source::Seat => SourceKind4::Net,
                         _ => SourceKind4::House,
@@ -725,13 +788,13 @@ fn replay_feature_frames(
     })
 }
 
-fn cancelled_cast_inputs(
+fn cancelled_cast_inputs<D: baylee_engine::engine::LoopDetection>(
     preset: &baylee_core::preset::GamePreset,
     record: &[u8],
 ) -> Result<std::collections::BTreeSet<u64>, String> {
     let seat_count = preset.seats.len().clamp(1, MAX_SEATS);
-    let mut session =
-        Session::new(preset).ok_or_else(|| "preset failed to build session".to_owned())?;
+    let mut session = Session::<D>::with_detection(preset)
+        .ok_or_else(|| "preset failed to build session".to_owned())?;
     for s in 0..seat_count {
         session.take_over(PlayerId::new(s as u8));
     }

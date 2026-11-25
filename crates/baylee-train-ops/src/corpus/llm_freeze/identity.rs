@@ -1,6 +1,64 @@
 use anyhow::{Context, Result, ensure};
-use serde_json::Value;
+use serde_json::{Value, json};
 use std::collections::BTreeMap;
+
+/// Bind an independent provider audit to the ordered, admitted Codex seats.
+/// The original single-model evidence remains valid for Astra self-play.
+///
+/// # Errors
+/// Rejects an unknown contract or model pair, and a seat whose audited mind is
+/// not the one the game requested.
+pub fn verify_provider_audit_identity(
+    audit: &Value,
+    requested_models: &Value,
+    input_receipt: Option<&Value>,
+) -> Result<()> {
+    const ASTRA: &str = "gpt-6.2-astra";
+    const TERRA: &str = "gpt-6.1-terra";
+    if audit["audit_contract"] == "astra_direct_executed_v1" {
+        ensure!(
+            audit["schema_version"] == 1
+                && audit["model"] == format!("codex:{ASTRA}")
+                && audit["effort"] == "low"
+                && *requested_models == json!([ASTRA, ASTRA]),
+            "Invalid original Astra provider audit identity"
+        );
+        return Ok(());
+    }
+    ensure!(
+        audit["schema_version"] == 2
+            && audit["audit_contract"] == "codex_direct_executed_v2"
+            && [json!([ASTRA, TERRA]), json!([TERRA, ASTRA])].contains(requested_models),
+        "Invalid mixed Codex provider audit contract or model pair"
+    );
+    let input_receipt = input_receipt.context("Mixed Codex audit needs a pinned input receipt")?;
+    let expected = input_receipt["requested_minds"]
+        .as_array()
+        .filter(|minds| minds.len() == 2)
+        .context("Mixed Codex audit needs two requested minds")?;
+    let audited = audit["seats"]
+        .as_array()
+        .filter(|seats| seats.len() == 2)
+        .context("Mixed Codex audit needs two audited seats")?;
+    ensure!(
+        input_receipt["requested_models"] == *requested_models,
+        "Mixed Codex audit request and receipt disagree"
+    );
+    for (seat, (audited, expected)) in audited.iter().zip(expected).enumerate() {
+        let model = requested_models[seat]
+            .as_str()
+            .context("Missing model for mixed Codex audit seat")?;
+        ensure!(
+            audited["seat"] == seat
+                && audited["mind"] == *expected
+                && expected["kind"] == "llm_cli"
+                && expected["provider"] == "codex"
+                && teacher(expected, model),
+            "Mixed Codex provider audit identity mismatch on seat {seat}"
+        );
+    }
+    Ok(())
+}
 
 /// Whether `mind`, as a game's request asked for it or its record declares
 /// it, is a teacher whose games may become LLM-BC data for `model`: the
@@ -12,7 +70,7 @@ use std::collections::BTreeMap;
 pub fn teacher(mind: &Value, model: &str) -> bool {
     let cli = || match mind["provider"].as_str() {
         Some(tool @ ("agy" | "codex")) => {
-            let expected = if model == "gpt-6.1-terra" {
+            let expected = if matches!(model, "gpt-6.1-terra" | "gpt-6.2-astra") {
                 "codex"
             } else {
                 "agy"

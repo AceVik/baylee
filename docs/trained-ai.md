@@ -1080,6 +1080,29 @@ and refused). The selection never reads an outcome, and no excluded list has
 to be kept by hand; the admission check of each game (`LlmBc4::load`) holds
 the same rule beside the teacher's identity.
 
+Astra needs more evidence (20 November). A game with a `gpt-6.2-astra` seat
+converts only with an independent provider audit, and a game without one may
+not carry an audit. `astra_admission` (an example of `baylee-seat`) replays
+the attempt exactly, compares it with the public tape and the provider's own
+log, and names per reply whether the executed input is the reply's direct
+choice; `prepare_llm_bc4 --provider-audits <dir>` (one `<attempt>.json` each)
+freezes the audit and the provider transcripts beside the collector's
+artifacts. The conversion then weights an Astra label only where the audit
+calls it direct, the menu left a choice, and the encoded target decodes to
+exactly the executed action. Astra may play Astra or Terra (Codex, effort
+low); in a mixed game `--llm-bc-focal-model <model>` publishes the complete
+history of that model's one seat and records it in `meta.json`. The first
+four games of this kind gave 107 direct labels in 4,182 frames.
+
+`llm_collector4 self-hosted` collects such games with `--train-manifest`
+(single-attempt waves on Constructed TRAIN decks, instead of the evaluation
+plan), `--gateway-launcher` (a wrapper that starts the gateway) and
+`--report-games` (how many games per wave may file reports).
+
+A record names its loop policy, and every replay runs the engine it was
+played on: projection and conversion build `NoLoopDetection` for
+`LoopPolicy::Off` and `DetectLoops` for the other two.
+
 #### Bringing a model onto a new catalog, step by step
 
 New cards keep arriving; this is the repeatable procedure, as run on

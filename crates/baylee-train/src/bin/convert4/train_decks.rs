@@ -131,6 +131,7 @@ mod tests {
             validation: false,
             shadow: None,
             llm: None,
+            llm_focal_seat: None,
             distill: None,
             explored: false,
             #[cfg(feature = "onnx")]

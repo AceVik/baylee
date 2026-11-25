@@ -116,12 +116,12 @@ impl ReplayCheck {
 /// Replays a record from another build against its `seen` digests, the
 /// build-stable public table written after every input (`docs/protocol.md`
 /// §"The game record"). Every input must carry one and match it.
-fn replay_seen_across_builds(
+fn replay_seen_across_builds<D: baylee_engine::engine::LoopDetection>(
     record: &[u8],
-) -> Result<baylee_engine::engine::Engine<baylee_gamehost::RegistryLookup>, String> {
+) -> Result<baylee_engine::engine::Engine<baylee_gamehost::RegistryLookup, D>, String> {
     use baylee_gamehost::record::seen;
     let digest =
-        |engine: &baylee_engine::engine::Engine<_>| format!("{:016x}", seen(engine.state()));
+        |engine: &baylee_engine::engine::Engine<_, D>| format!("{:016x}", seen(engine.state()));
     let mut lines = record
         .split(|&b| b == b'\n')
         .filter(|l| !l.is_empty())
@@ -138,8 +138,11 @@ fn replay_seen_across_builds(
     if version != super::RECORD_VERSION {
         return Err(format!("record version {version} is not this build's"));
     }
-    let mut engine = baylee_engine::engine::Engine::new(&preset, baylee_gamehost::RegistryLookup)
-        .map_err(|_| "preset failed to build an engine".to_owned())?;
+    let mut engine = baylee_engine::engine::Engine::<_, D>::with_detection(
+        &preset,
+        baylee_gamehost::RegistryLookup,
+    )
+    .map_err(|_| "preset failed to build an engine".to_owned())?;
     if opening.as_deref() != Some(digest(&engine).as_str()) {
         return Err("seen replay audit: opening table differs".into());
     }
@@ -180,6 +183,20 @@ pub(super) fn terminal_targets(
     record: &[u8],
     across_builds: bool,
 ) -> Result<(Targets, ReplayCheck), String> {
+    use baylee_core::preset::LoopPolicy;
+    use baylee_engine::engine::{DetectLoops, NoLoopDetection};
+    match baylee_gamehost::record::loop_policy(record).map_err(|error| format!("{error:?}"))? {
+        LoopPolicy::Off => terminal_targets_with::<NoLoopDetection>(record, across_builds),
+        LoopPolicy::RunOnceThenBreak | LoopPolicy::CompRulesDraw => {
+            terminal_targets_with::<DetectLoops>(record, across_builds)
+        }
+    }
+}
+
+fn terminal_targets_with<D: baylee_engine::engine::LoopDetection>(
+    record: &[u8],
+    across_builds: bool,
+) -> Result<(Targets, ReplayCheck), String> {
     // Replay once without expensive feature tensors. This verifies every
     // recorded state hash before any frame can be published and obtains only
     // training labels. Future information never reaches encode_state4.
@@ -198,11 +215,11 @@ pub(super) fn terminal_targets(
     // wrote, a split card read by its left half, and is refused by name
     // where it is held to this build's hashes; one of another build
     // replays by its public table, which reads no characteristic.
-    let (engine, check) = match baylee_gamehost::record::replay_exact(record) {
+    let (engine, check) = match baylee_gamehost::record::replay_exact_with_detection::<D>(record) {
         Ok(checked) if checked.ended => (checked.engine, ReplayCheck::Exact),
         Ok(_) => return Err("record has no verified terminal state".into()),
         Err(baylee_gamehost::record::ReplayError::Diverged { n: None, .. }) if across_builds => (
-            replay_seen_across_builds(record).map_err(|e| {
+            replay_seen_across_builds::<D>(record).map_err(|e| {
                 super::question_boundary::seen_refusal(record)
                     .or_else(|| super::count_boundary::seen_refusal(record))
                     .unwrap_or(e)
@@ -270,6 +287,19 @@ pub(super) fn terminal_targets(
 }
 
 fn terminal_targets_live(record: &[u8]) -> Result<Targets, String> {
+    use baylee_core::preset::LoopPolicy;
+    use baylee_engine::engine::{DetectLoops, NoLoopDetection};
+    match baylee_gamehost::record::loop_policy(record).map_err(|error| format!("{error:?}"))? {
+        LoopPolicy::Off => terminal_targets_live_with::<NoLoopDetection>(record),
+        LoopPolicy::RunOnceThenBreak | LoopPolicy::CompRulesDraw => {
+            terminal_targets_live_with::<DetectLoops>(record)
+        }
+    }
+}
+
+fn terminal_targets_live_with<D: baylee_engine::engine::LoopDetection>(
+    record: &[u8],
+) -> Result<Targets, String> {
     let mut lines = record
         .split(|&b| b == b'\n')
         .filter(|l| !l.is_empty())
@@ -293,8 +323,8 @@ fn terminal_targets_live(record: &[u8]) -> Result<Targets, String> {
     }
     let seat_count = preset.seats.len().clamp(1, MAX_SEATS);
     let teams: Vec<Option<u8>> = preset.seats.iter().map(|s| s.team).collect();
-    let mut session =
-        super::Session::new(&preset).ok_or_else(|| "preset failed to build session".to_owned())?;
+    let mut session = super::Session::<D>::with_detection(&preset)
+        .ok_or_else(|| "preset failed to build session".to_owned())?;
     for s in 0..seat_count {
         session.take_over(PlayerId::new(s as u8));
     }

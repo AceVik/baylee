@@ -1,5 +1,43 @@
 use super::*;
 use flate2::{Compression, GzBuilder};
+
+#[test]
+fn provider_audit_identity_binds_mixed_codex_models_to_their_own_seats() {
+    let astra = json!({"kind":"llm_cli","provider":"codex","model":"gpt-6.2-astra","effort":"low"});
+    let terra = json!({"kind":"llm_cli","provider":"codex","model":"gpt-6.1-terra","effort":"low"});
+    let original = json!({
+        "schema_version":1, "audit_contract":"astra_direct_executed_v1",
+        "model":"codex:gpt-6.2-astra", "effort":"low",
+    });
+    assert!(
+        verify_provider_audit_identity(&original, &json!([astra["model"], astra["model"]]), None)
+            .is_ok()
+    );
+    for (first, second) in [(&astra, &terra), (&terra, &astra)] {
+        let models = json!([first["model"], second["model"]]);
+        let receipt = json!({"requested_models":models,"requested_minds":[first,second]});
+        let audit = json!({
+            "schema_version":2, "audit_contract":"codex_direct_executed_v2",
+            "seats":[{"seat":0,"mind":first},{"seat":1,"mind":second}],
+        });
+        assert!(verify_provider_audit_identity(&audit, &models, Some(&receipt)).is_ok());
+        assert!(verify_provider_audit_identity(&audit, &models, None).is_err());
+        assert!(verify_provider_audit_identity(&original, &models, Some(&receipt)).is_err());
+        let mut swapped = audit.clone();
+        swapped["seats"].as_array_mut().unwrap().swap(0, 1);
+        assert!(verify_provider_audit_identity(&swapped, &models, Some(&receipt)).is_err());
+        for (key, wrong) in [("provider", "agy"), ("effort", "medium")] {
+            let mut bad_receipt = receipt.clone();
+            let mut bad_audit = audit.clone();
+            bad_receipt["requested_minds"][1][key] = json!(wrong);
+            bad_audit["seats"][1]["mind"][key] = json!(wrong);
+            assert!(
+                verify_provider_audit_identity(&bad_audit, &models, Some(&bad_receipt)).is_err()
+            );
+        }
+    }
+}
+
 fn fixture(root: &Path, seed: u64, mtime: u32) -> Result<(Selected, Vec<u8>)> {
     let attempt = root.join("attempts/attempt-000000003");
     std::fs::create_dir_all(&attempt)?;

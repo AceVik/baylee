@@ -37,6 +37,8 @@ pub struct SeatManifest {
     pub model: String,
     pub transcript: FilePin,
     pub origins: FilePin,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub provider_transcript: Option<FilePin>,
 }
 #[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
@@ -55,5 +57,7 @@ pub struct Manifest {
     pub technical_result: FilePin,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub input_receipt: Option<FilePin>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub provider_audit: Option<FilePin>,
     pub seats: Vec<SeatManifest>,
 }
