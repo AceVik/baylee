@@ -2310,7 +2310,7 @@ mod tests {
 
         assert_eq!(
             declared.len(),
-            247,
+            251,
             "read {} variants out of the declaration, which is not the enum",
             declared.len()
         );
