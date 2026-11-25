@@ -886,3 +886,115 @@ fn a_patch_says_a_zone_or_a_list_once() {
         assert_eq!(apply(&old, &patch), Err(PatchError::Repeated), "{patch:?}");
     }
 }
+
+/// Every list of up to `length` entries over three values.
+fn short_lists(length: usize) -> Vec<Vec<u8>> {
+    let mut all = vec![vec![]];
+    let mut last = all.clone();
+    for _ in 0..length {
+        last = last
+            .iter()
+            .flat_map(|list| {
+                (0..3).map(move |entry| {
+                    let mut longer = list.clone();
+                    longer.push(entry);
+                    longer
+                })
+            })
+            .collect();
+        all.extend(last.iter().cloned());
+    }
+    all
+}
+
+#[test]
+fn a_list_edit_makes_the_new_list_of_the_old_one_whatever_the_two_are() {
+    let lists = short_lists(4);
+    for old in &lists {
+        for new in &lists {
+            let edit = ListEdit::of(old, new);
+            assert_eq!(edit.applied(old).as_ref(), Ok(new), "{old:?} to {new:?}");
+            // Never longer than the list itself.
+            assert!(edit.added.len() <= new.len(), "{old:?} to {new:?}");
+        }
+    }
+}
+
+#[test]
+fn a_list_that_only_grew_shrank_or_slid_carries_only_what_is_new() {
+    let added = |old: &[u8], new: &[u8]| ListEdit::of(old, new).added;
+    assert!(added(&[1, 2, 3], &[1, 2, 3]).is_empty());
+    assert_eq!(added(&[1, 2], &[1, 2, 3]), [3], "it grew at the end");
+    assert_eq!(added(&[2, 3], &[1, 2, 3]), [1], "it grew at the front");
+    assert_eq!(added(&[1, 3], &[1, 2, 3]), [2], "it grew in the middle");
+    assert!(added(&[1, 2, 3], &[1, 3]).is_empty(), "it lost one");
+    assert!(added(&[1, 2, 3], &[]).is_empty(), "it was emptied");
+    // A bounded log: the oldest leaves as the newest comes.
+    assert_eq!(added(&[1, 2, 3, 4], &[2, 3, 4, 5]), [5]);
+    assert_eq!(added(&[1, 2, 3, 4], &[3, 4, 5, 6]), [5, 6]);
+    // Keeping both ends is the shorter of the two here.
+    let both = ListEdit::of(&[1, 9, 1, 2, 3], &[1, 8, 1, 2, 3]);
+    assert_eq!((both.dropped, both.kept, both.tail), (0, 1, 3));
+    assert_eq!(both.added, [8]);
+    // So it is here, where the list also slid, but by less.
+    let ends = ListEdit::of(&[0, 1, 2, 1], &[1, 2, 1, 0, 1, 2, 1]);
+    assert_eq!(ends.added, [1, 2, 1]);
+    assert_eq!((ends.dropped, ends.kept, ends.tail), (0, 0, 4));
+}
+
+#[test]
+fn a_list_edit_that_keeps_more_than_there_is_is_refused_and_never_wraps() {
+    let applied = |dropped, kept, tail| {
+        ListEdit {
+            dropped,
+            kept,
+            added: vec![7_u8],
+            tail,
+        }
+        .applied(&[1, 2, 3])
+    };
+    assert_eq!(applied(0, 1, 2), Ok(vec![1, 7, 2, 3]));
+    assert_eq!(applied(1, 1, 1), Ok(vec![2, 7, 3]));
+    assert_eq!(applied(3, 0, 0), Ok(vec![7]));
+    for (dropped, kept, tail) in [
+        (4, 0, 0),
+        (0, 4, 0),
+        (0, 0, 4),
+        // Each is in the list; together they are not.
+        (2, 2, 0),
+        (0, 2, 2),
+        (2, 0, 2),
+        (u32::MAX, 1, 0),
+        (u32::MAX, u32::MAX, u32::MAX),
+    ] {
+        assert_eq!(
+            applied(dropped, kept, tail),
+            Err(PatchError::BadList),
+            "{dropped}, {kept}, {tail}"
+        );
+    }
+}
+
+#[test]
+fn a_patch_is_empty_only_when_every_part_of_it_is() {
+    let old = view(2);
+    let empty = holds(&old, &old);
+    assert!(empty.is_empty());
+    // One change of each kind a patch carries apart.
+    let mut zone = view(2);
+    zone.battlefield.push(obj(1, 0));
+    let mut hand = view(2);
+    hand.hand.push(hand_card(1));
+    let mut seat = view(2);
+    seat.seats[1].life -= 1;
+    let mut field = view(2);
+    field.turn += 1;
+    for (what, new) in [
+        ("a zone", zone),
+        ("the hand", hand),
+        ("a seat", seat),
+        ("a field", field),
+    ] {
+        assert!(!holds(&old, &new).is_empty(), "{what}");
+    }
+}

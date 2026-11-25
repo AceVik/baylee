@@ -274,3 +274,150 @@ fn a_received_frame_is_judged_by_the_same_rules_as_a_sent_one() {
         Some(Refusal::Capacity)
     );
 }
+
+/// A setup the engine may start, as the gateway sends it for a first duel.
+fn setup() -> Setup {
+    use baylee_protocol::execution::{Identity, Variant};
+    use baylee_tower::{
+        cards::{Card, Collection, Stack},
+        v2::{
+            package::{Build, Cohort, Origin},
+            run::Run,
+        },
+    };
+    let card = |card, price, basic_land| Card {
+        card: baylee_tower::cards::CardIndex::new(card),
+        price,
+        basic_land,
+        run: None,
+    };
+    let stack = |card, copies| Stack {
+        card: baylee_tower::cards::CardIndex::new(card),
+        copies,
+    };
+    let catalog = Catalog {
+        cards: vec![card(0, 0, true), card(1, 4, false)],
+    };
+    let starter = Collection {
+        formation: None,
+        owned: vec![stack(1, 4)],
+        deck: vec![stack(0, 36), stack(1, 4)],
+    };
+    let run = Run::begin_for(&catalog, starter, &[3; 32], 3).unwrap();
+    let mut executor = Identity::native(Variant::Tower, "setup-test", "registry-test", 21);
+    executor.rules = "tower-4".into();
+    let build = Build::freeze(&run, &catalog).unwrap();
+    Setup {
+        game: Uuid::now_v7(),
+        package: Package {
+            schema: 2,
+            cohort: Cohort::for_generation(executor, &catalog, 3).unwrap(),
+            stage: 1,
+            opponent: Origin::House { archetype: 1 },
+            builds: [build.clone(), build],
+            shuffle_seed: 11,
+            policy_seed: 19,
+        },
+        catalog,
+        fence: 1,
+        prefix: Prefix::default(),
+        byte_limit: 1024,
+        names: ["Player".to_owned(), "House".to_owned()],
+        resources: Resources::default(),
+    }
+}
+
+fn refused(change: impl FnOnce(&mut Setup)) -> Option<Refusal> {
+    let mut changed = setup();
+    change(&mut changed);
+    changed.validate().err()
+}
+
+#[test]
+fn a_setup_starts_only_a_game_with_a_live_fence_and_a_version_seven_identity() {
+    assert_eq!(refused(|_| {}), None);
+    assert_eq!(refused(|s| s.fence = u64::MAX), None);
+    assert_eq!(refused(|s| s.fence = 0), Some(Refusal::Invalid));
+    for game in [
+        Uuid::nil(),
+        Uuid::max(),
+        Uuid::from_u128(0x0000_0000_0000_4000_8000_0000_0000_0000),
+        // Version seven, and not the variant that gives the version its meaning.
+        Uuid::from_u128(0x0000_0000_0000_7000_0000_0000_0000_0000),
+    ] {
+        assert_eq!(refused(|s| s.game = game), Some(Refusal::Invalid), "{game}");
+    }
+}
+
+#[test]
+fn a_setup_names_both_seats_in_bounded_printable_text() {
+    for seat in [0, 1] {
+        let named = |name: &str| refused(|s| name.clone_into(&mut s.names[seat]));
+        assert_eq!(named("Äpfel & Birnen"), None);
+        assert_eq!(named(&"n".repeat(160)), None);
+        for bad in ["", "a\nb", "a\u{0}b", "a\u{1b}[2Jb", "a\u{85}b"] {
+            assert_eq!(named(bad), Some(Refusal::Invalid), "{bad:?}");
+        }
+        assert_eq!(named(&"n".repeat(161)), Some(Refusal::Invalid));
+        // Bytes are bounded, not characters.
+        assert_eq!(named(&"ä".repeat(81)), Some(Refusal::Invalid));
+    }
+}
+
+#[test]
+fn a_setup_can_rebuild_every_byte_its_record_may_hold() {
+    assert_eq!(refused(|s| s.byte_limit = s.resources.bytes), None);
+    assert_eq!(
+        refused(|s| s.byte_limit = s.resources.bytes + 1),
+        Some(Refusal::Invalid)
+    );
+    assert_eq!(refused(|s| s.byte_limit = 0), Some(Refusal::Invalid));
+    assert!(refused(|s| s.resources.millis = u32::MAX).is_some());
+}
+
+#[test]
+fn a_setup_resumes_only_a_prefix_its_record_could_have() {
+    let chunk = |prefix: Prefix| prefix.extended([7; 32], 1024, b"line\n").unwrap();
+    let held = chunk(Prefix::default());
+    assert_eq!(refused(|s| s.prefix = held), None);
+    assert!(refused(|s| s.prefix.bytes = 1).is_some());
+    assert!(refused(|s| s.prefix.digest = [1; 32]).is_some());
+    assert!(
+        refused(|s| {
+            s.prefix = held;
+            s.byte_limit = held.bytes - 1;
+        })
+        .is_some()
+    );
+}
+
+#[test]
+fn a_setup_with_a_package_of_another_schema_or_stage_is_refused() {
+    assert!(refused(|s| s.package.schema = 1).is_some());
+    assert!(refused(|s| s.package.stage = 0).is_some());
+    assert!(refused(|s| s.package.stage = u8::MAX).is_some());
+    // The catalog is bound to the cohort: a cheaper card is another catalog.
+    assert!(refused(|s| s.catalog.cards[1].price = 2).is_some());
+}
+
+#[test]
+fn a_start_is_refused_on_the_wire_exactly_when_its_setup_is() {
+    let start = |change: fn(&mut Setup)| {
+        let mut setup = setup();
+        change(&mut setup);
+        Control::Start {
+            setup: Box::new(setup),
+        }
+    };
+    assert!(start(|_| {}).envelope(Vec::new()).is_ok());
+    assert!(start(|s| s.fence = 0).envelope(Vec::new()).is_err());
+
+    // A frame that was not built by `envelope` is judged on arrival.
+    let raw = |control: &Control| TowerFrame {
+        control: serde_json::to_vec(control).unwrap(),
+        data: Vec::new(),
+    };
+    assert!(Control::decode(raw(&start(|_| {}))).is_ok());
+    assert!(Control::decode(raw(&start(|s| s.fence = 0))).is_err());
+    assert!(Control::decode(raw(&start(|s| s.names[1].clear()))).is_err());
+}
