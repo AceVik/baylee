@@ -973,7 +973,7 @@ pub(crate) fn card_reads_spells_cast_log(def: &CardDef) -> bool {
     })
 }
 
-/// Whether `def` reads who placed counters on a permanent this turn
+/// Whether `def` reads per-turn who placed counters on a permanent
 /// (`Condition::CountersPlacedOnSourceThisTurn { by_you: true, .. }`).
 pub(crate) fn card_reads_counter_placers(def: &CardDef) -> bool {
     card_reads_pred(
@@ -986,6 +986,18 @@ pub(crate) fn card_reads_counter_placers(def: &CardDef) -> bool {
         },
         &|_| false,
     )
+}
+
+/// Whether `def` reads the exact mana colors or count of colors spent to cast
+/// a permanent spell (`ManaColorSpentToCast` / `ColorsOfManaSpentToCast`).
+pub(crate) fn card_reads_mana_types_spent(def: &CardDef) -> bool {
+    card_reads_pred(def, &|_| false, &|amt| {
+        matches!(
+            amt,
+            baylee_cards_dsl::Amount::ManaColorSpentToCast(_)
+                | baylee_cards_dsl::Amount::ColorsOfManaSpentToCast
+        )
+    })
 }
 
 fn card_reads_pred(

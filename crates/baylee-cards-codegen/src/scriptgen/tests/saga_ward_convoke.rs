@@ -1175,6 +1175,24 @@ fn station_keyword_and_threshold_statics_abilities_and_triggers() {
     assert!(refused(
         "Name:StationSpell\nManaCost:1 U\nTypes:Sorcery\nK:Station\nA:SP$ Draw | NumCards$ 1"
     ));
+
+    let modern_station = read(
+        "Name:RomulanTest\nManaCost:1 U\nTypes:Artifact Spacecraft\n\
+         K:Station\n\
+         S:Mode$ Continuous | AffectedDefined$ Self | Station$ 8 | AddType$ Creature | \
+         SetPower$ 4 | SetToughness$ 4 | AddKeyword$ Flying | Description$ STATION 8+ Flying [4/4]",
+    );
+    assert!(
+        modern_station.abilities.iter().any(|a| a
+            == "static_ability!(Filter::This, Modifier::AddTypeIfCountersAtLeast { \
+                kind: CounterKind::Charge, at_least: 8, types: TypeSet::CREATURE })")
+            && modern_station.abilities.iter().any(|a| a
+                == "static_ability!(Filter::This, Modifier::AddKeywordIfCountersAtLeast { \
+                    kind: CounterKind::Charge, at_least: 8, keywords: KeywordSet::FLYING })")
+            && !modern_station.abilities.iter().any(|a| a.contains("SetPT")),
+        "{:?}",
+        modern_station.abilities
+    );
 }
 
 #[test]

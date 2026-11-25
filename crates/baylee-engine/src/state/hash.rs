@@ -1222,7 +1222,7 @@ fn hash_spell_source_decisions(h: &mut Hasher, source: &crate::object::GameObjec
             h.u16(307);
         } else if let crate::object::Rider::ControlledSubtypeOnCast(sub) = rider {
             h.u8(255);
-            h.u16(461);
+            h.u16(464);
             h.u16(sub.get());
         } else if let crate::object::Rider::BeheldCostPower(src, power, mv) = rider {
             h.u8(255);

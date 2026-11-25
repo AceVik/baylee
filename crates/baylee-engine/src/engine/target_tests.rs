@@ -546,6 +546,53 @@ const REACHES_FURTHER: &[(&str, &str)] = &[
          menace to a target creature, the second target chooses a player and pumps all \
          of that player's creatures, including bystanding Llanowar Elves",
     ),
+    (
+        "Sigil Blessing",
+        "\"Until end of turn, target creature you control gets +3/+3 and other creatures \
+         you control get +1/+1\": other creatures you control include bystanding Elves",
+    ),
+    (
+        "Public Execution",
+        "\"Destroy target creature an opponent controls. Each other creature that player \
+         controls gets -2/-0 until end of turn\": the weaken sweep hits bystanding \
+         opposing Llanowar Elves",
+    ),
+    (
+        "Phalanx Tactics",
+        "\"Target creature you control gets +2/+1 until end of turn. Each other creature \
+         you control gets +1/+1 until end of turn\": other controlled creatures include \
+         bystanding Llanowar Elves",
+    ),
+    (
+        "Exhilarating Elocution",
+        "\"Put two +1/+1 counters on target creature you control. Other creatures you \
+         control get +1/+1 until end of turn\": other controlled creatures include \
+         bystanding Llanowar Elves",
+    ),
+    (
+        "Fear, Fire, Foes!",
+        "\"Fear, Fire, Foes! deals X damage to target creature and 1 damage to each \
+         other creature with the same controller\": the 1 damage sweep kills bystanding \
+         1/1 Llanowar Elves with the same controller",
+    ),
+    (
+        "Fated Clash",
+        "\"Target creature you control and target creature an opponent controls each gain \
+         indestructible until end of turn. Then destroy all creatures\": the board wipe \
+         destroys bystanding Llanowar Elves",
+    ),
+    (
+        "Grub's Command",
+        "\"Creatures target player controls get +1/+1 and gain haste until end of turn\": \
+         when chosen as a mode beside targeting an artifact/creature, the pump hits \
+         bystanding Llanowar Elves",
+    ),
+    (
+        "Loki, Lord of Misrule",
+        "\"Choose target creature you control. Each creature you control other than the \
+         chosen creature becomes a copy of that creature until end of turn, except it \
+         isn't legendary\": targeting Loki turns bystanding Llanowar Elves into copies",
+    ),
 ];
 
 /// How small the sweep may get before it has stopped measuring anything.

@@ -9543,10 +9543,11 @@ impl Tx<'_> {
     }
 
     pub(super) fn amount_or_count_ext(&mut self, raw: &str) -> Option<String> {
-        if raw.trim() == "AFLifeLost" {
-            return (self.chain_prev_lose_life
-                && self.svars.get("AFLifeLost").map(|s| s.trim()) == Some("Number$0"))
-            .then(|| "Amount::ThisWay(ThisWay::LifeLost)".to_string());
+        if raw.trim() == "AFLifeLost"
+            && self.chain_prev_lose_life
+            && self.svars.get("AFLifeLost").map(|s| s.trim()) == Some("Number$0")
+        {
+            return Some("Amount::ThisWay(ThisWay::LifeLost)".to_string());
         }
         let saved_unclaimed = self.unclaimed.borrow().clone();
         let saved_statics_len = self.body.statics.len();

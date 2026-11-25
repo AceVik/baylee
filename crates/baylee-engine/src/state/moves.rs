@@ -751,6 +751,7 @@ impl GameState {
                 });
         }
         let mut merged_components = smallvec::SmallVec::<[ObjectId; 2]>::new();
+        let track_mana_types = self.per_turn.track_mana_types_spent;
         {
             let obj = self.object_mut(id).expect("checked above");
             if !(from_zone == Zone::Stack && to.zone() == Zone::Battlefield) {
@@ -966,7 +967,7 @@ impl GameState {
                 if snow > 0 {
                     obj.riders.push(crate::object::Rider::SnowManaSpent(snow));
                 }
-                if paid.mana_types_spent.iter().any(|&n| n > 0) {
+                if track_mana_types && paid.mana_types_spent.iter().any(|&n| n > 0) {
                     let types = paid
                         .mana_types_spent
                         .map(|n| u16::try_from(n).unwrap_or(u16::MAX));

@@ -1549,7 +1549,11 @@ impl Tx<'_> {
     /// and extra `CheckSVar$` conditions not yet in `activated::svar_condition`.
     fn try_extra_continuous(&mut self, spec: &str, p: Params) -> ExtraOutcome {
         if p.peek("AffectedDefined") == Some("Self") {
-            if let Some(min) = p.peek("Affected").and_then(parse_station_threshold) {
+            if let Some(min) = p
+                .peek("Affected")
+                .and_then(parse_station_threshold)
+                .or_else(|| p.peek("Station").and_then(parse_station_param))
+            {
                 return ExtraOutcome::Handled(self.station_threshold_continuous(p, min));
             }
             if let Some(cond) = p.peek("IsPresent").and_then(parse_level_band) {
@@ -1642,6 +1646,7 @@ impl Tx<'_> {
         p.drop_prose();
         p.take("AffectedDefined");
         p.take("Affected");
+        p.take("Station");
         let cond = format!("Condition::Station({min})");
         self.threshold_continuous_body(p, Some(min), None, &cond)
     }
@@ -1699,8 +1704,10 @@ impl Tx<'_> {
         level_present: Option<&str>,
         cond: &str,
     ) -> Option<()> {
+        let mut added_creature_type = false;
         if let Some(types_raw) = p.take("AddType") {
             let types = join_card_types(&types_raw)?;
+            added_creature_type = types.contains("TypeSet::CREATURE");
             if let Some(at_least) = station_min {
                 self.body.abilities.push(Self::static_expr(
                     "Filter::This",
@@ -1719,10 +1726,14 @@ impl Tx<'_> {
         if p.has("SetPower") || p.has("SetToughness") {
             let pow: i16 = p.take("SetPower")?.trim().parse().ok()?;
             let tou: i16 = p.take("SetToughness")?.trim().parse().ok()?;
-            self.body.abilities.push(format!(
-                "static_ability!(Filter::This, Modifier::SetPT({pow}, {tou}), \
-                 condition = Some({cond}))"
-            ));
+            // Upstream Forge (#12900) encodes Spacecraft P/T on the Station
+            // `AddType$ Creature` static line alongside Scryfall printed P/T.
+            if !(station_min.is_some() && added_creature_type) {
+                self.body.abilities.push(format!(
+                    "static_ability!(Filter::This, Modifier::SetPT({pow}, {tou}), \
+                     condition = Some({cond}))"
+                ));
+            }
         }
         if p.has("AddPower") || p.has("AddToughness") {
             let pow: i16 = p
@@ -4887,6 +4898,10 @@ fn parse_station_threshold(raw: &str) -> Option<u8> {
     let rest = raw.trim().strip_prefix("Card.counters_GE")?;
     let n: u8 = rest.strip_suffix("_CHARGE")?.parse().ok()?;
     (n >= 1).then_some(n)
+}
+
+fn parse_station_param(raw: &str) -> Option<u8> {
+    raw.trim().parse::<u8>().ok().filter(|&n| n >= 1)
 }
 
 fn parse_level_band(raw: &str) -> Option<String> {

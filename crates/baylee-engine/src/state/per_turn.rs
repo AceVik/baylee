@@ -322,6 +322,10 @@ pub struct PerTurn {
     /// Spells cast this turn, with frozen stack-time snapshots for
     /// [`baylee_cards_dsl::Modifier::FirstSpellEachTurnCostAdjust`].
     pub cast_spells_this_turn: PerTurnTracked<CastSpellRecord>,
+    /// Whether any card in this game reads `ManaColorSpentToCast` or
+    /// `ColorsOfManaSpentToCast` (so ordinary games skip attaching
+    /// `Rider::ManaTypesSpent` and keep their exact snapshot digests).
+    pub track_mana_types_spent: bool,
 }
 
 /// One `(target, counter kind, placing player)` fact from this turn
@@ -749,6 +753,7 @@ impl PerTurn {
             spells_cast_log: PerTurnTracked::default(),
             counter_placers: PerTurnTracked::default(),
             cast_spells_this_turn: PerTurnTracked::default(),
+            track_mana_types_spent: false,
         }
     }
 
@@ -965,6 +970,7 @@ impl PerTurn {
             spells_cast_log: _,
             counter_placers: _,
             cast_spells_this_turn: _,
+            track_mana_types_spent: _,
         } = self;
         *untapped_lands_at_start = 0;
         *hand_size_at_start = 0;
