@@ -1658,6 +1658,24 @@ impl Tx<'_> {
             } else {
                 let mut atoms = alt.split('.');
                 let base = atoms.next()?.trim();
+                if base == "Targeted"
+                    && raw_alts.len() == 1
+                    && !card_zone
+                    && self.trigger_mode.is_none()
+                    && !self.in_delayed
+                {
+                    let tail: Vec<&str> = atoms
+                        .flat_map(|a| a.split('+'))
+                        .map(str::trim)
+                        .filter(|a| !a.is_empty())
+                        .collect();
+                    let Some(expr) = self.wave28a_targeted_base_filter(&tail, &mut state) else {
+                        self.note("filter base `Targeted`".to_string());
+                        return None;
+                    };
+                    alternatives.push(expr);
+                    continue;
+                }
                 if !self.push_filter_base(base, card_zone, &mut clauses, &mut state) {
                     return None;
                 }
@@ -1809,7 +1827,9 @@ impl Tx<'_> {
             return Some(mixed);
         }
         // A cast-time first target cannot refer to a resolution-only target, chooser, or reference.
-        if valid.contains("ControlledBy Targeted")
+        if valid == "Targeted"
+            || valid.contains("Targeted.")
+            || valid.contains("ControlledBy Targeted")
             || valid.contains("ControlledBy ChoosingPlayer")
             || valid.contains("NotDefinedTargeted")
             || valid.contains("!targetedBy")
@@ -2451,6 +2471,142 @@ impl Tx<'_> {
         }
     }
 
+    /// Lower a `Targeted.<atoms>` battlefield filter on a non-trigger,
+    /// non-delayed ability where `RuleContext::reference` unconditionally names
+    /// `targets[0]` (*Blastfire Bolt*, *Turn to Slag*, *Exhilarating Elocution*,
+    /// *Phalanx Tactics*, *Sigil Blessing*).
+    ///
+    /// Requires at least one explicit reference-binding atom (`Other` /
+    /// `StrictlyOther` -> `Filter::Not(&Filter::Reference)` or `Attached` ->
+    /// `Filter::AttachedTo(&Filter::Reference)`), and permits ONLY a strict
+    /// allowlist of non-source-relative companion atoms (never `Self`,
+    /// `sameName`, `PairedWith`, `sharesCardTypeWith`, `Damaged`, `IsRemembered`,
+    /// or `EnchantedBy`/`EquippedBy`/`AttachedBy`).
+    fn wave28a_targeted_base_filter(
+        &self,
+        atoms: &[&str],
+        state: &mut FilterAltState,
+    ) -> Option<String> {
+        if atoms.is_empty() {
+            return None;
+        }
+        let mut clauses: Vec<String> = Vec::new();
+        let mut saw_ref_binding = false;
+        for &atom in atoms {
+            match atom {
+                "Other" | "StrictlyOther" => {
+                    saw_ref_binding = true;
+                    clauses.push("Filter::Not(&Filter::Reference)".to_string());
+                }
+                "Attached" => {
+                    saw_ref_binding = true;
+                    clauses.push("Filter::AttachedTo(&Filter::Reference)".to_string());
+                }
+                _ if self.is_safe_targeted_companion_atom(atom) => {
+                    match self.push_filter_atom(atom, false, &mut clauses, state) {
+                        AtomParse::Matched => {}
+                        AtomParse::LowestCmc | AtomParse::Unknown | AtomParse::Failed => {
+                            return None;
+                        }
+                    }
+                }
+                _ => return None,
+            }
+        }
+        if !saw_ref_binding || clauses.is_empty() {
+            return None;
+        }
+        Some(if clauses.len() == 1 {
+            clauses.pop().expect("len == 1")
+        } else {
+            format!("Filter::And(&[{}])", clauses.join(", "))
+        })
+    }
+
+    fn is_safe_targeted_companion_atom(&self, atom: &str) -> bool {
+        if matches!(
+            atom,
+            "Card"
+                | "Permanent"
+                | "Creature"
+                | "Artifact"
+                | "Enchantment"
+                | "Land"
+                | "Planeswalker"
+                | "Battle"
+                | "nonCreature"
+                | "!Creature"
+                | "nonArtifact"
+                | "!Artifact"
+                | "nonEnchantment"
+                | "!Enchantment"
+                | "nonLand"
+                | "!Land"
+                | "nonPlaneswalker"
+                | "!Planeswalker"
+                | "nonBattle"
+                | "!Battle"
+                | "Basic"
+                | "nonBasic"
+                | "!Basic"
+                | "Legendary"
+                | "nonLegendary"
+                | "!Legendary"
+                | "Snow"
+                | "nonSnow"
+                | "!Snow"
+                | "YouCtrl"
+                | "OppCtrl"
+                | "YouDontCtrl"
+                | "ActivePlayerCtrl"
+                | "token"
+                | "nonToken"
+                | "!token"
+                | "tapped"
+                | "!tapped"
+                | "untapped"
+                | "!untapped"
+                | "attacking"
+                | "!attacking"
+                | "blocking"
+                | "!blocking"
+                | "blocked"
+                | "!blocked"
+                | "unblocked"
+                | "!unblocked"
+                | "enchanted"
+                | "!enchanted"
+                | "equipped"
+                | "!equipped"
+                | "Colorless"
+                | "nonColorless"
+                | "!Colorless"
+                | "Colored"
+                | "MonoColor"
+                | "!MonoColor"
+                | "nonMonoColor"
+                | "MultiColor"
+                | "!MultiColor"
+                | "nonMultiColor"
+                | "Historic"
+                | "nonHistoric"
+                | "!Historic"
+                | "Outlaw"
+                | "nonOutlaw"
+                | "!Outlaw"
+        ) {
+            return true;
+        }
+        if color_atom(atom).is_some() {
+            return true;
+        }
+        let name = atom
+            .strip_prefix("non")
+            .or_else(|| atom.strip_prefix('!'))
+            .unwrap_or(atom);
+        self.cats.const_path(name).is_some()
+    }
+
     /// Validates and wraps a formatted `TargetReq` expression with
     /// `TargetConstraint::SameController` (`TargetsWithSameController$ True`).
     ///
@@ -2607,12 +2763,13 @@ fn oracle_scopes_named_to_you(oracle_lower: &str, name: &str) -> bool {
 }
 
 /// Returns `true` when an `Emblem[.<ctrl>]` alternative in a battlefield/source
-/// comma-list is already matched by a companion `Card[.<ctrl>][+non<Type>...]`
+/// comma-list is already matched by a companion `Card[.<ctrl>][+Other][+non<Type>...]`
 /// alternative in the same list. Emblems carry `TypeSet::EMPTY` and a controller
-/// equal to their owner, so `Filter::Any`, controller predicates, and
+/// equal to their owner, and no card-level replacement effect is itself an Emblem,
+/// so `Filter::Any`, `Filter::Another`, controller predicates, and
 /// `Filter::LacksType(...)` already match them.
 pub(super) fn emblem_subsumed_by_card(alt: &str, all_alts: &[&str]) -> bool {
-    emblem_subsumed_by_card_inner(alt, all_alts, None, false)
+    emblem_subsumed_by_card_inner(alt, all_alts, None, true)
 }
 
 fn emblem_subsumed_by_card_inner(
