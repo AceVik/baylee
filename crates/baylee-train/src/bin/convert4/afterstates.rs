@@ -8,31 +8,35 @@
 //! (no candidates, policy weight 0) under the root's game and seat at cursor
 //! `8 * root cursor + candidate`. An afterstate is valid where the fork
 //! reached a position, the fork's frame of the root is the replay's byte for
-//! byte, and both forks' frames of the afterstate are the same bytes.
+//! byte, both forks' frames of the afterstate are the same bytes, and neither
+//! fork showed the seat a card it dealt or drew from its random stream
+//! (`baylee_train::convert4::afterstates` says what that does not cover).
 //!
 //! - `index.bin`: one 48-byte little-endian row per searched candidate of a
 //!   labelled root, sorted by game, seat, root cursor and candidate: game
 //!   `u32`, root cursor `u32`, the candidate's item on the root's payable
 //!   menu `u32` (the sidecar's), the frame's cursor `u32` (`u32::MAX` without
 //!   a frame), seat `u8`, candidate `u8` (its place in the event, the policy's
-//!   own 0), stop `u8` ([`STOPS`]), flags `u8` ([`FLAGS`]), answers applied
-//!   `u16`, the next question's `PendingKind4` `u8` (255 none), worlds `u8`,
-//!   then `f32` each: the mean and the standard error of the candidate's
+//!   own 0), stop `u8` ([`AfterStop4`]), flags `u8` ([`FLAGS`]), answers
+//!   applied `u16`, the next question's `PendingKind4` `u8` (255 none), worlds
+//!   `u8`, then `f32` each: the mean and the standard error of the candidate's
 //!   world-by-world lead over the policy's own on the even worlds and on the
-//!   odd ones (NaN where undefined), the card the candidate casts `u32`
-//!   (`u32::MAX` none), four zero bytes;
+//!   odd ones (NaN where undefined), the card the candidate casts, suspends or
+//!   foretells `u32` (`u32::MAX` none), four zero bytes;
 //! - `header.json`: the contract, the layout, the digest and the counts.
 
 use std::collections::BTreeMap;
-use std::fs;
 use std::path::Path;
 
-use anyhow::ensure;
 use baylee_engine::choice::PlayerAction;
 use baylee_train::convert4::afterstates::{AfterStop4, Afterstate4, RootAfterstates4};
 use baylee_train::convert4::{AuxTargets4, Step4};
 use baylee_train::features4::{PendingKind4, SourceKind4, StepProvenance4, TeacherTarget4};
+use baylee_train::search_labels::paired;
 use serde_json::{Value, json};
+
+use super::search_advantage::spell_card;
+use super::sidecar::{self, Sidecar};
 
 /// The dataset contract.
 pub(super) const AFTERSTATE_CONTRACT: &str = "search_afterstate_v1";
@@ -45,19 +49,6 @@ pub(super) const AFTER_ROW: usize = 48;
 /// Candidates per root a frame cursor has room for.
 const PER_ROOT: u32 = baylee_train_ops::search_advantage::AFTER_PER_ROOT;
 
-/// The stop codes: [`AfterStop4`]'s, then the two checks a reached position
-/// can fail.
-pub(super) const STOPS: [&str; 9] = [
-    "question",
-    "game_over",
-    "fork_refused",
-    "answer_refused",
-    "script_mismatch",
-    "script_broken",
-    "too_long",
-    "root_mismatch",
-    "forks_differ",
-];
 /// The flag bits, lowest first.
 pub(super) const FLAGS: [&str; 6] = [
     "valid",
@@ -94,13 +85,12 @@ pub(super) struct AfterCounts {
     valid: u64,
     roots_own_valid: u64,
     by_stop: BTreeMap<String, u64>,
-    /// Valid afterstates whose first fork saw a hidden-information event
-    /// (both forks still gave the same frame).
+    /// Valid afterstates whose first fork had a hidden-information event that
+    /// showed the seat no dealt card (an opponent's draw).
     hidden_event_valid: u64,
-    /// Candidates whose forks differ and whose first fork saw one.
+    /// Candidates whose forks differ and whose first fork had one.
     hidden_event_differ: u64,
-    /// Valid afterstates whose two forks' engine states (hidden cards
-    /// included) differ: the deals really were different.
+    /// Valid afterstates whose two forks were dealt different cards.
     deal_differs_valid: u64,
     /// Roots whose fork frame of the root differs from the replay's.
     root_mismatch_roots: u64,
@@ -122,46 +112,29 @@ impl AfterCounts {
     }
 }
 
-/// A count as a float, for means.
-fn real(n: usize) -> f64 {
-    f64::from(u32::try_from(n).unwrap_or(u32::MAX))
-}
-
 /// The mean and standard error of `candidate`'s lead over the policy's own
-/// answer (candidate 0) on the worlds of parity `parity` (0 even, 1 odd);
-/// the standard error over `n - 1`, then over `n` for the mean; NaN where
-/// there are too few worlds.
+/// answer (candidate 0) on the worlds of parity `parity` (0 even, 1 odd), as
+/// [`paired`] has them over all of them; NaN where there are too few worlds.
 pub(super) fn half(worlds: &[Vec<f64>], candidate: usize, parity: usize) -> (f64, f64) {
-    let leads: Vec<f64> = worlds
+    let worlds: Vec<&[f64]> = worlds
         .iter()
         .skip(parity)
         .step_by(2)
-        .filter_map(|world| Some(world.get(candidate)? - world.first()?))
+        .map(Vec::as_slice)
         .collect();
-    if leads.is_empty() {
+    if worlds.is_empty() {
         return (f64::NAN, f64::NAN);
     }
-    let n = real(leads.len());
-    let mean = leads.iter().sum::<f64>() / n;
-    if leads.len() < 2 {
-        return (mean, f64::NAN);
-    }
-    let variance = leads.iter().map(|d| (d - mean).powi(2)).sum::<f64>() / (n - 1.0);
-    (mean, (variance / n).sqrt())
+    let (mean, se) = paired(&worlds, candidate);
+    (mean, se.unwrap_or(f64::NAN))
 }
 
-/// The card a candidate casts: its own cast, or the cast its taps pay for.
-fn cast_card(action: &PlayerAction, script: Option<&PlayerAction>) -> u32 {
-    let card = |action: &PlayerAction| match action {
-        PlayerAction::CastSpell { card } => serde_json::to_value(card)
-            .ok()
-            .and_then(|value| value.as_u64())
-            .and_then(|id| u32::try_from(id).ok()),
-        _ => None,
-    };
+/// The card a candidate casts, suspends or foretells: its planned cast's, or
+/// its own answer's; `u32::MAX` for neither.
+fn spell_of(action: &PlayerAction, script: Option<&PlayerAction>) -> u32 {
     script
-        .and_then(card)
-        .or_else(|| card(action))
+        .and_then(spell_card)
+        .or_else(|| spell_card(action))
         .unwrap_or(u32::MAX)
 }
 
@@ -338,30 +311,22 @@ impl GameAfterstates {
             }
             None => false,
         };
-        let stop = if !after.stop.reached() {
-            after.stop as u8
-        } else if !root_match {
-            7
-        } else if !forks_match {
-            8
-        } else {
-            after.stop as u8
-        };
-        let valid = stop <= AfterStop4::GameOver as u8;
+        let stop = after.judged(root_match, forks_match);
+        let valid = stop.reached();
         self.counts.candidates += 1;
         *self
             .counts
             .by_stop
-            .entry(STOPS[usize::from(stop)].to_owned())
+            .entry(stop.key().to_owned())
             .or_default() += 1;
         if valid {
             self.counts.valid += 1;
-            self.counts.hidden_event_valid += u64::from(after.hidden_event);
+            self.counts.hidden_event_valid += u64::from(after.hidden.event);
             if let [Some(first), Some(second)] = &after.frames {
-                self.counts.deal_differs_valid += u64::from(first.hash != second.hash);
+                self.counts.deal_differs_valid += u64::from(first.deal != second.deal);
             }
-        } else if stop == 8 {
-            self.counts.hidden_event_differ += u64::from(after.hidden_event);
+        } else if stop == AfterStop4::ForksDiffer {
+            self.counts.hidden_event_differ += u64::from(after.hidden.event);
         }
         let frame_cursor = match (&frames, valid) {
             (Some((first, _)), true) => {
@@ -373,7 +338,7 @@ impl GameAfterstates {
         let flags = u8::from(valid)
             | (u8::from(root_match) << 1)
             | (u8::from(forks_match) << 2)
-            | (u8::from(after.hidden_event) << 3)
+            | (u8::from(after.hidden.event) << 3)
             | (u8::from(after.asked_seat) << 4)
             | (u8::from(after.stop == AfterStop4::GameOver) << 5);
         #[allow(clippy::cast_possible_truncation, reason = "statistics are f32")]
@@ -389,13 +354,13 @@ impl GameAfterstates {
             frame_cursor,
             seat: step.seat,
             candidate: u8::try_from(candidate).map_err(|e| e.to_string())?,
-            stop,
+            stop: stop as u8,
             flags,
             answers: after.answers,
             next_kind: after.next_kind,
             worlds: u8::try_from(event.worlds.len()).unwrap_or(u8::MAX),
             halves,
-            card: cast_card(
+            card: spell_of(
                 &event.candidates[candidate],
                 event.scripts.get(candidate).and_then(Option::as_ref),
             ),
@@ -412,7 +377,7 @@ impl GameAfterstates {
     }
 }
 
-/// Writes the sidecar `dir` (`index.bin`, `header.json`) and gives its header.
+/// Writes the sidecar `dir` (`index.bin`, `header.json`).
 ///
 /// # Errors
 /// When `dir` already holds a sidecar or a file cannot be written.
@@ -421,15 +386,7 @@ pub(super) fn write(
     mut rows: Vec<AfterRow>,
     counts: &AfterCounts,
     extra: &Value,
-) -> anyhow::Result<Value> {
-    fs::create_dir_all(dir)?;
-    let index_path = dir.join("index.bin");
-    let header_path = dir.join("header.json");
-    ensure!(
-        !index_path.exists() && !header_path.exists(),
-        "{} holds a sidecar",
-        dir.display()
-    );
+) -> anyhow::Result<Sidecar> {
     rows.sort_by_key(|row| (row.game, row.seat, row.root_cursor, row.candidate));
     let mut index = Vec::with_capacity(rows.len() * AFTER_ROW);
     for row in &rows {
@@ -445,7 +402,6 @@ pub(super) fn write(
         index.extend_from_slice(&row.card.to_le_bytes());
         index.extend_from_slice(&[0; 4]);
     }
-    fs::write(&index_path, &index)?;
     let header = json!({
         "contract": AFTERSTATE_CONTRACT,
         "version": 1,
@@ -462,22 +418,23 @@ pub(super) fn write(
                 ["flags", "u1"], ["answers", "<u2"], ["next_kind", "u1"], ["worlds", "u1"],
                 ["even_mean", "<f4"], ["even_se", "<f4"], ["odd_mean", "<f4"],
                 ["odd_se", "<f4"], ["card", "<u4"], ["pad", "V4"]],
-            "stops": STOPS, "flags": FLAGS, "none": u32::MAX,
+            "stops": AfterStop4::ALL.map(AfterStop4::key), "flags": FLAGS, "none": u32::MAX,
             "halves": "world-by-world lead over the policy's own answer (candidate 0) on the \
                        even worlds (0, 2) and the odd ones (1, 3): mean and standard error \
                        (variance over n - 1, then over n); NaN where undefined",
-            "card": "the object id the candidate casts (its own cast or its planned cast)",
+            "card": "the object id of the card the candidate casts, suspends or foretells (its \
+                     own answer's or its planned cast's)",
             "sha256": super::shadow::sha(&index)},
         "rule": "baylee_train::convert4::afterstates: forks under DeckKnowledge::Prior from two \
                  seeds of (game, seat, root cursor), every chair driven; the candidate as the \
-                 search played it (a planned cast's Script4); stop at the next question; valid \
-                 only where the fork's root frame is the replay's and both forks' afterstate \
-                 frames are the same bytes",
+                 search played it (a planned cast's Script4, a target variant's target); stop at \
+                 the next question; valid only where the fork's root frame is the replay's, both \
+                 forks' afterstate frames are the same bytes, and neither fork showed the seat a \
+                 card it dealt or drew from its random stream",
         "counts": counts,
         "source": extra,
     });
-    fs::write(&header_path, serde_json::to_vec_pretty(&header)?)?;
-    Ok(header)
+    sidecar::write(dir, &[("index.bin", &index)], header)
 }
 
 #[cfg(test)]

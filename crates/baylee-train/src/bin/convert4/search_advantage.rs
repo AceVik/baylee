@@ -26,19 +26,23 @@
 //!   candidate; 0 and 0 at the policy's own item), searched `u8`, added by
 //!   the payable menu `u8`, coarse class `u8` (`coarse_class_v1`), a zero
 //!   byte;
+//! - `intents.bin` and `halves-judged.bin`: beside each root, what its bare
+//!   tap was for, and each half's choice judged on the other half;
 //! - `header.json`: the contract, the layouts, the files' SHA-256 and the
 //!   counts, with every root left out by its reason.
 //!
 //! A root is labelled only where every one of these holds, and otherwise
 //! counted by the reason it fails: the event was accepted; no rollout of it
 //! was stopped (`leaves.stopped == 0`); the game had no fallback or refused
-//! answer; the root is a priority question; every candidate takes an item of
-//! its own (`search_labels::macro_items`); and the event's own advantages and
-//! standard errors are the ones its worlds give. An event that does not bind
-//! to its frame (its played answer is not the record's) rejects the game.
+//! answer; the root is a priority question, and the policy's own answer one of
+//! [`ROOT_KINDS`]; its worlds are two or more; every candidate takes an item
+//! of its own (`search_labels::macro_items`); and the event's own advantages
+//! and standard errors are the ones its worlds give. An answer tried at two
+//! targets takes one item twice and is left out; tried at one, its labels are
+//! the answer's at that target. An event that does not bind to its frame (its
+//! played answer is not the record's) rejects the game.
 
 use std::collections::{BTreeMap, BTreeSet};
-use std::fs;
 use std::path::Path;
 
 use anyhow::{Context as _, ensure};
@@ -46,13 +50,17 @@ use baylee_engine::choice::PlayerAction;
 use baylee_train::convert4::Step4;
 use baylee_train::convert4::search_roots::{AfterCandidate4, Roots4, SearchRoot4};
 use baylee_train::features4::EncodedCandidates4;
-use baylee_train::search_labels::{HALVES_MARGIN, halves, macro_item, macro_items, paired};
+use baylee_train::search_labels::{
+    HALVES_MARGIN, MacroItemError4, halves, macro_item, macro_items, paired,
+};
 use baylee_train_ops::search_advantage::{
     MENUS_SHARDS_KEY, MENUS_SPLIT, SEARCH_ADVANTAGE_CONTRACT, twin_block,
 };
 use baylee_view::PlayerView;
 use serde::Deserialize;
 use serde_json::{Value, json};
+
+use super::sidecar::{self, Sidecar};
 
 /// The bytes of an index row.
 pub(super) const INDEX_ROW: usize = 48;
@@ -70,8 +78,7 @@ fn same(a: f64, b: f64) -> bool {
     (a - b).abs() <= BIND * (1.0 + a.abs().max(b.abs()))
 }
 
-/// The kind of a root by the policy's own answer, where it is a priority
-/// root.
+/// The kind of a root by the policy's own answer, where it has one.
 fn root_kind(action: &PlayerAction) -> Option<u8> {
     match action {
         PlayerAction::PassPriority => Some(0),
@@ -80,6 +87,23 @@ fn root_kind(action: &PlayerAction) -> Option<u8> {
         PlayerAction::ActivateAbility { .. } => Some(3),
         PlayerAction::CastSpell { .. } => Some(4),
         _ => None,
+    }
+}
+
+/// Why a root whose own answer has no kind is left out: it is no priority
+/// question, or it is one whose answer the sidecar has no code for. The codes
+/// stay the five they are, since the trainer reads no rows together whose
+/// headers name other kinds.
+fn without_kind(own: Option<&PlayerAction>) -> &'static str {
+    match own {
+        Some(
+            PlayerAction::Suspend { .. }
+            | PlayerAction::Foretell { .. }
+            | PlayerAction::TakeGrantedAction { .. }
+            | PlayerAction::PayWindow { .. }
+            | PlayerAction::CancelCast,
+        ) => "no_root_kind",
+        _ => "not_priority",
     }
 }
 
@@ -104,6 +128,9 @@ struct Event {
     candidates: Vec<PlayerAction>,
     #[serde(default)]
     scripts: Vec<Option<PlayerAction>>,
+    /// The target each candidate was tried at, where it was tried at one.
+    #[serde(default)]
+    targets: Vec<Option<PlayerAction>>,
     worlds: Vec<Vec<f64>>,
     chosen: usize,
     #[serde(default)]
@@ -112,12 +139,41 @@ struct Event {
     diffs: Vec<Option<f64>>,
     #[serde(default)]
     ses: Vec<Option<f64>>,
-    /// From runtime 0852c2a4b: in each world, the seat's first answer at
-    /// priority after the policy's own when that is a bare mana ability
-    /// (`null` otherwise). Other new fields (`ends`, `taken_back`) are read
-    /// by nothing here.
+    /// From runtime 0852c2a4b, where the policy's own answer is a bare mana
+    /// ability: in each world, the seat's first answer at priority after it
+    /// that is no mana ability, `null` where the rollout ended before one.
+    /// Other fields of that runtime (`ends`, `taken_back`) are read by
+    /// nothing here.
     #[serde(default)]
     own_intents: Vec<Option<PlayerAction>>,
+}
+
+impl Event {
+    /// The target candidate `at` was tried at.
+    fn target(&self, at: usize) -> Option<&PlayerAction> {
+        self.targets.get(at)?.as_ref()
+    }
+
+    /// The candidate at `at` as its search tried it.
+    fn tried(&self, at: usize, action: &PlayerAction) -> AfterCandidate4 {
+        AfterCandidate4 {
+            action: action.clone(),
+            script: self.scripts.get(at).cloned().flatten(),
+            target: self.target(at).cloned(),
+        }
+    }
+
+    /// Whether one answer was tried at several targets.
+    fn has_target_variants(&self) -> bool {
+        self.candidates.iter().enumerate().any(|(at, action)| {
+            self.target(at).is_some()
+                && self
+                    .candidates
+                    .iter()
+                    .enumerate()
+                    .any(|(other, same)| other != at && same == action)
+        })
+    }
 }
 
 /// What became of a game's events, by reason.
@@ -188,8 +244,8 @@ impl GameRoots {
                 Some("unbound")
             } else if event.leaves.stopped != 0 {
                 Some("stopped")
-            } else if event.candidates.first().and_then(root_kind).is_none() {
-                Some("not_priority")
+            } else if kind_of(&event).is_none() {
+                Some(without_kind(event.candidates.first()))
             } else if event.worlds.is_empty()
                 || event
                     .worlds
@@ -235,10 +291,7 @@ impl GameRoots {
                             .candidates
                             .iter()
                             .enumerate()
-                            .map(|(at, action)| AfterCandidate4 {
-                                action: action.clone(),
-                                script: event.scripts.get(at).cloned().flatten(),
-                            })
+                            .map(|(at, action)| event.tried(at, action))
                             .collect();
                         (*key, candidates)
                     })
@@ -308,7 +361,10 @@ fn label(event: &Event, root: &SearchRoot4) -> Result<(Vec<usize>, Vec<Item>), &
                 .chain(std::iter::repeat(None)),
         ),
     )
-    .map_err(baylee_train::search_labels::MacroItemError4::key)?;
+    .map_err(|error| match error {
+        MacroItemError4::SharedItem if event.has_target_variants() => "target_variants",
+        error => error.key(),
+    })?;
     let mut rows: Vec<Item> = (0..root.menu.candidates.len())
         .map(|at| Item {
             advantage: f32::NAN,
@@ -477,11 +533,7 @@ impl<'a> GameLabels<'a> {
             game: step.game_id,
             cursor: step.step_cursor,
             seat: step.seat,
-            kind: event
-                .candidates
-                .first()
-                .and_then(root_kind)
-                .unwrap_or(u8::MAX),
+            kind: kind_of(event).unwrap_or(u8::MAX),
             own: index(0),
             choice4: index(event.chosen),
             half_a: index(halves.on_even),
@@ -495,11 +547,10 @@ impl<'a> GameLabels<'a> {
     }
 
     /// A root's chain spell (`intents.bin`): where the event says what the
-    /// policy's bare tap was for (`own_intents`, runtime 0852c2a4b on), the
-    /// spell every world names; else, where the search kept the tap, the
-    /// spell the record's chain cast; `u32::MAX` elsewhere. Counted by
-    /// where it came from, and where the events and the record both say,
-    /// whether they differ.
+    /// policy's bare tap was for ([`intent_of`]), that spell; else, where the
+    /// search kept the tap, the spell the record's chain cast; `u32::MAX`
+    /// elsewhere. Counted by where it came from, and where the events and the
+    /// record both say, whether they differ.
     fn intent(&mut self, event: &Event, seat: u8, n: u64) -> u32 {
         if kind_of(event) != Some(1) {
             return u32::MAX;
@@ -533,8 +584,10 @@ impl<'a> GameLabels<'a> {
     }
 }
 
-/// A tap root's chain spell and where it came from: the spell every world
-/// of the event names (`own_intents`), else the record's (`from_record`,
+/// A tap root's chain spell and where it came from: the spell the event's
+/// worlds name (`own_intents`), where every world that names an answer names
+/// the same one; a world whose rollout ended before one names none and says
+/// nothing against it. Without `own_intents` the record's (`from_record`,
 /// where the search kept the tap).
 fn intent_of(event: &Event, from_record: Option<u32>) -> (u32, &'static str) {
     if event.own_intents.is_empty() {
@@ -583,10 +636,10 @@ const CHAIN: usize = 16;
 
 /// The spell a chain begun at `seat`'s input `n` cast at the table: the
 /// card of the seat's first cast, suspend or foretell after it, as the
-/// record names it, before the seat passes, cancels or answers anything
-/// but a mana ability; `u32::MAX` where it does none of those within
-/// [`CHAIN`] of its inputs. An activated ability may be a mana ability,
-/// which the record does not say, so it does not end a chain.
+/// record names it, before the seat passes, cancels or answers anything but
+/// a mana ability and the colour one asks for; `u32::MAX` where it does none
+/// of those within [`CHAIN`] of its inputs. An activated ability may be a
+/// mana ability, which the record does not say, so it does not end a chain.
 fn chain_spell(inputs: &[(u8, u64, PlayerAction)], seat: u8, n: u64) -> u32 {
     inputs
         .iter()
@@ -596,6 +649,7 @@ fn chain_spell(inputs: &[(u8, u64, PlayerAction)], seat: u8, n: u64) -> u32 {
         .find_map(|(_, _, action)| match action {
             PlayerAction::ActivateManaAbility { .. }
             | PlayerAction::ChooseManaAbility { .. }
+            | PlayerAction::ChooseColor(_)
             | PlayerAction::ActivateAbility { .. } => None,
             other => Some(spell_card(other).unwrap_or(u32::MAX)),
         })
@@ -604,7 +658,7 @@ fn chain_spell(inputs: &[(u8, u64, PlayerAction)], seat: u8, n: u64) -> u32 {
 
 /// The card a cast, a suspend or a foretell names, as the record and the
 /// events write it; `None` for any other answer.
-fn spell_card(action: &PlayerAction) -> Option<u32> {
+pub(super) fn spell_card(action: &PlayerAction) -> Option<u32> {
     match action {
         PlayerAction::CastSpell { card }
         | PlayerAction::Suspend { card }
@@ -647,7 +701,7 @@ fn twin_of(step: &Step4, root: &SearchRoot4) -> Step4 {
     twin
 }
 
-/// Writes the sidecar under `dir` and returns its header.
+/// Writes the sidecar under `dir`.
 ///
 /// # Errors
 /// When a file exists already or cannot be written.
@@ -656,19 +710,7 @@ pub(super) fn write(
     mut rows: Vec<Row>,
     counts: &Counts,
     extra: &Value,
-) -> anyhow::Result<Value> {
-    fs::create_dir_all(dir)?;
-    let paths = [
-        "index.bin",
-        "cands.bin",
-        "header.json",
-        "intents.bin",
-        "halves-judged.bin",
-    ]
-    .map(|name| dir.join(name));
-    for path in &paths {
-        ensure!(!path.exists(), "{} exists", path.display());
-    }
+) -> anyhow::Result<Sidecar> {
     rows.sort_by_key(|row| (row.game, row.seat, row.cursor));
     let mut index = Vec::with_capacity(rows.len() * INDEX_ROW);
     let mut cands = Vec::new();
@@ -702,10 +744,6 @@ pub(super) fn write(
             ]);
         }
     }
-    fs::write(&paths[0], &index)?;
-    fs::write(&paths[1], &cands)?;
-    fs::write(&paths[3], &intents)?;
-    fs::write(&paths[4], &judged)?;
     let header = json!({
         "contract": SEARCH_ADVANTAGE_CONTRACT,
         "version": 1,
@@ -736,11 +774,13 @@ pub(super) fn write(
             "order": "the index's",
             "meaning": "at a tap root: where the event says what the policy's bare tap \
                         was for (own_intents, runtime 0852c2a4b on), the card every world \
-                        names; else, where the search kept the tap (choice4 the own \
-                        answer), the card the seat's chain then cast, suspended or \
-                        foretold at the table, as the record names it; u32::MAX elsewhere, \
-                        where the worlds disagree or the chain passed first. Counted by \
-                        source in counts.intents. For analysis only.",
+                        that names an answer names; else, where the search kept the tap \
+                        (choice4 the own answer), the card the seat's chain then cast, \
+                        suspended or foretold at the table, as the record names it; \
+                        u32::MAX elsewhere, where the worlds disagree or the chain passed \
+                        first. Counted by source in counts.intents. No label: a reader may \
+                        take the tap and the cast it was for as one answer (the trainer's \
+                        arm V does, training4.afterstate.creativity).",
             "sha256": super::shadow::sha(&intents)},
         "halves_judged": {"file": "halves-judged.bin", "rows": rows.len(),
             "order": "the index's", "dtype": [["a_on_b", "<f4"], ["b_on_a", "<f4"]],
@@ -752,13 +792,26 @@ pub(super) fn write(
         "counts": counts,
         "source": extra,
     });
-    fs::write(&paths[2], serde_json::to_vec_pretty(&header)?)
-        .with_context(|| format!("writing {}", paths[2].display()))?;
-    Ok(header)
+    sidecar::write(
+        dir,
+        &[
+            ("index.bin", &index),
+            ("cands.bin", &cands),
+            ("intents.bin", &intents),
+            ("halves-judged.bin", &judged),
+        ],
+        header,
+    )
 }
 
 #[cfg(test)]
+pub(super) mod fixture;
+
+#[cfg(test)]
 mod tests;
+
+#[cfg(test)]
+mod game_tests;
 
 #[cfg(test)]
 mod chain_tests;

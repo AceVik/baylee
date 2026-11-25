@@ -1524,21 +1524,36 @@ NaN where no candidate took it; 0 and 0 at the policy's own), whether it was
 searched, whether the payable menu added it, and its coarse class. Each
 labelled root has a twin in the split `search-advantage-menus/` under the
 root's own key, its frame again with the payable menu and the recorded answer
-at its own index, ending in the 16-byte block BSA1 (kind 1, the root cursor),
-which the native packing admits and `trajectory_cache4 build --split
-search-advantage-menus` caches; every frame of the dataset keeps policy weight
-0, so no answer the search played becomes a policy target. A root is labelled
-only where its event was accepted, none of its rollouts was stopped, its game
-had no fallback or refused answer and every candidate maps to an item of its
-own; every other root is counted by its reason. Records of the fork-search
-runtimes before 445a4e276 (the count boundary) convert with one converter,
-c42/shared up to 253beb52b with the house-teacher line, after its frames were
-shown to be byte for byte those of the collection's own convert4; the meta
-names the collection's build, the converter's and that check, and the whole
-`search` of each run. A run for numbers only is refused. An answer the table
-refused has no record input and is counted `not_accepted`; a root with a single
-world has no standard error and is counted `one_world`; a root the replay gave
-no frame for is counted `no_frame`.
+at its own index, ending in the 16-byte block BSA1 (kind 1, the root cursor):
+a frame of that split ends in the block and a frame of no other split does, or
+no cache is built. `trajectory_cache4 build --split search-advantage-menus`
+caches the shards `meta.json` lists (a build that names no `--shard` takes all
+of them; a dataset without the split is refused). Every frame of the dataset
+keeps policy weight 0, so no answer the search played becomes a policy target.
+
+Only fair searches are read (`--search-fair`: the run's `search.decks` is the
+public prior's), so no label knows a list the seat does not, and every run of
+a dataset was played with one `search`; a run for numbers only is refused. A
+root is labelled only where its event was accepted, none of its rollouts was
+stopped, its game had no fallback or refused answer, its own answer has a root
+kind, it has two worlds or more and every candidate maps to an item of its own;
+every other root is counted by its reason. An answer the table refused has no
+record input (`not_accepted`); a priority answer the sidecar has no kind for (a
+suspend, a foretell, a granted action) is `no_root_kind`, since the trainer
+reads no rows together whose headers name other kinds; a single world has no
+standard error (`one_world`); an answer the search tried at two targets takes
+one item twice (`target_variants`, beside `shared_item`); a root the replay
+gave no frame for is `no_frame`. `intents.bin` says what a bare tap at a root
+was for: the spell every world that plays the chain out names, else the one the
+record's chain cast, colours answered on the way; arm V takes the tap and that
+cast as one answer.
+
+Records of the fork-search runtimes before 445a4e276 (the count boundary)
+convert with one converter, c42/shared up to 253beb52b with the house-teacher
+line, after its frames were shown to be byte for byte those of the collection's
+own convert4; the meta names the collection's build, the converter's and that
+check, the whole `search` of each run, and the SHA-256 of every file of the
+sidecar (`files_sha256`).
 
 **Afterstates** (`search_afterstate_v1`, `convert4 --search-advantage
 --search-afterstates`, encoder 10). For a head that judges an answer by the
@@ -1546,17 +1561,26 @@ position it leads to, each searched candidate of a labelled root also gets the
 seat's observation of the table right after it: the replay's table is forked
 with the seat's public prior (no real hidden card is in the fork), the
 candidate is played as the search played it, a planned cast by the planner's
-taps, and the capture stops at the next question
-(`baylee_train::convert4::afterstates`). It is made in two forks dealt from two
-seeds and kept only where both give the same frame and the fork's frame of the
-root is the replay's. The frames are the split `search-afterstate-frames`
-(observation frames, policy weight 0, cursor `8 * root cursor + candidate`, so
-a run that searched more than eight candidates is refused); the rows are the
-sidecar `search-afterstates/` (`bin/convert4/afterstates.rs` has the layout).
-The trainer's arm V (`training4/afterstate.py`) captures r1's value of each
-afterstate, fits V0 (a small head, r1 frozen) or V1 (a tower of r1's upper
-layers) to the measured advantages, and `decide` reads the report half once,
-under the pre-registration, for fits of exactly these afterstate files: it never
+taps and a target variant on to its target, and the capture stops at the next
+question (`baylee_train::convert4::afterstates`). It is made in two forks dealt
+from two seeds and kept only where the fork's frame of the root is the
+replay's, both forks give the same frame, neither fork showed the seat a card
+it dealt (in a view or a reveal), and neither drew from its random stream (a
+coin, a die, a choice at random; a shuffle draws too and is refused with them).
+The last two are checked and not left to the frames, because two deals hold the
+same card, and two coins fall alike, now and then. An event that only moves a
+hidden card, an opponent's draw, shows none and is kept; what reads a hidden
+card without showing it is caught where the two deals make the frames differ,
+and only there. A row's `stop` code says why an afterstate is not kept. The
+frames are the split `search-afterstate-frames` (observation frames, policy
+weight 0, cursor `8 * root cursor + candidate`, so a run that searched more
+than eight candidates is refused); the rows are the sidecar
+`search-afterstates/` (`bin/convert4/afterstates.rs` has the layout), whose
+files' digests `meta.json` names as it does the labels'. The trainer's arm V
+(`training4/afterstate.py`) captures r1's value of each afterstate, fits V0 (a
+small head, r1 frozen) or V1 (a tower of r1's upper layers) to the measured
+advantages, and `decide` reads the report half once, under the
+pre-registration, for fits of exactly these afterstate files: it never
 overwrites a decision, and names the stages it left out because they have no
 outputs. A frame's rule references are node ids of its dataset's card catalog
 (`card_structure.json`), so the rows' dataset, the afterstate dataset and the

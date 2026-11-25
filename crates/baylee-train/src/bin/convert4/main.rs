@@ -229,6 +229,8 @@ mod search_distill;
 mod search_source;
 mod self_imitation;
 mod shadow;
+#[cfg(feature = "onnx")]
+mod sidecar;
 mod train_decks;
 mod unreplayable;
 use output::{GameWriter, publish_ready};
@@ -1081,10 +1083,12 @@ fn main() -> anyhow::Result<()> {
             "decks": search_decks.as_ref().map(bundle_distill::TrainDecks::describe),
             "converter_build": baylee_build::short(), "converter_check": search_receipt,
             "first_games": args.first_games});
-        let header =
+        let sidecar =
             search_advantage::write(&args.out.join("search-advantage"), rows, &counts, &source)?;
+        let header = &sidecar.header;
         meta["search_advantage"] = json!({
             "contract": header["contract"], "sidecar": "search-advantage/header.json",
+            "files_sha256": sidecar.files_sha256,
             "twins": header["twins"], "counts": header["counts"], "source": source,
             "policy_weight": "0 on every frame: the search's answers are no policy targets",
         });
@@ -1093,15 +1097,17 @@ fn main() -> anyhow::Result<()> {
             let (rows, counts, mut shards) =
                 std::mem::take(&mut *after_labels.lock().expect("afterstate lock"));
             shards.sort();
-            let header = afterstates::write(
+            let sidecar = afterstates::write(
                 &args.out.join("search-afterstates"),
                 rows,
                 &counts,
                 &json!({"converter_build": baylee_build::short(),
                     "search_advantage": "search-advantage/header.json"}),
             )?;
+            let header = &sidecar.header;
             meta["search_afterstates"] = json!({
                 "contract": header["contract"], "sidecar": "search-afterstates/header.json",
+                "files_sha256": sidecar.files_sha256,
                 "frames": header["frames"], "counts": header["counts"],
             });
             meta[afterstates::AFTER_SHARDS_KEY] = json!(shards);

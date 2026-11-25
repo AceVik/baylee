@@ -27,6 +27,10 @@ fn the_new_fields_parse_and_own_intents_name_the_spell() {
     let split: Event =
         serde_json::from_value(event(&json!([cast, {"CastSpell": {"card": 31}}]), 1)).unwrap();
     assert_eq!(intent_of(&split, None), (u32::MAX, "events_disagree"));
+    // A world whose rollout ended before the seat's answer names none, and
+    // the others name the spell.
+    let cut: Event = serde_json::from_value(event(&json!([cast, null]), 0)).unwrap();
+    assert_eq!(intent_of(&cut, None), (29, "events"));
     let none: Event = serde_json::from_value(event(&json!([null, null]), 0)).unwrap();
     assert_eq!(intent_of(&none, Some(29)), (u32::MAX, "events_none"));
     // Before 0852c2a4b events carry none: the record's chain.

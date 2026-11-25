@@ -19,13 +19,18 @@ use baylee_engine::choice::PlayerAction;
 use crate::features4::EncodedCandidates4;
 
 /// A candidate a search tried at a root, as its event names it: the answer
-/// at the root and, for a planned cast, the cast its taps pay for.
+/// at the root and, for a planned cast, the cast its taps pay for, or the
+/// target it was tried at.
 #[derive(Clone, Debug, PartialEq)]
 pub struct AfterCandidate4 {
     /// The answer at the root (a planned cast's first tap).
     pub action: PlayerAction,
     /// The cast a planned candidate's taps pay for; `None` for a single answer.
     pub script: Option<PlayerAction>,
+    /// The target the search tried the answer at, the answer to the target
+    /// question that follows it; `None` where it tried none (the next
+    /// question, if it is one, was then the rollout's).
+    pub target: Option<PlayerAction>,
 }
 
 /// Builds a root's payable menu: `own` (the frame's menu) extended, with the

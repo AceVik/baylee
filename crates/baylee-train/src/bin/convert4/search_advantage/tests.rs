@@ -1,3 +1,5 @@
+use std::fs;
+
 use super::*;
 
 fn item(advantage: f32, searched: bool) -> Item {
@@ -36,12 +38,25 @@ fn the_sidecar_holds_sorted_roots_and_their_items() {
         dropped: BTreeMap::from([("stopped".to_owned(), 1)]),
         intents: BTreeMap::new(),
     };
-    let header = write(&dir, vec![row(2, 5, 3), row(1, 9, 2)], &counts, &json!({})).unwrap();
+    let Sidecar {
+        header,
+        files_sha256,
+    } = write(&dir, vec![row(2, 5, 3), row(1, 9, 2)], &counts, &json!({})).unwrap();
     let index = fs::read(dir.join("index.bin")).unwrap();
     let cands = fs::read(dir.join("cands.bin")).unwrap();
     let intents = fs::read(dir.join("intents.bin")).unwrap();
     let judged = fs::read(dir.join("halves-judged.bin")).unwrap();
     let _ = fs::remove_dir_all(&dir);
+    // What meta.json binds: every file, the header among them.
+    assert_eq!(files_sha256.len(), 5);
+    for (name, part) in [
+        ("index.bin", "index"),
+        ("cands.bin", "cands"),
+        ("intents.bin", "intents"),
+        ("halves-judged.bin", "halves_judged"),
+    ] {
+        assert_eq!(header[part]["sha256"], files_sha256[name], "{name}");
+    }
     assert_eq!(index.len(), 2 * INDEX_ROW);
     assert_eq!(cands.len(), 5 * CAND_ROW);
     let word = |at: usize| u32::from_le_bytes(index[at..at + 4].try_into().unwrap());

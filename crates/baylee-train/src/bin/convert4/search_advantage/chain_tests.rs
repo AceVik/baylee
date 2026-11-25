@@ -43,3 +43,26 @@ fn a_kept_tap_names_the_spell_its_chain_cast_and_nothing_else() {
         .collect();
     assert_eq!(chain_spell(&long, 0, 0), u32::MAX);
 }
+
+/// The colour a land asks for is part of its tap: a chain goes on past it.
+#[test]
+fn a_colour_does_not_end_a_chain() {
+    let spell = ObjectId::new(29, 0);
+    let inputs = vec![
+        (
+            0,
+            4,
+            PlayerAction::ActivateManaAbility {
+                source: ObjectId::new(10, 0),
+            },
+        ),
+        (
+            0,
+            5,
+            PlayerAction::ChooseColor(baylee_core::mana::ManaColor::Blue),
+        ),
+        (0, 6, PlayerAction::CastSpell { card: spell }),
+    ];
+    let id = serde_json::to_value(spell).unwrap().as_u64().unwrap();
+    assert_eq!(u64::from(chain_spell(&inputs, 0, 4)), id);
+}
