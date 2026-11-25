@@ -147,8 +147,12 @@ class Sidecar:
 
 def root_intents(dataset, rows):
     """Per root of `rows`: the spell a bare tap at the root was for (intents.bin), u32::MAX none."""
-    sidecar = V.SearchAdvantage.load(Path(dataset) / "search-advantage")
-    intents = np.fromfile(Path(dataset) / "search-advantage" / "intents.bin", dtype="<u4")
+    directory = Path(dataset) / "search-advantage"
+    sidecar = V.SearchAdvantage.load(directory)
+    raw = (directory / "intents.bin").read_bytes()
+    if hashlib.sha256(raw).hexdigest() != (sidecar.header.get("intents") or {}).get("sha256"):
+        raise ValueError("intents.bin does not match its header's digest")
+    intents = np.frombuffer(raw, dtype="<u4")
     if len(intents) != len(sidecar.index):
         raise ValueError("intents.bin and the index disagree")
     from .coarse import key
@@ -220,6 +224,8 @@ class AfterRows:
                 raise ValueError(f"{path} was captured for other rows than {rows_path}")
             if meta.get("model_sha256") not in sources:
                 raise ValueError(f"{path} comes from another net than the rows")
+            if metas and meta.get("structure_sha256") != metas[0].get("structure_sha256"):
+                raise ValueError(f"{path} was captured over another rule catalog than {metas[0]['path']}")
             if len(data["v"]) != len(part.cand):
                 raise ValueError(f"{path} has another number of candidates than its rows")
             for name in (*PER_CANDIDATE, "emb", "v", "v0", "intent"):
@@ -301,7 +307,17 @@ def pairwise(after, gaps, chosen, weight=None, target=None):
     target = after.rows.labels["A"].astype(np.float64) if target is None else target
     in_root = chosen[after.rows.root_of()]
     w = np.where(in_root, w, 0.)
-    return float((w * (gaps - target) ** 2).sum() / max(w.sum(), 1e-12))
+    if not w.sum() > 0:
+        raise ValueError("No searched candidate besides the own answers in these roots: there is no loss to select on")
+    return float((w * (gaps - target) ** 2).sum() / w.sum())
+
+
+def selection_half(after):
+    """The selection half of the held-out roots; a fit or a decision without one is refused."""
+    select, _ = V.held_out_halves(after.rows)
+    if not select.any():
+        raise ValueError("The rows hold out no game: the selection half is empty")
+    return select
 
 
 def selection_report(after, gaps, select):
@@ -382,7 +398,8 @@ def fit_v0(after, lr=1e-3, weight_decay=1e-2, epochs=40, batch=256, patience=6, 
     root_of = torch.from_numpy(rows.root_of())
     own = torch.from_numpy(after.own.astype(np.int64))
     scored = torch.from_numpy(after.scored)
-    select, _ = V.held_out_halves(rows)
+    select = selection_half(after)
+    zero_select = pairwise(after, np.zeros(len(rows.cand)), select)   # what a head of no gaps scores there
     train = V.training_roots(rows, rng)
 
     def gaps_all():
@@ -425,7 +442,8 @@ def fit_v0(after, lr=1e-3, weight_decay=1e-2, epochs=40, batch=256, patience=6, 
                 break
     head.load_state_dict(best_state)
     gaps = gaps_all()
-    return head, gaps, dict(history=history, best_select_loss=best, train_roots=int(len(train)),
+    return head, gaps, dict(history=history, best_select_loss=best, zero_select_loss=zero_select,
+                            train_roots=int(len(train)),
                             epochs_run=len(history))
 
 
@@ -471,14 +489,16 @@ def readout(net, board, pad, hidden, seat_feat, thinking_steps=THINKING_STEPS):
 
 
 class FrameStore:
-    """An afterstate dataset's frames, found by (game, seat, frame cursor)."""
+    """An afterstate dataset's frames, found by (game, seat, frame cursor). A frame's rule
+    references are node ids of its dataset's catalog, so the dataset's must be the net's."""
 
-    def __init__(self, dataset, encoder_version=10):
+    def __init__(self, dataset, net, encoder_version=10):
         import dataset4 as D4
         from trajectory_store4 import TrajectoryStore4
         from .coarse import key
         self.dataset = Path(dataset)
         meta = json.loads((self.dataset / "meta.json").read_text())
+        V.check_catalog(meta["structure_sha256"], net, f"The afterstate dataset {self.dataset}")
         self.store = TrajectoryStore4(self.dataset, FRAMES_SPLIT, meta[SHARDS_KEY])
         # The train split's reader decodes any BST4 frame of the dataset (its sizes and vocab).
         self.decoder = D4.TrajectoryDataset4(self.dataset, split="train", unroll_len=32,
@@ -502,12 +522,33 @@ class FrameStore:
         return frame
 
 
+def new_npz(out):
+    """The file `np.savez` writes for `--out`, which must not exist: it appends .npz to a name
+    without it, so that is the name to look for."""
+    out = Path(out)
+    out = out if out.suffix == ".npz" else out.with_name(out.name + ".npz")
+    if out.exists():
+        raise FileExistsError(f"{out} exists")
+    return out
+
+
+def check_structures(data, after_dir, net):
+    """The card structure digest the rows' dataset, the afterstate dataset and the net share."""
+    digests = [json.loads((Path(d) / "meta.json").read_text())["structure_sha256"] for d in (data, after_dir)]
+    if digests[0] != digests[1]:
+        raise ValueError(f"The rows' dataset {data} and the afterstate dataset {after_dir} use different public "
+                         "rule catalogs")
+    V.check_catalog(digests[0], net, f"The rows' dataset {data}")
+    return digests[0]
+
+
 # --- capture: r1's afterstate readouts ----------------------------------------------------------
 
 def capture(args):
     from torch_io4 import file_digest
     from value_calibration4.checkpoint import load_source
     from .advantage_tower import Roots
+    out = new_npz(args.out)
     torch.set_num_threads(args.threads)
     device = torch.device(args.device)
     path, _, net = load_source(args.model)
@@ -519,6 +560,7 @@ def capture(args):
         raise ValueError("The rows were captured from another net than --model")
     data = Path(part.meta["data"])
     after_dir = Path(args.afterstates)
+    structure = check_structures(data, after_dir, net)
     original = json.loads((data / "search-advantage" / "header.json").read_text())
     again = json.loads((after_dir / "search-advantage" / "header.json").read_text())
     for name in ("index", "cands"):
@@ -528,7 +570,7 @@ def capture(args):
     sidecar = Sidecar.load(after_dir)
     joined = sidecar.join(part)
     intent = root_intents(data, part)
-    frames = FrameStore(after_dir)
+    frames = FrameStore(after_dir, net)
     net = net.to(device).eval()
     n, d = len(part.cand), net.cfg.d_model
     emb = np.zeros((n, 3 * d), dtype=np.float16)
@@ -557,16 +599,14 @@ def capture(args):
                 print(f"[afterstate] capture {start + len(chunk)}/{len(todo)} "
                       f"{time.perf_counter() - began:.0f} s", flush=True)
     meta = dict(contract=ROWS_CONTRACT, rows=str(args.rows), rows_sha256=sha256(args.rows), data=str(data),
-                afterstates=str(after_dir), sidecar_sha256=sidecar.header["index"]["sha256"],
+                afterstates=str(after_dir), structure_sha256=structure,
+                sidecar_sha256=sidecar.header["index"]["sha256"],
                 sidecar_counts=sidecar.header.get("counts"), model=str(path), model_sha256=source,
                 device=str(device), thinking_steps=THINKING_STEPS, valid=int(joined["valid"].sum()),
                 searched=int(part.labels["searched"].sum()), seconds=time.perf_counter() - began,
                 smoke_candidates=args.smoke_candidates, captured=int(len(todo)),
                 trainer_source=str(Path(__file__).resolve().parents[3]))
-    out = Path(args.out)
-    if out.exists():
-        raise FileExistsError(f"{out} exists")
-    np.savez(out, meta=json.dumps(meta), emb=emb, v=v, v0=v0, intent=intent,
+    np.savez(new_npz(out), meta=json.dumps(meta), emb=emb, v=v, v0=v0, intent=intent,
              **{name: joined[name] for name in PER_CANDIDATE})
     print("[afterstate] capture " + json.dumps({k: meta[k] for k in ("valid", "searched", "seconds")}), flush=True)
     return meta
@@ -625,6 +665,10 @@ class TowerData:
         """`roots_needed` ([R] bool, smoke tests only): decode only those roots' afterstates."""
         from .advantage_tower import Roots
         parts = [V.AdvantageRows.load(p) for p in rows_paths]
+        if not len(parts) == len(state_dirs) == len(after_dirs):
+            raise ValueError("One --state-dir and one --after-data per --rows file, in the same order")
+        for part, after_dir in zip(parts, after_dirs):
+            check_structures(part.meta["data"], after_dir, net)
         hidden = []
         for part, state_dir in zip(parts, state_dirs):
             hidden.append(Roots.load([part], [state_dir], net, source, log=log).hidden)
@@ -636,7 +680,7 @@ class TowerData:
         base = 0
         began = time.perf_counter()
         for part, after_dir in zip(parts, after_dirs):
-            store = FrameStore(after_dir)
+            store = FrameStore(after_dir, net)
             span = np.arange(base, base + len(part.cand))
             todo = span[after.scored[span]]
             if roots_needed is not None:
@@ -668,6 +712,8 @@ def fit_v1(after, data, frozen, device, tower_lr=3e-5, alpha_lr=1e-3, epochs=25,
     torch.manual_seed(seed)
     rng = np.random.default_rng(seed)
     rows = after.rows
+    select = selection_half(after)
+    zero_select = pairwise(after, np.zeros(len(rows.cand)), select)
     began = time.perf_counter()
     root_of_all = rows.root_of()
     tower = make_tower(frozen).to(device)
@@ -679,7 +725,6 @@ def fit_v1(after, data, frozen, device, tower_lr=3e-5, alpha_lr=1e-3, epochs=25,
                                    dict(params=[alpha], lr=alpha_lr, weight_decay=0.)])
     target, w, nu = after.weights()
     offset, n_of, own_of = (rows.roots[k].astype(np.int64) for k in ("offset", "n", "own"))
-    select, _ = V.held_out_halves(rows)
     train = V.training_roots(rows, rng)
     train = train[after.root_ok[train]]
     if smoke_roots:
@@ -777,7 +822,8 @@ def fit_v1(after, data, frozen, device, tower_lr=3e-5, alpha_lr=1e-3, epochs=25,
         alpha.fill_(best_state["alpha"])
     held = np.flatnonzero(rows.held_out & after.root_ok)
     gaps = None if smoke_roots else full_gaps(held)
-    return best_state, gaps, dict(history=history, best_select_loss=best, stopped=stopped, reproduce=check,
+    return best_state, gaps, dict(history=history, best_select_loss=best, zero_select_loss=zero_select,
+                                  stopped=stopped, reproduce=check,
                                   train_roots=int(len(train)), minutes=(time.perf_counter() - began) / 60,
                                   trainable_parameters=sum(p.numel() for p in params))
 
@@ -800,14 +846,26 @@ def reproduce(after, data, frozen, tower, board_of, values, chosen, device):
 # --- decide -------------------------------------------------------------------------------------
 
 def decide(prereg_path, stage_dirs, after, out_path):
+    """The pre-registered decision over the fits of `stage_dirs`, in tie-break order: the stage by
+    the selection half, its verdict by the report half, which is read once (`out_path` must not
+    exist). A stage without its outputs is no candidate and is named in `left_out`."""
     from .advantage_tower import verdict, margin_key
+    if Path(out_path).exists():
+        raise FileExistsError(f"{out_path} exists: the report half is read once")
     prereg, digest = read_preregistration(prereg_path)
-    fits = {}
+    names = [name for name, _ in stage_dirs]
+    if len(set(names)) != len(names):
+        raise ValueError(f"A stage is named twice: {names}")
+    fits, left_out = {}, []
     for name, directory in stage_dirs:
         fit_path = Path(directory) / "fit.json"
         if not fit_path.is_file():
-            continue   # a stage without its outputs is no candidate
+            left_out.append(dict(stage=name, directory=str(directory)))
+            print(f"[afterstate] decide leaves out stage {name}: {directory} holds no fit.json", flush=True)
+            continue
         fit = json.loads(fit_path.read_text())
+        if fit.get("contract") != FIT_CONTRACT:
+            raise ValueError(f"{directory} holds a fit of {fit.get('contract')!r}, not {FIT_CONTRACT}")
         if fit.get("preregistration_sha256") != digest:
             raise ValueError(f"{directory} was not fit under this pre-registration")
         gaps = np.load(Path(directory) / "sealed" / "gaps.npy")
@@ -823,7 +881,9 @@ def decide(prereg_path, stage_dirs, after, out_path):
         raise ValueError("No stage produced its outputs")
     # The selection half again, with the rule's weights (the gain and the margin do not read
     # weights; the falsifier's Pearson does): the stage and its margin come from here.
-    select, final = V.held_out_halves(after.rows)
+    select, (_, final) = selection_half(after), V.held_out_halves(after.rows)
+    if not final.any():
+        raise ValueError("The rows hold out a single game per source: the report half is empty")
     selection = {}
     for name, (fit, gaps) in fits.items():
         chooser, margin, gain = selection_report(after, gaps, select)
@@ -854,7 +914,10 @@ def decide(prereg_path, stage_dirs, after, out_path):
         for s in np.unique(after.rows.source)} for name, (fit, gaps) in fits.items()}
     raw = after.gate(np.where(after.scored, after.v - after.v[after.own][after.rows.root_of()], 0.))
     out = dict(contract=DECISION_CONTRACT, preregistration=str(prereg_path), preregistration_sha256=digest,
-               rule=prereg["rule"], selection_gain_per_100_roots=gains, selection=selection, chosen_stage=chosen,
+               rule=prereg["rule"],
+               stages={name: dict(stage=fit.get("stage"), seed=fit.get("seed"), directory=str(dict(stage_dirs)[name]))
+                       for name, (fit, _) in fits.items()}, left_out=left_out,
+               selection_gain_per_100_roots=gains, selection=selection, chosen_stage=chosen,
                verdict=verdicts[chosen],
                creativity=dict(chosen=creative[chosen], by_stage=creative,
                                discovery_rate_all_roots_per_100=discovery(after, np.ones(len(after.rows.state), bool))[1]),
@@ -868,8 +931,10 @@ def decide(prereg_path, stage_dirs, after, out_path):
                         "order, own first), at each stage's own margin; requested by the coordinator after the seal",
                    first_four=post_hoc),
                reports=reports)
-    Path(out_path).write_text(strict_json(out))
-    print("[afterstate] decision " + json.dumps(dict(chosen_stage=chosen, verdict=out["verdict"],
+    with open(out_path, "x") as stream:
+        stream.write(strict_json(out))
+    print("[afterstate] decision " + json.dumps(dict(chosen_stage=chosen, left_out=[s["stage"] for s in left_out],
+                                                     verdict=out["verdict"],
                                                      creativity=out["creativity"]["chosen"])), flush=True)
     return out
 
@@ -877,7 +942,7 @@ def decide(prereg_path, stage_dirs, after, out_path):
 # --- command line -------------------------------------------------------------------------------
 
 def stage_result(stage, after, gaps, extra, args, digest):
-    select, _ = V.held_out_halves(after.rows)
+    select = selection_half(after)
     gaps = after.gate(gaps)
     chooser, margin, gain = selection_report(after, gaps, select)
     raw = after.gate(np.where(after.scored, after.v - after.v[after.own][after.rows.root_of()], 0.))

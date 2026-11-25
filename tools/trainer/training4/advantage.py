@@ -650,6 +650,13 @@ class RootPass:
         return seen["state"][0], [seen["cand"][0][i, :width] for i, width in enumerate(widths)]
 
 
+def check_catalog(digest, net, what):
+    """A dataset's rule references are node ids of its own card catalog: a net with another catalog
+    would read other rules under them, and no shape or range would show it."""
+    if digest != net.rules.digest:
+        raise ValueError(f"{what} and the net use different public rule catalogs")
+
+
 def locate_roots(dataset, plan, twin, kept_games=None):
     """The twins (rows of `search-advantage-menus`, in index order) whose root frame lies in this
     split, their root frames' store rows, and each store row's piece in `plan` (decision frames
@@ -707,6 +714,7 @@ def capture(args):
     parts, counts = [], {}
     for split in args.splits:
         dataset = D4.TrajectoryDataset4(data, split=split, unroll_len=32, encoder_version=args.encoder_version)
+        check_catalog(dataset.structure.digest, net, f"The dataset {data}")
         kept_games = None
         if args.max_games:
             # The first games by id: only their trajectories get a state pass and only their twins a row.

@@ -2,11 +2,14 @@
 weights, the readout against the model's own forward, the tower's split board, V0's fit and the
 sealed decision."""
 import contextlib
+import hashlib
 import io
 import json
 import tempfile
 import unittest
 from pathlib import Path
+from types import SimpleNamespace
+from unittest.mock import patch
 
 import numpy as np
 import torch
@@ -130,6 +133,124 @@ class Sidecar(unittest.TestCase):
             S.Sidecar(swapped, {}, None).join(rows)
 
 
+class Intents(unittest.TestCase):
+    def test_the_intents_are_the_headers_file(self):
+        sidecar = SimpleNamespace(
+            index=np.zeros(3, dtype=V.SIDECAR_INDEX),
+            header=dict(intents=dict(sha256=hashlib.sha256(np.arange(3, dtype="<u4").tobytes()).hexdigest())))
+        sidecar.index["game"], sidecar.index["root_cursor"] = (0, 0, 1), (0, 10, 20)
+        rows = rows_of(roots=3)
+        with tempfile.TemporaryDirectory() as temporary, \
+                patch.object(V.SearchAdvantage, "load", return_value=sidecar):
+            directory = Path(temporary) / "search-advantage"
+            directory.mkdir()
+            np.arange(3, dtype="<u4").tofile(directory / "intents.bin")
+            self.assertEqual(S.root_intents(temporary, rows).tolist(), [0, 1, 2])
+            (np.arange(3, dtype="<u4") + 1).tofile(directory / "intents.bin")   # another file of the same length
+            with self.assertRaisesRegex(ValueError, "digest"):
+                S.root_intents(temporary, rows)
+            sidecar.header = {}
+            with self.assertRaisesRegex(ValueError, "digest"):
+                S.root_intents(temporary, rows)
+
+    def test_a_capture_never_overwrites_the_file_it_would_write(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            self.assertEqual(S.new_npz(root / "after.npz"), root / "after.npz")
+            self.assertEqual(S.new_npz(root / "after.v2"), root / "after.v2.npz")
+            (root / "after.npz").touch()
+            for name in ("after", "after.npz"):   # np.savez writes after.npz for both
+                with self.subTest(name), self.assertRaises(FileExistsError):
+                    S.new_npz(root / name)
+
+
+class Structures(unittest.TestCase):
+    """A dataset's rule references index its own catalog: rows, afterstates and net share one."""
+
+    def datasets(self, root, rows="catalog-a", after="catalog-a"):
+        for name, digest in (("rows", rows), ("after", after)):
+            (root / name).mkdir()
+            (root / name / "meta.json").write_text(json.dumps({"structure_sha256": digest, S.SHARDS_KEY: ["s"]}))
+        return root / "rows", root / "after"
+
+    net = SimpleNamespace(rules=SimpleNamespace(digest="catalog-a"))
+
+    def test_rows_afterstates_and_net_share_one_catalog(self):
+        for rows, after, refused in (("catalog-a", "catalog-a", None),
+                                     ("catalog-a", "catalog-b", "The rows' dataset .* different public rule catalogs"),
+                                     ("catalog-b", "catalog-a", "The rows' dataset .* different public rule catalogs"),
+                                     ("catalog-b", "catalog-b", "and the net use different public rule catalogs")):
+            with self.subTest(rows=rows, after=after), tempfile.TemporaryDirectory() as temporary:
+                data, after_dir = self.datasets(Path(temporary), rows, after)
+                if refused is None:
+                    self.assertEqual(S.check_structures(data, after_dir, self.net), "catalog-a")
+                else:
+                    with self.assertRaisesRegex(ValueError, refused):
+                        S.check_structures(data, after_dir, self.net)
+
+    def test_the_store_reads_only_the_nets_catalog(self):
+        index = np.array([(7, 1, 80)], dtype=[("game", "<u4"), ("seat", "u1"), ("cursor", "<u4")])
+        with tempfile.TemporaryDirectory() as temporary, \
+                patch("trajectory_store4.TrajectoryStore4", return_value=SimpleNamespace(index=index)) as store, \
+                patch("dataset4.TrajectoryDataset4") as dataset:
+            data, after_dir = self.datasets(Path(temporary), after="catalog-b")
+            with self.assertRaisesRegex(ValueError, "different public rule catalogs"):
+                S.FrameStore(after_dir, self.net)
+            store.assert_not_called()
+            dataset.assert_not_called()
+            frames = S.FrameStore(data, self.net)
+            store.assert_called_once_with(data, S.FRAMES_SPLIT, ["s"])
+            self.assertEqual(frames.rows_of([7], [1], [80]).tolist(), [0])
+            with self.assertRaisesRegex(ValueError, "missing"):
+                frames.rows_of([7], [1], [81])
+
+    def test_the_capture_and_the_tower_refuse_before_they_decode(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            data, after_dir = self.datasets(root, after="catalog-b")
+            rows = rows_of(roots=4)
+            rows.save(root / "rows.npz", data=str(data), model_sha256="net")
+            args = SimpleNamespace(threads=1, device="cpu", model="m", rows=root / "rows.npz", state_dir=str(root),
+                                   afterstates=str(after_dir), out=str(root / "after.npz"), batch=4, smoke_candidates=0)
+            with patch("value_calibration4.checkpoint.load_source",
+                       return_value=("m", {}, SimpleNamespace(rules=self.net.rules))), \
+                    patch("torch_io4.file_digest", return_value="net"), \
+                    patch("training4.advantage_tower.Roots.load", side_effect=AssertionError("decoded")):
+                with self.assertRaisesRegex(ValueError, "different public rule catalogs"):
+                    S.capture(args)
+                with self.assertRaisesRegex(ValueError, "different public rule catalogs"):
+                    S.TowerData(after_of(rows), [root / "rows.npz"], [root], [after_dir], self.net, "net")
+                with self.assertRaisesRegex(ValueError, "One --state-dir and one --after-data"):
+                    S.TowerData(after_of(rows), [root / "rows.npz"], [root], [], self.net, "net")
+                # The same catalog: past the check, to the roots.
+                (after_dir / "meta.json").write_text((data / "meta.json").read_text())
+                with self.assertRaisesRegex(AssertionError, "decoded"):
+                    S.TowerData(after_of(rows), [root / "rows.npz"], [root], [after_dir], self.net, "net")
+
+    def test_captures_of_two_catalogs_do_not_pool(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            rows = rows_of(roots=4)
+            joined = {name: getattr(after_of(rows), name) for name in S.PER_CANDIDATE}
+            for name in ("a", "b"):
+                rows.save(root / f"rows-{name}.npz", data=str(root), model_sha256="net")
+            files = [root / "rows-a.npz", root / "rows-b.npz"], [root / "after-a.npz", root / "after-b.npz"]
+
+            def capture(path, rows_path, digest):
+                n = len(rows.cand)
+                meta = dict(contract=S.ROWS_CONTRACT, rows_sha256=S.sha256(rows_path), model_sha256="net",
+                            structure_sha256=digest)
+                np.savez(path, meta=json.dumps(meta), emb=np.zeros((n, 12), np.float16), v=np.zeros(n, np.float32),
+                         v0=np.zeros(n, np.float32), intent=np.full(len(rows.state), S.NONE), **joined)
+
+            for rows_path, path in zip(*files):
+                capture(path, rows_path, "catalog-a")
+            self.assertEqual(len(S.AfterRows.load(*files, halves_judged=False).v), 2 * len(rows.cand))
+            capture(files[1][1], files[0][1], "catalog-b")
+            with self.assertRaisesRegex(ValueError, "another rule catalog"):
+                S.AfterRows.load(*files, halves_judged=False)
+
+
 def tiny_net(layers=4):
     from model4 import Config4, PlayerNet4
     torch.manual_seed(0)
@@ -189,6 +310,42 @@ class Readout(unittest.TestCase):
         self.assertTrue(any(n.startswith("trunk_layers.11.") for n in trainable))
 
 
+class FitTower(unittest.TestCase):
+    def test_v1_trains_the_towers_modules_and_r1_stays_as_it_was(self):
+        torch.set_num_threads(1)
+        net = tiny_net(layers=12)
+        rows = rows_of(roots=24)
+        n, root_of = len(rows.cand), rows.root_of()
+        boards, hidden = board_batch(b=n, seed=3), torch.randn(len(rows.state), 9, 32)
+        with torch.no_grad():
+            board, pad = net.encode_board(*boards)
+            v, _, emb = S.readout(net, board, pad, hidden[torch.from_numpy(root_of)], boards[3])
+        valid = np.ones(n, dtype=bool)
+        valid[[2, 5, 8]] = False   # two candidates and root 2's own answer
+        after = after_of(rows, d=32, valid=valid, emb=emb.numpy().astype(np.float16), v=v.numpy())
+
+        def collate(frames):
+            host = {name: value[torch.tensor(frames)][:, None] for name, value in zip(S.BOARD_INPUTS, boards)}
+            return dict(host, cand_rules=torch.zeros(len(frames), 1, 1, 1, 2, dtype=torch.long))
+
+        before = {k: x.clone() for k, x in net.state_dict().items()}
+        data = SimpleNamespace(hidden=hidden, frames={i: i for i in range(n) if after.scored[i]})
+        with patch.object(S, "collate", collate):
+            best, gaps, extra = S.fit_v1(after, data, net, torch.device("cpu"), tower_lr=1e-3, epochs=2, batch=8,
+                                         minutes=0, seed=1, log=lambda *_: None)
+        self.assertTrue(all(torch.equal(before[k], x) for k, x in net.state_dict().items()))
+        self.assertEqual(len(net.trunk_layers), 12)
+        self.assertFalse(any(p.grad is not None for p in net.parameters()))
+        self.assertLess(extra["reproduce"]["max_abs"], 1e-5)
+        moved = {k for k in best["tower"] if not torch.equal(best["tower"][k], before[k])}
+        for module in S.V1_MODULES:
+            self.assertTrue(any(k.startswith(module + ".") for k in moved), module)
+        held = rows.held_out[root_of]
+        self.assertTrue((gaps[held & after.scored] != 0).any())
+        self.assertTrue((gaps[~held] == 0).all() and (gaps[~after.scored] == 0).all())
+        self.assertLessEqual(extra["best_select_loss"], max(h["select"] for h in extra["history"]))
+
+
 class FitAndDecide(unittest.TestCase):
     def synthetic_after(self, roots=400):
         """Afterstate embeddings that carry the advantage: e(s'_i) - e(s'_own) is linear in A."""
@@ -242,6 +399,29 @@ class FitAndDecide(unittest.TestCase):
                              [True, True, True, False])
             self.assertGreater(out["verdict"]["pearson_pooled"], .8)
             self.assertIn("first_four", out["post_hoc_not_preregistered"])
+            self.assertEqual((list(out["stages"]), out["left_out"]), (["V0", "V1"], []))
+            # The report half is read once: an existing decision stays.
+            kept_decision = (Path(temporary) / "decision.json").read_text()
+            with self.assertRaisesRegex(FileExistsError, "read once"):
+                S.decide(prereg, [("V0", Path(temporary) / "V0")], after, Path(temporary) / "decision.json")
+            self.assertEqual((Path(temporary) / "decision.json").read_text(), kept_decision)
+            # A stage without its outputs is no candidate and is named.
+            with contextlib.redirect_stdout(io.StringIO()) as said:
+                out = S.decide(prereg, [("V0", Path(temporary) / "V0"), ("V1", Path(temporary) / "missing")], after,
+                               Path(temporary) / "alone.json")
+            self.assertEqual([stage["stage"] for stage in out["left_out"]], ["V1"])
+            self.assertEqual(out["stages"]["V0"], dict(stage="V0", seed=1, directory=str(Path(temporary) / "V0")))
+            self.assertIn("leaves out stage V1", said.getvalue())
+            with self.assertRaisesRegex(ValueError, "named twice"):
+                S.decide(prereg, [("V0", Path(temporary) / "V0")] * 2, after, Path(temporary) / "twice.json")
+            with contextlib.redirect_stdout(io.StringIO()), self.assertRaisesRegex(ValueError, "No stage produced"):
+                S.decide(prereg, [("V1", Path(temporary) / "missing")], after, Path(temporary) / "none.json")
+            # A fit of another contract is refused.
+            other = Path(temporary) / "other-contract"
+            S.seal(other, gaps, dict(result, contract="search_advantage_tower_v1"))
+            with self.assertRaisesRegex(ValueError, "search_advantage_tower_v1"):
+                S.decide(prereg, [("V0", other)], after, Path(temporary) / "other.json")
+            self.assertFalse((Path(temporary) / "other.json").exists())
             # The gaps belong to the afterstate files they were fit on, in their order.
             kept = dict(after.meta)
             after.meta["sources"] = [dict(sha256="another file")]
@@ -253,6 +433,39 @@ class FitAndDecide(unittest.TestCase):
             prereg.write_text(prereg.read_text() + " ")
             with self.assertRaises(ValueError):
                 S.decide(prereg, [("V0", Path(temporary) / "V0")], after, Path(temporary) / "again.json")
+
+    def test_a_fit_without_a_selection_half_is_refused(self):
+        rows = rows_of(roots=40)
+        rows.held_out[:] = False
+        after = after_of(rows)
+        with self.assertRaisesRegex(ValueError, "selection half is empty"):
+            S.fit_v0(after, epochs=1, log=lambda *_: None)
+        with self.assertRaisesRegex(ValueError, "selection half is empty"):
+            S.fit_v1(after, None, None, torch.device("cpu"), log=lambda *_: None)
+        with self.assertRaisesRegex(ValueError, "selection half is empty"):
+            S.stage_result("V0", after, np.zeros(len(rows.cand)), {}, SimpleNamespace(preregistration="p", seed=1), "d")
+        # Held-out games, but nothing searched besides their own answers: no loss either.
+        rows = rows_of(roots=40)
+        rows.labels["searched"][np.repeat(rows.held_out, 4) & (np.tile(np.arange(4), 40) > 0)] = False
+        after = after_of(rows)
+        select, _ = V.held_out_halves(rows)
+        with self.assertRaisesRegex(ValueError, "no loss to select on"):
+            S.pairwise(after, np.zeros(len(rows.cand)), select)
+        with self.assertRaisesRegex(ValueError, "no loss to select on"):
+            S.fit_v0(after, epochs=1, log=lambda *_: None)
+
+    def test_a_decision_without_a_report_half_is_refused(self):
+        after = self.synthetic_after(roots=40)
+        after.rows.held_out[:] = after.rows.roots["game"] == 4   # one held-out game: all of it selects
+        with tempfile.TemporaryDirectory() as temporary:
+            prereg = Path(temporary) / "prereg.json"
+            prereg.write_text(json.dumps(dict(contract=S.PREREGISTRATION_CONTRACT, rule={})))
+            args = SimpleNamespace(preregistration=str(prereg), seed=1)
+            gaps = np.zeros(len(after.rows.cand))
+            S.seal(Path(temporary) / "V0", gaps,
+                   S.stage_result("V0", after, gaps, {}, args, S.read_preregistration(prereg)[1]))
+            with self.assertRaisesRegex(ValueError, "report half is empty"):
+                S.decide(prereg, [("V0", Path(temporary) / "V0")], after, Path(temporary) / "decision.json")
 
 
 if __name__ == "__main__":

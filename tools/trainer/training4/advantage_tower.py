@@ -158,6 +158,7 @@ class Roots:
                 if not cache.is_file():
                     raise FileNotFoundError(f"{cache}: the capture's window-state cache is missing; the tower never computes it")
                 dataset = D4.TrajectoryDataset4(data, split=split, unroll_len=32, encoder_version=encoder_version)
+                V.check_catalog(dataset.structure.digest, net, f"The rows' dataset {data}")
                 max_games = int(part.meta.get("max_games", 0) or 0)
                 kept_games = None
                 if max_games:
