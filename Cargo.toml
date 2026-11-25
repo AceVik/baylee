@@ -106,8 +106,8 @@ bytes = "1"
 unicode-normalization = "0.1"
 futures-util = "0.3"
 rustc-hash = "2"
-# Public layout/camera types cross directly into Bevy 0.20.1 (glam 0.33.2).
-glam = "=0.33.2"
+# Public layout/camera types cross directly into Bevy 0.20.1, which takes any glam 0.33 from 0.33.2 on.
+glam = "=0.33.12"
 xxhash-rust = { version = "0.8", features = ["xxh3"] }
 rand_chacha = "0.10"
 rand_core = "0.10"
@@ -151,7 +151,7 @@ hyper-rustls = { version = "0.27", default-features = false, features = ["http1"
 hyper-util = { version = "0.1", default-features = false, features = ["client-legacy", "http1", "tokio"] }
 # The optional workstation monitor: no GPU context, no process commands,
 # and no parallel process scan competing with the training workers.
-sysinfo = { version = "0.40.1", default-features = false, features = ["system"] }
+sysinfo = { version = "0.40.4", default-features = false, features = ["system"] }
 nvml-wrapper = "0.13"
 argon2 = "0.6"
 getrandom = "0.4"
