@@ -1550,7 +1550,12 @@ sidecar `search-afterstates/` (`bin/convert4/afterstates.rs` has the layout).
 The trainer's arm V (`training4/afterstate.py`) captures r1's value of each
 afterstate, fits V0 (a small head, r1 frozen) or V1 (a tower of r1's upper
 layers) to the measured advantages, and `decide` reads the report half once,
-under the pre-registration, for fits of exactly these afterstate files.
+under the pre-registration, for fits of exactly these afterstate files: it never
+overwrites a decision, and names the stages it left out because they have no
+outputs. A frame's rule references are node ids of its dataset's card catalog
+(`card_structure.json`), so the rows' dataset, the afterstate dataset and the
+net must share one `structure_sha256`; captures and towers refuse any other.
+Convert a dataset and its afterstates with one converter build.
 
 **Probing the layer's answers** (`distill_probe_v1`, "learn from the
 wheels"). Imitating `R` everywhere taught the raw net the layer's holds
@@ -1610,14 +1615,30 @@ zero moves the student toward `R`, one below toward its own `N`, and a mean
 of zero with the student at r1 moves nothing. There is no cross-entropy to
 `R` anywhere else: unprobed `N ≠ R` frames keep only the KL to r1
 (`kl_adv_unprobed`), pooled with the `N = R` frames, and every other kind
-keeps its KL. The sidecar is joined by (game, seat, cursor) and checked
-against the frame (`R` its target, `N`, subtype, fired groups, the `N ≠ R`
-flag) and against `meta.json` (rows, contract, SHA-256). Validation reports
-where `R` is ahead (mean − se > 0) the student's and r1's top-1 agreement
-with `R` (`val_adv_r_ahead_top1_r`, `_r1`), where `N` is ahead their
-agreement with `N` (`val_adv_n_ahead_top1_n`, `_r1`), the correlation of
-the student's shift with the clipped advantage (`val_adv_shift_corr`), and
-selects on the mean of the two agreements (`val_adv_selection`); the
+keeps its KL. A probed row weighs the same however many share its batch: the
+term is the batch's sum over its probed rows divided by a constant of the run,
+the training split's usable probes per training batch (at least 1), where it
+was the batch's mean until 25 November (a row alone in its batch weighed thirty
+times one of thirty); the run's identity names the rule (`row_weight`,
+`constant_v2`) and the number. The reported `bce_adv_pairwise` is the rows' mean
+either way, and `--distill-advantage-weight` keeps its meaning: over an epoch
+the term is that mean where a batch holds a probe or more on average.
+The sidecar is joined by (game, seat, cursor) and checked against the frame:
+`R` is its target, `N` is on the menu, unmasked, not `R`, and the recorded `N`
+where the dataset has the coarse-class sidecar (`coarse_n_idx`; the frame alone
+does not hold `N`), and the subtype, the fired groups and the `N ≠ R` flag are
+the frame's. The file is checked against `meta.json` (rows, contract, SHA-256),
+and the run's identity names the digests of the training and of the validation
+probes. Validation reports where `R` is ahead (mean − se > 0) the student's and
+r1's top-1 agreement with `R` (`val_adv_r_ahead_top1_r`, `_r1`), where `N` is
+ahead their agreement with `N` (`val_adv_n_ahead_top1_n`, `_r1`), the
+correlation of the student's shift with the clipped advantage
+(`val_adv_shift_corr`), and selects on the mean of the two agreements
+(`val_adv_selection`), which needs rows on both sides: with `R` ahead alone a
+student that always answers `R` would score 1. So before it builds a net a run
+counts the probes of each split's loaded trajectories and refuses data with no
+training probe of at least `-min-worlds` worlds, or with no held-out probe where
+`R` is ahead or none where `N` is (`distill_probe.check_splits`). The
 chain-start pre-gate and `training4.pregate` run as before, with an
 `[advantage]` line.
 
