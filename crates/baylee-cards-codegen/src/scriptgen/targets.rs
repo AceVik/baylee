@@ -622,6 +622,11 @@ impl Tx<'_> {
             && let Some(v) = atom.strip_prefix("cmcEQ")
         {
             ("Filter::CmcEqualsAmount", v)
+        } else if !card_zone
+            && let Some(v) = atom.strip_prefix("cmcEQ")
+            && let Some(amt) = self.wave28d_greatest_mv_filter_amount(v.trim())
+        {
+            return Some(format!("Filter::CmcEqualsAmount(&{amt})"));
         } else if let Some(v) = atom.strip_prefix("powerLE") {
             ("Filter::PowerAtMostAmount", v)
         } else {
@@ -926,6 +931,9 @@ impl Tx<'_> {
                 "Filter::Not(&Filter::RingBearer)".to_string()
             }
             "NamedCard" => "Filter::NamedBySource".to_string(),
+            "NotDefinedTargeted" if !card_zone && self.current_object_target => {
+                "Filter::Not(&Filter::Reference)".to_string()
+            }
             "wasDealtDamageThisTurn" => "Filter::DealtDamageThisTurn".to_string(),
             "!wasDealtDamageThisTurn" => "Filter::Not(&Filter::DealtDamageThisTurn)".to_string(),
             "Damaged" if !card_zone => "Filter::DealtDamageToSourceThisTurn".to_string(),

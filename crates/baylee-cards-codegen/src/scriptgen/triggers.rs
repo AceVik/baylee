@@ -7316,12 +7316,41 @@ impl Tx<'_> {
             let step_sub = sp.take("SubAbility");
             match s_api.as_str() {
                 "Goad" if sp.take("Defined").as_deref() == Some("Remembered") => {
+                    let permanent = match sp.take("Duration").as_deref() {
+                        None => false,
+                        Some("Permanent") => true,
+                        Some(_) => return None,
+                    };
                     if !sp.exhausted() {
                         return None;
                     }
-                    per_token_ops
-                        .push("Effect::Goad { target: TargetSpec::EventObject }".to_string());
+                    per_token_ops.push(if permanent {
+                        "Effect::AddTempModifier { target: TargetSpec::EventObject, \
+                         modifier: Modifier::Goaded, duration: Duration::Indefinitely }"
+                            .to_string()
+                    } else {
+                        "Effect::Goad { target: TargetSpec::EventObject }".to_string()
+                    });
                     saw_remembered_op = true;
+                }
+                "Effect" if sp.peek("RememberObjects") == Some("Remembered") => {
+                    let eff = self.wave28d_token_remembered_must_attack(&mut sp)?;
+                    per_token_ops.push(eff);
+                    saw_remembered_op = true;
+                }
+                "RepeatEach" if sp.peek("DefinedCards") == Some("RememberedCard") => {
+                    let (eff, did_clear) = self.wave28d_token_remembered_repeat_attach(&mut sp)?;
+                    per_token_ops.push(eff);
+                    saw_remembered_op = true;
+                    if did_clear {
+                        flush_per_token(&mut per_token_ops, &mut chain.effects);
+                        cleared = true;
+                        if let Some(tail_name) = step_sub {
+                            let tail_body = self.svars.get(tail_name.trim())?.clone();
+                            self.chain(&tail_body, chain)?;
+                        }
+                        break;
+                    }
                 }
                 "Tap" if sp.take("Defined").as_deref() == Some("Remembered") => {
                     if !sp.exhausted() {

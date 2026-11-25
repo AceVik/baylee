@@ -237,6 +237,14 @@ impl Tx<'_> {
         }
 
         // 2. Inside CaptureAffected::then: `ChangeZoneAll` moving `<F>.IsRemembered`
+        //    from `Exile` -> `Graveyard` / `Hand` / `Library (-1, RandomOrder)` (with
+        //    optional `ForgetChanged$ True`), e.g. *Epic Experiment*, *Collected
+        //    Conjuring*, *Muse Vortex*.
+        if let Some(effs) = self.wave28d_capture_change_zone_all_exile(p) {
+            return Some(effs);
+        }
+
+        // 3. Inside CaptureAffected::then: `ChangeZoneAll` moving `<F>.IsRemembered`
         //    from `Graveyard,Exile` / `Exile` / `Graveyard` -> `Hand` / `Battlefield` / `Exile`.
         let scope = self.capture_scope.as_ref()?;
         if targets_a_player {
@@ -874,7 +882,7 @@ impl Tx<'_> {
                 return Some(vec![format!("Effect::MayDo {{ effects: &[{inner}] }}")]);
             }
             return Some(vec![format!(
-                "Effect::PlayerMayDo {{ who: {who}, effects: &[{inner}] }}"
+                "Effect::MayDoFor {{ player: {who}, effects: &[{inner}] }}"
             )]);
         }
         if strict
@@ -1160,6 +1168,10 @@ impl Tx<'_> {
             let max_u8: Option<u8> = max_raw.trim().parse().ok();
             let max_expr = if let Some(n) = max_u8 {
                 format!("Amount::Fixed({n})")
+            } else if !mandatory
+                && self.wave28d_capture_hidden_all_change_num(&max_raw, &origin, &change_type)
+            {
+                "Amount::Fixed(255)".to_string()
             } else {
                 self.amount_or_count_ext(&max_raw)?
             };
@@ -1218,6 +1230,15 @@ impl Tx<'_> {
                  filter: &{filter_name}, min: {min}, max: {max_expr}, movement: {movement}, \
                  then: &[] }}"
             )]);
+        }
+
+        // Case 1b: `Play` over remembered cards in exile (*Etali, Primal Storm*,
+        // *Villainous Wealth*, *Epic Experiment*, *Collected Conjuring*,
+        // *Hellcarver Demon*, *Muse Vortex*, *Kotis, the Fangkeeper*).
+        if api == "Play"
+            && let Some(effs) = self.wave28d_capture_play_step(p, target, flags)
+        {
+            return Some(effs);
         }
 
         // Case 2: `Defined$ Remembered` on standard battlefield/zone operations.
