@@ -225,6 +225,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 .map(|p| p.mana_spent)
                 .filter(|&n| n > 0)
         });
+        let track_mana_spent = self.state.per_turn.track_mana_types_spent.0;
         if let Some(object) = self.state.object_mut(top) {
             if source_snow_spent > 0 {
                 object
@@ -236,7 +237,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                     source_entry_sacrifices,
                 ));
             }
-            if let Some(types) = source_mana_types {
+            if track_mana_spent && let Some(types) = source_mana_types {
                 object
                     .riders
                     .push(crate::object::Rider::ManaTypesSpent(types));
@@ -246,7 +247,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                     .riders
                     .push(crate::object::Rider::ConvokedCount(source_convoked));
             }
-            if let Some(spent) = event_mana_spent {
+            if track_mana_spent && let Some(spent) = event_mana_spent {
                 object
                     .riders
                     .push(crate::object::Rider::EventManaSpent(spent));

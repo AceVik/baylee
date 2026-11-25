@@ -988,14 +988,16 @@ pub(crate) fn card_reads_counter_placers(def: &CardDef) -> bool {
     )
 }
 
-/// Whether `def` reads the exact mana colors or count of colors spent to cast
-/// a permanent spell (`ManaColorSpentToCast` / `ColorsOfManaSpentToCast`).
+/// Whether `def` reads the exact mana colors, color count, or triggering spell
+/// mana spent (`ManaColorSpentToCast`, `ColorsOfManaSpentToCast`, or
+/// `EventManaSpentToCast`).
 pub(crate) fn card_reads_mana_types_spent(def: &CardDef) -> bool {
     card_reads_pred(def, &|_| false, &|amt| {
         matches!(
             amt,
             baylee_cards_dsl::Amount::ManaColorSpentToCast(_)
                 | baylee_cards_dsl::Amount::ColorsOfManaSpentToCast
+                | baylee_cards_dsl::Amount::EventManaSpentToCast
         )
     })
 }
