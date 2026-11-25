@@ -206,7 +206,8 @@ fn accumulate_effect(effect: &Effect, ch: &mut EffectChannels) {
         Effect::DealDamageEach { amount, .. }
         | Effect::DealDamageEvenly { amount, .. }
         | Effect::DealDamageEvenlyToFilter { amount, .. }
-        | Effect::DealDamageToEachOpponentAndPlaneswalkerDamagedThisGame { amount } => {
+        | Effect::DealDamageToEachOpponentAndPlaneswalkerDamagedThisGame { amount }
+        | Effect::EventObjectDealsDamageEach { amount, .. } => {
             ch.damage_board += amount_scalar(amount).max(2.0);
         }
         Effect::Destroy { .. }

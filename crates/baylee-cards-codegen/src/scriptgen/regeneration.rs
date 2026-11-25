@@ -772,25 +772,38 @@ impl Tx<'_> {
         let body = self.svars.get(&statics)?.clone();
         let (mode, mut st) = Params::parse(&body)?;
         st.drop_prose();
-        if mode != "CantPreventDamage" || st.take("IsCombat").as_deref() != Some("True") {
+        if mode != "CantPreventDamage" {
             return None;
         }
+        let combat_only = match (
+            st.take("IsCombat").as_deref(),
+            st.take("CombatDamage").as_deref(),
+        ) {
+            (Some("True"), None) | (None, Some("True")) => true,
+            (None, None) => false,
+            _ => return None,
+        };
         let valid_source = st.take("ValidSource");
         if !st.exhausted() {
             return None;
         }
         let filter = match valid_source {
             None => "Filter::Any".to_string(),
+            Some(_) if !combat_only => return None,
             Some(valid) => {
                 let expr = self.filter_expr(&valid)?;
                 self.body.filter_static("EFFECT", &expr)
             }
         };
+        let mod_str = if combat_only {
+            "Modifier::CombatDamageCantBePrevented"
+        } else {
+            "Modifier::DamageCantBePrevented"
+        };
         p.take("StaticAbilities");
         p.take("Duration");
         Some(vec![format!(
-            "Effect::continuous(&{filter}, Modifier::CombatDamageCantBePrevented, \
-             Duration::UntilEndOfTurn)"
+            "Effect::continuous(&{filter}, {mod_str}, Duration::UntilEndOfTurn)"
         )])
     }
 

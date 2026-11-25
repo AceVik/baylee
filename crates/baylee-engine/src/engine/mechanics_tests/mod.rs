@@ -91,6 +91,7 @@ mod wave15d_cost_reductions_and_temp_mods;
 mod wave15e_replacements_and_counters;
 mod wave16a_optional_flash_cost;
 mod wave16a_trigger_ctx;
+mod wave16c_observers_choices;
 mod wave2_bugs_copy_and_dice;
 mod wave3_repeat_choose_color;
 mod wave3_rules;

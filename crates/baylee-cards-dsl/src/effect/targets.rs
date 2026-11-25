@@ -194,6 +194,14 @@ pub enum PlayerRel {
     /// Ruffians* `"each other opponent"`). Appended to preserve replay
     /// identities.
     OtherOpponents,
+    /// The player or opponent chosen for the ability's source permanent as it
+    /// entered (`EnterModifier::ChooseOpponent` or
+    /// `EnterModifier::ChooseAnyPlayer`), including last-known information if
+    /// the source left the battlefield while its ability waited on the stack
+    /// (`CR 614.12a`, `CR 608.2h`: *True-Name Nemesis*, *Saskia the Unyielding*,
+    /// *Stuffy Doll*, *Sewer Nemesis*, *Sawhorn Nemesis*, *Canker Abomination*).
+    /// Appended to preserve replay identities.
+    ChosenBySource,
 }
 
 impl PlayerRel {

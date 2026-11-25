@@ -530,7 +530,14 @@ impl Tx<'_> {
         }
         let rest = word.trim().strip_prefix("Protection:")?;
         let mut fields = rest.split(':');
-        let quality = self.filter_expr(fields.next()?)?;
+        let raw_quality = fields.next()?;
+        let quality = if raw_quality.trim() == "Player.PlayerUID_ChosenPlayerUID"
+            && self.has_chosen_source_player()
+        {
+            "Filter::ControlledBy(PlayerRel::ChosenBySource)".to_string()
+        } else {
+            self.filter_expr(raw_quality)?
+        };
         let _prose = fields.next();
         let filter = match fields.next() {
             None => quality,
@@ -3628,6 +3635,7 @@ impl Tx<'_> {
                             .wave24e_self_etb_moved_replacement(spec)
                             .or_else(|| self.wave26f_moved_replacement(spec))
                             .or_else(|| self.wave27e_replacement(spec))
+                            .or_else(|| self.wave16c_replacement(spec))
                             .is_some()
                         {
                             return Some(());
@@ -3778,6 +3786,7 @@ impl Tx<'_> {
             if self
                 .wave24e_self_etb_moved_replacement(spec)
                 .or_else(|| self.wave26f_moved_replacement(spec))
+                .or_else(|| self.wave16c_replacement(spec))
                 .is_some()
             {
                 return Some(());
@@ -3803,6 +3812,7 @@ impl Tx<'_> {
             if self
                 .wave24e_self_etb_moved_replacement(spec)
                 .or_else(|| self.wave26f_moved_replacement(spec))
+                .or_else(|| self.wave16c_replacement(spec))
                 .is_some()
             {
                 return Some(());

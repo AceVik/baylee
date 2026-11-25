@@ -1385,6 +1385,12 @@ pub enum Trigger {
         /// Optional exact total attacker count declared attacking that defender.
         exact_count: Option<u8>,
     },
+    /// Day becomes night or night becomes day (`CR 730.2`, `CR 732.1a`;
+    /// *Brimstone Vandal*, *The Celestus*, *Celestus Sanctifier*, *Firmament
+    /// Sage*, *Gavony Dawnguard*, *Vadrik, Astral Archmage*). Does not fire
+    /// when the game first becomes day or night from neither designation.
+    /// Appended to preserve replay identities.
+    DayNightChanges,
 }
 
 impl Trigger {

@@ -1776,7 +1776,9 @@ fn filter_reads_resolution_player_at(filter: &baylee_cards_dsl::Filter, depth: u
         Filter::CmcAtMostAmount(amt)
         | Filter::CmcEqualsAmount(amt)
         | Filter::PowerAtMostAmount(amt)
-        | Filter::PowerAtLeastAmount(amt) => amount_reads_resolution_player_at(amt, depth + 1),
+        | Filter::PowerAtLeastAmount(amt)
+        | Filter::PowerEqualsAmount(amt)
+        | Filter::ToughnessEqualsAmount(amt) => amount_reads_resolution_player_at(amt, depth + 1),
         Filter::And(parts) | Filter::Or(parts) => parts
             .iter()
             .any(|f| filter_reads_resolution_player_at(f, depth)),
@@ -1931,7 +1933,9 @@ pub(super) fn matches_in_resolution_with_chars(
         Filter::CmcAtMostAmount(amt)
         | Filter::CmcEqualsAmount(amt)
         | Filter::PowerAtMostAmount(amt)
-        | Filter::PowerAtLeastAmount(amt) => {
+        | Filter::PowerAtLeastAmount(amt)
+        | Filter::PowerEqualsAmount(amt)
+        | Filter::ToughnessEqualsAmount(amt) => {
             let Some(_guard) = eval::DynamicFilterDepthGuard::enter() else {
                 return false;
             };
@@ -1995,6 +1999,17 @@ pub(super) fn players_of(
         PlayerRel::OwnerOfSource => state
             .damage_source(res.source, source_version(state, res))
             .map(|source| source.owner)
+            .filter(|p| !state.has_left(*p))
+            .into_iter()
+            .collect(),
+        PlayerRel::ChosenBySource => state
+            .damage_source(res.source, source_version(state, res))
+            .and_then(crate::object::GameObject::chosen_opponent)
+            .or_else(|| {
+                state
+                    .object_or_departed(res.source)
+                    .and_then(crate::object::GameObject::chosen_opponent)
+            })
             .filter(|p| !state.has_left(*p))
             .into_iter()
             .collect(),

@@ -296,7 +296,8 @@ fn legal_targets_from(
                 | PlayerRel::MostLifeOrTied
                 | PlayerRel::LeastLifeOrTied
                 | PlayerRel::DefendingPlayer
-                | PlayerRel::OtherOpponents => {
+                | PlayerRel::OtherOpponents
+                | PlayerRel::ChosenBySource => {
                     return None;
                 }
             };
@@ -653,6 +654,11 @@ pub(crate) fn matches(view: &PlayerView, object: &PublicObject, filter: &Filter)
         | Filter::CmcEqualsAmount(_)
         | Filter::PowerAtMostAmount(_)
         | Filter::PowerAtLeastAmount(_)
+        | Filter::PowerEqualsAmount(_)
+        | Filter::ToughnessEqualsAmount(_)
+        | Filter::CmcEqualsChosenNumber
+        | Filter::PowerEqualsChosenNumber
+        | Filter::ToughnessEqualsChosenNumber
         | Filter::IsRemembered
         | Filter::NotRemembered
         | Filter::SharesCardTypeWithRemembered

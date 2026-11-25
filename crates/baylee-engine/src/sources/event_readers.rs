@@ -151,6 +151,7 @@ fn reads_event(effect: &Effect) -> bool {
         | Effect::PumpEventObject { .. }
         | Effect::EventObjectDealsDamageEqualToPower { .. }
         | Effect::EventObjectDealsDamage { .. }
+        | Effect::EventObjectDealsDamageEach { .. }
         | Effect::SacrificeEventDealDamageToEachBlocker { .. }
         | Effect::CopyEventSpellOrAbility
         | Effect::TargetsCopyEventSpellUntilEndOfTurn

@@ -70,6 +70,7 @@ mod transform48;
 mod triggers;
 mod wall52;
 mod wave16a;
+mod wave16c;
 mod wave27a;
 mod wave27b;
 mod wave27c;

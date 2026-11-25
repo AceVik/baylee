@@ -683,6 +683,7 @@ const fn rider_object(rider: &Rider) -> Option<ObjectId> {
         | Rider::KickedMask(_)
         | Rider::Bestowed
         | Rider::MustAttackPlayerThisTurn(_)
+        | Rider::MustAttackPlayerThisCombat(_)
         | Rider::SuspendHaste(_)
         | Rider::Blitzed
         | Rider::Bargained

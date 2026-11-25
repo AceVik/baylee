@@ -712,6 +712,18 @@ impl Tx<'_> {
             if has_you && has_you_perm {
                 return Some("DamageRecipients::PlayersOrTheirPermanents(PlayerRel::You)".into());
             }
+            if self.has_chosen_source_player() {
+                let has_chosen_player =
+                    parts.contains(&"Player.Chosen") || parts.contains(&"ChosenPlayer");
+                let has_chosen_perm =
+                    parts.contains(&"Permanent.ChosenCtrl") || parts.contains(&"Card.ChosenCtrl");
+                if has_chosen_player && has_chosen_perm {
+                    return Some(
+                        "DamageRecipients::PlayersOrTheirPermanents(PlayerRel::ChosenBySource)"
+                            .into(),
+                    );
+                }
+            }
         }
         let expr = self.prevention_permanent_target(&parts.join(","))?;
         if expr == "Filter::This" {

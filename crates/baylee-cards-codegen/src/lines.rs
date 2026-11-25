@@ -737,6 +737,7 @@ pub fn trigger_words(trigger: &baylee_cards_dsl::Trigger) -> &'static [&'static 
         T::CommittedCrime { .. } => &["crime", "commit"],
         T::Expended { .. } => &["expend"],
         T::Clashed { .. } => &["clash"],
+        T::DayNightChanges => &["day", "night"],
     }
 }
 

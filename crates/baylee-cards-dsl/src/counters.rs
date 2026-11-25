@@ -258,6 +258,9 @@ pub const HIT: CounterKind = CounterKind::Custom(70);
 /// Plague counters (Withering Hex).
 pub const PLAGUE: CounterKind = CounterKind::Custom(71);
 
+/// Fellowship counters (Banner of Kinship).
+pub const FELLOWSHIP: CounterKind = CounterKind::Custom(72);
+
 /// Every id this module assigns, with the word it stands for.
 ///
 /// It exists so the ids can be checked rather than trusted, which is the
@@ -335,6 +338,7 @@ pub const ASSIGNED: &[(&str, CounterKind)] = &[
     ("fate", FATE),
     ("hit", HIT),
     ("plague", PLAGUE),
+    ("fellowship", FELLOWSHIP),
 ];
 
 #[cfg(test)]

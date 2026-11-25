@@ -21,6 +21,7 @@ mod saga_ward_convoke;
 mod static_supertypes;
 mod tokens_and_zones;
 mod wave16a;
+mod wave16c;
 mod wave24a;
 mod wave24b;
 mod wave24c;

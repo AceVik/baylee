@@ -1161,6 +1161,9 @@ pub enum Rider {
     Bestowed,
     /// Encore token requirement (CR 702.141a): attacks this opponent this turn if able.
     MustAttackPlayerThisTurn(PlayerId),
+    /// Per-combat player attack requirement (`CR 508.1d`: *Ruhan of the Fomori*,
+    /// *Knight Rampager*, *Raving Dead*): attacks this player this combat if able.
+    MustAttackPlayerThisCombat(PlayerId),
     /// Creature spell cast via suspend (CR 702.62a): gains haste until this
     /// caster loses control of the spell or the permanent it becomes.
     SuspendHaste(PlayerId),
@@ -1448,6 +1451,7 @@ impl Rider {
             | Self::EventAmount(_)
             | Self::Bestowed
             | Self::MustAttackPlayerThisTurn(_)
+            | Self::MustAttackPlayerThisCombat(_)
             | Self::SuspendHaste(_)
             | Self::Blitzed
             | Self::Bargained
