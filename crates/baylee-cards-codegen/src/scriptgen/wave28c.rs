@@ -10,7 +10,8 @@
 use baylee_core::types::SubtypeKind;
 
 use super::{
-    Params, Tx,
+    Chain, Params, Tx,
+    effects::EffectSubject,
     statics::{parse_fixed_alt_mana_price, simple_const_filter},
 };
 
@@ -954,4 +955,1339 @@ fn has_forbidden_zone_count_atom(valid: &str) -> bool {
                 )
         })
     })
+}
+
+// =========================================================================
+// Wave 28c-p3: CR-exact `Effect` API lowerings hooked from `regeneration.rs`
+// =========================================================================
+
+impl Tx<'_> {
+    /// Fallback `Effect` API lowering for Wave 28c-p3 patterns whose exact CR
+    /// semantics already exist in `baylee-cards-dsl` + `baylee-engine`.
+    ///
+    /// Runs only when `regeneration.rs::static_effect_inner` returns `None`,
+    /// with full snapshot/rollback around every sub-matcher so unhandled shapes
+    /// still fall through cleanly to `wave3_effect_api` and existing handlers.
+    pub(super) fn wave28c_static_effect(
+        &mut self,
+        p: &mut Params,
+        target: Option<&str>,
+    ) -> Option<Vec<String>> {
+        #[allow(clippy::type_complexity)]
+        let handlers: &[fn(&mut Self, &mut Params, Option<&str>) -> Option<Vec<String>>] = &[
+            Self::wave28c_effect_cant_block_source,
+            Self::wave28c_effect_cant_target,
+            Self::wave28c_effect_stack_prevent_damage,
+            Self::wave28c_effect_assign_unblocked,
+            Self::wave28c_effect_misstep_dont_untap,
+            Self::wave28c_effect_multi_lock_or_player_combat,
+            Self::wave28c_effect_attached_or_locked_set,
+            Self::wave28c_effect_source_lifetime_lock,
+            Self::wave28c_effect_yawgmoths_will,
+            Self::wave28c_effect_temp_zone_play_or_cost,
+            Self::wave28c_effect_targeted_damage_or_life_lock,
+            Self::wave28c_effect_delayed_triggers,
+        ];
+        let snap = p.clone();
+        let saved_unclaimed = self.unclaimed.borrow().clone();
+        let saved_statics_len = self.body.statics.len();
+        for handler in handlers {
+            if let Some(effects) = handler(self, p, target) {
+                return Some(effects);
+            }
+            p.clone_from(&snap);
+            self.unclaimed.borrow_mut().clone_from(&saved_unclaimed);
+            self.body.statics.truncate(saved_statics_len);
+        }
+        None
+    }
+
+    /// Targeted `Mode$ CantBlockBy` (`ValidAttacker$ Creature.EffectSource`,
+    /// `ValidBlocker$ Creature.IsRemembered`) including `Duration$ UntilHostLeavesPlayOrEOT`
+    /// (*Auriok Siege Sled*, *Burning-Tree Bloodscale*, *Fearsome Temper*,
+    /// *Kozilek's Pathfinder*, *Screeching Griffin*, *Shrewd Hatchling*, *Spin Engine*).
+    fn wave28c_effect_cant_block_source(
+        &mut self,
+        p: &mut Params,
+        target: Option<&str>,
+    ) -> Option<Vec<String>> {
+        if self.on_a_spell
+            || !target.is_some_and(|t| t.starts_with("TargetSpec::Object("))
+            || p.has("ReplacementEffects")
+            || p.has("Triggers")
+        {
+            return None;
+        }
+        if !matches!(
+            p.take("Duration").as_deref(),
+            None | Some("UntilEndOfTurn" | "UntilHostLeavesPlayOrEOT")
+        ) {
+            return None;
+        }
+        if !matches!(
+            p.take("RememberObjects").as_deref(),
+            Some("Targeted" | "ParentTarget" | "ThisTargetedCard")
+        ) {
+            return None;
+        }
+        if !matches!(
+            p.take("ForgetOnMoved")
+                .or_else(|| p.take("ExileOnMoved"))
+                .as_deref(),
+            None | Some("Battlefield")
+        ) {
+            return None;
+        }
+        p.take("IsCurse");
+        let statics = p.take("StaticAbilities")?;
+        if statics.contains(',') || !p.exhausted() {
+            return None;
+        }
+        let body = self.svars.get(statics.trim())?.clone();
+        let (mode, mut st) = Params::parse(&body)?;
+        st.drop_prose();
+        if mode != "CantBlockBy"
+            || !matches!(st.take("EffectZone").as_deref(), None | Some("Command"))
+            || !matches!(
+                st.take("ValidAttacker").as_deref(),
+                Some("Creature.EffectSource" | "Card.EffectSource")
+            )
+            || !matches!(
+                st.take("ValidBlocker").as_deref(),
+                Some("Creature.IsRemembered" | "Card.IsRemembered")
+            )
+            || !st.exhausted()
+        {
+            return None;
+        }
+        Some(vec![
+            "Effect::ModifyTargets { modifier: Modifier::CantBlock(&Filter::This), \
+             duration: Duration::UntilEndOfTurn }"
+                .to_string(),
+        ])
+    }
+
+    /// Temporary `Mode$ CantTarget` -> `Modifier::CantBeTargetedBy`
+    /// (*Vines of Vastwood*, *Veilstone Amulet*, *Display of Dominance*).
+    fn wave28c_effect_cant_target(
+        &mut self,
+        p: &mut Params,
+        target: Option<&str>,
+    ) -> Option<Vec<String>> {
+        if p.has("ReplacementEffects") || p.has("Triggers") {
+            return None;
+        }
+        let duration = match p.take("Duration").as_deref() {
+            None | Some("UntilEndOfTurn") => "Duration::UntilEndOfTurn",
+            Some("UntilYourNextTurn") => "Duration::UntilYourNextTurn",
+            Some(_) => return None,
+        };
+        if !matches!(
+            p.take("ExileOnMoved")
+                .or_else(|| p.take("ForgetOnMoved"))
+                .as_deref(),
+            None | Some("Battlefield")
+        ) {
+            return None;
+        }
+        let subject = self.effect_remember_subject(p, target)?;
+        if matches!(
+            (p.peek("Defined"), subject),
+            (Some("Targeted"), EffectSubject::Targets)
+        ) {
+            p.take("Defined");
+        }
+        let statics = p.take("StaticAbilities")?;
+        if statics.contains(',') || !p.exhausted() {
+            return None;
+        }
+        let body = self.svars.get(statics.trim())?.clone();
+        let (mode, mut st) = Params::parse(&body)?;
+        st.drop_prose();
+        if mode != "CantTarget"
+            || !matches!(st.take("EffectZone").as_deref(), None | Some("Command"))
+        {
+            return None;
+        }
+        let valid_target = st.take("ValidTarget")?;
+        let activator = st.take("Activator");
+        let valid_source = st.take("ValidSource");
+        let valid_sa = st.take("ValidSA");
+        if !st.exhausted() {
+            return None;
+        }
+        let src_ref = match (
+            activator.as_deref(),
+            valid_source.as_deref(),
+            valid_sa.as_deref(),
+        ) {
+            (Some("Opponent" | "Player.Opponent"), None, None) => {
+                "&Filter::ControlledByOpponent".to_string()
+            }
+            (Some("You"), None, None) => "&Filter::ControlledByYou".to_string(),
+            (Some("Player"), None, None) => "&Filter::Any".to_string(),
+            (None, Some(vs), sa @ (None | Some("Spell")))
+                if !vs.contains("Remembered")
+                    && !vs.contains("EffectSource")
+                    && !vs.contains("ChosenCard")
+                    && !vs.contains("Self") =>
+            {
+                let inner = self.filter_expr_in_zone(vs, true)?;
+                let full = if sa == Some("Spell") {
+                    if inner == "Filter::Any" {
+                        "Filter::InZone(ZoneRef::Stack)".to_string()
+                    } else {
+                        format!("Filter::And(&[Filter::InZone(ZoneRef::Stack), {inner}])")
+                    }
+                } else {
+                    inner
+                };
+                format!("&{}", self.body.filter_static("EFFECT", &full))
+            }
+            _ => return None,
+        };
+        let modifier = format!("Modifier::CantBeTargetedBy({src_ref})");
+        self.emit_effect_modifiers(subject, &valid_target, &[modifier], duration)
+    }
+
+    /// Stack-spell `PreventAllDamageFromIt` (*Dromoka's Command*, *Hidden Retreat*,
+    /// *Shieldmage Elder*).
+    fn wave28c_effect_stack_prevent_damage(
+        &mut self,
+        p: &mut Params,
+        target: Option<&str>,
+    ) -> Option<Vec<String>> {
+        if !target.is_some_and(|t| t.starts_with("TargetSpec::Spell("))
+            || p.has("ReplacementEffects")
+            || p.has("Triggers")
+        {
+            return None;
+        }
+        if !matches!(p.take("Duration").as_deref(), None | Some("UntilEndOfTurn"))
+            || p.take("RememberObjects").as_deref() != Some("TargetedSource")
+            || !matches!(
+                p.take("ExileOnMoved")
+                    .or_else(|| p.take("ForgetOnMoved"))
+                    .as_deref(),
+                None | Some("Stack")
+            )
+            || !matches!(p.take("Stackable").as_deref(), None | Some("False"))
+        {
+            return None;
+        }
+        if p.peek("TargetType") == Some("Spell") {
+            p.take("TargetType");
+        }
+        p.take("IsCurse");
+        let statics = p.take("StaticAbilities")?;
+        if statics.contains(',') || !p.exhausted() {
+            return None;
+        }
+        let body = self.svars.get(statics.trim())?.clone();
+        let (mode, mut st) = Params::parse(&body)?;
+        st.drop_prose();
+        if mode != "Continuous"
+            || !matches!(
+                st.take("AffectedZone").as_deref(),
+                Some("Stack" | "Battlefield,Stack" | "Stack,Battlefield")
+            )
+            || st.take("Affected").as_deref() != Some("Card.IsRemembered")
+            || st.take("AddKeyword").as_deref()
+                != Some("Prevent all damage that would be dealt by CARDNAME.")
+            || !st.exhausted()
+        {
+            return None;
+        }
+        Some(vec![
+            "Effect::ModifyTargets { modifier: Modifier::PreventAllDamageFromIt, \
+             duration: Duration::UntilEndOfTurn }"
+                .to_string(),
+        ])
+    }
+
+    /// Temporary `Mode$ AssignCombatDamageAsUnblocked` — strictly requires
+    /// `Optional$ True` because `Modifier::MayAssignCombatDamageAsThoughUnblocked`
+    /// is optional (lowers *Predatory Focus*; refuses mandatory *Outmaneuver*).
+    fn wave28c_effect_assign_unblocked(
+        &mut self,
+        p: &mut Params,
+        target: Option<&str>,
+    ) -> Option<Vec<String>> {
+        if p.has("ReplacementEffects") || p.has("Triggers") {
+            return None;
+        }
+        let duration = match p.take("Duration").as_deref() {
+            None | Some("UntilEndOfTurn") => "Duration::UntilEndOfTurn",
+            Some("UntilYourNextTurn") => "Duration::UntilYourNextTurn",
+            Some(_) => return None,
+        };
+        let subject = self.effect_remember_subject(p, target)?;
+        let statics = p.take("StaticAbilities")?;
+        if statics.contains(',') || !p.exhausted() {
+            return None;
+        }
+        let body = self.svars.get(statics.trim())?.clone();
+        let (mode, mut st) = Params::parse(&body)?;
+        st.drop_prose();
+        if mode != "AssignCombatDamageAsUnblocked"
+            || st.take("Optional").as_deref() != Some("True")
+            || !matches!(st.take("EffectZone").as_deref(), None | Some("Command"))
+        {
+            return None;
+        }
+        let valid = st.take("ValidCard")?;
+        if !st.exhausted() {
+            return None;
+        }
+        self.emit_effect_modifiers(
+            subject,
+            &valid,
+            &["Modifier::MayAssignCombatDamageAsThoughUnblocked".to_string()],
+            duration,
+        )
+    }
+
+    /// "Creatures target player controls don't untap during that player's next
+    /// untap step" (*Misstep* -> `Effect::TargetPlayersCreaturesDontUntapNextUntap`).
+    /// Strictly rejects lands (*Mana Vapors*, *Exhaustion*).
+    fn wave28c_effect_misstep_dont_untap(
+        &mut self,
+        p: &mut Params,
+        target: Option<&str>,
+    ) -> Option<Vec<String>> {
+        if !matches!(
+            target,
+            Some(
+                "TargetSpec::AnyPlayer"
+                    | "TargetSpec::AnyOpponent"
+                    | "TargetSpec::Player(PlayerRel::Chosen)"
+            )
+        ) || p.has("ReplacementEffects")
+        {
+            return None;
+        }
+        if p.take("Duration").as_deref() != Some("Permanent")
+            || p.take("RememberObjects").as_deref() != Some("Targeted")
+        {
+            return None;
+        }
+        p.take("IsCurse");
+        let statics = p.take("StaticAbilities")?;
+        let triggers = p.take("Triggers")?;
+        if statics.contains(',') || triggers.contains(',') || !p.exhausted() {
+            return None;
+        }
+        let sbody = self.svars.get(statics.trim())?.clone();
+        let (smode, mut st) = Params::parse(&sbody)?;
+        st.drop_prose();
+        if smode != "Continuous"
+            || !matches!(
+                st.take("AffectedZone").as_deref(),
+                None | Some("Battlefield")
+            )
+            || st.take("Affected").as_deref() != Some("Creature.RememberedPlayerCtrl")
+            || st.take("AddHiddenKeyword").as_deref()
+                != Some("This card doesn't untap during your next untap step.")
+            || !st.exhausted()
+        {
+            return None;
+        }
+        let tbody = self.svars.get(triggers.trim())?.clone();
+        let (tmode, mut tp) = Params::parse(&tbody)?;
+        tp.drop_prose();
+        if tmode != "Phase"
+            || tp.take("Phase").as_deref() != Some("Untap")
+            || tp.take("ValidPlayer").as_deref() != Some("Player.IsRemembered")
+            || !matches!(tp.take("TriggerZones").as_deref(), None | Some("Command"))
+            || tp.take("Static").as_deref() != Some("True")
+        {
+            return None;
+        }
+        let exec = tp.take("Execute")?;
+        if !tp.exhausted() || !self.exiles_itself(exec.trim()) {
+            return None;
+        }
+        Some(vec![
+            "Effect::TargetPlayersCreaturesDontUntapNextUntap".to_string(),
+        ])
+    }
+
+    /// 6a/6b. Multi-mode `CantAttack,CantBlock[,CantBeActivated]` on targeted
+    /// permanents (*Linvala, Shield of Sea Gate*, *Mythos of Vadrok*, *Kaito* `+1`)
+    /// and player-targeted `CantBlock` / `CantAttack` (+ `CantBeCast` bundle on
+    /// *Ember Gale*, *Headliner Scarlett*, *Oriss, Samite Guardian*).
+    #[allow(clippy::too_many_lines)]
+    fn wave28c_effect_multi_lock_or_player_combat(
+        &mut self,
+        p: &mut Params,
+        target: Option<&str>,
+    ) -> Option<Vec<String>> {
+        if p.has("ReplacementEffects") || p.has("Triggers") {
+            return None;
+        }
+        let duration = match p.take("Duration").as_deref() {
+            None | Some("UntilEndOfTurn") => "Duration::UntilEndOfTurn",
+            Some("UntilYourNextTurn") => "Duration::UntilYourNextTurn",
+            Some(_) => return None,
+        };
+        if !matches!(
+            p.take("ForgetOnMoved")
+                .or_else(|| p.take("ExileOnMoved"))
+                .as_deref(),
+            None | Some("Battlefield")
+        ) {
+            return None;
+        }
+        p.take("IsCurse");
+        let subject = self.effect_remember_subject(p, target)?;
+        let statics = p.take("StaticAbilities")?;
+        if !p.exhausted() {
+            return None;
+        }
+        let mut out = Vec::new();
+        for name in statics.split(',').map(str::trim).filter(|s| !s.is_empty()) {
+            let body = self.svars.get(name)?.clone();
+            let (mode, mut st) = Params::parse(&body)?;
+            st.drop_prose();
+            if !matches!(st.take("EffectZone").as_deref(), None | Some("Command")) {
+                return None;
+            }
+            if mode.contains(',') && subject == EffectSubject::Targets {
+                let valid = st.take("ValidCard")?;
+                let valid_sa = st.take("ValidSA");
+                if !matches!(
+                    valid.as_str(),
+                    "Card.IsRemembered" | "Creature.IsRemembered"
+                ) || !st.exhausted()
+                {
+                    return None;
+                }
+                for part in mode.split(',').map(str::trim) {
+                    let modifier = match part {
+                        "CantAttack" => "Modifier::CantAttack",
+                        "CantBlock" => "Modifier::CantBlock(&Filter::Any)",
+                        "CantBeActivated" => match valid_sa.as_deref() {
+                            None => "Modifier::CantActivate",
+                            Some("Activated.!ManaAbility") => "Modifier::CantActivateNonMana",
+                            Some(_) => return None,
+                        },
+                        _ => return None,
+                    };
+                    out.push(format!(
+                        "Effect::ModifyTargets {{ modifier: {modifier}, duration: {duration} }}"
+                    ));
+                }
+                continue;
+            }
+            if let EffectSubject::Player(who) = subject {
+                match mode.as_str() {
+                    // CR 611.2c: Layer 6 `AddKeyword(CANT_BLOCK)` locks creatures at
+                    // resolution (*Ember Gale*, *Headliner Scarlett*).
+                    "CantBlock"
+                        if st.take("ValidCard").as_deref()
+                            == Some("Creature.RememberedPlayerCtrl")
+                            && st.exhausted() =>
+                    {
+                        out.push(format!(
+                            "Effect::ModifyFilter {{ filter: &Filter::CREATURE, \
+                             controlled_by: Some({who}), \
+                             modifier: Modifier::AddKeyword(KeywordSet::CANT_BLOCK), \
+                             duration: {duration} }}"
+                        ));
+                    }
+                    // Rules-modifying `Modifier::CantAttack` stays dynamic via
+                    // `DslControlledBy` (*Oriss, Samite Guardian*).
+                    "CantAttack"
+                        if st.take("ValidCard").as_deref()
+                            == Some("Creature.RememberedPlayerCtrl")
+                            && st.exhausted() =>
+                    {
+                        out.push(format!(
+                            "Effect::ModifyFilter {{ filter: &Filter::CREATURE, \
+                             controlled_by: Some({who}), \
+                             modifier: Modifier::CantAttack, duration: {duration} }}"
+                        ));
+                    }
+                    "CantBeCast" if st.take("Caster").as_deref() == Some("Player.IsRemembered") => {
+                        let valid = st.take("ValidCard").unwrap_or_else(|| "Card".to_string());
+                        if !st.exhausted()
+                            || valid.contains("Remembered")
+                            || valid.contains("EffectSource")
+                        {
+                            return None;
+                        }
+                        let filter_ref = if valid == "Card" {
+                            "&Filter::Any".to_string()
+                        } else {
+                            let expr = self.filter_expr(&valid)?;
+                            format!("&{}", self.body.filter_static("EFFECT", &expr))
+                        };
+                        out.push(format!(
+                            "Effect::continuous(&Filter::Any, \
+                             Modifier::PlayersCantCast {{ who: {who}, filter: {filter_ref} }}, \
+                             {duration})"
+                        ));
+                    }
+                    _ => return None,
+                }
+                continue;
+            }
+            return None;
+        }
+        (!out.is_empty()).then_some(out)
+    }
+
+    /// 6c/6d/6f. Attached `MustAttack` (*Nettling Curse*), locked-set
+    /// `RememberObjects$ Valid <filter>` (`MustAttack` on *Suicidal Charge*,
+    /// `CARDNAME can't block.` on *Taunt from the Rampart*), and `Targeted & Self`
+    /// `MustAttack` (*Gogo, Mysterious Mime*).
+    fn wave28c_effect_attached_or_locked_set(
+        &mut self,
+        p: &mut Params,
+        target: Option<&str>,
+    ) -> Option<Vec<String>> {
+        if p.has("ReplacementEffects") || p.has("Triggers") {
+            return None;
+        }
+        let duration = match p.take("Duration").as_deref() {
+            None | Some("UntilEndOfTurn") => "Duration::UntilEndOfTurn",
+            Some("UntilYourNextTurn") => "Duration::UntilYourNextTurn",
+            Some(_) => return None,
+        };
+        if !matches!(
+            p.take("ExileOnMoved")
+                .or_else(|| p.take("ForgetOnMoved"))
+                .as_deref(),
+            None | Some("Battlefield")
+        ) {
+            return None;
+        }
+        p.take("IsCurse");
+        let rem = p.take("RememberObjects")?;
+        let cond_self = p.peek("ConditionPresent") == Some("Card.Self");
+        if cond_self {
+            p.take("ConditionPresent");
+        }
+        let statics = p.take("StaticAbilities")?;
+        if statics.contains(',') || !p.exhausted() {
+            return None;
+        }
+        let body = self.svars.get(statics.trim())?.clone();
+        let (mode, mut st) = Params::parse(&body)?;
+        st.drop_prose();
+        let modifier = match mode.as_str() {
+            "MustAttack"
+                if matches!(
+                    st.take("ValidCreature").as_deref(),
+                    Some("Creature.IsRemembered" | "Card.IsRemembered")
+                ) && st.exhausted() =>
+            {
+                "Modifier::AttacksEachCombat"
+            }
+            "Continuous"
+                if matches!(
+                    st.take("AffectedZone").as_deref(),
+                    None | Some("Battlefield")
+                ) && matches!(
+                    st.take("Affected").as_deref(),
+                    Some("Card.IsRemembered" | "Creature.IsRemembered")
+                ) && st.take("AddHiddenKeyword").as_deref() == Some("CARDNAME can't block.")
+                    && st.exhausted() =>
+            {
+                "Modifier::CantBlock(&Filter::Any)"
+            }
+            _ => return None,
+        };
+        if matches!(rem.as_str(), "Enchanted" | "Equipped")
+            && !self.on_a_spell
+            && target.is_none()
+            && !cond_self
+        {
+            return Some(vec![format!(
+                "Effect::ModifyAttached {{ modifier: {modifier}, duration: {duration} }}"
+            )]);
+        }
+        if matches!(rem.as_str(), "Targeted & Self" | "Self & Targeted")
+            && !self.on_a_spell
+            && target.is_some_and(|t| t.starts_with("TargetSpec::Object("))
+        {
+            let both = vec![
+                format!("Effect::ModifyTargets {{ modifier: {modifier}, duration: {duration} }}"),
+                format!("Effect::ModifySource {{ modifier: {modifier}, duration: {duration} }}"),
+            ];
+            return Some(if cond_self {
+                let check = self.body.filter_static(
+                    "CHECK",
+                    "Filter::And(&[Filter::InZone(ZoneRef::Battlefield), Filter::This])",
+                );
+                vec![format!(
+                    "Effect::IfCondition {{ condition: Condition::SourceMatches(&{check}), \
+                     then: &[{}], otherwise: &[] }}",
+                    both.join(", ")
+                )]
+            } else {
+                both
+            });
+        }
+        if let Some(valid) = rem.strip_prefix("Valid ").map(str::trim)
+            && target.is_none()
+            && !cond_self
+            && !valid.is_empty()
+            && !valid.contains("Remembered")
+            && !valid.contains("EffectSource")
+            && !valid.contains("Targeted")
+        {
+            let expr = self.filter_expr(valid)?;
+            let filter_static = self.body.filter_static("EFFECT", &expr);
+            return Some(vec![format!(
+                "Effect::RepeatEachObject {{ zone: ZoneSel::Battlefield, filter: &{filter_static}, \
+                 only_found: false, then: &[Effect::ModifyEvent {{ modifier: {modifier}, \
+                 duration: {duration} }}] }}"
+            )]);
+        }
+        None
+    }
+
+    /// 6e. Source-lifetime targeted locks:
+    /// - `DontUntap` with `Duration$ UntilHostLeavesPlay` (*Origin of Iron Man*;
+    ///   deliberately refuses `AsLongAsInPlay` so *Tidebinder Mage* stays refused!)
+    /// - `RemoveAllAbilities$ True` with `Duration$ UntilHostLeavesPlay | AsLongAsInPlay`
+    ///   (*The Wondrous Wasp*, guarding against Oracle "as long as you control")
+    /// - `Goad$ True` with `Duration$ UntilHostLeavesPlay` (*Hot Pursuit*).
+    fn wave28c_effect_source_lifetime_lock(
+        &mut self,
+        p: &mut Params,
+        target: Option<&str>,
+    ) -> Option<Vec<String>> {
+        if self.on_a_spell
+            || !target.is_some_and(|t| t.starts_with("TargetSpec::Object("))
+            || p.has("Triggers")
+        {
+            return None;
+        }
+        let dur_raw = p.take("Duration")?;
+        if !matches!(
+            p.take("ForgetOnMoved")
+                .or_else(|| p.take("ExileOnMoved"))
+                .as_deref(),
+            None | Some("Battlefield")
+        ) || !matches!(
+            p.take("RememberObjects").as_deref(),
+            Some("Targeted" | "ParentTarget" | "ThisTargetedCard")
+        ) {
+            return None;
+        }
+        if p.peek("ConditionDefined") == Some("Targeted")
+            && p.peek("ConditionPresent") == Some("Card")
+        {
+            p.take("ConditionDefined");
+            p.take("ConditionPresent");
+        }
+        p.take("IsCurse");
+        if let Some(rep_name) = p.take("ReplacementEffects") {
+            if dur_raw != "UntilHostLeavesPlay" || p.has("StaticAbilities") || !p.exhausted() {
+                return None;
+            }
+            let body = self.svars.get(rep_name.trim())?.clone();
+            let (event, mut r) = Params::parse(&body)?;
+            r.drop_prose();
+            if event != "Untap"
+                || r.take("Layer").as_deref() != Some("CantHappen")
+                || r.take("ValidStepTurnToController").as_deref() != Some("You")
+                || !matches!(
+                    r.take("ValidCard").as_deref(),
+                    Some("Card.IsRemembered" | "Creature.IsRemembered")
+                )
+                || !r.exhausted()
+            {
+                return None;
+            }
+            return Some(vec![
+                "Effect::ModifyTargets { modifier: Modifier::DoesNotUntap, \
+                 duration: Duration::WhileSourceOnBattlefield }"
+                    .to_string(),
+            ]);
+        }
+        let statics = p.take("StaticAbilities")?;
+        if statics.contains(',') || !p.exhausted() {
+            return None;
+        }
+        let body = self.svars.get(statics.trim())?.clone();
+        let (mode, mut st) = Params::parse(&body)?;
+        st.drop_prose();
+        if mode != "Continuous"
+            || !matches!(
+                st.take("AffectedZone").as_deref(),
+                None | Some("Battlefield")
+            )
+            || !matches!(
+                st.take("Affected").as_deref(),
+                Some("Card.IsRemembered" | "Creature.IsRemembered")
+            )
+        {
+            return None;
+        }
+        if st.take("RemoveAllAbilities").as_deref() == Some("True") && st.exhausted() {
+            if !matches!(dur_raw.as_str(), "UntilHostLeavesPlay" | "AsLongAsInPlay")
+                || self
+                    .oracle
+                    .to_ascii_lowercase()
+                    .contains("as long as you control")
+            {
+                return None;
+            }
+            return Some(vec![
+                "Effect::ModifyTargets { modifier: Modifier::LoseAllAbilities, \
+                 duration: Duration::WhileSourceOnBattlefield }"
+                    .to_string(),
+            ]);
+        }
+        if st.take("Goad").as_deref() == Some("True") && st.exhausted() {
+            let duration = match dur_raw.as_str() {
+                "UntilHostLeavesPlay" => "Duration::WhileSourceOnBattlefield",
+                "AsLongAsControl" => "Duration::WhileYouControlSource",
+                _ => return None,
+            };
+            return Some(vec![format!(
+                "Effect::ModifyTargets {{ modifier: Modifier::Goaded, duration: {duration} }}"
+            )]);
+        }
+        None
+    }
+
+    /// Yawgmoth's Will bundle (*Gaea's Will*, *Magus of the Will*).
+    fn wave28c_effect_yawgmoths_will(
+        &mut self,
+        p: &mut Params,
+        target: Option<&str>,
+    ) -> Option<Vec<String>> {
+        if target.is_some()
+            || p.has("Triggers")
+            || p.has("RememberObjects")
+            || !matches!(p.take("Duration").as_deref(), None | Some("UntilEndOfTurn"))
+        {
+            return None;
+        }
+        p.take("AINoRecursiveCheck");
+        let statics = p.take("StaticAbilities")?;
+        let reps = p.take("ReplacementEffects")?;
+        if statics.contains(',') || reps.contains(',') || !p.exhausted() {
+            return None;
+        }
+        let sbody = self.svars.get(statics.trim())?.clone();
+        let (smode, mut st) = Params::parse(&sbody)?;
+        st.drop_prose();
+        if smode != "Continuous"
+            || st.take("Affected").as_deref() != Some("Card.YouCtrl")
+            || st.take("AffectedZone").as_deref() != Some("Graveyard")
+            || st.take("MayPlay").as_deref() != Some("True")
+            || !st.exhausted()
+        {
+            return None;
+        }
+        let rbody = self.svars.get(reps.trim())?.clone();
+        let (revent, mut r) = Params::parse(&rbody)?;
+        r.drop_prose();
+        if revent != "Moved"
+            || !matches!(r.take("ActiveZones").as_deref(), None | Some("Command"))
+            || r.take("Destination").as_deref() != Some("Graveyard")
+            || r.take("ValidCard").as_deref() != Some("Card.!token+YouOwn")
+        {
+            return None;
+        }
+        let rw = r.take("ReplaceWith")?;
+        if !r.exhausted() {
+            return None;
+        }
+        let ebody = self.svars.get(rw.trim())?.clone();
+        let (eapi, mut ep) = Params::parse(&ebody)?;
+        ep.drop_prose();
+        if eapi != "ChangeZone"
+            || !matches!(ep.take("Hidden").as_deref(), None | Some("True"))
+            || ep.take("Origin").as_deref() != Some("All")
+            || ep.take("Destination").as_deref() != Some("Exile")
+            || ep.take("Defined").as_deref() != Some("ReplacedCard")
+            || !ep.exhausted()
+        {
+            return None;
+        }
+        Some(vec![
+            "Effect::continuous(&Filter::Any, Modifier::CastSpellsFromGraveyard, \
+             Duration::UntilEndOfTurn)"
+                .to_string(),
+            "Effect::continuous(&Filter::Any, Modifier::ExileInsteadOfYourGraveyard, \
+             Duration::UntilEndOfTurn)"
+                .to_string(),
+            "Effect::continuous(&Filter::Any, Modifier::PlayLandsFromGraveyard, \
+             Duration::UntilEndOfTurn)"
+                .to_string(),
+        ])
+    }
+
+    /// 8 & 9. Temporary graveyard/hand/library-top play permissions (*Liliana,
+    /// Untouched by Death*, *Chainer, Nightmare Adept*, *Chandra, Flame's
+    /// Catalyst*, *The Belligerent*) and temporary face-down spell cost
+    /// reduction (*Goblin Maskmaker*).
+    #[allow(clippy::too_many_lines)]
+    fn wave28c_effect_temp_zone_play_or_cost(
+        &mut self,
+        p: &mut Params,
+        target: Option<&str>,
+    ) -> Option<Vec<String>> {
+        if target.is_some()
+            || p.has("RememberObjects")
+            || p.has("ReplacementEffects")
+            || p.has("Triggers")
+            || p.has("ForgetOnCast")
+        {
+            return None;
+        }
+        let duration = match p.take("Duration").as_deref() {
+            None | Some("UntilEndOfTurn") => "Duration::UntilEndOfTurn",
+            Some("UntilYourNextTurn") => "Duration::UntilYourNextTurn",
+            Some(_) => return None,
+        };
+        if !matches!(p.take("Stackable").as_deref(), None | Some("False")) {
+            return None;
+        }
+        let statics = p.take("StaticAbilities")?;
+        if statics.contains(',') || !p.exhausted() {
+            return None;
+        }
+        let body = self.svars.get(statics.trim())?.clone();
+        let (mode, mut st) = Params::parse(&body)?;
+        st.drop_prose();
+        if mode == "ReduceCost" {
+            if st.take("Type").as_deref() != Some("Spell")
+                || st.take("Activator").as_deref() != Some("You")
+                || !matches!(st.take("EffectZone").as_deref(), None | Some("Battlefield"))
+            {
+                return None;
+            }
+            let valid = st.take("ValidCard")?;
+            let amount: u8 = st.take("Amount")?.trim().parse().ok().filter(|&n| n > 0)?;
+            if !st.exhausted() {
+                return None;
+            }
+            let expr = match valid.as_str() {
+                "Card.faceDown" => "Filter::And(&[Filter::FaceDown, Filter::ControlledByYou])",
+                "Creature.faceDown" => {
+                    "Filter::And(&[Filter::CREATURE, Filter::FaceDown, Filter::ControlledByYou])"
+                }
+                _ => return None,
+            };
+            let filter_static = self.body.filter_static("EFFECT", expr);
+            return Some(vec![format!(
+                "Effect::continuous(&{filter_static}, Modifier::SpellsCostLess({amount}), \
+                 {duration})"
+            )]);
+        }
+        if mode != "Continuous" || st.take("MayPlay").as_deref() != Some("True") {
+            return None;
+        }
+        let zone = st.take("AffectedZone")?;
+        let affected = st.take("Affected")?;
+        let may_look = st.take("MayLookAt");
+        let free = match st.take("MayPlayWithoutManaCost").as_deref() {
+            None => false,
+            Some("True") => true,
+            Some(_) => return None,
+        };
+        let once_per_turn = match st.take("MayPlayLimit").as_deref() {
+            None => false,
+            Some("1") => true,
+            Some(_) => return None,
+        };
+        if !st.exhausted() {
+            return None;
+        }
+        let price = if free {
+            "AltCastPrice::Mana(ManaCost::ZERO)"
+        } else {
+            "AltCastPrice::Normal"
+        };
+        match zone.as_str() {
+            "Library"
+                if matches!(
+                    affected.as_str(),
+                    "Card.TopLibrary+YouCtrl" | "Card.TopLibrary+YouOwn"
+                ) && may_look.as_deref() == Some("You")
+                    && !free
+                    && !once_per_turn =>
+            {
+                Some(vec![
+                    format!(
+                        "Effect::continuous(&Filter::Any, \
+                         Modifier::MayLookAtTopOfLibrary {{ who: PlayerRel::You }}, {duration})"
+                    ),
+                    format!(
+                        "Effect::continuous(&Filter::Any, Modifier::PlayLandsFromLibraryTop, \
+                         {duration})"
+                    ),
+                    format!(
+                        "Effect::continuous(&Filter::Any, Modifier::MayCastWithAltCost {{ \
+                         who: PlayerRel::You, zones: AltCastZones::TopOfLibrary, \
+                         grant_zone_permission: true, allow_lands: false, with_flash: false, \
+                         max_mana_value: None, once_per_turn: false, price: {price} }}, \
+                         {duration})"
+                    ),
+                ])
+            }
+            "Hand"
+                if may_look.is_none()
+                    && free
+                    && !once_per_turn
+                    && matches!(
+                        affected.as_str(),
+                        "Card.nonLand+YouOwn" | "Card.nonLand+YouCtrl"
+                    ) =>
+            {
+                Some(vec![format!(
+                    "Effect::continuous(&Filter::OwnedByYou, Modifier::MayCastWithAltCost {{ \
+                     who: PlayerRel::You, zones: AltCastZones::Zones(&[ZoneRef::Hand]), \
+                     grant_zone_permission: false, allow_lands: false, with_flash: false, \
+                     max_mana_value: None, once_per_turn: false, price: {price} }}, {duration})"
+                )])
+            }
+            "Graveyard" if may_look.is_none() => {
+                let mut alts = Vec::new();
+                for alt in affected.split(',').map(str::trim) {
+                    let (base, rest) = alt.split_once('.')?;
+                    if matches!(base, "Card" | "Land" | "Permanent") && !rest.contains("nonLand") {
+                        return None;
+                    }
+                    let mut saw_you = false;
+                    let mut kept = Vec::new();
+                    for atom in rest.split('+').map(str::trim).filter(|a| !a.is_empty()) {
+                        match atom {
+                            "YouCtrl" | "YouOwn" => saw_you = true,
+                            "nonLand" => {}
+                            other
+                                if other.contains("Ctrl")
+                                    || other.contains("Own")
+                                    || other.contains("Remembered")
+                                    || other.contains("EffectSource")
+                                    || matches!(other, "Self" | "TopLibrary") =>
+                            {
+                                return None;
+                            }
+                            other => kept.push(other),
+                        }
+                    }
+                    if !saw_you {
+                        return None;
+                    }
+                    // `AltCastZones::Zones(&[ZoneRef::Graveyard])` checks zone kind only,
+                    // so retain `YouOwn` (`Filter::OwnedByYou`) to keep opponents' graveyards closed.
+                    kept.push("YouOwn");
+                    alts.push(format!("{base}.{}", kept.join("+")));
+                }
+                let joined = alts.join(",");
+                let filter_ref = if joined == "Card.YouOwn" {
+                    "&Filter::OwnedByYou".to_string()
+                } else {
+                    let expr = self.filter_expr_in_zone(&joined, true)?;
+                    format!("&{}", self.body.filter_static("EFFECT", &expr))
+                };
+                Some(vec![format!(
+                    "Effect::continuous({filter_ref}, Modifier::MayCastWithAltCost {{ \
+                     who: PlayerRel::You, zones: AltCastZones::Zones(&[ZoneRef::Graveyard]), \
+                     grant_zone_permission: true, allow_lands: false, with_flash: false, \
+                     max_mana_value: None, once_per_turn: {once_per_turn}, price: {price} }}, \
+                     {duration})"
+                )])
+            }
+            _ => None,
+        }
+    }
+
+    /// Targeted damage prevention / redirection / life-gain lock:
+    /// - *Dazzling Reflection* -> `Effect::PreventNextDamageFromTarget { gain_life: false }`
+    /// - *Turn the Tables* -> `Effect::RedirectCombatDamageToYouThisTurn`
+    /// - *Vassal's Duty* -> `Effect::RedirectNextDamage`
+    /// - *Flames of the Blood Hand* -> `Modifier::PlayersCantGainLife(PlayerRel::TargetPlayerOrController)`
+    /// - *Encircling Fissure* -> `Effect::ModifyFilter { ..., modifier: Modifier::PreventDamageFromIt }`
+    #[allow(clippy::too_many_lines)]
+    fn wave28c_effect_targeted_damage_or_life_lock(
+        &mut self,
+        p: &mut Params,
+        target: Option<&str>,
+    ) -> Option<Vec<String>> {
+        let target_spec = target?;
+        if p.has("StaticAbilities")
+            || !matches!(p.take("Duration").as_deref(), None | Some("UntilEndOfTurn"))
+        {
+            return None;
+        }
+        p.take("IsCurse");
+        if !matches!(
+            p.take("ExileOnMoved")
+                .or_else(|| p.take("ForgetOnMoved"))
+                .as_deref(),
+            None | Some("Battlefield")
+        ) {
+            return None;
+        }
+        // 10a. Dazzling Reflection (`ImprintCards$ Targeted` + self-exile trigger).
+        if p.peek("ImprintCards") == Some("Targeted") {
+            p.take("ImprintCards");
+            if !target_spec.starts_with("TargetSpec::Object(") {
+                return None;
+            }
+            let rep_name = p.take("ReplacementEffects")?;
+            let trig_name = p.take("Triggers")?;
+            if rep_name.contains(',') || trig_name.contains(',') || !p.exhausted() {
+                return None;
+            }
+            let rbody = self.svars.get(rep_name.trim())?.clone();
+            let (revent, mut r) = Params::parse(&rbody)?;
+            r.drop_prose();
+            if revent != "DamageDone"
+                || r.take("ValidSource").as_deref() != Some("Card.IsImprinted")
+                || r.take("PreventionEffect").as_deref() != Some("True")
+            {
+                return None;
+            }
+            let rw = r.take("ReplaceWith")?;
+            if !r.exhausted() || !self.exiles_itself(rw.trim()) {
+                return None;
+            }
+            let tbody = self.svars.get(trig_name.trim())?.clone();
+            let (tmode, mut tp) = Params::parse(&tbody)?;
+            tp.drop_prose();
+            if tmode != "ChangesZone"
+                || tp.take("Origin").as_deref() != Some("Battlefield")
+                || tp.take("Destination").as_deref() != Some("Any")
+                || !matches!(
+                    tp.take("ValidCard").as_deref(),
+                    Some("Creature.IsImprinted" | "Card.IsImprinted")
+                )
+                || tp.take("Static").as_deref() != Some("True")
+            {
+                return None;
+            }
+            let exec = tp.take("Execute")?;
+            if !tp.exhausted() || !self.exiles_itself(exec.trim()) {
+                return None;
+            }
+            return Some(vec![
+                "Effect::PreventNextDamageFromTarget { gain_life: false }".to_string(),
+            ]);
+        }
+        if p.has("Triggers") {
+            return None;
+        }
+        let rem = p.take("RememberObjects")?;
+        let rep_name = p.take("ReplacementEffects")?;
+        if rep_name.contains(',') || !p.exhausted() {
+            return None;
+        }
+        let rbody = self.svars.get(rep_name.trim())?.clone();
+        let (revent, mut r) = Params::parse(&rbody)?;
+        r.drop_prose();
+        // 10d. Flames of the Blood Hand (`RememberObjects$ TargetedOrController`).
+        if rem == "TargetedOrController"
+            && revent == "GainLife"
+            && r.take("ValidPlayer").as_deref() == Some("Player.IsRemembered")
+            && r.take("Prevent").as_deref() == Some("True")
+            && r.exhausted()
+        {
+            return Some(vec![
+                "Effect::continuous(&Filter::Any, \
+                 Modifier::PlayersCantGainLife(PlayerRel::TargetPlayerOrController), \
+                 Duration::UntilEndOfTurn)"
+                    .to_string(),
+            ]);
+        }
+        if rem != "Targeted" || revent != "DamageDone" {
+            return None;
+        }
+        // 10e. Encircling Fissure (`ValidTgts$ Opponent | ValidSource$ Creature.ControlledBy Player.IsRemembered`).
+        if matches!(
+            target_spec,
+            "TargetSpec::AnyOpponent"
+                | "TargetSpec::AnyPlayer"
+                | "TargetSpec::Player(PlayerRel::Chosen)"
+        ) && r.peek("Prevent") == Some("True")
+        {
+            r.take("Prevent");
+            if !matches!(r.take("ActiveZones").as_deref(), None | Some("Command"))
+                || r.take("ValidSource").as_deref()
+                    != Some("Creature.ControlledBy Player.IsRemembered")
+            {
+                return None;
+            }
+            let modifier = match r.take("IsCombat").as_deref() {
+                None => "Modifier::PreventAllDamageFromIt",
+                Some("True") => "Modifier::PreventDamageFromIt",
+                Some(_) => return None,
+            };
+            if !r.exhausted() {
+                return None;
+            }
+            return Some(vec![format!(
+                "Effect::ModifyFilter {{ filter: &Filter::CREATURE, \
+                 controlled_by: Some(PlayerRel::Chosen), modifier: {modifier}, \
+                 duration: Duration::UntilEndOfTurn }}"
+            )]);
+        }
+        if !target_spec.starts_with("TargetSpec::Object(") {
+            return None;
+        }
+        // 10b. Turn the Tables (`RedirectCombatDamageToYouThisTurn`).
+        if r.peek("IsCombat") == Some("True") && r.peek("ValidTarget") == Some("You") {
+            r.take("IsCombat");
+            r.take("ValidTarget");
+            if r.take("DamageTarget").as_deref() != Some("Remembered")
+                || !matches!(r.take("ActiveZones").as_deref(), None | Some("Command"))
+            {
+                return None;
+            }
+            let valid_source = r.take("ValidSource");
+            let rw = r.take("ReplaceWith")?;
+            if !r.exhausted() {
+                return None;
+            }
+            let rw_body = self.svars.get(rw.trim())?.clone();
+            let (rw_api, mut rp) = Params::parse(&rw_body)?;
+            rp.drop_prose();
+            if rw_api != "ReplaceEffect"
+                || rp.take("VarName").as_deref() != Some("Affected")
+                || rp.take("VarValue").as_deref() != Some("Remembered")
+                || rp.take("VarType").as_deref() != Some("Card")
+                || !rp.exhausted()
+            {
+                return None;
+            }
+            let src_ref = match valid_source.as_deref() {
+                None => "&Filter::Any".to_string(),
+                Some(vs) => {
+                    let expr = self.prevention_source_filter(vs)?;
+                    format!("&{}", self.body.filter_static("SOURCE", &expr))
+                }
+            };
+            return Some(vec![format!(
+                "Effect::RedirectCombatDamageToYouThisTurn {{ by: {src_ref}, \
+                 to: DamageRedirectTo::Target({target_spec}) }}"
+            )]);
+        }
+        // 10c. Vassal's Duty (`ReplaceSplitDamage` redirecting next N damage to you).
+        if matches!(
+            r.take("ValidTarget").as_deref(),
+            Some("Creature.IsRemembered" | "Card.IsRemembered")
+        ) && r.take("DamageTarget").as_deref() == Some("You")
+            && matches!(r.take("ActiveZones").as_deref(), None | Some("Command"))
+        {
+            let rw = r.take("ReplaceWith")?;
+            if !r.exhausted() {
+                return None;
+            }
+            let rw_body = self.svars.get(rw.trim())?.clone();
+            let (rw_api, mut rp) = Params::parse(&rw_body)?;
+            rp.drop_prose();
+            if rw_api != "ReplaceSplitDamage" || rp.take("DamageTarget").as_deref() != Some("You") {
+                return None;
+            }
+            let n: u32 = match rp.take("Amount") {
+                None => 1,
+                Some(raw) => raw.trim().parse::<u32>().ok().filter(|&v| v > 0)?,
+            };
+            if !rp.exhausted() {
+                return None;
+            }
+            return Some(vec![format!(
+                "Effect::RedirectNextDamage {{ target: {target_spec}, \
+                 amount: Amount::Fixed({n}), to: PlayerRel::You }}"
+            )]);
+        }
+        None
+    }
+
+    /// Turn-long / until-your-next-turn `Effect | Triggers$` gaps:
+    /// - `Mode$ Taps` destroying `TriggeredCardLKICopy` (*Don't Move*)
+    /// - `Mode$ Blocks` with omitted `ValidCard$` (*Mage Hunters' Onslaught*)
+    /// - `Mode$ DamageDoneOnce | DamageDealtOnce` on targeted creature -> gain
+    ///   that much life (*Spiritualize*, *Paladin of Prahv*)
+    /// - `TriggerZones$ Battlefield` on `Effect | Triggers$` (*Gnawing Crescendo*,
+    ///   *Infested Thrinax*, *Harald Unites the Elves*, *Roads Go Ever, Ever On*,
+    ///   *Mistway Spy*).
+    #[allow(clippy::too_many_lines)]
+    fn wave28c_effect_delayed_triggers(
+        &mut self,
+        p: &mut Params,
+        target: Option<&str>,
+    ) -> Option<Vec<String>> {
+        if p.has("StaticAbilities")
+            || p.has("ReplacementEffects")
+            || p.has("Abilities")
+            || p.has("Boon")
+            || p.has("EffectOwner")
+            || p.has("ImprintCards")
+            || p.peek("Name")
+                .is_some_and(|n| n.trim_start().starts_with("Emblem"))
+        {
+            return None;
+        }
+        let delayed_dur = match p.take("Duration").as_deref() {
+            None | Some("UntilEndOfTurn") => "DelayedDuration::ThisTurn",
+            Some("UntilYourNextTurn") => "DelayedDuration::UntilYourNextTurn",
+            Some("UntilEndOfCombat") => "DelayedDuration::ThisCombat",
+            Some(_) => return None,
+        };
+        if !matches!(
+            p.take("ExileOnMoved")
+                .or_else(|| p.take("ForgetOnMoved"))
+                .as_deref(),
+            None | Some("Battlefield")
+        ) {
+            return None;
+        }
+        p.take("IsCurse");
+        let rem = p.take("RememberObjects");
+        let trig_name = p.take("Triggers")?;
+        if trig_name.contains(',') || !p.exhausted() {
+            return None;
+        }
+        let tbody = self.svars.get(trig_name.trim())?.clone();
+        let (mode, mut tp) = Params::parse(&tbody)?;
+        tp.drop_prose();
+        if !matches!(
+            tp.take("TriggerZones").as_deref(),
+            None | Some("Command" | "Battlefield")
+        ) {
+            return None;
+        }
+        if tp.has("OneOff") || tp.has("TriggerOnce") || tp.has("Static") {
+            return None;
+        }
+        let optional = match tp.take("OptionalDecider").as_deref() {
+            None => false,
+            Some("You") => true,
+            Some(_) => return None,
+        };
+        // Case A: Spiritualize / Paladin of Prahv (`DamageDoneOnce | DamageDealtOnce`
+        // on targeted creature -> gain life equal to `TriggerCount$DamageAmount`).
+        if matches!(mode.as_str(), "DamageDoneOnce" | "DamageDealtOnce")
+            && rem.as_deref() == Some("Targeted")
+            && target.is_some_and(|t| t.starts_with("TargetSpec::Object("))
+            && matches!(
+                tp.take("ValidSource").as_deref(),
+                Some("Creature.IsRemembered" | "Card.IsRemembered")
+            )
+            && !optional
+        {
+            let exec = tp.take("Execute")?;
+            if !tp.exhausted() {
+                return None;
+            }
+            let ebody = self.svars.get(exec.trim())?.clone();
+            let (eapi, mut ep) = Params::parse(&ebody)?;
+            ep.drop_prose();
+            if eapi != "GainLife" || ep.take("Defined").as_deref() != Some("You") {
+                return None;
+            }
+            let amt_var = ep.take("LifeAmount")?;
+            if !ep.exhausted()
+                || self.svars.get(amt_var.trim()).map(String::as_str)
+                    != Some("TriggerCount$DamageAmount")
+            {
+                return None;
+            }
+            return Some(vec![format!(
+                "Effect::RegisterDelayedTrigger {{ when: DelayedTriggerWhen::OnTrigger {{ \
+                 trigger: &Trigger::DealsDamage(&Filter::This), \
+                 watch: TriggerRemember::FirstTarget, duration: {delayed_dur} }}, \
+                 condition: None, targets: None, remember: TriggerRemember::None, \
+                 effects: &[Effect::GainLife {{ amount: Amount::EventAmount }}] }}"
+            )]);
+        }
+        if rem.is_some() {
+            return None;
+        }
+        // Case B: Don't Move (`Mode$ Taps | ValidCard$ Creature` -> destroy event object).
+        if mode == "Taps" && !optional {
+            let valid = tp.take("ValidCard")?;
+            let exec = tp.take("Execute")?;
+            if !tp.exhausted() || valid.contains("Remembered") || valid.contains("EffectSource") {
+                return None;
+            }
+            let ebody = self.svars.get(exec.trim())?.clone();
+            let (eapi, mut ep) = Params::parse(&ebody)?;
+            ep.drop_prose();
+            if eapi != "Destroy"
+                || !matches!(
+                    ep.take("Defined").as_deref(),
+                    Some("TriggeredCardLKICopy" | "TriggeredCard")
+                )
+                || !ep.exhausted()
+            {
+                return None;
+            }
+            let expr = self.filter_expr(&valid)?;
+            let filter_static = self.body.filter_static("TRIGGER", &expr);
+            return Some(vec![format!(
+                "Effect::RegisterDelayedTrigger {{ when: DelayedTriggerWhen::OnTrigger {{ \
+                 trigger: &Trigger::BecomesTapped(&{filter_static}), \
+                 watch: TriggerRemember::None, duration: {delayed_dur} }}, \
+                 condition: None, targets: None, remember: TriggerRemember::None, \
+                 effects: &[Effect::destroy(TargetSpec::EventObject)] }}"
+            )]);
+        }
+        // Case C: General unbound `Triggers$` (`TriggerZones$ Battlefield` or bare `Mode$ Blocks`).
+        if !matches!(
+            mode.as_str(),
+            "ChangesZone" | "Attacks" | "AttackersDeclared" | "Blocks" | "DamageDone"
+        ) {
+            return None;
+        }
+        if mode == "Blocks" && !tp.has("ValidCard") {
+            tp.entries
+                .push(("ValidCard".to_string(), "Creature".to_string()));
+        }
+        if tp.entries.iter().any(|(_, v)| {
+            v.contains("IsRemembered")
+                || v.contains("EffectSource")
+                || v.contains("RememberedPlayer")
+                || v.contains("ChosenCard")
+        }) {
+            return None;
+        }
+        let trigger_expr = self.trigger_expr(&mut tp, &mode)?;
+        let exec = tp.take("Execute")?;
+        if !tp.exhausted() {
+            return None;
+        }
+        let ebody = self.svars.get(exec.trim())?.clone();
+        if ebody.contains("Remembered") || ebody.contains("EffectSource") {
+            return None;
+        }
+        let mut inner = Chain::default();
+        let saved_delayed = std::mem::replace(&mut self.in_delayed, true);
+        let saved_mode = self.trigger_mode.replace(mode);
+        let saved_self = std::mem::replace(&mut self.trigger_is_self, false);
+        let saved_block = self.block_line.take();
+        let read = self.chain(&ebody, &mut inner);
+        self.in_delayed = saved_delayed;
+        self.trigger_mode = saved_mode;
+        self.trigger_is_self = saved_self;
+        self.block_line = saved_block;
+        read?;
+        if inner.second_target.is_some() || inner.effects.is_empty() {
+            return None;
+        }
+        let joined = inner.effects.join(", ");
+        let effects = if optional {
+            format!("Effect::MayDo {{ effects: &[{joined}] }}")
+        } else {
+            joined
+        };
+        let targets_expr = Self::target_req_expr(&inner)
+            .map_or_else(|| "None".to_string(), |req| format!("Some({req})"));
+        Some(vec![format!(
+            "Effect::RegisterDelayedTrigger {{ when: DelayedTriggerWhen::OnTrigger {{ \
+             trigger: &{trigger_expr}, watch: TriggerRemember::None, duration: {delayed_dur} }}, \
+             condition: None, targets: {targets_expr}, remember: TriggerRemember::None, \
+             effects: &[{effects}] }}"
+        )])
+    }
 }

@@ -869,3 +869,314 @@ fn wave28c_p2_refusal_guards() {
          SVar:TrigSacUnless:DB$ Sacrifice | UnlessCost$ Sac<5/Land> | UnlessPayer$ You"
     ));
 }
+
+#[test]
+fn wave28c_p3_combat_targeting_and_stack_prevention_effects() {
+    // 1. Targeted CantBlockBy with Duration$ UntilHostLeavesPlayOrEOT (Screeching Griffin).
+    let griffin = read_w28c(
+        "Name:Screeching Griffin\nManaCost:3 W\nTypes:Creature Griffin\nPT:2/2\nK:Flying\n\
+         A:AB$ Effect | Cost$ R | ValidTgts$ Creature | IsCurse$ True | RememberObjects$ ThisTargetedCard | \
+         ForgetOnMoved$ Battlefield | StaticAbilities$ KWPump | Duration$ UntilHostLeavesPlayOrEOT\n\
+         SVar:KWPump:Mode$ CantBlockBy | ValidAttacker$ Creature.EffectSource | ValidBlocker$ Creature.IsRemembered",
+    );
+    assert!(
+        griffin.abilities.iter().any(|a| a.contains(
+            "Effect::ModifyTargets { modifier: Modifier::CantBlock(&Filter::This), duration: Duration::UntilEndOfTurn }"
+        )),
+        "expected CantBlock(&Filter::This): {:?}",
+        griffin.abilities
+    );
+
+    // 2. Walking Bulwark: Secondary$ True on CombatDamageToughness bundle.
+    let bulwark = read_w28c(
+        "Name:Walking Bulwark\nManaCost:1\nTypes:Artifact Creature Golem\nPT:0/3\nK:Defender\n\
+         A:AB$ Pump | Cost$ 2 | ValidTgts$ Creature.withDefender | KW$ Haste | SorcerySpeed$ True | SubAbility$ DBEffect\n\
+         SVar:DBEffect:DB$ Effect | RememberObjects$ Targeted | StaticAbilities$ CanAttack,CombatDamageToughness | ForgetOnMoved$ Battlefield\n\
+         SVar:CanAttack:Mode$ CanAttackDefender | ValidCard$ Card.IsRemembered\n\
+         SVar:CombatDamageToughness:Mode$ CombatDamageToughness | ValidCard$ Card.IsRemembered | Secondary$ True",
+    );
+    assert!(
+        bulwark
+            .abilities
+            .iter()
+            .any(|a| a.contains("Modifier::AssignCombatDamageUsingToughness")
+                && a.contains("Modifier::AttacksDespiteDefender")),
+        "expected defender+toughness bundle: {:?}",
+        bulwark.abilities
+    );
+
+    // 3. Temporary CantTarget (Vines of Vastwood, Veilstone Amulet, Display of Dominance).
+    let vines = read_w28c(
+        "Name:Vines of Vastwood\nManaCost:G\nTypes:Instant\nK:Kicker:G\n\
+         A:SP$ Pump | ValidTgts$ Creature | NumAtt$ +X | NumDef$ +X | SubAbility$ DBEffect\n\
+         SVar:DBEffect:DB$ Effect | Defined$ Targeted | StaticAbilities$ STCantTarget | RememberObjects$ Targeted | ExileOnMoved$ Battlefield\n\
+         SVar:STCantTarget:Mode$ CantTarget | ValidTarget$ Card.IsRemembered | Activator$ Player.Opponent\n\
+         SVar:X:Count$Kicked.4.0",
+    );
+    assert!(
+        vines
+            .abilities
+            .iter()
+            .any(|a| a.contains("Modifier::CantBeTargetedBy(&Filter::ControlledByOpponent)")),
+        "expected CantBeTargetedBy(&Filter::ControlledByOpponent): {:?}",
+        vines.abilities
+    );
+    let display = read_w28c(
+        "Name:Display of Dominance\nManaCost:1 G\nTypes:Instant\n\
+         A:SP$ Effect | StaticAbilities$ STCantBeTarget\n\
+         SVar:STCantBeTarget:Mode$ CantTarget | ValidTarget$ Permanent.YouCtrl | ValidSource$ Card.Blue+OppCtrl,Card.Black+OppCtrl | ValidSA$ Spell",
+    );
+    assert!(
+        display.statics.contains("Filter::InZone(ZoneRef::Stack)")
+            && display
+                .abilities
+                .iter()
+                .any(|a| a.contains("Modifier::CantBeTargetedBy(&EFFECT")),
+        "expected stack-restricted CantBeTargetedBy: statics={} abilities={:?}",
+        display.statics,
+        display.abilities
+    );
+
+    // 4. Stack-spell PreventAllDamageFromIt (Dromoka's Command / Shieldmage Elder).
+    let elder = read_w28c(
+        "Name:Shieldmage Elder\nManaCost:5 W\nTypes:Creature Human Cleric Wizard\nPT:2/3\n\
+         A:AB$ Effect | Cost$ tapXType<2/Wizard> | ValidTgts$ Card | TargetType$ Spell | \
+         TgtZone$ Stack | IsCurse$ True | RememberObjects$ TargetedSource | \
+         StaticAbilities$ STNoDmg | SubAbility$ DBCleanup\n\
+         SVar:STNoDmg:Mode$ Continuous | AffectedZone$ Battlefield,Stack | Affected$ Card.IsRemembered | \
+         AddKeyword$ Prevent all damage that would be dealt by CARDNAME.\n\
+         SVar:DBCleanup:DB$ Cleanup | ClearRemembered$ True",
+    );
+    assert!(
+        elder.abilities.iter().any(|a| a.contains(
+            "Effect::ModifyTargets { modifier: Modifier::PreventAllDamageFromIt, duration: Duration::UntilEndOfTurn }"
+        )),
+        "expected stack-spell PreventAllDamageFromIt: {:?}",
+        elder.abilities
+    );
+}
+
+#[test]
+fn wave28c_p3_locks_zone_play_damage_and_delayed_triggers() {
+    // Misstep -> TargetPlayersCreaturesDontUntapNextUntap.
+    let misstep = read_w28c(
+        "Name:Misstep\nManaCost:1 U\nTypes:Sorcery\n\
+         A:SP$ Effect | ValidTgts$ Player | StaticAbilities$ DontUntap | Triggers$ RemoveEffect | Duration$ Permanent | RememberObjects$ Targeted\n\
+         SVar:DontUntap:Mode$ Continuous | AffectedZone$ Battlefield | Affected$ Creature.RememberedPlayerCtrl | AddHiddenKeyword$ This card doesn't untap during your next untap step.\n\
+         SVar:RemoveEffect:Mode$ Phase | Phase$ Untap | ValidPlayer$ Player.IsRemembered | TriggerZones$ Command | Static$ True | Execute$ ExileEffect\n\
+         SVar:ExileEffect:DB$ ChangeZone | Defined$ Self | Origin$ Command | Destination$ Exile",
+    );
+    assert!(
+        misstep
+            .abilities
+            .iter()
+            .any(|a| a.contains("Effect::TargetPlayersCreaturesDontUntapNextUntap")),
+        "expected TargetPlayersCreaturesDontUntapNextUntap: {:?}",
+        misstep.abilities
+    );
+
+    // Yawgmoth's Will bundle (Gaea's Will) & temporary Graveyard/TopOfLibrary play & face-down discount.
+    let gaeas_will = read_w28c(
+        "Name:Gaea's Will\nManaCost:no cost\nColors:green\nTypes:Sorcery\nK:Suspend:4:G\n\
+         A:SP$ Effect | ReplacementEffects$ GraveToExile | StaticAbilities$ STPlay | AINoRecursiveCheck$ True\n\
+         SVar:STPlay:Mode$ Continuous | Affected$ Card.YouCtrl | AffectedZone$ Graveyard | MayPlay$ True\n\
+         SVar:GraveToExile:Event$ Moved | ActiveZones$ Command | Destination$ Graveyard | ValidCard$ Card.!token+YouOwn | ReplaceWith$ Exile\n\
+         SVar:Exile:DB$ ChangeZone | Hidden$ True | Origin$ All | Destination$ Exile | Defined$ ReplacedCard",
+    );
+    assert!(
+        gaeas_will
+            .abilities
+            .iter()
+            .any(|a| a.contains("Modifier::CastSpellsFromGraveyard")
+                && a.contains("Modifier::ExileInsteadOfYourGraveyard")
+                && a.contains("Modifier::PlayLandsFromGraveyard")),
+        "expected Yawgmoth's Will triple: {:?}",
+        gaeas_will.abilities
+    );
+    let maskmaker = read_w28c(
+        "Name:Goblin Maskmaker\nManaCost:R\nTypes:Creature Goblin Citizen\nPT:1/2\n\
+         T:Mode$ Attacks | ValidCard$ Card.Self | Execute$ TrigEffect\n\
+         SVar:TrigEffect:DB$ Effect | StaticAbilities$ ReduceCost\n\
+         SVar:ReduceCost:Mode$ ReduceCost | ValidCard$ Card.faceDown | Type$ Spell | Activator$ You | Amount$ 1",
+    );
+    assert!(
+        maskmaker.statics.contains("Filter::FaceDown")
+            && maskmaker
+                .abilities
+                .iter()
+                .any(|a| a.contains("Modifier::SpellsCostLess(1)")),
+        "expected face-down SpellsCostLess(1): {:?}",
+        maskmaker.abilities
+    );
+}
+
+#[test]
+fn wave28c_p3_damage_redirection_and_delayed_triggers() {
+    // Targeted damage/life locks (Dazzling Reflection, Turn the Tables, Vassal's Duty, Flames of the Blood Hand, Encircling Fissure).
+    let turn_tables = read_w28c(
+        "Name:Turn the Tables\nManaCost:3 W W\nTypes:Instant\n\
+         A:SP$ Effect | ReplacementEffects$ DamageEvent | RememberObjects$ Targeted | ValidTgts$ Creature.attacking | IsCurse$ True\n\
+         SVar:DamageEvent:Event$ DamageDone | ValidSource$ Creature | ValidTarget$ You | ReplaceWith$ TurnTheTables | IsCombat$ True | DamageTarget$ Remembered\n\
+         SVar:TurnTheTables:DB$ ReplaceEffect | VarName$ Affected | VarValue$ Remembered | VarType$ Card",
+    );
+    assert!(
+        turn_tables
+            .abilities
+            .iter()
+            .any(|a| a.contains("Effect::RedirectCombatDamageToYouThisTurn")),
+        "expected RedirectCombatDamageToYouThisTurn: {:?}",
+        turn_tables.abilities
+    );
+    let vassal = read_w28c(
+        "Name:Vassal's Duty\nManaCost:3 W\nTypes:Enchantment\n\
+         A:AB$ Effect | Cost$ 1 | ValidTgts$ Creature.Legendary+YouCtrl | ReplacementEffects$ DamageEvent | RememberObjects$ Targeted | ExileOnMoved$ Battlefield\n\
+         SVar:DamageEvent:Event$ DamageDone | ValidTarget$ Creature.IsRemembered | ReplaceWith$ DamageEventDmg | DamageTarget$ You\n\
+         SVar:DamageEventDmg:DB$ ReplaceSplitDamage | DamageTarget$ You",
+    );
+    assert!(
+        vassal
+            .abilities
+            .iter()
+            .any(|a| a.contains("Effect::RedirectNextDamage") && a.contains("Amount::Fixed(1)")),
+        "expected RedirectNextDamage(1): {:?}",
+        vassal.abilities
+    );
+    let spiritualize = read_w28c(
+        "Name:Spiritualize\nManaCost:2 W\nTypes:Instant\n\
+         A:SP$ Effect | ValidTgts$ Creature | Triggers$ TrigDamage | RememberObjects$ Targeted | SubAbility$ DBDraw\n\
+         SVar:TrigDamage:Mode$ DamageDoneOnce | ValidSource$ Creature.IsRemembered | Execute$ TrigGainLife\n\
+         SVar:TrigGainLife:DB$ GainLife | LifeAmount$ X | Defined$ You\n\
+         SVar:DBDraw:DB$ Draw\n\
+         SVar:X:TriggerCount$DamageAmount",
+    );
+    assert!(
+        spiritualize
+            .abilities
+            .iter()
+            .any(|a| a.contains("Trigger::DealsDamage(&Filter::This)")
+                && a.contains("watch: TriggerRemember::FirstTarget")
+                && a.contains("Effect::GainLife { amount: Amount::EventAmount }")),
+        "expected delayed DealsDamage lifelink trigger: {:?}",
+        spiritualize.abilities
+    );
+    // Liliana -3 graveyard Zombie permission MUST retain Filter::OwnedByYou.
+    let liliana = read_w28c(
+        "Name:Liliana, Untouched by Death\nManaCost:2 B B\nTypes:Legendary Planeswalker Liliana\nLoyalty:4\n\
+         A:AB$ Effect | Cost$ SubCounter<3/LOYALTY> | Planeswalker$ True | Ultimate$ True | Stackable$ False | StaticAbilities$ ZombieCast\n\
+         SVar:ZombieCast:Mode$ Continuous | Affected$ Zombie.YouCtrl | MayPlay$ True | AffectedZone$ Graveyard",
+    );
+    assert!(
+        liliana.statics.contains("Filter::OwnedByYou")
+            && liliana
+                .abilities
+                .iter()
+                .any(|a| a.contains("AltCastZones::Zones(&[ZoneRef::Graveyard])")),
+        "expected OwnedByYou-scoped graveyard MayCastWithAltCost: statics={} abilities={:?}",
+        liliana.statics,
+        liliana.abilities
+    );
+    // Taunt from the Rampart uses rules-only CantBlock(&Filter::Any) inside locked RepeatEachObject.
+    let taunt = read_w28c(
+        "Name:Taunt from the Rampart\nManaCost:3 R W\nTypes:Sorcery\n\
+         A:SP$ Goad | Defined$ Valid Creature.OppCtrl | SubAbility$ DBEffect\n\
+         SVar:DBEffect:DB$ Effect | RememberObjects$ Valid Creature.OppCtrl | StaticAbilities$ AllUnblockable | Duration$ UntilYourNextTurn\n\
+         SVar:AllUnblockable:Mode$ Continuous | AffectedZone$ Battlefield | Affected$ Card.IsRemembered | AddHiddenKeyword$ CARDNAME can't block.",
+    );
+    assert!(
+        taunt
+            .abilities
+            .iter()
+            .any(|a| a.contains("Effect::RepeatEachObject")
+                && a.contains("Modifier::CantBlock(&Filter::Any)")
+                && a.contains("Duration::UntilYourNextTurn")),
+        "expected locked-set rules-only CantBlock(&Filter::Any): {:?}",
+        taunt.abilities
+    );
+    let dont_move = read_w28c(
+        "Name:Don't Move\nManaCost:3 W W\nTypes:Sorcery\n\
+         A:SP$ DestroyAll | ValidCards$ Creature.tapped | SubAbility$ DBEffect\n\
+         SVar:DBEffect:DB$ Effect | Triggers$ TrigTaps | Duration$ UntilYourNextTurn\n\
+         SVar:TrigTaps:Mode$ Taps | ValidCard$ Creature | Execute$ TrigDestroy\n\
+         SVar:TrigDestroy:DB$ Destroy | Defined$ TriggeredCardLKICopy",
+    );
+    assert!(
+        dont_move
+            .abilities
+            .iter()
+            .any(|a| a.contains("Trigger::BecomesTapped")
+                && a.contains("DelayedDuration::UntilYourNextTurn")
+                && a.contains("Effect::destroy(TargetSpec::EventObject)")),
+        "expected Don't Move delayed BecomesTapped destroy: {:?}",
+        dont_move.abilities
+    );
+}
+
+#[test]
+fn wave28c_p3_refusal_guards() {
+    // Mandatory Outmaneuver (missing Optional$ True) stays refused.
+    assert!(refused_w28c(
+        "Name:Outmaneuver\nManaCost:X R\nTypes:Instant\n\
+         A:SP$ Effect | StaticAbilities$ Static | TargetMin$ X | TargetMax$ X | ValidTgts$ Creature.blocked | RememberObjects$ Targeted\n\
+         SVar:Static:Mode$ AssignCombatDamageAsUnblocked | ValidCard$ Card.IsRemembered\n\
+         SVar:X:Count$xPaid"
+    ));
+
+    // Mana Vapors / Exhaustion (lands don't untap) stay refused.
+    assert!(refused_w28c(
+        "Name:Mana Vapors\nManaCost:1 U\nTypes:Sorcery\n\
+         A:SP$ Effect | ValidTgts$ Player | StaticAbilities$ DontUntap | Triggers$ RemoveEffect | Duration$ Permanent | RememberObjects$ Targeted\n\
+         SVar:DontUntap:Mode$ Continuous | AffectedZone$ Battlefield | Affected$ Land.RememberedPlayerCtrl | AddHiddenKeyword$ This card doesn't untap during your next untap step.\n\
+         SVar:RemoveEffect:Mode$ Phase | Phase$ Untap | ValidPlayer$ Player.IsRemembered | TriggerZones$ Command | Static$ True | Execute$ ExileEffect\n\
+         SVar:ExileEffect:DB$ ChangeZone | Defined$ Self | Origin$ Command | Destination$ Exile"
+    ));
+
+    // Tidebinder Mage (Forge Duration$ AsLongAsInPlay vs Oracle "as long as you control") stays refused.
+    assert!(refused_w28c(
+        "Name:Tidebinder Mage\nManaCost:U U\nTypes:Creature Merfolk Wizard\nPT:2/2\n\
+         T:Mode$ ChangesZone | Origin$ Any | Destination$ Battlefield | ValidCard$ Card.Self | Execute$ TrigTap\n\
+         SVar:TrigTap:DB$ Tap | ValidTgts$ Creature.Red+OppCtrl | SubAbility$ DBEffect\n\
+         SVar:DBEffect:DB$ Effect | RememberObjects$ Targeted | ForgetOnMoved$ Battlefield | ReplacementEffects$ DontUntap | Duration$ AsLongAsInPlay\n\
+         SVar:DontUntap:Event$ Untap | ValidCard$ Card.IsRemembered | ValidStepTurnToController$ You | Layer$ CantHappen\n\
+         Oracle:When this creature enters, tap target red creature an opponent controls. That creature doesn't untap during its controller's untap step for as long as you control this creature."
+    ));
+
+    // Spider-Woman (missing ValidStepTurnToController$ You) stays refused.
+    assert!(refused_w28c(
+        "Name:Spider-Woman\nManaCost:3 WU\nTypes:Legendary Creature Spider Human\nPT:1/4\n\
+         T:Mode$ ChangesZone | Origin$ Any | Destination$ Battlefield | ValidCard$ Card.Self | Execute$ TrigTap\n\
+         SVar:TrigTap:DB$ Tap | ValidTgts$ Creature.OppCtrl | SubAbility$ DBEffect\n\
+         SVar:DBEffect:DB$ Effect | RememberObjects$ Targeted | ForgetOnMoved$ Battlefield | ReplacementEffects$ DontUntap | Duration$ AsLongAsControl\n\
+         SVar:DontUntap:Event$ Untap | ValidCard$ Card.IsRemembered | Layer$ CantHappen"
+    ));
+
+    // CantTarget with ValidSA$ Activated stays refused (CantBeTargetedBy cannot distinguish activated vs triggered).
+    assert!(refused_w28c(
+        "Name:Activated Target Lock\nManaCost:1 G\nTypes:Instant\n\
+         A:SP$ Effect | StaticAbilities$ STCantBeTarget\n\
+         SVar:STCantBeTarget:Mode$ CantTarget | ValidTarget$ Permanent.YouCtrl | ValidSource$ Card.OppCtrl | ValidSA$ Activated"
+    ));
+
+    // Vexing Shusher (target spell can't be countered) & non-combat CantPreventDamage stay refused.
+    assert!(refused_w28c(
+        "Name:Vexing Shusher\nManaCost:RG RG\nTypes:Creature Goblin Shaman\nPT:2/2\n\
+         A:AB$ Effect | Cost$ RG | ReplacementEffects$ AntiMagic | RememberObjects$ TargetedSource | ForgetOnMoved$ Stack | ValidTgts$ Card | TgtZone$ Stack | TargetType$ Spell\n\
+         SVar:AntiMagic:Event$ Counter | ValidCard$ Card.IsRemembered | ValidSA$ Spell | Layer$ CantHappen"
+    ));
+    assert!(refused_w28c(
+        "Name:Flaring Pain\nManaCost:1 R\nTypes:Instant\n\
+         A:SP$ Effect | StaticAbilities$ STCantPrevent\n\
+         SVar:STCantPrevent:Mode$ CantPreventDamage"
+    ));
+
+    // Phantom cycle (CR 615.12), Propaganda (Target$ You without Planeswalker), Mirror Strike stay refused.
+    assert!(refused_w28c(
+        "Name:Propaganda\nManaCost:2 U\nTypes:Enchantment\n\
+         S:Mode$ CantAttackUnless | ValidCard$ Creature | Target$ You | Cost$ 2"
+    ));
+    assert!(refused_w28c(
+        "Name:Mirror Strike\nManaCost:3 W\nTypes:Instant\n\
+         A:SP$ Effect | ReplacementEffects$ DamageEvent | RememberObjects$ Targeted | ExileOnMoved$ Battlefield | ValidTgts$ Creature.attacking+unblocked\n\
+         SVar:DamageEvent:Event$ DamageDone | ValidSource$ Creature.IsRemembered | ValidTarget$ You | ReplaceWith$ MirrorStrikeDmg | IsCombat$ True | DamageTarget$ ReplacedSourceController\n\
+         SVar:MirrorStrikeDmg:DB$ ReplaceEffect | VarName$ Affected | VarValue$ ReplacedSourceController | VarType$ Player"
+    ));
+}
