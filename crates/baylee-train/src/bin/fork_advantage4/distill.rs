@@ -11,8 +11,14 @@
 //! the answer), by the kinds of `R` and `N`, and by how the rollouts ended.
 //! Per cell: the mean advantage and the share `R` ahead less the share `N`
 //! ahead, each per 100 probes with its standard error by game (one game's
-//! decisions are not independent), and how often the two halves of the
-//! worlds agree on the sign.
+//! decisions are not independent), and, of the probes where both halves of
+//! the worlds lean one way or the other, how often they lean the same way.
+//!
+//! In a run whose rollouts are played to the end of the game
+//! (`--search-until-game-over`, which the `run.json` beside its games says) a
+//! rollout that ends at its horizon is censored: its score is the value of a
+//! position the game went on from. Elsewhere the horizon is one of the ends
+//! a rollout is played to.
 
 use std::collections::BTreeMap;
 use std::io::{BufRead as _, BufReader};
@@ -22,7 +28,7 @@ use baylee_train::convert4::distill_labels::{DistillLabel4, DistillProbe4, Disti
 use serde_json::{Value, json};
 
 use super::leads::{Leads, real};
-use super::{Args, kind};
+use super::{Args, kind, until_game_over};
 
 /// A game line's part this report reads.
 #[derive(serde::Deserialize)]
@@ -37,20 +43,55 @@ struct Game {
     refused_answers: u64,
 }
 
+/// How a probe's rollouts ended.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum Ended {
+    /// Every one at an end it was played to.
+    AtItsEnd,
+    /// Some at the horizon, in a run that plays them to the end of the game.
+    Censored,
+    /// Some stopped short: nobody could answer, an answer was refused or
+    /// taken back, or a house answer was next.
+    Stopped,
+}
+
+impl Ended {
+    fn of(probe: &DistillProbe4, until_game_over: bool) -> Self {
+        let mut ends = probe.ends.iter().flatten().map(String::as_str);
+        if ends
+            .clone()
+            .any(|end| matches!(end, "stopped" | "house_stop" | "taken_back"))
+        {
+            Self::Stopped
+        } else if until_game_over && ends.any(|end| end != "terminal") {
+            Self::Censored
+        } else {
+            Self::AtItsEnd
+        }
+    }
+
+    const fn name(self) -> &'static str {
+        match self {
+            Self::AtItsEnd => "every_rollout_reached_its_end",
+            Self::Censored => "some_rollout_censored_at_the_horizon",
+            Self::Stopped => "some_rollout_stopped_short",
+        }
+    }
+}
+
 /// One probe's verdict.
 struct Verdict {
     mean: f64,
     r_ahead: bool,
     n_ahead: bool,
-    /// Both halves have a world and agree on the sign of the advantage.
+    /// Whether both halves lean the same way; `None` where a half has no
+    /// world, or leans neither way.
     halves: Option<bool>,
-    /// A rollout stopped short: nobody could answer, an answer was refused
-    /// or taken back, or a house answer was next.
-    stopped: bool,
+    ended: Ended,
 }
 
 impl Verdict {
-    fn of(probe: &DistillProbe4) -> Option<Self> {
+    fn of(probe: &DistillProbe4, until_game_over: bool) -> Option<Self> {
         let (mean, se) = probe.advantage()?;
         let r_ahead = se.is_some_and(|se| mean - se > 0.0);
         let n_ahead = se.is_some_and(|se| mean + se < 0.0);
@@ -58,20 +99,14 @@ impl Verdict {
             [Some(even), Some(odd)] if even != 0.0 && odd != 0.0 => {
                 Some(even.signum() == odd.signum())
             }
-            [Some(_), Some(_)] => Some(false),
             _ => None,
         };
-        let stopped = probe
-            .ends
-            .iter()
-            .flatten()
-            .any(|end| matches!(end.as_str(), "stopped" | "house_stop" | "taken_back"));
         Some(Self {
             mean,
             r_ahead,
             n_ahead,
             halves,
-            stopped,
+            ended: Ended::of(probe, until_game_over),
         })
     }
 }
@@ -85,7 +120,9 @@ struct Cell {
     /// (`replaced`: `N` ahead).
     verdict: Leads,
     halves_agree: u64,
-    halves_both: u64,
+    /// Probes whose halves both lean one way or the other.
+    halves_lean: u64,
+    censored: u64,
     stopped: u64,
 }
 
@@ -101,10 +138,11 @@ impl Cell {
         };
         self.verdict.add(game, verdict.n_ahead, signed);
         if let Some(agree) = verdict.halves {
-            self.halves_both += 1;
+            self.halves_lean += 1;
             self.halves_agree += u64::from(agree);
         }
-        self.stopped += u64::from(verdict.stopped);
+        self.censored += u64::from(verdict.ended == Ended::Censored);
+        self.stopped += u64::from(verdict.ended == Ended::Stopped);
     }
 
     fn report(&self) -> Value {
@@ -135,9 +173,11 @@ impl Cell {
             "r_less_n_ahead_per_100": verdict,
             "r_less_n_ahead_per_100_se_by_game": verdict_by_game,
             "r_less_n_ahead_z_by_game": z(verdict, verdict_by_game),
-            "halves_agree_share": if self.halves_both == 0 { 0.0 } else {
-                real(self.halves_agree) / real(self.halves_both)
-            },
+            "halves_lean": self.halves_lean,
+            "halves_agree_share": (self.halves_lean > 0).then(|| {
+                real(self.halves_agree) / real(self.halves_lean)
+            }),
+            "with_a_rollout_censored_at_the_horizon": self.censored,
             "with_a_rollout_stopped_short": self.stopped,
         })
     }
@@ -165,9 +205,19 @@ fn answers(label: &DistillLabel4) -> String {
     )
 }
 
+/// The runs the games are of, by what their rollouts were played to.
+#[derive(Default)]
+struct Runs {
+    until_game_over: u64,
+    to_their_stops: u64,
+    /// No `run.json` beside the games: read as played to their stops.
+    unknown: u64,
+}
+
 /// What every cell of the probes in `args.games` says.
 #[derive(Default)]
 struct Report {
+    runs: Runs,
     games: u64,
     games_with_probes: u64,
     clean_games: u64,
@@ -183,7 +233,9 @@ struct Report {
 }
 
 impl Report {
-    fn game(&mut self, game: &Game) {
+    /// Counts `game`, of a run whose rollouts are played to the end of the
+    /// game or not.
+    fn game(&mut self, game: &Game, until_game_over: bool) {
         let id = self.games;
         self.games += 1;
         let clean = game.fallback_answers == 0 && game.refused_answers == 0;
@@ -195,7 +247,9 @@ impl Report {
             let Some(probe) = &label.probe else {
                 continue;
             };
-            let Some(verdict) = Verdict::of(probe).filter(|_| probe.worlds.len() >= 2) else {
+            let Some(verdict) =
+                Verdict::of(probe, until_game_over).filter(|_| probe.worlds.len() >= 2)
+            else {
                 self.thin += 1;
                 continue;
             };
@@ -225,13 +279,8 @@ impl Report {
                 .entry(answers(label))
                 .or_default()
                 .add(id, &verdict);
-            let ends = if verdict.stopped {
-                "some_rollout_stopped_short"
-            } else {
-                "every_rollout_reached_its_end"
-            };
             self.by_ends
-                .entry(ends.to_owned())
+                .entry(verdict.ended.name().to_owned())
                 .or_default()
                 .add(id, &verdict);
         }
@@ -240,8 +289,14 @@ impl Report {
 
     fn json(&self) -> Value {
         json!({
-            "contract": "distill_probe_report_v1",
+            "contract": "distill_probe_report_v2",
             "verdict": "R ahead: mean - se > 0; N ahead: mean + se < 0; se over the probe's worlds",
+            "halves": "agree: both halves of the worlds lean the same way, of the probes where both lean",
+            "runs": {
+                "until_game_over": self.runs.until_game_over,
+                "to_their_stops": self.runs.to_their_stops,
+                "without_run_json_read_as_to_their_stops": self.runs.unknown,
+            },
             "games": self.games,
             "games_with_probes": self.games_with_probes,
             "labels": self.labels,
@@ -265,6 +320,12 @@ impl Report {
 pub(super) fn report(args: &Args) -> anyhow::Result<Value> {
     let mut report = Report::default();
     for path in &args.games {
+        let until_game_over = until_game_over(path)?;
+        *match until_game_over {
+            Some(true) => &mut report.runs.until_game_over,
+            Some(false) => &mut report.runs.to_their_stops,
+            None => &mut report.runs.unknown,
+        } += 1;
         let file = std::fs::File::open(path).with_context(|| format!("{}", path.display()))?;
         for line in BufReader::new(file).lines() {
             let line = line?;
@@ -273,7 +334,7 @@ pub(super) fn report(args: &Args) -> anyhow::Result<Value> {
             }
             let game: Game = serde_json::from_str(&line)
                 .with_context(|| format!("a game of {}", path.display()))?;
-            report.game(&game);
+            report.game(&game, until_game_over == Some(true));
         }
     }
     Ok(report.json())
@@ -335,16 +396,18 @@ mod tests {
         let behind = vec![[0.6, 0.4], [0.7, 0.6], [0.6, 0.5], [0.6, 0.4]];
         let even = vec![[0.5, 0.6], [0.5, 0.4], [0.5, 0.6], [0.5, 0.4]];
         let mut report = Report::default();
-        report.game(&game(vec![
+        let first = game(vec![
             label(&["react"], Some(ahead.clone())),
             label(&[], Some(behind)),
             label(&[], None),
             label(&["react"], Some(vec![[0.5, 0.9]])),
-        ]));
-        report.game(&game(vec![
+        ]);
+        report.game(&first, false);
+        let second = game(vec![
             label(&["react", "spend"], Some(ahead)),
             label(&[], Some(even)),
-        ]));
+        ]);
+        report.game(&second, false);
         let json = report.json();
         assert_eq!(json["labels"], 6);
         assert_eq!(json["left_out_fewer_than_two_worlds"], 1, "one world");
@@ -365,7 +428,106 @@ mod tests {
             4
         );
         // The even-odd probe disagrees between its halves; the others agree.
+        assert_eq!(all["halves_lean"], 4);
         assert!((all["halves_agree_share"].as_f64().unwrap() - 0.75).abs() < 1e-9);
         assert_eq!(all["games"], 2);
+        assert_eq!(json["contract"], "distill_probe_report_v2");
+    }
+
+    /// Where a half leans neither way there is nothing to agree or disagree
+    /// on: two worlds in which `N` and `R` score alike are no disagreement.
+    #[test]
+    fn a_half_that_leans_neither_way_is_no_disagreement() {
+        let halves = |worlds: &[[f32; 2]]| {
+            let label = label(&[], Some(worlds.to_vec()));
+            Verdict::of(label.probe.as_ref().unwrap(), false)
+                .unwrap()
+                .halves
+        };
+        assert_eq!(halves(&[[0.5, 0.5], [0.5, 0.5]]), None, "neither leans");
+        assert_eq!(halves(&[[0.5, 0.6], [0.5, 0.5]]), None, "one leans");
+        assert_eq!(halves(&[[0.5, 0.6]]), None, "one half alone");
+        assert_eq!(halves(&[[0.5, 0.6], [0.5, 0.7]]), Some(true));
+        assert_eq!(halves(&[[0.5, 0.6], [0.5, 0.4]]), Some(false));
+
+        let mut report = Report::default();
+        let alike = label(&[], Some(vec![[0.5, 0.5], [0.5, 0.5]]));
+        report.game(&game(vec![alike]), false);
+        let all = &report.json()["all"];
+        assert_eq!(
+            (all["probes"].as_u64(), all["halves_lean"].as_u64()),
+            (Some(1), Some(0))
+        );
+        assert!(all["halves_agree_share"].is_null(), "{all}");
+    }
+
+    /// Only where the rollouts were to play to the end of the game is a
+    /// horizon an end they did not reach.
+    #[test]
+    fn a_horizon_is_censored_only_in_a_run_to_the_end_of_the_game() {
+        let ended = |ends: [&str; 2], until: bool| {
+            let worlds = vec![[0.5, 0.6], [0.5, 0.6]];
+            let mut label = label(&[], Some(worlds));
+            let probe = label.probe.as_mut().unwrap();
+            probe.ends = vec![
+                ["terminal".into(), "terminal".into()],
+                ends.map(str::to_owned),
+            ];
+            Ended::of(probe, until)
+        };
+        assert_eq!(ended(["terminal", "horizon"], true), Ended::Censored);
+        assert_eq!(ended(["terminal", "horizon"], false), Ended::AtItsEnd);
+        assert_eq!(ended(["terminal", "terminal"], true), Ended::AtItsEnd);
+        assert_eq!(ended(["boundary", "boundary"], false), Ended::AtItsEnd);
+        for until in [false, true] {
+            assert_eq!(ended(["horizon", "house_stop"], until), Ended::Stopped);
+        }
+
+        let mut report = Report::default();
+        let mut censored = label(&[], Some(vec![[0.5, 0.6], [0.5, 0.6]]));
+        for ends in &mut censored.probe.as_mut().unwrap().ends {
+            *ends = ["terminal".into(), "horizon".into()];
+        }
+        report.game(&game(vec![censored]), true);
+        let json = report.json();
+        assert_eq!(json["all"]["with_a_rollout_censored_at_the_horizon"], 1);
+        assert_eq!(json["all"]["with_a_rollout_stopped_short"], 0);
+        let ends = &json["by_how_the_rollouts_ended"];
+        assert_eq!(ends["some_rollout_censored_at_the_horizon"]["probes"], 1);
+        assert!(ends["every_rollout_reached_its_end"].is_null());
+    }
+
+    /// What the rollouts were played to is the run's own word.
+    #[test]
+    fn the_run_beside_the_games_says_what_its_rollouts_were_played_to() {
+        let dir = std::env::temp_dir().join(format!("distill-until-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        let games = dir.join("games.jsonl");
+        assert_eq!(until_game_over(&games).unwrap(), None);
+        for (run, says) in [
+            (json!({"search": {"until_game_over": true}}), true),
+            (json!({"search": {"turns": 2}}), false),
+            (json!({}), false),
+        ] {
+            std::fs::write(dir.join("run.json"), run.to_string()).unwrap();
+            assert_eq!(until_game_over(&games).unwrap(), Some(says));
+        }
+        std::fs::write(dir.join("run.json"), "{").unwrap();
+        assert!(until_game_over(&games).is_err());
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn a_probe_takes_no_margin() {
+        use clap::Parser as _;
+        let parse = |extra: &[&str]| {
+            let mut argv = vec!["fork_advantage4", "--games", "g"];
+            argv.extend_from_slice(extra);
+            Args::try_parse_from(argv)
+        };
+        assert!(parse(&["--distill"]).is_ok());
+        assert!(parse(&["--margin", "0.01"]).is_ok());
+        assert!(parse(&["--distill", "--margin", "0.01"]).is_err());
     }
 }

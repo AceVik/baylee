@@ -36,7 +36,7 @@
 
 use std::collections::BTreeMap;
 use std::io::{BufRead as _, BufReader};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use anyhow::Context as _;
 use baylee_train::search_labels::{HALVES_MARGIN, Halves, advantage, choose, halves};
@@ -54,8 +54,9 @@ struct Args {
     #[arg(long, required = true, num_args = 1..)]
     games: Vec<PathBuf>,
     /// The mean advantage another answer has to show over the policy's own
-    /// on the worlds it is chosen on.
-    #[arg(long, default_value_t = HALVES_MARGIN)]
+    /// on the worlds it is chosen on. A probe has one answer to judge and no
+    /// choice to make, so `--distill` takes none.
+    #[arg(long, default_value_t = HALVES_MARGIN, conflicts_with = "distill")]
     margin: f64,
     /// Where the report goes, as JSON; it is printed either way.
     #[arg(long)]
@@ -106,15 +107,21 @@ struct Leaves {
     /// house's.
     #[serde(default)]
     house_stop: u64,
+    /// Rollouts that spent the seat's decisions.
+    #[serde(default)]
+    horizon: u64,
 }
 
 impl Leaves {
-    /// The group of an event by how its rollouts ended.
-    const fn group(&self) -> &'static str {
+    /// The group of an event by how its rollouts ended, in a run that plays
+    /// them to the end of the game or not ([`until_game_over`]).
+    const fn group(&self, until_game_over: bool) -> &'static str {
         if self.house_stop > 0 {
             "some_rollout_stopped_before_a_house_answer"
         } else if self.stopped > 0 {
             "some_rollout_stopped_otherwise"
+        } else if until_game_over && self.horizon > 0 {
+            "some_rollout_censored_at_the_horizon"
         } else {
             "every_rollout_reached_its_end"
         }
@@ -123,6 +130,21 @@ impl Leaves {
 
 const fn accepted() -> bool {
     true
+}
+
+/// Whether the rollouts of the run whose games are at `games` are played to
+/// the end of the game, as the `run.json` beside them says; `None` without
+/// one.
+fn until_game_over(games: &Path) -> anyhow::Result<Option<bool>> {
+    let path = games.with_file_name("run.json");
+    if !path.exists() {
+        return Ok(None);
+    }
+    let run: serde_json::Value = std::fs::read(&path)
+        .map_err(anyhow::Error::from)
+        .and_then(|bytes| Ok(serde_json::from_slice(&bytes)?))
+        .with_context(|| format!("{}", path.display()))?;
+    Ok(Some(run["search"]["until_game_over"] == true))
 }
 
 /// The kind of an answer: its variant's name.
@@ -250,6 +272,7 @@ fn main() -> anyhow::Result<()> {
     let mut by_leaves: BTreeMap<&'static str, Judged> = BTreeMap::new();
     let (mut games, mut events, mut thin) = (0_u64, 0_u64, 0_u64);
     for path in &args.games {
+        let until_game_over = until_game_over(path)? == Some(true);
         let file = std::fs::File::open(path).with_context(|| format!("{}", path.display()))?;
         for line in BufReader::new(file).lines() {
             let line = line?;
@@ -284,7 +307,7 @@ fn main() -> anyhow::Result<()> {
                     .or_default()
                     .add(id, &event, args.margin);
                 by_leaves
-                    .entry(event.leaves.group())
+                    .entry(event.leaves.group(until_game_over))
                     .or_default()
                     .add(id, &event, args.margin);
             }
@@ -408,15 +431,30 @@ mod tests {
 
     #[test]
     fn rollouts_are_grouped_by_how_they_ended() {
-        let leaves = |stopped, house_stop| Leaves {
-            stopped,
-            house_stop,
+        let group = |stopped, house_stop, horizon, until_game_over| {
+            Leaves {
+                stopped,
+                house_stop,
+                horizon,
+            }
+            .group(until_game_over)
         };
-        assert_eq!(leaves(0, 0).group(), "every_rollout_reached_its_end");
-        assert_eq!(leaves(2, 0).group(), "some_rollout_stopped_otherwise");
-        assert_eq!(
-            leaves(2, 1).group(),
-            "some_rollout_stopped_before_a_house_answer"
+        let (end, censored) = (
+            "every_rollout_reached_its_end",
+            "some_rollout_censored_at_the_horizon",
         );
+        for until_game_over in [false, true] {
+            assert_eq!(group(0, 0, 0, until_game_over), end);
+            assert_eq!(
+                group(2, 0, 1, until_game_over),
+                "some_rollout_stopped_otherwise"
+            );
+            assert_eq!(
+                group(2, 1, 1, until_game_over),
+                "some_rollout_stopped_before_a_house_answer"
+            );
+        }
+        assert_eq!(group(0, 0, 3, false), end, "the horizon is an end there");
+        assert_eq!(group(0, 0, 3, true), censored);
     }
 }
