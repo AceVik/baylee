@@ -695,15 +695,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                     EnterModifier::ChooseCardName => baylee_core::types::TypeSet::EMPTY,
                     _ => unreachable!("the outer pattern admits only card-name choices"),
                 };
-                self.pending_plan = Some(PlanKind::ChooseCardName { object: id });
-                self.pending = Pending::ChooseCardName {
-                    player: controller,
-                    types: baylee_core::types::TypeSet::EMPTY,
-                    excluded_types,
-                    excluded_supertypes: baylee_core::types::SupertypeSet::EMPTY,
-                };
-                self.awaiting_answer = true;
-                true
+                self.ask_entry_card_name(id, controller, excluded_types)
             }
             m @ (EnterModifier::ChooseColor | EnterModifier::ChooseColorExcept(_)) => {
                 // Colorless is not a colour (CR 105.1), so it is not
@@ -779,6 +771,23 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
             }
             _ => unreachable!("only the asking modifiers are queued"),
         }
+    }
+
+    fn ask_entry_card_name(
+        &mut self,
+        id: ObjectId,
+        controller: PlayerId,
+        excluded_types: baylee_core::types::TypeSet,
+    ) -> bool {
+        self.pending_plan = Some(PlanKind::ChooseCardName { object: id });
+        self.pending = Pending::ChooseCardName {
+            player: controller,
+            types: baylee_core::types::TypeSet::EMPTY,
+            excluded_types,
+            excluded_supertypes: baylee_core::types::SupertypeSet::EMPTY,
+        };
+        self.awaiting_answer = true;
+        true
     }
 
     /// Offers an optional hand reveal, retaining an already-satisfied control alternative.

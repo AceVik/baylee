@@ -7275,20 +7275,21 @@ impl Tx<'_> {
         target: Option<&str>,
         single_target: bool,
     ) -> Option<(String, bool)> {
-        if let Some(cond) = self
-            .svar_condition_clause(var, cmp)
-            .or_else(|| self.wave7_svar_condition(var, cmp))
-            .or_else(|| Self::wave16_svar_condition(var.trim(), cmp))
-            .or_else(|| self.wave11_amount_compare_condition(var, cmp, true))
-        {
-            return Some((cond, false));
-        }
         let raw = self
             .svars
             .get(var.trim())
             .map_or(var.trim(), String::as_str)
             .trim()
             .to_string();
+        if !raw.starts_with("Targeted$Valid ")
+            && let Some(cond) = self
+                .svar_condition_clause(var, cmp)
+                .or_else(|| self.wave7_svar_condition(var, cmp))
+                .or_else(|| Self::wave16_svar_condition(var.trim(), cmp))
+                .or_else(|| self.wave11_amount_compare_condition(var, cmp, true))
+        {
+            return Some((cond, false));
+        }
         let cmp = cmp.trim();
         let bool_polarity = match cmp {
             "GE1" | "EQ1" | "GT0" => Some(true),

@@ -2349,17 +2349,12 @@ impl Tx<'_> {
         let bound = count_bound(cmp);
 
         if let Some(valid) = raw.strip_prefix("Targeted$Valid ")
-            && matches!(cmp, "GE1" | "EQ1" | "GT0" | "EQ0" | "LE0" | "LT1")
+            && matches!(cmp, "GE1" | "EQ1" | "GT0")
         {
             let expr = self.filter_expr(valid.trim())?;
-            let condition = format!(
+            return Some(format!(
                 "Condition::ObjectMatches {{ what: &TargetSpec::Object(&Filter::Any), filter: &{expr} }}"
-            );
-            return Some(if matches!(cmp, "EQ0" | "LE0" | "LT1") {
-                format!("Condition::Not(&{condition})")
-            } else {
-                condition
-            });
+            ));
         }
 
         if raw == "Count$xPaid" {

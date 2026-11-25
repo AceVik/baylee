@@ -5608,7 +5608,8 @@ fn wave17c_radiation_exchange_move_lose_skip_and_sweeps() {
     );
     assert!(
         source_exchange.abilities[0].contains("Effect::ExchangeControlOfSourceAndTarget")
-            && source_exchange.abilities[0].contains("targets = Some(TargetReq::one"),
+            && source_exchange.abilities[0]
+                .contains("target = Some(TargetSpec::Object(&Filter::CREATURE))"),
         "{}",
         source_exchange.abilities[0]
     );
