@@ -319,6 +319,19 @@ impl Tx<'_> {
         p: &mut Params,
         target: Option<&str>,
     ) -> Option<Vec<String>> {
+        let snapshot = p.clone();
+        let saved_unclaimed = self.unclaimed.borrow().clone();
+        let saved_statics_len = self.body.statics.len();
+        if let Some(effects) = self.static_effect_inner(p, target) {
+            return Some(effects);
+        }
+        p.clone_from(&snapshot);
+        self.unclaimed.borrow_mut().clone_from(&saved_unclaimed);
+        self.body.statics.truncate(saved_statics_len);
+        self.wave28c_static_effect(p, target)
+    }
+
+    fn static_effect_inner(&mut self, p: &mut Params, target: Option<&str>) -> Option<Vec<String>> {
         if let Some(rep_name) = p.peek("ReplacementEffects") {
             if target.is_none() {
                 if let Some((event, _)) = self
@@ -599,6 +612,9 @@ impl Tx<'_> {
                 st.take("EffectZone").as_deref(),
                 None | Some("Battlefield" | "Command")
             ) {
+                return None;
+            }
+            if !matches!(st.take("Secondary").as_deref(), None | Some("True")) {
                 return None;
             }
             if mode == "CombatDamageToughness" {
