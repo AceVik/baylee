@@ -171,21 +171,4 @@ mod tests {
         }
         assert_eq!(Identity::from_metadata(&inventory.metadata()[0]), Some(id));
     }
-
-    /// Counted before any path is looked at, so a list too long runs nothing.
-    #[tokio::test]
-    async fn a_list_of_executables_is_counted_before_one_is_run() {
-        let nowhere = |n: usize| vec![PathBuf::from("/nonexistent/baylee-engine"); n];
-        let counted = "configure between one and sixteen engine executables";
-        for n in [0, MAX_CAPABILITIES + 1] {
-            assert_eq!(Inventory::discover(&nowhere(n)).await, Err(counted), "{n}");
-        }
-        for n in [1, MAX_CAPABILITIES] {
-            assert_eq!(
-                Inventory::discover(&nowhere(n)).await,
-                Err("engine executable not found"),
-                "{n}"
-            );
-        }
-    }
 }

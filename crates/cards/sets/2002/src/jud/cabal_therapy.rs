@@ -25,7 +25,6 @@ card!(
                 player: PlayerRel::You,
                 types: TypeSet::EMPTY,
                 excluded_types: TypeSet::LAND,
-                excluded_supertypes: SupertypeSet::EMPTY,
                 remember: false,
             },
             Effect::RevealHand {

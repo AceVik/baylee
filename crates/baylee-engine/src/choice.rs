@@ -424,9 +424,6 @@ pub enum Pending {
         types: baylee_core::types::TypeSet,
         /// Printed card types a named face must not have; empty excludes nothing.
         excluded_types: baylee_core::types::TypeSet,
-        /// Printed supertypes a named face must not have; empty excludes nothing.
-        #[serde(default)]
-        excluded_supertypes: baylee_core::types::SupertypeSet,
     },
     /// Choose one card type as a permanent enters (CR 205.2a).
     ChooseCardType {

@@ -134,7 +134,6 @@ pub(super) fn exec_choice(
             player,
             types,
             excluded_types,
-            excluded_supertypes,
             remember,
         } => {
             let player = players_of(player, state, you, res).first().copied()?;
@@ -143,7 +142,6 @@ pub(super) fn exec_choice(
                 player,
                 types,
                 excluded_types,
-                excluded_supertypes,
             })
         }
         Effect::ChooseCreatureType { exclude } => Some(super::creature_type::choose(res, exclude)),

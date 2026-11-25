@@ -5857,13 +5857,6 @@ is no answer that does nothing, so the decision clock leaves it to the house
 stop. Both ride as JSON inside the envelope like every other question, so
 `PROTOCOL_VERSION` does not move, as it did not for `Arrange`.
 
-View 113 and protocol 70 add `excluded_supertypes` beside the existing type
-restrictions. A named face is legal only when it has none of those printed
-supertypes; an empty set excludes nothing. Desperate Research uses
-`SupertypeSet::BASIC`, so basic land names are refused while nonbasic land
-names remain legal. JSON snapshots written before the field default it to
-empty; positional binary peers must use the new version.
-
 `PublicObject.chosen_name` is the name chosen for that permanent, a
 `NamedFace { card, face }`. The choice is public and every seat is told it;
 a missing field decodes as `None`. Two permanents naming different cards do

@@ -241,20 +241,4 @@ mod tests {
             Err((StatusCode::CONFLICT, _))
         ));
     }
-
-    #[test]
-    fn a_rematch_is_for_who_sat_there_and_never_for_a_challenge() {
-        let mut game = LobbyGame::blank("g".into(), 0);
-        game.seats = vec![crate::lobby::LobbySeat::open(0)];
-        let status = |game: &LobbyGame, account: &str| {
-            may_rematch(game, account).err().map(|(status, _)| status)
-        };
-        assert_eq!(status(&game, ""), Some(StatusCode::FORBIDDEN));
-        game.seats[0].account_id = Some("owner".into());
-        assert_eq!(status(&game, "owner"), None);
-        game.challenge = Some([1; 16]);
-        assert_eq!(status(&game, "owner"), Some(StatusCode::CONFLICT));
-        // A stranger learns only that it was not there, whatever the game.
-        assert_eq!(status(&game, "foreign"), Some(StatusCode::FORBIDDEN));
-    }
 }

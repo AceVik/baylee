@@ -522,25 +522,6 @@ pub enum Filter {
     /// Has the same name (`CR 201.2`) as at least one remembered object as it
     /// last existed. Appended to preserve replay identities.
     SharesNameWithRemembered,
-    /// Shares at least one color with a most-common color among battlefield
-    /// permanents matching the inner filter. A multicolor permanent contributes
-    /// once to each of its colors; colorless permanents contribute nothing and
-    /// match nothing. Zero is never a most-common color. Appended to preserve
-    /// replay identities.
-    SharesColorWithMostCommon(&'static Filter),
-    /// Has the same name (`CR 201.2`) as another permanent on the battlefield.
-    /// The other permanent may have any controller and card type; a nameless
-    /// object shares a name with nothing (`CR 201.2a`). Appended to preserve
-    /// replay identities.
-    SharesNameWithAnotherPermanent,
-    /// Has an activated ability that is not a mana ability, whether or not it
-    /// can currently be activated. Includes granted abilities and respects
-    /// ability removal. Appended to preserve replay identities.
-    HasNonManaActivatedAbility,
-    /// A spell or ability with at least one target that is a permanent you
-    /// control matching the nested filter (`CR 115.1`, `CR 608.2b`).
-    /// Appended to preserve replay identities.
-    TargetsYouControl(&'static Filter),
 }
 
 /// Zone references for filters (engine zones, DSL view).
@@ -908,9 +889,6 @@ impl Filter {
     /// A modified creature you control (`CR 700.9`), noun first like [`Self::YOUR_RING_BEARER`].
     pub const YOUR_MODIFIED_CREATURE: Self = Self::And(&[Self::Modified, Self::ControlledByYou]);
 }
-
-#[cfg(test)]
-mod expansion_tests;
 
 #[cfg(test)]
 mod tests {

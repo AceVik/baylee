@@ -182,10 +182,6 @@ mod host_tests;
 #[cfg(test)]
 mod toggle_tests;
 
-/// A resolving permanent exchanges control with its target indefinitely.
-#[cfg(test)]
-mod source_exchange_tests;
-
 /// Mana Short: "tap all lands target player controls and that player loses
 /// all unspent mana". The player is the resolution's chosen one, and
 /// nothing of anybody else's is touched.
@@ -1631,10 +1627,8 @@ fn filter_reads_resolution_player_at(filter: &baylee_cards_dsl::Filter, depth: u
         | Filter::BlockedThisTurnBy(f)
         | Filter::LowestManaValueOnBattlefield(f)
         | Filter::SharesAColorWith(f)
-        | Filter::SharesColorWithMostCommon(f)
         | Filter::SharesCreatureTypeWith(f)
-        | Filter::ControllerControls(f)
-        | Filter::TargetsYouControl(f) => filter_reads_resolution_player_at(f, depth),
+        | Filter::ControllerControls(f) => filter_reads_resolution_player_at(f, depth),
         _ => false,
     }
 }

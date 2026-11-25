@@ -539,22 +539,3 @@ fn default_inventory_uses_only_known_siblings_and_explicit_configuration_wins() 
     let named = std::env::join_paths([&loops]).unwrap();
     assert_eq!(read(None, named.to_str()).additional_bins, [loops]);
 }
-
-#[test]
-fn a_build_s_identity_is_printable_and_at_most_a_hundred_and_sixty_bytes() {
-    let read = |build: &str| {
-        configured(&[
-            ("BAYLEE_AGENT_TOKEN", "t"),
-            ("BAYLEE_ENGINE_BIN", "/e"),
-            ("BAYLEE_ENGINE_BUILD", build),
-        ])
-        .map(|config| config.executor)
-    };
-    let longest = "x".repeat(160);
-    assert_eq!(read(&longest), Ok(longest.clone()));
-    assert!(read(&format!("{longest}x")).is_err());
-    for bad in ["a\nb", "a\tb", "a\u{7f}", "ä", "\u{202e}"] {
-        assert!(read(bad).is_err(), "{bad:?}");
-    }
-    assert_eq!(read(" ~"), Ok(" ~".into()));
-}

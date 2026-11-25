@@ -1271,38 +1271,3 @@ fn reflection_is_new_damage_for_a_replacement_already_used_on_original() {
     assert_eq!(state.players[1].life, 18);
     assert_eq!(work.dealt(), 6);
 }
-
-#[test]
-fn event_unpreventability_bypasses_prevention_but_not_redirection() {
-    let mut prevented = state(2);
-    let source = creature(&mut prevented, A, 2, 2);
-    shield(&mut prevented, B, ShieldKind::Next(3));
-    let mut work = DamageWork::new(
-        &mut prevented,
-        vec![assigned(source, DamageTarget::Player(B), 3)],
-    )
-    .with_unpreventable();
-    assert!(work.advance(&mut prevented).is_none());
-    assert_eq!(prevented.players[1].life, 17);
-    assert_eq!(work.dealt(), 3);
-
-    let mut redirected = state(2);
-    let source = creature(&mut redirected, A, 2, 2);
-    shield(
-        &mut redirected,
-        B,
-        ShieldKind::RedirectNext {
-            remaining: 3,
-            to: A,
-        },
-    );
-    let mut work = DamageWork::new(
-        &mut redirected,
-        vec![assigned(source, DamageTarget::Player(B), 3)],
-    )
-    .with_unpreventable();
-    assert!(work.advance(&mut redirected).is_none());
-    assert_eq!(redirected.players[0].life, 17);
-    assert_eq!(redirected.players[1].life, 20);
-    assert_eq!(work.dealt(), 3);
-}

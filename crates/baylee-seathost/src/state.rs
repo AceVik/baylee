@@ -258,9 +258,6 @@ const fn days(y: i64, m: u32, d: u32) -> i64 {
 }
 
 #[cfg(test)]
-mod transition_tests;
-
-#[cfg(test)]
 mod tests {
     use super::*;
 

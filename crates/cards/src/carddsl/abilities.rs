@@ -570,9 +570,6 @@ fn encode_static_into(sa: &StaticAbility, ch: &mut EffectChannels) {
                 walk_effects(rider.instruction(), ch);
             }
         }
-        Modifier::PreventDamageToAffectedIfAtMost(_) => {
-            ch.pump_pt += 0.5;
-        }
         Modifier::MayCastWithAltCost { .. } => {
             ch.mana_add += 1.0;
         }

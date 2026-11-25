@@ -48,7 +48,6 @@ fn cabal_therapy_discards_all_named_cards_and_flashes_back_for_a_creature() {
         player,
         types,
         excluded_types,
-        ..
     } = engine.pending()
     else {
         unreachable!()

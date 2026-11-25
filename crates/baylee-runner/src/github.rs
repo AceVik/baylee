@@ -213,9 +213,6 @@ fn queued_jobs(answer: &Value, label: &str) -> Result<usize> {
 }
 
 #[cfg(test)]
-mod queue_tests;
-
-#[cfg(test)]
 mod tests {
     use super::*;
     use crate::process::test_support::{MockOperations, output};

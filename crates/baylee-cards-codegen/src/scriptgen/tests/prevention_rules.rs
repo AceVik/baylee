@@ -493,36 +493,3 @@ fn wave22d_defender_extra_land_emblem_and_prevention_refusals() {
         assert!(refused(bad), "must refuse:\n{bad}");
     }
 }
-
-#[test]
-fn unpreventable_direct_damage_reads_only_for_the_spell_or_its_own_source() {
-    for damage_source in ["", " | DamageSource$ Self"] {
-        let body = read(&format!(
-            "Name:Unpreventable Damage\nManaCost:2 R\nTypes:Instant\n\
-             A:SP$ DealDamage | ValidTgts$ Any | NumDmg$ 10 | NoPrevention$ True{damage_source}"
-        ));
-        assert!(
-            body.abilities[0].contains(
-                "Effect::DealDamageWithoutPrevention { amount: Amount::Fixed(10), target: TargetSpec::AnyTarget }"
-            ),
-            "{:?}",
-            body.abilities
-        );
-    }
-
-    let ordinary = read(
-        "Name:Ordinary Damage\nManaCost:2 R\nTypes:Instant\n\
-         A:SP$ DealDamage | ValidTgts$ Any | NumDmg$ 3 | NoPrevention$ False",
-    );
-    assert!(ordinary.abilities[0].contains("Effect::DealDamage {"));
-    assert!(!ordinary.abilities[0].contains("WithoutPrevention"));
-
-    for bad in [
-        "Name:Bad Prevention\nTypes:Instant\n\
-         A:SP$ DealDamage | ValidTgts$ Any | NumDmg$ 3 | NoPrevention$ Sometimes",
-        "Name:Bad Power\nTypes:Creature\nPT:2/2\n\
-         A:AB$ DealDamage | Cost$ T | ValidTgts$ Creature | NumDmg$ Targeted$CardPower | DamageSource$ Targeted | NoPrevention$ True",
-    ] {
-        assert!(refused(bad), "must refuse:\n{bad}");
-    }
-}

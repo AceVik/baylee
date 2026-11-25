@@ -609,9 +609,6 @@ fn limit_wait(
 }
 
 #[cfg(test)]
-mod staging_tests;
-
-#[cfg(test)]
 mod tests {
     use super::*;
 

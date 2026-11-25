@@ -20,7 +20,6 @@ card!(
                 player: PlayerRel::You,
                 types: TypeSet::LAND,
                 excluded_types: TypeSet::EMPTY,
-                excluded_supertypes: SupertypeSet::EMPTY,
                 remember: true
             }]
         ),

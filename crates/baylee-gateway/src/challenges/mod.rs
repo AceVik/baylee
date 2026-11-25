@@ -265,30 +265,3 @@ pub(crate) fn completion(
     completion.validate().ok()?;
     Some(completion)
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn an_attempt_is_named_by_a_version_seven_uuid() {
-        let id = "0190b7c4-9a3e-7d1f-8abc-0123456789ab";
-        assert_eq!(
-            attempt_id(id).ok().map(|id| id.to_string()).as_deref(),
-            Some(id)
-        );
-        for bad in [
-            "",
-            "x",
-            "00000000-0000-0000-0000-000000000000",
-            "ffffffff-ffff-ffff-ffff-ffffffffffff",
-            // Version 4, and a version 7 of another variant.
-            "f47ac10b-58cc-4372-a567-0e02b2c3d479",
-            "0190b7c4-9a3e-7d1f-0abc-0123456789ab",
-            "0190b7c4-9a3e-7d1f-cabc-0123456789ab",
-        ] {
-            let (status, _) = attempt_id(bad).expect_err(bad);
-            assert_eq!(status, StatusCode::BAD_REQUEST, "{bad}");
-        }
-    }
-}

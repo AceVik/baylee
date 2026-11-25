@@ -50,7 +50,7 @@ fn meddling_mage_names_a_nonland_and_stops_that_spell_for_both_players() {
     cast_mage_waiting_for_name(&mut engine, p0);
     assert!(
         matches!(engine.pending(), Pending::ChooseCardName {
-            player, types, excluded_types, ..
+            player, types, excluded_types
         } if *player == p0 && types.is_empty() && *excluded_types == TypeSet::LAND),
         "the Mage's controller chooses any printed nonland face: {:?}",
         engine.pending()

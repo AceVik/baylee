@@ -328,7 +328,6 @@ fn reads_source(filter: &Filter) -> bool {
         | Filter::NameOriginallyPrintedIn(_)
         | Filter::IsToken
         | Filter::HasManaAbility
-        | Filter::HasNonManaActivatedAbility
         | Filter::ControlledByYou
         | Filter::ControlledByOpponent
         | Filter::ControlledByActivePlayer

@@ -187,15 +187,6 @@ pub enum ShieldKind {
         /// Frozen chosen color of the resolving source or instruction.
         chosen_color: Option<baylee_core::mana::ManaColor>,
     },
-    /// Every damage event from this exact chosen source until cleanup, with
-    /// life gained only when the actual source satisfies a second filter.
-    /// Appended to preserve replay discriminants.
-    AllFromWithLifeCondition {
-        /// Source identity, continuity and selection criterion.
-        source: ChosenSource,
-        /// Additional source criterion for gaining the prevented amount as life.
-        gain_life_sources: &'static Filter,
-    },
 }
 
 /// The source a "source of your choice" shield waits for (CR 609.7a), and

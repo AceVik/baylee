@@ -1988,32 +1988,6 @@ fn kicker_variable_x_and_non_mana_spell_cost_helpers() {
 }
 
 #[test]
-fn chosen_source_conditional_life_gain_reads_as_turn_long_shield() {
-    let story = read(
-        "Name:Synthetic Conditional Shield\nManaCost:1 W\nTypes:Instant\n\
-         A:SP$ ChooseSource | Choices$ Card,Emblem | SubAbility$ MakeShield\n\
-         SVar:MakeShield:DB$ Effect | ReplacementEffects$ WaitForDamage | \
-         ConditionDefined$ ChosenCard | ConditionPresent$ Card,Emblem | ConditionCompare$ GE1\n\
-         SVar:WaitForDamage:Event$ DamageDone | ValidTarget$ You | \
-         ValidSource$ Card.ChosenCardStrict,Emblem.ChosenCard | ReplaceWith$ ConditionalLife | \
-         PreventionEffect$ True\n\
-         SVar:ConditionalLife:DB$ ImmediateTrigger | Execute$ LifeForDamage | ConditionCheckSVar$ ColoredSource\n\
-         SVar:LifeForDamage:DB$ GainLife | Defined$ You | LifeAmount$ Prevented\n\
-         SVar:Prevented:Spawner>ReplaceCount$DamageAmount\n\
-         SVar:ColoredSource:ReplacedSource$Valid Card.BlackSource,Card.RedSource",
-    );
-    assert_eq!(
-        story.abilities,
-        [
-            "spell!(&[Effect::PreventFromChosenSourceWithLifeCondition { target: Some(TargetSpec::Player(PlayerRel::You)), sources: &Filter::Any, gain_life_sources: &SOURCE1 }])"
-        ]
-    );
-    assert!(story.statics.contains("Filter::Or"), "{}", story.statics);
-    assert!(story.statics.contains("Color::Black"), "{}", story.statics);
-    assert!(story.statics.contains("Color::Red"), "{}", story.statics);
-}
-
-#[test]
 #[allow(clippy::too_many_lines)]
 fn prevention_per_source_and_chosen_color_or_source_shields() {
     // 1. Urza's Armor & Spheres (`ValidTarget$ You` only -> Filter::Not(&Filter::Any)).
@@ -2085,17 +2059,6 @@ fn prevention_per_source_and_chosen_color_or_source_shields() {
         [
             "static_ability!(Filter::And(&[Filter::HasSubtype(subtypes::creature::WIZARD), Filter::ControlledByYou]), Modifier::PreventDamageToAffectedPerSource { sources: &Filter::Any, combat_only: false, amount: Amount::Fixed(1) })"
         ]
-    );
-
-    // Callous Giant: prevent the whole event at three or less, never cap four.
-    let giant = read(
-        "Name:Synthetic Callous Giant\nManaCost:4 R R\nTypes:Creature Giant\nPT:4/4\n\
-         R:Event$ DamageDone | ActiveZones$ Battlefield | Prevent$ True | \
-         ValidTarget$ Card.Self | DamageAmount$ LE3",
-    );
-    assert_eq!(
-        giant.abilities,
-        ["static_ability!(Filter::This, Modifier::PreventDamageToAffectedIfAtMost(3))"]
     );
 
     // 4. Infinite persistent shields (`Glacial Chasm`, `Bubble Matrix`, `Dolmen Gate`).

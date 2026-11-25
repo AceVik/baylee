@@ -294,13 +294,6 @@ impl SupertypeSet {
         self.0 & t.0 != 0
     }
 
-    /// Whether both sets share at least one supertype.
-    #[inline]
-    #[must_use]
-    pub const fn intersects(self, other: Self) -> bool {
-        self.0 & other.0 != 0
-    }
-
     /// Union.
     #[must_use]
     pub const fn union(self, other: Self) -> Self {

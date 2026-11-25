@@ -429,27 +429,6 @@ fn cataclysm_is_scored_by_the_permanents_actually_sacrificed() {
 }
 
 #[test]
-fn global_ruin_does_not_score_nonlands_as_sacrificed() {
-    let them = PlayerId::new(1);
-    let global_ruin = hand_card(20, "Global Ruin");
-    let mut v = view(
-        0,
-        &[20, 20],
-        vec![carded(
-            permanent(obj(11), them, 5),
-            "Sol Ring",
-            TypeSet::ARTIFACT,
-        )],
-    );
-    v.hand = vec![global_ruin.clone()];
-
-    assert!(
-        agent().spell_score(&v, global_ruin.card) < 0,
-        "an opposing artifact is outside Global Ruin's keep-or-sacrifice set"
-    );
-}
-
-#[test]
 fn choose_one_restricted_avoids_lose_game_while_other_modes_remain() {
     use baylee_cards_dsl::{Amount, Effect, ModalRestriction};
     use baylee_core::mana::ManaCost;

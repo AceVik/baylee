@@ -1053,15 +1053,6 @@ fn hash_shield_kind(
             chosen_subtype.hash(h);
             chosen_color.hash(h);
         }
-        crate::prevention::ShieldKind::AllFromWithLifeCondition {
-            source,
-            gain_life_sources,
-        } => {
-            h.u8(255);
-            h.u16(351);
-            hash_chosen_source(h, state, &source, position);
-            filter_hash(h, gain_life_sources);
-        }
     }
 }
 
@@ -3197,24 +3188,6 @@ fn filter_hash(h: &mut Hasher, f: &baylee_cards_dsl::Filter) {
             h.u8(255);
             h.u16(433);
         }
-        F::SharesColorWithMostCommon(inner) => {
-            h.u8(255);
-            h.u16(434);
-            filter_hash(h, inner);
-        }
-        F::SharesNameWithAnotherPermanent => {
-            h.u8(255);
-            h.u16(435);
-        }
-        F::HasNonManaActivatedAbility => {
-            h.u8(255);
-            h.u16(436);
-        }
-        F::TargetsYouControl(filter) => {
-            h.u8(255);
-            h.u16(437);
-            filter_hash(h, filter);
-        }
     }
 }
 
@@ -3244,10 +3217,8 @@ fn filter_amount_depth_exceeds(filter: &baylee_cards_dsl::Filter, depth: u8) -> 
         | F::BlockedThisTurnBy(inner)
         | F::LowestManaValueOnBattlefield(inner)
         | F::SharesAColorWith(inner)
-        | F::SharesColorWithMostCommon(inner)
         | F::SharesCreatureTypeWith(inner)
         | F::ControllerControls(inner)
-        | F::TargetsYouControl(inner)
         | F::ActivatedAbilityFrom(inner) => filter_amount_depth_exceeds(inner, depth),
         _ => false,
     }

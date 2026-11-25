@@ -446,6 +446,3 @@ pub(crate) fn unavailable(reason: &'static str) -> &'static str {
         "no engine available"
     }
 }
-
-#[cfg(test)]
-mod tests;

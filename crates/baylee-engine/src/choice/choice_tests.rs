@@ -395,7 +395,6 @@ fn a_timed_out_seat_does_nothing_wherever_the_question_allows_it() {
                 player: p,
                 types: baylee_core::types::TypeSet::EMPTY,
                 excluded_types: baylee_core::types::TypeSet::EMPTY,
-                excluded_supertypes: baylee_core::types::SupertypeSet::EMPTY,
             },
             None,
         ),

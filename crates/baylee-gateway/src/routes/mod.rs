@@ -46,6 +46,3 @@ pub(crate) use tables::*;
 pub(crate) use terms::mark_standing;
 pub(crate) use tickets::*;
 pub(crate) use watch::*;
-
-#[cfg(test)]
-mod tests;

@@ -3,12 +3,9 @@
 
 use super::*;
 use baylee_cards_dsl::{Amount, Condition, Filter, PlayerRel, TargetSpec, ThisWay};
-use baylee_core::types::SupertypeSet;
 
 const NAMER: u32 = 7403;
 const NAMED: u32 = 7404;
-const BASIC: u32 = 7405;
-const NONBASIC: u32 = 7406;
 
 const fn choose_and_shoot(remember: bool) -> [Effect; 3] {
     [
@@ -16,7 +13,6 @@ const fn choose_and_shoot(remember: bool) -> [Effect; 3] {
             player: PlayerRel::You,
             types: TypeSet::EMPTY,
             excluded_types: TypeSet::EMPTY,
-            excluded_supertypes: SupertypeSet::EMPTY,
             remember,
         },
         Effect::RevealRandomFromHand {
@@ -49,16 +45,6 @@ static ABILITIES: &[AbilityDef] = &[
         ))],
         Some(TargetReq::one(TargetSpec::Object(&Filter::ARTIFACT))),
     ),
-    free(
-        &[Effect::ChooseCardName {
-            player: PlayerRel::You,
-            types: TypeSet::EMPTY,
-            excluded_types: TypeSet::EMPTY,
-            excluded_supertypes: SupertypeSet::BASIC,
-            remember: false,
-        }],
-        None,
-    ),
 ];
 
 fn fixture() -> (Bench, ObjectId) {
@@ -74,21 +60,6 @@ fn fixture() -> (Bench, ObjectId) {
             card(
                 NAMED,
                 creature_face("Named", "{0}", 2, 2),
-                KeywordSet::EMPTY,
-                &[],
-            ),
-            card(
-                BASIC,
-                FaceDef {
-                    supertypes: SupertypeSet::BASIC,
-                    ..face("Forest", "{0}", TypeSet::LAND)
-                },
-                KeywordSet::EMPTY,
-                &[],
-            ),
-            card(
-                NONBASIC,
-                face("Wasteland", "{0}", TypeSet::LAND),
                 KeywordSet::EMPTY,
                 &[],
             ),
@@ -186,106 +157,4 @@ fn the_current_choice_overrides_a_different_name_remembered_by_the_source() {
         18,
         "the older matching name must not replace this resolution's mismatch"
     );
-}
-
-#[test]
-fn a_name_twin_is_another_permanent_not_the_object_itself() {
-    let mut engine = bench(
-        7405,
-        vec![
-            card(
-                NAMER,
-                face("Namer", "{0}", TypeSet::ARTIFACT),
-                KeywordSet::EMPTY,
-                &[],
-            ),
-            card(
-                NAMED,
-                creature_face("Named", "{0}", 2, 2),
-                KeywordSet::EMPTY,
-                &[],
-            ),
-        ],
-        [Seat::with(&[NAMER, NAMED, NAMED]), Seat::with(&[NAMED])],
-    );
-    to_main(&mut engine, me());
-    let source = the(&engine, ZoneLocation::Battlefield, NAMER);
-    for id in objects(&engine, ZoneLocation::Battlefield, NAMED) {
-        let object = engine.state().object(id).unwrap();
-        assert!(crate::eval::matches(
-            &Filter::SharesNameWithAnotherPermanent,
-            engine.state(),
-            object,
-            me(),
-            source,
-        ));
-    }
-    let object = engine.state().object(source).unwrap();
-    assert!(!crate::eval::matches(
-        &Filter::SharesNameWithAnotherPermanent,
-        engine.state(),
-        object,
-        me(),
-        source,
-    ));
-
-    let engine = bench(
-        7406,
-        vec![card(
-            NAMED,
-            creature_face("Named", "{0}", 2, 2),
-            KeywordSet::EMPTY,
-            &[],
-        )],
-        [Seat::with(&[NAMED]), Seat::default()],
-    );
-    let id = the(&engine, ZoneLocation::Battlefield, NAMED);
-    let object = engine.state().object(id).unwrap();
-    assert!(
-        !crate::eval::matches(
-            &Filter::SharesNameWithAnotherPermanent,
-            engine.state(),
-            object,
-            me(),
-            id,
-        ),
-        "an object is not another permanent with its own name"
-    );
-}
-
-#[test]
-fn a_basic_name_is_refused_but_a_nonbasic_land_name_is_allowed() {
-    let (mut engine, source) = fixture();
-    activate(&mut engine, me(), source, 4);
-    walk_until(&mut engine, |engine| {
-        matches!(
-            engine.pending(),
-            Pending::ChooseCardName {
-                excluded_supertypes: SupertypeSet::BASIC,
-                ..
-            }
-        )
-    });
-    assert!(
-        engine
-            .apply(
-                me(),
-                PlayerAction::ChooseCardName {
-                    card: CardIndex::new(BASIC),
-                    face: 0,
-                },
-            )
-            .is_err()
-    );
-    assert!(matches!(engine.pending(), Pending::ChooseCardName { .. }));
-    engine
-        .apply(
-            me(),
-            PlayerAction::ChooseCardName {
-                card: CardIndex::new(NONBASIC),
-                face: 0,
-            },
-        )
-        .unwrap();
-    settle(&mut engine, me());
 }

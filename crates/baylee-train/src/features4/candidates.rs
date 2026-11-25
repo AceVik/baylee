@@ -482,7 +482,6 @@ pub fn encode_candidates4(
         Pending::ChooseCardName {
             types,
             excluded_types,
-            excluded_supertypes,
             ..
         } => {
             // Naming is a choice over the public registry, not just the cards
@@ -492,7 +491,6 @@ pub fn encode_candidates4(
                 for (face_idx, face) in def.faces.iter().enumerate() {
                     if (!types.is_empty() && !face.types.intersects(*types))
                         || face.types.intersects(*excluded_types)
-                        || face.supertypes.intersects(*excluded_supertypes)
                     {
                         continue;
                     }

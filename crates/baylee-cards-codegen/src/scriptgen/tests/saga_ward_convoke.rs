@@ -4946,20 +4946,3 @@ fn wave21d_wave11c_monarch_initiative_dungeon_conditions() {
         assert!(refused(bad), "must refuse:\n{bad}");
     }
 }
-
-#[test]
-fn non_mana_activated_ability_filter_lowers_in_untap_statics() {
-    let card = read(
-        "Name:Utility Web\nManaCost:6\nTypes:Enchantment\n\
-         R:Event$ Untap | Layer$ CantHappen | ValidCard$ Land.hasNonManaActivatedAbility | ValidStepTurnToController$ You",
-    );
-    assert!(
-        card.abilities.iter().any(|ability| {
-            ability.contains(
-                "static_ability!(Filter::And(&[Filter::LAND, Filter::HasNonManaActivatedAbility]), Modifier::DoesNotUntap)",
-            )
-        }),
-        "abilities: {:?}",
-        card.abilities
-    );
-}

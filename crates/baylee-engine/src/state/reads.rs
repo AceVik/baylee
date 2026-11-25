@@ -41,7 +41,6 @@ pub(crate) fn filter_reads_board_state(filter: &baylee_cards_dsl::Filter) -> boo
         | Filter::RingBearer
         | Filter::Modified
         | Filter::SharesAColorWith(_)
-        | Filter::SharesColorWithMostCommon(_)
         | Filter::SharesCreatureTypeWith(_)
         | Filter::SharesColorWithExiledWithSource
         | Filter::SharesColorWithSource
@@ -52,12 +51,9 @@ pub(crate) fn filter_reads_board_state(filter: &baylee_cards_dsl::Filter) -> boo
         | Filter::IsRemembered
         | Filter::NotRemembered
         | Filter::SharesCardTypeWithRemembered
-        | Filter::SharesNameWithRemembered
-        | Filter::SharesNameWithAnotherPermanent => true,
+        | Filter::SharesNameWithRemembered => true,
         Filter::And(parts) | Filter::Or(parts) => parts.iter().any(filter_reads_board_state),
-        Filter::Not(f) | Filter::ControllerControls(f) | Filter::TargetsYouControl(f) => {
-            filter_reads_board_state(f)
-        }
+        Filter::Not(f) | Filter::ControllerControls(f) => filter_reads_board_state(f),
         _ => false,
     }
 }
@@ -95,10 +91,8 @@ fn filter_reads_reference_at(filter: &baylee_cards_dsl::Filter, depth: u8) -> bo
         | Filter::BlockedThisTurnBy(f)
         | Filter::LowestManaValueOnBattlefield(f)
         | Filter::SharesAColorWith(f)
-        | Filter::SharesColorWithMostCommon(f)
         | Filter::SharesCreatureTypeWith(f)
-        | Filter::ControllerControls(f)
-        | Filter::TargetsYouControl(f) => filter_reads_reference_at(f, depth),
+        | Filter::ControllerControls(f) => filter_reads_reference_at(f, depth),
         _ => false,
     }
 }
@@ -392,10 +386,8 @@ fn filter_reads_crime(filter: &baylee_cards_dsl::Filter, depth: u8) -> bool {
         | Filter::BlockedThisTurnBy(f)
         | Filter::LowestManaValueOnBattlefield(f)
         | Filter::SharesAColorWith(f)
-        | Filter::SharesColorWithMostCommon(f)
         | Filter::SharesCreatureTypeWith(f)
-        | Filter::ControllerControls(f)
-        | Filter::TargetsYouControl(f) => filter_reads_crime(f, depth),
+        | Filter::ControllerControls(f) => filter_reads_crime(f, depth),
         _ => false,
     }
 }
@@ -648,10 +640,8 @@ fn filter_reads_expend(filter: &baylee_cards_dsl::Filter, depth: u8) -> bool {
         | Filter::BlockedThisTurnBy(f)
         | Filter::LowestManaValueOnBattlefield(f)
         | Filter::SharesAColorWith(f)
-        | Filter::SharesColorWithMostCommon(f)
         | Filter::SharesCreatureTypeWith(f)
-        | Filter::ControllerControls(f)
-        | Filter::TargetsYouControl(f) => filter_reads_expend(f, depth),
+        | Filter::ControllerControls(f) => filter_reads_expend(f, depth),
         _ => false,
     }
 }
@@ -1190,10 +1180,8 @@ fn filter_matches(
         | Filter::BlockedThisTurnBy(f)
         | Filter::LowestManaValueOnBattlefield(f)
         | Filter::SharesAColorWith(f)
-        | Filter::SharesColorWithMostCommon(f)
         | Filter::SharesCreatureTypeWith(f)
-        | Filter::ControllerControls(f)
-        | Filter::TargetsYouControl(f) => filter_matches(f, cond_pred, amt_pred, depth),
+        | Filter::ControllerControls(f) => filter_matches(f, cond_pred, amt_pred, depth),
         _ => false,
     }
 }

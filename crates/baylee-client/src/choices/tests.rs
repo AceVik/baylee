@@ -2,19 +2,6 @@ use super::*;
 use baylee_core::ids::PlayerId;
 use baylee_engine::choice::{ArrangePrompt, CastModeDesc, CastModeKind};
 
-fn card_name_rows<'a>(
-    search: impl Into<Search<'a>>,
-    types: baylee_core::types::TypeSet,
-    excluded_types: baylee_core::types::TypeSet,
-) -> Vec<ChoiceOption> {
-    super::card_name_rows(
-        search,
-        types,
-        excluded_types,
-        baylee_core::types::SupertypeSet::EMPTY,
-    )
-}
-
 #[test]
 fn a_colour_row_is_a_symbol_and_no_word() {
     let rows = options(
@@ -449,7 +436,6 @@ fn a_card_name_is_found_by_any_word_of_it_and_sent_as_its_card() {
         &Prompt::ChooseCardName {
             types: baylee_core::types::TypeSet::EMPTY,
             excluded_types: baylee_core::types::TypeSet::EMPTY,
-            excluded_supertypes: baylee_core::types::SupertypeSet::EMPTY,
         },
         Lang::En,
         None,
@@ -467,7 +453,6 @@ fn a_card_name_is_found_by_any_word_of_it_and_sent_as_its_card() {
     let pending = baylee_engine::choice::Pending::ChooseCardName {
         types: baylee_core::types::TypeSet::EMPTY,
         excluded_types: baylee_core::types::TypeSet::EMPTY,
-        excluded_supertypes: baylee_core::types::SupertypeSet::EMPTY,
         player: baylee_core::ids::PlayerId::new(0),
     };
     let mut interaction = Interaction::new(pending, baylee_core::ids::PlayerId::new(0));

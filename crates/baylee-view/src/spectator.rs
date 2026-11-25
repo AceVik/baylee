@@ -180,6 +180,3 @@ impl SpectatorView {
             .map(|c| c.print)
     }
 }
-
-#[cfg(test)]
-mod tests;

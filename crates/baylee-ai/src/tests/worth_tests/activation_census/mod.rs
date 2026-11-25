@@ -630,9 +630,7 @@ fn the_table_reads_most_of_what_the_pool_activates() {
     // The paper-only pass removes First Little Pig's readable exile activation.
     // Pass E17 (+436 generated cards, 30 promoted stubs) + Wave 27 adds 62 read
     // and 119 total non-mana activations.
-    // Invasion mechanics (Phyrexian Infiltrator's ExchangeControlOfSourceAndTarget)
-    // adds 1 contextual non-mana activation (0 read, +1 total).
-    assert_eq!((read, of), (5853, 7593), "activated/loyalty reader census");
+    assert_eq!((read, of), (5853, 7592), "activated/loyalty reader census");
 
     // Pin the new readable rows to their cards rather than only to the census.
     for (name, label) in [

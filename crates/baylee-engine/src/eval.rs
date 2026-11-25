@@ -17,7 +17,7 @@ pub(crate) mod target_pair;
 mod targets;
 mod upkeep_history;
 
-use crate::object::{GameObject, ObjectKind, Status};
+use crate::object::{GameObject, Status};
 use crate::state::GameState;
 use crate::text_changes::{RuleContext, TextChangeMap};
 use crate::zone::Zone;
@@ -360,26 +360,6 @@ pub(crate) fn matches_projected_with_choices(
                     }) && (pre_stack_projection || state.targets_current_object(obj.id, *id))
                 })
         }
-        Filter::TargetsYouControl(filter) => {
-            let pre_stack_projection = state
-                .object(obj.id)
-                .is_some_and(|live| live.zone != Zone::Stack);
-            obj.targets
-                .iter()
-                .chain(obj.second_targets())
-                .chain(
-                    obj.extra_target_instances()
-                        .iter()
-                        .flat_map(|inst| inst.targets.iter()),
-                )
-                .any(|id| {
-                    state.object(*id).is_some_and(|target| {
-                        target.zone == Zone::Battlefield
-                            && target.controller == you
-                            && matches_with_context(filter, state, target, you, context)
-                    }) && (pre_stack_projection || state.targets_current_object(obj.id, *id))
-                })
-        }
         Filter::WithSingleTarget => {
             let players = obj.target_players.len()
                 + usize::from(
@@ -402,19 +382,6 @@ pub(crate) fn matches_projected_with_choices(
             (chars.has_mana_ability && chars.abilities_lost.is_none() && !chars.rules_text_lost)
                 || !crate::casting::intrinsic_mana_colors(state, obj.id).is_empty()
                 || crate::effects::granted_activated(state, obj.id).any(|a| a.mana_ability)
-        }
-        Filter::HasNonManaActivatedAbility => {
-            obj.abilities(state.bases.as_ref()).iter().any(|ability| {
-                matches!(
-                    ability,
-                    baylee_cards_dsl::AbilityDef::Activated { .. }
-                        | baylee_cards_dsl::AbilityDef::ActivatedConditional { .. }
-                        | baylee_cards_dsl::AbilityDef::ModalActivated { .. }
-                        | baylee_cards_dsl::AbilityDef::Loyalty { .. }
-                        | baylee_cards_dsl::AbilityDef::Unearth { .. }
-                        | baylee_cards_dsl::AbilityDef::Encore { .. }
-                ) && !ability.is_mana_ability()
-            }) || crate::effects::granted_activated(state, obj.id).any(|a| !a.mana_ability)
         }
         Filter::ControlledByYou => obj.controller == you,
         Filter::ControlledByOpponent => state.is_opponent(obj.controller, you),
@@ -647,18 +614,6 @@ pub(crate) fn matches_projected_with_choices(
                 .filter_map(|id| state.object(id))
                 .any(|exiled| exiled.characteristics().name == chars.name)
         }
-        // CR 201.2a: two objects share a name only when both have that name.
-        // Phased-out permanents do not participate (CR 702.26b).
-        Filter::SharesNameWithAnotherPermanent => {
-            chars.name != crate::state::NAMELESS
-                && state.battlefield_seen().any(|id| {
-                    id != obj.id
-                        && state.object(id).is_some_and(|other| {
-                            other.kind == ObjectKind::Permanent
-                                && other.characteristics().name == chars.name
-                        })
-                })
-        }
         Filter::SharesColorWithExiledWithSource => {
             linked_exile_cards(state, you, context, None, &Filter::Any)
                 .into_iter()
@@ -670,24 +625,6 @@ pub(crate) fn matches_projected_with_choices(
                 && state
                     .object_or_departed(this)
                     .is_some_and(|src| src.characteristics().colors.intersects(chars.colors))
-        }
-        Filter::SharesColorWithMostCommon(inner) => {
-            use baylee_core::color::Color;
-            let mut counts = [0_u32; 5];
-            for other in state.battlefield_seen().filter_map(|id| state.object(id)) {
-                if matches_with_context(inner, state, other, you, context) {
-                    for color in Color::ALL {
-                        if other.characteristics().colors.contains(color) {
-                            counts[color as usize] = counts[color as usize].saturating_add(1);
-                        }
-                    }
-                }
-            }
-            let most_common = counts.iter().copied().max().unwrap_or(0);
-            most_common > 0
-                && Color::ALL.into_iter().any(|color| {
-                    counts[color as usize] == most_common && chars.colors.contains(color)
-                })
         }
         Filter::CmcEqualsYourUnspentMana => state
             .players

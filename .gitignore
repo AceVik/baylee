@@ -64,6 +64,3 @@ impressum-data*.json
 impressum*.bin
 /web/**/*.bin
 /web/**/private/
-
-# Coverage runs write these beside the crate they ran in.
-*.profraw

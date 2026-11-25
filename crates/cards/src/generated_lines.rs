@@ -29836,14 +29836,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
         modes: &[],
         alternatives: &[],
     }],
-    // Callous Giant
-    &[FaceLines {
-        sentences: 1,
-        stackable: 0,
-        lines: &[None],
-        modes: &[],
-        alternatives: &[],
-    }],
+    &[],
     // Canopy Surge
     &[FaceLines {
         sentences: 2,
@@ -29868,14 +29861,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
         modes: &[],
         alternatives: &[],
     }],
-    // Cauldron Dance
-    &[FaceLines {
-        sentences: 3,
-        stackable: 0,
-        lines: &[None],
-        modes: &[],
-        alternatives: &[],
-    }],
+    &[],
     // Chaotic Strike
     &[FaceLines {
         sentences: 3,
@@ -29983,14 +29969,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
         modes: &[],
         alternatives: &[],
     }],
-    // Darigaaz, the Igniter
-    &[FaceLines {
-        sentences: 2,
-        stackable: 1,
-        lines: &[Some(1)],
-        modes: &[],
-        alternatives: &[],
-    }],
+    &[],
     &[],
     // Defiling Tears
     &[FaceLines {
@@ -30214,14 +30193,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
         modes: &[],
         alternatives: &[],
     }],
-    // Global Ruin
-    &[FaceLines {
-        sentences: 1,
-        stackable: 0,
-        lines: &[None],
-        modes: &[],
-        alternatives: &[],
-    }],
+    &[],
     // Goblin Spy
     &[FaceLines {
         sentences: 1,
@@ -30939,14 +30911,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     }],
     &[],
     &[],
-    // Searing Rays
-    &[FaceLines {
-        sentences: 1,
-        stackable: 0,
-        lines: &[None],
-        modes: &[],
-        alternatives: &[],
-    }],
+    &[],
     // Seashell Cameo
     &[FaceLines {
         sentences: 1,
@@ -31369,14 +31334,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
         modes: &[],
         alternatives: &[],
     }],
-    // Tsabo's Web
-    &[FaceLines {
-        sentences: 2,
-        stackable: 1,
-        lines: &[Some(0), None],
-        modes: &[],
-        alternatives: &[],
-    }],
+    &[],
     &[],
     // Twilight's Call
     &[FaceLines {
@@ -31532,14 +31490,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
         modes: &[],
         alternatives: &[],
     }],
-    // Void
-    &[FaceLines {
-        sentences: 1,
-        stackable: 0,
-        lines: &[None],
-        modes: &[],
-        alternatives: &[],
-    }],
+    &[],
     // Voracious Cobra
     &[FaceLines {
         sentences: 2,
@@ -31614,14 +31565,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
         modes: &[],
         alternatives: &[],
     }],
-    // Winnow
-    &[FaceLines {
-        sentences: 2,
-        stackable: 0,
-        lines: &[None],
-        modes: &[],
-        alternatives: &[],
-    }],
+    &[],
     // Worldly Counsel
     &[FaceLines {
         sentences: 1,

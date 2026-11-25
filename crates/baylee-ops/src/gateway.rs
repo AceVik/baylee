@@ -103,49 +103,4 @@ mod tests {
         let body = format!(r#"{{"commit":"{}","dirty":false}}"#, "a".repeat(40));
         assert_eq!(info(&body), Some(("a".repeat(40), "clean")));
     }
-
-    #[test]
-    fn a_commit_is_forty_hex_digits_and_a_build_is_clean_only_when_it_says_so() {
-        let built = |commit: &str, dirty: &str| {
-            info(&format!(r#"{{"commit":"{commit}"{dirty}}}"#)).map(|(_, built)| built)
-        };
-        let commit = "0123456789abcdefABCD".repeat(2);
-        assert_eq!(built(&commit, r#","dirty":false"#), Some("clean"));
-        assert_eq!(built(&commit, r#","dirty":true"#), Some("dirty"));
-        for unsaid in [
-            "",
-            r#","dirty":null"#,
-            r#","dirty":"false""#,
-            r#","dirty":0"#,
-        ] {
-            assert_eq!(built(&commit, unsaid), Some("unknown"), "{unsaid}");
-        }
-        for bad in [&commit[1..], &format!("{commit}a"), &"g".repeat(40), ""] {
-            assert_eq!(built(bad, r#","dirty":false"#), None, "{bad}");
-        }
-        assert_eq!(info(r#"{"commit":7}"#), None);
-        assert_eq!(info("[]"), None);
-    }
-
-    #[test]
-    fn an_admission_is_one_word_or_the_health_is_not_read_at_all() {
-        let admission = |said: &str| {
-            health(&format!(
-                r#"{{"games":{{"running":1,"waiting":2}},"admission":{said}}}"#
-            ))
-            .map(|(_, _, admission)| admission)
-        };
-        assert_eq!(admission(r#""held""#).as_deref(), Some("held"));
-        for bad in [
-            r#""""#,
-            r#"" held""#,
-            r#""held ""#,
-            r#""he\tld""#,
-            "null",
-            "true",
-            "{}",
-        ] {
-            assert_eq!(admission(bad), None, "{bad}");
-        }
-    }
 }

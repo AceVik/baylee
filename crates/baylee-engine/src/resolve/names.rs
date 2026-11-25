@@ -144,52 +144,6 @@ pub(super) fn reveal_top(
     put_top(state, res, card, player, destination)
 }
 
-pub(super) fn reveal_top_all_named(
-    state: &mut GameState,
-    res: &mut Resolution,
-    who: PlayerRel,
-    count: u8,
-    matched: SearchDest,
-    otherwise: SearchDest,
-) -> Option<Pending> {
-    let player = players_of(who, state, res.controller, res)
-        .first()
-        .copied()?;
-    let top: Vec<_> = state
-        .zones
-        .list(ZoneLocation::Library(player))
-        .iter()
-        .rev()
-        .take(usize::from(count))
-        .copied()
-        .collect();
-    if top.is_empty() {
-        return None;
-    }
-    // Every card is public before any of them changes zones (CR 701.20a).
-    state.journal.record(GameEvent::Revealed {
-        player,
-        cards: top.clone(),
-    });
-    let chosen: Vec<_> = top
-        .iter()
-        .copied()
-        .filter(|&card| matches_name(state, res, card))
-        .collect();
-    dig::finish_with_destination(
-        state,
-        res,
-        baylee_cards_dsl::Find {
-            dest: matched,
-            ..baylee_cards_dsl::Find::HAND
-        },
-        top,
-        false,
-        dig::RestDestination::Move(otherwise),
-        &chosen,
-    )
-}
-
 pub(super) fn put_top(
     state: &mut GameState,
     res: &mut Resolution,

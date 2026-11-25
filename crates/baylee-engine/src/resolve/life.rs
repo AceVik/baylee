@@ -28,7 +28,6 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
         | Effect::DealDamage { .. }
         | Effect::GrantorDealsDamage { .. }
         | Effect::DealDamageWithoutPreventionOrRedirection { .. }
-        | Effect::DealDamageWithoutPrevention { .. }
         | Effect::DealDamageToBothTargetInstances { .. }
         | Effect::DamagePermanentAndController { .. }
         | Effect::DealDamageToMatchingTargets { .. }
@@ -253,50 +252,6 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
                 Some(origin),
             );
             None
-        }
-        Effect::PreventFromChosenSourceWithLifeCondition {
-            target,
-            sources,
-            gain_life_sources,
-        } => {
-            let protects = match target {
-                None => vec![Shielded::Everything],
-                Some(spec) => recipients(state, res, you, spec)
-                    .into_iter()
-                    .filter_map(|recipient| match recipient {
-                        DamageTarget::Player(player) => Some(Shielded::Player(player)),
-                        DamageTarget::Object(id) => state
-                            .object(id)
-                            .map(|obj| Shielded::Object(id, obj.version)),
-                    })
-                    .collect(),
-            };
-            if protects.is_empty() {
-                return None;
-            }
-            let chosen_color = res.source_chosen_color(state);
-            let chosen_subtype = res.source_chosen_subtype(state);
-            let options = crate::prevention::source_options_with_choices(
-                state,
-                sources,
-                you,
-                res.rule_context(),
-                chosen_color,
-                chosen_subtype,
-            );
-            if options.is_empty() {
-                return None;
-            }
-            res.awaiting = Some(AwaitingOp::ShieldFromChosenSourceWithLifeCondition {
-                protects,
-                sources,
-                gain_life_sources,
-            });
-            Some(Pending::ChooseDamageSource {
-                player: you,
-                choice: state.next_source_choice(),
-                options,
-            })
         }
         // The source is chosen as this resolves (CR 609.7a), and the choice
         // is an instruction, so `min: 1`; with no source to choose there is
@@ -653,9 +608,6 @@ fn start(state: &mut GameState, res: &mut Resolution, op: Effect) -> Option<Pend
     let mut work = DamageWork::new(state, assignments);
     if let Effect::DealDamageWithoutPreventionOrRedirection { recipients, .. } = op {
         work = work.with_recipient_lock(recipients, res.controller, res.rule_context());
-    }
-    if matches!(op, Effect::DealDamageWithoutPrevention { .. }) {
-        work = work.with_unpreventable();
     }
     if let Some(cause) = cause {
         work = work.with_cause(&cause);
@@ -1016,8 +968,7 @@ fn assignments(state: &GameState, res: &Resolution, op: Effect) -> Vec<Assignmen
                 .collect()
         }
         Effect::DealDamage { amount, target }
-        | Effect::DealDamageWithoutPreventionOrRedirection { amount, target, .. }
-        | Effect::DealDamageWithoutPrevention { amount, target } => {
+        | Effect::DealDamageWithoutPreventionOrRedirection { amount, target, .. } => {
             recipients(state, res, you, target)
                 .into_iter()
                 .map(|to| {

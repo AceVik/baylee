@@ -10,7 +10,6 @@ mod offline;
 mod rooms;
 mod seating;
 mod sign_in;
-mod statements;
 mod status;
 mod table_list;
 mod visibility;

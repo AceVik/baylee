@@ -260,8 +260,6 @@ pub enum Prompt {
         types: baylee_core::types::TypeSet,
         /// Printed card types a named face must not have.
         excluded_types: baylee_core::types::TypeSet,
-        /// Printed supertypes a named face must not have.
-        excluded_supertypes: baylee_core::types::SupertypeSet,
     },
     /// Choose a colour.
     ChooseColor {
@@ -816,12 +814,10 @@ impl Interaction {
             Pending::ChooseCardName {
                 types,
                 excluded_types,
-                excluded_supertypes,
                 ..
             } => Prompt::ChooseCardName {
                 types: *types,
                 excluded_types: *excluded_types,
-                excluded_supertypes: *excluded_supertypes,
             },
             Pending::ChooseColor { options, .. } => Prompt::ChooseColor {
                 options: options.clone(),

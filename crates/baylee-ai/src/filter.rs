@@ -318,27 +318,6 @@ impl HeuristicAgent {
             Filter::SharesColorWithSource => {
                 this.and_then(|id| Some(object.colors.intersects(view.object(id)?.colors)))
             }
-            Filter::SharesColorWithMostCommon(inner) => {
-                let mut counts = [0_u32; 5];
-                for other in view.battlefield.iter().filter(|other| {
-                    !other.status.contains(baylee_view::ObjectStatus::PHASED_OUT)
-                }) {
-                    if self.filter_matches(inner, view, other, ZoneRef::Battlefield, this)? {
-                        for color in baylee_core::color::Color::ALL {
-                            if other.colors.contains(color) {
-                                counts[color as usize] = counts[color as usize].saturating_add(1);
-                            }
-                        }
-                    }
-                }
-                let most_common = counts.iter().copied().max().unwrap_or(0);
-                Some(
-                    most_common > 0
-                        && baylee_core::color::Color::ALL.into_iter().any(|color| {
-                            counts[color as usize] == most_common && object.colors.contains(color)
-                        }),
-                )
-            }
             // CR 201.2 reads the name an object has now, which is what the
             // view already projects: a clone answers with what it copied,
             // and a face-down permanent has no name to answer with
@@ -364,15 +343,6 @@ impl HeuristicAgent {
                 .plays(crate::AIProfile::CHOSEN_AND_LINKED_FILTERS)
                 .then(|| same_name_as_linked_exile(view, object, this))
                 .flatten(),
-            Filter::SharesNameWithAnotherPermanent => Some(
-                !object.status.is_face_down()
-                    && !object.name.is_empty()
-                    && view.battlefield.iter().any(|other| {
-                        other.id != object.id
-                            && !other.status.is_face_down()
-                            && other.name == object.name
-                    }),
-            ),
             Filter::SharesColorWithExiledWithSource => self
                 .profile
                 .plays(crate::AIProfile::CHOSEN_AND_LINKED_FILTERS)
@@ -511,7 +481,6 @@ impl HeuristicAgent {
             | Filter::Kicked
             | Filter::CastFromHand
             | Filter::HasManaAbility
-            | Filter::HasNonManaActivatedAbility
             | Filter::AttachedToBySource
             | Filter::AttachedToSource
             | Filter::CmcAtMostX
@@ -536,7 +505,6 @@ impl HeuristicAgent {
         | Filter::HasAdventure
         | Filter::ActivatedAbilityFrom(_)
         | Filter::TargetsPermanentYouControl
-        | Filter::TargetsYouControl(_)
         | Filter::HasRampage
         | Filter::HasCumulativeUpkeep
         | Filter::HasAnyCounter

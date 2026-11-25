@@ -1948,7 +1948,6 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                     player: p,
                     types,
                     excluded_types,
-                    excluded_supertypes,
                 },
                 PlayerAction::ChooseCardName { card, face },
             ) if *p == player => {
@@ -1957,8 +1956,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                     .card(card)
                     .and_then(|def| def.faces.get(usize::from(face)))
                     .filter(|face| types.is_empty() || face.types.intersects(*types))
-                    .filter(|face| !face.types.intersects(*excluded_types))
-                    .filter(|face| !face.supertypes.intersects(*excluded_supertypes));
+                    .filter(|face| !face.types.intersects(*excluded_types));
                 let Some((named, name)) =
                     crate::object::PrintedFace::new(card, face).zip(printed.map(|face| face.name))
                 else {

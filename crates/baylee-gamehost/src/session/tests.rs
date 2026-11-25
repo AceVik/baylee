@@ -13,7 +13,6 @@ mod log;
 mod loop_watch;
 mod mulligans;
 mod native_pack;
-mod noninterference;
 mod printings;
 mod project;
 mod refusals;

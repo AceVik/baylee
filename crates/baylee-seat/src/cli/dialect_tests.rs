@@ -273,7 +273,6 @@ fn each_tools_environment_is_its_login_and_its_own_files() {
 }
 
 mod codex;
-mod hostile;
 mod junie;
 
 // ---------------------------------------------------------------------

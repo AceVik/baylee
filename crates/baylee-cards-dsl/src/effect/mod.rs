@@ -1626,8 +1626,6 @@ pub enum Effect {
         types: TypeSet,
         /// Printed types a named face must not have; empty excludes nothing.
         excluded_types: TypeSet,
-        /// Printed supertypes a named face must not have; empty excludes nothing.
-        excluded_supertypes: SupertypeSet,
         /// Retain the choice on the source permanent for its linked abilities.
         remember: bool,
     },
@@ -5997,61 +5995,6 @@ pub enum Effect {
         life: u32,
         /// Consequence if nobody pays.
         effects: &'static [Effect],
-    },
-    /// Each player keeps one controlled permanent for each of `filters`, then
-    /// sacrifices the unchosen permanents matching `rest`. A permanent may
-    /// satisfy more than one filter. Appended to preserve replay identities.
-    KeepOneOfEachAndSacrificeRestMatching {
-        /// The kinds to keep, in the order the choices are made.
-        filters: &'static [&'static Filter],
-        /// The permanents in each player's keep-or-sacrifice set.
-        rest: &'static Filter,
-    },
-    /// Deal damage that prevention effects cannot prevent, while leaving
-    /// redirection and other replacement effects applicable (CR 615.12).
-    /// Appended to preserve replay identities.
-    DealDamageWithoutPrevention {
-        /// Damage amount.
-        amount: Amount,
-        /// Initial damage recipients.
-        target: TargetSpec,
-    },
-    /// Exchange control of the resolving source and the first target
-    /// indefinitely (CR 701.12a–b). Both permanents must still be on the
-    /// battlefield under different controllers; otherwise nothing changes.
-    /// Appended to preserve replay identities.
-    ExchangeControlOfSourceAndTarget,
-    /// Prevent all damage from a chosen source this turn; its controller gains
-    /// the prevented amount only when the source also matches a second filter
-    /// at the moment damage would be dealt (CR 609.7, CR 615.5).
-    /// Appended to preserve replay identities.
-    PreventFromChosenSourceWithLifeCondition {
-        /// Protected recipient(s), or `None` for any recipient.
-        target: Option<TargetSpec>,
-        /// Eligibility and damage-time source filter (CR 609.7a–b).
-        sources: &'static Filter,
-        /// Additional source criterion for gaining the prevented amount as life.
-        gain_life_sources: &'static Filter,
-    },
-    /// Destroy the permanent whose ability an earlier counter effect in this
-    /// resolution actually countered. A spell, an uncounterable ability, an
-    /// ability whose source left the battlefield, and a nonpermanent source
-    /// remember nothing this instruction can destroy (`CR 701.6`, `CR 701.7`).
-    /// Appended to preserve replay identities.
-    DestroyCounteredAbilitySource,
-    /// Reveal up to `count` cards from the top of a library, move every card
-    /// bearing this resolution's chosen name to `matched`, and move the rest
-    /// to `otherwise`. The whole group is revealed before anything moves.
-    /// Appended to preserve replay identities.
-    RevealTopAllNamed {
-        /// Library inspected and recipient of matching cards destined for hand.
-        player: PlayerRel,
-        /// Maximum number of cards revealed.
-        count: u8,
-        /// Destination of every card with the chosen name.
-        matched: SearchDest,
-        /// Destination of every other revealed card.
-        otherwise: SearchDest,
     },
 }
 

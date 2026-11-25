@@ -256,9 +256,6 @@ fn moves_library(effect: &Effect) -> bool {
         }
         | Effect::RevealTopAndSort {
             matched, otherwise, ..
-        }
-        | Effect::RevealTopAllNamed {
-            matched, otherwise, ..
         } => outside_library(*matched) || outside_library(*otherwise),
         Effect::RevealTopAllMatching { found, .. } => outside_library(found.dest),
         Effect::RevealTopFind {
@@ -332,9 +329,6 @@ fn moves_library(effect: &Effect) -> bool {
         }
     }
 }
-
-#[cfg(test)]
-mod movement_tests;
 
 #[cfg(test)]
 mod tests {

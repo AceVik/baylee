@@ -150,7 +150,6 @@ pub struct DamageWork {
     question: Option<PendingDamage>,
     paid: Option<(u32, ShieldOrigin, PlayerId)>,
     recipient_lock: Option<recipient_lock::RecipientLock>,
-    unpreventable: bool,
     life_gains: Vec<(PlayerId, u32)>,
     then_riders: Vec<PreventThenRider>,
     consumed_shields: Vec<u64>,
@@ -241,7 +240,7 @@ fn order_matters(options: &[Candidate]) -> bool {
     }
     options.iter().any(|option| match option.option.kind {
         DamageEffectKind::Redirect { .. } => false,
-        _ if never_spent(option) => false,
+        kind if never_spent(kind) => false,
         DamageEffectKind::ReplaceAmount { .. }
             if matches!(option.key, EffectKey::ContinuousForSource(..))
                 && destination.is_none() =>
@@ -255,16 +254,14 @@ fn order_matters(options: &[Candidate]) -> bool {
 /// Prevention that prevents all the damage it applies to and is never spent
 /// doing so (protection, Fog, "all damage that would be dealt by
 /// artifacts"): damage a redirection brings to its recipient meets it the
-/// same way whenever it arrives. Per-source prevention may instead carry an
-/// amount threshold, so its eligibility can change with another replacement.
-fn never_spent(candidate: &Candidate) -> bool {
-    !matches!(candidate.key, EffectKey::ContinuousForSource(..))
-        && matches!(
-            candidate.option.kind,
-            DamageEffectKind::Protection
-                | DamageEffectKind::PreventAll
-                | DamageEffectKind::PreventCombat
-        )
+/// same way whenever it arrives.
+fn never_spent(kind: DamageEffectKind) -> bool {
+    matches!(
+        kind,
+        DamageEffectKind::Protection
+            | DamageEffectKind::PreventAll
+            | DamageEffectKind::PreventCombat
+    )
 }
 
 /// An effect that prevents some or all of the damage it was offered for and
@@ -365,7 +362,6 @@ impl DamageWork {
             question: None,
             paid: None,
             recipient_lock: None,
-            unpreventable: false,
             life_gains: Vec::new(),
             then_riders: Vec::new(),
             consumed_shields: Vec::new(),
@@ -389,15 +385,6 @@ impl DamageWork {
             you,
             context,
         });
-        self
-    }
-
-    /// Exclude prevention only; redirection and other replacements still apply.
-    pub(crate) fn with_unpreventable(mut self) -> Self {
-        self.unpreventable = true;
-        for part in &mut self.parts {
-            part.view.preventable = false;
-        }
         self
     }
 
@@ -502,12 +489,12 @@ impl DamageWork {
         loop {
             state.refresh_characteristics();
             for part in &mut self.parts {
-                part.view.preventable = !self.unpreventable
-                    && !crate::combat::unpreventable(state, part.view.source, part.view.is_combat)
-                    && !recipient_forbids_prevention_or_redirection(state, part.view.recipient)
-                    && !self
-                        .recipient_lock
-                        .is_some_and(|lock| lock.matches(state, part.view.recipient));
+                part.view.preventable =
+                    !crate::combat::unpreventable(state, part.view.source, part.view.is_combat)
+                        && !recipient_forbids_prevention_or_redirection(state, part.view.recipient)
+                        && !self
+                            .recipient_lock
+                            .is_some_and(|lock| lock.matches(state, part.view.recipient));
             }
             let mut options = self.candidates(state);
             if options.is_empty() {
@@ -942,12 +929,12 @@ impl DamageWork {
             if !candidate.option.parts.contains(&part.view.id) {
                 continue;
             }
-            let preventable = !self.unpreventable
-                && !crate::combat::unpreventable(state, part.view.source, part.view.is_combat)
-                && !recipient_forbids_prevention_or_redirection(state, part.view.recipient)
-                && !self
-                    .recipient_lock
-                    .is_some_and(|lock| lock.matches(state, part.view.recipient));
+            let preventable =
+                !crate::combat::unpreventable(state, part.view.source, part.view.is_combat)
+                    && !recipient_forbids_prevention_or_redirection(state, part.view.recipient)
+                    && !self
+                        .recipient_lock
+                        .is_some_and(|lock| lock.matches(state, part.view.recipient));
             match candidate.option.kind {
                 DamageEffectKind::Redirect { to } => {
                     part.view.recipient = to;
@@ -1001,7 +988,6 @@ impl DamageWork {
                             state.shields[i].kind,
                             ShieldKind::RedirectSource { next: false, .. }
                                 | ShieldKind::RedirectCombat { .. }
-                                | ShieldKind::AllFromWithLifeCondition { .. }
                         )
                     {
                         if state.shields[i].protects == crate::prevention::Shielded::Everything

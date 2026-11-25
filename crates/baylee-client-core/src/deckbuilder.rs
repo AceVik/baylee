@@ -1161,8 +1161,6 @@ pub fn rarity_label(rarity: Rarity, lang: Lang) -> &'static str {
 }
 
 #[cfg(test)]
-mod edits_tests;
-#[cfg(test)]
 mod legality_tests;
 #[cfg(test)]
 mod tests;

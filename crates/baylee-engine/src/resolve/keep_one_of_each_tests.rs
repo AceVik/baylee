@@ -22,15 +22,11 @@ fn permanent(state: &mut GameState, player: PlayerId, types: TypeSet) -> ObjectI
 }
 
 fn resolution(filters: &'static [&'static Filter]) -> Resolution {
-    resolution_with_effect(Effect::KeepOneOfEachAndSacrificeRest { filters })
-}
-
-fn resolution_with_effect(effect: Effect) -> Resolution {
     Resolution {
         source: ObjectId::NO_SOURCE,
         on_stack: ObjectId::NO_SOURCE,
         controller: PlayerId::new(0),
-        effects: vec![effect],
+        effects: vec![Effect::KeepOneOfEachAndSacrificeRest { filters }],
         pc: 0,
         targets: SmallVec::new(),
         second_targets: SmallVec::new(),
@@ -228,49 +224,4 @@ fn an_empty_resume_skips_the_category_without_fabricating_a_keep_choice() {
     assert!(!state.journal.entries().iter().any(|entry| {
         matches!(entry.event, GameEvent::CardsKept { player, .. } if player == p0)
     }));
-}
-
-#[test]
-fn scoped_rest_keeps_a_multi_land_type_and_spares_nonlands() {
-    use baylee_core::generated::subtypes::land;
-    use baylee_core::types::SubtypeSet;
-
-    let p0 = PlayerId::new(0);
-    let mut state = table();
-    let dual = permanent(&mut state, p0, TypeSet::LAND);
-    state.object_mut(dual).unwrap().base_mut().subtypes =
-        SubtypeSet::from_slice(&[land::PLAINS, land::ISLAND]);
-    let plains = permanent(&mut state, p0, TypeSet::LAND);
-    state.object_mut(plains).unwrap().base_mut().subtypes = SubtypeSet::from_slice(&[land::PLAINS]);
-    let island = permanent(&mut state, p0, TypeSet::LAND);
-    state.object_mut(island).unwrap().base_mut().subtypes = SubtypeSet::from_slice(&[land::ISLAND]);
-    let artifact = permanent(&mut state, p0, TypeSet::ARTIFACT);
-    let mut res = resolution_with_effect(Effect::KeepOneOfEachAndSacrificeRestMatching {
-        filters: &[
-            &Filter::And(&[Filter::LAND, Filter::HasSubtype(land::PLAINS)]),
-            &Filter::And(&[Filter::LAND, Filter::HasSubtype(land::ISLAND)]),
-        ],
-        rest: &Filter::LAND,
-    });
-
-    let Flow::Wait(Pending::ChooseCards { options, .. }) = run(&mut state, &mut res) else {
-        panic!("a Plains choice was required")
-    };
-    assert_eq!(options, vec![dual, plains]);
-    let Flow::Wait(Pending::ChooseCards { options, .. }) = resume(&mut state, &mut res, &[dual])
-    else {
-        panic!("the dual land remains a legal Island choice")
-    };
-    assert_eq!(options, vec![dual, island]);
-    assert!(matches!(
-        resume(&mut state, &mut res, &[dual]),
-        Flow::Complete
-    ));
-
-    for kept in [dual, artifact] {
-        assert_eq!(state.object(kept).unwrap().zone, Zone::Battlefield);
-    }
-    for sacrificed in [plains, island] {
-        assert_eq!(state.object(sacrificed).unwrap().zone, Zone::Graveyard);
-    }
 }

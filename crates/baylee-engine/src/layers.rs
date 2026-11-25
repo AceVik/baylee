@@ -826,9 +826,7 @@ fn could_change_match(modifier: &Modifier, filter: &Filter, layer: Layer) -> boo
         // may move them.
         Filter::AttachedTo(_)
         | Filter::BlockedThisTurnBy(_)
-        | Filter::SharesNameWithAnotherPermanent
         | Filter::SharesAColorWith(_)
-        | Filter::SharesColorWithMostCommon(_)
         | Filter::SharesCreatureTypeWith(_)
         | Filter::SharesColorWithExiledWithSource
         | Filter::SharesColorWithSource
@@ -950,17 +948,11 @@ fn could_change_match(modifier: &Modifier, filter: &Filter, layer: Layer) -> boo
             modifier,
             Modifier::AddSupertype(_) | Modifier::RemoveSupertype(_)
         ),
-        Filter::HasRampage
-        | Filter::HasCumulativeUpkeep
-        | Filter::HasManaAbility
-        | Filter::HasNonManaActivatedAbility => {
+        Filter::HasRampage | Filter::HasCumulativeUpkeep | Filter::HasManaAbility => {
             matches!(layer, Layer::Ability | Layer::Type)
         }
         Filter::ActivatedAbilityFrom(filter) => could_change_match(modifier, filter, layer),
         Filter::TargetsPermanentYouControl => matches!(layer, Layer::Control),
-        Filter::TargetsYouControl(filter) => {
-            matches!(layer, Layer::Control) || could_change_match(modifier, filter, layer)
-        }
         Filter::PairedWithSource | Filter::RingBearer | Filter::Modified => {
             matches!(layer, Layer::Control | Layer::Type)
         }
@@ -1536,7 +1528,6 @@ fn apply(
         | Modifier::MustAttackPlayer(_)
         | Modifier::ModifyLifeGain { .. }
         | Modifier::PreventDamageRemovingCounters { .. }
-        | Modifier::PreventDamageToAffectedIfAtMost(_)
         | Modifier::GrantStatic { .. }
         | Modifier::SpellsHaveFlash(_)
         | Modifier::SorceriesHaveFlash

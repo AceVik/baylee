@@ -3,21 +3,9 @@
 
 use super::*;
 use baylee_core::ids::PlayerId;
-use baylee_core::types::{SupertypeSet, TypeSet};
+use baylee_core::types::TypeSet;
 
 const NOTHING: TypeSet = TypeSet::EMPTY;
-
-fn card_name_rows<'a>(
-    search: impl Into<Search<'a>>,
-    types: TypeSet,
-    excluded_types: TypeSet,
-) -> Vec<ChoiceOption> {
-    super::card_name_rows(search, types, excluded_types, SupertypeSet::EMPTY)
-}
-
-fn name_restriction(types: TypeSet, excluded_types: TypeSet, lang: Lang) -> Option<String> {
-    super::name_restriction(types, excluded_types, SupertypeSet::EMPTY, lang)
-}
 
 fn labels(rows: &[ChoiceOption]) -> Vec<&str> {
     rows.iter().map(|row| row.label.as_str()).collect()
@@ -83,14 +71,6 @@ fn the_questions_restriction_holds_under_any_search() {
 }
 
 #[test]
-fn a_nonbasic_name_question_leaves_out_basic_lands_but_keeps_wasteland() {
-    let rows = super::card_name_rows("forest", NOTHING, NOTHING, SupertypeSet::BASIC);
-    assert!(!labels(&rows).contains(&"Forest"), "{rows:?}");
-    let rows = super::card_name_rows("wasteland", NOTHING, NOTHING, SupertypeSet::BASIC);
-    assert!(labels(&rows).contains(&"Wasteland"), "{rows:?}");
-}
-
-#[test]
 fn the_restriction_is_said_in_words_and_none_is_said_when_there_is_none() {
     assert_eq!(name_restriction(NOTHING, NOTHING, Lang::En), None);
     assert_eq!(
@@ -100,14 +80,6 @@ fn the_restriction_is_said_in_words_and_none_is_said_when_there_is_none() {
     assert_eq!(
         name_restriction(TypeSet::LAND, NOTHING, Lang::De).as_deref(),
         Some("Diese Frage nimmt nur: Land")
-    );
-    assert_eq!(
-        super::name_restriction(NOTHING, NOTHING, SupertypeSet::BASIC, Lang::En).as_deref(),
-        Some("This question leaves out: Basic")
-    );
-    assert_eq!(
-        super::name_restriction(NOTHING, NOTHING, SupertypeSet::BASIC, Lang::De).as_deref(),
-        Some("Diese Frage lässt aus: Basis")
     );
 }
 
@@ -148,7 +120,6 @@ fn a_controlled_players_question_is_answered_the_same_way() {
     let pending = baylee_engine::choice::Pending::ChooseCardName {
         types: NOTHING,
         excluded_types: TypeSet::LAND,
-        excluded_supertypes: SupertypeSet::EMPTY,
         player: them,
     };
     let mut interaction = Interaction::new(pending, them);
