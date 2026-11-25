@@ -31,6 +31,7 @@ pub(crate) struct Ui {
 pub(super) fn install(app: &mut App) {
     crate::insignia::install(app);
     crate::challenge_art::install(app);
+    app.add_systems(Update, draw::presentation::count_down);
     #[cfg(not(target_arch = "wasm32"))]
     app.add_systems(
         Update,

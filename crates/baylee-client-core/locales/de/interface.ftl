@@ -3580,6 +3580,11 @@ CalendarDecember = Dez.
 
 ChallengeOpens = Beginn
 ChallengeCloses = Ende
+ChallengeLeftMinutes = noch { $minutes } Min.
+ChallengeLeftHoursOnly = noch { $hours } Std.
+ChallengeLeftHours = noch { $hours } Std. { $minutes } Min.
+ChallengeLeftDaysOnly = noch { $days } T.
+ChallengeLeftDays = noch { $days } T. { $hours } Std.
 ChallengeStatStarts = Versuche
 ChallengeStatTurns = Züge
 ChallengeStatFailures = Fehlversuche

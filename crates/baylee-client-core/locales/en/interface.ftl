@@ -10197,6 +10197,17 @@ CalendarDecember = Dec
 # Calendar boundary labels.
 ChallengeOpens = Opens
 ChallengeCloses = Closes
+# How long a task stays open, minutes rounded up.
+# Arguments: minutes
+ChallengeLeftMinutes = { $minutes } min left
+# Arguments: hours
+ChallengeLeftHoursOnly = { $hours } h left
+# Arguments: hours, minutes
+ChallengeLeftHours = { $hours } h { $minutes } min left
+# Arguments: days
+ChallengeLeftDaysOnly = { $days } d left
+# Arguments: days, hours
+ChallengeLeftDays = { $days } d { $hours } h left
 # Score labels; values are shown separately.
 ChallengeStatStarts = Attempts
 ChallengeStatTurns = Turns

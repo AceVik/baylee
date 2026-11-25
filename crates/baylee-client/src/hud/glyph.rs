@@ -188,3 +188,13 @@ pub const MORE: char = '\u{f141}';
 /// control banner, a controlled chip's badge and the controlled hand's
 /// label, always beside its words (a mark alone would be colour's job).
 pub const CONTROL: char = '\u{f5dc}';
+/// Medal: the first three places of a ranking, in gold, silver and bronze.
+pub const MEDAL: char = '\u{f5a2}';
+/// Stopwatch: how long a task stays open.
+pub const STOPWATCH: char = '\u{f2f2}';
+/// Play: an attempt started.
+pub const PLAY: char = '\u{f04b}';
+/// Flag with a chequered field: the best finish, the turn a task was won on.
+pub const FINISH: char = '\u{f11e}';
+/// Calendar: a calendar with nothing on it yet.
+pub const CALENDAR: char = '\u{f073}';

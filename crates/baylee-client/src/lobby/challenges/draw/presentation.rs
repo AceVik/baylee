@@ -106,6 +106,71 @@ pub(super) fn calendar(
     }
 }
 
+/// The words of a line that says how long a task stays open. They are
+/// rewritten by [`count_down`] when the minute they name changes, never by a
+/// rebuild of the page.
+#[derive(Component)]
+pub(in crate::lobby) struct Countdown {
+    ends_at: i64,
+    lang: Lang,
+    /// The minutes left the words say, rounded up.
+    shown: i64,
+}
+
+/// What is left of a task's time, behind a stopwatch, in the accent ink
+/// that says it is live.
+pub(super) fn countdown(
+    commands: &mut Commands,
+    parent: Entity,
+    kit: Kit,
+    lang: Lang,
+    ends_at: i64,
+) {
+    let now = i64::try_from(crate::lobby::parts::now_secs()).unwrap_or(0);
+    let Some(words) = formatting::left(now, ends_at, lang) else {
+        return;
+    };
+    let line = row(commands, parent, kit);
+    let gap = kit.m.px(6.0);
+    commands.entity(line).entry::<Node>().and_modify(move |mut n| {
+        n.width = Val::Auto;
+        n.column_gap = gap;
+        n.flex_wrap = FlexWrap::NoWrap;
+    });
+    let mark = commands
+        .spawn((
+            Text::new(glyph::STOPWATCH.to_string()),
+            crate::hud::icon_tf(kit.fonts, kit.m.small * 0.85),
+            TextColor(tokens::ACCENT),
+            Pickable::IGNORE,
+        ))
+        .id();
+    let text = crate::lobby::parts::line(commands, kit, &words, kit.m.small, tokens::ACCENT);
+    commands.entity(text).insert(Countdown {
+        ends_at,
+        lang,
+        shown: formatting::minutes_left(now, ends_at).unwrap_or(0),
+    });
+    commands.entity(line).add_children(&[mark, text]);
+}
+
+/// Keeps every [`Countdown`] on the minute: a write only when the minute it
+/// names has passed, so an idle page rebuilds nothing and lays out nothing.
+pub(in crate::lobby) fn count_down(mut lines: Query<(&mut Countdown, &mut Text)>) {
+    if lines.is_empty() {
+        return;
+    }
+    let now = i64::try_from(crate::lobby::parts::now_secs()).unwrap_or(0);
+    for (mut line, mut text) in &mut lines {
+        let minutes = formatting::minutes_left(now, line.ends_at).unwrap_or(0);
+        if minutes == line.shown {
+            continue;
+        }
+        line.shown = minutes;
+        text.0 = formatting::left(now, line.ends_at, line.lang).unwrap_or_default();
+    }
+}
+
 pub(in crate::lobby) fn metric(
     commands: &mut Commands,
     parent: Entity,
