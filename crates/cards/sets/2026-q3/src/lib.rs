@@ -27,6 +27,8 @@ pub mod bard_king_of_dale;
 pub mod bard_the_bowman;
 #[path = "hob/bejeweled_warg.rs"]
 pub mod bejeweled_warg;
+#[path = "hob/belladonna_took.rs"]
+pub mod belladonna_took;
 #[path = "hob/beorn_reluctant_host.rs"]
 pub mod beorn_reluctant_host;
 #[path = "hob/beorn_s_hospitality.rs"]
@@ -189,6 +191,8 @@ pub mod mirkwood_nurturer;
 pub mod mirkwood_pathmaker;
 #[path = "hob/misty_mountains_raider.rs"]
 pub mod misty_mountains_raider;
+#[path = "hob/moment_of_glory.rs"]
+pub mod moment_of_glory;
 #[path = "hob/most_decrepit_old_bird.rs"]
 pub mod most_decrepit_old_bird;
 #[path = "hob/my_precious.rs"]
@@ -205,6 +209,8 @@ pub mod nori_teller_of_tales;
 pub mod oin_the_brave;
 #[path = "hob/old_fat_spider.rs"]
 pub mod old_fat_spider;
+#[path = "hob/old_fat_spider_can_t_see_me.rs"]
+pub mod old_fat_spider_can_t_see_me;
 #[path = "hob/old_thrush.rs"]
 pub mod old_thrush;
 #[path = "hob/orcrist_goblin_cleaver.rs"]
@@ -233,6 +239,8 @@ pub mod ravening_warg;
 pub mod reverent_howl;
 #[path = "hob/rhovanion_rampager.rs"]
 pub mod rhovanion_rampager;
+#[path = "hob/roads_go_ever_ever_on.rs"]
+pub mod roads_go_ever_ever_on;
 #[path = "hob/roll_roll_roll_roll.rs"]
 pub mod roll_roll_roll_roll;
 #[path = "hob/silvan_reveler.rs"]
@@ -285,8 +293,12 @@ pub mod thror_s_map;
 pub mod troll_negotiations;
 #[path = "hob/troop_of_ponies.rs"]
 pub mod troop_of_ponies;
+#[path = "hob/uncover_the_moon_letters.rs"]
+pub mod uncover_the_moon_letters;
 #[path = "hob/uneasy_partings.rs"]
 pub mod uneasy_partings;
+#[path = "hob/velvetwing_butterflies.rs"]
+pub mod velvetwing_butterflies;
 #[path = "hob/vow_to_erebor.rs"]
 pub mod vow_to_erebor;
 #[path = "hob/warg_tactics.rs"]

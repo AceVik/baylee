@@ -905,6 +905,8 @@ pub mod invading_manticore;
 pub mod irencrag_pyromancer;
 #[path = "war/iron_bully.rs"]
 pub mod iron_bully;
+#[path = "sld/iron_man_titan_of_innovation.rs"]
+pub mod iron_man_titan_of_innovation;
 #[path = "war/ironclad_krovod.rs"]
 pub mod ironclad_krovod;
 #[path = "m20/ironroot_warlord.rs"]
@@ -1127,6 +1129,8 @@ pub mod mowu_loyal_companion;
 pub mod mox_tantalite;
 #[path = "m20/mu_yanling_celestial_wind.rs"]
 pub mod mu_yanling_celestial_wind;
+#[path = "sld/muad_dib_prophet_foretold.rs"]
+pub mod muad_dib_prophet_foretold;
 #[path = "mh1/munitions_expert.rs"]
 pub mod munitions_expert;
 #[path = "mh1/murasa_behemoth.rs"]
@@ -1657,6 +1661,8 @@ pub mod sunbaked_canyon;
 pub mod sunblade_angel;
 #[path = "rna/sunder_shaman.rs"]
 pub mod sunder_shaman;
+#[path = "sld/super_state.rs"]
+pub mod super_state;
 #[path = "rna/swirling_torrent.rs"]
 pub mod swirling_torrent;
 #[path = "mh1/sword_of_sinew_and_steel.rs"]

@@ -25605,3 +25605,245 @@ Wrath of the Skies
 Aveline de Grandpré
 Ballad of the Black Flag
 Jackdaw
+Loyal Inventor
+Mjölnir, Storm Hammer
+Byway Barterer
+Daggerfang Duo
+Early Winter
+Glarb, Calamity's Augur
+Gossip's Talent
+Harvestrite Host
+Hazel of the Rootbloom
+Mistbreath Elder
+Mr. Foxglove
+Ruthless Negotiation
+Star Charter
+Starlit Soothsayer
+Sunspine Lynx
+Temur Elevator
+Thickest in the Thicket
+Wick's Patrol
+Wick, the Whorled Mind
+Zoraline, Cosmos Caller
+Abhorrent Oculus
+Fear of Abduction
+Fear of Exposure
+Fear of Isolation
+Get Out
+Grab the Prize
+Monstrous Emergence
+Patchwork Beastie
+Untimely Malfunction
+Vile Mutilator
+Iron Man, Titan of Innovation
+Arbiter of Woe
+Banner of Kinship
+Chandra, Flameshaper
+Evereth, Viceroy of Plunder
+Hearts on Fire
+Quilled Greatwurm
+Tragic Banshee
+J. Jonah Jameson
+Aetherflux Conduit
+Coalstoke Gearhulk
+Cursecloth Wrappings
+Daretti, Rocketeer Engineer
+Guidelight Pathmaker
+Hellish Sideswipe
+Molt Tender
+Prophet of the Scarab
+Pyrewood Gearhulk
+Rampaging Aetherhood
+Renewed Solidarity
+Saheeli, Radiant Creator
+Tune Up
+Aegis Sculptor
+Eshki, Temur's Roar
+Highspire Bell-Ringer
+Kheru Goldkeeper
+Kotis, the Fangkeeper
+Lasyd Prowler
+Lie in Wait
+Mardu Monument
+Naga Fleshcrafter
+Narset, Jeskai Waymaster
+Rainveil Rejuvenator
+Redoubled Stormsinger
+Sagu Pummeler
+Trade Route Envoy
+Traveling Botanist
+Alisaie Leveilleur
+Clive, Ifrit's Dominant // Ifrit, Warden of Inferno
+Gau, Feral Youth
+Gogo, Mysterious Mime
+Ignis Scientia
+Shantotto, Tactician Magician
+Sphere Grid
+Summon: G.F. Ifrit
+Tellah, Great Sage
+Transpose
+Y'shtola, Night's Blessed
+Zell Dincht
+Zodiark, Umbral God
+Super State
+Archenemy's Charm
+Chorale of the Void
+Cryoshatter
+Decode Transmissions
+Elegy Acolyte
+Hylderblade
+Hymn of the Faller
+Icetill Explorer
+Insatiable Skittermaw
+Interceptor Mechan
+Kavaron Skywarden
+Roving Actuator
+Starwinder
+Tannuk, Memorial Ensign
+Tezzeret, Cruel Captain
+Unravel
+Uthros Psionicist
+Vaultguard Trooper
+Voidforged Titan
+Amazing Acrobatics
+Green Goblin, Revenant
+Heroes' Hangout
+Impostor Syndrome
+Iron Spider, Stark Upgrade
+Madame Web, Clairvoyant
+Villainous Wrath
+Pumpkin Bombs
+Avatar Roku, Firebender
+Boomerang Basics
+Desperate Plea
+Earthshape
+Energybending
+Fancy Footwork
+Founding of Omashu
+Katara, Seeking Revenge
+Momo's Heist
+Nightmares and Daydreams
+Phoenix Fleet Airship
+Ruinous Waterbending
+Scarring Memories
+Serpent of the Pass
+Smellerbee, Rebel Fighter
+South Pole Voyager
+Toph, Hardheaded Teacher
+Uncle's Musings
+Amarant Coral
+Fated Clash
+Aberrant Return
+Appeal to Eirdu
+Blighted Blackthorn
+Boggart Mischief
+Bogslither's Embrace
+Catharsis
+Chaos Spewer
+Cinder Strike
+Deceit
+Dream Seizer
+Emptiness
+Evershrike's Gift
+Gathering Stone
+Gristle Glutton
+Grub's Command
+Gutsplitter Gang
+High Perfect Morcant
+Illusion Spinners
+Pummeler for Hire
+Pyrrhic Strike
+Requiting Hex
+Scuzzback Scrounger
+Sinister Gnarlbark
+Soulbright Seeker
+Sourbread Auntie
+Sting-Slinger
+Sygg's Command
+Trystan's Command
+Vibrance
+Wanderwine Farewell
+Warren Torchmaster
+Wild Unraveling
+Wistfulness
+Brilliance Unleashed
+Electric Seaweed
+Leonardo's Technique
+Level Up
+Storm of Steel
+Aberrant Manawurm
+Arcane Omens
+Archaic's Agony
+Aziza, Mage Tower Captain
+Colorstorm Stallion
+Elemental Mascot
+End of the Hunt
+Expressive Firedancer
+Impractical Joke
+Killian's Confidence
+Living History
+Lorehold Archivist // Restore Relic
+Molten-Core Maestro
+Muddle, the Ever-Changing
+Muse Seeker
+Primary Research
+Prismari Charm
+Rancorous Archaic
+Relic Retriever
+Spectacular Skywhale
+Spiritcall Enthusiast // Scrollboost
+Steal the Show
+Together as One
+Transcendent Archaic
+Astonishing Spider-Man
+Blur of Heroism
+Donald Blake, Guise of Thor
+Elektra, Femme Fatale
+Hulkling, Young Avenger
+Infernal Rebirth
+Iron Fist, Hero for Hire
+Karolina Dean, Runaway
+Living Laser
+Loki, Lord of Misrule
+Misty Knight, Hero for Hire
+Mole Man, Moloid Master
+Multiversal Incursion
+Mysterio's Mirage
+Origin of Iron Man
+Return of the Mole Man
+Stark's Ingenuity
+The Wondrous Wasp
+Wakandan Royal Guard
+White Widow, Yelena Belova
+Belladonna Took
+Moment of Glory
+Old Fat Spider Can't See Me
+Roads Go Ever, Ever On
+Uncover the Moon-Letters
+Velvetwing Butterflies // Gaze in Wonder
+Break Under Pressure
+Cruel Calculations
+Garruk, Curse Breaker
+Hapatra, the Desert Fang
+Heartwood Crafter // Soul Tether
+Hexhaven Invigorator
+Stinging Vitriol
+Chief Magistrate of Mercadia
+General Chang, Cold Warrior
+In the Pale Moonlight
+Shields Up!
+Eye of Jace
+Guiding Hydra
+Nissa, Leyline Tamer
+Niv-Mizzet, Ghost Counsel
+Predictive Preparations
+Captain Michael Burnham
+Ensign Harry Kim, Operations
+Gowron, Eager for Battle
+Jake Sisko, War Correspondent
+Miles O'Brien, Transporter Ops
+Nyota Uhura, Communications
+Planetary Bombardment
+Vic Fontaine, One Night Only
+Muad'Dib, Prophet Foretold
+Gargantos, the Endbringer

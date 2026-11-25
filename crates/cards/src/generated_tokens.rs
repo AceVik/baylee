@@ -7725,6 +7725,48 @@ pub static VAMPIRE_1_1_WHITE_BLACK_LIFELINK: TokenDef = TokenDef {
     ..TokenDef::DEFAULT
 };
 
+/// 1/1 black Snail.
+pub static SNAIL_1_1_BLACK: TokenDef = TokenDef {
+    name: "Snail",
+    colors: ColorSet::from_slice(&[Color::Black]),
+    types: TypeSet::CREATURE,
+    subtypes: &[creature::SNAIL],
+    power: Some(1),
+    toughness: Some(1),
+    ..TokenDef::DEFAULT
+};
+
+/// 1/1 green Moloid.
+pub static MOLOID_1_1_GREEN_A84604C62: TokenDef = TokenDef {
+    name: "Moloid",
+    colors: ColorSet::from_slice(&[Color::Green]),
+    types: TypeSet::CREATURE,
+    subtypes: &[creature::MINION],
+    power: Some(1),
+    toughness: Some(1),
+    abilities: &[triggered!(
+        Trigger::Attacks(&Filter::This),
+        &[Effect::MayDo {
+            effects: &[Effect::Mill {
+                amount: Amount::Fixed(1),
+                target: PlayerRel::You
+            }]
+        }]
+    )],
+    ..TokenDef::DEFAULT
+};
+
+/// 3/3 blue Illusion Villain.
+pub static ILLUSION_VILLAIN_3_3_BLUE: TokenDef = TokenDef {
+    name: "Illusion Villain",
+    colors: ColorSet::from_slice(&[Color::Blue]),
+    types: TypeSet::CREATURE,
+    subtypes: &[creature::ILLUSION, creature::VILLAIN],
+    power: Some(3),
+    toughness: Some(3),
+    ..TokenDef::DEFAULT
+};
+
 /// Every token there is, in the order ids were assigned.
 pub static ALL: &[&TokenDef] = &[
     &tokens::ALLY_1_1_WHITE,
@@ -9105,6 +9147,9 @@ pub static ALL: &[&TokenDef] = &[
     &CAT_WARRIOR_2_1_WHITE,
     &FOX_2_2_WHITE_VIGILANCE,
     &VAMPIRE_1_1_WHITE_BLACK_LIFELINK,
+    &SNAIL_1_1_BLACK,
+    &MOLOID_1_1_GREEN_A84604C62,
+    &ILLUSION_VILLAIN_3_3_BLUE,
 ];
 
 /// The entries a reader wrote, as a subset of [`ALL`] — never a second
@@ -9696,6 +9741,9 @@ pub static GENERATED: &[&TokenDef] = &[
     &CAT_WARRIOR_2_1_WHITE,
     &FOX_2_2_WHITE_VIGILANCE,
     &VAMPIRE_1_1_WHITE_BLACK_LIFELINK,
+    &SNAIL_1_1_BLACK,
+    &MOLOID_1_1_GREEN_A84604C62,
+    &ILLUSION_VILLAIN_3_3_BLUE,
 ];
 
 /// Legacy duplicate ids and the canonical ids they now resolve to.
