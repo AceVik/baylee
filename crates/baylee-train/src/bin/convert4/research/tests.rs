@@ -96,6 +96,10 @@ fn fresh_conversion_retains_all_attempts_and_publishes_only_separate_known_targe
     assert_eq!(manifest["unknown_attempts"], 1);
     assert_eq!(manifest["target_episodes"].as_array().unwrap().len(), 2);
     assert_eq!(manifest["ppo_eligible"], false);
+    assert_eq!(
+        manifest["action_probability_contract"],
+        baylee_train_ops::admission::ACTION_PROBABILITY_CONTRACT
+    );
     let ledger: Vec<Value> = fs::read_to_string(out.join("attempts.jsonl"))
         .unwrap()
         .lines()
@@ -125,6 +129,21 @@ fn fresh_conversion_retains_all_attempts_and_publishes_only_separate_known_targe
     GzDecoder::new(File::open(out.join(name)).unwrap())
         .read_to_string(&mut rows)
         .unwrap();
+    // The fixture's sidecar claims a probability for every answer it can; the
+    // conversion keeps those of certified single choices alone.
+    let mut claims = 0;
+    for row in rows.lines() {
+        let row: Value = serde_json::from_str(row).unwrap();
+        let provenance = &row["features"]["provenance"];
+        assert_eq!(row["actor_eligible"], provenance["has_logprob"]);
+        if provenance["has_logprob"] == true {
+            assert_eq!(row["features"]["head"], 0);
+            claims += 1;
+        } else {
+            assert_eq!(provenance["behavior_logprob"], 0.0);
+        }
+    }
+    assert!(claims > 0);
     let first: Value = serde_json::from_str(rows.lines().next().unwrap()).unwrap();
     assert!(first["features"].get("outcome").is_none());
     assert_eq!(first["returns"]["training_utility"], 0.0);

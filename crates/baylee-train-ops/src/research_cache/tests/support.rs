@@ -2,6 +2,7 @@
 use super::ops;
 use flate2::{Compression, write::GzEncoder};
 use ops::{
+    admission::ACTION_PROBABILITY_CONTRACT,
     files,
     research_contract::{FRAME_CONTRACT, contract},
 };
@@ -175,7 +176,7 @@ impl Fixture {
                 file.finish().unwrap();
                 receipt["episode_file"] = json!(name);
                 receipt["frames"] = json!(5);
-                receipt["actor_decisions"] = json!(2);
+                receipt["actor_decisions"] = json!(1);
                 targets.push(receipt.clone());
             }
             attempts.push(receipt);
@@ -222,6 +223,7 @@ impl Fixture {
         let mut manifest = json!({"schema":"failure_terminal_research_conversion_v2","status":"conversion_only_unadmitted",
             "attempt_denominator_contract":"failure_terminal_attempt_ledger_v1","operational_abort_ledger_supported":true,"ppo_eligible":false,"ordinary_target_cache_compatible":false,
             "target_contract":contract(),"frame_contract":FRAME_CONTRACT,"preprocessing_version":1,"sampling_version":2,"policy_provenance_version":2,"encoder_version":7,
+            "action_probability_contract":ACTION_PROBABILITY_CONTRACT,
             "learner_model_identity":model,"catalog":{"cards":[1],"tokens":0,"dsl_version":2,"structure_sha256":jd(&structure)},"planned_attempts":5,"unknown_attempts":if zero_targets {4}else{2},"attempt_counts":counts,"target_episodes":targets,"output_files":outputs,
             "source_runs":[{"directory":source,"source_run_sha256":run_sha,"games_index_sha256":files::sha256(&source.join("games.jsonl")).unwrap(),
                 "collection_contract":run["collection_contract"],"evaluator_revision":run["evaluator_revision"],"evaluator_dirty":true,"source_files":source_seals,"finalized_attempt_ledger":ledger}]});
@@ -248,13 +250,16 @@ fn return_value(episode: &Value) -> Value {
 }
 fn frame(episode: usize, cursor: usize, ret: &Value) -> Value {
     let decision = (1..=3).contains(&cursor);
-    let candidate = cursor == 1 || cursor == 2;
+    // A subset answer of two items, which carries no probability, then a
+    // single choice of two, which does.
+    let menu = cursor == 1 || cursor == 2;
+    let candidate = cursor == 2;
     let head = match cursor {
         1 => 1,
         3 => 3,
         _ => 0,
     };
-    let count = if candidate { 2 } else { 0 };
+    let count = if menu { 2 } else { 0 };
     json!({"schema":FRAME_CONTRACT,"returns":ret,"training_terminal":cursor==4,"actor_eligible":candidate,
         "features":{"game_id":episode,"seat":0,"step_cursor":cursor,"turn":1,"is_decision":decision,"loss_weight":f32::from(decision),"head":head,"pending_kind":0,
         "state":{"entity_feat":[],"entity_object_ids":[],"entity_group_members":[],"entity_card_ids":[],"entity_face_ids":[],"entity_token_ids":[],"entity_rule_refs":[],"entity_zone_ids":[],"entity_rel_controller":[],

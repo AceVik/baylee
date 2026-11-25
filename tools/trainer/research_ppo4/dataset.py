@@ -13,6 +13,7 @@ import subprocess
 
 import numpy as np
 import torch
+from policy_training4.targets import ACTION_PROBABILITY_CONTRACT
 from .targets import OBJECTIVE
 
 MAX_DESCRIPTOR = 16 * 1024 * 1024
@@ -85,6 +86,31 @@ def decode_response(stream):
     return descriptor, arrays
 
 
+def check_handshake(metadata, conversion_sha, cache_sha, pins_sha):
+    """The session's admission, where its handshake says what the caller pinned.
+
+    A session or an admission that does not name `injective_categorical_menu_v1` is of a
+    conversion whose behavior probabilities are not all certified: refused, to be reconverted.
+    """
+    if (metadata.get('schema') != SCHEMA or metadata.get('objective') != OBJECTIVE
+            or metadata.get('conversion_manifest_sha256') != conversion_sha
+            or metadata.get('cache_manifest_sha256') != cache_sha):
+        raise ValueError('Native research handshake contract differs')
+    admission = metadata['admission']
+    if (not isinstance(admission, dict)
+            or admission.get('research_input_admitted') is not True
+            or admission.get('ordinary_ppo_admitted') is not False
+            or admission.get('numerical_replay_required') is not True
+            or admission.get('objective') != OBJECTIVE
+            or admission.get('pins_sha256') != pins_sha):
+        raise ValueError('Research tensor session is not admitted for numerical replay')
+    for named in (metadata, admission):
+        if named.get('action_probability_contract') != ACTION_PROBABILITY_CONTRACT:
+            raise ValueError(f'Research data does not say {ACTION_PROBABILITY_CONTRACT}: reconvert its source '
+                             'records and admit the new conversion')
+    return admission
+
+
 class ResearchDataset(torch.utils.data.Dataset):
     """Single-process complete-history dataset; native server owns source checks."""
     def __init__(self, cache_dir, conversion_sha, cache_sha, pins, pins_sha, admission, unroll_len=64):
@@ -107,18 +133,7 @@ class ResearchDataset(torch.utils.data.Dataset):
             if not line.endswith(b'\n') or len(line) > MAX_DESCRIPTOR:
                 raise ValueError('Missing/bounded native research handshake')
             self.metadata = json.loads(line)
-            if (self.metadata.get('schema') != SCHEMA or self.metadata.get('objective') != OBJECTIVE
-                    or self.metadata.get('conversion_manifest_sha256') != conversion_sha
-                    or self.metadata.get('cache_manifest_sha256') != cache_sha):
-                raise ValueError('Native research handshake contract differs')
-            self.admission = self.metadata['admission']
-            if (not isinstance(self.admission, dict)
-                    or self.admission.get('research_input_admitted') is not True
-                    or self.admission.get('ordinary_ppo_admitted') is not False
-                    or self.admission.get('numerical_replay_required') is not True
-                    or self.admission.get('objective') != OBJECTIVE
-                    or self.admission.get('pins_sha256') != pins_sha):
-                raise ValueError('Research tensor session is not admitted for numerical replay')
+            self.admission = check_handshake(self.metadata, conversion_sha, cache_sha, pins_sha)
             self.fingerprint = self.metadata['content_fingerprint']
             self.trajectories, self.segments = [], []
             self.histories = self.metadata['histories']

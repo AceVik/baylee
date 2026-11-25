@@ -52,12 +52,16 @@ fn recurrent_arrays_keep_passive_scalar_pick_order_and_research_return() {
     let mut session = open(&f);
     assert_eq!(session.metadata()["attempt_counts"]["planned"], 5);
     assert_eq!(session.metadata()["genuine_choices"], 2);
-    assert_eq!(session.metadata()["actor_candidates"], 4);
+    assert_eq!(session.metadata()["actor_candidates"], 2);
+    assert_eq!(
+        session.metadata()["action_probability_contract"],
+        crate::admission::ACTION_PROBABILITY_CONTRACT
+    );
     assert_eq!(session.metadata()["research_input_admitted"], false);
     let batch = session.batch(0, 0, 5).unwrap();
     assert_eq!(field(&batch, "is_decision").1, [0, 1, 1, 1, 0]);
-    assert_eq!(field(&batch, "has_logprob").1, [0, 1, 1, 0, 0]);
-    assert_eq!(field(&batch, "actor_candidate").1, [0, 1, 1, 0, 0]);
+    assert_eq!(field(&batch, "has_logprob").1, [0, 0, 1, 0, 0]);
+    assert_eq!(field(&batch, "actor_candidate").1, [0, 0, 1, 0, 0]);
     assert_eq!(field(&batch, "actor_mask").1, [0, 0, 1, 0, 0]);
     assert_eq!(field(&batch, "training_terminal").1, [0, 0, 0, 0, 1]);
     assert_eq!(field(&batch, "cand_mask").1, [0, 0, 1, 1, 1, 1, 0, 0, 0, 0]);
@@ -104,6 +108,10 @@ fn native_input_admission_is_separate_bound_and_requires_original_producer_evide
     let receipt = admission::admit(&path, &digest, &out).unwrap();
     assert_eq!(receipt["frames"], 10);
     assert_eq!(receipt["genuine_choices"], 2);
+    assert_eq!(
+        receipt["action_probability_contract"],
+        crate::admission::ACTION_PROBABILITY_CONTRACT
+    );
     assert_eq!(receipt["learner_histories"], 2);
     assert_eq!(receipt["ordinary_ppo_admitted"], false);
     assert_eq!(receipt["numerical_replay_required"], true);

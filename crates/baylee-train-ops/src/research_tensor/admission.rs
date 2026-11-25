@@ -177,6 +177,7 @@ fn compute(path: &Path, expected: &str) -> Result<(Session, Value)> {
         "pins":path,"pins_sha256":expected,"cache_dir":pins.cache_dir,"cache_manifest_sha256":pins.cache_manifest_sha256,
         "conversion_manifest_sha256":pins.conversion_manifest_sha256,"content_fingerprint":m["content_fingerprint"],
         "source_checkpoint_sha256":pins.source_checkpoint.sha256,"learner_model_identity":pins.learner_model_identity,
+        "action_probability_contract":m["action_probability_contract"],
         "catalog":pins.catalog,"producer_binary_certified":true,"producers":pins.producers,
         "attempt_counts":m["attempt_counts"],"frames":m["frames"],"genuine_choices":m["genuine_choices"],
         "actor_candidates":m["actor_candidates"],"learner_histories":m["histories"].as_array().context("histories")?.len(),

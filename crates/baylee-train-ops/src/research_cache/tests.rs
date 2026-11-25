@@ -24,7 +24,11 @@ fn lossless_random_reads_preserve_all_history_and_separate_denominators() {
     assert_eq!(row["features"]["target"]["pick_sequence"], json!([1, 0]));
     assert!(row["returns"]["mtg_outcome"].is_null());
     assert_eq!(row["returns"]["training_utility"], 0.0);
-    assert_eq!(reader.metadata()["histories"][0]["actor_candidates"], 2);
+    assert_eq!(
+        reader.metadata()["action_probability_contract"],
+        crate::admission::ACTION_PROBABILITY_CONTRACT
+    );
+    assert_eq!(reader.metadata()["histories"][0]["actor_candidates"], 1);
     assert_eq!(reader.metadata()["histories"][0]["genuine_choices"], 1);
     assert_eq!(reader.metadata()["tensor_cache"], false);
     assert_eq!(reader.metadata()["admitted"], false);
@@ -143,7 +147,10 @@ fn malformed_cursors_returns_labels_masks_and_scalar_probabilities_are_refused()
     for mutation in [
         "cursor", "return", "legacy", "mask", "scalar", "terminal", "width",
     ] {
-        let mut row: Value = serde_json::from_slice(&fixture.raw[1]).unwrap();
+        // The single choice carries the probability a scalar must not claim.
+        let cursor = if mutation == "scalar" { 2 } else { 1 };
+        let mut row: Value =
+            serde_json::from_slice(&fixture.raw[usize::try_from(cursor).unwrap()]).unwrap();
         match mutation {
             "cursor" => row["features"]["step_cursor"] = json!(2),
             "return" => row["returns"]["mtg_outcome"] = json!({"kind":"draw"}),
@@ -155,35 +162,15 @@ fn malformed_cursors_returns_labels_masks_and_scalar_probabilities_are_refused()
             _ => unreachable!(),
         }
         assert!(
-            rows::validate(&serde_json::to_vec(&row).unwrap(), history, 7, 1, &roots).is_err(),
+            rows::validate(
+                &serde_json::to_vec(&row).unwrap(),
+                history,
+                7,
+                cursor,
+                &roots
+            )
+            .is_err(),
             "{mutation}"
-        );
-    }
-}
-
-/// A blocker draw the attackers' counts changed carries no behaviour
-/// probability (`sample_pairs_constrained`): such a pair frame is valid and
-/// no actor candidate. Any other neural choice without one is refused.
-#[test]
-fn only_a_pair_frame_may_lack_its_behavior_probability() {
-    let fixture = Fixture::new(false);
-    let source = source::Source::load(&fixture.converted, &fixture.expected).unwrap();
-    let history = &source.histories[0];
-    let roots = std::collections::BTreeMap::new();
-    let frame = |head: u8, logprob: f64| {
-        let mut row: Value = serde_json::from_slice(&fixture.raw[1]).unwrap();
-        row["features"]["head"] = json!(head);
-        row["features"]["pairs"] = json!([[-1, -1], [-1, -1]]);
-        row["features"]["provenance"]["has_logprob"] = json!(false);
-        row["features"]["provenance"]["behavior_logprob"] = json!(logprob);
-        row["actor_eligible"] = json!(false);
-        serde_json::to_vec(&row).unwrap()
-    };
-    assert!(rows::validate(&frame(2, 0.0), history, 7, 1, &roots).is_ok());
-    for (head, logprob) in [(1, 0.0), (2, -0.7)] {
-        assert!(
-            rows::validate(&frame(head, logprob), history, 7, 1, &roots).is_err(),
-            "head {head}, logprob {logprob}"
         );
     }
 }
@@ -198,7 +185,7 @@ fn resealed_valid_payload_cannot_replace_original_behavior_probability() {
     let mut data = DATA_MAGIC.to_vec();
     for (row, original) in fixture.raw.iter().enumerate() {
         let mut raw = original.clone();
-        if row == 1 {
+        if row == 2 {
             let mut value: Value = serde_json::from_slice(&raw).unwrap();
             value["features"]["provenance"]["behavior_logprob"] = json!(-8.0);
             raw = serde_json::to_vec(&value).unwrap();

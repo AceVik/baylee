@@ -51,6 +51,14 @@ impl Source {
                 && matches!(manifest["encoder_version"].as_u64(), Some(7..=9)),
             "unsupported research conversion contract"
         );
+        ensure!(
+            manifest["action_probability_contract"]
+                == crate::admission::ACTION_PROBABILITY_CONTRACT,
+            "this research conversion does not say {}, under which only certified categorical \
+             choices carry a behaviour probability; reconvert its source records (convert4 \
+             research)",
+            crate::admission::ACTION_PROBABILITY_CONTRACT
+        );
         let mut content = manifest.clone();
         content
             .as_object_mut()

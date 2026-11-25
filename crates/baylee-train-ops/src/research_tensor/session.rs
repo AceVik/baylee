@@ -46,6 +46,7 @@ impl Session {
             "cache_dir":cache,"conversion_manifest_sha256":conversion_sha,"cache_manifest_sha256":cache_sha,
             "content_fingerprint":meta["content_fingerprint"],"source_checkpoint_sha256":conversion["learner_model_identity"]["source_checkpoint_sha256"],
             "learner_model_identity":conversion["learner_model_identity"],"encoder_version":conversion["encoder_version"],
+            "action_probability_contract":meta["action_probability_contract"],
             "structure_sha256":conversion["catalog"]["structure_sha256"],"structure":catalog.structure,"catalog":conversion["catalog"],
             "attempt_counts":meta["attempt_counts"],"histories":meta["histories"],"frames":reader.len(),"actor_candidates":actor_candidates,"genuine_choices":genuine,
             "research_input_admitted":false,"ordinary_ppo_admitted":false,"numerical_replay_required":true,"admission":null});

@@ -108,6 +108,13 @@ fn validate_metadata(metadata: &Value) -> anyhow::Result<u32> {
             && metadata["shadow_teacher"].is_null(),
         "source is not a fresh supported research collection; diagnostic/ordinary sources cannot be recertified"
     );
+    // The conversion says `injective_categorical_menu_v1`: a certified menu's
+    // probability must be the plain sampler's.
+    if let Some(mode) = crate::on_policy::answer_mode(metadata) {
+        anyhow::bail!(
+            "a research source was played with {mode}, which is no draw of the plain sampler"
+        );
+    }
     ProducerEncoder::from_run(metadata).map_err(anyhow::Error::msg)?;
     let encoder = u32::try_from(
         metadata["model_identity"]["encoder_version"]

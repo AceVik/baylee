@@ -17,7 +17,8 @@ from checkpoint4 import rng_state
 from research_ppo4.targets import frozen_advantages, prepare_targets, OBJECTIVE, TARGET_CONTRACT
 from research_ppo4.checkpoint import (training_payload, restore_training, validate_resume,
                                     VERSION, MEMORY, PROBABILITY)
-from research_ppo4.dataset import decode_response
+from policy_training4.targets import ACTION_PROBABILITY_CONTRACT
+from research_ppo4.dataset import SCHEMA, check_handshake, decode_response
 from recurrent_ppo4.forward import episode_prefixes, segment_outputs
 from recurrent_ppo4.optimization import ppo_loss, transactional_update
 from test_recurrent_ppo5 import EpisodeDataset
@@ -287,6 +288,49 @@ class ResearchPPO(unittest.TestCase):
                 main()
             seed.assert_not_called()
             load.assert_not_called()
+
+
+class Handshake(unittest.TestCase):
+    """What the native session must say before any tensor of it is read."""
+    def handshake(self):
+        admission = dict(research_input_admitted=True, ordinary_ppo_admitted=False,
+                         numerical_replay_required=True, objective=OBJECTIVE, pins_sha256='pins',
+                         action_probability_contract=ACTION_PROBABILITY_CONTRACT)
+        return dict(schema=SCHEMA, objective=OBJECTIVE, conversion_manifest_sha256='conversion',
+                    cache_manifest_sha256='cache', admission=admission,
+                    action_probability_contract=ACTION_PROBABILITY_CONTRACT)
+
+    def check(self, metadata):
+        return check_handshake(metadata, 'conversion', 'cache', 'pins')
+
+    def test_an_admitted_session_of_a_certified_conversion_is_read(self):
+        metadata = self.handshake()
+        self.assertIs(self.check(metadata), metadata['admission'])
+
+    def test_a_session_or_admission_without_the_action_contract_says_to_reconvert(self):
+        for named in ('session', 'admission'):
+            for value in (None, 'another_contract'):
+                metadata = self.handshake()
+                part = metadata if named == 'session' else metadata['admission']
+                part['action_probability_contract'] = value
+                with self.assertRaisesRegex(ValueError, 'reconvert'):
+                    self.check(metadata)
+                del part['action_probability_contract']
+                with self.assertRaisesRegex(ValueError, 'reconvert'):
+                    self.check(metadata)
+
+    def test_another_pin_schema_or_an_unadmitted_session_is_refused(self):
+        for key in ('schema', 'objective', 'conversion_manifest_sha256', 'cache_manifest_sha256'):
+            with self.assertRaisesRegex(ValueError, 'handshake contract'):
+                self.check({**self.handshake(), key: 'other'})
+        for change in (dict(research_input_admitted=False), dict(ordinary_ppo_admitted=True),
+                       dict(numerical_replay_required=False), dict(pins_sha256='other')):
+            metadata = self.handshake()
+            metadata['admission'].update(change)
+            with self.assertRaisesRegex(ValueError, 'not admitted'):
+                self.check(metadata)
+        with self.assertRaisesRegex(ValueError, 'not admitted'):
+            self.check({**self.handshake(), 'admission': None})
 
 
 class TensorProtocol(unittest.TestCase):

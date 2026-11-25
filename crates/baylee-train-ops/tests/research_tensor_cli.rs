@@ -108,6 +108,12 @@ fn actual_native_tensor_service_and_dedicated_admission_cli() {
     let metadata: Value = serde_json::from_slice(&output.stdout).unwrap();
     assert_eq!(metadata["research_input_admitted"], true);
     assert_eq!(metadata["admission"]["learner_histories"], 2);
+    for named in [&metadata, &metadata["admission"]] {
+        assert_eq!(
+            named["action_probability_contract"],
+            ops::admission::ACTION_PROBABILITY_CONTRACT
+        );
+    }
     assert_eq!(metadata["ordinary_ppo_admitted"], false);
     assert!(
         ops::admission::admit(

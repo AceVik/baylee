@@ -7,9 +7,14 @@ pub(super) struct Metadata {
     pub episode: u32,
     pub seat: u32,
     pub cursor: u64,
+    /// Bits: a decision, the history's terminal frame, an actor choice
+    /// ([`ACTOR`]).
     pub flags: u32,
-    pub genuine: bool,
 }
+
+/// The flag bit of a frame that claims a behaviour probability, which is the
+/// learner's certified stochastic choice and nothing else.
+pub(super) const ACTOR: u32 = 4;
 
 pub(super) fn episode_return(episode: &Value, learner: u64) -> Result<Value> {
     ensure!(
@@ -252,27 +257,24 @@ pub(super) fn validate(
             "research pick sequence outside menu"
         );
     }
-    let choice = match head {
-        0 => {
-            if decision {
-                ensure!(
-                    usize::try_from(uint(&t["single_idx"])?)? < candidates,
-                    "research categorical target outside menu"
-                );
-            }
-            candidates > 1
-        }
-        1 | 2 => false,
-        3 => {
-            ensure!(
-                !has_lp && lp == 0.0,
-                "scalar frame claims categorical actor LP"
-            );
-            false
-        }
+    match head {
+        0 if decision => ensure!(
+            usize::try_from(uint(&t["single_idx"])?)? < candidates,
+            "research categorical target outside menu"
+        ),
+        0..=3 => {}
         _ => anyhow::bail!("unknown research policy head"),
-    };
-    ensure!(has_lp || lp == 0.0, "nonzero research LP without a claim");
+    }
+    // `injective_categorical_menu_v1`: a probability is claimed for a single
+    // choice of two or more alone, and no other frame names one.
+    ensure!(
+        if has_lp {
+            head == 0 && candidates > 1
+        } else {
+            lp == 0.0
+        },
+        "a research frame claims a behaviour probability its head has none for"
+    );
     let candidate = decision && net && has_lp;
     ensure!(
         row["actor_eligible"] == candidate,
@@ -282,7 +284,6 @@ pub(super) fn validate(
         episode,
         seat,
         cursor,
-        flags: u32::from(decision) | (u32::from(terminal) << 1) | (u32::from(candidate) << 2),
-        genuine: candidate && choice,
+        flags: u32::from(decision) | (u32::from(terminal) << 1) | if candidate { ACTOR } else { 0 },
     })
 }

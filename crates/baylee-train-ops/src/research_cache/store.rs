@@ -64,7 +64,7 @@ fn scan(
     let mut histories = Vec::new();
     let mut first = 0_u64;
     for history in &source.histories {
-        let (mut frames, mut candidates, mut genuine) = (0_u64, 0_u64, 0_u64);
+        let (mut frames, mut choices) = (0_u64, 0_u64);
         let attempt = uint(&history.receipt["attempt_id"])?;
         lines(
             BufReader::new(MultiGzDecoder::new(File::open(&history.path)?)),
@@ -72,19 +72,18 @@ fn scan(
                 let metadata = rows::validate(raw, history, encoder, frames, &roots)?;
                 frame(raw, &metadata, attempt)?;
                 frames += 1;
-                candidates += u64::from(metadata.flags & 4 != 0);
-                genuine += u64::from(metadata.genuine);
+                choices += u64::from(metadata.flags & rows::ACTOR != 0);
                 Ok(())
             },
         )?;
         ensure!(
             history.receipt["frames"] == frames
-                && history.receipt["actor_decisions"] == candidates
+                && history.receipt["actor_decisions"] == choices
                 && frames > 0,
             "research history frame/candidate count changed"
         );
         histories.push(json!({"attempt_id":attempt,"episode_id":history.receipt["episode_id"],"seat":history.learner,
-            "first_frame":first,"frames":frames,"actor_candidates":candidates,"genuine_choices":genuine,
+            "first_frame":first,"frames":frames,"actor_candidates":choices,"genuine_choices":choices,
             "returns":history.receipt["returns"],"source_receipt":history.receipt}));
         first = first
             .checked_add(frames)
@@ -190,6 +189,7 @@ pub fn build(data_dir: &Path, out: &Path, expected_manifest_sha256: &str) -> Res
         "source_root":source.root,"expected_conversion_manifest_sha256":source.manifest_sha,
         "source_conversion_manifest":source.manifest,"source_files":source.seals,
         "target_contract":crate::research_contract::contract(),"frame_contract":crate::research_contract::FRAME_CONTRACT,
+        "action_probability_contract":source.manifest["action_probability_contract"],
         "format":format_contract(),
         "attempt_counts":source.manifest["attempt_counts"],"histories":histories,
         "output_files":output_seals(&out)?,"builder_executable_sha256":files::sha256(&std::env::current_exe()?)?});

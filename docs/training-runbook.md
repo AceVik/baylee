@@ -865,7 +865,16 @@ or aliased actions, payment rewrites, and unsupported question kinds leave
 the complete decision and memory history intact with zero actor weight.
 Subset, pair, and scalar heads contribute no PPO ratio, advantage normalization
 or sampled behavior KL. An on-policy run without this source contract requires
-fresh collection before admission.
+fresh collection before admission. Conversion checks it from both sides: an
+answer whose menu does not certify loses its probability, and a game with a
+draw (temperature above 0.35) from a menu that certifies and no probability is
+refused, as is a run played with any mode that changes an answer or takes its
+probability (a choice guard, tactics rules, a payable menu, free temperature, a
+random or an archived opponent's policy, a tactician, a search, grouped
+decoding, adaptive thinking, the search student) or for numbers only. The
+[separate research path](#separate-failure-terminal-research-path) carries the
+same contract: the conversion manifest, its cache and the tensor session name
+it, and a conversion archived without it must be reconverted.
 
 Those decisions still move: they share the trunk, the memory and the candidate
 scorer with the certified menus. Both PPO workers therefore measure them

@@ -1,4 +1,6 @@
 //! Lossless indexed research-frame storage. Never tensor packing or PPO admission.
+#[cfg(test)]
+mod contract_tests;
 mod rows;
 mod source;
 mod store;

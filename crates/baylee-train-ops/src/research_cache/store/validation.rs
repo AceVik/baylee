@@ -53,6 +53,8 @@ pub(super) fn source(root: &Path, expected: &str) -> Result<(Value, source::Sour
             && metadata["attempt_counts"] == source.manifest["attempt_counts"]
             && metadata["target_contract"] == crate::research_contract::contract()
             && metadata["frame_contract"] == crate::research_contract::FRAME_CONTRACT
+            && metadata["action_probability_contract"]
+                == source.manifest["action_probability_contract"]
             && fs::read(root.join("attempts.jsonl"))?
                 == fs::read(source.root.join("attempts.jsonl"))?,
         "research cache source/attempt identity changed"

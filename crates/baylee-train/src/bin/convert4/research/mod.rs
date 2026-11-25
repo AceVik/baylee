@@ -294,6 +294,9 @@ fn convert(args: &Args) -> anyhow::Result<()> {
         "attempt_denominator_contract":"complete_index_v2","operational_abort_ledger_supported":false,
         "target_contract":contract(),"frame_contract":FRAME_CONTRACT,"preprocessing_version":1,
         "policy_provenance_version":2,"sampling_version":2,"encoder_version":runs[0].encoder,
+        // Every answer's proof holds a certified menu's draw to its probability
+        // (`failure_terminal`), and the replay takes every other answer's.
+        "action_probability_contract":baylee_train_ops::admission::ACTION_PROBABILITY_CONTRACT,
         "learner_model_identity":runs[0].metadata["model_identity"],"ppo_eligible":false,
         "ordinary_target_cache_compatible":false,"catalog":catalog,
         "source_runs":runs.iter().map(source::Run::identity).collect::<Vec<_>>(),
