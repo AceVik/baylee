@@ -172,8 +172,9 @@ pub(in crate::lobby) fn tick(
             return;
         }
     }
-    let showing = matches!(state.hub, Hub::Play | Hub::Tables | Hub::Challenges)
-        && !(state.hub == Hub::Challenges && state.echoes.opened)
+    // The Play screen's Daily and Weekly tiles read the calendar wherever the
+    // hub draws them, the Gateways tab Central's sign-in lands on included.
+    let showing = (state.showing_play() || state.hub == Hub::Challenges && !state.echoes.opened)
         && ready(&state)
         && (state.hub == Hub::Challenges || state.can_play_online());
     let opened = showing && !clock.1;

@@ -1,6 +1,6 @@
 //! The ranked game's inline controls share the Play activity rail and its scroll position.
 use super::{
-    Action, Cx, Format, Hub, Kit, Lang, League, Live, LobbyRequest, LobbyState, OwnRank, Phrase,
+    Action, Cx, Format, Kit, Lang, League, Live, LobbyRequest, LobbyState, OwnRank, Phrase,
     Press, Weight, api, controls, draw, format_name, join, native, orders, parts, queue,
 };
 use crate::{hud::glyph, lobby::ranked_profile::Book, shellkit::ShellMetrics};
@@ -52,10 +52,8 @@ pub(in crate::lobby) fn entry(
 }
 
 fn showing(state: &LobbyState) -> bool {
-    (matches!(state.hub, Hub::Play | Hub::Tables | Hub::Gateways)
-        || state.hub == Hub::Challenges && !state.can_enter_challenges())
+    state.showing_play()
         && matches!(state.lobby.screen(), crate::lobby::Screen::Table)
-        && !state.showing_gateway_hub()
         && !state.lobby.offline()
 }
 

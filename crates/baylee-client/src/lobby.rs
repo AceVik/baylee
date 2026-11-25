@@ -844,6 +844,20 @@ impl LobbyState {
             && matches!(self.lobby.screen(), Screen::SignIn { .. } | Screen::Table)
     }
 
+    /// Whether the hub draws the Play screen, whose activity rail holds the
+    /// Ranked, Tower, Daily and Weekly tiles (`hub::draw`): the Play and
+    /// Tables tabs and the Gateways tab once a gateway is entered (Central's
+    /// sign-in lands on the Gateways tab, and entering a gateway keeps it
+    /// there), and the Challenges tab for a session that cannot enter it.
+    #[must_use]
+    pub(crate) fn showing_play(&self) -> bool {
+        match self.hub {
+            Hub::Play | Hub::Tables | Hub::Gateways => !self.showing_gateway_hub(),
+            Hub::Challenges => !self.can_enter_challenges(),
+            _ => false,
+        }
+    }
+
     /// Whether this session is connected to a live gateway (registered account or guest).
     #[must_use]
     pub(crate) fn can_play_online(&self) -> bool {
