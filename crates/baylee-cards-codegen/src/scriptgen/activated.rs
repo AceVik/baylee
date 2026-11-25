@@ -705,8 +705,10 @@ impl Tx<'_> {
         let defined_player_read = had_defined_player && !probe.has("CheckDefinedPlayer");
         let restrictions = self.activation_restriction(&mut probe, is_activated, &mut condition)?;
         let is_divided_counters = api == "PutCounter" && probe.has("DividedAsYouChoose");
+        let is_divided_damage =
+            is_activated && api == "DealDamage" && probe.has("DividedAsYouChoose");
         let is_excess_damage = api == "DealDamage" && probe.has("ExcessSVar");
-        let same_controller_targets = if is_divided_counters {
+        let same_controller_targets = if is_divided_counters || is_divided_damage {
             match probe.take("TargetsWithSameController").as_deref() {
                 None | Some("False") => false,
                 Some("True") => {
@@ -774,6 +776,36 @@ impl Tx<'_> {
             self.cost_sacrifices_self = false;
             self.cost_sacrifices_other = false;
             let (effects, target_spec, req_expr) = parsed?;
+            let chain = Chain {
+                effects,
+                target: Some(target_spec),
+                ..Chain::default()
+            };
+            (chain, Some(req_expr))
+        } else if is_divided_damage {
+            let stripped: Vec<&str> = spec
+                .split(" | ")
+                .filter(|part| {
+                    let p = part.trim_start();
+                    !drop_keys.iter().any(|key| p.starts_with(key))
+                })
+                .collect();
+            let (_, dp) = Params::parse(&stripped.join(" | "))?;
+            self.cost_sacrifices_self = is_activated
+                && cost
+                    .as_deref()
+                    .is_some_and(|c| cost_parts(c).iter().any(|t| Self::is_sac_self_token(t)));
+            self.cost_sacrifices_other = cost
+                .as_deref()
+                .is_some_and(|c| cost_parts(c).iter().any(|t| Self::is_sac_other_token(t)));
+            let parsed = self.wave28a_read_divided_damage(dp, false);
+            self.cost_sacrifices_self = false;
+            self.cost_sacrifices_other = false;
+            let (effects, target_spec, req_expr, second_req) = parsed?;
+            if second_req.is_some() {
+                return self
+                    .deny("an activated divided damage ability with a second target".to_string());
+            }
             let chain = Chain {
                 effects,
                 target: Some(target_spec),
@@ -922,6 +954,13 @@ impl Tx<'_> {
                 }
             } else if let Some(n) = chain.target_exact {
                 format!(", targets = Some(TargetReq::exactly({t}, {n}))")
+            } else if let Some((min, max)) = chain.target_range {
+                format!(
+                    ", targets = Some({})",
+                    Self::wave28a_format_range_req(t, min, max)
+                )
+            } else if chain.target_is_x {
+                format!(", targets = Some(TargetReq::x_targets({t}))")
             } else {
                 format!(", target = Some({t})")
             }
@@ -1005,7 +1044,7 @@ impl Tx<'_> {
             spec.chain.could_add_mana && !spec.chain.moves_library && spec.chain.target.is_none();
         self.reject_non_mana_counter_x(&cost, mana_ability, has_targets)?;
         let timing = self.activated_timing_suffix(spec, mana_ability)?;
-        if spec.chain.target_is_x {
+        if spec.chain.target_is_x && !Self::cost_has_variable_x(&cost) {
             return self.deny("`TargetMin$/TargetMax$ X` on an activated ability".to_string());
         }
         let target = if spec.target_req_override.is_some()
@@ -1056,6 +1095,8 @@ impl Tx<'_> {
             && spec.chain.second_target.is_none()
             && spec.chain.target_up_to.is_none()
             && spec.chain.target_exact.is_none()
+            && spec.chain.target_range.is_none()
+            && !spec.chain.target_is_x
         {
             spec.chain.target.clone()
         } else {
@@ -1388,6 +1429,8 @@ impl Tx<'_> {
             }
         } else if let Some(n) = chain.target_exact {
             format!("TargetReq::exactly({t}, {n})")
+        } else if let Some((min, max)) = chain.target_range {
+            Self::wave28a_format_range_req(t, min, max)
         } else if chain.target_is_x {
             format!("TargetReq::x_targets({t})")
         } else {
@@ -1492,6 +1535,33 @@ impl Tx<'_> {
                     Some(target_spec),
                     false,
                     false,
+                ));
+                continue;
+            }
+            if allow_divided_counters
+                && let Some((api, dp)) = Params::parse(&stripped)
+                && api == "DealDamage"
+                && dp.has("DividedAsYouChoose")
+            {
+                let (effects, target_spec, mut req_expr, second_req) =
+                    self.wave28a_read_divided_damage(dp, false)?;
+                if mode_same_controller {
+                    let multi = !req_expr.starts_with("TargetReq::one(")
+                        && !req_expr.starts_with("TargetReq::up_to_one(");
+                    req_expr =
+                        self.apply_same_controller_target_req(&req_expr, &target_spec, multi)?;
+                }
+                let has_second = second_req.is_some();
+                let second =
+                    second_req.map_or_default(|req| format!(", second_targets = Some({req})"));
+                modes.push((
+                    format!(
+                        "mode!(&[{}], targets = Some({req_expr}){second}{additional_cost})",
+                        effects.join(", ")
+                    ),
+                    Some(target_spec),
+                    false,
+                    has_second,
                 ));
                 continue;
             }

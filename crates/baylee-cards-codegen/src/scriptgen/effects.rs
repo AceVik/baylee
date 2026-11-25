@@ -5755,6 +5755,14 @@ impl Tx<'_> {
         single_target: bool,
         prior_target_used: bool,
     ) -> Option<Vec<String>> {
+        if !targets_here
+            && !p.has("Origin")
+            && let Some(dest) = p.peek("Destination").map(str::to_string)
+            && let Some(def) = p.peek("Defined").map(str::to_string)
+            && let Some(fx) = self.wave28a_self_dies_shuffle_into_library(p, &def, None, &dest)
+        {
+            return Some(fx);
+        }
         let origin = p.take("Origin")?;
         let destination = p.take("Destination")?;
         if destination == "Battlefield" && (p.has("AttachedTo") || p.has("AttachedToPlayer")) {
@@ -5880,7 +5888,7 @@ impl Tx<'_> {
             {
                 true
             }
-            Some("Targeted") if !targets_here && target != "TargetSpec::AnyPlayer" => false,
+            Some("Targeted") if target != "TargetSpec::AnyPlayer" => false,
             Some("ExiledWith")
                 if origin == "Exile"
                     && destination == "Battlefield"
@@ -5946,7 +5954,15 @@ impl Tx<'_> {
                     "Effect::bounce(TargetSpec::ThisObject)".to_string(),
                 ]);
             }
-            Some(def) if target == "TargetSpec::AnyPlayer" && self.is_event_object_defined(def) => {
+            Some(def)
+                if (target == "TargetSpec::AnyPlayer"
+                    || (prior_target_used
+                        && !targets_here
+                        && self.trigger_is_self
+                        && origin == "Graveyard"
+                        && matches!(destination.as_str(), "Exile" | "Library")))
+                    && self.is_event_object_defined(def) =>
+            {
                 return self.change_zone_event_object(p, def, &origin, &destination);
             }
             Some(other) => return self.deny(format!("`ChangeZone` of `Defined$ {other}`")),
@@ -5960,6 +5976,15 @@ impl Tx<'_> {
             && p.has("Hidden")
         {
             return self.return_chosen(p, &destination);
+        }
+        if !itself
+            && target == "TargetSpec::Player(PlayerRel::Chosen)"
+            && origin == "Battlefield"
+            && destination == "Exile"
+            && p.has("Hidden")
+            && let Some(fx) = self.wave28a_targeted_player_exile_bf(p, target)
+        {
+            return Some(fx);
         }
         // "You may put a basic land card from your hand onto the battlefield"
         // (Firebrand Ranger, Skyshroud Ranger) and Wave 13a multi-card /
@@ -5976,7 +6001,9 @@ impl Tx<'_> {
                 || p.peek("Mandatory") == Some("True")
                 || (!p.has("Mandatory") && {
                     let lower = self.oracle.to_ascii_lowercase();
-                    lower.contains("may put") || lower.contains("put any number of")
+                    lower.contains("may put")
+                        || lower.contains("put any number of")
+                        || lower.contains("put up to ")
                 }))
         {
             return self.put_from_hand_onto_battlefield(p, target, targets_here);
@@ -6004,9 +6031,28 @@ impl Tx<'_> {
                 target,
                 "TargetSpec::AnyPlayer" | "TargetSpec::Player(PlayerRel::Chosen)"
             ) || (prior_target_used && !targets_here))
+            && p.peek("Shuffle") == Some("True")
+            && let Some(fx) = self.wave28a_hand_to_library_shuffle(p, target, targets_here)
+        {
+            return Some(fx);
+        }
+        if !itself
+            && origin == "Hand"
+            && destination == "Library"
+            && (matches!(
+                target,
+                "TargetSpec::AnyPlayer" | "TargetSpec::Player(PlayerRel::Chosen)"
+            ) || (prior_target_used && !targets_here))
             && matches!(p.peek("LibraryPosition"), None | Some("0" | "-1"))
             && !p.has("Shuffle")
-            && (p.peek("Mandatory") == Some("True") || p.peek("Optional") == Some("True"))
+            && (p.peek("Mandatory") == Some("True")
+                || p.peek("Optional") == Some("True")
+                || (p.peek("LibraryPosition") == Some("-1") && !p.has("Mandatory") && {
+                    let lower = self.oracle.to_ascii_lowercase();
+                    !lower.contains("may ")
+                        && !lower.contains("up to ")
+                        && lower.contains("from your hand on the bottom")
+                }))
         {
             return self.hand_to_library_change_zone(p, target, targets_here);
         }
@@ -6041,7 +6087,12 @@ impl Tx<'_> {
                             || lower.starts_with("choose up to ")
                     }) || {
                         let lower = self.oracle.to_ascii_lowercase();
-                        lower.contains("you may ") || lower.contains("up to ")
+                        lower.contains("you may ")
+                            || lower.contains("up to ")
+                            || (destination == "Exile"
+                                && !lower.contains("may exile")
+                                && lower.contains("exile a ")
+                                && lower.contains("from your graveyard"))
                     })))
         {
             return self.choose_from_your_graveyard(p, &destination, target);
@@ -6090,6 +6141,24 @@ impl Tx<'_> {
                 }]);
             }
         }
+        if !self.on_a_spell
+            && !itself
+            && target == "TargetSpec::AnyPlayer"
+            && origin == "Battlefield"
+            && destination == "Exile"
+            && p.peek("ChangeType") == Some("Card.Self")
+            && !p.has("Defined")
+        {
+            let mut probe = p.clone();
+            probe.take("ChangeType");
+            probe.take("IsCurse");
+            let ok_num = probe.take("ChangeNum").is_none_or(|n| n == "1");
+            let ok_mand = probe.take("Mandatory").is_none_or(|m| m == "True");
+            if ok_num && ok_mand && probe.exhausted() {
+                *p = probe;
+                return Some(vec!["Effect::ExileSource".to_string()]);
+            }
+        }
         // Without a target this would move nothing at all.
         if !itself && target == "TargetSpec::AnyPlayer" {
             if let Some(fx) = self.wave27b_change_zone_constrained(
@@ -6104,9 +6173,13 @@ impl Tx<'_> {
             return self.deny("`ChangeZone` with neither a target nor `Defined$`".to_string());
         }
         // Targeted `ChangeZone` in MTG is mandatory by default unless `Optional$`
-        // is present; Forge sometimes attaches a redundant `Mandatory$ True`.
-        if !itself && target != "TargetSpec::AnyPlayer" && p.peek("Mandatory") == Some("True") {
-            p.take("Mandatory");
+        // is present; Forge sometimes attaches a redundant `Mandatory$ True` or
+        // UI `SelectPrompt$`.
+        if !itself && target != "TargetSpec::AnyPlayer" {
+            if p.peek("Mandatory") == Some("True") {
+                p.take("Mandatory");
+            }
+            p.take("SelectPrompt");
         }
         // "Its owner puts it on the top or bottom of their library"
         // (`Subtlety`, `Aether Gust`, `Horned Loch-Whale`, `Lost in Space`).
@@ -6147,7 +6220,19 @@ impl Tx<'_> {
         }
         Some(match (origin.as_str(), destination.as_str(), itself) {
             ("Battlefield" | "Graveyard" | "Stack" | "Exile", "Hand", true) => {
-                vec!["Effect::bounce(TargetSpec::ThisObject)".to_string()]
+                let optional = match p.take("Optional").as_deref() {
+                    None | Some("False") => false,
+                    Some("True") => true,
+                    Some(_) => return None,
+                };
+                if optional {
+                    vec![
+                        "Effect::MayDo { effects: &[Effect::bounce(TargetSpec::ThisObject)] }"
+                            .to_string(),
+                    ]
+                } else {
+                    vec!["Effect::bounce(TargetSpec::ThisObject)".to_string()]
+                }
             }
             ("Graveyard", "Battlefield", true) => {
                 let tapped = match p.take("Tapped").as_deref() {
@@ -6318,6 +6403,11 @@ impl Tx<'_> {
                 }
             }
             ("Graveyard", "Exile", false) if target.starts_with("TargetSpec::CardInGraveyard") => {
+                if let Some(num) = p.take("ChangeNum")
+                    && num != "1"
+                {
+                    return self.deny(format!("`ChangeZone` with `ChangeNum$ {num}`"));
+                }
                 match p.take("Imprint").as_deref() {
                     Some("True") => vec!["Effect::ExileTargetsWithSource".to_string()],
                     None => vec![format!("Effect::exile({target})")],
@@ -6362,7 +6452,11 @@ impl Tx<'_> {
                         vec!["Effect::ShuffleTargetsIntoOwnersLibraries".to_string()]
                     }
                     (None, None | Some("0")) => {
-                        vec![format!("Effect::GraveyardToTop {{ target: {target} }}")]
+                        if single_target {
+                            vec![format!("Effect::GraveyardToTop {{ target: {target} }}")]
+                        } else {
+                            vec!["Effect::PutTargetOnTopOfLibrary".to_string()]
+                        }
                     }
                     (None, Some("-1")) => vec![format!(
                         "Effect::PutOnBottomOfLibraryFromGraveyard {{ target: {target} }}"
@@ -6959,7 +7053,11 @@ impl Tx<'_> {
         None
     }
 
-    fn strip_hand_owner_ctrl(valid: &str, own_atom: &str, ctrl_atom: &str) -> Option<String> {
+    pub(super) fn strip_hand_owner_ctrl(
+        valid: &str,
+        own_atom: &str,
+        ctrl_atom: &str,
+    ) -> Option<String> {
         let mut saw_any = false;
         let mut alts = Vec::new();
         for alt in valid.split(',').map(str::trim) {
@@ -7090,7 +7188,10 @@ impl Tx<'_> {
             Some(_) => return None,
         };
         let lib_pos = if destination == "Library" {
-            Some(p.take("LibraryPosition")?)
+            if p.has("Shuffle") {
+                return None;
+            }
+            Some(p.take("LibraryPosition").unwrap_or_else(|| "0".to_string()))
         } else {
             None
         };
@@ -7290,6 +7391,13 @@ impl Tx<'_> {
             ) {
                 (Some("True"), None | Some("False")) => true,
                 (None | Some("False"), Some("True")) => false,
+                (None, None)
+                    if !oracle_lower.contains("may ")
+                        && !oracle_lower.contains("up to ")
+                        && oracle_lower.contains("from your hand on the bottom") =>
+                {
+                    false
+                }
                 _ => return None,
             };
             let num_raw = p.take("ChangeNum").unwrap_or_else(|| "1".to_string());
@@ -7434,7 +7542,7 @@ impl Tx<'_> {
         Some((chooser, defined_owner))
     }
 
-    fn parse_graveyard_optional(&self, p: &mut Params) -> Option<bool> {
+    fn parse_graveyard_optional(&self, p: &mut Params, destination: &str) -> Option<bool> {
         let prompt_opt = p.take("SelectPrompt").is_some_and(|s| {
             let lower = s.to_ascii_lowercase();
             lower.starts_with("you may")
@@ -7455,6 +7563,16 @@ impl Tx<'_> {
             {
                 Some(true)
             }
+            (None, None)
+                if destination == "Exile" && {
+                    let lower = self.oracle.to_ascii_lowercase();
+                    !lower.contains("may exile")
+                        && lower.contains("exile a ")
+                        && lower.contains("from your graveyard")
+                } =>
+            {
+                Some(false)
+            }
             _ => None,
         }
     }
@@ -7474,7 +7592,7 @@ impl Tx<'_> {
         let targets_a_player = target == "TargetSpec::Player(PlayerRel::Chosen)";
         let (chooser, defined_owner) =
             self.parse_graveyard_chooser_and_owner(p, target, targets_a_player)?;
-        let optional = self.parse_graveyard_optional(p)?;
+        let optional = self.parse_graveyard_optional(p, destination)?;
         let num_raw = p.take("ChangeNum").unwrap_or_else(|| "1".to_string());
         let tapped = match p.take("Tapped").as_deref() {
             None | Some("False") => false,
@@ -7487,7 +7605,10 @@ impl Tx<'_> {
             Some(_) => return None,
         };
         let lib_pos = if destination == "Library" {
-            Some(p.take("LibraryPosition")?)
+            if p.has("Shuffle") {
+                return None;
+            }
+            Some(p.take("LibraryPosition").unwrap_or_else(|| "0".to_string()))
         } else {
             None
         };
@@ -7838,6 +7959,7 @@ impl Tx<'_> {
                 return None;
             }
         }
+        p.take("SelectPrompt");
         // One permanent, because that is the only count the effect states.
         // A sentence returning two is a different rule and says so here
         // rather than writing a card that returns one of them.
@@ -7941,7 +8063,8 @@ impl Tx<'_> {
             }
             None if mandatory => false,
             None if oracle_lower.contains("may put")
-                || oracle_lower.contains("put any number of") =>
+                || oracle_lower.contains("put any number of")
+                || oracle_lower.contains("put up to ") =>
             {
                 true
             }
@@ -8073,6 +8196,7 @@ impl Tx<'_> {
             self.note("`ChangeZone` searching a library *and* targeting".to_string());
             return None;
         }
+        p.take("SelectPrompt");
         let defined_player = p.take("DefinedPlayer");
         let chooser_raw = p.take("Chooser");
         if targets_a_player {
@@ -9204,6 +9328,8 @@ impl Tx<'_> {
             ("Graveyard", "Hand") => Some(vec![
                 "Effect::GraveyardToHand { target: TargetSpec::EventObject }".to_string(),
             ]),
+            ("Graveyard", "Library") if p.peek("Shuffle") == Some("True") => self
+                .wave28a_self_dies_shuffle_into_library(p, defined, Some("Graveyard"), "Library"),
             ("Graveyard", "Library") if !p.has("Shuffle") => {
                 match p.take("LibraryPosition").as_deref() {
                     None | Some("0") => Some(vec![
@@ -10374,6 +10500,7 @@ impl Tx<'_> {
                 chain.target = sub_chain.target;
                 chain.target_up_to = sub_chain.target_up_to;
                 chain.target_exact = sub_chain.target_exact;
+                chain.target_range = sub_chain.target_range;
                 chain.target_is_x = sub_chain.target_is_x;
             }
             if sub_chain.effects.is_empty() {
@@ -11019,17 +11146,21 @@ impl Tx<'_> {
         let saved_target = chain.target.clone();
         let saved_up_to = chain.target_up_to;
         let saved_exact = chain.target_exact;
+        let saved_range = chain.target_range;
         let saved_is_x = chain.target_is_x;
         let saved_second = chain.second_target.clone();
         let saved_second_up_to = chain.second_target_up_to;
+        let saved_second_range = chain.second_target_range;
         let saved_unique = chain.target_unique;
         let restore = |c: &mut Chain| {
             c.target.clone_from(&saved_target);
             c.target_up_to = saved_up_to;
             c.target_exact = saved_exact;
+            c.target_range = saved_range;
             c.target_is_x = saved_is_x;
             c.second_target.clone_from(&saved_second);
             c.second_target_up_to = saved_second_up_to;
+            c.second_target_range = saved_second_range;
             c.target_unique = saved_unique;
         };
         let mut cursor = Some(first_sub);
@@ -11787,17 +11918,21 @@ impl Tx<'_> {
         let saved_target = chain.target.clone();
         let saved_up_to = chain.target_up_to;
         let saved_exact = chain.target_exact;
+        let saved_range = chain.target_range;
         let saved_is_x = chain.target_is_x;
         let saved_second = chain.second_target.clone();
         let saved_second_up_to = chain.second_target_up_to;
+        let saved_second_range = chain.second_target_range;
         let saved_unique = chain.target_unique;
         let restore = |c: &mut Chain| {
             c.target.clone_from(&saved_target);
             c.target_up_to = saved_up_to;
             c.target_exact = saved_exact;
+            c.target_range = saved_range;
             c.target_is_x = saved_is_x;
             c.second_target.clone_from(&saved_second);
             c.second_target_up_to = saved_second_up_to;
+            c.second_target_range = saved_second_range;
             c.target_unique = saved_unique;
         };
         let mut cursor = Some(first_sub.to_string());
@@ -11841,9 +11976,11 @@ impl Tx<'_> {
             let step_saved_target = chain.target.clone();
             let step_saved_up_to = chain.target_up_to;
             let step_saved_exact = chain.target_exact;
+            let step_saved_range = chain.target_range;
             let step_saved_is_x = chain.target_is_x;
             let step_saved_second = chain.second_target.clone();
             let step_saved_second_up_to = chain.second_target_up_to;
+            let step_saved_second_range = chain.second_target_range;
             let step_saved_unique = chain.target_unique;
             let mut step_targets_here = false;
             if sp.has("ValidTgts") {
@@ -11893,9 +12030,11 @@ impl Tx<'_> {
                 chain.target = step_saved_target;
                 chain.target_up_to = step_saved_up_to;
                 chain.target_exact = step_saved_exact;
+                chain.target_range = step_saved_range;
                 chain.target_is_x = step_saved_is_x;
                 chain.second_target = step_saved_second;
                 chain.second_target_up_to = step_saved_second_up_to;
+                chain.second_target_range = step_saved_second_range;
                 chain.target_unique = step_saved_unique;
                 if !all_effs.is_empty()
                     && !body.contains("Remembered")
@@ -17928,7 +18067,7 @@ impl Tx<'_> {
             probe.claim_label("ChangeTypeDesc", "ChangeType");
             let (chooser, defined_owner) =
                 self.parse_graveyard_chooser_and_owner(&mut probe, "TargetSpec::AnyPlayer", false)?;
-            let optional = self.parse_graveyard_optional(&mut probe)?;
+            let optional = self.parse_graveyard_optional(&mut probe, "Battlefield")?;
             let num_raw = probe.take("ChangeNum").unwrap_or_else(|| "1".to_string());
             let gain = match probe.take("GainControl").as_deref() {
                 None | Some("False") => false,
@@ -18374,6 +18513,7 @@ impl Tx<'_> {
         let saved_target = chain.target.clone();
         let saved_up_to = chain.target_up_to;
         let saved_exact = chain.target_exact;
+        let saved_range = chain.target_range;
         let saved_is_x = chain.target_is_x;
         sp.claim_label("ValidTgtsDesc", "ValidTgts");
         let targets_here = if let Some(valid) = sp.take("ValidTgts") {
@@ -18381,6 +18521,7 @@ impl Tx<'_> {
                 chain.target = saved_target;
                 chain.target_up_to = saved_up_to;
                 chain.target_exact = saved_exact;
+                chain.target_range = saved_range;
                 chain.target_is_x = saved_is_x;
                 return None;
             }
@@ -18392,6 +18533,7 @@ impl Tx<'_> {
             c.target.clone_from(&saved_target);
             c.target_up_to = saved_up_to;
             c.target_exact = saved_exact;
+            c.target_range = saved_range;
             c.target_is_x = saved_is_x;
         };
         let target = Self::effect_target(chain);
@@ -19554,6 +19696,7 @@ impl Tx<'_> {
             target: chain.target.clone(),
             target_up_to: chain.target_up_to,
             target_exact: chain.target_exact,
+            target_range: chain.target_range,
             target_is_x: chain.target_is_x,
             ..Chain::default()
         };
@@ -19581,6 +19724,7 @@ impl Tx<'_> {
                 rp.take("IsCurse");
             }
             let single_target = chain.target_exact.is_none()
+                && chain.target_range.is_none()
                 && !chain.target_is_x
                 && chain.target_up_to.is_none_or(|n| n == 1);
             let step_effs = self.effect_of_with_prior(
@@ -20517,6 +20661,7 @@ impl Tx<'_> {
             target: chain.target.clone(),
             target_up_to: chain.target_up_to,
             target_exact: chain.target_exact,
+            target_range: chain.target_range,
             target_is_x: chain.target_is_x,
             ..Chain::default()
         };

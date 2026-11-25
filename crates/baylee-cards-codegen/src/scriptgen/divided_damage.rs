@@ -1,89 +1,16 @@
 //! Announced damage and counter divisions (`CR 601.2d`), plus the independent
 //! opponent life-gain target paired with divided damage.
 
-use super::{Chain, Params, Tx, amount, counter_kind};
+use super::{Chain, Params, Tx, counter_kind};
 
 impl Tx<'_> {
     /// Read the complete spell line before the ordinary one-target chain.
-    pub(super) fn divided_damage_spell(&mut self, mut p: Params) -> Option<()> {
-        p.drop_prose();
-        p.claim_label("ValidTgtsDesc", "ValidTgts");
-        let valid = p.take("ValidTgts")?;
-        let target = self.target_spec(&valid, "DealDamage")?;
-        if matches!(
-            target.as_str(),
-            "TargetSpec::AnyPlayer" | "TargetSpec::AnyOpponent"
-        ) {
-            return self.deny("a player-only divided target requirement".into());
-        }
-        let total = self.divided_total(&p.take("NumDmg")?)?;
-        if self.divided_total(&p.take("DividedAsYouChoose")?)? != total {
-            return self.deny("damage and announced division have different totals".into());
-        }
-        if p.take("TargetMin").as_deref() != Some("0") {
-            return self.deny("a damage division requiring a nonzero minimum target count".into());
-        }
-        let maximum = p.take("TargetMax")?;
-        let maximum = self.divided_maximum(&maximum, &total, &valid)?;
-        let next = p.take("SubAbility");
-        if let Some(key) = p.first_key() {
-            return self.deny(format!("unclaimed parameter `DealDamage.{key}`"));
-        }
-        let mut effects = vec![format!("Effect::DealDamageDivided {{ amount: {total} }}")];
-        let second = if let Some(next) = next {
-            let body = self.svars.get(&next)?.clone();
-            let (api, mut gain) = Params::parse(&body)?;
-            gain.drop_prose();
-            if api == "GainLife" && gain.has("ValidTgts") {
-                gain.claim_label("ValidTgtsDesc", "ValidTgts");
-                if gain.take("ValidTgts").as_deref() != Some("Opponent")
-                    || gain.take("Defined").is_some_and(|v| v != "Targeted")
-                    || gain.take("TargetMin").is_some_and(|v| v != "1")
-                    || gain.take("TargetMax").is_some_and(|v| v != "1")
-                {
-                    return self.deny("an unsupported continuation after divided damage".into());
-                }
-                let n = amount(&gain.take("LifeAmount")?, self.svars, self.has_x)?;
-                if let Some(key) = gain.first_key() {
-                    return self.deny(format!("unclaimed parameter `GainLife.{key}`"));
-                }
-                effects.push(format!(
-                    "Effect::GainLifeFor {{ amount: {n}, who: PlayerRel::SecondTargetPlayerOrController }}"
-                ));
-                ", second_targets = Some(TargetReq::one(TargetSpec::AnyOpponent))"
-            } else {
-                let initial_up_to = match maximum.as_str() {
-                    "1" => None,
-                    "u8::MAX" => Some(u8::MAX),
-                    num => num.parse::<u8>().ok(),
-                };
-                let mut follow = Chain {
-                    effects: effects.clone(),
-                    target: Some(target.clone()),
-                    target_up_to: initial_up_to,
-                    ..Chain::default()
-                };
-                self.chain(&body, &mut follow)?;
-                if follow.target.as_deref() != Some(target.as_str())
-                    || follow.second_target.is_some()
-                    || follow.target_is_x
-                    || follow.target_up_to != initial_up_to
-                    || follow.target_exact.is_some()
-                    || follow.could_add_mana
-                    || follow.effects.iter().skip(1).any(|e| {
-                        e.contains("DealDamageDivided") || e.contains("PutCountersDivided")
-                    })
-                {
-                    return self.deny("an unsupported continuation after divided damage".into());
-                }
-                effects = follow.effects;
-                ""
-            }
-        } else {
-            ""
-        };
+    pub(super) fn divided_damage_spell(&mut self, p: Params) -> Option<()> {
+        let (effects, _target, target_req, second_req) =
+            self.wave28a_read_divided_damage(p, false)?;
+        let second = second_req.map_or_default(|req| format!(", second_targets = Some({req})"));
         self.body.abilities.push(format!(
-            "spell!(&[{}], targets = Some(TargetReq::up_to({target}, {maximum})){second})",
+            "spell!(&[{}], targets = Some({target_req}){second})",
             effects.join(", ")
         ));
         Some(())
@@ -91,7 +18,7 @@ impl Tx<'_> {
 
     /// A fixed total, an announced X with one nonnegative offset, or
     /// `DivisionAmount::XDoubleFrom` (`Shatterskull Smashing`).
-    fn divided_total(&self, raw: &str) -> Option<String> {
+    pub(super) fn divided_total(&self, raw: &str) -> Option<String> {
         let raw = raw.trim();
         if let Ok(n) = raw.parse::<u32>() {
             return Some(format!("DivisionAmount::Fixed({n})"));
@@ -172,7 +99,7 @@ impl Tx<'_> {
     }
 
     /// A printed bound, the total itself, or a count covering every target.
-    fn divided_maximum(&self, raw: &str, total: &str, valid: &str) -> Option<String> {
+    pub(super) fn divided_maximum(&self, raw: &str, total: &str, valid: &str) -> Option<String> {
         let raw = raw.trim();
         if let Ok(n) = raw.parse::<u8>() {
             // 255 means unbounded in TargetReq; do not misread a literal cap.
@@ -322,6 +249,7 @@ impl Tx<'_> {
                 || follow.target_is_x
                 || follow.target_up_to != initial_up_to
                 || follow.target_exact.is_some()
+                || follow.target_range.is_some()
                 || follow.could_add_mana
                 || follow
                     .effects

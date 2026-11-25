@@ -859,11 +859,12 @@ fn divided_damage_shatterskull_inline_expr_target_max_and_subability() {
         rendered(&div_counters_gy_all)
     );
 
-    // Refusals: retargeting `SubAbility$`, mismatched `TargetMax$`.
+    // Refusals: 3-target chain after divided damage, mismatched `TargetMax$`.
     for bad in [
-        "Name:BadRetarget\nManaCost:3 R\nTypes:Sorcery\n\
+        "Name:BadThirdRetarget\nManaCost:3 R\nTypes:Sorcery\n\
          A:SP$ DealDamage | NumDmg$ 3 | ValidTgts$ Creature | TargetMin$ 0 | TargetMax$ 3 | DividedAsYouChoose$ 3 | SubAbility$ DBDestroy\n\
-         SVar:DBDestroy:DB$ Destroy | ValidTgts$ Artifact\n",
+         SVar:DBDestroy:DB$ Destroy | ValidTgts$ Artifact | SubAbility$ DBTap\n\
+         SVar:DBTap:DB$ Tap | ValidTgts$ Land\n",
         "Name:BadMaxMismatch\nManaCost:3 R\nTypes:Sorcery\n\
          A:SP$ DealDamage | NumDmg$ 3 | ValidTgts$ Creature | TargetMin$ 0 | TargetMax$ M | DividedAsYouChoose$ 3\n\
          SVar:M:Count$Valid Artifact\n",

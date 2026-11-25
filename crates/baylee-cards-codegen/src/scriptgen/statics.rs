@@ -4902,6 +4902,7 @@ impl Tx<'_> {
             || chain.second_target.is_some()
             || chain.target_is_x
             || chain.target_up_to.is_some()
+            || chain.target_range.is_some()
             || matches!(chain.target_exact, Some(n) if n != 1)
         {
             return self.deny("static ability `S: Mode$ OptionalAttackCost`".to_string());
