@@ -29,8 +29,9 @@
 //! `distill_probe_v1`) keeps each probe with its label: the JSON steps line
 //! holds it whole, and the probe sidecar (`probes.rs`,
 //! `bundle-distill/probe.*`) a summary per probed frame. A probe must belong
-//! to its label (a priority decision with `N ≠ R`, its rival `R`'s menu
-//! entry, a score for both in every world), or the game is rejected.
+//! to its label (a priority decision with `N ≠ R`, its answers `N`'s and
+//! `R`'s menu entries, a score for both in every world), or the game is
+//! rejected.
 
 use std::collections::BTreeMap;
 use std::fs::{self, File, OpenOptions};
@@ -121,14 +122,14 @@ impl TrainDecks {
                 match self.splits.get(key).map(String::as_str) {
                     Some("train") => Ok(key.to_owned()),
                     Some(split) => anyhow::bail!(
-                        "{}: seats deck {key}, which {} puts in the {split} split; bundle \
-                         distillation trains on train decks only",
+                        "{}: seats deck {key}, which {} puts in the {split} split; this \
+                         dataset trains on train decks only",
                         run_dir.display(),
                         self.path.display()
                     ),
                     None => anyhow::bail!(
-                        "{}: seats deck {key}, which {} does not list (no split); bundle \
-                         distillation trains on train decks only",
+                        "{}: seats deck {key}, which {} does not list (no split); this \
+                         dataset trains on train decks only",
                         run_dir.display(),
                         self.path.display()
                     ),
@@ -212,8 +213,7 @@ impl Runs {
             search.is_null()
                 || (search["selection"]["rule"] == "measure"
                     && search["rival"] == "distill"
-                    && search["decks"]
-                        == "public_prior_from_the_seats_view_and_own_list_never_another_players_list"),
+                    && super::search_source::fair(search)),
             "{}: a searched run's labels are read only from a fair measuring search with the \
              layer for a rival (eval4 --search-select measure --search-rival distill --search-fair)",
             run_dir.display()
@@ -534,8 +534,9 @@ impl<'a> Cursor<'a> {
 }
 
 /// Whether a probe belongs to its label: a priority decision where `N`
-/// differs from `R`, its rival `R`'s own place in the menu, and a score and
-/// an end for both answers in every world.
+/// differs from `R`, its two answers `N`'s and `R`'s own places in the menu
+/// (which a frame does not say of `N`), and a score and an end for both in
+/// every world.
 fn probe_binds(label: &DistillLabel4, probe: &DistillProbe4) -> Result<(), String> {
     if label.kind != "priority" || !label.n_ne_r {
         return Err(format!(
@@ -554,6 +555,12 @@ fn probe_binds(label: &DistillLabel4, probe: &DistillProbe4) -> Result<(), Strin
         return Err(format!(
             "the probe's N and R are one menu entry ({})",
             probe.own_index
+        ));
+    }
+    if probe.own_index != label.net.single_idx {
+        return Err(format!(
+            "the probe's own answer is menu entry {}, the label's N {}",
+            probe.own_index, label.net.single_idx
         ));
     }
     if probe.worlds.is_empty() || probe.worlds.len() != probe.ends.len() {
@@ -1010,7 +1017,7 @@ mod tests {
     #[test]
     fn a_searched_run_is_admitted_only_as_a_fair_probe_of_the_layer() {
         let dir = std::path::Path::new("runs/r");
-        let fair = "public_prior_from_the_seats_view_and_own_list_never_another_players_list";
+        let fair = crate::search_source::FAIR_DECKS;
         let searched = |rule: &str, rival: &str, decks: &str| {
             let mut run = run(&["adapted/A/train-deck"]);
             run["search"] = json!({"selection": {"rule": rule}, "rival": rival, "decks": decks});
@@ -1060,6 +1067,8 @@ mod tests {
         let mut own = probe(2, vec![[0.4, 0.5]]);
         own.own_index = 2;
         assert!(probe_binds(&differs, &own).is_err(), "N is R's entry");
+        own.own_index = 3;
+        assert!(probe_binds(&differs, &own).is_err(), "not the label's N");
         assert!(
             probe_binds(&differs, &probe(2, vec![])).is_err(),
             "no world"

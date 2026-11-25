@@ -1590,8 +1590,8 @@ no targets, combat roots, macros, stall guard, choice guard or tactics
 rules; `run.json`'s `distill.probe` names the contract.
 `convert4 --bundle-distill` admits a searched run only when its search is
 such a fair measurement, rejects a game whose probe does not belong to its
-label (a priority `N ≠ R` decision, `R`'s own menu entry, a finite score and
-an end per world), keeps each probe whole in the JSON steps line, and
+label (a priority `N ≠ R` decision, `N`'s and `R`'s own menu entries, a finite
+score and an end per world), keeps each probe whole in the JSON steps line, and
 writes the probe sidecar `bundle-distill/probe.index.bin` + `probe.json`
 (`bin/convert4/probes.rs`): one 56-byte row per probed frame keyed by
 (game, seat, cursor) like the coarse classes, with `N`'s and `R`'s menu

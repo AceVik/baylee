@@ -226,6 +226,7 @@ mod research;
 #[cfg(feature = "onnx")]
 mod search_advantage;
 mod search_distill;
+mod search_source;
 mod self_imitation;
 mod shadow;
 mod train_decks;
@@ -306,11 +307,13 @@ fn main() -> anyhow::Result<()> {
     };
     // Search-advantage labels check every deck each run can seat against the
     // same manifest, as bundle distillation does.
+    #[cfg(feature = "onnx")]
     let search_decks = args
         .search_advantage
         .then(|| bundle_distill::TrainDecks::load(&args.train_manifest))
         .transpose()?;
-    let mut search_sources = Vec::new();
+    #[cfg(feature = "onnx")]
+    let mut search_sources = search_source::SearchSources::new(args.search_afterstates);
     // Read before any game converts: a receipt that cannot be read must not
     // cost the conversion.
     #[cfg(feature = "onnx")]
@@ -334,7 +337,9 @@ fn main() -> anyhow::Result<()> {
     let mut vocab_set: BTreeSet<u32> = baylee_cards::all().map(|card| card.index.get()).collect();
     vocab_set.insert(UNKNOWN_CARD);
 
+    let mut opened = 0;
     'runs: for run_dir in args.runs.iter().chain(&args.val_runs) {
+        opened += 1;
         let run_json: Value = serde_json::from_slice(
             &fs::read(run_dir.join("run.json"))
                 .with_context(|| format!("reading {}/run.json", run_dir.display()))?,
@@ -345,17 +350,12 @@ fn main() -> anyhow::Result<()> {
         } else {
             admit_run(run_dir, &run_json)?;
         }
+        #[cfg(feature = "onnx")]
         if let Some(decks) = &search_decks {
-            search_run_admitted(&run_json, args.search_afterstates)
-                .with_context(|| run_dir.display().to_string())?;
             let seated = decks.seated(run_dir, &run_json)?;
-            search_sources.push(
-                json!({"run": run_dir, "search": run_json["search"]["contract"],
-                "search_settings": run_json["search"],
-                "collection_build": run_json["evaluator_build"],
-                "collection_revision": run_json["evaluator_revision"],
-                "collection_dirty": run_json["evaluator_dirty"], "decks": seated.len()}),
-            );
+            search_sources
+                .admit(run_dir, &run_json, seated.len())
+                .with_context(|| run_dir.display().to_string())?;
         }
         let on_policy = on_policy::RunBinding::load(run_dir, &run_json)?;
         let run_exploration = exploration::run_contract(&run_json)?;
@@ -581,6 +581,7 @@ fn main() -> anyhow::Result<()> {
         }
     }
 
+    let (source_runs, validation_runs) = opened_runs(&args.runs, &args.val_runs, opened);
     if args.llm_bc {
         // Written before any game converts, so a conversion that fails later
         // still says which games the corpus rule left out.
@@ -700,8 +701,8 @@ fn main() -> anyhow::Result<()> {
         "games_requested": games_arc.len(),
         "games_converted": 0,
         "games_rejected": 0,
-        "source_runs": args.runs,
-        "validation_runs": args.val_runs,
+        "source_runs": source_runs,
+        "validation_runs": validation_runs,
         "train_steps": 0,
         "val_steps": 0,
         "train_shards": [],
@@ -711,7 +712,8 @@ fn main() -> anyhow::Result<()> {
         "elapsed_secs": 0.0,
     });
     if let Some(n) = args.first_games {
-        // Only a cut dataset names it, so that others' metadata stays.
+        // Only a cut dataset names it, so that others' metadata stays; its
+        // `source_runs` are the runs it opened.
         meta["first_games"] = json!(n);
     }
     if args.shadow_bc {
@@ -1049,7 +1051,7 @@ fn main() -> anyhow::Result<()> {
         meta["bundle_distillation_status"] = json!("complete");
         if let Some(dir) = &args.coarse_classes {
             let rows = std::mem::take(&mut *coarse_rows.lock().expect("coarse class lock"));
-            let source = json!({"runs": args.runs, "dataset": args.out,
+            let source = json!({"runs": source_runs, "dataset": args.out,
                 "steps_sha256": meta["bundle_distillation_steps_sha256"]});
             let header = coarse_classes::write(dir, rows, &source)?;
             meta["coarse_classes"] =
@@ -1058,7 +1060,7 @@ fn main() -> anyhow::Result<()> {
         if write_probes {
             let rows = std::mem::take(&mut *probe_rows.lock().expect("probe lock"));
             let dir = args.out.join("bundle-distill");
-            let source = json!({"runs": args.runs, "val_runs": args.val_runs, "dataset": args.out,
+            let source = json!({"runs": source_runs, "val_runs": validation_runs, "dataset": args.out,
                 "steps_sha256": meta["bundle_distillation_steps_sha256"]});
             let header = probes::write(&dir, rows, &source)?;
             meta["bundle_distillation"]["probe"] = json!({"dir": dir, "rows": header["rows"],
@@ -1075,7 +1077,7 @@ fn main() -> anyhow::Result<()> {
         let (rows, counts, mut shards) =
             std::mem::take(&mut *search_labels.lock().expect("search label lock"));
         shards.sort();
-        let source = json!({"runs": search_sources,
+        let source = json!({"runs": search_sources.metadata(),
             "decks": search_decks.as_ref().map(bundle_distill::TrainDecks::describe),
             "converter_build": baylee_build::short(), "converter_check": search_receipt,
             "first_games": args.first_games});
@@ -1143,6 +1145,19 @@ fn main() -> anyhow::Result<()> {
     Ok(())
 }
 
+/// The runs a conversion opened: all of `runs` and `val_runs`, or with
+/// `--first-games` the ones it had opened when it had its games, the first
+/// `opened` of both lists.
+fn opened_runs<'a>(
+    runs: &'a [PathBuf],
+    val_runs: &'a [PathBuf],
+    opened: usize,
+) -> (&'a [PathBuf], &'a [PathBuf]) {
+    let train = opened.min(runs.len());
+    let val = opened.saturating_sub(runs.len()).min(val_runs.len());
+    (&runs[..train], &val_runs[..val])
+}
+
 /// A run that measured something other than the policy it records makes no
 /// dataset: `eval4 --memory-reset` forgot the net's memory, so no replay
 /// reproduces what it read.
@@ -1150,29 +1165,6 @@ fn refuse_measurement(run: &Value) -> anyhow::Result<()> {
     anyhow::ensure!(
         run.get("memory_reset").is_none_or(Value::is_null),
         "a --memory-reset run is a measurement, never data"
-    );
-    Ok(())
-}
-
-/// Whether `--search-advantage` may read a run: a searched one that is data,
-/// and with `--search-afterstates` one whose roots a frame cursor has room for.
-fn search_run_admitted(run: &Value, afterstates: bool) -> anyhow::Result<()> {
-    anyhow::ensure!(
-        run["search"].is_object(),
-        "--search-advantage reads searched runs only"
-    );
-    anyhow::ensure!(
-        run["numbers_only"] != true,
-        "--search-advantage refuses a run for numbers only"
-    );
-    anyhow::ensure!(
-        !afterstates
-            || run["search"]["candidates"]
-                .as_u64()
-                .is_none_or(|k| k <= u64::from(baylee_train_ops::search_advantage::AFTER_PER_ROOT)),
-        "--search-afterstates has room for {} candidates a root; this run searched {}",
-        baylee_train_ops::search_advantage::AFTER_PER_ROOT,
-        run["search"]["candidates"]
     );
     Ok(())
 }
@@ -1198,17 +1190,18 @@ fn admit_run(run_dir: &Path, run_json: &Value) -> anyhow::Result<()> {
 mod admission_tests {
     use super::*;
 
+    /// A dataset cut by `--first-games` names the runs it opened and no other.
     #[test]
-    fn a_search_advantage_run_is_searched_data_whose_roots_fit() {
-        let run = |numbers_only: Value, candidates: u64| {
-            serde_json::json!({"numbers_only": numbers_only,
-                "search": {"contract": "belief_lookahead_v5", "candidates": candidates}})
-        };
-        search_run_admitted(&run(json!(false), 32), false).unwrap();
-        search_run_admitted(&run(Value::Null, 8), true).unwrap();
-        assert!(search_run_admitted(&run(json!(true), 4), false).is_err());
-        assert!(search_run_admitted(&run(json!(false), 9), true).is_err());
-        assert!(search_run_admitted(&json!({"numbers_only": false}), false).is_err());
+    fn the_runs_opened_are_the_first_of_both_lists() {
+        let paths = |names: &[&str]| -> Vec<PathBuf> { names.iter().map(PathBuf::from).collect() };
+        let (runs, val) = (paths(&["a", "b"]), paths(&["c"]));
+        for (opened, train, validation) in [(3, 2, 1), (2, 2, 0), (1, 1, 0), (0, 0, 0)] {
+            assert_eq!(
+                opened_runs(&runs, &val, opened),
+                (&runs[..train], &val[..validation]),
+                "{opened}"
+            );
+        }
     }
 
     #[test]
