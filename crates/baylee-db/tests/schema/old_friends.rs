@@ -48,31 +48,60 @@ async fn the_old_friend_lists_go_and_blocks_devices_and_table_chat_stay() {
 
     Migrator::up(db, None).await.expect("migration 35");
 
-    for table in ["friendship", "friend_request", "chat_group", "group_member", "group_invite"] {
-        assert_eq!(count(db, &format!("SELECT 1 FROM {table}")).await, 0, "{table} is empty");
+    for table in [
+        "friendship",
+        "friend_request",
+        "chat_group",
+        "group_member",
+        "group_invite",
+    ] {
+        assert_eq!(
+            count(db, &format!("SELECT 1 FROM {table}")).await,
+            0,
+            "{table} is empty"
+        );
     }
     assert_eq!(
-        count(db, &format!("SELECT 1 FROM chat_message WHERE id = '{in_group}'")).await,
+        count(
+            db,
+            &format!("SELECT 1 FROM chat_message WHERE id = '{in_group}'")
+        )
+        .await,
         0,
         "the group's waiting message is gone"
     );
     assert_eq!(
-        count(db, &format!("SELECT 1 FROM chat_delivery WHERE message_id = '{in_group}'")).await,
+        count(
+            db,
+            &format!("SELECT 1 FROM chat_delivery WHERE message_id = '{in_group}'")
+        )
+        .await,
         0,
         "and its delivery with it"
     );
     assert_eq!(
-        count(db, &format!("SELECT 1 FROM chat_delivery WHERE message_id = '{at_table}'")).await,
+        count(
+            db,
+            &format!("SELECT 1 FROM chat_delivery WHERE message_id = '{at_table}'")
+        )
+        .await,
         1,
         "the table's message still waits for its device"
     );
     assert_eq!(
-        count(db, &format!("SELECT 1 FROM social_block WHERE blocker = '{c}' AND blocked = '{b}'"))
-            .await,
+        count(
+            db,
+            &format!("SELECT 1 FROM social_block WHERE blocker = '{c}' AND blocked = '{b}'")
+        )
+        .await,
         1,
         "a block still keeps table chat away"
     );
-    assert_eq!(count(db, "SELECT 1 FROM social_device").await, 1, "devices stay");
+    assert_eq!(
+        count(db, "SELECT 1 FROM social_device").await,
+        1,
+        "devices stay"
+    );
     assert_eq!(count(db, "SELECT 1 FROM account").await, 3, "accounts stay");
 
     // Stepping back leaves the tables in place and brings nothing back.
