@@ -416,4 +416,103 @@ mod tests {
         assert_ne!(one, pseudonym(&key, "fedcba9876543210fedcba9876543210"));
         assert!(!one.contains(device));
     }
+
+    /// RFC 4231, test case 2: a shorter key is the same key padded with
+    /// zeros to the block.
+    #[test]
+    fn the_pseudonyms_hmac_is_the_standard_one() {
+        let mut key = [0_u8; 32];
+        key[..4].copy_from_slice(b"Jefe");
+        assert_eq!(
+            hex(&hmac_sha256(&key, b"what do ya want for nothing?")),
+            "5bdcc146bf60754e6a042426089575c75a003f089d2739839dec58b964ec3843"
+        );
+    }
+
+    #[test]
+    fn a_refused_request_spends_nothing_of_the_others() {
+        let mut shelf = Allowance::default();
+        let now = OffsetDateTime::UNIX_EPOCH + time::Duration::days(20_000);
+        assert!(shelf.take_within("a", now, 1, 2));
+        for _ in 0..100 {
+            assert!(!shelf.take_within("a", now, 1, 2));
+        }
+        assert!(shelf.take_within("b", now, 1, 2));
+        assert!(
+            !shelf.take_within("c", now, 1, 2),
+            "the service's own bound"
+        );
+        // One instant before the window is over nothing is whole yet.
+        let before = now + WINDOW - time::Duration::nanoseconds(1);
+        assert!(!shelf.take_within("c", before, 1, 2));
+        assert!(shelf.take_within("c", now + WINDOW, 1, 2));
+    }
+
+    #[test]
+    fn addresses_that_never_come_back_are_forgotten() {
+        let mut shelf = Allowance::default();
+        let now = OffsetDateTime::UNIX_EPOCH + time::Duration::days(20_000);
+        for n in 0..Allowance::SWEEP_AT {
+            assert!(shelf.take_within(&n.to_string(), now, 1, usize::MAX));
+        }
+        assert_eq!(shelf.by_address.len(), Allowance::SWEEP_AT);
+        assert!(shelf.take_within("late", now + WINDOW, 1, usize::MAX));
+        assert_eq!(shelf.by_address.len(), 1);
+        assert_eq!(shelf.all.len(), 1);
+        // One still inside its window is not forgotten by a sweep.
+        for n in 1..Allowance::SWEEP_AT {
+            assert!(shelf.take_within(&n.to_string(), now, 1, usize::MAX));
+        }
+        assert!(!shelf.take_within("late", now + WINDOW, 1, usize::MAX));
+    }
+
+    fn record(gzip_base64: String) -> Result<(Vec<u8>, bool), StatusCode> {
+        ClientRecord {
+            complete: true,
+            gzip_base64,
+        }
+        .bytes()
+        .map_err(|(status, _)| status)
+    }
+
+    #[test]
+    fn an_attached_record_is_refused_before_it_is_unpacked() {
+        for bad in ["", "!", "e30", "e30=", "H4sI"] {
+            assert_eq!(record(bad.into()), Err(StatusCode::BAD_REQUEST), "{bad}");
+        }
+        // Not even base64, so its length alone refuses it.
+        let long = "!".repeat(MAX_CLIENT_RECORD_BYTES.div_ceil(3) * 4 + 1);
+        assert_eq!(record(long), Err(StatusCode::PAYLOAD_TOO_LARGE));
+    }
+
+    #[test]
+    fn a_direct_report_names_known_fields_only() {
+        let read = |change: &dyn Fn(&mut serde_json::Value)| {
+            let mut body = serde_json::json!({
+                "kind": "bug", "text": "t", "build": {"version": "1"},
+                "device": "0123456789abcdef0123456789abcdef", "client": {},
+            });
+            change(&mut body);
+            serde_json::from_value::<Direct>(body).is_ok()
+        };
+        assert!(read(&|_| ()));
+        for field in ["kind", "text", "build", "device", "client"] {
+            assert!(
+                !read(&|b| {
+                    b.as_object_mut().unwrap().remove(field);
+                }),
+                "{field}"
+            );
+        }
+        for field in [
+            "gateway",
+            "reporter",
+            "gateway_name",
+            "channel",
+            "issue_number",
+        ] {
+            assert!(!read(&|b| b[field] = "x".into()), "{field}");
+        }
+        assert!(!read(&|b| b["kind"] = "nothing".into()));
+    }
 }

@@ -423,3 +423,6 @@ pub(crate) async fn pull(
     }
     Ok(frames)
 }
+
+#[cfg(test)]
+mod tests;

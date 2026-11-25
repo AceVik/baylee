@@ -711,4 +711,283 @@ mod bounds {
             .collect();
         assert!(Arc::ptr_eq(&frames[0], &frames[1]));
     }
+
+    fn person(tag: &str) -> Person {
+        Person {
+            tag: tag.into(),
+            handle: format!("N#{tag}"),
+            guest: false,
+        }
+    }
+
+    fn status(status: Status) -> wire::PresenceSet {
+        wire::PresenceSet {
+            status,
+            activity: None,
+        }
+    }
+
+    /// `account` opens `device`, whose socket's writer holds `room` frames.
+    fn open(
+        social: &Social,
+        account: &str,
+        device: &str,
+        friends: &[&str],
+        room: usize,
+    ) -> (u64, bool, mpsc::Receiver<Out>) {
+        let (tx, rx) = mpsc::channel(room);
+        let friends = friends
+            .iter()
+            .map(|id| ((*id).to_owned(), person("0002")))
+            .collect();
+        let (id, first) = social.attach(
+            account,
+            device,
+            person("0001"),
+            &status(Status::Online),
+            true,
+            friends,
+            tx,
+        );
+        (id, first, rx)
+    }
+
+    fn closed(rx: &mut mpsc::Receiver<Out>) -> Option<u16> {
+        match rx.try_recv() {
+            Ok(Out::Close(code, _)) => Some(code),
+            _ => None,
+        }
+    }
+
+    const FRAME: Down = Down::KeysChanged { tag: String::new() };
+
+    #[test]
+    fn a_device_has_one_socket_and_the_later_one_wins() {
+        let social = social();
+        let (old, first, mut old_rx) = open(&social, "a", "d", &[], 4);
+        assert!(first, "it was offline before");
+        let (new, first, mut new_rx) = open(&social, "a", "d", &[], 4);
+        assert!(!first, "it was online already");
+        assert_ne!(old, new);
+        assert_eq!(closed(&mut old_rx), Some(4001));
+        assert_eq!(social.sockets(), 1);
+
+        // The replaced socket's end, which comes late, ends nothing.
+        assert!(social.detach("a", "d", old).is_none());
+        assert!(social.is_online("a"));
+        social.push("a", &FRAME);
+        assert!(matches!(new_rx.try_recv(), Ok(Out::Frame(_))));
+        assert!(old_rx.try_recv().is_err(), "the old one is told nothing");
+    }
+
+    #[test]
+    fn an_account_goes_offline_with_its_last_socket_and_tells_its_friends() {
+        let social = social();
+        let (one, _, _rx1) = open(&social, "a", "d1", &["f"], 4);
+        let (two, first, _rx2) = open(&social, "a", "d2", &["f", "g"], 4);
+        assert!(!first);
+        assert!(social.detach("a", "d1", one).is_none());
+        assert!(social.is_online("a"));
+        // Another account's word for a device is not its owner's.
+        assert!(social.detach("b", "d2", two + 1).is_none());
+        assert!(social.is_online("a"));
+        let (who, friends) = social.detach("a", "d2", two).expect("the last one");
+        assert_eq!(who.tag, "0001");
+        assert_eq!(friends, ["f", "g"]);
+        assert!(!social.is_online("a"));
+        assert!(social.detach("a", "d2", two).is_none(), "once");
+        assert_eq!(social.sockets(), 0);
+    }
+
+    #[test]
+    fn a_push_reaches_every_device_of_its_account_and_no_other() {
+        let social = social();
+        let (_, _, mut one) = open(&social, "a", "d1", &[], 4);
+        let (_, _, mut two) = open(&social, "a", "d2", &[], 4);
+        let (_, _, mut other) = open(&social, "b", "d3", &["a"], 4);
+        social.push("a", &FRAME);
+        social.push("nobody", &FRAME);
+        assert!(one.try_recv().is_ok() && two.try_recv().is_ok());
+        assert!(other.try_recv().is_err());
+
+        social.deliver("d2", 7, FRAME);
+        assert!(one.try_recv().is_err(), "a delivery is one device's");
+        assert!(matches!(two.try_recv(), Ok(Out::Deliver { seq: 7, .. })));
+        social.close_device("d1", 4003, "device removed");
+        assert_eq!(closed(&mut one), Some(4003));
+        assert!(two.try_recv().is_err());
+    }
+
+    #[test]
+    fn a_socket_that_reads_nothing_is_dropped_and_holds_nobody_up() {
+        let social = social();
+        let (_, _, mut stuck) = open(&social, "a", "d1", &[], 1);
+        let (_, _, mut well) = open(&social, "b", "d2", &[], 8);
+        for _ in 0..3 {
+            social.broadcast_global("", &FRAME);
+        }
+        assert!(stuck.try_recv().is_ok(), "what fitted");
+        assert!(
+            matches!(
+                stuck.try_recv(),
+                Err(mpsc::error::TryRecvError::Disconnected)
+            ),
+            "and then the writer is let go"
+        );
+        for _ in 0..3 {
+            assert!(well.try_recv().is_ok());
+        }
+        assert_eq!(social.sockets(), 1);
+    }
+
+    #[test]
+    fn the_lobby_s_chat_is_not_echoed_and_its_history_is_bounded() {
+        let social = social();
+        let (_, _, mut sender) = open(&social, "a", "d1", &[], 4);
+        let (_, _, mut other) = open(&social, "a", "d2", &[], 4);
+        social.broadcast_global("d1", &FRAME);
+        assert!(sender.try_recv().is_err());
+        assert!(other.try_recv().is_ok());
+        for n in 0..GLOBAL_HISTORY_CAP {
+            let tag = n.to_string();
+            social.broadcast_global("d1", &Down::KeysChanged { tag });
+            let _ = other.try_recv();
+        }
+        let history = social.recent_global();
+        assert_eq!(history.len(), GLOBAL_HISTORY_CAP);
+        let tag_of = |frame: &Down| match frame {
+            Down::KeysChanged { tag } => tag.clone(),
+            _ => panic!("another frame"),
+        };
+        assert_eq!(tag_of(&history[0]), "0", "the oldest one is let go");
+        assert_eq!(
+            tag_of(&history[GLOBAL_HISTORY_CAP - 1]),
+            (GLOBAL_HISTORY_CAP - 1).to_string()
+        );
+    }
+
+    #[test]
+    fn a_status_is_the_last_one_said_and_only_of_an_account_online() {
+        let social = social();
+        social.set_status("a", &status(Status::Away));
+        assert!(social.online_account("a").is_none());
+        let (id, _, _rx) = open(&social, "a", "d1", &["f"], 4);
+        social.set_status("a", &status(Status::Invisible));
+        social.set_share_table("a", false);
+        let view = social.online_account("a").expect("online");
+        assert_eq!(view.status, Status::Invisible);
+        assert!(!view.share_table);
+        assert_eq!(view.friends, ["f"]);
+        // A second device says its own, and both show it.
+        let (_, _, _rx2) = open(&social, "a", "d2", &[], 4);
+        let view = social.online_account("a").expect("online");
+        assert_eq!(view.status, Status::Online);
+        assert!(view.share_table && view.friends.is_empty());
+        assert_eq!(social.online_accounts().len(), 1, "one account, not two");
+        let _ = social.detach("a", "d1", id);
+        assert!(social.is_online("a"));
+    }
+
+    #[test]
+    fn a_deleted_account_leaves_its_sockets_its_friends_and_its_tables() {
+        let social = social();
+        let (id, _, mut gone) = open(&social, "gone", "d1", &["stays"], 4);
+        let (_, _, mut stays) = open(&social, "stays", "d2", &["gone", "other"], 4);
+        social.watch_start("gone", "g");
+        social.watch_start("stays", "g");
+        social.forget(&["gone".to_owned()]);
+        assert_eq!(closed(&mut gone), Some(1000));
+        assert!(!social.is_online("gone"));
+        assert!(social.detach("gone", "d1", id).is_none(), "nobody to tell");
+        let Ok(Out::Frame(frame)) = stays.try_recv() else {
+            panic!("the friend is told");
+        };
+        assert!(matches!(
+            &*frame,
+            Down::Friend {
+                event: wire::FriendEvent::Removed,
+                ..
+            }
+        ));
+        assert!(stays.try_recv().is_err(), "once");
+        let view = social.online_account("stays").expect("online");
+        assert_eq!(view.friends, ["other"]);
+        let watching = social.watching.lock();
+        assert!(!watching.contains_key("gone") && watching.contains_key("stays"));
+    }
+
+    #[test]
+    fn a_watched_table_is_watched_until_its_last_socket_closes() {
+        let social = social();
+        social.watch_start("a", "g");
+        social.watch_start("a", "g");
+        social.watch_start("a", "h");
+        let games = || -> Vec<String> {
+            social
+                .watching
+                .lock()
+                .get("a")
+                .map_or_default(|games| games.keys().cloned().collect())
+        };
+        social.watch_end("a", "g");
+        assert_eq!(games(), ["g", "h"]);
+        social.watch_end("a", "g");
+        assert_eq!(games(), ["h"]);
+        social.watch_end("a", "g");
+        social.watch_end("b", "h");
+        assert_eq!(games(), ["h"]);
+        social.watch_end("a", "h");
+        assert!(social.watching.lock().is_empty(), "nothing is left behind");
+    }
+
+    #[test]
+    fn a_guest_may_send_less_than_an_account_and_no_one_spends_another_s() {
+        let social = social();
+        let now = Instant::now();
+        let sends = |account: &str, guest: bool, at: Instant| {
+            (0..100)
+                .take_while(|_| social.admit_send(account, guest, at))
+                .count()
+        };
+        assert_eq!(sends("a", false, now), 8);
+        assert_eq!(sends("g", true, now), 4);
+        assert_eq!(sends("b", false, now), 8);
+        let later = now + Duration::from_secs(3);
+        assert_eq!(sends("a", false, later), 3);
+        assert_eq!(sends("g", true, later), 1);
+        let keys = (0..100).take_while(|_| social.admit_keys("a", now)).count();
+        assert_eq!(keys, 20);
+    }
+
+    #[test]
+    fn the_settings_that_keep_messages_are_read_or_refused() {
+        let days = |text: &str| {
+            Social::from_env(None, Some(text))
+                .map(|s| s.keep_days_for(false))
+                .ok()
+        };
+        assert_eq!(days(" "), Some(wire::KEEP_DAYS_DEFAULT));
+        for n in [wire::KEEP_DAYS_MIN, wire::KEEP_DAYS_MAX] {
+            assert_eq!(days(&n.to_string()), Some(n));
+        }
+        for bad in [
+            (wire::KEEP_DAYS_MIN - 1).to_string(),
+            (wire::KEEP_DAYS_MAX + 1).to_string(),
+            "-1".into(),
+            "1.5".into(),
+            "x".into(),
+        ] {
+            assert_eq!(days(&bad), None, "{bad}");
+        }
+        let on = |text: &str| Social::from_env(Some(text), None).map(|s| s.on()).ok();
+        assert_eq!(on(""), Some(true));
+        assert_eq!(on(" on "), Some(true));
+        assert_eq!(on("off"), Some(false));
+        for bad in ["OFF", "no", "0", "false"] {
+            assert_eq!(on(bad), None, "{bad}: a typo never leaves chat on");
+        }
+        let long = Social::new(true, wire::KEEP_DAYS_MAX);
+        assert_eq!(long.keep_days_for(true), wire::GUEST_KEEP_DAYS);
+        assert!(Social::new(false, 1).info().is_none());
+    }
 }
