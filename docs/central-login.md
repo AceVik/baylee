@@ -145,8 +145,11 @@ reaches Central, so nobody's load can cost another account its session.
 
 ## Bigint advisory scope
 
-The Advent and division cosmetics SDK pins Central to `fa3c1475cce4db0002af42ed93eefc00d8f9a332`.
-It has the same complete `central-crypto` Git tree
+The SDK that opens ranked seats with game protocol 70 pins Central to
+`10f565b3ac80c5a5ddd06ab8afa2e0a7f05a45e4`. From the Advent and division
+cosmetics pin `fa3c1475cce4db0002af42ed93eefc00d8f9a332` it differs in the
+relay's version constant, that constant's test and one sentence of Central's
+operations manual. Both have the same complete `central-crypto` Git tree
 (`651a67f5f17c9ed57caa2b63922cef9e01362a90`), crate manifest and
 workspace lockfile as the reviewed replicated ranked revision below. The native
 shipping gate checks the all-feature reverse dependency graph at this pin.
