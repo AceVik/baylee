@@ -644,6 +644,7 @@ impl Tx<'_> {
         let Some(source) = source else {
             return self.deny("a `DamageDone` trigger with no `ValidSource$`".to_string());
         };
+        self.damage_trigger_source_is_attached = Self::wave28b_is_attached_damage_source(&source);
         let filter = filter_of(self, &source)?;
         match (target.as_deref(), combat) {
             (Some("Player"), true) => Some(format!("Trigger::DealsCombatDamageToPlayer({filter})")),
@@ -764,6 +765,7 @@ impl Tx<'_> {
         let Some(source) = p.take("ValidSource") else {
             return self.deny("a `DamageDealtOnce` trigger with no `ValidSource$`".to_string());
         };
+        self.damage_trigger_source_is_attached = Self::wave28b_is_attached_damage_source(&source);
         let filter = if source == "Card.Self" {
             "&Filter::This".to_string()
         } else {
@@ -2826,6 +2828,7 @@ impl Tx<'_> {
             let parsed = self.read_charm_modes(&choices);
             self.trigger_is_self = false;
             self.is_etb_self_trigger = false;
+            self.damage_trigger_source_is_attached = false;
             let parsed = parsed?;
             if parsed.len() < 2 || (!restriction.is_empty() && parsed.len() > 64) {
                 return self
@@ -2842,6 +2845,8 @@ impl Tx<'_> {
         self.trigger_is_self = trigger_is_self;
         self.is_etb_self_trigger = trigger == "Trigger::ETB";
         self.trigger_blocks_creature = trigger.starts_with("Trigger::BlocksCreature(");
+        self.damage_trigger_binds_source = Self::wave28b_trigger_binds_damage_source(&trigger);
+        self.damage_trigger_is_combat = trigger.contains("CombatDamage");
         self.cost_sacrifices_self = matches!(
             &price,
             Some(OptionalTriggerPrice::CostPart(p)) if p == "Sacrifice(&Filter::This)"
@@ -2851,6 +2856,13 @@ impl Tx<'_> {
             Some(OptionalTriggerPrice::CostPart(p))
                 if p.starts_with("Sacrifice(") && p != "Sacrifice(&Filter::This)"
         );
+        self.cost_discards_single_for_cost = matches!(
+            &price,
+            Some(OptionalTriggerPrice::CostPart(p)) if p.starts_with("Discard(")
+        );
+        self.in_discard_hand_may = matches!(price, Some(OptionalTriggerPrice::DiscardHand));
+        self.in_resolution_chosen_x =
+            matches!(price, Some(OptionalTriggerPrice::ChooseNumberPay { .. }));
         let is_attackers_at_target = trigger.starts_with("Trigger::AttackersDeclaredAtTarget");
         let saved_trigger_mode = if is_attackers_at_target {
             self.trigger_mode
@@ -2919,8 +2931,14 @@ impl Tx<'_> {
         self.trigger_is_self = false;
         self.is_etb_self_trigger = false;
         self.trigger_blocks_creature = false;
+        self.damage_trigger_binds_source = false;
+        self.damage_trigger_source_is_attached = false;
+        self.damage_trigger_is_combat = false;
         self.cost_sacrifices_self = false;
         self.cost_sacrifices_other = false;
+        self.cost_discards_single_for_cost = false;
+        self.in_discard_hand_may = false;
+        self.in_resolution_chosen_x = false;
         chain_ok?;
         if chain.effects.is_empty() {
             return self.deny("a trigger that reads as no effect at all".to_string());
@@ -3045,28 +3063,14 @@ impl Tx<'_> {
             many => format!("Effect::Sequence(&[{}])", many.join(", ")),
         };
         let effects = chain.effects.join(", ");
+        let has_targets = chain.target.is_some() || chain.second_target.is_some();
         let effects = match price {
-            Some(OptionalTriggerPrice::Generic(mana)) => format!(
-                "Effect::PlayerMayPayThen {{ player: PlayerRel::You, \
-                 mana: {mana}, effects: &[{effects}] }}"
-            ),
-            // Farmstead's "you may pay {W}{W}. If you do, you gain 1 life".
-            Some(OptionalTriggerPrice::Printed(cost)) => format!(
-                "Effect::PlayerMayPayManaThen {{ player: PlayerRel::You, \
-                 cost: mana!(\"{cost}\"), effects: &[{effects}] }}"
-            ),
-            Some(OptionalTriggerPrice::Life(life)) => format!(
-                "Effect::PlayerMayPayLifeThen {{ player: PlayerRel::You, \
-                 life: {life}, effects: &[{effects}] }}"
-            ),
-            Some(OptionalTriggerPrice::CostPart(part)) => format!(
-                "Effect::PlayerMayPayCostThen {{ player: PlayerRel::You, \
-                 cost: &CostPart::{part}, effect: &{one_effect} }}"
-            ),
-            Some(OptionalTriggerPrice::SacrificeN { filter, count }) => format!(
-                "Effect::PlayerMaySacrificeNThen {{ player: PlayerRel::You, \
-                 filter: {filter}, count: {count}, effect: &{one_effect} }}"
-            ),
+            Some(price) => Self::wave28b_wrap_optional_trigger_price(
+                price,
+                &effects,
+                &one_effect,
+                has_targets,
+            )?,
             None if mandatory_sac_self => {
                 format!("Effect::SacrificeSelfThen {{ then: &[{effects}] }}")
             }

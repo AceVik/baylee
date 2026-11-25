@@ -937,16 +937,11 @@ impl Tx<'_> {
                 let Some(body) = self.svars.get(name).cloned() else {
                     return self.deny(format!("chapter SVar `{name}` missing"));
                 };
-                let mut chain = super::Chain::default();
-                self.chain(&body, &mut chain)?;
-                if chain.effects.is_empty() || chain.target_is_x {
-                    return self.deny(format!("unsupported chapter `{name}`"));
-                }
+                let (chain, effects) = self.wave28b_read_chapter_chain(&body, name)?;
                 let targets = Self::target_req_expr(&chain)
                     .map_or_default(|req| format!(", targets = Some({req})"));
                 let second_targets = Self::second_target_req_expr(&chain)
                     .map_or_default(|req| format!(", second_targets = Some({req})"));
-                let effects = chain.effects.join(", ");
                 match chapters.as_slice() {
                     [chapter] => {
                         if !second_targets.is_empty() && *chapter >= 16 {
