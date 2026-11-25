@@ -28,6 +28,9 @@ card!(
             step: StepKind::Upkeep,
             whose: PlayerRel::EachPlayer
         },
-        &[Effect::BounceAll { filter: &BOUNCE1 }]
+        &[Effect::ReturnAllToHand {
+            filter: &BOUNCE1,
+            opponents_only: false
+        }]
     ),],
 );
