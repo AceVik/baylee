@@ -57,6 +57,8 @@ pub mod amaranthine_wall;
 pub mod aminatou_the_fateshifter;
 #[path = "gs1/ancestor_dragon.rs"]
 pub mod ancestor_dragon;
+#[path = "dom/ancient_animus.rs"]
+pub mod ancient_animus;
 #[path = "c18/ancient_stone_idol.rs"]
 pub mod ancient_stone_idol;
 #[path = "m19/angel_of_the_dawn.rs"]
@@ -177,8 +179,12 @@ pub mod board_the_weatherlight;
 pub mod bogstomper;
 #[path = "rix/bombard.rs"]
 pub mod bombard;
+#[path = "m19/bone_dragon.rs"]
+pub mod bone_dragon;
 #[path = "bbd/bonus_round.rs"]
 pub mod bonus_round;
+#[path = "grn/book_devourer.rs"]
+pub mod book_devourer;
 #[path = "grn/boros_challenger.rs"]
 pub mod boros_challenger;
 #[path = "grn/boros_locket.rs"]
@@ -247,6 +253,8 @@ pub mod champion_of_dusk;
 pub mod champion_of_the_flame;
 #[path = "dom/chandra_s_outburst.rs"]
 pub mod chandra_s_outburst;
+#[path = "m19/chaos_wand.rs"]
+pub mod chaos_wand;
 #[path = "dom/charge.rs"]
 pub mod charge;
 #[path = "rix/charging_tuskodon.rs"]
@@ -315,6 +323,8 @@ pub mod d_avenant_trapper;
 pub mod danitha_capashen_paragon;
 #[path = "dom/daring_archaeologist.rs"]
 pub mod daring_archaeologist;
+#[path = "rix/daring_buccaneer.rs"]
+pub mod daring_buccaneer;
 #[path = "dom/dark_bargain.rs"]
 pub mod dark_bargain;
 #[path = "m19/dark_dweller_oracle.rs"]
@@ -345,6 +355,8 @@ pub mod declare_dominance;
 pub mod deeproot_elite;
 #[path = "m19/demanding_dragon.rs"]
 pub mod demanding_dragon;
+#[path = "m19/demon_of_catastrophes.rs"]
+pub mod demon_of_catastrophes;
 #[path = "dom/demonic_vigor.rs"]
 pub mod demonic_vigor;
 #[path = "grn/demotion.rs"]
@@ -375,6 +387,8 @@ pub mod direct_current;
 pub mod dismissive_pyromancer;
 #[path = "grn/district_guide.rs"]
 pub mod district_guide;
+#[path = "dom/divest.rs"]
+pub mod divest;
 #[path = "grn/divine_visitation.rs"]
 pub mod divine_visitation;
 #[path = "grn/doom_whisperer.rs"]
@@ -437,6 +451,8 @@ pub mod erratic_cyclops;
 pub mod erstwhile_trooper;
 #[path = "c18/estrid_the_masked.rs"]
 pub mod estrid_the_masked;
+#[path = "prix/etali_primal_storm.rs"]
+pub mod etali_primal_storm;
 #[path = "dom/eviscerate.rs"]
 pub mod eviscerate;
 #[path = "dom/excavation_elephant.rs"]
@@ -471,6 +487,8 @@ pub mod fervent_strike;
 pub mod fiery_finish;
 #[path = "dom/fiery_intervention.rs"]
 pub mod fiery_intervention;
+#[path = "dom/final_parting.rs"]
+pub mod final_parting;
 #[path = "gs1/fire_omen_crane.rs"]
 pub mod fire_omen_crane;
 #[path = "grn/fire_urchin.rs"]
@@ -553,6 +571,8 @@ pub mod gird_for_battle;
 pub mod glaive_of_the_guildpact;
 #[path = "rix/gleaming_barrier.rs"]
 pub mod gleaming_barrier;
+#[path = "grn/glowspore_shaman.rs"]
+pub mod glowspore_shaman;
 #[path = "grn/goblin_banneret.rs"]
 pub mod goblin_banneret;
 #[path = "dom/goblin_chainwhirler.rs"]
@@ -615,6 +635,8 @@ pub mod hatchery_spider;
 pub mod havoc_devils;
 #[path = "grn/healer_s_hawk.rs"]
 pub mod healer_s_hawk;
+#[path = "c18/heavenly_blademaster.rs"]
+pub mod heavenly_blademaster;
 #[path = "gs1/heavenly_qilin.rs"]
 pub mod heavenly_qilin;
 #[path = "grn/hellkite_whelp.rs"]
@@ -787,6 +809,8 @@ pub mod ledev_guardian;
 pub mod legion_guildmage;
 #[path = "rix/legion_lieutenant.rs"]
 pub mod legion_lieutenant;
+#[path = "grn/legion_warboss.rs"]
+pub mod legion_warboss;
 #[path = "m19/lena_selfless_champion.rs"]
 pub mod lena_selfless_champion;
 #[path = "m19/leonin_vanguard.rs"]
@@ -807,6 +831,8 @@ pub mod liliana_s_contract;
 pub mod liliana_s_spoils;
 #[path = "m19/liliana_the_necromancer.rs"]
 pub mod liliana_the_necromancer;
+#[path = "m19/liliana_untouched_by_death.rs"]
+pub mod liliana_untouched_by_death;
 #[path = "dom/lingering_phantom.rs"]
 pub mod lingering_phantom;
 #[path = "dom/llanowar_envoy.rs"]
@@ -1053,6 +1079,10 @@ pub mod radical_idea;
 pub mod raff_capashen_ship_s_mage;
 #[path = "rix/raging_regisaur.rs"]
 pub mod raging_regisaur;
+#[path = "grn/ral_caller_of_storms.rs"]
+pub mod ral_caller_of_storms;
+#[path = "pana/ral_izzet_viceroy.rs"]
+pub mod ral_izzet_viceroy;
 #[path = "grn/ral_s_dispersal.rs"]
 pub mod ral_s_dispersal;
 #[path = "grn/ral_s_staticaster.rs"]
@@ -1131,6 +1161,8 @@ pub mod runic_armasaur;
 pub mod rustwing_falcon;
 #[path = "gs1/sacred_white_deer.rs"]
 pub mod sacred_white_deer;
+#[path = "rix/sadistic_skymarcher.rs"]
+pub mod sadistic_skymarcher;
 #[path = "c18/saheeli_s_directive.rs"]
 pub mod saheeli_s_directive;
 #[path = "m19/sai_master_thopterist.rs"]
@@ -1181,6 +1213,8 @@ pub mod sergeant_at_arms;
 pub mod serra_disciple;
 #[path = "m19/serra_s_guardian.rs"]
 pub mod serra_s_guardian;
+#[path = "dom/settle_the_score.rs"]
+pub mod settle_the_score;
 #[path = "grn/severed_strands.rs"]
 pub mod severed_strands;
 #[path = "rix/shake_the_foundations.rs"]
@@ -1207,6 +1241,8 @@ pub mod siegebreaker_giant;
 pub mod siegehorn_ceratops;
 #[path = "grn/silent_dart.rs"]
 pub mod silent_dart;
+#[path = "prix/silent_gravestone.rs"]
+pub mod silent_gravestone;
 #[path = "m19/silverbeak_griffin.rs"]
 pub mod silverbeak_griffin;
 #[path = "prix/silverclad_ferocidons.rs"]
@@ -1367,10 +1403,14 @@ pub mod tenth_district_guard;
 pub mod teshar_ancestor_s_apostle;
 #[path = "dom/tetsuko_umezawa_fugitive.rs"]
 pub mod tetsuko_umezawa_fugitive;
+#[path = "m19/tezzeret_artifice_master.rs"]
+pub mod tezzeret_artifice_master;
 #[path = "m19/tezzeret_s_gatebreaker.rs"]
 pub mod tezzeret_s_gatebreaker;
 #[path = "m19/tezzeret_s_strider.rs"]
 pub mod tezzeret_s_strider;
+#[path = "dom/thallid_omnivore.rs"]
+pub mod thallid_omnivore;
 #[path = "dom/thallid_soothsayer.rs"]
 pub mod thallid_soothsayer;
 #[path = "dom/the_antiquities_war.rs"]
@@ -1395,6 +1435,8 @@ pub mod thran_temporal_gateway;
 pub mod thrashing_brontodon;
 #[path = "m19/thud.rs"]
 pub mod thud;
+#[path = "rix/thunderherd_migration.rs"]
+pub mod thunderherd_migration;
 #[path = "dom/tiana_ship_s_caretaker.rs"]
 pub mod tiana_ship_s_caretaker;
 #[path = "rix/tilonalli_s_crown.rs"]
@@ -1437,6 +1479,8 @@ pub mod unexplained_disappearance;
 pub mod untamed_kavu;
 #[path = "dom/urgoros_the_empty_one.rs"]
 pub mod urgoros_the_empty_one;
+#[path = "m19/ursine_champion.rs"]
+pub mod ursine_champion;
 #[path = "dom/urza_s_tome.rs"]
 pub mod urza_s_tome;
 #[path = "dom/valduk_keeper_of_the_flame.rs"]

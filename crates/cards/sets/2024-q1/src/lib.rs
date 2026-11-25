@@ -13,6 +13,8 @@
 // What a card file names as `crate::…`.
 pub use baylee_cards_base::{filters, generated_tokens, tokens};
 
+#[path = "mkm/absolving_lammasu.rs"]
+pub mod absolving_lammasu;
 #[path = "pip/acquired_mutation.rs"]
 pub mod acquired_mutation;
 #[path = "mkm/aftermath_analyst.rs"]
@@ -63,6 +65,8 @@ pub mod behind_the_mask;
 pub mod benthic_criminologists;
 #[path = "clu/billiard_room.rs"]
 pub mod billiard_room;
+#[path = "mkm/bite_down_on_crime.rs"]
+pub mod bite_down_on_crime;
 #[path = "pip/bloatfly_swarm.rs"]
 pub mod bloatfly_swarm;
 #[path = "mkm/bolrac_clan_basher.rs"]
@@ -101,6 +105,8 @@ pub mod chalk_outline;
 pub mod charisma_bobblehead;
 #[path = "mkc/charnel_serenade.rs"]
 pub mod charnel_serenade;
+#[path = "mkm/clandestine_meddler.rs"]
+pub mod clandestine_meddler;
 #[path = "pip/codsworth_handy_helper.rs"]
 pub mod codsworth_handy_helper;
 #[path = "mkm/coerced_to_kill.rs"]
@@ -155,6 +161,8 @@ pub mod defenestrated_phantom;
 pub mod delney_streetwise_lookout;
 #[path = "mkm/demand_answers.rs"]
 pub mod demand_answers;
+#[path = "pip/desdemona_freedom_s_edge.rs"]
+pub mod desdemona_freedom_s_edge;
 #[path = "pip/desolate_mire.rs"]
 pub mod desolate_mire;
 #[path = "mkc/detective_of_the_month.rs"]
@@ -173,6 +181,8 @@ pub mod doppelgang;
 pub mod dr_madison_li;
 #[path = "mkm/drag_the_canal.rs"]
 pub mod drag_the_canal;
+#[path = "pip/duchess_wayward_tavernkeep.rs"]
+pub mod duchess_wayward_tavernkeep;
 #[path = "mkm/due_diligence.rs"]
 pub mod due_diligence;
 #[path = "clu/ecstatic_electromancer.rs"]
@@ -187,6 +197,8 @@ pub mod elder_owyn_lyons;
 pub mod elegant_parlor;
 #[path = "mkm/eliminate_the_impossible.rs"]
 pub mod eliminate_the_impossible;
+#[path = "clu/emissary_green.rs"]
+pub mod emissary_green;
 #[path = "mkm/escape_tunnel.rs"]
 pub mod escape_tunnel;
 #[path = "mkm/essence_of_antiquity.rs"]
@@ -231,6 +243,8 @@ pub mod gearbane_orangutan;
 pub mod get_a_leg_up;
 #[path = "mkm/gleaming_geardrake.rs"]
 pub mod gleaming_geardrake;
+#[path = "mkm/goblin_maskmaker.rs"]
+pub mod goblin_maskmaker;
 #[path = "mkm/gravestone_strider.rs"]
 pub mod gravestone_strider;
 #[path = "mkm/greenbelt_radical.rs"]
@@ -281,6 +295,8 @@ pub mod james_wandering_dad;
 pub mod junktown;
 #[path = "mkm/kellan_inquisitive_prodigy.rs"]
 pub mod kellan_inquisitive_prodigy;
+#[path = "pip/kellogg_dangerous_mind.rs"]
+pub mod kellogg_dangerous_mind;
 #[path = "clu/kitchen.rs"]
 pub mod kitchen;
 #[path = "mkm/knife.rs"]
@@ -299,6 +315,8 @@ pub mod lavinia_foil_to_conspiracy;
 pub mod lead_pipe;
 #[path = "mkm/leering_onlooker.rs"]
 pub mod leering_onlooker;
+#[path = "pip/legate_lanius_caesar_s_ace.rs"]
+pub mod legate_lanius_caesar_s_ace;
 #[path = "mkm/leyline_of_the_guildpact.rs"]
 pub mod leyline_of_the_guildpact;
 #[path = "clu/library.rs"]
@@ -323,6 +341,8 @@ pub mod magnetic_snuffler;
 pub mod make_your_move;
 #[path = "mkm/makeshift_binding.rs"]
 pub mod makeshift_binding;
+#[path = "pip/marcus_mutant_mayor.rs"]
+pub mod marcus_mutant_mayor;
 #[path = "pip/mariposa_military_base.rs"]
 pub mod mariposa_military_base;
 #[path = "mkm/marketwatch_phantom.rs"]
@@ -341,6 +361,8 @@ pub mod merchant_of_truth;
 pub mod meticulous_archive;
 #[path = "pip/mister_gutsy.rs"]
 pub mod mister_gutsy;
+#[path = "mkm/mistway_spy.rs"]
+pub mod mistway_spy;
 #[path = "mkc/morska_undersea_sleuth.rs"]
 pub mod morska_undersea_sleuth;
 #[path = "mkm/museum_nightwatch.rs"]
@@ -389,6 +411,8 @@ pub mod pip_boy_3000;
 pub mod piper_wright_publick_reporter;
 #[path = "pip/powder_ganger.rs"]
 pub mod powder_ganger;
+#[path = "pip/power_fist.rs"]
+pub mod power_fist;
 #[path = "pip/pre_war_formalwear.rs"]
 pub mod pre_war_formalwear;
 #[path = "pip/preston_garvey_minuteman.rs"]
@@ -421,6 +445,8 @@ pub mod reenact_the_crime;
 pub mod repeat_offender;
 #[path = "clu/resonance_technician.rs"]
 pub mod resonance_technician;
+#[path = "pip/robobrain_war_mind.rs"]
+pub mod robobrain_war_mind;
 #[path = "mkm/rope.rs"]
 pub mod rope;
 #[path = "mkm/rot_farm_mortipede.rs"]
@@ -429,6 +455,10 @@ pub mod rot_farm_mortipede;
 pub mod rubblebelt_braggart;
 #[path = "mkm/rubblebelt_maverick.rs"]
 pub mod rubblebelt_maverick;
+#[path = "mkm/rune_brand_juggler.rs"]
+pub mod rune_brand_juggler;
+#[path = "pip/ruthless_radrat.rs"]
+pub mod ruthless_radrat;
 #[path = "mkm/sanitation_automaton.rs"]
 pub mod sanitation_automaton;
 #[path = "mkm/scene_of_the_crime.rs"]
@@ -445,6 +475,8 @@ pub mod securitron_squadron;
 pub mod senator_peacock;
 #[path = "pip/sentinel_sarah_lyons.rs"]
 pub mod sentinel_sarah_lyons;
+#[path = "pip/sentry_bot.rs"]
+pub mod sentry_bot;
 #[path = "mkm/shadowy_backstreet.rs"]
 pub mod shadowy_backstreet;
 #[path = "pip/shaun_father_of_synths.rs"]
@@ -525,10 +557,14 @@ pub mod unruly_krasis;
 pub mod unscrupulous_agent;
 #[path = "mkc/unshakable_tail.rs"]
 pub mod unshakable_tail;
+#[path = "pip/vault_112_sadistic_simulation.rs"]
+pub mod vault_112_sadistic_simulation;
 #[path = "pip/vault_11_voter_s_dilemma.rs"]
 pub mod vault_11_voter_s_dilemma;
 #[path = "pip/vault_75_middle_school.rs"]
 pub mod vault_75_middle_school;
+#[path = "pip/vault_87_forced_evolution.rs"]
+pub mod vault_87_forced_evolution;
 #[path = "mkm/vein_ripper.rs"]
 pub mod vein_ripper;
 #[path = "mkm/vengeful_creeper.rs"]

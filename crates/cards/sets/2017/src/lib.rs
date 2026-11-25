@@ -789,6 +789,8 @@ pub mod khenra_charioteer;
 pub mod khenra_eternal;
 #[path = "hou/khenra_scrapper.rs"]
 pub mod khenra_scrapper;
+#[path = "c17/kindred_charge.rs"]
+pub mod kindred_charge;
 #[path = "c17/kindred_discovery.rs"]
 pub mod kindred_discovery;
 #[path = "c17/kindred_summons.rs"]
@@ -815,8 +817,12 @@ pub mod legion_conquistador;
 pub mod legion_s_judgment;
 #[path = "pxln/legion_s_landing.rs"]
 pub mod legion_s_landing;
+#[path = "hou/lethal_sting.rs"]
+pub mod lethal_sting;
 #[path = "c17/licia_sanguine_tribune.rs"]
 pub mod licia_sanguine_tribune;
+#[path = "hou/life_goes_on.rs"]
+pub mod life_goes_on;
 #[path = "aer/lifecraft_awakening.rs"]
 pub mod lifecraft_awakening;
 #[path = "aer/lifecraft_cavalry.rs"]
@@ -907,6 +913,8 @@ pub mod narnam_renegade;
 pub mod natural_obsolescence;
 #[path = "xln/navigator_s_ruin.rs"]
 pub mod navigator_s_ruin;
+#[path = "c17/nazahn_revered_bladesmith.rs"]
+pub mod nazahn_revered_bladesmith;
 #[path = "akh/nef_crop_entangler.rs"]
 pub mod nef_crop_entangler;
 #[path = "hou/neheb_the_eternal.rs"]
@@ -1011,6 +1019,8 @@ pub mod precise_strike;
 pub mod prepare;
 #[path = "hou/pride_sovereign.rs"]
 pub mod pride_sovereign;
+#[path = "pxln/priest_of_the_wakening_sun.rs"]
+pub mod priest_of_the_wakening_sun;
 #[path = "pxln/primal_amulet.rs"]
 pub mod primal_amulet;
 #[path = "aer/prizefighter_construct.rs"]
@@ -1165,6 +1175,8 @@ pub mod sacred_cat;
 pub mod sailor_of_means;
 #[path = "aer/salvage_scuttler.rs"]
 pub mod salvage_scuttler;
+#[path = "hou/samut_the_tested.rs"]
+pub mod samut_the_tested;
 #[path = "akh/samut_voice_of_dissent.rs"]
 pub mod samut_voice_of_dissent;
 #[path = "pxln/sanctum_seeker.rs"]
@@ -1275,6 +1287,8 @@ pub mod solemn_recruit;
 pub mod solemnity;
 #[path = "hou/solitary_camel.rs"]
 pub mod solitary_camel;
+#[path = "pxln/sorcerous_spyglass.rs"]
+pub mod sorcerous_spyglass;
 #[path = "akh/soulstinger.rs"]
 pub mod soulstinger;
 #[path = "akh/sparring_mummy.rs"]

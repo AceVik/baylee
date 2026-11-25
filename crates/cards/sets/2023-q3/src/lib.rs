@@ -35,6 +35,8 @@ pub mod armory_mice;
 pub mod ash_party_crasher;
 #[path = "woe/ashiok_s_reaper.rs"]
 pub mod ashiok_s_reaper;
+#[path = "pwoe/asinine_antics.rs"]
+pub mod asinine_antics;
 #[path = "woe/barrow_naughty.rs"]
 pub mod barrow_naughty;
 #[path = "cmm/battle_at_the_helvault.rs"]
@@ -99,6 +101,8 @@ pub mod court_of_ardenvale;
 pub mod court_of_embereth;
 #[path = "woc/court_of_garenbrig.rs"]
 pub mod court_of_garenbrig;
+#[path = "woc/court_of_vantress.rs"]
+pub mod court_of_vantress;
 #[path = "pwoe/cruel_somnophage.rs"]
 pub mod cruel_somnophage;
 #[path = "woe/cursed_courtier.rs"]
@@ -111,6 +115,8 @@ pub mod darksteel_monolith;
 pub mod demon_of_fate_s_design;
 #[path = "woe/diminisher_witch.rs"]
 pub mod diminisher_witch;
+#[path = "woe/discerning_financier.rs"]
+pub mod discerning_financier;
 #[path = "woe/dream_spoilers.rs"]
 pub mod dream_spoilers;
 #[path = "woe/dutiful_griffin.rs"]
@@ -179,6 +185,8 @@ pub mod gatewatch_beacon;
 pub mod giant_inheritance;
 #[path = "woe/gingerbread_hunter.rs"]
 pub mod gingerbread_hunter;
+#[path = "woe/gnawing_crescendo.rs"]
+pub mod gnawing_crescendo;
 #[path = "woe/grabby_giant.rs"]
 pub mod grabby_giant;
 #[path = "woe/grand_ball_guest.rs"]
@@ -209,6 +217,8 @@ pub mod horned_loch_whale;
 pub mod hylda_s_crown_of_winter;
 #[path = "woe/imodane_s_recruiter.rs"]
 pub mod imodane_s_recruiter;
+#[path = "pwoe/ingenious_prodigy.rs"]
+pub mod ingenious_prodigy;
 #[path = "woe/into_the_fae_court.rs"]
 pub mod into_the_fae_court;
 #[path = "woe/intrepid_trufflesnout.rs"]
@@ -263,6 +273,8 @@ pub mod moment_of_valor;
 pub mod monstrous_rage;
 #[path = "pwoe/moonshaker_cavalry.rs"]
 pub mod moonshaker_cavalry;
+#[path = "woc/nettling_nuisance.rs"]
+pub mod nettling_nuisance;
 #[path = "woe/neva_stalked_by_nightmares.rs"]
 pub mod neva_stalked_by_nightmares;
 #[path = "woe/night_of_the_sweets_revenge.rs"]
@@ -295,6 +307,8 @@ pub mod protective_parents;
 pub mod provisions_merchant;
 #[path = "woe/quick_study.rs"]
 pub mod quick_study;
+#[path = "pwoe/raging_battle_mouse.rs"]
+pub mod raging_battle_mouse;
 #[path = "pwoe/rankle_s_prank.rs"]
 pub mod rankle_s_prank;
 #[path = "woe/rat_out.rs"]
@@ -333,6 +347,8 @@ pub mod rimefur_reindeer;
 pub mod rise_of_the_eldrazi;
 #[path = "woe/rootrider_faun.rs"]
 pub mod rootrider_faun;
+#[path = "pwoe/rowan_scion_of_war.rs"]
+pub mod rowan_scion_of_war;
 #[path = "woe/rowdy_research.rs"]
 pub mod rowdy_research;
 #[path = "woe/royal_treatment.rs"]
@@ -387,6 +403,8 @@ pub mod splashy_spellcaster;
 pub mod stingblade_assassin;
 #[path = "woe/stockpiling_celebrant.rs"]
 pub mod stockpiling_celebrant;
+#[path = "woe/stonesplitter_bolt.rs"]
+pub mod stonesplitter_bolt;
 #[path = "woe/stormkeld_prowler.rs"]
 pub mod stormkeld_prowler;
 #[path = "woe/stormkeld_vanguard.rs"]
@@ -395,6 +413,8 @@ pub mod stormkeld_vanguard;
 pub mod storyteller_pixie;
 #[path = "woe/stroke_of_midnight.rs"]
 pub mod stroke_of_midnight;
+#[path = "woe/succumb_to_the_cold.rs"]
+pub mod succumb_to_the_cold;
 #[path = "woe/sugar_rush.rs"]
 pub mod sugar_rush;
 #[path = "woe/sweettooth_witch.rs"]
@@ -407,6 +427,8 @@ pub mod syr_ginger_the_meal_ender;
 pub mod taken_by_nightmares;
 #[path = "pwoe/talion_s_messenger.rs"]
 pub mod talion_s_messenger;
+#[path = "pwoe/talion_the_kindly_lord.rs"]
+pub mod talion_the_kindly_lord;
 #[path = "woe/tanglespan_lookout.rs"]
 pub mod tanglespan_lookout;
 #[path = "woe/tattered_ratter.rs"]
@@ -423,6 +445,8 @@ pub mod tenacious_tomeseeker;
 pub mod territorial_witchstalker;
 #[path = "pwoe/the_goose_mother.rs"]
 pub mod the_goose_mother;
+#[path = "pwoe/the_huntsman_s_redemption.rs"]
+pub mod the_huntsman_s_redemption;
 #[path = "woe/the_princess_takes_flight.rs"]
 pub mod the_princess_takes_flight;
 #[path = "woe/the_witch_s_vanity.rs"]
@@ -451,6 +475,8 @@ pub mod tuinvale_guide;
 pub mod twining_twins;
 #[path = "woe/twisted_fealty.rs"]
 pub mod twisted_fealty;
+#[path = "woe/twisted_sewer_witch.rs"]
+pub mod twisted_sewer_witch;
 #[path = "woe/two_headed_hunter.rs"]
 pub mod two_headed_hunter;
 #[path = "woe/unassuming_sage.rs"]

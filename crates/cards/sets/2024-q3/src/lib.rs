@@ -49,12 +49,16 @@ pub mod assassin_gauntlet;
 pub mod assassin_initiate;
 #[path = "dsk/attack_in_the_box.rs"]
 pub mod attack_in_the_box;
+#[path = "acr/aveline_de_grandpre.rs"]
+pub mod aveline_de_grandpre;
 #[path = "acr/aya_of_alexandria.rs"]
 pub mod aya_of_alexandria;
 #[path = "blb/azure_beastbinder.rs"]
 pub mod azure_beastbinder;
 #[path = "blb/bakersbane_duo.rs"]
 pub mod bakersbane_duo;
+#[path = "acr/ballad_of_the_black_flag.rs"]
+pub mod ballad_of_the_black_flag;
 #[path = "dsk/balustrade_wurm.rs"]
 pub mod balustrade_wurm;
 #[path = "blb/bark_knuckle_boxer.rs"]
@@ -423,6 +427,8 @@ pub mod intrepid_rabbit;
 pub mod intruding_soulrager;
 #[path = "blb/iridescent_vinelasher.rs"]
 pub mod iridescent_vinelasher;
+#[path = "acr/jackdaw.rs"]
+pub mod jackdaw;
 #[path = "blc/jacked_rabbit.rs"]
 pub mod jacked_rabbit;
 #[path = "blb/jolly_gerbils.rs"]

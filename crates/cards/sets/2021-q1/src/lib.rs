@@ -215,6 +215,8 @@ pub mod hailstorm_valkyrie;
 pub mod halvar_god_of_battle;
 #[path = "khm/harald_king_of_skemfar.rs"]
 pub mod harald_king_of_skemfar;
+#[path = "khm/harald_unites_the_elves.rs"]
+pub mod harald_unites_the_elves;
 #[path = "khm/hengegate_pathway.rs"]
 pub mod hengegate_pathway;
 #[path = "khm/highland_forest.rs"]
@@ -237,6 +239,8 @@ pub mod immersturm_skullcairn;
 pub mod infernal_pet;
 #[path = "khm/inga_rune_eyes.rs"]
 pub mod inga_rune_eyes;
+#[path = "khm/invasion_of_the_giants.rs"]
+pub mod invasion_of_the_giants;
 #[path = "khm/iron_verdict.rs"]
 pub mod iron_verdict;
 #[path = "khm/jarl_of_the_forsaken.rs"]
@@ -263,6 +267,8 @@ pub mod lathril_blade_of_the_elves;
 pub mod littjara_glade_warden;
 #[path = "khm/littjara_mirrorlake.rs"]
 pub mod littjara_mirrorlake;
+#[path = "khm/magda_brazen_outlaw.rs"]
+pub mod magda_brazen_outlaw;
 #[path = "khm/maja_bretagard_protector.rs"]
 pub mod maja_bretagard_protector;
 #[path = "khm/mammoth_growth.rs"]
@@ -307,10 +313,14 @@ pub mod ravenform;
 pub mod ravenous_lindwurm;
 #[path = "khm/realmwalker.rs"]
 pub mod realmwalker;
+#[path = "khm/reckless_crew.rs"]
+pub mod reckless_crew;
 #[path = "khm/reflections_of_littjara.rs"]
 pub mod reflections_of_littjara;
 #[path = "khm/renegade_reaper.rs"]
 pub mod renegade_reaper;
+#[path = "khm/return_upon_the_tide.rs"]
+pub mod return_upon_the_tide;
 #[path = "khm/righteous_valkyrie.rs"]
 pub mod righteous_valkyrie;
 #[path = "khm/rimewood_falls.rs"]
@@ -383,12 +393,16 @@ pub mod starnheim_aspirant;
 pub mod starnheim_courser;
 #[path = "khm/starnheim_unleashed.rs"]
 pub mod starnheim_unleashed;
+#[path = "khc/stoic_farmer.rs"]
+pub mod stoic_farmer;
 #[path = "khm/story_seeker.rs"]
 pub mod story_seeker;
 #[path = "khm/struggle_for_skemfar.rs"]
 pub mod struggle_for_skemfar;
 #[path = "khm/sulfurous_mire.rs"]
 pub mod sulfurous_mire;
+#[path = "khm/surtland_elementalist.rs"]
+pub mod surtland_elementalist;
 #[path = "khm/surtland_frostpyre.rs"]
 pub mod surtland_frostpyre;
 #[path = "khm/tergrid_s_shadow.rs"]
@@ -429,6 +443,8 @@ pub mod vengeful_reaper;
 pub mod volatile_fjord;
 #[path = "khm/vorinclex_monstrous_raider.rs"]
 pub mod vorinclex_monstrous_raider;
+#[path = "khm/waking_the_trolls.rs"]
+pub mod waking_the_trolls;
 #[path = "khm/warchanter_skald.rs"]
 pub mod warchanter_skald;
 #[path = "khm/warhorn_blast.rs"]
