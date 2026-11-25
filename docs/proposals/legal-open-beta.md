@@ -57,28 +57,54 @@ feedback service. `main` has moved all of that to Central.
   the seat.
 - **AVV with netcup:** in place; 16.6 says so. **Supervisory authority:**
   the LDI NRW stands.
-- **Server logs:** they stay as long as the law allows, the texts follow
-  the server. There is no fixed legal maximum; the period must be what the
-  purpose needs (Art. 5(1)(e) GDPR). The texts now say what the server does
-  (checked read-only on 11.11.2026): the journal at most 14 days
-  (`MaxRetentionSec=14day`), the files rsyslog writes from it
-  (`/var/log/syslog`, weekly, `rotate 4`) at most five weeks. Five weeks is
-  defensible for logs that may hold an IP address in rare error cases, but
-  at the long end of common practice. The website's notice says the same
-  now. **Central's texts still say 14 days** for the same server (its
-  privacy policy § 7 and the website's `privacy-hosting`); that needs a new
-  Central version, or `/var/log/syslog` cut to 14 days, which makes every
-  text true at once.
+- **Server logs: 14 days, everywhere.** The owner asked how long German
+  law lets them stay and to set every text and the server to that. No law
+  names a number: the period is what the purpose needs (Art. 5(1)(e)
+  GDPR), and the purpose here is running the service, finding faults and
+  fending off attacks (Art. 6(1)(f)). What exists to measure against:
+  - The BGH accepted seven days for an access provider's IP addresses,
+    kept to find and fend off faults and attacks (III ZR 391/13,
+    03.07.2014, after OLG Frankfurt 13 U 105/07, 28.08.2013).
+  - The data protection authorities' working group on technology
+    ("Orientierungshilfe Protokollierung") finds anything from a few days
+    to several months acceptable, depending on the system, and wants the
+    period fixed and justified.
+  - Guides for site operators (eRecht24 and others) say "as short as
+    possible" and usually name 7 to 14 days for logs with IP addresses.
+
+  These logs name no person and hold an IP address only in rare error
+  cases, so 14 days is well inside that range; five weeks would need a
+  reason we do not have. 14 days is also what the journal already keeps
+  (`MaxRetentionSec=14day`, checked read-only on 11.11.2026) and what
+  Central's texts promise for the same server. So the gateway's terms
+  (16.3 "Server logs" and "Moderation") and the website's notice now say
+  14 days. **One server change remains before publishing:** the files
+  rsyslog writes from the journal (`/var/log/syslog`, and fail2ban's log)
+  rotate weekly with `rotate 4`, about five weeks. In
+  `/etc/logrotate.d/rsyslog` and `/etc/logrotate.d/fail2ban`, replace
+  `weekly` and `rotate 4` with `daily`, `rotate 13` and `maxage 14`
+  (baylee-central `docs/operations.md` §"Logs and how long they stay").
+  Then every text is true at once; the terms carry an `[OFFEN]` for it
+  until then.
 
 ## Open points for the owner
 
 Each one is marked where it sits in the draft.
 
-8. **Backups:** is the plan still 48 h / 14 d / 8 w / 12 m?
-9. **Reports:** the draft assumes the official gateway runs with
-   `BAYLEE_REPORTS_TO=central` and `BAYLEE_DIRECT_REPORT_KEY`, so bug
-   reports go to Central and reported chat messages to the feedback
-   service (§ 10). Confirm, or the old § 10 stays.
+8. **Backups:** there is no settled plan yet (owner, 25.11.2026); one is
+   being worked out, with the copies on the owner's Google Drive. The
+   draft no longer names tiers or 12 months; 16.3 says only that backups
+   exist and carries an `[OFFEN]` for what the plan must add: where they
+   lie and who processes them (Google under an Art. 28 agreement, a
+   possible third-country transfer), encryption before upload, tiers and
+   the longest retention, and the matching lines in 9a.4 and 16.6.
+9. **Reports go to Central in the open beta** (owner, 25.11.2026). The code
+   is done; the server needs `BAYLEE_REPORTS_TO=central` and
+   `BAYLEE_DIRECT_REPORT_KEY` (at least 16 characters, the feedback
+   service's `FEEDBACK_DIRECT_KEY`), beside the `BAYLEE_FEEDBACK_KEY` or
+   `BAYLEE_FEEDBACK_TOKEN` it already has. Whether the live gateway runs
+   so cannot be seen from the repository; the terms carry it as an
+   `[OFFEN]` to do before publishing.
 10. **Ranked games are for people only** (7.5): `docs/protocol.md` says
     "two human seats"; confirm it is meant as a rule of play too.
 11. **Replay sharing cut-off:** "on by default for games since 13.10.2026"
