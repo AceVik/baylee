@@ -39,3 +39,19 @@ the gateway refuses it from a file, and it must not be published as it is.
   put in for the operator's details. It describes beta.9b: local accounts
   with passwords, guests, closed-beta keys, friends and chat on the gateway,
   reports to the feedback service.
+- **draft** (25.11.2026, for the open beta 0.2.0-beta.o1; the files here
+  now): the text brought to `main`. Baylee Central accounts (the gateway
+  keeps no password), the closed beta over, friends, groups, personal
+  messages and presence at Central, table, team and lobby chat on the
+  gateway, ranked games and daily/weekly tasks, ban lists, sleeves and mats
+  from the Central inventory, bug reports to Central, the new address, and
+  in § 16 Central as a recipient and the right to object (Art. 21) as a
+  section of its own (16.12). Before it is published, every `[OFFEN: …]` /
+  `[OPEN: …]` and `[ANNAHME: …]` / `[ASSUMPTION: …]` is settled and
+  removed, `[FASSUNG]`/`[VERSION]` and `[DATUM]`/`[DATE]` are filled in,
+  the draft paragraph under the title goes, and the version comment becomes
+  the date. The open points are listed in `docs/proposals/legal-open-beta.md`.
+
+The landing page shows whatever version is in force, read from the gateway
+(`web/site/nutzungsbedingungen.html`, `web/site/README.md` §"The terms of
+use").

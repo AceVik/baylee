@@ -8,6 +8,7 @@ their own gateway.
 | --- | --- |
 | `gateway-terms.de.md`, `gateway-terms.en.md` | default terms of use, usable as they are: they name the operator only through the gateway's legal notice |
 | `gateway-privacy-template.de.md`, `gateway-privacy-template.en.md` | a privacy notice template: it states what the gateway software processes out of the box, and the operator fills in the parts in square brackets (who they are, hosting, how long they keep records, logs and backups) and adds what they do on top |
+| `official/` | the official gateway's own terms, with its privacy notice as § 16: the version in force and the next draft (`official/README.md`) |
 
 The default terms describe the software as it ships: chat with friends,
 groups and at the table is end-to-end encrypted and the gateway cannot read

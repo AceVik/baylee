@@ -33,7 +33,7 @@ This summary is a reading aid; the numbered sections are binding.
 
 - **Baylee**: the project as a whole, i.e. gateway, Baylee Central, client, feedback service and source code.
 - **Gateway**: the game server at https://gateway.baylee.app (also at the former address https://baylee.acevik.de) that I operate, with the game processes that run games there, the start page at https://gateway.baylee.app/ and, where offered, the web version of the client at https://gateway.baylee.app/play/.
-- **Baylee Central**: the account service at https://baylee.app where you keep your Baylee account. I operate it too. It is governed by its own terms of use and its own privacy policy (https://baylee.app/datenschutz).
+- **Baylee Central**: the account service at https://baylee.app where you keep your Baylee account. I operate it too. It is governed by its own terms of use and its own privacy policy (https://baylee.app/en/privacy).
 - **Client**: the program you play with (desktop, mobile device or browser).
 - **Feedback service**: the service at https://feedback.baylee.app that receives and stores reported chat messages, messages from the contact form and the anonymous count, and through which the administrators manage the gateway.
 - **Administrators**: me and the people I entrust with operation, bug fixing or moderation and bind to confidentiality. [OPEN: Are there administrators besides you?]
@@ -303,7 +303,7 @@ Baylee is not affiliated with Wizards of the Coast.
 
 ## 16. Privacy information under Art. 13 GDPR
 
-**16.1 Controller.** The controller for processing on the gateway and in the feedback service is [NAME], reachable at [E-MAIL]; the postal address is in the legal notice (section 2.1). I have not appointed a data protection officer; I am not required to. I am also the controller for Baylee Central; what happens to your data there is set out in its privacy policy (https://baylee.app/datenschutz).
+**16.1 Controller.** The controller for processing on the gateway and in the feedback service is [NAME], reachable at [E-MAIL]; the postal address is in the legal notice (section 2.1). I have not appointed a data protection officer; I am not required to. I am also the controller for Baylee Central; what happens to your data there is set out in its privacy policy (https://baylee.app/en/privacy).
 
 **16.2 Accepting is not consent.** By accepting these terms you do not consent to any processing. This section only informs you. Consent exists only where it is expressly named: for crash reports (section 10.5).
 
