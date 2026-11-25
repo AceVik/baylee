@@ -366,8 +366,8 @@ fn wave16a_void_resolved_this_turn_other_opponents_and_spell_conditions() {
                 .contains("Condition::ObjectMatches { what: &TargetSpec::EventObject, filter:")
                 && eshki.abilities[0].contains("Effect::draw(1)")
                 && eshki.abilities[0].contains("Effect::DealDamage")
-                && eshki.statics.contains("4")
-                && eshki.statics.contains("6")),
+                && eshki.statics.contains('4')
+                && eshki.statics.contains('6')),
         "eshki: {:?}\nstatics={}",
         eshki.abilities,
         eshki.statics
