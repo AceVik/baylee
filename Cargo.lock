@@ -281,7 +281,7 @@ version = "1.1.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "40c48f72fd53cd289104fc64099abca73db4166ad86ea0b4341abe65af83dadc"
 dependencies = [
- "windows-sys 0.61.2",
+ "windows-sys 0.60.2",
 ]
 
 [[package]]
@@ -292,7 +292,7 @@ checksum = "291e6a250ff86cd4a820112fb8898808a366d8f9f58ce16d1f538353ad55747d"
 dependencies = [
  "anstyle",
  "once_cell_polyfill",
- "windows-sys 0.61.2",
+ "windows-sys 0.60.2",
 ]
 
 [[package]]
@@ -334,7 +334,7 @@ dependencies = [
  "objc2-foundation 0.3.2",
  "parking_lot 0.12.5",
  "percent-encoding",
- "windows-sys 0.61.2",
+ "windows-sys 0.59.0",
  "wl-clipboard-rs",
  "x11rb",
 ]
@@ -872,7 +872,7 @@ dependencies = [
  "image",
  "serde",
  "serde_json",
- "sha2 0.11.1",
+ "sha2 0.11.2",
  "time",
  "tokio",
  "ureq",
@@ -1220,7 +1220,7 @@ dependencies = [
  "baylee-cardtext",
  "baylee-core",
  "serde",
- "sha2 0.11.1",
+ "sha2 0.11.2",
  "uuid",
 ]
 
@@ -1849,7 +1849,7 @@ dependencies = [
  "central-api",
  "serde",
  "serde_json",
- "sha2 0.11.1",
+ "sha2 0.11.2",
  "thiserror 2.0.21",
 ]
 
@@ -1897,7 +1897,7 @@ dependencies = [
  "send_wrapper",
  "serde",
  "serde_json",
- "sha2 0.11.1",
+ "sha2 0.11.2",
  "swash",
  "sysinfo",
  "time",
@@ -1958,7 +1958,7 @@ dependencies = [
  "rustix 1.1.6",
  "serde",
  "serde_json",
- "sha2 0.11.1",
+ "sha2 0.11.2",
  "time",
  "unic-langid",
  "url",
@@ -2001,7 +2001,7 @@ dependencies = [
  "sea-orm-migration",
  "serde",
  "serde_json",
- "sha2 0.11.1",
+ "sha2 0.11.2",
  "time",
  "tokio",
  "tracing",
@@ -2075,7 +2075,7 @@ dependencies = [
  "rustix 1.1.6",
  "serde",
  "serde_json",
- "sha2 0.11.1",
+ "sha2 0.11.2",
  "tempfile",
  "zeroize",
 ]
@@ -2131,7 +2131,7 @@ dependencies = [
  "sea-orm",
  "serde",
  "serde_json",
- "sha2 0.11.1",
+ "sha2 0.11.2",
  "tempfile",
  "tokio",
  "tokio-tungstenite 0.30.0",
@@ -2157,7 +2157,7 @@ dependencies = [
  "sea-orm-migration",
  "serde",
  "serde_json",
- "sha2 0.11.1",
+ "sha2 0.11.2",
  "subtle",
  "time",
  "tokio",
@@ -2183,7 +2183,7 @@ dependencies = [
  "baylee-view",
  "serde",
  "serde_json",
- "sha2 0.11.1",
+ "sha2 0.11.2",
  "tracing",
  "uuid",
 ]
@@ -2243,7 +2243,7 @@ dependencies = [
  "sea-orm",
  "serde",
  "serde_json",
- "sha2 0.11.1",
+ "sha2 0.11.2",
  "subtle",
  "time",
  "tokio",
@@ -2332,7 +2332,7 @@ dependencies = [
  "protoc-bin-vendored",
  "serde",
  "serde_json",
- "sha2 0.11.1",
+ "sha2 0.11.2",
  "unicode-normalization",
 ]
 
@@ -2356,7 +2356,7 @@ dependencies = [
  "hkdf 0.13.0",
  "hmac 0.13.0",
  "rand_chacha 0.10.0",
- "sha2 0.11.1",
+ "sha2 0.11.2",
  "subtle",
  "thiserror 2.0.21",
  "x25519-dalek",
@@ -2390,7 +2390,7 @@ dependencies = [
  "rustls",
  "serde",
  "serde_json",
- "sha2 0.11.1",
+ "sha2 0.11.2",
  "time",
  "tokio",
  "tokio-tungstenite 0.30.0",
@@ -2440,7 +2440,7 @@ dependencies = [
  "regex",
  "serde",
  "serde_json",
- "sha2 0.11.1",
+ "sha2 0.11.2",
  "syn 3.0.10",
  "sysinfo",
  "tar",
@@ -2460,7 +2460,7 @@ dependencies = [
  "baylee-tower-relics",
  "serde",
  "serde_json",
- "sha2 0.11.1",
+ "sha2 0.11.2",
  "thiserror 2.0.21",
  "uuid",
 ]
@@ -2521,7 +2521,7 @@ dependencies = [
  "sea-orm",
  "serde",
  "serde_json",
- "sha2 0.11.1",
+ "sha2 0.11.2",
  "sysinfo",
  "thiserror 2.0.21",
  "tokio",
@@ -2545,7 +2545,7 @@ dependencies = [
  "sea-orm",
  "serde",
  "serde_json",
- "sha2 0.11.1",
+ "sha2 0.11.2",
  "thiserror 2.0.21",
  "tokio",
  "url",
@@ -2585,7 +2585,7 @@ dependencies = [
  "rustix 1.1.6",
  "serde",
  "serde_json",
- "sha2 0.11.1",
+ "sha2 0.11.2",
  "syn 3.0.10",
  "tempfile",
  "time",
@@ -2610,7 +2610,7 @@ dependencies = [
  "rustix 1.1.6",
  "serde",
  "serde_json",
- "sha2 0.11.1",
+ "sha2 0.11.2",
  "tar",
  "tempfile",
  "time",
@@ -2630,7 +2630,7 @@ dependencies = [
  "semver",
  "serde",
  "serde_json",
- "sha2 0.11.1",
+ "sha2 0.11.2",
  "tar",
  "ureq",
  "uuid",
@@ -3576,7 +3576,7 @@ dependencies = [
  "wasm-bindgen",
  "wasm-bindgen-futures",
  "web-time",
- "windows-sys 0.61.2",
+ "windows-sys 0.59.0",
 ]
 
 [[package]]
@@ -4444,12 +4444,12 @@ dependencies = [
 [[package]]
 name = "central-api"
 version = "0.1.0"
-source = "git+https://github.com/AceVik/baylee-central.git?rev=10f565b3ac80c5a5ddd06ab8afa2e0a7f05a45e4#10f565b3ac80c5a5ddd06ab8afa2e0a7f05a45e4"
+source = "git+https://github.com/AceVik/baylee-central.git?rev=e96792ffd170a62fe038444fb7fe1a14a85f6e35#e96792ffd170a62fe038444fb7fe1a14a85f6e35"
 dependencies = [
  "getrandom 0.4.3",
  "serde",
  "serde_json",
- "sha2 0.11.1",
+ "sha2 0.11.2",
  "url",
  "zeroize",
 ]
@@ -4457,7 +4457,7 @@ dependencies = [
 [[package]]
 name = "central-client"
 version = "0.1.0"
-source = "git+https://github.com/AceVik/baylee-central.git?rev=10f565b3ac80c5a5ddd06ab8afa2e0a7f05a45e4#10f565b3ac80c5a5ddd06ab8afa2e0a7f05a45e4"
+source = "git+https://github.com/AceVik/baylee-central.git?rev=e96792ffd170a62fe038444fb7fe1a14a85f6e35#e96792ffd170a62fe038444fb7fe1a14a85f6e35"
 dependencies = [
  "central-api",
  "central-crypto",
@@ -4469,7 +4469,7 @@ dependencies = [
 [[package]]
 name = "central-crypto"
 version = "0.1.0"
-source = "git+https://github.com/AceVik/baylee-central.git?rev=10f565b3ac80c5a5ddd06ab8afa2e0a7f05a45e4#10f565b3ac80c5a5ddd06ab8afa2e0a7f05a45e4"
+source = "git+https://github.com/AceVik/baylee-central.git?rev=e96792ffd170a62fe038444fb7fe1a14a85f6e35#e96792ffd170a62fe038444fb7fe1a14a85f6e35"
 dependencies = [
  "argon2",
  "base64ct",
@@ -4485,7 +4485,7 @@ dependencies = [
  "serde",
  "serde_json",
  "sha2 0.10.9",
- "sha2 0.11.1",
+ "sha2 0.11.2",
  "subtle",
  "thiserror 2.0.21",
  "x25519-dalek",
@@ -4495,24 +4495,24 @@ dependencies = [
 [[package]]
 name = "central-funding"
 version = "0.1.0"
-source = "git+https://github.com/AceVik/baylee-central.git?rev=10f565b3ac80c5a5ddd06ab8afa2e0a7f05a45e4#10f565b3ac80c5a5ddd06ab8afa2e0a7f05a45e4"
+source = "git+https://github.com/AceVik/baylee-central.git?rev=e96792ffd170a62fe038444fb7fe1a14a85f6e35#e96792ffd170a62fe038444fb7fe1a14a85f6e35"
 dependencies = [
  "central-api",
  "form_urlencoded",
  "roxmltree",
  "serde",
  "serde_json",
- "sha2 0.11.1",
+ "sha2 0.11.2",
  "subtle",
 ]
 
 [[package]]
 name = "central-http"
 version = "0.1.0"
-source = "git+https://github.com/AceVik/baylee-central.git?rev=10f565b3ac80c5a5ddd06ab8afa2e0a7f05a45e4#10f565b3ac80c5a5ddd06ab8afa2e0a7f05a45e4"
+source = "git+https://github.com/AceVik/baylee-central.git?rev=e96792ffd170a62fe038444fb7fe1a14a85f6e35#e96792ffd170a62fe038444fb7fe1a14a85f6e35"
 dependencies = [
  "axum",
- "base64 0.22.1",
+ "base64 0.23.1",
  "central-api",
  "central-identity",
  "central-outbound",
@@ -4536,7 +4536,7 @@ dependencies = [
 [[package]]
 name = "central-identity"
 version = "0.1.0"
-source = "git+https://github.com/AceVik/baylee-central.git?rev=10f565b3ac80c5a5ddd06ab8afa2e0a7f05a45e4#10f565b3ac80c5a5ddd06ab8afa2e0a7f05a45e4"
+source = "git+https://github.com/AceVik/baylee-central.git?rev=e96792ffd170a62fe038444fb7fe1a14a85f6e35#e96792ffd170a62fe038444fb7fe1a14a85f6e35"
 dependencies = [
  "central-api",
  "central-crypto",
@@ -4545,7 +4545,7 @@ dependencies = [
  "central-picture",
  "central-postgres",
  "getrandom 0.4.3",
- "sha2 0.11.1",
+ "sha2 0.11.2",
  "subtle",
  "tokio",
  "zeroize",
@@ -4554,7 +4554,7 @@ dependencies = [
 [[package]]
 name = "central-mail"
 version = "0.1.0"
-source = "git+https://github.com/AceVik/baylee-central.git?rev=10f565b3ac80c5a5ddd06ab8afa2e0a7f05a45e4#10f565b3ac80c5a5ddd06ab8afa2e0a7f05a45e4"
+source = "git+https://github.com/AceVik/baylee-central.git?rev=e96792ffd170a62fe038444fb7fe1a14a85f6e35#e96792ffd170a62fe038444fb7fe1a14a85f6e35"
 dependencies = [
  "central-api",
  "getrandom 0.4.3",
@@ -4567,7 +4567,7 @@ dependencies = [
 [[package]]
 name = "central-migration"
 version = "0.1.0"
-source = "git+https://github.com/AceVik/baylee-central.git?rev=10f565b3ac80c5a5ddd06ab8afa2e0a7f05a45e4#10f565b3ac80c5a5ddd06ab8afa2e0a7f05a45e4"
+source = "git+https://github.com/AceVik/baylee-central.git?rev=e96792ffd170a62fe038444fb7fe1a14a85f6e35#e96792ffd170a62fe038444fb7fe1a14a85f6e35"
 dependencies = [
  "sea-orm",
 ]
@@ -4575,7 +4575,7 @@ dependencies = [
 [[package]]
 name = "central-outbound"
 version = "0.1.0"
-source = "git+https://github.com/AceVik/baylee-central.git?rev=10f565b3ac80c5a5ddd06ab8afa2e0a7f05a45e4#10f565b3ac80c5a5ddd06ab8afa2e0a7f05a45e4"
+source = "git+https://github.com/AceVik/baylee-central.git?rev=e96792ffd170a62fe038444fb7fe1a14a85f6e35#e96792ffd170a62fe038444fb7fe1a14a85f6e35"
 dependencies = [
  "ureq",
 ]
@@ -4583,20 +4583,20 @@ dependencies = [
 [[package]]
 name = "central-picture"
 version = "0.1.0"
-source = "git+https://github.com/AceVik/baylee-central.git?rev=10f565b3ac80c5a5ddd06ab8afa2e0a7f05a45e4#10f565b3ac80c5a5ddd06ab8afa2e0a7f05a45e4"
+source = "git+https://github.com/AceVik/baylee-central.git?rev=e96792ffd170a62fe038444fb7fe1a14a85f6e35#e96792ffd170a62fe038444fb7fe1a14a85f6e35"
 dependencies = [
- "sha2 0.11.1",
+ "sha2 0.11.2",
 ]
 
 [[package]]
 name = "central-policy"
 version = "0.1.0"
-source = "git+https://github.com/AceVik/baylee-central.git?rev=10f565b3ac80c5a5ddd06ab8afa2e0a7f05a45e4#10f565b3ac80c5a5ddd06ab8afa2e0a7f05a45e4"
+source = "git+https://github.com/AceVik/baylee-central.git?rev=e96792ffd170a62fe038444fb7fe1a14a85f6e35#e96792ffd170a62fe038444fb7fe1a14a85f6e35"
 
 [[package]]
 name = "central-postgres"
 version = "0.1.0"
-source = "git+https://github.com/AceVik/baylee-central.git?rev=10f565b3ac80c5a5ddd06ab8afa2e0a7f05a45e4#10f565b3ac80c5a5ddd06ab8afa2e0a7f05a45e4"
+source = "git+https://github.com/AceVik/baylee-central.git?rev=e96792ffd170a62fe038444fb7fe1a14a85f6e35#e96792ffd170a62fe038444fb7fe1a14a85f6e35"
 dependencies = [
  "central-api",
  "central-crypto",
@@ -4604,7 +4604,7 @@ dependencies = [
  "sea-orm",
  "secrecy",
  "serde",
- "sha2 0.11.1",
+ "sha2 0.11.2",
  "subtle",
  "url",
 ]
@@ -5529,7 +5529,7 @@ checksum = "6ebaa1a2bf1290ab3bfe5a7b771d050ebffab2711c19a81691c683a5144a25de"
 dependencies = [
  "curve25519-dalek 5.0.0",
  "ed25519",
- "sha2 0.11.1",
+ "sha2 0.11.2",
  "subtle",
  "zeroize",
 ]
@@ -5665,7 +5665,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e35d6e78f4cebb90e51d543db8fe41528851d6deeef6ef21ebd4bfdc1e784776"
 dependencies = [
  "libc",
- "windows-sys 0.61.2",
+ "windows-sys 0.59.0",
 ]
 
 [[package]]
@@ -6127,7 +6127,7 @@ dependencies = [
  "gobject-sys",
  "libc",
  "system-deps 9.0.1",
- "windows-sys 0.61.2",
+ "windows-sys 0.59.0",
 ]
 
 [[package]]
@@ -6428,7 +6428,7 @@ dependencies = [
  "hkdf 0.13.0",
  "hybrid-array",
  "rand_core 0.10.1",
- "sha2 0.11.1",
+ "sha2 0.11.2",
  "subtle",
  "x25519-dalek",
  "zeroize",
@@ -6490,9 +6490,9 @@ dependencies = [
 
 [[package]]
 name = "hyper"
-version = "1.12.0"
+version = "1.13.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2c3e324da4c95177d6291d4c8730197c0d1822f8a9766814a4a44fa5ab797c9c"
+checksum = "229c6ff5584df4c6becbfe00567128bac768c8cd32ebc8a8366bd81ed072e8f3"
 dependencies = [
  "atomic-waker",
  "bytes",
@@ -7620,7 +7620,7 @@ version = "0.50.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7957b9740744892f114936ab4a57b3f487491bbeafaf8083688b16841a4240e5"
 dependencies = [
- "windows-sys 0.61.2",
+ "windows-sys 0.59.0",
 ]
 
 [[package]]
@@ -8253,7 +8253,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7d8fae84b431384b68627d0f9b3b1245fcf9f46f6c0e3dc902e9dce64edd1967"
 dependencies = [
  "libc",
- "windows-sys 0.61.2",
+ "windows-sys 0.45.0",
 ]
 
 [[package]]
@@ -9274,7 +9274,7 @@ dependencies = [
  "errno",
  "libc",
  "linux-raw-sys 0.12.1",
- "windows-sys 0.61.2",
+ "windows-sys 0.59.0",
 ]
 
 [[package]]
@@ -9331,7 +9331,7 @@ dependencies = [
  "security-framework",
  "security-framework-sys",
  "webpki-root-certs",
- "windows-sys 0.61.2",
+ "windows-sys 0.59.0",
 ]
 
 [[package]]
@@ -9789,9 +9789,9 @@ dependencies = [
 
 [[package]]
 name = "sha2"
-version = "0.11.1"
+version = "0.11.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "47d7069beb7d6ac7b9acd1039986e73443f24234f41074da099d6f994ac9ad19"
+checksum = "5b0e5c7d67bc53f435386b2130fdc900488c5703770f6d8a4633060e34288a27"
 dependencies = [
  "cfg-if",
  "cpufeatures 0.3.1",
@@ -9926,7 +9926,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c3d1e2c7f27f8d4cb10542a02c49005dbd6e93095799d6f3be745fae9f8fedd4"
 dependencies = [
  "libc",
- "windows-sys 0.61.2",
+ "windows-sys 0.60.2",
 ]
 
 [[package]]
@@ -9997,7 +9997,7 @@ dependencies = [
  "rustls",
  "serde",
  "serde_json",
- "sha2 0.11.1",
+ "sha2 0.11.2",
  "smallvec",
  "thiserror 2.0.21",
  "time",
@@ -10037,7 +10037,7 @@ dependencies = [
  "quote",
  "serde",
  "serde_json",
- "sha2 0.11.1",
+ "sha2 0.11.2",
  "sqlx-core",
  "sqlx-mysql",
  "sqlx-postgres",
@@ -10069,7 +10069,7 @@ dependencies = [
  "rust_decimal",
  "serde",
  "sha1 0.11.0",
- "sha2 0.11.1",
+ "sha2 0.11.2",
  "sqlx-core",
  "thiserror 2.0.21",
  "time",
@@ -10105,7 +10105,7 @@ dependencies = [
  "rust_decimal",
  "serde",
  "serde_json",
- "sha2 0.11.1",
+ "sha2 0.11.2",
  "smallvec",
  "sqlx-core",
  "stringprep",
@@ -10400,7 +10400,7 @@ dependencies = [
  "getrandom 0.4.3",
  "once_cell",
  "rustix 1.1.6",
- "windows-sys 0.61.2",
+ "windows-sys 0.59.0",
 ]
 
 [[package]]
@@ -11748,7 +11748,7 @@ version = "0.1.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c2a7b1c03c876122aa43f3020e6c3c3ee5c05081c9a00739faf7503aeba10d22"
 dependencies = [
- "windows-sys 0.61.2",
+ "windows-sys 0.59.0",
 ]
 
 [[package]]
@@ -12503,7 +12503,7 @@ dependencies = [
  "memchr",
  "nix 0.32.0",
  "typed-path",
- "windows-sys 0.61.2",
+ "windows-sys 0.60.2",
  "zeroize",
 ]
 

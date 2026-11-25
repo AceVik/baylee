@@ -203,6 +203,9 @@ async fn enroll(
         display_name: Some(account.display_name.clone()),
         nonce,
         counters,
+        // The local stack opens registration; the synthetic account needs no
+        // friend invite.
+        invite_code: None,
     })
     .await?
     else {

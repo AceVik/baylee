@@ -145,7 +145,20 @@ reaches Central, so nobody's load can cost another account its session.
 
 ## Bigint advisory scope
 
-The SDK that opens ranked seats with game protocol 70 pins Central to
+The dependency upgrade of 25.11.2026 pins Central to
+`e96792ffd170a62fe038444fb7fe1a14a85f6e35` (Central's pull request 91 on top
+of its test pull request 90). Against the ranked-seat pin below, the
+`central-crypto` Git tree (now `fecfee3b4b4433a4bfd5a57ae9b1fb4154c141f8`)
+differs in three files: two test-only additions (`src/context.rs`'s
+`#[cfg(test)]` module and `src/jwt/tests.rs`) and one manifest line, `sha2`
+0.11.1 → 0.11.2, the hash its vaults and chat use. The OPAQUE suite, its
+`opaque-sha2` 0.10.9 and `rand` 0.8.8 and every production source are
+unchanged, and Central's own source check pins the crate's new fingerprint
+(Central's `docs/crypto-proposal/bigint-advisory.md`). Baylee's lock file
+follows to `hyper` 1.13.0 and `sha2` 0.11.2; the native shipping gate checks
+the all-feature reverse dependency graph at this pin.
+
+The SDK that opens ranked seats with game protocol 70 pinned Central to
 `10f565b3ac80c5a5ddd06ab8afa2e0a7f05a45e4`. From the Advent and division
 cosmetics pin `fa3c1475cce4db0002af42ed93eefc00d8f9a332` it differs in the
 relay's version constant, that constant's test and one sentence of Central's

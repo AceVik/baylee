@@ -33,5 +33,6 @@ pub(super) fn request(
         display_name: display_name.map(str::to_owned),
         nonce,
         counters,
+        invite_code: None,
     }
 }
