@@ -784,7 +784,36 @@ fn search_refusal(
     None
 }
 
-fn deadline_refusal(args: &Args) -> Option<&'static str> {
+/// Why `--rollout-net` cannot run with `args`, if it cannot: the seats it has
+/// no part in would play on while the run said it played their worlds, and
+/// `identity` is the rollout net's own.
+fn rollout_refusal(
+    args: &Args,
+    collection: &collector::Contract,
+    identity: Option<&ModelIdentity>,
+) -> Option<&'static str> {
+    args.rollout_net.as_ref()?;
+    if collection.uses_seat_pool() || args.offline_deadline_seat {
+        return Some(
+            "--rollout-net plays the worlds of one net seat: no neural opponent and no \
+             --offline-deadline-seat",
+        );
+    }
+    if args.search_rival == SearchRival::Distill {
+        return Some("--search-rival distill probes the net's own rollouts: no --rollout-net");
+    }
+    if matches!(
+        identity.and_then(|identity| identity.critic_semantics.as_ref()),
+        Some(CriticSemantics4::FailureTerminalResearchUtilityV1 { .. })
+    ) {
+        return Some(
+            "--rollout-net scores leaves with an MTG outcome critic, not a research utility",
+        );
+    }
+    None
+}
+
+fn deadline_refusal(args: &Args, collection: &collector::Contract) -> Option<&'static str> {
     if !args.offline_deadline_seat {
         return None;
     }
@@ -800,6 +829,7 @@ fn deadline_refusal(args: &Args) -> Option<&'static str> {
         || args.legacy_v3
         || args.random_policy
         || args.opponent_model.is_some()
+        || collection.uses_seat_pool()
         || args.shadow_teacher.is_some()
         || args.seer_peeks
         || args.collection_purpose != collector::Purpose::Evaluation
@@ -947,6 +977,7 @@ fn search_metadata(
     args: &Args,
     config: Option<SearchConfig4>,
     identity: Option<&ModelIdentity>,
+    rollout_identity: Option<&ModelIdentity>,
 ) -> Option<Value> {
     let mut metadata = config?.metadata();
     metadata["max_decisions_per_game"] = json!(args.search_max_decisions_per_game);
@@ -957,14 +988,26 @@ fn search_metadata(
     // rows share a batch depends on timing: a batched search is not
     // reproducible bit for bit (`docs/trained-ai.md` §"Lookahead search").
     // Calls of one row are the unbatched steps, whichever server runs them.
-    metadata["bitwise_reproducible"] = json!(args.inference_batch <= 1);
+    // A search stopped by the wall clock is no more reproducible.
+    metadata["bitwise_reproducible"] =
+        json!(args.inference_batch <= 1 && !args.offline_deadline_seat);
     metadata["critic_semantics"] = json!(identity.and_then(|i| i.critic_semantics.as_ref()));
     if let Some(rollout) = &args.rollout_net {
-        // Only a search whose rollouts another net plays names it.
-        metadata["rollout"] = json!("rollout_net_for_every_chair_other_seats_from_world_view_only");
+        // Only a search whose rollouts another net plays names it. Where the
+        // leaves are only compared, the net's own search answers, and its
+        // rollouts and leaf are the ones above.
+        let plays = args.rollout_compare.is_empty();
+        if plays {
+            metadata["rollout"] = json!(if args.search_neural_opponent {
+                "rollout_net_for_every_chair_other_seats_from_world_view_only"
+            } else {
+                "rollout_net_for_the_searching_seat_house_for_every_other_chair"
+            });
+        }
         metadata["rollout_net"] = json!({
             "model": rollout,
-            "leaf": args.rollout_leaf.name(),
+            "model_identity": rollout_identity,
+            "leaf": plays.then(|| args.rollout_leaf.name()),
             "compare": args.rollout_compare.iter().map(|leaf| leaf.name()).collect::<Vec<_>>(),
             "memory": "the_rollout_net_watches_every_view_of_the_seat_at_the_table",
         });
