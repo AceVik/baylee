@@ -164,3 +164,79 @@ fn research_rejects_missing_original_multichoice_masks_instead_of_reencoding_the
         stream_research4(&fixture.record, 1, &fixture.sidecar, &proof, |_| Ok(())).unwrap_err();
     assert!(error.contains("mask/sequence"), "{error}");
 }
+
+/// The frames of `fixture`'s game with `sidecar` under an ordinary conversion,
+/// or why it is refused.
+fn ordinary(
+    fixture: &fixtures::Fixture,
+    sidecar: &[RolloutStepSidecar4],
+    certified: bool,
+) -> Result<Vec<Step4>, String> {
+    let mut frames = Vec::new();
+    crate::convert4::stream_game4_asking(
+        &fixture.record,
+        1,
+        true,
+        Some(sidecar),
+        None,
+        None,
+        false,
+        7,
+        None,
+        crate::convert4::TeamHands::Unknown,
+        crate::convert4::Asks4 {
+            certified,
+            ..crate::convert4::Asks4::default()
+        },
+        |step| {
+            frames.push(step);
+            Ok(())
+        },
+    )?;
+    Ok(frames)
+}
+
+/// An on-policy game's every draw from a menu that certifies has its
+/// probability (`Asks4::certified`): a game with one that has none is
+/// refused. The fixture's sidecar claims one wherever an answer could have
+/// one.
+#[test]
+fn a_certified_games_every_certified_draw_has_its_probability() {
+    use crate::features4::{HeadKind4, SourceKind4};
+    let fixture = fixtures::natural_episode(0);
+    let kept = ordinary(&fixture, &fixture.sidecar, true).unwrap();
+    let input_of = |frame: &Step4| frame.seat_input.map(|at| at as usize);
+    for frame in kept.iter().filter(|frame| frame.provenance.has_logprob) {
+        assert_eq!(frame.head, HeadKind4::SingleChoice as u8);
+    }
+    let certified = kept
+        .iter()
+        .find(|frame| frame.provenance.has_logprob)
+        .and_then(input_of)
+        .expect("the game has a certified draw");
+    let uncertified = kept
+        .iter()
+        .find(|frame| {
+            frame.is_decision
+                && frame.provenance.source == SourceKind4::Net
+                && !frame.provenance.has_logprob
+                && input_of(frame).is_some_and(|at| fixture.sidecar[at].provenance.has_logprob)
+        })
+        .and_then(input_of)
+        .expect("the game has an answer whose menu does not certify");
+    let without = |at: usize, temperature: f32| {
+        let mut sidecar = fixture.sidecar.clone();
+        sidecar[at].provenance.clear_behavior_probability();
+        sidecar[at].provenance.temperature = temperature;
+        sidecar
+    };
+    let error = ordinary(&fixture, &without(certified, 0.7), true)
+        .err()
+        .unwrap();
+    assert!(error.contains("without its probability"), "{error}");
+    // Any other conversion reads the game, and so does this one where the
+    // answer was no draw or its menu does not certify.
+    ordinary(&fixture, &without(certified, 0.7), false).unwrap();
+    ordinary(&fixture, &without(certified, 0.0), true).unwrap();
+    ordinary(&fixture, &without(uncertified, 0.7), true).unwrap();
+}

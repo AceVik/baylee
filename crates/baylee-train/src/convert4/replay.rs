@@ -54,7 +54,7 @@ pub(super) fn replay_frames_modes(
     live_bc: bool,
     encoder_version: u32,
     team_hands: TeamHands,
-    roots: Option<&super::search_roots::Roots4>,
+    asks: super::Asks4<'_>,
     emit: impl FnMut(Step4, i32) -> Result<(), String>,
 ) -> Result<ReplaySummary, String> {
     let replay = replay_feature_frames(
@@ -68,7 +68,7 @@ pub(super) fn replay_frames_modes(
         encoder_version,
         team_hands,
         FeaturePurpose::Ordinary,
-        roots,
+        asks,
         emit,
     )?;
     Ok(ReplaySummary {
@@ -103,7 +103,7 @@ pub(super) fn replay_research_frames(
         encoder,
         TeamHands::Unknown,
         FeaturePurpose::Research { natural },
-        None,
+        super::Asks4::default(),
         emit,
     )
 }
@@ -131,7 +131,7 @@ fn replay_feature_frames(
     encoder_version: u32,
     team_hands: TeamHands,
     purpose: FeaturePurpose,
-    roots: Option<&super::search_roots::Roots4>,
+    asks: super::Asks4<'_>,
     mut emit: impl FnMut(Step4, i32) -> Result<(), String>,
 ) -> Result<super::streaming::FeatureReplaySummary, String> {
     if !matches!(encoder_version, 7..=10) {
@@ -140,6 +140,7 @@ fn replay_feature_frames(
     if encoder_version == 9 && (shadow.is_some() || llm.is_some()) {
         return Err("Encoder9 shadow and LLM labels are not supported".into());
     }
+    let roots = asks.roots;
     // Afterstates fork the table (`onnx`'s simulation) and encode as encoder 10.
     if roots.is_some_and(|roots| !roots.afterstates.is_empty())
         && (cfg!(not(feature = "onnx")) || encoder_version != 10)
@@ -518,11 +519,21 @@ fn replay_feature_frames(
                         }
                     }
                     if prov.has_logprob
-                        && !crate::features4::supports_behavior_probability4(
-                            &cands, &view, &pending,
-                        )
+                        || (asks.certified
+                            && prov.source == SourceKind4::Net
+                            && prov.temperature > super::asks::STOCHASTIC_ABOVE)
                     {
-                        prov.clear_behavior_probability();
+                        let certifies = crate::features4::supports_behavior_probability4(
+                            &cands, &view, &pending,
+                        );
+                        if !certifies {
+                            prov.clear_behavior_probability();
+                        } else if !prov.has_logprob {
+                            return Err(format!(
+                                "input {input_n} of seat {seat_u8}: a draw from a menu that \
+                                 certifies, without its probability"
+                            ));
+                        }
                     }
                     coverage.record(p_kind, prov.source);
                     let s_idx = seat_u8 as usize;

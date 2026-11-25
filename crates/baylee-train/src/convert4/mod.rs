@@ -225,7 +225,7 @@ pub fn extract_game4_with_team_hands(
         false,
         7,
         team_hands,
-        None,
+        Asks4::default(),
         |step, life| {
             raw_steps.push((step, life));
             Ok(())
@@ -254,6 +254,7 @@ pub fn extract_game4_with_team_hands(
 pub mod activator_boundary;
 #[cfg(feature = "onnx")]
 pub mod afterstates;
+mod asks;
 pub mod count_boundary;
 pub mod distill_labels;
 mod idle_pass;
@@ -267,15 +268,16 @@ pub mod split_boundary;
 mod streaming;
 mod team_hands;
 pub use activator_boundary::{ACTIVATOR_BOUNDARY, BOUNDARY_REFUSAL, BOUNDARY_RULE};
+pub use asks::Asks4;
 pub use count_boundary::{COUNT_BOUNDARY, COUNT_REFUSAL, COUNT_RULE};
 pub use question_boundary::{QUESTION_BOUNDARY, QUESTION_REFUSAL, QUESTION_RULE};
 pub use split_boundary::{SPLIT_BOUNDARY, SPLIT_REFUSAL, SPLIT_RULE};
 #[cfg(test)]
 use streaming::terminal_targets;
 pub use streaming::{
-    ProducerEncoder, ReplayCheck, StreamedGame4, stream_game4, stream_game4_live_bc,
-    stream_game4_llm_bc, stream_game4_shadow_bc, stream_game4_with_encoder,
-    stream_game4_with_encoder_and_producer, stream_game4_with_roots,
+    ProducerEncoder, ReplayCheck, StreamedGame4, stream_game4, stream_game4_asking,
+    stream_game4_live_bc, stream_game4_llm_bc, stream_game4_shadow_bc, stream_game4_with_encoder,
+    stream_game4_with_encoder_and_producer,
 };
 use streaming::{ReplaySummary, Targets};
 pub use team_hands::TeamHands;

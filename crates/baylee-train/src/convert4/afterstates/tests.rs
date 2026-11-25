@@ -111,7 +111,7 @@ fn replay(
     roots: &super::super::search_roots::Roots4,
 ) -> Vec<(Step4, RootAfterstates4)> {
     let mut out = Vec::new();
-    super::super::stream_game4_with_roots(
+    super::super::stream_game4_asking(
         record,
         5,
         true,
@@ -122,7 +122,10 @@ fn replay(
         10,
         None,
         super::super::TeamHands::Private,
-        Some(roots),
+        super::super::Asks4 {
+            roots: Some(roots),
+            ..super::super::Asks4::default()
+        },
         |mut step| {
             if let Some(root) = step.search_root.take() {
                 let captured = root.afterstates.clone().expect("asked for afterstates");

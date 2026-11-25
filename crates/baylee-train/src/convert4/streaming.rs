@@ -587,7 +587,7 @@ pub fn stream_game4_with_encoder_and_producer(
     team_hands: super::TeamHands,
     emit: impl FnMut(Step4) -> Result<(), String>,
 ) -> Result<StreamedGame4, String> {
-    stream_game4_with_roots(
+    stream_game4_asking(
         record,
         game_id,
         include_passive_obs,
@@ -598,19 +598,21 @@ pub fn stream_game4_with_encoder_and_producer(
         encoder_version,
         producer,
         team_hands,
-        None,
+        super::Asks4::default(),
         emit,
     )
 }
 
-/// [`stream_game4_with_encoder_and_producer`], keeping at each root `roots`
-/// asks for its payable menu beside the frame ([`Step4::search_root`],
-/// `search_advantage_v1`).
+/// [`stream_game4_with_encoder_and_producer`] with what else a conversion
+/// `asks` of the replay: a search-advantage conversion's roots, whose payable
+/// menus stand beside their frames ([`Step4::search_root`]), or an on-policy
+/// collection's probabilities.
 ///
 /// # Errors
-/// As [`stream_game4_with_encoder_and_producer`].
+/// As [`stream_game4_with_encoder_and_producer`], and what
+/// [`Asks4`](super::Asks4) refuses.
 #[allow(clippy::too_many_arguments)]
-pub fn stream_game4_with_roots(
+pub fn stream_game4_asking(
     record: &[u8],
     game_id: u32,
     include_passive_obs: bool,
@@ -621,7 +623,7 @@ pub fn stream_game4_with_roots(
     encoder_version: u32,
     producer: Option<&ProducerEncoder>,
     team_hands: super::TeamHands,
-    roots: Option<&super::search_roots::Roots4>,
+    asks: super::Asks4<'_>,
     mut emit: impl FnMut(Step4) -> Result<(), String>,
 ) -> Result<StreamedGame4, String> {
     if !matches!(encoder_version, 7..=10) {
@@ -670,7 +672,7 @@ pub fn stream_game4_with_roots(
         live_bc,
         encoder_version,
         team_hands,
-        roots,
+        asks,
         |step, life| {
             let seat = step.seat as usize;
             if let Some((mut previous, previous_life)) = pending[seat].take() {

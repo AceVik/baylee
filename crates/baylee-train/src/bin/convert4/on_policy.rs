@@ -47,6 +47,48 @@ fn ordinary_contract(contract: &Value) -> anyhow::Result<()> {
     Ok(())
 }
 
+/// The first of the evaluator's modes a run was played with that changes a
+/// categorical answer or takes its probability (`netplay4::decision`), with
+/// what the run says of it: the plain sampler's draws are the only ones a
+/// policy loss may read. `None` for a run that names no mode, or says of every
+/// mode it names that it was off.
+///
+/// The names are `eval4`'s in `run.json`, and for the modes it refuses with
+/// every collection and therefore never writes there (grouped decoding,
+/// adaptive thinking, the search student) the ones its summary has, so that a
+/// run that came to name one is refused. A run that does not name one of them
+/// is still refused, game by game, at the first certified menu whose draw has
+/// no probability ([`baylee_train::convert4::Asks4::certified`]).
+pub(super) fn answer_mode(run: &Value) -> Option<String> {
+    let dev = &run["dev_arms"];
+    [
+        ("choice_guard", &run["choice_guard"], json!("off")),
+        ("tactics_rules", &run["tactics_rules"], json!("")),
+        (
+            "dev_arms.free_temperature",
+            &dev["free_temperature"],
+            json!(false),
+        ),
+        ("dev_arms.menu_payable", &dev["menu_payable"], json!(false)),
+        ("random_policy", &run["random_policy"], json!(false)),
+        (
+            "opponent_legacy_v3",
+            &run["opponent_legacy_v3"],
+            json!(false),
+        ),
+        ("opponent_policy", &run["opponent_policy"], Value::Null),
+        ("tactician", &run["tactician"], Value::Null),
+        ("search", &run["search"], Value::Null),
+        ("memory_reset", &run["memory_reset"], Value::Null),
+        ("grouped_decode", &run["grouped_decode"], json!(false)),
+        ("think_adaptive", &run["think_adaptive"], Value::Null),
+        ("search_student", &run["search_student"], Value::Null),
+    ]
+    .into_iter()
+    .find(|(_, said, off)| !said.is_null() && *said != off)
+    .map(|(name, said, _)| format!("{name} {said}"))
+}
+
 /// The sampler, table and data contract an on-policy source must declare.
 fn on_policy_contract(run: &Value) -> anyhow::Result<()> {
     let contract = &run["collection_contract"];
@@ -55,6 +97,11 @@ fn on_policy_contract(run: &Value) -> anyhow::Result<()> {
             == baylee_train_ops::admission::ACTION_PROBABILITY_CONTRACT,
         "on-policy source predates categorical action certification; recollect with the matching evaluator"
     );
+    if let Some(mode) = answer_mode(run) {
+        anyhow::bail!(
+            "an on-policy source was played with {mode}, which is no draw of the plain sampler"
+        );
+    }
     ensure!(
         contract["version"] == 1
             && contract["precision"] == "float32"
@@ -68,15 +115,21 @@ fn on_policy_contract(run: &Value) -> anyhow::Result<()> {
                 .as_f64()
                 .is_some_and(|t| (t - 0.7).abs() < 1e-6)
             && run["training_data"] == true
+            && run["numbers_only"] == false
             && run["seats"] == 2
             && run["held_out_cards"] == false
             && run["holdout_tier"] == ""
-            && run["choice_guard"] == "off"
-            && run["tactics_rules"] == ""
-            && run["dev_arms"]["free_temperature"] == false
-            && run["dev_arms"]["menu_payable"] == false
-            && run["tactician"].is_null()
-            && run["search"].is_null()
+            // What the evaluator always says of its modes, said.
+            && [
+                &run["choice_guard"],
+                &run["tactics_rules"],
+                &run["dev_arms"]["free_temperature"],
+                &run["dev_arms"]["menu_payable"],
+                &run["random_policy"],
+                &run["opponent_legacy_v3"],
+            ]
+            .into_iter()
+            .all(|said| !said.is_null())
             && (run["decks_manifest"].is_null() || run["deck_split"] == "train")
             && run["shadow_teacher"].is_null(),
         "invalid on-policy source contract"
@@ -374,6 +427,7 @@ mod tests {
                 "policy_provenance_version":2,"sampling_version":2,"thinking_steps":2,"temperature":0.7,
                 "action_probability_contract":baylee_train_ops::admission::ACTION_PROBABILITY_CONTRACT,
                 "choice_guard":"off","tactics_rules":"","dev_arms":{"free_temperature":false,"menu_payable":false},
+                "random_policy":false,"opponent_legacy_v3":false,"opponent_policy":null,"numbers_only":false,
                 "training_data":true,"seats":2,"held_out_cards":false,"holdout_tier":"",
                 "model_identity":model,"planned_deals":1,"deal_offset":0,
                 "collection_contract":{"version":1,"purpose":"on_policy_training","precision":"float32",
@@ -464,12 +518,51 @@ mod tests {
             .unwrap()
             .remove("action_probability_contract");
         assert!(on_policy_contract(&archived).is_err());
-        let mut modified = fixture.run.clone();
-        modified["dev_arms"]["menu_payable"] = json!(true);
-        assert!(on_policy_contract(&modified).is_err());
-        let mut modified = fixture.run.clone();
-        modified["choice_guard"] = json!("react");
-        assert!(on_policy_contract(&modified).is_err());
+        // Every mode the net's decision clears a probability on, under the
+        // name the evaluator has for it.
+        for (name, value) in [
+            ("choice_guard", json!("react")),
+            ("tactics_rules", json!("mass")),
+            ("random_policy", json!(true)),
+            ("opponent_legacy_v3", json!(true)),
+            ("opponent_policy", json!("tactical")),
+            (
+                "tactician",
+                json!({"record_contract": "tactician_records_v1"}),
+            ),
+            ("search", json!({"contract": "belief_lookahead_v5"})),
+            ("memory_reset", json!("turn")),
+            ("grouped_decode", json!(true)),
+            ("think_adaptive", json!("2:0.9")),
+            ("search_student", json!({"head": "h"})),
+        ] {
+            let mut modified = fixture.run.clone();
+            modified[name] = value;
+            let error = on_policy_contract(&modified).unwrap_err().to_string();
+            assert!(error.contains(name), "{name}: {error}");
+        }
+        for arm in ["free_temperature", "menu_payable"] {
+            let mut modified = fixture.run.clone();
+            modified["dev_arms"][arm] = json!(true);
+            let error = on_policy_contract(&modified).unwrap_err().to_string();
+            assert!(error.contains(arm), "{error}");
+        }
+        // What the evaluator always says must be said, and data is no number.
+        for name in [
+            "choice_guard",
+            "tactics_rules",
+            "dev_arms",
+            "random_policy",
+            "opponent_legacy_v3",
+            "numbers_only",
+        ] {
+            let mut unsaid = fixture.run.clone();
+            unsaid.as_object_mut().unwrap().remove(name);
+            assert!(on_policy_contract(&unsaid).is_err(), "{name}");
+        }
+        let mut numbers = fixture.run.clone();
+        numbers["numbers_only"] = json!(true);
+        assert!(on_policy_contract(&numbers).is_err());
         assert!(on_policy_contract(&fixture.run).is_ok());
     }
 

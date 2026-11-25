@@ -900,7 +900,8 @@ fn main() -> anyhow::Result<()> {
                 } else if live_bc {
                     baylee_train::convert4::stream_game4_with_encoder_and_producer(&bytes,gref.game_id,include_passive,None,None,None,true,encoder_version,None,gref.team_hands,emit)
                 } else {
-                    baylee_train::convert4::stream_game4_with_roots(&bytes,gref.game_id,include_passive,gref.sidecar.as_deref(),None,None,false,encoder_version,gref.producer_encoder.as_ref(),gref.team_hands,search_roots.as_ref(),emit)
+                    let asks = baylee_train::convert4::Asks4 { roots: search_roots.as_ref(), certified: gref.on_policy.is_some() };
+                    baylee_train::convert4::stream_game4_asking(&bytes,gref.game_id,include_passive,gref.sidecar.as_deref(),None,None,false,encoder_version,gref.producer_encoder.as_ref(),gref.team_hands,asks,emit)
                 };
                 let extracted = match result {
                     Ok(ex) => ex,
