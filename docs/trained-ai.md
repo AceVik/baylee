@@ -1632,7 +1632,8 @@ the term is that mean where a batch holds a probe or more on average.
 The sidecar is joined by (game, seat, cursor) and checked against the frame:
 `R` is its target, `N` is on the menu, unmasked, not `R`, and the recorded `N`
 where the dataset has the coarse-class sidecar (`coarse_n_idx`; the frame alone
-does not hold `N`), and the subtype, the fired groups and the `N ≠ R` flag are
+does not hold `N`; the two sidecars are compared as a run loads them, of any
+bundle run and of the audit), and the subtype, the fired groups and the `N ≠ R` flag are
 the frame's. The file is checked against `meta.json` (rows, contract, SHA-256),
 and the run's identity names the digests of the training and of the validation
 probes. Validation reports where `R` is ahead (mean − se > 0) the student's and

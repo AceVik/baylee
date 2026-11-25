@@ -116,6 +116,8 @@ def main(default_architecture="v4") -> None:
                                  "(bundle_distillation.probe, bundle-distill/probe.*), training and validation")
             if probe is not None and sidecar is not None:
                 dataset.probes = Probes.load(sidecar, probe)
+                if present:
+                    dataset.probes.check_recorded(dataset.coarse)
         if args.distill_advantage:
             # Before anything trains: probes to learn from, and both sides of them to select on.
             probe_counts = check_splits(train_ds, val_ds, args.distill_advantage_min_worlds)

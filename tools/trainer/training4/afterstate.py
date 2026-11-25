@@ -224,8 +224,7 @@ class AfterRows:
                 raise ValueError(f"{path} was captured for other rows than {rows_path}")
             if meta.get("model_sha256") not in sources:
                 raise ValueError(f"{path} comes from another net than the rows")
-            if metas and meta.get("structure_sha256") != metas[0].get("structure_sha256"):
-                raise ValueError(f"{path} was captured over another rule catalog than {metas[0]['path']}")
+            check_captured(meta, path)
             if len(data["v"]) != len(part.cand):
                 raise ValueError(f"{path} has another number of candidates than its rows")
             for name in (*PER_CANDIDATE, "emb", "v", "v0", "intent"):
@@ -540,6 +539,16 @@ def check_structures(data, after_dir, net):
                          "rule catalogs")
     V.check_catalog(digests[0], net, f"The rows' dataset {data}")
     return digests[0]
+
+
+def check_captured(meta, path):
+    """A capture names the catalog its two datasets and its net share. One from before captures
+    compared them names none: its datasets are compared now, where they are still there."""
+    if meta.get("structure_sha256"):
+        return
+    files = [Path(meta[name]) / "meta.json" for name in ("data", "afterstates") if meta.get(name)]
+    if len({json.loads(file.read_text()).get("structure_sha256") for file in files if file.is_file()}) > 1:
+        raise ValueError(f"{path} was captured from rows and afterstates of different public rule catalogs")
 
 
 # --- capture: r1's afterstate readouts ----------------------------------------------------------

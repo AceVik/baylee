@@ -252,6 +252,20 @@ class ProbeSidecar(unittest.TestCase):
                 with self.subTest(name), self.assertRaises(ValueError):
                     probes.annotate(*bad)
 
+    def test_the_sidecars_agree_on_n_as_they_are_loaded(self):
+        from training4.coarse import INDEX as COARSE_INDEX, CoarseClasses
+        index = np.zeros(3, dtype=COARSE_INDEX)
+        index["game"], index["seat"], index["cursor"] = 7, (0, 0, 1), (3, 9, 3)
+        index["n_idx"] = (0, 5, 2)
+        probes = P.Probes(sidecar_rows())
+        probes.check_recorded(CoarseClasses(index.copy(), np.zeros(0, np.uint8)))   # 0 and 2, as the probes say
+        probes.check_recorded(CoarseClasses(index[1:2].copy(), np.zeros(0, np.uint8)))   # no frame in common
+        probes.check_recorded(CoarseClasses(index[:0].copy(), np.zeros(0, np.uint8)))
+        P.Probes(sidecar_rows()[:0]).check_recorded(CoarseClasses(index.copy(), np.zeros(0, np.uint8)))
+        index["n_idx"][2] = 1
+        with self.assertRaisesRegex(ValueError, r"1 of 2 probes .* \(game 7, seat 1, cursor 3\): N 2, recorded 1"):
+            probes.check_recorded(CoarseClasses(index, np.zeros(0, np.uint8)))
+
     def test_load_fails_closed(self):
         index = sidecar_rows()
         with tempfile.TemporaryDirectory() as temporary:
@@ -569,6 +583,20 @@ class AdvantageDriver(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "probe sidecar"):
                 run(root / "unprobed", [*init, *arm], {"bundle_distillation": {"contract": D.CONTRACT}})
             labelled = {"bundle_distillation": {"contract": D.CONTRACT, "probe": entry}}
+            # Two sidecars that disagree on N are refused as they are loaded, in any bundle run.
+            from training4.coarse import INDEX as COARSE_INDEX
+            coarse = np.zeros(1, dtype=COARSE_INDEX)
+            coarse["game"], coarse["cursor"], coarse["n_idx"], coarse["n_cand"] = 7, 3, 1, 3
+            coarse.tofile(sidecar / "coarse-classes.index.bin")
+            np.zeros(3, np.uint8).tofile(sidecar / "coarse-classes.classes.bin")
+            (sidecar / "coarse-classes.json").write_text(json.dumps(dict(rule="coarse_class_v1", rows=1)))
+            for extra in (arm, ["--distill-bundle", "--checkpoint-selection", "distill_n_ne_r",
+                                "--train-policy-head-only"]):
+                with self.assertRaisesRegex(ValueError, "another N than the recorded one"):
+                    run(root / "disagree", [*init, *extra], labelled)
+            for name in ("index.bin", "classes.bin"):
+                (sidecar / f"coarse-classes.{name}").unlink()
+            (sidecar / "coarse-classes.json").unlink()
             # Nothing to learn from, or only one side to select on: refused before anything is built.
             for name, lacking, message in (("train", [(7, 0, 4)], "nothing to learn from"),
                                            ("val", [(7, 0, 3)], "where R is ahead and ones where N is ahead"),

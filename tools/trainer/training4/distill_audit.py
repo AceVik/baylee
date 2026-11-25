@@ -121,6 +121,8 @@ def main(argv=None):
     from .distill_probe import Probes, named
     if named(dataset.meta) is not None:
         dataset.probes = Probes.load(data / "bundle-distill", named(dataset.meta))
+        if hasattr(dataset, "coarse"):
+            dataset.probes.check_recorded(dataset.coarse)
     total_trajectories = len(dataset.trajectories)
     dataset.trajectories = dataset.trajectories[::args.every]
     # A student trained with --distill-advantage is audited under its own scope and probe reading.

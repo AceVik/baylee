@@ -227,28 +227,34 @@ class Structures(unittest.TestCase):
                 with self.assertRaisesRegex(AssertionError, "decoded"):
                     S.TowerData(after_of(rows), [root / "rows.npz"], [root], [after_dir], self.net, "net")
 
-    def test_captures_of_two_catalogs_do_not_pool(self):
+    def test_an_older_capture_of_two_catalogs_is_refused_where_its_datasets_still_are(self):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
             rows = rows_of(roots=4)
             joined = {name: getattr(after_of(rows), name) for name in S.PER_CANDIDATE}
+            (root / "same").mkdir()
+            (root / "other").mkdir()
+            same, other = self.datasets(root / "same"), self.datasets(root / "other", after="catalog-b")
             for name in ("a", "b"):
                 rows.save(root / f"rows-{name}.npz", data=str(root), model_sha256="net")
             files = [root / "rows-a.npz", root / "rows-b.npz"], [root / "after-a.npz", root / "after-b.npz"]
 
-            def capture(path, rows_path, digest):
-                n = len(rows.cand)
+            def capture(which, datasets, **named):
+                n, rows_path = len(rows.cand), files[0][which]
                 meta = dict(contract=S.ROWS_CONTRACT, rows_sha256=S.sha256(rows_path), model_sha256="net",
-                            structure_sha256=digest)
-                np.savez(path, meta=json.dumps(meta), emb=np.zeros((n, 12), np.float16), v=np.zeros(n, np.float32),
-                         v0=np.zeros(n, np.float32), intent=np.full(len(rows.state), S.NONE), **joined)
+                            data=str(datasets[0]), afterstates=str(datasets[1]), **named)
+                np.savez(files[1][which], meta=json.dumps(meta), emb=np.zeros((n, 12), np.float16),
+                         v=np.zeros(n, np.float32), v0=np.zeros(n, np.float32),
+                         intent=np.full(len(rows.state), S.NONE), **joined)
 
-            for rows_path, path in zip(*files):
-                capture(path, rows_path, "catalog-a")
-            self.assertEqual(len(S.AfterRows.load(*files, halves_judged=False).v), 2 * len(rows.cand))
-            capture(files[1][1], files[0][1], "catalog-b")
-            with self.assertRaisesRegex(ValueError, "another rule catalog"):
-                S.AfterRows.load(*files, halves_judged=False)
+            load = lambda: len(S.AfterRows.load(*files, halves_judged=False).v)
+            capture(0, same, structure_sha256="catalog-a")
+            for datasets in (same, (root / "gone", root / "gone")):      # an older one beside it, unnamed
+                capture(1, datasets)
+                self.assertEqual(load(), 2 * len(rows.cand))
+            capture(1, other)
+            with self.assertRaisesRegex(ValueError, "different public rule catalogs"):
+                load()
 
 
 def tiny_net(layers=4):

@@ -19,8 +19,9 @@ where the frame has no probe), `probe_worlds` (0 there), `probe_mean` and
 `probe_se`, and fails closed on a frame the sidecar contradicts: a row at a
 frame that is no labelled priority decision, R other than the frame's target,
 N other than the recorded N (where the dataset has the coarse-class sidecar,
-which holds it; a BST4 frame alone does not), N or R outside the menu or
-masked, N = R or a frame flagged N = R, another subtype or other fired groups.
+which holds it; a BST4 frame alone does not; `Probes.check_recorded` compares
+the two sidecars as they are loaded), N or R outside the menu or masked, N = R or
+a frame flagged N = R, another subtype or other fired groups.
 
 `--distill-advantage pairwise` (`Scope.advantage`, through `distill.distill_loss`)
 teaches the student R only where the probes say it pays. At a probed frame with
@@ -123,6 +124,19 @@ class Probes:
                                   or entry.get("rows", header["rows"]) != header["rows"]):
             raise ValueError("meta.json's bundle_distillation.probe names another probe sidecar")
         return cls(np.frombuffer(raw, dtype=INDEX), header)
+
+    def check_recorded(self, coarse):
+        """Every probe's N is the N the coarse-class sidecar recorded at its frame. Checked once, as
+        both are loaded: a frame's own check would come when a loader first decodes that frame."""
+        if not len(self.keys) or not len(coarse.keys):
+            return
+        at = np.minimum(np.searchsorted(coarse.keys, self.keys), len(coarse.keys) - 1)
+        wrong = np.flatnonzero((coarse.keys[at] == self.keys) & (coarse.index["n_idx"][at] != self.index["n_idx"]))
+        if len(wrong):
+            row, recorded = self.index[wrong[0]], int(coarse.index["n_idx"][at[wrong[0]]])
+            raise ValueError(f"{len(wrong)} of {len(self.keys)} probes name another N than the recorded one, first at "
+                             f"(game {int(row['game'])}, seat {int(row['seat'])}, cursor {int(row['cursor'])}): "
+                             f"N {int(row['n_idx'])}, recorded {recorded}")
 
     def annotate(self, frame, game, seat, cursor):
         frame["probe_n_idx"] = np.array(-1, dtype=np.int64)
