@@ -286,7 +286,8 @@ the machine. Limits are technical failures, never an invented win or draw.
 - `FEEDBACK_BIND` (`127.0.0.1:28780`).
 - `FEEDBACK_POOL` (4).
 - `FEEDBACK_WEB_DIR` (the built `web/feedback` UI; unset = `/` is 404).
-- `FEEDBACK_TRUSTED_PROXIES` (for the sign-in limiter and the direct allowance).
+- `FEEDBACK_TRUSTED_PROXIES` (for the sign-in limiter, the token routes' limiter and the direct allowance).
+- `FEEDBACK_INTAKE_PER_HOUR` (2000) and `FEEDBACK_INTAKE_MIB_PER_HOUR` (1024): what one gateway's intake token may file an hour, in reports and MiB of bodies; past either `429`; anything but a whole number of at least 1 refuses startup (`docs/feedback.md` §"Intake").
 - `FEEDBACK_DIRECT_KEY` (≥ 16, none of the tokens; unset = `POST /client/reports` is 503).
 - `FEEDBACK_CONTACT_ORIGINS` (the landing page's origins, `https://…` or loopback `http://`; unset = `POST /site/contact` is 503; CORS names only these, a filled honeypot is answered 201 and dropped, messages in `feedback_contact` are swept 90 days after done and a year after arrival; `docs/feedback.md` §"The landing page's contact form").
 - `FEEDBACK_IMPRESSUM_KEY`/`FEEDBACK_IMPRESSUM_BLOB` (both or neither; the key ≥ 32, none of the tokens, signs proof-of-work challenges; the blob is the file `crates/baylee-tools/src/site/impressum.rs` wrote, server-only, never in the repo; unset = `/site/impressum…` is 503; suspicion only raises the puzzle's difficulty or, beyond doubt or after the honeypot, answers a decoy, never refuses a person; `docs/feedback.md` §"The Impressum").
