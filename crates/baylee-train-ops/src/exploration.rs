@@ -200,9 +200,9 @@ pub enum NetBehavior {
     /// A number: no density; π is the point mass at the net's own answer,
     /// which a played layer answer leaves.
     PointMass,
-    /// No behaviour probability (`has_logprob = false` on a set answer): a
-    /// blocker answer the attackers' stated counts moved. π is unknown, and
-    /// so is μ.
+    /// No behaviour probability (`has_logprob = false`): a subset, a pair or
+    /// a single choice `injective_categorical_menu_v1` does not certify. π is
+    /// unknown, and so is μ.
     Unknown,
 }
 

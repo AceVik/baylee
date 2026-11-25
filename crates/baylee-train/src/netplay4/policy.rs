@@ -23,9 +23,10 @@ impl PolicyMode4 {
     }
 
     /// `logprob` is the answer's log-probability under the sampler, `None`
-    /// where the answer is no plain draw from it (a blocker draw the
-    /// attackers' counts changed, [`sample_pairs_constrained`]); such an
-    /// answer carries no behaviour probability.
+    /// where the answer is no plain draw from it. Only a single choice keeps
+    /// one, and only where its whole menu has a one-to-one action mapping
+    /// (`features4::supports_behavior_probability4`, which the decision
+    /// checks next).
     pub(super) fn provenance(
         self,
         temperature: f32,

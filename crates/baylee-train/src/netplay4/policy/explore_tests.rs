@@ -517,7 +517,7 @@ fn the_layers_answer_at_a_block_the_counts_can_move_has_no_probability() {
         bounds: Vec::new(),
     };
     let table = proposers();
-    for (pending, counts) in [(&menace, true), (&free, false)] {
+    for pending in [&menace, &free] {
         let (mut taken, mut kept) = (0, 0);
         for (at, logits) in [[0.6_f32, -0.4, 0.5, -0.3], [0.1, 0.2, -0.1, 0.3]]
             .iter()
@@ -546,13 +546,11 @@ fn the_layers_answer_at_a_block_the_counts_can_move_has_no_probability() {
                     &table,
                 )
                 .unwrap();
+                assert_eq!((lp, record.mixture_logprob), (None, None), "{record:?}");
                 if record.rule_taken() {
                     taken += 1;
-                    let _ = counts;
-                    assert_eq!((lp, record.mixture_logprob), (None, None), "{record:?}");
                 } else {
                     kept += 1;
-                    assert_eq!((lp, record.mixture_logprob), (None, None), "{record:?}");
                 }
             }
         }

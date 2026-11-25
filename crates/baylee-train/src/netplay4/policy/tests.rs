@@ -142,7 +142,7 @@ fn raw_single_bypasses_mulligan_rules_and_matches_raw_categorical_probability() 
 }
 
 #[test]
-fn raw_subset_and_pair_preserve_unmodified_sampler_masks_and_logprobs() {
+fn raw_subset_and_pair_preserve_unmodified_sampler_masks_without_a_probability() {
     let view = view();
     let subset = Pending::DiscardChoice {
         player: view.seat,
@@ -151,7 +151,7 @@ fn raw_subset_and_pair_preserve_unmodified_sampler_masks_and_logprobs() {
     let subset_menu = menu(&view, &subset);
     let subset_logits = vec![0.4; subset_menu.candidates.len()];
     let mut rng = Rng::new(77);
-    let (mask, free, seq, lp) =
+    let (mask, free, seq, _) =
         sample_subset_constrained(&subset_logits, &subset_menu, &subset, 0.8, &mut rng);
     let (_, raw_lp, target) = select(
         PolicyMode4::Raw,
@@ -165,7 +165,7 @@ fn raw_subset_and_pair_preserve_unmodified_sampler_masks_and_logprobs() {
         (target.multi_mask, target.free_mask, target.pick_sequence),
         (mask, free, seq)
     );
-    assert!(raw_lp.is_some_and(|raw_lp| (raw_lp - lp).abs() < 1e-6));
+    assert_eq!(raw_lp, None);
     let a = ObjectId::new(111, 0);
     let b = ObjectId::new(112, 0);
     let pair = Pending::ChooseBlockers {
@@ -183,7 +183,7 @@ fn raw_subset_and_pair_preserve_unmodified_sampler_masks_and_logprobs() {
     let pair_menu = menu(&view, &pair);
     let pair_logits = vec![0.4; pair_menu.pairs.len()];
     let mut rng = Rng::new(77);
-    let (mask, free, seq, lp) =
+    let (mask, free, seq, _) =
         sample_pairs_constrained(&pair_logits, &pair_menu, &pair, 0.8, &mut rng);
     let (_, raw_lp, target) = select(
         PolicyMode4::Raw,
@@ -197,19 +197,17 @@ fn raw_subset_and_pair_preserve_unmodified_sampler_masks_and_logprobs() {
         (target.multi_mask, target.free_mask, target.pick_sequence),
         (mask, free, seq)
     );
-    assert!(
-        raw_lp
-            .zip(lp)
-            .is_some_and(|(raw_lp, lp)| (raw_lp - lp).abs() < 1e-6)
-    );
+    assert_eq!(raw_lp, None);
 }
 
 /// A blocker draw a menace attacker's count changed (CR 702.111b) is no draw
-/// from the plain policy: its row carries no behaviour probability, so PPO
-/// reads no importance weight from it. The same answer drawn as it stands
-/// keeps its own.
+/// from the plain policy, and the same answer drawn as it stands also stands
+/// for the draws the counts turn into it
+/// (`repaired_and_unrepaired_pair_draws_share_final_probability_mass`): no
+/// blocker answer carries a behaviour probability, so PPO reads no importance
+/// weight from it.
 #[test]
-fn a_blocker_draw_the_attackers_count_changed_carries_no_behavior_probability() {
+fn a_blocker_answer_carries_no_behavior_probability_repaired_or_drawn_whole() {
     let view = view();
     let (b0, b1) = (ObjectId::new(20, 0), ObjectId::new(21, 0));
     let (a0, a1) = (ObjectId::new(30, 0), ObjectId::new(31, 0));
@@ -257,11 +255,11 @@ fn a_blocker_draw_the_attackers_count_changed_carries_no_behavior_probability() 
     assert_eq!(action, both);
     assert!(!corrected.has_logprob);
     assert_eq!(corrected.behavior_logprob, 0.0);
-    // Both drawn on a0: the count is met and the draw keeps its probability.
+    // Both drawn on a0: the count is met, and the answer still has none.
     let (action, drawn) = answer(&[20.0, -20.0, 20.0, -20.0]);
     assert_eq!(action, both);
-    assert!(drawn.has_logprob);
-    assert!(drawn.behavior_logprob.abs() < 1e-6);
+    assert!(!drawn.has_logprob);
+    assert_eq!(drawn.behavior_logprob, 0.0);
 }
 
 #[test]

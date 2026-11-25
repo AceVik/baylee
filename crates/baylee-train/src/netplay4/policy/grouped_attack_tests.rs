@@ -104,7 +104,7 @@ fn sample(
         },
     )
     .expect("legal grouped attack must retain its raw policy decision");
-    assert_eq!(lp, Some(0.0));
+    assert_eq!(lp, None, "a subset carries no behaviour probability");
     assert_eq!(
         action,
         PlayerAction::DeclareAttackers {

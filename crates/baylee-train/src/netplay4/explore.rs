@@ -20,14 +20,11 @@
 //! single choices (targets, modes, mulligans), subsets (attackers, several
 //! targets, cards), blocker pairs and numbers. A number has no density: π is
 //! the point mass at the net's answer, and its step claims no probability.
-//! A blocker answer the attackers' stated counts moved carries no behaviour
-//! probability (`features4::sample_pairs_constrained`): where the net's own
-//! such answer is executed, π stays unknown, and so does μ. At a block whose
-//! counts can move a draw at all (`features4::attacker_counts_may_move`),
-//! the layer's answer may also be reached from other draws, so its π is more
-//! than its own draw's and μ(R) = (1 − ε)·π(R) + ε is not known either:
-//! where the layer's answer is executed there (played, or the net's own
-//! sample), the step carries neither. Every other step's π and μ are exact.
+//! Under `injective_categorical_menu_v1` only a single choice whose whole menu
+//! has a one-to-one action mapping
+//! (`features4::supports_behavior_probability4`) has a π and a μ, and both are
+//! exact. A subset, a blocker pair and any other menu may reach the executed
+//! answer from several draws, so the step keeps neither.
 //!
 //! The layer's answer is an action taken, never a label.
 
