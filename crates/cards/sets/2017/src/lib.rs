@@ -29,10 +29,22 @@ pub mod aerial_guide;
 pub mod aerial_modification;
 #[path = "aer/aeronaut_admiral.rs"]
 pub mod aeronaut_admiral;
+#[path = "aer/aether_chaser.rs"]
+pub mod aether_chaser;
+#[path = "aer/aether_herder.rs"]
+pub mod aether_herder;
+#[path = "aer/aether_inspector.rs"]
+pub mod aether_inspector;
+#[path = "aer/aether_poisoner.rs"]
+pub mod aether_poisoner;
+#[path = "aer/aether_swooper.rs"]
+pub mod aether_swooper;
 #[path = "aer/aethergeode_miner.rs"]
 pub mod aethergeode_miner;
 #[path = "aer/aethersphere_harvester.rs"]
 pub mod aethersphere_harvester;
+#[path = "aer/aetherstream_leopard.rs"]
+pub mod aetherstream_leopard;
 #[path = "aer/aethertide_whale.rs"]
 pub mod aethertide_whale;
 #[path = "aer/aetherwind_basker.rs"]
@@ -221,6 +233,8 @@ pub mod champion_of_rhonas;
 pub mod champion_of_wits;
 #[path = "hou/chandra_s_defeat.rs"]
 pub mod chandra_s_defeat;
+#[path = "aer/chandra_s_revolution.rs"]
+pub mod chandra_s_revolution;
 #[path = "akh/channeler_initiate.rs"]
 pub mod channeler_initiate;
 #[path = "hou/chaos_maw.rs"]
@@ -299,6 +313,8 @@ pub mod cursed_minotaur;
 pub mod cut;
 #[path = "hou/dagger_of_the_worthy.rs"]
 pub mod dagger_of_the_worthy;
+#[path = "aer/daredevil_dragster.rs"]
+pub mod daredevil_dragster;
 #[path = "aer/daring_demolition.rs"]
 pub mod daring_demolition;
 #[path = "pxln/daring_saboteur.rs"]
@@ -339,6 +355,8 @@ pub mod deeproot_waters;
 pub mod defiant_khenra;
 #[path = "aer/defiant_salvager.rs"]
 pub mod defiant_salvager;
+#[path = "aer/deft_dismissal.rs"]
+pub mod deft_dismissal;
 #[path = "xln/depths_of_desire.rs"]
 pub mod depths_of_desire;
 #[path = "akh/desert_cerodon.rs"]
@@ -397,6 +415,8 @@ pub mod djeru_s_resolve;
 pub mod djeru_with_eyes_open;
 #[path = "akh/doomed_dissenter.rs"]
 pub mod doomed_dissenter;
+#[path = "hou/doomfall.rs"]
+pub mod doomfall;
 #[path = "pxln/dowsing_dagger.rs"]
 pub mod dowsing_dagger;
 #[path = "akh/drake_haven.rs"]
@@ -551,6 +571,8 @@ pub mod gilded_cerodon;
 pub mod gilded_sentinel;
 #[path = "pxln/gishath_sun_s_avatar.rs"]
 pub mod gishath_sun_s_avatar;
+#[path = "aer/glint_sleeve_siphoner.rs"]
+pub mod glint_sleeve_siphoner;
 #[path = "xln/glorifier_of_dusk.rs"]
 pub mod glorifier_of_dusk;
 #[path = "akh/glory_bound_initiate.rs"]
@@ -559,6 +581,8 @@ pub mod glory_bound_initiate;
 pub mod glorybringer;
 #[path = "hou/god_pharaoh_s_faithful.rs"]
 pub mod god_pharaoh_s_faithful;
+#[path = "hou/god_pharaoh_s_gift.rs"]
+pub mod god_pharaoh_s_gift;
 #[path = "aer/gonti_s_aether_heart.rs"]
 pub mod gonti_s_aether_heart;
 #[path = "pxln/goring_ceratops.rs"]
@@ -591,10 +615,14 @@ pub mod grisly_survivor;
 pub mod growing_rites_of_itlimoc;
 #[path = "akh/gust_walker.rs"]
 pub mod gust_walker;
+#[path = "akh/hapatra_s_mark.rs"]
+pub mod hapatra_s_mark;
 #[path = "akh/hapatra_vizier_of_poisons.rs"]
 pub mod hapatra_vizier_of_poisons;
 #[path = "hou/harrier_naga.rs"]
 pub mod harrier_naga;
+#[path = "akh/harsh_mentor.rs"]
+pub mod harsh_mentor;
 #[path = "akh/harvest_season.rs"]
 pub mod harvest_season;
 #[path = "hou/hashep_oasis.rs"]
@@ -605,6 +633,8 @@ pub mod haze_of_pollen;
 pub mod hazoret_s_favor;
 #[path = "akh/hazoret_s_monument.rs"]
 pub mod hazoret_s_monument;
+#[path = "hou/hazoret_s_undying_fury.rs"]
+pub mod hazoret_s_undying_fury;
 #[path = "akh/hazoret_the_fervent.rs"]
 pub mod hazoret_the_fervent;
 #[path = "xln/headstrong_brute.rs"]
@@ -659,6 +689,8 @@ pub mod hostage_taker;
 pub mod hostile_desert;
 #[path = "hou/hour_of_devastation.rs"]
 pub mod hour_of_devastation;
+#[path = "hou/hour_of_eternity.rs"]
+pub mod hour_of_eternity;
 #[path = "hou/hour_of_promise.rs"]
 pub mod hour_of_promise;
 #[path = "hou/hour_of_revelation.rs"]
@@ -711,6 +743,8 @@ pub mod initiate_s_companion;
 pub mod inspiring_cleric;
 #[path = "aer/inspiring_roar.rs"]
 pub mod inspiring_roar;
+#[path = "akh/insult.rs"]
+pub mod insult;
 #[path = "aer/invigorated_rampage.rs"]
 pub mod invigorated_rampage;
 #[path = "hou/ipnu_rivulet.rs"]
@@ -767,6 +801,8 @@ pub mod kinjalli_s_sunwing;
 pub mod kumena_s_speaker;
 #[path = "aer/lathnu_sailback.rs"]
 pub mod lathnu_sailback;
+#[path = "akh/lay_bare_the_heart.rs"]
+pub mod lay_bare_the_heart;
 #[path = "akh/lay_claim.rs"]
 pub mod lay_claim;
 #[path = "hou/leave.rs"]
@@ -1147,6 +1183,8 @@ pub mod scattered_groves;
 pub mod scavenger_grounds;
 #[path = "aer/scrap_trawler.rs"]
 pub mod scrap_trawler;
+#[path = "aer/scrapper_champion.rs"]
+pub mod scrapper_champion;
 #[path = "akh/scribe_of_the_mindful.rs"]
 pub mod scribe_of_the_mindful;
 #[path = "hou/scrounger_of_souls.rs"]
@@ -1343,6 +1381,8 @@ pub mod tezzeret_the_schemer;
 pub mod thaumatic_compass;
 #[path = "mp2/the_locust_god.rs"]
 pub mod the_locust_god;
+#[path = "mp2/the_scarab_god.rs"]
+pub mod the_scarab_god;
 #[path = "mp2/the_scorpion_god.rs"]
 pub mod the_scorpion_god;
 #[path = "aer/thopter_arrest.rs"]
@@ -1367,6 +1407,8 @@ pub mod tishana_s_wayfinder;
 pub mod tishana_voice_of_thunder;
 #[path = "c17/traverse_the_outlands.rs"]
 pub mod traverse_the_outlands;
+#[path = "aer/treasure_keeper.rs"]
+pub mod treasure_keeper;
 #[path = "pxln/treasure_map.rs"]
 pub mod treasure_map;
 #[path = "akh/trespasser_s_curse.rs"]

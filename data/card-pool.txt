@@ -24905,3 +24905,353 @@ Temporal Conqueror
 The Promise of Kahless
 Transwarp Hub
 Vengeance Mission
+Alabaster Dragon
+Baleful Stare
+Forked Lightning
+Path of Peace
+Renewing Dawn
+Starlight
+Theft of Dreams
+Angel of Fury
+Wind Sail
+Borrowing 100,000 Arrows
+Broken Dam
+Counterintelligence
+Dong Zhou, the Tyrant
+Guan Yu, Sainted Warrior
+Misfortune's Gain
+Riding the Dilu Horse
+Questing Phelddagrif
+Sun Droplet
+Tooth and Nail
+Auriok Siege Sled
+Synod Artificer
+Turn the Tables
+Vex
+Avarice Totem
+Mephidross Vampire
+Mana Seism
+Vassal's Duty
+Flames of the Blood Hand
+Goryo's Vengeance
+Horobi's Whisper
+Psychic Spear
+Burning-Tree Bloodscale
+Martyr of Frost
+Plumes of Peace
+Breath of Fury
+Empty the Catacombs
+Screeching Griffin
+Burning-Tree Shaman
+Electrolyze
+Killer Instinct
+Predatory Focus
+Souls of the Faultless
+Cackling Flames
+Govern the Guildless
+Lyzolda, the Blood Witch
+Nettling Curse
+Paladin of Prahv
+Pride of the Clouds
+Proclamation of Rebirth
+Sky Hussar
+Skyscribing
+Steeling Stance
+Stormscale Anarch
+Martyr of Ashes
+Martyr of Sands
+Martyr of Spores
+Woolly Razorback
+Careful Consideration
+Children of Korlis
+Cyclopean Giant
+Glass Asp
+Haunting Hymn
+Jaya Ballard, Task Mage
+Living End
+Magus of the Candelabra
+Might of Old Krosa
+Stuffy Doll
+Sulfurous Blast
+Ana Battlemage
+Jodah's Avenger
+Venarian Glimmer
+Spirit en-Dal
+Veilstone Amulet
+Ashling the Pilgrim
+Deathrender
+Flamekin Bladewhirl
+Footbottom Feast
+Goldmeadow Stalwart
+Inner-Flame Igniter
+Silvergill Adept
+Squeaking Pie Sneak
+Wren's Run Vanquisher
+Slithermuse
+Impromptu Raid
+Mirrorweave
+Puppeteer Clique
+Rhys the Redeemed
+Scarscale Ritual
+Spiteful Visions
+Sygg, River Cutthroat
+Traitor's Roar
+Canker Abomination
+Chaotic Backlash
+Fire at Will
+Kithkin Zealot
+Outrage Shaman
+Rise of the Hobgoblins
+Shrewd Hatchling
+Springjack Shepherd
+Blightning
+Brilliant Ultimatum
+Sigil Blessing
+Ignite Disorder
+Nicol Bolas, Planeswalker
+Suicidal Charge
+Anathemancer
+Aven Mimeomancer
+Identity Crisis
+Necromancer's Covenant
+Slave of Bolas
+Soulquake
+Vengeful Rebirth
+Relic Crush
+Unstable Footing
+Vines of Vastwood
+Brink of Disaster
+Groundswell
+Mysteries of the Deep
+Rest for the Weary
+Roiling Terrain
+Tomb Hex
+Disaster Radius
+Forked Bolt
+Hand of Emrakul
+Hellcarver Demon
+Induce Despair
+Inquisition of Kozilek
+Living Destiny
+Perish the Thought
+See Beyond
+Combust
+Leyline of Punishment
+Dispense Justice
+Dissipation Field
+Galvanic Blast
+Soul Parry
+Turn to Slag
+Vigil for the Lost
+Frantic Salvage
+Gruesome Encore
+Mirran Mettle
+Spin Engine
+Auriok Survivors
+Despise
+Entomber Exarch
+Shrine of Limitless Power
+Acorn Catapult
+Hydra Omnivore
+Ruhan of the Fomori
+Crown of Empires
+Druidic Satchel
+Scepter of Empires
+Throne of Empires
+Visions of Beyond
+Mikaeus, the Lunarch
+Brimstone Volley
+Elder Cathar
+Makeshift Mauler
+Rakish Heir
+Skaab Goliath
+Skaab Ruinator
+Stitched Drake
+Blood Feud
+Death's Caress
+Falkenrath Aristocrat
+Falkenrath Torturer
+Gravepurge
+Gruesome Discovery
+Headless Skaab
+Hunger of the Howlpack
+Relentless Skaabs
+Tragic Slip
+Defy Death
+Descendants' Path
+Triumph of Cruelty
+Triumph of Ferocity
+Flames of the Firebrand
+Public Execution
+Ring of Evos Isle
+Ring of Kalonia
+Ring of Thune
+Ring of Valkas
+Ring of Xathrid
+Worldfire
+Conjured Currency
+Epic Experiment
+Necropolis Regent
+Rakdos's Return
+Sundering Growth
+Trostani's Judgment
+Dinrova Horror
+Skullcrack
+Crypt Incursion
+Abhorrent Overlord
+Evangel of Heliod
+Fanatic of Mogis
+Gray Merchant of Asphodel
+Master of Waves
+Nylea's Disciple
+Reverent Hunter
+Whip of Erebos
+Xenagos, the Reveler
+True-Name Nemesis
+Aspect of Hydra
+Fearsome Temper
+Hero of Leina Tower
+Sanguimancy
+Skyreaping
+Thassa's Rebuff
+Thunderous Might
+Ritual of the Returned
+Predator's Howl
+Rousing of Souls
+Selvala's Charge
+Selvala's Enforcer
+Nissa, Worldwaker
+Blastfire Bolt
+Necromancer's Stockpile
+Arrow Storm
+Bring Low
+Dragon Grip
+Dragon's Eye Savants
+Horde Ambusher
+Mardu Charm
+Ruthless Ripper
+Temur Charger
+Villainous Wealth
+Watcher of the Roost
+Benevolent Offering
+Intellectual Offering
+Raving Dead
+Scrap Mastery
+Sylvan Offering
+Orator of Ojutai
+Alesha, Who Smiles at Death
+Arcbond
+Hungering Yeti
+Shaman of the Great Hunt
+Shu Yun, the Silent Tempest
+Wild Slash
+Yasova Dragonclaw
+Clone Legion
+Display of Dominance
+Draconic Roar
+Dragonlord Atarka
+Dragonlord's Prerogative
+Dromoka's Command
+Foul-Tongue Invocation
+Scaleguard Sentinels
+Shaman of Forgotten Ways
+Twin Bolt
+Aerial Volley
+Animist's Awakening
+Calculated Dismissal
+Dark Petition
+Flameshadow Conjuring
+Gideon's Phalanx
+Harbinger of the Tides
+Kytheon's Tactics
+Nissa's Pilgrimage
+Ravaging Blaze
+Send to Sleep
+Sigil of Valor
+Swift Reckoning
+Unholy Hunger
+Akoum Hellkite
+Brilliant Spectrum
+Bring to Light
+Encircling Fissure
+Gruesome Slaughter
+Guul Draz Overseer
+Infuse with the Elements
+Oran-Rief Hydra
+Painful Truths
+Radiant Flames
+Skyrider Elf
+Tajuru Stalwart
+Titan's Presence
+Unified Front
+Woodland Wanderer
+Great Oak Guardian
+Kaseto, Orochi Archmage
+Sandstone Oracle
+Dazzling Reflection
+Dimensional Infiltrator
+Kozilek's Pathfinder
+Kozilek's Return
+Compelling Deterrence
+Mindwrack Demon
+Autumnal Gloom // Ancient of the Equinox
+Dissension in the Ranks
+Forgotten Creation
+Indulgent Aristocrat
+Might Beyond Reason
+Nahiri, the Harbinger
+Second Harvest
+Shard of Broken Glass
+Stensia Masquerade
+Cemetery Recruitment
+Crop Sigil
+Dark Salvation
+Repel the Abominable
+Soul Separator
+Whispers of Emrakul
+Custodi Soulcaller
+Grenzo's Ruffians
+Messenger Jays
+Orchard Elemental
+Sanctum Prelate
+Chandra's Pyrohelix
+Consul's Shieldguard
+Depala, Pilot Exemplar
+Die Young
+Eddytrail Hawk
+Harnessed Lightning
+Maulfist Doorbuster
+Riparian Tiger
+Thriving Grubs
+Thriving Ibex
+Thriving Rats
+Thriving Rhino
+Thriving Turtle
+Unlicensed Disintegration
+Voltaic Brawler
+Ancient Excavation
+Crystalline Crawler
+Ikra Shidiqi, the Usurper
+Magus of the Will
+Saskia the Unyielding
+Aether Chaser
+Aether Herder
+Aether Inspector
+Aether Poisoner
+Aether Swooper
+Aetherstream Leopard
+Chandra's Revolution
+Daredevil Dragster
+Deft Dismissal
+Glint-Sleeve Siphoner
+Scrapper Champion
+Treasure Keeper
+Hapatra's Mark
+Harsh Mentor
+Insult // Injury
+Lay Bare the Heart
+The Scarab God
+Doomfall
+God-Pharaoh's Gift
+Hazoret's Undying Fury
+Hour of Eternity

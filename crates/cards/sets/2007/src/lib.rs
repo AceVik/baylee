@@ -27,10 +27,14 @@ pub mod ajani_goldmane;
 pub mod akroma_angel_of_fury;
 #[path = "fut/akroma_s_memorial.rs"]
 pub mod akroma_s_memorial;
+#[path = "plc/ana_battlemage.rs"]
+pub mod ana_battlemage;
 #[path = "lrw/ancient_amphitheater.rs"]
 pub mod ancient_amphitheater;
 #[path = "fut/arc_blade.rs"]
 pub mod arc_blade;
+#[path = "lrw/ashling_the_pilgrim.rs"]
+pub mod ashling_the_pilgrim;
 #[path = "fut/augur_il_vec.rs"]
 pub mod augur_il_vec;
 #[path = "fut/augur_of_skulls.rs"]
@@ -189,6 +193,8 @@ pub mod deadly_grub;
 pub mod deadwood_treefolk;
 #[path = "fut/death_rattle.rs"]
 pub mod death_rattle;
+#[path = "lrw/deathrender.rs"]
+pub mod deathrender;
 #[path = "lrw/deeptread_merrow.rs"]
 pub mod deeptread_merrow;
 #[path = "plc/dismal_failure.rs"]
@@ -271,6 +277,8 @@ pub mod fire_belly_changeling;
 pub mod firefright_mage;
 #[path = "lrw/fistful_of_force.rs"]
 pub mod fistful_of_force;
+#[path = "lrw/flamekin_bladewhirl.rs"]
+pub mod flamekin_bladewhirl;
 #[path = "lrw/flamekin_brawler.rs"]
 pub mod flamekin_brawler;
 #[path = "lrw/flamekin_harbinger.rs"]
@@ -283,6 +291,8 @@ pub mod flowstone_embrace;
 pub mod fodder_launch;
 #[path = "fut/fomori_nomad.rs"]
 pub mod fomori_nomad;
+#[path = "lrw/footbottom_feast.rs"]
+pub mod footbottom_feast;
 #[path = "fut/force_of_savagery.rs"]
 pub mod force_of_savagery;
 #[path = "lrw/forced_fruition.rs"]
@@ -333,6 +343,8 @@ pub mod goldmeadow_dodger;
 pub mod goldmeadow_harrier;
 #[path = "fut/goldmeadow_lookout.rs"]
 pub mod goldmeadow_lookout;
+#[path = "lrw/goldmeadow_stalwart.rs"]
+pub mod goldmeadow_stalwart;
 #[path = "plc/gossamer_phantasm.rs"]
 pub mod gossamer_phantasm;
 #[path = "fut/grave_peril.rs"]
@@ -405,10 +417,14 @@ pub mod ingot_chewer;
 pub mod inkfathom_divers;
 #[path = "lrw/inner_flame_acolyte.rs"]
 pub mod inner_flame_acolyte;
+#[path = "lrw/inner_flame_igniter.rs"]
+pub mod inner_flame_igniter;
 #[path = "lrw/jace_beleren.rs"]
 pub mod jace_beleren;
 #[path = "lrw/jagged_scar_archers.rs"]
 pub mod jagged_scar_archers;
+#[path = "plc/jodah_s_avenger.rs"]
+pub mod jodah_s_avenger;
 #[path = "lrw/judge_of_currents.rs"]
 pub mod judge_of_currents;
 #[path = "plc/kavu_predator.rs"]
@@ -715,6 +731,8 @@ pub mod shimmering_grotto;
 pub mod shivan_meteor;
 #[path = "lrw/shriekmaw.rs"]
 pub mod shriekmaw;
+#[path = "lrw/silvergill_adept.rs"]
+pub mod silvergill_adept;
 #[path = "lrw/silvergill_douser.rs"]
 pub mod silvergill_douser;
 #[path = "plc/simian_spirit_guide.rs"]
@@ -757,6 +775,8 @@ pub mod spellwild_ouphe;
 pub mod spiderwig_boggart;
 #[path = "lrw/spinerock_knoll.rs"]
 pub mod spinerock_knoll;
+#[path = "fut/spirit_en_dal.rs"]
+pub mod spirit_en_dal;
 #[path = "plc/spitting_sliver.rs"]
 pub mod spitting_sliver;
 #[path = "fut/sporoloth_ancient.rs"]
@@ -767,6 +787,8 @@ pub mod spring_cleaning;
 pub mod springleaf_drum;
 #[path = "fut/sprout_swarm.rs"]
 pub mod sprout_swarm;
+#[path = "lrw/squeaking_pie_sneak.rs"]
+pub mod squeaking_pie_sneak;
 #[path = "plc/stingscourger.rs"]
 pub mod stingscourger;
 #[path = "lrw/stinkdrinker_daredevil.rs"]
@@ -855,6 +877,10 @@ pub mod utopia_vow;
 pub mod vampiric_link;
 #[path = "fut/vedalken_aethermage.rs"]
 pub mod vedalken_aethermage;
+#[path = "fut/veilstone_amulet.rs"]
+pub mod veilstone_amulet;
+#[path = "plc/venarian_glimmer.rs"]
+pub mod venarian_glimmer;
 #[path = "fut/venser_shaper_savant.rs"]
 pub mod venser_shaper_savant;
 #[path = "lrw/veteran_of_the_depths.rs"]
@@ -917,6 +943,8 @@ pub mod woodland_guidance;
 pub mod wort_boggart_auntie;
 #[path = "plrw/wren_s_run_packmaster.rs"]
 pub mod wren_s_run_packmaster;
+#[path = "lrw/wren_s_run_vanquisher.rs"]
+pub mod wren_s_run_vanquisher;
 #[path = "lrw/wydwen_the_biting_gale.rs"]
 pub mod wydwen_the_biting_gale;
 #[path = "lrw/zephyr_net.rs"]

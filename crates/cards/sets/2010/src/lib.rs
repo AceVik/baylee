@@ -147,6 +147,8 @@ pub mod bonds_of_quicksilver;
 pub mod bramblesnap;
 #[path = "m11/brindle_boar.rs"]
 pub mod brindle_boar;
+#[path = "wwk/brink_of_disaster.rs"]
+pub mod brink_of_disaster;
 #[path = "m11/brittle_effigy.rs"]
 pub mod brittle_effigy;
 #[path = "roe/brood_birthing.rs"]
@@ -195,6 +197,8 @@ pub mod chrome_steed;
 pub mod claws_of_valakut;
 #[path = "m11/cloud_crusader.rs"]
 pub mod cloud_crusader;
+#[path = "m11/combust.rs"]
+pub mod combust;
 #[path = "roe/conquering_manticore.rs"]
 pub mod conquering_manticore;
 #[path = "roe/consume_the_meek.rs"]
@@ -279,8 +283,14 @@ pub mod destructive_force;
 pub mod devastating_summons;
 #[path = "m11/diminish.rs"]
 pub mod diminish;
+#[path = "roe/disaster_radius.rs"]
+pub mod disaster_radius;
 #[path = "wwk/dispel.rs"]
 pub mod dispel;
+#[path = "som/dispense_justice.rs"]
+pub mod dispense_justice;
+#[path = "som/dissipation_field.rs"]
+pub mod dissipation_field;
 #[path = "roe/distortion_strike.rs"]
 pub mod distortion_strike;
 #[path = "roe/domestication.rs"]
@@ -373,6 +383,8 @@ pub mod fleeting_distraction;
 pub mod flesh_allergy;
 #[path = "som/flight_spellbomb.rs"]
 pub mod flight_spellbomb;
+#[path = "roe/forked_bolt.rs"]
+pub mod forked_bolt;
 #[path = "roe/frostwind_invoker.rs"]
 pub mod frostwind_invoker;
 #[path = "som/fume_spitter.rs"]
@@ -381,6 +393,8 @@ pub mod fume_spitter;
 pub mod furnace_celebration;
 #[path = "m11/gaea_s_revenge.rs"]
 pub mod gaea_s_revenge;
+#[path = "som/galvanic_blast.rs"]
+pub mod galvanic_blast;
 #[path = "m11/gargoyle_sentinel.rs"]
 pub mod gargoyle_sentinel;
 #[path = "m11/garruk_s_companion.rs"]
@@ -443,6 +457,8 @@ pub mod grindclock;
 pub mod grotag_siege_runner;
 #[path = "wwk/grotag_thrasher.rs"]
 pub mod grotag_thrasher;
+#[path = "wwk/groundswell.rs"]
+pub mod groundswell;
 #[path = "roe/growth_spasm.rs"]
 pub mod growth_spasm;
 #[path = "roe/guard_duty.rs"]
@@ -463,6 +479,8 @@ pub mod halimar_wavewatch;
 pub mod halt_order;
 #[path = "wwk/hammer_of_ruin.rs"]
 pub mod hammer_of_ruin;
+#[path = "roe/hand_of_emrakul.rs"]
+pub mod hand_of_emrakul;
 #[path = "som/hand_of_the_praetors.rs"]
 pub mod hand_of_the_praetors;
 #[path = "wwk/harabaz_druid.rs"]
@@ -475,6 +493,8 @@ pub mod harmless_assault;
 pub mod heavy_arbalest;
 #[path = "wwk/hedron_rover.rs"]
 pub mod hedron_rover;
+#[path = "roe/hellcarver_demon.rs"]
+pub mod hellcarver_demon;
 #[path = "roe/hellion_eruption.rs"]
 pub mod hellion_eruption;
 #[path = "som/hoard_smelter_dragon.rs"]
@@ -497,8 +517,12 @@ pub mod ikiral_outrider;
 pub mod incite;
 #[path = "som/indomitable_archangel.rs"]
 pub mod indomitable_archangel;
+#[path = "roe/induce_despair.rs"]
+pub mod induce_despair;
 #[path = "som/inexorable_tide.rs"]
 pub mod inexorable_tide;
+#[path = "roe/inquisition_of_kozilek.rs"]
+pub mod inquisition_of_kozilek;
 #[path = "m11/inspired_charge.rs"]
 pub mod inspired_charge;
 #[path = "som/instill_infection.rs"]
@@ -577,6 +601,8 @@ pub mod leaf_arrow;
 pub mod leatherback_baloth;
 #[path = "m11/leyline_of_anticipation.rs"]
 pub mod leyline_of_anticipation;
+#[path = "m11/leyline_of_punishment.rs"]
+pub mod leyline_of_punishment;
 #[path = "m11/leyline_of_sanctity.rs"]
 pub mod leyline_of_sanctity;
 #[path = "m11/leyline_of_vitality.rs"]
@@ -595,6 +621,8 @@ pub mod liliana_s_specter;
 pub mod linvala_keeper_of_silence;
 #[path = "som/liquimetal_coating.rs"]
 pub mod liquimetal_coating;
+#[path = "roe/living_destiny.rs"]
+pub mod living_destiny;
 #[path = "wwk/loam_lion.rs"]
 pub mod loam_lion;
 #[path = "wwk/lodestone_golem.rs"]
@@ -665,6 +693,8 @@ pub mod myr_propagator;
 pub mod myr_reservoir;
 #[path = "som/myrsmith.rs"]
 pub mod myrsmith;
+#[path = "wwk/mysteries_of_the_deep.rs"]
+pub mod mysteries_of_the_deep;
 #[path = "m11/mystifying_maze.rs"]
 pub mod mystifying_maze;
 #[path = "wwk/nature_s_claim.rs"]
@@ -743,6 +773,8 @@ pub mod pennon_blade;
 pub mod perilous_myr;
 #[path = "wwk/perimeter_captain.rs"]
 pub mod perimeter_captain;
+#[path = "roe/perish_the_thought.rs"]
+pub mod perish_the_thought;
 #[path = "wwk/permafrost_trap.rs"]
 pub mod permafrost_trap;
 #[path = "roe/pestilence_demon.rs"]
@@ -819,6 +851,8 @@ pub mod relic_putrescence;
 pub mod renegade_doppelganger;
 #[path = "roe/repel_the_darkness.rs"]
 pub mod repel_the_darkness;
+#[path = "wwk/rest_for_the_weary.rs"]
+pub mod rest_for_the_weary;
 #[path = "m11/reverberate.rs"]
 pub mod reverberate;
 #[path = "som/revoke_existence.rs"]
@@ -829,6 +863,8 @@ pub mod ricochet_trap;
 pub mod riddlesmith;
 #[path = "m11/roc_egg.rs"]
 pub mod roc_egg;
+#[path = "wwk/roiling_terrain.rs"]
+pub mod roiling_terrain;
 #[path = "m11/rotting_legion.rs"]
 pub mod rotting_legion;
 #[path = "wwk/ruin_ghost.rs"]
@@ -859,6 +895,8 @@ pub mod scroll_thief;
 pub mod sea_gate_oracle;
 #[path = "som/seachrome_coast.rs"]
 pub mod seachrome_coast;
+#[path = "roe/see_beyond.rs"]
+pub mod see_beyond;
 #[path = "wwk/seer_s_sundial.rs"]
 pub mod seer_s_sundial;
 #[path = "som/seize_the_initiative.rs"]
@@ -909,6 +947,8 @@ pub mod snapsail_glider;
 pub mod soliton;
 #[path = "arc/sorcerer_s_strongbox.rs"]
 pub mod sorcerer_s_strongbox;
+#[path = "som/soul_parry.rs"]
+pub mod soul_parry;
 #[path = "roe/soul_s_attendant.rs"]
 pub mod soul_s_attendant;
 #[path = "roe/soulbound_guardians.rs"]
@@ -1015,6 +1055,8 @@ pub mod time_of_heroes;
 pub mod time_reversal;
 #[path = "m11/tireless_missionaries.rs"]
 pub mod tireless_missionaries;
+#[path = "wwk/tomb_hex.rs"]
+pub mod tomb_hex;
 #[path = "roe/totem_guide_hartebeest.rs"]
 pub mod totem_guide_hartebeest;
 #[path = "som/tower_of_calamities.rs"]
@@ -1045,6 +1087,8 @@ pub mod tuktuk_scrapper;
 pub mod tuktuk_the_explorer;
 #[path = "som/tumble_magnet.rs"]
 pub mod tumble_magnet;
+#[path = "som/turn_to_slag.rs"]
+pub mod turn_to_slag;
 #[path = "som/twisted_image.rs"]
 pub mod twisted_image;
 #[path = "roe/ulamog_s_crusher.rs"]
@@ -1077,6 +1121,8 @@ pub mod venser_the_sojourner;
 pub mod vent_sentinel;
 #[path = "wwk/veteran_s_reflexes.rs"]
 pub mod veteran_s_reflexes;
+#[path = "som/vigil_for_the_lost.rs"]
+pub mod vigil_for_the_lost;
 #[path = "roe/virulent_swipe.rs"]
 pub mod virulent_swipe;
 #[path = "m11/viscera_seer.rs"]

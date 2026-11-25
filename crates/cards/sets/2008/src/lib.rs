@@ -105,6 +105,8 @@ pub mod bitterblossom;
 pub mod blazethorn_scarecrow;
 #[path = "shm/blight_sickle.rs"]
 pub mod blight_sickle;
+#[path = "ala/blightning.rs"]
+pub mod blightning;
 #[path = "mor/blightsoil_druid.rs"]
 pub mod blightsoil_druid;
 #[path = "ala/blister_beetle.rs"]
@@ -149,6 +151,8 @@ pub mod branching_bolt;
 pub mod briarberry_cohort;
 #[path = "mor/brighthearth_banneret.rs"]
 pub mod brighthearth_banneret;
+#[path = "ala/brilliant_ultimatum.rs"]
+pub mod brilliant_ultimatum;
 #[path = "ala/broodmate_dragon.rs"]
 pub mod broodmate_dragon;
 #[path = "ala/bull_cerodon.rs"]
@@ -167,6 +171,8 @@ pub mod caldera_hellion;
 pub mod call_the_skybreaker;
 #[path = "ala/call_to_heel.rs"]
 pub mod call_to_heel;
+#[path = "eve/canker_abomination.rs"]
+pub mod canker_abomination;
 #[path = "ala/carrion_thrash.rs"]
 pub mod carrion_thrash;
 #[path = "eve/cascade_bluffs.rs"]
@@ -191,6 +197,8 @@ pub mod cerulean_wisps;
 pub mod chameleon_colossus;
 #[path = "mor/changeling_sentinel.rs"]
 pub mod changeling_sentinel;
+#[path = "eve/chaotic_backlash.rs"]
+pub mod chaotic_backlash;
 #[path = "eve/cinder_pyromancer.rs"]
 pub mod cinder_pyromancer;
 #[path = "shm/cinderbones.rs"]
@@ -411,6 +419,8 @@ pub mod figure_of_destiny;
 pub mod filigree_sages;
 #[path = "mor/final_sting_faerie.rs"]
 pub mod final_sting_faerie;
+#[path = "eve/fire_at_will.rs"]
+pub mod fire_at_will;
 #[path = "ala/fire_field_ogre.rs"]
 pub mod fire_field_ogre;
 #[path = "mor/fire_juggler.rs"]
@@ -553,6 +563,8 @@ pub mod idle_thoughts;
 pub mod idyllic_tutor;
 #[path = "eve/impelled_giant.rs"]
 pub mod impelled_giant;
+#[path = "shm/impromptu_raid.rs"]
+pub mod impromptu_raid;
 #[path = "shm/incremental_blight.rs"]
 pub mod incremental_blight;
 #[path = "ala/incurable_ogre.rs"]
@@ -623,6 +635,8 @@ pub mod kithkin_rabble;
 pub mod kithkin_shielddare;
 #[path = "eve/kithkin_spellduster.rs"]
 pub mod kithkin_spellduster;
+#[path = "eve/kithkin_zealot.rs"]
+pub mod kithkin_zealot;
 #[path = "mor/kithkin_zephyrnaut.rs"]
 pub mod kithkin_zephyrnaut;
 #[path = "shm/knacksaw_clique.rs"]
@@ -721,6 +735,8 @@ pub mod mindwrack_liege;
 pub mod mine_excavation;
 #[path = "ala/minion_reflector.rs"]
 pub mod minion_reflector;
+#[path = "shm/mirrorweave.rs"]
+pub mod mirrorweave;
 #[path = "shm/mistmeadow_witch.rs"]
 pub mod mistmeadow_witch;
 #[path = "shm/mistveil_plains.rs"]
@@ -831,6 +847,8 @@ pub mod orchard_warden;
 pub mod order_of_the_golden_cricket;
 #[path = "shm/order_of_whiteclay.rs"]
 pub mod order_of_whiteclay;
+#[path = "eve/outrage_shaman.rs"]
+pub mod outrage_shaman;
 #[path = "ala/outrider_of_jhess.rs"]
 pub mod outrider_of_jhess;
 #[path = "peve/overbeing_of_myth.rs"]
@@ -879,6 +897,8 @@ pub mod puncture_bolt;
 pub mod punish_ignorance;
 #[path = "ala/puppet_conjurer.rs"]
 pub mod puppet_conjurer;
+#[path = "shm/puppeteer_clique.rs"]
+pub mod puppeteer_clique;
 #[path = "shm/puresight_merrow.rs"]
 pub mod puresight_merrow;
 #[path = "shm/pyre_charger.rs"]
@@ -959,10 +979,14 @@ pub mod rhox_charger;
 pub mod rhox_war_monk;
 #[path = "mor/rhys_the_exiled.rs"]
 pub mod rhys_the_exiled;
+#[path = "shm/rhys_the_redeemed.rs"]
+pub mod rhys_the_redeemed;
 #[path = "ala/ridge_rannet.rs"]
 pub mod ridge_rannet;
 #[path = "ala/rip_clan_crasher.rs"]
 pub mod rip_clan_crasher;
+#[path = "eve/rise_of_the_hobgoblins.rs"]
+pub mod rise_of_the_hobgoblins;
 #[path = "shm/rite_of_consumption.rs"]
 pub mod rite_of_consumption;
 #[path = "eve/riverfall_mimic.rs"]
@@ -1023,6 +1047,8 @@ pub mod scar;
 pub mod scarblade_elite;
 #[path = "eve/scarecrone.rs"]
 pub mod scarecrone;
+#[path = "shm/scarscale_ritual.rs"]
+pub mod scarscale_ritual;
 #[path = "ala/scavenger_drake.rs"]
 pub mod scavenger_drake;
 #[path = "ala/scourge_devil.rs"]
@@ -1067,10 +1093,14 @@ pub mod shinewend;
 pub mod shore_snapper;
 #[path = "eve/shorecrasher_mimic.rs"]
 pub mod shorecrasher_mimic;
+#[path = "eve/shrewd_hatchling.rs"]
+pub mod shrewd_hatchling;
 #[path = "shm/sickle_ripper.rs"]
 pub mod sickle_ripper;
 #[path = "ala/sighted_caste_sorcerer.rs"]
 pub mod sighted_caste_sorcerer;
+#[path = "ala/sigil_blessing.rs"]
+pub mod sigil_blessing;
 #[path = "ala/sigil_of_distinction.rs"]
 pub mod sigil_of_distinction;
 #[path = "ala/sigiled_paladin.rs"]
@@ -1089,6 +1119,8 @@ pub mod skullmulcher;
 pub mod slinking_giant;
 #[path = "eve/slippery_bogle.rs"]
 pub mod slippery_bogle;
+#[path = "mor/slithermuse.rs"]
+pub mod slithermuse;
 #[path = "shm/smash_to_smithereens.rs"]
 pub mod smash_to_smithereens;
 #[path = "shm/smolder_initiate.rs"]
@@ -1131,6 +1163,8 @@ pub mod spirit_of_the_hearth;
 pub mod spitebellows;
 #[path = "shm/spiteflame_witch.rs"]
 pub mod spiteflame_witch;
+#[path = "shm/spiteful_visions.rs"]
+pub mod spiteful_visions;
 #[path = "eve/spitemare.rs"]
 pub mod spitemare;
 #[path = "eve/spitting_image.rs"]
@@ -1139,6 +1173,8 @@ pub mod spitting_image;
 pub mod splitting_headache;
 #[path = "eve/springjack_pasture.rs"]
 pub mod springjack_pasture;
+#[path = "eve/springjack_shepherd.rs"]
+pub mod springjack_shepherd;
 #[path = "ala/sprouting_thrinax.rs"]
 pub mod sprouting_thrinax;
 #[path = "mor/squeaking_pie_grubfellows.rs"]
@@ -1189,6 +1225,8 @@ pub mod swell_of_courage;
 pub mod swerve;
 #[path = "eve/swirling_spriggan.rs"]
 pub mod swirling_spriggan;
+#[path = "shm/sygg_river_cutthroat.rs"]
+pub mod sygg_river_cutthroat;
 #[path = "eve/syphon_life.rs"]
 pub mod syphon_life;
 #[path = "eve/talara_s_battalion.rs"]
@@ -1249,6 +1287,8 @@ pub mod torpor_dust;
 pub mod tortoise_formation;
 #[path = "ala/tower_gargoyle.rs"]
 pub mod tower_gargoyle;
+#[path = "shm/traitor_s_roar.rs"]
+pub mod traitor_s_roar;
 #[path = "eve/trapjaw_kelpie.rs"]
 pub mod trapjaw_kelpie;
 #[path = "shm/trip_noose.rs"]

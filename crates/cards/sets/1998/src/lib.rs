@@ -53,6 +53,8 @@ pub mod amok;
 pub mod anarchist;
 #[path = "p02/ancient_craving.rs"]
 pub mod ancient_craving;
+#[path = "p02/angel_of_fury.rs"]
+pub mod angel_of_fury;
 #[path = "p02/angel_of_mercy.rs"]
 pub mod angel_of_mercy;
 #[path = "usg/angelic_chorus.rs"]
@@ -1349,6 +1351,8 @@ pub mod wild_griffin;
 pub mod wild_ox;
 #[path = "p02/wildfire.rs"]
 pub mod wildfire;
+#[path = "p02/wind_sail.rs"]
+pub mod wind_sail;
 #[path = "usg/windfall.rs"]
 pub mod windfall;
 #[path = "usg/winding_wurm.rs"]

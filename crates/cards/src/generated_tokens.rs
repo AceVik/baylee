@@ -7528,6 +7528,61 @@ pub static ANGEL_3_3_WHITE_FLYING: TokenDef = TokenDef {
     ..TokenDef::DEFAULT
 };
 
+/// 1/1 black Harpy with flying.
+pub static HARPY_1_1_BLACK_FLYING: TokenDef = TokenDef {
+    name: "Harpy",
+    colors: ColorSet::from_slice(&[Color::Black]),
+    types: TypeSet::CREATURE,
+    subtypes: &[creature::HARPY],
+    power: Some(1),
+    toughness: Some(1),
+    keywords: KeywordSet::FLYING,
+    ..TokenDef::DEFAULT
+};
+
+/// */* black Zombie.
+pub static ZOMBIE_X_X_BLACK: TokenDef = TokenDef {
+    name: "Zombie",
+    colors: ColorSet::from_slice(&[Color::Black]),
+    types: TypeSet::CREATURE,
+    subtypes: &[creature::ZOMBIE],
+    ..TokenDef::DEFAULT
+};
+
+/// 1/1 white green Elf Warrior.
+pub static ELF_WARRIOR_1_1_WHITE_GREEN: TokenDef = TokenDef {
+    name: "Elf Warrior",
+    colors: ColorSet::from_slice(&[Color::White, Color::Green]),
+    types: TypeSet::CREATURE,
+    subtypes: &[creature::ELF, creature::WARRIOR],
+    power: Some(1),
+    toughness: Some(1),
+    ..TokenDef::DEFAULT
+};
+
+/// 1/0 blue Elemental.
+pub static ELEMENTAL_1_0_BLUE: TokenDef = TokenDef {
+    name: "Elemental",
+    colors: ColorSet::from_slice(&[Color::Blue]),
+    types: TypeSet::CREATURE,
+    subtypes: &[creature::ELEMENTAL],
+    power: Some(1),
+    toughness: Some(0),
+    ..TokenDef::DEFAULT
+};
+
+/// 1/1 white blue Bird with flying.
+pub static BIRD_1_1_WHITE_BLUE_FLYING: TokenDef = TokenDef {
+    name: "Bird",
+    colors: ColorSet::from_slice(&[Color::White, Color::Blue]),
+    types: TypeSet::CREATURE,
+    subtypes: &[creature::BIRD],
+    power: Some(1),
+    toughness: Some(1),
+    keywords: KeywordSet::FLYING,
+    ..TokenDef::DEFAULT
+};
+
 /// Every token there is, in the order ids were assigned.
 pub static ALL: &[&TokenDef] = &[
     &tokens::ALLY_1_1_WHITE,
@@ -8891,6 +8946,11 @@ pub static ALL: &[&TokenDef] = &[
     &SHEEP_1_1_WHITE,
     &HUMAN_KNIGHT_2_2_WHITE_A94B73029,
     &ANGEL_3_3_WHITE_FLYING,
+    &HARPY_1_1_BLACK_FLYING,
+    &ZOMBIE_X_X_BLACK,
+    &ELF_WARRIOR_1_1_WHITE_GREEN,
+    &ELEMENTAL_1_0_BLUE,
+    &BIRD_1_1_WHITE_BLUE_FLYING,
 ];
 
 /// The entries a reader wrote, as a subset of [`ALL`] — never a second
@@ -9465,6 +9525,11 @@ pub static GENERATED: &[&TokenDef] = &[
     &SHEEP_1_1_WHITE,
     &HUMAN_KNIGHT_2_2_WHITE_A94B73029,
     &ANGEL_3_3_WHITE_FLYING,
+    &HARPY_1_1_BLACK_FLYING,
+    &ZOMBIE_X_X_BLACK,
+    &ELF_WARRIOR_1_1_WHITE_GREEN,
+    &ELEMENTAL_1_0_BLUE,
+    &BIRD_1_1_WHITE_BLUE_FLYING,
 ];
 
 /// Legacy duplicate ids and the canonical ids they now resolve to.
