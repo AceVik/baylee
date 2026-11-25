@@ -74,8 +74,6 @@ struct Deck {
     missing: BTreeSet<u32>,
     /// It holds a working held-out card, or its split is not train.
     out_of_train: Option<String>,
-    #[allow(dead_code, reason = "preserves input manifest ordering for debugging")]
-    order: usize,
 }
 
 #[derive(Default)]
@@ -349,7 +347,6 @@ fn main() -> Result<()> {
             Some("train") => (Kind::PreconUpgrade, None),
             Some(s) => (Kind::PreconUpgrade, Some(format!("adapted_in_{s}"))),
         };
-        let order = decks.len();
         decks.push(Deck {
             key: format!("precon/{key}"),
             label: format!("{name} [{key}]"),
@@ -358,7 +355,6 @@ fn main() -> Result<()> {
             cards: m,
             missing,
             out_of_train: out,
-            order,
         });
     }
 
@@ -410,7 +406,6 @@ fn main() -> Result<()> {
             }
             complete_not_in_manifest.push(format!("mtgo/{fmt}/{}", &hex[..20]));
         }
-        let order = decks.len();
         decks.push(Deck {
             key: format!("mtgo/{fmt}/{}", &hex[..20]),
             label: d["name"].as_str().unwrap_or("?").to_owned(),
@@ -419,7 +414,6 @@ fn main() -> Result<()> {
             cards: m,
             missing,
             out_of_train: out,
-            order,
         });
     }
     eprintln!("candidate decks {} blocked {blocked:?}", decks.len());
@@ -552,7 +546,7 @@ fn main() -> Result<()> {
             }
             let total: usize = decks_done.values().sum();
             let mut top: Vec<(u32, usize)> = needed.into_iter().collect();
-            top.sort_by(|a, b| b.1.cmp(&a.1));
+            top.sort_by_key(|row| std::cmp::Reverse(row.1));
             rows.push(json!({
                 "cause": cause, "scripts": scripts.get(cause).copied().unwrap_or(0),
                 "pool_stubs": pool_stubs, "train_decks": total, "by_format": decks_done,
@@ -652,12 +646,14 @@ fn main() -> Result<()> {
                 local.push(i);
             }
             let score = local.len();
-            let better = match &best {
-                None => true,
-                Some((s, p, bc, _)) => {
-                    score > *s || (score == *s && (progress > *p || (progress == *p && c < *bc)))
-                }
-            };
+            // Most decks completed, then most progress, then the lower index.
+            let better = best.as_ref().is_none_or(|(s, p, other, _)| {
+                score
+                    .cmp(s)
+                    .then(progress.total_cmp(p))
+                    .then(other.cmp(&c))
+                    .is_gt()
+            });
             if better {
                 best = Some((score, progress, c, local));
             }

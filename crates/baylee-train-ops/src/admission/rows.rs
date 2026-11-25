@@ -201,7 +201,7 @@ impl History {
         let behavior = match (p.has_logprob, row.head) {
             (true, _) => NetBehavior::Sampled(p.behavior_logprob as f32),
             (false, 3) => NetBehavior::PointMass,
-            (false, 0 | 1 | 2) if p.behavior_logprob == 0.0 => NetBehavior::Unknown,
+            (false, 0..=2) if p.behavior_logprob == 0.0 => NetBehavior::Unknown,
             (false, _) => bail!("an explored decision without its behaviour probability"),
         };
         let expected = exploration::mixture_logprob(

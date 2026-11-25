@@ -91,6 +91,41 @@ pub(super) struct SearchTally {
 }
 
 impl SearchTally {
+    /// Counts one searched decision: what was played, and the rest of its
+    /// planned cast.
+    fn searched(
+        &mut self,
+        report: &SearchReport4,
+        played: &PlayerAction,
+        script: Option<&Script4>,
+    ) {
+        let own = report.actions.first().map_or_default(action_kind);
+        if report.changed {
+            // The policy's own answer at another target.
+            let played = if report.actions.first() == Some(played) {
+                String::from("retarget")
+            } else if let Some(script) = script {
+                // A planned cast is named by what its taps pay for.
+                format!("Planned{}", action_kind(script.then()))
+            } else {
+                action_kind(played)
+            };
+            bump(&mut self.changes, format!("{own}->{played}"));
+        }
+        bump(&mut self.searched_by_kind, own);
+        self.taken_back += report.taken_back.len() as u64;
+        self.scripts += u64::from(script.is_some());
+        self.searched += 1;
+        self.changed += u64::from(report.changed);
+        self.rounds += report.rounds as u64;
+        self.rollouts += report.rollouts;
+        self.rollout_steps += report.rollout_steps;
+        self.seat_decisions += report.seat_decisions;
+        self.house_answers += report.house_answers;
+        self.leaves.add(&report.leaves);
+        self.parallel += u64::from(report.parallel);
+    }
+
     /// Adds `other`'s counts to these.
     pub fn add(&mut self, other: &Self) {
         self.decisions += other.decisions;
@@ -448,39 +483,16 @@ impl GameSearch {
         }
         match searched.outcome {
             SearchOutcome4::Searched(report) => {
-                self.tally.taken_back += report.taken_back.len() as u64;
                 self.tally.ms.push(started.elapsed().as_secs_f64() * 1000.0);
                 let mut recorded = event(table, view, &searched.answer, &report);
                 if let Some(variants) = net.take_search_variants() {
                     recorded["variants"] = variants;
                 }
                 self.events.push(recorded);
-                let own = report.actions.first().map_or_default(action_kind);
-                if report.changed {
-                    // The policy's own answer at another target.
-                    let played = if report.actions.first() == Some(&searched.answer.action) {
-                        String::from("retarget")
-                    } else if let Some(script) = &searched.script {
-                        // A planned cast is named by what its taps pay for.
-                        format!("Planned{}", action_kind(script.then()))
-                    } else {
-                        action_kind(&searched.answer.action)
-                    };
-                    bump(&mut self.tally.changes, format!("{own}->{played}"));
-                }
                 self.follow = searched.follow.clone().map(|target| (view.seat, target));
                 self.script = searched.script.clone().map(|script| (view.seat, script));
-                self.tally.scripts += u64::from(self.script.is_some());
-                bump(&mut self.tally.searched_by_kind, own);
-                self.tally.searched += 1;
-                self.tally.changed += u64::from(report.changed);
-                self.tally.rounds += report.rounds as u64;
-                self.tally.rollouts += report.rollouts;
-                self.tally.rollout_steps += report.rollout_steps;
-                self.tally.seat_decisions += report.seat_decisions;
-                self.tally.house_answers += report.house_answers;
-                self.tally.leaves.add(&report.leaves);
-                self.tally.parallel += u64::from(report.parallel);
+                self.tally
+                    .searched(&report, &searched.answer.action, searched.script.as_ref());
             }
             SearchOutcome4::Skipped(reason) => {
                 bump(&mut self.tally.skipped, reason.key().into());
