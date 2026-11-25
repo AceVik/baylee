@@ -51,6 +51,9 @@ pub(super) struct Mock {
     /// A lockstep rollout player's seat in its group: every observation
     /// and answer steps through it, as a net's model steps do.
     step: Option<Member<u64, u64>>,
+    /// The menu entry it took its own answer from, where that is not the one
+    /// its ranking keeps of the action.
+    pub(super) taken_at: Option<u16>,
     /// The tactical layer's answer at a root, for a rival search; `None`
     /// (or an answer `None`) where the decision has no label.
     pub(super) rival: Option<fn(&PlayerView, &Pending) -> Option<PlayerAction>>,
@@ -81,6 +84,7 @@ impl Mock {
             lends: false,
             fallback_after: None,
             passes_after: None,
+            taken_at: None,
             context: ViewContext4::Choice,
             step: None,
             rival: None,
@@ -102,6 +106,7 @@ impl Mock {
             lends: self.lends,
             fallback_after: self.fallback_after,
             passes_after: self.passes_after,
+            taken_at: self.taken_at,
             context: self.context,
             step,
             rival: self.rival,
@@ -208,6 +213,10 @@ impl SearchPlayer4 for Mock {
             })?;
             Some((ranked.index, ranked.action.clone()))
         });
+        let ranked_at = ranking
+            .as_deref()
+            .and_then(|ranking| ranking.iter().find(|r| r.action == action))
+            .and_then(|ranked| u16::try_from(ranked.index).ok());
         RootDecision4 {
             answer: Answer4 {
                 action,
@@ -219,7 +228,10 @@ impl SearchPlayer4 for Mock {
                     behavior_logprob: 0.0,
                     has_logprob: false,
                 },
-                target: TeacherTarget4::default(),
+                target: TeacherTarget4 {
+                    single_idx: self.taken_at.or(ranked_at).unwrap_or_default(),
+                    ..TeacherTarget4::default()
+                },
             },
             ranking,
             notes_answer: policy,

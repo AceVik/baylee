@@ -152,6 +152,32 @@ fn the_layers_answer_is_the_one_rival_and_the_label_keeps_its_worlds() {
     assert!(player.labels.is_some(), "the labeller is back in place");
 }
 
+/// The ranking keeps one entry of each action. A probe names the one the
+/// policy took, which is the label's `N` also where two entries of one action
+/// have equal logits.
+#[test]
+fn a_probe_names_the_menu_entry_the_policy_took() {
+    let mut session = table(22);
+    let (pending, view) = root(&mut session, land_playable);
+    let mut player = labelled(lands, Some(first_land));
+    player.taken_at = Some(41);
+    player.observe(&view).unwrap();
+    search_decision(
+        &mut player,
+        &KnownDecks(&session),
+        &view,
+        &pending,
+        &[],
+        probe_config(3, 0),
+        SEED,
+    )
+    .unwrap();
+    let [probe] = player.probes.as_slice() else {
+        panic!("one probe kept: {:?}", player.probes);
+    };
+    assert_eq!(probe.own_index, 41);
+}
+
 #[test]
 fn no_rollout_labels_a_decision() {
     let mut session = table(22);

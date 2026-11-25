@@ -1670,6 +1670,9 @@ pub fn search_prepared<P: SearchPlayer4 + Send, T: ForkSource4>(
     let pair = rival
         .as_ref()
         .and_then(|(index, _)| rival_candidates(&decision, *index));
+    // The menu entry the policy took. The ranking keeps one entry of each
+    // action, which at equal logits need not be that one.
+    let own_index = decision.answer.target.single_idx;
     // No rollout labels a decision or replaces this decision's label.
     let labels = player.suspend_labels();
     let searched = search_decided(
@@ -1689,7 +1692,9 @@ pub fn search_prepared<P: SearchPlayer4 + Send, T: ForkSource4>(
     player.resume_labels(labels);
     if let Ok(searched) = &searched
         && let SearchOutcome4::Searched(report) = &searched.outcome
-        && let Some(probe) = pair.as_ref().and_then(|pair| probe_of(pair, report))
+        && let Some(probe) = pair
+            .as_ref()
+            .and_then(|pair| probe_of(pair, own_index, report))
     {
         player.keep_probe(probe);
     }
@@ -1697,9 +1702,14 @@ pub fn search_prepared<P: SearchPlayer4 + Send, T: ForkSource4>(
 }
 
 /// A [`Rival4::Distill`] root's worlds as its label keeps them: `N` against
-/// the layer's `R`, `pair` their places in the menu as the search ranked
-/// them. `None` for a report of other candidates.
-fn probe_of(pair: &[Ranked4; 2], report: &SearchReport4) -> Option<super::distill::DistillProbe4> {
+/// the layer's `R`, `pair` as the search ranked them and `own_index` the
+/// menu entry the policy took for `N`. `None` for a report of other
+/// candidates.
+fn probe_of(
+    pair: &[Ranked4; 2],
+    own_index: u16,
+    report: &SearchReport4,
+) -> Option<super::distill::DistillProbe4> {
     if report.actions.len() != 2 || report.actions[0] != pair[0].action {
         return None;
     }
@@ -1721,7 +1731,7 @@ fn probe_of(pair: &[Ranked4; 2], report: &SearchReport4) -> Option<super::distil
         .collect::<Option<Vec<_>>>()?;
     Some(super::distill::DistillProbe4 {
         rival_index: u16::try_from(pair[1].index).ok()?,
-        own_index: u16::try_from(pair[0].index).ok()?,
+        own_index,
         worlds,
         ends,
         rollouts: report.rollouts,
