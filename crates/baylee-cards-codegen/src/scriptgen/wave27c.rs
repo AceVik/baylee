@@ -558,6 +558,13 @@ impl Tx<'_> {
         {
             return None;
         }
+        if api == "Dig"
+            && self.capture_scope.is_none()
+            && self.sub_is_api(sub.as_deref(), "TwoPiles")
+            && let Some(effs) = self.wave28d_dig_exile_two_piles_play(p, sub)
+        {
+            return Some(effs);
+        }
         // Yield to existing specialized trigger handlers (`wave24e` Dig triggers
         // and `wave26f` Token+RememberTokens triggers) so existing generated cards
         // keep their exact replay identities.
@@ -1389,6 +1396,7 @@ impl Tx<'_> {
                     "Effect::SacrificeAll { filter: &Filter::IsRemembered }".to_string(),
                 ])
             }
+            "AlterAttribute" => Self::wave28d_capture_alter_attribute(p),
             "ChangeZone" => {
                 let mut probe = p.clone();
                 probe.take("Defined");

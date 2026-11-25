@@ -3026,6 +3026,9 @@ impl Tx<'_> {
                     "CopyCleanup::None",
                 )?]
             }
+            "Token" if sp.peek("AttachedTo") == Some(obj_tag) => {
+                vec![self.wave28d_repeat_token_attached(sp)?]
+            }
             "Play" => {
                 let eff = self.compile_event_object_play(sp, use_imprinted, None, None, false)?;
                 if !sp.exhausted() {

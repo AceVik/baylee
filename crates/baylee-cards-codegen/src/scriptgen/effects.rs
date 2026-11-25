@@ -147,6 +147,18 @@ impl Tx<'_> {
         target: Option<&str>,
         targets_a_player: bool,
     ) -> Option<Vec<String>> {
+        let cond_wrap = self.wave28d_take_token_condition(p, target)?;
+        let effects = self.token_effect_core(p, target, targets_a_player)?;
+        Some(Self::wave28d_apply_token_condition(cond_wrap, effects))
+    }
+
+    #[allow(clippy::too_many_lines)]
+    fn token_effect_core(
+        &mut self,
+        p: &mut Params,
+        target: Option<&str>,
+        targets_a_player: bool,
+    ) -> Option<Vec<String>> {
         // Who gets it. The corpus writes `TokenOwner$ You` on 2220 of its
         // 3610 token lines and leaves the key off on 1154 — and absence is
         // **not** a synonym for you: Rootcast Apprenticeship says "target
@@ -301,6 +313,13 @@ impl Tx<'_> {
         if owner != "PlayerRel::You" && (tapped || attacking || haste) {
             return self
                 .deny("a modified token created under another player's control".to_string());
+        }
+        if !attacking
+            && owner == "PlayerRel::You"
+            && (p.has("PumpKeywords") || p.has("AtEOT"))
+            && let Some(effs) = self.wave28d_token_pump_or_cleanup(p, tapped, haste)
+        {
+            return Some(effs);
         }
         let Some(stem) = p.take("TokenScript") else {
             return self.deny("a `Token` effect naming no `TokenScript$`".to_string());
@@ -969,7 +988,7 @@ impl Tx<'_> {
                     if part.is_empty() {
                         return None;
                     }
-                    opts.push(Self::pump_keyword_bits(part)?);
+                    opts.push(self.pump_kw_and_prevent(part, p.opponents_only_lure)?);
                 }
                 if opts.len() < 2 {
                     return None;
@@ -985,13 +1004,13 @@ impl Tx<'_> {
             Some("UntilEndOfCombat") => "Duration::UntilEndOfCombat",
             Some("UntilYourNextTurn") => "Duration::UntilYourNextTurn",
             Some("Permanent")
-                if power == "Amount::Fixed(0)"
-                    && toughness == "Amount::Fixed(0)"
-                    && prevent_mods.is_empty()
-                    && (keywords != "KeywordSet::EMPTY" || kw_choices.is_some()) =>
+                if (keywords != "KeywordSet::EMPTY"
+                    || (power == "Amount::Fixed(0)" && toughness == "Amount::Fixed(0)"))
+                    && prevent_mods.is_empty() =>
             {
                 "Duration::Indefinitely"
             }
+            Some("AsLongAsInPlay") if !self.on_a_spell => "Duration::WhileSourceOnBattlefield",
             Some("UntilUntaps") if !self.on_a_spell && prevent_mods.is_empty() => {
                 "Duration::WhileSourceTapped { control: false, power_limited: false }"
             }
@@ -1081,19 +1100,18 @@ impl Tx<'_> {
                             .is_some_and(|(role, _, _)| *role == super::BlockRole::Blocked)))))
         {
             if let Some(opts) = kw_choices {
-                let rendered: Vec<String> = opts
-                    .into_iter()
-                    .map(|kw| {
+                return Some(vec![Self::wave28d_format_kw_choices(
+                    opts,
+                    |kw| {
                         format!(
                             "Effect::PumpEventObject {{ power: {power}, toughness: {toughness}, \
                              keywords: {kw}, duration: {duration} }}"
                         )
-                    })
-                    .collect();
-                return Some(vec![format!(
-                    "Effect::ChooseOne {{ choices: &[{}] }}",
-                    rendered.join(", ")
-                )]);
+                    },
+                    Some("ModifyEvent"),
+                    power != "Amount::Fixed(0)" || toughness != "Amount::Fixed(0)",
+                    duration,
+                )?]);
             }
             let mut out = Vec::new();
             if has_pump || prevent_mods.is_empty() {
@@ -1168,20 +1186,19 @@ impl Tx<'_> {
         };
         if let Some((whom, modify_variant)) = whom {
             if let Some(opts) = kw_choices {
-                let rendered: Vec<String> = opts
-                    .into_iter()
-                    .map(|kw| {
+                return Some(vec![Self::wave28d_format_kw_choices(
+                    opts,
+                    |kw| {
                         format!(
                             "Effect::PumpFilter {{ filter: &{whom}, controlled_by: None, \
                              power: {power}, toughness: {toughness}, keywords: {kw}, \
                              duration: {duration} }}"
                         )
-                    })
-                    .collect();
-                return Some(vec![format!(
-                    "Effect::ChooseOne {{ choices: &[{}] }}",
-                    rendered.join(", ")
-                )]);
+                    },
+                    modify_variant,
+                    power != "Amount::Fixed(0)" || toughness != "Amount::Fixed(0)",
+                    duration,
+                )?]);
             }
             let mut out = Vec::new();
             if has_pump || prevent_mods.is_empty() {
@@ -1229,19 +1246,18 @@ impl Tx<'_> {
                     "PumpTarget {"
                 };
                 if let Some(opts) = kw_choices {
-                    let rendered: Vec<String> = opts
-                        .into_iter()
-                        .map(|kw| {
+                    vec![Self::wave28d_format_kw_choices(
+                        opts,
+                        |kw| {
                             format!(
                                 "Effect::{kind} power: {power}, toughness: {toughness}, \
                                  keywords: {kw}, duration: {duration} }}"
                             )
-                        })
-                        .collect();
-                    vec![format!(
-                        "Effect::ChooseOne {{ choices: &[{}] }}",
-                        rendered.join(", ")
-                    )]
+                        },
+                        (!second).then_some("ModifyTargets"),
+                        power != "Amount::Fixed(0)" || toughness != "Amount::Fixed(0)",
+                        duration,
+                    )?]
                 } else {
                     let mut out = Vec::new();
                     if has_pump || prevent_mods.is_empty() {
@@ -1260,19 +1276,18 @@ impl Tx<'_> {
             }
             Some("ParentTarget") if !second && target != "TargetSpec::AnyPlayer" => {
                 if let Some(opts) = kw_choices {
-                    let rendered: Vec<String> = opts
-                        .into_iter()
-                        .map(|kw| {
+                    vec![Self::wave28d_format_kw_choices(
+                        opts,
+                        |kw| {
                             format!(
                                 "Effect::PumpTarget {{ power: {power}, toughness: {toughness}, \
                                  keywords: {kw}, duration: {duration} }}"
                             )
-                        })
-                        .collect();
-                    vec![format!(
-                        "Effect::ChooseOne {{ choices: &[{}] }}",
-                        rendered.join(", ")
-                    )]
+                        },
+                        Some("ModifyTargets"),
+                        power != "Amount::Fixed(0)" || toughness != "Amount::Fixed(0)",
+                        duration,
+                    )?]
                 } else {
                     let mut out = Vec::new();
                     if has_pump || prevent_mods.is_empty() {
@@ -10056,7 +10071,16 @@ impl Tx<'_> {
             let u = u_str.trim().parse::<u32>().ok()?;
             Some((format!("Amount::Fixed({k})"), format!("Amount::Fixed({u})")))
         });
-        let amount = if kicked_copies.is_some() {
+        let target_match_copies = if kicked_copies.is_none()
+            && target.is_some_and(|t| t.starts_with("TargetSpec::Object("))
+        {
+            p.peek("NumCopies")
+                .map(str::to_string)
+                .and_then(|raw| self.wave28d_target_valid_plus_amount(&raw))
+        } else {
+            None
+        };
+        let amount = if kicked_copies.is_some() || target_match_copies.is_some() {
             p.take("NumCopies");
             String::new()
         } else {
@@ -10079,13 +10103,20 @@ impl Tx<'_> {
             Some(_) => return None,
         };
         let wrap = |mk: &dyn Fn(&str) -> String| -> Vec<String> {
-            let base = match &kicked_copies {
-                Some((k, u)) => format!(
+            let base = if let Some((k, u)) = &kicked_copies {
+                format!(
                     "Effect::IfKicked {{ then: &[{}], otherwise: &[{}] }}",
                     mk(k),
                     mk(u)
-                ),
-                None => mk(&amount),
+                )
+            } else if let Some((filter, hi, lo)) = &target_match_copies {
+                format!(
+                    "Effect::IfTargetMatchesElse {{ filter: &{filter}, then: &[{}], otherwise: &[{}] }}",
+                    mk(hi),
+                    mk(lo)
+                )
+            } else {
+                mk(&amount)
             };
             vec![if optional {
                 format!("Effect::MayDo {{ effects: &[{base}] }}")
@@ -10094,8 +10125,7 @@ impl Tx<'_> {
             }]
         };
         let choose_filter = if populate {
-            if target.is_some()
-                || targets_here
+            if targets_here
                 || p.has("Defined")
                 || p.has("Choices")
                 || !matches!(p.take("Controller").as_deref(), None | Some("You"))
@@ -10107,10 +10137,11 @@ impl Tx<'_> {
                 "Filter::And(&[Filter::CREATURE, Filter::IsToken, Filter::ControlledByYou])",
             ))
         } else if let Some(choices) = p.take("Choices") {
-            if target.is_some()
-                || targets_here
+            if targets_here
                 || p.has("Defined")
                 || p.has("RandomCopied")
+                || choices.contains("Targeted")
+                || choices.contains("ParentTarget")
                 || !matches!(p.take("Chooser").as_deref(), None | Some("You"))
                 || !matches!(p.take("Controller").as_deref(), None | Some("You"))
             {
@@ -13202,6 +13233,7 @@ impl Tx<'_> {
                 .svar_condition(&var, &cmp)
                 .or_else(|| self.extra_svar_condition_clause(&var, &cmp))
                 .or_else(|| self.wave7_svar_condition(&var, &cmp))
+                .or_else(|| self.wave28d_svar_cost_condition(&var, &cmp))
             else {
                 return Err(());
             };
