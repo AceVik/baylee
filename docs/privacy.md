@@ -1186,7 +1186,7 @@ to weigh, not conclusions.
    files), and the files rsyslog, fail2ban and ufw write from it rotate
    daily with `maxage 14` (since 25.11.2026). Backups, planned and not yet
    running, are encrypted on the server and kept on Google Drive: at most
-   14 days for undelivered messages, 12 months for the rest
+   three weeks for undelivered messages, 12 months for the rest
    (`docs/proposals/legal-open-beta.md`, point 8).
 5. **Game records** (#315) are kept without a time limit. The record names
    no account; who sat in a seat is `game_record_seat.account_id` (and
