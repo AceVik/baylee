@@ -3055,7 +3055,7 @@ impl Tx<'_> {
 
     /// Lower `ChangeZoneAll | Origin$ Battlefield | Destination$ Hand |
     /// ChangeType$ Creature.powerGT<X>+ControlledBy TriggeredPlayer` on a `Phase` trigger
-    /// where `<X> = TriggeredPlayer$CardsInHand` (*Noetic Scales*) into `Effect::BounceAll`.
+    /// where `<X> = TriggeredPlayer$CardsInHand` (*Noetic Scales*) into `Effect::ReturnAllToHand`.
     fn wave28d_noetic_scales_bounce_all(&mut self, p: &mut Params) -> Option<Vec<String>> {
         if self.trigger_mode.as_deref() != Some("Phase") || p.has("Defined") {
             return None;
@@ -3082,7 +3082,9 @@ impl Tx<'_> {
              Filter::Not(&Filter::PowerAtMostAmount(&Amount::HandSize(PlayerRel::ActivePlayer)))])",
         );
         *p = probe;
-        Some(vec![format!("Effect::BounceAll {{ filter: &{name} }}")])
+        Some(vec![format!(
+            "Effect::ReturnAllToHand {{ filter: &{name}, opponents_only: false }}"
+        )])
     }
 }
 

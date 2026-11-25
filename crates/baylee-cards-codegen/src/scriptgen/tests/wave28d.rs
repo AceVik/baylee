@@ -1506,7 +1506,7 @@ fn wave28d_p3_zones_mill_and_piles() {
          SVar:X:TriggeredPlayer$CardsInHand",
     );
     assert!(
-        noetic.abilities[0].contains("Effect::BounceAll")
+        noetic.abilities[0].contains("Effect::ReturnAllToHand")
             && noetic
                 .statics
                 .contains("Filter::Not(&Filter::PowerAtMostAmount(&Amount::HandSize(PlayerRel::ActivePlayer)))"),
