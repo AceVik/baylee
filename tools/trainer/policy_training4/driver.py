@@ -130,8 +130,10 @@ def _main(resources):
     final_accepted = accept_final_state(net, saved["state_dict"], float("inf") if drifted else final_kl, args.target_kl)
     if not final_accepted:
         accepted, accepted_decisions = 0, 0
-        reason = ("rollout_wide_kl_rejected; published_unchanged_source" if not drifted else
-                  f"rollout_wide_uncertified_drift_rejected ({', '.join(drifted)}); published_unchanged_source")
+        # The certified rows name the reason where they exceed the target too.
+        within = np.isfinite(final_kl) and final_kl <= args.target_kl
+        reason = (f"rollout_wide_uncertified_drift_rejected ({', '.join(drifted)}); published_unchanged_source"
+                  if drifted and within else "rollout_wide_kl_rejected; published_unchanged_source")
     state = {key: value.detach().cpu().clone() for key, value in net.state_dict().items()}
     for key, value in saved["state_dict"].items():
         if not key.startswith(POLICY_PREFIXES) and not torch.equal(value.cpu(), state[key]):

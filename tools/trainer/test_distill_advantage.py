@@ -591,6 +591,7 @@ class AdvantageDriver(unittest.TestCase):
             self.assertEqual(named["row_weight"], dict(rule="constant_v2", rows_per_batch=2.))
             self.assertEqual(saved["checkpoint_selection"], "distill_advantage")
             text = logs["advantage"].getvalue()
+            self.assertIn("advantage_rows=2.0", text)      # the scope the loss read: two probes, one batch
             train = json.loads(text.split("[distill] train ", 1)[1].splitlines()[0])
             self.assertIsNotNone(train["bce_adv_pairwise"])
             self.assertIsNone(train["ce_r"])
