@@ -95,17 +95,18 @@ impl TrainDecks {
         })
     }
 
+    /// The manifest, as a dataset names it.
+    #[cfg(feature = "onnx")]
+    pub(super) fn describe(&self) -> Value {
+        json!({"manifest": self.path, "manifest_sha256": self.sha256})
+    }
+
     /// Every deck a run can seat (its `run.json` decks, from which each
     /// table's decks are taken), each checked to be in the train split.
     ///
     /// # Errors
     /// A run that names no decks, or any deck the manifest puts in another
     /// split or does not list, named with its split.
-    /// The manifest, as a dataset names it.
-    pub(super) fn describe(&self) -> Value {
-        json!({"manifest": self.path, "manifest_sha256": self.sha256})
-    }
-
     pub(super) fn seated(&self, run_dir: &Path, run_json: &Value) -> anyhow::Result<Vec<String>> {
         let decks = run_json["decks"]
             .as_array()
@@ -547,6 +548,12 @@ fn probe_binds(label: &DistillLabel4, probe: &DistillProbe4) -> Result<(), Strin
         return Err(format!(
             "the probe's rival is menu entry {}, the label's R {}",
             probe.rival_index, label.rules.single_idx
+        ));
+    }
+    if probe.own_index == probe.rival_index {
+        return Err(format!(
+            "the probe's N and R are one menu entry ({})",
+            probe.own_index
         ));
     }
     if probe.worlds.is_empty() || probe.worlds.len() != probe.ends.len() {
@@ -1050,6 +1057,9 @@ mod tests {
             probe_binds(&differs, &probe(3, vec![[0.4, 0.5]])).is_err(),
             "not R"
         );
+        let mut own = probe(2, vec![[0.4, 0.5]]);
+        own.own_index = 2;
+        assert!(probe_binds(&differs, &own).is_err(), "N is R's entry");
         assert!(
             probe_binds(&differs, &probe(2, vec![])).is_err(),
             "no world"

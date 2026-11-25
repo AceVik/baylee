@@ -18,8 +18,9 @@
 //! two seeds, and the converter keeps it only where both forks give the same
 //! frame byte for byte (a draw, a reveal or any other event that shows the
 //! seat a dealt card makes them differ), and where the fork's frame of the
-//! root is the replay's own. Seeds are a function of the game, the seat and
-//! the root's cursor alone, so a capture is a function of its record.
+//! root is the replay's own. Seeds are a function of the game's id in the
+//! dataset, the seat and the root's cursor alone, so a capture is a function
+//! of its record and that id.
 
 use baylee_core::ids::PlayerId;
 use baylee_engine::choice::{Pending, PlayerAction};

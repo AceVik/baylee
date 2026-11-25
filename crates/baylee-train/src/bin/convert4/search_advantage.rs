@@ -94,7 +94,11 @@ struct Leaves {
 struct Event {
     accepted: bool,
     seat: u8,
-    record_input_n: u64,
+    /// The record's input that answered it; `None` where the table refused
+    /// the answer, which no input of the record is
+    /// (`eval4`'s `bind_fallback_events`).
+    #[serde(default)]
+    record_input_n: Option<u64>,
     /// The answer played.
     action: PlayerAction,
     candidates: Vec<PlayerAction>,
@@ -180,6 +184,8 @@ impl GameRoots {
                 Some("game_fallback")
             } else if !event.accepted {
                 Some("not_accepted")
+            } else if event.record_input_n.is_none() {
+                Some("unbound")
             } else if event.leaves.stopped != 0 {
                 Some("stopped")
             } else if event.candidates.first().and_then(root_kind).is_none() {
@@ -192,18 +198,21 @@ impl GameRoots {
                 || event.chosen >= event.candidates.len()
             {
                 Some("malformed")
+            } else if event.worlds.len() < 2 {
+                // One world has no standard error, and an item that was a
+                // candidate must have one.
+                Some("one_world")
             } else {
                 None
             };
-            match reason {
-                Some(reason) => counts.drop(reason),
-                None => {
+            match (reason, event.record_input_n) {
+                (None, Some(input)) => {
                     ensure!(
-                        kept.insert((event.seat, event.record_input_n), event)
-                            .is_none(),
+                        kept.insert((event.seat, input), event).is_none(),
                         "two search events answer one record input"
                     );
                 }
+                (reason, _) => counts.drop(reason.unwrap_or("unbound")),
             }
         }
         Ok(Self {
@@ -341,6 +350,8 @@ pub(super) struct GameLabels<'a> {
     twins: super::output::GameWriter,
     rows: Vec<Row>,
     counts: Counts,
+    /// Roots the replay met, labelled or dropped.
+    met: usize,
     /// `--search-afterstates`: the game's afterstates.
     afterstates: Option<super::afterstates::GameAfterstates>,
 }
@@ -380,6 +391,7 @@ impl<'a> GameLabels<'a> {
             )?,
             rows: Vec::new(),
             counts: roots.counts.clone(),
+            met: 0,
             afterstates: afterstates
                 .then(|| super::afterstates::GameAfterstates::new(root, game_id, rule_roots))
                 .transpose()?,
@@ -404,6 +416,7 @@ impl<'a> GameLabels<'a> {
                 root.record_input_n
             ));
         };
+        self.met += 1;
         // The event binds to its frame: what it played is the record's answer.
         let played = macro_item(
             &root.menu,
@@ -501,12 +514,16 @@ impl<'a> GameLabels<'a> {
         intent
     }
 
-    /// Publishes the game's twins (where it has any) and gives its rows,
-    /// counts and twin shard.
+    /// Publishes the game's twins and gives its rows, counts and twin shard.
+    /// A root the replay gave no frame for is counted as `no_frame`, so that
+    /// every event is labelled or dropped for a reason.
     ///
     /// # Errors
     /// When the twins' stream cannot be published.
-    pub(super) fn finish(self) -> anyhow::Result<GameFinished> {
+    pub(super) fn finish(mut self) -> anyhow::Result<GameFinished> {
+        for _ in self.met..self.roots.events.len() {
+            self.counts.drop("no_frame");
+        }
         let shard = self.twins.finish()?;
         let after = self
             .afterstates
@@ -849,6 +866,37 @@ mod tests {
         assert!(fallen.events.is_empty());
         assert_eq!(fallen.counts.dropped["game_fallback"], 3);
         assert!(GameRoots::from_game(&json!({"fallback_answers": 0})).is_err());
+    }
+
+    /// What a root is left out for, and that leaving one out is no error: a
+    /// refused answer has no record input, one world no standard error.
+    #[test]
+    fn a_refused_an_unbound_and_a_one_world_event_are_counted_and_left_out() {
+        let event = json!({"accepted": true, "seat": 0, "record_input_n": 5,
+            "action": "PassPriority", "candidates": ["PassPriority", {"PlayLand": {"card": 3}}],
+            "scripts": [null, null], "worlds": [[0.5, 0.6], [0.5, 0.4]], "chosen": 0,
+            "leaves": {"stopped": 0}, "diffs": [0.0, 0.0], "ses": [null, 0.1]});
+        let mut refused = event.clone();
+        refused["accepted"] = json!(false);
+        refused.as_object_mut().unwrap().remove("record_input_n");
+        let mut unbound = event.clone();
+        unbound["record_input_n"] = json!(null);
+        let mut one_world = event.clone();
+        one_world["record_input_n"] = json!(9);
+        one_world["worlds"] = json!([[0.5, 0.6]]);
+        let game = json!({"fallback_answers": 0, "refused_answers": 0,
+            "search_events": [event, refused, unbound, one_world]});
+        let roots = GameRoots::from_game(&game).unwrap();
+        assert_eq!(roots.events.keys().collect::<Vec<_>>(), [&(0, 5)]);
+        assert_eq!(
+            roots.counts.dropped,
+            BTreeMap::from([
+                ("not_accepted".to_owned(), 1),
+                ("one_world".to_owned(), 1),
+                ("unbound".to_owned(), 1),
+            ])
+        );
+        assert_eq!(roots.counts.events, 4);
     }
 }
 

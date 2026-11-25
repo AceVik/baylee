@@ -141,7 +141,8 @@ struct Args {
     )]
     search_advantage: bool,
     /// Converts only the first N games, in the runs' and their `games.jsonl`
-    /// order (never by outcome): a probe's subset.
+    /// order, which is the order they ended in: a probe's subset, whose games
+    /// are shorter than the run's, and no sample of it. Never on-policy.
     #[arg(long)]
     first_games: Option<usize>,
     /// With `--search-advantage`: a JSON receipt of how the converter was
@@ -268,6 +269,9 @@ fn main() -> anyhow::Result<()> {
     if args.search_advantage && !args.include_passive_obs {
         bail!("--search-advantage requires --include-passive-obs for complete recurrent history");
     }
+    if args.search_afterstates && args.encoder_version != 10 {
+        bail!("--search-afterstates encodes as encoder 10 (--encoder-version 10)");
+    }
     if args.out.exists() {
         bail!("{} already exists", args.out.display());
     }
@@ -307,6 +311,18 @@ fn main() -> anyhow::Result<()> {
         .then(|| bundle_distill::TrainDecks::load(&args.train_manifest))
         .transpose()?;
     let mut search_sources = Vec::new();
+    // Read before any game converts: a receipt that cannot be read must not
+    // cost the conversion.
+    #[cfg(feature = "onnx")]
+    let search_receipt = args
+        .search_advantage_receipt
+        .as_deref()
+        .map(|path| -> anyhow::Result<Value> {
+            let bytes = fs::read(path).with_context(|| format!("reading {}", path.display()))?;
+            Ok(json!({"path": path, "sha256": shadow::sha(&bytes),
+                "receipt": serde_json::from_slice::<Value>(&bytes)?}))
+        })
+        .transpose()?;
     fs::create_dir_all(&args.out)?;
 
     let mut games: Vec<GameRef> = Vec::new();
@@ -330,14 +346,12 @@ fn main() -> anyhow::Result<()> {
             admit_run(run_dir, &run_json)?;
         }
         if let Some(decks) = &search_decks {
-            anyhow::ensure!(
-                run_json["search"].is_object(),
-                "{}: --search-advantage reads searched runs only",
-                run_dir.display()
-            );
+            search_run_admitted(&run_json, args.search_afterstates)
+                .with_context(|| run_dir.display().to_string())?;
             let seated = decks.seated(run_dir, &run_json)?;
             search_sources.push(
                 json!({"run": run_dir, "search": run_json["search"]["contract"],
+                "search_settings": run_json["search"],
                 "collection_build": run_json["evaluator_build"],
                 "collection_revision": run_json["evaluator_revision"],
                 "collection_dirty": run_json["evaluator_dirty"], "decks": seated.len()}),
@@ -359,6 +373,10 @@ fn main() -> anyhow::Result<()> {
             explored_runs.push(contract.clone());
         }
         if on_policy.is_some() {
+            anyhow::ensure!(
+                args.first_games.is_none(),
+                "an on-policy collection converts whole: no --first-games"
+            );
             anyhow::ensure!(
                 args.include_passive_obs
                     && args.val_every == 0
@@ -556,7 +574,7 @@ fn main() -> anyhow::Result<()> {
                     args.val_runs.contains(run_dir)
                 },
             });
-            // A probe's subset: the first games in order, never by outcome.
+            // A probe's subset: the first games in the order they ended in.
             if args.first_games.is_some_and(|n| games.len() >= n) {
                 break 'runs;
             }
@@ -692,6 +710,10 @@ fn main() -> anyhow::Result<()> {
         "coverage_matrix": CoverageMatrix4::default().counts,
         "elapsed_secs": 0.0,
     });
+    if let Some(n) = args.first_games {
+        // Only a cut dataset names it, so that others' metadata stays.
+        meta["first_games"] = json!(n);
+    }
     if args.shadow_bc {
         meta["shadow_bc_version"] = json!(1);
         meta["shadow_bc_contract"] = json!("verified_view_only_teacher_v1");
@@ -1052,19 +1074,9 @@ fn main() -> anyhow::Result<()> {
         let (rows, counts, mut shards) =
             std::mem::take(&mut *search_labels.lock().expect("search label lock"));
         shards.sort();
-        let receipt = args
-            .search_advantage_receipt
-            .as_deref()
-            .map(|path| -> anyhow::Result<Value> {
-                let bytes =
-                    fs::read(path).with_context(|| format!("reading {}", path.display()))?;
-                Ok(json!({"path": path, "sha256": shadow::sha(&bytes),
-                    "receipt": serde_json::from_slice::<Value>(&bytes)?}))
-            })
-            .transpose()?;
         let source = json!({"runs": search_sources,
             "decks": search_decks.as_ref().map(bundle_distill::TrainDecks::describe),
-            "converter_build": baylee_build::short(), "converter_check": receipt,
+            "converter_build": baylee_build::short(), "converter_check": search_receipt,
             "first_games": args.first_games});
         let header =
             search_advantage::write(&args.out.join("search-advantage"), rows, &counts, &source)?;
@@ -1141,6 +1153,29 @@ fn refuse_measurement(run: &Value) -> anyhow::Result<()> {
     Ok(())
 }
 
+/// Whether `--search-advantage` may read a run: a searched one that is data,
+/// and with `--search-afterstates` one whose roots a frame cursor has room for.
+fn search_run_admitted(run: &Value, afterstates: bool) -> anyhow::Result<()> {
+    anyhow::ensure!(
+        run["search"].is_object(),
+        "--search-advantage reads searched runs only"
+    );
+    anyhow::ensure!(
+        run["numbers_only"] != true,
+        "--search-advantage refuses a run for numbers only"
+    );
+    anyhow::ensure!(
+        !afterstates
+            || run["search"]["candidates"]
+                .as_u64()
+                .is_none_or(|k| k <= u64::from(baylee_train_ops::search_advantage::AFTER_PER_ROOT)),
+        "--search-afterstates has room for {} candidates a root; this run searched {}",
+        baylee_train_ops::search_advantage::AFTER_PER_ROOT,
+        run["search"]["candidates"]
+    );
+    Ok(())
+}
+
 fn write_f32_bin(path: &Path, data: &[f32]) -> anyhow::Result<()> {
     let mut f = BufWriter::new(File::create(path)?);
     for &v in data {
@@ -1161,6 +1196,19 @@ fn admit_run(run_dir: &Path, run_json: &Value) -> anyhow::Result<()> {
 #[cfg(test)]
 mod admission_tests {
     use super::*;
+
+    #[test]
+    fn a_search_advantage_run_is_searched_data_whose_roots_fit() {
+        let run = |numbers_only: Value, candidates: u64| {
+            serde_json::json!({"numbers_only": numbers_only,
+                "search": {"contract": "belief_lookahead_v5", "candidates": candidates}})
+        };
+        search_run_admitted(&run(json!(false), 32), false).unwrap();
+        search_run_admitted(&run(Value::Null, 8), true).unwrap();
+        assert!(search_run_admitted(&run(json!(true), 4), false).is_err());
+        assert!(search_run_admitted(&run(json!(false), 9), true).is_err());
+        assert!(search_run_admitted(&json!({"numbers_only": false}), false).is_err());
+    }
 
     #[test]
     fn imitation_runs_are_refused_and_ordinary_runs_read() {

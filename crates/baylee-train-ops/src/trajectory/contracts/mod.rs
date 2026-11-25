@@ -47,13 +47,18 @@ pub fn validate_encoder_rows(root: &Path, meta: &Value) -> Result<()> {
     if !matches!(encoder, Some(7..=10)) {
         return Ok(());
     }
-    // A search-advantage dataset's twins are a split of their own.
+    // A search-advantage dataset's twins are a split of their own, and so
+    // are its afterstates.
     for (split, key) in [
         ("train", "train_shards"),
         ("val", "val_shards"),
         (
             crate::search_advantage::MENUS_SPLIT,
             crate::search_advantage::MENUS_SHARDS_KEY,
+        ),
+        (
+            crate::search_advantage::AFTERSTATE_FRAMES_SPLIT,
+            crate::search_advantage::AFTERSTATE_SHARDS_KEY,
         ),
     ] {
         if let Some(shards) = meta[key].as_array() {

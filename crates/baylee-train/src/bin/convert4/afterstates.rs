@@ -43,7 +43,7 @@ pub(super) const AFTER_SHARDS_KEY: &str = baylee_train_ops::search_advantage::AF
 /// The bytes of an index row.
 pub(super) const AFTER_ROW: usize = 48;
 /// Candidates per root a frame cursor has room for.
-const PER_ROOT: u32 = 8;
+const PER_ROOT: u32 = baylee_train_ops::search_advantage::AFTER_PER_ROOT;
 
 /// The stop codes: [`AfterStop4`]'s, then the two checks a reached position
 /// can fail.

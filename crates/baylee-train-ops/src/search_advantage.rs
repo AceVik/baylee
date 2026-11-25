@@ -32,6 +32,10 @@ pub const AFTERSTATE_FRAMES_SPLIT: &str = "search-afterstate-frames";
 /// The `meta.json` key that lists the afterstate frames' shards.
 pub const AFTERSTATE_SHARDS_KEY: &str = "search_afterstates_shards";
 
+/// The most candidates of a root an afterstate frame's cursor has room for:
+/// it is this times the root's cursor plus the candidate.
+pub const AFTER_PER_ROOT: u32 = 8;
+
 /// The block a twin frame ends in, after its BST4 payload.
 pub const TWIN_BLOCK_MAGIC: &[u8; 4] = b"BSA1";
 
