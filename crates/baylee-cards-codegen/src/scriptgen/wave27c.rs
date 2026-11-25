@@ -239,9 +239,10 @@ impl Tx<'_> {
         // 2. Inside CaptureAffected::then: `ChangeZoneAll` moving `<F>.IsRemembered`
         //    from `Graveyard,Exile` / `Exile` / `Graveyard` -> `Hand` / `Battlefield` / `Exile`.
         let scope = self.capture_scope.as_ref()?;
-        if targets_a_player || (target.is_some() && !prior_target_used) {
+        if targets_a_player {
             return None;
         }
+        let _ = (target, prior_target_used);
         let origin = p.peek("Origin")?;
         let dest = p.peek("Destination")?;
         let change_type = p.peek("ChangeType")?;
@@ -639,7 +640,10 @@ impl Tx<'_> {
         } else {
             self.wave27c_lower_capture_first(api, &mut probe_p, target, flags)?
         };
-        if !probe_p.exhausted() || first_effects.is_empty() {
+        let allow_line_cond = api == "Sacrifice"
+            && probe_p.peek("ConditionPresent").is_some()
+            && Self::only_condition_keys_left(&probe_p);
+        if (!probe_p.exhausted() && !allow_line_cond) || first_effects.is_empty() {
             return None;
         }
 
@@ -666,6 +670,21 @@ impl Tx<'_> {
         let (closed_by_cleanup, after_cleanup) = walked?;
 
         if then_chain.effects.is_empty() {
+            return None;
+        }
+        // When `first` carried a line condition (e.g. `Daredevil Dragster`:
+        // `Sacrifice | SacValid$ Self | RememberSacrificed$ True | ConditionPresent$ ...`),
+        // wrapping `CaptureAffected` in `IfCondition` is equivalent ONLY when `then`
+        // itself requires at least one remembered object (`RememberedCount >= 1`).
+        if allow_line_cond
+            && !then_chain.effects.iter().all(|e| {
+                e.starts_with(
+                    "Effect::IfCondition { condition: Condition::AmountCompare { \
+                     left: &Amount::RememberedCount, op: AmountCmp::AtLeast, \
+                     right: &Amount::Fixed(1) }",
+                )
+            })
+        {
             return None;
         }
         // On permanent abilities (triggers / activated abilities), omitting
@@ -697,6 +716,31 @@ impl Tx<'_> {
 
         *p = probe_p;
         *sub = after_cleanup;
+        // If `first_effects` starts with `Effect::RevealHand { .. }` before a
+        // discard (`Traumatic Revelation`), hoist `RevealHand` OUTSIDE
+        // `CaptureAffected::first` so `harvest_captured` never falls back to
+        // harvesting the revealed hand cards as "discarded" when 0 cards are discarded.
+        if api == "Discard"
+            && first_effects.len() >= 2
+            && first_effects[0].starts_with("Effect::RevealHand ")
+        {
+            let reveal = first_effects[0].clone();
+            let rest_first = first_effects[1..].join(", ");
+            return Some(vec![
+                reveal,
+                format!(
+                    "Effect::CaptureAffected {{ first: &[{rest_first}], then: &[{}] }}",
+                    then_chain.effects.join(", "),
+                ),
+            ]);
+        }
+        if api == "Discard"
+            && first_effects
+                .iter()
+                .any(|e| e.starts_with("Effect::RevealHand"))
+        {
+            return None;
+        }
         Some(vec![format!(
             "Effect::CaptureAffected {{ first: &[{}], then: &[{}] }}",
             first_effects.join(", "),
@@ -731,6 +775,19 @@ impl Tx<'_> {
                 return Some(effs);
             }
             return None;
+        }
+        // `Sacrifice | SacValid$ Self` (without `Optional$ True`, e.g. *Daredevil Dragster*):
+        // lower cleanly to `Effect::SacrificeSelf` even when line conditions remain on `p`.
+        if api == "Sacrifice"
+            && !self.on_a_spell
+            && p.peek("SacValid") == Some("Self")
+            && !p.has("Defined")
+            && !p.has("Amount")
+            && !p.has("Optional")
+        {
+            p.take("SacValid");
+            p.take("SacMessage");
+            return Some(vec!["Effect::SacrificeSelf".to_string()]);
         }
         // `Dig` with `ChangeNum$ Any` (Search for Blex): let `dig_effect` handle standard Dig first.
         if api == "Dig" {
@@ -777,13 +834,9 @@ impl Tx<'_> {
             Some(_) => return None,
         };
         let amount_raw = p.take("Amount").unwrap_or_else(|| "1".to_string());
-        let amount: u8 = amount_raw.trim().parse().ok()?;
-        if amount == 0 {
-            return None;
-        }
         let valid = p.take("SacValid")?;
         if valid == "Self" {
-            if amount != 1 || p.has("Defined") {
+            if amount_raw.trim() != "1" || p.has("Defined") {
                 return None;
             }
             return Some(vec![
@@ -806,6 +859,15 @@ impl Tx<'_> {
         }
         let filter_expr = self.filter_expr(&valid)?;
         let filter_name = self.body.filter_static("SAC", &filter_expr);
+        if !strict && self.is_sacrifice_any_number(&amount_raw, &valid, who) {
+            return Some(vec![format!(
+                "Effect::SacrificeAnyNumber {{ who: {who}, filter: &{filter_name} }}"
+            )]);
+        }
+        let amount: u8 = amount_raw.trim().parse().ok()?;
+        if amount == 0 {
+            return None;
+        }
         if amount == 1 {
             let inner = format!("Effect::SacrificeFilter {{ who: {who}, filter: &{filter_name} }}");
             if who == "PlayerRel::You" {
@@ -1023,7 +1085,7 @@ impl Tx<'_> {
 
     /// Strip `IsRemembered` from every comma-separated alternative in `valid`.
     /// Returns `None` if ANY alternative lacks `IsRemembered` or uses `!IsRemembered`.
-    fn strip_is_remembered_all_alts(valid: &str) -> Option<String> {
+    pub(super) fn strip_is_remembered_all_alts(valid: &str) -> Option<String> {
         let mut out = Vec::new();
         for alt in valid.split(',').map(str::trim) {
             if alt.is_empty() || alt.contains("!IsRemembered") {

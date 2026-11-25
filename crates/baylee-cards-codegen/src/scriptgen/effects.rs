@@ -1196,6 +1196,22 @@ impl Tx<'_> {
             }
             return Some(out);
         }
+        if !second
+            && kw_choices.is_none()
+            && let Some(def) = defined.as_deref()
+            && def.starts_with("Targeted.")
+        {
+            return self.wave28d_pump_defined_targeted_qualified(
+                def,
+                target,
+                &power,
+                &toughness,
+                &keywords,
+                duration,
+                has_pump,
+                &prevent_mods,
+            );
+        }
         Some(match defined.as_deref() {
             None | Some("Targeted") => {
                 // Without a target this would pump nothing at all.
@@ -1680,6 +1696,32 @@ impl Tx<'_> {
         {
             return Some(effs);
         }
+        let saved_p_cza = p.clone();
+        let saved_unclaimed_cza = self.unclaimed.borrow().clone();
+        let saved_statics_cza = self.body.statics.len();
+        let out = self.shuffle_into_library_with_prior_inner(
+            p,
+            target,
+            targets_a_player,
+            prior_target_used,
+        );
+        if out.is_some() {
+            return out;
+        }
+        *p = saved_p_cza;
+        *self.unclaimed.borrow_mut() = saved_unclaimed_cza;
+        self.body.statics.truncate(saved_statics_cza);
+        self.wave28d_change_zone_all(p, target, targets_a_player, prior_target_used)
+    }
+
+    #[allow(clippy::too_many_lines)]
+    fn shuffle_into_library_with_prior_inner(
+        &mut self,
+        p: &mut Params,
+        target: Option<&str>,
+        targets_a_player: bool,
+        prior_target_used: bool,
+    ) -> Option<Vec<String>> {
         if p.peek("Origin") == Some("Library") && p.peek("Destination") == Some("Exile") {
             if p.take("ChangeType").as_deref() != Some("Card.YouOwn") {
                 return None;
@@ -7349,7 +7391,7 @@ impl Tx<'_> {
         None
     }
 
-    fn strip_graveyard_owner(valid: &str) -> Option<(Option<&'static str>, String)> {
+    pub(super) fn strip_graveyard_owner(valid: &str) -> Option<(Option<&'static str>, String)> {
         if let Some(stripped) = Self::strip_your_graveyard_owner(valid) {
             return Some((Some("PlayerRel::You"), stripped));
         }
@@ -9380,6 +9422,12 @@ impl Tx<'_> {
             self.trigger_mode.as_deref(),
             Some("Attacks" | "AttackerUnblocked" | "AttackerBlocked")
         );
+        if let Some(amt) = self.wave28d_count_valid_targeted_player(base_raw) {
+            return Some(amt);
+        }
+        if let Some(amt) = self.wave28d_remembered_compare_amount(base_raw) {
+            return Some(amt);
+        }
         if let Some(valid) = base_raw.strip_prefix("Count$ValidHand ") {
             let valid = valid.trim();
             if matches!(valid, "Card.TargetedPlayerOwn" | "Card.TargetedPlayerCtrl") {
@@ -10076,9 +10124,30 @@ impl Tx<'_> {
         let controller =
             self.wave11_player_of_line(p.take("Controller").as_deref(), target, targets_a_player)?;
         let obj_target = target.filter(|t| {
-            t.starts_with("TargetSpec::Object(") || t.starts_with("TargetSpec::CardInGraveyard(")
+            t.starts_with("TargetSpec::Object(")
+                || t.starts_with("TargetSpec::ObjectOfEachOpponent(")
+                || t.starts_with("TargetSpec::CardInGraveyard(")
         });
-        let copy_target = match p.take("Defined").as_deref() {
+        let defined_copy = p.take("Defined");
+        if let Some(raw) = defined_copy.as_deref()
+            && raw.starts_with("Valid ")
+            && (!targets_here || targets_a_player)
+        {
+            let filter_name = self.wave28d_copy_permanent_valid_filter(raw, targets_a_player)?;
+            return Some(wrap(&|amt| {
+                Self::wave28d_copy_permanent_valid_effect(
+                    &filter_name,
+                    controller,
+                    amt,
+                    &mods_list,
+                    tapped,
+                    attacking,
+                    haste_until_eot,
+                    cleanup,
+                )
+            }));
+        }
+        let copy_target = match defined_copy.as_deref() {
             None if targets_here => obj_target?.to_string(),
             Some("Targeted" | "ParentTarget") => obj_target?.to_string(),
             Some("Self") if !self.on_a_spell && (target.is_none() || targets_a_player) => {
@@ -11166,7 +11235,12 @@ impl Tx<'_> {
         Some((on_sac, check_valid, body_effects))
     }
 
-    fn is_sacrifice_any_number(&self, raw_amount: &str, sac_valid: &str, who: &str) -> bool {
+    pub(super) fn is_sacrifice_any_number(
+        &self,
+        raw_amount: &str,
+        sac_valid: &str,
+        who: &str,
+    ) -> bool {
         let trimmed = raw_amount.trim();
         if trimmed == "Any" {
             return true;
@@ -12686,7 +12760,7 @@ impl Tx<'_> {
         )
     }
 
-    fn is_wave8_cleanup_svar(&self, name: &str, allow_chosen_card: bool) -> bool {
+    pub(super) fn is_wave8_cleanup_svar(&self, name: &str, allow_chosen_card: bool) -> bool {
         let Some(body) = self.svars.get(name.trim()) else {
             return false;
         };
@@ -12719,7 +12793,7 @@ impl Tx<'_> {
         any && p.exhausted()
     }
 
-    fn reconstruct_spec(api: &str, p: &Params) -> String {
+    pub(super) fn reconstruct_spec(api: &str, p: &Params) -> String {
         let mut out = format!("DB$ {api}");
         for (k, v) in &p.entries {
             out.push_str(" | ");
@@ -12798,7 +12872,11 @@ impl Tx<'_> {
         None
     }
 
-    fn strip_remembered_ctrl_or_own(valid: &str, suffix_a: &str, suffix_b: &str) -> Option<String> {
+    pub(super) fn strip_remembered_ctrl_or_own(
+        valid: &str,
+        suffix_a: &str,
+        suffix_b: &str,
+    ) -> Option<String> {
         let mut parts = Vec::new();
         for alt in valid.split(',') {
             let trimmed = alt.trim();
@@ -12824,7 +12902,7 @@ impl Tx<'_> {
     /// Resolves per-player `SVar` counts referencing the active `RepeatEach`
     /// loop player (`RememberedPlayerCtrl`, `RememberedPlayerOwn`,
     /// `PlayerCountRemembered$…`) against `who` (`EventPlayer` or `Recipient`).
-    fn scoped_player_amount(&mut self, raw: &str, who: &str) -> Option<String> {
+    pub(super) fn scoped_player_amount(&mut self, raw: &str, who: &str) -> Option<String> {
         let def = self.svars.get(raw.trim())?.trim().to_string();
         let (head, suffix) = def
             .split_once('/')
@@ -13005,6 +13083,10 @@ impl Tx<'_> {
             // Everyone shuffles before the first player draws (CR 608.2c).
             // The draw effect counts by recipient and draws in APNAP order (CR 121.2c).
             Self::shuffle_and_redraw_effects("PlayerRel::EachPlayer", "PlayerRel::Recipient")
+        } else if let Some(sim_sac) =
+            Self::wave28d_collapse_simultaneous_sacrifice(&domain, &body_effects)
+        {
+            sim_sac
         } else {
             vec![format!(
                 "Effect::RepeatEach {{ domain: {domain}, effects: &[{}] }}",
@@ -13154,7 +13236,7 @@ impl Tx<'_> {
         Some(out)
     }
 
-    fn strip_matching_remembered_guard(
+    pub(super) fn strip_matching_remembered_guard(
         sp: &mut Params,
         expected_defined: &str,
         expected_filter: Option<&str>,
@@ -13579,7 +13661,7 @@ impl Tx<'_> {
                     _ => return None,
                 }
             }
-            _ => return None,
+            _ => self.wave28d_repeat_player_special(api, &mut probe)?,
         };
         Some((vec![effect], next_sub.map(str::to_string)))
     }
@@ -13991,7 +14073,7 @@ impl Tx<'_> {
         self.chain_sub_ability(followup.trailing_sub, chain)
     }
 
-    fn extract_battlefield_ctrl_atom(
+    pub(super) fn extract_battlefield_ctrl_atom(
         &self,
         raw: &str,
         targets_a_player: bool,
@@ -14718,6 +14800,21 @@ impl Tx<'_> {
             return self.deny(format!("unclaimed parameter `PeekAndReveal.{key}`"));
         }
         if !Self::is_single_seat_rel(library) {
+            if no_reveal
+                && !no_peek
+                && !remember_revealed
+                && !remember_peeked
+                && reveal_valid.is_none()
+                && !reveal_optional
+            {
+                return self.wave28d_peek_multi_seat_private_look(
+                    library,
+                    &count,
+                    outer_cond.as_deref(),
+                    sub,
+                    chain,
+                );
+            }
             if no_reveal || reveal_optional || remember_peeked || reveal_valid.is_some() {
                 return self.deny(format!("`PeekAndReveal` for multi-seat `{library}`"));
             }
@@ -14763,11 +14860,17 @@ impl Tx<'_> {
             (eff, None)
         } else if no_peek
             && !no_reveal
-            && !reveal_optional
+            && reveal_optional
             && reveal_valid.is_none()
             && !remember_peeked
+            && library == "PlayerRel::You"
         {
-            // Public reveal of top N cards (`Effect::RevealTop` or pick/rest `PeekAndReveal`).
+            let (inner, trailing) =
+                self.peek_public_reveal_top(library, &count, remember_revealed, sub)?;
+            (format!("Effect::MayDo {{ effects: &[{inner}] }}"), trailing)
+        } else if !no_reveal && !reveal_optional && reveal_valid.is_none() && !remember_peeked {
+            // Public reveal of top N cards (`Effect::RevealTop` or pick/rest `PeekAndReveal`),
+            // whether or not `NoPeek$ True` is spelled explicitly.
             self.peek_public_reveal_top(library, &count, remember_revealed, sub)?
         } else if no_reveal && !no_peek && remember_peeked && reveal_valid.is_none() {
             // Private multi-card peek -> ChangeZone pick + rest placement.
@@ -14996,6 +15099,11 @@ impl Tx<'_> {
         let Some(body) = self.svars.get(sub_name.trim()).cloned() else {
             return self.deny(format!("`SubAbility$ {sub_name}` names no SVar"));
         };
+        if let Some(eff) =
+            self.wave28d_peek_optional_top_one_may_rest(&body, library, reveal_valid, &filter_ref)
+        {
+            return Some(eff);
+        }
         if let Some((picked, rest)) = self.try_peek_top_one_move(&body, library, reveal_valid) {
             return Some(format!(
                 "Effect::PeekAndReveal {{ library: {library}, count: Amount::Fixed(1), \
@@ -15266,7 +15374,20 @@ impl Tx<'_> {
                 {
                     false
                 }
-                _ => return self.deny("`RevealTop` branches with differing filters".to_string()),
+                _ => {
+                    if count == "Amount::Fixed(1)" {
+                        let saved_unclaimed = self.unclaimed.borrow().clone();
+                        let saved_statics = self.body.statics.len();
+                        if let Some(eff) =
+                            self.wave28d_peek_multi_filter_reveal_top(library, sub_name)
+                        {
+                            return Some((eff, None));
+                        }
+                        *self.unclaimed.borrow_mut() = saved_unclaimed;
+                        self.body.statics.truncate(saved_statics);
+                    }
+                    return self.deny("`RevealTop` branches with differing filters".to_string());
+                }
             };
             sp.take("ConditionDefined");
             sp.take("ConditionPresent");

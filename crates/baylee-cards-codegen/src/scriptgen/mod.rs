@@ -75,6 +75,7 @@ mod wave27c;
 mod wave27d;
 mod wave27e;
 mod wave28c;
+mod wave28d;
 
 use atoms::{
     Bound, amount, color_atom, count_bound, hybrid_pair, keyword_atom, mana_color_const,
@@ -569,6 +570,14 @@ struct Tx<'a> {
     overload_cost: Option<String>,
     /// Active Wave 27c `Effect::CaptureAffected::then` scope, if any.
     capture_scope: Option<wave27c::CaptureScope>,
+    /// Player relation naming the chain's single targeted player while lowering
+    /// a line (`Some("PlayerRel::Chosen")` on Slot 1, or
+    /// `Some("PlayerRel::FirstTargetPlayerOrController")` inside Slot 2's
+    /// `WithSecondTarget`, where `res.chosen_player` is overwritten).
+    current_single_player_rel: Option<&'static str>,
+    /// True while lowering a line/chain that targets an object (used to gate
+    /// `Targeted.<Type>+Attached` and `Targeted.Other+<...>` battlefield filters).
+    current_object_target: bool,
     body: CardBody,
     /// The first `Api.Key` no rule claimed, if that is why this
     /// script was refused. Recorded rather than derived, because a
@@ -652,6 +661,8 @@ impl<'a> Tx<'a> {
             class_next_level: 2,
             overload_cost: None,
             capture_scope: None,
+            current_single_player_rel: None,
+            current_object_target: false,
             body: CardBody::default(),
             unclaimed: std::cell::RefCell::new(None),
         }
