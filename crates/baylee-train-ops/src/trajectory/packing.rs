@@ -277,11 +277,41 @@ fn real(raw: &[u8], offset: usize) -> Result<f64> {
     ensure!(value.is_finite(), "nonfinite BST4 header");
     Ok(f64::from(value))
 }
-/// Decode admission metadata and conditional masks from a BST4 frame.
+/// Decode admission metadata and conditional masks from a BST4 frame of any
+/// split but a search-advantage dataset's twins ([`twin_metadata`]).
 ///
 /// # Errors
-/// Rejects truncated or unknown frames and inconsistent payload sizes.
+/// Rejects truncated or unknown frames, inconsistent payload sizes, and any
+/// trailing bytes that are no distillation block, a twin's among them.
 pub fn metadata(raw: &[u8]) -> Result<Value> {
+    let (value, trailing) = decode(raw)?;
+    // A distillation dataset may append exactly one block after the payload.
+    crate::tactician_labels::trailing_distill_block(trailing)
+        .context("BST4 payload shape/length mismatch")?;
+    Ok(value)
+}
+
+/// [`metadata`] of a frame of the twins' split
+/// ([`crate::search_advantage::MENUS_SPLIT`]): after its payload stands
+/// exactly one BSA1 block, which names the frame's own cursor.
+///
+/// # Errors
+/// As [`metadata`], and a frame without the block or whose block names
+/// another cursor.
+pub fn twin_metadata(raw: &[u8]) -> Result<Value> {
+    let (value, trailing) = decode(raw)?;
+    let root = crate::search_advantage::read_twin_block(trailing)?
+        .context("a search-advantage twin without its BSA1 block")?;
+    ensure!(
+        value["step_cursor"] == root,
+        "a twin's BSA1 block names cursor {root}, its frame {}",
+        value["step_cursor"]
+    );
+    Ok(value)
+}
+
+/// A BST4 frame's admission metadata and the bytes after its payload.
+fn decode(raw: &[u8]) -> Result<(Value, &[u8])> {
     ensure!(
         raw.starts_with(b"BST4") && word(raw, 4)? == 1 && raw.len() >= HEADER_SIZE,
         "invalid BST4 frame header"
@@ -323,14 +353,8 @@ pub fn metadata(raw: &[u8]) -> Result<Value> {
         .into_iter()
         .try_fold(HEADER_SIZE as u64, |sum, n| sum.checked_add(n?).or(None))
         .context("BST4 dimensions overflow")?;
-    // A distillation dataset may append exactly one block after the payload,
-    // and a search-advantage twin exactly one of its own.
     let payload = usize::try_from(length)?;
     ensure!(payload <= raw.len(), "BST4 payload shape/length mismatch");
-    if crate::search_advantage::read_twin_block(&raw[payload..])?.is_none() {
-        crate::tactician_labels::trailing_distill_block(&raw[payload..])
-            .context("BST4 payload shape/length mismatch")?;
-    }
     let multi = usize::try_from(multi)?;
     let free = usize::try_from(free)?;
     let start = payload - multi - free;
@@ -351,5 +375,5 @@ pub fn metadata(raw: &[u8]) -> Result<Value> {
         value["behavior_mixture"] = json!({"mixture_logprob": mixture.mixture_logprob,
             "rule": mixture.rule, "played": mixture.played, "proposer": mixture.proposer});
     }
-    Ok(value)
+    Ok((value, &raw[payload..]))
 }

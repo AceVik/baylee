@@ -8,9 +8,10 @@
 //! for), in the dataset's split [`MENUS_SPLIT`] under the root's own
 //! (game, seat, cursor). A twin's payload ends in exactly one
 //! [`twin_block`]: [`TWIN_BLOCK_MAGIC`], the kind byte [`TWIN_KIND`], three
-//! zero bytes, the root's cursor (`u32`, little-endian) and four zero bytes,
-//! so a reader that does not know twins refuses one rather than taking it for
-//! a decision of its own. The labels themselves are the sidecar
+//! zero bytes, the root's cursor (`u32`, little-endian) and four zero bytes.
+//! A frame of that split ends in the block and a frame of no other split does
+//! (`trajectory::packing::twin_metadata`), so a twin is never taken for a
+//! decision of its own. The labels themselves are the sidecar
 //! `search-advantage/` (`convert4`'s `search_advantage` module).
 
 use anyhow::{Result, ensure};

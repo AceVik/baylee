@@ -1,5 +1,8 @@
 use super::*;
 use crate::files;
+use crate::search_advantage::{
+    AFTERSTATE_FRAMES_SPLIT, AFTERSTATE_SHARDS_KEY, MENUS_SHARDS_KEY, MENUS_SPLIT,
+};
 use anyhow::Result;
 use flate2::{
     Compression,
@@ -94,13 +97,25 @@ fn bst4_layout_and_admission_metadata_match_the_fixed_python_abi() -> Result<()>
     let mut distilled = raw.clone();
     distilled.extend_from_slice(&crate::tactician_labels::distill_block(2, 1 << 8));
     assert_eq!(packing::metadata(&distilled)?, meta);
-    // A search-advantage twin: the payload, then exactly one BSA1 block.
+    // A search-advantage twin: the payload, then exactly one BSA1 block that
+    // names the frame's own cursor. It is a frame of its own split only, and
+    // no other frame is one of that split.
+    let cursor = u32::try_from(meta["step_cursor"].as_u64().unwrap())?;
     let mut twin = raw.clone();
-    twin.extend_from_slice(&crate::search_advantage::twin_block(41));
-    assert_eq!(packing::metadata(&twin)?, meta);
+    twin.extend_from_slice(&crate::search_advantage::twin_block(cursor));
+    assert_eq!(packing::twin_metadata(&twin)?, meta);
+    assert!(packing::metadata(&twin).is_err());
+    for plain in [&raw, &distilled] {
+        assert!(packing::twin_metadata(plain).is_err());
+    }
     let mut two = twin.clone();
-    two.extend_from_slice(&crate::search_advantage::twin_block(41));
-    assert!(packing::metadata(&two).is_err());
+    two.extend_from_slice(&crate::search_advantage::twin_block(cursor));
+    let mut other = raw.clone();
+    other.extend_from_slice(&crate::search_advantage::twin_block(cursor + 1));
+    for wrong in [&two, &other] {
+        assert!(packing::twin_metadata(wrong).is_err());
+        assert!(packing::metadata(wrong).is_err());
+    }
     for trailing in [
         &b"BDX1"[..],
         &[0; 16][..],
@@ -111,6 +126,7 @@ fn bst4_layout_and_admission_metadata_match_the_fixed_python_abi() -> Result<()>
         let mut wrong = raw.clone();
         wrong.extend_from_slice(trailing);
         assert!(packing::metadata(&wrong).is_err());
+        assert!(packing::twin_metadata(&wrong).is_err());
     }
     let mut invalid = raw;
     invalid[88..92].copy_from_slice(&u32::MAX.to_le_bytes());
@@ -281,5 +297,98 @@ fn teacher_markers_are_refused_before_ppo_and_incomplete_contracts_never_build()
         assert!(!root.path().join(".trajectory-cache-v2").exists());
     }
     contracts::reject_policy_gradient(&json!({"policy_provenance_version":2}))?;
+    Ok(())
+}
+
+/// A BS4S shard holding one frame of [`frame`]'s key, `payload` its bytes.
+fn shard(payload: &[u8]) -> Result<Vec<u8>> {
+    let mut encoder = ZlibEncoder::new(Vec::new(), Compression::fast());
+    encoder.write_all(payload)?;
+    let blob = encoder.finish()?;
+    let mut row = [0_u8; 32];
+    row[0..4].copy_from_slice(&7_u32.to_le_bytes());
+    row[4..8].copy_from_slice(&1_u32.to_le_bytes());
+    row[24..28].copy_from_slice(&u32::try_from(blob.len())?.to_le_bytes());
+    row[28..32].copy_from_slice(&1_u32.to_le_bytes());
+    let mut out = b"BS4S\x01\x00\x00\x00".to_vec();
+    out.extend_from_slice(&blob);
+    out.extend_from_slice(&row);
+    out.extend_from_slice(&(8 + blob.len() as u64).to_le_bytes());
+    out.extend_from_slice(&1_u64.to_le_bytes());
+    out.extend_from_slice(b"BS4S_END");
+    Ok(out)
+}
+
+/// A search-advantage dataset of one frame, its twin and an afterstate frame,
+/// each split's frame ending as `plain`, `twin` and `after` say.
+fn search_dataset(root: &std::path::Path, plain: bool, twin: bool, after: bool) -> Result<Value> {
+    let raw = packing::pack_step(&frame(), &BTreeMap::from([("public".into(), 11)]))?;
+    for (split, ends_in_block) in [
+        ("train", plain),
+        (MENUS_SPLIT, twin),
+        (AFTERSTATE_FRAMES_SPLIT, after),
+    ] {
+        std::fs::create_dir_all(root.join(split))?;
+        let mut payload = raw.clone();
+        if ends_in_block {
+            payload.extend_from_slice(&crate::search_advantage::twin_block(0));
+        }
+        std::fs::write(root.join(split).join("game.bst4"), shard(&payload)?)?;
+    }
+    let mut meta = json!({"encoder_version":10,"global_feat_width":80,"val_shards":[]});
+    for key in ["train_shards", MENUS_SHARDS_KEY, AFTERSTATE_SHARDS_KEY] {
+        meta[key] = json!(["game.bst4"]);
+    }
+    files::atomic_json(&root.join("meta.json"), &meta)?;
+    Ok(meta)
+}
+
+#[test]
+fn a_twin_is_a_frame_of_its_own_split_and_of_no_other() -> Result<()> {
+    for (plain, twin, after, valid) in [
+        (false, true, false, true),
+        // A twin among the training frames or the afterstates, and a frame
+        // of the twins' split that is none.
+        (true, true, false, false),
+        (false, true, true, false),
+        (false, false, false, false),
+    ] {
+        let directory = tempfile::tempdir()?;
+        let meta = search_dataset(directory.path(), plain, twin, after)?;
+        assert_eq!(
+            contracts::validate_encoder_rows(directory.path(), &meta).is_ok(),
+            valid,
+            "train {plain}, twins {twin}, afterstates {after}"
+        );
+    }
+    Ok(())
+}
+
+#[test]
+fn a_build_that_names_no_shard_takes_those_the_metadata_lists() -> Result<()> {
+    let directory = tempfile::tempdir()?;
+    let root = directory.path();
+    let mut meta = search_dataset(root, false, true, false)?;
+    for (split, records) in [
+        ("train", 1),
+        ("val", 0),
+        (MENUS_SPLIT, 1),
+        (AFTERSTATE_FRAMES_SPLIT, 1),
+    ] {
+        let receipt = cache::build(root, split, &[])?;
+        assert_eq!(receipt.records, records, "{split}");
+        let named = cache::build(root, "train", &["game.bst4".into()])?;
+        assert_eq!(named.records, 1);
+    }
+    // A search-advantage split takes only shards the metadata lists, and a
+    // dataset without the split has none to build.
+    assert!(cache::build(root, MENUS_SPLIT, &["other.bst4".into()]).is_err());
+    meta.as_object_mut().unwrap().remove(MENUS_SHARDS_KEY);
+    files::atomic_json(&root.join("meta.json"), &meta)?;
+    for shards in [vec![], vec!["game.bst4".to_owned()]] {
+        let error = cache::build(root, MENUS_SPLIT, &shards).err().unwrap();
+        assert!(error.to_string().contains(MENUS_SHARDS_KEY), "{error}");
+    }
+    assert!(cache::build(root, "test", &[]).is_err());
     Ok(())
 }

@@ -47,46 +47,40 @@ pub fn validate_encoder_rows(root: &Path, meta: &Value) -> Result<()> {
     if !matches!(encoder, Some(7..=10)) {
         return Ok(());
     }
-    // A search-advantage dataset's twins are a split of their own, and so
-    // are its afterstates.
-    for (split, key) in [
-        ("train", "train_shards"),
-        ("val", "val_shards"),
-        (
-            crate::search_advantage::MENUS_SPLIT,
-            crate::search_advantage::MENUS_SHARDS_KEY,
-        ),
-        (
-            crate::search_advantage::AFTERSTATE_FRAMES_SPLIT,
-            crate::search_advantage::AFTERSTATE_SHARDS_KEY,
-        ),
-    ] {
-        if let Some(shards) = meta[key].as_array() {
-            for shard in shards {
-                let name = shard.as_str().context("invalid E9 shard")?;
+    for split in &crate::trajectory::SPLITS {
+        let Some(shards) = meta[split.shards_key].as_array() else {
+            continue;
+        };
+        for shard in shards {
+            let name = shard.as_str().context("invalid E9 shard")?;
+            ensure!(
+                Path::new(name).file_name().is_some_and(|n| n == name),
+                "invalid E9 shard path"
+            );
+            let width = |row: Value| {
+                let width = row
+                    .get("global_feat_width")
+                    .and_then(Value::as_u64)
+                    .or_else(|| {
+                        row["state"]["global_feat"]
+                            .as_array()
+                            .map(|a| a.len() as u64)
+                    });
                 ensure!(
-                    Path::new(name).file_name().is_some_and(|n| n == name),
-                    "invalid E9 shard path"
+                    if encoder == Some(9) {
+                        width == Some(82)
+                    } else {
+                        width != Some(82)
+                    },
+                    "Encoder shard tensor width differs from metadata"
                 );
-                super::read_shard(&root.join(split).join(name), |row| {
-                    let width = row
-                        .get("global_feat_width")
-                        .and_then(Value::as_u64)
-                        .or_else(|| {
-                            row["state"]["global_feat"]
-                                .as_array()
-                                .map(|a| a.len() as u64)
-                        });
-                    ensure!(
-                        if encoder == Some(9) {
-                            width == Some(82)
-                        } else {
-                            width != Some(82)
-                        },
-                        "Encoder shard tensor width differs from metadata"
-                    );
-                    Ok(())
-                })?;
+                Ok(())
+            };
+            let path = root.join(split.name).join(name);
+            if split.twins {
+                super::read_twins(&path, width)?;
+            } else {
+                super::read_shard(&path, width)?;
             }
         }
     }

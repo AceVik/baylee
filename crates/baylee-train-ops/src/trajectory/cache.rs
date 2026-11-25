@@ -29,13 +29,7 @@ pub struct Receipt {
 }
 fn paths(root: &Path, split: &str, shards: &[String]) -> Result<Vec<PathBuf>> {
     ensure!(
-        [
-            "train",
-            "val",
-            crate::search_advantage::MENUS_SPLIT,
-            crate::search_advantage::AFTERSTATE_FRAMES_SPLIT,
-        ]
-        .contains(&split),
+        super::SPLITS.iter().any(|known| known.name == split),
         "invalid trajectory split"
     );
     shards
@@ -78,14 +72,54 @@ pub fn fingerprint(root: &Path, split: &str, shards: &[String]) -> Result<String
     }
     Ok(files::hex(&hash.finalize()))
 }
-/// Build or reopen a cache only after native teacher-contract admission.
+/// The shards a build of `split` takes: `shards`, or every one the metadata
+/// lists for the split where none is named. Metadata without the list is a
+/// dataset without shards in `train` and `val`, and one without the split for
+/// a search-advantage dataset's own splits, whose shards must be listed: only
+/// listed shards were admitted ([`contracts::validate`]).
+fn named(meta: &Value, split: &str, shards: &[String]) -> Result<Vec<String>> {
+    let known = super::SPLITS
+        .iter()
+        .find(|known| known.name == split)
+        .context("invalid trajectory split")?;
+    let listed: Option<Vec<String>> = meta
+        .get(known.shards_key)
+        .map(|listed| serde_json::from_value(listed.clone()))
+        .transpose()
+        .with_context(|| format!("meta.json {} is no list of names", known.shards_key))?;
+    if ["train", "val"].contains(&split) {
+        return Ok(if shards.is_empty() {
+            listed.unwrap_or_default()
+        } else {
+            shards.to_vec()
+        });
+    }
+    let listed = listed.with_context(|| {
+        format!(
+            "meta.json lists no shards of the split {split} ({})",
+            known.shards_key
+        )
+    })?;
+    if shards.is_empty() {
+        return Ok(listed);
+    }
+    if let Some(unlisted) = shards.iter().find(|shard| !listed.contains(shard)) {
+        anyhow::bail!("meta.json lists no shard {unlisted} of the split {split}");
+    }
+    Ok(shards.to_vec())
+}
+
+/// Build or reopen a cache only after native teacher-contract admission. With
+/// no shard named, every shard the metadata lists for the split.
 ///
 /// # Errors
-/// Rejects tampered provenance, malformed shards and incomplete cache publication.
+/// Rejects tampered provenance, malformed shards, incomplete cache publication
+/// and a search-advantage split the metadata does not list.
 pub fn build(root: &Path, split: &str, shards: &[String]) -> Result<Receipt> {
     let root = root.canonicalize()?;
     let meta = files::read_json(&root.join("meta.json"))?;
     contracts::validate(&root, &meta)?;
+    let shards = &named(&meta, split, shards)?;
     let fingerprint = fingerprint(&root, split, shards)?;
     let paths = paths(&root, split, shards)?;
     let cache = root.join(".trajectory-cache-v2");

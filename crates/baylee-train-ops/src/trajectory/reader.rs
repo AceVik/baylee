@@ -14,11 +14,36 @@ pub(super) const SHARD_MAGIC: &[u8; 8] = b"BS4S\x01\x00\x00\x00";
 ///
 /// # Errors
 /// Rejects malformed compression, indexes, binary frame dimensions or JSON records.
-pub fn read_shard(path: &Path, mut observe: impl FnMut(Value) -> Result<()>) -> Result<u64> {
+pub fn read_shard(path: &Path, observe: impl FnMut(Value) -> Result<()>) -> Result<u64> {
+    read(path, Frames::Plain, observe)
+}
+
+/// [`read_shard`] of a search-advantage dataset's twins: BS4S frames that each
+/// end in their BSA1 block, which a shard of any other split may not hold
+/// ([`packing::twin_metadata`]).
+///
+/// # Errors
+/// As [`read_shard`], and a shard of JSON rows or a frame that is no twin.
+pub fn read_twins(path: &Path, observe: impl FnMut(Value) -> Result<()>) -> Result<u64> {
+    read(path, Frames::Twins, observe)
+}
+
+/// Which frames a shard's split holds.
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum Frames {
+    Plain,
+    Twins,
+}
+
+fn read(path: &Path, frames: Frames, mut observe: impl FnMut(Value) -> Result<()>) -> Result<u64> {
     let mut file = File::open(path)?;
     let mut magic = [0u8; 8];
     file.read_exact(&mut magic)?;
     if &magic != SHARD_MAGIC {
+        ensure!(
+            frames == Frames::Plain,
+            "a twins' shard holds BS4S frames, not JSON rows"
+        );
         file.rewind()?;
         let stream = BufReader::new(MultiGzDecoder::new(file));
         let mut count = 0;
@@ -54,7 +79,9 @@ pub fn read_shard(path: &Path, mut observe: impl FnMut(Value) -> Result<()>) -> 
         file.seek(SeekFrom::Start(8 + offset))?;
         let mut raw = Vec::new();
         ZlibDecoder::new((&mut file).take(u64::from(length))).read_to_end(&mut raw)?;
-        let value = if raw.starts_with(b"BST4") {
+        let value = if frames == Frames::Twins {
+            packing::twin_metadata(&raw)?
+        } else if raw.starts_with(b"BST4") {
             packing::metadata(&raw)?
         } else {
             let value: Value = serde_json::from_slice(&raw)?;
