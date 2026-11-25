@@ -558,7 +558,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - uses: EmbarkStudios/cargo-deny-action@3c6349835b2b7b196a839186cb8b78e02f7b5f25 # v2.1.1
+      - uses: EmbarkStudios/cargo-deny-action@81891abc19297b21343b15ef67dc61e4aea74fda # v2.1.4
 
   # Main pushes and the nightly: a new advisory arrives without a push, which
   # is what the nightly is for.
@@ -594,9 +594,8 @@ jobs:
           # titlebar, no safe upgrade. audit-check reads no deny.toml, so an
           # advisory deny.toml has weighed would otherwise be reported again.
           # RUSTSEC-2026-0387: crypto-bigint, scope in docs/central-login.md.
-          # RUSTSEC-2026-0459: SQLite, in the lockfile only, linked by nothing.
           # RUSTSEC-2024-0436: `paste` unmaintained, a proc-macro only rav1d
           # (the client's AVIF decoder) pulls, no release without it.
           # RUSTSEC-2026-0543: the SeaORM migrator enables chrono. deny.toml
           # limits it to the four existing database adapters.
-          ignore: RUSTSEC-2026-0192,RUSTSEC-2026-0387,RUSTSEC-2026-0459,RUSTSEC-2024-0436,RUSTSEC-2026-0543
+          ignore: RUSTSEC-2026-0192,RUSTSEC-2026-0387,RUSTSEC-2024-0436,RUSTSEC-2026-0543
