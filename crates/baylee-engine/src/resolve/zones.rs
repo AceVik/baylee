@@ -2127,7 +2127,13 @@ pub(super) fn counter_ability(state: &mut GameState, res: &mut Resolution, targe
     }) else {
         return;
     };
-    res.countered_source = object.ability.map(|ability| ability.source);
+    // What the ability recorded as it went on the stack, which a later move of
+    // its source does not rewrite; the live object only where it recorded none.
+    res.countered_source = object.ability.and_then(|ability| {
+        state
+            .recorded_ability_source(target)
+            .or_else(|| state.source_identity(ability.source))
+    });
     state
         .journal
         .record(GameEvent::SpellCountered { object: target });

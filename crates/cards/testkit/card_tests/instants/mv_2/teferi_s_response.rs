@@ -11,6 +11,10 @@ fn teferi_s_response() -> CardIndex {
     card_index("b2faa8b6-e433-4171-9774-9170484530c4")
 }
 
+fn ghostly_flicker() -> CardIndex {
+    card_index("ad0070db-6454-41cb-861f-8f5b8fc2a3b8")
+}
+
 /// A spell an opponent controls is countered when it targets our land. Its
 /// source is not a permanent to destroy, and the two-card rider still happens.
 #[test]
@@ -114,6 +118,77 @@ fn counters_a_land_ability_destroys_rishadan_port_and_draws_two() {
     assert_eq!(
         engine.state().zones.list(ZoneLocation::Hand(P0)).len(),
         hand_before + 2
+    );
+}
+
+/// "Destroy that permanent" means the permanent the ability came from: one that
+/// left and came back while the Response waited is another object (CR 400.7).
+#[test]
+fn a_source_blinked_in_response_is_another_permanent_and_survives() {
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[island(), island(), forest()])
+        .hand(0, &[teferi_s_response()])
+        .battlefield(
+            1,
+            &[rishadan_port(), island(), island(), island(), island()],
+        )
+        .hand(1, &[ghostly_flicker()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_their_main_phase(&mut engine, P1);
+
+    let land = on_battlefield(&engine, P0, forest()).expect("our Forest is out");
+    let port = on_battlefield(&engine, P1, rishadan_port()).expect("the Port is out");
+    let other = on_battlefield(&engine, P1, island()).expect("an Island is out");
+    tap_all_mana_but(&mut engine, P1, Some(rishadan_port()));
+    activate(&mut engine, P1, rishadan_port(), 1);
+    engine
+        .apply(
+            P1,
+            PlayerAction::ChooseObjects {
+                objects: vec![land],
+            },
+        )
+        .expect("the Port targets our Forest");
+    let ability = top_of_stack(&engine);
+    let before = engine.state().object(port).expect("the Port").version;
+    engine.apply(P1, PlayerAction::PassPriority).unwrap();
+
+    tap_all_mana_but(&mut engine, P0, Some(forest()));
+    cast_with_floating(&mut engine, P0, teferi_s_response());
+    engine
+        .apply(
+            P0,
+            PlayerAction::ChooseObjects {
+                objects: vec![ability],
+            },
+        )
+        .expect("the Response targets the Port's ability");
+    let hand_before = engine.state().zones.list(ZoneLocation::Hand(P0)).len();
+    engine.apply(P0, PlayerAction::PassPriority).unwrap();
+
+    cast_with_floating(&mut engine, P1, ghostly_flicker());
+    engine
+        .apply(
+            P1,
+            PlayerAction::ChooseObjects {
+                objects: vec![port, other],
+            },
+        )
+        .expect("the Flicker targets the Port and an Island");
+    pass_until(&mut engine, stack_is_empty);
+
+    let after = engine.state().object(port).expect("the Port is back");
+    assert_ne!(after.version, before, "the Flicker really moved the Port");
+    assert!(
+        on_battlefield(&engine, P1, rishadan_port()).is_some(),
+        "the returned Port is not the permanent whose ability was countered"
+    );
+    assert!(!is_tapped(&engine, land), "the ability was countered");
+    assert_eq!(
+        engine.state().zones.list(ZoneLocation::Hand(P0)).len(),
+        hand_before + 2,
+        "the two cards are drawn either way"
     );
 }
 

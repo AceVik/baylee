@@ -3725,8 +3725,8 @@ pub(super) fn exec_immediate(
             // made the whole rider dead code: the ability it names has been
             // removed from the arena by then.
             if let Some(src) = res.countered_source {
-                let applies = state.object(src).is_some_and(|o| {
-                    o.zone == crate::zone::Zone::Battlefield
+                let applies = state.object(src.object).is_some_and(|o| {
+                    subjects::on_battlefield(state, src)
                         && eval::matches_with_context(
                             source_filter,
                             state,
@@ -3745,7 +3745,7 @@ pub(super) fn exec_immediate(
                         layer: baylee_cards_dsl::Layer::Ability,
                         timestamp: ts,
                         duration: baylee_cards_dsl::Duration::WhileSourceOnBattlefield,
-                        filter: crate::effects::EffectFilter::object(state, src),
+                        filter: crate::effects::EffectFilter::object(state, src.object),
                         modifier: baylee_cards_dsl::Modifier::LoseAllAbilities,
                     });
                 }
@@ -3755,13 +3755,12 @@ pub(super) fn exec_immediate(
         Effect::DestroyCounteredAbilitySource => {
             // Only an ability actually countered earlier in this resolution
             // records its source. A spell, an uncounterable ability, or a
-            // source that has already left the battlefield destroys nothing.
+            // source that has left the battlefield, returned or not (CR
+            // 400.7), destroys nothing.
             if let Some(src) = res.countered_source
-                && state
-                    .object(src)
-                    .is_some_and(|o| o.zone == crate::zone::Zone::Battlefield)
+                && subjects::on_battlefield(state, src)
             {
-                crate::sba::destroy(state, src);
+                crate::sba::destroy(state, src.object);
             }
             None
         }
