@@ -736,22 +736,9 @@ impl Tx<'_> {
         let Some(kw) = p.take("AddKeyword") else {
             return self.deny("static ability reaching `AffectedZone$ Graveyard`".into());
         };
-        let (modifier, needs_graveyard_zone) = if kw.trim() == "Flashback" {
-            ("Modifier::GrantsFlashback".to_string(), false)
-        } else if kw.trim() == "Retrace" {
-            (
-                "Modifier::AddKeyword(KeywordSet::RETRACE)".to_string(),
-                true,
-            )
-        } else if let Some(n_str) = kw
-            .trim()
-            .strip_prefix("Escape:CardManaCost ExileFromGrave<")
-            .and_then(|s| s.strip_suffix("/Card.Other/other>"))
-            && let Ok(n) = n_str.parse::<u8>()
-            && n > 0
-        {
-            (format!("Modifier::GrantsEscape({n})"), false)
-        } else {
+        let Some((modifier, needs_graveyard_zone)) =
+            Self::wave16b_graveyard_grant_modifier(&kw, true)
+        else {
             return self.deny("static ability reaching `AffectedZone$ Graveyard`".into());
         };
         let cond = self.condition_any(&mut p)?;

@@ -1509,7 +1509,8 @@ impl Effect {
             | Effect::PutOntoBattlefieldAttacking { .. }
             | Effect::SearchLibraryDistinctNames { .. }
             | Effect::AttachChosen { .. }
-            | Effect::DiscardDefined { .. } => (NONE, NONE),
+            | Effect::DiscardDefined { .. }
+            | Effect::PutCountersOnChosenControlled { .. } => (NONE, NONE),
             Effect::VoteObjects { if_no_votes, .. } => (NONE, if_no_votes),
         }
     }

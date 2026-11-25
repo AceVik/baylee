@@ -74,6 +74,9 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
             }
             player.mana_pool.empty_at_step_end();
         }
+        // CR 702.57b: a card revealed in hand to pay a forecast cost remains
+        // revealed until it leaves the hand or until that step or phase ends.
+        self.clear_opening_hand_reveals();
         let (phase, step) = (self.state.turn.phase, self.state.turn.step);
         let (next_phase, next_step) = match (phase, step) {
             (_, Step::Untap) => {

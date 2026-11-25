@@ -109,6 +109,86 @@ pub(crate) fn entry_sacrifices_on(state: &GameState, source: ObjectId) -> u32 {
     })
 }
 
+/// Power of the permanent beheld or card revealed from hand to pay `source`'s
+/// cost (`Amount::BeheldOrRevealedPower`, `CR 608.2h`, *Dragon's Fire*): if a
+/// battlefield permanent was beheld and is still that exact incarnation on the
+/// battlefield, reads its current projected power; if it left the battlefield,
+/// reads its battlefield LKI power; otherwise reads the power snapshot recorded
+/// when the cost was paid. Negative power clamps to `0` (`CR 107.1b`).
+#[must_use]
+pub fn beheld_or_revealed_power(
+    state: &GameState,
+    source: ObjectId,
+    source_version: Option<u32>,
+) -> u32 {
+    let Some((bf_ref, saved)) = state
+        .damage_source(source, source_version)
+        .or_else(|| state.object_or_departed(source))
+        .and_then(|obj| {
+            obj.riders.iter().find_map(|r| match *r {
+                crate::object::Rider::BeheldCostPower(src, power, _) => Some((src, power)),
+                _ => None,
+            })
+        })
+    else {
+        return 0;
+    };
+    let power = if let Some(bf) = bf_ref {
+        state
+            .object(bf.object)
+            .filter(|o| o.zone == crate::zone::Zone::Battlefield && o.version == bf.version)
+            .map(|o| i32::from(o.characteristics().power.unwrap_or(0)))
+            .or_else(|| {
+                state
+                    .ltb_versions
+                    .iter()
+                    .any(|&(lid, lver)| lid == bf.object && lver == bf.version)
+                    .then(|| {
+                        state
+                            .ltb_powers
+                            .iter()
+                            .find(|(id, _)| *id == bf.object)
+                            .map(|(_, p)| i32::from(*p))
+                    })
+                    .flatten()
+            })
+            .unwrap_or(saved)
+    } else {
+        saved
+    };
+    u32::try_from(power.max(0)).unwrap_or(0)
+}
+
+/// Mana value of the permanent beheld or card revealed from hand to pay
+/// `source`'s cost (`Amount::BeheldOrRevealedManaValue`, `CR 608.2h`, `CR 202.3`).
+#[must_use]
+pub fn beheld_or_revealed_mana_value(
+    state: &GameState,
+    source: ObjectId,
+    source_version: Option<u32>,
+) -> u32 {
+    let Some((bf_ref, saved)) = state
+        .damage_source(source, source_version)
+        .or_else(|| state.object_or_departed(source))
+        .and_then(|obj| {
+            obj.riders.iter().find_map(|r| match *r {
+                crate::object::Rider::BeheldCostPower(src, _, mv) => Some((src, mv)),
+                _ => None,
+            })
+        })
+    else {
+        return 0;
+    };
+    if let Some(bf) = bf_ref
+        && let Some(o) = state
+            .object(bf.object)
+            .filter(|o| o.zone == crate::zone::Zone::Battlefield && o.version == bf.version)
+    {
+        return o.characteristics().mana_value();
+    }
+    saved
+}
+
 const MAX_AMOUNT_EVAL_DEPTH: u8 = 16;
 
 thread_local! {
@@ -469,6 +549,10 @@ pub(crate) fn amount_with_version(
             })
         }
         Amount::TotalPowerAmong(filter) => total_power_among(state, you, filter, context),
+        Amount::BeheldOrRevealedPower => beheld_or_revealed_power(state, this, source_version),
+        Amount::BeheldOrRevealedManaValue => {
+            beheld_or_revealed_mana_value(state, this, source_version)
+        }
     }
 }
 
@@ -662,7 +746,7 @@ pub(crate) fn linked_exile_cards(
         for &id in state.zones.list(ZoneLocation::Exile(player.id)) {
             if let Some(obj) = state.object(id)
                 && obj.is_card()
-                && obj.riders.iter().any(|r| match *r {
+                && (obj.riders.iter().any(|r| match *r {
                     crate::object::Rider::Linked { host, .. } => {
                         host == source
                             && source_ref.is_none_or(|s| {
@@ -683,7 +767,18 @@ pub(crate) fn linked_exile_cards(
                             })
                     }
                     _ => false,
-                })
+                }) || state
+                    .damage_source(source, source_version)
+                    .is_some_and(|src_obj| {
+                        src_obj
+                            .riders
+                            .contains(&crate::object::Rider::SpellCostExile(
+                                baylee_core::ids::DamageSourceRef {
+                                    object: obj.id,
+                                    version: obj.version,
+                                },
+                            ))
+                    }))
                 && matches_with_context(filter, state, obj, you, context)
             {
                 out.push(id);
@@ -720,7 +815,7 @@ pub fn public_linked_exile_cards(state: &GameState, source: ObjectId) -> Vec<Obj
             if let Some(obj) = state.object(id)
                 && obj.is_card()
                 && !obj.status.contains(crate::object::Status::FACE_DOWN)
-                && obj.riders.iter().any(|r| match *r {
+                && (obj.riders.iter().any(|r| match *r {
                     crate::object::Rider::Linked { host, .. } => {
                         host == source
                             && state
@@ -741,7 +836,14 @@ pub fn public_linked_exile_cards(state: &GameState, source: ObjectId) -> Vec<Obj
                         acquisition: linked_acquisition,
                     } => linked_source == source_ref && linked_acquisition == acquisition,
                     _ => false,
-                })
+                }) || src_obj
+                    .riders
+                    .contains(&crate::object::Rider::SpellCostExile(
+                        baylee_core::ids::DamageSourceRef {
+                            object: obj.id,
+                            version: obj.version,
+                        },
+                    )))
             {
                 out.push(id);
             }

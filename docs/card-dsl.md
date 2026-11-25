@@ -742,7 +742,14 @@ express at all yet.
   `Behold(filter)` (CR 701.4a: choose a permanent you control matching `filter`
   or reveal a card matching `filter` from your hand via `ChoicePrompt::Behold`),
   `CollectEvidence(n)` (CR 701.59a: exile cards with total mana value `n` or
-  greater from your graveyard via `ChoicePrompt::CollectEvidence`).
+  greater from your graveyard via `ChoicePrompt::CollectEvidence`),
+  `RevealFromHand(filter)` (CR 701.20a: reveal a card matching `filter` from
+  your hand other than the spell or source card itself),
+  `RevealFromHandX(filter)` (CR 107.3a, CR 701.20a: announce X and reveal X
+  distinct cards matching `filter` from your hand, binding `Amount::X`),
+  `RevealSelfFromHand` (CR 702.57b: reveal this card from your hand as an
+  `ActivationZone::Hand` cost such as Forecast, keeping it revealed until the
+  current step or phase ends).
 
   `CostPart::ExertSelf` exerts the source as an activation cost. It does not
   tap the permanent, require it to be untapped, or impose summoning sickness;

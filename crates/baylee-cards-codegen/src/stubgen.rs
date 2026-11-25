@@ -816,6 +816,9 @@ fn render_face(
         if body.optional_cost_grants_flash {
             fields.push("optional_cost_grants_flash = true".to_string());
         }
+        if body.waterbend {
+            fields.push("waterbend = true".to_string());
+        }
         if let Some(cr) = body.cost_reduction.as_deref() {
             fields.push(format!("cost_reduction = {cr}"));
         }

@@ -6053,6 +6053,21 @@ pub enum Effect {
         /// Destination of every other revealed card.
         otherwise: SearchDest,
     },
+    /// Each player matching `who` (in APNAP order, `CR 101.4`) chooses a
+    /// permanent they control matching `filter` (if any) and puts `count`
+    /// counters of `kind` on it (`CR 122.1`, `CR 608.2d`; Blight N: *Chaos
+    /// Spewer*, *Dose of Dawnglow*, *High Perfect Morcant*, *Shadow Urchin*,
+    /// *Sinister Gnarlbark*). Appended to preserve replay identities.
+    PutCountersOnChosenControlled {
+        /// Player(s) choosing one of their matching permanents.
+        who: PlayerRel,
+        /// Filter evaluated on permanents controlled by each choosing player.
+        filter: &'static Filter,
+        /// Counter kind placed on the chosen permanent.
+        kind: CounterKind,
+        /// Number of counters placed on the chosen permanent.
+        count: Amount,
+    },
 }
 
 #[cfg(test)]

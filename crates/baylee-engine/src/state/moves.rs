@@ -901,6 +901,10 @@ impl GameState {
                             | crate::object::Rider::ConspirePaid(_)
                             | crate::object::Rider::RepeatedModes(_)
                             | crate::object::Rider::OptionalCostPaid
+                            | crate::object::Rider::SpellCostExile(_)
+                            | crate::object::Rider::ControlledSubtypeOnCast(_)
+                            | crate::object::Rider::BeheldCostPower(_, _, _)
+                            | crate::object::Rider::EncoreAbility
                     )
                 });
             }
@@ -1024,6 +1028,54 @@ impl GameState {
                 (spell_version, self.object(id).map(|o| o.version))
         {
             self.effects.follow_into_permanent(id, spell, permanent);
+            let cost_exiles: Vec<baylee_core::ids::DamageSourceRef> =
+                self.object(id).map_or_else(Vec::new, |o| {
+                    o.riders
+                        .iter()
+                        .filter_map(|r| match r {
+                            crate::object::Rider::SpellCostExile(ex) => Some(*ex),
+                            _ => None,
+                        })
+                        .collect()
+                });
+            if !cost_exiles.is_empty() {
+                let host_ref = baylee_core::ids::DamageSourceRef {
+                    object: id,
+                    version: permanent,
+                };
+                let host_ver = u16::try_from(permanent).unwrap_or(u16::MAX);
+                for ex in cost_exiles {
+                    let still_exiled = self.object(ex.object).is_some_and(|o| {
+                        o.zone == Zone::Exile && o.version == ex.version && o.is_card()
+                    });
+                    if still_exiled {
+                        if let Some(ex_obj) = self.object_mut(ex.object) {
+                            let with = crate::object::Rider::ExiledWith {
+                                host: id,
+                                version: host_ver,
+                            };
+                            if !ex_obj.riders.contains(&with) {
+                                ex_obj.riders.push(with);
+                            }
+                            let linked_exile = crate::object::Rider::LinkedExile {
+                                source: host_ref,
+                                acquisition: 0,
+                            };
+                            if !ex_obj.riders.contains(&linked_exile) {
+                                ex_obj.riders.push(linked_exile);
+                            }
+                            let linked = crate::object::Rider::Linked {
+                                host: id,
+                                until: None,
+                            };
+                            if !ex_obj.riders.contains(&linked) {
+                                ex_obj.riders.push(linked);
+                            }
+                        }
+                        self.remember_link(ex.object, host_ref);
+                    }
+                }
+            }
         }
         let projectable = self
             .object(id)

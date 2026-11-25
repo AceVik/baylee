@@ -26,10 +26,11 @@ use baylee_core::ids::{ObjectId, PlayerId};
 
 pub use amounts::{amount, amount_with_context, public_linked_exile_cards, tapped_power};
 pub(crate) use amounts::{
-    colors_among, colors_in_zone, count_controlled_by, creatures_attacked_for_seats,
-    devotion_for_players, distinct_card_types_cast_for_seats, entered_this_turn_for_seats,
-    entry_sacrifices_on, highest_opponent_hand_size, linked_exile_cards, mana_spent_on,
-    object_snow_mana_spent, snow_mana_spent_on, spells_cast_matching_for_seats,
+    beheld_or_revealed_mana_value, beheld_or_revealed_power, colors_among, colors_in_zone,
+    count_controlled_by, creatures_attacked_for_seats, devotion_for_players,
+    distinct_card_types_cast_for_seats, entered_this_turn_for_seats, entry_sacrifices_on,
+    highest_opponent_hand_size, linked_exile_cards, mana_spent_on, object_snow_mana_spent,
+    snow_mana_spent_on, spells_cast_matching_for_seats,
 };
 pub(crate) use conditions::{
     attached_for_ability, condition_reads_event, condition_with_event,

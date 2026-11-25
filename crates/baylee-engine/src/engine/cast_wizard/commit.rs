@@ -168,6 +168,35 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
         let mut evidence_groups = wizard.evidence_exiles.iter();
         let mut sacrificed_lki = None;
         let mut sacrificed_object = None;
+        let mut spell_cost_exiles: Vec<baylee_core::ids::DamageSourceRef> = Vec::new();
+        let mut beheld_cost_power: Option<(Option<baylee_core::ids::DamageSourceRef>, i32, u32)> =
+            None;
+        let record_exiled_cost = |state: &crate::state::GameState,
+                                  exiles: &mut Vec<baylee_core::ids::DamageSourceRef>,
+                                  exiled: ObjectId| {
+            if let Some(ex_ref) = state.source_identity(exiled).filter(|_| {
+                state
+                    .object(exiled)
+                    .is_some_and(|o| o.zone == crate::zone::Zone::Exile)
+            }) && !exiles.contains(&ex_ref)
+            {
+                exiles.push(ex_ref);
+            }
+        };
+        let snapshot_beheld_power = |state: &crate::state::GameState, chosen: ObjectId| {
+            state.object(chosen).map(|o| {
+                let ch = o.characteristics();
+                let p = i32::from(ch.power.unwrap_or(0));
+                let mv = ch.mana_value();
+                let bf_ref = (o.zone == crate::zone::Zone::Battlefield).then_some(
+                    baylee_core::ids::DamageSourceRef {
+                        object: chosen,
+                        version: o.version,
+                    },
+                );
+                (bf_ref, p, mv)
+            })
+        };
         // Each selected card pays exactly one exile-from-hand part.
         for &card in &wizard.pitch {
             let owner = self.state.object(card).map_or(player, |o| o.owner);
@@ -177,6 +206,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 ZonePosition::Top,
                 Cause::Cost,
             )?;
+            record_exiled_cost(&self.state, &mut spell_cost_exiles, card);
         }
         // Non-mana parts of the chosen alternative or flashback cost.
         for part in
@@ -238,10 +268,15 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                                 ))?;
                         for id in [first, second, third] {
                             super::super::cost_wizard::pay(&mut self.state, player, part, id)?;
+                            record_exiled_cost(&self.state, &mut spell_cost_exiles, id);
                         }
                     }
                 }
-                CostPart::Sacrifice(_) | CostPart::ReturnToHand(_) | CostPart::Behold(_) => {
+                CostPart::Sacrifice(_)
+                | CostPart::ReturnToHand(_)
+                | CostPart::PutCounterOnOther { .. }
+                | CostPart::Behold(_)
+                | CostPart::RevealFromHand(_) => {
                     let chosen = cost_objects
                         .next()
                         .copied()
@@ -256,6 +291,9 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                             .state
                             .object(chosen)
                             .map(crate::object::SacrificedLki::of);
+                    }
+                    if matches!(part, CostPart::Behold(_) | CostPart::RevealFromHand(_)) {
+                        beheld_cost_power = snapshot_beheld_power(&self.state, chosen);
                     }
                     super::super::cost_wizard::pay(&mut self.state, player, part, chosen)?;
                 }
@@ -283,6 +321,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                     }
                     for &card in chosen {
                         super::super::cost_wizard::pay(&mut self.state, player, part, card)?;
+                        record_exiled_cost(&self.state, &mut spell_cost_exiles, card);
                     }
                 }
                 CostPart::TapN { count, .. } => {
@@ -323,6 +362,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 | CostPart::PayEnergy(_)
                 | CostPart::PayEnergyX
                 | CostPart::DiscardSelf
+                | CostPart::RevealSelfFromHand
                 | CostPart::ExileSelf
                 | CostPart::ReturnSelfToHand
                 | CostPart::TapOther(_)
@@ -336,13 +376,13 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 | CostPart::RemoveCounterSelf { .. }
                 | CostPart::RemoveCounterSelfX { .. }
                 | CostPart::PutCounterSelf { .. }
-                | CostPart::PutCounterOnOther { .. }
                 | CostPart::ExileFromSingleGraveyard { .. }
                 | CostPart::PayAttachedManaCost
                 | CostPart::ExileTopOfLibrary(_)
                 | CostPart::SacrificeGrantor
                 | CostPart::ReturnUnblockedAttacker
                 | CostPart::DiscardX(_)
+                | CostPart::RevealFromHandX(_)
                 | CostPart::ExileFromGraveyardX(_)
                 | CostPart::CraftMaterials { .. }
                 | CostPart::Either(_, _)
@@ -408,16 +448,18 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 returned,
             )?;
         }
-        if let Some(beheld) = wizard.beheld
-            && self
+        if let Some(beheld) = wizard.beheld {
+            beheld_cost_power = snapshot_beheld_power(&self.state, beheld);
+            if self
                 .state
                 .object(beheld)
                 .is_some_and(|o| o.zone == crate::zone::Zone::Hand)
-        {
-            self.state.journal.record(GameEvent::Revealed {
-                player,
-                cards: vec![beheld],
-            });
+            {
+                self.state.journal.record(GameEvent::Revealed {
+                    player,
+                    cards: vec![beheld],
+                });
+            }
         }
         let mut graveyard_batch = crate::graveyard_order::PaymentBatch::new(&self.state);
         for part in super::wizard_mandatory_parts(face, wizard.cost_choice()) {
@@ -482,10 +524,13 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                                 ))?;
                         for id in [first, second, third] {
                             super::super::cost_wizard::pay(&mut self.state, player, part, id)?;
+                            record_exiled_cost(&self.state, &mut spell_cost_exiles, id);
                         }
                     }
                 }
-                CostPart::DiscardX(_) | CostPart::ExileFromGraveyardX(_) => {
+                CostPart::DiscardX(_)
+                | CostPart::RevealFromHandX(_)
+                | CostPart::ExileFromGraveyardX(_) => {
                     for _ in 0..wizard.x {
                         let chosen =
                             cost_objects
@@ -500,6 +545,9 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                             paid_mana.discarded.push(reference);
                         }
                         super::super::cost_wizard::pay(&mut self.state, player, part, chosen)?;
+                        if matches!(part, CostPart::ExileFromGraveyardX(_)) {
+                            record_exiled_cost(&self.state, &mut spell_cost_exiles, chosen);
+                        }
                     }
                 }
                 CostPart::PayEnergy(n) => {
@@ -527,20 +575,34 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                         .object(chosen)
                         .map(crate::object::SacrificedLki::of);
                     super::super::cost_wizard::pay(&mut self.state, player, part, chosen)?;
+                    if matches!(part, CostPart::ExilePermanent(_)) {
+                        record_exiled_cost(&self.state, &mut spell_cost_exiles, chosen);
+                    }
                 }
                 CostPart::ReturnToHand(_)
                 | CostPart::TapOther(_)
+                | CostPart::PutCounterOnOther { .. }
                 | CostPart::ExileFromGraveyard(_)
                 | CostPart::ExileFromHand(_)
                 | CostPart::Discard(_)
-                | CostPart::Behold(_) => {
+                | CostPart::Behold(_)
+                | CostPart::RevealFromHand(_) => {
                     let chosen = cost_objects
                         .next()
                         .copied()
                         .ok_or(EngineError::IllegalAction(
                             "an object cost the cast never asked about",
                         ))?;
+                    if matches!(part, CostPart::Behold(_) | CostPart::RevealFromHand(_)) {
+                        beheld_cost_power = snapshot_beheld_power(&self.state, chosen);
+                    }
                     super::super::cost_wizard::pay(&mut self.state, player, part, chosen)?;
+                    if matches!(
+                        part,
+                        CostPart::ExileFromGraveyard(_) | CostPart::ExileFromHand(_)
+                    ) {
+                        record_exiled_cost(&self.state, &mut spell_cost_exiles, chosen);
+                    }
                 }
                 CostPart::CollectEvidence(mv) => {
                     let chosen = evidence_groups.next().ok_or(EngineError::IllegalAction(
@@ -566,6 +628,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                     }
                     for &card in chosen {
                         super::super::cost_wizard::pay(&mut self.state, player, part, card)?;
+                        record_exiled_cost(&self.state, &mut spell_cost_exiles, card);
                     }
                 }
                 CostPart::SacrificeX(_) => {
@@ -650,6 +713,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                             ZonePosition::Top,
                             Cause::Cost,
                         )?;
+                        record_exiled_cost(&self.state, &mut spell_cost_exiles, top);
                     }
                 }
                 CostPart::DiscardLastDrawnThisTurn => {
@@ -679,12 +743,12 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 | CostPart::Crew(_)
                 | CostPart::Saddle(_)
                 | CostPart::DiscardSelf
+                | CostPart::RevealSelfFromHand
                 | CostPart::ExileSelf
                 | CostPart::ReturnSelfToHand
                 | CostPart::RemoveCounterSelf { .. }
                 | CostPart::RemoveCounterSelfX { .. }
                 | CostPart::PutCounterSelf { .. }
-                | CostPart::PutCounterOnOther { .. }
                 | CostPart::ExileFromSingleGraveyard { .. }
                 | CostPart::PayAttachedManaCost
                 | CostPart::ReturnUnblockedAttacker
@@ -745,7 +809,11 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                         }
                     }
                 }
-                CostPart::Sacrifice(_) | CostPart::Discard(_) => {
+                CostPart::Sacrifice(_)
+                | CostPart::Discard(_)
+                | CostPart::PutCounterOnOther { .. }
+                | CostPart::Behold(_)
+                | CostPart::RevealFromHand(_) => {
                     let chosen = cost_objects
                         .next()
                         .copied()
@@ -867,6 +935,38 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 _ => None,
             })
         });
+        let controlled_subtypes_on_cast: smallvec::SmallVec<[baylee_core::ids::SubtypeId; 2]> = {
+            let mut wanted: smallvec::SmallVec<[baylee_core::ids::SubtypeId; 2]> =
+                smallvec::SmallVec::new();
+            let face_idx = wizard.face_index();
+            if let Some(def) = self
+                .state
+                .object(card)
+                .and_then(|o| o.card)
+                .and_then(|c| self.lookup.card(c.index))
+            {
+                let f = &def.faces[face_idx.min(def.faces.len() - 1)];
+                for em in f.enter_modifiers {
+                    if let baylee_cards_dsl::EnterModifier::WithCountersIf { condition, .. } = em {
+                        collect_cast_subtypes(condition, &mut wanted);
+                    }
+                }
+                for ab in def.abilities_for_face(face_idx.min(def.faces.len() - 1)) {
+                    collect_ability_cast_subtypes(ab, &mut wanted);
+                }
+            }
+            wanted
+                .into_iter()
+                .filter(|&sub| {
+                    self.state.battlefield_seen().any(|id| {
+                        id != card
+                            && self.state.object(id).is_some_and(|o| {
+                                o.controller == player && o.characteristics().subtypes.contains(sub)
+                            })
+                    })
+                })
+                .collect()
+        };
         {
             let obj = self.state.object_mut(card).expect("wizard card exists");
             obj.kind = ObjectKind::Spell;
@@ -916,6 +1016,9 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                     )
                 ) || aftermath_face
                     || wizard.permission == Some(casting::GraveyardPermission::Flashback)
+                    || wizard
+                        .selected_alt_grant()
+                        .is_some_and(|r| r.exile_as_flashback)
                 {
                     obj.riders.push(crate::object::Rider::Flashback);
                 }
@@ -963,6 +1066,25 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 .retain(|r| *r != crate::object::Rider::OptionalCostPaid);
             if wizard.optional_cost_paid {
                 obj.riders.push(crate::object::Rider::OptionalCostPaid);
+            }
+            obj.riders.retain(|r| {
+                !matches!(
+                    r,
+                    crate::object::Rider::SpellCostExile(_)
+                        | crate::object::Rider::ControlledSubtypeOnCast(_)
+                        | crate::object::Rider::BeheldCostPower(_, _, _)
+                )
+            });
+            for ex in spell_cost_exiles {
+                obj.riders.push(crate::object::Rider::SpellCostExile(ex));
+            }
+            for sub in controlled_subtypes_on_cast {
+                obj.riders
+                    .push(crate::object::Rider::ControlledSubtypeOnCast(sub));
+            }
+            if let Some((src, power, mv)) = beheld_cost_power {
+                obj.riders
+                    .push(crate::object::Rider::BeheldCostPower(src, power, mv));
             }
             obj.riders
                 .retain(|r| !matches!(r, crate::object::Rider::SquadPaid(_)));
@@ -1352,5 +1474,123 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
             self.after_action(player);
         }
         Ok(())
+    }
+}
+
+fn collect_cast_subtypes(
+    cond: &baylee_cards_dsl::Condition,
+    out: &mut smallvec::SmallVec<[baylee_core::ids::SubtypeId; 2]>,
+) {
+    use baylee_cards_dsl::Condition;
+    match cond {
+        Condition::ControlledSubtypeOnCast(sub) => {
+            if !out.contains(sub) {
+                out.push(*sub);
+            }
+        }
+        Condition::Not(inner) | Condition::TriggerOnly(inner) => collect_cast_subtypes(inner, out),
+        Condition::All(list) | Condition::Any(list) => {
+            for c in *list {
+                collect_cast_subtypes(c, out);
+            }
+        }
+        Condition::AmountCompare { left, right, .. } => {
+            collect_amount_cast_subtypes(left, out);
+            collect_amount_cast_subtypes(right, out);
+        }
+        Condition::AmountAtLeast(amt, _) | Condition::AmountIsEven(amt) => {
+            collect_amount_cast_subtypes(amt, out);
+        }
+        _ => {}
+    }
+}
+
+fn collect_amount_cast_subtypes(
+    amt: &baylee_cards_dsl::Amount,
+    out: &mut smallvec::SmallVec<[baylee_core::ids::SubtypeId; 2]>,
+) {
+    use baylee_cards_dsl::Amount;
+    match amt {
+        Amount::IfCondition {
+            condition,
+            then,
+            otherwise,
+        } => {
+            collect_cast_subtypes(condition, out);
+            collect_amount_cast_subtypes(then, out);
+            collect_amount_cast_subtypes(otherwise, out);
+        }
+        Amount::Half { base: a, .. }
+        | Amount::Divided { base: a, .. }
+        | Amount::Times { base: a, .. }
+        | Amount::Plus { base: a, .. }
+        | Amount::Negated(a)
+        | Amount::SaturatingSub { base: a, .. }
+        | Amount::ConstantMinus { subtract: a, .. } => collect_amount_cast_subtypes(a, out),
+        Amount::Sum { left, right } | Amount::Difference { left, right } => {
+            collect_amount_cast_subtypes(left, out);
+            collect_amount_cast_subtypes(right, out);
+        }
+        _ => {}
+    }
+}
+
+fn collect_effects_cast_subtypes(
+    effects: &'static [baylee_cards_dsl::Effect],
+    out: &mut smallvec::SmallVec<[baylee_core::ids::SubtypeId; 2]>,
+) {
+    use baylee_cards_dsl::Effect;
+    Effect::walk(effects, &mut 0, &mut |eff| match eff {
+        Effect::IfCondition { condition, .. } => collect_cast_subtypes(condition, out),
+        Effect::DealDamage { amount, .. }
+        | Effect::DealDamageEach { amount, .. }
+        | Effect::GainLife { amount }
+        | Effect::LoseLife { amount, .. }
+        | Effect::DrawCards { amount }
+        | Effect::AddCounter { amount, .. }
+        | Effect::AddCounterSource { amount, .. } => collect_amount_cast_subtypes(amount, out),
+        Effect::PumpTarget {
+            power, toughness, ..
+        }
+        | Effect::PumpFilter {
+            power, toughness, ..
+        } => {
+            collect_amount_cast_subtypes(power, out);
+            collect_amount_cast_subtypes(toughness, out);
+        }
+        _ => {}
+    });
+}
+
+fn collect_ability_cast_subtypes(
+    ab: &baylee_cards_dsl::AbilityDef,
+    out: &mut smallvec::SmallVec<[baylee_core::ids::SubtypeId; 2]>,
+) {
+    use baylee_cards_dsl::AbilityDef;
+    match ab {
+        AbilityDef::Spell {
+            effects, condition, ..
+        }
+        | AbilityDef::Triggered {
+            effects, condition, ..
+        } => {
+            if let Some(c) = condition {
+                collect_cast_subtypes(c, out);
+            }
+            collect_effects_cast_subtypes(effects, out);
+        }
+        AbilityDef::ModalSpell { modes, .. }
+        | AbilityDef::Modal { modes, .. }
+        | AbilityDef::ModalTriggered { modes, .. } => {
+            for m in *modes {
+                collect_effects_cast_subtypes(m.effects, out);
+            }
+        }
+        AbilityDef::Static(sa) => {
+            if let Some(c) = &sa.condition {
+                collect_cast_subtypes(c, out);
+            }
+        }
+        _ => {}
     }
 }

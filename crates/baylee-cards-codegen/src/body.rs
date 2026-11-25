@@ -117,6 +117,9 @@ pub struct CardBody {
     pub optional_cost: Option<String>,
     /// Paying `optional_cost` also grants flash (`K:MayFlashCost`, CR 702.8a).
     pub optional_cost_grants_flash: bool,
+    /// `waterbend = true` (`CR 701.67a`): artifacts and creatures may be tapped
+    /// to help pay the generic mana of `optional_cost` / `additional_costs`.
+    pub waterbend: bool,
     /// `cost_reduction` expression for the front face, when present.
     pub cost_reduction: Option<String>,
     /// `entwine` expression for the front face, when present.
@@ -192,6 +195,7 @@ impl CardBody {
             && self.warp.is_none()
             && self.optional_cost.is_none()
             && !self.optional_cost_grants_flash
+            && !self.waterbend
             && self.additional_costs.is_empty()
             && self.kicked_targets.is_none()
             && self.keywords.is_empty()

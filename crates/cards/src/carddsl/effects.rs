@@ -296,6 +296,7 @@ fn accumulate_effect(effect: &Effect, ch: &mut EffectChannels) {
         | Effect::AddCounterCreatedTokens { amount, .. }
         | Effect::PutCountersDivided { amount, .. }
         | Effect::PutCounterChoice { amount, .. }
+        | Effect::PutCountersOnChosenControlled { count: amount, .. }
         | Effect::Bolster(amount)
         | Effect::Monstrosity(amount) => {
             ch.counters_add += amount_scalar(amount).max(1.0);

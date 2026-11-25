@@ -167,6 +167,8 @@ fn every_price_paid_by_naming_an_object_puts_a_menu_up() {
         "DealDamageToYou(",
         "Forage",
         "Behold(",
+        "RevealFromHand(",
+        "RevealFromHandX(",
     ];
     let mut found = 0;
     for (oracle_id, def) in baylee_cards::generated::ALL {

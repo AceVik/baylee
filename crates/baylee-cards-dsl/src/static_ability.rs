@@ -1685,6 +1685,26 @@ pub enum Modifier {
     /// replacement, so damage that can't be prevented is still dealt in full.
     /// Appended to preserve replay identities.
     PreventDamageToAffectedIfAtMost(u32),
+    /// The affected card in its owner's graveyard has `Flashback [cost]`
+    /// (`CR 702.34a`; *Archmage's Newt* `{0}`, *The Fugitive Doctor* `{2}{R}{G}`):
+    /// its owner may cast it from their graveyard for `cost` rather than its
+    /// mana cost, and exiles it whenever it leaves the stack. Appended to
+    /// preserve replay identities.
+    GrantsFlashbackCost(baylee_core::mana::ManaCost),
+    /// The affected instant or sorcery card in its owner's graveyard has
+    /// `Jump-start` (`CR 702.133a`; *Filigree Racer*): its owner may cast it
+    /// from their graveyard by paying its mana cost plus discarding a card, and
+    /// exiles it whenever it leaves the stack. Appended to preserve replay
+    /// identities.
+    GrantsJumpStart,
+    /// The affected creature card in its owner's graveyard has `Encore` with an
+    /// encore cost equal to its mana cost (`CR 702.141a`; *Araumi of the Dead
+    /// Tide*). Appended to preserve replay identities.
+    GrantsEncoreManaCost,
+    /// The affected creature card in its owner's graveyard has `Embalm` with an
+    /// embalm cost equal to its mana cost (`CR 702.128a`; *Cursecloth
+    /// Wrappings*). Appended to preserve replay identities.
+    GrantsEmbalmManaCost,
 }
 
 /// Quantity evaluated during CR 601.2f spell cost determination by
@@ -1713,6 +1733,10 @@ pub enum SpellCastMetric {
     SpellsCastThisTurn,
     /// Total cards the casting player has drawn this turn.
     CardsDrawnThisTurn,
+    /// `1` when [`crate::FaceDef::optional_cost`] was chosen to be paid on this
+    /// spell, `0` otherwise (`CR 601.2f`, `CR 118.8b`; *Bite Down on Crime*).
+    /// Appended to preserve replay identities.
+    OptionalCostPaid,
 }
 
 /// Donor zone(s) scanned by [`Modifier::GainActivatedAbilitiesOf`].
@@ -1973,7 +1997,11 @@ impl Modifier {
             | Self::GainActivatedAbilitiesOf { .. }
             | Self::GrantStatic { .. }
             | Self::GrantsFlashback
+            | Self::GrantsFlashbackCost(_)
             | Self::GrantsEscape(_)
+            | Self::GrantsJumpStart
+            | Self::GrantsEncoreManaCost
+            | Self::GrantsEmbalmManaCost
             | Self::Sneak(_)
             | Self::CantActivateArtifacts
             // CR 613.1f is the whole argument for these two: "Layer 6:
@@ -2863,6 +2891,13 @@ mod tests {
                 },
                 Layer::Ability,
             ),
+            (
+                Modifier::GrantsFlashbackCost(baylee_core::mana::ManaCost::ZERO),
+                Layer::Ability,
+            ),
+            (Modifier::GrantsJumpStart, Layer::Ability),
+            (Modifier::GrantsEncoreManaCost, Layer::Ability),
+            (Modifier::GrantsEmbalmManaCost, Layer::Ability),
             (
                 Modifier::CharacteristicPT {
                     count: PtCount::CardTypesInAllGraveyards,

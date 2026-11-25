@@ -612,6 +612,7 @@ pub(super) fn exec_immediate(
         | Effect::PumpTarget { .. }
         | Effect::PumpEventObject { .. }
         | Effect::PumpTargetSlot { .. }
+        | Effect::PutCountersOnChosenControlled { .. }
         | Effect::PutCountersDivided { .. } => counters::exec(state, res, op),
         Effect::MarkLandWithCounter { .. }
         | Effect::ScheduleLinkedCounterCleanup { .. }
@@ -4777,6 +4778,16 @@ pub(super) fn resolution_condition(
                 object
                     .riders
                     .contains(&crate::object::Rider::OptionalCostPaid)
+            }),
+        Condition::ControlledSubtypeOnCast(sub) => state
+            .object(res.on_stack)
+            .filter(|object| object.kind == crate::object::ObjectKind::Spell)
+            .or_else(|| state.damage_source(res.source, source_version(state, res)))
+            .or_else(|| state.object(res.on_stack))
+            .is_some_and(|object| {
+                object
+                    .riders
+                    .contains(&crate::object::Rider::ControlledSubtypeOnCast(sub))
             }),
         Condition::IsRenowned => state
             .damage_source(res.source, source_version(state, res))

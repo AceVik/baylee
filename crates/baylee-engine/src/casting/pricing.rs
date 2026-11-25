@@ -670,6 +670,11 @@ fn spell_cast_metric_units(
             .get(usize::from(player.get()))
             .copied()
             .unwrap_or(0),
+        SpellCastMetric::OptionalCostPaid => u32::from(
+            spell
+                .riders
+                .contains(&crate::object::Rider::OptionalCostPaid),
+        ),
     }
 }
 
@@ -1373,6 +1378,7 @@ pub(crate) fn preview_max_mandatory_x(
             baylee_cards_dsl::CostPart::SacrificeX(_)
                 | baylee_cards_dsl::CostPart::TapX(_)
                 | baylee_cards_dsl::CostPart::DiscardX(_)
+                | baylee_cards_dsl::CostPart::RevealFromHandX(_)
                 | baylee_cards_dsl::CostPart::ExileFromGraveyardX(_)
                 | baylee_cards_dsl::CostPart::RemoveAnyCounterX { .. }
         )

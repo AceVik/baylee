@@ -940,6 +940,23 @@ pub enum AwaitingOp {
         /// Choices already made and held until every player has answered.
         chosen: Vec<(PlayerId, baylee_core::ids::DamageSourceRef)>,
     },
+    /// After `PutCountersOnChosenControlled` (`DB$ Blight`): record the chosen
+    /// permanent, ask the next remaining player in APNAP order, and place the
+    /// counters once all have answered (`CR 101.4`, `CR 701.68`).
+    PutCountersOnChosenControlled {
+        /// Player answering the open choice.
+        asked: PlayerId,
+        /// Matching permanent filter.
+        filter: &'static baylee_cards_dsl::Filter,
+        /// Counter kind placed on each chosen permanent.
+        kind: baylee_cards_dsl::CounterKind,
+        /// Number of counters placed on each chosen permanent.
+        count: u16,
+        /// Players still to choose, in APNAP order.
+        remaining: Vec<PlayerId>,
+        /// Choices already made and held until every player has answered.
+        chosen: Vec<(PlayerId, baylee_core::ids::DamageSourceRef)>,
+    },
     /// After `SacrificeOneThen`: sacrifice the chosen permanent, and `then`
     /// if it matched `if_it_was` as it last was on the battlefield.
     SacrificeOneThen {
@@ -2110,6 +2127,17 @@ impl AwaitingOp {
                 sources,
                 gain_life_sources,
             )),
+            Self::PutCountersOnChosenControlled {
+                asked,
+                filter,
+                kind,
+                count,
+                remaining,
+                chosen,
+            } if !chosen.is_empty() => crate::state::structural_fingerprint(&(
+                254_u8, asked, filter, kind, count, remaining, chosen,
+            ))
+            .max(1),
             _ => 0,
         }
     }
@@ -2121,6 +2149,7 @@ impl AwaitingOp {
         match self {
             Self::DestroyChosen { chosen, .. }
             | Self::SacrificeFilter { chosen, .. }
+            | Self::PutCountersOnChosenControlled { chosen, .. }
             | Self::SacrificeAnyNumber { chosen, .. }
             | Self::ReturnChosen { chosen, .. } => chosen,
             _ => &[],

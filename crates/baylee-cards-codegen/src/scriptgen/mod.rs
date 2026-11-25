@@ -69,6 +69,7 @@ mod targets;
 mod transform48;
 mod triggers;
 mod wall52;
+mod wave16b;
 mod wave27a;
 mod wave27b;
 mod wave27c;
@@ -493,6 +494,8 @@ struct Tx<'a> {
     cost_sacrifices_self: bool,
     /// Whether the activated ability being read sacrifices another object in its cost.
     cost_sacrifices_other: bool,
+    /// Whether the spell being read beholds or reveals a card in its `Cost$`.
+    cost_beholds_or_reveals: bool,
     /// Whether the script's `ManaCost:` line contains a variable `X`.
     has_x_mana_cost: bool,
     /// Whether the script carries `K:Flash`, for timing-sensitive keyword guards.
@@ -550,6 +553,9 @@ struct Tx<'a> {
     /// Whether the activated cost being read is activated from the hand
     /// (`ActivationZone$ Hand`), allowing self-discard and self-exile costs.
     pub(super) in_hand_activation: bool,
+    /// Whether the activated cost being read is a `Forecast$ True` ability
+    /// (`CR 702.57b`), allowing `Reveal<1/CARDNAME>` -> `RevealSelfFromHand`.
+    pub(super) in_forecast_activation: bool,
     /// Whether this face is the front half of a `Split` card (`AlternateMode$ Split`).
     is_split_front: bool,
     /// When transcoding a Room split card (CR 709.5), the door index of this
@@ -626,6 +632,7 @@ impl<'a> Tx<'a> {
             has_resolution_chosen_name: false,
             cost_sacrifices_self: false,
             cost_sacrifices_other: false,
+            cost_beholds_or_reveals: false,
             has_x_mana_cost: script.has_x_mana_cost,
             has_flash: script.keywords.iter().any(|k| k.trim() == "Flash"),
             has_single_kicker: !multi_or_dual && single_kickers == 1,
@@ -643,6 +650,7 @@ impl<'a> Tx<'a> {
             in_chosen_creature_type: false,
             in_graveyard_activation: false,
             in_hand_activation: false,
+            in_forecast_activation: false,
             is_split_front: script.alternate_mode.as_deref() == Some("Split"),
             room_door: None,
             is_double_faced_front: script.alternate_mode.as_deref() == Some("DoubleFaced"),
@@ -675,7 +683,7 @@ impl<'a> Tx<'a> {
 
     /// Lowers a self-spell `S: Mode$ OptionalCost` static ability into
     /// `FaceDef::optional_cost` (`CR 118.8b`).
-    fn lower_optional_cost_static(&mut self, spec: &str, is_land: bool) -> Option<()> {
+    pub(super) fn lower_optional_cost_static(&mut self, spec: &str, is_land: bool) -> Option<()> {
         if is_land {
             return self.deny("`S: Mode$ OptionalCost` on a land".to_string());
         }
@@ -700,6 +708,9 @@ impl<'a> Tx<'a> {
         };
         if let Some(key) = p.first_key() {
             return self.deny(format!("unclaimed parameter `OptionalCost.{key}`"));
+        }
+        if let Some(res) = self.wave16b_try_waterbend_optional_cost(&cost_raw) {
+            return res.ok();
         }
         let (cost_expr, uses_x) = self.parse_kicker_cost_expr(&cost_raw)?;
         if uses_x {
@@ -888,7 +899,7 @@ pub(super) fn is_vanilla_face(script: &CardScript) -> bool {
         && script.oracle.trim().is_empty()
 }
 
-fn is_optional_cost_static(spec: &str) -> bool {
+pub(super) fn is_optional_cost_static(spec: &str) -> bool {
     Params::parse(spec).is_some_and(|(mode, _)| mode == "OptionalCost")
 }
 
@@ -932,19 +943,21 @@ fn transcode_face(
     {
         tx.keyword(line)?;
     }
+    // Read `S: Mode$ OptionalCost` before non-Kicker keywords and rules so
+    // `self.body.optional_cost` (and any cost filter static) is established
+    // before `K:etbCounter` / `A:` / `T:` lines check `Condition::OptionalCostPaid`
+    // or Tarkir `Count$Presence_<Subtype>.1.0`.
+    for (kind, spec) in &script.rules {
+        if *kind == 'S' && is_optional_cost_static(spec) {
+            tx.lower_optional_cost_static(spec, script.is_land)?;
+        }
+    }
     for line in script
         .keywords
         .iter()
         .filter(|line| !line.starts_with("Kicker:"))
     {
         tx.keyword(line)?;
-    }
-    // Read `S: Mode$ OptionalCost` before other rules so `self.body.optional_cost`
-    // is established before `A:`/`T:` lines check `Condition::OptionalCostPaid`.
-    for (kind, spec) in &script.rules {
-        if *kind == 'S' && is_optional_cost_static(spec) {
-            tx.lower_optional_cost_static(spec, script.is_land)?;
-        }
     }
     for (kind, spec) in &script.rules {
         if *kind == 'S' && is_optional_cost_static(spec) {

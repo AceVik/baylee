@@ -734,8 +734,8 @@ fn parts_payable(view: &PlayerView, card: ObjectId, parts: &[CostPart]) -> bool 
         | CostPart::TapOther(_)
         | CostPart::Crew(_)
         | CostPart::Saddle(_)
-        | CostPart::ExileFromGraveyard(_)
         | CostPart::DiscardSelf
+        | CostPart::RevealSelfFromHand
         | CostPart::ExileSelf
         | CostPart::ReturnSelfToHand
         | CostPart::RemoveCounterSelf { .. }
@@ -748,17 +748,36 @@ fn parts_payable(view: &PlayerView, card: ObjectId, parts: &[CostPart]) -> bool 
         | CostPart::TapX(_)
         | CostPart::SacrificeX(_)
         | CostPart::SacrificeAll(_)
-        | CostPart::PutCounterOnOther { .. }
         | CostPart::ExileFromSingleGraveyard { .. }
         | CostPart::ExileTopOfLibrary(_)
         | CostPart::PayAttachedManaCost
         | CostPart::ReturnUnblockedAttacker
         | CostPart::SacrificeGrantor
         | CostPart::DiscardX(_)
+        | CostPart::RevealFromHandX(_)
         | CostPart::ExileFromGraveyardX(_)
         | CostPart::Forage
         | CostPart::CraftMaterials { .. } => false,
         CostPart::Behold(filter) => behold_payable(view, card, filter),
+        CostPart::RevealFromHand(filter) => hand_reveal_payable(view, card, filter),
+        CostPart::PutCounterOnOther { filter, .. } => {
+            let payer = resource_player(view);
+            view.battlefield_of(payer).any(|o| {
+                o.id != card
+                    && !o.status.is_phased_out()
+                    && crate::targeting::matches(view, o, filter) != Some(false)
+            })
+        }
+        CostPart::ExileFromGraveyard(filter) => {
+            let payer = resource_player(view);
+            view.graveyards
+                .get(usize::from(payer.get()))
+                .is_some_and(|gy| {
+                    gy.iter().any(|o| {
+                        o.id != card && crate::targeting::matches(view, o, filter) != Some(false)
+                    })
+                })
+        }
         CostPart::CollectEvidence(mv) => {
             let payer = resource_player(view);
             view.graveyards
@@ -786,10 +805,13 @@ fn behold_payable(view: &PlayerView, card: ObjectId, filter: &Filter) -> bool {
             && !o.status.is_phased_out()
             && crate::targeting::matches(view, o, filter) == Some(true)
     });
-    on_bf
-        || baylee_client_core::decision::hand(view)
-            .iter()
-            .any(|h| h.id != card && hand_matches_behold(h, filter))
+    on_bf || hand_reveal_payable(view, card, filter)
+}
+
+fn hand_reveal_payable(view: &PlayerView, card: ObjectId, filter: &Filter) -> bool {
+    baylee_client_core::decision::hand(view)
+        .iter()
+        .any(|h| h.id != card && hand_matches_behold(h, filter))
 }
 
 fn hand_matches_behold(hand: &baylee_view::HandObject, filter: &Filter) -> bool {

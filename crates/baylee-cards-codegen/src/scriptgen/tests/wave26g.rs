@@ -568,7 +568,7 @@ fn saga_ward_convoke_wave14a_grant_flash_and_ward_blight() {
         "Name:BadWardZero\nTypes:Creature\nPT:2/2\nK:Ward:Blight<0>",
         "Name:BadWardCE\nTypes:Creature\nPT:2/2\nK:Ward:CollectEvidence<3>",
         "Name:BadOptBlight\nManaCost:1 B\nTypes:Sorcery\n\
-         S:Mode$ OptionalCost | EffectZone$ All | ValidCard$ Card.Self | ValidSA$ Spell | Cost$ Blight<2>\n\
+         S:Mode$ OptionalCost | EffectZone$ All | ValidCard$ Card.Self | ValidSA$ Spell | Cost$ Blight<0>\n\
          A:SP$ Draw | NumCards$ 1",
     ] {
         assert!(refused26(bad), "expected refusal:\n{bad}");

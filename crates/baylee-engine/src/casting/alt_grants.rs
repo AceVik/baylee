@@ -32,6 +32,7 @@ pub struct AltCastGrantRoute {
     pub base_mana: Option<ManaCost>,
     pub extra_cost: Option<baylee_cards_dsl::Cost>,
     pub life: Option<u32>,
+    pub exile_as_flashback: bool,
 }
 
 fn is_linked_to_source(state: &GameState, effect: &ContinuousEffect, obj: &GameObject) -> bool {
@@ -176,6 +177,29 @@ fn grant_matches_face(
     }
     let prospective = projected_face_spell(obj, def, face);
     crate::effects::matches_filter(state, effect, &prospective)
+}
+
+fn flashback_cost_matches_face(
+    state: &GameState,
+    player: PlayerId,
+    effect: &ContinuousEffect,
+    obj: &GameObject,
+    def: &'static CardDef,
+    face: usize,
+) -> Option<ManaCost> {
+    let Modifier::GrantsFlashbackCost(cost) = effect.modifier else {
+        return None;
+    };
+    if obj.zone != Zone::Graveyard
+        || obj.zone_owner != Some(player)
+        || !def.faces[face]
+            .types
+            .intersects(TypeSet::INSTANT.union(TypeSet::SORCERY))
+        || !crate::effects::applies_to(state, effect, obj)
+    {
+        return None;
+    }
+    Some(cost)
 }
 
 fn effect_matches_land_object(
@@ -418,9 +442,12 @@ pub(crate) fn has_alt_cast_grant(
         return false;
     };
     state.effects.iter().any(|effect| {
-        matches!(effect.modifier, Modifier::MayCastWithAltCost { .. })
+        (matches!(effect.modifier, Modifier::MayCastWithAltCost { .. })
             && (0..def.faces.len())
-                .any(|face| grant_matches_face(state, player, effect, obj, def, face))
+                .any(|face| grant_matches_face(state, player, effect, obj, def, face)))
+            || (0..def.faces.len()).any(|face| {
+                flashback_cost_matches_face(state, player, effect, obj, def, face).is_some()
+            })
     })
 }
 
@@ -461,7 +488,7 @@ fn price_basis(
     }
 }
 
-#[allow(clippy::too_many_arguments)]
+#[allow(clippy::too_many_arguments, clippy::too_many_lines)]
 fn collect_effect_grant_options(
     state: &GameState,
     lookup: &impl CardLookup,
@@ -475,22 +502,45 @@ fn collect_effect_grant_options(
     life_short: &mut bool,
     out: &mut Vec<(CastModeDesc, AltCastGrantRoute)>,
 ) {
-    let Modifier::MayCastWithAltCost {
-        grant_zone_permission,
-        with_flash,
-        once_per_turn,
-        price,
-        ..
-    } = effect.modifier
-    else {
-        return;
-    };
-    if !(0..def.faces.len()).any(|face| grant_matches_face(state, player, effect, obj, def, face)) {
+    let (grant_zone_permission, with_flash, once_per_turn, price, exile_as_flashback) =
+        match effect.modifier {
+            Modifier::MayCastWithAltCost {
+                grant_zone_permission,
+                with_flash,
+                once_per_turn,
+                price,
+                ..
+            } => (
+                grant_zone_permission,
+                with_flash,
+                once_per_turn,
+                price,
+                false,
+            ),
+            Modifier::GrantsFlashbackCost(cost) => {
+                if !(0..def.faces.len()).any(|face| {
+                    flashback_cost_matches_face(state, player, effect, obj, def, face).is_some()
+                }) {
+                    return;
+                }
+                (true, false, false, AltCastPrice::Mana(cost), true)
+            }
+            _ => return,
+        };
+    if !exile_as_flashback
+        && !(0..def.faces.len())
+            .any(|face| grant_matches_face(state, player, effect, obj, def, face))
+    {
         return;
     }
     let (basis, base_mana, extra_cost, is_alt_cost) = price_basis(price, with_flash);
     for choice in replaced_cost_options(state, lookup, player, card, paying, basis) {
-        if !grant_matches_face(state, player, effect, obj, def, choice.face) {
+        let face_ok = if exile_as_flashback {
+            flashback_cost_matches_face(state, player, effect, obj, def, choice.face).is_some()
+        } else {
+            grant_matches_face(state, player, effect, obj, def, choice.face)
+        };
+        if !face_ok {
             continue;
         }
         let mut costs = choice.cost_choice(def);
@@ -551,6 +601,7 @@ fn collect_effect_grant_options(
                 base_mana,
                 extra_cost,
                 life: mv_life,
+                exile_as_flashback,
             },
         ));
     }
@@ -632,5 +683,11 @@ pub(crate) fn alt_cast_route_still_open(
         .effects
         .iter()
         .find(|fx| fx.id == route.effect_id)
-        .is_some_and(|effect| grant_matches_face(state, player, effect, obj, def, route.face))
+        .is_some_and(|effect| {
+            if route.exile_as_flashback {
+                flashback_cost_matches_face(state, player, effect, obj, def, route.face).is_some()
+            } else {
+                grant_matches_face(state, player, effect, obj, def, route.face)
+            }
+        })
 }

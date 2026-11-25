@@ -601,6 +601,7 @@ impl Tx<'_> {
                 .trim();
             if def.starts_with("Count$OptionalGenericCostPaid")
                 || def.starts_with("CastSA>Count$OptionalGenericCostPaid")
+                || def.starts_with("Count$Presence_")
                 || matches!(def, "Collected$Amount" | "CastSA>Collected$Amount")
             {
                 return true;
@@ -761,6 +762,22 @@ impl Tx<'_> {
                     return Err(());
                 }
             }
+        } else if def.starts_with("Count$Presence_") {
+            let Some(cond) = self.wave16b_presence_condition(def, cmp) else {
+                self.note(format!("presence condition `{def}` `{cmp}`"));
+                return Err(());
+            };
+            p.take("ConditionCheckSVar");
+            p.take("ConditionSVarCompare");
+            p.take("ConditionDescription");
+            if let Some(key) = p.first_key() {
+                self.note(format!("unclaimed parameter `{api}.{key}`"));
+                return Err(());
+            }
+            return Ok(Some(vec![format!(
+                "Effect::IfCondition {{ condition: {cond}, then: &[{}], otherwise: &[] }}",
+                effects.join(", ")
+            )]));
         } else {
             return Ok(None);
         };
@@ -1167,6 +1184,7 @@ impl Tx<'_> {
                         || p.starts_with("DiscardX(")
                         || p.starts_with("ExileFromGraveyardX(")
                         || p.starts_with("RemoveAnyCounterX {")
+                        || p.starts_with("RevealFromHandX(")
                 }) {
                     uses_x = true;
                 }
@@ -1256,6 +1274,12 @@ impl Tx<'_> {
         if let Some(inner) = token.strip_prefix("RevealOrChoose<") {
             let as_behold = format!("Behold<{inner}");
             return Some(vec![self.parse_behold_cost_token(&as_behold)?]);
+        }
+        if token.starts_with("Blight<") {
+            return Some(vec![self.parse_blight_cost_token(token)?]);
+        }
+        if token.starts_with("Reveal<") {
+            return self.parse_reveal_cost_token(token, true);
         }
         if token.starts_with("CollectEvidence<") {
             return Some(vec![self.parse_collect_evidence_cost_token(token)?]);
@@ -1405,7 +1429,7 @@ impl Tx<'_> {
                 )])
             }
             _ => {
-                let max_count = if kind == "ExileFromGrave" { 4 } else { 3 };
+                let max_count = if kind == "ExileFromGrave" { 6 } else { 3 };
                 let Some(count) = n
                     .parse::<usize>()
                     .ok()
