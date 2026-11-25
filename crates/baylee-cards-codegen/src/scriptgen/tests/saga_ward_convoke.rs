@@ -3550,8 +3550,8 @@ fn wave12b_refusal_boundaries() {
          R:Event$ DamageDone | ActiveZones$ Battlefield | ValidSource$ Card.YouCtrl,Emblem.OppCtrl | ValidTarget$ You | Prevent$ True",
         "Name:BadRaiseLifeCost\nTypes:Creature\nPT:5/4\n\
          S:Mode$ RaiseCost | ValidTarget$ Card.Self | Activator$ Player.Opponent | Type$ Spell | Cost$ PayLife<3>",
-        "Name:BadRaiseNarrowTarget\nTypes:Creature\nPT:2/2\n\
-         S:Mode$ RaiseCost | ValidTarget$ Creature.YouCtrl | Activator$ Opponent | Type$ Spell | Amount$ 2",
+        "Name:BadRaiseNonYouTarget\nTypes:Creature\nPT:2/2\n\
+         S:Mode$ RaiseCost | ValidTarget$ Creature.OppCtrl | Activator$ Opponent | Type$ Spell | Amount$ 2",
         "Name:BadReduceColorTarget\nTypes:Creature\nPT:2/2\n\
          S:Mode$ ReduceCost | ValidTarget$ Card.Self | Activator$ You | Type$ Spell | Color$ U | Amount$ 1 | IgnoreGeneric$ True",
         "Name:BadReduceAllZoneTarget\nTypes:Instant\n\

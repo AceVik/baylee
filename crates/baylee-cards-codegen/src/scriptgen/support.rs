@@ -60,6 +60,19 @@ fn refusal_reason_face(
         }
     }
     for (kind, spec) in &script.rules {
+        if *kind == 'S'
+            && super::is_optional_cost_static(spec)
+            && tx
+                .lower_optional_cost_static(spec, script.is_land)
+                .is_none()
+        {
+            return tx.unclaimed.into_inner();
+        }
+    }
+    for (kind, spec) in &script.rules {
+        if *kind == 'S' && super::is_optional_cost_static(spec) {
+            continue;
+        }
         if tx.rule(*kind, spec).is_none() {
             return tx.unclaimed.into_inner();
         }
