@@ -455,6 +455,7 @@ const OFFERS_A_CHOICE: &[&str] = &[
     "WishToHand",
     "SacrificeX(",
     "GrantFlash",
+    "ChooseNumberEx",
 ];
 
 pub(crate) fn check_optional_clauses_are_offered(
@@ -956,7 +957,9 @@ pub(crate) fn check_scope_matches_the_text(
         || built.contains("ControlPlayerNextTurn")
         || built.contains("controller_lki: Some(You)")
         || built.contains("SpellsCantBeCountered { who: You")
-        || built.contains("SacrificeAnyNumber { who: You");
+        || built.contains("SacrificeAnyNumber { who: You")
+        // Devotion / Chroma counts mana symbols on permanents controlled by `who`.
+        || built.contains("Devotion { who: You");
     let filters_theirs = compares_controllers
         || built.contains("ControlledByOpponent")
         || built.contains("ObjectOfEachOpponent(")
@@ -966,7 +969,9 @@ pub(crate) fn check_scope_matches_the_text(
             && (built.contains("controlled_by: Some(Chosen)")
                 || built.contains("ControlledBy(Chosen)")
                 || built.contains("TapAllOf { who: Chosen")
-                || built.contains("ControlledCount { who: Chosen")))
+                || built.contains("ControlledCount { who: Chosen")
+                || built.contains("ControlledCount { who: FirstTargetPlayerOrController")
+                || built.contains("ControlledCount { who: TargetPlayerOrController")))
         || built.contains("OpponentControlCountAtMost(")
         || built.contains("PayLifeForPtCapWhiteOpponents")
         // These restrict the controller of the effect/spell/ability,
