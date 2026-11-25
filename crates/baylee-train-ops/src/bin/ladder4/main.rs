@@ -354,10 +354,10 @@ fn host(
 }
 
 /// Spawns the language model's seat: as a guest in chair 1 of the net's
-/// room, or (`host_chair`) in chair 0 of a room its own account opened,
-/// whose credentials then go to it as the first line on stdin. Its
-/// environment is cleared to what it needs and its profile's key variable,
-/// passed by name.
+/// room, or (`handed_chair`) in a chair an account already holds, chair 0
+/// of a room it opened or chair 1 it joined, whose credentials then go to it
+/// as the first line on stdin. Its environment is cleared to what it needs
+/// and its profile's key variable, passed by name.
 fn guest(
     args: &Args,
     game: &Game,
@@ -416,7 +416,7 @@ fn guest(
         }
     }
     // The host's chair is read for the line that says it is ready
-    // ([`copy_until_ready`]); a guest's goes straight to its log.
+    // ([`copy_until_ready`]); any other chair's goes straight to its log.
     let stdout = if handed_chair == Some(0) {
         Stdio::piped()
     } else {
@@ -835,6 +835,11 @@ fn play(args: &Args, game: &Game) -> Result<Value> {
         std::thread::sleep(Duration::from_millis(200));
     }
     reap(&mut model);
+    // A room still waiting at the limit would be one of the few a reused
+    // account may host: a guest account is simply never seen again.
+    if timed_out && let Some(sessions) = &args.sessions {
+        sessions.leave(&args.gateway, &room);
+    }
     let report = reader.join().ok().flatten();
     let inner = report
         .as_ref()
