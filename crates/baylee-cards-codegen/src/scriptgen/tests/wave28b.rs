@@ -38,7 +38,7 @@ fn wave28b_devotion_chroma_and_af_life_lost() {
 
     let blood_tribute = read(
         "Name:Blood Tribute\nManaCost:4 B B\nTypes:Sorcery\n\
-         K:Kicker:tapXType<1/Vampire>\n\
+         K:Kicker:tapXType<1/Goblin>\n\
          A:SP$ LoseLife | ValidTgts$ Opponent | LifeAmount$ X | SubAbility$ DBGainLife | \
          SpellDescription$ Target opponent loses half their life, rounded up. If this spell was kicked, you gain life equal to the life lost this way.\n\
          SVar:DBGainLife:DB$ GainLife | Defined$ You | LifeAmount$ AFLifeLost | Condition$ Kicked | ConditionDescription$ If it was kicked,\n\
