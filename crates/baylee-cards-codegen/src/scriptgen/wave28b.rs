@@ -186,7 +186,9 @@ impl Tx<'_> {
                 let then_amt = self.wave28b_arm_amount(then_raw.trim(), depth + 1)?;
                 let else_amt = self.wave28b_arm_amount(else_raw.trim(), depth + 1)?;
                 return Some(format!(
-                    "Amount::IfCondition {{ condition: &Condition::DiscardedForCost(&Filter::Multicolored), \
+                    "Amount::IfCondition {{ condition: &Condition::DiscardedForCost(\
+                     &Filter::And(&[Filter::Not(&Filter::IsColorless), \
+                     Filter::Not(&Filter::Monocolored)])), \
                      then: &{then_amt}, otherwise: &{else_amt} }}"
                 ));
             }
@@ -637,8 +639,7 @@ impl Tx<'_> {
             | "Filter::YOUR_CREATURE"
             | "Filter::YOUR_ARTIFACT"
             | "Filter::YOUR_LAND"
-            | "Filter::OPPONENT_CREATURE"
-            | "Filter::Multicolored" => format!("&{expr}"),
+            | "Filter::OPPONENT_CREATURE" => format!("&{expr}"),
             _ => format!("&{}", self.body.filter_static("COND", expr)),
         }
     }
