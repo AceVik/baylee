@@ -2908,6 +2908,23 @@ impl Tx<'_> {
                 *self.unclaimed.borrow_mut() = after_first_unclaimed;
             }
         }
+        if chain_ok.is_none() && !may && price.is_none() && !mandatory_sac_self {
+            let mut div_chain = Chain::default();
+            let after_prev_statics = self.body.statics.len();
+            let after_prev_unclaimed = self.unclaimed.borrow().clone();
+            self.body.statics.truncate(saved_statics);
+            (*self.unclaimed.borrow_mut()).clone_from(&saved_unclaimed);
+            if self
+                .wave28a_divided_damage_trigger_chain(&body, &mut div_chain)
+                .is_some()
+            {
+                chain = div_chain;
+                chain_ok = Some(());
+            } else {
+                self.body.statics.truncate(after_prev_statics);
+                *self.unclaimed.borrow_mut() = after_prev_unclaimed;
+            }
+        }
         if chain_ok.is_none() {
             let mut tok_chain = Chain::default();
             let after_prev_statics = self.body.statics.len();
@@ -3827,6 +3844,7 @@ impl Tx<'_> {
     ) -> Option<&'static str> {
         let multi_target = chain.target_exact.is_some_and(|n| n > 1)
             || chain.target_up_to.is_some_and(|n| n > 1)
+            || chain.target_range.is_some()
             || chain.target_is_x;
         let obj_target = target.is_some_and(|t| t.starts_with("TargetSpec::Object("));
         match raw {

@@ -74,6 +74,7 @@ mod wave27b;
 mod wave27c;
 mod wave27d;
 mod wave27e;
+mod wave28a;
 mod wave28b;
 mod wave28c;
 mod wave28d;
@@ -380,13 +381,16 @@ struct Chain {
     target_is_x: bool,
     target_up_to: Option<u8>,
     target_exact: Option<u8>,
+    target_range: Option<(u8, u8)>,
     target_unique: bool,
     target_constraint: Option<&'static str>,
     second_target: Option<String>,
     second_target_up_to: Option<u8>,
+    second_target_range: Option<(u8, u8)>,
     second_target_constraint: Option<&'static str>,
     third_target: Option<String>,
     third_target_up_to: Option<u8>,
+    third_target_range: Option<(u8, u8)>,
     third_target_constraint: Option<&'static str>,
     could_add_mana: bool,
     moves_library: bool,
@@ -595,6 +599,9 @@ struct Tx<'a> {
     /// True while lowering a line/chain that targets an object (used to gate
     /// `Targeted.<Type>+Attached` and `Targeted.Other+<...>` battlefield filters).
     current_object_target: bool,
+    /// True while inside a chain opened by a leading `DB$ Cleanup | ClearRemembered$ True`
+    /// (*Deathrender*).
+    preceded_by_cleanup: bool,
     body: CardBody,
     /// The first `Api.Key` no rule claimed, if that is why this
     /// script was refused. Recorded rather than derived, because a
@@ -688,6 +695,7 @@ impl<'a> Tx<'a> {
             capture_scope: None,
             current_single_player_rel: None,
             current_object_target: false,
+            preceded_by_cleanup: false,
             body: CardBody::default(),
             unclaimed: std::cell::RefCell::new(None),
         }

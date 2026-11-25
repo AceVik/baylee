@@ -308,7 +308,7 @@ impl Tx<'_> {
 
     /// Which Forge `Remember*` parameter on `api` cleanly maps to
     /// `Effect::CaptureAffected { first, then }`.
-    fn wave27c_capture_flag(api: &str, p: &Params) -> Option<&'static str> {
+    pub(super) fn wave27c_capture_flag(api: &str, p: &Params) -> Option<&'static str> {
         let primary = match api {
             "ChangeZone" | "ChangeZoneAll" | "Dig" => "RememberChanged",
             "Mill" => "RememberMilled",
@@ -323,6 +323,13 @@ impl Tx<'_> {
         };
         if p.peek(primary) == Some("True") {
             return Some(primary);
+        }
+        if api == "ChangeZone"
+            && p.peek("RememberTargets") == Some("True")
+            && !p.has("RememberChanged")
+            && !p.has("Optional")
+        {
+            return Some("RememberTargets");
         }
         if matches!(
             api,
@@ -609,6 +616,14 @@ impl Tx<'_> {
     ) -> Option<Vec<String>> {
         let sub_name = sub.as_deref()?.trim().to_string();
         let flag_key = Self::wave27c_capture_flag(api, p)?;
+        if flag_key == "RememberTargets"
+            && (!flags.targets_here
+                || !flags.single_target
+                || self.has_linked_exile_reader()
+                || self.oracle.to_ascii_lowercase().contains("you may "))
+        {
+            return None;
+        }
         if Self::has_unsupported_memory_param(p, flag_key) {
             return None;
         }
@@ -654,13 +669,16 @@ impl Tx<'_> {
             target_is_x: chain.target_is_x,
             target_up_to: chain.target_up_to,
             target_exact: chain.target_exact,
+            target_range: chain.target_range,
             target_unique: chain.target_unique,
             target_constraint: chain.target_constraint,
             second_target: chain.second_target.clone(),
             second_target_up_to: chain.second_target_up_to,
+            second_target_range: chain.second_target_range,
             second_target_constraint: chain.second_target_constraint,
             third_target: chain.third_target.clone(),
             third_target_up_to: chain.third_target_up_to,
+            third_target_range: chain.third_target_range,
             third_target_constraint: chain.third_target_constraint,
             ..Chain::default()
         };
@@ -693,7 +711,8 @@ impl Tx<'_> {
         // On spells (which leave the stack on resolution), allow omitted
         // `Cleanup` only when no unvisited SVar reads `Remembered`.
         if !closed_by_cleanup
-            && (!self.on_a_spell || self.wave27c_has_unvisited_remembered(&visited))
+            && ((!self.on_a_spell && !self.preceded_by_cleanup)
+                || self.wave27c_has_unvisited_remembered(&visited))
         {
             return None;
         }
@@ -703,13 +722,16 @@ impl Tx<'_> {
         chain.target_is_x = then_chain.target_is_x;
         chain.target_up_to = then_chain.target_up_to;
         chain.target_exact = then_chain.target_exact;
+        chain.target_range = then_chain.target_range;
         chain.target_unique = then_chain.target_unique;
         chain.target_constraint = then_chain.target_constraint;
         chain.second_target = then_chain.second_target;
         chain.second_target_up_to = then_chain.second_target_up_to;
+        chain.second_target_range = then_chain.second_target_range;
         chain.second_target_constraint = then_chain.second_target_constraint;
         chain.third_target = then_chain.third_target;
         chain.third_target_up_to = then_chain.third_target_up_to;
+        chain.third_target_range = then_chain.third_target_range;
         chain.third_target_constraint = then_chain.third_target_constraint;
         chain.could_add_mana |= then_chain.could_add_mana;
         chain.moves_library |= then_chain.moves_library;
@@ -1265,46 +1287,6 @@ impl Tx<'_> {
                 *p = probe;
                 Some(effs)
             }
-            "Animate" => {
-                let mut probe = p.clone();
-                probe.take("Defined");
-                probe.take("IsCurse");
-                let duration = match probe.take("Duration").as_deref() {
-                    None | Some("EOT" | "UntilEndOfTurn") => "Duration::UntilEndOfTurn",
-                    Some("UntilEndOfCombat") => "Duration::UntilEndOfCombat",
-                    Some("UntilYourNextTurn") => "Duration::UntilYourNextTurn",
-                    Some("Permanent") => "Duration::Indefinitely",
-                    Some(_) => return None,
-                };
-                let raw_keywords = probe.take("Keywords")?;
-                let keywords = Self::pump_keyword_bits(&raw_keywords)?;
-                let at_eot = probe.take("AtEOT");
-                if !Self::only_condition_keys_left(&probe) {
-                    return None;
-                }
-                let mut effects = vec![format!(
-                    "Effect::ModifyEvent {{ modifier: Modifier::AddKeyword({keywords}), duration: {duration} }}"
-                )];
-                if let Some(at_eot) = at_eot.as_deref() {
-                    let delayed = match at_eot {
-                        "Hand" => "Effect::ReturnToHand { target: TargetSpec::EventObject }",
-                        "Sacrifice" | "SacrificeCtrl" => "Effect::SacrificeEvent",
-                        "Exile" => "Effect::exile(TargetSpec::EventObject)",
-                        _ => return None,
-                    };
-                    effects.push(format!(
-                        "Effect::RegisterDelayedTrigger {{ when: DelayedTriggerWhen::AtStep {{ \
-                         step: DelayedStep::EndStep, whose: None, this_turn_only: false, \
-                         recurring: false }}, condition: None, targets: None, \
-                         remember: TriggerRemember::EventObject, effects: &[{delayed}] }}"
-                    ));
-                }
-                *p = probe;
-                Some(vec![format!(
-                    "Effect::ForEachRemembered {{ filter: &Filter::Any, effects: &[{}] }}",
-                    effects.join(", ")
-                )])
-            }
             "PutCounter" => {
                 let mut probe = p.clone();
                 probe.take("Defined");
@@ -1476,7 +1458,7 @@ impl Tx<'_> {
                      haste_until_eot: {haste_until_eot} }}] }}"
                 )])
             }
-            _ => None,
+            _ => self.wave28a_remembered_step(api, p, target, flags),
         }
     }
 
@@ -1569,12 +1551,14 @@ impl Tx<'_> {
         let second = Self::format_slot_req(
             chain.second_target.as_deref()?,
             chain.second_target_up_to,
+            chain.second_target_range,
             chain.second_target_constraint,
         );
         if let Some(third_spec) = chain.third_target.as_deref() {
             let third = Self::format_slot_req(
                 third_spec,
                 chain.third_target_up_to,
+                chain.third_target_range,
                 chain.third_target_constraint,
             );
             Some(format!("{second}), third_targets = Some({third}"))
@@ -1583,13 +1567,20 @@ impl Tx<'_> {
         }
     }
 
-    fn format_slot_req(spec: &str, up_to: Option<u8>, constraint: Option<&'static str>) -> String {
+    fn format_slot_req(
+        spec: &str,
+        up_to: Option<u8>,
+        range: Option<(u8, u8)>,
+        constraint: Option<&'static str>,
+    ) -> String {
         let base = if let Some(max) = up_to {
             if max == 1 {
                 format!("TargetReq::up_to_one({spec})")
             } else {
                 format!("TargetReq::up_to({spec}, {max})")
             }
+        } else if let Some((min, max)) = range {
+            Self::wave28a_format_range_req(spec, min, max)
         } else {
             format!("TargetReq::one({spec})")
         };
@@ -1600,6 +1591,7 @@ impl Tx<'_> {
     }
 
     /// Parse `TargetMin$` / `TargetMax$` / `TargetUnique$` for Slot 2 or Slot 3.
+    #[allow(clippy::type_complexity)]
     fn take_slot_bounds_and_unique(
         &self,
         api: &str,
@@ -1607,7 +1599,7 @@ impl Tx<'_> {
         valid: &str,
         spec: &str,
         allow_multi: bool,
-    ) -> Option<(Option<u8>, Option<&'static str>)> {
+    ) -> Option<(Option<u8>, Option<(u8, u8)>, Option<&'static str>)> {
         let constraint = match p.peek("TargetUnique") {
             None => None,
             Some("True") => {
@@ -1617,6 +1609,7 @@ impl Tx<'_> {
             Some(_) => return None,
         };
         let is_obj_spec = spec.starts_with("TargetSpec::Object(");
+        let mut range = None;
         let up_to = if p.peek("TargetMin") == Some("1")
             && matches!(p.peek("TargetMax"), None | Some("1"))
         {
@@ -1666,12 +1659,16 @@ impl Tx<'_> {
             p.take("TargetMin");
             p.take("TargetMax");
             Some(u8::MAX)
+        } else if let Some(r) = self.wave28a_take_extra_slot_range(api, p, valid, spec, allow_multi)
+        {
+            range = Some(r);
+            None
         } else if p.has("TargetMin") || p.has("TargetMax") {
             return None;
         } else {
             None
         };
-        Some((up_to, constraint))
+        Some((up_to, range, constraint))
     }
 
     /// Wave 27c hook in `chain_target`: handles
@@ -1706,13 +1703,14 @@ impl Tx<'_> {
                 return Some(false);
             }
             let allow_multi = Self::wave26c_second_target_multi_ok(api, p);
-            let Some((up_to, constraint)) =
+            let Some((up_to, range, constraint)) =
                 self.take_slot_bounds_and_unique(api, p, valid, spec, allow_multi)
             else {
                 return Some(false);
             };
             chain.third_target = Some(spec.to_string());
             chain.third_target_up_to = up_to;
+            chain.third_target_range = range;
             chain.third_target_constraint = constraint;
             return Some(true);
         }
@@ -1747,13 +1745,14 @@ impl Tx<'_> {
         }
         let allow_multi = Self::wave26c_second_target_multi_ok(api, p)
             || (api == "GainControl" && p.peek("NewController") == Some("ParentTarget"));
-        let Some((up_to, constraint)) =
+        let Some((up_to, range, constraint)) =
             self.take_slot_bounds_and_unique(api, p, valid, spec, allow_multi)
         else {
             return Some(false);
         };
         chain.second_target = Some(spec.to_string());
         chain.second_target_up_to = up_to;
+        chain.second_target_range = range;
         chain.second_target_constraint = constraint;
         Some(true)
     }
@@ -2069,7 +2068,8 @@ impl Tx<'_> {
         if third_target_here {
             let third_spec = chain.third_target.as_deref().map(Self::effect_target_of)?;
             let targets_a_player = third_spec == "TargetSpec::Player(PlayerRel::Chosen)";
-            let third_single = chain.third_target_up_to.is_none_or(|n| n <= 1);
+            let third_single = chain.third_target_up_to.is_none_or(|n| n <= 1)
+                && chain.third_target_range.is_none();
             let raw = self.wave27c_slot2_or_slot3_effect(
                 api,
                 p,

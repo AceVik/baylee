@@ -1108,6 +1108,7 @@ impl Tx<'_> {
             || chain.second_target.is_some()
             || chain.target_up_to.is_some()
             || chain.target_exact.is_some()
+            || chain.target_range.is_some()
             || chain.target_is_x
             || chain.target_constraint.is_some()
         {

@@ -5121,6 +5121,11 @@ impl Tx<'_> {
                 }
             } else if let Some(n) = chain.target_exact {
                 format!(", targets = Some(TargetReq::exactly({t}, {n}))")
+            } else if let Some((min, max)) = chain.target_range {
+                format!(
+                    ", targets = Some({})",
+                    Self::wave28a_format_range_req(t, min, max)
+                )
             } else {
                 format!(", targets = Some(TargetReq::one({t}))")
             }
