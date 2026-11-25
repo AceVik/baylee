@@ -211,6 +211,9 @@ impl Tx<'_> {
             return self.protection_from_imprinted(p);
         }
         match mode.as_str() {
+            "AlternativeCost" if p.peek("EffectZone") == Some("Graveyard") => {
+                return self.wave28c_graveyard_self_alt_cost(p);
+            }
             "AlternativeCost" => return self.alternative_cost(p),
             "RaiseCost" => return self.mode_raise_cost(p),
             "ReduceCost" => return self.mode_reduce_cost(p),
