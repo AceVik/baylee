@@ -456,6 +456,7 @@ const OFFERS_A_CHOICE: &[&str] = &[
     "SacrificeX(",
     "GrantFlash",
     "ChooseNumberEx",
+    "RemoveAnyCounterX",
 ];
 
 pub(crate) fn check_optional_clauses_are_offered(
@@ -950,8 +951,10 @@ pub(crate) fn check_scope_matches_the_text(
         // This cumulative coin-flip effect untaps only lands its controller controls.
         || built.contains("FlipCoinsUntilLossOrStopCumulative")
         || built.contains("PlayersOrTheirPermanents(You)")
-        // `RemoveAnyCounter` / `RemoveAnyCounterX` enforce `obj.controller == player`.
+        // `RemoveAnyCounter` / `RemoveAnyCounterX` enforce `obj.controller == player`,
+        // and `Behold` chooses a permanent you control on the battlefield or reveals from hand.
         || built.contains("RemoveAnyCounter")
+        || built.contains("Behold(")
         || built.contains("Domain(You)")
         || built.contains("Revolt")
         || built.contains("ControlPlayerNextTurn")
