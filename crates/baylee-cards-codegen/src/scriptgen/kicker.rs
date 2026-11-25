@@ -297,11 +297,9 @@ impl Tx<'_> {
         target: Option<&str>,
         targets_here: bool,
         targets_a_player: bool,
-        chain: &Chain,
     ) -> Result<Option<Vec<String>>, ()> {
         if !self.can_check_kicked()
             || self.kicked_branch.is_some()
-            || chain.second_target.is_some()
             || p.has("Condition")
             || p.has("ConditionCheckSVar")
             || p.has("ConditionPresent")

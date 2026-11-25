@@ -271,7 +271,7 @@ fn an_identifier_carries_its_time_and_sorts_by_it() {
         .into_iter()
         .map(|at| {
             let id = uuid_v7(at, &mut rng);
-            assert_eq!(uuid_ms(&id), Some(at), "{id}");
+            assert_eq!(uuid_ms(&id), Some(at), "at={at}");
             id
         })
         .collect();
@@ -284,7 +284,10 @@ fn only_a_version_seven_identifier_has_a_time() {
     let id = uuid_v7(TS, &mut Seeded::new(3));
     let mut random = id.clone();
     random.replace_range(14..15, "4");
-    for bad in [random.as_str(), "", "x", &id[1..], &id.replace('-', "")] {
-        assert_eq!(uuid_ms(bad), None, "{bad}");
+    for (idx, bad) in [random.as_str(), "", "x", &id[1..], &id.replace('-', "")]
+        .into_iter()
+        .enumerate()
+    {
+        assert_eq!(uuid_ms(bad), None, "case={idx}");
     }
 }

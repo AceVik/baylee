@@ -1264,3 +1264,45 @@ fn soulbond_picks_strongest_partner_and_modular_may_do_refuses_hostile_target() 
         "Modular MayDo accepts putting +1/+1 counters on a friendly artifact creature"
     );
 }
+
+#[test]
+fn void_number_choice_picks_best_hostile_mana_value_instead_of_u32_max() {
+    let me = PlayerId::new(0);
+    let opp = PlayerId::new(1);
+    let mut our_two_drop = permanent(obj(2), me, 3);
+    our_two_drop.mana_value = 2;
+    let mut their_two_drop = permanent(obj(3), opp, 2);
+    their_two_drop.mana_value = 2;
+    let mut their_four_drop = permanent(obj(4), opp, 5);
+    their_four_drop.mana_value = 4;
+
+    let v = view(
+        0,
+        &[20, 20],
+        vec![our_two_drop, their_two_drop, their_four_drop],
+    );
+    let void_card = hand_card(20, "Void");
+    let effects = baylee_cards::by_index(void_card.card.index)
+        .and_then(|def| {
+            def.abilities.iter().find_map(|ab| match ab {
+                AbilityDef::Spell { effects, .. } => Some(*effects),
+                _ => None,
+            })
+        })
+        .unwrap();
+    let pending = Pending::ChooseNumber {
+        player: me,
+        min: 0,
+        max: u32::MAX,
+        reason: baylee_engine::choice::NumberPrompt::Choice,
+    };
+    let ctx = baylee_engine::engine::DecisionContext {
+        effects,
+        ..Default::default()
+    };
+    assert_eq!(
+        HeuristicAgent::new(AIProfile::EXPERT).act_with_context(&v, &pending, &ctx),
+        PlayerAction::ChooseNumber(4),
+        "Void chooses the opponent's 4-drop mana value rather than trading down at 2 or falling through to u32::MAX"
+    );
+}

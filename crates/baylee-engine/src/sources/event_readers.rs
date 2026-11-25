@@ -23,7 +23,8 @@ fn reads_filter(filter: &baylee_cards_dsl::Filter) -> bool {
         | F::SharesAColorWith(inner)
         | F::SharesColorWithMostCommon(inner)
         | F::SharesCreatureTypeWith(inner)
-        | F::ControllerControls(inner) => reads_filter(inner),
+        | F::ControllerControls(inner)
+        | F::TargetsYouControl(inner) => reads_filter(inner),
         _ => false,
     }
 }

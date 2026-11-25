@@ -452,6 +452,7 @@ impl Tx<'_> {
         let mut wrap_in_second_target = false;
         let mut wave27c_multi_wrap: Option<super::wave27c::MultiTargetAction> = None;
         let effects = if !second_target_here
+            && chain.second_target.is_none()
             && api != "Branch"
             && let Some(split) = self
                 .try_split_kicked_amount(
@@ -461,7 +462,6 @@ impl Tx<'_> {
                     target.as_deref(),
                     targets_here,
                     targets_a_player,
-                    chain,
                 )
                 .ok()?
         {

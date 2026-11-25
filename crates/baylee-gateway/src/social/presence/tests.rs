@@ -225,16 +225,19 @@ fn a_table_is_named_only_by_who_shares_it_and_never_behind_a_password() {
         ("w".into(), BTreeMap::from([("playing".into(), 1)])),
         ("lw".into(), BTreeMap::from([("locked-game".into(), 1)])),
     ]);
-    for (account, game) in [("one", "playing"), ("waiting", "room"), ("w", "playing")] {
-        let shared = place_of(&lobby, &watching, account, true);
-        assert_eq!(game_of(&shared), Some(game), "{account}");
-        let kept = place_of(&lobby, &watching, account, false);
-        assert_eq!(game_of(&kept), None, "{account}");
+    for (idx, (who, game)) in [("one", "playing"), ("waiting", "room"), ("w", "playing")]
+        .into_iter()
+        .enumerate()
+    {
+        let shared = place_of(&lobby, &watching, who, true);
+        assert_eq!(game_of(&shared), Some(game), "case={idx}");
+        let kept = place_of(&lobby, &watching, who, false);
+        assert_eq!(game_of(&kept), None, "case={idx}");
     }
-    for account in ["locked", "p", "lw"] {
+    for (idx, who) in ["locked", "p", "lw"].into_iter().enumerate() {
         for share in [true, false] {
-            let place = place_of(&lobby, &watching, account, share);
-            assert_eq!(game_of(&place), None, "{account}");
+            let place = place_of(&lobby, &watching, who, share);
+            assert_eq!(game_of(&place), None, "case={idx} share={share}");
         }
     }
 }

@@ -16495,28 +16495,9 @@ impl Tx<'_> {
         {
             return None;
         }
-        let (prompt, pay_cost) = match list_title.as_deref() {
-            None => ("NumberChoiceKind::Choice", "None"),
-            Some(title) => {
-                let lower = title.to_ascii_lowercase();
-                let has_unless_pay = self.svars.values().any(|v| v.contains("UnlessCost$"));
-                if lower.contains("energy to pay") && !has_unless_pay {
-                    (
-                        "NumberChoiceKind::EnergyPayment",
-                        "Some(VariablePayKind::Energy)",
-                    )
-                } else if lower.contains("mana to pay") && !has_unless_pay {
-                    (
-                        "NumberChoiceKind::ManaPayment",
-                        "Some(VariablePayKind::GenericMana)",
-                    )
-                } else if lower.contains("life to pay") && !has_unless_pay {
-                    ("NumberChoiceKind::Choice", "Some(VariablePayKind::Life)")
-                } else {
-                    return None;
-                }
-            }
-        };
+        let has_unless_pay = self.svars.values().any(|v| v.contains("UnlessCost$"));
+        let (prompt, pay_cost) =
+            Self::choose_number_prompt_and_cost(list_title.as_deref(), has_unless_pay)?;
         if !p.exhausted() {
             return None;
         }
@@ -16524,6 +16505,34 @@ impl Tx<'_> {
             "Effect::ChooseNumberEx {{ chooser: {chooser}, min: {min}, max: {max}, \
              prompt: {prompt}, pay_cost: {pay_cost}, then: &[] }}"
         )])
+    }
+
+    fn choose_number_prompt_and_cost(
+        list_title: Option<&str>,
+        has_unless_pay: bool,
+    ) -> Option<(&'static str, &'static str)> {
+        let Some(title) = list_title else {
+            return Some(("NumberChoiceKind::Choice", "None"));
+        };
+        if has_unless_pay {
+            return None;
+        }
+        let lower = title.to_ascii_lowercase();
+        if lower.contains("energy to pay") {
+            Some((
+                "NumberChoiceKind::EnergyPayment",
+                "Some(VariablePayKind::Energy)",
+            ))
+        } else if lower.contains("mana to pay") {
+            Some((
+                "NumberChoiceKind::ManaPayment",
+                "Some(VariablePayKind::GenericMana)",
+            ))
+        } else if lower.contains("life to pay") {
+            Some(("NumberChoiceKind::Choice", "Some(VariablePayKind::Life)"))
+        } else {
+            None
+        }
     }
 
     /// General `ChoosePlayer` resolution chain -> `Effect::ChoosePlayerFrom { among }`
