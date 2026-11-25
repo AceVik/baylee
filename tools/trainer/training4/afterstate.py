@@ -311,6 +311,16 @@ def selection_report(after, gaps, select):
     return chooser, margin, gain
 
 
+def falsified(pearson):
+    """The early falsifier: no correlation, one that is no number, or one at or below 0.25."""
+    return pearson is None or not pearson > 0.25
+
+
+def sources_of(meta):
+    """The digests of the afterstate files a fit or a decision read, in order."""
+    return [source["sha256"] for source in (meta or {}).get("sources", ())]
+
+
 def read_preregistration(path):
     data = json.loads(Path(path).read_text())
     if data.get("contract") != PREREGISTRATION_CONTRACT:
@@ -733,6 +743,8 @@ def fit_v1(after, data, frozen, device, tower_lr=3e-5, alpha_lr=1e-3, epochs=25,
             ti = torch.from_numpy(items).to(device)
             weight = tw[ti] * tn[ti]
             loss = (weight * (gaps - tt[ti]).square()).sum() / weight.sum().clamp(min=1e-12)
+            if not torch.isfinite(loss):
+                raise FloatingPointError(f"V1's loss is not finite at epoch {epoch}")
             optimizer.zero_grad(set_to_none=True)
             loss.backward()
             torch.nn.utils.clip_grad_norm_(params + [alpha], 1.0)
@@ -741,6 +753,8 @@ def fit_v1(after, data, frozen, device, tower_lr=3e-5, alpha_lr=1e-3, epochs=25,
             if out_of_time():
                 break
         select_loss = pairwise(after, full_gaps(selecting), select)
+        if not np.isfinite(select_loss):
+            raise FloatingPointError(f"V1's selection loss is not finite at epoch {epoch}")
         history.append(dict(epoch=epoch, train=total / max(steps, 1), select=select_loss, steps=steps,
                             alpha=float(alpha.detach()), minutes=(time.perf_counter() - began) / 60))
         log(f"[afterstate] V1 epoch={epoch} train={total / max(steps, 1):.6f} select={select_loss:.6f} "
@@ -801,6 +815,9 @@ def decide(prereg_path, stage_dirs, after, out_path):
             raise ValueError(f"{directory}: the sealed gaps are not the fit's")
         if len(gaps) != len(after.rows.cand):
             raise ValueError(f"{directory}: the gaps do not cover the rows")
+        sealed, given = (sources_of(meta) for meta in (fit.get("afterstates"), after.meta))
+        if sealed != given:
+            raise ValueError(f"{directory} was fit on other afterstate files than these, or in another order")
         fits[name] = (fit, after.gate(gaps))
     if not fits:
         raise ValueError("No stage produced its outputs")
@@ -813,7 +830,7 @@ def decide(prereg_path, stage_dirs, after, out_path):
         if margin != fit["margin"]:
             raise ValueError(f"{name}: the selection half's margin is not the fit's")
         selection[name] = dict(gain_per_100_roots=gain, margin=margin, pearson_pooled=chooser["pearson_pooled"],
-                               falsifier_triggered=chooser["pearson_pooled"] is None or chooser["pearson_pooled"] <= 0.25)
+                               falsifier_triggered=falsified(chooser["pearson_pooled"]))
     gains = {name: cell["gain_per_100_roots"] for name, cell in selection.items()}
     chosen = max(fits, key=lambda name: (gains[name], -list(fits).index(name)))
     w = after.rule_weights()
@@ -869,7 +886,7 @@ def stage_result(stage, after, gaps, extra, args, digest):
                 preregistration_sha256=digest, seed=args.seed, margin=margin,
                 selection_gain_per_100_roots=gain, margin_selection=chooser,
                 falsifier=dict(selection_pearson_pooled=chooser["pearson_pooled"],
-                               triggered=chooser["pearson_pooled"] is None or chooser["pearson_pooled"] <= 0.25),
+                               triggered=falsified(chooser["pearson_pooled"])),
                 raw_r1_gap_selection=dict(pearson_pooled=raw_chooser["pearson_pooled"],
                                           margins=raw_chooser["margins"]),
                 afterstates=after.meta, scored_share=float(after.scored[after.rows.labels["searched"].astype(bool)].mean()),

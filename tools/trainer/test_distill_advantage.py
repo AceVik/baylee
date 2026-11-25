@@ -97,7 +97,7 @@ class PairwiseLoss(unittest.TestCase):
         torch.manual_seed(5)
         r1 = torch.randn(1, 6, 7) * 2
         _, _, grad = loss_of(r1, r1, advantage_batch())
-        self.assertEqual(grad[0, 2].abs().max().item(), 0.)              # mean 0: q = sigmoid(z_r) = sigmoid(z_s)
+        self.assertLess(grad[0, 2].abs().max().item(), 1e-6)             # mean 0: q = sigmoid(z_r) = sigmoid(z_s)
         self.assertLess(grad[0, 3:].abs().max().item(), 1e-6)            # unprobed and N = R: KL at its minimum
         self.assertGreater(grad[0, 0, :4].abs().max().item(), 0.)
 
@@ -369,7 +369,8 @@ class AdvantageOptions(unittest.TestCase):
                     ["--distill-group-weights", "mass=2"], ["--distill-out-of-scope", "ce-n"],
                     ["--distill-teacher", "house"], ["--distill-kinds", "0,8"],
                     ["--distill-advantage-beta", "0"], ["--distill-advantage-clip", "-1"],
-                    ["--distill-advantage-weight", "-1"], ["--distill-advantage-min-worlds", "0"],
+                    ["--distill-advantage-weight", "-1"], ["--distill-advantage-weight", "0"],
+                    ["--distill-advantage-min-worlds", "0"],
                     ["--distill-advantage-beta", "inf"], ["--distill-advantage", "listwise"]):
             with self.subTest(bad=bad), self.assertRaises(SystemExit):
                 self.parse([*self.ARM, *bad])

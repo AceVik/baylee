@@ -238,8 +238,17 @@ class FitAndDecide(unittest.TestCase):
                 out = S.decide(prereg, [("V0", Path(temporary) / "V0"), ("V1", Path(temporary) / "V1")], after,
                                Path(temporary) / "decision.json")
             self.assertEqual(out["chosen_stage"], "V0")
+            self.assertEqual([S.falsified(value) for value in (None, float("nan"), .25, .26)],
+                             [True, True, True, False])
             self.assertGreater(out["verdict"]["pearson_pooled"], .8)
             self.assertIn("first_four", out["post_hoc_not_preregistered"])
+            # The gaps belong to the afterstate files they were fit on, in their order.
+            kept = dict(after.meta)
+            after.meta["sources"] = [dict(sha256="another file")]
+            with self.assertRaisesRegex(ValueError, "other afterstate files"):
+                S.decide(prereg, [("V0", Path(temporary) / "V0")], after, Path(temporary) / "other.json")
+            after.meta.clear()
+            after.meta.update(kept)
             # A fit under another pre-registration is refused.
             prereg.write_text(prereg.read_text() + " ")
             with self.assertRaises(ValueError):
