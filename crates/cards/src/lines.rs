@@ -1027,6 +1027,7 @@ mod tests {
         "Invasion of Azgol",
         "Invasion of Eldraine",
         "Invasion of Ergamon",
+        "Invasion of Innistrad",
         "Invasion of Ixalan",
         "Invasion of Kaladesh",
         "Invasion of Karsus",

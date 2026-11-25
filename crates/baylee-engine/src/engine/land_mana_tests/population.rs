@@ -381,7 +381,7 @@ fn every_other_permanent_in_the_pool_makes_the_mana_its_card_prints() {
 const FULL_CORPUS_OTHER_PERMANENTS: Bounds = Bounds {
     colors: 778,
     routes: 314,
-    promises: 310..=310,
+    promises: 307..=307,
     creature_promises: 136..=136,
     unparsed: 161..=161,
     fully_read: 643,
@@ -449,7 +449,7 @@ fn check_other_permanent_population(tally: &Tally) {
             tally.promises,
             tally.opponents_lands
         ),
-        (778, 314, 310, 3)
+        (778, 314, 307, 3)
     );
     assert_eq!((tally.creatures, tally.creature_promises), (464, 136));
     assert_eq!((tally.triggered_lines, tally.unparsed.len()), (85, 161));
