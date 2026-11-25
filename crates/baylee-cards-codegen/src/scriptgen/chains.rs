@@ -36,7 +36,11 @@ impl Tx<'_> {
             .iter()
             .any(|effect| effect.starts_with("Effect::ChooseCardName {"));
         let saved_name = std::mem::replace(&mut self.has_resolution_chosen_name, chosen_name);
+        let saved_single_player = self.current_single_player_rel;
+        let saved_obj_target = self.current_object_target;
         let result = self.chain_inner(spec, chain);
+        self.current_object_target = saved_obj_target;
+        self.current_single_player_rel = saved_single_player;
         self.has_resolution_chosen_name = saved_name;
         self.has_resolution_chosen_color = saved_color;
         self.has_resolution_chosen_number = saved;
@@ -216,6 +220,35 @@ impl Tx<'_> {
         };
         let second_target_here = !had_second_target && chain.second_target.is_some();
         let third_target_here = !had_third_target && chain.third_target.is_some();
+        let chain_single_player = chain.target.as_deref().is_some_and(|t| {
+            matches!(
+                t,
+                "TargetSpec::AnyPlayer"
+                    | "TargetSpec::AnyOpponent"
+                    | "TargetSpec::PlayerWhoAttackedThisTurn"
+            )
+        }) && chain.target_exact.is_none()
+            && !chain.target_is_x
+            && chain.target_constraint.is_none()
+            && chain.target_up_to.is_none_or(|n| n <= 1);
+        let chain_obj_target = chain
+            .target
+            .as_deref()
+            .is_some_and(|t| t.starts_with("TargetSpec::Object("))
+            && chain.target_exact.is_none()
+            && !chain.target_is_x
+            && chain.target_constraint.is_none()
+            && chain.target_up_to.is_none_or(|n| n <= 1);
+        self.current_single_player_rel = if chain_single_player {
+            if second_target_here || had_second_target {
+                Some("PlayerRel::FirstTargetPlayerOrController")
+            } else {
+                Some("PlayerRel::Chosen")
+            }
+        } else {
+            None
+        };
+        self.current_object_target = chain_obj_target;
         if api == "DealDamage"
             && self.prints_simultaneous_damage_to_controller()
             && let Some((effects, next)) =
@@ -1260,8 +1293,6 @@ impl Tx<'_> {
                 if second_target_here
                     || third_target_here
                     || sub.is_none()
-                    || self.sub_is_api(sub.as_deref(), "ImmediateTrigger")
-                    || self.sub_is_api(sub.as_deref(), "DelayedTrigger")
                     || unless.is_some()
                     || dying.is_some()
                     || at_end.is_some()
@@ -1269,18 +1300,43 @@ impl Tx<'_> {
                 {
                     return None;
                 }
+                if api == "Discard"
+                    && let Some(effs) =
+                        self.wave28d_blightning_discard_pair(&mut p, &mut sub, target.as_deref())
+                {
+                    return Some(effs);
+                }
+                if self.sub_is_api(sub.as_deref(), "ImmediateTrigger")
+                    || self.sub_is_api(sub.as_deref(), "DelayedTrigger")
+                {
+                    return None;
+                }
+                let line_flags = LineFlags {
+                    targets_here,
+                    targets_a_player,
+                    single_target,
+                    prior_target_used,
+                };
+                if api == "Mill"
+                    && p.peek("Imprint") == Some("True")
+                    && let Some(effs) = self.wave28d_mill_imprint_capture(
+                        &api,
+                        &mut p,
+                        &mut sub,
+                        target.as_deref(),
+                        line_flags,
+                        chain,
+                    )
+                {
+                    return Some(effs);
+                }
                 self.wave27c_try_capture_affected_chain(
                     spec,
                     &api,
                     &mut p,
                     &mut sub,
                     target.as_deref(),
-                    LineFlags {
-                        targets_here,
-                        targets_a_player,
-                        single_target,
-                        prior_target_used,
-                    },
+                    line_flags,
                     chain,
                 )
             });
@@ -1314,6 +1370,9 @@ impl Tx<'_> {
                 effects
             } else {
                 self.claim_followed_remember_flag(&api, &mut p, sub.as_deref());
+                if api == "CopyPermanent" {
+                    self.wave28d_claim_unused_remember_tokens(&mut p, sub.is_some());
+                }
                 let Some(effects) = (if second_target_here {
                     let second_single = chain.second_target_up_to.is_none_or(|n| n <= 1);
                     let no_line_riders = unless.is_none()
@@ -1397,9 +1456,15 @@ impl Tx<'_> {
                                 && matches!(p.peek("Defined"), None | Some("Targeted")) =>
                         {
                             p.take("Defined");
-                            Some(vec![
-                                "Effect::TapTargetSlot(TargetSlot::Second)".to_string(),
-                            ])
+                            let mut out =
+                                vec!["Effect::TapTargetSlot(TargetSlot::Second)".to_string()];
+                            if let Some(second_spec) = target.as_deref()
+                                && let Some(sup) = self
+                                    .wave28d_take_slot2_parent_suppress_untap(&mut sub, second_spec)
+                            {
+                                out.push(sup);
+                            }
+                            Some(out)
                         }
                         "Untap"
                             if second_single
@@ -3931,6 +3996,11 @@ impl Tx<'_> {
                 vec![format!("Effect::DiscardHand {{ who: {who} }}")]
             }
             "Discard" if p.peek("Mode") == Some("TgtChoose") => {
+                if let Some(effs) =
+                    self.wave28d_discard_tgt_choose_extra(p, target, targets_a_player)
+                {
+                    return Some(effs);
+                }
                 if let Some(cost_raw) = p.peek("Cost").map(str::to_string) {
                     let draw_expr = self.draw_cost_effect(&cost_raw)?;
                     p.take("Cost");
@@ -3994,26 +4064,10 @@ impl Tx<'_> {
                 ]
             }
             "Discard" if p.peek("Mode") == Some("RevealYouChoose") => {
-                p.take("Mode");
-                if !targets_a_player
-                    || p.take("Defined").is_some()
-                    || !matches!(p.take("NumCards").as_deref(), None | Some("1"))
-                {
-                    return None;
-                }
-                let valid = p.take("DiscardValid");
-                if let Some(description) = p.take("DiscardValidDesc")
-                    && (valid.as_deref() != Some("Card.ChosenColor")
-                        || description != "card of that color"
-                        || !self.has_resolution_chosen_color)
-                {
-                    return None;
-                }
-                let filter = match valid.as_deref() {
-                    None | Some("Card") => "Filter::Any".to_string(),
-                    Some(valid) => self.filter_expr_in_zone(valid, true)?,
-                };
-                vec![format!("Effect::RevealHandDiscard {{ filter: &{filter} }}")]
+                self.wave28d_discard_reveal_you_choose(p, target, targets_a_player)?
+            }
+            "Discard" if p.peek("Mode") == Some("LookYouChoose") => {
+                self.wave28d_discard_look_you_choose(p, target, targets_a_player)?
             }
             "Discard" if p.peek("Mode") == Some("Defined") => {
                 self.wave27b_discard_defined(p, target, targets_a_player)?
@@ -4034,15 +4088,7 @@ impl Tx<'_> {
                     "Effect::DiscardRandom {{ who: {who}, count: {n} }}"
                 )]
             }
-            "Mill" => {
-                let n = self.amount_or_count_ext(&p.take("NumCards")?)?;
-                let who = self.wave11_player_of_line(
-                    p.take("Defined").as_deref(),
-                    target,
-                    targets_a_player,
-                )?;
-                vec![format!("Effect::Mill {{ amount: {n}, target: {who} }}")]
-            }
+            "Mill" => self.wave28d_mill_effect(p, target, targets_a_player)?,
             "Bolster" => {
                 if targets_here
                     || (target.is_some() && !prior_target_used)
@@ -6936,6 +6982,13 @@ impl Tx<'_> {
             && target == Some("TargetSpec::CreatureOrPlaneswalker")
         {
             return Some("PlayerRel::ControllerOfTarget");
+        }
+        if defined == Some("TargetedOwner")
+            && target.is_some_and(|t| {
+                t.starts_with("TargetSpec::Object(") || t.starts_with("TargetSpec::Spell(")
+            })
+        {
+            return Some("PlayerRel::OwnerOfTarget");
         }
         if let Some(who) = defined
             && let Some(rel) = self.wave11_trigger_player_rel(who)

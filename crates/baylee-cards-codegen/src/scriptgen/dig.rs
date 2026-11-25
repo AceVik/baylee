@@ -1415,22 +1415,42 @@ impl Tx<'_> {
         // Case 3: Single-hit `DigUntil` -> `DB$ Play` (optionally followed by
         // Exile->Hand fallback, non-found Exile->Library bottom via
         // `parse_exile_rest_to_bottom`, or post-cast `Shuffle`).
-        if parsed.count_is_one
-            && self.sub_is_api(Some(&sub_name), "Play")
-            && let Some(followup) =
+        if parsed.count_is_one && self.sub_is_api(Some(&sub_name), "Play") {
+            if let Some(followup) =
                 self.try_dig_until_play_followup(&sub_name, &parsed, target, targets_a_player)
-        {
-            if followup.add_shuffle {
-                parsed.trailing_shuffle = true;
+            {
+                if followup.add_shuffle {
+                    parsed.trailing_shuffle = true;
+                }
+                if let Some(r) = followup.new_rest {
+                    parsed.rest = r;
+                }
+                *sub = followup.trailing;
+                return Some(Self::finish_reveal_until_effects(
+                    &parsed,
+                    &followup.then_effs,
+                ));
             }
-            if let Some(r) = followup.new_rest {
-                parsed.rest = r;
+            if parsed.exile_while_revealing
+                && parsed.remember_found
+                && parsed.remember_revealed
+                && !parsed.imprint_found
+                && !parsed.imprint_revealed
+                && !parsed.optional_whole
+                && !parsed.optional_found_move
+                && parsed.multi_seat_domain.is_none()
+                && !parsed.trailing_shuffle
+                && let Some((effs, trailing)) = self.wave28d_dig_until_exile_play_bottom(
+                    &sub_name,
+                    parsed.library,
+                    &parsed.filter_ref,
+                    &parsed.count,
+                    parsed.max_revealed.as_deref(),
+                )
+            {
+                *sub = trailing;
+                return Some(effs);
             }
-            *sub = followup.trailing;
-            return Some(Self::finish_reveal_until_effects(
-                &parsed,
-                &followup.then_effs,
-            ));
         }
 
         // Case 4: `FoundDestination$ Exile` -> `DB$ Effect` granting `MayPlay`

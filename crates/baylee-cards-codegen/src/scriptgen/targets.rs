@@ -681,6 +681,9 @@ impl Tx<'_> {
             "Sacrificed$CardManaCost" => "Amount::SacrificedManaValue".to_string(),
             "Sacrificed$CardPower" => "Amount::SacrificedPower".to_string(),
             "Sacrificed$CardToughness" => "Amount::SacrificedToughness".to_string(),
+            other if self.wave28d_remembered_filter_amount_base(other).is_some() => self
+                .wave28d_remembered_filter_amount_base(other)?
+                .to_string(),
             other
                 if !self.on_a_spell
                     && (self.trigger_mode.is_some() || !self.cost_sacrifices_self)
@@ -1455,6 +1458,10 @@ impl Tx<'_> {
         let mut alternatives = Vec::new();
         for &alt in &raw_alts {
             if !card_zone && raw_alts.len() > 1 && emblem_subsumed_by_card(alt, &raw_alts) {
+                continue;
+            }
+            if let Some(targeted_expr) = self.wave28d_targeted_filter_alt(alt, card_zone) {
+                alternatives.push(targeted_expr);
                 continue;
             }
             let mut clauses = Vec::new();
