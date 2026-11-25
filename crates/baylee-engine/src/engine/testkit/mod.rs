@@ -1428,10 +1428,19 @@ pub fn answer_one(engine: &Engine<RegistryLookup>) -> Result<(PlayerId, PlayerAc
             };
             (player, PlayerAction::ChooseColor(first))
         }
-        // Any card's name is an answer (CR 201.4), and the one the entering
-        // permanent or resolving spell is itself printed with is always a
-        // card of the pool.
-        Pending::ChooseCardName { player, .. } => {
+        // Prefer the asking card's own name when it passes the restrictions;
+        // otherwise use the first printed face that does (CR 201.4).
+        Pending::ChooseCardName {
+            player,
+            types,
+            excluded_types,
+            excluded_supertypes,
+        } => {
+            let eligible = |face: &baylee_cards_dsl::FaceDef| {
+                (types.is_empty() || face.types.intersects(types))
+                    && !face.types.intersects(excluded_types)
+                    && !face.supertypes.intersects(excluded_supertypes)
+            };
             let own = match engine.card_name_chooser() {
                 Some(object) => engine.state().object(object).and_then(|o| o.card),
                 _ => engine
@@ -1440,16 +1449,25 @@ pub fn answer_one(engine: &Engine<RegistryLookup>) -> Result<(PlayerId, PlayerAc
                     .and_then(|res| engine.state().object(res.source))
                     .and_then(|o| o.card),
             };
-            let Some(card) = own else {
+            let choice = own
+                .and_then(|printed| {
+                    let face = engine.lookup.card(printed.index)?.faces.first()?;
+                    eligible(face).then_some((printed.index, 0))
+                })
+                .or_else(|| {
+                    baylee_cards::all().find_map(|def| {
+                        def.faces.iter().enumerate().find_map(|(face, printed)| {
+                            eligible(printed).then_some((
+                                def.index,
+                                u8::try_from(face).expect("face index fits"),
+                            ))
+                        })
+                    })
+                });
+            let Some((card, face)) = choice else {
                 return Err(Rest::Unanswered("ChooseCardName"));
             };
-            (
-                player,
-                PlayerAction::ChooseCardName {
-                    card: card.index,
-                    face: 0,
-                },
-            )
+            (player, PlayerAction::ChooseCardName { card, face })
         }
         Pending::ChoosePlayer { player, options } => {
             let Some(first) = options.first().copied() else {

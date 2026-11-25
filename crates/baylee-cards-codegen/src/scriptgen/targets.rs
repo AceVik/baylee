@@ -87,6 +87,21 @@ impl Tx<'_> {
                 "Effect::ChooseDamageSourcePreventAllThisTurn".to_string(),
             ]);
         }
+        if let Some((target_you, gain_life_filter)) =
+            self.chosen_source_life_condition(&replacement, &rechecks)
+        {
+            let sources = self.body.filter_static("SOURCE", &filter);
+            let gain_life_sources = self.body.filter_static("SOURCE", &gain_life_filter);
+            let target = if target_you {
+                "Some(TargetSpec::Player(PlayerRel::You))"
+            } else {
+                "None"
+            };
+            return Some(vec![format!(
+                "Effect::PreventFromChosenSourceWithLifeCondition {{ target: {target}, sources: &{sources}, \
+                 gain_life_sources: &{gain_life_sources} }}"
+            )]);
+        }
         let (target_you, next_only, combat_only, gain_life) =
             self.chosen_source_replacement(&replacement, &rechecks)?;
         // Preserves `chosen_source_all_damage_shield_is_repeatable_and_not_recipient_limited`:
@@ -352,6 +367,75 @@ impl Tx<'_> {
                     && shield.take("Prevent").as_deref() == Some("True")
                     && shield.exhausted()
             })
+    }
+
+    /// A turn-long chosen-source shield whose immediate trigger gains the
+    /// prevented amount only for sources matching a `ReplacedSource$Valid`
+    /// condition. Every line and parameter must match; other replacements stay
+    /// on the ordinary chosen-source reader below.
+    fn chosen_source_life_condition(
+        &self,
+        replacement: &str,
+        rechecks: &[String],
+    ) -> Option<(bool, String)> {
+        let (event, mut shield) = self.svars.get(replacement).and_then(|b| Params::parse(b))?;
+        shield.drop_prose();
+        if event != "DamageDone"
+            || !matches!(
+                shield.take("ActiveZones").as_deref(),
+                None | Some("Command")
+            )
+            || !shield
+                .take("ValidSource")
+                .is_some_and(|src| rechecks.iter().any(|r| r == &src))
+        {
+            return None;
+        }
+        let target_you = match shield.take("ValidTarget").as_deref() {
+            Some("You") => true,
+            None => false,
+            Some(_) => return None,
+        };
+        if shield.take("PreventionEffect").as_deref() != Some("True") {
+            return None;
+        }
+        let then = shield.take("ReplaceWith")?;
+        if let Some(key) = shield.first_key() {
+            return self.deny(format!("unclaimed parameter `DamageDone.{key}`"));
+        }
+        let (api, mut trigger) = self.svars.get(&then).and_then(|b| Params::parse(b))?;
+        if api != "ImmediateTrigger" {
+            return None;
+        }
+        trigger.drop_prose();
+        let execute = trigger.take("Execute")?;
+        let condition = trigger.take("ConditionCheckSVar")?;
+        if let Some(key) = trigger.first_key() {
+            return self.deny(format!("unclaimed parameter `ImmediateTrigger.{key}`"));
+        }
+        let Some((gain_api, mut gain)) = self.svars.get(&execute).and_then(|b| Params::parse(b))
+        else {
+            return self.deny("a conditional chosen-source life gain without its SVar".into());
+        };
+        gain.drop_prose();
+        let amount = gain.take("LifeAmount");
+        let reads = gain_api == "GainLife"
+            && gain.take("Defined").as_deref() == Some("You")
+            && amount.as_ref().is_some_and(|x| {
+                self.svars.get(x).map(String::as_str) == Some("Spawner>ReplaceCount$DamageAmount")
+            });
+        if !reads || !gain.exhausted() {
+            return self.deny("a conditional chosen-source shield's life gain".into());
+        }
+        let Some(valid) = self
+            .svars
+            .get(&condition)
+            .and_then(|body| body.strip_prefix("ReplacedSource$Valid "))
+        else {
+            return self.deny("a chosen-source life-gain condition on another property".into());
+        };
+        let filter = self.filter_expr(valid)?;
+        Some((target_you, filter))
     }
 
     /// The replacement a chosen-source shield waits with: damage from the
@@ -1059,6 +1143,10 @@ impl Tx<'_> {
             "faceUp" => "Filter::Not(&Filter::FaceDown)".to_string(),
             "hasManaAbility" => "Filter::HasManaAbility".to_string(),
             "!hasManaAbility" => "Filter::Not(&Filter::HasManaAbility)".to_string(),
+            "hasNonManaActivatedAbility" => "Filter::HasNonManaActivatedAbility".to_string(),
+            "!hasNonManaActivatedAbility" => {
+                "Filter::Not(&Filter::HasNonManaActivatedAbility)".to_string()
+            }
             "withRampage" => "Filter::HasRampage".to_string(),
             "!withRampage" => "Filter::Not(&Filter::HasRampage)".to_string(),
             "ThisTurnEntered" if !card_zone => "Filter::EnteredThisTurn".to_string(),
@@ -1098,6 +1186,9 @@ impl Tx<'_> {
             }
             "!SharesColorWith Equipped" | "!SharesColorWith Enchanted" => {
                 "Filter::Not(&Filter::SharesAColorWith(&Filter::AttachedToBySource))".to_string()
+            }
+            "SharesColorWith MostProminentColor" => {
+                "Filter::SharesColorWithMostCommon(&Filter::Any)".to_string()
             }
             "SharesColorWith" | "SharesColorWith Self" => {
                 "Filter::SharesColorWithSource".to_string()

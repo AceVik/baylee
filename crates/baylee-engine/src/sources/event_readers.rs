@@ -21,8 +21,10 @@ fn reads_filter(filter: &baylee_cards_dsl::Filter) -> bool {
         | F::BlockedThisTurnBy(inner)
         | F::LowestManaValueOnBattlefield(inner)
         | F::SharesAColorWith(inner)
+        | F::SharesColorWithMostCommon(inner)
         | F::SharesCreatureTypeWith(inner)
-        | F::ControllerControls(inner) => reads_filter(inner),
+        | F::ControllerControls(inner)
+        | F::TargetsYouControl(inner) => reads_filter(inner),
         _ => false,
     }
 }
@@ -155,6 +157,7 @@ fn reads_event(effect: &Effect) -> bool {
         Effect::DealDamageEvenly { amount, target, .. }
         | Effect::DealDamage { amount, target, .. }
         | Effect::DealDamageWithoutPreventionOrRedirection { amount, target, .. }
+        | Effect::DealDamageWithoutPrevention { amount, target, .. }
         | Effect::PutCounterChoice { amount, target, .. } => {
             reads_amount(*amount) || reads_target(*target)
         }
@@ -414,6 +417,7 @@ fn reads_event(effect: &Effect) -> bool {
         | Effect::CreateTokenCopyOf { target, .. }
         | Effect::PhaseOut { target, .. }
         | Effect::PreventFromChosenSource { target, .. }
+        | Effect::PreventFromChosenSourceWithLifeCondition { target, .. }
         | Effect::PreventNextFromMatchingSources { target, .. }
         | Effect::PreventAllDamageFromMatchingThisTurn { target, .. } => {
             target.is_some_and(reads_target)

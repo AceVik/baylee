@@ -5,6 +5,7 @@ use super::*;
 
 mod banishing_stroke;
 mod betrayal_of_flesh;
+mod cauldron_dance;
 mod fireblast;
 mod into_thin_air;
 mod opportunity;

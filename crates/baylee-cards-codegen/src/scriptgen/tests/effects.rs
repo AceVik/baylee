@@ -3871,6 +3871,28 @@ fn wave18b_choose_number_choose_player_and_wave9_filters() {
 }
 
 #[test]
+fn targeted_valid_most_prominent_color_is_a_resolution_condition() {
+    assert_eq!(
+        filter("Card.SharesColorWith MostProminentColor"),
+        "Filter::SharesColorWithMostCommon(&Filter::Any)"
+    );
+    let script = "Name:Plurality Bounce\nManaCost:1 U\nTypes:Instant\n\
+         A:SP$ ChangeZone | ValidTgts$ Permanent | Origin$ Battlefield | Destination$ Hand | AITgts$ Card.SharesColorWith MostProminentColor | ConditionCheckSVar$ X\n\
+         SVar:X:Targeted$Valid Card.SharesColorWith MostProminentColor";
+    let body = read(script);
+    assert_eq!(refusal_reason(&parse(script), &cats(), None), None);
+    let ability = &body.abilities[0];
+    assert!(
+        ability.contains("TargetReq::one(TargetSpec::Object(&Filter::Any))")
+            && ability.contains("Effect::IfCondition")
+            && ability.contains("Condition::ObjectMatches")
+            && ability.contains("Filter::SharesColorWithMostCommon(&Filter::Any)")
+            && ability.contains("Effect::bounce(TargetSpec::Object(&Filter::Any))"),
+        "{ability}"
+    );
+}
+
+#[test]
 fn wave18b_target_min_zero_and_remember_this_way_chains() {
     // Omitted TargetMax$ with TargetMin$ 0 defaults to up to 1.
     let up_to_one_omitted = read(
@@ -5979,4 +6001,34 @@ fn pump_opponents_only_lure_uses_opponent_creature_filter() {
         "{:?}",
         tarrasque.abilities
     );
+}
+
+#[test]
+fn destroy_with_a_name_twin_condition_is_checked_only_on_resolution() {
+    let script = "Name:Private pruning\nManaCost:1 W\nTypes:Instant\n\
+         A:SP$ Destroy | ValidTgts$ Permanent.nonLand | ConditionCheckSVar$ TwinCount | ConditionSVarCompare$ GE2 | SubAbility$ DBDraw\n\
+         SVar:DBDraw:DB$ Draw | Defined$ You | NumCards$ 1\n\
+         SVar:TwinCount:Count$Valid Permanent.sharesNameWith Targeted";
+    let body = read(script);
+    let ability = &body.abilities[0];
+    assert!(
+        ability.contains(
+            "Effect::IfTargetMatches { filter: &Filter::SharesNameWithAnotherPermanent, then: &[Effect::destroy(TargetSpec::Object(&Filter::NONLAND))] }"
+        ),
+        "{ability}"
+    );
+    assert!(
+        ability.find("IfTargetMatches").unwrap() < ability.find("Effect::draw(1)").unwrap(),
+        "the independent draw follows the conditional destruction: {ability}"
+    );
+    assert!(
+        ability.contains("targets = Some(TargetReq::one(TargetSpec::Object(&Filter::NONLAND)))"),
+        "the name condition must not restrict target selection: {ability}"
+    );
+
+    assert!(refused(&script.replace("GE2", "GT2")));
+    assert!(refused(&script.replace(
+        "Count$Valid Permanent.sharesNameWith Targeted",
+        "Count$Valid Creature.sharesNameWith Targeted"
+    )));
 }

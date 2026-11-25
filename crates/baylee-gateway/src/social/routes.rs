@@ -1556,3 +1556,6 @@ async fn close_invite(
     }
     Ok(StatusCode::NO_CONTENT)
 }
+
+#[cfg(test)]
+mod tests;

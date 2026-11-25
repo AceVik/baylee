@@ -10,11 +10,14 @@ mod history_disk;
 mod status;
 
 // Pure units (another writer).
+mod central_presence;
 mod commands;
 mod compose;
 mod contacts;
+mod disk;
 mod keys;
 mod notify;
+mod sealing;
 mod select;
 mod tabs;
 mod text;

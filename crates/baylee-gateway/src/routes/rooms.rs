@@ -995,3 +995,6 @@ pub(crate) async fn leave_game(
     state.lobby_moved();
     Ok(StatusCode::NO_CONTENT)
 }
+
+#[cfg(test)]
+mod tests;

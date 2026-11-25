@@ -11,6 +11,7 @@ fn therapy() -> Request {
             player: ME,
             types: baylee_core::types::TypeSet::EMPTY,
             excluded_types: baylee_core::types::TypeSet::LAND,
+            excluded_supertypes: baylee_core::types::SupertypeSet::EMPTY,
         },
         log,
     )
@@ -54,6 +55,30 @@ fn the_question_asks_for_a_card_this_game_has_and_says_what_is_left_out() {
         "{}",
         wake.text
     );
+}
+
+#[test]
+fn a_nonbasic_name_question_says_and_enforces_its_supertype_restriction() {
+    let (view, log) = board();
+    let request = request(
+        view,
+        Pending::ChooseCardName {
+            player: ME,
+            types: baylee_core::types::TypeSet::EMPTY,
+            excluded_types: baylee_core::types::TypeSet::EMPTY,
+            excluded_supertypes: baylee_core::types::SupertypeSet::BASIC,
+        },
+        log,
+    );
+    let wake = Narrator::new(&request.context).wake(&request, &[], None);
+    assert!(
+        wake.text
+            .contains("A card with these printed supertypes is not eligible: Basic."),
+        "{}",
+        wake.text
+    );
+    assert!(naming(&request, "Forest").is_err());
+    assert!(naming(&request, "Wasteland").is_ok());
 }
 
 #[test]

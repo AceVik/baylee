@@ -1268,14 +1268,28 @@ impl HeuristicAgent {
         context: &DecisionContext<'_>,
     ) -> Option<Vec<ObjectId>> {
         let mut effects = context.effects.iter().filter_map(|effect| match effect {
-            Effect::KeepOneOfEachAndSacrificeRest { filters } => Some(*filters),
+            Effect::KeepOneOfEachAndSacrificeRest { filters } => Some((*filters, &Filter::Any)),
+            Effect::KeepOneOfEachAndSacrificeRestMatching { filters, rest } => {
+                Some((*filters, *rest))
+            }
             _ => None,
         });
-        let filters = effects.next()?;
+        let (filters, rest) = effects.next()?;
         if effects.next().is_some() {
             return None;
         }
-        let controlled: Vec<_> = view.battlefield_of(view.seat).collect();
+        let controlled: Vec<_> = view
+            .battlefield_of(view.seat)
+            .filter(|object| {
+                self.filter_matches(
+                    rest,
+                    view,
+                    object,
+                    baylee_cards_dsl::ZoneRef::Battlefield,
+                    context.source,
+                ) != Some(false)
+            })
+            .collect();
         let offered: std::collections::BTreeSet<_> = options.iter().copied().collect();
         let mut categories = filters.iter().enumerate().filter(|(_, filter)| {
             let matching: std::collections::BTreeSet<_> = controlled
@@ -2173,8 +2187,15 @@ impl HeuristicAgent {
         }
         let mut net = 0_i64;
         for effect in effects.iter().filter(|effect| board_sweeper(effect)) {
-            if let Effect::KeepOneOfEachAndSacrificeRest { filters } = effect {
-                net += self.keep_one_of_each_net_worth(view, id, filters)?;
+            let keep = match effect {
+                Effect::KeepOneOfEachAndSacrificeRest { filters } => Some((*filters, &Filter::Any)),
+                Effect::KeepOneOfEachAndSacrificeRestMatching { filters, rest } => {
+                    Some((*filters, *rest))
+                }
+                _ => None,
+            };
+            if let Some((filters, rest)) = keep {
+                net += self.keep_one_of_each_net_worth(view, id, filters, rest)?;
                 continue;
             }
             let (filter, opponents_only, check_indest, dmg) = match effect {
@@ -2271,10 +2292,22 @@ impl HeuristicAgent {
         view: &PlayerView,
         id: Option<ObjectId>,
         filters: &[&Filter],
+        rest: &Filter,
     ) -> Option<i64> {
         let mut net = 0;
         for player in view.seats.iter().map(|seat| seat.player) {
-            let controlled: Vec<_> = view.battlefield_of(player).collect();
+            let controlled: Vec<_> = view
+                .battlefield_of(player)
+                .filter(|object| {
+                    self.filter_matches(
+                        rest,
+                        view,
+                        object,
+                        baylee_cards_dsl::ZoneRef::Battlefield,
+                        id,
+                    ) != Some(false)
+                })
+                .collect();
             let (kept, _) = self.best_keep_one_of_each(view, id, filters, &controlled, None)?;
             for object in controlled {
                 if kept.binary_search(&object.id).is_ok() {
@@ -2897,6 +2930,7 @@ fn board_sweeper(effect: &Effect) -> bool {
             | Effect::ReturnAllToHand { .. }
             | Effect::DealDamageEach { .. }
             | Effect::KeepOneOfEachAndSacrificeRest { .. }
+            | Effect::KeepOneOfEachAndSacrificeRestMatching { .. }
     )
 }
 
@@ -5880,6 +5914,51 @@ impl HeuristicAgent {
                         min
                     });
                 }
+                Effect::DestroyAll { filter, .. }
+                    if pay_cost.is_none() && filter_reads_chosen_cmc(filter) =>
+                {
+                    let mut candidates = std::collections::BTreeSet::new();
+                    for o in &view.battlefield {
+                        if self.hostile(o.controller, me)
+                            && (min..=safe_max).contains(&o.mana_value)
+                        {
+                            candidates.insert(o.mana_value);
+                        }
+                    }
+                    let mut best: Option<(i64, u32)> = None;
+                    for cmc in candidates {
+                        let mut net = 0_i64;
+                        for o in &view.battlefield {
+                            if o.keywords & baylee_cards_dsl::KeywordSet::INDESTRUCTIBLE.bits() != 0
+                            {
+                                continue;
+                            }
+                            if self.filter_matches_with_chosen_cmc(
+                                filter,
+                                view,
+                                o,
+                                context.source,
+                                cmc,
+                            ) != Some(true)
+                            {
+                                continue;
+                            }
+                            let worth = Self::permanent_worth(view, o);
+                            if self.hostile(o.controller, me) {
+                                net += worth;
+                            } else if o.controller == me
+                                || (self.profile.plays(crate::AIProfile::TEAM_PLAY)
+                                    && !self.hostile(o.controller, me))
+                            {
+                                net -= worth;
+                            }
+                        }
+                        if net > 0 && best.is_none_or(|(kept, _)| net > kept) {
+                            best = Some((net, cmc));
+                        }
+                    }
+                    return Some(best.map_or(min, |(_, cmc)| cmc));
+                }
                 _ => {}
             }
         }
@@ -6053,6 +6132,64 @@ impl HeuristicAgent {
         });
         fallback.truncate(usize::from(min));
         fallback
+    }
+
+    fn filter_matches_with_chosen_cmc(
+        &self,
+        filter: &Filter,
+        view: &PlayerView,
+        object: &baylee_view::PublicObject,
+        this: Option<ObjectId>,
+        chosen: u32,
+    ) -> Option<bool> {
+        use baylee_cards_dsl::Amount;
+        match filter {
+            Filter::CmcEqualsAmount(Amount::ResolutionChosenNumber) => {
+                Some(object.mana_value == chosen)
+            }
+            Filter::And(parts) => {
+                let mut unknown = false;
+                for part in *parts {
+                    match self.filter_matches_with_chosen_cmc(part, view, object, this, chosen) {
+                        Some(false) => return Some(false),
+                        None => unknown = true,
+                        Some(true) => {}
+                    }
+                }
+                (!unknown).then_some(true)
+            }
+            Filter::Or(parts) => {
+                let mut unknown = false;
+                for part in *parts {
+                    match self.filter_matches_with_chosen_cmc(part, view, object, this, chosen) {
+                        Some(true) => return Some(true),
+                        None => unknown = true,
+                        Some(false) => {}
+                    }
+                }
+                (!unknown).then_some(false)
+            }
+            Filter::Not(inner) => self
+                .filter_matches_with_chosen_cmc(inner, view, object, this, chosen)
+                .map(|b| !b),
+            _ => self.filter_matches(
+                filter,
+                view,
+                object,
+                baylee_cards_dsl::ZoneRef::Battlefield,
+                this,
+            ),
+        }
+    }
+}
+
+fn filter_reads_chosen_cmc(filter: &baylee_cards_dsl::Filter) -> bool {
+    use baylee_cards_dsl::{Amount, Filter};
+    match filter {
+        Filter::CmcEqualsAmount(Amount::ResolutionChosenNumber) => true,
+        Filter::And(parts) | Filter::Or(parts) => parts.iter().any(filter_reads_chosen_cmc),
+        Filter::Not(inner) | Filter::ControllerControls(inner) => filter_reads_chosen_cmc(inner),
+        _ => false,
     }
 }
 

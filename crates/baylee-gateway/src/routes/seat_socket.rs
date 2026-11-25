@@ -713,3 +713,6 @@ fn player_account(state: &Shared, game: &str, seat: usize) -> Option<String> {
         .account_id
         .clone()
 }
+
+#[cfg(test)]
+mod tests;

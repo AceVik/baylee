@@ -85,6 +85,7 @@ mod rhystic_tutor;
 mod riding_red_hare;
 mod righteous_charge;
 mod screaming_fury;
+mod searing_rays;
 mod sevinne_s_reclamation;
 mod soul_burn;
 mod spirit_water_revival;

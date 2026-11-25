@@ -9,6 +9,7 @@ static FLYING: Filter = Filter::HasKeyword(KeywordSet::FLYING);
 static CREATURE_WITH_FLYING: Filter = Filter::And(&[Filter::CREATURE, FLYING]);
 static CREATURE_WITHOUT_FLYING: Filter = Filter::And(&[Filter::CREATURE, Filter::Not(&FLYING)]);
 static TARGETS_MINE: Filter = Filter::TargetsPermanentYouControl;
+static TARGETS_MY_LAND: Filter = Filter::TargetsYouControl(&Filter::LAND);
 static ACTIVATED_FROM_ARTIFACT: Filter = Filter::ActivatedAbilityFrom(&Filter::ARTIFACT);
 
 #[test]
@@ -36,6 +37,28 @@ fn spell(targets: Vec<TargetRef>) -> PublicObject {
     spell.stack_item = Some(StackItem::Spell);
     spell.targets = targets;
     spell
+}
+
+#[test]
+fn targets_my_land_reads_the_current_public_permanent() {
+    let mut my_land = printed(1, 0, "My land", 1);
+    my_land.types = TypeSet::LAND;
+    let my_creature = printed(2, 0, "My creature", 2);
+    let mut their_land = printed(4, 1, "Their land", 4);
+    their_land.types = TypeSet::LAND;
+    for (targeted, expected) in [
+        (my_land.id, Some(true)),
+        (my_creature.id, Some(false)),
+        (their_land.id, Some(false)),
+    ] {
+        let object = spell(vec![target(targeted)]);
+        let view = ViewBuilder::new(2)
+            .with_battlefield(0, vec![my_land.clone(), my_creature.clone()])
+            .with_battlefield(1, vec![their_land.clone()])
+            .with_stack(vec![object.clone()])
+            .build();
+        assert_eq!(matches(&view, &object, &TARGETS_MY_LAND), expected);
+    }
 }
 
 #[test]

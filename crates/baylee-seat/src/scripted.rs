@@ -243,10 +243,11 @@ pub fn least_answer(
         Pending::ChooseCardName {
             types,
             excluded_types,
+            excluded_supertypes,
             ..
         } => {
-            if !types.is_empty() || !excluded_types.is_empty() {
-                return name_matching(*types, *excluded_types);
+            if !types.is_empty() || !excluded_types.is_empty() || !excluded_supertypes.is_empty() {
+                return name_matching(*types, *excluded_types, *excluded_supertypes);
             }
             // A name the pool prints (CR 201.4): the seat's own first card,
             // which the pool has, or it could not have been dealt.
@@ -277,11 +278,13 @@ pub fn least_answer(
 fn name_matching(
     types: baylee_core::types::TypeSet,
     excluded_types: baylee_core::types::TypeSet,
+    excluded_supertypes: baylee_core::types::SupertypeSet,
 ) -> Option<PlayerAction> {
     baylee_cards::all().find_map(|def| {
         def.faces.iter().enumerate().find_map(|(face, printed)| {
             if (!types.is_empty() && !printed.types.intersects(types))
                 || printed.types.intersects(excluded_types)
+                || printed.supertypes.intersects(excluded_supertypes)
             {
                 return None;
             }
@@ -397,6 +400,7 @@ pub(crate) mod tests {
             player: ME,
             types: baylee_core::types::TypeSet::EMPTY,
             excluded_types: baylee_core::types::TypeSet::EMPTY,
+            excluded_supertypes: baylee_core::types::SupertypeSet::EMPTY,
         });
         for pending in &nothing {
             assert_eq!(

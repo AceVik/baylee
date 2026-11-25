@@ -43,6 +43,39 @@ impl DamageWork {
                     {
                         Kind::PreventAll
                     }
+                    ShieldKind::AllFromWithLifeCondition {
+                        source,
+                        gain_life_sources,
+                    } => {
+                        let Some(actual) =
+                            state.damage_source(part.view.source, part.source_version)
+                        else {
+                            continue;
+                        };
+                        if !source.deals_as(state, actual) {
+                            continue;
+                        }
+                        let gain_life = crate::eval::matches_damage_source_with_choices(
+                            gain_life_sources,
+                            state,
+                            actual,
+                            shield.controller,
+                            crate::text_changes::RuleContext {
+                                source: source.this,
+                                text: source.text,
+                                resolved_name: None,
+                                resolved_subtype: source.chosen_subtype,
+                                reference: None,
+                            },
+                            source.chosen_color,
+                            source.chosen_subtype,
+                        );
+                        Kind::PreventFromSource {
+                            source: source.id,
+                            all_but: 0,
+                            gain_life,
+                        }
+                    }
                     ShieldKind::NextFrom {
                         source,
                         all_but,
@@ -646,6 +679,42 @@ impl DamageWork {
                     if part.view.amount == 0 || self.counter_remaining(state, obj.id, kind) == 0 {
                         continue;
                     }
+                    Kind::PreventAll
+                }
+                Modifier::PreventDamageToAffectedIfAtMost(maximum) => {
+                    let DamageTarget::Object(target) = part.view.recipient else {
+                        continue;
+                    };
+                    if !state
+                        .object(target)
+                        .is_some_and(|o| crate::effects::applies_to(state, fx, o))
+                    {
+                        continue;
+                    }
+                    let Some(source) = state.damage_source(part.view.source, part.source_version)
+                    else {
+                        continue;
+                    };
+                    let source_ref = baylee_core::ids::DamageSourceRef {
+                        object: part.view.source,
+                        version: part.source_version.unwrap_or(source.version),
+                    };
+                    let source_key = EffectKey::ContinuousForSource(fx.id, source_ref);
+                    let total = self
+                        .parts
+                        .iter()
+                        .filter(|other| {
+                            other.view.source == part.view.source
+                                && other.source_version == part.source_version
+                                && other.view.recipient == part.view.recipient
+                                && !other.applied.contains(&source_key)
+                        })
+                        .map(|other| other.view.amount)
+                        .fold(0, u32::saturating_add);
+                    if total == 0 || total > maximum {
+                        continue;
+                    }
+                    key = source_key;
                     Kind::PreventAll
                 }
                 Modifier::MayRedirectDamageToYou => {

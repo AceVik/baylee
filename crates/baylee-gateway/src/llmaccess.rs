@@ -593,3 +593,6 @@ async fn lookup(
         .collect();
     Ok(Json(LookupAnswer { accounts }))
 }
+
+#[cfg(test)]
+mod tests;

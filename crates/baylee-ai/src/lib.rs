@@ -839,16 +839,21 @@ impl HeuristicAgent {
             Pending::ChooseCardName {
                 types,
                 excluded_types,
+                excluded_supertypes,
                 ..
             } => {
-                let (card, face) = if types.is_empty() && excluded_types.is_empty() {
+                let (card, face) = if types.is_empty()
+                    && excluded_types.is_empty()
+                    && excluded_supertypes.is_empty()
+                {
                     self.card_name(view)
                 } else {
                     baylee_cards::all()
                         .find_map(|def| {
                             def.faces.iter().enumerate().find_map(|(face, printed)| {
                                 ((types.is_empty() || printed.types.intersects(types))
-                                    && !printed.types.intersects(excluded_types))
+                                    && !printed.types.intersects(excluded_types)
+                                    && !printed.supertypes.intersects(excluded_supertypes))
                                 .then(|| (def.index, u8::try_from(face).expect("face index fits")))
                             })
                         })

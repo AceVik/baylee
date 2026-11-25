@@ -484,7 +484,10 @@ fn the_shape_on_the_wire_and_the_number_that_names_it_move_together() {
     // `Pending/PlayerAction::ChooseCounterKind` (CR 122.1),
     // `ManaPayment::Variable`, and `NumberPrompt::VariableManaPayment`
     // (CR 605.3a; protocol 69 on binary frames).
-    const RECORDED: (u32, u64) = (112, 3_136_744_088_015_566_784);
+    // 113: `Pending::ChooseCardName.excluded_supertypes` (CR 201.3; protocol 70
+    // on binary frames). `Pending` is no declaration of this file, so the shape
+    // read here is unchanged and the number moves by the rule of 112.
+    const RECORDED: (u32, u64) = (113, 3_136_744_088_015_566_784);
 
     let samples = core_samples();
     let sampled: std::collections::BTreeSet<String> =

@@ -19,6 +19,7 @@ mod dai_li_indoctrination;
 mod damn;
 mod death_stroke;
 mod demonic_tutor;
+mod desperate_research;
 mod diabolic_intent;
 mod diabolic_vision;
 mod disturbed_burial;

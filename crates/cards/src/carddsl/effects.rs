@@ -106,6 +106,7 @@ fn accumulate_effect(effect: &Effect, ch: &mut EffectChannels) {
         | Effect::RevealTop { .. }
         | Effect::RevealTopOnePerType { .. }
         | Effect::RevealTopAllMatching { .. }
+        | Effect::RevealTopAllNamed { .. }
         | Effect::Cascade
         | Effect::Discover { .. }
         | Effect::DiscoverAmount { .. }
@@ -416,6 +417,7 @@ fn accumulate_effect(effect: &Effect, ch: &mut EffectChannels) {
         | Effect::ChangeController { .. }
         | Effect::GainControlAll { .. }
         | Effect::ExchangeControl
+        | Effect::ExchangeControlOfSourceAndTarget
         | Effect::BecomeCopyOfTarget { .. }
         | Effect::BecomeCopy { .. }
         | Effect::Cipher

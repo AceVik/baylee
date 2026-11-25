@@ -107,7 +107,14 @@ pub mod tape;
 /// Bounded generic mana payments use `ManaPayment::Variable` during mana
 /// generation. `NumberPrompt` has bounded payment amounts for mana, energy
 /// and life.
-pub const PROTOCOL_VERSION: u32 = 69;
+/// Version 70 carries excluded printed supertypes in `Pending::ChooseCardName`.
+///
+/// Baylee Central's ranked relay states this number itself (`GAME_PROTOCOL` in
+/// its `central-http`), so a bump needs Central's and a new pin of it in
+/// `Cargo.toml` in the same step, and the two deployed together: a gateway
+/// refuses every ranked seat of a relay that says another
+/// (`e2e_central::ranked::`).
+pub const PROTOCOL_VERSION: u32 = 70;
 
 /// Duration of the shared portal flight; clocks start after arrival.
 pub const TABLE_ENTRANCE_MS: u64 = 1_650;
@@ -452,7 +459,7 @@ mod tests {
         // `ChoicePrompt::SearchLibraryOrGraveyard`,
         // `ManaPayment::Variable`, `NumberPrompt::VariableManaPayment`,
         // `NumberPrompt::VariableEnergyPayment`, and `NumberPrompt::VariableLifePayment`.
-        assert_eq!(PROTOCOL_VERSION, 69);
+        assert_eq!(PROTOCOL_VERSION, 70);
     }
 
     #[test]

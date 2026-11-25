@@ -264,6 +264,7 @@ fn a_needle_names_the_opponents_permanent_it_would_stop() {
         player: v.seat,
         types: baylee_core::types::TypeSet::EMPTY,
         excluded_types: baylee_core::types::TypeSet::EMPTY,
+        excluded_supertypes: baylee_core::types::SupertypeSet::EMPTY,
     };
     assert_eq!(
         HeuristicAgent::new(AIProfile::EXPERT).act(&v, &pending),
@@ -305,6 +306,7 @@ fn a_nonland_name_choice_never_names_a_land() {
             player: v.seat,
             types: TypeSet::EMPTY,
             excluded_types: TypeSet::LAND,
+            excluded_supertypes: baylee_core::types::SupertypeSet::EMPTY,
         },
     ) else {
         panic!("a nonland name choice is answered with a card name");
@@ -315,6 +317,32 @@ fn a_nonland_name_choice_never_names_a_land() {
     assert!(
         !printed.types.intersects(TypeSet::LAND),
         "{} is not a land card name",
+        printed.name
+    );
+}
+
+#[test]
+fn a_nonbasic_name_choice_never_names_a_basic_card() {
+    let v = view(0, &[20, 20], vec![]);
+    let PlayerAction::ChooseCardName { card, face } = HeuristicAgent::new(AIProfile::EXPERT).act(
+        &v,
+        &Pending::ChooseCardName {
+            player: v.seat,
+            types: TypeSet::EMPTY,
+            excluded_types: TypeSet::EMPTY,
+            excluded_supertypes: baylee_core::types::SupertypeSet::BASIC,
+        },
+    ) else {
+        panic!("a nonbasic name choice is answered with a card name");
+    };
+    let printed = baylee_cards::by_index(card)
+        .and_then(|def| def.faces.get(usize::from(face)))
+        .expect("the agent names a printed face of a pool card");
+    assert!(
+        !printed
+            .supertypes
+            .intersects(baylee_core::types::SupertypeSet::BASIC),
+        "{} is not a basic card name",
         printed.name
     );
 }
@@ -680,6 +708,59 @@ fn cataclysm_choice_preserves_the_best_whole_keep_set() {
             objects: vec![small_creature],
         },
         "the Ornithopter covers the artifact choice, so keeping it here would sacrifice the other creature unnecessarily",
+    );
+}
+
+#[test]
+fn global_ruin_choice_preserves_the_dual_land_and_another_mountain() {
+    use baylee_core::generated::subtypes::land;
+
+    let me = PlayerId::new(0);
+    let volcanic = obj(10);
+    let mountain = obj(11);
+    let other_mountain = obj(12);
+    let mut dual = carded(permanent(volcanic, me, 4), "Volcanic Island", TypeSet::LAND);
+    dual.subtypes.insert(land::ISLAND);
+    dual.subtypes.insert(land::MOUNTAIN);
+    let mut mountain_object = carded(permanent(mountain, me, 1), "Mountain", TypeSet::LAND);
+    mountain_object.subtypes.insert(land::MOUNTAIN);
+    let mut other_object = carded(permanent(other_mountain, me, 1), "Mountain", TypeSet::LAND);
+    other_object.subtypes.insert(land::MOUNTAIN);
+    let v = view(0, &[20, 20], vec![dual, mountain_object, other_object]);
+    let global_ruin = hand_card(20, "Global Ruin");
+    let effects = baylee_cards::by_index(global_ruin.card.index)
+        .and_then(|definition| {
+            definition
+                .abilities
+                .iter()
+                .find_map(|ability| match ability {
+                    AbilityDef::Spell { effects, .. } => Some(*effects),
+                    _ => None,
+                })
+        })
+        .unwrap();
+    let pending = Pending::ChooseCards {
+        player: me,
+        options: vec![volcanic, mountain, other_mountain],
+        min: 1,
+        max: 1,
+        prompt: baylee_engine::choice::ChoicePrompt::KeepPermanents,
+        total: None,
+    };
+
+    assert_eq!(
+        HeuristicAgent::new(AIProfile::EXPERT).act_with_context(
+            &v,
+            &pending,
+            &baylee_engine::engine::DecisionContext {
+                effects,
+                ..Default::default()
+            },
+        ),
+        PlayerAction::ChooseObjects {
+            objects: vec![mountain],
+        },
+        "Volcanic Island already covers Island, so a separate Mountain must cover this choice",
     );
 }
 
@@ -1209,5 +1290,47 @@ fn soulbond_picks_strongest_partner_and_modular_may_do_refuses_hostile_target() 
         HeuristicAgent::new(AIProfile::EXPERT).act_with_context(&v, &may_pending, &mod_ctx),
         PlayerAction::YesNo(true),
         "Modular MayDo accepts putting +1/+1 counters on a friendly artifact creature"
+    );
+}
+
+#[test]
+fn void_number_choice_picks_best_hostile_mana_value_instead_of_u32_max() {
+    let me = PlayerId::new(0);
+    let opp = PlayerId::new(1);
+    let mut our_two_drop = permanent(obj(2), me, 3);
+    our_two_drop.mana_value = 2;
+    let mut their_two_drop = permanent(obj(3), opp, 2);
+    their_two_drop.mana_value = 2;
+    let mut their_four_drop = permanent(obj(4), opp, 5);
+    their_four_drop.mana_value = 4;
+
+    let v = view(
+        0,
+        &[20, 20],
+        vec![our_two_drop, their_two_drop, their_four_drop],
+    );
+    let void_card = hand_card(20, "Void");
+    let effects = baylee_cards::by_index(void_card.card.index)
+        .and_then(|def| {
+            def.abilities.iter().find_map(|ab| match ab {
+                AbilityDef::Spell { effects, .. } => Some(*effects),
+                _ => None,
+            })
+        })
+        .unwrap();
+    let pending = Pending::ChooseNumber {
+        player: me,
+        min: 0,
+        max: u32::MAX,
+        reason: baylee_engine::choice::NumberPrompt::Choice,
+    };
+    let ctx = baylee_engine::engine::DecisionContext {
+        effects,
+        ..Default::default()
+    };
+    assert_eq!(
+        HeuristicAgent::new(AIProfile::EXPERT).act_with_context(&v, &pending, &ctx),
+        PlayerAction::ChooseNumber(4),
+        "Void chooses the opponent's 4-drop mana value rather than trading down at 2 or falling through to u32::MAX"
     );
 }

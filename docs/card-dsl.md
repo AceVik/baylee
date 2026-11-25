@@ -1872,6 +1872,11 @@ The printed recipient determines the damage effect:
 
 - **"… to target X"** is `DealDamage` with the choice on the ability's
   `targets`/`target`.
+- **"this damage can't be prevented"** is
+  `DealDamageWithoutPrevention { amount, target }`: prevention effects do
+  nothing, but redirection and other replacement effects still apply (CR
+  615.12). Do not use `DealDamageWithoutPreventionOrRedirection`, whose
+  recipient lock also excludes redirection.
 - **"… to each opponent / each player / you"** is
   `DealDamage { target: TargetSpec::Player(rel) }` with *no* `TargetReq`:
   `Player(EachOpponent)` is every opponent and nobody chooses (Mount Doom,
@@ -1944,7 +1949,10 @@ nothing, CR 201.2a), `Regenerate`, `Exile`, `CounterTargetSpell`,
 `TargetSourceLosesAbilities` (Tishana's Tidebinder: it reaches the permanent
 whose ability an *earlier* `CounterTargetAbility` in the same effect list
 countered, so it has to follow one; `source_filter` is the printed
-restriction on which permanents it reaches), `SacrificeFilter`, `ReturnToHand`,
+restriction on which permanents it reaches), `DestroyCounteredAbilitySource`
+(destroys that source if an earlier counter effect actually countered an
+activated or triggered ability and the source is still on the battlefield;
+it does nothing for spells or uncounterable abilities), `SacrificeFilter`, `ReturnToHand`,
 `ReturnAllToHand`, `ReturnChosenToHand`, `ChangeTarget { to }` ("change the
 target of target spell", CR 115.7a: Misdirection with `Filter::Any`,
 Hydroelectric Specimen's "to this creature" with `Filter::This`) and
@@ -2027,13 +2035,16 @@ hand, the rest on the bottom in the player's order, seen only by the player
 digging): `LookAtTopPick` (no filter, rest on the bottom),
 `LookAtTopPickThenReorder` (rest back on top), `LookAtTopFind` (look, may take
 one matching card), `RevealTopAllMatching` (reveal, every matching card, rest
-on the bottom in any order), `RevealTopAndSort` (reveal one card, matching here
-and otherwise there), `RevealTopFind` (reveal, may take one matching card, rest
-to the graveyard or exile) and `ExileTop` (every card exiled). Only a dig in its
-controller's own library is read, except the exile. A pick whose rest goes to
-the graveyard or exile (Ancestral Memories, Browse), a revealed or optional
-pick without a filter, another chooser, and a dig that remembers or imprints
-what it moved stay refused, each by name.
+on the bottom in any order), `RevealTopAllNamed` (reveal, every card with the
+name chosen earlier in the same resolution to `matched`, the rest to
+`otherwise`; Desperate Research), `RevealTopAndSort` (reveal one card, matching
+here and otherwise there), `RevealTopFind` (reveal, may take one matching card,
+rest to the graveyard or exile) and `ExileTop` (every card exiled). Only a dig
+in its controller's own library is read, except the exile. A pick whose rest
+goes to the graveyard or exile (Ancestral Memories, Browse), a revealed or
+optional pick without a filter, another chooser except the exact named-card
+form above, and a dig that remembers or imprints what it moved stay refused,
+each by name.
 
 Two continuous player permissions describe Gwenom's attack trigger:
 `Modifier::LookAtLibraryTop` privately shows the effect controller their
@@ -2062,7 +2073,9 @@ Battle Cry's "it gets +0/+1"), all of which carry a `KeywordSet` so
 `SetPTFilter`, `ChangeController`, `AllCreaturesToOwner`,
 `ExchangeControlOrSacrifice` (Gilded Drake), `ExchangeControl` (the first
 target's controller and the second's swap them, CR 701.12a–b: all or
-nothing, and nothing between two permanents of one player), `PhaseOut`,
+nothing, and nothing between two permanents of one player),
+`ExchangeControlOfSourceAndTarget` (the resolving source and first target,
+indefinitely, under the same all-or-nothing rule), `PhaseOut`,
 `AttachSelf`, `UntapChosen { filter, count }` ("untap up to N lands" with no
 "target": chosen as it resolves, Treachery), `Populate` (CR 701.36: a choice
 on resolution, never a target, Nesting Dovehawk).
@@ -2072,6 +2085,10 @@ True Scriptures I): the controller is asked once per opponent, in turn order,
 each question offering only that player's permanents. Triggers only for now.
 A spell "with a single target" is `TargetSpec::Spell(&Filter::WithSingleTarget)`
 (CR 115.9a: every instance of "target" and every player counted, Misdirection).
+A spell or ability "that targets a [matching] permanent you control" uses
+`Filter::TargetsYouControl(&FILTER)`: at least one current target incarnation
+must still be a permanent on the battlefield under your control and match the
+nested filter (CR 115.1, CR 608.2b).
 "If this would be put into a graveyard from anywhere, exile it instead" (every
 disturb back) is `AbilityDef::Replacement(ReplacementRule::ExileSelfInsteadOfGraveyard)`
 on that face: registered on the battlefield, carried on the stack by the cast.
@@ -2333,9 +2350,12 @@ that supertype. Existing printed World permanents use their entry timestamps.
 `Filter::NamedBySource` reads a name chosen during the current resolution
 first. `ChooseCardName` supplies that local choice whether or not `remember`
 is set and whether or not the source remains on the battlefield (CR 113.7a,
-608.2d). Without a local choice, the filter reads names remembered by the
-source's current rules acquisition. `remember` controls persistence for
-later abilities, not whether this resolution can use its choice.
+608.2d). Its `excluded_supertypes` refuses a printed face with any of those
+supertypes; `SupertypeSet::BASIC` expresses "other than a basic land card
+name" without excluding nonbasic lands. Without a local choice, the filter
+reads names remembered by the source's current rules acquisition. `remember`
+controls persistence for later abilities, not whether this resolution can use
+its choice.
 
 `ChosenNameCantActivate` is Pithing Needle's "activated abilities of sources
 with the chosen name can't be activated unless they're mana abilities",
@@ -3649,19 +3669,24 @@ See Wizards' 2016-06-08 rulings in the
 ### Keeping one permanent of each kind (Cataclysm)
 
 `KeepOneOfEachAndSacrificeRest { filters }` takes a snapshot of every living
-player's controlled, unphased permanents. In active-player order, each player
-chooses at most one still-eligible permanent for each filter in list order. A
-multi-type permanent remains eligible after satisfying an earlier filter, so
-one artifact creature can cover both choices. A permanent matching no filter
-cannot be kept. Empty categories and forced one-card choices need no menu.
+player's controlled, unphased permanents.
+`KeepOneOfEachAndSacrificeRestMatching { filters, rest }` instead snapshots only
+permanents matching `rest`, leaving every other permanent outside the
+keep-or-sacrifice set. In active-player order, each player chooses one
+still-eligible permanent for each filter in list order. A multi-type permanent
+remains eligible after satisfying an earlier filter, so one artifact creature
+can cover both choices, or one land with two basic land types can cover both of
+those land categories. A permanent matching no filter cannot be kept. Empty
+categories and forced one-card choices need no menu.
 
-Every choice finishes before any unchosen permanent is sacrificed; all such
-permanents still controlled by their original player are then sacrificed
-together. Kept identities are public through `CardsKept`, while no trigger,
-state-based action or priority intervenes. Empty and invalid resume answers
-never invent a choice: a departed player's group is skipped, and a category
-whose options disappeared through a departure advances without a selection.
-The complete continuation participates in the engine snapshot fingerprint.
+Every choice finishes before any unchosen permanent in the snapshot is
+sacrificed; all such permanents still controlled by their original player are
+then sacrificed together. Kept identities are public through `CardsKept`, while
+no trigger, state-based action or priority intervenes. Empty and invalid resume
+answers never invent a choice: a departed player's group is skipped, and a
+category whose options disappeared through a departure advances without a
+selection. The complete continuation participates in the engine snapshot
+fingerprint.
 
 See Wizards' rulings on multi-type choices, APNAP order and simultaneous
 sacrifices in the
@@ -3741,6 +3766,14 @@ abilities and respects ability removal. Combine it with `Filter::LAND` for
 Power Sink, whose unpaid branch sequences countering, tapping and emptying
 the targeted spell controller's pool. Resolution retains that controller
 when the countered spell leaves the stack.
+
+`Filter::HasNonManaActivatedAbility` asks whether an object has at least one
+activated ability that is not a mana ability, regardless of whether its cost or
+activation condition can currently be satisfied. It reads the active printed
+face or copied ability list, includes granted activated abilities, and respects
+lost abilities and the rules-text loss caused by becoming a basic land type.
+Pure mana abilities and triggered abilities do not match. Combining it with
+`Filter::LAND` expresses Tsabo's Web's untap restriction.
 
 `StepKind::CombatEnd` and `Condition::AttackedOrBlockedThisCombat` express
 Clockwork Beast's intervening condition. The combat history records declared
@@ -5155,9 +5188,11 @@ matches objects whose mana value equals the number of `k` counters on the
 source; `Filter::LowestManaValueOnBattlefield(f)` matches battlefield
 permanents satisfying `f` with the minimum mana value among all such
 permanents; `Filter::SameNameAsLinkedExile` matches objects sharing a name
-with a card exiled with the source; `Filter::CmcEqualsYourUnspentMana`
-matches objects whose mana value equals the controller's unspent mana pool
-total.
+with a card exiled with the source; `Filter::SharesNameWithAnotherPermanent`
+matches an object when a different permanent on the battlefield has its current
+name, regardless of controller or card type, and never matches a nameless
+object; `Filter::CmcEqualsYourUnspentMana` matches objects whose mana value
+equals the controller's unspent mana pool total.
 
 `Effect::PreventNextDamageFromTarget { gain_life }` prevents all damage the
 first target creature would deal the next time it would deal damage this
@@ -5562,6 +5597,12 @@ is `true` or at cleanup otherwise).
   resolving source incarnation's `chosen_color` and `chosen_subtype` (Story
   Circle, Prismatic Circle) so source removal or blink-and-rechoose never
   alters or erases the shield's criterion (CR 113.7a, CR 400.7, CR 609.7b).
+- `Effect::PreventFromChosenSourceWithLifeCondition { target, sources, gain_life_sources }`
+  creates a persistent `ShieldKind::AllFromWithLifeCondition`: every damage
+  event from the chosen source is prevented, and its controller gains the
+  prevented amount only when the actual source also matches `gain_life_sources`
+  at that moment (Samite Ministration). The second filter does not narrow which
+  source is chosen or which damage is prevented, and the shield is not consumed.
 - `Effect::PreventNextFromMatchingSources { target, sources, combat_only }`
   creates a one-shot `ShieldKind::NextMatching` shield without choosing a
   source on resolution (Circle of Solace, Trained Pronghorn). When multiple

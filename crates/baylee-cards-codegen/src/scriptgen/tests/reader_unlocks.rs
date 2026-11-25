@@ -2491,6 +2491,36 @@ fn wave8b_chosen_color_protection_and_sweeps() {
 }
 
 #[test]
+fn wave8b_chosen_color_reveal_hand_damage_counts_remembered_cards() {
+    // Synthetic grammar fixture, not a corpus card: the reference remembers
+    // the revealed hand only to count its chosen-color cards immediately.
+    let body = read(
+        "Name:Private chromatic dragon\nManaCost:4 R\nTypes:Creature Dragon\nPT:4/4\n\
+         T:Mode$ DamageDone | ValidSource$ Card.Self | ValidTarget$ Player | CombatDamage$ True | OptionalDecider$ You | Execute$ Pick | TriggerZones$ Battlefield | TriggerDescription$ Whenever CARDNAME deals combat damage to a player, you may pay {2}{R}. If you do, choose a color, then that player reveals their hand and CARDNAME deals damage to that player equal to the number of cards of that color revealed this way.\n\
+         SVar:Pick:AB$ ChooseColor | Cost$ 2 R | Defined$ You | SubAbility$ Show\n\
+         SVar:Show:DB$ RevealHand | Defined$ TriggeredTarget | RememberRevealed$ True | SubAbility$ Burn\n\
+         SVar:Burn:DB$ DealDamage | Defined$ TriggeredTarget | NumDmg$ N | SubAbility$ Forget\n\
+         SVar:Forget:DB$ Cleanup | ClearRemembered$ True\n\
+         SVar:N:Remembered$Valid Card.ChosenColor",
+    );
+    let ability = &body.abilities[0];
+    for expected in [
+        "Effect::PlayerMayPayManaThen",
+        "Effect::ChooseColor",
+        "Effect::RevealHand { who: PlayerRel::DamagedPlayer }",
+        "Amount::CountOf",
+        "Filter::OfSourceChosenColor",
+        "ZoneSel::HandOf(PlayerRel::DamagedPlayer)",
+        "TargetSpec::Player(PlayerRel::DamagedPlayer)",
+    ] {
+        assert!(
+            ability.contains(expected),
+            "missing `{expected}`: {ability}"
+        );
+    }
+}
+
+#[test]
 fn wave8b_repeat_each_domains_and_refusals() {
     let each_discard = read(
         "Name:EachDisc\nManaCost:2 B\nTypes:Sorcery\n\
@@ -2532,6 +2562,25 @@ fn wave8b_repeat_each_domains_and_refusals() {
             && damage_map.abilities[0].contains("PlayerRel::Recipient"),
         "{}",
         damage_map.abilities[0]
+    );
+
+    let chosen_color_damage_map = read(
+        "Name:ChosenColorBurn\nManaCost:2 R\nTypes:Sorcery\n\
+         A:SP$ ChooseColor | Defined$ You | SubAbility$ Repeat\n\
+         SVar:Repeat:DB$ RepeatEach | RepeatPlayers$ Player | RepeatSubAbility$ Burn | DamageMap$ True\n\
+         SVar:Burn:DB$ DealDamage | Defined$ Remembered | NumDmg$ X\n\
+         SVar:X:Count$Valid Creature.RememberedPlayerCtrl+ChosenColor",
+    );
+    assert!(
+        chosen_color_damage_map.abilities[0].contains("Effect::ChooseColor")
+            && chosen_color_damage_map.abilities[0].contains("Effect::DealDamage {")
+            && chosen_color_damage_map.abilities[0].contains("PlayerRel::Recipient")
+            && chosen_color_damage_map
+                .statics
+                .contains("Filter::And(&[Filter::CREATURE, Filter::OfSourceChosenColor])"),
+        "{} {}",
+        chosen_color_damage_map.statics,
+        chosen_color_damage_map.abilities[0]
     );
 
     let wheel = read(
@@ -4362,6 +4411,36 @@ fn wave13c_wave6b_plotted_trigger_and_plot_effects() {
 }
 
 #[test]
+fn counter_land_targeting_spell_or_ability_destroys_only_ability_source() {
+    let script = "Name:LandAnswer\nManaCost:1 U\nTypes:Instant\n\
+         A:SP$ Counter | TargetType$ Spell,Activated,Triggered | ValidTgts$ Card.OppCtrl | DestroyPermanent$ True | TargetValidTargeting$ Land.YouCtrl+inRealZoneBattlefield | SubAbility$ DBDraw\n\
+         SVar:DBDraw:DB$ Draw | NumCards$ 2";
+    let body = read(script);
+    let ability = &body.abilities[0];
+    assert!(
+        ability.contains("Effect::CounterTargetSpellOrAbility")
+            && ability.contains("Effect::DestroyCounteredAbilitySource")
+            && ability.contains("Effect::draw(2)"),
+        "{ability}"
+    );
+    assert!(
+        body.statics
+            .contains("Filter::TargetsYouControl(&Filter::LAND)")
+            && body.statics.contains("Filter::ControlledByOpponent"),
+        "{}",
+        body.statics
+    );
+    assert!(refused(&script.replace(
+        "Land.YouCtrl+inRealZoneBattlefield",
+        "Creature.YouCtrl+inRealZoneBattlefield"
+    )));
+    assert!(refused(&script.replace(
+        "DestroyPermanent$ True",
+        "DestroyPermanent$ Sometimes"
+    )));
+}
+
+#[test]
 #[allow(clippy::too_many_lines)]
 fn wave13c_stack_zone_change_counter_abilities_and_deal_damage() {
     let bounce_spell = read(
@@ -5522,6 +5601,17 @@ fn wave17c_radiation_exchange_move_lose_skip_and_sweeps() {
         exch.abilities[0].contains("Effect::ExchangeControlOfEventAndTarget"),
         "{}",
         exch.abilities[0]
+    );
+    let source_exchange = read(
+        "Name:SourceSwap\nManaCost:2 B\nTypes:Creature\nPT:2/2\n\
+         A:AB$ ExchangeControl | Cost$ 2 U U | Defined$ Self | ValidTgts$ Creature | SpellDescription$ Swap with target creature.",
+    );
+    assert!(
+        source_exchange.abilities[0].contains("Effect::ExchangeControlOfSourceAndTarget")
+            && source_exchange.abilities[0]
+                .contains("target = Some(TargetSpec::Object(&Filter::CREATURE))"),
+        "{}",
+        source_exchange.abilities[0]
     );
     assert!(refused(
         "Name:BadTwoTargetSwap\nManaCost:3 U\nTypes:Sorcery\n\

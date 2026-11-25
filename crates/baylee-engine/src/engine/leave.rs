@@ -185,7 +185,10 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
         }
         if let Pending::ChooseDamageSource { player, .. } = self.pending {
             let filter = match self.resolution.as_ref().and_then(|r| r.awaiting.as_ref()) {
-                Some(AwaitingOp::ShieldFromChosenSource { sources, .. }) => *sources,
+                Some(
+                    AwaitingOp::ShieldFromChosenSource { sources, .. }
+                    | AwaitingOp::ShieldFromChosenSourceWithLifeCondition { sources, .. },
+                ) => *sources,
                 _ => &baylee_cards_dsl::Filter::Any,
             };
             let res_ref = self.resolution.as_ref().expect("source resolution");

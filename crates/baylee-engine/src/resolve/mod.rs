@@ -182,6 +182,10 @@ mod host_tests;
 #[cfg(test)]
 mod toggle_tests;
 
+/// A resolving permanent exchanges control with its target indefinitely.
+#[cfg(test)]
+mod source_exchange_tests;
+
 /// Mana Short: "tap all lands target player controls and that player loses
 /// all unspent mana". The player is the resolution's chosen one, and
 /// nothing of anybody else's is touched.
@@ -315,7 +319,11 @@ pub struct Resolution {
     /// counter writes the answer down here on its way past instead, which
     /// is what makes the pair independent of the order the card lists them
     /// in.
-    pub countered_source: Option<ObjectId>,
+    ///
+    /// The incarnation the ability came from, not the bare handle: a
+    /// permanent that left and came back while the counter waited is another
+    /// object (CR 400.7).
+    pub countered_source: Option<baylee_core::ids::DamageSourceRef>,
     /// What this resolution's targets looked like when it began.
     ///
     /// CR 608.2h: an effect that needs information about an object which is
@@ -435,7 +443,7 @@ impl Resolution {
                 self.event_mana.map(crate::trigger::EventMana::key),
                 self.targeted,
                 self.mana_ability,
-                self.countered_source,
+                self.countered_source.map(|source| source.object),
                 self.text,
                 self.retarget_left,
                 &self.loot,
@@ -1627,8 +1635,10 @@ fn filter_reads_resolution_player_at(filter: &baylee_cards_dsl::Filter, depth: u
         | Filter::BlockedThisTurnBy(f)
         | Filter::LowestManaValueOnBattlefield(f)
         | Filter::SharesAColorWith(f)
+        | Filter::SharesColorWithMostCommon(f)
         | Filter::SharesCreatureTypeWith(f)
-        | Filter::ControllerControls(f) => filter_reads_resolution_player_at(f, depth),
+        | Filter::ControllerControls(f)
+        | Filter::TargetsYouControl(f) => filter_reads_resolution_player_at(f, depth),
         _ => false,
     }
 }

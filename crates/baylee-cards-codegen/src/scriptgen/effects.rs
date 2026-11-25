@@ -653,7 +653,7 @@ impl Tx<'_> {
         }
     }
 
-    fn pump_keyword_bits(kw: &str) -> Option<String> {
+    pub(super) fn pump_keyword_bits(kw: &str) -> Option<String> {
         let mut bits = Vec::new();
         for part in kw.split('&').map(str::trim) {
             let bit = match part {
@@ -12496,6 +12496,9 @@ impl Tx<'_> {
         if api == "Protection" {
             return self.choose_color_protection(&mut sp, chain);
         }
+        if api == "RevealHand" {
+            return self.choose_color_reveal_hand_damage(sp, chain);
+        }
         let sweep_ok = matches!(
             api.as_str(),
             "DestroyAll"
@@ -12525,6 +12528,74 @@ impl Tx<'_> {
         }
         chain.effects.push("Effect::ChooseColor".to_string());
         self.chain(&sub_body, chain)
+    }
+
+    /// A public hand reveal remembered solely for the immediately following
+    /// damage count. Counting that hand directly is equivalent: no player can
+    /// change it between the reveal and the count during this resolution.
+    fn choose_color_reveal_hand_damage(
+        &mut self,
+        mut reveal: Params,
+        chain: &mut super::Chain,
+    ) -> Option<()> {
+        reveal.drop_prose();
+        if reveal.take("RememberRevealed").as_deref() != Some("True") {
+            return self
+                .deny("`ChooseColor` `RevealHand` without `RememberRevealed$ True`".to_string());
+        }
+        let who = self.wave11_player_of_line(
+            reveal.take("Defined").as_deref(),
+            chain.target.as_deref(),
+            false,
+        )?;
+        let damage_name = reveal.take("SubAbility")?;
+        if let Some(key) = reveal.first_key() {
+            return self.deny(format!("unclaimed parameter `RevealHand.{key}`"));
+        }
+
+        let damage_body = self.svars.get(damage_name.trim())?.clone();
+        let (api, mut damage) = Params::parse(&damage_body)?;
+        if api != "DealDamage" {
+            return self.deny(format!("remembered hand followed by `{api}`"));
+        }
+        damage.drop_prose();
+        if damage.take("DamageSource").is_some() {
+            return self.deny("remembered hand damage with an explicit source".to_string());
+        }
+        let damaged = self.wave11_player_of_line(
+            damage.take("Defined").as_deref(),
+            chain.target.as_deref(),
+            false,
+        )?;
+        if damaged != who {
+            return self.deny("remembered hand and damage name different players".to_string());
+        }
+        let raw_amount = damage.take("NumDmg")?;
+        let trailing = damage.take("SubAbility");
+        if let Some(key) = damage.first_key() {
+            return self.deny(format!("unclaimed parameter `DealDamage.{key}`"));
+        }
+
+        let definition = self.svars.get(raw_amount.trim())?.trim().to_string();
+        let (head, suffix) = definition
+            .split_once('/')
+            .map_or((definition.as_str(), ""), |(h, s)| (h, s));
+        let valid = head.strip_prefix("Remembered$Valid ")?.trim();
+        let expr = self.filter_expr_in_zone(valid, true)?;
+        let filter = self.body.filter_static("HAND_COUNT", &expr);
+        let amount = Self::wrap_amount_suffix(
+            format!("Amount::CountOf {{ filter: &{filter}, zone: ZoneSel::HandOf({who}) }}"),
+            suffix,
+        )?;
+
+        chain.effects.push("Effect::ChooseColor".to_string());
+        chain
+            .effects
+            .push(format!("Effect::RevealHand {{ who: {who} }}"));
+        chain.effects.push(format!(
+            "Effect::DealDamage {{ amount: {amount}, target: TargetSpec::Player({who}) }}"
+        ));
+        self.chain_sub_ability(trailing, chain)
     }
 
     fn choose_color_protection_all(
@@ -12731,15 +12802,18 @@ impl Tx<'_> {
         let mut parts = Vec::new();
         for alt in valid.split(',') {
             let trimmed = alt.trim();
-            let stripped = trimmed
-                .strip_suffix(&format!(".{suffix_a}"))
-                .or_else(|| trimmed.strip_suffix(&format!("+{suffix_a}")))
-                .or_else(|| trimmed.strip_suffix(&format!(".{suffix_b}")))
-                .or_else(|| trimmed.strip_suffix(&format!("+{suffix_b}")))?;
-            if stripped.contains("Remembered") {
+            let mut stripped = trimmed.to_string();
+            for suffix in [suffix_a, suffix_b] {
+                stripped = stripped
+                    .replace(&format!(".{suffix}+"), ".")
+                    .replace(&format!("+{suffix}+"), "+")
+                    .replace(&format!(".{suffix}"), "")
+                    .replace(&format!("+{suffix}"), "");
+            }
+            if stripped == trimmed || stripped.contains("Remembered") {
                 return None;
             }
-            parts.push(stripped.trim());
+            parts.push(stripped.trim().to_string());
         }
         if parts.is_empty() {
             return None;
@@ -13536,6 +13610,13 @@ impl Tx<'_> {
         p.take("ChoiceTitle");
         p.take("ChoiceDesc");
         p.take("IsCurse");
+        let each_basic_type = match p.take("EachBasicType").as_deref() {
+            None => false,
+            Some("True") => true,
+            Some(other) => {
+                return self.deny(format!("`ChooseCard` with `EachBasicType$ {other}`"));
+            }
+        };
         let outer_cond = self.take_wave8_line_condition(&mut p).ok()?;
         let raw_defined = p.take("Defined");
         let chooser =
@@ -13668,7 +13749,11 @@ impl Tx<'_> {
                         }
                     }
                 };
-                let name = self.body.filter_static("CHOOSE", &expr);
+                let name = if each_basic_type {
+                    "Filter::LAND".to_string()
+                } else {
+                    self.body.filter_static("CHOOSE", &expr)
+                };
                 (
                     "ChooseZone::Battlefield".to_string(),
                     None,
@@ -13809,6 +13894,44 @@ impl Tx<'_> {
             &stripped_choices,
             &max_expr,
         )?;
+        if each_basic_type {
+            // This Forge form leaves `Mandatory` unset: `EachBasicType` itself
+            // requires one choice for every available basic land type.
+            let sacrifices_unchosen_lands = followup.movement == "ChooseMove::None"
+                && followup.not_chosen_movement == "ChooseMove::None"
+                && followup.then_effects.is_empty()
+                && followup.for_unchosen.len() == 1
+                && followup.for_unchosen[0].contains("Effect::SacrificeEvent");
+            if raw_defined.as_deref() != Some("Player")
+                || chooser != "PlayerRel::EachPlayer"
+                || controlled_by != ControlledBySpec::Chooser
+                || origin_name != "Battlefield"
+                || choices_raw != "Land"
+                || stripped_choices != "Land"
+                || min > 1
+                || max_expr != "Amount::Fixed(1)"
+                || !sacrifices_unchosen_lands
+            {
+                return self.deny(
+                    "`ChooseCard` `EachBasicType` outside the per-player land keep-and-sacrifice form"
+                        .to_string(),
+                );
+            }
+            let keep = "Effect::KeepOneOfEachAndSacrificeRestMatching { filters: &[\
+                &Filter::And(&[Filter::LAND, Filter::HasSubtype(subtypes::land::PLAINS)]), \
+                &Filter::And(&[Filter::LAND, Filter::HasSubtype(subtypes::land::ISLAND)]), \
+                &Filter::And(&[Filter::LAND, Filter::HasSubtype(subtypes::land::SWAMP)]), \
+                &Filter::And(&[Filter::LAND, Filter::HasSubtype(subtypes::land::MOUNTAIN)]), \
+                &Filter::And(&[Filter::LAND, Filter::HasSubtype(subtypes::land::FOREST)])], \
+                rest: &Filter::LAND }";
+            chain.effects.push(match outer_cond {
+                Some(c) => format!(
+                    "Effect::IfCondition {{ condition: {c}, then: &[{keep}], otherwise: &[] }}"
+                ),
+                None => keep.to_string(),
+            });
+            return self.chain_sub_ability(followup.trailing_sub, chain);
+        }
         if (chain.target.is_some() || chain.second_target.is_some())
             && followup
                 .then_effects
@@ -16029,6 +16152,9 @@ impl Tx<'_> {
         if self.is_event_object_defined(&defined) {
             return Some(vec!["Effect::ExchangeControlOfEventAndTarget".to_string()]);
         }
+        if defined == "Self" {
+            return Some(vec!["Effect::ExchangeControlOfSourceAndTarget".to_string()]);
+        }
         None
     }
 
@@ -16349,12 +16475,15 @@ impl Tx<'_> {
         }
         let list_title = p.take("ListTitle");
         let min_raw = p.take("Min");
-        let max_raw = p.take("Max")?;
+        let max_raw = p.take("Max");
         let min = match min_raw.as_deref() {
             None => "Amount::Fixed(0)".to_string(),
             Some(raw) => self.amount_or_count_ext(raw)?,
         };
-        let max = self.amount_or_count_ext(&max_raw)?;
+        let max = match max_raw.as_deref() {
+            None => "Amount::Fixed(u32::MAX)".to_string(),
+            Some(raw) => self.amount_or_count_ext(raw)?,
+        };
         if let (Some(a), Some(b)) = (
             min.strip_prefix("Amount::Fixed(")
                 .and_then(|s| s.strip_suffix(')'))
@@ -16366,28 +16495,9 @@ impl Tx<'_> {
         {
             return None;
         }
-        let (prompt, pay_cost) = match list_title.as_deref() {
-            None => ("NumberChoiceKind::Choice", "None"),
-            Some(title) => {
-                let lower = title.to_ascii_lowercase();
-                let has_unless_pay = self.svars.values().any(|v| v.contains("UnlessCost$"));
-                if lower.contains("energy to pay") && !has_unless_pay {
-                    (
-                        "NumberChoiceKind::EnergyPayment",
-                        "Some(VariablePayKind::Energy)",
-                    )
-                } else if lower.contains("mana to pay") && !has_unless_pay {
-                    (
-                        "NumberChoiceKind::ManaPayment",
-                        "Some(VariablePayKind::GenericMana)",
-                    )
-                } else if lower.contains("life to pay") && !has_unless_pay {
-                    ("NumberChoiceKind::Choice", "Some(VariablePayKind::Life)")
-                } else {
-                    return None;
-                }
-            }
-        };
+        let has_unless_pay = self.svars.values().any(|v| v.contains("UnlessCost$"));
+        let (prompt, pay_cost) =
+            Self::choose_number_prompt_and_cost(list_title.as_deref(), has_unless_pay)?;
         if !p.exhausted() {
             return None;
         }
@@ -16395,6 +16505,34 @@ impl Tx<'_> {
             "Effect::ChooseNumberEx {{ chooser: {chooser}, min: {min}, max: {max}, \
              prompt: {prompt}, pay_cost: {pay_cost}, then: &[] }}"
         )])
+    }
+
+    fn choose_number_prompt_and_cost(
+        list_title: Option<&str>,
+        has_unless_pay: bool,
+    ) -> Option<(&'static str, &'static str)> {
+        let Some(title) = list_title else {
+            return Some(("NumberChoiceKind::Choice", "None"));
+        };
+        if has_unless_pay {
+            return None;
+        }
+        let lower = title.to_ascii_lowercase();
+        if lower.contains("energy to pay") {
+            Some((
+                "NumberChoiceKind::EnergyPayment",
+                "Some(VariablePayKind::Energy)",
+            ))
+        } else if lower.contains("mana to pay") {
+            Some((
+                "NumberChoiceKind::ManaPayment",
+                "Some(VariablePayKind::GenericMana)",
+            ))
+        } else if lower.contains("life to pay") {
+            Some(("NumberChoiceKind::Choice", "Some(VariablePayKind::Life)"))
+        } else {
+            None
+        }
     }
 
     /// General `ChoosePlayer` resolution chain -> `Effect::ChoosePlayerFrom { among }`
@@ -17566,7 +17704,8 @@ impl Tx<'_> {
             }
             if let Some(eot) = at_eot.as_deref() {
                 let delayed_fx = match eot {
-                    "Sacrifice" => "Effect::SacrificeEvent",
+                    "Hand" => "Effect::ReturnToHand { target: TargetSpec::EventObject }",
+                    "Sacrifice" | "SacrificeCtrl" => "Effect::SacrificeEvent",
                     "Exile" => "Effect::exile(TargetSpec::EventObject)",
                     _ => return None,
                 };
@@ -17615,7 +17754,7 @@ impl Tx<'_> {
             probe.take("Optional").as_deref(),
         ) {
             (Some("True"), None | Some("False")) => 1u8,
-            (None | Some("False"), Some("True")) | (None, None) => 0u8,
+            (None | Some("False"), Some("True" | "You")) | (None, None) => 0u8,
             _ => return None,
         };
         let valid = probe.take("ChangeType")?;

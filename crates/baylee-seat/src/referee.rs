@@ -296,6 +296,7 @@ mod tests {
                     player: ME,
                     types: baylee_core::types::TypeSet::EMPTY,
                     excluded_types: baylee_core::types::TypeSet::EMPTY,
+                    excluded_supertypes: baylee_core::types::SupertypeSet::EMPTY,
                 },
                 PlayerAction::ChooseCardName {
                     card: CardIndex::new(1),

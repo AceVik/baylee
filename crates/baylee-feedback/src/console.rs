@@ -1792,4 +1792,64 @@ mod tests {
         );
         assert_eq!(accounts_detail("opus", &[]), "opus: ");
     }
+
+    /// What an admin types goes into the gateway's address as data: it
+    /// cannot end the value, add a field or leave the path.
+    #[test]
+    fn a_search_word_stays_one_value_of_the_gateways_query() {
+        assert_eq!(encoded("aZ09-._~"), "aZ09-._~");
+        assert_eq!(
+            encoded("a b&c=d#e?f/%\r\n"),
+            "a%20b%26c%3Dd%23e%3Ff%2F%25%0D%0A"
+        );
+        assert_eq!(encoded("ä\0"), "%C3%A4%00");
+    }
+
+    #[test]
+    fn a_set_code_is_a_few_letters_and_digits() {
+        for good in ["a", "LEA", "10e", "abcdefgh"] {
+            assert!(is_set_code(good), "{good}");
+        }
+        for bad in ["", "abcdefghi", "a/b", "..", "a?b", "ä", "a b", "%41"] {
+            assert!(!is_set_code(bad), "{bad}");
+        }
+    }
+
+    #[test]
+    fn a_profile_path_is_made_of_two_plain_names() {
+        assert_eq!(
+            llm_path("host.1", "p-x").ok().as_deref(),
+            Some("/admin/llm/seathosts/host.1/profiles/p-x")
+        );
+        for bad in [
+            "",
+            ".",
+            "..",
+            "...",
+            "a/b",
+            "a%2fb",
+            "a?b",
+            "a#b",
+            "a b",
+            "ä",
+            &"a".repeat(65),
+        ] {
+            assert!(llm_path(bad, "p").is_err(), "host {bad:?}");
+            assert!(llm_path("h", bad).is_err(), "id {bad:?}");
+        }
+        assert!(llm_path(&"a".repeat(64), "p").is_ok());
+    }
+
+    #[test]
+    fn a_blocks_audit_line_names_the_card_and_never_the_reason() {
+        let mut made = serde_json::json!({
+            "name": "Forest", "index": 7, "id": "b1", "reason": "Alice cheats",
+            "until": "2026-12-01T00:00:00Z",
+        });
+        let line = block_detail(&made);
+        assert_eq!(line, "Forest (#7), until 2026-12-01T00:00:00Z; block b1");
+        made["until"] = serde_json::Value::Null;
+        assert_eq!(block_detail(&made), "Forest (#7), without an end; block b1");
+        assert!(!block_detail(&serde_json::json!({"reason": "x"})).contains('x'));
+    }
 }

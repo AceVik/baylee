@@ -399,7 +399,8 @@ pub fn locks_its_set(modifier: &Modifier) -> bool {
         | Modifier::FirstSpellEachTurnCostAdjust { .. }
         | Modifier::MustAttackPlayer(_)
         | Modifier::ModifyLifeGain { .. }
-        | Modifier::PreventDamageRemovingCounters { .. } => false,
+        | Modifier::PreventDamageRemovingCounters { .. }
+        | Modifier::PreventDamageToAffectedIfAtMost(_) => false,
     }
 }
 
@@ -2247,6 +2248,7 @@ mod tests {
                 kind: baylee_cards_dsl::CounterKind::P1P1,
                 then: Some(RIDER),
             },
+            Modifier::PreventDamageToAffectedIfAtMost(3),
         ]
     }
 
@@ -2285,7 +2287,7 @@ mod tests {
 
         assert_eq!(
             declared.len(),
-            245,
+            246,
             "read {} variants out of the declaration, which is not the enum",
             declared.len()
         );
@@ -2415,7 +2417,8 @@ mod tests {
         // ReplaceDamage, and ReplaceOrPreventDamageWithThen modify rules only (+6 -> 177).
         // ActivatedAbilitiesCostLess, FirstSpellEachTurnCostAdjust, MustAttackPlayer,
         // ModifyLifeGain, and PreventDamageRemovingCounters modify rules only (+5 -> 182).
-        assert_eq!((locking, all.len() - locking), (63, 182));
+        // PreventDamageToAffectedIfAtMost modifies rules only (+1 -> 183).
+        assert_eq!((locking, all.len() - locking), (63, 183));
     }
 
     /// An `ObjectId` alone is not an identity: an id is stable for a whole

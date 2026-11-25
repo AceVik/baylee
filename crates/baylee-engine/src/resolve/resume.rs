@@ -1730,6 +1730,7 @@ pub(super) fn resume_inner(
         }
         AwaitingOp::DamageShieldSource { .. }
         | AwaitingOp::ShieldFromChosenSource { .. }
+        | AwaitingOp::ShieldFromChosenSourceWithLifeCondition { .. }
         | AwaitingOp::RedirectFromChosenSource { .. } => {
             unreachable!("source decisions resume through resume_source")
         }
@@ -2069,6 +2070,47 @@ pub fn resume_source(
     flow
 }
 
+fn push_chosen_source_shields(
+    state: &mut GameState,
+    res: &Resolution,
+    chosen: Option<baylee_core::ids::DamageSourceRef>,
+    protects: Vec<crate::prevention::Shielded>,
+    sources: &'static baylee_cards_dsl::Filter,
+    make_kind: impl FnOnce(crate::prevention::ChosenSource) -> crate::prevention::ShieldKind,
+) {
+    let you = res.controller;
+    let chosen_color = res.source_chosen_color(state);
+    let chosen_subtype = res.source_chosen_subtype(state);
+    let Some(source) = chosen.and_then(|id| {
+        crate::prevention::ChosenSource::new_with_choices(
+            state,
+            id,
+            sources,
+            you,
+            res.rule_context(),
+            chosen_color,
+            chosen_subtype,
+        )
+    }) else {
+        return;
+    };
+    let origin = crate::prevention::ShieldOrigin {
+        source: res.source,
+        ability: resolving_ability(state, res),
+    };
+    let kind = make_kind(source);
+    for protected in protects {
+        state.shields.push_from(
+            crate::prevention::Shield {
+                protects: protected,
+                kind,
+                controller: you,
+            },
+            Some(origin),
+        );
+    }
+}
+
 pub(super) fn resume_source_inner(
     state: &mut GameState,
     res: &mut Resolution,
@@ -2089,25 +2131,8 @@ pub(super) fn resume_source_inner(
             all_but,
             gain_life,
         } => {
-            let you = res.controller;
-            let chosen_color = res.source_chosen_color(state);
-            let chosen_subtype = res.source_chosen_subtype(state);
-            if let Some(source) = chosen.and_then(|id| {
-                crate::prevention::ChosenSource::new_with_choices(
-                    state,
-                    id,
-                    sources,
-                    you,
-                    res.rule_context(),
-                    chosen_color,
-                    chosen_subtype,
-                )
-            }) {
-                let origin = crate::prevention::ShieldOrigin {
-                    source: res.source,
-                    ability: resolving_ability(state, res),
-                };
-                let kind = if next_only {
+            push_chosen_source_shields(state, res, chosen, protects, sources, |source| {
+                if next_only {
                     crate::prevention::ShieldKind::NextFrom {
                         source,
                         all_but: u32::from(all_but),
@@ -2116,18 +2141,20 @@ pub(super) fn resume_source_inner(
                     }
                 } else {
                     crate::prevention::ShieldKind::AllFrom { source }
-                };
-                for protected in protects {
-                    state.shields.push_from(
-                        crate::prevention::Shield {
-                            protects: protected,
-                            kind,
-                            controller: you,
-                        },
-                        Some(origin),
-                    );
                 }
-            }
+            });
+        }
+        AwaitingOp::ShieldFromChosenSourceWithLifeCondition {
+            protects,
+            sources,
+            gain_life_sources,
+        } => {
+            push_chosen_source_shields(state, res, chosen, protects, sources, |source| {
+                crate::prevention::ShieldKind::AllFromWithLifeCondition {
+                    source,
+                    gain_life_sources,
+                }
+            });
         }
         AwaitingOp::RedirectFromChosenSource { protects } => {
             let you = res.controller;

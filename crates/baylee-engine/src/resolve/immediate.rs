@@ -444,6 +444,7 @@ pub(super) fn exec_immediate(
         | Effect::DealDamage { .. }
         | Effect::GrantorDealsDamage { .. }
         | Effect::DealDamageWithoutPreventionOrRedirection { .. }
+        | Effect::DealDamageWithoutPrevention { .. }
         | Effect::PreventNextDamageToAttached { .. }
         | Effect::DealDamageToMatchingTargets { .. }
         | Effect::DealDamageWithCappedLifeGain { .. }
@@ -469,6 +470,7 @@ pub(super) fn exec_immediate(
         | Effect::ChooseDamageSourcePreventAllThisTurnMatching(_)
         | Effect::PreventNextFromChosenSource { .. }
         | Effect::PreventFromChosenSource { .. }
+        | Effect::PreventFromChosenSourceWithLifeCondition { .. }
         | Effect::PreventNextFromMatchingSources { .. }
         | Effect::PreventAllDamageFromMatchingThisTurn { .. }
         | Effect::RedirectNextFromChosenSource { .. }
@@ -536,6 +538,7 @@ pub(super) fn exec_immediate(
         | Effect::DestroyChosenForPlayers { .. }
         | Effect::EqualizePermanents { .. }
         | Effect::KeepOneOfEachAndSacrificeRest { .. }
+        | Effect::KeepOneOfEachAndSacrificeRestMatching { .. }
         | Effect::EqualizeHands
         | Effect::DiscardForPlayers { .. }
         | Effect::DiscardAmountForPlayers { .. }
@@ -2841,6 +2844,12 @@ pub(super) fn exec_immediate(
             matched,
             otherwise,
         } => names::reveal_top(state, res, player, matched, otherwise),
+        Effect::RevealTopAllNamed {
+            player,
+            count,
+            matched,
+            otherwise,
+        } => names::reveal_top_all_named(state, res, player, count, matched, otherwise),
         Effect::RevealRandomDiscardNamed { player, count } => {
             names::random_discard(state, res, player, count)
         }
@@ -3716,8 +3725,8 @@ pub(super) fn exec_immediate(
             // made the whole rider dead code: the ability it names has been
             // removed from the arena by then.
             if let Some(src) = res.countered_source {
-                let applies = state.object(src).is_some_and(|o| {
-                    o.zone == crate::zone::Zone::Battlefield
+                let applies = state.object(src.object).is_some_and(|o| {
+                    subjects::on_battlefield(state, src)
                         && eval::matches_with_context(
                             source_filter,
                             state,
@@ -3736,10 +3745,22 @@ pub(super) fn exec_immediate(
                         layer: baylee_cards_dsl::Layer::Ability,
                         timestamp: ts,
                         duration: baylee_cards_dsl::Duration::WhileSourceOnBattlefield,
-                        filter: crate::effects::EffectFilter::object(state, src),
+                        filter: crate::effects::EffectFilter::object(state, src.object),
                         modifier: baylee_cards_dsl::Modifier::LoseAllAbilities,
                     });
                 }
+            }
+            None
+        }
+        Effect::DestroyCounteredAbilitySource => {
+            // Only an ability actually countered earlier in this resolution
+            // records its source. A spell, an uncounterable ability, or a
+            // source that has left the battlefield, returned or not (CR
+            // 400.7), destroys nothing.
+            if let Some(src) = res.countered_source
+                && subjects::on_battlefield(state, src)
+            {
+                crate::sba::destroy(state, src.object);
             }
             None
         }
@@ -4235,6 +4256,22 @@ pub(super) fn exec_immediate(
                 .filter(|r| subjects::on_battlefield(state, *r))
                 .map(|r| r.object);
             if let (Some(a), Some(b)) = (event, target) {
+                control::exchange(state, a, b);
+            }
+            None
+        }
+        Effect::ExchangeControlOfSourceAndTarget => {
+            let source = subjects::source(state, res)
+                .filter(|r| subjects::on_battlefield(state, *r))
+                .map(|r| r.object);
+            let target = res
+                .targets
+                .first()
+                .copied()
+                .and_then(|id| subjects::target(state, res, id))
+                .filter(|r| subjects::on_battlefield(state, *r))
+                .map(|r| r.object);
+            if let (Some(a), Some(b)) = (source, target) {
                 control::exchange(state, a, b);
             }
             None

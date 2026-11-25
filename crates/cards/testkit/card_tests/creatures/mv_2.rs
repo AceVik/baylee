@@ -265,6 +265,7 @@ mod people_of_the_woods;
 mod phantasmal_mount;
 mod phantom_whelp;
 mod phyrexian_denouncer;
+mod phyrexian_infiltrator;
 mod plague_fiend;
 mod plague_witch;
 mod plaguebearer;
