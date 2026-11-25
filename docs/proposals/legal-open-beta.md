@@ -41,28 +41,39 @@ feedback service. `main` has moved all of that to Central.
 - `baylee-tools site checks`: the footer must link the terms page, and
   `terms.js` must never write markup.
 
+## Settled by the owner (25.11.2026)
+
+- **No guests.** A gateway may allow guests in its admin console; it is off
+  by default and stays off on the official gateway. The guest passages are
+  gone; 3.5 and 4.5 say there are none, and that allowing them would be a
+  new version.
+- **Minimum age 13**, the age Magic: The Gathering itself names. Because
+  every player needs a Baylee account, Central's minimum (16 today) applies
+  on top; 5.1 says both.
+- **Administrators:** only the owner for now; the definition keeps room for
+  more and says "at present that is only me".
+- **Hosted AI seats:** not named in the terms. The providers receive only
+  the table's state without names (8.11); the room shows the provider at
+  the seat.
+- **AVV with netcup:** in place; 16.6 says so. **Supervisory authority:**
+  the LDI NRW stands.
+- **Server logs:** they stay as long as the law allows, the texts follow
+  the server. There is no fixed legal maximum; the period must be what the
+  purpose needs (Art. 5(1)(e) GDPR). The texts now say what the server does
+  (checked read-only on 11.11.2026): the journal at most 14 days
+  (`MaxRetentionSec=14day`), the files rsyslog writes from it
+  (`/var/log/syslog`, weekly, `rotate 4`) at most five weeks. Five weeks is
+  defensible for logs that may hold an IP address in rare error cases, but
+  at the long end of common practice. The website's notice says the same
+  now. **Central's texts still say 14 days** for the same server (its
+  privacy policy § 7 and the website's `privacy-hosting`); that needs a new
+  Central version, or `/var/log/syslog` cut to 14 days, which makes every
+  text true at once.
+
 ## Open points for the owner
 
 Each one is marked where it sits in the draft.
 
-1. **Guests in the open beta?** Which `BAYLEE_AUTH_MODE` the official
-   gateway runs (`central`, `mixed`). With `central` the guest passages
-   (4.5, 9a.6, 16.3 "Gastkonto") go.
-2. **Minimum age.** Central requires 16 for an account; the gateway's
-   terms so far said 12 for everyone. Keep 12 for guests, or 16 everywhere?
-3. **Administrators** besides the owner, who see reports and the console
-   (§ 1, 16.6)?
-4. **Hosted AI seats:** which providers the gateway offers at launch, named
-   with their seat (8.11, 16.8).
-5. **Processing agreement (AVV) with netcup** in place (16.6)? The website's
-   notice has the same question open since 13.10.2026.
-6. **Supervisory authority:** the LDI NRW is right only while the owner
-   lives in North Rhine-Westphalia (16.9).
-7. **Server logs, 14 days:** true only once journald no longer forwards to
-   rsyslog or `/var/log/syslog` is rotated at 14 days; on 11.11.2026 syslog
-   kept about five weeks (`baylee-central`
-   `docs/proposals/website-text-review.md`). Either fix the server or
-   write the real period.
 8. **Backups:** is the plan still 48 h / 14 d / 8 w / 12 m?
 9. **Reports:** the draft assumes the official gateway runs with
    `BAYLEE_REPORTS_TO=central` and `BAYLEE_DIRECT_REPORT_KEY`, so bug
