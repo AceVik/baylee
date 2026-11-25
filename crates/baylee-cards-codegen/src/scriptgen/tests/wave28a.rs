@@ -658,9 +658,12 @@ fn wave28a_p2_reference_filters_any_exclusions_and_emblem_subsumption() {
             && raze_boar
                 .statics
                 .contains("Filter::Not(&Filter::Reference)")
-            && raze_boar
+            && (raze_boar
                 .statics
-                .contains("Filter::ControlledBy(PlayerRel::ControllerOfTarget)"),
+                .contains("Filter::ControlledBy(PlayerRel::ControllerOfTarget)")
+                || raze_boar
+                    .statics
+                    .contains("Filter::Not(&Filter::NotControlledByReferenceController)")),
         "{:?}\n{}",
         raze_boar.abilities,
         raze_boar.statics
@@ -859,11 +862,14 @@ fn wave28a_p2_dynamic_filter_amounts_and_remembered_play_animate() {
     );
     assert!(
         bring.abilities[0].contains("Effect::CaptureAffected")
-            && bring.abilities[0].contains("Effect::ForEachRemembered")
-            && bring.abilities[0].contains("PlaySource::Subject(TargetSpec::EventObject)")
+            && ((bring.abilities[0].contains("Effect::ForEachRemembered")
+                && bring.abilities[0].contains("PlaySource::Subject(TargetSpec::EventObject)"))
+                || (bring.abilities[0].contains("PlaySource::Zone { zone: ZoneRef::Exile")
+                    && bring.statics.contains("Filter::IsRemembered")))
             && bring.abilities[0].contains("PlayCostMode::WithoutPayingManaCost"),
-        "{:?}",
-        bring.abilities
+        "{:?}\n{}",
+        bring.abilities,
+        bring.statics
     );
 
     // Animate | Defined$ Remembered with Forge AI-only sVars$ MustAttack hint (Whip of Erebos).

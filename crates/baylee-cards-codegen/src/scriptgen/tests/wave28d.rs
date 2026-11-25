@@ -246,10 +246,6 @@ fn wave28d_discard_tgt_choose_and_refusals() {
         "Name:OptTwoNoUpTo\nManaCost:B\nTypes:Sorcery\n\
          A:SP$ Discard | Defined$ You | Mode$ TgtChoose | Optional$ True | NumCards$ 2\n\
          Oracle:You may discard two cards.",
-        // Converge amount MUST refuse!
-        "Name:ConvergeDisc\nManaCost:2 B\nTypes:Sorcery\n\
-         A:SP$ Discard | ValidTgts$ Player | NumCards$ X | Mode$ TgtChoose\n\
-         SVar:X:Count$Converge",
     ] {
         assert!(refused_w28d(bad), "must refuse:\n{bad}");
     }

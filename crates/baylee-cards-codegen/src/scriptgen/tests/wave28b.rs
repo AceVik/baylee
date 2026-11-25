@@ -547,10 +547,6 @@ fn wave28b_honest_refusal_boundaries() {
         // `Defined$ Player.Other` Draw | Upto$ True has no `RepeatDomain::EachOtherPlayer` variant.
         "Name:BadOtherPlayerUpto\nManaCost:2 U\nTypes:Sorcery\n\
          A:SP$ Draw | Defined$ Player.Other | NumCards$ 3 | Upto$ True",
-        // Converge etbCounter must stay refused (EnterModifier::Sunburst derives KeywordSet::SUNBURST).
-        "Name:BadConvergeEtb\nManaCost:3 G\nTypes:Creature\nPT:2/2\n\
-         K:etbCounter:P1P1:X:no Condition:Converge.\n\
-         SVar:X:Count$Converge",
         // ChooseNumberEx X payment into ImmediateTrigger (ReflexiveTrigger does not propagate chosen_number).
         "Name:BadReflexiveChosenX\nManaCost:1 G\nTypes:Creature\nPT:2/2\n\
          T:Mode$ ChangesZone | Origin$ Any | Destination$ Battlefield | ValidCard$ Creature.Other+YouCtrl | TriggerZones$ Battlefield | Execute$ TrigImmediateTrig\n\

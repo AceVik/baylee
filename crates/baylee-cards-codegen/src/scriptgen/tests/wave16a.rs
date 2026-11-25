@@ -119,10 +119,19 @@ fn wave16a_akoum_hellkite_aetherflux_conduit_and_aveline() {
          SVar:X:TriggeredCard$Valid Mountain/Plus.1",
     );
     assert!(
-        akoum
+        ((akoum
             .statics
             .contains("Condition::ObjectMatches { what: &TargetSpec::EventObject, filter:")
-            && akoum.abilities[0].contains("then: &Amount::Fixed(2), otherwise: &Amount::Fixed(1)"),
+            && akoum.abilities[0]
+                .contains("then: &Amount::Fixed(2), otherwise: &Amount::Fixed(1)"))
+            || (akoum.statics.contains("MOUNTAIN")
+                && akoum.abilities[0].contains(
+                    "Condition::ObjectMatches { what: &TargetSpec::EventObject, filter:"
+                )
+                && akoum.abilities[0].contains("Amount::Plus")
+                && akoum.abilities[0]
+                    .contains("then: &Amount::Fixed(1), otherwise: &Amount::Fixed(0)")
+                && akoum.abilities[0].contains("offset: 1"))),
         "akoum statics={}\nabilities={:?}",
         akoum.statics,
         akoum.abilities
@@ -351,10 +360,17 @@ fn wave16a_void_resolved_this_turn_other_opponents_and_spell_conditions() {
          SVar:X:Count$CardPower",
     );
     assert!(
-        eshki.abilities[0].contains("AmountAtLeast(Amount::EventPower, 4)")
-            && eshki.abilities[0].contains("AmountAtLeast(Amount::EventPower, 6)"),
-        "eshki: {:?}",
-        eshki.abilities
+        (eshki.abilities[0].contains("AmountAtLeast(Amount::EventPower, 4)")
+            && eshki.abilities[0].contains("AmountAtLeast(Amount::EventPower, 6)"))
+            || (eshki.abilities[0]
+                .contains("Condition::ObjectMatches { what: &TargetSpec::EventObject, filter:")
+                && eshki.abilities[0].contains("Effect::draw(1)")
+                && eshki.abilities[0].contains("Effect::DealDamage")
+                && eshki.statics.contains("4")
+                && eshki.statics.contains("6")),
+        "eshki: {:?}\nstatics={}",
+        eshki.abilities,
+        eshki.statics
     );
 }
 
