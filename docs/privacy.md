@@ -675,6 +675,43 @@ own.
   (`baylee-agent/src/lib.rs`), which the agent's comment notes is visible in
   that machine's process list.
 
+## Backups
+
+The production server is backed up by `baylee-backup`, a separate private
+program (repository `AceVik/baylee-backup`; its `docs/backup.md` is the
+full account). Nothing in this repository writes a backup; `baylee-reboot`
+only waits while one runs (`/run/baylee-backup/run.lock`).
+
+- **What:** every hour (`voll`) and every night (`archiv`), a dump of the
+  gateway's, Central's and the feedback service's databases, the deck
+  images, the challenge and seat-agent state directories, and copies of the
+  host's configuration. The secrets (the services' settings files and keys,
+  the database's TLS key and superuser password, the roles' password hashes)
+  go into a bundle encrypted separately to the owner's recovery key, which
+  the server does not hold.
+- **Never saved:** the rows of sessions and confirmation links
+  (`session_token`, `confirmation`; Central's `sessions`, pairings, pending
+  e-mail codes, push subscriptions and the like), the feedback service's
+  admin sessions, the card catalogs, and any log.
+- **Encrypted before upload:** restic encrypts everything on the server;
+  only ciphertext leaves it, for the owner's Google Drive (Google Ireland
+  Limited), which holds no key. The app may touch only files it created
+  itself (OAuth scope `drive.file`).
+- **How long:** snapshots that hold short-lived data (undelivered chat
+  messages and their deliveries, contact messages) are kept at most 14
+  days; the nightly archive, which leaves those tables' rows out, at most 12
+  months. The blocks a dropped snapshot alone used are deleted from Google
+  Drive at the next weekly prune, without Drive's trash: so at most 21 days
+  and at most 12 months and one week on Drive.
+- **Deleted accounts:** each run records the ids (UUIDs only) of gateway
+  and Central accounts deleted since the run before, in a list that is part
+  of every snapshot. After a restore of an older snapshot those accounts are
+  deleted again: on the gateway through its own deletion
+  (`DELETE /admin/accounts/{id}`); for Central, which has no operator
+  deletion, the program names the ids and the step for a person. Until a
+  restore, a deleted account stays in older backups as long as they are
+  kept (above).
+
 ## Logs
 
 - **Where:** every binary logs through `tracing_subscriber::fmt` to stdout,
@@ -1180,7 +1217,8 @@ to weigh, not conclusions.
    client still sends its session or seat token in a socket's address, and
    `/auth/confirm?token=` always does; whatever access log sits in front of
    the gateway sees those.
-4. **Retention of stdout logs and of backups** is not set anywhere in the
+4. **Retention of stdout logs** is not set anywhere in the repository.
+   Backups have their own (§"Backups"), set in the separate `baylee-backup`
    repository.
 5. **Game records** (#315) are kept without a time limit. The record names
    no account; who sat in a seat is `game_record_seat.account_id` (and
