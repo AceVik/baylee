@@ -74,6 +74,7 @@ mod wave27b;
 mod wave27c;
 mod wave27d;
 mod wave27e;
+mod wave28c;
 
 use atoms::{
     Bound, amount, color_atom, count_bound, hybrid_pair, keyword_atom, mana_color_const,
@@ -675,7 +676,7 @@ impl<'a> Tx<'a> {
 
     /// Lowers a self-spell `S: Mode$ OptionalCost` static ability into
     /// `FaceDef::optional_cost` (`CR 118.8b`).
-    fn lower_optional_cost_static(&mut self, spec: &str, is_land: bool) -> Option<()> {
+    pub(super) fn lower_optional_cost_static(&mut self, spec: &str, is_land: bool) -> Option<()> {
         if is_land {
             return self.deny("`S: Mode$ OptionalCost` on a land".to_string());
         }
@@ -888,7 +889,7 @@ pub(super) fn is_vanilla_face(script: &CardScript) -> bool {
         && script.oracle.trim().is_empty()
 }
 
-fn is_optional_cost_static(spec: &str) -> bool {
+pub(super) fn is_optional_cost_static(spec: &str) -> bool {
     Params::parse(spec).is_some_and(|(mode, _)| mode == "OptionalCost")
 }
 

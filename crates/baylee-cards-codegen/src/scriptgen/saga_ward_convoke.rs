@@ -881,6 +881,9 @@ impl Tx<'_> {
     }
 
     fn cast_with_flash(&mut self, mut p: Params) -> Option<()> {
+        if Self::is_wave28c_cast_with_flash(&p) {
+            return self.wave28c_cast_with_flash(p);
+        }
         p.drop_prose();
         let who = match p.take("Caster").as_deref() {
             Some("You") => "PlayerRel::You",
@@ -1023,7 +1026,12 @@ impl Tx<'_> {
                 }
                 "TriggerEventKind::EntersBattlefield"
             }
-            Some(_) => return self.deny("static ability `S: Mode$ Panharmonicon`".to_string()),
+            Some(other) => {
+                let Some(ev) = Self::wave28c_panharmonicon_attack(&mut p, other) else {
+                    return self.deny("static ability `S: Mode$ Panharmonicon`".to_string());
+                };
+                ev
+            }
         };
         if !p.exhausted() {
             return self.deny("static ability `S: Mode$ Panharmonicon`".to_string());
@@ -1828,7 +1836,7 @@ impl Tx<'_> {
         Some(())
     }
 
-    fn continuous_library_top_dispatch(&mut self, p: Params) -> Option<()> {
+    pub(super) fn continuous_library_top_dispatch(&mut self, p: Params) -> Option<()> {
         let legacy_look_only = p.has("MayLookAt") && !p.has("MayPlay");
         let legacy_land_only = !p.has("MayLookAt")
             && p.peek("MayPlay") == Some("True")
@@ -1867,6 +1875,9 @@ impl Tx<'_> {
     }
 
     fn continuous_library_top_wave14a(&mut self, mut p: Params) -> Option<()> {
+        if p.has("ValidAfterStack") {
+            return self.wave28c_mixed_land_and_spell_play(p, true);
+        }
         let deny = |tx: &Self| tx.deny("static ability reaching `AffectedZone$ Library`".into());
         p.drop_prose();
         if p.take("AffectedZone").as_deref() != Some("Library")
@@ -1969,6 +1980,12 @@ impl Tx<'_> {
     }
 
     fn continuous_graveyard_play_wave14a(&mut self, mut p: Params) -> Option<()> {
+        if let (Some(vas), Some(aff)) = (p.peek("ValidAfterStack"), p.peek("Affected"))
+            && aff.contains(',')
+            && !valid_after_stack_is_redundant(vas, aff)
+        {
+            return self.wave28c_mixed_land_and_spell_play(p, false);
+        }
         let deny = |tx: &Self| tx.deny("static ability reaching `AffectedZone$ Graveyard`".into());
         let desc_has_unmodeled_rider = p.peek("Description").is_some_and(|d| {
             let lower = d.to_ascii_lowercase();

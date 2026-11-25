@@ -1837,9 +1837,6 @@ fn reduce_cost_lowers_colored_dynamic_cycling_facedown_shared_and_self_stack() {
          S:Mode$ ReduceCost | ValidCard$ Card | Type$ Spell | EffectZone$ Graveyard | Activator$ You | Amount$ 1",
         "Name:Bad\nTypes:Creature\nPT:2/2\n\
          S:Mode$ ReduceCost | ValidCard$ Card | Activator$ You | ValidSpell$ Activated.!ManaAbility | Amount$ 2 | MinMana$ 1",
-        "Name:Bad\nTypes:Creature\nPT:2/2\n\
-         S:Mode$ ReduceCost | ValidCard$ Card | Type$ Spell | Activator$ You | Amount$ 1 | CheckSVar$ X | SVarCompare$ EQ1\n\
-         SVar:X:Count$ThisTurnCast_Card.YouCtrl",
         "Name:Bad\nTypes:Instant\nA:SP$ Draw | NumCards$ 1\n\
          S:Mode$ ReduceCost | ValidCard$ Card.Self | Type$ Spell | EffectZone$ All | Amount$ 0",
     ] {

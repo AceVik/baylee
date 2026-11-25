@@ -2283,6 +2283,9 @@ impl Tx<'_> {
     ) -> Option<(String, Option<&'static str>, Option<String>)> {
         let trimmed = valid.trim();
         match trimmed {
+            "CantCastSpellFromHand" => {
+                return Some(Self::wave28c_cant_cast_spell_from_hand_restriction());
+            }
             "CantCastNonArtifactSpells" => {
                 return Some((
                     "Filter::ARTIFACT".to_string(),
