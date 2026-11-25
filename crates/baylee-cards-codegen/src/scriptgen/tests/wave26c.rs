@@ -623,11 +623,26 @@ fn wave26c_soundness_and_non_paper_refusals() {
 
 #[test]
 fn wave26c_attach_slot_and_restricted_modal_refusals() {
-    // 7. AttachSlot soundness: Auriok Survivors shape (zone-change ChangeZone before Attach) must stay refused (CR 400.7).
-    assert!(refused_w26c(
+    // 7. Wave 28d-p2: Auriok Survivors shape now lowers CR 400.7-safely via CaptureAffected +
+    // MoveAttachment (binding the new battlefield incarnation rather than AttachSlot);
+    // Battlefield -> Exile followed by Attach | Object$ Targeted must still stay refused.
+    let survivors = read_w26c(
         "Name:Auriok Survivors Proxy\nManaCost:5 W\nTypes:Creature Human Soldier\nPT:4/6\n\
          T:Mode$ ChangesZone | Origin$ Any | Destination$ Battlefield | ValidCard$ Card.Self | Execute$ TrigRet\n\
          SVar:TrigRet:DB$ ChangeZone | Origin$ Graveyard | Destination$ Battlefield | ValidTgts$ Equipment.YouOwn | SubAbility$ DBAttach\n\
+         SVar:DBAttach:DB$ Attach | Object$ Targeted | Defined$ Self | Optional$ True",
+    );
+    assert!(
+        survivors.abilities[0].contains("Effect::CaptureAffected")
+            && survivors.abilities[0].contains("Effect::MoveAttachment")
+            && !survivors.abilities[0].contains("Effect::AttachSlot"),
+        "{}",
+        survivors.abilities[0]
+    );
+    assert!(refused_w26c(
+        "Name:ExileAttachRefusal\nManaCost:5 W\nTypes:Creature Human Soldier\nPT:4/6\n\
+         T:Mode$ ChangesZone | Origin$ Any | Destination$ Battlefield | ValidCard$ Card.Self | Execute$ TrigEx\n\
+         SVar:TrigEx:DB$ ChangeZone | Origin$ Battlefield | Destination$ Exile | ValidTgts$ Equipment.YouCtrl | SubAbility$ DBAttach\n\
          SVar:DBAttach:DB$ Attach | Object$ Targeted | Defined$ Self | Optional$ True"
     ));
 

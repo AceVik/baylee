@@ -10,9 +10,16 @@ fn cats_w28d() -> SubtypeCatalogs {
         "Vampire".into(),
         "Saproling".into(),
         "Cat".into(),
+        "Faerie".into(),
+        "Spirit".into(),
     ]);
-    c.artifact
-        .extend(["Equipment".into(), "Food".into(), "Treasure".into()]);
+    c.artifact.extend([
+        "Equipment".into(),
+        "Food".into(),
+        "Treasure".into(),
+        "Vehicle".into(),
+    ]);
+    c.enchantment.extend(["Aura".into()]);
     c.land.extend(["Plains".into(), "Swamp".into()]);
     c.normalize();
     c
@@ -41,6 +48,14 @@ fn tokens_w28d() -> TokenLookup {
         (
             "b_2_2_zombie",
             "Name:Zombie\nTypes:Creature Zombie\nColors:black\nPT:2/2",
+        ),
+        (
+            "r_1_1_goblin",
+            "Name:Goblin\nTypes:Creature Goblin\nColors:red\nPT:1/1",
+        ),
+        (
+            "w_1_1_spirit_flying",
+            "Name:Spirit\nTypes:Creature Spirit\nColors:white\nPT:1/1\nK:Flying",
         ),
         (
             "c_a_treasure_sac",
@@ -242,7 +257,7 @@ fn wave28d_discard_tgt_choose_and_refusals() {
 
 #[test]
 fn wave28d_mill_optional_and_imprint_capture() {
-    // 1. `Mill | Optional$ True` -> MayDo / PlayerMayDo.
+    // 1. `Mill | Optional$ True` -> MayDo / MayDoFor.
     let may_mill = read_w28d(
         "Name:MayMill\nManaCost:1 G\nTypes:Sorcery\n\
          A:SP$ Mill | NumCards$ 3 | Defined$ You | Optional$ True",
@@ -482,6 +497,8 @@ fn wave28d_peek_and_reveal_and_dig_until() {
         wand.abilities[0].contains("Effect::CaptureAffected")
             && wand.abilities[0].contains("Effect::RevealUntilThen")
             && wand.abilities[0].contains("Effect::Play {")
+            && wand.abilities[0].contains("controller: PlayerRel::You")
+            && wand.abilities[0].contains("cast_only: true")
             && wand.abilities[0].contains("zone: ChooseZone::Remembered")
             && wand.abilities[0].contains("Filter::InZone(ZoneRef::Exile)")
             && wand.abilities[0].contains("not_chosen_movement: ChooseMove::BottomOfLibraryRandom"),
@@ -766,4 +783,540 @@ fn wave28d_filter_copy_and_pump_refusals() {
     ] {
         assert!(refused_w28d(bad), "must refuse:\n{bad}");
     }
+}
+
+#[test]
+fn wave28d_p2_fight_and_gain_control() {
+    let blood_feud = read_w28d(
+        "Name:Blood Feud\nManaCost:4 R R\nTypes:Sorcery\n\
+         A:SP$ Fight | ValidTgts$ Creature | TargetMin$ 2 | TargetMax$ 2",
+    );
+    assert!(
+        blood_feud.abilities[0].contains("TargetConstraint::DistinctFromPriorTargetGroups")
+            && blood_feud.abilities[0]
+                .contains("Effect::Fight { fighter: TargetSlot::First, foe: TargetSlot::Second }"),
+        "{}",
+        blood_feud.abilities[0]
+    );
+
+    let altisaur = read_w28d(
+        "Name:Apex Altisaur\nManaCost:7 G G\nTypes:Creature Dinosaur\nPT:10/10\n\
+         T:Mode$ DamageDoneOnce | Execute$ TrigFight2 | ValidTarget$ Card.Self | TriggerZones$ Battlefield\n\
+         SVar:TrigFight2:DB$ Fight | Defined$ TriggeredTargetLKICopy | ValidTgts$ Creature.YouDontCtrl | TargetMin$ 0 | TargetMax$ 1",
+    );
+    assert!(
+        altisaur.abilities[0]
+            .contains("Effect::Fight { fighter: TargetSlot::This, foe: TargetSlot::First }"),
+        "{}",
+        altisaur.abilities[0]
+    );
+
+    let pumpkin = read_w28d(
+        "Name:Pumpkin Bombs\nManaCost:1 R\nTypes:Artifact\n\
+         A:AB$ DealDamage | Cost$ T | ValidTgts$ Opponent | NumDmg$ 2 | SubAbility$ BombGainCtrl\n\
+         SVar:BombGainCtrl:DB$ GainControl | NewController$ TargetedPlayer | Defined$ Self",
+    );
+    assert!(
+        pumpkin.abilities[0]
+            .contains("Effect::ChangeController { new_controller: PlayerRel::Chosen }"),
+        "{}",
+        pumpkin.abilities[0]
+    );
+
+    let slave = read_w28d(
+        "Name:Slave of Bolas\nManaCost:3 UR B\nTypes:Sorcery\n\
+         A:SP$ GainControl | ValidTgts$ Creature | Untap$ True | AddKWs$ Haste | SubAbility$ DBDelay\n\
+         SVar:DBDelay:DB$ EndOfTurn | Defined$ Targeted | AtEOT$ Sacrifice\n\
+         Oracle:Gain control of target creature. Untap that creature. It gains haste until end of turn. Sacrifice it at the beginning of the next end step.",
+    );
+    assert!(
+        slave.abilities[0].contains("Modifier::GainControl, Duration::Indefinitely")
+            && slave.abilities[0]
+                .contains("keywords: KeywordSet::HASTE, duration: Duration::UntilEndOfTurn"),
+        "{}",
+        slave.abilities[0]
+    );
+
+    let heist = read_w28d(
+        "Name:Momo's Heist\nManaCost:2 R\nTypes:Sorcery\n\
+         A:SP$ GainControl | ValidTgts$ Artifact | Untap$ True | AddKWs$ Haste | SubAbility$ DBDelay\n\
+         SVar:DBDelay:DB$ EndOfTurn | Defined$ Targeted | AtEOT$ Sacrifice\n\
+         Oracle:Gain control of target artifact. Untap it. It gains haste. At the beginning of the next end step, sacrifice it.",
+    );
+    assert!(
+        heist.abilities[0]
+            .contains("keywords: KeywordSet::HASTE, duration: Duration::Indefinitely"),
+        "{}",
+        heist.abilities[0]
+    );
+}
+
+#[test]
+fn wave28d_p2_attach_and_remove_counter() {
+    let blademaster = read_w28d(
+        "Name:Heavenly Blademaster\nManaCost:5 W\nTypes:Creature Angel\nPT:3/6\n\
+         T:Mode$ ChangesZone | Origin$ Any | Destination$ Battlefield | ValidCard$ Card.Self | Execute$ DBAttach\n\
+         SVar:DBAttach:DB$ Attach | Object$ Valid Aura.YouCtrl,Equipment.YouCtrl | Optional$ True",
+    );
+    assert!(
+        blademaster.abilities[0].contains("Effect::AttachChosen {")
+            && blademaster.abilities[0].contains("to: TargetSpec::ThisObject"),
+        "{}",
+        blademaster.abilities[0]
+    );
+
+    let breath = read_w28d(
+        "Name:Breath of Fury\nManaCost:2 R R\nTypes:Enchantment Aura\n\
+         K:Enchant:Creature.YouCtrl:creature you control\n\
+         T:Mode$ DamageDone | ValidSource$ Card.AttachedBy | ValidTarget$ Player | CombatDamage$ True | Execute$ TrigSac | TriggerZones$ Battlefield\n\
+         SVar:TrigSac:DB$ SacrificeAll | ValidCards$ Card.EnchantedBy | SubAbility$ StillFurious\n\
+         SVar:StillFurious:DB$ Attach | Object$ Self | Choices$ Creature.YouCtrl | RememberAttached$ True | SubAbility$ CatchBreath\n\
+         SVar:CatchBreath:DB$ UntapAll | ValidCards$ Creature.YouCtrl | SubAbility$ TheFury | ConditionDefined$ Remembered | ConditionPresent$ Card\n\
+         SVar:TheFury:DB$ AddPhase | ExtraPhase$ Combat | AfterPhase$ EndCombat | ConditionDefined$ Remembered | ConditionPresent$ Card | SubAbility$ DBCleanup\n\
+         SVar:DBCleanup:DB$ Cleanup | ClearRemembered$ True",
+    );
+    assert!(
+        breath.abilities[1].contains("Effect::MoveAttachment { attachment: TargetSpec::ThisObject")
+            && breath.abilities[1].contains("Effect::UntapAll")
+            && breath.abilities[1].contains("Effect::AdditionalCombatPhase"),
+        "{}",
+        breath.abilities[1]
+    );
+
+    let survivors = read_w28d(
+        "Name:Auriok Survivors\nManaCost:5 W\nTypes:Creature Human Soldier\nPT:4/6\n\
+         T:Mode$ ChangesZone | Origin$ Any | Destination$ Battlefield | ValidCard$ Card.Self | Execute$ TrigCZ | OptionalDecider$ You\n\
+         SVar:TrigCZ:DB$ ChangeZone | Origin$ Graveyard | Destination$ Battlefield | ValidTgts$ Equipment.YouCtrl | SubAbility$ DBAttach\n\
+         SVar:DBAttach:DB$ Attach | Object$ Targeted | Defined$ Self | Optional$ True",
+    );
+    assert!(
+        survivors.abilities[0].contains("Effect::CaptureAffected")
+            && survivors.abilities[0].contains(
+                "Effect::MoveAttachment { attachment: TargetSpec::EventObject, recipient_filter: &Filter::This"
+            ),
+        "{}",
+        survivors.abilities[0]
+    );
+
+    let razorback = read_w28d(
+        "Name:Woolly Razorback\nManaCost:2 W W\nTypes:Creature Boar Beast\nPT:7/7\n\
+         T:Mode$ Blocks | ValidCard$ Card.Self | Execute$ TrigRem | TriggerZones$ Battlefield\n\
+         SVar:TrigRem:DB$ RemoveCounter | CounterType$ ICE | CounterNum$ 1 | Defined$ TriggeredBlockerLKICopy",
+    );
+    assert!(
+        razorback.abilities[0].contains("Effect::RemoveCounterSelf { kind: counters::ICE, n: 1 }"),
+        "{}",
+        razorback.abilities[0]
+    );
+
+    let hapatra = read_w28d(
+        "Name:Hapatra's Mark\nManaCost:G\nTypes:Instant\n\
+         A:SP$ Pump | ValidTgts$ Creature.YouCtrl | KW$ Hexproof | SubAbility$ DBRem\n\
+         SVar:DBRem:DB$ RemoveCounter | Defined$ Targeted | CounterType$ M1M1 | CounterNum$ All",
+    );
+    assert!(
+        hapatra.abilities[0].contains(
+            "Effect::RemoveAllCountersFilter { filter: &Filter::Reference, kind: CounterKind::M1M1 }"
+        ),
+        "{}",
+        hapatra.abilities[0]
+    );
+}
+
+#[test]
+fn wave28d_p2_token_remember_and_dig_play() {
+    let nuisance = read_w28d(
+        "Name:Nettling Nuisance\nManaCost:2 B\nTypes:Creature Faerie\nPT:3/1\n\
+         T:Mode$ DamageDoneOnce | CombatDamage$ True | ValidSource$ Creature.Faerie+YouCtrl | ValidTarget$ Player | TriggerZones$ Battlefield | Execute$ TrigToken\n\
+         SVar:TrigToken:DB$ Token | TokenScript$ r_1_1_goblin | TokenOwner$ TriggeredTarget | RememberTokens$ True | SubAbility$ DBGoad\n\
+         SVar:DBGoad:DB$ Goad | Defined$ Remembered | Duration$ Permanent | SubAbility$ DBCleanup\n\
+         SVar:DBCleanup:DB$ Cleanup | ClearRemembered$ True",
+    );
+    assert!(
+        nuisance.abilities[0]
+            .contains("modifier: Modifier::Goaded, duration: Duration::Indefinitely"),
+        "{}",
+        nuisance.abilities[0]
+    );
+
+    let howlsquad = read_w28d(
+        "Name:Howlsquad Heavy\nManaCost:2 R\nTypes:Creature Goblin\nPT:2/3\n\
+         T:Mode$ Phase | Phase$ BeginCombat | ValidPlayer$ You | TriggerZones$ Battlefield | Execute$ TrigToken\n\
+         SVar:TrigToken:DB$ Token | TokenScript$ r_1_1_goblin | RememberTokens$ True | SubAbility$ DBEffect\n\
+         SVar:DBEffect:DB$ Effect | RememberObjects$ Remembered | StaticAbilities$ MustAttack | Duration$ UntilEndOfCombat | SubAbility$ DBCleanup\n\
+         SVar:MustAttack:Mode$ MustAttack | ValidCreature$ Card.IsRemembered\n\
+         SVar:DBCleanup:DB$ Cleanup | ClearRemembered$ True",
+    );
+    assert!(
+        howlsquad.abilities[0].contains(
+            "modifier: Modifier::AttacksEachCombat, duration: Duration::UntilEndOfCombat"
+        ),
+        "{}",
+        howlsquad.abilities[0]
+    );
+
+    let reckless = read_w28d(
+        "Name:Reckless Crew\nManaCost:3 R\nTypes:Sorcery\n\
+         A:SP$ Token | TokenAmount$ X | TokenScript$ r_1_1_goblin | TokenOwner$ You | SubAbility$ DBRepeat | RememberTokens$ True\n\
+         SVar:X:Count$Valid Vehicle.YouCtrl,Equipment.YouCtrl\n\
+         SVar:DBRepeat:DB$ RepeatEach | RepeatSubAbility$ ArmToken | DefinedCards$ RememberedCard | ClearRemembered$ True\n\
+         SVar:ArmToken:DB$ Attach | Choices$ Equipment.YouCtrl | Defined$ Remembered | Optional$ True",
+    );
+    assert!(
+        reckless.abilities[0].contains("Effect::RepeatEachObject")
+            && reckless.abilities[0].contains("Effect::AttachChosen {")
+            && reckless.abilities[0].contains("to: TargetSpec::EventObject"),
+        "{}",
+        reckless.abilities[0]
+    );
+
+    let etali = read_w28d(
+        "Name:Etali, Primal Storm\nManaCost:4 R R\nTypes:Legendary Creature Dinosaur\nPT:6/6\n\
+         T:Mode$ Attacks | ValidCard$ Card.Self | Execute$ TrigExile | TriggerZones$ Battlefield\n\
+         SVar:TrigExile:DB$ Dig | DigNum$ 1 | ChangeNum$ All | Defined$ Player | DestinationZone$ Exile | RememberChanged$ True | SubAbility$ DBPlay\n\
+         SVar:DBPlay:DB$ Play | Valid$ Card.IsRemembered | ValidSA$ Spell | ValidZone$ Exile | Controller$ You | WithoutManaCost$ True | Optional$ True | Amount$ All | SubAbility$ DBCleanup\n\
+         SVar:DBCleanup:DB$ Cleanup | ClearRemembered$ True",
+    );
+    assert!(
+        etali.abilities[0].contains("Effect::CaptureAffected")
+            && etali.abilities[0].contains(
+                "PlaySource::Zone { zone: ZoneRef::Exile, owner: PlayerRel::EachPlayer }"
+            )
+            && etali.abilities[0].contains("count: PlayCount::All"),
+        "{}",
+        etali.abilities[0]
+    );
+
+    let muse = read_w28d(
+        "Name:Muse Vortex\nManaCost:X U U\nTypes:Sorcery\n\
+         A:SP$ Dig | Defined$ You | DigNum$ X | ChangeNum$ All | DestinationZone$ Exile | RememberChanged$ True | SubAbility$ DBPlay\n\
+         SVar:DBPlay:DB$ Play | Valid$ Card.IsRemembered+YouOwn | ValidSA$ Instant.cmcLEX,Sorcery.cmcLEX | ValidZone$ Exile | Controller$ You | WithoutManaCost$ True | Optional$ True | ForgetPlayed$ True | Amount$ 1 | SubAbility$ DBHand\n\
+         SVar:DBHand:DB$ ChangeZoneAll | Origin$ Exile | Destination$ Hand | ChangeType$ Instant.IsRemembered+YouOwn,Sorcery.IsRemembered+YouOwn | ForgetChanged$ True | SubAbility$ DBLibrary\n\
+         SVar:DBLibrary:DB$ ChangeZoneAll | Origin$ Exile | Destination$ Library | ChangeType$ Card.IsRemembered+YouOwn | LibraryPosition$ -1 | RandomOrder$ True | SubAbility$ DBCleanup\n\
+         SVar:DBCleanup:DB$ Cleanup | ClearRemembered$ True\n\
+         SVar:X:Count$xPaid",
+    );
+    assert!(
+        muse.abilities[0].contains("Effect::Play {")
+            && muse.abilities[0].contains("not_chosen_movement: ChooseMove::Hand")
+            && muse.abilities[0].contains("not_chosen_movement: ChooseMove::BottomOfLibraryRandom"),
+        "{}",
+        muse.abilities[0]
+    );
+}
+
+#[test]
+fn wave28d_p2_dig_followups_and_dig_until() {
+    let expand = read_w28d(
+        "Name:Expand the Sphere\nManaCost:3 G\nTypes:Sorcery\n\
+         A:SP$ Dig | DigNum$ 6 | ChangeNum$ 2 | Optional$ True | ChangeValid$ Land | DestinationZone$ Battlefield | Tapped$ True | RestRandomOrder$ True | RememberChanged$ True | SubAbility$ DBProliferate\n\
+         SVar:DBProliferate:DB$ Proliferate | Amount$ Number$2/Minus.Y | SubAbility$ DBCleanup\n\
+         SVar:DBCleanup:DB$ Cleanup | ClearRemembered$ True\n\
+         SVar:Y:Count$RememberedSize",
+    );
+    assert!(
+        expand.abilities[0]
+            .contains("Amount::RememberedCount, op: AmountCmp::AtMost, right: &Amount::Fixed(1)")
+            && expand.abilities[0].contains(
+                "Amount::RememberedCount, op: AmountCmp::AtMost, right: &Amount::Fixed(0)"
+            )
+            && expand.abilities[0].contains("Effect::Proliferate"),
+        "{}",
+        expand.abilities[0]
+    );
+
+    let animist = read_w28d(
+        "Name:Animist's Awakening\nManaCost:X G\nTypes:Sorcery\n\
+         A:SP$ Dig | DigNum$ X | Reveal$ True | ChangeNum$ All | ChangeValid$ Land | DestinationZone$ Battlefield | Tapped$ True | RememberChanged$ True | RestRandomOrder$ True | SubAbility$ DBUntap\n\
+         SVar:DBUntap:DB$ Untap | Defined$ Remembered | ConditionPresent$ Instant.YouOwn,Sorcery.YouOwn | ConditionZone$ Graveyard | ConditionCompare$ GE2\n\
+         SVar:X:Count$xPaid",
+    );
+    assert!(
+        animist.abilities[0].contains("Effect::UntapAll { filter: &Filter::IsRemembered }"),
+        "{}",
+        animist.abilities[0]
+    );
+
+    let infiltrator = read_w28d(
+        "Name:Dimensional Infiltrator\nManaCost:1 U\nTypes:Creature Eldrazi\nPT:2/1\n\
+         A:AB$ Dig | Cost$ 1 C | ValidTgts$ Opponent | DigNum$ 1 | ChangeNum$ All | DestinationZone$ Exile | RememberChanged$ True | SubAbility$ DBBounce\n\
+         SVar:DBBounce:DB$ ChangeZone | Origin$ Battlefield | Optional$ True | ConditionDefined$ Remembered | ConditionPresent$ Card.Land | ConditionCompare$ GE1 | Destination$ Hand | SubAbility$ DBCleanup\n\
+         SVar:DBCleanup:DB$ Cleanup | ClearRemembered$ True",
+    );
+    assert!(
+        infiltrator.abilities[0]
+            .contains("Effect::MayDo { effects: &[Effect::bounce(TargetSpec::ThisObject)] }"),
+        "{}",
+        infiltrator.abilities[0]
+    );
+
+    let ryan = read_w28d(
+        "Name:Ryan Sinclair\nManaCost:2 R\nTypes:Legendary Creature Human\nPT:2/2\n\
+         T:Mode$ Attacks | ValidCard$ Card.Self | TriggerZones$ Battlefield | Execute$ DBDigUntil\n\
+         SVar:DBDigUntil:DB$ DigUntil | Defined$ You | Valid$ Card.nonLand | FoundDestination$ Exile | RevealedDestination$ Exile | ImprintFound$ True | RememberRevealed$ True | SubAbility$ DBPlay\n\
+         SVar:DBPlay:DB$ Play | Defined$ Imprinted | ValidSA$ Spell.cmcLEX | WithoutManaCost$ True | Optional$ True | SubAbility$ DBChange\n\
+         SVar:DBChange:DB$ ChangeZoneAll | ChangeType$ Card.IsRemembered,Card.IsImprinted | Origin$ Exile | Destination$ Library | RandomOrder$ True | LibraryPosition$ -1 | SubAbility$ DBCleanup\n\
+         SVar:DBCleanup:DB$ Cleanup | ClearRemembered$ True | ClearImprinted$ True\n\
+         SVar:X:Count$CardPower",
+    );
+    assert!(
+        ryan.abilities[0].contains("Effect::CaptureAffected")
+            && ryan
+                .statics
+                .contains("Filter::CmcAtMostAmount(&Amount::SourcePower)"),
+        "{}\n{}",
+        ryan.abilities[0],
+        ryan.statics
+    );
+
+    let keeper = read_w28d(
+        "Name:Treasure Keeper\nManaCost:4\nTypes:Artifact Creature\nPT:3/3\n\
+         T:Mode$ ChangesZone | ValidCard$ Card.Self | TriggerZones$ Battlefield | Origin$ Battlefield | Destination$ Graveyard | Execute$ TrigDig\n\
+         SVar:TrigDig:DB$ DigUntil | Defined$ You | Amount$ 1 | Valid$ Card.nonLand+cmcLE3 | NoMoveRevealed$ True | ImprintRevealed$ True | RememberFound$ True | SubAbility$ Cast\n\
+         SVar:Cast:DB$ Play | Defined$ Remembered | WithoutManaCost$ True | ValidSA$ Spell | Optional$ True | SubAbility$ Rest\n\
+         SVar:Rest:DB$ ChangeZoneAll | ChangeType$ Card.IsRemembered,Card.IsImprinted | Origin$ Library | Destination$ Library | RandomOrder$ True | LibraryPosition$ -1 | SubAbility$ DBCleanup\n\
+         SVar:DBCleanup:DB$ Cleanup | ClearRemembered$ True | ClearImprinted$ True",
+    );
+    assert!(
+        keeper.abilities[0].contains("exile_while_revealing: false")
+            && keeper.abilities[0].contains("Filter::InZone(ZoneRef::Library)")
+            && keeper.abilities[0]
+                .contains("not_chosen_movement: ChooseMove::BottomOfLibraryRandom"),
+        "{}",
+        keeper.abilities[0]
+    );
+
+    let fevered = read_w28d(
+        "Name:Fevered Suspicion\nManaCost:6 B R\nTypes:Sorcery\n\
+         A:SP$ DigUntil | Defined$ Opponent | Valid$ Card.nonLand | FoundDestination$ Exile | RevealedDestination$ Exile | RememberFound$ True | SubAbility$ DBPlay\n\
+         SVar:DBPlay:DB$ Play | Defined$ Remembered | WithoutManaCost$ True | ValidSA$ Spell | Optional$ True | Amount$ All | SubAbility$ DBCleanup\n\
+         SVar:DBCleanup:DB$ Cleanup | ClearRemembered$ True",
+    );
+    assert!(
+        fevered.abilities[0].contains("RepeatDomain::EachOpponent")
+            && fevered.abilities[0].contains(
+                "PlaySource::Zone { zone: ZoneRef::Exile, owner: PlayerRel::EachOpponent }"
+            ),
+        "{}",
+        fevered.abilities[0]
+    );
+}
+
+#[test]
+fn wave28d_p2_peek_and_reveal() {
+    let rousing = read_w28d(
+        "Name:Rousing of Souls\nManaCost:2 W\nTypes:Sorcery\n\
+         A:SP$ PeekAndReveal | Defined$ Player | RememberRevealed$ True | SubAbility$ DBToken\n\
+         SVar:DBToken:DB$ Token | TokenAmount$ X | TokenScript$ w_1_1_spirit_flying | SubAbility$ DBDraw\n\
+         SVar:DBDraw:DB$ Draw | Defined$ Player | SubAbility$ DBCleanup\n\
+         SVar:DBCleanup:DB$ Cleanup | ClearRemembered$ True\n\
+         SVar:X:Remembered$Valid Card.nonLand",
+    );
+    assert!(
+        rousing.abilities[0].contains("Effect::CreateTokenN")
+            && rousing.abilities[0].contains(
+                "Effect::DrawCardsFor { amount: Amount::Fixed(1), who: PlayerRel::EachPlayer }"
+            ),
+        "{}",
+        rousing.abilities[0]
+    );
+
+    let lockbox = read_w28d(
+        "Name:Diviner's Lockbox\nManaCost:4\nTypes:Artifact\n\
+         A:AB$ NameCard | Cost$ 1 T | Defined$ You | SubAbility$ DBReveal | SorcerySpeed$ True\n\
+         SVar:DBReveal:DB$ PeekAndReveal | RememberRevealed$ True | SubAbility$ DBSac\n\
+         SVar:DBSac:DB$ Sacrifice | SacValid$ Self | ConditionDefined$ Remembered | ConditionPresent$ Card.NamedCard | ConditionCompare$ GE1 | SubAbility$ DBDraw\n\
+         SVar:DBDraw:DB$ Draw | NumCards$ 3 | ConditionDefined$ Remembered | ConditionPresent$ Card.NamedCard | ConditionCompare$ GE1 | SubAbility$ DBCleanup\n\
+         SVar:DBCleanup:DB$ Cleanup | ClearRemembered$ True | ClearNamedCard$ True",
+    );
+    assert!(
+        lockbox.abilities[0].contains("Effect::RevealTop")
+            && lockbox.abilities[0].contains("filter: &Filter::NamedBySource")
+            && lockbox.abilities[0]
+                .contains("Effect::SacrificeFilter { who: PlayerRel::You, filter: &Filter::This }")
+            && lockbox.abilities[0].contains("Effect::draw(3)"),
+        "{}",
+        lockbox.abilities[0]
+    );
+
+    let descendants = read_w28d(
+        "Name:Descendants' Path\nManaCost:2 G\nTypes:Enchantment\n\
+         T:Mode$ Phase | Phase$ Upkeep | ValidPlayer$ You | TriggerZones$ Battlefield | Execute$ DBReveal\n\
+         SVar:DBReveal:DB$ PeekAndReveal | PeekAmount$ 1 | RevealValid$ Card | RememberRevealed$ True | SubAbility$ DBMayCast\n\
+         SVar:DBMayCast:DB$ Play | Defined$ Remembered | ValidSA$ Spell | ForgetRemembered$ True | WithoutManaCost$ True | Optional$ True | ConditionDefined$ Remembered | ConditionPresent$ Creature.sharesCreatureTypeWith Valid Creature.YouCtrl | SubAbility$ DBChangeZone\n\
+         SVar:DBChangeZone:DB$ ChangeZone | Defined$ Remembered | Origin$ Library | Destination$ Library | LibraryPosition$ -1 | ForgetChanged$ True",
+    );
+    assert!(
+        descendants.abilities[0]
+            .contains("PlaySource::Zone { zone: ZoneRef::Library, owner: PlayerRel::You }")
+            && descendants.abilities[0].contains("ChooseMove::BottomOfLibraryChosenOrder"),
+        "{}",
+        descendants.abilities[0]
+    );
+}
+
+#[test]
+fn wave28d_p2_targeted_sweeps_and_cast_from_gy() {
+    let oak = read_w28d(
+        "Name:Great Oak Guardian\nManaCost:5 G\nTypes:Creature Treefolk\nPT:4/5\n\
+         T:Mode$ ChangesZone | Origin$ Any | Destination$ Battlefield | ValidCard$ Card.Self | Execute$ TrigPump\n\
+         SVar:TrigPump:DB$ PumpAll | ValidTgts$ Player | ValidCards$ Creature | NumAtt$ +2 | NumDef$ +2 | SubAbility$ DBUntap\n\
+         SVar:DBUntap:DB$ UntapAll | ValidCards$ Creature.TargetedPlayerCtrl",
+    );
+    assert!(
+        oak.abilities[0].contains("Effect::RepeatEachObject")
+            && oak.abilities[0].contains("Effect::UntapAll { filter: &Filter::Reference }"),
+        "{}",
+        oak.abilities[0]
+    );
+
+    let flames = read_w28d(
+        "Name:Flames of the Raze-Boar\nManaCost:5 R\nTypes:Instant\n\
+         A:SP$ DealDamage | NumDmg$ 4 | ValidTgts$ Creature.OppCtrl | SubAbility$ DBDmg\n\
+         SVar:DBDmg:DB$ DamageAll | NumDmg$ 2 | ValidCards$ Creature.NotDefinedTargeted+ControlledBy TargetedController | ConditionPresent$ Creature.powerGE4+YouCtrl",
+    );
+    assert!(
+        flames.statics.contains("Filter::Not(&Filter::Reference)")
+            && flames
+                .statics
+                .contains("Filter::Not(&Filter::NotControlledByReferenceController)"),
+        "{}\n{}",
+        flames.abilities[0],
+        flames.statics
+    );
+
+    let blot = read_w28d(
+        "Name:Blot Out\nManaCost:2 B\nTypes:Instant\n\
+         A:SP$ ChooseCard | ValidTgts$ Opponent | Choices$ Creature.TargetedPlayerCtrl+cmcEQX,Planeswalker.TargetedPlayerCtrl+cmcEQX | Mandatory$ True | SubAbility$ DBExile\n\
+         SVar:DBExile:DB$ ChangeZone | Defined$ ChosenCard | Origin$ Battlefield | Destination$ Exile\n\
+         SVar:X:Count$Valid Creature.TargetedPlayerCtrl,Planeswalker.TargetedPlayerCtrl$GreatestCardManaCost",
+    );
+    assert!(
+        blot.abilities[0].contains("Effect::ChooseCardEx { chooser: PlayerRel::Chosen")
+            && blot.statics.contains("Amount::GreatestManaValueAmong("),
+        "{}\n{}",
+        blot.abilities[0],
+        blot.statics
+    );
+
+    // Split the Party: `TargetOnly` -> `DB$ ChooseCard` with no `Defined$` MUST have
+    // `chooser: PlayerRel::You` (YOU choose half of target player's creatures, NOT them).
+    let split_party = read_w28d(
+        "Name:Split the Party\nManaCost:3 U U\nTypes:Sorcery\n\
+         A:SP$ TargetOnly | ValidTgts$ Player | SubAbility$ ChooseCreature | IsCurse$ True\n\
+         SVar:ChooseCreature:DB$ ChooseCard | Choices$ Creature.TargetedPlayerCtrl | Mandatory$ True | Amount$ X | SubAbility$ ReturnCreature\n\
+         SVar:ReturnCreature:DB$ ChangeZone | Defined$ ChosenCard | Origin$ Battlefield | Destination$ Hand\n\
+         SVar:X:TargetedPlayer$CreaturesInPlay/HalfUp",
+    );
+    assert!(
+        split_party.abilities[0].contains("Effect::ChooseCardEx { chooser: PlayerRel::You")
+            && split_party.abilities[0].contains("movement: ChooseMove::Hand")
+            && split_party.abilities[0].contains("round_up: true")
+            && split_party
+                .statics
+                .contains("Filter::ControlledBy(PlayerRel::Chosen)"),
+        "{}\n{}",
+        split_party.abilities[0],
+        split_party.statics
+    );
+
+    let break_press = read_w28d(
+        "Name:Break Under Pressure\nManaCost:2 B\nTypes:Instant\n\
+         A:SP$ Sacrifice | ValidTgts$ Opponent | SacValid$ Creature.cmcEQX,Planeswalker.cmcEQX | SubAbility$ DBGain\n\
+         SVar:DBGain:DB$ GainLife | Defined$ You | LifeAmount$ 2\n\
+         SVar:X:Count$Valid Creature.TargetedPlayerCtrl,Planeswalker.TargetedPlayerCtrl$GreatestCardManaCost",
+    );
+    assert!(
+        break_press.abilities[0].contains("Effect::ChooseCardEx { chooser: PlayerRel::Chosen")
+            && break_press.abilities[0].contains("then: &[Effect::SacrificeEvent]"),
+        "{}",
+        break_press.abilities[0]
+    );
+
+    let ruthless = read_w28d(
+        "Name:Ruthless Negotiation\nManaCost:B\nTypes:Sorcery\n\
+         A:SP$ ChangeZone | Origin$ Hand | Destination$ Exile | DefinedPlayer$ Targeted | ValidTgts$ Opponent | Chooser$ Targeted | ChangeType$ Card | ChangeNum$ 1 | Mandatory$ True | SubAbility$ DBDraw\n\
+         SVar:DBDraw:DB$ Draw | ConditionDefined$ Self | ConditionPresent$ Card.wasCastFromGraveyard | ConditionCompare$ EQ1",
+    );
+    assert!(
+        ruthless.abilities[0].contains("Effect::IfCastFromGraveyard"),
+        "{}",
+        ruthless.abilities[0]
+    );
+}
+
+#[test]
+fn wave28d_p2_refusals() {
+    for bad in [
+        // Tunnel Vision: RevealUntilNamed puts misses into graveyard and doesn't shuffle on miss -> MUST refuse!
+        "Name:Tunnel Vision\nManaCost:5 U\nTypes:Sorcery\n\
+         A:SP$ NameCard | Defined$ You | SubAbility$ Find\n\
+         SVar:Find:DB$ DigUntil | ValidTgts$ Player | Valid$ Card.NamedCard | NoMoveFound$ True | FoundDestination$ Library | FoundLibraryPosition$ 0 | RevealedDestination$ Graveyard | NoneFoundDestination$ Library | NoneFoundLibraryPosition$ 0 | Shuffle$ True | ShuffleCondition$ NoneFound",
+        // Antiquities on the Loose: wasCast+!wasCastFromYourHand != wasCastFromGraveyard -> MUST refuse!
+        "Name:AntiquitiesLike\nManaCost:1 W W\nTypes:Sorcery\n\
+         A:SP$ Token | TokenAmount$ 2 | TokenScript$ r_1_1_goblin | TokenOwner$ You | SubAbility$ DBPut\n\
+         SVar:DBPut:DB$ PutCounterAll | ValidCards$ Goblin.YouCtrl | CounterType$ P1P1 | CounterNum$ 1 | ConditionDefined$ Self | ConditionPresent$ Card.wasCast+!wasCastFromYourHand | ConditionCompare$ EQ1",
+        // Rivals' Duel: TargetsWithoutSameCreatureType$ -> MUST refuse!
+        "Name:RivalsDuel\nManaCost:3 R\nTypes:Sorcery\n\
+         A:SP$ Fight | ValidTgts$ Creature | TargetMin$ 2 | TargetMax$ 2 | TargetsWithoutSameCreatureType$ True",
+        // RemoveCounter fixed-N on target (no kind-scoped RemoveUpToCountersTarget) -> MUST refuse!
+        "Name:ShedWeaknessLike\nManaCost:G\nTypes:Instant\n\
+         A:SP$ Pump | ValidTgts$ Creature | NumAtt$ +2 | NumDef$ +2 | SubAbility$ DBRem\n\
+         SVar:DBRem:DB$ RemoveCounter | Defined$ Targeted | CounterType$ M1M1 | CounterNum$ 1",
+        // GainControl with LoseControl$ UntilTheEndOfYourNextTurn -> MUST refuse!
+        "Name:TreasureNabberLike\nManaCost:2 R\nTypes:Sorcery\n\
+         A:SP$ GainControl | ValidTgts$ Artifact | LoseControl$ UntilTheEndOfYourNextTurn",
+        // Radiating Lightning (DamageAll Creature.TargetedPlayerCtrl) -> MUST refuse!
+        "Name:RadiatingLike\nManaCost:3 R\nTypes:Instant\n\
+         A:SP$ DealDamage | ValidTgts$ Player | NumDmg$ 3 | SubAbility$ DBAll\n\
+         SVar:DBAll:DB$ DamageAll | ValidCards$ Creature.TargetedPlayerCtrl | NumDmg$ 1",
+        // Vaan, Street Thief: ForgetPlayed$ True + ConditionDefined$ Remembered ("If you don't") -> MUST refuse!
+        "Name:VaanLike\nManaCost:2 R\nTypes:Legendary Creature Human Scout\nPT:2/2\n\
+         T:Mode$ DamageDoneOnce | ValidSource$ Scout.YouCtrl | TriggerZones$ Battlefield | ValidTarget$ Player | CombatDamage$ True | Execute$ TrigDig\n\
+         SVar:TrigDig:DB$ Dig | Defined$ TriggeredTarget | DigNum$ 1 | ChangeNum$ All | DestinationZone$ Exile | RememberChanged$ True | SubAbility$ DBPlay\n\
+         SVar:DBPlay:DB$ Play | Defined$ Remembered | ValidSA$ Spell | Optional$ True | ForgetPlayed$ True | SubAbility$ DBToken\n\
+         SVar:DBToken:DB$ Token | TokenScript$ c_a_treasure_sac | ConditionDefined$ Remembered | ConditionPresent$ Card | ConditionCompare$ GT0 | SubAbility$ DBCleanup\n\
+         SVar:DBCleanup:DB$ Cleanup | ClearRemembered$ True",
+    ] {
+        assert!(refused_w28d(bad), "must refuse:\n{bad}");
+    }
+}
+
+#[test]
+fn wave28d_p2_dazzling_sphinx_and_muse_vortex() {
+    // Dazzling Sphinx: DigUntil with BOTH Defined$ Remembered AND Valid$ Instant.IsRemembered,Sorcery.IsRemembered.
+    let sphinx = read_w28d(
+        "Name:Dazzling Sphinx\nManaCost:3 U U\nTypes:Creature Sphinx\nPT:4/5\n\
+         T:Mode$ DamageDone | ValidSource$ Card.Self | ValidTarget$ Player | CombatDamage$ True | Execute$ TrigDig\n\
+         SVar:TrigDig:DB$ DigUntil | Defined$ TriggeredTarget | Valid$ Instant,Sorcery | FoundDestination$ Exile | RevealedDestination$ Exile | RememberFound$ True | RememberRevealed$ True | SubAbility$ DBPlay\n\
+         SVar:DBPlay:DB$ Play | Defined$ Remembered | ValidZone$ Exile | Valid$ Instant.IsRemembered,Sorcery.IsRemembered | ValidSA$ Spell | WithoutManaCost$ True | RememberObjects$ Remembered | Optional$ True | ForgetPlayed$ True | SubAbility$ DBRest\n\
+         SVar:DBRest:DB$ ChangeZoneAll | ChangeType$ Card.IsRemembered | Origin$ Exile | Destination$ Library | LibraryPosition$ -1 | RandomOrder$ True | SubAbility$ DBCleanup\n\
+         SVar:DBCleanup:DB$ Cleanup | ClearRemembered$ True",
+    );
+    assert!(
+        sphinx.abilities[0].contains("Effect::CaptureAffected")
+            && sphinx.abilities[0].contains("Effect::RevealUntilThen")
+            && sphinx.abilities[0].contains("Effect::Play {"),
+        "{}",
+        sphinx.abilities[0]
+    );
+
+    // Muse Vortex: ForgetPlayed$ True followed purely by Origin$ Exile zone sweeps (NOT ConditionDefined$ Remembered).
+    let vortex = read_w28d(
+        "Name:Muse Vortex\nManaCost:X U U\nTypes:Sorcery\n\
+         A:SP$ Dig | Defined$ You | DigNum$ X | ChangeNum$ All | DestinationZone$ Exile | RememberChanged$ True | SubAbility$ DBPlay\n\
+         SVar:DBPlay:DB$ Play | Valid$ Card.IsRemembered+YouOwn | ValidSA$ Instant.cmcLEX,Sorcery.cmcLEX | ValidZone$ Exile | Controller$ You | WithoutManaCost$ True | Optional$ True | ForgetPlayed$ True | Amount$ 1 | SubAbility$ DBHand\n\
+         SVar:DBHand:DB$ ChangeZoneAll | Origin$ Exile | Destination$ Hand | ChangeType$ Instant.IsRemembered+YouOwn,Sorcery.IsRemembered+YouOwn | ForgetChanged$ True | SubAbility$ DBLibrary\n\
+         SVar:DBLibrary:DB$ ChangeZoneAll | Origin$ Exile | Destination$ Library | ChangeType$ Card.IsRemembered+YouOwn | LibraryPosition$ -1 | RandomOrder$ True | SubAbility$ DBCleanup\n\
+         SVar:DBCleanup:DB$ Cleanup | ClearRemembered$ True\n\
+         SVar:X:Count$xPaid",
+    );
+    assert!(
+        vortex.abilities[0].contains("Effect::Play {")
+            && vortex.abilities[0].contains("not_chosen_movement: ChooseMove::Hand")
+            && vortex.abilities[0]
+                .contains("not_chosen_movement: ChooseMove::BottomOfLibraryRandom"),
+        "{}",
+        vortex.abilities[0]
+    );
 }

@@ -83,6 +83,11 @@ impl Tx<'_> {
             "&Filter::Any".to_string()
         } else {
             let expr = self.filter_expr(&sac_valid)?;
+            if let Some(effs) =
+                self.wave28d_greatest_mv_sacrifice(who, optional, raw_amount.as_deref(), &expr)
+            {
+                return Some(effs);
+            }
             format!("&{}", self.body.filter_static("SAC", &expr))
         };
         let effect = match raw_amount.as_deref().map(str::trim) {
@@ -3974,10 +3979,11 @@ impl Tx<'_> {
         targets_here: bool,
         targets_a_player: bool,
     ) -> Option<Vec<String>> {
-        if targets_a_player
-            && target == Some("TargetSpec::Player(PlayerRel::Chosen)")
+        if target == Some("TargetSpec::Player(PlayerRel::Chosen)")
             && p.peek("Defined") == Some("Self")
-            && matches!(p.peek("NewController"), None | Some("Player.Chosen"))
+            && ((targets_a_player
+                && matches!(p.peek("NewController"), None | Some("Player.Chosen")))
+                || matches!(p.peek("NewController"), Some("TargetedPlayer" | "Targeted")))
             && !p.has("LoseControl")
             && !p.has("Untap")
             && !p.has("AddKWs")
@@ -4063,17 +4069,8 @@ impl Tx<'_> {
             );
         }
         if let Some(kw_raw) = p.take("AddKWs") {
-            if duration != "Duration::UntilEndOfTurn" {
-                return None;
-            }
-            let each: Option<Vec<&str>> =
-                kw_raw.split('&').map(|k| keyword_const(k.trim())).collect();
-            let kw =
-                each?.join(".union(") + &")".repeat(kw_raw.split('&').count().saturating_sub(1));
-            out.push(format!(
-                "Effect::PumpTarget {{ power: Amount::Fixed(0), toughness: Amount::Fixed(0), \
-                 keywords: {kw}, duration: Duration::UntilEndOfTurn }}"
-            ));
+            let pump_eff = self.wave28d_gain_control_add_kws(&kw_raw, duration)?;
+            out.push(pump_eff);
         }
         Some(out)
     }
@@ -12938,6 +12935,12 @@ impl Tx<'_> {
             }
             any = true;
         }
+        if let Some(v) = p.take("ClearNamedCard") {
+            if v != "True" {
+                return false;
+            }
+            any = true;
+        }
         any && p.exhausted()
     }
 
@@ -13409,7 +13412,7 @@ impl Tx<'_> {
         true
     }
 
-    fn parse_move_attachment_step(
+    pub(super) fn parse_move_attachment_step(
         &mut self,
         sp: &mut Params,
         attachment_spec: &str,
@@ -13453,7 +13456,7 @@ impl Tx<'_> {
         ))
     }
 
-    fn collect_move_attachment_then_if_moved(
+    pub(super) fn collect_move_attachment_then_if_moved(
         &mut self,
         first_sub: Option<String>,
     ) -> Option<(Vec<String>, Option<String>)> {
@@ -13922,9 +13925,11 @@ impl Tx<'_> {
                     return self.deny(format!("`ChooseCard` with `Choices$ {choices_raw}`"));
                 }
                 let mut base_choices = choices_raw.clone();
+                let has_player_target =
+                    targets_a_player || target == Some("TargetSpec::Player(PlayerRel::Chosen)");
                 if controlled_by == ControlledBySpec::None
                     && let Some((rel_spec, stripped)) =
-                        self.extract_battlefield_ctrl_atom(&base_choices, targets_a_player)
+                        self.extract_battlefield_ctrl_atom(&base_choices, has_player_target)
                 {
                     controlled_by = match rel_spec {
                         "PlayerRel::Chosen" => ControlledBySpec::Targeted,
@@ -15016,6 +15021,17 @@ impl Tx<'_> {
             let (inner, trailing) =
                 self.peek_public_reveal_top(library, &count, remember_revealed, sub)?;
             (format!("Effect::MayDo {{ effects: &[{inner}] }}"), trailing)
+        } else if !no_reveal
+            && !reveal_optional
+            && matches!(reveal_valid.as_deref(), None | Some("Card"))
+            && !remember_peeked
+            && remember_revealed
+            && count == "Amount::Fixed(1)"
+            && library == "PlayerRel::You"
+            && let Some(sub_name) = sub
+            && let Some((eff, trailing)) = self.wave28d_peek_reveal_one_play_or_bottom(sub_name)
+        {
+            (eff, trailing)
         } else if !no_reveal && !reveal_optional && reveal_valid.is_none() && !remember_peeked {
             // Public reveal of top N cards (`Effect::RevealTop` or pick/rest `PeekAndReveal`),
             // whether or not `NoPeek$ True` is spelled explicitly.
@@ -15122,6 +15138,7 @@ impl Tx<'_> {
         let mut out = Vec::new();
         let mut cursor = Some(start_svar.trim().to_string());
         let mut used_remembered = false;
+        let mut drew_each = false;
         let mut steps = 0usize;
         while let Some(name) = cursor.take() {
             steps += 1;
@@ -15141,7 +15158,7 @@ impl Tx<'_> {
             if api == "Draw"
                 && sp.peek("Defined") == Some("Player")
                 && matches!(sp.peek("NumCards"), None | Some("1"))
-                && !used_remembered
+                && !drew_each
             {
                 sp.take("Defined");
                 sp.take("NumCards");
@@ -15152,6 +15169,7 @@ impl Tx<'_> {
                     "Effect::DrawCardsFor { amount: Amount::Fixed(1), who: PlayerRel::EachPlayer }"
                         .to_string(),
                 );
+                drew_each = true;
                 cursor = next;
                 continue;
             }
@@ -20025,7 +20043,10 @@ impl Tx<'_> {
         (!out.is_empty()).then(|| out.join(","))
     }
 
-    fn parse_play_sa_filter(&self, raw_sa: &str) -> Option<(Option<&'static str>, Option<String>)> {
+    pub(super) fn parse_play_sa_filter(
+        &self,
+        raw_sa: &str,
+    ) -> Option<(Option<&'static str>, Option<String>)> {
         let trimmed = raw_sa.trim();
         if trimmed == "Spell" {
             return Some((None, None));
@@ -20054,7 +20075,7 @@ impl Tx<'_> {
         Some((owner, expr))
     }
 
-    fn parse_play_cost_mode(&self, p: &mut Params) -> Option<String> {
+    pub(super) fn parse_play_cost_mode(&self, p: &mut Params) -> Option<String> {
         let free = match p.take("WithoutManaCost").as_deref() {
             None | Some("False") => false,
             Some("True") => true,
@@ -20078,7 +20099,7 @@ impl Tx<'_> {
         }
     }
 
-    fn combine_play_filters(
+    pub(super) fn combine_play_filters(
         &mut self,
         base: Option<String>,
         extra: Option<String>,

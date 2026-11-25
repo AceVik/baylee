@@ -391,6 +391,29 @@ impl Tx<'_> {
         if api == "Vote" {
             return self.vote_chain(p, sub.as_deref(), chain);
         }
+        if !second_target_here
+            && chain.effects.is_empty()
+            && self.capture_scope.is_none()
+            && self.trigger_mode.is_none()
+            && api == "Token"
+            && p.peek("RememberTokens") == Some("True")
+            && self.sub_is_api(sub.as_deref(), "RepeatEach")
+        {
+            let saved_target = chain.target.clone();
+            let saved_effects_len = chain.effects.len();
+            let saved_unclaimed = self.unclaimed.borrow().clone();
+            let saved_statics_len = self.body.statics.len();
+            if self
+                .wave26f_token_found_trigger_chain(spec, chain)
+                .is_some()
+            {
+                return Some(());
+            }
+            chain.target = saved_target;
+            chain.effects.truncate(saved_effects_len);
+            *self.unclaimed.borrow_mut() = saved_unclaimed;
+            self.body.statics.truncate(saved_statics_len);
+        }
         if !second_target_here && matches!(api.as_str(), "ChooseCard" | "PeekAndReveal" | "Reveal")
         {
             let target = local_kicked_target.or_else(|| {
@@ -499,6 +522,7 @@ impl Tx<'_> {
             None => None,
         };
         let at_end = if api == "CopyPermanent"
+            || api == "EndOfTurn"
             || (api == "Token"
                 && p.peek("TokenAttacking") == Some("True")
                 && p.peek("AtEOT") == Some("Sacrifice"))
@@ -964,6 +988,8 @@ impl Tx<'_> {
             self.roll_dice_effect(&mut p, &mut sub, chain)?
         } else if !second_target_here && api == "Clash" {
             self.clash_effect(&mut p, targets_here, chain)?
+        } else if !second_target_here && !targets_here && api == "EndOfTurn" {
+            self.wave28d_end_of_turn_targeted_delayed(&mut p, target.as_deref(), chain)?
         } else if api == "DigUntil"
             && !second_target_here
             && p.peek("RememberRevealed") == Some("True")
@@ -1357,6 +1383,27 @@ impl Tx<'_> {
                 {
                     return Some(effs);
                 }
+                if api == "Attach"
+                    && !self.on_a_spell
+                    && !targets_here
+                    && p.peek("Object") == Some("Self")
+                    && p.has("Choices")
+                    && let Some(effs) = self.wave28d_attach_move_self_chain(&mut p, &mut sub)
+                {
+                    return Some(effs);
+                }
+                if api == "ChangeZone"
+                    && !self.on_a_spell
+                    && targets_here
+                    && single_target
+                    && p.peek("Origin") == Some("Graveyard")
+                    && p.peek("Destination") == Some("Battlefield")
+                    && self.sub_is_api(sub.as_deref(), "Attach")
+                    && let Some(effs) =
+                        self.wave28d_reanimate_and_attach_self(&mut p, &mut sub, target.as_deref())
+                {
+                    return Some(effs);
+                }
                 if self.sub_is_api(sub.as_deref(), "ImmediateTrigger")
                     || self.sub_is_api(sub.as_deref(), "DelayedTrigger")
                 {
@@ -1438,7 +1485,7 @@ impl Tx<'_> {
                 effects
             } else {
                 self.claim_followed_remember_flag(&api, &mut p, sub.as_deref());
-                if api == "CopyPermanent" {
+                if matches!(api.as_str(), "CopyPermanent" | "Token") {
                     self.wave28d_claim_unused_remember_tokens(&mut p, sub.is_some());
                 }
                 let Some(effects) = (if second_target_here {
@@ -1501,7 +1548,13 @@ impl Tx<'_> {
                         {
                             self.wave24a_fight_excess_damage_chain(&mut p, &mut sub, chain)
                         }
-                        "Fight" => self.fight_effect(&mut p, true),
+                        "Fight" => {
+                            let same_line_pair = chain.second_target_constraint
+                                == Some("TargetConstraint::DistinctFromPriorTargetGroups")
+                                && chain.target == chain.second_target
+                                && p.peek("Defined").is_none();
+                            self.fight_effect(&mut p, true, same_line_pair)
+                        }
                         "DealDamage"
                             if p.peek("DamageSource") == Some("ParentTarget")
                                 && p.has("ExcessSVar")
@@ -1626,7 +1679,7 @@ impl Tx<'_> {
                         && chain.target_constraint.is_none()
                         && chain.target_up_to.is_none_or(|n| n == 1)
                     {
-                        self.fight_effect(&mut p, false)
+                        self.fight_effect(&mut p, false, false)
                     } else {
                         None
                     }
@@ -2157,6 +2210,34 @@ impl Tx<'_> {
                 return self.deny("both `ConditionCompare$` and `PresentCompare$`".to_string());
             }
             p.entries.push(("PresentCompare".to_string(), cmp));
+        }
+        if self.on_a_spell
+            && p.peek("ConditionDefined") == Some("Self")
+            && p.peek("ConditionPresent") == Some("Card.wasCastFromGraveyard")
+            && matches!(p.peek("PresentCompare"), None | Some("EQ1" | "GE1"))
+            && !p.has("PresentPlayer")
+            && !p.has("PresentZone")
+            && !p.has("ConditionZone")
+        {
+            p.take("ConditionDefined");
+            p.take("ConditionPresent");
+            p.take("PresentCompare");
+            if !p.exhausted() {
+                if let Some(key) = p.first_key() {
+                    self.note(format!("unclaimed parameter `{api}.{key}`"));
+                }
+                return None;
+            }
+            return Some(vec![format!(
+                "Effect::IfCastFromGraveyard {{ effects: &[{}] }}",
+                effects.join(", ")
+            )]);
+        }
+        if !p.has("PresentZone")
+            && p.peek("ConditionZone").is_some_and(|z| z != "Stack")
+            && let Some(cz) = p.take("ConditionZone")
+        {
+            p.entries.push(("PresentZone".to_string(), cz));
         }
         let cond = if matches!(
             p.peek("ConditionPresent"),
@@ -2924,6 +3005,8 @@ impl Tx<'_> {
                 {
                     p.take("TargetMin");
                     p.take("TargetMax");
+                } else if api == "Fight" && Self::wave28d_fight_two_targets(p, &spec, chain) {
+                    return Some(());
                 } else if self.has_x
                     && multi_target_ok
                     && let (Some(min), Some(max)) = (p.peek("TargetMin"), p.peek("TargetMax"))
@@ -4486,13 +4569,20 @@ impl Tx<'_> {
                 if targets_here || (target.is_some() && !prior_target_used) {
                     return None;
                 }
-                let times = match p.take("Amount") {
-                    None => 1usize,
-                    Some(raw) => usize::try_from(self.plain_num(&raw)?)
-                        .ok()
-                        .filter(|&n| (1..=4).contains(&n))?,
-                };
-                vec!["Effect::Proliferate".to_string(); times]
+                match p.take("Amount") {
+                    None => vec!["Effect::Proliferate".to_string()],
+                    Some(raw) => {
+                        if let Some(times) = self
+                            .plain_num(&raw)
+                            .and_then(|n| usize::try_from(n).ok())
+                            .filter(|&n| (1..=4).contains(&n))
+                        {
+                            vec!["Effect::Proliferate".to_string(); times]
+                        } else {
+                            self.wave28d_proliferate_minus_remembered(&raw)?
+                        }
+                    }
+                }
             }
             "SetState" => {
                 p.take("IsCurse");
@@ -4632,16 +4722,34 @@ impl Tx<'_> {
                 if !all && n == 0 {
                     return None;
                 }
-                match p.take("Defined").as_deref() {
-                    None | Some("Self") if target.is_none() => {}
-                    _ => return None,
-                }
-                if all {
-                    vec![format!("Effect::RemoveAllCountersSelf {{ kind: {kind} }}")]
-                } else {
+                let defined = p.take("Defined");
+                if all
+                    && single_target
+                    && target.is_some_and(|t| t.starts_with("TargetSpec::Object("))
+                    && ((targets_here && defined.is_none())
+                        || (!targets_here
+                            && matches!(defined.as_deref(), Some("Targeted" | "ParentTarget"))))
+                {
                     vec![format!(
-                        "Effect::RemoveCounterSelf {{ kind: {kind}, n: {n} }}"
+                        "Effect::RemoveAllCountersFilter {{ filter: &Filter::Reference, kind: {kind} }}"
                     )]
+                } else {
+                    match defined.as_deref() {
+                        None | Some("Self") if target.is_none() => {}
+                        Some(
+                            "TriggeredCardLKICopy"
+                            | "TriggeredBlockerLKICopy"
+                            | "TriggeredAttackerLKICopy",
+                        ) if target.is_none() && self.trigger_is_self => {}
+                        _ => return None,
+                    }
+                    if all {
+                        vec![format!("Effect::RemoveAllCountersSelf {{ kind: {kind} }}")]
+                    } else {
+                        vec![format!(
+                            "Effect::RemoveCounterSelf {{ kind: {kind}, n: {n} }}"
+                        )]
+                    }
                 }
             }
             "Scry" => {
@@ -4985,7 +5093,14 @@ impl Tx<'_> {
                 p.take("ValidDescription");
                 let mut out = Vec::new();
                 if let Some(valid) = p.take("ValidCards") {
-                    let filter = self.filter_expr(&valid)?;
+                    let filter = if self.current_object_target
+                        && !targets_here
+                        && valid.contains("ControlledBy TargetedController")
+                    {
+                        self.wave28d_damage_all_target_controller_filter(&valid)?
+                    } else {
+                        self.filter_expr(&valid)?
+                    };
                     let filter = self.body.filter_static("EACH", &filter);
                     out.push(format!(
                         "Effect::DealDamageEach {{ amount: {n}, filter: &{filter} }}"
@@ -5326,9 +5441,15 @@ impl Tx<'_> {
                     return None;
                 }
                 let valid = p.take("ValidCards")?;
-                let expr = self.filter_expr(&valid)?;
-                let name = self.body.filter_static("UNTAP_ALL", &expr);
-                vec![format!("Effect::UntapAll {{ filter: &{name} }}")]
+                if target == Some("TargetSpec::Player(PlayerRel::Chosen)")
+                    && valid.contains("TargetedPlayerCtrl")
+                {
+                    self.wave28d_untap_all_targeted_player(&valid)?
+                } else {
+                    let expr = self.filter_expr(&valid)?;
+                    let name = self.body.filter_static("UNTAP_ALL", &expr);
+                    vec![format!("Effect::UntapAll {{ filter: &{name} }}")]
+                }
             }
             "RemoveFromCombat" => match (p.take("Defined").as_deref(), target) {
                 (None | Some("Self"), None) => {
@@ -5760,14 +5881,23 @@ impl Tx<'_> {
         expected.contains(&resolved)
     }
 
-    fn fight_effect(&self, p: &mut Params, second_target: bool) -> Option<Vec<String>> {
+    fn fight_effect(
+        &self,
+        p: &mut Params,
+        second_target: bool,
+        same_line_pair: bool,
+    ) -> Option<Vec<String>> {
         let may = match p.take("OptionalDecider").as_deref() {
             None => false,
             Some("You") => true,
             Some(_) => return None,
         };
         let (fighter, foe) = if second_target {
-            if p.take("Defined").as_deref() != Some("ParentTarget") {
+            if same_line_pair {
+                if p.take("Defined").is_some() {
+                    return None;
+                }
+            } else if p.take("Defined").as_deref() != Some("ParentTarget") {
                 return None;
             }
             ("TargetSlot::First", "TargetSlot::Second")
@@ -5775,6 +5905,7 @@ impl Tx<'_> {
             match p.take("Defined").as_deref() {
                 Some("Self") if !self.on_a_spell => {}
                 Some("TriggeredCardLKICopy" | "TriggeredCard") if self.is_etb_self_trigger => {}
+                Some("TriggeredTargetLKICopy" | "TriggeredTarget") if self.trigger_is_self => {}
                 _ => return None,
             }
             ("TargetSlot::This", "TargetSlot::First")
@@ -7899,7 +8030,7 @@ impl Tx<'_> {
             }
             Some(_) => return None,
         };
-        let mut out = self.fight_effect(p, true)?;
+        let mut out = self.fight_effect(p, true, false)?;
         if !p.exhausted() {
             return None;
         }

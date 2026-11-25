@@ -3,7 +3,7 @@
 //! `Pump`, and targeted/loop filter atoms backed by existing `baylee-cards-dsl`
 //! & `baylee-engine` primitives.
 
-use super::{Chain, Params, Tx, chains::LineFlags, wave27c::CaptureScope};
+use super::{Chain, Params, Tx, chains::LineFlags, keyword_const, wave27c::CaptureScope};
 
 impl Tx<'_> {
     // -------------------------------------------------------------------------
@@ -348,7 +348,7 @@ impl Tx<'_> {
             let wrapped = if who == "PlayerRel::You" {
                 format!("Effect::MayDo {{ effects: &[{inner}] }}")
             } else {
-                format!("Effect::PlayerMayDo {{ who: {who}, effects: &[{inner}] }}")
+                format!("Effect::MayDoFor {{ player: {who}, effects: &[{inner}] }}")
             };
             return Some(vec![wrapped]);
         }
@@ -395,7 +395,7 @@ impl Tx<'_> {
         Some(vec![if who == "PlayerRel::You" {
             format!("Effect::MayDo {{ effects: &[{mill}] }}")
         } else {
-            format!("Effect::PlayerMayDo {{ who: {who}, effects: &[{mill}] }}")
+            format!("Effect::MayDoFor {{ player: {who}, effects: &[{mill}] }}")
         }])
     }
 
@@ -794,16 +794,18 @@ impl Tx<'_> {
     //    *Dazzling Sphinx*, *Gríma, Saruman's Footman*).
     // -------------------------------------------------------------------------
 
-    /// Lowers `DigUntil | FoundDestination$ Exile | RevealedDestination$ Exile |
-    /// RememberFound$ True | RememberRevealed$ True` -> `Play | Defined$ Remembered |
-    /// WithoutManaCost$ True | Optional$ True | ForgetPlayed$ True` ->
-    /// `ChangeZoneAll | ChangeType$ Card.IsRemembered | Origin$ Exile |
-    /// Destination$ Library | LibraryPosition$ -1 | RandomOrder$ True` -> `Cleanup`.
+    /// Lowers `DigUntil | FoundDestination$ Exile | RevealedDestination$ Exile`
+    /// with `(RememberFound | ImprintFound)` and `(RememberRevealed | ImprintRevealed)`
+    /// -> `Play` (free, optional, over found card) ->
+    /// `ChangeZoneAll | Origin$ Exile | Destination$ Library | LibraryPosition$ -1 |
+    /// RandomOrder$ True` -> `Cleanup` (*Chaos Wand*, *Dazzling Sphinx*,
+    /// *Gríma, Saruman's Footman*, *Ryan Sinclair*).
     ///
     /// Wraps `RevealUntilThen(exile_while_revealing: true, found: Exile, rest: Exile, then: &[Play])`
     /// in `Effect::CaptureAffected`, then runs `ChooseCardEx(Remembered, InZone(Exile),
     /// BottomOfLibraryRandom)` so all exiled cards that weren't cast (both non-found cards AND
     /// the found card if declined) are shuffled together onto the bottom of that library.
+    #[allow(clippy::too_many_arguments, clippy::fn_params_excessive_bools)]
     pub(super) fn wave28d_dig_until_exile_play_bottom(
         &mut self,
         sub_name: &str,
@@ -811,86 +813,32 @@ impl Tx<'_> {
         filter_ref: &str,
         count: &str,
         max_revealed: Option<&str>,
+        remember_found: bool,
+        imprint_found: bool,
+        remember_revealed: bool,
+        imprint_revealed: bool,
     ) -> Option<(Vec<String>, Option<String>)> {
-        let body = self.svars.get(sub_name.trim())?.clone();
-        let (api, mut sp) = Params::parse(&body)?;
-        sp.drop_prose();
-        if api != "Play"
-            || sp.take("Defined").as_deref() != Some("Remembered")
-            || sp.take("ForgetPlayed").as_deref() != Some("True")
-            || sp.take("Optional").as_deref() != Some("True")
-            || sp.take("WithoutManaCost").as_deref() != Some("True")
-        {
-            return None;
-        }
-        // Optional redundant markers on Dazzling Sphinx / Gríma.
-        if let Some(vz) = sp.take("ValidZone")
-            && vz != "Exile"
-        {
-            return None;
-        }
-        if let Some(rem) = sp.take("RememberObjects")
-            && rem != "Remembered"
-        {
-            return None;
-        }
-        let valid_sa = sp.take("ValidSA");
-        let valid_card = sp.take("Valid");
-        let play_filter =
-            self.wave28d_dig_play_filter(valid_sa.as_deref(), valid_card.as_deref())?;
-        let rest_sub = sp.take("SubAbility")?;
-        if !sp.exhausted() {
-            return None;
-        }
-
-        // Next step MUST be `ChangeZoneAll | Origin$ Exile | Destination$ Library |
-        // LibraryPosition$ -1 | RandomOrder$ True | ChangeType$ Card.IsRemembered`.
-        let rest_body = self.svars.get(rest_sub.trim())?.clone();
-        let (r_api, mut rp) = Params::parse(&rest_body)?;
-        rp.drop_prose();
-        if r_api != "ChangeZoneAll"
-            || rp.take("Origin").as_deref() != Some("Exile")
-            || rp.take("Destination").as_deref() != Some("Library")
-            || rp.take("LibraryPosition").as_deref() != Some("-1")
-            || rp.take("RandomOrder").as_deref() != Some("True")
-            || rp.take("ChangeType").as_deref() != Some("Card.IsRemembered")
-        {
-            return None;
-        }
-        let after_rest = rp.take("SubAbility");
-        if !rp.exhausted() {
-            return None;
-        }
-        let trailing = match after_rest {
-            None => {
-                if !self.on_a_spell {
-                    return None;
-                }
-                None
-            }
-            Some(ref cname) => {
-                let cbody = self.svars.get(cname.trim())?.clone();
-                let (c_api, mut cp) = Params::parse(&cbody)?;
-                cp.drop_prose();
-                if c_api != "Cleanup" || cp.take("ClearRemembered").as_deref() != Some("True") {
-                    return None;
-                }
-                let next = cp.take("SubAbility");
-                if !cp.exhausted() {
-                    return None;
-                }
-                next
-            }
-        };
-
+        let (play_filter, rest_sub) = self.wave28d_parse_dig_until_play_step(
+            sub_name,
+            "Exile",
+            remember_found,
+            imprint_found,
+        )?;
+        let trailing = self.wave28d_parse_dig_until_rest_bottom(
+            &rest_sub,
+            "Exile",
+            remember_found || remember_revealed,
+            imprint_found || imprint_revealed,
+        )?;
         let max_rev_expr = match max_revealed {
             None => "None".to_string(),
             Some(m) => format!("Some({m})"),
         };
         let play_eff = format!(
             "Effect::Play {{ source: PlaySource::Subject(TargetSpec::EventObject), \
-             filter: {play_filter}, count: PlayCount::One, \
-             cost: PlayCostMode::WithoutPayingManaCost, optional: true }}"
+             filter: {play_filter}, controller: PlayerRel::You, count: PlayCount::One, \
+             cost: PlayCostMode::WithoutPayingManaCost, cast_only: true, copy: false, \
+             exile_instead_of_graveyard: false, optional: true }}"
         );
         let reveal_eff = format!(
             "Effect::RevealUntilThen {{ library: {library}, filter: {filter_ref}, count: {count}, \
@@ -912,27 +860,317 @@ impl Tx<'_> {
         ))
     }
 
+    /// Non-exile `DigUntil | NoMoveRevealed$ True` -> `Play` (free, optional,
+    /// over found card) -> `ChangeZoneAll(Library -> Library -1, RandomOrder)`
+    /// (*Treasure Keeper*).
+    ///
+    /// Runs `RevealUntilThen(exile_while_revealing: false, StayInLibrary, StayInLibrary,
+    /// then: &[])` inside `CaptureAffected::first` so `harvest_captured` captures ALL
+    /// revealed cards from `GameEvent::Revealed` while `RevealUntilThen` leaves
+    /// `EventObject` bound to the single found card (or `None` if 0 hits). Then
+    /// `CaptureAffected::then` offers `Effect::Play(EventObject)` and moves all
+    /// revealed cards still in `ZoneRef::Library` to the bottom in a random order.
+    #[allow(clippy::too_many_arguments, clippy::fn_params_excessive_bools)]
+    pub(super) fn wave28d_dig_until_reveal_play_bottom(
+        &mut self,
+        sub_name: &str,
+        library: &str,
+        filter_ref: &str,
+        count: &str,
+        max_revealed: Option<&str>,
+        remember_found: bool,
+        imprint_found: bool,
+        remember_revealed: bool,
+        imprint_revealed: bool,
+    ) -> Option<(Vec<String>, Option<String>)> {
+        let (play_filter, rest_sub) = self.wave28d_parse_dig_until_play_step(
+            sub_name,
+            "Library",
+            remember_found,
+            imprint_found,
+        )?;
+        let trailing = self.wave28d_parse_dig_until_rest_bottom(
+            &rest_sub,
+            "Library",
+            remember_found || remember_revealed,
+            imprint_found || imprint_revealed,
+        )?;
+        let max_rev_expr = match max_revealed {
+            None => "None".to_string(),
+            Some(m) => format!("Some({m})"),
+        };
+        let reveal_eff = format!(
+            "Effect::RevealUntilThen {{ library: {library}, filter: {filter_ref}, count: {count}, \
+             max_revealed: {max_rev_expr}, exile_while_revealing: false, \
+             found: RevealUntilFound::StayInLibrary, rest: RevealUntilRest::StayInLibrary, \
+             then: &[] }}"
+        );
+        let play_eff = format!(
+            "Effect::Play {{ source: PlaySource::Subject(TargetSpec::EventObject), \
+             filter: {play_filter}, controller: PlayerRel::You, count: PlayCount::One, \
+             cost: PlayCostMode::WithoutPayingManaCost, cast_only: true, copy: false, \
+             exile_instead_of_graveyard: false, optional: true }}"
+        );
+        let bottom_eff = "Effect::ChooseCardEx { chooser: PlayerRel::You, \
+             zone: ChooseZone::Remembered, filter: &Filter::InZone(ZoneRef::Library), \
+             min: 0, max: Amount::Fixed(0), reveal_chosen: false, \
+             movement: ChooseMove::None, \
+             not_chosen_movement: ChooseMove::BottomOfLibraryRandom, \
+             then: &[], for_unchosen: &[] }";
+        Some((
+            vec![format!(
+                "Effect::CaptureAffected {{ first: &[{reveal_eff}], then: &[{play_eff}, {bottom_eff}] }}"
+            )],
+            trailing,
+        ))
+    }
+
+    /// Multi-seat `DigUntil | Defined$ Opponent|Player | FoundDestination$ Exile |
+    /// RevealedDestination$ Exile | RememberFound$ True` -> `Play | Defined$ Remembered |
+    /// WithoutManaCost$ True | ValidSA$ Spell | Optional$ True | Amount$ All`
+    /// (*Fevered Suspicion*).
+    ///
+    /// Because `RevealUntilThen` stops at the first matching card per seat, every
+    /// non-found card exiled fails `filter_ref`; therefore `Filter::IsRemembered & filter`
+    /// selects exclusively the found cards in exile.
+    pub(super) fn wave28d_dig_until_multi_seat_exile_play(
+        &mut self,
+        sub_name: &str,
+        domain: &str,
+        filter_ref: &str,
+        count: &str,
+        max_revealed: Option<&str>,
+    ) -> Option<(Vec<String>, Option<String>)> {
+        let owner = match domain {
+            "RepeatDomain::EachOpponent" => "PlayerRel::EachOpponent",
+            "RepeatDomain::EachPlayer" => "PlayerRel::EachPlayer",
+            _ => return None,
+        };
+        let body = self.svars.get(sub_name.trim())?.clone();
+        let (api, mut sp) = Params::parse(&body)?;
+        sp.drop_prose();
+        if api != "Play"
+            || sp.take("Defined").as_deref() != Some("Remembered")
+            || sp.take("WithoutManaCost").as_deref() != Some("True")
+            || sp.take("Optional").as_deref() != Some("True")
+            || sp.take("Amount").as_deref() != Some("All")
+            || !matches!(sp.take("Controller").as_deref(), None | Some("You"))
+            || !matches!(sp.take("ValidZone").as_deref(), None | Some("Exile"))
+        {
+            return None;
+        }
+        let valid_sa = sp.take("ValidSA")?;
+        let (sa_owner, sa_filter) = self.parse_play_sa_filter(&valid_sa)?;
+        if sa_owner.is_some() {
+            return None;
+        }
+        let next = sp.take("SubAbility");
+        if !sp.exhausted() {
+            return None;
+        }
+        let trailing = self.wave28d_parse_optional_cleanup(next, true, false)?;
+        let mut clauses = vec!["Filter::IsRemembered".to_string()];
+        let raw_base = filter_ref.trim_start_matches('&');
+        if raw_base != "Filter::Any" {
+            clauses.push(raw_base.to_string());
+        }
+        if let Some(sa) = sa_filter
+            && sa != "Filter::Any"
+            && !clauses.contains(&sa)
+        {
+            clauses.push(sa);
+        }
+        let play_filter_expr = format!("Filter::And(&[{}])", clauses.join(", "));
+        let play_filter_name = self.body.filter_static("PLAY", &play_filter_expr);
+        let max_rev_expr = match max_revealed {
+            None => "None".to_string(),
+            Some(m) => format!("Some({m})"),
+        };
+        let reveal_eff = format!(
+            "Effect::RepeatEach {{ domain: {domain}, effects: &[Effect::RevealUntilThen {{ \
+             library: PlayerRel::EventPlayer, filter: {filter_ref}, count: {count}, \
+             max_revealed: {max_rev_expr}, exile_while_revealing: true, \
+             found: RevealUntilFound::Exile, rest: RevealUntilRest::Exile, then: &[] }}] }}"
+        );
+        let play_eff = format!(
+            "Effect::Play {{ source: PlaySource::Zone {{ zone: ZoneRef::Exile, owner: {owner} }}, \
+             filter: &{play_filter_name}, controller: PlayerRel::You, count: PlayCount::All, \
+             cost: PlayCostMode::WithoutPayingManaCost, cast_only: true, copy: false, \
+             exile_instead_of_graveyard: false, optional: true }}"
+        );
+        Some((
+            vec![format!(
+                "Effect::CaptureAffected {{ first: &[{reveal_eff}], then: &[{play_eff}] }}"
+            )],
+            trailing,
+        ))
+    }
+
+    fn wave28d_parse_dig_until_play_step(
+        &mut self,
+        sub_name: &str,
+        expected_zone: &str,
+        remember_found: bool,
+        imprint_found: bool,
+    ) -> Option<(String, String)> {
+        let body = self.svars.get(sub_name.trim())?.clone();
+        let (api, mut sp) = Params::parse(&body)?;
+        sp.drop_prose();
+        if api != "Play"
+            || sp.take("Optional").as_deref() != Some("True")
+            || sp.take("WithoutManaCost").as_deref() != Some("True")
+            || !matches!(sp.take("Controller").as_deref(), None | Some("You"))
+        {
+            return None;
+        }
+        if let Some(fp) = sp.take("ForgetPlayed")
+            && fp != "True"
+        {
+            return None;
+        }
+        if let Some(vz) = sp.take("ValidZone")
+            && vz != expected_zone
+        {
+            return None;
+        }
+        if let Some(rem) = sp.take("RememberObjects")
+            && rem != "Remembered"
+        {
+            return None;
+        }
+        let defined = sp.take("Defined");
+        let valid_card = sp.take("Valid");
+        let stripped_card = match (defined.as_deref(), valid_card.as_deref()) {
+            (Some("Remembered"), None) if remember_found => None,
+            (Some("Imprinted"), None) if imprint_found => None,
+            (Some("Remembered"), Some(vc)) if remember_found => {
+                let cleaned = vc
+                    .split(',')
+                    .map(|alt| Self::strip_filter_attr(alt.trim(), "IsRemembered"))
+                    .collect::<Option<Vec<_>>>()?
+                    .join(",");
+                Some(cleaned)
+            }
+            (Some("Imprinted"), Some(vc)) if imprint_found => {
+                let cleaned = vc
+                    .split(',')
+                    .map(|alt| Self::strip_filter_attr(alt.trim(), "IsImprinted"))
+                    .collect::<Option<Vec<_>>>()?
+                    .join(",");
+                Some(cleaned)
+            }
+            (None, Some(vc)) => {
+                let attr = if remember_found && !imprint_found {
+                    "IsRemembered"
+                } else if imprint_found && !remember_found {
+                    "IsImprinted"
+                } else {
+                    return None;
+                };
+                let cleaned = vc
+                    .split(',')
+                    .map(|alt| Self::strip_filter_attr(alt.trim(), attr))
+                    .collect::<Option<Vec<_>>>()?
+                    .join(",");
+                Some(cleaned)
+            }
+            _ => return None,
+        };
+        let valid_sa = sp.take("ValidSA");
+        let rest_sub = sp.take("SubAbility")?;
+        if !sp.exhausted() {
+            return None;
+        }
+        let play_filter =
+            self.wave28d_dig_play_filter(valid_sa.as_deref(), stripped_card.as_deref())?;
+        Some((play_filter, rest_sub))
+    }
+
+    #[allow(clippy::option_option)]
+    fn wave28d_parse_dig_until_rest_bottom(
+        &self,
+        rest_sub: &str,
+        expected_origin: &str,
+        uses_remembered: bool,
+        uses_imprinted: bool,
+    ) -> Option<Option<String>> {
+        let rest_body = self.svars.get(rest_sub.trim())?.clone();
+        let (r_api, mut rp) = Params::parse(&rest_body)?;
+        rp.drop_prose();
+        if r_api != "ChangeZoneAll"
+            || rp.take("Origin").as_deref() != Some(expected_origin)
+            || rp.take("Destination").as_deref() != Some("Library")
+            || rp.take("LibraryPosition").as_deref() != Some("-1")
+            || rp.take("RandomOrder").as_deref() != Some("True")
+        {
+            return None;
+        }
+        let ct = rp.take("ChangeType")?;
+        let ct_ok = match (uses_remembered, uses_imprinted) {
+            (true, false) => ct == "Card.IsRemembered",
+            (false, true) => ct == "Card.IsImprinted",
+            (true, true) => matches!(
+                ct.as_str(),
+                "Card.IsImprinted,Card.IsRemembered" | "Card.IsRemembered,Card.IsImprinted"
+            ),
+            (false, false) => false,
+        };
+        if !ct_ok {
+            return None;
+        }
+        let after_rest = rp.take("SubAbility");
+        if !rp.exhausted() {
+            return None;
+        }
+        self.wave28d_parse_optional_cleanup(after_rest, uses_remembered, uses_imprinted)
+    }
+
+    #[allow(clippy::option_option)]
+    fn wave28d_parse_optional_cleanup(
+        &self,
+        after: Option<String>,
+        needs_remembered: bool,
+        needs_imprinted: bool,
+    ) -> Option<Option<String>> {
+        let Some(cname) = after else {
+            return self.on_a_spell.then_some(None);
+        };
+        let cbody = self.svars.get(cname.trim())?.clone();
+        let (c_api, mut cp) = Params::parse(&cbody)?;
+        cp.drop_prose();
+        if c_api != "Cleanup" {
+            return None;
+        }
+        let cleared_rem = cp.take("ClearRemembered").as_deref() == Some("True");
+        let cleared_imp = cp.take("ClearImprinted").as_deref() == Some("True");
+        if (needs_remembered && !cleared_rem) || (needs_imprinted && !cleared_imp) {
+            return None;
+        }
+        let next = cp.take("SubAbility");
+        cp.exhausted().then_some(next)
+    }
+
     fn wave28d_dig_play_filter(
         &mut self,
         valid_sa: Option<&str>,
-        valid_card: Option<&str>,
+        stripped_card: Option<&str>,
     ) -> Option<String> {
         let mut clauses: Vec<String> = Vec::new();
         if let Some(sa) = valid_sa {
-            let expr = match sa.trim() {
-                "Spell" => "Filter::NONLAND".to_string(),
-                "Spell.Instant,Spell.Sorcery" | "Spell.Sorcery,Spell.Instant" => {
-                    "Filter::INSTANT_OR_SORCERY".to_string()
-                }
-                "Spell.Instant" => "Filter::INSTANT".to_string(),
-                "Spell.Sorcery" => "Filter::SORCERY".to_string(),
-                _ => return None,
-            };
-            clauses.push(expr);
+            let (sa_owner, sa_filter) = self.parse_play_sa_filter(sa)?;
+            if sa_owner.is_some() {
+                return None;
+            }
+            if let Some(expr) = sa_filter {
+                clauses.push(expr);
+            } else {
+                clauses.push("Filter::NONLAND".to_string());
+            }
         }
-        if let Some(vc) = valid_card {
-            let stripped = Self::strip_is_remembered_all_alts(vc)?;
-            let expr = self.filter_expr_in_zone(&stripped, true)?;
+        if let Some(vc) = stripped_card
+            && vc != "Card"
+        {
+            let expr = self.filter_expr_in_zone(vc, true)?;
             if expr != "Filter::Any" && !clauses.contains(&expr) {
                 clauses.push(expr);
             }
@@ -1277,7 +1515,11 @@ impl Tx<'_> {
     /// Consume unused `RememberTokens$ True` on `CopyPermanent` when there is no
     /// `SubAbility$` and no `SVar` on the card reads `Remembered` (*Flameshadow Conjuring*).
     pub(super) fn wave28d_claim_unused_remember_tokens(&self, p: &mut Params, has_sub: bool) {
-        if has_sub || p.peek("RememberTokens") != Some("True") {
+        if has_sub
+            || p.peek("RememberTokens") != Some("True")
+            || p.has("AttachedTo")
+            || p.has("AttachedToPlayer")
+        {
             return;
         }
         let any_reader = self.svars.values().any(|body| {
@@ -1511,6 +1753,771 @@ impl Tx<'_> {
             format!("Filter::And(&[{rest_expr}, {rel_clause}])")
         };
         Some(Self::named_constant(&combined))
+    }
+
+    // -------------------------------------------------------------------------
+    // 10. Wave 28d-p2: `Fight`, `GainControl`, `Attach`, `Token.RememberTokens`,
+    //     `Dig.RememberChanged`, `PeekAndReveal` play-or-bottom, and targeted sweeps
+    // -------------------------------------------------------------------------
+
+    /// Two-target single-line `Fight | ValidTgts$ <F> | TargetMin$ 2 | TargetMax$ 2`
+    /// (*Blood Feud*, *Clash of Titans*, *Dissension in the Ranks*): maps onto
+    /// `TargetSlot::First` + `TargetSlot::Second` with `DistinctFromPriorTargetGroups`.
+    pub(super) fn wave28d_fight_two_targets(p: &mut Params, spec: &str, chain: &mut Chain) -> bool {
+        if chain.target.is_some()
+            || chain.second_target.is_some()
+            || !spec.starts_with("TargetSpec::Object(")
+            || p.peek("Defined").is_some()
+            || p.peek("TargetMin") != Some("2")
+            || p.peek("TargetMax") != Some("2")
+            || p.has("TargetUnique")
+            || p.has("TargetsWithoutSameCreatureType")
+            || p.has("TargetsWithSameController")
+            || p.has("TargetsForEachPlayer")
+        {
+            return false;
+        }
+        p.take("TargetMin");
+        p.take("TargetMax");
+        chain.target = Some(spec.to_string());
+        chain.second_target = Some(spec.to_string());
+        chain.second_target_constraint = Some("TargetConstraint::DistinctFromPriorTargetGroups");
+        true
+    }
+
+    /// Lower `GainControl | AddKWs$ <kws>` for `Duration::UntilEndOfTurn` (existing
+    /// behavior) and for `Duration::Indefinitely` with `AddKWs$ Haste` (*Slave of Bolas*
+    /// -> haste until end of turn; *Momo's Heist* -> indefinite haste), reading the
+    /// exact Oracle phrasing so duration is never guessed.
+    pub(super) fn wave28d_gain_control_add_kws(
+        &self,
+        kw_raw: &str,
+        duration: &str,
+    ) -> Option<String> {
+        let kw_dur = if duration == "Duration::UntilEndOfTurn" {
+            "Duration::UntilEndOfTurn"
+        } else if duration == "Duration::Indefinitely" && kw_raw.trim() == "Haste" {
+            let lower = self.oracle.to_ascii_lowercase();
+            if lower.contains("gains haste until end of turn") {
+                "Duration::UntilEndOfTurn"
+            } else if (lower.contains("gains haste.") || lower.contains("gains haste,"))
+                && !lower.contains("haste until end of turn")
+            {
+                "Duration::Indefinitely"
+            } else {
+                return None;
+            }
+        } else {
+            return None;
+        };
+        let each: Option<Vec<&str>> = kw_raw.split('&').map(|k| keyword_const(k.trim())).collect();
+        let kw = each?.join(".union(") + &")".repeat(kw_raw.split('&').count().saturating_sub(1));
+        Some(format!(
+            "Effect::PumpTarget {{ power: Amount::Fixed(0), toughness: Amount::Fixed(0), \
+             keywords: {kw}, duration: {kw_dur} }}"
+        ))
+    }
+
+    /// Lower `Attach | Object$ Self | Choices$ <host>` (optionally with
+    /// `RememberAttached$ True` and `ConditionDefined$ Remembered` follow-ups like
+    /// *Breath of Fury*) onto `Effect::MoveAttachment { attachment: TargetSpec::ThisObject, .. }`.
+    pub(super) fn wave28d_attach_move_self_chain(
+        &mut self,
+        p: &mut Params,
+        sub: &mut Option<String>,
+    ) -> Option<Vec<String>> {
+        if self.on_a_spell || p.peek("Object") != Some("Self") || !p.has("Choices") {
+            return None;
+        }
+        let mut probe = p.clone();
+        probe.take("Object");
+        let rem_attached = match probe.take("RememberAttached").as_deref() {
+            None | Some("False") => false,
+            Some("True") => true,
+            Some(_) => return None,
+        };
+        let (then_if_moved, trailing) = if rem_attached {
+            self.collect_move_attachment_then_if_moved(sub.clone())?
+        } else {
+            (Vec::new(), sub.clone())
+        };
+        let eff =
+            self.parse_move_attachment_step(&mut probe, "TargetSpec::ThisObject", &then_if_moved)?;
+        *p = probe;
+        *sub = trailing;
+        Some(vec![eff])
+    }
+
+    /// Lower `ChangeZone(Graveyard -> Battlefield, single target)` followed by
+    /// `DB$ Attach | Object$ Targeted | Defined$ Self` (*Auriok Survivors*) via
+    /// `Effect::CaptureAffected` + `ForEachRemembered` + `MoveAttachment(EventObject -> This)`
+    /// so attachment binds the NEW battlefield incarnation (CR 400.7) rather than the
+    /// departed graveyard target.
+    pub(super) fn wave28d_reanimate_and_attach_self(
+        &mut self,
+        p: &mut Params,
+        sub: &mut Option<String>,
+        target: Option<&str>,
+    ) -> Option<Vec<String>> {
+        if self.on_a_spell
+            || self.capture_scope.is_some()
+            || p.has("RememberChanged")
+            || p.has("RememberTargets")
+            || p.has("RememberLKI")
+            || p.entries.iter().any(|(k, _)| k.starts_with("Condition"))
+        {
+            return None;
+        }
+        let sub_name = sub.as_deref()?.trim().to_string();
+        let sub_body = self.svars.get(&sub_name)?.clone();
+        let (s_api, mut sp) = Params::parse(&sub_body)?;
+        sp.drop_prose();
+        if s_api != "Attach"
+            || sp.take("Object").as_deref() != Some("Targeted")
+            || sp.take("Defined").as_deref() != Some("Self")
+            || sp.has("ValidTgts")
+        {
+            return None;
+        }
+        let optional = match sp.take("Optional").as_deref() {
+            None | Some("False") => false,
+            Some("True") => true,
+            Some(_) => return None,
+        };
+        let after_attach = sp.take("SubAbility");
+        if !sp.exhausted() {
+            return None;
+        }
+        let mut probe_p = p.clone();
+        let first = self.effect_of_inner(
+            "ChangeZone",
+            &mut probe_p,
+            target,
+            LineFlags {
+                targets_here: true,
+                targets_a_player: false,
+                single_target: true,
+                prior_target_used: false,
+            },
+        )?;
+        if !probe_p.exhausted() || first.is_empty() {
+            return None;
+        }
+        *p = probe_p;
+        *sub = after_attach;
+        Some(vec![format!(
+            "Effect::CaptureAffected {{ first: &[{}], then: &[Effect::ForEachRemembered {{ \
+             filter: &Filter::Any, effects: &[Effect::MoveAttachment {{ \
+             attachment: TargetSpec::EventObject, recipient_filter: &Filter::This, \
+             must_change_recipient: false, optional: {optional}, then_if_moved: &[] }}] }}] }}",
+            first.join(", ")
+        )])
+    }
+
+    /// Inside `wave26f_token_found_trigger_chain`, lower `DB$ Effect |
+    /// RememberObjects$ Remembered | StaticAbilities$ <S> | Duration$ UntilEndOfCombat`
+    /// where `<S>` is `Mode$ MustAttack | ValidCreature$ Card.IsRemembered`
+    /// (*Howlsquad Heavy*, *Legion Warboss*) -> `AddTempModifier(AttacksEachCombat)`.
+    pub(super) fn wave28d_token_remembered_must_attack(&self, sp: &mut Params) -> Option<String> {
+        if sp.take("RememberObjects").as_deref() != Some("Remembered") {
+            return None;
+        }
+        let duration = match sp.take("Duration").as_deref() {
+            Some("UntilEndOfCombat") => "Duration::UntilEndOfCombat",
+            Some("EOT" | "UntilEndOfTurn" | "EndOfTurn") => "Duration::UntilEndOfTurn",
+            Some("Permanent") => "Duration::Indefinitely",
+            _ => return None,
+        };
+        let static_name = sp.take("StaticAbilities")?;
+        if !sp.exhausted() {
+            return None;
+        }
+        let sbody = self.svars.get(static_name.trim())?;
+        let (mode, mut mp) = Params::parse(sbody)?;
+        mp.drop_prose();
+        if mode != "MustAttack"
+            || mp.take("ValidCreature").as_deref() != Some("Card.IsRemembered")
+            || !mp.exhausted()
+        {
+            return None;
+        }
+        Some(format!(
+            "Effect::AddTempModifier {{ target: TargetSpec::EventObject, \
+             modifier: Modifier::AttacksEachCombat, duration: {duration} }}"
+        ))
+    }
+
+    /// Inside `wave26f_token_found_trigger_chain`, lower `DB$ RepeatEach |
+    /// DefinedCards$ RememberedCard | RepeatSubAbility$ <S>` (with optional
+    /// `ClearRemembered$ True`) where `<S>` is `DB$ Attach | Choices$ <F> |
+    /// Defined$ Remembered | Optional$ True|False` (*Reckless Crew*).
+    pub(super) fn wave28d_token_remembered_repeat_attach(
+        &mut self,
+        sp: &mut Params,
+    ) -> Option<(String, bool)> {
+        if sp.take("DefinedCards").as_deref() != Some("RememberedCard") {
+            return None;
+        }
+        let did_clear = match sp.take("ClearRemembered").as_deref() {
+            None | Some("False") => false,
+            Some("True") => true,
+            Some(_) => return None,
+        };
+        let rep_name = sp.take("RepeatSubAbility")?;
+        if !sp.exhausted() {
+            return None;
+        }
+        let rep_body = self.svars.get(rep_name.trim())?.clone();
+        let (r_api, mut rp) = Params::parse(&rep_body)?;
+        rp.drop_prose();
+        if r_api != "Attach"
+            || rp.take("Defined").as_deref() != Some("Remembered")
+            || rp.has("SubAbility")
+            || rp.has("ValidTgts")
+        {
+            return None;
+        }
+        let optional = match rp.take("Optional").as_deref() {
+            None | Some("False") => false,
+            Some("True") => true,
+            Some(_) => return None,
+        };
+        let choices = rp.take("Choices")?;
+        if choices.contains("Remembered")
+            || choices.contains("Imprinted")
+            || choices.contains("Targeted")
+            || !rp.exhausted()
+        {
+            return None;
+        }
+        let filter_expr = self.filter_expr(&choices)?;
+        let filter_name = self.body.filter_static("ATTACH_CHOSEN", &filter_expr);
+        Some((
+            format!(
+                "Effect::AttachChosen {{ filter: &{filter_name}, to: TargetSpec::EventObject, \
+                 max: Amount::Fixed(1), optional: {optional} }}"
+            ),
+            did_clear,
+        ))
+    }
+
+    /// Inside `CaptureAffected::then`, lower `DB$ Play` operating on remembered cards
+    /// in exile (*Etali, Primal Storm*, *Villainous Wealth*, *Epic Experiment*,
+    /// *Collected Conjuring*, *Hellcarver Demon*, *Muse Vortex*, *Kotis, the Fangkeeper*).
+    #[allow(clippy::too_many_lines)]
+    pub(super) fn wave28d_capture_play_step(
+        &mut self,
+        p: &mut Params,
+        target: Option<&str>,
+        flags: LineFlags,
+    ) -> Option<Vec<String>> {
+        let scope = self.capture_scope.as_ref()?.clone();
+        if flags.targets_here || p.has("ValidTgts") {
+            return None;
+        }
+        let is_rem_valid = p
+            .peek("Valid")
+            .is_some_and(|v| v.contains("IsRemembered") && !v.contains("!IsRemembered"));
+        let is_rem_defined = p.peek("Defined") == Some("Remembered");
+        if !is_rem_valid && !is_rem_defined {
+            return None;
+        }
+        let mut probe = p.clone();
+        probe.take("IsCurse");
+        if let Some(fp) = probe.take("ForgetPlayed") {
+            if fp != "True" {
+                return None;
+            }
+            // `Effect::Play` does not remove cast objects from `remembered_objects`;
+            // downstream `Origin$ Exile` sweeps check `Filter::InZone(ZoneRef::Exile)`
+            // (*Muse Vortex*), whereas `ConditionDefined$ Remembered` /
+            // `Remembered$Amount` / `Count$RememberedSize` (*Vaan, Street Thief*)
+            // would still see the played card and misfire "If you don't".
+            if self.svars.values().any(|body| {
+                body.contains("ConditionDefined$ Remembered")
+                    || body.contains("Remembered$Amount")
+                    || body.contains("Count$RememberedSize")
+            }) {
+                return None;
+            }
+        }
+        let zone_raw = probe
+            .take("ValidZone")
+            .unwrap_or_else(|| "Exile".to_string());
+        if zone_raw != "Exile" {
+            return None;
+        }
+        let cost = self.parse_play_cost_mode(&mut probe)?;
+        let copy = match probe.take("CopyCard").as_deref() {
+            None | Some("False") => false,
+            Some(_) => return None,
+        };
+        let exile_instead_of_graveyard = match probe.take("ReplaceGraveyard").as_deref() {
+            None => false,
+            Some("Exile") => true,
+            Some(_) => return None,
+        };
+        if probe.take("Optional").as_deref() != Some("True") {
+            return None;
+        }
+        let optional = true;
+        let count = match probe.take("Amount").as_deref().map(str::trim) {
+            None | Some("1") => "PlayCount::One".to_string(),
+            Some("All") => "PlayCount::All".to_string(),
+            Some(raw) => {
+                let n: u8 = self.plain_num(raw)?.try_into().ok().filter(|&n| n >= 2)?;
+                format!("PlayCount::UpTo({n})")
+            }
+        };
+        let controller = self.wave11_player_of_line(
+            probe.take("Controller").as_deref(),
+            target,
+            flags.targets_a_player,
+        )?;
+        if !Self::is_single_player_rel(controller) {
+            return None;
+        }
+        let (cast_only, sa_owner, sa_filter) = match probe.take("ValidSA") {
+            None => (copy || exile_instead_of_graveyard, None, None),
+            Some(raw_sa) => {
+                let (owner, filter) = self.parse_play_sa_filter(&raw_sa)?;
+                (true, owner, filter)
+            }
+        };
+        let mut clauses = vec!["Filter::IsRemembered".to_string()];
+        let valid_owner = if is_rem_defined {
+            probe.take("Defined");
+            if probe.has("Valid") {
+                return None;
+            }
+            None
+        } else {
+            let valid_raw = probe.take("Valid")?;
+            let stripped = Self::strip_is_remembered_all_alts(&valid_raw)?;
+            let (owner, cleaned) = Self::strip_graveyard_owner(&stripped)?;
+            if cleaned != "Card" {
+                let expr = self.filter_expr_in_zone(&cleaned, true)?;
+                if expr != "Filter::Any" {
+                    clauses.push(expr);
+                }
+            }
+            owner
+        };
+        if !Self::wave28d_only_condition_keys_left(&probe) {
+            return None;
+        }
+        if let Some(sa) = sa_filter
+            && sa != "Filter::Any"
+            && !clauses.contains(&sa)
+        {
+            clauses.push(sa);
+        }
+        let owner = match (valid_owner, sa_owner) {
+            (Some(a), Some(b)) if a != b => return None,
+            (Some(a), _) | (_, Some(a)) => a,
+            (None, None) if scope.you_own_only => "PlayerRel::You",
+            (None, None) => "PlayerRel::EachPlayer",
+        };
+        let combined = format!("Filter::And(&[{}])", clauses.join(", "));
+        if !self.has_x
+            && (combined.contains("Filter::CmcAtMostX") || combined.contains("Filter::CmcExactlyX"))
+        {
+            return None;
+        }
+        let filter_name = self.body.filter_static("PLAY", &combined);
+        *p = probe;
+        Some(vec![format!(
+            "Effect::Play {{ source: PlaySource::Zone {{ zone: ZoneRef::Exile, owner: {owner} }}, \
+             filter: &{filter_name}, controller: {controller}, count: {count}, cost: {cost}, \
+             cast_only: {cast_only}, copy: {copy}, \
+             exile_instead_of_graveyard: {exile_instead_of_graveyard}, optional: {optional} }}"
+        )])
+    }
+
+    /// Inside `CaptureAffected::then`, lower `ChangeZoneAll | Origin$ Exile |
+    /// ChangeType$ <F>.IsRemembered` to `Graveyard`, `Hand`, or `Library (-1, RandomOrder)`
+    /// (with optional `ForgetChanged$ True`) via `Effect::ChooseCardEx { zone: Remembered,
+    /// filter: InZone(Exile) & <F>, not_chosen_movement }` (*Epic Experiment*,
+    /// *Collected Conjuring*, *Muse Vortex*).
+    pub(super) fn wave28d_capture_change_zone_all_exile(
+        &mut self,
+        p: &mut Params,
+    ) -> Option<Vec<String>> {
+        self.capture_scope.as_ref()?;
+        if p.peek("Origin") != Some("Exile") || p.has("Defined") {
+            return None;
+        }
+        let dest = p.peek("Destination")?;
+        if !matches!(dest, "Graveyard" | "Hand" | "Library") {
+            return None;
+        }
+        let ct = p.peek("ChangeType")?;
+        if !ct.contains("IsRemembered") || ct.contains("!IsRemembered") {
+            return None;
+        }
+        let stripped = Self::strip_is_remembered_all_alts(ct)?;
+        let mut probe = p.clone();
+        probe.take("Origin");
+        probe.take("Destination");
+        probe.take("ChangeType");
+        probe.take("IsCurse");
+        if let Some(fc) = probe.take("ForgetChanged")
+            && fc != "True"
+        {
+            return None;
+        }
+        let mv = match dest {
+            "Graveyard" => "ChooseMove::Graveyard",
+            "Hand" => "ChooseMove::Hand",
+            "Library"
+                if probe.take("LibraryPosition").as_deref() == Some("-1")
+                    && probe.take("RandomOrder").as_deref() == Some("True") =>
+            {
+                "ChooseMove::BottomOfLibraryRandom"
+            }
+            _ => return None,
+        };
+        if !Self::wave28d_only_condition_keys_left(&probe) {
+            return None;
+        }
+        let expr = if stripped == "Card" {
+            "Filter::InZone(ZoneRef::Exile)".to_string()
+        } else {
+            let base = self.filter_expr_in_zone(&stripped, true)?;
+            if base == "Filter::Any" {
+                "Filter::InZone(ZoneRef::Exile)".to_string()
+            } else {
+                format!("Filter::And(&[Filter::InZone(ZoneRef::Exile), {base}])")
+            }
+        };
+        let filter_name = self.body.filter_static("REMEMBERED", &expr);
+        *p = probe;
+        Some(vec![format!(
+            "Effect::ChooseCardEx {{ chooser: PlayerRel::You, zone: ChooseZone::Remembered, \
+             filter: &{filter_name}, min: 0, max: Amount::Fixed(0), reveal_chosen: false, \
+             movement: ChooseMove::None, not_chosen_movement: {mv}, \
+             then: &[], for_unchosen: &[] }}"
+        )])
+    }
+
+    /// True when `ChangeNum$ <var>` on an optional `ChangeZone | Hidden$ True` inside
+    /// `CaptureAffected::then` names `Count$Valid<Origin> <same ChangeType>`
+    /// (*Xenagos, the Reveler* ultimate -> "any number", `Amount::Fixed(255)`).
+    pub(super) fn wave28d_capture_hidden_all_change_num(
+        &self,
+        max_raw: &str,
+        origin: &str,
+        change_type: &str,
+    ) -> bool {
+        let Some(def) = self.svars.get(max_raw.trim()).map(|s| s.trim()) else {
+            return false;
+        };
+        let expected_prefix = match origin {
+            "Exile" => "Count$ValidExile ",
+            "Graveyard" => "Count$ValidGraveyard ",
+            "Hand" => "Count$ValidHand ",
+            _ => return false,
+        };
+        def.strip_prefix(expected_prefix)
+            .is_some_and(|rest| rest.trim() == change_type.trim())
+    }
+
+    /// Inside `CaptureAffected::then`, lower `Proliferate | Amount$ Number$K/Minus.<Y>`
+    /// where `1 <= K <= 4` and `<Y>` resolves to `Count$RememberedSize` / `Remembered$Amount`
+    /// (*Expand the Sphere*) into `K` conditional `Effect::Proliferate` steps.
+    pub(super) fn wave28d_proliferate_minus_remembered(&self, raw: &str) -> Option<Vec<String>> {
+        self.capture_scope.as_ref()?;
+        let rest = raw.trim().strip_prefix("Number$")?;
+        let (k_raw, var) = rest.split_once("/Minus.")?;
+        let k: u32 = k_raw
+            .trim()
+            .parse()
+            .ok()
+            .filter(|&n| (1..=4).contains(&n))?;
+        let def = self.svars.get(var.trim())?.trim();
+        if !matches!(def, "Count$RememberedSize" | "Remembered$Amount") {
+            return None;
+        }
+        let mut out = Vec::with_capacity(k as usize);
+        for i in 0..k {
+            let threshold = k - 1 - i;
+            out.push(format!(
+                "Effect::IfCondition {{ condition: Condition::AmountCompare {{ \
+                 left: &Amount::RememberedCount, op: AmountCmp::AtMost, \
+                 right: &Amount::Fixed({threshold}) }}, \
+                 then: &[Effect::Proliferate], otherwise: &[] }}"
+            ));
+        }
+        Some(out)
+    }
+
+    /// Lower single-card public reveal `PeekAndReveal | PeekAmount$ 1 |
+    /// RevealValid$ Card | RememberRevealed$ True` -> `DB$ Play | Defined$ Remembered |
+    /// ValidSA$ Spell | WithoutManaCost$ True | Optional$ True | ForgetRemembered$ True |
+    /// ConditionDefined$ Remembered | ConditionPresent$ <F>` -> `DB$ ChangeZone |
+    /// Defined$ Remembered | Origin$ Library | Destination$ Library | LibraryPosition$ -1 |
+    /// ForgetChanged$ True` (*Descendants' Path*).
+    pub(super) fn wave28d_peek_reveal_one_play_or_bottom(
+        &mut self,
+        sub_name: &str,
+    ) -> Option<(String, Option<String>)> {
+        let body = self.svars.get(sub_name.trim())?.clone();
+        let (api, mut sp) = Params::parse(&body)?;
+        sp.drop_prose();
+        if api != "Play"
+            || sp.take("Defined").as_deref() != Some("Remembered")
+            || sp.take("WithoutManaCost").as_deref() != Some("True")
+            || sp.take("Optional").as_deref() != Some("True")
+            || !matches!(sp.take("Controller").as_deref(), None | Some("You"))
+            || sp.take("ConditionDefined").as_deref() != Some("Remembered")
+        {
+            return None;
+        }
+        if let Some(fr) = sp.take("ForgetRemembered")
+            && fr != "True"
+        {
+            return None;
+        }
+        if let Some(fp) = sp.take("ForgetPlayed")
+            && fp != "True"
+        {
+            return None;
+        }
+        if let Some(cmp) = sp.take("ConditionCompare")
+            && !matches!(cmp.as_str(), "GE1" | "EQ1")
+        {
+            return None;
+        }
+        let cond_present = sp.take("ConditionPresent")?;
+        let valid_sa = sp.take("ValidSA")?;
+        let (sa_owner, sa_filter) = self.parse_play_sa_filter(&valid_sa)?;
+        if sa_owner.is_some() {
+            return None;
+        }
+        let rest_sub = sp.take("SubAbility")?;
+        if !sp.exhausted() {
+            return None;
+        }
+        // Step 2: put the card on bottom of library if not cast.
+        let rest_body = self.svars.get(rest_sub.trim())?.clone();
+        let (r_api, mut rp) = Params::parse(&rest_body)?;
+        rp.drop_prose();
+        if r_api != "ChangeZone"
+            || rp.take("Defined").as_deref() != Some("Remembered")
+            || rp.take("Origin").as_deref() != Some("Library")
+            || rp.take("Destination").as_deref() != Some("Library")
+            || rp.take("LibraryPosition").as_deref() != Some("-1")
+        {
+            return None;
+        }
+        let did_forget = match rp.take("ForgetChanged").as_deref() {
+            None | Some("False") => false,
+            Some("True") => true,
+            Some(_) => return None,
+        };
+        let after_rest = rp.take("SubAbility");
+        if !rp.exhausted() {
+            return None;
+        }
+        let trailing = match after_rest {
+            None if did_forget || self.on_a_spell => None,
+            Some(ref cname) if self.is_wave8_cleanup_svar(cname, false) => None,
+            _ => return None,
+        };
+        let cond_expr = self.filter_expr_in_zone(&cond_present, true)?;
+        let mut clauses = vec!["Filter::IsRemembered".to_string()];
+        if cond_expr != "Filter::Any" {
+            clauses.push(cond_expr);
+        }
+        if let Some(sa) = sa_filter
+            && sa != "Filter::Any"
+            && !clauses.contains(&sa)
+        {
+            clauses.push(sa);
+        }
+        let filter_expr = format!("Filter::And(&[{}])", clauses.join(", "));
+        let filter_name = self.body.filter_static("PLAY", &filter_expr);
+        Some((
+            format!(
+                "Effect::CaptureAffected {{ \
+                 first: &[Effect::RevealTop {{ player: PlayerRel::You, count: Amount::Fixed(1), \
+                 filter: &Filter::Any, if_matches: &[], otherwise: &[] }}], \
+                 then: &[Effect::Play {{ source: PlaySource::Zone {{ zone: ZoneRef::Library, \
+                 owner: PlayerRel::You }}, filter: &{filter_name}, controller: PlayerRel::You, \
+                 count: PlayCount::One, cost: PlayCostMode::WithoutPayingManaCost, \
+                 cast_only: true, copy: false, exile_instead_of_graveyard: false, \
+                 optional: true }}, \
+                 Effect::ChooseCardEx {{ chooser: PlayerRel::You, zone: ChooseZone::Remembered, \
+                 filter: &Filter::InZone(ZoneRef::Library), min: 0, max: Amount::Fixed(0), \
+                 reveal_chosen: false, movement: ChooseMove::None, \
+                 not_chosen_movement: ChooseMove::BottomOfLibraryChosenOrder, \
+                 then: &[], for_unchosen: &[] }}] }}"
+            ),
+            trailing,
+        ))
+    }
+
+    /// Lower `UntapAll | ValidCards$ <F>.TargetedPlayerCtrl` (*Great Oak Guardian*)
+    /// via `Effect::RepeatEachObject` (which evaluates `ControlledBy(PlayerRel::Chosen)`
+    /// via `matches_in_resolution`) running `Effect::UntapAll { filter: &Filter::Reference }`.
+    pub(super) fn wave28d_untap_all_targeted_player(&mut self, valid: &str) -> Option<Vec<String>> {
+        let (ctrl_rel, stripped) = self.extract_battlefield_ctrl_atom(valid, true)?;
+        if ctrl_rel != "PlayerRel::Chosen" {
+            return None;
+        }
+        let base = self.filter_expr(&stripped)?;
+        let combined = if base == "Filter::Any" {
+            "Filter::ControlledBy(PlayerRel::Chosen)".to_string()
+        } else {
+            format!("Filter::And(&[{base}, Filter::ControlledBy(PlayerRel::Chosen)])")
+        };
+        let name = self.body.filter_static("UNTAP_EACH", &combined);
+        Some(vec![format!(
+            "Effect::RepeatEachObject {{ zone: ZoneSel::Battlefield, filter: &{name}, \
+             only_found: false, then: &[Effect::UntapAll {{ filter: &Filter::Reference }}] }}"
+        )])
+    }
+
+    /// Lower `DamageAll | ValidCards$ <F>+ControlledBy TargetedController`
+    /// (*Flames of the Raze-Boar*) using `Filter::Not(&Filter::NotControlledByReferenceController)`
+    /// because `Effect::DealDamageEach` evaluates via `eval::matches_with_context`
+    /// (where `context.reference` is the targeted permanent).
+    pub(super) fn wave28d_damage_all_target_controller_filter(
+        &self,
+        valid: &str,
+    ) -> Option<String> {
+        if !self.current_object_target {
+            return None;
+        }
+        let mut alts = Vec::new();
+        for alt in valid.split(',').map(str::trim) {
+            let stripped = Self::strip_filter_attr(alt, "ControlledBy TargetedController")?;
+            let base = self.filter_expr(&stripped)?;
+            let ctrl = "Filter::Not(&Filter::NotControlledByReferenceController)";
+            let combined = if base == "Filter::Any" {
+                ctrl.to_string()
+            } else if let Some(inner) = base
+                .strip_prefix("Filter::And(&[")
+                .and_then(|s| s.strip_suffix("])"))
+            {
+                format!("Filter::And(&[{inner}, {ctrl}])")
+            } else {
+                format!("Filter::And(&[{base}, {ctrl}])")
+            };
+            alts.push(Self::named_constant(&combined));
+        }
+        match alts.len() {
+            0 => None,
+            1 => Some(alts.remove(0)),
+            _ => Some(format!("Filter::Or(&[{}])", alts.join(", "))),
+        }
+    }
+
+    /// Lower `cmcEQ<var>` on the battlefield when `<var>` is
+    /// `Count$Valid <F>$GreatestCardManaCost` and every alternative of `<F>` carries
+    /// `TargetedPlayerCtrl` (*Blot Out*, *End of the Hunt*, *Break Under Pressure*).
+    pub(super) fn wave28d_greatest_mv_filter_amount(&self, var: &str) -> Option<String> {
+        if self.current_single_player_rel != Some("PlayerRel::Chosen") {
+            return None;
+        }
+        let def = self.svars.get(var)?.trim();
+        let body = def.strip_prefix("Count$Valid ")?.trim();
+        let valid = body.strip_suffix("$GreatestCardManaCost")?.trim();
+        if valid.is_empty() || valid.contains('$') {
+            return None;
+        }
+        let clean =
+            Self::strip_remembered_ctrl_or_own(valid, "TargetedPlayerCtrl", "TargetedPlayerCtrl")?;
+        let base = self.filter_expr(&clean)?;
+        let scoped = if base == "Filter::Any" {
+            "Filter::ControlledBy(PlayerRel::Chosen)".to_string()
+        } else {
+            format!("Filter::And(&[{base}, Filter::ControlledBy(PlayerRel::Chosen)])")
+        };
+        Some(format!("Amount::GreatestManaValueAmong(&{scoped})"))
+    }
+
+    /// Lower single mandatory `Sacrifice` by `PlayerRel::Chosen` whose filter uses
+    /// `Amount::GreatestManaValueAmong` (*Break Under Pressure*) via `Effect::ChooseCardEx`
+    /// and `Effect::SacrificeEvent`, because `ChooseCardEx` evaluates via
+    /// `matches_in_resolution` (resolving `PlayerRel::Chosen` inside the filter).
+    pub(super) fn wave28d_greatest_mv_sacrifice(
+        &mut self,
+        who: &str,
+        optional: bool,
+        raw_amount: Option<&str>,
+        filter_expr: &str,
+    ) -> Option<Vec<String>> {
+        if who != "PlayerRel::Chosen"
+            || optional
+            || !matches!(raw_amount.map(str::trim), None | Some("1"))
+            || !filter_expr.contains("Amount::GreatestManaValueAmong(")
+        {
+            return None;
+        }
+        let scoped =
+            format!("Filter::And(&[{filter_expr}, Filter::ControlledBy(PlayerRel::Chosen)])");
+        let name = self.body.filter_static("SAC_GREATEST", &scoped);
+        Some(vec![format!(
+            "Effect::ChooseCardEx {{ chooser: PlayerRel::Chosen, \
+             zone: ChooseZone::Battlefield, filter: &{name}, min: 1, max: Amount::Fixed(1), \
+             reveal_chosen: false, movement: ChooseMove::None, \
+             not_chosen_movement: ChooseMove::None, then: &[Effect::SacrificeEvent], \
+             for_unchosen: &[] }}"
+        )])
+    }
+
+    /// Lower `DB$ EndOfTurn | Defined$ Targeted | AtEOT$ Sacrifice|Destroy|Exile`
+    /// chained after a single-object target (*Slave of Bolas*, *Momo's Heist*) into
+    /// `Effect::AtNextEndStep`. For `AtEOT$ Sacrifice`, requires either a preceding
+    /// `Modifier::GainControl` in `chain.effects` or a `YouCtrl` target filter so
+    /// `"its controller sacrifices it"` is never conflated with `"sacrifice it"`.
+    pub(super) fn wave28d_end_of_turn_targeted_delayed(
+        &self,
+        p: &mut Params,
+        target: Option<&str>,
+        chain: &Chain,
+    ) -> Option<Vec<String>> {
+        let single_obj = target.is_some_and(|t| t.starts_with("TargetSpec::Object("))
+            && chain.target_exact.is_none()
+            && !chain.target_is_x
+            && chain.target_constraint.is_none()
+            && chain.target_up_to.is_none_or(|n| n == 1)
+            && chain.second_target.is_none();
+        if !single_obj || p.peek("Defined") != Some("Targeted") {
+            return None;
+        }
+        let mut probe = p.clone();
+        probe.take("Defined");
+        probe.take("IsCurse");
+        let what = probe.take("AtEOT")?;
+        if !Self::wave28d_only_condition_keys_left(&probe) {
+            return None;
+        }
+        let tgt = target?;
+        let inner = match what.as_str() {
+            "Sacrifice"
+                if (chain
+                    .effects
+                    .iter()
+                    .any(|e| e.contains("Modifier::GainControl"))
+                    || tgt.contains("Filter::YOUR_")
+                    || tgt.contains("Filter::ControlledByYou"))
+                    && !self
+                        .oracle
+                        .to_ascii_lowercase()
+                        .contains("its controller sacrifices") =>
+            {
+                "Effect::SacrificeEvent"
+            }
+            "Destroy" => "Effect::destroy(TargetSpec::EventObject)",
+            "Exile" => "Effect::exile(TargetSpec::EventObject)",
+            _ => return None,
+        };
+        *p = probe;
+        Some(vec![format!(
+            "Effect::AtNextEndStep {{ effects: &[{inner}] }}"
+        )])
     }
 
     fn wave28d_only_condition_keys_left(p: &Params) -> bool {
