@@ -10,7 +10,7 @@ import dataset4 as D
 import model4 as M
 from training4.execution import encode_boards
 from .cache import FeatureCache, identity, key_for, record_dtype
-from .features import neural_decisions, seat_masks
+from .features import SAMPLED_TEMPERATURE, neural_decisions, seat_masks
 from .source_identity import file_digest
 from tensor_io4 import TensorPublication
 
@@ -18,8 +18,8 @@ from tensor_io4 import TensorPublication
 def learner_trajectories(dataset, greedy=False):
     """Trajectories with at least one eligible net decision, read from packed headers only.
 
-    The same rule as `neural_decisions` (source Net; by default also a recorded
-    logprob at temperature > 0), so admission keeps exactly the same trajectories.
+    The same rule as `neural_decisions` (source Net; by default also a temperature
+    above 0.35), so admission keeps exactly the same trajectories.
     A trajectory stored as JSON frames is kept and judged by the full scan.
     """
     from trajectory_store4 import BST4_HDR, BST4_MAGIC
@@ -33,8 +33,8 @@ def learner_trajectories(dataset, greedy=False):
                 kept.append(segments)
                 break
             header = BST4_HDR.unpack_from(raw, 0)
-            frame_flags, source, temperature = header[6], header[9], header[21]
-            if source == 0 and (greedy or (frame_flags & 4 and temperature > 1e-4)):
+            source, temperature = header[9], header[21]
+            if source == 0 and (greedy or temperature > SAMPLED_TEMPERATURE):
                 kept.append(segments)
                 break
     return kept

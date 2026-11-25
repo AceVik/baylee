@@ -2577,8 +2577,10 @@ the frozen source actor. Its `value_calibration4/` package advances recurrent
 memory through every chronological observation in float32, then caches sampled
 readout features outside the repository. First/terminal states and every 64th
 cursor are retained by default. Only trajectories containing genuine stochastic
-neural decisions enter fitting; earlier passive observations of those trajectories
-remain eligible. Each trajectory has equal loss weight, with equal weights among
+neural decisions enter fitting (source Net at a temperature above 0.35, whether or
+not the answer carries a probability: an attack, a block or a payment is as much
+the net's draw as a certified menu); earlier passive observations of those
+trajectories remain eligible. Each trajectory has equal loss weight, with equal weights among
 its sampled states, so long losing games cannot dominate merely by length.
 Training and validation game IDs must be disjoint. Epoch zero is a selection
 candidate, and reports compare held-out MSE/calibration with the original head,

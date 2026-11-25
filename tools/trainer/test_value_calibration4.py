@@ -243,10 +243,14 @@ class ValueCalibration(unittest.TestCase):
         batch = {key: torch.tensor([[value]]) for key, value in
                  dict(step_valid=True, is_decision=True, source_kind=0, has_logprob=True, temperature=.6).items()}
         self.assertTrue(bool(neural_decisions(batch)))
-        for key, bad in (("source_kind", 1), ("has_logprob", False), ("is_decision", False), ("temperature", 0.)):
+        for key, bad in (("source_kind", 1), ("step_valid", False), ("is_decision", False), ("temperature", 0.),
+                         ("temperature", .35)):
             changed = {k: v.clone() for k, v in batch.items()}
             changed[key].fill_(bad)
-            self.assertFalse(bool(neural_decisions(changed)))
+            self.assertFalse(bool(neural_decisions(changed)), key)
+        # An attack, a block or a payment carries no probability and is still the net's draw.
+        unlabelled = {**batch, "has_logprob": torch.tensor([[False]])}
+        self.assertTrue(bool(neural_decisions(unlabelled)))
         data = lambda games: SimpleNamespace(store=SimpleNamespace(index={"game": np.array(games)}))
         assert_disjoint_games(data([1, 1]), data([2]))
         with self.assertRaises(ValueError):

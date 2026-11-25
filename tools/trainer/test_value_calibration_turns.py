@@ -104,19 +104,22 @@ class LearnerScan(unittest.TestCase):
         def header(source, flags, temperature):
             return BST4_HDR.pack(b"BST4", 1, 0, 0, 0, 0, flags, 0, 0, source, 0, 2, 0,
                                  *([0.0] * 8), temperature, *([0] * 12))
-        frames = {1: header(1, 1, 0.), 4: header(2, 1, 0.), 5: header(0, 1, 0.), 7: header(0, 1 | 4, .7)}
-        index = np.zeros(9, dtype=[("flags", "<u4")])
-        index["flags"][[1, 4, 5, 7]] = 1
-        dataset = SimpleNamespace(trajectories=[[0], [1], [2]],
-                                  segments=[np.arange(0, 3), np.arange(3, 6), np.arange(6, 9)],
+        frames = {1: header(1, 1, 0.), 4: header(2, 1, 0.), 5: header(0, 1, 0.), 7: header(0, 1 | 4, .7),
+                  10: header(0, 1, .7), 13: header(1, 1, .7)}
+        index = np.zeros(15, dtype=[("flags", "<u4")])
+        index["flags"][[1, 4, 5, 7, 10, 13]] = 1
+        dataset = SimpleNamespace(trajectories=[[0], [1], [2], [3], [4]],
+                                  segments=[np.arange(0, 3), np.arange(3, 6), np.arange(6, 9), np.arange(9, 12),
+                                            np.arange(12, 15)],
                                   store=SimpleNamespace(index=index, read_raw=lambda row: frames[row]))
-        # House-only, then forced-then-greedy net, then a sampled net decision.
-        self.assertEqual(learner_trajectories(dataset, greedy=True), [[1], [2]])
-        self.assertEqual(learner_trajectories(dataset, greedy=False), [[2]])
+        # House-only, then forced-then-greedy net, then a sampled net decision with a probability,
+        # then one without (an attack, a block, a payment), then the house at a temperature.
+        self.assertEqual(learner_trajectories(dataset, greedy=True), [[1], [2], [3]])
+        self.assertEqual(learner_trajectories(dataset, greedy=False), [[2], [3]])
         # The same rule as the tensor path that admission applies.
         batch = {k: torch.tensor(v) for k, v in dict(step_valid=[True] * 3, is_decision=[True] * 3,
-                                                     source_kind=[1, 0, 0], has_logprob=[False, False, True],
-                                                     temperature=[0., 0., .7]).items()}
+                                                     source_kind=[1, 0, 0], has_logprob=[False, False, False],
+                                                     temperature=[.7, 0., .7]).items()}
         self.assertEqual(neural_decisions(batch, greedy=True).tolist(), [False, True, True])
         self.assertEqual(neural_decisions(batch).tolist(), [False, False, True])
 

@@ -78,9 +78,10 @@ class V5Calibration(unittest.TestCase):
             class Ineligible(TinyDataset):
                 def __getitem__(self,index):
                     row=super().__getitem__(index)
+                    # Each reason alone: the house at the net's temperature, the net at none.
                     row['has_logprob'][:]=False
-                    row['temperature'][:]=0
                     if house:row['source_kind'][:]=1
+                    else:row['temperature'][:]=0
                     return row
             net,_=self.saved(2)
             with tempfile.TemporaryDirectory() as temporary:
