@@ -713,18 +713,15 @@ layer has no answer that decodes exactly); `rule` (`same`, `differs`,
 `absent`), `played`, the coin and its draw index, and the proposer: `net`,
 `rule:<group>` when exactly one group changed the layer's answer, else
 `rules`. A number has no density: π is the point mass at the net's answer and
-the step claims no probability. A blocker answer the attackers' stated counts
-moved carries no behaviour probability (`sample_pairs_constrained`): where it
-is executed, the step records no π (`has_logprob` false, logprob 0) and its
-`mixture_logprob` is `null`, never a zero or a number's point mass in its
-place. At a block whose stated counts can move a draw at all
-(`features4::attacker_counts_may_move`: an attacker that needs two or more
-blockers, or takes fewer than may block it), the layer's answer R may also be
-reached from other draws, so neither π(R) nor μ(R) is its draw's alone (the
-sum is not computed): wherever R is executed there, played or as the net's own
-sample, the step records neither. Every other step's π and μ are exact. A layer
-answer outside the sampler's support
-is never played. `games.jsonl` gives each game's stream (seed, draws, played);
+the step claims no probability. Under `injective_categorical_menu_v1`
+(`docs/training-runbook.md`) only a single choice whose whole menu has a
+one-to-one action mapping (`features4::supports_behavior_probability4`) has a π
+and a μ, and both are exact. A subset, a blocker pair and any other single
+choice (a duplicate or aliased action, a payment, a question kind the predicate
+does not name) may reach the executed answer from several draws, and the sum
+over them is not computed: the step records no π (`has_logprob` false, logprob
+0) and its `mixture_logprob` is `null`, never a zero or a number's point mass
+in its place. A layer answer outside the sampler's support is never played. `games.jsonl` gives each game's stream (seed, draws, played);
 `run.json` says `exploration` with records `exploration` and labels
 `outcomes_only`. Without the flags no byte of a record changes.
 
@@ -1531,7 +1528,29 @@ own; every other root is counted by its reason. Records of the fork-search
 runtimes before 445a4e276 (the count boundary) convert with one converter,
 c42/shared up to 253beb52b with the house-teacher line, after its frames were
 shown to be byte for byte those of the collection's own convert4; the meta
-names the collection's build, the converter's and that check.
+names the collection's build, the converter's and that check, and the whole
+`search` of each run. A run for numbers only is refused. An answer the table
+refused has no record input and is counted `not_accepted`; a root with a single
+world has no standard error and is counted `one_world`; a root the replay gave
+no frame for is counted `no_frame`.
+
+**Afterstates** (`search_afterstate_v1`, `convert4 --search-advantage
+--search-afterstates`, encoder 10). For a head that judges an answer by the
+position it leads to, each searched candidate of a labelled root also gets the
+seat's observation of the table right after it: the replay's table is forked
+with the seat's public prior (no real hidden card is in the fork), the
+candidate is played as the search played it, a planned cast by the planner's
+taps, and the capture stops at the next question
+(`baylee_train::convert4::afterstates`). It is made in two forks dealt from two
+seeds and kept only where both give the same frame and the fork's frame of the
+root is the replay's. The frames are the split `search-afterstate-frames`
+(observation frames, policy weight 0, cursor `8 * root cursor + candidate`, so
+a run that searched more than eight candidates is refused); the rows are the
+sidecar `search-afterstates/` (`bin/convert4/afterstates.rs` has the layout).
+The trainer's arm V (`training4/afterstate.py`) captures r1's value of each
+afterstate, fits V0 (a small head, r1 frozen) or V1 (a tower of r1's upper
+layers) to the measured advantages, and `decide` reads the report half once,
+under the pre-registration, for fits of exactly these afterstate files.
 
 **Probing the layer's answers** (`distill_probe_v1`, "learn from the
 wheels"). Imitating `R` everywhere taught the raw net the layer's holds
@@ -2040,15 +2059,16 @@ searched: the contract stays `belief_lookahead_v2`, and its metadata adds
 `run.json` and the summary alike).
 
 **Options.** `--search K,P,H` (off by default; K 1..=32, P 1..=256,
-H 0..=10000), `--search-select prior|paired|mean` (default `prior`) with
+H 0..=10000), `--search-select prior|paired|mean|measure` (default `prior`; `measure` plays
+the policy's own answer and only reports the worlds) with
 `--search-prior-c` (default 1), `--search-margin` and `--search-z` (finite,
 non-negative; run metadata names the selection used and the default),
 `--search-max-decisions-per-game N` (0 = no cap; later decisions answer
 without searching, counted as `budget`), `--search-threads N` (1..=256,
 default 16; only with `--inference-batch`), and `--search-targets T`
 (0..=8, default 0; targets as candidates, above). Refused with
-`--legacy-v3`, a frozen or self-play opponent or any collection purpose but
-`evaluation`, and `--shadow-teacher`.
+`--legacy-v3`, an archived v3 opponent, a research-utility critic, any
+collection purpose but `evaluation`, and `--shadow-teacher`.
 
 **Determinism.** A search is a function of the table, the player's state at
 the root, K, P, H, the selection and the deal's policy seed: budgets are
@@ -2113,10 +2133,34 @@ watching every frame of the seat (`follow`, today's leaf). With the net as
 its own rollout net and `follow` the search is the plain one.
 `--rollout-compare` records, at each root of the net's own search, the same
 worlds searched under each leaf (`variants`), and `rollout_curve4` judges
-them by the net's worlds as the live-search curve does. Parked by the owner
-(19 November): the search plays the big net; a small rollout net would be a
-separate fork. The trainer's separate-reference imitation mode for such a
+them by the net's worlds as the live-search curve does. A rollout net plays the worlds of one net seat: it is refused beside a neural
+opponent, the deadline seat and `--search-rival distill`, and where its critic
+is a research utility. `run.json` names its identity, and where leaves are only
+compared (`--rollout-compare`) `rollout` and the leaf are the net's own. Parked
+by the owner (19 November): the search plays the big net; a small rollout net
+would be a separate fork. The trainer's separate-reference imitation mode for such a
 net is kept outside the tree, in the campaign's `rolloutnet/` directory.
+
+**Terminal and paired measurements.** Three options are for fair measuring
+searches alone (`--search-rival distill`, or a payable pair).
+`--search-until-game-over` plays a rollout past the settled and turn stops to
+the end of the game; a decision, action or refusal guard still censors it, so
+only a terminal leaf is an outcome. `--search-min-turn N` leaves roots before
+public turn N to the policy (`before_min_turn`). `--search-payable-pair`
+compares the policy's answer with two distinct spells the seat can pay for at
+the root, their whole mana plans included (`payable_pair` in the run's search;
+`--search 3,P,H --search-macros`, house-free, the raw net). `astra_visible4`
+(feature `llm`) renders such a pair from the deciding seat's replay before the
+action, without scores or endings, and keeps the join to the record in a file
+of its own.
+
+**A five-second deadline** (`--offline-deadline-seat`, an offline experiment).
+The seat always plays the model's FP32 CPU export, and a fair lockstep macro
+search on a separate batched backend gets five seconds from the moment the
+question is offered; whatever is not ready by then is answered by the policy.
+One table worker, recorded, numbers only, greedy, 1v1 TRAIN against the house.
+Each question's timing and outcome is in the deal's `offline_deadline`; the
+answers depend on the wall clock, so the run says `bitwise_reproducible: false`.
 
 **Limits.** The worlds are dealt from the real remaining decks of the
 evaluator's known lists — an upper bound on what a seat without deck
