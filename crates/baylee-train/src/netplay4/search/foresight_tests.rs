@@ -392,6 +392,17 @@ fn payable_pair_measures_two_distinct_casts_with_their_payments_and_keeps_the_re
         .with_house_free(true)
         .with_selection(Selection4::Measure)
         .unwrap();
+    let metadata = config.metadata();
+    assert_eq!(
+        metadata["candidate_order"],
+        "policy_answer_then_the_first_two_distinct_spells_the_planner_pays_for_\
+         both_or_no_root_where_the_first_world_refuses_one",
+        "the pair alone is compared, not the macro candidates"
+    );
+    assert_ne!(
+        config.with_payable_pair(false).metadata()["candidate_order"],
+        metadata["candidate_order"]
+    );
     let played = play(&preset, Mock::new(conserve, creatures), config);
     assert!(
         !played.reports.is_empty(),

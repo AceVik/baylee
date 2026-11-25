@@ -601,6 +601,30 @@ impl SearchConfig4 {
         }
     }
 
+    /// What [`Self::metadata`] says of a search with macro candidates, or of
+    /// the payable pair alone.
+    fn describe_macros(&self, metadata: &mut Value) {
+        if !self.macros {
+            return;
+        }
+        metadata["roots"] = json!(
+            "priority_at_the_start_of_a_chain_where_the_policy_acts_or_in_the_seats_main_phase_\
+             or_with_another_players_object_on_top_of_the_stack"
+        );
+        metadata["candidate_order"] = json!(
+            "policy_answer_then_pass_then_each_spell_the_planner_pays_for_then_castable_spells_\
+             then_lands_then_abilities_one_per_card"
+        );
+        metadata["prior"] = json!("one_for_the_policys_answer_zero_for_the_others");
+        if self.payable_pair {
+            metadata["payable_pair"] = json!("policy_anchor_then_two_distinct_payable_spells");
+            metadata["candidate_order"] = json!(
+                "policy_answer_then_the_first_two_distinct_spells_the_planner_pays_for_\
+                 both_or_no_root_where_the_first_world_refuses_one"
+            );
+        }
+    }
+
     /// What a run records about its search, so a reader knows exactly what
     /// produced every searched answer.
     #[must_use]
@@ -662,17 +686,7 @@ impl SearchConfig4 {
             metadata["max_rollout_actions"] = json!(rollout::MAX_ROLLOUT_ACTIONS);
         }
         metadata["house_in_worlds"] = json!(self.house);
-        if self.macros {
-            metadata["roots"] = json!(
-                "priority_at_the_start_of_a_chain_where_the_policy_acts_or_in_the_seats_main_phase_\
-                 or_with_another_players_object_on_top_of_the_stack"
-            );
-            metadata["candidate_order"] = json!(
-                "policy_answer_then_pass_then_each_spell_the_planner_pays_for_then_castable_spells_\
-                 then_lands_then_abilities_one_per_card"
-            );
-            metadata["prior"] = json!("one_for_the_policys_answer_zero_for_the_others");
-        }
+        self.describe_macros(&mut metadata);
         if self.rival == Rival4::Distill {
             metadata["rival"] = json!(self.rival);
             metadata["roots"] = json!(
@@ -681,9 +695,6 @@ impl SearchConfig4 {
             );
             metadata["candidate_order"] =
                 json!("policy_answer_then_the_tactical_layers_answer_from_the_distillation_label");
-        }
-        if self.payable_pair {
-            metadata["payable_pair"] = json!("policy_anchor_then_two_distinct_payable_spells");
         }
         if self.selection == Selection4::Measure {
             metadata["played"] =
