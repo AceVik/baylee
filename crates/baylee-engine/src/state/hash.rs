@@ -1891,6 +1891,7 @@ fn hash_expansion_acquired_rider(h: &mut Hasher, rider: &crate::object::Rider) {
     }
 }
 
+#[allow(clippy::too_many_lines)] // one arm per cast/trigger rider
 fn hash_cast_keyword_rider(h: &mut Hasher, rider: &crate::object::Rider) {
     match rider {
         crate::object::Rider::SquadPaid(n) => {
@@ -1985,6 +1986,21 @@ fn hash_cast_keyword_rider(h: &mut Hasher, rider: &crate::object::Rider) {
             h.u16(363);
             h.u16(*word);
             h.u64(*mask);
+        }
+        crate::object::Rider::ManaTypesSpent(types) => {
+            h.u8(255);
+            h.u16(438);
+            types.hash(h);
+        }
+        crate::object::Rider::ConvokedCount(count) => {
+            h.u8(255);
+            h.u16(439);
+            h.u16(*count);
+        }
+        crate::object::Rider::EventManaSpent(spent) => {
+            h.u8(255);
+            h.u16(440);
+            h.u32(*spent);
         }
         _ => {}
     }
@@ -2873,6 +2889,21 @@ fn hash_object(h: &mut Hasher, obj: &GameObject) {
                 h.u16(*word);
                 h.u64(*mask);
             }
+            Rider::ManaTypesSpent(types) => {
+                h.u8(255);
+                h.u16(438);
+                types.hash(h);
+            }
+            Rider::ConvokedCount(count) => {
+                h.u8(255);
+                h.u16(439);
+                h.u16(*count);
+            }
+            Rider::EventManaSpent(spent) => {
+                h.u8(255);
+                h.u16(440);
+                h.u32(*spent);
+            }
         }
     }
     // What the spell or ability on the stack was cast or put there with:
@@ -3268,6 +3299,9 @@ fn amount_filter_depth_exceeds(amt: &baylee_cards_dsl::Amount, depth: u8) -> boo
         | A::GreatestManaValueAmong(f)
         | A::TotalPowerAmong(f)
         | A::EnteredThisTurn { filter: f, .. }
+        | A::TokensCreatedThisTurn { filter: f, .. }
+        | A::LeftZoneThisTurn { filter: f, .. }
+        | A::PermanentsSacrificedThisTurn { filter: f, .. }
         | A::SpellsCastMatchingThisTurn { filter: f, .. }
         | A::CreaturesAttackedThisTurn { filter: f, .. }
         | A::DistinctManaValuesInZone { filter: f, .. } => filter_amount_depth_exceeds(f, depth),

@@ -2930,12 +2930,29 @@ impl Tx<'_> {
             let after_prev_statics = self.body.statics.len();
             let after_prev_unclaimed = self.unclaimed.borrow().clone();
             self.body.statics.truncate(saved_statics);
-            *self.unclaimed.borrow_mut() = saved_unclaimed;
+            (*self.unclaimed.borrow_mut()).clone_from(&saved_unclaimed);
             if self
                 .wave26f_token_found_trigger_chain(&body, &mut tok_chain)
                 .is_some()
             {
                 chain = tok_chain;
+                chain_ok = Some(());
+            } else {
+                self.body.statics.truncate(after_prev_statics);
+                *self.unclaimed.borrow_mut() = after_prev_unclaimed;
+            }
+        }
+        if chain_ok.is_none() {
+            let mut w16a_chain = Chain::default();
+            let after_prev_statics = self.body.statics.len();
+            let after_prev_unclaimed = self.unclaimed.borrow().clone();
+            self.body.statics.truncate(saved_statics);
+            *self.unclaimed.borrow_mut() = saved_unclaimed;
+            if self
+                .wave16a_trigger_chain(&trigger, &body, &mut w16a_chain)
+                .is_some()
+            {
+                chain = w16a_chain;
                 chain_ok = Some(());
             } else {
                 self.body.statics.truncate(after_prev_statics);
@@ -4630,6 +4647,9 @@ impl Tx<'_> {
         } else if trimmed.starts_with("Count$")
             || trimmed.starts_with("PlayerCount")
             || trimmed.starts_with("DungeonsCompleted$")
+            || trimmed.starts_with("CastSA>Count$")
+            || trimmed.starts_with("Adamant$")
+            || trimmed.starts_with("Convoked$")
         {
             trimmed
         } else {
@@ -4715,6 +4735,7 @@ impl Tx<'_> {
         Self::wave16_svar_condition(raw, cmp)
             .or_else(|| self.wave19c_svar_condition(raw, cmp))
             .or_else(|| self.wave27a_trigger_svar_condition(raw, cmp))
+            .or_else(|| self.wave16a_trigger_svar_condition(raw, cmp))
     }
 
     /// Wave-16c shared `CheckSVar$` / `ConditionCheckSVar$` clauses for Wave 7b/8a

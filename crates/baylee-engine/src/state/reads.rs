@@ -118,6 +118,9 @@ fn amount_reads_reference_at(amount: &baylee_cards_dsl::Amount, depth: u8) -> bo
         | Amount::GreatestManaValueAmong(f)
         | Amount::TotalPowerAmong(f)
         | Amount::EnteredThisTurn { filter: f, .. }
+        | Amount::TokensCreatedThisTurn { filter: f, .. }
+        | Amount::LeftZoneThisTurn { filter: f, .. }
+        | Amount::PermanentsSacrificedThisTurn { filter: f, .. }
         | Amount::SpellsCastMatchingThisTurn { filter: f, .. }
         | Amount::CreaturesAttackedThisTurn { filter: f, .. }
         | Amount::DistinctManaValuesInZone { filter: f, .. } => filter_reads_reference_at(f, depth),
@@ -424,6 +427,9 @@ fn amount_reads_crime_at(amount: &baylee_cards_dsl::Amount, depth: u8) -> bool {
         | Amount::GreatestManaValueAmong(f)
         | Amount::TotalPowerAmong(f)
         | Amount::EnteredThisTurn { filter: f, .. }
+        | Amount::TokensCreatedThisTurn { filter: f, .. }
+        | Amount::LeftZoneThisTurn { filter: f, .. }
+        | Amount::PermanentsSacrificedThisTurn { filter: f, .. }
         | Amount::SpellsCastMatchingThisTurn { filter: f, .. }
         | Amount::CreaturesAttackedThisTurn { filter: f, .. }
         | Amount::DistinctManaValuesInZone { filter: f, .. } => filter_reads_crime(f, depth + 1),
@@ -685,6 +691,9 @@ fn amount_reads_expend_at(amount: &baylee_cards_dsl::Amount, depth: u8) -> bool 
         | Amount::GreatestManaValueAmong(f)
         | Amount::TotalPowerAmong(f)
         | Amount::EnteredThisTurn { filter: f, .. }
+        | Amount::TokensCreatedThisTurn { filter: f, .. }
+        | Amount::LeftZoneThisTurn { filter: f, .. }
+        | Amount::PermanentsSacrificedThisTurn { filter: f, .. }
         | Amount::SpellsCastMatchingThisTurn { filter: f, .. }
         | Amount::CreaturesAttackedThisTurn { filter: f, .. }
         | Amount::DistinctManaValuesInZone { filter: f, .. } => filter_reads_expend(f, depth + 1),
@@ -835,6 +844,8 @@ pub(crate) fn card_reads_discard_count(def: &CardDef) -> bool {
             metric,
             baylee_cards_dsl::SpellCastMetric::CardsDiscardedThisTurn
         )
+    }) || card_reads_pred(def, &|_| false, &|amt| {
+        matches!(amt, baylee_cards_dsl::Amount::CardsDiscardedThisTurn(_))
     })
 }
 
@@ -843,6 +854,11 @@ pub(crate) fn card_reads_sacrificed_permanents(def: &CardDef) -> bool {
         matches!(
             metric,
             baylee_cards_dsl::SpellCastMetric::PermanentsSacrificedThisTurn(_)
+        )
+    }) || card_reads_pred(def, &|_| false, &|amt| {
+        matches!(
+            amt,
+            baylee_cards_dsl::Amount::PermanentsSacrificedThisTurn { .. }
         )
     })
 }
@@ -920,10 +936,17 @@ fn effects_have_spell_cast_metric(
     found
 }
 
-/// Whether `def` reads per-turn frozen zone-change snapshots (`Amount::EnteredThisTurn`).
+/// Whether `def` reads per-turn frozen zone-change snapshots
+/// (`Amount::EnteredThisTurn`, `Amount::TokensCreatedThisTurn`, or
+/// `Amount::LeftZoneThisTurn`).
 pub(crate) fn card_reads_zone_changes(def: &CardDef) -> bool {
     card_reads_pred(def, &|_| false, &|amt| {
-        matches!(amt, baylee_cards_dsl::Amount::EnteredThisTurn { .. })
+        matches!(
+            amt,
+            baylee_cards_dsl::Amount::EnteredThisTurn { .. }
+                | baylee_cards_dsl::Amount::TokensCreatedThisTurn { .. }
+                | baylee_cards_dsl::Amount::LeftZoneThisTurn { .. }
+        )
     })
 }
 
@@ -1230,6 +1253,9 @@ fn amt_matches(
         | Amount::GreatestManaValueAmong(f)
         | Amount::TotalPowerAmong(f)
         | Amount::EnteredThisTurn { filter: f, .. }
+        | Amount::TokensCreatedThisTurn { filter: f, .. }
+        | Amount::LeftZoneThisTurn { filter: f, .. }
+        | Amount::PermanentsSacrificedThisTurn { filter: f, .. }
         | Amount::SpellsCastMatchingThisTurn { filter: f, .. }
         | Amount::CreaturesAttackedThisTurn { filter: f, .. }
         | Amount::DistinctManaValuesInZone { filter: f, .. } => {

@@ -817,8 +817,10 @@ pub(super) fn amount2(amount: &Amount, state: &GameState, you: PlayerId, res: &R
             let power = state
                 .object(source)
                 .filter(|o| {
-                    o.zone == crate::zone::Zone::Battlefield
-                        && identity.is_none_or(|(v, _)| o.version == v)
+                    matches!(
+                        o.zone,
+                        crate::zone::Zone::Battlefield | crate::zone::Zone::Stack
+                    ) && identity.is_none_or(|(v, _)| o.version == v)
                 })
                 .map(|o| o.characteristics().power.unwrap_or(0))
                 .or_else(|| identity.map(|(_, p)| p))
@@ -878,6 +880,41 @@ pub(super) fn amount2(amount: &Amount, state: &GameState, you: PlayerId, res: &R
             .and_then(|c| c.toughness)
             .map_or(0, |t| t.max(0) as u32),
         Amount::TargetCmc => target_mana_value(res, state),
+        Amount::TargetManaSpentToCast => {
+            let Some(id) = res.targets.first().copied() else {
+                return 0;
+            };
+            if let Some(known) = res
+                .target_lki
+                .as_ref()
+                .and_then(|lki| lki.iter().find(|l| l.id == id))
+                && let Some(paid) = state
+                    .damage_source(id, Some(known.version))
+                    .and_then(|o| o.paid.as_ref())
+            {
+                return paid.mana_spent;
+            }
+            eval::mana_spent_on(state, id)
+        }
+        Amount::EventManaSpentToCast => state
+            .object(res.on_stack)
+            .filter(|object| object.event_object == res.event_object)
+            .and_then(|object| {
+                object.riders.iter().find_map(|rider| match rider {
+                    crate::object::Rider::EventManaSpent(value) => Some(*value),
+                    _ => None,
+                })
+            })
+            .or_else(|| {
+                let ev = res.event_object?;
+                let ver = event_object_identity(state, res).map(|(v, _)| v);
+                state
+                    .damage_source(ev, ver)
+                    .or_else(|| state.object(ev))
+                    .and_then(|o| o.paid.as_ref())
+                    .map(|p| p.mana_spent)
+            })
+            .unwrap_or(0),
         // Off the triggered ability, where stacking it wrote the event's
         // amount.
         Amount::EventManaValue => state
@@ -930,6 +967,21 @@ pub(super) fn amount2(amount: &Amount, state: &GameState, you: PlayerId, res: &R
             .map(eval::object_snow_mana_spent)
             .filter(|&n| n > 0)
             .unwrap_or_else(|| eval::snow_mana_spent_on(state, res.source)),
+        Amount::ManaColorSpentToCast(color) => state
+            .object(res.on_stack)
+            .map(|o| eval::object_mana_color_spent(o, *color))
+            .filter(|&n| n > 0 || res.on_stack == res.source)
+            .unwrap_or_else(|| eval::mana_color_spent_on(state, res.source, *color)),
+        Amount::ColorsOfManaSpentToCast => state
+            .object(res.on_stack)
+            .map(eval::object_colors_of_mana_spent)
+            .filter(|&n| n > 0 || res.on_stack == res.source)
+            .unwrap_or_else(|| eval::colors_of_mana_spent_on(state, res.source)),
+        Amount::ConvokedCount => state
+            .object(res.on_stack)
+            .map(eval::object_convoked_count)
+            .filter(|&n| n > 0 || res.on_stack == res.source)
+            .unwrap_or_else(|| eval::convoked_count_on(state, res.source)),
         Amount::EntrySacrifices => state
             .object(res.on_stack)
             .and_then(|o| {
@@ -1283,6 +1335,69 @@ pub(super) fn amount2(amount: &Amount, state: &GameState, you: PlayerId, res: &R
                 source_version(state, res),
             )
         }
+        Amount::TokensCreatedThisTurn { filter, creator } => {
+            let seats = players_of(*creator, state, you, res);
+            eval::tokens_created_this_turn_for_seats(state, you, res.rule_context(), filter, &seats)
+        }
+        Amount::LeftZoneThisTurn {
+            filter,
+            from,
+            owner_or_ctrl,
+        } => {
+            let seats = players_of(*owner_or_ctrl, state, you, res);
+            eval::left_zone_this_turn_for_seats(
+                state,
+                you,
+                res.rule_context(),
+                filter,
+                *from,
+                &seats,
+            )
+        }
+        Amount::LifeLostThisTurn(who) => {
+            if let Some(seats) = eval::turn_history_seats(*who, state, you, Some(res.source)) {
+                eval::life_lost_for_seats(state, &seats)
+            } else {
+                let seats = players_of(*who, state, you, res);
+                eval::life_lost_for_seats(state, &seats)
+            }
+        }
+        Amount::HighestLifeLostThisTurn(who) => {
+            if let Some(seats) = eval::turn_history_seats(*who, state, you, Some(res.source)) {
+                eval::highest_life_lost_for_seats(state, &seats)
+            } else {
+                let seats = players_of(*who, state, you, res);
+                eval::highest_life_lost_for_seats(state, &seats)
+            }
+        }
+        Amount::CardsDiscardedThisTurn(who) => {
+            if let Some(seats) = eval::turn_history_seats(*who, state, you, Some(res.source)) {
+                eval::cards_discarded_for_seats(state, &seats)
+            } else {
+                let seats = players_of(*who, state, you, res);
+                eval::cards_discarded_for_seats(state, &seats)
+            }
+        }
+        Amount::PermanentsSacrificedThisTurn { who, filter } => {
+            if let Some(seats) = eval::turn_history_seats(*who, state, you, Some(res.source)) {
+                eval::permanents_sacrificed_for_seats(
+                    state,
+                    you,
+                    res.rule_context(),
+                    filter,
+                    &seats,
+                )
+            } else {
+                let seats = players_of(*who, state, you, res);
+                eval::permanents_sacrificed_for_seats(
+                    state,
+                    you,
+                    res.rule_context(),
+                    filter,
+                    &seats,
+                )
+            }
+        }
         Amount::SpellsCastMatchingThisTurn { filter, caster } => {
             let seats = players_of(*caster, state, you, res);
             eval::spells_cast_matching_for_seats(state, you, res.rule_context(), filter, &seats)
@@ -1400,6 +1515,41 @@ pub(super) fn amount_for_player(
         }
         Amount::ManaExpendedOnSpellsThisTurn(PlayerRel::Recipient) => {
             state.per_turn.mana_expended_by(player)
+        }
+        Amount::LifeLostThisTurn(PlayerRel::Recipient)
+        | Amount::HighestLifeLostThisTurn(PlayerRel::Recipient) => {
+            eval::life_lost_for_seats(state, &[player])
+        }
+        Amount::CardsDiscardedThisTurn(PlayerRel::Recipient) => {
+            eval::cards_discarded_for_seats(state, &[player])
+        }
+        Amount::TokensCreatedThisTurn {
+            filter,
+            creator: PlayerRel::Recipient,
+        } => eval::tokens_created_this_turn_for_seats(
+            state,
+            you,
+            res.rule_context(),
+            filter,
+            &[player],
+        ),
+        Amount::LeftZoneThisTurn {
+            filter,
+            from,
+            owner_or_ctrl: PlayerRel::Recipient,
+        } => eval::left_zone_this_turn_for_seats(
+            state,
+            you,
+            res.rule_context(),
+            filter,
+            *from,
+            &[player],
+        ),
+        Amount::PermanentsSacrificedThisTurn {
+            who: PlayerRel::Recipient,
+            filter,
+        } => {
+            eval::permanents_sacrificed_for_seats(state, you, res.rule_context(), filter, &[player])
         }
         Amount::EnteredThisTurn {
             filter,
@@ -1660,18 +1810,24 @@ fn amount_reads_resolution_player_at(amount: &baylee_cards_dsl::Amount, depth: u
                 | P::ThirdTargetPlayerOrController
                 | P::RememberedController
                 | P::Recipient
+                | P::OtherOpponents
         )
     };
     match amount {
         A::RememberedCount
         | A::RememberedManaValue
         | A::RememberedPower
-        | A::RememberedToughness => true,
+        | A::RememberedToughness
+        | A::EventManaSpentToCast
+        | A::TargetManaSpentToCast => true,
         A::LibrarySize(r)
         | A::HandSize(r)
         | A::LifeTotal(r)
         | A::StartingLifeTotal(r)
         | A::LifeGainedThisTurn(r)
+        | A::LifeLostThisTurn(r)
+        | A::HighestLifeLostThisTurn(r)
+        | A::CardsDiscardedThisTurn(r)
         | A::Players(r)
         | A::SpellsWarpedThisTurn(r)
         | A::ManaExpendedOnSpellsThisTurn(r)
@@ -1682,6 +1838,16 @@ fn amount_reads_resolution_player_at(amount: &baylee_cards_dsl::Amount, depth: u
             filter,
             ..
         }
+        | A::TokensCreatedThisTurn {
+            creator: who,
+            filter,
+        }
+        | A::LeftZoneThisTurn {
+            owner_or_ctrl: who,
+            filter,
+            ..
+        }
+        | A::PermanentsSacrificedThisTurn { who, filter }
         | A::SpellsCastMatchingThisTurn {
             caster: who,
             filter,
@@ -1946,6 +2112,22 @@ pub(super) fn players_of(
             .filter(|seat| !state.has_left(*seat))
             .into_iter()
             .collect(),
+        PlayerRel::OtherOpponents => {
+            let excluded = res.subject.event_player().or_else(|| {
+                state.object(res.on_stack).and_then(|o| {
+                    o.riders.iter().find_map(|r| match r {
+                        crate::object::Rider::EventPlayer(seat) => Some(*seat),
+                        _ => None,
+                    })
+                })
+            });
+            state
+                .players
+                .iter()
+                .filter(|p| !p.has_lost() && state.is_opponent(p.id, you) && Some(p.id) != excluded)
+                .map(|p| p.id)
+                .collect()
+        }
         other => eval::players(other, state, you)
             .expect("the context relations are matched above this arm"),
     }

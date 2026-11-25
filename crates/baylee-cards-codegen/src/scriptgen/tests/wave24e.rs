@@ -617,14 +617,22 @@ fn strict_refusals_for_alchemy_unset_planechase_and_unsound_approximations() {
          SVar:TrigDraw:DB$ Draw | NumCards$ 1"
     ));
 
-    // Multiplayer-unsound `PlayerCountOpponents$HighestLifeLostThisTurn GE2` MUST stay refused
-    // (summing across opponents is not equal to max single opponent's life lost!).
-    assert!(refused_w24e(
-        "Name:Multiplayer Trap\nManaCost:2 B\nTypes:Creature Vampire\nPT:2/2\n\
+    // Wave 16a: `PlayerCountOpponents$HighestLifeLostThisTurn GE2` now lowers to
+    // per-opponent max `Amount::HighestLifeLostThisTurn(PlayerRel::EachOpponent)`
+    // (never summing across opponents via `LifeLostByOpponentsThisTurn`).
+    let max_opp_loss = read_w24e(
+        "Name:Multiplayer Safe\nManaCost:2 B\nTypes:Creature Vampire\nPT:2/2\n\
          T:Mode$ Phase | Phase$ End of Turn | ValidPlayer$ You | TriggerZones$ Battlefield | CheckSVar$ X | SVarCompare$ GE2 | Execute$ TrigDraw\n\
          SVar:TrigDraw:DB$ Draw | NumCards$ 1\n\
-         SVar:X:PlayerCountOpponents$HighestLifeLostThisTurn"
-    ));
+         SVar:X:PlayerCountOpponents$HighestLifeLostThisTurn",
+    );
+    assert!(
+        max_opp_loss.abilities[0]
+            .contains("Amount::HighestLifeLostThisTurn(PlayerRel::EachOpponent)")
+            && !max_opp_loss.abilities[0].contains("LifeLostByOpponentsThisTurn"),
+        "{:?}",
+        max_opp_loss.abilities
+    );
 
     // Mandatory Sac<1/CARDNAME> that reads `Sacrificed$` LKI MUST stay refused.
     assert!(refused_w24e(

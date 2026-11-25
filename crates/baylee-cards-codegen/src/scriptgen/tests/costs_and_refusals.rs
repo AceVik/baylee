@@ -4567,7 +4567,7 @@ fn wave15a_conditional_etb_counter_clauses_and_nickname_grave_exile() {
     );
 
     for bad_etb in [
-        "Name:AdamantEtb\nManaCost:3 W\nTypes:Creature Knight\nPT:2/5\nK:etbCounter:P1P1:1:Adamant$ White:desc",
+        "Name:BadAdamantEtb\nManaCost:3 W\nTypes:Creature Knight\nPT:2/5\nK:etbCounter:P1P1:1:Adamant$ Purple:desc",
         "Name:SelfCtrPresent\nManaCost:2 G\nTypes:Creature\nPT:2/2\nK:etbCounter:P1P1:1:IsPresent$ Card.Self+counters_GE1_P1P1:desc",
         "Name:DragonPresence\nManaCost:3 R\nTypes:Creature\nPT:3/3\nK:etbCounter:P1P1:1:CheckSVar$ Count$Presence_Dragon.1.0:desc",
     ] {

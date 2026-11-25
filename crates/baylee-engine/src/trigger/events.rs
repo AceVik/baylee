@@ -419,6 +419,8 @@ pub(super) fn event_object_for(
         (
             Trigger::DealsDamageToPlayer { .. }
             | Trigger::DealsCombatDamageToPlayer(_)
+            | Trigger::DealsCombatDamageToOpponent(_)
+            | Trigger::DealsDamageToOpponent(_)
             | Trigger::OneOrMoreDealCombatDamageToPlayer(_)
             | Trigger::DealsCombatDamageToYou(_)
             | Trigger::DealsCombatDamage(_)

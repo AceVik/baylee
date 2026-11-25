@@ -69,6 +69,7 @@ mod targets;
 mod transform48;
 mod triggers;
 mod wall52;
+mod wave16a;
 mod wave27a;
 mod wave27b;
 mod wave27c;
@@ -782,7 +783,7 @@ impl<'a> Tx<'a> {
                 return Some(format!("Amount::Fixed({value})"));
             }
         }
-        amount(raw, self.svars, self.has_x)
+        amount(raw, self.svars, self.has_x).or_else(|| self.wave16a_amount_num(raw))
     }
 
     /// [`plain_number`], resolving a non-zero `Count$Kicked.<A>.<B>` `SVar` when

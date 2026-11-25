@@ -1780,6 +1780,8 @@ impl Tx<'_> {
                 [only] => (*only).to_string(),
                 _ => return None,
             }
+        } else if let Some(adamant) = p.take("Adamant") {
+            Self::wave16a_adamant_condition(&adamant)?
         } else if let Some(valid) = p.take("IsPresent") {
             self.present_clause(&mut p, &valid)?
         } else {
@@ -2067,7 +2069,9 @@ impl Tx<'_> {
             return None;
         }
         let def = def.trim();
-        if let Some(var) = def.strip_prefix("SVar$") {
+        if let Some(var) = def.strip_prefix("SVar$")
+            && !var.contains('/')
+        {
             let inner = self.svars.get(var.trim())?.clone();
             return self.etb_wave6_expr(&inner, depth + 1);
         }
@@ -2105,6 +2109,9 @@ impl Tx<'_> {
             return Some(expr);
         }
         if let Some(expr) = self.wave27e_etb_amount(def) {
+            return Some(expr);
+        }
+        if let Some(expr) = self.wave16a_etb_amount(def) {
             return Some(expr);
         }
         if def == "Count$ThisTurnEntered_Graveyard_from_Battlefield_Creature" {
@@ -3575,7 +3582,27 @@ impl Tx<'_> {
         self.trigger_mode = None;
         self.block_line = None;
         match kind {
-            'A' => self.activated_or_spell(spec),
+            'A' => {
+                let saved_statics = self.body.statics.len();
+                let saved_abilities = self.body.abilities.len();
+                let saved_unclaimed = self.unclaimed.borrow().clone();
+                if self.activated_or_spell(spec).is_some() {
+                    Some(())
+                } else {
+                    let first_unclaimed = self.unclaimed.borrow().clone();
+                    self.body.statics.truncate(saved_statics);
+                    self.body.abilities.truncate(saved_abilities);
+                    *self.unclaimed.borrow_mut() = saved_unclaimed;
+                    if self.wave16a_spell_or_activated(spec).is_some() {
+                        Some(())
+                    } else {
+                        self.body.statics.truncate(saved_statics);
+                        self.body.abilities.truncate(saved_abilities);
+                        *self.unclaimed.borrow_mut() = first_unclaimed;
+                        None
+                    }
+                }
+            }
             'T' => self.triggered(spec),
             'S' if self.is_ai_only_static(spec) => Some(()),
             'S' if Self::should_bypass_extra_static(spec) => self.static_ability(spec),

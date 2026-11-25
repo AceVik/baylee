@@ -518,6 +518,81 @@ pub enum Amount {
     /// (`CR 608.2h`), floored at 0 (`CR 107.1b`). Appended to preserve replay
     /// identities.
     RememberedToughness,
+    /// Units of mana of the specified [`baylee_core::mana::ManaColor`] (`{W}`, `{U}`, `{B}`,
+    /// `{R}`, `{G}`, `{C}`) actually spent to cast this spell or the spell
+    /// that became this permanent (`CR 601.2h`, `CR 400.7d`; `0` when not cast
+    /// or copied, `CR 707.10`). Powers Adamant (*Ardenvale Paladin*), the
+    /// `{C}{C}` Elemental Incarnation cycle (*Catharsis*), and mana-pair
+    /// scalers (*Bladecoil Serpent*, *Clay Champion*). Appended to preserve
+    /// replay identities.
+    ManaColorSpentToCast(baylee_core::mana::ManaColor),
+    /// Number of distinct colors of mana (`0..=5`; colorless is not a color,
+    /// `CR 105.4`) spent to cast this spell or the spell that became this
+    /// permanent (`CR 207.2c` converge, `CR 601.2h`, `CR 400.7d`). Appended to
+    /// preserve replay identities.
+    ColorsOfManaSpentToCast,
+    /// Number of creatures tapped to pay this spell's cost via convoke
+    /// (`CR 702.51a`, `CR 400.7d`; `0` when not cast or copied, `CR 707.10`;
+    /// *Ancient Imperiosaur*). Appended to preserve replay identities.
+    ConvokedCount,
+    /// Total mana spent to cast the spell that caused the triggering event
+    /// (`CR 601.2h`, `CR 608.2h`; *Aetherflux Conduit*, *Tellah, Great Sage*).
+    /// Appended to preserve replay identities.
+    EventManaSpentToCast,
+    /// Total mana spent to cast the first targeted spell, including LKI when an
+    /// earlier instruction in the same resolution countered or moved that spell
+    /// (`CR 601.2h`, `CR 608.2h`; *Unravel*). Appended to preserve replay
+    /// identities.
+    TargetManaSpentToCast,
+    /// Number of tokens created on the battlefield this turn (`CR 111.1`,
+    /// `CR 111.2`; excluding resolving copies of permanent spells, which enter
+    /// as tokens without being created per `CR 111.13`) by players matching
+    /// `creator` whose arriving snapshot matches `filter` (*Bennie Bracks,
+    /// Zoologist*). Appended to preserve replay identities.
+    TokensCreatedThisTurn {
+        /// Filter matched against the created token's arriving snapshot.
+        filter: &'static Filter,
+        /// Token creator (`CR 111.2`: owner on creation), relative to "you".
+        creator: super::PlayerRel,
+    },
+    /// Number of objects that left public zone `from` this turn (`Battlefield`,
+    /// `Graveyard`, `Stack`, `Command`, or face-up `Exile`), matched against
+    /// `filter` as each last existed in `from` (`CR 603.6c`, `CR 603.10a`),
+    /// controlled by (`Battlefield`) or owned by (other zones) `owner_or_ctrl`
+    /// (*Gau, Feral Youth*, *Syrix*, Void's nonland departure check). Appended
+    /// to preserve replay identities.
+    LeftZoneThisTurn {
+        /// Filter matched against the departing snapshot in `from`.
+        filter: &'static Filter,
+        /// Public zone the object departed from.
+        from: crate::ZoneRef,
+        /// Last controller (`Battlefield`) or owner (other zones) relative to "you".
+        owner_or_ctrl: super::PlayerRel,
+    },
+    /// Total life lost this turn (`CR 119.3`, `CR 119.4`) summed across players
+    /// matching the relation, including seats that have since left the game
+    /// (*Luminarch Ascension*, *Lunar Convocation*). Appended to preserve
+    /// replay identities.
+    LifeLostThisTurn(super::PlayerRel),
+    /// Greatest amount of life lost this turn (`CR 119.3`, `CR 119.4`) by any
+    /// single player matching the relation, including seats that have since
+    /// left the game (*Bloodchief Ascension*, *Sygg, River Cutthroat*, *Knight
+    /// of the Ebon Legion*). Appended to preserve replay identities.
+    HighestLifeLostThisTurn(super::PlayerRel),
+    /// Total cards discarded this turn (`CR 701.9`) by players matching the
+    /// relation (*The Raven Man*, *Tinybones, Trinket Thief*, *Recalibrate*).
+    /// Appended to preserve replay identities.
+    CardsDiscardedThisTurn(super::PlayerRel),
+    /// Number of permanents matching `filter` (as each last existed on the
+    /// battlefield, `CR 608.2h`) sacrificed this turn (`CR 701.17`) by players
+    /// matching `who` (*Phoenix Fleet Airship*, *Sawblade Skinripper*).
+    /// Appended to preserve replay identities.
+    PermanentsSacrificedThisTurn {
+        /// Sacrificing player, relative to "you".
+        who: super::PlayerRel,
+        /// Filter matched against the sacrificed permanent's departure snapshot.
+        filter: &'static Filter,
+    },
 }
 
 /// The recipient [`Amount::DamageThisTurn`] counts.

@@ -6730,12 +6730,24 @@ fn wave19c_phase_check_svar_negated_and_refusals() {
         yard_types_neg.abilities[0]
     );
 
-    // 5. Explicit refusal boundaries: non-subtype `Permanent`, `TriggeredPlayer$` outside `Phase`,
-    //    `LowestCardsInHand` on opponents, and mismatched `HighestValid` RHS.
-    for bad in [
+    // Wave 16a: `SacrificedThisTurn Permanent` now lowers via `Amount::PermanentsSacrificedThisTurn`.
+    let sac_perm = read(
         "Name:SacPerm\nManaCost:2 B\nTypes:Enchantment\n\
          T:Mode$ Phase | Phase$ End of Turn | ValidPlayer$ You | CheckSVar$ X | SVarCompare$ GE1 | TriggerZones$ Battlefield | Execute$ D\n\
          SVar:X:PlayerCountPropertyYou$SacrificedThisTurn Permanent\nSVar:D:DB$ Draw | NumCards$ 1",
+    );
+    assert!(
+        sac_perm.abilities[0].contains("Amount::PermanentsSacrificedThisTurn"),
+        "{}",
+        sac_perm.abilities[0]
+    );
+
+    // 5. Explicit refusal boundaries: unmodelled `Permanent.Self` on `SacrificedThisTurn`,
+    //    `TriggeredPlayer$` outside `Phase`, `LowestCardsInHand` on opponents, and mismatched `HighestValid` RHS.
+    for bad in [
+        "Name:SacPermSelf\nManaCost:2 B\nTypes:Enchantment\n\
+         T:Mode$ Phase | Phase$ End of Turn | ValidPlayer$ You | CheckSVar$ X | SVarCompare$ GE1 | TriggerZones$ Battlefield | Execute$ D\n\
+         SVar:X:PlayerCountPropertyYou$SacrificedThisTurn Permanent.Self\nSVar:D:DB$ Draw | NumCards$ 1",
         "Name:NonPhaseActive\nManaCost:2 B\nTypes:Enchantment\n\
          T:Mode$ SpellCast | ValidCard$ Card | ValidActivatingPlayer$ Opponent | CheckSVar$ H | SVarCompare$ LE2 | TriggerZones$ Battlefield | Execute$ D\n\
          SVar:H:TriggeredPlayer$CardsInHand\nSVar:D:DB$ Draw | NumCards$ 1",
