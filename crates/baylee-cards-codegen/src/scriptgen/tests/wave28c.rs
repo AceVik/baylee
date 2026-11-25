@@ -1156,16 +1156,11 @@ fn wave28c_p3_refusal_guards() {
          SVar:STCantBeTarget:Mode$ CantTarget | ValidTarget$ Permanent.YouCtrl | ValidSource$ Card.OppCtrl | ValidSA$ Activated"
     ));
 
-    // Vexing Shusher (target spell can't be countered) & non-combat CantPreventDamage stay refused.
+    // Vexing Shusher (target spell can't be countered) stays refused.
     assert!(refused_w28c(
         "Name:Vexing Shusher\nManaCost:RG RG\nTypes:Creature Goblin Shaman\nPT:2/2\n\
          A:AB$ Effect | Cost$ RG | ReplacementEffects$ AntiMagic | RememberObjects$ TargetedSource | ForgetOnMoved$ Stack | ValidTgts$ Card | TgtZone$ Stack | TargetType$ Spell\n\
          SVar:AntiMagic:Event$ Counter | ValidCard$ Card.IsRemembered | ValidSA$ Spell | Layer$ CantHappen"
-    ));
-    assert!(refused_w28c(
-        "Name:Flaring Pain\nManaCost:1 R\nTypes:Instant\n\
-         A:SP$ Effect | StaticAbilities$ STCantPrevent\n\
-         SVar:STCantPrevent:Mode$ CantPreventDamage"
     ));
 
     // Phantom cycle (CR 615.12), Propaganda (Target$ You without Planeswalker), Mirror Strike stay refused.

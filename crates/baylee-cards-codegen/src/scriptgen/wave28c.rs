@@ -1388,9 +1388,14 @@ impl Tx<'_> {
                             == Some("Creature.RememberedPlayerCtrl")
                             && st.exhausted() =>
                     {
+                        let name = self.body.filter_static(
+                            "EFFECT",
+                            &format!(
+                                "Filter::And(&[Filter::CREATURE, Filter::ControlledBy({who})])"
+                            ),
+                        );
                         out.push(format!(
-                            "Effect::ModifyFilter {{ filter: &Filter::CREATURE, \
-                             controlled_by: Some({who}), \
+                            "Effect::AddGlobalTempModifier {{ filter: &{name}, \
                              modifier: Modifier::AddKeyword(KeywordSet::CANT_BLOCK), \
                              duration: {duration} }}"
                         ));
