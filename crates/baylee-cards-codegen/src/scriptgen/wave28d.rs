@@ -1767,7 +1767,11 @@ impl Tx<'_> {
     /// Strictly refuses `Targeted.sameName`, `Targeted.PairedWith`, `Targeted.sharesCardTypeWith`,
     /// etc. (no DSL predicate exists).
     pub(super) fn wave28d_targeted_filter_alt(&self, alt: &str, card_zone: bool) -> Option<String> {
-        if card_zone || !self.current_object_target {
+        if card_zone
+            || !self.current_object_target
+            || self.trigger_mode.is_some()
+            || self.in_delayed
+        {
             return None;
         }
         let tail = alt.strip_prefix("Targeted.")?;

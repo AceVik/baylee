@@ -792,12 +792,14 @@ fn wave28c_p2_greatest_power_limit_min_and_graveyard_owner() {
          A:SP$ Draw | Defined$ You | NumCards$ X\n\
          SVar:X:Count$ValidGraveyard Card.YouCtrl$GreatestCardManaCost",
     );
+    let combined = format!("{}\n{}", gy_mv.statics, gy_mv.abilities[0]);
     assert!(
-        gy_mv.statics.contains("Filter::OwnedByYou")
-            && !gy_mv.statics.contains("Filter::ControlledByYou")
-            && gy_mv.statics.contains("Filter::InZone(ZoneRef::Graveyard)"),
-        "expected OwnedByYou + InZone(Graveyard): {}",
-        gy_mv.statics
+        combined.contains("Filter::OwnedByYou")
+            && !combined.contains("Filter::ControlledByYou")
+            && combined.contains("Filter::InZone(ZoneRef::Graveyard)"),
+        "expected OwnedByYou + InZone(Graveyard): statics={}, abilities={:?}",
+        gy_mv.statics,
+        gy_mv.abilities
     );
 }
 

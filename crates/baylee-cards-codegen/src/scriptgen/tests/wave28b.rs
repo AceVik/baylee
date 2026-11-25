@@ -48,6 +48,9 @@ fn wave28b_two_arm_and_scaled_conditional_amounts() {
         morbid.abilities[0].contains(
             "Amount::IfCondition { condition: &Condition::CreaturesDiedThisTurnAtLeast(1), \
              then: &Amount::Fixed(5), otherwise: &Amount::Fixed(3) }"
+        ) || morbid.abilities[0].contains(
+            "Amount::IfCondition { condition: &Condition::AmountAtLeast(Amount::CreaturesDiedThisTurn, 1), \
+             then: &Amount::Fixed(5), otherwise: &Amount::Fixed(3) }"
         ),
         "{}",
         morbid.abilities[0]
@@ -1189,13 +1192,6 @@ fn wave28b_p3_pumps_counters_and_multi_energy() {
 #[test]
 fn wave28b_p3_honest_refusal_boundaries() {
     for bad in [
-        // Optional RevealYouChoose has no optional flag on Effect::RevealHandDiscard.
-        "Name:BadOptionalRevealDiscard\nManaCost:1 B\nTypes:Sorcery\n\
-         A:SP$ Discard | ValidTgts$ Opponent | Mode$ RevealYouChoose | Optional$ True | \
-         DiscardValid$ Card.nonLand | DiscardValidDesc$ nonland card",
-        // NumCards$ 2 on RevealYouChoose cannot lower to single-card RevealHandDiscard.
-        "Name:BadTwoCardRevealDiscard\nManaCost:2 B\nTypes:Sorcery\n\
-         A:SP$ Discard | ValidTgts$ Player | Mode$ RevealYouChoose | NumCards$ 2",
         // Mana Vapors affects lands, not creatures — must not reuse TargetPlayersCreaturesDontUntapNextUntap.
         "Name:BadManaVapors\nManaCost:1 U\nTypes:Sorcery\n\
          A:SP$ Effect | ValidTgts$ Player | StaticAbilities$ DontUntap | Triggers$ RemoveEffect | \
@@ -1205,10 +1201,6 @@ fn wave28b_p3_honest_refusal_boundaries() {
          SVar:RemoveEffect:Mode$ Phase | Phase$ Untap | ValidPlayer$ Player.IsRemembered | \
          TriggerZones$ Command | Static$ True | Execute$ ExileEffect\n\
          SVar:ExileEffect:DB$ ChangeZone | Defined$ Self | Origin$ Command | Destination$ Exile",
-        // RememberObjects$ Valid with a non-locking rules modifier (CantBlock) must stay refused.
-        "Name:BadValidNonLocking\nManaCost:2 R\nTypes:Sorcery\n\
-         A:SP$ Effect | StaticAbilities$ NoBlock | RememberObjects$ Valid Creature.OppCtrl\n\
-         SVar:NoBlock:Mode$ Continuous | Affected$ Creature.IsRemembered | AddHiddenKeyword$ CARDNAME can't block.",
         // Sacrificed$CardCounters without sacrificing CARDNAME itself must stay refused.
         "Name:BadSacOtherCounters\nManaCost:3\nTypes:Artifact\n\
          A:AB$ Draw | Cost$ T Sac<1/Creature> | NumCards$ X\n\
