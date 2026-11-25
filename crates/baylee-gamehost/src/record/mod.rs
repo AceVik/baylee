@@ -587,6 +587,17 @@ pub(crate) fn header_of(
     }
 }
 
+/// Reads the policy that determines loop detection for an offline replay.
+///
+/// # Errors
+/// A missing, unreadable or unsupported record header.
+pub fn loop_policy(record: &[u8]) -> Result<baylee_core::preset::LoopPolicy, ReplayError> {
+    Ok(header_of(&mut lines_of(record))?
+        .preset
+        .house_rules
+        .loop_policy)
+}
+
 /// Plays a record again on a fresh engine, checking it after every input.
 ///
 /// On the build that played it (its header names [`this_build`]) every

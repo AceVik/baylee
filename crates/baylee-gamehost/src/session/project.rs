@@ -393,13 +393,16 @@ pub fn project(
     verify: Verify,
     sink: impl FnMut(Moment) -> ControlFlow<()>,
 ) -> Result<Projection, ReplayError> {
-    project_with_detection::<baylee_engine::engine::DetectLoops>(
-        record,
-        names,
-        perspective,
-        verify,
-        sink,
-    )
+    use baylee_core::preset::LoopPolicy;
+    use baylee_engine::engine::{DetectLoops, NoLoopDetection};
+    match record::loop_policy(record)? {
+        LoopPolicy::Off => {
+            project_with_detection::<NoLoopDetection>(record, names, perspective, verify, sink)
+        }
+        LoopPolicy::RunOnceThenBreak | LoopPolicy::CompRulesDraw => {
+            project_with_detection::<DetectLoops>(record, names, perspective, verify, sink)
+        }
+    }
 }
 
 /// Projects a record with the artifact's statically selected loop capability.

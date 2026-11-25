@@ -46,6 +46,32 @@ fn whole(record: &[u8], perspective: Perspective) -> (Projection, Vec<Moment>) {
     run(record, perspective, Verify::Stop).expect("the record projects")
 }
 
+#[test]
+fn projection_dispatches_by_recorded_loop_capability() {
+    use baylee_core::preset::{LoopPolicy, SeatController};
+    use baylee_engine::engine::{DetectLoops, LoopDetection, NoLoopDetection};
+    fn play<D: LoopDetection>(policy: LoopPolicy) {
+        let mut preset = table(9);
+        preset.house_rules.loop_policy = policy;
+        preset.seats[1].controller = SeatController::Open;
+        let mut session =
+            Session::<D>::recorded_with_detection(&preset, crate::record::this_build()).unwrap();
+        session.act(ME, PlayerAction::MulliganKeep).unwrap();
+        session.act(THEM, PlayerAction::MulliganKeep).unwrap();
+        session.act(THEM, PlayerAction::Concede).unwrap();
+        let record = session.take_record();
+        let (projection, moments) = whole(&record, Perspective::Public);
+        assert_eq!(projection.stop, Stop::End);
+        assert_eq!(projection.inputs, 3);
+        assert!(projection.diverged.is_none());
+        assert_eq!(moments.len(), 4);
+        assert!(moments.iter().all(|moment| moment.check == Check::Exact));
+    }
+    play::<NoLoopDetection>(LoopPolicy::Off);
+    play::<DetectLoops>(LoopPolicy::RunOnceThenBreak);
+    play::<DetectLoops>(LoopPolicy::CompRulesDraw);
+}
+
 // ---- reading what a moment holds, as a client reads it
 
 fn deltas(moment: &Moment) -> Vec<&v1::StateDelta> {
