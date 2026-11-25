@@ -469,7 +469,16 @@ fn play_one_table(
                 }
                 let t0 = Instant::now();
                 let searched = match search.as_deref_mut() {
-                    Some(search) => search.answer(n, &session, &view, &pending, teams, offered)?,
+                    Some(search) => search.answer(
+                        n,
+                        lookahead::Question {
+                            table: &session,
+                            view: &view,
+                            pending: &pending,
+                            teams,
+                            offered,
+                        },
+                    )?,
                     None => None,
                 };
                 let answer = match searched {
@@ -551,7 +560,13 @@ fn play_one_table(
                     writeln!(log.lock().expect("decision trace lock"), "{line}")?;
                 }
                 if ans.provenance.source == SourceKind4::Net {
-                    if !logs.offline_deadline {
+                    // A searched decision's time is the search's
+                    // (`searched_ms`), also where the policy's own answer
+                    // is played under its own provenance.
+                    let searched = search
+                        .as_deref()
+                        .is_some_and(lookahead::GameSearch::searched_last);
+                    if !logs.offline_deadline && !searched {
                         latencies.push(dt_ms);
                     }
                     net_answers += 1;
@@ -623,10 +638,6 @@ fn play_one_table(
                     .and_then(|search| search.deadline.as_mut())
                 {
                     probe.applied(sequence, result.is_ok());
-                    anyhow::ensure!(
-                        result.is_ok(),
-                        "offline deadline answer refused at question {sequence}"
-                    );
                 }
                 if let Some(diagnostic) = recovery {
                     fallback_events.push(json!({"decision_seq":sequence,"record_byte_offset":record_offset,"seat":pid.get(),
@@ -669,10 +680,8 @@ fn play_one_table(
                     }
                 } else if let Err(error) = result {
                     refused += 1;
-                    if ans.provenance.source == SourceKind4::Search
-                        && let Some(search) = search.as_deref_mut()
-                    {
-                        search.refused();
+                    if let Some(search) = search.as_deref_mut() {
+                        search.refused(sequence, ans.provenance.source);
                     }
                     fallback_events.push(json!({"decision_seq":sequence,"record_byte_offset":record_offset,"seat":pid.get(),
                         "reason":"engine_refusal","action":attempted_action,"accepted":false,

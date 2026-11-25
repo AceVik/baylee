@@ -389,6 +389,21 @@ fn main() -> anyhow::Result<()> {
         .transpose()?
         .map(std::sync::Arc::new);
     let search_config = search_config(&args)?;
+    // The export that answers at the deadline seat, and what the run says of it.
+    let cpu_identity = args
+        .offline_deadline_seat
+        .then(|| {
+            deadline::cpu_identity(
+                &given_model,
+                model_identity
+                    .as_ref()
+                    .context("deadline rollout identity")?,
+            )
+        })
+        .transpose()?;
+    let deadline_seat = cpu_identity
+        .as_ref()
+        .map(|identity| deadline::metadata(identity, search_config.is_some()));
     let search = search_metadata(
         &args,
         search_config,
@@ -684,6 +699,12 @@ fn main() -> anyhow::Result<()> {
             // dataset from a run that does.
             run["search"] = search.clone();
         }
+        if let Some(seat) = &deadline_seat {
+            // Only a run with the deadline seat names it: the net that
+            // answers there is this export, `model_identity` the one its
+            // worlds are played on.
+            run["offline_deadline_seat"] = seat.clone();
+        }
         if let Some(catalog) = &catalog {
             // Only runs that accept another catalog than this build's name it.
             run["catalog"] = catalog.clone();
@@ -854,17 +875,10 @@ fn main() -> anyhow::Result<()> {
         args.rollout_net.as_deref(),
         catalog_read(&args),
     )?;
-    let cpu_deadline_seat = if args.offline_deadline_seat {
-        Some(deadline::open_cpu_backend(
-            &given_model,
-            catalog_read(&args),
-            model_identity
-                .as_ref()
-                .context("deadline rollout identity")?,
-        )?)
-    } else {
-        None
-    };
+    let cpu_deadline_seat = cpu_identity
+        .as_ref()
+        .map(|identity| deadline::open_cpu_backend(&given_model, catalog_read(&args), identity))
+        .transpose()?;
 
     let started = Instant::now();
     let mut handles = Vec::new();
@@ -1590,16 +1604,13 @@ fn main() -> anyhow::Result<()> {
     summary["evaluator_dirty"] = json!(baylee_build::DIRTY);
     summary["latency_scope"] = json!("decision inference only; observation updates are excluded");
     summary["inference_batch"] = shared_nets.report();
-    if let Some(cpu) = &cpu_deadline_seat {
+    if let Some(seat) = &deadline_seat {
         summary["latency_scope"] = json!(
             "every native seat question from offer to engine application, including passive observation"
         );
-        summary["offline_deadline_seat"] = json!({
-            "fp32_cpu_model": cpu.model_identity(),
-            "use_search": search_config.is_some(),
-            "cpu_intra_threads": 1,
-            "latency_scope": "from exposure of the native pending question, including passive observation",
-        });
+        summary["offline_deadline_seat"] = seat.clone();
+        summary["offline_deadline_seat"]["latency_scope"] =
+            json!("from exposure of the native pending question, including passive observation");
     }
     if args.deck_schedule != DeckSchedule::Fixed {
         // Only another seating names it, so every summary before reads as it did.

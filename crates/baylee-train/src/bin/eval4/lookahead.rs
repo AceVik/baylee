@@ -7,15 +7,17 @@ use baylee_ai::HeuristicAgent;
 use baylee_core::ids::PlayerId;
 use baylee_engine::choice::{Pending, PlayerAction};
 use baylee_gamehost::Session;
+use baylee_train::features4::SourceKind4;
 use baylee_train::netplay4::search::{
-    LeafCounts4, ScriptFollow4, SearchConfig4, SearchOutcome4, SearchReport4, StallMemory4,
-    search_seed,
+    LeafCounts4, ScriptFollow4, SearchConfig4, SearchOutcome4, SearchReport4, SearchedAnswer4,
+    StallMemory4, search_seed,
 };
 use baylee_train::netplay4::{Answer4, Script4};
 use baylee_view::PlayerView;
 use serde_json::{Value, json};
 
 use super::EvaluationPlayer;
+use super::deadline::Timed;
 
 /// An action's kind: its variant's name (`PlayLand`, `PassPriority`, …).
 pub(super) fn action_kind(action: &PlayerAction) -> String {
@@ -91,6 +93,12 @@ pub(super) struct SearchTally {
 }
 
 impl SearchTally {
+    /// Counts one decision answered without a search, for `reason`.
+    fn skip(&mut self, reason: &str) {
+        self.decisions += 1;
+        bump(&mut self.skipped, reason.into());
+    }
+
     /// Counts one searched decision: what was played, and the rest of its
     /// planned cast.
     fn searched(
@@ -238,6 +246,16 @@ fn event(table: &Session, view: &PlayerView, answer: &Answer4, report: &SearchRe
     event
 }
 
+/// A question of the net's at the table, and when the table offered it.
+#[derive(Clone, Copy)]
+pub(super) struct Question<'a> {
+    pub table: &'a Session,
+    pub view: &'a PlayerView,
+    pub pending: &'a Pending,
+    pub teams: &'a [Option<u8>],
+    pub offered: Instant,
+}
+
 /// One game's search: its budgets, its seed, its counts and what each
 /// searched decision compared.
 pub(super) struct GameSearch {
@@ -257,6 +275,9 @@ pub(super) struct GameSearch {
     /// Whether the last answer given was a chosen target or a scripted
     /// step, not a searched decision of its own.
     answered_follow: bool,
+    /// Whether the last question was searched, whoever's answer was played
+    /// ([`Self::searched_last`]).
+    searched_last: bool,
     /// What the search gave from the last position it answered at
     /// (`--search-stall-guard`).
     given: StallMemory4,
@@ -280,6 +301,7 @@ impl GameSearch {
             follow: None,
             script: None,
             answered_follow: false,
+            searched_last: false,
             given: StallMemory4::default(),
             tally: SearchTally::default(),
             events: Vec::new(),
@@ -294,15 +316,35 @@ impl GameSearch {
         self.follow = None;
         self.script = None;
         self.answered_follow = false;
+        self.searched_last = false;
         self.given = StallMemory4::default();
         self.tally = SearchTally::default();
         self.events.clear();
     }
 
-    /// The table refused the last searched answer: its event names no
-    /// recorded input, and a target chosen with it has no question to
-    /// answer. A refused chosen target leaves its cast's event alone.
-    pub fn refused(&mut self) {
+    /// Whether the last question was searched. The answer played does not
+    /// say so under [`Selection4::Measure`], which plays the policy's own
+    /// under its own provenance.
+    ///
+    /// [`Selection4::Measure`]: baylee_train::netplay4::search::Selection4::Measure
+    pub const fn searched_last(&self) -> bool {
+        self.searched_last
+    }
+
+    /// The table refused the answer, of `source`, to its question
+    /// `sequence`: the event of that question's search, if it was searched,
+    /// names no recorded input. A refused answer of the search's ends what
+    /// it chose beside it: a target without a question to answer, the rest
+    /// of a planned cast.
+    pub fn refused(&mut self, sequence: u64, source: SourceKind4) {
+        if let Some(event) = self.events.last_mut()
+            && event["decision_seq"] == sequence
+        {
+            event["accepted"] = json!(false);
+        }
+        if source != SourceKind4::Search {
+            return;
+        }
         if self.script.take().is_some() {
             self.tally.scripts_broken += 1;
         }
@@ -311,9 +353,6 @@ impl GameSearch {
         }
         if self.follow.take().is_some() {
             self.tally.follow_lost += 1;
-        }
-        if let Some(event) = self.events.last_mut() {
-            event["accepted"] = json!(false);
         }
     }
 
@@ -387,25 +426,24 @@ impl GameSearch {
         }
     }
 
-    /// The net's answer to `view`/`pending` at `table`, searched where the
-    /// search applies; `None` once the game's searched decisions are spent,
-    /// and the net answers as it would without a search.
+    /// The net's answer to `question`, searched where the search applies;
+    /// `None` once the game's searched decisions are spent, and the net
+    /// answers as it would without a search.
     ///
     /// # Errors
     /// When the player cannot search, or fails in a rollout.
-    #[allow(
-        clippy::too_many_arguments,
-        reason = "The real table question and its original offer time"
-    )]
     pub fn answer(
         &mut self,
         net: &mut dyn EvaluationPlayer,
-        table: &Session,
-        view: &PlayerView,
-        pending: &Pending,
-        teams: &[Option<u8>],
-        offered: Instant,
+        question: Question<'_>,
     ) -> anyhow::Result<Option<Answer4>> {
+        let Question {
+            view,
+            pending,
+            teams,
+            ..
+        } = question;
+        self.searched_last = false;
         let scripted = self.script(net, view, pending, teams)?;
         if scripted.is_some() {
             self.answered_follow = true;
@@ -423,8 +461,7 @@ impl GameSearch {
             return Ok(followed);
         }
         if view.turn < self.min_turn {
-            self.tally.decisions += 1;
-            bump(&mut self.tally.skipped, "before_min_turn".into());
+            self.tally.skip("before_min_turn");
             return Ok(None);
         }
         let used = self
@@ -432,11 +469,22 @@ impl GameSearch {
             .as_ref()
             .map_or(self.tally.searched, |probe| probe.dispatched);
         if self.max_searched > 0 && used >= self.max_searched {
-            self.tally.decisions += 1;
-            bump(&mut self.tally.skipped, "budget".into());
+            self.tally.skip("budget");
             return Ok(None);
         }
         let started = Instant::now();
+        if let Some(probe) = self.deadline.as_mut() {
+            let player = net.deadline_player().ok_or_else(|| {
+                anyhow::anyhow!("offline deadline needs a single native neural seat")
+            })?;
+            return match probe.search(player, question, self.config, self.seed)? {
+                Timed::Answered(searched) => Ok(Some(self.note(net, question, searched, started))),
+                Timed::Missed(answer, missed) => {
+                    self.tally.skip(missed.key());
+                    Ok(Some(answer))
+                }
+            };
+        }
         // The stall guard: what the table took back from this position.
         let position = (self.config.stall_guard() && matches!(pending, Pending::Priority { .. }))
             .then(|| HeuristicAgent::position(view));
@@ -445,35 +493,18 @@ impl GameSearch {
                 .taken_back(view.seat, position, view.seq)
                 .to_vec()
         });
-        let searched = if let Some(probe) = self.deadline.as_mut() {
-            let player = net.deadline_player().ok_or_else(|| {
-                anyhow::anyhow!("offline deadline needs a single native neural seat")
-            })?;
-            Some(probe.search(
-                player,
-                table,
-                view,
-                pending,
-                teams,
-                self.config,
-                self.seed,
-                offered,
-            ))
-        } else {
-            net.search(
-                table,
-                view,
-                pending,
-                teams,
-                self.config,
-                self.seed,
-                &taken_back,
-            )
-        };
+        let searched = net.search(
+            question.table,
+            view,
+            pending,
+            teams,
+            self.config,
+            self.seed,
+            &taken_back,
+        );
         let Some(searched) = searched else {
             return Ok(None);
         };
-        self.tally.decisions += 1;
         let searched = searched?;
         if let Some(position) = position
             && matches!(searched.outcome, SearchOutcome4::Searched(_))
@@ -481,27 +512,42 @@ impl GameSearch {
             self.given
                 .give(view.seat, position, view.seq, &searched.answer.action);
         }
+        Ok(Some(self.note(net, question, searched, started)))
+    }
+
+    /// Counts `searched`, the answer of the search of `question` that
+    /// `started` then, keeps its event and what it chose beside the answer,
+    /// and gives the answer.
+    fn note(
+        &mut self,
+        net: &mut dyn EvaluationPlayer,
+        question: Question<'_>,
+        searched: SearchedAnswer4,
+        started: Instant,
+    ) -> Answer4 {
+        let Question { table, view, .. } = question;
         match searched.outcome {
             SearchOutcome4::Searched(report) => {
+                self.searched_last = true;
+                self.tally.decisions += 1;
                 self.tally.ms.push(started.elapsed().as_secs_f64() * 1000.0);
                 let mut recorded = event(table, view, &searched.answer, &report);
                 if let Some(variants) = net.take_search_variants() {
                     recorded["variants"] = variants;
                 }
                 self.events.push(recorded);
-                self.follow = searched.follow.clone().map(|target| (view.seat, target));
-                self.script = searched.script.clone().map(|script| (view.seat, script));
                 self.tally
                     .searched(&report, &searched.answer.action, searched.script.as_ref());
+                self.follow = searched.follow.map(|target| (view.seat, target));
+                self.script = searched.script.map(|script| (view.seat, script));
             }
-            SearchOutcome4::Skipped(reason) => {
-                bump(&mut self.tally.skipped, reason.key().into());
-            }
+            SearchOutcome4::Skipped(reason) => self.tally.skip(reason.key()),
             SearchOutcome4::Refused(refusal) => {
+                self.tally.decisions += 1;
                 bump(&mut self.tally.refused, format!("{refusal:?}"));
             }
         }
-        Ok(Some(searched.answer))
+        searched.answer
     }
 }
 

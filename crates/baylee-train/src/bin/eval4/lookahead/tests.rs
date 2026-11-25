@@ -28,20 +28,35 @@ use clap::Parser as _;
 #[derive(Clone, Debug, Default, PartialEq)]
 pub(crate) struct Memory {
     observed: BTreeMap<u8, f32>,
-    observations: u64,
-    notes: Vec<PlayerAction>,
+    pub(crate) observations: u64,
+    pub(crate) notes: Vec<PlayerAction>,
     sampling: u64,
+}
+
+/// What the stand-in does when it observes in a rollout.
+#[derive(Clone)]
+pub(crate) enum InRollouts {
+    /// Observes, as at the table.
+    Observes,
+    /// Fails, as a model does.
+    Fails,
+    /// Panics.
+    Panics,
+    /// Waits until the test lets go of the other end, then observes.
+    Waits(std::sync::Arc<std::sync::Mutex<std::sync::mpsc::Receiver<()>>>),
 }
 
 /// The steady house as a net: `passive` passes at every priority instead,
 /// and `critic` is its value. When it `lends`, its rollout players are
 /// copies of it.
 pub(crate) struct Fixture {
-    memory: Memory,
+    pub(crate) memory: Memory,
     coverage: CoverageMatrix4,
     passive: bool,
     critic: fn(&PlayerView) -> f32,
     lends: bool,
+    /// What it and its rollout players do at an observation.
+    observing: InRollouts,
 }
 
 impl Fixture {
@@ -52,6 +67,30 @@ impl Fixture {
             passive,
             critic,
             lends: false,
+            observing: InRollouts::Observes,
+        }
+    }
+
+    /// The same stand-in, lending rollout players.
+    pub(crate) fn lending(self) -> Self {
+        Self {
+            lends: true,
+            ..self
+        }
+    }
+
+    /// The same stand-in, observing otherwise.
+    pub(crate) fn observing(self, observing: InRollouts) -> Self {
+        Self { observing, ..self }
+    }
+
+    /// The stand-in again, in its own state.
+    pub(crate) fn twin(&self) -> Self {
+        Self {
+            memory: self.memory.clone(),
+            coverage: self.coverage.clone(),
+            observing: self.observing.clone(),
+            ..*self
         }
     }
 
@@ -113,6 +152,14 @@ impl SearchPlayer4 for Fixture {
         ViewContext4::Choice
     }
     fn observe(&mut self, view: &PlayerView) -> anyhow::Result<()> {
+        match &self.observing {
+            InRollouts::Observes => {}
+            InRollouts::Fails => anyhow::bail!("the stand-in's model failed"),
+            InRollouts::Panics => panic!("the stand-in panicked"),
+            InRollouts::Waits(until) => {
+                let _ = until.lock().unwrap().recv();
+            }
+        }
         self.memory.observations += 1;
         self.memory
             .observed
@@ -155,8 +202,11 @@ impl SearchPlayer4 for Fixture {
         self.lends.then(|| Self {
             memory: snapshot.0.clone(),
             coverage: snapshot.1.clone(),
-            ..*self
+            ..self.twin()
         })
+    }
+    fn carry_table_notes(state: &mut Self::Snapshot, decided: &Self::Snapshot) {
+        state.0.notes.clone_from(&decided.0.notes);
     }
 }
 
@@ -225,7 +275,7 @@ pub(crate) fn flat(_: &PlayerView) -> f32 {
 }
 
 /// Likes the seat's lands.
-fn lands(view: &PlayerView) -> f32 {
+pub(crate) fn lands(view: &PlayerView) -> f32 {
     let mine = view
         .battlefield
         .iter()
@@ -234,10 +284,19 @@ fn lands(view: &PlayerView) -> f32 {
     (0.2 + 0.05 * f32::from(u16::try_from(mine).unwrap_or(u16::MAX))).min(1.0)
 }
 
-type Played = (f32, u64, Vec<u8>, Vec<RolloutStepSidecar4>);
+/// What a deal came to: the utility, the answers refused, the record and
+/// its sidecar, the net's own answers and how many of them were timed.
+pub(crate) struct Deal {
+    pub(crate) utility: f32,
+    pub(crate) refused: u64,
+    pub(crate) record: Vec<u8>,
+    pub(crate) sidecar: Vec<RolloutStepSidecar4>,
+    pub(crate) net_answers: u64,
+    pub(crate) timed: usize,
+}
 
-/// One recorded deal of Victory against Victory, the fixture in seat 0.
-fn play(player: &mut Fixture, search: Option<&mut GameSearch>) -> Played {
+/// One recorded deal of Victory against Victory, `player` in seat 0.
+pub(crate) fn play(player: &mut dyn EvaluationPlayer, search: Option<&mut GameSearch>) -> Deal {
     let deck = baylee_train::housedeck::HouseDeck::named("victory").unwrap();
     let outcome = play_one_table(
         "lookahead-test",
@@ -262,7 +321,14 @@ fn play(player: &mut Fixture, search: Option<&mut GameSearch>) -> Played {
     )
     .unwrap();
     assert!(!outcome.1, "the fixture finishes its game");
-    (outcome.0, outcome.4, outcome.7, outcome.9)
+    Deal {
+        utility: outcome.0,
+        refused: outcome.4,
+        record: outcome.7,
+        sidecar: outcome.9,
+        net_answers: outcome.2,
+        timed: outcome.6.len(),
+    }
 }
 
 /// `--house-as-seat` through the evaluator's loop: the house chair is taken
@@ -298,7 +364,7 @@ fn a_seated_house_plays_a_deal_to_its_end() {
     assert_eq!((outcome.3, outcome.4), (0, 0), "no fallback, no refusal");
 }
 
-fn config(k: usize, p: usize, h: usize) -> SearchConfig4 {
+pub(crate) fn config(k: usize, p: usize, h: usize) -> SearchConfig4 {
     SearchConfig4::new(k, p, h).unwrap()
 }
 
@@ -339,10 +405,10 @@ fn one_candidate_records_the_game_the_policy_plays_and_it_converts() {
     let without = play(&mut plain, None);
     let with = play(&mut searched, Some(&mut search));
 
-    assert_eq!(without.0, with.0, "the same outcome");
-    assert_eq!(with.1, 0, "no answer refused");
+    assert_eq!(without.utility, with.utility, "the same outcome");
+    assert_eq!(with.refused, 0, "no answer refused");
     assert_eq!(
-        without.2, with.2,
+        without.record, with.record,
         "the record is the policy's game, byte for byte"
     );
     assert_eq!(plain.memory, searched.memory, "every world undone");
@@ -356,9 +422,9 @@ fn one_candidate_records_the_game_the_policy_plays_and_it_converts() {
         tally.searched + tally.skipped.values().sum::<u64>() + tally.refused.values().sum::<u64>()
     );
 
-    assert_eq!(without.3.len(), with.3.len());
+    assert_eq!(without.sidecar.len(), with.sidecar.len());
     let searched_steps: Vec<_> = with
-        .3
+        .sidecar
         .iter()
         .filter(|entry| entry.provenance.source == SourceKind4::Search)
         .collect();
@@ -369,7 +435,7 @@ fn one_candidate_records_the_game_the_policy_plays_and_it_converts() {
             .all(|entry| !entry.provenance.has_logprob && entry.provenance.behavior_logprob == 0.0)
     );
     assert_eq!(search.events.len() as u64, tally.searched);
-    crate::diagnostics::bind_fallback_events(&mut search.events, &with.2)
+    crate::diagnostics::bind_fallback_events(&mut search.events, &with.record)
         .expect("every searched answer is the recorded input at its offset");
     assert!(
         search
@@ -389,7 +455,7 @@ fn one_candidate_records_the_game_the_policy_plays_and_it_converts() {
 
     // The record replays through the converter with the search's provenance.
     let mut converted = Vec::new();
-    baylee_train::convert4::stream_game4(&with.2, 1, true, Some(&with.3), |step| {
+    baylee_train::convert4::stream_game4(&with.record, 1, true, Some(&with.sidecar), |step| {
         converted.push(step);
         Ok(())
     })
@@ -413,7 +479,7 @@ fn passive_land_game(selection: Selection4) -> SearchTally {
     let config = config(4, 1, 0).with_selection(selection).unwrap();
     let mut search = GameSearch::new(config, 0);
     let played = play(&mut player, Some(&mut search));
-    assert_eq!(played.1, 0, "no searched answer refused");
+    assert_eq!(played.refused, 0, "no searched answer refused");
     assert_eq!(search.tally.rollout_steps, 0, "H = 0");
     // Nothing plays on at H = 0: every leaf is the candidate's own
     // position, scored at once, or one the candidate itself ended (the
@@ -502,7 +568,7 @@ fn a_fair_search_follows_its_planned_casts_through_the_game_loop() {
     let mut search = GameSearch::new(config, 40);
     let played = play(&mut player, Some(&mut search));
     let tally = &search.tally;
-    assert_eq!(played.1, 0, "no searched or scripted answer refused");
+    assert_eq!(played.refused, 0, "no searched or scripted answer refused");
     assert!(tally.scripts > 0, "{tally:?}");
     assert!(tally.scripts_done > 0, "{tally:?}");
     assert!(tally.scripts_done + tally.scripts_broken <= tally.scripts);
@@ -538,9 +604,78 @@ fn parallel_rollouts_record_the_serial_game() {
     parallel_tally.parallel = 0;
     parallel_tally.ms.clone_from(&serial_tally.ms);
     assert_eq!(parallel_tally, serial_tally);
-    assert_eq!(parallel.0, serial.0, "the same outcome");
-    assert_eq!(parallel.2, serial.2, "the same record, byte for byte");
+    assert_eq!(parallel.utility, serial.utility, "the same outcome");
+    assert_eq!(
+        parallel.record, serial.record,
+        "the same record, byte for byte"
+    );
     assert_eq!(parallel_memory, serial_memory);
+}
+
+/// A measuring search plays and records the unsearched game, and its time is
+/// in none of the decisions timed: the searched ones are left out, whoever's
+/// answer they played, so what is timed compares with a game without it.
+#[test]
+fn a_measuring_search_records_and_times_the_unsearched_game() {
+    let mut plain = Fixture::new(true, lands);
+    let without = play(&mut plain, None);
+    assert_eq!(without.timed as u64, without.net_answers);
+
+    let mut measured = Fixture::new(true, lands);
+    let config = config(4, 1, 0).with_selection(Selection4::Measure).unwrap();
+    let mut search = GameSearch::new(config, 0);
+    let with = play(&mut measured, Some(&mut search));
+    assert!(search.tally.searched > 5 && search.tally.changed == 0);
+    assert!(
+        search
+            .events
+            .iter()
+            .any(|event| event["diffs"].as_array().unwrap().len() > 1)
+    );
+    assert_eq!(with.record, without.record, "byte for byte");
+    let provenance = |deal: &Deal| -> Vec<_> {
+        let steps = deal.sidecar.iter();
+        steps.map(|step| step.provenance).collect()
+    };
+    assert_eq!(provenance(&with), provenance(&without));
+    assert_eq!(with.net_answers, without.net_answers);
+    assert_eq!(with.timed as u64 + search.tally.searched, with.net_answers);
+    assert_eq!(search.tally.ms.len() as u64, search.tally.searched);
+}
+
+/// A refused answer marks the event of its own question alone, whoever's
+/// answer it was; only a refused answer of the search's ends what the search
+/// chose beside it.
+#[test]
+fn a_refused_answer_marks_its_own_event() {
+    let mut search = GameSearch::new(config(2, 1, 0), 0);
+    search.events = vec![
+        json!({"decision_seq": 4, "accepted": true}),
+        json!({"decision_seq": 7, "accepted": true}),
+    ];
+    let target = (PlayerId::new(0), PlayerAction::PassPriority);
+    search.follow = Some(target.clone());
+    search.refused(5, SourceKind4::Net);
+    assert_eq!(search.events[1]["accepted"], true, "another question's");
+    search.refused(7, SourceKind4::Net);
+    assert_eq!(search.events[0]["accepted"], true);
+    assert_eq!(search.events[1]["accepted"], false);
+    assert_eq!(
+        search.follow,
+        Some(target.clone()),
+        "not the search's answer"
+    );
+    assert_eq!(search.tally.follow_lost, 0);
+
+    search.refused(7, SourceKind4::Search);
+    assert_eq!((search.follow.take(), search.tally.follow_lost), (None, 1));
+    // A refused target's own question has no event: its cast's stays.
+    search.events[1]["accepted"] = json!(true);
+    search.answered_follow = true;
+    search.follow = Some(target);
+    search.refused(9, SourceKind4::Search);
+    assert_eq!(search.events[1]["accepted"], true);
+    assert_eq!(search.tally.follow_lost, 1, "the cast's target was given");
 }
 
 #[test]
