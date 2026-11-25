@@ -4029,11 +4029,11 @@ fn wave11b_pass2_effect_apis_graveyard_and_turn_history() {
         nimble.abilities[0]
     );
 
-    // Non-combat CantPreventDamage must stay refused.
+    // Recipient-scoped CantPreventDamage must stay refused.
     assert!(refused(
-        "Name:AllUnpreventable\nManaCost:1 R\nTypes:Instant\n\
+        "Name:ScopedUnpreventable\nManaCost:1 R\nTypes:Instant\n\
          A:SP$ Effect | StaticAbilities$ NoPrev\n\
-         SVar:NoPrev:Mode$ CantPreventDamage"
+         SVar:NoPrev:Mode$ CantPreventDamage | ValidTarget$ Creature"
     ));
 
     // Untargeted exile from any graveyard via ChooseCard; opponent reanimate without GainControl$ refused.

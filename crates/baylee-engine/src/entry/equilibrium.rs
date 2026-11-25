@@ -10,6 +10,8 @@ fn entry_rule(rule: ReplacementRule) -> bool {
         ReplacementRule::LandEquilibrium
             | ReplacementRule::EnterTapped(_)
             | ReplacementRule::EnterUntapped(_)
+            | ReplacementRule::EnterTappedIf { .. }
+            | ReplacementRule::EnterUntappedIf { .. }
     )
 }
 
@@ -136,6 +138,18 @@ fn applicable(
                         rule.source,
                     )
                 }
+                ReplacementRule::EnterTappedIf { filter, condition }
+                | ReplacementRule::EnterUntappedIf { filter, condition } => {
+                    crate::eval::condition_holds(state, controller, rule.source, condition)
+                        && crate::eval::matches_projected(
+                            filter,
+                            state,
+                            &prospective,
+                            &projection.characteristics,
+                            controller,
+                            rule.source,
+                        )
+                }
                 _ => false,
             };
             matches.then_some((identity, rule.rule))
@@ -162,8 +176,12 @@ fn apply(state: &GameState, entry: &mut Attempt, source: ObjectId) {
     entry.applied.push((identity, rule));
     match rule {
         ReplacementRule::LandEquilibrium => entry.sacrifices_after += 1,
-        ReplacementRule::EnterTapped(_) => entry.tapped = true,
-        ReplacementRule::EnterUntapped(_) => entry.tapped = false,
+        ReplacementRule::EnterTapped(_) | ReplacementRule::EnterTappedIf { .. } => {
+            entry.tapped = true;
+        }
+        ReplacementRule::EnterUntapped(_) | ReplacementRule::EnterUntappedIf { .. } => {
+            entry.tapped = false;
+        }
         _ => unreachable!("entry replacement candidate"),
     }
 }

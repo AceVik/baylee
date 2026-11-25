@@ -829,6 +829,20 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                     self.state.invalidate_projections();
                     return Ok(());
                 }
+                if matches!(self.pending_plan, Some(PlanKind::EntryLookAtOpponentHand)) {
+                    let hand = self.state.zones.list(ZoneLocation::Hand(chosen)).clone();
+                    self.pending_plan = Some(PlanKind::EntryFinishLookAtHand);
+                    self.pending = Pending::ChooseCards {
+                        player,
+                        options: hand,
+                        min: 0,
+                        max: 0,
+                        prompt: crate::choice::ChoicePrompt::LookAtHand,
+                        total: None,
+                    };
+                    self.awaiting_answer = true;
+                    return Ok(());
+                }
                 if matches!(
                     self.pending_plan,
                     Some(
@@ -1836,8 +1850,13 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                             self.state.bind_one_per_player_groups(id, 0, &target_groups);
                         }
                     }
-                    PlanKind::ChooseOpponent { .. } => {
+                    PlanKind::ChooseOpponent { .. } | PlanKind::EntryLookAtOpponentHand => {
                         unreachable!("opponent plans are answered via ChoosePlayer")
+                    }
+                    PlanKind::EntryFinishLookAtHand => {
+                        unreachable!(
+                            "entry hand-look plans are answered beside Pending::ChooseCards"
+                        )
                     }
                     PlanKind::BattleProtector { .. } | PlanKind::EntryBattleProtector { .. } => {
                         unreachable!(
@@ -3012,6 +3031,9 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                                 cards: objects,
                             });
                         }
+                        return Ok(());
+                    }
+                    Some(PlanKind::EntryFinishLookAtHand) => {
                         return Ok(());
                     }
                     other => self.pending_plan = other,

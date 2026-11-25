@@ -90,6 +90,9 @@ impl Tx<'_> {
             Some("You") => ".YouCtrl",
             Some("Opponent" | "Player.Opponent") => ".OppCtrl",
             Some("Player.Other") => ".YouDontCtrl",
+            Some("Player.Chosen" | "ChosenPlayer") if self.has_chosen_source_player() => {
+                ".ChosenCtrl"
+            }
             Some(other) => {
                 return self.deny(format!("a spell cast by `{other}`"));
             }
@@ -212,6 +215,9 @@ impl Tx<'_> {
             Some("You") => ".YouCtrl",
             Some("Opponent" | "Player.Opponent") => ".OppCtrl",
             Some("Player.Other") => ".YouDontCtrl",
+            Some("Player.Chosen" | "ChosenPlayer") if self.has_chosen_source_player() => {
+                ".ChosenCtrl"
+            }
             Some(other) => {
                 return self.deny(format!("a spell cast or copied by `{other}`"));
             }
@@ -816,7 +822,7 @@ impl Tx<'_> {
         self.trigger_expr_in_zone(p, mode, false)
     }
 
-    fn trigger_expr_in_zone(
+    pub(super) fn trigger_expr_in_zone(
         &mut self,
         p: &mut Params,
         mode: &str,
@@ -912,6 +918,7 @@ impl Tx<'_> {
             "Clashed" => self.clashed_trigger(p),
             "Firebend" | "Firebends" => self.firebends_trigger(p),
             "UnlockDoor" => self.unlock_door_trigger(p, zone_taken),
+            "DayTimeChanges" if !zone_taken => Some("Trigger::DayNightChanges".to_string()),
             other => self.deny(format!("trigger mode `{other}`")),
         }
     }
@@ -3814,7 +3821,7 @@ impl Tx<'_> {
         None
     }
 
-    fn delayed_remember(
+    pub(super) fn delayed_remember(
         &self,
         raw: Option<&str>,
         target: Option<&str>,
@@ -3860,7 +3867,7 @@ impl Tx<'_> {
         }
     }
 
-    fn delayed_optional_condition(&mut self, p: &mut Params) -> Option<String> {
+    pub(super) fn delayed_optional_condition(&mut self, p: &mut Params) -> Option<String> {
         let mut clauses = Vec::new();
         let cond_str = self.condition(p)?;
         if let Some(inner) = cond_str
@@ -4013,7 +4020,7 @@ impl Tx<'_> {
         self.parse_delayed_body_str(&body, inner_trigger_mode, optional)
     }
 
-    fn parse_delayed_body_str(
+    pub(super) fn parse_delayed_body_str(
         &mut self,
         body: &str,
         inner_trigger_mode: Option<String>,
@@ -5778,7 +5785,8 @@ impl Tx<'_> {
         if p.has("Abilities") || p.peek("Triggers").is_none() || is_emblem_name {
             return None;
         }
-        self.delayed_triggers_effect_api(p, target, chain)
+        self.wave16c_effect_triggers(p, target, chain)
+            .or_else(|| self.delayed_triggers_effect_api(p, target, chain))
     }
 
     fn emblem_ability_disallowed(emitted: &str, kind: EmblemKind) -> bool {
@@ -6207,7 +6215,10 @@ impl Tx<'_> {
             ) {
                 return None;
             }
-            if !matches!(tp.take("TriggerZones").as_deref(), None | Some("Command")) {
+            if !matches!(
+                tp.take("TriggerZones").as_deref(),
+                None | Some("Command" | "Battlefield")
+            ) {
                 return None;
             }
             if let Some(sec) = tp.take("Secondary")
@@ -6747,7 +6758,7 @@ impl Tx<'_> {
     /// `EventObject` is the first matching attacker, and `SubjectContext::found`
     /// holds all matching attackers toward that defender (`TriggeredAttackers`).
     #[allow(clippy::too_many_lines)]
-    fn wave25c_attackers_at_target_chain(
+    pub(super) fn wave25c_attackers_at_target_chain(
         &mut self,
         body: &str,
         exact_count_is_one: bool,

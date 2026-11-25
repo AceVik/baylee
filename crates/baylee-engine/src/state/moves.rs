@@ -837,6 +837,7 @@ impl GameState {
                             | crate::object::Rider::MergedTop(_)
                             | crate::object::Rider::MergedToken(_)
                             | crate::object::Rider::MustAttackPlayerThisTurn(_)
+                            | crate::object::Rider::MustAttackPlayerThisCombat(_)
                             | crate::object::Rider::AttachedToPlayer(_)
                             | crate::object::Rider::PairedWith(..)
                             | crate::object::Rider::TributePaid

@@ -3681,6 +3681,7 @@ impl HeuristicAgent {
             | Modifier::ReplaceOrPreventDamageWithThen { .. }
             | Modifier::PreventDamageRemovingCounters { .. }
             | Modifier::PreventDamageToAffectedIfAtMost(_)
+            | Modifier::DamageCantBePrevented
             | Modifier::AddType(_)
             | Modifier::RemoveType(_)
             | Modifier::AddSubtype(_)

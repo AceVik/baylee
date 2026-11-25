@@ -268,7 +268,8 @@ impl<'a> AttackRules<'a> {
             }
         }
         for rider in &obj.riders {
-            if let crate::object::Rider::MustAttackPlayerThisTurn(opp) = rider
+            if let crate::object::Rider::MustAttackPlayerThisTurn(opp)
+            | crate::object::Rider::MustAttackPlayerThisCombat(opp) = rider
                 && defender == Defender::Player(*opp)
             {
                 score = score.saturating_add(1);

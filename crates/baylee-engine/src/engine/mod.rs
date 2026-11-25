@@ -876,6 +876,11 @@ enum PlanKind {
         /// The entering permanent.
         object: ObjectId,
     },
+    /// Choosing an opponent whose hand to look at as a permanent enters
+    /// (*Anointed Peacekeeper*, *Sorcerous Spyglass*).
+    EntryLookAtOpponentHand,
+    /// Confirming private inspection of an opponent's hand as a permanent enters.
+    EntryFinishLookAtHand,
     /// Choosing a card name as a permanent enters (Pithing Needle).
     ChooseCardName {
         /// The entering permanent.
@@ -2373,6 +2378,8 @@ impl<L: CardLookup, D: LoopDetection> Engine<L, D> {
                         | PlanKind::ChooseCardName { .. }
                         | PlanKind::ChooseColor { .. }
                         | PlanKind::ChooseOpponent { .. }
+                        | PlanKind::EntryLookAtOpponentHand
+                        | PlanKind::EntryFinishLookAtHand
                         | PlanKind::IntrinsicMana { .. }
                         | PlanKind::PlayLandFace { .. }
                 )

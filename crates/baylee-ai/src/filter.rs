@@ -580,6 +580,11 @@ impl HeuristicAgent {
         | Filter::CmcEqualsAmount(_)
         | Filter::PowerAtMostAmount(_)
         | Filter::PowerAtLeastAmount(_)
+        | Filter::PowerEqualsAmount(_)
+        | Filter::ToughnessEqualsAmount(_)
+        | Filter::CmcEqualsChosenNumber
+        | Filter::PowerEqualsChosenNumber
+        | Filter::ToughnessEqualsChosenNumber
         | Filter::IsRemembered
         | Filter::NotRemembered
         | Filter::SharesCardTypeWithRemembered
@@ -1468,7 +1473,8 @@ impl HeuristicAgent {
             | PlayerRel::EventPlayer
             | PlayerRel::OwnerOfSource
             | PlayerRel::ControllerOfAttached
-            | PlayerRel::EnchantedPlayer => {
+            | PlayerRel::EnchantedPlayer
+            | PlayerRel::ChosenBySource => {
                 return None;
             }
         })

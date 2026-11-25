@@ -1865,6 +1865,11 @@ fn hash_expansion_acquired_rider(h: &mut Hasher, rider: &crate::object::Rider) {
             h.u8(102);
             player.hash(h);
         }
+        crate::object::Rider::MustAttackPlayerThisCombat(player) => {
+            h.u8(255);
+            h.u16(461);
+            player.hash(h);
+        }
         crate::object::Rider::SuspendHaste(player) => {
             h.u8(103);
             player.hash(h);
@@ -2873,6 +2878,11 @@ fn hash_object(h: &mut Hasher, obj: &GameObject) {
                 h.u16(*word);
                 h.u64(*mask);
             }
+            Rider::MustAttackPlayerThisCombat(p) => {
+                h.u8(255);
+                h.u16(461);
+                h.u8(p.get());
+            }
         }
     }
     // What the spell or ability on the stack was cast or put there with:
@@ -3215,6 +3225,28 @@ fn filter_hash(h: &mut Hasher, f: &baylee_cards_dsl::Filter) {
             h.u16(437);
             filter_hash(h, filter);
         }
+        F::PowerEqualsAmount(amt) => {
+            h.u8(255);
+            h.u16(438);
+            hash_filter_amount(h, amt);
+        }
+        F::ToughnessEqualsAmount(amt) => {
+            h.u8(255);
+            h.u16(439);
+            hash_filter_amount(h, amt);
+        }
+        F::CmcEqualsChosenNumber => {
+            h.u8(255);
+            h.u16(440);
+        }
+        F::PowerEqualsChosenNumber => {
+            h.u8(255);
+            h.u16(441);
+        }
+        F::ToughnessEqualsChosenNumber => {
+            h.u8(255);
+            h.u16(442);
+        }
     }
 }
 
@@ -3235,7 +3267,9 @@ fn filter_amount_depth_exceeds(filter: &baylee_cards_dsl::Filter, depth: u8) -> 
         F::CmcAtMostAmount(amt)
         | F::CmcEqualsAmount(amt)
         | F::PowerAtMostAmount(amt)
-        | F::PowerAtLeastAmount(amt) => amount_filter_depth_exceeds(amt, depth + 1),
+        | F::PowerAtLeastAmount(amt)
+        | F::PowerEqualsAmount(amt)
+        | F::ToughnessEqualsAmount(amt) => amount_filter_depth_exceeds(amt, depth + 1),
         F::And(parts) | F::Or(parts) => parts
             .iter()
             .any(|inner| filter_amount_depth_exceeds(inner, depth)),

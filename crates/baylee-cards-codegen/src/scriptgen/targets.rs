@@ -813,6 +813,12 @@ impl Tx<'_> {
                 state.has_controller = true;
                 "Filter::ControlledByOpponent".to_string()
             }
+            "ChosenCtrl" | "ControlledBy Player.Chosen" | "ControlledBy ChosenPlayer"
+                if !card_zone && self.has_chosen_source_player() =>
+            {
+                state.has_controller = true;
+                "Filter::ControlledBy(PlayerRel::ChosenBySource)".to_string()
+            }
             "ActivePlayerCtrl" | "ControlledBy Player.Active" | "ControlledBy ActivePlayer" => {
                 state.has_controller = true;
                 "Filter::ControlledByActivePlayer".to_string()
@@ -1201,6 +1207,33 @@ impl Tx<'_> {
             }
             "!SharesCMCWith" | "!SharesCMCWith Self" | "cmcNESelf" | "!SameCMCAsSelf" => {
                 "Filter::Not(&Filter::SameManaValueAsSource)".to_string()
+            }
+            "cmcEQChosen" | "cmcEQChosenNumber"
+                if self.has_chosen_source_number()
+                    && !self
+                        .svars
+                        .values()
+                        .any(|v| v.contains("Count$ChosenNumber")) =>
+            {
+                "Filter::CmcEqualsChosenNumber".to_string()
+            }
+            "powerEQChosen" | "powerEQChosenNumber"
+                if self.has_chosen_source_number()
+                    && !self
+                        .svars
+                        .values()
+                        .any(|v| v.contains("Count$ChosenNumber")) =>
+            {
+                "Filter::PowerEqualsChosenNumber".to_string()
+            }
+            "toughnessEQChosen" | "toughnessEQChosenNumber"
+                if self.has_chosen_source_number()
+                    && !self
+                        .svars
+                        .values()
+                        .any(|v| v.contains("Count$ChosenNumber")) =>
+            {
+                "Filter::ToughnessEqualsChosenNumber".to_string()
             }
             other
                 if other

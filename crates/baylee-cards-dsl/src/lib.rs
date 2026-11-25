@@ -1325,6 +1325,21 @@ pub enum EnterModifier {
     /// decline (or no opponent exists), [`crate::Condition::TributeWasNotPaid`]
     /// evaluates `true`. Appended to preserve replay identities.
     Tribute(u16),
+    /// "As this enters, choose a player" (`CR 614.12a`: *True-Name Nemesis*,
+    /// *Saskia the Unyielding*, *Stuffy Doll*, *Sewer Nemesis*, *Sawhorn Nemesis*).
+    /// Stores the chosen seat on the permanent where [`crate::PlayerRel::ChosenBySource`]
+    /// reads it. Appended to preserve replay identities.
+    ChooseAnyPlayer,
+    /// "As this enters, look at an opponent's hand" (`CR 614.12a`: *Anointed
+    /// Peacekeeper*, *Sorcerous Spyglass*). Prompts the controller to choose an
+    /// opponent (when more than one exists) and privately inspects that player's
+    /// hand before subsequent entry choices such as [`Self::ChooseCardName`].
+    /// Appended to preserve replay identities.
+    LookAtOpponentHand,
+    /// "If it's neither day nor night, it becomes day as this permanent enters"
+    /// (`CR 726.2`, `CR 614.12`: *Brimstone Vandal*, *The Celestus*, *Vadrik,
+    /// Astral Archmage*). Appended to preserve replay identities.
+    BecomeDayIfNeither,
 }
 
 impl EnterModifier {

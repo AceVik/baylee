@@ -20,10 +20,11 @@ pub(super) struct LineFlags {
 impl Tx<'_> {
     /// One effect and everything its `SubAbility$` chain adds.
     pub(super) fn chain(&mut self, spec: &str, chain: &mut Chain) -> Option<()> {
-        let chosen = chain
-            .effects
-            .iter()
-            .any(|e| e.starts_with("Effect::ChooseNumberEx {"));
+        let chosen = self.has_resolution_chosen_number
+            || chain
+                .effects
+                .iter()
+                .any(|e| e.starts_with("Effect::ChooseNumberEx {"));
         let saved = std::mem::replace(&mut self.has_resolution_chosen_number, chosen);
         let chosen_color = self.has_chosen_color()
             || chain
@@ -259,6 +260,12 @@ impl Tx<'_> {
             chain.effects.extend(effects);
             return Some(());
         }
+        if api == "ChooseNumber"
+            && let Some(()) =
+                self.wave16c_choose_number_chain(&mut p, &mut sub, targets_here, chain)
+        {
+            return Some(());
+        }
         if api == "ChooseColor" {
             return self.choose_color_chain(p, sub.as_deref(), chain);
         }
@@ -267,16 +274,32 @@ impl Tx<'_> {
         }
         if api == "ChoosePlayer" {
             let saved_p = p.clone();
+            let saved_sub = sub.clone();
+            let saved_effects_len = chain.effects.len();
+            let saved_target = chain.target.clone();
+            let saved_second = chain.second_target.clone();
             let saved_unclaimed = self.unclaimed.borrow().clone();
             let saved_statics_len = self.body.statics.len();
             if let Some(effects) = self.choose_player_effect(&mut p, sub.as_deref()) {
                 chain.effects.extend(effects);
                 return Some(());
             }
+            p.clone_from(&saved_p);
+            self.unclaimed.borrow_mut().clone_from(&saved_unclaimed);
+            self.body.statics.truncate(saved_statics_len);
+            if let Some(effects) = self.choose_player_chain(&mut p, &mut sub, targets_here, chain) {
+                chain.effects.extend(effects);
+                return self.chain_sub_ability(sub, chain);
+            }
             p = saved_p;
+            sub = saved_sub;
+            chain.effects.truncate(saved_effects_len);
+            chain.target = saved_target;
+            chain.second_target = saved_second;
             *self.unclaimed.borrow_mut() = saved_unclaimed;
             self.body.statics.truncate(saved_statics_len);
-            let effects = self.choose_player_chain(&mut p, &mut sub, targets_here, chain)?;
+            let effects =
+                self.wave16c_choose_player_chain(&mut p, &mut sub, targets_here, chain)?;
             chain.effects.extend(effects);
             return self.chain_sub_ability(sub, chain);
         }
@@ -3514,8 +3537,11 @@ impl Tx<'_> {
                 } else {
                     let block_role = self.block_line.as_ref().map(|(r, _, _)| *r);
                     match p.take("Defined").as_deref() {
-                        None => aimed.to_string(),
-                        Some("Self") if !self.on_a_spell => "TargetSpec::ThisObject".to_string(),
+                        None if target.is_some() => aimed.to_string(),
+                        None | Some("Self") if !self.on_a_spell => {
+                            "TargetSpec::ThisObject".to_string()
+                        }
+                        None => return None,
                         Some("Targeted" | "ParentTarget") if !targets_here && target.is_some() => {
                             aimed.to_string()
                         }
@@ -3682,6 +3708,17 @@ impl Tx<'_> {
                                     "TriggeredBlocker$CardPower",
                                     "TriggeredBlockerLKICopy$CardPower",
                                 ],
+                                (
+                                    "TriggeredSource" | "TriggeredSourceLKICopy",
+                                    Some("DamageDone"),
+                                ) if self.has_chosen_source_player()
+                                    && to == "TargetSpec::Player(PlayerRel::ChosenBySource)" =>
+                                {
+                                    &[
+                                        "TriggeredSource$CardPower",
+                                        "TriggeredSourceLKICopy$CardPower",
+                                    ]
+                                }
                                 _ => return None,
                             };
                         if self.is_power_of(&num_dmg, power_names) {
@@ -4534,8 +4571,18 @@ impl Tx<'_> {
                             p.peek("Defined"),
                             Some("TriggeredTargetLKICopy" | "TriggeredTarget")
                         ))
-                    || (self.trigger_mode.as_deref() == Some("ChangesZone")
-                        && target.is_none()
+                    || (matches!(
+                        self.trigger_mode.as_deref(),
+                        Some(
+                            "ChangesZone"
+                                | "Taps"
+                                | "Untaps"
+                                | "Exerted"
+                                | "Enlisted"
+                                | "TurnFaceUp"
+                                | "Transformed"
+                        )
+                    ) && target.is_none()
                         && matches!(
                             p.peek("Defined"),
                             Some("TriggeredCardLKICopy" | "TriggeredCard")
@@ -6941,6 +6988,12 @@ impl Tx<'_> {
             && let Some(rel) = self.wave11_trigger_player_rel(who)
         {
             return Some(rel);
+        }
+        if matches!(defined, Some("ChosenPlayer" | "Player.Chosen"))
+            && target.is_none()
+            && self.has_chosen_source_player()
+        {
+            return Some("PlayerRel::ChosenBySource");
         }
         self.player_of_line(defined, target, targets_a_player)
     }

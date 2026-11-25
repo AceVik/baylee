@@ -835,7 +835,9 @@ fn could_change_match(modifier: &Modifier, filter: &Filter, layer: Layer) -> boo
         | Filter::CmcAtMostAmount(_)
         | Filter::CmcEqualsAmount(_)
         | Filter::PowerAtMostAmount(_)
-        | Filter::PowerAtLeastAmount(_) => true,
+        | Filter::PowerAtLeastAmount(_)
+        | Filter::PowerEqualsAmount(_)
+        | Filter::ToughnessEqualsAmount(_) => true,
         Filter::OfSourceChosenColor | Filter::ChosenColor => matches!(
             modifier,
             Modifier::AddColor(_) | Modifier::SetColor(_) | Modifier::BecomeCopyOf(_)
@@ -880,7 +882,9 @@ fn could_change_match(modifier: &Modifier, filter: &Filter, layer: Layer) -> boo
         | Filter::PowerAtMost(_)
         | Filter::PowerAtMostSourcePower
         | Filter::PowerLessThanSourcePower
-        | Filter::ToughnessLessThanSourcePower => {
+        | Filter::ToughnessLessThanSourcePower
+        | Filter::PowerEqualsChosenNumber
+        | Filter::ToughnessEqualsChosenNumber => {
             matches!(
                 modifier,
                 Modifier::HoneEquipment
@@ -995,6 +999,7 @@ fn could_change_match(modifier: &Modifier, filter: &Filter, layer: Layer) -> boo
         | Filter::Enchanted
         | Filter::Equipped
         | Filter::CmcEqualsCountersOnSource(_)
+        | Filter::CmcEqualsChosenNumber
         | Filter::CmcEqualsYourUnspentMana
         | Filter::FaceDown
         | Filter::BlockingSource
@@ -1537,6 +1542,7 @@ fn apply(
         | Modifier::ModifyLifeGain { .. }
         | Modifier::PreventDamageRemovingCounters { .. }
         | Modifier::PreventDamageToAffectedIfAtMost(_)
+        | Modifier::DamageCantBePrevented
         | Modifier::GrantStatic { .. }
         | Modifier::SpellsHaveFlash(_)
         | Modifier::SorceriesHaveFlash

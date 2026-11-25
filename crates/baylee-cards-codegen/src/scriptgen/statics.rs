@@ -6107,6 +6107,12 @@ impl Tx<'_> {
                 "Amount::CountOf { filter: &Filter::Any, zone: ZoneSel::HandChosen }".to_string(),
             );
         }
+        if trimmed == "Count$ValidGraveyard Card.ChosenCtrl" && self.has_chosen_source_player() {
+            return Some(
+                "Amount::CountOf { filter: &Filter::Any, zone: ZoneSel::GraveyardOf(PlayerRel::ChosenBySource) }"
+                    .to_string(),
+            );
+        }
         if let Some(valid) = trimmed
             .strip_prefix("Count$ValidGraveyard,Exile ")
             .or_else(|| trimmed.strip_prefix("Count$ValidExile,Graveyard "))

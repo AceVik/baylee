@@ -1077,6 +1077,7 @@ impl Effect {
             | Effect::DamageEqualToPower { .. }
             | Effect::EventObjectDealsDamageEqualToPower { .. }
             | Effect::EventObjectDealsDamage { .. }
+            | Effect::EventObjectDealsDamageEach { .. }
             | Effect::SacrificeEventDealDamageToEachBlocker { .. }
             | Effect::TargetDealsDamageToController { .. }
             | Effect::DealDamageToTargetController { .. }
@@ -1191,6 +1192,7 @@ impl Effect {
             | Effect::DestroyRandom { .. }
             | Effect::RevealTopPutOntoBattlefield { .. }
             | Effect::ChoosePlayerFrom { .. }
+            | Effect::ChoosePlayerAtRandom { .. }
             | Effect::CantBeBlockedByPlayerThisTurn { .. }
             | Effect::ReturnAllOwnedToHand { .. }
             | Effect::DestroyAllExceptChosen { .. }

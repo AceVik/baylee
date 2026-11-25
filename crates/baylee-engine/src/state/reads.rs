@@ -49,6 +49,11 @@ pub(crate) fn filter_reads_board_state(filter: &baylee_cards_dsl::Filter) -> boo
         | Filter::CmcEqualsAmount(_)
         | Filter::PowerAtMostAmount(_)
         | Filter::PowerAtLeastAmount(_)
+        | Filter::PowerEqualsAmount(_)
+        | Filter::ToughnessEqualsAmount(_)
+        | Filter::CmcEqualsChosenNumber
+        | Filter::PowerEqualsChosenNumber
+        | Filter::ToughnessEqualsChosenNumber
         | Filter::IsRemembered
         | Filter::NotRemembered
         | Filter::SharesCardTypeWithRemembered
@@ -86,7 +91,9 @@ fn filter_reads_reference_at(filter: &baylee_cards_dsl::Filter, depth: u8) -> bo
         Filter::CmcAtMostAmount(amt)
         | Filter::CmcEqualsAmount(amt)
         | Filter::PowerAtMostAmount(amt)
-        | Filter::PowerAtLeastAmount(amt) => amount_reads_reference_at(amt, depth + 1),
+        | Filter::PowerAtLeastAmount(amt)
+        | Filter::PowerEqualsAmount(amt)
+        | Filter::ToughnessEqualsAmount(amt) => amount_reads_reference_at(amt, depth + 1),
         Filter::And(parts) | Filter::Or(parts) => {
             parts.iter().any(|f| filter_reads_reference_at(f, depth))
         }
@@ -383,7 +390,9 @@ fn filter_reads_crime(filter: &baylee_cards_dsl::Filter, depth: u8) -> bool {
         Filter::CmcAtMostAmount(a)
         | Filter::CmcEqualsAmount(a)
         | Filter::PowerAtMostAmount(a)
-        | Filter::PowerAtLeastAmount(a) => amount_reads_crime_at(a, depth + 1),
+        | Filter::PowerAtLeastAmount(a)
+        | Filter::PowerEqualsAmount(a)
+        | Filter::ToughnessEqualsAmount(a) => amount_reads_crime_at(a, depth + 1),
         Filter::And(parts) | Filter::Or(parts) => {
             parts.iter().any(|f| filter_reads_crime(f, depth))
         }
@@ -639,7 +648,9 @@ fn filter_reads_expend(filter: &baylee_cards_dsl::Filter, depth: u8) -> bool {
         Filter::CmcAtMostAmount(a)
         | Filter::CmcEqualsAmount(a)
         | Filter::PowerAtMostAmount(a)
-        | Filter::PowerAtLeastAmount(a) => amount_reads_expend_at(a, depth + 1),
+        | Filter::PowerAtLeastAmount(a)
+        | Filter::PowerEqualsAmount(a)
+        | Filter::ToughnessEqualsAmount(a) => amount_reads_expend_at(a, depth + 1),
         Filter::And(parts) | Filter::Or(parts) => {
             parts.iter().any(|f| filter_reads_expend(f, depth))
         }
@@ -1181,7 +1192,9 @@ fn filter_matches(
         Filter::CmcAtMostAmount(a)
         | Filter::CmcEqualsAmount(a)
         | Filter::PowerAtMostAmount(a)
-        | Filter::PowerAtLeastAmount(a) => amt_matches(a, cond_pred, amt_pred, depth + 1),
+        | Filter::PowerAtLeastAmount(a)
+        | Filter::PowerEqualsAmount(a)
+        | Filter::ToughnessEqualsAmount(a) => amt_matches(a, cond_pred, amt_pred, depth + 1),
         Filter::And(parts) | Filter::Or(parts) => parts
             .iter()
             .any(|f| filter_matches(f, cond_pred, amt_pred, depth)),

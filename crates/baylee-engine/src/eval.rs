@@ -1042,7 +1042,9 @@ pub(crate) fn matches_projected_with_choices(
         Filter::CmcAtMostAmount(amt)
         | Filter::CmcEqualsAmount(amt)
         | Filter::PowerAtMostAmount(amt)
-        | Filter::PowerAtLeastAmount(amt) => {
+        | Filter::PowerAtLeastAmount(amt)
+        | Filter::PowerEqualsAmount(amt)
+        | Filter::ToughnessEqualsAmount(amt) => {
             let Some(_guard) = DynamicFilterDepthGuard::enter() else {
                 return false;
             };
@@ -1054,6 +1056,23 @@ pub(crate) fn matches_projected_with_choices(
                 Some(announced_x(state, this)),
             );
             match_dynamic_amount_filter(filter, chars, mag, amt.is_negative())
+        }
+        Filter::CmcEqualsChosenNumber
+        | Filter::PowerEqualsChosenNumber
+        | Filter::ToughnessEqualsChosenNumber => {
+            let Some(chosen) = state
+                .object(this)
+                .or_else(|| state.damage_source(this, None))
+                .and_then(crate::object::GameObject::chosen_number)
+            else {
+                return false;
+            };
+            match filter {
+                Filter::CmcEqualsChosenNumber => chars.mana_value() == u32::from(chosen),
+                Filter::PowerEqualsChosenNumber => chars.power == Some(i16::from(chosen)),
+                Filter::ToughnessEqualsChosenNumber => chars.toughness == Some(i16::from(chosen)),
+                _ => unreachable!(),
+            }
         }
         Filter::IsRemembered
         | Filter::NotRemembered
@@ -1117,6 +1136,8 @@ pub(crate) fn match_dynamic_amount_filter(
         Filter::CmcEqualsAmount(_) => i64::from(chars.mana_value()) == bound,
         Filter::PowerAtMostAmount(_) => chars.power.is_some_and(|p| i64::from(p) <= bound),
         Filter::PowerAtLeastAmount(_) => chars.power.is_some_and(|p| i64::from(p) >= bound),
+        Filter::PowerEqualsAmount(_) => chars.power.is_some_and(|p| i64::from(p) == bound),
+        Filter::ToughnessEqualsAmount(_) => chars.toughness.is_some_and(|t| i64::from(t) == bound),
         _ => unreachable!("only dynamic amount filters"),
     }
 }
@@ -1363,7 +1384,9 @@ fn reads_announced_x_at(filter: &Filter, depth: u8) -> bool {
         Filter::CmcAtMostAmount(amt)
         | Filter::CmcEqualsAmount(amt)
         | Filter::PowerAtMostAmount(amt)
-        | Filter::PowerAtLeastAmount(amt) => amount_reads_announced_x(amt, depth + 1),
+        | Filter::PowerAtLeastAmount(amt)
+        | Filter::PowerEqualsAmount(amt)
+        | Filter::ToughnessEqualsAmount(amt) => amount_reads_announced_x(amt, depth + 1),
         Filter::And(parts) | Filter::Or(parts) => {
             parts.iter().any(|f| reads_announced_x_at(f, depth))
         }
@@ -1454,14 +1477,17 @@ pub(crate) fn matches_for_x(
         | Filter::CmcEqualsAmount(amt)
         | Filter::PowerAtMostAmount(amt)
         | Filter::PowerAtLeastAmount(amt)
+        | Filter::PowerEqualsAmount(amt)
+        | Filter::ToughnessEqualsAmount(amt)
             if amount_reads_announced_x(amt, 0) =>
         {
             let chars = obj.characteristics();
             let Some(x_val) = x else {
                 return match filter {
-                    Filter::PowerAtMostAmount(_) | Filter::PowerAtLeastAmount(_) => {
-                        chars.power.is_some()
-                    }
+                    Filter::PowerAtMostAmount(_)
+                    | Filter::PowerAtLeastAmount(_)
+                    | Filter::PowerEqualsAmount(_) => chars.power.is_some(),
+                    Filter::ToughnessEqualsAmount(_) => chars.toughness.is_some(),
                     _ => true,
                 };
             };

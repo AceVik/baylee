@@ -533,17 +533,37 @@ pub(super) fn deal_combat_damage(state: &mut GameState, first_strike_step: bool)
 }
 
 /// True if the damage `source` is dealing can't be prevented
-/// (`CombatDamageCantBePrevented`, CR 615.12): combat damage from an object
-/// an effect says so of. Every prevention effect then does nothing to it,
-/// protection's (CR 702.16e) as much as a shield's.
+/// (`CombatDamageCantBePrevented` / `DamageCantBePrevented`, CR 615.12):
+/// combat or all damage from an object an effect says so of. Every prevention
+/// effect then does nothing to it, protection's (CR 702.16e) as much as a
+/// shield's.
 pub(crate) fn unpreventable(state: &GameState, source: ObjectId, is_combat: bool) -> bool {
-    is_combat
-        && state.object(source).is_some_and(|obj| {
+    if state.effects.iter().any(|fx| {
+        matches!(
+            fx.modifier,
+            baylee_cards_dsl::Modifier::DamageCantBePrevented
+        ) && matches!(
+            fx.filter,
+            crate::effects::EffectFilter::Dsl(baylee_cards_dsl::Filter::Any)
+        ) && crate::effects::source_is_present(state, fx)
+    }) {
+        return true;
+    }
+    state
+        .object(source)
+        .or_else(|| state.damage_source(source, None))
+        .is_some_and(|obj| {
             state.effects.iter().any(|fx| {
-                matches!(
+                (matches!(
                     fx.modifier,
-                    baylee_cards_dsl::Modifier::CombatDamageCantBePrevented
-                ) && crate::effects::applies_to(state, fx, obj)
+                    baylee_cards_dsl::Modifier::DamageCantBePrevented
+                ) || (is_combat
+                    && matches!(
+                        fx.modifier,
+                        baylee_cards_dsl::Modifier::CombatDamageCantBePrevented
+                    )))
+                    && crate::effects::applies_to_snapshot(state, fx, obj)
+                    && crate::effects::source_is_present(state, fx)
             })
         })
 }

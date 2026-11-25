@@ -230,6 +230,17 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
         self.state
             .effects
             .remove_where(|fx| matches!(fx.duration, baylee_cards_dsl::Duration::UntilEndOfCombat));
+        self.state.arena.update_where(
+            |obj| {
+                obj.riders
+                    .iter()
+                    .any(|r| matches!(r, crate::object::Rider::MustAttackPlayerThisCombat(_)))
+            },
+            |obj| {
+                obj.riders
+                    .retain(|r| !matches!(r, crate::object::Rider::MustAttackPlayerThisCombat(_)));
+            },
+        );
         if self.state.per_turn.phase_stack_active.0 {
             self.pop_next_phase()
         } else {
@@ -412,6 +423,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                             r,
                             crate::object::Rider::Saddled
                                 | crate::object::Rider::MustAttackPlayerThisTurn(_)
+                                | crate::object::Rider::MustAttackPlayerThisCombat(_)
                         )
                     })
             },
@@ -424,6 +436,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                         rider,
                         crate::object::Rider::Saddled
                             | crate::object::Rider::MustAttackPlayerThisTurn(_)
+                            | crate::object::Rider::MustAttackPlayerThisCombat(_)
                     )
                 });
                 obj.damage = 0;

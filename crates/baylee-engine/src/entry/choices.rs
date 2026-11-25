@@ -329,6 +329,49 @@ pub fn advance(state: &mut GameState) -> Option<Pending> {
                             }
                         }
                     }
+                    EnterModifier::ChooseSubtype
+                    | EnterModifier::ChooseSubtypeFrom(_)
+                    | EnterModifier::ChooseBasicLandType
+                        if super::has_pre_counter_choice(entry.modifiers) =>
+                    {
+                        let options = match modifier {
+                            EnterModifier::ChooseBasicLandType => {
+                                use baylee_core::generated::subtypes::land::{
+                                    FOREST, ISLAND, MOUNTAIN, PLAINS, SWAMP,
+                                };
+                                vec![PLAINS, ISLAND, SWAMP, MOUNTAIN, FOREST]
+                            }
+                            EnterModifier::ChooseSubtypeFrom(types) => types.to_vec(),
+                            _ => baylee_core::generated::subtypes::ALL_CREATURE_TYPES
+                                .iter()
+                                .collect(),
+                        };
+                        return Some(ask(
+                            state,
+                            entry,
+                            Question::EntrySubtype,
+                            Pending::ChooseSubtype { player, options },
+                        ));
+                    }
+                    EnterModifier::ChooseOpponent | EnterModifier::ChooseAnyPlayer
+                        if super::has_pre_counter_choice(entry.modifiers) =>
+                    {
+                        let rel = if matches!(modifier, EnterModifier::ChooseOpponent) {
+                            baylee_cards_dsl::PlayerRel::Opponent
+                        } else {
+                            baylee_cards_dsl::PlayerRel::EachPlayer
+                        };
+                        let options = crate::eval::players(rel, state, player).unwrap_or_default();
+                        if options.is_empty() {
+                            continue;
+                        }
+                        return Some(ask(
+                            state,
+                            entry,
+                            Question::EntryPlayer,
+                            Pending::ChoosePlayer { player, options },
+                        ));
+                    }
                     _ => {}
                 }
                 state.entries.pending.push_front(entry);
@@ -571,6 +614,18 @@ pub fn answer(state: &mut GameState, action: &PlayerAction) {
                 if counters > 0 {
                     entry.counters.push((None, CounterKind::P1P1, counters));
                 }
+            }
+        }
+        (Question::EntrySubtype, PlayerAction::ChooseSubtype(sub)) => {
+            entry.chosen_subtype = Some(*sub);
+            if let Some(obj) = state.object_mut(entry.object) {
+                obj.chosen_subtype = Some(*sub);
+            }
+        }
+        (Question::EntryPlayer, PlayerAction::ChoosePlayer(chosen)) => {
+            entry.chosen_player = Some(*chosen);
+            if let Some(obj) = state.object_mut(entry.object) {
+                obj.set_chosen_opponent(Some(*chosen));
             }
         }
         _ => unreachable!("entry answer shape was validated"),

@@ -99,6 +99,8 @@ struct Attempt {
     refusal: Option<Refusal>,
     sacrifices: Option<u32>,
     chosen_number: Option<u8>,
+    chosen_subtype: Option<baylee_core::ids::SubtypeId>,
+    chosen_player: Option<PlayerId>,
     battle_protector: Option<PlayerId>,
     saga_chapter: Option<u8>,
     kw_choices: EntryKeywordState,
@@ -130,6 +132,8 @@ impl Hash for Attempt {
             refusal,
             sacrifices,
             chosen_number,
+            chosen_subtype,
+            chosen_player,
             battle_protector,
             saga_chapter,
             kw_choices,
@@ -157,6 +161,12 @@ impl Hash for Attempt {
         refusal.hash(h);
         sacrifices.hash(h);
         chosen_number.hash(h);
+        if let Some(sub) = chosen_subtype {
+            sub.hash(h);
+        }
+        if let Some(player) = chosen_player {
+            player.hash(h);
+        }
         battle_protector.hash(h);
         // Folded in only when set (Read-Ahead Sagas, CR 702.155b), preserving
         // recorded hashes on entries that never choose a starting chapter.
@@ -272,6 +282,10 @@ enum Question {
     Tribute {
         counters: u16,
     },
+    /// Pre-counter entry subtype choice (`CR 614.12`, *Banner of Kinship*).
+    EntrySubtype,
+    /// Pre-counter entry player/opponent choice (`CR 614.12`, *Canker Abomination*).
+    EntryPlayer,
 }
 
 impl Hash for Entries {
@@ -401,6 +415,26 @@ pub(super) fn may_have_keyword_entry(state: &GameState, id: ObjectId) -> bool {
         })
 }
 
+pub(crate) fn has_pre_counter_choice(modifiers: &[EnterModifier]) -> bool {
+    let has_counters = modifiers.iter().any(|m| {
+        matches!(
+            m,
+            EnterModifier::WithCounters { .. } | EnterModifier::WithCountersIf { .. }
+        )
+    });
+    has_counters
+        && modifiers.iter().any(|m| {
+            matches!(
+                m,
+                EnterModifier::ChooseSubtype
+                    | EnterModifier::ChooseSubtypeFrom(_)
+                    | EnterModifier::ChooseBasicLandType
+                    | EnterModifier::ChooseOpponent
+                    | EnterModifier::ChooseAnyPlayer
+            )
+        })
+}
+
 fn needs_before_entry(modifier: &EnterModifier) -> bool {
     tapping::handles(modifier)
         || matches!(
@@ -508,6 +542,8 @@ pub(crate) fn defer(
         refusal: None,
         sacrifices: None,
         chosen_number: None,
+        chosen_subtype: None,
+        chosen_player: None,
         battle_protector: None,
         saga_chapter: None,
         kw_choices: EntryKeywordState::default(),

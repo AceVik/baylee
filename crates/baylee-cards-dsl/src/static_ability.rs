@@ -1685,6 +1685,12 @@ pub enum Modifier {
     /// replacement, so damage that can't be prevented is still dealt in full.
     /// Appended to preserve replay identities.
     PreventDamageToAffectedIfAtMost(u32),
+    /// All damage (combat and noncombat) from affected sources — or from any
+    /// source when scoped to `&Filter::Any` — can't be prevented (`CR 615.12`:
+    /// *Skullcrack*, *Call In a Professional*, *Wild Slash*, *Unstable Footing*,
+    /// *Leyline of Punishment*, *Bonecrusher Giant // Stomp*). Appended to
+    /// preserve replay identities.
+    DamageCantBePrevented,
 }
 
 /// Quantity evaluated during CR 601.2f spell cost determination by
@@ -2187,7 +2193,8 @@ impl Modifier {
             | Self::MustAttackPlayer(_)
             | Self::ModifyLifeGain { .. }
             | Self::PreventDamageRemovingCounters { .. }
-            | Self::PreventDamageToAffectedIfAtMost(_) => Layer::Text,
+            | Self::PreventDamageToAffectedIfAtMost(_)
+            | Self::DamageCantBePrevented => Layer::Text,
         }
     }
 }
@@ -2673,6 +2680,24 @@ pub enum ReplacementRule {
         /// Prospective permanents affected, read with the rule's controller
         /// as "you" (`Another` excludes the source itself).
         filter: &'static Filter,
+    },
+    /// Matching prospective permanents enter tapped while `condition` holds on
+    /// the replacement source (`CR 614.1c`, `CR 616.1`: *Archelos, Lagoon Mystic*).
+    /// Appended to preserve replay identities.
+    EnterTappedIf {
+        /// Prospective permanents affected.
+        filter: &'static Filter,
+        /// Condition evaluated against the replacement source and its controller.
+        condition: crate::ability::Condition,
+    },
+    /// Matching prospective permanents enter untapped while `condition` holds
+    /// on the replacement source (`CR 614.1c`, `CR 616.1`: *Archelos, Lagoon Mystic*).
+    /// Appended to preserve replay identities.
+    EnterUntappedIf {
+        /// Prospective permanents affected.
+        filter: &'static Filter,
+        /// Condition evaluated against the replacement source and its controller.
+        condition: crate::ability::Condition,
     },
 }
 
@@ -3231,6 +3256,7 @@ mod tests {
                 then: Some(RIDER),
             },
             Modifier::PreventDamageToAffectedIfAtMost(3),
+            Modifier::DamageCantBePrevented,
         ] {
             assert_eq!(
                 modifier.layer(),

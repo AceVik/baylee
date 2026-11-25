@@ -455,6 +455,7 @@ fn encode_trigger_into(trigger: &Trigger, dst: &mut [f32]) {
         | Trigger::BecomesMonstrous
         | Trigger::RingTemptsYou { .. }
         | Trigger::Firebends(_)
+        | Trigger::DayNightChanges
         | Trigger::CycledThis
         | Trigger::Cycled { .. } => dst[9] = 1.0,
         _ => dst[8] = 0.5,
@@ -573,6 +574,9 @@ fn encode_static_into(sa: &StaticAbility, ch: &mut EffectChannels) {
         Modifier::PreventDamageToAffectedIfAtMost(_) => {
             ch.pump_pt += 0.5;
         }
+        Modifier::DamageCantBePrevented => {
+            ch.damage_any += 1.0;
+        }
         Modifier::MayCastWithAltCost { .. } => {
             ch.mana_add += 1.0;
         }
@@ -612,7 +616,9 @@ fn encode_replacement_into(rule: &ReplacementRule, ch: &mut EffectChannels) {
         | ReplacementRule::ExileInsteadOfGraveyard { .. } => {
             ch.exile_all_or_gy += 1.5;
         }
-        ReplacementRule::OpeningHandOnBattlefield => {
+        ReplacementRule::OpeningHandOnBattlefield
+        | ReplacementRule::EnterTappedIf { .. }
+        | ReplacementRule::EnterUntappedIf { .. } => {
             ch.pump_pt += 0.5;
         }
         ReplacementRule::OpeningHandRevealAtFirstUpkeep(effects) => {

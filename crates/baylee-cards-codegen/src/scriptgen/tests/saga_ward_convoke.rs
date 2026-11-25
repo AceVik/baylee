@@ -1043,7 +1043,7 @@ fn extra_statics_life_lock_search_lock_and_life_gain_draw() {
     );
 
     assert!(refused(
-        "Name:AllDmgNoPrevent\nTypes:Enchantment\nS:Mode$ CantPreventDamage"
+        "Name:ScopedDmgNoPrevent\nTypes:Enchantment\nS:Mode$ CantPreventDamage | ValidSource$ Creature.YouCtrl"
     ));
     assert!(refused(
         "Name:AllCantSearch\nTypes:Enchantment\nS:Mode$ CantSearchLibrary | ValidPlayer$ Player"

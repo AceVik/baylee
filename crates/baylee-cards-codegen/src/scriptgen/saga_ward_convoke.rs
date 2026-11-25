@@ -183,6 +183,9 @@ impl Tx<'_> {
             if trimmed.starts_with("DB$ NameCard") {
                 return ExtraOutcome::Handled(self.etb_name_card(svar.trim()));
             }
+            if let ExtraOutcome::Handled(res) = self.wave16c_etb_other(svar.trim()) {
+                return ExtraOutcome::Handled(res);
+            }
             if trimmed.starts_with("DB$ ChoosePlayer") {
                 return ExtraOutcome::Handled(self.etb_choose_opponent(svar.trim()));
             }
@@ -606,7 +609,7 @@ impl Tx<'_> {
             };
             p.drop_prose();
             if api != "PutCounter"
-                || p.take("Defined").as_deref() != Some("Self")
+                || !matches!(p.take("Defined").as_deref(), None | Some("Self"))
                 || p.take("ETB").as_deref() != Some("True")
             {
                 return self.deny(format!("replacement `Moved` chaining `{api}`"));
@@ -1093,9 +1096,14 @@ impl Tx<'_> {
 
     fn cant_prevent_combat_damage(&mut self, mut p: Params) -> Option<()> {
         p.drop_prose();
-        if p.take("IsCombat").as_deref() != Some("True") {
-            return self.deny("static ability `S: Mode$ CantPreventDamage`".to_string());
-        }
+        let combat_only = match (
+            p.take("IsCombat").as_deref(),
+            p.take("CombatDamage").as_deref(),
+        ) {
+            (Some("True"), None) | (None, Some("True")) => true,
+            (None, None) => false,
+            _ => return self.deny("static ability `S: Mode$ CantPreventDamage`".to_string()),
+        };
         if let Some(sec) = p.take("Secondary")
             && sec != "True"
         {
@@ -1113,9 +1121,17 @@ impl Tx<'_> {
         }
         let filter = match valid_source {
             None => "Filter::Any".to_string(),
+            Some(_) if !combat_only => {
+                return self.deny("static ability `S: Mode$ CantPreventDamage`".to_string());
+            }
             Some(valid) => self.filter_expr(&valid)?,
         };
-        let mut expr = Self::static_expr(&filter, "Modifier::CombatDamageCantBePrevented");
+        let mod_str = if combat_only {
+            "Modifier::CombatDamageCantBePrevented"
+        } else {
+            "Modifier::DamageCantBePrevented"
+        };
+        let mut expr = Self::static_expr(&filter, mod_str);
         if !condition.is_empty()
             && let Some(open) = expr.strip_suffix(')')
         {

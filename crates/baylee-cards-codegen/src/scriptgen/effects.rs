@@ -2309,11 +2309,20 @@ impl Tx<'_> {
                 )?);
             }
         }
-        if host_leaves_or_eot
-            && (subject != EffectSubject::Unbound
-                || !out.iter().all(|e| e.starts_with("Effect::ModifySource {")))
-        {
-            return None;
+        if host_leaves_or_eot {
+            let source_ok = subject == EffectSubject::Unbound
+                && out.iter().all(|e| e.starts_with("Effect::ModifySource {"));
+            // CR 400.7: `combat/block.rs` enforces `other.timestamp < fx.timestamp`
+            // on resolution-created `Modifier::CantBlock(&Filter::This)`, so a
+            // departed and re-entered source is a new object and no longer restricted.
+            let target_cant_block_this_ok = subject == EffectSubject::Targets
+                && out.iter().all(|e| {
+                    e == "Effect::ModifyTargets { modifier: Modifier::CantBlock(&Filter::This), \
+                          duration: Duration::UntilEndOfTurn }"
+                });
+            if !source_ok && !target_cant_block_this_ok {
+                return None;
+            }
         }
         (!out.is_empty()).then_some(out)
     }
@@ -3025,11 +3034,21 @@ impl Tx<'_> {
                 self.emit_effect_modifiers(subject, &valid, &mods, duration)
             }
             "CantPreventDamage" if subject == EffectSubject::Unbound => {
-                if st.take("CombatDamage").as_deref() != Some("True") || !st.exhausted() {
+                let mod_str = match (
+                    st.take("CombatDamage").as_deref(),
+                    st.take("IsCombat").as_deref(),
+                ) {
+                    (Some("True"), None) | (None, Some("True")) => {
+                        "Modifier::CombatDamageCantBePrevented"
+                    }
+                    (None, None) => "Modifier::DamageCantBePrevented",
+                    _ => return None,
+                };
+                if !st.exhausted() {
                     return None;
                 }
                 Some(vec![format!(
-                    "Effect::continuous(&Filter::Any, Modifier::CombatDamageCantBePrevented, {duration})"
+                    "Effect::continuous(&Filter::Any, {mod_str}, {duration})"
                 )])
             }
             "CantBlock"
@@ -3047,6 +3066,11 @@ impl Tx<'_> {
                 let valid = st.take("ValidCard")?;
                 st.exhausted().then_some(())?;
                 self.emit_effect_modifiers(subject, &valid, &[modifier.to_string()], duration)
+                    .or_else(|| {
+                        self.wave16c_player_effect_cant_block_or_attack(
+                            mode, &valid, subject, duration,
+                        )
+                    })
             }
             "CantBeCast"
                 if matches!(
