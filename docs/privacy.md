@@ -1179,8 +1179,14 @@ to weigh, not conclusions.
    client still sends its session or seat token in a socket's address, and
    `/auth/confirm?token=` always does; whatever access log sits in front of
    the gateway sees those.
-4. **Retention of stdout logs and of backups** is not set anywhere in the
-   repository.
+4. **Retention of stdout logs and of backups** is set on the server, not in
+   the repository. The journal keeps 14 days (`MaxRetentionSec=14day`;
+   `MaxFileSec=1day` is still to be set, since journald deletes only whole
+   files), and the files rsyslog, fail2ban and ufw write from it rotate
+   daily with `maxage 14` (since 25.11.2026). Backups, planned and not yet
+   running, are encrypted on the server and kept on Google Drive: at most
+   14 days for undelivered messages, 12 months for the rest
+   (`docs/proposals/legal-open-beta.md`, point 8).
 5. **Game records** (#315) are kept without a time limit. The record names
    no account; who sat in a seat is `game_record_seat.account_id` (and
    `delegated_by` for a host's seat bridge), both `ON DELETE SET NULL`

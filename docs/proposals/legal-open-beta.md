@@ -83,34 +83,38 @@ feedback service. `main` has moved all of that to Central.
   (`MaxRetentionSec=14day`, checked read-only on 11.11.2026) and what
   Central's texts promise for the same server. So the gateway's terms
   (16.3 "Server logs" and "Moderation") and the website's notice now say
-  14 days. **One server change remains before publishing:** the files
-  rsyslog writes from the journal (`/var/log/syslog`, and fail2ban's log)
-  rotate weekly with `rotate 4`, about five weeks. In
-  `/etc/logrotate.d/rsyslog` and `/etc/logrotate.d/fail2ban`, replace
-  `weekly` and `rotate 4` with `daily`, `rotate 13` and `maxage 14`
-  (baylee-central `docs/operations.md` §"Logs and how long they stay").
-  Then every text is true at once; the terms carry an `[OFFEN]` for it
-  until then.
+  14 days. **Done on the server on 25.11.2026** (owner's go-ahead):
+  `/etc/logrotate.d/rsyslog`, `fail2ban`, `ufw` and `btmp` rotate `daily`
+  with `rotate 13` and `maxage 14` (they were weekly with `rotate 4`, btmp
+  monthly with `rotate 1`); the old configurations are in
+  `/root/logrotate-backup-20261125/`, and the 12 archives older than 14
+  days are deleted. Entries older than 14 days stay inside the last weekly
+  archives until about 08.12.2026. **One gap remains:** the journal still
+  held entries from 06.11. despite `MaxRetentionSec=14day`, because journald
+  deletes only whole files; `MaxFileSec=1day` closes that, and two journal
+  files of a former machine ID (26.09.) need deleting. The terms carry an
+  `[OFFEN]` for it until then. `wtmp` holds only the owner's own SSH
+  sign-ins and is left as it is.
 
 ## Open points for the owner
 
 Each one is marked where it sits in the draft.
 
-8. **Backups:** there is no settled plan yet (owner, 25.11.2026); one is
-   being worked out, with the copies on the owner's Google Drive. The
-   draft no longer names tiers or 12 months; 16.3 says only that backups
-   exist and carries an `[OFFEN]` for what the plan must add: where they
-   lie and who processes them (Google under an Art. 28 agreement, a
-   possible third-country transfer), encryption before upload, tiers and
-   the longest retention, and the matching lines in 9a.4 and 16.6.
-   The backup thread's proposal (25.11.2026, not yet decided): restic,
-   encrypted on the server before upload, a "full" set hourly for 48
-   hours and daily for 14 days, an "archive" set weekly for 8 weeks and
-   monthly for 12 months without short-lived data (undelivered chat
-   messages among them); a second, encrypted copy on the owner's disk. The
-   text would then say: undelivered messages at most 14 days in backups,
-   everything else at most 12 months; Google named as recipient once the
-   account type (and with it an Art. 28 agreement) is chosen.
+8. **Backups:** the owner chose his private Google account (25.11.2026;
+   Drive API with an OAuth client of his own), so there is no Art. 28
+   agreement with Google. The backups are encrypted on the server before
+   upload and Google never receives the key. 16.3, 9a.4, 16.6 (a new item
+   for where backups are kept, naming Google Ireland Limited) and 16.8 now
+   say so: undelivered messages at most 14 days in backups, everything
+   else at most 12 months, deletions repeated after a restore, on Art.
+   6(1)(f) with Art. 32(1)(c) GDPR. Two markers remain. The `[OFFEN]`
+   says to publish only once the backup runs that way, and to name a
+   second encrypted copy on the owner's own drive if one is added. The
+   `[ANNAHME]` in 16.8 says the EU-US Data Privacy Framework carries
+   storage outside the EU for a private account; that needs checking.
+   Central's privacy policy § 6 needs the same recipient, and its
+   sentence that transfers outside the EEA happen only with notifications
+   turned on stops being true once the backup runs.
 9. **Reports go to Central in the open beta** (owner, 25.11.2026). The code
    is done; the server needs `BAYLEE_REPORTS_TO=central` and
    `BAYLEE_DIRECT_REPORT_KEY` (at least 16 characters, the feedback
@@ -168,9 +172,10 @@ changes made here:
 ## Publishing the new version
 
 1. Settle the points above and remove every marker; remove the draft
-   paragraph under the title. Three of them are things to do on the
-   server first: the log files capped at 14 days, the two settings for
-   reports to Central, and the release with migration 35 deployed.
+   paragraph under the title. Four of them are things to do on the
+   server first: the journal capped at 14 days, the backup running as
+   16.3 describes it, the two settings for reports to Central, and the
+   release with migration 35 deployed.
 2. Fill in `[NAME]`, `[E-MAIL]`, the version (a date) and the date, in a
    copy outside the repository.
 3. Publish both languages in the console (`POST /admin/terms`,
