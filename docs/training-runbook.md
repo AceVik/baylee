@@ -870,8 +870,8 @@ answer whose menu does not certify loses its probability, and a game with a
 draw (temperature above 0.35) from a menu that certifies and no probability is
 refused, as is a run played with any mode that changes an answer or takes its
 probability (a choice guard, tactics rules, a payable menu, free temperature, a
-random or an archived opponent's policy, a tactician, a search, grouped
-decoding, adaptive thinking, the search student) or for numbers only. The
+random or an archived opponent's policy, a tactician, a search, a memory reset,
+grouped decoding, adaptive thinking, the search student) or for numbers only. The
 [separate research path](#separate-failure-terminal-research-path) carries the
 same contract: the conversion manifest, its cache and the tensor session name
 it, and a conversion archived without it must be reconverted.
