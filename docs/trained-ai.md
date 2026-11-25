@@ -502,7 +502,11 @@ does not reuse behavior-policy H or change the differentiable training
 segments' separate current-policy burn-in. A bounded 256-frame R6 inference
 probe measured 15.10 s for repeated prefixes versus 3.59 s for streaming,
 with identical action logprobs. This is a probe of the audit implementation,
-not a complete training-speed or full-model memory benchmark.
+not a complete training-speed or full-model memory benchmark. The same pass
+measures the decisions without a certified probability against the frozen
+source, head by head, and the update is refused on them as on the certified
+rows (`uncertified_drift=source_kl_per_head_v1`, part of the resume contract;
+the runbook says what that does and does not protect).
 
 `monitor_ops4 --root PATH --check` observes configured round, review, quota-probe
 and maintenance state. It preserves the existing event IDs and delivery ledger,
@@ -862,13 +866,15 @@ outputs and the sampling-version-2 constraints (`raw_neural_sampler2_v1`).
 successful non-forced answers as House demonstrations
 (`tactical_house_demonstrations_v1`), without neural behavior probabilities.
 Raw mode records stochastic neural probabilities only at finite temperature
-above 0.35 and for supported nonscalar heads; temperature zero is greedy and
-has no PPO behavior probability. A blocker draw that the attackers' stated
+above 0.35 and for certified categorical menus (`injective_categorical_menu_v1`,
+the runbook's "Record, replay and admit PPO data"); temperature zero is greedy and
+has no PPO behavior probability. Attackers, blockers, numbers, payments and aliased
+menus record none. A blocker draw that the attackers' stated
 counts changed (menace: a lone blocker joined or withdrawn,
-`sample_pairs_constrained`) records none either: its free bits describe the
+`sample_pairs_constrained`) shows why: its free bits describe the
 draw, not the answer, and its exact probability would be a sum over every draw
 the counts turn into it. Admission, the research cache and the research
-collection accept such a pair row without one and count it as no actor
+collection accept such a row without one and count it as no actor
 decision. Forced and fallback answers remain distinct.
 Evaluation/collection records must preserve the mode and executable/model
 identity. Historical tactical improvements and mislabeled tactical PPO samples
@@ -2663,7 +2669,11 @@ all microbatches. Forced/no-choice answers cannot meet that minimum; zero-policy
 and zero-gradient groups never advance Adam. Updates that exceed sampled behavior
 KL restore both parameters and optimizer state. A final audit over all eligible
 rollout decisions must pass before the changed policy is published; otherwise the
-unchanged source is published with zero accepted updates. This empirical guard
+unchanged source is published with zero accepted updates. The candidate scorer
+also reads attackers, payments and aliased menus, which carry no probability: their
+drift from the source is held to the same limit per head, after each step on its
+segments and at the end on all of them (`policy_training4/drift.py`, the runbook's
+"Record, replay and admit PPO data"). This empirical guard
 does not certify behavior outside the recorded states. See the
 [Sharp-intensive experiment](history/trained-ai-v4-sharp-intensive-2026-10-25.md).
 
