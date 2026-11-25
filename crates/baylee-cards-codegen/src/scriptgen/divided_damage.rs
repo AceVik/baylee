@@ -108,8 +108,21 @@ impl Tx<'_> {
         if self.divided_total(raw).as_deref() == Some(total) {
             return Some("u8::MAX".into());
         }
-        let def = self.svars.get(raw)?.trim();
-        if def.strip_prefix("Count$Valid ").map(str::trim) == Some(valid.trim()) {
+        let def = if let Some(s) = self.svars.get(raw) {
+            s.trim()
+        } else if raw.starts_with("Count$Valid ") {
+            raw
+        } else {
+            return None;
+        };
+        if let Some(cv) = def.strip_prefix("Count$Valid ").map(str::trim)
+            && (cv == valid.trim()
+                || Self::same_valid_atoms(cv, valid)
+                || (!valid.contains("Any")
+                    && !valid.contains("Player")
+                    && !valid.contains("Opponent")
+                    && matches!(cv, "Card" | "Permanent")))
+        {
             return Some("u8::MAX".into());
         }
         // An all-players plus all-permanents count is only an upper bound;
@@ -200,12 +213,7 @@ impl Tx<'_> {
             n.to_string()
         } else if raw_max.trim() == raw_num.trim()
             || raw_max.trim() == raw_div.trim()
-            || self
-                .svars
-                .get(raw_max.trim())
-                .and_then(|s| s.trim().strip_prefix("Count$Valid "))
-                .map(str::trim)
-                == Some(valid.trim())
+            || self.wave28a_is_whole_pool_max_svar("PutCounter", &p, &valid, &spec, &raw_max)
         {
             "u8::MAX".to_string()
         } else {
@@ -232,15 +240,19 @@ impl Tx<'_> {
             let Some(body) = self.svars.get(next_name.trim()).cloned() else {
                 return self.deny(format!("`SubAbility$ {next_name}` names no SVar"));
             };
-            let initial_up_to = match max_expr.as_str() {
-                "1" => None,
-                "u8::MAX" => Some(u8::MAX),
-                num => num.parse::<u8>().ok(),
+            let (initial_up_to, initial_range) = match (min, max_expr.as_str()) {
+                (0, "u8::MAX") => (Some(u8::MAX), None),
+                (0, num) => (num.parse::<u8>().ok(), None),
+                (1, "1") => (None, None),
+                (1, "u8::MAX") => (None, Some((1, u8::MAX))),
+                (1, num) => (None, num.parse::<u8>().ok().map(|n| (1, n))),
+                _ => unreachable!(),
             };
             let mut follow = Chain {
                 effects: effects.clone(),
                 target: Some(spec.clone()),
                 target_up_to: initial_up_to,
+                target_range: initial_range,
                 ..Chain::default()
             };
             self.chain(&body, &mut follow)?;
@@ -248,8 +260,8 @@ impl Tx<'_> {
                 || follow.second_target.is_some()
                 || follow.target_is_x
                 || follow.target_up_to != initial_up_to
+                || follow.target_range != initial_range
                 || follow.target_exact.is_some()
-                || follow.target_range.is_some()
                 || follow.could_add_mana
                 || follow
                     .effects
@@ -285,7 +297,9 @@ impl Tx<'_> {
         ];
         let trimmed = raw.trim();
         if let Some(def) = self.svars.get(trimmed).map(|s| s.trim().to_string()) {
-            if let Some(valid) = def.strip_prefix("Count$LastStateBattlefield ")
+            if let Some(valid) = def
+                .strip_prefix("Count$LastStateBattlefield ")
+                .or_else(|| def.strip_prefix("Count$LastStateBattlefieldWithFallback "))
                 && !valid.contains('$')
                 && !valid.contains('/')
             {
