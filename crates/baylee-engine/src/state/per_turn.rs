@@ -90,10 +90,6 @@ pub struct PerTurnTrackedFlag(pub bool);
 impl Hash for PerTurnTrackedFlag {
     fn hash<H: std::hash::Hasher>(&self, _state: &mut H) {}
 }
-            self.items.as_slice().hash(state);
-        }
-    }
-}
 
 /// Per-turn chosen-mode bitmasks (`Effect::ChooseOneRestricted` with
 /// `ModalRestriction::OncePerTurn`, CR 700.2i), keyed by `(incarnation, ability_index)`.
