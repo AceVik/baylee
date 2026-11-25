@@ -223,6 +223,30 @@ sentence there (`baylee-tools site checks` holds the hosts and the
 cookies to it). `legal.js` is its language switch. A draft for the owner's
 lawyer (`docs/legal.md` §4).
 
+It covers the website only. What the gateway keeps while somebody plays is
+in the gateway's terms of use, § 16 (owner, 25.11.2026: a party's
+processing is described in the texts of the party the player has the
+contract with; `docs/gateway-legal/official/README.md`), and what Baylee
+Central keeps is in Central's privacy policy. The pages link those two, not
+`docs/privacy.md`, which is the developers' inventory.
+
+## The terms of use
+
+`nutzungsbedingungen.html` shows the terms of the gateway that serves the
+page, with their privacy information (§ 16): `terms.js` asks the gateway
+for them (`GET /terms?lang=`, same origin, so the CSP's `connect-src 'self'`
+covers it) in the page's language, asks again when the language is
+switched, and draws them with the Markdown subset the client draws
+(`crates/baylee-client-core/src/terms.rs`). The page never holds a copy, so
+it always shows the version in force; without JavaScript, or when the
+gateway does not answer (as under `site serve`, which has no `/terms`), it
+says the client shows them. Every word is a text node and an address
+becomes a link only when it is `https:` or `mailto:`; `baylee-tools site
+checks` refuses a `terms.js` that writes markup (`innerHTML` and the like).
+`## 16. …` gets the anchor `#s16` and `**16.3 …**` `#s16-3`, so the other
+pages link `/site/nutzungsbedingungen.html#s16`. Every page's footer links
+it beside the privacy notice and the Impressum.
+
 ## Trying it locally
 
 The page references its files as `/site/…`, so serve the parent folder:
