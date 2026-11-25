@@ -95,6 +95,7 @@ pub static PLAYABLE: &[Precon] = &[
     Precon { key: "S99/deadly-instinct", text: include_str!("../../../../data/decks/precon/S99/deadly-instinct.txt") },
     Precon { key: "S99/preconstructed-deck-1", text: include_str!("../../../../data/decks/precon/S99/preconstructed-deck-1.txt") },
     Precon { key: "W17/amonkhet-welcome-deck-black", text: include_str!("../../../../data/decks/precon/W17/amonkhet-welcome-deck-black.txt") },
+    Precon { key: "WC01/tom-van-de-logt-machine-head", text: include_str!("../../../../data/decks/precon/WC01/tom-van-de-logt-machine-head.txt") },
     Precon { key: "WC99/mark-le-pine-sped-red", text: include_str!("../../../../data/decks/precon/WC99/mark-le-pine-sped-red.txt") },
     Precon { key: "WC99/matt-linde-mono-green-stompy", text: include_str!("../../../../data/decks/precon/WC99/matt-linde-mono-green-stompy.txt") },
 ];

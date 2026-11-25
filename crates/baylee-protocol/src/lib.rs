@@ -108,6 +108,12 @@ pub mod tape;
 /// generation. `NumberPrompt` has bounded payment amounts for mana, energy
 /// and life.
 /// Version 70 carries excluded printed supertypes in `Pending::ChooseCardName`.
+///
+/// Baylee Central's ranked relay states this number itself (`GAME_PROTOCOL` in
+/// its `central-http`), so a bump needs Central's and a new pin of it in
+/// `Cargo.toml` in the same step, and the two deployed together: a gateway
+/// refuses every ranked seat of a relay that says another
+/// (`e2e_central::ranked::`).
 pub const PROTOCOL_VERSION: u32 = 70;
 
 /// Duration of the shared portal flight; clocks start after arrival.
