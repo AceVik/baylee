@@ -63,10 +63,10 @@ def ppo_loss(output, clip_eps=.2, beta_kl=.02):
 
 def transactional_update(net, optimizer, dataset, indices, prefixes, device,
                          target_kl=.02, clip_eps=.2, audit_batch_size=4, beta_kl=.02, extra_loss=None,
-                         source=None):
+                         source=None, drift_limit=None):
     """One update, kept only if the whole collection stays within `target_kl` of behavior. With
-    the frozen source's readouts (`source_readouts`) that holds, head by head, for the decisions
-    outside the probability contract too; they enter no loss."""
+    the frozen source's readouts (`source_readouts`) the decisions outside the probability contract
+    are measured too, and held, head by head, to `drift_limit` where there is one; they enter no loss."""
     before = {key: value.detach().cpu().clone() for key, value in net.state_dict().items()}
     optimizer_before = copy.deepcopy(optimizer.state_dict())
     random_before = rng_state()
@@ -90,7 +90,7 @@ def transactional_update(net, optimizer, dataset, indices, prefixes, device,
                       collection_behavior_kl=divergence)
         drifted = []
         if drift is not None:
-            drifted = drift.refused(target_kl)
+            drifted = drift.refused(drift_limit)
             record.update(uncertified_drift=drift.report())
         if not math.isfinite(divergence) or divergence > target_kl:
             record["reason"] = "collection_behavior_kl_rejected"

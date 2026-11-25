@@ -296,8 +296,8 @@ class RecurrentPPO5(unittest.TestCase):
                              (dict(decisions=1,mean_kl=0.,max_kl=0.),[0,0,0]))
             base=['train_rl4' ,'--init',str(source),'--rollout-data',str(data),'--admission',str(admission),
                   '--batch-size','1','--unroll','3','--device','cpu']
-            def run(output,steps,resume=False):
-                args=base+['--out',str(output),'--max-steps',str(steps)]
+            def run(output,steps,resume=False,extra=()):
+                args=base+['--out',str(output),'--max-steps',str(steps),*extra]
                 if resume:args+=['--resume',str(output/'last.pt')]
                 if native_test:
                     with patch('sys.argv',args),redirect_stdout(io.StringIO()):main()
@@ -310,17 +310,17 @@ class RecurrentPPO5(unittest.TestCase):
                 return torch.load(output/'net.pt',weights_only=False)
             partial=run(root/'resumed',1)
             self.assertEqual(partial['full_ppo_progress']['accepted'],1)
-            # The attack is measured with the update and within the gate.
+            # The attack is measured with the update, far below the certified rows' limit.
             drift=partial['full_ppo_progress']['updates'][0]['uncertified_drift']
             self.assertEqual(drift['subset']['decisions'],1)
             self.assertLess(abs(drift['subset']['mean_kl']),.02)
             self.assertEqual(partial['full_ppo_progress']['final_uncertified_drift'],drift)
-            # An experiment under the older gate does not continue under this one.
-            other=root/'older';other.mkdir()
-            older=torch.load(root/'resumed/last.pt',weights_only=False)
-            del older['full_ppo_contract']['uncertified_drift']
-            torch.save(older,other/'last.pt')
-            with self.assertRaisesRegex(ValueError,'experiment contract differs'):run(other,2,True)
+            # A run that only measures is the experiment it was; one that refuses on it is another.
+            self.assertNotIn('uncertified_drift',partial['full_ppo_contract'])
+            other=root/'limited';other.mkdir()
+            torch.save(torch.load(root/'resumed/last.pt',weights_only=False),other/'last.pt')
+            with self.assertRaisesRegex(ValueError,'experiment contract differs'):
+                run(other,2,True,('--uncertified-target-kl','.02'))
             resumed=run(root/'resumed',2,True)
             uninterrupted=run(root/'full',2)
             assert_state_equal(self,resumed['state_dict'],uninterrupted['state_dict'])

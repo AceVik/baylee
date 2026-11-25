@@ -15,6 +15,10 @@ recorded draw's free entries (of the draw as recorded, not of every answer the s
 constraints could make of it). A number is a point mass without a KL: its drift is the
 change of the normalised prediction, reported and never a reason to refuse. Only decisions
 with a choice count: a menu of two or more entries, a free entry.
+
+Both PPO workers measure and report it. They refuse on it only with `--uncertified-target-kl`:
+the limit of the certified rows bounds another quantity (a sampled divergence of one chosen
+action), so it is no limit for this one.
 """
 import math
 
@@ -114,6 +118,7 @@ class Drift:
         return out
 
     def refused(self, limit):
-        """The heads whose mean KL exceeds `limit`, as the behavior gate refuses certified rows."""
-        return [kind for kind in GATED if self.counts[kind]
-                and not (math.isfinite(self.mean(kind)) and self.mean(kind) <= limit)]
+        """The heads whose mean KL exceeds `limit`; none without one."""
+        return [] if limit is None else [
+            kind for kind in GATED if self.counts[kind]
+            and not (math.isfinite(self.mean(kind)) and self.mean(kind) <= limit)]

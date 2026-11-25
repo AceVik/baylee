@@ -86,7 +86,7 @@ class PolicyPublication5(unittest.TestCase):
             passes.append(indices)
             with torch.no_grad():
                 outputs = list(current(*inputs))
-            if len(passes) == dict(drifted=2, final_drifted=3).get(mode):
+            if len(passes) == dict(drifted=2, final_drifted=3, measured=2).get(mode):
                 outputs[1] = outputs[1] + 9.
             observe(indices, attack, 0, outputs)
 
@@ -104,6 +104,8 @@ class PolicyPublication5(unittest.TestCase):
                     '--out', str(output), '--epochs', '1', '--max-steps', '1',
                     '--lr', '.01' if mode == 'rejected' else '.001',
                     '--target-kl', '1e-12' if mode == 'rejected' else '.5', '--device', 'cpu']
+            # Without a limit of its own the drift is measured, once at the end, and refuses nothing.
+            args += [] if mode == 'measured' else ['--uncertified-target-kl', '.5']
             with contextlib.ExitStack() as stack:
                 stack.enter_context(patch.object(sys, 'argv', args))
                 # Keep one thread even though the real CLI requests four.
@@ -156,6 +158,13 @@ class PolicyPublication5(unittest.TestCase):
                 self.assertTrue(changed)
                 self.assertEqual(published['provenance']['accepted_steps'], 1)
                 self.assertFalse(report['checkpoint_is_unchanged_source'])
+            elif mode == 'measured':
+                self.assertEqual(len(passes), 2)
+                self.assertGreater(drift['subset']['mean_kl'], .5)
+                self.assertIsNone(report['uncertified_drift']['limit'])
+                self.assertNotIn('uncertified_drift', report['updates'][0])
+                self.assertTrue(changed)
+                self.assertEqual(published['provenance']['accepted_steps'], 1)
             else:
                 self.assertFalse(changed)
                 self.assertEqual(published['provenance']['accepted_steps'], 0)
@@ -193,7 +202,8 @@ class PolicyPublication5(unittest.TestCase):
 
     def test_driver_roundtrip_preserves_supported_identities_and_update_outcomes(self):
         for family in ('v4', 'v5_r1', 'v5_legacy_r1', 'v5_r2'):
-            for mode in ('accepted', 'zero', 'rejected', 'final_rejected', 'drifted', 'final_drifted'):
+            for mode in ('accepted', 'zero', 'rejected', 'final_rejected', 'drifted', 'final_drifted',
+                         'measured'):
                 with self.subTest(family=family, mode=mode):
                     self.run_fixture(family, mode)
 

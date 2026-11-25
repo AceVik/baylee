@@ -3,8 +3,9 @@
 Frozen behavior probabilities and complete terminal side-utility targets are
 audited before updates. Every accepted update passes a whole-collection
 behavior-divergence gate; rejected updates restore weights, optimizer and RNG.
-The decisions without a certified probability pass the same gate against the
-frozen source, head by head (`policy_training4.drift`).
+The decisions without a certified probability are measured against the frozen
+source, head by head (`policy_training4.drift`), and refuse an update only with
+`--uncertified-target-kl`.
 """
 
 from __future__ import annotations
@@ -90,6 +91,10 @@ def main() -> None:
     ap.add_argument('--max-shards',type=int,default=0)
     ap.add_argument('--lr',type=float,default=2e-5)
     ap.add_argument('--target-kl',type=float,default=.02)
+    ap.add_argument('--uncertified-target-kl',type=float,default=None,
+                    help='Refuse an update, and the publication, whose decisions without a probability (attackers, '
+                    'blockers, payments, aliased menus) drifted from the source by more than this mean KL in any '
+                    'head; without it the drift is measured and reported')
     ap.add_argument('--clip-eps',type=float,default=.2)
     ap.add_argument('--beta-kl',type=float,default=.02,help='Sampled behavior-divergence regularizer')
     ap.add_argument('--gamma',type=float,default=1.)
@@ -100,6 +105,8 @@ def main() -> None:
     if (min(args.batch_size,args.unroll,args.epochs,args.max_steps)<1 or args.lr<=0
             or not 0<args.clip_eps<1 or args.target_kl<=0 or args.beta_kl<0 or args.anchor_mix_weight<0):
         ap.error('Invalid PPO settings')
+    if args.uncertified_target_kl is not None and not 0<args.uncertified_target_kl<float('inf'):
+        ap.error('--uncertified-target-kl must be positive and finite')
     if args.thinking_steps!=2 or args.max_shards or args.gamma!=1 or args.gae_lambda!=1:
         ap.error('Full-model pilot requires fixed K2, all shards and complete terminal-return targets gamma=lambda=1')
     resume_saved = None
@@ -144,7 +151,7 @@ def main() -> None:
             return
         prefixes=episode_prefixes(dataset)
         # The frozen source at the decisions without a probability (attackers, blockers, numbers,
-        # payments, aliased menus): every update is held to it as it is to the recorded behavior.
+        # payments, aliased menus): every update is measured against it.
         source_rows=source_readouts(net,dataset,prefixes,device,args.batch_size)
         segments=[idx for tr in dataset.trajectories for idx in tr]
         anchor_dataset=anchor_prefixes=None
@@ -159,7 +166,7 @@ def main() -> None:
             anchor_prefixes=episode_prefixes(anchor_dataset)
         contract=dict(version=FULL_PPO_CONTRACT_VERSION,
                       behavior_probability_reference=BEHAVIOR_PROBABILITY_REFERENCES[audit['behavior_denominator']],
-                      collection_audit='current_policy_streaming_v1',uncertified_drift=DRIFT_CONTRACT,
+                      collection_audit='current_policy_streaming_v1',
                       source_checkpoint_sha256=source_hash,dataset_fingerprint=dataset.fingerprint,
                       admission=admission,encoder_version=source['encoder_version'],
                       target='complete terminal side outcome; gamma=lambda=1',precision='float32',
@@ -169,6 +176,9 @@ def main() -> None:
                       lr=args.lr,target_kl=args.target_kl,clip_eps=args.clip_eps,beta_kl=args.beta_kl,
                       anchor_dataset_fingerprint=None if anchor_dataset is None else anchor_dataset.fingerprint,
                       anchor_mix_weight=args.anchor_mix_weight,epochs=args.epochs)
+        if args.uncertified_target_kl is not None:
+            # Only a run that refuses on it names it: one that measures is the experiment it was.
+            contract['uncertified_drift']=dict(contract=DRIFT_CONTRACT,limit=args.uncertified_target_kl)
         optimizer=torch.optim.AdamW(net.parameters(),lr=args.lr,weight_decay=0)
         source_optimizer=copy.deepcopy(optimizer.state_dict())
         progress=dict(epoch=0,next_batch=0,attempts=0,accepted=0,updates=[],terminal=False)
@@ -199,7 +209,7 @@ def main() -> None:
                     extra=lambda:args.anchor_mix_weight*supervised_loss(net,anchor_dataset,indices,anchor_prefixes,device)
                 record=transactional_update(net,optimizer,dataset,groups[batch_index],prefixes,device,
                                             args.target_kl,args.clip_eps,args.batch_size,args.beta_kl,extra,
-                                            source=source_rows)
+                                            source=source_rows,drift_limit=args.uncertified_target_kl)
                 progress['attempts']+=1
                 progress['accepted']+=int(record['accepted'])
                 progress['epoch']=epoch;progress['next_batch']=batch_index+1
@@ -218,7 +228,7 @@ def main() -> None:
         except FloatingPointError:
             final_kl=float("inf")
         progress['final_uncertified_drift']=drift.report()
-        if not np.isfinite(final_kl) or final_kl>args.target_kl or drift.refused(args.target_kl):
+        if not np.isfinite(final_kl) or final_kl>args.target_kl or drift.refused(args.uncertified_target_kl):
             net.load_state_dict(source['state_dict'],strict=True)
             optimizer.load_state_dict(source_optimizer)
             progress.update(accepted=0,terminal=True,final_gate='rejected_published_unchanged_source')

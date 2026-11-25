@@ -88,6 +88,7 @@ class Rows(unittest.TestCase):
                          {kind for kind, kl in (('single', single), ('subset', subset), ('pair', pair))
                           if kl > limit + 1e-4})
         self.assertEqual(drift.refused(1e9), [])
+        self.assertEqual(drift.refused(None), [])
         self.assertNotIn('scalar', drift.refused(-1.))
         # The same policy has not moved at all.
         still = X.Drift(kept)
@@ -172,6 +173,7 @@ class Gate(unittest.TestCase):
     def update(self, net, lr, target, source, **options):
         optimizer = torch.optim.AdamW(net.parameters(), lr=lr, weight_decay=0)
         before = copy.deepcopy(optimizer.state_dict())
+        options.setdefault('drift_limit', target)
         record = transactional_update(net, optimizer, self.data, [1], self.prefixes, self.device, target_kl=target,
                                       audit_batch_size=2, source=source, **options)
         return record, optimizer, before
@@ -202,6 +204,13 @@ class Gate(unittest.TestCase):
                 self.assertGreater(record['uncertified_drift'][kind]['mean_kl'], TARGET)
                 assert_state_equal(self, net.state_dict(), weights)
                 assert_state_equal(self, optimizer.state_dict(), before)
+
+    def test_without_a_limit_of_its_own_the_drift_is_reported_and_refuses_nothing(self):
+        source = copy.deepcopy(self.source)
+        source.rows[(0, 2)] = source.rows[(0, 2)] + torch.arange(len(source.rows[(0, 2)])) * 9.
+        record, _, _ = self.update(copy.deepcopy(self.net), 1e-4, TARGET, source, drift_limit=None)
+        self.assertEqual((record['accepted'], record['reason']), (True, 'accepted'))
+        self.assertGreater(record['uncertified_drift']['subset']['mean_kl'], TARGET)
 
     def test_a_number_alone_is_reported_and_never_refuses(self):
         source = copy.deepcopy(self.source)
@@ -254,7 +263,7 @@ class Gate(unittest.TestCase):
                 seen.append(microbatches)
                 return Fixed(refused)
             row = transactional_step([p], optimizer, [(1, 2), (3,)], 128, lambda _: -p.sum() * 128,
-                                     lambda _: torch.tensor(0.), TARGET, drift)
+                                     lambda _: torch.tensor(0.), TARGET, drift, TARGET)
             self.assertEqual(seen, [[(1, 2), (3,)]])
             self.assertEqual(row['accepted'], not refused)
             if refused:

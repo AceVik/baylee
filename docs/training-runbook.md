@@ -875,10 +875,14 @@ admitted histories are kept in memory; after an update the current policy's are
 compared with them, per head: `single` (payments, aliased menus, other uncertified
 questions), `subset` (attackers) and `pair` (blockers) as KL(source || current)
 over the menu's entries or the recorded draw's free entries at the recorded
-temperature, `scalar` (numbers) as the change of the normalised prediction. A head
-whose mean KL exceeds `--target-kl` refuses the update exactly as the certified
-rows do (rollback of model, Adam and RNG; `uncertified_drift_rejected`), and at the
-end the publication. It adds no loss term and changes no gradient. What it does
+temperature, `scalar` (numbers) as the change of the normalised prediction. It adds
+no loss term and changes no gradient. By default it is measured and reported (the
+full-model worker with each update and at the end, the head-only worker at the
+end) and refuses nothing: `--target-kl` bounds a sampled divergence of one chosen
+action and is no limit for it. With `--uncertified-target-kl` a head whose mean KL
+exceeds that limit refuses the update exactly as the certified rows do (rollback of
+model, Adam and RNG; `uncertified_drift_rejected`), and at the end the publication;
+choose the limit from the drift the runs have reported. What even that does
 not protect: numbers are reported and never refused (a point mass has no KL);
 positions the collection never visited; a single decision far off inside a mean
 within the limit (`max_kl` shows it); drift that adds up over several collections,
@@ -1149,13 +1153,12 @@ the unroll. The complete-collection audit streams each history under fixed
 current weights. Both retain recorded executed-action probabilities as the PPO
 denominator; a small replay discrepancy does not license replacing it with a
 freshly computed behavior probability. Above-limit updates roll back model,
-Adam and RNG together, whether the certified decisions exceed `--target-kl` or one
-head of the decisions without a probability does (`uncertified_drift` in each
-update, `final_uncertified_drift` at the end). Resume contract v2 binds
-`behavior_probability_reference=recorded_executed_action`,
-`collection_audit=current_policy_streaming_v1` and
-`uncertified_drift=source_kl_per_head_v1`; a continuation from before the last one
-is refused, and its weights remain usable through `--init`.
+Adam and RNG together, also where a head of the decisions without a probability
+exceeds `--uncertified-target-kl` (`uncertified_drift` in each update,
+`final_uncertified_drift` at the end). Resume contract v2 binds
+`behavior_probability_reference=recorded_executed_action` and
+`collection_audit=current_policy_streaming_v1`, and that limit where the run has
+one.
 
 Workers can support strict `--resume`, but native failed-attempt directories
 remain immutable. A recovery uses a fresh UUIDv7 root, explicitly pins the old

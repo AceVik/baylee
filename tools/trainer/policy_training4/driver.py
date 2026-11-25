@@ -30,6 +30,10 @@ def _main(resources):
     parser.add_argument("--max-steps", type=int, default=256)
     parser.add_argument("--lr", type=float, default=2e-5)
     parser.add_argument("--target-kl", type=float, default=.02)
+    parser.add_argument("--uncertified-target-kl", type=float, default=None,
+                        help="Refuse a step, and the publication, whose decisions without a probability (attackers, "
+                        "blockers, payments, aliased menus) drifted from the source by more than this mean KL in any "
+                        "head; without it the drift is measured at the end and reported")
     parser.add_argument("--clip-eps", type=float, default=.2)
     parser.add_argument("--min-policy-decisions", type=int, default=128)
     parser.add_argument("--batch-size", type=int, default=8)
@@ -44,6 +48,9 @@ def _main(resources):
     args = parser.parse_args()
     if min(args.epochs, args.max_steps, args.batch_size, args.unroll) < 1 or args.min_policy_decisions < 128 or args.lr <= 0 or args.target_kl <= 0 or not 0 < args.clip_eps < 1:
         parser.error("Invalid PPO configuration")
+    if args.uncertified_target_kl is not None and not (np.isfinite(args.uncertified_target_kl)
+                                                       and args.uncertified_target_kl > 0):
+        parser.error("--uncertified-target-kl must be positive and finite")
     output = Path(args.out).expanduser().resolve()
     if output.exists() or output.is_symlink():
         raise FileExistsError("Preserving existing output; use a new directory")
@@ -96,7 +103,8 @@ def _main(resources):
         scheduling.append(dict(epoch=epoch+1, **stats))
         for microbatches, count in groups:
             record = transactional_step(parameters, optimizer, microbatches, count, loss_sum, kl_sum, args.target_kl,
-                                        drift_of)
+                                        None if args.uncertified_target_kl is None else drift_of,
+                                        args.uncertified_target_kl)
             records.append(dict(epoch=epoch+1, **record))
             print("[policy-step] " + json.dumps(records[-1]), flush=True)
             if not record["accepted"]:
@@ -123,8 +131,9 @@ def _main(resources):
     # And every decision outside the contract, in every segment.
     try:
         final_drift = drift_of((segments,))
-        drifted, drift_report = final_drift.refused(args.target_kl), final_drift.report()
+        drifted, drift_report = final_drift.refused(args.uncertified_target_kl), final_drift.report()
     except FloatingPointError as error:
+        # A readout that is no number is a broken net, not a large drift.
         drifted, drift_report = [str(error)], None
     attempted_accepted = accepted
     final_accepted = accept_final_state(net, saved["state_dict"], float("inf") if drifted else final_kl, args.target_kl)
@@ -154,7 +163,8 @@ def _main(resources):
     report = dict(provenance=provenance, settings=vars(args), audit=audit, updates=records,
                   scheduling=scheduling, attempted_accepted_steps=attempted_accepted,
                   rollout_wide_behavior_kl=final_kl if np.isfinite(final_kl) else None,
-                  uncertified_drift=dict(contract=DRIFT_CONTRACT, rollout_wide=drift_report),
+                  uncertified_drift=dict(contract=DRIFT_CONTRACT, limit=args.uncertified_target_kl,
+                                         rollout_wide=drift_report),
                   checkpoint_behavior_kl=final_kl if final_accepted else None,
                   checkpoint_is_unchanged_source=accepted == 0,
                   fallback_source_audited_max_logprob_error=audit["max_logprob_error"])
