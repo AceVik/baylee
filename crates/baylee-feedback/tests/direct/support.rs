@@ -91,6 +91,9 @@ impl Service {
         tokio::task::spawn_blocking(move || {
             let agent: ureq::Agent = ureq::Agent::config_builder()
                 .http_status_as_error(false)
+                // Long enough for a busy machine: past it the client uploads
+                // into the connection the server is closing.
+                .timeout_await_100(Some(std::time::Duration::from_secs(30)))
                 .build()
                 .into();
             let response = if method == "GET" {
