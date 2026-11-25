@@ -102,7 +102,7 @@ Sichere dir wichtige Decks über die Exportfunktion des Deckbaus auf deinem eige
 
 ## 5. Mindestalter und Minderjährige
 
-**5.1** Baylee ist für Menschen ab 13 Jahren gedacht; jüngere Kinder dürfen den Gateway nicht nutzen. Dasselbe Mindestalter verlangt Baylee Central für das Baylee-Konto, das du zum Spielen brauchst. [OFFEN: Gilt erst, wenn Baylee Central seine Fassung vom 25.11.2026 mit 13 Jahren veröffentlicht hat (AceVik/baylee-central#92); bis dahin verlangt Central 16 Jahre.]
+**5.1** Baylee ist für Menschen ab 13 Jahren gedacht; jüngere Kinder dürfen den Gateway nicht nutzen. Dasselbe Mindestalter verlangt Baylee Central für das Baylee-Konto, das du zum Spielen brauchst. [OFFEN: Centrals Fassung vom 25.11.2026 mit 13 Jahren ist gemergt (AceVik/baylee-central#92) und gilt mit Centrals nächster Veröffentlichung; bis dahin verlangt Central 16 Jahre.]
 
 **5.2** Bist du noch nicht 18, brauchst du für diese Bedingungen die Zustimmung deiner Eltern oder anderer Erziehungsberechtigter.
 

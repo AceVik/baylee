@@ -49,12 +49,13 @@ feedback service. `main` has moved all of that to Central.
   new version.
 - **Minimum age 13**, the age Magic: The Gathering itself names, at
   Central too (owner, 25.11.2026: "Ja, Central soll auch auf 13 gehen").
-  AceVik/baylee-central#92 makes Central's terms and privacy policy
-  version 2026-11-25 with 13, its registration and birth-date checks
-  follow, and its privacy policy adds that a consent given under 16 needs
-  the parents' agreement (Art. 8 GDPR; the gateway's 5.3 already says so).
-  5.1 here names the same age for both and carries an `[OFFEN]` until that
-  version is published; until then Central asks for 16.
+  AceVik/baylee-central#92 (merged 25.11.2026) makes Central's terms and
+  privacy policy version 2026-11-25 with 13, its registration and
+  birth-date checks follow, and its privacy policy adds that a consent
+  given under 16 needs the parents' agreement (Art. 8 GDPR; the gateway's
+  5.3 already says so). 5.1 here names the same age for both and carries
+  an `[OFFEN]` until Central's next release ships that version; until
+  then Central asks for 16.
 - **Administrators:** only the owner for now; the definition keeps room for
   more and says "at present that is only me".
 - **Hosted AI seats:** not named in the terms. The providers receive only

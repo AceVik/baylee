@@ -102,7 +102,7 @@ Keep copies of important decks on your own device using the deck builder's expor
 
 ## 5. Minimum age and minors
 
-**5.1** Baylee is meant for people aged 13 and over; younger children must not use the gateway. Baylee Central sets the same minimum age for the Baylee account you need to play. [OPEN: True only once Baylee Central has published its version of 25.11.2026 with 13 years (AceVik/baylee-central#92); until then Central requires 16.]
+**5.1** Baylee is meant for people aged 13 and over; younger children must not use the gateway. Baylee Central sets the same minimum age for the Baylee account you need to play. [OPEN: Central's version of 25.11.2026 with 13 years is merged (AceVik/baylee-central#92) and applies with Central's next release; until then Central requires 16.]
 
 **5.2** If you are under 18, you need the agreement of your parents or other legal guardians to these terms.
 
