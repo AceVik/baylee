@@ -44,3 +44,12 @@ pub use central_api::{
 #[cfg(feature = "client")]
 pub use central_client as sdk;
 pub use http::CentralHttp;
+
+#[cfg(test)]
+mod chat_tests;
+#[cfg(test)]
+mod data_tests;
+#[cfg(all(test, feature = "client"))]
+mod library_tests;
+#[cfg(test)]
+mod transport_tests;
