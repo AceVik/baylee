@@ -244,7 +244,8 @@ impl Lobby {
     pub fn new(base: &str) -> Self {
         // No redirect is followed ([`Lobby::raw`] fails a 3xx): what the
         // gateway is asked is asked of the gateway named, and of no address
-        // a `Location` names.
+        // a `Location` names. A gateway on this machine is asked directly:
+        // a proxy of the environment would only see its sessions.
         let builder = ureq::Agent::config_builder()
             .http_status_as_error(false)
             .max_redirects(0)

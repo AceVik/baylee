@@ -1,11 +1,13 @@
 //! Bounded input for sessions issued by a private evaluation gateway.
 use std::io::BufRead;
-use std::net::SocketAddr;
+use std::net::{Ipv4Addr, Ipv6Addr, SocketAddr};
 
 use anyhow::{Result, ensure};
 use serde::de::DeserializeOwned;
 
-/// Check the address before forwarding any credential.
+/// Check the address before forwarding any credential. Only the two loopback
+/// addresses `baylee_seat::lobby::Lobby` asks without a proxy of the
+/// environment are one; the rest of `127.0.0.0/8` is not.
 ///
 /// # Errors
 /// Requires a local HTTP gateway with a literal loopback address and port.
@@ -15,7 +17,9 @@ pub fn require_loopback(gateway: &str) -> Result<()> {
             .trim_end_matches('/')
             .strip_prefix("http://")
             .and_then(|address| address.parse::<SocketAddr>().ok())
-            .is_some_and(|address| address.ip().is_loopback()),
+            .is_some_and(|address| {
+                address.ip() == Ipv4Addr::LOCALHOST || address.ip() == Ipv6Addr::LOCALHOST
+            }),
         "session handoff requires an explicit loopback HTTP gateway and port"
     );
     Ok(())
@@ -54,6 +58,9 @@ mod tests {
     #[test]
     fn rejects_nonlocal_destinations_and_incomplete_or_oversized_secrets() {
         assert!(require_loopback("http://127.0.0.1:28769").is_ok());
+        assert!(require_loopback("http://[::1]:28769/").is_ok());
+        assert!(require_loopback("http://127.0.0.2:28769").is_err());
+        assert!(require_loopback("http://127.0.0.1").is_err());
         assert!(require_loopback("http://127.0.0.1:28769@example.com").is_err());
         assert!(require_loopback("http://127.0.0.1:28769/redir").is_err());
         assert!(read_line::<String>(&b"\"sample\""[..]).is_err());
