@@ -93,6 +93,12 @@ fn both_halves_of_a_sorted_reveal_have_to_stay_in_the_library() {
                 matched,
                 otherwise,
             },
+            Effect::RevealTopAllNamed {
+                player: PlayerRel::You,
+                count: 7,
+                matched,
+                otherwise,
+            },
             Effect::RevealTopFind {
                 found: find(matched),
                 count: 2,

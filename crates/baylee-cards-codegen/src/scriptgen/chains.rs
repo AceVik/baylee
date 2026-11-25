@@ -31,7 +31,13 @@ impl Tx<'_> {
                 .iter()
                 .any(|effect| effect == "Effect::ChooseColor");
         let saved_color = std::mem::replace(&mut self.has_resolution_chosen_color, chosen_color);
+        let chosen_name = chain
+            .effects
+            .iter()
+            .any(|effect| effect.starts_with("Effect::ChooseCardName {"));
+        let saved_name = std::mem::replace(&mut self.has_resolution_chosen_name, chosen_name);
         let result = self.chain_inner(spec, chain);
+        self.has_resolution_chosen_name = saved_name;
         self.has_resolution_chosen_color = saved_color;
         self.has_resolution_chosen_number = saved;
         result
@@ -3411,10 +3417,17 @@ impl Tx<'_> {
                 if p.take("Defined").as_deref() != Some("You") {
                     return None;
                 }
-                vec![
-                    "Effect::ChooseCardName { player: PlayerRel::You, types: TypeSet::EMPTY, excluded_types: TypeSet::EMPTY, remember: false }"
-                        .to_string(),
-                ]
+                p.claim_label("ValidDescription", "ValidCards");
+                let excluded_supertypes = match p.take("ValidCards").as_deref() {
+                    None => "SupertypeSet::EMPTY",
+                    Some("Card.nonBasic") => "SupertypeSet::BASIC",
+                    Some(other) => {
+                        return self.deny(format!("a `NameCard` filter `{other}`"));
+                    }
+                };
+                vec![format!(
+                    "Effect::ChooseCardName {{ player: PlayerRel::You, types: TypeSet::EMPTY, excluded_types: TypeSet::EMPTY, excluded_supertypes: {excluded_supertypes}, remember: false }}"
+                )]
             }
             "DealDamage" => {
                 let num_dmg = p.take("NumDmg")?;

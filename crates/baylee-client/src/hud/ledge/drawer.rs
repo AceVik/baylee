@@ -1093,9 +1093,15 @@ fn reading(
             Prompt::ChooseCardName {
                 types,
                 excluded_types,
+                excluded_supertypes,
             } => Some(Naming {
                 panel: duel.naming.search.panel().cloned(),
-                restriction: crate::choices::name_restriction(types, excluded_types, lang),
+                restriction: crate::choices::name_restriction(
+                    types,
+                    excluded_types,
+                    excluded_supertypes,
+                    lang,
+                ),
                 facts: duel.pool_facts.clone(),
                 lists: duel.list_shelf.clone(),
                 lacking: baylee_client_core::cardsearch::lacking(

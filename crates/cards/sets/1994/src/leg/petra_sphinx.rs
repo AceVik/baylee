@@ -25,6 +25,7 @@ card!(
                 player: PlayerRel::Chosen,
                 types: TypeSet::EMPTY,
                 excluded_types: TypeSet::EMPTY,
+                excluded_supertypes: SupertypeSet::EMPTY,
                 remember: false
             },
             Effect::RevealTopByName {

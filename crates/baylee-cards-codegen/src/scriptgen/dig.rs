@@ -598,6 +598,29 @@ impl Tx<'_> {
                 _ => self.deny("a `Dig` pick of every card, or onto the battlefield".to_string()),
             };
         };
+        // "Choose a card name other than a basic land card name. Reveal the
+        // top seven cards … put all of them with that name into your hand.
+        // Exile the rest." (`Desperate Research`). `Card.NamedCard` belongs
+        // to the preceding name choice, not to a source-remembered filter.
+        if your_library
+            && self.has_resolution_chosen_name
+            && count_raw.trim() == "7"
+            && take == Take::All
+            && reveal
+            && !optional
+            && !random
+            && !force_reveal
+            && !no_reveal
+            && !exile_face_down
+            && first == First::Hand
+            && rest == Rest::Move("SearchDest::Exile")
+            && valid == "Card.NamedCard"
+        {
+            return Some(vec![
+                "Effect::RevealTopAllNamed { player: PlayerRel::You, count: 7, matched: SearchDest::Hand, otherwise: SearchDest::Exile }"
+                    .to_string(),
+            ]);
+        }
         // A filter names a kind of card the line moves, and the reference
         // reveals what it moved unless `NoReveal$` says otherwise, which is
         // what every effect below does.

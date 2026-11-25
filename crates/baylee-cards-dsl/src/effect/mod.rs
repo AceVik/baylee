@@ -1626,6 +1626,8 @@ pub enum Effect {
         types: TypeSet,
         /// Printed types a named face must not have; empty excludes nothing.
         excluded_types: TypeSet,
+        /// Printed supertypes a named face must not have; empty excludes nothing.
+        excluded_supertypes: SupertypeSet,
         /// Retain the choice on the source permanent for its linked abilities.
         remember: bool,
     },
@@ -6037,6 +6039,20 @@ pub enum Effect {
     /// remember nothing this instruction can destroy (`CR 701.6`, `CR 701.7`).
     /// Appended to preserve replay identities.
     DestroyCounteredAbilitySource,
+    /// Reveal up to `count` cards from the top of a library, move every card
+    /// bearing this resolution's chosen name to `matched`, and move the rest
+    /// to `otherwise`. The whole group is revealed before anything moves.
+    /// Appended to preserve replay identities.
+    RevealTopAllNamed {
+        /// Library inspected and recipient of matching cards destined for hand.
+        player: PlayerRel,
+        /// Maximum number of cards revealed.
+        count: u8,
+        /// Destination of every card with the chosen name.
+        matched: SearchDest,
+        /// Destination of every other revealed card.
+        otherwise: SearchDest,
+    },
 }
 
 #[cfg(test)]

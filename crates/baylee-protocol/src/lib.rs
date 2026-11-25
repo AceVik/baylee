@@ -107,7 +107,8 @@ pub mod tape;
 /// Bounded generic mana payments use `ManaPayment::Variable` during mana
 /// generation. `NumberPrompt` has bounded payment amounts for mana, energy
 /// and life.
-pub const PROTOCOL_VERSION: u32 = 69;
+/// Version 70 carries excluded printed supertypes in `Pending::ChooseCardName`.
+pub const PROTOCOL_VERSION: u32 = 70;
 
 /// Duration of the shared portal flight; clocks start after arrival.
 pub const TABLE_ENTRANCE_MS: u64 = 1_650;
@@ -452,7 +453,7 @@ mod tests {
         // `ChoicePrompt::SearchLibraryOrGraveyard`,
         // `ManaPayment::Variable`, `NumberPrompt::VariableManaPayment`,
         // `NumberPrompt::VariableEnergyPayment`, and `NumberPrompt::VariableLifePayment`.
-        assert_eq!(PROTOCOL_VERSION, 69);
+        assert_eq!(PROTOCOL_VERSION, 70);
     }
 
     #[test]

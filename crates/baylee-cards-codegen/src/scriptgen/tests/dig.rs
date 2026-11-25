@@ -135,6 +135,35 @@ fn a_reveal_moves_every_matching_card() {
 }
 
 #[test]
+fn a_name_restricted_reveal_moves_every_named_card_and_exiles_the_rest() {
+    let line = ability(
+        "Name:Research\nManaCost:1 B\nTypes:Sorcery\n\
+         A:SP$ NameCard | Defined$ You | ValidCards$ Card.nonBasic | ValidDescription$ other than a basic land card name | SubAbility$ DBDig\n\
+         SVar:DBDig:DB$ Dig | DigNum$ 7 | Reveal$ True | ChangeNum$ All | ChangeValid$ Card.NamedCard | ChangeValidDesc$ with that name | DestinationZone$ Hand | DestinationZone2$ Exile",
+    );
+    assert!(
+        line.contains(
+            "Effect::ChooseCardName { player: PlayerRel::You, types: TypeSet::EMPTY, excluded_types: TypeSet::EMPTY, excluded_supertypes: SupertypeSet::BASIC, remember: false }, \
+             Effect::RevealTopAllNamed { player: PlayerRel::You, count: 7, matched: SearchDest::Hand, otherwise: SearchDest::Exile }"
+        ),
+        "{line}"
+    );
+    let unrestricted = ability(
+        "Name:Unrestricted\nManaCost:1 B\nTypes:Sorcery\n\
+         A:SP$ NameCard | Defined$ You",
+    );
+    assert!(unrestricted.contains("excluded_supertypes: SupertypeSet::EMPTY"));
+    let refused = reason(
+        "Name:UnknownRestriction\nManaCost:1 B\nTypes:Sorcery\n\
+         A:SP$ NameCard | Defined$ You | ValidCards$ Card.nonLand",
+    );
+    assert!(
+        refused.contains("NameCard") && refused.contains("Card.nonLand"),
+        "{refused}"
+    );
+}
+
+#[test]
 fn a_revealed_top_card_is_sorted_by_the_filter() {
     // Zoologist and Call of the Wild: one card, here if it matches and
     // there if it does not.

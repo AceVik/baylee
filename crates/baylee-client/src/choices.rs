@@ -862,7 +862,13 @@ pub fn options<'a>(
         Prompt::ChooseCardName {
             types,
             excluded_types,
-        } => Some(card_name_rows(search, *types, *excluded_types)),
+            excluded_supertypes,
+        } => Some(card_name_rows(
+            search,
+            *types,
+            *excluded_types,
+            *excluded_supertypes,
+        )),
         _ => None,
     }
 }
@@ -932,6 +938,7 @@ struct NamedRow {
     face: u8,
     name: &'static str,
     types: baylee_core::types::TypeSet,
+    supertypes: baylee_core::types::SupertypeSet,
     /// The name as it is matched, lower-cased once.
     lower: String,
 }
@@ -967,6 +974,7 @@ fn card_names() -> &'static [NamedRow] {
                             face: u8::try_from(face).ok()?,
                             name: printed.name,
                             types: printed.types,
+                            supertypes: printed.supertypes,
                             lower: printed.name.to_lowercase(),
                         })
                     })
@@ -1017,22 +1025,27 @@ fn card_type_rows(options: &[baylee_core::types::TypeSet], lang: Lang) -> Vec<Ch
 pub fn name_restriction(
     types: baylee_core::types::TypeSet,
     excluded_types: baylee_core::types::TypeSet,
+    excluded_supertypes: baylee_core::types::SupertypeSet,
     lang: Lang,
 ) -> Option<String> {
+    let translate = |word| baylee_client_core::type_names::name(word, lang);
     let words = |set: baylee_core::types::TypeSet| {
-        set.words()
-            .map(|word| baylee_client_core::type_names::name(word, lang))
-            .collect::<Vec<_>>()
-            .join(", ")
+        set.words().map(translate).collect::<Vec<_>>().join(", ")
     };
-    match (types.is_empty(), excluded_types.is_empty()) {
+    let excluded = excluded_types
+        .words()
+        .chain(excluded_supertypes.words())
+        .map(translate)
+        .collect::<Vec<_>>()
+        .join(", ");
+    match (types.is_empty(), excluded.is_empty()) {
         (true, true) => None,
         (false, true) => Some(Phrase::NameOnlyTypes.fill(lang, &[&words(types)])),
-        (true, false) => Some(Phrase::NameNoTypes.fill(lang, &[&words(excluded_types)])),
+        (true, false) => Some(Phrase::NameNoTypes.fill(lang, &[&excluded])),
         (false, false) => Some(format!(
             "{} {}",
             Phrase::NameOnlyTypes.fill(lang, &[&words(types)]),
-            Phrase::NameNoTypes.fill(lang, &[&words(excluded_types)])
+            Phrase::NameNoTypes.fill(lang, &[&excluded])
         )),
     }
 }
@@ -1059,6 +1072,7 @@ struct LastNames {
     text: String,
     types: baylee_core::types::TypeSet,
     excluded_types: baylee_core::types::TypeSet,
+    excluded_supertypes: baylee_core::types::SupertypeSet,
     /// The pool it was read against: its place and its length.
     pool: (usize, usize),
     /// The table it was read against: its place, or nothing.
@@ -1081,6 +1095,7 @@ fn card_name_rows<'a>(
     search: impl Into<Search<'a>>,
     types: baylee_core::types::TypeSet,
     excluded_types: baylee_core::types::TypeSet,
+    excluded_supertypes: baylee_core::types::SupertypeSet,
 ) -> Vec<ChoiceOption> {
     static LAST: std::sync::Mutex<Option<LastNames>> = std::sync::Mutex::new(None);
     let search = search.into();
@@ -1096,17 +1111,19 @@ fn card_name_rows<'a>(
         kept.text == search.text
             && kept.types == types
             && kept.excluded_types == excluded_types
+            && kept.excluded_supertypes == excluded_supertypes
             && kept.pool == pool
             && kept.facts == facts
             && kept.lists == lists
     }) {
         return kept.rows.clone();
     }
-    let rows = walk_the_names(search, types, excluded_types);
+    let rows = walk_the_names(search, types, excluded_types, excluded_supertypes);
     *last = Some(LastNames {
         text: search.text.to_string(),
         types,
         excluded_types,
+        excluded_supertypes,
         pool,
         facts,
         lists,
@@ -1120,6 +1137,7 @@ fn walk_the_names(
     search: Search<'_>,
     types: baylee_core::types::TypeSet,
     excluded_types: baylee_core::types::TypeSet,
+    excluded_supertypes: baylee_core::types::SupertypeSet,
 ) -> Vec<ChoiceOption> {
     let query = baylee_client_core::cardquery::parse(search.text);
     let surface = baylee_client_core::cardquery::Surface::POOL
@@ -1138,6 +1156,7 @@ fn walk_the_names(
         .filter_map(|(i, row)| {
             if (!types.is_empty() && !row.types.intersects(types))
                 || row.types.intersects(excluded_types)
+                || row.supertypes.intersects(excluded_supertypes)
             {
                 return None;
             }

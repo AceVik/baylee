@@ -700,6 +700,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                     player: controller,
                     types: baylee_core::types::TypeSet::EMPTY,
                     excluded_types,
+                    excluded_supertypes: baylee_core::types::SupertypeSet::EMPTY,
                 };
                 self.awaiting_answer = true;
                 true

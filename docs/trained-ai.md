@@ -807,6 +807,7 @@ so they answer each question the same way:
 | `CastModeKind::Foretell` (the later cast) | An alternative cost: cast-mode slot 28 (and 2 in the v3 `policy::mode_kind`); no extra rule reference (the structure catalog has no foretell entry) | The same |
 | `Pending::ChooseCardType` | The subtype question: `PendingKind4::ChooseSubtype` (global 34), and kind 9 in the v3 `features::question`; one candidate per offered type in the engine's order, `feat[15]` and `feat[18] = index / 16` | The same |
 | `Pending::ChooseCardName.excluded_types` | No candidate for a face with an excluded type: an excluded teacher name is unencodable (`unencoded_decisions`), and the policy cannot decode one | The same |
+| `Pending::ChooseCardName.excluded_supertypes` | No candidate for a face with an excluded supertype, with the same teacher and decoder behavior as excluded types | The same |
 
 The v3 policy leaves the card-type question to its fallback, as it does a
 card name, and never foretells. Foretell is marked as suspend because it is
