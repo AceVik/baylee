@@ -575,10 +575,15 @@ impl SharedNets {
             "calls": calls, "rows": rows, "call_seconds": call_seconds,
             "learner_by_depth": learner.by_depth(),
             "lockstep_groups": learner.lockstep_groups(),
-            "rollout_net": self.rollout.as_ref().map(|net| json!({
-                "by_depth": net.by_depth(),
-                "lockstep_groups": net.lockstep_groups(),
-            })),
+            "rollout_net": self.rollout.as_ref().map(|net| {
+                // Beside the net's own calls above, not among them.
+                let (calls, rows) = net.stats();
+                json!({
+                    "calls": calls, "rows": rows, "call_seconds": net.call_seconds(),
+                    "by_depth": net.by_depth(),
+                    "lockstep_groups": net.lockstep_groups(),
+                })
+            }),
             "bitwise_reproducible": limits.max_rows == 1})
     }
 }

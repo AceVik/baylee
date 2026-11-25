@@ -557,9 +557,10 @@ struct Args {
     /// sizes (`docs/trained-ai.md` §"Lookahead search").
     #[arg(long, requires = "search")]
     search_lockstep: bool,
-    /// Another, cheaper net plays the search's rollouts: every chair in
-    /// every world, from a memory of its own that watches the game beside
-    /// the net's (`netplay4::search::RolloutNet4`). The net still decides
+    /// Another, cheaper net plays the search's rollouts in the net's place,
+    /// the other chairs too under `--search-neural-opponent`, from a memory
+    /// of its own that watches the game beside the net's
+    /// (`netplay4::search::RolloutNet4`). The net still decides
     /// at the root and gives the prior. Fair searches with
     /// `--inference-batch` only; the rollout net's calls run in batches
     /// of their own, as many servers as the net's.
@@ -1024,9 +1025,9 @@ const fn catalog_policy(args: &Args) -> CatalogPolicy4 {
     }
 }
 
-/// How the seat under test reads its card catalog: the run's policy and
-/// the measurement's ablations. Any other model of the run reads with the
-/// policy alone.
+/// How the seat under test reads its card catalog, in its own net and in the
+/// rollout net that plays its worlds: the run's policy and the measurement's
+/// ablations. An opponent reads with the policy alone.
 const fn catalog_read(args: &Args) -> CatalogRead4 {
     CatalogRead4 {
         policy: catalog_policy(args),
@@ -1073,11 +1074,16 @@ fn catalog_metadata(
         .map(|path| inspect_catalog(path, read.policy))
         .transpose()?
         .flatten();
-    Ok(Some(json!({
+    let mut metadata = json!({
         "policy": read.policy,
         "learner": inspect_catalog(&args.model, read)?,
         "opponent": opponent,
-    })))
+    });
+    if let Some(rollout) = &args.rollout_net {
+        // Only a run with a rollout net names it.
+        metadata["rollout"] = json!(inspect_catalog(rollout, read)?);
+    }
+    Ok(Some(metadata))
 }
 
 /// How a run's models are opened.
