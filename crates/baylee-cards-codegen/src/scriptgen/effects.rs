@@ -749,7 +749,6 @@ impl Tx<'_> {
             == Some("HIDDEN This card doesn't untap during your next untap step.")
             && !p.has("NumAtt")
             && !p.has("NumDef")
-            && !second
         {
             if p.take("Duration").as_deref() != Some("Permanent") {
                 return None;
@@ -758,6 +757,19 @@ impl Tx<'_> {
             p.take("IsCurse");
             let block_role = self.block_line.as_ref().map(|(r, _, _)| *r);
             let defined_raw = p.take("Defined");
+            if second {
+                if !target.starts_with("TargetSpec::Object(")
+                    || !matches!(
+                        defined_raw.as_deref(),
+                        None | Some("Targeted" | "ParentTarget")
+                    )
+                {
+                    return None;
+                }
+                return Some(vec![format!(
+                    "Effect::WithSecondTarget(&[Effect::SuppressUntap {{ target: {target}, steps: 1 }}])"
+                )]);
+            }
             if !self.on_a_spell
                 && matches!(
                     defined_raw.as_deref(),
@@ -855,7 +867,6 @@ impl Tx<'_> {
             };
         }
         if !second
-            && target == "TargetSpec::AnyPlayer"
             && p.peek("KW").map(str::trim) == Some("Hexproof")
             && !p.has("NumAtt")
             && !p.has("NumDef")
@@ -980,9 +991,7 @@ impl Tx<'_> {
             Some("UntilEndOfCombat") => "Duration::UntilEndOfCombat",
             Some("UntilYourNextTurn") => "Duration::UntilYourNextTurn",
             Some("Permanent")
-                if power == "Amount::Fixed(0)"
-                    && toughness == "Amount::Fixed(0)"
-                    && prevent_mods.is_empty()
+                if prevent_mods.is_empty()
                     && (keywords != "KeywordSet::EMPTY" || kw_choices.is_some()) =>
             {
                 "Duration::Indefinitely"
@@ -2213,6 +2222,17 @@ impl Tx<'_> {
         p: &mut Params,
         target: Option<&str>,
     ) -> Option<Vec<String>> {
+        {
+            let snap = p.clone();
+            let saved_unclaimed = self.unclaimed.borrow().clone();
+            let saved_statics_len = self.body.statics.len();
+            if let Some(effects) = self.wave28b_effect_api(p, target) {
+                return Some(effects);
+            }
+            *p = snap;
+            *self.unclaimed.borrow_mut() = saved_unclaimed;
+            self.body.statics.truncate(saved_statics_len);
+        }
         if p.peek("Triggers").is_some() || p.peek("Abilities").is_some() {
             return None;
         }
@@ -2698,6 +2718,19 @@ impl Tx<'_> {
                 return self.wave14_damage_modify_replacement(r, subject, duration);
             }
             return None;
+        }
+        if event == "GainLife" && !host_leaves_or_eot {
+            if r.take("Prevent").as_deref() != Some("True")
+                || !matches!(r.take("ActiveZones").as_deref(), None | Some("Command"))
+            {
+                return None;
+            }
+            let who = self.effect_static_player(r.take("ValidPlayer").as_deref(), subject)?;
+            return r.exhausted().then(|| {
+                vec![format!(
+                    "Effect::continuous(&Filter::Any, Modifier::PlayersCantGainLife({who}), {duration})"
+                )]
+            });
         }
         if subject != EffectSubject::Unbound || host_leaves_or_eot {
             return None;
@@ -3383,6 +3416,21 @@ impl Tx<'_> {
             Some("Targeted" | "ParentTarget") if player_target => {
                 EffectSubject::Player("PlayerRel::Chosen")
             }
+            Some("TargetedOrController")
+                if target.is_some_and(|t| {
+                    t.starts_with("TargetSpec::PlayerOrObject(")
+                        || t.starts_with("TargetSpec::OpponentOrObject(")
+                        || matches!(
+                            t,
+                            "TargetSpec::AnyTarget"
+                                | "TargetSpec::AnyPlayer"
+                                | "TargetSpec::AnyOpponent"
+                                | "TargetSpec::Player(PlayerRel::Chosen)"
+                        )
+                }) =>
+            {
+                EffectSubject::Player("PlayerRel::TargetPlayerOrController")
+            }
             Some("TargetedController") if target.is_some() => {
                 EffectSubject::Player("PlayerRel::ControllerOfTarget")
             }
@@ -3543,7 +3591,7 @@ impl Tx<'_> {
     }
 
     #[allow(clippy::too_many_lines)]
-    fn effect_continuous_static(
+    pub(super) fn effect_continuous_static(
         &mut self,
         st: &mut Params,
         subject: EffectSubject,
@@ -3681,7 +3729,9 @@ impl Tx<'_> {
         }
         if let Some(types) = st.take("AddType") {
             for word in types.split('&').map(str::trim).filter(|s| !s.is_empty()) {
-                if let Some(tc) = super::card_type_const(word) {
+                if word == "AllBasicLandType" {
+                    mods.push("Modifier::AllBasicLandTypes".to_string());
+                } else if let Some(tc) = super::card_type_const(word) {
                     mods.push(format!("Modifier::AddType({tc})"));
                 } else if !word.contains(['.', '+', ',', ' ', '!'])
                     && let Some(expr) = self.filter_expr(word)
