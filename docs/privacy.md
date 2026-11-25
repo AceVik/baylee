@@ -888,6 +888,7 @@ Kept apart from the table above so the two strands' rows merge cleanly.
 | Internal notes on a report (author, an admin's name; time; the admin's text, never a player's data by the UI's rule) | `feedback_note` | with the report | the author's removal; the report's purge |
 | An admin's saved views (a name and a list's query string) and which reports they opened | `feedback_view`, `feedback_seen` | until the admin is removed (or the report purged) | the admin's own removal of a view; `admin remove` |
 | Failed feedback sign-ins per address and per name | the service's memory | 15 minutes, a restart forgets them | the limiter itself; never written down |
+| Wrong tokens on the feedback service's token routes per address (an IPv6 address per /64); a process on the server itself is not counted | the service's memory | 15 minutes, a restart forgets them | the limiter itself; never written down or logged |
 
 - **The record names nobody.** Seats are numbers; the seat names the engine
   was told never enter it. The only link to a person is `game_record_seat`

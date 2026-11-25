@@ -42,7 +42,7 @@
 //!     gatewayToken:
 //!       type: http
 //!       scheme: bearer
-//!       description: 'A gateway''s intake token, one of `FEEDBACK_GATEWAY_TOKENS`. The report is filed under the name that token is configured with.'
+//!       description: 'A gateway''s intake token, one of `FEEDBACK_GATEWAY_TOKENS`. The report is filed under the name that token is configured with, and counts against that gateway''s budget an hour.'
 //!     readToken:
 //!       type: http
 //!       scheme: bearer
@@ -65,10 +65,12 @@
 //!
 //! @openapi-fragment `ReadRefusals`
 //! @return 401: `$ErrorBody` "Neither the read token nor the admin token"
+//! @return 429: `$ErrorBody` "Too many wrong credentials from this address in the last 15 minutes"
 //! @return 503: `$ErrorBody` "The database is unavailable"
 //!
 //! @openapi-fragment `AdminTokenRefusals`
 //! @return 401: `$ErrorBody` "Not the admin token"
+//! @return 429: `$ErrorBody` "Too many wrong credentials from this address in the last 15 minutes"
 //! @return 503: `$ErrorBody` "The database is unavailable"
 //!
 //! @openapi-fragment `SessionRefusals`
