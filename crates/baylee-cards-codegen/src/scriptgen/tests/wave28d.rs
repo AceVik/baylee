@@ -12,6 +12,7 @@ fn cats_w28d() -> SubtypeCatalogs {
         "Cat".into(),
         "Faerie".into(),
         "Spirit".into(),
+        "Squirrel".into(),
     ]);
     c.artifact.extend([
         "Equipment".into(),
@@ -19,7 +20,7 @@ fn cats_w28d() -> SubtypeCatalogs {
         "Treasure".into(),
         "Vehicle".into(),
     ]);
-    c.enchantment.extend(["Aura".into()]);
+    c.enchantment.extend(["Aura".into(), "Role".into()]);
     c.land.extend(["Plains".into(), "Swamp".into()]);
     c.normalize();
     c
@@ -56,6 +57,19 @@ fn tokens_w28d() -> TokenLookup {
         (
             "w_1_1_spirit_flying",
             "Name:Spirit\nTypes:Creature Spirit\nColors:white\nPT:1/1\nK:Flying",
+        ),
+        (
+            "wb_1_1_spirit_flying",
+            "Name:Spirit\nTypes:Creature Spirit\nColors:white,black\nPT:1/1\nK:Flying",
+        ),
+        (
+            "r_1_1_warrior",
+            "Name:Warrior\nTypes:Creature Warrior\nColors:red\nPT:1/1",
+        ),
+        (
+            "role_cursed",
+            "Name:Cursed\nTypes:Enchantment Aura Role\nK:Enchant:Creature:creature\n\
+             S:Mode$ Continuous | Affected$ Creature.EnchantedBy | SetPower$ 1 | SetToughness$ 1",
         ),
         (
             "c_a_treasure_sac",
@@ -1315,4 +1329,252 @@ fn wave28d_p2_dazzling_sphinx_and_muse_vortex() {
         "{}",
         vortex.abilities[0]
     );
+}
+
+#[test]
+fn wave28d_p3_copy_pump_and_amounts() {
+    // Targeted effect followed by Populate (Sundering Growth).
+    let sundering = read_w28d(
+        "Name:Sundering Growth\nManaCost:GW GW\nTypes:Instant\n\
+         A:SP$ Destroy | ValidTgts$ Artifact,Enchantment | SubAbility$ DBCopy\n\
+         SVar:DBCopy:DB$ CopyPermanent | Populate$ True",
+    );
+    assert!(
+        sundering.abilities[0].contains("Effect::ChooseAndCreateTokenCopy {"),
+        "{}",
+        sundering.abilities[0]
+    );
+
+    // CopyPermanent with Targeted$Valid Squirrel/Plus.1 (Hazel of the Rootbloom).
+    let hazel = read_w28d(
+        "Name:HazelLike\nManaCost:2 B G\nTypes:Legendary Creature Squirrel\nPT:3/5\n\
+         T:Mode$ Phase | Phase$ End of Turn | ValidPlayer$ You | TriggerZones$ Battlefield | Execute$ DBCopy\n\
+         SVar:DBCopy:DB$ CopyPermanent | ValidTgts$ Permanent.token+YouCtrl | NumCopies$ Y\n\
+         SVar:Y:Targeted$Valid Squirrel/Plus.1",
+    );
+    assert!(
+        hazel.abilities[0].contains("Effect::IfTargetMatchesElse")
+            && hazel.abilities[0].contains("amount: Amount::Fixed(2)")
+            && hazel.abilities[0].contains("amount: Amount::Fixed(1)"),
+        "{}",
+        hazel.abilities[0]
+    );
+
+    // Permanent P/T + keyword pump (Riding the Dilu Horse).
+    let dilu = read_w28d(
+        "Name:Riding the Dilu Horse\nManaCost:2 G\nTypes:Sorcery\n\
+         A:SP$ Pump | ValidTgts$ Creature | NumAtt$ +2 | NumDef$ +2 | KW$ Horsemanship | Duration$ Permanent",
+    );
+    assert!(
+        dilu.abilities[0].contains("duration: Duration::Indefinitely")
+            && dilu.abilities[0].contains("KeywordSet::HORSEMANSHIP"),
+        "{}",
+        dilu.abilities[0]
+    );
+
+    // Searing Barb: TargetSpec::AnyTarget + Defined$ Targeted.Creature + HIDDEN can't block.
+    let barb = read_w28d(
+        "Name:Searing Barb\nManaCost:2 R\nTypes:Sorcery\n\
+         A:SP$ DealDamage | ValidTgts$ Any | NumDmg$ 2 | SubAbility$ DBCantBlock\n\
+         SVar:DBCantBlock:DB$ Pump | Defined$ Targeted.Creature | KW$ HIDDEN CARDNAME can't block.",
+    );
+    assert!(
+        barb.abilities[0].contains("Effect::IfTargetMatches")
+            && barb.abilities[0].contains("KeywordSet::CANT_BLOCK"),
+        "{}",
+        barb.abilities[0]
+    );
+
+    // Jodah's Avenger: KWChoice mixing keywords and Protection from red.
+    let avenger = read_w28d(
+        "Name:Jodah's Avenger\nManaCost:5 U\nTypes:Creature Shapeshifter\nPT:4/4\n\
+         A:AB$ Pump | Cost$ 0 | NumAtt$ -1 | NumDef$ -1 | KWChoice$ Double Strike,Protection from red,Vigilance,Shadow",
+    );
+    assert!(
+        avenger.abilities[0].contains("Effect::ChooseOne")
+            && avenger.abilities[0].contains("Modifier::ProtectionFrom("),
+        "{}",
+        avenger.abilities[0]
+    );
+
+    // Morbid / Hellbent / IfCastInOwnMainPhase amounts (Brimstone Volley, Cackling Flames, Haunting Hymn).
+    let volley = read_w28d(
+        "Name:Brimstone Volley\nManaCost:2 R\nTypes:Instant\n\
+         A:SP$ DealDamage | ValidTgts$ Any | NumDmg$ X\n\
+         SVar:X:Count$Morbid.5.3",
+    );
+    assert!(
+        volley.abilities[0].contains("Amount::IfCondition")
+            && volley.abilities[0].contains("Amount::CreaturesDiedThisTurn"),
+        "{}",
+        volley.abilities[0]
+    );
+
+    let hymn = read_w28d(
+        "Name:Haunting Hymn\nManaCost:4 B B\nTypes:Instant\n\
+         A:SP$ Discard | ValidTgts$ Player | NumCards$ X | Mode$ TgtChoose\n\
+         SVar:X:Count$IfCastInOwnMainPhase.4.2",
+    );
+    assert!(
+        hymn.abilities[0].contains("Condition::SourceWasCastByYou")
+            && hymn.abilities[0].contains("Condition::YourTurn")
+            && hymn.abilities[0].contains("StepKind::PostcombatMain"),
+        "{}",
+        hymn.abilities[0]
+    );
+}
+
+#[test]
+fn wave28d_p3_tokens_and_repeat() {
+    // Token.ConditionDefined (Ethereal Absolution, Transpose, Boneyard Desecrator) & ConditionCheckSVar (Necromancer's Stockpile, Saint Traft).
+    let absolution = read_w28d(
+        "Name:Ethereal Absolution\nManaCost:4 W B\nTypes:Enchantment\n\
+         A:AB$ ChangeZone | Cost$ 2 W B | Origin$ Graveyard | Destination$ Exile | ValidTgts$ Card.OppOwn | SubAbility$ DBToken\n\
+         SVar:DBToken:DB$ Token | ConditionDefined$ Targeted | ConditionPresent$ Creature | ConditionCompare$ EQ1 | TokenScript$ wb_1_1_spirit_flying | TokenOwner$ You",
+    );
+    assert!(
+        absolution.abilities[0].contains("Condition::ObjectMatches {"),
+        "{}",
+        absolution.abilities[0]
+    );
+
+    let stockpile = read_w28d(
+        "Name:Necromancer's Stockpile\nManaCost:1 B\nTypes:Enchantment\n\
+         A:AB$ Draw | Cost$ 1 B Discard<1/Creature> | NumCards$ 1 | SubAbility$ DBToken\n\
+         SVar:DBToken:DB$ Token | TokenScript$ b_2_2_zombie | TokenOwner$ You | TokenTapped$ True | ConditionCheckSVar$ X | ConditionSVarCompare$ GE1\n\
+         SVar:X:Discarded$Valid Card.Zombie",
+    );
+    assert!(
+        stockpile.abilities[0].contains("Condition::DiscardedForCost("),
+        "{}",
+        stockpile.abilities[0]
+    );
+
+    // Token.PumpKeywords + AtEOT (Chandra, Acolyte of Flame & Mardu Monument).
+    let monument = read_w28d(
+        "Name:Mardu Monument\nManaCost:2\nTypes:Artifact\n\
+         A:AB$ Token | Cost$ 2 R W B T Sac<1/CARDNAME> | TokenAmount$ 3 | TokenScript$ r_1_1_warrior | TokenOwner$ You | PumpKeywords$ Menace & Haste | PumpDuration$ EOT | SorcerySpeed$ True",
+    );
+    assert!(
+        monument.abilities[0].contains("KeywordSet::MENACE.union(KeywordSet::HASTE)")
+            && monument.abilities[0].contains("only_found: true"),
+        "{}",
+        monument.abilities[0]
+    );
+
+    // RepeatEach attached Role token (Asinine Antics).
+    let antics = read_w28d(
+        "Name:Asinine Antics\nManaCost:2 U U\nTypes:Sorcery\n\
+         A:SP$ RepeatEach | RepeatCards$ Creature.OppCtrl | Zone$ Battlefield | RepeatSubAbility$ DBToken | ChangeZoneTable$ True\n\
+         SVar:DBToken:DB$ Token | TokenScript$ role_cursed | AttachedTo$ Remembered",
+    );
+    assert!(
+        antics.abilities[0].contains("Effect::CreateTokenAttached { token: &generated_tokens::"),
+        "{}",
+        antics.abilities[0]
+    );
+}
+
+#[test]
+fn wave28d_p3_zones_mill_and_piles() {
+    // Omitted NumCards$ on Mill (Molt Tender), Identity Crisis, Noetic Scales, Last Rites, Brilliant Ultimatum.
+    let tender = read_w28d(
+        "Name:Molt Tender\nManaCost:G\nTypes:Creature Insect\nPT:1/1\n\
+         A:AB$ Mill | Cost$ T",
+    );
+    assert!(
+        tender.abilities[0].contains("Effect::Mill { amount: Amount::Fixed(1)"),
+        "{}",
+        tender.abilities[0]
+    );
+
+    let crisis = read_w28d(
+        "Name:Identity Crisis\nManaCost:2 W W B B\nTypes:Sorcery\n\
+         A:SP$ ChangeZoneAll | Origin$ Hand,Graveyard | Destination$ Exile | ValidTgts$ Player | ChangeType$ Card",
+    );
+    assert!(
+        crisis.abilities[0].contains("ChooseZone::Hand(PlayerRel::Chosen)")
+            && crisis.abilities[0].contains("ChooseZone::Graveyard(PlayerRel::Chosen)"),
+        "{}",
+        crisis.abilities[0]
+    );
+
+    let noetic = read_w28d(
+        "Name:Noetic Scales\nManaCost:4\nTypes:Artifact\n\
+         T:Mode$ Phase | Phase$ Upkeep | ValidPlayer$ Player | TriggerZones$ Battlefield | Execute$ TrigBounce\n\
+         SVar:TrigBounce:DB$ ChangeZoneAll | ChangeType$ Creature.powerGTX+ControlledBy TriggeredPlayer | Origin$ Battlefield | Destination$ Hand\n\
+         SVar:X:TriggeredPlayer$CardsInHand",
+    );
+    assert!(
+        noetic.abilities[0].contains("Effect::BounceAll")
+            && noetic
+                .statics
+                .contains("Filter::Not(&Filter::PowerAtMostAmount(&Amount::HandSize(PlayerRel::ActivePlayer)))"),
+        "{}\n{}",
+        noetic.abilities[0],
+        noetic.statics
+    );
+
+    let rites = read_w28d(
+        "Name:Last Rites\nManaCost:2 B\nTypes:Sorcery\n\
+         A:SP$ Discard | AnyNumber$ True | Optional$ True | Mode$ TgtChoose | RememberDiscarded$ True | SubAbility$ DBLast\n\
+         SVar:DBLast:DB$ Discard | Mode$ RevealYouChoose | NumCards$ X | DiscardValid$ Card.nonLand | ValidTgts$ Player | SubAbility$ DBClean\n\
+         SVar:DBClean:DB$ Cleanup | ClearRemembered$ True\n\
+         SVar:X:Remembered$Amount",
+    );
+    assert!(
+        rites.abilities[0].contains("Effect::CaptureAffected")
+            && rites.abilities[0].contains("max: Amount::RememberedCount"),
+        "{}",
+        rites.abilities[0]
+    );
+
+    let ultimatum = read_w28d(
+        "Name:Brilliant Ultimatum\nManaCost:W W U U U B B\nTypes:Sorcery\n\
+         A:SP$ Dig | Defined$ You | DigNum$ 5 | ChangeNum$ All | DestinationZone$ Exile | RememberChanged$ True | SubAbility$ DBTwoPiles\n\
+         SVar:DBTwoPiles:DB$ TwoPiles | Defined$ You | DefinedCards$ Remembered | Separator$ Opponent | ChosenPile$ DBPlay\n\
+         SVar:DBPlay:DB$ Play | Defined$ Remembered | WithoutManaCost$ True | Optional$ True | Amount$ All",
+    );
+    assert!(
+        ultimatum.abilities[0].contains("Effect::SeparateIntoTwoPiles")
+            && ultimatum.abilities[0].contains("zone: ZoneSel::ExileAll")
+            && ultimatum.abilities[0].contains("cast_only: false"),
+        "{}",
+        ultimatum.abilities[0]
+    );
+}
+
+#[test]
+fn wave28d_p3_refusals() {
+    for bad in [
+        // Teferi's Puzzle Box: ChooseCardEx Arrange asks `you` instead of ActivePlayer -> MUST refuse!
+        "Name:Teferi's Puzzle Box\nManaCost:4\nTypes:Artifact\n\
+         T:Mode$ Phase | Phase$ Draw | ValidPlayer$ Player | TriggerZones$ Battlefield | Execute$ TrigAll\n\
+         SVar:TrigAll:DB$ ChangeZoneAll | DefinedPlayer$ TriggeredPlayer | Defined$ TriggeredPlayer | Origin$ Hand | Destination$ Library | LibraryPosition$ -1 | RememberChanged$ True | SubAbility$ DBDraw\n\
+         SVar:DBDraw:DB$ Draw | NumCards$ X | Defined$ TriggeredPlayer | SubAbility$ DBCleanup\n\
+         SVar:DBCleanup:DB$ Cleanup | ClearRemembered$ True\n\
+         SVar:X:Remembered$Amount",
+        // Must be blocked if able (single blocker, NOT all able blockers) -> MUST refuse!
+        "Name:EnlargeLike\nManaCost:3 G G\nTypes:Sorcery\n\
+         A:SP$ Pump | ValidTgts$ Creature | NumAtt$ +7 | NumDef$ +7 | KW$ Trample & HIDDEN CARDNAME must be blocked if able.",
+        // Player Shroud (no Modifier::PlayerShroud in DSL) -> MUST refuse!
+        "Name:GildedLightLike\nManaCost:1 W\nTypes:Instant\n\
+         A:SP$ Pump | Defined$ You | KW$ Shroud",
+        // Token.Cost PayEnergy / compound Mana+Sac -> MUST refuse!
+        "Name:AetherChaserLike\nManaCost:1 R\nTypes:Creature Human Artificer\nPT:2/1\n\
+         T:Mode$ Attacks | ValidCard$ Card.Self | Execute$ TrigToken\n\
+         SVar:TrigToken:AB$ Token | Cost$ PayEnergy<2> | TokenScript$ c_1_1_a_servo | TokenOwner$ You",
+        "Name:SokenzanLike\nManaCost:1 R\nTypes:Creature Goblin Artificer\nPT:2/2\n\
+         T:Mode$ Phase | Phase$ BeginCombat | ValidPlayer$ You | TriggerZones$ Battlefield | Execute$ TrigToken\n\
+         SVar:TrigToken:AB$ Token | Cost$ 1 Sac<1/Artifact/an artifact> | TokenScript$ r_3_1_a_construct_haste",
+        // Coven (DifferentCardPower) -> MUST refuse!
+        "Name:GoldenRatioLike\nManaCost:1 G U\nTypes:Sorcery\n\
+         A:SP$ Draw | NumCards$ X\n\
+         SVar:X:Count$Valid Creature.YouCtrl$DifferentCardPower",
+        // RevealNumber$ N (Blackmail) -> MUST refuse!
+        "Name:BlackmailLike\nManaCost:B\nTypes:Sorcery\n\
+         A:SP$ Discard | ValidTgts$ Player | Mode$ RevealYouChoose | RevealNumber$ 3 | NumCards$ 1",
+    ] {
+        assert!(refused_w28d(bad), "must refuse:\n{bad}");
+    }
 }

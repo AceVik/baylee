@@ -158,10 +158,12 @@ impl Tx<'_> {
                 return None;
             }
             (if optional { 0 } else { n }, format!("Amount::Fixed({n})"))
-        } else if optional {
-            (0, self.amount_or_count_ext(raw_num.as_deref()?)?)
         } else {
-            return None;
+            let raw = raw_num.as_deref()?;
+            let amt = self
+                .wave27c_remembered_amount(raw)
+                .or_else(|| self.amount_or_count_ext(raw))?;
+            (if optional { 0 } else { u8::MAX }, amt)
         };
         let filter_ref = self.wave28d_discard_filter_ref(&filter_expr);
         *p = probe;
@@ -382,7 +384,8 @@ impl Tx<'_> {
             Some("True") => true,
             Some(_) => return None,
         };
-        let n = self.amount_or_count_ext(&p.take("NumCards")?)?;
+        let raw_num = p.take("NumCards").unwrap_or_else(|| "1".to_string());
+        let n = self.amount_or_count_ext(&raw_num)?;
         let who =
             self.wave11_player_of_line(p.take("Defined").as_deref(), target, targets_a_player)?;
         let mill = format!("Effect::Mill {{ amount: {n}, target: {who} }}");
@@ -421,12 +424,19 @@ impl Tx<'_> {
         {
             return None;
         }
-        let origin = p.peek("Origin")?;
-        let dest = p.peek("Destination")?;
+        let origin = p.peek("Origin")?.to_string();
+        let dest = p.peek("Destination")?.to_string();
+        if origin == "Battlefield"
+            && dest == "Hand"
+            && let Some(effs) = self.wave28d_noetic_scales_bounce_all(p)
+        {
+            return Some(effs);
+        }
         if !matches!(
-            (origin, dest),
+            (origin.as_str(), dest.as_str()),
             ("Graveyard", "Exile" | "Hand")
                 | ("Hand", "Exile" | "Graveyard" | "Battlefield")
+                | ("Hand,Graveyard" | "Graveyard,Hand", "Exile")
                 | ("Battlefield", "Library")
         ) {
             return None;
@@ -506,9 +516,53 @@ impl Tx<'_> {
             _ => return None,
         };
 
-        let (movement, prepend_reveal) = match (origin, dest) {
+        let (movement, prepend_reveal) = match (origin.as_str(), dest.as_str()) {
             ("Graveyard", "Exile") => ("ChooseMove::Exile".to_string(), false),
             ("Graveyard", "Hand") => ("ChooseMove::Hand".to_string(), false),
+            ("Hand,Graveyard" | "Graveyard,Hand", "Exile") => {
+                if self.svars.values().any(|s| {
+                    s.contains("Defined$ ExiledWith") || s.contains("Card.ExiledWithSource")
+                }) || !Self::wave28d_only_condition_keys_left(&probe)
+                {
+                    return None;
+                }
+                let filter_expr = if stripped == "Card" {
+                    "Filter::Any".to_string()
+                } else {
+                    self.filter_expr_in_zone(&stripped, true)?
+                };
+                let filter_ref = if filter_expr == "Filter::Any" {
+                    "&Filter::Any".to_string()
+                } else {
+                    format!("&{}", self.body.filter_static("CZA", &filter_expr))
+                };
+                *p = probe;
+                let zones = if origin == "Hand,Graveyard" {
+                    [
+                        format!("ChooseZone::Hand({who})"),
+                        format!("ChooseZone::Graveyard({who})"),
+                    ]
+                } else {
+                    [
+                        format!("ChooseZone::Graveyard({who})"),
+                        format!("ChooseZone::Hand({who})"),
+                    ]
+                };
+                return Some(
+                    zones
+                        .into_iter()
+                        .map(|z| {
+                            format!(
+                                "Effect::ChooseCardEx {{ chooser: PlayerRel::You, zone: {z}, \
+                                 filter: {filter_ref}, min: 0, max: Amount::Fixed(0), \
+                                 reveal_chosen: false, movement: ChooseMove::None, \
+                                 not_chosen_movement: ChooseMove::Exile, \
+                                 then: &[], for_unchosen: &[] }}"
+                            )
+                        })
+                        .collect(),
+                );
+            }
             ("Hand", "Exile") => {
                 let linked = self.svars.values().any(|s| {
                     s.contains("Defined$ ExiledWith") || s.contains("Card.ExiledWithSource")
@@ -556,7 +610,7 @@ impl Tx<'_> {
         } else {
             format!("&{}", self.body.filter_static("CZA", &expr))
         };
-        let choose_zone = match origin {
+        let choose_zone = match origin.as_str() {
             "Graveyard" => format!("ChooseZone::Graveyard({who})"),
             "Hand" => format!("ChooseZone::Hand({who})"),
             _ => return None,
@@ -1111,7 +1165,9 @@ impl Tx<'_> {
             (false, true) => ct == "Card.IsImprinted",
             (true, true) => matches!(
                 ct.as_str(),
-                "Card.IsImprinted,Card.IsRemembered" | "Card.IsRemembered,Card.IsImprinted"
+                "Card.IsImprinted,Card.IsRemembered"
+                    | "Card.IsRemembered,Card.IsImprinted"
+                    | "Card.IsRemembered"
             ),
             (false, false) => false,
         };
@@ -1553,7 +1609,9 @@ impl Tx<'_> {
         prevent_mods: &[String],
     ) -> Option<Vec<String>> {
         let qual = defined.strip_prefix("Targeted.")?.trim();
-        if qual.is_empty() || !target.starts_with("TargetSpec::Object(") {
+        if qual.is_empty()
+            || (!target.starts_with("TargetSpec::Object(") && target != "TargetSpec::AnyTarget")
+        {
             return None;
         }
         let filter_expr = self.filter_expr(&format!("Card.{qual}"))?;
@@ -2525,4 +2583,510 @@ impl Tx<'_> {
             .iter()
             .all(|(k, _)| k.starts_with("Condition") || k.starts_with("Present"))
     }
+
+    // -------------------------------------------------------------------------
+    // 11. Wave 28d-p3: `Token` conditions / `PumpKeywords` / `AtEOT` / `RepeatEach`
+    //     attached tokens, `Pump` `KWChoice` with prevent/protection modifiers,
+    //     `CopyPermanent` target-match copies, `Dig` exile-two-piles-play,
+    //     remembered `AlterAttribute`, and `Noetic Scales` bounce sweep.
+    // -------------------------------------------------------------------------
+
+    /// Extract supported `ConditionDefined$` / `ConditionCheckSVar$` guards on a
+    /// `Token` line (*Ethereal Absolution*, *General's Enforcer*, *Ignis Scientia*,
+    /// *Return Upon the Tide*, *Transpose*, *Boneyard Desecrator*,
+    /// *Necromancer's Stockpile*, *Saint Traft and Rem Karolus*, *Jenson Carthalion*).
+    /// Leaves unrecognized condition keys untouched on `p` so existing `chains.rs`
+    /// / `wave27c.rs` wrappers continue to run normally.
+    pub(super) fn wave28d_take_token_condition(
+        &mut self,
+        p: &mut Params,
+        target: Option<&str>,
+    ) -> Option<TokenCondWrap> {
+        if let Some(def) = p.peek("ConditionDefined").map(str::to_string) {
+            let cmp_ok = matches!(p.peek("ConditionCompare"), None | Some("EQ1" | "GE1"));
+            if !cmp_ok {
+                return Some(TokenCondWrap::None);
+            }
+            let Some(present) = p.peek("ConditionPresent").map(str::to_string) else {
+                return Some(TokenCondWrap::None);
+            };
+            let wrap = match def.as_str() {
+                "Targeted"
+                    if target.is_some_and(|t| {
+                        t.starts_with("TargetSpec::Object(")
+                            || t.starts_with("TargetSpec::CardInGraveyard(")
+                    }) =>
+                {
+                    let is_gy =
+                        target.is_some_and(|t| t.starts_with("TargetSpec::CardInGraveyard("));
+                    if is_gy
+                        && (present.contains("inZone")
+                            || present.contains("tapped")
+                            || present.contains("untapped")
+                            || present.contains("attacking")
+                            || present.contains("blocking")
+                            || present.contains("blocked")
+                            || present.contains("Ctrl"))
+                    {
+                        return Some(TokenCondWrap::None);
+                    }
+                    let expr = self.filter_expr_in_zone(&present, is_gy)?;
+                    let name = self.body.filter_static("COND_TGT", &expr);
+                    TokenCondWrap::TargetMatches(name)
+                }
+                "Self" if present == "Card.wasCastFromYourHand" => TokenCondWrap::Condition(
+                    "Condition::All(&[Condition::SourceWasCastByYou, \
+                     Condition::SourceMatches(&Filter::CastFromHand)])"
+                        .to_string(),
+                ),
+                "Sacrificed" if self.cost_sacrifices_other => {
+                    let expr = self.filter_expr(&present)?;
+                    let name = self.body.filter_static("SAC_COST", &expr);
+                    TokenCondWrap::Condition(format!("Condition::SacrificedForCost(&{name})"))
+                }
+                "TriggeredCard" if self.trigger_mode.as_deref() == Some("SpellCast") => {
+                    let expr = self.filter_expr_in_zone(&present, true)?;
+                    let name = self.body.filter_static("TRIG_CARD", &expr);
+                    TokenCondWrap::EventObjectMatches(name)
+                }
+                _ => TokenCondWrap::None,
+            };
+            if !matches!(wrap, TokenCondWrap::None) {
+                p.take("ConditionDefined");
+                p.take("ConditionPresent");
+                p.take("ConditionCompare");
+                p.take("ConditionDescription");
+                return Some(wrap);
+            }
+            return Some(TokenCondWrap::None);
+        }
+        if let Some(var) = p.peek("ConditionCheckSVar").map(str::to_string) {
+            let cmp = p
+                .peek("ConditionSVarCompare")
+                .map_or_else(|| "GE1".to_string(), str::to_string);
+            if let Some(cond) = self.wave28d_svar_cost_condition(&var, &cmp) {
+                p.take("ConditionCheckSVar");
+                p.take("ConditionSVarCompare");
+                p.take("ConditionDescription");
+                return Some(TokenCondWrap::Condition(cond));
+            }
+            if self
+                .svars
+                .get(var.trim())
+                .map(String::as_str)
+                .map(str::trim)
+                == Some("Count$ResolvedThisTurn")
+                && let Some(n_raw) = cmp.trim().strip_prefix("EQ")
+                && let Ok(n) = n_raw.trim().parse::<u32>()
+                && (1..=9).contains(&n)
+            {
+                p.take("ConditionCheckSVar");
+                p.take("ConditionSVarCompare");
+                p.take("ConditionDescription");
+                return Some(TokenCondWrap::ResolvedTimesThisTurn(n));
+            }
+        }
+        Some(TokenCondWrap::None)
+    }
+
+    pub(super) fn wave28d_apply_token_condition(
+        wrap: TokenCondWrap,
+        effects: Vec<String>,
+    ) -> Vec<String> {
+        if matches!(wrap, TokenCondWrap::None) {
+            return effects;
+        }
+        let joined = effects.join(", ");
+        vec![match wrap {
+            TokenCondWrap::None => unreachable!(),
+            TokenCondWrap::TargetMatches(filter) => {
+                format!(
+                    "Effect::IfCondition {{ condition: Condition::ObjectMatches {{ \
+                     what: &TargetSpec::Object(&Filter::Any), filter: &{filter} }}, \
+                     then: &[{joined}], otherwise: &[] }}"
+                )
+            }
+            TokenCondWrap::EventObjectMatches(filter) => {
+                format!("Effect::IfEventObjectMatches {{ filter: &{filter}, then: &[{joined}] }}")
+            }
+            TokenCondWrap::Condition(cond) => {
+                format!(
+                    "Effect::IfCondition {{ condition: {cond}, then: &[{joined}], otherwise: &[] }}"
+                )
+            }
+            TokenCondWrap::ResolvedTimesThisTurn(times) => {
+                format!("Effect::IfResolvedTimesThisTurn {{ times: {times}, then: &[{joined}] }}")
+            }
+        }]
+    }
+
+    /// Lower `Discarded$Valid <F>` `ConditionCheckSVar$` (`GE1` / `EQ1`) into
+    /// `Condition::DiscardedForCost(&<F>)` (*Necromancer's Stockpile*).
+    pub(super) fn wave28d_svar_cost_condition(&mut self, var: &str, cmp: &str) -> Option<String> {
+        if !matches!(cmp.trim(), "GE1" | "EQ1") {
+            return None;
+        }
+        let def = self.svars.get(var.trim())?.trim();
+        let valid = def.strip_prefix("Discarded$Valid ")?.trim();
+        let expr = self.filter_expr_in_zone(valid, true)?;
+        let name = self.body.filter_static("DISC_COST", &expr);
+        Some(format!("Condition::DiscardedForCost(&{name})"))
+    }
+
+    /// Lower fixed-PT `Token` lines for `You` carrying multi-keyword `PumpKeywords$`
+    /// (*Eiganjo Uprising*, *Mardu Monument*), indefinite `PumpKeywords$` + `AtEOT$`
+    /// (*Chandra, Acolyte of Flame*), or non-attacking `AtEOT$` (*Elemental Appeal*)
+    /// by appending a `RepeatEachObject { only_found: true }` over the created tokens.
+    pub(super) fn wave28d_token_pump_or_cleanup(
+        &mut self,
+        p: &mut Params,
+        tapped: bool,
+        haste: bool,
+    ) -> Option<Vec<String>> {
+        let mut probe = p.clone();
+        let extra_kw = if let Some(raw_kw) = probe.take("PumpKeywords") {
+            let dur = match probe.take("PumpDuration").as_deref() {
+                Some("EOT" | "EndOfTurn") => "Duration::UntilEndOfTurn",
+                _ => return None,
+            };
+            Some((Self::pump_keyword_bits(&raw_kw)?, dur))
+        } else {
+            if probe.has("PumpDuration") {
+                return None;
+            }
+            None
+        };
+        let at_eot = match probe.take("AtEOT").as_deref() {
+            None => None,
+            Some("Sacrifice") => Some(("DelayedStep::EndStep", "Effect::SacrificeEvent")),
+            Some("Exile") => Some((
+                "DelayedStep::EndStep",
+                "Effect::exile(TargetSpec::EventObject)",
+            )),
+            Some("SacrificeCombat") => Some(("DelayedStep::EndOfCombat", "Effect::SacrificeEvent")),
+            Some("ExileCombat") => Some((
+                "DelayedStep::EndOfCombat",
+                "Effect::exile(TargetSpec::EventObject)",
+            )),
+            Some(_) => return None,
+        };
+        if extra_kw.is_none() && at_eot.is_none() {
+            return None;
+        }
+        let stem = probe.take("TokenScript")?;
+        let raw_amount = probe.take("TokenAmount");
+        let mut out = if !tapped && !haste {
+            self.create_tokens(&stem, raw_amount.as_deref())?
+        } else {
+            let tokens = self.tokens?;
+            let body = tokens.body_fixed(&stem, self.cats)?;
+            let token = format!("&generated_tokens::{}", body.constant);
+            let amount = match raw_amount.as_deref() {
+                None => "Amount::Fixed(1)".to_string(),
+                Some(raw) => self.amount_or_count_ext(raw)?,
+            };
+            vec![format!(
+                "Effect::CreateTokenModified {{ token: {token}, amount: {amount}, \
+                 tapped: {tapped}, haste: {haste} }}"
+            )]
+        };
+        let mut per_token = Vec::new();
+        if let Some((kw_bits, dur)) = extra_kw {
+            per_token.push(format!(
+                "Effect::PumpEventObject {{ power: Amount::Fixed(0), toughness: Amount::Fixed(0), \
+                 keywords: {kw_bits}, duration: {dur} }}"
+            ));
+        }
+        if let Some((step, act)) = at_eot {
+            per_token.push(format!(
+                "Effect::RegisterDelayedTrigger {{ when: DelayedTriggerWhen::AtStep {{ \
+                 step: {step}, whose: None, this_turn_only: false, recurring: false }}, \
+                 condition: None, targets: None, remember: TriggerRemember::EventObject, \
+                 effects: &[{act}] }}"
+            ));
+        }
+        out.push(format!(
+            "Effect::RepeatEachObject {{ zone: ZoneSel::Battlefield, filter: &Filter::Any, \
+             only_found: true, then: &[{}] }}",
+            per_token.join(", ")
+        ));
+        *p = probe;
+        Some(out)
+    }
+
+    /// Format `Pump | KWChoice$` options when one or more choices produce
+    /// `Modifier::*` (e.g. *Jodah's Avenger* `Protection from red`) alongside
+    /// keyword-bit choices.
+    pub(super) fn wave28d_format_kw_choices<F>(
+        opts: Vec<(String, Vec<String>)>,
+        mk_pump: F,
+        modify_variant: Option<&str>,
+        has_pt: bool,
+        duration: &str,
+    ) -> Option<String>
+    where
+        F: Fn(&str) -> String,
+    {
+        let mut rendered = Vec::with_capacity(opts.len());
+        for (kw, mods) in opts {
+            if mods.is_empty() {
+                rendered.push(mk_pump(&kw));
+            } else {
+                let mv = modify_variant?;
+                let mut parts = Vec::new();
+                if has_pt || kw != "KeywordSet::EMPTY" {
+                    parts.push(mk_pump(&kw));
+                }
+                for m in mods {
+                    parts.push(format!(
+                        "Effect::{mv} {{ modifier: {m}, duration: {duration} }}"
+                    ));
+                }
+                rendered.push(match parts.len() {
+                    0 => return None,
+                    1 => parts.remove(0),
+                    _ => format!("Effect::Sequence(&[{}])", parts.join(", ")),
+                });
+            }
+        }
+        Some(format!(
+            "Effect::ChooseOne {{ choices: &[{}] }}",
+            rendered.join(", ")
+        ))
+    }
+
+    /// Lower `SVar` of the form `Targeted$Valid <F>/Plus.<N>` (*Hazel of the Rootbloom*)
+    /// into `(filter_static, Amount::Fixed(N+1), Amount::Fixed(N))` for `IfTargetMatchesElse`.
+    pub(super) fn wave28d_target_valid_plus_amount(
+        &mut self,
+        raw: &str,
+    ) -> Option<(String, String, String)> {
+        let def = self.svars.get(raw.trim())?.trim();
+        let rest = def.strip_prefix("Targeted$Valid ")?;
+        let (valid, offset_raw) = rest.split_once("/Plus.")?;
+        let offset: u32 = offset_raw.trim().parse().ok()?;
+        let expr = self.filter_expr(valid.trim())?;
+        let name = self.body.filter_static("TGT_MATCH", &expr);
+        Some((
+            name,
+            format!("Amount::Fixed({})", offset + 1),
+            format!("Amount::Fixed({offset})"),
+        ))
+    }
+
+    /// Lower `DB$ Token | AttachedTo$ Remembered` inside `RepeatEach` over
+    /// battlefield permanents (*Asinine Antics*, *Twisted Sewer-Witch*) into
+    /// `Effect::CreateTokenAttached { host: AttachHost::Spec(TargetSpec::EventObject), .. }`.
+    pub(super) fn wave28d_repeat_token_attached(&mut self, sp: &mut Params) -> Option<String> {
+        let mut probe = sp.clone();
+        probe.take("AttachedTo");
+        if !matches!(probe.take("TokenOwner").as_deref(), None | Some("You"))
+            || probe.has("TokenPower")
+            || probe.has("TokenToughness")
+            || probe.has("TokenTapped")
+            || probe.has("TokenAttacking")
+            || probe.has("PumpKeywords")
+            || probe.has("PumpDuration")
+            || probe.has("AtEOT")
+            || probe.has("RememberTokens")
+        {
+            return None;
+        }
+        let stem = probe.take("TokenScript")?;
+        let raw_amount = probe.take("TokenAmount");
+        if !probe.exhausted() {
+            return None;
+        }
+        let amount = match raw_amount.as_deref() {
+            None => "Amount::Fixed(1)".to_string(),
+            Some(raw) => {
+                let expr = self.amount_or_count_ext(raw)?;
+                if expr == "Amount::Fixed(0)" {
+                    return None;
+                }
+                expr
+            }
+        };
+        let tokens = self.tokens?;
+        let body = tokens.body_fixed(&stem, self.cats)?;
+        let token = format!("&generated_tokens::{}", body.constant);
+        *sp = probe;
+        Some(format!(
+            "Effect::CreateTokenAttached {{ token: {token}, amount: {amount}, \
+             host: AttachHost::Spec(TargetSpec::EventObject) }}"
+        ))
+    }
+
+    /// Lower `Dig(N, All, Exile, RememberChanged)` -> `TwoPiles(Opponent, ChosenPile$ DBPlay)`
+    /// (*Brilliant Ultimatum*) into `RevealUntilThen(exile_while_revealing: true)` +
+    /// `SeparateIntoTwoPiles(ZoneSel::ExileAll, only_found: true, chosen_pile: &[Effect::Play])`.
+    /// Because the spell has no targets, `PlaySource::Subject(TargetSpec::Object(&Filter::Any))`
+    /// gathers the exact chosen pile bound in `SubjectContext::found`.
+    pub(super) fn wave28d_dig_exile_two_piles_play(
+        &mut self,
+        p: &mut Params,
+        sub: &mut Option<String>,
+    ) -> Option<Vec<String>> {
+        if !self.on_a_spell
+            || p.has("ValidTgts")
+            || p.peek("ChangeNum") != Some("All")
+            || p.peek("DestinationZone") != Some("Exile")
+            || p.peek("RememberChanged") != Some("True")
+        {
+            return None;
+        }
+        let mut probe = p.clone();
+        if !matches!(probe.take("Defined").as_deref(), None | Some("You")) {
+            return None;
+        }
+        let dig_num = probe.take("DigNum")?;
+        probe.take("ChangeNum");
+        probe.take("DestinationZone");
+        probe.take("RememberChanged");
+        if !probe.exhausted() {
+            return None;
+        }
+        let two_name = sub.as_deref()?.trim().to_string();
+        let two_body = self.svars.get(&two_name)?.clone();
+        let (t_api, mut tp) = Params::parse(&two_body)?;
+        tp.drop_prose();
+        if t_api != "TwoPiles"
+            || !matches!(tp.take("Defined").as_deref(), None | Some("You"))
+            || tp.take("DefinedCards").as_deref() != Some("Remembered")
+            || tp.take("Separator").as_deref() != Some("Opponent")
+            || !matches!(tp.take("Chooser").as_deref(), None | Some("You"))
+            || tp.has("UnchosenPile")
+            || tp.has("FaceDown")
+        {
+            return None;
+        }
+        let chosen_name = tp.take("ChosenPile")?;
+        let after_two = tp.take("SubAbility");
+        if !tp.exhausted() {
+            return None;
+        }
+        let play_body = self.svars.get(chosen_name.trim())?.clone();
+        let (p_api, mut pp) = Params::parse(&play_body)?;
+        pp.drop_prose();
+        if p_api != "Play"
+            || pp.take("Defined").as_deref() != Some("Remembered")
+            || pp.take("WithoutManaCost").as_deref() != Some("True")
+            || pp.take("Optional").as_deref() != Some("True")
+            || pp.take("Amount").as_deref() != Some("All")
+            || !matches!(pp.take("Controller").as_deref(), None | Some("You"))
+            || !matches!(pp.take("ValidZone").as_deref(), None | Some("Exile"))
+        {
+            return None;
+        }
+        let (cast_only, play_filter) = match pp.take("ValidSA") {
+            None => (false, "&Filter::Any".to_string()),
+            Some(raw_sa) => {
+                let (owner, filter) = self.parse_play_sa_filter(&raw_sa)?;
+                if owner.is_some() {
+                    return None;
+                }
+                let fref = match filter {
+                    None => "&Filter::Any".to_string(),
+                    Some(expr) => format!("&{}", self.body.filter_static("PLAY", &expr)),
+                };
+                (true, fref)
+            }
+        };
+        if !pp.exhausted() {
+            return None;
+        }
+        let trailing = self.wave28d_parse_optional_cleanup(after_two, true, false)?;
+        let count = self.amount_or_count_ext(&dig_num)?;
+        *p = probe;
+        *sub = trailing;
+        Some(vec![format!(
+            "Effect::RevealUntilThen {{ library: PlayerRel::You, filter: &Filter::Any, \
+             count: {count}, max_revealed: Some({count}), exile_while_revealing: true, \
+             found: RevealUntilFound::Exile, rest: RevealUntilRest::Exile, \
+             then: &[Effect::SeparateIntoTwoPiles {{ separator: PlayerRel::Opponent, \
+             pile_chooser: PlayerRel::You, zone: ZoneSel::ExileAll, filter: &Filter::Any, \
+             only_found: true, chosen_pile: &[Effect::Play {{ \
+             source: PlaySource::Subject(TargetSpec::Object(&Filter::Any)), \
+             filter: {play_filter}, controller: PlayerRel::You, count: PlayCount::All, \
+             cost: PlayCostMode::WithoutPayingManaCost, cast_only: {cast_only}, copy: false, \
+             exile_instead_of_graveyard: false, optional: true }}], unchosen_pile: &[] }}] }}"
+        )])
+    }
+
+    /// Inside `CaptureAffected::then`, lower `AlterAttribute | Defined$ Remembered |
+    /// Attributes$ Suspected` (*Case of the Stashed Skeleton*) into
+    /// `Effect::ForEachRemembered { effects: &[Effect::Suspect { target: TargetSpec::EventObject }] }`.
+    pub(super) fn wave28d_capture_alter_attribute(p: &mut Params) -> Option<Vec<String>> {
+        let mut probe = p.clone();
+        probe.take("Defined");
+        if probe.take("Attributes").as_deref() != Some("Suspected") {
+            return None;
+        }
+        let unsuspect = match probe.take("Activate").as_deref() {
+            None | Some("True") => false,
+            Some("False") => true,
+            Some(_) => return None,
+        };
+        let optional = match probe.take("Optional").as_deref() {
+            None | Some("False") => false,
+            Some("True") => true,
+            Some(_) => return None,
+        };
+        if !Self::wave28d_only_condition_keys_left(&probe) {
+            return None;
+        }
+        let variant = if unsuspect { "Unsuspect" } else { "Suspect" };
+        let inner = if optional {
+            format!(
+                "Effect::MayDo {{ effects: &[Effect::{variant} {{ target: TargetSpec::EventObject }}] }}"
+            )
+        } else {
+            format!("Effect::{variant} {{ target: TargetSpec::EventObject }}")
+        };
+        *p = probe;
+        Some(vec![format!(
+            "Effect::ForEachRemembered {{ filter: &Filter::Any, effects: &[{inner}] }}"
+        )])
+    }
+
+    /// Lower `ChangeZoneAll | Origin$ Battlefield | Destination$ Hand |
+    /// ChangeType$ Creature.powerGT<X>+ControlledBy TriggeredPlayer` on a `Phase` trigger
+    /// where `<X> = TriggeredPlayer$CardsInHand` (*Noetic Scales*) into `Effect::BounceAll`.
+    fn wave28d_noetic_scales_bounce_all(&mut self, p: &mut Params) -> Option<Vec<String>> {
+        if self.trigger_mode.as_deref() != Some("Phase") || p.has("Defined") {
+            return None;
+        }
+        let ct = p.peek("ChangeType")?;
+        let rest = ct.strip_prefix("Creature.powerGT")?;
+        let var = rest.strip_suffix("+ControlledBy TriggeredPlayer")?.trim();
+        if self.svars.get(var).map(String::as_str).map(str::trim)
+            != Some("TriggeredPlayer$CardsInHand")
+        {
+            return None;
+        }
+        let mut probe = p.clone();
+        probe.take("Origin");
+        probe.take("Destination");
+        probe.take("ChangeType");
+        probe.take("IsCurse");
+        if !Self::wave28d_only_condition_keys_left(&probe) {
+            return None;
+        }
+        let name = self.body.filter_static(
+            "BOUNCE",
+            "Filter::And(&[Filter::CREATURE, Filter::ControlledByActivePlayer, \
+             Filter::Not(&Filter::PowerAtMostAmount(&Amount::HandSize(PlayerRel::ActivePlayer)))])",
+        );
+        *p = probe;
+        Some(vec![format!("Effect::BounceAll {{ filter: &{name} }}")])
+    }
+}
+
+/// Conditional wrapper extracted from a `Token` line in Wave 28d-p3.
+pub(super) enum TokenCondWrap {
+    None,
+    TargetMatches(String),
+    EventObjectMatches(String),
+    Condition(String),
+    ResolvedTimesThisTurn(u32),
 }
