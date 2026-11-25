@@ -13,8 +13,11 @@ use super::*;
 fn w28a_cats() -> SubtypeCatalogs {
     let mut c = SubtypeCatalogs {
         creature: vec![
+            "Dinosaur".into(),
+            "Dragon".into(),
             "Elemental".into(),
             "Goblin".into(),
+            "Human".into(),
             "Wizard".into(),
             "Zombie".into(),
             "Fractal".into(),
@@ -624,6 +627,276 @@ fn capture_affected_remembered_extensions_and_soundness_boundaries() {
          T:Mode$ ChangesZone | Origin$ Battlefield | Destination$ Graveyard | ValidCard$ Card.EquippedBy | Execute$ TrigPut\n\
          SVar:TrigPut:DB$ ChangeZone | Origin$ Hand | Destination$ Battlefield | ChangeType$ Creature | ChangeNum$ 1 | Optional$ True | RememberChanged$ True | SubAbility$ DBAttach\n\
          SVar:DBAttach:DB$ Attach | Defined$ Remembered",
+    ] {
+        assert!(refused_w28a(bad), "must refuse:\n{bad}");
+    }
+}
+
+#[test]
+#[allow(clippy::too_many_lines)]
+fn wave28a_p2_reference_filters_any_exclusions_and_emblem_subsumption() {
+    // NotDefinedTargeted -> Filter::Not(&Filter::Reference) (Mirrorweave & Flames of the Raze-Boar).
+    let mirror = read_w28a(
+        "Name:MirrorweaveProxy\nManaCost:2 WU WU\nTypes:Instant\n\
+         A:SP$ Clone | Defined$ Targeted | CloneTarget$ Valid Creature.NotDefinedTargeted | Duration$ UntilEndOfTurn | ValidTgts$ Creature.nonLegendary",
+    );
+    assert!(
+        mirror.abilities[0].contains("Effect::BecomeCopy")
+            && mirror.statics.contains("Filter::Not(&Filter::Reference)"),
+        "{:?}\n{}",
+        mirror.abilities,
+        mirror.statics
+    );
+
+    let raze_boar = read_w28a(
+        "Name:FlamesProxy\nManaCost:5 R\nTypes:Instant\n\
+         A:SP$ DealDamage | NumDmg$ 4 | ValidTgts$ Creature.OppCtrl | SubAbility$ DBDealDamage\n\
+         SVar:DBDealDamage:DB$ DamageAll | NumDmg$ 2 | ValidCards$ Creature.NotDefinedTargeted+ControlledBy TargetedController | ConditionPresent$ Creature.powerGE4+YouCtrl",
+    );
+    assert!(
+        raze_boar.abilities[0].contains("Effect::DealDamageEach")
+            && raze_boar
+                .statics
+                .contains("Filter::Not(&Filter::Reference)")
+            && raze_boar
+                .statics
+                .contains("Filter::ControlledBy(PlayerRel::ControllerOfTarget)"),
+        "{:?}\n{}",
+        raze_boar.abilities,
+        raze_boar.statics
+    );
+
+    // !targetedBy -> Filter::Not(&Filter::Reference) (Public Execution).
+    let pub_exec = read_w28a(
+        "Name:PublicExecutionProxy\nManaCost:5 B\nTypes:Instant\n\
+         A:SP$ Destroy | ValidTgts$ Creature.OppCtrl | SubAbility$ WeakenOther\n\
+         SVar:WeakenOther:DB$ PumpAll | ValidCards$ Creature.ControlledBy TargetedController+!targetedBy | NumAtt$ -2 | IsCurse$ True",
+    );
+    assert!(
+        pub_exec.abilities[0].contains("Effect::PumpFilter")
+            && pub_exec.statics.contains("Filter::Not(&Filter::Reference)"),
+        "{:?}\n{}",
+        pub_exec.abilities,
+        pub_exec.statics
+    );
+
+    // !TriggeredAttacker on Attacks trigger -> Filter::Not(&Filter::Reference) (Sigil of Valor).
+    let sigil = read_w28a(
+        "Name:SigilProxy\nManaCost:2\nTypes:Artifact Equipment\nK:Equip:1\n\
+         T:Mode$ Attacks | ValidCard$ Card.EquippedBy | Alone$ True | Execute$ TrigPump\n\
+         SVar:TrigPump:DB$ Pump | Defined$ TriggeredAttackerLKICopy | NumAtt$ +X | NumDef$ +X\n\
+         SVar:X:Count$Valid Creature.YouCtrl+!TriggeredAttacker",
+    );
+    assert!(
+        sigil.abilities[0].contains("Filter::Not(&Filter::Reference)")
+            || sigil.statics.contains("Filter::Not(&Filter::Reference)"),
+        "{:?}\n{}",
+        sigil.abilities,
+        sigil.statics
+    );
+
+    // ValidTgts$ Any.<strictly-object-exclusion> -> TargetSpec::PlayerOrObject (Wrathful Raptors, Lozhan).
+    let raptors = read_w28a(
+        "Name:WrathfulRaptorsProxy\nManaCost:4 R\nTypes:Creature Dinosaur\nPT:5/5\n\
+         T:Mode$ DamageDoneOnce | Execute$ TrigDamage | ValidTarget$ Dinosaur.YouCtrl | TriggerZones$ Battlefield\n\
+         SVar:TrigDamage:DB$ DealDamage | NumDmg$ X | DamageSource$ TriggeredTarget | ValidTgts$ Any.!Dinosaur\n\
+         SVar:X:TriggerCount$DamageAmount",
+    );
+    assert!(
+        raptors.abilities[0].contains("TargetSpec::PlayerOrObject(")
+            && raptors
+                .statics
+                .contains("Filter::Not(&Filter::HasSubtype(subtypes::creature::DINOSAUR))"),
+        "{:?}\n{}",
+        raptors.abilities,
+        raptors.statics
+    );
+
+    let lozhan = read_w28a(
+        "Name:LozhanProxy\nManaCost:3 U R\nTypes:Legendary Creature Dragon\nPT:4/2\n\
+         T:Mode$ SpellCast | ValidCard$ Dragon | ValidActivatingPlayer$ You | Execute$ TrigDamage | TriggerZones$ Battlefield\n\
+         SVar:TrigDamage:DB$ DealDamage | ValidTgts$ Any.!IsCommander | NumDmg$ X\n\
+         SVar:X:TriggeredSpellAbility$CardManaCostLKI",
+    );
+    assert!(
+        lozhan.abilities[0].contains("TargetSpec::PlayerOrObject(")
+            && lozhan.statics.contains("Filter::Not(&Filter::IsCommander)"),
+        "{:?}\n{}",
+        lozhan.abilities,
+        lozhan.statics
+    );
+
+    // ControlledBy Player.Other -> Filter::Not(&Filter::ControlledByYou) (Dog Umbra).
+    let dog_umbra = read_w28a(
+        "Name:DogUmbraProxy\nManaCost:1 W\nTypes:Enchantment Aura\nK:Flash\nK:Enchant:Creature\n\
+         S:Mode$ CantAttack,CantBlock | ValidCard$ Creature.EnchantedBy+ControlledBy Player.Other",
+    );
+    assert!(
+        dog_umbra
+            .statics
+            .contains("Filter::Not(&Filter::ControlledByYou)")
+            || dog_umbra
+                .abilities
+                .iter()
+                .any(|a| a.contains("Filter::Not(&Filter::ControlledByYou)")),
+        "{:?}\n{}",
+        dog_umbra.abilities,
+        dog_umbra.statics
+    );
+
+    // Emblem subsumption for non-<Subtype> and Other+YouCtrl (Repel the Abominable, Talon of Pain).
+    let repel = read_w28a(
+        "Name:RepelProxy\nManaCost:1 W\nTypes:Instant\n\
+         A:SP$ Effect | ReplacementEffects$ RPrevent\n\
+         SVar:RPrevent:Event$ DamageDone | Prevent$ True | ValidSource$ Card.nonHuman,Emblem | ActiveZones$ Command",
+    );
+    assert!(
+        repel
+            .statics
+            .contains("Filter::Not(&Filter::HasSubtype(subtypes::creature::HUMAN))"),
+        "{:?}\n{}",
+        repel.abilities,
+        repel.statics
+    );
+
+    let talon = read_w28a(
+        "Name:TalonProxy\nManaCost:4\nTypes:Artifact\n\
+         T:Mode$ DamageDone | ValidSource$ Card.Other+YouCtrl,Emblem.YouCtrl | ValidTarget$ Opponent | TriggerZones$ Battlefield | Execute$ PutC\n\
+         SVar:PutC:DB$ PutCounter | Defined$ Self | CounterType$ CHARGE | CounterNum$ 1",
+    );
+    assert!(
+        talon.statics.contains("Filter::Another")
+            && talon.statics.contains("Filter::ControlledByYou"),
+        "{:?}\n{}",
+        talon.abilities,
+        talon.statics
+    );
+
+    // Refusals: player-applicable Any.<pred> (Needle Drop), cast-time NotDefinedTargeted / !targetedBy /
+    // !TriggeredAttacker targets, blockingEquipped outside AttackerBlocked (Plasma Caster),
+    // Emblem alone or mismatched controller, !wasCastFromYourHand on ReduceCost (CastFromHand checks
+    // any hand, not specifically your hand).
+    for bad in [
+        "Name:NeedleDropProxy\nManaCost:R\nTypes:Instant\n\
+         A:SP$ DealDamage | ValidTgts$ Any.wasDealtDamageThisTurn | NumDmg$ 1",
+        "Name:BadAnyCtrl\nManaCost:R\nTypes:Instant\n\
+         A:SP$ DealDamage | ValidTgts$ Any.OppCtrl | NumDmg$ 2",
+        "Name:BadCastTargetNotDefined\nManaCost:1 R\nTypes:Instant\n\
+         A:SP$ DealDamage | ValidTgts$ Creature.NotDefinedTargeted | NumDmg$ 2",
+        "Name:BadCastTargetNotTargetedBy\nManaCost:1 R\nTypes:Instant\n\
+         A:SP$ DealDamage | ValidTgts$ Creature.!targetedBy | NumDmg$ 2",
+        "Name:BadTargetNotAttacker\nManaCost:2 W\nTypes:Enchantment Aura\nK:Enchant:Creature\n\
+         T:Mode$ AttackerUnblocked | ValidCard$ Creature.EnchantedBy | Execute$ D\n\
+         SVar:D:DB$ DealDamage | ValidTgts$ Creature.!TriggeredAttacker | NumDmg$ 2",
+        "Name:BadBlockingEquippedActivated\nManaCost:1 R\nTypes:Artifact Equipment\nK:Equip:2\n\
+         A:AB$ DealDamage | Cost$ 1 | ValidTgts$ Creature.blockingEquipped | NumDmg$ 1",
+        "Name:BadEmblemOtherOnEmblem\nTypes:Emblem\n\
+         T:Mode$ DamageDone | ValidSource$ Card.Other+YouCtrl,Emblem.YouCtrl | ValidTarget$ Opponent | TriggerZones$ Command | Execute$ D\n\
+         SVar:D:DB$ GainLife | LifeAmount$ 1",
+        "Name:SageReduceCostRefused\nManaCost:5 U U\nTypes:Creature\nPT:5/5\n\
+         S:Mode$ ReduceCost | ValidCard$ Card.!wasCastFromYourHand | Type$ Spell | Activator$ You | Amount$ 2\n\
+         Oracle:Spells you cast from anywhere other than your hand cost {2} less to cast.",
+    ] {
+        assert!(refused_w28a(bad), "must refuse:\n{bad}");
+    }
+}
+
+#[test]
+#[allow(clippy::too_many_lines)]
+fn wave28a_p2_dynamic_filter_amounts_and_remembered_play_animate() {
+    // TriggeredPlayersDefenders$Amount -> Amount::OpponentsYouAttackedThisCombat (Custodi Soulcaller).
+    let custodi = read_w28a(
+        "Name:CustodiProxy\nManaCost:1 W W\nTypes:Creature\nPT:1/2\n\
+         T:Mode$ Attacks | ValidCard$ Card.Self | Execute$ TrigSoulcall\n\
+         SVar:TrigSoulcall:DB$ ChangeZone | Origin$ Graveyard | Destination$ Battlefield | ValidTgts$ Creature.YouCtrl+cmcLEX\n\
+         SVar:X:TriggeredPlayersDefenders$Amount",
+    );
+    assert!(
+        custodi
+            .statics
+            .contains("Filter::CmcAtMostAmount(&Amount::OpponentsYouAttackedThisCombat)"),
+        "{:?}\n{}",
+        custodi.abilities,
+        custodi.statics
+    );
+
+    // SVar$Y/Plus.1 + Count$Valid ...$GreatestCardManaCost in svar_to_filter_amount.
+    let greatness = read_w28a(
+        "Name:GreatnessProxy\nManaCost:G G\nTypes:Enchantment\n\
+         T:Mode$ Phase | Phase$ Upkeep | ValidPlayer$ You | TriggerZones$ Battlefield | Execute$ TrigPlay\n\
+         SVar:TrigPlay:DB$ Play | Valid$ Permanent.YouOwn | ValidZone$ Hand | ValidSA$ Spell.cmcEQX | WithoutManaCost$ True | Amount$ 1 | Optional$ True\n\
+         SVar:X:SVar$Y/Plus.1\n\
+         SVar:Y:Count$Valid Permanent.YouCtrl+Other$GreatestCardManaCost",
+    );
+    assert!(
+        greatness.statics.contains(
+            "Filter::CmcEqualsAmount(&Amount::Plus { base: &Amount::GreatestManaValueAmong("
+        ),
+        "{:?}\n{}",
+        greatness.abilities,
+        greatness.statics
+    );
+
+    // TriggeredCardOwner on Drawn -> PlayerRel::EventPlayer (Spiteful Visions).
+    let spiteful = read_w28a(
+        "Name:SpitefulProxy\nManaCost:2 BR BR\nTypes:Enchantment\n\
+         T:Mode$ Drawn | ValidCard$ Card | TriggerZones$ Battlefield | Execute$ TrigDmg\n\
+         SVar:TrigDmg:DB$ DealDamage | Defined$ TriggeredCardOwner | NumDmg$ 1",
+    );
+    assert!(
+        spiteful.abilities[0].contains("TargetSpec::Player(PlayerRel::EventPlayer)"),
+        "{:?}",
+        spiteful.abilities
+    );
+
+    // Single-object CaptureAffected -> Play | Defined$ Remembered (Bring to Light).
+    let bring = read_w28a(
+        "Name:BringToLightProxy\nManaCost:3 G U\nTypes:Sorcery\n\
+         A:SP$ ChangeZone | Origin$ Library | Destination$ Exile | ChangeType$ Creature.cmcLEX,Instant.cmcLEX,Sorcery.cmcLEX | ChangeNum$ 1 | RememberChanged$ True | SubAbility$ DBPlay\n\
+         SVar:DBPlay:DB$ Play | Defined$ Remembered | ValidSA$ Spell | WithoutManaCost$ True | Optional$ True | SubAbility$ DBCleanup\n\
+         SVar:DBCleanup:DB$ Cleanup | ClearRemembered$ True\n\
+         SVar:X:Count$Converge",
+    );
+    assert!(
+        bring.abilities[0].contains("Effect::CaptureAffected")
+            && bring.abilities[0].contains("Effect::ForEachRemembered")
+            && bring.abilities[0].contains("PlaySource::Subject(TargetSpec::EventObject)")
+            && bring.abilities[0].contains("PlayCostMode::WithoutPayingManaCost"),
+        "{:?}",
+        bring.abilities
+    );
+
+    // Animate | Defined$ Remembered with Forge AI-only sVars$ MustAttack hint (Whip of Erebos).
+    let whip = read_w28a(
+        "Name:WhipProxy\nManaCost:2 B B\nTypes:Legendary Enchantment Artifact\n\
+         A:AB$ ChangeZone | Cost$ 2 B B T | ValidTgts$ Creature.YouOwn | Origin$ Graveyard | Destination$ Battlefield | SorcerySpeed$ True | RememberChanged$ True | SubAbility$ DBUnearthed\n\
+         SVar:DBUnearthed:DB$ Animate | Defined$ Remembered | Keywords$ Haste | LeaveBattlefield$ Exile | sVars$ WhipMustAttack | Duration$ Permanent | AtEOT$ Exile | SubAbility$ DBCleanup\n\
+         SVar:WhipMustAttack:SVar:MustAttack:True\n\
+         SVar:DBCleanup:DB$ Cleanup | ClearRemembered$ True",
+    );
+    assert!(
+        whip.abilities[0].contains("Effect::CaptureAffected")
+            && whip.abilities[0].contains("Modifier::AddKeyword(KeywordSet::HASTE)")
+            && whip.abilities[0].contains("Modifier::ExileInsteadOfLeavingBattlefield"),
+        "{:?}",
+        whip.abilities
+    );
+
+    // Refusals: LastDieRoll in dynamic filter (eval::amounts returns 0),
+    // Play | Defined$ Remembered with AllowRepeats (Mnemonic Deluge) or non-AI sVars$.
+    for bad in [
+        "Name:BadDieRollFilter\nManaCost:1 G\nTypes:Artifact\n\
+         A:AB$ RollDice | Cost$ 4 G T | Defined$ You | Sides$ 8 | ResultSVar$ X | SubAbility$ DBReveal\n\
+         SVar:DBReveal:DB$ DigUntil | Defined$ You | Valid$ Creature.cmcEQX | FoundDestination$ Battlefield | RevealedDestination$ Library | RevealedLibraryPosition$ -1 | RevealRandomOrder$ True",
+        "Name:BadMultiRepeatPlay\nManaCost:6 U U U\nTypes:Sorcery\n\
+         A:SP$ ChangeZone | ValidTgts$ Instant,Sorcery | Origin$ Graveyard | Destination$ Exile | RememberChanged$ True | SubAbility$ DBPlay\n\
+         SVar:DBPlay:DB$ Play | Defined$ Remembered | CopyCard$ True | Amount$ 3 | AllowRepeats$ True | Controller$ You | Optional$ True | WithoutManaCost$ True | ValidSA$ Spell | SubAbility$ DBCleanup\n\
+         SVar:DBCleanup:DB$ Cleanup | ClearRemembered$ True",
+        "Name:BadNonAiSVars\nManaCost:2 B B\nTypes:Artifact\n\
+         A:AB$ ChangeZone | Cost$ 2 B B T | ValidTgts$ Creature.YouOwn | Origin$ Graveyard | Destination$ Battlefield | RememberChanged$ True | SubAbility$ DBAnim\n\
+         SVar:DBAnim:DB$ Animate | Defined$ Remembered | Keywords$ Haste | sVars$ RealRule | Duration$ Permanent | SubAbility$ DBCleanup\n\
+         SVar:RealRule:SVar:X:Count$Valid Creature\n\
+         SVar:DBCleanup:DB$ Cleanup | ClearRemembered$ True",
     ] {
         assert!(refused_w28a(bad), "must refuse:\n{bad}");
     }

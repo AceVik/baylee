@@ -1,7 +1,7 @@
 //! Reading what a script points at: filters, targets, players, and the
 //! sources a prevention names.
 
-use super::{Params, Tx, color_atom, counter_kind, named_atom};
+use super::{Params, Tx, color_atom, color_const, counter_kind, named_atom};
 
 /// CR 700.12: Assassins, Mercenaries, Pirates, Rogues, and Warlocks are outlaws.
 const OUTLAW_FILTER: &str = "Filter::Or(&[\
@@ -644,14 +644,42 @@ impl Tx<'_> {
         Some(format!("{variant}(&{amt})"))
     }
 
-    #[allow(clippy::too_many_lines)]
     fn svar_to_filter_amount(&self, var: &str) -> Option<String> {
+        self.svar_to_filter_amount_depth(var, 0)
+    }
+
+    #[allow(clippy::too_many_lines)]
+    fn svar_to_filter_amount_depth(&self, var: &str, depth: u8) -> Option<String> {
+        if depth >= 3 {
+            return None;
+        }
         let def = self.svars.get(var)?.trim();
         let (head, suffix) = def.split_once('/').map_or((def, ""), |(h, s)| (h, s));
         let base = match head.trim() {
             "Count$Domain" => "Amount::BasicLandTypesAmong(&Filter::YOUR_LAND)".to_string(),
             "Count$CardPower" if !self.on_a_spell => "Amount::SourcePower".to_string(),
+            "Count$xPaid"
+                if self.has_x
+                    || (self.is_etb_self_trigger && self.has_x_mana_cost && !self.in_delayed) =>
+            {
+                "Amount::X".to_string()
+            }
             "Count$LifeOppsLostThisTurn" => "Amount::OpponentsLifeLostThisTurn".to_string(),
+            "Count$LifeYouGainedThisTurn" => {
+                "Amount::LifeGainedThisTurn(PlayerRel::You)".to_string()
+            }
+            "Count$DamageDealtToOpponentsThisTurn"
+            | "Count$TotalDamageDealtToOpponentsThisTurn" => {
+                "Amount::DamageDealtToOpponentsThisTurn".to_string()
+            }
+            "TriggeredPlayersDefenders$Amount"
+                if matches!(
+                    self.trigger_mode.as_deref(),
+                    Some("Attacks" | "AttackersDeclared" | "AttackersDeclaredOneTarget")
+                ) =>
+            {
+                "Amount::OpponentsYouAttackedThisCombat".to_string()
+            }
             "Count$CardsDrawnThisTurn" => "Amount::CardsDrawnThisTurn(PlayerRel::You)".to_string(),
             "Count$YourLifeTotal" => "Amount::LifeTotal(PlayerRel::You)".to_string(),
             "Count$ValidPlayer" => "Amount::Players(PlayerRel::EachPlayer)".to_string(),
@@ -689,6 +717,25 @@ impl Tx<'_> {
             other if self.wave28d_remembered_filter_amount_base(other).is_some() => self
                 .wave28d_remembered_filter_amount_base(other)?
                 .to_string(),
+            other if other.starts_with("SVar$") => {
+                let inner_var = other.strip_prefix("SVar$")?.trim();
+                self.svar_to_filter_amount_depth(inner_var, depth + 1)?
+            }
+            other if other.starts_with("Count$Devotion.") => {
+                let col = color_const(other.strip_prefix("Count$Devotion.")?.trim())?;
+                format!("Amount::Devotion {{ who: PlayerRel::You, colors: ColorSet::of({col}) }}")
+            }
+            other if other.starts_with("Count$DevotionDual.") => {
+                let (a, b) = other.strip_prefix("Count$DevotionDual.")?.split_once('.')?;
+                let ca = color_const(a.trim())?;
+                let cb = color_const(b.trim())?;
+                if ca == cb {
+                    return None;
+                }
+                format!(
+                    "Amount::Devotion {{ who: PlayerRel::You, colors: ColorSet::from_slice(&[{ca}, {cb}]) }}"
+                )
+            }
             other
                 if !self.on_a_spell
                     && (self.trigger_mode.is_some() || !self.cost_sacrifices_self)
@@ -701,11 +748,46 @@ impl Tx<'_> {
             }
             other if other.starts_with("Count$Valid ") => {
                 let inner = other.strip_prefix("Count$Valid ")?.trim();
-                if inner.is_empty() || inner.contains('$') || Self::has_dynamic_var_filter(inner) {
-                    return None;
+                if let Some(valid) = inner.strip_suffix("$GreatestCardManaCost") {
+                    let valid = valid.trim();
+                    if valid.is_empty()
+                        || valid.contains('$')
+                        || Self::has_dynamic_var_filter(valid)
+                    {
+                        return None;
+                    }
+                    let expr = self.filter_expr(valid)?;
+                    format!("Amount::GreatestManaValueAmong(&{expr})")
+                } else if let Some(valid) = inner.strip_suffix("$GreatestCardPower") {
+                    let valid = valid.trim();
+                    if valid.is_empty()
+                        || valid.contains('$')
+                        || Self::has_dynamic_var_filter(valid)
+                    {
+                        return None;
+                    }
+                    let expr = self.filter_expr(valid)?;
+                    format!("Amount::GreatestPowerAmong(&{expr})")
+                } else if let Some(valid) = inner.strip_suffix("$CardPower") {
+                    let valid = valid.trim();
+                    if valid.is_empty()
+                        || valid.contains('$')
+                        || Self::has_dynamic_var_filter(valid)
+                    {
+                        return None;
+                    }
+                    let expr = self.filter_expr(valid)?;
+                    format!("Amount::TotalPowerAmong(&{expr})")
+                } else {
+                    if inner.is_empty()
+                        || inner.contains('$')
+                        || Self::has_dynamic_var_filter(inner)
+                    {
+                        return None;
+                    }
+                    let expr = self.filter_expr(inner)?;
+                    format!("Amount::CountOf {{ filter: &{expr}, zone: ZoneSel::Battlefield }}")
                 }
-                let expr = self.filter_expr(inner)?;
-                format!("Amount::CountOf {{ filter: &{expr}, zone: ZoneSel::Battlefield }}")
             }
             other if other.starts_with("Count$ValidGraveyard ") => {
                 let inner = other.strip_prefix("Count$ValidGraveyard ")?.trim();
@@ -813,7 +895,7 @@ impl Tx<'_> {
                 state.has_controller = true;
                 "Filter::ControlledByYou".to_string()
             }
-            "YouDontCtrl" => {
+            "YouDontCtrl" | "ControlledBy Player.Other" => {
                 state.has_controller = true;
                 "Filter::Not(&Filter::ControlledByYou)".to_string()
             }
@@ -969,7 +1051,9 @@ impl Tx<'_> {
             "counters_EQ0_ALL" | "counters_LE0_ALL" | "counters_LT1_ALL" | "!HasCounters" => {
                 "Filter::Not(&Filter::HasAnyCounter)".to_string()
             }
-            "inZoneBattlefield" => "Filter::InZone(ZoneRef::Battlefield)".to_string(),
+            "inZoneBattlefield" | "inRealZoneBattlefield" => {
+                "Filter::InZone(ZoneRef::Battlefield)".to_string()
+            }
             "inZoneStack" => "Filter::InZone(ZoneRef::Stack)".to_string(),
             "Historic" => "Filter::Historic".to_string(),
             "nonHistoric" | "!Historic" => "Filter::Not(&Filter::Historic)".to_string(),
@@ -1042,6 +1126,27 @@ impl Tx<'_> {
             "!blocking" => "Filter::Not(&Filter::Blocking)".to_string(),
             "blockingSource" | "blockingSelf" => "Filter::BlockingSource".to_string(),
             "blockedBySource" => "Filter::BlockedBySource".to_string(),
+            "NotDefinedTargeted" | "!targetedBy" if !card_zone => {
+                "Filter::Not(&Filter::Reference)".to_string()
+            }
+            "!TriggeredAttacker"
+                if !card_zone
+                    && !self.on_a_spell
+                    && matches!(
+                        self.trigger_mode.as_deref(),
+                        Some("Attacks" | "AttackerBlocked" | "AttackerUnblocked")
+                    ) =>
+            {
+                "Filter::Not(&Filter::Reference)".to_string()
+            }
+            "blockingEquipped"
+                if !card_zone
+                    && !self.on_a_spell
+                    && self.trigger_mode.as_deref() == Some("AttackerBlocked")
+                    && !self.trigger_is_self =>
+            {
+                "Filter::BlockingReference".to_string()
+            }
             "blockingTriggeredAttacker"
                 if self.trigger_mode.as_deref() == Some("AttackerBlocked") =>
             {
@@ -1465,7 +1570,15 @@ impl Tx<'_> {
         let raw_alts: Vec<&str> = valid.split(',').collect();
         let mut alternatives = Vec::new();
         for &alt in &raw_alts {
-            if !card_zone && raw_alts.len() > 1 && emblem_subsumed_by_card(alt, &raw_alts) {
+            if !card_zone
+                && raw_alts.len() > 1
+                && emblem_subsumed_by_card_inner(
+                    alt,
+                    &raw_alts,
+                    Some(self.cats),
+                    !self.type_line.split_whitespace().any(|w| w == "Emblem"),
+                )
+            {
                 continue;
             }
             if let Some(targeted_expr) = self.wave28d_targeted_filter_alt(alt, card_zone) {
@@ -1478,6 +1591,7 @@ impl Tx<'_> {
                 || alt.contains("SharesColorWith Valid ")
                 || alt.contains("sharesCreatureTypeWith Valid ")
                 || alt.contains("SharesCreatureTypeWith Valid ")
+                || alt.contains("ControlledBy Player.")
             {
                 let Some((base, tail)) = alt.split_once('.') else {
                     return self.deny(format!("filter base `{}`", alt.trim()));
@@ -1655,11 +1769,18 @@ impl Tx<'_> {
         if valid == "Any" {
             return Some("TargetSpec::AnyTarget".to_string());
         }
+        if let Some(spec) = self.any_target_with_object_exclusions(valid) {
+            return Some(spec);
+        }
         if let Some(mixed) = self.mixed_player_object_target(valid, api) {
             return Some(mixed);
         }
-        // A cast-time first target cannot refer to a resolution-only target or chooser.
-        if valid.contains("ControlledBy Targeted") || valid.contains("ControlledBy ChoosingPlayer")
+        // A cast-time first target cannot refer to a resolution-only target, chooser, or reference.
+        if valid.contains("ControlledBy Targeted")
+            || valid.contains("ControlledBy ChoosingPlayer")
+            || valid.contains("NotDefinedTargeted")
+            || valid.contains("!targetedBy")
+            || valid.contains("!TriggeredAttacker")
         {
             return None;
         }
@@ -1694,6 +1815,83 @@ impl Tx<'_> {
             "Counter" => format!("TargetSpec::Spell(&{name})"),
             _ => format!("TargetSpec::Object(&{name})"),
         })
+    }
+
+    /// CR 115.4: `ValidTgts$ Any.<object-exclusions>` ("any target that isn't a
+    /// Dinosaur / Dragon / commander", "any other target") ->
+    /// `TargetSpec::PlayerOrObject(&Filter::And(&[CREATURE_PW_BATTLE, ...]))`.
+    ///
+    /// Strictly accepts ONLY exclusions that can NEVER disqualify a player (a
+    /// player has no card types, subtypes, supertypes, colors, commander status,
+    /// token status, or attachment link to a permanent/Aura/Equipment source).
+    /// Refuses player-applicable predicates such as `wasDealtDamageThisTurn`
+    /// (*Needle Drop*), `YouCtrl`, `OppCtrl`, `Damaged`, or `attacking`.
+    fn any_target_with_object_exclusions(&mut self, valid: &str) -> Option<String> {
+        let rest = valid.strip_prefix("Any.")?;
+        if rest.is_empty() || rest.contains(',') {
+            return None;
+        }
+        let mut clauses = vec![
+            "Filter::HasType(TypeSet::CREATURE.union(TypeSet::PLANESWALKER).union(TypeSet::BATTLE))"
+                .to_string(),
+        ];
+        let mut saw_any = false;
+        for atom in rest
+            .split(['+', '.'])
+            .map(str::trim)
+            .filter(|a| !a.is_empty())
+        {
+            saw_any = true;
+            let clause = match atom {
+                "!IsCommander" | "nonCommander" => "Filter::Not(&Filter::IsCommander)".to_string(),
+                "!EnchantedBy" | "!EquippedBy" | "!AttachedBy" => {
+                    "Filter::Not(&Filter::AttachedToBySource)".to_string()
+                }
+                "Other" | "StrictlyOther" => "Filter::Another".to_string(),
+                "nonToken" | "!token" => "Filter::Not(&Filter::IsToken)".to_string(),
+                "nonCreature" | "!Creature" => "Filter::NONCREATURE".to_string(),
+                "nonLand" | "!Land" => "Filter::NONLAND".to_string(),
+                "nonArtifact" | "!Artifact" => "Filter::LacksType(TypeSet::ARTIFACT)".to_string(),
+                "nonEnchantment" | "!Enchantment" => {
+                    "Filter::LacksType(TypeSet::ENCHANTMENT)".to_string()
+                }
+                "nonPlaneswalker" | "!Planeswalker" => {
+                    "Filter::LacksType(TypeSet::PLANESWALKER)".to_string()
+                }
+                "nonBattle" | "!Battle" => "Filter::LacksType(TypeSet::BATTLE)".to_string(),
+                "nonInstant" | "!Instant" => "Filter::LacksType(TypeSet::INSTANT)".to_string(),
+                "nonSorcery" | "!Sorcery" => "Filter::LacksType(TypeSet::SORCERY)".to_string(),
+                "nonBasic" | "!Basic" => {
+                    "Filter::Not(&Filter::HasSupertype(SupertypeSet::BASIC))".to_string()
+                }
+                "nonLegendary" | "!Legendary" => {
+                    "Filter::Not(&Filter::HasSupertype(SupertypeSet::LEGENDARY))".to_string()
+                }
+                "nonSnow" | "!Snow" => {
+                    "Filter::Not(&Filter::HasSupertype(SupertypeSet::SNOW))".to_string()
+                }
+                other if matches!(color_atom(other), Some((true, _))) => {
+                    let (_, color) = color_atom(other)?;
+                    format!(
+                        "Filter::Not(&Filter::HasColor(ColorSet::from_slice(&[Color::{color}])))"
+                    )
+                }
+                other => {
+                    let name = other
+                        .strip_prefix("non")
+                        .or_else(|| other.strip_prefix('!'))?;
+                    let path = self.cats.const_path(name)?;
+                    format!("Filter::Not(&Filter::HasSubtype({path}))")
+                }
+            };
+            clauses.push(clause);
+        }
+        if !saw_any {
+            return None;
+        }
+        let expr = format!("Filter::And(&[{}])", clauses.join(", "));
+        let name = self.body.filter_static("TARGET", &expr);
+        Some(format!("TargetSpec::PlayerOrObject(&{name})"))
     }
 
     fn mixed_player_object_target(&mut self, valid: &str, api: &str) -> Option<String> {
@@ -1921,7 +2119,10 @@ impl Tx<'_> {
                         alt_whose = Some("PlayerRel::ControllerOfEvent");
                     }
                     "OwnedBy TriggeredCardOwner"
-                        if self.trigger_mode.as_deref() == Some("ChangesZone") =>
+                        if matches!(
+                            self.trigger_mode.as_deref(),
+                            Some("ChangesZone" | "Sacrificed")
+                        ) =>
                     {
                         alt_whose = Some("PlayerRel::OwnerOfEvent");
                     }
@@ -2075,7 +2276,9 @@ impl Tx<'_> {
             "TriggeredCardController" if trigger == Some("SpellCast") => {
                 "PlayerRel::ControllerOfEvent"
             }
-            "TriggeredCardController" if trigger == Some("Drawn") => "PlayerRel::EventPlayer",
+            "TriggeredCardController" | "TriggeredCardOwner" if trigger == Some("Drawn") => {
+                "PlayerRel::EventPlayer"
+            }
             // The player a damage trigger's damage was dealt to: the
             // `DamageDone` rule reads only triggers whose target is a
             // player, so `TriggeredTarget` is one.
@@ -2376,6 +2579,15 @@ fn oracle_scopes_named_to_you(oracle_lower: &str, name: &str) -> bool {
 /// equal to their owner, so `Filter::Any`, controller predicates, and
 /// `Filter::LacksType(...)` already match them.
 pub(super) fn emblem_subsumed_by_card(alt: &str, all_alts: &[&str]) -> bool {
+    emblem_subsumed_by_card_inner(alt, all_alts, None, false)
+}
+
+fn emblem_subsumed_by_card_inner(
+    alt: &str,
+    all_alts: &[&str],
+    cats: Option<&crate::catalog::SubtypeCatalogs>,
+    allow_other: bool,
+) -> bool {
     fn is_ctrl_atom(atom: &str) -> bool {
         matches!(
             atom,
@@ -2389,19 +2601,55 @@ pub(super) fn emblem_subsumed_by_card(alt: &str, all_alts: &[&str]) -> bool {
                 | "Colorless"
         )
     }
-    fn is_non_card_type_atom(atom: &str) -> bool {
-        matches!(
+    fn is_always_true_for_emblem(
+        atom: &str,
+        cats: Option<&crate::catalog::SubtypeCatalogs>,
+        allow_other: bool,
+    ) -> bool {
+        if matches!(
             atom,
             "nonCreature"
+                | "!Creature"
                 | "nonArtifact"
+                | "!Artifact"
                 | "nonEnchantment"
+                | "!Enchantment"
                 | "nonLand"
+                | "!Land"
                 | "nonPlaneswalker"
+                | "!Planeswalker"
                 | "nonBattle"
+                | "!Battle"
                 | "nonInstant"
+                | "!Instant"
                 | "nonSorcery"
+                | "!Sorcery"
                 | "nonPermanent"
-        )
+                | "!Permanent"
+                | "nonBasic"
+                | "!Basic"
+                | "nonLegendary"
+                | "!Legendary"
+                | "nonSnow"
+                | "!Snow"
+                | "nonToken"
+                | "!token"
+        ) {
+            return true;
+        }
+        if allow_other && matches!(atom, "Other" | "StrictlyOther") {
+            return true;
+        }
+        if matches!(color_atom(atom), Some((true, _))) {
+            return true;
+        }
+        if let Some(cats) = cats
+            && let Some(name) = atom.strip_prefix("non").or_else(|| atom.strip_prefix('!'))
+            && cats.const_path(name).is_some()
+        {
+            return true;
+        }
+        false
     }
     let mut parts = alt
         .split('.')
@@ -2433,7 +2681,7 @@ pub(super) fn emblem_subsumed_by_card(alt: &str, all_alts: &[&str]) -> bool {
         for atom in op {
             if is_ctrl_atom(atom) {
                 card_ctrl.push(atom);
-            } else if !is_non_card_type_atom(atom) {
+            } else if !is_always_true_for_emblem(atom, cats, allow_other) {
                 return false;
             }
         }

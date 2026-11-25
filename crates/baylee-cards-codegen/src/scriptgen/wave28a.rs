@@ -58,26 +58,31 @@ impl Tx<'_> {
         max_var: &str,
     ) -> bool {
         let is_obj_spec = spec.starts_with("TargetSpec::Object(");
-        self.svars.get(max_var.trim()).is_some_and(|def| {
-            let def = def.trim();
-            def == format!("Count$Valid {valid}")
-                || def
-                    .strip_prefix("Count$Valid ")
-                    .is_some_and(|cv| Self::same_valid_atoms(cv, valid))
-                || (is_obj_spec && matches!(def, "Count$Valid Card" | "Count$Valid Permanent"))
-                || (api == "ChangeZone"
-                    && p.peek("Origin") == Some("Graveyard")
-                    && def.strip_prefix("Count$ValidGraveyard ").is_some_and(|cv| {
-                        cv == valid
-                            || cv == "Card"
-                            || (matches!(cv, "Card.YouOwn" | "Card.YouCtrl")
-                                && (valid.contains("YouOwn") || valid.contains("YouCtrl")))
-                            || Self::same_valid_atoms(
-                                &cv.replace("YouOwn", "YouCtrl"),
-                                &valid.replace("YouOwn", "YouCtrl"),
-                            )
-                    }))
-        })
+        let raw = max_var.trim();
+        let def = if let Some(s) = self.svars.get(raw) {
+            s.trim()
+        } else if raw.starts_with("Count$Valid") {
+            raw
+        } else {
+            return false;
+        };
+        def == format!("Count$Valid {valid}")
+            || def
+                .strip_prefix("Count$Valid ")
+                .is_some_and(|cv| Self::same_valid_atoms(cv, valid))
+            || (is_obj_spec && matches!(def, "Count$Valid Card" | "Count$Valid Permanent"))
+            || (api == "ChangeZone"
+                && p.peek("Origin") == Some("Graveyard")
+                && def.strip_prefix("Count$ValidGraveyard ").is_some_and(|cv| {
+                    cv == valid
+                        || cv == "Card"
+                        || (matches!(cv, "Card.YouOwn" | "Card.YouCtrl")
+                            && (valid.contains("YouOwn") || valid.contains("YouCtrl")))
+                        || Self::same_valid_atoms(
+                            &cv.replace("YouOwn", "YouCtrl"),
+                            &valid.replace("YouOwn", "YouCtrl"),
+                        )
+                }))
     }
 
     /// Claim a nonzero target range `TargetMin$ m | TargetMax$ n` (`1 <= m < n < 255`,
@@ -487,6 +492,7 @@ impl Tx<'_> {
             probe.take("Mandatory").as_deref(),
         ) {
             (Some("True"), None | Some("False")) => true,
+            (Some("You"), None | Some("False")) if player == "PlayerRel::You" => true,
             (None | Some("False"), Some("True")) => false,
             (None, None) if is_any_number_svar && oracle_lower.contains("any number") => true,
             _ => return None,
@@ -825,6 +831,44 @@ impl Tx<'_> {
                     effs.join(", ")
                 )])
             }
+            "Play" => {
+                // Single-object `CaptureAffected` -> `Play | Defined$ Remembered`
+                // (*Bring to Light*, *Wondrous Crucible*, *Nashi, Moon's Legacy*,
+                // *Unexpected Results*, *Founding the Third Path*). Restricting
+                // to `single_object` preserves CR 608.2g casting-order choice
+                // for multi-card effects like *Spelltwine*.
+                if self.overload_cost.is_some()
+                    || self.capture_scope.as_ref().is_none_or(|s| !s.single_object)
+                    || !matches!(p.peek("Amount"), None | Some("1" | "All"))
+                    || p.has("AllowRepeats")
+                    || p.has("Valid")
+                {
+                    return None;
+                }
+                let mut probe = p.clone();
+                probe.take("Defined");
+                probe
+                    .entries
+                    .push(("Defined".to_string(), "DelayTriggerRemembered".to_string()));
+                let saved_in_delayed = std::mem::replace(&mut self.in_delayed, true);
+                let play_target = if flags.targets_a_player { target } else { None };
+                let effs = self.play_effect(&mut probe, play_target, false, flags.targets_a_player);
+                self.in_delayed = saved_in_delayed;
+                let effs = effs?;
+                if effs.is_empty()
+                    || !effs
+                        .iter()
+                        .all(|e| e.contains("PlaySource::Subject(TargetSpec::EventObject)"))
+                    || !Self::wave28a_only_condition_keys_left(&probe)
+                {
+                    return None;
+                }
+                *p = probe;
+                Some(vec![format!(
+                    "Effect::ForEachRemembered {{ filter: &Filter::Any, effects: &[{}] }}",
+                    effs.join(", ")
+                )])
+            }
             _ => None,
         }
     }
@@ -1011,6 +1055,19 @@ impl Tx<'_> {
                  recurring: false }}, condition: None, targets: None, \
                  remember: TriggerRemember::EventObject, effects: &[{delayed}] }}"
             ));
+        }
+
+        // Forge AI-only `sVars$` hint (e.g. *Whip of Erebos*'s `SVar:MustAttack:True`,
+        // which is purely an AI attack hint rather than a `Mode$ MustAttack` rules static).
+        if let Some(svar_name) = probe.take("sVars")
+            && self
+                .svars
+                .get(svar_name.trim())
+                .map(String::as_str)
+                .map(str::trim)
+                != Some("SVar:MustAttack:True")
+        {
+            return None;
         }
 
         if effects.is_empty() || !Self::wave28a_only_condition_keys_left(&probe) {
