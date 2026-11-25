@@ -158,6 +158,29 @@ class PairwiseLoss(unittest.TestCase):
                                                     "sq_scalar"))
         self.assertAlmostEqual(loss.item(), 2. * means["bce_adv_pairwise"] + .5 * (pooled + others), places=5)
 
+    def test_a_probed_rows_weight_does_not_depend_on_the_rows_beside_it(self):
+        logits = torch.zeros(1, 6, 7)
+        alone = advantage_batch()
+        alone["probe_worlds"][0, 1:] = 0           # t0 is the batch's only probe
+        for rows_per_batch, expected in ((None, (1. / 3, 1.)), (1., (1., 1.)), (2.5, (.4, .4))):
+            scope = D.Scope(kinds=(0,), advantage="pairwise", advantage_rows=rows_per_batch)
+            grads = [loss_of(logits, logits, batch, scope)[2][0, 0, 1].item() for batch in (advantage_batch(), alone)]
+            step = .5 - torch.sigmoid(torch.tensor(2.)).item()
+            for grad, weight in zip(grads, expected):   # among three probed rows, and alone
+                self.assertAlmostEqual(grad, step * weight, places=6)
+        # The reported term stays the rows' mean, and the loss is the rows' sum over the constant.
+        scope = D.Scope(kinds=(0,), advantage="pairwise", advantage_rows=2.)
+        loss, stats, _ = loss_of(logits, logits, advantage_batch(), scope)
+        self.assertAlmostEqual(D.term_means(stats)["bce_adv_pairwise"], math.log(2.), places=6)
+        self.assertAlmostEqual(loss.item(), 3 * math.log(2.) / 2, places=6)
+        # Over an epoch's batches the constant gives the mean over every probe, however they fall.
+        split = [advantage_batch(), advantage_batch()]
+        split[0]["probe_worlds"][0, 1:] = 0
+        split[1]["probe_worlds"][0, 0] = 0
+        scope = D.Scope(kinds=(0,), advantage="pairwise", advantage_rows=1.5)   # 3 probes, 2 batches
+        total = sum(loss_of(logits, logits, batch, scope)[0].item() for batch in split) / 2
+        self.assertAlmostEqual(total, math.log(2.), places=6)
+
     def test_thinking_terms_refuse_the_mode(self):
         with self.assertRaisesRegex(ValueError, "no R"):
             D.thinking_terms([None], [], advantage_batch(), [], ADVANTAGE, None)
@@ -187,12 +210,15 @@ def write_sidecar(root, index, **header_overrides):
     return dict(dir=str(root), rows=len(index), contract=P.CONTRACT, header="probe.json", index_sha256=digest)
 
 
-def frame(single, n_ne_r=True, labelled=True, subtype=-1, fired=0, width=3, masked=()):
+def frame(single, n_ne_r=True, labelled=True, subtype=-1, fired=0, width=3, masked=(), recorded_n=None):
     mask = np.ones(width, bool)
     mask[list(masked)] = False
-    return dict(cand_mask=mask, is_decision=np.array(labelled), loss_weight=np.array(float(labelled), np.float32),
-                pending_kind=np.array(0), head=np.array(0), single_idx=np.array(single), n_ne_r=np.array(n_ne_r),
-                distill_subtype=np.array(subtype), fired_mask=np.array(fired))
+    out = dict(cand_mask=mask, is_decision=np.array(labelled), loss_weight=np.array(float(labelled), np.float32),
+               pending_kind=np.array(0), head=np.array(0), single_idx=np.array(single), n_ne_r=np.array(n_ne_r),
+               distill_subtype=np.array(subtype), fired_mask=np.array(fired))
+    if recorded_n is not None:   # the coarse-class sidecar, read first, holds N
+        out["coarse_n_idx"] = np.array(recorded_n)
+    return out
 
 
 class ProbeSidecar(unittest.TestCase):
@@ -207,6 +233,9 @@ class ProbeSidecar(unittest.TestCase):
             self.assertAlmostEqual(float(joined["probe_se"]), .01, places=6)
             joined = probes.annotate(frame(1, subtype=4, fired=0b10), 7, 1, 3)
             self.assertEqual(int(joined["probe_n_idx"]), 2)
+            for recorded in (0, -1):                                     # the recorded N, or none on record
+                joined = probes.annotate(frame(2, recorded_n=recorded), 7, 0, 3)
+                self.assertEqual(int(joined["probe_n_idx"]), 0)
             unprobed = probes.annotate(frame(1), 7, 0, 4)                # no row: no probe
             self.assertEqual((int(unprobed["probe_n_idx"]), int(unprobed["probe_worlds"])), (-1, 0))
             self.assertTrue(math.isnan(float(unprobed["probe_se"])))
@@ -214,6 +243,7 @@ class ProbeSidecar(unittest.TestCase):
             self.assertEqual(int(passive["probe_worlds"]), 0)
             for name, bad in (("R is not the target", (frame(1), 7, 0, 3)),
                               ("N masked", (frame(2, masked=(0,)), 7, 0, 3)),
+                              ("the recorded N is another", (frame(2, recorded_n=1), 7, 0, 3)),
                               ("R off the menu", (frame(2, width=2), 7, 0, 3)),
                               ("the frame says N = R", (frame(2, n_ne_r=False), 7, 0, 3)),
                               ("another subtype", (frame(1, subtype=3, fired=0b10), 7, 1, 3)),
@@ -272,6 +302,47 @@ class ProbeSidecar(unittest.TestCase):
             dataset.encode_single_step(0)
 
 
+def split(index, frames):
+    """A dataset of `frames` (game, seat, cursor), a trajectory each, with the probes of `index`."""
+    return SimpleNamespace(
+        store=SimpleNamespace(index=np.array(frames, dtype=[("game", "<u4"), ("seat", "u1"), ("cursor", "<u4")])),
+        segments=[np.array([i]) for i in range(len(frames))], trajectories=[[i] for i in range(len(frames))],
+        probes=P.Probes(index))
+
+
+class AdvantageSplits(unittest.TestCase):
+    R_FRAME, N_FRAME, PLAIN = (7, 0, 3), (7, 1, 3), (7, 0, 4)   # sidecar_rows' two, and one without a probe
+
+    def test_each_split_counts_the_probes_of_its_own_trajectories(self):
+        index = sidecar_rows()
+        both = split(index, [self.R_FRAME, self.N_FRAME, self.PLAIN])
+        self.assertEqual(P.split_counts(both, 2), dict(probed=2, r_ahead=1, n_ahead=1))
+        self.assertEqual(P.split_counts(both, 3), dict(probed=1, r_ahead=0, n_ahead=1))   # R's probe has two worlds
+        self.assertEqual(P.split_counts(split(index, [self.R_FRAME, self.PLAIN]), 2),
+                         dict(probed=1, r_ahead=1, n_ahead=0))
+        both.trajectories = [[2]]                       # the store holds more than the loaded trajectories
+        self.assertEqual(P.split_counts(both, 2), dict(probed=0, r_ahead=0, n_ahead=0))
+        both.trajectories = []
+        self.assertEqual(P.split_counts(both, 2)["probed"], 0)
+        index["se"] = NAN                               # one world, no standard error: neither side
+        self.assertEqual(P.split_counts(split(index, [self.R_FRAME, self.N_FRAME]), 1),
+                         dict(probed=2, r_ahead=0, n_ahead=0))
+
+    def test_a_run_needs_a_probe_to_learn_from_and_both_sides_to_select_on(self):
+        index = sidecar_rows()
+        both = split(index, [self.R_FRAME, self.N_FRAME])
+        self.assertEqual(P.check_splits(split(index, [self.N_FRAME]), both, 2),
+                         dict(training=dict(probed=1, r_ahead=0, n_ahead=1),
+                              validation=dict(probed=2, r_ahead=1, n_ahead=1)))
+        with self.assertRaisesRegex(ValueError, "nothing to learn from"):
+            P.check_splits(split(index, [self.PLAIN]), both, 2)
+        with self.assertRaisesRegex(ValueError, "nothing to learn from"):
+            P.check_splits(both, both, 6)
+        for frames in ([self.R_FRAME], [self.N_FRAME], [self.PLAIN]):
+            with self.subTest(frames=frames), self.assertRaisesRegex(ValueError, "held-out probes where R is ahead"):
+                P.check_splits(both, split(index, frames), 2)
+
+
 class AdvantageValidation(unittest.TestCase):
     def test_answers_where_r_or_n_leads_and_the_shift_correlation(self):
         batch = advantage_batch()
@@ -304,8 +375,26 @@ class AdvantageValidation(unittest.TestCase):
     def test_selection_reads_the_mean_of_both_sides(self):
         better, worse = dict(val_adv_selection=.7), dict(val_adv_selection=.6)
         self.assertLess(selection_score(better, "distill_advantage"), selection_score(worse, "distill_advantage"))
-        self.assertEqual(selection_score(dict(val_adv_selection=None), "distill_advantage"), float("inf"))
-        self.assertEqual(selection_score({}, "distill_advantage"), float("inf"))
+        for nothing in (dict(val_adv_selection=None), {}):
+            with self.assertRaisesRegex(ValueError, "nothing to select on"):
+                selection_score(nothing, "distill_advantage")
+
+    def test_one_side_alone_selects_nothing(self):
+        always_r = torch.zeros(1, 6, 7)
+        always_r.scatter_(2, advantage_batch()["single_idx"][..., None], 9.)
+        for side in (1., -1., 0.):   # the probes where only R leads, where only N does, where neither does
+            batch = advantage_batch()
+            batch["probe_se"] = torch.where(batch["probe_mean"] * side > 0, batch["probe_se"], NAN)
+            counter = P.AdvantageCounter(ADVANTAGE)
+            counter.observe(outputs(always_r), outputs(torch.zeros(1, 6, 7)), batch, plan_batch(batch, 0))
+            metrics = counter.metrics()
+            self.assertEqual((metrics["val_adv_r_ahead_rows"], metrics["val_adv_n_ahead_rows"]),
+                             (int(side > 0), int(side < 0)))
+            self.assertIsNone(metrics["val_adv_selection"])
+        counter = P.AdvantageCounter(ADVANTAGE)
+        counter.observe(outputs(always_r), outputs(torch.zeros(1, 6, 7)), advantage_batch(),
+                        plan_batch(advantage_batch(), 0))
+        self.assertEqual(counter.metrics()["val_adv_selection"], .5)   # an always-R student, read on both
 
     def test_held_out_pass_keeps_the_pregate_and_adds_the_probes(self):
         torch.set_num_threads(1)
@@ -389,7 +478,8 @@ class AdvantageOptions(unittest.TestCase):
         data = [SimpleNamespace(distill_subtypes=["cast"], distill_groups=["mass"], probes=object())]
         for bad in (dict(coarse="act"), dict(subtypes=("cast",)), dict(group_weights={"mass": 2.}),
                     dict(out_of_scope="ce-n"), dict(kinds=(0, 8)), dict(advantage_beta=0.), dict(advantage="listwise"),
-                    dict(advantage_min_worlds=0)):
+                    dict(advantage_min_worlds=0), dict(advantage_rows=.5), dict(advantage_rows=float("inf")),
+                    dict(advantage=None, advantage_rows=2.)):
             options = dict(kinds=(0,), kl_weight=1., subtypes=(), group_weights={}, datasets=data,
                            advantage="pairwise")
             options.update(bad)
@@ -399,8 +489,9 @@ class AdvantageOptions(unittest.TestCase):
             D.Scope.from_options((0,), 1., (), {}, [SimpleNamespace(distill_subtypes=[], distill_groups=[])],
                                  advantage="pairwise")
         scope = D.Scope.from_options((0,), 1., (), {}, data, advantage="pairwise", advantage_beta=.1,
-                                     advantage_min_worlds=3)
-        self.assertEqual((scope.advantage, scope.advantage_beta, scope.advantage_min_worlds), ("pairwise", .1, 3))
+                                     advantage_min_worlds=3, advantage_rows=4.)
+        self.assertEqual((scope.advantage, scope.advantage_beta, scope.advantage_min_worlds, scope.advantage_rows),
+                         ("pairwise", .1, 3, 4.))
 
 
 class AdvantageDriver(unittest.TestCase):
@@ -413,8 +504,13 @@ class AdvantageDriver(unittest.TestCase):
         batch.update(probe_n_idx=torch.full((b, u), -1), probe_worlds=torch.zeros(b, u, dtype=torch.long),
                      probe_mean=torch.zeros(b, u), probe_se=torch.full((b, u), NAN))
         batch["probe_n_idx"][0, 0], batch["probe_worlds"][0, 0], batch["probe_mean"][0, 0] = 0, 3, .08
+        held_out = copy.deepcopy(batch)      # R ahead at (0, 0), N ahead at (1, 1)
+        held_out["probe_se"][0, 0] = .01
+        for name, value in (("n_idx", 0), ("worlds", 3), ("mean", -.08), ("se", .01)):
+            held_out["probe_" + name][1, 1] = value
         forest = M.PlayerNet4(M.Config4(d_model=32, n_heads=4, n_layers=1, d_ff=64)).rules.data
         meta, where = {}, {}
+        frames = dict(train=[(7, 0, 3), (7, 1, 3)], val=[(7, 0, 3), (7, 1, 3)])
 
         class Dataset:
             def __init__(self, *args, split, **kw):
@@ -422,6 +518,10 @@ class AdvantageDriver(unittest.TestCase):
                 self.fingerprint = split
                 self.meta = meta
                 self.data_dir = where.get("dir")
+                self.store = SimpleNamespace(index=np.array(frames[split], dtype=[
+                    ("game", "<u4"), ("seat", "u1"), ("cursor", "<u4")]))
+                self.segments = [np.arange(len(frames[split]))]
+                self.trajectories = [[0]]
 
             def __len__(self):
                 return 1
@@ -432,6 +532,9 @@ class AdvantageDriver(unittest.TestCase):
             def __init__(self, *args, **kw):
                 self.epoch = 0
                 self.start_batch = 0
+
+            def __len__(self):
+                return 1
 
         common = ["--data", "fake", "--d-model", "32", "--layers", "2", "--heads", "4", "--d-ff", "64",
                   "--batch-size", "4", "--unroll", "3", "--board-chunk", "2", "--decision-chunk", "2", "--max-steps",
@@ -445,7 +548,7 @@ class AdvantageDriver(unittest.TestCase):
             stdout = logs[output.name] = io.StringIO()
             with patch("sys.argv", argv), patch.object(driver.D4, "TrajectoryDataset4", Dataset), \
                     patch.object(driver.D4, "StatefulBatchSampler4", Sampler), \
-                    patch.object(driver, "DataLoader", return_value=[]), \
+                    patch.object(driver, "DataLoader", return_value=[copy.deepcopy(held_out)]), \
                     patch.object(driver, "prefetch_batches", return_value=[(copy.deepcopy(batch), None)]), \
                     patch.object(driver, "evaluate_device", return_value=dict(val_pol_loss=1., val_mse=1.,
                                                                               val_aux_mse=1., val_top1_acc=0.)), \
@@ -466,6 +569,15 @@ class AdvantageDriver(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "probe sidecar"):
                 run(root / "unprobed", [*init, *arm], {"bundle_distillation": {"contract": D.CONTRACT}})
             labelled = {"bundle_distillation": {"contract": D.CONTRACT, "probe": entry}}
+            # Nothing to learn from, or only one side to select on: refused before anything is built.
+            for name, lacking, message in (("train", [(7, 0, 4)], "nothing to learn from"),
+                                           ("val", [(7, 0, 3)], "where R is ahead and ones where N is ahead"),
+                                           ("val", [(7, 1, 3)], "where R is ahead and ones where N is ahead")):
+                kept, frames[name] = frames[name], lacking
+                with self.subTest(name, lacking=lacking), self.assertRaisesRegex(ValueError, message), \
+                        patch.object(driver.M, "PlayerNet5", side_effect=AssertionError("built")):
+                    run(root / f"refused-{name}", [*init, *arm], labelled)
+                frames[name] = kept
             saved = run(root / "advantage", [*init, *arm], labelled)
             changed = {k for k, v in saved["state_dict"].items() if not torch.equal(v, initial[k])}
             self.assertTrue(changed and all(k.startswith(("cand_proj.", "cand_scorer.", "cand_ctx_proj."))
@@ -473,6 +585,10 @@ class AdvantageDriver(unittest.TestCase):
             named = saved["bundle_distillation"]["advantage"]
             self.assertEqual((named["mode"], named["beta"], named["min_worlds"], named["rows"], named["index_sha256"]),
                              ("pairwise", .04, 2, 2, entry["index_sha256"]))
+            self.assertEqual(named["validation"], dict(rows=2, index_sha256=entry["index_sha256"]))
+            self.assertEqual(named["probes"], dict(training=dict(probed=2, r_ahead=1, n_ahead=1),
+                                                   validation=dict(probed=2, r_ahead=1, n_ahead=1)))
+            self.assertEqual(named["row_weight"], dict(rule="constant_v2", rows_per_batch=2.))
             self.assertEqual(saved["checkpoint_selection"], "distill_advantage")
             text = logs["advantage"].getvalue()
             train = json.loads(text.split("[distill] train ", 1)[1].splitlines()[0])
@@ -480,7 +596,11 @@ class AdvantageDriver(unittest.TestCase):
             self.assertIsNone(train["ce_r"])
             epoch = json.loads(text.split("[distill] epoch ", 1)[1].splitlines()[0])
             self.assertEqual(set(epoch["train"]), set(D.TERMS))
-            self.assertEqual(epoch["validation"]["val_adv_probed_rows"], 0)   # no held-out batch here
+            self.assertEqual(epoch["validation"]["val_adv_probed_rows"], 2)
+            self.assertIsNotNone(epoch["validation"]["val_adv_selection"])
+            # The published weights are the selected ones, with what selected them.
+            published = torch.load(root / "advantage" / "net.pt", map_location="cpu", weights_only=False)
+            self.assertIsNotNone(published["val_metrics"]["val_adv_selection"])
             self.assertIn("val_distill_pregate_start_act_ratio", epoch["validation"])
             final = json.loads((root / "advantage" / "meta.json").read_text())
             self.assertEqual(final["bundle_distillation"]["advantage"]["mode"], "pairwise")

@@ -99,7 +99,7 @@ def main(default_architecture="v4") -> None:
         # chains on them, and training reports the pass drift at its chain starts. With
         # coarse distillation off they change no loss term.
         from .coarse import CoarseClasses
-        from .distill_probe import Probes, named
+        from .distill_probe import Probes, check_splits, named
         for dataset in (train_ds, val_ds):
             directory = getattr(dataset, "data_dir", None)
             sidecar = None if directory is None else Path(directory) / "bundle-distill"
@@ -116,6 +116,10 @@ def main(default_architecture="v4") -> None:
                                  "(bundle_distillation.probe, bundle-distill/probe.*), training and validation")
             if probe is not None and sidecar is not None:
                 dataset.probes = Probes.load(sidecar, probe)
+        if args.distill_advantage:
+            # Before anything trains: probes to learn from, and both sides of them to select on.
+            probe_counts = check_splits(train_ds, val_ds, args.distill_advantage_min_worlds)
+            print("[distill] probes " + json.dumps(probe_counts), flush=True)
 
     train_sampler = D4.StatefulBatchSampler4(
         train_ds, batch_size=args.batch_size, shuffle=True, seed=args.seed
@@ -314,12 +318,18 @@ def main(default_architecture="v4") -> None:
         house = args.distill_teacher == "house"
         # The house teacher teaches every labelled kind.
         kinds = tuple(range(KIND_SLOTS)) if house else args.distill_kinds
+        advantage_rows = None
+        if args.distill_advantage:
+            # The training split's usable probes per training batch, one constant for the run: every
+            # probed row weighs the same whatever shares its batch (`training4.distill_probe`).
+            batches = len(train_sampler) / (args.window_epoch_fraction if windows is not None else 1.)
+            advantage_rows = max(1., probe_counts["training"]["probed"] / max(batches, 1.))
         scope = Scope.from_options(kinds, args.distill_kl_weight, args.distill_subtypes,
                                    args.distill_group_weights, (train_ds, val_ds),
                                    args.distill_out_of_scope, args.distill_out_of_scope_weight,
                                    args.distill_coarse, args.distill_teacher, args.distill_value_weight,
                                    args.distill_advantage, args.distill_advantage_beta, args.distill_advantage_clip,
-                                   args.distill_advantage_weight, args.distill_advantage_min_worlds)
+                                   args.distill_advantage_weight, args.distill_advantage_min_worlds, advantage_rows)
         identity["bundle_distillation"] = dict(contract=CONTRACTS[args.distill_teacher], kinds=list(kinds),
                                                subtypes=list(args.distill_subtypes) or None,
                                                group_weights=args.distill_group_weights or None,
@@ -343,7 +353,10 @@ def main(default_architecture="v4") -> None:
                 mode=args.distill_advantage, beta=args.distill_advantage_beta, clip=args.distill_advantage_clip,
                 weight=args.distill_advantage_weight, min_worlds=args.distill_advantage_min_worlds,
                 contract=train_ds.probes.header.get("contract"), rows=len(train_ds.probes.index),
-                index_sha256=(train_ds.probes.header.get("index") or {}).get("sha256"))
+                index_sha256=(train_ds.probes.header.get("index") or {}).get("sha256"),
+                validation=dict(rows=len(val_ds.probes.index),
+                                index_sha256=(val_ds.probes.header.get("index") or {}).get("sha256")),
+                probes=probe_counts, row_weight=dict(rule="constant_v2", rows_per_batch=advantage_rows))
         if args.think_loss is not None:
             # The per-step terms take this loss's targets; no consequence term.
             identity["thinking"]["targets"] = "bundle_distillation_scope_v1"

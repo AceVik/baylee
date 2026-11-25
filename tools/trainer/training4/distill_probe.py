@@ -18,8 +18,9 @@ The Rust writer is crates/baylee-train/src/bin/convert4/probes.rs.
 where the frame has no probe), `probe_worlds` (0 there), `probe_mean` and
 `probe_se`, and fails closed on a frame the sidecar contradicts: a row at a
 frame that is no labelled priority decision, R other than the frame's target,
-N or R outside the menu or masked, N = R or a frame flagged N = R, another
-subtype or other fired groups.
+N other than the recorded N (where the dataset has the coarse-class sidecar,
+which holds it; a BST4 frame alone does not), N or R outside the menu or
+masked, N = R or a frame flagged N = R, another subtype or other fired groups.
 
 `--distill-advantage pairwise` (`Scope.advantage`, through `distill.distill_loss`)
 teaches the student R only where the probes say it pays. At a probed frame with
@@ -34,10 +35,21 @@ Every other priority frame keeps r1 by the KL, where N = R
 (`kl_adv_unprobed`); both are reported apart and train as one pooled mean.
 Nothing is cross-entropy to R.
 
+Probed frames are sparse and a batch may hold one or thirty of them. A run
+therefore weighs each alike, whatever shares its batch: the term is the batch's
+sum over its probed rows divided by `Scope.advantage_rows`, the training split's
+usable probes per training batch, a constant of the run (at least 1, so a row
+never weighs more than a batch's mean would give it alone). Without the
+constant (a loss evaluated outside a run) it is the batch's mean.
+
 `AdvantageCounter` is the held-out side: over probed rows where R leads by more
 than one standard error, the share the student (and r1) answers R; where N
 leads, the share it answers N; and the correlation between the student's shift
-z_s - z_r and the clamped target shift.
+z_s - z_r and the clamped target shift. `--checkpoint-selection
+distill_advantage` reads the mean of the two shares and needs both: agreement
+with R alone rises for a student that always answers R, which is what the probes
+are there to prevent. `check_splits` refuses a run whose data cannot give them
+before it trains.
 """
 from __future__ import annotations
 
@@ -130,6 +142,9 @@ class Probes:
         n, r, mask = int(row["n_idx"]), int(row["r_idx"]), frame["cand_mask"]
         if r != int(frame["single_idx"]) or max(n, r) >= len(mask) or not (mask[n] and mask[r]):
             raise ValueError(f"Probe does not match frame {where}: N {n}, R {r}, target {int(frame['single_idx'])}")
+        recorded = int(frame.get("coarse_n_idx", -1))
+        if recorded >= 0 and recorded != n:
+            raise ValueError(f"Probe's N {n} is not the recorded N {recorded} {where}")
         subtype = -1 if int(row["subtype"]) == NO_SUBTYPE else int(row["subtype"])
         if ("n_ne_r" in frame and not bool(frame["n_ne_r"])
                 or "distill_subtype" in frame and int(frame["distill_subtype"]) != subtype
@@ -140,6 +155,32 @@ class Probes:
         frame["probe_mean"] = np.array(row["mean"], dtype=np.float32)
         frame["probe_se"] = np.array(row["se"], dtype=np.float32)
         return frame
+
+
+def split_counts(dataset, min_worlds):
+    """The usable probes (at least `min_worlds` worlds) at frames of this split's loaded
+    trajectories, and of them those where R and where N leads by more than a standard error."""
+    segments = [segment for trajectory in dataset.trajectories for segment in trajectory]
+    rows = (np.concatenate([np.asarray(dataset.segments[s], dtype=np.int64) for s in segments])
+            if segments else np.zeros(0, dtype=np.int64))
+    frames, probes = dataset.store.index[rows], dataset.probes
+    usable = (np.isin(probes.keys, key(frames["game"], frames["seat"], frames["cursor"]))
+              & (probes.index["worlds"] >= max(1, min_worlds)))
+    mean, se = probes.index["mean"][usable], probes.index["se"][usable]
+    return dict(probed=int(usable.sum()), r_ahead=int((mean - se > 0).sum()), n_ahead=int((mean + se < 0).sum()))
+
+
+def check_splits(training, validation, min_worlds):
+    """Both splits' counts, or an error where an advantage run could learn from no probe or
+    select on no or only one side of them."""
+    counts = dict(training=split_counts(training, min_worlds), validation=split_counts(validation, min_worlds))
+    if not counts["training"]["probed"]:
+        raise ValueError(f"--distill-advantage has nothing to learn from: the training trajectories hold no probe "
+                         f"with at least {max(1, min_worlds)} worlds")
+    if not (counts["validation"]["r_ahead"] and counts["validation"]["n_ahead"]):
+        raise ValueError("--checkpoint-selection distill_advantage needs held-out probes where R is ahead and ones "
+                         f"where N is ahead (mean beyond one standard error); validation has {counts['validation']}")
+    return counts
 
 
 def pairwise(student, reference, mask, rows, n_idx, r_idx, mean, scope):
@@ -239,9 +280,9 @@ class AdvantageCounter:
                    val_adv_shift_corr=corr,
                    val_adv_shift_mean_r_ahead=share(totals["shift_r_ahead"], totals["r_ahead"]),
                    val_adv_shift_mean_n_ahead=share(totals["shift_n_ahead"], totals["n_ahead"]))
-        sides = [value for value in (out["val_adv_r_ahead_top1_r"], out["val_adv_n_ahead_top1_n"])
-                 if value is not None]
-        # `--checkpoint-selection distill_advantage`: the sides with rows (the same in every
-        # validation: the rows depend on the data, not on the student).
-        out["val_adv_selection"] = sum(sides) / len(sides) if sides else None
+        # `--checkpoint-selection distill_advantage`: the mean of both sides, none where one has no
+        # rows (an always-R student would lead on R's side alone). The rows depend on the data,
+        # not on the student: `check_splits` has counted them before the run trains.
+        sides = out["val_adv_r_ahead_top1_r"], out["val_adv_n_ahead_top1_n"]
+        out["val_adv_selection"] = None if None in sides else sum(sides) / 2
         return out

@@ -21,8 +21,13 @@ def selection_score(metrics, selection):
     if selection == "distill_advantage":
         # The mean over the probes' sides of the student's top-1 being the answer ahead:
         # R where R leads, N where N leads (`distill_probe.AdvantageCounter`); higher is better.
+        # A run whose validation cannot give both is refused at its start (`check_splits`), never
+        # scored as infinitely bad: it would publish its last weights as if they were selected.
         agreement = metrics.get("val_adv_selection")
-        return float("inf") if agreement is None else -agreement
+        if agreement is None:
+            raise ValueError("distill_advantage has nothing to select on: validation holds no probed rows where R is "
+                             "ahead, or none where N is")
+        return -agreement
     raise ValueError(f"Unknown checkpoint selection: {selection}")
 
 

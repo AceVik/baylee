@@ -145,7 +145,9 @@ class Scope:
     `advantage_weight`); everywhere else the KL keeps r1. It needs priority alone
     among the kinds, every subtype, no group weights, the out-of-scope KL, no
     coarse mode and the bundle teacher. The other `advantage_*` fields also set
-    how validation reads the probes when the mode is off."""
+    how validation reads the probes when the mode is off; `advantage_rows`, the
+    run's probed rows per training batch, is the constant each probed row's
+    weight is divided by (None: the batch's own count of them)."""
     kinds: tuple = (0,)
     subtypes: tuple | None = None
     subtype_names: tuple = ()
@@ -161,11 +163,13 @@ class Scope:
     advantage_clip: float = 3.0
     advantage_weight: float = 1.0
     advantage_min_worlds: int = 2
+    advantage_rows: float | None = None
 
     @classmethod
     def from_options(cls, kinds, kl_weight, subtypes, group_weights, datasets, out_of_scope="kl",
                      out_of_scope_weight=1.0, coarse=None, teacher="bundle", value_weight=0.0, advantage=None,
-                     advantage_beta=0.05, advantage_clip=3.0, advantage_weight=1.0, advantage_min_worlds=2):
+                     advantage_beta=0.05, advantage_clip=3.0, advantage_weight=1.0, advantage_min_worlds=2,
+                     advantage_rows=None):
         """Names resolved against vocabularies every dataset shares; unknown names fail."""
         if teacher not in CONTRACTS:
             raise ValueError(f"Unknown distillation teacher {teacher!r}")
@@ -185,6 +189,8 @@ class Scope:
                           or tuple(kinds) != (PRIORITY,)):
             raise ValueError("Advantage distillation teaches the bundle teacher's priority probes alone: priority "
                              "the only kind, no subtypes, group weights, out-of-scope mode or coarse mode")
+        if advantage_rows is not None and not (advantage and math.isfinite(advantage_rows) and advantage_rows >= 1):
+            raise ValueError("The probed rows per batch are a finite number of at least 1, of an advantage run")
         if advantage and not all(getattr(d, "probes", None) is not None for d in datasets):
             raise ValueError("Advantage distillation needs every dataset's probe sidecar (bundle-distill/probe.*)")
         vocabularies = {(tuple(d.distill_subtypes), tuple(d.distill_groups)) for d in datasets}
@@ -211,7 +217,8 @@ class Scope:
             raise ValueError("Coarse distillation needs priority among the kinds and the out-of-scope KL")
         return cls(tuple(kinds), codes, subtype_names, weights, kl_weight, out_of_scope, float(out_of_scope_weight),
                    coarse, teacher, float(value_weight), advantage, float(advantage_beta), float(advantage_clip),
-                   float(advantage_weight), int(advantage_min_worlds))
+                   float(advantage_weight), int(advantage_min_worlds),
+                   None if advantage_rows is None else float(advantage_rows))
 
     def groups(self, classes):
         """`classes` (COARSE indices) as this scope's coarse groups: act/pass or the class itself."""
@@ -444,7 +451,9 @@ def distill_loss(prepared, reference, batch, plans, scope, extra=None):
         # unprobed N != R alike; the two are reported apart.
         kept = (sums[1] + sums[ADV_UNPROBED]) / (dens[1] + dens[ADV_UNPROBED]).clamp(min=1e-6)
         others = means[2:KL_TERMS.stop].sum()   # out of scope, other single choices, subsets, pairs, scalars
-        total = scope.advantage_weight * means[ADV_PAIRWISE] + scope.kl_weight * (kept + others)
+        # A probed row weighs the same however many share its batch; the reported term is their mean.
+        pairs = means[ADV_PAIRWISE] if scope.advantage_rows is None else sums[ADV_PAIRWISE] / scope.advantage_rows
+        total = scope.advantage_weight * pairs + scope.kl_weight * (kept + others)
     elif scope.out_of_scope == "ce-n":
         # The out-of-scope KL stays a reported guard; the anchor to N trains there.
         trained_kl = means[1] + means[3:7].sum()
@@ -1052,7 +1061,7 @@ def evaluate_distill(net, reference, loader, device, scope, board_chunk, scalar_
     confusion = torch.zeros(2, len(COARSE), len(COARSE), dtype=torch.float64, device=device)
     directions = torch.zeros(4, dtype=torch.float64, device=device)
     chains = ChainCounter(scope) if PRIORITY in scope.kinds else None
-    probes =AdvantageCounter(scope) if PRIORITY in scope.kinds else None
+    probes = AdvantageCounter(scope) if PRIORITY in scope.kinds else None
     house = None
     if scope.teacher == "house":
         from .house import HouseCounter
