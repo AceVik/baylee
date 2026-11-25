@@ -9283,6 +9283,7 @@ impl Tx<'_> {
                             | "Sacrificed"
                             | "BecomesPlotted"
                             | "Plotted"
+                            | "SpellCast"
                             | "SpellCastOrCopy"
                             | "Taps"
                             | "Untaps"
@@ -9290,6 +9291,13 @@ impl Tx<'_> {
                             | "Transformed"
                     )
                 )
+            }
+            "TriggeredSourceLKICopy" | "TriggeredSource" => {
+                self.damage_trigger_binds_source
+                    && matches!(
+                        self.trigger_mode.as_deref(),
+                        Some("DamageDone" | "DamageDoneOnce" | "DamageDealtOnce")
+                    )
             }
             "TriggeredExploitedLKICopy" | "TriggeredExploited" => {
                 self.trigger_mode.as_deref() == Some("Exploited")
@@ -9817,12 +9825,20 @@ impl Tx<'_> {
         {
             return Some("Amount::EventLastToughness".to_string());
         }
-        let (base_raw, op_raw) = def
-            .split_once('/')
-            .map_or((def, None), |(l, r)| (l.trim(), Some(r.trim())));
+        let (base_raw, op_raw, multi_slash) = if def.matches('/').count() >= 2
+            && let Some((l, r)) = def.rsplit_once('/')
+        {
+            (l.trim(), Some(r.trim()), true)
+        } else {
+            def.split_once('/').map_or((def, None, false), |(l, r)| {
+                (l.trim(), Some(r.trim()), false)
+            })
+        };
         let x_available =
             self.has_x || (self.is_etb_self_trigger && self.has_x_mana_cost && !self.in_delayed);
-        let base = if base_raw == "Count$xPaid" && x_available {
+        let base = if multi_slash {
+            self.wave6_count_expr_depth(base_raw, depth + 1)?
+        } else if base_raw == "Count$xPaid" && x_available {
             if matches!(op_raw, Some("Twice" | "Times.2")) {
                 return Some("Amount::DoubleX".to_string());
             }
@@ -20518,7 +20534,7 @@ impl Tx<'_> {
         ))
     }
 
-    fn vote_count_amount(&self, raw: &str, option_idx: u8) -> Option<(String, bool)> {
+    pub(super) fn vote_count_amount(&self, raw: &str, option_idx: u8) -> Option<(String, bool)> {
         let trimmed = raw.trim();
         let neg = trimmed.starts_with('-');
         let key = trimmed.trim_start_matches(['+', '-']);
@@ -20527,7 +20543,7 @@ impl Tx<'_> {
             None => key,
         };
         let (head, suffix) = def.split_once('/').map_or((def, ""), |(h, s)| (h, s));
-        if !matches!(head, "VoteNum" | "Count$VoteNum") {
+        if !matches!(head, "VoteNum" | "Count$VoteNum" | "SVar$VoteNum") {
             return None;
         }
         let base = format!("Amount::ThisWay(ThisWay::VoteCount({option_idx}))");
@@ -20577,6 +20593,24 @@ impl Tx<'_> {
                 } else {
                     format!("Effect::AddCounter {{ kind: {counter}, amount: {amt} }}")
                 }
+            }
+            "PutCounterAll" => {
+                sp.take("IsCurse");
+                sp.take("ValidCardsDesc");
+                let raw = sp.take("CounterNum")?;
+                let (amt, false) = self.vote_count_amount(&raw, option_idx)? else {
+                    return None;
+                };
+                let counter = super::counter_kind(&sp.take("CounterType")?)?;
+                let valid = sp.take("ValidCards")?;
+                if !sp.exhausted() {
+                    return None;
+                }
+                let expr = self.filter_expr(&valid)?;
+                let filter = self.body.filter_static("VOTE_COUNTERS", &expr);
+                format!(
+                    "Effect::AddCounterFilter {{ filter: &{filter}, kind: {counter}, amount: {amt} }}"
+                )
             }
             "Token" => {
                 let raw = sp.take("TokenAmount")?;
@@ -20773,6 +20807,15 @@ impl Tx<'_> {
         if per_option_count {
             let next_sub = sp.take("SubAbility");
             let saved_sp = sp.clone();
+            if api == "Draw"
+                && sp.peek("RememberDrawn") == Some("AllReplaced")
+                && let Some(tail) = next_sub.as_deref()
+                && let Some(effs) =
+                    self.wave28b_vote_draw_remembered_discard(&mut sp, option_idx, tail)
+            {
+                return Some((label, effs));
+            }
+            sp = saved_sp.clone();
             if let Some(mut effs) =
                 self.try_vote_counted_step(&api, &mut sp, option_idx, chain.target.as_deref())
             {
