@@ -1606,7 +1606,8 @@ fn main() -> anyhow::Result<()> {
     summary["inference_batch"] = shared_nets.report();
     if let Some(seat) = &deadline_seat {
         summary["latency_scope"] = json!(
-            "every native seat question from offer to engine application, including passive observation"
+            "every native seat question from offer to engine application, or to the engine's refusal \
+             of the answer, including passive observation"
         );
         summary["offline_deadline_seat"] = seat.clone();
         summary["offline_deadline_seat"]["latency_scope"] =
@@ -1627,7 +1628,8 @@ fn main() -> anyhow::Result<()> {
     }
     if args.offline_deadline_seat && search.is_some() {
         summary["search"]["latency_scope"] = json!(
-            "searched_ms measures the selected search's wall time; latency_ms includes all applied seat answers"
+            "searched_ms measures the selected search's wall time; latency_ms includes all seat \
+             answers, applied or refused"
         );
     }
     if collection.purpose == collector::Purpose::FailureTerminalResearchV1 {
