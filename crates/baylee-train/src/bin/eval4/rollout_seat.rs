@@ -20,9 +20,9 @@ use serde_json::{Value, json};
 use super::EvaluationPlayer;
 
 /// The searching net and the net that plays its rollouts.
-pub(super) struct RolloutSeat {
-    net: NetPlayer4,
-    rollout: NetPlayer4,
+pub(super) struct RolloutSeat<N = NetPlayer4> {
+    net: N,
+    rollout: N,
     leaf: RolloutLeaf4,
     /// `--rollout-compare`: the leaves whose searches are recorded beside
     /// the net's own, which then answers.
@@ -31,13 +31,8 @@ pub(super) struct RolloutSeat {
     variants: Option<Value>,
 }
 
-impl RolloutSeat {
-    pub(super) fn new(
-        net: NetPlayer4,
-        rollout: NetPlayer4,
-        leaf: RolloutLeaf4,
-        compare: Vec<RolloutLeaf4>,
-    ) -> Self {
+impl<N: SearchPlayer4 + Send> RolloutSeat<N> {
+    pub(super) fn new(net: N, rollout: N, leaf: RolloutLeaf4, compare: Vec<RolloutLeaf4>) -> Self {
         Self {
             net,
             rollout,
@@ -48,7 +43,7 @@ impl RolloutSeat {
     }
 
     /// The searching net and its rollout net at this root, as one player.
-    fn searcher(&mut self, leaf: RolloutLeaf4) -> anyhow::Result<RolloutNet4<'_>> {
+    fn searcher(&mut self, leaf: RolloutLeaf4) -> anyhow::Result<RolloutNet4<'_, N>> {
         RolloutNet4::new(&mut self.net, &mut self.rollout, leaf)
     }
 
@@ -103,7 +98,7 @@ impl RolloutSeat {
     }
 }
 
-impl EvaluationPlayer for RolloutSeat {
+impl<N: EvaluationPlayer + SearchPlayer4 + Send> EvaluationPlayer for RolloutSeat<N> {
     fn configure_seats(&mut self, focal: usize, teams: &[Option<u8>]) -> anyhow::Result<()> {
         EvaluationPlayer::configure_seats(&mut self.net, focal, teams)
     }
@@ -324,3 +319,6 @@ pub(super) fn load(
     );
     Ok(RolloutSeat::new(net, rollout, leaf, compare))
 }
+
+#[cfg(test)]
+mod tests;
