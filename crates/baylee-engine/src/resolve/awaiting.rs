@@ -1578,6 +1578,16 @@ pub enum AwaitingOp {
         /// Recipient permanent or player to attach chosen permanents to.
         host: baylee_core::ids::TargetRef,
     },
+    /// After `PreventFromChosenSourceWithLifeCondition`: the turn-long shield
+    /// waits for the chosen source and its conditional life-gain filter.
+    ShieldFromChosenSourceWithLifeCondition {
+        /// Recipients protected by the created shield(s).
+        protects: Vec<crate::prevention::Shielded>,
+        /// What the source had to be, and must still be.
+        sources: &'static baylee_cards_dsl::Filter,
+        /// Additional source criterion for gaining the prevented amount as life.
+        gain_life_sources: &'static baylee_cards_dsl::Filter,
+    },
 }
 
 /// Work to resume after an optional life payment.
@@ -2090,6 +2100,16 @@ impl AwaitingOp {
                 crate::state::structural_fingerprint(&(251_u8, spec))
             }
             Self::AttachChosen { host } => crate::state::structural_fingerprint(&(252_u8, host)),
+            Self::ShieldFromChosenSourceWithLifeCondition {
+                protects,
+                sources,
+                gain_life_sources,
+            } => crate::state::structural_fingerprint(&(
+                253_u8,
+                protects,
+                sources,
+                gain_life_sources,
+            )),
             _ => 0,
         }
     }

@@ -444,6 +444,7 @@ pub(super) fn exec_immediate(
         | Effect::DealDamage { .. }
         | Effect::GrantorDealsDamage { .. }
         | Effect::DealDamageWithoutPreventionOrRedirection { .. }
+        | Effect::DealDamageWithoutPrevention { .. }
         | Effect::PreventNextDamageToAttached { .. }
         | Effect::DealDamageToMatchingTargets { .. }
         | Effect::DealDamageWithCappedLifeGain { .. }
@@ -469,6 +470,7 @@ pub(super) fn exec_immediate(
         | Effect::ChooseDamageSourcePreventAllThisTurnMatching(_)
         | Effect::PreventNextFromChosenSource { .. }
         | Effect::PreventFromChosenSource { .. }
+        | Effect::PreventFromChosenSourceWithLifeCondition { .. }
         | Effect::PreventNextFromMatchingSources { .. }
         | Effect::PreventAllDamageFromMatchingThisTurn { .. }
         | Effect::RedirectNextFromChosenSource { .. }
@@ -536,6 +538,7 @@ pub(super) fn exec_immediate(
         | Effect::DestroyChosenForPlayers { .. }
         | Effect::EqualizePermanents { .. }
         | Effect::KeepOneOfEachAndSacrificeRest { .. }
+        | Effect::KeepOneOfEachAndSacrificeRestMatching { .. }
         | Effect::EqualizeHands
         | Effect::DiscardForPlayers { .. }
         | Effect::DiscardAmountForPlayers { .. }
@@ -3743,6 +3746,19 @@ pub(super) fn exec_immediate(
             }
             None
         }
+        Effect::DestroyCounteredAbilitySource => {
+            // Only an ability actually countered earlier in this resolution
+            // records its source. A spell, an uncounterable ability, or a
+            // source that has already left the battlefield destroys nothing.
+            if let Some(src) = res.countered_source
+                && state
+                    .object(src)
+                    .is_some_and(|o| o.zone == crate::zone::Zone::Battlefield)
+            {
+                crate::sba::destroy(state, src);
+            }
+            None
+        }
         Effect::CopyTargetSpell { mods } => {
             let &original = res.targets.first()?;
             let copy = copy_spell(state, state.source_identity(original)?, you, mods, res.text)?;
@@ -4235,6 +4251,22 @@ pub(super) fn exec_immediate(
                 .filter(|r| subjects::on_battlefield(state, *r))
                 .map(|r| r.object);
             if let (Some(a), Some(b)) = (event, target) {
+                control::exchange(state, a, b);
+            }
+            None
+        }
+        Effect::ExchangeControlOfSourceAndTarget => {
+            let source = subjects::source(state, res)
+                .filter(|r| subjects::on_battlefield(state, *r))
+                .map(|r| r.object);
+            let target = res
+                .targets
+                .first()
+                .copied()
+                .and_then(|id| subjects::target(state, res, id))
+                .filter(|r| subjects::on_battlefield(state, *r))
+                .map(|r| r.object);
+            if let (Some(a), Some(b)) = (source, target) {
                 control::exchange(state, a, b);
             }
             None

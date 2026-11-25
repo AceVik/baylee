@@ -1613,7 +1613,10 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
         }
         Effect::EqualizePermanents { filter } => equalize::start(state, res, Some(filter)),
         Effect::KeepOneOfEachAndSacrificeRest { filters } => {
-            keep_one_of_each::start(state, res, filters)
+            keep_one_of_each::start(state, res, filters, &baylee_cards_dsl::Filter::Any)
+        }
+        Effect::KeepOneOfEachAndSacrificeRestMatching { filters, rest } => {
+            keep_one_of_each::start(state, res, filters, rest)
         }
         Effect::EqualizeHands => equalize::start(state, res, None),
         Effect::DiscardAmountForPlayers { who, amount } => {
@@ -2049,12 +2052,7 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
             {
                 let kind = state.object(target_id).map(|o| o.kind);
                 if kind == Some(ObjectKind::AbilityOnStack) {
-                    state
-                        .journal
-                        .record(GameEvent::SpellCountered { object: target_id });
-                    state.remember_damage_source(target_id);
-                    state.zones.remove(target_id, ZoneLocation::Stack);
-                    let _ = state.arena.remove(target_id);
+                    counter_ability(state, res, target_id);
                 } else {
                     state
                         .journal

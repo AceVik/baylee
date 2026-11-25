@@ -416,6 +416,7 @@ fn accumulate_effect(effect: &Effect, ch: &mut EffectChannels) {
         | Effect::ChangeController { .. }
         | Effect::GainControlAll { .. }
         | Effect::ExchangeControl
+        | Effect::ExchangeControlOfSourceAndTarget
         | Effect::BecomeCopyOfTarget { .. }
         | Effect::BecomeCopy { .. }
         | Effect::Cipher

@@ -1071,6 +1071,7 @@ impl Effect {
             | Effect::DealDamage { .. }
             | Effect::GrantorDealsDamage { .. }
             | Effect::DealDamageWithoutPreventionOrRedirection { .. }
+            | Effect::DealDamageWithoutPrevention { .. }
             | Effect::PreventNextDamageToAttached { .. }
             | Effect::Fight { .. }
             | Effect::DamageEqualToPower { .. }
@@ -1098,6 +1099,7 @@ impl Effect {
             | Effect::ChooseDamageSourcePreventAllThisTurnMatching(_)
             | Effect::PreventNextFromChosenSource { .. }
             | Effect::PreventFromChosenSource { .. }
+            | Effect::PreventFromChosenSourceWithLifeCondition { .. }
             | Effect::PreventNextFromMatchingSources { .. }
             | Effect::PreventAllDamageFromMatchingThisTurn { .. }
             | Effect::RedirectNextFromChosenSource { .. }
@@ -1200,6 +1202,7 @@ impl Effect {
             | Effect::CounterTargetAbility
             | Effect::CounterTargetSpellOrAbility
             | Effect::TargetSourceLosesAbilities { .. }
+            | Effect::DestroyCounteredAbilitySource
             | Effect::DelayedManaAtNextMain { .. }
             | Effect::ChangeTarget { .. }
             | Effect::ChooseNewTargets
@@ -1209,6 +1212,7 @@ impl Effect {
             | Effect::DestroyChosenForPlayers { .. }
             | Effect::EqualizePermanents { .. }
             | Effect::KeepOneOfEachAndSacrificeRest { .. }
+            | Effect::KeepOneOfEachAndSacrificeRestMatching { .. }
             | Effect::EqualizeHands
             | Effect::DiscardForPlayers { .. }
             | Effect::DiscardAmountForPlayers { .. }
@@ -1407,6 +1411,7 @@ impl Effect {
             | Effect::TargetPlayersCreaturesDontUntapNextUntap
             | Effect::AddManaAmountFor { .. }
             | Effect::ExchangeControlOfEventAndTarget
+            | Effect::ExchangeControlOfSourceAndTarget
             | Effect::UnattachAllEquipmentFromTarget
             | Effect::SkipNextCombatPhase { .. }
             | Effect::ChoosePhaseToSkipThisTurn

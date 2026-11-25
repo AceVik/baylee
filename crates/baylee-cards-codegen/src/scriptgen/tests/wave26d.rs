@@ -778,6 +778,27 @@ fn wave26d_change_zone_remember_changed_change_zone_all_and_copy_permanent() {
 }
 
 #[test]
+fn wave26d_unbounded_chosen_number_binds_discard_mana_value() {
+    let choice = read_w26d(
+        "Name:Numbered Discard\nManaCost:2 B\nTypes:Sorcery\n\
+         A:SP$ ChooseNumber | SubAbility$ DBDiscard\n\
+         SVar:DBDiscard:DB$ Discard | ValidTgts$ Player | Mode$ RevealDiscardAll | DiscardValid$ Card.nonLand+cmcEQChosen\n\
+         SVar:Chosen:Count$ChosenNumber",
+    );
+    let text = format!("{}\n{}", choice.abilities.join("\n"), choice.statics);
+    assert!(text.contains("max: Amount::Fixed(u32::MAX)"), "{text}");
+    assert!(
+        text.contains("Effect::RevealHand { who: PlayerRel::Chosen }"),
+        "{text}"
+    );
+    assert!(text.contains("Effect::DiscardMatching"), "{text}");
+    assert!(
+        text.contains("Filter::CmcEqualsAmount(&Amount::ResolutionChosenNumber)"),
+        "{text}"
+    );
+}
+
+#[test]
 fn wave26d_honest_refusals_and_pure_paper_guardrails() {
     for bad in [
         // Alchemy / digital mechanics must stay refused.

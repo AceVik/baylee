@@ -60,6 +60,7 @@ pub(super) fn start(
     state: &mut GameState,
     res: &mut Resolution,
     filters: &'static [&'static Filter],
+    rest: &'static Filter,
 ) -> Option<Pending> {
     if filters.is_empty() {
         return None;
@@ -80,7 +81,7 @@ pub(super) fn start(
             cards: crate::eval::controlled_matching_with_context(
                 state,
                 player,
-                &Filter::Any,
+                rest,
                 res.controller,
                 res.rule_context(),
             ),

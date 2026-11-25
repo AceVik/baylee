@@ -1268,14 +1268,28 @@ impl HeuristicAgent {
         context: &DecisionContext<'_>,
     ) -> Option<Vec<ObjectId>> {
         let mut effects = context.effects.iter().filter_map(|effect| match effect {
-            Effect::KeepOneOfEachAndSacrificeRest { filters } => Some(*filters),
+            Effect::KeepOneOfEachAndSacrificeRest { filters } => Some((*filters, &Filter::Any)),
+            Effect::KeepOneOfEachAndSacrificeRestMatching { filters, rest } => {
+                Some((*filters, *rest))
+            }
             _ => None,
         });
-        let filters = effects.next()?;
+        let (filters, rest) = effects.next()?;
         if effects.next().is_some() {
             return None;
         }
-        let controlled: Vec<_> = view.battlefield_of(view.seat).collect();
+        let controlled: Vec<_> = view
+            .battlefield_of(view.seat)
+            .filter(|object| {
+                self.filter_matches(
+                    rest,
+                    view,
+                    object,
+                    baylee_cards_dsl::ZoneRef::Battlefield,
+                    context.source,
+                ) != Some(false)
+            })
+            .collect();
         let offered: std::collections::BTreeSet<_> = options.iter().copied().collect();
         let mut categories = filters.iter().enumerate().filter(|(_, filter)| {
             let matching: std::collections::BTreeSet<_> = controlled
@@ -2173,8 +2187,15 @@ impl HeuristicAgent {
         }
         let mut net = 0_i64;
         for effect in effects.iter().filter(|effect| board_sweeper(effect)) {
-            if let Effect::KeepOneOfEachAndSacrificeRest { filters } = effect {
-                net += self.keep_one_of_each_net_worth(view, id, filters)?;
+            let keep = match effect {
+                Effect::KeepOneOfEachAndSacrificeRest { filters } => Some((*filters, &Filter::Any)),
+                Effect::KeepOneOfEachAndSacrificeRestMatching { filters, rest } => {
+                    Some((*filters, *rest))
+                }
+                _ => None,
+            };
+            if let Some((filters, rest)) = keep {
+                net += self.keep_one_of_each_net_worth(view, id, filters, rest)?;
                 continue;
             }
             let (filter, opponents_only, check_indest, dmg) = match effect {
@@ -2271,10 +2292,22 @@ impl HeuristicAgent {
         view: &PlayerView,
         id: Option<ObjectId>,
         filters: &[&Filter],
+        rest: &Filter,
     ) -> Option<i64> {
         let mut net = 0;
         for player in view.seats.iter().map(|seat| seat.player) {
-            let controlled: Vec<_> = view.battlefield_of(player).collect();
+            let controlled: Vec<_> = view
+                .battlefield_of(player)
+                .filter(|object| {
+                    self.filter_matches(
+                        rest,
+                        view,
+                        object,
+                        baylee_cards_dsl::ZoneRef::Battlefield,
+                        id,
+                    ) != Some(false)
+                })
+                .collect();
             let (kept, _) = self.best_keep_one_of_each(view, id, filters, &controlled, None)?;
             for object in controlled {
                 if kept.binary_search(&object.id).is_ok() {
@@ -2897,6 +2930,7 @@ fn board_sweeper(effect: &Effect) -> bool {
             | Effect::ReturnAllToHand { .. }
             | Effect::DealDamageEach { .. }
             | Effect::KeepOneOfEachAndSacrificeRest { .. }
+            | Effect::KeepOneOfEachAndSacrificeRestMatching { .. }
     )
 }
 

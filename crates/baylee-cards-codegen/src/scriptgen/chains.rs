@@ -437,6 +437,9 @@ impl Tx<'_> {
             || (api == "Token"
                 && p.peek("TokenAttacking") == Some("True")
                 && p.peek("AtEOT") == Some("Sacrifice"))
+            || (api == "Animate"
+                && p.peek("Defined") == Some("Remembered")
+                && self.capture_scope.is_some())
         {
             None
         } else {
@@ -454,6 +457,7 @@ impl Tx<'_> {
                 .try_split_kicked_amount(
                     &api,
                     &mut p,
+                    sub.is_some(),
                     target.as_deref(),
                     targets_here,
                     targets_a_player,
@@ -693,6 +697,13 @@ impl Tx<'_> {
                     .is_some_and(|(s_api, sp)| {
                         s_api == "Pump" && sp.peek("Duration") == Some("Permanent")
                     }))
+            // This specialized move-and-modify reader has no delayed zone move.
+            // Let the general CaptureAffected reader handle AtEOT chains instead.
+            && sub
+                .as_deref()
+                .and_then(|s| self.svars.get(s.trim()))
+                .and_then(|b| Params::parse(b))
+                .is_some_and(|(_, sp)| !sp.has("AtEOT"))
         {
             self.reanimate_remembered_modified(&mut p, &mut sub, target.as_deref(), targets_here)?
         } else if !second_target_here
@@ -2312,7 +2323,19 @@ impl Tx<'_> {
             // is.
             match p.take("TgtZone").as_deref() {
                 None | Some("Battlefield") => {
-                    if api == "Counter" {
+                    if api == "Counter"
+                        && valid == "Card.OppCtrl"
+                        && p.peek("TargetType") == Some("Spell,Activated,Triggered")
+                        && p.peek("TargetValidTargeting")
+                            == Some("Land.YouCtrl+inRealZoneBattlefield")
+                    {
+                        p.take("TargetValidTargeting");
+                        let name = self.body.filter_static(
+                            "TARGET",
+                            "Filter::And(&[Filter::ControlledByOpponent, Filter::TargetsYouControl(&Filter::LAND)])",
+                        );
+                        Some(format!("TargetSpec::SpellOrAbility(&{name})"))
+                    } else if api == "Counter" {
                         self.counter_or_stack_target(valid, p.peek("TargetType"), true)
                     } else if api == "CopySpellAbility" {
                         self.counter_or_stack_target(valid, p.peek("TargetType"), false)
@@ -3396,6 +3419,11 @@ impl Tx<'_> {
             "DealDamage" => {
                 let num_dmg = p.take("NumDmg")?;
                 let damage_source = p.take("DamageSource");
+                let no_prevention = match p.take("NoPrevention").as_deref() {
+                    None | Some("False") => false,
+                    Some("True") => true,
+                    Some(_) => return None,
+                };
                 let may = match p.take("OptionalDecider").as_deref() {
                     None => false,
                     Some("You") => true,
@@ -3408,6 +3436,9 @@ impl Tx<'_> {
                     return None;
                 }
                 if matches!(damage_source.as_deref(), Some("Targeted" | "ParentTarget")) {
+                    if no_prevention {
+                        return None;
+                    }
                     let defined = p.take("Defined");
                     if (damage_source.as_deref() == Some("ParentTarget") && targets_here)
                         || !target.is_some_and(|t| t.starts_with("TargetSpec::Object("))
@@ -3445,7 +3476,7 @@ impl Tx<'_> {
                     _ => None,
                 };
                 if turn_start_hand.is_some() {
-                    if damage_source.is_some() {
+                    if damage_source.is_some() || no_prevention {
                         return None;
                     }
                     p.take("Defined");
@@ -3453,6 +3484,7 @@ impl Tx<'_> {
                 if damage_source.is_none()
                     && turn_start_hand.is_none()
                     && !self.on_a_spell
+                    && !no_prevention
                     && matches!(p.peek("Defined"), Some("Enchanted" | "Equipped"))
                 {
                     p.take("Defined");
@@ -3572,10 +3604,15 @@ impl Tx<'_> {
                     return self
                         .deny("simultaneous damage to a permanent and its controller".to_string());
                 }
+                let damage_effect = if no_prevention {
+                    "DealDamageWithoutPrevention"
+                } else {
+                    "DealDamage"
+                };
                 let dmg = if let Some(src) = damage_source {
                     if src == "Self" {
                         let n = self.amount_or_count_ext(&num_dmg)?;
-                        format!("Effect::DealDamage {{ amount: {n}, target: {to} }}")
+                        format!("Effect::{damage_effect} {{ amount: {n}, target: {to} }}")
                     } else if src == "Targeted"
                         && to == "TargetSpec::ThisObject"
                         && target.is_some_and(|t| t.starts_with("TargetSpec::Object("))
@@ -3585,6 +3622,9 @@ impl Tx<'_> {
                         "Effect::DamageEqualToPower { dealer: TargetSlot::First, to: TargetSlot::This }"
                             .to_string()
                     } else {
+                        if no_prevention {
+                            return None;
+                        }
                         let power_names: &[&str] =
                             match (src.as_str(), self.trigger_mode.as_deref()) {
                                 (
@@ -3641,8 +3681,19 @@ impl Tx<'_> {
                         }
                     }
                 } else {
-                    let n = self.amount_or_count_ext(&num_dmg)?;
-                    format!("Effect::DealDamage {{ amount: {n}, target: {to} }}")
+                    let zero_kicked_damage = self.kicked_branch.is_some_and(|kicked| {
+                        self.kicked_pair(&num_dmg)
+                            .is_some_and(|(when_kicked, when_unkicked)| {
+                                (if kicked { when_kicked } else { when_unkicked }) == 0
+                            })
+                    });
+                    let n = if zero_kicked_damage {
+                        self.kicked_branch_used.set(true);
+                        "Amount::Fixed(0)".to_string()
+                    } else {
+                        self.amount_or_count_ext(&num_dmg)?
+                    };
+                    format!("Effect::{damage_effect} {{ amount: {n}, target: {to} }}")
                 };
                 let dmg = if turn_start_hand == Some(true) {
                     format!(
@@ -4488,7 +4539,23 @@ impl Tx<'_> {
                                     .block_line
                                     .as_ref()
                                     .is_some_and(|(r, _, _)| *r == super::BlockRole::Blocks))));
-                if remembered {
+                // Forge counts the target itself in this condition. GE2 therefore
+                // means another permanent shares its name, but the target remains
+                // legal without one: the condition belongs to resolution, not to
+                // target selection.
+                let gated_by_name_twin = targets_here
+                    && target.is_some()
+                    && p.peek("ConditionCheckSVar")
+                        .and_then(|var| self.svars.get(var.trim()))
+                        .is_some_and(|def| {
+                            def.trim() == "Count$Valid Permanent.sharesNameWith Targeted"
+                        })
+                    && p.peek("ConditionSVarCompare") == Some("GE2");
+                if gated_by_name_twin {
+                    p.take("ConditionCheckSVar");
+                    p.take("ConditionSVarCompare");
+                }
+                let effects = if remembered {
                     p.take("Defined");
                     vec![format!("Effect::{verb}(TargetSpec::EventObject)")]
                 } else if !self.on_a_spell && target.is_none() && p.peek("Defined") == Some("Self")
@@ -4500,6 +4567,14 @@ impl Tx<'_> {
                         p.take("Defined");
                     }
                     vec![format!("Effect::{verb}({aimed})")]
+                };
+                if gated_by_name_twin {
+                    vec![format!(
+                        "Effect::IfTargetMatches {{ filter: &Filter::SharesNameWithAnotherPermanent, then: &[{}] }}",
+                        effects.join(", ")
+                    )]
+                } else {
+                    effects
                 }
             }
             "SacrificeAll" => {
@@ -5185,12 +5260,17 @@ impl Tx<'_> {
                     Some("Exile") => true,
                     Some(_) => return None,
                 };
+                let destroy_source = match p.take("DestroyPermanent").as_deref() {
+                    None | Some("False") => false,
+                    Some("True") => true,
+                    Some(_) => return None,
+                };
                 // The spec `counter_or_stack_target` read from `TargetType$`
                 // (or the parent line's, when inherited) says what is countered.
                 if target_type.is_none() && !(inherited_target || targets_here) {
                     return None;
                 }
-                match target {
+                let mut effects = match target {
                     Some(t) if t.starts_with("TargetSpec::Spell(") => {
                         if is_exile {
                             vec!["Effect::CounterTargetSpellToExile".to_string()]
@@ -5209,7 +5289,11 @@ impl Tx<'_> {
                         vec!["Effect::CounterTargetSpellOrAbility".to_string()]
                     }
                     _ => return None,
+                };
+                if destroy_source {
+                    effects.push("Effect::DestroyCounteredAbilitySource".to_string());
                 }
+                effects
             }
             "Attach" => {
                 let optional = match p.take("Optional").as_deref() {

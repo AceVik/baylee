@@ -1351,6 +1351,49 @@ fn losing_all_abilities_removes_intrinsic_land_mana_as_well_as_printed_mana() {
 }
 
 #[test]
+fn non_mana_activated_ability_filter_distinguishes_mana_and_respects_loss() {
+    use baylee_cards_dsl::{ActivatedParts, Cost};
+
+    static NON_MANA: &[baylee_cards_dsl::AbilityDef] =
+        &[ActivatedParts::new(Cost::TAP, &[baylee_cards_dsl::Effect::TapTarget]).build()];
+    static MANA: &[baylee_cards_dsl::AbilityDef] = &[ActivatedParts {
+        mana_ability: true,
+        ..ActivatedParts::new(
+            Cost::TAP,
+            &[baylee_cards_dsl::Effect::mana(
+                baylee_core::mana::ManaColor::Green,
+                1,
+            )],
+        )
+    }
+    .build()];
+
+    fn has_non_mana(state: &GameState, id: ObjectId) -> bool {
+        matches(
+            &Filter::HasNonManaActivatedAbility,
+            state,
+            state.object(id).unwrap(),
+            P0,
+            id,
+        )
+    }
+
+    let mut state = empty_state();
+    let utility = land(&mut state, P0, &[]);
+    state.object_mut(utility).unwrap().own_abilities =
+        Some(crate::object::AbilityList::from_static(NON_MANA, None, None).into_bundle());
+    let mana_only = land(&mut state, P0, &[]);
+    state.object_mut(mana_only).unwrap().own_abilities =
+        Some(crate::object::AbilityList::from_static(MANA, None, None).into_bundle());
+
+    assert!(has_non_mana(&state, utility));
+    assert!(!has_non_mana(&state, mana_only));
+
+    state.object_mut(utility).unwrap().base_mut().abilities_lost = std::num::NonZeroU32::new(1);
+    assert!(!has_non_mana(&state, utility));
+}
+
+#[test]
 fn damage_source_colorlessness_is_scoped_to_damage_filters() {
     use baylee_cards_dsl::{Duration, Modifier};
     use baylee_core::color::{Color, ColorSet};

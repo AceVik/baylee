@@ -293,6 +293,7 @@ impl Tx<'_> {
         &mut self,
         api: &str,
         p: &mut Params,
+        has_subability: bool,
         target: Option<&str>,
         targets_here: bool,
         targets_a_player: bool,
@@ -315,6 +316,7 @@ impl Tx<'_> {
         if !has_kicked_pair {
             return Ok(None);
         }
+        let instead_damage = api == "DealDamage" && has_subability;
         let mut p_then = p.clone();
         self.kicked_branch = Some(true);
         self.kicked_branch_used.set(false);
@@ -357,6 +359,20 @@ impl Tx<'_> {
             else_effects.clear();
         } else if is_noop_pump(&then_effects) && !else_effects.is_empty() {
             then_effects.clear();
+        }
+        // "Instead" damage spells put zero in the replaced branch and the
+        // actual instruction in a conditional subability. Zero damage has no
+        // effect (CR 120.4), so retain the subability without the empty arm.
+        // Without that subability, keep the existing conservative refusal.
+        let is_noop_damage =
+            |effect: &String| effect.starts_with("Effect::DealDamage { amount: Amount::Fixed(0),");
+        if then_effects.iter().any(&is_noop_damage) || else_effects.iter().any(&is_noop_damage) {
+            if !instead_damage {
+                self.note(format!("unreadable value in `{api}`"));
+                return Err(());
+            }
+            then_effects.retain(|effect| !is_noop_damage(effect));
+            else_effects.retain(|effect| !is_noop_damage(effect));
         }
         if then_effects.is_empty() && else_effects.is_empty() {
             self.note(format!("unreadable value in `{api}`"));

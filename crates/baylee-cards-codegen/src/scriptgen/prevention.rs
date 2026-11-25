@@ -63,6 +63,13 @@ impl Tx<'_> {
             }
             return self.redirect_damage_to_you(p);
         }
+        if p.has("DamageAmount") && p.peek("Prevent") == Some("True") {
+            if !zone_arg.is_empty() {
+                return self
+                    .deny("a persistent spell prevention with another zone or result".into());
+            }
+            return self.at_most_damage_prevention(p);
+        }
         if p.peek("ReplaceWith").is_some() {
             let replace_api = p
                 .peek("ReplaceWith")
@@ -721,6 +728,39 @@ impl Tx<'_> {
                 Some("Instant" | "Sorcery")
             )
         })
+    }
+
+    /// `R:Event$ DamageDone | ValidTarget$ Card.Self | DamageAmount$ LE<n> |
+    /// Prevent$ True` (*Callous Giant*) prevents the whole event only while
+    /// its amount is at most `n`; it is not a cap and does not reduce larger
+    /// events.
+    fn at_most_damage_prevention(&mut self, mut p: Params) -> Option<()> {
+        if p.take("Prevent").as_deref() != Some("True")
+            || p.has("IsCombat")
+            || p.has("ValidSource")
+            || p.has("ReplaceWith")
+        {
+            return self.deny("a persistent spell prevention with another zone or result".into());
+        }
+        let Some(maximum) = p
+            .take("DamageAmount")
+            .and_then(|cmp| cmp.trim().strip_prefix("LE").map(str::to_owned))
+            .and_then(|n| n.parse::<u32>().ok())
+        else {
+            return self.deny("a prevention threshold other than LE<n>".into());
+        };
+        if p.take("ValidTarget").as_deref() != Some("Card.Self") {
+            return self.deny("a prevention threshold on another recipient".into());
+        }
+        let cond = self.prevention_condition(&mut p)?;
+        if let Some(key) = p.first_key() {
+            return self.deny(format!("unclaimed parameter `DamageDone.{key}`"));
+        }
+        self.body.abilities.push(format!(
+            "static_ability!(Filter::This, \
+             Modifier::PreventDamageToAffectedIfAtMost({maximum}){cond})"
+        ));
+        Some(())
     }
 
     fn per_source_damage_prevention(&mut self, mut p: Params) -> Option<()> {

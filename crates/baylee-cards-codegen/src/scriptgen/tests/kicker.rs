@@ -836,3 +836,21 @@ fn wave21a_kicker_and_spell_remove_any_counter() {
         assert!(refused(bad), "must refuse: {bad}");
     }
 }
+
+#[test]
+fn kicked_instead_damage_replaces_a_zero_main_arm_with_its_subability() {
+    let body = read(
+        "Name:X\nManaCost:2 R\nTypes:Instant\n\
+         K:Kicker:8 R\n\
+         A:SP$ DealDamage | ValidTgts$ Any | NumDmg$ N | SubAbility$ Bonus\n\
+         SVar:Bonus:DB$ DealDamage | Defined$ Targeted | NumDmg$ 10 | NoPrevention$ True | Condition$ Kicked\n\
+         SVar:N:Count$Kicked.0.3",
+    );
+    assert_eq!(
+        body.abilities,
+        ["spell!(&[Effect::IfKicked { \
+             then: &[Effect::DealDamageWithoutPrevention { amount: Amount::Fixed(10), target: TargetSpec::AnyTarget }], \
+             otherwise: &[Effect::DealDamage { amount: Amount::Fixed(3), target: TargetSpec::AnyTarget }] }], \
+             targets = Some(TargetReq::one(TargetSpec::AnyTarget)))"]
+    );
+}

@@ -558,3 +558,30 @@ fn wave25a_change_zone_hand_exile_library_and_owner_battlefield() {
         assert!(refused(bad), "must refuse:\n{bad}");
     }
 }
+
+#[test]
+fn each_basic_type_lowers_to_one_scoped_keep_and_sacrifice_effect() {
+    let card = read(
+        "Name:BasicLandSweep\nManaCost:4 W\nTypes:Sorcery\n\
+         A:SP$ ChooseCard | Defined$ Player | ControlledByPlayer$ Chooser | Choices$ Land | ChoiceZone$ Battlefield | Reveal$ True | EachBasicType$ True | SubAbility$ SacrificeRest\n\
+         SVar:SacrificeRest:DB$ SacrificeAll | ValidCards$ Land.nonChosenCard",
+    );
+    let ability = &card.abilities[0];
+    assert!(ability.contains("Effect::KeepOneOfEachAndSacrificeRestMatching"));
+    assert!(ability.contains("rest: &Filter::LAND"));
+    for subtype in ["PLAINS", "ISLAND", "SWAMP", "MOUNTAIN", "FOREST"] {
+        assert!(
+            ability.contains(&format!(
+                "Filter::And(&[Filter::LAND, Filter::HasSubtype(subtypes::land::{subtype})])"
+            )),
+            "missing {subtype}: {ability}"
+        );
+    }
+    assert!(!ability.contains("Effect::RepeatEach"));
+    assert!(!ability.contains("Effect::ChooseCardEx"));
+    assert!(
+        card.statics.is_empty(),
+        "unused choice filter: {}",
+        card.statics
+    );
+}

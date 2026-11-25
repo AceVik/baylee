@@ -2348,6 +2348,20 @@ impl Tx<'_> {
         let eq_num = cmp.strip_prefix("EQ").and_then(|n| n.parse::<u16>().ok());
         let bound = count_bound(cmp);
 
+        if let Some(valid) = raw.strip_prefix("Targeted$Valid ")
+            && matches!(cmp, "GE1" | "EQ1" | "GT0" | "EQ0" | "LE0" | "LT1")
+        {
+            let expr = self.filter_expr(valid.trim())?;
+            let condition = format!(
+                "Condition::ObjectMatches {{ what: &TargetSpec::Object(&Filter::Any), filter: &{expr} }}"
+            );
+            return Some(if matches!(cmp, "EQ0" | "LE0" | "LT1") {
+                format!("Condition::Not(&{condition})")
+            } else {
+                condition
+            });
+        }
+
         if raw == "Count$xPaid" {
             if !self.on_a_spell || !self.has_x {
                 return None;
