@@ -7,7 +7,7 @@
 
 use super::{
     BlockRole, Chain, Params, Tx, activated::OptionalTriggerPrice, cost_parts, counter_kind,
-    keyword_const,
+    effects::EffectSubject, keyword_const, printed_mana,
 };
 
 impl Tx<'_> {
@@ -75,6 +75,22 @@ impl Tx<'_> {
             }
             if def == "Discarded$Amount" && self.in_discard_hand_may {
                 return Some("Amount::ThisWay(ThisWay::Discarded)".to_string());
+            }
+            if self.cost_sacrifices_self
+                && !self.on_a_spell
+                && let Some(rest) = def.strip_prefix("Sacrificed$CardCounters.")
+            {
+                let (kind_raw, op_raw) = match rest.split_once('/') {
+                    Some((k, op)) => (k.trim(), Some(op.trim())),
+                    None => (rest.trim(), None),
+                };
+                if let Some(kind) = counter_kind(kind_raw) {
+                    let base = format!("Amount::CountersOnSource({kind})");
+                    return match op_raw {
+                        None => Some(base),
+                        Some(op) => Self::wave28b_apply_simple_op(&base, op),
+                    };
+                }
             }
             if def == "TargetedController$LandsInGraveyard" {
                 return Some(
@@ -957,6 +973,21 @@ impl Tx<'_> {
             {
                 Some("PlayerRel::Chosen")
             }
+            "TargetedOrController"
+                if target.is_some_and(|t| {
+                    t.starts_with("TargetSpec::PlayerOrObject(")
+                        || t.starts_with("TargetSpec::OpponentOrObject(")
+                        || matches!(
+                            t,
+                            "TargetSpec::AnyTarget"
+                                | "TargetSpec::AnyPlayer"
+                                | "TargetSpec::AnyOpponent"
+                                | "TargetSpec::Player(PlayerRel::Chosen)"
+                        )
+                }) =>
+            {
+                Some("PlayerRel::TargetPlayerOrController")
+            }
             _ => None,
         }
     }
@@ -1191,7 +1222,7 @@ impl Tx<'_> {
     /// 3. `PutCounter | Choices$ <F>` -> `Effect::ChooseCardEx` (wrapped in
     ///    `Effect::CaptureAffected` when an outer object target is active so
     ///    `Filter::IsRemembered` never collides with `res.targets`).
-    #[allow(clippy::too_many_arguments)]
+    #[allow(clippy::too_many_arguments, clippy::too_many_lines)]
     pub(super) fn wave28b_chain_step(
         &mut self,
         api: &str,
@@ -1289,6 +1320,39 @@ impl Tx<'_> {
             }
             return None;
         }
+        if api == "Discard"
+            && p.peek("Mode") == Some("RevealYouChoose")
+            && let Some(fx) =
+                self.wave28b_reveal_hand_discard(p, target, targets_a_player, single_target)
+        {
+            return Some(fx);
+        }
+        if api == "Discard"
+            && !targets_here
+            && single_target
+            && p.peek("Mode") == Some("TgtChoose")
+            && p.peek("Defined") == Some("TargetedPlayer")
+            && target.is_some_and(|t| {
+                t.starts_with("TargetSpec::PlayerOrObject(")
+                    || t.starts_with("TargetSpec::OpponentOrObject(")
+            })
+            && sub.is_some()
+            && let Some(fx) = self.wave28b_split_target_or_controller_discard(p, sub)
+        {
+            return Some(fx);
+        }
+        if api == "Pump"
+            && !targets_here
+            && single_target
+            && target.is_some_and(|t| {
+                t.starts_with("TargetSpec::Object(") || t == "TargetSpec::AnyTarget"
+            })
+            && p.peek("Defined")
+                .is_some_and(|d| d.starts_with("Targeted.") || d.starts_with("ParentTarget."))
+            && let Some(fx) = self.wave28b_conditional_target_pump(p, target.expect("checked"))
+        {
+            return Some(fx);
+        }
         if api == "PutCounter" && p.has("Choices") {
             return self.wave28b_put_counter_choices(
                 p,
@@ -1298,6 +1362,16 @@ impl Tx<'_> {
                 targets_a_player,
                 single_target,
             );
+        }
+        if api == "PutCounter"
+            && p.peek("RememberCards") == Some("True")
+            && single_target
+            && !targets_a_player
+            && target.is_some_and(|t| t.starts_with("TargetSpec::Object("))
+            && sub.is_some()
+            && let Some(fx) = self.wave28b_put_counter_while_counter_remains(p, sub)
+        {
+            return Some(fx);
         }
         None
     }
@@ -2304,13 +2378,18 @@ impl Tx<'_> {
                 self.body.statics.truncate(saved_statics);
             }
         }
-        if cost == "PayEnergy<1>" {
+        if let Some(n_raw) = cost
+            .strip_prefix("PayEnergy<")
+            .and_then(|s| s.strip_suffix('>'))
+            && let Ok(n) = n_raw.trim().parse::<u32>()
+            && (1..=20).contains(&n)
+        {
             return Some((
                 rest_without_cost(),
                 OptionalTriggerPrice::ChooseNumberPay {
                     pay_kind: "VariablePayKind::Energy",
                     prompt: "NumberChoiceKind::EnergyPayment",
-                    max: "Amount::Fixed(1)".to_string(),
+                    max: format!("Amount::Fixed({n})"),
                 },
             ));
         }
@@ -2553,21 +2632,37 @@ impl Tx<'_> {
                 max,
             } => {
                 if pay_kind == "VariablePayKind::Energy"
-                    && max == "Amount::Fixed(1)"
                     && !effects.contains("Amount::ResolutionChosenNumber")
+                    && let Some(n) = max
+                        .strip_prefix("Amount::Fixed(")
+                        .and_then(|s| s.strip_suffix(')'))
+                        .and_then(|s| s.parse::<u32>().ok())
+                    && n >= 1
                 {
-                    format!(
-                        "Effect::IfCondition {{ condition: Condition::AmountAtLeast(\
-                         Amount::CountersOnYou(CounterKind::Energy), 1), \
-                         then: &[Effect::ChooseNumberEx {{ chooser: PlayerRel::You, \
-                         min: Amount::Fixed(0), max: Amount::Fixed(1), \
-                         prompt: NumberChoiceKind::EnergyPayment, \
-                         pay_cost: Some(VariablePayKind::Energy), \
-                         then: &[Effect::IfCondition {{ condition: Condition::AmountCompare {{ \
-                         left: &Amount::ResolutionChosenNumber, op: AmountCmp::Equal, \
-                         right: &Amount::Fixed(1) }}, then: &[{effects}], otherwise: &[] }}] }}], \
-                         otherwise: &[] }}"
-                    )
+                    if n == 1 {
+                        format!(
+                            "Effect::IfCondition {{ condition: Condition::AmountAtLeast(\
+                             Amount::CountersOnYou(CounterKind::Energy), 1), \
+                             then: &[Effect::ChooseNumberEx {{ chooser: PlayerRel::You, \
+                             min: Amount::Fixed(0), max: Amount::Fixed(1), \
+                             prompt: NumberChoiceKind::EnergyPayment, \
+                             pay_cost: Some(VariablePayKind::Energy), \
+                             then: &[Effect::IfCondition {{ condition: Condition::AmountCompare {{ \
+                             left: &Amount::ResolutionChosenNumber, op: AmountCmp::Equal, \
+                             right: &Amount::Fixed(1) }}, then: &[{effects}], otherwise: &[] }}] }}], \
+                             otherwise: &[] }}"
+                        )
+                    } else {
+                        format!(
+                            "Effect::IfCondition {{ condition: Condition::AmountAtLeast(\
+                             Amount::CountersOnYou(CounterKind::Energy), {n}), \
+                             then: &[Effect::MayDo {{ effects: &[Effect::ChooseNumberEx {{ \
+                             chooser: PlayerRel::You, min: Amount::Fixed({n}), \
+                             max: Amount::Fixed({n}), prompt: NumberChoiceKind::EnergyPayment, \
+                             pay_cost: Some(VariablePayKind::Energy), \
+                             then: &[{effects}] }}] }}], otherwise: &[] }}"
+                        )
+                    }
                 } else {
                     if has_targets
                         || effects.contains("Effect::ReflexiveTrigger")
@@ -2583,5 +2678,786 @@ impl Tx<'_> {
                 }
             }
         })
+    }
+
+    /// Wave 28b-p3 `Discard | Mode$ RevealYouChoose`: accepts pure-prose
+    /// `DiscardValidDesc$` on non-`ChosenColor` filters (while preserving the
+    /// exact `Card.ChosenColor` description contract) and `Defined$ Targeted |
+    /// TargetedPlayer | ParentTarget` on player-targeted abilities.
+    fn wave28b_reveal_hand_discard(
+        &mut self,
+        p: &mut Params,
+        target: Option<&str>,
+        targets_a_player: bool,
+        single_target: bool,
+    ) -> Option<Vec<String>> {
+        let has_player_target = targets_a_player
+            || target.is_some_and(|t| {
+                matches!(
+                    t,
+                    "TargetSpec::AnyPlayer"
+                        | "TargetSpec::AnyOpponent"
+                        | "TargetSpec::Player(PlayerRel::Chosen)"
+                )
+            });
+        if !has_player_target || !single_target {
+            return None;
+        }
+        let saved_p = p.clone();
+        let saved_statics = self.body.statics.len();
+        let saved_unclaimed = self.unclaimed.borrow().clone();
+        let res = (|| {
+            if p.take("Mode").as_deref() != Some("RevealYouChoose") {
+                return None;
+            }
+            if !matches!(
+                p.take("Defined").as_deref(),
+                None | Some("Targeted" | "TargetedPlayer" | "ParentTarget")
+            ) {
+                return None;
+            }
+            if !matches!(p.take("NumCards").as_deref(), None | Some("1")) {
+                return None;
+            }
+            p.take("IsCurse");
+            let valid = p.take("DiscardValid");
+            let desc = p.take("DiscardValidDesc");
+            if valid.as_deref() == Some("Card.ChosenColor") {
+                if !self.has_resolution_chosen_color
+                    || !matches!(desc.as_deref(), None | Some("card of that color"))
+                {
+                    return None;
+                }
+            } else if desc.as_deref() == Some("card of that color") {
+                return None;
+            }
+            if !p.exhausted() {
+                return None;
+            }
+            let filter = match valid.as_deref() {
+                None | Some("Card") => "Filter::Any".to_string(),
+                Some(valid) => self.filter_expr_in_zone(valid, true)?,
+            };
+            Some(vec![format!(
+                "Effect::RevealHandDiscard {{ filter: &{filter} }}"
+            )])
+        })();
+        if res.is_none() {
+            *p = saved_p;
+            self.body.statics.truncate(saved_statics);
+            *self.unclaimed.borrow_mut() = saved_unclaimed;
+        }
+        res
+    }
+
+    /// Wave 28b-p3 split discard collapse (*Blightning*): Forge splits
+    /// "That player or that planeswalker's controller discards N cards" into
+    /// `Discard(Defined$ TargetedPlayer)` followed by
+    /// `Discard(Defined$ TargetedController)` with identical `NumCards$`.
+    fn wave28b_split_target_or_controller_discard(
+        &mut self,
+        p: &mut Params,
+        sub: &mut Option<String>,
+    ) -> Option<Vec<String>> {
+        let sub_name = sub.as_deref()?;
+        let sub_body = self.svars.get(sub_name)?.clone();
+        let saved_p = p.clone();
+        let saved_statics = self.body.statics.len();
+        let saved_unclaimed = self.unclaimed.borrow().clone();
+        let res = (|| {
+            if p.take("Mode").as_deref() != Some("TgtChoose")
+                || p.take("Defined").as_deref() != Some("TargetedPlayer")
+            {
+                return None;
+            }
+            let num1 = p.take("NumCards").unwrap_or_else(|| "1".to_string());
+            p.take("IsCurse");
+            if !p.exhausted() {
+                return None;
+            }
+            let (api2, mut p2) = Params::parse(&sub_body)?;
+            p2.drop_prose();
+            let next_sub = p2.take("SubAbility");
+            if api2 != "Discard"
+                || p2.take("Mode").as_deref() != Some("TgtChoose")
+                || p2.take("Defined").as_deref() != Some("TargetedController")
+            {
+                return None;
+            }
+            let num2 = p2.take("NumCards").unwrap_or_else(|| "1".to_string());
+            p2.take("IsCurse");
+            if num1.trim() != num2.trim() || !p2.exhausted() {
+                return None;
+            }
+            let amount = self.amount_or_count_ext(num1.trim())?;
+            let effect = if let Some(fixed) = amount
+                .strip_prefix("Amount::Fixed(")
+                .and_then(|r| r.strip_suffix(')'))
+                .and_then(|r| r.parse::<u8>().ok())
+            {
+                format!(
+                    "Effect::DiscardForPlayers {{ who: PlayerRel::TargetPlayerOrController, count: {fixed} }}"
+                )
+            } else {
+                format!(
+                    "Effect::DiscardAmountForPlayers {{ who: PlayerRel::TargetPlayerOrController, amount: {amount} }}"
+                )
+            };
+            Some((vec![effect], next_sub))
+        })();
+        if let Some((effects, next_sub)) = res {
+            *sub = next_sub;
+            Some(effects)
+        } else {
+            *p = saved_p;
+            self.body.statics.truncate(saved_statics);
+            *self.unclaimed.borrow_mut() = saved_unclaimed;
+            None
+        }
+    }
+
+    /// Wave 28b-p3 `Pump | Defined$ Targeted.<qual> | ParentTarget.<qual>`
+    /// (*Kaseto, Orochi Archmage*, *Wedding Invitation*, *Searing Barb*):
+    /// lowers to `Effect::IfTargetMatches { filter, then: &[pump...] }`.
+    fn wave28b_conditional_target_pump(
+        &mut self,
+        p: &mut Params,
+        target: &str,
+    ) -> Option<Vec<String>> {
+        let saved_p = p.clone();
+        let saved_statics = self.body.statics.len();
+        let saved_unclaimed = self.unclaimed.borrow().clone();
+        let res = (|| {
+            let def = p.take("Defined")?;
+            let qual = def
+                .strip_prefix("Targeted.")
+                .or_else(|| def.strip_prefix("ParentTarget."))?
+                .trim();
+            if qual.is_empty()
+                || qual.contains("IsRemembered")
+                || qual.contains("EffectSource")
+                || qual.contains("RememberedPlayer")
+                || qual.contains("Targeted")
+            {
+                return None;
+            }
+            let filter_expr = self.filter_expr(&format!("Card.{qual}"))?;
+            let f_ref = self.wave28b_filter_ref(&filter_expr);
+            let inner = self.pump_effect(p, target, false)?;
+            if !p.exhausted() || inner.is_empty() {
+                return None;
+            }
+            Some(vec![format!(
+                "Effect::IfTargetMatches {{ filter: {f_ref}, then: &[{}] }}",
+                inner.join(", ")
+            )])
+        })();
+        if res.is_none() {
+            *p = saved_p;
+            self.body.statics.truncate(saved_statics);
+            *self.unclaimed.borrow_mut() = saved_unclaimed;
+        }
+        res
+    }
+
+    /// Wave 28b-p3 `SP$/AB$/DB$ Effect` lowerings onto existing engine-verified
+    /// DSL variants:
+    /// 1. `Misstep` -> `Effect::TargetPlayersCreaturesDontUntapNextUntap`.
+    /// 2. `Glass Asp` -> `Effect::LoseLifeAtNextDrawUnlessPaidBefore`.
+    /// 3. `Dazzling Reflection` -> `Effect::PreventNextDamageFromTarget`.
+    /// 4. Stack-spell `PreventAllDamageFromIt` (*Dromoka's Command*,
+    ///    *Hidden Retreat*, *Shieldmage Elder*).
+    /// 5. `RememberObjects$ Valid <F>` with CR 611.2c characteristic-locking
+    ///    `Mode$ Continuous` modifiers (*Energybending*).
+    /// 6. Target player's creatures can't block (`Mode$ CantBlock |
+    ///    ValidCard$ Creature.RememberedPlayerCtrl`) via `Effect::AddTempModifier`.
+    #[allow(clippy::too_many_lines)]
+    pub(super) fn wave28b_effect_api(
+        &mut self,
+        p: &mut Params,
+        target: Option<&str>,
+    ) -> Option<Vec<String>> {
+        for probe in [
+            Self::wave28b_effect_misstep,
+            Self::wave28b_effect_draw_debt,
+            Self::wave28b_effect_prevent_next_from_target,
+            Self::wave28b_effect_prevent_stack_spell_damage,
+            Self::wave28b_effect_valid_remembered_continuous,
+            Self::wave28b_effect_player_creatures_cant_block,
+        ] {
+            let snap = p.clone();
+            let saved_unclaimed = self.unclaimed.borrow().clone();
+            let saved_statics_len = self.body.statics.len();
+            if let Some(effects) = probe(self, p, target) {
+                return Some(effects);
+            }
+            *p = snap;
+            *self.unclaimed.borrow_mut() = saved_unclaimed;
+            self.body.statics.truncate(saved_statics_len);
+        }
+        None
+    }
+
+    fn wave28b_exiles_self_effect(&self, svar_name: &str) -> bool {
+        let Some(body) = self.svars.get(svar_name.trim()) else {
+            return false;
+        };
+        let Some((api, mut p)) = Params::parse(body) else {
+            return false;
+        };
+        p.drop_prose();
+        api == "ChangeZone"
+            && p.take("Defined").as_deref() == Some("Self")
+            && p.take("Origin").as_deref() == Some("Command")
+            && p.take("Destination").as_deref() == Some("Exile")
+            && p.exhausted()
+    }
+
+    fn wave28b_effect_misstep(
+        &mut self,
+        p: &mut Params,
+        target: Option<&str>,
+    ) -> Option<Vec<String>> {
+        if !matches!(
+            target,
+            Some(
+                "TargetSpec::AnyPlayer"
+                    | "TargetSpec::AnyOpponent"
+                    | "TargetSpec::Player(PlayerRel::Chosen)"
+            )
+        ) {
+            return None;
+        }
+        if p.take("Duration").as_deref() != Some("Permanent")
+            || p.take("RememberObjects").as_deref() != Some("Targeted")
+        {
+            return None;
+        }
+        p.take("IsCurse");
+        let statics = p.take("StaticAbilities")?;
+        let triggers = p.take("Triggers")?;
+        if statics.contains(',') || triggers.contains(',') || !p.exhausted() {
+            return None;
+        }
+        let st_body = self.svars.get(statics.trim())?.clone();
+        let (st_mode, mut st) = Params::parse(&st_body)?;
+        st.drop_prose();
+        if st_mode != "Continuous"
+            || !matches!(
+                st.take("AffectedZone").as_deref(),
+                None | Some("Battlefield")
+            )
+            || st.take("Affected").as_deref() != Some("Creature.RememberedPlayerCtrl")
+            || st.take("AddHiddenKeyword").as_deref()
+                != Some("This card doesn't untap during your next untap step.")
+            || !st.exhausted()
+        {
+            return None;
+        }
+        let tr_body = self.svars.get(triggers.trim())?.clone();
+        let (tr_mode, mut tr) = Params::parse(&tr_body)?;
+        tr.drop_prose();
+        if tr_mode != "Phase"
+            || tr.take("Phase").as_deref() != Some("Untap")
+            || tr.take("ValidPlayer").as_deref() != Some("Player.IsRemembered")
+            || !matches!(tr.take("TriggerZones").as_deref(), None | Some("Command"))
+            || !matches!(tr.take("Static").as_deref(), None | Some("True"))
+        {
+            return None;
+        }
+        let exec = tr.take("Execute")?;
+        if !tr.exhausted() || !self.wave28b_exiles_self_effect(&exec) {
+            return None;
+        }
+        Some(vec![
+            "Effect::TargetPlayersCreaturesDontUntapNextUntap".to_string(),
+        ])
+    }
+
+    fn wave28b_effect_draw_debt(
+        &mut self,
+        p: &mut Params,
+        target: Option<&str>,
+    ) -> Option<Vec<String>> {
+        if p.take("Duration").as_deref() != Some("Permanent") {
+            return None;
+        }
+        let who = match p.take("RememberObjects").as_deref() {
+            Some("TriggeredTarget")
+                if matches!(
+                    self.trigger_mode.as_deref(),
+                    Some("DamageDone" | "DamageDoneOnce")
+                ) =>
+            {
+                "PlayerRel::DamagedPlayer"
+            }
+            Some("Targeted")
+                if matches!(
+                    target,
+                    Some(
+                        "TargetSpec::AnyPlayer"
+                            | "TargetSpec::AnyOpponent"
+                            | "TargetSpec::Player(PlayerRel::Chosen)"
+                    )
+                ) =>
+            {
+                "PlayerRel::Chosen"
+            }
+            _ => return None,
+        };
+        let triggers = p.take("Triggers")?;
+        let abilities = p.take("Abilities")?;
+        p.take("IsCurse");
+        if triggers.contains(',') || abilities.contains(',') || !p.exhausted() {
+            return None;
+        }
+        let tr_body = self.svars.get(triggers.trim())?.clone();
+        let (tr_mode, mut tr) = Params::parse(&tr_body)?;
+        tr.drop_prose();
+        if tr_mode != "Phase"
+            || tr.take("Phase").as_deref() != Some("Draw")
+            || tr.take("ValidPlayer").as_deref() != Some("Player.IsRemembered")
+            || !matches!(tr.take("TriggerZones").as_deref(), None | Some("Command"))
+            || tr.take("OneOff").as_deref() != Some("True")
+        {
+            return None;
+        }
+        let exec_name = tr.take("Execute")?;
+        if !tr.exhausted() {
+            return None;
+        }
+        let exec_body = self.svars.get(exec_name.trim())?.clone();
+        let (exec_api, mut exec) = Params::parse(&exec_body)?;
+        exec.drop_prose();
+        if exec_api != "LoseLife" || exec.take("Defined").as_deref() != Some("Player.IsRemembered")
+        {
+            return None;
+        }
+        let amount: u32 = exec
+            .take("LifeAmount")?
+            .trim()
+            .parse()
+            .ok()
+            .filter(|&n| n > 0)?;
+        if !exec.exhausted() {
+            return None;
+        }
+        let ab_body = self.svars.get(abilities.trim())?.clone();
+        let (ab_api, mut ab) = Params::parse(&ab_body)?;
+        ab.drop_prose();
+        if ab_api != "ChangeZone"
+            || ab.take("Defined").as_deref() != Some("Self")
+            || ab.take("Origin").as_deref() != Some("Command")
+            || ab.take("Destination").as_deref() != Some("Exile")
+            || ab.take("ActivationZone").as_deref() != Some("Command")
+            || ab.take("Activator").as_deref() != Some("Player.IsRemembered")
+        {
+            return None;
+        }
+        let cost_raw = ab.take("Cost")?;
+        if !ab.exhausted() {
+            return None;
+        }
+        let mana = printed_mana(&cost_raw)?;
+        Some(vec![format!(
+            "Effect::LoseLifeAtNextDrawUnlessPaidBefore {{ player: {who}, amount: {amount}, \
+             cost: mana!(\"{mana}\") }}"
+        )])
+    }
+
+    fn wave28b_effect_prevent_next_from_target(
+        &mut self,
+        p: &mut Params,
+        target: Option<&str>,
+    ) -> Option<Vec<String>> {
+        if !target.is_some_and(|t| t.starts_with("TargetSpec::Object(")) {
+            return None;
+        }
+        if !matches!(p.take("Duration").as_deref(), None | Some("UntilEndOfTurn"))
+            || p.take("ImprintCards").as_deref() != Some("Targeted")
+        {
+            return None;
+        }
+        p.take("IsCurse");
+        let rep_name = p.take("ReplacementEffects")?;
+        let trig_name = p.take("Triggers");
+        if rep_name.contains(',')
+            || trig_name.as_deref().is_some_and(|t| t.contains(','))
+            || !p.exhausted()
+        {
+            return None;
+        }
+        if let Some(trig_name) = trig_name {
+            let tr_body = self.svars.get(trig_name.trim())?.clone();
+            let (tr_mode, mut tr) = Params::parse(&tr_body)?;
+            tr.drop_prose();
+            if tr_mode != "ChangesZone"
+                || tr.take("Origin").as_deref() != Some("Battlefield")
+                || tr.take("Destination").as_deref() != Some("Any")
+                || !matches!(
+                    tr.take("ValidCard").as_deref(),
+                    Some("Card.IsImprinted" | "Creature.IsImprinted")
+                )
+                || !matches!(tr.take("Static").as_deref(), None | Some("True"))
+            {
+                return None;
+            }
+            let exec = tr.take("Execute")?;
+            if !tr.exhausted() || !self.wave28b_exiles_self_effect(&exec) {
+                return None;
+            }
+        }
+        let rep_body = self.svars.get(rep_name.trim())?.clone();
+        let (event, mut r) = Params::parse(&rep_body)?;
+        r.drop_prose();
+        if event != "DamageDone"
+            || !matches!(
+                r.take("ValidSource").as_deref(),
+                Some("Card.IsImprinted" | "Creature.IsImprinted")
+            )
+            || !matches!(r.take("ActiveZones").as_deref(), None | Some("Command"))
+        {
+            return None;
+        }
+        let is_prev = r.take("PreventionEffect").as_deref() == Some("True")
+            || r.take("Prevent").as_deref() == Some("True");
+        let replace_with = r.take("ReplaceWith")?;
+        if !is_prev || !r.exhausted() {
+            return None;
+        }
+        let gain_life = if self.wave28b_exiles_self_effect(&replace_with) {
+            false
+        } else {
+            let rw_body = self.svars.get(replace_with.trim())?.clone();
+            let (rw_api, mut rw) = Params::parse(&rw_body)?;
+            rw.drop_prose();
+            if rw_api != "GainLife" || !matches!(rw.take("Defined").as_deref(), None | Some("You"))
+            {
+                return None;
+            }
+            let amt_raw = rw.take("LifeAmount")?;
+            let resolved = self
+                .svars
+                .get(amt_raw.trim())
+                .map_or(amt_raw.trim(), String::as_str)
+                .trim();
+            let sub = rw.take("SubAbility")?;
+            if resolved != "ReplaceCount$DamageAmount"
+                || !rw.exhausted()
+                || !self.wave28b_exiles_self_effect(&sub)
+            {
+                return None;
+            }
+            true
+        };
+        Some(vec![format!(
+            "Effect::PreventNextDamageFromTarget {{ gain_life: {gain_life} }}"
+        )])
+    }
+
+    fn wave28b_effect_prevent_stack_spell_damage(
+        &mut self,
+        p: &mut Params,
+        target: Option<&str>,
+    ) -> Option<Vec<String>> {
+        if !target.is_some_and(|t| t.starts_with("TargetSpec::Spell(")) {
+            return None;
+        }
+        if !matches!(p.take("Duration").as_deref(), None | Some("UntilEndOfTurn")) {
+            return None;
+        }
+        let ends = p.take("ExileOnMoved").or_else(|| p.take("ForgetOnMoved"));
+        if !matches!(ends.as_deref(), None | Some("Stack")) {
+            return None;
+        }
+        if !matches!(
+            p.take("RememberObjects").as_deref(),
+            Some("Targeted" | "ParentTarget" | "TargetedSource")
+        ) {
+            return None;
+        }
+        p.take("IsCurse");
+        if let Some(tt) = p.take("TargetType")
+            && tt != "Spell"
+        {
+            return None;
+        }
+        if let Some(stackable) = p.take("Stackable")
+            && stackable != "False"
+        {
+            return None;
+        }
+        let statics = p.take("StaticAbilities")?;
+        if statics.contains(',') || !p.exhausted() {
+            return None;
+        }
+        let st_body = self.svars.get(statics.trim())?.clone();
+        let (st_mode, mut st) = Params::parse(&st_body)?;
+        st.drop_prose();
+        if st_mode != "Continuous"
+            || !matches!(
+                st.take("AffectedZone").as_deref(),
+                Some("Stack" | "Battlefield,Stack" | "Stack,Battlefield")
+            )
+            || st.take("Affected").as_deref() != Some("Card.IsRemembered")
+            || st.take("AddKeyword").as_deref()
+                != Some("Prevent all damage that would be dealt by CARDNAME.")
+            || !st.exhausted()
+        {
+            return None;
+        }
+        Some(vec![
+            "Effect::ModifyTargets { modifier: Modifier::PreventAllDamageFromIt, \
+             duration: Duration::UntilEndOfTurn }"
+                .to_string(),
+        ])
+    }
+
+    fn wave28b_effect_valid_remembered_continuous(
+        &mut self,
+        p: &mut Params,
+        _target: Option<&str>,
+    ) -> Option<Vec<String>> {
+        let duration = match p.take("Duration").as_deref() {
+            None | Some("UntilEndOfTurn") => "Duration::UntilEndOfTurn",
+            Some("UntilEndOfCombat") => "Duration::UntilEndOfCombat",
+            Some("UntilYourNextTurn") => "Duration::UntilYourNextTurn",
+            _ => return None,
+        };
+        let ends = p.take("ExileOnMoved").or_else(|| p.take("ForgetOnMoved"));
+        if !matches!(ends.as_deref(), None | Some("Battlefield")) {
+            return None;
+        }
+        p.take("IsCurse");
+        if let Some(ns) = p.take("NonStackingEffect")
+            && ns != "True"
+        {
+            return None;
+        }
+        if let Some(stackable) = p.take("Stackable")
+            && stackable != "False"
+        {
+            return None;
+        }
+        let rem = p.take("RememberObjects")?;
+        let valid = rem.strip_prefix("Valid ")?.trim();
+        if valid.is_empty()
+            || valid.contains("IsRemembered")
+            || valid.contains("EffectSource")
+            || valid.contains("RememberedPlayer")
+            || valid.contains("Targeted")
+            || valid.contains("ChosenCard")
+        {
+            return None;
+        }
+        let statics = p.take("StaticAbilities")?;
+        if !p.exhausted() {
+            return None;
+        }
+        let mut out = Vec::new();
+        for svar_name in statics.split(',').map(str::trim).filter(|s| !s.is_empty()) {
+            let body = self.svars.get(svar_name)?.clone();
+            let (mode, check) = Params::parse(&body)?;
+            if mode != "Continuous" {
+                return None;
+            }
+            let aff = check.peek("Affected")?.trim();
+            let aff_matches = matches!(aff, "Card.IsRemembered" | "Permanent.IsRemembered")
+                || (!valid.contains(',')
+                    && ((aff == "Land.IsRemembered" && valid.starts_with("Land"))
+                        || (aff == "Creature.IsRemembered" && valid.starts_with("Creature"))
+                        || (aff == "Artifact.IsRemembered" && valid.starts_with("Artifact"))));
+            if !aff_matches {
+                return None;
+            }
+            let rewritten = body
+                .split('|')
+                .map(str::trim)
+                .map(|part| {
+                    if part.starts_with("Affected$") {
+                        format!("Affected$ {valid}")
+                    } else {
+                        part.to_string()
+                    }
+                })
+                .collect::<Vec<_>>()
+                .join(" | ");
+            let (mode2, mut st) = Params::parse(&rewritten)?;
+            if mode2 != "Continuous" {
+                return None;
+            }
+            st.drop_prose();
+            let effs = self.effect_continuous_static(&mut st, EffectSubject::Unbound, duration)?;
+            // `RememberObjects$ Valid <F>` snapshots the set at resolution (CR 611.2c),
+            // so only emit characteristic-changing modifiers whose engine `locks_its_set`
+            // semantics match that snapshot.
+            if !effs.iter().all(|e| {
+                e.starts_with("Effect::continuous(&")
+                    && !e.contains("CANT_BLOCK")
+                    && !e.contains("CANT_ATTACK")
+                    && !e.contains("UNBLOCKABLE")
+                    && [
+                        "Modifier::AllBasicLandTypes",
+                        "Modifier::AddType(",
+                        "Modifier::AddSubtype(",
+                        "Modifier::ModifyPT(",
+                        "Modifier::SetPT(",
+                        "Modifier::SetPower(",
+                        "Modifier::SetToughness(",
+                        "Modifier::AddKeyword(",
+                        "Modifier::RemoveKeyword(",
+                        "Modifier::LoseAllAbilities",
+                        "Modifier::SetColor(",
+                        "Modifier::AddColor(",
+                    ]
+                    .iter()
+                    .any(|m| e.contains(m))
+            }) {
+                return None;
+            }
+            out.extend(effs);
+        }
+        (!out.is_empty()).then_some(out)
+    }
+
+    fn wave28b_effect_player_creatures_cant_block(
+        &mut self,
+        p: &mut Params,
+        target: Option<&str>,
+    ) -> Option<Vec<String>> {
+        let tgt = target.filter(|t| {
+            matches!(
+                *t,
+                "TargetSpec::AnyPlayer"
+                    | "TargetSpec::AnyOpponent"
+                    | "TargetSpec::Player(PlayerRel::Chosen)"
+            )
+        })?;
+        let duration = match p.take("Duration").as_deref() {
+            None | Some("UntilEndOfTurn") => "Duration::UntilEndOfTurn",
+            Some("UntilEndOfCombat") => "Duration::UntilEndOfCombat",
+            Some("UntilYourNextTurn") => "Duration::UntilYourNextTurn",
+            _ => return None,
+        };
+        let ends = p.take("ExileOnMoved").or_else(|| p.take("ForgetOnMoved"));
+        if !matches!(ends.as_deref(), None | Some("Battlefield")) {
+            return None;
+        }
+        if !matches!(
+            p.take("RememberObjects").as_deref(),
+            Some("Targeted" | "ParentTarget")
+        ) {
+            return None;
+        }
+        p.take("IsCurse");
+        let statics = p.take("StaticAbilities")?;
+        if statics.contains(',') || !p.exhausted() {
+            return None;
+        }
+        let st_body = self.svars.get(statics.trim())?.clone();
+        let (st_mode, mut st) = Params::parse(&st_body)?;
+        st.drop_prose();
+        if st_mode != "CantBlock"
+            || !matches!(st.take("EffectZone").as_deref(), None | Some("Command"))
+            || st.take("ValidCard").as_deref() != Some("Creature.RememberedPlayerCtrl")
+            || !st.exhausted()
+        {
+            return None;
+        }
+        Some(vec![format!(
+            "Effect::AddTempModifier {{ target: {tgt}, \
+             modifier: Modifier::AddKeyword(KeywordSet::CANT_BLOCK), duration: {duration} }}"
+        )])
+    }
+
+    /// Wave 28b-p3 `PutCounter | RememberCards$ True | SubAbility$ DBEffect(ForgetCounter$ <KIND>)`
+    /// (*Aven Mimeomancer*): puts the counter(s) on the target and attaches the
+    /// continuous modifiers with `Duration::WhileCounterRemains(<KIND>)`.
+    fn wave28b_put_counter_while_counter_remains(
+        &mut self,
+        p: &mut Params,
+        sub: &mut Option<String>,
+    ) -> Option<Vec<String>> {
+        let sub_name = sub.as_deref()?;
+        let sub_body = self.svars.get(sub_name)?.clone();
+        let saved_p = p.clone();
+        let saved_statics = self.body.statics.len();
+        let saved_unclaimed = self.unclaimed.borrow().clone();
+        let res = (|| {
+            if p.take("RememberCards").as_deref() != Some("True") {
+                return None;
+            }
+            if !matches!(
+                p.take("Defined").as_deref(),
+                None | Some("Targeted" | "ParentTarget")
+            ) {
+                return None;
+            }
+            p.take("IsCurse");
+            let kind_raw = p.take("CounterType")?;
+            let kind = counter_kind(kind_raw.trim())?;
+            let num_raw = p.take("CounterNum").unwrap_or_else(|| "1".to_string());
+            let amount = self.amount_or_count_ext(num_raw.trim())?;
+            if !p.exhausted() {
+                return None;
+            }
+            let (eff_api, mut ep) = Params::parse(&sub_body)?;
+            ep.drop_prose();
+            let eff_sub = ep.take("SubAbility");
+            if eff_api != "Effect"
+                || ep.take("RememberObjects").as_deref() != Some("Remembered")
+                || ep.take("Duration").as_deref() != Some("Permanent")
+                || !matches!(
+                    ep.take("ForgetOnMoved")
+                        .or_else(|| ep.take("ExileOnMoved"))
+                        .as_deref(),
+                    None | Some("Battlefield")
+                )
+            {
+                return None;
+            }
+            let forget_counter = ep.take("ForgetCounter")?;
+            if counter_kind(forget_counter.trim()).as_deref() != Some(kind.as_str()) {
+                return None;
+            }
+            ep.take("IsCurse");
+            let statics = ep.take("StaticAbilities")?;
+            if !ep.exhausted() {
+                return None;
+            }
+            let duration = format!("Duration::WhileCounterRemains({kind})");
+            let mut out = vec![format!(
+                "Effect::AddCounter {{ kind: {kind}, amount: {amount} }}"
+            )];
+            for svar_name in statics.split(',').map(str::trim).filter(|s| !s.is_empty()) {
+                let st_body = self.svars.get(svar_name)?.clone();
+                let (st_mode, mut st) = Params::parse(&st_body)?;
+                st.drop_prose();
+                if st_mode != "Continuous" {
+                    return None;
+                }
+                let effs =
+                    self.effect_continuous_static(&mut st, EffectSubject::Targets, &duration)?;
+                if effs.is_empty()
+                    || !effs
+                        .iter()
+                        .all(|e| e.starts_with("Effect::ModifyTargets {"))
+                {
+                    return None;
+                }
+                out.extend(effs);
+            }
+            let after_cleanup = self.wave28b_consume_optional_cleanup(eff_sub).ok()?;
+            Some((out, after_cleanup))
+        })();
+        if let Some((effects, next_sub)) = res {
+            *sub = next_sub;
+            Some(effects)
+        } else {
+            *p = saved_p;
+            self.body.statics.truncate(saved_statics);
+            *self.unclaimed.borrow_mut() = saved_unclaimed;
+            None
+        }
     }
 }

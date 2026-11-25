@@ -563,10 +563,10 @@ fn wave28b_honest_refusal_boundaries() {
          A:SP$ Pump | ValidTgts$ Creature | NumAtt$ +1 | NumDef$ +1 | TargetMin$ 0 | TargetMax$ 2 | SubAbility$ DBAnimate\n\
          SVar:DBAnimate:DB$ Animate | Defined$ Targeted | Abilities$ ABFight\n\
          SVar:ABFight:AB$ Fight | Cost$ T | Defined$ Self | ValidTgts$ Creature.Other",
-        // PayEnergy<2> has no single-prompt exact-2 energy payment effect.
-        "Name:BadPayTwoEnergy\nManaCost:2 R\nTypes:Creature\nPT:2/2\n\
+        // PayEnergy<0> is invalid; PayEnergy<X> without consuming ResolutionChosenNumber stays refused.
+        "Name:BadPayZeroEnergy\nManaCost:2 R\nTypes:Creature\nPT:2/2\n\
          T:Mode$ Attacks | ValidCard$ Card.Self | Execute$ TrigPump\n\
-         SVar:TrigPump:AB$ Pump | Cost$ PayEnergy<2> | Defined$ Self | NumAtt$ +2",
+         SVar:TrigPump:AB$ Pump | Cost$ PayEnergy<0> | Defined$ Self | NumAtt$ +2",
         // Negated ConditionDefined$ Equipped must stay refused (unattached Equipment is not "not blue").
         "Name:BadNegatedEquipped\nManaCost:2\nTypes:Artifact Equipment\nK:Equip:1\n\
          T:Mode$ Phase | Phase$ Upkeep | ValidPlayer$ You | TriggerZones$ Battlefield | Execute$ TrigPut\n\
@@ -942,4 +942,283 @@ fn wave28b_p2_svars_and_optional_costs() {
         "{}",
         shieldguard.abilities[0]
     );
+}
+
+#[test]
+fn wave28b_p3_reveal_hand_discard_and_target_or_controller() {
+    let iok = read(
+        "Name:Inquisition of Kozilek\nManaCost:B\nTypes:Sorcery\n\
+         A:SP$ Discard | ValidTgts$ Player | Mode$ RevealYouChoose | \
+         DiscardValid$ Card.nonLand+cmcLE3 | DiscardValidDesc$ nonland card with mana value 3 or less",
+    );
+    assert!(
+        iok.abilities[0].contains("Effect::RevealHandDiscard")
+            && iok.abilities[0].contains("Filter::NONLAND")
+            && iok.abilities[0].contains("Filter::CmcAtMost(3)"),
+        "{}",
+        iok.abilities[0]
+    );
+
+    let glimmer = read(
+        "Name:Venarian Glimmer\nManaCost:X U\nTypes:Instant\n\
+         A:SP$ Discard | ValidTgts$ Player | Mode$ RevealYouChoose | \
+         DiscardValid$ Card.nonLand+cmcLEX | DiscardValidDesc$ nonland card with mana value X or less\n\
+         SVar:X:Count$xPaid",
+    );
+    assert!(
+        glimmer.abilities[0].contains("Effect::RevealHandDiscard")
+            && glimmer.abilities[0].contains("Filter::CmcAtMostX"),
+        "{}",
+        glimmer.abilities[0]
+    );
+
+    let vitriol = read(
+        "Name:Stinging Vitriol\nManaCost:B R\nTypes:Sorcery\n\
+         A:SP$ DealDamage | ValidTgts$ Opponent | NumDmg$ 2 | SubAbility$ DBDiscard\n\
+         SVar:DBDiscard:DB$ Discard | Defined$ TargetedPlayer | Mode$ RevealYouChoose | \
+         DiscardValid$ Card.nonLand | NumCards$ 1",
+    );
+    assert!(
+        vitriol.abilities[0].contains("Effect::DealDamage")
+            && vitriol.abilities[0]
+                .contains("Effect::RevealHandDiscard { filter: &Filter::NONLAND }"),
+        "{}",
+        vitriol.abilities[0]
+    );
+
+    let blightning = read(
+        "Name:Blightning\nManaCost:1 B R\nTypes:Sorcery\n\
+         A:SP$ DealDamage | ValidTgts$ Player,Planeswalker | NumDmg$ 3 | SubAbility$ DBDiscard\n\
+         SVar:DBDiscard:DB$ Discard | Defined$ TargetedPlayer | NumCards$ 2 | Mode$ TgtChoose | SubAbility$ DBDiscard2\n\
+         SVar:DBDiscard2:DB$ Discard | Defined$ TargetedController | NumCards$ 2 | Mode$ TgtChoose",
+    );
+    assert!(
+        blightning.abilities[0].contains(
+            "Effect::DiscardForPlayers { who: PlayerRel::TargetPlayerOrController, count: 2 }"
+        ),
+        "{}",
+        blightning.abilities[0]
+    );
+
+    let rakdos = read(
+        "Name:Rakdos's Return\nManaCost:X B R\nTypes:Sorcery\n\
+         A:SP$ DealDamage | ValidTgts$ Opponent,Planeswalker | NumDmg$ X | SubAbility$ DBDiscardOpp\n\
+         SVar:DBDiscardOpp:DB$ Discard | Defined$ TargetedOrController | NumCards$ X | Mode$ TgtChoose\n\
+         SVar:X:Count$xPaid",
+    );
+    assert!(
+        rakdos.abilities[0].contains(
+            "Effect::DiscardAmountForPlayers { who: PlayerRel::TargetPlayerOrController, amount: Amount::X }"
+        ),
+        "{}",
+        rakdos.abilities[0]
+    );
+
+    let flames = read(
+        "Name:Flames of the Blood Hand\nManaCost:2 R\nTypes:Instant\n\
+         A:SP$ DealDamage | ValidTgts$ Player,Planeswalker | NumDmg$ 4 | NoPrevention$ True | SubAbility$ PreventHealing\n\
+         SVar:PreventHealing:DB$ Effect | ReplacementEffects$ GainLifeEvent | RememberObjects$ TargetedOrController\n\
+         SVar:GainLifeEvent:Event$ GainLife | ValidPlayer$ Player.IsRemembered | Prevent$ True",
+    );
+    assert!(
+        flames.abilities[0]
+            .contains("Modifier::PlayersCantGainLife(PlayerRel::TargetPlayerOrController)"),
+        "{}",
+        flames.abilities[0]
+    );
+}
+
+#[test]
+fn wave28b_p3_effects_and_stack_prevention() {
+    let misstep = read(
+        "Name:Misstep\nManaCost:1 U\nTypes:Sorcery\n\
+         A:SP$ Effect | ValidTgts$ Player | StaticAbilities$ DontUntap | Triggers$ RemoveEffect | \
+         Duration$ Permanent | RememberObjects$ Targeted\n\
+         SVar:DontUntap:Mode$ Continuous | AffectedZone$ Battlefield | Affected$ Creature.RememberedPlayerCtrl | \
+         AddHiddenKeyword$ This card doesn't untap during your next untap step.\n\
+         SVar:RemoveEffect:Mode$ Phase | Phase$ Untap | ValidPlayer$ Player.IsRemembered | \
+         TriggerZones$ Command | Static$ True | Execute$ ExileEffect\n\
+         SVar:ExileEffect:DB$ ChangeZone | Defined$ Self | Origin$ Command | Destination$ Exile",
+    );
+    assert!(
+        misstep.abilities[0].contains("Effect::TargetPlayersCreaturesDontUntapNextUntap"),
+        "{}",
+        misstep.abilities[0]
+    );
+
+    let asp = read(
+        "Name:Glass Asp\nManaCost:1 G G\nTypes:Creature\nPT:2/1\n\
+         T:Mode$ DamageDone | ValidSource$ Card.Self | ValidTarget$ Player | CombatDamage$ True | \
+         Execute$ NafsEffect | TriggerZones$ Battlefield\n\
+         SVar:NafsEffect:DB$ Effect | RememberObjects$ TriggeredTarget | Duration$ Permanent | \
+         Triggers$ DrawTrig | Abilities$ PayUp\n\
+         SVar:DrawTrig:Mode$ Phase | Phase$ Draw | ValidPlayer$ Player.IsRemembered | \
+         TriggerZones$ Command | OneOff$ True | Execute$ Bleed\n\
+         SVar:Bleed:DB$ LoseLife | Defined$ Player.IsRemembered | LifeAmount$ 2\n\
+         SVar:PayUp:ST$ ChangeZone | Cost$ 2 | Defined$ Self | Origin$ Command | Destination$ Exile | \
+         ActivationZone$ Command | Activator$ Player.IsRemembered",
+    );
+    assert!(
+        asp.abilities[0].contains(
+            "Effect::LoseLifeAtNextDrawUnlessPaidBefore { player: PlayerRel::DamagedPlayer, amount: 2, cost: mana!(\"{2}\") }"
+        ),
+        "{}",
+        asp.abilities[0]
+    );
+
+    let dazzle = read(
+        "Name:Dazzling Reflection\nManaCost:1 W\nTypes:Instant\n\
+         A:SP$ TargetOnly | ValidTgts$ Creature | SubAbility$ DBGainLife\n\
+         SVar:DBGainLife:DB$ GainLife | Defined$ You | SubAbility$ DBEffect | LifeAmount$ X\n\
+         SVar:X:Targeted$CardPower\n\
+         SVar:DBEffect:DB$ Effect | ReplacementEffects$ Dazzle | ImprintCards$ Targeted | Triggers$ OutOfSight\n\
+         SVar:Dazzle:Event$ DamageDone | ValidSource$ Card.IsImprinted | ReplaceWith$ ExileEffect | PreventionEffect$ True\n\
+         SVar:OutOfSight:Mode$ ChangesZone | Origin$ Battlefield | Destination$ Any | ValidCard$ Creature.IsImprinted | \
+         Execute$ ExileEffect | Static$ True\n\
+         SVar:ExileEffect:DB$ ChangeZone | Defined$ Self | Origin$ Command | Destination$ Exile",
+    );
+    assert!(
+        dazzle.abilities[0].contains("Effect::PreventNextDamageFromTarget { gain_life: false }"),
+        "{}",
+        dazzle.abilities[0]
+    );
+
+    let shieldmage = read(
+        "Name:Shieldmage Elder\nManaCost:5 W\nTypes:Creature Wizard\nPT:2/3\n\
+         A:AB$ Effect | Cost$ tapXType<2/Wizard> | ValidTgts$ Card | TargetType$ Spell | TgtZone$ Stack | \
+         IsCurse$ True | RememberObjects$ TargetedSource | StaticAbilities$ STNoDmg | SubAbility$ DBCleanup\n\
+         SVar:STNoDmg:Mode$ Continuous | AffectedZone$ Battlefield,Stack | Affected$ Card.IsRemembered | \
+         AddKeyword$ Prevent all damage that would be dealt by CARDNAME.\n\
+         SVar:DBCleanup:DB$ Cleanup | ClearRemembered$ True",
+    );
+    assert!(
+        shieldmage.abilities[0].contains(
+            "Effect::ModifyTargets { modifier: Modifier::PreventAllDamageFromIt, duration: Duration::UntilEndOfTurn }"
+        ),
+        "{}",
+        shieldmage.abilities[0]
+    );
+
+    let energybend = read(
+        "Name:Energybending\nManaCost:2\nTypes:Instant\n\
+         A:SP$ Effect | StaticAbilities$ Energybend | RememberObjects$ Valid Land.YouCtrl | SubAbility$ DBDraw\n\
+         SVar:Energybend:Mode$ Continuous | Affected$ Permanent.IsRemembered | AddType$ AllBasicLandType\n\
+         SVar:DBDraw:DB$ Draw",
+    );
+    assert!(
+        energybend.abilities[0].contains("Modifier::AllBasicLandTypes")
+            && energybend.abilities[0].contains("Effect::draw(1)"),
+        "{}",
+        energybend.abilities[0]
+    );
+}
+
+#[test]
+fn wave28b_p3_pumps_counters_and_multi_energy() {
+    let mimeomancer = read(
+        "Name:Aven Mimeomancer\nManaCost:1 W U\nTypes:Creature Wizard\nPT:3/1\nK:Flying\n\
+         T:Mode$ Phase | Phase$ Upkeep | ValidPlayer$ You | Execute$ TrigPutCounter | \
+         TriggerZones$ Battlefield | OptionalDecider$ You\n\
+         SVar:TrigPutCounter:DB$ PutCounter | ValidTgts$ Creature | CounterType$ FEATHER | CounterNum$ 1 | \
+         RememberCards$ True | SubAbility$ DBEffect\n\
+         SVar:DBEffect:DB$ Effect | RememberObjects$ Remembered | StaticAbilities$ MimeomancerStatic | \
+         ForgetOnMoved$ Battlefield | ForgetCounter$ FEATHER | Duration$ Permanent | SubAbility$ DBCleanup\n\
+         SVar:DBCleanup:DB$ Cleanup | ClearRemembered$ True\n\
+         SVar:MimeomancerStatic:Mode$ Continuous | Affected$ Card.IsRemembered | SetPower$ 3 | \
+         SetToughness$ 1 | AddKeyword$ Flying",
+    );
+    assert!(
+        mimeomancer.abilities[0].contains("Duration::WhileCounterRemains(counters::FEATHER)")
+            && mimeomancer.abilities[0].contains("Modifier::SetPT(3, 1)")
+            && mimeomancer.abilities[0].contains("Modifier::AddKeyword(KeywordSet::FLYING)"),
+        "{}",
+        mimeomancer.abilities[0]
+    );
+
+    let horse = read(
+        "Name:Riding the Dilu Horse\nManaCost:2 G\nTypes:Sorcery\n\
+         A:SP$ Pump | ValidTgts$ Creature | NumAtt$ +2 | NumDef$ +2 | KW$ Horsemanship | Duration$ Permanent",
+    );
+    assert!(
+        horse.abilities[0].contains("KeywordSet::HORSEMANSHIP")
+            && horse.abilities[0].contains("Duration::Indefinitely")
+            && horse.abilities[0].contains("power: Amount::Fixed(2)"),
+        "{}",
+        horse.abilities[0]
+    );
+
+    let cond_pump = read(
+        "Name:Wizard Booster\nManaCost:1 G U\nTypes:Instant\n\
+         A:SP$ DealDamage | ValidTgts$ Any | NumDmg$ 2 | SubAbility$ DBPump\n\
+         SVar:DBPump:DB$ Pump | Defined$ Targeted.Wizard | NumAtt$ +2 | NumDef$ +2 | KW$ Lifelink",
+    );
+    assert!(
+        cond_pump.abilities[0].contains("Effect::IfTargetMatches")
+            && cond_pump.abilities[0].contains("KeywordSet::LIFELINK"),
+        "{}",
+        cond_pump.abilities[0]
+    );
+
+    let shrine = read(
+        "Name:Shrine of Limitless Power\nManaCost:3\nTypes:Artifact\n\
+         A:AB$ Discard | Cost$ 4 T Sac<1/CARDNAME> | ValidTgts$ Player | NumCards$ X | Mode$ TgtChoose\n\
+         SVar:X:Sacrificed$CardCounters.CHARGE",
+    );
+    assert!(
+        shrine.abilities[0].contains("Amount::CountersOnSource(CounterKind::Charge)"),
+        "{}",
+        shrine.abilities[0]
+    );
+
+    let siphoner = read(
+        "Name:Glint-Sleeve Siphoner\nManaCost:1 B\nTypes:Creature\nPT:2/1\n\
+         T:Mode$ Phase | Phase$ Upkeep | ValidPlayer$ You | TriggerZones$ Battlefield | Execute$ TrigDraw\n\
+         SVar:TrigDraw:AB$ Draw | Cost$ PayEnergy<2> | Defined$ You | NumCards$ 1 | SubAbility$ DBLoseLife\n\
+         SVar:DBLoseLife:DB$ LoseLife | Defined$ You | LifeAmount$ 1",
+    );
+    assert!(
+        siphoner.abilities[0]
+            .contains("Condition::AmountAtLeast(Amount::CountersOnYou(CounterKind::Energy), 2)")
+            && siphoner.abilities[0].contains("Effect::MayDo")
+            && siphoner.abilities[0].contains("min: Amount::Fixed(2), max: Amount::Fixed(2)"),
+        "{}",
+        siphoner.abilities[0]
+    );
+}
+
+#[test]
+fn wave28b_p3_honest_refusal_boundaries() {
+    for bad in [
+        // Optional RevealYouChoose has no optional flag on Effect::RevealHandDiscard.
+        "Name:BadOptionalRevealDiscard\nManaCost:1 B\nTypes:Sorcery\n\
+         A:SP$ Discard | ValidTgts$ Opponent | Mode$ RevealYouChoose | Optional$ True | \
+         DiscardValid$ Card.nonLand | DiscardValidDesc$ nonland card",
+        // NumCards$ 2 on RevealYouChoose cannot lower to single-card RevealHandDiscard.
+        "Name:BadTwoCardRevealDiscard\nManaCost:2 B\nTypes:Sorcery\n\
+         A:SP$ Discard | ValidTgts$ Player | Mode$ RevealYouChoose | NumCards$ 2",
+        // Mana Vapors affects lands, not creatures — must not reuse TargetPlayersCreaturesDontUntapNextUntap.
+        "Name:BadManaVapors\nManaCost:1 U\nTypes:Sorcery\n\
+         A:SP$ Effect | ValidTgts$ Player | StaticAbilities$ DontUntap | Triggers$ RemoveEffect | \
+         Duration$ Permanent | RememberObjects$ Targeted\n\
+         SVar:DontUntap:Mode$ Continuous | AffectedZone$ Battlefield | Affected$ Land.RememberedPlayerCtrl | \
+         AddHiddenKeyword$ This card doesn't untap during your next untap step.\n\
+         SVar:RemoveEffect:Mode$ Phase | Phase$ Untap | ValidPlayer$ Player.IsRemembered | \
+         TriggerZones$ Command | Static$ True | Execute$ ExileEffect\n\
+         SVar:ExileEffect:DB$ ChangeZone | Defined$ Self | Origin$ Command | Destination$ Exile",
+        // RememberObjects$ Valid with a non-locking rules modifier (CantBlock) must stay refused.
+        "Name:BadValidNonLocking\nManaCost:2 R\nTypes:Sorcery\n\
+         A:SP$ Effect | StaticAbilities$ NoBlock | RememberObjects$ Valid Creature.OppCtrl\n\
+         SVar:NoBlock:Mode$ Continuous | Affected$ Creature.IsRemembered | AddHiddenKeyword$ CARDNAME can't block.",
+        // Sacrificed$CardCounters without sacrificing CARDNAME itself must stay refused.
+        "Name:BadSacOtherCounters\nManaCost:3\nTypes:Artifact\n\
+         A:AB$ Draw | Cost$ T Sac<1/Creature> | NumCards$ X\n\
+         SVar:X:Sacrificed$CardCounters.P1P1",
+        // Mismatched ForgetCounter$ kind on PutCounter -> Effect must stay refused.
+        "Name:BadForgetCounterMismatch\nManaCost:2 U\nTypes:Sorcery\n\
+         A:SP$ PutCounter | ValidTgts$ Creature | CounterType$ FEATHER | CounterNum$ 1 | RememberCards$ True | SubAbility$ DBEffect\n\
+         SVar:DBEffect:DB$ Effect | RememberObjects$ Remembered | StaticAbilities$ S | ForgetCounter$ CHARGE | Duration$ Permanent\n\
+         SVar:S:Mode$ Continuous | Affected$ Card.IsRemembered | AddKeyword$ Flying",
+    ] {
+        assert!(refused(bad), "must refuse: {bad}");
+    }
 }
