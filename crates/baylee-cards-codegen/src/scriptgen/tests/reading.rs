@@ -2161,11 +2161,9 @@ fn wave22c_etb_counter_cast_riders_and_refusals() {
     // Unassigned named counters and unmodelled etbCounter SVars stay honestly refused.
     for unmodelled in [
         "Name:DivinitySpirit\nManaCost:5 W\nTypes:Creature\nPT:4/4\nK:etbCounter:DIVINITY:1",
-        "Name:ConvergeGolem\nManaCost:4\nTypes:Artifact Creature\nPT:0/0\nK:etbCounter:P1P1:X\nSVar:X:Count$Converge",
-        "Name:AdamantKnight\nManaCost:3 R\nTypes:Creature\nPT:2/2\nK:etbCounter:P1P1:1:CheckSVar$ X\nSVar:X:Adamant$ Red",
         "Name:DraftConstruct\nManaCost:3\nTypes:Artifact Creature\nPT:0/0\nK:etbCounter:P1P1:X\nSVar:X:Count$DraftNotesCount",
         "Name:CommanderHydra\nManaCost:2 G\nTypes:Creature\nPT:0/0\nK:etbCounter:P1P1:X\nSVar:X:Count$TotalCommanderCastFromCommandZone",
-        "Name:SpentGolem\nManaCost:4\nTypes:Artifact Creature\nPT:2/2\nK:etbCounter:P1P1:X\nSVar:X:Count$EachSpentToCast G",
+        "Name:BadSpentGolem\nManaCost:4\nTypes:Artifact Creature\nPT:2/2\nK:etbCounter:P1P1:X\nSVar:X:Count$EachSpentToCast Snow",
     ] {
         assert!(refused(unmodelled), "must stay refused:\n{unmodelled}");
     }
@@ -2379,9 +2377,9 @@ fn wave22c_phase_check_svar_counts_and_refusals() {
          CheckSVar$ X | SVarCompare$ EQ0 | Execute$ TrigDraw\n\
          SVar:TrigDraw:DB$ Draw | Defined$ You | NumCards$ 1\n\
          SVar:X:PlayerCountOpponents$LowestCardsInHand",
-        "Name:VoidWatcher\nManaCost:2 B\nTypes:Enchantment\n\
+        "Name:VoidWatcherBadCmp\nManaCost:2 B\nTypes:Enchantment\n\
          T:Mode$ Phase | Phase$ End of Turn | ValidPlayer$ You | TriggerZones$ Battlefield | \
-         CheckSVar$ X | Execute$ TrigDraw\n\
+         CheckSVar$ X | SVarCompare$ GE2 | Execute$ TrigDraw\n\
          SVar:TrigDraw:DB$ Draw | Defined$ You | NumCards$ 1\n\
          SVar:X:Count$Void.1.0",
         "Name:OtherTribeWatcher\nManaCost:3 W\nTypes:Enchantment\n\

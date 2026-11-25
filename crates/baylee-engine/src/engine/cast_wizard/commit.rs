@@ -158,6 +158,24 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 Cause::Cost,
             )?;
         }
+        let convoked_count = if face.convoke {
+            u16::try_from(
+                wizard
+                    .convoke_taps
+                    .iter()
+                    .filter(|&&id| {
+                        self.state.object(id).is_some_and(|o| {
+                            o.characteristics()
+                                .types
+                                .contains(baylee_core::types::TypeSet::CREATURE)
+                        })
+                    })
+                    .count(),
+            )
+            .unwrap_or(u16::MAX)
+        } else {
+            0
+        };
         for &creature in &wizard.convoke_taps {
             self.state.set_tapped(creature, true);
         }
@@ -1131,6 +1149,12 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
             paid_mana.sacrificed_lki = sacrificed_lki;
             paid_mana.sacrificed = sacrificed_object;
             obj.paid = Some(Box::new(paid_mana));
+        }
+        if convoked_count > 0
+            && let Some(obj) = self.state.object_mut(card)
+        {
+            obj.riders
+                .push(crate::object::Rider::ConvokedCount(convoked_count));
         }
         if matches!(wizard.option, Some(CastModeKind::Prototype))
             && let Some(prototype) = face.prototype

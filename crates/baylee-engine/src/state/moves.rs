@@ -661,13 +661,29 @@ impl GameState {
                 );
             }
         }
-        let departed = (from_zone == Zone::Battlefield && to.zone() != Zone::Battlefield)
-            .then(|| {
-                self.object(id).map(|object| {
-                    super::entry_history::freeze_departure(object, departure.as_ref())
+        let departed = if from_zone == Zone::Battlefield && to.zone() != Zone::Battlefield {
+            self.object(id)
+                .map(|object| super::entry_history::freeze_departure(object, departure.as_ref()))
+        } else if from_zone != to.zone()
+            && to.zone() != Zone::Battlefield
+            && matches!(
+                from_zone,
+                Zone::Graveyard | Zone::Stack | Zone::Command | Zone::Exile
+            )
+        {
+            self.object(id)
+                .filter(|object| !object.status.contains(crate::object::Status::FACE_DOWN))
+                .map(|object| {
+                    let seat = if from_zone == Zone::Stack {
+                        object.controller
+                    } else {
+                        object.owner
+                    };
+                    (super::entry_history::freeze_object(object), seat)
                 })
-            })
-            .flatten();
+        } else {
+            None
+        };
         if from_zone == Zone::Battlefield
             && to.zone() != Zone::Battlefield
             && let Some(object) = self.object(id)
@@ -894,6 +910,8 @@ impl GameState {
                             | crate::object::Rider::WarpedSpell
                             | crate::object::Rider::RevealedFromOpeningHand
                             | crate::object::Rider::SnowManaSpent(_)
+                            | crate::object::Rider::ManaTypesSpent(_)
+                            | crate::object::Rider::ConvokedCount(_)
                             | crate::object::Rider::Sneaked
                             | crate::object::Rider::NinjutsuDefender(_, _)
                             | crate::object::Rider::Spliced { .. }
@@ -937,13 +955,18 @@ impl GameState {
             }
             if from_zone == Zone::Stack
                 && to.zone() == Zone::Battlefield
-                && let Some(snow) = obj
-                    .paid
-                    .as_ref()
-                    .map(|p| p.snow_mana_spent())
-                    .filter(|&n| n > 0)
+                && let Some(paid) = obj.paid.as_ref()
             {
-                obj.riders.push(crate::object::Rider::SnowManaSpent(snow));
+                let snow = paid.snow_mana_spent();
+                if snow > 0 {
+                    obj.riders.push(crate::object::Rider::SnowManaSpent(snow));
+                }
+                if paid.mana_types_spent.iter().any(|&n| n > 0) {
+                    let types = paid
+                        .mana_types_spent
+                        .map(|n| u16::try_from(n).unwrap_or(u16::MAX));
+                    obj.riders.push(crate::object::Rider::ManaTypesSpent(types));
+                }
             }
             // What was paid is the spell's and no later object's (a flashback
             // is a new payment); snow mana spent is carried on a rider above

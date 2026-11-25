@@ -158,7 +158,8 @@ pub fn players(rel: PlayerRel, state: &GameState, you: PlayerId) -> Option<Vec<P
         | PlayerRel::GiftRecipient
         | PlayerRel::RememberedController
         | PlayerRel::FirstTargetPlayerOrController
-        | PlayerRel::ThirdTargetPlayerOrController => {
+        | PlayerRel::ThirdTargetPlayerOrController
+        | PlayerRel::OtherOpponents => {
             return None;
         }
     })

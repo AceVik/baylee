@@ -188,6 +188,12 @@ pub enum PlayerRel {
     /// controller of its third object target (last known, `CR 608.2h`), read
     /// from any target scope. Appended to preserve replay identities.
     ThirdTargetPlayerOrController,
+    /// Each opponent of "you" still in the game (`CR 102.2`, `CR 800.4a`) other
+    /// than the player the triggering event was about ([`Self::EventPlayer`] /
+    /// [`Self::DamagedPlayer`]; *Hydra Omnivore*, *Amarant Coral*, *Grenzo's
+    /// Ruffians* `"each other opponent"`). Appended to preserve replay
+    /// identities.
+    OtherOpponents,
 }
 
 impl PlayerRel {

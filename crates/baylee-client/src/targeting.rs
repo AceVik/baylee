@@ -295,7 +295,8 @@ fn legal_targets_from(
                 | PlayerRel::OwnerOfTarget
                 | PlayerRel::MostLifeOrTied
                 | PlayerRel::LeastLifeOrTied
-                | PlayerRel::DefendingPlayer => {
+                | PlayerRel::DefendingPlayer
+                | PlayerRel::OtherOpponents => {
                     return None;
                 }
             };

@@ -1468,7 +1468,8 @@ impl HeuristicAgent {
             | PlayerRel::EventPlayer
             | PlayerRel::OwnerOfSource
             | PlayerRel::ControllerOfAttached
-            | PlayerRel::EnchantedPlayer => {
+            | PlayerRel::EnchantedPlayer
+            | PlayerRel::OtherOpponents => {
                 return None;
             }
         })

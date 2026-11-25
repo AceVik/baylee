@@ -1311,6 +1311,16 @@ pub enum Rider {
         /// Bitmask of activated abilities in this 64-ability block.
         mask: u64,
     },
+    /// Units of mana of each [`baylee_core::mana::ManaColor`] (`ManaColor::index()`)
+    /// spent to cast the spell that became this permanent or triggered this
+    /// ability (`CR 601.2h`, `CR 400.7d`). Appended to preserve replay identities.
+    ManaTypesSpent([u16; 6]),
+    /// Number of creatures tapped to pay this spell's cost via convoke
+    /// (`CR 702.51a`, `CR 400.7d`). Appended to preserve replay identities.
+    ConvokedCount(u16),
+    /// Total mana spent to cast the spell that caused this triggered ability
+    /// (`CR 601.2h`, `CR 608.2h`). Appended to preserve replay identities.
+    EventManaSpent(u32),
 }
 
 /// What ends an "exile … until …" (CR 610.3), as [`Rider::Linked`] carries
@@ -1471,7 +1481,10 @@ impl Rider {
             | Self::TributePaid
             | Self::RepeatedModes(_)
             | Self::OptionalCostPaid
-            | Self::OncePerPermanentUsedMask { .. } => false,
+            | Self::OncePerPermanentUsedMask { .. }
+            | Self::ManaTypesSpent(_)
+            | Self::ConvokedCount(_)
+            | Self::EventManaSpent(_) => false,
         }
     }
 }
