@@ -19,9 +19,12 @@ pub(super) const SEED: u64 = 0x0b5e_55ed_5eed_0001;
 #[derive(Clone, Debug, Default, PartialEq)]
 pub(super) struct MockState {
     observed: BTreeMap<u8, f32>,
-    observations: u64,
+    pub(super) observations: u64,
     answers: u64,
     concluded: Vec<PlayerAction>,
+    /// Questions it decided ([`SearchPlayer4::decide`]): what a net's loop
+    /// guard counts, at the table and in a rollout alike.
+    pub(super) decided: u64,
     sampling: u64,
     coverage: Vec<[u64; 5]>,
 }
@@ -39,6 +42,12 @@ pub(super) struct Mock {
     /// Rollout answers past this many are given as the house's, as a net
     /// gives its fallbacks.
     pub(super) fallback_after: Option<u64>,
+    /// Once it has decided this many questions it passes in a rollout
+    /// wherever it may, as a net's loop guard answers for it: what it
+    /// noted at the table changes how its rollouts go.
+    pub(super) passes_after: Option<u64>,
+    /// The views it reads.
+    pub(super) context: ViewContext4,
     /// A lockstep rollout player's seat in its group: every observation
     /// and answer steps through it, as a net's model steps do.
     step: Option<Member<u64, u64>>,
@@ -71,6 +80,8 @@ impl Mock {
             confidence: 0.0,
             lends: false,
             fallback_after: None,
+            passes_after: None,
+            context: ViewContext4::Choice,
             step: None,
             rival: None,
             rival_at: None,
@@ -90,6 +101,8 @@ impl Mock {
             confidence: self.confidence,
             lends: self.lends,
             fallback_after: self.fallback_after,
+            passes_after: self.passes_after,
+            context: self.context,
             step,
             rival: self.rival,
             rival_at: None,
@@ -108,7 +121,7 @@ impl Mock {
     }
 
     /// The same stand-in, lending rollout players.
-    fn lending(self) -> Self {
+    pub(super) fn lending(self) -> Self {
         Self {
             lends: true,
             ..self
@@ -138,7 +151,7 @@ impl SearchPlayer4 for Mock {
         self.state.clone_from(snapshot);
     }
     fn view_context(&self) -> ViewContext4 {
-        ViewContext4::Choice
+        self.context
     }
     fn observe(&mut self, view: &PlayerView) -> anyhow::Result<()> {
         self.lockstep_step();
@@ -157,6 +170,7 @@ impl SearchPlayer4 for Mock {
         pending: &Pending,
         teams: &[Option<u8>],
     ) -> RootDecision4 {
+        self.state.decided += 1;
         let state = crate::features7::encode_state7(view, Some(pending), None, teams);
         let cands = crate::features7::encode_candidates7_grouped(&state, view, pending);
         let policy = cands.head == HeadKind4::SingleChoice && cands.candidates.len() > 1;
@@ -220,9 +234,16 @@ impl SearchPlayer4 for Mock {
         self.lockstep_step();
         self.state.answers += 1;
         self.labelled_in_rollouts += u64::from(self.labels.is_some());
-        let action = HeuristicAgent::new(AIProfile::STEADY)
-            .with_seed(self.state.sampling)
-            .act(view, pending);
+        let guarded = self
+            .passes_after
+            .is_some_and(|after| self.state.decided >= after);
+        let action = passes(view, pending)
+            .filter(|_| guarded)
+            .unwrap_or_else(|| {
+                HeuristicAgent::new(AIProfile::STEADY)
+                    .with_seed(self.state.sampling)
+                    .act(view, pending)
+            });
         self.record(pending, SourceKind4::Net);
         let source = if self
             .fallback_after
@@ -286,6 +307,10 @@ impl SearchPlayer4 for Mock {
     }
     fn keep_probe(&mut self, probe: crate::netplay4::distill::DistillProbe4) {
         self.probes.push(probe);
+    }
+    fn carry_table_notes(state: &mut MockState, decided: &MockState) {
+        state.decided = decided.decided;
+        state.concluded.clone_from(&decided.concluded);
     }
 }
 

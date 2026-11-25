@@ -860,6 +860,13 @@ pub trait SearchPlayer4 {
     fn keep_probe(&mut self, probe: super::distill::DistillProbe4) {
         let _ = probe;
     }
+    /// Puts into `state`, of a player that watched the game, what `decided`
+    /// holds of the player that answered it: what a player notes of its own
+    /// answers at the table and reads again in a rollout ([`RolloutNet4`]).
+    /// A player that notes nothing of them changes nothing.
+    fn carry_table_notes(state: &mut Self::Snapshot, decided: &Self::Snapshot) {
+        let _ = (state, decided);
+    }
 }
 
 impl SearchPlayer4 for NetPlayer4 {
@@ -941,6 +948,9 @@ impl SearchPlayer4 for NetPlayer4 {
     }
     fn keep_probe(&mut self, probe: super::distill::DistillProbe4) {
         self.keep_distill_probe(probe);
+    }
+    fn carry_table_notes(state: &mut PlayerSnapshot4, decided: &PlayerSnapshot4) {
+        state.carry_table_notes(decided);
     }
 }
 

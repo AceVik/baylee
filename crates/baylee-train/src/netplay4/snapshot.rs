@@ -91,6 +91,34 @@ impl PlayerSnapshot4 {
         self.seen_hashes.clear();
     }
 
+    /// Takes over from `decided`, another player's state in the same game,
+    /// what only the player that answers there notes: how often it was asked
+    /// from each view (the repeated-view guard), and the spell or ability it
+    /// announced last. Every field is named, so one added to the snapshot
+    /// does not compile until it is placed here.
+    pub(super) fn carry_table_notes(&mut self, decided: &Self) {
+        let Self {
+            seen_hashes,
+            last_announced_source,
+            // Moved by the views alone, which both players watched.
+            teams: _,
+            h_states: _,
+            h_states_fp16: _,
+            knowledge: _,
+            observed_values: _,
+            // A rollout samples from a stream of its own.
+            rng: _,
+            // Reports and counts, beside settings that both players have.
+            last_fallback: _,
+            coverage: _,
+            rule_refs_left_out: _,
+            choice_guard: _,
+            tactic_rules: _,
+        } = decided;
+        self.seen_hashes.clone_from(seen_hashes);
+        self.last_announced_source.clone_from(last_announced_source);
+    }
+
     /// Quantizes `h_states` (`f32`) into `h_states_fp16` (`u16` IEEE-754 `FP16`) and releases
     /// the `f32` heap vectors, cutting the in-RAM recurrent tensor footprint by 50%.
     pub fn pack_fp16_in_ram(&mut self) {
@@ -1041,6 +1069,51 @@ mod tests {
         net.restore(&before);
         assert_eq!(fingerprint(&net), printed);
         assert_eq!(net.observed_value(seat), Some(0.25));
+    }
+
+    /// A player that only watched takes over how often each view was
+    /// answered and what was announced, and nothing else: its memory and
+    /// values are its own net's.
+    #[test]
+    fn the_notes_of_the_deciding_player_are_carried_and_nothing_else() {
+        let deck = crate::housedeck::HouseDeck::named("victory").unwrap();
+        let preset = crate::selfplay::table_for(
+            5,
+            &[&deck, &deck],
+            &[baylee_core::preset::AIProfile::STEADY; 2],
+            &[],
+        );
+        let mut decided = player();
+        decided.init_game(&preset);
+        let mut watched = player();
+        watched.init_game(&preset);
+        watched.observed_values.insert(0, 0.25);
+        watched.h_states.get_mut(&0).unwrap()[0] = 1.0;
+        watched.seen_hashes.insert((0, 7), 1);
+        decided.observed_values.insert(0, 0.75);
+        decided.seen_hashes.insert((0, 42), 3);
+        decided
+            .last_announced_source
+            .insert(0, (ObjectId::new(9, 0), Some(1)));
+        decided.rng.next();
+        decided
+            .coverage
+            .record(PendingKind4::Priority, SourceKind4::Net);
+
+        let own = watched.snapshot();
+        let mut carried = watched.snapshot();
+        carried.carry_table_notes(&decided.snapshot());
+        assert_eq!(carried.seen_hashes, decided.seen_hashes);
+        assert_eq!(carried.last_announced_source, decided.last_announced_source);
+        carried.seen_hashes.clone_from(&own.seen_hashes);
+        carried
+            .last_announced_source
+            .clone_from(&own.last_announced_source);
+        assert_eq!(
+            format!("{carried:?}"),
+            format!("{own:?}"),
+            "everything else is the watching player's"
+        );
     }
 
     /// One worker slot serves a four-seat session, then a duel without

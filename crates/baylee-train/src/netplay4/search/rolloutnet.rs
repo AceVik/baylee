@@ -1,13 +1,19 @@
 //! A search whose rollouts another, cheaper net plays (`eval4 --rollout-net`):
 //! the searching net decides at the root, ranks its answers and gives the
-//! prior, as without it; inside the worlds every chair is played by the
-//! rollout net, from a memory of its own that has watched the game beside
-//! the searching net's. Where a rollout ends, its leaf is judged as
+//! prior, as without it; inside the worlds every chair the searching net
+//! would play (its own, and the others of a search with neural opponents) is
+//! the rollout net's, from a memory of its own that has watched the game
+//! beside the searching net's. Where a rollout ends, its leaf is judged as
 //! [`RolloutLeaf4`] says.
 //!
 //! The rollout net is a [`NetPlayer4`] like the searching one, on a batched
 //! session of its own, so its rollout players are twins of it
 //! ([`NetPlayer4::twin_on_shared_net`], or [`NetPlayer4::lockstep_twins`]).
+//!
+//! Only the searching net answers at the table. What a player notes of its
+//! own answers there is carried into the rollout net's state at every root
+//! ([`SearchPlayer4::carry_table_notes`]), so the net as its own rollout net
+//! with [`RolloutLeaf4::Follow`] is the search without one.
 
 use baylee_core::ids::PlayerId;
 use baylee_engine::choice::{Pending, PlayerAction};
@@ -63,20 +69,20 @@ impl std::str::FromStr for RolloutLeaf4 {
 
 /// A net a search plays with: lent by the caller at the root, owned by a
 /// rollout player.
-enum Held<'a> {
-    Lent(&'a mut NetPlayer4),
-    Owned(Box<NetPlayer4>),
+enum Held<'a, N> {
+    Lent(&'a mut N),
+    Owned(Box<N>),
 }
 
-impl Held<'_> {
-    const fn get(&self) -> &NetPlayer4 {
+impl<N> Held<'_, N> {
+    const fn get(&self) -> &N {
         match self {
             Self::Lent(net) => net,
             Self::Owned(net) => net,
         }
     }
 
-    fn get_mut(&mut self) -> &mut NetPlayer4 {
+    fn get_mut(&mut self) -> &mut N {
         match self {
             Self::Lent(net) => net,
             Self::Owned(net) => net,
@@ -84,22 +90,23 @@ impl Held<'_> {
     }
 }
 
-/// Both nets' per-game state at a root.
-pub struct RolloutSnapshot4 {
-    net: PlayerSnapshot4,
-    rollout: PlayerSnapshot4,
+/// Both nets' per-game state at a root, the rollout net's with what only
+/// the searching net noted at the table.
+pub struct RolloutSnapshot4<S = PlayerSnapshot4> {
+    net: S,
+    rollout: S,
 }
 
 /// The searching net and its rollout net as one [`SearchPlayer4`]: at the
-/// root the searching net answers; a rollout player made from it plays
-/// every chair with the rollout net and scores its leaf as `leaf` says.
-pub struct RolloutNet4<'a> {
+/// root the searching net answers; a rollout player made from it answers
+/// with the rollout net alone and scores its leaf as `leaf` says.
+pub struct RolloutNet4<'a, N = NetPlayer4> {
     /// The searching net: the root's decision, prior and ranking; in a
     /// rollout player, the leaf's judge (absent when the leaf is the
     /// rollout net's own).
-    net: Option<Held<'a>>,
+    net: Option<Held<'a, N>>,
     /// The rollout net, which has watched the game beside `net`.
-    rollout: Held<'a>,
+    rollout: Held<'a, N>,
     leaf: RolloutLeaf4,
     /// Whether this is a rollout player (every chair is the rollout net's)
     /// or the root's.
@@ -112,20 +119,15 @@ pub struct RolloutNet4<'a> {
     last_views: BTreeMap<u8, PlayerView>,
 }
 
-impl<'a> RolloutNet4<'a> {
+impl<'a, N: SearchPlayer4> RolloutNet4<'a, N> {
     /// The root's player: `net` searches, `rollout` plays its rollouts, each
     /// leaf scored as `leaf` says. Both must read the same views.
     ///
     /// # Errors
     /// When the two nets read different views of the table.
-    pub fn new(
-        net: &'a mut NetPlayer4,
-        rollout: &'a mut NetPlayer4,
-        leaf: RolloutLeaf4,
-    ) -> anyhow::Result<Self> {
+    pub fn new(net: &'a mut N, rollout: &'a mut N, leaf: RolloutLeaf4) -> anyhow::Result<Self> {
         anyhow::ensure!(
-            <NetPlayer4 as SearchPlayer4>::view_context(net)
-                == <NetPlayer4 as SearchPlayer4>::view_context(rollout),
+            net.view_context() == rollout.view_context(),
             "the rollout net reads other views than the searching net"
         );
         Ok(Self {
@@ -140,14 +142,14 @@ impl<'a> RolloutNet4<'a> {
 
     /// The searching net; a rollout player whose leaf is the rollout net's
     /// own holds none.
-    fn net(&self) -> &NetPlayer4 {
+    fn net(&self) -> &N {
         self.net
             .as_ref()
             .map(Held::get)
             .expect("the root holds the searching net")
     }
 
-    fn net_mut(&mut self) -> &mut NetPlayer4 {
+    fn net_mut(&mut self) -> &mut N {
         self.net
             .as_mut()
             .map(Held::get_mut)
@@ -156,7 +158,7 @@ impl<'a> RolloutNet4<'a> {
 
     /// The net that answers here: the rollout net in a rollout, the
     /// searching net at the root.
-    fn acting(&mut self) -> &mut NetPlayer4 {
+    fn acting(&mut self) -> &mut N {
         if self.in_rollout {
             self.rollout.get_mut()
         } else {
@@ -167,11 +169,15 @@ impl<'a> RolloutNet4<'a> {
     /// A rollout player on `rollout`, with the searching net's twin in
     /// `snapshot`'s state as the leaf's judge where the leaf needs one;
     /// `None` when the searching net lends no twin.
-    fn rollout_player_of(&self, rollout: NetPlayer4, snapshot: &RolloutSnapshot4) -> Option<Self> {
+    fn rollout_player_of(
+        &self,
+        rollout: N,
+        snapshot: &RolloutSnapshot4<N::Snapshot>,
+    ) -> Option<Self> {
         let net = match self.leaf {
             RolloutLeaf4::Student => None,
             RolloutLeaf4::Jump | RolloutLeaf4::Follow => Some(Held::Owned(Box::new(
-                self.net().twin_on_shared_net(&snapshot.net)?,
+                self.net().rollout_player(&snapshot.net)?,
             ))),
         };
         Some(Self {
@@ -185,16 +191,16 @@ impl<'a> RolloutNet4<'a> {
     }
 }
 
-impl SearchPlayer4 for RolloutNet4<'_> {
-    type Snapshot = RolloutSnapshot4;
+impl<N: SearchPlayer4> SearchPlayer4 for RolloutNet4<'_, N> {
+    type Snapshot = RolloutSnapshot4<N::Snapshot>;
 
-    fn snapshot(&self) -> RolloutSnapshot4 {
-        RolloutSnapshot4 {
-            net: self.net().snapshot(),
-            rollout: self.rollout.get().snapshot(),
-        }
+    fn snapshot(&self) -> Self::Snapshot {
+        let net = self.net().snapshot();
+        let mut rollout = self.rollout.get().snapshot();
+        N::carry_table_notes(&mut rollout, &net);
+        RolloutSnapshot4 { net, rollout }
     }
-    fn restore(&mut self, snapshot: &RolloutSnapshot4) {
+    fn restore(&mut self, snapshot: &Self::Snapshot) {
         if let Some(net) = self.net.as_mut() {
             net.get_mut().restore(&snapshot.net);
         }
@@ -202,7 +208,7 @@ impl SearchPlayer4 for RolloutNet4<'_> {
         self.last_views.clear();
     }
     fn view_context(&self) -> ViewContext4 {
-        <NetPlayer4 as SearchPlayer4>::view_context(self.rollout.get())
+        self.rollout.get().view_context()
     }
     fn observe(&mut self, view: &PlayerView) -> anyhow::Result<()> {
         if !self.in_rollout {
@@ -250,13 +256,13 @@ impl SearchPlayer4 for RolloutNet4<'_> {
         pending: &Pending,
         teams: &[Option<u8>],
     ) -> RootDecision4 {
-        <NetPlayer4 as SearchPlayer4>::decide(self.acting(), view, pending, teams)
+        self.acting().decide(view, pending, teams)
     }
     fn conclude(&mut self, view: &PlayerView, decision: &RootDecision4, action: &PlayerAction) {
-        <NetPlayer4 as SearchPlayer4>::conclude(self.acting(), view, decision, action);
+        self.acting().conclude(view, decision, action);
     }
     fn answer(&mut self, view: &PlayerView, pending: &Pending, teams: &[Option<u8>]) -> Answer4 {
-        <NetPlayer4 as SearchPlayer4>::answer(self.acting(), view, pending, teams)
+        self.acting().answer(view, pending, teams)
     }
     fn reseed_sampling(&mut self, seed: u64) {
         self.rollout.get_mut().reseed_sampling(seed);
@@ -265,7 +271,7 @@ impl SearchPlayer4 for RolloutNet4<'_> {
         }
     }
     fn attribute_to_search(&mut self, pending: &Pending, from: SourceKind4) {
-        <NetPlayer4 as SearchPlayer4>::attribute_to_search(self.net_mut(), pending, from);
+        self.net_mut().attribute_to_search(pending, from);
     }
     fn reset_other_seats_for_rollout(&mut self, searching_seat: PlayerId) {
         self.seat = Some(searching_seat);
@@ -274,22 +280,22 @@ impl SearchPlayer4 for RolloutNet4<'_> {
             .reset_other_seats_for_rollout(searching_seat);
     }
     fn lends_rollout_players(&self) -> bool {
-        self.rollout.get().is_on_shared_net()
-            && (self.leaf == RolloutLeaf4::Student || self.net().is_on_shared_net())
+        self.rollout.get().lends_rollout_players()
+            && (self.leaf == RolloutLeaf4::Student || self.net().lends_rollout_players())
     }
-    fn rollout_player(&self, snapshot: &RolloutSnapshot4) -> Option<Self> {
-        let rollout = self.rollout.get().twin_on_shared_net(&snapshot.rollout)?;
+    fn rollout_player(&self, snapshot: &Self::Snapshot) -> Option<Self> {
+        let rollout = self.rollout.get().rollout_player(&snapshot.rollout)?;
         self.rollout_player_of(rollout, snapshot)
     }
     fn lockstep_rollout_players(
         &self,
-        snapshot: &RolloutSnapshot4,
+        snapshot: &Self::Snapshot,
         count: usize,
     ) -> Option<Vec<Self>> {
         let rollouts = self
             .rollout
             .get()
-            .lockstep_twins(&snapshot.rollout, count)?;
+            .lockstep_rollout_players(&snapshot.rollout, count)?;
         rollouts
             .into_iter()
             .map(|rollout| self.rollout_player_of(rollout, snapshot))
@@ -299,3 +305,6 @@ impl SearchPlayer4 for RolloutNet4<'_> {
         false
     }
 }
+
+#[cfg(test)]
+mod tests;
