@@ -1592,8 +1592,14 @@ by subtype and group (`R` ahead: mean − se > 0; `N` ahead: mean + se < 0).
 reports, for all probes, the clean games, and by subtype, rule group
 (`none` for the layer's own reading), the kinds of `R` and `N` and how the
 rollouts ended: the mean advantage and the share `R` ahead less the share
-`N` ahead per 100 probes with standard errors by game, and how often the
-two halves of the worlds agree.
+`N` ahead per 100 probes with standard errors by game, and, of the probes
+where both halves of the worlds lean one way or the other (`halves_lean`),
+how often they lean the same way. A half whose mean is zero leans neither way
+and is no disagreement. In a run played with `--search-until-game-over`, which
+the `run.json` beside the games says, a rollout that ended at its horizon is
+censored and counted apart (`some_rollout_censored_at_the_horizon`); elsewhere
+the horizon is an end like the others. A probe has no choice to make, so
+`--margin` is refused there. The report is `distill_probe_report_v2`.
 The trainer learns from the probes with `--distill-bundle --distill-kinds 0
 --distill-advantage pairwise --checkpoint-selection distill_advantage`
 (`training4/distill_probe.py`; `--distill-advantage-beta` 0.05,
@@ -1883,8 +1889,9 @@ judged on the others, both ways round, beside the same choice judged in the
 worlds it was made in, for all decisions, in the games no house answer
 touched, by the kind of the policy's answer, by the class of the answer a
 half chose in its place (a planned cast by its spell), and by how the
-rollouts ended (every one at its end, or some stopped before a house answer
-or otherwise). It gives the lead's standard error by decision and by game
+rollouts ended (every one at its end, some stopped before a house answer or
+otherwise, or, with `--search-until-game-over`, some censored at the horizon).
+It gives the lead's standard error by decision and by game
 (one game's decisions are not independent), and how often the two halves
 chose the same answer, and the same class, where either replaced the
 policy's. A lead that holds on the other half is a signal a student can
@@ -2022,13 +2029,15 @@ leaves by kind, the targets followed (`followed`), not offered as a ranked
 answer (`follow_declined`) or left without their target question
 (`follow_lost`), a change that kept the cast at another target counted as
 `<kind>->retarget`, and the wall time of searched decisions (`latency_ms`
-leaves them out). Each game's line in `games.jsonl` adds `search_events`:
+leaves them out, also those of a measuring search, which plays the policy's own
+answer). Each game's line in `games.jsonl` adds `search_events`:
 per searched decision its candidates in order (the policy's first) and
 their targets (`null` where the policy chooses), their
 means, paired improvements and standard errors, priors, selection scores,
 the choice, rounds and leaves, bound to the recorded input like a fallback
-event (`record_input_n`). `convert4` replays searched records: a `Search` step's target is
-encoded as a teacher action, it is written with `src_kind = 3` and no
+event (`record_input_n`). An event whose answer the table refused, whoever's it
+was, says `accepted: false` and names no input. `convert4` replays searched
+records: a `Search` step's target is encoded as a teacher action, it is written with `src_kind = 3` and no
 log-probability, so PPO actor masks (`source_kind == 0`) never take it; and
 `certified_run` refuses any run that names a search, so a searched run never
 certifies a policy-gradient dataset.
@@ -2123,23 +2132,38 @@ and 33 decision rows on average, at most 354). Every deal ended alike in 63
 or 64 of 64; FP16 batch noise moved a few rollouts.
 
 **A cheaper rollout net (parked, 19 November 2026).** `--rollout-net DIR`
-lets another net play every chair of the worlds (`RolloutNet4`): the net
-still decides at the root and gives the prior, and the rollout net watches
-every view at the table beside it, so its memory at a root is the game's.
-`--rollout-leaf` scores a rollout by the rollout net's own value
-(`student`), by the net's value of the seat's last frame seen once from its
+lets another net play the worlds in the net's place (`RolloutNet4`; the other
+chairs too under `--search-neural-opponent`): the net still decides at the root
+and gives the prior, and the rollout net watches every view at the table beside
+it, so its memory at a root is the game's. What only the net that answers at
+the table notes there, how often it was asked from each view (the
+repeated-view guard) and the spell or ability it announced last, is carried
+into the rollout net's state at every root
+(`SearchPlayer4::carry_table_notes`). `--rollout-leaf` scores a rollout by the
+rollout net's own value (`student`), by the net's value of the seat's last frame seen once from its
 memory at the root (`jump`, one step of the net a rollout), or by the net
 watching every frame of the seat (`follow`, today's leaf). With the net as
 its own rollout net and `follow` the search is the plain one.
 `--rollout-compare` records, at each root of the net's own search, the same
 worlds searched under each leaf (`variants`), and `rollout_curve4` judges
-them by the net's worlds as the live-search curve does. A rollout net plays the worlds of one net seat: it is refused beside a neural
-opponent, the deadline seat and `--search-rival distill`, and where its critic
-is a research utility. `run.json` names its identity, and where leaves are only
-compared (`--rollout-compare`) `rollout` and the leaf are the net's own. Parked
-by the owner (19 November): the search plays the big net; a small rollout net
-would be a separate fork. The trainer's separate-reference imitation mode for such a
-net is kept outside the tree, in the campaign's `rolloutnet/` directory.
+them by the net's worlds as the live-search curve does (`rollout_net_curve_v2`).
+Its selection and report halves split the games by table: tables of an even
+seed choose the leaf, tables of an odd seed report, and every deal of a table
+is in one half, since they play the same decks from the same shuffle. Its
+standard error is the one `fork_advantage4` gives by game, a game being a games
+file and deal. Events the table refused are left out, a leaf that did not
+search a root is left out of that root alone, both counted, and a run that
+leaves no judged leaf is an error. `--worlds` is the runs' P (4). A rollout net
+plays the worlds of one net seat: it is refused beside a neural opponent, the
+deadline seat and `--search-rival distill`, and where its critic is a research
+utility. `run.json` names its identity and, where the run accepts another
+catalog than this build's, its catalog binding (`catalog.rollout`); where leaves
+are only compared (`--rollout-compare`) `rollout` and the leaf are the net's
+own. `inference_batch.rollout_net` gives its calls, rows and seconds beside the
+net's. Parked by the owner (19 November): the search plays the big net; a small
+rollout net would be a separate fork. The trainer's separate-reference imitation
+mode for such a net is kept outside the tree, in the campaign's `rolloutnet/`
+directory.
 
 **Terminal and paired measurements.** Three options are for fair measuring
 searches alone (`--search-rival distill`, or a payable pair).
@@ -2148,9 +2172,9 @@ the end of the game; a decision, action or refusal guard still censors it, so
 only a terminal leaf is an outcome. `--search-min-turn N` leaves roots before
 public turn N to the policy (`before_min_turn`). `--search-payable-pair`
 compares the policy's answer with two distinct spells the seat can pay for at
-the root, their whole mana plans included (`payable_pair` in the run's search;
-`--search 3,P,H --search-macros`, house-free, the raw net). `astra_visible4`
-(feature `llm`) renders such a pair from the deciding seat's replay before the
+the root, their whole mana plans included (`payable_pair` and `candidate_order`
+in the run's search; `--search 3,P,H --search-macros`, house-free, the raw net).
+`astra_visible4` (feature `llm`) renders such a pair from the deciding seat's replay before the
 action, without scores or endings, and keeps the join to the record in a file
 of its own.
 
@@ -2161,6 +2185,17 @@ question is offered; whatever is not ready by then is answered by the policy.
 One table worker, recorded, numbers only, greedy, 1v1 TRAIN against the house.
 Each question's timing and outcome is in the deal's `offline_deadline`; the
 answers depend on the wall clock, so the run says `bitwise_reproducible: false`.
+`run.json` names the seat (`offline_deadline_seat`: the FP32 CPU export that
+answers, the budget, whether it searches); its `model_identity` is the export
+the worlds are played on. A root whose search was not ready is counted in
+`search.counts.skipped` under the reason its question's `status` gives:
+`f_late` (the seat's own answer took the time), `busy` (an earlier question's
+search still ran), `prepare_deadline` (the worlds were not dealt in time;
+preparing them stops there), `deadline` (the search was not done) and
+`incomplete_rounds`. A search that fails or panics ends the run, also when its
+question was answered without it. An answer the table refuses is counted and
+repaired by the house as without a deadline, and its question has no
+`record_input_n`.
 
 **Limits.** The worlds are dealt from the real remaining decks of the
 evaluator's known lists — an upper bound on what a seat without deck
