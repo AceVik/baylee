@@ -32,7 +32,7 @@ card!(
                 target: PlayerRel::Opponent
             },
             Effect::GainLifeFor {
-                amount: Amount::Fixed(0),
+                amount: Amount::ThisWay(ThisWay::LifeLost),
                 who: PlayerRel::ControllerOfEvent
             }
         ]

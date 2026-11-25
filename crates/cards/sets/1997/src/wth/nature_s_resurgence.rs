@@ -10,7 +10,7 @@ card!(
     oracle_id = "276f49ee-7cf3-4a4d-9b14-74aedcbef69f",
     scryfall_id = "287f9f55-829d-4b29-b1d2-34d20d23b3d5",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Nature's Resurgence",
         mana_cost = mana!("{2}{G}{G}"),

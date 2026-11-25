@@ -32,7 +32,9 @@ card!(
                 },
                 target: PlayerRel::Chosen
             },
-            Effect::gain_life(0)
+            Effect::GainLife {
+                amount: Amount::ThisWay(ThisWay::LifeLost)
+            }
         ],
         targets = Some(TargetReq::one(TargetSpec::AnyOpponent)),
         condition = Some(Condition::SourceWasCastByYou)

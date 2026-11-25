@@ -13,7 +13,7 @@ static TRIGGER1: Filter = Filter::And(&[
     Filter::ControlledByYou,
 ]);
 
-static BRANCH2: Filter = Filter::HasKeyword(KeywordSet::FLYING);
+static COND2: Filter = Filter::HasKeyword(KeywordSet::FLYING);
 
 card!(
     index = index::MILES_TAILS_PROWER,
@@ -35,9 +35,17 @@ card!(
     abilities = &[triggered!(
         Trigger::EntersBattlefield(&TRIGGER1),
         &[Effect::IfCondition {
-            condition: Condition::ObjectMatches {
-                what: &TargetSpec::EventObject,
-                filter: &BRANCH2
+            condition: Condition::AmountCompare {
+                left: &Amount::IfCondition {
+                    condition: &Condition::ObjectMatches {
+                        what: &TargetSpec::EventObject,
+                        filter: &COND2
+                    },
+                    then: &Amount::Fixed(1),
+                    otherwise: &Amount::Fixed(0)
+                },
+                op: AmountCmp::AtLeast,
+                right: &Amount::Fixed(1)
             },
             then: &[Effect::draw(1)],
             otherwise: &[Effect::AddCounterFilter {

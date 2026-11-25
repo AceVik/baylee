@@ -8433,7 +8433,14 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
         modes: &[],
         alternatives: &[],
     }],
-    &[],
+    // Jester's Cap
+    &[FaceLines {
+        sentences: 1,
+        stackable: 1,
+        lines: &[Some(0)],
+        modes: &[],
+        alternatives: &[],
+    }],
     &[],
     &[],
     // Johtull Wurm
@@ -8534,7 +8541,14 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
         alternatives: &[],
     }],
     &[],
-    &[],
+    // Kjeldoran Royal Guard
+    &[FaceLines {
+        sentences: 1,
+        stackable: 1,
+        lines: &[Some(0)],
+        modes: &[],
+        alternatives: &[],
+    }],
     &[],
     &[],
     &[],
@@ -8701,7 +8715,14 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
         alternatives: &[],
     }],
     &[],
-    &[],
+    // Merieke Ri Berit
+    &[FaceLines {
+        sentences: 2,
+        stackable: 1,
+        lines: &[None, Some(1)],
+        modes: &[],
+        alternatives: &[],
+    }],
     // Mesmeric Trance
     &[FaceLines {
         sentences: 2,
@@ -8851,7 +8872,14 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
         modes: &[],
         alternatives: &[],
     }],
-    &[],
+    // Oath of Lim-Dûl
+    &[FaceLines {
+        sentences: 2,
+        stackable: 2,
+        lines: &[Some(0), Some(1)],
+        modes: &[],
+        alternatives: &[],
+    }],
     // Onyx Talisman
     &[FaceLines {
         sentences: 1,
@@ -9348,7 +9376,14 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
         modes: &[],
         alternatives: &[],
     }],
-    &[],
+    // Stunted Growth
+    &[FaceLines {
+        sentences: 1,
+        stackable: 0,
+        lines: &[None],
+        modes: &[],
+        alternatives: &[],
+    }],
     // Sulfurous Springs
     &[FaceLines {
         sentences: 2,
@@ -10517,7 +10552,14 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
         alternatives: &[],
     }],
     &[],
-    &[],
+    // Browse
+    &[FaceLines {
+        sentences: 1,
+        stackable: 1,
+        lines: &[Some(0)],
+        modes: &[],
+        alternatives: &[],
+    }],
     // Burnout
     &[FaceLines {
         sentences: 2,
@@ -10534,7 +10576,14 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
         modes: &[],
         alternatives: &[],
     }],
-    &[],
+    // Casting of Bones
+    &[FaceLines {
+        sentences: 2,
+        stackable: 1,
+        lines: &[None, Some(1)],
+        modes: &[],
+        alternatives: &[],
+    }],
     &[],
     // Contagion
     &[FaceLines {
@@ -10553,7 +10602,14 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
         modes: &[],
         alternatives: &[],
     }],
-    &[],
+    // Diminishing Returns
+    &[FaceLines {
+        sentences: 1,
+        stackable: 0,
+        lines: &[None],
+        modes: &[],
+        alternatives: &[],
+    }],
     &[],
     // Dystopia
     &[FaceLines {
@@ -10926,7 +10982,14 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
         modes: &[],
         alternatives: &[],
     }],
-    &[],
+    // Omen of Fire
+    &[FaceLines {
+        sentences: 1,
+        stackable: 0,
+        lines: &[None],
+        modes: &[],
+        alternatives: &[],
+    }],
     // Phantasmal Fiend
     &[FaceLines {
         sentences: 2,
@@ -10935,7 +10998,14 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
         modes: &[],
         alternatives: &[],
     }],
-    &[],
+    // Phantasmal Sphere
+    &[FaceLines {
+        sentences: 3,
+        stackable: 2,
+        lines: &[Some(1), Some(2)],
+        modes: &[],
+        alternatives: &[],
+    }],
     // Phelddagrif
     &[FaceLines {
         sentences: 3,
@@ -11406,7 +11476,14 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
         modes: &[],
         alternatives: &[],
     }],
-    &[],
+    // Ancestral Memories
+    &[FaceLines {
+        sentences: 1,
+        stackable: 0,
+        lines: &[None],
+        modes: &[],
+        alternatives: &[],
+    }],
     // Armor of Thorns
     &[FaceLines {
         sentences: 3,
@@ -11483,7 +11560,14 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[],
     &[],
     &[],
-    &[],
+    // Benevolent Unicorn
+    &[FaceLines {
+        sentences: 1,
+        stackable: 0,
+        lines: &[None],
+        modes: &[],
+        alternatives: &[],
+    }],
     // Benthic Djinn
     &[FaceLines {
         sentences: 2,
@@ -11508,7 +11592,14 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
         modes: &[],
         alternatives: &[],
     }],
-    &[],
+    // Blind Fury
+    &[FaceLines {
+        sentences: 1,
+        stackable: 0,
+        lines: &[None],
+        modes: &[],
+        alternatives: &[],
+    }],
     // Blinding Light
     &[FaceLines {
         sentences: 1,
@@ -12329,7 +12420,14 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
         alternatives: &[],
     }],
     &[],
-    &[],
+    // Malignant Growth
+    &[FaceLines {
+        sentences: 3,
+        stackable: 3,
+        lines: &[Some(0), Some(1), Some(2)],
+        modes: &[],
+        alternatives: &[],
+    }],
     // Mana Prism
     &[FaceLines {
         sentences: 2,
@@ -12356,7 +12454,14 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
         modes: &[],
         alternatives: &[],
     }],
-    &[],
+    // Maro
+    &[FaceLines {
+        sentences: 1,
+        stackable: 0,
+        lines: &[None],
+        modes: &[],
+        alternatives: &[],
+    }],
     &[],
     // Melesse Spirit
     &[FaceLines {
@@ -12647,7 +12752,14 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
         modes: &[],
         alternatives: &[],
     }],
-    &[],
+    // Ravenous Vampire
+    &[FaceLines {
+        sentences: 2,
+        stackable: 1,
+        lines: &[Some(1)],
+        modes: &[],
+        alternatives: &[],
+    }],
     // Razor Pendulum
     &[FaceLines {
         sentences: 1,
@@ -12787,7 +12899,14 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
         modes: &[],
         alternatives: &[],
     }],
-    &[],
+    // Sealed Fate
+    &[FaceLines {
+        sentences: 1,
+        stackable: 0,
+        lines: &[None],
+        modes: &[],
+        alternatives: &[],
+    }],
     // Searing Spear Askari
     &[FaceLines {
         sentences: 2,
@@ -12984,7 +13103,14 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
         modes: &[],
         alternatives: &[],
     }],
-    &[],
+    // Superior Numbers
+    &[FaceLines {
+        sentences: 1,
+        stackable: 0,
+        lines: &[None],
+        modes: &[],
+        alternatives: &[],
+    }],
     // Suq'Ata Firewalker
     &[FaceLines {
         sentences: 2,
@@ -13069,7 +13195,14 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
         modes: &[],
         alternatives: &[],
     }],
-    &[],
+    // Tidal Wave
+    &[FaceLines {
+        sentences: 1,
+        stackable: 0,
+        lines: &[None],
+        modes: &[],
+        alternatives: &[],
+    }],
     &[],
     &[],
     // Tranquil Domain
@@ -13332,7 +13465,14 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
         alternatives: &[],
     }],
     &[],
-    &[],
+    // Zombie Mob
+    &[FaceLines {
+        sentences: 2,
+        stackable: 1,
+        lines: &[Some(1)],
+        modes: &[],
+        alternatives: &[],
+    }],
     // Zuberi, Golden Feather
     &[FaceLines {
         sentences: 2,
@@ -13889,7 +14029,14 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
         modes: &[],
         alternatives: &[],
     }],
-    &[],
+    // Lichenthrope
+    &[FaceLines {
+        sentences: 2,
+        stackable: 1,
+        lines: &[None, Some(1)],
+        modes: &[],
+        alternatives: &[],
+    }],
     // Lightning Cloud
     &[FaceLines {
         sentences: 1,
@@ -15618,7 +15765,14 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
         modes: &[],
         alternatives: &[],
     }],
-    &[],
+    // Familiar Ground
+    &[FaceLines {
+        sentences: 1,
+        stackable: 0,
+        lines: &[None],
+        modes: &[],
+        alternatives: &[],
+    }],
     // Fatal Blow
     &[FaceLines {
         sentences: 1,
@@ -15962,9 +16116,23 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
         alternatives: &[],
     }],
     &[],
+    // Nature's Resurgence
+    &[FaceLines {
+        sentences: 1,
+        stackable: 0,
+        lines: &[None],
+        modes: &[],
+        alternatives: &[],
+    }],
     &[],
-    &[],
-    &[],
+    // Noble Benefactor
+    &[FaceLines {
+        sentences: 1,
+        stackable: 1,
+        lines: &[Some(0)],
+        modes: &[],
+        alternatives: &[],
+    }],
     // Null Rod
     &[FaceLines {
         sentences: 1,
@@ -16275,7 +16443,14 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
         modes: &[],
         alternatives: &[],
     }],
-    &[],
+    // Urborg Justice
+    &[FaceLines {
+        sentences: 1,
+        stackable: 0,
+        lines: &[None],
+        modes: &[],
+        alternatives: &[],
+    }],
     // Urborg Stalker
     &[FaceLines {
         sentences: 1,
@@ -16284,7 +16459,14 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
         modes: &[],
         alternatives: &[],
     }],
-    &[],
+    // Veteran Explorer
+    &[FaceLines {
+        sentences: 1,
+        stackable: 1,
+        lines: &[Some(0)],
+        modes: &[],
+        alternatives: &[],
+    }],
     // Vitalize
     &[FaceLines {
         sentences: 1,
@@ -16350,7 +16532,14 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
         modes: &[],
         alternatives: &[],
     }],
-    &[],
+    // Abandon Hope
+    &[FaceLines {
+        sentences: 2,
+        stackable: 0,
+        lines: &[None],
+        modes: &[],
+        alternatives: &[],
+    }],
     // Advance Scout
     &[FaceLines {
         sentences: 2,
@@ -16375,7 +16564,14 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
         modes: &[],
         alternatives: &[],
     }],
-    &[],
+    // Aluren
+    &[FaceLines {
+        sentences: 1,
+        stackable: 0,
+        lines: &[None],
+        modes: &[],
+        alternatives: &[],
+    }],
     // Ancient Runes
     &[FaceLines {
         sentences: 1,
@@ -17006,7 +17202,14 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
         alternatives: &[],
     }],
     &[],
-    &[],
+    // Furnace of Rath
+    &[FaceLines {
+        sentences: 1,
+        stackable: 0,
+        lines: &[None],
+        modes: &[],
+        alternatives: &[],
+    }],
     // Fylamarid
     &[FaceLines {
         sentences: 3,
@@ -17276,7 +17479,14 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
         alternatives: &[],
     }],
     &[],
-    &[],
+    // Living Death
+    &[FaceLines {
+        sentences: 1,
+        stackable: 0,
+        lines: &[None],
+        modes: &[],
+        alternatives: &[],
+    }],
     &[],
     // Lotus Petal
     &[FaceLines {
@@ -17311,7 +17521,14 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
         modes: &[],
         alternatives: &[],
     }],
-    &[],
+    // Mana Severance
+    &[FaceLines {
+        sentences: 1,
+        stackable: 0,
+        lines: &[None],
+        modes: &[],
+        alternatives: &[],
+    }],
     // Manakin
     &[FaceLines {
         sentences: 1,
@@ -17808,7 +18025,14 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
         modes: &[],
         alternatives: &[],
     }],
-    &[],
+    // Scorched Earth
+    &[FaceLines {
+        sentences: 2,
+        stackable: 0,
+        lines: &[None],
+        modes: &[],
+        alternatives: &[],
+    }],
     // Scragnoth
     &[FaceLines {
         sentences: 2,
@@ -18490,7 +18714,14 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
         modes: &[],
         alternatives: &[],
     }],
-    &[],
+    // Crovax the Cursed
+    &[FaceLines {
+        sentences: 3,
+        stackable: 2,
+        lines: &[Some(2), Some(1)],
+        modes: &[],
+        alternatives: &[],
+    }],
     // Crystalline Sliver
     &[FaceLines {
         sentences: 1,
@@ -18580,7 +18811,14 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
         modes: &[],
         alternatives: &[],
     }],
-    &[],
+    // Flame Wave
+    &[FaceLines {
+        sentences: 1,
+        stackable: 0,
+        lines: &[None],
+        modes: &[],
+        alternatives: &[],
+    }],
     // Fling
     &[FaceLines {
         sentences: 2,
@@ -19231,7 +19469,14 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[],
     &[],
     &[],
-    &[],
+    // Aether Tide
+    &[FaceLines {
+        sentences: 2,
+        stackable: 0,
+        lines: &[None],
+        modes: &[],
+        alternatives: &[],
+    }],
     // Allay
     &[FaceLines {
         sentences: 2,
@@ -19546,7 +19791,14 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
         alternatives: &[],
     }],
     &[],
-    &[],
+    // Limited Resources
+    &[FaceLines {
+        sentences: 2,
+        stackable: 1,
+        lines: &[Some(0), None],
+        modes: &[],
+        alternatives: &[],
+    }],
     // Mage il-Vec
     &[FaceLines {
         sentences: 1,
@@ -19563,7 +19815,14 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
         modes: &[],
         alternatives: &[],
     }],
-    &[],
+    // Manabond
+    &[FaceLines {
+        sentences: 1,
+        stackable: 1,
+        lines: &[Some(0)],
+        modes: &[],
+        alternatives: &[],
+    }],
     // Maniacal Rage
     &[FaceLines {
         sentences: 2,
@@ -21568,7 +21827,14 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
         modes: &[],
         alternatives: &[],
     }],
-    &[],
+    // Hidden Stag
+    &[FaceLines {
+        sentences: 2,
+        stackable: 2,
+        lines: &[None, Some(1)],
+        modes: &[],
+        alternatives: &[],
+    }],
     // Hollow Dogs
     &[FaceLines {
         sentences: 1,
@@ -21609,7 +21875,14 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
         modes: &[],
         alternatives: &[],
     }],
-    &[],
+    // Ill-Gotten Gains
+    &[FaceLines {
+        sentences: 1,
+        stackable: 0,
+        lines: &[None],
+        modes: &[],
+        alternatives: &[],
+    }],
     // Imaginary Pet
     &[FaceLines {
         sentences: 1,
@@ -21772,7 +22045,14 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
         alternatives: &[],
     }],
     &[],
-    &[],
+    // Noetic Scales
+    &[FaceLines {
+        sentences: 1,
+        stackable: 1,
+        lines: &[Some(0)],
+        modes: &[],
+        alternatives: &[],
+    }],
     &[],
     // Opal Acrolith
     &[FaceLines {
@@ -21889,7 +22169,14 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
         modes: &[],
         alternatives: &[],
     }],
-    &[],
+    // Phyrexian Processor
+    &[FaceLines {
+        sentences: 2,
+        stackable: 1,
+        lines: &[Some(1)],
+        modes: &[],
+        alternatives: &[],
+    }],
     // Phyrexian Tower
     &[FaceLines {
         sentences: 2,
@@ -21898,7 +22185,14 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
         modes: &[],
         alternatives: &[],
     }],
-    &[],
+    // Planar Birth
+    &[FaceLines {
+        sentences: 1,
+        stackable: 0,
+        lines: &[None],
+        modes: &[],
+        alternatives: &[],
+    }],
     &[],
     // Polluted Mire
     &[FaceLines {
@@ -22322,7 +22616,14 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
         modes: &[],
         alternatives: &[],
     }],
-    &[],
+    // Sneak Attack
+    &[FaceLines {
+        sentences: 1,
+        stackable: 1,
+        lines: &[Some(0)],
+        modes: &[],
+        alternatives: &[],
+    }],
     // Somnophore
     &[FaceLines {
         sentences: 2,
@@ -22381,7 +22682,14 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
         modes: &[],
         alternatives: &[],
     }],
-    &[],
+    // Sulfuric Vapors
+    &[FaceLines {
+        sentences: 1,
+        stackable: 0,
+        lines: &[None],
+        modes: &[],
+        alternatives: &[],
+    }],
     // Sunder
     &[FaceLines {
         sentences: 1,
@@ -23196,7 +23504,14 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
         modes: &[],
         alternatives: &[],
     }],
-    &[],
+    // Last-Ditch Effort
+    &[FaceLines {
+        sentences: 1,
+        stackable: 0,
+        lines: &[None],
+        modes: &[],
+        alternatives: &[],
+    }],
     // Levitation
     &[FaceLines {
         sentences: 1,
@@ -23256,7 +23571,14 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
         alternatives: &[],
     }],
     &[],
-    &[],
+    // Multani, Maro-Sorcerer
+    &[FaceLines {
+        sentences: 2,
+        stackable: 0,
+        lines: &[None],
+        modes: &[],
+        alternatives: &[],
+    }],
     // No Mercy
     &[FaceLines {
         sentences: 1,
@@ -24783,7 +25105,14 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
         modes: &[],
         alternatives: &[],
     }],
-    &[],
+    // Donate
+    &[FaceLines {
+        sentences: 1,
+        stackable: 0,
+        lines: &[None],
+        modes: &[],
+        alternatives: &[],
+    }],
     // Dying Wail
     &[FaceLines {
         sentences: 2,
@@ -25815,7 +26144,14 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
         modes: &[],
         alternatives: &[],
     }],
-    &[],
+    // Brawl
+    &[FaceLines {
+        sentences: 1,
+        stackable: 0,
+        lines: &[None],
+        modes: &[],
+        alternatives: &[],
+    }],
     // Briar Patch
     &[FaceLines {
         sentences: 1,
@@ -26052,7 +26388,14 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
         modes: &[],
         alternatives: &[],
     }],
-    &[],
+    // Common Cause
+    &[FaceLines {
+        sentences: 1,
+        stackable: 0,
+        lines: &[None],
+        modes: &[],
+        alternatives: &[],
+    }],
     &[],
     &[],
     // Corrupt Official
@@ -26081,7 +26424,14 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
         modes: &[],
         alternatives: &[Some(0)],
     }],
-    &[],
+    // Credit Voucher
+    &[FaceLines {
+        sentences: 1,
+        stackable: 1,
+        lines: &[Some(0)],
+        modes: &[],
+        alternatives: &[],
+    }],
     // Crenellated Wall
     &[FaceLines {
         sentences: 2,
@@ -26468,7 +26818,14 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
         alternatives: &[],
     }],
     &[],
-    &[],
+    // Honor the Fallen
+    &[FaceLines {
+        sentences: 1,
+        stackable: 0,
+        lines: &[None],
+        modes: &[],
+        alternatives: &[],
+    }],
     // Hoodwink
     &[FaceLines {
         sentences: 1,
@@ -26761,7 +27118,14 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
         alternatives: &[Some(0)],
     }],
     &[],
-    &[],
+    // Misstep
+    &[FaceLines {
+        sentences: 1,
+        stackable: 0,
+        lines: &[None],
+        modes: &[],
+        alternatives: &[],
+    }],
     // Molting Harpy
     &[FaceLines {
         sentences: 2,
@@ -27176,8 +27540,22 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
         modes: &[],
         alternatives: &[],
     }],
-    &[],
-    &[],
+    // Saprazzan Bailiff
+    &[FaceLines {
+        sentences: 2,
+        stackable: 2,
+        lines: &[Some(0), Some(1)],
+        modes: &[],
+        alternatives: &[],
+    }],
+    // Saprazzan Breaker
+    &[FaceLines {
+        sentences: 1,
+        stackable: 1,
+        lines: &[Some(0)],
+        modes: &[],
+        alternatives: &[],
+    }],
     // Saprazzan Cove
     &[FaceLines {
         sentences: 3,
@@ -27745,7 +28123,14 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
         modes: &[],
         alternatives: &[],
     }],
-    &[],
+    // Arc Mage
+    &[FaceLines {
+        sentences: 1,
+        stackable: 1,
+        lines: &[Some(0)],
+        modes: &[],
+        alternatives: &[],
+    }],
     // Ascendant Evincar
     &[FaceLines {
         sentences: 3,
@@ -28712,7 +29097,14 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
         modes: &[],
         alternatives: &[],
     }],
-    &[],
+    // Alexi, Zephyr Mage
+    &[FaceLines {
+        sentences: 1,
+        stackable: 1,
+        lines: &[Some(0)],
+        modes: &[],
+        alternatives: &[],
+    }],
     // Aura Fracture
     &[FaceLines {
         sentences: 1,
@@ -30798,7 +31190,14 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
         modes: &[],
         alternatives: &[],
     }],
-    &[],
+    // Recoil
+    &[FaceLines {
+        sentences: 1,
+        stackable: 0,
+        lines: &[None],
+        modes: &[],
+        alternatives: &[],
+    }],
     // Recover
     &[FaceLines {
         sentences: 2,
@@ -31395,7 +31794,14 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
         modes: &[],
         alternatives: &[],
     }],
-    &[],
+    // Tsabo's Assassin
+    &[FaceLines {
+        sentences: 1,
+        stackable: 1,
+        lines: &[Some(0)],
+        modes: &[],
+        alternatives: &[],
+    }],
     // Tsabo's Decree
     &[FaceLines {
         sentences: 1,
@@ -31863,7 +32269,14 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
         modes: &[],
         alternatives: &[],
     }],
-    &[],
+    // Doomsday Specter
+    &[FaceLines {
+        sentences: 3,
+        stackable: 2,
+        lines: &[Some(1), Some(2)],
+        modes: &[],
+        alternatives: &[],
+    }],
     &[],
     // Dralnu's Crusade
     &[FaceLines {
@@ -31989,7 +32402,14 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     }],
     &[],
     &[],
-    &[],
+    // Heroic Defiance
+    &[FaceLines {
+        sentences: 2,
+        stackable: 0,
+        lines: &[None, None],
+        modes: &[],
+        alternatives: &[],
+    }],
     // Hobble
     &[FaceLines {
         sentences: 4,
@@ -31998,7 +32418,14 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
         modes: &[],
         alternatives: &[],
     }],
-    &[],
+    // Honorable Scout
+    &[FaceLines {
+        sentences: 1,
+        stackable: 1,
+        lines: &[Some(0)],
+        modes: &[],
+        alternatives: &[],
+    }],
     // Horned Kavu
     &[FaceLines {
         sentences: 1,
@@ -32910,7 +33337,14 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
         modes: &[],
         alternatives: &[],
     }],
-    &[],
+    // Gaea's Balance
+    &[FaceLines {
+        sentences: 2,
+        stackable: 0,
+        lines: &[None],
+        modes: &[],
+        alternatives: &[],
+    }],
     &[],
     // Gerrard Capashen
     &[FaceLines {
@@ -34515,7 +34949,14 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
         alternatives: &[],
     }],
     &[],
-    &[],
+    // Last Rites
+    &[FaceLines {
+        sentences: 1,
+        stackable: 0,
+        lines: &[None],
+        modes: &[],
+        alternatives: &[],
+    }],
     // Lava Blister
     &[FaceLines {
         sentences: 1,
@@ -34683,7 +35124,14 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
         modes: &[],
         alternatives: &[],
     }],
-    &[],
+    // Mudhole
+    &[FaceLines {
+        sentences: 1,
+        stackable: 0,
+        lines: &[None],
+        modes: &[],
+        alternatives: &[],
+    }],
     // Muscle Burst
     &[FaceLines {
         sentences: 1,
@@ -35053,8 +35501,22 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
         alternatives: &[],
     }],
     &[],
-    &[],
-    &[],
+    // Rites of Refusal
+    &[FaceLines {
+        sentences: 1,
+        stackable: 0,
+        lines: &[None],
+        modes: &[],
+        alternatives: &[],
+    }],
+    // Rites of Spring
+    &[FaceLines {
+        sentences: 1,
+        stackable: 0,
+        lines: &[None],
+        modes: &[],
+        alternatives: &[],
+    }],
     // Roar of the Wurm
     &[FaceLines {
         sentences: 2,
@@ -35071,7 +35533,14 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
         modes: &[],
         alternatives: &[],
     }],
-    &[],
+    // Sacred Rites
+    &[FaceLines {
+        sentences: 1,
+        stackable: 0,
+        lines: &[None],
+        modes: &[],
+        alternatives: &[],
+    }],
     // Sadistic Hypnotist
     &[FaceLines {
         sentences: 1,
@@ -35193,7 +35662,14 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
         alternatives: &[],
     }],
     &[],
-    &[],
+    // Shower of Coals
+    &[FaceLines {
+        sentences: 2,
+        stackable: 0,
+        lines: &[None],
+        modes: &[],
+        alternatives: &[],
+    }],
     // Simplify
     &[FaceLines {
         sentences: 1,
@@ -35306,7 +35782,14 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
         modes: &[],
         alternatives: &[],
     }],
-    &[],
+    // Spiritualize
+    &[FaceLines {
+        sentences: 2,
+        stackable: 0,
+        lines: &[None],
+        modes: &[],
+        alternatives: &[],
+    }],
     // Springing Tiger
     &[FaceLines {
         sentences: 1,
@@ -35430,7 +35913,14 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
         modes: &[],
         alternatives: &[],
     }],
-    &[],
+    // Thermal Blast
+    &[FaceLines {
+        sentences: 2,
+        stackable: 0,
+        lines: &[None],
+        modes: &[],
+        alternatives: &[],
+    }],
     // Think Tank
     &[FaceLines {
         sentences: 1,
@@ -35849,7 +36339,14 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
         modes: &[],
         alternatives: &[],
     }],
-    &[],
+    // Coral Net
+    &[FaceLines {
+        sentences: 2,
+        stackable: 0,
+        lines: &[None, None],
+        modes: &[],
+        alternatives: &[],
+    }],
     // Crackling Club
     &[FaceLines {
         sentences: 3,
@@ -35874,7 +36371,14 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
         modes: &[],
         alternatives: &[],
     }],
-    &[],
+    // Dawn of the Dead
+    &[FaceLines {
+        sentences: 2,
+        stackable: 2,
+        lines: &[Some(0), Some(1)],
+        modes: &[],
+        alternatives: &[],
+    }],
     // Deep Analysis
     &[FaceLines {
         sentences: 2,
@@ -36806,7 +37310,14 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
         alternatives: &[],
     }],
     &[],
-    &[],
+    // Flaring Pain
+    &[FaceLines {
+        sentences: 2,
+        stackable: 0,
+        lines: &[None],
+        modes: &[],
+        alternatives: &[],
+    }],
     &[],
     // Fledgling Dragon
     &[FaceLines {
@@ -36860,7 +37371,14 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     }],
     &[],
     &[],
-    &[],
+    // Grizzly Fate
+    &[FaceLines {
+        sentences: 3,
+        stackable: 0,
+        lines: &[None],
+        modes: &[],
+        alternatives: &[],
+    }],
     // Guiltfeeder
     &[FaceLines {
         sentences: 2,
@@ -36960,7 +37478,14 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
         modes: &[],
         alternatives: &[],
     }],
-    &[],
+    // Lightning Surge
+    &[FaceLines {
+        sentences: 3,
+        stackable: 0,
+        lines: &[None],
+        modes: &[],
+        alternatives: &[],
+    }],
     &[],
     &[],
     // Masked Gorgon
@@ -37299,8 +37824,22 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
         modes: &[],
         alternatives: &[],
     }],
-    &[],
-    &[],
+    // Wormfang Newt
+    &[FaceLines {
+        sentences: 2,
+        stackable: 2,
+        lines: &[Some(0), Some(1)],
+        modes: &[],
+        alternatives: &[],
+    }],
+    // Wormfang Turtle
+    &[FaceLines {
+        sentences: 2,
+        stackable: 2,
+        lines: &[Some(0), Some(1)],
+        modes: &[],
+        alternatives: &[],
+    }],
     // Silent Specter
     &[FaceLines {
         sentences: 3,
@@ -37493,7 +38032,14 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
         modes: &[],
         alternatives: &[],
     }],
-    &[],
+    // Biorhythm
+    &[FaceLines {
+        sentences: 1,
+        stackable: 0,
+        lines: &[None],
+        modes: &[],
+        alternatives: &[],
+    }],
     // Birchlore Rangers
     &[FaceLines {
         sentences: 2,
@@ -38590,7 +39136,14 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
         modes: &[],
         alternatives: &[],
     }],
-    &[],
+    // Oblation
+    &[FaceLines {
+        sentences: 1,
+        stackable: 0,
+        lines: &[None],
+        modes: &[],
+        alternatives: &[],
+    }],
     &[],
     // Overwhelming Instinct
     &[FaceLines {
@@ -38625,7 +39178,14 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
         modes: &[Some(1), Some(2), Some(3)],
         alternatives: &[],
     }],
-    &[],
+    // Pinpoint Avalanche
+    &[FaceLines {
+        sentences: 1,
+        stackable: 0,
+        lines: &[None],
+        modes: &[],
+        alternatives: &[],
+    }],
     // Polluted Delta
     &[FaceLines {
         sentences: 1,
@@ -38834,7 +39394,14 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
         alternatives: &[],
     }],
     &[],
-    &[],
+    // Shade's Breath
+    &[FaceLines {
+        sentences: 1,
+        stackable: 0,
+        lines: &[Some(0)],
+        modes: &[],
+        alternatives: &[],
+    }],
     // Shaleskin Bruiser
     &[FaceLines {
         sentences: 2,
@@ -38859,7 +39426,14 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
         modes: &[],
         alternatives: &[],
     }],
-    &[],
+    // Shieldmage Elder
+    &[FaceLines {
+        sentences: 2,
+        stackable: 2,
+        lines: &[Some(0), Some(1)],
+        modes: &[],
+        alternatives: &[],
+    }],
     // Sigil of the New Dawn
     &[FaceLines {
         sentences: 1,
@@ -39147,7 +39721,14 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
         modes: &[],
         alternatives: &[],
     }],
-    &[],
+    // Unified Strike
+    &[FaceLines {
+        sentences: 1,
+        stackable: 0,
+        lines: &[None],
+        modes: &[],
+        alternatives: &[],
+    }],
     // Venomspout Brackus
     &[FaceLines {
         sentences: 2,
@@ -39850,7 +40431,14 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
         modes: &[],
         alternatives: &[],
     }],
-    &[],
+    // Infernal Caretaker
+    &[FaceLines {
+        sentences: 2,
+        stackable: 1,
+        lines: &[Some(1)],
+        modes: &[],
+        alternatives: &[],
+    }],
     // Keeneye Aven
     &[FaceLines {
         sentences: 2,
@@ -40484,8 +41072,22 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
         modes: &[],
         alternatives: &[],
     }],
-    &[],
-    &[],
+    // Decree of Annihilation
+    &[FaceLines {
+        sentences: 3,
+        stackable: 2,
+        lines: &[Some(1), None, Some(2)],
+        modes: &[],
+        alternatives: &[],
+    }],
+    // Decree of Justice
+    &[FaceLines {
+        sentences: 3,
+        stackable: 2,
+        lines: &[Some(1), None, Some(2)],
+        modes: &[],
+        alternatives: &[],
+    }],
     // Decree of Pain
     &[FaceLines {
         sentences: 3,
@@ -40689,7 +41291,14 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
         alternatives: &[],
     }],
     &[],
-    &[],
+    // Guilty Conscience
+    &[FaceLines {
+        sentences: 2,
+        stackable: 1,
+        lines: &[None, Some(1)],
+        modes: &[],
+        alternatives: &[],
+    }],
     // Hindering Touch
     &[FaceLines {
         sentences: 2,
@@ -40940,7 +41549,14 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
         modes: &[],
         alternatives: &[],
     }],
-    &[],
+    // Skirk Volcanist
+    &[FaceLines {
+        sentences: 2,
+        stackable: 1,
+        lines: &[Some(1)],
+        modes: &[],
+        alternatives: &[],
+    }],
     // Skulltap
     &[FaceLines {
         sentences: 2,
@@ -41056,7 +41672,14 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
         modes: &[],
         alternatives: &[],
     }],
-    &[],
+    // Uncontrolled Infestation
+    &[FaceLines {
+        sentences: 2,
+        stackable: 1,
+        lines: &[None, Some(1)],
+        modes: &[],
+        alternatives: &[],
+    }],
     // Undead Warchief
     &[FaceLines {
         sentences: 2,
@@ -66402,14 +67025,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
         modes: &[],
         alternatives: &[],
     }],
-    // Blood Tribute
-    &[FaceLines {
-        sentences: 2,
-        stackable: 0,
-        lines: &[None],
-        modes: &[],
-        alternatives: &[],
-    }],
+    &[],
     &[],
     &[],
     &[],
@@ -71451,7 +72067,14 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
         modes: &[],
         alternatives: &[],
     }],
-    &[],
+    // Nihil Spellbomb
+    &[FaceLines {
+        sentences: 2,
+        stackable: 2,
+        lines: &[Some(0), Some(1)],
+        modes: &[],
+        alternatives: &[],
+    }],
     // Nim Deathmantle
     &[FaceLines {
         sentences: 3,
@@ -134147,7 +134770,14 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
         alternatives: &[],
     }],
     &[],
-    &[],
+    // Unholy Heat
+    &[FaceLines {
+        sentences: 2,
+        stackable: 0,
+        lines: &[None],
+        modes: &[],
+        alternatives: &[],
+    }],
     // Urban Daggertooth
     &[FaceLines {
         sentences: 2,
@@ -166407,7 +167037,14 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
         modes: &[],
         alternatives: &[],
     }],
-    &[],
+    // Galvanic Discharge
+    &[FaceLines {
+        sentences: 1,
+        stackable: 0,
+        lines: &[None],
+        modes: &[],
+        alternatives: &[],
+    }],
     &[],
     // Ghostfire Slice
     &[FaceLines {
@@ -178810,14 +179447,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
         modes: &[],
         alternatives: &[],
     }],
-    // Atmospheric Greenhouse
-    &[FaceLines {
-        sentences: 3,
-        stackable: 2,
-        lines: &[Some(1), Some(0), None, None],
-        modes: &[],
-        alternatives: &[],
-    }],
+    &[],
     // Atomic Microsizer
     &[FaceLines {
         sentences: 3,
@@ -178995,14 +179625,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
         modes: &[],
         alternatives: &[],
     }],
-    // Dawnsire, Sunstar Dreadnought
-    &[FaceLines {
-        sentences: 3,
-        stackable: 2,
-        lines: &[Some(0), None, None, None],
-        modes: &[],
-        alternatives: &[],
-    }],
+    &[],
     // Dawnstrike Vanguard
     &[FaceLines {
         sentences: 2,
@@ -179011,14 +179634,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
         modes: &[],
         alternatives: &[],
     }],
-    // Debris Field Crusher
-    &[FaceLines {
-        sentences: 4,
-        stackable: 3,
-        lines: &[Some(1), Some(0), None, None, Some(3)],
-        modes: &[],
-        alternatives: &[],
-    }],
+    &[],
     &[],
     &[],
     // Depthshaker Titan
@@ -179180,22 +179796,8 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
         modes: &[],
         alternatives: &[],
     }],
-    // Exploration Broodship
-    &[FaceLines {
-        sentences: 4,
-        stackable: 1,
-        lines: &[Some(0), None, None, None, None],
-        modes: &[],
-        alternatives: &[],
-    }],
-    // Extinguisher Battleship
-    &[FaceLines {
-        sentences: 3,
-        stackable: 2,
-        lines: &[Some(1), Some(0), None, None],
-        modes: &[],
-        alternatives: &[],
-    }],
+    &[],
+    &[],
     // Faller's Faithful
     &[FaceLines {
         sentences: 1,
@@ -179205,14 +179807,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
         alternatives: &[],
     }],
     &[],
-    // Fell Gravship
-    &[FaceLines {
-        sentences: 3,
-        stackable: 2,
-        lines: &[Some(1), Some(0), None, None],
-        modes: &[],
-        alternatives: &[],
-    }],
+    &[],
     // Festering Thicket
     &[FaceLines {
         sentences: 3,
@@ -179263,14 +179858,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
         modes: &[],
         alternatives: &[],
     }],
-    // Galvanizing Sawship
-    &[FaceLines {
-        sentences: 2,
-        stackable: 1,
-        lines: &[Some(0), None, None],
-        modes: &[],
-        alternatives: &[],
-    }],
+    &[],
     // Gene Pollinator
     &[FaceLines {
         sentences: 1,
@@ -179368,14 +179956,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
         modes: &[],
         alternatives: &[],
     }],
-    // Hearthhull, the Worldseed
-    &[FaceLines {
-        sentences: 4,
-        stackable: 3,
-        lines: &[Some(0), Some(1), None, None, Some(3)],
-        modes: &[],
-        alternatives: &[],
-    }],
+    &[],
     // Hemosymbic Mite
     &[FaceLines {
         sentences: 1,
@@ -179452,14 +180033,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
         modes: &[],
         alternatives: &[],
     }],
-    // Infinite Guideline Station
-    &[FaceLines {
-        sentences: 4,
-        stackable: 3,
-        lines: &[Some(1), Some(0), None, None, Some(3)],
-        modes: &[],
-        alternatives: &[],
-    }],
+    &[],
     &[],
     // Insight Engine
     &[FaceLines {
@@ -179536,14 +180110,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
         modes: &[],
         alternatives: &[],
     }],
-    // Larval Scoutlander
-    &[FaceLines {
-        sentences: 3,
-        stackable: 2,
-        lines: &[Some(1), Some(0), None, None],
-        modes: &[],
-        alternatives: &[],
-    }],
+    &[],
     // Lashwhip Predator
     &[FaceLines {
         sentences: 2,
@@ -179593,14 +180160,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
         modes: &[],
         alternatives: &[],
     }],
-    // Lumen-Class Frigate
-    &[FaceLines {
-        sentences: 3,
-        stackable: 1,
-        lines: &[Some(0), None, None, None],
-        modes: &[],
-        alternatives: &[],
-    }],
+    &[],
     &[],
     // Mechan Assembler
     &[FaceLines {
@@ -179816,14 +180376,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
         modes: &[],
         alternatives: &[],
     }],
-    // Pinnacle Kill-Ship
-    &[FaceLines {
-        sentences: 3,
-        stackable: 2,
-        lines: &[Some(1), Some(0), None, None],
-        modes: &[],
-        alternatives: &[],
-    }],
+    &[],
     &[],
     // Planetary Annihilation
     &[FaceLines {
@@ -179902,14 +180455,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
         modes: &[Some(1), Some(2)],
         alternatives: &[],
     }],
-    // Rescue Skiff
-    &[FaceLines {
-        sentences: 3,
-        stackable: 2,
-        lines: &[Some(1), Some(0), None, None],
-        modes: &[],
-        alternatives: &[],
-    }],
+    &[],
     // Rig for War
     &[FaceLines {
         sentences: 1,
@@ -180058,14 +180604,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
         modes: &[],
         alternatives: &[],
     }],
-    // Sledge-Class Seedship
-    &[FaceLines {
-        sentences: 3,
-        stackable: 2,
-        lines: &[Some(0), None, None, Some(2)],
-        modes: &[],
-        alternatives: &[],
-    }],
+    &[],
     &[],
     &[],
     // Space-Time Anomaly
@@ -180076,14 +180615,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
         modes: &[],
         alternatives: &[],
     }],
-    // Specimen Freighter
-    &[FaceLines {
-        sentences: 4,
-        stackable: 3,
-        lines: &[Some(1), Some(0), None, None, Some(3)],
-        modes: &[],
-        alternatives: &[],
-    }],
+    &[],
     // Squire's Lightblade
     &[FaceLines {
         sentences: 4,
@@ -180198,14 +180730,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
         modes: &[],
         alternatives: &[],
     }],
-    // Susurian Dirgecraft
-    &[FaceLines {
-        sentences: 3,
-        stackable: 2,
-        lines: &[Some(1), Some(0), None, None],
-        modes: &[],
-        alternatives: &[],
-    }],
+    &[],
     // Susurian Voidborn
     &[FaceLines {
         sentences: 2,
@@ -180222,14 +180747,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
         modes: &[],
         alternatives: &[],
     }],
-    // Synthesizer Labship
-    &[FaceLines {
-        sentences: 3,
-        stackable: 2,
-        lines: &[Some(0), None, None, None],
-        modes: &[],
-        alternatives: &[],
-    }],
+    &[],
     &[],
     // Syr Vondam, the Lucent
     &[FaceLines {
@@ -180290,14 +180808,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
         alternatives: &[],
     }],
     &[],
-    // The Seriema
-    &[FaceLines {
-        sentences: 4,
-        stackable: 2,
-        lines: &[Some(1), Some(0), None, None, None],
-        modes: &[],
-        alternatives: &[],
-    }],
+    &[],
     // Thrumming Hivepool
     &[FaceLines {
         sentences: 3,
@@ -180326,22 +180837,8 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     }],
     &[],
     &[],
-    // Uthros Research Craft
-    &[FaceLines {
-        sentences: 4,
-        stackable: 2,
-        lines: &[Some(0), None, None, None, None],
-        modes: &[],
-        alternatives: &[],
-    }],
-    // Uthros Scanship
-    &[FaceLines {
-        sentences: 3,
-        stackable: 2,
-        lines: &[Some(1), Some(0), None, None],
-        modes: &[],
-        alternatives: &[],
-    }],
+    &[],
+    &[],
     // Uthros, Titanic Godcore
     &[FaceLines {
         sentences: 4,
@@ -180376,14 +180873,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
         modes: &[],
         alternatives: &[],
     }],
-    // Warmaker Gunship
-    &[FaceLines {
-        sentences: 3,
-        stackable: 2,
-        lines: &[Some(1), Some(0), None, None],
-        modes: &[],
-        alternatives: &[],
-    }],
+    &[],
     // Weapons Manufacturing
     &[FaceLines {
         sentences: 1,
@@ -180392,14 +180882,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
         modes: &[],
         alternatives: &[],
     }],
-    // Wedgelight Rammer
-    &[FaceLines {
-        sentences: 3,
-        stackable: 2,
-        lines: &[Some(1), Some(0), None, None],
-        modes: &[],
-        alternatives: &[],
-    }],
+    &[],
     // Weftblade Enhancer
     &[FaceLines {
         sentences: 2,
@@ -180417,14 +180900,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
         alternatives: &[],
     }],
     &[],
-    // Wurmwall Sweeper
-    &[FaceLines {
-        sentences: 3,
-        stackable: 2,
-        lines: &[Some(1), Some(0), None, None],
-        modes: &[],
-        alternatives: &[],
-    }],
+    &[],
     // Xu-Ifit, Osteoharmonist
     &[FaceLines {
         sentences: 1,
@@ -196606,14 +197082,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
         modes: &[],
         alternatives: &[],
     }],
-    // Borg Scout Sphere
-    &[FaceLines {
-        sentences: 3,
-        stackable: 2,
-        lines: &[Some(1), Some(0), None, None],
-        modes: &[],
-        alternatives: &[],
-    }],
+    &[],
     &[],
     &[],
     &[],
@@ -196678,22 +197147,8 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     }],
     &[],
     &[],
-    // Class-4 Tactical Cube
-    &[FaceLines {
-        sentences: 4,
-        stackable: 2,
-        lines: &[Some(1), Some(0), None, None, None],
-        modes: &[],
-        alternatives: &[],
-    }],
-    // Class-F Shuttlecraft
-    &[FaceLines {
-        sentences: 3,
-        stackable: 1,
-        lines: &[Some(1), Some(0), None, None],
-        modes: &[],
-        alternatives: &[],
-    }],
+    &[],
+    &[],
     // Cleveland Booker, Empath
     &[FaceLines {
         sentences: 2,
@@ -196804,14 +197259,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
         modes: &[],
         alternatives: &[],
     }],
-    // D-7 Battle Cruiser
-    &[FaceLines {
-        sentences: 3,
-        stackable: 2,
-        lines: &[Some(0), None, None, None],
-        modes: &[],
-        alternatives: &[],
-    }],
+    &[],
     // Dahar Master
     &[FaceLines {
         sentences: 1,
@@ -196872,14 +197320,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     }],
     &[],
     &[],
-    // Deep Space 9
-    &[FaceLines {
-        sentences: 3,
-        stackable: 3,
-        lines: &[Some(1), Some(0), Some(0), None],
-        modes: &[],
-        alternatives: &[],
-    }],
+    &[],
     &[],
     // Deliver from Chaos
     &[FaceLines {
@@ -196959,14 +197400,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[],
     &[],
     &[],
-    // Enterprise NX-01
-    &[FaceLines {
-        sentences: 3,
-        stackable: 2,
-        lines: &[Some(1), Some(0), None, None],
-        modes: &[],
-        alternatives: &[],
-    }],
+    &[],
     &[],
     &[],
     &[],
@@ -197139,14 +197573,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     }],
     &[],
     &[],
-    // I.K.S. Negh'Var, Imperial Flagship
-    &[FaceLines {
-        sentences: 3,
-        stackable: 1,
-        lines: &[Some(1), None, None, None],
-        modes: &[],
-        alternatives: &[],
-    }],
+    &[],
     &[],
     // Impossible Choice
     &[FaceLines {
@@ -197233,14 +197660,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
         modes: &[],
         alternatives: &[],
     }],
-    // K'Vort-Class Raider
-    &[FaceLines {
-        sentences: 3,
-        stackable: 1,
-        lines: &[Some(1), None, None, None],
-        modes: &[],
-        alternatives: &[],
-    }],
+    &[],
     &[],
     &[],
     &[],
@@ -197457,14 +197877,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     }],
     &[],
     &[],
-    // Oberth-Class Starship
-    &[FaceLines {
-        sentences: 3,
-        stackable: 2,
-        lines: &[Some(1), Some(0), None, None],
-        modes: &[],
-        alternatives: &[],
-    }],
+    &[],
     &[],
     // On the Shoulders of Giants
     &[FaceLines {
@@ -197588,14 +198001,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
         modes: &[],
         alternatives: &[],
     }],
-    // Queen's Diamond
-    &[FaceLines {
-        sentences: 3,
-        stackable: 1,
-        lines: &[Some(1), Some(0), None, None],
-        modes: &[],
-        alternatives: &[],
-    }],
+    &[],
     // Ravenous Cosmozoan
     &[FaceLines {
         sentences: 2,
@@ -197678,14 +198084,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
         modes: &[],
         alternatives: &[],
     }],
-    // Romulan Bird-of-Prey
-    &[FaceLines {
-        sentences: 4,
-        stackable: 2,
-        lines: &[Some(2), None, Some(1), None, None],
-        modes: &[],
-        alternatives: &[],
-    }],
+    &[],
     // Romulus
     &[FaceLines {
         sentences: 3,
@@ -197712,14 +198111,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
         modes: &[],
         alternatives: &[],
     }],
-    // Sarcophagus, Ship of the Dead
-    &[FaceLines {
-        sentences: 4,
-        stackable: 2,
-        lines: &[Some(2), None, Some(1), None, None],
-        modes: &[],
-        alternatives: &[],
-    }],
+    &[],
     &[],
     // Saru, Unthreatened
     &[FaceLines {
@@ -197771,14 +198163,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
         modes: &[],
         alternatives: &[],
     }],
-    // Shuttlecraft Galileo
-    &[FaceLines {
-        sentences: 4,
-        stackable: 3,
-        lines: &[Some(1), Some(0), None, None, Some(3)],
-        modes: &[],
-        alternatives: &[],
-    }],
+    &[],
     // Sickbay
     &[FaceLines {
         sentences: 2,
@@ -197847,14 +198232,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
         modes: &[],
         alternatives: &[],
     }],
-    // Starship Enterprise
-    &[FaceLines {
-        sentences: 4,
-        stackable: 3,
-        lines: &[Some(1), Some(0), None, None, Some(3)],
-        modes: &[],
-        alternatives: &[],
-    }],
+    &[],
     &[],
     // Stratagem Emulator
     &[FaceLines {
@@ -197898,14 +198276,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
         modes: &[],
         alternatives: &[],
     }],
-    // Suurok-Class Science Vessel
-    &[FaceLines {
-        sentences: 3,
-        stackable: 2,
-        lines: &[Some(1), Some(0), None, None],
-        modes: &[],
-        alternatives: &[],
-    }],
+    &[],
     &[],
     &[],
     &[],
@@ -198128,14 +198499,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
         alternatives: &[],
     }],
     &[],
-    // Transwarp Hub
-    &[FaceLines {
-        sentences: 3,
-        stackable: 3,
-        lines: &[Some(1), Some(0), Some(2)],
-        modes: &[],
-        alternatives: &[],
-    }],
+    &[],
     // Tribble Cluster
     &[FaceLines {
         sentences: 2,
@@ -198169,14 +198533,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
         alternatives: &[],
     }],
     &[],
-    // Type-03 Borg Vessel
-    &[FaceLines {
-        sentences: 4,
-        stackable: 2,
-        lines: &[Some(1), None, None, None, Some(3)],
-        modes: &[],
-        alternatives: &[],
-    }],
+    &[],
     // Type-2 Phaser
     &[FaceLines {
         sentences: 3,
@@ -198185,89 +198542,19 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
         modes: &[],
         alternatives: &[],
     }],
-    // U.S.S. Cerritos, Following Up
-    &[FaceLines {
-        sentences: 3,
-        stackable: 2,
-        lines: &[Some(1), Some(0), None, None],
-        modes: &[],
-        alternatives: &[],
-    }],
-    // U.S.S. Defiant, Mirror Migrant
-    &[FaceLines {
-        sentences: 4,
-        stackable: 2,
-        lines: &[Some(2), Some(1), None, None],
-        modes: &[],
-        alternatives: &[],
-    }],
-    // U.S.S. Defiant, Tough Little Ship
-    &[FaceLines {
-        sentences: 3,
-        stackable: 2,
-        lines: &[Some(1), Some(0), None, None],
-        modes: &[],
-        alternatives: &[],
-    }],
-    // U.S.S. Discovery, at Black Alert
-    &[FaceLines {
-        sentences: 3,
-        stackable: 3,
-        lines: &[Some(1), Some(0), Some(0), None, None],
-        modes: &[],
-        alternatives: &[],
-    }],
-    // U.S.S. Enterprise-A, Free Spirit
-    &[FaceLines {
-        sentences: 4,
-        stackable: 3,
-        lines: &[Some(0), Some(2), Some(1), None, None],
-        modes: &[],
-        alternatives: &[],
-    }],
-    &[],
-    // U.S.S. Enterprise-E, Sovereign
-    &[FaceLines {
-        sentences: 3,
-        stackable: 2,
-        lines: &[Some(1), Some(0), None, None],
-        modes: &[],
-        alternatives: &[],
-    }],
-    // U.S.S. Excelsior, Cutting Edge
-    &[FaceLines {
-        sentences: 3,
-        stackable: 2,
-        lines: &[Some(1), Some(0), None, None],
-        modes: &[],
-        alternatives: &[],
-    }],
     &[],
     &[],
-    // U.S.S. Reliant, From Hell's Heart
-    &[FaceLines {
-        sentences: 3,
-        stackable: 3,
-        lines: &[Some(1), Some(0), Some(0), None, None],
-        modes: &[],
-        alternatives: &[],
-    }],
-    // U.S.S. Stargazer, Here and There
-    &[FaceLines {
-        sentences: 3,
-        stackable: 2,
-        lines: &[Some(0), None, None, Some(2)],
-        modes: &[],
-        alternatives: &[],
-    }],
-    // U.S.S. Voyager, Lone Wanderer
-    &[FaceLines {
-        sentences: 3,
-        stackable: 2,
-        lines: &[Some(1), Some(0), None, None],
-        modes: &[],
-        alternatives: &[],
-    }],
+    &[],
+    &[],
+    &[],
+    &[],
+    &[],
+    &[],
+    &[],
+    &[],
+    &[],
+    &[],
+    &[],
     // Uhura, Xenolinguist
     &[FaceLines {
         sentences: 1,
