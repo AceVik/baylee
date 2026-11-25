@@ -351,8 +351,33 @@ impl Tx<'_> {
         origin: Option<&str>,
         destination: &str,
     ) -> Option<Vec<String>> {
+        // `ValidCard$ Card.Self+YouOwn` (*Guan Yu, Sainted Warrior*) hoists its
+        // trigger filter into `static TRIG<n>: Filter = Filter::And(&[Filter::This, Filter::OwnedByYou])`,
+        // so `self.trigger_is_self` (which checks for literal `&Filter::This`) is false.
+        let self_owned_dies_trigger = !self.trigger_is_self
+            && self.trigger_mode.as_deref() == Some("ChangesZone")
+            && origin == Some("Graveyard")
+            && self
+                .body
+                .statics
+                .lines()
+                .rev()
+                .find(|s| s.trim_start().starts_with("static TRIG"))
+                .is_some_and(|s| {
+                    s.contains("Filter::This")
+                        && s.contains("Filter::OwnedByYou")
+                        && !s.contains("Filter::Another")
+                        && !s.contains("Filter::Or")
+                })
+            && {
+                let lower = self.oracle.to_ascii_lowercase();
+                lower.contains("is put into your graveyard from the battlefield")
+                    && lower.contains("shuffle")
+                    && !lower.contains("whenever another")
+                    && !lower.contains("whenever a ")
+            };
         if self.in_delayed
-            || !self.trigger_is_self
+            || (!self.trigger_is_self && !self_owned_dies_trigger)
             || self.trigger_mode.as_deref() != Some("ChangesZone")
             || destination != "Library"
             || p.peek("Shuffle") != Some("True")
@@ -452,11 +477,23 @@ impl Tx<'_> {
                 rel
             }
         };
-        if let Some(c) = chooser_raw.as_deref() {
+        let chooser = if let Some(c) = chooser_raw.as_deref() {
             let c_rel = self.wave11_player_of_line(Some(c), Some(target), targets_a_player)?;
-            if c_rel != player {
+            if c_rel != player && !(c_rel == "PlayerRel::You" && player == "PlayerRel::Chosen") {
                 return None;
             }
+            c_rel
+        } else {
+            player
+        };
+        if chooser != player
+            && probe.peek("AlreadyRevealed") == Some("True")
+            && self
+                .oracle
+                .to_ascii_lowercase()
+                .contains("reveals their hand")
+        {
+            probe.take("AlreadyRevealed");
         }
         let num_raw = probe.take("ChangeNum").unwrap_or_else(|| "1".to_string());
         let ct_raw = probe.take("ChangeType");
@@ -524,7 +561,7 @@ impl Tx<'_> {
         *p = probe;
         Some(vec![
             format!(
-                "Effect::ChooseCardEx {{ chooser: {player}, zone: ChooseZone::Hand({player}), \
+                "Effect::ChooseCardEx {{ chooser: {chooser}, zone: ChooseZone::Hand({player}), \
                  filter: &{filter}, min: {min}, max: {max_expr}, reveal_chosen: false, \
                  movement: ChooseMove::TopOfLibrary, not_chosen_movement: ChooseMove::None, \
                  then: &[], for_unchosen: &[] }}"
@@ -592,11 +629,19 @@ impl Tx<'_> {
         )])
     }
 
-    /// Conditional library search destination (*Loyal Inventor*):
-    /// `ChangeZone | Origin$ Library | Destination$ Library | RememberChanged$ True | SubAbility$ S1`
-    /// where `S1` moves `Defined$ Remembered` to `Hand` under `ConditionCheckSVar$ X | GE1`
-    /// and `S2` moves `Defined$ Remembered` to `Library | LibraryPosition$ 0` under `X | LE0/EQ0`,
-    /// followed by `Cleanup | ClearRemembered$ True`.
+    /// Conditional & split library search chains rooted at
+    /// `ChangeZone | Origin$ Library | Destination$ Library | RememberChanged$ True`:
+    /// 1. Complementary `ConditionCheckSVar$` destinations (*Loyal Inventor*) ->
+    ///    `Effect::IfCondition` selecting `Find::HAND` vs `Find::TOP_OF_LIBRARY`.
+    /// 2. Unrevealed mandatory 2-card split (*Final Parting*) ->
+    ///    `Effect::SearchLibrary { filter: &Filter::Any, finds: &[Find::HAND, Find::GRAVEYARD], optional: false }`.
+    /// 3. Mandatory filtered-destination fork (*Guidelight Pathmaker*, *Nazahn,
+    ///    Revered Bladesmith*) -> `Find::HAND.when_matching(&COND, &Find::BATTLEFIELD)`
+    ///    (strictly refusing `Optional$ True`).
+    /// 4. `DB$ Branch` destination split (*Stoic Farmer*) ->
+    ///    `Effect::IfCondition` selecting between two library-search destinations.
+    /// 5. Conditional count split search (*Nissa's Pilgrimage*) ->
+    ///    `Effect::IfCondition` selecting between `[Find::BATTLEFIELD_TAPPED, Find::HAND, ...]` counts.
     #[allow(clippy::too_many_lines)]
     pub(super) fn wave28a_conditional_search_dest_chain(
         &mut self,
@@ -613,6 +658,112 @@ impl Tx<'_> {
         {
             return None;
         }
+        if let Some(fx) = self.wave28a_loyal_inventor_search_chain(p, sub) {
+            return Some(fx);
+        }
+        if let Some(fx) = self.wave28a_unrevealed_split_search_chain(p, sub) {
+            return Some(fx);
+        }
+        if let Some(fx) = self.wave28a_when_matching_search_chain(p, sub) {
+            return Some(fx);
+        }
+        if let Some(fx) = self.wave28a_branch_search_dest_chain(p, sub) {
+            return Some(fx);
+        }
+        self.wave28a_conditional_count_split_search_chain(p, sub)
+    }
+
+    fn wave28a_consume_search_cleanup(
+        &self,
+        clean_name: Option<String>,
+    ) -> Result<Option<String>, ()> {
+        if let Some(clean_name) = clean_name {
+            let clean_body = self.svars.get(clean_name.trim()).ok_or(())?;
+            let (c_api, mut cp) = Params::parse(clean_body).ok_or(())?;
+            cp.drop_prose();
+            if c_api != "Cleanup" || cp.take("ClearRemembered").as_deref() != Some("True") {
+                return Err(());
+            }
+            let after = cp.take("SubAbility");
+            if !cp.exhausted() {
+                return Err(());
+            }
+            Ok(after)
+        } else if self.on_a_spell {
+            Ok(None)
+        } else {
+            Err(())
+        }
+    }
+
+    fn wave28a_consume_shuffle_then_cleanup(
+        &self,
+        next_name: Option<String>,
+        already_shuffled: bool,
+    ) -> Result<Option<String>, ()> {
+        if already_shuffled {
+            return self.wave28a_consume_search_cleanup(next_name);
+        }
+        let shuf_name = next_name.ok_or(())?;
+        let shuf_body = self.svars.get(shuf_name.trim()).ok_or(())?;
+        let (s_api, mut sp) = Params::parse(shuf_body).ok_or(())?;
+        sp.drop_prose();
+        if s_api != "Shuffle" || !matches!(sp.take("Defined").as_deref(), None | Some("You")) {
+            return Err(());
+        }
+        let after_shuf = sp.take("SubAbility");
+        if !sp.exhausted() {
+            return Err(());
+        }
+        self.wave28a_consume_search_cleanup(after_shuf)
+    }
+
+    fn wave28a_find_const(dest: &str, tapped: bool, lib_pos: Option<&str>) -> Option<&'static str> {
+        match (dest, tapped, lib_pos) {
+            ("Hand", false, None) => Some("Find::HAND"),
+            ("Graveyard", false, None) => Some("Find::GRAVEYARD"),
+            ("Exile", false, None) => Some("Find::EXILE"),
+            ("Battlefield", false, None) => Some("Find::BATTLEFIELD"),
+            ("Battlefield", true, None) => Some("Find::BATTLEFIELD_TAPPED"),
+            ("Library", false, None | Some("0")) => Some("Find::TOP_OF_LIBRARY"),
+            _ => None,
+        }
+    }
+
+    fn wave28a_search_svar_condition(&mut self, var: &str, cmp: &str) -> Option<String> {
+        if self
+            .svars
+            .get(var.trim())
+            .is_some_and(|d| d.contains("Remembered"))
+        {
+            return None;
+        }
+        self.svar_condition(var, cmp)
+            .or_else(|| self.extra_svar_condition_clause(var, cmp))
+            .or_else(|| self.extra_svar_condition_wave8(var, cmp))
+            .or_else(|| self.wave7_svar_condition(var, cmp))
+            .or_else(|| self.wave11_amount_compare_condition(var, cmp, true))
+            .or_else(|| self.wave15_trigger_svar_condition(var, cmp))
+            .or_else(|| {
+                let raw = self.svars.get(var.trim()).map(|s| s.trim())?;
+                if raw == "PlayerCountOpponents$HasPropertywithMoreLandsThanYou"
+                    && matches!(cmp.trim(), "GE1" | "GT0")
+                {
+                    Some("Condition::OpponentControlsMore(&Filter::LAND)".to_string())
+                } else {
+                    None
+                }
+            })
+    }
+
+    /// Pattern 1 (*Loyal Inventor*): complementary `ConditionCheckSVar$` moving
+    /// `Defined$ Remembered` to `Hand` vs top of `Library`.
+    #[allow(clippy::too_many_lines)]
+    fn wave28a_loyal_inventor_search_chain(
+        &mut self,
+        p: &mut Params,
+        sub: &mut Option<String>,
+    ) -> Option<Vec<String>> {
         let s1_name = sub.as_deref()?.trim().to_string();
         let s1_body = self.svars.get(&s1_name)?.clone();
         let (s1_api, mut s1) = Params::parse(&s1_body)?;
@@ -633,14 +784,6 @@ impl Tx<'_> {
         if !s1.exhausted() {
             return None;
         }
-        // Condition must be evaluated independently of the search result.
-        if self
-            .svars
-            .get(var1.trim())
-            .is_some_and(|d| d.contains("Remembered"))
-        {
-            return None;
-        }
         let s2_body = self.svars.get(s2_name.trim())?.clone();
         let (s2_api, mut s2) = Params::parse(&s2_body)?;
         s2.drop_prose();
@@ -659,35 +802,13 @@ impl Tx<'_> {
         if !s2.exhausted() || var2.trim() != var1.trim() {
             return None;
         }
-        // Verify exact complementary comparison (`GE1`/`GT0` vs `EQ0`/`LE0`/`LT1`).
         let complementary =
             matches!(cmp1.trim(), "GE1" | "GT0") && matches!(cmp2.trim(), "EQ0" | "LE0" | "LT1");
         if !complementary {
             return None;
         }
-        let after_cleanup = if let Some(clean_name) = s3_name {
-            let clean_body = self.svars.get(clean_name.trim())?.clone();
-            let (c_api, mut cp) = Params::parse(&clean_body)?;
-            cp.drop_prose();
-            if c_api != "Cleanup" || cp.take("ClearRemembered").as_deref() != Some("True") {
-                return None;
-            }
-            let after = cp.take("SubAbility");
-            if !cp.exhausted() {
-                return None;
-            }
-            after
-        } else if self.on_a_spell {
-            None
-        } else {
-            return None;
-        };
-        let cond = self
-            .svar_condition(&var1, &cmp1)
-            .or_else(|| self.extra_svar_condition_clause(&var1, &cmp1))
-            .or_else(|| self.wave7_svar_condition(&var1, &cmp1))
-            .or_else(|| self.wave11_amount_compare_condition(&var1, &cmp1, true))?;
-        // Lower both search branches (`Hand` and `Library` top).
+        let after_cleanup = self.wave28a_consume_search_cleanup(s3_name).ok()?;
+        let cond = self.wave28a_search_svar_condition(&var1, &cmp1)?;
         let mut p_hand = p.clone();
         p_hand.take("Origin");
         p_hand.take("Destination");
@@ -711,6 +832,450 @@ impl Tx<'_> {
             "Effect::IfCondition {{ condition: {cond}, then: &[{}], otherwise: &[{}] }}",
             hand_fx.join(", "),
             top_fx.join(", ")
+        )])
+    }
+
+    /// Pattern 2 (*Final Parting*): unfiltered mandatory 2-card split search
+    /// (`ChangeType$ Card | ChangeNum$ 2 | Mandatory$ True | Shuffle$ False`)
+    /// putting 1 chosen remembered card into Hand (`NoReveal$ True`) and the
+    /// other into Graveyard, then shuffling.
+    fn wave28a_unrevealed_split_search_chain(
+        &mut self,
+        p: &mut Params,
+        sub: &mut Option<String>,
+    ) -> Option<Vec<String>> {
+        if p.peek("ChangeType") != Some("Card")
+            || p.peek("ChangeNum") != Some("2")
+            || p.peek("Mandatory") != Some("True")
+            || p.peek("Shuffle") != Some("False")
+            || p.has("Reveal")
+            || p.has("DifferentNames")
+        {
+            return None;
+        }
+        let mut probe = p.clone();
+        probe.take("Origin");
+        probe.take("Destination");
+        probe.take("ChangeType");
+        probe.take("ChangeNum");
+        probe.take("Mandatory");
+        probe.take("RememberChanged");
+        probe.take("Shuffle");
+        if !probe.exhausted() {
+            return None;
+        }
+        let s1_name = sub.as_deref()?.trim().to_string();
+        let s1_body = self.svars.get(&s1_name)?.clone();
+        let (s1_api, mut s1) = Params::parse(&s1_body)?;
+        s1.drop_prose();
+        if s1_api != "ChangeZone"
+            || s1.take("Origin").as_deref() != Some("Library")
+            || s1.take("ChangeType").as_deref() != Some("Card.IsRemembered")
+            || s1.take("ChangeNum").as_deref() != Some("1")
+            || s1.take("Mandatory").as_deref() != Some("True")
+            || s1.take("Shuffle").as_deref() != Some("False")
+        {
+            return None;
+        }
+        s1.take("NoLooking");
+        s1.take("SelectPrompt");
+        s1.take("NoReveal");
+        s1.take("ForgetChanged");
+        let d1 = s1.take("Destination")?;
+        let t1 = match s1.take("Tapped").as_deref() {
+            None | Some("False") => false,
+            Some("True") => true,
+            Some(_) => return None,
+        };
+        let lp1 = s1.take("LibraryPosition");
+        let f1 = Self::wave28a_find_const(&d1, t1, lp1.as_deref())?;
+        let s2_name = s1.take("SubAbility")?;
+        if !s1.exhausted() {
+            return None;
+        }
+        let s2_body = self.svars.get(s2_name.trim())?.clone();
+        let (s2_api, mut s2) = Params::parse(&s2_body)?;
+        s2.drop_prose();
+        if s2_api != "ChangeZone"
+            || s2.take("Origin").as_deref() != Some("Library")
+            || s2.take("ChangeType").as_deref() != Some("Card.IsRemembered")
+            || !matches!(s2.take("ChangeNum").as_deref(), None | Some("1"))
+            || s2.take("Mandatory").as_deref() != Some("True")
+            || !matches!(s2.take("Shuffle").as_deref(), None | Some("True"))
+        {
+            return None;
+        }
+        s2.take("NoLooking");
+        s2.take("SelectPrompt");
+        s2.take("NoReveal");
+        let d2 = s2.take("Destination")?;
+        let t2 = match s2.take("Tapped").as_deref() {
+            None | Some("False") => false,
+            Some("True") => true,
+            Some(_) => return None,
+        };
+        let lp2 = s2.take("LibraryPosition");
+        let f2 = Self::wave28a_find_const(&d2, t2, lp2.as_deref())?;
+        let s3_name = s2.take("SubAbility");
+        if !s2.exhausted() {
+            return None;
+        }
+        let after_cleanup = self.wave28a_consume_search_cleanup(s3_name).ok()?;
+        p.entries.clear();
+        *sub = after_cleanup;
+        Some(vec![format!(
+            "Effect::SearchLibrary {{ filter: &Filter::Any, finds: &[{f1}, {f2}], optional: false }}"
+        )])
+    }
+
+    /// Pattern 3 (*Guidelight Pathmaker*, *Nazahn, Revered Bladesmith*):
+    /// filtered 1-card search (`Reveal$ True | Shuffle$ False`) where `S1`
+    /// unconditionally (`!Optional$`) moves `Defined$ Remembered` to a primary
+    /// destination if `ConditionDefined$ Remembered | ConditionPresent$ <Cond>`,
+    /// and `S2` moves `Defined$ Remembered` to the fallback destination, then shuffles.
+    #[allow(clippy::too_many_lines)]
+    fn wave28a_when_matching_search_chain(
+        &mut self,
+        p: &mut Params,
+        sub: &mut Option<String>,
+    ) -> Option<Vec<String>> {
+        if p.peek("Reveal") != Some("True")
+            || p.peek("Shuffle") != Some("False")
+            || !matches!(p.peek("ChangeNum"), None | Some("1"))
+            || p.has("Mandatory")
+            || p.has("Optional")
+        {
+            return None;
+        }
+        let mut probe = p.clone();
+        probe.take("Origin");
+        probe.take("Destination");
+        probe.take("RememberChanged");
+        probe.take("Reveal");
+        probe.take("Shuffle");
+        probe.take("ChangeNum");
+        probe.claim_label("ChangeTypeDesc", "ChangeType");
+        let change_type = probe.take("ChangeType")?;
+        if !probe.exhausted() {
+            return None;
+        }
+        let search_expr = self.filter_expr_in_zone(&change_type, true)?;
+        if search_expr == "Filter::Any" {
+            return None;
+        }
+
+        let s1_name = sub.as_deref()?.trim().to_string();
+        let s1_body = self.svars.get(&s1_name)?.clone();
+        let (s1_api, mut s1) = Params::parse(&s1_body)?;
+        s1.drop_prose();
+        if s1_api != "ChangeZone"
+            || s1.take("Defined").as_deref() != Some("Remembered")
+            || s1.take("Origin").as_deref() != Some("Library")
+            || s1.take("ConditionDefined").as_deref() != Some("Remembered")
+            || s1.take("ForgetChanged").as_deref() != Some("True")
+            || s1.has("Optional")
+        {
+            return None;
+        }
+        let cond_present = s1.take("ConditionPresent")?;
+        if !matches!(
+            s1.take("ConditionCompare").as_deref(),
+            None | Some("GE1" | "EQ1" | "GT0")
+        ) {
+            return None;
+        }
+        let d1 = s1.take("Destination")?;
+        let t1 = match s1.take("Tapped").as_deref() {
+            None | Some("False") => false,
+            Some("True") => true,
+            Some(_) => return None,
+        };
+        let lp1 = s1.take("LibraryPosition");
+        let f1 = Self::wave28a_find_const(&d1, t1, lp1.as_deref())?;
+        let s2_name = s1.take("SubAbility")?;
+        if !s1.exhausted() {
+            return None;
+        }
+
+        let s2_body = self.svars.get(s2_name.trim())?.clone();
+        let (s2_api, mut s2) = Params::parse(&s2_body)?;
+        s2.drop_prose();
+        if s2_api != "ChangeZone"
+            || s2.take("Defined").as_deref() != Some("Remembered")
+            || s2.take("Origin").as_deref() != Some("Library")
+            || s2.has("Optional")
+        {
+            return None;
+        }
+        let s2_shuffled = match s2.take("Shuffle").as_deref() {
+            Some("True") => true,
+            None | Some("False") => false,
+            Some(_) => return None,
+        };
+        let d2 = s2.take("Destination")?;
+        let t2 = match s2.take("Tapped").as_deref() {
+            None | Some("False") => false,
+            Some("True") => true,
+            Some(_) => return None,
+        };
+        let lp2 = s2.take("LibraryPosition");
+        let f2 = Self::wave28a_find_const(&d2, t2, lp2.as_deref())?;
+        if f1 == f2 {
+            return None;
+        }
+        // `Reveal$ True` matches engine's `reveals(filter, finds)` iff at least
+        // one branch goes to a hidden zone (`Hand` or `TopOfLibrary`).
+        let any_hidden = matches!(
+            (f1, f2),
+            ("Find::HAND" | "Find::TOP_OF_LIBRARY", _) | (_, "Find::HAND" | "Find::TOP_OF_LIBRARY")
+        );
+        if !any_hidden {
+            return None;
+        }
+        let s3_name = s2.take("SubAbility");
+        if !s2.exhausted() {
+            return None;
+        }
+        let after_cleanup = self
+            .wave28a_consume_shuffle_then_cleanup(s3_name, s2_shuffled)
+            .ok()?;
+        let cond_expr = self.filter_expr_in_zone(&cond_present, true)?;
+        let search_name = self.body.filter_static("SEARCH", &search_expr);
+        let cond_name = self.body.filter_static("SEARCH_COND", &cond_expr);
+        p.entries.clear();
+        *sub = after_cleanup;
+        Some(vec![format!(
+            "Effect::SearchLibrary {{ filter: &{search_name}, \
+             finds: &[{f2}.when_matching(&{cond_name}, &{f1})], optional: true }}"
+        )])
+    }
+
+    /// Pattern 4 (*Stoic Farmer*): `DB$ Branch` selecting between two
+    /// unconditional `Defined$ Remembered` library-search destinations using a
+    /// condition independent of `Remembered`.
+    #[allow(clippy::too_many_lines)]
+    fn wave28a_branch_search_dest_chain(
+        &mut self,
+        p: &mut Params,
+        sub: &mut Option<String>,
+    ) -> Option<Vec<String>> {
+        if p.peek("Shuffle") != Some("False")
+            || !matches!(p.peek("ChangeNum"), None | Some("1"))
+            || p.has("Optional")
+        {
+            return None;
+        }
+        let s1_name = sub.as_deref()?.trim().to_string();
+        let s1_body = self.svars.get(&s1_name)?.clone();
+        let (s1_api, mut bp) = Params::parse(&s1_body)?;
+        bp.drop_prose();
+        if s1_api != "Branch" {
+            return None;
+        }
+        let var = bp.take("BranchConditionSVar")?;
+        let cmp = bp
+            .take("BranchConditionSVarCompare")
+            .unwrap_or_else(|| "GE1".to_string());
+        let true_name = bp.take("TrueSubAbility")?;
+        let false_name = bp.take("FalseSubAbility")?;
+        let after_branch = bp.take("SubAbility");
+        if !bp.exhausted() {
+            return None;
+        }
+        let parse_arm = |name: &str| -> Option<(String, bool, Option<String>)> {
+            let body = self.svars.get(name.trim())?;
+            let (api, mut arm) = Params::parse(body)?;
+            arm.drop_prose();
+            if api != "ChangeZone"
+                || arm.take("Defined").as_deref() != Some("Remembered")
+                || arm.take("Origin").as_deref() != Some("Library")
+                || arm.has("Optional")
+            {
+                return None;
+            }
+            let dest = arm.take("Destination")?;
+            let tapped = match arm.take("Tapped").as_deref() {
+                None | Some("False") => false,
+                Some("True") => true,
+                Some(_) => return None,
+            };
+            let lib_pos = arm.take("LibraryPosition");
+            let _ = Self::wave28a_find_const(&dest, tapped, lib_pos.as_deref())?;
+            if arm.take("Shuffle").as_deref() != Some("True") || !arm.exhausted() {
+                return None;
+            }
+            Some((dest, tapped, lib_pos))
+        };
+        let (t_dest, t_tapped, t_lp) = parse_arm(&true_name)?;
+        let (f_dest, f_tapped, f_lp) = parse_arm(&false_name)?;
+        let after_cleanup = self.wave28a_consume_search_cleanup(after_branch).ok()?;
+        let cond = self.wave28a_search_svar_condition(&var, &cmp)?;
+
+        let mut p_true = p.clone();
+        p_true.take("Origin");
+        p_true.take("Destination");
+        p_true.take("RememberChanged");
+        p_true.take("Shuffle");
+        p_true.take("LibraryPosition");
+        if t_tapped {
+            p_true
+                .entries
+                .push(("Tapped".to_string(), "True".to_string()));
+        }
+        if let Some(lp) = t_lp {
+            p_true.entries.push(("LibraryPosition".to_string(), lp));
+        }
+        let then_fx = self.search_library(&mut p_true, &t_dest, None, false)?;
+        if !p_true.exhausted() {
+            return None;
+        }
+
+        let mut p_false = p.clone();
+        p_false.take("Origin");
+        p_false.take("Destination");
+        p_false.take("RememberChanged");
+        p_false.take("Shuffle");
+        p_false.take("LibraryPosition");
+        if f_tapped {
+            p_false
+                .entries
+                .push(("Tapped".to_string(), "True".to_string()));
+        }
+        if let Some(lp) = f_lp {
+            p_false.entries.push(("LibraryPosition".to_string(), lp));
+        }
+        let else_fx = self.search_library(&mut p_false, &f_dest, None, false)?;
+        if !p_false.exhausted() {
+            return None;
+        }
+
+        p.entries.clear();
+        *sub = after_cleanup;
+        Some(vec![format!(
+            "Effect::IfCondition {{ condition: {cond}, then: &[{}], otherwise: &[{}] }}",
+            then_fx.join(", "),
+            else_fx.join(", ")
+        )])
+    }
+
+    /// Pattern 5 (*Nissa's Pilgrimage*): conditional count split search
+    /// (`ChangeNum$ X` where `X: Count$Compare <Y> <Cmp>.<ThenN>.<ElseN>`,
+    /// `2 <= n <= 4`), putting 1 chosen remembered card to `D1` and the rest
+    /// to `D2`, then shuffling.
+    #[allow(clippy::too_many_lines)]
+    fn wave28a_conditional_count_split_search_chain(
+        &mut self,
+        p: &mut Params,
+        sub: &mut Option<String>,
+    ) -> Option<Vec<String>> {
+        if p.peek("Shuffle") != Some("False")
+            || p.has("Mandatory")
+            || p.has("Optional")
+            || p.has("DifferentNames")
+        {
+            return None;
+        }
+        let mut probe = p.clone();
+        probe.take("Origin");
+        probe.take("Destination");
+        probe.take("RememberChanged");
+        probe.take("Shuffle");
+        probe.take("Reveal");
+        probe.claim_label("ChangeTypeDesc", "ChangeType");
+        let change_type = probe.take("ChangeType")?;
+        let count_var = probe.take("ChangeNum")?;
+        if !probe.exhausted() {
+            return None;
+        }
+        let def = self.svars.get(count_var.trim())?.trim().to_string();
+        let rest = def.strip_prefix("Count$Compare ")?;
+        let (lhs, else_raw) = rest.rsplit_once('.')?;
+        let (cond_raw, then_raw) = lhs.rsplit_once('.')?;
+        let (cond_var, cond_cmp) = cond_raw.trim().rsplit_once(' ')?;
+        let then_n: usize = then_raw.trim().parse().ok()?;
+        let else_n: usize = else_raw.trim().parse().ok()?;
+        if !(2..=4).contains(&then_n) || !(2..=4).contains(&else_n) || then_n == else_n {
+            return None;
+        }
+        let search_expr = self.filter_expr_in_zone(&change_type, true)?;
+        if search_expr == "Filter::Any" {
+            return None;
+        }
+
+        let s1_name = sub.as_deref()?.trim().to_string();
+        let s1_body = self.svars.get(&s1_name)?.clone();
+        let (s1_api, mut s1) = Params::parse(&s1_body)?;
+        s1.drop_prose();
+        if s1_api != "ChangeZone"
+            || s1.take("Origin").as_deref() != Some("Library")
+            || s1.take("ChangeType").as_deref() != Some("Card.IsRemembered")
+            || s1.take("ChangeNum").as_deref() != Some("1")
+            || s1.take("ForgetChanged").as_deref() != Some("True")
+            || s1.take("Mandatory").as_deref() != Some("True")
+            || s1.take("Shuffle").as_deref() != Some("False")
+            || s1.has("Optional")
+        {
+            return None;
+        }
+        s1.take("NoLooking");
+        s1.take("SelectPrompt");
+        let d1 = s1.take("Destination")?;
+        let t1 = match s1.take("Tapped").as_deref() {
+            None | Some("False") => false,
+            Some("True") => true,
+            Some(_) => return None,
+        };
+        let lp1 = s1.take("LibraryPosition");
+        let f1 = Self::wave28a_find_const(&d1, t1, lp1.as_deref())?;
+        let s2_name = s1.take("SubAbility")?;
+        if !s1.exhausted() {
+            return None;
+        }
+
+        let s2_body = self.svars.get(s2_name.trim())?.clone();
+        let (s2_api, mut s2) = Params::parse(&s2_body)?;
+        s2.drop_prose();
+        if s2_api != "ChangeZone"
+            || s2.take("Origin").as_deref() != Some("Library")
+            || s2.take("Defined").as_deref() != Some("Remembered")
+            || s2.has("Optional")
+            || !matches!(s2.take("Shuffle").as_deref(), None | Some("True"))
+        {
+            return None;
+        }
+        s2.take("NoLooking");
+        let d2 = s2.take("Destination")?;
+        let t2 = match s2.take("Tapped").as_deref() {
+            None | Some("False") => false,
+            Some("True") => true,
+            Some(_) => return None,
+        };
+        let lp2 = s2.take("LibraryPosition");
+        let f2 = Self::wave28a_find_const(&d2, t2, lp2.as_deref())?;
+        let s3_name = s2.take("SubAbility");
+        if !s2.exhausted() {
+            return None;
+        }
+        let after_cleanup = self.wave28a_consume_search_cleanup(s3_name).ok()?;
+        let cond = self.wave28a_search_svar_condition(cond_var.trim(), cond_cmp.trim())?;
+        let search_name = self.body.filter_static("SEARCH", &search_expr);
+
+        let build_finds = |n: usize| -> String {
+            let mut v = Vec::with_capacity(n);
+            v.push(f1);
+            for _ in 1..n {
+                v.push(f2);
+            }
+            v.join(", ")
+        };
+        let then_finds = build_finds(then_n);
+        let else_finds = build_finds(else_n);
+        p.entries.clear();
+        *sub = after_cleanup;
+        Some(vec![format!(
+            "Effect::IfCondition {{ condition: {cond}, \
+             then: &[Effect::SearchLibrary {{ filter: &{search_name}, finds: &[{then_finds}], optional: true }}], \
+             otherwise: &[Effect::SearchLibrary {{ filter: &{search_name}, finds: &[{else_finds}], optional: true }}] }}"
         )])
     }
 

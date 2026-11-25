@@ -901,3 +901,207 @@ fn wave28a_p2_dynamic_filter_amounts_and_remembered_play_animate() {
         assert!(refused_w28a(bad), "must refuse:\n{bad}");
     }
 }
+
+#[test]
+#[allow(clippy::too_many_lines)]
+fn wave28a_p3_targeted_base_emblem_and_search_chains() {
+    // 1. Targeted.Equipment+Attached (Blastfire Bolt / Turn to Slag) -> AttachedTo(&Filter::Reference).
+    let blastfire = read_w28a(
+        "Name:BlastfireBoltProxy\nManaCost:5 R\nTypes:Instant\n\
+         A:SP$ DealDamage | ValidTgts$ Creature | NumDmg$ 5 | SubAbility$ ChompEquip\n\
+         SVar:ChompEquip:DB$ DestroyAll | ValidCards$ Targeted.Equipment+Attached\n\
+         Oracle:BlastfireBoltProxy deals 5 damage to target creature. Destroy all Equipment attached to that creature.",
+    );
+    assert!(
+        blastfire.abilities[0].contains("Effect::destroy_all(")
+            && blastfire.abilities[0].contains("Filter::AttachedTo(&Filter::Reference)"),
+        "{:?}",
+        blastfire.abilities
+    );
+
+    // 2. Targeted.Other+YouCtrl+Creature (Phalanx Tactics / Sigil Blessing / Exhilarating Elocution).
+    let phalanx = read_w28a(
+        "Name:PhalanxTacticsProxy\nManaCost:1 W\nTypes:Instant\n\
+         A:SP$ Pump | ValidTgts$ Creature.YouCtrl | NumAtt$ +2 | NumDef$ +1 | SubAbility$ DBPumpAll\n\
+         SVar:DBPumpAll:DB$ PumpAll | ValidCards$ Targeted.Other+YouCtrl+Creature | NumAtt$ +1 | NumDef$ +1\n\
+         Oracle:Target creature you control gets +2/+1 until end of turn. Each other creature you control gets +1/+1 until end of turn.",
+    );
+    assert!(
+        phalanx.abilities[0].contains("Effect::PumpFilter")
+            && phalanx.statics.contains("Filter::Not(&Filter::Reference)")
+            && phalanx.statics.contains("Filter::ControlledByYou"),
+        "{:?}\n{}",
+        phalanx.abilities,
+        phalanx.statics
+    );
+
+    // 3. Emblem subsumption with Card.Other+YouCtrl,Emblem.YouCtrl (Tor Wauki the Younger).
+    let wauki = read_w28a(
+        "Name:TorWaukiProxy\nManaCost:3 B R\nTypes:Legendary Creature Human Archer\nPT:3/3\n\
+         R:Event$ DamageDone | ActiveZones$ Battlefield | ValidSource$ Card.Other+YouCtrl,Emblem.YouCtrl | ValidTarget$ Permanent,Player | ReplaceWith$ DmgPlus1 | IsCombat$ False\n\
+         SVar:DmgPlus1:DB$ ReplaceEffect | VarName$ DamageAmount | VarValue$ X\n\
+         SVar:X:ReplaceCount$DamageAmount/Plus.1\n\
+         Oracle:If another source you control would deal noncombat damage to a permanent or player, it deals that much damage plus 1 to that permanent or player instead.",
+    );
+    assert!(
+        wauki.abilities[0].contains("Modifier::AddDamageFrom")
+            && wauki.abilities[0].contains("noncombat_only: true")
+            && wauki.statics.contains("Filter::Another")
+            && wauki.statics.contains("Filter::ControlledByYou"),
+        "{:?}\n{}",
+        wauki.abilities,
+        wauki.statics
+    );
+
+    // 4. Unrevealed mandatory 2-card split search (Final Parting).
+    let parting = read_w28a(
+        "Name:FinalPartingProxy\nManaCost:3 B B\nTypes:Sorcery\n\
+         A:SP$ ChangeZone | Origin$ Library | Destination$ Library | ChangeType$ Card | ChangeNum$ 2 | Mandatory$ True | RememberChanged$ True | Shuffle$ False | SubAbility$ DBChangeZone1\n\
+         SVar:DBChangeZone1:DB$ ChangeZone | Origin$ Library | Destination$ Hand | ChangeType$ Card.IsRemembered | ChangeNum$ 1 | Mandatory$ True | NoLooking$ True | Shuffle$ False | NoReveal$ True | SubAbility$ DBChangeZone2\n\
+         SVar:DBChangeZone2:DB$ ChangeZone | Origin$ Library | Destination$ Graveyard | ChangeType$ Card.IsRemembered | Mandatory$ True | NoLooking$ True | SubAbility$ DBCleanup\n\
+         SVar:DBCleanup:DB$ Cleanup | ClearRemembered$ True\n\
+         Oracle:Search your library for two cards. Put one into your hand and the other into your graveyard. Then shuffle.",
+    );
+    assert!(
+        parting.abilities[0].contains(
+            "Effect::SearchLibrary { filter: &Filter::Any, finds: &[Find::HAND, Find::GRAVEYARD], optional: false }"
+        ),
+        "{:?}",
+        parting.abilities
+    );
+
+    // 5. Filtered Find::when_matching search (Guidelight Pathmaker & Nazahn, Revered Bladesmith).
+    let guidelight = read_w28a(
+        "Name:GuidelightProxy\nManaCost:4 W U\nTypes:Artifact Vehicle\nPT:6/5\nK:Vigilance\nK:Crew:2\n\
+         T:Mode$ ChangesZone | Origin$ Any | Destination$ Battlefield | ValidCard$ Card.Self | Execute$ TrigSearch\n\
+         SVar:TrigSearch:DB$ ChangeZone | Origin$ Library | Destination$ Library | ChangeType$ Artifact | ChangeNum$ 1 | Reveal$ True | Shuffle$ False | RememberChanged$ True | SubAbility$ DBChangeZone\n\
+         SVar:DBChangeZone:DB$ ChangeZone | Defined$ Remembered | Origin$ Library | Destination$ Battlefield | ConditionDefined$ Remembered | ConditionPresent$ Card.cmcLE2 | ForgetChanged$ True | SubAbility$ DBChangeZone2\n\
+         SVar:DBChangeZone2:DB$ ChangeZone | Defined$ Remembered | Origin$ Library | Destination$ Hand | SubAbility$ DBShuffle\n\
+         SVar:DBShuffle:DB$ Shuffle | Defined$ You | SubAbility$ DBCleanup\n\
+         SVar:DBCleanup:DB$ Cleanup | ClearRemembered$ True",
+    );
+    assert!(
+        guidelight
+            .abilities
+            .iter()
+            .any(|a| a.contains("Find::HAND.when_matching(") && a.contains("&Find::BATTLEFIELD"))
+            && guidelight.statics.contains("Filter::CmcAtMost(2)"),
+        "{:?}\n{}",
+        guidelight.abilities,
+        guidelight.statics
+    );
+
+    // 6. DB$ Branch library search destination split (Stoic Farmer).
+    let farmer = read_w28a(
+        "Name:StoicFarmerProxy\nManaCost:3 W\nTypes:Creature Dwarf Peasant\nPT:3/3\nK:Foretell:1 W\n\
+         T:Mode$ ChangesZone | Origin$ Any | Destination$ Battlefield | ValidCard$ Card.Self | Execute$ TrigSearch\n\
+         SVar:TrigSearch:DB$ ChangeZone | Origin$ Library | Destination$ Library | ChangeType$ Land.Plains+Basic | ChangeNum$ 1 | RememberChanged$ True | Reveal$ True | Shuffle$ False | SubAbility$ DBBranch\n\
+         SVar:DBBranch:DB$ Branch | BranchConditionSVar$ X | TrueSubAbility$ ToBattlefieldTapped | FalseSubAbility$ ToHand | SubAbility$ DBCleanup\n\
+         SVar:X:PlayerCountOpponents$HasPropertywithMoreLandsThanYou\n\
+         SVar:ToBattlefieldTapped:DB$ ChangeZone | Defined$ Remembered | Origin$ Library | Destination$ Battlefield | Tapped$ True | Shuffle$ True\n\
+         SVar:ToHand:DB$ ChangeZone | Defined$ Remembered | Origin$ Library | Destination$ Hand | Shuffle$ True\n\
+         SVar:DBCleanup:DB$ Cleanup | ClearRemembered$ True",
+    );
+    assert!(
+        farmer.abilities.iter().any(|a| {
+            a.contains("Condition::OpponentControlsMore(&Filter::LAND)")
+                && a.contains("Find::BATTLEFIELD_TAPPED")
+                && a.contains("Find::HAND")
+        }),
+        "{:?}",
+        farmer.abilities
+    );
+
+    // 7. Conditional count split search (Nissa's Pilgrimage).
+    let pilgrimage = read_w28a(
+        "Name:PilgrimageProxy\nManaCost:2 G\nTypes:Sorcery\n\
+         A:SP$ ChangeZone | Origin$ Library | Destination$ Library | ChangeType$ Land.Basic+Forest | ChangeNum$ X | RememberChanged$ True | SubAbility$ DBBattlefield | Shuffle$ False\n\
+         SVar:DBBattlefield:DB$ ChangeZone | Origin$ Library | Destination$ Battlefield | Tapped$ True | SubAbility$ DBHand | ChangeType$ Card.IsRemembered | ChangeNum$ 1 | ForgetChanged$ True | Mandatory$ True | NoLooking$ True | Shuffle$ False\n\
+         SVar:DBHand:DB$ ChangeZone | Origin$ Library | Destination$ Hand | Defined$ Remembered | NoLooking$ True | SubAbility$ DBCleanup\n\
+         SVar:DBCleanup:DB$ Cleanup | ClearRemembered$ True\n\
+         SVar:X:Count$Compare Y GE2.3.2\n\
+         SVar:Y:Count$ValidGraveyard Instant.YouOwn,Sorcery.YouOwn",
+    );
+    assert!(
+        pilgrimage.abilities[0].contains("Effect::IfCondition")
+            && pilgrimage.abilities[0]
+                .contains("finds: &[Find::BATTLEFIELD_TAPPED, Find::HAND, Find::HAND]")
+            && pilgrimage.abilities[0].contains("finds: &[Find::BATTLEFIELD_TAPPED, Find::HAND]"),
+        "{:?}",
+        pilgrimage.abilities
+    );
+
+    // 8. Opponent hand -> library shuffle with Chooser$ You (Perish the Thought).
+    let perish = read_w28a(
+        "Name:PerishTheThoughtProxy\nManaCost:2 B\nTypes:Sorcery\n\
+         A:SP$ RevealHand | Defined$ Targeted | ValidTgts$ Opponent | SubAbility$ ShuffleCardToLib\n\
+         SVar:ShuffleCardToLib:DB$ ChangeZone | Origin$ Hand | Destination$ Library | DefinedPlayer$ Targeted | Chooser$ You | ChangeType$ Card | ChangeNum$ 1 | IsCurse$ True | Shuffle$ True | Mandatory$ True | AlreadyRevealed$ True\n\
+         Oracle:Target opponent reveals their hand. You choose a card from it. That player shuffles that card into their library.",
+    );
+    assert!(
+        perish.abilities[0].contains(
+            "Effect::ChooseCardEx { chooser: PlayerRel::You, zone: ChooseZone::Hand(PlayerRel::Chosen)"
+        ) && perish
+            .abilities[0]
+            .contains("Effect::ShuffleLibrary { who: PlayerRel::Chosen }"),
+        "{:?}",
+        perish.abilities
+    );
+
+    // 9. Self-dies Card.Self+YouOwn shuffle into library (Guan Yu, Sainted Warrior).
+    let guanyu = read_w28a(
+        "Name:GuanYuProxy\nManaCost:3 W W\nTypes:Legendary Creature Human Soldier Warrior\nPT:3/5\nK:Horsemanship\n\
+         T:Mode$ ChangesZone | Origin$ Battlefield | Destination$ Graveyard | ValidCard$ Card.Self+YouOwn | Execute$ TrigReturn | OptionalDecider$ You\n\
+         SVar:TrigReturn:DB$ ChangeZone | Origin$ Graveyard | Destination$ Library | Shuffle$ True | Defined$ TriggeredNewCardLKICopy\n\
+         Oracle:Horsemanship\\nWhen GuanYuProxy is put into your graveyard from the battlefield, you may shuffle GuanYuProxy into your library.",
+    );
+    assert!(
+        guanyu.abilities.iter().any(|a| a.contains(
+            "Effect::ShuffleGraveyardMatchingIntoLibrary { who: PlayerRel::OwnerOfSource, filter: &Filter::This }"
+        )),
+        "{:?}",
+        guanyu.abilities
+    );
+
+    // Strict Wave 28a-p3 refusal pins:
+    // - Targeted.Self (Eaten by Spiders)
+    // - Targeted.sameName+Other (Echoing Decay)
+    // - Targeted.PairedWith (Joint Assault)
+    // - Targeted.Equipment+Attached on a trigger (sweep_filter checks subjects::event first)
+    // - Targeted.Equipment+Attached with Optional$ True (Awaken the Sleeper)
+    // - Targeted.Other inside cast-time ValidTgts$
+    // - Optional$ True on conditional when_matching library search (Ruin in Their Wake / Treasure Chest)
+    // - Non-self dies trigger with Shuffle$ True (must not fire self_owned_dies_trigger fallback)
+    for bad in [
+        "Name:BadTargetedSelf\nManaCost:4 G\nTypes:Instant\n\
+         A:SP$ Destroy | ValidTgts$ Creature.withFlying | SubAbility$ Chomp\n\
+         SVar:Chomp:DB$ DestroyAll | ValidCards$ Targeted.Self,Card.Equipment+Attached",
+        "Name:BadTargetedSameName\nManaCost:1 B\nTypes:Instant\n\
+         A:SP$ Pump | ValidTgts$ Creature | NumAtt$ -2 | NumDef$ -2 | SubAbility$ DBPumpAll\n\
+         SVar:DBPumpAll:DB$ PumpAll | ValidCards$ Targeted.sameName+Other | NumAtt$ -2 | NumDef$ -2",
+        "Name:BadTargetedPaired\nManaCost:G\nTypes:Instant\n\
+         A:SP$ Pump | ValidTgts$ Creature | NumAtt$ +2 | NumDef$ +2 | SubAbility$ DBPumpAll\n\
+         SVar:DBPumpAll:DB$ PumpAll | ValidCards$ Targeted.PairedWith | NumAtt$ +2 | NumDef$ +2",
+        "Name:BadTargetedOnTrigger\nManaCost:2 R\nTypes:Enchantment\n\
+         T:Mode$ ChangesZone | Origin$ Any | Destination$ Battlefield | ValidCard$ Card.Self | Execute$ TrigDmg\n\
+         SVar:TrigDmg:DB$ DealDamage | ValidTgts$ Creature.OppCtrl | NumDmg$ 2 | SubAbility$ Chomp\n\
+         SVar:Chomp:DB$ DestroyAll | ValidCards$ Targeted.Equipment+Attached",
+        "Name:BadTargetedOptionalDestroyAll\nManaCost:3 R\nTypes:Sorcery\n\
+         A:SP$ GainControl | ValidTgts$ Creature | LoseControl$ EOT | Untap$ True | AddKWs$ Haste | SubAbility$ Chomp\n\
+         SVar:Chomp:DB$ DestroyAll | ValidCards$ Targeted.Equipment+Attached | Optional$ True",
+        "Name:BadCastTimeTargetedBase\nManaCost:1 R\nTypes:Instant\n\
+         A:SP$ DealDamage | ValidTgts$ Targeted.Other+Creature | NumDmg$ 2",
+        "Name:BadOptionalWhenMatchingSearch\nManaCost:1 G\nTypes:Sorcery\n\
+         A:SP$ ChangeZone | Origin$ Library | Destination$ Library | ChangeType$ Land.Basic | ChangeNum$ 1 | Reveal$ True | Shuffle$ False | RememberChanged$ True | SubAbility$ S1\n\
+         SVar:S1:DB$ ChangeZone | Defined$ Remembered | Origin$ Library | Destination$ Battlefield | Tapped$ True | ConditionDefined$ Remembered | ConditionPresent$ Card.namedWastes | ForgetChanged$ True | Optional$ True | SubAbility$ S2\n\
+         SVar:S2:DB$ ChangeZone | Defined$ Remembered | Origin$ Library | Destination$ Hand | SubAbility$ S3\n\
+         SVar:S3:DB$ Shuffle | Defined$ You | SubAbility$ S4\n\
+         SVar:S4:DB$ Cleanup | ClearRemembered$ True",
+        "Name:BadNonSelfOwnedDiesShuffle\nManaCost:3 W\nTypes:Enchantment\n\
+         T:Mode$ ChangesZone | Origin$ Battlefield | Destination$ Graveyard | ValidCard$ Creature.YouOwn | TriggerZones$ Battlefield | Execute$ TrigRet\n\
+         SVar:TrigRet:DB$ ChangeZone | Origin$ Graveyard | Destination$ Library | Shuffle$ True | Defined$ TriggeredNewCardLKICopy\n\
+         Oracle:Whenever a creature you own is put into your graveyard from the battlefield, shuffle it into your library.",
+    ] {
+        assert!(refused_w28a(bad), "must refuse:\n{bad}");
+    }
+}
