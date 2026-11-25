@@ -228,6 +228,73 @@ mod tests {
             precision: None,
         }
     }
+    /// A rollout net that no seat would load, and a deadline seat a pool of
+    /// seats would replace, are refused rather than ignored.
+    #[test]
+    fn a_rollout_net_and_a_deadline_seat_take_no_seat_pool() {
+        let parse = |extra: &[&str]| {
+            let mut argv = vec!["eval4", "--model", "m", "--out", "o", "--search", "2,2,3"];
+            argv.extend_from_slice(extra);
+            Args::try_parse_from(argv).unwrap()
+        };
+        let rollout = [
+            "--search-fair",
+            "--inference-batch",
+            "4",
+            "--rollout-net",
+            "r",
+        ];
+        let args = parse(&rollout);
+        let mut contract = Contract::new(&args, Some(&identity())).unwrap();
+        assert_eq!(
+            crate::rollout_refusal(&args, &contract, Some(&identity())),
+            None
+        );
+        let research = ModelIdentity {
+            critic_semantics: Some(
+                baylee_train::netplay4::CriticSemantics4::FailureTerminalResearchUtilityV1 {
+                    objective: String::new(),
+                    target_contract: String::new(),
+                },
+            ),
+            ..identity()
+        };
+        assert!(crate::rollout_refusal(&args, &contract, Some(&research)).is_some());
+        let probing = parse(&[&rollout[..], &["--search-rival", "distill"]].concat());
+        assert!(crate::rollout_refusal(&probing, &contract, Some(&identity())).is_some());
+        let timed = parse(&[&rollout[..], &["--offline-deadline-seat"]].concat());
+        assert!(crate::rollout_refusal(&timed, &contract, Some(&identity())).is_some());
+        // Everything the deadline seat asks for, against the house.
+        let deadline = parse(&[
+            "--search-fair",
+            "--search-macros",
+            "--search-neural-opponent",
+            "--search-lockstep",
+            "--inference-batch",
+            "4",
+            "--offline-deadline-seat",
+            "--threads",
+            "1",
+            "--deck-split",
+            "train",
+            "--holdout-tier",
+            "train_active",
+            "--decks-manifest",
+            "d.json",
+            "--generated",
+            "0",
+            "--no-baseline",
+            "--numbers-only",
+            "--record-out",
+            "records",
+        ]);
+        assert_eq!(crate::deadline_refusal(&deadline, &contract), None);
+        // Self-play gives the run an opponent no flag names.
+        contract.opponent_path = Some("m".into());
+        assert!(crate::rollout_refusal(&args, &contract, Some(&identity())).is_some());
+        assert!(crate::deadline_refusal(&deadline, &contract).is_some());
+    }
+
     #[test]
     fn explicit_training_purpose_and_role_bindings_are_required() {
         let base = [

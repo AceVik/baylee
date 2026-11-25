@@ -189,7 +189,15 @@ fn main() -> anyhow::Result<()> {
     if let Some(refusal) = search_refusal(&args, &collection, model_identity.as_ref()) {
         bail!(refusal);
     }
-    if let Some(refusal) = deadline_refusal(&args) {
+    let rollout_identity = args
+        .rollout_net
+        .as_deref()
+        .map(inspect_model_identity)
+        .transpose()?;
+    if let Some(refusal) = rollout_refusal(&args, &collection, rollout_identity.as_ref()) {
+        bail!(refusal);
+    }
+    if let Some(refusal) = deadline_refusal(&args, &collection) {
         bail!(refusal);
     }
     if let Some(refusal) = house_as_seat_refusal(&args, &collection) {
@@ -381,7 +389,12 @@ fn main() -> anyhow::Result<()> {
         .transpose()?
         .map(std::sync::Arc::new);
     let search_config = search_config(&args)?;
-    let search = search_metadata(&args, search_config, model_identity.as_ref());
+    let search = search_metadata(
+        &args,
+        search_config,
+        model_identity.as_ref(),
+        rollout_identity.as_ref(),
+    );
     let catalog = catalog_metadata(&args, &collection)?;
     if args.shadow_teacher.is_some()
         && model_identity

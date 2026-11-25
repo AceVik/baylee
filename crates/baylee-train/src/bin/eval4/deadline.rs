@@ -13,6 +13,7 @@ use baylee_driver::hardware::{AcceleratorKind, GraphPrecision, HardwareConfig};
 use baylee_engine::choice::{Pending, PlayerAction};
 use baylee_engine::engine::ForkRefusal;
 use baylee_gamehost::{Session, SimulationSession};
+use baylee_train::features4::SourceKind4;
 use baylee_train::netplay4::search::{
     ForkSource4, PriorDecks, SearchConfig4, SearchOutcome4, SearchPlayer4, SearchedAnswer4,
     search_prepared, skip_reason, world_seed,
@@ -155,7 +156,8 @@ impl Probe {
 
     #[allow(
         clippy::too_many_arguments,
-        reason = "The seat question, fair search settings and timer"
+        clippy::too_many_lines,
+        reason = "The seat question, fair search settings and timer, from its offer to its answer"
     )]
     pub fn search(
         &mut self,
@@ -258,7 +260,9 @@ impl Probe {
             _ => (false, false),
         };
         net.conclude(view, &decision, &result.answer.action);
-        if searched {
+        // A measuring search plays the policy's own answer under its own
+        // provenance, which no search answered.
+        if searched && result.answer.provenance.source == SourceKind4::Search {
             net.attribute_to_search(pending, decision.answer.provenance.source);
         }
         self.timings.push((
