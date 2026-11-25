@@ -47,9 +47,14 @@ feedback service. `main` has moved all of that to Central.
   by default and stays off on the official gateway. The guest passages are
   gone; 3.5 and 4.5 say there are none, and that allowing them would be a
   new version.
-- **Minimum age 13**, the age Magic: The Gathering itself names. Because
-  every player needs a Baylee account, Central's minimum (16 today) applies
-  on top; 5.1 says both.
+- **Minimum age 13**, the age Magic: The Gathering itself names, at
+  Central too (owner, 25.11.2026: "Ja, Central soll auch auf 13 gehen").
+  AceVik/baylee-central#92 makes Central's terms and privacy policy
+  version 2026-11-25 with 13, its registration and birth-date checks
+  follow, and its privacy policy adds that a consent given under 16 needs
+  the parents' agreement (Art. 8 GDPR; the gateway's 5.3 already says so).
+  5.1 here names the same age for both and carries an `[OFFEN]` until that
+  version is published; until then Central asks for 16.
 - **Administrators:** only the owner for now; the definition keeps room for
   more and says "at present that is only me".
 - **Hosted AI seats:** not named in the terms. The providers receive only
@@ -98,6 +103,14 @@ Each one is marked where it sits in the draft.
    lie and who processes them (Google under an Art. 28 agreement, a
    possible third-country transfer), encryption before upload, tiers and
    the longest retention, and the matching lines in 9a.4 and 16.6.
+   The backup thread's proposal (25.11.2026, not yet decided): restic,
+   encrypted on the server before upload, a "full" set hourly for 48
+   hours and daily for 14 days, an "archive" set weekly for 8 weeks and
+   monthly for 12 months without short-lived data (undelivered chat
+   messages among them); a second, encrypted copy on the owner's disk. The
+   text would then say: undelivered messages at most 14 days in backups,
+   everything else at most 12 months; Google named as recipient once the
+   account type (and with it an Art. 28 agreement) is chosen.
 9. **Reports go to Central in the open beta** (owner, 25.11.2026). The code
    is done; the server needs `BAYLEE_REPORTS_TO=central` and
    `BAYLEE_DIRECT_REPORT_KEY` (at least 16 characters, the feedback
@@ -109,10 +122,24 @@ Each one is marked where it sits in the draft.
     "two human seats"; confirm it is meant as a rule of play too.
 11. **Replay sharing cut-off:** "on by default for games since 13.10.2026"
     (9.7); check the date against `replay_share_cutoff` before publishing.
-12. **`ranked_run` retention:** the link from a ranked game to its pairing
-    has no limit in the code (16.3). Keep it like the record, or limit it?
-13. **Old friendships and groups on the gateway** (from before Central):
-    they stay until the player deletes them; delete them on a fixed date?
+12. *(settled from the code)* **`ranked_run` retention:** the gateway
+    deletes the link from a ranked game to its pairing once Central has
+    accepted the result (`ranked::delivered`; a replicated match's a day
+    after it was last seen, `ranked::replica::reap_absent`), and a task's
+    link to its attempt likewise (`challenges::delivered`). 16.3 says so;
+    the marker is gone.
+13. *(settled, owner 25.11.2026: "now")* **Old friendships and groups on
+    the gateway:** migration 35 (`m20261125_000035_drop_old_friends`)
+    deletes every friendship, friend request, group, group membership and
+    group invitation, and the undelivered messages of groups, on every
+    gateway at its next start. No client has sent these to a gateway since
+    the cutover; contacts and groups are Central's. Blocks stay, because
+    the gateway still keeps a blocked player's table chat away with them
+    and Central's blocks do not reach it; 9a.3 and 4.7 say so. **The
+    release with migration 35 must be deployed before the new terms are
+    published**, or 9a.3 says something that is not yet true. The routes
+    under `/social/friends…` and `/social/groups…` and their store code are
+    now dead on a Central gateway; removing them is a separate cleanup.
 14. **Deleting a Baylee account at Central** does not, as far as the code
     shows, delete the gateway's projection and decks. Either build that
     (Central tells the gateway) or keep the sentence that the player deletes
@@ -141,7 +168,9 @@ changes made here:
 ## Publishing the new version
 
 1. Settle the points above and remove every marker; remove the draft
-   paragraph under the title.
+   paragraph under the title. Three of them are things to do on the
+   server first: the log files capped at 14 days, the two settings for
+   reports to Central, and the release with migration 35 deployed.
 2. Fill in `[NAME]`, `[E-MAIL]`, the version (a date) and the date, in a
    copy outside the repository.
 3. Publish both languages in the console (`POST /admin/terms`,

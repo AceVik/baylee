@@ -36,6 +36,8 @@ use uuid::Uuid;
 
 #[path = "schema/challenges.rs"]
 mod challenges;
+#[path = "schema/old_friends.rs"]
+mod old_friends;
 #[path = "schema/ranked.rs"]
 mod ranked;
 
