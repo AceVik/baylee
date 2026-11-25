@@ -35,6 +35,7 @@ pub mod console;
 pub mod contact;
 pub mod direct;
 pub mod export;
+pub mod guard;
 pub mod impressum;
 pub mod migration;
 pub mod moderation;
@@ -503,30 +504,39 @@ fn bearer(headers: &HeaderMap) -> Option<&str> {
         .and_then(|v| v.strip_prefix("Bearer "))
 }
 
-/// Whether the caller may read: the read token or the admin token.
-fn reader(state: &AppState, headers: &HeaderMap) -> Result<(), Refusal> {
-    let token = bearer(headers).unwrap_or_default();
-    if Config::is(state.config.read.as_ref(), token)
-        || Config::is(state.config.admin.as_ref(), token)
-    {
-        Ok(())
-    } else {
-        Err(refuse(StatusCode::UNAUTHORIZED, "a read token is needed"))
-    }
+/// The peer a request came from, as the server saw it.
+type Peer = Option<axum::Extension<axum::extract::ConnectInfo<std::net::SocketAddr>>>;
+
+fn peer_ip(peer: Peer) -> Option<std::net::IpAddr> {
+    peer.map(|axum::Extension(axum::extract::ConnectInfo(a))| a.ip())
 }
 
-fn admin(state: &AppState, headers: &HeaderMap) -> Result<(), Refusal> {
-    if Config::is(
-        state.config.admin.as_ref(),
-        bearer(headers).unwrap_or_default(),
-    ) {
-        Ok(())
-    } else {
-        Err(refuse(
-            StatusCode::UNAUTHORIZED,
-            "the admin token is needed",
-        ))
-    }
+/// Whether the caller may read: the read token or the admin token. A wrong
+/// one counts against its address (`guard`).
+fn reader(shared: &Shared, peer: Peer, headers: &HeaderMap) -> Result<(), Refusal> {
+    let token = bearer(headers).unwrap_or_default();
+    let config = &shared.state.config;
+    shared.ui.credential(
+        peer_ip(peer),
+        headers,
+        refuse(StatusCode::UNAUTHORIZED, "a read token is needed"),
+        || {
+            (Config::is(config.read.as_ref(), token) || Config::is(config.admin.as_ref(), token))
+                .then_some(())
+        },
+    )
+}
+
+/// Whether the caller holds the admin token. A wrong one counts against its
+/// address (`guard`).
+fn admin(shared: &Shared, peer: Peer, headers: &HeaderMap) -> Result<(), Refusal> {
+    let token = bearer(headers).unwrap_or_default();
+    shared.ui.credential(
+        peer_ip(peer),
+        headers,
+        refuse(StatusCode::UNAUTHORIZED, "the admin token is needed"),
+        || Config::is(shared.state.config.admin.as_ref(), token).then_some(()),
+    )
 }
 
 // ------------------------------------------------------------------ shapes
@@ -812,6 +822,59 @@ fn fits(value: Option<&str>, chars: usize) -> bool {
     value.is_none_or(|v| v.chars().count() <= chars && !v.chars().any(char::is_control))
 }
 
+/// What the intake asks before it reads a report (`guard`): a gateway's
+/// token (a wrong one counted against its address), that gateway's budget
+/// for the hour, one of the intake's slots, and the body within its time
+/// and bound. The gateway, the slot to hold while the report is stored,
+/// and the body.
+async fn let_in<'a>(
+    shared: &'a Shared,
+    peer: Peer,
+    headers: &HeaderMap,
+    body: axum::body::Body,
+) -> Result<(&'a str, guard::Slot, Bytes), Refusal> {
+    let Shared { state, ui } = shared;
+    let gateway = ui.credential(
+        peer_ip(peer),
+        headers,
+        refuse(StatusCode::UNAUTHORIZED, "not a known gateway"),
+        || state.config.gateway(bearer(headers).unwrap_or_default()),
+    )?;
+    if !ui.intake_admits(gateway) {
+        tracing::warn!(gateway, "a gateway's intake budget for the hour is spent");
+        return Err(refuse(
+            StatusCode::TOO_MANY_REQUESTS,
+            "this gateway has sent its reports for the hour",
+        ));
+    }
+    let Some(slot) = ui.intake_slot(gateway).await else {
+        return Err(refuse(
+            StatusCode::SERVICE_UNAVAILABLE,
+            "the service is busy; send the report again later",
+        ));
+    };
+    let read = tokio::time::timeout(
+        guard::INTAKE_READ_TIME,
+        axum::body::to_bytes(body, MAX_INTAKE_BYTES),
+    )
+    .await
+    .map_err(|_| {
+        refuse(
+            StatusCode::REQUEST_TIMEOUT,
+            "the report did not arrive in time",
+        )
+    })?;
+    let Ok(body) = read else {
+        ui.intake_spent(gateway, MAX_INTAKE_BYTES);
+        return Err(refuse(
+            StatusCode::PAYLOAD_TOO_LARGE,
+            "the report is too large",
+        ));
+    };
+    ui.intake_spent(gateway, body.len());
+    Ok((gateway, slot, body))
+}
+
 /// @route POST /intake/reports
 /// @scope feedback
 /// @summary Take a report a gateway passes on
@@ -825,22 +888,26 @@ fn fits(value: Option<&str>, chars: usize) -> bool {
 /// @return 201: `$Created` "Taken"
 /// @return 400: `$ErrorBody` "Not a report: malformed JSON, an unknown `kind`, `client` not an object, a malformed field, a record that is not base64, or a client's record that is not a game record"
 /// @return 401: `$ErrorBody` "Not a gateway's intake token"
+/// @return 408: `$ErrorBody` "The body did not arrive within 120 seconds"
 /// @return 413: `$ErrorBody` "The text is over 20000 characters, `client` over 2 MiB, the record over its bound, or the whole body over the route's limit"
-/// @return 503: `$ErrorBody` "The database is unavailable"
-/// @internal The route is public behind the proxy (#408), so the token is
-/// checked before the body is read: a request without one costs only its
-/// headers, never up to `MAX_INTAKE_BYTES` of memory.
+/// @return 429: `$ErrorBody` "Too many wrong credentials from this address in the last 15 minutes, or this gateway's token has filed its reports or bytes for the last hour (`FEEDBACK_INTAKE_PER_HOUR`, `FEEDBACK_INTAKE_MIB_PER_HOUR`)"
+/// @return 503: `$ErrorBody` "The database is unavailable, or no intake slot came free within 5 seconds"
+/// @internal The route is public behind the proxy for good (owner,
+/// 25.11.2026, #408), so it is guarded (`guard`): the token is checked
+/// before the body is read, so a request without one costs only its
+/// headers, never up to `MAX_INTAKE_BYTES` of memory; a wrong one counts
+/// against its address; a right one is held to its gateway's hourly budget
+/// and to the intake's slots, and its body to a time to arrive in.
 async fn intake(
-    State(state): State<Arc<AppState>>,
+    State(shared): State<Shared>,
+    peer: Peer,
     headers: HeaderMap,
     body: axum::body::Body,
 ) -> Result<(StatusCode, Json<Created>), Refusal> {
-    let Some(gateway) = state.config.gateway(bearer(&headers).unwrap_or_default()) else {
-        return Err(refuse(StatusCode::UNAUTHORIZED, "not a known gateway"));
-    };
-    let body = axum::body::to_bytes(body, MAX_INTAKE_BYTES)
-        .await
-        .map_err(|_| refuse(StatusCode::PAYLOAD_TOO_LARGE, "the report is too large"))?;
+    let state = &shared.state;
+    // The slot is held until the report is stored, the time its body, its
+    // decoded record and the statement's parameters are in memory.
+    let (gateway, _slot, body) = let_in(&shared, peer, &headers, body).await?;
     let bad = |why| refuse(StatusCode::BAD_REQUEST, why);
     let report: Intake = serde_json::from_slice(&body).map_err(|_| bad("not a report"))?;
     if !report.client.is_object() {
@@ -962,14 +1029,17 @@ fn contains_pattern(text: &str) -> String {
 /// @insert `ReadRefusals`
 /// @return 400: `$ErrorBody` "A filter is malformed"
 async fn list(
-    State(state): State<Arc<AppState>>,
+    State(shared): State<Shared>,
+    peer: Peer,
     headers: HeaderMap,
     filter: Result<Query<triage::Filter>, axum::extract::rejection::QueryRejection>,
 ) -> Result<Json<triage::Listing>, Refusal> {
-    reader(&state, &headers)?;
+    reader(&shared, peer, &headers)?;
     let Query(filter) =
         filter.map_err(|_| refuse(StatusCode::BAD_REQUEST, "a filter is malformed"))?;
-    triage::listing(&state.db, &filter, None).await.map(Json)
+    triage::listing(&shared.state.db, &filter, None)
+        .await
+        .map(Json)
 }
 
 fn report_id(id: &str) -> Result<Uuid, Refusal> {
@@ -989,13 +1059,14 @@ fn report_id(id: &str) -> Result<Uuid, Refusal> {
 /// @insert `ReadRefusals`
 /// @return 404: `$ErrorBody` "No such report"
 async fn one(
-    State(state): State<Arc<AppState>>,
+    State(shared): State<Shared>,
+    peer: Peer,
     headers: HeaderMap,
     Path(id): Path<String>,
 ) -> Result<Json<triage::Detail>, Refusal> {
-    reader(&state, &headers)?;
+    reader(&shared, peer, &headers)?;
     let id = report_id(&id)?;
-    triage::fetch(&state.db, id, None, false).await
+    triage::fetch(&shared.state.db, id, None, false).await
 }
 
 /// The game record, as the gzip stream the gateway stored.
@@ -1017,12 +1088,13 @@ async fn one(
 /// @insert `ReadRefusals`
 /// @return 404: `$ErrorBody` "No such report, or it has no record"
 async fn record(
-    State(state): State<Arc<AppState>>,
+    State(shared): State<Shared>,
+    peer: Peer,
     headers: HeaderMap,
     Path(id): Path<String>,
 ) -> Result<Response, Refusal> {
-    reader(&state, &headers)?;
-    record_of(&state.db, report_id(&id)?).await
+    reader(&shared, peer, &headers)?;
+    record_of(&shared.state.db, report_id(&id)?).await
 }
 
 async fn record_of(db: &DatabaseConnection, id: Uuid) -> Result<Response, Refusal> {
@@ -1096,17 +1168,18 @@ async fn audit(
 /// @return 400: `$ErrorBody` "Not a status"
 /// @return 404: `$ErrorBody` "No such report, or it is in the trash"
 async fn set_status(
-    State(state): State<Arc<AppState>>,
+    State(shared): State<Shared>,
+    peer: Peer,
     headers: HeaderMap,
     Path(id): Path<String>,
     body: Bytes,
 ) -> Result<Json<triage::Detail>, Refusal> {
-    admin(&state, &headers)?;
+    admin(&shared, peer, &headers)?;
     let id = report_id(&id)?;
     let change: StatusChange = serde_json::from_slice(&body)
         .map_err(|_| refuse(StatusCode::BAD_REQUEST, "not a status"))?;
     triage::apply_change(
-        &state.db,
+        &shared.state.db,
         id,
         TOKEN_ACTOR,
         triage::Change::status(change.status),
@@ -1158,13 +1231,14 @@ async fn delete_report(db: &DatabaseConnection, id: Uuid, actor: &str) -> Result
 /// @return 204: "Deleted"
 /// @return 404: `$ErrorBody` "No such report"
 async fn remove(
-    State(state): State<Arc<AppState>>,
+    State(shared): State<Shared>,
+    peer: Peer,
     headers: HeaderMap,
     Path(id): Path<String>,
 ) -> Result<StatusCode, Refusal> {
-    admin(&state, &headers)?;
+    admin(&shared, peer, &headers)?;
     let id = report_id(&id)?;
-    delete_report(&state.db, id, TOKEN_ACTOR).await?;
+    delete_report(&shared.state.db, id, TOKEN_ACTOR).await?;
     Ok(StatusCode::NO_CONTENT)
 }
 

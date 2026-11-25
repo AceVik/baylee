@@ -100,6 +100,8 @@ pub struct Ui {
     /// The Impressum's requests, honeypot marks and answered puzzles
     /// (`crate::impressum`).
     impressum: Mutex<crate::impressum::Watch>,
+    /// What stands in front of the token routes (`crate::guard`).
+    guard: crate::guard::Guard,
 }
 
 impl Default for Ui {
@@ -114,22 +116,35 @@ impl Default for Ui {
             contact: Mutex::new(crate::direct::Allowance::default()),
             presence: Mutex::new(crate::alive::Presence::default()),
             impressum: Mutex::new(crate::impressum::Watch::default()),
+            guard: crate::guard::Guard::default(),
         }
     }
 }
 
 impl Ui {
-    /// `FEEDBACK_WEB_DIR` (unset or empty: no UI is served, `/` is 404) and
+    /// `FEEDBACK_WEB_DIR` (unset or empty: no UI is served, `/` is 404),
     /// `FEEDBACK_TRUSTED_PROXIES` (comma-separated addresses whose
-    /// `X-Forwarded-For` the sign-in limiter believes).
+    /// `X-Forwarded-For` the limiters believe), and the intake's budget a
+    /// gateway, `FEEDBACK_INTAKE_PER_HOUR` and `FEEDBACK_INTAKE_MIB_PER_HOUR`
+    /// (`crate::guard`).
     ///
     /// # Errors
     ///
-    /// When `FEEDBACK_WEB_DIR` names no directory with an `index.html`:
-    /// better to refuse to start than to serve 404s under a UI's name.
+    /// When `FEEDBACK_WEB_DIR` names no directory with an `index.html`
+    /// (better to refuse to start than to serve 404s under a UI's name), or
+    /// a budget is not a whole number of at least 1.
     pub fn from_env() -> anyhow::Result<Self> {
         let var = |name: &str| std::env::var(name).ok().filter(|v| !v.trim().is_empty());
-        let mut ui = Self::default();
+        let mut ui = Self::default().with_intake_budget(
+            crate::guard::positive_from_env(
+                "FEEDBACK_INTAKE_PER_HOUR",
+                crate::guard::DEFAULT_PER_HOUR,
+            )?,
+            crate::guard::positive_from_env(
+                "FEEDBACK_INTAKE_MIB_PER_HOUR",
+                crate::guard::DEFAULT_MIB_PER_HOUR,
+            )?,
+        );
         if let Some(dir) = var("FEEDBACK_WEB_DIR") {
             ui = ui.with_web_dir(dir)?;
         }
@@ -137,6 +152,14 @@ impl Ui {
             ui.trusted_proxies = trusted_proxies(&list)?;
         }
         Ok(ui)
+    }
+
+    /// Lets each gateway's token file `per_hour` reports and `mib_per_hour`
+    /// MiB of bodies an hour (`crate::guard::Budget`).
+    #[must_use]
+    pub fn with_intake_budget(mut self, per_hour: usize, mib_per_hour: u64) -> Self {
+        self.guard = crate::guard::Guard::with_budget(per_hour, mib_per_hour);
+        self
     }
 
     /// Serves the built UI from `dir`.
@@ -253,6 +276,52 @@ impl Ui {
             .lock()
             .expect("the allowance is never poisoned")
             .take(address, now)
+    }
+
+    /// The credential a token route was given, as `check` finds it: what it
+    /// opens, or `wrong` when it opens nothing, counted against the address
+    /// it came from. An address with too many wrong ones is refused before
+    /// `check` runs. A process on this machine that came without the proxy
+    /// is neither (`crate::guard::is_local`).
+    pub(crate) fn credential<T>(
+        &self,
+        peer: Option<IpAddr>,
+        headers: &HeaderMap,
+        wrong: Refusal,
+        check: impl FnOnce() -> Option<T>,
+    ) -> Result<T, Refusal> {
+        if crate::guard::is_local(peer, headers) {
+            return check().ok_or(wrong);
+        }
+        let address = self.address(peer, headers);
+        if self.guard.shut(&address, self.now()) {
+            return Err(refuse(
+                StatusCode::TOO_MANY_REQUESTS,
+                "too many wrong credentials from this address",
+            ));
+        }
+        check().ok_or_else(|| {
+            self.guard.fail(&address, self.now());
+            wrong
+        })
+    }
+
+    /// Whether `gateway` may file another report now; counted
+    /// (`crate::guard::Budget`).
+    pub(crate) fn intake_admits(&self, gateway: &str) -> bool {
+        self.guard.take(gateway, self.now())
+    }
+
+    /// `gateway`'s latest report brought `bytes`.
+    pub(crate) fn intake_spent(&self, gateway: &str, bytes: usize) {
+        self.guard
+            .spent(gateway, u64::try_from(bytes).unwrap_or(u64::MAX));
+    }
+
+    /// One of the intake's slots for `gateway`, if one comes free soon
+    /// (`crate::guard::Slots`).
+    pub(crate) async fn intake_slot(&self, gateway: &str) -> Option<crate::guard::Slot> {
+        self.guard.slot(gateway).await
     }
 }
 
