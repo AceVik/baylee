@@ -1891,6 +1891,7 @@ impl Tx<'_> {
             .or_else(|| self.extra_svar_condition_clause(trimmed_var, cmp))
             .or_else(|| self.extra_svar_condition_wave8(trimmed_var, cmp))
             .or_else(|| self.wave15_trigger_svar_condition(trimmed_var, cmp))
+            .or_else(|| self.wave28b_etb_svar_condition(trimmed_var, cmp))
             .or_else(|| {
                 (explicit_cmp.is_some()
                     || def

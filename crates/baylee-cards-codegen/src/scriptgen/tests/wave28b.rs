@@ -544,9 +544,9 @@ fn wave28b_honest_refusal_boundaries() {
         "Name:BadSanctuaryWarden\nManaCost:4 W W\nTypes:Creature\nPT:5/5\n\
          T:Mode$ Attacks | ValidCard$ Card.Self | TriggerZones$ Battlefield | Execute$ TrigDraw\n\
          SVar:TrigDraw:AB$ Draw | Cost$ RemoveAnyCounter<1/Any/Creature.YouCtrl>",
-        // Multi-player Draw | Upto$ True cannot be modeled with single-chooser ChooseNumberEx.
-        "Name:BadMultiUpto\nManaCost:2 U\nTypes:Sorcery\n\
-         A:SP$ Draw | Defined$ Player | NumCards$ 3 | Upto$ True",
+        // `Defined$ Player.Other` Draw | Upto$ True has no `RepeatDomain::EachOtherPlayer` variant.
+        "Name:BadOtherPlayerUpto\nManaCost:2 U\nTypes:Sorcery\n\
+         A:SP$ Draw | Defined$ Player.Other | NumCards$ 3 | Upto$ True",
         // Converge etbCounter must stay refused (EnterModifier::Sunburst derives KeywordSet::SUNBURST).
         "Name:BadConvergeEtb\nManaCost:3 G\nTypes:Creature\nPT:2/2\n\
          K:etbCounter:P1P1:X:no Condition:Converge.\n\
@@ -562,7 +562,388 @@ fn wave28b_honest_refusal_boundaries() {
          T:Mode$ Attacks | ValidCard$ Card.Self | TriggerZones$ Battlefield | Execute$ TrigDraw\n\
          SVar:TrigDraw:AB$ Draw | Cost$ tapXType<2/Creature>\n\
          Oracle:Whenever BadMissingOtherTap attacks, you may tap two other untapped creatures you control. If you do, draw a card.",
+        // Multi-target SP$ Animate | Abilities$ (CreateContinuousEffect(&Filter::This) only affects targets[0]).
+        "Name:BadMultiTargetAnimateAbilities\nManaCost:1 G\nTypes:Instant\n\
+         A:SP$ Pump | ValidTgts$ Creature | NumAtt$ +1 | NumDef$ +1 | TargetMin$ 0 | TargetMax$ 2 | SubAbility$ DBAnimate\n\
+         SVar:DBAnimate:DB$ Animate | Defined$ Targeted | Abilities$ ABFight\n\
+         SVar:ABFight:AB$ Fight | Cost$ T | Defined$ Self | ValidTgts$ Creature.Other",
+        // PayEnergy<2> has no single-prompt exact-2 energy payment effect.
+        "Name:BadPayTwoEnergy\nManaCost:2 R\nTypes:Creature\nPT:2/2\n\
+         T:Mode$ Attacks | ValidCard$ Card.Self | Execute$ TrigPump\n\
+         SVar:TrigPump:AB$ Pump | Cost$ PayEnergy<2> | Defined$ Self | NumAtt$ +2",
+        // Negated ConditionDefined$ Equipped must stay refused (unattached Equipment is not "not blue").
+        "Name:BadNegatedEquipped\nManaCost:2\nTypes:Artifact Equipment\nK:Equip:1\n\
+         T:Mode$ Phase | Phase$ Upkeep | ValidPlayer$ You | TriggerZones$ Battlefield | Execute$ TrigPut\n\
+         SVar:TrigPut:DB$ PutCounter | Defined$ Equipped | ConditionDefined$ Equipped | ConditionPresent$ Creature.Blue | ConditionCompare$ EQ0 | CounterType$ P1P1 | CounterNum$ 1",
+        // PutCounterAll omitting CounterNum2$ when CounterNum$ != 1 must stay refused.
+        "Name:BadAmbiguousCounterNum2\nManaCost:3 W\nTypes:Sorcery\n\
+         A:SP$ PutCounterAll | ValidCards$ Creature.YouCtrl | CounterType$ P1P1 | CounterNum$ 2 | ValidCards2$ Planeswalker.YouCtrl | CounterType2$ LOYALTY",
+        // Count$ThisTurnCast without YouCtrl (e.g. Storm Entity) must stay refused.
+        "Name:BadStormEntity\nManaCost:1 R\nTypes:Creature\nPT:1/1\n\
+         K:etbCounter:P1P1:X:no Condition:Enters with counters.\n\
+         SVar:X:Count$ThisTurnCast_Card.!CastSaSource",
+        // ExileFromGrave targeting TriggeredNewCard is not a generic your-graveyard cost.
+        "Name:BadExileTriggeredGrave\nManaCost:3 G\nTypes:Creature\nPT:3/3\n\
+         T:Mode$ ChangesZone | Origin$ Battlefield | Destination$ Graveyard | ValidCard$ Card.Self | Execute$ TrigDraw\n\
+         SVar:TrigDraw:AB$ Draw | Cost$ ExileFromGrave<1/Card.TriggeredNewCard>",
     ] {
         assert!(refused(bad), "must refuse: {bad}");
     }
+}
+
+#[test]
+fn wave28b_p2_put_counter_all_and_renew() {
+    let coach = read(
+        "Name:Dueling Coach\nManaCost:3 W\nTypes:Creature Human Monk\nPT:2/2\n\
+         A:AB$ PutCounterAll | Cost$ 4 W T | ValidCards$ Creature.YouCtrl+counters_GE1_P1P1 | \
+         CounterType$ P1P1 | CounterNum$ 1 | ValidCardsDesc$ creature you control with a +1/+1 counter on it.",
+    );
+    assert!(
+        coach.abilities[0].contains("Effect::AddCounterFilter")
+            && coach.abilities[0].contains("CounterKind::P1P1"),
+        "{}",
+        coach.abilities[0]
+    );
+
+    let brokers = read(
+        "Name:Brokers Ascendancy\nManaCost:G W U\nTypes:Enchantment\n\
+         T:Mode$ Phase | Phase$ End of Turn | ValidPlayer$ You | TriggerZones$ Battlefield | Execute$ TrigPutCounter\n\
+         SVar:TrigPutCounter:DB$ PutCounterAll | ValidCards$ Creature.YouCtrl | CounterType$ P1P1 | \
+         CounterNum$ 1 | ValidCards2$ Planeswalker.YouCtrl | CounterType2$ LOYALTY",
+    );
+    assert!(
+        brokers.abilities[0].contains("CounterKind::P1P1")
+            && brokers.abilities[0].contains("CounterKind::Loyalty"),
+        "{}",
+        brokers.abilities[0]
+    );
+
+    let renew = read(
+        "Name:Sagu Pummeler\nManaCost:3 G\nTypes:Creature Beast\nPT:4/4\n\
+         A:AB$ TargetOnly | Cost$ 4 G ExileFromGrave<1/CARDNAME/this card> | ActivationZone$ Graveyard | \
+         ValidTgts$ Creature | SorcerySpeed$ True | SubAbility$ DBCounter\n\
+         SVar:DBCounter:DB$ PutCounterAll | ValidCards$ Creature.targetedBy | CounterType$ P1P1 | \
+         CounterNum$ 2 | CounterType2$ Reach | CounterNum2$ 1",
+    );
+    assert!(
+        renew.abilities[0]
+            .contains("Effect::AddCounter { kind: CounterKind::P1P1, amount: Amount::Fixed(2) }")
+            && renew.abilities[0].contains(
+                "Effect::AddCounter { kind: CounterKind::Reach, amount: Amount::Fixed(1) }"
+            ),
+        "{}",
+        renew.abilities[0]
+    );
+}
+
+#[test]
+fn wave28b_p2_condition_defined_and_event_objects() {
+    let ring = read(
+        "Name:Ring of Evos Isle\nManaCost:2\nTypes:Artifact Equipment\nK:Equip:1\n\
+         T:Mode$ Phase | Phase$ Upkeep | ValidPlayer$ You | TriggerZones$ Battlefield | Execute$ EvosCounter\n\
+         SVar:EvosCounter:DB$ PutCounter | Defined$ Equipped | ConditionDefined$ Equipped | \
+         ConditionPresent$ Creature.Blue | ConditionCompare$ EQ1 | CounterType$ P1P1 | CounterNum$ 1",
+    );
+    assert!(
+        ring.abilities.iter().any(|a| {
+            a.contains("Condition::AttachedMatches(") && a.contains("Filter::AttachedToBySource")
+        }),
+        "{:?}",
+        ring.abilities
+    );
+
+    let animus = read(
+        "Name:Ancient Animus\nManaCost:1 G\nTypes:Instant\n\
+         A:SP$ PutCounter | ValidTgts$ Creature.YouCtrl | CounterType$ P1P1 | CounterNum$ 1 | \
+         ConditionDefined$ ThisTargetedCard | ConditionPresent$ Legendary | SubAbility$ DBFight\n\
+         SVar:DBFight:DB$ Fight | Defined$ ParentTarget | ValidTgts$ Creature.OppCtrl",
+    );
+    assert!(
+        animus.abilities[0].contains("Effect::IfTargetMatches {")
+            && animus.abilities[0].contains("Effect::AddCounter"),
+        "{}",
+        animus.abilities[0]
+    );
+
+    let torturer = read(
+        "Name:Falkenrath Torturer\nManaCost:2 B\nTypes:Creature Vampire\nPT:2/1\n\
+         A:AB$ Pump | Cost$ Sac<1/Creature> | Defined$ Self | KW$ Flying | SubAbility$ DBPutCounter\n\
+         SVar:DBPutCounter:DB$ PutCounter | ConditionDefined$ Sacrificed | ConditionPresent$ Wizard | \
+         CounterNum$ 1 | CounterType$ P1P1",
+    );
+    assert!(
+        torturer.abilities[0].contains("Condition::SacrificedForCost("),
+        "{}",
+        torturer.abilities[0]
+    );
+
+    let aristocrat = read(
+        "Name:Falkenrath Aristocrat\nManaCost:2 B R\nTypes:Creature Vampire Noble\nPT:4/1\n\
+         A:AB$ Pump | Cost$ Sac<1/Creature> | Defined$ Self | KW$ Indestructible | SubAbility$ DBPutCounter\n\
+         SVar:DBPutCounter:DB$ PutCounter | ConditionCheckSVar$ X | CounterNum$ 1 | CounterType$ P1P1\n\
+         SVar:X:Sacrificed$Valid Wizard",
+    );
+    assert!(
+        aristocrat.abilities[0].contains("Condition::SacrificedForCost("),
+        "{}",
+        aristocrat.abilities[0]
+    );
+
+    let defy = read(
+        "Name:Defy Death\nManaCost:3 W W\nTypes:Sorcery\n\
+         A:SP$ ChangeZone | Origin$ Graveyard | Destination$ Battlefield | ValidTgts$ Creature.YouCtrl | SubAbility$ DBPutCounter\n\
+         SVar:DBPutCounter:DB$ PutCounter | CounterType$ P1P1 | CounterNum$ 2 | Defined$ Targeted | \
+         ConditionDefined$ Targeted | ConditionPresent$ Goblin",
+    );
+    assert!(
+        defy.abilities[0]
+            .contains("Condition::ObjectMatches { what: &TargetSpec::Object(&Filter::Any)")
+            && defy.abilities[0].contains(
+                "Effect::AddCounter { kind: CounterKind::P1P1, amount: Amount::Fixed(2) }"
+            ),
+        "{}",
+        defy.abilities[0]
+    );
+
+    let marcus = read(
+        "Name:Marcus, Mutant Mayor\nManaCost:3 G U\nTypes:Legendary Creature Mutant Advisor\nPT:4/4\n\
+         T:Mode$ DamageDone | ValidSource$ Creature.YouCtrl | ValidTarget$ Player | CombatDamage$ True | \
+         TriggerZones$ Battlefield | Execute$ TrigDraw\n\
+         SVar:TrigDraw:DB$ Draw | ConditionDefined$ TriggeredSourceLKICopy | \
+         ConditionPresent$ Creature.counters_GE1_P1P1 | SubAbility$ DBPutCounter\n\
+         SVar:DBPutCounter:DB$ PutCounter | Defined$ TriggeredSourceLKICopy | \
+         ConditionDefined$ TriggeredSourceLKICopy | ConditionPresent$ Creature.counters_EQ0_P1P1 | \
+         CounterType$ P1P1 | CounterNum$ 1",
+    );
+    assert!(
+        marcus.abilities[0].contains("TargetSpec::EventObject")
+            && marcus.abilities[0].contains("Filter::Reference"),
+        "{}",
+        marcus.abilities[0]
+    );
+
+    let bortuk = read(
+        "Name:Bortuk Bonerattle\nManaCost:4 B G\nTypes:Legendary Creature Troll Shaman\nPT:4/4\n\
+         T:Mode$ ChangesZone | ValidCard$ Card.wasCastByYou+Self | Destination$ Battlefield | Execute$ TrigChangeZone\n\
+         SVar:TrigChangeZone:DB$ ChangeZone | ValidTgts$ Creature.YouOwn | Origin$ Graveyard | \
+         Destination$ Battlefield | ConditionDefined$ Targeted | ConditionPresent$ Card.cmcLEX | SubAbility$ DBChangeZone\n\
+         SVar:DBChangeZone:DB$ ChangeZone | Defined$ Targeted | Origin$ Graveyard | Destination$ Hand | \
+         ConditionDefined$ Targeted | ConditionPresent$ Card.cmcGTX\n\
+         SVar:X:Count$Domain",
+    );
+    assert!(
+        bortuk.abilities[0].contains("Condition::ObjectMatches")
+            && bortuk.statics.contains("BasicLandTypesAmong"),
+        "{}\n{}",
+        bortuk.abilities[0],
+        bortuk.statics
+    );
+}
+
+#[test]
+fn wave28b_p2_draw_remember_capture_and_multi_upto() {
+    let excavation = read(
+        "Name:Ancient Excavation\nManaCost:2 U B\nTypes:Instant\n\
+         A:SP$ Draw | NumCards$ X | SubAbility$ DBDiscard | RememberDrawn$ AllReplaced\n\
+         SVar:DBDiscard:DB$ Discard | Defined$ You | Mode$ TgtChoose | NumCards$ Y | SubAbility$ DBCleanup\n\
+         SVar:DBCleanup:DB$ Cleanup | ClearRemembered$ True\n\
+         SVar:X:Count$ValidHand Card.YouOwn\n\
+         SVar:Y:Remembered$Amount",
+    );
+    assert!(
+        excavation.abilities[0].contains("Effect::CaptureAffected {")
+            && excavation.abilities[0].contains(
+                "Effect::DiscardAmountForPlayers { who: PlayerRel::You, amount: Amount::RememberedCount }"
+            ),
+        "{}",
+        excavation.abilities[0]
+    );
+
+    let growth = read(
+        "Name:Malignant Growth\nManaCost:3 G U\nTypes:Enchantment\n\
+         T:Mode$ Phase | Phase$ Draw | ValidPlayer$ Opponent | Execute$ TrigDraw | TriggerZones$ Battlefield\n\
+         SVar:TrigDraw:DB$ Draw | Defined$ TriggeredPlayer | NumCards$ X | RememberDrawn$ AllReplaced | SubAbility$ DBDamage\n\
+         SVar:DBDamage:DB$ DealDamage | Defined$ TriggeredPlayer | NumDmg$ Remembered$Amount | SubAbility$ DBCleanup\n\
+         SVar:DBCleanup:DB$ Cleanup | ClearRemembered$ True\n\
+         SVar:X:Count$CardCounters.GROWTH",
+    );
+    assert!(
+        growth.abilities[0].contains("Effect::CaptureAffected {")
+            && growth.abilities[0].contains(
+                "Effect::DealDamage { amount: Amount::RememberedCount, target: TargetSpec::Player(PlayerRel::ActivePlayer) }"
+            ),
+        "{}",
+        growth.abilities[0]
+    );
+
+    let envoy = read(
+        "Name:Trade Route Envoy\nManaCost:3 G\nTypes:Creature Dog Soldier\nPT:4/3\n\
+         T:Mode$ ChangesZone | Origin$ Any | Destination$ Battlefield | ValidCard$ Card.Self | Execute$ TrigDraw\n\
+         SVar:TrigDraw:DB$ Draw | Defined$ You | NumCards$ 1 | ConditionPresent$ Creature.YouCtrl+HasCounters | \
+         RememberDrawn$ True | SubAbility$ DBPutCounter\n\
+         SVar:DBPutCounter:DB$ PutCounter | CounterType$ P1P1 | CounterNum$ 1 | \
+         ConditionDefined$ Remembered | ConditionPresent$ Card | ConditionCompare$ EQ0 | SubAbility$ DBCleanup\n\
+         SVar:DBCleanup:DB$ Cleanup | ClearRemembered$ True",
+    );
+    assert!(
+        envoy.abilities[0].contains("Effect::CaptureAffected {")
+            && envoy.abilities[0].contains(
+                "left: &Amount::RememberedCount, op: AmountCmp::Equal, right: &Amount::Fixed(0)"
+            ),
+        "{}",
+        envoy.abilities[0]
+    );
+
+    let diminishing = read(
+        "Name:Diminishing Returns\nManaCost:2 U U\nTypes:Sorcery\n\
+         A:SP$ Draw | Defined$ Player | NumCards$ 7 | Upto$ True",
+    );
+    assert!(
+        diminishing.abilities[0].contains(
+            "Effect::RepeatEach { domain: RepeatDomain::EachPlayer, effects: &[Effect::ChooseNumberEx { \
+             chooser: PlayerRel::EventPlayer, min: Amount::Fixed(0), max: Amount::Fixed(7)"
+        ),
+        "{}",
+        diminishing.abilities[0]
+    );
+}
+
+#[test]
+fn wave28b_p2_votes_and_granted_abilities() {
+    let orchard = read(
+        "Name:Orchard Elemental\nManaCost:5 G\nTypes:Creature Elemental\nPT:2/2\n\
+         T:Mode$ ChangesZone | Origin$ Any | Destination$ Battlefield | ValidCard$ Card.Self | Execute$ TrigVote\n\
+         SVar:TrigVote:DB$ Vote | Defined$ Player | Choices$ DBVoteSprout,DBVoteHarvest | StoreVoteNum$ True\n\
+         SVar:DBVoteSprout:DB$ PutCounter | Defined$ Self | CounterType$ P1P1 | CounterNum$ SVar$VoteNum/Times.2 | SpellDescription$ Sprout\n\
+         SVar:DBVoteHarvest:DB$ GainLife | LifeAmount$ SVar$VoteNum/Times.3 | Defined$ You | SpellDescription$ Harvest",
+    );
+    assert!(
+        orchard.abilities[0].contains("ThisWay::VoteCount(0)")
+            && orchard.abilities[0].contains("ThisWay::VoteCount(1)"),
+        "{}",
+        orchard.abilities[0]
+    );
+
+    let jays = read(
+        "Name:Messenger Jays\nManaCost:4 U\nTypes:Creature Bird\nPT:2/1\n\
+         T:Mode$ ChangesZone | Origin$ Any | Destination$ Battlefield | ValidCard$ Card.Self | Execute$ TrigVote\n\
+         SVar:TrigVote:DB$ Vote | Defined$ Player | Choices$ DBVoteFeather,DBVoteQuill | StoreVoteNum$ True\n\
+         SVar:DBVoteFeather:DB$ PutCounter | Defined$ Self | CounterType$ P1P1 | CounterNum$ VoteNum | SpellDescription$ Feather\n\
+         SVar:DBVoteQuill:DB$ Draw | NumCards$ VoteNum | SubAbility$ DBDiscard | RememberDrawn$ AllReplaced | SpellDescription$ Quill\n\
+         SVar:DBDiscard:DB$ Discard | Defined$ You | NumCards$ X | Mode$ TgtChoose | SubAbility$ DBCleanup\n\
+         SVar:DBCleanup:DB$ Cleanup | ClearRemembered$ True\n\
+         SVar:X:Remembered$Amount",
+    );
+    assert!(
+        jays.abilities[0].contains("Effect::CaptureAffected {")
+            && jays.abilities[0].contains("Amount::RememberedCount"),
+        "{}",
+        jays.abilities[0]
+    );
+
+    let emissary = read(
+        "Name:Emissary Green\nManaCost:4 G\nTypes:Legendary Creature Human Advisor\nPT:3/3\n\
+         T:Mode$ Attacks | ValidCard$ Card.Self | Execute$ TrigVote\n\
+         SVar:TrigVote:DB$ Vote | Defined$ Player | Choices$ DBVoteProfit,DBVoteSecurity | StoreVoteNum$ True\n\
+         SVar:DBVoteProfit:DB$ Draw | NumCards$ SVar$VoteNum/Times.2 | SpellDescription$ Profit\n\
+         SVar:DBVoteSecurity:DB$ PutCounterAll | ValidCards$ Creature.YouCtrl | CounterType$ P1P1 | CounterNum$ VoteNum | SpellDescription$ Security",
+    );
+    assert!(
+        emissary.abilities[0].contains("Effect::AddCounterFilter")
+            && emissary.abilities[0].contains("ThisWay::VoteCount(1)"),
+        "{}",
+        emissary.abilities[0]
+    );
+
+    let brawl = read(
+        "Name:Brawl\nManaCost:3 R R\nTypes:Instant\n\
+         A:SP$ AnimateAll | ValidCards$ Creature | Abilities$ ThrowPunch\n\
+         SVar:ThrowPunch:AB$ DealDamage | Cost$ T | ValidTgts$ Creature | NumDmg$ BrawlX\n\
+         SVar:BrawlX:Count$CardPower",
+    );
+    assert!(
+        brawl.abilities[0].contains("Modifier::GrantActivatedDefinition")
+            && brawl.statics.contains("Amount::SourcePower"),
+        "{}\n{}",
+        brawl.abilities[0],
+        brawl.statics
+    );
+}
+
+#[test]
+fn wave28b_p2_svars_and_optional_costs() {
+    let salvo = read(
+        "Name:Thunder Salvo\nManaCost:1 R\nTypes:Instant\n\
+         A:SP$ DealDamage | ValidTgts$ Creature | NumDmg$ X\n\
+         SVar:X:Count$ThisTurnCast_Card.YouCtrl+!CastSaSource/Plus.2",
+    );
+    assert!(
+        salvo.abilities[0].contains("Condition::SourceWasCastByYou")
+            && salvo.abilities[0].contains("SpellsCastMatchingThisTurn")
+            && salvo.abilities[0].contains("offset: 2"),
+        "{}",
+        salvo.abilities[0]
+    );
+
+    let colors = read(
+        "Name:ColorBurst\nManaCost:3 R\nTypes:Sorcery\n\
+         A:SP$ DealDamage | ValidTgts$ Any | NumDmg$ X\n\
+         SVar:X:Count$Valid Permanent.YouCtrl$Colors",
+    );
+    assert!(
+        colors.abilities[0].contains("Amount::DistinctColorsAmong("),
+        "{}",
+        colors.abilities[0]
+    );
+
+    let opp_more = read(
+        "Name:CatchUp\nManaCost:1 W\nTypes:Sorcery\n\
+         A:SP$ Draw | NumCards$ 1 | ConditionCheckSVar$ Them | ConditionSVarCompare$ GTYou\n\
+         SVar:Them:PlayerCountOpponents$HighestValid Creature.YouCtrl\n\
+         SVar:You:Count$Valid Creature.YouCtrl",
+    );
+    assert!(
+        opp_more.abilities[0].contains("Condition::OpponentControlsMore(&Filter::CREATURE)"),
+        "{}",
+        opp_more.abilities[0]
+    );
+
+    let kroxa = read(
+        "Name:Kroxa and Kunoros\nManaCost:3 R W B\nTypes:Legendary Creature\nPT:6/6\n\
+         T:Mode$ Attacks | ValidCard$ Card.Self | Execute$ TrigImmediateTrig\n\
+         SVar:TrigImmediateTrig:AB$ ImmediateTrigger | Cost$ ExileFromGrave<5/Card> | Execute$ TrigReturn\n\
+         SVar:TrigReturn:DB$ ChangeZone | Origin$ Graveyard | Destination$ Battlefield | ValidTgts$ Creature.YouOwn",
+    );
+    assert!(
+        kroxa.abilities[0].contains(
+            "Effect::MayExileFromYourGraveyardThen { count: 5, filter: &Filter::Any, then: &[Effect::ReflexiveTrigger"
+        ),
+        "{}",
+        kroxa.abilities[0]
+    );
+
+    let brawler = read(
+        "Name:Voltaic Brawler\nManaCost:R G\nTypes:Creature Human Warrior\nPT:3/2\n\
+         T:Mode$ Attacks | ValidCard$ Card.Self | Execute$ TrigPump\n\
+         SVar:TrigPump:AB$ Pump | Cost$ PayEnergy<1> | Defined$ Self | NumAtt$ +1 | NumDef$ +1 | KW$ Trample",
+    );
+    assert!(
+        brawler.abilities[0].contains("Amount::CountersOnYou(CounterKind::Energy)")
+            && brawler.abilities[0].contains("pay_cost: Some(VariablePayKind::Energy)")
+            && brawler.abilities[0].contains("Amount::ResolutionChosenNumber"),
+        "{}",
+        brawler.abilities[0]
+    );
+
+    let shieldguard = read(
+        "Name:Consul's Shieldguard\nManaCost:3 W\nTypes:Creature Dwarf Soldier\nPT:3/4\n\
+         T:Mode$ Attacks | ValidCard$ Card.Self | Execute$ TrigPump\n\
+         SVar:TrigPump:AB$ Pump | Cost$ PayEnergy<1> | ValidTgts$ Creature.attacking+Other | KW$ Indestructible",
+    );
+    assert!(
+        shieldguard.abilities[0].contains("pay_cost: Some(VariablePayKind::Energy)")
+            && shieldguard.abilities[0].contains("targets = Some(TargetReq::one("),
+        "{}",
+        shieldguard.abilities[0]
+    );
 }

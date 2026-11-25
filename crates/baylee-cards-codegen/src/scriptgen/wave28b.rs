@@ -48,6 +48,7 @@ impl Tx<'_> {
 
     /// Additional `Count$` / `SVar` expressions lowered onto existing `Amount`
     /// variants. Called from `mana::count_expr_depth`.
+    #[allow(clippy::too_many_lines)]
     pub(super) fn wave28b_count_expr(
         &mut self,
         def: &str,
@@ -89,6 +90,29 @@ impl Tx<'_> {
                 )
             {
                 return Some("Amount::SpellsCastThisTurn(PlayerRel::EventPlayer)".to_string());
+            }
+            if let Some(valid) = def
+                .strip_prefix("Count$Valid ")
+                .and_then(|s| s.strip_suffix("$Colors"))
+                && !valid.contains(['$', '/'])
+            {
+                let expr = self.filter_expr(valid.trim())?;
+                if !Self::wave28b_filter_uses_resolution_state(&expr) {
+                    let f_ref = self.wave28b_filter_ref(&expr);
+                    return Some(format!("Amount::DistinctColorsAmong({f_ref})"));
+                }
+            }
+            if def == "Count$DifferentCounterKinds_Card.Self" && !self.on_a_spell {
+                return Some("Amount::DistinctCounterKindsOnSource".to_string());
+            }
+            if def == "PlayerCountOpponents$HighestCardsInHand" {
+                return Some("Amount::HighestOpponentHandSize".to_string());
+            }
+            if let Some(rest) = def.strip_prefix("Count$ThisTurnCast_")
+                && rest.contains("!CastSaSource")
+                && let Some(expr) = self.wave28b_other_cast_this_turn_amount(rest, false)
+            {
+                return Some(expr);
             }
             if let Some(rest) = def.strip_prefix("Count$ThisTurnCast_")
                 && matches!(
@@ -433,7 +457,153 @@ impl Tx<'_> {
             let f_ref = self.wave28b_filter_ref(&expr);
             return Some(format!("Condition::DiscardedForCost({f_ref})"));
         }
+        if let Some(valid) = base_raw.strip_prefix("Sacrificed$Valid ")
+            && self.cost_sacrifices_other
+            && !valid.contains(['$', '/'])
+        {
+            let expr = self.filter_expr(valid.trim())?;
+            let f_ref = self.wave28b_filter_ref(&expr);
+            return Some(format!("Condition::SacrificedForCost({f_ref})"));
+        }
         None
+    }
+
+    fn wave28b_filter_uses_resolution_state(expr: &str) -> bool {
+        expr.contains("PlayerRel::Chosen")
+            || expr.contains("PlayerRel::EventPlayer")
+            || expr.contains("PlayerRel::ControllerOfTarget")
+            || expr.contains("PlayerRel::OwnerOfTarget")
+            || expr.contains("PlayerRel::ControllerOfEvent")
+            || expr.contains("PlayerRel::DefendingPlayer")
+            || expr.contains("Filter::Reference")
+            || expr.contains("Filter::IsRemembered")
+    }
+
+    fn wave28b_is_single_player_rel(rel: &str) -> bool {
+        matches!(
+            rel,
+            "PlayerRel::You"
+                | "PlayerRel::Chosen"
+                | "PlayerRel::EventPlayer"
+                | "PlayerRel::ActivePlayer"
+                | "PlayerRel::ControllerOfTarget"
+                | "PlayerRel::OwnerOfTarget"
+                | "PlayerRel::ControllerOfEvent"
+                | "PlayerRel::OwnerOfEvent"
+                | "PlayerRel::DefendingPlayer"
+                | "PlayerRel::ControllerOfAttached"
+                | "PlayerRel::EnchantedPlayer"
+                | "PlayerRel::OwnerOfSource"
+                | "PlayerRel::GiftRecipient"
+        )
+    }
+
+    /// Lowers unfiltered `Count$ThisTurnCast_Card.YouCtrl+!CastSaSource` (or
+    /// `Card.!CastSaSource+YouCtrl`) on a resolving spell or ETB into
+    /// `SpellsCastMatchingThisTurn(Any, You)` minus 1 iff `SourceWasCastByYou`.
+    /// Filtered `!CastSaSource` expressions (e.g. `Card.Red+!CastSaSource+YouCtrl`)
+    /// stay refused because cast-time characteristics can differ from resolution-time
+    /// characteristics (and `wave27a` asserts that refusal boundary).
+    fn wave28b_other_cast_this_turn_amount(
+        &self,
+        rest: &str,
+        in_etb_modifier: bool,
+    ) -> Option<String> {
+        if self.in_delayed || (!self.on_a_spell && !self.is_etb_self_trigger && !in_etb_modifier) {
+            return None;
+        }
+        if !matches!(
+            rest.trim(),
+            "Card.YouCtrl+!CastSaSource" | "Card.!CastSaSource+YouCtrl"
+        ) {
+            return None;
+        }
+        let raw =
+            "Amount::SpellsCastMatchingThisTurn { filter: &Filter::Any, caster: PlayerRel::You }";
+        Some(format!(
+            "Amount::IfCondition {{ condition: &Condition::SourceWasCastByYou, \
+             then: &Amount::SaturatingSub {{ base: &{raw}, subtract: 1 }}, \
+             otherwise: &{raw} }}"
+        ))
+    }
+
+    /// Additional `etbCounter` `CheckSVar$` conditions backed by existing DSL
+    /// `Condition` variants (e.g. *Hotheaded Giant* `!CastSaSource`, opponent
+    /// control count comparisons).
+    pub(super) fn wave28b_etb_svar_condition(&mut self, var: &str, cmp: &str) -> Option<String> {
+        let def = self
+            .svars
+            .get(var.trim())
+            .map_or(var, String::as_str)
+            .trim()
+            .to_string();
+        let cmp = cmp.trim();
+        if let Some(rest) = def.strip_prefix("Count$ThisTurnCast_")
+            && rest.contains("!CastSaSource")
+            && let Some(amt) = self.wave28b_other_cast_this_turn_amount(rest, true)
+        {
+            return Self::wave28b_amount_cmp_num(&amt, cmp);
+        }
+        if def == "PlayerCountPlayers$HighestValidGraveyard Card.YouOwn" {
+            return Self::wave28b_any_graveyard_count_cond(cmp);
+        }
+        self.wave28b_opponent_controls_more_cond(&def, cmp)
+    }
+
+    fn wave28b_amount_cmp_num(amt: &str, cmp: &str) -> Option<String> {
+        let (op_code, rhs_raw) = cmp.split_at_checked(2)?;
+        let op = match op_code {
+            "GE" => "AmountCmp::AtLeast",
+            "GT" => "AmountCmp::GreaterThan",
+            "LE" => "AmountCmp::AtMost",
+            "LT" => "AmountCmp::LessThan",
+            "EQ" => "AmountCmp::Equal",
+            "NE" => "AmountCmp::NotEqual",
+            _ => return None,
+        };
+        let n: u32 = rhs_raw.trim().parse().ok()?;
+        Some(format!(
+            "Condition::AmountCompare {{ left: &{amt}, op: {op}, right: &Amount::Fixed({n}) }}"
+        ))
+    }
+
+    fn wave28b_opponent_controls_more_cond(&mut self, raw: &str, cmp: &str) -> Option<String> {
+        let opp_valid = raw
+            .strip_prefix("PlayerCountOpponents$HighestValid ")?
+            .trim();
+        let rhs_var = cmp.strip_prefix("GT")?.trim();
+        let rhs_def = self.svars.get(rhs_var)?.trim().to_string();
+        let you_valid = rhs_def.strip_prefix("Count$Valid ")?.trim();
+        if opp_valid != you_valid || opp_valid.contains(['$', '/', ',']) {
+            return None;
+        }
+        let (base, quals) = opp_valid.split_once('.')?;
+        let mut saw_you_ctrl = false;
+        let mut kept = Vec::new();
+        for atom in quals.split('+').map(str::trim) {
+            if atom == "YouCtrl" {
+                saw_you_ctrl = true;
+            } else if matches!(atom, "OppCtrl" | "YouDontCtrl") || atom.starts_with("ControlledBy")
+            {
+                return None;
+            } else if !atom.is_empty() {
+                kept.push(atom);
+            }
+        }
+        if !saw_you_ctrl {
+            return None;
+        }
+        let stripped = if kept.is_empty() {
+            base.trim().to_string()
+        } else {
+            format!("{}.{}", base.trim(), kept.join("+"))
+        };
+        let expr = self.filter_expr(&stripped)?;
+        if Self::wave28b_filter_uses_resolution_state(&expr) {
+            return None;
+        }
+        let f_ref = self.wave28b_filter_ref(&expr);
+        Some(format!("Condition::OpponentControlsMore({f_ref})"))
     }
 
     fn wave28b_filter_ref(&mut self, expr: &str) -> String {
@@ -464,6 +634,9 @@ impl Tx<'_> {
         let cmp = cmp.trim();
         if raw == "PlayerCountPlayers$HighestValidGraveyard Card.YouOwn" {
             return Self::wave28b_any_graveyard_count_cond(cmp);
+        }
+        if let Some(cond) = self.wave28b_opponent_controls_more_cond(raw, cmp) {
+            return Some(cond);
         }
         if let Some(base) = self.wave28b_predicate_valid_condition(raw) {
             return match cmp {
@@ -893,6 +1066,7 @@ impl Tx<'_> {
 
     /// Additional `Draw` shapes: `Upto$ True` for you (`ChooseNumberEx`) and
     /// `OptionalDecider$ True / <single-player>` (`MayDo` / `MayDoFor`).
+    #[allow(clippy::too_many_lines)]
     pub(super) fn wave28b_draw_effect(
         &mut self,
         p: &mut Params,
@@ -900,21 +1074,61 @@ impl Tx<'_> {
         targets_a_player: bool,
     ) -> Option<Vec<String>> {
         if p.peek("Upto") == Some("True") {
-            if targets_a_player
-                || !matches!(p.peek("Defined"), None | Some("You"))
-                || p.has("RememberDrawn")
-                || p.has("OptionalDecider")
-            {
+            if p.has("RememberDrawn") || p.has("OptionalDecider") {
                 return None;
             }
+            let saved = p.clone();
+            let saved_statics = self.body.statics.len();
             p.take("Upto");
-            p.take("Defined");
-            let max = self.amount_or_count_ext(p.take("NumCards").as_deref().unwrap_or("1"))?;
-            return Some(vec![format!(
-                "Effect::ChooseNumberEx {{ chooser: PlayerRel::You, min: Amount::Fixed(0), \
-                 max: {max}, prompt: NumberChoiceKind::Choice, pay_cost: None, \
-                 then: &[Effect::DrawCards {{ amount: Amount::ResolutionChosenNumber }}] }}"
-            )]);
+            let defined = p.take("Defined");
+            let Some(max) = self.amount_or_count_ext(p.take("NumCards").as_deref().unwrap_or("1"))
+            else {
+                *p = saved;
+                self.body.statics.truncate(saved_statics);
+                return None;
+            };
+            if !targets_a_player && matches!(defined.as_deref(), None | Some("You")) {
+                return Some(vec![format!(
+                    "Effect::ChooseNumberEx {{ chooser: PlayerRel::You, min: Amount::Fixed(0), \
+                     max: {max}, prompt: NumberChoiceKind::Choice, pay_cost: None, \
+                     then: &[Effect::DrawCards {{ amount: Amount::ResolutionChosenNumber }}] }}"
+                )]);
+            }
+            if !targets_a_player
+                && let Some(domain) = match defined.as_deref() {
+                    Some("Player") => Some("RepeatDomain::EachPlayer"),
+                    Some("Opponent" | "Player.Opponent") => Some("RepeatDomain::EachOpponent"),
+                    _ => None,
+                }
+            {
+                return Some(vec![format!(
+                    "Effect::RepeatEach {{ domain: {domain}, effects: &[Effect::ChooseNumberEx {{ \
+                     chooser: PlayerRel::EventPlayer, min: Amount::Fixed(0), max: {max}, \
+                     prompt: NumberChoiceKind::Choice, pay_cost: None, \
+                     then: &[Effect::DrawCardsFor {{ amount: Amount::ResolutionChosenNumber, \
+                     who: PlayerRel::EventPlayer }}] }}] }}"
+                )]);
+            }
+            if let Some(who) =
+                self.wave11_player_of_line(defined.as_deref(), target, targets_a_player)
+                && Self::wave28b_is_single_player_rel(who)
+            {
+                let draw = if who == "PlayerRel::You" {
+                    "Effect::DrawCards { amount: Amount::ResolutionChosenNumber }".to_string()
+                } else {
+                    format!(
+                        "Effect::DrawCardsFor {{ amount: Amount::ResolutionChosenNumber, who: {who} }}"
+                    )
+                };
+                return Some(vec![format!(
+                    "Effect::ChooseNumberEx {{ chooser: {who}, min: Amount::Fixed(0), \
+                     max: {max}, prompt: NumberChoiceKind::Choice, pay_cost: None, \
+                     then: &[{draw}] }}"
+                )]);
+            }
+            *p = saved;
+            self.body.statics.truncate(saved_statics);
+            return None;
         }
         let decider = p.peek("OptionalDecider")?;
         if decider == "You" {
@@ -940,15 +1154,7 @@ impl Tx<'_> {
             Some("PlayerRel::Chosen")
         } else {
             self.wave11_player_of_line(Some(decider.as_str()), target, targets_a_player)
-                .filter(|rel| {
-                    *rel == who
-                        && !matches!(
-                            *rel,
-                            "PlayerRel::EachPlayer"
-                                | "PlayerRel::EachOpponent"
-                                | "PlayerRel::OtherPlayers"
-                        )
-                })
+                .filter(|rel| *rel == who && Self::wave28b_is_single_player_rel(rel))
         };
         let Some(decider_rel) = decider_rel else {
             *p = saved;
@@ -996,6 +1202,70 @@ impl Tx<'_> {
         targets_a_player: bool,
         single_target: bool,
     ) -> Option<Vec<String>> {
+        if api == "AnimateAll" && self.on_a_spell && p.has("Abilities") && !p.has("Defined") {
+            let saved_p = p.clone();
+            let saved_statics = self.body.statics.len();
+            let saved_unclaimed = self.unclaimed.borrow().clone();
+            self.on_a_spell = false;
+            let res = self.animate_all_effect(p, target);
+            self.on_a_spell = true;
+            if res.is_some() {
+                return res;
+            }
+            *p = saved_p;
+            self.body.statics.truncate(saved_statics);
+            *self.unclaimed.borrow_mut() = saved_unclaimed;
+            return None;
+        }
+        if api == "Animate"
+            && self.on_a_spell
+            && single_target
+            && p.has("Abilities")
+            && target.is_some_and(|t| !t.starts_with("TargetSpec::Player("))
+            && matches!(
+                p.peek("Defined"),
+                None | Some("Targeted" | "ParentTarget" | "ParentTargeted")
+            )
+        {
+            let saved_p = p.clone();
+            let saved_statics = self.body.statics.len();
+            let saved_unclaimed = self.unclaimed.borrow().clone();
+            self.on_a_spell = false;
+            let res = self.animate_effect(p, target);
+            self.on_a_spell = true;
+            if res.is_some() {
+                return res;
+            }
+            *p = saved_p;
+            self.body.statics.truncate(saved_statics);
+            *self.unclaimed.borrow_mut() = saved_unclaimed;
+            return None;
+        }
+        if api == "PutCounterAll"
+            && (p.has("ValidCardsDesc")
+                || p.has("ValidCards2")
+                || p.has("CounterType2")
+                || p.peek("ValidCards")
+                    .is_some_and(|v| v.contains("targetedBy")))
+            && let Some(fx) = self.wave28b_put_counter_all(p, target, targets_here)
+        {
+            return Some(fx);
+        }
+        if p.has("ConditionDefined")
+            && (p.has("ConditionPresent") || p.has("ConditionNotPresent"))
+            && !p.has("PresentPlayer")
+            && matches!(p.peek("PresentZone"), None | Some("Battlefield"))
+            && let Some(fx) = self.wave28b_condition_defined_step(
+                api,
+                p,
+                target,
+                targets_here,
+                targets_a_player,
+                single_target,
+            )
+        {
+            return Some(fx);
+        }
         if api == "DealDamage"
             && p.peek("RememberDamaged") == Some("True")
             && p.peek("Defined") == Some("You")
@@ -1004,13 +1274,20 @@ impl Tx<'_> {
         {
             return self.wave28b_may_damage_self_reflexive(p, sub);
         }
-        if api == "Draw"
-            && p.peek("RememberDrawn") == Some("True")
-            && !targets_a_player
-            && matches!(p.peek("Defined"), None | Some("You"))
-            && self.sub_is_api(sub.as_deref(), "Discard")
-        {
-            return self.wave28b_draw_then_discard_drawn(p, sub);
+        if api == "Draw" && matches!(p.peek("RememberDrawn"), Some("True" | "AllReplaced")) {
+            if p.peek("RememberDrawn") == Some("True")
+                && !targets_a_player
+                && matches!(p.peek("Defined"), None | Some("You"))
+                && self.sub_is_api(sub.as_deref(), "Discard")
+                && let Some(fx) = self.wave28b_draw_then_discard_drawn(p, sub)
+            {
+                return Some(fx);
+            }
+            if let Some(fx) = self.wave28b_draw_remembered_capture(p, sub, target, targets_a_player)
+            {
+                return Some(fx);
+            }
+            return None;
         }
         if api == "PutCounter" && p.has("Choices") {
             return self.wave28b_put_counter_choices(
@@ -1023,6 +1300,538 @@ impl Tx<'_> {
             );
         }
         None
+    }
+
+    /// Extends `PutCounterAll` with `ValidCardsDesc$`, secondary `ValidCards2$`
+    /// / `CounterType2$` / `CounterNum2$` pairs (*Ajani Steadfast*, *Brokers
+    /// Ascendancy*, *Dueling Coach*, …), and Renew's `ValidCards$ *.targetedBy`
+    /// targeting pattern (*Kheru Goldkeeper*, *Sagu Pummeler*).
+    #[allow(clippy::too_many_lines)]
+    fn wave28b_put_counter_all(
+        &mut self,
+        p: &mut Params,
+        target: Option<&str>,
+        targets_here: bool,
+    ) -> Option<Vec<String>> {
+        if targets_here {
+            return None;
+        }
+        let saved_p = p.clone();
+        let saved_statics = self.body.statics.len();
+        let saved_unclaimed = self.unclaimed.borrow().clone();
+        let fail = |this: &mut Self, p: &mut Params| {
+            *p = saved_p;
+            this.body.statics.truncate(saved_statics);
+            *this.unclaimed.borrow_mut() = saved_unclaimed;
+            None
+        };
+        let Some(valid1) = p.take("ValidCards") else {
+            return fail(self, p);
+        };
+        p.take("ValidCardsDesc");
+        p.take("ValidCards2Desc");
+        p.take("IsCurse");
+        let Some(code1) = p.take("CounterType") else {
+            return fail(self, p);
+        };
+        let Some(kind1) = counter_kind(&code1) else {
+            return fail(self, p);
+        };
+        let num1_raw = p.take("CounterNum");
+        let Some(n1) = self.amount_or_count_ext(num1_raw.as_deref().unwrap_or("1")) else {
+            return fail(self, p);
+        };
+        let valid2 = p.take("ValidCards2");
+        let code2 = p.take("CounterType2");
+        let num2_raw = p.take("CounterNum2");
+        if valid2.is_some() && code2.is_none() {
+            return fail(self, p);
+        }
+        if num2_raw.is_some() && code2.is_none() {
+            return fail(self, p);
+        }
+        let second_spec = if let Some(c2) = code2 {
+            let Some(kind2) = counter_kind(&c2) else {
+                return fail(self, p);
+            };
+            let n2_str = match num2_raw.as_deref() {
+                Some(raw) => raw,
+                None if matches!(num1_raw.as_deref(), None | Some("1")) => "1",
+                None => return fail(self, p),
+            };
+            let Some(n2) = self.amount_or_count_ext(n2_str) else {
+                return fail(self, p);
+            };
+            Some((kind2, n2))
+        } else {
+            None
+        };
+        if valid1.contains("targetedBy") {
+            if valid2.is_some() || !target.is_some_and(|t| t.starts_with("TargetSpec::Object(")) {
+                return fail(self, p);
+            }
+            let guard_creature = match valid1.trim() {
+                "Card.targetedBy" | "Permanent.targetedBy" => false,
+                "Creature.targetedBy" => !matches!(
+                    target,
+                    Some(
+                        "TargetSpec::Object(&Filter::CREATURE)"
+                            | "TargetSpec::Object(&Filter::YOUR_CREATURE)"
+                            | "TargetSpec::Object(&Filter::OPPONENT_CREATURE)"
+                    )
+                ),
+                _ => return fail(self, p),
+            };
+            let mut ops = vec![format!(
+                "Effect::AddCounter {{ kind: {kind1}, amount: {n1} }}"
+            )];
+            if let Some((kind2, n2)) = second_spec {
+                ops.push(format!(
+                    "Effect::AddCounter {{ kind: {kind2}, amount: {n2} }}"
+                ));
+            }
+            return Some(if guard_creature {
+                vec![format!(
+                    "Effect::IfTargetMatches {{ filter: &Filter::CREATURE, then: &[{}] }}",
+                    ops.join(", ")
+                )]
+            } else {
+                ops
+            });
+        }
+        if target.is_some() {
+            return fail(self, p);
+        }
+        let Some(expr1) = self.filter_expr(&valid1) else {
+            return fail(self, p);
+        };
+        let filter1 = self.body.filter_static("COUNTERS", &expr1);
+        let mut ops = vec![format!(
+            "Effect::AddCounterFilter {{ filter: &{filter1}, kind: {kind1}, amount: {n1} }}"
+        )];
+        if let Some((kind2, n2)) = second_spec {
+            let filter2_ref = if let Some(v2) = valid2 {
+                let Some(expr2) = self.filter_expr(&v2) else {
+                    return fail(self, p);
+                };
+                format!("&{}", self.body.filter_static("COUNTERS", &expr2))
+            } else {
+                format!("&{filter1}")
+            };
+            ops.push(format!(
+                "Effect::AddCounterFilter {{ filter: {filter2_ref}, kind: {kind2}, amount: {n2} }}"
+            ));
+        }
+        Some(ops)
+    }
+
+    /// Wraps an inner resolution step guarded by `ConditionDefined$` values
+    /// that `chains.rs::wave11_object_matches_condition` does not cover:
+    /// - `Equipped` / `Enchanted` (positive `ConditionPresent$` -> `Condition::AttachedMatches`)
+    /// - `ThisTargetedCard` (when `targets_here && single_target` on an object target)
+    /// - `Sacrificed` (when `self.cost_sacrifices_other` -> `Condition::SacrificedForCost`)
+    /// - `Targeted` / `ParentTarget` on graveyard targets (`TargetSpec::CardInGraveyard*`)
+    #[allow(clippy::too_many_lines)]
+    fn wave28b_condition_defined_step(
+        &mut self,
+        api: &str,
+        p: &mut Params,
+        target: Option<&str>,
+        targets_here: bool,
+        targets_a_player: bool,
+        single_target: bool,
+    ) -> Option<Vec<String>> {
+        enum CondKind {
+            Attached,
+            ThisTargeted,
+            Sacrificed,
+            GraveyardTarget,
+        }
+        let defined = p.peek("ConditionDefined")?;
+        let negated_key = if p.has("ConditionNotPresent") && !p.has("ConditionPresent") {
+            true
+        } else if p.has("ConditionPresent") && !p.has("ConditionNotPresent") {
+            false
+        } else {
+            return None;
+        };
+        let key = if negated_key {
+            "ConditionNotPresent"
+        } else {
+            "ConditionPresent"
+        };
+        let cmp = p
+            .peek("PresentCompare")
+            .or_else(|| p.peek("ConditionCompare"))
+            .map(str::to_string);
+        let positive = match (negated_key, cmp.as_deref()) {
+            (false, None | Some("GE1" | "EQ1" | "GT0")) => true,
+            (true, None) | (false, Some("EQ0" | "LT1")) => false,
+            _ => return None,
+        };
+        let is_gy_target = target.is_some_and(|t| {
+            t.starts_with("TargetSpec::CardInGraveyard(")
+                || t.starts_with("TargetSpec::CardInYourGraveyard(")
+                || t.starts_with("TargetSpec::CardInOpponentGraveyard(")
+        });
+        let kind = match defined {
+            "Equipped" | "Enchanted" if !self.on_a_spell && positive => CondKind::Attached,
+            "ThisTargetedCard"
+                if targets_here
+                    && single_target
+                    && target.is_some_and(|t| t.starts_with("TargetSpec::Object(")) =>
+            {
+                CondKind::ThisTargeted
+            }
+            "ThisTargetedCard" if targets_here && single_target && is_gy_target => {
+                CondKind::GraveyardTarget
+            }
+            "Sacrificed" if self.cost_sacrifices_other => CondKind::Sacrificed,
+            "Targeted" | "ParentTarget" if single_target && is_gy_target => {
+                CondKind::GraveyardTarget
+            }
+            _ => return None,
+        };
+        let saved_p = p.clone();
+        let saved_statics = self.body.statics.len();
+        let saved_unclaimed = self.unclaimed.borrow().clone();
+        let fail = |this: &mut Self, p: &mut Params| {
+            *p = saved_p;
+            this.body.statics.truncate(saved_statics);
+            *this.unclaimed.borrow_mut() = saved_unclaimed;
+            None
+        };
+        let valid = p.take(key)?;
+        p.take("ConditionDefined");
+        p.take("PresentCompare");
+        p.take("ConditionCompare");
+        p.take("PresentZone");
+        p.take("ConditionDescription");
+        let Some(expr) = self.filter_expr(&valid) else {
+            return fail(self, p);
+        };
+        if Self::wave28b_filter_uses_resolution_state(&expr)
+            || (!self.on_a_spell && expr.contains("Amount::Sacrificed"))
+        {
+            return fail(self, p);
+        }
+        let f_ref = self.wave28b_filter_ref(&expr);
+        let Some(inner) = self.effect_of(api, p, target, targets_here, targets_a_player) else {
+            return fail(self, p);
+        };
+        if inner.is_empty() {
+            return fail(self, p);
+        }
+        let inner_str = inner.join(", ");
+        let wrapped = match kind {
+            CondKind::Attached => format!(
+                "Effect::IfCondition {{ condition: Condition::AttachedMatches({f_ref}), \
+                 then: &[{inner_str}], otherwise: &[] }}"
+            ),
+            CondKind::ThisTargeted if positive => {
+                format!("Effect::IfTargetMatches {{ filter: {f_ref}, then: &[{inner_str}] }}")
+            }
+            CondKind::ThisTargeted | CondKind::GraveyardTarget => {
+                let base = format!(
+                    "Condition::ObjectMatches {{ what: &TargetSpec::Object(&Filter::Any), \
+                     filter: {f_ref} }}"
+                );
+                let cond = if positive {
+                    base
+                } else {
+                    format!("Condition::Not(&{base})")
+                };
+                format!(
+                    "Effect::IfCondition {{ condition: {cond}, then: &[{inner_str}], otherwise: &[] }}"
+                )
+            }
+            CondKind::Sacrificed => {
+                let base = format!("Condition::SacrificedForCost({f_ref})");
+                let cond = if positive {
+                    base
+                } else {
+                    format!("Condition::Not(&{base})")
+                };
+                format!(
+                    "Effect::IfCondition {{ condition: {cond}, then: &[{inner_str}], otherwise: &[] }}"
+                )
+            }
+        };
+        Some(vec![wrapped])
+    }
+
+    /// Lowers `Draw | RememberDrawn$ AllReplaced|True` chains via
+    /// `Effect::CaptureAffected` (since `draw_now` emits `Cause::Effect`
+    /// `ZoneChanged` events, `Amount::RememberedCount` equals the exact number
+    /// of cards drawn in `first`):
+    /// - `Discard | NumCards$ Remembered$Amount` (*Ancient Excavation*)
+    /// - `DealDamage | Defined$ <single-player> | NumDmg$ Remembered$Amount` (*Malignant Growth*)
+    /// - Zero-drawn fallback (`ConditionDefined$ Remembered | ConditionPresent$ Card | ConditionCompare$ EQ0`) (*Trade Route Envoy*, *Mr. Foxglove*)
+    #[allow(clippy::too_many_lines)]
+    fn wave28b_draw_remembered_capture(
+        &mut self,
+        p: &mut Params,
+        sub: &mut Option<String>,
+        target: Option<&str>,
+        targets_a_player: bool,
+    ) -> Option<Vec<String>> {
+        if self.capture_scope.is_some() || p.has("OptionalDecider") || p.has("Upto") {
+            return None;
+        }
+        let saved_p = p.clone();
+        let saved_sub = sub.clone();
+        let saved_statics = self.body.statics.len();
+        let saved_unclaimed = self.unclaimed.borrow().clone();
+        let fail = |this: &mut Self, p: &mut Params, sub: &mut Option<String>| {
+            *p = saved_p;
+            *sub = saved_sub;
+            this.body.statics.truncate(saved_statics);
+            *this.unclaimed.borrow_mut() = saved_unclaimed;
+            None
+        };
+        let Some(sub_name) = sub.clone() else {
+            return fail(self, p, sub);
+        };
+        let Some(sub_body) = self.svars.get(sub_name.trim()).cloned() else {
+            return fail(self, p, sub);
+        };
+        let Some((sub_api, mut sp)) = Params::parse(&sub_body) else {
+            return fail(self, p, sub);
+        };
+        sp.drop_prose();
+        let defined = p.take("Defined");
+        let Some(who) = self.wave11_player_of_line(defined.as_deref(), target, targets_a_player)
+        else {
+            return fail(self, p, sub);
+        };
+        if !Self::wave28b_is_single_player_rel(who) {
+            return fail(self, p, sub);
+        }
+        let draw_raw = p.take("NumCards").unwrap_or_else(|| "1".to_string());
+        let Some(draw_amt) = self.amount_or_count_ext(&draw_raw) else {
+            return fail(self, p, sub);
+        };
+        p.take("RememberDrawn");
+        let draw_cond = if p.has("ConditionPresent") {
+            if p.has("ConditionDefined")
+                || p.has("PresentPlayer")
+                || !matches!(p.peek("PresentZone"), None | Some("Battlefield"))
+            {
+                return fail(self, p, sub);
+            }
+            let valid = p.take("ConditionPresent")?;
+            let cmp = p
+                .take("PresentCompare")
+                .or_else(|| p.take("ConditionCompare"));
+            p.take("PresentZone");
+            p.take("ConditionDescription");
+            let positive = match cmp.as_deref() {
+                None | Some("GE1" | "GT0") => true,
+                Some("EQ0" | "LT1") => false,
+                _ => return fail(self, p, sub),
+            };
+            let Some(expr) = self.filter_expr(&valid) else {
+                return fail(self, p, sub);
+            };
+            let f_ref = self.wave28b_filter_ref(&expr);
+            let op = if positive {
+                "AmountCmp::AtLeast"
+            } else {
+                "AmountCmp::Equal"
+            };
+            let rhs = u32::from(positive);
+            Some(format!(
+                "Condition::AmountCompare {{ left: &Amount::CountOf {{ filter: {f_ref}, \
+                 zone: ZoneSel::Battlefield }}, op: {op}, right: &Amount::Fixed({rhs}) }}"
+            ))
+        } else {
+            None
+        };
+        if !p.exhausted() {
+            return fail(self, p, sub);
+        }
+        let base_draw = match (
+            who,
+            draw_amt
+                .strip_prefix("Amount::Fixed(")
+                .and_then(|r| r.strip_suffix(')')),
+        ) {
+            ("PlayerRel::You", Some(fixed)) => format!("Effect::draw({fixed})"),
+            ("PlayerRel::You", None) => format!("Effect::DrawCards {{ amount: {draw_amt} }}"),
+            (player, _) => format!("Effect::DrawCardsFor {{ amount: {draw_amt}, who: {player} }}"),
+        };
+        let first_eff = if let Some(cond) = draw_cond {
+            format!(
+                "Effect::IfCondition {{ condition: {cond}, then: &[{base_draw}], otherwise: &[] }}"
+            )
+        } else {
+            base_draw
+        };
+        let is_remembered_amount = |raw: &str| -> bool {
+            let trimmed = raw.trim();
+            trimmed == "Remembered$Amount"
+                || self
+                    .svars
+                    .get(trimmed)
+                    .is_some_and(|v| v.trim() == "Remembered$Amount")
+        };
+        let (then_eff, next_sub) = if sub_api == "Discard"
+            && sp.take("Mode").as_deref() == Some("TgtChoose")
+            && sp
+                .take("NumCards")
+                .as_deref()
+                .is_some_and(is_remembered_amount)
+        {
+            sp.take("IsCurse");
+            let disc_def = sp.take("Defined");
+            let Some(disc_who) =
+                self.wave11_player_of_line(disc_def.as_deref(), target, targets_a_player)
+            else {
+                return fail(self, p, sub);
+            };
+            if disc_who != who {
+                return fail(self, p, sub);
+            }
+            let next_sub = sp.take("SubAbility");
+            if !sp.exhausted() {
+                return fail(self, p, sub);
+            }
+            (
+                format!(
+                    "Effect::DiscardAmountForPlayers {{ who: {disc_who}, \
+                     amount: Amount::RememberedCount }}"
+                ),
+                next_sub,
+            )
+        } else if sub_api == "DealDamage"
+            && !sp.has("DamageSource")
+            && !sp.has("NoPrevention")
+            && !sp.has("OptionalDecider")
+            && sp
+                .take("NumDmg")
+                .as_deref()
+                .is_some_and(is_remembered_amount)
+        {
+            let dmg_def = sp.take("Defined");
+            let Some(dmg_who) =
+                self.wave11_player_of_line(dmg_def.as_deref(), target, targets_a_player)
+            else {
+                return fail(self, p, sub);
+            };
+            if !Self::wave28b_is_single_player_rel(dmg_who) {
+                return fail(self, p, sub);
+            }
+            let next_sub = sp.take("SubAbility");
+            if !sp.exhausted() {
+                return fail(self, p, sub);
+            }
+            (
+                format!(
+                    "Effect::DealDamage {{ amount: Amount::RememberedCount, \
+                     target: TargetSpec::Player({dmg_who}) }}"
+                ),
+                next_sub,
+            )
+        } else if sp.peek("ConditionDefined") == Some("Remembered")
+            && sp.peek("ConditionPresent") == Some("Card")
+            && matches!(
+                sp.peek("ConditionCompare")
+                    .or_else(|| sp.peek("PresentCompare")),
+                Some("EQ0" | "LT1" | "LE0")
+            )
+        {
+            sp.take("ConditionDefined");
+            sp.take("ConditionPresent");
+            sp.take("ConditionCompare");
+            sp.take("PresentCompare");
+            sp.take("ConditionDescription");
+            let next_sub = sp.take("SubAbility");
+            let Some(inner) = self.effect_of(&sub_api, &mut sp, target, false, false) else {
+                return fail(self, p, sub);
+            };
+            if inner.is_empty() || !sp.exhausted() {
+                return fail(self, p, sub);
+            }
+            (
+                format!(
+                    "Effect::IfCondition {{ condition: Condition::AmountCompare {{ \
+                     left: &Amount::RememberedCount, op: AmountCmp::Equal, \
+                     right: &Amount::Fixed(0) }}, then: &[{}], otherwise: &[] }}",
+                    inner.join(", ")
+                ),
+                next_sub,
+            )
+        } else {
+            return fail(self, p, sub);
+        };
+        let Ok(after_cleanup) = self.wave28b_consume_optional_cleanup(next_sub) else {
+            return fail(self, p, sub);
+        };
+        *sub = after_cleanup;
+        Some(vec![format!(
+            "Effect::CaptureAffected {{ first: &[{first_eff}], then: &[{then_eff}] }}"
+        )])
+    }
+
+    /// Lowers a Council's dilemma vote option that draws `VoteNum` cards and
+    /// discards `Remembered$Amount` (*Messenger Jays*) via `CaptureAffected`.
+    pub(super) fn wave28b_vote_draw_remembered_discard(
+        &self,
+        sp: &mut Params,
+        option_idx: u8,
+        sub_name: &str,
+    ) -> Option<Vec<String>> {
+        if sp.has("ValidTgts")
+            || sp.has("UnlessCost")
+            || sp.has("AtEOT")
+            || sp.entries.iter().any(|(k, _)| k.starts_with("Condition"))
+        {
+            return None;
+        }
+        let raw = sp.take("NumCards")?;
+        let (amt, false) = self.vote_count_amount(&raw, option_idx)? else {
+            return None;
+        };
+        if sp.take("RememberDrawn").as_deref() != Some("AllReplaced") {
+            return None;
+        }
+        if !matches!(sp.take("Defined").as_deref(), None | Some("You")) || !sp.exhausted() {
+            return None;
+        }
+        let sub_body = self.svars.get(sub_name.trim())?;
+        let (sub_api, mut dp) = Params::parse(sub_body)?;
+        dp.drop_prose();
+        if sub_api != "Discard"
+            || dp.take("Mode").as_deref() != Some("TgtChoose")
+            || !matches!(dp.take("Defined").as_deref(), None | Some("You"))
+        {
+            return None;
+        }
+        let disc_num = dp.take("NumCards")?;
+        let disc_def = self
+            .svars
+            .get(disc_num.trim())
+            .map_or(disc_num.as_str(), String::as_str)
+            .trim();
+        if disc_def != "Remembered$Amount" {
+            return None;
+        }
+        let next_sub = dp.take("SubAbility");
+        if !dp.exhausted() {
+            return None;
+        }
+        if self
+            .wave28b_consume_optional_cleanup(next_sub)
+            .ok()?
+            .is_some()
+        {
+            return None;
+        }
+        Some(vec![format!(
+            "Effect::CaptureAffected {{ first: &[Effect::DrawCards {{ amount: {amt} }}], \
+             then: &[Effect::DiscardAmountForPlayers {{ who: PlayerRel::You, \
+             amount: Amount::RememberedCount }}] }}"
+        )])
     }
 
     fn wave28b_may_damage_self_reflexive(
@@ -1464,6 +2273,47 @@ impl Tx<'_> {
                 },
             ));
         }
+        if let Some(exile_inner) = cost
+            .strip_prefix("ExileFromGrave<")
+            .and_then(|s| s.strip_suffix('>'))
+            && !exile_inner.contains('>')
+            && let Some((n_raw, rest)) = exile_inner.split_once('/')
+            && let Ok(count) = n_raw.trim().parse::<u8>()
+            && (1..=20).contains(&count)
+        {
+            let spec = rest.split('/').next().unwrap_or("").trim();
+            if !spec.is_empty()
+                && !matches!(spec, "CARDNAME" | "NICKNAME")
+                && !spec.contains("Triggered")
+                && !spec.contains("Remembered")
+                && !spec.contains("OppOwn")
+                && !spec.contains("Any")
+            {
+                let saved_unclaimed = self.unclaimed.borrow().clone();
+                let saved_statics = self.body.statics.len();
+                if let Some(expr) = self.filter_expr_in_zone(spec, true)
+                    && !Self::wave28b_filter_uses_resolution_state(&expr)
+                {
+                    let filter = self.wave28b_filter_ref(&expr);
+                    return Some((
+                        rest_without_cost(),
+                        OptionalTriggerPrice::ExileFromGraveyardN { count, filter },
+                    ));
+                }
+                *self.unclaimed.borrow_mut() = saved_unclaimed;
+                self.body.statics.truncate(saved_statics);
+            }
+        }
+        if cost == "PayEnergy<1>" {
+            return Some((
+                rest_without_cost(),
+                OptionalTriggerPrice::ChooseNumberPay {
+                    pay_kind: "VariablePayKind::Energy",
+                    prompt: "NumberChoiceKind::EnergyPayment",
+                    max: "Amount::Fixed(1)".to_string(),
+                },
+            ));
+        }
         if let Some(sub_inner) = cost
             .strip_prefix("SubCounter<")
             .and_then(|s| s.strip_suffix('>'))
@@ -1702,17 +2552,35 @@ impl Tx<'_> {
                 prompt,
                 max,
             } => {
-                if has_targets
-                    || effects.contains("Effect::ReflexiveTrigger")
-                    || !effects.contains("Amount::ResolutionChosenNumber")
+                if pay_kind == "VariablePayKind::Energy"
+                    && max == "Amount::Fixed(1)"
+                    && !effects.contains("Amount::ResolutionChosenNumber")
                 {
-                    return None;
+                    format!(
+                        "Effect::IfCondition {{ condition: Condition::AmountAtLeast(\
+                         Amount::CountersOnYou(CounterKind::Energy), 1), \
+                         then: &[Effect::ChooseNumberEx {{ chooser: PlayerRel::You, \
+                         min: Amount::Fixed(0), max: Amount::Fixed(1), \
+                         prompt: NumberChoiceKind::EnergyPayment, \
+                         pay_cost: Some(VariablePayKind::Energy), \
+                         then: &[Effect::IfCondition {{ condition: Condition::AmountCompare {{ \
+                         left: &Amount::ResolutionChosenNumber, op: AmountCmp::Equal, \
+                         right: &Amount::Fixed(1) }}, then: &[{effects}], otherwise: &[] }}] }}], \
+                         otherwise: &[] }}"
+                    )
+                } else {
+                    if has_targets
+                        || effects.contains("Effect::ReflexiveTrigger")
+                        || !effects.contains("Amount::ResolutionChosenNumber")
+                    {
+                        return None;
+                    }
+                    format!(
+                        "Effect::ChooseNumberEx {{ chooser: PlayerRel::You, min: Amount::Fixed(0), \
+                         max: {max}, prompt: {prompt}, pay_cost: Some({pay_kind}), \
+                         then: &[{effects}] }}"
+                    )
                 }
-                format!(
-                    "Effect::ChooseNumberEx {{ chooser: PlayerRel::You, min: Amount::Fixed(0), \
-                     max: {max}, prompt: {prompt}, pay_cost: Some({pay_kind}), \
-                     then: &[{effects}] }}"
-                )
             }
         })
     }
