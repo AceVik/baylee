@@ -1491,7 +1491,11 @@ fn apply(
         | Modifier::ProtectionFrom(_)
         | Modifier::ProtectionFromExiledWithSourceTypes
         | Modifier::GrantsFlashback
+        | Modifier::GrantsFlashbackCost(_)
         | Modifier::GrantsEscape(_)
+        | Modifier::GrantsJumpStart
+        | Modifier::GrantsEncoreManaCost
+        | Modifier::GrantsEmbalmManaCost
         | Modifier::Sneak(_)
         | Modifier::GraveyardInstantSorceryOnce
         | Modifier::GraveyardVampireOnce

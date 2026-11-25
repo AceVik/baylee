@@ -616,6 +616,8 @@ const fn rider_object(rider: &Rider) -> Option<ObjectId> {
         }
         | Rider::GrantedSource(source)
         | Rider::CraftMaterial(source)
+        | Rider::SpellCostExile(source)
+        | Rider::BeheldCostPower(Some(source), _, _)
         | Rider::LinkedExile { source, .. } => Some(source.object),
         Rider::ActivationManaNote {
             last_exile: Some(exile),
@@ -725,6 +727,9 @@ const fn rider_object(rider: &Rider) -> Option<ObjectId> {
         | Rider::TributePaid
         | Rider::RepeatedModes(_)
         | Rider::OptionalCostPaid
-        | Rider::OncePerPermanentUsedMask { .. } => None,
+        | Rider::OncePerPermanentUsedMask { .. }
+        | Rider::ControlledSubtypeOnCast(_)
+        | Rider::BeheldCostPower(None, _, _)
+        | Rider::EncoreAbility => None,
     }
 }

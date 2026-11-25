@@ -2565,12 +2565,15 @@ impl Tx<'_> {
         let spec = if (api == "ChangeZone"
             && p.peek("Origin") == Some("Graveyard")
             && !change_zone_targets_player)
-            || (matches!(api, "Clone" | "CopyPermanent" | "TargetOnly" | "Play")
-                && p.peek("TgtZone") == Some("Graveyard"))
+            || (matches!(
+                api,
+                "Clone" | "CopyPermanent" | "TargetOnly" | "Play" | "Branch"
+            ) && p.peek("TgtZone") == Some("Graveyard"))
             || (api == "Pump"
                 && p.peek("TgtZone") == Some("Graveyard")
                 && p.peek("PumpZone") == Some("Graveyard")
-                && p.peek("KW").map(str::trim) == Some("Flashback"))
+                && p.peek("KW")
+                    .is_some_and(|kw| Self::wave16b_graveyard_grant_modifier(kw, false).is_some()))
         {
             match p.take("TgtZone").as_deref() {
                 None | Some("Graveyard") => {}
@@ -3330,6 +3333,10 @@ impl Tx<'_> {
         }
         if raw.starts_with("Behold<") {
             return Some(Price::Part(self.parse_behold_cost_token(raw)?));
+        }
+        if let Some(inner) = raw.strip_prefix("RevealOrChoose<") {
+            let as_behold = format!("Behold<{inner}");
+            return Some(Price::Part(self.parse_behold_cost_token(&as_behold)?));
         }
         if switched
             && (raw == "Sac<1/CARDNAME>"
@@ -4346,6 +4353,7 @@ impl Tx<'_> {
                 let n = self.amount_or_count_ext(&raw)?;
                 vec![format!("Effect::Bolster({n})")]
             }
+            "Blight" => self.wave16b_blight_effect(p, target, targets_a_player)?,
             "PutCounter" => {
                 if let Some(monstrosity) = p.take("Monstrosity") {
                     if self.on_a_spell
@@ -6359,7 +6367,7 @@ impl Tx<'_> {
                 list,
                 [one] if one.starts_with(
                     "Effect::PumpTarget { power: Amount::Fixed(0), toughness: Amount::Fixed(0), keywords: KeywordSet::EMPTY,"
-                )
+                ) || (one.starts_with("Effect::DiscardForPlayers { ") && one.ends_with(", count: 0 }"))
             )
         };
         if is_noop_pump(&else_effects) && !then_effects.is_empty() {
@@ -7286,6 +7294,11 @@ impl Tx<'_> {
         target: Option<&str>,
         targets_a_player: bool,
     ) -> Option<&'static str> {
+        let defined = if defined == Some("ParentTargetedController") {
+            Some("ParentTargetController")
+        } else {
+            defined
+        };
         if defined.is_none() && targets_a_player {
             return Some("PlayerRel::Chosen");
         }

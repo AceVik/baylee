@@ -3971,6 +3971,23 @@ impl Tx<'_> {
                 "SpellCastMetric::DistinctTargets".to_string()
             }
             "Count$xPaid" if relative && is_self_zone => "SpellCastMetric::XPaid".to_string(),
+            _ if relative
+                && is_self_zone
+                && self.body.optional_cost.is_some()
+                && expr
+                    .strip_prefix("Count$OptionalGenericCostPaid.")
+                    .and_then(|s| s.strip_suffix(".0"))
+                    .and_then(|n| n.parse::<i32>().ok())
+                    .is_some_and(|n| n > 0) =>
+            {
+                let n: i32 = expr
+                    .strip_prefix("Count$OptionalGenericCostPaid.")?
+                    .strip_suffix(".0")?
+                    .parse()
+                    .ok()?;
+                let scaled = i8::try_from(i32::from(factor).checked_mul(n)?).ok()?;
+                return Some(("SpellCastMetric::OptionalCostPaid".to_string(), scaled));
+            }
             "PlayerCountPropertyYou$CardsDiscardedThisTurn" if per_turn_ok => {
                 "SpellCastMetric::CardsDiscardedThisTurn".to_string()
             }

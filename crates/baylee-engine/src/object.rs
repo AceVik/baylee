@@ -1324,6 +1324,25 @@ pub enum Rider {
     /// Total mana spent to cast the spell that caused this triggered ability
     /// (`CR 601.2h`, `CR 608.2h`). Appended to preserve replay identities.
     EventManaSpent(u32),
+    /// Card exiled while paying a spell's cost (`CR 607.2a`, `CR 400.7d`),
+    /// re-linked to the permanent incarnation when a permanent spell resolves
+    /// (*Fear of Abduction*, *Gorex, the Tombshell*, *Redemptor Dreadnought*).
+    /// Appended to preserve replay identities.
+    SpellCostExile(baylee_core::ids::DamageSourceRef),
+    /// Cast-time snapshot recording that the caster controlled a permanent with
+    /// this subtype as the spell was cast (`Condition::ControlledSubtypeOnCast`,
+    /// `CR 601.2h`, `CR 400.7d`, `CR 707.10`; Tarkir Dragon presence spells).
+    /// Appended to preserve replay identities.
+    ControlledSubtypeOnCast(baylee_core::ids::SubtypeId),
+    /// Power, mana value, and optional battlefield permanent identity of the
+    /// card revealed from hand or permanent beheld to pay a cost
+    /// (`Amount::BeheldOrRevealedPower`, `Amount::BeheldOrRevealedManaValue`,
+    /// `CR 608.2h`, `CR 707.10`; *Dragon's Fire*, *Disaster Radius*). Appended
+    /// to preserve replay identities.
+    BeheldCostPower(Option<baylee_core::ids::DamageSourceRef>, i32, u32),
+    /// Marks a granted stack ability whose resolution runs Encore (`CR 702.141a`;
+    /// *Araumi of the Dead Tide*). Appended to preserve replay identities.
+    EncoreAbility,
 }
 
 /// What ends an "exile … until …" (CR 610.3), as [`Rider::Linked`] carries
@@ -1488,7 +1507,11 @@ impl Rider {
             | Self::OncePerPermanentUsedMask { .. }
             | Self::ManaTypesSpent(_)
             | Self::ConvokedCount(_)
-            | Self::EventManaSpent(_) => false,
+            | Self::EventManaSpent(_)
+            | Self::SpellCostExile(_)
+            | Self::ControlledSubtypeOnCast(_)
+            | Self::BeheldCostPower(_, _, _)
+            | Self::EncoreAbility => false,
         }
     }
 }

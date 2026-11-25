@@ -272,6 +272,37 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
             }
             None
         }
+        Effect::PutCountersOnChosenControlled {
+            who,
+            filter,
+            kind,
+            count,
+        } => {
+            let n = u16::try_from(amount2(&count, state, you, res)).unwrap_or(u16::MAX);
+            if n == 0 {
+                return None;
+            }
+            let mut players = players_of(who, state, you, res);
+            super::chosen::order_apnap(state, &mut players);
+            let (player, options) =
+                super::chosen::next_asked(state, &mut players, filter, you, res.source)?;
+            res.awaiting = Some(AwaitingOp::PutCountersOnChosenControlled {
+                asked: player,
+                filter,
+                kind,
+                count: n,
+                remaining: players,
+                chosen: Vec::new(),
+            });
+            Some(Pending::ChooseCards {
+                player,
+                options,
+                min: 1,
+                max: 1,
+                prompt: crate::choice::ChoicePrompt::Generic,
+                total: None,
+            })
+        }
         Effect::PutEachCounterKindFromSource { target } => {
             let counters: Vec<(baylee_cards_dsl::CounterKind, u16)> = state
                 .damage_source(res.source, source_version(state, res))

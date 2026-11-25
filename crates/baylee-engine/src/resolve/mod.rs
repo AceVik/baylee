@@ -1232,6 +1232,22 @@ pub(super) fn amount2(amount: &Amount, state: &GameState, you: PlayerId, res: &R
                     )
                 })
         }
+        Amount::BeheldOrRevealedPower => {
+            let v = eval::beheld_or_revealed_power(state, res.on_stack, None);
+            if v > 0 {
+                v
+            } else {
+                eval::beheld_or_revealed_power(state, res.source, None)
+            }
+        }
+        Amount::BeheldOrRevealedManaValue => {
+            let v = eval::beheld_or_revealed_mana_value(state, res.on_stack, None);
+            if v > 0 {
+                v
+            } else {
+                eval::beheld_or_revealed_mana_value(state, res.source, None)
+            }
+        }
         Amount::CountOf {
             filter,
             zone: baylee_cards_dsl::ZoneSel::LinkedExile,

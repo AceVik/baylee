@@ -2485,6 +2485,10 @@ impl Tx<'_> {
                 parts.push(self.sub_counter_cost(n, kind, token)?);
             } else if let Some((kind, body)) = object_cost(token) {
                 parts.extend(self.object_cost_part(kind, body, token)?);
+            } else if token.starts_with("Blight<") {
+                parts.push(self.parse_blight_cost_token(token)?);
+            } else if token.starts_with("Reveal<") {
+                parts.extend(self.parse_reveal_cost_token(token, true)?);
             } else if token == "Forage" {
                 parts.push("Forage".to_string());
             } else if token.starts_with("PayLife<")
@@ -2539,7 +2543,7 @@ impl Tx<'_> {
                 Some(format!("PutCounterSelf {{ kind: {kind}, n: {n} }}"))
             }
             Some(valid) => {
-                if self.on_a_spell || self.in_alternative_cost || n == 0 {
+                if n == 0 {
                     return self.deny(format!("cost `{token}`"));
                 }
                 let controlled_by_you = valid.split([',', ';']).all(|alt| {

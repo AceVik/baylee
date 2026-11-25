@@ -439,6 +439,7 @@ pub(crate) fn part_scales_with_x(part: &CostPart) -> bool {
         | CostPart::SacrificeX(_)
         | CostPart::TapX(_)
         | CostPart::DiscardX(_)
+        | CostPart::RevealFromHandX(_)
         | CostPart::ExileFromGraveyardX(_)
         | CostPart::RemoveAnyCounterX { .. } => true,
         CostPart::Either(a, b) => {
@@ -495,8 +496,10 @@ pub(crate) fn additional_card_costs_for_x(
                 | CostPart::ReturnToHand(_)
                 | CostPart::TapOther(_)
                 | CostPart::TapN { .. }
+                | CostPart::PutCounterOnOther { .. }
                 | CostPart::Forage
                 | CostPart::Behold(_)
+                | CostPart::RevealFromHand(_)
         )
     });
     let add_iter = wizard_mandatory_parts(face, choice)
@@ -517,8 +520,11 @@ pub(crate) fn additional_card_costs_for_x(
                     | CostPart::TapOther(_)
                     | CostPart::TapX(_)
                     | CostPart::TapN { .. }
+                    | CostPart::PutCounterOnOther { .. }
                     | CostPart::Forage
                     | CostPart::Behold(_)
+                    | CostPart::RevealFromHand(_)
+                    | CostPart::RevealFromHandX(_)
             )
         });
     let mut parts: SmallVec<[CostPart; 4]> = alt_iter
@@ -529,6 +535,7 @@ pub(crate) fn additional_card_costs_for_x(
                 CostPart::SacrificeX(_)
                 | CostPart::TapX(_)
                 | CostPart::DiscardX(_)
+                | CostPart::RevealFromHandX(_)
                 | CostPart::ExileFromGraveyardX(_) => usize::try_from(x).unwrap_or(usize::MAX),
                 _ => 1,
             };

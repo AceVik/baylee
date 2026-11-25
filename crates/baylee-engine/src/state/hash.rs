@@ -1220,6 +1220,16 @@ fn hash_spell_source_decisions(h: &mut Hasher, source: &crate::object::GameObjec
         } else if matches!(rider, crate::object::Rider::OptionalCostPaid) {
             h.u8(255);
             h.u16(307);
+        } else if let crate::object::Rider::ControlledSubtypeOnCast(sub) = rider {
+            h.u8(255);
+            h.u16(461);
+            h.u16(sub.get());
+        } else if let crate::object::Rider::BeheldCostPower(src, power, mv) = rider {
+            h.u8(255);
+            h.u16(462);
+            src.hash(h);
+            h.i32(*power);
+            h.u32(*mv);
         }
     }
     source.replicated.hash(h);
@@ -2006,6 +2016,27 @@ fn hash_cast_keyword_rider(h: &mut Hasher, rider: &crate::object::Rider) {
             h.u8(255);
             h.u16(440);
             h.u32(*spent);
+        }
+        crate::object::Rider::SpellCostExile(exiled) => {
+            h.u8(255);
+            h.u16(460);
+            exiled.hash(h);
+        }
+        crate::object::Rider::ControlledSubtypeOnCast(sub) => {
+            h.u8(255);
+            h.u16(464);
+            h.u16(sub.get());
+        }
+        crate::object::Rider::BeheldCostPower(src, power, mv) => {
+            h.u8(255);
+            h.u16(462);
+            src.hash(h);
+            h.i32(*power);
+            h.u32(*mv);
+        }
+        crate::object::Rider::EncoreAbility => {
+            h.u8(255);
+            h.u16(463);
         }
         _ => {}
     }
@@ -2913,6 +2944,27 @@ fn hash_object(h: &mut Hasher, obj: &GameObject) {
                 h.u8(255);
                 h.u16(461);
                 h.u8(p.get());
+            }
+            Rider::SpellCostExile(exiled) => {
+                h.u8(255);
+                h.u16(460);
+                exiled.hash(h);
+            }
+            Rider::ControlledSubtypeOnCast(sub) => {
+                h.u8(255);
+                h.u16(464);
+                h.u16(sub.get());
+            }
+            Rider::BeheldCostPower(src, power, mv) => {
+                h.u8(255);
+                h.u16(462);
+                src.hash(h);
+                h.i32(*power);
+                h.u32(*mv);
+            }
+            Rider::EncoreAbility => {
+                h.u8(255);
+                h.u16(463);
             }
         }
     }

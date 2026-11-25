@@ -46,6 +46,9 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
         }
         if let Some(object) = self.state.object_mut(id) {
             object.riders.push(crate::object::Rider::GrantedActivated);
+            if matches!(granted.definition, AbilityDef::Encore { .. }) {
+                object.riders.push(crate::object::Rider::EncoreAbility);
+            }
             if let Some(grantor) = grantor {
                 object
                     .riders
@@ -1253,6 +1256,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                     CostPart::SacrificeX(_)
                     | CostPart::TapX(_)
                     | CostPart::DiscardX(_)
+                    | CostPart::RevealFromHandX(_)
                     | CostPart::ExileFromGraveyardX(_),
                 ) => self.activation_x == Some(0),
                 Some(CostPart::CraftMaterials { min, max, .. }) => {
@@ -1324,6 +1328,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                     CostPart::SacrificeX(_)
                     | CostPart::TapX(_)
                     | CostPart::DiscardX(_)
+                    | CostPart::RevealFromHandX(_)
                     | CostPart::ExileFromGraveyardX(_) => Some(self.activation_x.unwrap_or(0)),
                     CostPart::Forage => Some(3),
                     _ => None,
@@ -1393,6 +1398,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 CostPart::SacrificeX(_)
                     | CostPart::TapX(_)
                     | CostPart::DiscardX(_)
+                    | CostPart::RevealFromHandX(_)
                     | CostPart::ExileFromGraveyardX(_)
             ) {
                 (
@@ -1417,6 +1423,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                     CostPart::SacrificeX(_)
                         | CostPart::TapX(_)
                         | CostPart::DiscardX(_)
+                        | CostPart::RevealFromHandX(_)
                         | CostPart::ExileFromGraveyardX(_)
                         | CostPart::TapN { .. }
                         | CostPart::ExileFromSingleGraveyard { .. }

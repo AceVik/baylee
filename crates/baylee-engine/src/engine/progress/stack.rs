@@ -1068,6 +1068,11 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                     this_way_from: None,
                     coin_stake: None,
                 };
+                if obj.riders.contains(&crate::object::Rider::EncoreAbility) {
+                    self.resolve_encore(obj.controller, loc.source);
+                    self.finish_resolution(&res);
+                    return;
+                }
                 match resolve::run(&mut self.state, &mut res) {
                     resolve::Flow::Complete => self.finish_resolution(&res),
                     resolve::Flow::Enter => {
@@ -1139,6 +1144,11 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                     return;
                 }
                 Some(AbilityDef::Encore { .. }) => {
+                    self.resolve_encore(obj.controller, loc.source);
+                    self.finish_resolution(&res);
+                    return;
+                }
+                _ if obj.riders.contains(&crate::object::Rider::EncoreAbility) => {
                     self.resolve_encore(obj.controller, loc.source);
                     self.finish_resolution(&res);
                     return;

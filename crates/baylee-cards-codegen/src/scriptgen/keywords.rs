@@ -1842,6 +1842,9 @@ impl Tx<'_> {
         {
             return None;
         }
+        if let Some(cond) = self.wave16b_presence_condition(&def, cmp) {
+            return Some(cond);
+        }
         if let Some(cond) = self.etb_compare_condition(&def, cmp, depth) {
             return Some(cond);
         }
@@ -2283,7 +2286,7 @@ impl Tx<'_> {
         Some(())
     }
 
-    fn is_land_card_type(&self) -> bool {
+    pub(super) fn is_land_card_type(&self) -> bool {
         self.type_line.split_whitespace().any(|word| word == "Land")
     }
 
@@ -2446,7 +2449,7 @@ impl Tx<'_> {
         Some(())
     }
 
-    fn is_spell_card_type(&self) -> bool {
+    pub(super) fn is_spell_card_type(&self) -> bool {
         self.type_line
             .split_whitespace()
             .any(|word| matches!(word, "Instant" | "Sorcery"))
@@ -3752,6 +3755,12 @@ impl Tx<'_> {
                     self.body
                         .keywords
                         .push("KeywordSet::UNCOUNTERABLE".to_string());
+                    return Some(());
+                }
+                if self
+                    .wave16b_conditional_self_uncounterable(p.clone())
+                    .is_some()
+                {
                     return Some(());
                 }
             }
@@ -6030,6 +6039,8 @@ fn is_spell_either_cost_part(part: &str) -> bool {
         || part.starts_with("ReturnToHand(")
         || part.starts_with("TapOther(")
         || part.starts_with("TapN {")
+        || part.starts_with("RevealFromHand(")
+        || part.starts_with("PutCounterOnOther {")
         || part == "Forage"
 }
 
@@ -6116,6 +6127,8 @@ fn is_paid_alternative_cost_part(part: &str) -> bool {
         || part.starts_with("Sacrifice(")
         || part.starts_with("ReturnToHand(")
         || part.starts_with("TapN {")
+        || part.starts_with("RevealFromHand(")
+        || part.starts_with("PutCounterOnOther {")
 }
 
 fn is_paid_additional_cost_part(part: &str) -> bool {
@@ -6136,6 +6149,8 @@ fn is_graveyard_activation_part(part: &str) -> bool {
         || part.starts_with("ExileFromGraveyard(")
         || part.starts_with("ExileTopOfLibrary(")
         || part.starts_with("ExilePermanent(")
+        || part.starts_with("RevealFromHand(")
+        || part.starts_with("PutCounterOnOther {")
 }
 
 fn is_morph_cost_part(part: &str) -> bool {
@@ -6155,4 +6170,6 @@ fn is_morph_cost_part(part: &str) -> bool {
         || part.starts_with("TapOther(")
         || part.starts_with("TapX(")
         || part.starts_with("TapN {")
+        || part.starts_with("RevealFromHand(")
+        || part.starts_with("PutCounterOnOther {")
 }

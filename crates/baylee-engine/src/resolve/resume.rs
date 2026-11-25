@@ -1421,6 +1421,62 @@ pub(super) fn resume_inner(
             }
             chosen::sacrifice_held(state, res, &held, res.controller);
         }
+        AwaitingOp::PutCountersOnChosenControlled {
+            asked,
+            filter,
+            kind,
+            count,
+            mut remaining,
+            chosen: mut held,
+        } => {
+            let _ = chosen::record_choice(state, asked, chosen, &mut held);
+            if let Some((player, options)) =
+                chosen::next_asked(state, &mut remaining, filter, res.controller, res.source)
+            {
+                res.awaiting = Some(AwaitingOp::PutCountersOnChosenControlled {
+                    asked: player,
+                    filter,
+                    kind,
+                    count,
+                    remaining,
+                    chosen: held,
+                });
+                return next_choice(
+                    state,
+                    res,
+                    since,
+                    Pending::ChooseCards {
+                        player,
+                        options,
+                        min: 1,
+                        max: 1,
+                        prompt: ChoicePrompt::Generic,
+                        total: None,
+                    },
+                );
+            }
+            let plans: Vec<_> = held
+                .into_iter()
+                .filter_map(|(by_player, target_ref)| {
+                    state.object(target_ref.object).filter(|o| {
+                        o.zone == crate::zone::Zone::Battlefield
+                            && o.version == target_ref.version
+                            && !o.status.contains(crate::object::Status::PHASED_OUT)
+                    })?;
+                    crate::replacement::counter_order::plan(
+                        state,
+                        by_player,
+                        target_ref.object,
+                        vec![(kind, count)],
+                        true,
+                        None,
+                    )
+                })
+                .collect();
+            if !plans.is_empty() {
+                crate::replacement::counter_order::enqueue_batch(state, plans, Vec::new());
+            }
+        }
         AwaitingOp::SacrificeAnyNumber {
             asked,
             filter,

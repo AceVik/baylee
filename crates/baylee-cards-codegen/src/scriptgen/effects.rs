@@ -914,23 +914,11 @@ impl Tx<'_> {
         }
         if !second
             && p.peek("PumpZone") == Some("Graveyard")
-            && p.peek("KW").map(str::trim) == Some("Flashback")
             && !p.has("NumAtt")
             && !p.has("NumDef")
             && target.starts_with("TargetSpec::CardInGraveyard(")
         {
-            if !matches!(p.take("Duration").as_deref(), None | Some("UntilEndOfTurn"))
-                || !matches!(
-                    p.take("Defined").as_deref(),
-                    None | Some("Targeted" | "ParentTarget")
-                )
-            {
-                return None;
-            }
-            p.take("PumpZone");
-            p.take("KW");
-            p.take("IsCurse");
-            return Some(vec!["Effect::GrantFlashback".to_string()]);
+            return Self::wave16b_pump_graveyard_grant(p, target);
         }
         if !second
             && !p.has("DefinedKW")
@@ -1466,32 +1454,6 @@ impl Tx<'_> {
         )])
     }
 
-    fn pump_all_graveyard_flashback(&mut self, p: &mut Params) -> Option<Vec<String>> {
-        if !matches!(p.take("Duration").as_deref(), None | Some("UntilEndOfTurn")) {
-            return None;
-        }
-        p.take("PumpZone");
-        p.take("KW");
-        p.take("IsCurse");
-        let valid = p.take("ValidCards")?;
-        let mut rewritten = Vec::new();
-        for alt in valid.split(',').map(str::trim) {
-            if alt.is_empty() || alt.contains("OppCtrl") || alt.contains("OppOwn") {
-                return None;
-            }
-            if !alt.contains("YouCtrl") && !alt.contains("YouOwn") {
-                return None;
-            }
-            rewritten.push(alt.replace("YouCtrl", "YouOwn"));
-        }
-        let base = self.filter_expr_in_zone(&rewritten.join(","), true)?;
-        let expr = format!("Filter::And(&[{base}, Filter::InZone(ZoneRef::Graveyard)])");
-        let filter = self.body.filter_static("FLASHBACK", &expr);
-        Some(vec![format!(
-            "Effect::continuous(&{filter}, Modifier::GrantsFlashback, Duration::UntilEndOfTurn)"
-        )])
-    }
-
     #[allow(clippy::too_many_lines)]
     pub(super) fn pump_all_effect(
         &mut self,
@@ -1539,14 +1501,13 @@ impl Tx<'_> {
             )]);
         }
         if p.peek("PumpZone") == Some("Graveyard")
-            && p.peek("KW").map(str::trim) == Some("Flashback")
             && !p.has("NumAtt")
             && !p.has("NumDef")
             && !targets_here
             && (target.is_none() || prior_target_used)
             && p.peek("Defined").is_none()
         {
-            return self.pump_all_graveyard_flashback(p);
+            return self.wave16b_pump_all_graveyard_grant(p);
         }
         if !p.has("DefinedKW")
             && !p.has("NumAtt")
@@ -9860,6 +9821,9 @@ impl Tx<'_> {
                     .or_else(|| base_raw.strip_prefix("TriggeredCardLKICopy$CardCounters."))?;
                 let kind = super::counter_kind(kind_code)?;
                 format!("Amount::CountersOnSource({kind})")
+            }
+            _ if self.wave16b_revealed_cost_amount(base_raw).is_some() => {
+                self.wave16b_revealed_cost_amount(base_raw)?
             }
             _ => return None,
         })

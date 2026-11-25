@@ -774,6 +774,11 @@ pub enum Condition {
         /// Only placements made by "you" (the ability's controller) count.
         by_you: bool,
     },
+    /// Whether the caster controlled a permanent with `SubtypeId` as this spell
+    /// (or the spell that became this permanent, `CR 400.7d`, or a copy of it,
+    /// `CR 707.10`) finished being cast (`CR 601.2i`; Tarkir Dragon-reveal
+    /// cycle). Appended to preserve replay identities.
+    ControlledSubtypeOnCast(baylee_core::ids::SubtypeId),
 }
 
 /// Trigger conditions for triggered abilities.

@@ -843,6 +843,10 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 .and_then(|o| o.attached_to)
                 .and_then(|id| self.state.object(id))
                 .is_some(),
+            CostPart::RevealSelfFromHand => self
+                .state
+                .object(source)
+                .is_some_and(|o| o.zone == Zone::Hand),
             _ => true,
         })
     }
@@ -933,6 +937,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 CostPart::SacrificeX(_)
                 | CostPart::TapX(_)
                 | CostPart::DiscardX(_)
+                | CostPart::RevealFromHandX(_)
                 | CostPart::ExileFromGraveyardX(_)
                 | CostPart::TapN { .. }
                 | CostPart::ExileFromSingleGraveyard { .. }
@@ -1041,7 +1046,8 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 | CostPart::ReturnUnblockedAttacker
                 | CostPart::ExileFromGraveyard(_)
                 | CostPart::PutCounterOnOther { .. }
-                | CostPart::Behold(_) => {
+                | CostPart::Behold(_)
+                | CostPart::RevealFromHand(_) => {
                     // **As many candidates as the cost asks questions.** A
                     // cost may print the same one more than once — Time
                     // Sieve's "Sacrifice five artifacts" is five
@@ -1101,6 +1107,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 | CostPart::SacrificeSelf
                 | CostPart::SacrificeGrantor
                 | CostPart::DiscardSelf
+                | CostPart::RevealSelfFromHand
                 | CostPart::ExileSelf
                 | CostPart::ReturnSelfToHand
                 | CostPart::RemoveCounterSelfX { .. }
@@ -1368,6 +1375,30 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                     }
                     self.state.discard_card(source, player, Cause::Cost, None);
                 }
+                CostPart::RevealSelfFromHand => {
+                    let Some(obj) = self
+                        .state
+                        .object_mut(source)
+                        .filter(|o| o.zone == Zone::Hand && o.zone_owner == Some(player))
+                    else {
+                        return Err(EngineError::IllegalAction(
+                            "source card is no longer in your hand",
+                        ));
+                    };
+                    if !obj
+                        .riders
+                        .contains(&crate::object::Rider::RevealedFromOpeningHand)
+                    {
+                        obj.riders
+                            .push(crate::object::Rider::RevealedFromOpeningHand);
+                    }
+                    self.state
+                        .journal
+                        .record(crate::event::GameEvent::Revealed {
+                            player,
+                            cards: vec![source],
+                        });
+                }
                 CostPart::SacrificeSelf => {
                     self.state.sacrifice_object(source, Cause::Cost)?;
                 }
@@ -1418,6 +1449,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 CostPart::SacrificeX(_)
                 | CostPart::TapX(_)
                 | CostPart::DiscardX(_)
+                | CostPart::RevealFromHandX(_)
                 | CostPart::ExileFromGraveyardX(_) => {
                     let Some(cards) = answers.next() else {
                         return Err(EngineError::IllegalAction("unanswered counted cost"));
@@ -1803,7 +1835,8 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 | CostPart::ReturnUnblockedAttacker
                 | CostPart::ExileFromGraveyard(_)
                 | CostPart::PutCounterOnOther { .. }
-                | CostPart::Behold(_) => {
+                | CostPart::Behold(_)
+                | CostPart::RevealFromHand(_) => {
                     let Some(&[card]) = answers.next().map(Vec::as_slice) else {
                         return Err(EngineError::IllegalAction(
                             "a cost that has to ask reached the payer unanswered",

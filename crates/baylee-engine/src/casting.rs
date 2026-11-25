@@ -1400,6 +1400,21 @@ pub fn flashback_granted(state: &GameState, card: ObjectId) -> bool {
     })
 }
 
+/// Whether `card` has jump-start granted by an active continuous effect (`CR 702.133a`).
+#[must_use]
+pub fn jump_start_granted(state: &GameState, card: ObjectId) -> bool {
+    if !state.effects.may_grant_graveyard_or_top_play() {
+        return false;
+    }
+    let Some(obj) = state.object(card) else {
+        return false;
+    };
+    state.effects.iter().any(|fx| {
+        matches!(fx.modifier, baylee_cards_dsl::Modifier::GrantsJumpStart)
+            && crate::effects::applies_to(state, fx, obj)
+    })
+}
+
 /// Strict main-phase empty-stack window for `player` (`CR 116.2k`,
 /// `CR 702.170a`, `CR 702.170d`): active player, main phase, and an empty stack.
 #[must_use]
@@ -1667,10 +1682,11 @@ pub(crate) fn can_cast_form_paying(
             .is_some_and(|def| def.faces.iter().any(|f| f.disturb || f.aftermath));
     let jump_start_ok = !in_hand
         && in_own_graveyard
-        && obj
+        && (obj
             .card
             .and_then(|c| lookup.card(c.index))
-            .is_some_and(|def| def.faces[0].jump_start);
+            .is_some_and(|def| def.faces[0].jump_start)
+            || jump_start_granted(state, card));
     // Retrace (CR 702.81a): castable from its owner's graveyard by discarding
     // a land card in addition to paying its other costs.
     let retrace_ok = !in_hand
@@ -2503,6 +2519,82 @@ pub(crate) fn can_cast_form_paying(
         }
     }
     if let Some(def) = printed
+        && let Some(opt_cost) = def.faces[0].optional_cost
+        && front_now
+        && front_target_ok
+        && !modes_are_the_only_way(def, 0)
+        && has_a_printed_cost(&c.mana_cost)
+    {
+        let face = &def.faces[0];
+        let opt_parts_ok = additional_payment_capacity_for(
+            state,
+            player,
+            card,
+            face,
+            Some(crate::choice::CastModeKind::OptionalCost),
+            &[],
+        )
+        .is_some();
+        if opt_parts_ok {
+            let mut opt_spell = obj.clone();
+            if !opt_spell
+                .riders
+                .contains(&crate::object::Rider::OptionalCostPaid)
+            {
+                opt_spell
+                    .riders
+                    .push(crate::object::Rider::OptionalCostPaid);
+            }
+            let opt_adj = spell_adjustment_with_def(state, player, &opt_spell, Some(def));
+            let opt_printed = printed_reduction(state, face, player, card);
+            let opt_kw = if face.waterbend {
+                u32::try_from(waterbend_sources(state, player).len())
+                    .unwrap_or(u32::MAX)
+                    .min(opt_cost.mana.generic_total())
+            } else {
+                keyword_reduction(state, face, player, card)
+            };
+            let opt_priced = keyword_priced(
+                state,
+                face,
+                player,
+                &opt_adj.price(
+                    c.mana_cost
+                        .combine(&opt_cost.mana)
+                        .combine(&face_additional_mana_floor(state, player, card, face))
+                        .with_x(0),
+                    opt_printed,
+                ),
+                opt_kw,
+            );
+            let opt_allow = opt_adj.allowance(
+                state,
+                SpendFor::Spell(card),
+                opt_printed.saturating_add(opt_kw),
+            );
+            if affordable(
+                state,
+                player,
+                pool,
+                &opt_priced,
+                SpendFor::Spell(card),
+                opt_allow,
+            ) || (north_star_face_allowed(state, player, card, 0)
+                && normal_spell_affordable(
+                    state,
+                    player,
+                    SpendFor::Spell(card),
+                    pool,
+                    &opt_priced,
+                    &face.mana_cost,
+                    opt_allow,
+                ))
+            {
+                return Ok(());
+            }
+        }
+    }
+    if let Some(def) = printed
         && let Some(req) = def.faces[0].kicked_targets
     {
         let face = &def.faces[0];
@@ -3137,6 +3229,7 @@ fn alternative_parts_payable(
         | CostPart::TapX(_)
         | CostPart::SacrificeX(_)
         | CostPart::DiscardX(_)
+        | CostPart::RevealFromHandX(_)
         | CostPart::ExileFromGraveyardX(_)
         | CostPart::SacrificeAll(_)
         | CostPart::PayCommanderColors
@@ -3153,7 +3246,6 @@ fn alternative_parts_payable(
         | CostPart::SacrificeSelf
         | CostPart::Sacrifice(_)
         | CostPart::ExilePermanent(_)
-        | CostPart::PutCounterOnOther { .. }
         | CostPart::ExileFromSingleGraveyard { .. }
         | CostPart::Discard(_)
         | CostPart::TapN { .. }
@@ -3163,6 +3255,7 @@ fn alternative_parts_payable(
         | CostPart::ReturnToHand(_)
         | CostPart::ExileFromGraveyard(_)
         | CostPart::DiscardSelf
+        | CostPart::RevealSelfFromHand
         | CostPart::ExileSelf
         | CostPart::ReturnSelfToHand
         | CostPart::RemoveCounterSelfX { .. }
@@ -3172,6 +3265,9 @@ fn alternative_parts_payable(
         | CostPart::Forage
         | CostPart::PayLifeX => true,
         CostPart::Behold(filter) => !behold_options(state, player, card, filter).is_empty(),
+        CostPart::PutCounterOnOther { .. } | CostPart::RevealFromHand(_) => {
+            !crate::engine::cost_wizard::options(state, player, card, part).is_empty()
+        }
         CostPart::CollectEvidence(mv) => {
             if *mv == 0 {
                 true

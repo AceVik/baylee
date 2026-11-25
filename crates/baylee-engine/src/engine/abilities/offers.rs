@@ -228,6 +228,12 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                     adjust(0, Some(casting::SpellForm::Plot)),
                 );
             }
+            if let Some(opt_cost) = def.faces[0].optional_cost {
+                publish(
+                    CastModeKind::OptionalCost,
+                    adjust(0, Some(casting::SpellForm::OptionalCost(opt_cost.mana))),
+                );
+            }
         }
         out
     }
@@ -266,6 +272,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
             casting::SpellForm::Disguise => const { baylee_core::mana::ManaCost::parse("{3}") },
             casting::SpellForm::Bestow(c) => c.mana,
             casting::SpellForm::Foretell(c) | casting::SpellForm::Impending(c) => c,
+            casting::SpellForm::OptionalCost(c) => def.faces[face].mana_cost.combine(&c),
             casting::SpellForm::Plot => baylee_core::mana::ManaCost::ZERO,
         });
         let preview = if matches!(form, Some(casting::SpellForm::Disguise)) {
@@ -824,9 +831,26 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 }
                 // Command-zone emblems may carry their own abilities without
                 // a printed card. The activation path reads this same list.
-                for (i, ability) in obj.abilities(&self.lookup).iter().enumerate() {
-                    let Some(ability) =
-                        self.activation_offer_definition(player, card, i as u32, ability)
+                let granted = if from == ActivationZone::Graveyard {
+                    Some(
+                        crate::effects::granted_activated_among(
+                            &self.state,
+                            grants.iter().copied(),
+                            card,
+                        )
+                        .map(|grant| (grant.id, grant.definition)),
+                    )
+                } else {
+                    None
+                };
+                for (i, ability) in obj
+                    .abilities(&self.lookup)
+                    .iter()
+                    .enumerate()
+                    .map(|(idx, def)| (idx as u32, *def))
+                    .chain(granted.into_iter().flatten())
+                {
+                    let Some(ability) = self.activation_offer_definition(player, card, i, &ability)
                     else {
                         continue;
                     };
@@ -857,7 +881,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                             if *timing == ActivationTiming::SorcerySpeed && !sorcery_timing {
                                 continue;
                             }
-                            if self.activation_limit_spent(player, card, i as u32, *limit) {
+                            if self.activation_limit_spent(player, card, i, *limit) {
                                 continue;
                             }
                             if !self.source_cost_parts_ready(card, cost.parts) {
@@ -870,24 +894,19 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                             // with no creature and then refused with "no legal
                             // targets". The source is the card in hand, so a
                             // filter saying "another" still reads it right.
-                            let cost = self.activation_price(
-                                player,
-                                card,
-                                i as u32,
-                                cost,
-                                *cost_reduction,
-                            );
+                            let cost =
+                                self.activation_price(player, card, i, cost, *cost_reduction);
                             let payable = self.activation_affordable(
                                 player,
                                 card,
                                 &cost,
                                 &[],
-                                self.mana_activation_life(card, i as u32),
+                                self.mana_activation_life(card, i),
                             );
                             self.offer_activation_payment(
                                 player,
                                 card,
-                                i as u32,
+                                i,
                                 &cost,
                                 payable,
                                 *targets,
@@ -930,7 +949,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                             if *timing == ActivationTiming::SorcerySpeed && !sorcery_timing {
                                 continue;
                             }
-                            if self.activation_limit_spent(player, card, i as u32, *limit) {
+                            if self.activation_limit_spent(player, card, i, *limit) {
                                 continue;
                             }
                             if !self.source_cost_parts_ready(card, cost.parts) {
@@ -939,29 +958,24 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                             if !crate::eval::condition_holds_with_context(
                                 &self.state,
                                 player,
-                                self.ability_rule_context(card, i as u32),
+                                self.ability_rule_context(card, i),
                                 *condition,
                             ) {
                                 continue;
                             }
-                            let cost = self.activation_price(
-                                player,
-                                card,
-                                i as u32,
-                                cost,
-                                *cost_reduction,
-                            );
+                            let cost =
+                                self.activation_price(player, card, i, cost, *cost_reduction);
                             let payable = self.activation_affordable(
                                 player,
                                 card,
                                 &cost,
                                 &[],
-                                self.mana_activation_life(card, i as u32),
+                                self.mana_activation_life(card, i),
                             );
                             self.offer_activation_payment(
                                 player,
                                 card,
-                                i as u32,
+                                i,
                                 &cost,
                                 payable,
                                 *targets,

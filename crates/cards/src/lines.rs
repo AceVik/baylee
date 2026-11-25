@@ -349,7 +349,14 @@ pub fn grants_in(
     ability: &'static AbilityDef,
     seen: &mut usize,
 ) -> Vec<(GrantDoor, &'static Modifier)> {
-    let is_grant = |m: &Modifier| matches!(m, Modifier::GrantActivated { .. });
+    let is_grant = |m: &Modifier| {
+        matches!(
+            m,
+            Modifier::GrantActivated { .. }
+                | Modifier::GrantsEncoreManaCost
+                | Modifier::GrantsEmbalmManaCost
+        )
+    };
     let mut found = Vec::new();
     let lists: Vec<&'static [Effect]> = match ability {
         AbilityDef::Static(rule) => {

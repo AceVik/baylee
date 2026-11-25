@@ -593,6 +593,16 @@ pub enum Amount {
         /// Filter matched against the sacrificed permanent's departure snapshot.
         filter: &'static Filter,
     },
+    /// Power of the permanent beheld or card revealed from hand to pay this
+    /// spell's or ability's cost (`CR 608.2h`, `CR 107.1b`; *Dragon's Fire*,
+    /// *Monstrous Emergence*, *Charge of the Forever-Beast*). Appended to
+    /// preserve replay identities.
+    BeheldOrRevealedPower,
+    /// Mana value of the permanent beheld or card revealed from hand to pay this
+    /// spell's or ability's cost (`CR 608.2h`, `CR 202.3`; *Disaster Radius*,
+    /// *Induce Despair*, *Living Destiny*). Appended to preserve replay
+    /// identities.
+    BeheldOrRevealedManaValue,
 }
 
 /// The recipient [`Amount::DamageThisTurn`] counts.
@@ -701,6 +711,13 @@ pub enum ThisWay {
     /// including permanents sent elsewhere by a replacement effect (such as
     /// exile under Rest in Peace). Appended to preserve replay identities.
     SacrificedCount,
+    /// Power of the permanent chosen or card revealed from hand to pay a
+    /// [`crate::CostPart::Behold`] or [`crate::CostPart::RevealFromHand`] cost
+    /// of this spell or ability (`CR 608.2h`; *Dragon's Fire*). Uses current
+    /// projected power if a chosen permanent is still that same incarnation on
+    /// the battlefield, otherwise its LKI/card power when chosen or revealed.
+    /// Appended to preserve replay identities.
+    BeheldOrRevealedPower,
 }
 
 impl Amount {

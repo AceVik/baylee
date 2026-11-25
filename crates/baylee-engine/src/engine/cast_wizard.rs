@@ -811,8 +811,10 @@ pub(crate) fn paid_as_an_alternative_cost(part: &CostPart) -> bool {
         | CostPart::ReturnToHand(_)
         | CostPart::TapN { .. }
         | CostPart::RemoveAnyCounter { .. }
+        | CostPart::PutCounterOnOther { .. }
         | CostPart::Forage
         | CostPart::Behold(_)
+        | CostPart::RevealFromHand(_)
         | CostPart::CollectEvidence(_) => true,
         CostPart::Either(a, b) => {
             a.parts.iter().all(paid_as_an_alternative_cost)
@@ -849,8 +851,11 @@ pub(crate) fn paid_as_a_mandatory_additional_cost(part: &CostPart) -> bool {
         | CostPart::TapN { .. }
         | CostPart::RemoveAnyCounter { .. }
         | CostPart::RemoveAnyCounterX { .. }
+        | CostPart::PutCounterOnOther { .. }
         | CostPart::Forage
         | CostPart::Behold(_)
+        | CostPart::RevealFromHand(_)
+        | CostPart::RevealFromHandX(_)
         | CostPart::CollectEvidence(_) => true,
         CostPart::Either(a, b) => {
             a.parts.iter().all(paid_as_a_mandatory_additional_cost)
@@ -870,6 +875,9 @@ pub(crate) fn paid_as_a_buyback_cost(part: &CostPart) -> bool {
         | CostPart::Discard(_)
         | CostPart::DiscardRandom
         | CostPart::RemoveAnyCounter { .. }
+        | CostPart::PutCounterOnOther { .. }
+        | CostPart::Behold(_)
+        | CostPart::RevealFromHand(_)
         | CostPart::Forage => true,
         CostPart::Either(a, b) => {
             a.parts.iter().all(paid_as_a_buyback_cost) && b.parts.iter().all(paid_as_a_buyback_cost)
@@ -1506,7 +1514,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 casting::tap_to_pay_sources(&self.state, face, player).len(),
             ),
             (
-                face.waterbend && wizard.kicked,
+                face.waterbend && (wizard.kicked || wizard.optional_cost_paid),
                 casting::waterbend_sources(&self.state, player).len(),
             ),
         ]

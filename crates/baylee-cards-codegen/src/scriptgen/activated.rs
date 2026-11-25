@@ -98,6 +98,7 @@ struct ExtractedAbilitySpec {
     activator: ActivatorRestriction,
     sorcery_speed: bool,
     instant_speed: bool,
+    is_forecast: bool,
     kind: ActivationKind,
     condition: String,
     cost_reduction: String,
@@ -544,6 +545,13 @@ impl Tx<'_> {
             }
             return self.activated_mana_reflected(p);
         }
+        if !is_activated
+            && Params::parse(spec).is_some_and(|(api, _)| {
+                matches!(api.as_str(), "PermanentCreature" | "PermanentNoncreature")
+            })
+        {
+            return self.wave16b_permanent_spell(spec);
+        }
         if Params::parse(spec).is_some_and(|(api, _)| api == "Charm") {
             return if is_activated {
                 self.modal_activated(spec)
@@ -689,13 +697,39 @@ impl Tx<'_> {
         if !is_activated && alternate_cost.is_some() {
             return self.deny("an `AlternateCost` on a spell".to_string());
         }
-        let (limit, limit_keys) = self.take_activation_limit(&mut probe, is_activated)?;
+        let (mut limit, mut limit_keys) = self.take_activation_limit(&mut probe, is_activated)?;
         let x_min_param = self.take_x_min_param(&mut probe, is_activated, is_planeswalker)?;
         let activator = self.parse_activator(probe.take("Activator").as_deref(), is_activated)?;
-        let activation_zone = probe.take("ActivationZone");
+        let mut activation_zone = probe.take("ActivationZone");
         if !is_activated && let Some(zone) = activation_zone.as_deref() {
             return self.deny(format!("a spell in `ActivationZone$ {zone}`"));
         }
+        let is_forecast = match probe.take("Forecast").as_deref() {
+            None => false,
+            Some("True") if is_activated => {
+                if !matches!(activation_zone.as_deref(), None | Some("Hand"))
+                    || limit != ParsedLimit::Unlimited
+                    || activator != ActivatorRestriction::Default
+                    || is_planeswalker
+                    || alternate_cost.is_some()
+                    || !cost.as_deref().is_some_and(|c| {
+                        cost_parts(c).iter().any(|t| {
+                            t == "Reveal<1/CARDNAME>"
+                                || t.starts_with("Reveal<1/CARDNAME/")
+                                || t == "Reveal<1/NICKNAME>"
+                                || t.starts_with("Reveal<1/NICKNAME/")
+                        })
+                    })
+                {
+                    return self.deny("an unsupported `Forecast$ True` ability".to_string());
+                }
+                activation_zone = Some("Hand".to_string());
+                limit = ParsedLimit::PerTurnRaw("1".to_string());
+                limit_keys.push("Forecast$");
+                true
+            }
+            Some(other) => return self.deny(format!("`Forecast$ {other}`")),
+        };
         let cost_reduction = self.take_reduce_cost(
             &mut probe,
             is_activated,
@@ -713,6 +747,9 @@ impl Tx<'_> {
         if instant_speed {
             probe.take("InstantSpeed");
         }
+        if is_forecast && (sorcery_speed || instant_speed) {
+            return self.deny("`Forecast$ True` with timing override".to_string());
+        }
         let had_life_total = probe.has("LifeTotal");
         let had_present_player = probe.has("PresentPlayer");
         let had_defined_player = probe.has("CheckDefinedPlayer");
@@ -725,6 +762,18 @@ impl Tx<'_> {
         let present_player_read = had_present_player && !probe.has("PresentPlayer");
         let defined_player_read = had_defined_player && !probe.has("CheckDefinedPlayer");
         let restrictions = self.activation_restriction(&mut probe, is_activated, &mut condition)?;
+        if is_forecast {
+            let forecast_cond =
+                "Condition::All(&[Condition::YourTurn, Condition::DuringStep(StepKind::Upkeep)])";
+            condition = if let Some(inner) = condition
+                .strip_prefix(", condition = Some(")
+                .and_then(|s| s.strip_suffix(')'))
+            {
+                format!(", condition = Some(Condition::All(&[{inner}, {forecast_cond}]))")
+            } else {
+                format!(", condition = Some({forecast_cond})")
+            };
+        }
         let is_divided_counters = api == "PutCounter" && probe.has("DividedAsYouChoose");
         let is_divided_damage =
             is_activated && api == "DealDamage" && probe.has("DividedAsYouChoose");
@@ -871,6 +920,7 @@ impl Tx<'_> {
             activator,
             sorcery_speed,
             instant_speed,
+            is_forecast,
             kind,
             condition,
             cost_reduction,
@@ -900,10 +950,12 @@ impl Tx<'_> {
         self.cost_sacrifices_other =
             cost.is_some_and(|c| cost_parts(c).iter().any(|t| Self::is_sac_other_token(t)));
         self.cost_discards_single_for_cost = cost.is_some_and(Self::wave28b_cost_discards_single);
+        self.cost_beholds_or_reveals = !is_activated && Self::cost_raw_beholds_or_reveals(cost);
         let chain_ok = self.chain(&stripped.join(" | "), &mut chain);
         self.cost_sacrifices_self = false;
         self.cost_sacrifices_other = false;
         self.cost_discards_single_for_cost = false;
+        self.cost_beholds_or_reveals = false;
         if chain_ok.is_none() {
             if self.unclaimed.borrow().is_none() {
                 let api = Params::parse(spec).map_or_else(|| "ability".to_string(), |(a, _)| a);
@@ -1050,8 +1102,11 @@ impl Tx<'_> {
         };
         let stripped_xmin = self.strip_activation_x_min(cost_raw)?;
         let x_min = self.merge_x_min(&stripped_xmin, spec.x_min_param)?;
-        let cost =
-            self.parse_activated_cost(&stripped_xmin.cost, spec.activation_zone.as_deref())?;
+        self.in_forecast_activation = spec.is_forecast;
+        let parsed_cost =
+            self.parse_activated_cost(&stripped_xmin.cost, spec.activation_zone.as_deref());
+        self.in_forecast_activation = false;
+        let cost = parsed_cost?;
         if x_min > 0 && !Self::cost_has_variable_x(&cost) {
             return self.deny("unused `XMin` in activation cost".to_string());
         }
@@ -1345,7 +1400,7 @@ impl Tx<'_> {
     /// Validate the spell's cost tokens and record any non-mana mandatory
     /// additional costs (`FaceDef::mandatory_additional_costs`) that
     /// `cast_wizard::paid_as_a_mandatory_additional_cost` pays.
-    fn spell_mana_cost(&mut self, raw: &str) -> Option<()> {
+    pub(super) fn spell_mana_cost(&mut self, raw: &str) -> Option<()> {
         let mut extra = Vec::new();
         for token in cost_parts(raw) {
             let is_mana = token.chars().all(|c| c.is_ascii_digit())
@@ -1426,6 +1481,9 @@ impl Tx<'_> {
                 || part.starts_with("RemoveAnyCounterX {")
                 || part.starts_with("Behold(")
                 || part.starts_with("CollectEvidence(")
+                || part.starts_with("RevealFromHand(")
+                || part.starts_with("RevealFromHandX(")
+                || part.starts_with("PutCounterOnOther {")
         });
         if !all_supported {
             let head = extra[0].split('<').next().unwrap_or(&extra[0]);
@@ -1670,8 +1728,14 @@ impl Tx<'_> {
             Some("True") => true,
             Some(other) => return self.deny(format!("a charm with `CanRepeatModes$ {other}`")),
         };
+        let mut optional_cost_entwine = false;
         let max: u8 = match p.take("CharmNum").as_deref() {
             None => 1,
+            Some(raw) if !can_repeat_modes && self.wave16b_is_optional_cost_entwine_charm(raw) => {
+                optional_cost_entwine = true;
+                Self::wave16b_claim_entwine_charm_desc(&mut p);
+                1
+            }
             Some(raw) => match raw.trim().parse::<u8>() {
                 Ok(n) if n > 0 => n,
                 _ => return self.deny(format!("a charm choosing `{raw}`")),
@@ -1752,6 +1816,24 @@ impl Tx<'_> {
             _ => format!("ModeCount {{ min: {min}, max: {max} }}"),
         };
         let modes: Vec<String> = parsed.into_iter().map(|(m, _, _, _)| m).collect();
+        if optional_cost_entwine {
+            let has_spree = self.body.keywords.iter().any(|k| k == "KeywordSet::SPREE");
+            if modes.len() != 2
+                || min != 1
+                || max != 1
+                || has_spree
+                || self.body.optional_cost_grants_flash
+                || self
+                    .body
+                    .abilities
+                    .iter()
+                    .any(|a| a.contains("OptionalCostPaid"))
+                || modes.iter().any(|m| m.contains("OptionalCostPaid"))
+            {
+                return self.deny("an unsupported optional-cost modal count".to_string());
+            }
+            self.body.entwine = self.body.optional_cost.take();
+        }
         if can_repeat_modes {
             self.body.abilities.push(format!(
                 "AbilityDef::Modal {{ modes: &[{}], choose: {choose}, can_repeat_modes: true }}",
@@ -2364,6 +2446,9 @@ impl Tx<'_> {
     fn optional_cost_svar_condition(&self, def: &str, cmp: &str) -> Option<String> {
         if self.in_delayed {
             return None;
+        }
+        if let Some(cond) = self.wave16b_presence_condition(def, cmp) {
+            return Some(cond);
         }
         if self.body.optional_cost.is_some()
             && matches!(

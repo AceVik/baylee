@@ -1298,8 +1298,8 @@ fn morph_refuses_non_mana_x_extra_and_megamorph_with_honest_reasons() {
         Some("a `Morph` with extra fields `1 U:Extra`".to_string())
     );
     assert_eq!(
-        reason("Name:X\nTypes:Creature\nPT:2/2\nK:Morph:Reveal<1/Card.Blue/blue>"),
-        Some("cost `Reveal`".to_string())
+        reason("Name:X\nTypes:Creature\nPT:2/2\nK:Morph:Reveal<2/SameColor>"),
+        Some("cost `Reveal<2/SameColor>`".to_string())
     );
     assert_eq!(
         reason("Name:X\nTypes:Creature\nPT:2/2\nK:Morph:1 U\nK:Morph:2 U"),
@@ -3686,7 +3686,7 @@ fn wave12a_behold_mutate_and_commander_text() {
 
     for bad in [
         "Name:BadCount\nManaCost:1 W\nTypes:Creature\nPT:2/2\nK:AlternateAdditionalCost:Behold<2/Goblin>:2",
-        "Name:BadReveal\nManaCost:1 W\nTypes:Creature\nPT:2/2\nK:AlternateAdditionalCost:Reveal<1/Goblin>:2",
+        "Name:BadReveal\nManaCost:1 W\nTypes:Creature\nPT:2/2\nK:AlternateAdditionalCost:Reveal<2/SameColor>:2",
         "Name:BadTap\nManaCost:1 W\nTypes:Creature\nPT:2/2\nK:AlternateAdditionalCost:Behold<1/Goblin>:T",
         "Name:BadDup\nManaCost:1 W\nTypes:Creature\nPT:2/2\nK:AlternateAdditionalCost:Behold<1/Goblin>:2\nK:AlternateAdditionalCost:Behold<1/Goblin>:3",
         "Name:BadLand\nTypes:Land\nK:AlternateAdditionalCost:Behold<1/Goblin>:2",
@@ -5030,7 +5030,7 @@ fn wave18a_put_counter_on_other_and_exile_same_grave() {
     for bad in [
         "Name:OppCounter\nTypes:Artifact\nA:AB$ Draw | Cost$ AddCounter<1/P1P1/Creature.OppCtrl> | NumCards$ 1",
         "Name:AnyCounter\nTypes:Artifact\nA:AB$ Draw | Cost$ AddCounter<1/P1P1/Creature> | NumCards$ 1",
-        "Name:SpellOtherCounter\nManaCost:B\nTypes:Sorcery\nA:SP$ Draw | Cost$ B AddCounter<1/M1M1/Creature.YouCtrl> | NumCards$ 1",
+        "Name:SpellOppCounter\nManaCost:B\nTypes:Sorcery\nA:SP$ Draw | Cost$ B AddCounter<1/M1M1/Creature.OppCtrl> | NumCards$ 1",
         "Name:ZeroOtherCounter\nTypes:Artifact\nA:AB$ Draw | Cost$ AddCounter<0/M1M1/Creature.YouCtrl> | NumCards$ 1",
         "Name:OwnSameGrave\nTypes:Artifact\nA:AB$ Draw | Cost$ ExileSameGrave<2/Creature.YouOwn> | NumCards$ 1",
         "Name:ZeroSameGrave\nTypes:Artifact\nA:AB$ Draw | Cost$ ExileSameGrave<0/Creature> | NumCards$ 1",

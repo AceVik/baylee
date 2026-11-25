@@ -5764,7 +5764,7 @@ fn wave18c_cost_and_spell_keywords() {
     for bad in [
         "Name:BadThreeWay\nManaCost:B\nTypes:Sorcery\nK:AlternateAdditionalCost:Sac<1/Creature>:Discard<1/Card>:PayLife<4>\nA:SP$ Draw | NumCards$ 1",
         "Name:BadOneWay\nManaCost:B\nTypes:Sorcery\nK:AlternateAdditionalCost:Sac<1/Creature>\nA:SP$ Draw | NumCards$ 1",
-        "Name:BadRevealEither\nManaCost:1 B\nTypes:Creature\nPT:2/2\nK:AlternateAdditionalCost:Reveal<1/Vampire>:1",
+        "Name:BadRevealEither\nManaCost:1 B\nTypes:Creature\nPT:2/2\nK:AlternateAdditionalCost:Reveal<2/SameColor>:1",
         "Name:BadDupEither\nManaCost:B\nTypes:Sorcery\nK:AlternateAdditionalCost:PayLife<2>:1\nK:AlternateAdditionalCost:Discard<1/Card>:2\nA:SP$ Draw | NumCards$ 1",
         "Name:BadLandEither\nTypes:Land\nK:AlternateAdditionalCost:PayLife<2>:1",
     ] {
