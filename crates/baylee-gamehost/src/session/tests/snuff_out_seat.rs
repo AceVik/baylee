@@ -67,18 +67,34 @@ fn cast(preset: &GamePreset) -> Session {
             .expect("a pass");
         session.pump();
     }
-    let Pending::Priority {
-        player: ME, legal, ..
-    } = session.pending()
-    else {
-        panic!("expected priority in the first main phase");
-    };
-    // The cast-mode offer reads the player's mana pool. Every permanent
-    // controlled by this seat is a land with a single mana ability.
-    for source in legal.mana_abilities.clone() {
-        session
-            .act(ME, PlayerAction::ActivateManaAbility { source })
-            .expect("tap the land for mana");
+    // The cast-mode offer reads the player's mana pool. Basic lands expose
+    // CR 305.6 mana abilities on `legal.mana_abilities`, while printed mana
+    // abilities on artifact lands (e.g. Vault of Whispers) live on `legal.abilities`.
+    // Re-read `session.pending()` each step because tapping a land updates both lists.
+    for _ in 0..16 {
+        let Pending::Priority {
+            player: ME, legal, ..
+        } = session.pending()
+        else {
+            panic!("expected priority in the first main phase");
+        };
+        if let Some(&source) = legal.mana_abilities.first() {
+            session
+                .act(ME, PlayerAction::ActivateManaAbility { source })
+                .expect("tap the land for mana");
+        } else if let Some(&(source, ability_index)) = legal.abilities.first() {
+            session
+                .act(
+                    ME,
+                    PlayerAction::ActivateAbility {
+                        source,
+                        ability_index,
+                    },
+                )
+                .expect("activate printed mana ability");
+        } else {
+            break;
+        }
     }
     let card = session
         .state()

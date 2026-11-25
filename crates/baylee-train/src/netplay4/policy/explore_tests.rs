@@ -158,10 +158,7 @@ fn assert_exact(
     );
     let table = proposers();
     let mut answers = Answers::new();
-    let has_mixture = matches!(
-        cands.head,
-        HeadKind4::SingleChoice | HeadKind4::ScalarValue
-    );
+    let has_mixture = matches!(cands.head, HeadKind4::SingleChoice | HeadKind4::ScalarValue);
     for (answer, lp, record) in &records {
         assert_eq!(lp.is_some(), stochastic, "a sampled head has its π");
         let behavior_logprob = lp.map_or(0.0, f32::from_bits);
@@ -560,7 +557,10 @@ fn the_layers_answer_at_a_block_the_counts_can_move_has_no_probability() {
             }
         }
         assert!(taken > 0, "the layer's answer is executed");
-        assert!(kept > 0, "the net's answers execute without PPO probability");
+        assert!(
+            kept > 0,
+            "the net's answers execute without PPO probability"
+        );
     }
 }
 

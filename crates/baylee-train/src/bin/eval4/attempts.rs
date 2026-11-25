@@ -1,6 +1,6 @@
 //! Operational denominator accounting, enabled only for failure-terminal research.
 use super::{Args, HouseDeck, collector};
-use anyhow::{Context as _, ensure};
+use anyhow::ensure;
 use serde_json::Value;
 use std::sync::Arc;
 

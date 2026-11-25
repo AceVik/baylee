@@ -178,6 +178,7 @@ struct GameRef {
     /// `--bundle-distill`: the game's labels.
     distill: Option<bundle_distill::GameLabels>,
     /// `--search-advantage`: the game's roots.
+    #[cfg(feature = "onnx")]
     search_roots: Option<search_advantage::GameRoots>,
     validation: bool,
     shadow: Option<shadow::Source>,
@@ -209,6 +210,7 @@ fn journal_worker(path: &Path, game: &GameRef, status: &str) -> anyhow::Result<(
     Ok(())
 }
 
+#[cfg(feature = "onnx")]
 mod afterstates;
 mod boundary;
 mod bundle_distill;
@@ -220,6 +222,7 @@ mod output;
 mod policy_provenance;
 mod probes;
 mod research;
+#[cfg(feature = "onnx")]
 mod search_advantage;
 mod search_distill;
 mod self_imitation;
@@ -240,6 +243,10 @@ fn main() -> anyhow::Result<()> {
         return research::run();
     }
     let args = Args::parse();
+    #[cfg(not(feature = "onnx"))]
+    if args.search_advantage || args.search_afterstates {
+        bail!("--search-advantage and --search-afterstates require --features onnx");
+    }
     if args.encoder_version == 9 && (args.shadow_bc || args.llm_bc) {
         bail!("Encoder9 shadow and LLM labels are not supported");
     }
@@ -534,6 +541,7 @@ fn main() -> anyhow::Result<()> {
                 } else {
                     None
                 },
+                #[cfg(feature = "onnx")]
                 search_roots: if args.search_advantage {
                     Some(
                         search_advantage::GameRoots::from_game(&v)
@@ -760,18 +768,22 @@ fn main() -> anyhow::Result<()> {
         meta["supervised_eligible"] = json!(false);
     }
     // Search-advantage labels, gathered from every worker.
+    #[cfg(feature = "onnx")]
     let search_labels = Arc::new(Mutex::new((
         Vec::<search_advantage::Row>::new(),
         search_advantage::Counts::default(),
         Vec::<String>::new(),
     )));
     // Search afterstates, gathered from every worker.
+    #[cfg(feature = "onnx")]
     let after_labels = Arc::new(Mutex::new((
         Vec::<afterstates::AfterRow>::new(),
         afterstates::AfterCounts::default(),
         Vec::<String>::new(),
     )));
+    #[cfg(feature = "onnx")]
     let with_afterstates = args.search_afterstates;
+    #[cfg(feature = "onnx")]
     if args.search_advantage {
         meta["ppo_eligible"] = json!(false);
         meta["policy_provenance_version"] = Value::Null;
@@ -802,7 +814,9 @@ fn main() -> anyhow::Result<()> {
         let coarse_rows = coarse_rows.clone();
         let probe_rows = probe_rows.clone();
         let include_passive = args.include_passive_obs;
+        #[cfg(feature = "onnx")]
         let search_labels = search_labels.clone();
+        #[cfg(feature = "onnx")]
         let after_labels = after_labels.clone();
         let live_bc = args.live_bc;
         let encoder_version = args.encoder_version;
@@ -831,11 +845,16 @@ fn main() -> anyhow::Result<()> {
                 let mut game_probes = Vec::new();
                 let mut search_cursor = search_weighting
                     .map(|weighting| weighting.cursor(gref.search_events.as_ref()));
+                #[cfg(feature = "onnx")]
                 let search_roots = gref.search_roots.as_ref().map(|roots| roots.roots(with_afterstates));
+                #[cfg(not(feature = "onnx"))]
+                let search_roots: Option<baylee_train::convert4::search_roots::Roots4> = None;
+                #[cfg(feature = "onnx")]
                 let mut search_game = gref.search_roots.as_ref()
                     .map(|roots| search_advantage::GameLabels::new(roots, &root, gref.game_id, rule_roots.clone(), &bytes, with_afterstates))
                     .transpose()?;
                 let emit = |mut step: Step4| {
+                    #[cfg(feature = "onnx")]
                     if let Some(game) = &mut search_game { game.apply(&mut step)?; }
                     if let Some(seats) = &gref.seat_weights { self_imitation::apply(&mut step, seats); }
                     if gref.explored { exploration::apply(&mut step); }
@@ -900,6 +919,7 @@ fn main() -> anyhow::Result<()> {
                 if let Some(labels)=llm_labels {labels.finish()?;}
                 let name = writer.finish()?;
                 publish_ready(&root, gref, &name, extracted.steps, &structure_sha256)?;
+                #[cfg(feature = "onnx")]
                 if let Some(game) = search_game {
                     let (rows, counts, shard, after) = game.finish()?;
                     let mut labels = search_labels.lock().expect("search label lock");
@@ -1023,6 +1043,7 @@ fn main() -> anyhow::Result<()> {
                 "index_sha256": header["index"]["sha256"]});
         }
     }
+    #[cfg(feature = "onnx")]
     if args.search_advantage {
         anyhow::ensure!(
             rejected.is_empty(),

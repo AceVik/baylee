@@ -74,6 +74,7 @@ struct Deck {
     missing: BTreeSet<u32>,
     /// It holds a working held-out card, or its split is not train.
     out_of_train: Option<String>,
+    #[allow(dead_code, reason = "preserves input manifest ordering for debugging")]
     order: usize,
 }
 
@@ -148,11 +149,13 @@ impl Cards {
             Ok(()) => "working",
             Err(Refusal::NotInPool) => "not_in_pool",
             Err(Refusal::Untested) => "implemented_untested",
-            Err(Refusal::NotImplemented) => match baylee_cards::by_index(idx).map(|d| &d.coverage) {
-                Some(Coverage::Generated) => "generated",
-                Some(Coverage::Partial(_)) => "partial",
-                _ => "stub",
-            },
+            Err(Refusal::NotImplemented) => {
+                match baylee_cards::by_index(idx).map(|d| &d.coverage) {
+                    Some(Coverage::Generated) => "generated",
+                    Some(Coverage::Partial(_)) => "partial",
+                    _ => "stub",
+                }
+            }
         }
     }
     fn held_now(&self, c: u32) -> bool {
@@ -174,7 +177,9 @@ impl Cards {
 }
 
 fn read_json(path: &Path) -> Result<Value> {
-    Ok(serde_json::from_slice(&fs::read(path).with_context(|| path.display().to_string())?)?)
+    Ok(serde_json::from_slice(
+        &fs::read(path).with_context(|| path.display().to_string())?,
+    )?)
 }
 
 fn deck_cards(deck: &HouseDeck) -> BTreeMap<u32, u64> {
@@ -240,7 +245,10 @@ fn main() -> Result<()> {
             }
         }
     }
-    eprintln!("existing decks {} ({unreadable} unreadable)", sim.sizes.len());
+    eprintln!(
+        "existing decks {} ({unreadable} unreadable)",
+        sim.sizes.len()
+    );
 
     let mut decks: Vec<Deck> = Vec::new();
     let mut blocked: BTreeMap<String, usize> = BTreeMap::new();
@@ -303,7 +311,7 @@ fn main() -> Result<()> {
             }
         }
         for &c in &cmd {
-            if leader_of(CardIndex::new(c)).is_none_or(|l| !l.eligible)
+            if leader_of(CardIndex::new(c)).is_none_or(|l| !l.eligible())
                 && cards.status(c) != "not_in_pool"
             {
                 why = Some("invalid_leader".into());
@@ -379,12 +387,13 @@ fn main() -> Result<()> {
             continue;
         }
         let pairs: Vec<(u64, u64)> = m.iter().map(|(c, k)| (u64::from(*c), *k)).collect();
-        let hex = Sha256::digest(serde_json::to_vec(&pairs)?)
-            .iter()
-            .fold(String::new(), |mut s, b| {
-                let _ = write!(s, "{b:02x}");
-                s
-            });
+        let hex =
+            Sha256::digest(serde_json::to_vec(&pairs)?)
+                .iter()
+                .fold(String::new(), |mut s, b| {
+                    let _ = write!(s, "{b:02x}");
+                    s
+                });
         if !identities.insert(hex.clone()) {
             *blocked.entry("mtgo_duplicate".into()).or_default() += 1;
             continue;
@@ -444,7 +453,11 @@ fn main() -> Result<()> {
     for &i in &eligible {
         let d = &decks[i];
         let n = d.missing.len();
-        let bucket = if n >= 6 { "6+".to_owned() } else { n.to_string() };
+        let bucket = if n >= 6 {
+            "6+".to_owned()
+        } else {
+            n.to_string()
+        };
         *by_missing
             .entry(format!("{:?}:{bucket}", d.kind))
             .or_default() += 1;
@@ -458,7 +471,13 @@ fn main() -> Result<()> {
                 .iter()
                 .map(|&c| format!("{} ({})", Cards::name(c), cards.status(c)))
                 .collect();
-            eprintln!("precon {:?} {} [{}]: {}", d.kind, d.label, d.format, m.join(", "));
+            eprintln!(
+                "precon {:?} {} [{}]: {}",
+                d.kind,
+                d.label,
+                d.format,
+                m.join(", ")
+            );
         }
     }
 
@@ -479,18 +498,25 @@ fn main() -> Result<()> {
     // Reader-gap audit: for each refusal cause, the cards it blocks and the
     // TRAIN decks those cards alone would complete.
     if let (Some(causes_path), Some(index_path)) = (&args.causes, &args.script_index) {
-        let index: BTreeMap<String, String> =
-            serde_json::from_slice(&fs::read(index_path)?)?;
-        let by_path: BTreeMap<&str, &str> =
-            index.iter().map(|(n, p)| (p.as_str(), n.as_str())).collect();
+        let index: BTreeMap<String, String> = serde_json::from_slice(&fs::read(index_path)?)?;
+        let by_path: BTreeMap<&str, &str> = index
+            .iter()
+            .map(|(n, p)| (p.as_str(), n.as_str()))
+            .collect();
         let mut by_cause: BTreeMap<String, Vec<u32>> = BTreeMap::new();
         let mut scripts: BTreeMap<String, usize> = BTreeMap::new();
         for line in fs::read_to_string(causes_path)?.lines() {
-            let Some(rest) = line.strip_prefix("--- refused (") else { continue };
-            let Some((cause, path)) = rest.rsplit_once("): ") else { continue };
+            let Some(rest) = line.strip_prefix("--- refused (") else {
+                continue;
+            };
+            let Some((cause, path)) = rest.rsplit_once("): ") else {
+                continue;
+            };
             *scripts.entry(cause.to_owned()).or_default() += 1;
             let rel = path.split("/cardsfolder/").nth(1).unwrap_or(path);
-            let Some(name) = by_path.get(rel) else { continue };
+            let Some(name) = by_path.get(rel) else {
+                continue;
+            };
             if let Some(c) = cards.resolve(name) {
                 by_cause.entry(cause.to_owned()).or_default().push(c);
             }
@@ -534,10 +560,15 @@ fn main() -> Result<()> {
             }));
         }
         rows.sort_by(|a, b| {
-            b["train_decks"].as_u64().cmp(&a["train_decks"].as_u64())
+            b["train_decks"]
+                .as_u64()
+                .cmp(&a["train_decks"].as_u64())
                 .then(b["scripts"].as_u64().cmp(&a["scripts"].as_u64()))
         });
-        fs::write(&args.out, serde_json::to_vec_pretty(&json!({"causes": rows}))?)?;
+        fs::write(
+            &args.out,
+            serde_json::to_vec_pretty(&json!({"causes": rows}))?,
+        )?;
         eprintln!("cause audit written");
         return Ok(());
     }
@@ -564,7 +595,9 @@ fn main() -> Result<()> {
         }
         kept.add(&d.key, &d.cards);
         accepted.insert(i);
-        *free.entry(format!("{:?}:{}", d.kind, d.format)).or_default() += 1;
+        *free
+            .entry(format!("{:?}:{}", d.kind, d.format))
+            .or_default() += 1;
         *free_arch.entry(archetype(d)).or_default() += 1;
     }
     eprintln!("free train decks (complete now): {free:?}\n  archetypes {free_arch:?}");
@@ -609,7 +642,9 @@ fn main() -> Result<()> {
                 if j >= args.similarity {
                     continue;
                 }
-                let dup = tmp_ids.iter().any(|o| jaccard(o, &d.cards) >= args.similarity);
+                let dup = tmp_ids
+                    .iter()
+                    .any(|o| jaccard(o, &d.cards) >= args.similarity);
                 if dup {
                     continue;
                 }
@@ -712,7 +747,9 @@ fn archetype(d: &Deck) -> String {
     let main: Vec<CardIndex> = d
         .cards
         .iter()
-        .flat_map(|(c, k)| std::iter::repeat_n(CardIndex::new(*c), usize::try_from(*k).unwrap_or(0)))
+        .flat_map(|(c, k)| {
+            std::iter::repeat_n(CardIndex::new(*c), usize::try_from(*k).unwrap_or(0))
+        })
         .collect();
     let (arch, tags, colors) = baylee_cards::deckgen::strategy::classify_deck_strategy(&main, &[]);
     let tags: Vec<&str> = tags
@@ -720,5 +757,9 @@ fn archetype(d: &Deck) -> String {
         .map(String::as_str)
         .filter(|t| *t != arch && *t != "midrange")
         .collect();
-    format!("{arch} {} [{}]", baylee_cards::deckgen::strategy::color_string(colors), tags.join(","))
+    format!(
+        "{arch} {} [{}]",
+        baylee_cards::deckgen::strategy::color_string(colors),
+        tags.join(",")
+    )
 }
