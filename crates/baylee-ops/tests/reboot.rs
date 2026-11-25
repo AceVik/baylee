@@ -12,6 +12,17 @@ use std::path::PathBuf;
 #[path = "support/native_command.rs"]
 mod native_command;
 
+/// What `baylee-backup` left of its lock.
+#[derive(Clone, Copy, Debug, PartialEq)]
+enum Backup {
+    /// It never ran here: no lock file.
+    Never,
+    /// The lock file of an earlier run, held by nobody.
+    Idle,
+    /// A run holds it.
+    Running,
+}
+
 /// One server state the script is run against.
 #[derive(Clone, Copy, Debug)]
 struct Server {
@@ -27,6 +38,8 @@ struct Server {
     drained: bool,
     /// Whether a deploy holds its lock.
     deploying: bool,
+    /// What the backup service is doing.
+    backup: Backup,
     /// What the gateway reports after the hold is created.
     admission: &'static str,
     health_after_hold: Option<(u32, u32)>,
@@ -40,6 +53,7 @@ const QUIET_NIGHT: Server = Server {
     health: Some((0, 0)),
     drained: false,
     deploying: false,
+    backup: Backup::Never,
     admission: "held",
     health_after_hold: None,
     foreign_hold: None,
@@ -135,6 +149,15 @@ fn run(server: Server) -> Run {
         held.try_lock().unwrap();
     }
 
+    let backup_lock = scratch.join("backup.lock");
+    let backup = (server.backup != Backup::Never).then(|| {
+        std::fs::write(&backup_lock, "").unwrap();
+        std::fs::File::open(&backup_lock).unwrap()
+    });
+    if server.backup == Backup::Running {
+        backup.as_ref().unwrap().try_lock().unwrap();
+    }
+
     let path = format!("{}:{}", stubs.display(), std::env::var("PATH").unwrap());
     let output = std::process::Command::new(env!("CARGO_BIN_EXE_baylee-reboot"))
         .env("PATH", path)
@@ -144,6 +167,7 @@ fn run(server: Server) -> Run {
         .env("BAYLEE_REBOOT_RUN", &runtime)
         .env("BAYLEE_REBOOT_ETC", &etc)
         .env("BAYLEE_REBOOT_DEPLOY_LOCK", &lock)
+        .env("BAYLEE_REBOOT_BACKUP_LOCK", &backup_lock)
         .output()
         .unwrap();
     assert!(
@@ -276,6 +300,62 @@ fn a_running_deploy_is_waited_for() {
         })
         .rebooted()
     );
+}
+
+#[test]
+fn a_running_backup_is_waited_for_with_admission_open() {
+    let waited = run(Server {
+        backup: Backup::Running,
+        ..QUIET_NIGHT
+    });
+    assert!(!waited.rebooted());
+    assert!(
+        waited.hold_after.is_none(),
+        "new games start while the backup runs"
+    );
+
+    // Also when the reboot has waited its days and would drain.
+    let due = run(Server {
+        backup: Backup::Running,
+        days_pending: 4,
+        ..QUIET_NIGHT
+    });
+    assert!(!due.rebooted());
+    assert!(!due.drained_after);
+    assert!(due.hold_after.is_none());
+}
+
+#[test]
+fn a_backup_neither_drops_a_drain_nor_keeps_it_past_the_window() {
+    let draining = run(Server {
+        backup: Backup::Running,
+        drained: true,
+        days_pending: 4,
+        ..QUIET_NIGHT
+    });
+    assert!(!draining.rebooted());
+    assert!(draining.drained_after);
+    assert!(draining.hold_after.is_some());
+
+    let day = run(Server {
+        backup: Backup::Running,
+        drained: true,
+        hour: 8,
+        ..QUIET_NIGHT
+    });
+    assert!(!day.drained_after);
+    assert!(day.hold_after.is_none());
+}
+
+#[test]
+fn a_finished_backup_and_none_at_all_hold_nothing() {
+    for backup in [Backup::Never, Backup::Idle] {
+        let result = run(Server {
+            backup,
+            ..QUIET_NIGHT
+        });
+        assert!(result.rebooted(), "{backup:?}");
+    }
 }
 
 #[test]
