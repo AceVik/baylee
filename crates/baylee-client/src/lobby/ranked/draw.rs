@@ -256,7 +256,7 @@ fn board_panel(
             Pickable::default(),
         ))
         .id();
-    scrollbars::attach(commands, board, list, metrics);
+    scrollbars::attach_stable(commands, board, list, metrics);
     let pager = parts::row(commands, kit, true);
     commands.entity(board).add_child(pager);
     Board {
