@@ -21,7 +21,8 @@ use anyhow::Context as _;
 use baylee_train::convert4::distill_labels::{DistillLabel4, DistillProbe4, DistillStep4};
 use serde_json::{Value, json};
 
-use super::{Args, Leads, kind, real};
+use super::leads::{Leads, real};
+use super::{Args, kind};
 
 /// A game line's part this report reads.
 #[derive(serde::Deserialize)]
