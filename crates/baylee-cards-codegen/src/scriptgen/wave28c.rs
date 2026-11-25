@@ -9,7 +9,10 @@
 
 use baylee_core::types::SubtypeKind;
 
-use super::{Params, Tx, statics::simple_const_filter};
+use super::{
+    Params, Tx,
+    statics::{parse_fixed_alt_mana_price, simple_const_filter},
+};
 
 impl Tx<'_> {
     /// Whether `S: Mode$ CastWithFlash` targets a Wave 28c shape:
@@ -480,27 +483,8 @@ impl Tx<'_> {
     ///   linked-exile / remembered / opponent-ownership approximations) ->
     ///   `Amount::CountOf { filter: ..., zone: ZoneSel::ExileAll }`
     pub(super) fn wave28c_static_count_expr(&mut self, trimmed: &str) -> Option<String> {
-        if let Some(rest) = trimmed.strip_prefix("Count$ValidGraveyard ") {
-            let (valid, variant) = if let Some(v) = rest.strip_suffix("$GreatestCardPower") {
-                (v, "Amount::GreatestPowerAmong")
-            } else {
-                let v = rest.strip_suffix("$GreatestCardManaCost")?;
-                (v, "Amount::GreatestManaValueAmong")
-            };
-            if valid.is_empty()
-                || valid.contains(['$', '/'])
-                || has_forbidden_zone_count_atom(valid)
-            {
-                return None;
-            }
-            let base = self.filter_expr_in_zone(valid, true)?;
-            let full = if base == "Filter::Any" {
-                "Filter::InZone(ZoneRef::Graveyard)".to_string()
-            } else {
-                format!("Filter::And(&[{base}, Filter::InZone(ZoneRef::Graveyard)])")
-            };
-            let name = self.body.filter_static("COUNT", &full);
-            return Some(format!("{variant}(&{name})"));
+        if let Some(expr) = self.wave28c_graveyard_greatest_expr(trimmed) {
+            return Some(expr);
         }
         if let Some(valid) = trimmed.strip_prefix("Count$ValidExile ") {
             if valid.is_empty()
@@ -524,6 +508,309 @@ impl Tx<'_> {
         }
         None
     }
+
+    fn wave28c_graveyard_greatest_expr(&mut self, trimmed: &str) -> Option<String> {
+        let rest = trimmed.strip_prefix("Count$ValidGraveyard ")?;
+        let (valid, variant) = if let Some(v) = rest.strip_suffix("$GreatestCardPower") {
+            (v, "Amount::GreatestPowerAmong")
+        } else {
+            let v = rest.strip_suffix("$GreatestCardManaCost")?;
+            (v, "Amount::GreatestManaValueAmong")
+        };
+        if valid.is_empty() || valid.contains(['$', '/']) || has_forbidden_zone_count_atom(valid) {
+            return None;
+        }
+        // Cards in graveyards have owners, not controllers (CR 404.1 / 108.4a);
+        // Forge sometimes writes `YouCtrl` for "in your graveyard" (*Hapatra*,
+        // *Wick's Patrol*). Normalize `YouCtrl` -> `YouOwn` and refuse opponent
+        // ownership/controller approximations.
+        let normalized = normalize_graveyard_owner_for_greatest(valid)?;
+        let base = self.filter_expr_in_zone(&normalized, true)?;
+        let full = if base == "Filter::Any" {
+            "Filter::InZone(ZoneRef::Graveyard)".to_string()
+        } else {
+            format!("Filter::And(&[{base}, Filter::InZone(ZoneRef::Graveyard)])")
+        };
+        let name = self.body.filter_static("COUNT", &full);
+        Some(format!("{variant}(&{name})"))
+    }
+
+    /// Wave 28c-p2 `S: Mode$ AlternativeCost | ValidSA$ Spell.Self |
+    /// EffectZone$ Graveyard | Cost$ <pure_mana>` (*Raffine's Guidance*) ->
+    /// `Modifier::MayCastWithAltCost` from `ZoneRef::Graveyard`.
+    ///
+    /// Refuses non-mana costs (*Scourge of Nel Toth*, *Squee, Dubious Monarch*),
+    /// `Count$AltCost` rider cards (*Worldheart Phoenix*), non-self spells, and
+    /// opponent players honestly.
+    pub(super) fn wave28c_graveyard_self_alt_cost(&mut self, mut p: Params) -> Option<()> {
+        let deny = |tx: &Self| tx.deny("alternative cost from `EffectZone$ Graveyard`".to_string());
+        if self.has_evoke || self.svars.values().any(|v| v.contains("Count$AltCost")) {
+            return deny(self);
+        }
+        p.drop_prose();
+        match p.take("ValidSA").as_deref() {
+            Some("Spell.Self") => {
+                if let Some(card) = p.take("ValidCard")
+                    && card != "Card.Self"
+                {
+                    return deny(self);
+                }
+            }
+            Some("Spell") if p.take("ValidCard").as_deref() == Some("Card.Self") => {}
+            _ => return deny(self),
+        }
+        if !matches!(p.take("ValidPlayer").as_deref(), None | Some("You"))
+            || p.take("EffectZone").as_deref() != Some("Graveyard")
+        {
+            return deny(self);
+        }
+        let Some(raw_cost) = p.take("Cost") else {
+            return deny(self);
+        };
+        if raw_cost.contains('X') {
+            return deny(self);
+        }
+        let Some(price) = parse_fixed_alt_mana_price(&raw_cost) else {
+            return deny(self);
+        };
+        let cond =
+            self.static_conditions(&mut p, "alternative cost from `EffectZone$ Graveyard`")?;
+        if !p.exhausted() {
+            return deny(self);
+        }
+        self.body.abilities.push(format!(
+            "static_ability!(Filter::This, Modifier::MayCastWithAltCost {{ \
+             who: PlayerRel::You, zones: AltCastZones::Zones(&[ZoneRef::Graveyard]), \
+             grant_zone_permission: true, allow_lands: false, with_flash: false, \
+             max_mana_value: None, once_per_turn: false, price: {price} }}, \
+             zone = ZoneRef::Graveyard{cond})"
+        ));
+        Some(())
+    }
+
+    /// Wave 28c-p2 `Mana.CombatMana$ True` (*Avatar Roku, Firebender*) ->
+    /// `Effect::AddCombatMana { color, amount }`.
+    ///
+    /// Accepts fixed single-color mana symbols with a positive constant amount
+    /// and no spend restriction, spend rider, or `PersistentMana$ True`.
+    pub(super) fn wave28c_combat_mana_effects(
+        &self,
+        produced: &str,
+        fixed: Option<u32>,
+        has_modifier: bool,
+        persistent: bool,
+    ) -> Option<Vec<String>> {
+        let deny = || self.deny("unclaimed parameter `Mana.CombatMana`".to_string());
+        let Some(mult) = fixed.filter(|&n| n >= 1) else {
+            return deny();
+        };
+        if has_modifier || persistent {
+            return deny();
+        }
+        let mut counts: Vec<(&'static str, u32)> = Vec::new();
+        for tok in produced.split_whitespace() {
+            let color = match tok {
+                "W" => "ManaColor::White",
+                "U" => "ManaColor::Blue",
+                "B" => "ManaColor::Black",
+                "R" => "ManaColor::Red",
+                "G" => "ManaColor::Green",
+                "C" => "ManaColor::Colorless",
+                _ => return deny(),
+            };
+            if let Some((_, existing)) = counts.iter_mut().find(|(c, _)| *c == color) {
+                *existing = existing.checked_add(mult)?;
+            } else {
+                counts.push((color, mult));
+            }
+        }
+        if counts.is_empty() {
+            return deny();
+        }
+        let mut out = Vec::with_capacity(counts.len());
+        for (color, total) in counts {
+            let Ok(amount) = u16::try_from(total) else {
+                return deny();
+            };
+            out.push(format!(
+                "Effect::AddCombatMana {{ color: {color}, amount: {amount} }}"
+            ));
+        }
+        Some(out)
+    }
+
+    /// Wave 28c-p2 general `Amount` readers hooked into `mana::count_expr_depth`:
+    /// - `<lhs>/LimitMin.<k|var>` (*Triumphant Chomp*, *Prophet of the Scarab*)
+    ///   -> `Amount::IfCondition` (resolution-only)
+    /// - `Count$Devotion.<Color>` & `Count$DevotionDual.<C1>.<C2>` ->
+    ///   `Amount::Devotion`
+    /// - `Count$YouDrewThisTurn` / `Count$CardsDrawnThisTurn` ->
+    ///   `Amount::CardsDrawnThisTurn(PlayerRel::You)`
+    /// - `Count$ValidGraveyard <valid>$GreatestCardPower` /
+    ///   `$GreatestCardManaCost` -> `Amount::GreatestPowerAmong` /
+    ///   `Amount::GreatestManaValueAmong`
+    /// - `Count$Valid <valid>$GreatestCardPower` / `$CardPower` (resolution-only,
+    ///   preserving Layer 7c static P/T circularity guards) ->
+    ///   `Amount::GreatestPowerAmong` / `Amount::TotalPowerAmong`
+    pub(super) fn wave28c_count_expr(
+        &mut self,
+        def: &str,
+        depth: u8,
+        static_only: bool,
+    ) -> Option<String> {
+        if static_only {
+            return None;
+        }
+        let trimmed = def.trim();
+        if depth < 3
+            && let Some((lhs, rhs)) = trimmed.rsplit_once("/LimitMin.")
+        {
+            return self.wave28c_limit_min_amount(lhs.trim(), rhs.trim(), depth);
+        }
+        if let Some(devotion) = parse_wave28c_devotion(trimmed) {
+            return Some(devotion);
+        }
+        if matches!(
+            trimmed,
+            "Count$YouDrewThisTurn" | "Count$CardsDrawnThisTurn"
+        ) {
+            return Some("Amount::CardsDrawnThisTurn(PlayerRel::You)".to_string());
+        }
+        if let Some(expr) = self.wave28c_graveyard_greatest_expr(trimmed) {
+            return Some(expr);
+        }
+        if let Some(rest) = trimmed.strip_prefix("Count$Valid ") {
+            return self.wave28c_battlefield_power_amount(rest);
+        }
+        None
+    }
+
+    fn wave28c_limit_min_amount(&mut self, lhs: &str, rhs: &str, depth: u8) -> Option<String> {
+        let base = if let Some(var) = lhs.strip_prefix("SVar$") {
+            let inner = self.svars.get(var.trim())?.clone();
+            self.count_expr_depth(&inner, depth + 1, false)?
+        } else {
+            self.count_expr_depth(lhs, depth + 1, false)?
+        };
+        if base.starts_with("Amount::Fixed(") || base.contains("Neg") {
+            return None;
+        }
+        let min_expr = if let Ok(k) = rhs.parse::<u32>() {
+            if k == 0 {
+                return None;
+            }
+            format!("Amount::Fixed({k})")
+        } else {
+            let inner = self.svars.get(rhs)?.clone();
+            let right = self.count_expr_depth(&inner, depth + 1, false)?;
+            if right.contains("Neg") {
+                return None;
+            }
+            right
+        };
+        Some(format!(
+            "Amount::IfCondition {{ condition: &Condition::AmountCompare {{ left: &{base}, \
+             op: AmountCmp::AtLeast, right: &{min_expr} }}, then: &{base}, otherwise: &{min_expr} }}"
+        ))
+    }
+
+    fn wave28c_battlefield_power_amount(&mut self, rest: &str) -> Option<String> {
+        let (valid, variant) = if let Some(v) = rest.strip_suffix("$GreatestCardPower") {
+            (v, "Amount::GreatestPowerAmong")
+        } else {
+            let v = rest.strip_suffix("$CardPower")?;
+            (v, "Amount::TotalPowerAmong")
+        };
+        if valid.is_empty()
+            || valid.contains(['$', '/'])
+            || valid.contains("inZone")
+            || valid.contains("ChosenCard")
+            || valid.contains("Remembered")
+            || valid.contains("Targeted")
+            || valid.contains("Triggered")
+        {
+            return None;
+        }
+        let expr = self.filter_expr(valid)?;
+        let filter_ref = if simple_const_filter(&expr) {
+            format!("&{expr}")
+        } else {
+            format!("&{}", self.body.filter_static("COUNT", &expr))
+        };
+        Some(format!("{variant}({filter_ref})"))
+    }
+}
+
+fn normalize_graveyard_owner_for_greatest(valid: &str) -> Option<String> {
+    let mut out = Vec::new();
+    for raw_alt in valid.split(',') {
+        let alt = raw_alt.trim();
+        if alt.is_empty() {
+            return None;
+        }
+        let mut parts = alt
+            .split('.')
+            .flat_map(|seg| seg.split('+'))
+            .map(str::trim)
+            .filter(|a| !a.is_empty());
+        let base = parts.next()?;
+        if base.contains("Ctrl") || base.contains("Own") {
+            return None;
+        }
+        let mut kept = Vec::new();
+        for atom in parts {
+            match atom {
+                "YouCtrl" | "YouOwn" => {
+                    if !kept.contains(&"YouOwn") {
+                        kept.push("YouOwn");
+                    }
+                }
+                other if other.contains("Ctrl") || other.contains("Own") => return None,
+                other => kept.push(other),
+            }
+        }
+        if kept.is_empty() {
+            out.push(base.to_string());
+        } else {
+            out.push(format!("{base}.{}", kept.join("+")));
+        }
+    }
+    (!out.is_empty()).then(|| out.join(","))
+}
+
+fn parse_wave28c_devotion(def: &str) -> Option<String> {
+    if let Some(color_name) = def.strip_prefix("Count$Devotion.") {
+        let color = parse_devotion_color(color_name.trim())?;
+        return Some(format!(
+            "Amount::Devotion {{ who: PlayerRel::You, colors: ColorSet::from_slice(&[Color::{color}]) }}"
+        ));
+    }
+    if let Some(dual) = def.strip_prefix("Count$DevotionDual.") {
+        let (c1, c2) = dual.split_once('.')?;
+        if c2.contains('.') {
+            return None;
+        }
+        let color1 = parse_devotion_color(c1.trim())?;
+        let color2 = parse_devotion_color(c2.trim())?;
+        if color1 == color2 {
+            return None;
+        }
+        return Some(format!(
+            "Amount::Devotion {{ who: PlayerRel::You, colors: ColorSet::from_slice(&[Color::{color1}, Color::{color2}]) }}"
+        ));
+    }
+    None
+}
+
+fn parse_devotion_color(raw: &str) -> Option<&'static str> {
+    Some(match raw {
+        "White" => "White",
+        "Blue" => "Blue",
+        "Black" => "Black",
+        "Red" => "Red",
+        "Green" => "Green",
+        _ => return None,
+    })
 }
 
 fn parse_mixed_land_and_spell_alts(

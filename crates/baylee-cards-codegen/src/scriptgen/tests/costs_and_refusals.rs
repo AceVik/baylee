@@ -309,7 +309,7 @@ fn a_graveyard_exile_cost_is_a_filter_over_the_payers_own_pile() {
             "ExileFromGrave<1/CARDNAME/this card>",
             "cost `ExileFromGrave<1/CARDNAME/this card>` naming itself",
         ),
-        ("ExileFromGrave<4/Card>", "a cost naming `4` objects"),
+        ("ExileFromGrave<16/Card>", "a cost naming `16` objects"),
     ] {
         let script = parse(&format!(
             "Name:X\nTypes:Land\n\
@@ -956,8 +956,8 @@ fn a_refused_script_always_says_why() {
         // paid with one card where the script charges two is a
         // discount.
         (
-            "Name:X\nTypes:Creature\nA:AB$ Draw | Cost$ Discard<4/Card> | NumCards$ 1",
-            "a cost naming `4` objects",
+            "Name:X\nTypes:Creature\nA:AB$ Draw | Cost$ Discard<16/Card> | NumCards$ 1",
+            "a cost naming `16` objects",
         ),
         (
             "Name:X\nTypes:Creature\nA:AB$ Draw | NumCards$ 1",
@@ -1041,11 +1041,11 @@ fn a_refused_script_always_says_why() {
              A:AB$ PutCounter | Cost$ T | CounterType$ P1M1 | CounterNum$ 1",
             "counter `P1M1`",
         ),
-        // Multi-return costs above three or variable X remain refused by count.
+        // Multi-return costs above the cap or variable X remain refused by count.
         (
             "Name:X\nTypes:Creature\n\
-             A:AB$ Untap | Cost$ Return<4/Forest> | ValidTgts$ Creature",
-            "a cost naming `4` objects",
+             A:AB$ Untap | Cost$ Return<16/Forest> | ValidTgts$ Creature",
+            "a cost naming `16` objects",
         ),
         (
             "Name:X\nTypes:Creature\n\
@@ -3487,7 +3487,7 @@ fn wave11a_squad_offspring_and_escape() {
         "Name:BadDupSquad\nManaCost:1 W\nTypes:Creature\nPT:1/1\nK:Squad:1\nK:Squad:2",
         "Name:BadDupOffspring\nManaCost:1 W\nTypes:Creature\nPT:1/1\nK:Offspring:1\nK:Offspring:2",
         "Name:BadSquadX\nManaCost:1 U\nTypes:Creature\nPT:1/1\nK:Squad:X U\nSVar:X:Count$xPaid",
-        "Name:BadSquadExile4\nManaCost:1 B\nTypes:Creature\nPT:1/1\nK:Squad:ExileFromGrave<4/Card>",
+        "Name:BadSquadExile16\nManaCost:1 B\nTypes:Creature\nPT:1/1\nK:Squad:ExileFromGrave<16/Card>",
         "Name:BadEscapeX\nManaCost:1 G\nTypes:Creature\nPT:2/2\nK:Escape:X G ExileFromGrave<3/Card.Other>\nSVar:X:Count$xPaid",
         "Name:BadEscapeExileLand\nManaCost:2 R\nTypes:Instant\nA:SP$ Draw | NumCards$ 1\nK:Escape:2 R Exile<1/Land>",
         "Name:BadEscapeFilter\nManaCost:1 W\nTypes:Creature\nPT:1/1\nK:Escape:2 W ExileFromGrave<2/Card.Other+Instant>",

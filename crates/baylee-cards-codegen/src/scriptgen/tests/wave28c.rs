@@ -8,7 +8,16 @@ fn wave28c_cats() -> SubtypeCatalogs {
         "Merfolk".into(),
         "Human".into(),
         "Faerie".into(),
+        "Eldrazi".into(),
+        "Spawn".into(),
+        "Dinosaur".into(),
+        "Zombie".into(),
+        "Minotaur".into(),
+        "Shaman".into(),
+        "Dragon".into(),
     ]);
+    c.artifact
+        .extend(["Treasure".into(), "Blood".into(), "Food".into()]);
     c.spell.push("Lesson".into());
     c.normalize();
     c
@@ -559,5 +568,307 @@ fn wave28c_refusal_guards() {
     assert!(refused_w28c(
         "Name:X Cost Mana\nManaCost:2 G\nTypes:Creature\nPT:2/2\n\
          A:AB$ Mana | Cost$ T | Produced$ C | Amount$ 4 | RestrictValid$ Spell.CostContainsX"
+    ));
+}
+
+#[test]
+fn wave28c_p2_graveyard_self_alt_cost_and_combat_mana() {
+    let raffines = read_w28c(
+        "Name:Raffine's Guidance\nManaCost:W\nTypes:Enchantment Aura\n\
+         K:Enchant:Creature\n\
+         S:Mode$ Continuous | AffectedDefined$ Enchanted | Affected$ Creature | AddPower$ 1 | AddToughness$ 1\n\
+         S:Mode$ AlternativeCost | ValidSA$ Spell.Self | EffectZone$ Graveyard | Cost$ 2 W",
+    );
+    assert!(
+        raffines.abilities.iter().any(|a| a
+            == "static_ability!(Filter::This, Modifier::MayCastWithAltCost { \
+                who: PlayerRel::You, zones: AltCastZones::Zones(&[ZoneRef::Graveyard]), \
+                grant_zone_permission: true, allow_lands: false, with_flash: false, \
+                max_mana_value: None, once_per_turn: false, \
+                price: AltCastPrice::Mana(mana!(\"{2}{W}\")) }, zone = ZoneRef::Graveyard)"),
+        "expected graveyard self MayCastWithAltCost: {:?}",
+        raffines.abilities
+    );
+
+    let roku = read_w28c(
+        "Name:Avatar Roku, Firebender\nManaCost:3 R R R\nTypes:Legendary Creature Human Avatar\nPT:6/6\n\
+         T:Mode$ AttackersDeclared | AttackingPlayer$ Player | TriggerZones$ Battlefield | Execute$ TrigMana\n\
+         SVar:TrigMana:DB$ Mana | Produced$ R | Amount$ 6 | CombatMana$ True\n\
+         A:AB$ Pump | Cost$ R R R | ValidTgts$ Creature | NumAtt$ +3",
+    );
+    assert!(
+        roku.abilities
+            .iter()
+            .any(|a| a.contains("Effect::AddCombatMana { color: ManaColor::Red, amount: 6 }")),
+        "expected AddCombatMana(Red, 6): {:?}",
+        roku.abilities
+    );
+}
+
+#[test]
+fn wave28c_p2_multi_object_costs_up_to_15() {
+    let hand_of_emrakul = read_w28c(
+        "Name:Hand of Emrakul\nManaCost:9\nTypes:Creature Eldrazi\nPT:7/7\n\
+         K:Annihilator:1\n\
+         S:Mode$ AlternativeCost | ValidSA$ Spell.Self | EffectZone$ All | Cost$ Sac<4/Eldrazi.Spawn>",
+    );
+    assert_eq!(hand_of_emrakul.alternative_costs.len(), 1);
+    assert_eq!(
+        hand_of_emrakul.alternative_costs[0]
+            .matches("Sacrifice(&COST")
+            .count(),
+        4,
+        "expected four Sacrifice parts: {:?}",
+        hand_of_emrakul.alternative_costs
+    );
+
+    let magda = read_w28c(
+        "Name:Magda, Brazen Outlaw\nManaCost:1 R\nTypes:Legendary Creature Dwarf Berserker\nPT:2/1\n\
+         A:AB$ ChangeZone | Cost$ Sac<5/Treasure> | Origin$ Library | Destination$ Battlefield | \
+         ChangeType$ Card.Artifact,Card.Dragon | ChangeNum$ 1",
+    );
+    assert_eq!(
+        magda.abilities[0].matches("Sacrifice(&COST").count(),
+        5,
+        "expected five Sacrifice parts: {:?}",
+        magda.abilities
+    );
+
+    let bone_dragon = read_w28c(
+        "Name:Bone Dragon\nManaCost:3 B B\nTypes:Creature Dragon Skeleton\nPT:5/4\n\
+         K:Flying\n\
+         A:AB$ ChangeZone | Cost$ 3 B B ExileFromGrave<7/Card.Other> | Origin$ Graveyard | \
+         Destination$ Battlefield | ActivationZone$ Graveyard | Tapped$ True",
+    );
+    assert_eq!(
+        bone_dragon.abilities[0]
+            .matches("ExileFromGraveyard(&Filter::Another)")
+            .count(),
+        7,
+        "expected seven ExileFromGraveyard parts: {:?}",
+        bone_dragon.abilities
+    );
+
+    let citadel = read_w28c(
+        "Name:Bolas's Citadel\nManaCost:3 B B B\nTypes:Legendary Artifact\n\
+         A:AB$ LoseLife | Cost$ T Sac<10/Permanent.nonLand/nonland permanent> | \
+         Defined$ Player.Opponent | LifeAmount$ 10",
+    );
+    assert_eq!(
+        citadel.abilities[0].matches("Sacrifice(&COST").count(),
+        10,
+        "expected ten Sacrifice parts: {:?}",
+        citadel.abilities
+    );
+
+    let glass_cast = read_w28c(
+        "Name:Glass-Cast Heart\nManaCost:2 B\nTypes:Artifact\n\
+         A:AB$ LoseLife | Cost$ B B T Sac<1/CARDNAME> Sac<13/Blood.token> | \
+         Defined$ Player.Opponent | LifeAmount$ 13",
+    );
+    assert_eq!(
+        glass_cast.abilities[0].matches("Sacrifice(&COST").count(),
+        13,
+        "expected thirteen Sacrifice parts: {:?}",
+        glass_cast.abilities
+    );
+    assert!(glass_cast.abilities[0].contains("SacrificeSelf"));
+}
+
+#[test]
+fn wave28c_p2_devotion_amounts() {
+    let rebuff = read_w28c(
+        "Name:Thassa's Rebuff\nManaCost:1 U\nTypes:Instant\n\
+         A:SP$ Counter | TargetType$ Spell | ValidTgts$ Card | UnlessCost$ X\n\
+         SVar:X:Count$Devotion.Blue",
+    );
+    assert!(
+        rebuff.abilities[0].contains(
+            "Amount::Devotion { who: PlayerRel::You, colors: ColorSet::from_slice(&[Color::Blue]) }"
+        ),
+        "expected blue devotion unless-cost: {:?}",
+        rebuff.abilities
+    );
+
+    let aspect = read_w28c(
+        "Name:Aspect of Hydra\nManaCost:G\nTypes:Instant\n\
+         A:SP$ Pump | ValidTgts$ Creature | NumAtt$ +X | NumDef$ +X\n\
+         SVar:X:Count$Devotion.Green",
+    );
+    assert!(
+        aspect.abilities[0].contains(
+            "Amount::Devotion { who: PlayerRel::You, colors: ColorSet::from_slice(&[Color::Green]) }"
+        ),
+        "expected green devotion pump: {:?}",
+        aspect.abilities
+    );
+
+    let dual_devotion = read_w28c(
+        "Name:Dual Devotion Probe\nManaCost:2 W B\nTypes:Sorcery\n\
+         A:SP$ GainLife | Defined$ You | LifeAmount$ X\n\
+         SVar:X:Count$DevotionDual.White.Black",
+    );
+    assert!(
+        dual_devotion.abilities[0].contains(
+            "Amount::Devotion { who: PlayerRel::You, colors: ColorSet::from_slice(&[Color::White, Color::Black]) }"
+        ),
+        "expected dual devotion gain life: {:?}",
+        dual_devotion.abilities
+    );
+
+    let fanatic = read_w28c(
+        "Name:Fanatic of Mogis\nManaCost:3 R\nTypes:Creature Minotaur Shaman\nPT:4/2\n\
+         T:Mode$ ChangesZone | Origin$ Any | Destination$ Battlefield | ValidCard$ Card.Self | Execute$ TrigDmg\n\
+         SVar:TrigDmg:DB$ DealDamage | Defined$ Player.Opponent | NumDmg$ X\n\
+         SVar:X:Count$Devotion.Red",
+    );
+    assert!(
+        fanatic.abilities[0].contains(
+            "Amount::Devotion { who: PlayerRel::You, colors: ColorSet::from_slice(&[Color::Red]) }"
+        ),
+        "expected red devotion damage trigger: {:?}",
+        fanatic.abilities
+    );
+}
+
+#[test]
+fn wave28c_p2_greatest_power_limit_min_and_graveyard_owner() {
+    let wildspeaker = read_w28c(
+        "Name:Return of the Wildspeaker\nManaCost:4 G\nTypes:Instant\n\
+         A:SP$ Charm | Choices$ DBDraw,DBPumpAll\n\
+         SVar:DBDraw:DB$ Draw | Defined$ You | NumCards$ X\n\
+         SVar:X:Count$Valid Creature.YouCtrl+nonHuman$GreatestCardPower\n\
+         SVar:DBPumpAll:DB$ PumpAll | ValidCards$ Creature.YouCtrl+nonHuman | NumAtt$ +3 | NumDef$ +3",
+    );
+    assert!(
+        wildspeaker.abilities[0].contains("Amount::GreatestPowerAmong(&COUNT"),
+        "expected GreatestPowerAmong in charm draw: {:?}",
+        wildspeaker.abilities
+    );
+
+    let chomp = read_w28c(
+        "Name:Triumphant Chomp\nManaCost:R\nTypes:Sorcery\n\
+         A:SP$ DealDamage | ValidTgts$ Creature | NumDmg$ X\n\
+         SVar:X:Count$Valid Dinosaur.YouCtrl$GreatestCardPower/LimitMin.2",
+    );
+    assert!(
+        chomp.abilities[0].contains("Amount::IfCondition")
+            && chomp.abilities[0].contains("Amount::GreatestPowerAmong(&COUNT")
+            && chomp.abilities[0].contains("otherwise: &Amount::Fixed(2)"),
+        "expected LimitMin.2 GreatestPowerAmong: {:?}",
+        chomp.abilities
+    );
+
+    let prophet = read_w28c(
+        "Name:Prophet of the Scarab\nManaCost:4 U\nTypes:Creature Zombie Wizard\nPT:3/4\n\
+         K:Vigilance\n\
+         T:Mode$ ChangesZone | Origin$ Any | Destination$ Battlefield | ValidCard$ Card.Self | Execute$ TrigDraw\n\
+         SVar:TrigDraw:DB$ Draw | Defined$ You | NumCards$ X\n\
+         SVar:X:Count$Valid Zombie.YouCtrl/LimitMin.Y\n\
+         SVar:Y:Count$ValidGraveyard Zombie.YouOwn",
+    );
+    assert!(
+        prophet.abilities[0].contains("Amount::IfCondition")
+            && prophet.abilities[0].contains("ZoneSel::Battlefield")
+            && prophet.abilities[0].contains("ZoneSel::GraveyardOf(PlayerRel::You)"),
+        "expected LimitMin SVar comparison: {:?}",
+        prophet.abilities
+    );
+
+    let mixed_case_ctr = read_w28c(
+        "Name:Time Battery\nManaCost:3\nTypes:Artifact\n\
+         A:AB$ Mana | Cost$ T | Produced$ C | Amount$ X\n\
+         SVar:X:Count$CardCounters.Time",
+    );
+    assert!(
+        mixed_case_ctr.abilities[0].contains("Amount::CountersOnSource(CounterKind::Time)"),
+        "expected mixed-case CounterKind::Time: {:?}",
+        mixed_case_ctr.abilities
+    );
+
+    // Graveyard `YouCtrl` normalizes to `Filter::OwnedByYou` (CR 404.1 / 108.4a).
+    let gy_mv = read_w28c(
+        "Name:Graveyard MV Probe\nManaCost:2 B\nTypes:Sorcery\n\
+         A:SP$ Draw | Defined$ You | NumCards$ X\n\
+         SVar:X:Count$ValidGraveyard Card.YouCtrl$GreatestCardManaCost",
+    );
+    assert!(
+        gy_mv.statics.contains("Filter::OwnedByYou")
+            && !gy_mv.statics.contains("Filter::ControlledByYou")
+            && gy_mv.statics.contains("Filter::InZone(ZoneRef::Graveyard)"),
+        "expected OwnedByYou + InZone(Graveyard): {}",
+        gy_mv.statics
+    );
+}
+
+#[test]
+fn wave28c_p2_refusal_guards() {
+    // Forge runtime feedback SVar (`AFLifeLost:Number$0`) must never degrade to Fixed(0).
+    assert!(refused_w28c(
+        "Name:Gray Merchant of Asphodel\nManaCost:3 B B\nTypes:Creature Zombie\nPT:2/4\n\
+         T:Mode$ ChangesZone | Origin$ Any | Destination$ Battlefield | ValidCard$ Card.Self | Execute$ TrigLoseLife\n\
+         SVar:TrigLoseLife:DB$ LoseLife | Defined$ Player.Opponent | LifeAmount$ X | SubAbility$ DBGainLife\n\
+         SVar:DBGainLife:DB$ GainLife | Defined$ You | LifeAmount$ AFLifeLost\n\
+         SVar:AFLifeLost:Number$0\n\
+         SVar:X:Count$Devotion.Black"
+    ));
+
+    // Graveyard greatest-power/MV with OppOwn or OppCtrl stays refused (no OwnedByOpponent).
+    assert!(refused_w28c(
+        "Name:Opp Graveyard MV\nManaCost:2 B\nTypes:Sorcery\n\
+         A:SP$ Draw | Defined$ You | NumCards$ X\n\
+         SVar:X:Count$ValidGraveyard Card.OppOwn$GreatestCardManaCost"
+    ));
+    // Non-mana graveyard AlternativeCost and Count$AltCost riders stay refused.
+    assert!(refused_w28c(
+        "Name:Scourge of Nel Toth\nManaCost:5 B B\nTypes:Creature Zombie Dragon\nPT:6/6\n\
+         S:Mode$ AlternativeCost | ValidSA$ Spell.Self | EffectZone$ Graveyard | Cost$ B B Sac<2/Creature>"
+    ));
+    assert!(refused_w28c(
+        "Name:Worldheart Phoenix\nManaCost:3 R\nTypes:Creature Phoenix\nPT:2/2\n\
+         S:Mode$ AlternativeCost | ValidSA$ Spell.Self | EffectZone$ Graveyard | Cost$ W U B R G\n\
+         SVar:AltCostPaid:Count$AltCost.1.0"
+    ));
+    assert!(refused_w28c(
+        "Name:X Graveyard Alt\nManaCost:2 U\nTypes:Creature\nPT:2/2\n\
+         S:Mode$ AlternativeCost | ValidSA$ Spell.Self | EffectZone$ Graveyard | Cost$ X U"
+    ));
+
+    // CombatMana$ True with dynamic amount, Any color, or SpendRestriction stays refused.
+    assert!(refused_w28c(
+        "Name:Dynamic Combat Mana\nManaCost:3 R\nTypes:Creature\nPT:3/3\n\
+         T:Mode$ Attacks | ValidCard$ Card.Self | Execute$ TrigMana\n\
+         SVar:TrigMana:DB$ Mana | Produced$ R | Amount$ X | CombatMana$ True\n\
+         SVar:X:Count$CardPower"
+    ));
+    assert!(refused_w28c(
+        "Name:Any Combat Mana\nManaCost:3 R\nTypes:Creature\nPT:3/3\n\
+         T:Mode$ Attacks | ValidCard$ Card.Self | Execute$ TrigMana\n\
+         SVar:TrigMana:DB$ Mana | Produced$ Any | Amount$ 2 | CombatMana$ True"
+    ));
+
+    // Chosen devotion, duplicate dual devotion, LimitMin.0, and >15 object costs stay refused.
+    assert!(refused_w28c(
+        "Name:Chosen Devotion\nManaCost:2 U\nTypes:Instant\n\
+         A:SP$ Draw | NumCards$ X\nSVar:X:Count$Devotion.Chosen"
+    ));
+    assert!(refused_w28c(
+        "Name:Duplicate Dual Devotion\nManaCost:2 U\nTypes:Instant\n\
+         A:SP$ Draw | NumCards$ X\nSVar:X:Count$DevotionDual.Blue.Blue"
+    ));
+    assert!(refused_w28c(
+        "Name:LimitMin Zero\nManaCost:R\nTypes:Sorcery\n\
+         A:SP$ DealDamage | ValidTgts$ Creature | NumDmg$ X\n\
+         SVar:X:Count$YourLifeTotal/LimitMin.0"
+    ));
+    assert!(refused_w28c(
+        "Name:Too Many Sacrifices\nManaCost:2 B\nTypes:Artifact\n\
+         A:AB$ Draw | Cost$ Sac<16/Treasure> | NumCards$ 1"
+    ));
+    // Multi-object UnlessCost stays refused (PlayerMayPayCostOr holds one CostPart).
+    assert!(refused_w28c(
+        "Name:Jokulmorder\nManaCost:4 U U U\nTypes:Creature Leviathan\nPT:12/12\n\
+         T:Mode$ ChangesZone | Origin$ Any | Destination$ Battlefield | ValidCard$ Card.Self | Execute$ TrigSacUnless\n\
+         SVar:TrigSacUnless:DB$ Sacrifice | UnlessCost$ Sac<5/Land> | UnlessPayer$ You"
     ));
 }

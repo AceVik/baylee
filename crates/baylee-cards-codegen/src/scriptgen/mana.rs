@@ -37,6 +37,11 @@ impl Tx<'_> {
             Some("True") => true,
             Some(other) => return self.deny(format!("`Mana.PersistentMana$ {other}`")),
         };
+        let combat_mana = match p.take("CombatMana").as_deref() {
+            None => false,
+            Some("True") => true,
+            Some(other) => return self.deny(format!("`Mana.CombatMana$ {other}`")),
+        };
         let restrict = match p.take("RestrictValid") {
             None => None,
             Some(valid) => Some(self.spend_restriction(&valid)?),
@@ -45,6 +50,9 @@ impl Tx<'_> {
         let raw = p.take("Amount").unwrap_or_else(|| "1".to_string());
         let fixed = plain_number(&raw, self.svars).and_then(|n| u32::try_from(n).ok());
         let has_modifier = restrict.is_some() || spend_rider.is_some();
+        if combat_mana {
+            return self.wave28c_combat_mana_effects(&produced, fixed, has_modifier, persistent);
+        }
         let effects = if let Some(valid) = produced.strip_prefix("Special EachColorAmong_Valid ") {
             if fixed != Some(1) || has_modifier || persistent {
                 return self.deny("mana source `Special`".to_string());
@@ -696,11 +704,23 @@ impl Tx<'_> {
         if let Some(n) = self.amount_num(raw) {
             return Some(n);
         }
-        let def = match self.svars.get(raw.trim()) {
+        let trimmed = raw.trim();
+        let def = match self.svars.get(trimmed) {
             Some(def) => def.clone(),
-            None if raw.trim().contains('$') => raw.trim().to_string(),
-            None => return self.deny(format!("mana amount `{}`", raw.trim())),
+            None if trimmed.contains('$') => trimmed.to_string(),
+            None => return self.deny(format!("mana amount `{trimmed}`")),
         };
+        // Forge runtime feedback SVars (`AFLifeLost`, etc.) are stubbed as
+        // `Number$0` and overwritten dynamically at resolution; never read them
+        // as a literal zero.
+        if trimmed.starts_with("AF") && trimmed.len() > 2 && def.trim() == "Number$0" {
+            return self.deny(format!("mana amount `{trimmed}`"));
+        }
+        // Same-color mana devotion is lowered earlier via `mono_devotion_mana_amount`
+        // onto `Amount::DevotionToManaColor`; cross-color mana devotion stays refused.
+        if def.trim().starts_with("Count$Devotion") {
+            return self.deny(format!("count `{}`", def.trim()));
+        }
         match self.count_expr(&def) {
             Some(expr) => Some(expr),
             // Named by what it resolves *through* and never by its own
@@ -1271,9 +1291,13 @@ impl Tx<'_> {
         }
         if let Some(kind) = def.strip_prefix("Count$CardCounters.") {
             return super::counter_kind(kind)
+                .or_else(|| super::counter_kind(&kind.to_ascii_uppercase()))
                 .map(|kind| format!("Amount::CountersOnSource({kind})"));
         }
         if let Some(expr) = self.wave27a_count_expr(def, depth, static_only) {
+            return Some(expr);
+        }
+        if let Some(expr) = self.wave28c_count_expr(def, depth, static_only) {
             return Some(expr);
         }
         if let Some(valid) = def
@@ -2234,6 +2258,12 @@ impl Tx<'_> {
             None if trimmed.contains('$') => trimmed.to_string(),
             None => return None,
         };
+        // Forge runtime feedback SVars (`AFLifeLost`, etc.) are stubbed as
+        // `Number$0` and overwritten dynamically at resolution; never degrade
+        // them into `Amount::Fixed(0)`.
+        if trimmed.starts_with("AF") && trimmed.len() > 2 && def.trim() == "Number$0" {
+            return None;
+        }
         if matches!(def.trim(), "Remembered$Amount" | "Count$RememberedSize") {
             if self.capture_scope.is_some() {
                 return Some("Amount::RememberedCount".to_string());
@@ -2869,7 +2899,8 @@ impl Tx<'_> {
             kind,
             "Sac" | "Discard" | "ExileFromGrave" | "Return" | "Exile"
         ) || (self.in_alternative_cost && kind == "ExileFromHand"))
-            && matches!(n, "2" | "3")
+            && n.parse::<usize>()
+                .is_ok_and(|count| (2..=15).contains(&count))
             && !is_self_name;
         let special = sac_x || sac_all || tap_x || discard_x || exile_grave_x || tap_n.is_some();
         if n != "1" && !special && !multi_parts {
