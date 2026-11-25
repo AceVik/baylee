@@ -1,5 +1,7 @@
 //! Operational denominator accounting, enabled only for failure-terminal research.
 use super::{Args, HouseDeck, collector};
+#[cfg(target_os = "linux")]
+use anyhow::Context as _;
 use anyhow::ensure;
 use serde_json::Value;
 use std::sync::Arc;
@@ -63,7 +65,7 @@ impl Ledger {
         }
         #[cfg(not(target_os = "linux"))]
         {
-            let _ = (deal, worker);
+            let _ = (self, deal, worker);
             anyhow::bail!("research attempt accounting requires Linux");
         }
     }
@@ -74,7 +76,7 @@ impl Ledger {
         }
         #[cfg(not(target_os = "linux"))]
         {
-            let _ = row;
+            let _ = (self, row);
             anyhow::bail!("research attempt accounting requires Linux");
         }
     }
@@ -85,7 +87,7 @@ impl Ledger {
         }
         #[cfg(not(target_os = "linux"))]
         {
-            let _ = (worker, reason);
+            let _ = (self, worker, reason);
             anyhow::bail!("research attempt accounting requires Linux");
         }
     }

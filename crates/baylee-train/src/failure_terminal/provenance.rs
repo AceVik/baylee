@@ -67,9 +67,12 @@ fn valid_behavior(
             let supported = crate::features4::supports_behavior_probability4(menu, view, pending);
             // Historical original sidecars may claim an LP for an unsafe menu.
             // Feature replay discards it before publishing any actor target.
-            (!supported || provenance.has_logprob)
-                && (!scalar || !provenance.has_logprob)
-                && (provenance.has_logprob || provenance.behavior_logprob == 0.0)
+            let claimed_where_allowed = if provenance.has_logprob {
+                !scalar
+            } else {
+                !supported && provenance.behavior_logprob == 0.0
+            };
+            claimed_where_allowed
                 && provenance.behavior_logprob.is_finite()
                 && provenance.behavior_logprob <= 0.0
                 && provenance.thinking_steps == 2

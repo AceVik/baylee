@@ -26,6 +26,10 @@ use clap::Parser;
 
 #[derive(Parser)]
 #[command(about = "Play a frozen v4/v5 checkpoint through a gateway; observes every received view")]
+#[allow(
+    clippy::struct_excessive_bools,
+    reason = "Independent switches of one command line"
+)]
 struct Args {
     #[arg(long, default_value = "http://127.0.0.1:28766")]
     gateway: String,

@@ -118,6 +118,10 @@ impl Selection4 {
 /// One searched decision's budgets (counts only, never time) and how it
 /// chooses.
 #[derive(Clone, Copy, Debug, PartialEq, serde::Serialize)]
+#[allow(
+    clippy::struct_excessive_bools,
+    reason = "Each is one of a run's independent settings, recorded by its own name"
+)]
 pub struct SearchConfig4 {
     candidates: usize,
     particles: usize,
@@ -579,6 +583,24 @@ impl SearchConfig4 {
         self.horizon
     }
 
+    /// What [`Self::metadata`] says of a search at combat declarations.
+    fn describe_combat(&self, metadata: &mut Value) {
+        if self.combat == 0 {
+            return;
+        }
+        metadata["combat"] = json!(self.combat);
+        metadata["combat_roots"] =
+            json!("declarations_of_attackers_and_blockers_whose_answer_is_the_policys_own");
+        metadata["combat_candidates"] = json!(
+            "the_policys_declaration_then_none_all_in_and_each_creatures_part_changed_alone_\
+             those_world_0_refuses_dropped"
+        );
+        metadata["combat_prior"] = json!("one_for_the_policys_declaration_zero_for_the_others");
+        if self.combat_only {
+            metadata["roots"] = json!("declarations_of_attackers_and_blockers_only");
+        }
+    }
+
     /// What a run records about its search, so a reader knows exactly what
     /// produced every searched answer.
     #[must_use]
@@ -625,19 +647,7 @@ impl SearchConfig4 {
             metadata["target_follow"] =
                 json!("the_chosen_target_answers_the_seats_next_target_question_at_the_table");
         }
-        if self.combat > 0 {
-            metadata["combat"] = json!(self.combat);
-            metadata["combat_roots"] =
-                json!("declarations_of_attackers_and_blockers_whose_answer_is_the_policys_own");
-            metadata["combat_candidates"] = json!(
-                "the_policys_declaration_then_none_all_in_and_each_creatures_part_changed_alone_\
-                 those_world_0_refuses_dropped"
-            );
-            metadata["combat_prior"] = json!("one_for_the_policys_declaration_zero_for_the_others");
-            if self.combat_only {
-                metadata["roots"] = json!("declarations_of_attackers_and_blockers_only");
-            }
-        }
+        self.describe_combat(&mut metadata);
         if self.fair() {
             metadata["decks"] =
                 json!("public_prior_from_the_seats_view_and_own_list_never_another_players_list");
@@ -1855,8 +1865,9 @@ impl<S> Root<'_, S> {
             Ok(self
                 .rival
                 .and_then(|(index, _)| rival_candidates(self.decision, *index))
-                .map(|pair| pair.into_iter().map(Candidate4::plain).collect())
-                .unwrap_or_default())
+                .map_or_else(Vec::new, |pair| {
+                    pair.into_iter().map(Candidate4::plain).collect()
+                }))
         } else if config.combat > 0 && combat::is_declaration(self.pending) {
             combat::playable(
                 table,
