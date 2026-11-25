@@ -36,7 +36,13 @@ impl Tx<'_> {
             .iter()
             .any(|effect| effect.starts_with("Effect::ChooseCardName {"));
         let saved_name = std::mem::replace(&mut self.has_resolution_chosen_name, chosen_name);
+        let had_lose_life = chain
+            .effects
+            .iter()
+            .any(|effect| effect.contains("Effect::LoseLife {"));
+        let saved_lose_life = std::mem::replace(&mut self.chain_prev_lose_life, had_lose_life);
         let result = self.chain_inner(spec, chain);
+        self.chain_prev_lose_life = saved_lose_life;
         self.has_resolution_chosen_name = saved_name;
         self.has_resolution_chosen_color = saved_color;
         self.has_resolution_chosen_number = saved;
@@ -1312,6 +1318,23 @@ impl Tx<'_> {
                 )
             {
                 effects
+            } else if !second_target_here
+                && !third_target_here
+                && unless.is_none()
+                && dying.is_none()
+                && at_end.is_none()
+                && !optional_counter
+                && let Some(effects) = self.wave28b_chain_step(
+                    &api,
+                    &mut p,
+                    &mut sub,
+                    target.as_deref(),
+                    targets_here,
+                    targets_a_player,
+                    single_target,
+                )
+            {
+                effects
             } else {
                 self.claim_followed_remember_flag(&api, &mut p, sub.as_deref());
                 let Some(effects) = (if second_target_here {
@@ -1523,6 +1546,13 @@ impl Tx<'_> {
                         || chain.target_up_to.is_some_and(|n| n > 1);
                     let single_target = !is_multi_target;
                     let prior_target_used = !targets_here && !chain.effects.is_empty();
+                    let saved_single_obj = std::mem::replace(
+                        &mut self.single_object_target,
+                        single_target
+                            && target
+                                .as_deref()
+                                .is_some_and(|t| t.starts_with("TargetSpec::Object(")),
+                    );
                     let raw = self.effect_of_inner(
                         &api,
                         &mut p,
@@ -1534,6 +1564,7 @@ impl Tx<'_> {
                             prior_target_used,
                         },
                     );
+                    self.single_object_target = saved_single_obj;
                     if api == "GainControl"
                         && is_multi_target
                         && target.is_some()
@@ -1940,6 +1971,9 @@ impl Tx<'_> {
                     effects.join(", ")
                 )]);
             }
+            if let Some(wrapped) = self.wave28b_check_svar_wrap(api, p, &effects) {
+                return Some(wrapped);
+            }
             if let Some(var) = p.peek("ConditionCheckSVar").map(str::to_string) {
                 let cmp = p
                     .peek("ConditionSVarCompare")
@@ -1949,6 +1983,7 @@ impl Tx<'_> {
                     .or_else(|| self.extra_svar_condition_clause(&var, &cmp))
                     .or_else(|| self.wave7_svar_condition(&var, &cmp))
                     .or_else(|| self.wave11_amount_compare_condition(&var, &cmp, true))
+                    .or_else(|| self.wave28b_inline_svar_condition(&var, &cmp))
                 {
                     p.take("ConditionCheckSVar");
                     p.take("ConditionSVarCompare");
@@ -2239,6 +2274,7 @@ impl Tx<'_> {
                 self.present_clause(p, &valid)?
             }
         };
+        let cond = self.wave28b_combine_present_and_svar_cond(p, cond)?;
         if !p.exhausted() {
             if let Some(key) = p.first_key() {
                 self.note(format!("unclaimed parameter `{api}.{key}`"));
@@ -3509,6 +3545,15 @@ impl Tx<'_> {
                         vec![dmg]
                     });
                 }
+                if let Some(fx) = self.wave28b_deal_damage_special(
+                    p,
+                    &num_dmg,
+                    damage_source.as_deref(),
+                    no_prevention,
+                    may,
+                ) {
+                    return Some(fx);
+                }
                 let to = if turn_start_hand.is_some() {
                     "TargetSpec::Player(PlayerRel::You)".to_string()
                 } else {
@@ -3859,6 +3904,9 @@ impl Tx<'_> {
             // The same two readings as `GainLife`: Braingeyser's "target
             // player draws X cards".
             "Draw" => {
+                if let Some(fx) = self.wave28b_draw_effect(p, target, targets_a_player) {
+                    return Some(fx);
+                }
                 let n = self.amount_or_count_ext(p.take("NumCards").as_deref().unwrap_or("1"))?;
                 let mut may = match p.take("OptionalDecider").as_deref() {
                     None => false,
@@ -4280,7 +4328,16 @@ impl Tx<'_> {
                         return Some(emit_filter(&format!("&{name}")));
                     }
                     None | Some("Self") => {}
-                    Some(_) => return None,
+                    Some(other) => {
+                        return self.wave28b_put_counter_defined(
+                            other,
+                            target,
+                            targets_here,
+                            targets_a_player,
+                            single_target,
+                            &specs,
+                        );
+                    }
                 }
                 emit_target()
             }
@@ -5394,7 +5451,7 @@ impl Tx<'_> {
         })
     }
 
-    fn collect_counter_specs<'a>(
+    pub(super) fn collect_counter_specs<'a>(
         codes: &'a str,
         amount: &str,
     ) -> Result<Vec<(String, String)>, &'a str> {
@@ -6943,6 +7000,7 @@ impl Tx<'_> {
             return Some(rel);
         }
         self.player_of_line(defined, target, targets_a_player)
+            .or_else(|| self.wave28b_player_of_line(defined, target, targets_a_player))
     }
 
     fn wave11_object_matches_condition(

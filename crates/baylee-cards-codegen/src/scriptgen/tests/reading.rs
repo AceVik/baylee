@@ -697,11 +697,28 @@ fn a_may_with_a_generic_price_is_a_payment_that_buys_the_clause() {
         "{life_text}"
     );
 
-    let script = parse(
+    let mana_and_life_text = read(
         "Name:X\nManaCost:1\nTypes:Artifact\n\
          T:Mode$ SpellCast | ValidCard$ Card.Blue | TriggerZones$ Battlefield \
          | OptionalDecider$ You | Execute$ TrigGainLife | TriggerDescription$ x.\n\
          SVar:TrigGainLife:AB$ GainLife | Cost$ 1 PayLife<1> | Defined$ You | LifeAmount$ 1",
+    )
+    .abilities
+    .join("\n");
+    assert!(
+        mana_and_life_text.contains(
+            "Effect::PlayerMayPayManaAndLifeEachThenElse { player: PlayerRel::You, \
+             mana: mana!(\"{1}\"), life: 1, times: Amount::Fixed(1), \
+             paid: &[Effect::gain_life(1)], unpaid: &[] }"
+        ),
+        "{mana_and_life_text}"
+    );
+
+    let script = parse(
+        "Name:X\nManaCost:1\nTypes:Artifact\n\
+         T:Mode$ SpellCast | ValidCard$ Card.Blue | TriggerZones$ Battlefield \
+         | OptionalDecider$ You | Execute$ TrigGainLife | TriggerDescription$ x.\n\
+         SVar:TrigGainLife:AB$ GainLife | Cost$ 1 PayLife<1> Discard<1/Card> | Defined$ You | LifeAmount$ 1",
     );
     assert_eq!(
         refusal_reason(&script, &cats(), None).as_deref(),

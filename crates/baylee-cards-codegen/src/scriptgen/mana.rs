@@ -1276,6 +1276,9 @@ impl Tx<'_> {
         if let Some(expr) = self.wave27a_count_expr(def, depth, static_only) {
             return Some(expr);
         }
+        if let Some(expr) = self.wave28b_count_expr(def, depth, static_only) {
+            return Some(expr);
+        }
         if let Some(valid) = def
             .strip_prefix("Count$ValidBattlefield,Graveyard ")
             .or_else(|| def.strip_prefix("Count$ValidGraveyard,Battlefield "))

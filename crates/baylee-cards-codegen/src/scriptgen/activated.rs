@@ -11,7 +11,28 @@ pub(super) enum OptionalTriggerPrice {
     Printed(String),
     Life(String),
     CostPart(String),
-    SacrificeN { filter: String, count: u8 },
+    SacrificeN {
+        filter: String,
+        count: u8,
+    },
+    DiscardHand,
+    RemoveCounterSelf {
+        kind: String,
+        n: u32,
+    },
+    ExileFromGraveyardN {
+        count: u8,
+        filter: String,
+    },
+    ManaAndLife {
+        mana: String,
+        life: u32,
+    },
+    ChooseNumberPay {
+        pay_kind: &'static str,
+        prompt: &'static str,
+        max: String,
+    },
 }
 
 enum Wave14aCost {
@@ -846,9 +867,11 @@ impl Tx<'_> {
             && cost.is_some_and(|c| cost_parts(c).iter().any(|t| Self::is_sac_self_token(t)));
         self.cost_sacrifices_other =
             cost.is_some_and(|c| cost_parts(c).iter().any(|t| Self::is_sac_other_token(t)));
+        self.cost_discards_single_for_cost = cost.is_some_and(Self::wave28b_cost_discards_single);
         let chain_ok = self.chain(&stripped.join(" | "), &mut chain);
         self.cost_sacrifices_self = false;
         self.cost_sacrifices_other = false;
+        self.cost_discards_single_for_cost = false;
         if chain_ok.is_none() {
             if self.unclaimed.borrow().is_none() {
                 let api = Params::parse(spec).map_or_else(|| "ability".to_string(), |(a, _)| a);
@@ -3498,11 +3521,11 @@ impl Tx<'_> {
         };
         let Some((mana, cost_parts)) = parsed else {
             *self.unclaimed.borrow_mut() = saved_unclaimed;
-            return None;
+            return self.wave28b_optional_trigger_price(body);
         };
         if !mana.is_empty() {
             *self.unclaimed.borrow_mut() = saved_unclaimed;
-            return None;
+            return self.wave28b_optional_trigger_price(body);
         }
         let result = match cost_parts.as_slice() {
             [one] => {
@@ -3539,10 +3562,11 @@ impl Tx<'_> {
             }
             _ => None,
         };
-        if result.is_none() {
-            *self.unclaimed.borrow_mut() = saved_unclaimed;
+        if let Some(price) = result {
+            return Some((rest, price));
         }
-        result.map(|price| (rest, price))
+        *self.unclaimed.borrow_mut() = saved_unclaimed;
+        self.wave28b_optional_trigger_price(body)
     }
 }
 

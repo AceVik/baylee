@@ -74,6 +74,7 @@ mod wave27b;
 mod wave27c;
 mod wave27d;
 mod wave27e;
+mod wave28b;
 
 use atoms::{
     Bound, amount, color_atom, count_bound, hybrid_pair, keyword_atom, mana_color_const,
@@ -493,6 +494,22 @@ struct Tx<'a> {
     cost_sacrifices_self: bool,
     /// Whether the activated ability being read sacrifices another object in its cost.
     cost_sacrifices_other: bool,
+    /// Whether the spell/ability cost discards a single card (`Discard<1/...>`).
+    cost_discards_single_for_cost: bool,
+    /// Whether the active damage trigger binds `event_object` to the damage source.
+    damage_trigger_binds_source: bool,
+    /// Whether the active damage trigger's `ValidSource$` is the attached permanent.
+    damage_trigger_source_is_attached: bool,
+    /// Whether the active damage trigger is a combat-damage trigger.
+    damage_trigger_is_combat: bool,
+    /// Whether the active trigger/chapter body runs inside an optional `DiscardHand` payment.
+    in_discard_hand_may: bool,
+    /// Whether the active trigger/chapter body runs inside a `ChooseNumberEx` `X` payment.
+    in_resolution_chosen_x: bool,
+    /// Whether an earlier instruction in this chain emitted `Effect::LoseLife`.
+    chain_prev_lose_life: bool,
+    /// Whether the line currently being lowered has a single object target.
+    single_object_target: bool,
     /// Whether the script's `ManaCost:` line contains a variable `X`.
     has_x_mana_cost: bool,
     /// Whether the script carries `K:Flash`, for timing-sensitive keyword guards.
@@ -626,6 +643,14 @@ impl<'a> Tx<'a> {
             has_resolution_chosen_name: false,
             cost_sacrifices_self: false,
             cost_sacrifices_other: false,
+            cost_discards_single_for_cost: false,
+            damage_trigger_binds_source: false,
+            damage_trigger_source_is_attached: false,
+            damage_trigger_is_combat: false,
+            in_discard_hand_may: false,
+            in_resolution_chosen_x: false,
+            chain_prev_lose_life: false,
+            single_object_target: false,
             has_x_mana_cost: script.has_x_mana_cost,
             has_flash: script.keywords.iter().any(|k| k.trim() == "Flash"),
             has_single_kicker: !multi_or_dual && single_kickers == 1,

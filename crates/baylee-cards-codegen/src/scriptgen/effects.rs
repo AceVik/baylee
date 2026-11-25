@@ -9317,6 +9317,11 @@ impl Tx<'_> {
     }
 
     pub(super) fn amount_or_count_ext(&mut self, raw: &str) -> Option<String> {
+        if raw.trim() == "AFLifeLost" {
+            return (self.chain_prev_lose_life
+                && self.svars.get("AFLifeLost").map(|s| s.trim()) == Some("Number$0"))
+            .then(|| "Amount::ThisWay(ThisWay::LifeLost)".to_string());
+        }
         let saved_unclaimed = self.unclaimed.borrow().clone();
         let saved_statics_len = self.body.statics.len();
         if let Some(expr) = self.amount_or_count(raw) {
@@ -9333,6 +9338,9 @@ impl Tx<'_> {
             .trim()
             .to_string();
         if let Some(expr) = self.wave6_count_expr_depth(&resolved, 0) {
+            return Some(expr);
+        }
+        if let Some(expr) = self.wave28b_amount_ext(trimmed, &resolved) {
             return Some(expr);
         }
         *self.unclaimed.borrow_mut() = after_unclaimed;
@@ -9620,6 +9628,7 @@ impl Tx<'_> {
             .to_string();
         self.wave6_count_expr_depth(&inner, depth + 1)
             .or_else(|| self.amount_or_count(trimmed))
+            .or_else(|| self.wave28b_amount_ext(trimmed, &inner))
     }
 
     #[allow(clippy::too_many_lines)]

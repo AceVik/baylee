@@ -45,6 +45,12 @@ impl Tx<'_> {
         if api != "DealDamage" {
             return Some(false);
         }
+        if p.peek("Defined") == Some("You")
+            && p.peek("OptionalDecider") == Some("You")
+            && self.sub_is_api(sub.as_deref(), "ImmediateTrigger")
+        {
+            return Some(false);
+        }
         p.take("RememberDamaged");
         self.damage_recipient_regeneration(sub.as_deref()?)?;
         *sub = None;
@@ -264,7 +270,21 @@ impl Tx<'_> {
     pub(super) fn damage_recipient_regeneration(&self, name: &str) -> Option<()> {
         let (api, mut p) = Params::parse(self.svars.get(name)?)?;
         p.drop_prose();
-        if api != "Effect" || p.take("RememberObjects").as_deref() != Some("Remembered.Creature") {
+        if api != "Effect" {
+            return self.deny("a damage memory consumed by another effect or recipient set".into());
+        }
+        let remembers_creatures = match p.take("RememberObjects").as_deref() {
+            Some("Remembered.Creature") => true,
+            Some("Remembered")
+                if p.take("ConditionDefined").as_deref() == Some("Remembered")
+                    && p.take("ConditionPresent").as_deref() == Some("Creature")
+                    && matches!(p.take("ConditionCompare").as_deref(), None | Some("GE1")) =>
+            {
+                true
+            }
+            _ => false,
+        };
+        if !remembers_creatures {
             return self.deny("a damage memory consumed by another effect or recipient set".into());
         }
         let ends = p.take("ExileOnMoved").or_else(|| p.take("ForgetOnMoved"));
