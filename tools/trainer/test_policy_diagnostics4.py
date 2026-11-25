@@ -284,13 +284,17 @@ class Diagnostics(unittest.TestCase):
                 self.assertTrue(torch.equal(a[key],b[key]),key)
             else:
                 np.testing.assert_array_equal(np.asarray(a[key]),np.asarray(b[key]),err_msg=key)
-        # A sampled net frame's masks read the same too.
+        # A sampled net frame reads the same too: a categorical answer keeps its certified
+        # probability, a subset's draw has none (injective_categorical_menu_v1).
         def sampled(raw):
             raw=bytearray(raw);flags=struct.unpack_from('<I',raw,24)[0]
             struct.pack_into('<I',raw,24,flags|4);struct.pack_into('<I',raw,36,0)
             struct.pack_into('<ff',raw,80,-.5,1.);return bytes(raw)
-        self.assertTrue(_bst4_choice(sampled(plain)))
-        self.assertTrue(_bst4_choice(sampled(distilled)))
+        categorical=pack_step_bst4(dict(step,head=0),{})
+        for raw in (categorical,categorical+block()):
+            self.assertTrue(_bst4_choice(sampled(raw)))
+        for raw in (plain,distilled):
+            self.assertFalse(_bst4_choice(sampled(raw)))
 
     def test_loader_pins_only_cuda_without_initializing_gpu(self):
         import diagnose_policy4

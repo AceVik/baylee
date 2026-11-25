@@ -242,7 +242,7 @@ def check_advantage_options(args, parser):
     if not (math.isfinite(args.distill_advantage_beta) and args.distill_advantage_beta > 0
             and math.isfinite(args.distill_advantage_clip) and args.distill_advantage_clip > 0):
         parser.error("--distill-advantage-beta and --distill-advantage-clip must be positive and finite")
-    if not (math.isfinite(args.distill_advantage_weight) and args.distill_advantage_weight >= 0):
-        parser.error("--distill-advantage-weight must be nonnegative and finite")
+    if not (math.isfinite(args.distill_advantage_weight) and args.distill_advantage_weight > 0):
+        parser.error("--distill-advantage-weight must be positive and finite: at 0 the run learns from no probe")
     if args.distill_advantage_min_worlds < 1:
         parser.error("--distill-advantage-min-worlds must be at least 1")
