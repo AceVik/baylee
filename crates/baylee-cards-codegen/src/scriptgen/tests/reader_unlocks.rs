@@ -3305,11 +3305,18 @@ fn wave10b_move_counter_and_move_counter_to_event() {
         "Name:MoveAll\nManaCost:1 U\nTypes:Instant\n\
          A:SP$ MoveCounter | Source$ Self | ValidTgts$ Creature | CounterType$ All | CounterNum$ All"
     ));
-    assert!(refused(
+    let move_unique = read(
         "Name:MoveUnique\nTypes:Land\n\
          A:AB$ TargetOnly | Cost$ 1 T | ValidTgts$ Permanent.YouCtrl | SubAbility$ Move\n\
-         SVar:Move:DB$ MoveCounter | Source$ ParentTarget | ValidTgts$ Permanent | TargetUnique$ True | CounterType$ Any | CounterNum$ 1"
-    ));
+         SVar:Move:DB$ MoveCounter | Source$ ParentTarget | ValidTgts$ Permanent | TargetUnique$ True | CounterType$ Any | CounterNum$ 1",
+    );
+    assert!(
+        move_unique.abilities[0].contains(
+            "Effect::MoveCounter { from: TargetSlot::First, to: TargetSlot::Second, kind: None }"
+        ) && move_unique.abilities[0].contains("TargetConstraint::DistinctFromPriorTargetGroups"),
+        "{}",
+        move_unique.abilities[0]
+    );
 }
 
 #[test]
@@ -7676,4 +7683,285 @@ fn post_blocker_text_is_checked_against_spell_timing() {
         "Text:Cast CARDNAME only during combat after blockers are declared.",
         "Text:Cast CARDNAME only before combat."
     )));
+}
+
+fn cg_test_cats() -> SubtypeCatalogs {
+    let mut c = cats();
+    for s in ["Cyclops", "Beast", "Zombie", "Angel", "Human", "Rogue"] {
+        c.creature.push(s.into());
+    }
+    for s in ["Aura", "Role"] {
+        c.enchantment.push(s.into());
+    }
+    c.artifact.push("Treasure".into());
+    c.normalize();
+    c
+}
+
+fn cg_test_tokens() -> TokenLookup {
+    TokenLookup::held(&[
+        (
+            "g_4_4_beast_trample",
+            "Name:Beast\nTypes:Creature Beast\nColors:green\nPT:4/4\nK:Trample",
+        ),
+        (
+            "walker",
+            "Name:Walker\nTypes:Creature Zombie\nColors:black\nPT:2/2",
+        ),
+        (
+            "role_monster",
+            "Name:Monster\nTypes:Enchantment Aura Role\nK:Enchant:Creature\n\
+             S:Mode$ Continuous | Affected$ Creature.EnchantedBy | AddPower$ 1 | AddToughness$ 1 | AddKeyword$ Trample",
+        ),
+        (
+            "smoke_blessing",
+            "Name:Smoke Blessing\nTypes:Enchantment Aura\nColors:red\nK:Enchant:Creature\n\
+             T:Mode$ ChangesZone | Origin$ Battlefield | Destination$ Graveyard | ValidCard$ Card.EnchantedBy | Execute$ TrigDamage\n\
+             SVar:TrigDamage:DB$ DealDamage | Defined$ TriggeredCardController | DamageSource$ TriggeredCard | NumDmg$ 1 | SubAbility$ DBTreasure\n\
+             SVar:DBTreasure:DB$ Token | TokenScript$ c_a_treasure_sac",
+        ),
+        (
+            "c_a_treasure_sac",
+            "Name:Treasure\nTypes:Artifact Treasure\n\
+             A:AB$ Mana | Cost$ T Sac<1/CARDNAME/this token> | Produced$ Any",
+        ),
+    ])
+}
+
+fn cg_read(text: &str) -> CardBody {
+    let parsed = parse(text);
+    let c = cg_test_cats();
+    let t = cg_test_tokens();
+    transcode(&parsed, &c, Some(&t)).unwrap_or_else(|| {
+        panic!(
+            "should be read in full, refused: {:?}",
+            refusal_reason(&parsed, &c, Some(&t))
+        )
+    })
+}
+
+fn cg_refused(text: &str) -> bool {
+    let parsed = parse(text);
+    let c = cg_test_cats();
+    let t = cg_test_tokens();
+    transcode(&parsed, &c, Some(&t)).is_none()
+}
+
+#[test]
+fn cg_destroy_defined_and_countered_source() {
+    let dread = cg_read(
+        "Name:Dread\nManaCost:3 B B B\nTypes:Creature Elemental Incarnation\nPT:6/6\n\
+         T:Mode$ DamageDone | ValidSource$ Creature.inZoneBattlefield | ValidTarget$ You | Execute$ TrigDestroy | TriggerZones$ Battlefield\n\
+         SVar:TrigDestroy:DB$ Destroy | Defined$ TriggeredSourceLKICopy",
+    );
+    assert!(
+        dread.abilities[0].contains("Effect::destroy(TargetSpec::EventObject)"),
+        "{:?}",
+        dread.abilities
+    );
+    assert!(cg_refused(
+        "Name:LilianasTalentProxy\nManaCost:B B\nTypes:Enchantment Aura\nK:Enchant:Planeswalker\n\
+         T:Mode$ DamageDone | ValidSource$ Creature.inZoneBattlefield | ValidTarget$ Planeswalker.EnchantedBy | Execute$ TrigDestroy | TriggerZones$ Battlefield\n\
+         SVar:TrigDestroy:DB$ Destroy | Defined$ TriggeredSourceLKICopy"
+    ));
+
+    let sentry = cg_read(
+        "Name:Loyal Sentry\nManaCost:W\nTypes:Creature Human Soldier\nPT:1/1\n\
+         T:Mode$ AttackerBlocked | ValidCard$ Creature | ValidBlocker$ Card.Self | Execute$ TrigDestroy\n\
+         SVar:TrigDestroy:DB$ Destroy | Defined$ TriggeredAttackerLKICopy & Self",
+    );
+    assert!(
+        sentry.abilities[0].contains("Effect::destroy(TargetSpec::EventObject)")
+            && sentry.abilities[0].contains("Effect::destroy(TargetSpec::ThisObject)"),
+        "{:?}",
+        sentry.abilities
+    );
+
+    let quiet = cg_read(
+        "Name:Quiet Disrepair\nManaCost:1 G\nTypes:Enchantment Aura\nK:Enchant:Artifact,Enchantment\n\
+         T:Mode$ Phase | Phase$ Upkeep | ValidPlayer$ You | Execute$ TrigCharm | TriggerZones$ Battlefield\n\
+         SVar:TrigCharm:DB$ Charm | Choices$ Destroy,GainLife\n\
+         SVar:Destroy:DB$ Destroy | Defined$ Enchanted\n\
+         SVar:GainLife:DB$ GainLife | LifeAmount$ 2",
+    );
+    assert!(
+        quiet.abilities[1].contains(
+            "Effect::DestroyAll { filter: &Filter::AttachedToBySource, no_regen: false }"
+        ),
+        "{:?}",
+        quiet.abilities
+    );
+    assert!(cg_refused(
+        "Name:SpinalGraftProxy\nManaCost:1 B\nTypes:Enchantment Aura\nK:Enchant:Creature\n\
+         T:Mode$ BecomesTarget | ValidTarget$ Card.AttachedBy | TriggerZones$ Battlefield | Execute$ TrigDestroy\n\
+         SVar:TrigDestroy:DB$ Destroy | Defined$ TriggeredTargetLKICopy | NoRegen$ True"
+    ));
+
+    let depressurize = cg_read(
+        "Name:Depressurize\nManaCost:1 B\nTypes:Instant\n\
+         A:SP$ Pump | ValidTgts$ Creature | NumAtt$ -3 | SubAbility$ DBDestroy\n\
+         SVar:DBDestroy:DB$ Destroy | Defined$ Targeted.powerLE0",
+    );
+    assert!(
+        depressurize.abilities[0].contains("Effect::IfTargetMatches")
+            && depressurize.statics.contains("Filter::PowerAtMost(0)"),
+        "{:?}\n{}",
+        depressurize.abilities,
+        depressurize.statics
+    );
+
+    let eye_gouge = cg_read(
+        "Name:Eye Gouge\nManaCost:B\nTypes:Instant\n\
+         A:SP$ Pump | ValidTgts$ Creature | NumAtt$ -1 | NumDef$ -1 | IsCurse$ True | SubAbility$ DBDestroy\n\
+         SVar:DBDestroy:DB$ Destroy | Defined$ ParentTarget | ConditionDefined$ ParentTarget | ConditionPresent$ Cyclops",
+    );
+    assert!(
+        eye_gouge.abilities[0].contains("Effect::IfTargetMatches")
+            && eye_gouge.statics.contains("subtypes::creature::CYCLOPS"),
+        "{:?}\n{}",
+        eye_gouge.abilities,
+        eye_gouge.statics
+    );
+
+    let ouphe = cg_read(
+        "Name:Ouphe Vandals\nManaCost:2 G\nTypes:Creature Ouphe Rogue\nPT:2/2\n\
+         A:AB$ Counter | Cost$ G Sac<1/CARDNAME> | TargetType$ Activated | ValidTgts$ Artifact | SubAbility$ DBDestroy | RememberCountered$ True\n\
+         SVar:DBDestroy:DB$ Destroy | Defined$ Remembered | SubAbility$ DBCleanup\n\
+         SVar:DBCleanup:DB$ Cleanup | ClearRemembered$ True",
+    );
+    assert!(
+        ouphe.abilities[0].contains("Effect::CounterTargetAbility")
+            && ouphe.abilities[0].contains("Effect::DestroyCounteredAbilitySource"),
+        "{:?}",
+        ouphe.abilities
+    );
+    assert!(cg_refused(
+        "Name:BadOupheNoRegen\nManaCost:2 G\nTypes:Creature Ouphe\nPT:2/2\n\
+         A:AB$ Counter | Cost$ G Sac<1/CARDNAME> | TargetType$ Activated | ValidTgts$ Artifact | SubAbility$ DBDestroy | RememberCountered$ True\n\
+         SVar:DBDestroy:DB$ Destroy | Defined$ Remembered | NoRegen$ True | SubAbility$ DBCleanup\n\
+         SVar:DBCleanup:DB$ Cleanup | ClearRemembered$ True"
+    ));
+}
+
+#[test]
+fn cg_player_static_zones_and_repeat_targeted_tokens() {
+    let druid = cg_read(
+        "Name:Druid Class\nManaCost:1 G\nTypes:Enchantment Class\n\
+         K:Class:2:2 G:AddStaticAbility$ SLandPlay\n\
+         SVar:SLandPlay:Mode$ Continuous | Affected$ You | AdjustLandPlays$ 1 | Secondary$ True",
+    );
+    assert!(
+        druid.abilities.iter().any(|a| {
+            a.contains("Modifier::ExtraLandDrops(1)")
+                && a.contains("Condition::ClassLevelAtLeast(2)")
+        }),
+        "{:?}",
+        druid.abilities
+    );
+
+    let untouchable = cg_read(
+        "Name:I Am Untouchable\nManaCost:no cost\nTypes:Ongoing Scheme\n\
+         S:Mode$ Continuous | EffectZone$ Command | Affected$ You,Permanent.YouCtrl | AddKeyword$ Hexproof",
+    );
+    assert!(
+        untouchable.abilities.iter().any(|a| {
+            a.contains("Modifier::PlayerHexproof { who: PlayerRel::You }")
+                && a.contains("ZoneRef::Command")
+        }) && untouchable.abilities.iter().any(|a| {
+            a.contains("Modifier::AddKeyword(KeywordSet::HEXPROOF)")
+                && a.contains("ZoneRef::Command")
+        }),
+        "{:?}",
+        untouchable.abilities
+    );
+
+    let brutes = cg_read(
+        "Name:Become Brutes\nManaCost:1 R\nTypes:Sorcery\n\
+         A:SP$ Pump | TargetMin$ 1 | KW$ Haste | TargetMax$ 2 | ValidTgts$ Creature | SubAbility$ DBRepeat\n\
+         SVar:DBRepeat:DB$ RepeatEach | DefinedCards$ Targeted | Zone$ Battlefield | RepeatSubAbility$ DBToken | ChangeZoneTable$ True\n\
+         SVar:DBToken:DB$ Token | TokenScript$ role_monster | AttachedTo$ Remembered",
+    );
+    assert!(
+        brutes.abilities[0].contains("Effect::ForEachTarget")
+            && brutes.abilities[0].contains("Effect::CreateTokenAttached")
+            && brutes.abilities[0].contains("AttachHost::Spec(TargetSpec::EventObject)"),
+        "{:?}",
+        brutes.abilities
+    );
+
+    let smoke = cg_read(
+        "Name:Smoke Spirits Aid\nManaCost:X R\nTypes:Sorcery\n\
+         A:SP$ RepeatEach | ChangeZoneTable$ True | DefinedCards$ Targeted | RepeatSubAbility$ DBToken | ValidTgts$ Creature | TargetMin$ 0 | TargetMax$ X\n\
+         SVar:DBToken:DB$ Token | TokenScript$ smoke_blessing | AttachedTo$ Remembered\n\
+         SVar:X:Count$xPaid",
+    );
+    assert!(
+        smoke.abilities[0].contains("TargetReq::up_to_x")
+            && smoke.abilities[0].contains("Effect::ForEachTarget")
+            && smoke.abilities[0].contains("Effect::CreateTokenAttached"),
+        "{:?}",
+        smoke.abilities
+    );
+
+    assert!(cg_refused(
+        "Name:BadRepeatGraveyardTokens\nManaCost:6 G G\nTypes:Creature Elephant\nPT:9/9\n\
+         T:Mode$ ChangesZone | Origin$ Any | Destination$ Battlefield | ValidCard$ Card.Self | Execute$ TrigDestroy\n\
+         SVar:TrigDestroy:DB$ Destroy | TargetMin$ 0 | TargetMax$ 3 | ValidTgts$ Permanent.nonCreature | SubAbility$ MakeTokens\n\
+         SVar:MakeTokens:DB$ RepeatEach | RepeatSubAbility$ DBToken | DefinedCards$ Targeted | ChangeZoneTable$ True\n\
+         SVar:DBToken:DB$ Token | ConditionDefined$ Remembered | ConditionPresent$ Card.inRealZoneGraveyard | TokenScript$ walker | TokenOwner$ RememberedController"
+    ));
+}
+
+#[test]
+fn cg_remember_sacrificed_followups() {
+    let garruk = cg_read(
+        "Name:GarrukProxy\nManaCost:3 B B\nTypes:Legendary Planeswalker Garruk\nLoyalty:5\n\
+         A:AB$ Sacrifice | Cost$ SubCounter<2/LOYALTY> | Planeswalker$ True | SacValid$ Creature | Defined$ Player | RememberSacrificed$ True | SubAbility$ DBToken\n\
+         SVar:DBToken:DB$ Token | TokenScript$ g_4_4_beast_trample | TokenOwner$ You | ConditionDefined$ Remembered | ConditionPresent$ Creature.YouCtrl | SubAbility$ DBCleanup\n\
+         SVar:DBCleanup:DB$ Cleanup | ClearRemembered$ True",
+    );
+    assert!(
+        garruk.abilities[0].contains("Effect::CaptureAffected")
+            && garruk.abilities[0].contains("ThisWay::SacrificedCount"),
+        "{:?}",
+        garruk.abilities
+    );
+
+    let tevesh = cg_read(
+        "Name:TeveshProxy\nManaCost:4 B\nTypes:Legendary Planeswalker Szat\nLoyalty:4\n\
+         A:AB$ Sacrifice | Cost$ AddCounter<1/LOYALTY> | Planeswalker$ True | SacValid$ Creature.Other,Planeswalker.Other | Optional$ True | RememberSacrificed$ True | SubAbility$ DBDraw\n\
+         SVar:DBDraw:DB$ Draw | Defined$ You | NumCards$ 2 | ConditionDefined$ Remembered | ConditionPresent$ Card | ConditionCompare$ GE1 | SubAbility$ DBDraw2\n\
+         SVar:DBDraw2:DB$ Draw | Defined$ You | NumCards$ 1 | ConditionDefined$ Remembered | ConditionPresent$ Card.IsCommander | ConditionCompare$ GE1",
+    );
+    assert!(
+        tevesh.abilities[0].contains("Condition::CapturedMatches")
+            && tevesh.abilities[0].contains("Effect::draw(2)")
+            && tevesh.abilities[0].contains("Effect::draw(1)"),
+        "{:?}",
+        tevesh.abilities
+    );
+
+    let lucille = cg_read(
+        "Name:Lucille\nManaCost:1 B\nTypes:Legendary Artifact Equipment\n\
+         T:Mode$ Attacks | ValidCard$ Card.EquippedBy | Execute$ TrigSac\n\
+         SVar:TrigSac:DB$ Sacrifice | Defined$ TriggeredDefendingPlayer | SacValid$ Creature | Amount$ 1 | RememberSacrificed$ True | SubAbility$ DBToken\n\
+         SVar:DBToken:DB$ Token | ConditionDefined$ Remembered | ConditionPresent$ Card | ConditionCompare$ GE1 | TokenScript$ walker | TokenOwner$ You | LockTokenScript$ True | SubAbility$ DBCleanup\n\
+         SVar:DBCleanup:DB$ Cleanup | ClearRemembered$ True\n\
+         K:Equip:4",
+    );
+    assert!(
+        lucille.abilities[1].contains("PlayerRel::DefendingPlayer")
+            && lucille.abilities[1].contains("Effect::CaptureAffected"),
+        "{:?}",
+        lucille.abilities
+    );
+
+    assert!(cg_refused(
+        "Name:BurnTogetherProxy\nManaCost:R\nTypes:Sorcery Adventure\n\
+         A:SP$ TargetOnly | ValidTgts$ Creature.YouCtrl | RememberObjects$ ThisTargetedCard | SubAbility$ DBDamage\n\
+         SVar:DBDamage:DB$ DealDamage | ValidTgts$ Any | DamageSource$ ParentTarget | NumDmg$ X | TargetUnique$ True | SubAbility$ DBSac\n\
+         SVar:DBSac:DB$ SacrificeAll | Defined$ Remembered | SubAbility$ DBCleanup\n\
+         SVar:DBCleanup:DB$ Cleanup | ClearRemembered$ True\n\
+         SVar:X:ParentTargeted$CardPower"
+    ));
 }

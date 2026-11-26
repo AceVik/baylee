@@ -1258,6 +1258,7 @@ impl Tx<'_> {
                 .or_else(|| {
                     self.wave30c_sac_remember_sacrificed_chain(&mut p, &mut sub, targets_here)
                 })
+                .or_else(|| self.sac_remember_sacrificed_followup(&mut p, &mut sub, targets_here))
         {
             effects
         } else if !second_target_here
@@ -3276,7 +3277,7 @@ impl Tx<'_> {
                     is_obj_spec
                         && single_object_first
                         && p.peek("Source") == Some("ParentTarget")
-                        && !has_target_unique
+                        && (!has_target_unique || p.peek("TargetUnique") == Some("True"))
                         && no_riders(p)
                 }
                 "TargetOnly" => {
@@ -3400,6 +3401,11 @@ impl Tx<'_> {
             ) {
                 chain.second_target_range = Some(r);
             }
+            if api == "MoveCounter" && p.peek("TargetUnique") == Some("True") {
+                p.take("TargetUnique");
+                chain.second_target_constraint =
+                    Some("TargetConstraint::DistinctFromPriorTargetGroups");
+            }
             chain.second_target = Some(spec);
         } else {
             if p.peek("TargetUnique") == Some("True")
@@ -3488,6 +3494,7 @@ impl Tx<'_> {
                         && p.peek("Object") == Some("Targeted")
                         && p.peek("Defined") == Some("Self"))
                     || (api == "Effect" && p.peek("RememberObjects") == Some("Targeted"))
+                    || (api == "RepeatEach" && p.peek("DefinedCards") == Some("Targeted"))
                     || (api == "ChangeZone"
                         && (matches!(
                             (p.peek("Origin"), p.peek("Destination")),
@@ -3549,6 +3556,16 @@ impl Tx<'_> {
                     p.take("TargetMin");
                     p.take("TargetMax");
                     chain.target_is_x = true;
+                } else if self.has_x
+                    && api == "RepeatEach"
+                    && p.peek("DefinedCards") == Some("Targeted")
+                    && p.peek("TargetMin") == Some("0")
+                    && let Some(max) = p.peek("TargetMax")
+                    && self.svars.get(max.trim()).map(|s| s.trim()) == Some("Count$xPaid")
+                {
+                    p.take("TargetMin");
+                    p.take("TargetMax");
+                    chain.target_up_to_x = true;
                 } else if (multi_target_ok
                     || matches!(
                         api,
@@ -5475,11 +5492,45 @@ impl Tx<'_> {
                     Some("True") => true,
                     Some(_) => return None,
                 };
+                if self.countered_this_way
+                    && !targets_here
+                    && target.is_some_and(|t| {
+                        t.starts_with("TargetSpec::ActivatedAbility(")
+                            || t.starts_with("TargetSpec::AbilityOnStack(")
+                            || t.starts_with("TargetSpec::SpellOrAbility(")
+                    })
+                    && p.peek("Defined") == Some("Remembered")
+                    && !no_regen
+                {
+                    p.take("Defined");
+                    return Some(vec!["Effect::DestroyCounteredAbilitySource".to_string()]);
+                }
+                if !self.on_a_spell
+                    && target.is_none()
+                    && self.trigger_mode.as_deref() != Some("BecomesTarget")
+                    && matches!(p.peek("Defined"), Some("Enchanted" | "Equipped"))
+                {
+                    p.take("Defined");
+                    return Some(vec![format!(
+                        "Effect::DestroyAll {{ filter: &Filter::AttachedToBySource, no_regen: {no_regen} }}"
+                    )]);
+                }
                 let verb = if no_regen {
                     "destroy_no_regen"
                 } else {
                     "destroy"
                 };
+                if self.trigger_blocks_creature
+                    && target.is_none()
+                    && !self.on_a_spell
+                    && p.peek("Defined") == Some("TriggeredAttackerLKICopy & Self")
+                {
+                    p.take("Defined");
+                    return Some(vec![
+                        format!("Effect::{verb}(TargetSpec::EventObject)"),
+                        format!("Effect::{verb}(TargetSpec::ThisObject)"),
+                    ]);
+                }
                 // "Destroy that creature" in a delayed trigger's body: the
                 // object it remembers ([`Tx::delayed_trigger`]). Anywhere
                 // else the key is left for the unclaimed check to refuse.
@@ -5491,12 +5542,16 @@ impl Tx<'_> {
                     ))
                     || (matches!(
                         self.trigger_mode.as_deref(),
-                        Some("DamageDone" | "DamageDoneOnce")
+                        Some("DamageDone" | "DamageDoneOnce" | "DamageDealtOnce")
                     ) && target.is_none()
-                        && matches!(
+                        && (matches!(
                             p.peek("Defined"),
                             Some("TriggeredTargetLKICopy" | "TriggeredTarget")
-                        ))
+                        ) || (self.damage_trigger_binds_source
+                            && matches!(
+                                p.peek("Defined"),
+                                Some("TriggeredSourceLKICopy" | "TriggeredSource")
+                            ))))
                     || (matches!(
                         self.trigger_mode.as_deref(),
                         Some(
@@ -5525,6 +5580,43 @@ impl Tx<'_> {
                                     .block_line
                                     .as_ref()
                                     .is_some_and(|(r, _, _)| *r == super::BlockRole::Blocks))));
+                let single_obj_target = !targets_here
+                    && single_target
+                    && target.is_some_and(|t| t.starts_with("TargetSpec::Object("));
+                let target_cond_filter: Option<String> = if single_obj_target
+                    && let Some(suffix) =
+                        p.peek("Defined").and_then(|d| d.strip_prefix("Targeted."))
+                    && !p.entries.iter().any(|(k, _)| k.starts_with("Condition"))
+                {
+                    let expr = self.filter_expr(&format!("Card.{suffix}"))?;
+                    p.take("Defined");
+                    Some(self.body.filter_static("TARGET", &expr))
+                } else if single_obj_target
+                    && matches!(p.peek("Defined"), Some("ParentTarget" | "Targeted"))
+                    && p.peek("ConditionDefined") == Some("ParentTarget")
+                    && p.peek("ConditionPresent").is_some()
+                    && matches!(p.peek("ConditionCompare"), None | Some("GE1" | "EQ1"))
+                    && p.entries.iter().all(|(k, _)| {
+                        !k.starts_with("Condition")
+                            || matches!(
+                                k.as_str(),
+                                "ConditionDefined"
+                                    | "ConditionPresent"
+                                    | "ConditionCompare"
+                                    | "ConditionDescription"
+                            )
+                    })
+                {
+                    let present = p.take("ConditionPresent")?;
+                    let expr = self.filter_expr(&present)?;
+                    p.take("Defined");
+                    p.take("ConditionDefined");
+                    p.take("ConditionCompare");
+                    p.take("ConditionDescription");
+                    Some(self.body.filter_static("TARGET", &expr))
+                } else {
+                    None
+                };
                 // Forge counts the target itself in this condition. GE2 therefore
                 // means another permanent shares its name, but the target remains
                 // legal without one: the condition belongs to resolution, not to
@@ -5549,12 +5641,20 @@ impl Tx<'_> {
                     p.take("Defined");
                     vec![format!("Effect::{verb}(TargetSpec::ThisObject)")]
                 } else {
-                    if !targets_here && target.is_some() && p.peek("Defined") == Some("Targeted") {
+                    if target.is_some()
+                        && (p.peek("Defined") == Some("Targeted")
+                            || (targets_here && p.peek("Defined") == Some("ThisTargetedCard")))
+                    {
                         p.take("Defined");
                     }
                     vec![format!("Effect::{verb}({aimed})")]
                 };
-                if gated_by_name_twin {
+                if let Some(cond_name) = target_cond_filter {
+                    vec![format!(
+                        "Effect::IfTargetMatches {{ filter: &{cond_name}, then: &[{}] }}",
+                        effects.join(", ")
+                    )]
+                } else if gated_by_name_twin {
                     vec![format!(
                         "Effect::IfTargetMatches {{ filter: &Filter::SharesNameWithAnotherPermanent, then: &[{}] }}",
                         effects.join(", ")

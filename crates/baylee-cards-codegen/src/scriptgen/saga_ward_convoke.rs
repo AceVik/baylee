@@ -5066,7 +5066,7 @@ pub(super) fn parse_at_most_u16(cmp: &str) -> Option<u16> {
     None
 }
 
-fn is_player_continuous_affected(raw: &str) -> bool {
+pub(super) fn is_player_continuous_affected(raw: &str) -> bool {
     let trimmed = raw.trim();
     matches!(
         trimmed,
