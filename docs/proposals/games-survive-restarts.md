@@ -128,8 +128,11 @@ Each step lands on its own, through the gate:
       session on its own build only, continues the record at the next piece
       and opens the table without a curtain. Done.
    b. Running games in PostgreSQL; the gateway loads them at start and orders
-      resuming engines. Waiting rooms come later: a room lost in a restart
-      costs a re-invite, not a game.
+      resuming engines. Done for a restart of the gateway (`e2e_restart`: a
+      game goes on across a stop and a kill, a reissued token outlives a
+      kill). Waiting rooms come later: a room lost in a restart costs a
+      re-invite, not a game. An engine whose link breaks while the gateway
+      runs still ends its game; resuming that is a step of its own.
 4. Protocol per game; retained engine builds; the engine-link compatibility
    test.
 5. Deploy and reboot without the drain; Caddy's retry; the client's and seat

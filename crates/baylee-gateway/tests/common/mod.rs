@@ -44,6 +44,13 @@ pub struct Gateway {
     /// Where the process's log lines go (`tracing` writes to stdout), for
     /// the tests that read what the gateway said.
     log_path: std::path::PathBuf,
+    /// The database URL scoped to its schema, the directory it runs in, where
+    /// its stderr goes and the environment the test gave it: what a
+    /// [`Gateway::restart`] starts it with again.
+    scoped: String,
+    cwd: std::path::PathBuf,
+    stderr_path: std::path::PathBuf,
+    env: Vec<(String, String)>,
 }
 
 impl Gateway {
@@ -318,20 +325,81 @@ pub fn spawn_gateway_with(label: &str, env: &[(&str, String)]) -> Gateway {
     let cwd = std::env::temp_dir().join(format!("baylee-gateway-{label}-{id}.cwd"));
     let _ = std::fs::remove_dir_all(&cwd);
     std::fs::create_dir_all(&cwd).expect("the gateway's working directory");
+    let env: Vec<(String, String)> = env
+        .iter()
+        .map(|(key, value)| ((*key).to_owned(), value.clone()))
+        .collect();
+    let child = gateway_command(&Place {
+        cwd: &cwd,
+        port_file: &port_file,
+        store_path: &store_path,
+        agent_token: &agent_token,
+        scoped: &scoped,
+        log_path: &log_path,
+        stderr_path: &stderr_path,
+        env: &env,
+    })
+    .spawn()
+    .expect("spawn gateway");
+    // Own the process before polling readiness: any early exit/assertion must
+    // run the same cleanup as a completed test, not merely drop a Child handle.
+    let mut gateway = Gateway {
+        port: 0,
+        agent_token,
+        child,
+        store_path,
+        port_file,
+        schema,
+        log_path,
+        scoped,
+        cwd,
+        stderr_path,
+        env,
+    };
+    gateway.wait_up();
+    gateway
+}
+
+/// Where a gateway process runs and what it is told: everything a second
+/// start of the same gateway needs ([`Gateway::restart`]).
+struct Place<'a> {
+    cwd: &'a std::path::Path,
+    port_file: &'a std::path::Path,
+    store_path: &'a std::path::Path,
+    agent_token: &'a str,
+    scoped: &'a str,
+    log_path: &'a std::path::Path,
+    stderr_path: &'a std::path::Path,
+    env: &'a [(String, String)],
+}
+
+/// The gateway's command line and environment, at `place`.
+fn gateway_command(place: &Place<'_>) -> std::process::Command {
+    let Place {
+        cwd,
+        port_file,
+        store_path,
+        agent_token,
+        scoped,
+        log_path,
+        stderr_path,
+        env,
+    } = place;
     let loud = std::env::var("GATEWAY_DEBUG").is_ok();
-    let child = std::process::Command::new(env!("CARGO_BIN_EXE_baylee-gateway"))
+    let mut command = std::process::Command::new(env!("CARGO_BIN_EXE_baylee-gateway"));
+    command
         // Started from an empty directory of its own: a gateway reads nothing
         // from where it was started (the house deck once came from a
         // cwd-relative `data/`, and every gateway started elsewhere answered
         // an AI seat with a 500), and what it would write there lands here
         // rather than in the repository.
-        .current_dir(&cwd)
+        .current_dir(cwd)
         .env("PORT", "0")
         .env("BAYLEE_BIND", "127.0.0.1")
-        .env("BAYLEE_PORT_FILE", &port_file)
-        .env("STORE_PATH", &store_path)
-        .env("BAYLEE_AGENT_TOKEN", &agent_token)
-        .env("DATABASE_URL", &scoped)
+        .env("BAYLEE_PORT_FILE", port_file)
+        .env("STORE_PATH", store_path)
+        .env("BAYLEE_AGENT_TOKEN", agent_token)
+        .env("DATABASE_URL", scoped)
         // A developer's live bridge must not leak into synthetic tests.
         // Explicit fixture overrides below may still select their own mocks.
         .env_remove("BAYLEE_CENTRAL_CONFIG_FILE")
@@ -366,12 +434,11 @@ pub fn spawn_gateway_with(label: &str, env: &[(&str, String)]) -> Gateway {
         .env("BAYLEE_AUTH_MODE", "mixed")
         .env_remove("BAYLEE_GUESTS")
         .env("RUST_LOG", if loud { "info" } else { "off" })
-        .envs(env.iter().map(|(k, v)| (*k, v.as_str())))
+        .envs(env.iter().map(|(k, v)| (k.as_str(), v.as_str())))
         .stdout(if loud {
             std::process::Stdio::inherit()
         } else {
-            std::fs::File::create(&log_path)
-                .map_or_else(|_| std::process::Stdio::null(), Into::into)
+            std::fs::File::create(log_path).map_or_else(|_| std::process::Stdio::null(), Into::into)
         })
         // Kept, not discarded. A gateway that fails on the way up says why on
         // its stderr, and throwing that away leaves every test in the crate
@@ -381,83 +448,106 @@ pub fn spawn_gateway_with(label: &str, env: &[(&str, String)]) -> Gateway {
         .stderr(if loud {
             std::process::Stdio::inherit()
         } else {
-            std::fs::File::create(&stderr_path)
+            std::fs::File::create(stderr_path)
                 .map_or_else(|_| std::process::Stdio::null(), Into::into)
+        });
+    command
+}
+
+impl Gateway {
+    /// Starts the gateway again on the same database, store and token, as a
+    /// restart of its service does, once the last process is gone
+    /// ([`Gateway::stop`], [`Gateway::crash`]). It listens on a new port.
+    #[allow(dead_code)] // only the restart tests start a gateway twice
+    pub fn restart(&mut self) {
+        assert!(
+            self.child.try_wait().unwrap().is_some(),
+            "the last process is still running"
+        );
+        if let Ok(mut schemas) = SCHEMAS.lock() {
+            schemas.remove(&self.port);
+        }
+        let _ = std::fs::remove_file(&self.port_file);
+        self.child = gateway_command(&Place {
+            cwd: &self.cwd,
+            port_file: &self.port_file,
+            store_path: &self.store_path,
+            agent_token: &self.agent_token,
+            scoped: &self.scoped,
+            log_path: &self.log_path,
+            stderr_path: &self.stderr_path,
+            env: &self.env,
         })
         .spawn()
         .expect("spawn gateway");
-    // Own the process before polling readiness: any early exit/assertion must
-    // run the same cleanup as a completed test, not merely drop a Child handle.
-    let mut gateway = Gateway {
-        port: 0,
-        agent_token,
-        child,
-        store_path,
-        port_file,
-        schema,
-        log_path,
-    };
-    // Thirty seconds, and the number is a measurement rather than a margin.
-    // This loop waited five, which was enough alone and not enough beside
-    // anything else: a full gate running in a neighbouring worktree on
-    // 18.09.2026 took three e2e tests down at load ~4, purely because the
-    // gateway needed longer than five seconds to come up. Five trees share
-    // one CPU here, so the budget has to cover a gateway starting while
-    // another tree is compiling. Waiting costs nothing when the server is
-    // already up — the loop exits on the first answer.
-    //
-    // `GET /health` and not `TcpStream::connect`, which is the same change
-    // the dev tooling wants: an open port says `bind` succeeded and nothing
-    // else. It happens to be a sound readiness signal here by accident of
-    // ordering — `main` binds last, after the database and the catalog — and
-    // an accident of ordering is exactly what stops being true the day
-    // somebody binds earlier to shorten startup. Asking the route that
-    // answers the question costs one round trip and cannot rot that way.
-    //
-    // The port file comes first: the gateway writes it once its listener is
-    // bound, which is after the database and the catalog. A gateway that
-    // dies on the way up never writes it, and is noticed here the moment it
-    // exits rather than after the whole budget.
-    let their_words = || {
-        std::fs::read_to_string(&stderr_path)
-            .ok()
-            .filter(|s| !s.trim().is_empty())
-            .unwrap_or_else(|| "(nothing on stderr — run with GATEWAY_DEBUG=1)".to_string())
-    };
-    let mut port = None;
-    let mut up = false;
-    for _ in 0..300 {
-        if let Ok(Some(status)) = gateway.child.try_wait() {
-            panic!(
-                "the gateway exited on the way up ({status}). Its own words:\n{}",
-                their_words()
-            );
-        }
-        if port.is_none() {
-            port = std::fs::read_to_string(&gateway.port_file)
-                .ok()
-                .and_then(|text| text.trim().parse::<u16>().ok());
-        }
-        if let Some(port) = port
-            && let Some((200, _)) = try_http(port, "GET", "/health")
-        {
-            up = true;
-            break;
-        }
-        std::thread::sleep(std::time::Duration::from_millis(100));
+        self.port = 0;
+        self.wait_up();
     }
-    assert!(
-        up,
-        "the gateway never answered GET /health (port file {}: {port:?}). Its own words:\n{}",
-        gateway.port_file.display(),
-        their_words()
-    );
-    gateway.port = port.expect("a gateway that answered has a port");
-    SCHEMAS
-        .lock()
-        .expect("the schemas' lock")
-        .insert(gateway.port, gateway.schema.clone());
-    gateway
+
+    /// Waits until the process answers `GET /health`, and learns its port.
+    fn wait_up(&mut self) {
+        // Thirty seconds, and the number is a measurement rather than a margin.
+        // This loop waited five, which was enough alone and not enough beside
+        // anything else: a full gate running in a neighbouring worktree on
+        // 18.09.2026 took three e2e tests down at load ~4, purely because the
+        // gateway needed longer than five seconds to come up. Five trees share
+        // one CPU here, so the budget has to cover a gateway starting while
+        // another tree is compiling. Waiting costs nothing when the server is
+        // already up — the loop exits on the first answer.
+        //
+        // `GET /health` and not `TcpStream::connect`, which is the same change
+        // the dev tooling wants: an open port says `bind` succeeded and nothing
+        // else. It happens to be a sound readiness signal here by accident of
+        // ordering — `main` binds last, after the database and the catalog — and
+        // an accident of ordering is exactly what stops being true the day
+        // somebody binds earlier to shorten startup. Asking the route that
+        // answers the question costs one round trip and cannot rot that way.
+        //
+        // The port file comes first: the gateway writes it once its listener is
+        // bound, which is after the database and the catalog. A gateway that
+        // dies on the way up never writes it, and is noticed here the moment it
+        // exits rather than after the whole budget.
+        let stderr_path = self.stderr_path.clone();
+        let their_words = || {
+            std::fs::read_to_string(&stderr_path)
+                .ok()
+                .filter(|s| !s.trim().is_empty())
+                .unwrap_or_else(|| "(nothing on stderr — run with GATEWAY_DEBUG=1)".to_string())
+        };
+        let mut port = None;
+        let mut up = false;
+        for _ in 0..300 {
+            if let Ok(Some(status)) = self.child.try_wait() {
+                panic!(
+                    "the gateway exited on the way up ({status}). Its own words:\n{}",
+                    their_words()
+                );
+            }
+            if port.is_none() {
+                port = std::fs::read_to_string(&self.port_file)
+                    .ok()
+                    .and_then(|text| text.trim().parse::<u16>().ok());
+            }
+            if let Some(port) = port
+                && let Some((200, _)) = try_http(port, "GET", "/health")
+            {
+                up = true;
+                break;
+            }
+            std::thread::sleep(std::time::Duration::from_millis(100));
+        }
+        assert!(
+            up,
+            "the gateway never answered GET /health (port file {}: {port:?}). Its own words:\n{}",
+            self.port_file.display(),
+            their_words()
+        );
+        self.port = port.expect("a gateway that answered has a port");
+        SCHEMAS
+            .lock()
+            .expect("the schemas' lock")
+            .insert(self.port, self.schema.clone());
+    }
 }
 
 /// One unauthenticated request that is allowed to fail.
@@ -718,6 +808,9 @@ struct ProbeEnd {
     mute: std::sync::Arc<std::sync::atomic::AtomicBool>,
     /// Whether the engine runs its clocks, as `baylee-engine-server` does.
     clocked: bool,
+    /// Whether the engine sends its record every two seconds of play, as
+    /// `baylee-engine-server` does, rather than only when it is asked.
+    recording: bool,
 }
 
 impl EngineProbe {
@@ -739,6 +832,7 @@ impl EngineProbe {
                 flushes,
                 mute,
                 clocked: false,
+                recording: false,
             },
         )
     }
@@ -753,6 +847,21 @@ pub async fn attach_agent_clocked(gateway: &Gateway) -> tokio::task::JoinHandle<
     end.clocked = true;
     let presets = tokio::sync::mpsc::unbounded_channel().0;
     attach_agent_inner(gateway, presets, end, None, 0).await
+}
+
+/// The agent of [`attach_agent_probed`], whose engines send their record on
+/// the engine server's own bound: what a gateway that is killed has stored.
+#[allow(dead_code)] // only the restart tests need it
+pub async fn attach_agent_recording(
+    gateway: &Gateway,
+) -> (tokio::task::JoinHandle<()>, EngineProbe) {
+    let (probe, mut end) = EngineProbe::new();
+    end.recording = true;
+    let presets = tokio::sync::mpsc::unbounded_channel().0;
+    (
+        attach_agent_inner(gateway, presets, end, None, 0).await,
+        probe,
+    )
 }
 
 /// The agent of [`attach_agent`], with a probe into its engines.

@@ -3644,7 +3644,9 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorBody"
         "503":
-          description: The account store is unavailable
+          description: |-
+            - The account store is unavailable
+            - The running game could not be kept with its new token (`the gateway's database is unavailable`); ask again
           content:
             application/json:
               schema:

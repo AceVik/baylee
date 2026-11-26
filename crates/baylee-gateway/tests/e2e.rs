@@ -62,6 +62,7 @@ mod e2e_registration;
 mod e2e_rematch;
 mod e2e_replays;
 mod e2e_reports;
+mod e2e_restart;
 mod e2e_resume;
 mod e2e_resume_discovery;
 mod e2e_room_setup;

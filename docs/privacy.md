@@ -625,7 +625,20 @@ own.
   - a waiting table goes 2 h after it opened (`WAITING_TIMEOUT_SECS`);
   - a finished game goes 1 h after it ended (`OVER_GRACE_SECS`), unless a
     rematch room still points at it;
-  - a restart loses all of it.
+  - a restart loses all of it but the running games below.
+- **Running games across a restart** (`keep.rs`,
+  `docs/proposals/games-survive-restarts.md`): a running casual game is
+  also written to gateway Postgres `running_game`, one row a game: the
+  table's fields above (host, name, password hash, format, ban list copy)
+  and per chair the account id, the seat token's hash, the key of the
+  session the chair is bound to, the deck, team and seat bridge. It is
+  written from the game's first stored record piece, at most five seconds
+  behind memory, and removed when the game ends (with the record's last
+  piece, in the same statement), when a restart cannot resume it, and with
+  its record. Ranked duels, Tower runs and challenges have no row. A
+  restart reads the rows back; a chair of an account deleted meanwhile is
+  emptied first. The backup keeps the table only in its short-lived set:
+  restored later than the game lasts, a row is a game nobody plays.
 - **Removed early:** a deleted account's chairs are emptied at every table,
   waiting, running or over (`Lobby::forget_account`), and so are the
   chairs its seat bridges sat in; its seat and lobby sockets close. A
