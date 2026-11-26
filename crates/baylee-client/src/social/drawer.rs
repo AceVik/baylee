@@ -173,6 +173,28 @@ fn show_drawer_scrollbar(
     crate::hud::logpanel::sync_on_demand_scrollbars(&mut extra, &lists);
 }
 
+/// Whether the lobby's chat stands docked at the foot of the open drawer:
+/// the contacts above, the chat under them, one social column at the
+/// window's right (owner, 25.11.2026). At a table or over the waiting room,
+/// minimised, or with the drawer shut, it is the floating window it was.
+pub(crate) fn chat_docks(ui: &ChatUi, at_table: bool) -> bool {
+    ui.drawer && ui.open && !ui.minimised && !at_table
+}
+
+/// The docked chat's height in a window `window_h` tall at `zoom`: a little
+/// under half of it, never under 260 points.
+pub(crate) fn docked_chat_height(window_h: f32, zoom: f32) -> f32 {
+    (window_h * 0.44).max(260.0 * zoom).round()
+}
+
+/// The drawer's width at `zoom`, which the docked chat shares.
+pub(crate) fn drawer_width(zoom: f32) -> f32 {
+    (WIDTH * zoom).round()
+}
+
+/// The gap between the drawer's list and the chat docked under it.
+const DOCK_GAP: f32 = 8.0;
+
 /// How far the drawer is in: 0 shut, 1 open (eased when drawn).
 #[derive(Resource, Default, Debug, Clone, Copy, PartialEq)]
 pub(crate) struct DrawerSlide(pub f32);
@@ -280,7 +302,11 @@ fn clear_the_lane(
             continue;
         };
         let (right, bottom) = if host.active() && !at_table {
-            let chat = if ui.open && !ui.minimised {
+            // A chat docked in the drawer's column stands right of the lane,
+            // not under it: the lane keeps its own foot.
+            let chat = if chat_docks(&ui, false) {
+                0.0
+            } else if ui.open && !ui.minimised {
                 super::window::lobby_panel_height(window_h) + 16.0
             } else {
                 64.0 * zoom.0
@@ -352,8 +378,14 @@ fn slide_the_drawer(
     // At a table it ends over the hand zone, whose top is the bar with the
     // HUD's own doors (chat, log, zones, menu): run to the window's foot, it
     // covered them and a press on one answered nothing (#389).
+    let window_h = windows.iter().next().map_or(720.0, |w| {
+        crate::hud::scale::desktop_space(w, scale.as_deref()).y
+    });
     let foot = if in_a_duel {
         Val::Px(crate::hud::HAND_ZONE_H)
+    } else if chat_docks(&ui, at_table) {
+        // The chat docked under the list: the list ends above it.
+        Val::Px(docked_chat_height(window_h, zoom.0) + DOCK_GAP * zoom.0)
     } else {
         zpx(0.0)
     };

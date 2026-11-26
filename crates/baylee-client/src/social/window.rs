@@ -288,6 +288,7 @@ pub(crate) fn install(app: &mut App) {
                 pop_the_lobby_chat,
                 arrive,
                 resize::resize,
+                resize::put_the_corner_away,
                 (
                     sync_lobby_window
                         .after(crate::hud::sync_log)
@@ -954,9 +955,40 @@ fn sync_lobby_window(
         (false, false, urgent, unread, place_tag)
     };
     let full = ui.open && !minimised;
-    let want_h = if full { zpx(size.height) } else { Val::Auto };
-    let want_w = if ui.open { zpx(size.width) } else { Val::Auto };
-    let (left, right, bottom, radius, border) = if at_table {
+    // In the lobby, with the drawer open, the chat stands at its foot: the
+    // drawer's width, its right edge, and it slides in and out with it.
+    let seated = lobby.as_ref().is_some_and(|l| {
+        matches!(
+            l.lobby.screen(),
+            baylee_client_core::lobby::Screen::Seated(_)
+        )
+    });
+    let docked = super::drawer::chat_docks(&ui, at_table || seated);
+    let dock_w = super::drawer::drawer_width(zoom.0);
+    let want_h = if docked {
+        Val::Px(super::drawer::docked_chat_height(window.y, zoom.0))
+    } else if full {
+        zpx(size.height)
+    } else {
+        Val::Auto
+    };
+    let want_w = if docked {
+        Val::Px(dock_w)
+    } else if ui.open {
+        zpx(size.width)
+    } else {
+        Val::Auto
+    };
+    let (left, right, bottom, radius, border) = if docked {
+        (
+            Val::Auto,
+            // Off the right edge by what the drawer has not yet slid in.
+            Val::Px(drawer_room - dock_w),
+            zpx(0.0),
+            BorderRadius::top_left(Val::Px(Frame::Lobby.radius())),
+            UiRect::all(zpx(1.0)),
+        )
+    } else if at_table {
         let table_node = logpanel::root_node();
         let base_right = match table_node.right {
             Val::Px(r) => r,
@@ -998,7 +1030,7 @@ fn sync_lobby_window(
         let s = if still { 1.0 } else { motion::opening(0.0) };
         UiTransform {
             scale: Vec2::splat(s),
-            translation: if at_table {
+            translation: if at_table || docked {
                 motion::from_bottom_right(s)
             } else {
                 motion::from_bottom_left(s)
