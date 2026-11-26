@@ -389,6 +389,8 @@ const THIS_OBJECT_READ: &[&str] = &[
     "subject: Spec(ThisObject),",
     "host: Spec(ThisObject)",
     "to: ThisObject,",
+    "ExileLinked { target: ThisObject,",
+    "RedirectNextChosenSourceDamageToTarget { target: ThisObject",
 ];
 
 /// Which effects may be spelled with `ThisObject`, held against the pool.
@@ -496,6 +498,7 @@ const EVENT_OBJECT_READ: &[&str] = &[
     "EventObjectDealsDamage {",
     "EventObjectDealsDamageEach {",
     "EventObjectDealsDamageEqualToPower",
+    "EventObjectDealsDamageEqualToPower { target: EventObject",
     "DamagePermanentAndController { target: EventObject,",
     "DealDamage { amount: Fixed(1), target: EventObject",
     "DealDamage { amount: Fixed(2), target: EventObject",

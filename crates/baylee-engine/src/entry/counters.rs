@@ -126,9 +126,8 @@ fn collect_modifier_counters(
                     .as_ref()
                     .map_or(0, |p| p.colors_spent.len());
                 if colors > 0 {
-                    let is_creature = prospective
-                        .characteristics()
-                        .types
+                    let is_creature = crate::layers::copiable_values(state, entry.object)
+                        .map_or_else(|| prospective.base.types, |values| values.types)
                         .contains(baylee_core::types::TypeSet::CREATURE);
                     let kind = if is_creature {
                         CounterKind::P1P1

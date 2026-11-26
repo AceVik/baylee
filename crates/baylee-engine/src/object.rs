@@ -1595,7 +1595,7 @@ impl Rider {
             | Self::EvokedGrant
             | Self::GrantDeathExileAndGainLife(_)
             | Self::GrantLeaveExileReplacement
-            | Self::TurnedFaceDown => false,
+            | Self::TurnedFaceDown
             | Self::TreasureManaSpent
             | Self::SecondChosenPlayer(_)
             | Self::SecretChosenPlayer { .. }
