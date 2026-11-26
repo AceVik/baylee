@@ -157,6 +157,10 @@ pub struct SubjectContext {
     /// Damage prevented or replaced by an enclosing prevention/replacement-with-rider
     /// shield or static modifier (`ThisWay::DamagePrevented`, CR 615.5).
     pub(crate) damage_prevented: u32,
+    /// Permanent that would have been dealt damage during an enclosing damage rider.
+    pub(crate) damaged_object: Option<ObjectId>,
+    /// Incarnation version of the event damage source for CR 608.2h LKI inside damage riders.
+    pub(crate) event_source_version: Option<u32>,
     /// Stashed opponent copy target during `Effect::Demonstrate` (`CR 702.148a`).
     pub(crate) demonstrate_opp: Option<(DamageSourceRef, baylee_core::ids::PlayerId)>,
 }
@@ -322,6 +326,8 @@ impl SubjectContext {
             remembered_objects: None,
             capture_frames: Vec::new(),
             damage_prevented: 0,
+            damaged_object: None,
+            event_source_version: None,
             demonstrate_opp: None,
         }
     }
@@ -468,6 +474,7 @@ impl SubjectContext {
         h.wrapping_mul(31).wrapping_add(links)
     }
 
+    #[allow(clippy::too_many_lines)]
     fn fingerprint_tail(&self, mut h: u64) -> u64 {
         if let Some(inspected) = &self.inspected_library {
             let digest = crate::state::structural_fingerprint(&("inspected-library", inspected));
@@ -521,6 +528,20 @@ impl SubjectContext {
                     255_u8,
                     351_u16,
                     self.damage_prevented,
+                )));
+        }
+        if let Some(obj) = self.damaged_object {
+            h = h
+                .wrapping_mul(31)
+                .wrapping_add(crate::state::structural_fingerprint(&(
+                    255_u8, 585_u16, obj,
+                )));
+        }
+        if let Some(ver) = self.event_source_version {
+            h = h
+                .wrapping_mul(31)
+                .wrapping_add(crate::state::structural_fingerprint(&(
+                    255_u8, 585_u16, 1_u8, ver,
                 )));
         }
         if let Some(vq) = &self.vote_queue {

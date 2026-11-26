@@ -1727,6 +1727,32 @@ pub enum AwaitingOp {
         /// Fallback effect run if unpaid.
         effect: &'static Effect,
     },
+    /// After `RedirectNextDamageTo` with `choose_source`: finite redirection shield
+    /// waits for the chosen source (*Harm's Way*).
+    RedirectNextToChosenSource {
+        /// Recipients protected by the created shield(s).
+        protects: Vec<crate::prevention::Shielded>,
+        /// Source filter offered to the controller.
+        sources: &'static baylee_cards_dsl::Filter,
+        /// Finite damage redirected before expiring.
+        remaining: u32,
+        /// New recipient (permanent or player).
+        to: crate::event::DamageTarget,
+        /// Required incarnation version when `to` is an object.
+        to_version: Option<u32>,
+    },
+    /// After `PreventNextFromChosenSourceWithThen`: one-shot prevention-with-rider
+    /// shield waits for the chosen source (*Deflecting Palm*, *New Way Forward*).
+    ShieldNextWithThenFromChosenSource {
+        /// Recipients protected by the created shield(s).
+        protects: Vec<crate::prevention::Shielded>,
+        /// Source filter offered to the controller.
+        sources: &'static baylee_cards_dsl::Filter,
+        /// Restrict to combat damage only.
+        combat_only: bool,
+        /// Immediate follow-up rider executed when prevented > 0.
+        then: baylee_cards_dsl::DamageRider,
+    },
 }
 
 /// Work to resume after an optional life payment.
@@ -2380,6 +2406,31 @@ impl AwaitingOp {
                 crate::state::structural_fingerprint(&(255_u8, 505_u16, 9_u8, player, mana, effect))
                     .max(1)
             }
+            Self::RedirectNextToChosenSource {
+                protects,
+                sources,
+                remaining,
+                to,
+                to_version,
+            } => crate::state::structural_fingerprint(&(
+                255_u8, 586_u16, 1_u8, protects, sources, remaining, to, to_version,
+            ))
+            .max(1),
+            Self::ShieldNextWithThenFromChosenSource {
+                protects,
+                sources,
+                combat_only,
+                then,
+            } => crate::state::structural_fingerprint(&(
+                255_u8,
+                586_u16,
+                2_u8,
+                protects,
+                sources,
+                combat_only,
+                then,
+            ))
+            .max(1),
             _ => 0,
         }
     }

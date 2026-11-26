@@ -615,6 +615,9 @@ impl GameState {
         let shuffle_into_library = replacement.shuffle_into_library;
         let reveal_on_shuffle = replacement.reveal_on_shuffle;
         let exile_link_source = replacement.link_source;
+        let insert_pos = replacement.position.unwrap_or(pos);
+        let replacement_reveal = replacement.reveal;
+        let exile_rider = replacement.exile_rider;
         let component_destination = if commander_redirected { requested } else { to };
         let from_loc = ZoneLocation::of(from_zone, from_player);
         // CR 400.7, CR 614.6: a card already in its owner's library whose move
@@ -640,6 +643,11 @@ impl GameState {
         // was there: a land an effect animated dies as a creature, and the
         // card in the graveyard is a land. Asked before the move clears its
         // projection.
+        let departing_lki_power = if from_zone == Zone::Battlefield {
+            self.object(id).and_then(|o| o.characteristics().power)
+        } else {
+            None
+        };
         let dies_as_a_creature = from_zone == Zone::Battlefield
             && to.zone() == Zone::Graveyard
             && self.object(id).is_some_and(|o| {
@@ -1143,7 +1151,7 @@ impl GameState {
         let projectable = self
             .object(id)
             .is_none_or(|o| o.kind != ObjectKind::AbilityOnStack);
-        self.zones.insert(id, to, pos, projectable);
+        self.zones.insert(id, to, insert_pos, projectable);
         let library_parts =
             if component_destination.zone() == Zone::Library && !merged_components.is_empty() {
                 Some(
@@ -1173,7 +1181,7 @@ impl GameState {
                 self,
                 component_destination.player().expect("library owner"),
                 &parts,
-                pos == ZonePosition::Bottom,
+                insert_pos == ZonePosition::Bottom,
             );
         }
         // A card-less object that lands anywhere but the battlefield or the
@@ -1394,7 +1402,7 @@ impl GameState {
         // Read off `to` after the redirects above, so a commander that went
         // to the command zone instead names no place in a library.
         let place = match to {
-            ZoneLocation::Library(_) => Some(library_place(pos, self.zones.list(to).len())),
+            ZoneLocation::Library(_) => Some(library_place(insert_pos, self.zones.list(to).len())),
             _ => None,
         };
         let departure = departure.map(|snapshot| {
@@ -1467,9 +1475,84 @@ impl GameState {
                 }
             }
         }
+        if to.zone() == Zone::Exile
+            && let Some((r_ctrl, r_src, r_src_ver, rider)) = exile_rider
+        {
+            match rider {
+                baylee_cards_dsl::GraveyardExileRider::CountersOnExiled { kind, count } => {
+                    if count > 0 {
+                        crate::replacement::put_counters(self, id, kind, count);
+                        for &comp in &merged_components {
+                            if self.object(comp).is_some_and(|o| o.zone == Zone::Exile) {
+                                crate::replacement::put_counters(self, comp, kind, count);
+                            }
+                        }
+                    }
+                }
+                baylee_cards_dsl::GraveyardExileRider::CreateToken { token, count } => {
+                    if count > 0 && !self.has_left(r_ctrl) {
+                        crate::resolve::tokens::create_tokens(
+                            self,
+                            r_ctrl,
+                            token,
+                            None,
+                            u32::from(count),
+                        );
+                    }
+                }
+                baylee_cards_dsl::GraveyardExileRider::GainLife(amount) => {
+                    if amount > 0 && !self.has_left(r_ctrl) {
+                        self.change_life(r_ctrl, i32::from(amount), Cause::Effect);
+                    }
+                }
+                baylee_cards_dsl::GraveyardExileRider::PowerCountersOnSource(kind) => {
+                    if let Some(power) = departing_lki_power
+                        && power > 0
+                        && let Some(ver) = r_src_ver
+                        && self
+                            .object(r_src)
+                            .is_some_and(|o| o.zone == Zone::Battlefield && o.version == ver)
+                    {
+                        crate::replacement::put_counters_by(
+                            self,
+                            r_ctrl,
+                            r_src,
+                            kind,
+                            u16::try_from(power).unwrap_or(u16::MAX),
+                        );
+                    }
+                }
+                baylee_cards_dsl::GraveyardExileRider::ExtraTurn => {
+                    if !self.has_left(r_ctrl) {
+                        self.extra_turns.push_front(r_ctrl);
+                    }
+                }
+                baylee_cards_dsl::GraveyardExileRider::ReturnAtNextEndStep => {
+                    if let Some(exiled_obj) = self
+                        .object(id)
+                        .filter(|o| o.zone == Zone::Exile && o.is_card())
+                    {
+                        let version = exiled_obj.version;
+                        self.delayed.push(crate::state::DelayedTrigger {
+                            controller: r_ctrl,
+                            when: crate::state::DelayedWhen::NextEndStep,
+                            action: crate::state::DelayedAction::ReturnToBattlefield {
+                                card: id,
+                                version,
+                            },
+                        });
+                    }
+                }
+            }
+        }
         if revealed_in_hand && let ZoneLocation::Hand(owner) = to {
             self.journal.record(GameEvent::Revealed {
                 player: owner,
+                cards: vec![id],
+            });
+        } else if replacement_reveal && !(shuffle_into_library && reveal_on_shuffle) {
+            self.journal.record(GameEvent::Revealed {
+                player: to.player().unwrap_or(from_player),
                 cards: vec![id],
             });
         }
@@ -1654,6 +1737,9 @@ impl GameState {
             let first_in_draw_step = in_own_draw_step && !self.per_turn.drew_in_draw_step;
             if in_own_draw_step {
                 self.per_turn.drew_in_draw_step = true;
+            }
+            if !first_in_draw_step || drawn.len() > 1 {
+                self.per_turn.extra_draw_occurred.mark(player);
             }
             self.journal.record(crate::event::GameEvent::CardsDrawn {
                 player,

@@ -1912,7 +1912,9 @@ pub(super) fn resume_inner(
         AwaitingOp::DamageShieldSource { .. }
         | AwaitingOp::ShieldFromChosenSource { .. }
         | AwaitingOp::ShieldFromChosenSourceWithLifeCondition { .. }
-        | AwaitingOp::RedirectFromChosenSource { .. } => {
+        | AwaitingOp::RedirectFromChosenSource { .. }
+        | AwaitingOp::RedirectNextToChosenSource { .. }
+        | AwaitingOp::ShieldNextWithThenFromChosenSource { .. } => {
             unreachable!("source decisions resume through resume_source")
         }
         AwaitingOp::Entry { .. }
@@ -2273,6 +2275,7 @@ fn push_chosen_source_shields(
     }
 }
 
+#[allow(clippy::too_many_lines)]
 pub(super) fn resume_source_inner(
     state: &mut GameState,
     res: &mut Resolution,
@@ -2315,6 +2318,47 @@ pub(super) fn resume_source_inner(
                 crate::prevention::ShieldKind::AllFromWithLifeCondition {
                     source,
                     gain_life_sources,
+                }
+            });
+        }
+        AwaitingOp::RedirectNextToChosenSource {
+            protects,
+            sources,
+            remaining,
+            to,
+            to_version,
+        } => {
+            push_chosen_source_shields(state, res, chosen, protects, sources, |source| {
+                crate::prevention::ShieldKind::RedirectNextTo {
+                    remaining,
+                    to,
+                    to_version,
+                    source: Some(source),
+                }
+            });
+        }
+        AwaitingOp::ShieldNextWithThenFromChosenSource {
+            protects,
+            sources,
+            combat_only,
+            then,
+        } => {
+            let origin_source = res.source;
+            let origin_version =
+                source_version(state, res).or_else(|| state.object(res.source).map(|o| o.version));
+            let text = res.text;
+            let chosen_subtype = res.source_chosen_subtype(state);
+            let chosen_color = res.source_chosen_color(state);
+            push_chosen_source_shields(state, res, chosen, protects, sources, |source| {
+                crate::prevention::ShieldKind::NextWithThen {
+                    source: crate::prevention::ShieldSourceFilter::Exact(source),
+                    combat_only,
+                    then,
+                    origin_source,
+                    origin_version,
+                    text,
+                    chosen_subtype,
+                    chosen_color,
                 }
             });
         }

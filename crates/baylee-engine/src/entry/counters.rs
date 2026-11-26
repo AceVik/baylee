@@ -35,7 +35,7 @@ pub(super) fn needs_entry(state: &GameState, id: ObjectId) -> bool {
 }
 
 pub(super) fn question(state: &mut GameState, entry: &mut Attempt) -> Option<Pending> {
-    if entry.refusal.is_some() {
+    if entry.is_cancelled() {
         return None;
     }
     if !entry.counters_prepared {

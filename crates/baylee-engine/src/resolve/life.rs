@@ -43,9 +43,8 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
         | Effect::TargetDealsDamageToController { .. }
         | Effect::DealDamageToTargetController { .. }
         | Effect::DealDamageEach { .. }
-        | Effect::DealDamageToEachOpponentAndPlaneswalkerDamagedThisGame { .. } => {
-            start(state, res, op)
-        }
+        | Effect::DealDamageToEachOpponentAndPlaneswalkerDamagedThisGame { .. }
+        | Effect::DealDamageToEventSourceOrController { .. } => start(state, res, op),
         Effect::PreventNextDamageToAttached { amount } => {
             attached_shield::add(state, res, amount);
             None
@@ -477,6 +476,197 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
                 options,
             })
         }
+        Effect::RedirectNextDamageTo {
+            from,
+            choose_source,
+            amount,
+            to,
+        } => {
+            let n = amount2(&amount, state, you, res);
+            if n == 0 {
+                return None;
+            }
+            let (protects, consumed_first) = match from {
+                TargetSpec::ThisObject => {
+                    let src = super::subjects::source(state, res)
+                        .filter(|r| super::subjects::on_battlefield(state, *r))?;
+                    (vec![Shielded::Object(src.object, src.version)], false)
+                }
+                TargetSpec::Object(f) if *f == Filter::AttachedToBySource => {
+                    let host = state.object(res.source)?.attached_to?;
+                    let obj = state.object(host)?;
+                    if obj.zone != crate::zone::Zone::Battlefield {
+                        return None;
+                    }
+                    (vec![Shielded::Object(host, obj.version)], false)
+                }
+                TargetSpec::PlayerOrObject(f)
+                    if *f == Filter::ControlledByYou && choose_source.is_some() =>
+                {
+                    (vec![Shielded::PlayerOrControlledPermanents(you)], false)
+                }
+                TargetSpec::Player(rel) => (
+                    super::players_of(rel, state, you, res)
+                        .into_iter()
+                        .map(Shielded::Player)
+                        .collect(),
+                    false,
+                ),
+                TargetSpec::EventObject => (
+                    recipients(state, res, you, from)
+                        .into_iter()
+                        .filter_map(|r| match r {
+                            DamageTarget::Player(p) => Some(Shielded::Player(p)),
+                            DamageTarget::Object(id) => {
+                                state.object(id).map(|o| Shielded::Object(id, o.version))
+                            }
+                        })
+                        .collect(),
+                    false,
+                ),
+                _ => {
+                    let from_list = recipients(state, res, you, from);
+                    let use_single_first = !res.second_targets.is_empty()
+                        || !res.subject.second_players().is_empty()
+                        || res.targets.len() >= 2;
+                    let shielded: Vec<Shielded> = from_list
+                        .into_iter()
+                        .take(if use_single_first { 1 } else { usize::MAX })
+                        .filter_map(|r| match r {
+                            DamageTarget::Player(p) => Some(Shielded::Player(p)),
+                            DamageTarget::Object(id) => {
+                                state.object(id).map(|o| Shielded::Object(id, o.version))
+                            }
+                        })
+                        .collect();
+                    (shielded, true)
+                }
+            };
+            if protects.is_empty() {
+                return None;
+            }
+            let dest = if consumed_first {
+                if let Some(&id) = res.second_targets.first() {
+                    Some(DamageTarget::Object(id))
+                } else if let Some(p) = res.subject.second_players().iter().next() {
+                    Some(DamageTarget::Player(p))
+                } else if res.targets.len() >= 2 {
+                    Some(DamageTarget::Object(res.targets[1]))
+                } else {
+                    recipients(state, res, you, to).first().copied()
+                }
+            } else {
+                recipients(state, res, you, to).first().copied()
+            }?;
+            let to_version = match dest {
+                DamageTarget::Player(p) => {
+                    if state.has_left(p) {
+                        return None;
+                    }
+                    None
+                }
+                DamageTarget::Object(id) => {
+                    let obj = state.object(id)?;
+                    if obj.zone != crate::zone::Zone::Battlefield {
+                        return None;
+                    }
+                    Some(obj.version)
+                }
+            };
+            if let Some(sources) = choose_source {
+                let chosen_color = res.source_chosen_color(state);
+                let chosen_subtype = res.source_chosen_subtype(state);
+                let options = crate::prevention::source_options_with_choices(
+                    state,
+                    sources,
+                    you,
+                    res.rule_context(),
+                    chosen_color,
+                    chosen_subtype,
+                );
+                if options.is_empty() {
+                    return None;
+                }
+                res.awaiting = Some(AwaitingOp::RedirectNextToChosenSource {
+                    protects,
+                    sources,
+                    remaining: n,
+                    to: dest,
+                    to_version,
+                });
+                return Some(Pending::ChooseDamageSource {
+                    player: you,
+                    choice: state.next_source_choice(),
+                    options,
+                });
+            }
+            let shield_origin = origin(state, res);
+            for protected in protects {
+                state.shields.push_from(
+                    Shield {
+                        protects: protected,
+                        kind: ShieldKind::RedirectNextTo {
+                            remaining: n,
+                            to: dest,
+                            to_version,
+                            source: None,
+                        },
+                        controller: you,
+                    },
+                    Some(shield_origin),
+                );
+            }
+            None
+        }
+        Effect::PreventNextFromChosenSourceWithThen {
+            target,
+            sources,
+            combat_only,
+            then,
+        } => {
+            let protects: Vec<Shielded> = match target {
+                TargetSpec::AnyTarget if !res.targeted => vec![Shielded::Everything],
+                TargetSpec::PlayerOrObject(f) if *f == Filter::ControlledByYou && !res.targeted => {
+                    vec![Shielded::PlayerOrControlledPermanents(you)]
+                }
+                spec => recipients(state, res, you, spec)
+                    .into_iter()
+                    .filter_map(|recipient| match recipient {
+                        DamageTarget::Player(player) => Some(Shielded::Player(player)),
+                        DamageTarget::Object(id) => state
+                            .object(id)
+                            .map(|obj| Shielded::Object(id, obj.version)),
+                    })
+                    .collect(),
+            };
+            if protects.is_empty() {
+                return None;
+            }
+            let chosen_color = res.source_chosen_color(state);
+            let chosen_subtype = res.source_chosen_subtype(state);
+            let options = crate::prevention::source_options_with_choices(
+                state,
+                sources,
+                you,
+                res.rule_context(),
+                chosen_color,
+                chosen_subtype,
+            );
+            if options.is_empty() {
+                return None;
+            }
+            res.awaiting = Some(AwaitingOp::ShieldNextWithThenFromChosenSource {
+                protects,
+                sources,
+                combat_only,
+                then,
+            });
+            Some(Pending::ChooseDamageSource {
+                player: you,
+                choice: state.next_source_choice(),
+                options,
+            })
+        }
         _ => unreachable!("not a life/damage effect"),
     }
 }
@@ -486,6 +676,12 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
 pub struct DamageResolution {
     work: DamageWork,
     after: AfterDamage,
+}
+
+impl DamageResolution {
+    pub(super) fn finish_immediately(&mut self, state: &mut GameState) {
+        self.work.finish_cost_damage(state);
+    }
 }
 
 #[derive(Clone, Debug, Hash)]
@@ -1270,6 +1466,51 @@ fn assignments(state: &GameState, res: &Resolution, op: Effect) -> Vec<Assignmen
                     amount2(&amount, state, you, res),
                 )]
             }),
+        Effect::DealDamageToEventSourceOrController {
+            amount,
+            creature_source_takes_damage,
+        } => {
+            let n = amount2(&amount, state, you, res);
+            if n == 0 {
+                return Vec::new();
+            }
+            let Some(event_src_id) = res.event_object else {
+                return Vec::new();
+            };
+            let src_ver = res
+                .subject
+                .event_source_version
+                .or_else(|| super::event_object_identity(state, res).map(|(v, _)| v));
+            let recipient = if creature_source_takes_damage {
+                // CR 608.2h: Determine whether the prevented damage source was a creature
+                // using the LKI of the damage-dealing incarnation. If it was a creature,
+                // deal damage to it only if that same incarnation is still on the
+                // battlefield — never fall through to its controller.
+                let was_creature = state
+                    .damage_source(event_src_id, src_ver)
+                    .is_some_and(|o| o.characteristics().types.contains(TypeSet::CREATURE));
+                if was_creature {
+                    let still_here = state.object(event_src_id).is_some_and(|o| {
+                        o.zone == crate::zone::Zone::Battlefield
+                            && src_ver.is_none_or(|v| o.version == v)
+                    });
+                    if still_here {
+                        DamageTarget::Object(event_src_id)
+                    } else {
+                        return Vec::new();
+                    }
+                } else if let Some(ctrl) = super::event_controller_of_resolution(state, res) {
+                    DamageTarget::Player(ctrl)
+                } else {
+                    return Vec::new();
+                }
+            } else if let Some(ctrl) = super::event_controller_of_resolution(state, res) {
+                DamageTarget::Player(ctrl)
+            } else {
+                return Vec::new();
+            };
+            vec![assignment(state, res, res.source, recipient, n)]
+        }
         Effect::DealDamageToMatchingTargets { amount, filter } => {
             let amount = amount2(&amount, state, you, res);
             res.targets

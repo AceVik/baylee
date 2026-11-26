@@ -2328,6 +2328,10 @@ fn event_controller_of_resolution(state: &GameState, res: &Resolution) -> Option
                     state
                         .damage_source(id, Some(version))
                         .map(|object| object.controller)
+                } else if let Some(version) = res.subject.event_source_version {
+                    state
+                        .damage_source(id, Some(version))
+                        .map(|object| object.controller)
                 } else {
                     state.last_known_controller(id)
                 }
@@ -2744,11 +2748,16 @@ pub(crate) fn commit_damage_rider(
     state.refresh_characteristics();
     let since = state.journal.last_seq();
     state.entries.begin_event(since, Some(res.controller));
-    let choice = exec(state, res, rider.instruction()[0]);
-    assert!(
-        choice.is_none(),
-        "damage riders commit one immediate instruction"
-    );
+    for &op in rider.instruction() {
+        let choice = exec(state, res, op);
+        if choice.is_some() {
+            if let Some(AwaitingOp::Damage(mut dmg)) = res.awaiting.take() {
+                dmg.finish_immediately(state);
+            } else {
+                panic!("damage riders commit immediate instructions");
+            }
+        }
+    }
     crate::graveyard_order::capture(state, since);
     state.refresh_characteristics();
 }

@@ -857,6 +857,14 @@ impl GameState {
                 hash_object_situation(h, &record.snapshot, self, position);
             }
         }
+        if self.per_turn.extra_draw_occurred.tracked
+            && !self.per_turn.extra_draw_occurred.seats.is_empty()
+        {
+            let mut seats = self.per_turn.extra_draw_occurred.seats.clone();
+            seats.sort_unstable();
+            h.u16(581);
+            seats.hash(h);
+        }
     }
 
     fn hash_must_block_pairs(&self, h: &mut Hasher, position: &impl Fn(ObjectId) -> u32) {
@@ -944,6 +952,12 @@ fn hash_shields(h: &mut Hasher, state: &GameState, position: &dyn Fn(ObjectId) -
                 h.u8(moves_since(state.object(id), version));
             }
             crate::prevention::Shielded::Everything => h.u8(2),
+            crate::prevention::Shielded::PlayerOrControlledPermanents(p) => {
+                h.u8(255);
+                h.u16(584);
+                h.u8(1);
+                h.u8(p.get());
+            }
         }
         hash_shield_kind(h, state, &shield.kind, position);
         h.u8(shield.controller.get());
@@ -1099,6 +1113,32 @@ fn hash_shield_kind(
             h.u16(351);
             hash_chosen_source(h, state, &source, position);
             filter_hash(h, gain_life_sources);
+        }
+        crate::prevention::ShieldKind::RedirectNextTo {
+            remaining,
+            to,
+            to_version,
+            source,
+        } => {
+            h.u8(255);
+            h.u16(584);
+            h.u8(2);
+            h.u32(remaining);
+            match to {
+                crate::event::DamageTarget::Player(p) => {
+                    h.u8(0);
+                    h.u8(p.get());
+                }
+                crate::event::DamageTarget::Object(id) => {
+                    h.u8(1);
+                    h.u32(position(id));
+                    h.u8(moves_since(state.object(id), to_version.unwrap_or(0)));
+                }
+            }
+            h.boolean(source.is_some());
+            if let Some(src) = source {
+                hash_chosen_source(h, state, &src, position);
+            }
         }
     }
 }

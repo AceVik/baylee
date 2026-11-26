@@ -468,6 +468,7 @@ impl GameState {
             super::reads::card_reads_surveilled_this_turn(def);
         self.per_turn.cards_foretold.tracked |= super::reads::card_reads_foretold_count(def);
         self.per_turn.discard_history.tracked |= super::reads::card_reads_first_discard_batch(def);
+        self.per_turn.extra_draw_occurred.tracked |= super::reads::card_reads_first_extra_draw(def);
         let base = self.card_base(def, entry.card);
         let card = CardRef {
             index: entry.card,
@@ -595,6 +596,7 @@ impl GameState {
             super::reads::card_reads_surveilled_this_turn(def);
         self.per_turn.cards_foretold.tracked |= super::reads::card_reads_foretold_count(def);
         self.per_turn.discard_history.tracked |= super::reads::card_reads_first_discard_batch(def);
+        self.per_turn.extra_draw_occurred.tracked |= super::reads::card_reads_first_extra_draw(def);
         Ok(PrintedCard {
             base: self.card_base(def, index),
             cda: printed_pt_cda(def),

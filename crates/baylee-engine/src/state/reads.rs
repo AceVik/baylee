@@ -331,6 +331,13 @@ pub(crate) fn ability_reads_crime(ability: &baylee_cards_dsl::AbilityDef) -> boo
             | baylee_cards_dsl::ReplacementRule::ReplaceDrawWithDraws {
                 condition: Some(c), ..
             }
+            | baylee_cards_dsl::ReplacementRule::ReplaceDrawWithDrawsThen {
+                condition: Some(c), ..
+            }
+            | baylee_cards_dsl::ReplacementRule::ReplaceDrawMaySearchToHand { condition: Some(c) }
+            | baylee_cards_dsl::ReplacementRule::ReplaceMultiDraw {
+                condition: Some(c), ..
+            }
             | baylee_cards_dsl::ReplacementRule::TriggerMultiplierMatching {
                 condition: Some(c), ..
             },
@@ -610,6 +617,13 @@ pub(crate) fn ability_reads_expend(ability: &baylee_cards_dsl::AbilityDef) -> bo
                 condition: Some(c), ..
             }
             | baylee_cards_dsl::ReplacementRule::ReplaceDrawWithDraws {
+                condition: Some(c), ..
+            }
+            | baylee_cards_dsl::ReplacementRule::ReplaceDrawWithDrawsThen {
+                condition: Some(c), ..
+            }
+            | baylee_cards_dsl::ReplacementRule::ReplaceDrawMaySearchToHand { condition: Some(c) }
+            | baylee_cards_dsl::ReplacementRule::ReplaceMultiDraw {
                 condition: Some(c), ..
             }
             | baylee_cards_dsl::ReplacementRule::TriggerMultiplierMatching {
@@ -1186,6 +1200,13 @@ fn ability_matches(
                 condition: Some(c), ..
             }
             | baylee_cards_dsl::ReplacementRule::ReplaceDrawWithDraws {
+                condition: Some(c), ..
+            }
+            | baylee_cards_dsl::ReplacementRule::ReplaceDrawWithDrawsThen {
+                condition: Some(c), ..
+            }
+            | baylee_cards_dsl::ReplacementRule::ReplaceDrawMaySearchToHand { condition: Some(c) }
+            | baylee_cards_dsl::ReplacementRule::ReplaceMultiDraw {
                 condition: Some(c), ..
             }
             | baylee_cards_dsl::ReplacementRule::TriggerMultiplierMatching {
@@ -1852,7 +1873,20 @@ fn modifier_reads_cast_origin_zone(modifier: &baylee_cards_dsl::Modifier) -> boo
         Modifier::GrantFlash { filter, .. }
         | Modifier::FirstSpellEachTurnCostAdjust { filter, .. }
         | Modifier::ActivatedAbilitiesCostLess { filter, .. }
-        | Modifier::CantBeTargetedBy(filter) => filter_reads_cast_origin_zone(filter, 0),
+        | Modifier::CantBeTargetedBy(filter)
+        | Modifier::EnterUnderYourControl(filter)
+        | Modifier::PermanentsEnterTapped(filter)
+        | Modifier::ExileMatchingInsteadOfGraveyard { filter, .. } => {
+            filter_reads_cast_origin_zone(filter, 0)
+        }
+        Modifier::ReplaceBattlefieldEntry {
+            filter, predicate, ..
+        } => {
+            matches!(
+                predicate,
+                baylee_cards_dsl::EntryPredicate::FromExileOrCastFromExile
+            ) || filter_reads_cast_origin_zone(filter, 0)
+        }
         _ => false,
     }
 }
@@ -1862,7 +1896,10 @@ fn replacement_reads_cast_origin_zone(rule: &baylee_cards_dsl::ReplacementRule) 
     match rule {
         ReplacementRule::EnterTapped(f)
         | ReplacementRule::EnterUntapped(f)
-        | ReplacementRule::EnterWithCountersFromSource { filter: f } => {
+        | ReplacementRule::EnterWithCountersFromSource { filter: f }
+        | ReplacementRule::RedirectGraveyard { filter: f, .. }
+        | ReplacementRule::ExileInsteadOfGraveyardWithRider { filter: f, .. }
+        | ReplacementRule::EnterAsAdditionalTypesAndPt { filter: f, .. } => {
             filter_reads_cast_origin_zone(f, 0)
         }
         ReplacementRule::EnterTappedIf { filter, condition }
@@ -2362,4 +2399,23 @@ fn effects_read_first_discard_batch(effects: &'static [baylee_cards_dsl::Effect]
         };
     });
     found
+}
+
+/// Whether `def` carries a `ReplacementRule::ReplaceDrawWithDrawsThen` with
+/// `first_extra_this_turn: true` (*Reed Richards, Smartest Man*), activating
+/// [`crate::state::PerTurnExtraDraws`] tracking.
+pub(crate) fn card_reads_first_extra_draw(def: &CardDef) -> bool {
+    (0..def.faces.len().max(1)).any(|face| {
+        def.abilities_for_face(face).iter().any(|ability| {
+            matches!(
+                ability,
+                baylee_cards_dsl::AbilityDef::Replacement(
+                    baylee_cards_dsl::ReplacementRule::ReplaceDrawWithDrawsThen {
+                        first_extra_this_turn: true,
+                        ..
+                    }
+                )
+            )
+        })
+    })
 }

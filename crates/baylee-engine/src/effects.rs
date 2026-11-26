@@ -432,7 +432,22 @@ pub fn locks_its_set(modifier: &Modifier) -> bool {
         | Modifier::CantBeAttackedBy(_)
         | Modifier::MayActivateLoyaltyAsInstant { .. }
         | Modifier::MayCastFromGraveyardTargeted { .. }
-        | Modifier::CastCostIncreaseUnlessTargets { .. } => false,
+        | Modifier::CastCostIncreaseUnlessTargets { .. }
+        | Modifier::NextDrawReplace(_)
+        | Modifier::ReplaceNextGameLoss { .. }
+        | Modifier::EnterUnderYourControl(_)
+        | Modifier::ReplaceBattlefieldEntry { .. }
+        | Modifier::ExileMatchingInsteadOfGraveyard { .. }
+        | Modifier::PermanentsEnterTapped(_)
+        | Modifier::MultiplyTokensCreated { .. }
+        | Modifier::StealOpponentTokens
+        | Modifier::AddDamageDynamic { .. }
+        | Modifier::PreventDamageRemovingOneCounter { .. }
+        | Modifier::RedirectDamageToAffected { .. }
+        | Modifier::RedirectDamageToAffectedController
+        | Modifier::PreventAllButOneDamage { .. }
+        | Modifier::ReplaceOrPreventDamageScopedWithThen { .. }
+        | Modifier::HealOtherDamageWhenDealtDamage => false,
     }
 }
 
@@ -864,6 +879,7 @@ impl EffectTable {
                     | Modifier::PlayerCantCast { .. }
                     | Modifier::PlayersCantPlay(_)
                     | Modifier::CantEnterBattlefield(_)
+                    | Modifier::ReplaceBattlefieldEntry { .. }
                     | Modifier::MayCastWithAltCost {
                         with_flash: true,
                         ..
@@ -937,6 +953,7 @@ impl EffectTable {
                     | Modifier::CantBeSacrificed { .. }
                     | Modifier::PlayersCantLose
                     | Modifier::NamedPlayersCantLose(_)
+                    | Modifier::ReplaceNextGameLoss { .. }
                     | Modifier::PlayersCantWin(_)
                     | Modifier::DrawLimitPerTurn { .. }
                     | Modifier::SkipUntapStep { .. }

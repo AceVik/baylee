@@ -476,8 +476,44 @@ pub(super) fn exec_immediate(
         | Effect::PreventNextFromMatchingSources { .. }
         | Effect::PreventAllDamageFromMatchingThisTurn { .. }
         | Effect::RedirectNextFromChosenSource { .. }
-        | Effect::DealDamageToEachOpponentAndPlaneswalkerDamagedThisGame { .. } => {
-            life::exec(state, res, op)
+        | Effect::DealDamageToEachOpponentAndPlaneswalkerDamagedThisGame { .. }
+        | Effect::DealDamageToEventSourceOrController { .. }
+        | Effect::RedirectNextDamageTo { .. }
+        | Effect::PreventNextFromChosenSourceWithThen { .. } => life::exec(state, res, op),
+        Effect::AddCounterDamagedObject { kind, amount } => {
+            let n = super::amount2(&amount, state, you, res);
+            if n > 0
+                && let Some(target) = res.subject.damaged_object
+                && state
+                    .object(target)
+                    .is_some_and(|o| o.zone == crate::zone::Zone::Battlefield)
+            {
+                crate::replacement::put_counters_by(
+                    state,
+                    you,
+                    target,
+                    kind,
+                    u16::try_from(n).unwrap_or(u16::MAX),
+                );
+            }
+            None
+        }
+        Effect::ShuffleDamagedObjectIntoLibrary => {
+            if let Some(target) = res.subject.damaged_object
+                && let Some(owner) = state
+                    .object(target)
+                    .filter(|o| o.zone == crate::zone::Zone::Battlefield)
+                    .map(|o| o.owner)
+            {
+                let _ = state.move_object(
+                    target,
+                    ZoneLocation::Library(owner),
+                    ZonePosition::Top,
+                    Cause::Effect,
+                );
+                state.shuffle_library(owner);
+            }
+            None
         }
         Effect::ExileEventFromGraveyardWithCounters { .. }
         | Effect::RemoveCountersFromChosenExile { .. } => exile_counters::exec(state, res, op),

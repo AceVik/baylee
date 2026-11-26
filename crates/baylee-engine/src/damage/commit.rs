@@ -92,6 +92,29 @@ impl DamageWork {
             }
         }
         self.combine_damage_to_same_recipient();
+        let mut healed = SmallVec::<[ObjectId; 4]>::new();
+        for part in &self.parts {
+            if part.view.amount > 0
+                && let DamageTarget::Object(id) = part.view.recipient
+                && !healed.contains(&id)
+                && state.object(id).is_some_and(|obj| {
+                    obj.damage > 0
+                        && state.effects.iter().any(|fx| {
+                            fx.modifier
+                                == baylee_cards_dsl::Modifier::HealOtherDamageWhenDealtDamage
+                                && crate::effects::applies_to(state, fx, obj)
+                        })
+                })
+            {
+                healed.push(id);
+            }
+        }
+        for id in healed {
+            if let Some(obj) = state.object_mut(id) {
+                obj.damage = 0;
+                obj.deathtouched = false;
+            }
+        }
         let excess_damage = self.excess_damage(state);
         let mut life_loss = LifeLossBudgets::new(self, state);
         for (part, excess) in self.parts.iter().zip(excess_damage) {
@@ -250,6 +273,8 @@ fn run_prevent_then(state: &mut GameState, rider: &super::PreventThenRider) {
         .with_source_version(rider.source_version)
         .with_event_player(rider.damaged_player);
     subject.damage_prevented = rider.prevented;
+    subject.damaged_object = rider.damaged_object;
+    subject.event_source_version = rider.event_source_version;
     if let Some(subtype) = rider.chosen_subtype {
         subject.set_chosen_subtype(subtype);
     }

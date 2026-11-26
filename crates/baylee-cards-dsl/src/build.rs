@@ -1243,8 +1243,10 @@ pub mod prelude {
     pub use crate::filter::{Filter, OriginalExpansion, ZoneRef, ZoneRef as ZoneKind};
     pub use crate::static_ability::{
         AbilityDonorZone, AltCastPrice, AltCastZones, CounterReplaceOp, DamageAmountReplacement,
-        DamageRecipients, DamagedByScope, Duration, GraveyardAltKind, LAYERS, Layer, LifeGainOp,
-        Modifier, PtCount, ReplacementRule, SpellCastMetric, StaticAbility, TriggerCause,
+        DamageRecipients, DamageRiderScope, DamagedByScope, Duration, EntryInsteadZone,
+        EntryPredicate, GraveyardAltKind, GraveyardExileRider, GraveyardRedirectDest, LAYERS,
+        Layer, LifeGainOp, Modifier, MultiDrawReplacementKind, NextDrawReplacement, PtCount,
+        ReplacementRule, SpellCastMetric, StaticAbility, TriggerCause,
     };
     pub use crate::{
         ALL_MANA_COLORS, ANY_COLOR_MANA, BeholdOrPay, CardDef, CommanderRule, Coverage,

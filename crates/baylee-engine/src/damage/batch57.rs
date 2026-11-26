@@ -19,12 +19,18 @@ impl DamageWork {
             DamageEffectKind::ReplaceAmount { amount } => {
                 let mut replaced = Vec::new();
                 let mut replaced_total = 0_u32;
-                let first_event_source = candidate
+                let (first_event_source, first_event_source_version) = candidate
                     .option
                     .parts
                     .first()
                     .and_then(|pid| self.parts.iter().find(|p| p.view.id == *pid))
-                    .map(|p| p.view.source);
+                    .map_or((None, None), |p| {
+                        (
+                            Some(p.view.source),
+                            p.source_version
+                                .or_else(|| state.object(p.view.source).map(|o| o.version)),
+                        )
+                    });
                 for part in &mut self.parts {
                     if candidate.option.parts.contains(&part.view.id) {
                         let source = (part.view.source, part.source_version);
@@ -41,24 +47,36 @@ impl DamageWork {
                     }
                 }
                 if replaced_total > 0
-                    && let EffectKey::Continuous(fx_id) = candidate.key
+                    && let EffectKey::Continuous(fx_id) | EffectKey::ContinuousForSource(fx_id, _) =
+                        candidate.key
                     && let Some(fx) = state.effects.iter().find(|fx| fx.id == fx_id)
-                    && let baylee_cards_dsl::Modifier::ReplaceOrPreventDamageWithThen {
-                        is_replacement: true,
-                        then,
-                        ..
-                    } = fx.modifier
+                    && let Some(then) = match fx.modifier {
+                        baylee_cards_dsl::Modifier::ReplaceOrPreventDamageWithThen {
+                            is_replacement: true,
+                            then,
+                            ..
+                        }
+                        | baylee_cards_dsl::Modifier::ReplaceOrPreventDamageScopedWithThen {
+                            is_replacement: true,
+                            then,
+                            ..
+                        } => Some(then),
+                        _ => None,
+                    }
                 {
                     self.record_then_rider(super::PreventThenRider {
-                        key: EffectKey::Continuous(fx_id),
+                        key: candidate.key,
                         controller: fx.controller,
                         source: fx.source.unwrap_or(baylee_core::ids::ObjectId::NO_SOURCE),
                         source_version: fx
                             .source
                             .and_then(|id| state.object(id).map(|o| o.version)),
                         event_object: first_event_source,
+                        event_source_version: first_event_source_version,
                         damaged_player: super::rider_damaged_player(candidate.recipient, then),
+                        damaged_object: super::rider_damaged_object(candidate.recipient, then),
                         prevented: replaced_total,
+                        only_if_prevented: true,
                         text: state.effect_text(fx),
                         chosen_subtype: fx.filter.chosen_subtype().or_else(|| {
                             fx.source
@@ -84,13 +102,44 @@ impl DamageWork {
                 }
             }
             DamageEffectKind::AddDamage { extra } => {
+                let bonus = match candidate.key {
+                    EffectKey::Continuous(fx_id) => state
+                        .effects
+                        .iter()
+                        .find(|fx| fx.id == fx_id)
+                        .and_then(|fx| match fx.modifier {
+                            baylee_cards_dsl::Modifier::AddDamageDynamic { extra: amt, .. } => {
+                                let fx_source =
+                                    fx.source.unwrap_or(baylee_core::ids::ObjectId::NO_SOURCE);
+                                let chosen_subtype =
+                                    state.object(fx_source).and_then(|o| o.chosen_subtype);
+                                let ctx = crate::text_changes::RuleContext {
+                                    source: fx_source,
+                                    text: state.effect_text(fx),
+                                    resolved_name: None,
+                                    resolved_subtype: chosen_subtype,
+                                    reference: None,
+                                };
+                                Some(crate::eval::amount_with_context(
+                                    &amt,
+                                    state,
+                                    fx.controller,
+                                    ctx,
+                                    None,
+                                ))
+                            }
+                            _ => None,
+                        })
+                        .unwrap_or_else(|| u32::from(extra)),
+                    _ => u32::from(extra),
+                };
                 let mut increased = Vec::new();
                 for part in &mut self.parts {
                     if candidate.option.parts.contains(&part.view.id) {
                         let key = (part.view.source, part.source_version, part.view.recipient);
                         if part.view.amount > 0 && !increased.contains(&key) {
                             increased.push(key);
-                            part.view.amount = part.view.amount.saturating_add(u32::from(extra));
+                            part.view.amount = part.view.amount.saturating_add(bonus);
                         }
                         part.applied.push(candidate.key);
                     }
@@ -223,7 +272,9 @@ impl DamageWork {
                         out,
                     );
                 }
-                Modifier::MultiplyDamageFrom { .. } | Modifier::AddDamageFrom { .. } => {
+                Modifier::MultiplyDamageFrom { .. }
+                | Modifier::AddDamageFrom { .. }
+                | Modifier::AddDamageDynamic { .. } => {
                     push_scaled_damage_candidate(effect, state, part, source, out);
                 }
                 _ => {}
@@ -254,7 +305,8 @@ impl DamageWork {
         let key = match replacement {
             DamageAmountReplacement::HalfDown
             | DamageAmountReplacement::HalfUp
-            | DamageAmountReplacement::Subtract(_) => EffectKey::ContinuousForSource(
+            | DamageAmountReplacement::Subtract(_)
+            | DamageAmountReplacement::SetTo(_) => EffectKey::ContinuousForSource(
                 effect.id,
                 baylee_core::ids::DamageSourceRef {
                     object: part.view.source,
@@ -297,6 +349,7 @@ impl DamageWork {
             DamageAmountReplacement::HalfDown => total / 2,
             DamageAmountReplacement::HalfUp => total.div_ceil(2),
             DamageAmountReplacement::Subtract(sub) => total.saturating_sub(sub),
+            DamageAmountReplacement::SetTo(n) => n,
         };
         super::candidates::add(
             out,
@@ -350,6 +403,41 @@ fn push_scaled_damage_candidate(
             recipients,
             DamageEffectKind::AddDamage { extra },
         ),
+        Modifier::AddDamageDynamic {
+            sources,
+            extra,
+            combat_only,
+            noncombat_only,
+            recipients,
+        } => {
+            let fx_source = effect.source.unwrap_or(source.id);
+            let chosen_subtype = state.object(fx_source).and_then(|o| o.chosen_subtype);
+            let bonus = crate::eval::amount_with_context(
+                &extra,
+                state,
+                effect.controller,
+                crate::text_changes::RuleContext {
+                    source: fx_source,
+                    text: state.effect_text(effect),
+                    resolved_name: None,
+                    resolved_subtype: chosen_subtype,
+                    reference: None,
+                },
+                None,
+            );
+            if bonus == 0 {
+                return;
+            }
+            (
+                sources,
+                combat_only,
+                noncombat_only,
+                recipients,
+                DamageEffectKind::AddDamage {
+                    extra: u8::try_from(bonus).unwrap_or(u8::MAX),
+                },
+            )
+        }
         _ => return,
     };
     if (combat_only && !part.view.is_combat)
