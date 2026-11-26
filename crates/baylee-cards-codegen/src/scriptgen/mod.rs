@@ -572,6 +572,9 @@ struct Tx<'a> {
     /// (no dual kicker and no `K:Multikicker:`), so `times_kicked` is strictly
     /// 0 or 1.
     has_single_kicker: bool,
+    /// Whether the script declares `K:Delve`: the one way a card is exiled
+    /// "with" the permanent its spell becomes as it is cast (CR 607.2q).
+    has_delve: bool,
     /// Maps 1-based script kicker slot (`1` -> `[0]`, `2` -> `[1]`) to the
     /// 0-based Oracle-ordered `FaceDef::additional_costs` index for dual
     /// kicker (`K:Kicker:<c1>:<c2>`, CR 702.33a–b). `None` on non-dual cards.
@@ -764,6 +767,7 @@ impl<'a> Tx<'a> {
             has_x_mana_cost: script.has_x_mana_cost,
             has_flash: script.keywords.iter().any(|k| k.trim() == "Flash"),
             has_single_kicker: !multi_or_dual && single_kickers == 1,
+            has_delve: script.keywords.iter().any(|kw| kw == "Delve"),
             dual_kicker_remap: None,
             trigger_is_self: false,
             in_alternative_cost: false,

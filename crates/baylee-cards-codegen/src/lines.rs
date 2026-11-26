@@ -636,6 +636,7 @@ pub fn trigger_words(trigger: &baylee_cards_dsl::Trigger) -> &'static [&'static 
             &["discard"]
         }
         T::LeavesBattlefield(_) | T::LinkedCreatureLeaves => &["leave"],
+        T::LeavesGraveyard(_) => &["leaves your graveyard", "leave your graveyard"],
         T::PhasesIn(_) => &["phases in", "phase in"],
         T::PhasesOut(_) | T::PhasesOutOrLeavesBattlefield(_) => &["phases out", "phase out"],
         T::Dies(_) | T::DiesNotSacrificed(_) | T::DiesAfterDamageByThis(_) => &[
