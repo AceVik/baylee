@@ -2385,6 +2385,7 @@ impl Tx<'_> {
             "TriggeredCardController" | "TriggeredCardOwner" if trigger == Some("Drawn") => {
                 "PlayerRel::EventPlayer"
             }
+            "TriggeredCardController" if trigger == Some("LandPlayed") => "PlayerRel::EventPlayer",
             // The player a damage trigger's damage was dealt to: the
             // `DamageDone` rule reads only triggers whose target is a
             // player, so `TriggeredTarget` is one.

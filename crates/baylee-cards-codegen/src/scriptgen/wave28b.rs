@@ -1186,8 +1186,29 @@ impl Tx<'_> {
             self.body.statics.truncate(saved_statics);
             return None;
         };
+        if decider == "True"
+            && !targets_a_player
+            && !p.has("RememberDrawn")
+            && let Some(domain) = match defined.as_deref() {
+                Some("Player") => Some("RepeatDomain::EachPlayer"),
+                Some("Opponent" | "Player.Opponent") => Some("RepeatDomain::EachOpponent"),
+                _ => None,
+            }
+        {
+            if let Some(n) = self.amount_or_count_ext(p.take("NumCards").as_deref().unwrap_or("1"))
+            {
+                return Some(vec![format!(
+                    "Effect::RepeatEach {{ domain: {domain}, effects: &[Effect::MayDoFor {{ \
+                     player: PlayerRel::EventPlayer, effects: &[Effect::DrawCardsFor {{ \
+                     amount: {n}, who: PlayerRel::EventPlayer }}] }}] }}"
+                )]);
+            }
+            *p = saved;
+            self.body.statics.truncate(saved_statics);
+            return None;
+        }
         let decider_rel = if decider == "True" {
-            (who == "PlayerRel::You").then_some("PlayerRel::You")
+            (Self::wave28b_is_single_player_rel(who) && !p.has("RememberDrawn")).then_some(who)
         } else if targets_a_player
             && defined.is_none()
             && who == "PlayerRel::Chosen"

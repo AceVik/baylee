@@ -9714,6 +9714,16 @@ impl Tx<'_> {
         {
             return Some("Amount::ThisWay(ThisWay::LifeLost)".to_string());
         }
+        if self.chain_prev_removed_counters
+            && self
+                .svars
+                .get(raw.trim())
+                .map_or(raw.trim(), String::as_str)
+                .trim()
+                == "Count$RememberedSize"
+        {
+            return Some("Amount::ThisWay(ThisWay::CountersRemovedFromTargets)".to_string());
+        }
         let saved_unclaimed = self.unclaimed.borrow().clone();
         let saved_statics_len = self.body.statics.len();
         if let Some(expr) = self.amount_or_count(raw) {
@@ -13177,7 +13187,7 @@ impl Tx<'_> {
     // Shared Wave 8b helpers for scoped sub-chains and per-player counts.
     // -------------------------------------------------------------------------
 
-    fn is_single_seat_rel(rel: &str) -> bool {
+    pub(super) fn is_single_seat_rel(rel: &str) -> bool {
         matches!(
             rel,
             "PlayerRel::You"
@@ -13411,6 +13421,11 @@ impl Tx<'_> {
         let saved_statics_len = self.body.statics.len();
         if let Some(effects) = self.repeat_each_effect(p.clone(), sub, chain) {
             chain.effects.extend(effects);
+            return Some(());
+        }
+        (*self.unclaimed.borrow_mut()).clone_from(&saved_unclaimed);
+        self.body.statics.truncate(saved_statics_len);
+        if let Some(()) = self.repeat_choose_exile_rest_graveyard(&p, sub, chain) {
             return Some(());
         }
         *self.unclaimed.borrow_mut() = saved_unclaimed;
@@ -15412,6 +15427,10 @@ impl Tx<'_> {
             return self.deny(format!("`PeekAndReveal` for multi-seat `{library}`"));
         };
         let (parley_effs, trailing) = self.try_parley_followup(sub_name, library)?;
+        chain.could_add_mana |= parley_effs
+            .iter()
+            .any(|e| e.contains("Effect::AddManaAmountFor"));
+        chain.moves_library |= parley_effs.iter().any(|e| e.contains("Effect::DrawCards"));
         let mut all = vec![reveal_loop];
         all.extend(parley_effs);
         if let Some(c) = outer_cond {
@@ -15425,7 +15444,7 @@ impl Tx<'_> {
         self.chain_sub_ability(trailing, chain)
     }
 
-    fn parley_valid_amount(&mut self, raw: &str, who: &str) -> Option<String> {
+    pub(super) fn parley_valid_amount(&mut self, raw: &str, who: &str) -> Option<String> {
         let def = self.svars.get(raw.trim())?.trim().to_string();
         let (head, suffix) = def
             .split_once('/')
@@ -15503,6 +15522,7 @@ impl Tx<'_> {
                         "Effect::AddCounterFilter {{ filter: &Filter::This, kind: {kind}, amount: {amt} }}"
                     )
                 }
+                "Mana" => self.parley_mana_step(&mut sp, reveal_who)?,
                 "GainLife" => {
                     let who = self.player_rel(sp.take("Defined").as_deref())?;
                     let amt = self.parley_valid_amount(&sp.take("LifeAmount")?, reveal_who)?;
@@ -15786,6 +15806,7 @@ impl Tx<'_> {
         let mut if_matches = Vec::new();
         let mut otherwise = Vec::new();
         let mut steps = 0usize;
+        let mut trailing_sub = None;
         while let Some(name) = cursor.take() {
             steps += 1;
             if steps > 12 {
@@ -15821,6 +15842,13 @@ impl Tx<'_> {
                             None,
                         ));
                     }
+                }
+                if steps > 1
+                    && filter_raw.is_some()
+                    && !self.svar_chain_references_remembered(&name)
+                {
+                    trailing_sub = Some(name);
+                    break;
                 }
                 return self.deny("`PeekAndReveal` `NoPeek` follow-up shape".to_string());
             }
@@ -15901,7 +15929,7 @@ impl Tx<'_> {
                 if_matches.join(", "),
                 otherwise.join(", ")
             ),
-            None,
+            trailing_sub,
         ))
     }
 

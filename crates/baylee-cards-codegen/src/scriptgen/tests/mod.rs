@@ -12,6 +12,7 @@ mod dig;
 mod divided_damage;
 mod dredge;
 mod effects;
+mod hand_and_draw;
 mod imprison;
 mod kicker;
 mod prevention_rules;
