@@ -112,6 +112,7 @@ impl GameState {
             effect_text_overrides,
             copy_snapshots,
             temporary_copy_origins,
+            face_down_copied_bases,
             numeric_failure,
             constrained_payments,
             replacement_rules,
@@ -317,6 +318,15 @@ impl GameState {
             h.u16(362);
             modal_modes_used.hash(&mut h);
         }
+        if !face_down_copied_bases.is_empty() {
+            h.u8(255);
+            h.u16(526);
+            h.usize(face_down_copied_bases.len());
+            for (identity, base) in face_down_copied_bases {
+                identity.hash(&mut h);
+                hash_characteristics(&mut h, base);
+            }
+        }
         h.finish()
     }
 
@@ -421,24 +431,7 @@ impl GameState {
                 }
             }
         }
-        h.usize(
-            self.temporary_copy_origins
-                .iter()
-                .filter(|(identity, _)| {
-                    self.object(identity.object)
-                        .is_some_and(|object| object.version == identity.version)
-                })
-                .count(),
-        );
-        for (identity, original) in &self.temporary_copy_origins {
-            if self
-                .object(identity.object)
-                .is_some_and(|object| object.version == identity.version)
-            {
-                h.u32(position(identity.object));
-                hash_object_situation(&mut h, original, self, &position);
-            }
-        }
+        self.hash_loop_copy_overlays(&mut h, &position);
         self.hash_loop_combat(&mut h, &position);
         // What has already been used this turn, which is rules-visible: an
         // ability that prints "activate only once each turn" is *offered* in
@@ -470,6 +463,47 @@ impl GameState {
             }
         }
         h.finish()
+    }
+
+    fn hash_loop_copy_overlays(&self, h: &mut Hasher, position: &impl Fn(ObjectId) -> u32) {
+        h.usize(
+            self.temporary_copy_origins
+                .iter()
+                .filter(|(identity, _)| {
+                    self.object(identity.object)
+                        .is_some_and(|object| object.version == identity.version)
+                })
+                .count(),
+        );
+        for (identity, original) in &self.temporary_copy_origins {
+            if self
+                .object(identity.object)
+                .is_some_and(|object| object.version == identity.version)
+            {
+                h.u32(position(identity.object));
+                hash_object_situation(h, original, self, position);
+            }
+        }
+        if !self.face_down_copied_bases.is_empty() {
+            let mut live: Vec<_> = self
+                .face_down_copied_bases
+                .iter()
+                .filter(|(identity, _)| {
+                    self.object(identity.object)
+                        .is_some_and(|object| object.version == identity.version)
+                })
+                .collect();
+            if !live.is_empty() {
+                live.sort_unstable_by_key(|(identity, _)| position(identity.object));
+                h.u8(255);
+                h.u16(526);
+                h.usize(live.len());
+                for (identity, base) in live {
+                    h.u32(position(identity.object));
+                    hash_characteristics(h, base);
+                }
+            }
+        }
     }
 
     fn hash_loop_combat(&self, h: &mut Hasher, position: &impl Fn(ObjectId) -> u32) {
@@ -2117,6 +2151,10 @@ fn hash_cast_keyword_rider(h: &mut Hasher, rider: &crate::object::Rider) {
             h.u8(255);
             h.u16(490);
         }
+        crate::object::Rider::TurnedFaceDown => {
+            h.u8(255);
+            h.u16(525);
+        }
         _ => {}
     }
 }
@@ -3069,6 +3107,10 @@ fn hash_object(h: &mut Hasher, obj: &GameObject) {
                 h.u8(255);
                 h.u16(490);
             }
+            Rider::TurnedFaceDown => {
+                h.u8(255);
+                h.u16(525);
+            }
         }
     }
     // What the spell or ability on the stack was cast or put there with:
@@ -3492,6 +3534,26 @@ fn filter_hash(h: &mut Hasher, f: &baylee_cards_dsl::Filter) {
             h.u8(255);
             h.u16(512);
             rel.hash(h);
+        }
+        F::HasMorph => {
+            h.u8(255);
+            h.u16(520);
+        }
+        F::DoubleFaced => {
+            h.u8(255);
+            h.u16(521);
+        }
+        F::CanTransform => {
+            h.u8(255);
+            h.u16(522);
+        }
+        F::Flipped => {
+            h.u8(255);
+            h.u16(523);
+        }
+        F::HasOmen => {
+            h.u8(255);
+            h.u16(524);
         }
     }
 }

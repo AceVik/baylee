@@ -316,6 +316,11 @@ fn reads_source(filter: &Filter) -> bool {
         | Filter::CastFromZone(_)
         | Filter::IsCommander
         | Filter::HasAdventure
+        | Filter::HasOmen
+        | Filter::HasMorph
+        | Filter::DoubleFaced
+        | Filter::CanTransform
+        | Filter::Flipped
         | Filter::Any
         | Filter::HasType(_)
         | Filter::LacksType(_)

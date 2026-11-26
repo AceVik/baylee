@@ -149,6 +149,7 @@ mod repeated_graveyard_choice;
 mod repeated_graveyard_tests;
 #[cfg(test)]
 mod reveal_search_tests;
+mod set_state;
 pub mod tap_energy;
 pub(crate) mod tap_group;
 use permissions::grant_play;

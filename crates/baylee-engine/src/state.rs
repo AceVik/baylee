@@ -885,6 +885,13 @@ pub struct GameState {
     pub copy_snapshots: Vec<(baylee_core::ids::EffectId, Arc<Characteristics>)>,
     /// Sparse original rules and casting decisions restored when temporary copies expire.
     pub(crate) temporary_copy_origins: Vec<(baylee_core::ids::DamageSourceRef, Box<GameObject>)>,
+    /// Copied base characteristics displaced while a permanent that was already
+    /// copying another object (so `original_base` holds its printed card) is
+    /// turned face down (`CR 708.2`, `CR 707.2`).
+    pub(crate) face_down_copied_bases: Vec<(
+        baylee_core::ids::DamageSourceRef,
+        Arc<crate::object::Characteristics>,
+    )>,
     /// Text provenance that differs from an effect's ordinary source.
     pub effect_text_overrides: Vec<(baylee_core::ids::EffectId, crate::text_changes::TextOrigin)>,
     /// Registered replacement rules (Doubling Season, Panharmonicon, …).
@@ -1047,6 +1054,7 @@ impl GameState {
             effect_text_overrides,
             copy_snapshots,
             temporary_copy_origins,
+            face_down_copied_bases,
             numeric_failure,
             constrained_payments,
             replacement_rules,
@@ -1192,6 +1200,10 @@ impl GameState {
             (
                 "state.temporary_copy_origins",
                 format!("{temporary_copy_origins:?}"),
+            ),
+            (
+                "state.face_down_copied_bases",
+                format!("{face_down_copied_bases:?}"),
             ),
             ("state.replacement_rules", format!("{replacement_rules:?}")),
             ("state.shields", format!("{shields:?}")),

@@ -37,15 +37,10 @@ pub(super) fn resume_inner(
             wave4_combat::finish_choose_ring_bearer(state, res, chosen);
         }
         AwaitingOp::MeldPartner => {
-            let Effect::MeldWithNamed {
-                source_name,
-                partner_name,
-                melded,
-            } = res.effects[res.pc]
-            else {
-                unreachable!("meld instruction")
-            };
-            meld::finish(state, res, chosen[0], source_name, partner_name, melded);
+            let spec = meld::MeldSpec::from_effect(res.effects[res.pc]).expect("meld instruction");
+            if let Some(pending) = meld::finish(state, res, chosen[0], spec) {
+                return next_choice(state, res, since, pending);
+            }
         }
         AwaitingOp::DungeonTax(tax) => {
             if let Some(pending) = dungeon::resume_tax(state, res, tax, chosen) {
@@ -2213,6 +2208,9 @@ pub(super) fn resume_inner(
         AwaitingOp::CipherEncode => super::wave10b::resume_cipher_encode(state, res, chosen),
         AwaitingOp::ChampionExile => super::wave10b::resume_champion_exile(state, res, chosen),
         AwaitingOp::UndercityThrone => super::dungeon::resume_throne(state, res, chosen),
+        AwaitingOp::SetStateOptionalTurnFaceUp { .. } => {
+            unreachable!("SetStateOptionalTurnFaceUp is answered via resume_yes_no")
+        }
     }
     finish_choice(state, res, since)
 }

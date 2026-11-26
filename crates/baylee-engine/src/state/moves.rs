@@ -858,6 +858,7 @@ impl GameState {
                             | crate::object::Rider::AttachedToPlayer(_)
                             | crate::object::Rider::PairedWith(..)
                             | crate::object::Rider::TributePaid
+                            | crate::object::Rider::TurnedFaceDown
                     )
                 });
                 // A name chosen as it entered belongs to that permanent
@@ -1029,6 +1030,9 @@ impl GameState {
                         | crate::object::Rider::EntryTappingApplied
                 )
             });
+        }
+        if from_zone == Zone::Battlefield && !self.face_down_copied_bases.is_empty() {
+            self.face_down_copied_bases.retain(|(r, _)| r.object != id);
         }
         if from_zone == Zone::Battlefield && !self.play_permissions.is_empty() {
             self.play_permissions

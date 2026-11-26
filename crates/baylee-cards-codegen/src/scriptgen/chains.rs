@@ -3483,7 +3483,11 @@ impl Tx<'_> {
                     || (api == "DealDamage"
                         && !p.has("DividedAsYouChoose")
                         && p.peek("DamageSource").is_none())
-                    || (api == "SetState" && p.peek("Mode") == Some("TurnFaceUp"))
+                    || (api == "SetState"
+                        && matches!(
+                            p.peek("Mode"),
+                            Some("TurnFaceUp" | "TurnFaceDown" | "Transform" | "Flip")
+                        ))
                     || (api == "Attach"
                         && p.peek("Object") == Some("Targeted")
                         && p.peek("Defined") == Some("Self"))
@@ -5251,51 +5255,8 @@ impl Tx<'_> {
                     }
                 }
             }
-            "SetState" => {
-                p.take("IsCurse");
-                let optional = match p.take("Optional").as_deref() {
-                    None | Some("False") => false,
-                    Some("True") => true,
-                    Some(_) => return None,
-                };
-                let eff = match p.take("Mode").as_deref() {
-                    Some("Transform") => {
-                        if self.on_a_spell
-                            || targets_here
-                            || !matches!(p.take("Defined").as_deref(), None | Some("Self"))
-                        {
-                            return None;
-                        }
-                        "Effect::TransformSource".to_string()
-                    }
-                    Some("TurnFaceUp") => {
-                        let to = match (p.take("Defined").as_deref(), target) {
-                            (None | Some("Targeted" | "ParentTarget"), Some(aimed))
-                                if aimed.starts_with("TargetSpec::Object(") =>
-                            {
-                                aimed.to_string()
-                            }
-                            (None | Some("Self"), None) if !self.on_a_spell => {
-                                "TargetSpec::ThisObject".to_string()
-                            }
-                            (Some("Self"), _) if !self.on_a_spell && !targets_here => {
-                                "TargetSpec::ThisObject".to_string()
-                            }
-                            (Some(def), None) if self.is_event_object_defined(def) => {
-                                "TargetSpec::EventObject".to_string()
-                            }
-                            _ => return None,
-                        };
-                        format!("Effect::TurnFaceUp {{ target: {to} }}")
-                    }
-                    _ => return None,
-                };
-                if optional {
-                    vec![format!("Effect::MayDo {{ effects: &[{eff}] }}")]
-                } else {
-                    vec![eff]
-                }
-            }
+            "SetState" => self.lower_set_state(p, target, targets_here)?,
+            "Meld" => self.lower_meld(p)?,
             "Manifest" => {
                 if p.has("Defined") {
                     return None;

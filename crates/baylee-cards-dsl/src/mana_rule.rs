@@ -209,6 +209,7 @@ const fn always_moves_library(effect: &Effect) -> bool {
             | Effect::ManifestTop { .. }
             | Effect::ManifestDread
             | Effect::TurnFaceUp { .. }
+            | Effect::SetState { .. }
             | Effect::Plot { .. }
             | Effect::PlotTop { .. }
             | Effect::Backup { .. }

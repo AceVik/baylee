@@ -149,6 +149,7 @@ impl GameState {
             effect_text_overrides: Vec::new(),
             copy_snapshots: Vec::new(),
             temporary_copy_origins: Vec::new(),
+            face_down_copied_bases: Vec::new(),
             numeric_failure: None,
             constrained_payments: Vec::new(),
             replacement_rules: Vec::new(),

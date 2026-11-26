@@ -194,6 +194,7 @@ fn castable_back_faces_in_zone(
         .filter(move |(_, face)| {
             (face.castable_from_hand || (in_own_graveyard && (face.disturb || face.aftermath)))
                 && !face.types.contains(TypeSet::LAND)
+                && !face.flip
                 && !(on_adventure && face.adventure)
         })
 }

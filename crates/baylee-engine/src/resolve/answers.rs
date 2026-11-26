@@ -652,6 +652,7 @@ pub(super) fn resume_yes_no_inner(
         .or_else(|| super::proliferate::resume_player(state, res, answer))
         .or_else(|| resume_may_exile_graveyard(state, res, answer))
         .or_else(|| super::wave4_combat::resume_myriad_yes_no(state, res, answer))
+        .or_else(|| super::set_state::resume_optional_turn_face_up(state, res, answer))
     {
         return flow;
     }

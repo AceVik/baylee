@@ -561,6 +561,11 @@ impl HeuristicAgent {
         | Filter::HasCounters(_)
         | Filter::NotTargetedByAnotherNamed(_)
         | Filter::HasAdventure
+        | Filter::HasOmen
+        | Filter::HasMorph
+        | Filter::DoubleFaced
+        | Filter::CanTransform
+        | Filter::Flipped
         | Filter::ActivatedAbilityFrom(_)
         | Filter::TargetsPermanentYouControl
         | Filter::TargetsYouControl(_)

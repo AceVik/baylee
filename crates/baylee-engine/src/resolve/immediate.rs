@@ -178,11 +178,15 @@ pub(super) fn exec_immediate(
 
         Effect::Sequence(_) => unreachable!("sequences are flattened"),
         Effect::TakklemaggotDeath => takklemaggot_death(state, res),
-        Effect::MeldWithNamed {
-            source_name,
-            partner_name,
-            melded,
-        } => super::meld::meld_with_named(state, res, source_name, partner_name, melded),
+        op @ (Effect::MeldWithNamed { .. } | Effect::MeldPair { .. }) => {
+            let spec = super::meld::MeldSpec::from_effect(op).expect("meld effect");
+            super::meld::meld(state, res, spec)
+        }
+        Effect::SetState {
+            subject,
+            transition,
+            if_cant,
+        } => super::set_state::exec(state, res, subject, transition, if_cant),
         Effect::DungeonSacrificeThree => super::dungeon::sacrifice_three(state, res),
         Effect::DungeonDrawThree => super::dungeon::draw_three(state, res),
         Effect::DungeonExileTwo => super::dungeon::exile_two(state, res),

@@ -63,6 +63,21 @@ impl GameState {
     /// The other face coming up without the game action is
     /// [`Self::turn_over`], which this is built on.
     pub fn transform(&mut self, id: ObjectId, def: &CardDef, face: usize) -> bool {
+        // CR 701.27d / CR 712.16: only transforming double-faced cards (not
+        // MDFCs, flip cards, omens, adventures, meld cards, melded permanents,
+        // or face-down/phased-out permanents) can transform.
+        if !def.can_transform() {
+            return false;
+        }
+        if self.is_melded_permanent(id)
+            || !self.object(id).is_some_and(|o| {
+                o.zone == Zone::Battlefield
+                    && !o.status.contains(crate::object::Status::PHASED_OUT)
+                    && !o.status.contains(crate::object::Status::FACE_DOWN)
+            })
+        {
+            return false;
+        }
         let face = face.min(def.faces.len() - 1);
         if !self.turn_over(id, def, face) {
             return false;
@@ -151,6 +166,13 @@ impl GameState {
     /// status, and `controlled_since`, stamping a new `timestamp`, and
     /// recording `GameEvent::Transformed`.
     pub fn transform_token(&mut self, id: ObjectId, face: u8) -> bool {
+        if !self.object(id).is_some_and(|o| {
+            o.zone == Zone::Battlefield
+                && !o.status.contains(crate::object::Status::PHASED_OUT)
+                && !o.status.contains(crate::object::Status::FACE_DOWN)
+        }) {
+            return false;
+        }
         let face = face.min(1);
         if !self.turn_over_token(id, face) {
             return false;
@@ -547,6 +569,263 @@ impl GameState {
         true
     }
 
+    /// Flips a Kamigawa flip permanent in place (`CR 710.2–710.4`, `CR 613.7g`).
+    ///
+    /// Flipping is a one-way status change on the battlefield: once flipped,
+    /// the permanent cannot flip again or become unflipped until it leaves the
+    /// battlefield (`CR 710.4`). Keeps object identity, counters, damage,
+    /// attachments, controller, and `controlled_since`; stamps a new timestamp.
+    pub fn flip_permanent(&mut self, id: ObjectId, def: &CardDef) -> bool {
+        if !def.is_flip_card() {
+            return false;
+        }
+        let Some((is_copy, until_eot)) = self.object(id).and_then(|o| {
+            if o.zone != Zone::Battlefield
+                || o.status.contains(crate::object::Status::PHASED_OUT)
+                || o.status.contains(crate::object::Status::FLIPPED)
+                || o.status.contains(crate::object::Status::FACE_DOWN)
+            {
+                return None;
+            }
+            if o.own_abilities.is_none() {
+                o.card
+                    .is_some_and(|c| c.index == def.index)
+                    .then_some((false, false))
+            } else {
+                // CR 707.2 / CR 710.2: a permanent copying a flip card acquires
+                // its alternative (flipped) characteristics and flips to face 1
+                // while preserving its underlying `original_base`.
+                o.printed_face()
+                    .is_some_and(|pf| pf.card() == def.index)
+                    .then_some((true, o.own_abilities_until_eot))
+            }
+        }) else {
+            return false;
+        };
+        self.effects.remove_where(|fx| {
+            fx.source == Some(id) && fx.origin == crate::effects::EffectOrigin::Static
+        });
+        self.replacement_rules.retain(|r| r.source != id);
+        if is_copy {
+            let flipped_name = self.names.intern(def.faces[1].name);
+            let flipped_base = Arc::new(crate::object::Characteristics::from_face(
+                def,
+                1,
+                flipped_name,
+            ));
+            let acquisition = self.next_timestamp();
+            let flipped_abilities = crate::object::AbilityList {
+                acquisition,
+                abilities: crate::copiable_abilities::AbilityDefs::Static(
+                    def.abilities_for_face(1),
+                ),
+                printed: crate::object::PrintedFace::new(def.index, 1),
+                token: None,
+            };
+            if until_eot {
+                let copy_effect_ids: Vec<_> = self
+                    .effects
+                    .iter()
+                    .filter(|fx| {
+                        fx.layer == baylee_cards_dsl::Layer::Copy
+                            && matches!(
+                                fx.filter,
+                                crate::effects::EffectFilter::ObjectIs(target, _) if target == id
+                            )
+                    })
+                    .map(|fx| fx.id)
+                    .collect();
+                for (fx_id, snapshot) in &mut self.copy_snapshots {
+                    if copy_effect_ids.contains(fx_id) {
+                        *snapshot = Arc::clone(&flipped_base);
+                    }
+                }
+            }
+            if let Some(obj) = self.object_mut(id) {
+                if !until_eot {
+                    obj.base = flipped_base;
+                }
+                obj.take_abilities(flipped_abilities);
+                obj.own_abilities_until_eot = until_eot;
+                obj.cache.clear();
+            }
+        } else {
+            self.switch_face(id, def, 1);
+        }
+        let ts = self.next_timestamp();
+        if let Some(obj) = self.object_mut(id) {
+            obj.status.insert(crate::object::Status::FLIPPED);
+            obj.timestamp = ts;
+        }
+        if !def.faces[1]
+            .types
+            .contains(baylee_core::types::TypeSet::CREATURE)
+        {
+            self.combat.remove_from_combat(id);
+        }
+        self.invalidate_projections();
+        true
+    }
+
+    /// Whether `id` is a melded permanent (`CR 701.42`, `CR 712.1`) rather than
+    /// a mutated permanent (`CR 727.2`). Both carry `Rider::MergedComponent`, so
+    /// melded permanents are distinguished by their combined melded back
+    /// (`card.is_some() && token.is_some()`) or any meld-card component.
+    #[must_use]
+    pub(crate) fn is_melded_permanent(&self, id: ObjectId) -> bool {
+        use crate::state::CardLookup as _;
+        let Some(o) = self.object(id) else {
+            return false;
+        };
+        let mut has_merged = false;
+        for rider in &o.riders {
+            if let crate::object::Rider::MergedComponent(comp_id) = *rider {
+                has_merged = true;
+                if self
+                    .object(comp_id)
+                    .and_then(|comp| comp.card)
+                    .and_then(|c| self.bases.card(c.index))
+                    .is_some_and(CardDef::is_meld_card)
+                {
+                    return true;
+                }
+            }
+        }
+        has_merged
+            && ((o.card.is_some() && o.token.is_some())
+                || o.card
+                    .and_then(|c| self.bases.card(c.index))
+                    .is_some_and(CardDef::is_meld_card))
+    }
+
+    /// Whether `id` is a double-faced card or token, a melded permanent, or a
+    /// merged permanent containing any double-faced card or token component
+    /// (`CR 712.1`, `CR 712.16`, `CR 727.2`).
+    #[must_use]
+    pub(crate) fn is_double_faced_object(&self, id: ObjectId) -> bool {
+        use crate::state::CardLookup as _;
+        let Some(o) = self.object(id) else {
+            return false;
+        };
+        if self.is_melded_permanent(id) {
+            return true;
+        }
+        if o.token.is_some_and(|t| t.back_face.is_some()) {
+            return true;
+        }
+        if o.card
+            .and_then(|c| self.bases.card(c.index))
+            .is_some_and(CardDef::is_double_faced)
+        {
+            return true;
+        }
+        o.riders.iter().any(|rider| {
+            let crate::object::Rider::MergedComponent(comp_id) = *rider else {
+                return false;
+            };
+            self.object(comp_id).is_some_and(|comp| {
+                comp.token.is_some_and(|t| t.back_face.is_some())
+                    || comp
+                        .card
+                        .and_then(|c| self.bases.card(c.index))
+                        .is_some_and(CardDef::is_double_faced)
+            })
+        })
+    }
+
+    /// Whether `id` is an eligible permanent to turn face down (`CR 708.2`,
+    /// `CR 712.16`, `CR 727.2`). Double-faced cards (transforming DFCs, MDFCs,
+    /// meld cards), double-faced tokens, melded permanents, and merged
+    /// permanents containing any double-faced component cannot turn face down;
+    /// mutated permanents composed solely of single-faced cards can.
+    #[must_use]
+    pub fn can_turn_face_down(&self, id: ObjectId) -> bool {
+        let Some(o) = self.object(id) else {
+            return false;
+        };
+        if o.zone != Zone::Battlefield
+            || o.status.contains(crate::object::Status::PHASED_OUT)
+            || o.status.contains(crate::object::Status::FACE_DOWN)
+        {
+            return false;
+        }
+        !self.is_double_faced_object(id)
+    }
+
+    /// Turns a face-up permanent on the battlefield face down with `spec`
+    /// characteristics (`CR 708.2`, `CR 712.16`, `CR 613.7g`).
+    ///
+    /// Keeps object identity, counters, damage, controller, `controlled_since`,
+    /// and any other status (including `Status::FLIPPED`); stamps a new
+    /// timestamp and adds `Rider::TurnedFaceDown` so Disguise Ward {2} is
+    /// never granted. If the permanent already has `original_base` (e.g. a
+    /// permanent copy), its displaced copied base is preserved in
+    /// `face_down_copied_bases` so turning it back face up restores the copy
+    /// while leaving the battlefield still restores the printed card.
+    pub fn turn_permanent_face_down(
+        &mut self,
+        id: ObjectId,
+        spec: baylee_cards_dsl::FaceDownSpec,
+    ) -> bool {
+        if !self.can_turn_face_down(id) {
+            return false;
+        }
+        self.effects.remove_where(|fx| {
+            fx.source == Some(id) && fx.origin == crate::effects::EffectOrigin::Static
+        });
+        self.replacement_rules.retain(|r| r.source != id);
+
+        let mut face_down_base = self.bare_base(super::NAMELESS);
+        {
+            let c = Arc::make_mut(&mut face_down_base);
+            c.types = spec.types;
+            c.subtypes = baylee_core::types::SubtypeSet::from_slice(spec.subtypes);
+            c.power = spec.power;
+            c.toughness = spec.toughness;
+        }
+        let Some((version, has_original, current_base)) = self
+            .object(id)
+            .map(|o| (o.version, o.original_base.is_some(), Arc::clone(&o.base)))
+        else {
+            return false;
+        };
+        let displaced_original = if has_original {
+            self.face_down_copied_bases.retain(|(r, _)| r.object != id);
+            self.face_down_copied_bases.push((
+                baylee_core::ids::DamageSourceRef {
+                    object: id,
+                    version,
+                },
+                current_base,
+            ));
+            None
+        } else {
+            Some(current_base)
+        };
+        let ts = self.next_timestamp();
+        let Some(object) = self.object_mut(id) else {
+            return false;
+        };
+        if let Some(original) = displaced_original {
+            object.original_base = Some(original);
+        }
+        object.base = face_down_base;
+        object.status.insert(crate::object::Status::FACE_DOWN);
+        if !object
+            .riders
+            .contains(&crate::object::Rider::TurnedFaceDown)
+        {
+            object.riders.push(crate::object::Rider::TurnedFaceDown);
+        }
+        object.timestamp = ts;
+        object.cache.clear();
+        if !spec.types.contains(baylee_core::types::TypeSet::CREATURE) {
+            self.combat.remove_from_combat(id);
+        }
+        self.invalidate_projections();
+        true
+    }
+
     /// Turns a face-down permanent on the battlefield face up by effect
     /// (CR 708.8). If it is represented by an instant or sorcery card, its
     /// controller reveals it and leaves it face down without firing
@@ -555,33 +834,50 @@ impl GameState {
         let Some(o) = self.object(id) else {
             return false;
         };
-        if o.zone != Zone::Battlefield || !o.status.contains(crate::object::Status::FACE_DOWN) {
+        if o.zone != Zone::Battlefield
+            || o.status.contains(crate::object::Status::PHASED_OUT)
+            || !o.status.contains(crate::object::Status::FACE_DOWN)
+        {
             return false;
         }
-        let non_permanent_spell = o.original_base.as_ref().is_some_and(|b| {
-            b.types.intersects(
-                baylee_core::types::TypeSet::INSTANT.union(baylee_core::types::TypeSet::SORCERY),
-            )
-        });
+        let version = o.version;
+        let controller = o.controller;
+        let copied_base_pos = self
+            .face_down_copied_bases
+            .iter()
+            .position(|(r, _)| r.object == id && r.version == version);
+        let non_permanent_spell = copied_base_pos
+            .map(|pos| &self.face_down_copied_bases[pos].1)
+            .or(o.original_base.as_ref())
+            .is_some_and(|b| {
+                b.types.intersects(
+                    baylee_core::types::TypeSet::INSTANT
+                        .union(baylee_core::types::TypeSet::SORCERY),
+                )
+            });
         if non_permanent_spell {
-            let controller = o.controller;
             self.journal.record(GameEvent::Revealed {
                 player: controller,
                 cards: vec![id],
             });
             return false;
         }
+        let copied_base = copied_base_pos.map(|pos| self.face_down_copied_bases.swap_remove(pos).1);
+        let ts = self.next_timestamp();
         let object = self.object_mut(id).expect("checked permanent");
         object.status.remove(crate::object::Status::FACE_DOWN);
         object.riders.retain(|r| {
             !matches!(
                 r,
-                crate::object::Rider::Manifested | crate::object::Rider::Masked
+                crate::object::Rider::Manifested
+                    | crate::object::Rider::Masked
+                    | crate::object::Rider::TurnedFaceDown
             )
         });
-        if let Some(original) = object.original_base.take() {
+        if let Some(original) = copied_base.or_else(|| object.original_base.take()) {
             object.base = original;
         }
+        object.timestamp = ts;
         object.cache.clear();
         self.invalidate_projections();
         self.journal.record(GameEvent::TurnedFaceUp { object: id });

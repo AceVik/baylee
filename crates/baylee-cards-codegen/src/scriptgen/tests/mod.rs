@@ -12,6 +12,7 @@ mod dig;
 mod divided_damage;
 mod dredge;
 mod effects;
+mod flip_omen_set_state_meld;
 mod imprison;
 mod kicker;
 mod prevention_rules;

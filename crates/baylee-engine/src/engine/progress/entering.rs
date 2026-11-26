@@ -311,6 +311,25 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                         self.state.set_tapped(id, true);
                         changed = true;
                     }
+                    EnterModifier::TurnMatchingFaceDown(filter) => {
+                        let to_turn: Vec<ObjectId> = self
+                            .state
+                            .battlefield_seen()
+                            .filter(|&other_id| {
+                                self.state.object(other_id).is_some_and(|other| {
+                                    eval::matches(filter, &self.state, other, controller, id)
+                                })
+                            })
+                            .collect();
+                        for other_id in to_turn {
+                            if self.state.turn_permanent_face_down(
+                                other_id,
+                                baylee_cards_dsl::FaceDownSpec::DEFAULT,
+                            ) {
+                                changed = true;
+                            }
+                        }
+                    }
                     EnterModifier::TappedUnless(filter) => {
                         if !self.controls_at_least(filter, controller, id, 1) {
                             self.state.set_tapped(id, true);

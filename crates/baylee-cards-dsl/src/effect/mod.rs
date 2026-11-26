@@ -19,6 +19,7 @@ mod entry;
 mod mana;
 mod play;
 mod search;
+mod state;
 mod targets;
 mod verbs;
 
@@ -29,6 +30,7 @@ pub use entry::*;
 pub use mana::*;
 pub use play::*;
 pub use search::*;
+pub use state::*;
 pub use targets::*;
 
 /// A damage prevention or replacement instruction that commits one immediate
@@ -6361,6 +6363,37 @@ pub enum Effect {
         filter: &'static Filter,
         /// Whether the player may fail to find / decline.
         optional: bool,
+    },
+    /// Change the face or orientation state of one or more objects
+    /// (CR 701.27 Transform, CR 708 Turn face down/up, CR 710 Flip).
+    /// Appended to preserve replay identities.
+    SetState {
+        /// Which object(s) to act on.
+        subject: StateSubject,
+        /// Transition to perform on each object.
+        transition: StateTransition,
+        /// Continuation run with failed object(s) in `found` when turning an object
+        /// fails (e.g. CR 701.40g instant/sorcery cannot turn face up: *Etrata*).
+        if_cant: &'static [Effect],
+    },
+    /// Extended meld instruction (CR 701.42a): supports non-creature partner types
+    /// (Artifact for *Urza*, Land for *Titania*), attacking requirement (*Mishra*),
+    /// and entering tapped and/or attacking. Appended to preserve replay identities.
+    MeldPair {
+        /// Physical front-face name of the card carrying the meld ability.
+        source_name: &'static str,
+        /// Exact English name of the meld partner permanent.
+        partner_name: &'static str,
+        /// Card type(s) required on the partner permanent (`CREATURE`, `ARTIFACT`, `LAND`).
+        partner_types: TypeSet,
+        /// Whether both source and partner must currently be attacking (*Mishra*).
+        require_attacking: bool,
+        /// Whether the melded permanent enters tapped.
+        enters_tapped: bool,
+        /// Whether the melded permanent enters attacking.
+        enters_attacking: bool,
+        /// The melded back-face characteristics and abilities.
+        melded: &'static TokenDef,
     },
 }
 

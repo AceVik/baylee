@@ -978,6 +978,11 @@ fn could_change_match(modifier: &Modifier, filter: &Filter, layer: Layer) -> boo
         | Filter::Saddled
         | Filter::IsCommander
         | Filter::HasAdventure
+        | Filter::HasOmen
+        | Filter::HasMorph
+        | Filter::DoubleFaced
+        | Filter::CanTransform
+        | Filter::Flipped
         | Filter::This
         | Filter::Another
         | Filter::IsToken

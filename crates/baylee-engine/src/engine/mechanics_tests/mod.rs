@@ -46,6 +46,7 @@ mod draw_replacements;
 mod effects;
 mod exile_counters;
 mod flanking;
+mod flip_omen_set_state_meld;
 mod granted_abilities_and_phasing;
 mod grantor;
 mod graveyard_and_facedown_casting;

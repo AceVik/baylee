@@ -1572,6 +1572,7 @@ impl Effect {
             | Effect::Ripple(_)
             | Effect::ReturnDelayedObjectsToBattlefield { .. }
             | Effect::GrantActivatedAbilitiesWhenTargetCast { .. }
+            | Effect::MeldPair { .. }
             | Effect::PlayersChooseMode(_) => (NONE, NONE),
             Effect::AnyPlayerMayPayManaAmount {
                 on_payment: false,
@@ -1584,6 +1585,7 @@ impl Effect {
                 ..
             } => (NONE, effects),
             Effect::VoteObjects { if_no_votes, .. } => (NONE, if_no_votes),
+            Effect::SetState { if_cant, .. } => (NONE, if_cant),
         }
     }
 

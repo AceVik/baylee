@@ -569,6 +569,33 @@ pub(crate) fn matches_projected_with_choices(
             .printed_face()
             .and_then(|face| crate::state::CardLookup::card(state.bases.as_ref(), face.card()))
             .is_some_and(|def| def.faces.iter().any(|f| f.adventure)),
+        Filter::HasOmen => obj
+            .printed_face()
+            .and_then(|face| crate::state::CardLookup::card(state.bases.as_ref(), face.card()))
+            .is_some_and(baylee_cards_dsl::CardDef::is_omen_card),
+        Filter::HasMorph => {
+            !obj.status.contains(crate::object::Status::FACE_DOWN)
+                && !chars.rules_text_lost
+                && chars.abilities_lost.is_none()
+                && obj
+                    .printed_face()
+                    .and_then(|face| {
+                        crate::state::CardLookup::card(state.bases.as_ref(), face.card())
+                            .and_then(|def| def.faces.get(usize::from(face.face())))
+                    })
+                    .is_some_and(|f| f.morph.is_some() || f.megamorph.is_some())
+        }
+        Filter::DoubleFaced => state.is_double_faced_object(obj.id),
+        Filter::CanTransform => {
+            !obj.status.contains(crate::object::Status::FACE_DOWN)
+                && !state.is_melded_permanent(obj.id)
+                && (obj
+                    .card
+                    .and_then(|c| crate::state::CardLookup::card(state.bases.as_ref(), c.index))
+                    .is_some_and(baylee_cards_dsl::CardDef::can_transform)
+                    || obj.token.is_some_and(|t| t.back_face.is_some()))
+        }
+        Filter::Flipped => obj.status.contains(crate::object::Status::FLIPPED),
         Filter::HasRampage => {
             let printed = chars.abilities_lost.is_none()
                 && !chars.rules_text_lost

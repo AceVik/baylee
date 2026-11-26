@@ -1414,3 +1414,19 @@ fn may_pay_energy_equal_to_target_cmc_then_body_is_visited() {
     assert_eq!(seen, 2);
     assert!(returned);
 }
+
+#[test]
+fn set_state_if_cant_body_is_visited() {
+    static EFFECTS: &[Effect] = &[Effect::SetState {
+        subject: StateSubject::Source,
+        transition: StateTransition::TurnFaceUp,
+        if_cant: &[Effect::ExileSource],
+    }];
+    let mut seen = 0;
+    let mut exiled = false;
+    Effect::walk(EFFECTS, &mut seen, &mut |effect| {
+        exiled |= matches!(effect, Effect::ExileSource);
+    });
+    assert_eq!(seen, 2);
+    assert!(exiled);
+}

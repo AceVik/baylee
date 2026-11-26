@@ -2313,6 +2313,9 @@ impl Tx<'_> {
         if api == "ChooseType" {
             return self.choose_type_on_enter(p);
         }
+        if api == "SetState" {
+            return self.set_state_turn_face_down_on_enter(p);
+        }
         if api != "ChooseColor" {
             return self.deny(format!("as-enters effect `{api}`"));
         }

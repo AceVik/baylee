@@ -1,9 +1,9 @@
 //! Per-card source rendering.
 
 use super::{
-    CardBody, CodegenError, HELD_MARKER, IndexLedger, LedgerEntry, OWNED_MARKER, STUB_MARKER,
-    ScryfallCard, StubInfo, SubtypeCatalogs, doc_lines, faces_of, render_card_literal, render_face,
-    set_line, slug, transcode_faces, vanilla,
+    BackFaceKind, CardBody, CodegenError, HELD_MARKER, IndexLedger, LedgerEntry, OWNED_MARKER,
+    STUB_MARKER, ScryfallCard, StubInfo, SubtypeCatalogs, doc_lines, faces_of, render_card_literal,
+    render_face, set_line, slug, transcode_faces, vanilla,
 };
 
 /// Renders one stub file, and says where under `crates/cards/sets` it belongs.
@@ -157,14 +157,23 @@ fn render_card(
             (Some(body), 1) => body.back.as_deref(),
             _ => None,
         };
-        let adventure = i == 1 && land.is_some_and(|b| b.back_is_adventure);
+        let back_kind = if i == 1 {
+            match land {
+                Some(b) if b.back_is_adventure => BackFaceKind::Adventure,
+                Some(b) if b.back_is_flip => BackFaceKind::Flip,
+                Some(b) if b.back_is_omen => BackFaceKind::Omen,
+                _ => BackFaceKind::Plain,
+            }
+        } else {
+            BackFaceKind::Plain
+        };
         face_defs.push_str(&render_face(
             &card.name,
             f,
             cats,
             face_body,
             multi_face,
-            adventure,
+            back_kind,
             i > 0,
             card.layout.as_deref(),
         )?);

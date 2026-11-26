@@ -694,6 +694,11 @@ fn matches_at(
         | Filter::ControlledByEnchantedPlayer
         | Filter::PairedWithSource
         | Filter::HasAdventure
+        | Filter::HasOmen
+        | Filter::HasMorph
+        | Filter::DoubleFaced
+        | Filter::CanTransform
+        | Filter::Flipped
         // StackItem has neither an exact source incarnation nor an
         // authoritative activated/triggered kind. Printed ability identity
         // cannot stand in for either (grants, copies and departed sources).

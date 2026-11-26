@@ -619,6 +619,21 @@ pub enum Filter {
     /// Controlled by `you` or a teammate (`CR 810.5`; same as [`Self::ControlledByYou`] in 1v1).
     /// Appended to preserve replay identities.
     ControlledByYourTeam,
+    /// Has a morph or megamorph ability (CR 702.37; *Backslide*, *Master of the Veil*,
+    /// *Weaver of Lies*). Appended to preserve replay identities.
+    HasMorph,
+    /// Represented by a double-faced card or double-faced token (CR 712.1; *Tetzin*).
+    /// Appended to preserve replay identities.
+    DoubleFaced,
+    /// Permanent that can transform — a transforming double-faced card or transforming
+    /// double-faced token (CR 701.27d; *Tovolar*). Appended to preserve replay identities.
+    CanTransform,
+    /// Permanent with the flipped status (`Status::FLIPPED`, CR 710.3).
+    /// Appended to preserve replay identities.
+    Flipped,
+    /// Has the alternative characteristics of an Omen, including copies (CR 720).
+    /// Appended to preserve replay identities.
+    HasOmen,
 }
 
 /// Zone references for filters (engine zones, DSL view).
