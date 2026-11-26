@@ -424,12 +424,18 @@ fn cost_branch_fits(
     if taps != has_part(&CostPart::TapSelf) || untaps != has_part(&CostPart::UntapSelf) {
         return false;
     }
-    // Exert has no symbol, but must distinguish otherwise identical
-    // activations so the client preserves this additional payment.
+    // Exert has no symbol, and Waterbend prints a braced generic count without
+    // setting `cost.mana`; both must distinguish otherwise identical headers.
     if head.to_lowercase().contains("exert") != has_part(&CostPart::ExertSelf) {
         return false;
     }
     let parts = outer_parts.iter().chain(branch_parts);
+    let has_waterbend = parts
+        .clone()
+        .any(|part| matches!(part, CostPart::Waterbend(_) | CostPart::WaterbendX));
+    if head.to_ascii_lowercase().contains("waterbend") != has_waterbend {
+        return false;
+    }
     let energy: usize = parts
         .clone()
         .filter_map(|part| match part {
@@ -438,9 +444,17 @@ fn cost_branch_fits(
         })
         .sum();
     let energy_x = parts
+        .clone()
         .filter(|part| matches!(part, CostPart::PayEnergyX))
         .count();
     let mut want = braced(&mana.to_string());
+    for part in parts {
+        match part {
+            CostPart::Waterbend(n) if *n > 0 => want.push(n.to_string()),
+            CostPart::WaterbendX => want.push("X".to_string()),
+            _ => {}
+        }
+    }
     want.retain(|s| s != "0");
     want.sort();
     for alt_head in head.split(" or ") {
@@ -1412,6 +1426,8 @@ fn part_named(part: &CostPart, lower: &str) -> Option<bool> {
         CostPart::ExileFromGraveyard(_) | CostPart::ExileFromGraveyardX(_) => {
             lower.contains("exile") && lower.contains("from your graveyard")
         }
+        CostPart::Waterbend(n) => lower.contains(&format!("waterbend {{{n}}}")),
+        CostPart::WaterbendX => lower.contains("waterbend {x}"),
         CostPart::Either(a, b) => {
             (a.parts.is_empty() || a.parts.iter().any(|p| part_named(p, lower).unwrap_or(true)))
                 || (b.parts.is_empty()
