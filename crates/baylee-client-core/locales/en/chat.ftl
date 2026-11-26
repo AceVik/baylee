@@ -647,6 +647,19 @@ CancelButton = Cancel
 # Confirm a small box.
 OkButton = OK
 
+# The contacts list with nobody in it.
+ContactsEmpty = No contacts yet
+
+# Under it: how a contact comes in.
+ContactsEmptyHint = Type a Name#tag above to send a request, or click a name in the chat.
+
+# Under it, for a guest.
+ContactsEmptyGuest = Contacts, groups and invitations come with a Baylee account.
+
+# The contacts list when its search finds nobody.
+# Arguments: filter
+ContactsNoMatch = No one matches “{ $filter }”
+
 # Asked before a friend is removed.
 # Arguments: name
 ConfirmUnfriendTitle = Remove { $name }?

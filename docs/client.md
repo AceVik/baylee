@@ -4784,6 +4784,13 @@ fill and would hide its hover; a card inside a pane stays a flat inset, not
 glass on glass. A dialog keeps its own accent rim where it has one (the
 donation sheet's rose, the memorial's brass).
 
+A container's head reads the same way too: the glyph on a glowing emblem, the
+title bold beside it and a short accent bar under it, as the sign-in and
+gateway cards wear it (`parts::title_lockup`), on the tables, the replays and
+the ranked page; a head that rewrites its words in place (the ranked page's,
+as the account signs in or out) writes the title's own text, which the
+lockup returns.
+
 ### The shell's header and strips
 
 Every signed-in lobby screen and the builder use the shell's shared header
@@ -10933,6 +10940,12 @@ the chat window design). The renderer never builds a frame or an HTTP body.
   grown by its corner is moved in, never cut. Minimised, the head docks on
   the foot at the same left; at a table the window keeps its place by the
   log and does not move.
+- **Nothing listed is an empty state** (owner, 25.11.2026: empty states for
+  lists). The contacts list with nobody in it says how a contact comes in
+  (type a Name#tag above, or click a name in the chat), or, for a guest,
+  that contacts come with an account; a search that finds nobody says so
+  with the words searched (`drawer::nothing_listed`), never a bare hole under
+  the search box.
 - **Asked first** (owner, 25.11.2026: confirmations where they matter).
   Removing a friend, blocking someone (from the contacts' menu or a chat
   line's), leaving a group and deleting one stand a question first
