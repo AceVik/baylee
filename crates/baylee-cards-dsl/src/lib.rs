@@ -166,8 +166,8 @@ pub use static_ability::{
     DamageRecipients, DamageRiderScope, DamagedByScope, Duration, EntryInsteadZone, EntryPredicate,
     GraveyardAltKind, GraveyardExileRider, GraveyardRedirectDest, LAYERS, Layer, LifeGainOp,
     MiracleGrant, Modifier, MultiDrawReplacementKind, NextDrawReplacement, PtCount,
-    ReplacementRule, SpellCastMetric, StaticAbility, TriggerCause, ZonePlayCastRider, ZonePlayGrant,
-    ZonePlayManaSpending,
+    ReplacementRule, SpellCastMetric, StaticAbility, TriggerCause, ZonePlayCastRider,
+    ZonePlayGrant, ZonePlayManaSpending,
 };
 
 /// A compiled card definition: zero-cost, `'static`, registry-resident.

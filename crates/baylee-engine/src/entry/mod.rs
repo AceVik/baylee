@@ -248,6 +248,7 @@ impl Hash for Attempt {
                 applied_own_control,
             )
                 .hash(h);
+        }
         // Folded in only when a deferred graveyard/exile land play carries a
         // post-entry rider (Serra Paragon / Eighth Doctor), keeping unrelated
         // entry hashes bit-identical (reserved tag 573).

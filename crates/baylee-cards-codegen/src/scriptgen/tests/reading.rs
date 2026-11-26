@@ -3058,7 +3058,7 @@ fn mana_clash_and_myriad_pools_and_umbris_exile_opp_own() {
          S:Mode$ Continuous | AffectedDefined$ Self | AddPower$ X | AddToughness$ X\n\
          SVar:X:Count$ValidExile Card.OppOwn+YouOwn",
     ] {
-        assert!(refused(bad), \"must refuse:\n{bad}\");
+        assert!(refused(bad), "must refuse:\n{bad}");
     }
 }
 
