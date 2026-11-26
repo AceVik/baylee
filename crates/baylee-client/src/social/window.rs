@@ -884,7 +884,11 @@ fn sync_lobby_window(
         Option<Res<crate::cardtext::CardTexts>>,
         Option<Res<logpanel::LogFolds>>,
     ),
-    (windows_q, scale): (Query<&Window>, Option<Res<UiScale>>),
+    (windows_q, scale, mut grounds): (
+        Query<&Window>,
+        Option<Res<UiScale>>,
+        Query<&mut BackgroundGradient, With<LobbyChat>>,
+    ),
     mut windows: ResMut<Windows>,
     mut roots: Query<
         (
@@ -959,6 +963,10 @@ fn sync_lobby_window(
     let full = ui.open && !minimised;
     let want_h = if full { zpx(size.height) } else { Val::Auto };
     let want_w = if ui.open { zpx(size.width) } else { Val::Auto };
+    // A window put over the lobby's other panels stands on the solid glass,
+    // so no line of theirs shows through its own; on the painting, docked or
+    // at a table, it is the reading glass every panel wears.
+    let mut floats = false;
     let (left, right, bottom, radius, border) = if at_table {
         let table_node = logpanel::root_node();
         let base_right = match table_node.right {
@@ -988,7 +996,7 @@ fn sync_lobby_window(
             avail_window,
             zoom.0,
         );
-        let floats = full && !place::docked(place);
+        floats = full && !place::docked(place);
         let left = if ui.open {
             zpx(place.left)
         } else {
@@ -1135,6 +1143,16 @@ fn sync_lobby_window(
         if node.border != border {
             node.border = border;
         }
+    }
+    let ground = crate::shellkit::glass::ground(if floats {
+        crate::shellkit::glass::Density::Solid
+    } else {
+        crate::shellkit::glass::Density::Reading
+    });
+    if let Ok(mut worn) = grounds.get_mut(root)
+        && *worn != ground
+    {
+        *worn = ground;
     }
     let drawn = &mut windows.lobby;
     if *shape != Some(now) || drawn.root != Some(root) {

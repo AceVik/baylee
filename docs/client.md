@@ -4775,8 +4775,8 @@ shadow. The material comes in three densities of the same hues
   soft ink keep 4.5 : 1 over the tavern fire blended in linear light at
   every stop (`the_reading_glass_keeps_quiet_ink_over_the_fire`).
 - **Solid** (α .985 / .98 / .985): menus, popovers, the header's popovers,
-  the donation sheet, where the glass stands over words with nothing
-  dimming them.
+  the bell's list, the donation sheet and the chat window while it floats,
+  where the glass stands over words with nothing dimming them.
 
 A surface whose `BackgroundColor` is animated (a hover's `Feel`: tiles,
 rows, pills, toasts) keeps a flat fill, since the gradient lies over the
@@ -4822,6 +4822,17 @@ modal scrim stands (`ModalScrim`), non-refusal notices wait behind it without
 ageing and refusal toasts stand one gap above the modal's foot (`ModalFoot`),
 clear of its buttons. Each toast's cross takes that toast away, named by
 the number it came with (`header::ToastId`), never by its place in the lane.
+The bell's press opens its list (`header::bell`, owner 25.11.2026: notifications
+"schöner und besser durchdacht"): a head with the gilt bell, then **Waiting for
+you**, what social keeps standing while it is true (unread chat, friend
+requests, table and group invitations, each behind its mark: `header::Notice`),
+then **At your table**, the rings newest first, each behind its own mark
+(joined, left, filled) with how long ago it rang (`strips::ago`: "just now",
+then whole minutes, hours, days). The rings unread when the list was opened are
+lit and dotted (`Bell::fresh`, set by `read_all`), only in that list. It
+scrolls past 380 px with its bar only while it overflows, stands on the solid
+glass, and with nothing in it is an empty state (the bell struck through, what
+will appear there), never a bare "nothing new".
 The lane is put away when a table opens (`put_the_toasts_away`), and what it
 said does not come back after the game: it ages and answers its cross only
 while the lobby runs, so the toasts of the last rings before a game, which
@@ -10916,7 +10927,8 @@ the chat window design). The renderer never builds a frame or an HTTP body.
   device beside its size and written once when the drag ends; the
   default, and a window dropped within 10 px of the foot, docks on the
   window's foot with only its upper corners round, and anywhere else all
-  four are. Every frame holds the whole window inside the screen, less the
+  four are and it stands on the solid glass, since it may then lie over
+  other panels' words. Every frame holds the whole window inside the screen, less the
   contacts drawer's room, so a place kept from a larger screen or a window
   grown by its corner is moved in, never cut. Minimised, the head docks on
   the foot at the same left; at a table the window keeps its place by the

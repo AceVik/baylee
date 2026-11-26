@@ -1200,20 +1200,7 @@ fn popover(commands: &mut Commands, state: &LobbyState, kit: Kit, menu: HeaderMe
             commands.entity(card).add_child(body);
             card
         }
-        HeaderMenu::Bell => {
-            let mut said: Vec<String> = state.social_notices.clone();
-            said.extend(state.bell.lines(lang));
-            let lines: Vec<&str> = if said.is_empty() {
-                vec![Phrase::ShellBellEmpty.text(lang)]
-            } else {
-                said.iter().map(String::as_str).collect()
-            };
-            let pop = surfaces::popover(commands, kit, &lines);
-            commands
-                .entity(pop)
-                .insert(Press::Shared(SharedPress::PickerNothing));
-            pop
-        }
+        HeaderMenu::Bell => bell::popover(commands, state, kit),
         HeaderMenu::Account => {
             let mut items = Vec::new();
             #[cfg(not(target_arch = "wasm32"))]
@@ -1453,6 +1440,8 @@ pub(super) fn kit_metrics(
 }
 
 mod actions;
+mod bell;
+pub(crate) use bell::Notice;
 
 impl LobbyState {
     /// The chosen gateway's own name, as `GET /info` gave it.
@@ -1704,8 +1693,9 @@ pub(super) fn ring_the_bell(
         _ => Vec::new(),
     };
     *was = now;
+    let at = i64::try_from(super::parts::now_secs()).unwrap_or(0);
     for item in news {
-        state.bell.ring(item);
+        state.bell.ring(item, at);
     }
 }
 
