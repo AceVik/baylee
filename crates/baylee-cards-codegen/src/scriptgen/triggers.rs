@@ -3100,7 +3100,13 @@ impl Tx<'_> {
         let (body, price) = if self.wave29c_is_sac_dependent_ab_dig_until(&body) {
             (body, None)
         } else {
-            match self.optional_trigger_price(&body) {
+            let prev_dies_self = std::mem::replace(
+                &mut self.is_dies_self_trigger,
+                trigger == "Trigger::Dies(&Filter::This)",
+            );
+            let parsed = self.optional_trigger_price(&body);
+            self.is_dies_self_trigger = prev_dies_self;
+            match parsed {
                 Some((stripped, price)) => (stripped, Some(price)),
                 None => (body, None),
             }
@@ -3479,12 +3485,24 @@ impl Tx<'_> {
         let effects = chain.effects.join(", ");
         let has_targets = chain.target.is_some() || chain.second_target.is_some();
         let effects = match price {
-            Some(price) => Self::wave28b_wrap_optional_trigger_price(
-                price,
-                &effects,
-                &one_effect,
-                has_targets,
-            )?,
+            Some(price) => {
+                if matches!(
+                    price,
+                    OptionalTriggerPrice::ExileSelfFromGraveyard { reflexive: true }
+                ) && (effects.contains("Amount::SourcePower")
+                    || effects.contains("Amount::SourceToughness")
+                    || self.body.statics[saved_statics..].contains("Amount::SourcePower")
+                    || self.body.statics[saved_statics..].contains("Amount::SourceToughness"))
+                {
+                    return None;
+                }
+                Self::wave28b_wrap_optional_trigger_price(
+                    price,
+                    &effects,
+                    &one_effect,
+                    has_targets,
+                )?
+            }
             None if mandatory_sac_self => {
                 format!("Effect::SacrificeSelfThen {{ then: &[{effects}] }}")
             }
@@ -4109,7 +4127,10 @@ impl Tx<'_> {
                 return self.deny(format!("an `ImmediateTrigger` `OptionalDecider$ {other}`"));
             }
         };
-        let (when, once, extra_cond) = if p.peek("ConditionDefined") == Some("Remembered") {
+        let (when, once, extra_cond) = if matches!(
+            p.peek("ConditionDefined"),
+            Some("Remembered" | "RememberedLKI")
+        ) {
             let when = self.immediate_remembered_when(p, chain)?;
             (when, !starts_whenever, None)
         } else if p.has("ConditionDefined") {

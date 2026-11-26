@@ -20,6 +20,16 @@ pub(super) enum OptionalTriggerPrice {
         kind: String,
         n: u32,
     },
+    /// `Cost$ ExileAnyGrave<1/Card.TriggeredNewCard>` on `Trigger::Dies(&Filter::This)`:
+    /// `reflexive = false` wraps `[Effect::ExileSource, {effects}]` in `MayDo`;
+    /// `reflexive = true` emits `MayDo { &[ExileSource] }, ReflexiveTrigger { ExiledThis }`.
+    ExileSelfFromGraveyard {
+        reflexive: bool,
+    },
+    /// `Cost$ Sac<1/OriginalHost>` on a granted `AddTrigger$` `ImmediateTrigger`
+    /// (*Spare Dagger*, *Sunfire Torch*): emits `MayDo { &[SacrificeGrantor] },
+    /// ReflexiveTrigger { SacrificedGrantor }`.
+    SacrificeGrantor,
     ExileFromGraveyardN {
         count: u8,
         filter: String,

@@ -634,3 +634,32 @@ fn capture_random_discard_return_with_any_player_life_payment() {
         "the creature condition must gate the payment question: {ability}"
     );
 }
+
+#[test]
+fn secret_salvage_exile_graveyard_search_same_name_up_to() {
+    let salvage = read_w27c(
+        "Name:Secret Salvage\nManaCost:3 B B\nTypes:Sorcery\n\
+         A:SP$ ChangeZone | Origin$ Graveyard | Destination$ Exile | ValidTgts$ Card.nonLand+YouOwn | RememberTargets$ True | ForgetOtherTargets$ True | SubAbility$ DBChange\n\
+         SVar:DBChange:DB$ ChangeZone | Origin$ Library | Destination$ Hand | ChangeType$ Remembered.sameName | ChangeNum$ X | SubAbility$ DBCleanup\n\
+         SVar:X:Count$ValidLibrary Card.YouOwn+sharesNameWith Remembered\n\
+         SVar:DBCleanup:DB$ Cleanup | ClearRemembered$ True\n\
+         Oracle:Exile target nonland card from your graveyard. Search your library for any number of cards with the same name as that card, reveal them, put them into your hand, then shuffle.",
+    );
+    let a = &salvage.abilities[0];
+    assert!(
+        a.contains("Effect::CaptureAffected")
+            && a.contains("Effect::exile(TargetSpec::CardInGraveyard(")
+            && a.contains("Effect::SearchLibraryUpTo { filter: &Filter::SharesNameWithRemembered")
+            && a.contains("ZoneSel::LibraryYou")
+            && a.contains("find: &Find::HAND"),
+        "{a}"
+    );
+
+    assert!(refused_w27c(
+        "Name:BadSecretSalvageShuffleFalse\nManaCost:3 B B\nTypes:Sorcery\n\
+         A:SP$ ChangeZone | Origin$ Graveyard | Destination$ Exile | ValidTgts$ Card.nonLand+YouOwn | RememberTargets$ True | ForgetOtherTargets$ True | SubAbility$ DBChange\n\
+         SVar:DBChange:DB$ ChangeZone | Origin$ Library | Destination$ Hand | ChangeType$ Remembered.sameName | ChangeNum$ X | Shuffle$ False | SubAbility$ DBCleanup\n\
+         SVar:X:Count$ValidLibrary Card.YouOwn+sharesNameWith Remembered\n\
+         SVar:DBCleanup:DB$ Cleanup | ClearRemembered$ True",
+    ));
+}
