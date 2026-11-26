@@ -565,6 +565,17 @@ not a broader legal approval.
    server's system journal keeps what it keeps, and the transfers to the
    USA (GitHub, Scryfall) are for them to confirm.
 
+   **Where the game's privacy notice lives (owner, 25.11.2026).** A party's
+   processing is described in the texts of the party the player has the
+   contract with: the official gateway's in its terms of use, § 16
+   (`docs/gateway-legal/official/`), Baylee Central's in Central's privacy
+   policy. The website's notice covers the website only and links both; the
+   landing page shows the gateway's terms in force, read from the gateway
+   (`web/site/nutzungsbedingungen.html`). `docs/privacy.md` stays the
+   developers' inventory, with file and symbol, and is no notice to players.
+   The draft for the open beta and its open points:
+   `docs/proposals/legal-open-beta.md`.
+
    **Impressum (owner decision, 13.10.2026).** The landing page carries one
    (`web/site/impressum.html`, linked from the footer and the contact
    section): "Angaben gemäß § 5 DDG" for a private, non-commercial project
