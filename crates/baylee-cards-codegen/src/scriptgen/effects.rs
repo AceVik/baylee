@@ -17247,6 +17247,33 @@ impl Tx<'_> {
         ))])
     }
 
+    /// Two-target blocking-creature swap (*Sorrow's Path*):
+    /// `AB$ SwitchBlock | TargetMin$ 2 | TargetMax$ 2 | TargetsWithSameController$ True`.
+    pub(super) fn switch_block_effect(
+        &mut self,
+        p: &mut Params,
+        target: Option<&str>,
+        targets_here: bool,
+        exact_two_same_controller: bool,
+    ) -> Option<Vec<String>> {
+        if self.on_a_spell
+            || !targets_here
+            || !exact_two_same_controller
+            || !target.is_some_and(|t| t.starts_with("TargetSpec::Object("))
+        {
+            return None;
+        }
+        p.take("IsCurse");
+        if p.take("DefinedAttacker").as_deref()
+            != Some("Valid Creature.blockedByValidThisTurn Targeted")
+            || p.take("DefinedBlocker").as_deref() != Some("Targeted")
+            || p.take("RemoveFromCombat").as_deref() != Some("True")
+        {
+            return None;
+        }
+        Some(vec!["Effect::SwapBlockers".to_string()])
+    }
+
     pub(super) fn incubate_effect(
         &mut self,
         p: &mut Params,

@@ -202,12 +202,32 @@ fn wave29b_amounts_counts_and_chains() {
         caretaker.statics
     );
 
+    // 8. `EachDamage` with `DefinedDamagers$ ParentTarget` (`Allies at Last`, `Band Together`,
+    //    `Common Goal`, `Combo Attack`) lowers cleanly via `ForEachTarget` + `WithSecondTarget`.
+    let band = read(
+        "Name:BandTogetherProxy\nManaCost:2 G\nTypes:Instant\n\
+         A:SP$ TargetOnly | TargetMin$ 0 | TargetMax$ 2 | ValidTgts$ Creature.YouCtrl | SubAbility$ DBEach\n\
+         SVar:DBEach:DB$ EachDamage | DefinedDamagers$ ParentTarget | ValidTgts$ Creature | TargetUnique$ True | NumDmg$ Count$CardPower",
+    );
+    assert!(
+        band.abilities[0].contains("TargetReq::up_to(TargetSpec::Object(&")
+            && band.abilities[0].contains("TargetConstraint::DistinctFromPriorTargetGroups")
+            && band.abilities[0].contains("Effect::ForEachTarget { effects: &[Effect::WithSecondTarget(&[Effect::EventObjectDealsDamageEqualToPower { target: TargetSpec::Object(&Filter::CREATURE) }])] }"),
+        "{:?}",
+        band.abilities
+    );
+
     // 8. `CrackleLike` (`TargetMin$ 0 | TargetMax$ X`, `X = Count$xPaid`) now uses `TargetReq::up_to_x`;
     //    multi-dealer `EachDamage` MUST remain refused!
     let crackle_like = read(
         "Name:CrackleLike\nManaCost:X X X R R\nTypes:Sorcery\n\
          A:SP$ DealDamage | ValidTgts$ Any | TargetMin$ 0 | TargetMax$ X | NumDmg$ 5\n\
          SVar:X:Count$xPaid",
+        "Name:BadStandaloneEachDamage\nManaCost:2 G\nTypes:Sorcery\n\
+         A:SP$ EachDamage | ValidTgts$ Creature.OppCtrl | DefinedDamagers$ Valid Creature.YouCtrl | NumDmg$ Count$CardPower",
+    ] {
+        assert!(refused(bad), "must refuse:\n{bad}");
+    }
     );
     assert!(
         crackle_like.abilities[0].contains("TargetReq::up_to_x(TargetSpec::AnyTarget)"),
@@ -551,4 +571,34 @@ fn wave29b_pass3_balin_teferi_firebending_and_fight_dying() {
     ] {
         assert!(refused(bad), "must refuse:\n{bad}");
     }
+}
+
+#[test]
+fn w20_each_damage_parent_damagers() {
+    // Note: tiny test `cats()` omits `Ally`; `Allies at Last` Affinity reads in full corpus.
+    let allies = read(
+        "Name:AlliesAtLastLike\nManaCost:2 G\nTypes:Instant\n\
+         A:SP$ TargetOnly | TargetMin$ 0 | TargetMax$ 2 | ValidTgts$ Creature.YouCtrl | AILogic$ PowerDmg | SubAbility$ DBEachDamage\n\
+         SVar:DBEachDamage:DB$ EachDamage | DefinedDamagers$ ParentTarget | ValidTgts$ Creature.OppCtrl | NumDmg$ Count$CardPower",
+    );
+    assert!(
+        allies.abilities[0].contains("TargetReq::up_to(TargetSpec::Object(&")
+            && allies.abilities[0].contains("Effect::ForEachTarget { effects: &[Effect::WithSecondTarget(&[Effect::EventObjectDealsDamageEqualToPower")
+            && allies.abilities[0].contains("second_targets = Some(TargetReq::one(TargetSpec::Object(&"),
+        "{}",
+        allies.abilities[0]
+    );
+
+    let common_goal = read(
+        "Name:Common Goal\nManaCost:1 G\nTypes:Sorcery\n\
+         A:SP$ TargetOnly | TargetMin$ 1 | TargetMax$ 2 | ValidTgts$ Creature.YouCtrl | ValidTgtsDesc$ creature you control | AILogic$ PowerDmg | SubAbility$ DBEachDamage\n\
+         SVar:DBEachDamage:DB$ EachDamage | ValidTgts$ Creature.OppCtrl | ValidTgtsDesc$ creature an opponent controls | DefinedDamagers$ ParentTarget | NumDmg$ Count$CardPower",
+    );
+    assert!(
+        common_goal.abilities[0].contains("TargetReq { min: 1, ..TargetReq::up_to(TargetSpec::Object(&")
+            && common_goal.abilities[0].contains(", 2) }")
+            && common_goal.abilities[0].contains("Effect::ForEachTarget { effects: &[Effect::WithSecondTarget(&[Effect::EventObjectDealsDamageEqualToPower"),
+        "{}",
+        common_goal.abilities[0]
+    );
 }

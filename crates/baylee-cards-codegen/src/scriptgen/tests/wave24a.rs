@@ -335,11 +335,31 @@ fn triggered_divided_counters_refusals() {
          T:Mode$ ChangesZone | Origin$ Any | Destination$ Battlefield | ValidCard$ Card.Self | Execute$ Trig\n\
          SVar:Trig:DB$ PutCounter | ValidTgts$ Creature | CounterType$ POISON | CounterNum$ 2 | TargetMin$ 0 | TargetMax$ 2 | DividedAsYouChoose$ 2",
     ));
-    assert!(refused(
-        "Name:Bad Bounds\nManaCost:2 G\nTypes:Creature\nPT:2/2\n\
+    let corps = read(
+        "Name:Armament Corps Proxy\nManaCost:2 W B G\nTypes:Creature Human Soldier\nPT:4/4\n\
          T:Mode$ ChangesZone | Origin$ Any | Destination$ Battlefield | ValidCard$ Card.Self | Execute$ Trig\n\
-         SVar:Trig:DB$ PutCounter | ValidTgts$ Creature | CounterType$ P1P1 | CounterNum$ 2 | TargetMin$ 1 | TargetMax$ 2 | DividedAsYouChoose$ 2",
-    ));
+         SVar:Trig:DB$ PutCounter | ValidTgts$ Creature.YouCtrl | CounterType$ P1P1 | CounterNum$ 2 | TargetMin$ 1 | TargetMax$ 2 | DividedAsYouChoose$ 2",
+    );
+    assert!(
+        corps.abilities[0].contains(
+            "Effect::PutCountersDivided { kind: CounterKind::P1P1, amount: Amount::Fixed(2) }"
+        ) && corps.abilities[0].contains("TargetReq { min: 1, ..TargetReq::up_to("),
+        "{:?}",
+        corps.abilities
+    );
+    for bad_bounds in [
+        "Name:BadMin2\nManaCost:2 G\nTypes:Creature\nPT:2/2\n\
+         T:Mode$ ChangesZone | Origin$ Any | Destination$ Battlefield | ValidCard$ Card.Self | Execute$ Trig\n\
+         SVar:Trig:DB$ PutCounter | ValidTgts$ Creature | CounterType$ P1P1 | CounterNum$ 2 | TargetMin$ 2 | TargetMax$ 2 | DividedAsYouChoose$ 2",
+        "Name:BadMaxExceedsTotal\nManaCost:2 G\nTypes:Creature\nPT:2/2\n\
+         T:Mode$ ChangesZone | Origin$ Any | Destination$ Battlefield | ValidCard$ Card.Self | Execute$ Trig\n\
+         SVar:Trig:DB$ PutCounter | ValidTgts$ Creature | CounterType$ P1P1 | CounterNum$ 2 | TargetMin$ 1 | TargetMax$ 3 | DividedAsYouChoose$ 2",
+        "Name:ShamblingSwarmProxy\nManaCost:1 B B B\nTypes:Creature Horror\nPT:3/3\n\
+         T:Mode$ ChangesZone | Origin$ Battlefield | Destination$ Graveyard | ValidCard$ Card.Self | Execute$ Trig\n\
+         SVar:Trig:DB$ PutCounter | ValidTgts$ Creature | CounterType$ M1M1 | CounterNum$ 3 | TargetMin$ 1 | TargetMax$ 3 | DividedAsYouChoose$ 3 | RemovePhase$ End of Turn",
+    ] {
+        assert!(refused(bad_bounds), "must refuse:\n{bad_bounds}");
+    }
 }
 
 #[test]
@@ -835,4 +855,72 @@ SVar:DBDraw:DB$ Draw | Defined$ You | NumCards$ 1\n\
 SVar:YourLib:Count$CardsInYourLibrary\n\
 SVar:OppLib:Count$ValidLibrary Card.TargetedPlayerCtrl"
     ));
+}
+
+#[test]
+fn w20_divided_counters_and_modal_refusals() {
+    let flytrap = read_w24(
+        "Name:Omnivorous Flytrap\nManaCost:2 G\nTypes:Creature Plant\nPT:2/4\n\
+         T:Mode$ ChangesZone | Origin$ Any | Destination$ Battlefield | ValidCard$ Card.Self | Execute$ TrigPutCounter | Delirium$ True\n\
+         T:Mode$ Attacks | ValidCard$ Card.Self | Secondary$ True | Execute$ TrigPutCounter | Delirium$ True\n\
+         SVar:TrigPutCounter:DB$ PutCounter | ValidTgts$ Creature | CounterType$ P1P1 | CounterNum$ 2 | TargetMin$ 1 | TargetMax$ 2 | DividedAsYouChoose$ 2 | SubAbility$ DBMultiplyCounter\n\
+         SVar:DBMultiplyCounter:DB$ MultiplyCounter | Defined$ Targeted | CounterType$ P1P1 | ConditionCheckSVar$ X | ConditionSVarCompare$ GE6\n\
+         SVar:X:Count$ValidGraveyard Card.YouOwn$CardTypes",
+    );
+    assert!(
+        flytrap.abilities[0].contains("Effect::PutCountersDivided")
+            && flytrap.abilities[0].contains("Effect::RememberTargetsThen")
+            && flytrap.abilities[0].contains("Effect::DoubleCountersFilter")
+            && flytrap.abilities[0].contains("Condition::GraveyardTypesAtLeast(6)")
+            && flytrap.abilities[0].contains(
+                "TargetReq { min: 1, ..TargetReq::up_to(TargetSpec::Object(&Filter::CREATURE), 2) }"
+            ),
+        "{}",
+        flytrap.abilities[0]
+    );
+
+    let revival = read_w24(
+        "Name:Revival of the Ancestors\nManaCost:1 W B G\nTypes:Enchantment Saga\n\
+         K:Chapter:3:TrigToken,TrigPutCounter,TrigPumpAll\n\
+         SVar:TrigToken:DB$ Token | TokenScript$ w_1_1_spirit_flying | TokenAmount$ 3 | TokenOwner$ You\n\
+         SVar:TrigPutCounter:DB$ PutCounter | ValidTgts$ Creature.YouCtrl | CounterType$ P1P1 | CounterNum$ 3 | TargetMin$ 1 | TargetMax$ 3 | DividedAsYouChoose$ 3\n\
+         SVar:TrigPumpAll:DB$ PumpAll | ValidCards$ Creature.YouCtrl | KW$ Trample & Lifelink",
+    );
+    assert!(
+        revival.abilities.len() == 3
+            && revival.abilities[1].contains("Effect::PutCountersDivided")
+            && revival.abilities[1]
+                .contains("TargetReq { min: 1, ..TargetReq::up_to(TargetSpec::Object(&"),
+        "{:?}",
+        revival.abilities
+    );
+
+    // Clusters 1-3 & divided-counter hazards remain honestly refused:
+    for bad in [
+        // Cluster 1: dynamic Count$Compare modal count
+        "Name:DynamicCharmCount\nManaCost:1 W\nTypes:Instant\n\
+         A:SP$ Charm | CharmNum$ X | Choices$ DBGain,DBDraw\n\
+         SVar:DBGain:DB$ GainLife | Defined$ You | LifeAmount$ 2\n\
+         SVar:DBDraw:DB$ Draw | Defined$ You | NumCards$ 1\n\
+         SVar:X:Count$Compare Y GE1.2.1\n\
+         SVar:Y:Count$Valid Creature.YouCtrl",
+        // Cluster 2: modal trigger choosing 2 modes
+        "Name:ModalTriggerTwo\nManaCost:3 R\nTypes:Creature\nPT:3/3\n\
+         T:Mode$ ChangesZone | Origin$ Any | Destination$ Battlefield | ValidCard$ Card.Self | Execute$ TrigCharm\n\
+         SVar:TrigCharm:DB$ Charm | CharmNum$ 2 | Choices$ DBDmg,DBDraw\n\
+         SVar:DBDmg:DB$ DealDamage | Defined$ Opponent | NumDmg$ 2\n\
+         SVar:DBDraw:DB$ Draw | Defined$ You | NumCards$ 1",
+        // Cluster 3: modal trigger with MinCharmNum$ 0
+        "Name:ModalTriggerMinZero\nManaCost:2 U\nTypes:Creature\nPT:2/2\n\
+         T:Mode$ ChangesZone | Origin$ Any | Destination$ Battlefield | ValidCard$ Card.Self | Execute$ TrigCharm\n\
+         SVar:TrigCharm:DB$ Charm | CharmNum$ 1 | MinCharmNum$ 0 | Choices$ DBDraw,DBGain\n\
+         SVar:DBDraw:DB$ Draw | Defined$ You | NumCards$ 1\n\
+         SVar:DBGain:DB$ GainLife | Defined$ You | LifeAmount$ 2",
+        // Shambling Swarm RemovePhase$
+        "Name:Shambling Swarm\nManaCost:1 B B B\nTypes:Creature Horror\nPT:3/3\n\
+         T:Mode$ ChangesZone | Origin$ Battlefield | Destination$ Graveyard | ValidCard$ Card.Self | Execute$ SwarmSpread\n\
+         SVar:SwarmSpread:DB$ PutCounter | ValidTgts$ Creature | IsCurse$ True | CounterType$ M1M1 | CounterNum$ 3 | TargetMin$ 1 | TargetMax$ 3 | DividedAsYouChoose$ 3 | RemovePhase$ End of Turn",
+    ] {
+        assert!(refused_w24(bad), "must refuse:\n{bad}");
+    }
 }

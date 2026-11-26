@@ -1398,14 +1398,24 @@ impl Tx<'_> {
                 }) {
                     p.take("TargetType");
                 }
-                if p.peek("RememberTargets") == Some("True")
-                    && self.wave30b_slot1_remember_targets_ok(sub.as_deref())
-                {
-                    p.take("RememberTargets");
+                let modifiers_clear =
+                    unless.is_none() && dying.is_none() && at_end.is_none() && !optional_counter;
+                if sub.is_some() && !modifiers_clear {
+                    return self.deny("`TargetOnly` modifier with `SubAbility$`".to_string());
                 }
-                if sub.is_some() {
-                    if unless.is_some() || dying.is_some() || at_end.is_some() || optional_counter {
-                        return self.deny("`TargetOnly` modifier with `SubAbility$`".to_string());
+                if let Some(effs) = self.try_target_only_group_followup(&mut p, &mut sub, chain) {
+                    if !p.exhausted() {
+                        if let Some(key) = p.first_key() {
+                            self.note(format!("unclaimed parameter `TargetOnly.{key}`"));
+                        }
+                        return None;
+                    }
+                    effs
+                } else if sub.is_some() {
+                    if p.peek("RememberTargets") == Some("True")
+                        && self.wave30b_slot1_remember_targets_ok(sub.as_deref())
+                    {
+                        p.take("RememberTargets");
                     }
                     if !p.exhausted() {
                         if let Some(key) = p.first_key() {
@@ -2271,6 +2281,7 @@ impl Tx<'_> {
                                 self.wave29b_bite_effect(&mut p, target.as_deref())
                             }
                         }
+                        "EachDamage" => self.wave29b_each_damage_effect(&mut p, target.as_deref()),
                         "MoveCounter" => {
                             self.move_counter_effect(&mut p, target.as_deref(), true, true)
                         }
@@ -2430,6 +2441,15 @@ impl Tx<'_> {
                     Some(vec![format!(
                         "Effect::exile_until({target_spec}, ExileUntil::SourceLeavesBattlefield)"
                     )])
+                } else if api == "SwitchBlock" {
+                    let exact_two_same = chain.target_exact == Some(2)
+                        && chain.target_constraint == Some("TargetConstraint::SameController");
+                    self.switch_block_effect(
+                        &mut p,
+                        target.as_deref(),
+                        targets_here,
+                        exact_two_same,
+                    )
                 } else {
                     let is_multi_target = chain.target_exact.is_some()
                         || chain.target_range.is_some()
@@ -3721,16 +3741,19 @@ impl Tx<'_> {
             }
             chain.second_target = Some(spec);
         } else {
-            if p.peek("TargetUnique") == Some("True")
-                && p.peek("SubAbility")
-                    .and_then(|sub| self.svars.get(sub.trim()))
-                    .and_then(|body| Params::parse(body))
-                    .is_some_and(|(_, child)| {
-                        child.has("ValidTgts") && child.peek("TargetUnique") == Some("True")
-                    })
-            {
+            let sub_has_valid_tgts = p
+                .peek("SubAbility")
+                .and_then(|sub| self.svars.get(sub.trim()))
+                .and_then(|body| Params::parse(body))
+                .is_some_and(|(_, child)| {
+                    child.has("ValidTgts") && child.peek("TargetUnique") == Some("True")
+                });
+            let mut single_slot_target_unique = false;
+            if p.peek("TargetUnique") == Some("True") && sub_has_valid_tgts {
                 p.take("TargetUnique");
                 chain.target_unique = true;
+            } else if api == "TargetOnly" && p.peek("TargetUnique") == Some("True") {
+                single_slot_target_unique = true;
             }
             if !self.try_kicked_target_count(api, p, valid, &spec)? {
                 let target_only_multi_safe = api == "TargetOnly"
@@ -3779,6 +3802,14 @@ impl Tx<'_> {
                                                 Some("Battlefield" | "Graveyard")
                                             ) && sp.peek("Destination") == Some("Library")
                                                 && sp.peek("Shuffle") == Some("True"))))
+                                    || (sub_api == "EachDamage"
+                                        && sp.peek("DefinedDamagers") == Some("ParentTarget")
+                                        && sp.has("ValidTgts")
+                                        && sp.peek("NumDmg").is_some()
+                                        && ["UnlessCost", "ReplaceDyingDefined", "AtEOT"]
+                                            .iter()
+                                            .all(|k| sp.peek(k).is_none()))
+                                    || Self::can_target_only_group_followup(&sub_api, &sp)
                                     || self.wave30b_target_only_multi_safe(&sub_api, &sp)
                             })
                     });
@@ -3794,6 +3825,7 @@ impl Tx<'_> {
                         | "Goad"
                         | "Detain"
                         | "Animate"
+                        | "SwitchBlock"
                 ) || (api == "MultiplyCounter"
                     && p.peek("CounterType").is_some())
                     || target_only_multi_safe
@@ -4002,6 +4034,15 @@ impl Tx<'_> {
                     self.wave28a_take_first_target_range(api, p, valid, &spec, multi_target_ok)
                 {
                     chain.target_range = Some(r);
+                }
+                if single_slot_target_unique
+                    && target_only_multi_safe
+                    && (chain.target_up_to.is_some_and(|m| m > 1)
+                        || chain.target_exact.is_some_and(|n| n > 1)
+                        || chain.target_range.is_some()
+                        || chain.target_is_x)
+                {
+                    p.take("TargetUnique");
                 }
             }
             match p.take("TargetsWithSameController").as_deref() {
@@ -7716,6 +7757,251 @@ impl Tx<'_> {
         }
     }
 
+    fn can_target_only_group_followup(sub_api: &str, sp: &Params) -> bool {
+        match sub_api {
+            "ChangeZoneAll" => {
+                sp.peek("Origin") == Some("Battlefield")
+                    && sp.peek("Destination") == Some("Exile")
+                    && sp.peek("ChangeType") == Some("Card.IsRemembered,Aura.AttachedTo Targeted")
+            }
+            "ChooseCard" => {
+                sp.peek("DefinedCards") == Some("Targeted")
+                    && ((sp.peek("AtRandom") == Some("True") && sp.peek("Amount") == Some("1"))
+                        || sp.peek("Defined") == Some("TargetedController"))
+            }
+            "Sacrifice" => {
+                sp.peek("Defined") == Some("TargetedController")
+                    && sp.peek("SacValid") == Some("Card.targetedBy")
+            }
+            "Branch" => {
+                sp.has("BranchConditionSVar")
+                    && sp.has("TrueSubAbility")
+                    && sp.has("FalseSubAbility")
+            }
+            _ => false,
+        }
+    }
+
+    /// Lower single-group multi-target `TargetOnly` followups where every
+    /// action reads the chosen first-slot targets as one set:
+    /// - *Silence the Believers*: `RememberTargets$ True` -> `ChangeZoneAll` exile targets + attached Auras
+    /// - *Wild Swing*: `ChooseCard | AtRandom$ True` -> `Destroy`
+    /// - *Incriminate* / *Barrin's Spite*: `SameController` sacrifice-one (+ return other)
+    /// - *Deliver Unto Evil*: `Branch` (Bolas check -> return all vs opponent picks 2 to keep) + exile self
+    #[allow(clippy::too_many_lines)]
+    fn try_target_only_group_followup(
+        &mut self,
+        p: &mut Params,
+        sub: &mut Option<String>,
+        chain: &Chain,
+    ) -> Option<Vec<String>> {
+        let sub_name = sub.as_deref()?.trim().to_string();
+        let body = self.svars.get(&sub_name)?.clone();
+        let (sub_api, mut sp) = Params::parse(&body)?;
+        sp.drop_prose();
+        let target = chain.target.as_deref()?;
+        let is_obj = target.starts_with("TargetSpec::Object(");
+        let is_gy_you = target.starts_with("TargetSpec::CardInGraveyard(")
+            && target.ends_with(", PlayerRel::You)");
+
+        // 1. Silence the Believers: `TargetOnly (Object) | RememberTargets$ True`
+        //    -> `ChangeZoneAll | ChangeType$ Card.IsRemembered,Aura.AttachedTo Targeted | Origin$ Battlefield | Destination$ Exile`
+        if is_obj
+            && p.peek("RememberTargets") == Some("True")
+            && sub_api == "ChangeZoneAll"
+            && sp.take("Origin").as_deref() == Some("Battlefield")
+            && sp.take("Destination").as_deref() == Some("Exile")
+            && sp.take("ChangeType").as_deref()
+                == Some("Card.IsRemembered,Aura.AttachedTo Targeted")
+        {
+            let _ = sp.take("UseAllOriginZones");
+            let mut next = sp.take("SubAbility");
+            if !sp.exhausted() {
+                return None;
+            }
+            let _ = self.wave30b_consume_cleanup(next.clone(), &["ClearRemembered"], &mut next);
+            p.take("RememberTargets");
+            let auras = self.body.filter_static(
+                "EXILE",
+                "Filter::And(&[Filter::AURA, Filter::AttachedTo(&Filter::IsRemembered)])",
+            );
+            let combined = self.body.filter_static(
+                "EXILE",
+                &format!("Filter::Or(&[Filter::IsRemembered, {auras}])"),
+            );
+            *sub = next;
+            return Some(vec![format!(
+                "Effect::RememberTargetsThen {{ then: &[Effect::ExileAll {{ filter: &{combined}, linked: false }}] }}"
+            )]);
+        }
+
+        // 2. Wild Swing: `TargetOnly (Object)` -> `ChooseCard | AtRandom$ True | DefinedCards$ Targeted` -> `Destroy | Defined$ ChosenCard`
+        if is_obj
+            && !p.has("RememberTargets")
+            && sub_api == "ChooseCard"
+            && sp.take("AtRandom").as_deref() == Some("True")
+            && matches!(sp.take("Defined").as_deref(), None | Some("You"))
+            && sp.take("Amount").as_deref() == Some("1")
+            && sp.take("DefinedCards").as_deref() == Some("Targeted")
+        {
+            let dest_name = sp.take("SubAbility")?;
+            if !sp.exhausted() {
+                return None;
+            }
+            let dest_body = self.svars.get(dest_name.trim())?.clone();
+            let (dest_api, mut dp) = Params::parse(&dest_body)?;
+            dp.drop_prose();
+            if dest_api != "Destroy" || dp.take("Defined").as_deref() != Some("ChosenCard") {
+                return None;
+            }
+            let next = dp.take("SubAbility");
+            if !dp.exhausted() {
+                return None;
+            }
+            let rem_name = self.body.filter_static("DESTROY", "Filter::IsRemembered");
+            *sub = next;
+            return Some(vec![format!(
+                "Effect::RememberTargetsThen {{ then: &[Effect::DestroyRandom {{ filter: &{rem_name} }}] }}"
+            )]);
+        }
+
+        // 3. Incriminate / Barrin's Spite (`SameController` sacrifice-one, optional return-other):
+        if is_obj
+            && !p.has("RememberTargets")
+            && chain.target_constraint == Some("TargetConstraint::SameController")
+        {
+            if sub_api == "Sacrifice"
+                && sp.take("Defined").as_deref() == Some("TargetedController")
+                && sp.take("SacValid").as_deref() == Some("Card.targetedBy")
+            {
+                let next = sp.take("SubAbility");
+                if !sp.exhausted() {
+                    return None;
+                }
+                *sub = next;
+                return Some(vec![
+                    "Effect::RememberTargetsThen { then: &[Effect::ChooseCardEx { chooser: PlayerRel::ControllerOfTarget, zone: ChooseZone::Remembered, filter: &Filter::Any, min: 1, max: Amount::Fixed(1), reveal_chosen: false, movement: ChooseMove::None, not_chosen_movement: ChooseMove::None, then: &[Effect::SacrificeEvent], for_unchosen: &[] }] }".to_string(),
+                ]);
+            }
+            if sub_api == "ChooseCard"
+                && sp.take("Defined").as_deref() == Some("TargetedController")
+                && sp.take("DefinedCards").as_deref() == Some("Targeted")
+                && sp.take("Mandatory").as_deref() == Some("True")
+                && matches!(sp.take("Amount").as_deref(), None | Some("1"))
+            {
+                let _ = sp.take("ChoiceTitle");
+                let sac_name = sp.take("SubAbility")?;
+                if !sp.exhausted() {
+                    return None;
+                }
+                let sac_body = self.svars.get(sac_name.trim())?.clone();
+                let (sac_api, mut sac_p) = Params::parse(&sac_body)?;
+                sac_p.drop_prose();
+                if sac_api != "SacrificeAll"
+                    || sac_p.take("Defined").as_deref() != Some("ChosenCard")
+                {
+                    return None;
+                }
+                let bounce_name = sac_p.take("SubAbility")?;
+                if !sac_p.exhausted() {
+                    return None;
+                }
+                let bounce_body = self.svars.get(bounce_name.trim())?.clone();
+                let (b_api, mut bp) = Params::parse(&bounce_body)?;
+                bp.drop_prose();
+                if b_api != "ChangeZone"
+                    || bp.take("Defined").as_deref() != Some("Targeted.!ChosenCard")
+                    || bp.take("Origin").as_deref() != Some("Battlefield")
+                    || bp.take("Destination").as_deref() != Some("Hand")
+                {
+                    return None;
+                }
+                let next = bp.take("SubAbility");
+                if !bp.exhausted() {
+                    return None;
+                }
+                *sub = next;
+                return Some(vec![
+                    "Effect::RememberTargetsThen { then: &[Effect::ChooseCardEx { chooser: PlayerRel::ControllerOfTarget, zone: ChooseZone::Remembered, filter: &Filter::Any, min: 1, max: Amount::Fixed(1), reveal_chosen: false, movement: ChooseMove::None, not_chosen_movement: ChooseMove::None, then: &[Effect::SacrificeEvent], for_unchosen: &[Effect::ReturnToHand { target: TargetSpec::EventObject }] }] }".to_string(),
+                ]);
+            }
+        }
+
+        // 4. Deliver Unto Evil: `TargetOnly (Graveyard, You)` -> `Branch` (condition -> return all vs opponent chooses K to stay and rest return) -> optional self-exile
+        if is_gy_you && !p.has("RememberTargets") && sub_api == "Branch" {
+            let cond_var = sp.take("BranchConditionSVar")?;
+            let true_name = sp.take("TrueSubAbility")?;
+            let false_name = sp.take("FalseSubAbility")?;
+            let trailing_sub = sp.take("SubAbility");
+            if !sp.exhausted() {
+                return None;
+            }
+            let cond = self
+                .svar_condition(&cond_var, "GE1")
+                .or_else(|| self.wave7_svar_condition(&cond_var, "GE1"))?;
+
+            let true_body = self.svars.get(true_name.trim())?.clone();
+            let (t_api, mut tp) = Params::parse(&true_body)?;
+            tp.drop_prose();
+            if t_api != "ChangeZone"
+                || tp.take("Defined").as_deref() != Some("Targeted")
+                || tp.take("Origin").as_deref() != Some("Graveyard")
+                || tp.take("Destination").as_deref() != Some("Hand")
+                || !tp.exhausted()
+            {
+                return None;
+            }
+
+            let false_body = self.svars.get(false_name.trim())?.clone();
+            let (f_api, mut fp) = Params::parse(&false_body)?;
+            fp.drop_prose();
+            if f_api != "ChoosePlayer"
+                || fp.take("Choices").as_deref() != Some("Player.Opponent")
+                || !matches!(fp.take("Defined").as_deref(), None | Some("You"))
+            {
+                return None;
+            }
+            let opp_choose_name = fp.take("SubAbility")?;
+            if !fp.exhausted() {
+                return None;
+            }
+            let opp_choose_body = self.svars.get(opp_choose_name.trim())?.clone();
+            let (oc_api, mut ocp) = Params::parse(&opp_choose_body)?;
+            ocp.drop_prose();
+            if oc_api != "ChooseCard"
+                || ocp.take("DefinedCards").as_deref() != Some("Targeted")
+                || ocp.take("ChoiceZone").as_deref() != Some("Graveyard")
+                || ocp.take("Mandatory").as_deref() != Some("True")
+                || ocp.take("Defined").as_deref() != Some("ChosenPlayer")
+            {
+                return None;
+            }
+            let pick_k: u8 = ocp.take("Amount")?.trim().parse().ok()?;
+            let rest_name = ocp.take("SubAbility")?;
+            if !ocp.exhausted() {
+                return None;
+            }
+            let rest_body = self.svars.get(rest_name.trim())?.clone();
+            let (r_api, mut rp) = Params::parse(&rest_body)?;
+            rp.drop_prose();
+            if r_api != "ChangeZone"
+                || rp.take("Defined").as_deref() != Some("Targeted.!ChosenCard")
+                || rp.take("Origin").as_deref() != Some("Graveyard")
+                || rp.take("Destination").as_deref() != Some("Hand")
+                || !rp.exhausted()
+            {
+                return None;
+            }
+
+            *sub = trailing_sub;
+            return Some(vec![format!(
+                "Effect::IfCondition {{ condition: {cond}, then: &[Effect::ReturnToHand {{ target: {target} }}], otherwise: &[Effect::ChoosePlayerFrom {{ among: PlayerRel::Opponent }}, Effect::RememberTargetsThen {{ then: &[Effect::ChooseCardEx {{ chooser: PlayerRel::Chosen, zone: ChooseZone::Remembered, filter: &Filter::Any, min: {pick_k}, max: Amount::Fixed({pick_k}), reveal_chosen: false, movement: ChooseMove::None, not_chosen_movement: ChooseMove::Hand, then: &[], for_unchosen: &[] }}] }}] }}"
+            )]);
+        }
+
+        None
+    }
+
     fn can_two_target_only(&self, sub: Option<&str>, chain: &Chain, second_spec: &str) -> bool {
         let Some(sub_name) = sub else {
             return false;
@@ -9035,38 +9321,47 @@ impl Tx<'_> {
         }
         let target_min = p.take("TargetMin");
         let target_max = p.take("TargetMax");
-        let target_up_to: Option<u8> = match (target_min.as_deref(), target_max.as_deref()) {
-            (Some("0"), Some(raw_max)) => {
-                if let Ok(n) = raw_max.trim().parse::<u8>() {
-                    if n == 0 || n == u8::MAX {
+        let (target_up_to, target_range): (Option<u8>, Option<(u8, u8)>) =
+            match (target_min.as_deref(), target_max.as_deref()) {
+                (Some(raw_min @ ("0" | "1")), Some(raw_max)) => {
+                    let min: u8 = u8::from(raw_min != "0");
+                    let max_u8 = if let Ok(n) = raw_max.trim().parse::<u8>() {
+                        if n == 0 || n == u8::MAX || n < min {
+                            return self.deny(format!(
+                                "divided counter distribution with `TargetMax$ {raw_max}`"
+                            ));
+                        }
+                        if let Some(total) = fixed_total
+                            && u32::from(n) > total
+                        {
+                            return self.deny(
+                                "divided counter maximum targets exceeds counter total".into(),
+                            );
+                        }
+                        n
+                    } else if fixed_total.is_none()
+                        && (raw_max.trim() == raw_num.trim() || raw_max.trim() == raw_div.trim())
+                    {
+                        u8::MAX
+                    } else {
                         return self.deny(format!(
                             "divided counter distribution with `TargetMax$ {raw_max}`"
                         ));
+                    };
+                    match (min, max_u8) {
+                        (0, m) => (Some(m), None),
+                        (1, 1) => (None, None),
+                        (1, m) => (None, Some((1, m))),
+                        _ => unreachable!(),
                     }
-                    if let Some(total) = fixed_total
-                        && u32::from(n) > total
-                    {
-                        return self
-                            .deny("divided counter maximum targets exceeds counter total".into());
-                    }
-                    Some(n)
-                } else if fixed_total.is_none()
-                    && (raw_max.trim() == raw_num.trim() || raw_max.trim() == raw_div.trim())
-                {
-                    Some(u8::MAX)
-                } else {
-                    return self.deny(format!(
-                        "divided counter distribution with `TargetMax$ {raw_max}`"
-                    ));
                 }
-            }
-            (Some("1"), Some("1")) => None,
-            _ => {
-                return self.deny(
-                    "triggered divided counter distribution with unsupported target bounds".into(),
-                );
-            }
-        };
+                _ => {
+                    return self.deny(
+                        "triggered divided counter distribution with unsupported target bounds"
+                            .into(),
+                    );
+                }
+            };
         p.take("IsCurse");
         let next = p.take("SubAbility");
         if let Some(key) = p.first_key() {
@@ -9074,6 +9369,7 @@ impl Tx<'_> {
         }
         chain.target = Some(spec.clone());
         chain.target_up_to = target_up_to;
+        chain.target_range = target_range;
         chain.effects.push(format!(
             "Effect::PutCountersDivided {{ kind: {kind}, amount: {amount} }}"
         ));
@@ -9085,7 +9381,7 @@ impl Tx<'_> {
                 || chain.target_up_to_x
                 || chain.target_up_to != target_up_to
                 || chain.target_exact.is_some()
-                || chain.target_range.is_some()
+                || chain.target_range != target_range
                 || chain.could_add_mana
                 || chain
                     .effects
