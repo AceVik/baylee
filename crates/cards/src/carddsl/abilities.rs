@@ -461,6 +461,7 @@ fn encode_trigger_into(trigger: &Trigger, dst: &mut [f32]) {
         | Trigger::Sacrificed { .. }
         | Trigger::Exploited { .. }
         | Trigger::ChangesZoneAll { .. }
+        | Trigger::LeavesGraveyard(_)
         | Trigger::PlayerAttacked(_)
         | Trigger::Plotted { .. }
         | Trigger::GaveGift(_)

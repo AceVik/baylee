@@ -615,6 +615,7 @@ const fn rider_object(rider: &Rider) -> Option<ObjectId> {
             creature: source, ..
         }
         | Rider::GrantedSource(source)
+        | Rider::DelvedCard(source)
         | Rider::CraftMaterial(source)
         | Rider::SpellCostExile(source)
         | Rider::BeheldCostPower(Some(source), _, _)

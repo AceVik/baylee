@@ -12,6 +12,22 @@ The earlier feedback handoff's "seven Alpha Partials" tracked only seven cards
 whose cast-only tests were backfilled, not the entire set. Its subsequent "one
 remaining" claim was incorrect. This complete inventory supersedes those counts.
 
+## Delve link, LeavesGraveyard, and Murktide Regent — 2026-11-26
+
+- **Murktide Regent** is `Coverage::Implemented`, promoted from its stub with
+  played card tests (`creatures/mv_7/murktide_regent.rs`) covering delve counter
+  counts (instants/sorceries vs non-instant/non-sorcery cards), an exiled
+  instant leaving exile before resolution, per-card `Trigger::LeavesGraveyard`
+  growth (yours vs opponent's graveyard), and recasting as a new object
+  (CR 400.7).
+- **Delve link (`CR 607.2q`)** tracks exact exiled incarnations via
+  `Rider::DelvedCard` on the stack and transfers `Rider::ExiledWith` onto the
+  resolving permanent when the card remains in exile with the same version,
+  tested in `baylee-engine::engine::delve_link_tests`.
+- **`Trigger::LeavesGraveyard(Filter)`** and codegen readers for `K:Delve`
+  linked-exile `etbCounter` and `ChangesZone` `Origin$ Graveyard | Destination$
+  Any` are implemented with reader tests in `baylee-cards-codegen`.
+
 ## Madness and Basking Rootwalla — 2026-11-06
 
 - Basking Rootwalla is `Coverage::Implemented` through the selective

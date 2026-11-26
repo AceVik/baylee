@@ -164,13 +164,14 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 .graveyard_allowances_used
                 .push((player, route.effect_id));
         }
+        let mut delved: SmallVec<[ObjectId; 8]> = SmallVec::new();
         for &card in &wizard.delve_exiles {
-            let _ = self.state.move_object(
+            delved.push(self.state.move_object(
                 card,
                 ZoneLocation::Exile(player),
                 ZonePosition::Top,
                 Cause::Cost,
-            )?;
+            )?);
         }
         let convoked_count = if crate::casting::has_convoke(
             &self.state,
@@ -1312,6 +1313,39 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
         let cast_origin_zone = self.state.object(card).map(|o| o.zone);
         self.state
             .move_object(card, ZoneLocation::Stack, ZonePosition::Top, Cause::Spell)?;
+        // The cards delve exiled to pay this spell's cost are exiled with it:
+        // a permanent's "cards exiled with [this object]" refers to exactly
+        // those cards of the spell that became it (CR 607.2q; Murktide
+        // Regent). Keep the exact exiles on the spell so their links can
+        // follow it when it resolves, including replacement effects on entry.
+        if !delved.is_empty()
+            && let Some(version) = self
+                .state
+                .object(card)
+                .map(crate::object::Rider::version_of)
+        {
+            for &exiled in &delved {
+                if let Some(object) = self
+                    .state
+                    .object_mut(exiled)
+                    .filter(|o| o.zone == crate::zone::Zone::Exile)
+                {
+                    object.riders.push(crate::object::Rider::ExiledWith {
+                        host: card,
+                        version,
+                    });
+                    let exile = baylee_core::ids::DamageSourceRef {
+                        object: exiled,
+                        version: object.version,
+                    };
+                    self.state
+                        .object_mut(card)
+                        .expect("the spell on the stack")
+                        .riders
+                        .push(crate::object::Rider::DelvedCard(exile));
+                }
+            }
+        }
         if let Some(turn) = foretold_turn {
             self.state
                 .object_mut(card)

@@ -139433,7 +139433,14 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
         modes: &[],
         alternatives: &[],
     }],
-    &[],
+    // Murktide Regent
+    &[FaceLines {
+        sentences: 4,
+        stackable: 1,
+        lines: &[Some(3)],
+        modes: &[],
+        alternatives: &[],
+    }],
     // Necrogoyf
     &[FaceLines {
         sentences: 3,
