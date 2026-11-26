@@ -6061,3 +6061,299 @@ fn destroy_with_a_name_twin_condition_is_checked_only_on_resolution() {
         "Count$Valid Creature.sharesNameWith Targeted"
     )));
 }
+
+#[test]
+fn debuff_supports_durations_event_objects_attached_remembered_and_bands_with_other() {
+    let shelkin = read(
+        "Name:Shelkin Brownie\nManaCost:1 G\nTypes:Creature Ouphe\nPT:1/1\n\
+         A:AB$ Debuff | Cost$ T | ValidTgts$ Creature | Keywords$ Bands with other",
+    );
+    assert!(
+        shelkin.abilities[0].contains(
+            "Effect::ModifyTargets { modifier: Modifier::LoseAllBandsWithOther, duration: Duration::UntilEndOfTurn }"
+        ),
+        "{:?}",
+        shelkin.abilities
+    );
+
+    let elder_land_wurm = read(
+        "Name:Elder Land Wurm\nManaCost:4 W W W\nTypes:Creature Dragon Wurm\nPT:5/5\n\
+         K:Defender\n\
+         T:Mode$ Blocks | ValidCard$ Card.Self | Execute$ TrigDebuff\n\
+         SVar:TrigDebuff:DB$ Debuff | Keywords$ Defender | Defined$ TriggeredBlockerLKICopy | Duration$ Permanent",
+    );
+    assert!(
+        elder_land_wurm.abilities[0].contains(
+            "Effect::ModifyEvent { modifier: Modifier::RemoveKeyword(KeywordSet::DEFENDER), duration: Duration::Indefinitely }"
+        ),
+        "{:?}",
+        elder_land_wurm.abilities
+    );
+
+    let torpid_moloch = read(
+        "Name:Torpid Moloch\nManaCost:R\nTypes:Creature Lizard\nPT:3/2\n\
+         K:Defender\n\
+         A:AB$ Debuff | Cost$ Sac<3/Land> | Keywords$ Defender",
+    );
+    assert!(
+        torpid_moloch.abilities[0].contains(
+            "Effect::continuous(&Filter::This, Modifier::RemoveKeyword(KeywordSet::DEFENDER), Duration::UntilEndOfTurn)"
+        ),
+        "{:?}",
+        torpid_moloch.abilities
+    );
+
+    let fear_of_falling = read(
+        "Name:Fear of Falling\nManaCost:3 U U\nTypes:Enchantment Creature Nightmare\nPT:4/4\n\
+         T:Mode$ Attacks | ValidCard$ Card.Self | Execute$ TrigPump\n\
+         SVar:TrigPump:DB$ Pump | ValidTgts$ Creature.OppCtrl | NumAtt$ -2 | Duration$ UntilYourNextTurn | IsCurse$ True | SubAbility$ DBDebuff\n\
+         SVar:DBDebuff:DB$ Debuff | Defined$ Targeted | Keywords$ Flying | Duration$ UntilYourNextTurn",
+    );
+    assert!(
+        fear_of_falling.abilities[0].contains(
+            "Effect::ModifyTargets { modifier: Modifier::RemoveKeyword(KeywordSet::FLYING), duration: Duration::UntilYourNextTurn }"
+        ),
+        "{:?}",
+        fear_of_falling.abilities
+    );
+
+    let enchanted_debuff = read(
+        "Name:EnchDebuff\nManaCost:1 U\nTypes:Enchantment Aura\nK:Enchant:Creature\n\
+         A:AB$ Debuff | Cost$ U | Defined$ Enchanted | Keywords$ Flying",
+    );
+    assert!(
+        enchanted_debuff.abilities[1].contains(
+            "Effect::ModifyAttached { modifier: Modifier::RemoveKeyword(KeywordSet::FLYING), duration: Duration::UntilEndOfTurn }"
+        ),
+        "{:?}",
+        enchanted_debuff.abilities
+    );
+
+    let rem_script = parse("Name:RemTest\nTypes:Instant");
+    let rem_cats = cats();
+    let mut rem_tx = Tx::new(&rem_script, &rem_cats, None);
+    let (_, mut rem_p) =
+        Params::parse("DB$ Debuff | Defined$ Remembered.Creature | Keywords$ Indestructible")
+            .unwrap();
+    let rem_effs = rem_tx.debuff_effect(&mut rem_p, None).unwrap();
+    assert_eq!(
+        rem_effs,
+        vec![
+            "Effect::ForEachRemembered { filter: &Filter::CREATURE, effects: &[Effect::ModifyEvent { modifier: Modifier::RemoveKeyword(KeywordSet::INDESTRUCTIBLE), duration: Duration::UntilEndOfTurn }] }"
+        ]
+    );
+    let (_, mut rem_any_p) =
+        Params::parse("DB$ Debuff | Defined$ Remembered | Keywords$ Flying").unwrap();
+    assert_eq!(
+        rem_tx.debuff_effect(&mut rem_any_p, None).unwrap(),
+        vec![
+            "Effect::ForEachRemembered { filter: &Filter::Any, effects: &[Effect::ModifyEvent { modifier: Modifier::RemoveKeyword(KeywordSet::FLYING), duration: Duration::UntilEndOfTurn }] }"
+        ]
+    );
+
+    for bad in [
+        "Name:BadSpellSelfDebuff\nManaCost:R\nTypes:Instant\nA:SP$ Debuff | Keywords$ Flying",
+        "Name:BadDebuffDuration\nManaCost:R\nTypes:Instant\nA:SP$ Debuff | ValidTgts$ Creature | Keywords$ Flying | Duration$ UntilYourNextUpkeep",
+        "Name:BadDebuffLandwalk\nManaCost:R\nTypes:Instant\nA:SP$ Debuff | ValidTgts$ Creature | Keywords$ Landwalk:Snow",
+        "Name:BadDebuffProt\nManaCost:U\nTypes:Instant\nA:SP$ Debuff | ValidTgts$ Creature | Keywords$ Protection from black",
+        "Name:BadDebuffRemLand\nManaCost:1 R\nTypes:Instant\nA:SP$ Debuff | Defined$ Remembered.Land | Keywords$ Flying",
+    ] {
+        assert!(refused(bad), "must refuse: {bad}");
+    }
+}
+
+#[test]
+fn untap_and_remove_from_combat_support_upto_event_objects_and_targets() {
+    let amulet = read(
+        "Name:Amulet of Vigor\nManaCost:1\nTypes:Artifact\n\
+         T:Mode$ ChangesZone | Origin$ Any | Destination$ Battlefield | ValidCard$ Permanent.tapped+YouCtrl | Execute$ TrigUntap\n\
+         SVar:TrigUntap:DB$ Untap | Defined$ TriggeredCardLKICopy",
+    );
+    assert!(
+        amulet.abilities[0].contains("Effect::UntapAll { filter: &Filter::Reference }"),
+        "{:?}",
+        amulet.abilities
+    );
+
+    let snap = read(
+        "Name:Snap\nManaCost:1 U\nTypes:Instant\n\
+         A:SP$ ChangeZone | ValidTgts$ Creature | Origin$ Battlefield | Destination$ Hand | SubAbility$ DBUntap\n\
+         SVar:DBUntap:DB$ Untap | UntapUpTo$ True | UntapType$ Land | Amount$ 2",
+    );
+    assert!(
+        snap.abilities[0].contains("Effect::UntapChosen { filter: &"),
+        "{:?}",
+        snap.abilities
+    );
+    assert!(
+        snap.abilities[0].contains("count: 2"),
+        "{:?}",
+        snap.abilities
+    );
+
+    let gustcloak = read(
+        "Name:Gustcloak Savior\nManaCost:4 W\nTypes:Creature Bird Soldier\nPT:3/4\n\
+         T:Mode$ AttackerBlocked | ValidCard$ Creature.YouCtrl | Execute$ TrigRemove | OptionalDecider$ You\n\
+         SVar:TrigRemove:DB$ RemoveFromCombat | Defined$ TriggeredAttackerLKICopy | SubAbility$ DBUntap\n\
+         SVar:DBUntap:DB$ Untap | Defined$ TriggeredAttackerLKICopy",
+    );
+    assert!(
+        gustcloak.abilities[0].contains("Effect::RemoveEventObjectFromCombat { unblock: false }"),
+        "{:?}",
+        gustcloak.abilities
+    );
+    assert!(
+        gustcloak.abilities[0].contains("Effect::UntapAll { filter: &Filter::Reference }"),
+        "{:?}",
+        gustcloak.abilities
+    );
+
+    let provoke = read(
+        "Name:Provoke\nManaCost:1 G\nTypes:Instant\n\
+         A:SP$ Untap | ValidTgts$ Creature.YouDontCtrl | IsCurse$ True | SubAbility$ DBDraw\n\
+         SVar:DBDraw:DB$ Draw | SpellDescription$ Draw a card.",
+    );
+    assert!(
+        provoke.abilities[0].contains("Effect::UntapTarget"),
+        "{:?}",
+        provoke.abilities
+    );
+
+    for bad in [
+        "Name:BadUntapExactly\nManaCost:2 U\nTypes:Sorcery\nA:SP$ Untap | UntapExactly$ True | UntapType$ Land | Amount$ 2",
+        "Name:BadUntapTriggeredPlayer\nManaCost:2 U\nTypes:Enchantment\nT:Mode$ Phase | Phase$ Upkeep | ValidPlayer$ Player | Execute$ TrigUntap\nSVar:TrigUntap:DB$ Untap | UntapUpTo$ True | UntapType$ Land | Amount$ 1 | Defined$ TriggeredPlayer",
+        "Name:BadUntapAmountX\nManaCost:2 U\nTypes:Sorcery\nA:SP$ Untap | UntapUpTo$ True | UntapType$ Land | Amount$ X\nSVar:X:Count$Valid Creature.YouCtrl",
+        "Name:BadEventUntapWithTarget\nManaCost:1 W\nTypes:Creature\nPT:2/2\nT:Mode$ ChangesZone | Origin$ Any | Destination$ Battlefield | ValidCard$ Card.Self | Execute$ Trig\nSVar:Trig:DB$ Destroy | ValidTgts$ Creature | SubAbility$ DBUntap\nSVar:DBUntap:DB$ Untap | Defined$ TriggeredCardLKICopy",
+        "Name:BadRemoveSelfWithPlayerTarget\nManaCost:R\nTypes:Creature\nPT:2/1\nT:Mode$ Blocks | ValidCard$ Card.Self | Execute$ Trig\nSVar:Trig:DB$ GainControl | Defined$ Self | ValidTgts$ Opponent | SubAbility$ Rem\nSVar:Rem:DB$ RemoveFromCombat | Defined$ Self",
+    ] {
+        assert!(refused(bad), "must refuse: {bad}");
+    }
+}
+
+#[test]
+fn fight_supports_kicked_self_etb_and_spell_granted_fight() {
+    let allosaurus = read(
+        "Name:Territorial Allosaurus\nManaCost:2 G G\nTypes:Creature Dinosaur\nPT:5/5\n\
+         K:Kicker:2 G\n\
+         T:Mode$ ChangesZone | Origin$ Any | Destination$ Battlefield | ValidCard$ Card.Self+kicked | Execute$ TrigFight\n\
+         SVar:TrigFight:DB$ Fight | Defined$ TriggeredCardLKICopy | ValidTgts$ Creature.Other | TargetMin$ 0 | TargetMax$ 1",
+    );
+    assert!(
+        allosaurus.abilities[0]
+            .contains("Effect::Fight { fighter: TargetSlot::This, foe: TargetSlot::First }"),
+        "{:?}",
+        allosaurus.abilities
+    );
+
+    let setessan_tactics = read(
+        "Name:Setessan Tactics\nManaCost:1 G\nTypes:Instant\n\
+         K:Strive:G\n\
+         A:SP$ Pump | ValidTgts$ Creature | NumAtt$ +1 | NumDef$ +1 | TargetMin$ 0 | TargetMax$ MaxTargets | SubAbility$ DBAnimate\n\
+         SVar:DBAnimate:DB$ Animate | Defined$ Targeted | Abilities$ SetessanFight\n\
+         SVar:SetessanFight:AB$ Fight | Cost$ T | Defined$ Self | ValidTgts$ Creature.Other\n\
+         SVar:MaxTargets:Count$Valid Creature",
+    );
+    assert!(
+        setessan_tactics.abilities[1]
+            .contains("Effect::ModifyTargets { modifier: Modifier::GrantActivatedDefinition"),
+        "{:?}",
+        setessan_tactics.abilities
+    );
+
+    for bad in [
+        "Name:BadNonSelfEtbFight\nManaCost:4 G\nTypes:Creature\nPT:4/4\nT:Mode$ ChangesZone | Origin$ Any | Destination$ Battlefield | ValidCard$ Creature.YouCtrl | Execute$ TrigFight\nSVar:TrigFight:DB$ Fight | Defined$ TriggeredCardLKICopy | ValidTgts$ Creature.OppCtrl",
+        "Name:BadEnchantedFight\nManaCost:1 G\nTypes:Enchantment Aura\nK:Enchant:Creature\nT:Mode$ ChangesZone | Origin$ Any | Destination$ Battlefield | ValidCard$ Card.Self | Execute$ TrigFight\nSVar:TrigFight:DB$ Fight | Defined$ Enchanted | ValidTgts$ Creature.OppCtrl",
+    ] {
+        assert!(refused(bad), "must refuse: {bad}");
+    }
+}
+
+#[test]
+fn pump_supports_blocking_grants_upkeep_duration_stack_keywords_and_triggered_kws() {
+    let anurid = read(
+        "Name:Anurid Swarmsnapper\nManaCost:2 G\nTypes:Creature Frog Beast\nPT:1/4\n\
+         A:AB$ Pump | Cost$ 1 G | Defined$ Self | CanBlockAmount$ 1",
+    );
+    assert!(
+        anurid.abilities[0].contains("Modifier::CanBlockAdditional(1)"),
+        "{:?}",
+        anurid.abilities
+    );
+
+    let give_no_ground = read(
+        "Name:Give No Ground\nManaCost:3 W\nTypes:Instant\n\
+         A:SP$ Pump | ValidTgts$ Creature | NumAtt$ +2 | NumDef$ +6 | CanBlockAny$ True",
+    );
+    assert!(
+        give_no_ground.abilities[0].contains("Modifier::CanBlockAnyNumber"),
+        "{:?}",
+        give_no_ground.abilities
+    );
+
+    let erhnam = read(
+        "Name:Erhnam Djinn\nManaCost:3 G\nTypes:Creature Djinn\nPT:4/5\n\
+         T:Mode$ Phase | Phase$ Upkeep | ValidPlayer$ You | Execute$ TrigPump\n\
+         SVar:TrigPump:DB$ Pump | ValidTgts$ Creature.OppCtrl | KW$ Landwalk:Forest | Duration$ UntilYourNextUpkeep",
+    );
+    assert!(
+        erhnam.abilities[0].contains("Duration::UntilYourNextUpkeep"),
+        "{:?}",
+        erhnam.abilities
+    );
+
+    let taigam = read(
+        "Name:Taigam, Ojutai Master\nManaCost:2 W U\nTypes:Legendary Creature Human Monk\nPT:3/4\n\
+         T:Mode$ SpellCast | ValidCard$ Instant.wasCastFromYourHand,Sorcery.wasCastFromYourHand | ValidActivatingPlayer$ You | TriggerZones$ Battlefield | IsPresent$ Card.Self+attackedThisTurn | Execute$ TrigRebound\n\
+         SVar:TrigRebound:DB$ Pump | Defined$ TriggeredCard | KW$ Rebound | PumpZone$ Stack",
+    );
+    assert!(
+        taigam.abilities[0].contains(
+            "Effect::ModifyEvent { modifier: Modifier::AddKeyword(KeywordSet::REBOUND), duration: Duration::UntilEndOfTurn }"
+        ),
+        "{:?}",
+        taigam.abilities
+    );
+
+    let afterlife_ins = read(
+        "Name:Afterlife Insurance\nManaCost:1 WB\nTypes:Instant\n\
+         A:SP$ PumpAll | ValidCards$ Creature.YouCtrl | KW$ Afterlife:1 | SubAbility$ DBDraw\n\
+         SVar:DBDraw:DB$ Draw",
+    );
+    assert!(
+        afterlife_ins.abilities[0].contains("Modifier::AddKeyword(KeywordSet::AFTERLIFE)")
+            && afterlife_ins.abilities[0].contains("Modifier::GrantTriggered"),
+        "{:?}",
+        afterlife_ins.abilities
+    );
+
+    let rammas = read(
+        "Name:Rammas\nManaCost:3 W\nTypes:Artifact\n\
+         T:Mode$ Phase | Phase$ BeginCombat | ValidPlayer$ You | Execute$ TrigPump\n\
+         SVar:TrigPump:DB$ PumpAll | ValidCards$ Creature.withDefender+YouCtrl | KW$ Exalted",
+    );
+    assert!(
+        rammas.abilities[0].contains("Trigger::AttacksAlone(&Filter::YOUR_CREATURE)"),
+        "{:?}",
+        rammas.abilities
+    );
+
+    let triggered_kws = read(
+        "Name:AllTrigKws\nManaCost:2 W\nTypes:Sorcery\n\
+         A:SP$ PumpAll | ValidCards$ Creature.YouCtrl | KW$ Ward:2 & Annihilator:1 & Afflict:2 & Poisonous:1 & Renown:1",
+    );
+    assert!(
+        triggered_kws.abilities[0].contains("Trigger::Ward")
+            && triggered_kws.abilities[0].contains("Modifier::GrantTriggeredDefinition(")
+            && triggered_kws.abilities[0].contains("Effect::Poison"),
+        "{:?}",
+        triggered_kws.abilities
+    );
+
+    for bad in [
+        "Name:BadStackPT\nManaCost:2 R\nTypes:Creature\nPT:2/2\nT:Mode$ SpellCast | ValidCard$ Instant | ValidActivatingPlayer$ You | Execute$ Trig\nSVar:Trig:DB$ Pump | Defined$ TriggeredCard | NumAtt$ +1 | KW$ Lifelink | PumpZone$ Stack",
+        "Name:BadExilePumpZone\nManaCost:1 B\nTypes:Creature\nPT:2/2\nT:Mode$ SpellCast | ValidCard$ Instant | ValidActivatingPlayer$ You | Execute$ Trig\nSVar:Trig:DB$ Pump | Defined$ TriggeredCard | PumpZone$ Exile | KW$ Flying",
+        "Name:BadNonCombatTrigger\nManaCost:2 R\nTypes:Creature\nPT:2/2\nT:Mode$ DamageDone | ValidSource$ Card.Self | CombatDamage$ False | Execute$ Trig\nSVar:Trig:DB$ Draw",
+    ] {
+        assert!(refused(bad), "must refuse: {bad}");
+    }
+}

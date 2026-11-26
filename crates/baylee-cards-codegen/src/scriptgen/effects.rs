@@ -983,10 +983,17 @@ impl Tx<'_> {
             Some(raw) => self.pump_side_ext(raw)?,
             None => "Amount::Fixed(0)".to_string(),
         };
-        let (keywords, prevent_mods) = match p.take("KW") {
+        let (keywords, mut prevent_mods) = match p.take("KW") {
             None => ("KeywordSet::EMPTY".to_string(), Vec::new()),
             Some(kw) => self.pump_kw_and_prevent(&kw, p.opponents_only_lure)?,
         };
+        if let Some(raw) = p.take("CanBlockAmount") {
+            let n = raw.trim().parse::<u8>().ok().filter(|&v| v >= 1)?;
+            prevent_mods.push(format!("Modifier::CanBlockAdditional({n})"));
+        }
+        if self.take_true_flag(p, "CanBlockAny")? {
+            prevent_mods.push("Modifier::CanBlockAnyNumber".to_string());
+        }
         let kw_choices = match p.take("KWChoice") {
             None => None,
             Some(_) if keywords != "KeywordSet::EMPTY" || !prevent_mods.is_empty() => return None,
@@ -1011,6 +1018,7 @@ impl Tx<'_> {
             None => "Duration::UntilEndOfTurn",
             Some("UntilEndOfCombat") => "Duration::UntilEndOfCombat",
             Some("UntilYourNextTurn") => "Duration::UntilYourNextTurn",
+            Some("UntilYourNextUpkeep") => "Duration::UntilYourNextUpkeep",
             Some("Permanent")
                 if prevent_mods.is_empty()
                     && (keywords != "KeywordSet::EMPTY"
@@ -1052,6 +1060,32 @@ impl Tx<'_> {
             }
             other => other,
         };
+        if let Some(pz) = p.take("PumpZone") {
+            if pz == "Stack"
+                && !second
+                && target == "TargetSpec::AnyPlayer"
+                && kw_choices.is_none()
+                && prevent_mods.is_empty()
+                && power == "Amount::Fixed(0)"
+                && toughness == "Amount::Fixed(0)"
+                && keywords != "KeywordSet::EMPTY"
+                && duration == "Duration::UntilEndOfTurn"
+                && matches!(
+                    defined.as_deref(),
+                    Some("TriggeredCard" | "TriggeredCardLKICopy" | "TriggeredSpellAbility")
+                )
+                && matches!(
+                    self.trigger_mode.as_deref(),
+                    Some("SpellCast" | "SpellCastOrCopy")
+                )
+            {
+                return Some(vec![format!(
+                    "Effect::ModifyEvent {{ modifier: Modifier::AddKeyword({keywords}), \
+                     duration: Duration::UntilEndOfTurn }}"
+                )]);
+            }
+            return None;
+        }
         if !second
             && ((matches!(
                 defined.as_deref(),
@@ -1418,7 +1452,22 @@ impl Tx<'_> {
                     );
                     prevent.push(format!("Modifier::GrantTriggeredDefinition(&{def_name})"));
                 }
-                other => normal.push(other),
+                other => {
+                    let mut trig_bits = Vec::new();
+                    let mut trig_mods = Vec::new();
+                    if self.push_granted_triggered_keyword_modifiers(
+                        other,
+                        &mut trig_bits,
+                        &mut trig_mods,
+                    )? {
+                        for bit in trig_bits {
+                            prevent.push(format!("Modifier::AddKeyword({bit})"));
+                        }
+                        prevent.extend(trig_mods);
+                    } else {
+                        normal.push(other);
+                    }
+                }
             }
         }
         let bits = if normal.is_empty() {
@@ -2180,13 +2229,14 @@ impl Tx<'_> {
     /// the battlefield. The engine's word for it is the keyword, granted for
     /// the rest of the turn — to the targets, or to the source itself.
     /// Every other `Effect` is its own sentence and stays refused.
-    #[allow(clippy::unused_self)]
     pub(super) fn debuff_effect(
         &mut self,
         p: &mut Params,
         target: Option<&str>,
     ) -> Option<Vec<String>> {
         if target == Some("TargetSpec::Object(&Filter::CREATURE)")
+            && p.peek("Defined").is_none()
+            && !p.has("Duration")
             && p.peek("AllSuffixKeywords") == Some("walk")
         {
             p.take("AllSuffixKeywords");
@@ -2196,34 +2246,63 @@ impl Tx<'_> {
                     .to_string(),
             ]);
         }
-        if target.is_some_and(|t| t.starts_with("TargetSpec::Object("))
-            && p.peek("Defined").is_none()
-            && let Some(kw) = p.take("Keywords")
-        {
-            p.take("IsCurse");
-            let mut out = Vec::new();
-            for part in kw.split('&') {
-                let bit = keyword_const(part.trim())?;
-                out.push(format!(
-                    "Effect::ModifyTargets {{ modifier: Modifier::RemoveKeyword({bit}), \
-                     duration: Duration::UntilEndOfTurn }}"
-                ));
+        p.take("IsCurse");
+        let duration = match p.take("Duration").as_deref() {
+            None => "Duration::UntilEndOfTurn",
+            Some("UntilEndOfCombat") => "Duration::UntilEndOfCombat",
+            Some("UntilYourNextTurn") => "Duration::UntilYourNextTurn",
+            Some("Permanent") => "Duration::Indefinitely",
+            Some(_) => return None,
+        };
+        let mut modifiers = Vec::new();
+        if let Some(kw) = p.take("Keywords") {
+            for part in kw.split('&').map(str::trim).filter(|s| !s.is_empty()) {
+                if part == "Bands with other" {
+                    modifiers.push("Modifier::LoseAllBandsWithOther".to_string());
+                } else {
+                    let bit = keyword_const(part)?;
+                    modifiers.push(format!("Modifier::RemoveKeyword({bit})"));
+                }
             }
-            return (!out.is_empty()).then_some(out);
         }
-        if target.is_none() && p.take("Defined").as_deref() == Some("Self") {
-            let kw = p.take("Keywords")?;
-            let mut out = Vec::new();
-            for part in kw.split('&') {
-                let bit = keyword_const(part.trim())?;
-                out.push(format!(
-                    "Effect::continuous(&Filter::This, Modifier::RemoveKeyword({bit}), \
-                     Duration::UntilEndOfTurn)"
-                ));
+        if modifiers.is_empty() {
+            return None;
+        }
+        let wrap = |tpl: fn(&str, &str) -> String| -> Vec<String> {
+            modifiers.iter().map(|m| tpl(m, duration)).collect()
+        };
+        match (p.take("Defined").as_deref(), target) {
+            (None | Some("Targeted" | "ParentTarget"), Some(t))
+                if t.starts_with("TargetSpec::Object(") =>
+            {
+                Some(wrap(|m, d| {
+                    format!("Effect::ModifyTargets {{ modifier: {m}, duration: {d} }}")
+                }))
             }
-            return (!out.is_empty()).then_some(out);
+            (None, None) | (Some("Self"), _) if !self.on_a_spell => Some(wrap(|m, d| {
+                format!("Effect::continuous(&Filter::This, {m}, {d})")
+            })),
+            (Some("Enchanted" | "Equipped"), _) if !self.on_a_spell => Some(wrap(|m, d| {
+                format!("Effect::ModifyAttached {{ modifier: {m}, duration: {d} }}")
+            })),
+            (Some(def), _) if self.is_event_object_defined(def) => Some(wrap(|m, d| {
+                format!("Effect::ModifyEvent {{ modifier: {m}, duration: {d} }}")
+            })),
+            (Some(def @ ("Remembered" | "Remembered.Creature")), _) => {
+                let filter = if def == "Remembered.Creature" {
+                    "&Filter::CREATURE"
+                } else {
+                    "&Filter::Any"
+                };
+                let inner =
+                    wrap(|m, d| format!("Effect::ModifyEvent {{ modifier: {m}, duration: {d} }}"));
+                Some(vec![format!(
+                    "Effect::ForEachRemembered {{ filter: {filter}, effects: &[{}] }}",
+                    inner.join(", ")
+                )])
+            }
+            _ => None,
         }
-        None
     }
 
     pub(super) fn unblockable_effect(

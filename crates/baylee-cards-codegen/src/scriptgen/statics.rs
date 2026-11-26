@@ -3053,7 +3053,10 @@ impl Tx<'_> {
         if !line.trim_start().starts_with("AB$") {
             return self.deny("a granted ability that is not an activated one".to_string());
         }
-        let parsed = self.parse_activated_spec(&line, false, false)?;
+        let prev_on_a_spell = std::mem::replace(&mut self.on_a_spell, false);
+        let parsed = self.parse_activated_spec(&line, false, false);
+        self.on_a_spell = prev_on_a_spell;
+        let parsed = parsed?;
         if parsed.non_battlefield_zone {
             return self.deny("a granted ability activated outside the battlefield".to_string());
         }
@@ -6209,38 +6212,13 @@ impl Tx<'_> {
             ));
             return Some(true);
         }
-        if let Some(rest) = trimmed.strip_prefix("Ward:") {
-            let Some(effect) = self.ward_effect_expr(rest, true) else {
-                self.note(format!("static ability granting keyword `{word}`"));
-                return None;
-            };
-            out.push(Self::static_expr(
-                filter,
-                &format!(
-                    "Modifier::GrantTriggered {{ trigger: Trigger::Ward, \
-                     effects: &[{effect}], target: None }}"
-                ),
-            ));
-            return Some(true);
-        }
-        if trimmed == "Exalted" {
-            out.push(Self::static_expr(
-                filter,
-                "Modifier::GrantTriggered { \
-                 trigger: Trigger::AttacksAlone(&Filter::YOUR_CREATURE), \
-                 effects: &[Effect::PumpEventObject { power: Amount::Fixed(1), \
-                 toughness: Amount::Fixed(1), keywords: KeywordSet::EMPTY, \
-                 duration: Duration::UntilEndOfTurn }], target: None }",
-            ));
+        if self.try_granted_triggered_keyword(trimmed, word, filter, bits, out)? {
             return Some(true);
         }
         if let Some(mods) = granted_damage_prevention_modifiers(trimmed) {
             for m in mods {
                 out.push(Self::static_expr(filter, m));
             }
-            return Some(true);
-        }
-        if self.try_granted_triggered_keyword(trimmed, word, filter, bits, out)? {
             return Some(true);
         }
         self.try_granted_activated_keyword(trimmed, word, filter, allows_equip, bits, out)
@@ -6254,76 +6232,91 @@ impl Tx<'_> {
         bits: &mut Vec<String>,
         out: &mut Vec<String>,
     ) -> Option<bool> {
+        let mut mods = Vec::new();
+        let Some(handled) = self.push_granted_triggered_keyword_modifiers(trimmed, bits, &mut mods)
+        else {
+            self.note(format!("static ability granting keyword `{word}`"));
+            return None;
+        };
+        if handled {
+            for m in mods {
+                out.push(Self::static_expr(filter, &m));
+            }
+            return Some(true);
+        }
+        Some(false)
+    }
+
+    /// Emits keyword bits and `Modifier` strings for triggered keyword grants
+    /// shared between static `AddKeyword$` and `Pump` / `PumpAll` `KW$`.
+    pub(super) fn push_granted_triggered_keyword_modifiers(
+        &mut self,
+        trimmed: &str,
+        bits: &mut Vec<String>,
+        mods: &mut Vec<String>,
+    ) -> Option<bool> {
+        if let Some(rest) = trimmed.strip_prefix("Ward:") {
+            let effect = self.ward_effect_expr(rest, true)?;
+            mods.push(format!(
+                "Modifier::GrantTriggered {{ trigger: Trigger::Ward, \
+                 effects: &[{effect}], target: None }}"
+            ));
+            return Some(true);
+        }
+        if trimmed == "Exalted" {
+            mods.push(
+                "Modifier::GrantTriggered { \
+                 trigger: Trigger::AttacksAlone(&Filter::YOUR_CREATURE), \
+                 effects: &[Effect::PumpEventObject { power: Amount::Fixed(1), \
+                 toughness: Amount::Fixed(1), keywords: KeywordSet::EMPTY, \
+                 duration: Duration::UntilEndOfTurn }], target: None }"
+                    .to_string(),
+            );
+            return Some(true);
+        }
         if let Some(rest) = trimmed.strip_prefix("Annihilator:") {
-            let Some(n) = rest.trim().parse::<u16>().ok().filter(|&n| n >= 1) else {
-                self.note(format!("static ability granting keyword `{word}`"));
-                return None;
-            };
-            out.push(Self::static_expr(
-                filter,
-                &format!(
-                    "Modifier::GrantTriggered {{ trigger: Trigger::Attacks(&Filter::This), \
-                     effects: &[Effect::SacrificeAmountForPlayers {{ \
-                     who: PlayerRel::DefendingPlayer, filter: &Filter::Any, \
-                     amount: Amount::Fixed({n}) }}], target: None }}"
-                ),
+            let n = rest.trim().parse::<u16>().ok().filter(|&n| n >= 1)?;
+            mods.push(format!(
+                "Modifier::GrantTriggered {{ trigger: Trigger::Attacks(&Filter::This), \
+                 effects: &[Effect::SacrificeAmountForPlayers {{ \
+                 who: PlayerRel::DefendingPlayer, filter: &Filter::Any, \
+                 amount: Amount::Fixed({n}) }}], target: None }}"
             ));
             return Some(true);
         }
         if let Some(rest) = trimmed.strip_prefix("Afflict:") {
-            let Some(n) = rest.trim().parse::<u32>().ok().filter(|&n| n >= 1) else {
-                self.note(format!("static ability granting keyword `{word}`"));
-                return None;
-            };
+            let n = rest.trim().parse::<u32>().ok().filter(|&n| n >= 1)?;
             bits.push("KeywordSet::AFFLICT".to_string());
-            out.push(Self::static_expr(
-                filter,
-                &format!(
-                    "Modifier::GrantTriggered {{ trigger: Trigger::BecomesBlocked, \
-                     effects: &[Effect::LoseLife {{ amount: Amount::Fixed({n}), \
-                     target: PlayerRel::DefendingPlayer }}], target: None }}"
-                ),
+            mods.push(format!(
+                "Modifier::GrantTriggered {{ trigger: Trigger::BecomesBlocked, \
+                 effects: &[Effect::LoseLife {{ amount: Amount::Fixed({n}), \
+                 target: PlayerRel::DefendingPlayer }}], target: None }}"
             ));
             return Some(true);
         }
         if let Some(rest) = trimmed.strip_prefix("Afterlife:") {
-            let Some(n) = rest.trim().parse::<u32>().ok().filter(|&n| n >= 1) else {
-                self.note(format!("static ability granting keyword `{word}`"));
-                return None;
-            };
+            let n = rest.trim().parse::<u32>().ok().filter(|&n| n >= 1)?;
             bits.push("KeywordSet::AFTERLIFE".to_string());
-            out.push(Self::static_expr(
-                filter,
-                &format!(
-                    "Modifier::GrantTriggered {{ trigger: Trigger::Dies(&Filter::This), \
-                     effects: &[Effect::CreateTokenN {{ \
-                     token: &generated_tokens::SPIRIT_1_1_WHITE_BLACK_FLYING, \
-                     amount: Amount::Fixed({n}) }}], target: None }}"
-                ),
+            mods.push(format!(
+                "Modifier::GrantTriggered {{ trigger: Trigger::Dies(&Filter::This), \
+                 effects: &[Effect::CreateTokenN {{ \
+                 token: &generated_tokens::SPIRIT_1_1_WHITE_BLACK_FLYING, \
+                 amount: Amount::Fixed({n}) }}], target: None }}"
             ));
             return Some(true);
         }
         if let Some(rest) = trimmed.strip_prefix("Poisonous:") {
-            let Some(n) = rest.trim().parse::<u32>().ok().filter(|&n| n >= 1) else {
-                self.note(format!("static ability granting keyword `{word}`"));
-                return None;
-            };
-            out.push(Self::static_expr(
-                filter,
-                &format!(
-                    "Modifier::GrantTriggered {{ \
-                     trigger: Trigger::DealsCombatDamageToPlayer(&Filter::This), \
-                     effects: &[Effect::Poison {{ who: PlayerRel::DamagedPlayer, \
-                     amount: Amount::Fixed({n}) }}], target: None }}"
-                ),
+            let n = rest.trim().parse::<u32>().ok().filter(|&n| n >= 1)?;
+            mods.push(format!(
+                "Modifier::GrantTriggered {{ \
+                 trigger: Trigger::DealsCombatDamageToPlayer(&Filter::This), \
+                 effects: &[Effect::Poison {{ who: PlayerRel::DamagedPlayer, \
+                 amount: Amount::Fixed({n}) }}], target: None }}"
             ));
             return Some(true);
         }
         if let Some(rest) = trimmed.strip_prefix("Renown:") {
-            let Some(n) = rest.trim().parse::<u8>().ok().filter(|&n| n >= 1) else {
-                self.note(format!("static ability granting keyword `{word}`"));
-                return None;
-            };
+            let n = rest.trim().parse::<u8>().ok().filter(|&n| n >= 1)?;
             bits.push("KeywordSet::RENOWN".to_string());
             let trig_expr = format!(
                 "triggered!(Trigger::DealsCombatDamageToPlayer(&Filter::This), \
@@ -6331,10 +6324,7 @@ impl Tx<'_> {
                  condition = Some(Condition::Not(&Condition::IsRenowned)))"
             );
             let def_name = self.body.ability_static("GRANTED_TRIGGER_", &trig_expr);
-            out.push(Self::static_expr(
-                filter,
-                &format!("Modifier::GrantTriggeredDefinition(&{def_name})"),
-            ));
+            mods.push(format!("Modifier::GrantTriggeredDefinition(&{def_name})"));
             return Some(true);
         }
         Some(false)
