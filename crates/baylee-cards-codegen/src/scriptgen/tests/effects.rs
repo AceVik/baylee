@@ -6055,3 +6055,151 @@ fn destroy_with_a_name_twin_condition_is_checked_only_on_resolution() {
         "Count$Valid Creature.sharesNameWith Targeted"
     )));
 }
+
+#[test]
+fn reveal_remembered_counted_mana_counter_and_graveyard_return() {
+    let mut c = cats();
+    c.creature.extend([
+        "Construct".into(),
+        "Elf".into(),
+        "Druid".into(),
+        "Human".into(),
+    ]);
+    c.normalize();
+    let read_c = |src: &str| {
+        let p = parse(src);
+        transcode(&p, &c, None)
+            .unwrap_or_else(|| panic!("expected to read: {:?}", refusal_reason(&p, &c, None)))
+    };
+
+    // Metalworker: Add {C}{C} per revealed artifact
+    let metalworker = read_c(
+        "Name:Metalworker\nManaCost:3\nTypes:Artifact Creature Construct\nPT:1/2\n\
+         A:AB$ Reveal | Cost$ T | RevealValid$ Card.Artifact+YouCtrl | AnyNumber$ True | RememberRevealed$ True | SubAbility$ DBM\n\
+         SVar:DBM:DB$ Mana | Produced$ C | Amount$ X | SubAbility$ DBC\n\
+         SVar:DBC:DB$ Cleanup | ClearRemembered$ True\n\
+         SVar:X:Remembered$Amount/Twice",
+    );
+    assert!(
+        metalworker.abilities[0].contains("Effect::RevealFromHand")
+            && metalworker.abilities[0].contains("Effect::mana_dynamic(ManaColor::Colorless, Amount::Times { base: &Amount::ThisWay(ThisWay::Revealed(&Filter::Any)), factor: 2 })"),
+        "{:?}",
+        metalworker.abilities
+    );
+
+    // Sacellum Godspeaker: Add {G} per revealed power>=5 creature
+    let godspeaker = read_c(
+        "Name:Sacellum Godspeaker\nManaCost:2 G\nTypes:Creature Elf Druid\nPT:2/2\n\
+         A:AB$ Reveal | Cost$ T | RevealValid$ Creature.powerGE5+YouCtrl | AnyNumber$ True | RememberRevealed$ True | SubAbility$ DBM\n\
+         SVar:DBM:DB$ Mana | Produced$ G | Amount$ X | SubAbility$ DBC\n\
+         SVar:DBC:DB$ Cleanup | ClearRemembered$ True\n\
+         SVar:X:Remembered$Amount",
+    );
+    assert!(
+        godspeaker.abilities[0].contains("Effect::mana_dynamic(ManaColor::Green, Amount::ThisWay(ThisWay::Revealed(&Filter::Any)))"),
+        "{:?}",
+        godspeaker.abilities
+    );
+
+    // Brine Seer / Scent of Brine: Counter unless pays {1} per revealed blue card
+    let scent = read_c(
+        "Name:Scent of Brine\nManaCost:1 U\nTypes:Instant\n\
+         A:SP$ Reveal | Defined$ You | RevealValid$ Card.Blue | AnyNumber$ True | RememberRevealed$ True | SubAbility$ DBCounter\n\
+         SVar:DBCounter:DB$ Counter | TargetType$ Spell | ValidTgts$ Card | UnlessCost$ X | SubAbility$ DBC\n\
+         SVar:DBC:DB$ Cleanup | ClearRemembered$ True\n\
+         SVar:X:Remembered$Amount",
+    );
+    assert!(
+        scent.abilities[0].contains("Effect::PlayerMayPayOr { player: PlayerRel::ControllerOfTarget, mana: Amount::ThisWay(ThisWay::Revealed(&Filter::Any)), effect: &Effect::CounterTargetSpell }"),
+        "{:?}",
+        scent.abilities
+    );
+
+    // Rofellos Gift: Return enchantment from your graveyard per revealed green card
+    let rofellos = read_c(
+        "Name:Rofellos's Gift\nManaCost:G\nTypes:Sorcery\n\
+         A:SP$ Reveal | RevealValid$ Card.Green+YouCtrl | AnyNumber$ True | RememberRevealed$ True | SubAbility$ DBChangeZone\n\
+         SVar:DBChangeZone:DB$ ChangeZone | Hidden$ True | Mandatory$ True | ChangeType$ Card.Enchantment+YouOwn | ChangeNum$ X | Origin$ Graveyard | Destination$ Hand | SubAbility$ DBC\n\
+         SVar:DBC:DB$ Cleanup | ClearRemembered$ True\n\
+         SVar:X:Remembered$Amount",
+    );
+    assert!(
+        rofellos.abilities[0].contains("Effect::ChooseCardEx { chooser: PlayerRel::You, zone: ChooseZone::Graveyard(PlayerRel::You)")
+            && rofellos.abilities[0].contains("min: u8::MAX, max: Amount::ThisWay(ThisWay::Revealed(&Filter::Any)), reveal_chosen: false, movement: ChooseMove::Hand"),
+        "{:?}",
+        rofellos.abilities
+    );
+
+    // Honest refusals: RestrictValid$ on Mana, Mind Spike partial hand reveal
+    for bad in [
+        "Name:BadManaRestrict\nManaCost:3\nTypes:Artifact\n\
+         A:AB$ Reveal | Cost$ T | RevealValid$ Card.Artifact+YouCtrl | AnyNumber$ True | RememberRevealed$ True | SubAbility$ DBM\n\
+         SVar:DBM:DB$ Mana | Produced$ C | Amount$ X | RestrictValid$ Spell.CostContainsX\n\
+         SVar:X:Remembered$Amount",
+        "Name:BadMindSpike\nManaCost:B\nTypes:Sorcery\n\
+         A:SP$ Reveal | ValidTgts$ Opponent | RevealAllValid$ Card.nonLand+nonCreature+TargetedPlayerCtrl | RememberRevealed$ True | SubAbility$ DBDiscard\n\
+         SVar:DBDiscard:DB$ Discard | Defined$ Targeted | Mode$ YouChoose | NumCards$ 1 | DiscardValid$ Card.nonLand+nonCreature",
+    ] {
+        assert!(refused(bad), "must refuse: {bad}");
+    }
+}
+
+#[test]
+fn imprint_battlefield_to_exile_uses_linked_exile_when_read() {
+    let mut c = cats();
+    c.creature.extend(["Phyrexian".into(), "Insect".into()]);
+    c.normalize();
+    let read_c = |src: &str| {
+        let p = parse(src);
+        transcode(&p, &c, None)
+            .unwrap_or_else(|| panic!("expected to read: {:?}", refusal_reason(&p, &c, None)))
+    };
+
+    let ritual = read_c(
+        "Name:Exclusion Ritual\nManaCost:4 W W\nTypes:Enchantment\n\
+         T:Mode$ ChangesZone | ValidCard$ Card.Self | Origin$ Any | Destination$ Battlefield | Execute$ TrigExile\n\
+         SVar:TrigExile:DB$ ChangeZone | Imprint$ True | ValidTgts$ Permanent.nonLand | Origin$ Battlefield | Destination$ Exile\n\
+         S:Mode$ CantBeCast | ValidCard$ Card.sharesNameWith Imprinted\n\
+         T:Mode$ ChangesZone | Origin$ Battlefield | ValidCard$ Card.Self | Destination$ Any | Execute$ DBCleanup | Static$ True\n\
+         T:Mode$ ChangesZone | ValidCard$ Card.IsImprinted+ExiledWithSourceLKI | Origin$ Exile | Execute$ DBForget | Static$ True\n\
+         SVar:DBForget:DB$ Bookkeeping | ForgetImprinted$ TriggeredCard\n\
+         SVar:DBCleanup:DB$ Cleanup | ClearImprinted$ True\n\
+         Oracle:Imprint — When Exclusion Ritual enters, exile target nonland permanent.\\nPlayers can't cast spells with the same name as the exiled card.",
+    );
+    assert!(
+        ritual.abilities[0].contains("Effect::exile_linked(TargetSpec::Object(&Filter::NONLAND))"),
+        "{:?}",
+        ritual.abilities
+    );
+
+    let lens = read_c(
+        "Name:Extraplanar Lens\nManaCost:3\nTypes:Artifact\n\
+         T:Mode$ ChangesZone | ValidCard$ Card.Self | Origin$ Any | Destination$ Battlefield | Execute$ TrigExile | OptionalDecider$ You\n\
+         SVar:TrigExile:DB$ ChangeZone | Imprint$ True | Origin$ Battlefield | Destination$ Exile | ValidTgts$ Land.YouCtrl\n\
+         T:Mode$ TapsForMana | ValidCard$ Land.sharesNameWith Imprinted | Execute$ TrigMana | TriggerZones$ Battlefield | Static$ True\n\
+         SVar:TrigMana:DB$ ManaReflected | ColorOrType$ Type | ReflectProperty$ Produced | Defined$ TriggeredCardController\n\
+         T:Mode$ ChangesZone | Origin$ Battlefield | ValidCard$ Card.Self | Destination$ Any | Execute$ DBCleanup | Static$ True\n\
+         T:Mode$ ChangesZone | ValidCard$ Card.IsImprinted+ExiledWithSourceLKI | Origin$ Exile | Execute$ DBForget | Static$ True\n\
+         SVar:DBForget:DB$ Bookkeeping | ForgetImprinted$ TriggeredCard\n\
+         SVar:DBCleanup:DB$ Cleanup | ClearImprinted$ True\n\
+         Oracle:Imprint — When Extraplanar Lens enters, you may exile target land you control.\\nWhenever a land with the same name as the exiled card is tapped for mana, its controller adds one mana of any type that land produced.",
+    );
+    assert!(
+        lens.abilities[0].contains("Effect::exile_linked(TargetSpec::Object("),
+        "{:?}",
+        lens.abilities
+    );
+
+    // Honest refusals: Phyrexian Ingester (computed Imprinted P/T) & Imprint without linked reader
+    for bad in [
+        "Name:BadIngester\nManaCost:6 U\nTypes:Creature\nPT:3/3\n\
+         T:Mode$ ChangesZone | ValidCard$ Card.Self | Origin$ Any | Destination$ Battlefield | Execute$ TrigExile\n\
+         SVar:TrigExile:DB$ ChangeZone | Imprint$ True | ValidTgts$ Creature | Origin$ Battlefield | Destination$ Exile\n\
+         S:Mode$ Continuous | AffectedDefined$ Self | AddPower$ X\n\
+         SVar:X:Imprinted$CardPower",
+        "Name:BadBareImprint\nManaCost:2 W\nTypes:Sorcery\n\
+         A:SP$ ChangeZone | Imprint$ True | ValidTgts$ Creature | Origin$ Battlefield | Destination$ Exile",
+    ] {
+        assert!(refused(bad), "must refuse: {bad}");
+    }
+}

@@ -670,6 +670,11 @@ impl Tx<'_> {
             || (api == "Token"
                 && p.peek("TokenAttacking") == Some("True")
                 && p.peek("AtEOT") == Some("Sacrifice"))
+            || (api == "Token"
+                && p.peek("RememberTokens") == Some("True")
+                && p.peek("AtEOT") == Some("Exile")
+                && !p.has("TokenAttacking")
+                && matches!(p.peek("TokenOwner"), None | Some("You")))
             || (api == "Animate"
                 && p.peek("Defined") == Some("Remembered")
                 && self.capture_scope.is_some())

@@ -13,6 +13,11 @@ fn w27c_cats() -> SubtypeCatalogs {
         "Soldier".into(),
         "Dragon".into(),
         "Nightmare".into(),
+        "Horror".into(),
+        "Warrior".into(),
+        "Elemental".into(),
+        "Phyrexian".into(),
+        "Zombie".into(),
     ]);
     c.artifact
         .extend(["Food".into(), "Equipment".into(), "Treasure".into()]);
@@ -46,6 +51,18 @@ fn w27c_tokens() -> TokenLookup {
         (
             "c_4_4_a_robot_noblock",
             "Name:Robot\nTypes:Artifact Creature Robot\nPT:4/4\nS:Mode$ CantBlock | ValidCard$ Card.Self",
+        ),
+        (
+            "b_x_x_nightmare_horror",
+            "Name:Nightmare Horror Token\nManaCost:no cost\nColors:black\nTypes:Creature Nightmare Horror\nPT:*/*",
+        ),
+        (
+            "r_7_1_elemental_trample_haste",
+            "Name:Elemental Token\nManaCost:no cost\nColors:red\nTypes:Creature Elemental\nPT:7/1\nK:Trample\nK:Haste",
+        ),
+        (
+            "g_1_1_elf_warrior",
+            "Name:Elf Warrior Token\nManaCost:no cost\nColors:green\nTypes:Creature Elf Warrior\nPT:1/1",
         ),
     ])
 }
@@ -633,4 +650,121 @@ fn capture_random_discard_return_with_any_player_life_payment() {
         condition < payment && payment < movement,
         "the creature condition must gate the payment question: {ability}"
     );
+}
+
+#[test]
+fn capture_change_zone_at_random_graveyard_to_exile_play() {
+    // Storm of Memories: AtRandom 1 -> Play with exile_instead_of_graveyard
+    let storm = read_w27c(
+        "Name:Storm of Memories\nManaCost:2 R R R\nTypes:Sorcery\nK:Storm\n\
+         A:SP$ ChangeZone | DefinedPlayer$ You | Destination$ Exile | ChangeNum$ 1 | ChangeType$ Instant.YouOwn+cmcLE3,Sorcery.YouOwn+cmcLE3 | AtRandom$ True | Origin$ Graveyard | Hidden$ True | Mandatory$ True | RememberChanged$ True | SubAbility$ DBPlay\n\
+         SVar:DBPlay:DB$ Play | Defined$ Remembered | ValidSA$ Spell | WithoutManaCost$ True | Optional$ True | ReplaceGraveyard$ Exile | SubAbility$ DBCleanup\n\
+         SVar:DBCleanup:DB$ Cleanup | ClearRemembered$ True",
+    );
+    assert!(
+        storm.abilities[0].contains("Effect::CaptureAffected")
+            && storm.abilities[0].contains("Effect::ChooseCardConstrained")
+            && storm.abilities[0].contains("at_random: true")
+            && storm.abilities[0].contains("exile_instead_of_graveyard: true"),
+        "{:?}",
+        storm.abilities
+    );
+
+    // Capricious Hellraiser: AtRandom 3 -> ChooseCard in Remembered -> Copy Play
+    let hellraiser = read_w27c(
+        "Name:Capricious Hellraiser\nManaCost:3 R R R\nTypes:Creature Phyrexian Dragon\nPT:4/4\nK:Flying\n\
+         T:Mode$ ChangesZone | ValidCard$ Card.Self | Destination$ Battlefield | Execute$ TrigExile\n\
+         SVar:TrigExile:DB$ ChangeZone | Origin$ Graveyard | Destination$ Exile | AtRandom$ True | Hidden$ True | ChangeType$ Card.YouOwn | ChangeNum$ 3 | RememberChanged$ True | SubAbility$ DBChoose\n\
+         SVar:DBChoose:DB$ ChooseCard | Mandatory$ True | ChoiceZone$ Exile | Amount$ 1 | Choices$ Card.IsRemembered+nonLand+nonCreature | ChoiceTitle$ Choose a noncreature, nonland card | SubAbility$ DBPlay\n\
+         SVar:DBPlay:DB$ Play | Defined$ ChosenCard | ValidSA$ Spell | Controller$ You | CopyCard$ True | WithoutManaCost$ True | Optional$ True | SubAbility$ DBCleanup\n\
+         SVar:DBCleanup:DB$ Cleanup | ClearRemembered$ True",
+    );
+    assert!(
+        hellraiser.abilities[0].contains("Effect::CaptureAffected")
+            && hellraiser.abilities[0].contains("max: Amount::Fixed(3), at_random: true")
+            && hellraiser.abilities[0].contains(
+                "Effect::ChooseCardEx { chooser: PlayerRel::You, zone: ChooseZone::Remembered"
+            )
+            && hellraiser.abilities[0].contains("copy: true"),
+        "{:?}",
+        hellraiser.abilities
+    );
+
+    // Honest refusal: AtRandom returning to BF stays refused
+    assert!(refused_w27c(
+        "Name:BadAtRandomReturn\nManaCost:3 B G U\nTypes:Creature Zombie\nPT:4/4\n\
+         T:Mode$ Phase | Phase$ Upkeep | ValidPlayer$ You | Execute$ DBRet\n\
+         SVar:DBRet:DB$ ChangeZone | Origin$ Graveyard | Destination$ Battlefield | AtRandom$ True | Hidden$ True | ChangeType$ Creature.YouOwn | ChangeNum$ 1 | RememberChanged$ True | SubAbility$ DBTrig\n\
+         SVar:DBTrig:DB$ DelayedTrigger | Mode$ Phase | Phase$ End of Turn | Execute$ DBEx\n\
+         SVar:DBEx:DB$ ChangeZone | Defined$ DelayTriggerRemembered | Origin$ Battlefield | Destination$ Exile",
+    ));
+}
+
+#[test]
+fn capture_remember_tokens_damage_kicked_pump_and_clash() {
+    // Chainer Torment chapter III: Token(X/X) -> EventObjectDealsDamage to You
+    let chainer = read_w27c(
+        "Name:Chainer's Torment\nManaCost:3 B\nTypes:Enchantment Saga\nK:Chapter:3:DBDmg,DBDmg,DBToken\n\
+         SVar:DBDmg:DB$ DealDamage | Defined$ Opponent | NumDmg$ 2\n\
+         SVar:DBToken:DB$ Token | TokenScript$ b_x_x_nightmare_horror | TokenOwner$ You | TokenPower$ X | TokenToughness$ X | RememberTokens$ True | SubAbility$ DBDamageYou\n\
+         SVar:DBDamageYou:DB$ DealDamage | Defined$ You | NumDmg$ X | DamageSource$ Remembered | SubAbility$ DBCleanup\n\
+         SVar:DBCleanup:DB$ Cleanup | ClearRemembered$ True\n\
+         SVar:X:Count$YourLifeTotal/HalfUp",
+    );
+    assert!(
+        chainer.abilities.iter().any(|a| {
+            a.contains("Effect::CaptureAffected")
+                && a.contains("Effect::EventObjectDealsDamage")
+                && a.contains("target: TargetSpec::Player(PlayerRel::You)")
+        }),
+        "{:?}",
+        chainer.abilities
+    );
+
+    // Elemental Appeal: Token(AtEOT$ Exile) -> IfKicked Pump +7/+0
+    let appeal = read_w27c(
+        "Name:Elemental Appeal\nManaCost:R R R R\nTypes:Sorcery\nK:Kicker:5\n\
+         A:SP$ Token | TokenScript$ r_7_1_elemental_trample_haste | RememberTokens$ True | AtEOT$ Exile | TokenOwner$ You | SubAbility$ KickerPump\n\
+         SVar:KickerPump:DB$ Pump | Defined$ Remembered | NumAtt$ +7 | Condition$ Kicked | SubAbility$ DBCleanup\n\
+         SVar:DBCleanup:DB$ Cleanup | ClearRemembered$ True",
+    );
+    assert!(
+        appeal.abilities[0].contains("Effect::CaptureAffected")
+            && appeal.abilities[0].contains("Effect::IfKicked")
+            && appeal.abilities[0].contains("filter: &Filter::IsRemembered")
+            && appeal.abilities[0].contains("Effect::exile(TargetSpec::EventObject)"),
+        "{:?}",
+        appeal.abilities
+    );
+
+    // Gilt-Leaf Ambush: Token(2) -> Clash -> PumpAll(Creature.IsRemembered, Deathtouch)
+    let ambush = read_w27c(
+        "Name:Gilt-Leaf Ambush\nManaCost:2 G\nTypes:Kindred Instant Elf\n\
+         A:SP$ Token | TokenAmount$ 2 | TokenScript$ g_1_1_elf_warrior | TokenOwner$ You | SubAbility$ DBClash | RememberTokens$ True\n\
+         SVar:DBClash:DB$ Clash | WinSubAbility$ AdditionalPump\n\
+         SVar:AdditionalPump:DB$ PumpAll | ValidCards$ Creature.IsRemembered | KW$ Deathtouch | SubAbility$ DBCleanUp\n\
+         SVar:DBCleanUp:DB$ Cleanup | ClearRemembered$ True",
+    );
+    assert!(
+        ambush.abilities[0].contains("Effect::CaptureAffected")
+            && ambush.abilities[0].contains("Effect::Clash { on_win:")
+            && ambush.abilities[0].contains("filter: &PUMP")
+            && ambush.abilities[0].contains("KeywordSet::DEATHTOUCH")
+            && ambush
+                .statics
+                .contains("Filter::And(&[Filter::IsRemembered, Filter::CREATURE])"),
+        "{:?} / {:?}",
+        ambush.abilities,
+        ambush.statics
+    );
+
+    // Honest refusal: Mysterio (Effect leaves-battlefield watching token set)
+    assert!(refused_w27c(
+        "Name:BadMysterio\nManaCost:3 U\nTypes:Legendary Creature\nPT:3/3\n\
+         T:Mode$ ChangesZone | Origin$ Any | Destination$ Battlefield | ValidCard$ Card.Self | Execute$ TrigTok\n\
+         SVar:TrigTok:DB$ Token | TokenAmount$ 2 | TokenScript$ g_1_1_elf_warrior | TokenOwner$ You | RememberTokens$ True | SubAbility$ DBEff\n\
+         SVar:DBEff:DB$ Effect | Triggers$ TrigLtb | RememberObjects$ Remembered\n\
+         SVar:TrigLtb:Mode$ ChangesZone | Origin$ Battlefield | Destination$ Any | ValidCard$ Card.EffectSource | Execute$ DBEx\n\
+         SVar:DBEx:DB$ ChangeZoneAll | Origin$ Battlefield | Destination$ Exile | ChangeType$ Card.IsRemembered",
+    ));
 }

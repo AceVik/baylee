@@ -6629,7 +6629,21 @@ impl Tx<'_> {
                         "Effect::exile_until({target}, ExileUntil::SourceLeavesBattlefield)"
                     )]);
                 }
-                let verb = if self.has_linked_exile_reader() {
+                let imprint = match p.take("Imprint").as_deref() {
+                    None | Some("False") => false,
+                    Some("True") => true,
+                    Some(other) => {
+                        return self.deny(format!("`ChangeZone` with `Imprint$ {other}`"));
+                    }
+                };
+                let reads_imprinted_exile = self.has_linked_exile_reader()
+                    || (imprint && self.oracle.to_ascii_lowercase().contains("the exiled card"));
+                if imprint
+                    && (!single_target || p.has("ThisDefinedAndTgts") || !reads_imprinted_exile)
+                {
+                    return self.deny("`ChangeZone` with `Imprint$ True`".to_string());
+                }
+                let verb = if reads_imprinted_exile {
                     "exile_linked"
                 } else {
                     "exile"
@@ -12122,9 +12136,9 @@ impl Tx<'_> {
                 let name = self.body.filter_static("GRAVE_CHOICE", &expr);
                 format!(
                     "Effect::ChooseCardEx {{ chooser: PlayerRel::You, \
-                     zone: ChooseZone::Graveyard(PlayerRel::You), filter: &{name}, min: 0, \
+ zone: ChooseZone::Graveyard(PlayerRel::You), filter: &{name}, min: 0, \
                      max: {amt}, reveal_chosen: false, movement: {movement}, \
-                     not_chosen_movement: ChooseMove::None, then: &[], for_unchosen: &[] }}"
+ not_chosen_movement: ChooseMove::None, then: &[], for_unchosen: &[] }}"
                 )
             }
             "Pump" => {
@@ -16363,6 +16377,102 @@ impl Tx<'_> {
                          duration: {duration} }}"
                     )
                 }
+            }
+            "Mana" => {
+                if targets_here
+                    || !matches!(sp.take("Defined").as_deref(), None | Some("You"))
+                    || sp.has("PersistentMana")
+                    || sp.has("CombatMana")
+                    || sp.has("RestrictValid")
+                    || sp.has("ProducedDesc")
+                    || sp.has("Condition")
+                {
+                    chain.target = saved_target;
+                    return None;
+                }
+                let produced = sp.take("Produced")?;
+                let color = match produced.trim() {
+                    "W" => "ManaColor::White",
+                    "U" => "ManaColor::Blue",
+                    "B" => "ManaColor::Black",
+                    "R" => "ManaColor::Red",
+                    "G" => "ManaColor::Green",
+                    "C" => "ManaColor::Colorless",
+                    _ => {
+                        chain.target = saved_target;
+                        return None;
+                    }
+                };
+                let raw = sp.take("Amount")?;
+                let (amt, neg) = self.revealed_count_amount(&raw)?;
+                if neg || !sp.exhausted() {
+                    chain.target = saved_target;
+                    return None;
+                }
+                chain.could_add_mana = true;
+                format!("Effect::mana_dynamic({color}, {amt})")
+            }
+            "Counter" => {
+                if !targets_here || sp.take("TargetType").as_deref() != Some("Spell") {
+                    chain.target = saved_target;
+                    return None;
+                }
+                let Some(tgt) = target.as_deref() else {
+                    chain.target = saved_target;
+                    return None;
+                };
+                if !tgt.starts_with("TargetSpec::Spell(") {
+                    chain.target = saved_target;
+                    return None;
+                }
+                let counter_eff = match sp.take("Destination").as_deref() {
+                    None | Some("Graveyard") => "CounterTargetSpell",
+                    Some("Exile") => "CounterTargetSpellToExile",
+                    Some(_) => {
+                        chain.target = saved_target;
+                        return None;
+                    }
+                };
+                let raw = sp.take("UnlessCost")?;
+                let (amt, neg) = self.revealed_count_amount(&raw)?;
+                if neg || !sp.exhausted() {
+                    chain.target = saved_target;
+                    return None;
+                }
+                format!(
+                    "Effect::PlayerMayPayOr {{ player: PlayerRel::ControllerOfTarget, mana: {amt}, effect: &Effect::{counter_eff} }}"
+                )
+            }
+            "ChangeZone" => {
+                if targets_here
+                    || sp.take("Origin").as_deref() != Some("Graveyard")
+                    || sp.take("Destination").as_deref() != Some("Hand")
+                    || !matches!(sp.take("Hidden").as_deref(), None | Some("True"))
+                    || sp.take("Mandatory").as_deref() != Some("True")
+                    || !matches!(sp.take("DefinedPlayer").as_deref(), None | Some("You"))
+                {
+                    chain.target = saved_target;
+                    return None;
+                }
+                sp.claim_label("ChangeTypeDesc", "ChangeType");
+                sp.claim_label("ChangeNumDesc", "ChangeNum");
+                let raw_num = sp.take("ChangeNum")?;
+                let (amt, neg) = self.revealed_count_amount(&raw_num)?;
+                if neg {
+                    chain.target = saved_target;
+                    return None;
+                }
+                let raw_type = sp.take("ChangeType")?;
+                let (owner_rel, stripped) = Self::wave27b_strip_zone_owner(&raw_type)?;
+                if owner_rel != Some("PlayerRel::You") || !sp.exhausted() {
+                    chain.target = saved_target;
+                    return None;
+                }
+                let filter_expr = self.filter_expr_in_zone(&stripped, true)?;
+                let filter_name = self.body.filter_static("CHOOSE", &filter_expr);
+                format!(
+                    "Effect::ChooseCardEx {{ chooser: PlayerRel::You, zone: ChooseZone::Graveyard(PlayerRel::You), filter: &{filter_name}, min: u8::MAX, max: {amt}, reveal_chosen: false, movement: ChooseMove::Hand, not_chosen_movement: ChooseMove::None, then: &[], for_unchosen: &[] }}"
+                )
             }
             _ => {
                 chain.target = saved_target;
