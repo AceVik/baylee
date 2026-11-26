@@ -521,15 +521,21 @@ fn honest_refusals_preserved_for_sideboard_wish_opponent_emblem_and_dynamic_up_t
          Oracle:[+2]: Each opponent gets an emblem with \"At the beginning of your upkeep, this emblem deals 1 damage to you.\"",
     ));
 
-    // Dynamic `TargetMin$ 0 | TargetMax$ X` where X is not whole-pool must NOT emit `count_is_x`.
-    assert!(refused_w29a(
-        "Name:Dynamic Up To Refusal\n\
+    // Dynamic `TargetMin$ 0 | TargetMax$ X` (`Count$xPaid`) emits `TargetReq::up_to_x(...)`.
+    let dynamic_up_to = read_w29a(
+        "Name:Dynamic Up To\n\
          ManaCost:X U\n\
          Types:Sorcery\n\
          A:SP$ ChangeZone | Origin$ Battlefield | Destination$ Hand | ValidTgts$ Creature | TargetMin$ 0 | TargetMax$ X\n\
          SVar:X:Count$xPaid\n\
          Oracle:Return up to X target creatures to their owners' hands.",
-    ));
+    );
+    assert!(
+        dynamic_up_to.abilities[0]
+            .contains("TargetReq::up_to_x(TargetSpec::Object(&Filter::CREATURE))"),
+        "{}",
+        dynamic_up_to.abilities[0]
+    );
 
     // `MayPlayLimit$ 1` turn-long exile cast permission must NOT emit unlimited `GrantLinkedExilePermission`.
     assert!(refused_w29a(

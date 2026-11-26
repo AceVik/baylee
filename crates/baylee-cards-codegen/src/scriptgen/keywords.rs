@@ -3733,10 +3733,26 @@ impl Tx<'_> {
         if event == "DamageDone" && p.peek("ValidSource") == Some("Creature.blockedBySource") {
             return self.wall_blocked_damage_prevention(p);
         }
-        if event == "DamageDone" && p.peek("ValidSource") == Some("Creature.EnchantedBy") {
+        if event == "DamageDone"
+            && p.peek("ValidSource") == Some("Creature.EnchantedBy")
+            && !p.has("IsCombat")
+            && !p.has("Secondary")
+            && !p.has("ActiveZones")
+            && !p.has("ValidTarget")
+            && !p.has("ReplaceWith")
+            && !p.has("PreventionEffect")
+        {
             return self.enchanted_source_damage_prevention(p);
         }
-        if event == "DamageDone" && p.peek("ValidTarget") == Some("Creature.EnchantedBy") {
+        if event == "DamageDone"
+            && p.peek("ValidTarget") == Some("Creature.EnchantedBy")
+            && !p.has("IsCombat")
+            && !p.has("Secondary")
+            && !p.has("ActiveZones")
+            && !p.has("ValidSource")
+            && !p.has("ReplaceWith")
+            && !p.has("PreventionEffect")
+        {
             return self.enchanted_target_damage_prevention(p);
         }
         if event == "DamageDone"

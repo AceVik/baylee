@@ -9799,6 +9799,9 @@ impl Tx<'_> {
         if let Some(amt) = self.wave28d_remembered_compare_amount(base_raw) {
             return Some(amt);
         }
+        if self.in_repeat_player && base_raw.starts_with("PlayerCountRemembered$") {
+            return self.scoped_player_amount_def(base_raw, "PlayerRel::EventPlayer");
+        }
         if let Some(valid) = base_raw.strip_prefix("Count$ValidHand ") {
             let valid = valid.trim();
             if matches!(valid, "Card.TargetedPlayerOwn" | "Card.TargetedPlayerCtrl") {
@@ -9911,6 +9914,19 @@ impl Tx<'_> {
             }
             "Sacrificed$CardManaCost" if self.cost_sacrifices_other => {
                 "Amount::SacrificedManaValue".to_string()
+            }
+            "Exiled$CardPower" if self.cost_exiles_single_from_grave_activated => {
+                "Amount::SacrificedPower".to_string()
+            }
+            "Exiled$CardManaCost" if self.cost_exiles_single_from_grave_activated => {
+                "Amount::SacrificedManaValue".to_string()
+            }
+            "Exiled$CardManaCost" if self.cost_exiles_single_from_grave_spell => {
+                "Amount::TotalManaValueInZone { zone: ZoneSel::LinkedExile, filter: &Filter::Any }"
+                    .to_string()
+            }
+            "PlayerCountPlayers$LifeLostThisTurn" => {
+                "Amount::LifeLostThisTurn(PlayerRel::EachPlayer)".to_string()
             }
             "Count$CastTotalManaSpent Snow" => "Amount::SnowManaSpentToCast".to_string(),
             "Count$DamageOpponentsTookThisTurn" => {
@@ -13343,9 +13359,12 @@ impl Tx<'_> {
     /// `PlayerCountRemembered$…`) against `who` (`EventPlayer` or `Recipient`).
     pub(super) fn scoped_player_amount(&mut self, raw: &str, who: &str) -> Option<String> {
         let def = self.svars.get(raw.trim())?.trim().to_string();
-        let (head, suffix) = def
-            .split_once('/')
-            .map_or((def.as_str(), ""), |(h, s)| (h, s));
+        self.scoped_player_amount_def(&def, who)
+    }
+
+    pub(super) fn scoped_player_amount_def(&mut self, def: &str, who: &str) -> Option<String> {
+        let def = def.trim();
+        let (head, suffix) = def.split_once('/').unwrap_or((def, ""));
         let base = if let Some(valid) = head.strip_prefix("Count$Valid ") {
             let clean = Self::strip_remembered_ctrl_or_own(
                 valid.trim(),
@@ -13858,7 +13877,9 @@ impl Tx<'_> {
             let spec = Self::reconstruct_spec(&api, &sp);
             let mut inner = super::Chain::default();
             let saved_mode = self.trigger_mode.replace("LifeGained".into());
+            let saved_repeat = std::mem::replace(&mut self.in_repeat_player, true);
             let ok = self.chain(&spec, &mut inner);
+            self.in_repeat_player = saved_repeat;
             self.trigger_mode = saved_mode;
             ok?;
             if inner.target.is_some() || inner.second_target.is_some() {

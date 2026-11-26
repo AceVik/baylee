@@ -57,6 +57,64 @@ impl Tx<'_> {
         Some(true)
     }
 
+    /// Consume `RememberDamaged$ True` on `DealDamage | Defined$ You | UnlessCost$`
+    /// followed by `DB$ Tap | [Defined$ Self] | ConditionPlayerDefined$ Remembered | ConditionPlayerContains$ You`
+    /// and a `ClearRemembered$ True` cleanup (*Minion of Leshrac*, *Mishra's War Machine*).
+    pub(super) fn take_damage_to_you_tap_self(
+        &self,
+        api: &str,
+        p: &mut Params,
+        sub: &mut Option<String>,
+        initial: bool,
+    ) -> Option<bool> {
+        if !initial
+            || api != "DealDamage"
+            || self.on_a_spell
+            || p.peek("RememberDamaged") != Some("True")
+            || p.peek("Defined") != Some("You")
+            || !p.has("UnlessCost")
+            || !matches!(p.peek("UnlessResolveSubs"), None | Some("WhenNotPaid"))
+        {
+            return Some(false);
+        }
+        let Some(sub_name) = sub.as_deref() else {
+            return Some(false);
+        };
+        let Some(body) = self.svars.get(sub_name.trim()) else {
+            return Some(false);
+        };
+        let Some((tap_api, mut sp)) = Params::parse(body) else {
+            return Some(false);
+        };
+        sp.drop_prose();
+        if tap_api != "Tap"
+            || !matches!(sp.take("Defined").as_deref(), None | Some("Self"))
+            || sp.take("ConditionPlayerDefined").as_deref() != Some("Remembered")
+            || sp.take("ConditionPlayerContains").as_deref() != Some("You")
+        {
+            return Some(false);
+        }
+        let cleanup_name = sp.take("SubAbility")?;
+        if !sp.exhausted() {
+            return Some(false);
+        }
+        let cleanup_body = self.svars.get(cleanup_name.trim())?;
+        let (cleanup_api, mut cp) = Params::parse(cleanup_body)?;
+        cp.drop_prose();
+        if cleanup_api != "Cleanup"
+            || cp.take("ClearRemembered").as_deref() != Some("True")
+            || !cp.exhausted()
+        {
+            return Some(false);
+        }
+        p.take("RememberDamaged");
+        if p.peek("UnlessResolveSubs") == Some("WhenNotPaid") {
+            p.take("UnlessResolveSubs");
+        }
+        *sub = None;
+        Some(true)
+    }
+
     /// Returns `true` iff the `SubAbility$` chain reaches a `Cleanup` with
     /// `ClearRemembered$ True` and no earlier instruction in the chain reads
     /// `Remembered` (preserving any follow-up after `Cleanup`, e.g. shuffle or

@@ -1014,13 +1014,27 @@ impl Tx<'_> {
                     "Effect::DealDamage {{ amount: {amount}, target: TargetSpec::Player({who}) }}"
                 )])
             }
-            // 4. `DamageAll | ValidPlayers$ OppNonTriggeredTarget` (*Amarant Coral*, *Hydra Omnivore*, *Grenzo's Ruffians*).
+            // 4. `DamageAll | ValidPlayers$ OppNonTriggeredTarget` (*Amarant Coral*, *Hydra Omnivore*, *Grenzo's Ruffians*, *Vincent, Vengeful Atoner*).
             "DamageAll"
                 if trigger.is_some_and(is_player_damage_trigger)
                     && p.peek("ValidPlayers") == Some("OppNonTriggeredTarget") =>
             {
                 p.take("ValidPlayers");
                 p.take("ValidDescription");
+                let cond = if let Some(var) = p.take("ConditionCheckSVar") {
+                    let cmp = p
+                        .take("ConditionSVarCompare")
+                        .unwrap_or_else(|| "GE1".to_string());
+                    p.take("ConditionDescription");
+                    Some(
+                        self.svar_condition(&var, &cmp)
+                            .or_else(|| self.extra_svar_condition_clause(&var, &cmp))
+                            .or_else(|| self.wave7_svar_condition(&var, &cmp))
+                            .or_else(|| self.wave11_amount_compare_condition(&var, &cmp, true))?,
+                    )
+                } else {
+                    None
+                };
                 let raw_dmg = p.take("NumDmg")?;
                 let amount = self.amount_or_count_ext(raw_dmg.trim())?;
                 let event_source = match p.take("DamageSource").as_deref() {
@@ -1041,7 +1055,7 @@ impl Tx<'_> {
                 if !p.exhausted() {
                     return None;
                 }
-                Some(vec![if event_source {
+                let eff = if event_source {
                     format!(
                         "Effect::EventObjectDealsDamage {{ amount: {amount}, target: TargetSpec::Player(PlayerRel::OtherOpponents) }}"
                     )
@@ -1049,6 +1063,12 @@ impl Tx<'_> {
                     format!(
                         "Effect::DealDamage {{ amount: {amount}, target: TargetSpec::Player(PlayerRel::OtherOpponents) }}"
                     )
+                };
+                Some(vec![match cond {
+                    Some(c) => format!(
+                        "Effect::IfCondition {{ condition: {c}, then: &[{eff}], otherwise: &[] }}"
+                    ),
+                    None => eff,
                 }])
             }
             // 5. Self `Pump` on a permanent's trigger with dynamic Wave 16a `Amount` (`+RR` on *Bladecoil Serpent*).

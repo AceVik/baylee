@@ -500,6 +500,36 @@ impl Tx<'_> {
         token.starts_with("Sac<1/") && !Self::is_sac_self_token(token)
     }
 
+    fn cost_exiles_single_from_grave(cost: &str) -> bool {
+        let parts = cost_parts(cost);
+        let mut grave_exiles = 0usize;
+        for token in &parts {
+            if let Some(rest) = token
+                .strip_prefix("ExileFromGrave<")
+                .and_then(|s| s.strip_suffix('>'))
+            {
+                let Some((count, tail)) = rest.split_once('/') else {
+                    return false;
+                };
+                let spec = tail.split('/').next().unwrap_or("");
+                if count.trim() != "1"
+                    || matches!(spec.trim(), "CARDNAME" | "NICKNAME")
+                    || spec.contains("Ctrl")
+                {
+                    return false;
+                }
+                grave_exiles += 1;
+            } else if token.starts_with("Exile")
+                || token.starts_with("CollectEvidence<")
+                || *token == "Forage"
+                || token.starts_with("Behold")
+            {
+                return false;
+            }
+        }
+        grave_exiles == 1
+    }
+
     pub(super) fn cost_has_variable_x(cost: &str) -> bool {
         cost.contains("{X}")
             || cost.contains("SacrificeX(")
@@ -949,6 +979,10 @@ impl Tx<'_> {
         self.cost_sacrifices_other =
             cost.is_some_and(|c| cost_parts(c).iter().any(|t| Self::is_sac_other_token(t)));
         self.cost_discards_single_for_cost = cost.is_some_and(Self::wave28b_cost_discards_single);
+        let single_grave_exile =
+            !self.in_graveyard_activation && cost.is_some_and(Self::cost_exiles_single_from_grave);
+        self.cost_exiles_single_from_grave_activated = is_activated && single_grave_exile;
+        self.cost_exiles_single_from_grave_spell = !is_activated && single_grave_exile;
         self.cost_beholds_or_reveals = !is_activated && Self::cost_raw_beholds_or_reveals(cost);
         (
             self.cost_sacrifices_all,
@@ -959,6 +993,8 @@ impl Tx<'_> {
         self.cost_sacrifices_self = false;
         self.cost_sacrifices_other = false;
         self.cost_discards_single_for_cost = false;
+        self.cost_exiles_single_from_grave_activated = false;
+        self.cost_exiles_single_from_grave_spell = false;
         self.cost_beholds_or_reveals = false;
         self.cost_sacrifices_all = false;
         self.cost_sacrifices_x = false;
@@ -1137,7 +1173,9 @@ impl Tx<'_> {
             spec.chain.could_add_mana && !spec.chain.moves_library && spec.chain.target.is_none();
         self.reject_non_mana_counter_x(&cost, mana_ability, has_targets)?;
         let timing = self.activated_timing_suffix(spec, mana_ability)?;
-        if spec.chain.target_is_x && !Self::cost_has_variable_x(&cost) {
+        if (spec.chain.target_is_x || spec.chain.target_up_to_x)
+            && !Self::cost_has_variable_x(&cost)
+        {
             return self.deny("`TargetMin$/TargetMax$ X` on an activated ability".to_string());
         }
         let target = if spec.target_req_override.is_some()
@@ -1192,6 +1230,7 @@ impl Tx<'_> {
             && spec.chain.target_exact.is_none()
             && spec.chain.target_range.is_none()
             && !spec.chain.target_is_x
+            && !spec.chain.target_up_to_x
         {
             spec.chain.target.clone()
         } else {
@@ -1257,7 +1296,7 @@ impl Tx<'_> {
         if !spec.cost_reduction.is_empty() {
             return self.deny("`ReduceCost$` on a loyalty ability".to_string());
         }
-        if spec.chain.target_is_x {
+        if spec.chain.target_is_x || spec.chain.target_up_to_x {
             return self.deny("`TargetMin$/TargetMax$ X` on a loyalty ability".to_string());
         }
         let Some(raw_cost) = spec.cost.as_deref() else {
