@@ -843,7 +843,7 @@ impl Tx<'_> {
             || (api == "Token"
                 && p.peek("TokenAttacking") == Some("True")
                 && p.peek("AtEOT") == Some("Sacrifice"))
-            || (api == "Animate"
+            || (matches!(api.as_str(), "Animate" | "Pump")
                 && p.peek("Defined") == Some("Remembered")
                 && self.capture_scope.is_some())
         {
@@ -10435,6 +10435,7 @@ impl Tx<'_> {
             && matches!(p.peek("ChangeNum"), None | Some("1"));
         let mut cursor = sub.take();
         let mut consumed = false;
+        let mut used_imprint = false;
         let mut pending_cond: Option<String> = None;
         let mut pending_body: Vec<String> = Vec::new();
         let mut steps = 0usize;
@@ -10447,6 +10448,9 @@ impl Tx<'_> {
             let (s_api, mut sp) = Params::parse(&body)?;
             sp.drop_prose();
             if s_api == "Cleanup" && sp.take("ClearRemembered").as_deref() == Some("True") {
+                if used_imprint {
+                    sp.take("ClearImprinted");
+                }
                 *sub = sp.take("SubAbility");
                 if !sp.exhausted() {
                     return None;
@@ -10503,14 +10507,26 @@ impl Tx<'_> {
                     format!("Condition::AmountAtLeast({amt}, {positive_n})")
                 }
             };
-            let next = sp.take("SubAbility");
+            let mut next = sp.take("SubAbility");
             let step_effects = if is_exile
+                && s_api == "Token"
+                && let Some((effs, paired)) = self.try_cz_remembered_token_imprint_counter(
+                    &mut sp,
+                    &mut next,
+                    target,
+                    this_way_variant,
+                    flags,
+                ) {
+                used_imprint |= paired;
+                effs
+            } else if is_exile
                 && matches!(s_api.as_str(), "LoseLife" | "GainLife")
                 && (sp.peek("Defined") == Some("TargetedOwner")
                     || sp.peek("LifeAmount").is_some_and(|raw| {
                         self.wave24a_resolve_exiled_count_amount(raw, this_way_variant)
                             .is_some()
-                    })) {
+                    }))
+            {
                 let who = match sp.take("Defined").as_deref() {
                     Some("TargetedOwner")
                         if origin == "Graveyard"

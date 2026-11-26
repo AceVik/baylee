@@ -103,6 +103,7 @@ mod wave30a;
 mod wave30b;
 mod wave30c;
 mod wave30d;
+mod zones;
 
 use atoms::{
     Bound, amount, color_atom, count_bound, hybrid_pair, keyword_atom, mana_color_const,
