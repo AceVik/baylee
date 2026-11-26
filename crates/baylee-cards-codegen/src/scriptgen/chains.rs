@@ -617,12 +617,22 @@ impl Tx<'_> {
         // The remembered objects are the damage recipients, not this line's
         // original targets. Read their entire lifetime and consumer together;
         // accepting the flag alone would silently drop a rules clause.
-        let prevent_damaged_regeneration = self.take_damage_recipient_regeneration(
+        let tap_self_if_damaged_you = self.take_damage_to_you_tap_self(
             &api,
             &mut p,
             &mut sub,
             chain.effects.is_empty() && !second_target_here,
         )?;
+        let prevent_damaged_regeneration = if tap_self_if_damaged_you {
+            false
+        } else {
+            self.take_damage_recipient_regeneration(
+                &api,
+                &mut p,
+                &mut sub,
+                chain.effects.is_empty() && !second_target_here,
+            )?
+        };
         let target = local_kicked_target.or_else(|| {
             if had_second_target {
                 None
@@ -724,6 +734,7 @@ impl Tx<'_> {
             let single_target = chain.target_exact.is_none()
                 && chain.target_range.is_none()
                 && !chain.target_is_x
+                && !chain.target_up_to_x
                 && chain.target_constraint.is_none()
                 && chain.target_up_to.is_none_or(|n| n == 1);
             let Some(effects) =
@@ -826,6 +837,7 @@ impl Tx<'_> {
             let single_target = chain.target_exact.is_none()
                 && chain.target_range.is_none()
                 && !chain.target_is_x
+                && !chain.target_up_to_x
                 && chain.target_constraint.is_none()
                 && chain.target_up_to.is_none_or(|n| n == 1);
             if let Some(effs) = self.wave29b_blink_with_followup(
@@ -1110,6 +1122,7 @@ impl Tx<'_> {
                         single_target: chain.target_exact.is_none()
                             && chain.target_range.is_none()
                             && !chain.target_is_x
+                            && !chain.target_up_to_x
                             && chain.target_constraint.is_none()
                             && chain.target_up_to.is_none_or(|n| n <= 1),
                         prior_target_used: !targets_here && !chain.effects.is_empty(),
@@ -1310,6 +1323,7 @@ impl Tx<'_> {
                         single_target: chain.target_exact.is_none()
                             && chain.target_range.is_none()
                             && !chain.target_is_x
+                            && !chain.target_up_to_x
                             && chain.target_constraint.is_none()
                             && chain.target_up_to.is_none_or(|n| n <= 1),
                         prior_target_used: !targets_here && !chain.effects.is_empty(),
@@ -1426,6 +1440,7 @@ impl Tx<'_> {
                     let single_target = chain.target_exact.is_none()
                         && chain.target_range.is_none()
                         && !chain.target_is_x
+                        && !chain.target_up_to_x
                         && chain.target_constraint.is_none()
                         && chain.target_up_to.is_none_or(|n| n == 1);
                     let prior_target_used = !targets_here && !chain.effects.is_empty();
@@ -1495,6 +1510,7 @@ impl Tx<'_> {
                 let single_target = chain.target_exact.is_none()
                     && chain.target_range.is_none()
                     && !chain.target_is_x
+                    && !chain.target_up_to_x
                     && chain.target_constraint.is_none()
                     && chain.target_up_to.is_none_or(|n| n == 1);
                 let prior_target_used = !targets_here && !chain.effects.is_empty();
@@ -1518,6 +1534,7 @@ impl Tx<'_> {
             let single_target = chain.target_exact.is_none()
                 && chain.target_range.is_none()
                 && !chain.target_is_x
+                && !chain.target_up_to_x
                 && chain.target_constraint.is_none()
                 && chain.target_up_to.is_none_or(|n| n == 1);
             let prior_target_used = !targets_here && !chain.effects.is_empty();
@@ -2124,6 +2141,7 @@ impl Tx<'_> {
                         && chain.target_exact.is_none()
                         && chain.target_range.is_none()
                         && !chain.target_is_x
+                        && !chain.target_up_to_x
                         && chain.target_constraint.is_none()
                         && chain.target_up_to.is_none_or(|n| n == 1)
                     {
@@ -2156,6 +2174,7 @@ impl Tx<'_> {
                     let is_multi_target = chain.target_exact.is_some()
                         || chain.target_range.is_some()
                         || chain.target_is_x
+                        || chain.target_up_to_x
                         || chain.target_constraint.is_some()
                         || chain.target_up_to.is_some_and(|n| n > 1);
                     let single_target = !is_multi_target;
@@ -2228,10 +2247,16 @@ impl Tx<'_> {
             }
         }
         effects.extend(at_end);
-        let effects = match unless {
+        let mut effects = match unless {
             Some(unless) => vec![self.unless_wrap(unless, effects, &mut sub, chain)?],
             None => effects,
         };
+        if tap_self_if_damaged_you {
+            effects.push(
+                "Effect::IfCondition { condition: Condition::AmountAtLeast(Amount::ThisWay(ThisWay::DamageDealtToYou), 1), then: &[Effect::TapSelf], otherwise: &[] }"
+                    .to_string(),
+            );
+        }
         let effects = if condition_outside_unless {
             self.wrap_line_condition(&api, &mut p, &mut sub, target.as_deref(), effects)?
         } else {
@@ -3245,6 +3270,7 @@ impl Tx<'_> {
                 && chain.target_up_to.is_none()
                 && chain.target_exact.is_none()
                 && !chain.target_is_x
+                && !chain.target_up_to_x
                 && chain.target_constraint.is_none();
             let no_riders = |p: &Params| {
                 ["UnlessCost", "ReplaceDyingDefined", "AtEOT"]
@@ -3551,7 +3577,8 @@ impl Tx<'_> {
                     p.take("TargetMax");
                 } else if api == "Fight" && Self::wave28d_fight_two_targets(p, &spec, chain) {
                     return Some(());
-                } else if self.has_x
+                } else if (self.has_x
+                    || (self.is_etb_self_trigger && self.has_x_mana_cost && !self.in_delayed))
                     && multi_target_ok
                     && let (Some(min), Some(max)) = (p.peek("TargetMin"), p.peek("TargetMax"))
                     && min == max
@@ -3560,9 +3587,12 @@ impl Tx<'_> {
                     p.take("TargetMin");
                     p.take("TargetMax");
                     chain.target_is_x = true;
-                } else if self.has_x
-                    && api == "RepeatEach"
-                    && p.peek("DefinedCards") == Some("Targeted")
+                } else if (((self.has_x
+                    || (self.is_etb_self_trigger && self.has_x_mana_cost && !self.in_delayed))
+                    && multi_target_ok)
+                    || (self.has_x
+                        && api == "RepeatEach"
+                        && p.peek("DefinedCards") == Some("Targeted")))
                     && p.peek("TargetMin") == Some("0")
                     && let Some(max) = p.peek("TargetMax")
                     && self.svars.get(max.trim()).map(|s| s.trim()) == Some("Count$xPaid")
@@ -3689,7 +3719,8 @@ impl Tx<'_> {
                     let multi = chain.target_up_to.is_some_and(|m| m > 1)
                         || chain.target_exact.is_some_and(|n| n > 1)
                         || chain.target_range.is_some()
-                        || chain.target_is_x;
+                        || chain.target_is_x
+                        || chain.target_up_to_x;
                     // Reuse `apply_same_controller_target_req`'s exact object-only
                     // and multi-target validation.
                     self.apply_same_controller_target_req("TargetReq", &spec, multi)?;
@@ -5872,7 +5903,7 @@ impl Tx<'_> {
             "Fog" => vec!["Effect::PreventAllCombatDamageThisTurn".to_string()],
             "DamageAll" => {
                 if targets_here {
-                    return None;
+                    return self.evenly_divided_damage_all(p, target);
                 }
                 let raw_dmg = p.take("NumDmg")?;
                 let threshold_dmg = self
@@ -7119,6 +7150,7 @@ impl Tx<'_> {
         };
         let single_target = chain.target_exact.is_none()
             && !chain.target_is_x
+            && !chain.target_up_to_x
             && chain.target_constraint.is_none()
             && chain.target_up_to.is_none_or(|n| n == 1);
         let prior_target_used = !targets_here && !chain.effects.is_empty();
@@ -7656,6 +7688,7 @@ impl Tx<'_> {
                 let first_single = chain.target_exact.is_none()
                     && chain.target_range.is_none()
                     && !chain.target_is_x
+                    && !chain.target_up_to_x
                     && chain.target_constraint.is_none()
                     && chain.target_up_to.is_none_or(|n| n <= 1);
                 let second_single = chain.second_target_up_to.is_none_or(|n| n <= 1)
@@ -8022,10 +8055,59 @@ impl Tx<'_> {
             .map(str::to_string)
     }
 
+    /// `DamageAll | ValidTgts$ Opponent/Player | ValidCards$ <cards> | NumDmg$ Z`
+    /// where `Z` is `<total>/DivideEvenlyDown.<denom>` and `<denom>` is
+    /// `Count$Valid <cards>.TargetedPlayerCtrl` (*Dwarven Catapult*).
+    fn evenly_divided_damage_all(
+        &mut self,
+        p: &mut Params,
+        target: Option<&str>,
+    ) -> Option<Vec<String>> {
+        if target != Some("TargetSpec::Player(PlayerRel::Chosen)")
+            || p.has("ValidPlayers")
+            || p.has("RememberDamaged")
+            || p.has("DamageSource")
+        {
+            return None;
+        }
+        p.take("ValidDescription");
+        let valid_cards = p.take("ValidCards")?;
+        let raw_dmg = p.take("NumDmg")?;
+        let dmg_expr = self
+            .svars
+            .get(raw_dmg.trim())
+            .map_or(raw_dmg.as_str(), String::as_str)
+            .trim()
+            .to_string();
+        let (total_raw, denom_raw) = dmg_expr.split_once("/DivideEvenlyDown.")?;
+        let denom_expr = self
+            .svars
+            .get(denom_raw.trim())
+            .map_or(denom_raw.trim(), String::as_str)
+            .trim();
+        let denom_valid = denom_expr.strip_prefix("Count$Valid ")?.trim();
+        let expected_a = format!("{valid_cards}.TargetedPlayerCtrl");
+        let expected_b = format!("{valid_cards}.ThisTargetedPlayerCtrl");
+        if denom_valid != expected_a && denom_valid != expected_b {
+            return None;
+        }
+        let amount = self.amount_or_count_ext(total_raw.trim())?;
+        let filter = self.filter_expr(&valid_cards)?;
+        let filter = self.body.filter_static("EACH", &filter);
+        Some(vec![format!(
+            "Effect::DealDamageEvenlyToFilter {{ amount: {amount}, filter: &{filter} }}"
+        )])
+    }
+
     fn wave11_trigger_player_rel(&self, defined: &str) -> Option<&'static str> {
         let trigger = self.trigger_mode.as_deref();
         match defined {
-            "TriggeredPlayer" | "TriggeredCardController" if trigger == Some("Sacrificed") => {
+            "TriggeredPlayer" | "TriggeredCardController"
+                if matches!(
+                    trigger,
+                    Some("Sacrificed" | "AbilityCast" | "Taps" | "Untaps")
+                ) =>
+            {
                 Some("PlayerRel::ControllerOfEvent")
             }
             "TriggeredAttackingPlayer" | "TriggeredPlayer"
@@ -8750,6 +8832,7 @@ impl Tx<'_> {
             if chain.target.as_deref() != Some(spec.as_str())
                 || chain.second_target.is_some()
                 || chain.target_is_x
+                || chain.target_up_to_x
                 || chain.target_up_to != target_up_to
                 || chain.target_exact.is_some()
                 || chain.target_range.is_some()
@@ -10940,6 +11023,7 @@ impl Tx<'_> {
             && chain.target_exact.is_none()
             && chain.target_range.is_none()
             && !chain.target_is_x
+            && !chain.target_up_to_x
             && chain.target_constraint.is_none()
             && chain.target_up_to.is_none_or(|n| n <= 1);
         match (p.take("Object").as_deref(), p.take("Defined").as_deref()) {

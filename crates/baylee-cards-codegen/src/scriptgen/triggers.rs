@@ -3310,6 +3310,7 @@ impl Tx<'_> {
             return self.deny("a trigger that reads as no effect at all".to_string());
         }
         let chain_asks = chain.target_up_to.is_some()
+            || chain.target_up_to_x
             || chain.effects.iter().any(|e| {
                 (e.contains("ChooseCard {") && e.contains("min: 0,"))
                     || (e.contains("PeekAndReveal {") && e.contains("min_pick: 0,"))
@@ -4216,7 +4217,8 @@ impl Tx<'_> {
         let multi_target = chain.target_exact.is_some_and(|n| n > 1)
             || chain.target_up_to.is_some_and(|n| n > 1)
             || chain.target_range.is_some()
-            || chain.target_is_x;
+            || chain.target_is_x
+            || chain.target_up_to_x;
         let obj_target = target.is_some_and(|t| t.starts_with("TargetSpec::Object("));
         match raw {
             None => Some("TriggerRemember::None"),

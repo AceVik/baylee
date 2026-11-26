@@ -548,6 +548,13 @@ struct Tx<'a> {
     cost_sacrifices_other: bool,
     /// Whether the spell/ability cost discards a single card (`Discard<1/...>`).
     cost_discards_single_for_cost: bool,
+    /// Whether the activated ability cost exiles a single card from a graveyard
+    /// (excluding graveyard-zone activations like `ExileFromGrave<1/CARDNAME>`).
+    cost_exiles_single_from_grave_activated: bool,
+    /// Whether the spell cast cost exiles a single card from a graveyard.
+    cost_exiles_single_from_grave_spell: bool,
+    /// Whether the chain reader is currently inside `RepeatEach` (`RepeatPlayers$`).
+    in_repeat_player: bool,
     /// Whether the active damage trigger binds `event_object` to the damage source.
     damage_trigger_binds_source: bool,
     /// Whether the active damage trigger's `ValidSource$` is the attached permanent.
@@ -755,6 +762,9 @@ impl<'a> Tx<'a> {
             cost_sacrifices_self: false,
             cost_sacrifices_other: false,
             cost_discards_single_for_cost: false,
+            cost_exiles_single_from_grave_activated: false,
+            cost_exiles_single_from_grave_spell: false,
+            in_repeat_player: false,
             damage_trigger_binds_source: false,
             damage_trigger_source_is_attached: false,
             damage_trigger_is_combat: false,

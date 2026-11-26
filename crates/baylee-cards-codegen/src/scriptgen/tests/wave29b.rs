@@ -202,19 +202,22 @@ fn wave29b_amounts_counts_and_chains() {
         caretaker.statics
     );
 
-    // 8. Honest refusals: `Crackle with Power` (`TargetMin$ 0 | TargetMax$ X` where `X = Count$xPaid`,
-    //    which `TargetReq::x_targets` would misread as exact X) and multi-dealer `EachDamage`
-    //    MUST remain refused!
-    for bad in [
+    // 8. `CrackleLike` (`TargetMin$ 0 | TargetMax$ X`, `X = Count$xPaid`) now uses `TargetReq::up_to_x`;
+    //    multi-dealer `EachDamage` MUST remain refused!
+    let crackle_like = read(
         "Name:CrackleLike\nManaCost:X X X R R\nTypes:Sorcery\n\
          A:SP$ DealDamage | ValidTgts$ Any | TargetMin$ 0 | TargetMax$ X | NumDmg$ 5\n\
          SVar:X:Count$xPaid",
-        "Name:BandTogetherLike\nManaCost:2 G\nTypes:Instant\n\
+    );
+    assert!(
+        crackle_like.abilities[0].contains("TargetReq::up_to_x(TargetSpec::AnyTarget)"),
+        "{}",
+        crackle_like.abilities[0]
+    );
+    let bad_each_damage = "Name:BandTogetherLike\nManaCost:2 G\nTypes:Instant\n\
          A:SP$ TargetOnly | TargetMin$ 0 | TargetMax$ 2 | ValidTgts$ Creature.YouCtrl | SubAbility$ DBEach\n\
-         SVar:DBEach:DB$ EachDamage | DefinedDamagers$ ParentTarget | ValidTgts$ Creature.OppCtrl | NumDmg$ Count$CardPower",
-    ] {
-        assert!(refused(bad), "must refuse:\n{bad}");
-    }
+         SVar:DBEach:DB$ EachDamage | DefinedDamagers$ ParentTarget | ValidTgts$ Creature.OppCtrl | NumDmg$ Count$CardPower";
+    assert!(refused(bad_each_damage), "must refuse:\n{bad_each_damage}");
 }
 
 #[test]

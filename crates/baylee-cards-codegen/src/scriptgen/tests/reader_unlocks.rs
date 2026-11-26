@@ -7964,4 +7964,229 @@ fn cg_remember_sacrificed_followups() {
          SVar:DBCleanup:DB$ Cleanup | ClearRemembered$ True\n\
          SVar:X:ParentTargeted$CardPower"
     ));
+
+#[test]
+fn cg_damage_life_prevention_and_up_to_x_unlocks() {
+    // 1. `effect DamageDone` -> Aura prevention dispatch fallback (`Prismatic Ward`, `Heart of Light`, `Sandskin`).
+    let prismatic = read(
+        "Name:Prismatic Ward\nManaCost:1 W\nTypes:Enchantment Aura\nK:Enchant:Creature\n\
+         K:ETBReplacement:Other:ChooseColor\n\
+         SVar:ChooseColor:DB$ ChooseColor | Defined$ You\n\
+         R:Event$ DamageDone | ActiveZones$ Battlefield | Prevent$ True | ValidTarget$ Creature.EnchantedBy | ValidSource$ Card.ChosenColor",
+    );
+    let prismatic_all = format!("{}\n{}", prismatic.abilities.join("\n"), prismatic.statics);
+    assert!(
+        prismatic_all.contains("Modifier::PreventDamageFrom")
+            && prismatic_all.contains("ChosenColor"),
+        "{prismatic_all}"
+    );
+
+    let heart = read(
+        "Name:Heart of Light\nManaCost:2 W\nTypes:Enchantment Aura\nK:Enchant:Creature\n\
+         R:Event$ DamageDone | Prevent$ True | ValidTarget$ Creature.EnchantedBy\n\
+         R:Event$ DamageDone | Prevent$ True | ValidSource$ Creature.EnchantedBy | Secondary$ True",
+    );
+    let heart_all = heart.abilities.join("\n");
+    assert!(
+        heart_all.contains("Modifier::PreventDamageFrom")
+            && heart_all.contains("Modifier::PreventAllDamageFromIt"),
+        "{heart_all}"
+    );
+
+    let sandskin = read(
+        "Name:Sandskin\nManaCost:2 W\nTypes:Enchantment Aura\nK:Enchant:Creature\n\
+         R:Event$ DamageDone | Prevent$ True | IsCombat$ True | ValidTarget$ Creature.EnchantedBy\n\
+         R:Event$ DamageDone | Prevent$ True | IsCombat$ True | ValidSource$ Creature.EnchantedBy | Secondary$ True",
+    );
+    let sandskin_all = sandskin.abilities.join("\n");
+    assert!(
+        sandskin_all.contains("Modifier::PreventCombatDamageFrom")
+            && sandskin_all.contains("Modifier::PreventDamageFromIt"),
+        "{sandskin_all}"
+    );
+
+    // 2. `DealDamage.TargetMin` (`Crackle with Power`, `The Rollercrusher Ride`).
+    let crackle = read(
+        "Name:Crackle with Power\nManaCost:X X X R R\nTypes:Sorcery\n\
+         A:SP$ DealDamage | ValidTgts$ Any | TargetMin$ 0 | TargetMax$ X | NumDmg$ Y\n\
+         SVar:X:Count$xPaid\nSVar:Y:SVar$X/Times.5",
+    );
+    assert!(
+        crackle.abilities[0].contains("TargetReq::up_to_x(TargetSpec::AnyTarget)")
+            && crackle.abilities[0].contains("Amount::Times { base: &Amount::X, factor: 5 }"),
+        "{}",
+        crackle.abilities[0]
+    );
+
+    let rollercrusher = read(
+        "Name:The Rollercrusher Ride\nManaCost:X 2 R\nTypes:Legendary Enchantment\n\
+         R:Event$ DamageDone | Delirium$ True | ActiveZones$ Battlefield | ValidSource$ Card.YouCtrl,Emblem.YouCtrl | ValidTarget$ Permanent,Player | IsCombat$ False | ReplaceWith$ DamageReplace\n\
+         SVar:DamageReplace:DB$ ReplaceEffect | VarName$ DamageAmount | VarValue$ ReplaceCount$DamageAmount/Twice\n\
+         T:Mode$ ChangesZone | ValidCard$ Card.Self | Origin$ Any | Destination$ Battlefield | Execute$ TrigDealDamage\n\
+         SVar:TrigDealDamage:DB$ DealDamage | ValidTgts$ Creature | TargetMin$ 0 | TargetMax$ X | NumDmg$ X\n\
+         SVar:X:Count$xPaid",
+    );
+    assert!(
+        rollercrusher.abilities[1]
+            .contains("TargetReq::up_to_x(TargetSpec::Object(&Filter::CREATURE))")
+            && rollercrusher.abilities[1].contains("amount: Amount::X"),
+        "{:?}",
+        rollercrusher.abilities
+    );
+}
+
+#[test]
+fn cg_damage_life_damage_all_and_memory_unlocks() {
+    // 3. `DamageAll` unlocks (`Draconic Intervention`, `Dwarven Catapult`, `Vincent, Vengeful Atoner`).
+    let draconic = read(
+        "Name:Draconic Intervention\nManaCost:2 R R\nTypes:Sorcery\n\
+         A:SP$ DamageAll | Cost$ 2 R R ExileFromGrave<1/Instant;Sorcery> | NumDmg$ X | ValidCards$ Creature.nonGoblin | RememberDamaged$ True | ReplaceDyingDefined$ Remembered | SubAbility$ DBCleanup\n\
+         SVar:DBCleanup:DB$ Cleanup | ClearRemembered$ True | SubAbility$ DBChange\n\
+         SVar:DBChange:DB$ ChangeZone | Origin$ Stack | Destination$ Exile\n\
+         SVar:X:Exiled$CardManaCost",
+    );
+    assert!(
+        draconic.abilities[0]
+            .contains("TotalManaValueInZone { zone: ZoneSel::LinkedExile, filter: &Filter::Any }")
+            && draconic.abilities[0].contains("Effect::ExileDamagedThisWayIfDies"),
+        "{}",
+        draconic.abilities[0]
+    );
+
+    let catapult = read(
+        "Name:Dwarven Catapult\nManaCost:X R\nTypes:Instant\n\
+         A:SP$ DamageAll | ValidTgts$ Opponent | ValidCards$ Creature | NumDmg$ Z\n\
+         SVar:X:Count$xPaid\n\
+         SVar:Y:Count$Valid Creature.TargetedPlayerCtrl\n\
+         SVar:Z:SVar$X/DivideEvenlyDown.Y",
+    );
+    assert!(
+        catapult.abilities[0].contains("Effect::DealDamageEvenlyToFilter")
+            && catapult.abilities[0].contains("TargetReq::one(TargetSpec::AnyOpponent)"),
+        "{}",
+        catapult.abilities[0]
+    );
+
+    let vincent = read(
+        "Name:Vincent, Vengeful Atoner\nManaCost:2 R\nTypes:Legendary Creature Assassin\nPT:3/3\n\
+         T:Mode$ DamageDone | ValidSource$ Card.Self | ValidTarget$ Opponent | CombatDamage$ True | Execute$ TrigDmg\n\
+         SVar:TrigDmg:DB$ DamageAll | ValidPlayers$ OppNonTriggeredTarget | NumDmg$ X | ConditionCheckSVar$ Y | ConditionSVarCompare$ GE7\n\
+         SVar:X:TriggerCount$DamageAmount\n\
+         SVar:Y:Count$CardPower",
+    );
+    assert!(
+        vincent.abilities[0].contains("PlayerRel::OtherOpponents")
+            && vincent.abilities[0].contains("Condition::AmountAtLeast(Amount::SourcePower, 7)"),
+        "{}",
+        vincent.abilities[0]
+    );
+
+    // 4. `DamageMemory` (`Minion of Leshrac`, `Mishra's War Machine`).
+    let minion = read(
+        "Name:Minion of Leshrac\nManaCost:4 B B B\nTypes:Creature Demon Minion\nPT:5/5\n\
+         T:Mode$ Phase | Phase$ Upkeep | ValidPlayer$ You | TriggerZones$ Battlefield | Execute$ TrigDmg\n\
+         SVar:TrigDmg:DB$ DealDamage | Defined$ You | NumDmg$ 5 | UnlessCost$ Sac<1/Creature.Other/other> | RememberDamaged$ True | UnlessPayer$ TriggeredPlayer | UnlessResolveSubs$ WhenNotPaid | SubAbility$ DBTap\n\
+         SVar:DBTap:DB$ Tap | Defined$ Self | ConditionPlayerDefined$ Remembered | ConditionPlayerContains$ You | SubAbility$ DBCleanup\n\
+         SVar:DBCleanup:DB$ Cleanup | ClearRemembered$ True",
+    );
+    assert!(
+        minion.abilities[0].contains("ThisWay::DamageDealtToYou")
+            && minion.abilities[0].contains("Effect::TapSelf"),
+        "{}",
+        minion.abilities[0]
+    );
+
+    let mishra = read(
+        "Name:Mishra's War Machine\nManaCost:7\nTypes:Artifact Creature Juggernaut\nPT:5/5\n\
+         T:Mode$ Phase | Phase$ Upkeep | ValidPlayer$ You | TriggerZones$ Battlefield | Execute$ TrigDealDamage\n\
+         SVar:TrigDealDamage:DB$ DealDamage | Defined$ You | NumDmg$ 3 | UnlessPayer$ You | UnlessCost$ Discard<1/Card> | RememberDamaged$ True | SubAbility$ DBTap\n\
+         SVar:DBTap:DB$ Tap | ConditionPlayerDefined$ Remembered | ConditionPlayerContains$ You | SubAbility$ DBCleanup\n\
+         SVar:DBCleanup:DB$ Cleanup | ClearRemembered$ True",
+    );
+    assert!(
+        mishra.abilities[0].contains("ThisWay::DamageDealtToYou")
+            && mishra.abilities[0].contains("Effect::TapSelf"),
+        "{}",
+        mishra.abilities[0]
+    );
+}
+
+#[test]
+fn cg_damage_life_triggers_life_and_refusal_guards() {
+    // 5. `DealDamage`, `LoseLife`, `GainLife` verified unlocks.
+    let haunting = read(
+        "Name:Haunting Wind\nManaCost:3 B\nTypes:Enchantment\n\
+         T:Mode$ AbilityCast | ValidCard$ Artifact | ValidSA$ Activated.!hasTapCost | TriggerZones$ Battlefield | Execute$ TrigDamage\n\
+         T:Mode$ Taps | ValidCard$ Artifact | TriggerZones$ Battlefield | Execute$ TrigDamage | Secondary$ True\n\
+         SVar:TrigDamage:DB$ DealDamage | Defined$ TriggeredCardController | NumDmg$ 1",
+    );
+    assert!(
+        haunting.abilities[0].contains("PlayerRel::ControllerOfEvent")
+            && haunting.abilities[1].contains("PlayerRel::ControllerOfEvent"),
+        "{:?}",
+        haunting.abilities
+    );
+
+    let dread_defiler = read(
+        "Name:Dread Defiler\nManaCost:6 B\nTypes:Creature Eldrazi\nPT:6/8\n\
+         A:AB$ LoseLife | Cost$ 3 C ExileFromGrave<1/Creature> | LifeAmount$ X | ValidTgts$ Opponent\n\
+         SVar:X:Exiled$CardPower",
+    );
+    assert!(
+        dread_defiler.abilities[0].contains("Amount::SacrificedPower"),
+        "{}",
+        dread_defiler.abilities[0]
+    );
+
+    let tainted_sigil = read(
+        "Name:Tainted Sigil\nManaCost:1 W B\nTypes:Artifact\n\
+         A:AB$ GainLife | Cost$ T Sac<1/CARDNAME> | LifeAmount$ X\n\
+         SVar:X:PlayerCountPlayers$LifeLostThisTurn",
+    );
+    assert!(
+        tainted_sigil.abilities[0].contains("Amount::LifeLostThisTurn(PlayerRel::EachPlayer)"),
+        "{}",
+        tainted_sigil.abilities[0]
+    );
+
+    let batwing = read(
+        "Name:Batwing Brume\nManaCost:1 WB\nTypes:Instant\n\
+         A:SP$ Fog | ConditionManaSpent$ W | SubAbility$ BatwingRepeat\n\
+         SVar:BatwingRepeat:DB$ RepeatEach | RepeatPlayers$ Player | RepeatSubAbility$ BatwingLoseLife\n\
+         SVar:BatwingLoseLife:DB$ LoseLife | LifeAmount$ X | Defined$ Remembered | ConditionManaSpent$ B\n\
+         SVar:X:PlayerCountRemembered$Valid Creature.YouCtrl+attacking",
+    );
+    assert!(
+        batwing.abilities[0].contains("ManaColorSpentToCast(ManaColor::White)")
+            && batwing.abilities[0].contains("ManaColorSpentToCast(ManaColor::Black)")
+            && batwing.abilities[0].contains("Filter::ATTACKING_CREATURE"),
+        "{}",
+        batwing.abilities[0]
+    );
+
+    // 6. Honest refusal boundaries (zero unsafe approximations).
+    for bad in [
+        // Spell-cost grave exile does NOT populate sacrificed_lki.power.
+        "Name:CorpseExplosionLike\nManaCost:1 B R\nTypes:Sorcery\n\
+         A:SP$ DamageAll | Cost$ 1 B R ExileFromGrave<1/Creature> | NumDmg$ X | ValidCards$ Creature,Planeswalker\n\
+         SVar:X:Exiled$CardPower",
+        "Name:CorpseLungeLike\nManaCost:2 B\nTypes:Instant\n\
+         A:SP$ DealDamage | Cost$ 2 B ExileFromGrave<1/Card.Creature/creature> | NumDmg$ X | ValidTgts$ Creature\n\
+         SVar:X:Exiled$CardPower",
+        // Non-combat DamageDealtOnce does NOT populate event_object in engine.
+        "Name:EssenceSliverLike\nManaCost:3 W\nTypes:Creature Sliver\nPT:3/3\n\
+         T:Mode$ DamageDealtOnce | ValidSource$ Sliver.inZoneBattlefield | Execute$ TrigGain | TriggerZones$ Battlefield\n\
+         SVar:TrigGain:DB$ GainLife | Defined$ TriggeredSourceController | LifeAmount$ X\n\
+         SVar:X:TriggerCount$DamageAmount",
+        // DamageAll targeting Opponent without DivideEvenlyDown cannot filter Chosen via DealDamageEach.
+        "Name:SimoonLike\nManaCost:R G\nTypes:Instant\n\
+         A:SP$ DamageAll | NumDmg$ 1 | ValidTgts$ Opponent | ValidCards$ Creature",
+        // Random damage remains refused.
+        "Name:AshuzaLike\nManaCost:2 R\nTypes:Sorcery\n\
+         A:SP$ RepeatEach | RepeatCards$ Creature | Zone$ Battlefield | RepeatSubAbility$ D\n\
+         SVar:D:DB$ DealDamage | NumDmg$ X | Defined$ Remembered\n\
+         SVar:X:Count$Random.0.2",
+    ] {
+        assert!(refused(bad), "must refuse:\n{bad}");
+    }
 }
