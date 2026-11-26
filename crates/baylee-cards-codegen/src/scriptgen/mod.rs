@@ -1104,6 +1104,19 @@ fn transcode_face(
         }
         tx.rule(*kind, spec)?;
     }
+    if tx
+        .body
+        .abilities
+        .iter()
+        .any(|a| a.contains("AltCastZones::LinkedExile"))
+        && tx.body.abilities.iter().any(|a| {
+            a.contains("Effect::ExileTop {")
+                || a.contains("Effect::ExileGraveyard {")
+                || a.contains("Effect::exile(")
+        })
+    {
+        return tx.deny("linked-exile `MayPlay` beside an unlinked exile producer".to_string());
+    }
     tx.block_halves_paired()?;
     tx.align_dual_kicker_order();
     tx.apply_overload()?;

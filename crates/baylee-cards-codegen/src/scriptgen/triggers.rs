@@ -929,7 +929,7 @@ impl Tx<'_> {
             "Clashed" => self.clashed_trigger(p),
             "Firebend" | "Firebends" => self.firebends_trigger(p),
             "UnlockDoor" => self.unlock_door_trigger(p, zone_taken),
-            "DayTimeChanges" if !zone_taken => Some("Trigger::DayNightChanges".to_string()),
+            "DayTimeChanges" => Some("Trigger::DayNightChanges".to_string()),
             other => self.deny(format!("trigger mode `{other}`")),
         }
     }
@@ -4785,6 +4785,7 @@ impl Tx<'_> {
                 .peek("ValidSource")
                 .is_some_and(|v| !v.split([',', '.', '+']).any(|a| a.trim() == "Self")),
             "ChangesZoneAll" => non_self_cards,
+            "DayTimeChanges" => p.peek("TriggerZones") == Some("Graveyard"),
             _ => false,
         };
         if allowed {

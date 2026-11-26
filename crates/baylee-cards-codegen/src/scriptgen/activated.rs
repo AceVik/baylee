@@ -3182,6 +3182,9 @@ impl Tx<'_> {
         if p.peek("PresentZone") == Some("Library") {
             return self.library_present_clause(p, valid);
         }
+        if p.peek("PresentZone") == Some("Exile") {
+            return self.exile_present_clause(p, valid);
+        }
         if matches!(
             p.peek("PresentZone"),
             Some("Battlefield,Graveyard" | "Graveyard,Battlefield")
@@ -3533,6 +3536,93 @@ impl Tx<'_> {
         self.present_amount_condition(&amt, &compare)
     }
 
+    fn exile_present_clause(&mut self, p: &mut Params, valid: &str) -> Option<String> {
+        p.take("PresentZone");
+        let defined = p.take("PresentDefined");
+        if let Some(other) = defined.as_deref()
+            && other != "Self"
+        {
+            return self.deny(format!("`PresentDefined$ {other}`"));
+        }
+        let has_you = match p.take("PresentPlayer").as_deref() {
+            None => false,
+            Some("You") => true,
+            Some(who) => return self.deny(format!("`PresentPlayer$ {who}`")),
+        };
+        let compare = p
+            .take("PresentCompare")
+            .unwrap_or_else(|| "GE1".to_string());
+        let is_self_clause = defined.as_deref() == Some("Self")
+            || (!valid.contains(',')
+                && valid
+                    .split(['.', '+'])
+                    .any(|a| matches!(a.trim(), "Self" | "StrictlySelf")));
+        if is_self_clause {
+            return self.exile_self_present_clause(valid, has_you, &compare);
+        }
+        if has_forbidden_exile_present_atom(valid) {
+            return self.deny(format!("`IsPresent$ {valid}` in exile"));
+        }
+        let all_linked = valid.split(',').all(|alt| {
+            alt.split(['.', '+'])
+                .any(|a| a.trim() == "ExiledWithSource")
+        });
+        let (zone_sel, normalized) = if all_linked {
+            if has_you {
+                return self.deny("`PresentPlayer$ You` with `ExiledWithSource`".to_string());
+            }
+            (
+                "ZoneSel::LinkedExile",
+                strip_exile_atom(valid, "ExiledWithSource"),
+            )
+        } else {
+            let any_linked = valid.split(',').any(|alt| {
+                alt.split(['.', '+'])
+                    .any(|a| matches!(a.trim(), "ExiledWithSource" | "ExiledWith" | "IsImprinted"))
+            });
+            if any_linked {
+                return self.deny(format!("`IsPresent$ {valid}` in exile"));
+            }
+            let norm = if has_you {
+                inject_exile_you_own(valid)
+            } else {
+                valid.to_string()
+            };
+            ("ZoneSel::ExileAll", norm)
+        };
+        let expr = self.filter_expr_in_zone(&normalized, true)?;
+        let filter_ref = if expr == "Filter::Any" {
+            "&Filter::Any".to_string()
+        } else {
+            format!("&{}", self.body.filter_static("CHECK", &expr))
+        };
+        let amt = format!("Amount::CountOf {{ filter: {filter_ref}, zone: {zone_sel} }}");
+        self.present_amount_condition(&amt, &compare)
+    }
+
+    fn exile_self_present_clause(
+        &mut self,
+        valid: &str,
+        has_you: bool,
+        compare: &str,
+    ) -> Option<String> {
+        if has_you {
+            return self.deny("`PresentPlayer$ You` on self in exile".to_string());
+        }
+        if !matches!(compare, "GE1" | "EQ1") {
+            return self.deny(format!("an exile self clause compared `{compare}`"));
+        }
+        let stripped = strip_exile_atom(valid, "Self");
+        let stripped = strip_exile_atom(&stripped, "StrictlySelf");
+        let expr = self.filter_expr_in_zone(&stripped, true)?;
+        let zoned = if expr == "Filter::Any" {
+            "Filter::InZone(ZoneRef::Exile)".to_string()
+        } else {
+            format!("Filter::And(&[Filter::InZone(ZoneRef::Exile), {expr}])")
+        };
+        let name = self.body.filter_static("CHECK", &zoned);
+        Some(format!("Condition::SourceMatches(&{name})"))
+    }
     fn battlefield_or_graveyard_present_clause(
         &mut self,
         p: &mut Params,
@@ -3752,6 +3842,67 @@ impl Tx<'_> {
         *self.unclaimed.borrow_mut() = saved_unclaimed;
         self.wave28b_optional_trigger_price(body)
     }
+}
+
+fn strip_exile_atom(valid: &str, target: &str) -> String {
+    valid
+        .split(',')
+        .map(str::trim)
+        .map(|alt| {
+            let (base, atoms) = alt.split_once('.').unwrap_or((alt, ""));
+            let kept: Vec<&str> = atoms
+                .split('+')
+                .map(str::trim)
+                .filter(|a| !a.is_empty() && *a != target)
+                .collect();
+            if kept.is_empty() {
+                base.to_string()
+            } else {
+                format!("{base}.{}", kept.join("+"))
+            }
+        })
+        .collect::<Vec<_>>()
+        .join(",")
+}
+
+fn inject_exile_you_own(valid: &str) -> String {
+    valid
+        .split(',')
+        .map(str::trim)
+        .map(|alt| {
+            if alt.split(['.', '+']).any(|a| a.trim() == "YouOwn") {
+                alt.to_string()
+            } else if alt.contains('.') {
+                format!("{alt}+YouOwn")
+            } else {
+                format!("{alt}.YouOwn")
+            }
+        })
+        .collect::<Vec<_>>()
+        .join(",")
+}
+
+fn has_forbidden_exile_present_atom(valid: &str) -> bool {
+    valid.split(',').any(|alt| {
+        alt.split(['.', '+']).any(|raw| {
+            let a = raw.trim();
+            matches!(
+                a,
+                "OppOwn"
+                    | "OppCtrl"
+                    | "YouDontOwn"
+                    | "YouCtrl"
+                    | "IsImprinted"
+                    | "ExiledWith"
+                    | "ExiledByYou"
+                    | "ExiledByOpponent"
+            ) || a.contains("Ctrl")
+                || a.contains("Remembered")
+                || a.contains("Targeted")
+                || a.contains("Triggered")
+                || a.starts_with("ExiledBy")
+        })
+    })
 }
 
 fn has_you_own_every_alt(valid: &str) -> bool {
