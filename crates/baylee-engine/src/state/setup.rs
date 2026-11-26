@@ -126,6 +126,7 @@ impl GameState {
             resolution_chosen_color: None,
             resolution_chosen_number: None,
             resolution_remembered: None,
+            active_exiler: None,
             discovered: Vec::new(),
             divided: Vec::new(),
             synthetic_copies: Vec::new(),
@@ -464,6 +465,7 @@ impl GameState {
             super::reads::card_reads_first_spell_each_turn(def);
         self.per_turn.track_mana_types_spent.0 |= super::reads::card_reads_mana_types_spent(def);
         self.per_turn.track_cast_origin_zone.0 |= super::reads::card_reads_cast_origin_zone(def);
+        self.per_turn.track_exilers.0 |= super::reads::card_reads_exiled_by(def);
         self.per_turn.surveilled_cards.tracked |=
             super::reads::card_reads_surveilled_this_turn(def);
         self.per_turn.cards_foretold.tracked |= super::reads::card_reads_foretold_count(def);
@@ -591,6 +593,7 @@ impl GameState {
             super::reads::card_reads_first_spell_each_turn(def);
         self.per_turn.track_mana_types_spent.0 |= super::reads::card_reads_mana_types_spent(def);
         self.per_turn.track_cast_origin_zone.0 |= super::reads::card_reads_cast_origin_zone(def);
+        self.per_turn.track_exilers.0 |= super::reads::card_reads_exiled_by(def);
         self.per_turn.surveilled_cards.tracked |=
             super::reads::card_reads_surveilled_this_turn(def);
         self.per_turn.cards_foretold.tracked |= super::reads::card_reads_foretold_count(def);

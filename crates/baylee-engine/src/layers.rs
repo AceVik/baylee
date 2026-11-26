@@ -998,6 +998,8 @@ fn could_change_match(modifier: &Modifier, filter: &Filter, layer: Layer) -> boo
         | Filter::EnteredThisTurn
         | Filter::PutIntoGraveyardThisTurn
         | Filter::SurveilledByYouThisTurn
+        | Filter::EnteredCurrentZoneThisTurn(_)
+        | Filter::ExiledByYou
         | Filter::AttackedThisTurn
         | Filter::CountersAtLeast(_, _)
         | Filter::AnyCountersAtLeast(_)
@@ -1420,6 +1422,13 @@ fn apply(
         | Modifier::GrantBlitzCardManaCost
         | Modifier::GrantProwl(_)
         | Modifier::GrantFreerunning(_)
+        | Modifier::GrantMiracle(_)
+        | Modifier::GrantForetell { .. }
+        | Modifier::GrantWarp(_)
+        | Modifier::GrantEvoke(_)
+        | Modifier::GrantMadnessManaCost
+        | Modifier::GrantsMayhemManaCost
+        | Modifier::GrantsBeamMeUpManaCost { .. }
         | Modifier::LoseAllBandsWithOther
         | Modifier::BandsWithOther(_)
         | Modifier::SpellsCostMore(_)
@@ -1445,6 +1454,7 @@ fn apply(
         | Modifier::RevealAllLibraryTops
         | Modifier::RevealAllHands
         | Modifier::RevealYourHand
+        | Modifier::RevealOpponentsHands
         | Modifier::RevealLibraryTop
         | Modifier::ExtraLandDrops(_)
         | Modifier::CantActivateArtifacts
@@ -1570,6 +1580,7 @@ fn apply(
         | Modifier::GrantActivatedFromLinkedExile(_)
         | Modifier::GainActivatedAbilitiesOf { .. }
         | Modifier::MayCastWithAltCost { .. }
+        | Modifier::ZonePlayGrant(_)
         | Modifier::AdjustSpellCostByCast { .. }
         | Modifier::MayLookAtTopOfLibrary { .. }
         | Modifier::GrantFlash { .. }

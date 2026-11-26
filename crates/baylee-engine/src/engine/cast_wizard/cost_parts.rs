@@ -276,10 +276,10 @@ pub(crate) fn wizard_alternative_parts(
             .get(index)
             .map_or(&[][..], |alt| alt.cost.parts),
         Some(CastModeKind::Flashback) => face.flashback_parts,
-        Some(CastModeKind::Madness) => face.madness.expect("madness").parts,
+        Some(CastModeKind::Madness) => face.madness.map_or(&[][..], |m| m.parts),
         Some(CastModeKind::Bestow) => face.bestow.expect("bestow").parts,
         Some(CastModeKind::Blitz) => face.blitz.map_or(&[][..], |b| b.parts),
-        Some(CastModeKind::Warp) => face.warp.expect("warp").parts,
+        Some(CastModeKind::Warp) => face.warp.map_or(&[][..], |w| w.parts),
         _ => &[],
     }
 }
@@ -335,6 +335,8 @@ pub(crate) struct CostChoice {
     /// Non-mana parts of a `Sneak` cost (`CR 702.190a`) beyond the implicit
     /// `ReturnUnblockedAttacker`.
     pub sneak_parts: &'static [CostPart],
+    /// Non-mana parts of an effective Warp cost (printed or `Modifier::GrantWarp`).
+    pub warp_parts: &'static [CostPart],
     /// Number of conspire instances paid (`CR 702.78a–b`).
     pub conspired: u8,
     /// Non-mana parts of `AbilityDef::Awaken` when `option == Some(CastModeKind::Awaken)`.
@@ -371,6 +373,7 @@ impl From<Option<CastModeKind>> for CostChoice {
             either_first_mask: 0,
             returned: None,
             sneak_parts: &[],
+            warp_parts: &[],
             conspired: 0,
             awaken_parts: &[],
             route_extra_parts: &[],
@@ -388,6 +391,8 @@ pub(crate) fn wizard_alternative_parts_for_choice(
         choice.sneak_parts
     } else if opt == Some(CastModeKind::Awaken) {
         choice.awaken_parts
+    } else if opt == Some(CastModeKind::Warp) && !choice.warp_parts.is_empty() {
+        choice.warp_parts
     } else {
         wizard_alternative_parts(face, opt)
     }

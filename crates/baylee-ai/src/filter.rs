@@ -615,7 +615,9 @@ impl HeuristicAgent {
         | Filter::SharesNameWithRemembered
         | Filter::SharesCardTypeWithReference
         | Filter::CastForBlitz
-        | Filter::FirstMatchingSpellThisTurn(_) => None,
+        | Filter::FirstMatchingSpellThisTurn(_)
+        | Filter::EnteredCurrentZoneThisTurn(_)
+        | Filter::ExiledByYou => None,
         }
     }
 

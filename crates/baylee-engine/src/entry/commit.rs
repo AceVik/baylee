@@ -96,6 +96,11 @@ pub(super) fn finish(state: &mut GameState, entry: Attempt) {
         .object(entry.object)
         .is_some_and(|o| o.zone == Zone::Battlefield)
     {
+        if entry.zone_play_rider != baylee_cards_dsl::ZonePlayCastRider::None
+            && let Some(object) = state.object_mut(entry.object)
+        {
+            super::attach_zone_play_rider(object, entry.zone_play_rider);
+        }
         if let Some(player) = entry.battle_protector
             && let Some(reference) = state.source_identity(entry.object)
         {

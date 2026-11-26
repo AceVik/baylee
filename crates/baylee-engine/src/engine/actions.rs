@@ -765,7 +765,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                         .ok_or(EngineError::IllegalAction("no assistant selected"))?;
                     if n > 0 {
                         let face = self.wizard_face(&wizard);
-                        let spend = cast_wizard::spend_for(&wizard, face);
+                        let spend = cast_wizard::spend_for(&self.state, &wizard, face);
                         let allowance = self.wizard_source_allowance(&wizard);
                         let cost = baylee_core::mana::ManaCost::from_symbol_generic(n);
                         if casting::pay_mana_scoped_recording_x(

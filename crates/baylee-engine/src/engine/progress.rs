@@ -750,7 +750,13 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
             let Some(def) = obj.card.and_then(|c| self.lookup.card(c.index)) else {
                 continue;
             };
-            if def.faces[obj.face_index as usize].miracle.is_none() {
+            if crate::casting::effective_miracle_cost(
+                &self.state,
+                obj,
+                &def.faces[obj.face_index as usize],
+            )
+            .is_none()
+            {
                 continue;
             }
             // A miracle whose spell could not choose its targets could only

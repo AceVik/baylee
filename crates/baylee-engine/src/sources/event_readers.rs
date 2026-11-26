@@ -123,6 +123,7 @@ fn reads_amount(value: Amount) -> bool {
         }
         Amount::DistinctPowersAmong(filter) => reads_filter(filter),
         Amount::DistinctManaValuesInZone { zone, filter }
+        | Amount::DistinctNames { zone, filter }
         | Amount::TotalManaValueInZone { zone, filter }
         | Amount::DistinctExactManaCostsInZone { zone, filter } => {
             reads_filter(filter)

@@ -163,7 +163,7 @@ pub(crate) fn madness_options<L: CardLookup>(
     }
     let def = object.card.and_then(|card| lookup.card(card.index))?;
     let face = &def.faces[0];
-    let madness = face.madness?;
+    let madness = casting::effective_madness_cost(object, face)?;
     let choice = CostChoice {
         option: Some(CastModeKind::Normal),
         alternative_cost: Some(CastModeKind::Madness),

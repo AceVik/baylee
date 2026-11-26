@@ -338,6 +338,9 @@ pub struct PerTurn {
     /// Whether any card in this game reads `CastFromZone` / `SourceCastFromZone`
     /// for `Exile`, `Library`, or `Command` (`Rider::CastOriginZone`).
     pub track_cast_origin_zone: PerTurnTrackedFlag,
+    /// Whether any card in this game reads `Filter::ExiledByYou` or
+    /// `AltCastZones::ExiledByYou` (`Rider::ExiledBy`).
+    pub track_exilers: PerTurnTrackedFlag,
     /// Graveyard card incarnations put there while surveilling this turn,
     /// paired with the surveilling player (`Filter::SurveilledByYouThisTurn`).
     pub surveilled_cards: PerTurnTracked<(baylee_core::ids::DamageSourceRef, PlayerId)>,
@@ -796,6 +799,7 @@ impl PerTurn {
             cast_spells_this_turn: PerTurnTracked::default(),
             track_mana_types_spent: PerTurnTrackedFlag::default(),
             track_cast_origin_zone: PerTurnTrackedFlag::default(),
+            track_exilers: PerTurnTrackedFlag::default(),
             surveilled_cards: PerTurnTracked::default(),
             cards_foretold: PerTurnTracked::default(),
             discard_history: PerTurnTracked::default(),
@@ -1048,6 +1052,7 @@ impl PerTurn {
             cast_spells_this_turn: _,
             track_mana_types_spent: _,
             track_cast_origin_zone: _,
+            track_exilers: _,
             surveilled_cards: _,
             cards_foretold: _,
             discard_history: _,

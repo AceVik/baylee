@@ -649,6 +649,17 @@ pub enum Amount {
     /// resolution (`CR 608.2h`; *Command the Dreadhorde*). Appended to preserve
     /// replay identities.
     TotalTargetsManaValue,
+    /// Number of distinct nonempty names (`CR 201.2`, `CR 201.2a`) among objects
+    /// in `zone` matching `filter` (*All-Fates Scroll*, *Audience with Trostani*,
+    /// *Branching Timeline*, *Cloak and Phaser*, *Deep Space Scan*, *Eerie
+    /// Ultimatum*, *Warp Speed*). Face-down and nameless objects contribute
+    /// nothing. Appended to preserve replay identities.
+    DistinctNames {
+        /// Zone scanned.
+        zone: ZoneSel,
+        /// Filter matched against each object in `zone`.
+        filter: &'static Filter,
+    },
 }
 
 /// The recipient [`Amount::DamageThisTurn`] counts.

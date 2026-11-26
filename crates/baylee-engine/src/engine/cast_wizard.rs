@@ -272,6 +272,8 @@ pub struct CastWizard {
     pub returned: Option<ObjectId>,
     /// Non-mana parts of a sneak cost beyond returning an unblocked attacker.
     pub sneak_parts: &'static [CostPart],
+    /// Non-mana parts of an effective Warp cost (printed or `Modifier::GrantWarp`).
+    pub warp_parts: &'static [CostPart],
     /// The permanent or card in hand chosen to behold (CR 701.60a).
     pub beheld: Option<ObjectId>,
     /// Whether the caster is paying `behold_or_pay`'s mana cost instead of
@@ -488,6 +490,7 @@ impl CastWizard {
             pitch: SmallVec::new(),
             returned: None,
             sneak_parts: &[],
+            warp_parts: &[],
             beheld: None,
             behold_paid_mana: false,
             either_decided: 0,
@@ -967,7 +970,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
         casting::modes_are_the_only_way(def, 0)
             && casting::plot_permission(&self.state, player, card)
             && !self.commanded_card(card)
-            && (def.faces[0].foretell.is_none()
+            && (casting::effective_foretell_cost(obj, &def.faces[0]).is_none()
                 || !casting::foretell_permission(&self.state, player, card))
             && casting::play_permission(&self.state, player, card).is_none()
     }
@@ -1184,7 +1187,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
     fn miracle_wizard(&self, player: PlayerId, card: ObjectId) -> Option<Box<CastWizard>> {
         let object = self.state.object(card)?;
         let def = object.card.and_then(|c| self.lookup.card(c.index))?;
-        let cost = def.faces[0].miracle?;
+        let cost = casting::effective_miracle_cost(&self.state, object, &def.faces[0])?;
         // CR 601.3: a player who may not begin to cast a spell (Conduit of
         // Worlds), or who is forbidden from casting outside sorcery timing
         // while the miracle trigger is on the stack (Teferi, Time Raveler's
@@ -1610,7 +1613,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 wizard,
                 before.combine_n(cost, n).with_less_generic(reduction),
             );
-            self.can_pay_mana(player, spend_for(wizard, face), &payment)
+            self.can_pay_mana(player, spend_for(&self.state, wizard, face), &payment)
         })
     }
 
@@ -1800,8 +1803,11 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
         let mut unsettled = wizard.clone();
         unsettled.phyrexian.clear();
         let price = self.phyrexian_preview_price(wizard, face, &unsettled);
-        let spendable =
-            casting::spendable_pool(&self.state, wizard.player, spend_for(wizard, face));
+        let spendable = casting::spendable_pool(
+            &self.state,
+            wizard.player,
+            spend_for(&self.state, wizard, face),
+        );
         let pool = spendable
             .as_ref()
             .unwrap_or(&self.state.players[usize::from(wizard.player.get())].mana_pool);
@@ -1815,7 +1821,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                         casting::component_affordable(
                             &self.state,
                             wizard.player,
-                            spend_for(wizard, self.wizard_face(wizard)),
+                            spend_for(&self.state, wizard, self.wizard_face(wizard)),
                             pool,
                             &price,
                             &price,
@@ -1829,7 +1835,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                         casting::component_affordable(
                             &self.state,
                             wizard.player,
-                            spend_for(wizard, self.wizard_face(wizard)),
+                            spend_for(&self.state, wizard, self.wizard_face(wizard)),
                             pool,
                             &price,
                             &component,
@@ -1840,7 +1846,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                         casting::source_affordable(
                             &self.state,
                             wizard.player,
-                            spend_for(wizard, self.wizard_face(wizard)),
+                            spend_for(&self.state, wizard, self.wizard_face(wizard)),
                             pool,
                             &price,
                             settled,
@@ -2055,7 +2061,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
             return Vec::new();
         };
         let face = wizard.face_index();
-        let form = match spend_for(wizard, self.wizard_face(wizard)) {
+        let form = match spend_for(&self.state, wizard, self.wizard_face(wizard)) {
             casting::SpendFor::SpellAs(_, form) => Some(form),
             casting::SpendFor::KickedSpell(_, _, form) => form,
             _ => None,
@@ -2666,10 +2672,13 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
             return u32::MAX;
         }
         let face = self.wizard_face(wizard);
-        let mut bound =
-            casting::spendable_units(&self.state, wizard.player, spend_for(wizard, face))
-                .saturating_add(self.state.granted_colorless_capacity(wizard.player))
-                .saturating_add(wizard.reduction.map_or(0, |reduction| reduction.remainder));
+        let mut bound = casting::spendable_units(
+            &self.state,
+            wizard.player,
+            spend_for(&self.state, wizard, face),
+        )
+        .saturating_add(self.state.granted_colorless_capacity(wizard.player))
+        .saturating_add(wizard.reduction.map_or(0, |reduction| reduction.remainder));
         if let Some(def) = self
             .state
             .object(wizard.card)
@@ -2779,7 +2788,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                     bound = bound.saturating_add(casting::spendable_units(
                         &self.state,
                         p.id,
-                        spend_for(wizard, face),
+                        spend_for(&self.state, wizard, face),
                     ));
                 }
             }
@@ -2803,7 +2812,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
         generic_owed: u32,
     ) -> u32 {
         let face = self.wizard_face(wizard);
-        let spend = spend_for(wizard, face);
+        let spend = spend_for(&self.state, wizard, face);
         let allowance = self.wizard_source_allowance(wizard);
         let pool_total = u32::try_from(self.state.players[helper.get() as usize].mana_pool.total())
             .unwrap_or(u32::MAX);
@@ -2917,14 +2926,17 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
         let face = self.wizard_face(wizard);
         let (cost, restriction) = self.restricted_x_payment(wizard, total);
         let cost = self.north_star_payment(wizard, cost);
-        let spendable =
-            casting::spendable_pool(&self.state, wizard.player, spend_for(wizard, face));
+        let spendable = casting::spendable_pool(
+            &self.state,
+            wizard.player,
+            spend_for(&self.state, wizard, face),
+        );
         let pool = spendable
             .as_ref()
             .unwrap_or(&self.state.players[usize::from(wizard.player.get())].mana_pool);
         casting::source_plan(
             &self.state,
-            spend_for(wizard, face),
+            spend_for(&self.state, wizard, face),
             pool,
             &cost,
             casting::spell_mana_spending(&self.state, wizard.player, wizard.card),
@@ -3158,6 +3170,7 @@ fn pays_mana(wizard: &CastWizard) -> bool {
 /// question's bound, so the question never offers a count the payment
 /// would refuse over a Cavern of Souls' mana.
 pub(super) fn spend_for(
+    state: &crate::state::GameState,
     wizard: &CastWizard,
     face: &baylee_cards_dsl::FaceDef,
 ) -> casting::SpendFor {
@@ -3200,7 +3213,12 @@ pub(super) fn spend_for(
         }
         Some(CastModeKind::Foretell) => casting::SpendFor::SpellAs(
             wizard.card,
-            casting::SpellForm::Foretell(face.foretell.expect("foretell option")),
+            casting::SpellForm::Foretell(
+                state
+                    .object(wizard.card)
+                    .and_then(|o| casting::effective_foretell_cost(o, face))
+                    .expect("foretell option"),
+            ),
         ),
         Some(CastModeKind::Plot) => {
             casting::SpendFor::SpellAs(wizard.card, casting::SpellForm::Plot)

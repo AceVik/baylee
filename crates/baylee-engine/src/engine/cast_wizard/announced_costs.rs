@@ -390,6 +390,7 @@ impl CastWizard {
             either_first_mask: self.either_first_mask,
             returned: self.returned,
             sneak_parts: self.sneak_parts,
+            warp_parts: self.warp_parts,
             conspired: self.conspired,
             awaken_parts: self.awaken_parts,
             route_extra_parts,

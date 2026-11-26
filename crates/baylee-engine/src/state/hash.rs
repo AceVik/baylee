@@ -81,6 +81,7 @@ impl GameState {
             resolution_chosen_color: _,
             resolution_chosen_number,
             resolution_remembered,
+            active_exiler: _,
             discovered,
             divided,
             synthetic_copies,
@@ -2117,6 +2118,33 @@ fn hash_cast_keyword_rider(h: &mut Hasher, rider: &crate::object::Rider) {
             h.u8(255);
             h.u16(490);
         }
+        crate::object::Rider::GrantedForetellReduce(reduce) => {
+            h.u8(255);
+            h.u16(567);
+            h.u32(*reduce);
+        }
+        crate::object::Rider::GrantedMadness => {
+            h.u8(255);
+            h.u16(568);
+        }
+        crate::object::Rider::ExiledBy(player) => {
+            h.u8(255);
+            h.u16(569);
+            h.u8(player.get());
+        }
+        crate::object::Rider::EvokedGrant => {
+            h.u8(255);
+            h.u16(570);
+        }
+        crate::object::Rider::GrantDeathExileAndGainLife(life) => {
+            h.u8(255);
+            h.u16(571);
+            h.u32(*life);
+        }
+        crate::object::Rider::GrantLeaveExileReplacement => {
+            h.u8(255);
+            h.u16(572);
+        }
         _ => {}
     }
 }
@@ -3069,6 +3097,33 @@ fn hash_object(h: &mut Hasher, obj: &GameObject) {
                 h.u8(255);
                 h.u16(490);
             }
+            Rider::GrantedForetellReduce(reduce) => {
+                h.u8(255);
+                h.u16(567);
+                h.u32(*reduce);
+            }
+            Rider::GrantedMadness => {
+                h.u8(255);
+                h.u16(568);
+            }
+            Rider::ExiledBy(player) => {
+                h.u8(255);
+                h.u16(569);
+                h.u8(player.get());
+            }
+            Rider::EvokedGrant => {
+                h.u8(255);
+                h.u16(570);
+            }
+            Rider::GrantDeathExileAndGainLife(life) => {
+                h.u8(255);
+                h.u16(571);
+                h.u32(*life);
+            }
+            Rider::GrantLeaveExileReplacement => {
+                h.u8(255);
+                h.u16(572);
+            }
         }
     }
     // What the spell or ability on the stack was cast or put there with:
@@ -3493,6 +3548,15 @@ fn filter_hash(h: &mut Hasher, f: &baylee_cards_dsl::Filter) {
             h.u16(512);
             rel.hash(h);
         }
+        F::EnteredCurrentZoneThisTurn(from) => {
+            h.u8(255);
+            h.u16(565);
+            from.hash(h);
+        }
+        F::ExiledByYou => {
+            h.u8(255);
+            h.u16(566);
+        }
     }
 }
 
@@ -3555,6 +3619,7 @@ fn amount_filter_depth_exceeds(amt: &baylee_cards_dsl::Amount, depth: u8) -> boo
         | A::SpellsCastMatchingThisTurn { filter: f, .. }
         | A::CreaturesAttackedThisTurn { filter: f, .. }
         | A::DistinctManaValuesInZone { filter: f, .. }
+        | A::DistinctNames { filter: f, .. }
         | A::DistinctPowersAmong(f)
         | A::HighestControlledCount { filter: f, .. }
         | A::TotalManaValueInZone { filter: f, .. }

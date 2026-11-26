@@ -619,6 +619,18 @@ pub enum Filter {
     /// Controlled by `you` or a teammate (`CR 810.5`; same as [`Self::ControlledByYou`] in 1v1).
     /// Appended to preserve replay identities.
     ControlledByYourTeam,
+    /// This object's current incarnation (`CR 400.7`) entered its current zone
+    /// during the current turn, optionally from a zone matching `Some(from)`
+    /// (`Some(ZoneRef::Battlefield)` for "put into a graveyard from the
+    /// battlefield this turn" on *Brought Back*, *Faith's Reward*, *Second
+    /// Sunrise*, *Grim Return*, *Activated Sleeper*; `Some(ZoneRef::Library)`
+    /// for *Captain N'ghathrod*, *Kagha*; `Some(ZoneRef::Graveyard)` for
+    /// *Celes*, *Kotis*; `None` for "put there this turn" / "exiled this turn"
+    /// on *Banon*, *Maralen*). Appended to preserve replay identities.
+    EnteredCurrentZoneThisTurn(Option<ZoneRef>),
+    /// Exiled by `you` (`Rider::ExiledBy(you)`; *Haldan, Avid Arcanist*).
+    /// Appended to preserve replay identities.
+    ExiledByYou,
 }
 
 /// Zone references for filters (engine zones, DSL view).

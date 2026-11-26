@@ -40,7 +40,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
             .expect("wizard card known");
         let index = wizard.face_index();
         let face = self.wizard_face(wizard);
-        let form = match spend_for(wizard, face) {
+        let form = match spend_for(&self.state, wizard, face) {
             casting::SpendFor::SpellAs(_, form) => Some(form),
             casting::SpendFor::KickedSpell(_, _, form) => form,
             _ => None,
@@ -143,13 +143,14 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
             remainder: total.saturating_sub(fixed),
             colored_only_remainder,
             mana_remainder,
-            allowance: casting::base_allowance(&self.state, spend_for(wizard, face)).adjusted(
-                adjustment.eligible_increase,
-                adjustment
-                    .increase
-                    .saturating_sub(adjustment.eligible_increase),
-                total,
-            ),
+            allowance: casting::base_allowance(&self.state, spend_for(&self.state, wizard, face))
+                .adjusted(
+                    adjustment.eligible_increase,
+                    adjustment
+                        .increase
+                        .saturating_sub(adjustment.eligible_increase),
+                    total,
+                ),
         }
     }
 
@@ -279,7 +280,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
             return;
         }
         let face = self.wizard_face(wizard);
-        let form = match spend_for(wizard, face) {
+        let form = match spend_for(&self.state, wizard, face) {
             casting::SpendFor::SpellAs(_, form) => Some(form),
             casting::SpendFor::KickedSpell(_, _, form) => form,
             _ => None,
@@ -315,13 +316,14 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
         frozen.remainder = frozen.remainder.saturating_add(extra_red);
         frozen.colored_only_remainder = frozen.colored_only_remainder.combine(&extra_colored_only);
         frozen.mana_remainder = frozen.mana_remainder.combine(&extra_mana_red);
-        frozen.allowance = casting::base_allowance(&self.state, spend_for(wizard, face)).adjusted(
-            with_targets.eligible_increase,
-            with_targets
-                .increase
-                .saturating_sub(with_targets.eligible_increase),
-            frozen.total.saturating_add(extra_mana_red.generic_total()),
-        );
+        frozen.allowance =
+            casting::base_allowance(&self.state, spend_for(&self.state, wizard, face)).adjusted(
+                with_targets.eligible_increase,
+                with_targets
+                    .increase
+                    .saturating_sub(with_targets.eligible_increase),
+                frozen.total.saturating_add(extra_mana_red.generic_total()),
+            );
         wizard.reduction = Some(frozen);
     }
 }
@@ -342,7 +344,11 @@ fn raw_option_cost(
     } else if wizard.free || wizard.masked || library_top || plot_alt {
         ManaCost::ZERO
     } else if wizard.alternative_cost == Some(CastModeKind::Madness) {
-        face.madness.expect("madness").mana
+        state
+            .object(wizard.card)
+            .and_then(|o| casting::effective_madness_cost(o, face))
+            .expect("madness")
+            .mana
     } else {
         face.mana_cost
     };
@@ -373,12 +379,29 @@ fn raw_option_cost(
         ),
         Some(CastModeKind::Prototype) => face.prototype.expect("prototype").cost,
         Some(CastModeKind::Disguise) => const { ManaCost::parse("{3}") },
-        Some(CastModeKind::Miracle) => face.miracle.expect("miracle"),
-        Some(CastModeKind::Madness) => face.madness.expect("madness").mana,
-        Some(CastModeKind::Foretell) => face.foretell.expect("foretell"),
+        Some(CastModeKind::Miracle) => casting::effective_miracle_cost(
+            state,
+            state.object(wizard.card).expect("miracle card"),
+            face,
+        )
+        .expect("miracle"),
+        Some(CastModeKind::Madness) => {
+            casting::effective_madness_cost(state.object(wizard.card).expect("madness card"), face)
+                .expect("madness")
+                .mana
+        }
+        Some(CastModeKind::Foretell) => casting::effective_foretell_cost(
+            state.object(wizard.card).expect("foretell card"),
+            face,
+        )
+        .expect("foretell"),
         Some(CastModeKind::Flashback) => face.flashback.expect("flashback"),
-        Some(CastModeKind::BeamMeUp) => face.beam_me_up.expect("beam me up"),
-        Some(CastModeKind::Mayhem) => face.mayhem.expect("mayhem"),
+        Some(CastModeKind::BeamMeUp) => {
+            casting::effective_beam_me_up_cost(state, wizard.card, face).expect("beam me up")
+        }
+        Some(CastModeKind::Mayhem) => {
+            casting::effective_mayhem_cost(state, wizard.card, face).expect("mayhem")
+        }
         Some(CastModeKind::Dash) => face.dash.expect("dash"),
         Some(CastModeKind::Blitz) => {
             casting::effective_blitz_cost(
@@ -391,7 +414,11 @@ fn raw_option_cost(
             .expect("blitz")
             .mana
         }
-        Some(CastModeKind::Warp) => face.warp.expect("warp").mana,
+        Some(CastModeKind::Warp) => {
+            casting::effective_warp_cost(state, state.object(wizard.card).expect("warp card"), face)
+                .expect("warp")
+                .mana
+        }
         Some(CastModeKind::Sneak) => {
             casting::sneak_cost_for(
                 state,

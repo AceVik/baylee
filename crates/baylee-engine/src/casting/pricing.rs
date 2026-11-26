@@ -80,6 +80,7 @@ pub fn ability_mana_spending(
 pub fn spell_mana_spending(state: &GameState, player: PlayerId, card: ObjectId) -> ManaSpending {
     let mut any_type = false;
     let mut any_color = false;
+    let mut snow_any_color = false;
     if let Some(object) = state.object(card) {
         for permission in &state.play_permissions {
             if permission.grants_to(state, player, card, object.version) {
@@ -87,8 +88,13 @@ pub fn spell_mana_spending(state: &GameState, player: PlayerId, card: ObjectId) 
                 any_color |= permission.window.mana_any_color();
             }
         }
+        let (grant_type, grant_color, grant_snow) =
+            super::zone_play_grant_mana_spending(state, player, object);
+        any_type |= grant_type;
+        any_color |= grant_color;
+        snow_any_color |= grant_snow;
     }
-    if any_type {
+    let mut spending = if any_type {
         ManaSpending::ANY_TYPE
     } else if any_color {
         let mut spending = mana_spending(state, player);
@@ -103,7 +109,11 @@ pub fn spell_mana_spending(state: &GameState, player: PlayerId, card: ObjectId) 
         spending
     } else {
         mana_spending(state, player)
+    };
+    if snow_any_color && !any_type && !any_color {
+        spending.allow_snow_as_any_color();
     }
+    spending
 }
 
 /// The permanents convoke may be paid with (CR 702.51a): untapped creatures
@@ -2793,6 +2803,203 @@ pub fn component_affordable(
         )
         .is_some()
     })
+}
+
+/// Effective miracle cost for `obj`/`face`: printed miracle cost and any active
+/// `Modifier::GrantMiracle` applying to `obj` (choosing cheapest mana value).
+#[must_use]
+pub fn effective_miracle_cost(
+    state: &GameState,
+    obj: &crate::object::GameObject,
+    face: &baylee_cards_dsl::FaceDef,
+) -> Option<ManaCost> {
+    let mut best = face.miracle;
+    if obj.zone == Zone::Hand && state.effects.may_change_spell_costs() {
+        for fx in state.effects.iter() {
+            let baylee_cards_dsl::Modifier::GrantMiracle(grant) = fx.modifier else {
+                continue;
+            };
+            if !crate::effects::source_is_present(state, fx)
+                || !crate::effects::matches_filter(state, fx, obj)
+            {
+                continue;
+            }
+            let candidate = match grant {
+                baylee_cards_dsl::MiracleGrant::Fixed(cost) => Some(cost),
+                baylee_cards_dsl::MiracleGrant::ManaCostLessGeneric(reduce) => {
+                    super::has_a_printed_cost(&face.mana_cost)
+                        .then(|| face.mana_cost.with_less_generic(reduce))
+                }
+            };
+            if let Some(cost) = candidate
+                && best.is_none_or(|cur| cost.cmc() < cur.cmc())
+            {
+                best = Some(cost);
+            }
+        }
+    }
+    best
+}
+
+/// Generic reduction for a static `Modifier::GrantForetell` applying to `obj`
+/// (only when the face prints no foretell of its own, CR 702.143a).
+#[must_use]
+pub fn granted_foretell_reduce(
+    state: &GameState,
+    obj: &crate::object::GameObject,
+    face: &baylee_cards_dsl::FaceDef,
+) -> Option<u32> {
+    if face.foretell.is_some() || obj.zone != Zone::Hand || !state.effects.may_change_spell_costs()
+    {
+        return None;
+    }
+    state
+        .effects
+        .iter()
+        .filter_map(|fx| match fx.modifier {
+            baylee_cards_dsl::Modifier::GrantForetell { reduce_generic }
+                if crate::effects::source_is_present(state, fx)
+                    && crate::effects::matches_filter(state, fx, obj) =>
+            {
+                Some(reduce_generic)
+            }
+            _ => None,
+        })
+        .max()
+}
+
+/// Effective foretell cost for an exiled foretold card: printed foretell cost,
+/// else `Rider::GrantedForetellReduce` off its printed mana cost (`CR 118.6a`).
+#[must_use]
+pub fn effective_foretell_cost(
+    obj: &crate::object::GameObject,
+    face: &baylee_cards_dsl::FaceDef,
+) -> Option<ManaCost> {
+    face.foretell.or_else(|| {
+        obj.riders.iter().find_map(|r| match r {
+            crate::object::Rider::GrantedForetellReduce(reduce) => {
+                super::has_a_printed_cost(&face.mana_cost)
+                    .then(|| face.mana_cost.with_less_generic(*reduce))
+            }
+            _ => None,
+        })
+    })
+}
+
+/// Effective warp cost for `obj`/`face`: printed warp cost, else active
+/// `Modifier::GrantWarp(cost)` applying to `obj` (`CR 702.185a`).
+#[must_use]
+pub fn effective_warp_cost(
+    state: &GameState,
+    obj: &crate::object::GameObject,
+    face: &baylee_cards_dsl::FaceDef,
+) -> Option<baylee_cards_dsl::Cost> {
+    if let Some(warp) = face.warp {
+        return Some(warp);
+    }
+    if obj.zone != Zone::Hand || !state.effects.may_change_spell_costs() {
+        return None;
+    }
+    state
+        .effects
+        .iter()
+        .filter_map(|fx| match fx.modifier {
+            baylee_cards_dsl::Modifier::GrantWarp(cost)
+                if crate::effects::source_is_present(state, fx)
+                    && crate::effects::matches_filter(state, fx, obj) =>
+            {
+                Some(cost)
+            }
+            _ => None,
+        })
+        .min_by_key(|c| c.mana.cmc())
+}
+
+/// Whether `obj` in hand currently has madness granted by `Modifier::GrantMadnessManaCost`.
+#[must_use]
+pub fn has_granted_madness(state: &GameState, obj: &crate::object::GameObject) -> bool {
+    obj.zone == Zone::Hand
+        && state.effects.may_change_spell_costs()
+        && state.effects.iter().any(|fx| {
+            matches!(
+                fx.modifier,
+                baylee_cards_dsl::Modifier::GrantMadnessManaCost
+            ) && crate::effects::source_is_present(state, fx)
+                && crate::effects::matches_filter(state, fx, obj)
+        })
+}
+
+/// Effective madness cost for an exiled madness card: printed madness cost,
+/// else `Rider::GrantedMadness` using its printed mana cost (`CR 702.35a`).
+#[must_use]
+pub fn effective_madness_cost(
+    obj: &crate::object::GameObject,
+    face: &baylee_cards_dsl::FaceDef,
+) -> Option<baylee_cards_dsl::Cost> {
+    face.madness.or_else(|| {
+        (obj.riders.contains(&crate::object::Rider::GrantedMadness)
+            && super::has_a_printed_cost(&face.mana_cost))
+        .then_some(baylee_cards_dsl::Cost {
+            mana: face.mana_cost,
+            parts: &[],
+        })
+    })
+}
+
+/// Effective mayhem cost for `card` in a graveyard: printed mayhem cost, else
+/// `Modifier::GrantsMayhemManaCost` using its printed mana cost (`CR 702.187a`).
+#[must_use]
+pub fn effective_mayhem_cost(
+    state: &GameState,
+    card: ObjectId,
+    face: &baylee_cards_dsl::FaceDef,
+) -> Option<ManaCost> {
+    if let Some(mayhem) = face.mayhem {
+        return Some(mayhem);
+    }
+    if !state.effects.may_grant_graveyard_or_top_play()
+        || !super::has_a_printed_cost(&face.mana_cost)
+    {
+        return None;
+    }
+    let obj = state.object(card)?;
+    (obj.zone == Zone::Graveyard
+        && state.effects.iter().any(|fx| {
+            matches!(
+                fx.modifier,
+                baylee_cards_dsl::Modifier::GrantsMayhemManaCost
+            ) && crate::effects::source_is_present(state, fx)
+                && crate::effects::matches_filter(state, fx, obj)
+        }))
+    .then_some(face.mana_cost)
+}
+
+/// Effective beam-me-up cost for `card` in a graveyard: printed beam-me-up cost,
+/// else `Modifier::GrantsBeamMeUpManaCost` using its printed mana cost.
+#[must_use]
+pub fn effective_beam_me_up_cost(
+    state: &GameState,
+    card: ObjectId,
+    face: &baylee_cards_dsl::FaceDef,
+) -> Option<ManaCost> {
+    if let Some(beam) = face.beam_me_up {
+        return Some(beam);
+    }
+    if !state.effects.may_grant_graveyard_or_top_play()
+        || !super::has_a_printed_cost(&face.mana_cost)
+    {
+        return None;
+    }
+    let obj = state.object(card)?;
+    (obj.zone == Zone::Graveyard
+        && state.effects.iter().any(|fx| {
+            matches!(
+                fx.modifier,
+                baylee_cards_dsl::Modifier::GrantsBeamMeUpManaCost { .. }
+            ) && crate::effects::source_is_present(state, fx)
+                && crate::effects::matches_filter(state, fx, obj)
+        }))
+    .then_some(face.mana_cost)
 }
 
 #[cfg(test)]

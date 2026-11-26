@@ -105,6 +105,7 @@ impl GameState {
             resolution_chosen_color: _,
             resolution_chosen_number: _,
             resolution_remembered: _,
+            active_exiler: _,
             discovered,
             divided: _,
             synthetic_copies: _,

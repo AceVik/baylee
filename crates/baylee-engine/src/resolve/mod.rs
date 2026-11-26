@@ -1459,6 +1459,23 @@ pub(super) fn amount2(amount: &Amount, state: &GameState, you: PlayerId, res: &R
             }
             u32::try_from(values.len()).unwrap_or(u32::MAX)
         }
+        Amount::DistinctNames { zone, filter } => {
+            let require_card = !matches!(zone, baylee_cards_dsl::ZoneSel::Battlefield);
+            let candidates = wave12a::snapshot_zone_candidates(state, res, *zone);
+            let mut names = std::collections::BTreeSet::<baylee_core::ids::NameRef>::new();
+            for id in candidates {
+                if let Some(o) = state.object(id)
+                    && (!require_card || o.is_card())
+                    && matches_in_resolution(filter, state, o, you, res, None)
+                {
+                    let name = o.characteristics().name;
+                    if name != crate::state::NAMELESS {
+                        names.insert(name);
+                    }
+                }
+            }
+            u32::try_from(names.len()).unwrap_or(u32::MAX)
+        }
         Amount::DistinctPowersAmong(filter) => {
             let mut powers = std::collections::BTreeSet::<i32>::new();
             for id in state.battlefield_seen() {
@@ -1731,6 +1748,33 @@ pub(super) fn amount_for_player(
             }
             u32::try_from(values.len()).unwrap_or(u32::MAX)
         }
+        Amount::DistinctNames {
+            zone:
+                zone @ (baylee_cards_dsl::ZoneSel::GraveyardOf(PlayerRel::Recipient)
+                | baylee_cards_dsl::ZoneSel::HandOf(PlayerRel::Recipient)
+                | baylee_cards_dsl::ZoneSel::LibraryOf(PlayerRel::Recipient)),
+            filter,
+        } => {
+            let loc = match zone {
+                baylee_cards_dsl::ZoneSel::GraveyardOf(_) => ZoneLocation::Graveyard(player),
+                baylee_cards_dsl::ZoneSel::HandOf(_) => ZoneLocation::Hand(player),
+                baylee_cards_dsl::ZoneSel::LibraryOf(_) => ZoneLocation::Library(player),
+                _ => unreachable!(),
+            };
+            let mut names = std::collections::BTreeSet::<baylee_core::ids::NameRef>::new();
+            for &id in state.zones.list(loc) {
+                if let Some(o) = state.object(id)
+                    && o.is_card()
+                    && matches_in_resolution(filter, state, o, you, res, None)
+                {
+                    let name = o.characteristics().name;
+                    if name != crate::state::NAMELESS {
+                        names.insert(name);
+                    }
+                }
+            }
+            u32::try_from(names.len()).unwrap_or(u32::MAX)
+        }
         Amount::Plus { base, offset } => each(base).saturating_add(*offset),
         Amount::SaturatingSub { base, subtract } => each(base).saturating_sub(*subtract),
         Amount::ConstantMinus { constant, subtract } => constant.saturating_sub(each(subtract)),
@@ -1994,6 +2038,7 @@ fn amount_reads_resolution_player_at(amount: &baylee_cards_dsl::Amount, depth: u
             rel_needs_res(*who) || filter_reads_resolution_player_at(filter, depth + 1)
         }
         A::DistinctManaValuesInZone { zone, filter }
+        | A::DistinctNames { zone, filter }
         | A::TotalManaValueInZone { zone, filter }
         | A::DistinctExactManaCostsInZone { zone, filter } => {
             matches!(
@@ -2425,6 +2470,7 @@ pub fn run(state: &mut GameState, res: &mut Resolution) -> Flow {
     let prev_color = state.resolution_chosen_color;
     let prev_number = state.resolution_chosen_number;
     let prev_remembered = state.resolution_remembered.take();
+    let prev_exiler = state.active_exiler.replace(res.controller);
     state.resolution_chosen_color = res.subject.chosen_color.map(|c| (res.source, c));
     state.resolution_chosen_number = res.subject.chosen_number.map(|n| (res.source, n));
     state.resolution_remembered = res
@@ -2436,6 +2482,7 @@ pub fn run(state: &mut GameState, res: &mut Resolution) -> Flow {
     state.resolution_chosen_color = prev_color;
     state.resolution_chosen_number = prev_number;
     state.resolution_remembered = prev_remembered;
+    state.active_exiler = prev_exiler;
     flow
 }
 
@@ -2641,18 +2688,23 @@ fn order_before_continuing(
 
 /// Continue the original instruction after every entry replacement has finished.
 pub(crate) fn resume_entries(state: &mut GameState, res: &mut Resolution) -> Flow {
+    let prev_exiler = state.active_exiler.replace(res.controller);
     linked_reanimation::flush(state, res);
     let Some(AwaitingOp::Entry { next, after }) = res.awaiting.take() else {
+        state.active_exiler = prev_exiler;
         unreachable!("entry continuation")
     };
     if let Some(after) = after {
         debug_assert!(next.is_none(), "post-entry work owns its next decision");
         if let Some(pending) = after_entry::resume(state, res, after) {
+            state.active_exiler = prev_exiler;
             return Flow::Wait(pending);
         }
         advance_program(res);
+        state.active_exiler = prev_exiler;
         return run(state, res);
     }
+    state.active_exiler = prev_exiler;
     if let Some(next) = next {
         let (awaiting, pending) = *next;
         res.awaiting = Some(awaiting);

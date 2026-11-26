@@ -183,6 +183,13 @@ pub fn locks_its_set(modifier: &Modifier) -> bool {
         | Modifier::GrantBlitzCardManaCost
         | Modifier::GrantProwl(_)
         | Modifier::GrantFreerunning(_)
+        | Modifier::GrantMiracle(_)
+        | Modifier::GrantForetell { .. }
+        | Modifier::GrantWarp(_)
+        | Modifier::GrantEvoke(_)
+        | Modifier::GrantMadnessManaCost
+        | Modifier::GrantsMayhemManaCost
+        | Modifier::GrantsBeamMeUpManaCost { .. }
         | Modifier::Sneak(_)
         | Modifier::GainControl
         | Modifier::AddTypeIfCountersAtLeast { .. }
@@ -272,6 +279,7 @@ pub fn locks_its_set(modifier: &Modifier) -> bool {
         | Modifier::RevealAllLibraryTops
         | Modifier::RevealAllHands
         | Modifier::RevealYourHand
+        | Modifier::RevealOpponentsHands
         | Modifier::RevealLibraryTop
         | Modifier::ExtraLandDrops(_)
         | Modifier::CantActivateArtifacts
@@ -410,6 +418,7 @@ pub fn locks_its_set(modifier: &Modifier) -> bool {
         | Modifier::CantBlockUnlessYouControlMoreCreaturesThanAttacker
         | Modifier::CreatureAbilityManaAnyColor
         | Modifier::MayCastWithAltCost { .. }
+        | Modifier::ZonePlayGrant(_)
         | Modifier::AdjustSpellCostByCast { .. }
         | Modifier::MayLookAtTopOfLibrary { .. }
         | Modifier::GrantFlash { .. }
@@ -786,6 +795,12 @@ impl EffectTable {
                     | Modifier::SpendManaAs { .. }
                     | Modifier::CreatureAbilityManaAnyColor
                     | Modifier::OneSpellManaAnyType
+                    | Modifier::ZonePlayGrant(baylee_cards_dsl::ZonePlayGrant {
+                        mana_spending: baylee_cards_dsl::ZonePlayManaSpending::AnyColor
+                            | baylee_cards_dsl::ZonePlayManaSpending::AnyType
+                            | baylee_cards_dsl::ZonePlayManaSpending::SnowAsAnyColor,
+                        ..
+                    })
             ),
         );
         self.hints.insert_if(
@@ -817,6 +832,11 @@ impl EffectTable {
                     | Modifier::GrantBlitzCardManaCost
                     | Modifier::GrantProwl(_)
                     | Modifier::GrantFreerunning(_)
+                    | Modifier::GrantMiracle(_)
+                    | Modifier::GrantForetell { .. }
+                    | Modifier::GrantWarp(_)
+                    | Modifier::GrantEvoke(_)
+                    | Modifier::GrantMadnessManaCost
                     | Modifier::CastCostIncreaseUnlessTargets { .. }
             ),
         );
@@ -868,6 +888,10 @@ impl EffectTable {
                         with_flash: true,
                         ..
                     }
+                    | Modifier::ZonePlayGrant(baylee_cards_dsl::ZonePlayGrant {
+                        with_flash: true,
+                        ..
+                    })
                     | Modifier::GrantFlash { .. }
             ),
         );
@@ -885,6 +909,7 @@ impl EffectTable {
                     | Modifier::MayLookAtTopOfLibrary { .. }
                     | Modifier::RevealAllHands
                     | Modifier::RevealYourHand
+                    | Modifier::RevealOpponentsHands
                     | Modifier::NoMaxHandSize
                     | Modifier::ChosenPlayerMaxHandSize(_)
             ),
@@ -910,6 +935,10 @@ impl EffectTable {
                     | Modifier::MayCastFromGraveyardUsingAlt(_)
                     | Modifier::GrantsHarmonizeManaCost
                     | Modifier::MayCastFromGraveyardTargeted { .. }
+                    | Modifier::GrantEvoke(_)
+                    | Modifier::GrantsMayhemManaCost
+                    | Modifier::GrantsBeamMeUpManaCost { .. }
+                    | Modifier::ZonePlayGrant(_)
             ),
         );
         self.hints.insert_if(
@@ -1412,6 +1441,22 @@ pub(crate) fn applies_to_snapshot(
             crate::zone::Zone::Battlefield | crate::zone::Zone::Stack
         )
         && !crate::state::filter_reaches_other_zones(filter)
+        && !matches!(
+            (&fx.modifier, obj.zone),
+            (
+                Modifier::GrantActivatedDefinition(baylee_cards_dsl::AbilityDef::Activated {
+                    zone: baylee_cards_dsl::ActivationZone::Hand,
+                    ..
+                }),
+                crate::zone::Zone::Hand
+            ) | (
+                Modifier::GrantActivatedDefinition(baylee_cards_dsl::AbilityDef::Activated {
+                    zone: baylee_cards_dsl::ActivationZone::Graveyard,
+                    ..
+                }),
+                crate::zone::Zone::Graveyard
+            )
+        )
     {
         return false;
     }
@@ -2414,6 +2459,39 @@ mod tests {
                 filter: &baylee_cards_dsl::Filter::YOUR_CREATURE,
                 generic: 8,
             },
+            Modifier::GrantMiracle(baylee_cards_dsl::MiracleGrant::ManaCostLessGeneric(4)),
+            Modifier::GrantForetell { reduce_generic: 2 },
+            Modifier::GrantWarp(baylee_cards_dsl::Cost {
+                mana: baylee_core::mana::ManaCost::ZERO,
+                parts: &[],
+            }),
+            Modifier::GrantEvoke(baylee_cards_dsl::Cost {
+                mana: baylee_core::mana::ManaCost::ZERO,
+                parts: &[],
+            }),
+            Modifier::GrantMadnessManaCost,
+            Modifier::GrantsMayhemManaCost,
+            Modifier::GrantsBeamMeUpManaCost {
+                cant_return_source: true,
+            },
+            Modifier::RevealOpponentsHands,
+            Modifier::ZonePlayGrant(baylee_cards_dsl::ZonePlayGrant {
+                who: baylee_cards_dsl::PlayerRel::You,
+                zones: baylee_cards_dsl::AltCastZones::Zones(&[
+                    baylee_cards_dsl::ZoneRef::Graveyard,
+                ]),
+                grant_zone_permission: true,
+                allow_lands: true,
+                with_flash: false,
+                once_per_turn: true,
+                max_mana_value: None,
+                price: baylee_cards_dsl::AltCastPrice::Normal,
+                mana_spending: baylee_cards_dsl::ZonePlayManaSpending::Exact,
+                rider: baylee_cards_dsl::ZonePlayCastRider::None,
+                your_turn_only: false,
+                as_sorcery_only: false,
+                mana_cost_must_contain: None,
+            }),
         ]
     }
 
@@ -2452,7 +2530,7 @@ mod tests {
 
         assert_eq!(
             declared.len(),
-            278,
+            287,
             "read {} variants out of the declaration, which is not the enum",
             declared.len()
         );
@@ -2589,7 +2667,11 @@ mod tests {
         // Wave 17c adds GrantsUnearth, GrantsScavengeManaCost, and GrantsDredge on
         // Layer::Ability (+3 locking -> 70) and ten cost/permission modifiers on
         // Layer::Text (+10 rules-only -> 194).
-        assert_eq!((locking, all.len() - locking), (79, 199));
+        // Wave 19 (eng-zones-filters) adds GrantMiracle, GrantForetell, GrantWarp,
+        // GrantEvoke, GrantMadnessManaCost, GrantsMayhemManaCost, and
+        // GrantsBeamMeUpManaCost on Layer::Ability (+7 locking -> 86) and
+        // RevealOpponentsHands + ZonePlayGrant on Layer::Text (+2 rules-only -> 201).
+        assert_eq!((locking, all.len() - locking), (86, 201));
     }
 
     /// An `ObjectId` alone is not an identity: an id is stable for a whole

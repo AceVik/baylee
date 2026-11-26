@@ -11,7 +11,10 @@ use crate::effects::ContinuousEffect;
 use crate::object::{Characteristics, GameObject, Rider};
 use crate::state::{CardLookup, GameState};
 use crate::zone::{Zone, ZoneLocation};
-use baylee_cards_dsl::{AltCastPrice, AltCastZones, CardDef, Modifier, TypeSet};
+use baylee_cards_dsl::{
+    AltCastPrice, AltCastZones, CardDef, Modifier, TypeSet, ZonePlayCastRider, ZonePlayGrant,
+    ZonePlayManaSpending,
+};
 use baylee_core::ids::{DamageSourceRef, EffectId, ObjectId, PlayerId};
 use baylee_core::mana::ManaCost;
 use std::sync::Arc;
@@ -36,6 +39,44 @@ pub struct AltCastGrantRoute {
     pub exile_instead_of_graveyard: bool,
     pub harmonize: bool,
     pub is_flashback_grant: bool,
+    pub evoke_sacrifice: bool,
+    pub entry_finality: bool,
+    pub grant_death_exile_gain_life: Option<u32>,
+    pub grant_leave_exile: bool,
+}
+
+/// Normalizes `Modifier::MayCastWithAltCost` and `Modifier::ZonePlayGrant`
+/// into one unified descriptor so zone, timing, land, and price rules stay in
+/// a single code path.
+fn as_zone_play_grant(modifier: &Modifier) -> Option<ZonePlayGrant> {
+    match *modifier {
+        Modifier::ZonePlayGrant(grant) => Some(grant),
+        Modifier::MayCastWithAltCost {
+            who,
+            zones,
+            grant_zone_permission,
+            allow_lands,
+            with_flash,
+            once_per_turn,
+            max_mana_value,
+            price,
+        } => Some(ZonePlayGrant {
+            who,
+            zones,
+            grant_zone_permission,
+            allow_lands,
+            with_flash,
+            once_per_turn,
+            max_mana_value,
+            price,
+            mana_spending: ZonePlayManaSpending::Exact,
+            rider: ZonePlayCastRider::None,
+            your_turn_only: false,
+            as_sorcery_only: false,
+            mana_cost_must_contain: None,
+        }),
+        _ => None,
+    }
 }
 
 fn is_linked_to_source(state: &GameState, effect: &ContinuousEffect, obj: &GameObject) -> bool {
@@ -76,6 +117,9 @@ fn zone_matches_grant(
         }
         AltCastZones::LinkedExile => {
             obj.zone == Zone::Exile && is_linked_to_source(state, effect, obj)
+        }
+        AltCastZones::ExiledByYou => {
+            obj.zone == Zone::Exile && obj.riders.contains(&Rider::ExiledBy(player))
         }
     }
 }
@@ -153,25 +197,26 @@ fn grant_matches_face(
     def: &'static CardDef,
     face: usize,
 ) -> bool {
-    let Modifier::MayCastWithAltCost {
-        who,
-        zones,
-        grant_zone_permission,
-        max_mana_value,
-        once_per_turn,
-        ..
-    } = effect.modifier
-    else {
+    let Some(grant) = as_zone_play_grant(&effect.modifier) else {
         return false;
     };
     if def.faces[face].types.contains(TypeSet::LAND)
-        || !effect_allows_player(state, effect, player, who, once_per_turn)
-        || !zone_matches_grant(state, player, effect, obj, zones)
-        || (!grant_zone_permission && !has_plain_zone_permission(state, player, obj, def, face))
+        || (grant.your_turn_only && state.turn.active != player)
+        || (grant.as_sorcery_only && !super::sorcery_window(state, player))
+        || !effect_allows_player(state, effect, player, grant.who, grant.once_per_turn)
+        || !zone_matches_grant(state, player, effect, obj, grant.zones)
+        || (!grant.grant_zone_permission
+            && !has_plain_zone_permission(state, player, obj, def, face))
     {
         return false;
     }
-    if let Some(bound) = max_mana_value {
+    if let Some(req) = grant.mana_cost_must_contain {
+        let colors = def.faces[face].mana_cost.colors();
+        if (colors.bits() & req.bits()) != req.bits() {
+            return false;
+        }
+    }
+    if let Some(bound) = grant.max_mana_value {
         let src = effect.source.unwrap_or(obj.id);
         let max_mv = crate::eval::amount(&bound, state, effect.controller, src, None);
         if def.faces[face].mana_cost.cmc() > max_mv {
@@ -180,6 +225,68 @@ fn grant_matches_face(
     }
     let prospective = projected_face_spell(obj, def, face);
     crate::effects::matches_filter(state, effect, &prospective)
+}
+
+fn evoke_grant_matches_face(
+    state: &GameState,
+    player: PlayerId,
+    effect: &ContinuousEffect,
+    obj: &GameObject,
+    def: &'static CardDef,
+    face: usize,
+) -> Option<baylee_cards_dsl::Cost> {
+    let Modifier::GrantEvoke(cost) = effect.modifier else {
+        return None;
+    };
+    if obj.zone != Zone::Hand
+        || obj.zone_owner != Some(player)
+        || def.faces[face].types.contains(TypeSet::LAND)
+        || !crate::effects::source_is_present(state, effect)
+    {
+        return None;
+    }
+    let prospective = projected_face_spell(obj, def, face);
+    if !crate::effects::matches_filter(state, effect, &prospective) {
+        return None;
+    }
+    Some(cost)
+}
+
+/// Active `ZonePlayGrant` mana-spending relaxations applicable to `obj` for `player`.
+pub(crate) fn zone_play_grant_mana_spending(
+    state: &GameState,
+    player: PlayerId,
+    raw: &GameObject,
+) -> (bool, bool, bool) {
+    let (mut any_type, mut any_color, mut snow_any_color) = (false, false, false);
+    if !state.effects.may_grant_graveyard_or_top_play() {
+        return (false, false, false);
+    }
+    let face_up = super::playable_exile_projection(state, player, raw);
+    let obj: &GameObject = &face_up;
+    let Some(def) = obj.card.and_then(|c| state.bases.card(c.index)) else {
+        return (false, false, false);
+    };
+    for effect in state.effects.iter() {
+        let Modifier::ZonePlayGrant(grant) = effect.modifier else {
+            continue;
+        };
+        if grant.mana_spending == ZonePlayManaSpending::Exact {
+            continue;
+        }
+        let matches = (0..def.faces.len())
+            .any(|face| grant_matches_face(state, player, effect, obj, def, face));
+        if !matches {
+            continue;
+        }
+        match grant.mana_spending {
+            ZonePlayManaSpending::Exact => {}
+            ZonePlayManaSpending::AnyColor => any_color = true,
+            ZonePlayManaSpending::AnyType => any_type = true,
+            ZonePlayManaSpending::SnowAsAnyColor => snow_any_color = true,
+        }
+    }
+    (any_type, any_color, snow_any_color)
 }
 
 fn flashback_cost_matches_face(
@@ -294,19 +401,26 @@ pub fn alt_cast_land_open(state: &GameState, player: PlayerId, card: ObjectId) -
     let face_up = super::playable_exile_projection(state, player, raw);
     let obj: &GameObject = &face_up;
     state.effects.iter().any(|effect| {
-        let Modifier::MayCastWithAltCost {
-            who,
-            zones,
-            grant_zone_permission: true,
-            allow_lands: true,
-            once_per_turn,
-            ..
-        } = effect.modifier
-        else {
+        let Some(grant) = as_zone_play_grant(&effect.modifier) else {
             return false;
         };
-        effect_allows_player(state, effect, player, who, once_per_turn)
-            && zone_matches_grant(state, player, effect, obj, zones)
+        if !grant.grant_zone_permission
+            || !grant.allow_lands
+            || (grant.your_turn_only && state.turn.active != player)
+            || (grant.as_sorcery_only && !super::sorcery_window(state, player))
+            || grant.mana_cost_must_contain.is_some()
+        {
+            return false;
+        }
+        if let Some(bound) = grant.max_mana_value {
+            let src = effect.source.unwrap_or(obj.id);
+            let max_mv = crate::eval::amount(&bound, state, effect.controller, src, None);
+            if obj.characteristics().mana_value() > max_mv {
+                return false;
+            }
+        }
+        effect_allows_player(state, effect, player, grant.who, grant.once_per_turn)
+            && zone_matches_grant(state, player, effect, obj, grant.zones)
             && effect_matches_land_object(state, effect, obj)
     })
 }
@@ -317,23 +431,24 @@ pub fn alt_cast_land_open(state: &GameState, player: PlayerId, card: ObjectId) -
 pub(crate) fn alt_cast_graveyard_land_zone_open(state: &GameState, player: PlayerId) -> bool {
     state.effects.may_grant_graveyard_or_top_play()
         && state.effects.iter().any(|effect| {
-            let Modifier::MayCastWithAltCost {
-                who,
-                zones,
-                grant_zone_permission: true,
-                allow_lands: true,
-                once_per_turn,
-                ..
-            } = effect.modifier
-            else {
+            let Some(grant) = as_zone_play_grant(&effect.modifier) else {
                 return false;
             };
-            let reaches_gy = match zones {
+            if !grant.grant_zone_permission
+                || !grant.allow_lands
+                || (grant.your_turn_only && state.turn.active != player)
+            {
+                return false;
+            }
+            let reaches_gy = match grant.zones {
                 AltCastZones::AnyPermitted => true,
                 AltCastZones::Zones(zs) => zs.iter().any(|z| Zone::Graveyard.matches_ref(*z)),
-                AltCastZones::TopOfLibrary | AltCastZones::LinkedExile => false,
+                AltCastZones::TopOfLibrary
+                | AltCastZones::LinkedExile
+                | AltCastZones::ExiledByYou => false,
             };
-            reaches_gy && effect_allows_player(state, effect, player, who, once_per_turn)
+            reaches_gy
+                && effect_allows_player(state, effect, player, grant.who, grant.once_per_turn)
         })
 }
 
@@ -343,43 +458,60 @@ pub(crate) fn consume_alt_cast_land_allowance(
     state: &mut GameState,
     player: PlayerId,
     card: ObjectId,
-) {
+) -> ZonePlayCastRider {
     if !state.effects.may_grant_graveyard_or_top_play() {
-        return;
+        return ZonePlayCastRider::None;
     }
     let Some(raw) = state.object(card) else {
-        return;
+        return ZonePlayCastRider::None;
     };
     let face_up = super::playable_exile_projection(state, player, raw);
     let obj: &GameObject = &face_up;
-    let mut once_id = None;
+    let mut unlimited_rider: Option<ZonePlayCastRider> = None;
+    let mut once_choice: Option<(EffectId, ZonePlayCastRider)> = None;
     for effect in state.effects.iter() {
-        let Modifier::MayCastWithAltCost {
-            who,
-            zones,
-            grant_zone_permission: true,
-            allow_lands: true,
-            once_per_turn,
-            ..
-        } = effect.modifier
-        else {
+        let Some(grant) = as_zone_play_grant(&effect.modifier) else {
             continue;
         };
-        if effect_allows_player(state, effect, player, who, once_per_turn)
-            && zone_matches_grant(state, player, effect, obj, zones)
+        if !grant.grant_zone_permission
+            || !grant.allow_lands
+            || (grant.your_turn_only && state.turn.active != player)
+            || (grant.as_sorcery_only && !super::sorcery_window(state, player))
+            || grant.mana_cost_must_contain.is_some()
+        {
+            continue;
+        }
+        if let Some(bound) = grant.max_mana_value {
+            let src = effect.source.unwrap_or(obj.id);
+            let max_mv = crate::eval::amount(&bound, state, effect.controller, src, None);
+            if obj.characteristics().mana_value() > max_mv {
+                continue;
+            }
+        }
+        if effect_allows_player(state, effect, player, grant.who, grant.once_per_turn)
+            && zone_matches_grant(state, player, effect, obj, grant.zones)
             && effect_matches_land_object(state, effect, obj)
         {
-            if !once_per_turn {
-                return;
+            if !grant.once_per_turn {
+                if grant.rider == ZonePlayCastRider::None {
+                    return ZonePlayCastRider::None;
+                }
+                unlimited_rider.get_or_insert(grant.rider);
+                continue;
             }
-            if once_id.is_none() {
-                once_id = Some(effect.id);
+            if once_choice.is_none() {
+                once_choice = Some((effect.id, grant.rider));
             }
         }
     }
-    if let Some(id) = once_id {
-        state.per_turn.graveyard_allowances_used.push((player, id));
+    if let Some(rider) = unlimited_rider {
+        return rider;
     }
+    if let Some((id, rider)) = once_choice {
+        state.per_turn.graveyard_allowances_used.push((player, id));
+        return rider;
+    }
+    ZonePlayCastRider::None
 }
 
 /// Whether `face` of `def` is opened for casting by any active `MayCastWithAltCost`.
@@ -404,13 +536,8 @@ pub(crate) fn alt_cast_face_open(
     };
     face < def.faces.len()
         && state.effects.iter().any(|effect| {
-            (matches!(
-                effect.modifier,
-                Modifier::MayCastWithAltCost {
-                    grant_zone_permission: true,
-                    ..
-                }
-            ) && grant_matches_face(state, player, effect, obj, def, face))
+            (as_zone_play_grant(&effect.modifier).is_some_and(|g| g.grant_zone_permission)
+                && grant_matches_face(state, player, effect, obj, def, face))
                 || targeted_gy_grant_matches_face(state, player, effect, obj, def, face)
                 || harmonize_cost_matches_face(state, player, effect, obj, def, face).is_some()
         })
@@ -444,13 +571,8 @@ pub(crate) fn alt_cast_face_with_flash(
             baylee_cards_dsl::KeywordSet::EMPTY,
         )
         && state.effects.iter().any(|effect| {
-            matches!(
-                effect.modifier,
-                Modifier::MayCastWithAltCost {
-                    with_flash: true,
-                    ..
-                }
-            ) && grant_matches_face(state, player, effect, obj, def, face)
+            as_zone_play_grant(&effect.modifier).is_some_and(|g| g.with_flash && !g.as_sorcery_only)
+                && grant_matches_face(state, player, effect, obj, def, face)
         })
 }
 
@@ -471,16 +593,6 @@ pub(crate) fn alt_cast_zone_spell_open(
     let face_up = super::playable_exile_projection(state, player, raw);
     let obj: &GameObject = &face_up;
     state.effects.iter().any(|effect| match effect.modifier {
-        Modifier::MayCastWithAltCost {
-            who,
-            zones,
-            grant_zone_permission: true,
-            once_per_turn,
-            ..
-        } => {
-            effect_allows_player(state, effect, player, who, once_per_turn)
-                && zone_matches_grant(state, player, effect, obj, zones)
-        }
         Modifier::MayCastFromGraveyardTargeted { .. } => {
             obj.zone == Zone::Graveyard
                 && player == effect.controller
@@ -491,7 +603,13 @@ pub(crate) fn alt_cast_zone_spell_open(
                 && obj.zone_owner == Some(player)
                 && crate::effects::applies_to(state, effect, obj)
         }
-        _ => false,
+        _ => as_zone_play_grant(&effect.modifier).is_some_and(|grant| {
+            grant.grant_zone_permission
+                && (!grant.your_turn_only || state.turn.active == player)
+                && (!grant.as_sorcery_only || super::sorcery_window(state, player))
+                && effect_allows_player(state, effect, player, grant.who, grant.once_per_turn)
+                && zone_matches_grant(state, player, effect, obj, grant.zones)
+        }),
     })
 }
 
@@ -515,12 +633,13 @@ pub(crate) fn has_alt_cast_grant(
         return false;
     };
     state.effects.iter().any(|effect| {
-        (matches!(effect.modifier, Modifier::MayCastWithAltCost { .. })
+        (as_zone_play_grant(&effect.modifier).is_some()
             && (0..def.faces.len())
                 .any(|face| grant_matches_face(state, player, effect, obj, def, face)))
             || (0..def.faces.len()).any(|face| {
                 flashback_cost_matches_face(state, player, effect, obj, def, face).is_some()
                     || harmonize_cost_matches_face(state, player, effect, obj, def, face).is_some()
+                    || evoke_grant_matches_face(state, player, effect, obj, def, face).is_some()
                     || targeted_gy_grant_matches_face(state, player, effect, obj, def, face)
             })
     })
@@ -586,23 +705,32 @@ fn collect_effect_grant_options(
         exile_instead_of_graveyard,
         harmonize,
         is_flashback_grant,
+        evoke_extra,
+        entry_finality,
+        grant_death_exile_gain_life,
+        grant_leave_exile,
     ) = match effect.modifier {
-        Modifier::MayCastWithAltCost {
-            grant_zone_permission,
-            with_flash,
-            once_per_turn,
-            price,
-            ..
-        } => (
-            grant_zone_permission,
-            with_flash,
-            once_per_turn,
-            price,
-            false,
-            false,
-            false,
-            false,
-        ),
+        Modifier::GrantEvoke(cost) => {
+            if !(0..def.faces.len()).any(|face| {
+                evoke_grant_matches_face(state, player, effect, obj, def, face).is_some()
+            }) {
+                return;
+            }
+            (
+                false,
+                false,
+                false,
+                AltCastPrice::Mana(cost.mana),
+                false,
+                false,
+                false,
+                false,
+                Some(cost),
+                false,
+                None,
+                false,
+            )
+        }
         Modifier::GrantsFlashbackCost(cost) => {
             if !(0..def.faces.len()).any(|face| {
                 flashback_cost_matches_face(state, player, effect, obj, def, face).is_some()
@@ -618,6 +746,10 @@ fn collect_effect_grant_options(
                 false,
                 false,
                 true,
+                None,
+                false,
+                None,
+                false,
             )
         }
         Modifier::GrantsHarmonizeManaCost => {
@@ -634,6 +766,10 @@ fn collect_effect_grant_options(
                 true,
                 false,
                 true,
+                false,
+                None,
+                false,
+                None,
                 false,
             )
         }
@@ -661,23 +797,61 @@ fn collect_effect_grant_options(
                 exile_instead_of_graveyard,
                 false,
                 false,
+                None,
+                false,
+                None,
+                false,
             )
         }
-        _ => return,
+        _ => {
+            let Some(grant) = as_zone_play_grant(&effect.modifier) else {
+                return;
+            };
+            let (exile_gy, finality, death_life, leave_exile) = match grant.rider {
+                ZonePlayCastRider::None => (false, false, None, false),
+                ZonePlayCastRider::ExileInsteadOfGraveyard => (true, false, None, false),
+                ZonePlayCastRider::EntryFinality => (false, true, None, false),
+                ZonePlayCastRider::GrantDeathExileAndGainLife(life) => {
+                    (false, false, Some(life), false)
+                }
+                ZonePlayCastRider::GrantLeaveExileReplacement => (false, false, None, true),
+            };
+            (
+                grant.grant_zone_permission,
+                grant.with_flash && !grant.as_sorcery_only,
+                grant.once_per_turn,
+                grant.price,
+                false,
+                exile_gy,
+                false,
+                false,
+                None,
+                finality,
+                death_life,
+                leave_exile,
+            )
+        }
     };
     let is_targeted_gy = matches!(
         effect.modifier,
         Modifier::MayCastFromGraveyardTargeted { .. }
     );
+    let is_evoke_grant = evoke_extra.is_some();
     if !is_flashback_grant
         && !harmonize
         && !is_targeted_gy
+        && !is_evoke_grant
         && !(0..def.faces.len())
             .any(|face| grant_matches_face(state, player, effect, obj, def, face))
     {
         return;
     }
-    let (basis, base_mana, extra_cost, mut is_alt_cost) = price_basis(price, with_flash);
+    let (basis, base_mana, mut extra_cost, mut is_alt_cost) = price_basis(price, with_flash);
+    if let Some(evoke_cost) = evoke_extra
+        && !evoke_cost.parts.is_empty()
+    {
+        extra_cost = Some(evoke_cost);
+    }
     if harmonize {
         is_alt_cost = true;
     }
@@ -688,6 +862,8 @@ fn collect_effect_grant_options(
             harmonize_cost_matches_face(state, player, effect, obj, def, choice.face).is_some()
         } else if is_targeted_gy {
             targeted_gy_grant_matches_face(state, player, effect, obj, def, choice.face)
+        } else if is_evoke_grant {
+            evoke_grant_matches_face(state, player, effect, obj, def, choice.face).is_some()
         } else {
             grant_matches_face(state, player, effect, obj, def, choice.face)
         };
@@ -780,6 +956,10 @@ fn collect_effect_grant_options(
                 exile_instead_of_graveyard,
                 harmonize,
                 is_flashback_grant,
+                evoke_sacrifice: is_evoke_grant,
+                entry_finality,
+                grant_death_exile_gain_life,
+                grant_leave_exile,
             },
         ));
     }
@@ -866,6 +1046,8 @@ pub(crate) fn alt_cast_route_still_open(
                 flashback_cost_matches_face(state, player, effect, obj, def, route.face).is_some()
             } else if route.harmonize {
                 harmonize_cost_matches_face(state, player, effect, obj, def, route.face).is_some()
+            } else if route.evoke_sacrifice {
+                evoke_grant_matches_face(state, player, effect, obj, def, route.face).is_some()
             } else if matches!(
                 effect.modifier,
                 Modifier::MayCastFromGraveyardTargeted { .. }
