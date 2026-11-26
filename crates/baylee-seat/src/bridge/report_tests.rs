@@ -3,6 +3,7 @@
 //! seat token of a chair taken on its host's ticket, or none.
 
 use super::*;
+use crate::link::SeatLink;
 use crate::lobby::{Chair, Lobby, Session};
 use crate::mind::{Disclosure, Request, Thinking};
 use crate::reports::Filed;

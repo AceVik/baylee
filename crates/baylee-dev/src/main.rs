@@ -176,6 +176,11 @@ enum Central {
         /// Only the cross-gateway ranked queue, game and settlement.
         #[arg(long, conflicts_with = "challenges_only")]
         ranked_only: bool,
+        /// Only the ranked runners: two AI accounts, each a house mind,
+        /// queue against each other and finish a ranked game
+        /// (`docs/llm-seat.md` §"The ranked runner").
+        #[arg(long, conflicts_with_all = ["challenges_only", "ranked_only"])]
+        ai_players_only: bool,
         #[arg(long)]
         cargo_config: Option<PathBuf>,
         /// End early once this file exists.
@@ -321,6 +326,7 @@ fn central_task(check: Central) -> (&'static str, anyhow::Result<i32>) {
         Central::Integration {
             challenges_only,
             ranked_only,
+            ai_players_only,
             cargo_config,
             cancel_file,
             exercise_failure,
@@ -330,8 +336,15 @@ fn central_task(check: Central) -> (&'static str, anyhow::Result<i32>) {
                 cargo_config.as_deref(),
                 cancel_file.as_deref(),
                 exercise_failure,
-                challenges_only,
-                ranked_only,
+                if challenges_only {
+                    central::Only::Challenges
+                } else if ranked_only {
+                    central::Only::Ranked
+                } else if ai_players_only {
+                    central::Only::AiPlayers
+                } else {
+                    central::Only::Everything
+                },
             ),
         ),
         Central::Client {
