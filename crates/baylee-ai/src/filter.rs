@@ -1616,7 +1616,12 @@ fn attacking_you_or_planeswalker(
     allow_battle_unknown: bool,
 ) -> Option<bool> {
     let mut unknown = false;
-    for attacker in view.combat.attackers.iter().filter(|a| a.creature == creature) {
+    for attacker in view
+        .combat
+        .attackers
+        .iter()
+        .filter(|a| a.creature == creature)
+    {
         match attacker.defending {
             baylee_core::ids::Defender::Player(p) if p == you => return Some(true),
             baylee_core::ids::Defender::Planeswalker(pw) => {

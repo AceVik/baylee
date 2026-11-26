@@ -597,15 +597,27 @@ fn owned_by_and_combat_defending_filters_read_public_view() {
         .build();
 
     assert_eq!(
-        matches(&view, &stolen, &Filter::OwnedBy(baylee_cards_dsl::PlayerRel::You)),
+        matches(
+            &view,
+            &stolen,
+            &Filter::OwnedBy(baylee_cards_dsl::PlayerRel::You)
+        ),
         Some(true)
     );
     assert_eq!(
-        matches(&view, &op_own, &Filter::OwnedBy(baylee_cards_dsl::PlayerRel::You)),
+        matches(
+            &view,
+            &op_own,
+            &Filter::OwnedBy(baylee_cards_dsl::PlayerRel::You)
+        ),
         Some(false)
     );
     assert_eq!(
-        matches(&view, &op_own, &Filter::OwnedBy(baylee_cards_dsl::PlayerRel::Opponent)),
+        matches(
+            &view,
+            &op_own,
+            &Filter::OwnedBy(baylee_cards_dsl::PlayerRel::Opponent)
+        ),
         Some(true)
     );
 
