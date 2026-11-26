@@ -1579,7 +1579,9 @@ impl Effect {
             | Effect::AddCounterDamagedObject { .. }
             | Effect::ShuffleDamagedObjectIntoLibrary
             | Effect::DealDamageToEventSourceOrController { .. }
-            | Effect::RedirectNextDamageTo { .. } => (NONE, NONE),
+            | Effect::RedirectNextDamageTo { .. }
+            | Effect::MeldPair { .. }
+            | Effect::PlayersChooseMode(_) => (NONE, NONE),
             Effect::AnyPlayerMayPayManaAmount {
                 on_payment: false,
                 effects,
@@ -1591,6 +1593,7 @@ impl Effect {
                 ..
             } => (NONE, effects),
             Effect::VoteObjects { if_no_votes, .. } => (NONE, if_no_votes),
+            Effect::SetState { if_cant, .. } => (NONE, if_cant),
         }
     }
 

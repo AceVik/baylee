@@ -1269,6 +1269,7 @@ fn cast_label(
                 SpellEnding::Hand => Phrase::SpellEndingHand,
                 SpellEnding::Rebound => Phrase::SpellEndingRebound,
                 SpellEnding::Adventure => Phrase::SpellEndingAdventure,
+                SpellEnding::Omen => Phrase::SpellEndingOmen,
                 SpellEnding::Exile => Phrase::SpellEndingExile,
             }
             .text(lang)

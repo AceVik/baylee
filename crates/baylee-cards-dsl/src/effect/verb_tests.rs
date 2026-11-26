@@ -1444,3 +1444,19 @@ fn prevent_next_from_chosen_source_with_then_body_is_visited() {
     assert!(dealt);
     assert!(drew);
 }
+
+#[test]
+fn set_state_if_cant_body_is_visited() {
+    static EFFECTS: &[Effect] = &[Effect::SetState {
+        subject: StateSubject::Source,
+        transition: StateTransition::TurnFaceUp,
+        if_cant: &[Effect::ExileSource],
+    }];
+    let mut seen = 0;
+    let mut exiled = false;
+    Effect::walk(EFFECTS, &mut seen, &mut |effect| {
+        exiled |= matches!(effect, Effect::ExileSource);
+    });
+    assert_eq!(seen, 2);
+    assert!(exiled);
+}

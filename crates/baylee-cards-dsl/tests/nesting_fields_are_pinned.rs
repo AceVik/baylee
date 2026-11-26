@@ -121,7 +121,8 @@
 // MayPayEnergyEqualToTargetCmcThen (`then`) adds one walker-tested body.
 // PlayerMayWaterbendOr (`effect`) and RememberTargetsThen (`then`) + 3 Wave 18b effects add 5 bodies.
 // PreventNextFromChosenSourceWithThen (`then: DamageRider`) adds one walker-tested body.
-const NESTING_FIELDS: usize = 135;
+// SetState (`if_cant`) adds one walker-tested body.
+const NESTING_FIELDS: usize = 136;
 
 /// How many variants contain those fields.
 ///
@@ -217,7 +218,8 @@ const NESTING_FIELDS: usize = 135;
 /// `MayPayEnergyEqualToTargetCmcThen` + `AnyPlayerMayPayManaAmount` + `AnyPlayerMayPayCost` +
 /// `PlayerMayWaterbendOr` through `RememberTargetsThen` bring total carrying variants to 118.
 // PreventNextFromChosenSourceWithThen brings carrying variants to 119.
-const CARRYING_VARIANTS: usize = 119;
+/// `SetState` (`if_cant`) brings total carrying variants to 119.
+const CARRYING_VARIANTS: usize = 120;
 
 /// The floor under the reader itself.
 ///

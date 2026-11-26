@@ -707,6 +707,7 @@ ChooseSpellEnding = Wohin geht der Zauberspruch?
 SpellEndingHand = Zurück auf deine Hand (Rückkauf)
 SpellEndingRebound = Ins Exil, in deiner nächsten Versorgung kostenlos wirken
 SpellEndingAdventure = Ins Exil, auf ein Abenteuer
+SpellEndingOmen = In die Bibliothek des Besitzers mischen (Omen)
 SpellEndingExile = Ins Exil
 ChooseDungeon = Gewölbe wählen
 ChooseDungeonRoom = Nächsten Raum wählen

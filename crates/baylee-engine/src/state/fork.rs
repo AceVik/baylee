@@ -142,6 +142,7 @@ impl GameState {
             effect_text_overrides: _,
             copy_snapshots: _,
             temporary_copy_origins: _,
+            face_down_copied_bases: _,
             numeric_failure,
             constrained_payments,
             // Sources on the battlefield, re-synced by the settle.

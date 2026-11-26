@@ -56,6 +56,7 @@ fn fields_code(fields: &Fields, label: &str, target: &str, is_enum: bool) -> (St
                 "warp",
                 "mayhem",
                 "optional_cost",
+                "meld_partner",
             ]
             .contains(&field.as_str())
         {
@@ -72,6 +73,8 @@ fn fields_code(fields: &Fields, label: &str, target: &str, is_enum: bool) -> (St
                 "aftermath",
                 "bargain",
                 "optional_cost_grants_flash",
+                "flip",
+                "omen",
             ]
             .contains(&field.as_str())
         {
@@ -149,6 +152,7 @@ fn main() {
         ("effect/mana.rs", "effect::"),
         ("effect/play.rs", "effect::"),
         ("effect/search.rs", "effect::"),
+        ("effect/state.rs", "effect::"),
         ("effect/targets.rs", "effect::"),
     ];
     let mut out = String::new();

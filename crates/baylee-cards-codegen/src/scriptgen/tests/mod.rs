@@ -15,6 +15,7 @@ mod divided_damage;
 mod dredge;
 mod effects;
 mod hand_and_draw;
+mod flip_omen_set_state_meld;
 mod imprison;
 mod kicker;
 mod names;

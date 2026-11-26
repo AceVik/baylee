@@ -1840,6 +1840,9 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
         if self.adventure_def(spell).is_some() {
             endings.push(SpellEnding::Adventure);
         }
+        if self.omen_def(spell).is_some() {
+            endings.push(SpellEnding::Omen);
+        }
         // Alone it needs no name: the card goes to the graveyard, and the
         // move itself finds the replacement.
         let graveyard = ZoneLocation::Graveyard(obj.owner);
@@ -1897,6 +1900,17 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
         def.faces
             .get(obj.face_index as usize)
             .is_some_and(|face| face.adventure)
+            .then_some(def)
+    }
+
+    /// The definition of an Omen card spell on the stack (copies cease to
+    /// exist rather than shuffling into a library, CR 707.10a / CR 720.3d).
+    fn omen_def(&self, spell: ObjectId) -> Option<&'static baylee_cards_dsl::CardDef> {
+        let obj = self.state.object(spell).filter(|o| o.is_card())?;
+        let def = obj.card.and_then(|c| self.lookup.card(c.index))?;
+        def.faces
+            .get(obj.face_index as usize)
+            .is_some_and(|face| face.omen)
             .then_some(def)
     }
 
@@ -1998,6 +2012,34 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 ZonePosition::Top,
                 Cause::Effect,
             );
+            return;
+        }
+        // Flashback exiles instead of putting the card anywhere else when it
+        // leaves the stack (CR 702.34a), and another chosen SpellEnding (such
+        // as Rebound, Buyback, or Rest in Peace) takes precedence over Omen.
+        let has_flashback = self
+            .state
+            .object(spell)
+            .is_some_and(|o| o.riders.contains(&crate::object::Rider::Flashback));
+        if (has_flashback || !matches!(ending, None | Some(SpellEnding::Omen)))
+            && let Some(def) = self.omen_def(spell)
+        {
+            self.state.switch_face(spell, def, 0);
+        }
+        // Omen (CR 720.3d): an Omen spell resolves by shuffling the card into
+        // its owner's library instead of putting it into the graveyard.
+        if let Some(def) = self.omen_def(spell) {
+            self.state.switch_face(spell, def, 0);
+            if let Some(obj) = self.state.object_mut(spell) {
+                obj.kind = ObjectKind::Card;
+            }
+            let _ = self.state.move_object(
+                spell,
+                ZoneLocation::Library(owner),
+                ZonePosition::Top,
+                Cause::Effect,
+            );
+            self.state.shuffle_library(owner);
             return;
         }
         if is_permanent {

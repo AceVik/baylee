@@ -194,9 +194,18 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
 
     pub(super) fn finish_turn_face_up(&mut self, player: PlayerId, id: ObjectId, x: u32) {
         let is_megamorph = self.turn_face_up_spec(id).is_some_and(|(_, _, mega)| mega);
+        let version = self.state.object(id).map(|o| o.version);
+        let copied_base_pos = version.and_then(|v| {
+            self.state
+                .face_down_copied_bases
+                .iter()
+                .position(|(r, _)| r.object == id && r.version == v)
+        });
         let non_permanent_spell = self.state.object(id).is_some_and(|o| {
-            o.original_base
-                .as_ref()
+            let face_up_base = copied_base_pos
+                .map(|pos| &self.state.face_down_copied_bases[pos].1)
+                .or(o.original_base.as_ref());
+            face_up_base
                 .is_some_and(|b| b.types.intersects(TypeSet::INSTANT.union(TypeSet::SORCERY)))
         });
         if non_permanent_spell {
@@ -209,16 +218,20 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
             self.after_action(player);
             return;
         }
+        let copied_base =
+            copied_base_pos.map(|pos| self.state.face_down_copied_bases.swap_remove(pos).1);
+        let ts = self.state.next_timestamp();
         let Some(o) = self.state.object_mut(id) else {
             return;
         };
         o.status.remove(Status::FACE_DOWN);
         o.riders
-            .retain(|r| !matches!(r, Rider::Manifested | Rider::Masked));
+            .retain(|r| !matches!(r, Rider::Manifested | Rider::Masked | Rider::TurnedFaceDown));
         o.x_value = x;
-        if let Some(base) = o.original_base.take() {
+        if let Some(base) = copied_base.or_else(|| o.original_base.take()) {
             o.base = base;
         }
+        o.timestamp = ts;
         o.cache.clear();
         self.state.invalidate_projections();
         if is_megamorph {

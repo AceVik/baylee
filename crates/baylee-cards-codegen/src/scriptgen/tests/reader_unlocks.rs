@@ -3716,9 +3716,18 @@ fn wave11b_manifest_turn_face_up_spell_locks_and_hooks() {
         "{}",
         flip_up.abilities[0]
     );
-    assert!(refused(
+    let flip_down = read(
         "Name:FlipDown\nManaCost:2 U\nTypes:Artifact\n\
-         A:AB$ SetState | Cost$ T | ValidTgts$ Creature | Mode$ TurnFaceDown"
+         A:AB$ SetState | Cost$ T | ValidTgts$ Creature | Mode$ TurnFaceDown",
+    );
+    assert!(
+        flip_down.abilities[0].contains("StateTransition::TurnFaceDown(FaceDownSpec::DEFAULT)"),
+        "{}",
+        flip_down.abilities[0]
+    );
+    assert!(refused(
+        "Name:AlchemyUnspec\nManaCost:2 U\nTypes:Artifact\n\
+         A:AB$ SetState | Cost$ T | ValidTgts$ Creature | Mode$ Unspecialize"
     ));
 
     let lock_target = read(

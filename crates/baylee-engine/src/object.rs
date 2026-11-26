@@ -632,9 +632,23 @@ impl Characteristics {
         // CR 702.114a: the CDA supplies the colorless base in every zone;
         // later color-changing effects still apply in layer 5.
         let devoid = def.keywords_for_face(face).contains(KeywordSet::DEVOID);
+        // CR 710.2: flipping a Kamigawa flip permanent replaces only its name,
+        // text box, type line, power and toughness — mana cost and color stay
+        // the unflipped face's, and copies of a flipped permanent copy those
+        // values too (CR 707.2).
+        let mana_cost = if face > 0 && f.flip && f.mana_cost == ManaCost::ZERO {
+            def.faces[0].mana_cost
+        } else {
+            f.mana_cost
+        };
+        let color_indicator = if face > 0 && f.flip {
+            def.faces[0].color_indicator.union(f.color_indicator)
+        } else {
+            f.color_indicator
+        };
         Self {
             name,
-            mana_cost: f.mana_cost,
+            mana_cost,
             // CR 202.2e: a face with no mana cost takes its color from the
             // indicator printed on it. The union rather than an either/or,
             // because the two never coexist on a printed face and a card
@@ -642,7 +656,7 @@ impl Characteristics {
             colors: if devoid {
                 ColorSet::EMPTY
             } else {
-                f.mana_cost.colors().union(f.color_indicator)
+                mana_cost.colors().union(color_indicator)
             },
             types: f.types,
             supertypes: f.supertypes,
@@ -667,7 +681,7 @@ impl Characteristics {
             // its mana value is the front face's (CR 202.3b). A modal back,
             // an adventure and a split half (including aftermath, CR 709.3b)
             // are cast for their own cost and keep it.
-            front_mana_value: (face > 0 && !f.castable_from_hand && !f.aftermath)
+            front_mana_value: (face > 0 && !f.castable_from_hand && !f.aftermath && !f.flip)
                 .then(|| u8::try_from(def.faces[0].mana_cost.cmc()).unwrap_or(u8::MAX)),
             x_on_stack: 0,
         }
@@ -1377,6 +1391,9 @@ pub enum Rider {
     GrantDeathExileAndGainLife(u32),
     /// Played via `ZonePlayCastRider::GrantLeaveExileReplacement` (exile instead of leaving BF).
     GrantLeaveExileReplacement,
+    /// Permanent was turned face down by an effect (`CR 708.2`) rather than
+    /// cast with disguise or cloaked, so it does not receive Disguise Ward {2}.
+    TurnedFaceDown,
 }
 
 /// What ends an "exile … until …" (CR 610.3), as [`Rider::Linked`] carries
@@ -1557,7 +1574,8 @@ impl Rider {
             | Self::UnearthAbility
             | Self::EvokedGrant
             | Self::GrantDeathExileAndGainLife(_)
-            | Self::GrantLeaveExileReplacement => false,
+            | Self::GrantLeaveExileReplacement
+            | Self::TurnedFaceDown => false,
         }
     }
 }
@@ -2725,6 +2743,7 @@ impl GameObject {
             return if self.zone == Zone::Exile
                 || self.riders.contains(&Rider::Masked)
                 || self.riders.contains(&Rider::Manifested)
+                || self.riders.contains(&Rider::TurnedFaceDown)
                 || is_morph
             {
                 AbilityDefs::EMPTY

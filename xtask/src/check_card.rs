@@ -440,10 +440,10 @@ pub(crate) fn check_back_face_castability_matches_the_layout(
 ) {
     let [_, back] = def.faces else { return };
     let want = match payload.get("layout").and_then(serde_json::Value::as_str) {
-        Some("transform") => false,
+        Some("transform" | "flip") => false,
         Some("modal_dfc") => true,
         // Every other layout either has one castable face (`normal`) or two
-        // that are both played out of hand (`adventure`, `split`, `flip`),
+        // that are both played out of hand (`adventure`, `split`),
         // and a meld back is a card of its own rather than a face here.
         _ => return,
     };

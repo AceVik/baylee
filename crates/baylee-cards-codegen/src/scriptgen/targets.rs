@@ -1124,6 +1124,16 @@ impl Tx<'_> {
             "!AdventureCard" | "nonAdventureCard" => {
                 "Filter::Not(&Filter::HasAdventure)".to_string()
             }
+            "OmenCard" => "Filter::HasOmen".to_string(),
+            "!OmenCard" | "nonOmenCard" => "Filter::Not(&Filter::HasOmen)".to_string(),
+            "withMorph" | "withMegamorph" => "Filter::HasMorph".to_string(),
+            "!withMorph" | "!withMegamorph" => "Filter::Not(&Filter::HasMorph)".to_string(),
+            "DoubleFaced" => "Filter::DoubleFaced".to_string(),
+            "!DoubleFaced" => "Filter::Not(&Filter::DoubleFaced)".to_string(),
+            "CanTransform" => "Filter::CanTransform".to_string(),
+            "!CanTransform" => "Filter::Not(&Filter::CanTransform)".to_string(),
+            "flipped" => "Filter::Flipped".to_string(),
+            "!flipped" => "Filter::Not(&Filter::Flipped)".to_string(),
             "IsSingleTarget" => "Filter::WithSingleTarget".to_string(),
             "!IsSingleTarget" => "Filter::Not(&Filter::WithSingleTarget)".to_string(),
             "withCumulative upkeep" => "Filter::HasCumulativeUpkeep".to_string(),

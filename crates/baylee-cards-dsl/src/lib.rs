@@ -139,13 +139,14 @@ pub use effect::{
     CopyCleanup, CounterDestination, CounterDonor, CounterKind, CounterScope, DamageRedirectTo,
     DamageRider, DamageTo, DefinedObjects, DelayedDuration, DelayedObservation, DelayedStep,
     DelayedTriggerWhen, DivisionAmount, DoublePtSubject, Effect, ExileMana, ExilePermission,
-    ExilePlay, ExileUntil, Find, LookRest, ManaDistribution, ManaRestriction, ManaSource, ManaUse,
-    ManaValueBound, ManaValueCmp, ModalRestriction, MoveSubject, MultiPlayerChoice,
-    MultiPlayerChoiceAggregate, NumberChoiceKind, PeekPickDest, PeekRestDest, PlayCostMode,
-    PlayCount, PlaySource, PlayWindow, PlayerRel, ReflexiveEvent, ReflexiveWhen, RepeatDomain,
-    RevealUntilFound, RevealUntilRest, SearchDest, SourceLeaveAction, SpendRider, TargetChooser,
-    TargetConstraint, TargetReq, TargetSlot, TargetSpec, ThisWay, TokenDef, TriggerRemember,
-    VariablePayKind, VoteObjectAction, VoteOption, VoteOutcome, ZoneSel,
+    ExilePlay, ExileUntil, FaceDownSpec, Find, LookRest, ManaDistribution, ManaRestriction,
+    ManaSource, ManaUse, ManaValueBound, ManaValueCmp, ModalRestriction, MoveSubject,
+    MultiPlayerChoice, MultiPlayerChoiceAggregate, NumberChoiceKind, PeekPickDest, PeekRestDest,
+    PlayCostMode, PlayCount, PlaySource, PlayWindow, PlayerRel, ReflexiveEvent, ReflexiveWhen,
+    RepeatDomain, RevealUntilFound, RevealUntilRest, SearchDest, SourceLeaveAction, SpendRider,
+    StateSubject, StateTransition, TargetChooser, TargetConstraint, TargetReq, TargetSlot,
+    TargetSpec, ThisWay, TokenDef, TriggerRemember, VariablePayKind, VoteObjectAction, VoteOption,
+    VoteOutcome, ZoneSel,
 };
 pub use filter::{Filter, OriginalExpansion, ZoneRef, ZoneRef as ZoneKind};
 pub use manaread::{
@@ -334,9 +335,62 @@ impl CardDef {
             && [left, right].iter().all(|half| {
                 (half.castable_from_hand || half.aftermath)
                     && !half.adventure
+                    && !half.omen
+                    && !half.flip
                     && !half.types.is_empty()
                     && half.types.difference(spells).is_empty()
             })
+    }
+
+    /// Whether this is a Kamigawa flip card (CR 710.1): two halves printed on
+    /// one physical face, where `faces[1]` is the flipped version.
+    #[must_use]
+    pub fn is_flip_card(&self) -> bool {
+        self.faces.len() >= 2 && self.faces[1].flip
+    }
+
+    /// Whether this is an Omen card (CR 720): a main face with an inset Omen
+    /// instant/sorcery face (`faces[1].omen`).
+    #[must_use]
+    pub fn is_omen_card(&self) -> bool {
+        self.faces.len() >= 2 && self.faces[1].omen
+    }
+
+    /// Whether this card is half of a meld pair (CR 712.1, CR 701.42).
+    #[must_use]
+    pub fn is_meld_card(&self) -> bool {
+        self.faces.first().is_some_and(|f| f.meld_partner.is_some())
+    }
+
+    /// Whether this card uses the Prepare inset-spell layout (CR 723.3).
+    #[must_use]
+    pub fn is_prepare_card(&self) -> bool {
+        self.abilities_for_face(0)
+            .iter()
+            .any(|a| matches!(a, crate::ability::AbilityDef::Prepared { .. }))
+    }
+
+    /// Whether this is a double-faced card under CR 712.1 (transforming DFC,
+    /// modal DFC, or meld card). Split, Adventure, Omen, Flip, and Prepare
+    /// cards are single-faced physical cards.
+    #[must_use]
+    pub fn is_double_faced(&self) -> bool {
+        self.is_meld_card()
+            || (self.faces.len() >= 2
+                && !self.is_split_spell_card()
+                && !self.is_flip_card()
+                && !self.is_omen_card()
+                && !self.faces[1].adventure
+                && !self.is_prepare_card())
+    }
+
+    /// Whether this card is a transforming double-faced card (CR 701.27d, CR 712.10).
+    #[must_use]
+    pub fn can_transform(&self) -> bool {
+        self.faces.len() >= 2
+            && self.is_double_faced()
+            && !self.is_meld_card()
+            && !self.faces[1].castable_from_hand
     }
 
     /// Whether this is a split card with one shared type line (CR 709.5), a
@@ -871,6 +925,18 @@ pub struct FaceDef {
     /// Paying `optional_cost` also lets this spell be cast as though it had
     /// flash. The ordinary route keeps its printed timing and cost.
     pub optional_cost_grants_flash: bool,
+    /// Flip (CR 710): this face (`faces[1]`) is the alternative (flipped) half
+    /// of a Kamigawa flip card. Never cast from hand (`castable_from_hand = false`);
+    /// once flipped, its name, type line, text box, power, and toughness replace
+    /// face 0 while retaining face 0's mana cost and color.
+    pub flip: bool,
+    /// Omen (CR 720): this face (`faces[1]`) is an Omen spell — when cast as an
+    /// Omen and it resolves, its owner shuffles it into their library instead of
+    /// putting it into their graveyard.
+    pub omen: bool,
+    /// Meld partner card name (CR 701.42, CR 712.1): marks both halves of a meld
+    /// pair as double-faced meld cards (`MeldPair:`).
+    pub meld_partner: Option<&'static str>,
 }
 
 impl FaceDef {
@@ -970,6 +1036,9 @@ impl FaceDef {
         mayhem: None,
         optional_cost: None,
         optional_cost_grants_flash: false,
+        flip: false,
+        omen: false,
+        meld_partner: None,
     };
 }
 
@@ -1360,6 +1429,10 @@ pub enum EnterModifier {
     /// (`CR 614.1c`, `CR 614.12`: *Xantcha, Sleeper Agent*, *Captive Audience*,
     /// *Pendant of Prosperity*). Appended to preserve replay identities.
     EntersUnderChosenOpponentControl,
+    /// "As this enters, turn all [filter] permanents face down" (`CR 614.1c`,
+    /// `CR 708.2`: *Ixidron*). Applied as the permanent enters before SBAs
+    /// check `*/*` characteristic-defining P/T. Appended to preserve replay identities.
+    TurnMatchingFaceDown(&'static Filter),
 }
 
 impl EnterModifier {

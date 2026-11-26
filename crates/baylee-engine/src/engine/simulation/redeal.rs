@@ -742,6 +742,7 @@ const fn rider_object(rider: &Rider) -> Option<ObjectId> {
         | Rider::ExiledBy(_)
         | Rider::EvokedGrant
         | Rider::GrantDeathExileAndGainLife(_)
-        | Rider::GrantLeaveExileReplacement => None,
+        | Rider::GrantLeaveExileReplacement
+        | Rider::TurnedFaceDown => None,
     }
 }

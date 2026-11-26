@@ -62,11 +62,13 @@ mod keywords;
 mod kicker;
 mod mana;
 mod names;
+mod meld;
 mod prevention;
 mod protection52;
 mod regeneration;
 mod riftstone_portal;
 mod saga_ward_convoke;
+mod set_state;
 mod song52;
 mod statics;
 mod support;
@@ -135,8 +137,14 @@ pub struct CardScript {
     pub oracle: String,
     /// `PT:` line (e.g. `*/4`, `2/1+*`), used by single-sided P/T CDAs.
     pub pt: Option<String>,
+    /// `Colors:` line, used when constructing melded back-face `TokenDef`s.
+    pub colors: Option<String>,
+    /// `Loyalty:` line, used when constructing melded planeswalker `TokenDef`s.
+    pub loyalty: Option<String>,
+    /// `MeldPair:<partner>` header on meld cards (`CR 701.42`).
+    pub meld_pair: Option<String>,
     /// `AlternateMode:<mode>` header on multi-face scripts (`Split`,
-    /// `Adventure`, `Modal`, `DoubleFaced`, …).
+    /// `Adventure`, `Omen`, `Flip`, `Meld`, `Modal`, `DoubleFaced`, …).
     pub alternate_mode: Option<String>,
     /// Verbatim `Name:` header on this face, used when resolving `CopyFaceFrom:`.
     pub script_name: String,
@@ -230,7 +238,15 @@ fn parse_face(lines: &[&str]) -> CardScript {
                 out.mana_cost = rest.trim().to_string();
             }
             "PT" => out.pt = Some(rest.trim().to_string()),
+            "Colors" => out.colors = Some(rest.trim().to_string()),
             "Oracle" => out.oracle = rest.to_string(),
+            "MeldPair" => {
+                if out.meld_pair.is_none() {
+                    out.meld_pair = Some(rest.trim().to_string());
+                } else {
+                    out.unknown_lines.push(line.to_string());
+                }
+            }
             "AlternateMode" => {
                 if out.alternate_mode.is_none() {
                     out.alternate_mode = Some(rest.trim().to_string());
@@ -239,7 +255,9 @@ fn parse_face(lines: &[&str]) -> CardScript {
                 }
             }
             "Variant" if rest.starts_with("UniversesWithin:FlavorName:") => {}
-            "Loyalty" if rest.trim().parse::<u32>().is_ok() => {}
+            "Loyalty" if rest.trim().parse::<u32>().is_ok() => {
+                out.loyalty = Some(rest.trim().to_string());
+            }
             "Text" if rest.trim() == "CARDNAME can be your commander." => {
                 out.has_commander_text = true;
             }
@@ -261,39 +279,37 @@ fn parse_face(lines: &[&str]) -> CardScript {
         }
     }
     if cast_only_declare_blockers {
-        let spells: Vec<&str> = out
-            .rules
-            .iter()
-            .filter(|(kind, spec)| *kind == 'A' && spec.trim_start().starts_with("SP$"))
-            .map(|(_, spec)| spec.as_str())
-            .collect();
-        if spells.is_empty()
-            || !spells.iter().all(|spec| {
-                spec.split(" | ")
-                    .any(|part| part.trim_start() == "ActivationPhases$ Declare Blockers")
-            })
-        {
-            out.unknown_lines.push(DECLARE_BLOCKERS_TEXT.to_string());
-        }
+        validate_spell_phase_text(
+            &mut out,
+            "ActivationPhases$ Declare Blockers",
+            DECLARE_BLOCKERS_TEXT,
+        );
     }
     if cast_only_after_blockers {
-        let spells: Vec<&str> = out
-            .rules
-            .iter()
-            .filter(|(kind, spec)| *kind == 'A' && spec.trim_start().starts_with("SP$"))
-            .map(|(_, spec)| spec.as_str())
-            .collect();
-        if spells.is_empty()
-            || !spells.iter().all(|spec| {
-                spec.split(" | ").any(|part| {
-                    part.trim_start() == "ActivationPhases$ Declare Blockers->EndCombat"
-                })
-            })
-        {
-            out.unknown_lines.push(AFTER_BLOCKERS_TEXT.to_string());
-        }
+        validate_spell_phase_text(
+            &mut out,
+            "ActivationPhases$ Declare Blockers->EndCombat",
+            AFTER_BLOCKERS_TEXT,
+        );
     }
     out
+}
+
+fn validate_spell_phase_text(out: &mut CardScript, phase_clause: &str, text_line: &str) {
+    let spells: Vec<&str> = out
+        .rules
+        .iter()
+        .filter(|(kind, spec)| *kind == 'A' && spec.trim_start().starts_with("SP$"))
+        .map(|(_, spec)| spec.as_str())
+        .collect();
+    if spells.is_empty()
+        || !spells.iter().all(|spec| {
+            spec.split(" | ")
+                .any(|part| part.trim_start() == phase_clause)
+        })
+    {
+        out.unknown_lines.push(text_line.to_string());
+    }
 }
 
 /// Parameter keys that are pure prose or AI hints: they change no rule, so
@@ -718,6 +734,8 @@ struct Tx<'a> {
     etb_chosen_modes: Vec<String>,
     /// Named `NotedFor<Name>` tags for `ETBReplacement:Other` `EachPlayerChooseMode` (`0..n`).
     etb_player_chosen_modes: Vec<String>,
+    /// Melded back-face `(name, static_ident)` while transcoding a primary `AlternateMode:Meld` front face.
+    melded_face: Option<(String, String)>,
     body: CardBody,
     /// The first `Api.Key` no rule claimed, if that is why this
     /// script was refused. Recorded rather than derived, because a
@@ -852,6 +870,7 @@ impl<'a> Tx<'a> {
             allow_defined_cost_x: false,
             etb_chosen_modes: Vec::new(),
             etb_player_chosen_modes: Vec::new(),
+            melded_face: None,
             body: CardBody::default(),
             unclaimed: std::cell::RefCell::new(None),
         }
@@ -1104,6 +1123,26 @@ fn transcode_face(
     allow_vanilla: bool,
     room_door: Option<u8>,
 ) -> Option<CardBody> {
+    transcode_face_with_meld(
+        script,
+        cats,
+        tokens,
+        statics,
+        allow_vanilla,
+        room_door,
+        None,
+    )
+}
+
+fn transcode_face_with_meld(
+    script: &CardScript,
+    cats: &SubtypeCatalogs,
+    tokens: Option<&TokenLookup>,
+    statics: String,
+    allow_vanilla: bool,
+    room_door: Option<u8>,
+    melded_face: Option<(String, String)>,
+) -> Option<CardBody> {
     if !script.unknown_lines.is_empty() {
         return None;
     }
@@ -1122,6 +1161,7 @@ fn transcode_face(
     }
     let mut tx = Tx::new(script, cats, tokens);
     tx.room_door = room_door;
+    tx.melded_face = melded_face;
     tx.body.statics = statics;
     if song52::song_candidate(script) {
         tx.song_whole_card(script)?;
@@ -1263,13 +1303,57 @@ pub fn transcode(
         return Some(body);
     }
     let mode = script.alternate_mode.as_deref()?;
+    if mode == "Meld" {
+        let partner = script.meld_pair.as_ref()?.trim();
+        if partner.is_empty() {
+            return None;
+        }
+        if let Some(melded_script) = script.alternate.as_deref() {
+            if melded_script.alternate_mode.is_some()
+                || melded_script.alternate.is_some()
+                || !melded_script.unknown_lines.is_empty()
+            {
+                return None;
+            }
+            let melded_statics = meld::build_melded_token_static(melded_script, cats, tokens)?;
+            let mut front = transcode_face_with_meld(
+                script,
+                cats,
+                tokens,
+                melded_statics,
+                false,
+                None,
+                Some((
+                    melded_script.script_name.trim().to_string(),
+                    meld::MELDED_STATIC.to_string(),
+                )),
+            )?;
+            front.meld_partner = Some(partner.to_string());
+            front.prune_unused_statics();
+            front.notes.push("transcoded from the card's rules".into());
+            return Some(front);
+        }
+        let mut front = transcode_face(script, cats, tokens, String::new(), false, None)?;
+        front.meld_partner = Some(partner.to_string());
+        front.prune_unused_statics();
+        front.notes.push("transcoded from the card's rules".into());
+        return Some(front);
+    }
     if !matches!(
         mode,
-        "Split" | "Adventure" | "Modal" | "DoubleFaced" | "Prepare"
+        "Split" | "Adventure" | "Omen" | "Flip" | "Modal" | "DoubleFaced" | "Prepare"
     ) {
         return None;
     }
     let back_script = script.alternate.as_deref()?;
+    if mode == "Omen"
+        && !back_script
+            .type_line
+            .split_whitespace()
+            .any(|w| w == "Omen")
+    {
+        return None;
+    }
     let is_room = script.is_room || back_script.is_room;
     if (is_room && (mode != "Split" || !script.is_room || !back_script.is_room))
         || back_script.copy_face_from.is_some()
@@ -1294,6 +1378,8 @@ pub fn transcode(
         return None;
     }
     front.back_is_adventure = mode == "Adventure";
+    front.back_is_flip = mode == "Flip";
+    front.back_is_omen = mode == "Omen";
     front.back_is_prepare = mode == "Prepare";
     front.back = Some(Box::new(back));
     front.prune_unused_statics();

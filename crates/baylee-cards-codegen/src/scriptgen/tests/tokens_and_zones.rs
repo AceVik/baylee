@@ -445,16 +445,26 @@ fn alternate_mode_and_flavor_variant_rules() {
     assert_eq!(room_body.abilities.len(), 1);
     assert_eq!(room_body.back.as_ref().unwrap().abilities.len(), 1);
 
-    // Unsupported alternate modes stay refused.
+    // Flip alternate mode is now supported; unsupported modes like Alchemy Specialize stay refused.
     let flip = parse(
         "Name:Top\nManaCost:1 W\nTypes:Creature Human\nK:Flying\n\
          AlternateMode:Flip\n\
          ALTERNATE\n\
          Name:Bottom\nTypes:Legendary Creature Human\nK:Vigilance",
     );
+    let flip_body = transcode(&flip, &cats(), Some(&tokens())).expect("Flip should transcode");
+    assert!(flip_body.back_is_flip);
+    assert!(flip_body.back.is_some());
+
+    let specialize = parse(
+        "Name:AlchemyCard\nManaCost:1 W\nTypes:Creature Human\nK:Flying\n\
+         AlternateMode:Specialize\n\
+         ALTERNATE\n\
+         Name:Specialized\nTypes:Creature Human\nK:Vigilance",
+    );
     assert_eq!(
-        refusal_reason(&flip, &cats(), Some(&tokens())).as_deref(),
-        Some("unsupported alternate mode `Flip`")
+        refusal_reason(&specialize, &cats(), Some(&tokens())).as_deref(),
+        Some("unsupported alternate mode `Specialize`")
     );
 
     // UniversesWithin flavor-name variant is pure alias metadata; Attraction Variant stays refused.

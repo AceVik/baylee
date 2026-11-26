@@ -82,6 +82,15 @@ pub enum AwaitingOp {
     Vote(super::vote::Vote),
     /// Choose among multiple eligible physical meld partners.
     MeldPartner,
+    /// Optional turn-face-up after revealing in `Effect::SetState`.
+    SetStateOptionalTurnFaceUp {
+        /// Revealed face-down permanent offered to turn face up.
+        current: ObjectId,
+        /// Remaining candidates in the same `SetState` batch.
+        remaining: Vec<ObjectId>,
+        /// Candidates that failed to transition so far (fed to `if_cant`).
+        failed: Vec<ObjectId>,
+    },
     /// Immediate plays offered by a dungeon room.
     DungeonPlay(super::dungeon::Play),
     /// Simultaneous discard or sacrifice payments for a dungeon room.
@@ -1894,6 +1903,11 @@ impl AwaitingOp {
                 actual,
             } => crate::state::structural_fingerprint(&(64_u8, guesser, card, face, actual)),
             Self::MeldPartner => 29,
+            Self::SetStateOptionalTurnFaceUp {
+                current,
+                remaining,
+                failed,
+            } => crate::state::structural_fingerprint(&(527_u16, current, remaining, failed)),
             Self::Dungeon { choices } => crate::state::structural_fingerprint(&(25_u8, choices)),
             Self::MutatePosition => 26,
             Self::DungeonPlay(play) => crate::state::structural_fingerprint(&(27_u8, play)),

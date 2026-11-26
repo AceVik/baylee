@@ -290,6 +290,24 @@ fn reads_event(effect: &Effect) -> bool {
         | Effect::PutEachCounterKindFromSource { target }
         | Effect::BecomesBlocked(target)
         | Effect::SacrificeObject { target, .. } => reads_target(*target),
+        Effect::SetState {
+            subject,
+            transition,
+            if_cant,
+        } => {
+            let subj_reads = match subject {
+                baylee_cards_dsl::StateSubject::EventObject => true,
+                baylee_cards_dsl::StateSubject::BattlefieldFilter(filter) => reads_filter(filter),
+                _ => false,
+            };
+            let trans_reads = match transition {
+                baylee_cards_dsl::StateTransition::RevealAndTurnFaceUpIf { filter, .. } => {
+                    reads_filter(filter)
+                }
+                _ => false,
+            };
+            subj_reads || trans_reads || if_cant.iter().any(reads_event)
+        }
         Effect::PutAllCountersFrom { donor, target } => {
             matches!(donor, baylee_cards_dsl::CounterDonor::Event) || reads_target(*target)
         }
