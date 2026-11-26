@@ -183,12 +183,11 @@ fn collection_rows_and_reward_details_show_the_individually_awarded_rank() {
             let text = words(app.world_mut());
             match screen {
                 Screen::Gallery => {
-                    assert!(text.contains(&format!("{mat} · {rank}")), "{text:?}");
+                    // A tile names its kind on a badge and its source under it.
+                    assert!(text.contains(&rank.to_string()), "{text:?}");
+                    assert!(text.iter().any(|s| s == mat), "{text:?}");
                     let door = if german { "Tür 8" } else { "Door 8" };
-                    assert!(
-                        text.contains(&format!("{sleeve} · 2026 · {door}")),
-                        "{text:?}"
-                    );
+                    assert!(text.contains(&format!("2026 · {door}")), "{text:?}");
                     assert!(text.iter().any(|s| s == sleeve));
                 }
                 Screen::Item(id) if id == [3; 16] => {
