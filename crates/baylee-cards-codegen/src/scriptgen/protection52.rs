@@ -876,34 +876,10 @@ impl Tx<'_> {
             out.push(Self::static_expr(filter, "Modifier::GainControl"));
         }
         if let Some(raw_name) = p.take("SetName") {
-            let trimmed = raw_name.trim();
-            if trimmed.is_empty() || trimmed.contains(['$', '{']) {
+            let Some(modifier) = Self::set_name_modifier(&raw_name) else {
                 return self.deny(format!("`Continuous.SetName$ {raw_name}`"));
-            }
-            out.push(Self::static_expr(
-                filter,
-                &format!("Modifier::SetName({trimmed:?})"),
-            ));
-        }
-        if let Some(raw_name) = p.take("SetName") {
-            let trimmed = raw_name.trim();
-            if trimmed.is_empty() || trimmed.contains(['$', '{']) {
-                return self.deny(format!("`Continuous.SetName$ {raw_name}`"));
-            }
-            out.push(Self::static_expr(
-                filter,
-                &format!("Modifier::SetName({trimmed:?})"),
-            ));
-        }
-        if let Some(raw_name) = p.take("SetName") {
-            let trimmed = raw_name.trim();
-            if trimmed.is_empty() || trimmed.contains(['$', '{']) {
-                return self.deny(format!("`Continuous.SetName$ {raw_name}`"));
-            }
-            out.push(Self::static_expr(
-                filter,
-                &format!("Modifier::SetName({trimmed:?})"),
-            ));
+            };
+            out.push(Self::static_expr(filter, &modifier));
         }
         if remove_all_abilities {
             out.push(Self::static_expr(filter, "Modifier::LoseAllAbilities"));

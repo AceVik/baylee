@@ -2423,14 +2423,10 @@ impl Tx<'_> {
         self.color_modifiers(&mut p, &filter, &mut out)?;
         self.keyword_modifiers(&mut p, &filter, &mut out)?;
         if let Some(raw_name) = p.take("SetName") {
-            let trimmed = raw_name.trim();
-            if trimmed.is_empty() || trimmed.contains(['$', '{']) {
+            let Some(modifier) = Self::set_name_modifier(&raw_name) else {
                 return self.deny(format!("`Continuous.SetName$ {raw_name}`"));
-            }
-            out.push(Self::static_expr(
-                &filter,
-                &format!("Modifier::SetName({trimmed:?})"),
-            ));
+            };
+            out.push(Self::static_expr(&filter, &modifier));
         }
         let mut self_granted = false;
         self.grant_modifiers(&mut p, &filter, false, &cond, &mut out, &mut self_granted)?;

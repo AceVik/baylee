@@ -5361,11 +5361,7 @@ impl Tx<'_> {
                 let next = sp.take("SubAbility");
                 let before = modifiers.len();
                 if let Some(raw_name) = sp.take("Name") {
-                    let trimmed = raw_name.trim();
-                    if trimmed.is_empty() || trimmed.contains(['$', '{']) {
-                        return None;
-                    }
-                    modifiers.push(format!("Modifier::SetName({trimmed:?})"));
+                    modifiers.push(Self::set_name_modifier(&raw_name)?);
                 }
                 if let Some(kws) = sp.take("Keywords") {
                     let bits = Self::pump_keyword_bits(&kws)?;
@@ -7349,11 +7345,7 @@ impl Tx<'_> {
         let mut mods: Vec<String> = Vec::new();
         // Layer 3: name changes (CR 613.1c, CR 612).
         if let Some(raw_name) = sp.take("SetName") {
-            let trimmed = raw_name.trim();
-            if trimmed.is_empty() || trimmed.contains(['$', '{']) {
-                return None;
-            }
-            mods.push(format!("Modifier::SetName({trimmed:?})"));
+            mods.push(Self::set_name_modifier(&raw_name)?);
         }
         // Layer 4: types / supertypes / subtypes.
         if sp.peek("RemoveCardTypes") == Some("True") {

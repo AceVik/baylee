@@ -388,14 +388,11 @@ impl Tx<'_> {
         let duration = self.animate_duration(p)?;
         let mut out = Vec::new();
         if let Some(raw_name) = p.take("Name") {
-            let trimmed = raw_name.trim();
-            if trimmed.is_empty() || trimmed.contains(['$', '{']) {
-                return None;
-            }
+            let modifier = Self::set_name_modifier(&raw_name)?;
             out.push(Self::animate_modifier_expr(
                 filter,
                 controlled_by,
-                &format!("Modifier::SetName({trimmed:?})"),
+                &modifier,
                 duration,
             ));
         }
@@ -1297,6 +1294,14 @@ impl Tx<'_> {
     /// No layer is passed in because none is written out: `Effect::continuous`
     /// derives it from the modifier the way CR 613.1 does, so the emitter
     /// cannot name a layer that disagrees with what it is applying.
+    pub(super) fn set_name_modifier(raw: &str) -> Option<String> {
+        let trimmed = raw.trim();
+        if trimmed.is_empty() || trimmed.contains(['$', '{']) {
+            return None;
+        }
+        Some(format!("Modifier::SetName({trimmed:?})"))
+    }
+
     pub(super) fn animate_expr(modifier: &str, duration: &str) -> String {
         Self::animate_expr_for("&Filter::This", modifier, duration)
     }
