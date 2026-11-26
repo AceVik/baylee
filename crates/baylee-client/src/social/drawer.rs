@@ -707,12 +707,14 @@ fn presses(
                 ui.drawer_menu = None;
             }
             DrawerPress::Unfriend(tag) => {
-                host.act(Intent::Unfriend { tag });
+                ui.sheet = Some(super::sheet::Sheet::Confirm(super::sheet::Ask::Unfriend(
+                    tag,
+                )));
                 *more = None;
                 ui.drawer_menu = None;
             }
             DrawerPress::Block(tag) => {
-                host.act(Intent::Block { tag });
+                ui.sheet = Some(super::sheet::Sheet::Confirm(super::sheet::Ask::Block(tag)));
                 *more = None;
                 ui.drawer_menu = None;
             }
@@ -765,12 +767,16 @@ fn presses(
                 ui.drawer_menu = None;
             }
             DrawerPress::LeaveGroup(id) => {
-                host.act(Intent::LeaveGroup { id });
+                ui.sheet = Some(super::sheet::Sheet::Confirm(super::sheet::Ask::LeaveGroup(
+                    id,
+                )));
                 *more = None;
                 ui.drawer_menu = None;
             }
             DrawerPress::DeleteGroup(id) => {
-                host.act(Intent::DeleteGroup { id });
+                ui.sheet = Some(super::sheet::Sheet::Confirm(
+                    super::sheet::Ask::DeleteGroup(id),
+                ));
                 *more = None;
                 ui.drawer_menu = None;
             }

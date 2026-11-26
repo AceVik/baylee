@@ -10933,6 +10933,14 @@ the chat window design). The renderer never builds a frame or an HTTP body.
   grown by its corner is moved in, never cut. Minimised, the head docks on
   the foot at the same left; at a table the window keeps its place by the
   log and does not move.
+- **Asked first** (owner, 25.11.2026: confirmations where they matter).
+  Removing a friend, blocking someone (from the contacts' menu or a chat
+  line's), leaving a group and deleting one stand a question first
+  (`social::sheet::Ask`, a narrower chat sheet on the reading glass): its
+  head names who or what, its body says what follows (blocking can be lifted
+  under Chat & privacy, a deleted group cannot come back), and it offers
+  Cancel beside the step's own word in the danger ink. `Esc` and a press
+  beside the sheet are Cancel; nothing is sent before the step's button.
 - **Framed as the shell's windows are** (owner, 19.11.2026: "Das Layout von
   Kontakte, Chat und Profil passt nicht zum Layout der anderen Fenster und
   Dialoge"). The chat's surfaces take their frame from `shellkit`, not from
