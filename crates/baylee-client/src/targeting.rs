@@ -316,22 +316,104 @@ fn legal_targets_from(
 /// One unreadable candidate abandons the whole count, because the claim being
 /// built is a *negative*: "none of these matches" is only true if every one of
 /// them was actually looked at.
+const MAX_FILTER_DEPTH: u8 = 8;
+
 fn count<'a>(
     view: &PlayerView,
     objects: impl Iterator<Item = &'a PublicObject>,
     filter: &Filter,
     source: Option<baylee_core::ids::ObjectId>,
 ) -> Option<usize> {
+    count_at(view, objects, filter, source, 0)
+}
+
+fn count_at<'a>(
+    view: &PlayerView,
+    objects: impl Iterator<Item = &'a PublicObject>,
+    filter: &Filter,
+    source: Option<baylee_core::ids::ObjectId>,
+    depth: u8,
+) -> Option<usize> {
     let mut found = 0;
     for object in objects {
         if source == Some(object.id) {
             continue;
         }
-        if matches(view, object, filter)? {
+        if matches_at(view, object, filter, depth)? {
             found += 1;
         }
     }
     Some(found)
+}
+
+fn eval_amount_at(view: &PlayerView, amt: &baylee_cards_dsl::Amount, depth: u8) -> Option<i32> {
+    use baylee_cards_dsl::{Amount as A, ZoneSel};
+    if depth >= MAX_FILTER_DEPTH {
+        return None;
+    }
+    match amt {
+        A::Fixed(n) => i32::try_from(*n).ok(),
+        A::NegXFixed(n) => i32::try_from(*n).ok().and_then(i32::checked_neg),
+        A::Negated(inner) => eval_amount_at(view, inner, depth + 1).and_then(i32::checked_neg),
+        A::LifeTotal(rel) => {
+            let player = match rel {
+                PlayerRel::You => you(view),
+                PlayerRel::ActivePlayer => view.active,
+                _ => return None,
+            };
+            Some(view.seat(player)?.life.max(0))
+        }
+        A::CountOf { filter, zone } => {
+            let n = match zone {
+                ZoneSel::Battlefield => {
+                    count_at(view, view.battlefield.iter(), filter, None, depth + 1)?
+                }
+                ZoneSel::GraveyardYou | ZoneSel::GraveyardOf(PlayerRel::You) => {
+                    let mine = usize::from(you(view).get());
+                    count_at(
+                        view,
+                        view.graveyards.get(mine)?.iter(),
+                        filter,
+                        None,
+                        depth + 1,
+                    )?
+                }
+                ZoneSel::GraveyardOpponents
+                | ZoneSel::GraveyardOf(PlayerRel::Opponent | PlayerRel::EachOpponent)
+                    if view.seats.len() == 2 =>
+                {
+                    let mine = usize::from(you(view).get());
+                    let piles = view
+                        .graveyards
+                        .iter()
+                        .enumerate()
+                        .filter(|(seat, _)| *seat != mine)
+                        .flat_map(|(_, pile)| pile);
+                    count_at(view, piles, filter, None, depth + 1)?
+                }
+                ZoneSel::GraveyardAll | ZoneSel::GraveyardOf(PlayerRel::EachPlayer) => count_at(
+                    view,
+                    view.graveyards.iter().flatten(),
+                    filter,
+                    None,
+                    depth + 1,
+                )?,
+                _ => return None,
+            };
+            i32::try_from(n).ok()
+        }
+        A::Sum { left, right } => eval_amount_at(view, left, depth + 1)?
+            .checked_add(eval_amount_at(view, right, depth + 1)?),
+        A::Difference { left, right } => Some(
+            eval_amount_at(view, left, depth + 1)?
+                .checked_sub(eval_amount_at(view, right, depth + 1)?)?
+                .max(0),
+        ),
+        A::Times { base, factor } => {
+            eval_amount_at(view, base, depth + 1)?.checked_mul(i32::try_from(*factor).ok()?)
+        }
+        _ => None,
+    }
 }
 
 fn is_blocked(view: &PlayerView, object: baylee_core::ids::ObjectId) -> bool {
@@ -372,6 +454,19 @@ fn is_unblocked(view: &PlayerView, object: baylee_core::ids::ObjectId) -> bool {
 /// rather than falling into a wildcard and being quietly declared absent.
 #[allow(clippy::too_many_lines)] // One arm per `Filter` variant, exhaustive on purpose.
 pub(crate) fn matches(view: &PlayerView, object: &PublicObject, filter: &Filter) -> Option<bool> {
+    matches_at(view, object, filter, 0)
+}
+
+#[allow(clippy::too_many_lines)] // One arm per `Filter` variant, exhaustive on purpose.
+fn matches_at(
+    view: &PlayerView,
+    object: &PublicObject,
+    filter: &Filter,
+    depth: u8,
+) -> Option<bool> {
+    if depth >= MAX_FILTER_DEPTH {
+        return None;
+    }
     // Neither a card nor a registry token, which is **two** kinds of object
     // and the reason this is a bail rather than a reading. A face-down
     // permanent is one: it has no characteristics in the view worth reading,
@@ -397,7 +492,7 @@ pub(crate) fn matches(view: &PlayerView, object: &PublicObject, filter: &Filter)
         Filter::This => false,
         Filter::And(parts) => {
             for part in *parts {
-                if !matches(view, object, part)? {
+                if !matches_at(view, object, part, depth + 1)? {
                     return Some(false);
                 }
             }
@@ -406,11 +501,11 @@ pub(crate) fn matches(view: &PlayerView, object: &PublicObject, filter: &Filter)
         Filter::Or(parts) => {
             let mut any = false;
             for part in *parts {
-                any |= matches(view, object, part)?;
+                any |= matches_at(view, object, part, depth + 1)?;
             }
             any
         }
-        Filter::Not(f) => !matches(view, object, f)?,
+        Filter::Not(f) => !matches_at(view, object, f, depth + 1)?,
         Filter::HasType(t) => object.types.intersects(*t),
         Filter::LacksType(t) => !object.types.intersects(*t),
         Filter::HasSupertype(t) => object.supertypes.contains(*t),
@@ -602,8 +697,6 @@ pub(crate) fn matches(view: &PlayerView, object: &PublicObject, filter: &Filter)
         | Filter::ActivatedAbilityFrom(_)
         | Filter::HasRampage
         | Filter::HasCumulativeUpkeep
-        | Filter::HasAnyCounter
-        | Filter::Enchanted
         | Filter::BlockingSource
         | Filter::BlockedBySource
         | Filter::SpellTargetingAffected
@@ -640,7 +733,6 @@ pub(crate) fn matches(view: &PlayerView, object: &PublicObject, filter: &Filter)
         | Filter::SharesAColorWith(_)
         | Filter::SharesColorWithMostCommon(_)
         | Filter::SharesCreatureTypeWith(_)
-        | Filter::Equipped
         | Filter::CmcEqualsCountersOnSource(_)
         | Filter::NotControlledByReferenceController
         | Filter::LowestManaValueOnBattlefield(_)
@@ -654,12 +746,6 @@ pub(crate) fn matches(view: &PlayerView, object: &PublicObject, filter: &Filter)
         | Filter::SharesColorWithSource
         | Filter::CmcEqualsYourUnspentMana
         | Filter::ControlledByChooser
-        | Filter::CmcAtMostAmount(_)
-        | Filter::CmcEqualsAmount(_)
-        | Filter::PowerAtMostAmount(_)
-        | Filter::PowerAtLeastAmount(_)
-        | Filter::PowerEqualsAmount(_)
-        | Filter::ToughnessEqualsAmount(_)
         | Filter::CmcEqualsChosenNumber
         | Filter::PowerEqualsChosenNumber
         | Filter::ToughnessEqualsChosenNumber
@@ -669,6 +755,51 @@ pub(crate) fn matches(view: &PlayerView, object: &PublicObject, filter: &Filter)
         | Filter::SharesNameWithRemembered
         // Winnow asks this only while resolving, never while choosing a target.
         | Filter::SharesNameWithAnotherPermanent => return None,
+        Filter::HasAnyCounter => object.counters.iter().any(|entry| entry.count > 0),
+        Filter::Enchanted => {
+            use baylee_core::generated::subtypes::enchantment::AURA;
+            view.battlefield.iter().any(|b| b.id == object.id)
+                && !object.status.contains(baylee_view::ObjectStatus::PHASED_OUT)
+                && view.battlefield.iter().any(|att| {
+                    !att.status.contains(baylee_view::ObjectStatus::PHASED_OUT)
+                        && att.attached_to == Some(object.id)
+                        && att.subtypes.contains(AURA)
+                })
+        }
+        Filter::Equipped => {
+            use baylee_core::generated::subtypes::artifact::EQUIPMENT;
+            view.battlefield.iter().any(|b| b.id == object.id)
+                && !object.status.contains(baylee_view::ObjectStatus::PHASED_OUT)
+                && view.battlefield.iter().any(|att| {
+                    !att.status.contains(baylee_view::ObjectStatus::PHASED_OUT)
+                        && att.attached_to == Some(object.id)
+                        && att.subtypes.contains(EQUIPMENT)
+                })
+        }
+        Filter::CmcAtMostAmount(amt) => {
+            let limit = eval_amount_at(view, amt, depth + 1)?;
+            limit >= 0 && u32::try_from(limit).is_ok_and(|l| object.mana_value <= l)
+        }
+        Filter::CmcEqualsAmount(amt) => {
+            let target = eval_amount_at(view, amt, depth + 1)?;
+            u32::try_from(target).is_ok_and(|t| object.mana_value == t)
+        }
+        Filter::PowerAtMostAmount(amt) => {
+            let max = eval_amount_at(view, amt, depth + 1)?;
+            object.power.is_some_and(|p| i32::from(p) <= max)
+        }
+        Filter::PowerAtLeastAmount(amt) => {
+            let min = eval_amount_at(view, amt, depth + 1)?;
+            object.power.is_some_and(|p| i32::from(p) >= min)
+        }
+        Filter::PowerEqualsAmount(amt) => {
+            let target = eval_amount_at(view, amt, depth + 1)?;
+            object.power.is_some_and(|p| i32::from(p) == target)
+        }
+        Filter::ToughnessEqualsAmount(amt) => {
+            let target = eval_amount_at(view, amt, depth + 1)?;
+            object.toughness.is_some_and(|t| i32::from(t) == target)
+        }
         Filter::ControlledBy(rel) => match rel {
             baylee_cards_dsl::PlayerRel::You => object.controller == you(view),
             baylee_cards_dsl::PlayerRel::Opponent | baylee_cards_dsl::PlayerRel::EachOpponent => {

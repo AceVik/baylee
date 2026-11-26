@@ -423,3 +423,151 @@ fn in_zone_reads_public_zones_and_leaves_hidden_zones_unknown() {
         None
     );
 }
+
+#[test]
+fn enchanted_and_equipped_read_non_phased_battlefield_attachments() {
+    use baylee_core::generated::subtypes::{artifact::EQUIPMENT, enchantment::AURA};
+    use baylee_core::types::SubtypeSet;
+    use baylee_view::ObjectStatus;
+
+    let bear = printed(1, 0, "Grizzly Bears", 2);
+    let mut aura = printed(2, 1, "Unholy Strength", 1);
+    aura.types = TypeSet::ENCHANTMENT;
+    aura.subtypes = SubtypeSet::from_slice(&[AURA]);
+    aura.attached_to = Some(bear.id);
+
+    let mut equip = printed(3, 0, "Short Sword", 1);
+    equip.types = TypeSet::ARTIFACT;
+    equip.subtypes = SubtypeSet::from_slice(&[EQUIPMENT]);
+    equip.attached_to = Some(bear.id);
+
+    // Unenchanted creature: targetless for Cut the Earthly Bond, legal for Brainspoil.
+    let plain = ViewBuilder::new(2)
+        .with_battlefield(0, vec![bear.clone()])
+        .build();
+    assert_eq!(matches(&plain, &bear, &Filter::Enchanted), Some(false));
+    assert_eq!(matches(&plain, &bear, &Filter::Equipped), Some(false));
+    assert!(provably_targetless(&plain, in_hand("Cut the Earthly Bond")));
+    assert!(!provably_targetless(&plain, in_hand("Brainspoil")));
+
+    // Equipped only is not enchanted.
+    let equipped_only = ViewBuilder::new(2)
+        .with_battlefield(0, vec![bear.clone(), equip.clone()])
+        .build();
+    assert_eq!(
+        matches(&equipped_only, &bear, &Filter::Equipped),
+        Some(true)
+    );
+    assert_eq!(
+        matches(&equipped_only, &bear, &Filter::Enchanted),
+        Some(false)
+    );
+    assert!(provably_targetless(
+        &equipped_only,
+        in_hand("Cut the Earthly Bond")
+    ));
+
+    // Attached Aura (even from opponent) satisfies Enchanted and flips both spells.
+    let enchanted = ViewBuilder::new(2)
+        .with_battlefield(0, vec![bear.clone()])
+        .with_battlefield(1, vec![aura.clone()])
+        .build();
+    assert_eq!(matches(&enchanted, &bear, &Filter::Enchanted), Some(true));
+    assert!(!provably_targetless(
+        &enchanted,
+        in_hand("Cut the Earthly Bond")
+    ));
+    assert!(provably_targetless(&enchanted, in_hand("Brainspoil")));
+
+    // Phased-out Aura does not count as enchanting the permanent.
+    let mut phased_aura = aura;
+    phased_aura.status = ObjectStatus::PHASED_OUT;
+    let phased = ViewBuilder::new(2)
+        .with_battlefield(0, vec![bear.clone()])
+        .with_battlefield(1, vec![phased_aura])
+        .build();
+    assert_eq!(matches(&phased, &bear, &Filter::Enchanted), Some(false));
+    assert!(provably_targetless(
+        &phased,
+        in_hand("Cut the Earthly Bond")
+    ));
+}
+
+#[test]
+fn has_any_counter_reads_wire_counters() {
+    use baylee_view::{CounterEntry, CounterKind};
+
+    let mut plain = printed(1, 0, "Bear", 2);
+    let view = ViewBuilder::new(2)
+        .with_battlefield(0, vec![plain.clone()])
+        .build();
+    assert_eq!(matches(&view, &plain, &Filter::HasAnyCounter), Some(false));
+
+    plain.counters.push(CounterEntry {
+        kind: CounterKind::PLUS_ONE,
+        count: 1,
+    });
+    assert_eq!(matches(&view, &plain, &Filter::HasAnyCounter), Some(true));
+}
+
+#[test]
+fn dynamic_amount_filters_read_life_total_and_public_zone_counts() {
+    use baylee_core::generated::subtypes::land::PLAINS;
+    use baylee_core::types::SubtypeSet;
+
+    // Blazing Hope: creature power >= your life total (ViewBuilder defaults to 40).
+    let mut small = printed(1, 1, "Hill Giant", 4);
+    small.power = Some(3);
+    let mut big = printed(2, 1, "Colossus", 6);
+    big.power = Some(40);
+
+    let no_big = ViewBuilder::new(2)
+        .with_battlefield(1, vec![small.clone()])
+        .build();
+    assert!(provably_targetless(&no_big, in_hand("Blazing Hope")));
+
+    let with_big = ViewBuilder::new(2).with_battlefield(1, vec![big]).build();
+    assert!(!provably_targetless(&with_big, in_hand("Blazing Hope")));
+
+    // Lay Down Arms: creature MV <= Plains you control.
+    let mut one_drop = printed(3, 1, "Llanowar Elves", 1);
+    one_drop.mana_value = 1;
+    let mut plains = printed(4, 0, "Plains", 0);
+    plains.types = TypeSet::LAND;
+    plains.subtypes = SubtypeSet::from_slice(&[PLAINS]);
+
+    let zero_plains = ViewBuilder::new(2)
+        .with_battlefield(1, vec![one_drop.clone()])
+        .build();
+    assert!(provably_targetless(&zero_plains, in_hand("Lay Down Arms")));
+
+    let one_plains = ViewBuilder::new(2)
+        .with_battlefield(0, vec![plains])
+        .with_battlefield(1, vec![one_drop])
+        .build();
+    assert!(!provably_targetless(&one_plains, in_hand("Lay Down Arms")));
+
+    // Squirming Emergence: nonland permanent card in your GY with MV <= permanent cards in your GY.
+    let mut two_drop = printed(5, 0, "Grizzly Bears", 2);
+    two_drop.mana_value = 2;
+    let one_perm_in_gy = ViewBuilder::new(2)
+        .with_graveyard(0, vec![two_drop.clone()])
+        .build();
+    assert!(provably_targetless(
+        &one_perm_in_gy,
+        in_hand("Squirming Emergence")
+    ));
+
+    let extra_land = {
+        let mut l = printed(6, 0, "Forest", 0);
+        l.types = TypeSet::LAND;
+        l
+    };
+    let two_perms_in_gy = ViewBuilder::new(2)
+        .with_graveyard(0, vec![two_drop, extra_land])
+        .build();
+    assert!(!provably_targetless(
+        &two_perms_in_gy,
+        in_hand("Squirming Emergence")
+    ));
+}
