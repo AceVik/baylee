@@ -90,9 +90,7 @@ fn applicable(
     let Some(object) = state.object(entry.object) else {
         return Vec::new();
     };
-    let mut prospective = object.clone();
-    prospective.zone = Zone::Battlefield;
-    prospective.version = prospective.version.wrapping_add(1);
+    let mut prospective = super::prospective_battlefield(object);
     let excluded = unavailable(state);
     let plan = crate::layers::LayerPlan::before_entries(&state.effects, excluded);
     let projection = crate::layers::recompute_with(state, &prospective, &plan);

@@ -1621,7 +1621,11 @@ fn collect_for_objects(
             phased_out_only,
             triggers,
         );
-        for ability in &list.abilities {
+        for (ability_idx, ability) in list.abilities.iter().enumerate() {
+            let ability_owner = departed_obj.unwrap_or(obj);
+            if crate::layers::ability_is_lost(state, ability_owner, ability_idx as u32) {
+                continue;
+            }
             if phased_out_only {
                 break;
             }

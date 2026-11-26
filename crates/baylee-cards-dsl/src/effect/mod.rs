@@ -6362,6 +6362,127 @@ pub enum Effect {
         /// Whether the player may fail to find / decline.
         optional: bool,
     },
+    /// Transform the source permanent into an Aura enchantment with `enchant`,
+    /// optionally losing the resolving ability, attach it to `target`, and
+    /// optionally grant its activator a priority special action (`CR 116.2a`)
+    /// to pay `revert_cost` and end these continuous effects (Licids, animate-into-Aura).
+    /// Appended to preserve replay identities.
+    BecomeAura {
+        /// Host to attach the newly animated Aura to.
+        target: TargetSpec,
+        /// `Enchant <quality>` ability granted in Layer 6 (`CR 702.5a`).
+        enchant: TargetSpec,
+        /// When `true`, suppresses only the resolving printed ability (`CR 113.10`).
+        lose_this_ability: bool,
+        /// Optional special-action mana cost for the activator to end the effect.
+        revert_cost: Option<ManaCost>,
+    },
+    /// Lock dynamic Layer 7b power and/or toughness on `subject` (`CR 608.2h`,
+    /// `CR 613.4b`), supporting `ThisObject` even on targeted abilities
+    /// (*Halfdane*, *Riptide Mangler*, *Sentinel*, *Sworn Defender*), single-sided
+    /// P or T (*Arni Brokenbrow*), signed offsets, and `EventObject` / targets.
+    /// Appended to preserve replay identities.
+    SetDynamicPT {
+        /// Subject permanent(s) whose base power and/or toughness are set.
+        subject: TargetSpec,
+        /// New base power amount (`None` leaves base power unchanged).
+        power: Option<Amount>,
+        /// New base toughness amount (`None` leaves base toughness unchanged).
+        toughness: Option<Amount>,
+        /// Signed offset added to evaluated `power` (e.g. `-1` for *Sworn Defender*).
+        power_offset: i16,
+        /// Signed offset added to evaluated `toughness` (e.g. `+1` for *Sentinel*).
+        toughness_offset: i16,
+        /// Lifetime of the Layer 7b continuous effect.
+        duration: crate::Duration,
+    },
+    /// Unattach the permanent(s) named by `target` from whatever permanent or
+    /// player they are attached to (`CR 701.3d`; *Ogre Geargrabber*, *Unexpected
+    /// Request*). Appended to preserve replay identities.
+    Unattach {
+        /// Attachment(s) to unattach.
+        target: TargetSpec,
+    },
+    /// Attach permanent(s) named by `object` (including `EventObject` or
+    /// multi-target `Object(...)`) to the permanent or player named by `to`
+    /// (`CR 701.3a-b`; *Hammer of Nazahn*, *Sigarda's Aid*, *Kemba, Kha Enduring*,
+    /// *Super-Soldier Serum*, *Archnemesis*, *Ogre Geargrabber*). Appended to
+    /// preserve replay identities.
+    AttachObject {
+        /// Attachment permanent(s) to attach.
+        object: TargetSpec,
+        /// Recipient permanent or player.
+        to: TargetSpec,
+        /// Whether the controller may decline to attach (`YesNoPrompt::MayDo`).
+        optional: bool,
+    },
+    /// Choose a recipient permanent matching `recipient_filter` (evaluated with
+    /// `from` as `reference`) and move every battlefield attachment matching
+    /// `attachments` currently attached to `from` that can legally attach to
+    /// the chosen recipient, leaving illegal ones attached to `from` (*Glamer
+    /// Spinners*, `CR 701.3b`, `CR 613.7m`). Appended to preserve replay identities.
+    MoveAllAttachments {
+        /// Which attachments currently attached to `from` to move (e.g. `&Filter::AURA`).
+        attachments: &'static Filter,
+        /// Current host permanent whose attachments are moved.
+        from: TargetSpec,
+        /// Filter candidate new hosts must match (with `reference = from`).
+        recipient_filter: &'static Filter,
+        /// When `true`, excludes `from` itself from recipient options.
+        must_change_recipient: bool,
+        /// When `true`, the controller may choose no new host.
+        optional: bool,
+    },
+    /// Attach all battlefield permanents matching `filter` that are currently
+    /// attached to `of` — or were attached to `of` as it last existed on the
+    /// battlefield (`ltb_attachments`, `CR 603.10a`) — to `to` (*Rhuk, Hexgold
+    /// Nabber*). Appended to preserve replay identities.
+    AttachLtbAttachments {
+        /// Permanent whose current or last-known attachments are gathered.
+        of: TargetSpec,
+        /// Filter matched against candidate attachments (e.g. `&Filter::EQUIPMENT`).
+        filter: &'static Filter,
+        /// New host to attach them to.
+        to: TargetSpec,
+        /// Whether the controller may decline to attach (`YesNoPrompt::MayDo`).
+        optional: bool,
+    },
+    /// Like [`Self::AttachChosen`], but tracks which chosen attachment(s)
+    /// actually changed attachment to `to` (`CR 701.3b`), binds `EventObject` /
+    /// `found` to them, and executes `then_if_attached` only if at least one
+    /// actually attached (*Unexpected Request*, *Magitek Scythe*). Appended to
+    /// preserve replay identities.
+    AttachChosenThen {
+        /// Attachments that may be chosen.
+        filter: &'static Filter,
+        /// The object or player they are attached to.
+        to: TargetSpec,
+        /// Maximum number of attachments chosen.
+        max: Amount,
+        /// Whether choosing none is allowed.
+        optional: bool,
+        /// Instructions executed only if at least one attachment actually attached.
+        then_if_attached: &'static [Effect],
+    },
+    /// Have `chooser` choose a legal permanent recipient matching
+    /// `recipient_filter` for `attachment` (which may be a `TargetSpec` or
+    /// `AttachmentSource::GrantedSource`), attach it, and execute `then_if_moved`
+    /// if it actually moved (*Steam Vines*, *Kudzu*, *Nettlevine Blight*,
+    /// *Aura Graft*). Appended to preserve replay identities.
+    RelocateAttachment {
+        /// Which attachment permanent to move.
+        attachment: AttachmentSource,
+        /// Player who chooses the new recipient.
+        chooser: PlayerRel,
+        /// Additional filter candidate recipients must match.
+        recipient_filter: &'static Filter,
+        /// When `true`, excludes the current host permanent.
+        must_change_recipient: bool,
+        /// When `true`, `chooser` may decline (`min = 0`).
+        optional: bool,
+        /// Instructions executed only if the attachment actually moved (`CR 701.3b`).
+        then_if_moved: &'static [Effect],
+    },
 }
 
 /// Non-mana unless-cost offered to any player in APNAP order by [`Effect::AnyPlayerMayPayCost`].

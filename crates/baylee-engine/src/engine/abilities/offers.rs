@@ -652,6 +652,11 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 .map(|(index, definition)| (index as u32, *definition))
                 .chain(granted)
             {
+                if crate::choice::granted_slot(i).is_none()
+                    && crate::layers::ability_is_lost(&self.state, obj, i)
+                {
+                    continue;
+                }
                 let Some(ability) = self.activation_offer_definition(player, id, i, &ability)
                 else {
                     continue;
@@ -870,6 +875,11 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                     .map(|(idx, def)| (idx as u32, *def))
                     .chain(granted.into_iter().flatten())
                 {
+                    if crate::choice::granted_slot(i).is_none()
+                        && crate::layers::ability_is_lost(&self.state, obj, i)
+                    {
+                        continue;
+                    }
                     let Some(ability) = self.activation_offer_definition(player, card, i, &ability)
                     else {
                         continue;

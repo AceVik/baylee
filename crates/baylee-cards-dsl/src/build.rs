@@ -1228,17 +1228,18 @@ pub mod prelude {
     /// of every card file.
     pub use crate::counters;
     pub use crate::effect::{
-        Amount, AnyPlayerCost, AttachHost, ChooseMove, ChooseZone, ColorSubject, CombatWatchEvent,
-        CopyCleanup, CounterDestination, CounterDonor, CounterKind, CounterScope, DamageRedirectTo,
-        DamageRider, DamageTo, DefinedObjects, DelayedDuration, DelayedObservation, DelayedStep,
-        DelayedTriggerWhen, DivisionAmount, DoublePtSubject, Effect, ExileMana, ExilePermission,
-        ExilePlay, ExileUntil, Find, LookRest, ManaDistribution, ManaRestriction, ManaSource,
-        ManaUse, ManaValueBound, ManaValueCmp, ModalRestriction, MoveSubject, MultiPlayerChoice,
-        MultiPlayerChoiceAggregate, NumberChoiceKind, PeekPickDest, PeekRestDest, PlayCostMode,
-        PlayCount, PlaySource, PlayWindow, PlayerRel, ReflexiveEvent, ReflexiveWhen, RepeatDomain,
-        RevealUntilFound, RevealUntilRest, SearchDest, SourceLeaveAction, SpendRider,
-        TargetChooser, TargetConstraint, TargetReq, TargetSlot, TargetSpec, ThisWay, TokenDef,
-        TriggerRemember, VariablePayKind, VoteObjectAction, VoteOption, VoteOutcome, ZoneSel,
+        Amount, AnyPlayerCost, AttachHost, AttachmentSource, ChooseMove, ChooseZone, ColorSubject,
+        CombatWatchEvent, CopyCleanup, CounterDestination, CounterDonor, CounterKind, CounterScope,
+        DamageRedirectTo, DamageRider, DamageTo, DefinedObjects, DelayedDuration,
+        DelayedObservation, DelayedStep, DelayedTriggerWhen, DivisionAmount, DoublePtSubject,
+        Effect, ExileMana, ExilePermission, ExilePlay, ExileUntil, Find, LookRest,
+        ManaDistribution, ManaRestriction, ManaSource, ManaUse, ManaValueBound, ManaValueCmp,
+        ModalRestriction, MoveSubject, MultiPlayerChoice, MultiPlayerChoiceAggregate,
+        NumberChoiceKind, PeekPickDest, PeekRestDest, PlayCostMode, PlayCount, PlaySource,
+        PlayWindow, PlayerRel, ReflexiveEvent, ReflexiveWhen, RepeatDomain, RevealUntilFound,
+        RevealUntilRest, SearchDest, SourceLeaveAction, SpendRider, TargetChooser,
+        TargetConstraint, TargetReq, TargetSlot, TargetSpec, ThisWay, TokenDef, TriggerRemember,
+        VariablePayKind, VoteObjectAction, VoteOption, VoteOutcome, ZoneSel,
     };
     pub use crate::filter::{Filter, OriginalExpansion, ZoneRef, ZoneRef as ZoneKind};
     pub use crate::static_ability::{

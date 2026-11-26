@@ -162,6 +162,11 @@ pub fn locks_its_set(modifier: &Modifier) -> bool {
         | Modifier::LoseAllBandsWithOther
         | Modifier::CantHaveKeywords(_)
         | Modifier::LoseAllAbilities
+        | Modifier::GrantEnchant(_)
+        | Modifier::LoseAbility(_)
+        | Modifier::GrantBloodthirst(_)
+        | Modifier::GrantSunburst
+        | Modifier::SetName(_)
         | Modifier::ProtectionFrom(_)
         | Modifier::ProtectionFromExiledWithSourceTypes
         | Modifier::BecomeCopyOf(_)
@@ -549,6 +554,9 @@ impl RuleHints {
     const REGENERATION_PROHIBITION: u32 = 1 << 21;
     const DAMAGE_SOURCE_COLOR: u32 = 1 << 22;
     const UNCOUNTERABLE_SPELLS: u32 = 1 << 23;
+    const LOSE_ABILITY: u32 = 1 << 24;
+    const GRANT_ENCHANT: u32 = 1 << 25;
+    const SET_NAME: u32 = 1 << 26;
 
     const fn contains(&self, bit: u32) -> bool {
         self.0 & bit != 0
@@ -667,6 +675,18 @@ impl EffectTable {
         self.hints.contains(RuleHints::DAMAGE_SOURCE_COLOR)
     }
 
+    pub(crate) const fn may_lose_specific_ability(&self) -> bool {
+        self.hints.contains(RuleHints::LOSE_ABILITY)
+    }
+
+    pub(crate) const fn may_grant_enchant(&self) -> bool {
+        self.hints.contains(RuleHints::GRANT_ENCHANT)
+    }
+
+    pub(crate) const fn may_set_name(&self) -> bool {
+        self.hints.contains(RuleHints::SET_NAME)
+    }
+
     pub(crate) fn has_parked(&self) -> bool {
         !self.parked.is_empty()
     }
@@ -737,6 +757,18 @@ impl EffectTable {
         self.hints.insert_if(
             RuleHints::GRANT_STATIC,
             matches!(fx.modifier, Modifier::GrantStatic { .. }),
+        );
+        self.hints.insert_if(
+            RuleHints::LOSE_ABILITY,
+            matches!(fx.modifier, Modifier::LoseAbility(_)),
+        );
+        self.hints.insert_if(
+            RuleHints::GRANT_ENCHANT,
+            matches!(fx.modifier, Modifier::GrantEnchant(_)),
+        );
+        self.hints.insert_if(
+            RuleHints::SET_NAME,
+            matches!(fx.modifier, Modifier::SetName(_)),
         );
         self.hints.insert_if(
             RuleHints::GRANT_LINKED_EXILE,
@@ -2414,6 +2446,13 @@ mod tests {
                 filter: &baylee_cards_dsl::Filter::YOUR_CREATURE,
                 generic: 8,
             },
+            Modifier::GrantEnchant(baylee_cards_dsl::TargetSpec::Object(
+                &baylee_cards_dsl::Filter::CREATURE,
+            )),
+            Modifier::LoseAbility(0),
+            Modifier::GrantBloodthirst(3),
+            Modifier::GrantSunburst,
+            Modifier::SetName("Moon"),
         ]
     }
 
@@ -2452,7 +2491,7 @@ mod tests {
 
         assert_eq!(
             declared.len(),
-            278,
+            283,
             "read {} variants out of the declaration, which is not the enum",
             declared.len()
         );
@@ -2487,7 +2526,10 @@ mod tests {
         let mut disagree = Vec::new();
         for modifier in every_modifier() {
             let locks = locks_its_set(&modifier);
-            let characteristic = modifier.layer() != Layer::Text;
+            // `SetName` is a genuine CR 613.1c Layer 3 text-changing effect; all other
+            // modifiers on `Layer::Text` park there as rules-only modifiers.
+            let characteristic =
+                modifier.layer() != Layer::Text || matches!(modifier, Modifier::SetName(_));
             if locks != characteristic {
                 disagree.push(format!(
                     "{modifier:?} locks={locks} layer={:?}",
@@ -2589,7 +2631,9 @@ mod tests {
         // Wave 17c adds GrantsUnearth, GrantsScavengeManaCost, and GrantsDredge on
         // Layer::Ability (+3 locking -> 70) and ten cost/permission modifiers on
         // Layer::Text (+10 rules-only -> 194).
-        assert_eq!((locking, all.len() - locking), (79, 199));
+        // Animate/Attach lane adds GrantEnchant, LoseAbility, GrantBloodthirst,
+        // GrantSunburst (Layer::Ability) and SetName (Layer::Type): +5 locking -> 84.
+        assert_eq!((locking, all.len() - locking), (84, 199));
     }
 
     /// An `ObjectId` alone is not an identity: an id is stable for a whole

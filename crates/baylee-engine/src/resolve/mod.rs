@@ -114,6 +114,7 @@ mod wave18b;
 pub(crate) mod wave3_ops;
 mod zones;
 
+mod animate;
 mod answers;
 mod awaiting;
 mod choices;
@@ -827,6 +828,21 @@ pub(super) fn amount2(amount: &Amount, state: &GameState, you: PlayerId, res: &R
             .damage_source(res.source, source_version(state, res))
             .and_then(|source| source.characteristics().power)
             .map_or(0, |power| power.max(0) as u32),
+        Amount::SourceToughness => state
+            .damage_source(res.source, source_version(state, res))
+            .and_then(|source| source.characteristics().toughness)
+            .map_or(0, |toughness| toughness.max(0) as u32),
+        Amount::DiscardedManaValue => state
+            .object(res.on_stack)
+            .and_then(|o| o.paid.as_ref())
+            .map_or(0, |paid| {
+                paid.discarded
+                    .iter()
+                    .filter_map(|&card| state.source_object(card))
+                    .fold(0u32, |acc, obj| {
+                        acc.saturating_add(obj.characteristics().mana_value())
+                    })
+            }),
         Amount::EventPower => {
             let Some(source) = res.event_object else {
                 return 0;
@@ -2818,6 +2834,9 @@ fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> Option<Pendi
         | Effect::ChooseNumberEx { .. }
         | Effect::MoveAttachment { .. }
         | Effect::AttachChosen { .. }
+        | Effect::MoveAllAttachments { .. }
+        | Effect::AttachChosenThen { .. }
+        | Effect::RelocateAttachment { .. }
         | Effect::DestroyWeakest { .. }
         | Effect::ExchangeGreatestManaValue { .. }
         | Effect::PlayerMayPayCostThen { .. }

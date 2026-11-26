@@ -2372,14 +2372,15 @@ pub(super) fn exec_immediate(
             super::empower::start(state, res, token, n)
         }
         Effect::ModifyEvent { modifier, duration } => {
+            if !super::continuous_subjects::source_duration_starts(state, res, duration) {
+                return None;
+            }
             let subject =
                 subjects::event(state, res).filter(|r| subjects::is_current(state, *r))?;
-            if !crate::permanent_guards::permits_resolution_effect(
-                state,
-                crate::effects::EffectFilter::ObjectIs(subject.object, subject.version),
-                modifier,
-                you,
-            ) {
+            let filter = crate::effects::EffectFilter::ObjectIs(subject.object, subject.version);
+            if !crate::permanent_guards::permits_resolution_effect(state, filter, modifier, you)
+                || !state.source_duration_holds(duration, res.source, you, filter)
+            {
                 return None;
             }
             let timestamp = state.next_timestamp();
@@ -2391,9 +2392,13 @@ pub(super) fn exec_immediate(
                 layer: modifier.layer(),
                 timestamp,
                 duration,
-                filter: crate::effects::EffectFilter::ObjectIs(subject.object, subject.version),
+                filter,
                 modifier,
             });
+            if matches!(modifier, baylee_cards_dsl::Modifier::GrantStatic { .. }) {
+                state.refresh_characteristics();
+                crate::effects::sync_granted_statics(state);
+            }
             None
         }
         Effect::ModifyTargets { modifier, duration } => {
@@ -4320,6 +4325,9 @@ pub(super) fn exec_immediate(
         | Effect::ChooseNumberEx { .. }
         | Effect::MoveAttachment { .. }
         | Effect::AttachChosen { .. }
+        | Effect::MoveAllAttachments { .. }
+        | Effect::AttachChosenThen { .. }
+        | Effect::RelocateAttachment { .. }
         | Effect::DestroyWeakest { .. }
         | Effect::ExchangeGreatestManaValue { .. }
         | Effect::PlayerMayPayCostThen { .. }
@@ -4564,6 +4572,57 @@ pub(super) fn exec_immediate(
         }
         Effect::Flickerform => super::wave18b::exec_flickerform(state, res),
         Effect::FlickerformReturnFromRelated => super::wave18b::exec_flickerform_return(state, res),
+        Effect::BecomeAura {
+            target,
+            enchant,
+            lose_this_ability,
+            revert_cost,
+        } => {
+            super::animate::become_aura(
+                state,
+                res,
+                target,
+                enchant,
+                lose_this_ability,
+                revert_cost,
+            );
+            None
+        }
+        Effect::SetDynamicPT {
+            subject,
+            power,
+            toughness,
+            power_offset,
+            toughness_offset,
+            duration,
+        } => {
+            super::animate::set_dynamic_pt(
+                state,
+                res,
+                subject,
+                power,
+                toughness,
+                power_offset,
+                toughness_offset,
+                duration,
+            );
+            None
+        }
+        Effect::Unattach { target } => {
+            super::attachments::unattach(state, res, target);
+            None
+        }
+        Effect::AttachObject {
+            object,
+            to,
+            optional,
+        } => super::attachments::attach_object(state, res, object, to, optional),
+        Effect::AttachLtbAttachments {
+            of,
+            filter,
+            to,
+            optional,
+        } => super::attachments::attach_ltb_attachments(state, res, of, filter, to, optional),
         Effect::AttachSlot {
             object,
             to,

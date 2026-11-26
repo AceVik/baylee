@@ -17944,7 +17944,14 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
         modes: &[],
         alternatives: &[],
     }],
-    &[],
+    // Quickening Licid
+    &[FaceLines {
+        sentences: 2,
+        stackable: 1,
+        lines: &[Some(0), None],
+        modes: &[],
+        alternatives: &[],
+    }],
     // Ranger en-Vec
     &[FaceLines {
         sentences: 2,
@@ -19768,8 +19775,8 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     // Dominating Licid
     &[FaceLines {
         sentences: 2,
-        stackable: 0,
-        lines: &[None],
+        stackable: 1,
+        lines: &[Some(0), None],
         modes: &[],
         alternatives: &[],
     }],

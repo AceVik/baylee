@@ -166,14 +166,8 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
             .activation_definition(source, ability_index)
             .is_some_and(|ability| ability.is_cycling());
         let granted = self.granted_definition(source, ability_index);
-        let mut damage_from_grantor = false;
-        if let Some(grant) = granted {
-            baylee_cards_dsl::Effect::walk(grant.effects, &mut 0, &mut |effect| {
-                damage_from_grantor |=
-                    matches!(effect, baylee_cards_dsl::Effect::GrantorDealsDamage { .. });
-            });
-        }
-        let grantor = if damage_from_grantor || cost.parts.contains(&CostPart::SacrificeGrantor) {
+        let reads_grantor = granted.is_some_and(|grant| grant_reads_grantor(grant.effects));
+        let grantor = if reads_grantor || cost.parts.contains(&CostPart::SacrificeGrantor) {
             granted
                 .and_then(|grant| grant.source)
                 .and_then(|id| self.state.source_identity(id))
@@ -2280,4 +2274,19 @@ pub(crate) fn waterbend_tap_capacity(
         sources.retain(|&id| id != source);
     }
     u32::try_from(sources.len()).unwrap_or(u32::MAX)
+}
+
+fn grant_reads_grantor(effects: &'static [baylee_cards_dsl::Effect]) -> bool {
+    let mut reads = false;
+    baylee_cards_dsl::Effect::walk(effects, &mut 0, &mut |effect| {
+        reads |= matches!(
+            effect,
+            baylee_cards_dsl::Effect::GrantorDealsDamage { .. }
+                | baylee_cards_dsl::Effect::RelocateAttachment {
+                    attachment: baylee_cards_dsl::AttachmentSource::GrantedSource,
+                    ..
+                }
+        );
+    });
+    reads
 }

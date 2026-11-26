@@ -3,8 +3,6 @@
 //! Oracle: Enchanted creature has first strike.
 //! Set: TMP #36 — Tempest | Scryfall ID: e6e91f3d-5a23-4df1-a879-d18a3af92a28 | Oracle ID: 2bdd9ca3-542a-43c0-9831-c6add23890d6
 
-// PARTIAL — Licid Aura transformation and special action to end it are not supported; only the 1/1 body is played.
-
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes;
 
@@ -13,9 +11,7 @@ card!(
     oracle_id = "2bdd9ca3-542a-43c0-9831-c6add23890d6",
     scryfall_id = "e6e91f3d-5a23-4df1-a879-d18a3af92a28",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Partial(
-        "Licid Aura transformation and special action to end it are not supported; only the 1/1 body is played."
-    ),
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Quickening Licid",
         mana_cost = mana!("{1}{W}"),
@@ -23,6 +19,21 @@ card!(
         subtypes = &[subtypes::creature::LICID],
         power = Some(1),
         toughness = Some(1),
-    ),],
-    // NOT SUPPORTED: Licid Aura transformation and special action to end it are not supported; only the 1/1 body is played.
+    )],
+    abilities = &[
+        activated!(
+            cost!("{1}{W}", TapSelf),
+            &[Effect::BecomeAura {
+                target: TargetSpec::Object(&Filter::CREATURE),
+                enchant: TargetSpec::Object(&Filter::CREATURE),
+                lose_this_ability: true,
+                revert_cost: Some(mana!("{W}")),
+            }],
+            targets = Some(TargetReq::one(TargetSpec::Object(&Filter::CREATURE)))
+        ),
+        static_ability!(
+            Filter::AttachedToBySource,
+            Modifier::AddKeyword(KeywordSet::FIRST_STRIKE)
+        ),
+    ],
 );

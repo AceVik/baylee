@@ -462,6 +462,7 @@ const OFFERS_A_CHOICE: &[&str] = &[
     "MayCastFromGraveyardTargeted",
     "MayActivateLoyaltyAsInstant",
     "TaintedPact",
+    "revert_cost: Some(",
 ];
 
 pub(crate) fn check_optional_clauses_are_offered(
