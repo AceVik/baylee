@@ -498,9 +498,9 @@ fn sync(
                 overflow: Overflow::clip(),
                 ..default()
             },
-            BackgroundColor(crate::shellkit::tokens::OPAQUE),
-            crate::shellkit::surfaces::menu_ground(),
-            BorderColor::all(crate::shellkit::tokens::POPOVER_EDGE),
+            BackgroundColor(Color::NONE),
+            crate::shellkit::glass::ground(crate::shellkit::glass::Density::Solid),
+            crate::shellkit::glass::rim(),
             crate::shellkit::surfaces::elevation_popover(),
             crate::shellkit::sheen::Sheen,
             super::window::stacked(60),

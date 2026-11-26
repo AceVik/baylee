@@ -7226,6 +7226,33 @@ ShellBellLeft = { $player } left your table
 # A bell line: every chair at the player's table is taken.
 ShellBellFilled = Your table is full
 
+# The bell's list: its head.
+ShellBellTitle = Notifications
+
+# The bell's list: what stands while it is true (unread chat, requests, invitations).
+ShellBellWaiting = Waiting for you
+
+# The bell's list: what happened at the player's table.
+ShellBellTable = At your table
+
+# The bell's list with nothing in it: what will appear there.
+ShellBellEmptyHint = Invitations, friend requests and what happens at your table show up here.
+
+# When a bell line happened: under a minute ago.
+ShellAgoNow = just now
+
+# When a bell line happened, in whole minutes.
+# Arguments: minutes
+ShellAgoMinutes = { $minutes } min ago
+
+# When a bell line happened, in whole hours.
+# Arguments: hours
+ShellAgoHours = { $hours } h ago
+
+# When a bell line happened, in whole days.
+# Arguments: days
+ShellAgoDays = { $days } d ago
+
 # The gateway pill while there is no gateway.
 ShellOfflinePill = Offline · local decks
 
@@ -10961,6 +10988,15 @@ PrivateDraftRecoveredCopy = This deck changed on another device. Your unsaved ed
 RankedReceipt = { $format } · { $result } · { $delta } Elo ({ $elo })
 # Arguments: wins, losses, draws
 RankedRecord = { $wins } W · { $losses } L · { $draws } D
+
+# The ranked desk's figures: the season's share of games won.
+RankedStatWinRate = Win rate
+
+# The ranked desk's figures: games played this season.
+RankedStatSeason = Season games
+
+# The ranked desk's figures: games played over every season.
+RankedStatCareer = All games
 # Arguments: elo
 RankedElo = { $elo } Elo
 # Arguments: number

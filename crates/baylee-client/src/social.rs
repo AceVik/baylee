@@ -577,36 +577,44 @@ fn lobby_side(
     let total_social_unread = (unread as usize) + req_count;
     let mut notices = Vec::new();
     if unread > 0 {
-        notices.push(
+        notices.push(crate::lobby::Notice::new(
+            crate::hud::glyph::CHAT,
             baylee_client_core::i18n::ChatPhrase::NoticeUnread.fill_count(
                 lang,
                 unread as usize,
                 &[],
             ),
-        );
+        ));
     }
     for person in view.incoming {
-        notices.push(
+        notices.push(crate::lobby::Notice::new(
+            crate::hud::glyph::FRIENDS,
             baylee_client_core::i18n::ChatPhrase::NoticeFriendRequest.fill(lang, &[&person.handle]),
-        );
+        ));
     }
     for held in view.invites {
         let invite = &held.invite;
-        let phrase = match invite.kind {
-            baylee_protocol::social::InviteKind::Join => {
-                baylee_client_core::i18n::ChatPhrase::ToastJoinInvite
-            }
-            baylee_protocol::social::InviteKind::Watch => {
-                baylee_client_core::i18n::ChatPhrase::ToastWatchInvite
-            }
+        let (mark, phrase) = match invite.kind {
+            baylee_protocol::social::InviteKind::Join => (
+                crate::hud::glyph::PLAY,
+                baylee_client_core::i18n::ChatPhrase::ToastJoinInvite,
+            ),
+            baylee_protocol::social::InviteKind::Watch => (
+                crate::hud::glyph::EYE,
+                baylee_client_core::i18n::ChatPhrase::ToastWatchInvite,
+            ),
         };
-        notices.push(phrase.fill(lang, &[&invite.from.handle, &invite.table.name]));
+        notices.push(crate::lobby::Notice::new(
+            mark,
+            phrase.fill(lang, &[&invite.from.handle, &invite.table.name]),
+        ));
     }
     for invite in view.group_invites {
-        notices.push(
+        notices.push(crate::lobby::Notice::new(
+            crate::hud::glyph::FRIENDS,
             baylee_client_core::i18n::ChatPhrase::GroupInviteFrom
                 .fill(lang, &[&invite.name, &invite.inviter.handle]),
-        );
+        ));
     }
     if lobby.social_unread != total_social_unread || lobby.social_notices != notices {
         lobby.social_unread = total_social_unread;

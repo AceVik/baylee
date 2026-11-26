@@ -432,32 +432,12 @@ fn a_press_in_the_composer_lands_where_it_is_across_the_box() {
     assert!(composer::across(&bevy::ui::RelativeCursorPosition::default()).abs() < f32::EPSILON);
 }
 
-/// The window is glass: the room behind it comes through, so its ground is
-/// less than the kit's panel. What comes through must not take the lines:
-/// over the tavern fire's orange, blended in linear light as the UI is, the
-/// quiet ink keeps WCAG's 4.5:1 at the head and at the foot. The flat 0.66
-/// this replaced gave 2.5:1, which the last assertion holds on to.
+/// The window is the client's glass (owner, 26.11.2026: one look for every
+/// container), in its reading density, whose quiet ink holds 4.5 : 1 over
+/// the tavern fire (`shellkit::glass`'s own test); the pill keeps a flat
+/// fill, since its hover lights that fill.
 #[test]
-fn the_window_is_glass_and_its_quiet_ink_still_reads_over_the_fire() {
-    let fire = Color::srgb(0.90, 0.50, 0.15).to_linear();
-    let luminance = |c: LinearRgba| 0.2126 * c.red + 0.7152 * c.green + 0.0722 * c.blue;
-    let reads = |glass: Color| {
-        let over = glass.to_linear();
-        let share = over.alpha;
-        let under = LinearRgba::rgb(
-            over.red * share + fire.red * (1.0 - share),
-            over.green * share + fire.green * (1.0 - share),
-            over.blue * share + fire.blue * (1.0 - share),
-        );
-        (luminance(LOBBY_INKS.soft.to_linear()) + 0.05) / (luminance(under) + 0.05)
-    };
-    for glass in rows::window_glass() {
-        assert!(reads(glass) >= 4.5, "{glass:?}: {}", reads(glass));
-        assert!(glass.alpha() <= 0.92, "{glass:?}");
-        assert!(glass.alpha() < crate::shellkit::tokens::PANEL.alpha());
-    }
-    assert!(reads(LOBBY_INKS.ground) < 3.0);
-
+fn the_window_wears_the_clients_glass_and_its_pill_a_flat_fill() {
     let mut app = app();
     let fonts = UiFonts::default();
     let pill = chat_pill(&mut app.world_mut().commands(), &fonts, Lang::En, 2, false);
@@ -477,6 +457,7 @@ fn the_window_is_glass_and_its_quiet_ink_still_reads_over_the_fire() {
         .init_resource::<Windows>()
         .init_resource::<crate::social::zoom::Zoom>()
         .init_resource::<LobbyChatSizing>()
+        .init_resource::<LobbyChatPlacing>()
         .insert_resource(State::new(DuelPhase::Playing))
         .insert_resource(SocialHost {
             machine: Some(
@@ -508,7 +489,17 @@ fn the_window_is_glass_and_its_quiet_ink_still_reads_over_the_fire() {
     assert_eq!(
         app.world().get::<BackgroundColor>(chat_root).unwrap().0,
         Color::NONE,
-        "LobbyChat must not double-composite BackgroundColor under window_ground()"
+        "LobbyChat must not double-composite BackgroundColor under its glass"
+    );
+    assert_eq!(
+        app.world().get::<bevy::ui::BackgroundGradient>(chat_root),
+        Some(&crate::shellkit::glass::ground(
+            crate::shellkit::glass::Density::Reading
+        ))
+    );
+    assert_eq!(
+        app.world().get::<BorderColor>(chat_root),
+        Some(&crate::shellkit::glass::rim())
     );
 }
 
@@ -696,6 +687,7 @@ fn chat_pill_is_visible_and_table_chat_steps_aside_for_open_friends_drawer() {
         .init_resource::<Windows>()
         .init_resource::<crate::social::zoom::Zoom>()
         .init_resource::<LobbyChatSizing>()
+        .init_resource::<LobbyChatPlacing>()
         .insert_resource(crate::social::drawer::DrawerSlide(0.0))
         .insert_resource(State::new(DuelPhase::Playing))
         .insert_resource(SocialHost {

@@ -247,8 +247,7 @@ pub(in crate::lobby) fn panel(commands: &mut Commands, root: Entity, kit: Kit) -
                 border_radius: BorderRadius::all(px_fixed(tokens::RADIUS_PANEL)),
                 ..default()
             },
-            BackgroundColor(tokens::OPAQUE),
-            BorderColor::all(tokens::BORDER),
+            crate::shellkit::glass::pane(crate::shellkit::glass::Density::Reading),
             Pickable::IGNORE,
         ))
         .id();

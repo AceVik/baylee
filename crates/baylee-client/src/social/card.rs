@@ -65,9 +65,9 @@ const RADIUS: f32 = tokens::RADIUS_PANEL;
 /// spacing step, as in a popover.
 const PAD: f32 = tokens::SPACE[3];
 
-/// What the disc is set in: the card's ground (`surfaces::popover_ground`)
-/// where the disc stands, a third of the way down it.
-const GROUND_MID: Color = Color::srgb(0.12, 0.19, 0.26);
+/// What the disc is set in: the card's ground (the solid `glass`) where
+/// the disc stands, a third of the way down it.
+const GROUND_MID: Color = Color::srgb(0.049, 0.087, 0.141);
 
 /// Who a card is about, and how it hangs.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -622,9 +622,9 @@ fn build(
             held(motion::opening(opening), at.corner),
             // A popover of the kit's: its ground, its rim and its shadow.
             // What is the person's own is the band, the disc and the light.
-            BackgroundColor(tokens::OPAQUE.with_alpha(0.96)),
-            surfaces::popover_ground(),
-            BorderColor::all(tokens::POPOVER_EDGE),
+            BackgroundColor(Color::NONE),
+            crate::shellkit::glass::ground(crate::shellkit::glass::Density::Solid),
+            crate::shellkit::glass::rim(),
             lit(hue),
             // Over every chat surface wherever it is stacked (`window::Stack`),
             // over a row's menu (60), under the vault's sheet (70).
