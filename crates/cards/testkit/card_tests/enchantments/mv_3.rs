@@ -61,7 +61,6 @@ mod hadana_s_climb;
 mod hand_to_hand;
 mod hanna_s_custody;
 mod haunted_crossroads;
-mod heat_stroke;
 mod heat_wave;
 mod hecatomb;
 mod heroism;

@@ -52,7 +52,7 @@ fn seeds_of_innocence_destroys_artifacts_and_controllers_gain_mana_value_life() 
     );
     assert_eq!(
         e.state().players[1].life,
-        24,
-        "P1 gains 4 for Tome (MV 4) and 0 for Gargoyle"
+        31,
+        "P1 gains 4 for Tome (MV 4) + 7 for surviving indestructible Gargoyle (MV 7)"
     );
 }

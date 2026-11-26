@@ -61,7 +61,27 @@ fn ether_well_puts_nonred_on_top_and_offers_bottom_for_red_creature() {
     pass_until(&mut e, stack_is_empty);
     assert_eq!(lib_cards(&e, P1).last().copied(), Some(grizzly_bears()));
 
-    // Red Ogre offers bottom option; accepting puts it on bottom (index 0).
+    // Red Ogre offers bottom option; declining puts it on top.
+    let ogre = on_battlefield(&e, P1, gray_ogre()).unwrap();
+    cast_from_hand(&mut e, P0, ether_well());
+    kit::aim(&mut e, &[ogre], &[]);
+    pass_until(&mut e, |e| matches!(e.pending(), Pending::YesNo { .. }));
+    e.apply(P0, PlayerAction::YesNo(false)).unwrap();
+    pass_until(&mut e, stack_is_empty);
+    assert_eq!(lib_cards(&e, P1).last().copied(), Some(gray_ogre()));
+}
+
+#[test]
+fn ether_well_puts_red_creature_on_bottom_when_accepted() {
+    let mut e = Duel::new(SEED, island())
+        .battlefield(0, &[island(), island(), island(), island()])
+        .battlefield(1, &[grizzly_bears(), gray_ogre()])
+        .hand(0, &[ether_well()])
+        .start();
+    keep_mulligans(&mut e);
+    reach_main_phase(&mut e, P0);
+
+    // Accepting bottom option puts red Ogre on bottom (index 0).
     let ogre = on_battlefield(&e, P1, gray_ogre()).unwrap();
     cast_from_hand(&mut e, P0, ether_well());
     kit::aim(&mut e, &[ogre], &[]);
@@ -69,5 +89,4 @@ fn ether_well_puts_nonred_on_top_and_offers_bottom_for_red_creature() {
     e.apply(P0, PlayerAction::YesNo(true)).unwrap();
     pass_until(&mut e, stack_is_empty);
     assert_eq!(lib_cards(&e, P1).first().copied(), Some(gray_ogre()));
-    assert_eq!(lib_cards(&e, P1).last().copied(), Some(grizzly_bears()));
 }
