@@ -3507,12 +3507,14 @@ impl Tx<'_> {
         let spec = Self::reconstruct_dig_spec(api, sp);
         let mut inner = Chain::default();
         let saved_delayed = std::mem::replace(&mut self.in_delayed, uses_event_obj);
+        let saved_repeat = std::mem::replace(&mut self.in_repeat_each_object, true);
         let saved_mode = if uses_event_player {
             self.trigger_mode.replace("LifeGained".into())
         } else {
             self.trigger_mode.clone()
         };
         let ok = self.chain(&spec, &mut inner);
+        self.in_repeat_each_object = saved_repeat;
         self.in_delayed = saved_delayed;
         self.trigger_mode = saved_mode;
         ok?;

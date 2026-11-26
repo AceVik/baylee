@@ -256,7 +256,7 @@ impl Tx<'_> {
             return (self.body.convoke && !self.in_delayed)
                 .then(|| "Amount::ConvokedCount".to_string());
         }
-        if def == "Count$Converge" {
+        if matches!(def, "Count$Converge" | "Count$ManaColorsPaid") {
             return (!self.in_delayed).then(|| "Amount::ColorsOfManaSpentToCast".to_string());
         }
         if let Some(color_raw) = def

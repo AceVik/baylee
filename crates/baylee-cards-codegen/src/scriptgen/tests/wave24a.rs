@@ -218,7 +218,6 @@ fn branch_refuses_unsupported_svars_alchemy_and_malformed_arms() {
     for svar in [
         "TargetedController$Counters.Poison",
         "Count$TotalManaSpent Treasure",
-        "Count$ManaColorsPaid",
         "Count$Foretold.1.0",
         "TargetedPlayer$LifeLostThisTurn",
     ] {
@@ -808,5 +807,32 @@ fn non_paper_and_unsupported_remember_changed_chains_stay_refused() {
          SVar:TrigBranch:DB$ Branch | BranchConditionSVar$ X | TrueSubAbility$ DBDraw\n\
          SVar:DBDraw:DB$ Draw | Defined$ You | NumCards$ 1\n\
          SVar:X:Count$Monarch.1.0",
+    ));
+}
+
+#[test]
+fn wave24a_branch_targeted_player_library_compare_and_refusal() {
+    let jon = read_w24(
+        "Name:Jon Irenicus, the Exile\nManaCost:2 U B\nTypes:Legendary Creature Elf Wizard\nPT:3/5\n\
+T:Mode$ Phase | Phase$ End of Turn | ValidPlayer$ You | TriggerZones$ Battlefield | Execute$ TrigBranch\n\
+SVar:TrigBranch:DB$ Branch | ValidTgts$ Opponent | BranchConditionSVar$ X | BranchConditionSVarCompare$ GEY | TrueSubAbility$ Draw | FalseSubAbility$ Mill\n\
+SVar:Draw:DB$ Draw\n\
+SVar:Mill:DB$ Mill | Defined$ Opponent | NumCards$ 5\n\
+SVar:X:Count$ValidLibrary Card.YouOwn\n\
+SVar:Y:Count$ValidLibrary Card.TargetedPlayerOwn",
+    );
+    assert!(
+        jon.abilities[0].contains("Amount::LibrarySize(PlayerRel::You)")
+            && jon.abilities[0].contains("Amount::LibrarySize(PlayerRel::Chosen)"),
+        "{}",
+        jon.abilities[0]
+    );
+
+    assert!(refused_w24(
+        "Name:BadMultiLib\nManaCost:2 U\nTypes:Sorcery\n\
+A:SP$ Branch | TargetMin$ 0 | TargetMax$ 2 | ValidTgts$ Player | BranchConditionSVar$ YourLib | BranchConditionSVarCompare$ GEOppLib | TrueSubAbility$ DBDraw\n\
+SVar:DBDraw:DB$ Draw | Defined$ You | NumCards$ 1\n\
+SVar:YourLib:Count$CardsInYourLibrary\n\
+SVar:OppLib:Count$ValidLibrary Card.TargetedPlayerCtrl"
     ));
 }

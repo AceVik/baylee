@@ -1821,7 +1821,14 @@ impl Tx<'_> {
                     bits.push("KeywordSet::PROVOKE");
                 }
             } else {
-                let from = self.protection_filter(kw)?;
+                let from = if kw == "Protection from everything" {
+                    "Filter::Any".to_string()
+                } else if kw == "Protection from each color" {
+                    "Filter::HasColor(ColorSet::from_slice(&[                     Color::White, Color::Blue, Color::Black, Color::Red, Color::Green]))"
+                        .to_string()
+                } else {
+                    self.protection_filter(kw)?
+                };
                 self.body.abilities.push(format!(
                     "static_ability!(Filter::This, Modifier::ProtectionFrom(&{from}), \
                      condition = Some({cond}))"

@@ -1165,3 +1165,48 @@ fn wave28c_p3_refusal_guards() {
          SVar:MirrorStrikeDmg:DB$ ReplaceEffect | VarName$ Affected | VarValue$ ReplacedSourceController | VarType$ Player"
     ));
 }
+
+#[test]
+fn effect_delayed_damage_done_source_destroy_and_spell_cast_copy_choice_title() {
+    let mut cats = wave28c_cats();
+    cats.creature
+        .extend(["Klingon".into(), "Warrior".into(), "Moogle".into()]);
+    cats.enchantment.push("Saga".into());
+    cats.normalize();
+    let tokens = TokenLookup::held(&[(
+        "r_2_1_klingon_warrior_haste",
+        "Name:Klingon Warrior\nTypes:Creature Klingon Warrior\nColors:red\nPT:2/1\nK:Haste",
+    )]);
+
+    let rov = parse(
+        "Name:Right of Vengeance\nManaCost:3 W\nTypes:Instant\n\
+A:SP$ Effect | Triggers$ TrigDamaged\n\
+SVar:TrigDamaged:Mode$ DamageDone | ValidSource$ Creature | ValidTarget$ You | CombatDamage$ True | Execute$ TrigDestroy\n\
+SVar:TrigDestroy:DB$ Destroy | Defined$ TriggeredSourceLKICopy | SubAbility$ DBToken\n\
+SVar:DBToken:DB$ Token | TokenAmount$ 1 | TokenScript$ r_2_1_klingon_warrior_haste | TokenOwner$ You",
+    );
+    let rov_body = transcode(&rov, &cats, Some(&tokens))
+        .unwrap_or_else(|| panic!("refused: {:?}", refusal_reason(&rov, &cats, Some(&tokens))));
+    assert!(
+        rov_body.abilities[0].contains("Trigger::DealsCombatDamageToYou(&Filter::CREATURE)")
+            && rov_body.abilities[0].contains("Effect::destroy(TargetSpec::EventObject)")
+            && rov_body.abilities[0].contains("Effect::CreateToken"),
+        "{}",
+        rov_body.abilities[0]
+    );
+
+    let mog = parse(
+        "Name:Good King Mog Probe\nManaCost:4 W\nTypes:Instant\n\
+A:SP$ Effect | Triggers$ MogCopy\n\
+SVar:MogCopy:Mode$ SpellCast | ValidCard$ Card.nonCreature | ValidActivatingPlayer$ You | Execute$ TrigCopy | TriggerZones$ Command\n\
+SVar:TrigCopy:DB$ CopyPermanent | Choices$ Card.token+nonSaga+YouCtrl | ChoiceTitle$ Choose a non-Saga token you control",
+    );
+    let mog_body = transcode(&mog, &cats, None)
+        .unwrap_or_else(|| panic!("refused: {:?}", refusal_reason(&mog, &cats, None)));
+    assert!(
+        mog_body.abilities[0].contains("Effect::RegisterDelayedTrigger")
+            && mog_body.abilities[0].contains("Effect::ChooseAndCreateTokenCopy"),
+        "{}",
+        mog_body.abilities[0]
+    );
+}

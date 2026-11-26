@@ -2022,3 +2022,83 @@ fn wave22d_computed_pt_and_static_refusals() {
         assert!(refused(bad), "must refuse:\n{bad}");
     }
 }
+
+#[test]
+fn solo_becomes_blocked_by_grants_and_turn_scalar_and_mana_color_conditions() {
+    let retaliation = read(
+        "Name:Retaliation\nManaCost:2 G\nTypes:Enchantment\n\
+S:Mode$ Continuous | Affected$ Creature.YouCtrl | AddTrigger$ TrigBlocked | AddSVar$ RetaliationTrigPump\n\
+SVar:TrigBlocked:Mode$ AttackerBlockedByCreature | ValidCard$ Card.Self | ValidBlocker$ Creature | Execute$ RetaliationTrigPump | TriggerZones$ Battlefield\n\
+SVar:RetaliationTrigPump:DB$ Pump | NumAtt$ +1 | NumDef$ +1",
+    );
+    assert!(
+        retaliation.statics.contains("Trigger::BecomesBlockedBy("),
+        "{}",
+        retaliation.statics
+    );
+
+    let integrant = read(
+        "Name:Extraction Integrant\nManaCost:1 B\nTypes:Artifact Creature Wizard\nPT:1/1\n\
+S:Mode$ Continuous | Affected$ Creature.Artifact+YouCtrl | AddKeyword$ Menace | AddTrigger$ BlockTrig\n\
+SVar:BlockTrig:Mode$ AttackerBlockedByCreature | ValidCard$ Card.Self | ValidBlocker$ Creature | TriggerZones$ Battlefield | Execute$ TrigPump\n\
+SVar:TrigPump:DB$ Pump | Defined$ TriggeredBlockerLKICopy | NumAtt$ -1 | NumDef$ -1",
+    );
+    assert!(
+        integrant.statics.contains("Trigger::BecomesBlockedBy(")
+            && integrant.statics.contains("Effect::PumpEventObject"),
+        "{}",
+        integrant.statics
+    );
+
+    for bad in [
+        "Name:BadOneOrMore\nManaCost:2 G\nTypes:Enchantment\n\
+S:Mode$ Continuous | Affected$ Creature.YouCtrl | AddTrigger$ Trig\n\
+SVar:Trig:Mode$ AttackerBlockedByCreature | ValidCard$ Card.Self | ValidBlocker$ Creature | OneOrMoreBlockers$ True | Execute$ Pump | TriggerZones$ Battlefield\n\
+SVar:Pump:DB$ Pump | Defined$ Self | NumAtt$ 1 | NumDef$ 1",
+        "Name:BadBlocksOnly\nManaCost:2 G\nTypes:Enchantment\n\
+S:Mode$ Continuous | Affected$ Creature.YouCtrl | AddTrigger$ Trig\n\
+SVar:Trig:Mode$ AttackerBlockedByCreature | ValidCard$ Creature | ValidBlocker$ Card.Self | Execute$ Pump | TriggerZones$ Battlefield\n\
+SVar:Pump:DB$ Pump | Defined$ Self | NumAtt$ 1 | NumDef$ 1",
+        "Name:BadSecondaryBlock\nManaCost:2 G\nTypes:Enchantment\n\
+S:Mode$ Continuous | Affected$ Creature.YouCtrl | AddTrigger$ Trig\n\
+SVar:Trig:Mode$ AttackerBlockedByCreature | ValidCard$ Card.Self | ValidBlocker$ Creature | Secondary$ True | Execute$ Pump | TriggerZones$ Battlefield\n\
+SVar:Pump:DB$ Pump | Defined$ Self | NumAtt$ 1 | NumDef$ 1",
+    ] {
+        assert!(refused(bad), "must refuse: {bad}");
+    }
+
+    let channeler = read(
+        "Name:Essence Channeler\nManaCost:1 W\nTypes:Creature Wizard\nPT:2/1\n\
+A:AB$ Pump | Cost$ 0 | Defined$ Self | CheckSVar$ Lost | SVarCompare$ GE1 | KW$ Flying\n\
+SVar:Lost:Count$LifeYouLostThisTurn",
+    );
+    assert!(
+        channeler.abilities[0].contains("Amount::LifeLostThisTurn(PlayerRel::You)"),
+        "{}",
+        channeler.abilities[0]
+    );
+
+    let blast_runner = read(
+        "Name:Goblin Blast-Runner\nManaCost:R\nTypes:Creature Goblin\nPT:1/2\n\
+A:AB$ Pump | Cost$ 0 | Defined$ Self | CheckSVar$ Sac | SVarCompare$ GE1 | NumAtt$ 2\n\
+SVar:Sac:PlayerCountPropertyYou$SacrificedThisTurn Permanent",
+    );
+    assert!(
+        blast_runner.abilities[0].contains("Amount::PermanentsSacrificedThisTurn"),
+        "{}",
+        blast_runner.abilities[0]
+    );
+
+    let paragon = read(
+        "Name:Paragon of Modernity\nManaCost:4\nTypes:Artifact Creature Goblin\nPT:2/2\n\
+A:AB$ Branch | Cost$ 3 | BranchConditionSVar$ X | BranchConditionSVarCompare$ EQ3 | FalseSubAbility$ DBPump | TrueSubAbility$ DBPutCounter\n\
+SVar:DBPump:DB$ Pump | Defined$ Self | NumAtt$ +1 | NumDef$ +1\n\
+SVar:DBPutCounter:DB$ PutCounter | Defined$ Self | CounterType$ P1P1\n\
+SVar:X:Count$ManaColorsPaid",
+    );
+    assert!(
+        paragon.abilities[0].contains("Amount::ColorsOfManaSpentToCast"),
+        "{}",
+        paragon.abilities[0]
+    );
+}
