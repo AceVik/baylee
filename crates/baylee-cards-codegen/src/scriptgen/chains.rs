@@ -45,6 +45,7 @@ impl Tx<'_> {
             .iter()
             .any(|effect| effect.contains("Effect::LoseLife {"));
         let saved_lose_life = std::mem::replace(&mut self.chain_prev_lose_life, had_lose_life);
+        let saved_removed_counters = self.chain_prev_removed_counters;
         let saved_countered = self.countered_this_way;
         let saved_rem_cmc = self.remembered_cmc;
         let saved_in_chain = std::mem::replace(&mut self.in_chain_resolution, true);
@@ -52,6 +53,7 @@ impl Tx<'_> {
         self.in_chain_resolution = saved_in_chain;
         self.remembered_cmc = saved_rem_cmc;
         self.countered_this_way = saved_countered;
+        self.chain_prev_removed_counters = saved_removed_counters;
         self.chain_prev_lose_life = saved_lose_life;
         self.current_object_target = saved_obj_target;
         self.current_single_player_rel = saved_single_player;
@@ -545,7 +547,9 @@ impl Tx<'_> {
             *self.unclaimed.borrow_mut() = saved_unclaimed;
             self.body.statics.truncate(saved_statics_len);
         }
-        if !second_target_here && matches!(api.as_str(), "ChooseCard" | "PeekAndReveal" | "Reveal")
+        if !second_target_here
+            && (matches!(api.as_str(), "ChooseCard" | "PeekAndReveal" | "Reveal")
+                || (api == "RevealHand" && (p.has("RememberRevealed") || p.has("ImprintRevealed"))))
         {
             let target = local_kicked_target.or_else(|| {
                 if had_second_target {
@@ -556,6 +560,28 @@ impl Tx<'_> {
             });
             let targets_a_player =
                 targets_here && target.as_deref() == Some("TargetSpec::Player(PlayerRel::Chosen)");
+            if api == "RevealHand" {
+                let saved_effects_len = chain.effects.len();
+                let saved_unclaimed = self.unclaimed.borrow().clone();
+                let saved_statics_len = self.body.statics.len();
+                let saved_target = chain.target.clone();
+                let saved_second = chain.second_target.clone();
+                if let Some(()) = self.reveal_hand_remembered_chain(
+                    &p,
+                    sub.as_deref(),
+                    target.as_deref(),
+                    targets_a_player,
+                    chain,
+                ) {
+                    return Some(());
+                }
+                chain.target = saved_target;
+                chain.second_target = saved_second;
+                chain.effects.truncate(saved_effects_len);
+                *self.unclaimed.borrow_mut() = saved_unclaimed;
+                self.body.statics.truncate(saved_statics_len);
+                return self.deny("an unreadable `RevealHand` ability chain".to_string());
+            }
             return match api.as_str() {
                 "ChooseCard" if p.peek("WithDifferentPowers") == Some("True") => self
                     .wave17b_choose_distinct_powers_chain(
@@ -582,6 +608,48 @@ impl Tx<'_> {
                 {
                     Some(())
                 }
+                "ChooseCard" if !p.has("Choices") => {
+                    if let Some(()) = self.choose_card_target_alias_chain(
+                        &p,
+                        sub.as_deref(),
+                        target.as_deref(),
+                        targets_here,
+                        chain,
+                    ) {
+                        return Some(());
+                    }
+                    self.choose_card_chain(
+                        p,
+                        sub.as_deref(),
+                        target.as_deref(),
+                        targets_a_player,
+                        chain,
+                    )
+                }
+                "ChooseCard" if p.peek("RememberChosen") == Some("True") => {
+                    let saved_effects_len = chain.effects.len();
+                    let saved_unclaimed = self.unclaimed.borrow().clone();
+                    let saved_statics_len = self.body.statics.len();
+                    if let Some(()) = self.choose_card_remember_chosen_chain(
+                        &p,
+                        sub.as_deref(),
+                        target.as_deref(),
+                        targets_a_player,
+                        chain,
+                    ) {
+                        return Some(());
+                    }
+                    chain.effects.truncate(saved_effects_len);
+                    *self.unclaimed.borrow_mut() = saved_unclaimed;
+                    self.body.statics.truncate(saved_statics_len);
+                    self.choose_card_chain(
+                        p,
+                        sub.as_deref(),
+                        target.as_deref(),
+                        targets_a_player,
+                        chain,
+                    )
+                }
                 "ChooseCard" => self.choose_card_chain(
                     p,
                     sub.as_deref(),
@@ -597,13 +665,32 @@ impl Tx<'_> {
                         targets_a_player,
                         chain,
                     ),
-                "PeekAndReveal" => self.peek_and_reveal_chain(
-                    p,
-                    sub.as_deref(),
-                    target.as_deref(),
-                    targets_a_player,
-                    chain,
-                ),
+                "PeekAndReveal" => {
+                    let saved_effects_len = chain.effects.len();
+                    let saved_unclaimed = self.unclaimed.borrow().clone();
+                    let saved_statics_len = self.body.statics.len();
+                    let saved_target = chain.target.clone();
+                    if let Some(()) = self.peek_capture_affected_chain(
+                        &p,
+                        sub.as_deref(),
+                        target.as_deref(),
+                        targets_a_player,
+                        chain,
+                    ) {
+                        return Some(());
+                    }
+                    chain.target = saved_target;
+                    chain.effects.truncate(saved_effects_len);
+                    *self.unclaimed.borrow_mut() = saved_unclaimed;
+                    self.body.statics.truncate(saved_statics_len);
+                    self.peek_and_reveal_chain(
+                        p,
+                        sub.as_deref(),
+                        target.as_deref(),
+                        targets_a_player,
+                        chain,
+                    )
+                }
                 "Reveal" => self.reveal_from_hand_chain(
                     p,
                     sub.as_deref(),
@@ -1954,6 +2041,22 @@ impl Tx<'_> {
                 effects
             } else if !second_target_here
                 && !third_target_here
+                && unless.is_none()
+                && dying.is_none()
+                && at_end.is_none()
+                && !optional_counter
+                && let Some(effects) = self.hand_draw_second_target_step(
+                    &api,
+                    &mut p,
+                    sub.as_ref(),
+                    chain,
+                    had_second_target,
+                    targets_here,
+                )
+            {
+                effects
+            } else if !second_target_here
+                && !third_target_here
                 && api == "DealDamage"
                 && unless.is_none()
                 && dying.is_none()
@@ -2351,6 +2454,9 @@ impl Tx<'_> {
                 && choice.ends_with("then: &[] }"))
         {
             return self.deny("a wrapped variable payment with a follow-up".to_string());
+        }
+        if api != "RemoveCounter" {
+            self.chain_prev_removed_counters = false;
         }
         let choice_index = chain.effects.len();
         let saved_imp = self.wave30a_allow_clear_imprinted;
@@ -5029,6 +5135,9 @@ impl Tx<'_> {
                     format!("Effect::RevealHand {{ who: {who} }}"),
                     format!("Effect::DiscardMatching {{ who: {who}, filter: &{name} }}"),
                 ]
+            }
+            "Discard" if p.peek("Mode") == Some("RevealYouChoose") && p.has("RevealNumber") => {
+                self.discard_reveal_subset_you_choose(p, target, targets_a_player)?
             }
             "Discard" if p.peek("Mode") == Some("RevealYouChoose") => {
                 self.wave28d_discard_reveal_you_choose(p, target, targets_a_player)?

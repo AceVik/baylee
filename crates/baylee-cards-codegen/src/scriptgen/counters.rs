@@ -153,10 +153,13 @@ impl Tx<'_> {
             return self.deny(format!("counter `{code}`"));
         };
         let all = p.peek("CounterNum") == Some("All");
+        let mut remember_removed = false;
         let n: u16 = if all {
             p.take("CounterNum");
-            if !matches!(p.take("RememberRemoved").as_deref(), None | Some("True")) {
-                return None;
+            match p.take("RememberRemoved").as_deref() {
+                None => {}
+                Some("True") => remember_removed = true,
+                Some(_) => return None,
             }
             0
         } else {
@@ -175,6 +178,7 @@ impl Tx<'_> {
             && target.is_some_and(|t| t.starts_with("TargetSpec::Object("))
             && Self::targets_current_recipient(targets_here, defined.as_deref())
         {
+            self.chain_prev_removed_counters = remember_removed;
             return Some(vec![format!(
                 "Effect::RemoveAllCountersFilter {{ filter: &Filter::Reference, kind: {kind} }}"
             )]);

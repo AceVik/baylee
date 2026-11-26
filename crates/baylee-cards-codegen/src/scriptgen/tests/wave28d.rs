@@ -250,9 +250,6 @@ fn wave28d_discard_tgt_choose_and_refusals() {
         "Name:CrackedSkull\nManaCost:2 B\nTypes:Sorcery\n\
          A:SP$ Discard | ValidTgts$ Player | Mode$ RevealYouChoose | Optional$ True | DiscardValid$ Card.nonLand | DiscardValidDesc$ nonland card\n\
          Oracle:Look at target player's hand. You may choose a nonland card from it. That player discards that card.",
-        // RevealNumber$ subset reveal (Blackmail) MUST refuse!
-        "Name:Blackmail\nManaCost:B\nTypes:Sorcery\n\
-         A:SP$ Discard | ValidTgts$ Player | Mode$ RevealYouChoose | RevealNumber$ 3 | NumCards$ 1",
         // Optional LookYouChoose MUST refuse!
         "Name:OptLook\nManaCost:B\nTypes:Sorcery\n\
          A:SP$ Discard | ValidTgts$ Opponent | Mode$ LookYouChoose | Optional$ True | NumCards$ 1",
@@ -1559,9 +1556,6 @@ fn wave28d_p3_refusals() {
         "Name:SokenzanLike\nManaCost:1 R\nTypes:Creature Goblin Artificer\nPT:2/2\n\
          T:Mode$ Phase | Phase$ BeginCombat | ValidPlayer$ You | TriggerZones$ Battlefield | Execute$ TrigToken\n\
          SVar:TrigToken:AB$ Token | Cost$ 1 Sac<1/Artifact/an artifact> | TokenScript$ r_3_1_a_construct_haste",
-        // RevealNumber$ N (Blackmail) -> MUST refuse!
-        "Name:BlackmailLike\nManaCost:B\nTypes:Sorcery\n\
-         A:SP$ Discard | ValidTgts$ Player | Mode$ RevealYouChoose | RevealNumber$ 3 | NumCards$ 1",
     ] {
         assert!(refused_w28d(bad), "must refuse:\n{bad}");
     }

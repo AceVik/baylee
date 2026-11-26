@@ -53,6 +53,7 @@ mod effects;
 mod final_portals;
 mod gond_gate;
 mod guardian52;
+mod hand_and_draw;
 mod horse_johan;
 mod imprison;
 mod keywords;
@@ -568,6 +569,10 @@ struct Tx<'a> {
     in_resolution_chosen_x: bool,
     /// Whether an earlier instruction in this chain emitted `Effect::LoseLife`.
     chain_prev_lose_life: bool,
+    /// Whether the immediately preceding `RemoveCounter` line removed all counters
+    /// with `RememberRemoved$ True` so `Count$RememberedSize` maps to
+    /// `Amount::ThisWay(ThisWay::CountersRemovedFromTargets)`.
+    chain_prev_removed_counters: bool,
     /// Whether the line currently being lowered has a single object target.
     single_object_target: bool,
     /// Whether the spell being read beholds or reveals a card in its `Cost$`.
@@ -772,6 +777,7 @@ impl<'a> Tx<'a> {
             in_discard_hand_may: false,
             in_resolution_chosen_x: false,
             chain_prev_lose_life: false,
+            chain_prev_removed_counters: false,
             single_object_target: false,
             cost_beholds_or_reveals: false,
             cost_sacrifices_all: false,
