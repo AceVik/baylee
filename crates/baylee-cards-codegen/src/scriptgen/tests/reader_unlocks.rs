@@ -56,9 +56,8 @@ fn enforced_keywords_and_parameterized_keywords_lower_cleanly() {
     let ward = read("Name:W\nTypes:Creature\nPT:2/2\nK:Ward:2");
     assert_eq!(ward.abilities, ["AbilityDef::Ward { mana: 2 }"]);
     assert!(refused("Name:W\nTypes:Creature\nPT:2/2\nK:Ward:11"));
-    assert!(refused(
-        "Name:W\nTypes:Creature\nPT:2/2\nK:Ward:Waterbend<4>"
-    ));
+    let ward_wb = read("Name:W\nTypes:Creature\nPT:2/2\nK:Ward:Waterbend<4>");
+    assert_eq!(ward_wb.abilities, ["AbilityDef::WardWaterbend { mana: 4 }"]);
 
     let crew = read("Name:V\nTypes:Artifact Vehicle\nPT:4/4\nK:Crew:3");
     assert_eq!(crew.abilities, ["crew!(3)"]);
@@ -6329,9 +6328,6 @@ fn wave18c_triggers_and_conditions() {
         ab_cast_zone.abilities[0]
     );
     for bad in [
-        "Name:BadLoyaltyAb\nManaCost:2 B\nTypes:Enchantment\n\
-         T:Mode$ AbilityCast | ValidActivatingPlayer$ You | ValidSA$ Activated.Loyalty | TriggerZones$ Battlefield | Execute$ D\n\
-         SVar:D:DB$ Draw | NumCards$ 1",
         "Name:BadExhaustAb\nManaCost:2 R\nTypes:Enchantment\n\
          T:Mode$ AbilityCast | ValidActivatingPlayer$ You | ValidSA$ Activated.Exhaust | TriggerZones$ Battlefield | Execute$ D\n\
          SVar:D:DB$ Draw | NumCards$ 1",

@@ -111,7 +111,17 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                     resolve::ManaPaymentOutcome::ManaAndLife { life, .. } => *life,
                     _ => 0,
                 };
-                resolve::mana_life_payment::life_payable(&self.state, *player, life)
+                let wb_ok = match outcome {
+                    resolve::ManaPaymentOutcome::WaterbendEffects { taps, .. }
+                        if !taps.is_empty() =>
+                    {
+                        let wb = casting::waterbend_sources(&self.state, *player);
+                        taps.iter().all(|id| wb.contains(id))
+                    }
+                    _ => true,
+                };
+                wb_ok
+                    && resolve::mana_life_payment::life_payable(&self.state, *player, life)
                     && self.can_pay_mana(*player, resolve::payment_for(&self.state, res), cost)
             }
             _ => false,
@@ -147,7 +157,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
         &self,
         player: PlayerId,
     ) -> Option<crate::choice::LegalActions> {
-        let mut legal = self.compute_legal(player);
+        let mut legal = self.compute_legal_for_mana(player);
         self.narrow_to_mana(&mut legal);
         legal.has_mana_source().then_some(legal)
     }
@@ -224,6 +234,11 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
             } => {
                 let paid = self.finish_miracle_payment(&wizard, version, &opened)?;
                 return Ok(WindowClose::settled(paid));
+            }
+            PaymentContinuation::AssistMana(wizard) => {
+                self.cast_wizard = Some(wizard);
+                self.continue_cast_wizard();
+                return Ok(WindowClose::Paid);
             }
             PaymentContinuation::AttackTax {
                 attackers,

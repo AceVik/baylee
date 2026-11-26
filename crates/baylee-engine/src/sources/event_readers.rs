@@ -285,7 +285,9 @@ fn reads_event(effect: &Effect) -> bool {
         | Effect::Suspect { target }
         | Effect::Unsuspect { target }
         | Effect::AddTempModifier { target, .. }
+        | Effect::BecomeChosenBasicLandType { target, .. }
         | Effect::PutEachCounterKindFromSource { target }
+        | Effect::BecomesBlocked(target)
         | Effect::SacrificeObject { target, .. } => reads_target(*target),
         Effect::PutAllCountersFrom { donor, target } => {
             matches!(donor, baylee_cards_dsl::CounterDonor::Event) || reads_target(*target)

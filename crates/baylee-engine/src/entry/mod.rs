@@ -99,6 +99,8 @@ struct Attempt {
     refusal: Option<Refusal>,
     sacrifices: Option<u32>,
     chosen_number: Option<u8>,
+    chosen_mode: Option<u8>,
+    player_chosen_modes: Vec<(PlayerId, u8)>,
     chosen_subtype: Option<baylee_core::ids::SubtypeId>,
     chosen_player: Option<PlayerId>,
     battle_protector: Option<PlayerId>,
@@ -132,6 +134,8 @@ impl Hash for Attempt {
             refusal,
             sacrifices,
             chosen_number,
+            chosen_mode,
+            player_chosen_modes,
             chosen_subtype,
             chosen_player,
             battle_protector,
@@ -172,6 +176,12 @@ impl Hash for Attempt {
         // recorded hashes on entries that never choose a starting chapter.
         if let Some(chapter) = saga_chapter {
             chapter.hash(h);
+        }
+        if let Some(mode) = chosen_mode {
+            (514_u16, 1_u8, mode).hash(h);
+        }
+        if !player_chosen_modes.is_empty() {
+            (514_u16, 2_u8, player_chosen_modes).hash(h);
         }
         if kw_choices.riot_remaining > 0
             || kw_choices.unleash_remaining > 0
@@ -224,6 +234,14 @@ enum Question {
         satisfied: bool,
     },
     Number,
+    ChooseMode {
+        count: u8,
+    },
+    EachPlayerChooseMode {
+        player: PlayerId,
+        remaining: Vec<PlayerId>,
+        count: u8,
+    },
     Shape {
         choices: &'static [&'static [CopyMod]],
     },
@@ -440,6 +458,8 @@ fn needs_before_entry(modifier: &EnterModifier) -> bool {
         || matches!(
             modifier,
             EnterModifier::ChooseNumber { .. }
+                | EnterModifier::ChooseMode(_)
+                | EnterModifier::EachPlayerChooseMode(_)
                 | EnterModifier::ChooseShape(_)
                 | EnterModifier::SacrificeOrGraveyard { .. }
                 | EnterModifier::DiscardOrGraveyard(_)
@@ -542,6 +562,8 @@ pub(crate) fn defer(
         refusal: None,
         sacrifices: None,
         chosen_number: None,
+        chosen_mode: None,
+        player_chosen_modes: Vec::new(),
         chosen_subtype: None,
         chosen_player: None,
         battle_protector: None,

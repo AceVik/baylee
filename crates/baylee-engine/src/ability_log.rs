@@ -112,6 +112,7 @@ impl Kind {
             | AbilityDef::CopyOnEnterUntilEot { .. } => Self::Replacement,
             AbilityDef::Unimplemented
             | AbilityDef::Ward { .. }
+            | AbilityDef::WardWaterbend { .. }
             | AbilityDef::Toxic { .. }
             | AbilityDef::Prepared { .. }
             | AbilityDef::Suspend { .. }

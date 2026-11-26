@@ -733,6 +733,8 @@ const fn rider_object(rider: &Rider) -> Option<ObjectId> {
         | Rider::EncoreAbility
         | Rider::CastOriginZone(_)
         | Rider::MayhemPaid
-        | Rider::UnearthAbility => None,
+        | Rider::UnearthAbility
+        | Rider::ChosenMode(_)
+        | Rider::PlayerChosenMode(_, _) => None,
     }
 }

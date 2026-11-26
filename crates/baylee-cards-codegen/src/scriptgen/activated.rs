@@ -49,6 +49,7 @@ pub(super) struct ParsedActivated {
     pub cost: String,
     pub effects: String,
     pub mana_ability: bool,
+    pub is_loyalty: bool,
     pub extras: String,
     pub ability_expr: String,
     pub alternate_ability_expr: Option<String>,
@@ -499,7 +500,7 @@ impl Tx<'_> {
         token.starts_with("Sac<1/") && !Self::is_sac_self_token(token)
     }
 
-    fn cost_has_variable_x(cost: &str) -> bool {
+    pub(super) fn cost_has_variable_x(cost: &str) -> bool {
         cost.contains("{X}")
             || cost.contains("SacrificeX(")
             || cost.contains("TapX(")
@@ -622,9 +623,7 @@ impl Tx<'_> {
                 if !is_activated {
                     return self.deny("`Planeswalker$` on a spell".to_string());
                 }
-                if !allow_oracle_tap {
-                    return self.deny("a granted loyalty ability".to_string());
-                }
+                let _ = allow_oracle_tap;
                 ActivationKind::Loyalty
             }
             Some(other) => return self.deny(format!("`Planeswalker$ {other}`")),
@@ -1042,6 +1041,8 @@ impl Tx<'_> {
                     ", targets = Some({})",
                     Self::wave28a_format_range_req(t, min, max)
                 )
+            } else if chain.target_up_to_x {
+                format!(", targets = Some(TargetReq::up_to_x({t}))")
             } else if chain.target_is_x {
                 format!(", targets = Some(TargetReq::x_targets({t}))")
             } else {
@@ -1101,6 +1102,10 @@ impl Tx<'_> {
         }
     }
 
+    #[allow(
+        clippy::too_many_lines,
+        reason = "dispatches all activated ability parts and X/min rules"
+    )]
     fn build_activated_parts(&mut self, spec: &ExtractedAbilitySpec) -> Option<ParsedActivated> {
         if spec.kind == ActivationKind::Loyalty {
             return self.build_loyalty_parts(spec);
@@ -1111,10 +1116,12 @@ impl Tx<'_> {
         let stripped_xmin = self.strip_activation_x_min(cost_raw)?;
         let x_min = self.merge_x_min(&stripped_xmin, spec.x_min_param)?;
         self.in_forecast_activation = spec.is_forecast;
-        let parsed_cost =
-            self.parse_activated_cost(&stripped_xmin.cost, spec.activation_zone.as_deref());
+        self.allow_defined_cost_x =
+            self.wave30c_allows_defined_cost_x(&spec.chain.effects, spec.non_battlefield_zone);
+        let cost = self.parse_activated_cost(&stripped_xmin.cost, spec.activation_zone.as_deref());
         self.in_forecast_activation = false;
-        let cost = parsed_cost?;
+        self.allow_defined_cost_x = false;
+        let cost = cost?;
         if x_min > 0 && !Self::cost_has_variable_x(&cost) {
             return self.deny("unused `XMin` in activation cost".to_string());
         }
@@ -1142,11 +1149,12 @@ impl Tx<'_> {
             Self::activated_target_suffix(&spec.chain)
         };
         let limit_str = self.activation_limit(&spec.limit)?;
-        let x_value = if x_min > 0 {
-            format!(", x_value = ActivationX::AtLeast({x_min})")
-        } else {
-            String::new()
-        };
+        let x_value = self.wave30c_activated_x_or_at_least(
+            x_min,
+            &cost,
+            &spec.chain.effects,
+            spec.non_battlefield_zone,
+        );
         let condition = &spec.condition;
         let cost_reduction = spec.cost_reduction.as_str();
         let extras = format!(
@@ -1173,6 +1181,7 @@ impl Tx<'_> {
             && !spec.instant_speed
             && limit_str.is_empty()
             && x_min == 0
+            && x_value.is_empty()
             && condition.is_empty()
             && spec.cost_reduction.is_empty()
             && spec.target_req_override.is_none()
@@ -1192,6 +1201,7 @@ impl Tx<'_> {
             cost,
             effects,
             mana_ability,
+            is_loyalty: false,
             extras,
             ability_expr,
             alternate_ability_expr,
@@ -1265,6 +1275,7 @@ impl Tx<'_> {
             cost: delta.to_string(),
             effects,
             mana_ability: false,
+            is_loyalty: true,
             extras,
             ability_expr,
             alternate_ability_expr: None,
@@ -1521,6 +1532,8 @@ impl Tx<'_> {
             format!("TargetReq::exactly({t}, {n})")
         } else if let Some((min, max)) = chain.target_range {
             Self::wave28a_format_range_req(t, min, max)
+        } else if chain.target_up_to_x {
+            format!("TargetReq::up_to_x({t})")
         } else if chain.target_is_x {
             format!("TargetReq::x_targets({t})")
         } else {

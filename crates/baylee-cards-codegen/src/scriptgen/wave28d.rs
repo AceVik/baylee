@@ -1862,6 +1862,15 @@ impl Tx<'_> {
     ) -> Option<String> {
         let kw_dur = if duration == "Duration::UntilEndOfTurn" {
             "Duration::UntilEndOfTurn"
+        } else if duration == "Duration::UntilEndOfYourNextTurn" && kw_raw.trim() == "Haste" {
+            let lower = self.oracle.to_ascii_lowercase();
+            if lower.contains("gains haste until end of turn")
+                || lower.contains("gain haste until end of turn")
+            {
+                "Duration::UntilEndOfTurn"
+            } else {
+                return None;
+            }
         } else if duration == "Duration::Indefinitely" && kw_raw.trim() == "Haste" {
             let lower = self.oracle.to_ascii_lowercase();
             if lower.contains("gains haste until end of turn") {

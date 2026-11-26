@@ -157,6 +157,8 @@ pub struct SubjectContext {
     /// Damage prevented or replaced by an enclosing prevention/replacement-with-rider
     /// shield or static modifier (`ThisWay::DamagePrevented`, CR 615.5).
     pub(crate) damage_prevented: u32,
+    /// Stashed opponent copy target during `Effect::Demonstrate` (`CR 702.148a`).
+    pub(crate) demonstrate_opp: Option<(DamageSourceRef, baylee_core::ids::PlayerId)>,
 }
 impl SubjectContext {
     /// Preserve the independent player targets of the second target instance.
@@ -320,6 +322,7 @@ impl SubjectContext {
             remembered_objects: None,
             capture_frames: Vec::new(),
             damage_prevented: 0,
+            demonstrate_opp: None,
         }
     }
 
@@ -581,6 +584,13 @@ impl SubjectContext {
                 .wrapping_add(crate::state::structural_fingerprint(&(
                     431_u16,
                     remembered.as_ref(),
+                )));
+        }
+        if let Some((original, opponent)) = self.demonstrate_opp {
+            h = h
+                .wrapping_mul(31)
+                .wrapping_add(crate::state::structural_fingerprint(&(
+                    500_u16, original, opponent,
                 )));
         }
         h

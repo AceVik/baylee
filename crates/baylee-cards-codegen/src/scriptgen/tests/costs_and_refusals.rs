@@ -1318,6 +1318,7 @@ fn morph_refuses_non_mana_x_extra_and_megamorph_with_honest_reasons() {
 /// triggers watching other permanents, non-battlefield zones, unclaimed keys or
 /// `R:Event$ TurnFaceUp` replacement effects stay refused.
 #[test]
+#[allow(clippy::too_many_lines)]
 fn turn_face_up_trigger_reads_self_and_refuses_other_subjects_and_zones() {
     let body = read(
         "Name:X\nManaCost:2 G\nTypes:Creature\nPT:2/2\nK:Morph:1 G\n\
@@ -1353,10 +1354,19 @@ fn turn_face_up_trigger_reads_self_and_refuses_other_subjects_and_zones() {
         ),
         Some("a `TurnFaceUp` trigger with no `ValidCard$`".to_string())
     );
+    assert!(
+        read(
+            "Name:X\nTypes:Creature\nPT:2/2\n\
+             T:Mode$ TurnFaceUp | ValidCard$ Permanent | TriggerZones$ Battlefield | Execute$ TrigDraw\n\
+             SVar:TrigDraw:DB$ Draw | Defined$ You | NumCards$ 1"
+        )
+        .abilities[0]
+            .contains("Trigger::TurnedFaceUpMatching(&Filter::Any)")
+    );
     assert_eq!(
         reason(
             "Name:X\nTypes:Creature\nPT:2/2\n\
-             T:Mode$ TurnFaceUp | ValidCard$ Permanent | TriggerZones$ Battlefield | Execute$ TrigDraw\n\
+             T:Mode$ TurnFaceUp | ValidCard$ Permanent | Execute$ TrigDraw\n\
              SVar:TrigDraw:DB$ Draw | Defined$ You | NumCards$ 1"
         ),
         Some("`TurnFaceUp` on `Permanent`".to_string())
@@ -4962,12 +4972,6 @@ fn wave18a_planeswalker_loyalty_modifier_refusals() {
             "Name:BadCond\nTypes:Legendary Planeswalker\nLoyalty:3\n\
              A:AB$ Draw | Cost$ AddCounter<1/LOYALTY> | Planeswalker$ True | Condition$ Threshold | NumCards$ 1",
             "an activation condition on a loyalty ability",
-        ),
-        (
-            "Name:BadGrantPw\nManaCost:2 W\nTypes:Enchantment\n\
-             S:Mode$ Continuous | Affected$ Creature.YouCtrl | AddAbility$ GrantPw\n\
-             SVar:GrantPw:AB$ Draw | Cost$ AddCounter<1/LOYALTY> | Planeswalker$ True | NumCards$ 1",
-            "a granted loyalty ability",
         ),
         (
             "Name:BadModalPw\nTypes:Legendary Planeswalker\nLoyalty:3\n\

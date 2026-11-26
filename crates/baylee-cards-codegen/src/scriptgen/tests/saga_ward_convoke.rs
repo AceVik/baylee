@@ -192,7 +192,7 @@ fn ward_refuses_unsupported_and_composite_costs() {
         "K:Ward:Sac<1/Creature.YouCtrl>",
         "K:Ward:2 PayLife<2>",
         "K:Ward:Discard<1/Card>:2",
-        "K:Ward:Waterbend<3>",
+        "K:Ward:Waterbend<0>",
     ] {
         assert!(
             refused(&format!("Name:BadWard\nTypes:Creature\nPT:2/2\n{bad}")),

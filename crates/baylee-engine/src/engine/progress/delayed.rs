@@ -177,8 +177,10 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                     | crate::state::DelayedAction::GeneralTrigger(_)
                     | crate::state::DelayedAction::LinkedCounterCleanup { .. }
                     | crate::state::DelayedAction::ReturnExiledGroup { .. }
+                    | crate::state::DelayedAction::FlickerformReturn { .. }
                     | crate::state::DelayedAction::DrawStepLifeLoss { .. }
                     | crate::state::DelayedAction::AddMana { .. }
+                    | crate::state::DelayedAction::AddManaAnyColor { .. }
             ) {
                 self.delayed_queue.push_front((controller, action));
                 let suspended = self.process_delayed();
@@ -248,6 +250,29 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 );
                 if let Some(trigger) = self.trigger_queue.back_mut() {
                     trigger.related_objects = Some(std::sync::Arc::new(objects));
+                }
+                false
+            }
+            crate::state::DelayedAction::FlickerformReturn {
+                source,
+                host,
+                auras,
+            } => {
+                static FLICKERFORM_RETURN: &[baylee_cards_dsl::Effect] =
+                    &[baylee_cards_dsl::Effect::FlickerformReturnFromRelated];
+                self.queue_delayed_trigger(
+                    controller,
+                    source.object,
+                    FLICKERFORM_RETURN,
+                    None,
+                    Some(source.version),
+                    crate::text_changes::TextChangeMap::IDENTITY,
+                );
+                if let Some(trigger) = self.trigger_queue.back_mut() {
+                    let mut related = Vec::with_capacity(1 + auras.len());
+                    related.push(host);
+                    related.extend(auras);
+                    trigger.related_objects = Some(std::sync::Arc::new(related));
                 }
                 false
             }
@@ -353,6 +378,33 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                     controller,
                     source,
                     delayed_mana_effects(color),
+                    None,
+                    (source != ObjectId::NO_SOURCE).then_some(source_version),
+                    crate::text_changes::TextChangeMap::IDENTITY,
+                );
+                if let Some(trigger) = self.trigger_queue.back_mut() {
+                    trigger.event_amount = Some(u32::from(amount));
+                }
+                false
+            }
+            crate::state::DelayedAction::AddManaAnyColor {
+                source,
+                source_version,
+                amount,
+            } => {
+                const PLASM_MANA: &[baylee_cards_dsl::Effect] =
+                    &[baylee_cards_dsl::Effect::AddMana {
+                        source: baylee_cards_dsl::effect::ManaSource::Choice(
+                            baylee_cards_dsl::ALL_MANA_COLORS,
+                        ),
+                        amount: baylee_cards_dsl::Amount::EventAmount,
+                        distribution: baylee_cards_dsl::effect::ManaDistribution::AnyCombination,
+                        restriction: None,
+                    }];
+                self.queue_delayed_trigger(
+                    controller,
+                    source,
+                    PLASM_MANA,
                     None,
                     (source != ObjectId::NO_SOURCE).then_some(source_version),
                     crate::text_changes::TextChangeMap::IDENTITY,
@@ -488,6 +540,10 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                     spec.text,
                 );
                 if let Some(trigger) = self.trigger_queue.back_mut() {
+                    if !spec.related_objects.is_empty() {
+                        trigger.related_objects =
+                            Some(std::sync::Arc::new(spec.related_objects.clone()));
+                    }
                     trigger.synthetic_target = spec.targets;
                     trigger.synthetic_condition = spec.condition;
                     trigger.event_object_identity = identity;

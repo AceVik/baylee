@@ -249,6 +249,8 @@ pub mod cinder_glade;
 pub mod circle_of_elders;
 #[path = "ori/citadel_castellan.rs"]
 pub mod citadel_castellan;
+#[path = "frf/citadel_siege.rs"]
+pub mod citadel_siege;
 #[path = "ori/clash_of_wills.rs"]
 pub mod clash_of_wills;
 #[path = "ori/cleric_of_the_forward_order.rs"]
@@ -665,6 +667,8 @@ pub mod ire_shaman;
 pub mod iroas_s_champion;
 #[path = "ori/jace_s_sanctum.rs"]
 pub mod jace_s_sanctum;
+#[path = "ps15/jace_vryn_s_prodigy.rs"]
+pub mod jace_vryn_s_prodigy;
 #[path = "bfz/jaddi_offshoot.rs"]
 pub mod jaddi_offshoot;
 #[path = "frf/jeskai_barricade.rs"]
@@ -789,6 +793,8 @@ pub mod mardu_strike_leader;
 pub mod mardu_woe_reaper;
 #[path = "dtk/marsh_hulk.rs"]
 pub mod marsh_hulk;
+#[path = "ugin/mastery_of_the_unseen.rs"]
+pub mod mastery_of_the_unseen;
 #[path = "c15/mazirek_kraul_death_priest.rs"]
 pub mod mazirek_kraul_death_priest;
 #[path = "frf/merciless_executioner.rs"]
@@ -885,10 +891,14 @@ pub mod orc_sureshot;
 pub mod outland_colossus;
 #[path = "bfz/outnumber.rs"]
 pub mod outnumber;
+#[path = "frf/outpost_siege.rs"]
+pub mod outpost_siege;
 #[path = "bfz/painful_truths.rs"]
 pub mod painful_truths;
 #[path = "dtk/palace_familiar.rs"]
 pub mod palace_familiar;
+#[path = "frf/palace_siege.rs"]
+pub mod palace_siege;
 #[path = "bfz/part_the_waterveil.rs"]
 pub mod part_the_waterveil;
 #[path = "c15/pathbreaker_ibex.rs"]
@@ -997,6 +1007,8 @@ pub mod righteous_confluence;
 pub mod ringwarden_owl;
 #[path = "bfz/rising_miasma.rs"]
 pub mod rising_miasma;
+#[path = "c15/rite_of_the_raging_storm.rs"]
+pub mod rite_of_the_raging_storm;
 #[path = "frf/rite_of_undoing.rs"]
 pub mod rite_of_undoing;
 #[path = "f15/roast.rs"]
@@ -1019,6 +1031,8 @@ pub mod ruthless_instincts;
 pub mod sabertooth_outrider;
 #[path = "frf/sage_s_reverie.rs"]
 pub mod sage_s_reverie;
+#[path = "dtk/salt_road_ambushers.rs"]
+pub mod salt_road_ambushers;
 #[path = "dtk/salt_road_quartermasters.rs"]
 pub mod salt_road_quartermasters;
 #[path = "bfz/sanctum_of_ugin.rs"]

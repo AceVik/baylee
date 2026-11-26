@@ -644,6 +644,11 @@ pub enum Amount {
         /// Filter matched against each card in `zone`.
         filter: &'static Filter,
     },
+    /// Sum of mana values (`CR 202.3`) across all resolving chosen targets,
+    /// using last-known characteristics if a target left its zone during
+    /// resolution (`CR 608.2h`; *Command the Dreadhorde*). Appended to preserve
+    /// replay identities.
+    TotalTargetsManaValue,
 }
 
 /// The recipient [`Amount::DamageThisTurn`] counts.
@@ -759,6 +764,8 @@ pub enum ThisWay {
     /// the battlefield, otherwise its LKI/card power when chosen or revealed.
     /// Appended to preserve replay identities.
     BeheldOrRevealedPower,
+    /// Number of objects countered by the preceding effect.
+    Countered,
 }
 
 impl Amount {

@@ -268,7 +268,8 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
     fn window_spend(&self, player: PlayerId) -> Option<SpendFor> {
         let window = self.mana_window.as_ref().filter(|w| w.player == player)?;
         Some(match &window.suspended {
-            PaymentContinuation::Miracle { wizard, .. } => {
+            PaymentContinuation::Miracle { wizard, .. }
+            | PaymentContinuation::AssistMana(wizard) => {
                 let face = self
                     .state
                     .object(wizard.card)

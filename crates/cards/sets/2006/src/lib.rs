@@ -229,8 +229,14 @@ pub mod diamond_faerie;
 pub mod disciple_of_tevesh_szat;
 #[path = "tsp/divine_congregation.rs"]
 pub mod divine_congregation;
+#[path = "pgpt/djinn_illuminatus.rs"]
+pub mod djinn_illuminatus;
 #[path = "gpt/douse_in_gloom.rs"]
 pub mod douse_in_gloom;
+#[path = "dis/dovescape.rs"]
+pub mod dovescape;
+#[path = "tsp/draining_whelk.rs"]
+pub mod draining_whelk;
 #[path = "tsp/dread_return.rs"]
 pub mod dread_return;
 #[path = "dis/dread_slag.rs"]
@@ -619,6 +625,8 @@ pub mod novijen_sages;
 pub mod ocular_halo;
 #[path = "dis/ogre_gatecrasher.rs"]
 pub mod ogre_gatecrasher;
+#[path = "gpt/ogre_savant.rs"]
+pub mod ogre_savant;
 #[path = "csp/ohran_viper.rs"]
 pub mod ohran_viper;
 #[path = "csp/ohran_yeti.rs"]
@@ -697,6 +705,8 @@ pub mod prahv_spires_of_order;
 pub mod predatory_focus;
 #[path = "dis/pride_of_the_clouds.rs"]
 pub mod pride_of_the_clouds;
+#[path = "gpt/primeval_light.rs"]
+pub mod primeval_light;
 #[path = "tsp/prismatic_lens.rs"]
 pub mod prismatic_lens;
 #[path = "dis/proclamation_of_rebirth.rs"]
@@ -737,6 +747,8 @@ pub mod ratcatcher;
 pub mod reiterate;
 #[path = "gpt/restless_bones.rs"]
 pub mod restless_bones;
+#[path = "gpt/revenant_patriarch.rs"]
+pub mod revenant_patriarch;
 #[path = "tsp/rift_bolt.rs"]
 pub mod rift_bolt;
 #[path = "tsp/riftwing_cloudskate.rs"]
@@ -785,6 +797,8 @@ pub mod sangrophage;
 pub mod scarwood_treefolk;
 #[path = "gpt/schismotivate.rs"]
 pub mod schismotivate;
+#[path = "tsp/scion_of_the_ur_dragon.rs"]
+pub mod scion_of_the_ur_dragon;
 #[path = "gpt/scorched_rusalka.rs"]
 pub mod scorched_rusalka;
 #[path = "tsp/screeching_sliver.rs"]
@@ -901,6 +915,8 @@ pub mod starved_rusalka;
 pub mod steam_spitter;
 #[path = "gpt/steam_vents.rs"]
 pub mod steam_vents;
+#[path = "gpt/steamcore_weird.rs"]
+pub mod steamcore_weird;
 #[path = "dis/steeling_stance.rs"]
 pub mod steeling_stance;
 #[path = "gpt/stitch_in_time.rs"]
@@ -951,6 +967,8 @@ pub mod survivor_of_the_unseen;
 pub mod swarmyard;
 #[path = "csp/swift_maneuver.rs"]
 pub mod swift_maneuver;
+#[path = "dis/swift_silence.rs"]
+pub mod swift_silence;
 #[path = "csp/tamanoa.rs"]
 pub mod tamanoa;
 #[path = "dis/taste_for_mayhem.rs"]
@@ -977,6 +995,8 @@ pub mod thermopod;
 pub mod think_twice;
 #[path = "tsp/thrill_of_the_hunt.rs"]
 pub mod thrill_of_the_hunt;
+#[path = "csp/thrumming_stone.rs"]
+pub mod thrumming_stone;
 #[path = "tsp/thunder_totem.rs"]
 pub mod thunder_totem;
 #[path = "gpt/thunderheads.rs"]

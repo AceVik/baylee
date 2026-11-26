@@ -73,7 +73,7 @@ pub const fn step_id(phase: Phase, step: Step) -> &'static str {
 /// A positive list, so `every_keyword_a_card_prints_has_a_name` holds it
 /// to the pool: a keyword a card carries and this table lacks fails there
 /// rather than going silent on a board.
-pub const KEYWORDS: [(KeywordSet, &str); 93] = [
+pub const KEYWORDS: [(KeywordSet, &str); 94] = [
     (KeywordSet::STORM, "storm"),
     (KeywordSet::READ_AHEAD, "read ahead"),
     (KeywordSet::FLYING, "flying"),
@@ -170,6 +170,7 @@ pub const KEYWORDS: [(KeywordSet, &str); 93] = [
         KeywordSet::ALL_NONBASIC_LAND_TYPES,
         "every nonbasic land type",
     ),
+    (KeywordSet::ASSIST, "assist"),
 ];
 
 /// The keywords in `bits` (a view's projected keywords), in table order.
@@ -471,6 +472,9 @@ pub fn choice_prompt(prompt: ChoicePrompt) -> String {
             "Vote: choose the one you vote for. Every earlier ballot is public and in the log"
                 .into()
         }
+        ChoicePrompt::Waterbend => {
+            "Choose untapped artifacts and/or creatures to tap for waterbend".into()
+        }
         ChoicePrompt::Generic => "Choose cards".into(),
     }
 }
@@ -600,6 +604,7 @@ mod tests {
         );
         assert_eq!(keywords(KeywordSet::MAYHEM.bits()), ["mayhem"]);
         assert_eq!(KeywordSet::MAYHEM.bits(), 1_u128 << 51);
-        assert_eq!(keywords(1 << 126), ["another keyword"]);
+        assert_eq!(keywords(KeywordSet::ASSIST.bits()), ["assist"]);
+        assert_eq!(keywords(1 << 127), ["another keyword"]);
     }
 }

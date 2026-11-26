@@ -115,6 +115,7 @@ fn ability_effects(ability: &'static AbilityDef) -> Vec<&'static [Effect]> {
         AbilityDef::Unimplemented
         | AbilityDef::StartYourEngines
         | AbilityDef::Ward { .. }
+        | AbilityDef::WardWaterbend { .. }
         | AbilityDef::Toxic { .. }
         | AbilityDef::Prepared { .. }
         | AbilityDef::Echo { .. }

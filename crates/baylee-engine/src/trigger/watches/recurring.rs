@@ -148,7 +148,35 @@ pub(crate) fn collect_general(
                     .is_some_and(|d| d.version == w.version)
             });
 
-        let mut count =
+        let mut count = if !watch_battlefield
+            && matches!(trigger, baylee_cards_dsl::Trigger::SpellCast { .. })
+            && let Some(w) = watch
+        {
+            match entry.event {
+                crate::event::GameEvent::SpellCast { object, player, .. }
+                    if object == w.object
+                        && player == delayed.controller
+                        && events
+                            .iter()
+                            .filter(|e| e.seq >= entry.seq)
+                            .filter(|e| {
+                                matches!(
+                                    e.event,
+                                    crate::event::GameEvent::ZoneChanged { object: z_obj, .. }
+                                        if z_obj == object
+                                )
+                            })
+                            .count()
+                            == usize::try_from(state.object(object).map_or(0, |o| {
+                                o.version.saturating_sub(w.version.saturating_add(1))
+                            }))
+                            .unwrap_or(usize::MAX) =>
+                {
+                    1
+                }
+                _ => 0,
+            }
+        } else {
             matching::departure_hit(trigger, entry, match_source).unwrap_or_else(|| {
                 matching::hits_with_context(
                     trigger,
@@ -158,7 +186,8 @@ pub(crate) fn collect_general(
                     context,
                     delayed.controller,
                 )
-            });
+            })
+        };
 
         if count == 0 {
             if departed_this_entry {

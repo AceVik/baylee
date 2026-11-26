@@ -407,10 +407,12 @@ fn consumes(cost: &Cost) -> bool {
             | CostPart::CraftMaterials { .. }
             | CostPart::PutCounterOnOther { .. } => true,
             CostPart::ExileTopOfLibrary(n) => *n > 0,
+            CostPart::Waterbend(n) => *n > 0,
             CostPart::TapN { count, .. } => *count > 0,
             CostPart::Either(a, b) => consumes(a) && consumes(b),
             // Exerting again is legal and adds no further untap penalty.
             CostPart::ExertSelf
+            | CostPart::WaterbendX
             | CostPart::Behold(_)
             | CostPart::RevealFromHand(_)
             | CostPart::RevealFromHandX(_)

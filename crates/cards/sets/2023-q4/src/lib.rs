@@ -45,6 +45,8 @@ pub mod ancestral_reminiscence;
 pub mod anim_pakal_thousandth_moon;
 #[path = "lci/another_chance.rs"]
 pub mod another_chance;
+#[path = "who/ashad_the_lone_cyberman.rs"]
+pub mod ashad_the_lone_cyberman;
 #[path = "who/astrid_peth.rs"]
 pub mod astrid_peth;
 #[path = "who/atraxi_warden.rs"]
@@ -171,6 +173,8 @@ pub mod dalek_squadron;
 pub mod dan_lewis;
 #[path = "lci/daring_discovery.rs"]
 pub mod daring_discovery;
+#[path = "lci/dauntless_dismantler.rs"]
+pub mod dauntless_dismantler;
 #[path = "lci/deathcap_marionette.rs"]
 pub mod deathcap_marionette;
 #[path = "who/decaying_time_loop.rs"]
@@ -315,6 +319,12 @@ pub mod huatli_s_final_strike;
 pub mod hulking_raptor;
 #[path = "lci/hunter_s_blowgun.rs"]
 pub mod hunter_s_blowgun;
+#[path = "rex/hunting_velociraptor.rs"]
+pub mod hunting_velociraptor;
+#[path = "lci/hurl_into_history.rs"]
+pub mod hurl_into_history;
+#[path = "who/ian_chesterton.rs"]
+pub mod ian_chesterton;
 #[path = "lci/idol_of_the_deep_king.rs"]
 pub mod idol_of_the_deep_king;
 #[path = "lcc/illustrious_wanderglyph.rs"]
@@ -425,6 +435,8 @@ pub mod palani_s_hatcher;
 pub mod panicked_altisaur;
 #[path = "lci/pathfinding_axejaw.rs"]
 pub mod pathfinding_axejaw;
+#[path = "who/peri_brown.rs"]
+pub mod peri_brown;
 #[path = "rex/permission_denied.rs"]
 pub mod permission_denied;
 #[path = "lci/petrify.rs"]
@@ -479,6 +491,8 @@ pub mod restless_ridgeline;
 pub mod restless_vents;
 #[path = "who/return_the_past.rs"]
 pub mod return_the_past;
+#[path = "who/reverse_the_polarity.rs"]
+pub mod reverse_the_polarity;
 #[path = "lci/river_herald_guide.rs"]
 pub mod river_herald_guide;
 #[path = "lci/river_herald_scout.rs"]
@@ -671,3 +685,5 @@ pub mod wreck_and_rebuild;
 pub mod xavier_sal_infested_captain;
 #[path = "lci/zoetic_glyph.rs"]
 pub mod zoetic_glyph;
+#[path = "lci/zoyowa_lava_tongue.rs"]
+pub mod zoyowa_lava_tongue;

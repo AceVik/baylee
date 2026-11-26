@@ -169,6 +169,8 @@ pub mod blessing_of_belzenlok;
 pub mod blink_of_an_eye;
 #[path = "m19/blood_divination.rs"]
 pub mod blood_divination;
+#[path = "bbd/bloodborn_scoundrels.rs"]
+pub mod bloodborn_scoundrels;
 #[path = "dom/bloodstone_goblin.rs"]
 pub mod bloodstone_goblin;
 #[path = "dom/bloodtallow_candle.rs"]
@@ -209,6 +211,8 @@ pub mod brazen_freebooter;
 pub mod breath_of_fire;
 #[path = "bbd/brightling.rs"]
 pub mod brightling;
+#[path = "bbd/bring_down.rs"]
+pub mod bring_down;
 #[path = "m19/bristling_boar.rs"]
 pub mod bristling_boar;
 #[path = "dom/broken_bond.rs"]
@@ -259,6 +263,8 @@ pub mod chandra_s_outburst;
 pub mod chaos_wand;
 #[path = "dom/charge.rs"]
 pub mod charge;
+#[path = "bbd/charging_binox.rs"]
+pub mod charging_binox;
 #[path = "rix/charging_tuskodon.rs"]
 pub mod charging_tuskodon;
 #[path = "grn/charnel_troll.rs"]
@@ -303,6 +309,8 @@ pub mod conclave_tribunal;
 pub mod confidence_from_strength;
 #[path = "grn/connive.rs"]
 pub mod connive;
+#[path = "dom/corrosive_ooze.rs"]
+pub mod corrosive_ooze;
 #[path = "grn/cosmotronic_wave.rs"]
 pub mod cosmotronic_wave;
 #[path = "m19/court_cleric.rs"]
@@ -353,6 +361,8 @@ pub mod deafening_clarion;
 pub mod deathbloom_thallid;
 #[path = "m19/declare_dominance.rs"]
 pub mod declare_dominance;
+#[path = "bbd/decorated_champion.rs"]
+pub mod decorated_champion;
 #[path = "prix/deeproot_elite.rs"]
 pub mod deeproot_elite;
 #[path = "m19/demanding_dragon.rs"]
@@ -423,6 +433,8 @@ pub mod dub;
 pub mod dusk_charger;
 #[path = "rix/dusk_legion_zealot.rs"]
 pub mod dusk_legion_zealot;
+#[path = "bbd/dwarven_lightsmith.rs"]
+pub mod dwarven_lightsmith;
 #[path = "m19/dwarven_priest.rs"]
 pub mod dwarven_priest;
 #[path = "gs1/earth_origin_yak.rs"]
@@ -459,6 +471,8 @@ pub mod erstwhile_trooper;
 pub mod estrid_the_masked;
 #[path = "prix/etali_primal_storm.rs"]
 pub mod etali_primal_storm;
+#[path = "c18/ever_watching_threshold.rs"]
+pub mod ever_watching_threshold;
 #[path = "dom/eviscerate.rs"]
 pub mod eviscerate;
 #[path = "dom/excavation_elephant.rs"]
@@ -471,6 +485,8 @@ pub mod expansion;
 pub mod exultant_skymarcher;
 #[path = "rix/famished_paladin.rs"]
 pub mod famished_paladin;
+#[path = "bbd/fan_favorite.rs"]
+pub mod fan_favorite;
 #[path = "rix/fanatical_firebrand.rs"]
 pub mod fanatical_firebrand;
 #[path = "rix/fathom_fleet_boarder.rs"]
@@ -541,6 +557,10 @@ pub mod fungal_plots;
 pub mod fury_storm;
 #[path = "m19/gallant_cavalry.rs"]
 pub mod gallant_cavalry;
+#[path = "bbd/game_plan.rs"]
+pub mod game_plan;
+#[path = "bbd/gang_up.rs"]
+pub mod gang_up;
 #[path = "dom/garna_the_bloodflame.rs"]
 pub mod garna_the_bloodflame;
 #[path = "grn/garrison_sergeant.rs"]
@@ -781,6 +801,8 @@ pub mod keldon_overseer;
 pub mod keldon_raider;
 #[path = "c18/kestia_the_cultivator.rs"]
 pub mod kestia_the_cultivator;
+#[path = "bbd/khorvath_brightflame.rs"]
+pub mod khorvath_brightflame;
 #[path = "rix/kitesail_corsair.rs"]
 pub mod kitesail_corsair;
 #[path = "grn/knight_of_autumn.rs"]
@@ -815,6 +837,8 @@ pub mod last_one_standing;
 pub mod lathliss_dragon_queen;
 #[path = "grn/lava_coil.rs"]
 pub mod lava_coil;
+#[path = "bbd/lava_field_overlord.rs"]
+pub mod lava_field_overlord;
 #[path = "grn/lazav_the_multifarious.rs"]
 pub mod lazav_the_multifarious;
 #[path = "grn/league_guildmage.rs"]
@@ -883,6 +907,8 @@ pub mod luminous_bonds;
 pub mod luxury_suite;
 #[path = "dom/lyra_dawnbringer.rs"]
 pub mod lyra_dawnbringer;
+#[path = "bbd/magma_hellion.rs"]
+pub mod magma_hellion;
 #[path = "rix/majestic_heliopterus.rs"]
 pub mod majestic_heliopterus;
 #[path = "dom/mammoth_spider.rs"]
@@ -1019,6 +1045,8 @@ pub mod orazca_relic;
 pub mod orcish_vandal;
 #[path = "grn/ornery_goblin.rs"]
 pub mod ornery_goblin;
+#[path = "bbd/out_of_bounds.rs"]
+pub mod out_of_bounds;
 #[path = "rix/overgrown_armasaur.rs"]
 pub mod overgrown_armasaur;
 #[path = "grn/pack_s_favor.rs"]
@@ -1047,6 +1075,8 @@ pub mod phyrexian_scriptures;
 pub mod pierce_the_sky;
 #[path = "grn/pilfering_imp.rs"]
 pub mod pilfering_imp;
+#[path = "bbd/pir_imaginative_rascal.rs"]
+pub mod pir_imaginative_rascal;
 #[path = "rix/pirate_s_pillage.rs"]
 pub mod pirate_s_pillage;
 #[path = "grn/piston_fist_cyclops.rs"]
@@ -1059,6 +1089,8 @@ pub mod pitiless_plunderer;
 pub mod plague_mare;
 #[path = "grn/plaguecrafter.rs"]
 pub mod plaguecrafter;
+#[path = "bbd/play_of_the_game.rs"]
+pub mod play_of_the_game;
 #[path = "m19/poison_tip_archer.rs"]
 pub mod poison_tip_archer;
 #[path = "prix/polyraptor.rs"]
@@ -1181,6 +1213,8 @@ pub mod run_amok;
 pub mod runaway_steam_kin;
 #[path = "m19/runic_armasaur.rs"]
 pub mod runic_armasaur;
+#[path = "bbd/rushblade_commander.rs"]
+pub mod rushblade_commander;
 #[path = "m19/rustwing_falcon.rs"]
 pub mod rustwing_falcon;
 #[path = "gs1/sacred_white_deer.rs"]
@@ -1283,6 +1317,8 @@ pub mod skeleton_archer;
 pub mod skilled_animator;
 #[path = "dom/skittering_surveyor.rs"]
 pub mod skittering_surveyor;
+#[path = "c18/skull_storm.rs"]
+pub mod skull_storm;
 #[path = "grn/skyline_scout.rs"]
 pub mod skyline_scout;
 #[path = "rix/skymarcher_aspirant.rs"]
@@ -1291,6 +1327,8 @@ pub mod skymarcher_aspirant;
 pub mod skyrider_patrol;
 #[path = "m19/skyscanner.rs"]
 pub mod skyscanner;
+#[path = "bbd/skystreamer.rs"]
+pub mod skystreamer;
 #[path = "dom/slimefoot_the_stowaway.rs"]
 pub mod slimefoot_the_stowaway;
 #[path = "dom/slinn_voda_the_rising_deep.rs"]
@@ -1323,6 +1361,8 @@ pub mod sparktongue_dragon;
 pub mod sparring_construct;
 #[path = "bbd/spellseeker.rs"]
 pub mod spellseeker;
+#[path = "bbd/spellweaver_duo.rs"]
+pub mod spellweaver_duo;
 #[path = "grn/spinal_centipede.rs"]
 pub mod spinal_centipede;
 #[path = "bbd/spire_garden.rs"]
@@ -1399,6 +1439,8 @@ pub mod sworn_companions;
 pub mod sworn_guardian;
 #[path = "dom/sylvan_awakening.rs"]
 pub mod sylvan_awakening;
+#[path = "bbd/sylvia_brightspear.rs"]
+pub mod sylvia_brightspear;
 #[path = "oana/tactical_advantage.rs"]
 pub mod tactical_advantage;
 #[path = "grn/tajic_legion_s_edge.rs"]
@@ -1437,8 +1479,12 @@ pub mod tezzeret_s_strider;
 pub mod thallid_omnivore;
 #[path = "dom/thallid_soothsayer.rs"]
 pub mod thallid_soothsayer;
+#[path = "c18/thantis_the_warweaver.rs"]
+pub mod thantis_the_warweaver;
 #[path = "dom/the_antiquities_war.rs"]
 pub mod the_antiquities_war;
+#[path = "bbd/the_crowd_goes_wild.rs"]
+pub mod the_crowd_goes_wild;
 #[path = "dom/the_eldest_reborn.rs"]
 pub mod the_eldest_reborn;
 #[path = "dom/the_first_eruption.rs"]
@@ -1455,6 +1501,8 @@ pub mod thorn_lieutenant;
 pub mod thought_erasure;
 #[path = "dom/thran_temporal_gateway.rs"]
 pub mod thran_temporal_gateway;
+#[path = "bbd/thrasher_brute.rs"]
+pub mod thrasher_brute;
 #[path = "rix/thrashing_brontodon.rs"]
 pub mod thrashing_brontodon;
 #[path = "m19/thud.rs"]
@@ -1481,6 +1529,8 @@ pub mod transmogrifying_wand;
 pub mod trapjaw_tyrant;
 #[path = "dom/traxos_scourge_of_kroog.rs"]
 pub mod traxos_scourge_of_kroog;
+#[path = "c18/treasure_nabber.rs"]
+pub mod treasure_nabber;
 #[path = "oana/treetop_warden.rs"]
 pub mod treetop_warden;
 #[path = "grn/truefire_captain.rs"]
@@ -1513,12 +1563,16 @@ pub mod valduk_keeper_of_the_flame;
 pub mod valiant_knight;
 #[path = "rix/vampire_champion.rs"]
 pub mod vampire_champion;
+#[path = "bbd/vampire_charmseeker.rs"]
+pub mod vampire_charmseeker;
 #[path = "m19/vampire_neonate.rs"]
 pub mod vampire_neonate;
 #[path = "rix/vampire_revenant.rs"]
 pub mod vampire_revenant;
 #[path = "m19/vampire_sovereign.rs"]
 pub mod vampire_sovereign;
+#[path = "c18/varchild_betrayer_of_kjeldor.rs"]
+pub mod varchild_betrayer_of_kjeldor;
 #[path = "c18/varina_lich_queen.rs"]
 pub mod varina_lich_queen;
 #[path = "c18/vedalken_humiliator.rs"]

@@ -232,6 +232,7 @@ pub fn add_intrinsic_mana(
         player,
         tap_cost: true,
         mana_ability: true,
+        loyalty: false,
     });
     let snow = state.object(source).is_some_and(|o| {
         o.characteristics()

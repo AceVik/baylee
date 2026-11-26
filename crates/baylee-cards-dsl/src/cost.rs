@@ -371,6 +371,14 @@ pub enum CostPart {
     /// source itself), exile it, and link it to the resolving permanent via
     /// `Rider::SpellCostExile`. Appended to preserve replay identities.
     BeholdAndExile(&'static Filter),
+    /// Waterbend {N} (`CR 701.67a`): pay `{N}` generic mana, and for each
+    /// generic mana in that cost you may tap an untapped artifact or creature
+    /// you control rather than pay that mana. Appended to preserve replay
+    /// identities.
+    Waterbend(u16),
+    /// Waterbend {X} (`CR 701.67a`, `CR 107.3`): pay `{X}` generic mana using
+    /// Waterbend. Appended to preserve replay identities.
+    WaterbendX,
 }
 
 /// A cost reduction printed on a card (Surgical Metamorph) or on one of its

@@ -956,6 +956,7 @@ fn mana_production_reads_its_activation_across_trigger_scan_boundaries() {
                 player: me(),
                 tap_cost,
                 mana_ability,
+                loyalty: false,
             });
             journal.record(GameEvent::ManaProduced {
                 player: me(),

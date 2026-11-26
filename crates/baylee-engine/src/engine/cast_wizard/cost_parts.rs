@@ -106,7 +106,7 @@ fn raw_mandatory_parts(
         Some(cost) if !disguised && choice.offspring => cost.parts,
         _ => &[],
     };
-    let casualty_parts: &'static [CostPart] = match face.casualty {
+    let casualty_parts: &'static [CostPart] = match choice.casualty_power.or(face.casualty) {
         Some(min_power) if !disguised && choice.casualty => {
             &CASUALTY_PARTS[usize::from(min_power)][..]
         }
@@ -271,11 +271,14 @@ pub(crate) fn wizard_alternative_parts(
     option: Option<CastModeKind>,
 ) -> &'static [CostPart] {
     match option {
-        Some(CastModeKind::Alternative(index)) => face.alternative_costs[index].cost.parts,
+        Some(CastModeKind::Alternative(index)) => face
+            .alternative_costs
+            .get(index)
+            .map_or(&[][..], |alt| alt.cost.parts),
         Some(CastModeKind::Flashback) => face.flashback_parts,
         Some(CastModeKind::Madness) => face.madness.expect("madness").parts,
         Some(CastModeKind::Bestow) => face.bestow.expect("bestow").parts,
-        Some(CastModeKind::Blitz) => face.blitz.expect("blitz").parts,
+        Some(CastModeKind::Blitz) => face.blitz.map_or(&[][..], |b| b.parts),
         Some(CastModeKind::Warp) => face.warp.expect("warp").parts,
         _ => &[],
     }
@@ -311,6 +314,8 @@ pub(crate) struct CostChoice {
     pub offspring: bool,
     /// Whether the casualty additional cost is paid (`CR 702.153a`).
     pub casualty: bool,
+    /// Minimum power threshold for casualty when printed or stack-granted.
+    pub casualty_power: Option<u8>,
     /// How many times the squad additional cost is paid (`CR 702.157a`).
     pub squad: u8,
     /// Kicker can accompany a face or mode without replacing that choice.
@@ -350,6 +355,7 @@ impl From<Option<CastModeKind>> for CostChoice {
             optional_cost_paid: option == Some(CastModeKind::OptionalCost),
             offspring: false,
             casualty: false,
+            casualty_power: None,
             squad: 0,
             kicked: matches!(
                 option,
@@ -441,7 +447,8 @@ pub(crate) fn part_scales_with_x(part: &CostPart) -> bool {
         | CostPart::DiscardX(_)
         | CostPart::RevealFromHandX(_)
         | CostPart::ExileFromGraveyardX(_)
-        | CostPart::RemoveAnyCounterX { .. } => true,
+        | CostPart::RemoveAnyCounterX { .. }
+        | CostPart::WaterbendX => true,
         CostPart::Either(a, b) => {
             a.parts.iter().any(part_scales_with_x) || b.parts.iter().any(part_scales_with_x)
         }

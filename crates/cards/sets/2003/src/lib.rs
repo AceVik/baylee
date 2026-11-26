@@ -869,6 +869,8 @@ pub mod somber_hoverguard;
 pub mod sootfeather_flock;
 #[path = "pscg/soul_collector.rs"]
 pub mod soul_collector;
+#[path = "mrd/soul_foundry.rs"]
+pub mod soul_foundry;
 #[path = "scg/spark_spray.rs"]
 pub mod spark_spray;
 #[path = "lgn/spectral_sliver.rs"]

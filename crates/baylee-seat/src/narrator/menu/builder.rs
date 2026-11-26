@@ -1921,6 +1921,9 @@ impl Builder<'_, '_> {
             NumberPrompt::VariableManaPayment => "How much mana will you pay?".to_string(),
             NumberPrompt::VariableEnergyPayment => "How much energy will you pay?".to_string(),
             NumberPrompt::VariableLifePayment => "How much life will you pay?".to_string(),
+            NumberPrompt::Assist => {
+                "How much generic mana will you pay to assist this spell?".to_string()
+            }
             NumberPrompt::Replicate { cost } => {
                 format!("How many times do you replicate it? Each copy costs {cost} more")
             }

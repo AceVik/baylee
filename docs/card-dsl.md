@@ -746,6 +746,9 @@ express at all yet.
   link it to the resolving permanent via `Rider::SpellCostExile`),
   `CollectEvidence(n)` (CR 701.59a: exile cards with total mana value `n` or
   greater from your graveyard via `ChoicePrompt::CollectEvidence`),
+  `Waterbend(n)` / `WaterbendX` (CR 701.67a: pay `{n}` or `{X}` where tapping
+  each untapped artifact or creature you control pays `{1}` of the generic
+  waterbend cost),
   `RevealFromHand(filter)` (CR 701.20a: reveal a card matching `filter` from
   your hand other than the spell or source card itself),
   `RevealFromHandX(filter)` (CR 107.3a, CR 701.20a: announce X and reveal X

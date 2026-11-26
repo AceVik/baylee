@@ -322,12 +322,7 @@ fn wave17c_raise_cost_and_behold_exile() {
             && terror.abilities[0].contains("extra_life: 3")
     );
 
-    // Honest refusals: mandatory Waterbend, BeholdExile<2/...>, player target on RaiseCostIfTargets.
-    assert!(refused_w17c(
-        "Name:Water Whip\nManaCost:1 U\nTypes:Instant\n\
-         S:Mode$ RaiseCost | ValidCard$ Card.Self | Type$ Spell | Cost$ Waterbend<5> | EffectZone$ All\n\
-         A:SP$ Draw | NumCards$ 2"
-    ));
+    // Honest refusals: BeholdExile<2/...>, player target on RaiseCostIfTargets.
     assert!(refused_w17c(
         "Name:DoubleBehold\nManaCost:2 W\nTypes:Creature Kithkin\nPT:2/2\n\
          S:Mode$ RaiseCost | ValidCard$ Card.Self | Type$ Spell | Cost$ BeholdExile<2/Kithkin> | EffectZone$ All"

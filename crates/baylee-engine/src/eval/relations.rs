@@ -179,6 +179,16 @@ pub fn players(rel: PlayerRel, state: &GameState, you: PlayerId) -> Option<Vec<P
         | PlayerRel::ChosenBySource => {
             return None;
         }
+        PlayerRel::PlayerToYourRight => {
+            let n = state.players.len();
+            let pos = state.players.iter().position(|p| p.id == you)?;
+            (1..n)
+                .map(|step| &state.players[(pos + n - step) % n])
+                .find(|p| p.id != you && !p.has_lost())
+                .map(|p| p.id)
+                .into_iter()
+                .collect()
+        }
     })
 }
 

@@ -321,6 +321,8 @@ pub mod repurposing_bay;
 pub mod ride_s_end;
 #[path = "dft/ripclaw_wrangler.rs"]
 pub mod ripclaw_wrangler;
+#[path = "dft/riptide_gearhulk.rs"]
+pub mod riptide_gearhulk;
 #[path = "dft/risen_necroregent.rs"]
 pub mod risen_necroregent;
 #[path = "ydft/rising_chicane.rs"]
@@ -409,6 +411,8 @@ pub mod syphon_fuel;
 pub mod temmet_naktamun_s_will;
 #[path = "dft/terrian_world_tyrant.rs"]
 pub mod terrian_world_tyrant;
+#[path = "dft/the_aetherspark.rs"]
+pub mod the_aetherspark;
 #[path = "dft/the_last_ride.rs"]
 pub mod the_last_ride;
 #[path = "dft/thopter_fabricator.rs"]

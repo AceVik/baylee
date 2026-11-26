@@ -700,6 +700,7 @@ const PRINTED_KEYWORDS: &[&str] = &[
     "Riot",
     "Unleash",
     "Umbra Armor",
+    "Assist",
 ];
 
 /// `withFlying` / `hasKeywordFlying` as `Filter::HasKeyword(KeywordSet::FLYING)`,
@@ -768,6 +769,7 @@ pub(super) fn keyword_atom(atom: &str) -> Option<String> {
         "Cipher" => Some("KeywordSet::CIPHER"),
         "Champion" => Some("KeywordSet::CHAMPION"),
         "Tribute" => Some("KeywordSet::TRIBUTE"),
+        "Assist" => Some("KeywordSet::ASSIST"),
         "Plainswalk" | "Landwalk:Plains" => Some("KeywordSet::PLAINSWALK"),
         "Islandwalk" | "Landwalk:Island" => Some("KeywordSet::ISLANDWALK"),
         "Swampwalk" | "Landwalk:Swamp" => Some("KeywordSet::SWAMPWALK"),
