@@ -1062,19 +1062,8 @@ impl Tx<'_> {
                 .collect()
         };
         match def {
-            "TriggeredSourceLKICopy" | "TriggeredSource"
-                if matches!(
-                    self.trigger_mode.as_deref(),
-                    Some("DamageDone" | "DamageDoneOnce" | "DamageDealtOnce")
-                ) && target.is_none() =>
-            {
-                if self.trigger_is_self {
-                    Some(emit_filter("&Filter::This"))
-                } else if self.damage_trigger_binds_source {
-                    Some(emit_filter("&Filter::Reference"))
-                } else {
-                    None
-                }
+            "TriggeredSourceLKICopy" | "TriggeredSource" => {
+                self.triggered_event_filter(def, target).map(emit_filter)
             }
             "TriggeredCardLKICopy" | "TriggeredCard"
                 if self.trigger_mode.as_deref() == Some("Mutates")

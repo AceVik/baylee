@@ -62,7 +62,7 @@ impl Tx<'_> {
     }
 
     #[allow(clippy::too_many_lines)]
-    fn chain_inner(&mut self, spec: &str, chain: &mut Chain) -> Option<()> {
+    pub(super) fn chain_inner(&mut self, spec: &str, chain: &mut Chain) -> Option<()> {
         let Some((api, mut p)) = Params::parse(spec) else {
             return self.deny("an ability spec with no `$` in it".to_string());
         };
@@ -869,7 +869,9 @@ impl Tx<'_> {
             let support_raw = p.take("Support").unwrap_or_default();
             let support = support_raw.trim();
             if support == "X" {
-                if !(self.has_x && self.svars.get("X").map(String::as_str) == Some("Count$xPaid")) {
+                let x_paid_ok = self.has_x
+                    || (self.is_etb_self_trigger && self.has_x_mana_cost && !self.in_delayed);
+                if !(x_paid_ok && self.svars.get("X").map(String::as_str) == Some("Count$xPaid")) {
                     return self.deny("unreadable value in `PutCounter`".to_string());
                 }
                 chain.target_up_to_x = true;
@@ -1638,6 +1640,53 @@ impl Tx<'_> {
                     || p.peek("RememberCounteredCMC") == Some("True"))
             {
                 return None;
+            }
+            if special_effects.is_none()
+                && !second_target_here
+                && api == "RemoveCounter"
+                && p.peek("RememberRemoved") == Some("True")
+                && sub.is_some()
+                && !self.sub_is_api(sub.as_deref(), "ImmediateTrigger")
+                && !self.sub_is_api(sub.as_deref(), "DelayedTrigger")
+                && unless.is_none()
+                && dying.is_none()
+                && at_end.is_none()
+                && !optional_counter
+                && !p.has("Condition")
+                && !p.has("ConditionPresent")
+                && !p.has("ConditionCheckSVar")
+                && !p.has("ConditionDefined")
+            {
+                let saved_p = p.clone();
+                let saved_sub = sub.clone();
+                let saved_target = chain.target.clone();
+                let saved_up_to = chain.target_up_to;
+                let saved_exact = chain.target_exact;
+                let saved_is_x = chain.target_is_x;
+                let saved_up_to_x = chain.target_up_to_x;
+                let saved_constraint = chain.target_constraint;
+                let saved_unclaimed = self.unclaimed.borrow().clone();
+                let saved_statics_len = self.body.statics.len();
+                if let Some(effects) = self.remove_counter_remembered_chain(
+                    &mut p,
+                    &mut sub,
+                    target.as_deref(),
+                    targets_here,
+                    chain,
+                ) {
+                    special_effects = Some(effects);
+                } else {
+                    p = saved_p;
+                    sub = saved_sub;
+                    chain.target = saved_target;
+                    chain.target_up_to = saved_up_to;
+                    chain.target_exact = saved_exact;
+                    chain.target_is_x = saved_is_x;
+                    chain.target_up_to_x = saved_up_to_x;
+                    chain.target_constraint = saved_constraint;
+                    *self.unclaimed.borrow_mut() = saved_unclaimed;
+                    self.body.statics.truncate(saved_statics_len);
+                }
             }
             let try_remember_this_way = special_effects.is_none()
                 && !second_target_here
@@ -3511,7 +3560,9 @@ impl Tx<'_> {
                         | "Goad"
                         | "Detain"
                         | "Animate"
-                ) || target_only_multi_safe
+                ) || (api == "MultiplyCounter"
+                    && p.peek("CounterType").is_some())
+                    || target_only_multi_safe
                     || (api == "GainControl"
                         && p.peek("NewController").is_none_or(|v| v == "You")
                         && !p.has("Defined")
@@ -3591,8 +3642,9 @@ impl Tx<'_> {
                     || (self.is_etb_self_trigger && self.has_x_mana_cost && !self.in_delayed))
                     && multi_target_ok)
                     || (self.has_x
-                        && api == "RepeatEach"
-                        && p.peek("DefinedCards") == Some("Targeted")))
+                        && (api == "PutCounter"
+                            || (api == "RepeatEach"
+                                && p.peek("DefinedCards") == Some("Targeted")))))
                     && p.peek("TargetMin") == Some("0")
                     && let Some(max) = p.peek("TargetMax")
                     && self.svars.get(max.trim()).map(|s| s.trim()) == Some("Count$xPaid")
@@ -5145,33 +5197,11 @@ impl Tx<'_> {
                     }
                     Some("Targeted" | "ParentTarget")
                         if !targets_here && target.is_some() && !targets_a_player => {}
-                    Some("Enchanted" | "Equipped") if target.is_none() => {
+                    Some("Enchanted" | "Equipped") if !targets_here && !self.on_a_spell => {
                         return Some(emit_filter("&Filter::AttachedToBySource"));
                     }
-                    Some(
-                        "TriggeredCardLKICopy"
-                        | "TriggeredCard"
-                        | "TriggeredNewCardLKICopy"
-                        | "TriggeredNewCard",
-                    ) if self.trigger_mode.as_deref() == Some("ChangesZone")
-                        && target.is_none() =>
-                    {
-                        return Some(emit_filter("&Filter::Reference"));
-                    }
-                    Some("TriggeredCardLKICopy" | "TriggeredCard")
-                        if matches!(
-                            self.trigger_mode.as_deref(),
-                            Some(
-                                "Exerted"
-                                    | "Enlisted"
-                                    | "Taps"
-                                    | "Untaps"
-                                    | "TurnFaceUp"
-                                    | "Transformed"
-                            )
-                        ) && target.is_none() =>
-                    {
-                        return Some(emit_filter("&Filter::Reference"));
+                    Some(def) if let Some(filter) = self.triggered_event_filter(def, target) => {
+                        return Some(emit_filter(filter));
                     }
                     Some(def)
                         if self.trigger_mode.as_deref() == Some("ChangesZone")
@@ -5191,52 +5221,15 @@ impl Tx<'_> {
                         let name = self.body.filter_static("COUNTER", &expr);
                         return Some(emit_filter(&format!("&{name}")));
                     }
-                    Some("TriggeredAttackerLKICopy" | "TriggeredAttacker")
-                        if (matches!(
-                            self.trigger_mode.as_deref(),
-                            Some("Attacks" | "AttackerUnblocked" | "AttackerBlocked")
-                        ) || (self.trigger_mode.as_deref()
-                            == Some("AttackerBlockedByCreature")
-                            && self
-                                .block_line
-                                .as_ref()
-                                .is_some_and(|(r, _, _)| *r == super::BlockRole::Blocks)))
-                            && target.is_none() =>
-                    {
-                        return Some(emit_filter("&Filter::Reference"));
-                    }
-                    Some("TriggeredBlockerLKICopy" | "TriggeredBlocker")
-                        if (self.trigger_mode.as_deref() == Some("Blocks")
-                            || (self.trigger_mode.as_deref()
-                                == Some("AttackerBlockedByCreature")
-                                && self
-                                    .block_line
-                                    .as_ref()
-                                    .is_some_and(|(r, _, _)| *r == super::BlockRole::Blocked)))
-                            && target.is_none() =>
-                    {
-                        return Some(emit_filter("&Filter::Reference"));
-                    }
-                    Some("TriggeredTargetLKICopy" | "TriggeredTarget")
-                        if matches!(
-                            self.trigger_mode.as_deref(),
-                            Some("DamageDone" | "DamageDoneOnce")
-                        ) && target.is_none() =>
-                    {
-                        return Some(emit_filter("&Filter::Reference"));
-                    }
-                    Some("DelayTriggerRemembered" | "DelayTriggerRememberedLKI")
-                        if self.in_delayed && target.is_none() =>
-                    {
-                        return Some(emit_filter("&Filter::Reference"));
-                    }
                     Some(
                         "TriggeredCardLKICopy & Self"
                         | "Self & TriggeredCardLKICopy"
                         | "TriggeredCard & Self"
                         | "Self & TriggeredCard",
-                    ) if self.trigger_mode.as_deref() == Some("ChangesZone")
-                        && target.is_none() =>
+                    ) if matches!(
+                        self.trigger_mode.as_deref(),
+                        Some("ChangesZone" | "TurnFaceUp" | "Transformed")
+                    ) && target.is_none() =>
                     {
                         let mut out = emit_filter("&Filter::Reference");
                         out.extend(emit_filter("&Filter::This"));
@@ -5429,54 +5422,7 @@ impl Tx<'_> {
                 vec![]
             }
             "RemoveCounter" => {
-                let code = p.take("CounterType")?;
-                let Some(kind) = counter_kind(&code) else {
-                    return self.deny(format!("counter `{code}`"));
-                };
-                let all = p.peek("CounterNum") == Some("All");
-                let n = if all {
-                    p.take("CounterNum");
-                    if !matches!(p.take("RememberRemoved").as_deref(), None | Some("True")) {
-                        return None;
-                    }
-                    0
-                } else {
-                    self.plain_num(p.take("CounterNum").as_deref().unwrap_or("1"))?
-                        .try_into()
-                        .ok()?
-                };
-                if !all && n == 0 {
-                    return None;
-                }
-                let defined = p.take("Defined");
-                if all
-                    && single_target
-                    && target.is_some_and(|t| t.starts_with("TargetSpec::Object("))
-                    && ((targets_here && defined.is_none())
-                        || (!targets_here
-                            && matches!(defined.as_deref(), Some("Targeted" | "ParentTarget"))))
-                {
-                    vec![format!(
-                        "Effect::RemoveAllCountersFilter {{ filter: &Filter::Reference, kind: {kind} }}"
-                    )]
-                } else {
-                    match defined.as_deref() {
-                        None | Some("Self") if target.is_none() => {}
-                        Some(
-                            "TriggeredCardLKICopy"
-                            | "TriggeredBlockerLKICopy"
-                            | "TriggeredAttackerLKICopy",
-                        ) if target.is_none() && self.trigger_is_self => {}
-                        _ => return None,
-                    }
-                    if all {
-                        vec![format!("Effect::RemoveAllCountersSelf {{ kind: {kind} }}")]
-                    } else {
-                        vec![format!(
-                            "Effect::RemoveCounterSelf {{ kind: {kind}, n: {n} }}"
-                        )]
-                    }
-                }
+                self.remove_counter_effect(p, target, targets_here, single_target)?
             }
             "Scry" => {
                 if !matches!(p.take("Defined").as_deref(), None | Some("You")) {

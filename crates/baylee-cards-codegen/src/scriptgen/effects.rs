@@ -331,40 +331,31 @@ impl Tx<'_> {
         if owner == "PlayerRel::You" && !tapped && !attacking && !haste {
             return self.create_tokens(&stem, raw_amount.as_deref());
         }
-        let Some(tokens) = self.tokens else {
-            return self.deny("`Token` with no token scripts to read it against".to_string());
-        };
-        let Some(body) = tokens.body_fixed(&stem, self.cats) else {
-            return self.deny(format!("token script `{stem}`"));
-        };
-        let token = format!("&generated_tokens::{}", body.constant);
-        let amount = match raw_amount.as_deref() {
-            None => "Amount::Fixed(1)".to_string(),
-            Some(raw) => match self.amount_or_count_ext(raw) {
-                None => {
-                    return match self.svars.get(raw) {
-                        Some(how) => self.deny(format!("token amount `{raw}` = `{how}`")),
-                        None => self.deny(format!("token amount `{raw}`")),
-                    };
-                }
-                Some(a) => a,
-            },
-        };
-        if owner != "PlayerRel::You" {
-            return Some(vec![format!(
-                "Effect::CreateTokensFor {{ player: {owner}, token: {token}, amount: {amount} }}"
-            )]);
-        }
-        if attacking {
-            return Some(vec![format!(
-                "Effect::CreateTokenAttacking {{ token: {token}, amount: {amount}, \
-                 sacrifice_at_next_end_step: {sacrifice_at_eot} }}"
-            )]);
-        }
-        Some(vec![format!(
-            "Effect::CreateTokenModified {{ token: {token}, amount: {amount}, tapped: {tapped}, \
-             haste: {haste} }}"
-        )])
+        let tokens_list = self.resolve_fixed_token_list(&stem)?;
+        let amount = self.resolve_token_amount(raw_amount.as_deref())?;
+        Some(
+            tokens_list
+                .into_iter()
+                .map(|token| {
+                    if owner != "PlayerRel::You" {
+                        format!(
+                            "Effect::CreateTokensFor {{ player: {owner}, token: {token}, \
+                             amount: {amount} }}"
+                        )
+                    } else if attacking {
+                        format!(
+                            "Effect::CreateTokenAttacking {{ token: {token}, amount: {amount}, \
+                             sacrifice_at_next_end_step: {sacrifice_at_eot} }}"
+                        )
+                    } else {
+                        format!(
+                            "Effect::CreateTokenModified {{ token: {token}, amount: {amount}, \
+                             tapped: {tapped}, haste: {haste} }}"
+                        )
+                    }
+                })
+                .collect(),
+        )
     }
 
     fn resolve_sized_token_stat(
@@ -403,49 +394,56 @@ impl Tx<'_> {
     /// three readers. The keys are read by the caller, because the corpus
     /// spells them differently (`TokenAmount$` against `Num$`) and that is
     /// the only difference between the two.
+    fn resolve_fixed_token_list(&self, stem: &str) -> Option<Vec<String>> {
+        let Some(tokens) = self.tokens else {
+            return self.deny("`Token` with no token scripts to read it against".to_string());
+        };
+        let mut out = Vec::new();
+        for part in stem.split(',') {
+            let trimmed = part.trim();
+            if trimmed.is_empty() {
+                return self.deny(format!("token script `{stem}`"));
+            }
+            let Some(body) = tokens.body_fixed(trimmed, self.cats) else {
+                return self.deny(format!("token script `{stem}`"));
+            };
+            out.push(format!("&generated_tokens::{}", body.constant));
+        }
+        (!out.is_empty()).then_some(out)
+    }
+
+    fn resolve_token_amount(&mut self, raw_amount: Option<&str>) -> Option<String> {
+        let Some(raw) = raw_amount else {
+            return Some("Amount::Fixed(1)".to_string());
+        };
+        match self.amount_or_count_ext(raw) {
+            None => match self.svars.get(raw) {
+                Some(how) => self.deny(format!("token amount `{raw}` = `{how}`")),
+                None => self.deny(format!("token amount `{raw}`")),
+            },
+            Some(a) => Some(a),
+        }
+    }
+
     pub(super) fn create_tokens(
         &mut self,
         stem: &str,
         raw_amount: Option<&str>,
     ) -> Option<Vec<String>> {
-        let Some(tokens) = self.tokens else {
-            return self.deny("`Token` with no token scripts to read it against".to_string());
-        };
-        let Some(body) = tokens.body_fixed(stem, self.cats) else {
-            return self.deny(format!("token script `{stem}`"));
-        };
-        // `generated_tokens` and not `tokens`: the ledger is the one door,
-        // and which half of it a constant is written in is the generator's
-        // business — a hand-written token is re-exported from there under
-        // the same name.
-        let token = format!("&generated_tokens::{}", body.constant);
-        let amount = match raw_amount {
-            None => None,
-            Some(raw) => match self.amount_or_count_ext(raw) {
-                // A refusal names the `SVar` the amount resolves *through*
-                // and not merely the letter, because `X` is what 356 scripts
-                // write and each of them means it by a different count —
-                // the letter alone ranks one entry that is really thirty.
-                None => {
-                    return match self.svars.get(raw) {
-                        Some(how) => self.deny(format!("token amount `{raw}` = `{how}`")),
-                        None => self.deny(format!("token amount `{raw}`")),
-                    };
-                }
-                Some(a) => Some(a),
-            },
-        };
-        Some(match amount.as_deref() {
-            // One is the number `CreateToken` already means, and writing it
-            // as `CreateTokenN { amount: Amount::Fixed(1) }` would give the
-            // commonest token effect there is a second spelling.
-            None | Some("Amount::Fixed(1)") => {
-                vec![format!("Effect::CreateToken {{ token: {token} }}")]
-            }
-            Some(n) => vec![format!(
-                "Effect::CreateTokenN {{ token: {token}, amount: {n} }}"
-            )],
-        })
+        let tokens_list = self.resolve_fixed_token_list(stem)?;
+        let amount = self.resolve_token_amount(raw_amount)?;
+        Some(
+            tokens_list
+                .into_iter()
+                .map(|token| {
+                    if amount == "Amount::Fixed(1)" {
+                        format!("Effect::CreateToken {{ token: {token} }}")
+                    } else {
+                        format!("Effect::CreateTokenN {{ token: {token}, amount: {amount} }}")
+                    }
+                })
+                .collect(),
+        )
     }
 
     /// CR 701.16a: "'Investigate' means 'Create a Clue token.'"
@@ -16882,81 +16880,6 @@ impl Tx<'_> {
             format!("Effect::Incubate {{ who: {who}, count: {count} }}")
         };
         Some(vec![one; times])
-    }
-
-    pub(super) fn multiply_counter_effect(
-        &mut self,
-        p: &mut Params,
-        target: Option<&str>,
-        targets_here: bool,
-        single_target: bool,
-        prior_target_used: bool,
-    ) -> Option<Vec<String>> {
-        if !matches!(
-            p.take("Multiplier").as_deref().map(str::trim),
-            None | Some("2")
-        ) {
-            return None;
-        }
-        let code = p.take("CounterType")?;
-        let Some(kind) = super::counter_kind(&code) else {
-            return self.deny(format!("counter `{code}`"));
-        };
-        let is_single_obj =
-            single_target && target.is_some_and(|t| t.starts_with("TargetSpec::Object("));
-        let filter = match p.take("Defined").as_deref() {
-            None if targets_here && is_single_obj => "&Filter::Reference".to_string(),
-            Some("Targeted" | "ParentTarget") if !targets_here && is_single_obj => {
-                "&Filter::Reference".to_string()
-            }
-            Some("Self") if !self.on_a_spell => "&Filter::This".to_string(),
-            Some("TriggeredAttackerLKICopy" | "TriggeredAttacker")
-                if (matches!(
-                    self.trigger_mode.as_deref(),
-                    Some("Attacks" | "AttackerUnblocked" | "AttackerBlocked")
-                ) || (self.trigger_mode.as_deref() == Some("AttackerBlockedByCreature")
-                    && self
-                        .block_line
-                        .as_ref()
-                        .is_some_and(|(r, _, _)| *r == super::BlockRole::Blocks)))
-                    && target.is_none() =>
-            {
-                "&Filter::Reference".to_string()
-            }
-            Some("TriggeredBlockerLKICopy" | "TriggeredBlocker")
-                if (self.trigger_mode.as_deref() == Some("Blocks")
-                    || (self.trigger_mode.as_deref() == Some("AttackerBlockedByCreature")
-                        && self
-                            .block_line
-                            .as_ref()
-                            .is_some_and(|(r, _, _)| *r == super::BlockRole::Blocked)))
-                    && target.is_none() =>
-            {
-                "&Filter::Reference".to_string()
-            }
-            Some(
-                "TriggeredCardLKICopy"
-                | "TriggeredCard"
-                | "TriggeredNewCardLKICopy"
-                | "TriggeredNewCard",
-            ) if self.trigger_mode.as_deref() == Some("ChangesZone") && target.is_none() => {
-                "&Filter::Reference".to_string()
-            }
-            Some(def)
-                if (target.is_none() || prior_target_used)
-                    && def.starts_with("Valid ")
-                    && !def.contains("Remembered")
-                    && !def.contains("Targeted") =>
-            {
-                let valid = def.strip_prefix("Valid ")?.trim();
-                let expr = self.filter_expr(valid)?;
-                format!("&{}", self.body.filter_static("DOUBLE", &expr))
-            }
-            _ => return None,
-        };
-        Some(vec![format!(
-            "Effect::DoubleCountersFilter {{ filter: {filter}, kind: {kind} }}"
-        )])
     }
 
     pub(super) fn change_targets_target(
