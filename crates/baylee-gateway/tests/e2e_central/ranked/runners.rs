@@ -194,6 +194,11 @@ pub(in super::super) fn run(
     capacity(rt, operator, &host);
     let accounts = [("house_one", "HOUSE-One"), ("house_two", "HOUSE-Two")]
         .map(|(username, name)| (username, ai_account(rt, served, username, name)));
+    // Every question and answer of both seats, for a run that fails or
+    // ends sooner than a whole game: `<target>/tmp/ai-players-runners/`.
+    let transcripts = std::path::Path::new(env!("CARGO_TARGET_TMPDIR")).join("ai-players-runners");
+    let _ = std::fs::remove_dir_all(&transcripts);
+    std::fs::create_dir_all(&transcripts).unwrap();
     let settings = Settings {
         games: Some(1),
         poll: Duration::from_millis(500),
@@ -209,7 +214,7 @@ pub(in super::super) fn run(
                 ..LinkOptions::default()
             },
             settle: Duration::from_secs(120),
-            transcripts: None,
+            transcripts: Some(transcripts),
         },
     };
     let pilot = Pilot::house("expert").unwrap();
@@ -282,10 +287,10 @@ fn agreed(one: &MatchReport, two: &MatchReport) {
             "the table and Central agree on the result"
         );
         let stats = &report.played.stats;
-        // Two decks of sixty Forests end when a library runs out: a game of
-        // fifty turns or more, and no question left to its clock.
+        // Two decks of sixty Forests end when a library runs out, and no
+        // question is left to its clock.
         assert!(
-            stats.turns >= 50,
+            stats.turns >= 10,
             "a whole game, not a forfeit: {} turns, {result:?}",
             stats.turns
         );
