@@ -246,7 +246,13 @@ pub(super) fn install(app: &mut App) {
         )
         .add_systems(
             Update,
-            (follow_the_session, ask, take_answers, draw::draw, draw::animate)
+            (
+                follow_the_session,
+                ask,
+                take_answers,
+                draw::draw,
+                draw::animate,
+            )
                 .chain()
                 .after(act)
                 .run_if(resource_exists::<crate::hud::UiFonts>),
@@ -349,7 +355,13 @@ fn act(
                     .map(str::trim)
                     .filter(|a| !a.is_empty())
                     .map(str::to_owned);
-                start(&mut sheet, state.as_deref(), Kind::Create, Job::Create(ask), email);
+                start(
+                    &mut sheet,
+                    state.as_deref(),
+                    Kind::Create,
+                    Job::Create(ask),
+                    email,
+                );
             }
             Action::Copy => {
                 if let (Some(made), Some(clipboard)) = (sheet.made.as_ref(), clipboard.as_mut()) {
@@ -372,7 +384,13 @@ fn act(
                 if let Some(id) = sheet.asking
                     && sheet.busy().is_none()
                 {
-                    start(&mut sheet, state.as_deref(), Kind::Withdraw, Job::Withdraw(id), None);
+                    start(
+                        &mut sheet,
+                        state.as_deref(),
+                        Kind::Withdraw,
+                        Job::Withdraw(id),
+                        None,
+                    );
                 }
             }
             Action::Retry => {
@@ -425,8 +443,21 @@ fn account(state: &LobbyState) -> Option<String> {
         .or_else(|| Some(String::new()))
 }
 
-/// Reads the list when it is stale and nothing else is under way.
-fn ask(state: Option<Res<LobbyState>>, mut sheet: ResMut<Invites>) {
+/// Reads the list when it is stale and nothing else is under way. While the
+/// sheet stands, a push from Central's social socket (someone took an
+/// invite up, and the two are friends now) makes it stale: the list follows
+/// without a press.
+fn ask(state: Option<Res<LobbyState>>, mut sheet: ResMut<Invites>, mut pushed: Local<u64>) {
+    let seq = state
+        .as_deref()
+        .and_then(LobbyState::central_handle)
+        .map_or(0, |handle| handle.social_seq());
+    if *pushed != seq {
+        *pushed = seq;
+        if sheet.open && !sheet.stale {
+            sheet.stale = true;
+        }
+    }
     if !sheet.open || !sheet.stale || sheet.work.is_some() || sheet.failed {
         return;
     }

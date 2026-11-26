@@ -1138,12 +1138,12 @@ mod hint;
 mod history;
 pub(crate) mod http;
 mod hub;
+#[cfg(not(target_arch = "wasm32"))]
+pub(crate) mod invites;
 mod keyboard;
 mod library_ui;
 #[cfg(not(target_arch = "wasm32"))]
 mod links;
-#[cfg(not(target_arch = "wasm32"))]
-pub(crate) mod invites;
 pub(crate) mod offline;
 mod poolfacts;
 mod press;

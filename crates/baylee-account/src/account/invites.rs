@@ -119,9 +119,8 @@ pub fn plausible_email(address: &str) -> bool {
 
 /// An invite as listed, inside Central's own bounds.
 fn checked(invite: &FriendInviteSummary) -> Result<(), Error> {
-    let within = |text: &Option<String>, max: usize| {
-        text.as_ref().is_none_or(|t| t.chars().count() <= max)
-    };
+    let within =
+        |text: &Option<String>, max: usize| text.as_ref().is_none_or(|t| t.chars().count() <= max);
     let redeemed = matches!(invite.status, FriendInviteStatus::Redeemed);
     if within(&invite.label, MAX_INVITE_LABEL)
         && within(&invite.note, MAX_INVITE_NOTE)
@@ -360,15 +359,7 @@ mod tests {
         assert!(plausible_email("a@b.de"));
         assert!(plausible_email("mara.k+baylee@mail.example.org"));
         for bad in [
-            "",
-            "a",
-            "@b.de",
-            "a@b",
-            "a@.de",
-            "a@b.",
-            "a@@b.de",
-            "a b@c.de",
-            "a@b.de\n",
+            "", "a", "@b.de", "a@b", "a@.de", "a@b.", "a@@b.de", "a b@c.de", "a@b.de\n",
         ] {
             assert!(!plausible_email(bad), "{bad:?}");
         }

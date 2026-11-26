@@ -1031,6 +1031,9 @@ InviteMailed = Sent by e-mail to { $address }
 # An address was given and the mail did not go out.
 InviteMailNotSent = The e-mail did not go out; share the link yourself.
 
+# Where the address would go, while Central cannot mail.
+InviteMailUnavailable = E-mail invites are not available right now.
+
 # Under a just-made link: until when it holds.
 # Arguments: date
 InviteValidUntil = Valid until { $date } · for one person
@@ -1132,3 +1135,9 @@ InviteRefused = That did not work. Check what you entered and try again.
 
 # Central could not be reached.
 InviteUnreachable = Baylee Central cannot be reached right now.
+
+# The contacts list with nobody in it yet, where friend invites can be made.
+FriendsEmptyInvite = No friends yet. Search for a Name#tag above, or invite someone with a link below.
+
+# The contacts list with nobody in it yet.
+FriendsEmpty = No friends yet. Search for a Name#tag above to add someone.

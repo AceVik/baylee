@@ -1599,6 +1599,17 @@ fn sync_drawer(
         }
     }
     let view = machine.friends();
+    // Nobody yet, and nothing searched for: the list says so, and how
+    // someone comes into it (the foot carries the invite itself).
+    let lonely = !me.guest
+        && ui.find.text().trim().is_empty()
+        && view.online.is_empty()
+        && view.offline.is_empty()
+        && view.incoming.is_empty()
+        && view.outgoing.is_empty()
+        && view.groups.is_empty()
+        && view.group_invites.is_empty()
+        && view.invites.is_empty();
     let filter = ui.find.text().trim().to_lowercase();
     let shown = |handle: &str| {
         filter.is_empty() || filter.contains('#') || handle.to_lowercase().contains(&filter)
@@ -2131,6 +2142,20 @@ fn sync_drawer(
             commands.entity(line).add_children(&[name, undo]);
             kids.push(line);
         }
+    }
+    if lonely {
+        let sentence = if invites_here(lobby.as_deref(), at_table) {
+            ChatPhrase::FriendsEmptyInvite
+        } else {
+            ChatPhrase::FriendsEmpty
+        };
+        kids.push(crate::shellkit::states::empty(
+            &mut commands,
+            kit,
+            glyph::FRIENDS,
+            sentence.text(lang),
+            None,
+        ));
     }
     commands.entity(list).add_children(&kids);
     // A scrollbar beside the list, visible only when content overflows.

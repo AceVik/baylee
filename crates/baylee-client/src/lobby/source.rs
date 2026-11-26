@@ -13,9 +13,9 @@
 
 #[allow(clippy::wildcard_imports)]
 use super::*;
-use baylee_client_core::lobby::gateway_info::web_address;
 /// `url` as a QR code, its picture and its side in modules (the kit's).
 pub(super) use crate::shellkit::qr::image as code_image;
+use baylee_client_core::lobby::gateway_info::web_address;
 
 /// The community's Discord invitation (owner, 09.10.2026), drawn on the
 /// front door's top-right tile as a code and as text, opened on a click.

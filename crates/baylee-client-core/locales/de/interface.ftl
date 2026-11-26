@@ -4486,6 +4486,7 @@ AdventReset = Rätsel neu beginnen
 InviteLinkTitle = { $player } möchte mit dir befreundet sein
 InviteLinkBody = Als Freunde seht ihr, wann der andere da ist, und könnt chatten und zusammen spielen. Nimm nur an, wenn du weißt, von wem der Link ist.
 InviteLinkNote = Der Gruß dazu
+InviteLinkGreeting = „{ $text }“
 InviteLinkValid = Gültig bis { $date }
 InviteLinkAccept = Annehmen
 InviteLinkFriends = Du und { $player } seid jetzt Freunde.

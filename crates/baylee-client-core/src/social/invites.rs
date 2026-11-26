@@ -117,15 +117,17 @@ pub fn when(seconds: i64, offset: i32, lang: Lang) -> String {
     )
 }
 
-/// How long an open invite still holds, in the largest whole unit: days,
-/// then hours, then minutes (at least one).
+/// How long an open invite still holds, in the largest unit it fills
+/// (days, then hours, then minutes, at least one), rounded to the nearest:
+/// a 14-day link made a minute ago still holds 14 days, not 13.
 #[must_use]
 pub fn left(expires_at: i64, now: i64, lang: Lang) -> String {
     let secs = usize::try_from(expires_at.saturating_sub(now).max(0)).unwrap_or(usize::MAX);
+    let near = |unit: usize| secs.saturating_add(unit / 2) / unit;
     match secs {
-        s if s >= 86_400 => ChatPhrase::InviteLeftDays.text_count(lang, s / 86_400),
-        s if s >= 3_600 => ChatPhrase::InviteLeftHours.text_count(lang, s / 3_600),
-        s => ChatPhrase::InviteLeftMinutes.text_count(lang, (s / 60).max(1)),
+        s if s >= 86_400 => ChatPhrase::InviteLeftDays.text_count(lang, near(86_400)),
+        s if s >= 3_600 => ChatPhrase::InviteLeftHours.text_count(lang, near(3_600)),
+        _ => ChatPhrase::InviteLeftMinutes.text_count(lang, near(60).max(1)),
     }
 }
 
@@ -135,19 +137,16 @@ pub fn left(expires_at: i64, now: i64, lang: Lang) -> String {
 #[must_use]
 pub fn state_words(invite: &FriendInviteSummary, now: i64, offset: i32, lang: Lang) -> String {
     match invite.status {
-        FriendInviteStatus::Active if invite.expires_at > now => {
-            left(invite.expires_at, now, lang)
-        }
+        FriendInviteStatus::Active if invite.expires_at > now => left(invite.expires_at, now, lang),
         FriendInviteStatus::Active | FriendInviteStatus::Expired => {
             ChatPhrase::InviteExpired.text(lang).to_owned()
         }
         FriendInviteStatus::Revoked => ChatPhrase::InviteRevoked.text(lang).to_owned(),
         FriendInviteStatus::Redeemed => match (&invite.redeemed_by, invite.redeemed_at) {
-            (Some(person), Some(at)) => ChatPhrase::InviteTakenBy
-                .fill(lang, &[&handle(person), &when(at, offset, lang)]),
-            (Some(person), None) => {
-                ChatPhrase::InviteTakenByNoDate.fill(lang, &[&handle(person)])
+            (Some(person), Some(at)) => {
+                ChatPhrase::InviteTakenBy.fill(lang, &[&handle(person), &when(at, offset, lang)])
             }
+            (Some(person), None) => ChatPhrase::InviteTakenByNoDate.fill(lang, &[&handle(person)]),
             _ => ChatPhrase::InviteTaken.text(lang).to_owned(),
         },
     }
@@ -221,6 +220,11 @@ mod tests {
     fn an_open_invite_says_how_long_it_holds_in_its_largest_unit() {
         let now = 1_000;
         assert_eq!(left(now + 6 * 86_400 + 5, now, Lang::En), "6 days left");
+        assert_eq!(
+            left(now + 14 * 86_400 - 60, now, Lang::En),
+            "14 days left",
+            "a link made a minute ago holds its whole two weeks"
+        );
         assert_eq!(left(now + 86_400, now, Lang::De), "noch 1 Tag");
         assert_eq!(left(now + 5 * 3_600, now, Lang::En), "5 hours left");
         assert_eq!(left(now + 30, now, Lang::En), "1 minute left");

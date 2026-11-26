@@ -650,13 +650,16 @@ fn activate(
 }
 
 /// The ring on the focused stop while it is visible; none anywhere else. A
-/// field shows its text, or its hint while empty.
+/// field shows its text, or its hint while empty, and the field that takes
+/// the keys wears the accent on its edge however it got them, a press
+/// included: a field typed into must say so, ring or not.
 #[allow(clippy::type_complexity)] // two queries over one kind of node
 fn draw_ring(
     focus: Res<InputFocus>,
     visible: Res<InputFocusVisible>,
     mut rings: Query<(Entity, &mut Outline), With<Stop>>,
     changed: Query<(&ShellField, &Children), Changed<ShellField>>,
+    mut edges: Query<(Entity, &mut BorderColor), With<ShellField>>,
     mut words: Query<(&mut Text, &mut TextColor), With<FieldWords>>,
 ) {
     if focus.is_changed() || visible.is_changed() {
@@ -668,6 +671,16 @@ fn draw_ring(
             };
             if ring.color != want {
                 ring.color = want;
+            }
+        }
+        for (entity, mut edge) in &mut edges {
+            let want = BorderColor::all(if focus.get() == Some(entity) {
+                tokens::ACCENT
+            } else {
+                tokens::BORDER
+            });
+            if *edge != want {
+                *edge = want;
             }
         }
     }

@@ -25,8 +25,7 @@ mod tower;
 pub use funding::funding_read;
 pub use gateway_import::GatewayDeckImport;
 pub use invites::{
-    CreatedInvite, FriendInvites, MAX_INVITE_EMAIL, NewInvite, friend_invite_info,
-    plausible_email,
+    CreatedInvite, FriendInvites, MAX_INVITE_EMAIL, NewInvite, friend_invite_info, plausible_email,
 };
 pub use pairing::{PairedSession, PairingClaim};
 pub use ranked::{

@@ -11070,6 +11070,10 @@ InviteLinkBody = As friends you see when the other is around, and you can chat a
 # The caption over the inviter's greeting.
 InviteLinkNote = The greeting with it
 
+# The inviter's greeting, in the language's quotation marks.
+# Arguments: text
+InviteLinkGreeting = “{ $text }”
+
 # Until when the invite holds.
 # Arguments: date
 InviteLinkValid = Valid until { $date }

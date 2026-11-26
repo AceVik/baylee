@@ -10,8 +10,7 @@ fn app() -> App {
         .init_resource::<ButtonInput<KeyCode>>()
         .init_resource::<InputFocus>();
     crate::ui_button::install(&mut app);
-    app.init_resource::<Invites>()
-        .add_systems(Update, act);
+    app.init_resource::<Invites>().add_systems(Update, act);
     app
 }
 
@@ -80,7 +79,10 @@ fn a_full_account_makes_no_link() {
 #[test]
 fn each_refusal_has_its_sentence() {
     assert_eq!(refusal(Error::Busy), ChatPhrase::InviteRefusedBusy);
-    assert_eq!(refusal(Error::TermsRequired), ChatPhrase::InviteRefusedTerms);
+    assert_eq!(
+        refusal(Error::TermsRequired),
+        ChatPhrase::InviteRefusedTerms
+    );
     assert_eq!(refusal(Error::Unavailable), ChatPhrase::InviteUnreachable);
     assert_eq!(refusal(Error::Rejected), ChatPhrase::InviteRefused);
 }

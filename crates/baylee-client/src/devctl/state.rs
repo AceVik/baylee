@@ -147,6 +147,9 @@ pub(super) struct Believed<'w, 's> {
     /// The lobby, for the builder's keyboard place.
     lobby: Option<Res<'w, crate::lobby::LobbyState>>,
     front_motion: Option<Res<'w, crate::lobby::front::FrontMotion>>,
+    /// The friend-invite sheet: whether it stands and what it shows, never
+    /// a link or a code.
+    invites: Option<Res<'w, crate::lobby::invites::Invites>>,
     /// Keyboard stop identifiers in published node geometry for native UI drivers.
     stops: Query<'w, 's, &'static crate::shellkit::focus::Stop>,
     advent_light: crate::lobby::advent::ShaderProbe<'w, 's>,
@@ -1181,6 +1184,17 @@ fn account_json(believed: &Believed) -> String {
                         .filter_map(|&slot| state.lobby.builder().card(slot))
                         .map(|card| card.identity.as_str()).collect::<String>(),
                 },
+                "invites": believed.invites.as_deref().map(|sheet| serde_json::json!({
+                    "open": sheet.open(),
+                    "busy": sheet.busy().map(|kind| format!("{kind:?}")),
+                    "filter": format!("{:?}", sheet.filter),
+                    "listed": sheet.list.as_ref().map(|list| list.invites.len()),
+                    "slots": sheet.slots(),
+                    "failed": sheet.failed,
+                    "made": sheet.made.is_some(),
+                    "asking": sheet.asking.is_some(),
+                    "said": sheet.said.map(|said| format!("{said:?}")),
+                })),
                 "offline": state.offline.is_some()
             })
             .to_string()

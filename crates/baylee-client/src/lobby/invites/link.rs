@@ -18,11 +18,11 @@
 
 #[allow(clippy::wildcard_imports)] // the lobby widget vocabulary
 use super::super::*;
+use crate::social::SocialHost;
 use baylee_account::Error;
 use baylee_account::social::{FriendInvitePreview, FriendInviteStatus, Person};
 use baylee_client_core::deeplink::InviteLink;
 use baylee_client_core::social::invites;
-use crate::social::SocialHost;
 use std::sync::{Mutex, mpsc};
 
 /// An invite asked about: its link and what Central said of it.
@@ -311,7 +311,10 @@ mod tests {
         };
         assert_eq!(asked.inviter(), "Mara#002a");
         assert_eq!(asked.link.code(), CODE);
-        assert!(!format!("{asked:?}").contains(CODE), "the code is never printed");
+        assert!(
+            !format!("{asked:?}").contains(CODE),
+            "the code is never printed"
+        );
     }
 
     #[test]
@@ -321,14 +324,20 @@ mod tests {
             told(decide(link(), Ok(preview(status)), mine, friends, now))
         };
         assert_eq!(decided(Redeemed, None, &[], NOW), Phrase::InviteLinkUsed);
-        assert_eq!(decided(Revoked, None, &[], NOW), Phrase::InviteLinkWithdrawn);
+        assert_eq!(
+            decided(Revoked, None, &[], NOW),
+            Phrase::InviteLinkWithdrawn
+        );
         assert_eq!(decided(Expired, None, &[], NOW), Phrase::InviteLinkExpired);
         assert_eq!(
             decided(Active, None, &[], NOW + 86_400),
             Phrase::InviteLinkExpired,
             "past its end, whatever Central still says"
         );
-        assert_eq!(decided(Active, Some("002a"), &[], NOW), Phrase::InviteLinkOwn);
+        assert_eq!(
+            decided(Active, Some("002a"), &[], NOW),
+            Phrase::InviteLinkOwn
+        );
         assert_eq!(
             decided(Active, None, &["002a".into()], NOW),
             Phrase::InviteLinkAlready

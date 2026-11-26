@@ -108,6 +108,7 @@ pub(super) fn draw(
     input: Option<Res<InputClass>>,
     mut focus: Option<ResMut<InputFocus>>,
     mut drawn: Local<Drawn>,
+    typed: Query<(&ShellField, &Field)>,
     roots: Query<Entity, With<Root>>,
     mut pops: Query<&mut Pop>,
     slots: Query<(Entity, &Slot)>,
@@ -142,21 +143,38 @@ pub(super) fn draw(
         m: metrics,
         german: lang == Lang::De,
     };
+    // A new frame (the sheet opened, or the window or the language changed
+    // under it): what was typed is typed into the new fields, and the parts
+    // are drawn into its slots in this same frame, so it never stands empty.
+    let mut fresh: Vec<(Slot, Entity)> = Vec::new();
+    let reopened = drawn.shell.is_none();
+    let typed = |which: Field| {
+        typed
+            .iter()
+            .find(|(_, f)| **f == which)
+            .filter(|_| !reopened)
+            .map_or_else(String::new, |(field, _)| field.value.clone())
+    };
     if drawn.shell != Some((lang, metrics)) {
+        let kept = [typed(Field::Label), typed(Field::Note)];
         for root in roots.iter().chain(confirms.iter()) {
             commands.entity(root).try_despawn();
         }
         *drawn = Drawn::default();
-        let label = shell(&mut commands, kit, lang);
+        let (label, slots) = shell(&mut commands, kit, lang, &kept);
+        fresh = slots;
         drawn.shell = Some((lang, metrics));
-        if let Some(focus) = focus.as_deref_mut() {
+        if reopened && let Some(focus) = focus.as_deref_mut() {
             focus.set(label, FocusCause::Navigated);
         }
-        // The parts are drawn into the new frame next frame, once its
-        // slots exist.
-        return;
     }
-    let slot = |which: Slot| slots.iter().find(|(_, s)| **s == which).map(|(e, _)| e);
+    let slot = |which: Slot| {
+        fresh
+            .iter()
+            .find(|(s, _)| *s == which)
+            .map(|(_, e)| *e)
+            .or_else(|| slots.iter().find(|(_, s)| **s == which).map(|(e, _)| e))
+    };
     // The validity.
     if drawn.days != Some(sheet.days)
         && let Some(at) = slot(Slot::Days)
@@ -172,7 +190,8 @@ pub(super) fn draw(
         && let Some(at) = slot(Slot::Email)
     {
         commands.entity(at).despawn_children();
-        email(&mut commands, at, kit, lang, mail != Some(false));
+        let address = typed(Field::Email);
+        email(&mut commands, at, kit, lang, mail != Some(false), &address);
         drawn.email = Some(mail);
     }
     // The action row: Create, held while a link is made or every slot is
@@ -251,8 +270,13 @@ pub(super) fn draw(
         .asking
         .map(|id| (id, sheet.busy() == Some(Kind::Withdraw)));
     if drawn.confirm != Some(confirm_key) {
+        // Answered, the question leaves on the curve; held while Central
+        // withdraws, it is drawn again where it stands.
         for root in &confirms {
-            commands.entity(root).try_despawn();
+            match pops.get_mut(root) {
+                Ok(mut pop) if confirm_key.is_none() => pop.leaving = true,
+                _ => commands.entity(root).try_despawn(),
+            }
         }
         if let Some((id, busy)) = confirm_key {
             let invite = sheet
@@ -266,10 +290,16 @@ pub(super) fn draw(
     }
 }
 
-/// The sheet's frame: the scrim, the sheet with its head, and the empty
-/// slots its parts are drawn into. Answers the first field, which takes
-/// the keys.
-fn shell(commands: &mut Commands, kit: Kit, lang: Lang) -> Entity {
+/// The sheet's frame: the scrim, the sheet with its head, the name and
+/// greeting fields with what was `kept` in them, and the empty slots its
+/// other parts are drawn into. Answers the first field, which takes the
+/// keys, and the slots.
+fn shell(
+    commands: &mut Commands,
+    kit: Kit,
+    lang: Lang,
+    kept: &[String; 2],
+) -> (Entity, Vec<(Slot, Entity)>) {
     let column = |commands: &mut Commands, slot: Slot, gap: f32| {
         commands
             .spawn((
@@ -302,8 +332,22 @@ fn shell(commands: &mut Commands, kit: Kit, lang: Lang) -> Entity {
             Pickable::IGNORE,
         ))
         .id();
-    let label = field(commands, kit, Field::Label, glyph::TAG, ChatPhrase::InviteLabelHint.text(lang), "label");
-    let note = field(commands, kit, Field::Note, glyph::QUOTE, ChatPhrase::InviteNoteHint.text(lang), "note");
+    let label = field(
+        commands,
+        kit,
+        (Field::Label, "label"),
+        glyph::TAG,
+        ChatPhrase::InviteLabelHint.text(lang),
+        &kept[0],
+    );
+    let note = field(
+        commands,
+        kit,
+        (Field::Note, "note"),
+        glyph::QUOTE,
+        ChatPhrase::InviteNoteHint.text(lang),
+        &kept[1],
+    );
     let email = column(commands, Slot::Email, 0.0);
     let act = column(commands, Slot::Act, 6.0);
     commands
@@ -398,7 +442,16 @@ fn shell(commands: &mut Commands, kit: Kit, lang: Lang) -> Entity {
         },
         BackgroundColor(Color::NONE),
     ));
-    label
+    let slots = vec![
+        (Slot::Form, form),
+        (Slot::Days, days),
+        (Slot::Email, email),
+        (Slot::Act, act),
+        (Slot::Made, made),
+        (Slot::Head, head),
+        (Slot::List, rows),
+    ];
+    (label, slots)
 }
 
 /// A group's name in small capitals, as the kit's sheets name them.
@@ -413,22 +466,26 @@ fn caption(commands: &mut Commands, kit: Kit, text: &str) -> Entity {
         .id()
 }
 
-/// One of the form's fields, which the kit edits.
+/// One of the form's fields, which the kit edits, holding `value`.
 fn field(
     commands: &mut Commands,
     kit: Kit,
-    which: Field,
+    (which, stop): (Field, &'static str),
     glyph: char,
     hint: &str,
-    stop: &'static str,
+    value: &str,
 ) -> Entity {
     controls::field(
         commands,
         kit,
         glyph,
-        "",
+        value,
         hint,
-        (which, ShellField::new("", hint), Stop::new(ORDER.name, stop)),
+        (
+            which,
+            ShellField::new(value, hint),
+            Stop::new(ORDER.name, stop),
+        ),
     )
 }
 
@@ -458,15 +515,15 @@ fn days(commands: &mut Commands, at: Entity, kit: Kit, lang: Lang, chosen: u8) {
 
 /// The address the invite is mailed to, or, where Central cannot mail, a
 /// quiet line in the field's place.
-fn email(commands: &mut Commands, at: Entity, kit: Kit, lang: Lang, can: bool) {
+fn email(commands: &mut Commands, at: Entity, kit: Kit, lang: Lang, can: bool, value: &str) {
     let row = if can {
         field(
             commands,
             kit,
-            Field::Email,
+            (Field::Email, "email"),
             glyph::ENVELOPE,
             ChatPhrase::InviteEmailHint.text(lang),
-            "email",
+            value,
         )
     } else {
         let row = controls::field(
@@ -474,7 +531,7 @@ fn email(commands: &mut Commands, at: Entity, kit: Kit, lang: Lang, can: bool) {
             kit,
             glyph::ENVELOPE,
             "",
-            ChatPhrase::InviteMailNotSent.text(lang),
+            ChatPhrase::InviteMailUnavailable.text(lang),
             (),
         );
         commands
@@ -812,9 +869,12 @@ fn row(
         .id();
     let size = kit.m.px(34.0);
     let mark = match (&invite.redeemed_by, invite.status) {
-        (Some(person), FriendInviteStatus::Redeemed) => {
-            avatar::disc(commands, kit.fonts, &model::handle(person), kit.m.scaled(34.0))
-        }
+        (Some(person), FriendInviteStatus::Redeemed) => avatar::disc(
+            commands,
+            kit.fonts,
+            &model::handle(person),
+            kit.m.scaled(34.0),
+        ),
         _ => {
             let (glyph, ink, ground) = if open {
                 (glyph::LINK, tokens::ACCENT, tokens::ACCENT.with_alpha(0.14))
@@ -924,7 +984,12 @@ fn question(
         header = header.subtitle(title);
     }
     let head = surfaces::dialog_header(commands, kit, header);
-    let hint = surfaces::prose(commands, kit, ChatPhrase::InviteRevokeHint.text(lang), false);
+    let hint = surfaces::prose(
+        commands,
+        kit,
+        ChatPhrase::InviteRevokeHint.text(lang),
+        false,
+    );
     let body = commands
         .spawn((
             Node {
@@ -963,11 +1028,13 @@ fn question(
     commands.entity(body).add_children(&[hint, buttons]);
     commands.entity(dialog).add_children(&[head, body]);
     let from = 0.94;
-    commands.entity(dialog).insert(UiTransform::from_scale(Vec2::splat(if opened {
-        from
-    } else {
-        1.0
-    })));
+    commands
+        .entity(dialog)
+        .insert(UiTransform::from_scale(Vec2::splat(if opened {
+            from
+        } else {
+            1.0
+        })));
     let root = surfaces::scrim(commands, kit, tokens::z::SHEET + 2, Action::Cancel, dialog);
     commands.entity(root).insert((
         ConfirmRoot,
@@ -988,7 +1055,13 @@ pub(super) fn animate(
     time: Option<Res<Time>>,
     prefs: Option<Res<crate::prefs::Prefs>>,
     mut sheet: ResMut<Invites>,
-    mut pops: Query<(Entity, &mut Pop, &Children, Option<&mut BackgroundColor>, Has<Slot>)>,
+    mut pops: Query<(
+        Entity,
+        &mut Pop,
+        &Children,
+        Option<&mut BackgroundColor>,
+        Has<Slot>,
+    )>,
     mut scales: Query<&mut UiTransform>,
     copied: Query<&Children, With<Copied>>,
     mut inks: Query<&mut TextColor>,
@@ -1022,7 +1095,11 @@ pub(super) fn animate(
             pop.from + (1.0 - pop.from) * motion::pop(pop.t)
         };
         // A slot pops itself; a scrim fades and pops the sheet it holds.
-        let target = if inner { Some(entity) } else { children.first().copied() };
+        let target = if inner {
+            Some(entity)
+        } else {
+            children.first().copied()
+        };
         if let Some(mut transform) = target.and_then(|e| scales.get_mut(e).ok()) {
             transform.scale = Vec2::splat(scale);
         }

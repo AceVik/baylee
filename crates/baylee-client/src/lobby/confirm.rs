@@ -349,11 +349,16 @@ fn draw_invite(
     // The greeting is the inviter's own words: plain text in quotes under
     // its caption, never a link or anything the client acts on.
     if let Some(greeting) = asked.preview.note.as_deref() {
-        kids.push(note(commands, fonts, metrics, Phrase::InviteLinkNote.text(lang)));
+        kids.push(note(
+            commands,
+            fonts,
+            metrics,
+            Phrase::InviteLinkNote.text(lang),
+        ));
         kids.push(
             commands
                 .spawn((
-                    Text::new(format!("\u{201c}{greeting}\u{201d}")),
+                    Text::new(Phrase::InviteLinkGreeting.fill(lang, &[greeting])),
                     tf(fonts, metrics.text),
                     TextColor(tokens::INK.with_alpha(0.86)),
                     Node {
