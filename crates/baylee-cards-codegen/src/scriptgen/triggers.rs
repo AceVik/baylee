@@ -3165,6 +3165,7 @@ impl Tx<'_> {
         let chain_asks = chain.target_up_to.is_some()
             || chain.effects.iter().any(|e| {
                 (e.contains("ChooseCard {") && e.contains("min: 0,"))
+                    || (e.contains("ChooseCardEx {") && e.contains("min: 0,"))
                     || (e.contains("PeekAndReveal {") && e.contains("min_pick: 0,"))
             })
             || chain.effects.iter().any(|e| {
