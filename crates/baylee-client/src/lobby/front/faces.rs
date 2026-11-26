@@ -455,7 +455,7 @@ fn gateway_head(commands: &mut Commands, state: &LobbyState, kit: Kit, _music_on
     if is_central_login_face(state) {
         let lang = state.lobby.lang();
         let auth_title = Phrase::FrontAuthTitle.text(lang);
-        let title = super::door::card_title_lockup(commands, kit, '\u{f3ed}', auth_title);
+        let title = super::super::parts::title_lockup(commands, kit, '\u{f3ed}', auth_title).0;
         commands
             .entity(title)
             .entry::<Node>()
@@ -1209,8 +1209,13 @@ fn gateway_title_row(
     _music_on: bool,
 ) -> Entity {
     let lang = state.lobby.lang();
-    let title =
-        super::door::card_title_lockup(commands, kit, '\u{f1eb}', Phrase::ChooseGateway.text(lang));
+    let title = super::super::parts::title_lockup(
+        commands,
+        kit,
+        '\u{f1eb}',
+        Phrase::ChooseGateway.text(lang),
+    )
+    .0;
     let head = commands
         .spawn((
             Node {

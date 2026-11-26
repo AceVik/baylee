@@ -383,7 +383,9 @@ fn presses(
             }
             RowPress::AddFriend(handle) => host.act(Intent::AddFriend { handle }),
             RowPress::Ignore(tag) => host.act(Intent::Ignore { tag }),
-            RowPress::Block(tag) => host.act(Intent::Block { tag }),
+            RowPress::Block(tag) => {
+                ui.sheet = Some(super::sheet::Sheet::Confirm(super::sheet::Ask::Block(tag)));
+            }
             RowPress::Retry => host.act(Intent::Retry { line: key.clone() }),
             RowPress::Remove => host.act(Intent::Forget { line: key.clone() }),
             RowPress::Said => {}

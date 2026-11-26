@@ -393,6 +393,107 @@ pub(super) fn stat(
     commands.entity(root).add_child(cell);
 }
 
+/// A container's title, as the sign-in card wears it: the glyph on a
+/// glowing emblem, the title bold beside it, and a short accent bar under
+/// the title. The sign-in and gateway cards and the lobby's main panels
+/// (tables, replays, ranked) share it, so a container's head reads one way
+/// everywhere. Returns the lockup and the title's own text, for a head that
+/// rewrites its words in place.
+pub(super) fn title_lockup(
+    commands: &mut Commands,
+    kit: Kit,
+    glyph: char,
+    title: &str,
+) -> (Entity, Entity) {
+    let row = commands
+        .spawn((
+            Node {
+                align_items: AlignItems::Center,
+                column_gap: kit.m.px(10.0),
+                flex_shrink: 1.0,
+                min_width: px_fixed(0.0),
+                ..default()
+            },
+            Pickable::IGNORE,
+        ))
+        .id();
+    let badge_bg = Color::srgba(0.09, 0.22, 0.25, 0.92);
+    let badge_rim = tokens::ACCENT.with_alpha(0.50);
+    let badge = commands
+        .spawn((
+            Node {
+                width: px_fixed(30.0),
+                height: px_fixed(30.0),
+                align_items: AlignItems::Center,
+                justify_content: JustifyContent::Center,
+                border: UiRect::all(px_fixed(1.0)),
+                border_radius: BorderRadius::all(px_fixed(8.0)),
+                flex_shrink: 0.0,
+                ..default()
+            },
+            BackgroundColor(badge_bg),
+            BorderColor::all(badge_rim),
+            BoxShadow(vec![ShadowStyle {
+                color: tokens::ACCENT.with_alpha(0.24),
+                x_offset: px_fixed(0.0),
+                y_offset: px_fixed(0.0),
+                spread_radius: px_fixed(0.5),
+                blur_radius: px_fixed(10.0),
+            }]),
+            crate::shellkit::sheen::Sheen,
+            Pickable::IGNORE,
+        ))
+        .id();
+    let badge_icon = commands
+        .spawn((
+            Text::new(glyph.to_string()),
+            crate::hud::icon_tf(kit.fonts, kit.m.small * 0.96),
+            TextColor(tokens::ACCENT),
+            Pickable::IGNORE,
+        ))
+        .id();
+    commands.entity(badge).add_child(badge_icon);
+
+    let title_col = commands
+        .spawn((
+            Node {
+                flex_direction: FlexDirection::Column,
+                align_items: AlignItems::FlexStart,
+                row_gap: px_fixed(3.0),
+                flex_shrink: 1.0,
+                min_width: px_fixed(0.0),
+                ..default()
+            },
+            Pickable::IGNORE,
+        ))
+        .id();
+    let words = commands
+        .spawn((
+            Text::new(title),
+            crate::hud::tf_bold(kit.fonts, kit.m.head),
+            TextColor(tokens::INK),
+            Pickable::IGNORE,
+        ))
+        .id();
+    let accent_bar = commands
+        .spawn((
+            Node {
+                width: px_fixed(32.0),
+                height: px_fixed(2.0),
+                border_radius: BorderRadius::all(px_fixed(1.0)),
+                ..default()
+            },
+            BackgroundColor(tokens::ACCENT.with_alpha(0.72)),
+            Pickable::IGNORE,
+        ))
+        .id();
+    commands
+        .entity(title_col)
+        .add_children(&[words, accent_bar]);
+    commands.entity(row).add_children(&[badge, title_col]);
+    (row, words)
+}
+
 /// A section's caption: small capitals in muted ink ("YOUR NEXT GAME").
 pub(super) fn caption(commands: &mut Commands, kit: Kit, text: &str) -> Entity {
     commands

@@ -206,6 +206,8 @@ pub const USER_MINUS: char = '\u{f503}';
 pub const PERCENT: char = '\u{f295}';
 /// A clock turning back: everything so far, a history.
 pub const HISTORY: char = '\u{f1da}';
+/// A chair: a table's seats, the list of tables.
+pub const CHAIR: char = '\u{f6c0}';
 /// Flag with a chequered field: the best finish, the turn a task was won on.
 pub const FINISH: char = '\u{f11e}';
 /// Calendar: a calendar with nothing on it yet.
