@@ -81,8 +81,7 @@ pub struct FrontalParams {
     /// seat); then, on a
     /// rail, its opening (`z` its centre, `w` minus its half width, or `w`
     /// over a half for an open foot) and, on a skirt, how far above the
-    /// tooled line its five inlays sit in pixels (`z`: zero on the hand,
-    /// `lobby::dock::INLAY_LIFT` on a lobby panel).
+    /// tooled line its five inlays sit in pixels (`z`, zero on the hand).
     pub surface: Vec4,
     /// Stationary WUBRG inlays in linear light.
     pub inlays: [Vec4; 5],

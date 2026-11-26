@@ -18,8 +18,6 @@ pub const INK: Color = Color::srgb(0.90, 0.93, 0.94);
 /// Secondary text.
 pub const MUTED: Color = Color::srgb(0.58, 0.64, 0.68);
 
-/// Translucent blue-green glass carrying the garden's lobby/editor panels.
-pub const SANCTUARY_PANEL: Color = Color::srgba(0.035, 0.075, 0.105, 0.88);
 /// A seat that has lost.
 pub const DEAD: Color = Color::srgb(0.30, 0.32, 0.34);
 /// The accent used for anything asking for a decision: the dial's

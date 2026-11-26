@@ -707,12 +707,14 @@ fn presses(
                 ui.drawer_menu = None;
             }
             DrawerPress::Unfriend(tag) => {
-                host.act(Intent::Unfriend { tag });
+                ui.sheet = Some(super::sheet::Sheet::Confirm(super::sheet::Ask::Unfriend(
+                    tag,
+                )));
                 *more = None;
                 ui.drawer_menu = None;
             }
             DrawerPress::Block(tag) => {
-                host.act(Intent::Block { tag });
+                ui.sheet = Some(super::sheet::Sheet::Confirm(super::sheet::Ask::Block(tag)));
                 *more = None;
                 ui.drawer_menu = None;
             }
@@ -765,12 +767,16 @@ fn presses(
                 ui.drawer_menu = None;
             }
             DrawerPress::LeaveGroup(id) => {
-                host.act(Intent::LeaveGroup { id });
+                ui.sheet = Some(super::sheet::Sheet::Confirm(super::sheet::Ask::LeaveGroup(
+                    id,
+                )));
                 *more = None;
                 ui.drawer_menu = None;
             }
             DrawerPress::DeleteGroup(id) => {
-                host.act(Intent::DeleteGroup { id });
+                ui.sheet = Some(super::sheet::Sheet::Confirm(
+                    super::sheet::Ask::DeleteGroup(id),
+                ));
                 *more = None;
                 ui.drawer_menu = None;
             }
@@ -1442,8 +1448,8 @@ fn sync_drawer(
                 },
                 UiTransform::from_translation(Val2::px(WIDTH * zoom.0, 0.0)),
                 BackgroundColor(Color::NONE),
-                super::rows::window_ground(),
-                BorderColor::all(super::rows::GLASS_EDGE),
+                crate::shellkit::glass::ground(crate::shellkit::glass::Density::Reading),
+                crate::shellkit::glass::rim(),
                 BoxShadow(vec![
                     ShadowStyle {
                         color: Color::srgba(0.0, 0.0, 0.0, 0.44),
@@ -1598,18 +1604,9 @@ fn sync_drawer(
             kids.push(add);
         }
     }
+    // What the list holds below the boxes: nothing there is an empty state.
+    let boxes = kids.len();
     let view = machine.friends();
-    // Nobody yet, and nothing searched for: the list says so, and how
-    // someone comes into it (the foot carries the invite itself).
-    let lonely = !me.guest
-        && ui.find.text().trim().is_empty()
-        && view.online.is_empty()
-        && view.offline.is_empty()
-        && view.incoming.is_empty()
-        && view.outgoing.is_empty()
-        && view.groups.is_empty()
-        && view.group_invites.is_empty()
-        && view.invites.is_empty();
     let filter = ui.find.text().trim().to_lowercase();
     let shown = |handle: &str| {
         filter.is_empty() || filter.contains('#') || handle.to_lowercase().contains(&filter)
@@ -2143,19 +2140,10 @@ fn sync_drawer(
             kids.push(line);
         }
     }
-    if lonely {
-        let sentence = if invites_here(lobby.as_deref(), at_table) {
-            ChatPhrase::FriendsEmptyInvite
-        } else {
-            ChatPhrase::FriendsEmpty
-        };
-        kids.push(crate::shellkit::states::empty(
-            &mut commands,
-            kit,
-            glyph::FRIENDS,
-            sentence.text(lang),
-            None,
-        ));
+    if kids.len() == boxes {
+        let invites = invites_here(lobby.as_deref(), at_table);
+        let nothing = nothing_listed(&mut commands, &fonts, kit, lang, me.guest, &filter, invites);
+        kids.push(nothing);
     }
     commands.entity(list).add_children(&kids);
     // A scrollbar beside the list, visible only when content overflows.
@@ -2542,9 +2530,9 @@ fn sync_context_menu(
                 translation: Val2::px(0.0, -4.0),
                 ..default()
             },
-            BackgroundColor(tokens::OPAQUE),
-            surfaces::menu_ground(),
-            BorderColor::all(tokens::POPOVER_EDGE),
+            BackgroundColor(Color::NONE),
+            crate::shellkit::glass::ground(crate::shellkit::glass::Density::Solid),
+            crate::shellkit::glass::rim(),
             crate::shellkit::surfaces::elevation_popover(),
             crate::shellkit::sheen::Sheen,
             super::window::stacked(60),
@@ -2796,3 +2784,58 @@ pub(crate) struct DrawerList;
 
 #[cfg(test)]
 mod tests;
+
+/// The list with nothing in it (owner, 25.11.2026: empty states for lists):
+/// how a contact comes in, or that the search found no one, never a bare
+/// hole under the search box. Where friend invites reach (`invites`), the
+/// hint names the link the foot makes; the foot carries the button, so the
+/// empty state does not repeat it.
+fn nothing_listed(
+    commands: &mut Commands,
+    fonts: &UiFonts,
+    kit: crate::shellkit::controls::Kit,
+    lang: Lang,
+    guest: bool,
+    filter: &str,
+    invites: bool,
+) -> Entity {
+    let (mark, said, hint) = if guest {
+        (
+            glyph::FRIENDS,
+            ChatPhrase::ContactsEmpty.text(lang).to_owned(),
+            Some(ChatPhrase::ContactsEmptyGuest),
+        )
+    } else if filter.is_empty() || filter.contains('#') {
+        (
+            glyph::FRIENDS,
+            ChatPhrase::ContactsEmpty.text(lang).to_owned(),
+            Some(if invites {
+                ChatPhrase::ContactsEmptyHintInvite
+            } else {
+                ChatPhrase::ContactsEmptyHint
+            }),
+        )
+    } else {
+        (
+            glyph::MAGNIFIER,
+            ChatPhrase::ContactsNoMatch.fill(lang, &[filter]),
+            None,
+        )
+    };
+    let empty = crate::shellkit::states::empty(commands, kit, mark, &said, None);
+    if let Some(hint) = hint {
+        let words = label(
+            commands,
+            fonts,
+            hint.text(lang).to_owned(),
+            tokens::MUTED,
+            false,
+        );
+        commands.entity(words).insert(TextLayout::new(
+            Justify::Center,
+            bevy::text::LineBreak::WordBoundary,
+        ));
+        commands.entity(empty).add_child(words);
+    }
+    empty
+}

@@ -28,6 +28,77 @@ pub enum Sheet {
     Safety(String),
     /// Settings → Chat & privacy.
     Privacy,
+    /// A step a contact's or a group's menu takes that cannot simply be
+    /// taken back, asked before it is taken (owner, 25.11.2026:
+    /// "Confirmation-Dialogs wo es wichtig ist").
+    Confirm(Ask),
+}
+
+/// What a confirmation asks before it is done.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum Ask {
+    /// Removing a friend, by tag.
+    Unfriend(String),
+    /// Blocking a person, by tag.
+    Block(String),
+    /// Leaving a group, by id.
+    LeaveGroup(String),
+    /// Deleting a group the player owns, for every member, by id.
+    DeleteGroup(String),
+}
+
+impl Ask {
+    /// What the player is asked to do, its head's mark, and the step's own
+    /// word on its button.
+    const fn words(&self) -> (ChatPhrase, ChatPhrase, char, ChatPhrase) {
+        match self {
+            Self::Unfriend(_) => (
+                ChatPhrase::ConfirmUnfriendTitle,
+                ChatPhrase::ConfirmUnfriendBody,
+                glyph::MINUS,
+                ChatPhrase::ConfirmRemove,
+            ),
+            Self::Block(_) => (
+                ChatPhrase::ConfirmBlockTitle,
+                ChatPhrase::ConfirmBlockBody,
+                glyph::EXILE,
+                ChatPhrase::BlockButton,
+            ),
+            Self::LeaveGroup(_) => (
+                ChatPhrase::ConfirmLeaveGroupTitle,
+                ChatPhrase::ConfirmLeaveGroupBody,
+                glyph::MINUS,
+                ChatPhrase::ConfirmLeave,
+            ),
+            Self::DeleteGroup(_) => (
+                ChatPhrase::ConfirmDeleteGroupTitle,
+                ChatPhrase::ConfirmDeleteGroupBody,
+                glyph::EXILE,
+                ChatPhrase::ConfirmDelete,
+            ),
+        }
+    }
+
+    /// Who or what it names, as the player sees them.
+    fn name(&self, machine: &Social) -> String {
+        match self {
+            Self::Unfriend(tag) | Self::Block(tag) => machine.shown_name(&machine.person(tag)),
+            Self::LeaveGroup(id) | Self::DeleteGroup(id) => machine
+                .contacts()
+                .group(id)
+                .map_or_else(|| id.clone(), |group| group.name.clone()),
+        }
+    }
+
+    /// The step itself.
+    fn intent(self) -> Intent {
+        match self {
+            Self::Unfriend(tag) => Intent::Unfriend { tag },
+            Self::Block(tag) => Intent::Block { tag },
+            Self::LeaveGroup(id) => Intent::LeaveGroup { id },
+            Self::DeleteGroup(id) => Intent::DeleteGroup { id },
+        }
+    }
 }
 
 /// The sheet's root.
@@ -59,6 +130,8 @@ pub(crate) enum SheetPress {
     RemoveDevice(String),
     Forget,
     Unblock(String),
+    /// The confirmation's step, taken.
+    Confirm,
 }
 
 /// Installs the sheets.
@@ -182,6 +255,11 @@ fn presses(
                 }
             }
             SheetPress::Unblock(tag) => host.act(Intent::Unblock { tag }),
+            SheetPress::Confirm => {
+                if let Some(Sheet::Confirm(ask)) = ui.sheet.take() {
+                    host.act(ask.intent());
+                }
+            }
         }
     }
     if !*forget_armed && ui.forget_armed {
@@ -196,12 +274,21 @@ fn button(
     press: SheetPress,
     lit: bool,
 ) -> Entity {
-    let rest_bg = if lit {
-        tokens::ACCENT.with_alpha(0.25)
-    } else {
-        tokens::CONTROL
-    };
-    let rest_border = if lit { tokens::ACCENT } else { tokens::BORDER };
+    toned(commands, fonts, label, press, lit.then_some(tokens::ACCENT))
+}
+
+/// A sheet's button, lit in `tone` (the accent for what is chosen, the
+/// danger ink for a step that cannot simply be taken back) or plain.
+fn toned(
+    commands: &mut Commands,
+    fonts: &UiFonts,
+    label: &str,
+    press: SheetPress,
+    tone: Option<Color>,
+) -> Entity {
+    let rest_bg = tone.map_or(tokens::CONTROL, |tone| tone.with_alpha(0.25));
+    let rest_border = tone.unwrap_or(tokens::BORDER);
+    let hot = tone.unwrap_or(tokens::ACCENT);
     commands
         .spawn((
             UiButton,
@@ -219,8 +306,8 @@ fn button(
             Feel::tinting_to(rest_bg, tokens::HOVER),
             crate::ambience::FeelBorder {
                 rest: rest_border,
-                hot: tokens::ACCENT,
-                press: tokens::ACCENT,
+                hot,
+                press: hot,
             },
             crate::ambience::FeelShadow,
             children![(
@@ -488,7 +575,12 @@ fn sync(
             Pickable::default(),
             ZIndex(1),
             Node {
-                width: zpx(560.0),
+                // A question is a narrower sheet than a page of settings.
+                width: zpx(if matches!(sheet, Sheet::Confirm(_)) {
+                    440.0
+                } else {
+                    560.0
+                }),
                 max_height: Val::Percent(88.0),
                 flex_direction: FlexDirection::Column,
                 border: UiRect::all(zpx(1.0)),
@@ -497,8 +589,8 @@ fn sync(
                 ..default()
             },
             BackgroundColor(Color::NONE),
-            super::rows::dialog_glass(),
-            BorderColor::all(super::rows::GLASS_EDGE),
+            crate::shellkit::glass::ground(crate::shellkit::glass::Density::Reading),
+            crate::shellkit::glass::rim(),
             crate::shellkit::surfaces::sheet_shadow(),
         ))
         .id();
@@ -519,9 +611,16 @@ fn sync(
         ))
         .id();
     commands.entity(scrim).add_children(&[card, backdrop]);
-    let title = match sheet {
-        Sheet::Encryption(_) | Sheet::Safety(_) => ChatPhrase::EncryptionTitle,
-        Sheet::Privacy => ChatPhrase::PrivacyTitle,
+    let (mark, title) = match sheet {
+        Sheet::Encryption(_) | Sheet::Safety(_) => (
+            glyph::LOCK,
+            ChatPhrase::EncryptionTitle.text(lang).to_owned(),
+        ),
+        Sheet::Privacy => (glyph::LOCK, ChatPhrase::PrivacyTitle.text(lang).to_owned()),
+        Sheet::Confirm(ask) => {
+            let (title, _, mark, _) = ask.words();
+            (mark, title.fill(lang, &[&ask.name(machine)]))
+        }
     };
     let head = commands
         .spawn((
@@ -543,7 +642,7 @@ fn sync(
         .id();
     let name = commands
         .spawn((
-            Text::new(format!("{} {}", glyph::LOCK, title.text(lang))),
+            Text::new(format!("{mark} {title}")),
             tf_bold(&fonts, z(16.0)),
             TextColor(tokens::INK),
             Node {
@@ -578,7 +677,7 @@ fn sync(
         .id();
     commands.entity(head).add_children(&[name, close]);
     let mut kids = Vec::new();
-    if let Some(backup) = backup {
+    if let Some(backup) = backup.filter(|_| !matches!(sheet, Sheet::Confirm(_))) {
         kids.push(words(
             &mut commands,
             &fonts,
@@ -596,6 +695,35 @@ fn sync(
         KeyHome::Memory | KeyHome::Unknown => ChatPhrase::KeysInMemory,
     };
     match sheet {
+        Sheet::Confirm(ask) => {
+            let (_, body, _, act) = ask.words();
+            kids.push(words(
+                &mut commands,
+                &fonts,
+                body.fill(lang, &[&ask.name(machine)]),
+                tokens::INK,
+                12.5,
+            ));
+            let row = line(&mut commands);
+            let cancel = button(
+                &mut commands,
+                &fonts,
+                ChatPhrase::CancelButton.text(lang),
+                SheetPress::Close,
+                false,
+            );
+            let go = toned(
+                &mut commands,
+                &fonts,
+                act.text(lang),
+                SheetPress::Confirm,
+                Some(tokens::DANGER),
+            );
+            let cancel = stretch(&mut commands, cancel);
+            let go = stretch(&mut commands, go);
+            commands.entity(row).add_children(&[cancel, go]);
+            kids.push(row);
+        }
         Sheet::Encryption(conv) => {
             kids.push(words(
                 &mut commands,

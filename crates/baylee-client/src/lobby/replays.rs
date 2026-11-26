@@ -1079,9 +1079,7 @@ pub(super) fn draw(
                 border_radius: BorderRadius::all(px_fixed(tokens::RADIUS_PANEL)),
                 ..default()
             },
-            BackgroundColor(tokens::PANEL),
-            BorderColor::all(tokens::BORDER),
-            surfaces::elevation_card(),
+            crate::shellkit::glass::pane(crate::shellkit::glass::Density::Reading),
         ))
         .id();
     commands.entity(body).add_child(panel);
@@ -1116,15 +1114,13 @@ pub(super) fn draw(
         .entity(head)
         .entry::<Node>()
         .and_modify(|mut n| n.width = percent(100));
-    let head_icon = commands
-        .spawn((
-            Text::new('\u{f1da}'.to_string()),
-            crate::hud::icon_tf(kit.fonts, kit.m.head * 0.92),
-            TextColor(tokens::ACCENT),
-            Pickable::IGNORE,
-        ))
-        .id();
-    let title = crate::shellkit::surfaces::heading(commands, kit, ReplayPhrase::Replays.text(lang));
+    // The head the sign-in card wears (`parts::title_lockup`).
+    let (title, _) = parts::title_lockup(
+        commands,
+        kit,
+        crate::hud::glyph::HISTORY,
+        ReplayPhrase::Replays.text(lang),
+    );
     let count_badge = parts::badge(
         commands,
         kit,
@@ -1175,7 +1171,7 @@ pub(super) fn draw(
     commands.entity(hunt).add_child(field);
     commands
         .entity(head)
-        .add_children(&[head_icon, title, count_badge, gap, hunt]);
+        .add_children(&[title, count_badge, gap, hunt]);
     commands.entity(panel).add_child(head);
 
     // ---- 2. Analytics & KPI Dashboard Strip

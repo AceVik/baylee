@@ -232,9 +232,10 @@ pub struct LobbyState {
     /// Unread social items (chat messages + incoming friend/table/group requests)
     /// routed into the header notification bell.
     pub(crate) social_unread: usize,
-    /// Notice lines from social (unread messages, friend requests, table invites)
-    /// shown inside the notification bell popover.
-    pub(crate) social_notices: Vec<String>,
+    /// What social keeps standing in the bell while it is true (unread
+    /// messages, friend requests, table and group invitations), each with
+    /// its mark.
+    pub(crate) social_notices: Vec<header::Notice>,
     /// Asks a header press made of systems it cannot reach (the overlay,
     /// the report form), carried out by `header::carry_out`.
     pub(crate) shell_asks: Vec<header::ShellAsk>,
@@ -1111,7 +1112,6 @@ mod clicks;
 mod confirm;
 pub(crate) mod decks;
 pub(crate) mod decksave;
-pub(crate) mod dock;
 pub(crate) mod echoes;
 mod editing;
 mod end_screen;
@@ -1120,6 +1120,7 @@ mod feed;
 mod field;
 mod focusing;
 mod header;
+pub(crate) use header::Notice;
 #[cfg(not(target_arch = "wasm32"))]
 pub(crate) mod ranked;
 #[cfg(test)]

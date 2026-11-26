@@ -1010,11 +1010,10 @@ fn modal_scrim_holds_non_refusal_toasts_without_ageing_and_shows_refusals() {
     {
         let mut state = app.world_mut().resource_mut::<LobbyState>();
         state.lobby.note_said("the house is warming up");
-        state
-            .bell
-            .ring(baylee_client_core::lobby::strips::BellItem::Joined(
-                "Lina#0031".into(),
-            ));
+        state.bell.ring(
+            baylee_client_core::lobby::strips::BellItem::Joined("Lina#0031".into()),
+            0,
+        );
     }
     // 20 s > TOAST_SECS (15 s): neither notice nor bell toast covers the modal,
     // and neither ages out behind it.

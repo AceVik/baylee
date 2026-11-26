@@ -117,7 +117,7 @@ fn sheet_uses_single_layer_glass_and_preserves_scroll_across_rebuilds() {
     assert_eq!(
         app.world().get::<BackgroundColor>(card).unwrap().0,
         Color::NONE,
-        "Sheet card must not double-composite BackgroundColor under dialog_glass()"
+        "Sheet card must not double-composite BackgroundColor under its glass"
     );
     assert!(
         app.world()
@@ -260,4 +260,71 @@ fn friends_drawer_alone_never_blocks_behind_encryption_sheet_and_close_dismisses
     testing::click(&mut app, close);
     app.update();
     assert!(app.world().resource::<ChatUi>().sheet.is_none());
+}
+
+/// Each question takes exactly the step it names, on what it names.
+#[test]
+fn every_ask_takes_the_step_it_names() {
+    assert!(matches!(
+        Ask::Unfriend("0002".into()).intent(),
+        Intent::Unfriend { tag } if tag == "0002"
+    ));
+    assert!(matches!(
+        Ask::Block("0003".into()).intent(),
+        Intent::Block { tag } if tag == "0003"
+    ));
+    assert!(matches!(
+        Ask::LeaveGroup("g1".into()).intent(),
+        Intent::LeaveGroup { id } if id == "g1"
+    ));
+    assert!(matches!(
+        Ask::DeleteGroup("g2".into()).intent(),
+        Intent::DeleteGroup { id } if id == "g2"
+    ));
+    // Removing and blocking are told apart on their button too.
+    assert_ne!(
+        Ask::Unfriend(String::new()).words().3,
+        Ask::Block(String::new()).words().3
+    );
+}
+
+/// A question is answered by its two buttons: Cancel puts it away and
+/// leaves everything as it was, the step's own button takes it and puts the
+/// question away as well; neither leaves a sheet standing.
+#[test]
+fn a_question_is_put_away_by_either_answer() {
+    let (machine, _) = Social::start(
+        Me {
+            tag: "0001".into(),
+            handle: "Ada#0001".into(),
+            guest: false,
+            gateway: String::new(),
+        },
+        None,
+        None,
+        ChatPrefs::default(),
+        1_000,
+        &mut crate::social::OsEntropy,
+    );
+    let mut app = testing::app();
+    app.insert_resource(SocialHost {
+        machine: Some(machine),
+        ..default()
+    })
+    .init_resource::<ChatUi>()
+    .add_systems(Update, presses);
+    for press in [SheetPress::Close, SheetPress::Confirm] {
+        app.world_mut().resource_mut::<ChatUi>().sheet =
+            Some(Sheet::Confirm(Ask::Block("0002".into())));
+        let target = toned(
+            &mut app.world_mut().commands(),
+            &UiFonts::default(),
+            "answer",
+            press.clone(),
+            Some(tokens::DANGER),
+        );
+        app.world_mut().flush();
+        testing::click(&mut app, target);
+        assert_eq!(app.world().resource::<ChatUi>().sheet, None, "{press:?}");
+    }
 }

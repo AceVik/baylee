@@ -323,10 +323,10 @@ pub(super) fn sheet(commands: &mut Commands, root: Entity, state: &LobbyState, k
     );
     commands
         .entity(dialog)
-        // Opaque, unlike the small community card: a sheet this full is
-        // read, and the sign-in form must not show through its words.
+        // The solid glass, unlike the small community card: a sheet this
+        // full is read, and the sign-in form must not show through its words.
         .insert((
-            BackgroundColor(tokens::OPAQUE),
+            crate::shellkit::glass::ground(crate::shellkit::glass::Density::Solid),
             surfaces::SheetScroller,
             ScrollPosition::default(),
         ))

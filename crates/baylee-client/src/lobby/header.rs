@@ -137,8 +137,11 @@ pub(crate) fn spawn_popover_nipple(commands: &mut Commands) -> Entity {
                 border_radius: BorderRadius::top_left(px_fixed(2.0)),
                 ..default()
             },
-            BackgroundColor(tokens::OPAQUE),
-            BorderColor::all(tokens::POPOVER_EDGE),
+            // The nub stands on the popover's head: the glass's first tint.
+            BackgroundColor(
+                crate::shellkit::glass::tints(crate::shellkit::glass::Density::Solid)[0],
+            ),
+            BorderColor::all(crate::shellkit::glass::rim().top),
             UiTransform {
                 rotation: Rot2::radians(std::f32::consts::FRAC_PI_4),
                 ..default()
@@ -858,8 +861,9 @@ fn gateway_popover(commands: &mut Commands, state: &LobbyState, kit: Kit) -> Ent
                 border_radius: BorderRadius::all(px_fixed(tokens::RADIUS_PANEL)),
                 ..default()
             },
-            BackgroundColor(tokens::OPAQUE),
-            BorderColor::all(tokens::POPOVER_EDGE),
+            BackgroundColor(Color::NONE),
+            crate::shellkit::glass::ground(crate::shellkit::glass::Density::Solid),
+            crate::shellkit::glass::rim(),
             surfaces::popover_shadow(),
             GlobalZIndex(tokens::z::POPOVER),
             Press::Shared(SharedPress::PickerNothing),
@@ -1005,8 +1009,9 @@ fn language_popover(commands: &mut Commands, state: &LobbyState, kit: Kit) -> En
                 border_radius: BorderRadius::all(px_fixed(tokens::RADIUS_PANEL)),
                 ..default()
             },
-            BackgroundColor(tokens::OPAQUE),
-            BorderColor::all(tokens::POPOVER_EDGE),
+            BackgroundColor(Color::NONE),
+            crate::shellkit::glass::ground(crate::shellkit::glass::Density::Solid),
+            crate::shellkit::glass::rim(),
             surfaces::popover_shadow(),
             GlobalZIndex(tokens::z::POPOVER),
             Press::Shared(SharedPress::PickerNothing),
@@ -1184,8 +1189,9 @@ fn popover(commands: &mut Commands, state: &LobbyState, kit: Kit, menu: HeaderMe
                         border_radius: BorderRadius::all(px_fixed(tokens::RADIUS_PANEL)),
                         ..default()
                     },
-                    BackgroundColor(tokens::OPAQUE),
-                    BorderColor::all(tokens::POPOVER_EDGE),
+                    BackgroundColor(Color::NONE),
+                    crate::shellkit::glass::ground(crate::shellkit::glass::Density::Solid),
+                    crate::shellkit::glass::rim(),
                     surfaces::popover_shadow(),
                     GlobalZIndex(tokens::z::POPOVER),
                     Press::Shared(SharedPress::PickerNothing),
@@ -1194,20 +1200,7 @@ fn popover(commands: &mut Commands, state: &LobbyState, kit: Kit, menu: HeaderMe
             commands.entity(card).add_child(body);
             card
         }
-        HeaderMenu::Bell => {
-            let mut said: Vec<String> = state.social_notices.clone();
-            said.extend(state.bell.lines(lang));
-            let lines: Vec<&str> = if said.is_empty() {
-                vec![Phrase::ShellBellEmpty.text(lang)]
-            } else {
-                said.iter().map(String::as_str).collect()
-            };
-            let pop = surfaces::popover(commands, kit, &lines);
-            commands
-                .entity(pop)
-                .insert(Press::Shared(SharedPress::PickerNothing));
-            pop
-        }
+        HeaderMenu::Bell => bell::popover(commands, state, kit),
         HeaderMenu::Account => {
             let mut items = Vec::new();
             #[cfg(not(target_arch = "wasm32"))]
@@ -1447,6 +1440,8 @@ pub(super) fn kit_metrics(
 }
 
 mod actions;
+mod bell;
+pub(crate) use bell::Notice;
 
 impl LobbyState {
     /// The chosen gateway's own name, as `GET /info` gave it.
@@ -1698,8 +1693,9 @@ pub(super) fn ring_the_bell(
         _ => Vec::new(),
     };
     *was = now;
+    let at = i64::try_from(super::parts::now_secs()).unwrap_or(0);
     for item in news {
-        state.bell.ring(item);
+        state.bell.ring(item, at);
     }
 }
 

@@ -647,6 +647,63 @@ CancelButton = Cancel
 # Confirm a small box.
 OkButton = OK
 
+# The contacts list with nobody in it.
+ContactsEmpty = No contacts yet
+
+# Under it: how a contact comes in.
+ContactsEmptyHint = Type a Name#tag above to send a request, or click a name in the chat.
+
+# The same, where friend invites can be made (the foot's button).
+ContactsEmptyHintInvite = Type a Name#tag above, click a name in the chat, or invite someone with a link below.
+
+# Under it, for a guest.
+ContactsEmptyGuest = Contacts, groups and invitations come with a Baylee account.
+
+# The contacts list when its search finds nobody.
+# Arguments: filter
+ContactsNoMatch = No one matches “{ $filter }”
+
+# Asked before a friend is removed.
+# Arguments: name
+ConfirmUnfriendTitle = Remove { $name }?
+
+# What removing a friend does.
+# Arguments: name
+ConfirmUnfriendBody = { $name } leaves your contacts. Either of you can ask again at any time.
+
+# Asked before someone is blocked.
+# Arguments: name
+ConfirmBlockTitle = Block { $name }?
+
+# What blocking does.
+# Arguments: name
+ConfirmBlockBody = { $name } can no longer write to you, invite you or ask to be your friend, and you see nothing more of them. You can lift it under Chat & privacy.
+
+# Asked before leaving a group.
+# Arguments: name
+ConfirmLeaveGroupTitle = Leave “{ $name }”?
+
+# What leaving a group does.
+# Arguments: name
+ConfirmLeaveGroupBody = You no longer read or write in “{ $name }”. Only a new invitation brings you back.
+
+# Asked before deleting a group.
+# Arguments: name
+ConfirmDeleteGroupTitle = Delete “{ $name }”?
+
+# What deleting a group does.
+# Arguments: name
+ConfirmDeleteGroupBody = “{ $name }” disappears for every member, with its history. This cannot be undone.
+
+# The button that removes a friend after asking.
+ConfirmRemove = Remove
+
+# The button that leaves a group after asking.
+ConfirmLeave = Leave
+
+# The button that deletes a group after asking.
+ConfirmDelete = Delete
+
 # The filter dialog's title.
 # Arguments: tab
 FilterTitle = { $tab } · what this tab shows
@@ -1135,9 +1192,3 @@ InviteRefused = That did not work. Check what you entered and try again.
 
 # Central could not be reached.
 InviteUnreachable = Baylee Central cannot be reached right now.
-
-# The contacts list with nobody in it yet, where friend invites can be made.
-FriendsEmptyInvite = No friends yet. Search for a Name#tag above, or invite someone with a link below.
-
-# The contacts list with nobody in it yet.
-FriendsEmpty = No friends yet. Search for a Name#tag above to add someone.

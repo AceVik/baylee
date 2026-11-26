@@ -47,10 +47,7 @@ pub(super) fn hero(
                 border_radius: BorderRadius::all(px_fixed(tokens::RADIUS_PANEL)),
                 ..default()
             },
-            BackgroundColor(tokens::PANEL),
-            BorderColor::all(tokens::BORDER),
-            surfaces::elevation_card(),
-            super::super::dock::Dock(3),
+            crate::shellkit::glass::pane(crate::shellkit::glass::Density::Reading),
         ))
         .id();
     commands.entity(parent).add_child(panel);

@@ -33,6 +33,7 @@ pub mod controls;
 pub mod focus;
 #[cfg(any(test, all(feature = "dev-control", not(target_arch = "wasm32"))))]
 pub mod gallery;
+pub mod glass;
 pub mod header;
 #[cfg(test)]
 mod keyboard_tests;

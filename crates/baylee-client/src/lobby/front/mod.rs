@@ -51,7 +51,6 @@ use super::press::Cx;
 use super::systems::keep_gateways;
 #[allow(clippy::wildcard_imports)] // the lobby widget vocabulary
 use super::*;
-use crate::frontal::FrontalMaterial;
 use crate::shellkit::controls::Kit;
 use crate::shellkit::metrics::px_fixed;
 use crate::shellkit::role::Role;
@@ -84,15 +83,13 @@ const VIEW_DISTANCE: f32 = 2.2;
 /// How dark a panel is a quarter turn away.
 const SHADE: f32 = 0.45;
 
-/// A panel's corner radius, all four corners. The leather inside its one
-/// pixel border is cut one pixel tighter (`dock::GROUND_RADIUS`).
-pub(super) const CARD_RADIUS: f32 = 14.0;
+/// A panel's corner radius, all four corners: the kit's.
+pub(super) const CARD_RADIUS: f32 = crate::shellkit::tokens::RADIUS_PANEL;
 
 /// The room above a panel's first row.
 const HEADER_TOP: f32 = 6.0;
 
-/// A panel's first row: its title, and the gear. It sits above the tooled
-/// line the leather draws 44 px down, in the band that line closes.
+/// A panel's first row: its title, and the gear.
 const HEADER_HEIGHT: f32 = 36.0;
 
 /// The notice the Fan Content Policy asks of fan content, word for word.
@@ -735,15 +732,13 @@ fn scale_gradient_alpha(base: &BackgroundGradient, alpha: f32) -> BackgroundGrad
     scaled
 }
 
-/// Fades a panel on its way through the door, and its leather with it.
+/// Fades a panel on its way through the door.
 ///
 /// Bevy's UI has no opacity for a node and everything under it, so every
 /// colour under the panel is written as a share of what it was when the
 /// fade began. No panel is ever put back: when the motion ends the tree is
-/// rebuilt, with every colour as the builder wrote it. The leather is the
-/// exception, since its material outlives the tree, so its density is
-/// written every frame, back to whole at rest.
-#[allow(clippy::type_complexity, clippy::too_many_arguments)]
+/// rebuilt, with every colour as the builder wrote it.
+#[allow(clippy::type_complexity)]
 pub(super) fn fade_front(
     mut commands: Commands,
     motion: Res<FrontMotion>,
@@ -757,19 +752,10 @@ pub(super) fn fade_front(
         Option<&mut BoxShadow>,
         Option<&Unfaded>,
     )>,
-    grounds: Query<&MaterialNode<FrontalMaterial>>,
-    materials: Option<ResMut<Assets<FrontalMaterial>>>,
-    mut grains: Local<Vec<(AssetId<FrontalMaterial>, f32)>>,
 ) {
-    let mut materials = materials;
     for (card, panel) in &cards {
         let alpha = pose(&motion, panel.0, 0.0).alpha;
         for node in std::iter::once(card).chain(children.iter_descendants(card)) {
-            if let Ok(ground) = grounds.get(node)
-                && let Some(materials) = materials.as_mut()
-            {
-                fade_leather(materials, &ground.0, alpha, &mut grains);
-            }
             if alpha >= 1.0 {
                 continue;
             }
@@ -891,38 +877,6 @@ pub(super) fn fade_primary_surfaces(
     }
 }
 
-/// The leather's own fade: its density, and the grain that moves it, as a
-/// share of what they are at rest.
-fn fade_leather(
-    materials: &mut Assets<FrontalMaterial>,
-    handle: &Handle<FrontalMaterial>,
-    alpha: f32,
-    grains: &mut Vec<(AssetId<FrontalMaterial>, f32)>,
-) {
-    let Some(material) = materials.get(handle) else {
-        return;
-    };
-    let id = handle.id();
-    let grain = if let Some((_, grain)) = grains.iter().find(|(seen, _)| *seen == id) {
-        *grain
-    } else {
-        // First seen at rest, so what it has now is the whole of it.
-        grains.push((id, material.params.grain));
-        material.params.grain
-    };
-    let curved = 1.0 - (1.0 - alpha).powi(3);
-    let density = super::dock::GROUND_DENSITY * curved;
-    if (material.params.ramp.y - density).abs() < 1e-4 {
-        return;
-    }
-    let Some(mut material) = materials.get_mut(handle) else {
-        return;
-    };
-    material.params.ramp.y = density;
-    material.params.ramp.z = density;
-    material.params.grain = grain * alpha;
-}
-
 /// The front door's panels, standing in one place: the one the lobby asks
 /// for, and while a motion runs the one going as well.
 pub(super) fn stage(
@@ -979,32 +933,6 @@ pub(super) fn card_shadow() -> BoxShadow {
     crate::shellkit::surfaces::elevation_card()
 }
 
-/// Translucent 3-stop smoked cut-glass gradient for front-door form cards.
-///
-/// Paired with `BackgroundColor(Color::NONE)` so Bevy 0.20 renders a single
-/// translucent glass quad over the animated world vista instead of stacking two.
-pub(crate) fn glass_card_gradient() -> BackgroundGradient {
-    use bevy::ui::{ColorStop, InterpolationColorSpace, LinearGradient};
-    BackgroundGradient::from(
-        LinearGradient::to_bottom(vec![
-            ColorStop::percent(Color::srgba(0.080, 0.130, 0.200, 0.60), 0.0),
-            ColorStop::percent(Color::srgba(0.035, 0.068, 0.115, 0.54), 48.0),
-            ColorStop::percent(Color::srgba(0.025, 0.050, 0.088, 0.64), 100.0),
-        ])
-        .in_color_space(InterpolationColorSpace::Srgba),
-    )
-}
-
-/// Crisp directional specular cut-glass rim for front-door form cards.
-pub(crate) const fn glass_card_border() -> BorderColor {
-    BorderColor {
-        top: Color::srgba(0.86, 0.78, 0.62, 0.44),
-        right: Color::srgba(0.58, 0.66, 0.76, 0.30),
-        bottom: Color::srgba(0.46, 0.42, 0.34, 0.34),
-        left: Color::srgba(0.58, 0.66, 0.76, 0.30),
-    }
-}
-
 /// One panel: smoked cut-glass optics, multi-layer elevation shadow,
 /// and the face it shows.
 fn card(
@@ -1033,8 +961,8 @@ fn card(
                 ..default()
             },
             BackgroundColor(Color::NONE),
-            glass_card_gradient(),
-            glass_card_border(),
+            crate::shellkit::glass::ground(crate::shellkit::glass::Density::Clear),
+            crate::shellkit::glass::rim(),
             card_shadow(),
             UiTransform::default(),
             ZIndex(1),
@@ -1156,9 +1084,7 @@ pub(super) fn gear_menu(
                 border_radius: BorderRadius::all(px_fixed(crate::shellkit::tokens::RADIUS_PANEL)),
                 ..default()
             },
-            BackgroundColor(crate::shellkit::tokens::OPAQUE),
-            BorderColor::all(crate::shellkit::tokens::POPOVER_EDGE),
-            crate::shellkit::surfaces::elevation_card(),
+            crate::shellkit::glass::pane(crate::shellkit::glass::Density::Solid),
             UiTransform::default(),
             GlobalZIndex(600),
             // A press on the menu's own ground is not a press outside it.

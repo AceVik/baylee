@@ -194,6 +194,20 @@ pub const MEDAL: char = '\u{f5a2}';
 pub const STOPWATCH: char = '\u{f2f2}';
 /// Play: an attempt started.
 pub const PLAY: char = '\u{f04b}';
+/// The bell: notifications.
+pub const BELL: char = '\u{f0f3}';
+/// The bell, struck through: nothing to notify.
+pub const BELL_SLASH: char = '\u{f1f6}';
+/// A person joining.
+pub const USER_PLUS: char = '\u{f234}';
+/// A person leaving.
+pub const USER_MINUS: char = '\u{f503}';
+/// A percent sign: a share, such as a win rate.
+pub const PERCENT: char = '\u{f295}';
+/// A clock turning back: everything so far, a history.
+pub const HISTORY: char = '\u{f1da}';
+/// A chair: a table's seats, the list of tables.
+pub const CHAIR: char = '\u{f6c0}';
 /// Flag with a chequered field: the best finish, the turn a task was won on.
 pub const FINISH: char = '\u{f11e}';
 /// Calendar: a calendar with nothing on it yet.

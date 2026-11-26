@@ -1,18 +1,19 @@
 //! The shell's surfaces (the shell design, §2.4): panels, mist plates,
 //! sheets, popovers, menus, drawers, toasts, rows and tiles.
 //!
-//! Panels are translucent over the painting; sheets, menus and popovers are
-//! opaque (§2.2). The ornament — the dock's leather and inlays — stays on the
-//! outer panels only (N4-3), which is the screen's business, not the kit's.
+//! All of them are one glass (`glass`, owner 26.11.2026): panels, sheets and
+//! dialogs in its reading density, menus and popovers all but opaque, so no
+//! line shows through another (§2.2).
 
 use super::controls::{Kit, label};
+use super::glass::{self, Density};
 use super::metrics::px_fixed;
 use super::role::Role;
 use super::tokens::{self, RADIUS_CONTROL, RADIUS_PANEL, RADIUS_PILL};
 use crate::hud::{icon_tf, tf, tf_bold};
 use bevy::prelude::*;
 
-/// A translucent panel on the painting.
+/// A panel on the painting, in the client's glass.
 pub fn panel(commands: &mut Commands, kit: Kit, width: Val) -> Entity {
     commands
         .spawn((
@@ -26,9 +27,7 @@ pub fn panel(commands: &mut Commands, kit: Kit, width: Val) -> Entity {
                 border_radius: BorderRadius::all(px_fixed(RADIUS_PANEL)),
                 ..default()
             },
-            BackgroundColor(tokens::PANEL),
-            BorderColor::all(tokens::BORDER),
-            elevation_card(),
+            glass::pane(Density::Reading),
         ))
         .id()
 }
@@ -732,13 +731,9 @@ fn sheet_box_parts<C: Bundle>(
                 overflow: Overflow::clip(),
                 ..default()
             },
-            BackgroundColor(tokens::OPAQUE),
-            sheet_ground(),
-            BorderColor::all(if phone {
-                tokens::BORDER
-            } else {
-                tokens::SHEET_EDGE
-            }),
+            BackgroundColor(Color::NONE),
+            glass::ground(Density::Reading),
+            glass::rim(),
         ))
         .id();
     if !phone {
@@ -811,37 +806,6 @@ fn sheet_box_parts<C: Bundle>(
     stretch_footer_items(commands, kit, footer.entities);
     commands.entity(surface).add_child(foot);
     surface
-}
-
-/// The ground every sheet and dialog stands on: the opaque panel, lit a
-/// little at its head. A surface that is a sheet in everything but its
-/// builder (the chat's own sheets) wears it too.
-#[must_use]
-pub fn sheet_ground() -> BackgroundGradient {
-    BackgroundGradient::from(LinearGradient::to_bottom(vec![
-        Color::srgb(0.075, 0.115, 0.165).into(),
-        tokens::OPAQUE.into(),
-    ]))
-}
-
-/// The ground of a popover, and of anything read the way one is (a person's
-/// card): brighter at its head than a sheet, since it is small and stands
-/// over one.
-#[must_use]
-pub fn popover_ground() -> BackgroundGradient {
-    BackgroundGradient::from(LinearGradient::to_bottom(vec![
-        Color::srgba(0.16, 0.25, 0.34, 0.98).into(),
-        Color::srgba(0.05, 0.08, 0.12, 0.98).into(),
-    ]))
-}
-
-/// The ground of a menu: the sheet's, a shade lighter at its head.
-#[must_use]
-pub fn menu_ground() -> BackgroundGradient {
-    BackgroundGradient::from(LinearGradient::to_bottom(vec![
-        Color::srgb(0.075, 0.12, 0.17).into(),
-        tokens::OPAQUE.into(),
-    ]))
 }
 
 /// The wash under a sheet's footer, and under any band of actions at a
@@ -1075,9 +1039,9 @@ pub fn sheet_shadow() -> BoxShadow {
     ])
 }
 
-/// Standardized smoked obsidian-slate out-of-table modal dialog surface
-/// (`Role::Opaque`, vertical surface gradient, crisp border, and
-/// [`elevation_card`] shadow).
+/// A modal dialog (`Role::Opaque` over its scrim): the client's glass in its
+/// reading density, framed in `border`, the dialog's own accent, with the
+/// card's shadow ([`elevation_card`]).
 pub fn dialog(
     commands: &mut Commands,
     kit: Kit,
@@ -1100,8 +1064,8 @@ pub fn dialog(
                 overflow: Overflow::clip(),
                 ..default()
             },
-            BackgroundColor(tokens::OPAQUE),
-            sheet_ground(),
+            BackgroundColor(Color::NONE),
+            glass::ground(Density::Reading),
             BorderColor::all(border),
             action,
         ))
@@ -1262,9 +1226,9 @@ pub fn popover(commands: &mut Commands, kit: Kit, lines: &[&str]) -> Entity {
                 border_radius: BorderRadius::all(px_fixed(RADIUS_PANEL)),
                 ..default()
             },
-            BackgroundColor(tokens::OPAQUE.with_alpha(0.96)),
-            popover_ground(),
-            BorderColor::all(tokens::POPOVER_EDGE),
+            BackgroundColor(Color::NONE),
+            glass::ground(Density::Solid),
+            glass::rim(),
             popover_shadow(),
             GlobalZIndex(tokens::z::POPOVER),
         ))
@@ -1321,9 +1285,9 @@ pub fn menu<'a, B: Bundle>(
                 border_radius: BorderRadius::all(px_fixed(RADIUS_PANEL)),
                 ..default()
             },
-            BackgroundColor(tokens::OPAQUE),
-            menu_ground(),
-            BorderColor::all(tokens::POPOVER_EDGE),
+            BackgroundColor(Color::NONE),
+            glass::ground(Density::Solid),
+            glass::rim(),
             popover_shadow(),
             GlobalZIndex(tokens::z::POPOVER),
         ))

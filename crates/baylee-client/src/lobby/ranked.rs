@@ -22,9 +22,26 @@ mod receipt;
 #[cfg(feature = "dev-control")]
 pub(crate) mod visual_fixture;
 pub(super) use draw::draw;
-/// The account's standing in a format: its rank, placement games, Elo and
-/// season record (wins, losses, draws), as far as Central has said them.
-type OwnRank = (api::Rank, u8, Option<i32>, Option<(u32, u32, u32)>);
+/// The account's standing in a format, as far as Central has said it.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+struct OwnRank {
+    rank: api::Rank,
+    /// Placement games played, of ten.
+    placements: u8,
+    elo: Option<i32>,
+    /// This season's wins, losses and draws.
+    record: Option<(u32, u32, u32)>,
+    /// Every season's games, the career.
+    career: Option<api::Record>,
+}
+
+/// The share of `games` won, in whole percent rounded to the nearest;
+/// `None` before the first game.
+fn win_rate(wins: u32, games: u32) -> Option<u32> {
+    (games > 0)
+        .then(|| (u64::from(wins) * 200 + u64::from(games)) / (u64::from(games) * 2))
+        .map(|percent| u32::try_from(percent.min(100)).unwrap_or(100))
+}
 
 pub(crate) const ORDER: TabOrder = TabOrder {
     name: "ranked",
@@ -400,5 +417,18 @@ pub(crate) fn rank_name(rank: api::Rank, lang: Lang) -> String {
         format!("{league} {}", numeral(division))
     } else {
         league.to_string()
+    }
+}
+
+#[cfg(test)]
+mod win_rate_tests {
+    #[test]
+    fn the_win_rate_rounds_to_the_nearest_whole_percent() {
+        assert_eq!(super::win_rate(0, 0), None, "no game, no rate");
+        assert_eq!(super::win_rate(1, 3), Some(33));
+        assert_eq!(super::win_rate(2, 3), Some(67));
+        assert_eq!(super::win_rate(1, 8), Some(13), "12.5 rounds up");
+        assert_eq!(super::win_rate(5, 5), Some(100));
+        assert_eq!(super::win_rate(u32::MAX, u32::MAX), Some(100));
     }
 }

@@ -46,10 +46,7 @@ pub(super) fn tables(
                 border_radius: BorderRadius::all(px_fixed(tokens::RADIUS_PANEL)),
                 ..default()
             },
-            BackgroundColor(tokens::PANEL),
-            BorderColor::all(tokens::BORDER),
-            surfaces::elevation_card(),
-            super::super::dock::Dock(4),
+            crate::shellkit::glass::pane(crate::shellkit::glass::Density::Reading),
         ))
         .id();
     commands.entity(parent).add_child(panel);
@@ -70,14 +67,13 @@ pub(super) fn tables(
             .entry::<Node>()
             .and_modify(|mut n| n.flex_shrink = 0.0);
         if !phone {
-            let title = commands
-                .spawn((
-                    Text::new(Phrase::Tables.text(lang)),
-                    crate::hud::tf(kit.fonts, kit.m.head),
-                    TextColor(tokens::INK),
-                    Pickable::IGNORE,
-                ))
-                .id();
+            // The head the sign-in card wears (`parts::title_lockup`).
+            let (title, _) = parts::title_lockup(
+                commands,
+                kit,
+                crate::hud::glyph::CHAIR,
+                Phrase::Tables.text(lang),
+            );
             commands.entity(head).add_child(title);
             if !offline {
                 let waiting = lobby

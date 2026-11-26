@@ -822,7 +822,9 @@ pub(crate) fn caption(commands: &mut Commands, kit: Kit, text: &str) -> Entity {
 /// Attaches soft top and bottom gradient fade overlays to a list container so
 /// scrolled cards transition smoothly at the top and bottom edges.
 pub(crate) fn attach_soft_list_edges(commands: &mut Commands, wrapper: Entity) {
-    let base = tokens::PANEL.to_srgba();
+    // The glass where a list stands: its middle, so a fade is no band.
+    let base =
+        crate::shellkit::glass::tints(crate::shellkit::glass::Density::Reading)[1].to_srgba();
     for is_top in [true, false] {
         let fade = commands
             .spawn((
@@ -880,8 +882,8 @@ pub(crate) fn mount_virtual_list(
     attach_soft_list_edges(commands, wrapper);
 }
 
-/// The builder's panel: translucent over the painting, its contents a column
-/// that may not grow past the window.
+/// The builder's panel: the client's glass over the painting, its contents
+/// a column that may not grow past the window.
 pub(crate) fn panel(commands: &mut Commands, kit: Kit, grow: f32, width: Option<f32>) -> Entity {
     commands
         .spawn((
@@ -900,8 +902,7 @@ pub(crate) fn panel(commands: &mut Commands, kit: Kit, grow: f32, width: Option<
                 border_radius: BorderRadius::all(px_fixed(tokens::RADIUS_PANEL)),
                 ..default()
             },
-            BackgroundColor(tokens::PANEL),
-            BorderColor::all(tokens::BORDER),
+            crate::shellkit::glass::pane(crate::shellkit::glass::Density::Reading),
             Pickable::IGNORE,
         ))
         .id()

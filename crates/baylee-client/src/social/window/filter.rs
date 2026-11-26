@@ -63,8 +63,8 @@ pub(super) fn filter_dialog(
                 ..default()
             },
             BackgroundColor(Color::NONE),
-            rows::dialog_glass(),
-            BorderColor::all(rows::GLASS_EDGE),
+            crate::shellkit::glass::ground(crate::shellkit::glass::Density::Reading),
+            crate::shellkit::glass::rim(),
             crate::shellkit::surfaces::elevation_popover(),
             stacked(45),
         ))

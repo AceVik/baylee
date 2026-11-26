@@ -376,9 +376,9 @@ pub(super) fn composer_parts(
                     )),
                     ..default()
                 },
-                BackgroundColor(crate::shellkit::tokens::OPAQUE),
-                crate::shellkit::surfaces::menu_ground(),
-                BorderColor::all(crate::shellkit::tokens::POPOVER_EDGE),
+                BackgroundColor(Color::NONE),
+                crate::shellkit::glass::ground(crate::shellkit::glass::Density::Solid),
+                crate::shellkit::glass::rim(),
                 crate::shellkit::surfaces::elevation_popover(),
                 stacked(30),
             ))

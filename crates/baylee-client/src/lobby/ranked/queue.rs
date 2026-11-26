@@ -144,7 +144,14 @@ pub(super) fn draw(
 /// season's record, and while it is placed a bar of the ten placement games.
 fn own_rank(commands: &mut Commands, parent: Entity, kit: Kit, look: &Look) {
     let lang = kit.lang();
-    let Some((rank, placements, elo, record)) = look.own else {
+    let Some(OwnRank {
+        rank,
+        placements,
+        elo,
+        record,
+        career,
+    }) = look.own
+    else {
         return;
     };
     let group = parts::row(commands, kit, false);
@@ -216,6 +223,53 @@ fn own_rank(commands: &mut Commands, parent: Entity, kit: Kit, look: &Look) {
             tokens::ACCENT,
         );
         commands.entity(words).add_child(bar);
+    }
+    figures_row(commands, parent, kit, record, career);
+}
+
+/// The standing's figures in three equal cells under the rank (owner,
+/// 25.11.2026: "Statistiken"): the season's win rate, its games, and the
+/// career's games over every season. Only once a game has been played: a
+/// row of dashes says nothing the placement meter does not.
+fn figures_row(
+    commands: &mut Commands,
+    parent: Entity,
+    kit: Kit,
+    record: Option<(u32, u32, u32)>,
+    career: Option<api::Record>,
+) {
+    let lang = kit.lang();
+    let season = record.map_or(0, |(wins, losses, draws)| {
+        wins.saturating_add(losses).saturating_add(draws)
+    });
+    let career = career.map_or(season, |career| career.games.max(season));
+    if career == 0 {
+        return;
+    }
+    let row = parts::row(commands, kit, false);
+    commands.entity(row).entry::<Node>().and_modify(|mut n| {
+        n.width = Val::Percent(100.0);
+        n.flex_wrap = FlexWrap::NoWrap;
+    });
+    commands.entity(parent).add_child(row);
+    let rate = record
+        .and_then(|(wins, _, _)| super::win_rate(wins, season))
+        .map_or_else(
+            || "—".to_owned(),
+            |rate| {
+                if lang == Lang::De {
+                    format!("{rate}\u{a0}%")
+                } else {
+                    format!("{rate}%")
+                }
+            },
+        );
+    for (icon, value, name) in [
+        (glyph::PERCENT, rate, Phrase::RankedStatWinRate),
+        (glyph::FINISH, season.to_string(), Phrase::RankedStatSeason),
+        (glyph::HISTORY, career.to_string(), Phrase::RankedStatCareer),
+    ] {
+        parts::stat(commands, row, kit, icon, &value, name.text(lang));
     }
 }
 
@@ -687,7 +741,7 @@ fn join_button(commands: &mut Commands, parent: Entity, kit: Kit, look: &Look) {
     // How placement works matters while one is being placed, not after.
     if look
         .own
-        .is_none_or(|(rank, ..)| rank.league == League::Unranked)
+        .is_none_or(|own| own.rank.league == League::Unranked)
     {
         label(
             commands,
