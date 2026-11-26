@@ -300,6 +300,7 @@ fn pump_slice_streams_incremental_views_without_premature_questions_and_matches_
 /// resumed table reads.
 #[test]
 fn discarding_the_frames_changes_nothing_but_the_frames() {
+    use crate::record::Line;
     let table = || {
         let mut session = Session::new_recorded(&test_preset(), "test").expect("session builds");
         session.take_over(PlayerId::new(1));
@@ -331,7 +332,6 @@ fn discarding_the_frames_changes_nothing_but_the_frames() {
         sent.pump_slice(1);
     }
     assert!(frames > 0, "the other table sent frames");
-    use crate::record::Line;
     let unsealed = |record: &[u8]| -> Vec<Line> {
         crate::record::tests::lines(record)
             .into_iter()

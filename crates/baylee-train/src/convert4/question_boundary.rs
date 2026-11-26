@@ -103,6 +103,7 @@ struct Input {
 /// Or this build's game is over while the record goes on, with answers to
 /// questions only, to its end line: a build before a5eb549ca asked them
 /// after the game was decided, on the board this build ends on.
+#[allow(clippy::too_many_lines)] // one pass over the record, every line kind named
 fn crossing(record: &[u8], digest: Digest) -> Option<Crossing> {
     let mut lines = record
         .split(|&b| b == b'\n')

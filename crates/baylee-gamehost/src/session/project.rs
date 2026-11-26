@@ -431,6 +431,7 @@ pub fn project_with_detection<D: baylee_engine::engine::LoopDetection>(
 ///
 /// # Errors
 /// As [`project_with_detection`], plus refusal of an unsupported native manifest.
+#[allow(clippy::too_many_lines)] // one pass over the record, line by line, as a replay is told
 pub fn project_with_registry<
     D: baylee_engine::engine::LoopDetection,
     R: crate::session::SessionRegistry,

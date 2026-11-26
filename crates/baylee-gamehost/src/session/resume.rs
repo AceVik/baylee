@@ -70,57 +70,6 @@ impl<D: baylee_engine::engine::LoopDetection, R: crate::session::SessionRegistry
                     checker.check(&session.engine, Some(n), hash, seen.as_deref())?;
                     next = n + 1;
                 }
-                Line::Chair {
-                    n,
-                    at,
-                    seat,
-                    change,
-                    sealed,
-                } => {
-                    session.seal_as_recorded(sealed);
-                    session.tell_time(at);
-                    if !session.chair_again(PlayerId::new(seat), change) {
-                        return Err(ReplayError::Refused { n });
-                    }
-                    next = n + 1;
-                }
-                Line::Connection {
-                    n,
-                    at,
-                    seat,
-                    change,
-                    sealed,
-                } => {
-                    session.seal_as_recorded(sealed);
-                    session.tell_time(at);
-                    let seat = PlayerId::new(seat);
-                    match change {
-                        ConnectionChange::Lost { wait_secs } => {
-                            if !session.connection_lost(seat, wait_secs) {
-                                return Err(ReplayError::Refused { n });
-                            }
-                        }
-                        ConnectionChange::Back => session.connection_back(seat),
-                    }
-                    next = n + 1;
-                }
-                Line::Setting {
-                    n,
-                    at,
-                    seat,
-                    setting,
-                    sealed,
-                } => {
-                    session.seal_as_recorded(sealed);
-                    session.tell_time(at);
-                    // Taken when it was said, so taken again here: a setting
-                    // the table refuses now is not this game's.
-                    if session.seat_setting(PlayerId::new(seat), setting).is_err() {
-                        return Err(ReplayError::Refused { n });
-                    }
-                    next = n + 1;
-                }
-                Line::DeclaredMind { n, .. } => next = n + 1,
                 Line::End { n, .. } => {
                     if !matches!(session.engine.pending(), Pending::GameOver(_)) {
                         return Err(ReplayError::NotOver { n });
@@ -128,11 +77,73 @@ impl<D: baylee_engine::engine::LoopDetection, R: crate::session::SessionRegistry
                     ended = true;
                     next = n + 1;
                 }
+                said => next = session.said_again(&said)?,
             }
         }
         session.earn_what_was_told();
         session.record = Some(Recorder::resumed(next, ended));
         Ok(session)
+    }
+
+    /// What the table said beside the inputs, said again in its place: a
+    /// chair change, a lost or returned connection, a seat's word about its
+    /// hand. The number of the line after it.
+    fn said_again(&mut self, line: &Line) -> Result<u64, ReplayError> {
+        let (n, taken) = match *line {
+            Line::Chair {
+                n,
+                at,
+                seat,
+                change,
+                sealed,
+            } => {
+                self.seal_as_recorded(sealed);
+                self.tell_time(at);
+                (n, self.chair_again(PlayerId::new(seat), change))
+            }
+            Line::Connection {
+                n,
+                at,
+                seat,
+                change,
+                sealed,
+            } => {
+                self.seal_as_recorded(sealed);
+                self.tell_time(at);
+                let seat = PlayerId::new(seat);
+                let taken = match change {
+                    ConnectionChange::Lost { wait_secs } => self.connection_lost(seat, wait_secs),
+                    ConnectionChange::Back => {
+                        self.connection_back(seat);
+                        true
+                    }
+                };
+                (n, taken)
+            }
+            // Taken when it was said, so taken again here: a setting the
+            // table refuses now is not this game's.
+            Line::Setting {
+                n,
+                at,
+                seat,
+                setting,
+                sealed,
+            } => {
+                self.seal_as_recorded(sealed);
+                self.tell_time(at);
+                (n, self.seat_setting(PlayerId::new(seat), setting).is_ok())
+            }
+            // What a seat's client declared holds for the record alone.
+            Line::DeclaredMind { n, .. } => (n, true),
+            Line::Header { .. } | Line::Input { .. } | Line::End { .. } => {
+                return Err(ReplayError::NoHeader);
+            }
+        };
+        if taken {
+            Ok(n + 1)
+        } else {
+            Err(ReplayError::Refused { n })
+        }
     }
 
     /// Seals the log as far as it had been sent when the line was written,
