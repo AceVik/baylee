@@ -662,11 +662,6 @@ fn adjust_spell_cost_by_cast_covers_all_eight_metrics_reduce_and_raise() {
 #[test]
 fn adjust_spell_cost_by_cast_refuses_unsound_and_non_paper_shapes() {
     for bad in [
-        // Battlefield Thaumaturge: creature-filtered distinct targets (`TargetedObjectsDistinct$Valid ...`).
-        "Name:Thaumaturge\nTypes:Creature Human Wizard\nPT:2/1\n\
-         S:Mode$ ReduceCost | ValidCard$ Instant.YouCtrl,Sorcery.YouCtrl | Relative$ True | \
-         Type$ Spell | Amount$ R | EffectZone$ All\n\
-         SVar:R:TargetedObjectsDistinct$Valid Creature",
         // Fireball: `/Minus.1` target tax ("each target beyond the first").
         "Name:FireballTax\nTypes:Sorcery\n\
          S:Mode$ RaiseCost | ValidCard$ Card.Self | Type$ Spell | Amount$ Inc | Relative$ True | EffectZone$ All\n\

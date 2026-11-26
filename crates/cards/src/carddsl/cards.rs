@@ -121,7 +121,9 @@ pub fn encode_card_face(def: &CardDef, face_idx: usize) -> CardDslFeatures {
             EnterModifier::ChooseCardName
             | EnterModifier::ChooseCardNameExcept(_)
             | EnterModifier::ChooseCardType
-            | EnterModifier::ChooseOpponent => s[86] = 1.0,
+            | EnterModifier::ChooseOpponent
+            | EnterModifier::ChooseAnyPlayer
+            | EnterModifier::LookAtOpponentHand => s[86] = 1.0,
             _ => s[87] = 1.0,
         }
     }

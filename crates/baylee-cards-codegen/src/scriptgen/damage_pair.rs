@@ -44,6 +44,7 @@ impl Tx<'_> {
             || chain.target_is_x
             || chain.target_up_to.is_some_and(|n| n > 1)
             || chain.target_exact.is_some_and(|n| n != 1)
+            || chain.target_range.is_some()
         {
             return None;
         }

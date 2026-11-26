@@ -683,7 +683,7 @@ fn wave24b_refuses_engine_gaps_and_non_paper_scripts() {
         // `AffectedZone$ Library` / `Graveyard` `MayPlay$ True` (engine/DSL gaps).
         "Name:Graveyard Mutate\nManaCost:3 B G\nTypes:Creature\nPT:4/4\n\
          S:Mode$ Continuous | Affected$ Creature.YouOwn | AffectedZone$ Graveyard | \
-         ValidSA$ Spell.Mutate | MayPlay$ True",
+         ValidSA$ Spell.Dash | MayPlay$ True",
         // Alchemy / Un-set / Planechase strictly refused.
         "Name:Alchemy MakeCard\nManaCost:1 U\nTypes:Sorcery\n\
          A:SP$ MakeCard | Name$ Lightning Bolt",

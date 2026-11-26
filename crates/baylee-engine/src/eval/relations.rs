@@ -69,6 +69,22 @@ pub fn players_for_source(
                 .into_iter()
                 .collect(),
         ),
+        PlayerRel::ChosenBySource => Some(
+            source
+                .and_then(|s| {
+                    state
+                        .object(s)
+                        .and_then(crate::object::GameObject::chosen_opponent)
+                        .or_else(|| {
+                            state
+                                .damage_source(s, None)
+                                .and_then(crate::object::GameObject::chosen_opponent)
+                        })
+                })
+                .filter(|p| !state.has_left(*p))
+                .into_iter()
+                .collect(),
+        ),
         other => players(other, state, you),
     }
 }
@@ -158,7 +174,9 @@ pub fn players(rel: PlayerRel, state: &GameState, you: PlayerId) -> Option<Vec<P
         | PlayerRel::GiftRecipient
         | PlayerRel::RememberedController
         | PlayerRel::FirstTargetPlayerOrController
-        | PlayerRel::ThirdTargetPlayerOrController => {
+        | PlayerRel::ThirdTargetPlayerOrController
+        | PlayerRel::OtherOpponents
+        | PlayerRel::ChosenBySource => {
             return None;
         }
     })

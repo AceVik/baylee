@@ -129,6 +129,7 @@ pub(super) fn counter_kind(code: &str) -> Option<String> {
             "SHIELD" | "Shield" => "CounterKind::Shield",
             "FINALITY" | "Finality" => "CounterKind::Finality",
             "BORE" => "CounterKind::Bore",
+            "REPR" => "counters::REPRIEVE",
             _ => return assigned_counter(code),
         }
         .to_string(),

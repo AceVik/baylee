@@ -1011,6 +1011,7 @@ pub(super) fn exec_choice(
                 baylee_cards_dsl::CostPart::SacrificeX(_)
                     | baylee_cards_dsl::CostPart::TapX(_)
                     | baylee_cards_dsl::CostPart::DiscardX(_)
+                    | baylee_cards_dsl::CostPart::RevealFromHandX(_)
                     | baylee_cards_dsl::CostPart::ExileFromGraveyardX(_)
             ) {
                 let options = resolution_cost_options(state, res, player, cost);
@@ -1636,6 +1637,7 @@ fn stack_object_announces_x(state: &GameState, on_stack: ObjectId) -> bool {
                     | baylee_cards_dsl::CostPart::SacrificeX(_)
                     | baylee_cards_dsl::CostPart::TapX(_)
                     | baylee_cards_dsl::CostPart::DiscardX(_)
+                    | baylee_cards_dsl::CostPart::RevealFromHandX(_)
                     | baylee_cards_dsl::CostPart::ExileFromGraveyardX(_)
                     | baylee_cards_dsl::CostPart::RemoveCounterSelfX { .. }
                     | baylee_cards_dsl::CostPart::RemoveAnyCounterX { .. }
@@ -1719,6 +1721,8 @@ pub(super) fn cost_part_names_this(part: &baylee_cards_dsl::CostPart) -> bool {
         | CostPart::ExilePermanent(f)
         | CostPart::Discard(f)
         | CostPart::DiscardX(f)
+        | CostPart::RevealFromHand(f)
+        | CostPart::RevealFromHandX(f)
         | CostPart::TapN { filter: f, .. }
         | CostPart::TapX(f)
         | CostPart::ReturnToHand(f)

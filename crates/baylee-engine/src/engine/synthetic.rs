@@ -92,6 +92,7 @@ pub fn land_face(name: &'static str) -> FaceDef {
         impending: None,
         gift: None,
         warp: None,
+        mayhem: None,
         optional_cost: None,
         optional_cost_grants_flash: false,
     }
@@ -178,6 +179,7 @@ pub fn creature(
 /// The fallback is what lets a synthetic board hold real Forests: a deck
 /// has to be *something*, and a test that had to invent a basic land as
 /// well would be proving its fixtures rather than the rule.
+#[derive(Clone)]
 pub struct SyntheticLookup(Vec<&'static CardDef>);
 
 impl SyntheticLookup {

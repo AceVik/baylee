@@ -279,13 +279,17 @@ fn moved_permanents_for_counter_costs(
         moved_permanents.push(ret);
     }
     for (&part, &assigned) in expanded.iter().zip(assignments.iter()) {
-        if matches!(
+        if (matches!(
             part,
             CostPart::Sacrifice(_)
                 | CostPart::SacrificeX(_)
                 | CostPart::ExilePermanent(_)
                 | CostPart::ReturnToHand(_)
-        ) && !moved_permanents.contains(&assigned)
+        ) || (matches!(part, CostPart::BeholdAndExile(_))
+            && state
+                .object(assigned)
+                .is_some_and(|o| o.zone == crate::zone::Zone::Battlefield)))
+            && !moved_permanents.contains(&assigned)
         {
             moved_permanents.push(assigned);
         }
@@ -308,13 +312,17 @@ fn moved_permanents_for_counter_costs(
                 cursor = cursor.saturating_add(3).min(chosen.len());
             }
         } else {
-            if matches!(
+            if (matches!(
                 part,
                 CostPart::Sacrifice(_)
                     | CostPart::SacrificeX(_)
                     | CostPart::ExilePermanent(_)
                     | CostPart::ReturnToHand(_)
-            ) && !moved_permanents.contains(&chosen[cursor])
+            ) || (matches!(part, CostPart::BeholdAndExile(_))
+                && state
+                    .object(chosen[cursor])
+                    .is_some_and(|o| o.zone == crate::zone::Zone::Battlefield)))
+                && !moved_permanents.contains(&chosen[cursor])
             {
                 moved_permanents.push(chosen[cursor]);
             }

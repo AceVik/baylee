@@ -48,7 +48,12 @@ pub(super) fn collect(
             && entered_this_turn;
         let abilities = source.ability_list(lookup);
         let text = super::object_text(state, source);
-        let times = super::times_triggered_with_source(state, TriggerEventKind::Any, source);
+        let times = super::matching::times_triggered_for_entry(
+            state,
+            TriggerEventKind::Any,
+            source,
+            Some(entry),
+        );
         for (index, ability) in abilities.abilities.iter().enumerate() {
             let chapters = ability.saga_chapters();
             if chapters.is_empty() {

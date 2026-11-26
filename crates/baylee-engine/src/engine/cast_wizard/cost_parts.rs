@@ -439,6 +439,7 @@ pub(crate) fn part_scales_with_x(part: &CostPart) -> bool {
         | CostPart::SacrificeX(_)
         | CostPart::TapX(_)
         | CostPart::DiscardX(_)
+        | CostPart::RevealFromHandX(_)
         | CostPart::ExileFromGraveyardX(_)
         | CostPart::RemoveAnyCounterX { .. } => true,
         CostPart::Either(a, b) => {
@@ -459,6 +460,7 @@ impl super::CastWizard {
         };
         base.saturating_add(fixed_life_cost(face, self.cost_choice()))
             .saturating_add(super::phyrexian_life(self))
+            .saturating_add(i32::try_from(self.target_life_increase).unwrap_or(i32::MAX))
     }
 
     /// Total life owed after X has been chosen, including every pay-X-life part.
@@ -495,8 +497,11 @@ pub(crate) fn additional_card_costs_for_x(
                 | CostPart::ReturnToHand(_)
                 | CostPart::TapOther(_)
                 | CostPart::TapN { .. }
+                | CostPart::PutCounterOnOther { .. }
                 | CostPart::Forage
                 | CostPart::Behold(_)
+                | CostPart::BeholdAndExile(_)
+                | CostPart::RevealFromHand(_)
         )
     });
     let add_iter = wizard_mandatory_parts(face, choice)
@@ -517,8 +522,12 @@ pub(crate) fn additional_card_costs_for_x(
                     | CostPart::TapOther(_)
                     | CostPart::TapX(_)
                     | CostPart::TapN { .. }
+                    | CostPart::PutCounterOnOther { .. }
                     | CostPart::Forage
                     | CostPart::Behold(_)
+                    | CostPart::BeholdAndExile(_)
+                    | CostPart::RevealFromHand(_)
+                    | CostPart::RevealFromHandX(_)
             )
         });
     let mut parts: SmallVec<[CostPart; 4]> = alt_iter
@@ -529,6 +538,7 @@ pub(crate) fn additional_card_costs_for_x(
                 CostPart::SacrificeX(_)
                 | CostPart::TapX(_)
                 | CostPart::DiscardX(_)
+                | CostPart::RevealFromHandX(_)
                 | CostPart::ExileFromGraveyardX(_) => usize::try_from(x).unwrap_or(usize::MAX),
                 _ => 1,
             };

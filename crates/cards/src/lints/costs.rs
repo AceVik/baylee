@@ -22,6 +22,7 @@ pub(super) const fn needs_the_source(part: &CostPart) -> bool {
         | CostPart::RemoveCounterSelf { .. }
         | CostPart::RemoveCounterSelfX { .. }
         | CostPart::PutCounterSelf { .. }
+        | CostPart::RevealSelfFromHand
         | CostPart::PayAttachedManaCost => true,
         // These ask a *player* something, or ask about another permanent.
         // None of them looks the source up, so none of them cares whether it
@@ -58,6 +59,9 @@ pub(super) const fn needs_the_source(part: &CostPart) -> bool {
         | CostPart::Forage
         | CostPart::CraftMaterials { .. }
         | CostPart::Behold(_)
+        | CostPart::BeholdAndExile(_)
+        | CostPart::RevealFromHand(_)
+        | CostPart::RevealFromHandX(_)
         | CostPart::CollectEvidence(_) => false,
         CostPart::RemoveAnyCounter { filter, .. } | CostPart::RemoveAnyCounterX { filter, .. } => {
             matches!(filter, Filter::This)
@@ -126,6 +130,10 @@ pub(super) const fn moves_the_source(part: &CostPart) -> bool {
         | CostPart::ExileFromGraveyardX(_)
         | CostPart::Forage
         | CostPart::Behold(_)
+        | CostPart::BeholdAndExile(_)
+        | CostPart::RevealFromHand(_)
+        | CostPart::RevealFromHandX(_)
+        | CostPart::RevealSelfFromHand
         | CostPart::CollectEvidence(_) => false,
         CostPart::Either(a, b) => any_moves_the_source(a.parts) || any_moves_the_source(b.parts),
     }
@@ -324,6 +332,8 @@ pub(super) fn face_costs(def: &CardDef) -> Vec<Cost> {
                 .map(|alt| alt.cost)
                 .chain(face.squad)
                 .chain(face.offspring)
+                .chain(face.optional_cost)
+                .chain(face.entwine)
         })
         .collect()
 }
@@ -332,21 +342,22 @@ pub(super) fn face_costs(def: &CardDef) -> Vec<Cost> {
 ///
 /// `FaceDef.waterbend` says the face's optional additional cost is a waterbend
 /// cost, and the wizard reads it that way (#229): it asks for taps once
-/// `additional_costs` is paid and bounds them by that cost's generic mana
-/// (CR 701.67b), on the stage convoke asks on. So a waterbend face needs an
-/// additional cost of generic mana alone, and no convoke beside it.
+/// `additional_costs` or `optional_cost` is paid and bounds them by that cost's
+/// generic mana (CR 701.67b), on the stage convoke asks on. So a waterbend face
+/// needs an additional cost of generic mana alone, and no convoke beside it.
 pub(super) fn waterbend_fault(face: &FaceDef) -> Option<&'static str> {
     if !face.waterbend {
         return None;
     }
+    let invalid = |c: &Cost| {
+        !c.parts.is_empty() || c.mana.generic_total() != c.mana.cmc() || c.mana.cmc() == 0
+    };
     if face.convoke {
         Some("prints convoke too, and one tap question cannot ask for both")
-    } else if face.additional_costs.is_empty() {
+    } else if face.additional_costs.is_empty() && face.optional_cost.is_none() {
         Some("has no additional cost to waterbend")
-    } else if face
-        .additional_costs
-        .iter()
-        .any(|c| !c.parts.is_empty() || c.mana.generic_total() != c.mana.cmc() || c.mana.cmc() == 0)
+    } else if face.additional_costs.iter().any(invalid)
+        || face.optional_cost.as_ref().is_some_and(invalid)
     {
         Some("waterbends a cost that is not generic mana alone")
     } else {

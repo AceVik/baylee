@@ -116,7 +116,8 @@
 // CaptureAffected (`first`, `then`) adds two walker-tested bodies;
 // ForEachRemembered (`effects`) and WithAllTargets add one walker-tested body
 // each. AnyPlayerMayPayLifeOr (`effects`) adds one walker-tested body.
-const NESTING_FIELDS: usize = 125;
+// ChooseDistinctPowersOnBattlefield (`then`) adds one walker-tested body.
+const NESTING_FIELDS: usize = 126;
 
 /// How many variants contain those fields.
 ///
@@ -207,7 +208,9 @@ const NESTING_FIELDS: usize = 125;
 /// (`capture_affected_for_each_remembered_and_with_all_targets_are_visited`).
 /// `AnyPlayerMayPayLifeOr` is the hundred-ninth; its fallback walk is tested in
 /// `verb_tests::any_player_life_payment_fallback_is_visited`.
-const CARRYING_VARIANTS: usize = 109;
+/// `ChooseDistinctPowersOnBattlefield` is the hundred-tenth; its body walk is
+/// tested in `verb_tests::choose_distinct_powers_body_is_visited`.
+const CARRYING_VARIANTS: usize = 110;
 
 /// The floor under the reader itself.
 ///

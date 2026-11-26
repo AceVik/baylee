@@ -877,6 +877,13 @@ impl Effect {
                 reveal_chosen: _,
                 movement: _,
                 then,
+            }
+            | Effect::ChooseDistinctPowersOnBattlefield {
+                chooser: _,
+                filter: _,
+                min: _,
+                max: _,
+                then,
             } => (then, NONE),
             Effect::PreventNextDamageWithThen { then, .. } => (then.instruction(), NONE),
             Effect::PlayerMayPayThenElse { player: _, mana: _, paid: then, unpaid: otherwise }
@@ -1077,6 +1084,7 @@ impl Effect {
             | Effect::DamageEqualToPower { .. }
             | Effect::EventObjectDealsDamageEqualToPower { .. }
             | Effect::EventObjectDealsDamage { .. }
+            | Effect::EventObjectDealsDamageEach { .. }
             | Effect::SacrificeEventDealDamageToEachBlocker { .. }
             | Effect::TargetDealsDamageToController { .. }
             | Effect::DealDamageToTargetController { .. }
@@ -1104,6 +1112,7 @@ impl Effect {
             | Effect::PreventAllDamageFromMatchingThisTurn { .. }
             | Effect::RedirectNextFromChosenSource { .. }
             | Effect::WishToHand { .. }
+            | Effect::Learn
             | Effect::Destroy { .. }
             | Effect::DestroyTargetSlots { .. }
             | Effect::DestroyEventThenMayReattach { .. }
@@ -1191,6 +1200,7 @@ impl Effect {
             | Effect::DestroyRandom { .. }
             | Effect::RevealTopPutOntoBattlefield { .. }
             | Effect::ChoosePlayerFrom { .. }
+            | Effect::ChoosePlayerAtRandom { .. }
             | Effect::CantBeBlockedByPlayerThisTurn { .. }
             | Effect::ReturnAllOwnedToHand { .. }
             | Effect::DestroyAllExceptChosen { .. }
@@ -1509,7 +1519,12 @@ impl Effect {
             | Effect::PutOntoBattlefieldAttacking { .. }
             | Effect::SearchLibraryDistinctNames { .. }
             | Effect::AttachChosen { .. }
-            | Effect::DiscardDefined { .. } => (NONE, NONE),
+            | Effect::DiscardDefined { .. }
+            | Effect::PutCountersOnChosenControlled { .. }
+            | Effect::Empower { .. }
+            | Effect::PutAllCountersFrom { .. }
+            | Effect::PutAllCountersFromIntoFound { .. }
+            | Effect::DoublePT { .. } => (NONE, NONE),
             Effect::VoteObjects { if_no_votes, .. } => (NONE, if_no_votes),
         }
     }

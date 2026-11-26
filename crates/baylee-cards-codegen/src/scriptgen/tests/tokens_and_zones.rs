@@ -906,7 +906,7 @@ fn a_counter_that_arrives_only_sometimes_is_refused() {
          K:etbCounter:P1P1:2:CheckSVar$ WasKicked:If CARDNAME was kicked, \
          it enters with two +1/+1 counters on it.",
         "Name:X\nTypes:Creature\n\
-         K:etbCounter:P1P1:1:Adamant$ White:CARDNAME enters with a counter if adamant.",
+         K:etbCounter:P1P1:1:Adamant$ Purple:CARDNAME enters with a counter if unknown adamant.",
         // And a counter the DSL has no id for is refused exactly as it
         // is on an ability: this is `counter_kind`'s rule, reached from
         // a second place.

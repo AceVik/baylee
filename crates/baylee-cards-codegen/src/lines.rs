@@ -38,7 +38,7 @@ use baylee_core::types::TypeSet;
 pub use baylee_core::oracle::sentences;
 
 mod grants;
-use grants::granted_cost;
+use grants::{granted_cost, grants_keyword};
 
 mod modes;
 pub use modes::map_modes;
@@ -299,7 +299,9 @@ pub fn ability_shape(ability: &baylee_cards_dsl::AbilityDef) -> LineShape {
                 LineShape::Activated
             }
         }
-        _ if granted_cost(ability).is_some() => LineShape::Grant,
+        _ if granted_cost(ability).is_some() || grants_keyword(ability).is_some() => {
+            LineShape::Grant
+        }
         _ => LineShape::Other,
     }
 }
@@ -616,7 +618,9 @@ pub fn trigger_words(trigger: &baylee_cards_dsl::Trigger) -> &'static [&'static 
         T::EntersBattlefieldEvoked => &["evoke"],
         T::CycledThis | T::Cycled { .. } => &["cycle"],
         T::EnteredThisFrom(_) => &["enters"],
-        T::Discarded { .. } | T::DiscardedThisByOpponent => &["discard"],
+        T::Discarded { .. } | T::DiscardedThisByOpponent | T::OneOrMoreCardsDiscarded { .. } => {
+            &["discard"]
+        }
         T::LeavesBattlefield(_) | T::LinkedCreatureLeaves => &["leave"],
         T::PhasesIn(_) => &["phases in", "phase in"],
         T::PhasesOut(_) | T::PhasesOutOrLeavesBattlefield(_) => &["phases out", "phase out"],
@@ -737,6 +741,7 @@ pub fn trigger_words(trigger: &baylee_cards_dsl::Trigger) -> &'static [&'static 
         T::CommittedCrime { .. } => &["crime", "commit"],
         T::Expended { .. } => &["expend"],
         T::Clashed { .. } => &["clash"],
+        T::DayNightChanges => &["day", "night"],
     }
 }
 
@@ -802,6 +807,7 @@ fn whose_trigger_fits(trigger: &Trigger, line: &str) -> bool {
         | Trigger::FirstNoncreatureSpellCast(rel)
         | Trigger::PlayerDealtDamage(rel)
         | Trigger::Cycled { by: rel, .. }
+        | Trigger::OneOrMoreCardsDiscarded { who: rel, .. }
         | Trigger::SpellCastTargeting { who: rel, .. }
         | Trigger::Plotted { who: rel, .. }
         | Trigger::GaveGift(rel)
@@ -966,7 +972,8 @@ pub fn content_fits(ability: &baylee_cards_dsl::AbilityDef, line: &str) -> bool 
                                 && cost.parts == [CostPart::Crew(n)]
                         })
                 }
-                None => true,
+                None => grants_keyword(ability)
+                    .is_none_or(|phrase| line.to_lowercase().contains(phrase)),
             }
         }
         // A modal trigger's text is its modes; it carries no handle the
@@ -1000,6 +1007,7 @@ fn effect_words(effect: &Effect) -> &'static [&'static str] {
         Effect::ShuffleGraveyardMatchingIntoLibrary { .. } => &["shuffle"],
         Effect::DeliverGift(_) => &["gift"],
         Effect::Incubate { .. } => &["incubate"],
+        Effect::Empower { .. } | Effect::EmpowerJace { .. } => &["empower"],
         Effect::Exploit => &["exploit", "sacrifice"],
         Effect::ReturnCraftedTransformed => &["craft", "return"],
         Effect::Monstrosity(_) => &["monstrosity"],

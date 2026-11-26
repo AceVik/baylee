@@ -16,7 +16,7 @@ card!(
     oracle_id = "ad0070db-6454-41cb-861f-8f5b8fc2a3b8",
     scryfall_id = "dc143ba3-2a58-4980-9fa0-a05a9e9ed082",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Ghostly Flicker",
         mana_cost = mana!("{2}{U}"),

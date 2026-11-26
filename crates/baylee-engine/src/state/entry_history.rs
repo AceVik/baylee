@@ -71,11 +71,16 @@ impl GameState {
 
     /// A move of `id` out of `from` into a zone other than the battlefield,
     /// for [`super::PerTurn::zone_changes`]. `departed` is the object as it
-    /// last existed on the battlefield, when it left from there.
+    /// last existed in `from` when `from` was a public zone (`Battlefield`,
+    /// `Graveyard`, `Stack`, `Command`, or face-up `Exile`).
     ///
-    /// Only public destinations are recorded: what enters a library or a
-    /// hand, or exile face down, is hidden from the table there (CR 400.2,
-    /// CR 406.3), and per-turn history is public (`state::fork`).
+    /// Moves strictly between hidden zones (`Hand <-> Library`, `OutsideGame`,
+    /// or face-down exile, `CR 400.2`, `CR 406.3`) are never recorded because
+    /// per-turn history is public (`state::fork`). Departures from a public
+    /// zone into `Hand` or `Library` (*Barrin, Tolarian Archmage*'s
+    /// battlefield-to-hand check, *Gau, Feral Youth*'s graveyard-departure
+    /// check) ARE public events whose departing characteristics were visible
+    /// to every seat at the table.
     pub(crate) fn note_zone_change(
         &mut self,
         id: ObjectId,
@@ -86,15 +91,21 @@ impl GameState {
             return;
         };
         let to = object.zone;
-        let public = match to {
+        let to_public = match to {
             Zone::Graveyard | Zone::Stack | Zone::Command => true,
             Zone::Exile => !object.status.contains(crate::object::Status::FACE_DOWN),
             Zone::Battlefield | Zone::Library | Zone::Hand | Zone::OutsideGame => false,
         };
+        let from_public_to_hand_or_library = departed.is_some()
+            && matches!(to, Zone::Hand | Zone::Library)
+            && matches!(
+                from,
+                Zone::Battlefield | Zone::Graveyard | Zone::Stack | Zone::Command | Zone::Exile
+            );
         if from == to
-            || !public
+            || (!to_public && !from_public_to_hand_or_library)
             || object.kind == crate::object::ObjectKind::AbilityOnStack
-            || object.status.contains(crate::object::Status::FACE_DOWN)
+            || (to_public && object.status.contains(crate::object::Status::FACE_DOWN))
         {
             return;
         }

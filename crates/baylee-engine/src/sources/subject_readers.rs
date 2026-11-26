@@ -98,6 +98,13 @@ pub(super) fn refers_to_subject(effects: &'static [Effect], implicit_source: boo
                 source: baylee_cards_dsl::PlaySource::Subject(target),
                 ..
             } => matches!(target, TargetSpec::ThisObject),
+            Effect::PutAllCountersFrom { donor, target } => {
+                matches!(donor, baylee_cards_dsl::CounterDonor::Source)
+                    || matches!(target, TargetSpec::ThisObject)
+            }
+            Effect::PutAllCountersFromIntoFound { donor } => {
+                matches!(donor, baylee_cards_dsl::CounterDonor::Source)
+            }
             Effect::PreventNextDamageWithThen {
                 sources,
                 recipients,
@@ -151,6 +158,13 @@ pub(super) fn refers_to_subject(effects: &'static [Effect], implicit_source: boo
             | Effect::SetPTByCountFilter { filter, .. } => {
                 implicit_source && matches!(filter, Filter::This)
             }
+            Effect::DoublePT { subject, .. } => match subject {
+                baylee_cards_dsl::DoublePtSubject::Source => true,
+                baylee_cards_dsl::DoublePtSubject::Filter(filter) => {
+                    implicit_source && matches!(filter, Filter::This)
+                }
+                _ => false,
+            },
             Effect::RedirectCombatDamageToYouThisTurn { to, .. } => matches!(
                 to,
                 baylee_cards_dsl::DamageRedirectTo::ThisObject

@@ -3872,15 +3872,19 @@ fn mandatory_part_readable(
     match part {
         baylee_cards_dsl::CostPart::Sacrifice(filter)
         | baylee_cards_dsl::CostPart::ReturnToHand(filter)
-        | baylee_cards_dsl::CostPart::ExilePermanent(filter) => view.battlefield_of(me).any(|o| {
-            agent.filter_matches(
-                filter,
-                view,
-                o,
-                baylee_cards_dsl::ZoneRef::Battlefield,
-                Some(id),
-            ) != Some(false)
-        }),
+        | baylee_cards_dsl::CostPart::ExilePermanent(filter)
+        | baylee_cards_dsl::CostPart::PutCounterOnOther { filter, .. } => {
+            view.battlefield_of(me).any(|o| {
+                o.id != id
+                    && agent.filter_matches(
+                        filter,
+                        view,
+                        o,
+                        baylee_cards_dsl::ZoneRef::Battlefield,
+                        Some(id),
+                    ) != Some(false)
+            })
+        }
         baylee_cards_dsl::CostPart::TapOther(filter) => view.battlefield_of(me).any(|o| {
             !o.status.contains(baylee_view::ObjectStatus::TAPPED)
                 && (!o.summoning_sick
@@ -3933,6 +3937,24 @@ fn mandatory_part_readable(
                 .get(usize::from(me.get()))
                 .map_or(0, |g| g.iter().filter(|o| o.id != id).count());
             has_food || gy_cards >= 3
+        }
+        baylee_cards_dsl::CostPart::RevealFromHand(filter) => hand(view)
+            .iter()
+            .any(|c| c.id != id && crate::worth::hand_matches(filter, c) != Some(false)),
+        baylee_cards_dsl::CostPart::Behold(filter)
+        | baylee_cards_dsl::CostPart::BeholdAndExile(filter) => {
+            view.battlefield_of(me).any(|o| {
+                o.id != id
+                    && agent.filter_matches(
+                        filter,
+                        view,
+                        o,
+                        baylee_cards_dsl::ZoneRef::Battlefield,
+                        Some(id),
+                    ) != Some(false)
+            }) || hand(view)
+                .iter()
+                .any(|c| c.id != id && crate::worth::hand_matches(filter, c) != Some(false))
         }
         baylee_cards_dsl::CostPart::Either(a, b) => {
             let branch_ok = |sub: &baylee_cards_dsl::Cost| {
@@ -4199,7 +4221,27 @@ fn buyback_parts_worth(view: &PlayerView, parts: &[CostPart], card: CardIdentity
         .sum();
     seat.life - life >= BUYBACK_LIFE_FLOOR.min(seat.life)
         && parts.iter().all(|part| match part {
-            CostPart::PayLife(_) | CostPart::Behold(_) => true,
+            CostPart::PayLife(_)
+            | CostPart::Behold(_)
+            | CostPart::BeholdAndExile(_)
+            | CostPart::RevealFromHand(_) => true,
+            CostPart::PutCounterOnOther { filter, kind, n } => {
+                view.battlefield_of(view.seat).any(|o| {
+                    let survives = *kind != baylee_cards_dsl::CounterKind::M1M1
+                        || i32::from(o.toughness.unwrap_or(0)) > i32::from(*n)
+                        || (o.token.is_some() && o.power.unwrap_or(0) <= 1);
+                    survives && o.types.contains(TypeSet::CREATURE) && {
+                        let agent = HeuristicAgent::new(crate::AIProfile::default());
+                        agent.filter_matches(
+                            filter,
+                            view,
+                            o,
+                            baylee_cards_dsl::ZoneRef::Battlefield,
+                            None,
+                        ) != Some(false)
+                    }
+                })
+            }
             CostPart::Sacrifice(_) => lands > BUYBACK_LANDS_KEPT,
             CostPart::Discard(_) => spare >= discards,
             CostPart::DiscardRandom => !others.is_empty() && 2 * spare >= others.len(),
@@ -4731,7 +4773,27 @@ fn kicker_parts_worth(view: &PlayerView, parts: &[CostPart], card: Option<CardId
         .sum();
     seat.life - life >= BUYBACK_LIFE_FLOOR.min(seat.life)
         && parts.iter().all(|part| match part {
-            CostPart::PayLife(_) | CostPart::Behold(_) => true,
+            CostPart::PayLife(_)
+            | CostPart::Behold(_)
+            | CostPart::BeholdAndExile(_)
+            | CostPart::RevealFromHand(_) => true,
+            CostPart::PutCounterOnOther { filter, kind, n } => {
+                view.battlefield_of(view.seat).any(|o| {
+                    let survives = *kind != baylee_cards_dsl::CounterKind::M1M1
+                        || i32::from(o.toughness.unwrap_or(0)) > i32::from(*n)
+                        || (o.token.is_some() && o.power.unwrap_or(0) <= 1);
+                    survives && o.types.contains(TypeSet::CREATURE) && {
+                        let agent = HeuristicAgent::new(crate::AIProfile::default());
+                        agent.filter_matches(
+                            filter,
+                            view,
+                            o,
+                            baylee_cards_dsl::ZoneRef::Battlefield,
+                            None,
+                        ) != Some(false)
+                    }
+                })
+            }
             CostPart::Sacrifice(filter) => {
                 let matching = view
                     .battlefield_of(player)
@@ -5095,6 +5157,11 @@ fn taps_needed(
             .additional_costs
             .iter()
             .fold(total, |total, c| total.combine(&c.mana));
+        if face.additional_costs.is_empty()
+            && let Some(opt) = face.optional_cost
+        {
+            total = total.combine(&opt.mana);
+        }
     }
     let convoke = spell_face.is_some_and(|f| f.convoke);
     let colors: Vec<baylee_core::color::ColorSet> = taps

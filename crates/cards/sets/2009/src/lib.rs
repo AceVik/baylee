@@ -31,6 +31,8 @@ pub mod aether_figment;
 pub mod akoum_refuge;
 #[path = "m10/alluring_siren.rs"]
 pub mod alluring_siren;
+#[path = "arb/anathemancer.rs"]
+pub mod anathemancer;
 #[path = "con_/ancient_ziggurat.rs"]
 pub mod ancient_ziggurat;
 #[path = "m10/angel_s_mercy.rs"]
@@ -53,6 +55,8 @@ pub mod armillary_sphere;
 pub mod arrow_volley_trap;
 #[path = "con_/asha_s_favor.rs"]
 pub mod asha_s_favor;
+#[path = "arb/aven_mimeomancer.rs"]
+pub mod aven_mimeomancer;
 #[path = "con_/aven_squire.rs"]
 pub mod aven_squire;
 #[path = "con_/aven_trailblazer.rs"]
@@ -417,8 +421,12 @@ pub mod honor_of_the_pure;
 pub mod howling_banshee;
 #[path = "m10/ice_cage.rs"]
 pub mod ice_cage;
+#[path = "arb/identity_crisis.rs"]
+pub mod identity_crisis;
 #[path = "arb/igneous_pouncer.rs"]
 pub mod igneous_pouncer;
+#[path = "con_/ignite_disorder.rs"]
+pub mod ignite_disorder;
 #[path = "m10/illusionary_servant.rs"]
 pub mod illusionary_servant;
 #[path = "arb/illusory_demon.rs"]
@@ -645,8 +653,12 @@ pub mod nature_s_spiral;
 pub mod naya_hushblade;
 #[path = "arb/naya_sojourners.rs"]
 pub mod naya_sojourners;
+#[path = "arb/necromancer_s_covenant.rs"]
+pub mod necromancer_s_covenant;
 #[path = "arb/nemesis_of_reason.rs"]
 pub mod nemesis_of_reason;
+#[path = "con_/nicol_bolas_planeswalker.rs"]
+pub mod nicol_bolas_planeswalker;
 #[path = "zen/nimana_sell_sword.rs"]
 pub mod nimana_sell_sword;
 #[path = "zen/nimbus_wings.rs"]
@@ -737,6 +749,8 @@ pub mod reborn_hope;
 pub mod reckless_scholar;
 #[path = "m10/regenerate.rs"]
 pub mod regenerate;
+#[path = "zen/relic_crush.rs"]
+pub mod relic_crush;
 #[path = "con_/reliquary_tower.rs"]
 pub mod reliquary_tower;
 #[path = "arb/retaliator_griffin.rs"]
@@ -763,6 +777,8 @@ pub mod rotting_rats;
 pub mod ruinous_minotaur;
 #[path = "m10/runeclaw_bear.rs"]
 pub mod runeclaw_bear;
+#[path = "zen/runeflare_trap.rs"]
+pub mod runeflare_trap;
 #[path = "con_/rupture_spire.rs"]
 pub mod rupture_spire;
 #[path = "con_/sacellum_archers.rs"]
@@ -841,6 +857,8 @@ pub mod sign_in_blood;
 pub mod silence;
 #[path = "m10/silvercoat_lion.rs"]
 pub mod silvercoat_lion;
+#[path = "arb/singe_mind_ogre.rs"]
+pub mod singe_mind_ogre;
 #[path = "zen/sky_ruin_drake.rs"]
 pub mod sky_ruin_drake;
 #[path = "arb/skyclaw_thrash.rs"]
@@ -849,6 +867,8 @@ pub mod skyclaw_thrash;
 pub mod skyward_eye_prophets;
 #[path = "zen/slaughter_cry.rs"]
 pub mod slaughter_cry;
+#[path = "arb/slave_of_bolas.rs"]
+pub mod slave_of_bolas;
 #[path = "con_/sludge_strider.rs"]
 pub mod sludge_strider;
 #[path = "zen/soaring_seacliff.rs"]
@@ -865,6 +885,8 @@ pub mod soul_manipulation;
 pub mod soul_s_majesty;
 #[path = "zen/soul_stair_expedition.rs"]
 pub mod soul_stair_expedition;
+#[path = "arb/soulquake.rs"]
+pub mod soulquake;
 #[path = "zen/spell_pierce.rs"]
 pub mod spell_pierce;
 #[path = "arb/spellbound_dragon.rs"]
@@ -899,6 +921,8 @@ pub mod stormcaller_s_boon;
 pub mod stormfront_pegasus;
 #[path = "arb/stun_sniper.rs"]
 pub mod stun_sniper;
+#[path = "con_/suicidal_charge.rs"]
+pub mod suicidal_charge;
 #[path = "zen/summoner_s_bane.rs"]
 pub mod summoner_s_bane;
 #[path = "m10/sunpetal_grove.rs"]
@@ -969,6 +993,8 @@ pub mod umara_raptor;
 pub mod unbender_tine;
 #[path = "m10/undead_slayer.rs"]
 pub mod undead_slayer;
+#[path = "zen/unstable_footing.rs"]
+pub mod unstable_footing;
 #[path = "con_/unstable_frontier.rs"]
 pub mod unstable_frontier;
 #[path = "arb/uril_the_miststalker.rs"]
@@ -1005,6 +1031,8 @@ pub mod vedalken_heretic;
 pub mod vedalken_outlander;
 #[path = "arb/veinfire_borderpost.rs"]
 pub mod veinfire_borderpost;
+#[path = "arb/vengeful_rebirth.rs"]
+pub mod vengeful_rebirth;
 #[path = "zen/verdant_catacombs.rs"]
 pub mod verdant_catacombs;
 #[path = "m10/veteran_armorsmith.rs"]
@@ -1017,6 +1045,8 @@ pub mod viashino_slaughtermaster;
 pub mod viashino_spearhunter;
 #[path = "con_/view_from_above.rs"]
 pub mod view_from_above;
+#[path = "zen/vines_of_vastwood.rs"]
+pub mod vines_of_vastwood;
 #[path = "arb/violent_outburst.rs"]
 pub mod violent_outburst;
 #[path = "arb/vithian_renegades.rs"]

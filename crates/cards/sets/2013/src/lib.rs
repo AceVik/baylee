@@ -13,6 +13,8 @@
 // What a card file names as `crate::…`.
 pub use baylee_cards_base::{filters, generated_tokens, tokens};
 
+#[path = "pths/abhorrent_overlord.rs"]
+pub mod abhorrent_overlord;
 #[path = "m14/academy_raider.rs"]
 pub mod academy_raider;
 #[path = "m14/accursed_spirit.rs"]
@@ -255,6 +257,8 @@ pub mod crocanura;
 pub mod crowned_ceratok;
 #[path = "gtc/crypt_ghast.rs"]
 pub mod crypt_ghast;
+#[path = "dgm/crypt_incursion.rs"]
+pub mod crypt_incursion;
 #[path = "ths/curse_of_the_swine.rs"]
 pub mod curse_of_the_swine;
 #[path = "ths/cutthroat_maneuver.rs"]
@@ -307,6 +311,8 @@ pub mod dimir_cluestone;
 pub mod dimir_guildgate;
 #[path = "gtc/dimir_keyrune.rs"]
 pub mod dimir_keyrune;
+#[path = "gtc/dinrova_horror.rs"]
+pub mod dinrova_horror;
 #[path = "gtc/disciple_of_the_old_ways.rs"]
 pub mod disciple_of_the_old_ways;
 #[path = "m14/dismiss_into_dream.rs"]
@@ -351,14 +357,20 @@ pub mod ephara_s_warden;
 pub mod erebos_god_of_the_dead;
 #[path = "ths/erebos_s_emissary.rs"]
 pub mod erebos_s_emissary;
+#[path = "ths/evangel_of_heliod.rs"]
+pub mod evangel_of_heliod;
 #[path = "dgm/exava_rakdos_blood_witch.rs"]
 pub mod exava_rakdos_blood_witch;
+#[path = "gtc/executioner_s_swing.rs"]
+pub mod executioner_s_swing;
 #[path = "f13/experiment_one.rs"]
 pub mod experiment_one;
 #[path = "ths/fabled_hero.rs"]
 pub mod fabled_hero;
 #[path = "ths/fade_into_antiquity.rs"]
 pub mod fade_into_antiquity;
+#[path = "ths/fanatic_of_mogis.rs"]
+pub mod fanatic_of_mogis;
 #[path = "dgm/far.rs"]
 pub mod far;
 #[path = "dgm/fatal_fumes.rs"]
@@ -389,6 +401,8 @@ pub mod flamespeaker_adept;
 pub mod fleecemane_lion;
 #[path = "ths/fleetfeather_sandals.rs"]
 pub mod fleetfeather_sandals;
+#[path = "dgm/flesh.rs"]
+pub mod flesh;
 #[path = "ths/fleshmad_steed.rs"]
 pub mod fleshmad_steed;
 #[path = "m14/fleshpulper_giant.rs"]
@@ -437,6 +451,8 @@ pub mod goblin_diplomats;
 pub mod gods_willing;
 #[path = "dgm/golgari_cluestone.rs"]
 pub mod golgari_cluestone;
+#[path = "ths/gray_merchant_of_asphodel.rs"]
+pub mod gray_merchant_of_asphodel;
 #[path = "gtc/greenside_watcher.rs"]
 pub mod greenside_watcher;
 #[path = "gtc/gridlock.rs"]
@@ -489,12 +505,16 @@ pub mod hidden_strings;
 pub mod high_priest_of_penance;
 #[path = "gtc/hindervines.rs"]
 pub mod hindervines;
+#[path = "dgm/hired_torturer.rs"]
+pub mod hired_torturer;
 #[path = "pm14/hive_stirrings.rs"]
 pub mod hive_stirrings;
 #[path = "gtc/hold_the_gates.rs"]
 pub mod hold_the_gates;
 #[path = "gtc/holy_mantle.rs"]
 pub mod holy_mantle;
+#[path = "c13/hooded_horror.rs"]
+pub mod hooded_horror;
 #[path = "ths/hopeful_eidolon.rs"]
 pub mod hopeful_eidolon;
 #[path = "ths/horizon_chimera.rs"]
@@ -531,6 +551,8 @@ pub mod insatiable_harpy;
 pub mod ivy_lane_denizen;
 #[path = "dgm/izzet_cluestone.rs"]
 pub mod izzet_cluestone;
+#[path = "m14/jace_s_mindseeker.rs"]
+pub mod jace_s_mindseeker;
 #[path = "dgm/jelenn_sphinx.rs"]
 pub mod jelenn_sphinx;
 #[path = "c13/jeleva_nephalia_s_scourge.rs"]
@@ -557,6 +579,8 @@ pub mod knight_watch;
 pub mod korozda_gorgon;
 #[path = "ths/kragma_warcaller.rs"]
 pub mod kragma_warcaller;
+#[path = "dgm/krasis_incubation.rs"]
+pub mod krasis_incubation;
 #[path = "dgm/kraul_warrior.rs"]
 pub mod kraul_warrior;
 #[path = "ths/labyrinth_champion.rs"]
@@ -605,6 +629,8 @@ pub mod martial_glory;
 pub mod massive_raid;
 #[path = "m14/master_of_diversion.rs"]
 pub mod master_of_diversion;
+#[path = "ths/master_of_waves.rs"]
+pub mod master_of_waves;
 #[path = "dgm/maw_of_the_obzedat.rs"]
 pub mod maw_of_the_obzedat;
 #[path = "dgm/maze_abomination.rs"]
@@ -621,6 +647,8 @@ pub mod maze_s_end;
 pub mod maze_sentinel;
 #[path = "pm14/megantic_sliver.rs"]
 pub mod megantic_sliver;
+#[path = "pdgm/melek_izzet_paragon.rs"]
+pub mod melek_izzet_paragon;
 #[path = "ths/meletis_charlatan.rs"]
 pub mod meletis_charlatan;
 #[path = "dgm/mending_touch.rs"]
@@ -695,6 +723,8 @@ pub mod notion_thief;
 pub mod nykthos_shrine_to_nyx;
 #[path = "ths/nylea_god_of_the_hunt.rs"]
 pub mod nylea_god_of_the_hunt;
+#[path = "ths/nylea_s_disciple.rs"]
+pub mod nylea_s_disciple;
 #[path = "ths/nylea_s_emissary.rs"]
 pub mod nylea_s_emissary;
 #[path = "ths/nylea_s_presence.rs"]
@@ -831,10 +861,14 @@ pub mod regathan_firecat;
 pub mod renounce_the_guilds;
 #[path = "c13/restore.rs"]
 pub mod restore;
+#[path = "dgm/restore_the_peace.rs"]
+pub mod restore_the_peace;
 #[path = "ths/returned_centaur.rs"]
 pub mod returned_centaur;
 #[path = "ths/returned_phalanx.rs"]
 pub mod returned_phalanx;
+#[path = "ths/reverent_hunter.rs"]
+pub mod reverent_hunter;
 #[path = "m14/ring_of_three_wishes.rs"]
 pub mod ring_of_three_wishes;
 #[path = "dgm/riot_control.rs"]
@@ -959,6 +993,8 @@ pub mod skarrg_goliath;
 pub mod skarrg_guildmage;
 #[path = "gtc/skinbrand_goblin.rs"]
 pub mod skinbrand_goblin;
+#[path = "gtc/skullcrack.rs"]
+pub mod skullcrack;
 #[path = "gtc/skyblinder_staff.rs"]
 pub mod skyblinder_staff;
 #[path = "gtc/skygames.rs"]
@@ -1113,6 +1149,8 @@ pub mod triton_fortune_hunter;
 pub mod triton_shorethief;
 #[path = "pdgm/trostani_s_summoner.rs"]
 pub mod trostani_s_summoner;
+#[path = "c13/true_name_nemesis.rs"]
+pub mod true_name_nemesis;
 #[path = "gtc/truefire_paladin.rs"]
 pub mod truefire_paladin;
 #[path = "dgm/turn.rs"]
@@ -1131,6 +1169,8 @@ pub mod undead_minotaur;
 pub mod undercity_informer;
 #[path = "gtc/undercity_plague.rs"]
 pub mod undercity_plague;
+#[path = "ths/underworld_cerberus.rs"]
+pub mod underworld_cerberus;
 #[path = "c13/unexpectedly_absent.rs"]
 pub mod unexpectedly_absent;
 #[path = "dgm/unflinching_courage.rs"]
@@ -1147,6 +1187,8 @@ pub mod vampire_warlord;
 pub mod vanquish_the_foul;
 #[path = "ths/vaporkin.rs"]
 pub mod vaporkin;
+#[path = "dgm/varolz_the_scar_striped.rs"]
+pub mod varolz_the_scar_striped;
 #[path = "m14/vial_of_poison.rs"]
 pub mod vial_of_poison;
 #[path = "dgm/viashino_firstblade.rs"]
@@ -1191,6 +1233,8 @@ pub mod way_of_the_thief;
 pub mod weapon_surge;
 #[path = "dgm/wear.rs"]
 pub mod wear;
+#[path = "ths/whip_of_erebos.rs"]
+pub mod whip_of_erebos;
 #[path = "gtc/wight_of_precinct_six.rs"]
 pub mod wight_of_precinct_six;
 #[path = "ths/wild_celebrants.rs"]
@@ -1215,6 +1259,8 @@ pub mod woodlot_crawler;
 pub mod wrecking_ogre;
 #[path = "m14/xathrid_necromancer.rs"]
 pub mod xathrid_necromancer;
+#[path = "ths/xenagos_the_reveler.rs"]
+pub mod xenagos_the_reveler;
 #[path = "ths/yoked_ox.rs"]
 pub mod yoked_ox;
 #[path = "m14/young_pyromancer.rs"]

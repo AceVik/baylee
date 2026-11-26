@@ -134,7 +134,8 @@ fn accumulate_effect(effect: &Effect, ch: &mut EffectChannels) {
         | Effect::OptionalBasicLandSearchFor { .. }
         | Effect::ExileAttackingForThenMaySearchBasicLands { .. }
         | Effect::Recruit { .. }
-        | Effect::WishToHand { .. } => {
+        | Effect::WishToHand { .. }
+        | Effect::Learn => {
             ch.tutor_search += 1.0;
         }
         Effect::Mill { amount, .. } => {
@@ -206,7 +207,8 @@ fn accumulate_effect(effect: &Effect, ch: &mut EffectChannels) {
         Effect::DealDamageEach { amount, .. }
         | Effect::DealDamageEvenly { amount, .. }
         | Effect::DealDamageEvenlyToFilter { amount, .. }
-        | Effect::DealDamageToEachOpponentAndPlaneswalkerDamagedThisGame { amount } => {
+        | Effect::DealDamageToEachOpponentAndPlaneswalkerDamagedThisGame { amount }
+        | Effect::EventObjectDealsDamageEach { amount, .. } => {
             ch.damage_board += amount_scalar(amount).max(2.0);
         }
         Effect::Destroy { .. }
@@ -287,7 +289,8 @@ fn accumulate_effect(effect: &Effect, ch: &mut EffectChannels) {
         Effect::ModifyTargets { .. }
         | Effect::ModifySource { .. }
         | Effect::ModifyAttached { .. }
-        | Effect::ModifyEvent { .. } => {
+        | Effect::ModifyEvent { .. }
+        | Effect::DoublePT { .. } => {
             ch.pump_pt += 1.5;
         }
         Effect::AddCounter { amount, .. }
@@ -296,6 +299,7 @@ fn accumulate_effect(effect: &Effect, ch: &mut EffectChannels) {
         | Effect::AddCounterCreatedTokens { amount, .. }
         | Effect::PutCountersDivided { amount, .. }
         | Effect::PutCounterChoice { amount, .. }
+        | Effect::PutCountersOnChosenControlled { count: amount, .. }
         | Effect::Bolster(amount)
         | Effect::Monstrosity(amount) => {
             ch.counters_add += amount_scalar(amount).max(1.0);
@@ -333,7 +337,10 @@ fn accumulate_effect(effect: &Effect, ch: &mut EffectChannels) {
         | Effect::MoveCounter { .. }
         | Effect::MoveCounterToEvent { .. }
         | Effect::PutEachCounterKindFromSource { .. }
+        | Effect::PutAllCountersFrom { .. }
+        | Effect::PutAllCountersFromIntoFound { .. }
         | Effect::Amass { .. }
+        | Effect::Empower { .. }
         | Effect::Energy { .. }
         | Effect::Poison { .. } => {
             ch.counters_add += 1.5;

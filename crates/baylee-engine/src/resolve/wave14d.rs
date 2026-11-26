@@ -159,33 +159,55 @@ pub(super) fn exec_add_temp_modifier(
         return None;
     }
 
-    // Resolution-bound `MustAttackPlayer(Chosen / EventPlayer / ...)` cannot
-    // recover the resolved player later through `eval::players_for_source`, so
-    // record a per-turn `MustAttackPlayerThisTurn` rider on each target creature.
-    if let Modifier::MustAttackPlayer(who) = modifier
-        && duration == Duration::UntilEndOfTurn
-        && crate::eval::players_for_source(who, state, you, Some(res.source)).is_none()
-    {
-        let attacked_players: SmallVec<[PlayerId; 2]> = players_of(who, state, you, res)
-            .into_iter()
-            .filter(|p| !state.has_left(*p))
-            .collect();
-        for filter in &filters {
-            if let EffectFilter::ObjectIs(id, version) = *filter
-                && let Some(obj) = state.object_mut(id)
-                && obj.version == version
-            {
-                for &attacked in &attacked_players {
-                    obj.riders
-                        .push(crate::object::Rider::MustAttackPlayerThisTurn(attacked));
-                }
-            }
-        }
+    if apply_must_attack_player_rider(state, res, you, modifier, duration, &filters) {
         return None;
     }
 
     register_temp_effects(state, res, you, modifier, duration, &filters);
     None
+}
+
+/// Records a per-turn or per-combat `MustAttackPlayer` rider when `who` is
+/// resolution-bound (`Chosen`, `EventPlayer`, etc.) and cannot be recovered
+/// later through `eval::players_for_source`.
+fn apply_must_attack_player_rider(
+    state: &mut GameState,
+    res: &Resolution,
+    you: PlayerId,
+    modifier: Modifier,
+    duration: Duration,
+    filters: &[EffectFilter],
+) -> bool {
+    let Modifier::MustAttackPlayer(who) = modifier else {
+        return false;
+    };
+    if !matches!(
+        duration,
+        Duration::UntilEndOfTurn | Duration::UntilEndOfCombat
+    ) || crate::eval::players_for_source(who, state, you, Some(res.source)).is_some()
+    {
+        return false;
+    }
+    let attacked_players: SmallVec<[PlayerId; 2]> = players_of(who, state, you, res)
+        .into_iter()
+        .filter(|p| !state.has_left(*p))
+        .collect();
+    for filter in filters {
+        if let EffectFilter::ObjectIs(id, version) = *filter
+            && let Some(obj) = state.object_mut(id)
+            && obj.version == version
+        {
+            for &attacked in &attacked_players {
+                let rider = if duration == Duration::UntilEndOfCombat {
+                    crate::object::Rider::MustAttackPlayerThisCombat(attacked)
+                } else {
+                    crate::object::Rider::MustAttackPlayerThisTurn(attacked)
+                };
+                obj.riders.push(rider);
+            }
+        }
+    }
+    true
 }
 
 /// Resolve [`baylee_cards_dsl::Effect::AddGlobalTempModifier`].

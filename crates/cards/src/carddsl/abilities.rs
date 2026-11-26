@@ -341,8 +341,12 @@ fn encode_cost_into(cost: &Cost, dst: &mut [f32]) {
             | CostPart::ExileFromSingleGraveyard { .. }
             | CostPart::CraftMaterials { .. }
             | CostPart::ExileTopOfLibrary(_)
-            | CostPart::CollectEvidence(_) => dst[6] = 1.0,
-            CostPart::Behold(_) => {}
+            | CostPart::CollectEvidence(_)
+            | CostPart::BeholdAndExile(_) => dst[6] = 1.0,
+            CostPart::Behold(_)
+            | CostPart::RevealFromHand(_)
+            | CostPart::RevealFromHandX(_)
+            | CostPart::RevealSelfFromHand => {}
             CostPart::Forage => {
                 dst[3] = 1.0;
                 dst[6] = 1.0;
@@ -444,6 +448,7 @@ fn encode_trigger_into(trigger: &Trigger, dst: &mut [f32]) {
         | Trigger::LastCounterRemoved { .. }
         | Trigger::Chapter(_)
         | Trigger::Discarded { .. }
+        | Trigger::OneOrMoreCardsDiscarded { .. }
         | Trigger::DiscardedThisByOpponent
         | Trigger::Sacrificed { .. }
         | Trigger::Exploited { .. }
@@ -455,6 +460,7 @@ fn encode_trigger_into(trigger: &Trigger, dst: &mut [f32]) {
         | Trigger::BecomesMonstrous
         | Trigger::RingTemptsYou { .. }
         | Trigger::Firebends(_)
+        | Trigger::DayNightChanges
         | Trigger::CycledThis
         | Trigger::Cycled { .. } => dst[9] = 1.0,
         _ => dst[8] = 0.5,
@@ -520,6 +526,12 @@ fn encode_static_into(sa: &StaticAbility, ch: &mut EffectChannels) {
             ch.mana_add += (cost.cmc() as f32).max(1.0) * 0.5;
         }
         Modifier::SpellsCostLessByAmount(_)
+        | Modifier::SpellsCostLessManaByAmount { .. }
+        | Modifier::EquipCostsLessIfTargets { .. }
+        | Modifier::ForetellActionCostsLess { .. }
+        | Modifier::MayForetellAnyTurn { .. }
+        | Modifier::UnlockCostsLess { .. }
+        | Modifier::AdjustLoyaltyCost { .. }
         | Modifier::ActivatedAbilitiesCostLess { .. }
         | Modifier::FirstSpellEachTurnCostAdjust {
             increase: false, ..
@@ -532,6 +544,9 @@ fn encode_static_into(sa: &StaticAbility, ch: &mut EffectChannels) {
         | Modifier::FirstSpellEachTurnCostAdjust { increase: true, .. }
         | Modifier::SpellsCostSacrificePerManaSymbol { .. }
         | Modifier::AbilitiesCostMore(_)
+        | Modifier::NonManaAbilitiesCostMore { .. }
+        | Modifier::LoyaltyAbilitiesCostMore { .. }
+        | Modifier::RaiseCostIfTargets { .. }
         | Modifier::AbilitiesCostSacrificePerManaSymbol { .. }
         | Modifier::OpponentsCantCast(_)
         | Modifier::PlayersCantCast { .. }
@@ -573,8 +588,23 @@ fn encode_static_into(sa: &StaticAbility, ch: &mut EffectChannels) {
         Modifier::PreventDamageToAffectedIfAtMost(_) => {
             ch.pump_pt += 0.5;
         }
+        Modifier::DamageCantBePrevented => {
+            ch.damage_any += 1.0;
+        }
         Modifier::MayCastWithAltCost { .. } => {
             ch.mana_add += 1.0;
+        }
+        Modifier::GrantsFlashbackCost(_)
+        | Modifier::GrantsJumpStart
+        | Modifier::GrantsUnearth(_)
+        | Modifier::GrantsScavengeManaCost
+        | Modifier::GrantsDredge(_)
+        | Modifier::MayCastFromGraveyardUsingAlt(_) => {
+            ch.reanimate += 0.5;
+        }
+        Modifier::GrantsEncoreManaCost | Modifier::GrantsEmbalmManaCost => {
+            ch.reanimate += 0.5;
+            ch.tokens_create += 1.0;
         }
         Modifier::AdjustSpellCostByCast { delta_per_unit, .. } => {
             if *delta_per_unit < 0 {
@@ -603,7 +633,8 @@ fn encode_replacement_into(rule: &ReplacementRule, ch: &mut EffectChannels) {
         | ReplacementRule::OpponentsExtraDrawsCreateToken(_) => {
             ch.tokens_create += 2.0;
         }
-        ReplacementRule::TriggerMultiplier { .. } => {
+        ReplacementRule::TriggerMultiplier { .. }
+        | ReplacementRule::TriggerMultiplierMatching { .. } => {
             ch.draw += 1.0;
             ch.tokens_create += 1.0;
         }
@@ -612,7 +643,9 @@ fn encode_replacement_into(rule: &ReplacementRule, ch: &mut EffectChannels) {
         | ReplacementRule::ExileInsteadOfGraveyard { .. } => {
             ch.exile_all_or_gy += 1.5;
         }
-        ReplacementRule::OpeningHandOnBattlefield => {
+        ReplacementRule::OpeningHandOnBattlefield
+        | ReplacementRule::EnterTappedIf { .. }
+        | ReplacementRule::EnterUntappedIf { .. } => {
             ch.pump_pt += 0.5;
         }
         ReplacementRule::OpeningHandRevealAtFirstUpkeep(effects) => {

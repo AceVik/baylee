@@ -123,6 +123,15 @@ pub fn condition_holds_with_context(
         Condition::SourceWasCastByYou => state
             .object(source)
             .is_some_and(|object| object.cast_history.caster() == Some(you)),
+        Condition::SourceWasCast => state
+            .object(source)
+            .is_some_and(|object| object.cast_history.caster().is_some()),
+        Condition::CastFromOtherThanHand => state.object(source).is_some_and(|object| {
+            object.cast_history.caster().is_some() && !object.cast_history.was_from_hand()
+        }),
+        Condition::SourceCastFromZone(zone) => state
+            .object(source)
+            .is_some_and(|object| super::object_was_cast_from_zone(object, zone)),
         Condition::DiscardedForCost(filter) => {
             discarded_for_cost(state, source, you, context, filter)
         }
@@ -625,6 +634,10 @@ pub fn condition_holds_with_context(
             .object(source)
             .is_some_and(|object| object_was_bargained(state, object)),
         Condition::OptionalCostPaid => state.object(source).is_some_and(object_optional_cost_paid),
+        Condition::ControlledSubtypeOnCast(sub) => state.object(source).is_some_and(|o| {
+            o.riders
+                .contains(&crate::object::Rider::ControlledSubtypeOnCast(sub))
+        }),
         Condition::Prototyped => state
             .object(source)
             .is_some_and(|object| object_is_prototyped(state, object)),
@@ -732,6 +745,12 @@ pub fn condition_holds_with_context(
                 o.zone,
                 crate::zone::Zone::Stack | crate::zone::Zone::Battlefield
             ) && o.riders.contains(&crate::object::Rider::WarpedSpell)
+        }),
+        Condition::MayhemCostPaid => state.object(source).is_some_and(|o| {
+            matches!(
+                o.zone,
+                crate::zone::Zone::Stack | crate::zone::Zone::Battlefield
+            ) && o.riders.contains(&crate::object::Rider::MayhemPaid)
         }),
         Condition::SpellWarpedThisTurn(who) => match who {
             None => !state.per_turn.spells_warped.is_empty(),
@@ -888,6 +907,7 @@ pub fn intervening_if(
 /// Resolution's intervening-if check with the source incarnation that
 /// triggered. A graveyard-order clause cannot find a later object that
 /// reuses the same engine handle (CR 400.7).
+#[allow(clippy::too_many_lines)]
 pub(crate) fn intervening_if_for_incarnation(
     state: &GameState,
     condition: Option<Condition>,
@@ -940,6 +960,17 @@ pub(crate) fn intervening_if_for_incarnation(
         Some(Condition::SourceWasCastByYou) => state
             .damage_source(source, version)
             .is_some_and(|object| object.cast_history.caster() == Some(you)),
+        Some(Condition::SourceWasCast) => state
+            .damage_source(source, version)
+            .is_some_and(|object| object.cast_history.caster().is_some()),
+        Some(Condition::CastFromOtherThanHand) => {
+            state.damage_source(source, version).is_some_and(|object| {
+                object.cast_history.caster().is_some() && !object.cast_history.was_from_hand()
+            })
+        }
+        Some(Condition::SourceCastFromZone(zone)) => state
+            .damage_source(source, version)
+            .is_some_and(|object| super::object_was_cast_from_zone(object, zone)),
         Some(Condition::KickedWith(index)) => state
             .damage_source(source, version)
             .is_some_and(|object| object.kicked_with(index)),
@@ -952,6 +983,13 @@ pub(crate) fn intervening_if_for_incarnation(
         Some(Condition::OptionalCostPaid) => state
             .damage_source(source, version)
             .is_some_and(object_optional_cost_paid),
+        Some(Condition::ControlledSubtypeOnCast(sub)) => {
+            state.damage_source(source, version).is_some_and(|object| {
+                object
+                    .riders
+                    .contains(&crate::object::Rider::ControlledSubtypeOnCast(sub))
+            })
+        }
         Some(Condition::GiftWasPromised) => state
             .damage_source(source, version)
             .is_some_and(object_gift_was_promised),
@@ -964,6 +1002,9 @@ pub(crate) fn intervening_if_for_incarnation(
         Some(Condition::WarpCostPaid) => state
             .damage_source(source, version)
             .is_some_and(|object| object.riders.contains(&crate::object::Rider::WarpedSpell)),
+        Some(Condition::MayhemCostPaid) => state
+            .damage_source(source, version)
+            .is_some_and(|object| object.riders.contains(&crate::object::Rider::MayhemPaid)),
         Some(Condition::SnowManaWasSpent) => state
             .damage_source(source, version)
             .is_some_and(|object| super::amounts::object_snow_mana_spent(object) > 0),
@@ -1120,6 +1161,13 @@ pub(crate) fn condition_with_event(
         Condition::OptionalCostPaid => state
             .damage_source(context.source, source_version)
             .is_some_and(object_optional_cost_paid),
+        Condition::ControlledSubtypeOnCast(sub) => state
+            .damage_source(context.source, source_version)
+            .is_some_and(|object| {
+                object
+                    .riders
+                    .contains(&crate::object::Rider::ControlledSubtypeOnCast(sub))
+            }),
         Condition::CountersPlacedOnSourceThisTurn { kind, by_you } => {
             counters_placed_on_source_this_turn(
                 state,

@@ -167,6 +167,8 @@ pub struct CastWizard {
     pub reduction: Option<FrozenReduction>,
     /// Target-dependent cost increases determined once targets are chosen (CR 601.2f).
     pub target_increase: ManaCost,
+    /// Target-dependent life cost increases (`Modifier::RaiseCostIfTargets`).
+    pub target_life_increase: u32,
     /// Exact announced identities, preserved across all later cost payments.
     pub target_references: crate::sources::TargetReferences,
     /// Shares in canonical target order (objects, then players).
@@ -421,6 +423,7 @@ impl CastWizard {
             permissions: Vec::new(),
             reduction: None,
             target_increase: ManaCost::ZERO,
+            target_life_increase: 0,
             target_references: crate::sources::TargetReferences::default(),
             division: Vec::new(),
             targets: SmallVec::new(),
@@ -811,8 +814,11 @@ pub(crate) fn paid_as_an_alternative_cost(part: &CostPart) -> bool {
         | CostPart::ReturnToHand(_)
         | CostPart::TapN { .. }
         | CostPart::RemoveAnyCounter { .. }
+        | CostPart::PutCounterOnOther { .. }
         | CostPart::Forage
         | CostPart::Behold(_)
+        | CostPart::BeholdAndExile(_)
+        | CostPart::RevealFromHand(_)
         | CostPart::CollectEvidence(_) => true,
         CostPart::Either(a, b) => {
             a.parts.iter().all(paid_as_an_alternative_cost)
@@ -849,8 +855,12 @@ pub(crate) fn paid_as_a_mandatory_additional_cost(part: &CostPart) -> bool {
         | CostPart::TapN { .. }
         | CostPart::RemoveAnyCounter { .. }
         | CostPart::RemoveAnyCounterX { .. }
+        | CostPart::PutCounterOnOther { .. }
         | CostPart::Forage
         | CostPart::Behold(_)
+        | CostPart::BeholdAndExile(_)
+        | CostPart::RevealFromHand(_)
+        | CostPart::RevealFromHandX(_)
         | CostPart::CollectEvidence(_) => true,
         CostPart::Either(a, b) => {
             a.parts.iter().all(paid_as_a_mandatory_additional_cost)
@@ -870,6 +880,10 @@ pub(crate) fn paid_as_a_buyback_cost(part: &CostPart) -> bool {
         | CostPart::Discard(_)
         | CostPart::DiscardRandom
         | CostPart::RemoveAnyCounter { .. }
+        | CostPart::PutCounterOnOther { .. }
+        | CostPart::Behold(_)
+        | CostPart::BeholdAndExile(_)
+        | CostPart::RevealFromHand(_)
         | CostPart::Forage => true,
         CostPart::Either(a, b) => {
             a.parts.iter().all(paid_as_a_buyback_cost) && b.parts.iter().all(paid_as_a_buyback_cost)
@@ -1506,7 +1520,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 casting::tap_to_pay_sources(&self.state, face, player).len(),
             ),
             (
-                face.waterbend && wizard.kicked,
+                face.waterbend && (wizard.kicked || wizard.optional_cost_paid),
                 casting::waterbend_sources(&self.state, player).len(),
             ),
         ]

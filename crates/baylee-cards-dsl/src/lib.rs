@@ -136,15 +136,15 @@ pub use build::{
 pub use cost::{AltCondition, AlternativeCost, Cost, CostPart, CostReduction};
 pub use effect::{
     Amount, AttachHost, ChooseMove, ChooseZone, ColorSubject, CombatWatchEvent, CopyCleanup,
-    CounterKind, DamageRedirectTo, DamageRider, DamageTo, DefinedObjects, DelayedDuration,
-    DelayedObservation, DelayedStep, DelayedTriggerWhen, DivisionAmount, Effect, ExileMana,
-    ExilePermission, ExilePlay, ExileUntil, Find, LookRest, ManaDistribution, ManaRestriction,
-    ManaSource, ManaUse, ManaValueBound, ManaValueCmp, ModalRestriction, MoveSubject,
-    NumberChoiceKind, PeekPickDest, PeekRestDest, PlayCostMode, PlayCount, PlaySource, PlayWindow,
-    PlayerRel, ReflexiveEvent, ReflexiveWhen, RepeatDomain, RevealUntilFound, RevealUntilRest,
-    SearchDest, SourceLeaveAction, SpendRider, TargetChooser, TargetConstraint, TargetReq,
-    TargetSlot, TargetSpec, ThisWay, TokenDef, TriggerRemember, VariablePayKind, VoteObjectAction,
-    VoteOption, VoteOutcome, ZoneSel,
+    CounterDonor, CounterKind, DamageRedirectTo, DamageRider, DamageTo, DefinedObjects,
+    DelayedDuration, DelayedObservation, DelayedStep, DelayedTriggerWhen, DivisionAmount,
+    DoublePtSubject, Effect, ExileMana, ExilePermission, ExilePlay, ExileUntil, Find, LookRest,
+    ManaDistribution, ManaRestriction, ManaSource, ManaUse, ManaValueBound, ManaValueCmp,
+    ModalRestriction, MoveSubject, NumberChoiceKind, PeekPickDest, PeekRestDest, PlayCostMode,
+    PlayCount, PlaySource, PlayWindow, PlayerRel, ReflexiveEvent, ReflexiveWhen, RepeatDomain,
+    RevealUntilFound, RevealUntilRest, SearchDest, SourceLeaveAction, SpendRider, TargetChooser,
+    TargetConstraint, TargetReq, TargetSlot, TargetSpec, ThisWay, TokenDef, TriggerRemember,
+    VariablePayKind, VoteObjectAction, VoteOption, VoteOutcome, ZoneSel,
 };
 pub use filter::{Filter, OriginalExpansion, ZoneRef, ZoneRef as ZoneKind};
 pub use manaread::{
@@ -161,8 +161,8 @@ pub use baylee_core::mana::{ManaColor, ManaCost};
 pub use baylee_core::types::{SupertypeSet, TypeSet};
 pub use static_ability::{
     AbilityDonorZone, AltCastPrice, AltCastZones, CounterReplaceOp, DamageAmountReplacement,
-    DamageRecipients, DamagedByScope, Duration, LAYERS, Layer, LifeGainOp, Modifier, PtCount,
-    ReplacementRule, SpellCastMetric, StaticAbility,
+    DamageRecipients, DamagedByScope, Duration, GraveyardAltKind, LAYERS, Layer, LifeGainOp,
+    Modifier, PtCount, ReplacementRule, SpellCastMetric, StaticAbility, TriggerCause,
 };
 
 /// A compiled card definition: zero-cost, `'static`, registry-resident.
@@ -853,6 +853,11 @@ pub struct FaceDef {
     /// beginning of the next end step, and its owner may cast it from exile on
     /// a later turn.
     pub warp: Option<crate::cost::Cost>,
+    /// Mayhem [cost] (`CR 702.187a`): alternative cost to cast this card from
+    /// its owner's graveyard if that player discarded this exact graveyard
+    /// incarnation this turn. Timing rules still apply, and the spell is not
+    /// exiled when it leaves the stack.
+    pub mayhem: Option<ManaCost>,
     /// Non-kicker optional additional spell cost (`"As an additional cost to
     /// cast this spell, you may [cost]"`, CR 118.8b). Distinct from
     /// [`Self::additional_costs`] so paying it sets
@@ -958,6 +963,7 @@ impl FaceDef {
         impending: None,
         gift: None,
         warp: None,
+        mayhem: None,
         optional_cost: None,
         optional_cost_grants_flash: false,
     };
@@ -1325,6 +1331,21 @@ pub enum EnterModifier {
     /// decline (or no opponent exists), [`crate::Condition::TributeWasNotPaid`]
     /// evaluates `true`. Appended to preserve replay identities.
     Tribute(u16),
+    /// "As this enters, choose a player" (`CR 614.12a`: *True-Name Nemesis*,
+    /// *Saskia the Unyielding*, *Stuffy Doll*, *Sewer Nemesis*, *Sawhorn Nemesis*).
+    /// Stores the chosen seat on the permanent where [`crate::PlayerRel::ChosenBySource`]
+    /// reads it. Appended to preserve replay identities.
+    ChooseAnyPlayer,
+    /// "As this enters, look at an opponent's hand" (`CR 614.12a`: *Anointed
+    /// Peacekeeper*, *Sorcerous Spyglass*). Prompts the controller to choose an
+    /// opponent (when more than one exists) and privately inspects that player's
+    /// hand before subsequent entry choices such as [`Self::ChooseCardName`].
+    /// Appended to preserve replay identities.
+    LookAtOpponentHand,
+    /// "If it's neither day nor night, it becomes day as this permanent enters"
+    /// (`CR 726.2`, `CR 614.12`: *Brimstone Vandal*, *The Celestus*, *Vadrik,
+    /// Astral Archmage*). Appended to preserve replay identities.
+    BecomeDayIfNeither,
 }
 
 impl EnterModifier {

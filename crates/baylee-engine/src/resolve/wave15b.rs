@@ -69,6 +69,29 @@ pub struct ChooseConstrainedState {
     pub picked_names: Vec<NameRef>,
 }
 
+/// Suspended state for [`Effect::ChooseDistinctPowersOnBattlefield`].
+#[derive(Clone, Debug, Hash)]
+pub struct ChooseDistinctPowersState {
+    /// Choosing player seat.
+    pub ask_player: PlayerId,
+    /// Snapshotted eligible battlefield permanents `(id, version, zone)`.
+    pub candidates: Vec<(ObjectId, u32, Zone)>,
+    /// Minimum permanents required in total (clamped to distinct powers).
+    pub min: u8,
+    /// Maximum permanents allowed in total.
+    pub max: u8,
+    /// Whether choices must step one at a time due to duplicate powers.
+    pub stepwise: bool,
+    /// Follow-up instructions for chosen permanents.
+    pub then: &'static [Effect],
+    /// Originating effect instruction.
+    pub op: Effect,
+    /// Permanents already picked in earlier steps.
+    pub picked: Vec<ObjectId>,
+    /// Projected powers already claimed by `picked`.
+    pub picked_powers: Vec<i32>,
+}
+
 // -----------------------------------------------------------------------------
 // Shared object / host resolution helpers
 // -----------------------------------------------------------------------------
@@ -1245,6 +1268,230 @@ fn clear_found_and_event(res: &mut Resolution) {
     res.subject.found.clear();
     res.event_object = None;
     res.subject.set_event_identity(None);
+}
+
+#[allow(clippy::too_many_arguments)]
+pub(super) fn choose_distinct_powers_on_battlefield(
+    state: &mut GameState,
+    res: &mut Resolution,
+    chooser: PlayerRel,
+    filter: &'static Filter,
+    min: u8,
+    max: Amount,
+    then: &'static [Effect],
+    op: Effect,
+) -> Option<Pending> {
+    let you = res.controller;
+    let Some(ask_player) = super::players_of(chooser, state, you, res)
+        .into_iter()
+        .next()
+    else {
+        clear_found_and_event(res);
+        return None;
+    };
+    let max_u8 = u8::try_from(amount2(&max, state, you, res)).unwrap_or(u8::MAX);
+    if max_u8 == 0 {
+        clear_found_and_event(res);
+        return None;
+    }
+
+    let mut candidates: Vec<(ObjectId, u32, Zone)> = Vec::new();
+    let mut unique_powers: Vec<i32> = Vec::new();
+    let mut has_duplicate_power = false;
+    for id in state.battlefield_seen() {
+        let Some(obj) = state.object(id) else {
+            continue;
+        };
+        if !super::matches_in_resolution(filter, state, obj, you, res, None) {
+            continue;
+        }
+        let Some(power) = obj.characteristics().power else {
+            continue;
+        };
+        let p = i32::from(power);
+        if unique_powers.contains(&p) {
+            has_duplicate_power = true;
+        } else {
+            unique_powers.push(p);
+        }
+        candidates.push((id, obj.version, Zone::Battlefield));
+    }
+    if candidates.is_empty() {
+        clear_found_and_event(res);
+        return None;
+    }
+
+    let cap = u8::try_from(unique_powers.len()).unwrap_or(u8::MAX);
+    let max_clamped = max_u8.min(cap);
+    let min_clamped = min.min(max_clamped);
+    let options: Vec<ObjectId> = candidates.iter().map(|&(id, _, _)| id).collect();
+
+    if max_clamped > 1 && has_duplicate_power {
+        let step_min = u8::from(min_clamped > 0);
+        res.awaiting = Some(AwaitingOp::ChooseDistinctPowers(Box::new(
+            ChooseDistinctPowersState {
+                ask_player,
+                candidates,
+                min: min_clamped,
+                max: max_clamped,
+                stepwise: true,
+                then,
+                op,
+                picked: Vec::new(),
+                picked_powers: Vec::new(),
+            },
+        )));
+        return Some(Pending::ChooseCards {
+            player: ask_player,
+            options,
+            min: step_min,
+            max: 1,
+            prompt: ChoicePrompt::Generic,
+            total: None,
+        });
+    }
+
+    res.awaiting = Some(AwaitingOp::ChooseDistinctPowers(Box::new(
+        ChooseDistinctPowersState {
+            ask_player,
+            candidates,
+            min: min_clamped,
+            max: max_clamped,
+            stepwise: false,
+            then,
+            op,
+            picked: Vec::new(),
+            picked_powers: Vec::new(),
+        },
+    )));
+    Some(Pending::ChooseCards {
+        player: ask_player,
+        options,
+        min: min_clamped,
+        max: max_clamped,
+        prompt: ChoicePrompt::Generic,
+        total: None,
+    })
+}
+
+pub(super) fn resume_choose_distinct_powers(
+    state: &mut GameState,
+    res: &mut Resolution,
+    mut spec: ChooseDistinctPowersState,
+    chosen: &[ObjectId],
+) -> Option<Pending> {
+    if !spec.stepwise {
+        return finish_distinct_powers_battlefield(state, res, &spec.candidates, spec.then, chosen);
+    }
+    if let Some(&id) = chosen.first() {
+        if !spec.picked.contains(&id)
+            && let Some(power) = state
+                .object(id)
+                .and_then(|o| o.characteristics().power)
+                .map(i32::from)
+            && !spec.picked_powers.contains(&power)
+        {
+            spec.picked.push(id);
+            spec.picked_powers.push(power);
+        }
+    } else {
+        return finish_distinct_powers_battlefield(
+            state,
+            res,
+            &spec.candidates,
+            spec.then,
+            &spec.picked,
+        );
+    }
+
+    if spec.picked.len() >= usize::from(spec.max) {
+        return finish_distinct_powers_battlefield(
+            state,
+            res,
+            &spec.candidates,
+            spec.then,
+            &spec.picked,
+        );
+    }
+
+    let remaining_options: Vec<ObjectId> = spec
+        .candidates
+        .iter()
+        .filter_map(|&(id, ver, z)| {
+            let obj = state.object(id)?;
+            if obj.version != ver || obj.zone != z || spec.picked.contains(&id) {
+                return None;
+            }
+            let power = i32::from(obj.characteristics().power?);
+            (!spec.picked_powers.contains(&power)).then_some(id)
+        })
+        .collect();
+    if remaining_options.is_empty() {
+        return finish_distinct_powers_battlefield(
+            state,
+            res,
+            &spec.candidates,
+            spec.then,
+            &spec.picked,
+        );
+    }
+
+    let step_min = u8::from(spec.picked.len() < usize::from(spec.min));
+    let ask_player = spec.ask_player;
+    res.awaiting = Some(AwaitingOp::ChooseDistinctPowers(Box::new(spec)));
+    Some(Pending::ChooseCards {
+        player: ask_player,
+        options: remaining_options,
+        min: step_min,
+        max: 1,
+        prompt: ChoicePrompt::Generic,
+        total: None,
+    })
+}
+
+fn finish_distinct_powers_battlefield(
+    state: &mut GameState,
+    res: &mut Resolution,
+    candidates: &[(ObjectId, u32, Zone)],
+    then: &'static [Effect],
+    chosen: &[ObjectId],
+) -> Option<Pending> {
+    let mut valid_ids = Vec::new();
+    let mut seen_powers = Vec::new();
+    for &id in chosen {
+        if valid_ids.contains(&id) {
+            continue;
+        }
+        let Some(&(_, ver, z)) = candidates.iter().find(|&&(cid, _, _)| cid == id) else {
+            continue;
+        };
+        let Some(obj) = state
+            .object(id)
+            .filter(|o| o.version == ver && o.zone == z && o.zone == Zone::Battlefield)
+        else {
+            continue;
+        };
+        let Some(power) = obj.characteristics().power.map(i32::from) else {
+            continue;
+        };
+        if seen_powers.contains(&power) {
+            continue;
+        }
+        seen_powers.push(power);
+        valid_ids.push(id);
+    }
+    if valid_ids.is_empty() {
+        clear_found_and_event(res);
+        return None;
+    }
+    super::wave3_ops::choose_card_finish(
+        state,
+        res,
+        ChooseZone::Battlefield,
+        ChooseMove::None,
+        then,
+        &valid_ids,
+    )
 }
 
 pub(super) fn search_library_distinct_names(

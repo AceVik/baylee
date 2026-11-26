@@ -748,6 +748,7 @@ impl GameState {
         self.hash_turn_activity_logs(h, position);
     }
 
+    #[allow(clippy::too_many_lines)]
     fn hash_turn_activity_logs(&self, h: &mut Hasher, position: &impl Fn(ObjectId) -> u32) {
         if self.per_turn.zone_changes.tracked && !self.per_turn.zone_changes.items.is_empty() {
             let records = &self.per_turn.zone_changes.items;
@@ -816,6 +817,43 @@ impl GameState {
             for record in records {
                 h.u8(record.controller.get());
                 h.u32(position(record.source.object));
+                hash_object_situation(h, &record.snapshot, self, position);
+            }
+        }
+        if self.per_turn.surveilled_cards.tracked
+            && !self.per_turn.surveilled_cards.items.is_empty()
+        {
+            let records = &self.per_turn.surveilled_cards.items;
+            h.u16(486);
+            h.usize(records.len());
+            for &(reference, player) in records {
+                h.u32(position(reference.object));
+                h.u8(moves_since(
+                    self.object_or_departed(reference.object),
+                    reference.version,
+                ));
+                h.u8(player.get());
+            }
+        }
+        if self.per_turn.cards_foretold.tracked && !self.per_turn.cards_foretold.items.is_empty() {
+            let mut items: Vec<_> = self.per_turn.cards_foretold.items.clone();
+            items.sort_unstable();
+            h.u16(487);
+            items.hash(h);
+        }
+        if self.per_turn.discard_history.tracked && !self.per_turn.discard_history.items.is_empty()
+        {
+            let records = &self.per_turn.discard_history.items;
+            h.u16(488);
+            h.usize(records.len());
+            for record in records {
+                h.u8(record.player.get());
+                h.boolean(record.known);
+                h.u32(position(record.object.object));
+                h.u8(moves_since(
+                    self.object_or_departed(record.object.object),
+                    record.object.version,
+                ));
                 hash_object_situation(h, &record.snapshot, self, position);
             }
         }
@@ -1220,6 +1258,20 @@ fn hash_spell_source_decisions(h: &mut Hasher, source: &crate::object::GameObjec
         } else if matches!(rider, crate::object::Rider::OptionalCostPaid) {
             h.u8(255);
             h.u16(307);
+        } else if let crate::object::Rider::ControlledSubtypeOnCast(sub) = rider {
+            h.u8(255);
+            h.u16(464);
+            h.u16(sub.get());
+        } else if let crate::object::Rider::BeheldCostPower(src, power, mv) = rider {
+            h.u8(255);
+            h.u16(462);
+            src.hash(h);
+            h.i32(*power);
+            h.u32(*mv);
+        } else if let crate::object::Rider::CastOriginZone(zone) = rider {
+            h.u8(255);
+            h.u16(468);
+            h.u8(*zone as u8);
         }
     }
     source.replicated.hash(h);
@@ -1865,6 +1917,16 @@ fn hash_expansion_acquired_rider(h: &mut Hasher, rider: &crate::object::Rider) {
             h.u8(102);
             player.hash(h);
         }
+        crate::object::Rider::MustAttackPlayerThisCombat(player) => {
+            h.u8(255);
+            h.u16(461);
+            player.hash(h);
+        }
+        crate::object::Rider::CastOriginZone(zone) => {
+            h.u8(255);
+            h.u16(468);
+            h.u8(*zone as u8);
+        }
         crate::object::Rider::SuspendHaste(player) => {
             h.u8(103);
             player.hash(h);
@@ -1891,6 +1953,7 @@ fn hash_expansion_acquired_rider(h: &mut Hasher, rider: &crate::object::Rider) {
     }
 }
 
+#[allow(clippy::too_many_lines)] // one arm per cast/trigger rider
 fn hash_cast_keyword_rider(h: &mut Hasher, rider: &crate::object::Rider) {
     match rider {
         crate::object::Rider::SquadPaid(n) => {
@@ -1985,6 +2048,55 @@ fn hash_cast_keyword_rider(h: &mut Hasher, rider: &crate::object::Rider) {
             h.u16(363);
             h.u16(*word);
             h.u64(*mask);
+        }
+        crate::object::Rider::ManaTypesSpent(types) => {
+            h.u8(255);
+            h.u16(438);
+            types.hash(h);
+        }
+        crate::object::Rider::ConvokedCount(count) => {
+            h.u8(255);
+            h.u16(439);
+            h.u16(*count);
+        }
+        crate::object::Rider::EventManaSpent(spent) => {
+            h.u8(255);
+            h.u16(440);
+            h.u32(*spent);
+        }
+        crate::object::Rider::SpellCostExile(exiled) => {
+            h.u8(255);
+            h.u16(460);
+            exiled.hash(h);
+        }
+        crate::object::Rider::ControlledSubtypeOnCast(sub) => {
+            h.u8(255);
+            h.u16(464);
+            h.u16(sub.get());
+        }
+        crate::object::Rider::BeheldCostPower(src, power, mv) => {
+            h.u8(255);
+            h.u16(462);
+            src.hash(h);
+            h.i32(*power);
+            h.u32(*mv);
+        }
+        crate::object::Rider::EncoreAbility => {
+            h.u8(255);
+            h.u16(463);
+        }
+        crate::object::Rider::CastOriginZone(zone) => {
+            h.u8(255);
+            h.u16(468);
+            h.u8(*zone as u8);
+        }
+        crate::object::Rider::MayhemPaid => {
+            h.u8(255);
+            h.u16(475);
+        }
+        crate::object::Rider::UnearthAbility => {
+            h.u8(255);
+            h.u16(490);
         }
         _ => {}
     }
@@ -2873,6 +2985,60 @@ fn hash_object(h: &mut Hasher, obj: &GameObject) {
                 h.u16(*word);
                 h.u64(*mask);
             }
+            Rider::ManaTypesSpent(types) => {
+                h.u8(255);
+                h.u16(438);
+                types.hash(h);
+            }
+            Rider::ConvokedCount(count) => {
+                h.u8(255);
+                h.u16(439);
+                h.u16(*count);
+            }
+            Rider::EventManaSpent(spent) => {
+                h.u8(255);
+                h.u16(440);
+                h.u32(*spent);
+            }
+            Rider::MustAttackPlayerThisCombat(p) => {
+                h.u8(255);
+                h.u16(461);
+                h.u8(p.get());
+            }
+            Rider::SpellCostExile(exiled) => {
+                h.u8(255);
+                h.u16(460);
+                exiled.hash(h);
+            }
+            Rider::ControlledSubtypeOnCast(sub) => {
+                h.u8(255);
+                h.u16(464);
+                h.u16(sub.get());
+            }
+            Rider::BeheldCostPower(src, power, mv) => {
+                h.u8(255);
+                h.u16(462);
+                src.hash(h);
+                h.i32(*power);
+                h.u32(*mv);
+            }
+            Rider::EncoreAbility => {
+                h.u8(255);
+                h.u16(463);
+            }
+            Rider::CastOriginZone(zone) => {
+                h.u8(255);
+                h.u16(468);
+                h.u8(*zone as u8);
+            }
+            Rider::MayhemPaid => {
+                h.u8(255);
+                h.u16(475);
+            }
+            Rider::UnearthAbility => {
+                h.u8(255);
+                h.u16(490);
+            }
         }
     }
     // What the spell or ability on the stack was cast or put there with:
@@ -3215,6 +3381,45 @@ fn filter_hash(h: &mut Hasher, f: &baylee_cards_dsl::Filter) {
             h.u16(437);
             filter_hash(h, filter);
         }
+        F::PowerEqualsAmount(amt) => {
+            h.u8(255);
+            h.u16(438);
+            hash_filter_amount(h, amt);
+        }
+        F::ToughnessEqualsAmount(amt) => {
+            h.u8(255);
+            h.u16(439);
+            hash_filter_amount(h, amt);
+        }
+        F::CmcEqualsChosenNumber => {
+            h.u8(255);
+            h.u16(440);
+        }
+        F::PowerEqualsChosenNumber => {
+            h.u8(255);
+            h.u16(441);
+        }
+        F::ToughnessEqualsChosenNumber => {
+            h.u8(255);
+            h.u16(442);
+        }
+        F::WasCast => {
+            h.u8(255);
+            h.u16(465);
+        }
+        F::WasCastByYou => {
+            h.u8(255);
+            h.u16(466);
+        }
+        F::CastFromZone(zone) => {
+            h.u8(255);
+            h.u16(467);
+            h.u8(*zone as u8);
+        }
+        F::SurveilledByYouThisTurn => {
+            h.u8(255);
+            h.u16(489);
+        }
     }
 }
 
@@ -3235,7 +3440,9 @@ fn filter_amount_depth_exceeds(filter: &baylee_cards_dsl::Filter, depth: u8) -> 
         F::CmcAtMostAmount(amt)
         | F::CmcEqualsAmount(amt)
         | F::PowerAtMostAmount(amt)
-        | F::PowerAtLeastAmount(amt) => amount_filter_depth_exceeds(amt, depth + 1),
+        | F::PowerAtLeastAmount(amt)
+        | F::PowerEqualsAmount(amt)
+        | F::ToughnessEqualsAmount(amt) => amount_filter_depth_exceeds(amt, depth + 1),
         F::And(parts) | F::Or(parts) => parts
             .iter()
             .any(|inner| filter_amount_depth_exceeds(inner, depth)),
@@ -3268,9 +3475,18 @@ fn amount_filter_depth_exceeds(amt: &baylee_cards_dsl::Amount, depth: u8) -> boo
         | A::GreatestManaValueAmong(f)
         | A::TotalPowerAmong(f)
         | A::EnteredThisTurn { filter: f, .. }
+        | A::TokensCreatedThisTurn { filter: f, .. }
+        | A::LeftZoneThisTurn { filter: f, .. }
+        | A::PermanentsSacrificedThisTurn { filter: f, .. }
         | A::SpellsCastMatchingThisTurn { filter: f, .. }
         | A::CreaturesAttackedThisTurn { filter: f, .. }
-        | A::DistinctManaValuesInZone { filter: f, .. } => filter_amount_depth_exceeds(f, depth),
+        | A::DistinctManaValuesInZone { filter: f, .. }
+        | A::DistinctPowersAmong(f)
+        | A::HighestControlledCount { filter: f, .. }
+        | A::TotalManaValueInZone { filter: f, .. }
+        | A::DistinctExactManaCostsInZone { filter: f, .. } => {
+            filter_amount_depth_exceeds(f, depth)
+        }
         A::ThisWay(tw) | A::ThisWayBy { what: tw, .. } => match tw {
             TW::Died(f)
             | TW::Destroyed(f)

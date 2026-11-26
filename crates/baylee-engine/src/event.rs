@@ -487,6 +487,9 @@ pub enum GameEvent {
     /// gaining the other — and the game's first designation is the same
     /// change from nothing.
     DayNightChanged {
+        /// The designation the game had immediately prior (`None` when neither
+        /// day nor night).
+        previous: Option<crate::turn::DayNight>,
         /// The designation the game now has.
         now: crate::turn::DayNight,
     },

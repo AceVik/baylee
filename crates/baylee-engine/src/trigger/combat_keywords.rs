@@ -6,7 +6,7 @@
 //! - Training (CR 702.149a–b)
 
 use super::events::{ObjectMove, object_moves};
-use super::{PendingTrigger, source_at_event_with_moves, times_triggered};
+use super::{PendingTrigger, source_at_event_with_moves};
 use crate::{
     event::{GameEvent, JournalEntry},
     object::GameObject,
@@ -69,6 +69,7 @@ static MENTOR_EFFECTS: &[Effect] = &[Effect::AddCounter {
     amount: Amount::Fixed(1),
 }];
 
+#[allow(clippy::too_many_lines)]
 pub(super) fn collect(
     state: &GameState,
     obj: &GameObject,
@@ -94,7 +95,12 @@ pub(super) fn collect(
         if (kws.bits() & COMBAT_ATTACK_KEYWORDS.bits()) == 0 {
             continue;
         }
-        let multiplier = times_triggered(state, TriggerEventKind::Attack, permanent);
+        let multiplier = super::matching::times_triggered_for_entry(
+            state,
+            TriggerEventKind::Attack,
+            source,
+            Some(entry),
+        );
         if multiplier == 0 {
             continue;
         }
@@ -228,7 +234,12 @@ pub(super) fn collect_enlist(
             continue;
         }
         let source = source_at_event_with_moves(state, obj, moves, entry.seq, false);
-        let n = times_triggered(state, TriggerEventKind::Any, permanent);
+        let n = super::matching::times_triggered_for_entry(
+            state,
+            TriggerEventKind::Any,
+            source,
+            Some(entry),
+        );
         if n == 0 {
             continue;
         }

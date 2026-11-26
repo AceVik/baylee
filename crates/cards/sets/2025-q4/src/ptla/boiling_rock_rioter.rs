@@ -44,7 +44,7 @@ card!(
         ),
         activated!(
             cost!(TapOther(&COST1)),
-            &[Effect::exile(TargetSpec::CardInGraveyard(
+            &[Effect::exile_linked(TargetSpec::CardInGraveyard(
                 &Filter::Any,
                 PlayerRel::EachPlayer
             ))],

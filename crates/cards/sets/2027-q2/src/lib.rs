@@ -13,6 +13,8 @@
 // What a card file names as `crate::…`.
 pub use baylee_cards_base::{filters, generated_tokens, tokens};
 
+#[path = "mdc/gargantos_the_endbringer.rs"]
+pub mod gargantos_the_endbringer;
 #[path = "mdd/penance_stare.rs"]
 pub mod penance_stare;
 #[path = "mdd/rise_from_the_nether.rs"]

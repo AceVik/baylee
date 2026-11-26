@@ -24,7 +24,7 @@ card!(
     abilities = &[
         triggered!(
             Trigger::Attacks(&Filter::This),
-            &[Effect::exile(TargetSpec::CardInGraveyard(
+            &[Effect::exile_linked(TargetSpec::CardInGraveyard(
                 &Filter::CREATURE,
                 PlayerRel::You
             ))],

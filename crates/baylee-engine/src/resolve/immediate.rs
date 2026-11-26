@@ -454,6 +454,7 @@ pub(super) fn exec_immediate(
         | Effect::DamageEqualToPower { .. }
         | Effect::EventObjectDealsDamageEqualToPower { .. }
         | Effect::EventObjectDealsDamage { .. }
+        | Effect::EventObjectDealsDamageEach { .. }
         | Effect::DealDamageEvenlyToFilter { .. }
         | Effect::TargetDealsDamageToController { .. }
         | Effect::DealDamageToTargetController { .. }
@@ -592,6 +593,8 @@ pub(super) fn exec_immediate(
         | Effect::AddCounterSource { .. }
         | Effect::AddCounter { .. }
         | Effect::PutEachCounterKindFromSource { .. }
+        | Effect::PutAllCountersFrom { .. }
+        | Effect::PutAllCountersFromIntoFound { .. }
         | Effect::AddCountersUpTo { .. }
         | Effect::RemoveCounterSelf { .. }
         | Effect::RemoveAllCountersSelf { .. }
@@ -612,6 +615,8 @@ pub(super) fn exec_immediate(
         | Effect::PumpTarget { .. }
         | Effect::PumpEventObject { .. }
         | Effect::PumpTargetSlot { .. }
+        | Effect::DoublePT { .. }
+        | Effect::PutCountersOnChosenControlled { .. }
         | Effect::PutCountersDivided { .. } => counters::exec(state, res, op),
         Effect::MarkLandWithCounter { .. }
         | Effect::ScheduleLinkedCounterCleanup { .. }
@@ -1757,6 +1762,18 @@ pub(super) fn exec_immediate(
                 }
             }
         }
+        Effect::ChoosePlayerAtRandom { among } => {
+            let options = players_of(among, state, you, res);
+            res.chosen_player = match options.as_slice() {
+                [] => None,
+                [only] => Some(*only),
+                many => {
+                    let idx = state.rng.below(many.len() as u64) as usize;
+                    Some(many[idx])
+                }
+            };
+            None
+        }
         // The player as this resolves; each target, until end of turn.
         Effect::CantBeBlockedByPlayerThisTurn { by } => {
             let player = players_of(by, state, you, res).first().copied()?;
@@ -2305,6 +2322,13 @@ pub(super) fn exec_immediate(
             haste_until_eot,
         ),
         Effect::EmpowerJace { token, amount } => super::empower::start(state, res, token, amount),
+        Effect::Empower { token, amount } => {
+            let Ok(n) = u16::try_from(super::amount2(&amount, state, res.controller, res)) else {
+                state.numeric_failure = Some("empower counter instruction exceeds u16");
+                return None;
+            };
+            super::empower::start(state, res, token, n)
+        }
         Effect::ModifyEvent { modifier, duration } => {
             let subject =
                 subjects::event(state, res).filter(|r| subjects::is_current(state, *r))?;
@@ -3045,6 +3069,56 @@ pub(super) fn exec_immediate(
                 min: 0,
                 max: 1,
                 prompt: ChoicePrompt::Wish,
+                total: None,
+            })
+        }
+        Effect::Learn => {
+            // CR 701.46a–b & CR 903.11: first offer revealing a Lesson card owned
+            // outside the game (outside Commander); if none exist (or declined in
+            // resume), offer discarding a card to draw a card.
+            let lessons: Vec<ObjectId> = if state.format == baylee_core::preset::FormatId::Commander
+            {
+                Vec::new()
+            } else {
+                state
+                    .zones
+                    .list(ZoneLocation::OutsideGame(you))
+                    .iter()
+                    .copied()
+                    .filter(|id| {
+                        state.object(*id).is_some_and(|o| {
+                            o.owner == you
+                                && o.is_card()
+                                && !o.status.contains(crate::object::Status::FACE_DOWN)
+                                && o.characteristics()
+                                    .subtypes
+                                    .contains(baylee_core::generated::subtypes::spell::LESSON)
+                        })
+                    })
+                    .collect()
+            };
+            if !lessons.is_empty() {
+                res.awaiting = Some(AwaitingOp::LearnWish);
+                return Some(Pending::ChooseCards {
+                    player: you,
+                    options: lessons,
+                    min: 0,
+                    max: 1,
+                    prompt: ChoicePrompt::Wish,
+                    total: None,
+                });
+            }
+            let hand: Vec<ObjectId> = state.zones.list(ZoneLocation::Hand(you)).clone();
+            if hand.is_empty() {
+                return None;
+            }
+            res.awaiting = Some(AwaitingOp::DiscardThenDraw);
+            Some(Pending::ChooseCards {
+                player: you,
+                options: hand,
+                min: 0,
+                max: 1,
+                prompt: ChoicePrompt::Discard,
                 total: None,
             })
         }
@@ -4469,6 +4543,15 @@ pub(super) fn exec_immediate(
             then,
             op,
         ),
+        Effect::ChooseDistinctPowersOnBattlefield {
+            chooser,
+            filter,
+            min,
+            max,
+            then,
+        } => super::wave15b::choose_distinct_powers_on_battlefield(
+            state, res, chooser, filter, min, max, then, op,
+        ),
         Effect::DiscardDefined { cards } => super::wave15b::discard_defined(state, res, cards),
     }
 }
@@ -4778,6 +4861,38 @@ pub(super) fn resolution_condition(
                     .riders
                     .contains(&crate::object::Rider::OptionalCostPaid)
             }),
+        Condition::ControlledSubtypeOnCast(sub) => state
+            .object(res.on_stack)
+            .filter(|object| object.kind == crate::object::ObjectKind::Spell)
+            .or_else(|| state.damage_source(res.source, source_version(state, res)))
+            .or_else(|| state.object(res.on_stack))
+            .is_some_and(|object| {
+                object
+                    .riders
+                    .contains(&crate::object::Rider::ControlledSubtypeOnCast(sub))
+            }),
+        Condition::SourceWasCastByYou => state
+            .object(res.on_stack)
+            .filter(|object| object.kind == crate::object::ObjectKind::Spell)
+            .or_else(|| state.damage_source(res.source, source_version(state, res)))
+            .is_some_and(|object| object.cast_history.caster() == Some(res.controller)),
+        Condition::SourceWasCast => state
+            .object(res.on_stack)
+            .filter(|object| object.kind == crate::object::ObjectKind::Spell)
+            .or_else(|| state.damage_source(res.source, source_version(state, res)))
+            .is_some_and(|object| object.cast_history.caster().is_some()),
+        Condition::CastFromOtherThanHand => state
+            .object(res.on_stack)
+            .filter(|object| object.kind == crate::object::ObjectKind::Spell)
+            .or_else(|| state.damage_source(res.source, source_version(state, res)))
+            .is_some_and(|object| {
+                object.cast_history.caster().is_some() && !object.cast_history.was_from_hand()
+            }),
+        Condition::SourceCastFromZone(zone) => state
+            .object(res.on_stack)
+            .filter(|object| object.kind == crate::object::ObjectKind::Spell)
+            .or_else(|| state.damage_source(res.source, source_version(state, res)))
+            .is_some_and(|object| eval::object_was_cast_from_zone(object, zone)),
         Condition::IsRenowned => state
             .damage_source(res.source, source_version(state, res))
             .is_some_and(|object| object.riders.contains(&crate::object::Rider::Renowned)),

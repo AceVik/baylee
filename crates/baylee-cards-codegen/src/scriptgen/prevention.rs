@@ -712,6 +712,18 @@ impl Tx<'_> {
             if has_you && has_you_perm {
                 return Some("DamageRecipients::PlayersOrTheirPermanents(PlayerRel::You)".into());
             }
+            if self.has_chosen_source_player() {
+                let has_chosen_player =
+                    parts.contains(&"Player.Chosen") || parts.contains(&"ChosenPlayer");
+                let has_chosen_perm =
+                    parts.contains(&"Permanent.ChosenCtrl") || parts.contains(&"Card.ChosenCtrl");
+                if has_chosen_player && has_chosen_perm {
+                    return Some(
+                        "DamageRecipients::PlayersOrTheirPermanents(PlayerRel::ChosenBySource)"
+                            .into(),
+                    );
+                }
+            }
         }
         let expr = self.prevention_permanent_target(&parts.join(","))?;
         if expr == "Filter::This" {
@@ -1467,6 +1479,12 @@ impl Tx<'_> {
         )?;
         let source_expr = match valid_source.as_deref() {
             None => "Filter::Any".to_string(),
+            Some("Creature.!IsRemembered") if remember_self => {
+                "Filter::ANOTHER_CREATURE".to_string()
+            }
+            Some("Card.!IsRemembered" | "Permanent.!IsRemembered") if remember_self => {
+                "Filter::Not(&Filter::This)".to_string()
+            }
             Some(vs) => self.prevention_source_filter(vs)?,
         };
         let src_ref = self.body.filter_static("SOURCE", &source_expr);
@@ -1496,7 +1514,7 @@ impl Tx<'_> {
             | (None, None, false, Some("Card.Self" | "Creature.Self")) => {
                 "Some(TargetSpec::Source)".to_string()
             }
-            (None, None, false, None) => "None".to_string(),
+            (None, None, _, None) => "None".to_string(),
             (None, None, false, Some("You")) => {
                 "Some(TargetSpec::Player(PlayerRel::You))".to_string()
             }
@@ -1888,7 +1906,8 @@ impl Tx<'_> {
                     other => {
                         if other.contains("Ctrl")
                             || other.contains("Own")
-                            || other.contains("wasCast")
+                            || (!matches!(other, "wasCast" | "wasCastByYou")
+                                && other.contains("wasCast"))
                             || other.contains("IsRemembered")
                             || other == "Self"
                         {

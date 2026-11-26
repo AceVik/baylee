@@ -810,11 +810,17 @@ fn render_face(
         if let Some(warp) = body.warp.as_deref() {
             fields.push(format!("warp = {warp}"));
         }
+        if let Some(mayhem) = body.mayhem.as_deref() {
+            fields.push(format!("mayhem = {mayhem}"));
+        }
         if let Some(optional_cost) = body.optional_cost.as_deref() {
             fields.push(format!("optional_cost = {optional_cost}"));
         }
         if body.optional_cost_grants_flash {
             fields.push("optional_cost_grants_flash = true".to_string());
+        }
+        if body.waterbend {
+            fields.push("waterbend = true".to_string());
         }
         if let Some(cr) = body.cost_reduction.as_deref() {
             fields.push(format!("cost_reduction = {cr}"));

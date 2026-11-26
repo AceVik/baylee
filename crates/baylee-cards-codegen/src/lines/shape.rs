@@ -76,7 +76,11 @@ pub fn line_shape(line: &str) -> LineShape {
         // rather than a full stop, and carries a `{`. The pool's shortest
         // grant is 46 characters and only that length stood between this
         // and the same defect one branch over.
-        if line.contains(':') || granted_crew_number(line).is_some() {
+        if line.contains(':')
+            || granted_crew_number(line).is_some()
+            || lower.contains("has encore")
+            || lower.contains("has embalm")
+        {
             return LineShape::Grant;
         }
         // A keyword ability with a cost is a printed sentence too, and it

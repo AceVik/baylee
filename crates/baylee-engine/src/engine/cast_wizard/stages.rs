@@ -402,6 +402,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                                 CostPart::SacrificeX(_)
                                     | CostPart::TapX(_)
                                     | CostPart::DiscardX(_)
+                                    | CostPart::RevealFromHandX(_)
                                     | CostPart::ExileFromGraveyardX(_)
                                     | CostPart::RemoveAnyCounterX { .. }
                             )
@@ -1455,37 +1456,46 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 // tap spent for nothing, as in the delve stage above.
                 let generic =
                     |cost: &ManaCost| usize::try_from(cost.generic_total()).unwrap_or(usize::MAX);
-                let (sources, room) = if face.waterbend && wizard.kicked {
-                    let waterbend = face
-                        .additional_costs
-                        .iter()
-                        .fold(ManaCost::ZERO, |total, add| total.combine(&add.mana));
-                    (
-                        crate::casting::waterbend_sources(&self.state, wizard.player),
-                        generic(&waterbend),
-                    )
-                } else if face.convoke
-                    || crate::casting::has_improvise(&self.state, face, wizard.player)
-                {
-                    // Convoke's creatures and improvise's artifacts
-                    // (CR 702.126a), each permanent once.
-                    let sources =
-                        crate::casting::tap_to_pay_sources(&self.state, face, wizard.player);
-                    let left = wizard_total_cost(face, &wizard).with_less_generic(
-                        u32::try_from(wizard.delve_exiles.len()).unwrap_or(u32::MAX),
-                    );
-                    let (rest, colored) = left.convoked_colored(&crate::casting::tap_colors(
-                        &self.state,
-                        face,
-                        &sources,
-                    ));
-                    let room = usize::try_from(colored)
-                        .unwrap_or(usize::MAX)
-                        .saturating_add(generic(&rest));
-                    (sources, room)
-                } else {
-                    (Vec::new(), 0)
-                };
+                let (sources, room) =
+                    if face.waterbend && (wizard.kicked || wizard.optional_cost_paid) {
+                        let mut waterbend = if wizard.kicked {
+                            face.additional_costs
+                                .iter()
+                                .fold(ManaCost::ZERO, |total, add| total.combine(&add.mana))
+                        } else {
+                            ManaCost::ZERO
+                        };
+                        if wizard.optional_cost_paid
+                            && let Some(opt) = face.optional_cost
+                        {
+                            waterbend = waterbend.combine(&opt.mana);
+                        }
+                        (
+                            crate::casting::waterbend_sources(&self.state, wizard.player),
+                            generic(&waterbend),
+                        )
+                    } else if face.convoke
+                        || crate::casting::has_improvise(&self.state, face, wizard.player)
+                    {
+                        // Convoke's creatures and improvise's artifacts
+                        // (CR 702.126a), each permanent once.
+                        let sources =
+                            crate::casting::tap_to_pay_sources(&self.state, face, wizard.player);
+                        let left = wizard_total_cost(face, &wizard).with_less_generic(
+                            u32::try_from(wizard.delve_exiles.len()).unwrap_or(u32::MAX),
+                        );
+                        let (rest, colored) = left.convoked_colored(&crate::casting::tap_colors(
+                            &self.state,
+                            face,
+                            &sources,
+                        ));
+                        let room = usize::try_from(colored)
+                            .unwrap_or(usize::MAX)
+                            .saturating_add(generic(&rest));
+                        (sources, room)
+                    } else {
+                        (Vec::new(), 0)
+                    };
                 if sources.is_empty() || room == 0 {
                     let mut wizard = wizard;
                     wizard.stage = WizardStage::Sacrifice;

@@ -536,15 +536,26 @@ fn extra_statics_panharmonicon_and_disable_triggers() {
         ]
     );
 
-    assert!(refused(
+    let narrow_cause = read(
         "Name:NarrowCause\nTypes:Artifact\n\
          S:Mode$ Panharmonicon | ValidMode$ ChangesZone,ChangesZoneAll | \
-         ValidCard$ Permanent.YouCtrl | ValidCause$ Artifact,Creature | Destination$ Battlefield"
-    ));
-    assert!(refused(
+         ValidCard$ Permanent.YouCtrl | ValidCause$ Artifact,Creature | Destination$ Battlefield",
+    );
+    assert!(
+        narrow_cause.abilities[0].contains("ReplacementRule::TriggerMultiplierMatching")
+            && narrow_cause.abilities[0].contains("TriggerCause::EntersBattlefield"),
+        "{:?}",
+        narrow_cause.abilities
+    );
+    let draw_mult = read(
         "Name:DrawMult\nTypes:Artifact\n\
-         S:Mode$ Panharmonicon | ValidMode$ Drawn | ValidCard$ Permanent.YouCtrl"
-    ));
+         S:Mode$ Panharmonicon | ValidMode$ Drawn | ValidCard$ Permanent.YouCtrl",
+    );
+    assert!(
+        draw_mult.abilities[0].contains("TriggerCause::CardDrawn(PlayerRel::EachPlayer)"),
+        "{:?}",
+        draw_mult.abilities
+    );
 
     let suppress = read(
         "Name:SuppressEtb\nTypes:Creature\nPT:4/7\n\
@@ -1043,7 +1054,7 @@ fn extra_statics_life_lock_search_lock_and_life_gain_draw() {
     );
 
     assert!(refused(
-        "Name:AllDmgNoPrevent\nTypes:Enchantment\nS:Mode$ CantPreventDamage"
+        "Name:ScopedDmgNoPrevent\nTypes:Enchantment\nS:Mode$ CantPreventDamage | ValidSource$ Creature.YouCtrl"
     ));
     assert!(refused(
         "Name:AllCantSearch\nTypes:Enchantment\nS:Mode$ CantSearchLibrary | ValidPlayer$ Player"
@@ -1175,6 +1186,24 @@ fn station_keyword_and_threshold_statics_abilities_and_triggers() {
     assert!(refused(
         "Name:StationSpell\nManaCost:1 U\nTypes:Sorcery\nK:Station\nA:SP$ Draw | NumCards$ 1"
     ));
+
+    let modern_station = read(
+        "Name:RomulanTest\nManaCost:1 U\nTypes:Artifact Spacecraft\n\
+         K:Station\n\
+         S:Mode$ Continuous | AffectedDefined$ Self | Station$ 8 | AddType$ Creature | \
+         SetPower$ 4 | SetToughness$ 4 | AddKeyword$ Flying | Description$ STATION 8+ Flying [4/4]",
+    );
+    assert!(
+        modern_station.abilities.iter().any(|a| a
+            == "static_ability!(Filter::This, Modifier::AddTypeIfCountersAtLeast { \
+                kind: CounterKind::Charge, at_least: 8, types: TypeSet::CREATURE })")
+            && modern_station.abilities.iter().any(|a| a
+                == "static_ability!(Filter::This, Modifier::AddKeywordIfCountersAtLeast { \
+                    kind: CounterKind::Charge, at_least: 8, keywords: KeywordSet::FLYING })")
+            && !modern_station.abilities.iter().any(|a| a.contains("SetPT")),
+        "{:?}",
+        modern_station.abilities
+    );
 }
 
 #[test]
@@ -3173,10 +3202,16 @@ fn wave10c_spellcast_hand_atoms_svar_conditions_and_divide() {
             .contains("Filter::Not(&Filter::CastFromHand)")
     );
     assert!(paradox.statics.contains("Filter::CastFromHand"));
-    assert!(refused(
-        "Name:BadOriginDiscount\nTypes:Creature\nPT:2/2\n\
-         S:Mode$ ReduceCost | ValidCard$ Card.!wasCastFromYourHand | Activator$ You | Type$ Spell | Amount$ 1"
-    ));
+    let origin_discount = read(
+        "Name:OriginDiscount\nTypes:Creature\nPT:2/2\n\
+         S:Mode$ ReduceCost | ValidCard$ Card.!wasCastFromYourHand | Activator$ You | Type$ Spell | Amount$ 1",
+    );
+    assert!(
+        origin_discount.abilities[0].contains("Filter::CastFromZone(ZoneRef::Hand)")
+            && origin_discount.abilities[0].contains("Filter::OwnedByYou"),
+        "{:?}",
+        origin_discount.abilities
+    );
 
     let div_pt = read(
         "Name:GraveScale\nTypes:Creature\nPT:1/2\n\
@@ -3548,10 +3583,8 @@ fn wave12b_refusal_boundaries() {
          R:Event$ DamageDone | ActiveZones$ Battlefield | ValidSource$ Emblem | ValidTarget$ You | Prevent$ True",
         "Name:BadEmblemMismatch\nTypes:Enchantment\n\
          R:Event$ DamageDone | ActiveZones$ Battlefield | ValidSource$ Card.YouCtrl,Emblem.OppCtrl | ValidTarget$ You | Prevent$ True",
-        "Name:BadRaiseLifeCost\nTypes:Creature\nPT:5/4\n\
-         S:Mode$ RaiseCost | ValidTarget$ Card.Self | Activator$ Player.Opponent | Type$ Spell | Cost$ PayLife<3>",
-        "Name:BadRaiseNarrowTarget\nTypes:Creature\nPT:2/2\n\
-         S:Mode$ RaiseCost | ValidTarget$ Creature.YouCtrl | Activator$ Opponent | Type$ Spell | Amount$ 2",
+        "Name:BadRaisePlayerTarget\nTypes:Creature\nPT:5/4\n\
+         S:Mode$ RaiseCost | ValidTarget$ Player.Opponent | Activator$ Player.Opponent | Type$ Spell | Cost$ PayLife<3>",
         "Name:BadReduceColorTarget\nTypes:Creature\nPT:2/2\n\
          S:Mode$ ReduceCost | ValidTarget$ Card.Self | Activator$ You | Type$ Spell | Color$ U | Amount$ 1 | IgnoreGeneric$ True",
         "Name:BadReduceAllZoneTarget\nTypes:Instant\n\
@@ -3564,8 +3597,8 @@ fn wave12b_refusal_boundaries() {
          S:Mode$ Continuous | Affected$ Creature.YouCtrl | AddStaticAbility$ Outer\n\
          SVar:Outer:Mode$ Continuous | Affected$ Creature.YouCtrl | AddStaticAbility$ Inner\n\
          SVar:Inner:Mode$ Continuous | AffectedDefined$ Self | AddPower$ 1",
-        "Name:BadFlashbackCost\nTypes:Enchantment\n\
-         S:Mode$ Continuous | Affected$ Instant.YouOwn | AffectedZone$ Graveyard | AddKeyword$ Flashback:1 R",
+        "Name:BadFlashbackNonMana\nTypes:Enchantment\n\
+         S:Mode$ Continuous | Affected$ Instant.YouOwn | AffectedZone$ Graveyard | AddKeyword$ Flashback:PayLife<3>",
         "Name:BadPowerUpActivations\nTypes:Creature\nPT:3/3\n\
          S:Mode$ Activations | ValidCard$ Permanent.YouCtrl | ValidSA$ Activated.PowerUp | ValidPlayer$ You | MinLimit$ 2",
     ] {
