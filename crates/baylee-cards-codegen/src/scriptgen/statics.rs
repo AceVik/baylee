@@ -786,6 +786,36 @@ impl Tx<'_> {
         })
     }
 
+    fn static_svar_condition(&mut self, var: &str, cmp: &str) -> Option<String> {
+        if let Some(cond) = self
+            .svar_condition_clause(var, cmp)
+            .or_else(|| self.promised_gift_svar_condition(var, cmp))
+            .or_else(|| self.reduce_cost_svar_condition(var, cmp))
+        {
+            return Some(cond);
+        }
+        let raw = if var.trim().starts_with("Count$") || var.trim().starts_with("PlayerCount") {
+            var.trim().to_string()
+        } else {
+            self.svars.get(var.trim())?.trim().to_string()
+        };
+        if raw == "ExiledWith$Amount" && !self.on_a_spell {
+            return Self::wave15_amount_cmp(
+                "Amount::CountOf { filter: &Filter::Any, zone: ZoneSel::LinkedExile }",
+                cmp.trim(),
+            );
+        }
+        if matches!(
+            raw.as_str(),
+            "PlayerCountPropertyYou$LifeLostThisTurn"
+                | "Count$LifeYouLostThisTurn"
+                | "PlayerCountPropertyYou$SacrificedThisTurn Permanent"
+        ) {
+            return self.wave16a_trigger_svar_condition(&raw, cmp);
+        }
+        None
+    }
+
     pub(super) fn static_conditions(
         &mut self,
         p: &mut Params,
@@ -825,11 +855,7 @@ impl Tx<'_> {
         }
         if let Some(var) = p.take("CheckSVar") {
             let cmp = p.take("SVarCompare").unwrap_or_else(|| "GE1".to_string());
-            let Some(first) = self
-                .svar_condition_clause(&var, &cmp)
-                .or_else(|| self.promised_gift_svar_condition(&var, &cmp))
-                .or_else(|| self.reduce_cost_svar_condition(&var, &cmp))
-            else {
+            let Some(first) = self.static_svar_condition(&var, &cmp) else {
                 return self.deny(check_svar_denial.to_string());
             };
             clauses.push(first);
@@ -837,11 +863,7 @@ impl Tx<'_> {
                 let cmp2 = p
                     .take("SecondSVarCompare")
                     .unwrap_or_else(|| "GE1".to_string());
-                let Some(second) = self
-                    .svar_condition_clause(&var2, &cmp2)
-                    .or_else(|| self.promised_gift_svar_condition(&var2, &cmp2))
-                    .or_else(|| self.reduce_cost_svar_condition(&var2, &cmp2))
-                else {
+                let Some(second) = self.static_svar_condition(&var2, &cmp2) else {
                     return self.deny(check_svar_denial.to_string());
                 };
                 clauses.push(second);
