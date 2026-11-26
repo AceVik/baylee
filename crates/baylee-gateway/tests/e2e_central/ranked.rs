@@ -24,6 +24,8 @@ mod receipts;
 mod relay;
 #[path = "ranked/replication.rs"]
 pub(super) mod replication;
+#[path = "ranked/runners.rs"]
+pub(super) mod runners;
 
 #[test]
 #[ignore = "requires owned PostgreSQL 18 fixture from cargo dev central integration --ranked-only"]

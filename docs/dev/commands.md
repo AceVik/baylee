@@ -20,7 +20,8 @@ cargo dev central gate                        # same full gate with an owned syn
 cargo dev central gate --features             # same feature gate with an owned synthetic PostgreSQL 18 fixture
 cargo dev stack gate [--features] [--workspace] # full/feature gate with an owned native PostgreSQL 18 (no Docker)
 cargo dev central integration --challenges-only # only the real Daily/Weekly pipeline and recovery regressions
-cargo dev central integration --ranked-only     # single-host ranked plus real mirrored engine failover and settlement
+cargo dev central integration --ranked-only     # single-host ranked, the ranked runners, and real mirrored engine failover and settlement
+cargo dev central integration --ai-players-only # only the ranked runners: two AI accounts with house minds play each other
 cargo dev gate wasm                           # optional experimental browser check (coming soon)
 DATABASE_URL=… cargo dev land [--check]       # full + features under the cargo lock, then ff-push to main
 cargo dev --help                              # every development task (crates/baylee-dev); `cargo tools --help` the release/asset tools

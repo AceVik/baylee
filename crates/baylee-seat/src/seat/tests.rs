@@ -172,6 +172,20 @@ fn a_chair_not_called_as_its_mind_must_be_is_left() {
     }
 }
 
+/// A ranked host names its chairs itself; a seat labelled by its account
+/// sits at a chair of any name, and is ready as any other.
+#[test]
+fn a_seat_labelled_by_its_account_sits_at_a_chair_the_host_named() {
+    let config = BridgeConfig {
+        labelled: crate::seat::Labelled::Account,
+        ..BridgeConfig::default()
+    };
+    let mut core = SeatCore::new(config, DeckList::default(), Disclosure::House);
+    assert!(core.hear(&table("Seat A", None)).is_empty());
+    let steps = core.hear(&view(1));
+    assert!(is_ready(&steps), "{steps:?}");
+}
+
 #[test]
 fn a_blitz_table_is_left_unless_the_bridge_is_told_to_sit() {
     let mut core = SeatCore::new(

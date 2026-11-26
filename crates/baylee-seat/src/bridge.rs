@@ -9,7 +9,7 @@
 //! - **time**: a question's budget runs out here ([`SeatCore::expired`]), and
 //!   a woken decision is not answered sooner than [`PlayOptions::min_think`]
 //!   after it was asked, so a person across the table can follow the game;
-//! - **the socket**: a dropped one is dialled again ([`SeatLink`]) and the
+//! - **the socket**: a dropped one is dialled again ([`SeatLink`](crate::link::SeatLink)) and the
 //!   table asked for what the seat missed ([`SeatCore::resumed`]);
 //! - **a mind that is down**: the socket is left, so the table sees an
 //!   absent player and its house holds the chair, and the mind is asked
@@ -19,7 +19,7 @@
 //!   the room only leaves the lobby. So the lobby is asked whenever the
 //!   socket has been quiet for [`PlayOptions::room_check`], before the seat
 //!   dials again, and at every poll of a mind that is down
-//!   ([`SeatLink::room_closed`]). A seat that finds its room gone ends its
+//!   ([`Table::room_closed`]). A seat that finds its room gone ends its
 //!   game with no result ([`SeatCore::closed`]).
 //!
 //! An answer the core gives while there is no socket is dropped: the table
@@ -61,12 +61,12 @@
 //! left): one bug report a report to the gateway under the seat's own
 //! session, or all in one on the seat token of a chair taken on its host's
 //! ticket, whose route takes one a game ([`PlayOptions::send_reports`],
-//! [`SeatLink::reporter`]), each with the seat's own game log as the
+//! [`Table::reporter`]), each with the seat's own game log as the
 //! core's memory holds it ([`crate::reports::game_log`]). Whatever becomes
 //! of them is a line of the transcript (`llm_reports`, its `route` saying
 //! which) and never touches the game.
 
-use crate::link::{SeatLink, Socket};
+use crate::link::{Socket, Table};
 use crate::mind::{Answer, Mind, MindError, Request};
 use crate::seat::{By, SeatCore, Stats, Step};
 use crate::transcript::Transcript;
@@ -159,7 +159,9 @@ pub struct Filing {
     /// The gateway route they went to, or would have: `"reports"` under
     /// the seat's own session (`POST /reports`, one a report), `"chair"` on
     /// the seat token of a chair taken on its host's ticket
-    /// (`POST …/chair/report`, which takes one a chair a game: all in one).
+    /// (`POST …/chair/report`, which takes one a chair a game: all in one),
+    /// or `"none"` for a seat whose table takes no reports (a ranked seat:
+    /// they stay in the reports file).
     pub route: &'static str,
 }
 
@@ -336,8 +338,8 @@ pub type Swaps = tokio::sync::mpsc::UnboundedReceiver<Swap>;
 /// When the seat leaves the table (a chair not called as the mind must be,
 /// a table too fast for it, a version it cannot read), or the table cannot
 /// be reached again.
-pub fn play<'a>(
-    link: &'a mut SeatLink,
+pub fn play<'a, L: Table>(
+    link: &'a mut L,
     core: SeatCore,
     mind: Arc<dyn Mind>,
     transcript: &'a mut Transcript,
@@ -354,8 +356,8 @@ pub fn play<'a>(
 ///
 /// # Errors
 /// As [`play`].
-pub fn play_swapping<'a>(
-    link: &'a mut SeatLink,
+pub fn play_swapping<'a, L: Table>(
+    link: &'a mut L,
     core: SeatCore,
     mind: Arc<dyn Mind>,
     transcript: &'a mut Transcript,
@@ -366,8 +368,8 @@ pub fn play_swapping<'a>(
     Box::pin(run(link, core, mind, transcript, options, swaps, fallbacks))
 }
 
-async fn run(
-    link: &mut SeatLink,
+async fn run<L: Table>(
+    link: &mut L,
     mut core: SeatCore,
     mind: Arc<dyn Mind>,
     transcript: &mut Transcript,
@@ -610,7 +612,7 @@ impl Bridge {
     /// for a chair taken on its host's ticket, all of them in one on its
     /// seat token ([`crate::reports::bundle`]), since that route takes one
     /// a chair a game and the gateway files it under the host's pseudonym
-    /// ([`SeatLink::reporter`]). Says in the transcript what became of them
+    /// ([`Table::reporter`]). Says in the transcript what became of them
     /// and by which route. Never fails the game: a report not sent stays in
     /// the reports file.
     ///
@@ -621,9 +623,9 @@ impl Bridge {
     /// account's budget an hour spent, a gateway without a feedback
     /// service), and so does [`REPORTS_WAIT`] for all of them
     /// ([`send_each`]).
-    async fn file_reports(
+    async fn file_reports<L: Table>(
         &mut self,
-        link: &SeatLink,
+        link: &L,
         transcript: &mut Transcript,
         memory: &crate::TableMemory,
     ) -> Option<Filing> {
@@ -633,8 +635,22 @@ impl Bridge {
         if self.reports.is_empty() {
             return None;
         }
+        let Some(reporter) = link.reporter() else {
+            // A ranked seat has no session at its host, and its relay no
+            // route for reports: they stay in the reports file.
+            let filing = Filing {
+                count: crate::reports::count(&self.reports),
+                bug_reports: 0,
+                sent: false,
+                report_id: None,
+                report_ids: Vec::new(),
+                why: Some("not sent: this seat's table takes no reports".to_string()),
+                route: "none",
+            };
+            transcript.write_value(&serde_json::json!({ "llm_reports": filing }));
+            return Some(filing);
+        };
         let log = crate::reports::game_log(memory);
-        let reporter = link.reporter();
         let (route, session, bodies) = match reporter {
             Reporter::Session(_, session) => (
                 "reports",
@@ -656,7 +672,7 @@ impl Bridge {
         let bug_reports = bodies.len();
         let mut secrets = vec![Secret {
             label: Keyring::SEAT,
-            value: &link.chair().seat_token,
+            value: link.seat_secret(),
         }];
         secrets.extend(session.map(|value| Secret {
             label: Keyring::SESSION,
@@ -918,11 +934,11 @@ impl Bridge {
 
     /// The room closed without a result: whatever the mind is thinking
     /// about is dropped, and the seat's game is over.
-    async fn closed(
+    async fn closed<L: Table>(
         &mut self,
         core: &mut SeatCore,
         transcript: &mut Transcript,
-        link: &SeatLink,
+        link: &L,
     ) -> Played {
         tracing::info!("the room closed without a result for this seat");
         let steps = core.closed();
@@ -933,12 +949,12 @@ impl Bridge {
 
     /// How the game went, once it is over for the seat: its reports filed
     /// first, the transcript flushed.
-    async fn played(
+    async fn played<L: Table>(
         &mut self,
         core: &SeatCore,
         result: Option<GameResult>,
         transcript: &mut Transcript,
-        link: &SeatLink,
+        link: &L,
     ) -> Played {
         let reports = self.file_reports(link, transcript, core.memory()).await;
         transcript.flush();
@@ -1058,7 +1074,7 @@ impl Bridge {
     /// or the room has closed meanwhile (`false`): the house plays on for a
     /// seat whose socket is gone, and may finish the game before the mind
     /// comes back, if it ever does.
-    async fn wait_for_mind(&mut self, link: &mut SeatLink) -> bool {
+    async fn wait_for_mind<L: Table>(&mut self, link: &mut L) -> bool {
         loop {
             tokio::time::sleep(self.options.mind_poll).await;
             // A mind handed over meanwhile is the one asked.

@@ -259,6 +259,38 @@ fn build_timeout() -> Duration {
     Duration::from_secs(if interactive { 900 } else { 300 })
 }
 
+/// Which scenarios `integration` runs.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Only {
+    /// Every scenario (or the one a special environment selects).
+    Everything,
+    /// Challenge generation, play, recovery and evaluation.
+    Challenges,
+    /// The cross-gateway ranked queue, game and settlement, the ranked
+    /// runners included.
+    Ranked,
+    /// The ranked runners: two AI accounts play each other.
+    AiPlayers,
+}
+
+impl Only {
+    /// The tests it selects, how many must pass, and the seconds they may
+    /// take: five minutes each, and five more for the runners' game, which
+    /// plays a whole game through Central's relay.
+    fn selection(self, special: bool) -> (&'static str, u64, u64) {
+        match self {
+            Self::AiPlayers => ("e2e_central::ranked::runners::", 1, 600),
+            Self::Ranked => ("e2e_central::ranked::", 3, 1200),
+            _ if special => (
+                "e2e_central::central_login_migrates_then_restores_and_admits_without_the_legacy_password",
+                1,
+                300,
+            ),
+            Self::Everything | Self::Challenges => ("e2e_central::", 4, 1500),
+        }
+    }
+}
+
 /// `integration`: builds first, so the bounded handoff to a UI run is spent
 /// on the test and not the compile; then bootstraps Central's roles and runs
 /// the selected end-to-end scenarios. `cancel` ends it early when it exists.
@@ -266,9 +298,10 @@ pub fn integration(
     config: Option<&Path>,
     cancel: Option<&Path>,
     failure: bool,
-    challenges_only: bool,
-    ranked_only: bool,
+    only: Only,
 ) -> Result<i32> {
+    let challenges_only = only == Only::Challenges;
+    let ranked_only = matches!(only, Only::Ranked | Only::AiPlayers);
     let options = cargo_options(config)?;
     let publisher = integration_publisher()?;
     let special = challenges_only
@@ -306,16 +339,7 @@ pub fn integration(
             "Testing real PostgreSQL {} with isolated migration and runtime roles.",
             pg.version()?
         );
-        let (selector, expected) = if ranked_only {
-            ("e2e_central::ranked::", 2)
-        } else if special {
-            (
-                "e2e_central::central_login_migrates_then_restores_and_admits_without_the_legacy_password",
-                1,
-            )
-        } else {
-            ("e2e_central::", 3)
-        };
+        let (selector, expected, seconds) = only.selection(special);
         let mut test = test_command(
             &options,
             &[
@@ -352,8 +376,7 @@ pub fn integration(
         } else {
             0
         };
-        let done =
-            Owned::spawn(&mut test)?.wait(Duration::from_secs(300 * expected + ui_hold), cancel)?;
+        let done = Owned::spawn(&mut test)?.wait(Duration::from_secs(seconds + ui_hold), cancel)?;
         println!("{}", done.stdout);
         if !done.status.success() {
             println!("{}", done.stderr);
@@ -385,6 +408,7 @@ fn bootstrap(migrator: &str, runtime: &str, legacy: &str) -> String {
         "central_native_test",
         "central_ranked_test",
         "central_replica_test",
+        "central_runners_test",
     ]));
     sql
 }
@@ -498,6 +522,7 @@ mod tests {
             "central_native_test",
             "central_ranked_test",
             "central_replica_test",
+            "central_runners_test",
         ] {
             assert!(sql.contains(&format!("CREATE DATABASE {db} OWNER central_migrator;")));
             assert!(sql.contains(&format!(
