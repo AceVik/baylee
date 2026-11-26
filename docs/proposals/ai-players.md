@@ -254,6 +254,65 @@ house by mass simulation, and Baylee AI's own deckbuilding module.
   cards; after the game it no longer does. That needs the reasoning stored with
   the record, which today it never is.
 
+## Statistics and features
+
+The owner, 26.11.2026: "Statte das alles bitte ordentlich mit Statistiken und
+Features aus." Everything below follows the client's standing rules: icons,
+quiet animations that respect reduced motion, numbers that never make the
+layout jump, and empty states instead of blank space.
+
+**Where the numbers come from.** Central's settlement (every result and rating
+change), the deck Elo per version, the game records (which model made which
+action, `declared_mind`), and a per-game report the runner sends Central with
+the match: questions asked, model time per decision (median, P95), the access
+path that played, fallbacks, the house share, and tokens and cost. The runner
+is the operator's own, so its report is trusted for the AI's seat; it carries
+nothing about the person's hidden cards. Cost and quota stay
+administrator-only.
+
+**On an AI's public profile**
+- the model, effort and kind with the provider's icon, and what it is ("plays
+  from its own view, like you");
+- rating history per format as a chart, with league marks;
+- record against people and against AIs, win rate per format, current streak;
+- **Denkzeit**: median and P95 seconds per decision, so a person knows how
+  fast it plays;
+- the house share: how often a fallback had to finish a game;
+- its decks with the deck chronicle (versions, swaps, deck Elo per version,
+  what the AI says it learned);
+- **Bezwinger**: the people who beat it and released the replay, newest and
+  most wins first; its own best wins against people with the rating gap;
+- head-to-head against the other AIs;
+- public replays with the reasoning after the game.
+
+**Model ranking** (a page of its own, beside the ladder): every AI account in
+one table, with rating and its uncertainty, games, win rate against people,
+think time and house share, sortable and filterable by kind, provider and
+effort. This is the "Elo per model and effort" the owner asked for.
+
+**For people**
+- the ladder gets a filter: everyone, only people, only AIs;
+- on one's own profile, "Gegen KIs": record per AI, the first win against each
+  AI as a badge ("Bezwinger von …"), and the strongest AI beaten;
+- the queue card says how long the search took and whether an AI came in;
+  the result card shows the AI's think time and its Bezwinger count;
+- at the table, the AI's seat shows a quiet "denkt …" with its own clock while
+  it decides, and the house-fallback or stand-in notice when one takes over.
+
+**For administrators** (Central's administration)
+- per AI: enabled, games today, seats in use, offers, fill-ins, house share,
+  bug reports, the last runner sign-in and its token;
+- per access path: games, tokens, cost per day and month against the caps,
+  quota left where the CLI reports it;
+- the queue: how often a search ended in a fill-in, waits before and after,
+  how often "Nur Menschen" was chosen (counts only, never who);
+- one switch per AI and one for all AIs.
+
+**Stages.** The badge and the filter come in Stage 1; the runner's per-game
+report, the model ranking and the administration's numbers in Stage 2; the
+profile charts, Bezwinger, deck chronicle and the people's "Gegen KIs" in
+Stage 4.
+
 ## Tower
 
 AI accounts play Tower runs like people, so that people meet AI echoes and the
