@@ -509,14 +509,27 @@ impl Tx<'_> {
         if api == "Vote" {
             return self.vote_chain(p, sub.as_deref(), chain);
         }
-        if !second_target_here
-            && api == "NameCard"
-            && sub.is_some()
-            && self
+        if !second_target_here && api == "NameCard" && sub.is_some() {
+            if self
                 .wave29d_try_name_card_reveal_random(&p, sub.as_deref(), chain)
                 .is_some()
-        {
-            return Some(());
+            {
+                return Some(());
+            }
+            let saved_target = chain.target.clone();
+            let saved_effects_len = chain.effects.len();
+            let saved_unclaimed = self.unclaimed.borrow().clone();
+            let saved_statics_len = self.body.statics.len();
+            if self
+                .try_name_card_chain(&p, sub.as_deref(), targets_here, chain)
+                .is_some()
+            {
+                return Some(());
+            }
+            chain.target = saved_target;
+            chain.effects.truncate(saved_effects_len);
+            *self.unclaimed.borrow_mut() = saved_unclaimed;
+            self.body.statics.truncate(saved_statics_len);
         }
         if !second_target_here
             && chain.effects.is_empty()
@@ -541,7 +554,34 @@ impl Tx<'_> {
             *self.unclaimed.borrow_mut() = saved_unclaimed;
             self.body.statics.truncate(saved_statics_len);
         }
-        if !second_target_here && matches!(api.as_str(), "ChooseCard" | "PeekAndReveal" | "Reveal")
+        let is_choose_card_delayed_target_only = api == "ChooseCard"
+            && targets_here
+            && !second_target_here
+            && !had_second_target
+            && !p.has("Choices")
+            && !p.has("ChoiceZone")
+            && !p.has("DefinedCards")
+            && !p.has("AtRandom")
+            && !p.has("DifferentNames")
+            && !p.has("WithDifferentPowers")
+            && !p.has("WithTotalPower")
+            && !p.has("EachBasicType")
+            && !p.has("ChooseEach")
+            && !p.has("ControlledByPlayer")
+            && !p.has("MinAmount")
+            && !p.has("Amount")
+            && !p.has("TargetMin")
+            && !p.has("TargetMax")
+            && !p.has("RememberChosen")
+            && !p.has("ImprintChosen")
+            && !p.has("Secretly")
+            && !p.has("StartingWith")
+            && !p.has("Mandatory")
+            && !p.has("Optional")
+            && self.sub_is_api(sub.as_deref(), "DelayedTrigger");
+        if !second_target_here
+            && !is_choose_card_delayed_target_only
+            && matches!(api.as_str(), "ChooseCard" | "PeekAndReveal" | "Reveal")
         {
             let target = local_kicked_target.or_else(|| {
                 if had_second_target {
@@ -1159,7 +1199,14 @@ impl Tx<'_> {
                 })
         {
             effects
-        } else if api == "TargetOnly" {
+        } else if api == "TargetOnly"
+            || (api == "ChooseCard"
+                && targets_here
+                && !second_target_here
+                && !had_second_target
+                && !p.has("Choices")
+                && self.sub_is_api(sub.as_deref(), "DelayedTrigger"))
+        {
             if third_target_here {
                 p.take("IsCurse");
                 if !p.exhausted() {
@@ -4269,22 +4316,7 @@ impl Tx<'_> {
             "ChooseNumber" => {
                 self.choose_number_effect(p, target, targets_here, prior_target_used)?
             }
-            "NameCard" => {
-                if p.take("Defined").as_deref() != Some("You") {
-                    return None;
-                }
-                p.claim_label("ValidDescription", "ValidCards");
-                let excluded_supertypes = match p.take("ValidCards").as_deref() {
-                    None => "SupertypeSet::EMPTY",
-                    Some("Card.nonBasic") => "SupertypeSet::BASIC",
-                    Some(other) => {
-                        return self.deny(format!("a `NameCard` filter `{other}`"));
-                    }
-                };
-                vec![format!(
-                    "Effect::ChooseCardName {{ player: PlayerRel::You, types: TypeSet::EMPTY, excluded_types: TypeSet::EMPTY, excluded_supertypes: {excluded_supertypes}, remember: false }}"
-                )]
-            }
+            "NameCard" => self.name_card_effect(p, target, targets_here)?,
             "DealDamage" => {
                 let num_dmg = p.take("NumDmg")?;
                 let damage_source = p.take("DamageSource");

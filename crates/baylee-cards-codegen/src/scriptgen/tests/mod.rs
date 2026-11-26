@@ -14,6 +14,7 @@ mod dredge;
 mod effects;
 mod imprison;
 mod kicker;
+mod names;
 mod prevention_rules;
 mod reader_unlocks;
 mod reading;

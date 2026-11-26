@@ -153,12 +153,20 @@ fn a_name_restricted_reveal_moves_every_named_card_and_exiles_the_rest() {
          A:SP$ NameCard | Defined$ You",
     );
     assert!(unrestricted.contains("excluded_supertypes: SupertypeSet::EMPTY"));
-    let refused = reason(
-        "Name:UnknownRestriction\nManaCost:1 B\nTypes:Sorcery\n\
+    let nonland = ability(
+        "Name:NonlandRestriction\nManaCost:1 B\nTypes:Sorcery\n\
          A:SP$ NameCard | Defined$ You | ValidCards$ Card.nonLand",
     );
     assert!(
-        refused.contains("NameCard") && refused.contains("Card.nonLand"),
+        nonland.contains("excluded_types: TypeSet::LAND"),
+        "{nonland}"
+    );
+    let refused = reason(
+        "Name:UnknownRestriction\nManaCost:1 B\nTypes:Sorcery\n\
+         A:SP$ NameCard | Defined$ You | ValidCards$ Card.IsCommander",
+    );
+    assert!(
+        refused.contains("NameCard") && refused.contains("Card.IsCommander"),
         "{refused}"
     );
 }

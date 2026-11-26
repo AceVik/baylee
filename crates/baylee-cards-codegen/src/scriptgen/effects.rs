@@ -3320,6 +3320,7 @@ impl Tx<'_> {
         if valid.contains("IsRemembered")
             || valid.contains("EffectSource")
             || valid.contains("RememberedPlayer")
+            || valid.contains("NamedCard")
         {
             return None;
         }
@@ -12932,6 +12933,9 @@ impl Tx<'_> {
         target: Option<&str>,
         targets_a_player: bool,
     ) -> Option<Vec<String>> {
+        if rest.contains("NamedCard") {
+            return None;
+        }
         if let Some(base) = rest
             .strip_suffix(".ControlledBy TargetedPlayer")
             .or_else(|| rest.strip_suffix("+ControlledBy TargetedPlayer"))
