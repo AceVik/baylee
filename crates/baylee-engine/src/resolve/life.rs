@@ -38,6 +38,7 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
         | Effect::DamageEqualToPower { .. }
         | Effect::EventObjectDealsDamageEqualToPower { .. }
         | Effect::EventObjectDealsDamage { .. }
+        | Effect::EventObjectDealsDamageEach { .. }
         | Effect::DealDamageEvenlyToFilter { .. }
         | Effect::TargetDealsDamageToController { .. }
         | Effect::DealDamageToTargetController { .. }
@@ -1182,6 +1183,41 @@ fn assignments(state: &GameState, res: &Resolution, op: Effect) -> Vec<Assignmen
                 assignment.source_version = identity.map(|(version, _)| version);
             }
             assignments
+        }
+        Effect::EventObjectDealsDamageEach {
+            amount,
+            filter,
+            players,
+            exclude_event_object,
+        } => {
+            let Some(source) = res.event_object else {
+                return Vec::new();
+            };
+            let identity = event_object_identity(state, res);
+            let n = amount2(&amount, state, you, res);
+            let mut targets: Vec<DamageTarget> = state
+                .battlefield_seen()
+                .filter(|id| {
+                    (!exclude_event_object || *id != source)
+                        && state.object(*id).is_some_and(|o| {
+                            eval::matches_with_context(filter, state, o, you, res.rule_context())
+                        })
+                })
+                .map(DamageTarget::Object)
+                .collect();
+            if let Some(rel) = players {
+                for player in super::players_of(rel, state, you, res) {
+                    targets.push(DamageTarget::Player(player));
+                }
+            }
+            targets
+                .into_iter()
+                .map(|to| {
+                    let mut a = assignment(state, res, source, to, n);
+                    a.source_version = identity.map(|(version, _)| version);
+                    a
+                })
+                .collect()
         }
         Effect::DealDamageEvenlyToFilter { amount, filter } => {
             let targets: Vec<DamageTarget> = state

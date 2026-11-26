@@ -457,11 +457,11 @@ fn must_attack_player_honest_refusals() {
              SVar:MA:Mode$ MustAttack | ValidCreature$ Creature.IsRemembered | MustAttack$ EffectSource",
         ),
         (
-            "MustAttack$ ChosenPlayer with UntilEndOfCombat (engine rider is UntilEndOfTurn only)",
+            "MustAttack$ ChosenPlayer with UntilYourNextUpkeep (unsupported duration)",
             "Name:RavingLike\nManaCost:4 B\nTypes:Creature\nPT:2/6\n\
              T:Mode$ Phase | Phase$ BeginCombat | ValidPlayer$ You | TriggerZones$ Battlefield | Execute$ TrigChoose\n\
              SVar:TrigChoose:DB$ ChoosePlayer | Defined$ You | Choices$ Player.Opponent | Random$ True | SubAbility$ DBEffect\n\
-             SVar:DBEffect:DB$ Effect | StaticAbilities$ AttackChosen | Duration$ UntilEndOfCombat\n\
+             SVar:DBEffect:DB$ Effect | StaticAbilities$ AttackChosen | Duration$ UntilYourNextUpkeep\n\
              SVar:AttackChosen:Mode$ MustAttack | ValidCreature$ Card.EffectSource | MustAttack$ ChosenPlayer",
         ),
         (

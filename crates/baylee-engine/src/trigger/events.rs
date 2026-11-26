@@ -114,6 +114,17 @@ pub(super) fn event_amount_for(
         )
         .map(|matched| u32::try_from(matched.len()).unwrap_or(u32::MAX));
     }
+    if let Trigger::OneOrMoreAttack(filter) = trigger {
+        let count = batch
+            .iter()
+            .filter(|entry| {
+                matches!(entry.event, GameEvent::BecameAttacker { object, .. } if state
+                    .object(object)
+                    .is_some_and(|o| crate::eval::matches_with_context(filter, state, o, you, context)))
+            })
+            .count();
+        return (count > 0).then(|| u32::try_from(count).unwrap_or(u32::MAX));
+    }
     event_damage_of(trigger, event, batch)
 }
 
@@ -419,6 +430,8 @@ pub(super) fn event_object_for(
         (
             Trigger::DealsDamageToPlayer { .. }
             | Trigger::DealsCombatDamageToPlayer(_)
+            | Trigger::DealsCombatDamageToOpponent(_)
+            | Trigger::DealsDamageToOpponent(_)
             | Trigger::OneOrMoreDealCombatDamageToPlayer(_)
             | Trigger::DealsCombatDamageToYou(_)
             | Trigger::DealsCombatDamage(_)

@@ -89,6 +89,8 @@ pub mod containment_construct;
 pub mod covert_technician;
 #[path = "nec/cyberdrive_awakener.rs"]
 pub mod cyberdrive_awakener;
+#[path = "neo/debt_to_the_kami.rs"]
+pub mod debt_to_the_kami;
 #[path = "neo/disruption_protocol.rs"]
 pub mod disruption_protocol;
 #[path = "neo/dockside_chef.rs"]
@@ -105,6 +107,8 @@ pub mod ecologist_s_terrarium;
 pub mod eiganjo_exemplar;
 #[path = "neo/eiganjo_seat_of_the_empire.rs"]
 pub mod eiganjo_seat_of_the_empire;
+#[path = "neo/eiganjo_uprising.rs"]
+pub mod eiganjo_uprising;
 #[path = "neo/enthusiastic_mechanaut.rs"]
 pub mod enthusiastic_mechanaut;
 #[path = "neo/era_of_enlightenment.rs"]
@@ -127,6 +131,8 @@ pub mod forceful_cultivator;
 pub mod futurist_sentinel;
 #[path = "neo/generous_visitor.rs"]
 pub mod generous_visitor;
+#[path = "neo/geothermal_kami.rs"]
+pub mod geothermal_kami;
 #[path = "neo/gift_of_wrath.rs"]
 pub mod gift_of_wrath;
 #[path = "neo/gloomshrieker.rs"]
@@ -177,6 +183,8 @@ pub mod invoke_the_winds;
 pub mod ironhoof_boar;
 #[path = "nec/ironsoul_enforcer.rs"]
 pub mod ironsoul_enforcer;
+#[path = "neo/isshin_two_heavens_as_one.rs"]
+pub mod isshin_two_heavens_as_one;
 #[path = "neo/jin_gitaxias_progress_tyrant.rs"]
 pub mod jin_gitaxias_progress_tyrant;
 #[path = "neo/jukai_naturalist.rs"]
@@ -211,6 +219,8 @@ pub mod kitsune_ace;
 pub mod kodama_of_the_west_tree;
 #[path = "nec/komainu_battle_armor.rs"]
 pub mod komainu_battle_armor;
+#[path = "nec/kosei_penitent_warlord.rs"]
+pub mod kosei_penitent_warlord;
 #[path = "nec/kotori_pilot_prodigy.rs"]
 pub mod kotori_pilot_prodigy;
 #[path = "neo/kura_the_boundless_sky.rs"]
@@ -337,6 +347,8 @@ pub mod secluded_courtyard;
 pub mod selfless_samurai;
 #[path = "neo/seven_tail_mentor.rs"]
 pub mod seven_tail_mentor;
+#[path = "neo/shigeki_jukai_visionary.rs"]
+pub mod shigeki_jukai_visionary;
 #[path = "neo/short_circuit.rs"]
 pub mod short_circuit;
 #[path = "neo/shrine_steward.rs"]

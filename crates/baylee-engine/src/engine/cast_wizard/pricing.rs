@@ -52,6 +52,13 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 .expect("wizard card exists")
                 .clone();
             object.x_value = 0;
+            if (wizard.optional_cost_paid || wizard.option == Some(CastModeKind::OptionalCost))
+                && !object
+                    .riders
+                    .contains(&crate::object::Rider::OptionalCostPaid)
+            {
+                object.riders.push(crate::object::Rider::OptionalCostPaid);
+            }
             casting::spell_adjustment_with_def(&self.state, wizard.player, &object, Some(def))
         } else {
             let mut object = self
@@ -60,6 +67,13 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 .expect("wizard card exists")
                 .clone();
             object.x_value = 0;
+            if (wizard.optional_cost_paid || wizard.option == Some(CastModeKind::OptionalCost))
+                && !object
+                    .riders
+                    .contains(&crate::object::Rider::OptionalCostPaid)
+            {
+                object.riders.push(crate::object::Rider::OptionalCostPaid);
+            }
             object.base = std::sync::Arc::new(crate::object::Characteristics::from_face(
                 def,
                 index,
@@ -170,6 +184,13 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
         let is_fused = wizard.option == Some(CastModeKind::Fused);
         let mut baseline = object.clone();
         baseline.x_value = 0;
+        if (wizard.optional_cost_paid || wizard.option == Some(CastModeKind::OptionalCost))
+            && !baseline
+                .riders
+                .contains(&crate::object::Rider::OptionalCostPaid)
+        {
+            baseline.riders.push(crate::object::Rider::OptionalCostPaid);
+        }
         baseline.targets.clear();
         baseline.target_players = baylee_core::ids::SeatSet::new();
         baseline.chosen_player = None;

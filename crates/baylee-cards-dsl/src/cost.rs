@@ -352,6 +352,19 @@ pub enum CostPart {
     /// graveyard with total mana value N or greater. Appended to preserve
     /// replay identities.
     CollectEvidence(u8),
+    /// Reveal one matching card from your hand (`CR 118.3`, `CR 701.20a`).
+    /// Multiple reveal/discard/exile-from-hand parts in the same cost require
+    /// distinct cards, excluding the spell being cast. Appended to preserve
+    /// replay identities.
+    RevealFromHand(&'static Filter),
+    /// Announce X and reveal that many distinct matching cards from your hand,
+    /// binding X for [`crate::Amount::X`] (`CR 107.3a`, `CR 701.20a`; *Martyr*
+    /// cycle). Appended to preserve replay identities.
+    RevealFromHandX(&'static Filter),
+    /// Reveal this card from your hand (`CR 702.57b`; Forecast). Leaves the
+    /// card in hand revealed until it leaves the hand or the upkeep step ends.
+    /// Appended to preserve replay identities.
+    RevealSelfFromHand,
 }
 
 /// A cost reduction printed on a card (Surgical Metamorph) or on one of its

@@ -73,7 +73,7 @@ fn reads_attach_host(value: baylee_cards_dsl::AttachHost) -> bool {
 }
 fn reads_amount(value: Amount) -> bool {
     match value {
-        Amount::EventLastToughness | Amount::EventPower => true,
+        Amount::EventLastToughness | Amount::EventPower | Amount::EventManaSpentToCast => true,
         Amount::Sum { left, right } | Amount::Difference { left, right } => {
             reads_amount(*left) || reads_amount(*right)
         }
@@ -82,6 +82,9 @@ fn reads_amount(value: Amount) -> bool {
         | Amount::LifeTotal(who)
         | Amount::StartingLifeTotal(who)
         | Amount::LifeGainedThisTurn(who)
+        | Amount::LifeLostThisTurn(who)
+        | Amount::HighestLifeLostThisTurn(who)
+        | Amount::CardsDiscardedThisTurn(who)
         | Amount::DistinctCardTypesCastThisTurn(who)
         | Amount::CountOf {
             zone:
@@ -95,6 +98,16 @@ fn reads_amount(value: Amount) -> bool {
             owner_or_ctrl: who,
             ..
         }
+        | Amount::TokensCreatedThisTurn {
+            filter,
+            creator: who,
+        }
+        | Amount::LeftZoneThisTurn {
+            filter,
+            owner_or_ctrl: who,
+            ..
+        }
+        | Amount::PermanentsSacrificedThisTurn { filter, who }
         | Amount::SpellsCastMatchingThisTurn {
             filter,
             caster: who,
@@ -138,6 +151,7 @@ fn reads_event(effect: &Effect) -> bool {
         | Effect::PumpEventObject { .. }
         | Effect::EventObjectDealsDamageEqualToPower { .. }
         | Effect::EventObjectDealsDamage { .. }
+        | Effect::EventObjectDealsDamageEach { .. }
         | Effect::SacrificeEventDealDamageToEachBlocker { .. }
         | Effect::CopyEventSpellOrAbility
         | Effect::TargetsCopyEventSpellUntilEndOfTurn

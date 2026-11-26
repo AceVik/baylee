@@ -99,10 +99,14 @@ pub mod archetype_of_imagination;
 pub mod armament_of_nyx;
 #[path = "jou/armory_of_iroas.rs"]
 pub mod armory_of_iroas;
+#[path = "ktk/arrow_storm.rs"]
+pub mod arrow_storm;
 #[path = "bng/ashiok_s_adept.rs"]
 pub mod ashiok_s_adept;
 #[path = "jou/aspect_of_gorgon.rs"]
 pub mod aspect_of_gorgon;
+#[path = "bng/aspect_of_hydra.rs"]
+pub mod aspect_of_hydra;
 #[path = "bng/asphyxiate.rs"]
 pub mod asphyxiate;
 #[path = "bng/astral_cornucopia.rs"]
@@ -131,12 +135,16 @@ pub mod become_immense;
 pub mod belligerent_sliver;
 #[path = "ktk/bellowing_saddlebrute.rs"]
 pub mod bellowing_saddlebrute;
+#[path = "c14/benevolent_offering.rs"]
+pub mod benevolent_offering;
 #[path = "cns/bite_of_the_black_rose.rs"]
 pub mod bite_of_the_black_rose;
 #[path = "ktk/bitter_revelation.rs"]
 pub mod bitter_revelation;
 #[path = "bng/black_oak_of_odunos.rs"]
 pub mod black_oak_of_odunos;
+#[path = "m15/blastfire_bolt.rs"]
+pub mod blastfire_bolt;
 #[path = "jou/blinding_flare.rs"]
 pub mod blinding_flare;
 #[path = "ktk/blinding_spray.rs"]
@@ -167,6 +175,8 @@ pub mod brave_the_sands;
 pub mod brawler_s_plate;
 #[path = "c14/breaching_leviathan.rs"]
 pub mod breaching_leviathan;
+#[path = "ktk/bring_low.rs"]
+pub mod bring_low;
 #[path = "ktk/burn_away.rs"]
 pub mod burn_away;
 #[path = "m15/burning_anger.rs"]
@@ -303,6 +313,10 @@ pub mod dismal_backwater;
 pub mod disowned_ancestor;
 #[path = "pjou/doomwake_giant.rs"]
 pub mod doomwake_giant;
+#[path = "ktk/dragon_grip.rs"]
+pub mod dragon_grip;
+#[path = "ktk/dragon_s_eye_savants.rs"]
+pub mod dragon_s_eye_savants;
 #[path = "ktk/dragon_style_twins.rs"]
 pub mod dragon_style_twins;
 #[path = "ktk/dragon_throne_of_tarkir.rs"]
@@ -375,6 +389,8 @@ pub mod fall_of_the_hammer;
 pub mod fanatic_of_xenagos;
 #[path = "bng/fate_unraveler.rs"]
 pub mod fate_unraveler;
+#[path = "bng/fearsome_temper.rs"]
+pub mod fearsome_temper;
 #[path = "jou/feast_of_dreams.rs"]
 pub mod feast_of_dreams;
 #[path = "ktk/feat_of_resistance.rs"]
@@ -515,6 +531,8 @@ pub mod heliod_s_pilgrim;
 pub mod herald_of_torment;
 #[path = "bng/hero_of_iroas.rs"]
 pub mod hero_of_iroas;
+#[path = "bng/hero_of_leina_tower.rs"]
+pub mod hero_of_leina_tower;
 #[path = "pjou/heroes_bane.rs"]
 pub mod heroes_bane;
 #[path = "ktk/high_sentinels_of_arashin.rs"]
@@ -527,6 +545,8 @@ pub mod highspire_mantis;
 pub mod hold_at_bay;
 #[path = "ktk/hooting_mandrills.rs"]
 pub mod hooting_mandrills;
+#[path = "ktk/horde_ambusher.rs"]
+pub mod horde_ambusher;
 #[path = "ktk/hordeling_outburst.rs"]
 pub mod hordeling_outburst;
 #[path = "m15/hornet_nest.rs"]
@@ -557,6 +577,8 @@ pub mod impetuous_sunchaser;
 pub mod in_garruk_s_wake;
 #[path = "m15/inferno_fist.rs"]
 pub mod inferno_fist;
+#[path = "c14/intellectual_offering.rs"]
+pub mod intellectual_offering;
 #[path = "m15/invasive_species.rs"]
 pub mod invasive_species;
 #[path = "jou/iroas_god_of_victory.rs"]
@@ -667,6 +689,8 @@ pub mod mardu_ascendancy;
 pub mod mardu_banner;
 #[path = "ktk/mardu_blazebringer.rs"]
 pub mod mardu_blazebringer;
+#[path = "ktk/mardu_charm.rs"]
+pub mod mardu_charm;
 #[path = "ktk/mardu_hateblade.rs"]
 pub mod mardu_hateblade;
 #[path = "ddn/mardu_heart_piercer.rs"]
@@ -739,6 +763,8 @@ pub mod mystic_of_the_hidden_way;
 pub mod nature_s_panoply;
 #[path = "m15/necromancer_s_assistant.rs"]
 pub mod necromancer_s_assistant;
+#[path = "m15/necromancer_s_stockpile.rs"]
+pub mod necromancer_s_stockpile;
 #[path = "ktk/necropolis_fiend.rs"]
 pub mod necropolis_fiend;
 #[path = "bng/nessian_demolok.rs"]
@@ -755,6 +781,8 @@ pub mod nightmarish_end;
 pub mod nimbus_of_the_isles;
 #[path = "m15/nissa_s_expedition.rs"]
 pub mod nissa_s_expedition;
+#[path = "ps14/nissa_worldwaker.rs"]
+pub mod nissa_worldwaker;
 #[path = "bng/noble_quarry.rs"]
 pub mod noble_quarry;
 #[path = "ddn/nomad_outpost.rs"]
@@ -851,6 +879,8 @@ pub mod plea_for_power;
 pub mod polymorphist_s_jest;
 #[path = "ktk/ponyback_brigade.rs"]
 pub mod ponyback_brigade;
+#[path = "cns/predator_s_howl.rs"]
+pub mod predator_s_howl;
 #[path = "jou/prophetic_flamespeaker.rs"]
 pub mod prophetic_flamespeaker;
 #[path = "jou/pull_from_the_deep.rs"]
@@ -877,6 +907,8 @@ pub mod rakshasa_vizier;
 pub mod rattleclaw_mystic;
 #[path = "jou/ravenous_leucrocota.rs"]
 pub mod ravenous_leucrocota;
+#[path = "c14/raving_dead.rs"]
+pub mod raving_dead;
 #[path = "cns/realm_seekers.rs"]
 pub mod realm_seekers;
 #[path = "bng/reap_what_is_sown.rs"]
@@ -913,6 +945,8 @@ pub mod rise_of_eagles;
 pub mod rise_to_the_challenge;
 #[path = "ktk/rite_of_the_serpent.rs"]
 pub mod rite_of_the_serpent;
+#[path = "jou/ritual_of_the_returned.rs"]
+pub mod ritual_of_the_returned;
 #[path = "ktk/riverwheel_aerialists.rs"]
 pub mod riverwheel_aerialists;
 #[path = "ktk/roar_of_challenge.rs"]
@@ -929,10 +963,14 @@ pub mod rotted_hulk;
 pub mod rotting_mastodon;
 #[path = "jou/rouse_the_mob.rs"]
 pub mod rouse_the_mob;
+#[path = "cns/rousing_of_souls.rs"]
+pub mod rousing_of_souls;
 #[path = "ktk/rugged_highlands.rs"]
 pub mod rugged_highlands;
 #[path = "ktk/rush_of_battle.rs"]
 pub mod rush_of_battle;
+#[path = "ktk/ruthless_ripper.rs"]
+pub mod ruthless_ripper;
 #[path = "m15/sacred_armory.rs"]
 pub mod sacred_armory;
 #[path = "ktk/sage_eye_harrier.rs"]
@@ -949,6 +987,8 @@ pub mod salt_road_patrol;
 pub mod sanctified_charge;
 #[path = "ktk/sandsteppe_citadel.rs"]
 pub mod sandsteppe_citadel;
+#[path = "bng/sanguimancy.rs"]
+pub mod sanguimancy;
 #[path = "ktk/sarkhan_the_dragonspeaker.rs"]
 pub mod sarkhan_the_dragonspeaker;
 #[path = "jou/satyr_grovedancer.rs"]
@@ -975,6 +1015,8 @@ pub mod scourge_of_skola_vale;
 pub mod scouring_sands;
 #[path = "ktk/scout_the_borders.rs"]
 pub mod scout_the_borders;
+#[path = "c14/scrap_mastery.rs"]
+pub mod scrap_mastery;
 #[path = "m15/scrapyard_mongrel.rs"]
 pub mod scrapyard_mongrel;
 #[path = "m15/scuttling_doom_engine.rs"]
@@ -985,6 +1027,10 @@ pub mod searing_blood;
 pub mod see_the_unwritten;
 #[path = "ktk/seeker_of_the_way.rs"]
 pub mod seeker_of_the_way;
+#[path = "cns/selvala_s_charge.rs"]
+pub mod selvala_s_charge;
+#[path = "cns/selvala_s_enforcer.rs"]
+pub mod selvala_s_enforcer;
 #[path = "m15/seraph_of_the_masses.rs"]
 pub mod seraph_of_the_masses;
 #[path = "bng/servant_of_tymaret.rs"]
@@ -1031,6 +1077,8 @@ pub mod siren_of_the_silent_song;
 pub mod siren_song_lyre;
 #[path = "jou/skybind.rs"]
 pub mod skybind;
+#[path = "bng/skyreaping.rs"]
+pub mod skyreaping;
 #[path = "jou/skyspear_cavalry.rs"]
 pub mod skyspear_cavalry;
 #[path = "m15/sliver_hive.rs"]
@@ -1129,6 +1177,8 @@ pub mod swift_kick;
 pub mod swiftwater_cliffs;
 #[path = "bng/swordwise_centaur.rs"]
 pub mod swordwise_centaur;
+#[path = "c14/sylvan_offering.rs"]
+pub mod sylvan_offering;
 #[path = "ktk/taigam_s_scheming.rs"]
 pub mod taigam_s_scheming;
 #[path = "ktk/take_up_arms.rs"]
@@ -1147,6 +1197,8 @@ pub mod temple_of_plenty;
 pub mod temur_ascendancy;
 #[path = "ktk/temur_banner.rs"]
 pub mod temur_banner;
+#[path = "ktk/temur_charger.rs"]
+pub mod temur_charger;
 #[path = "ktk/temur_charm.rs"]
 pub mod temur_charm;
 #[path = "jou/tethmos_high_priest.rs"]
@@ -1155,6 +1207,8 @@ pub mod tethmos_high_priest;
 pub mod thassa_s_devourer;
 #[path = "jou/thassa_s_ire.rs"]
 pub mod thassa_s_ire;
+#[path = "bng/thassa_s_rebuff.rs"]
+pub mod thassa_s_rebuff;
 #[path = "ktk/thornwood_falls.rs"]
 pub mod thornwood_falls;
 #[path = "jou/thoughtrender_lamia.rs"]
@@ -1167,6 +1221,8 @@ pub mod throttle;
 pub mod thunder_brute;
 #[path = "c14/thunderfoot_baloth.rs"]
 pub mod thunderfoot_baloth;
+#[path = "bng/thunderous_might.rs"]
+pub mod thunderous_might;
 #[path = "ktk/timely_hordemate.rs"]
 pub mod timely_hordemate;
 #[path = "c14/titania_protector_of_argoth.rs"]
@@ -1227,6 +1283,8 @@ pub mod vanguard_of_brimaz;
 pub mod venerable_lammasu;
 #[path = "m15/venom_sliver.rs"]
 pub mod venom_sliver;
+#[path = "ktk/villainous_wealth.rs"]
+pub mod villainous_wealth;
 #[path = "m15/vineweft.rs"]
 pub mod vineweft;
 #[path = "m15/void_snare.rs"]
@@ -1247,6 +1305,8 @@ pub mod warden_of_the_eye;
 pub mod warmonger_hellkite;
 #[path = "m15/waste_not.rs"]
 pub mod waste_not;
+#[path = "ktk/watcher_of_the_roost.rs"]
+pub mod watcher_of_the_roost;
 #[path = "ktk/waterwhirl.rs"]
 pub mod waterwhirl;
 #[path = "ktk/weave_fate.rs"]

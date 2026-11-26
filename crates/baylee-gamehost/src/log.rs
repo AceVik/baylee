@@ -1089,7 +1089,7 @@ impl GameLog {
                     vec![sees],
                 );
             }
-            GameEvent::DayNightChanged { now } => {
+            GameEvent::DayNightChanged { now, .. } => {
                 self.push(
                     LogEvent::DayNight {
                         now: day_night(*now),

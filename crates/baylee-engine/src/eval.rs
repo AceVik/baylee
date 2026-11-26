@@ -26,10 +26,15 @@ use baylee_core::ids::{ObjectId, PlayerId};
 
 pub use amounts::{amount, amount_with_context, public_linked_exile_cards, tapped_power};
 pub(crate) use amounts::{
-    colors_among, colors_in_zone, count_controlled_by, creatures_attacked_for_seats,
-    devotion_for_players, distinct_card_types_cast_for_seats, entered_this_turn_for_seats,
-    entry_sacrifices_on, highest_opponent_hand_size, linked_exile_cards, mana_spent_on,
-    object_snow_mana_spent, snow_mana_spent_on, spells_cast_matching_for_seats,
+    beheld_or_revealed_mana_value, beheld_or_revealed_power, cards_discarded_for_seats,
+    colors_among, colors_in_zone, colors_of_mana_spent_on, convoked_count_on, count_controlled_by,
+    creatures_attacked_for_seats, devotion_for_players, distinct_card_types_cast_for_seats,
+    entered_this_turn_for_seats, entry_sacrifices_on, highest_life_lost_for_seats,
+    highest_opponent_hand_size, left_zone_this_turn_for_seats, life_lost_for_seats,
+    linked_exile_cards, mana_color_spent_on, mana_spent_on, object_colors_of_mana_spent,
+    object_convoked_count, object_mana_color_spent, object_snow_mana_spent,
+    permanents_sacrificed_for_seats, snow_mana_spent_on, spells_cast_matching_for_seats,
+    tokens_created_this_turn_for_seats, turn_history_seats,
 };
 pub(crate) use conditions::{
     attached_for_ability, condition_reads_event, condition_with_event,
@@ -1042,7 +1047,9 @@ pub(crate) fn matches_projected_with_choices(
         Filter::CmcAtMostAmount(amt)
         | Filter::CmcEqualsAmount(amt)
         | Filter::PowerAtMostAmount(amt)
-        | Filter::PowerAtLeastAmount(amt) => {
+        | Filter::PowerAtLeastAmount(amt)
+        | Filter::PowerEqualsAmount(amt)
+        | Filter::ToughnessEqualsAmount(amt) => {
             let Some(_guard) = DynamicFilterDepthGuard::enter() else {
                 return false;
             };
@@ -1054,6 +1061,23 @@ pub(crate) fn matches_projected_with_choices(
                 Some(announced_x(state, this)),
             );
             match_dynamic_amount_filter(filter, chars, mag, amt.is_negative())
+        }
+        Filter::CmcEqualsChosenNumber
+        | Filter::PowerEqualsChosenNumber
+        | Filter::ToughnessEqualsChosenNumber => {
+            let Some(chosen) = state
+                .object(this)
+                .or_else(|| state.damage_source(this, None))
+                .and_then(crate::object::GameObject::chosen_number)
+            else {
+                return false;
+            };
+            match filter {
+                Filter::CmcEqualsChosenNumber => chars.mana_value() == u32::from(chosen),
+                Filter::PowerEqualsChosenNumber => chars.power == Some(i16::from(chosen)),
+                Filter::ToughnessEqualsChosenNumber => chars.toughness == Some(i16::from(chosen)),
+                _ => unreachable!(),
+            }
         }
         Filter::IsRemembered
         | Filter::NotRemembered
@@ -1117,6 +1141,8 @@ pub(crate) fn match_dynamic_amount_filter(
         Filter::CmcEqualsAmount(_) => i64::from(chars.mana_value()) == bound,
         Filter::PowerAtMostAmount(_) => chars.power.is_some_and(|p| i64::from(p) <= bound),
         Filter::PowerAtLeastAmount(_) => chars.power.is_some_and(|p| i64::from(p) >= bound),
+        Filter::PowerEqualsAmount(_) => chars.power.is_some_and(|p| i64::from(p) == bound),
+        Filter::ToughnessEqualsAmount(_) => chars.toughness.is_some_and(|t| i64::from(t) == bound),
         _ => unreachable!("only dynamic amount filters"),
     }
 }
@@ -1363,7 +1389,9 @@ fn reads_announced_x_at(filter: &Filter, depth: u8) -> bool {
         Filter::CmcAtMostAmount(amt)
         | Filter::CmcEqualsAmount(amt)
         | Filter::PowerAtMostAmount(amt)
-        | Filter::PowerAtLeastAmount(amt) => amount_reads_announced_x(amt, depth + 1),
+        | Filter::PowerAtLeastAmount(amt)
+        | Filter::PowerEqualsAmount(amt)
+        | Filter::ToughnessEqualsAmount(amt) => amount_reads_announced_x(amt, depth + 1),
         Filter::And(parts) | Filter::Or(parts) => {
             parts.iter().any(|f| reads_announced_x_at(f, depth))
         }
@@ -1406,6 +1434,9 @@ fn amount_reads_announced_x(amt: &baylee_cards_dsl::Amount, depth: u8) -> bool {
         | A::GreatestManaValueAmong(f)
         | A::TotalPowerAmong(f)
         | A::EnteredThisTurn { filter: f, .. }
+        | A::TokensCreatedThisTurn { filter: f, .. }
+        | A::LeftZoneThisTurn { filter: f, .. }
+        | A::PermanentsSacrificedThisTurn { filter: f, .. }
         | A::SpellsCastMatchingThisTurn { filter: f, .. }
         | A::CreaturesAttackedThisTurn { filter: f, .. }
         | A::DistinctManaValuesInZone { filter: f, .. } => reads_announced_x_at(f, depth + 1),
@@ -1454,14 +1485,17 @@ pub(crate) fn matches_for_x(
         | Filter::CmcEqualsAmount(amt)
         | Filter::PowerAtMostAmount(amt)
         | Filter::PowerAtLeastAmount(amt)
+        | Filter::PowerEqualsAmount(amt)
+        | Filter::ToughnessEqualsAmount(amt)
             if amount_reads_announced_x(amt, 0) =>
         {
             let chars = obj.characteristics();
             let Some(x_val) = x else {
                 return match filter {
-                    Filter::PowerAtMostAmount(_) | Filter::PowerAtLeastAmount(_) => {
-                        chars.power.is_some()
-                    }
+                    Filter::PowerAtMostAmount(_)
+                    | Filter::PowerAtLeastAmount(_)
+                    | Filter::PowerEqualsAmount(_) => chars.power.is_some(),
+                    Filter::ToughnessEqualsAmount(_) => chars.toughness.is_some(),
                     _ => true,
                 };
             };

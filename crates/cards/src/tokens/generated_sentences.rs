@@ -570,4 +570,19 @@ pub(super) static ROWS: &[(&TokenDef, &[&str])] = &[
             "This token gets +2/+2 as long as an artifact entered the battlefield under your control this turn.",
         ],
     ),
+    // The Raven Man.
+    (
+        &token::BIRD_1_1_BLACK_FLYING_AA6F088A4,
+        &["This token can't block."],
+    ),
+    // Nettling Nuisance.
+    (
+        &token::PIRATE_4_2_RED_AA6F088A4,
+        &["This token can't block."],
+    ),
+    // Mole Man, Moloid Master and Return of the Mole Man.
+    (
+        &token::MOLOID_1_1_GREEN_A84604C62,
+        &["Whenever this token attacks, you may mill a card."],
+    ),
 ];

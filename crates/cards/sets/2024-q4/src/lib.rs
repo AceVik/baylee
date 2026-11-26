@@ -27,6 +27,8 @@ pub mod aphelia_viper_whisperer;
 pub mod apothecary_stomper;
 #[path = "fdn/arahbo_the_first_fang.rs"]
 pub mod arahbo_the_first_fang;
+#[path = "fdn/arbiter_of_woe.rs"]
+pub mod arbiter_of_woe;
 #[path = "fdn/arcane_epiphany.rs"]
 pub mod arcane_epiphany;
 #[path = "fdn/archmage_of_runes.rs"]
@@ -35,6 +37,8 @@ pub mod archmage_of_runes;
 pub mod armasaur_guide;
 #[path = "fdn/ashroot_animist.rs"]
 pub mod ashroot_animist;
+#[path = "fdn/banner_of_kinship.rs"]
+pub mod banner_of_kinship;
 #[path = "fdn/battlesong_berserker.rs"]
 pub mod battlesong_berserker;
 #[path = "fdn/beast_kin_ranger.rs"]
@@ -61,6 +65,8 @@ pub mod cackling_prowler;
 pub mod celestial_armor;
 #[path = "fdn/cephalid_inkmage.rs"]
 pub mod cephalid_inkmage;
+#[path = "fdn/chandra_flameshaper.rs"]
+pub mod chandra_flameshaper;
 #[path = "fdn/claws_out.rs"]
 pub mod claws_out;
 #[path = "j25/cleon_merry_champion.rs"]
@@ -109,6 +115,8 @@ pub mod elfsworn_giant;
 pub mod elvish_regrower;
 #[path = "fdn/erudite_wizard.rs"]
 pub mod erudite_wizard;
+#[path = "j25/evereth_viceroy_of_plunder.rs"]
+pub mod evereth_viceroy_of_plunder;
 #[path = "fdn/exemplar_of_light.rs"]
 pub mod exemplar_of_light;
 #[path = "j25/faithful_pikemaster.rs"]
@@ -149,6 +157,8 @@ pub mod grappling_kraken;
 pub mod guarded_heir;
 #[path = "fdn/gutless_plunderer.rs"]
 pub mod gutless_plunderer;
+#[path = "j25/hearts_on_fire.rs"]
+pub mod hearts_on_fire;
 #[path = "fdn/helpful_hunter.rs"]
 pub mod helpful_hunter;
 #[path = "fdn/herald_of_eternal_dawn.rs"]
@@ -221,6 +231,8 @@ pub mod prideful_parent;
 pub mod quakestrider_ceratops;
 #[path = "fdn/quick_draw_katana.rs"]
 pub mod quick_draw_katana;
+#[path = "fdn/quilled_greatwurm.rs"]
+pub mod quilled_greatwurm;
 #[path = "fdn/raise_the_past.rs"]
 pub mod raise_the_past;
 #[path = "fdn/ravenous_amulet.rs"]
@@ -297,6 +309,8 @@ pub mod sutina_speaker_of_the_tajuru;
 pub mod sylvan_scavenging;
 #[path = "j25/thurid_mare_of_destiny.rs"]
 pub mod thurid_mare_of_destiny;
+#[path = "fdn/tragic_banshee.rs"]
+pub mod tragic_banshee;
 #[path = "fdn/treetop_snarespinner.rs"]
 pub mod treetop_snarespinner;
 #[path = "fdn/twinblade_blessing.rs"]

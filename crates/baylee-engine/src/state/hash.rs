@@ -1220,6 +1220,16 @@ fn hash_spell_source_decisions(h: &mut Hasher, source: &crate::object::GameObjec
         } else if matches!(rider, crate::object::Rider::OptionalCostPaid) {
             h.u8(255);
             h.u16(307);
+        } else if let crate::object::Rider::ControlledSubtypeOnCast(sub) = rider {
+            h.u8(255);
+            h.u16(464);
+            h.u16(sub.get());
+        } else if let crate::object::Rider::BeheldCostPower(src, power, mv) = rider {
+            h.u8(255);
+            h.u16(462);
+            src.hash(h);
+            h.i32(*power);
+            h.u32(*mv);
         }
     }
     source.replicated.hash(h);
@@ -1865,6 +1875,11 @@ fn hash_expansion_acquired_rider(h: &mut Hasher, rider: &crate::object::Rider) {
             h.u8(102);
             player.hash(h);
         }
+        crate::object::Rider::MustAttackPlayerThisCombat(player) => {
+            h.u8(255);
+            h.u16(461);
+            player.hash(h);
+        }
         crate::object::Rider::SuspendHaste(player) => {
             h.u8(103);
             player.hash(h);
@@ -1891,6 +1906,7 @@ fn hash_expansion_acquired_rider(h: &mut Hasher, rider: &crate::object::Rider) {
     }
 }
 
+#[allow(clippy::too_many_lines)] // one arm per cast/trigger rider
 fn hash_cast_keyword_rider(h: &mut Hasher, rider: &crate::object::Rider) {
     match rider {
         crate::object::Rider::SquadPaid(n) => {
@@ -1985,6 +2001,42 @@ fn hash_cast_keyword_rider(h: &mut Hasher, rider: &crate::object::Rider) {
             h.u16(363);
             h.u16(*word);
             h.u64(*mask);
+        }
+        crate::object::Rider::ManaTypesSpent(types) => {
+            h.u8(255);
+            h.u16(438);
+            types.hash(h);
+        }
+        crate::object::Rider::ConvokedCount(count) => {
+            h.u8(255);
+            h.u16(439);
+            h.u16(*count);
+        }
+        crate::object::Rider::EventManaSpent(spent) => {
+            h.u8(255);
+            h.u16(440);
+            h.u32(*spent);
+        }
+        crate::object::Rider::SpellCostExile(exiled) => {
+            h.u8(255);
+            h.u16(460);
+            exiled.hash(h);
+        }
+        crate::object::Rider::ControlledSubtypeOnCast(sub) => {
+            h.u8(255);
+            h.u16(464);
+            h.u16(sub.get());
+        }
+        crate::object::Rider::BeheldCostPower(src, power, mv) => {
+            h.u8(255);
+            h.u16(462);
+            src.hash(h);
+            h.i32(*power);
+            h.u32(*mv);
+        }
+        crate::object::Rider::EncoreAbility => {
+            h.u8(255);
+            h.u16(463);
         }
         _ => {}
     }
@@ -2873,6 +2925,47 @@ fn hash_object(h: &mut Hasher, obj: &GameObject) {
                 h.u16(*word);
                 h.u64(*mask);
             }
+            Rider::ManaTypesSpent(types) => {
+                h.u8(255);
+                h.u16(438);
+                types.hash(h);
+            }
+            Rider::ConvokedCount(count) => {
+                h.u8(255);
+                h.u16(439);
+                h.u16(*count);
+            }
+            Rider::EventManaSpent(spent) => {
+                h.u8(255);
+                h.u16(440);
+                h.u32(*spent);
+            }
+            Rider::MustAttackPlayerThisCombat(p) => {
+                h.u8(255);
+                h.u16(461);
+                h.u8(p.get());
+            }
+            Rider::SpellCostExile(exiled) => {
+                h.u8(255);
+                h.u16(460);
+                exiled.hash(h);
+            }
+            Rider::ControlledSubtypeOnCast(sub) => {
+                h.u8(255);
+                h.u16(464);
+                h.u16(sub.get());
+            }
+            Rider::BeheldCostPower(src, power, mv) => {
+                h.u8(255);
+                h.u16(462);
+                src.hash(h);
+                h.i32(*power);
+                h.u32(*mv);
+            }
+            Rider::EncoreAbility => {
+                h.u8(255);
+                h.u16(463);
+            }
         }
     }
     // What the spell or ability on the stack was cast or put there with:
@@ -3215,6 +3308,28 @@ fn filter_hash(h: &mut Hasher, f: &baylee_cards_dsl::Filter) {
             h.u16(437);
             filter_hash(h, filter);
         }
+        F::PowerEqualsAmount(amt) => {
+            h.u8(255);
+            h.u16(438);
+            hash_filter_amount(h, amt);
+        }
+        F::ToughnessEqualsAmount(amt) => {
+            h.u8(255);
+            h.u16(439);
+            hash_filter_amount(h, amt);
+        }
+        F::CmcEqualsChosenNumber => {
+            h.u8(255);
+            h.u16(440);
+        }
+        F::PowerEqualsChosenNumber => {
+            h.u8(255);
+            h.u16(441);
+        }
+        F::ToughnessEqualsChosenNumber => {
+            h.u8(255);
+            h.u16(442);
+        }
     }
 }
 
@@ -3235,7 +3350,9 @@ fn filter_amount_depth_exceeds(filter: &baylee_cards_dsl::Filter, depth: u8) -> 
         F::CmcAtMostAmount(amt)
         | F::CmcEqualsAmount(amt)
         | F::PowerAtMostAmount(amt)
-        | F::PowerAtLeastAmount(amt) => amount_filter_depth_exceeds(amt, depth + 1),
+        | F::PowerAtLeastAmount(amt)
+        | F::PowerEqualsAmount(amt)
+        | F::ToughnessEqualsAmount(amt) => amount_filter_depth_exceeds(amt, depth + 1),
         F::And(parts) | F::Or(parts) => parts
             .iter()
             .any(|inner| filter_amount_depth_exceeds(inner, depth)),
@@ -3268,6 +3385,9 @@ fn amount_filter_depth_exceeds(amt: &baylee_cards_dsl::Amount, depth: u8) -> boo
         | A::GreatestManaValueAmong(f)
         | A::TotalPowerAmong(f)
         | A::EnteredThisTurn { filter: f, .. }
+        | A::TokensCreatedThisTurn { filter: f, .. }
+        | A::LeftZoneThisTurn { filter: f, .. }
+        | A::PermanentsSacrificedThisTurn { filter: f, .. }
         | A::SpellsCastMatchingThisTurn { filter: f, .. }
         | A::CreaturesAttackedThisTurn { filter: f, .. }
         | A::DistinctManaValuesInZone { filter: f, .. } => filter_amount_depth_exceeds(f, depth),

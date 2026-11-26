@@ -74,6 +74,9 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
             }
             player.mana_pool.empty_at_step_end();
         }
+        // CR 702.57b: a card revealed in hand to pay a forecast cost remains
+        // revealed until it leaves the hand or until that step or phase ends.
+        self.clear_opening_hand_reveals();
         let (phase, step) = (self.state.turn.phase, self.state.turn.step);
         let (next_phase, next_step) = match (phase, step) {
             (_, Step::Untap) => {
@@ -230,6 +233,17 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
         self.state
             .effects
             .remove_where(|fx| matches!(fx.duration, baylee_cards_dsl::Duration::UntilEndOfCombat));
+        self.state.arena.update_where(
+            |obj| {
+                obj.riders
+                    .iter()
+                    .any(|r| matches!(r, crate::object::Rider::MustAttackPlayerThisCombat(_)))
+            },
+            |obj| {
+                obj.riders
+                    .retain(|r| !matches!(r, crate::object::Rider::MustAttackPlayerThisCombat(_)));
+            },
+        );
         if self.state.per_turn.phase_stack_active.0 {
             self.pop_next_phase()
         } else {
@@ -412,6 +426,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                             r,
                             crate::object::Rider::Saddled
                                 | crate::object::Rider::MustAttackPlayerThisTurn(_)
+                                | crate::object::Rider::MustAttackPlayerThisCombat(_)
                         )
                     })
             },
@@ -424,6 +439,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                         rider,
                         crate::object::Rider::Saddled
                             | crate::object::Rider::MustAttackPlayerThisTurn(_)
+                            | crate::object::Rider::MustAttackPlayerThisCombat(_)
                     )
                 });
                 obj.damage = 0;

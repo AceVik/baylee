@@ -170,10 +170,10 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
             Some((object.version, object.characteristics().power.unwrap_or(0)))
         });
         let aura_successor = self.aura_successor(trigger);
-        let (source_snow_spent, source_entry_sacrifices) = self
+        let (source_snow_spent, source_entry_sacrifices, source_mana_types, source_convoked) = self
             .state
             .damage_source(trigger.source, trigger.source_version)
-            .map_or((0, 0), |src| {
+            .map_or((0, 0, None, 0), |src| {
                 let snow = src
                     .paid
                     .as_ref()
@@ -193,8 +193,39 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                         _ => None,
                     })
                     .unwrap_or(0);
-                (snow, sacs)
+                let mana_types = src
+                    .paid
+                    .as_ref()
+                    .filter(|p| p.mana_types_spent.iter().any(|&n| n > 0))
+                    .map(|p| {
+                        p.mana_types_spent
+                            .map(|n| u16::try_from(n).unwrap_or(u16::MAX))
+                    })
+                    .or_else(|| {
+                        src.riders.iter().find_map(|r| match r {
+                            crate::object::Rider::ManaTypesSpent(t) => Some(*t),
+                            _ => None,
+                        })
+                    });
+                let convoked = src
+                    .riders
+                    .iter()
+                    .find_map(|r| match r {
+                        crate::object::Rider::ConvokedCount(n) => Some(*n),
+                        _ => None,
+                    })
+                    .unwrap_or(0);
+                (snow, sacs, mana_types, convoked)
             });
+        let event_mana_spent = trigger.event_object.and_then(|ev| {
+            self.state
+                .damage_source(ev, identity.map(|(v, _)| v))
+                .or_else(|| self.state.object(ev))
+                .and_then(|o| o.paid.as_ref())
+                .map(|p| p.mana_spent)
+                .filter(|&n| n > 0)
+        });
+        let track_mana_spent = self.state.per_turn.track_mana_types_spent.0;
         if let Some(object) = self.state.object_mut(top) {
             if source_snow_spent > 0 {
                 object
@@ -205,6 +236,21 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 object.riders.push(crate::object::Rider::EntrySacrifices(
                     source_entry_sacrifices,
                 ));
+            }
+            if track_mana_spent && let Some(types) = source_mana_types {
+                object
+                    .riders
+                    .push(crate::object::Rider::ManaTypesSpent(types));
+            }
+            if source_convoked > 0 {
+                object
+                    .riders
+                    .push(crate::object::Rider::ConvokedCount(source_convoked));
+            }
+            if track_mana_spent && let Some(spent) = event_mana_spent {
+                object
+                    .riders
+                    .push(crate::object::Rider::EventManaSpent(spent));
             }
             object.event_object = trigger.event_object;
             if let Some(grantor) = trigger.grantor {

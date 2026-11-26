@@ -391,12 +391,22 @@ fn remembered_chains_copies_haste_and_incubate() {
         ardyn.abilities[0]
     );
 
-    // REFUSAL: Multi-target exile-and-copy must stay refused (1 redirected + 1 exiled would over-copy).
-    assert!(refused_w24(
-        "Name:BadMultiCopy\nManaCost:5 B B\nTypes:Sorcery\n\
+    // Wave 28a: Multi-target graveyard exile-and-copy now lowers cleanly via
+    // Effect::CaptureAffected + Effect::ForEachRemembered (never ThisWay, so only
+    // cards actually moved are copied).
+    let multi_copy = read_w24(
+        "Name:MultiCopy\nManaCost:5 B B\nTypes:Sorcery\n\
          A:SP$ ChangeZone | Origin$ Graveyard | Destination$ Exile | TargetMin$ 0 | TargetMax$ 2 | ValidTgts$ Creature | RememberChanged$ True | SubAbility$ DBCopy\n\
          SVar:DBCopy:DB$ CopyPermanent | Defined$ Remembered",
-    ));
+    );
+    assert!(
+        multi_copy.abilities[0].contains("Effect::CaptureAffected")
+            && multi_copy.abilities[0].contains("Effect::ForEachRemembered")
+            && multi_copy.abilities[0].contains("Effect::CreateTokenCopy")
+            && !multi_copy.abilities[0].contains("ThisWay"),
+        "{}",
+        multi_copy.abilities[0]
+    );
 
     // Reanimate all + grant haste until EOT -> MoveAndModify with Duration::UntilEndOfTurn (Wake the Past).
     let wake = read_w24(

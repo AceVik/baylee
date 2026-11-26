@@ -1077,6 +1077,7 @@ impl Effect {
             | Effect::DamageEqualToPower { .. }
             | Effect::EventObjectDealsDamageEqualToPower { .. }
             | Effect::EventObjectDealsDamage { .. }
+            | Effect::EventObjectDealsDamageEach { .. }
             | Effect::SacrificeEventDealDamageToEachBlocker { .. }
             | Effect::TargetDealsDamageToController { .. }
             | Effect::DealDamageToTargetController { .. }
@@ -1191,6 +1192,7 @@ impl Effect {
             | Effect::DestroyRandom { .. }
             | Effect::RevealTopPutOntoBattlefield { .. }
             | Effect::ChoosePlayerFrom { .. }
+            | Effect::ChoosePlayerAtRandom { .. }
             | Effect::CantBeBlockedByPlayerThisTurn { .. }
             | Effect::ReturnAllOwnedToHand { .. }
             | Effect::DestroyAllExceptChosen { .. }
@@ -1509,7 +1511,8 @@ impl Effect {
             | Effect::PutOntoBattlefieldAttacking { .. }
             | Effect::SearchLibraryDistinctNames { .. }
             | Effect::AttachChosen { .. }
-            | Effect::DiscardDefined { .. } => (NONE, NONE),
+            | Effect::DiscardDefined { .. }
+            | Effect::PutCountersOnChosenControlled { .. } => (NONE, NONE),
             Effect::VoteObjects { if_no_votes, .. } => (NONE, if_no_votes),
         }
     }

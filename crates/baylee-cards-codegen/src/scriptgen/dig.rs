@@ -1364,10 +1364,32 @@ impl Tx<'_> {
         chain: &mut Chain,
     ) -> Option<Vec<String>> {
         let mut parsed = self.parse_dig_until_core(p, target, targets_a_player, true)?;
-        if parsed.multi_seat_domain.is_some()
-            || parsed.optional_found_move
-            || (!parsed.remember_found && !parsed.imprint_found)
-        {
+        if let Some(domain) = parsed.multi_seat_domain {
+            if !parsed.optional_found_move
+                && !parsed.optional_whole
+                && !parsed.trailing_shuffle
+                && parsed.count_is_one
+                && parsed.exile_while_revealing
+                && parsed.remember_found
+                && !parsed.remember_revealed
+                && !parsed.imprint_found
+                && !parsed.imprint_revealed
+                && p.entries.iter().all(|(k, _)| k.starts_with("Condition"))
+                && let Some(sub_name) = sub.clone()
+                && let Some((effs, trailing)) = self.wave28d_dig_until_multi_seat_exile_play(
+                    &sub_name,
+                    domain,
+                    &parsed.filter_ref,
+                    &parsed.count,
+                    parsed.max_revealed.as_deref(),
+                )
+            {
+                *sub = trailing;
+                return Some(effs);
+            }
+            return None;
+        }
+        if parsed.optional_found_move || (!parsed.remember_found && !parsed.imprint_found) {
             return None;
         }
         if !p.entries.iter().all(|(k, _)| k.starts_with("Condition")) {
@@ -1415,22 +1437,64 @@ impl Tx<'_> {
         // Case 3: Single-hit `DigUntil` -> `DB$ Play` (optionally followed by
         // Exile->Hand fallback, non-found Exile->Library bottom via
         // `parse_exile_rest_to_bottom`, or post-cast `Shuffle`).
-        if parsed.count_is_one
-            && self.sub_is_api(Some(&sub_name), "Play")
-            && let Some(followup) =
+        if parsed.count_is_one && self.sub_is_api(Some(&sub_name), "Play") {
+            if let Some(followup) =
                 self.try_dig_until_play_followup(&sub_name, &parsed, target, targets_a_player)
-        {
-            if followup.add_shuffle {
-                parsed.trailing_shuffle = true;
+            {
+                if followup.add_shuffle {
+                    parsed.trailing_shuffle = true;
+                }
+                if let Some(r) = followup.new_rest {
+                    parsed.rest = r;
+                }
+                *sub = followup.trailing;
+                return Some(Self::finish_reveal_until_effects(
+                    &parsed,
+                    &followup.then_effs,
+                ));
             }
-            if let Some(r) = followup.new_rest {
-                parsed.rest = r;
+            if (parsed.remember_found || parsed.imprint_found)
+                && (parsed.remember_revealed || parsed.imprint_revealed)
+                && !parsed.optional_whole
+                && !parsed.optional_found_move
+                && parsed.multi_seat_domain.is_none()
+                && !parsed.trailing_shuffle
+            {
+                if parsed.exile_while_revealing
+                    && let Some((effs, trailing)) = self.wave28d_dig_until_exile_play_bottom(
+                        &sub_name,
+                        parsed.library,
+                        &parsed.filter_ref,
+                        &parsed.count,
+                        parsed.max_revealed.as_deref(),
+                        parsed.remember_found,
+                        parsed.imprint_found,
+                        parsed.remember_revealed,
+                        parsed.imprint_revealed,
+                    )
+                {
+                    *sub = trailing;
+                    return Some(effs);
+                }
+                if !parsed.exile_while_revealing
+                    && parsed.found == "RevealUntilFound::StayInLibrary"
+                    && parsed.rest == "RevealUntilRest::StayInLibrary"
+                    && let Some((effs, trailing)) = self.wave28d_dig_until_reveal_play_bottom(
+                        &sub_name,
+                        parsed.library,
+                        &parsed.filter_ref,
+                        &parsed.count,
+                        parsed.max_revealed.as_deref(),
+                        parsed.remember_found,
+                        parsed.imprint_found,
+                        parsed.remember_revealed,
+                        parsed.imprint_revealed,
+                    )
+                {
+                    *sub = trailing;
+                    return Some(effs);
+                }
             }
-            *sub = followup.trailing;
-            return Some(Self::finish_reveal_until_effects(
-                &parsed,
-                &followup.then_effs,
-            ));
         }
 
         // Case 4: `FoundDestination$ Exile` -> `DB$ Effect` granting `MayPlay`
@@ -2961,6 +3025,9 @@ impl Tx<'_> {
                     owner_tag,
                     "CopyCleanup::None",
                 )?]
+            }
+            "Token" if sp.peek("AttachedTo") == Some(obj_tag) => {
+                vec![self.wave28d_repeat_token_attached(sp)?]
             }
             "Play" => {
                 let eff = self.compile_event_object_play(sp, use_imprinted, None, None, false)?;

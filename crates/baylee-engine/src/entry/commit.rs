@@ -147,6 +147,7 @@ fn clean_refused_entry(state: &mut GameState, entry: &Attempt) -> bool {
 }
 
 fn apply_entry_designations(state: &mut GameState, entry: &Attempt) -> bool {
+    let mut designated = false;
     if entry.modifiers.contains(&EnterModifier::Suspected)
         && state.object(entry.object).is_some_and(|o| {
             o.characteristics()
@@ -160,7 +161,21 @@ fn apply_entry_designations(state: &mut GameState, entry: &Attempt) -> bool {
             .expect("entered object")
             .riders
             .push(crate::object::Rider::Suspected);
-        return true;
+        designated = true;
     }
-    false
+    if let Some(sub) = entry.chosen_subtype {
+        state
+            .object_mut(entry.object)
+            .expect("entered object")
+            .chosen_subtype = Some(sub);
+        designated = true;
+    }
+    if let Some(chosen) = entry.chosen_player {
+        state
+            .object_mut(entry.object)
+            .expect("entered object")
+            .set_chosen_opponent(Some(chosen));
+        designated = true;
+    }
+    designated
 }

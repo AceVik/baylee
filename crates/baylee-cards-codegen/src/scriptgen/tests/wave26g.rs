@@ -568,7 +568,7 @@ fn saga_ward_convoke_wave14a_grant_flash_and_ward_blight() {
         "Name:BadWardZero\nTypes:Creature\nPT:2/2\nK:Ward:Blight<0>",
         "Name:BadWardCE\nTypes:Creature\nPT:2/2\nK:Ward:CollectEvidence<3>",
         "Name:BadOptBlight\nManaCost:1 B\nTypes:Sorcery\n\
-         S:Mode$ OptionalCost | EffectZone$ All | ValidCard$ Card.Self | ValidSA$ Spell | Cost$ Blight<2>\n\
+         S:Mode$ OptionalCost | EffectZone$ All | ValidCard$ Card.Self | ValidSA$ Spell | Cost$ Blight<0>\n\
          A:SP$ Draw | NumCards$ 1",
     ] {
         assert!(refused26(bad), "expected refusal:\n{bad}");
@@ -859,11 +859,12 @@ fn divided_damage_shatterskull_inline_expr_target_max_and_subability() {
         rendered(&div_counters_gy_all)
     );
 
-    // Refusals: retargeting `SubAbility$`, mismatched `TargetMax$`.
+    // Refusals: 3-target chain after divided damage, mismatched `TargetMax$`.
     for bad in [
-        "Name:BadRetarget\nManaCost:3 R\nTypes:Sorcery\n\
+        "Name:BadThirdRetarget\nManaCost:3 R\nTypes:Sorcery\n\
          A:SP$ DealDamage | NumDmg$ 3 | ValidTgts$ Creature | TargetMin$ 0 | TargetMax$ 3 | DividedAsYouChoose$ 3 | SubAbility$ DBDestroy\n\
-         SVar:DBDestroy:DB$ Destroy | ValidTgts$ Artifact\n",
+         SVar:DBDestroy:DB$ Destroy | ValidTgts$ Artifact | SubAbility$ DBTap\n\
+         SVar:DBTap:DB$ Tap | ValidTgts$ Land\n",
         "Name:BadMaxMismatch\nManaCost:3 R\nTypes:Sorcery\n\
          A:SP$ DealDamage | NumDmg$ 3 | ValidTgts$ Creature | TargetMin$ 0 | TargetMax$ M | DividedAsYouChoose$ 3\n\
          SVar:M:Count$Valid Artifact\n",

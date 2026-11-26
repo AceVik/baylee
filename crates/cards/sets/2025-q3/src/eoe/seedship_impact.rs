@@ -6,7 +6,7 @@
 use crate::generated_tokens;
 use baylee_cards_dsl::prelude::*;
 
-static COND1: Filter = Filter::CmcAtMost(2);
+static COND_TGT1: Filter = Filter::CmcAtMost(2);
 
 card!(
     index = index::SEEDSHIP_IMPACT,
@@ -25,7 +25,7 @@ card!(
             Effect::IfCondition {
                 condition: Condition::ObjectMatches {
                     what: &TargetSpec::Object(&Filter::Any),
-                    filter: &COND1
+                    filter: &COND_TGT1
                 },
                 then: &[Effect::CreateToken {
                     token: &generated_tokens::LANDER_A23CC7A72

@@ -59,10 +59,16 @@ pub mod bladewing_deathless_tyrant;
 pub mod blight_pile;
 #[path = "dmu/bog_badger.rs"]
 pub mod bog_badger;
+#[path = "dmu/bortuk_bonerattle.rs"]
+pub mod bortuk_bonerattle;
+#[path = "dmu/braids_s_frightful_return.rs"]
+pub mod braids_s_frightful_return;
 #[path = "dmu/briar_hydra.rs"]
 pub mod briar_hydra;
 #[path = "dmu/charismatic_vanguard.rs"]
 pub mod charismatic_vanguard;
+#[path = "dmu/choking_miasma.rs"]
+pub mod choking_miasma;
 #[path = "dmu/citizen_s_arrest.rs"]
 pub mod citizen_s_arrest;
 #[path = "dmu/cleaving_skyrider.rs"]
@@ -187,6 +193,8 @@ pub mod iridian_maelstrom;
 pub mod jaya_s_firenado;
 #[path = "dmc/jedit_ojanen_mercenary.rs"]
 pub mod jedit_ojanen_mercenary;
+#[path = "dmc/jenson_carthalion_druid_exile.rs"]
+pub mod jenson_carthalion_druid_exile;
 #[path = "dmu/jodah_s_codex.rs"]
 pub mod jodah_s_codex;
 #[path = "dmu/join_forces.rs"]
@@ -195,6 +203,8 @@ pub mod join_forces;
 pub mod joint_exploration;
 #[path = "dmu/juniper_order_rootweaver.rs"]
 pub mod juniper_order_rootweaver;
+#[path = "dmu/karn_living_legacy.rs"]
+pub mod karn_living_legacy;
 #[path = "dmu/keldon_strike_team.rs"]
 pub mod keldon_strike_team;
 #[path = "dmu/king_darien_xlviii.rs"]
@@ -247,6 +257,8 @@ pub mod phyrexian_missionary;
 pub mod phyrexian_vivisector;
 #[path = "dmu/phyrexian_warhorse.rs"]
 pub mod phyrexian_warhorse;
+#[path = "dmu/pilfer.rs"]
+pub mod pilfer;
 #[path = "dmu/plaza_of_heroes.rs"]
 pub mod plaza_of_heroes;
 #[path = "dmu/prayer_of_binding.rs"]
@@ -263,6 +275,8 @@ pub mod radha_coalition_warlord;
 pub mod radha_s_firebrand;
 #[path = "dmu/radiant_grove.rs"]
 pub mod radiant_grove;
+#[path = "dmu/raff_weatherlight_stalwart.rs"]
+pub mod raff_weatherlight_stalwart;
 #[path = "dmu/ragefire_hellkite.rs"]
 pub mod ragefire_hellkite;
 #[path = "dmc/ramirez_de_pietro_pillager.rs"]
@@ -305,6 +319,8 @@ pub mod serra_redeemer;
 pub mod shadow_rite_priest;
 #[path = "dmu/shalai_s_acolyte.rs"]
 pub mod shalai_s_acolyte;
+#[path = "dmu/shanna_purifying_blade.rs"]
+pub mod shanna_purifying_blade;
 #[path = "dmu/sheoldred_s_restoration.rs"]
 pub mod sheoldred_s_restoration;
 #[path = "dmu/sheoldred_the_apocalypse.rs"]
@@ -363,10 +379,14 @@ pub mod the_elder_dragon_war;
 pub mod the_lady_of_otaria;
 #[path = "dmc/the_mana_rig.rs"]
 pub mod the_mana_rig;
+#[path = "dmu/the_raven_man.rs"]
+pub mod the_raven_man;
 #[path = "dmc/the_reaver_cleaver.rs"]
 pub mod the_reaver_cleaver;
 #[path = "dmu/the_weatherseed_treaty.rs"]
 pub mod the_weatherseed_treaty;
+#[path = "dmu/the_world_spell.rs"]
+pub mod the_world_spell;
 #[path = "dmu/thran_portal.rs"]
 pub mod thran_portal;
 #[path = "dmu/tidepool_turtle.rs"]
@@ -381,6 +401,8 @@ pub mod tobias_doomed_conqueror;
 pub mod tolarian_geyser;
 #[path = "dmu/tolarian_terror.rs"]
 pub mod tolarian_terror;
+#[path = "dmc/tor_wauki_the_younger.rs"]
+pub mod tor_wauki_the_younger;
 #[path = "dmu/tori_d_avenant_fury_rider.rs"]
 pub mod tori_d_avenant_fury_rider;
 #[path = "dmc/torsten_founder_of_benalia.rs"]
@@ -415,6 +437,8 @@ pub mod vodalian_hexcatcher;
 pub mod vodalian_mindsinger;
 #[path = "dmu/volshe_tideturner.rs"]
 pub mod volshe_tideturner;
+#[path = "dmu/walking_bulwark.rs"]
+pub mod walking_bulwark;
 #[path = "dmu/warhost_s_frenzy.rs"]
 pub mod warhost_s_frenzy;
 #[path = "dmu/wingmantle_chaplain.rs"]

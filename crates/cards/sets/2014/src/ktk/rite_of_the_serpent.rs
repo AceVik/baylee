@@ -6,7 +6,7 @@
 use crate::generated_tokens;
 use baylee_cards_dsl::prelude::*;
 
-static COND1: Filter = Filter::And(&[
+static COND_TGT1: Filter = Filter::And(&[
     Filter::CREATURE,
     Filter::CountersAtLeast(CounterKind::P1P1, 1),
 ]);
@@ -28,7 +28,7 @@ card!(
             Effect::IfCondition {
                 condition: Condition::ObjectMatches {
                     what: &TargetSpec::Object(&Filter::Any),
-                    filter: &COND1
+                    filter: &COND_TGT1
                 },
                 then: &[Effect::CreateToken {
                     token: &generated_tokens::SNAKE_1_1_GREEN

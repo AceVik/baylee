@@ -76,6 +76,8 @@ pub(crate) const fn needs_an_answer(part: &CostPart) -> bool {
             | CostPart::PutCounterOnOther { .. }
             | CostPart::Forage
             | CostPart::Behold(_)
+            | CostPart::RevealFromHand(_)
+            | CostPart::RevealFromHandX(_)
             | CostPart::CollectEvidence(_)
     )
 }
@@ -308,6 +310,20 @@ pub(crate) fn options_with_context(
             );
             return out;
         }
+        CostPart::RevealFromHand(filter) | CostPart::RevealFromHandX(filter) => {
+            return state
+                .zones
+                .list(ZoneLocation::Hand(player))
+                .iter()
+                .copied()
+                .filter(|&id| {
+                    id != source
+                        && state.object(id).is_some_and(|o| {
+                            eval::matches_with_context(filter, state, o, player, context)
+                        })
+                })
+                .collect();
+        }
         CostPart::CollectEvidence(_) => {
             return state
                 .zones
@@ -484,7 +500,10 @@ const fn spends_the_source_as(own: &CostPart, part: &CostPart) -> bool {
             CostPart::ReturnToHand(_) | CostPart::ReturnUnblockedAttacker
         ) | (
             CostPart::DiscardSelf,
-            CostPart::Discard(_) | CostPart::DiscardX(_)
+            CostPart::Discard(_)
+                | CostPart::DiscardX(_)
+                | CostPart::RevealFromHand(_)
+                | CostPart::RevealFromHandX(_)
         ) | (
             CostPart::ExileSelf,
             CostPart::ExileFromGraveyard(_)
@@ -518,7 +537,9 @@ pub(crate) const fn prompt(part: &CostPart) -> ChoicePrompt {
         CostPart::CollectEvidence(mana_value) => ChoicePrompt::CollectEvidence {
             mana_value: *mana_value,
         },
-        CostPart::PutCounterOnOther { .. } => ChoicePrompt::Generic,
+        CostPart::PutCounterOnOther { .. }
+        | CostPart::RevealFromHand(_)
+        | CostPart::RevealFromHandX(_) => ChoicePrompt::Generic,
         _ => ChoicePrompt::CostSacrifice,
     }
 }
@@ -611,7 +632,10 @@ pub(crate) fn pay(
         state.sacrifice_object(chosen, Cause::Cost)?;
         return Ok(());
     }
-    if matches!(part, CostPart::Behold(_)) {
+    if matches!(
+        part,
+        CostPart::Behold(_) | CostPart::RevealFromHand(_) | CostPart::RevealFromHandX(_)
+    ) {
         if state
             .object(chosen)
             .is_some_and(|o| o.zone == crate::zone::Zone::Hand)

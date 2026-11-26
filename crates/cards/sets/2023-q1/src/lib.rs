@@ -33,6 +33,8 @@ pub mod armored_scrapgorger;
 pub mod atmosphere_surgeon;
 #[path = "one/atraxa_grand_unifier.rs"]
 pub mod atraxa_grand_unifier;
+#[path = "one/atraxa_s_skitterfang.rs"]
+pub mod atraxa_s_skitterfang;
 #[path = "one/axiom_engraver.rs"]
 pub mod axiom_engraver;
 #[path = "one/barbed_batterfist.rs"]
@@ -115,6 +117,8 @@ pub mod encroaching_mycosynth;
 pub mod escaped_experiment;
 #[path = "one/evolved_spinoderm.rs"]
 pub mod evolved_spinoderm;
+#[path = "one/expand_the_sphere.rs"]
+pub mod expand_the_sphere;
 #[path = "one/experimental_augury.rs"]
 pub mod experimental_augury;
 #[path = "one/exuberant_fuseling.rs"]
@@ -125,6 +129,8 @@ pub mod eye_of_malcator;
 pub mod fleshless_gladiator;
 #[path = "one/font_of_progress.rs"]
 pub mod font_of_progress;
+#[path = "one/forgehammer_centurion.rs"]
+pub mod forgehammer_centurion;
 #[path = "one/free_from_flesh.rs"]
 pub mod free_from_flesh;
 #[path = "one/furnace_punisher.rs"]
@@ -185,6 +191,8 @@ pub mod jor_kadeen_first_goldwarden;
 pub mod kemba_s_banner;
 #[path = "one/kuldotha_cackler.rs"]
 pub mod kuldotha_cackler;
+#[path = "one/lattice_blade_mantis.rs"]
+pub mod lattice_blade_mantis;
 #[path = "one/leonin_lightbringer.rs"]
 pub mod leonin_lightbringer;
 #[path = "one/malcator_purity_overseer.rs"]
@@ -199,6 +207,8 @@ pub mod maze_skullbomb;
 pub mod meldweb_curator;
 #[path = "one/meldweb_strider.rs"]
 pub mod meldweb_strider;
+#[path = "one/mercurial_spelldancer.rs"]
+pub mod mercurial_spelldancer;
 #[path = "one/mesmerizing_dose.rs"]
 pub mod mesmerizing_dose;
 #[path = "one/migloz_maze_crusher.rs"]

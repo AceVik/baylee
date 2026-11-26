@@ -229,6 +229,8 @@ pub enum SpellForm {
     Plot,
     /// An impending creature spell is cast for its impending cost (`CR 702.176a`).
     Impending(ManaCost),
+    /// A spell cast paying its `FaceDef::optional_cost` (`CR 118.8b`).
+    OptionalCost(ManaCost),
 }
 
 /// The spell characteristics a player may use to assess a face-down exiled
@@ -266,6 +268,18 @@ fn face_up_projection(object: &crate::object::GameObject) -> crate::object::Game
 impl SpellForm {
     #[doc(hidden)]
     pub fn project(self, object: &crate::object::GameObject) -> crate::object::GameObject {
+        if matches!(self, Self::OptionalCost(_)) {
+            let mut projected = face_up_projection(object);
+            if !projected
+                .riders
+                .contains(&crate::object::Rider::OptionalCostPaid)
+            {
+                projected
+                    .riders
+                    .push(crate::object::Rider::OptionalCostPaid);
+            }
+            return projected;
+        }
         if matches!(self, Self::Foretell(_) | Self::Plot | Self::Impending(_)) {
             return face_up_projection(object);
         }
@@ -316,7 +330,7 @@ impl SpellForm {
                 base.power = None;
                 base.toughness = None;
             }
-            Self::Foretell(_) | Self::Plot | Self::Impending(_) => {
+            Self::Foretell(_) | Self::Plot | Self::Impending(_) | Self::OptionalCost(_) => {
                 unreachable!("handled before the characteristic projection")
             }
         }
@@ -328,7 +342,7 @@ impl SpellForm {
             Self::Prototype(p) => p.cost,
             Self::Disguise => const { ManaCost::parse("{3}") },
             Self::Bestow(cost) => cost.mana,
-            Self::Foretell(cost) | Self::Impending(cost) => cost,
+            Self::Foretell(cost) | Self::Impending(cost) | Self::OptionalCost(cost) => cost,
             Self::Plot => ManaCost::ZERO,
         }
     }

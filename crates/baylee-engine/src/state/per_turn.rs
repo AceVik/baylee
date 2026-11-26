@@ -82,6 +82,15 @@ impl<T: Hash> Hash for PerTurnTracked<T> {
     }
 }
 
+/// A static game-wide tracking flag on [`PerTurn`] that contributes nothing to
+/// `PerTurn::hash` (so games without any reader keep their exact state hash).
+#[derive(Clone, Copy, PartialEq, Eq, Default, Debug)]
+pub struct PerTurnTrackedFlag(pub bool);
+
+impl Hash for PerTurnTrackedFlag {
+    fn hash<H: std::hash::Hasher>(&self, _state: &mut H) {}
+}
+
 /// Per-turn chosen-mode bitmasks (`Effect::ChooseOneRestricted` with
 /// `ModalRestriction::OncePerTurn`, CR 700.2i), keyed by `(incarnation, ability_index)`.
 /// Writes nothing into [`Hash`] while empty so existing snapshot hashes are preserved;
@@ -322,6 +331,10 @@ pub struct PerTurn {
     /// Spells cast this turn, with frozen stack-time snapshots for
     /// [`baylee_cards_dsl::Modifier::FirstSpellEachTurnCostAdjust`].
     pub cast_spells_this_turn: PerTurnTracked<CastSpellRecord>,
+    /// Whether any card in this game reads `ManaColorSpentToCast` or
+    /// `ColorsOfManaSpentToCast` (so ordinary games skip attaching
+    /// `Rider::ManaTypesSpent` and keep their exact snapshot digests).
+    pub track_mana_types_spent: PerTurnTrackedFlag,
 }
 
 /// One `(target, counter kind, placing player)` fact from this turn
@@ -749,6 +762,7 @@ impl PerTurn {
             spells_cast_log: PerTurnTracked::default(),
             counter_placers: PerTurnTracked::default(),
             cast_spells_this_turn: PerTurnTracked::default(),
+            track_mana_types_spent: PerTurnTrackedFlag::default(),
         }
     }
 
@@ -965,6 +979,7 @@ impl PerTurn {
             spells_cast_log: _,
             counter_placers: _,
             cast_spells_this_turn: _,
+            track_mana_types_spent: _,
         } = self;
         *untapped_lands_at_start = 0;
         *hand_size_at_start = 0;

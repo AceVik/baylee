@@ -697,11 +697,28 @@ fn a_may_with_a_generic_price_is_a_payment_that_buys_the_clause() {
         "{life_text}"
     );
 
-    let script = parse(
+    let mana_and_life_text = read(
         "Name:X\nManaCost:1\nTypes:Artifact\n\
          T:Mode$ SpellCast | ValidCard$ Card.Blue | TriggerZones$ Battlefield \
          | OptionalDecider$ You | Execute$ TrigGainLife | TriggerDescription$ x.\n\
          SVar:TrigGainLife:AB$ GainLife | Cost$ 1 PayLife<1> | Defined$ You | LifeAmount$ 1",
+    )
+    .abilities
+    .join("\n");
+    assert!(
+        mana_and_life_text.contains(
+            "Effect::PlayerMayPayManaAndLifeEachThenElse { player: PlayerRel::You, \
+             mana: mana!(\"{1}\"), life: 1, times: Amount::Fixed(1), \
+             paid: &[Effect::gain_life(1)], unpaid: &[] }"
+        ),
+        "{mana_and_life_text}"
+    );
+
+    let script = parse(
+        "Name:X\nManaCost:1\nTypes:Artifact\n\
+         T:Mode$ SpellCast | ValidCard$ Card.Blue | TriggerZones$ Battlefield \
+         | OptionalDecider$ You | Execute$ TrigGainLife | TriggerDescription$ x.\n\
+         SVar:TrigGainLife:AB$ GainLife | Cost$ 1 PayLife<1> Discard<1/Card> | Defined$ You | LifeAmount$ 1",
     );
     assert_eq!(
         refusal_reason(&script, &cats(), None).as_deref(),
@@ -2161,11 +2178,9 @@ fn wave22c_etb_counter_cast_riders_and_refusals() {
     // Unassigned named counters and unmodelled etbCounter SVars stay honestly refused.
     for unmodelled in [
         "Name:DivinitySpirit\nManaCost:5 W\nTypes:Creature\nPT:4/4\nK:etbCounter:DIVINITY:1",
-        "Name:ConvergeGolem\nManaCost:4\nTypes:Artifact Creature\nPT:0/0\nK:etbCounter:P1P1:X\nSVar:X:Count$Converge",
-        "Name:AdamantKnight\nManaCost:3 R\nTypes:Creature\nPT:2/2\nK:etbCounter:P1P1:1:CheckSVar$ X\nSVar:X:Adamant$ Red",
         "Name:DraftConstruct\nManaCost:3\nTypes:Artifact Creature\nPT:0/0\nK:etbCounter:P1P1:X\nSVar:X:Count$DraftNotesCount",
         "Name:CommanderHydra\nManaCost:2 G\nTypes:Creature\nPT:0/0\nK:etbCounter:P1P1:X\nSVar:X:Count$TotalCommanderCastFromCommandZone",
-        "Name:SpentGolem\nManaCost:4\nTypes:Artifact Creature\nPT:2/2\nK:etbCounter:P1P1:X\nSVar:X:Count$EachSpentToCast G",
+        "Name:BadSpentGolem\nManaCost:4\nTypes:Artifact Creature\nPT:2/2\nK:etbCounter:P1P1:X\nSVar:X:Count$EachSpentToCast Snow",
     ] {
         assert!(refused(unmodelled), "must stay refused:\n{unmodelled}");
     }
@@ -2379,9 +2394,9 @@ fn wave22c_phase_check_svar_counts_and_refusals() {
          CheckSVar$ X | SVarCompare$ EQ0 | Execute$ TrigDraw\n\
          SVar:TrigDraw:DB$ Draw | Defined$ You | NumCards$ 1\n\
          SVar:X:PlayerCountOpponents$LowestCardsInHand",
-        "Name:VoidWatcher\nManaCost:2 B\nTypes:Enchantment\n\
+        "Name:VoidWatcherBadCmp\nManaCost:2 B\nTypes:Enchantment\n\
          T:Mode$ Phase | Phase$ End of Turn | ValidPlayer$ You | TriggerZones$ Battlefield | \
-         CheckSVar$ X | Execute$ TrigDraw\n\
+         CheckSVar$ X | SVarCompare$ GE2 | Execute$ TrigDraw\n\
          SVar:TrigDraw:DB$ Draw | Defined$ You | NumCards$ 1\n\
          SVar:X:Count$Void.1.0",
         "Name:OtherTribeWatcher\nManaCost:3 W\nTypes:Enchantment\n\

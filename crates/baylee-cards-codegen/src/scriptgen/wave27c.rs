@@ -237,11 +237,20 @@ impl Tx<'_> {
         }
 
         // 2. Inside CaptureAffected::then: `ChangeZoneAll` moving `<F>.IsRemembered`
+        //    from `Exile` -> `Graveyard` / `Hand` / `Library (-1, RandomOrder)` (with
+        //    optional `ForgetChanged$ True`), e.g. *Epic Experiment*, *Collected
+        //    Conjuring*, *Muse Vortex*.
+        if let Some(effs) = self.wave28d_capture_change_zone_all_exile(p) {
+            return Some(effs);
+        }
+
+        // 3. Inside CaptureAffected::then: `ChangeZoneAll` moving `<F>.IsRemembered`
         //    from `Graveyard,Exile` / `Exile` / `Graveyard` -> `Hand` / `Battlefield` / `Exile`.
         let scope = self.capture_scope.as_ref()?;
-        if targets_a_player || (target.is_some() && !prior_target_used) {
+        if targets_a_player {
             return None;
         }
+        let _ = (target, prior_target_used);
         let origin = p.peek("Origin")?;
         let dest = p.peek("Destination")?;
         let change_type = p.peek("ChangeType")?;
@@ -307,7 +316,7 @@ impl Tx<'_> {
 
     /// Which Forge `Remember*` parameter on `api` cleanly maps to
     /// `Effect::CaptureAffected { first, then }`.
-    fn wave27c_capture_flag(api: &str, p: &Params) -> Option<&'static str> {
+    pub(super) fn wave27c_capture_flag(api: &str, p: &Params) -> Option<&'static str> {
         let primary = match api {
             "ChangeZone" | "ChangeZoneAll" | "Dig" => "RememberChanged",
             "Mill" => "RememberMilled",
@@ -322,6 +331,13 @@ impl Tx<'_> {
         };
         if p.peek(primary) == Some("True") {
             return Some(primary);
+        }
+        if api == "ChangeZone"
+            && p.peek("RememberTargets") == Some("True")
+            && !p.has("RememberChanged")
+            && !p.has("Optional")
+        {
+            return Some("RememberTargets");
         }
         if matches!(
             api,
@@ -549,6 +565,13 @@ impl Tx<'_> {
         {
             return None;
         }
+        if api == "Dig"
+            && self.capture_scope.is_none()
+            && self.sub_is_api(sub.as_deref(), "TwoPiles")
+            && let Some(effs) = self.wave28d_dig_exile_two_piles_play(p, sub)
+        {
+            return Some(effs);
+        }
         // Yield to existing specialized trigger handlers (`wave24e` Dig triggers
         // and `wave26f` Token+RememberTokens triggers) so existing generated cards
         // keep their exact replay identities.
@@ -608,6 +631,14 @@ impl Tx<'_> {
     ) -> Option<Vec<String>> {
         let sub_name = sub.as_deref()?.trim().to_string();
         let flag_key = Self::wave27c_capture_flag(api, p)?;
+        if flag_key == "RememberTargets"
+            && (!flags.targets_here
+                || !flags.single_target
+                || self.has_linked_exile_reader()
+                || self.oracle.to_ascii_lowercase().contains("you may "))
+        {
+            return None;
+        }
         if Self::has_unsupported_memory_param(p, flag_key) {
             return None;
         }
@@ -639,7 +670,10 @@ impl Tx<'_> {
         } else {
             self.wave27c_lower_capture_first(api, &mut probe_p, target, flags)?
         };
-        if !probe_p.exhausted() || first_effects.is_empty() {
+        let allow_line_cond = api == "Sacrifice"
+            && probe_p.peek("ConditionPresent").is_some()
+            && Self::only_condition_keys_left(&probe_p);
+        if (!probe_p.exhausted() && !allow_line_cond) || first_effects.is_empty() {
             return None;
         }
 
@@ -650,13 +684,16 @@ impl Tx<'_> {
             target_is_x: chain.target_is_x,
             target_up_to: chain.target_up_to,
             target_exact: chain.target_exact,
+            target_range: chain.target_range,
             target_unique: chain.target_unique,
             target_constraint: chain.target_constraint,
             second_target: chain.second_target.clone(),
             second_target_up_to: chain.second_target_up_to,
+            second_target_range: chain.second_target_range,
             second_target_constraint: chain.second_target_constraint,
             third_target: chain.third_target.clone(),
             third_target_up_to: chain.third_target_up_to,
+            third_target_range: chain.third_target_range,
             third_target_constraint: chain.third_target_constraint,
             ..Chain::default()
         };
@@ -668,13 +705,29 @@ impl Tx<'_> {
         if then_chain.effects.is_empty() {
             return None;
         }
+        // When `first` carried a line condition (e.g. `Daredevil Dragster`:
+        // `Sacrifice | SacValid$ Self | RememberSacrificed$ True | ConditionPresent$ ...`),
+        // wrapping `CaptureAffected` in `IfCondition` is equivalent ONLY when `then`
+        // itself requires at least one remembered object (`RememberedCount >= 1`).
+        if allow_line_cond
+            && !then_chain.effects.iter().all(|e| {
+                e.starts_with(
+                    "Effect::IfCondition { condition: Condition::AmountCompare { \
+                     left: &Amount::RememberedCount, op: AmountCmp::AtLeast, \
+                     right: &Amount::Fixed(1) }",
+                )
+            })
+        {
+            return None;
+        }
         // On permanent abilities (triggers / activated abilities), omitting
         // `DB$ Cleanup | ClearRemembered$ True` would retain remembered objects
         // across separate resolutions in Forge; require explicit `Cleanup`.
         // On spells (which leave the stack on resolution), allow omitted
         // `Cleanup` only when no unvisited SVar reads `Remembered`.
         if !closed_by_cleanup
-            && (!self.on_a_spell || self.wave27c_has_unvisited_remembered(&visited))
+            && ((!self.on_a_spell && !self.preceded_by_cleanup)
+                || self.wave27c_has_unvisited_remembered(&visited))
         {
             return None;
         }
@@ -684,19 +737,47 @@ impl Tx<'_> {
         chain.target_is_x = then_chain.target_is_x;
         chain.target_up_to = then_chain.target_up_to;
         chain.target_exact = then_chain.target_exact;
+        chain.target_range = then_chain.target_range;
         chain.target_unique = then_chain.target_unique;
         chain.target_constraint = then_chain.target_constraint;
         chain.second_target = then_chain.second_target;
         chain.second_target_up_to = then_chain.second_target_up_to;
+        chain.second_target_range = then_chain.second_target_range;
         chain.second_target_constraint = then_chain.second_target_constraint;
         chain.third_target = then_chain.third_target;
         chain.third_target_up_to = then_chain.third_target_up_to;
+        chain.third_target_range = then_chain.third_target_range;
         chain.third_target_constraint = then_chain.third_target_constraint;
         chain.could_add_mana |= then_chain.could_add_mana;
         chain.moves_library |= then_chain.moves_library;
 
         *p = probe_p;
         *sub = after_cleanup;
+        // If `first_effects` starts with `Effect::RevealHand { .. }` before a
+        // discard (`Traumatic Revelation`), hoist `RevealHand` OUTSIDE
+        // `CaptureAffected::first` so `harvest_captured` never falls back to
+        // harvesting the revealed hand cards as "discarded" when 0 cards are discarded.
+        if api == "Discard"
+            && first_effects.len() >= 2
+            && first_effects[0].starts_with("Effect::RevealHand ")
+        {
+            let reveal = first_effects[0].clone();
+            let rest_first = first_effects[1..].join(", ");
+            return Some(vec![
+                reveal,
+                format!(
+                    "Effect::CaptureAffected {{ first: &[{rest_first}], then: &[{}] }}",
+                    then_chain.effects.join(", "),
+                ),
+            ]);
+        }
+        if api == "Discard"
+            && first_effects
+                .iter()
+                .any(|e| e.starts_with("Effect::RevealHand"))
+        {
+            return None;
+        }
         Some(vec![format!(
             "Effect::CaptureAffected {{ first: &[{}], then: &[{}] }}",
             first_effects.join(", "),
@@ -731,6 +812,19 @@ impl Tx<'_> {
                 return Some(effs);
             }
             return None;
+        }
+        // `Sacrifice | SacValid$ Self` (without `Optional$ True`, e.g. *Daredevil Dragster*):
+        // lower cleanly to `Effect::SacrificeSelf` even when line conditions remain on `p`.
+        if api == "Sacrifice"
+            && !self.on_a_spell
+            && p.peek("SacValid") == Some("Self")
+            && !p.has("Defined")
+            && !p.has("Amount")
+            && !p.has("Optional")
+        {
+            p.take("SacValid");
+            p.take("SacMessage");
+            return Some(vec!["Effect::SacrificeSelf".to_string()]);
         }
         // `Dig` with `ChangeNum$ Any` (Search for Blex): let `dig_effect` handle standard Dig first.
         if api == "Dig" {
@@ -777,13 +871,9 @@ impl Tx<'_> {
             Some(_) => return None,
         };
         let amount_raw = p.take("Amount").unwrap_or_else(|| "1".to_string());
-        let amount: u8 = amount_raw.trim().parse().ok()?;
-        if amount == 0 {
-            return None;
-        }
         let valid = p.take("SacValid")?;
         if valid == "Self" {
-            if amount != 1 || p.has("Defined") {
+            if amount_raw.trim() != "1" || p.has("Defined") {
                 return None;
             }
             return Some(vec![
@@ -806,13 +896,22 @@ impl Tx<'_> {
         }
         let filter_expr = self.filter_expr(&valid)?;
         let filter_name = self.body.filter_static("SAC", &filter_expr);
+        if !strict && self.is_sacrifice_any_number(&amount_raw, &valid, who) {
+            return Some(vec![format!(
+                "Effect::SacrificeAnyNumber {{ who: {who}, filter: &{filter_name} }}"
+            )]);
+        }
+        let amount: u8 = amount_raw.trim().parse().ok()?;
+        if amount == 0 {
+            return None;
+        }
         if amount == 1 {
             let inner = format!("Effect::SacrificeFilter {{ who: {who}, filter: &{filter_name} }}");
             if who == "PlayerRel::You" {
                 return Some(vec![format!("Effect::MayDo {{ effects: &[{inner}] }}")]);
             }
             return Some(vec![format!(
-                "Effect::PlayerMayDo {{ who: {who}, effects: &[{inner}] }}"
+                "Effect::MayDoFor {{ player: {who}, effects: &[{inner}] }}"
             )]);
         }
         if strict
@@ -1023,7 +1122,7 @@ impl Tx<'_> {
 
     /// Strip `IsRemembered` from every comma-separated alternative in `valid`.
     /// Returns `None` if ANY alternative lacks `IsRemembered` or uses `!IsRemembered`.
-    fn strip_is_remembered_all_alts(valid: &str) -> Option<String> {
+    pub(super) fn strip_is_remembered_all_alts(valid: &str) -> Option<String> {
         let mut out = Vec::new();
         for alt in valid.split(',').map(str::trim) {
             if alt.is_empty() || alt.contains("!IsRemembered") {
@@ -1098,6 +1197,10 @@ impl Tx<'_> {
             let max_u8: Option<u8> = max_raw.trim().parse().ok();
             let max_expr = if let Some(n) = max_u8 {
                 format!("Amount::Fixed({n})")
+            } else if !mandatory
+                && self.wave28d_capture_hidden_all_change_num(&max_raw, &origin, &change_type)
+            {
+                "Amount::Fixed(255)".to_string()
             } else {
                 self.amount_or_count_ext(&max_raw)?
             };
@@ -1158,6 +1261,15 @@ impl Tx<'_> {
             )]);
         }
 
+        // Case 1b: `Play` over remembered cards in exile (*Etali, Primal Storm*,
+        // *Villainous Wealth*, *Epic Experiment*, *Collected Conjuring*,
+        // *Hellcarver Demon*, *Muse Vortex*, *Kotis, the Fangkeeper*).
+        if api == "Play"
+            && let Some(effs) = self.wave28d_capture_play_step(p, target, flags)
+        {
+            return Some(effs);
+        }
+
         // Case 2: `Defined$ Remembered` on standard battlefield/zone operations.
         if p.peek("Defined") != Some("Remembered") {
             return None;
@@ -1202,46 +1314,6 @@ impl Tx<'_> {
                 }
                 *p = probe;
                 Some(effs)
-            }
-            "Animate" => {
-                let mut probe = p.clone();
-                probe.take("Defined");
-                probe.take("IsCurse");
-                let duration = match probe.take("Duration").as_deref() {
-                    None | Some("EOT" | "UntilEndOfTurn") => "Duration::UntilEndOfTurn",
-                    Some("UntilEndOfCombat") => "Duration::UntilEndOfCombat",
-                    Some("UntilYourNextTurn") => "Duration::UntilYourNextTurn",
-                    Some("Permanent") => "Duration::Indefinitely",
-                    Some(_) => return None,
-                };
-                let raw_keywords = probe.take("Keywords")?;
-                let keywords = Self::pump_keyword_bits(&raw_keywords)?;
-                let at_eot = probe.take("AtEOT");
-                if !Self::only_condition_keys_left(&probe) {
-                    return None;
-                }
-                let mut effects = vec![format!(
-                    "Effect::ModifyEvent {{ modifier: Modifier::AddKeyword({keywords}), duration: {duration} }}"
-                )];
-                if let Some(at_eot) = at_eot.as_deref() {
-                    let delayed = match at_eot {
-                        "Hand" => "Effect::ReturnToHand { target: TargetSpec::EventObject }",
-                        "Sacrifice" | "SacrificeCtrl" => "Effect::SacrificeEvent",
-                        "Exile" => "Effect::exile(TargetSpec::EventObject)",
-                        _ => return None,
-                    };
-                    effects.push(format!(
-                        "Effect::RegisterDelayedTrigger {{ when: DelayedTriggerWhen::AtStep {{ \
-                         step: DelayedStep::EndStep, whose: None, this_turn_only: false, \
-                         recurring: false }}, condition: None, targets: None, \
-                         remember: TriggerRemember::EventObject, effects: &[{delayed}] }}"
-                    ));
-                }
-                *p = probe;
-                Some(vec![format!(
-                    "Effect::ForEachRemembered {{ filter: &Filter::Any, effects: &[{}] }}",
-                    effects.join(", ")
-                )])
             }
             "PutCounter" => {
                 let mut probe = p.clone();
@@ -1306,6 +1378,7 @@ impl Tx<'_> {
                     "Effect::SacrificeAll { filter: &Filter::IsRemembered }".to_string(),
                 ])
             }
+            "AlterAttribute" => Self::wave28d_capture_alter_attribute(p),
             "ChangeZone" => {
                 let mut probe = p.clone();
                 probe.take("Defined");
@@ -1414,7 +1487,7 @@ impl Tx<'_> {
                      haste_until_eot: {haste_until_eot} }}] }}"
                 )])
             }
-            _ => None,
+            _ => self.wave28a_remembered_step(api, p, target, flags),
         }
     }
 
@@ -1507,12 +1580,14 @@ impl Tx<'_> {
         let second = Self::format_slot_req(
             chain.second_target.as_deref()?,
             chain.second_target_up_to,
+            chain.second_target_range,
             chain.second_target_constraint,
         );
         if let Some(third_spec) = chain.third_target.as_deref() {
             let third = Self::format_slot_req(
                 third_spec,
                 chain.third_target_up_to,
+                chain.third_target_range,
                 chain.third_target_constraint,
             );
             Some(format!("{second}), third_targets = Some({third}"))
@@ -1521,13 +1596,20 @@ impl Tx<'_> {
         }
     }
 
-    fn format_slot_req(spec: &str, up_to: Option<u8>, constraint: Option<&'static str>) -> String {
+    fn format_slot_req(
+        spec: &str,
+        up_to: Option<u8>,
+        range: Option<(u8, u8)>,
+        constraint: Option<&'static str>,
+    ) -> String {
         let base = if let Some(max) = up_to {
             if max == 1 {
                 format!("TargetReq::up_to_one({spec})")
             } else {
                 format!("TargetReq::up_to({spec}, {max})")
             }
+        } else if let Some((min, max)) = range {
+            Self::wave28a_format_range_req(spec, min, max)
         } else {
             format!("TargetReq::one({spec})")
         };
@@ -1538,6 +1620,7 @@ impl Tx<'_> {
     }
 
     /// Parse `TargetMin$` / `TargetMax$` / `TargetUnique$` for Slot 2 or Slot 3.
+    #[allow(clippy::type_complexity)]
     fn take_slot_bounds_and_unique(
         &self,
         api: &str,
@@ -1545,7 +1628,7 @@ impl Tx<'_> {
         valid: &str,
         spec: &str,
         allow_multi: bool,
-    ) -> Option<(Option<u8>, Option<&'static str>)> {
+    ) -> Option<(Option<u8>, Option<(u8, u8)>, Option<&'static str>)> {
         let constraint = match p.peek("TargetUnique") {
             None => None,
             Some("True") => {
@@ -1555,6 +1638,7 @@ impl Tx<'_> {
             Some(_) => return None,
         };
         let is_obj_spec = spec.starts_with("TargetSpec::Object(");
+        let mut range = None;
         let up_to = if p.peek("TargetMin") == Some("1")
             && matches!(p.peek("TargetMax"), None | Some("1"))
         {
@@ -1604,12 +1688,16 @@ impl Tx<'_> {
             p.take("TargetMin");
             p.take("TargetMax");
             Some(u8::MAX)
+        } else if let Some(r) = self.wave28a_take_extra_slot_range(api, p, valid, spec, allow_multi)
+        {
+            range = Some(r);
+            None
         } else if p.has("TargetMin") || p.has("TargetMax") {
             return None;
         } else {
             None
         };
-        Some((up_to, constraint))
+        Some((up_to, range, constraint))
     }
 
     /// Wave 27c hook in `chain_target`: handles
@@ -1644,13 +1732,14 @@ impl Tx<'_> {
                 return Some(false);
             }
             let allow_multi = Self::wave26c_second_target_multi_ok(api, p);
-            let Some((up_to, constraint)) =
+            let Some((up_to, range, constraint)) =
                 self.take_slot_bounds_and_unique(api, p, valid, spec, allow_multi)
             else {
                 return Some(false);
             };
             chain.third_target = Some(spec.to_string());
             chain.third_target_up_to = up_to;
+            chain.third_target_range = range;
             chain.third_target_constraint = constraint;
             return Some(true);
         }
@@ -1685,13 +1774,14 @@ impl Tx<'_> {
         }
         let allow_multi = Self::wave26c_second_target_multi_ok(api, p)
             || (api == "GainControl" && p.peek("NewController") == Some("ParentTarget"));
-        let Some((up_to, constraint)) =
+        let Some((up_to, range, constraint)) =
             self.take_slot_bounds_and_unique(api, p, valid, spec, allow_multi)
         else {
             return Some(false);
         };
         chain.second_target = Some(spec.to_string());
         chain.second_target_up_to = up_to;
+        chain.second_target_range = range;
         chain.second_target_constraint = constraint;
         Some(true)
     }
@@ -2007,7 +2097,8 @@ impl Tx<'_> {
         if third_target_here {
             let third_spec = chain.third_target.as_deref().map(Self::effect_target_of)?;
             let targets_a_player = third_spec == "TargetSpec::Player(PlayerRel::Chosen)";
-            let third_single = chain.third_target_up_to.is_none_or(|n| n <= 1);
+            let third_single = chain.third_target_up_to.is_none_or(|n| n <= 1)
+                && chain.third_target_range.is_none();
             let raw = self.wave27c_slot2_or_slot3_effect(
                 api,
                 p,

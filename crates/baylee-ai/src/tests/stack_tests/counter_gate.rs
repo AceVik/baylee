@@ -29,6 +29,7 @@ use super::*;
 /// Pass E6 adds Glimpse of Freedom (`Draw(1)` with escape).
 /// Pass E7 adds Dreams of Laguna (`Surveil(1)`, `Draw(1)` with flashback).
 /// Pass E15 adds Reason (`Scry(3)`, front face of Reason // Believe).
+/// Wave 16 (+942 generated cards) adds Council's Deliberation (`Draw(1)`).
 #[test]
 fn the_counter_gate_lets_only_a_cantrip_resolve() {
     let mut held: Vec<&str> = baylee_cards::all()
@@ -70,6 +71,7 @@ fn the_counter_gate_lets_only_a_cantrip_resolve() {
             "Brainstorm",
             "Consider",
             "Contingency Plan",
+            "Council's Deliberation",
             "Curate",
             "Deliberate",
             "Dream Cache",

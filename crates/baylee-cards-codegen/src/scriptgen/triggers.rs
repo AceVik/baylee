@@ -90,6 +90,9 @@ impl Tx<'_> {
             Some("You") => ".YouCtrl",
             Some("Opponent" | "Player.Opponent") => ".OppCtrl",
             Some("Player.Other") => ".YouDontCtrl",
+            Some("Player.Chosen" | "ChosenPlayer") if self.has_chosen_source_player() => {
+                ".ChosenCtrl"
+            }
             Some(other) => {
                 return self.deny(format!("a spell cast by `{other}`"));
             }
@@ -212,6 +215,9 @@ impl Tx<'_> {
             Some("You") => ".YouCtrl",
             Some("Opponent" | "Player.Opponent") => ".OppCtrl",
             Some("Player.Other") => ".YouDontCtrl",
+            Some("Player.Chosen" | "ChosenPlayer") if self.has_chosen_source_player() => {
+                ".ChosenCtrl"
+            }
             Some(other) => {
                 return self.deny(format!("a spell cast or copied by `{other}`"));
             }
@@ -644,6 +650,7 @@ impl Tx<'_> {
         let Some(source) = source else {
             return self.deny("a `DamageDone` trigger with no `ValidSource$`".to_string());
         };
+        self.damage_trigger_source_is_attached = Self::wave28b_is_attached_damage_source(&source);
         let filter = filter_of(self, &source)?;
         match (target.as_deref(), combat) {
             (Some("Player"), true) => Some(format!("Trigger::DealsCombatDamageToPlayer({filter})")),
@@ -764,6 +771,7 @@ impl Tx<'_> {
         let Some(source) = p.take("ValidSource") else {
             return self.deny("a `DamageDealtOnce` trigger with no `ValidSource$`".to_string());
         };
+        self.damage_trigger_source_is_attached = Self::wave28b_is_attached_damage_source(&source);
         let filter = if source == "Card.Self" {
             "&Filter::This".to_string()
         } else {
@@ -816,7 +824,7 @@ impl Tx<'_> {
         self.trigger_expr_in_zone(p, mode, false)
     }
 
-    fn trigger_expr_in_zone(
+    pub(super) fn trigger_expr_in_zone(
         &mut self,
         p: &mut Params,
         mode: &str,
@@ -912,6 +920,7 @@ impl Tx<'_> {
             "Clashed" => self.clashed_trigger(p),
             "Firebend" | "Firebends" => self.firebends_trigger(p),
             "UnlockDoor" => self.unlock_door_trigger(p, zone_taken),
+            "DayTimeChanges" if !zone_taken => Some("Trigger::DayNightChanges".to_string()),
             other => self.deny(format!("trigger mode `{other}`")),
         }
     }
@@ -2826,6 +2835,7 @@ impl Tx<'_> {
             let parsed = self.read_charm_modes(&choices);
             self.trigger_is_self = false;
             self.is_etb_self_trigger = false;
+            self.damage_trigger_source_is_attached = false;
             let parsed = parsed?;
             if parsed.len() < 2 || (!restriction.is_empty() && parsed.len() > 64) {
                 return self
@@ -2842,6 +2852,8 @@ impl Tx<'_> {
         self.trigger_is_self = trigger_is_self;
         self.is_etb_self_trigger = trigger == "Trigger::ETB";
         self.trigger_blocks_creature = trigger.starts_with("Trigger::BlocksCreature(");
+        self.damage_trigger_binds_source = Self::wave28b_trigger_binds_damage_source(&trigger);
+        self.damage_trigger_is_combat = trigger.contains("CombatDamage");
         self.cost_sacrifices_self = matches!(
             &price,
             Some(OptionalTriggerPrice::CostPart(p)) if p == "Sacrifice(&Filter::This)"
@@ -2851,6 +2863,13 @@ impl Tx<'_> {
             Some(OptionalTriggerPrice::CostPart(p))
                 if p.starts_with("Sacrifice(") && p != "Sacrifice(&Filter::This)"
         );
+        self.cost_discards_single_for_cost = matches!(
+            &price,
+            Some(OptionalTriggerPrice::CostPart(p)) if p.starts_with("Discard(")
+        );
+        self.in_discard_hand_may = matches!(price, Some(OptionalTriggerPrice::DiscardHand));
+        self.in_resolution_chosen_x =
+            matches!(price, Some(OptionalTriggerPrice::ChooseNumberPay { .. }));
         let is_attackers_at_target = trigger.starts_with("Trigger::AttackersDeclaredAtTarget");
         let saved_trigger_mode = if is_attackers_at_target {
             self.trigger_mode
@@ -2896,17 +2915,51 @@ impl Tx<'_> {
                 *self.unclaimed.borrow_mut() = after_first_unclaimed;
             }
         }
+        if chain_ok.is_none() && !may && price.is_none() && !mandatory_sac_self {
+            let mut div_chain = Chain::default();
+            let after_prev_statics = self.body.statics.len();
+            let after_prev_unclaimed = self.unclaimed.borrow().clone();
+            self.body.statics.truncate(saved_statics);
+            (*self.unclaimed.borrow_mut()).clone_from(&saved_unclaimed);
+            if self
+                .wave28a_divided_damage_trigger_chain(&body, &mut div_chain)
+                .is_some()
+            {
+                chain = div_chain;
+                chain_ok = Some(());
+            } else {
+                self.body.statics.truncate(after_prev_statics);
+                *self.unclaimed.borrow_mut() = after_prev_unclaimed;
+            }
+        }
         if chain_ok.is_none() {
             let mut tok_chain = Chain::default();
             let after_prev_statics = self.body.statics.len();
             let after_prev_unclaimed = self.unclaimed.borrow().clone();
             self.body.statics.truncate(saved_statics);
-            *self.unclaimed.borrow_mut() = saved_unclaimed;
+            (*self.unclaimed.borrow_mut()).clone_from(&saved_unclaimed);
             if self
                 .wave26f_token_found_trigger_chain(&body, &mut tok_chain)
                 .is_some()
             {
                 chain = tok_chain;
+                chain_ok = Some(());
+            } else {
+                self.body.statics.truncate(after_prev_statics);
+                *self.unclaimed.borrow_mut() = after_prev_unclaimed;
+            }
+        }
+        if chain_ok.is_none() {
+            let mut w16a_chain = Chain::default();
+            let after_prev_statics = self.body.statics.len();
+            let after_prev_unclaimed = self.unclaimed.borrow().clone();
+            self.body.statics.truncate(saved_statics);
+            *self.unclaimed.borrow_mut() = saved_unclaimed;
+            if self
+                .wave16a_trigger_chain(&trigger, &body, &mut w16a_chain)
+                .is_some()
+            {
+                chain = w16a_chain;
                 chain_ok = Some(());
             } else {
                 self.body.statics.truncate(after_prev_statics);
@@ -2919,8 +2972,14 @@ impl Tx<'_> {
         self.trigger_is_self = false;
         self.is_etb_self_trigger = false;
         self.trigger_blocks_creature = false;
+        self.damage_trigger_binds_source = false;
+        self.damage_trigger_source_is_attached = false;
+        self.damage_trigger_is_combat = false;
         self.cost_sacrifices_self = false;
         self.cost_sacrifices_other = false;
+        self.cost_discards_single_for_cost = false;
+        self.in_discard_hand_may = false;
+        self.in_resolution_chosen_x = false;
         chain_ok?;
         if chain.effects.is_empty() {
             return self.deny("a trigger that reads as no effect at all".to_string());
@@ -3045,28 +3104,14 @@ impl Tx<'_> {
             many => format!("Effect::Sequence(&[{}])", many.join(", ")),
         };
         let effects = chain.effects.join(", ");
+        let has_targets = chain.target.is_some() || chain.second_target.is_some();
         let effects = match price {
-            Some(OptionalTriggerPrice::Generic(mana)) => format!(
-                "Effect::PlayerMayPayThen {{ player: PlayerRel::You, \
-                 mana: {mana}, effects: &[{effects}] }}"
-            ),
-            // Farmstead's "you may pay {W}{W}. If you do, you gain 1 life".
-            Some(OptionalTriggerPrice::Printed(cost)) => format!(
-                "Effect::PlayerMayPayManaThen {{ player: PlayerRel::You, \
-                 cost: mana!(\"{cost}\"), effects: &[{effects}] }}"
-            ),
-            Some(OptionalTriggerPrice::Life(life)) => format!(
-                "Effect::PlayerMayPayLifeThen {{ player: PlayerRel::You, \
-                 life: {life}, effects: &[{effects}] }}"
-            ),
-            Some(OptionalTriggerPrice::CostPart(part)) => format!(
-                "Effect::PlayerMayPayCostThen {{ player: PlayerRel::You, \
-                 cost: &CostPart::{part}, effect: &{one_effect} }}"
-            ),
-            Some(OptionalTriggerPrice::SacrificeN { filter, count }) => format!(
-                "Effect::PlayerMaySacrificeNThen {{ player: PlayerRel::You, \
-                 filter: {filter}, count: {count}, effect: &{one_effect} }}"
-            ),
+            Some(price) => Self::wave28b_wrap_optional_trigger_price(
+                price,
+                &effects,
+                &one_effect,
+                has_targets,
+            )?,
             None if mandatory_sac_self => {
                 format!("Effect::SacrificeSelfThen {{ then: &[{effects}] }}")
             }
@@ -3814,7 +3859,7 @@ impl Tx<'_> {
         None
     }
 
-    fn delayed_remember(
+    pub(super) fn delayed_remember(
         &self,
         raw: Option<&str>,
         target: Option<&str>,
@@ -3823,6 +3868,7 @@ impl Tx<'_> {
     ) -> Option<&'static str> {
         let multi_target = chain.target_exact.is_some_and(|n| n > 1)
             || chain.target_up_to.is_some_and(|n| n > 1)
+            || chain.target_range.is_some()
             || chain.target_is_x;
         let obj_target = target.is_some_and(|t| t.starts_with("TargetSpec::Object("));
         match raw {
@@ -3860,7 +3906,7 @@ impl Tx<'_> {
         }
     }
 
-    fn delayed_optional_condition(&mut self, p: &mut Params) -> Option<String> {
+    pub(super) fn delayed_optional_condition(&mut self, p: &mut Params) -> Option<String> {
         let mut clauses = Vec::new();
         let cond_str = self.condition(p)?;
         if let Some(inner) = cond_str
@@ -4013,7 +4059,7 @@ impl Tx<'_> {
         self.parse_delayed_body_str(&body, inner_trigger_mode, optional)
     }
 
-    fn parse_delayed_body_str(
+    pub(super) fn parse_delayed_body_str(
         &mut self,
         body: &str,
         inner_trigger_mode: Option<String>,
@@ -4608,6 +4654,9 @@ impl Tx<'_> {
         } else if trimmed.starts_with("Count$")
             || trimmed.starts_with("PlayerCount")
             || trimmed.starts_with("DungeonsCompleted$")
+            || trimmed.starts_with("CastSA>Count$")
+            || trimmed.starts_with("Adamant$")
+            || trimmed.starts_with("Convoked$")
         {
             trimmed
         } else {
@@ -4693,6 +4742,7 @@ impl Tx<'_> {
         Self::wave16_svar_condition(raw, cmp)
             .or_else(|| self.wave19c_svar_condition(raw, cmp))
             .or_else(|| self.wave27a_trigger_svar_condition(raw, cmp))
+            .or_else(|| self.wave16a_trigger_svar_condition(raw, cmp))
     }
 
     /// Wave-16c shared `CheckSVar$` / `ConditionCheckSVar$` clauses for Wave 7b/8a
@@ -5778,7 +5828,8 @@ impl Tx<'_> {
         if p.has("Abilities") || p.peek("Triggers").is_none() || is_emblem_name {
             return None;
         }
-        self.delayed_triggers_effect_api(p, target, chain)
+        self.wave16c_effect_triggers(p, target, chain)
+            .or_else(|| self.delayed_triggers_effect_api(p, target, chain))
     }
 
     fn emblem_ability_disallowed(emitted: &str, kind: EmblemKind) -> bool {
@@ -6207,7 +6258,10 @@ impl Tx<'_> {
             ) {
                 return None;
             }
-            if !matches!(tp.take("TriggerZones").as_deref(), None | Some("Command")) {
+            if !matches!(
+                tp.take("TriggerZones").as_deref(),
+                None | Some("Command" | "Battlefield")
+            ) {
                 return None;
             }
             if let Some(sec) = tp.take("Secondary")
@@ -6747,7 +6801,7 @@ impl Tx<'_> {
     /// `EventObject` is the first matching attacker, and `SubjectContext::found`
     /// holds all matching attackers toward that defender (`TriggeredAttackers`).
     #[allow(clippy::too_many_lines)]
-    fn wave25c_attackers_at_target_chain(
+    pub(super) fn wave25c_attackers_at_target_chain(
         &mut self,
         body: &str,
         exact_count_is_one: bool,
@@ -7316,12 +7370,41 @@ impl Tx<'_> {
             let step_sub = sp.take("SubAbility");
             match s_api.as_str() {
                 "Goad" if sp.take("Defined").as_deref() == Some("Remembered") => {
+                    let permanent = match sp.take("Duration").as_deref() {
+                        None => false,
+                        Some("Permanent") => true,
+                        Some(_) => return None,
+                    };
                     if !sp.exhausted() {
                         return None;
                     }
-                    per_token_ops
-                        .push("Effect::Goad { target: TargetSpec::EventObject }".to_string());
+                    per_token_ops.push(if permanent {
+                        "Effect::AddTempModifier { target: TargetSpec::EventObject, \
+                         modifier: Modifier::Goaded, duration: Duration::Indefinitely }"
+                            .to_string()
+                    } else {
+                        "Effect::Goad { target: TargetSpec::EventObject }".to_string()
+                    });
                     saw_remembered_op = true;
+                }
+                "Effect" if sp.peek("RememberObjects") == Some("Remembered") => {
+                    let eff = self.wave28d_token_remembered_must_attack(&mut sp)?;
+                    per_token_ops.push(eff);
+                    saw_remembered_op = true;
+                }
+                "RepeatEach" if sp.peek("DefinedCards") == Some("RememberedCard") => {
+                    let (eff, did_clear) = self.wave28d_token_remembered_repeat_attach(&mut sp)?;
+                    per_token_ops.push(eff);
+                    saw_remembered_op = true;
+                    if did_clear {
+                        flush_per_token(&mut per_token_ops, &mut chain.effects);
+                        cleared = true;
+                        if let Some(tail_name) = step_sub {
+                            let tail_body = self.svars.get(tail_name.trim())?.clone();
+                            self.chain(&tail_body, chain)?;
+                        }
+                        break;
+                    }
                 }
                 "Tap" if sp.take("Defined").as_deref() == Some("Remembered") => {
                     if !sp.exhausted() {

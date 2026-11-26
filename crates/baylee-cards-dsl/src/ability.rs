@@ -774,6 +774,11 @@ pub enum Condition {
         /// Only placements made by "you" (the ability's controller) count.
         by_you: bool,
     },
+    /// Whether the caster controlled a permanent with `SubtypeId` as this spell
+    /// (or the spell that became this permanent, `CR 400.7d`, or a copy of it,
+    /// `CR 707.10`) finished being cast (`CR 601.2i`; Tarkir Dragon-reveal
+    /// cycle). Appended to preserve replay identities.
+    ControlledSubtypeOnCast(baylee_core::ids::SubtypeId),
 }
 
 /// Trigger conditions for triggered abilities.
@@ -1385,6 +1390,12 @@ pub enum Trigger {
         /// Optional exact total attacker count declared attacking that defender.
         exact_count: Option<u8>,
     },
+    /// Day becomes night or night becomes day (`CR 730.2`, `CR 732.1a`;
+    /// *Brimstone Vandal*, *The Celestus*, *Celestus Sanctifier*, *Firmament
+    /// Sage*, *Gavony Dawnguard*, *Vadrik, Astral Archmage*). Does not fire
+    /// when the game first becomes day or night from neither designation.
+    /// Appended to preserve replay identities.
+    DayNightChanges,
 }
 
 impl Trigger {

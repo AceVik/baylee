@@ -6,6 +6,20 @@ the two lanes in use now are remote and cheap, which changes the constraint
 from "one at a time" to "what is each one actually good at". Maintained by
 the orchestrator; entries dated, newest first.
 
+## 2026-11-26 — Wave 16 + Codegen Wave 28 pure-paper expansion
+
+- **Gate new per-turn tracking fields behind explicit enablement flags**: adding
+  `mana_types_spent` / `event_mana_spent` unconditionally to `PerTurn` hash
+  state invalidated existing replay snapshots; gating hash inclusion on
+  non-default `PerTurnTrackedFlag` state preserved byte-identical replays while
+  still hashing whenever the mechanic is active.
+- **Token scripts, `Station$` Spacecraft, and `TypeSet::PRINTED_ORDER`**:
+  Codegen Wave 28 restored ~50 `Station$` Spacecraft cards and `Blood Tribute`
+  (`AFLifeLost`), and `validate` required adding `Enchantment Artifact` order in
+  `TypeSet::PRINTED_ORDER`, `RemoveAnyCounterX` / `Behold` / `EachOpponent+Recipient`
+  recognizers in `xtask/src/check_text`, and Bird/Pirate/Moloid token sentences
+  in `crates/cards/src/tokens/generated_sentences.rs`.
+
 ## 2026-11-23 — Optional additional costs that grant flash
 
 `FaceDef.optional_cost_grants_flash` reuses `CastModeKind::OptionalCost`: the

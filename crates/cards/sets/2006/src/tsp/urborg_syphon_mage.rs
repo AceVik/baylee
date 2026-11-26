@@ -27,7 +27,9 @@ card!(
                 amount: Amount::Fixed(2),
                 target: PlayerRel::EachOtherPlayer
             },
-            Effect::gain_life(0)
+            Effect::GainLife {
+                amount: Amount::ThisWay(ThisWay::LifeLost)
+            }
         ]
     ),],
 );

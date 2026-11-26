@@ -49,6 +49,11 @@ pub(crate) fn filter_reads_board_state(filter: &baylee_cards_dsl::Filter) -> boo
         | Filter::CmcEqualsAmount(_)
         | Filter::PowerAtMostAmount(_)
         | Filter::PowerAtLeastAmount(_)
+        | Filter::PowerEqualsAmount(_)
+        | Filter::ToughnessEqualsAmount(_)
+        | Filter::CmcEqualsChosenNumber
+        | Filter::PowerEqualsChosenNumber
+        | Filter::ToughnessEqualsChosenNumber
         | Filter::IsRemembered
         | Filter::NotRemembered
         | Filter::SharesCardTypeWithRemembered
@@ -86,7 +91,9 @@ fn filter_reads_reference_at(filter: &baylee_cards_dsl::Filter, depth: u8) -> bo
         Filter::CmcAtMostAmount(amt)
         | Filter::CmcEqualsAmount(amt)
         | Filter::PowerAtMostAmount(amt)
-        | Filter::PowerAtLeastAmount(amt) => amount_reads_reference_at(amt, depth + 1),
+        | Filter::PowerAtLeastAmount(amt)
+        | Filter::PowerEqualsAmount(amt)
+        | Filter::ToughnessEqualsAmount(amt) => amount_reads_reference_at(amt, depth + 1),
         Filter::And(parts) | Filter::Or(parts) => {
             parts.iter().any(|f| filter_reads_reference_at(f, depth))
         }
@@ -118,6 +125,9 @@ fn amount_reads_reference_at(amount: &baylee_cards_dsl::Amount, depth: u8) -> bo
         | Amount::GreatestManaValueAmong(f)
         | Amount::TotalPowerAmong(f)
         | Amount::EnteredThisTurn { filter: f, .. }
+        | Amount::TokensCreatedThisTurn { filter: f, .. }
+        | Amount::LeftZoneThisTurn { filter: f, .. }
+        | Amount::PermanentsSacrificedThisTurn { filter: f, .. }
         | Amount::SpellsCastMatchingThisTurn { filter: f, .. }
         | Amount::CreaturesAttackedThisTurn { filter: f, .. }
         | Amount::DistinctManaValuesInZone { filter: f, .. } => filter_reads_reference_at(f, depth),
@@ -383,7 +393,9 @@ fn filter_reads_crime(filter: &baylee_cards_dsl::Filter, depth: u8) -> bool {
         Filter::CmcAtMostAmount(a)
         | Filter::CmcEqualsAmount(a)
         | Filter::PowerAtMostAmount(a)
-        | Filter::PowerAtLeastAmount(a) => amount_reads_crime_at(a, depth + 1),
+        | Filter::PowerAtLeastAmount(a)
+        | Filter::PowerEqualsAmount(a)
+        | Filter::ToughnessEqualsAmount(a) => amount_reads_crime_at(a, depth + 1),
         Filter::And(parts) | Filter::Or(parts) => {
             parts.iter().any(|f| filter_reads_crime(f, depth))
         }
@@ -424,6 +436,9 @@ fn amount_reads_crime_at(amount: &baylee_cards_dsl::Amount, depth: u8) -> bool {
         | Amount::GreatestManaValueAmong(f)
         | Amount::TotalPowerAmong(f)
         | Amount::EnteredThisTurn { filter: f, .. }
+        | Amount::TokensCreatedThisTurn { filter: f, .. }
+        | Amount::LeftZoneThisTurn { filter: f, .. }
+        | Amount::PermanentsSacrificedThisTurn { filter: f, .. }
         | Amount::SpellsCastMatchingThisTurn { filter: f, .. }
         | Amount::CreaturesAttackedThisTurn { filter: f, .. }
         | Amount::DistinctManaValuesInZone { filter: f, .. } => filter_reads_crime(f, depth + 1),
@@ -639,7 +654,9 @@ fn filter_reads_expend(filter: &baylee_cards_dsl::Filter, depth: u8) -> bool {
         Filter::CmcAtMostAmount(a)
         | Filter::CmcEqualsAmount(a)
         | Filter::PowerAtMostAmount(a)
-        | Filter::PowerAtLeastAmount(a) => amount_reads_expend_at(a, depth + 1),
+        | Filter::PowerAtLeastAmount(a)
+        | Filter::PowerEqualsAmount(a)
+        | Filter::ToughnessEqualsAmount(a) => amount_reads_expend_at(a, depth + 1),
         Filter::And(parts) | Filter::Or(parts) => {
             parts.iter().any(|f| filter_reads_expend(f, depth))
         }
@@ -685,6 +702,9 @@ fn amount_reads_expend_at(amount: &baylee_cards_dsl::Amount, depth: u8) -> bool 
         | Amount::GreatestManaValueAmong(f)
         | Amount::TotalPowerAmong(f)
         | Amount::EnteredThisTurn { filter: f, .. }
+        | Amount::TokensCreatedThisTurn { filter: f, .. }
+        | Amount::LeftZoneThisTurn { filter: f, .. }
+        | Amount::PermanentsSacrificedThisTurn { filter: f, .. }
         | Amount::SpellsCastMatchingThisTurn { filter: f, .. }
         | Amount::CreaturesAttackedThisTurn { filter: f, .. }
         | Amount::DistinctManaValuesInZone { filter: f, .. } => filter_reads_expend(f, depth + 1),
@@ -835,6 +855,8 @@ pub(crate) fn card_reads_discard_count(def: &CardDef) -> bool {
             metric,
             baylee_cards_dsl::SpellCastMetric::CardsDiscardedThisTurn
         )
+    }) || card_reads_pred(def, &|_| false, &|amt| {
+        matches!(amt, baylee_cards_dsl::Amount::CardsDiscardedThisTurn(_))
     })
 }
 
@@ -843,6 +865,11 @@ pub(crate) fn card_reads_sacrificed_permanents(def: &CardDef) -> bool {
         matches!(
             metric,
             baylee_cards_dsl::SpellCastMetric::PermanentsSacrificedThisTurn(_)
+        )
+    }) || card_reads_pred(def, &|_| false, &|amt| {
+        matches!(
+            amt,
+            baylee_cards_dsl::Amount::PermanentsSacrificedThisTurn { .. }
         )
     })
 }
@@ -920,10 +947,17 @@ fn effects_have_spell_cast_metric(
     found
 }
 
-/// Whether `def` reads per-turn frozen zone-change snapshots (`Amount::EnteredThisTurn`).
+/// Whether `def` reads per-turn frozen zone-change snapshots
+/// (`Amount::EnteredThisTurn`, `Amount::TokensCreatedThisTurn`, or
+/// `Amount::LeftZoneThisTurn`).
 pub(crate) fn card_reads_zone_changes(def: &CardDef) -> bool {
     card_reads_pred(def, &|_| false, &|amt| {
-        matches!(amt, baylee_cards_dsl::Amount::EnteredThisTurn { .. })
+        matches!(
+            amt,
+            baylee_cards_dsl::Amount::EnteredThisTurn { .. }
+                | baylee_cards_dsl::Amount::TokensCreatedThisTurn { .. }
+                | baylee_cards_dsl::Amount::LeftZoneThisTurn { .. }
+        )
     })
 }
 
@@ -939,7 +973,7 @@ pub(crate) fn card_reads_spells_cast_log(def: &CardDef) -> bool {
     })
 }
 
-/// Whether `def` reads who placed counters on a permanent this turn
+/// Whether `def` reads per-turn who placed counters on a permanent
 /// (`Condition::CountersPlacedOnSourceThisTurn { by_you: true, .. }`).
 pub(crate) fn card_reads_counter_placers(def: &CardDef) -> bool {
     card_reads_pred(
@@ -952,6 +986,20 @@ pub(crate) fn card_reads_counter_placers(def: &CardDef) -> bool {
         },
         &|_| false,
     )
+}
+
+/// Whether `def` reads the exact mana colors, color count, or triggering spell
+/// mana spent (`ManaColorSpentToCast`, `ColorsOfManaSpentToCast`, or
+/// `EventManaSpentToCast`).
+pub(crate) fn card_reads_mana_types_spent(def: &CardDef) -> bool {
+    card_reads_pred(def, &|_| false, &|amt| {
+        matches!(
+            amt,
+            baylee_cards_dsl::Amount::ManaColorSpentToCast(_)
+                | baylee_cards_dsl::Amount::ColorsOfManaSpentToCast
+                | baylee_cards_dsl::Amount::EventManaSpentToCast
+        )
+    })
 }
 
 fn card_reads_pred(
@@ -1181,7 +1229,9 @@ fn filter_matches(
         Filter::CmcAtMostAmount(a)
         | Filter::CmcEqualsAmount(a)
         | Filter::PowerAtMostAmount(a)
-        | Filter::PowerAtLeastAmount(a) => amt_matches(a, cond_pred, amt_pred, depth + 1),
+        | Filter::PowerAtLeastAmount(a)
+        | Filter::PowerEqualsAmount(a)
+        | Filter::ToughnessEqualsAmount(a) => amt_matches(a, cond_pred, amt_pred, depth + 1),
         Filter::And(parts) | Filter::Or(parts) => parts
             .iter()
             .any(|f| filter_matches(f, cond_pred, amt_pred, depth)),
@@ -1230,6 +1280,9 @@ fn amt_matches(
         | Amount::GreatestManaValueAmong(f)
         | Amount::TotalPowerAmong(f)
         | Amount::EnteredThisTurn { filter: f, .. }
+        | Amount::TokensCreatedThisTurn { filter: f, .. }
+        | Amount::LeftZoneThisTurn { filter: f, .. }
+        | Amount::PermanentsSacrificedThisTurn { filter: f, .. }
         | Amount::SpellsCastMatchingThisTurn { filter: f, .. }
         | Amount::CreaturesAttackedThisTurn { filter: f, .. }
         | Amount::DistinctManaValuesInZone { filter: f, .. } => {

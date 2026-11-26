@@ -166,7 +166,11 @@ pub fn locks_its_set(modifier: &Modifier) -> bool {
         | Modifier::ProtectionFromExiledWithSourceTypes
         | Modifier::BecomeCopyOf(_)
         | Modifier::GrantsFlashback
+        | Modifier::GrantsFlashbackCost(_)
         | Modifier::GrantsEscape(_)
+        | Modifier::GrantsJumpStart
+        | Modifier::GrantsEncoreManaCost
+        | Modifier::GrantsEmbalmManaCost
         | Modifier::Sneak(_)
         | Modifier::GainControl
         | Modifier::AddTypeIfCountersAtLeast { .. }
@@ -400,7 +404,8 @@ pub fn locks_its_set(modifier: &Modifier) -> bool {
         | Modifier::MustAttackPlayer(_)
         | Modifier::ModifyLifeGain { .. }
         | Modifier::PreventDamageRemovingCounters { .. }
-        | Modifier::PreventDamageToAffectedIfAtMost(_) => false,
+        | Modifier::PreventDamageToAffectedIfAtMost(_)
+        | Modifier::DamageCantBePrevented => false,
     }
 }
 
@@ -712,6 +717,8 @@ impl EffectTable {
                 fx.modifier,
                 Modifier::GrantActivatedFromLinkedExile(_)
                     | Modifier::GainActivatedAbilitiesOf { .. }
+                    | Modifier::GrantsEncoreManaCost
+                    | Modifier::GrantsEmbalmManaCost
             ),
         );
         self.hints.insert_if(
@@ -722,6 +729,8 @@ impl EffectTable {
                     | Modifier::GrantActivatedDefinition(_)
                     | Modifier::GrantActivatedFromLinkedExile(_)
                     | Modifier::GainActivatedAbilitiesOf { .. }
+                    | Modifier::GrantsEncoreManaCost
+                    | Modifier::GrantsEmbalmManaCost
             ),
         );
         self.hints.insert_if(
@@ -835,7 +844,9 @@ impl EffectTable {
             matches!(
                 fx.modifier,
                 Modifier::GrantsFlashback
+                    | Modifier::GrantsFlashbackCost(_)
                     | Modifier::GrantsEscape(_)
+                    | Modifier::GrantsJumpStart
                     | Modifier::PlayLandsFromGraveyard
                     | Modifier::CastPermanentSpellsFromGraveyard
                     | Modifier::PermanentOfEachTypeFromGraveyard
@@ -1168,6 +1179,8 @@ pub fn grants(state: &crate::state::GameState) -> impl Iterator<Item = &Continuo
                 | Modifier::GrantActivatedDefinition(_)
                 | Modifier::GrantActivatedFromLinkedExile(_)
                 | Modifier::GainActivatedAbilitiesOf { .. }
+                | Modifier::GrantsEncoreManaCost
+                | Modifier::GrantsEmbalmManaCost
         )
     })
 }
@@ -1222,7 +1235,12 @@ fn granted_worded<'a>(
             .for_effect(fx.id)
             .filter_map(move |mut grant| {
                 let obj = obj?;
-                if grant.origin_donor == Some(source) || !applies_to(state, fx, obj) {
+                if grant.origin_donor == Some(source)
+                    || grant
+                        .recipient
+                        .is_some_and(|r| r.object != source || r.version != obj.version)
+                    || !applies_to(state, fx, obj)
+                {
                     return None;
                 }
                 if grant.provenance.is_none() {
@@ -1847,7 +1865,11 @@ mod tests {
                 modifier: &Modifier::RemoveKeyword(KeywordSet::FLYING),
             },
             Modifier::GrantsFlashback,
+            Modifier::GrantsFlashbackCost(baylee_core::mana::ManaCost::ZERO),
             Modifier::GrantsEscape(3),
+            Modifier::GrantsJumpStart,
+            Modifier::GrantsEncoreManaCost,
+            Modifier::GrantsEmbalmManaCost,
             Modifier::GraveyardInstantSorceryOnce,
             Modifier::GraveyardVampireOnce,
             Modifier::NextSpellUncounterable,
@@ -2249,6 +2271,7 @@ mod tests {
                 then: Some(RIDER),
             },
             Modifier::PreventDamageToAffectedIfAtMost(3),
+            Modifier::DamageCantBePrevented,
         ]
     }
 
@@ -2287,7 +2310,7 @@ mod tests {
 
         assert_eq!(
             declared.len(),
-            246,
+            251,
             "read {} variants out of the declaration, which is not the enum",
             declared.len()
         );
@@ -2418,7 +2441,10 @@ mod tests {
         // ActivatedAbilitiesCostLess, FirstSpellEachTurnCostAdjust, MustAttackPlayer,
         // ModifyLifeGain, and PreventDamageRemovingCounters modify rules only (+5 -> 182).
         // PreventDamageToAffectedIfAtMost modifies rules only (+1 -> 183).
-        assert_eq!((locking, all.len() - locking), (63, 183));
+        // DamageCantBePrevented modifies damage-prevention rules only (+1 -> 184).
+        // GrantsFlashbackCost, GrantsJumpStart, GrantsEncoreManaCost, and GrantsEmbalmManaCost
+        // grant abilities on Layer::Ability (+4 locking -> 67).
+        assert_eq!((locking, all.len() - locking), (67, 184));
     }
 
     /// An `ObjectId` alone is not an identity: an id is stable for a whole

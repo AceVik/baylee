@@ -111,6 +111,8 @@ pub mod borg_scout_sphere;
 pub mod boss_uramon_shadow_s_reach;
 #[path = "trk/brad_boimler_eager_ensign.rs"]
 pub mod brad_boimler_eager_ensign;
+#[path = "fra/break_under_pressure.rs"]
+pub mod break_under_pressure;
 #[path = "fra/budding_insurgent.rs"]
 pub mod budding_insurgent;
 #[path = "trk/c_70_000_light_years_from_home.rs"]
@@ -125,6 +127,8 @@ pub mod captain_jean_luc_picard;
 pub mod captain_kathryn_janeway;
 #[path = "trc/captain_kirk_boldly_going.rs"]
 pub mod captain_kirk_boldly_going;
+#[path = "trk/captain_michael_burnham.rs"]
+pub mod captain_michael_burnham;
 #[path = "trk/captain_pike_fullness_of_time.rs"]
 pub mod captain_pike_fullness_of_time;
 #[path = "trk/captain_s_tutelage.rs"]
@@ -149,6 +153,8 @@ pub mod chandra_s_emberling;
 pub mod charge_the_sanctum;
 #[path = "trc/chief_kyle_transporter_tech.rs"]
 pub mod chief_kyle_transporter_tech;
+#[path = "mbc/chief_magistrate_of_mercadia.rs"]
+pub mod chief_magistrate_of_mercadia;
 #[path = "trc/class_4_tactical_cube.rs"]
 pub mod class_4_tactical_cube;
 #[path = "trk/class_f_shuttlecraft.rs"]
@@ -185,6 +191,8 @@ pub mod constable_odo;
 pub mod countersculpt;
 #[path = "fra/craterclaw_colossus.rs"]
 pub mod craterclaw_colossus;
+#[path = "fra/cruel_calculations.rs"]
+pub mod cruel_calculations;
 #[path = "trc/cryogenic_stasis.rs"]
 pub mod cryogenic_stasis;
 #[path = "fra/cryotheory_adept.rs"]
@@ -277,6 +285,8 @@ pub mod emergency_medical_hologram;
 pub mod emergency_phytomedic;
 #[path = "trc/emergency_regeneration.rs"]
 pub mod emergency_regeneration;
+#[path = "trc/ensign_harry_kim_operations.rs"]
+pub mod ensign_harry_kim_operations;
 #[path = "trk/enterprise_nx_01.rs"]
 pub mod enterprise_nx_01;
 #[path = "fra/entrust_the_spark.rs"]
@@ -289,6 +299,8 @@ pub mod evasive_maneuvers;
 pub mod exocomp;
 #[path = "fra/extended_absence.rs"]
 pub mod extended_absence;
+#[path = "fra/eye_of_jace.rs"]
+pub mod eye_of_jace;
 #[path = "fra/fatehold_annex.rs"]
 pub mod fatehold_annex;
 #[path = "fra/fatehold_chronologist.rs"]
@@ -331,10 +343,14 @@ pub mod gallia_the_merrymaker;
 pub mod gallia_tragic_host;
 #[path = "fra/gardenize.rs"]
 pub mod gardenize;
+#[path = "fra/garruk_curse_breaker.rs"]
+pub mod garruk_curse_breaker;
 #[path = "trk/gaseous_anomaly.rs"]
 pub mod gaseous_anomaly;
 #[path = "fra/geist_of_saint_thalia.rs"]
 pub mod geist_of_saint_thalia;
+#[path = "trk/general_chang_cold_warrior.rs"]
+pub mod general_chang_cold_warrior;
 #[path = "fra/generous_revival.rs"]
 pub mod generous_revival;
 #[path = "trk/genesis_device.rs"]
@@ -361,6 +377,8 @@ pub mod glory_to_the_empire;
 pub mod gnarling_targ;
 #[path = "trc/gorn_captain.rs"]
 pub mod gorn_captain;
+#[path = "trk/gowron_eager_for_battle.rs"]
+pub mod gowron_eager_for_battle;
 #[path = "mbc/grakk_the_pacifist.rs"]
 pub mod grakk_the_pacifist;
 #[path = "trk/grand_nagus_zek.rs"]
@@ -373,12 +391,16 @@ pub mod greenhouse_propagator;
 pub mod grilka_widowed_warrior;
 #[path = "trk/guidance_failure.rs"]
 pub mod guidance_failure;
+#[path = "fra/guiding_hydra.rs"]
+pub mod guiding_hydra;
 #[path = "trc/gumato.rs"]
 pub mod gumato;
 #[path = "mbc/gustha_ebbasdotter.rs"]
 pub mod gustha_ebbasdotter;
 #[path = "fra/hallway_heckler.rs"]
 pub mod hallway_heckler;
+#[path = "fra/hapatra_the_desert_fang.rs"]
+pub mod hapatra_the_desert_fang;
 #[path = "fra/hapatra_the_desert_frost.rs"]
 pub mod hapatra_the_desert_frost;
 #[path = "trk/he_s_dead_jim.rs"]
@@ -387,10 +409,14 @@ pub mod he_s_dead_jim;
 pub mod head_of_security;
 #[path = "fra/heartstring_puller.rs"]
 pub mod heartstring_puller;
+#[path = "fra/heartwood_crafter.rs"]
+pub mod heartwood_crafter;
 #[path = "trk/hemmer_fixing_what_is_broken.rs"]
 pub mod hemmer_fixing_what_is_broken;
 #[path = "fra/hexhaven_dueling_arena.rs"]
 pub mod hexhaven_dueling_arena;
+#[path = "fra/hexhaven_invigorator.rs"]
+pub mod hexhaven_invigorator;
 #[path = "trk/highly_illogical.rs"]
 pub mod highly_illogical;
 #[path = "trk/hive_mind_coprocessor.rs"]
@@ -419,6 +445,8 @@ pub mod identity_echo;
 pub mod imperial_hullbreachers;
 #[path = "trk/impossible_choice.rs"]
 pub mod impossible_choice;
+#[path = "trk/in_the_pale_moonlight.rs"]
+pub mod in_the_pale_moonlight;
 #[path = "trc/indelicate_healer.rs"]
 pub mod indelicate_healer;
 #[path = "fra/ingris_stingerquill.rs"]
@@ -433,6 +461,8 @@ pub mod isolinear_processor;
 pub mod istvan_butcher_of_eln;
 #[path = "mbc/jabs_mistress_of_mockery.rs"]
 pub mod jabs_mistress_of_mockery;
+#[path = "trk/jake_sisko_war_correspondent.rs"]
+pub mod jake_sisko_war_correspondent;
 #[path = "mbc/jandor_fortuned_traveler.rs"]
 pub mod jandor_fortuned_traveler;
 #[path = "trc/janice_rand_essential_aide.rs"]
@@ -563,6 +593,8 @@ pub mod memnarch_the_warden;
 pub mod memory_trap;
 #[path = "fra/meticulous_commons.rs"]
 pub mod meticulous_commons;
+#[path = "trk/miles_o_brien_transporter_ops.rs"]
+pub mod miles_o_brien_transporter_ops;
 #[path = "fra/mind_meanderer.rs"]
 pub mod mind_meanderer;
 #[path = "trk/moopsy.rs"]
@@ -583,6 +615,12 @@ pub mod neelix_moral_support;
 pub mod nephilim_epochal;
 #[path = "trk/ni_var_science_academy.rs"]
 pub mod ni_var_science_academy;
+#[path = "frc/nissa_leyline_tamer.rs"]
+pub mod nissa_leyline_tamer;
+#[path = "frc/niv_mizzet_ghost_counsel.rs"]
+pub mod niv_mizzet_ghost_counsel;
+#[path = "trk/nyota_uhura_communications.rs"]
+pub mod nyota_uhura_communications;
 #[path = "frc/ob_nixilis_the_ascended.rs"]
 pub mod ob_nixilis_the_ascended;
 #[path = "trk/oberth_class_starship.rs"]
@@ -623,6 +661,8 @@ pub mod pia_determined_rebuilder;
 pub mod picard_leading_by_example;
 #[path = "trc/planet_killer.rs"]
 pub mod planet_killer;
+#[path = "trk/planetary_bombardment.rs"]
+pub mod planetary_bombardment;
 #[path = "trk/planetary_patrol.rs"]
 pub mod planetary_patrol;
 #[path = "trk/plasma_cascade.rs"]
@@ -633,6 +673,8 @@ pub mod pompous_battlemage;
 pub mod potential_horizon;
 #[path = "fra/precise_redaction.rs"]
 pub mod precise_redaction;
+#[path = "fra/predictive_preparations.rs"]
+pub mod predictive_preparations;
 #[path = "fra/primal_witchstalker.rs"]
 pub mod primal_witchstalker;
 #[path = "trk/primary_unimatrix_adjunct.rs"]
@@ -739,6 +781,8 @@ pub mod seven_of_nine;
 pub mod seven_of_nine_tertiary_adjunct;
 #[path = "fra/shatterwing_pegasus.rs"]
 pub mod shatterwing_pegasus;
+#[path = "trk/shields_up.rs"]
+pub mod shields_up;
 #[path = "trc/shore_leave_planet.rs"]
 pub mod shore_leave_planet;
 #[path = "trk/shuttle_ace.rs"]
@@ -793,6 +837,8 @@ pub mod stingcaster_mage;
 pub mod stingerquill_annex;
 #[path = "fra/stingerquill_charm.rs"]
 pub mod stingerquill_charm;
+#[path = "fra/stinging_vitriol.rs"]
+pub mod stinging_vitriol;
 #[path = "trc/stratagem_emulator.rs"]
 pub mod stratagem_emulator;
 #[path = "trk/subcommander_t_pol.rs"]
@@ -975,6 +1021,8 @@ pub mod venser_fervent_forger;
 pub mod verdant_kraken;
 #[path = "trk/vexing_drone.rs"]
 pub mod vexing_drone;
+#[path = "trc/vic_fontaine_one_night_only.rs"]
+pub mod vic_fontaine_one_night_only;
 #[path = "fra/vigorbloom_annex.rs"]
 pub mod vigorbloom_annex;
 #[path = "fra/vigorbloom_charm.rs"]

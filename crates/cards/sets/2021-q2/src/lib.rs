@@ -61,6 +61,8 @@ pub mod arcus_acolyte;
 pub mod arrogant_poet;
 #[path = "c21/audacious_reshapers.rs"]
 pub mod audacious_reshapers;
+#[path = "pstx/augmenter_pugilist.rs"]
+pub mod augmenter_pugilist;
 #[path = "pstx/baleful_mastery.rs"]
 pub mod baleful_mastery;
 #[path = "mh2/bannerhide_krushok.rs"]
@@ -197,6 +199,8 @@ pub mod damn;
 pub mod darkmoss_bridge;
 #[path = "pmh2/dauthi_voidwalker.rs"]
 pub mod dauthi_voidwalker;
+#[path = "c21/dazzling_sphinx.rs"]
+pub mod dazzling_sphinx;
 #[path = "stx/decisive_denial.rs"]
 pub mod decisive_denial;
 #[path = "c21/deekah_fractal_theorist.rs"]
@@ -209,6 +213,8 @@ pub mod detention_vortex;
 pub mod diamond_lion;
 #[path = "c21/digsite_engineer.rs"]
 pub mod digsite_engineer;
+#[path = "mh2/dihada_s_ploy.rs"]
+pub mod dihada_s_ploy;
 #[path = "stx/dina_soul_steeper.rs"]
 pub mod dina_soul_steeper;
 #[path = "mh2/disciple_of_the_sun.rs"]
@@ -227,6 +233,8 @@ pub mod dress_down;
 pub mod drey_keeper;
 #[path = "mh2/drossforge_bridge.rs"]
 pub mod drossforge_bridge;
+#[path = "stx/dueling_coach.rs"]
+pub mod dueling_coach;
 #[path = "mh2/duskshell_crawler.rs"]
 pub mod duskshell_crawler;
 #[path = "stx/eager_first_year.rs"]
@@ -237,6 +245,8 @@ pub mod efreet_flamepainter;
 pub mod elemental_masterpiece;
 #[path = "stx/elemental_summoning.rs"]
 pub mod elemental_summoning;
+#[path = "stx/emergent_sequence.rs"]
+pub mod emergent_sequence;
 #[path = "pmh2/endurance.rs"]
 pub mod endurance;
 #[path = "stx/environmental_sciences.rs"]
@@ -255,6 +265,8 @@ pub mod ethersworn_sphinx;
 pub mod eureka_moment;
 #[path = "stx/excavated_wall.rs"]
 pub mod excavated_wall;
+#[path = "stx/exhilarating_elocution.rs"]
+pub mod exhilarating_elocution;
 #[path = "stx/expanded_anatomy.rs"]
 pub mod expanded_anatomy;
 #[path = "stx/expel.rs"]
@@ -297,6 +309,8 @@ pub mod fortifying_draught;
 pub mod foul_watcher;
 #[path = "mh2/foundation_breaker.rs"]
 pub mod foundation_breaker;
+#[path = "mh2/foundry_helix.rs"]
+pub mod foundry_helix;
 #[path = "c21/fractal_harness.rs"]
 pub mod fractal_harness;
 #[path = "stx/fractal_summoning.rs"]
@@ -317,12 +331,18 @@ pub mod funnel_web_recluse;
 pub mod fury;
 #[path = "pstx/furycalm_snarl.rs"]
 pub mod furycalm_snarl;
+#[path = "pmh2/gaea_s_will.rs"]
+pub mod gaea_s_will;
 #[path = "pstx/galazeth_prismari.rs"]
 pub mod galazeth_prismari;
 #[path = "mh2/gargadon.rs"]
 pub mod gargadon;
+#[path = "mh2/ghost_lit_drifter.rs"]
+pub mod ghost_lit_drifter;
 #[path = "mh2/glimmer_bairn.rs"]
 pub mod glimmer_bairn;
+#[path = "mh2/glinting_creeper.rs"]
+pub mod glinting_creeper;
 #[path = "stx/go_blank.rs"]
 pub mod go_blank;
 #[path = "mh2/goblin_anarchomancer.rs"]
@@ -351,6 +371,8 @@ pub mod hall_of_oracles;
 pub mod hard_evidence;
 #[path = "pmh2/harmonic_prodigy.rs"]
 pub mod harmonic_prodigy;
+#[path = "pstx/harness_infinity.rs"]
+pub mod harness_infinity;
 #[path = "mh2/healer_s_flock.rs"]
 pub mod healer_s_flock;
 #[path = "stx/heated_debate.rs"]
@@ -361,6 +383,8 @@ pub mod hell_mongrel;
 pub mod herd_baloth;
 #[path = "stx/honor_troll.rs"]
 pub mod honor_troll;
+#[path = "stx/humiliate.rs"]
+pub mod humiliate;
 #[path = "pmh2/ignoble_hierarch.rs"]
 pub mod ignoble_hierarch;
 #[path = "pstx/illuminate_history.rs"]
@@ -387,6 +411,8 @@ pub mod jade_avenger;
 pub mod jewel_eyed_cobra;
 #[path = "pmh2/kaldra_compleat.rs"]
 pub mod kaldra_compleat;
+#[path = "mh2/kaleidoscorch.rs"]
+pub mod kaleidoscorch;
 #[path = "stx/karok_wrangler.rs"]
 pub mod karok_wrangler;
 #[path = "stx/kelpie_guide.rs"]
@@ -437,6 +463,10 @@ pub mod losheel_clockwork_scholar;
 pub mod maelstrom_muse;
 #[path = "stx/mage_duel.rs"]
 pub mod mage_duel;
+#[path = "stx/mage_hunters_onslaught.rs"]
+pub mod mage_hunters_onslaught;
+#[path = "pstx/magma_opus.rs"]
+pub mod magma_opus;
 #[path = "stx/make_your_mark.rs"]
 pub mod make_your_mark;
 #[path = "pstx/manifestation_sage.rs"]
@@ -467,6 +497,8 @@ pub mod monoskelion;
 pub mod mortality_spear;
 #[path = "pmh2/murktide_regent.rs"]
 pub mod murktide_regent;
+#[path = "c21/muse_vortex.rs"]
+pub mod muse_vortex;
 #[path = "mh2/myr_scrapling.rs"]
 pub mod myr_scrapling;
 #[path = "mh2/mystic_redaction.rs"]
@@ -495,6 +527,8 @@ pub mod oggyar_battle_seer;
 pub mod orb_of_dragonkind;
 #[path = "mh2/orchard_strider.rs"]
 pub mod orchard_strider;
+#[path = "pstx/oriq_loremage.rs"]
+pub mod oriq_loremage;
 #[path = "mh2/ornithopter_of_paradise.rs"]
 pub mod ornithopter_of_paradise;
 #[path = "stx/owlin_shieldmage.rs"]
@@ -513,6 +547,8 @@ pub mod pest_summoning;
 pub mod pestilent_cauldron;
 #[path = "mh2/phantasmal_dreadmaw.rs"]
 pub mod phantasmal_dreadmaw;
+#[path = "mh2/piercing_rays.rs"]
+pub mod piercing_rays;
 #[path = "stx/pilgrim_of_the_ages.rs"]
 pub mod pilgrim_of_the_ages;
 #[path = "stx/pillardrop_rescuer.rs"]
@@ -525,6 +561,8 @@ pub mod piru_the_volatile;
 pub mod power_depot;
 #[path = "pmh2/priest_of_fell_rites.rs"]
 pub mod priest_of_fell_rites;
+#[path = "stx/prismari_apprentice.rs"]
+pub mod prismari_apprentice;
 #[path = "stx/prismari_campus.rs"]
 pub mod prismari_campus;
 #[path = "stx/prismari_pledgemage.rs"]
@@ -549,6 +587,8 @@ pub mod quandrix_cultivator;
 pub mod quandrix_pledgemage;
 #[path = "stx/quintorius_field_historian.rs"]
 pub mod quintorius_field_historian;
+#[path = "mh2/radiant_epicure.rs"]
+pub mod radiant_epicure;
 #[path = "pmh2/ragavan_nimble_pilferer.rs"]
 pub mod ragavan_nimble_pilferer;
 #[path = "mh2/ravenous_squirrel.rs"]
@@ -557,6 +597,8 @@ pub mod ravenous_squirrel;
 pub mod raving_visionary;
 #[path = "mh2/razortide_bridge.rs"]
 pub mod razortide_bridge;
+#[path = "mh2/recalibrate.rs"]
+pub mod recalibrate;
 #[path = "stx/reduce_to_memory.rs"]
 pub mod reduce_to_memory;
 #[path = "stx/reflective_golem.rs"]
@@ -591,6 +633,8 @@ pub mod rowan_scholar_of_sparks;
 pub mod rustvale_bridge;
 #[path = "mh2/said.rs"]
 pub mod said;
+#[path = "pmh2/sanctifier_en_vec.rs"]
+pub mod sanctifier_en_vec;
 #[path = "mh2/sanctuary_raptor.rs"]
 pub mod sanctuary_raptor;
 #[path = "pmh2/sanctum_weaver.rs"]
@@ -707,6 +751,8 @@ pub mod sudden_breakthrough;
 pub mod sudden_edict;
 #[path = "pmh2/svyelun_of_sea_and_sky.rs"]
 pub mod svyelun_of_sea_and_sky;
+#[path = "mh2/sweep_the_skies.rs"]
+pub mod sweep_the_skies;
 #[path = "pmh2/sword_of_hearth_and_home.rs"]
 pub mod sword_of_hearth_and_home;
 #[path = "pmh2/sylvan_anthem.rs"]
@@ -761,6 +807,8 @@ pub mod timeless_dragon;
 pub mod timeless_witness;
 #[path = "mh2/tireless_provisioner.rs"]
 pub mod tireless_provisioner;
+#[path = "c21/tivash_gloom_summoner.rs"]
+pub mod tivash_gloom_summoner;
 #[path = "stx/tome_shredder.rs"]
 pub mod tome_shredder;
 #[path = "mh2/tormod_s_cryptkeeper.rs"]
@@ -769,6 +817,8 @@ pub mod tormod_s_cryptkeeper;
 pub mod tourach_dread_cantor;
 #[path = "mh2/tourach_s_canticle.rs"]
 pub mod tourach_s_canticle;
+#[path = "mh2/tragic_fall.rs"]
+pub mod tragic_fall;
 #[path = "c21/trudge_garden.rs"]
 pub mod trudge_garden;
 #[path = "stx/twinscroll_shaman.rs"]
@@ -777,6 +827,8 @@ pub mod twinscroll_shaman;
 pub mod umbral_juke;
 #[path = "mh2/unbounded_potential.rs"]
 pub mod unbounded_potential;
+#[path = "mh2/underworld_hermit.rs"]
+pub mod underworld_hermit;
 #[path = "mh2/unholy_heat.rs"]
 pub mod unholy_heat;
 #[path = "pmh2/unmarked_grave.rs"]
@@ -831,6 +883,8 @@ pub mod wormhole_serpent;
 pub mod wren_s_run_hydra;
 #[path = "pmh2/yavimaya_cradle_of_growth.rs"]
 pub mod yavimaya_cradle_of_growth;
+#[path = "mh2/young_necromancer.rs"]
+pub mod young_necromancer;
 #[path = "stx/zephyr_boots.rs"]
 pub mod zephyr_boots;
 #[path = "stx/zimone_quandrix_prodigy.rs"]

@@ -557,11 +557,24 @@ fn wave26c_soundness_and_non_paper_refusals() {
         Some("unsupported independent target in one chain")
     );
 
-    // 2. Exact count > 1 on 2nd target (TargetMin$ 2 | TargetMax$ 2) must stay refused.
-    assert!(refused_w26c(
+    // 2. Wave 28a: Exact count > 1 on 2nd target (TargetMin$ 2 | TargetMax$ 2)
+    //    now lowers via TargetReq::exactly; inverted bounds stay refused.
+    let exact_second = read_w26c(
         "Name:ExactSecond\nManaCost:2 U\nTypes:Instant\n\
          A:SP$ Tap | ValidTgts$ Creature | SubAbility$ BounceTwo\n\
-         SVar:BounceTwo:DB$ ChangeZone | ValidTgts$ Creature | Origin$ Battlefield | Destination$ Hand | TargetMin$ 2 | TargetMax$ 2"
+         SVar:BounceTwo:DB$ ChangeZone | ValidTgts$ Creature | Origin$ Battlefield | Destination$ Hand | TargetMin$ 2 | TargetMax$ 2",
+    );
+    assert!(
+        exact_second.abilities[0].contains(
+            "second_targets = Some(TargetReq::exactly(TargetSpec::Object(&Filter::CREATURE), 2))"
+        ),
+        "{}",
+        exact_second.abilities[0]
+    );
+    assert!(refused_w26c(
+        "Name:InvertedSecond\nManaCost:2 U\nTypes:Instant\n\
+         A:SP$ Tap | ValidTgts$ Creature | SubAbility$ BounceBad\n\
+         SVar:BounceBad:DB$ ChangeZone | ValidTgts$ Creature | Origin$ Battlefield | Destination$ Hand | TargetMin$ 3 | TargetMax$ 2"
     ));
 
     // 3. Wave 27c: TargetUnique$ True on 2nd target when 1st target is multi-target
@@ -610,11 +623,26 @@ fn wave26c_soundness_and_non_paper_refusals() {
 
 #[test]
 fn wave26c_attach_slot_and_restricted_modal_refusals() {
-    // 7. AttachSlot soundness: Auriok Survivors shape (zone-change ChangeZone before Attach) must stay refused (CR 400.7).
-    assert!(refused_w26c(
+    // 7. Wave 28d-p2: Auriok Survivors shape now lowers CR 400.7-safely via CaptureAffected +
+    // MoveAttachment (binding the new battlefield incarnation rather than AttachSlot);
+    // Battlefield -> Exile followed by Attach | Object$ Targeted must still stay refused.
+    let survivors = read_w26c(
         "Name:Auriok Survivors Proxy\nManaCost:5 W\nTypes:Creature Human Soldier\nPT:4/6\n\
          T:Mode$ ChangesZone | Origin$ Any | Destination$ Battlefield | ValidCard$ Card.Self | Execute$ TrigRet\n\
          SVar:TrigRet:DB$ ChangeZone | Origin$ Graveyard | Destination$ Battlefield | ValidTgts$ Equipment.YouOwn | SubAbility$ DBAttach\n\
+         SVar:DBAttach:DB$ Attach | Object$ Targeted | Defined$ Self | Optional$ True",
+    );
+    assert!(
+        survivors.abilities[0].contains("Effect::CaptureAffected")
+            && survivors.abilities[0].contains("Effect::MoveAttachment")
+            && !survivors.abilities[0].contains("Effect::AttachSlot"),
+        "{}",
+        survivors.abilities[0]
+    );
+    assert!(refused_w26c(
+        "Name:ExileAttachRefusal\nManaCost:5 W\nTypes:Creature Human Soldier\nPT:4/6\n\
+         T:Mode$ ChangesZone | Origin$ Any | Destination$ Battlefield | ValidCard$ Card.Self | Execute$ TrigEx\n\
+         SVar:TrigEx:DB$ ChangeZone | Origin$ Battlefield | Destination$ Exile | ValidTgts$ Equipment.YouCtrl | SubAbility$ DBAttach\n\
          SVar:DBAttach:DB$ Attach | Object$ Targeted | Defined$ Self | Optional$ True"
     ));
 

@@ -218,8 +218,8 @@ impl TypeSet {
     pub fn words(self) -> impl Iterator<Item = &'static str> {
         const PRINTED_ORDER: [(TypeSet, &str); 16] = [
             (TypeSet::KINDRED, "Kindred"),
-            (TypeSet::ARTIFACT, "Artifact"),
             (TypeSet::ENCHANTMENT, "Enchantment"),
+            (TypeSet::ARTIFACT, "Artifact"),
             (TypeSet::LAND, "Land"),
             (TypeSet::CREATURE, "Creature"),
             (TypeSet::PLANESWALKER, "Planeswalker"),

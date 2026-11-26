@@ -1559,6 +1559,9 @@ fn matches(
                 && eval::players_for_source(*who, state, you, Some(source))
                     .is_some_and(|seats| seats.contains(player))
         }
+        (Trigger::DayNightChanges, GameEvent::DayNightChanged { previous, .. }) => {
+            previous.is_some()
+        }
         _ => false,
     }
 }

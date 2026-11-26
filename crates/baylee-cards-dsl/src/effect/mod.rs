@@ -6053,6 +6053,47 @@ pub enum Effect {
         /// Destination of every other revealed card.
         otherwise: SearchDest,
     },
+    /// The triggering event's (or watched delayed trigger's) object deals
+    /// `amount` noncombat damage simultaneously to each battlefield permanent
+    /// matching `filter` (excluding the event object itself when
+    /// `exclude_event_object` is `true`) and to each player named by `players`,
+    /// reading last-known characteristics (`event_object_identity`) when the
+    /// event object has already left the battlefield (`CR 120.2b`, `CR 603.7`,
+    /// `CR 608.2h`: *Arcbond*). Appended to preserve replay identities.
+    EventObjectDealsDamageEach {
+        /// Damage dealt to each recipient.
+        amount: Amount,
+        /// Battlefield permanents dealt damage.
+        filter: &'static Filter,
+        /// Players also dealt damage in the same simultaneous event, if any.
+        players: Option<PlayerRel>,
+        /// Exclude `res.event_object` from `filter` recipients ("each other …").
+        exclude_event_object: bool,
+    },
+    /// Deterministically chooses one still-in-game player at random from
+    /// `among` using `state.rng` and binds them as `PlayerRel::Chosen` for the
+    /// remainder of the resolution (`CR 101.4`: *Ruhan of the Fomori*,
+    /// *Knight Rampager*, *Raving Dead*). Appended to preserve replay
+    /// identities.
+    ChoosePlayerAtRandom {
+        /// Candidate player relation relative to the controller.
+        among: PlayerRel,
+    },
+    /// Each player matching `who` (in APNAP order, `CR 101.4`) chooses a
+    /// permanent they control matching `filter` (if any) and puts `count`
+    /// counters of `kind` on it (`CR 122.1`, `CR 608.2d`; Blight N: *Chaos
+    /// Spewer*, *Dose of Dawnglow*, *High Perfect Morcant*, *Shadow Urchin*,
+    /// *Sinister Gnarlbark*). Appended to preserve replay identities.
+    PutCountersOnChosenControlled {
+        /// Player(s) choosing one of their matching permanents.
+        who: PlayerRel,
+        /// Filter evaluated on permanents controlled by each choosing player.
+        filter: &'static Filter,
+        /// Counter kind placed on the chosen permanent.
+        kind: CounterKind,
+        /// Number of counters placed on the chosen permanent.
+        count: Amount,
+    },
 }
 
 #[cfg(test)]

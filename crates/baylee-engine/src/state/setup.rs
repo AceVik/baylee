@@ -462,6 +462,7 @@ impl GameState {
         self.per_turn.counter_placers.tracked |= super::reads::card_reads_counter_placers(def);
         self.per_turn.cast_spells_this_turn.tracked |=
             super::reads::card_reads_first_spell_each_turn(def);
+        self.per_turn.track_mana_types_spent.0 |= super::reads::card_reads_mana_types_spent(def);
         let base = self.card_base(def, entry.card);
         let card = CardRef {
             index: entry.card,
@@ -583,6 +584,7 @@ impl GameState {
         self.per_turn.counter_placers.tracked |= super::reads::card_reads_counter_placers(def);
         self.per_turn.cast_spells_this_turn.tracked |=
             super::reads::card_reads_first_spell_each_turn(def);
+        self.per_turn.track_mana_types_spent.0 |= super::reads::card_reads_mana_types_spent(def);
         Ok(PrintedCard {
             base: self.card_base(def, index),
             cda: printed_pt_cda(def),

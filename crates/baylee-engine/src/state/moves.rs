@@ -661,13 +661,29 @@ impl GameState {
                 );
             }
         }
-        let departed = (from_zone == Zone::Battlefield && to.zone() != Zone::Battlefield)
-            .then(|| {
-                self.object(id).map(|object| {
-                    super::entry_history::freeze_departure(object, departure.as_ref())
+        let departed = if from_zone == Zone::Battlefield && to.zone() != Zone::Battlefield {
+            self.object(id)
+                .map(|object| super::entry_history::freeze_departure(object, departure.as_ref()))
+        } else if from_zone != to.zone()
+            && to.zone() != Zone::Battlefield
+            && matches!(
+                from_zone,
+                Zone::Graveyard | Zone::Stack | Zone::Command | Zone::Exile
+            )
+        {
+            self.object(id)
+                .filter(|object| !object.status.contains(crate::object::Status::FACE_DOWN))
+                .map(|object| {
+                    let seat = if from_zone == Zone::Stack {
+                        object.controller
+                    } else {
+                        object.owner
+                    };
+                    (super::entry_history::freeze_object(object), seat)
                 })
-            })
-            .flatten();
+        } else {
+            None
+        };
         if from_zone == Zone::Battlefield
             && to.zone() != Zone::Battlefield
             && let Some(object) = self.object(id)
@@ -735,6 +751,7 @@ impl GameState {
                 });
         }
         let mut merged_components = smallvec::SmallVec::<[ObjectId; 2]>::new();
+        let track_mana_types = self.per_turn.track_mana_types_spent.0;
         {
             let obj = self.object_mut(id).expect("checked above");
             if !(from_zone == Zone::Stack && to.zone() == Zone::Battlefield) {
@@ -837,6 +854,7 @@ impl GameState {
                             | crate::object::Rider::MergedTop(_)
                             | crate::object::Rider::MergedToken(_)
                             | crate::object::Rider::MustAttackPlayerThisTurn(_)
+                            | crate::object::Rider::MustAttackPlayerThisCombat(_)
                             | crate::object::Rider::AttachedToPlayer(_)
                             | crate::object::Rider::PairedWith(..)
                             | crate::object::Rider::TributePaid
@@ -894,6 +912,8 @@ impl GameState {
                             | crate::object::Rider::WarpedSpell
                             | crate::object::Rider::RevealedFromOpeningHand
                             | crate::object::Rider::SnowManaSpent(_)
+                            | crate::object::Rider::ManaTypesSpent(_)
+                            | crate::object::Rider::ConvokedCount(_)
                             | crate::object::Rider::Sneaked
                             | crate::object::Rider::NinjutsuDefender(_, _)
                             | crate::object::Rider::Spliced { .. }
@@ -901,6 +921,10 @@ impl GameState {
                             | crate::object::Rider::ConspirePaid(_)
                             | crate::object::Rider::RepeatedModes(_)
                             | crate::object::Rider::OptionalCostPaid
+                            | crate::object::Rider::SpellCostExile(_)
+                            | crate::object::Rider::ControlledSubtypeOnCast(_)
+                            | crate::object::Rider::BeheldCostPower(_, _, _)
+                            | crate::object::Rider::EncoreAbility
                     )
                 });
             }
@@ -937,13 +961,18 @@ impl GameState {
             }
             if from_zone == Zone::Stack
                 && to.zone() == Zone::Battlefield
-                && let Some(snow) = obj
-                    .paid
-                    .as_ref()
-                    .map(|p| p.snow_mana_spent())
-                    .filter(|&n| n > 0)
+                && let Some(paid) = obj.paid.as_ref()
             {
-                obj.riders.push(crate::object::Rider::SnowManaSpent(snow));
+                let snow = paid.snow_mana_spent();
+                if snow > 0 {
+                    obj.riders.push(crate::object::Rider::SnowManaSpent(snow));
+                }
+                if track_mana_types && paid.mana_types_spent.iter().any(|&n| n > 0) {
+                    let types = paid
+                        .mana_types_spent
+                        .map(|n| u16::try_from(n).unwrap_or(u16::MAX));
+                    obj.riders.push(crate::object::Rider::ManaTypesSpent(types));
+                }
             }
             // What was paid is the spell's and no later object's (a flashback
             // is a new payment); snow mana spent is carried on a rider above
@@ -1024,6 +1053,54 @@ impl GameState {
                 (spell_version, self.object(id).map(|o| o.version))
         {
             self.effects.follow_into_permanent(id, spell, permanent);
+            let cost_exiles: Vec<baylee_core::ids::DamageSourceRef> =
+                self.object(id).map_or_else(Vec::new, |o| {
+                    o.riders
+                        .iter()
+                        .filter_map(|r| match r {
+                            crate::object::Rider::SpellCostExile(ex) => Some(*ex),
+                            _ => None,
+                        })
+                        .collect()
+                });
+            if !cost_exiles.is_empty() {
+                let host_ref = baylee_core::ids::DamageSourceRef {
+                    object: id,
+                    version: permanent,
+                };
+                let host_ver = u16::try_from(permanent).unwrap_or(u16::MAX);
+                for ex in cost_exiles {
+                    let still_exiled = self.object(ex.object).is_some_and(|o| {
+                        o.zone == Zone::Exile && o.version == ex.version && o.is_card()
+                    });
+                    if still_exiled {
+                        if let Some(ex_obj) = self.object_mut(ex.object) {
+                            let with = crate::object::Rider::ExiledWith {
+                                host: id,
+                                version: host_ver,
+                            };
+                            if !ex_obj.riders.contains(&with) {
+                                ex_obj.riders.push(with);
+                            }
+                            let linked_exile = crate::object::Rider::LinkedExile {
+                                source: host_ref,
+                                acquisition: 0,
+                            };
+                            if !ex_obj.riders.contains(&linked_exile) {
+                                ex_obj.riders.push(linked_exile);
+                            }
+                            let linked = crate::object::Rider::Linked {
+                                host: id,
+                                until: None,
+                            };
+                            if !ex_obj.riders.contains(&linked) {
+                                ex_obj.riders.push(linked);
+                            }
+                        }
+                        self.remember_link(ex.object, host_ref);
+                    }
+                }
+            }
         }
         let projectable = self
             .object(id)

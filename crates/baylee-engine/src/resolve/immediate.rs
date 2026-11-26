@@ -454,6 +454,7 @@ pub(super) fn exec_immediate(
         | Effect::DamageEqualToPower { .. }
         | Effect::EventObjectDealsDamageEqualToPower { .. }
         | Effect::EventObjectDealsDamage { .. }
+        | Effect::EventObjectDealsDamageEach { .. }
         | Effect::DealDamageEvenlyToFilter { .. }
         | Effect::TargetDealsDamageToController { .. }
         | Effect::DealDamageToTargetController { .. }
@@ -612,6 +613,7 @@ pub(super) fn exec_immediate(
         | Effect::PumpTarget { .. }
         | Effect::PumpEventObject { .. }
         | Effect::PumpTargetSlot { .. }
+        | Effect::PutCountersOnChosenControlled { .. }
         | Effect::PutCountersDivided { .. } => counters::exec(state, res, op),
         Effect::MarkLandWithCounter { .. }
         | Effect::ScheduleLinkedCounterCleanup { .. }
@@ -1756,6 +1758,18 @@ pub(super) fn exec_immediate(
                     })
                 }
             }
+        }
+        Effect::ChoosePlayerAtRandom { among } => {
+            let options = players_of(among, state, you, res);
+            res.chosen_player = match options.as_slice() {
+                [] => None,
+                [only] => Some(*only),
+                many => {
+                    let idx = state.rng.below(many.len() as u64) as usize;
+                    Some(many[idx])
+                }
+            };
+            None
         }
         // The player as this resolves; each target, until end of turn.
         Effect::CantBeBlockedByPlayerThisTurn { by } => {
@@ -4777,6 +4791,16 @@ pub(super) fn resolution_condition(
                 object
                     .riders
                     .contains(&crate::object::Rider::OptionalCostPaid)
+            }),
+        Condition::ControlledSubtypeOnCast(sub) => state
+            .object(res.on_stack)
+            .filter(|object| object.kind == crate::object::ObjectKind::Spell)
+            .or_else(|| state.damage_source(res.source, source_version(state, res)))
+            .or_else(|| state.object(res.on_stack))
+            .is_some_and(|object| {
+                object
+                    .riders
+                    .contains(&crate::object::Rider::ControlledSubtypeOnCast(sub))
             }),
         Condition::IsRenowned => state
             .damage_source(res.source, source_version(state, res))

@@ -3681,6 +3681,7 @@ impl HeuristicAgent {
             | Modifier::ReplaceOrPreventDamageWithThen { .. }
             | Modifier::PreventDamageRemovingCounters { .. }
             | Modifier::PreventDamageToAffectedIfAtMost(_)
+            | Modifier::DamageCantBePrevented
             | Modifier::AddType(_)
             | Modifier::RemoveType(_)
             | Modifier::AddSubtype(_)
@@ -3858,8 +3859,21 @@ impl HeuristicAgent {
                 | CostPart::TapX(_)
                 | CostPart::SacrificeX(_)
                 | CostPart::DiscardX(_)
+                | CostPart::RevealFromHandX(_)
                 | CostPart::ExileFromGraveyardX(_)
-                | CostPart::Behold(_) => 0,
+                | CostPart::Behold(_)
+                | CostPart::RevealSelfFromHand => 0,
+                CostPart::RevealFromHand(filter) => {
+                    if view
+                        .hand
+                        .iter()
+                        .any(|h| h.id != origin.id && hand_matches(filter, h) == Some(true))
+                    {
+                        0
+                    } else {
+                        return None;
+                    }
+                }
                 CostPart::PayCommanderColors => {
                     if !crate::activate::life_ok(view, cost) {
                         return None;
@@ -3950,8 +3964,23 @@ impl HeuristicAgent {
                         40
                     }
                 }
+                CostPart::PutCounterOnOther { filter, kind, n } => {
+                    own(filter, &|o| o.id != origin.id)
+                        .into_iter()
+                        .map(|o| {
+                            if *kind == baylee_cards_dsl::CounterKind::M1M1 {
+                                if i32::from(o.toughness.unwrap_or(0)) <= i32::from(*n) {
+                                    self.given_up(view, o)
+                                } else {
+                                    i64::from(*n) * 40
+                                }
+                            } else {
+                                20
+                            }
+                        })
+                        .min()?
+                }
                 CostPart::PutCounterSelf { .. }
-                | CostPart::PutCounterOnOther { .. }
                 | CostPart::ExileFromGraveyard(_)
                 | CostPart::ExileFromSingleGraveyard { .. }
                 | CostPart::PayAttachedManaCost => 20,
@@ -4685,7 +4714,7 @@ fn token_worth(token: &baylee_cards_dsl::TokenDef) -> i64 {
 
 /// Whether a card in hand matches a cost's filter, for the filters a hand
 /// card can answer from its types alone; `None` for anything else.
-fn hand_matches(filter: &Filter, h: &baylee_view::HandObject) -> Option<bool> {
+pub(crate) fn hand_matches(filter: &Filter, h: &baylee_view::HandObject) -> Option<bool> {
     Some(match filter {
         Filter::Any => true,
         Filter::HasType(t) => h.types.intersects(*t),

@@ -124,7 +124,10 @@ fn cost_moves_library(part: &CostPart) -> bool {
         | CostPart::RemoveAnyCounter { .. }
         | CostPart::RemoveAnyCounterX { .. }
         | CostPart::Behold(_)
-        | CostPart::CollectEvidence(_) => false,
+        | CostPart::CollectEvidence(_)
+        | CostPart::RevealFromHand(_)
+        | CostPart::RevealFromHandX(_)
+        | CostPart::RevealSelfFromHand => false,
         CostPart::Either(a, b) => {
             a.parts.iter().any(cost_moves_library) || b.parts.iter().any(cost_moves_library)
         }

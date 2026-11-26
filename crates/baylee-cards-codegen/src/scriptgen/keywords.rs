@@ -530,7 +530,14 @@ impl Tx<'_> {
         }
         let rest = word.trim().strip_prefix("Protection:")?;
         let mut fields = rest.split(':');
-        let quality = self.filter_expr(fields.next()?)?;
+        let raw_quality = fields.next()?;
+        let quality = if raw_quality.trim() == "Player.PlayerUID_ChosenPlayerUID"
+            && self.has_chosen_source_player()
+        {
+            "Filter::ControlledBy(PlayerRel::ChosenBySource)".to_string()
+        } else {
+            self.filter_expr(raw_quality)?
+        };
         let _prose = fields.next();
         let filter = match fields.next() {
             None => quality,
@@ -937,16 +944,11 @@ impl Tx<'_> {
                 let Some(body) = self.svars.get(name).cloned() else {
                     return self.deny(format!("chapter SVar `{name}` missing"));
                 };
-                let mut chain = super::Chain::default();
-                self.chain(&body, &mut chain)?;
-                if chain.effects.is_empty() || chain.target_is_x {
-                    return self.deny(format!("unsupported chapter `{name}`"));
-                }
+                let (chain, effects) = self.wave28b_read_chapter_chain(&body, name)?;
                 let targets = Self::target_req_expr(&chain)
                     .map_or_default(|req| format!(", targets = Some({req})"));
                 let second_targets = Self::second_target_req_expr(&chain)
                     .map_or_default(|req| format!(", second_targets = Some({req})"));
-                let effects = chain.effects.join(", ");
                 match chapters.as_slice() {
                     [chapter] => {
                         if !second_targets.is_empty() && *chapter >= 16 {
@@ -1785,6 +1787,8 @@ impl Tx<'_> {
                 [only] => (*only).to_string(),
                 _ => return None,
             }
+        } else if let Some(adamant) = p.take("Adamant") {
+            Self::wave16a_adamant_condition(&adamant)?
         } else if let Some(valid) = p.take("IsPresent") {
             self.present_clause(&mut p, &valid)?
         } else {
@@ -1837,6 +1841,9 @@ impl Tx<'_> {
                     .is_some_and(|rest| !rest.contains('$') && !rest.contains('+')))
         {
             return None;
+        }
+        if let Some(cond) = self.wave16b_presence_condition(&def, cmp) {
+            return Some(cond);
         }
         if let Some(cond) = self.etb_compare_condition(&def, cmp, depth) {
             return Some(cond);
@@ -1896,6 +1903,7 @@ impl Tx<'_> {
             .or_else(|| self.extra_svar_condition_clause(trimmed_var, cmp))
             .or_else(|| self.extra_svar_condition_wave8(trimmed_var, cmp))
             .or_else(|| self.wave15_trigger_svar_condition(trimmed_var, cmp))
+            .or_else(|| self.wave28b_etb_svar_condition(trimmed_var, cmp))
             .or_else(|| {
                 (explicit_cmp.is_some()
                     || def
@@ -2072,7 +2080,9 @@ impl Tx<'_> {
             return None;
         }
         let def = def.trim();
-        if let Some(var) = def.strip_prefix("SVar$") {
+        if let Some(var) = def.strip_prefix("SVar$")
+            && !var.contains('/')
+        {
             let inner = self.svars.get(var.trim())?.clone();
             return self.etb_wave6_expr(&inner, depth + 1);
         }
@@ -2110,6 +2120,9 @@ impl Tx<'_> {
             return Some(expr);
         }
         if let Some(expr) = self.wave27e_etb_amount(def) {
+            return Some(expr);
+        }
+        if let Some(expr) = self.wave16a_etb_amount(def) {
             return Some(expr);
         }
         if def == "Count$ThisTurnEntered_Graveyard_from_Battlefield_Creature" {
@@ -2273,7 +2286,7 @@ impl Tx<'_> {
         Some(())
     }
 
-    fn is_land_card_type(&self) -> bool {
+    pub(super) fn is_land_card_type(&self) -> bool {
         self.type_line.split_whitespace().any(|word| word == "Land")
     }
 
@@ -2436,7 +2449,7 @@ impl Tx<'_> {
         Some(())
     }
 
-    fn is_spell_card_type(&self) -> bool {
+    pub(super) fn is_spell_card_type(&self) -> bool {
         self.type_line
             .split_whitespace()
             .any(|word| matches!(word, "Instant" | "Sorcery"))
@@ -3580,7 +3593,27 @@ impl Tx<'_> {
         self.trigger_mode = None;
         self.block_line = None;
         match kind {
-            'A' => self.activated_or_spell(spec),
+            'A' => {
+                let saved_statics = self.body.statics.len();
+                let saved_abilities = self.body.abilities.len();
+                let saved_unclaimed = self.unclaimed.borrow().clone();
+                if self.activated_or_spell(spec).is_some() {
+                    Some(())
+                } else {
+                    let first_unclaimed = self.unclaimed.borrow().clone();
+                    self.body.statics.truncate(saved_statics);
+                    self.body.abilities.truncate(saved_abilities);
+                    *self.unclaimed.borrow_mut() = saved_unclaimed;
+                    if self.wave16a_spell_or_activated(spec).is_some() {
+                        Some(())
+                    } else {
+                        self.body.statics.truncate(saved_statics);
+                        self.body.abilities.truncate(saved_abilities);
+                        *self.unclaimed.borrow_mut() = first_unclaimed;
+                        None
+                    }
+                }
+            }
             'T' => self.triggered(spec),
             'S' if self.is_ai_only_static(spec) => Some(()),
             'S' if Self::should_bypass_extra_static(spec) => self.static_ability(spec),
@@ -3605,6 +3638,7 @@ impl Tx<'_> {
                             .wave24e_self_etb_moved_replacement(spec)
                             .or_else(|| self.wave26f_moved_replacement(spec))
                             .or_else(|| self.wave27e_replacement(spec))
+                            .or_else(|| self.wave16c_replacement(spec))
                             .is_some()
                         {
                             return Some(());
@@ -3723,6 +3757,12 @@ impl Tx<'_> {
                         .push("KeywordSet::UNCOUNTERABLE".to_string());
                     return Some(());
                 }
+                if self
+                    .wave16b_conditional_self_uncounterable(p.clone())
+                    .is_some()
+                {
+                    return Some(());
+                }
             }
             if self.wave26f_counter_replacement(p).is_some() {
                 return Some(());
@@ -3755,6 +3795,7 @@ impl Tx<'_> {
             if self
                 .wave24e_self_etb_moved_replacement(spec)
                 .or_else(|| self.wave26f_moved_replacement(spec))
+                .or_else(|| self.wave16c_replacement(spec))
                 .is_some()
             {
                 return Some(());
@@ -3780,6 +3821,7 @@ impl Tx<'_> {
             if self
                 .wave24e_self_etb_moved_replacement(spec)
                 .or_else(|| self.wave26f_moved_replacement(spec))
+                .or_else(|| self.wave16c_replacement(spec))
                 .is_some()
             {
                 return Some(());
@@ -5126,6 +5168,11 @@ impl Tx<'_> {
                 }
             } else if let Some(n) = chain.target_exact {
                 format!(", targets = Some(TargetReq::exactly({t}, {n}))")
+            } else if let Some((min, max)) = chain.target_range {
+                format!(
+                    ", targets = Some({})",
+                    Self::wave28a_format_range_req(t, min, max)
+                )
             } else {
                 format!(", targets = Some(TargetReq::one({t}))")
             }
@@ -5992,6 +6039,8 @@ fn is_spell_either_cost_part(part: &str) -> bool {
         || part.starts_with("ReturnToHand(")
         || part.starts_with("TapOther(")
         || part.starts_with("TapN {")
+        || part.starts_with("RevealFromHand(")
+        || part.starts_with("PutCounterOnOther {")
         || part == "Forage"
 }
 
@@ -6078,6 +6127,8 @@ fn is_paid_alternative_cost_part(part: &str) -> bool {
         || part.starts_with("Sacrifice(")
         || part.starts_with("ReturnToHand(")
         || part.starts_with("TapN {")
+        || part.starts_with("RevealFromHand(")
+        || part.starts_with("PutCounterOnOther {")
 }
 
 fn is_paid_additional_cost_part(part: &str) -> bool {
@@ -6098,6 +6149,8 @@ fn is_graveyard_activation_part(part: &str) -> bool {
         || part.starts_with("ExileFromGraveyard(")
         || part.starts_with("ExileTopOfLibrary(")
         || part.starts_with("ExilePermanent(")
+        || part.starts_with("RevealFromHand(")
+        || part.starts_with("PutCounterOnOther {")
 }
 
 fn is_morph_cost_part(part: &str) -> bool {
@@ -6117,4 +6170,6 @@ fn is_morph_cost_part(part: &str) -> bool {
         || part.starts_with("TapOther(")
         || part.starts_with("TapX(")
         || part.starts_with("TapN {")
+        || part.starts_with("RevealFromHand(")
+        || part.starts_with("PutCounterOnOther {")
 }

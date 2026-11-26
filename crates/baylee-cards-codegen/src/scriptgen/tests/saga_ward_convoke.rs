@@ -1043,7 +1043,7 @@ fn extra_statics_life_lock_search_lock_and_life_gain_draw() {
     );
 
     assert!(refused(
-        "Name:AllDmgNoPrevent\nTypes:Enchantment\nS:Mode$ CantPreventDamage"
+        "Name:ScopedDmgNoPrevent\nTypes:Enchantment\nS:Mode$ CantPreventDamage | ValidSource$ Creature.YouCtrl"
     ));
     assert!(refused(
         "Name:AllCantSearch\nTypes:Enchantment\nS:Mode$ CantSearchLibrary | ValidPlayer$ Player"
@@ -1175,6 +1175,24 @@ fn station_keyword_and_threshold_statics_abilities_and_triggers() {
     assert!(refused(
         "Name:StationSpell\nManaCost:1 U\nTypes:Sorcery\nK:Station\nA:SP$ Draw | NumCards$ 1"
     ));
+
+    let modern_station = read(
+        "Name:RomulanTest\nManaCost:1 U\nTypes:Artifact Spacecraft\n\
+         K:Station\n\
+         S:Mode$ Continuous | AffectedDefined$ Self | Station$ 8 | AddType$ Creature | \
+         SetPower$ 4 | SetToughness$ 4 | AddKeyword$ Flying | Description$ STATION 8+ Flying [4/4]",
+    );
+    assert!(
+        modern_station.abilities.iter().any(|a| a
+            == "static_ability!(Filter::This, Modifier::AddTypeIfCountersAtLeast { \
+                kind: CounterKind::Charge, at_least: 8, types: TypeSet::CREATURE })")
+            && modern_station.abilities.iter().any(|a| a
+                == "static_ability!(Filter::This, Modifier::AddKeywordIfCountersAtLeast { \
+                    kind: CounterKind::Charge, at_least: 8, keywords: KeywordSet::FLYING })")
+            && !modern_station.abilities.iter().any(|a| a.contains("SetPT")),
+        "{:?}",
+        modern_station.abilities
+    );
 }
 
 #[test]
@@ -3550,8 +3568,8 @@ fn wave12b_refusal_boundaries() {
          R:Event$ DamageDone | ActiveZones$ Battlefield | ValidSource$ Card.YouCtrl,Emblem.OppCtrl | ValidTarget$ You | Prevent$ True",
         "Name:BadRaiseLifeCost\nTypes:Creature\nPT:5/4\n\
          S:Mode$ RaiseCost | ValidTarget$ Card.Self | Activator$ Player.Opponent | Type$ Spell | Cost$ PayLife<3>",
-        "Name:BadRaiseNarrowTarget\nTypes:Creature\nPT:2/2\n\
-         S:Mode$ RaiseCost | ValidTarget$ Creature.YouCtrl | Activator$ Opponent | Type$ Spell | Amount$ 2",
+        "Name:BadRaiseNonYouTarget\nTypes:Creature\nPT:2/2\n\
+         S:Mode$ RaiseCost | ValidTarget$ Creature.OppCtrl | Activator$ Opponent | Type$ Spell | Amount$ 2",
         "Name:BadReduceColorTarget\nTypes:Creature\nPT:2/2\n\
          S:Mode$ ReduceCost | ValidTarget$ Card.Self | Activator$ You | Type$ Spell | Color$ U | Amount$ 1 | IgnoreGeneric$ True",
         "Name:BadReduceAllZoneTarget\nTypes:Instant\n\

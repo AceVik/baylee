@@ -309,7 +309,7 @@ fn a_graveyard_exile_cost_is_a_filter_over_the_payers_own_pile() {
             "ExileFromGrave<1/CARDNAME/this card>",
             "cost `ExileFromGrave<1/CARDNAME/this card>` naming itself",
         ),
-        ("ExileFromGrave<4/Card>", "a cost naming `4` objects"),
+        ("ExileFromGrave<16/Card>", "a cost naming `16` objects"),
     ] {
         let script = parse(&format!(
             "Name:X\nTypes:Land\n\
@@ -956,8 +956,8 @@ fn a_refused_script_always_says_why() {
         // paid with one card where the script charges two is a
         // discount.
         (
-            "Name:X\nTypes:Creature\nA:AB$ Draw | Cost$ Discard<4/Card> | NumCards$ 1",
-            "a cost naming `4` objects",
+            "Name:X\nTypes:Creature\nA:AB$ Draw | Cost$ Discard<16/Card> | NumCards$ 1",
+            "a cost naming `16` objects",
         ),
         (
             "Name:X\nTypes:Creature\nA:AB$ Draw | NumCards$ 1",
@@ -1041,11 +1041,11 @@ fn a_refused_script_always_says_why() {
              A:AB$ PutCounter | Cost$ T | CounterType$ P1M1 | CounterNum$ 1",
             "counter `P1M1`",
         ),
-        // Multi-return costs above three or variable X remain refused by count.
+        // Multi-return costs above the cap or variable X remain refused by count.
         (
             "Name:X\nTypes:Creature\n\
-             A:AB$ Untap | Cost$ Return<4/Forest> | ValidTgts$ Creature",
-            "a cost naming `4` objects",
+             A:AB$ Untap | Cost$ Return<16/Forest> | ValidTgts$ Creature",
+            "a cost naming `16` objects",
         ),
         (
             "Name:X\nTypes:Creature\n\
@@ -1298,8 +1298,8 @@ fn morph_refuses_non_mana_x_extra_and_megamorph_with_honest_reasons() {
         Some("a `Morph` with extra fields `1 U:Extra`".to_string())
     );
     assert_eq!(
-        reason("Name:X\nTypes:Creature\nPT:2/2\nK:Morph:Reveal<1/Card.Blue/blue>"),
-        Some("cost `Reveal`".to_string())
+        reason("Name:X\nTypes:Creature\nPT:2/2\nK:Morph:Reveal<2/SameColor>"),
+        Some("cost `Reveal<2/SameColor>`".to_string())
     );
     assert_eq!(
         reason("Name:X\nTypes:Creature\nPT:2/2\nK:Morph:1 U\nK:Morph:2 U"),
@@ -1837,9 +1837,6 @@ fn reduce_cost_lowers_colored_dynamic_cycling_facedown_shared_and_self_stack() {
          S:Mode$ ReduceCost | ValidCard$ Card | Type$ Spell | EffectZone$ Graveyard | Activator$ You | Amount$ 1",
         "Name:Bad\nTypes:Creature\nPT:2/2\n\
          S:Mode$ ReduceCost | ValidCard$ Card | Activator$ You | ValidSpell$ Activated.!ManaAbility | Amount$ 2 | MinMana$ 1",
-        "Name:Bad\nTypes:Creature\nPT:2/2\n\
-         S:Mode$ ReduceCost | ValidCard$ Card | Type$ Spell | Activator$ You | Amount$ 1 | CheckSVar$ X | SVarCompare$ EQ1\n\
-         SVar:X:Count$ThisTurnCast_Card.YouCtrl",
         "Name:Bad\nTypes:Instant\nA:SP$ Draw | NumCards$ 1\n\
          S:Mode$ ReduceCost | ValidCard$ Card.Self | Type$ Spell | EffectZone$ All | Amount$ 0",
     ] {
@@ -3490,7 +3487,7 @@ fn wave11a_squad_offspring_and_escape() {
         "Name:BadDupSquad\nManaCost:1 W\nTypes:Creature\nPT:1/1\nK:Squad:1\nK:Squad:2",
         "Name:BadDupOffspring\nManaCost:1 W\nTypes:Creature\nPT:1/1\nK:Offspring:1\nK:Offspring:2",
         "Name:BadSquadX\nManaCost:1 U\nTypes:Creature\nPT:1/1\nK:Squad:X U\nSVar:X:Count$xPaid",
-        "Name:BadSquadExile4\nManaCost:1 B\nTypes:Creature\nPT:1/1\nK:Squad:ExileFromGrave<4/Card>",
+        "Name:BadSquadExile16\nManaCost:1 B\nTypes:Creature\nPT:1/1\nK:Squad:ExileFromGrave<16/Card>",
         "Name:BadEscapeX\nManaCost:1 G\nTypes:Creature\nPT:2/2\nK:Escape:X G ExileFromGrave<3/Card.Other>\nSVar:X:Count$xPaid",
         "Name:BadEscapeExileLand\nManaCost:2 R\nTypes:Instant\nA:SP$ Draw | NumCards$ 1\nK:Escape:2 R Exile<1/Land>",
         "Name:BadEscapeFilter\nManaCost:1 W\nTypes:Creature\nPT:1/1\nK:Escape:2 W ExileFromGrave<2/Card.Other+Instant>",
@@ -3689,7 +3686,7 @@ fn wave12a_behold_mutate_and_commander_text() {
 
     for bad in [
         "Name:BadCount\nManaCost:1 W\nTypes:Creature\nPT:2/2\nK:AlternateAdditionalCost:Behold<2/Goblin>:2",
-        "Name:BadReveal\nManaCost:1 W\nTypes:Creature\nPT:2/2\nK:AlternateAdditionalCost:Reveal<1/Goblin>:2",
+        "Name:BadReveal\nManaCost:1 W\nTypes:Creature\nPT:2/2\nK:AlternateAdditionalCost:Reveal<2/SameColor>:2",
         "Name:BadTap\nManaCost:1 W\nTypes:Creature\nPT:2/2\nK:AlternateAdditionalCost:Behold<1/Goblin>:T",
         "Name:BadDup\nManaCost:1 W\nTypes:Creature\nPT:2/2\nK:AlternateAdditionalCost:Behold<1/Goblin>:2\nK:AlternateAdditionalCost:Behold<1/Goblin>:3",
         "Name:BadLand\nTypes:Land\nK:AlternateAdditionalCost:Behold<1/Goblin>:2",
@@ -4570,7 +4567,7 @@ fn wave15a_conditional_etb_counter_clauses_and_nickname_grave_exile() {
     );
 
     for bad_etb in [
-        "Name:AdamantEtb\nManaCost:3 W\nTypes:Creature Knight\nPT:2/5\nK:etbCounter:P1P1:1:Adamant$ White:desc",
+        "Name:BadAdamantEtb\nManaCost:3 W\nTypes:Creature Knight\nPT:2/5\nK:etbCounter:P1P1:1:Adamant$ Purple:desc",
         "Name:SelfCtrPresent\nManaCost:2 G\nTypes:Creature\nPT:2/2\nK:etbCounter:P1P1:1:IsPresent$ Card.Self+counters_GE1_P1P1:desc",
         "Name:DragonPresence\nManaCost:3 R\nTypes:Creature\nPT:3/3\nK:etbCounter:P1P1:1:CheckSVar$ Count$Presence_Dragon.1.0:desc",
     ] {
@@ -5033,7 +5030,7 @@ fn wave18a_put_counter_on_other_and_exile_same_grave() {
     for bad in [
         "Name:OppCounter\nTypes:Artifact\nA:AB$ Draw | Cost$ AddCounter<1/P1P1/Creature.OppCtrl> | NumCards$ 1",
         "Name:AnyCounter\nTypes:Artifact\nA:AB$ Draw | Cost$ AddCounter<1/P1P1/Creature> | NumCards$ 1",
-        "Name:SpellOtherCounter\nManaCost:B\nTypes:Sorcery\nA:SP$ Draw | Cost$ B AddCounter<1/M1M1/Creature.YouCtrl> | NumCards$ 1",
+        "Name:SpellOppCounter\nManaCost:B\nTypes:Sorcery\nA:SP$ Draw | Cost$ B AddCounter<1/M1M1/Creature.OppCtrl> | NumCards$ 1",
         "Name:ZeroOtherCounter\nTypes:Artifact\nA:AB$ Draw | Cost$ AddCounter<0/M1M1/Creature.YouCtrl> | NumCards$ 1",
         "Name:OwnSameGrave\nTypes:Artifact\nA:AB$ Draw | Cost$ ExileSameGrave<2/Creature.YouOwn> | NumCards$ 1",
         "Name:ZeroSameGrave\nTypes:Artifact\nA:AB$ Draw | Cost$ ExileSameGrave<0/Creature> | NumCards$ 1",

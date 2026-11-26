@@ -24,6 +24,13 @@ card!(
     ),],
     abilities = &[spell!(
         &[],
-        condition = Some(Condition::CreaturesDiedThisTurnAtLeast(1))
+        condition = Some(Condition::Not(&Condition::AmountAtLeast(
+            Amount::IfCondition {
+                condition: &Condition::AmountAtLeast(Amount::CreaturesDiedThisTurn, 1),
+                then: &Amount::Fixed(0),
+                otherwise: &Amount::Fixed(1)
+            },
+            1
+        )))
     ),],
 );

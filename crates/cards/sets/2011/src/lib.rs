@@ -19,6 +19,8 @@ pub mod abattoir_ghoul;
 pub mod abbey_griffin;
 #[path = "mbs/accorder_paladin.rs"]
 pub mod accorder_paladin;
+#[path = "cmd/acorn_catapult.rs"]
+pub mod acorn_catapult;
 #[path = "nph/act_of_aggression.rs"]
 pub mod act_of_aggression;
 #[path = "m12/adaptive_automaton.rs"]
@@ -61,6 +63,8 @@ pub mod army_of_the_damned;
 pub mod artillerize;
 #[path = "isd/ashmouth_hound.rs"]
 pub mod ashmouth_hound;
+#[path = "nph/auriok_survivors.rs"]
+pub mod auriok_survivors;
 #[path = "isd/avacyn_s_pilgrim.rs"]
 pub mod avacyn_s_pilgrim;
 #[path = "isd/avacynian_priest.rs"]
@@ -127,6 +131,8 @@ pub mod brain_weevil;
 pub mod bramblecrush;
 #[path = "mbs/brass_squire.rs"]
 pub mod brass_squire;
+#[path = "isd/brimstone_volley.rs"]
+pub mod brimstone_volley;
 #[path = "nph/brutalizer_exarch.rs"]
 pub mod brutalizer_exarch;
 #[path = "isd/bump_in_the_night.rs"]
@@ -203,6 +209,8 @@ pub mod creeping_corrosion;
 pub mod crimson_mage;
 #[path = "isd/crossway_vampire.rs"]
 pub mod crossway_vampire;
+#[path = "m12/crown_of_empires.rs"]
+pub mod crown_of_empires;
 #[path = "m12/crumbling_colossus.rs"]
 pub mod crumbling_colossus;
 #[path = "mbs/crush.rs"]
@@ -243,6 +251,8 @@ pub mod defensive_stance;
 pub mod dementia_bat;
 #[path = "isd/desperate_ravings.rs"]
 pub mod desperate_ravings;
+#[path = "nph/despise.rs"]
+pub mod despise;
 #[path = "m12/devouring_swarm.rs"]
 pub mod devouring_swarm;
 #[path = "pisd/diregraf_ghoul.rs"]
@@ -267,10 +277,14 @@ pub mod dream_twist;
 pub mod drifting_shade;
 #[path = "mbs/dross_ripper.rs"]
 pub mod dross_ripper;
+#[path = "m12/druidic_satchel.rs"]
+pub mod druidic_satchel;
 #[path = "m12/dungrove_elder.rs"]
 pub mod dungrove_elder;
 #[path = "m12/duskhunter_bat.rs"]
 pub mod duskhunter_bat;
+#[path = "isd/elder_cathar.rs"]
+pub mod elder_cathar;
 #[path = "isd/elder_of_laurels.rs"]
 pub mod elder_of_laurels;
 #[path = "nph/elesh_norn_grand_cenobite.rs"]
@@ -279,6 +293,8 @@ pub mod elesh_norn_grand_cenobite;
 pub mod elite_inquisitor;
 #[path = "isd/endless_ranks_of_the_dead.rs"]
 pub mod endless_ranks_of_the_dead;
+#[path = "nph/entomber_exarch.rs"]
+pub mod entomber_exarch;
 #[path = "nph/etched_monstrosity.rs"]
 pub mod etched_monstrosity;
 #[path = "isd/falkenrath_marauders.rs"]
@@ -313,6 +329,8 @@ pub mod forbidden_alchemy;
 pub mod forced_worship;
 #[path = "isd/fortress_crab.rs"]
 pub mod fortress_crab;
+#[path = "mbs/frantic_salvage.rs"]
+pub mod frantic_salvage;
 #[path = "nph/fresh_meat.rs"]
 pub mod fresh_meat;
 #[path = "isd/frightful_delusion.rs"]
@@ -419,6 +437,8 @@ pub mod grimoire_of_the_dead;
 pub mod grizzled_outcasts;
 #[path = "isd/gruesome_deformity.rs"]
 pub mod gruesome_deformity;
+#[path = "mbs/gruesome_encore.rs"]
+pub mod gruesome_encore;
 #[path = "m12/guardians_pledge.rs"]
 pub mod guardians_pledge;
 #[path = "mbs/gust_skimmer.rs"]
@@ -455,6 +475,8 @@ pub mod horrifying_revelation;
 pub mod hovermyr;
 #[path = "m12/hunter_s_insight.rs"]
 pub mod hunter_s_insight;
+#[path = "cmd/hydra_omnivore.rs"]
+pub mod hydra_omnivore;
 #[path = "isd/hysterical_blindness.rs"]
 pub mod hysterical_blindness;
 #[path = "nph/ichor_explosion.rs"]
@@ -549,6 +571,8 @@ pub mod lurking_crocodile;
 pub mod magmatic_force;
 #[path = "mbs/magnetic_mine.rs"]
 pub mod magnetic_mine;
+#[path = "isd/makeshift_mauler.rs"]
+pub mod makeshift_mauler;
 #[path = "m12/manalith.rs"]
 pub mod manalith;
 #[path = "isd/manor_gargoyle.rs"]
@@ -589,6 +613,8 @@ pub mod merfolk_mesmerist;
 pub mod metallic_mastery;
 #[path = "isd/midnight_haunting.rs"]
 pub mod midnight_haunting;
+#[path = "v11/mikaeus_the_lunarch.rs"]
+pub mod mikaeus_the_lunarch;
 #[path = "nph/mindcrank.rs"]
 pub mod mindcrank;
 #[path = "nph/mindculling.rs"]
@@ -597,6 +623,8 @@ pub mod mindculling;
 pub mod mindshrieker;
 #[path = "pmbs/mirran_crusader.rs"]
 pub mod mirran_crusader;
+#[path = "mbs/mirran_mettle.rs"]
+pub mod mirran_mettle;
 #[path = "mbs/mirran_spy.rs"]
 pub mod mirran_spy;
 #[path = "mbs/mirrorworks.rs"]
@@ -751,6 +779,8 @@ pub mod quicksilver_geyser;
 pub mod quilled_slagwurm;
 #[path = "isd/rage_thrower.rs"]
 pub mod rage_thrower;
+#[path = "isd/rakish_heir.rs"]
+pub mod rakish_heir;
 #[path = "mbs/rally_the_forces.rs"]
 pub mod rally_the_forces;
 #[path = "isd/rally_the_peasants.rs"]
@@ -783,6 +813,8 @@ pub mod rot_wolf;
 pub mod rotted_hystrix;
 #[path = "isd/rotting_fensnake.rs"]
 pub mod rotting_fensnake;
+#[path = "cmd/ruhan_of_the_fomori.rs"]
+pub mod ruhan_of_the_fomori;
 #[path = "m12/rune_scarred_demon.rs"]
 pub mod rune_scarred_demon;
 #[path = "isd/runechanter_s_pike.rs"]
@@ -795,6 +827,8 @@ pub mod rusted_slasher;
 pub mod ruthless_invasion;
 #[path = "cmd/scavenging_ooze.rs"]
 pub mod scavenging_ooze;
+#[path = "m12/scepter_of_empires.rs"]
+pub mod scepter_of_empires;
 #[path = "isd/scourge_of_geier_reach.rs"]
 pub mod scourge_of_geier_reach;
 #[path = "mbs/scourge_servant.rs"]
@@ -829,6 +863,8 @@ pub mod shriekhorn;
 pub mod shrine_of_boundless_growth;
 #[path = "nph/shrine_of_burning_rage.rs"]
 pub mod shrine_of_burning_rage;
+#[path = "nph/shrine_of_limitless_power.rs"]
+pub mod shrine_of_limitless_power;
 #[path = "nph/shrine_of_loyal_legions.rs"]
 pub mod shrine_of_loyal_legions;
 #[path = "nph/shrine_of_piercing_vision.rs"]
@@ -845,6 +881,10 @@ pub mod silver_inlaid_dagger;
 pub mod silverchase_fox;
 #[path = "mbs/silverskin_armor.rs"]
 pub mod silverskin_armor;
+#[path = "isd/skaab_goliath.rs"]
+pub mod skaab_goliath;
+#[path = "isd/skaab_ruinator.rs"]
+pub mod skaab_ruinator;
 #[path = "isd/skeletal_grimace.rs"]
 pub mod skeletal_grimace;
 #[path = "m12/skinshifter.rs"]
@@ -889,6 +929,8 @@ pub mod sphinx_of_uthuun;
 pub mod spider_spawning;
 #[path = "isd/spidery_grasp.rs"]
 pub mod spidery_grasp;
+#[path = "mbs/spin_engine.rs"]
+pub mod spin_engine;
 #[path = "mbs/spine_of_ish_sah.rs"]
 pub mod spine_of_ish_sah;
 #[path = "nph/spinebiter.rs"]
@@ -915,6 +957,8 @@ pub mod steel_sabotage;
 pub mod stensia_bloodhall;
 #[path = "m12/stingerfling_spider.rs"]
 pub mod stingerfling_spider;
+#[path = "isd/stitched_drake.rs"]
+pub mod stitched_drake;
 #[path = "isd/stitcher_s_apprentice.rs"]
 pub mod stitcher_s_apprentice;
 #[path = "m12/stonehorn_dignitary.rs"]
@@ -959,6 +1003,8 @@ pub mod thopter_assembly;
 pub mod thraben_purebloods;
 #[path = "isd/thraben_sentry.rs"]
 pub mod thraben_sentry;
+#[path = "m12/throne_of_empires.rs"]
+pub mod throne_of_empires;
 #[path = "mbs/thrun_the_last_troll.rs"]
 pub mod thrun_the_last_troll;
 #[path = "nph/thundering_tanadon.rs"]
@@ -1053,6 +1099,8 @@ pub mod viridian_emissary;
 pub mod viridian_harvest;
 #[path = "mbs/virulent_wound.rs"]
 pub mod virulent_wound;
+#[path = "m12/visions_of_beyond.rs"]
+pub mod visions_of_beyond;
 #[path = "nph/vital_splicer.rs"]
 pub mod vital_splicer;
 #[path = "mbs/vivisection.rs"]

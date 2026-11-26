@@ -3861,7 +3861,7 @@ fn wave18b_choose_number_choose_player_and_wave9_filters() {
         "Name:BadNumSpell\nManaCost:U\nTypes:Sorcery\nA:SP$ ChooseNumber | Min$ 0 | Max$ 3",
         "Name:BadNumSecret\nManaCost:2 U\nTypes:Artifact\nA:AB$ ChooseNumber | Cost$ T | Min$ 0 | Max$ 3 | Secretly$ True",
         "Name:BadNumOrder\nManaCost:2 U\nTypes:Artifact\nA:AB$ ChooseNumber | Cost$ T | Min$ 5 | Max$ 2",
-        "Name:BadChooseRandom\nManaCost:1 R\nTypes:Sorcery\nA:SP$ ChoosePlayer | Choices$ Opponent | Random$ True | SubAbility$ D\nSVar:D:DB$ Draw | Defined$ ChosenPlayer | NumCards$ 1",
+        "Name:BadChooseRandom\nManaCost:1 R\nTypes:Sorcery\nA:SP$ ChoosePlayer | Choices$ Opponent | Random$ Bogus | SubAbility$ D\nSVar:D:DB$ Draw | Defined$ ChosenPlayer | NumCards$ 1",
         "Name:BadChooseUnused\nManaCost:1 U\nTypes:Sorcery\nA:SP$ ChoosePlayer | Choices$ Opponent | SubAbility$ D\nSVar:D:DB$ Draw | Defined$ You | NumCards$ 1",
         "Name:BadChooseOppDef\nManaCost:1 U\nTypes:Sorcery\nA:SP$ ChoosePlayer | Defined$ Opponent | Choices$ Player | SubAbility$ D\nSVar:D:DB$ Draw | Defined$ ChosenPlayer | NumCards$ 1",
         "Name:BadSharesImprint\nManaCost:2 U\nTypes:Sorcery\nA:SP$ DestroyAll | ValidCards$ Creature.SharesCMCWith Imprinted",
@@ -4070,7 +4070,20 @@ fn wave18b_remember_this_way_chains() {
         multi_mill.abilities
     );
 
-    // Refusals: multi-player mill EQ1, multi-player discard Remember*, EQ1 on multi-mill, TargetOnly -> GraveyardToTop multi.
+    // Wave 28a: multi-target TargetOnly -> Graveyard -> Library top now lowers
+    // via Effect::PutTargetOnTopOfLibrary (moves all targets + arranges 2+ per owner).
+    let multi_gy_top = read(
+        "Name:MultiTargetOnlyGyTop\nManaCost:1 G\nTypes:Sorcery\n\
+         A:SP$ TargetOnly | ValidTgts$ Card | TgtZone$ Graveyard | TargetMin$ 0 | TargetMax$ 2 | SubAbility$ R\n\
+         SVar:R:DB$ ChangeZone | Defined$ Targeted | Origin$ Graveyard | Destination$ Library | LibraryPosition$ 0",
+    );
+    assert!(
+        multi_gy_top.abilities[0].contains("Effect::PutTargetOnTopOfLibrary"),
+        "{:?}",
+        multi_gy_top.abilities
+    );
+
+    // Refusals: multi-player mill EQ1, multi-player discard Remember*, EQ1 on multi-mill, TargetOnly -> GraveyardToLibrary beneath top.
     for bad in [
         "Name:BadMultiMillEq1\nManaCost:2 U\nTypes:Sorcery\n\
          A:SP$ Mill | Defined$ Player | NumCards$ 1 | RememberMilled$ True | SubAbility$ G\n\
@@ -4081,9 +4094,9 @@ fn wave18b_remember_this_way_chains() {
         "Name:BadMillEq1\nManaCost:1 B\nTypes:Sorcery\n\
          A:SP$ Mill | Defined$ You | NumCards$ 3 | RememberMilled$ True | SubAbility$ G\n\
          SVar:G:DB$ GainLife | Defined$ You | LifeAmount$ 2 | ConditionDefined$ Remembered | ConditionPresent$ Creature | ConditionCompare$ EQ1",
-        "Name:BadTargetOnlyGyTop\nManaCost:1 G\nTypes:Sorcery\n\
+        "Name:BadTargetOnlyGyBeneath\nManaCost:1 G\nTypes:Sorcery\n\
          A:SP$ TargetOnly | ValidTgts$ Card | TgtZone$ Graveyard | TargetMin$ 0 | TargetMax$ 2 | SubAbility$ R\n\
-         SVar:R:DB$ ChangeZone | Defined$ Targeted | Origin$ Graveyard | Destination$ Library | LibraryPosition$ 0",
+         SVar:R:DB$ ChangeZone | Defined$ Targeted | Origin$ Graveyard | Destination$ Library | LibraryPosition$ 2",
     ] {
         assert!(refused(bad), "must refuse: {bad}");
     }
@@ -5352,7 +5365,7 @@ fn wave22b_effect_static_modes_and_one_shot_spells() {
         "Name:BadRemChange\nManaCost:2 W\nTypes:Instant\nA:SP$ Effect | ValidTgts$ Player | RememberObjects$ Targeted | StaticAbilities$ S\nSVar:S:Mode$ CantChangeLife | ValidPlayer$ Player.IsRemembered",
         "Name:BadRemLose\nManaCost:2 W\nTypes:Instant\nA:SP$ Effect | ValidTgts$ Player | RememberObjects$ Targeted | StaticAbilities$ S\nSVar:S:Mode$ CantLoseLife | ValidPlayer$ Player.IsRemembered",
         "Name:BadAllSearch\nManaCost:2 U\nTypes:Instant\nA:SP$ Effect | StaticAbilities$ S\nSVar:S:Mode$ CantSearchLibrary | ValidPlayer$ Player",
-        "Name:BadNoPrev\nManaCost:1 R\nTypes:Instant\nA:SP$ Effect | StaticAbilities$ S\nSVar:S:Mode$ CantPreventDamage",
+        "Name:BadNoPrev\nManaCost:1 R\nTypes:Instant\nA:SP$ Effect | StaticAbilities$ S\nSVar:S:Mode$ CantPreventDamage | ValidTarget$ Creature",
         "Name:BadMustBlock\nManaCost:1 G\nTypes:Instant\nA:SP$ Effect | ValidTgts$ Creature | RememberObjects$ Targeted | StaticAbilities$ S\nSVar:S:Mode$ MustBlock | ValidCreature$ Creature.IsRemembered",
     ] {
         assert!(refused(bad), "must refuse: {bad}");

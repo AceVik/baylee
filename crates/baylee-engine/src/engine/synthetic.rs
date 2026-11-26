@@ -178,6 +178,7 @@ pub fn creature(
 /// The fallback is what lets a synthetic board hold real Forests: a deck
 /// has to be *something*, and a test that had to invent a basic land as
 /// well would be proving its fixtures rather than the rule.
+#[derive(Clone)]
 pub struct SyntheticLookup(Vec<&'static CardDef>);
 
 impl SyntheticLookup {

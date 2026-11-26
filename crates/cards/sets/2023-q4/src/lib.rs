@@ -43,6 +43,8 @@ pub mod ancestors_aid;
 pub mod ancestral_reminiscence;
 #[path = "lci/anim_pakal_thousandth_moon.rs"]
 pub mod anim_pakal_thousandth_moon;
+#[path = "lci/another_chance.rs"]
+pub mod another_chance;
 #[path = "who/astrid_peth.rs"]
 pub mod astrid_peth;
 #[path = "who/atraxi_warden.rs"]
@@ -133,6 +135,8 @@ pub mod colossadactyl;
 pub mod compass_gnome;
 #[path = "rex/compy_swarm.rs"]
 pub mod compy_swarm;
+#[path = "who/confession_dial.rs"]
+pub mod confession_dial;
 #[path = "lci/confounding_riddle.rs"]
 pub mod confounding_riddle;
 #[path = "lcc/contest_of_claws.rs"]
@@ -165,6 +169,8 @@ pub mod dalek_squadron;
 pub mod dan_lewis;
 #[path = "lci/daring_discovery.rs"]
 pub mod daring_discovery;
+#[path = "lci/deathcap_marionette.rs"]
+pub mod deathcap_marionette;
 #[path = "who/decaying_time_loop.rs"]
 pub mod decaying_time_loop;
 #[path = "lci/deconstruction_hammer.rs"]
@@ -191,6 +197,8 @@ pub mod dinotomaton;
 pub mod disruptor_wanderglyph;
 #[path = "lcc/don_andres_the_renegade.rs"]
 pub mod don_andres_the_renegade;
+#[path = "rex/don_t_move.rs"]
+pub mod don_t_move;
 #[path = "who/donna_noble.rs"]
 pub mod donna_noble;
 #[path = "lci/dowsing_device.rs"]
@@ -261,6 +269,8 @@ pub mod ghalta_stampede_tyrant;
 pub mod glimpse_the_core;
 #[path = "lci/glorifier_of_suffering.rs"]
 pub mod glorifier_of_suffering;
+#[path = "lci/glowcap_lantern.rs"]
+pub mod glowcap_lantern;
 #[path = "lci/goblin_tomb_raider.rs"]
 pub mod goblin_tomb_raider;
 #[path = "lci/goldfury_strider.rs"]
@@ -273,6 +283,8 @@ pub mod grasping_shadows;
 pub mod greedy_freebooter;
 #[path = "rex/grim_giganotosaurus.rs"]
 pub mod grim_giganotosaurus;
+#[path = "lci/guardian_of_the_great_door.rs"]
+pub mod guardian_of_the_great_door;
 #[path = "lci/helping_hand.rs"]
 pub mod helping_hand;
 #[path = "rex/henry_wu_in_gen_geneticist.rs"]
@@ -307,6 +319,8 @@ pub mod idol_of_the_deep_king;
 pub mod illustrious_wanderglyph;
 #[path = "who/impending_flux.rs"]
 pub mod impending_flux;
+#[path = "lci/inverted_iceberg.rs"]
+pub mod inverted_iceberg;
 #[path = "who/iraxxa_empress_of_mars.rs"]
 pub mod iraxxa_empress_of_mars;
 #[path = "lci/ironpaw_aspirant.rs"]
@@ -337,6 +351,8 @@ pub mod leela_sevateem_warrior;
 pub mod life_finds_a_way;
 #[path = "lci/lodestone_needle.rs"]
 pub mod lodestone_needle;
+#[path = "lci/malamet_battle_glyph.rs"]
+pub mod malamet_battle_glyph;
 #[path = "lci/malamet_brawler.rs"]
 pub mod malamet_brawler;
 #[path = "lci/malamet_scythe.rs"]
@@ -361,10 +377,14 @@ pub mod mephitic_draught;
 pub mod might_of_the_ancestors;
 #[path = "lci/miner_s_guidewing.rs"]
 pub mod miner_s_guidewing;
+#[path = "lci/mineshaft_spider.rs"]
+pub mod mineshaft_spider;
 #[path = "lci/mischievous_pup.rs"]
 pub mod mischievous_pup;
 #[path = "lcc/mist_dancer.rs"]
 pub mod mist_dancer;
+#[path = "who/nanogene_conversion.rs"]
+pub mod nanogene_conversion;
 #[path = "lci/nurturing_bristleback.rs"]
 pub mod nurturing_bristleback;
 #[path = "lci/oaken_siren.rs"]
@@ -457,8 +477,12 @@ pub mod rms_titanic;
 pub mod roaming_throne;
 #[path = "lci/ruin_lurker_bat.rs"]
 pub mod ruin_lurker_bat;
+#[path = "who/run_for_your_life.rs"]
+pub mod run_for_your_life;
 #[path = "lci/runaway_boulder.rs"]
 pub mod runaway_boulder;
+#[path = "who/ryan_sinclair.rs"]
+pub mod ryan_sinclair;
 #[path = "lci/sage_of_days.rs"]
 pub mod sage_of_days;
 #[path = "lci/saheeli_the_sun_s_brilliance.rs"]
@@ -501,6 +525,8 @@ pub mod skeleton_crew;
 pub mod skullcap_snail;
 #[path = "lci/soaring_sandwing.rs"]
 pub mod soaring_sandwing;
+#[path = "lci/song_of_stupefaction.rs"]
+pub mod song_of_stupefaction;
 #[path = "who/sonic_screwdriver.rs"]
 pub mod sonic_screwdriver;
 #[path = "lci/soulcoil_viper.rs"]
@@ -527,6 +553,8 @@ pub mod star_whale;
 pub mod staunch_crewmate;
 #[path = "lci/stinging_cave_crawler.rs"]
 pub mod stinging_cave_crawler;
+#[path = "lcc/storm_fleet_negotiator.rs"]
+pub mod storm_fleet_negotiator;
 #[path = "lcc/sunfrill_imitator.rs"]
 pub mod sunfrill_imitator;
 #[path = "lci/sunken_citadel.rs"]
@@ -549,10 +577,14 @@ pub mod tegan_jovanka;
 pub mod tendril_of_the_mycotyrant;
 #[path = "lci/terror_tide.rs"]
 pub mod terror_tide;
+#[path = "lci/the_belligerent.rs"]
+pub mod the_belligerent;
 #[path = "lci/the_everflowing_well.rs"]
 pub mod the_everflowing_well;
 #[path = "who/the_flux.rs"]
 pub mod the_flux;
+#[path = "who/the_fugitive_doctor.rs"]
+pub mod the_fugitive_doctor;
 #[path = "lcc/the_indomitable.rs"]
 pub mod the_indomitable;
 #[path = "who/the_master_mesmerist.rs"]
@@ -577,6 +609,8 @@ pub mod traverse_eternity;
 pub mod trenzalore_clocktower;
 #[path = "lcc/tributary_instructor.rs"]
 pub mod tributary_instructor;
+#[path = "lci/triumphant_chomp.rs"]
+pub mod triumphant_chomp;
 #[path = "lci/trumpeting_carnosaur.rs"]
 pub mod trumpeting_carnosaur;
 #[path = "lci/twists_and_turns.rs"]
@@ -589,6 +623,10 @@ pub mod unlucky_drop;
 pub mod vanguard_of_the_rose;
 #[path = "who/vashta_nerada.rs"]
 pub mod vashta_nerada;
+#[path = "lci/visage_of_dread.rs"]
+pub mod visage_of_dread;
+#[path = "lci/vito_fanatic_of_aclazotz.rs"]
+pub mod vito_fanatic_of_aclazotz;
 #[path = "lci/vito_s_inquisitor.rs"]
 pub mod vito_s_inquisitor;
 #[path = "lci/volatile_fault.rs"]
@@ -599,6 +637,8 @@ pub mod volatile_wanderglyph;
 pub mod walk_with_the_ancestors;
 #[path = "lci/warden_of_the_inner_sky.rs"]
 pub mod warden_of_the_inner_sky;
+#[path = "lci/waterlogged_hulk.rs"]
+pub mod waterlogged_hulk;
 #[path = "lci/waterwind_scout.rs"]
 pub mod waterwind_scout;
 #[path = "lcc/wave_goodbye.rs"]
@@ -609,6 +649,8 @@ pub mod waylaying_pirates;
 pub mod welcome_to;
 #[path = "who/wilfred_mott.rs"]
 pub mod wilfred_mott;
+#[path = "lcc/wrathful_raptors.rs"]
+pub mod wrathful_raptors;
 #[path = "who/wreck_and_rebuild.rs"]
 pub mod wreck_and_rebuild;
 #[path = "lcc/xavier_sal_infested_captain.rs"]

@@ -7528,6 +7528,245 @@ pub static ANGEL_3_3_WHITE_FLYING: TokenDef = TokenDef {
     ..TokenDef::DEFAULT
 };
 
+/// 1/1 black Harpy with flying.
+pub static HARPY_1_1_BLACK_FLYING: TokenDef = TokenDef {
+    name: "Harpy",
+    colors: ColorSet::from_slice(&[Color::Black]),
+    types: TypeSet::CREATURE,
+    subtypes: &[creature::HARPY],
+    power: Some(1),
+    toughness: Some(1),
+    keywords: KeywordSet::FLYING,
+    ..TokenDef::DEFAULT
+};
+
+/// */* black Zombie.
+pub static ZOMBIE_X_X_BLACK: TokenDef = TokenDef {
+    name: "Zombie",
+    colors: ColorSet::from_slice(&[Color::Black]),
+    types: TypeSet::CREATURE,
+    subtypes: &[creature::ZOMBIE],
+    ..TokenDef::DEFAULT
+};
+
+/// 1/1 white green Elf Warrior.
+pub static ELF_WARRIOR_1_1_WHITE_GREEN: TokenDef = TokenDef {
+    name: "Elf Warrior",
+    colors: ColorSet::from_slice(&[Color::White, Color::Green]),
+    types: TypeSet::CREATURE,
+    subtypes: &[creature::ELF, creature::WARRIOR],
+    power: Some(1),
+    toughness: Some(1),
+    ..TokenDef::DEFAULT
+};
+
+/// 1/0 blue Elemental.
+pub static ELEMENTAL_1_0_BLUE: TokenDef = TokenDef {
+    name: "Elemental",
+    colors: ColorSet::from_slice(&[Color::Blue]),
+    types: TypeSet::CREATURE,
+    subtypes: &[creature::ELEMENTAL],
+    power: Some(1),
+    toughness: Some(0),
+    ..TokenDef::DEFAULT
+};
+
+/// 1/1 white blue Bird with flying.
+pub static BIRD_1_1_WHITE_BLUE_FLYING: TokenDef = TokenDef {
+    name: "Bird",
+    colors: ColorSet::from_slice(&[Color::White, Color::Blue]),
+    types: TypeSet::CREATURE,
+    subtypes: &[creature::BIRD],
+    power: Some(1),
+    toughness: Some(1),
+    keywords: KeywordSet::FLYING,
+    ..TokenDef::DEFAULT
+};
+
+/// 1/1 black Bird with flying.
+pub static BIRD_1_1_BLACK_FLYING_AA6F088A4: TokenDef = TokenDef {
+    name: "Bird",
+    colors: ColorSet::from_slice(&[Color::Black]),
+    types: TypeSet::CREATURE,
+    subtypes: &[creature::BIRD],
+    power: Some(1),
+    toughness: Some(1),
+    keywords: KeywordSet::FLYING,
+    abilities: &[static_ability!(
+        Filter::And(&[Filter::CREATURE, Filter::This]),
+        Modifier::AddKeyword(KeywordSet::CANT_BLOCK)
+    )],
+    ..TokenDef::DEFAULT
+};
+
+/// 1/1 black Rat with lifelink.
+pub static RAT_1_1_BLACK_LIFELINK: TokenDef = TokenDef {
+    name: "Rat",
+    colors: ColorSet::from_slice(&[Color::Black]),
+    types: TypeSet::CREATURE,
+    subtypes: &[creature::RAT],
+    power: Some(1),
+    toughness: Some(1),
+    keywords: KeywordSet::LIFELINK,
+    ..TokenDef::DEFAULT
+};
+
+/// 2/2 black Astartes Warrior with menace.
+pub static ASTARTES_WARRIOR_2_2_BLACK_MENACE: TokenDef = TokenDef {
+    name: "Astartes Warrior",
+    colors: ColorSet::from_slice(&[Color::Black]),
+    types: TypeSet::CREATURE,
+    subtypes: &[creature::ASTARTES, creature::WARRIOR],
+    power: Some(2),
+    toughness: Some(2),
+    keywords: KeywordSet::MENACE,
+    ..TokenDef::DEFAULT
+};
+
+/// */* black Aetherborn.
+pub static AETHERBORN_X_X_BLACK: TokenDef = TokenDef {
+    name: "Aetherborn",
+    colors: ColorSet::from_slice(&[Color::Black]),
+    types: TypeSet::CREATURE,
+    subtypes: &[creature::AETHERBORN],
+    ..TokenDef::DEFAULT
+};
+
+/// 2/2 colorless artifact Construct.
+pub static CONSTRUCT_ARTIFACT_2_2: TokenDef = TokenDef {
+    name: "Construct",
+    types: TypeSet::ARTIFACT.union(TypeSet::CREATURE),
+    subtypes: &[creature::CONSTRUCT],
+    power: Some(2),
+    toughness: Some(2),
+    ..TokenDef::DEFAULT
+};
+
+/// 4/2 red Pirate.
+pub static PIRATE_4_2_RED_AA6F088A4: TokenDef = TokenDef {
+    name: "Pirate",
+    colors: ColorSet::from_slice(&[Color::Red]),
+    types: TypeSet::CREATURE,
+    subtypes: &[creature::PIRATE],
+    power: Some(4),
+    toughness: Some(2),
+    abilities: &[static_ability!(
+        Filter::And(&[Filter::CREATURE, Filter::This]),
+        Modifier::AddKeyword(KeywordSet::CANT_BLOCK)
+    )],
+    ..TokenDef::DEFAULT
+};
+
+/// */* red Dragon Illusion with flying and haste.
+pub static DRAGON_ILLUSION_X_X_RED_FLYING_HASTE: TokenDef = TokenDef {
+    name: "Dragon Illusion",
+    colors: ColorSet::from_slice(&[Color::Red]),
+    types: TypeSet::CREATURE,
+    subtypes: &[creature::DRAGON, creature::ILLUSION],
+    keywords: KeywordSet::FLYING.union(KeywordSet::HASTE),
+    ..TokenDef::DEFAULT
+};
+
+/// 1/2 blue Moonfolk with flying.
+pub static MOONFOLK_1_2_BLUE_FLYING: TokenDef = TokenDef {
+    name: "Moonfolk",
+    colors: ColorSet::from_slice(&[Color::Blue]),
+    types: TypeSet::CREATURE,
+    subtypes: &[creature::MOONFOLK],
+    power: Some(1),
+    toughness: Some(2),
+    keywords: KeywordSet::FLYING,
+    ..TokenDef::DEFAULT
+};
+
+/// 2/2 blue Wizard.
+pub static WIZARD_2_2_BLUE: TokenDef = TokenDef {
+    name: "Wizard",
+    colors: ColorSet::from_slice(&[Color::Blue]),
+    types: TypeSet::CREATURE,
+    subtypes: &[creature::WIZARD],
+    power: Some(2),
+    toughness: Some(2),
+    ..TokenDef::DEFAULT
+};
+
+/// 2/1 white Cat Warrior.
+pub static CAT_WARRIOR_2_1_WHITE: TokenDef = TokenDef {
+    name: "Cat Warrior",
+    colors: ColorSet::from_slice(&[Color::White]),
+    types: TypeSet::CREATURE,
+    subtypes: &[creature::CAT, creature::WARRIOR],
+    power: Some(2),
+    toughness: Some(1),
+    ..TokenDef::DEFAULT
+};
+
+/// 2/2 white Fox with vigilance.
+pub static FOX_2_2_WHITE_VIGILANCE: TokenDef = TokenDef {
+    name: "Fox",
+    colors: ColorSet::from_slice(&[Color::White]),
+    types: TypeSet::CREATURE,
+    subtypes: &[creature::FOX],
+    power: Some(2),
+    toughness: Some(2),
+    keywords: KeywordSet::VIGILANCE,
+    ..TokenDef::DEFAULT
+};
+
+/// 1/1 white black Vampire with lifelink.
+pub static VAMPIRE_1_1_WHITE_BLACK_LIFELINK: TokenDef = TokenDef {
+    name: "Vampire",
+    colors: ColorSet::from_slice(&[Color::White, Color::Black]),
+    types: TypeSet::CREATURE,
+    subtypes: &[creature::VAMPIRE],
+    power: Some(1),
+    toughness: Some(1),
+    keywords: KeywordSet::LIFELINK,
+    ..TokenDef::DEFAULT
+};
+
+/// 1/1 black Snail.
+pub static SNAIL_1_1_BLACK: TokenDef = TokenDef {
+    name: "Snail",
+    colors: ColorSet::from_slice(&[Color::Black]),
+    types: TypeSet::CREATURE,
+    subtypes: &[creature::SNAIL],
+    power: Some(1),
+    toughness: Some(1),
+    ..TokenDef::DEFAULT
+};
+
+/// 1/1 green Moloid.
+pub static MOLOID_1_1_GREEN_A84604C62: TokenDef = TokenDef {
+    name: "Moloid",
+    colors: ColorSet::from_slice(&[Color::Green]),
+    types: TypeSet::CREATURE,
+    subtypes: &[creature::MINION],
+    power: Some(1),
+    toughness: Some(1),
+    abilities: &[triggered!(
+        Trigger::Attacks(&Filter::This),
+        &[Effect::MayDo {
+            effects: &[Effect::Mill {
+                amount: Amount::Fixed(1),
+                target: PlayerRel::You
+            }]
+        }]
+    )],
+    ..TokenDef::DEFAULT
+};
+
+/// 3/3 blue Illusion Villain.
+pub static ILLUSION_VILLAIN_3_3_BLUE: TokenDef = TokenDef {
+    name: "Illusion Villain",
+    colors: ColorSet::from_slice(&[Color::Blue]),
+    types: TypeSet::CREATURE,
+    subtypes: &[creature::ILLUSION, creature::VILLAIN],
+    power: Some(3),
+    toughness: Some(3),
+    ..TokenDef::DEFAULT
+};
+
 /// Every token there is, in the order ids were assigned.
 pub static ALL: &[&TokenDef] = &[
     &tokens::ALLY_1_1_WHITE,
@@ -8891,6 +9130,26 @@ pub static ALL: &[&TokenDef] = &[
     &SHEEP_1_1_WHITE,
     &HUMAN_KNIGHT_2_2_WHITE_A94B73029,
     &ANGEL_3_3_WHITE_FLYING,
+    &HARPY_1_1_BLACK_FLYING,
+    &ZOMBIE_X_X_BLACK,
+    &ELF_WARRIOR_1_1_WHITE_GREEN,
+    &ELEMENTAL_1_0_BLUE,
+    &BIRD_1_1_WHITE_BLUE_FLYING,
+    &BIRD_1_1_BLACK_FLYING_AA6F088A4,
+    &RAT_1_1_BLACK_LIFELINK,
+    &ASTARTES_WARRIOR_2_2_BLACK_MENACE,
+    &AETHERBORN_X_X_BLACK,
+    &CONSTRUCT_ARTIFACT_2_2,
+    &PIRATE_4_2_RED_AA6F088A4,
+    &DRAGON_ILLUSION_X_X_RED_FLYING_HASTE,
+    &MOONFOLK_1_2_BLUE_FLYING,
+    &WIZARD_2_2_BLUE,
+    &CAT_WARRIOR_2_1_WHITE,
+    &FOX_2_2_WHITE_VIGILANCE,
+    &VAMPIRE_1_1_WHITE_BLACK_LIFELINK,
+    &SNAIL_1_1_BLACK,
+    &MOLOID_1_1_GREEN_A84604C62,
+    &ILLUSION_VILLAIN_3_3_BLUE,
 ];
 
 /// The entries a reader wrote, as a subset of [`ALL`] — never a second
@@ -9465,6 +9724,26 @@ pub static GENERATED: &[&TokenDef] = &[
     &SHEEP_1_1_WHITE,
     &HUMAN_KNIGHT_2_2_WHITE_A94B73029,
     &ANGEL_3_3_WHITE_FLYING,
+    &HARPY_1_1_BLACK_FLYING,
+    &ZOMBIE_X_X_BLACK,
+    &ELF_WARRIOR_1_1_WHITE_GREEN,
+    &ELEMENTAL_1_0_BLUE,
+    &BIRD_1_1_WHITE_BLUE_FLYING,
+    &BIRD_1_1_BLACK_FLYING_AA6F088A4,
+    &RAT_1_1_BLACK_LIFELINK,
+    &ASTARTES_WARRIOR_2_2_BLACK_MENACE,
+    &AETHERBORN_X_X_BLACK,
+    &CONSTRUCT_ARTIFACT_2_2,
+    &PIRATE_4_2_RED_AA6F088A4,
+    &DRAGON_ILLUSION_X_X_RED_FLYING_HASTE,
+    &MOONFOLK_1_2_BLUE_FLYING,
+    &WIZARD_2_2_BLUE,
+    &CAT_WARRIOR_2_1_WHITE,
+    &FOX_2_2_WHITE_VIGILANCE,
+    &VAMPIRE_1_1_WHITE_BLACK_LIFELINK,
+    &SNAIL_1_1_BLACK,
+    &MOLOID_1_1_GREEN_A84604C62,
+    &ILLUSION_VILLAIN_3_3_BLUE,
 ];
 
 /// Legacy duplicate ids and the canonical ids they now resolve to.

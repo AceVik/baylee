@@ -267,6 +267,7 @@ pub(crate) fn graveyard_face_open(
     !graveyard_face_permissions(state, player, card, face).is_empty()
         || !escape_grants(state, player, card).is_empty()
         || (face == 0 && flashback_granted(state, card))
+        || (face == 0 && super::jump_start_granted(state, card))
         || (face == 0
             && object
                 .characteristics()
