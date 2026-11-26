@@ -20,6 +20,30 @@ use baylee_engine::choice::{Pending, PlayerAction};
 use baylee_view::HouseAnswer;
 
 impl<D: baylee_engine::engine::LoopDetection, R: crate::session::SessionRegistry> Session<D, R> {
+    /// [`Self::resume_with_detection`] for a hosted game whose server
+    /// restarted (`docs/proposals/games-survive-restarts.md`): only a record
+    /// that names `identity`, the artifact resuming it, as the one that
+    /// played it. A game never moves onto another build, where a rules fix
+    /// could make the same inputs a different game.
+    ///
+    /// # Errors
+    /// [`ReplayError::Unbuildable`] for a record another artifact played or
+    /// one that names none, and everything [`Self::resume_with_detection`]
+    /// refuses.
+    pub fn resume_for_execution(
+        record: &[u8],
+        identity: &baylee_protocol::execution::Identity,
+    ) -> Result<Self, ReplayError> {
+        let head = record::header_of(&mut record::lines_of(record))?;
+        if head.execution.as_ref() != Some(identity)
+            || !identity.valid()
+            || !R::supports_execution(identity.variant)
+        {
+            return Err(ReplayError::Unbuildable);
+        }
+        Self::resume_with_detection(record)
+    }
+
     /// The game `record` holds, rebuilt input by input and checked against
     /// every digest the record wrote, as a recorded session that goes on
     /// writing after the record's last line.

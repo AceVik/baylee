@@ -58,6 +58,7 @@ async fn the_attached_engine_reports_work_privately_and_keeps_logs_off_the_pipe(
                 seat_names: vec!["One".into(), "Two".into()],
                 seat_accounts: vec![false, false],
                 seat_guests: vec![],
+                ..Default::default()
             })),
         };
         socket

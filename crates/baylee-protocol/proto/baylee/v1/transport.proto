@@ -375,6 +375,15 @@ message GameSetup {
   repeated bool seat_accounts = 5;
   // Frozen execution identity; must match the receiving executable.
   bytes execution = 6;
+  // A game picked up again after its server restarted
+  // (`docs/proposals/games-survive-restarts.md`): its record as the gateway
+  // stored it, the pieces in order as one gzip stream, which the engine plays
+  // again input by input and goes on from. Only a record this very artifact
+  // played resumes. Empty for a new game.
+  bytes resume_record = 7;
+  // With `resume_record`: how many pieces of the record are stored, the `seq`
+  // of the engine's next `GameRecordChunk`.
+  uint32 resume_pieces = 8;
 }
 
 // Private Tower v2 engine plane only. Never forwarded to player/spectator sockets.

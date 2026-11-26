@@ -667,6 +667,8 @@ pub(crate) struct Head {
     pub(crate) hash: String,
     /// [`seen`] before any input, if the record carries it.
     pub(crate) seen: Option<String>,
+    /// The native artifact that played it, absent in legacy or local records.
+    pub(crate) execution: Option<baylee_protocol::execution::Identity>,
 }
 
 /// The record's header ([`Head`]).
@@ -680,12 +682,14 @@ pub(crate) fn header_of(
             preset,
             hash,
             seen,
+            execution,
             ..
         }) => Ok(Head {
             build,
             preset: *preset,
             hash,
             seen,
+            execution,
         }),
         _ => Err(ReplayError::NoHeader),
     }

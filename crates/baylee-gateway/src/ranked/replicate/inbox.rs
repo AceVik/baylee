@@ -205,6 +205,7 @@ async fn restore(
         seat_guests: vec![false; 2],
         seat_accounts: vec![true; 2],
         execution: execution.to_metadata(),
+        ..Default::default()
     };
     if !replica_table::ensure(state, &placement, &preset).await? {
         return Err(invalid());
