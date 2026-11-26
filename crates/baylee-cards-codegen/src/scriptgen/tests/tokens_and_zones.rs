@@ -2043,3 +2043,406 @@ fn wave23b_create_token_sized_refusals() {
         assert!(refused_sized(bad), "must refuse: {bad}");
     }
 }
+
+fn cats_zones_extra() -> SubtypeCatalogs {
+    let mut c = cats();
+    c.creature
+        .extend(["God", "Samurai", "Spirit", "Rat"].map(Into::into));
+    c.land.push("Plains".into());
+    c.normalize();
+    c
+}
+
+#[test]
+fn target_same_name_zone_all_sweeps_and_hour_of_glory() {
+    let extra_cats = cats_zones_extra();
+    let read_extra = |text: &str| {
+        let parsed = parse(text);
+        transcode(&parsed, &extra_cats, None)
+            .unwrap_or_else(|| panic!("refused: {:?}", refusal_reason(&parsed, &extra_cats, None)))
+    };
+    let sever = read_extra(
+        "Name:Sever the Bloodline\nManaCost:3 B\nTypes:Sorcery\nK:Flashback:5 B B\n\
+         A:SP$ TargetOnly | ValidTgts$ Creature | SubAbility$ DBExile\n\
+         SVar:DBExile:DB$ ChangeZoneAll | Origin$ Battlefield | Destination$ Exile | \
+         ChangeType$ TargetedCard.Self,Creature.NotDefinedTargeted+sharesNameWith Targeted",
+    );
+    assert!(
+        sever.abilities[0].contains("Effect::RememberTargetsThen { then: &[Effect::ExileAll {")
+            && sever.abilities[0].contains("linked: false")
+            && sever.statics.contains("Filter::IsRemembered")
+            && sever.statics.contains("Filter::SharesNameWithRemembered"),
+        "{:?} / {}",
+        sever.abilities,
+        sever.statics
+    );
+
+    let echoing_truth = read_extra(
+        "Name:Echoing Truth\nManaCost:1 U\nTypes:Instant\n\
+         A:SP$ TargetOnly | ValidTgts$ Permanent.nonLand | SubAbility$ DBBounce\n\
+         SVar:DBBounce:DB$ ChangeZoneAll | Origin$ Battlefield | Destination$ Hand | \
+         ChangeType$ TargetedCard.Self,Permanent.NotDefinedTargeted+sharesNameWith Targeted",
+    );
+    assert!(
+        echoing_truth.abilities[0]
+            .contains("Effect::RememberTargetsThen { then: &[Effect::ReturnAllToHand {"),
+        "{:?}",
+        echoing_truth.abilities
+    );
+
+    let legions = read_extra(
+        "Name:Legions to Ashes\nManaCost:1 W B\nTypes:Sorcery\n\
+         A:SP$ TargetOnly | ValidTgts$ Permanent.nonLand+OppCtrl | SubAbility$ ExileAll\n\
+         SVar:ExileAll:DB$ ChangeZoneAll | Origin$ Battlefield | Destination$ Exile | \
+         ChangeType$ TargetedCard.Self,Card.NotDefinedTargeted+token+sharesNameWith Targeted+ControlledBy TargetedController",
+    );
+    assert!(
+        legions.abilities[0].contains("Effect::RememberTargetsThen { then: &[Effect::ExileAll {")
+            && legions.statics.contains("Filter::IsToken")
+            && legions
+                .statics
+                .contains("Filter::ControlledBy(PlayerRel::ControllerOfTarget)"),
+        "{:?} / {}",
+        legions.abilities,
+        legions.statics
+    );
+
+    let detention_sphere = read_extra(
+        "Name:Detention Sphere\nManaCost:1 W U\nTypes:Enchantment\n\
+         T:Mode$ ChangesZone | Origin$ Any | Destination$ Battlefield | ValidCard$ Card.Self | \
+         OptionalDecider$ You | Execute$ TrigExile\n\
+         SVar:TrigExile:DB$ TargetOnly | ValidTgts$ Permanent.nonLand+!namedDetention Sphere | \
+         SubAbility$ DBChangeZoneAll\n\
+         SVar:DBChangeZoneAll:DB$ ChangeZoneAll | ChangeType$ Targeted.Self,Targeted.sameName | \
+         Origin$ Battlefield | Destination$ Exile\n\
+         T:Mode$ ChangesZone | Origin$ Battlefield | Destination$ Any | ValidCard$ Card.Self | \
+         Execute$ TrigReturn\n\
+         SVar:TrigReturn:DB$ ChangeZoneAll | ChangeType$ Card.ExiledWithSource | Origin$ Exile | \
+         Destination$ Battlefield",
+    );
+    assert!(
+        detention_sphere.abilities[0].contains("Effect::RememberTargetsThen")
+            && detention_sphere.abilities[0].contains("Effect::ExileAll")
+            && detention_sphere.abilities[0].contains("linked: true")
+            && detention_sphere.abilities[1].contains("Effect::ReturnLinkedToBattlefield"),
+        "{:?}",
+        detention_sphere.abilities
+    );
+}
+
+#[test]
+fn target_same_name_graveyard_sweeps_hour_of_glory_and_refusals() {
+    let extra_cats = cats_zones_extra();
+    let read_extra = |text: &str| {
+        let parsed = parse(text);
+        transcode(&parsed, &extra_cats, None)
+            .unwrap_or_else(|| panic!("refused: {:?}", refusal_reason(&parsed, &extra_cats, None)))
+    };
+    let refused_extra = |text: &str| transcode(&parse(text), &extra_cats, None).is_none();
+
+    let echoing_return = read_extra(
+        "Name:Echoing Return\nManaCost:B\nTypes:Sorcery\n\
+         A:SP$ TargetOnly | ValidTgts$ Creature.YouOwn | TgtZone$ Graveyard | SubAbility$ DBReturn\n\
+         SVar:DBReturn:DB$ ChangeZoneAll | Origin$ Graveyard | Destination$ Hand | Defined$ You | \
+         ChangeType$ TargetedCard.Self,Card.NotDefinedTargeted+sharesNameWith Targeted",
+    );
+    assert!(
+        echoing_return.abilities[0]
+            .contains("Effect::RememberTargetsThen { then: &[Effect::GraveyardAllToHand {"),
+        "{:?}",
+        echoing_return.abilities
+    );
+
+    let rat_king = read_extra(
+        "Name:Rat King, Verminister\nManaCost:1 B\nTypes:Legendary Creature Rat\nPT:1/1\n\
+         A:AB$ TargetOnly | Cost$ T Sac<3/Rat> | ValidTgts$ Creature.YouOwn | TgtZone$ Graveyard | \
+         SubAbility$ DBReturn\n\
+         SVar:DBReturn:DB$ ChangeZoneAll | Origin$ Graveyard | Destination$ Battlefield | \
+         Tapped$ True | Defined$ You | \
+         ChangeType$ TargetedCard.Self,Card.NotDefinedTargeted+sharesNameWith Targeted",
+    );
+    assert!(
+        rat_king.abilities[0]
+            .contains("Effect::RememberTargetsThen { then: &[Effect::ChooseCardEx {")
+            && rat_king.abilities[0]
+                .contains("not_chosen_movement: ChooseMove::Battlefield { tapped: true }"),
+        "{:?}",
+        rat_king.abilities
+    );
+
+    let hour_of_glory = read_extra(
+        "Name:Hour of Glory\nManaCost:3 B\nTypes:Instant\n\
+         A:SP$ ChangeZone | Origin$ Battlefield | Destination$ Exile | ValidTgts$ Creature | \
+         SubAbility$ DBChangeZone\n\
+         SVar:DBChangeZone:DB$ ChangeZoneAll | Origin$ Hand | Destination$ Exile | \
+         ConditionDefined$ Targeted | ConditionPresent$ God | Defined$ TargetedController | \
+         ChangeType$ TargetedCard.sameName",
+    );
+    assert!(
+        hour_of_glory.abilities[0].contains("Effect::RememberTargetsThen")
+            && hour_of_glory.abilities[0].contains("Condition::CapturedMatches(&")
+            && hour_of_glory.abilities[0]
+                .contains("Effect::RevealHand { who: PlayerRel::ControllerOfTarget }")
+            && hour_of_glory.abilities[0].contains("filter: &Filter::SharesNameWithRemembered")
+            && hour_of_glory.statics.contains("subtypes::creature::GOD"),
+        "{:?} / {}",
+        hour_of_glory.abilities,
+        hour_of_glory.statics
+    );
+
+    for bad in [
+        "Name:DeputyLike\nManaCost:1 W U\nTypes:Creature\nPT:1/3\n\
+         T:Mode$ ChangesZone | Origin$ Any | Destination$ Battlefield | ValidCard$ Card.Self | Execute$ TrigExile\n\
+         SVar:TrigExile:DB$ TargetOnly | ValidTgts$ Permanent.nonLand | SubAbility$ DBChangeZoneAll\n\
+         SVar:DBChangeZoneAll:DB$ ChangeZoneAll | Origin$ Battlefield | Destination$ Exile | \
+         ChangeType$ TargetedCard.Self,Permanent.NotDefinedTargeted+sharesNameWith Targeted | \
+         Duration$ UntilHostLeavesPlay",
+        "Name:NoSameName\nManaCost:2 B\nTypes:Sorcery\n\
+         A:SP$ TargetOnly | ValidTgts$ Creature | SubAbility$ DBEx\n\
+         SVar:DBEx:DB$ ChangeZoneAll | Origin$ Battlefield | Destination$ Exile | \
+         ChangeType$ TargetedCard.Self,Creature.NotDefinedTargeted",
+        "Name:BadUseAllOrigins\nManaCost:2 B\nTypes:Sorcery\n\
+         A:SP$ TargetOnly | ValidTgts$ Creature | SubAbility$ DBEx\n\
+         SVar:DBEx:DB$ ChangeZoneAll | Origin$ Battlefield | Destination$ Exile | UseAllOriginZones$ True | \
+         ChangeType$ TargetedCard.Self,Creature.NotDefinedTargeted+sharesNameWith Targeted",
+    ] {
+        assert!(refused_extra(bad), "must refuse: {bad}");
+    }
+}
+
+#[test]
+fn zone_change_remembered_capture_and_conditional_search() {
+    let extra_cats = cats_zones_extra();
+    let tok_lookup = TokenLookup::held(&[(
+        "w_1_1_spirit_flying",
+        "Name:Spirit\nTypes:Creature Spirit\nColors:white\nPT:1/1\nK:Flying",
+    )]);
+    let read_extra = |text: &str| {
+        let parsed = parse(text);
+        transcode(&parsed, &extra_cats, Some(&tok_lookup)).unwrap_or_else(|| {
+            panic!(
+                "refused: {:?}",
+                refusal_reason(&parsed, &extra_cats, Some(&tok_lookup))
+            )
+        })
+    };
+
+    let conscription = read_extra(
+        "Name:Heartless Conscription\nManaCost:6 B B\nTypes:Sorcery\n\
+         A:SP$ ChangeZoneAll | Origin$ Battlefield | Destination$ Exile | ChangeType$ Creature | \
+         RememberChanged$ True | SubAbility$ DBEffect\n\
+         SVar:DBEffect:DB$ Effect | RememberObjects$ RememberedCard | StaticAbilities$ STPlay | \
+         SubAbility$ DBChange | ForgetOnMoved$ Exile | Duration$ Permanent\n\
+         SVar:STPlay:Mode$ Continuous | MayPlay$ True | MayPlayIgnoreType$ True | \
+         Affected$ Card.IsRemembered | AffectedZone$ Exile\n\
+         SVar:DBChange:DB$ ChangeZone | Origin$ Stack | Destination$ Exile | SubAbility$ DBCleanup\n\
+         SVar:DBCleanup:DB$ Cleanup | ClearRemembered$ True",
+    );
+    assert!(
+        conscription.abilities[0].contains("Effect::CaptureAffected")
+            && conscription.abilities[0].contains("Effect::GrantRememberedExilePermission")
+            && conscription.abilities[0].contains("spend_mana_as_any_type()")
+            && conscription.abilities[0].contains("Effect::ExileSource"),
+        "{:?}",
+        conscription.abilities
+    );
+
+    let author = read_extra(
+        "Name:Author of Shadows\nManaCost:4 B\nTypes:Creature Shade Warlock\nPT:3/3\n\
+         T:Mode$ ChangesZone | Origin$ Any | Destination$ Battlefield | ValidCard$ Card.Self | Execute$ TrigChangeZoneAll\n\
+         SVar:TrigChangeZoneAll:DB$ ChangeZoneAll | ChangeType$ Card.YouDontOwn | Origin$ Graveyard | \
+         Destination$ Exile | RememberChanged$ True | SubAbility$ DBChooseCard\n\
+         SVar:DBChooseCard:DB$ ChooseCard | Defined$ You | Choices$ Card.nonLand+IsRemembered | \
+         ChoiceTitle$ Choose a nonland card exiled this way | ChoiceZone$ Exile | Mandatory$ True | SubAbility$ DBEffect\n\
+         SVar:DBEffect:DB$ Effect | RememberObjects$ ChosenCard | StaticAbilities$ STPlay | \
+         Duration$ Permanent | ExileOnMoved$ Exile | SubAbility$ DBCleanup\n\
+         SVar:STPlay:Mode$ Continuous | MayPlay$ True | MayPlayIgnoreColor$ True | \
+         Affected$ Card.IsRemembered | AffectedZone$ Exile\n\
+         SVar:DBCleanup:DB$ Cleanup | ClearRemembered$ True | ClearChosenCard$ True",
+    );
+    assert!(
+        author.abilities[0].contains("Effect::CaptureAffected")
+            && author.abilities[0]
+                .contains("Effect::ExileGraveyard { player: PlayerRel::EachOpponent }")
+            && author.abilities[0].contains("zone: ChooseZone::Remembered")
+            && author.abilities[0].contains("Effect::ExileWithPermission")
+            && author.abilities[0].contains("spend_mana_as_any_color()"),
+        "{:?}",
+        author.abilities
+    );
+
+    let summoners_sending = read_extra(
+        "Name:Summoner's Sending\nManaCost:1 W\nTypes:Enchantment\n\
+         T:Mode$ Phase | Phase$ End of Turn | ValidPlayer$ You | TriggerZones$ Battlefield | \
+         Execute$ TrigExile | OptionalDecider$ You\n\
+         SVar:TrigExile:DB$ ChangeZone | Origin$ Graveyard | Destination$ Exile | ValidTgts$ Creature | \
+         SubAbility$ DBToken | RememberChanged$ True\n\
+         SVar:DBToken:DB$ Token | TokenScript$ w_1_1_spirit_flying | TokenOwner$ You | \
+         ConditionDefined$ Remembered | ConditionPresent$ Card.Creature | ImprintTokens$ True | SubAbility$ DBPutCounter\n\
+         SVar:DBPutCounter:DB$ PutCounter | Defined$ Imprinted | CounterType$ P1P1 | CounterNum$ 1 | \
+         ConditionDefined$ Remembered | ConditionPresent$ Card.cmcGE4 | SubAbility$ DBCleanup\n\
+         SVar:DBCleanup:DB$ Cleanup | ClearRemembered$ True | ClearImprinted$ True",
+    );
+    assert!(
+        summoners_sending.abilities[0].contains("Effect::CaptureAffected")
+            && summoners_sending.abilities[0].contains("Effect::CreateTokenThenCounters")
+            && summoners_sending.abilities[0].contains("Effect::CreateToken {")
+            && summoners_sending.statics.contains("Filter::CmcAtLeast(4)"),
+        "{:?} / {}",
+        summoners_sending.abilities,
+        summoners_sending.statics
+    );
+
+    let claim_jumper = read_extra(
+        "Name:Claim Jumper\nManaCost:2 W\nTypes:Creature Rabbit Mercenary\nPT:3/3\n\
+         T:Mode$ ChangesZone | Origin$ Any | Destination$ Battlefield | CheckSVar$ X | \
+         SVarCompare$ GTY | OptionalDecider$ You | ValidCard$ Card.Self | Execute$ TrigChange\n\
+         SVar:TrigChange:DB$ ChangeZone | Origin$ Library | Destination$ Battlefield | \
+         ChangeType$ Land.Plains | ChangeNum$ 1 | RememberChanged$ True | Tapped$ True | NoShuffle$ True | \
+         SubAbility$ DBChangeZone\n\
+         SVar:DBChangeZone:DB$ ChangeZone | Optional$ True | Origin$ Library | Destination$ Battlefield | \
+         ConditionCheckSVar$ X | ConditionSVarCompare$ GTY | ChangeType$ Land.Plains | ChangeNum$ 1 | \
+         RememberChanged$ True | Tapped$ True | NoShuffle$ True | SubAbility$ DBShuffle\n\
+         SVar:DBShuffle:DB$ Shuffle | Defined$ You | ConditionDefined$ Remembered | \
+         ConditionPresent$ Card | ConditionCompare$ GE1 | SubAbility$ DBCleanup\n\
+         SVar:DBCleanup:DB$ Cleanup | ClearRemembered$ True\n\
+         SVar:X:PlayerCountOpponents$HighestValid Land.YouCtrl\n\
+         SVar:Y:Count$Valid Land.YouCtrl",
+    );
+    assert!(
+        claim_jumper.abilities[0].contains("Effect::SearchLibraryBeforeShuffle")
+            && claim_jumper.abilities[0].contains("Condition::OpponentControlsMore(&Filter::LAND)")
+            && claim_jumper.abilities[0].contains("Effect::ShuffleLibrary { who: PlayerRel::You }"),
+        "{:?}",
+        claim_jumper.abilities
+    );
+}
+
+#[test]
+fn zone_change_single_origin_and_event_objects() {
+    let extra_cats = cats_zones_extra();
+    let read_extra = |text: &str| {
+        let parsed = parse(text);
+        transcode(&parsed, &extra_cats, None)
+            .unwrap_or_else(|| panic!("refused: {:?}", refusal_reason(&parsed, &extra_cats, None)))
+    };
+    let balrog = read_extra(
+        "Name:The Balrog, Flame of Udun\nManaCost:3 B R\nTypes:Legendary Creature\nPT:7/7\n\
+         T:Mode$ ChangesZone | Origin$ Battlefield | TriggerZones$ Battlefield | \
+         Destination$ Graveyard | ValidCard$ Creature.Legendary+OppCtrl | Execute$ TrigChange\n\
+         SVar:TrigChange:DB$ ChangeZone | Defined$ Self | Origin$ Battlefield | \
+         Destination$ Library | LibraryPosition$ -1",
+    );
+    assert!(
+        balrog.abilities[0].contains("Effect::PutSourceOnBottomOfLibrary"),
+        "{:?}",
+        balrog.abilities
+    );
+
+    let jailbreak = read_extra(
+        "Name:Jailbreak Scheme\nManaCost:U\nTypes:Sorcery\nK:Spree\n\
+         A:SP$ Charm | Choices$ DBPutCounter,DBChangeZone | MinCharmNum$ 1 | CharmNum$ 2\n\
+         SVar:DBPutCounter:DB$ PutCounter | ModeCost$ 3 | ValidTgts$ Creature | CounterType$ P1P1 | SubAbility$ DBEffect\n\
+         SVar:DBEffect:DB$ Effect | ExileOnMoved$ Battlefield | RememberObjects$ ParentTarget | StaticAbilities$ Unblockable\n\
+         SVar:Unblockable:Mode$ CantBlockBy | ValidAttacker$ Card.IsRemembered\n\
+         SVar:DBChangeZone:DB$ ChangeZone | ModeCost$ 2 | ValidTgts$ Artifact,Creature | \
+         AlternativeDecider$ ThisTargetedOwner | Origin$ Battlefield | Destination$ Library | \
+         DestinationAlternative$ Library | LibraryPositionAlternative$ -1",
+    );
+    assert!(
+        jailbreak.abilities[0].contains("Effect::OwnerPutsOnTopOrBottom"),
+        "{:?}",
+        jailbreak.abilities
+    );
+
+    let krark = read_extra(
+        "Name:Krark, the Thumbless\nManaCost:1 R\nTypes:Legendary Creature Goblin Wizard\nPT:2/2\n\
+         T:Mode$ SpellCast | ValidCard$ Instant,Sorcery | ValidActivatingPlayer$ You | \
+         TriggerZones$ Battlefield | Execute$ TrigFlip\n\
+         SVar:TrigFlip:DB$ FlipCoin | WinSubAbility$ DBCopy | LoseSubAbility$ DBBounce\n\
+         SVar:DBBounce:DB$ ChangeZone | Defined$ TriggeredSpellAbility | Origin$ Stack | Destination$ Hand\n\
+         SVar:DBCopy:DB$ CopySpellAbility | Defined$ TriggeredSpellAbility | MayChooseTarget$ True",
+    );
+    assert!(
+        krark.abilities[0].contains("Effect::bounce(TargetSpec::EventObject)"),
+        "{:?}",
+        krark.abilities
+    );
+
+    let oathkeeper = read_extra(
+        "Name:Oathkeeper, Takeno's Daisho\nManaCost:3\nTypes:Legendary Artifact Equipment\nK:Equip:2\n\
+         T:Mode$ ChangesZone | Origin$ Battlefield | Destination$ Graveyard | \
+         ValidCard$ Card.EquippedBy | Execute$ TrigReturn\n\
+         SVar:TrigReturn:DB$ ChangeZone | Destination$ Battlefield | \
+         Defined$ TriggeredNewCardLKICopy | GainControl$ True | \
+         ConditionDefined$ TriggeredNewCardLKICopy | ConditionPresent$ Card.Samurai | ConditionCompare$ GE1",
+    );
+    assert!(
+        oathkeeper.abilities[1].contains("Effect::reanimate(TargetSpec::EventObject)")
+            && oathkeeper.abilities[1].contains("Condition::ObjectMatches"),
+        "{:?}",
+        oathkeeper.abilities
+    );
+}
+
+#[test]
+fn zone_change_up_to_x_single_origin_distortion_and_refusals() {
+    let extra_cats = cats_zones_extra();
+    let read_extra = |text: &str| {
+        let parsed = parse(text);
+        transcode(&parsed, &extra_cats, None)
+            .unwrap_or_else(|| panic!("refused: {:?}", refusal_reason(&parsed, &extra_cats, None)))
+    };
+    let refused_extra = |text: &str| transcode(&parse(text), &extra_cats, None).is_none();
+
+    let divergent = read_extra(
+        "Name:Divergent Equation\nManaCost:X X U\nTypes:Instant\n\
+         A:SP$ ChangeZone | Origin$ Graveyard | Destination$ Hand | \
+         ValidTgts$ Instant.YouOwn,Sorcery.YouOwn | TargetMin$ 0 | TargetMax$ X | SubAbility$ DBExile\n\
+         SVar:DBExile:DB$ ChangeZone | Origin$ Stack | Destination$ Exile\n\
+         SVar:X:Count$xPaid",
+    );
+    assert!(
+        divergent.abilities[0].contains("TargetReq::up_to_x(")
+            && divergent.abilities[0].contains("Effect::ExileSource"),
+        "{:?}",
+        divergent.abilities
+    );
+
+    let perilous = read_extra(
+        "Name:Perilous Vault\nManaCost:4\nTypes:Artifact\n\
+         A:AB$ ChangeZoneAll | Cost$ 5 T Exile<1/CARDNAME> | UseAllOriginZones$ True | \
+         Origin$ Battlefield | Destination$ Exile | ChangeType$ Permanent.nonLand",
+    );
+    assert!(
+        perilous.abilities[0].contains("Effect::ExileAll"),
+        "{:?}",
+        perilous.abilities
+    );
+
+    let distortion = read_extra(
+        "Name:Thought Distortion\nManaCost:4 B B\nTypes:Sorcery\n\
+         A:SP$ RevealHand | ValidTgts$ Opponent | IsCurse$ True | SubAbility$ DBExile\n\
+         SVar:DBExile:DB$ ChangeZoneAll | Origin$ Hand,Graveyard | Destination$ Exile | \
+         ChangeType$ Card.nonCreature+nonLand+TargetedPlayerCtrl\n\
+         Oracle:Target opponent reveals their hand. Exile all noncreature, nonland cards from that player's hand and graveyard.",
+    );
+    assert!(
+        distortion.abilities[0].contains("Effect::RevealHand { who: PlayerRel::Chosen }")
+            && distortion.abilities[0].contains("zone: ChooseZone::Hand(PlayerRel::Chosen)")
+            && distortion.abilities[0].contains("zone: ChooseZone::Graveyard(PlayerRel::Chosen)"),
+        "{:?}",
+        distortion.abilities
+    );
+
+    assert!(refused_extra(
+        "Name:BadNoOriginETB\nManaCost:2\nTypes:Artifact\n\
+         T:Mode$ ChangesZone | Origin$ Any | Destination$ Battlefield | ValidCard$ Creature | Execute$ TrigRet\n\
+         SVar:TrigRet:DB$ ChangeZone | Destination$ Battlefield | Defined$ TriggeredNewCardLKICopy",
+    ));
+    assert!(refused_extra(
+        "Name:BadStackBounceNonSpell\nManaCost:2 U\nTypes:Enchantment\n\
+         T:Mode$ ChangesZone | Origin$ Any | Destination$ Battlefield | ValidCard$ Creature | Execute$ TrigBounce\n\
+         SVar:TrigBounce:DB$ ChangeZone | Defined$ TriggeredSpellAbility | Origin$ Stack | Destination$ Hand",
+    ));
+}

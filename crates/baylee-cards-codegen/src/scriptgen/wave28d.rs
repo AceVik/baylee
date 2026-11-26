@@ -450,7 +450,7 @@ impl Tx<'_> {
         if change_type.contains("IsRemembered")
             || change_type.contains("!IsRemembered")
             || change_type.contains("IsImprinted")
-            || change_type.contains("Targeted")
+            || (change_type.contains("Targeted") && !change_type.contains("TargetedPlayer"))
         {
             return None;
         }
@@ -493,8 +493,12 @@ impl Tx<'_> {
         // Card-zone origins: `Graveyard` and `Hand`.
         let no_open_target = target.is_none() || prior_target_used;
         let (owner_opt, stripped) = Self::strip_graveyard_owner(&change_type)?;
+        if stripped.contains("Targeted") {
+            return None;
+        }
         let who = match (defined.as_deref(), targets_a_player, owner_opt) {
             (None, false, Some(rel)) if no_open_target => rel,
+            (None, true, Some("PlayerRel::Chosen")) => "PlayerRel::Chosen",
             (Some("You"), false, None | Some("PlayerRel::You")) if no_open_target => {
                 "PlayerRel::You"
             }

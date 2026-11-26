@@ -578,6 +578,9 @@ struct Tx<'a> {
     dual_kicker_remap: Option<[u8; 2]>,
     /// Whether the triggered ability being read triggers on `Card.Self`.
     trigger_is_self: bool,
+    /// Whether the triggered ability being read is a dies / battlefield-to-graveyard
+    /// trigger (`Trigger::Dies(...)` / `Trigger::DiesThis`).
+    trigger_changes_zone_to_graveyard: bool,
     /// Whether the cost being read belongs to `S: Mode$ AlternativeCost`,
     /// where `cast_wizard` pays `ExileFromHand`, `TapN` and multi-return
     /// parts that an activated ability does not.
@@ -766,6 +769,7 @@ impl<'a> Tx<'a> {
             has_single_kicker: !multi_or_dual && single_kickers == 1,
             dual_kicker_remap: None,
             trigger_is_self: false,
+            trigger_changes_zone_to_graveyard: false,
             in_alternative_cost: false,
             has_evoke: false,
             is_etb_self_trigger: false,
