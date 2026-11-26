@@ -504,15 +504,27 @@ fn wave27e_damage_and_rider_refusals() {
          R:Event$ DamageDone | ActiveZones$ Battlefield | ValidTarget$ Permanent,Player | ReplaceWith$ DmgMinus0\n\
          SVar:DmgMinus0:DB$ ReplaceEffect | VarName$ DamageAmount | VarValue$ ReplaceCount$DamageAmount/Minus.0"
     ));
-    // B. Sekki shape: RemoveCounter + Token using DamageAmount (NOT RememberedNumber) & unguarded Card.Self.
-    assert!(refused_with_tokens(
-        "Name:SekkiProbe\nManaCost:5 G G G\nTypes:Creature\nPT:0/0\n\
-         R:Event$ DamageDone | ActiveZones$ Battlefield | ValidTarget$ Card.Self | \
-         ReplaceWith$ SekkiCounters | PreventionEffect$ True | AlwaysReplace$ True\n\
-         SVar:SekkiCounters:DB$ RemoveCounter | CounterType$ P1P1 | CounterNum$ SekkiX | SubAbility$ DBTok\n\
-         SVar:DBTok:DB$ Token | TokenAmount$ SekkiX | TokenScript$ r_1_1_goblin\n\
-         SVar:SekkiX:ReplaceCount$DamageAmount"
-    ));
+    // B. Sekki shape: RemoveCounter + Token using DamageAmount & unguarded Card.Self -> ReplaceOrPreventDamageScopedWithThen.
+    let sekki = transcode(
+        &parse(
+            "Name:SekkiProbe\nManaCost:5 G G G\nTypes:Creature\nPT:0/0\n\
+             R:Event$ DamageDone | ActiveZones$ Battlefield | ValidTarget$ Card.Self | \
+             ReplaceWith$ SekkiCounters | PreventionEffect$ True | AlwaysReplace$ True\n\
+             SVar:SekkiCounters:DB$ RemoveCounter | CounterType$ P1P1 | CounterNum$ SekkiX | SubAbility$ DBTok\n\
+             SVar:DBTok:DB$ Token | TokenAmount$ SekkiX | TokenScript$ r_1_1_goblin\n\
+             SVar:SekkiX:ReplaceCount$DamageAmount",
+        ),
+        &cats(),
+        Some(&tokens()),
+    )
+    .expect("SekkiProbe reads via ReplaceOrPreventDamageScopedWithThen");
+    assert!(
+        sekki.abilities[0].contains("Modifier::ReplaceOrPreventDamageScopedWithThen")
+            && sekki.abilities[0].contains("Effect::RemoveCounterSelf")
+            && sekki.abilities[0].contains("Effect::CreateTokenN"),
+        "{:?}",
+        sekki.abilities
+    );
     // C. Magma Pummeler shape: RemoveCounter + ImmediateTrigger (not a DamageRider).
     assert!(refused(
         "Name:PummelerProbe\nManaCost:X R R\nTypes:Creature\nPT:0/0\n\
@@ -525,13 +537,20 @@ fn wave27e_damage_and_rider_refusals() {
          SVar:Y:ReplaceCount$DamageAmount"
     ));
     // D. Vigor / Soul-Scar Mage: ExecuteMode$ PerTarget on permanent recipients with Defined$ ReplacedTarget.
-    assert!(refused(
+    let vigor = read(
         "Name:VigorProbe\nManaCost:3 G G G\nTypes:Creature\nPT:6/6\n\
          R:Event$ DamageDone | ActiveZones$ Battlefield | ValidTarget$ Creature.YouCtrl+Other | \
          ReplaceWith$ Counters | PreventionEffect$ True | ExecuteMode$ PerTarget\n\
          SVar:Counters:DB$ PutCounter | Defined$ ReplacedTarget | CounterType$ P1P1 | CounterNum$ X\n\
-         SVar:X:ReplaceCount$DamageAmount"
-    ));
+         SVar:X:ReplaceCount$DamageAmount",
+    );
+    assert!(
+        vigor.abilities[0].contains("Modifier::ReplaceOrPreventDamageScopedWithThen")
+            && vigor.abilities[0].contains("scope: DamageRiderScope::PerTarget")
+            && vigor.abilities[0].contains("Effect::AddCounterDamagedObject { kind: CounterKind::P1P1, amount: Amount::ThisWay(ThisWay::DamagePrevented) }"),
+        "{:?}",
+        vigor.abilities
+    );
     // E. Unsupported ActiveZones$ on PreventDamageRemovingCounters.
     assert!(refused(
         "Name:CommandBloatfly\nManaCost:3 B\nTypes:Creature\nPT:0/0\n\

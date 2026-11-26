@@ -2379,20 +2379,53 @@ fn wave4_redirect_counters_flashback_tap_reduce_cost_and_computed_pt() {
         ["static_ability!(Filter::This, Modifier::CountersPreventDamage(CounterKind::P1P1))"]
     );
 
-    // 2. Combat-only redirect, multi-recipient redirect, and all-or-nothing counter shield stay refused.
-    for bad in [
-        "Name:Bad\nTypes:Creature\nPT:2/5\n\
+    // 2. Combat-only redirect, multi-recipient redirect, and single-counter prevention shields unlock.
+    let combat_redirect = read(
+        "Name:CombatRedirect\nTypes:Creature\nPT:2/5\n\
          R:Event$ DamageDone | ActiveZones$ Battlefield | ValidSource$ Creature.unblocked | \
          ValidTarget$ You | IsCombat$ True | ReplaceWith$ DmgSelf | DamageTarget$ Self\n\
          SVar:DmgSelf:DB$ ReplaceEffect | VarName$ Affected | VarValue$ Self | VarType$ Card",
-        "Name:Bad\nTypes:Creature\nPT:2/5\n\
+    );
+    assert!(
+        combat_redirect.abilities[0].contains("Modifier::RedirectDamageToAffected")
+            && combat_redirect.abilities[0].contains("combat: Some(true)"),
+        "{:?}",
+        combat_redirect.abilities
+    );
+    let multi_redirect = read(
+        "Name:MultiRedirect\nTypes:Creature\nPT:2/5\n\
          R:Event$ DamageDone | ActiveZones$ Battlefield | \
          ValidTarget$ You,Permanent.Other+YouCtrl | ReplaceWith$ DmgSelf | DamageTarget$ Self\n\
+         SVar:DmgSelf:DB$ ReplaceEffect | VarName$ Affected | VarValue$ Self | VarType$ Card",
+    );
+    assert!(
+        multi_redirect.abilities[0].contains("Modifier::RedirectDamageToAffected")
+            && multi_redirect.abilities[0]
+                .contains("recipients: DamageRecipients::PlayersOrTheirPermanents(PlayerRel::You)"),
+        "{:?}",
+        multi_redirect.abilities
+    );
+    let one_counter = read(
+        "Name:OneCounterShield\nTypes:Creature\nPT:0/0\n\
+         R:Event$ DamageDone | ActiveZones$ Battlefield | ValidTarget$ Card.Self | \
+         ReplaceWith$ Rem | PreventionEffect$ True | AlwaysReplace$ True\n\
+         SVar:Rem:DB$ RemoveCounter | Defined$ Self | CounterType$ P1P1 | CounterNum$ 1",
+    );
+    assert_eq!(
+        one_counter.abilities,
+        [
+            "static_ability!(Filter::This, Modifier::PreventDamageRemovingOneCounter { kind: CounterKind::P1P1, require_counter: false })"
+        ]
+    );
+    for bad in [
+        "Name:Bad\nTypes:Creature\nPT:2/5\n\
+         R:Event$ DamageDone | ActiveZones$ Battlefield | ValidTarget$ You | \
+         IsCombat$ Invalid | ReplaceWith$ DmgSelf | DamageTarget$ Self\n\
          SVar:DmgSelf:DB$ ReplaceEffect | VarName$ Affected | VarValue$ Self | VarType$ Card",
         "Name:Bad\nTypes:Creature\nPT:0/0\n\
          R:Event$ DamageDone | ActiveZones$ Battlefield | ValidTarget$ Card.Self | \
          ReplaceWith$ Rem | PreventionEffect$ True | AlwaysReplace$ True\n\
-         SVar:Rem:DB$ RemoveCounter | Defined$ Self | CounterType$ P1P1 | CounterNum$ 1",
+         SVar:Rem:DB$ RemoveCounter | Defined$ Self | CounterType$ P1P1 | CounterNum$ 2",
     ] {
         assert!(refused(bad), "must refuse: {bad}");
     }

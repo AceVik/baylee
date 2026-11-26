@@ -52,6 +52,15 @@ impl Tx<'_> {
         if !matches!(secondary.as_deref(), None | Some("True")) {
             return self.deny("a persistent spell prevention with another zone or result".into());
         }
+        if p.peek("DamageTarget") == Some("ReplacedTargetController")
+            && p.peek("ReplaceWith").is_some()
+        {
+            if !zone_arg.is_empty() {
+                return self
+                    .deny("a persistent spell prevention with another zone or result".into());
+            }
+            return self.redirect_damage_to_controller_rule(p);
+        }
         if matches!(
             p.peek("DamageTarget"),
             Some("Self" | "Enchanted" | "Equipped")
@@ -60,6 +69,11 @@ impl Tx<'_> {
             if !zone_arg.is_empty() {
                 return self
                     .deny("a persistent spell prevention with another zone or result".into());
+            }
+            if p.peek("DamageTarget") == Some("Self")
+                && (p.has("IsCombat") || p.peek("ValidTarget") != Some("You"))
+            {
+                return self.redirect_damage_to_affected_rule(p);
             }
             return self.redirect_damage_to_you(p);
         }
@@ -76,6 +90,16 @@ impl Tx<'_> {
                 .and_then(|rw| self.svars.get(rw.trim()))
                 .and_then(|body| Params::parse(body))
                 .map(|(api, _)| api);
+            if replace_api.as_deref() == Some("HealDamage")
+                && !p.has("PreventionEffect")
+                && !p.has("Prevent")
+            {
+                if !zone_arg.is_empty() {
+                    return self
+                        .deny("a persistent spell prevention with another zone or result".into());
+                }
+                return self.heal_other_damage_rule(p);
+            }
             if p.peek("AlwaysReplace") == Some("True")
                 && p.peek("ValidTarget").is_some_and(|vt| {
                     vt == "Card.Self" || vt.starts_with("Card.Self+counters_GE1_")
@@ -89,8 +113,15 @@ impl Tx<'_> {
                     return self
                         .deny("a persistent spell prevention with another zone or result".into());
                 }
+                let unguarded_self = p.peek("ValidTarget") == Some("Card.Self");
                 return self
                     .wave27e_prevent_damage_removing_counters(&p)
+                    .or_else(|| self.prevent_damage_removing_one_counter(&p))
+                    .or_else(|| {
+                        unguarded_self
+                            .then(|| self.scoped_damage_then_rule(&p, zone_arg, false))
+                            .flatten()
+                    })
                     .or_else(|| self.counters_prevent_damage_rule(p));
             }
             if p.has("DamageAmount") && !p.has("PreventionEffect") && !p.has("Prevent") {
@@ -110,9 +141,21 @@ impl Tx<'_> {
                 }
                 return self
                     .wave27e_damage_then_rule(&p, zone_arg, true)
+                    .or_else(|| self.scoped_damage_then_rule(&p, zone_arg, true))
                     .or_else(|| self.replace_or_prevent_damage_with_then_rule(p, zone_arg, true));
             }
             if replace_api.as_deref() == Some("ReplaceDamage") {
+                if p.peek("PreventionEffect") == Some("True") && !p.has("AlwaysReplace") {
+                    let saved_statics = self.body.statics.len();
+                    let saved_abilities = self.body.abilities.len();
+                    let saved_unclaimed = self.unclaimed.borrow().clone();
+                    if let Some(()) = self.prevent_all_but_one_damage_rule(p.clone(), zone_arg) {
+                        return Some(());
+                    }
+                    self.body.statics.truncate(saved_statics);
+                    self.body.abilities.truncate(saved_abilities);
+                    *self.unclaimed.borrow_mut() = saved_unclaimed;
+                }
                 if !zone_arg.is_empty() {
                     return self
                         .deny("a persistent spell prevention with another zone or result".into());
@@ -121,6 +164,7 @@ impl Tx<'_> {
             }
             return self
                 .wave27e_damage_then_rule(&p, zone_arg, false)
+                .or_else(|| self.scoped_damage_then_rule(&p, zone_arg, false))
                 .or_else(|| self.replace_or_prevent_damage_with_then_rule(p, zone_arg, false));
         }
         if p.take("Prevent").as_deref() != Some("True") {
@@ -188,7 +232,7 @@ impl Tx<'_> {
             let filter = self.filter_expr(&valid)?;
             self.body.abilities.push(format!(
                 "static_ability!(Filter::And(&[Filter::InZone(ZoneRef::Stack), {filter}]), \
-                 Modifier::PreventAllDamageFromIt)"
+ Modifier::PreventAllDamageFromIt)"
             ));
             return Some(());
         }
@@ -263,8 +307,8 @@ impl Tx<'_> {
         let src_ref = self.body.filter_static("SOURCE", &source_expr);
         if has_you {
             self.body.abilities.push(format!(
-                "static_ability!(Filter::This, Modifier::PreventDamageToYouFrom(&{src_ref}){zone_arg}{cond})"
-            ));
+ "static_ability!(Filter::This, Modifier::PreventDamageToYouFrom(&{src_ref}){zone_arg}{cond})"
+ ));
         }
         if let Some(target_filter) = target_filter {
             let modifier = if combat_only {
@@ -312,13 +356,13 @@ impl Tx<'_> {
         for who in player_rels {
             self.body.abilities.push(format!(
                 "static_ability!(Filter::This, Modifier::PreventNoncombatDamageToPlayers {{ \
-                 who: {who}, from: &{src_ref} }}{zone_arg}{cond})"
+ who: {who}, from: &{src_ref} }}{zone_arg}{cond})"
             ));
         }
         if let Some(target_filter) = target_filter {
             self.body.abilities.push(format!(
-                "static_ability!({target_filter}, Modifier::PreventNoncombatDamageFrom(&{src_ref}){zone_arg}{cond})"
-            ));
+ "static_ability!({target_filter}, Modifier::PreventNoncombatDamageFrom(&{src_ref}){zone_arg}{cond})"
+ ));
         }
         Some(())
     }
@@ -379,21 +423,21 @@ impl Tx<'_> {
         let modifier = match scale {
             DamageScale::Multiply(factor) => format!(
                 "Modifier::MultiplyDamageFrom {{ sources: &{src_ref}, factor: {factor}, \
-                 combat_only: {combat_only}, noncombat_only: {noncombat_only}, \
-                 recipients: {recipients} }}"
+ combat_only: {combat_only}, noncombat_only: {noncombat_only}, \
+ recipients: {recipients} }}"
             ),
             DamageScale::Add(extra) => format!(
                 "Modifier::AddDamageFrom {{ sources: &{src_ref}, extra: {extra}, \
-                 combat_only: {combat_only}, noncombat_only: {noncombat_only}, \
-                 recipients: {recipients} }}"
+ combat_only: {combat_only}, noncombat_only: {noncombat_only}, \
+ recipients: {recipients} }}"
             ),
             DamageScale::HalfDown => format!(
                 "Modifier::ReplaceDamage {{ sources: &{src_ref}, recipients: {recipients}, \
-                 combat: {combat}, replacement: DamageAmountReplacement::HalfDown }}"
+ combat: {combat}, replacement: DamageAmountReplacement::HalfDown }}"
             ),
             DamageScale::HalfUp => format!(
                 "Modifier::ReplaceDamage {{ sources: &{src_ref}, recipients: {recipients}, \
-                 combat: {combat}, replacement: DamageAmountReplacement::HalfUp }}"
+ combat: {combat}, replacement: DamageAmountReplacement::HalfUp }}"
             ),
         };
         self.body.abilities.push(format!(
@@ -527,8 +571,8 @@ impl Tx<'_> {
         };
         self.body.abilities.push(format!(
             "static_ability!(Filter::Any, Modifier::ReplaceOrPreventDamageWithThen {{ \
-             sources: {source_ref}, recipients: {recipients}, combat: {combat}, \
-             is_replacement: {is_replacement}, then: DamageRider::new(&[{then_eff}]) }}{zone_arg}{cond})"
+ sources: {source_ref}, recipients: {recipients}, combat: {combat}, \
+ is_replacement: {is_replacement}, then: DamageRider::new(&[{then_eff}]) }}{zone_arg}{cond})"
         ));
         Some(())
     }
@@ -591,19 +635,19 @@ impl Tx<'_> {
                 match def.as_deref() {
                     None | Some("Self") => format!(
                         "Effect::AddCounterSource {{ kind: {kind}, \
-                         amount: Amount::ThisWay(ThisWay::DamagePrevented) }}"
+ amount: Amount::ThisWay(ThisWay::DamagePrevented) }}"
                     ),
                     Some("ReplacedTarget") if rider_target == RiderTarget::Source => format!(
                         "Effect::AddCounterSource {{ kind: {kind}, \
-                         amount: Amount::ThisWay(ThisWay::DamagePrevented) }}"
+ amount: Amount::ThisWay(ThisWay::DamagePrevented) }}"
                     ),
                     Some("Equipped" | "Enchanted") => format!(
                         "Effect::AddCounterFilter {{ filter: &Filter::AttachedToBySource, \
-                         kind: {kind}, amount: Amount::ThisWay(ThisWay::DamagePrevented) }}"
+ kind: {kind}, amount: Amount::ThisWay(ThisWay::DamagePrevented) }}"
                     ),
                     Some("ReplacedTarget") if rider_target == RiderTarget::Attached => format!(
                         "Effect::AddCounterFilter {{ filter: &Filter::AttachedToBySource, \
-                         kind: {kind}, amount: Amount::ThisWay(ThisWay::DamagePrevented) }}"
+ kind: {kind}, amount: Amount::ThisWay(ThisWay::DamagePrevented) }}"
                     ),
                     _ => return None,
                 }
@@ -621,7 +665,7 @@ impl Tx<'_> {
                     return None;
                 }
                 "Effect::ExileTop { who: PlayerRel::You, \
-                 count: Amount::ThisWay(ThisWay::DamagePrevented) }"
+ count: Amount::ThisWay(ThisWay::DamagePrevented) }"
                     .to_string()
             }
             "Mill" => {
@@ -637,7 +681,7 @@ impl Tx<'_> {
                 }
                 format!(
                     "Effect::Mill {{ amount: Amount::ThisWay(ThisWay::DamagePrevented), \
-                     target: {who} }}"
+ target: {who} }}"
                 )
             }
             "Token" => {
@@ -652,7 +696,7 @@ impl Tx<'_> {
                 let tok = self.tokens?.body_fixed(stem.trim(), self.cats)?;
                 format!(
                     "Effect::CreateTokenN {{ token: &generated_tokens::{}, \
-                     amount: Amount::ThisWay(ThisWay::DamagePrevented) }}",
+ amount: Amount::ThisWay(ThisWay::DamagePrevented) }}",
                     tok.constant
                 )
             }
@@ -770,7 +814,7 @@ impl Tx<'_> {
         }
         self.body.abilities.push(format!(
             "static_ability!(Filter::This, \
-             Modifier::PreventDamageToAffectedIfAtMost({maximum}){cond})"
+ Modifier::PreventDamageToAffectedIfAtMost({maximum}){cond})"
         ));
         Some(())
     }
@@ -820,8 +864,8 @@ impl Tx<'_> {
             };
             self.body.abilities.push(format!(
                 "static_ability!({affected_filter}, Modifier::PreventDamagePerSource {{ \
-                 sources: &{src_ref}, include_you: true, combat_only: {combat_only}, \
-                 amount: {amount_expr} }}{cond})"
+ sources: &{src_ref}, include_you: true, combat_only: {combat_only}, \
+ amount: {amount_expr} }}{cond})"
             ));
             return Some(());
         }
@@ -829,7 +873,7 @@ impl Tx<'_> {
         let affected_filter = self.prevention_permanent_target(&valid_target)?;
         self.body.abilities.push(format!(
             "static_ability!({affected_filter}, Modifier::PreventDamageToAffectedPerSource {{ \
-             sources: &{src_ref}, combat_only: {combat_only}, amount: {amount_expr} }}{cond})"
+ sources: &{src_ref}, combat_only: {combat_only}, amount: {amount_expr} }}{cond})"
         ));
         Some(())
     }
@@ -1006,8 +1050,8 @@ impl Tx<'_> {
         let src_ref = self.body.filter_static("SOURCE", &source_expr);
         self.body.abilities.push(format!(
             "static_ability!(Filter::This, Modifier::ReplacePlayerDamage {{ \
-             sources: &{src_ref}, recipients: {recipients}, combat: {combat}, \
-             replacement: {replacement} }}{cond})"
+ sources: &{src_ref}, recipients: {recipients}, combat: {combat}, \
+ replacement: {replacement} }}{cond})"
         ));
         Some(())
     }
@@ -1379,6 +1423,9 @@ impl Tx<'_> {
         mut p: Params,
         chain: &mut Chain,
     ) -> Option<Vec<String>> {
+        if let Some(effects) = self.redirect_next_damage_shield(&p, chain) {
+            return Some(effects);
+        }
         p.drop_prose();
         p.take("Name");
         p.take("NonStackingEffect");
@@ -1495,7 +1542,7 @@ impl Tx<'_> {
         };
         Some(vec![format!(
             "{variant} {{ target: {target_expr}, sources: &{src_ref}, \
-             combat_only: {combat_only} }}"
+ combat_only: {combat_only} }}"
         )])
     }
 
@@ -1575,7 +1622,7 @@ impl Tx<'_> {
         }
         Some(vec![
             "Effect::ModifyTargets { modifier: Modifier::NextDestructionClearsDamage, \
-             duration: Duration::UntilEndOfTurn }"
+ duration: Duration::UntilEndOfTurn }"
                 .to_string(),
         ])
     }
@@ -1607,7 +1654,7 @@ impl Tx<'_> {
         }
         Some(vec![
             "Effect::CreateContinuousEffect { layer: Layer::Text, filter: &Filter::CREATURE, \
-             modifier: Modifier::MayRedirectDamageToYou, duration: Duration::UntilEndOfTurn }"
+ modifier: Modifier::MayRedirectDamageToYou, duration: Duration::UntilEndOfTurn }"
                 .to_string(),
         ])
     }
@@ -1751,6 +1798,11 @@ impl Tx<'_> {
             return self.deny(format!("unclaimed parameter `ChooseSource.{key}`"));
         }
         let (source_filter, rechecks) = self.chosen_source_choices(&choices, false)?;
+        if let Some(effects) =
+            self.chosen_source_split_redirect(sub, &source_filter, &rechecks, chain)
+        {
+            return Some(effects);
+        }
         let (mut effect, replacement) = self.read_chosen_source_effect(sub, false)?;
         let (target_spec, expected_target) = self.bind_chosen_source_target(&mut effect, chain)?;
         if let Some(key) = effect.first_key() {
@@ -1768,6 +1820,14 @@ impl Tx<'_> {
                 .is_some_and(|src| rechecks.iter().any(|r| r == &src))
         {
             return self.deny("a chosen-source replacement with another source".into());
+        }
+        if let Some(effects) = self.chosen_source_redirect_split(
+            &shield,
+            &source_filter,
+            target_spec.as_deref(),
+            expected_target,
+        ) {
+            return Some(effects);
         }
         let vt = shield.take("ValidTarget");
         let target_expr = match (target_spec, expected_target, vt.as_deref()) {
@@ -1795,8 +1855,66 @@ impl Tx<'_> {
         let src_ref = self.body.filter_static("SOURCE", &source_filter);
         Some(vec![format!(
             "Effect::PreventFromChosenSource {{ target: {target_expr}, sources: &{src_ref}, \
-             next_only: {next_only}, combat_only: false, all_but: 0, gain_life: false }}"
+ next_only: {next_only}, combat_only: false, all_but: 0, gain_life: false }}"
         )])
+    }
+
+    fn chosen_source_split_redirect(
+        &mut self,
+        sub: Option<&str>,
+        source_filter: &str,
+        rechecks: &[String],
+        chain: &mut Chain,
+    ) -> Option<Vec<String>> {
+        let body = self.svars.get(sub?)?.clone();
+        let (api, mut effect) = Params::parse(&body)?;
+        if api != "Effect" {
+            return None;
+        }
+        effect.drop_prose();
+        if effect.has("ConditionDefined")
+            || effect.has("ConditionPresent")
+            || effect.has("ConditionCompare")
+            || effect.has("SubAbility")
+        {
+            return None;
+        }
+        let replacement = effect.take("ReplacementEffects")?;
+        let saved_target = chain.target.clone();
+        let Some((target_spec, expected_target)) =
+            self.bind_chosen_source_target(&mut effect, chain)
+        else {
+            chain.target = saved_target;
+            return None;
+        };
+        if !effect.exhausted() {
+            chain.target = saved_target;
+            return None;
+        }
+        let (event, mut shield) = Params::parse(self.svars.get(&replacement)?)?;
+        shield.drop_prose();
+        if event != "DamageDone"
+            || !matches!(
+                shield.take("ActiveZones").as_deref(),
+                None | Some("Command")
+            )
+            || !shield
+                .take("ValidSource")
+                .is_some_and(|src| rechecks.iter().any(|r| r == &src))
+        {
+            chain.target = saved_target;
+            return None;
+        }
+        let res = self.chosen_source_redirect_split(
+            &shield,
+            source_filter,
+            target_spec.as_deref(),
+            expected_target,
+        );
+        if res.is_none() {
+            chain.target = saved_target;
+        }
+        res
     }
 
     fn bind_chosen_source_target(
@@ -1960,8 +2078,8 @@ impl Tx<'_> {
         }
         Some(vec![format!(
             "Effect::AddGlobalTempModifier {{ filter: &Filter::Any, \
-             modifier: Modifier::SpellsCantBeCountered {{ who: {who}, filter: {filter_ref} }}, \
-             duration: Duration::UntilEndOfTurn }}"
+ modifier: Modifier::SpellsCantBeCountered {{ who: {who}, filter: {filter_ref} }}, \
+ duration: Duration::UntilEndOfTurn }}"
         )])
     }
 
@@ -2083,13 +2201,32 @@ impl Tx<'_> {
             };
             return Some(vec![format!(
                 "Effect::PreventNextDamageWithThen {{ sources: {sources_spec}, \
-                 recipients: {recipients_spec}, combat_only: {combat_only}, \
-                 then: DamageRider::new(&[{then_eff}]) }}"
+ recipients: {recipients_spec}, combat_only: {combat_only}, \
+ then: DamageRider::new(&[{then_eff}]) }}"
             )]);
         }
 
-        // Shape B: turn-long untargeted shield (no self-exile) ->
-        // `Effect::AddGlobalTempModifier` with `Modifier::ReplaceOrPreventDamageWithThen` (*Inkshield*).
+        // Shape B: targeted damaged-object counter rider (*Brace for Impact*) or
+        // turn-long untargeted shield (no self-exile) -> `Modifier::ReplaceOrPreventDamageWithThen` (*Inkshield*).
+        if let (Some(spec), Some(expected)) = (bound_spec, expected_target)
+            && spec.starts_with("TargetSpec::Object(")
+            && valid_source.is_none()
+            && valid_target
+                .as_deref()
+                .is_some_and(|t| expected.contains(&t))
+            && let Some((kind, amt_expr)) =
+                self.parse_damaged_object_counter_rider(replace_name.trim())
+        {
+            let combat = match is_combat.as_deref() {
+                None => "None",
+                Some("True") => "Some(true)",
+                Some("False") => "Some(false)",
+                Some(_) => return None,
+            };
+            return Some(vec![format!(
+                "Effect::AddTempModifier {{ target: {spec}, modifier: Modifier::ReplaceOrPreventDamageScopedWithThen {{ sources: &Filter::Any, recipients: DamageRecipients::Permanents(&Filter::This), combat: {combat}, is_replacement: false, only_if_prevented: true, scope: DamageRiderScope::PerTarget, then: DamageRider::new(&[Effect::AddCounterDamagedObject {{ kind: {kind}, amount: {amt_expr} }}]) }}, duration: Duration::UntilEndOfTurn }}"
+            )]);
+        }
         if bound_spec.is_some() || remember_self {
             return None;
         }
@@ -2115,10 +2252,1005 @@ impl Tx<'_> {
         let recipients = self.damage_recipients_expr(valid_target.as_deref())?;
         Some(vec![format!(
             "Effect::AddGlobalTempModifier {{ filter: &Filter::Any, \
-             modifier: Modifier::ReplaceOrPreventDamageWithThen {{ \
-             sources: {source_ref}, recipients: {recipients}, combat: {combat}, \
-             is_replacement: false, then: DamageRider::new(&[{then_eff}]) }}, \
-             duration: Duration::UntilEndOfTurn }}"
+ modifier: Modifier::ReplaceOrPreventDamageWithThen {{ \
+ sources: {source_ref}, recipients: {recipients}, combat: {combat}, \
+ is_replacement: false, then: DamageRider::new(&[{then_eff}]) }}, \
+ duration: Duration::UntilEndOfTurn }}"
         )])
+    }
+
+    /// Persistent `R: Event$ DamageDone | ValidTarget$ Card.Self[+counters_GE1_<K>]`
+    /// removing 1 counter per prevented damage event
+    /// (`Modifier::PreventDamageRemovingOneCounter`, e.g. *Oathsworn Knight*,
+    /// *Undergrowth Champion*, *Phantom Centaur*, *Unbreathing Horde*).
+    fn prevent_damage_removing_one_counter(&mut self, orig: &Params) -> Option<()> {
+        let mut p = orig.clone();
+        let (require_counter, required_kind) = match p.take("ValidTarget").as_deref() {
+            Some("Card.Self") => (false, None),
+            Some(raw) => {
+                let kind_raw = raw.strip_prefix("Card.Self+counters_GE1_")?;
+                if kind_raw.is_empty() || super::counter_kind(kind_raw).is_none() {
+                    return None;
+                }
+                (true, Some(kind_raw.to_string()))
+            }
+            None => return None,
+        };
+        if p.take("AlwaysReplace").as_deref() != Some("True")
+            || p.take("PreventionEffect").as_deref() != Some("True")
+        {
+            return None;
+        }
+        let replace_name = p.take("ReplaceWith")?;
+        if !p.exhausted() {
+            return None;
+        }
+        let (rep_api, mut rep) = self
+            .svars
+            .get(replace_name.trim())
+            .and_then(|b| Params::parse(b))?;
+        rep.drop_prose();
+        if rep_api != "RemoveCounter"
+            || !matches!(
+                rep.take("Defined").as_deref(),
+                Some("Self" | "ReplacedTarget")
+            )
+            || rep.take("CounterNum").as_deref() != Some("1")
+        {
+            return None;
+        }
+        let kind_raw = rep.take("CounterType")?;
+        let kind = super::counter_kind(kind_raw.trim())?;
+        if !rep.exhausted()
+            || required_kind
+                .as_deref()
+                .is_some_and(|req| req != kind_raw.trim())
+        {
+            return None;
+        }
+        self.body.abilities.push(format!(
+ "static_ability!(Filter::This, Modifier::PreventDamageRemovingOneCounter {{ kind: {kind}, require_counter: {require_counter} }})"
+ ));
+        Some(())
+    }
+
+    /// `R: Event$ DamageDone | ValidTarget$ Card.Self | ReplacementResult$ Updated |
+    /// ReplaceWith$ <DB$ HealDamage | Defined$ Self|ReplacedTarget>`
+    /// -> `Modifier::HealOtherDamageWhenDealtDamage` (*Wolverine, Fierce Fighter*).
+    fn heal_other_damage_rule(&mut self, mut p: Params) -> Option<()> {
+        if p.take("ValidTarget").as_deref() != Some("Card.Self")
+            || p.take("ReplacementResult").as_deref() != Some("Updated")
+        {
+            return self.deny("a persistent spell prevention with another zone or result".into());
+        }
+        let Some(replace_name) = p.take("ReplaceWith") else {
+            return self.deny("a persistent spell prevention with another zone or result".into());
+        };
+        if !p.exhausted() {
+            return self.deny("a persistent spell prevention with another zone or result".into());
+        }
+        let Some((api, mut rep)) = self
+            .svars
+            .get(replace_name.trim())
+            .and_then(|b| Params::parse(b))
+        else {
+            return self.deny("a persistent spell prevention with another zone or result".into());
+        };
+        rep.drop_prose();
+        if api != "HealDamage"
+            || !matches!(
+                rep.take("Defined").as_deref(),
+                Some("Self" | "ReplacedTarget")
+            )
+            || !rep.exhausted()
+        {
+            return self.deny("a persistent spell prevention with another zone or result".into());
+        }
+        self.body.abilities.push(Self::static_expr(
+            "Filter::This",
+            "Modifier::HealOtherDamageWhenDealtDamage",
+        ));
+        Some(())
+    }
+
+    /// `R: Event$ DamageDone | ValidTarget$ Card.EnchantedBy |
+    /// DamageTarget$ ReplacedTargetController` (*Treacherous Link*)
+    /// -> `Modifier::RedirectDamageToAffectedController`.
+    fn redirect_damage_to_controller_rule(&mut self, mut p: Params) -> Option<()> {
+        if p.take("DamageTarget").as_deref() != Some("ReplacedTargetController")
+            || !matches!(
+                p.take("ValidTarget").as_deref(),
+                Some("Card.EnchantedBy" | "Creature.EnchantedBy" | "Permanent.EnchantedBy")
+            )
+        {
+            return self.deny("a persistent spell prevention with another zone or result".into());
+        }
+        let Some(replace_name) = p.take("ReplaceWith") else {
+            return self.deny("a persistent spell prevention with another zone or result".into());
+        };
+        if !p.exhausted() {
+            return self.deny("a persistent spell prevention with another zone or result".into());
+        }
+        let Some((api, mut rep)) = self
+            .svars
+            .get(replace_name.trim())
+            .and_then(|b| Params::parse(b))
+        else {
+            return self.deny("a persistent spell prevention with another zone or result".into());
+        };
+        rep.drop_prose();
+        if api != "ReplaceEffect"
+            || rep.take("VarName").as_deref() != Some("Affected")
+            || rep.take("VarValue").as_deref() != Some("ReplacedTargetController")
+            || rep.take("VarType").as_deref() != Some("Player")
+            || !rep.exhausted()
+        {
+            return self.deny("a persistent spell prevention with another zone or result".into());
+        }
+        self.body.abilities.push(Self::static_expr(
+            "Filter::AttachedToBySource",
+            "Modifier::RedirectDamageToAffectedController",
+        ));
+        Some(())
+    }
+
+    /// `R: Event$ DamageDone | DamageTarget$ Self` redirecting matching recipients
+    /// (including `You,Permanent.Other+YouCtrl` and combat/source-filtered shapes)
+    /// -> `Modifier::RedirectDamageToAffected` (*Palisade Giant*, *Weathered Bodyguards*).
+    fn redirect_damage_to_affected_rule(&mut self, mut p: Params) -> Option<()> {
+        if p.take("DamageTarget").as_deref() != Some("Self")
+            || p.has("Prevent")
+            || p.has("PreventionEffect")
+            || p.has("AlwaysReplace")
+            || p.has("Optional")
+        {
+            return self.deny("a persistent spell prevention with another zone or result".into());
+        }
+        let combat = match p.take("IsCombat").as_deref() {
+            None => "None",
+            Some("True") => "Some(true)",
+            Some("False") => "Some(false)",
+            Some(_) => {
+                return self
+                    .deny("a persistent spell prevention with another zone or result".into());
+            }
+        };
+        let cond = self.prevention_condition(&mut p)?;
+        let valid_source = p.take("ValidSource");
+        let valid_target = p.take("ValidTarget");
+        let Some(replace_name) = p.take("ReplaceWith") else {
+            return self.deny("a persistent spell prevention with another zone or result".into());
+        };
+        if let Some(key) = p.first_key() {
+            return self.deny(format!("unclaimed parameter `DamageDone.{key}`"));
+        }
+        let Some((api, mut rep)) = self
+            .svars
+            .get(replace_name.trim())
+            .and_then(|b| Params::parse(b))
+        else {
+            return self.deny("a persistent spell prevention with another zone or result".into());
+        };
+        rep.drop_prose();
+        if api != "ReplaceEffect"
+            || rep.take("VarName").as_deref() != Some("Affected")
+            || rep.take("VarValue").as_deref() != Some("Self")
+            || rep.take("VarType").as_deref() != Some("Card")
+            || !rep.exhausted()
+        {
+            return self.deny("a persistent spell prevention with another zone or result".into());
+        }
+        let recipients = match valid_target.as_deref() {
+            Some("You,Permanent.Other+YouCtrl" | "Permanent.Other+YouCtrl,You") => {
+                "DamageRecipients::PlayersOrTheirPermanents(PlayerRel::You)".to_string()
+            }
+            other => self.damage_recipients_expr(other)?,
+        };
+        let source_ref = match valid_source.as_deref() {
+            None => "&Filter::Any".to_string(),
+            Some(vs) => {
+                let expr = self.prevention_source_filter(vs)?;
+                if expr == "Filter::Any" {
+                    "&Filter::Any".to_string()
+                } else if expr == "Filter::This" {
+                    "&Filter::This".to_string()
+                } else {
+                    format!("&{}", self.body.filter_static("SOURCE", &expr))
+                }
+            }
+        };
+        self.body.abilities.push(format!(
+ "static_ability!(Filter::This, Modifier::RedirectDamageToAffected {{ sources: {source_ref}, recipients: {recipients}, combat: {combat} }}{cond})"
+ ));
+        Some(())
+    }
+
+    /// `R: Event$ DamageDone | PreventionEffect$ True` with `DB$ ReplaceDamage |
+    /// Amount$ ReplaceCount$DamageAmount/Minus.1` -> `Modifier::PreventAllButOneDamage`
+    /// (*Temple Altisaur*).
+    fn prevent_all_but_one_damage_rule(&mut self, mut p: Params, zone_arg: &str) -> Option<()> {
+        if p.has("DamageAmount")
+            || p.has("DamageTarget")
+            || p.has("Optional")
+            || p.has("OptionalDecider")
+            || p.has("ExecuteMode")
+            || p.take("PreventionEffect").as_deref() != Some("True")
+        {
+            return None;
+        }
+        let combat = match p.take("IsCombat").as_deref() {
+            None => "None",
+            Some("True") => "Some(true)",
+            Some("False") => "Some(false)",
+            Some(_) => return None,
+        };
+        let cond = self.prevention_condition(&mut p)?;
+        let valid_source = p.take("ValidSource");
+        let valid_target = p.take("ValidTarget");
+        let replace_name = p.take("ReplaceWith")?;
+        if !p.exhausted() {
+            return None;
+        }
+        let (api, mut rep) = self
+            .svars
+            .get(replace_name.trim())
+            .and_then(|b| Params::parse(b))?;
+        rep.drop_prose();
+        if api != "ReplaceDamage" {
+            return None;
+        }
+        let amt = rep.take("Amount")?;
+        if !rep.exhausted()
+            || Self::resolve_svar_str(self.svars, amt.trim())
+                != Some("ReplaceCount$DamageAmount/Minus.1")
+        {
+            return None;
+        }
+        let recipients = self.damage_recipients_expr(valid_target.as_deref())?;
+        let source_ref = match valid_source.as_deref() {
+            None => "&Filter::Any".to_string(),
+            Some(vs) => {
+                let expr = self.prevention_source_filter(vs)?;
+                if expr == "Filter::Any" {
+                    "&Filter::Any".to_string()
+                } else if expr == "Filter::This" {
+                    "&Filter::This".to_string()
+                } else {
+                    format!("&{}", self.body.filter_static("SOURCE", &expr))
+                }
+            }
+        };
+        self.body.abilities.push(format!(
+ "static_ability!(Filter::Any, Modifier::PreventAllButOneDamage {{ sources: {source_ref}, recipients: {recipients}, combat: {combat} }}{zone_arg}{cond})"
+ ));
+        Some(())
+    }
+
+    /// Scoped damage prevention or replacement with immediate rider(s)
+    /// (`Modifier::ReplaceOrPreventDamageScopedWithThen`) for per-source,
+    /// per-target, fixed-amount (`CR 615.12`), source-controller, and
+    /// multi-step sequence riders (*Vigor*, *Soul-Scar Mage*, *Swans of Bryn Argoll*,
+    /// *Ironscale Hydra*, *Weeping Angel*, *Szadek*, *Sekki*).
+    #[allow(clippy::too_many_lines)]
+    fn scoped_damage_then_rule(
+        &mut self,
+        orig: &Params,
+        zone_arg: &str,
+        is_replacement: bool,
+    ) -> Option<()> {
+        let saved_statics = self.body.statics.len();
+        let saved_abilities = self.body.abilities.len();
+        let saved_unclaimed = self.unclaimed.borrow().clone();
+        let res = self.scoped_damage_then_rule_inner(orig.clone(), zone_arg, is_replacement);
+        if res.is_none() {
+            self.body.statics.truncate(saved_statics);
+            self.body.abilities.truncate(saved_abilities);
+            *self.unclaimed.borrow_mut() = saved_unclaimed;
+        }
+        res
+    }
+
+    #[allow(clippy::too_many_lines)]
+    fn scoped_damage_then_rule_inner(
+        &mut self,
+        mut p: Params,
+        zone_arg: &str,
+        is_replacement: bool,
+    ) -> Option<()> {
+        if p.has("DamageAmount")
+            || p.has("DamageTarget")
+            || p.has("Optional")
+            || p.has("OptionalDecider")
+        {
+            return None;
+        }
+        if !is_replacement
+            && (p.take("PreventionEffect").as_deref() != Some("True") || p.has("Prevent"))
+        {
+            return None;
+        }
+        let always_replace = match p.take("AlwaysReplace").as_deref() {
+            None => false,
+            Some("True") => true,
+            Some(_) => return None,
+        };
+        let exec_mode = p.take("ExecuteMode");
+        if !matches!(exec_mode.as_deref(), None | Some("PerSource" | "PerTarget")) {
+            return None;
+        }
+        let combat = match p.take("IsCombat").as_deref() {
+            None => "None",
+            Some("True") => "Some(true)",
+            Some("False") => "Some(false)",
+            Some(_) => return None,
+        };
+        let cond = self.prevention_condition(&mut p)?;
+        let valid_source = p.take("ValidSource");
+        let valid_target = p.take("ValidTarget");
+        let replace_name = p.take("ReplaceWith")?;
+        if !p.exhausted() {
+            return None;
+        }
+        let recipients = self.damage_recipients_expr(valid_target.as_deref())?;
+        let rider_target = match valid_target.as_deref() {
+            Some("You") => RiderTarget::You,
+            Some("Card.Self") => RiderTarget::Source,
+            Some(
+                "Card.EquippedBy"
+                | "Creature.EquippedBy"
+                | "Card.EnchantedBy"
+                | "Creature.EnchantedBy",
+            ) => RiderTarget::Attached,
+            _ => RiderTarget::Other,
+        };
+        let player_recipient = recipients.starts_with("DamageRecipients::Players(");
+        let you_only = recipients == "DamageRecipients::Players(PlayerRel::You)";
+        let (ops, info) = self.parse_scoped_damage_rider_seq(
+            &replace_name,
+            rider_target,
+            player_recipient,
+            you_only,
+        )?;
+        if ops.is_empty() {
+            return None;
+        }
+        let legacy_single = ops.len() == 1
+            && info.all_scaled
+            && info.scope == ScopedScopeHint::Batch
+            && !info.uses_sequence_only_op
+            && exec_mode.as_deref() != Some("PerTarget");
+        if legacy_single {
+            return None;
+        }
+        if !is_replacement && !info.all_scaled && !always_replace {
+            return None;
+        }
+        let only_if_prevented = is_replacement || info.all_scaled;
+        let scope = if exec_mode.as_deref() == Some("PerTarget")
+            || info.scope == ScopedScopeHint::PerTarget
+        {
+            "DamageRiderScope::PerTarget"
+        } else if exec_mode.as_deref() == Some("PerSource")
+            || info.scope == ScopedScopeHint::PerSource
+        {
+            "DamageRiderScope::PerSource"
+        } else {
+            "DamageRiderScope::PerBatch"
+        };
+        let source_ref = match valid_source.as_deref() {
+            None => "&Filter::Any".to_string(),
+            Some(vs) => {
+                let expr = self.prevention_source_filter(vs)?;
+                if expr == "Filter::Any" {
+                    "&Filter::Any".to_string()
+                } else if expr == "Filter::This" {
+                    "&Filter::This".to_string()
+                } else {
+                    format!("&{}", self.body.filter_static("SOURCE", &expr))
+                }
+            }
+        };
+        let then_expr = if ops.len() == 1 {
+            format!("DamageRider::new(&[{}])", ops[0])
+        } else {
+            format!("DamageRider::sequence(&[{}])", ops.join(", "))
+        };
+        self.body.abilities.push(format!(
+ "static_ability!(Filter::Any, Modifier::ReplaceOrPreventDamageScopedWithThen {{ sources: {source_ref}, recipients: {recipients}, combat: {combat}, is_replacement: {is_replacement}, only_if_prevented: {only_if_prevented}, scope: {scope}, then: {then_expr} }}{zone_arg}{cond})"
+ ));
+        Some(())
+    }
+
+    fn parse_damaged_object_counter_rider(&self, svar_name: &str) -> Option<(String, String)> {
+        let body = self.svars.get(svar_name)?;
+        let (api, mut rep) = Params::parse(body)?;
+        rep.drop_prose();
+        if api != "PutCounter" || rep.take("Defined").as_deref() != Some("ReplacedTarget") {
+            return None;
+        }
+        let kind_raw = rep.take("CounterType")?;
+        let kind = super::counter_kind(kind_raw.trim())?;
+        let num_raw = rep.take("CounterNum")?;
+        if !rep.exhausted() || !self.is_replaced_damage_amount(&num_raw) {
+            return None;
+        }
+        Some((
+            kind,
+            "Amount::ThisWay(ThisWay::DamagePrevented)".to_string(),
+        ))
+    }
+
+    fn parse_scoped_damage_rider_seq(
+        &mut self,
+        start_svar: &str,
+        rider_target: RiderTarget,
+        player_recipient: bool,
+        you_only: bool,
+    ) -> Option<(Vec<String>, ScopedRiderInfo)> {
+        let mut ops = Vec::new();
+        let mut info = ScopedRiderInfo {
+            scope: ScopedScopeHint::Batch,
+            all_scaled: true,
+            uses_sequence_only_op: false,
+        };
+        let mut cursor = Some(start_svar.trim().to_string());
+        while let Some(name) = cursor.take() {
+            if ops.len() >= 4 {
+                return None;
+            }
+            let (eff, next) = self.parse_scoped_damage_rider_step(
+                &name,
+                rider_target,
+                player_recipient,
+                you_only,
+                &mut info,
+            )?;
+            ops.push(eff);
+            cursor = next;
+        }
+        Some((ops, info))
+    }
+
+    fn parse_scoped_damage_rider_step(
+        &mut self,
+        svar_name: &str,
+        rider_target: RiderTarget,
+        player_recipient: bool,
+        you_only: bool,
+        info: &mut ScopedRiderInfo,
+    ) -> Option<(String, Option<String>)> {
+        let body = self.svars.get(svar_name)?.clone();
+        let (api, mut rep) = Params::parse(&body)?;
+        rep.drop_prose();
+        let next = rep.take("SubAbility");
+        let eff = match api.as_str() {
+            "PutCounter" => {
+                self.parse_scoped_put_counter_step(&mut rep, rider_target, player_recipient, info)?
+            }
+            "RemoveCounter" => {
+                if self.on_a_spell || !matches!(rep.take("Defined").as_deref(), None | Some("Self"))
+                {
+                    return None;
+                }
+                let kind_raw = rep.take("CounterType")?;
+                let kind = super::counter_kind(kind_raw.trim())?;
+                let num_raw = rep.take("CounterNum")?;
+                if !rep.exhausted() || !self.is_replaced_damage_amount(&num_raw) {
+                    return None;
+                }
+                info.uses_sequence_only_op = true;
+                format!(
+                    "Effect::RemoveCounterSelf {{ kind: {kind}, n: Amount::ThisWay(ThisWay::DamagePrevented) }}"
+                )
+            }
+            "Token" => {
+                if !matches!(rep.take("TokenOwner").as_deref(), None | Some("You")) {
+                    return None;
+                }
+                let amt = rep.take("TokenAmount")?;
+                let stem = rep.take("TokenScript")?;
+                if !rep.exhausted() || !self.is_replaced_damage_amount(&amt) {
+                    return None;
+                }
+                let tok = self.tokens?.body_fixed(stem.trim(), self.cats)?;
+                format!(
+                    "Effect::CreateTokenN {{ token: &generated_tokens::{}, amount: Amount::ThisWay(ThisWay::DamagePrevented) }}",
+                    tok.constant
+                )
+            }
+            "Draw" => {
+                if rep.take("Defined").as_deref() != Some("ReplacedSourceController") {
+                    return None;
+                }
+                let num = rep.take("NumCards")?;
+                if !rep.exhausted() || !self.is_replaced_damage_amount(&num) {
+                    return None;
+                }
+                info.promote_source();
+                info.uses_sequence_only_op = true;
+                "Effect::DrawCardsFor { who: PlayerRel::ControllerOfEvent, amount: Amount::ThisWay(ThisWay::DamagePrevented) }"
+ .to_string()
+            }
+            "ChangeZone" => {
+                if rep.take("Defined").as_deref() != Some("ReplacedTarget")
+                    || rep.take("Origin").as_deref() != Some("Battlefield")
+                    || rep.take("Destination").as_deref() != Some("Library")
+                    || rep.take("Shuffle").as_deref() != Some("True")
+                    || !rep.exhausted()
+                {
+                    return None;
+                }
+                info.all_scaled = false;
+                info.promote_target();
+                "Effect::ShuffleDamagedObjectIntoLibrary".to_string()
+            }
+            "Mill" => {
+                let who = match rep.take("Defined").as_deref() {
+                    None | Some("You") => "PlayerRel::You",
+                    Some("Opponent" | "Player.Opponent") => "PlayerRel::EachOpponent",
+                    Some("Player") => "PlayerRel::EachPlayer",
+                    Some("ReplacedTarget") if you_only => "PlayerRel::You",
+                    Some("ReplacedTarget") if player_recipient => {
+                        info.promote_target();
+                        "PlayerRel::DamagedPlayer"
+                    }
+                    _ => return None,
+                };
+                let num = rep.take("NumCards")?;
+                if !rep.exhausted() || !self.is_replaced_damage_amount(&num) {
+                    return None;
+                }
+                format!(
+                    "Effect::Mill {{ amount: Amount::ThisWay(ThisWay::DamagePrevented), target: {who} }}"
+                )
+            }
+            _ => return None,
+        };
+        Some((eff, next))
+    }
+
+    fn parse_scoped_put_counter_step(
+        &self,
+        rep: &mut Params,
+        rider_target: RiderTarget,
+        player_recipient: bool,
+        info: &mut ScopedRiderInfo,
+    ) -> Option<String> {
+        if self.on_a_spell {
+            return None;
+        }
+        let kind_raw = rep.take("CounterType")?;
+        let kind = super::counter_kind(kind_raw.trim())?;
+        let num_raw = rep.take("CounterNum")?;
+        let amt_expr = if self.is_replaced_damage_amount(&num_raw) {
+            "Amount::ThisWay(ThisWay::DamagePrevented)".to_string()
+        } else if let Ok(n) = num_raw.trim().parse::<u32>()
+            && n > 0
+        {
+            info.all_scaled = false;
+            format!("Amount::Fixed({n})")
+        } else {
+            return None;
+        };
+        let def = rep.take("Defined");
+        if !rep.exhausted() {
+            return None;
+        }
+        match def.as_deref() {
+            None | Some("Self") => Some(format!(
+                "Effect::AddCounterSource {{ kind: {kind}, amount: {amt_expr} }}"
+            )),
+            Some("ReplacedTarget") if rider_target == RiderTarget::Source => Some(format!(
+                "Effect::AddCounterSource {{ kind: {kind}, amount: {amt_expr} }}"
+            )),
+            Some("ReplacedTarget") if rider_target == RiderTarget::Other && !player_recipient => {
+                info.promote_target();
+                Some(format!(
+                    "Effect::AddCounterDamagedObject {{ kind: {kind}, amount: {amt_expr} }}"
+                ))
+            }
+            _ => None,
+        }
+    }
+
+    /// Inside `ChooseCard`: `DB$ Effect | RememberObjects$ ChosenCard |
+    /// ExileOnMoved$ Battlefield | ReplacementEffects$ <R>` where `<R>` redirects
+    /// damage to `Remembered` (*Gideon's Sacrifice*, *Ascent of the Worthy*)
+    /// -> `Effect::AddTempModifier { target: TargetSpec::EventObject,
+    /// modifier: Modifier::RedirectDamageToAffected { ... }, duration }`.
+    pub(super) fn chosen_object_redirect_damage_effect(
+        &mut self,
+        p: &mut Params,
+    ) -> Option<String> {
+        if p.take("RememberObjects").as_deref() != Some("ChosenCard")
+            || !matches!(
+                p.take("ExileOnMoved").as_deref(),
+                None | Some("Battlefield")
+            )
+            || !matches!(
+                p.take("ForgetOnMoved").as_deref(),
+                None | Some("Battlefield")
+            )
+            || p.has("ValidTgts")
+            || p.has("Triggers")
+            || p.has("StaticAbilities")
+        {
+            return None;
+        }
+        let duration = match p.take("Duration").as_deref() {
+            None | Some("UntilEndOfTurn") => "Duration::UntilEndOfTurn",
+            Some("UntilYourNextTurn") => "Duration::UntilYourNextTurn",
+            Some(_) => return None,
+        };
+        let rep_name = p.take("ReplacementEffects")?;
+        if rep_name.contains(',') || !p.exhausted() {
+            return None;
+        }
+        let rep_body = self.svars.get(rep_name.trim())?.clone();
+        let (event, mut r) = Params::parse(&rep_body)?;
+        r.drop_prose();
+        if event != "DamageDone"
+            || !matches!(
+                r.take("ActiveZones").as_deref(),
+                None | Some("Command" | "Battlefield")
+            )
+            || r.take("DamageTarget").as_deref() != Some("Remembered")
+        {
+            return None;
+        }
+        let combat = match r.take("IsCombat").as_deref() {
+            None => "None",
+            Some("True") => "Some(true)",
+            Some("False") => "Some(false)",
+            Some(_) => return None,
+        };
+        let valid_source = r.take("ValidSource");
+        let valid_target = r.take("ValidTarget");
+        let rw = r.take("ReplaceWith")?;
+        if !r.exhausted() {
+            return None;
+        }
+        let rw_body = self.svars.get(rw.trim())?.clone();
+        let (rw_api, mut rwp) = Params::parse(&rw_body)?;
+        rwp.drop_prose();
+        if rw_api != "ReplaceEffect"
+            || rwp.take("VarName").as_deref() != Some("Affected")
+            || rwp.take("VarValue").as_deref() != Some("Remembered")
+            || rwp.take("VarType").as_deref() != Some("Card")
+            || !rwp.exhausted()
+        {
+            return None;
+        }
+        let recipients = self.damage_recipients_expr(valid_target.as_deref())?;
+        let source_ref = match valid_source.as_deref() {
+            None => "&Filter::Any".to_string(),
+            Some(vs) => {
+                let expr = self.prevention_source_filter(vs)?;
+                if expr == "Filter::Any" {
+                    "&Filter::Any".to_string()
+                } else {
+                    format!("&{}", self.body.filter_static("SOURCE", &expr))
+                }
+            }
+        };
+        Some(format!(
+            "Effect::AddTempModifier {{ target: TargetSpec::EventObject, modifier: Modifier::RedirectDamageToAffected {{ sources: {source_ref}, recipients: {recipients}, combat: {combat} }}, duration: {duration} }}"
+        ))
+    }
+
+    fn parse_split_damage_amount(&self, rw_name: &str, expected_target: &str) -> Option<String> {
+        let body = self.svars.get(rw_name.trim())?;
+        let (api, mut rw) = Params::parse(body)?;
+        rw.drop_prose();
+        if api != "ReplaceSplitDamage"
+            || rw.take("DamageTarget").as_deref() != Some(expected_target)
+        {
+            return None;
+        }
+        rw.take("DivideShield");
+        let var_name = rw.take("VarName");
+        if !rw.exhausted() {
+            return None;
+        }
+        match var_name {
+            None => Some("Amount::Fixed(1)".to_string()),
+            Some(var) => {
+                let resolved = self.svars.get(var.trim()).map_or(var.trim(), |s| s.trim());
+                let raw_n = resolved.strip_prefix("Number$").unwrap_or(resolved);
+                let n: u32 = raw_n.trim().parse().ok().filter(|&v| v > 0)?;
+                Some(format!("Amount::Fixed({n})"))
+            }
+        }
+    }
+
+    /// Single-target `Effect | ReplacementEffects$` using `ReplaceSplitDamage`
+    /// -> `Effect::RedirectNextDamageTo` (*en-Kor*, *Zealous Inquisitor*,
+    /// *Zhalfirin Crusader*, *Daughter of Autumn*, *Ward of Piety*, *Vassal's Duty*).
+    fn redirect_next_damage_shield(
+        &mut self,
+        orig: &Params,
+        chain: &mut Chain,
+    ) -> Option<Vec<String>> {
+        let saved_target = chain.target.clone();
+        let saved_unclaimed = self.unclaimed.borrow().clone();
+        let saved_statics = self.body.statics.len();
+        let res = self.redirect_next_damage_shield_inner(orig.clone(), chain);
+        if res.is_none() {
+            chain.target = saved_target;
+            *self.unclaimed.borrow_mut() = saved_unclaimed;
+            self.body.statics.truncate(saved_statics);
+        }
+        res
+    }
+
+    fn redirect_next_damage_shield_inner(
+        &mut self,
+        mut p: Params,
+        chain: &mut Chain,
+    ) -> Option<Vec<String>> {
+        p.drop_prose();
+        p.take("Name");
+        p.take("NonStackingEffect");
+        if !matches!(
+            p.take("Duration").as_deref(),
+            None | Some("UntilHostLeavesPlayOrEOT" | "UntilEndOfTurn")
+        ) {
+            return None;
+        }
+        let imprint = p.take("ImprintCards");
+        if let Some(ref imp) = imprint
+            && (self.on_a_spell || !matches!(imp.as_str(), "Enchanted" | "Equipped"))
+        {
+            return None;
+        }
+        let (bound_spec, expected_target) =
+            self.bind_effect_prevention_target(&mut p, chain, "`Effect` redirection")?;
+        let spec = bound_spec?;
+        let rep_name = p.take("ReplacementEffects")?;
+        if !p.exhausted() {
+            return None;
+        }
+        let rep_body = self.svars.get(rep_name.trim())?.clone();
+        let (event, mut shield) = Params::parse(&rep_body)?;
+        shield.drop_prose();
+        if event != "DamageDone"
+            || !matches!(
+                shield.take("ActiveZones").as_deref(),
+                None | Some("Command" | "Battlefield")
+            )
+            || shield.has("ValidSource")
+            || shield.has("IsCombat")
+        {
+            return None;
+        }
+        let vt = shield.take("ValidTarget")?;
+        let dmg_target = shield.take("DamageTarget")?;
+        let rw = shield.take("ReplaceWith")?;
+        if !shield.exhausted() {
+            return None;
+        }
+        let amount = self.parse_split_damage_amount(&rw, &dmg_target)?;
+        let (from, to) = if !self.on_a_spell
+            && imprint.is_none()
+            && matches!(
+                vt.as_str(),
+                "Creature.EffectSource" | "Card.EffectSource" | "Permanent.EffectSource"
+            )
+            && dmg_target == "Remembered"
+        {
+            ("TargetSpec::ThisObject".to_string(), spec)
+        } else if !self.on_a_spell
+            && matches!(imprint.as_deref(), Some("Enchanted" | "Equipped"))
+            && matches!(
+                vt.as_str(),
+                "Creature.IsImprinted" | "Card.IsImprinted" | "Permanent.IsImprinted"
+            )
+            && dmg_target == "Remembered"
+        {
+            (
+                "TargetSpec::Object(&Filter::AttachedToBySource)".to_string(),
+                spec,
+            )
+        } else if imprint.is_none() && expected_target.is_some_and(|exp| exp.contains(&vt.as_str()))
+        {
+            let to_spec = match dmg_target.as_str() {
+                "EffectSource" if !self.on_a_spell => "TargetSpec::ThisObject".to_string(),
+                "You" => "TargetSpec::Player(PlayerRel::You)".to_string(),
+                _ => return None,
+            };
+            (spec, to_spec)
+        } else {
+            return None;
+        };
+        Some(vec![format!(
+            "Effect::RedirectNextDamageTo {{ from: {from}, choose_source: None, amount: {amount}, to: {to} }}"
+        )])
+    }
+
+    /// Two-target `TargetOnly -> DB$ Effect | RememberObjects$ ParentTarget |
+    /// ImprintCards$ ThisTargetedCard | ReplacementEffects$` using `ReplaceSplitDamage`
+    /// -> `Effect::RedirectNextDamageTo` (*Carom*, *Razia, Boros Archangel*).
+    pub(super) fn redirect_two_target_effect(
+        &mut self,
+        orig: &Params,
+        chain: &mut Chain,
+    ) -> Option<()> {
+        let first_spec = chain.target.clone()?;
+        if !first_spec.starts_with("TargetSpec::Object(") || chain.second_target.is_some() {
+            return None;
+        }
+        let saved_second = chain.second_target.clone();
+        let saved_constraint = chain.second_target_constraint;
+        let saved_unclaimed = self.unclaimed.borrow().clone();
+        let saved_statics = self.body.statics.len();
+        let res = self.redirect_two_target_effect_inner(orig.clone(), &first_spec, chain);
+        if res.is_none() {
+            chain.second_target = saved_second;
+            chain.second_target_constraint = saved_constraint;
+            *self.unclaimed.borrow_mut() = saved_unclaimed;
+            self.body.statics.truncate(saved_statics);
+        }
+        res
+    }
+
+    fn redirect_two_target_effect_inner(
+        &mut self,
+        mut p: Params,
+        first_spec: &str,
+        chain: &mut Chain,
+    ) -> Option<()> {
+        p.drop_prose();
+        p.take("Name");
+        p.take("TgtPrompt");
+        p.take("ValidTgtsDesc");
+        if p.take("RememberObjects").as_deref() != Some("ParentTarget")
+            || p.take("ImprintCards").as_deref() != Some("ThisTargetedCard")
+            || !matches!(
+                p.take("ExileOnMoved").as_deref(),
+                None | Some("Battlefield")
+            )
+            || !matches!(p.take("Duration").as_deref(), None | Some("UntilEndOfTurn"))
+        {
+            return None;
+        }
+        if let Some(cond_def) = p.take("ConditionDefined")
+            && (cond_def != "ParentTarget"
+                || !matches!(
+                    p.take("ConditionPresent").as_deref(),
+                    Some("Card" | "Creature")
+                )
+                || !matches!(
+                    p.take("ConditionCompare").as_deref(),
+                    None | Some("GE1" | "EQ1")
+                ))
+        {
+            return None;
+        }
+        let target_unique = p.take("TargetUnique");
+        let valid_to = p.take("ValidTgts")?;
+        let triggers = p.take("Triggers");
+        let rep_name = p.take("ReplacementEffects")?;
+        let sub = p.take("SubAbility");
+        if !p.exhausted() {
+            return None;
+        }
+        if let Some(trig_name) = triggers {
+            let trig_body = self.svars.get(trig_name.trim())?;
+            let (tmode, mut tp) = Params::parse(trig_body)?;
+            tp.drop_prose();
+            if tmode != "ChangesZone"
+                || tp.take("Origin").as_deref() != Some("Battlefield")
+                || tp.take("Destination").as_deref() != Some("Any")
+                || tp.take("Static").as_deref() != Some("True")
+                || !matches!(
+                    tp.take("ValidCard").as_deref(),
+                    Some("Card.IsImprinted" | "Card.IsImprinted,Card.IsRemembered")
+                )
+            {
+                return None;
+            }
+            let exec = tp.take("Execute")?;
+            if !tp.exhausted() || !self.exiles_itself(exec.trim()) {
+                return None;
+            }
+        }
+        let rep_body = self.svars.get(rep_name.trim())?.clone();
+        let (event, mut shield) = Params::parse(&rep_body)?;
+        shield.drop_prose();
+        if event != "DamageDone"
+            || !matches!(
+                shield.take("ActiveZones").as_deref(),
+                None | Some("Command" | "Battlefield")
+            )
+            || !matches!(
+                shield.take("ValidTarget").as_deref(),
+                Some("Creature.IsRemembered" | "Card.IsRemembered")
+            )
+            || shield.take("DamageTarget").as_deref() != Some("Imprinted")
+        {
+            return None;
+        }
+        let rw = shield.take("ReplaceWith")?;
+        if !shield.exhausted() {
+            return None;
+        }
+        let amount = self.parse_split_damage_amount(&rw, "Imprinted")?;
+        let to_spec = self.target_spec(&valid_to, "Effect")?;
+        if !to_spec.starts_with("TargetSpec::Object(") && to_spec != "TargetSpec::AnyTarget" {
+            return None;
+        }
+        if let Some(tu) = target_unique {
+            if tu != "True" {
+                return None;
+            }
+            chain.second_target_constraint =
+                Some("TargetConstraint::DistinctFromPriorTargetGroups");
+        }
+        chain.second_target = Some(to_spec.clone());
+        chain.effects.push(format!(
+ "Effect::RedirectNextDamageTo {{ from: {first_spec}, choose_source: None, amount: {amount}, to: {to_spec} }}"
+ ));
+        self.chain_sub_ability(sub, chain)
+    }
+
+    fn chosen_source_redirect_split(
+        &mut self,
+        orig_shield: &Params,
+        source_filter: &str,
+        target_spec: Option<&str>,
+        expected_target: Option<&[&str]>,
+    ) -> Option<Vec<String>> {
+        let mut shield = orig_shield.clone();
+        let to_spec = target_spec?;
+        let expected = expected_target?;
+        if shield.take("DamageTarget").as_deref() != Some("Remembered") || shield.has("IsCombat") {
+            return None;
+        }
+        let vt = shield.take("ValidTarget")?;
+        let from_spec = match vt.as_str() {
+            "You,Permanent.YouCtrl" | "Permanent.YouCtrl,You" => {
+                "TargetSpec::PlayerOrObject(&Filter::ControlledByYou)".to_string()
+            }
+            other if expected.contains(&other) => to_spec.to_string(),
+            _ => return None,
+        };
+        let rw = shield.take("ReplaceWith")?;
+        if !shield.exhausted() {
+            return None;
+        }
+        let amount = self.parse_split_damage_amount(&rw, "Remembered")?;
+        let src_ref = if source_filter == "Filter::Any" {
+            "&Filter::Any".to_string()
+        } else {
+            format!("&{}", self.body.filter_static("SOURCE", source_filter))
+        };
+        Some(vec![format!(
+            "Effect::RedirectNextDamageTo {{ from: {from_spec}, choose_source: Some({src_ref}), amount: {amount}, to: {to_spec} }}"
+        )])
+    }
+}
+
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum ScopedScopeHint {
+    Batch,
+    PerSource,
+    PerTarget,
+}
+
+struct ScopedRiderInfo {
+    scope: ScopedScopeHint,
+    all_scaled: bool,
+    uses_sequence_only_op: bool,
+}
+
+impl ScopedRiderInfo {
+    fn promote_target(&mut self) {
+        self.scope = ScopedScopeHint::PerTarget;
+    }
+
+    fn promote_source(&mut self) {
+        if self.scope == ScopedScopeHint::Batch {
+            self.scope = ScopedScopeHint::PerSource;
+        }
     }
 }

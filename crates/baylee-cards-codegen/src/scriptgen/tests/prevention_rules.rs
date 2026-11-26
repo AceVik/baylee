@@ -351,10 +351,22 @@ fn counter_damage_prevention_and_refusals() {
         ["static_ability!(Filter::This, Modifier::CountersPreventDamage(CounterKind::P1P1))"]
     );
 
-    for bad in [
+    let fixed_one = read(
         "Name:FixedOneCounter\nTypes:Creature\nPT:2/2\n\
          R:Event$ DamageDone | ActiveZones$ Battlefield | ValidTarget$ Card.Self | ReplaceWith$ Shed | PreventionEffect$ True | AlwaysReplace$ True\n\
          SVar:Shed:DB$ RemoveCounter | Defined$ Self | CounterType$ P1P1 | CounterNum$ 1",
+    );
+    assert_eq!(
+        fixed_one.abilities,
+        [
+            "static_ability!(Filter::This, Modifier::PreventDamageRemovingOneCounter { kind: CounterKind::P1P1, require_counter: false })"
+        ]
+    );
+
+    for bad in [
+        "Name:FixedTwoCounters\nTypes:Creature\nPT:2/2\n\
+         R:Event$ DamageDone | ActiveZones$ Battlefield | ValidTarget$ Card.Self | ReplaceWith$ Shed | PreventionEffect$ True | AlwaysReplace$ True\n\
+         SVar:Shed:DB$ RemoveCounter | Defined$ Self | CounterType$ P1P1 | CounterNum$ 2",
         "Name:KindMismatch\nTypes:Creature\nPT:2/2\n\
          R:Event$ DamageDone | ActiveZones$ Battlefield | ValidTarget$ Card.Self+counters_GE1_STUN | ReplaceWith$ Shed | PreventionEffect$ True | AlwaysReplace$ True\n\
          SVar:Shed:DB$ RemoveCounter | Defined$ Self | CounterType$ P1P1 | CounterNum$ ReplaceCount$DamageAmount",
@@ -525,4 +537,208 @@ fn unpreventable_direct_damage_reads_only_for_the_spell_or_its_own_source() {
     ] {
         assert!(refused(bad), "must refuse:\n{bad}");
     }
+}
+
+#[test]
+fn wave19_persistent_damage_prevention_and_redirection() {
+    let oath = read(
+        "Name:Oathsworn\nManaCost:1 B B\nTypes:Creature\nPT:0/0\n\
+         R:Event$ DamageDone | ActiveZones$ Battlefield | ValidTarget$ Card.Self+counters_GE1_P1P1 | ReplaceWith$ Rem | PreventionEffect$ True | AlwaysReplace$ True\n\
+         SVar:Rem:DB$ RemoveCounter | Defined$ ReplacedTarget | CounterType$ P1P1 | CounterNum$ 1",
+    );
+    assert_eq!(
+        oath.abilities,
+        [
+            "static_ability!(Filter::This, Modifier::PreventDamageRemovingOneCounter { kind: CounterKind::P1P1, require_counter: true })"
+        ]
+    );
+
+    let wolverine = read(
+        "Name:Wolverine Shape\nManaCost:2 G\nTypes:Creature\nPT:2/2\n\
+         R:Event$ DamageDone | ActiveZones$ Battlefield | ValidTarget$ Card.Self | ReplaceWith$ Heal | ReplacementResult$ Updated\n\
+         SVar:Heal:DB$ HealDamage | Defined$ Self",
+    );
+    assert_eq!(
+        wolverine.abilities,
+        ["static_ability!(Filter::This, Modifier::HealOtherDamageWhenDealtDamage)"]
+    );
+
+    let link = read(
+        "Name:Treacherous Link Shape\nManaCost:1 B\nTypes:Enchantment Aura\nK:Enchant:Creature\n\
+         R:Event$ DamageDone | ActiveZones$ Battlefield | ValidTarget$ Card.EnchantedBy | ReplaceWith$ Redir | DamageTarget$ ReplacedTargetController\n\
+         SVar:Redir:DB$ ReplaceEffect | VarName$ Affected | VarValue$ ReplacedTargetController | VarType$ Player",
+    );
+    assert!(
+        link.abilities.iter().any(|a| {
+            a == "static_ability!(Filter::AttachedToBySource, Modifier::RedirectDamageToAffectedController)"
+        }),
+        "{:?}",
+        link.abilities
+    );
+    let mut c = cats();
+    c.creature.extend(["Spirit".into(), "Dinosaur".into()]);
+    c.normalize();
+    let altisaur = transcode(
+        &parse(
+            "Name:Temple Altisaur Shape\nManaCost:4 W\nTypes:Creature Dinosaur\nPT:3/4\n\
+             R:Event$ DamageDone | ActiveZones$ Battlefield | ValidTarget$ Permanent.Dinosaur+YouCtrl+Other | ReplaceWith$ DmgMinus1 | PreventionEffect$ True\n\
+             SVar:DmgMinus1:DB$ ReplaceDamage | Amount$ ShieldAmount\n\
+             SVar:ShieldAmount:ReplaceCount$DamageAmount/Minus.1",
+        ),
+        &c,
+        None,
+    )
+    .expect("Temple Altisaur reads");
+    assert!(
+        altisaur.abilities[0].contains("Modifier::PreventAllButOneDamage"),
+        "{:?}",
+        altisaur.abilities
+    );
+
+    let toks = TokenLookup::held(&[(
+        "c_1_1_spirit",
+        "Name:Spirit\nTypes:Creature Spirit\nColors:colorless\nPT:1/1",
+    )]);
+    let sekki = transcode(
+        &parse(
+            "Name:Sekki, Seasons' Guide\nManaCost:5 G G G\nTypes:Legendary Creature Spirit\nPT:0/0\n\
+             K:etbCounter:P1P1:8\n\
+             R:Event$ DamageDone | ActiveZones$ Battlefield | ValidTarget$ Card.Self | ReplaceWith$ SekkiCounters | PreventionEffect$ True | AlwaysReplace$ True\n\
+             SVar:SekkiCounters:DB$ RemoveCounter | CounterType$ P1P1 | CounterNum$ SekkiX | SubAbility$ DBSekkiToken\n\
+             SVar:DBSekkiToken:DB$ Token | TokenAmount$ SekkiX | TokenScript$ c_1_1_spirit\n\
+             SVar:SekkiX:ReplaceCount$DamageAmount",
+        ),
+        &c,
+        Some(&toks),
+    )
+    .expect("Sekki reads with c_1_1_spirit");
+    assert!(
+        sekki.abilities.iter().any(|a| a
+            .contains("Modifier::ReplaceOrPreventDamageScopedWithThen")
+            && a.contains("Effect::RemoveCounterSelf")
+            && a.contains("Effect::CreateTokenN")),
+        "{:?}",
+        sekki.abilities
+    );
+
+    let swans = read(
+        "Name:Swans Shape\nManaCost:2 W/U W/U\nTypes:Creature\nPT:4/3\n\
+         R:Event$ DamageDone | ActiveZones$ Battlefield | ValidTarget$ Card.Self | PreventionEffect$ True | ExecuteMode$ PerSource | ReplaceWith$ DrawIt\n\
+         SVar:DrawIt:DB$ Draw | Defined$ ReplacedSourceController | NumCards$ X\n\
+         SVar:X:ReplaceCount$DamageAmount",
+    );
+    assert!(
+        swans.abilities[0].contains("Effect::DrawCardsFor"),
+        "{:?}",
+        swans.abilities
+    );
+
+    for bad in [
+        "Name:NineLivesShape\nManaCost:1 W W\nTypes:Enchantment\n\
+         R:Event$ DamageDone | ActiveZones$ Battlefield | ValidTarget$ You | ReplaceWith$ PutInc | PreventionEffect$ True\n\
+         SVar:PutInc:DB$ PutCounter | Defined$ Self | CounterType$ INCARNATION | CounterNum$ 1",
+        "Name:ComeuppanceShape\nManaCost:3 W\nTypes:Instant\n\
+         A:SP$ Effect | ReplacementEffects$ RPrevent\n\
+         SVar:RPrevent:Event$ DamageDone | ValidSource$ Card.YouDontCtrl,Emblem.YouDontCtrl | ValidTarget$ You,Planeswalker.YouCtrl | ReplaceWith$ DamageCreature | PreventionEffect$ True | ExecuteMode$ PerSource\n\
+         SVar:DamageCreature:DB$ DealDamage | Defined$ ReplacedSource | DamageSource$ EffectSource | NumDmg$ X | ConditionDefined$ ReplacedSource | ConditionPresent$ Card.Creature | ConditionCompare$ GE1\n\
+         SVar:X:ReplaceCount$DamageAmount",
+    ] {
+        assert!(refused(bad), "must refuse:\n{bad}");
+    }
+}
+
+#[test]
+fn wave19_effect_damage_redirection_and_riders() {
+    let gideon = read(
+        "Name:Gideon Sacrifice Shape\nManaCost:W\nTypes:Instant\n\
+         A:SP$ ChooseCard | Choices$ Creature.YouCtrl,Planeswalker.YouCtrl | SubAbility$ DBEffect\n\
+         SVar:DBEffect:DB$ Effect | RememberObjects$ ChosenCard | ExileOnMoved$ Battlefield | ReplacementEffects$ Redir\n\
+         SVar:Redir:Event$ DamageDone | ActiveZones$ Command | ValidTarget$ You,Permanent.YouCtrl | ReplaceWith$ Split | DamageTarget$ Remembered\n\
+         SVar:Split:DB$ ReplaceEffect | VarName$ Affected | VarValue$ Remembered | VarType$ Card",
+    );
+    assert!(
+        gideon.abilities[0].contains("Effect::ChooseCard {")
+            && gideon.abilities[0].contains("Modifier::RedirectDamageToAffected"),
+        "{:?}",
+        gideon.abilities
+    );
+
+    let brace = read(
+        "Name:Brace Shape\nManaCost:4 W\nTypes:Instant\n\
+         A:SP$ Effect | ValidTgts$ Creature.MultiColor | ExileOnMoved$ Battlefield | ReplacementEffects$ R | RememberObjects$ Targeted\n\
+         SVar:R:Event$ DamageDone | ValidTarget$ Card.IsRemembered | ReplaceWith$ PutC | PreventionEffect$ True\n\
+         SVar:PutC:DB$ PutCounter | Defined$ ReplacedTarget | CounterType$ P1P1 | CounterNum$ X\n\
+         SVar:X:ReplaceCount$DamageAmount",
+    );
+    assert!(
+        brace.abilities[0].contains("Effect::AddTempModifier")
+            && brace.abilities[0].contains("Effect::AddCounterDamagedObject"),
+        "{:?}",
+        brace.abilities
+    );
+
+    let palm = read(
+        "Name:Deflecting Palm Shape\nManaCost:R W\nTypes:Instant\n\
+         A:SP$ ChooseSource | Choices$ Card,Emblem | SubAbility$ DBEffect\n\
+         SVar:DBEffect:DB$ Effect | ReplacementEffects$ RPreventNextFromSource | ConditionDefined$ ChosenCard | ConditionPresent$ Card,Emblem\n\
+         SVar:RPreventNextFromSource:Event$ DamageDone | ValidSource$ Card.ChosenCardStrict,Emblem.ChosenCard | ValidTarget$ You | ReplaceWith$ DamageControllerInstead | PreventionEffect$ True\n\
+         SVar:DamageControllerInstead:DB$ DealDamage | Defined$ ChosenCardController | DamageSource$ EffectSource | NumDmg$ X | SubAbility$ ExileEffect\n\
+         SVar:ExileEffect:DB$ ChangeZone | Defined$ Self | Origin$ Command | Destination$ Exile\n\
+         SVar:X:ReplaceCount$DamageAmount",
+    );
+    assert!(
+        palm.abilities[0].contains("Effect::PreventNextFromChosenSourceWithThen")
+            && palm.abilities[0].contains("Effect::DealDamageToEventSourceOrController"),
+        "{:?}",
+        palm.abilities
+    );
+
+    let harms = read(
+        "Name:Harms Way Shape\nManaCost:W\nTypes:Instant\n\
+         A:SP$ ChooseSource | Choices$ Card,Emblem | SubAbility$ DBEffect\n\
+         SVar:DBEffect:DB$ Effect | ValidTgts$ Any | ReplacementEffects$ ReDamage | RememberObjects$ Targeted\n\
+         SVar:ReDamage:Event$ DamageDone | ActiveZones$ Command | ValidTarget$ You,Permanent.YouCtrl | ValidSource$ Card.ChosenCardStrict,Emblem.ChosenCard | ReplaceWith$ SplitDamage | DamageTarget$ Remembered\n\
+         SVar:SplitDamage:DB$ ReplaceSplitDamage | DamageTarget$ Remembered | VarName$ ShieldAmount | DivideShield$ True\n\
+         SVar:ShieldAmount:Number$2",
+    );
+    assert!(
+        harms.abilities[0].contains("Effect::RedirectNextDamageTo { from: TargetSpec::PlayerOrObject(&Filter::ControlledByYou), choose_source: Some(&Filter::Any), amount: Amount::Fixed(2), to: TargetSpec::AnyTarget }"),
+        "{:?}",
+        harms.abilities
+    );
+
+    let outrider = read(
+        "Name:Outrider Shape\nManaCost:2 W\nTypes:Creature\nPT:2/2\n\
+         A:AB$ Effect | Cost$ 0 | Name$ en-Kor Redirection | ValidTgts$ Creature.YouCtrl | ReplacementEffects$ EnKor | Duration$ UntilHostLeavesPlayOrEOT | RememberObjects$ Targeted | ExileOnMoved$ Battlefield\n\
+         SVar:EnKor:Event$ DamageDone | ValidTarget$ Creature.EffectSource | ReplaceWith$ EnKorDmg | DamageTarget$ Remembered\n\
+         SVar:EnKorDmg:DB$ ReplaceSplitDamage | DamageTarget$ Remembered",
+    );
+    assert!(
+        outrider.abilities[0].contains("Effect::RedirectNextDamageTo { from: TargetSpec::ThisObject, choose_source: None, amount: Amount::Fixed(1)"),
+        "{:?}",
+        outrider.abilities
+    );
+
+    let carom = read(
+        "Name:Carom Shape\nManaCost:1 W\nTypes:Instant\n\
+         A:SP$ TargetOnly | ValidTgts$ Creature | SubAbility$ DBEffect\n\
+         SVar:DBEffect:DB$ Effect | ValidTgts$ Creature | TargetUnique$ True | ReplacementEffects$ CaromDamage | Triggers$ OutOfSight | RememberObjects$ ParentTarget | ImprintCards$ ThisTargetedCard | ExileOnMoved$ Battlefield | ConditionDefined$ ParentTarget | ConditionPresent$ Creature | ConditionCompare$ GE1 | SubAbility$ DBDraw\n\
+         SVar:CaromDamage:Event$ DamageDone | ValidTarget$ Creature.IsRemembered | ReplaceWith$ CaromDmg | DamageTarget$ Imprinted\n\
+         SVar:CaromDmg:DB$ ReplaceSplitDamage | DamageTarget$ Imprinted\n\
+         SVar:OutOfSight:Mode$ ChangesZone | Origin$ Battlefield | Destination$ Any | ValidCard$ Card.IsImprinted | Execute$ ExileEffect | Static$ True\n\
+         SVar:ExileEffect:DB$ ChangeZone | Defined$ Self | Origin$ Command | Destination$ Exile\n\
+         SVar:DBDraw:DB$ Draw",
+    );
+    assert!(
+        carom.abilities[0].contains("Effect::RedirectNextDamageTo"),
+        "{:?}",
+        carom.abilities
+    );
+
+    assert!(refused(
+        "Name:ShamanEnKorAb2\nManaCost:1 W\nTypes:Creature\nPT:1/2\n\
+         A:AB$ Effect | Cost$ 1 W | ReplacementEffects$ R\n\
+         SVar:R:Event$ DamageDone | ActiveZones$ Command | ValidTarget$ You | ReplaceWith$ Split | DamageTarget$ EffectSource\n\
+         SVar:Split:DB$ ReplaceEffect | VarName$ Affected | VarValue$ EffectSource | VarType$ Card",
+    ));
 }
