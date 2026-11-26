@@ -6360,7 +6360,9 @@ fn pump_supports_blocking_grants_upkeep_duration_stack_keywords_and_triggered_kw
     ] {
         assert!(refused(bad), "must refuse: {bad}");
     }
+}
 
+#[test]
 fn protection_everything_each_color_and_chosen_land_type() {
     let hexdrinker = read(
         "Name:Hexdrinker\nManaCost:G\nTypes:Creature Wizard\nPT:2/1\n\
@@ -6503,7 +6505,9 @@ SVar:RPrevent:Event$ DamageDone | Prevent$ True | IsCombat$ True | ValidSource$ 
         "{}",
         chance.abilities[0]
     );
+}
 
+#[test]
 fn clone_choices_exile_link_and_top_of_library_clone_and_copy_self_after_target() {
     let cytoshape = read(
         "Name:Cytoshape\nManaCost:1 G U\nTypes:Instant\n\

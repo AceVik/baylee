@@ -11385,6 +11385,7 @@ impl Tx<'_> {
         Some(format!(
             "Effect::FlipCoinsDamageTailsRepeatUntilBothHeads {{ damage: Amount::Fixed({dmg_amt}) }}"
         ))
+    }
 
     fn only_linked_exile_all_returns(&self) -> bool {
         if self.oracle.to_ascii_lowercase().contains("exiled with ") {

@@ -13964,7 +13964,10 @@ impl Tx<'_> {
         }
         (*self.unclaimed.borrow_mut()).clone_from(&saved_unclaimed);
         self.body.statics.truncate(saved_statics_len);
-        if self.repeat_choose_exile_rest_graveyard(&p, sub, chain).is_some() {
+        if self
+            .repeat_choose_exile_rest_graveyard(&p, sub, chain)
+            .is_some()
+        {
             return Some(());
         }
         *self.unclaimed.borrow_mut() = saved_unclaimed;

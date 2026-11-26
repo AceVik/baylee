@@ -7971,6 +7971,7 @@ fn cg_remember_sacrificed_followups() {
          SVar:DBCleanup:DB$ Cleanup | ClearRemembered$ True\n\
          SVar:X:ParentTargeted$CardPower"
     ));
+}
 
 #[test]
 fn cg_damage_life_prevention_and_up_to_x_unlocks() {
