@@ -4483,3 +4483,17 @@ AdventChoose = Deine Entscheidung · { $mana } Mana
 # Arguments: number
 AdventHint = Kostenloser Hinweis { $number }
 AdventReset = Rätsel neu beginnen
+InviteLinkTitle = { $player } möchte mit dir befreundet sein
+InviteLinkBody = Als Freunde seht ihr, wann der andere da ist, und könnt chatten und zusammen spielen. Nimm nur an, wenn du weißt, von wem der Link ist.
+InviteLinkNote = Der Gruß dazu
+InviteLinkValid = Gültig bis { $date }
+InviteLinkAccept = Annehmen
+InviteLinkFriends = Du und { $player } seid jetzt Freunde.
+InviteLinkUsed = Diese Einladung wurde schon angenommen.
+InviteLinkExpired = Diese Einladung ist abgelaufen. Bitte um einen neuen Link.
+InviteLinkWithdrawn = Diese Einladung wurde zurückgezogen.
+InviteLinkOwn = Das ist deine eigene Einladung: Schick sie einem Freund.
+InviteLinkUnknown = Dieser Einladungslink funktioniert nicht.
+InviteLinkSignIn = Melde dich mit deinem Baylee-Konto an, um eine Freundeseinladung anzunehmen.
+InviteLinkAlready = Du und { $player } seid schon Freunde.
+InviteLinkFailed = Die Einladung ließ sich gerade nicht annehmen. Versuch es später noch mal.

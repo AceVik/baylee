@@ -138,6 +138,17 @@ impl SharedPress {
             // autocomplete.
             SharedPress::PickerNothing => state.lobby.builder_mut().picker_close_sets(),
             SharedPress::CloseRefusal => state.lobby.close_refusal(),
+            // A link's friend invite, said yes to: taken up at Central, the
+            // question standing until Central answers.
+            #[cfg(not(target_arch = "wasm32"))]
+            SharedPress::ConfirmDestructive
+                if matches!(
+                    state.confirmation,
+                    Some(confirm::Destructive::FriendInvite(_))
+                ) =>
+            {
+                super::invites::link::take(state);
+            }
             // A link's gateway, said yes to: asked about itself as a typed
             // address is, and saved only when a gateway answers.
             SharedPress::ConfirmDestructive

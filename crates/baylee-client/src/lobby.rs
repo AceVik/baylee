@@ -181,6 +181,10 @@ pub struct LobbyState {
     /// the same link again is dropped without a word.
     #[cfg(not(target_arch = "wasm32"))]
     pub(crate) claimed_pairings: central::pairing::Claimed,
+    /// A friend invite from a link, while Central is asked about it or
+    /// takes it up (`invites::link`).
+    #[cfg(not(target_arch = "wasm32"))]
+    pub(crate) invite_link: invites::link::Flow,
     /// The deck builder's own view state: its tabs, panes, menus, the
     /// keyboard's place and the save state (`crate::buildui::BuildUi`).
     pub(crate) build: crate::buildui::BuildUi,
@@ -600,6 +604,8 @@ impl LobbyState {
             link_asked_central: false,
             #[cfg(not(target_arch = "wasm32"))]
             claimed_pairings: central::pairing::Claimed::default(),
+            #[cfg(not(target_arch = "wasm32"))]
+            invite_link: invites::link::Flow::default(),
             build: crate::buildui::BuildUi::default(),
             drafts: crate::buildui::draft::Drafts::default(),
             deck_saves: baylee_client_core::deckbuilder::saves::SaveLine::default(),
@@ -1136,6 +1142,8 @@ mod keyboard;
 mod library_ui;
 #[cfg(not(target_arch = "wasm32"))]
 mod links;
+#[cfg(not(target_arch = "wasm32"))]
+pub(crate) mod invites;
 pub(crate) mod offline;
 mod poolfacts;
 mod press;

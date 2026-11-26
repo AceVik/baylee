@@ -4,10 +4,10 @@ use baylee_client_core::social::RetainedMessage;
 use baylee_protocol::social as wire;
 
 pub(super) fn person(person: api::Person) -> wire::Person {
-    let tag = format!("{:04x}", person.tag);
+    use baylee_client_core::social::invites;
     wire::Person {
-        handle: format!("{}#{tag}", person.display_name),
-        tag,
+        handle: invites::handle(&person),
+        tag: invites::tag(&person),
         guest: false,
     }
 }

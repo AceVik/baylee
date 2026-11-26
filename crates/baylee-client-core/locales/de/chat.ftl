@@ -329,3 +329,66 @@ CardOwnGames =
     }
 CardNoGames = Noch kein Spiel gespielt
 PlayerProfile = Spielerprofil
+InviteFriendButton = Freund einladen…
+InvitesTitle = Freunde einladen
+InvitesLead = Ein Link für eine Person: Wer ihn öffnet und sich anmeldet, wird dein Freund, auch wenn die Registrierung geschlossen ist.
+InviteNewCaption = Neue Einladung
+InviteValidFor = Gültig für
+InviteDays =
+    { $count ->
+        [one] { $count } Tag
+       *[other] { $count } Tage
+    }
+InviteLabelHint = Für wen? Siehst nur du
+InviteNoteHint = Ein Gruß auf der Einladungsseite
+InviteEmailHint = Zusätzlich per E-Mail an…
+InviteCreate = Link erstellen
+InviteCreating = Wird erstellt…
+InviteSlots = { $open } von { $limit } offen
+InviteSlotsFull = Alle { $count } Einladungen sind offen. Ziehe eine zurück, um eine neue zu erstellen.
+InviteReadyCaption = Dein Link
+InviteShownOnce = Kopiere ihn jetzt: Der Link wird nur dieses eine Mal angezeigt.
+InviteCopyLink = Link kopieren
+InviteCopied = Kopiert
+InviteMailed = Per E-Mail an { $address } gesendet
+InviteMailNotSent = Die E-Mail ging nicht raus. Teile den Link selbst.
+InviteValidUntil = Gültig bis { $date } · für eine Person
+InviteScanHint = Mit dem Handy scannen
+InviteAnother = Noch eine erstellen
+InvitesListCaption = Deine Einladungen
+InviteFilterOpen = Offen
+InviteFilterTaken = Angenommen
+InviteFilterAll = Alle
+InvitesEmpty = Noch keine Einladungen. Erstelle einen Link und schick ihn jemandem, mit dem du spielen möchtest.
+InvitesEmptyOpen = Keine offenen Einladungen.
+InvitesEmptyTaken = Noch hat niemand eine Einladung angenommen.
+InviteUntitled = Einladung vom { $date }
+InviteDate = { $day }. { $month }, { $time }
+InviteLeftDays =
+    { $count ->
+        [one] noch { $count } Tag
+       *[other] noch { $count } Tage
+    }
+InviteLeftHours =
+    { $count ->
+        [one] noch { $count } Stunde
+       *[other] noch { $count } Stunden
+    }
+InviteLeftMinutes =
+    { $count ->
+        [one] noch { $count } Minute
+       *[other] noch { $count } Minuten
+    }
+InviteTakenBy = Angenommen von { $player } am { $date }
+InviteTakenByNoDate = Angenommen von { $player }
+InviteTaken = Angenommen
+InviteExpired = Abgelaufen
+InviteRevoked = Zurückgezogen
+InviteRevoke = Zurückziehen
+InviteRevokeQuestion = Einladung zurückziehen?
+InviteRevokeHint = Der Link funktioniert sofort nicht mehr: Niemand kann ihn danach annehmen.
+InvitesFailed = Deine Einladungen konnten nicht geladen werden.
+InviteRefusedBusy = Gerade zu viele Anfragen. Warte einen Moment und versuch es noch mal.
+InviteRefusedTerms = Nimm zuerst die Nutzungsbedingungen von Baylee Central an.
+InviteRefused = Das hat nicht geklappt. Prüf deine Eingaben und versuch es noch mal.
+InviteUnreachable = Baylee Central ist gerade nicht erreichbar.

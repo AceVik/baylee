@@ -55,6 +55,10 @@ pub const TABLES: &[&TabOrder] = &[
     &crate::lobby::advent::ORDER,
     #[cfg(not(target_arch = "wasm32"))]
     &crate::lobby::ranked_profile::ORDER,
+    #[cfg(not(target_arch = "wasm32"))]
+    &crate::lobby::invites::ORDER,
+    #[cfg(not(target_arch = "wasm32"))]
+    &crate::lobby::invites::CONFIRM,
     &super::overlay::OVERLAY_ORDER,
     &crate::lobby::front::keys::GATEWAY,
     &crate::lobby::front::keys::SIGN_IN,

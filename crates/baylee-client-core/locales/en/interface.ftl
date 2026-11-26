@@ -11057,3 +11057,51 @@ AdventChoose = Your decision · { $mana } mana
 # Arguments: number
 AdventHint = Free hint { $number }
 AdventReset = Restart puzzle
+
+## A friend invite from a link (docs/client.md §"Taking up an invite from a link")
+
+# The question a friend invite's link asks.
+# Arguments: player
+InviteLinkTitle = { $player } wants to be friends with you
+
+# Under the question.
+InviteLinkBody = As friends you see when the other is around, and you can chat and play together. Accept only if you know who sent you the link.
+
+# The caption over the inviter's greeting.
+InviteLinkNote = The greeting with it
+
+# Until when the invite holds.
+# Arguments: date
+InviteLinkValid = Valid until { $date }
+
+# Takes the invite up.
+InviteLinkAccept = Accept
+
+# The invite was taken up.
+# Arguments: player
+InviteLinkFriends = You and { $player } are friends now.
+
+# The invite was taken up already.
+InviteLinkUsed = This invite has already been accepted.
+
+# The invite ran out.
+InviteLinkExpired = This invite has expired. Ask for a new link.
+
+# The inviter withdrew the invite.
+InviteLinkWithdrawn = This invite was withdrawn.
+
+# The player opened their own invite.
+InviteLinkOwn = That is your own invite: send it to a friend.
+
+# Central does not know the invite, or refused it.
+InviteLinkUnknown = This invite link does not work.
+
+# Nobody signed in at Central (a guest, a gateway's own account, offline).
+InviteLinkSignIn = Sign in with your Baylee account to accept a friend invite.
+
+# The two are friends already: the invite stays unused.
+# Arguments: player
+InviteLinkAlready = You and { $player } are already friends.
+
+# Central could not be reached, or refused for the moment.
+InviteLinkFailed = The invite could not be accepted right now. Try again later.

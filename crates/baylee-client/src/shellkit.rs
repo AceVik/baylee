@@ -120,6 +120,7 @@ struct AccountOverlays<'w> {
     profile: Option<Res<'w, crate::lobby::ranked_profile::Page>>,
     appearance: Option<Res<'w, crate::lobby::deck_appearance::Page>>,
     advent: Option<Res<'w, crate::lobby::advent::Book>>,
+    invites: Option<Res<'w, crate::lobby::invites::Invites>>,
 }
 #[cfg(not(target_arch = "wasm32"))]
 impl AccountOverlays<'_> {
@@ -135,6 +136,10 @@ impl AccountOverlays<'_> {
                 .advent
                 .as_deref()
                 .is_some_and(crate::lobby::advent::Book::holds_keys)
+            || self
+                .invites
+                .as_deref()
+                .is_some_and(crate::lobby::invites::Invites::holds_keys)
     }
 }
 

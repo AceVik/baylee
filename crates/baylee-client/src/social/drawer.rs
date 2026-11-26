@@ -1121,6 +1121,49 @@ fn kit_button(
     button
 }
 
+/// Whether the drawer offers friend invites: in the lobby (their sheet is
+/// the lobby's), signed in at Baylee Central, whose invites they are.
+#[cfg(not(target_arch = "wasm32"))]
+fn invites_here(lobby: Option<&crate::LobbyState>, at_table: bool) -> bool {
+    !at_table && lobby.is_some_and(|lobby| lobby.central_handle().is_some())
+}
+
+#[cfg(target_arch = "wasm32")]
+fn invites_here(_: Option<&crate::LobbyState>, _: bool) -> bool {
+    false
+}
+
+/// "Invite a friend…": opens the invite sheet (`lobby::invites`), drawn
+/// as the drawer's other actions are.
+#[cfg(not(target_arch = "wasm32"))]
+fn invite_button(commands: &mut Commands, fonts: &UiFonts, lang: Lang) -> Entity {
+    let kit = super::zoom::kit(fonts);
+    let button = controls::button_compact(
+        commands,
+        kit,
+        Some(crate::hud::glyph::USER_PLUS),
+        ChatPhrase::InviteFriendButton.text(lang),
+        Weight::Secondary,
+        Live::Yes,
+        crate::lobby::invites::OpenInvites,
+    );
+    if !kit.m.touch() {
+        commands
+            .entity(button)
+            .entry::<Node>()
+            .and_modify(|mut node| {
+                node.min_width = Val::Auto;
+                node.min_height = Val::Auto;
+            });
+    }
+    button
+}
+
+#[cfg(target_arch = "wasm32")]
+fn invite_button(commands: &mut Commands, _: &UiFonts, _: Lang) -> Entity {
+    commands.spawn_empty().id()
+}
+
 fn entry_button(
     commands: &mut Commands,
     fonts: &UiFonts,
@@ -1323,6 +1366,7 @@ fn sync_drawer(
     scrolls: Query<&ScrollPosition, With<DrawerList>>,
     mut drawn: Local<Option<DrawerKey>>,
     (zoom, shell): (Res<super::zoom::Zoom>, Option<Res<super::zoom::Shell>>),
+    lobby: Option<Res<crate::LobbyState>>,
 ) {
     // A world without the chat's plugin has no kit sizes of its own: a
     // table's, as before the first window is measured.
@@ -1367,6 +1411,7 @@ fn sync_drawer(
         group_unreads,
         at_table,
         lang as u8,
+        invites_here(lobby.as_deref(), at_table),
     ));
     let key = (
         drawer_revision,
@@ -2163,7 +2208,14 @@ fn sync_drawer(
             ChatPhrase::NewGroupButton.text(lang),
             DrawerPress::NewGroup,
         );
-        let row = surfaces::dialog_button_row(&mut commands, kit, &[new]);
+        // Friend invites are Baylee Central's, and their sheet the lobby's:
+        // beside New group, sharing its row.
+        let row = if invites_here(lobby.as_deref(), at_table) {
+            let invite = invite_button(&mut commands, &fonts, lang);
+            surfaces::dialog_button_row(&mut commands, kit, &[new, invite])
+        } else {
+            surfaces::dialog_button_row(&mut commands, kit, &[new])
+        };
         commands.entity(foot).add_child(row);
     }
     let rim = commands

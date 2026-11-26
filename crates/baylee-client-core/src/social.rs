@@ -22,6 +22,7 @@ pub mod convs;
 pub mod disk;
 pub mod doing;
 pub mod history;
+pub mod invites;
 pub mod keys;
 pub mod notify;
 pub mod sealing;
