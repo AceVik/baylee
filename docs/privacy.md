@@ -637,14 +637,11 @@ own.
   piece, in the same statement), when a restart cannot resume it, and with
   its record. Ranked duels, Tower runs and challenges have no row. A
   restart reads the rows back; a chair of an account deleted meanwhile is
-  emptied first. The backup keeps the table only in its short-lived set:
-  restored later than the game lasts, a row is a game nobody plays. A
-  chair's session key is never a bearer: it is `central:` and the `sid` of
-  the Central session that took the chair, and a local account's chair has
-  none. Sessions are never saved, so after a restore the key fits only when
-  that same account signs in here again on that same Central session,
-  which lasts at most 12 hours (`docs/central-login.md` §"Sessions"), and
-  the chair still asks for its seat token, whose hash alone opens nothing.
+  emptied first. A chair's session key is never a bearer: it is `central:`
+  and the `sid` of the Central session that took the chair, and a local
+  account's chair has none. The backup never saves the table, as it never
+  saves sessions (§"Backups"): after a restore it is there and empty, so no
+  game and no chair comes back from a backup.
 - **Removed early:** a deleted account's chairs are emptied at every table,
   waiting, running or over (`Lobby::forget_account`), and so are the
   chairs its seat bridges sat in; its seat and lobby sockets close. A
@@ -708,8 +705,9 @@ only waits while one runs (`/run/baylee-backup/run.lock`).
   the database's TLS key and superuser password, the roles' password hashes)
   go into a bundle encrypted separately to the owner's recovery key, which
   the server does not hold.
-- **Never saved:** the rows of sessions and confirmation links
-  (`session_token`, `confirmation`; Central's `sessions`, pairings, pending
+- **Never saved:** the rows of sessions, confirmation links and running
+  games (`session_token`, `confirmation`, `running_game`; Central's
+  `sessions`, pairings, pending
   e-mail codes, push subscriptions and the like), the feedback service's
   admin sessions, the card catalogs, and any log.
 - **Encrypted before upload:** restic encrypts everything on the server;
@@ -718,9 +716,7 @@ only waits while one runs (`/run/baylee-backup/run.lock`).
   itself (OAuth scope `drive.file`).
 - **How long, on Google Drive itself:** data in the hourly snapshots
   (which also hold short-lived data: undelivered chat messages and their
-  deliveries, contact messages, and the running games of `running_game`
-  with their chairs' account ids, seat-token hashes and session keys)
-  **höchstens 14 Tage** (at most 14 days);
+  deliveries, contact messages) **höchstens 14 Tage** (at most 14 days);
   the nightly archive, which leaves those tables' rows out, **höchstens 12
   Monate** (at most 12 months). The program forgets every hourly snapshot
   older than 13 days and every archive snapshot older than 51 weeks,

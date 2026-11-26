@@ -217,4 +217,5 @@ The engine starts with every seat away and the table open.
 
 The new tables hold accounts, seat token hashes and session keys of running
 games only, and lose a row when its game ends. `docs/privacy.md` names them;
-the backup keeps them only in its short-lived set.
+the backup never saves them, as it never saves sessions: after a restore they
+are there and empty.
