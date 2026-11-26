@@ -7331,3 +7331,194 @@ fn gain_control_each_opponent_self_targeted_controller_and_fickle_efreet() {
         assert!(refused(bad), "must refuse: {bad}");
     }
 }
+
+#[test]
+fn next_draw_game_loss_and_token_effect_replacements() {
+    let worship = read(
+        "Name:Words of Worship\nManaCost:2 W\nTypes:Enchantment\n\
+         A:AB$ Effect | Cost$ 1 | ReplacementEffects$ DrawReplace\n\
+         SVar:DrawReplace:Event$ Draw | ValidPlayer$ You | ReplaceWith$ WordLife\n\
+         SVar:WordLife:DB$ GainLife | LifeAmount$ 5 | SubAbility$ ExileEffect\n\
+         SVar:ExileEffect:DB$ ChangeZone | Defined$ Self | Origin$ Command | Destination$ Exile",
+    );
+    assert_eq!(
+        worship.abilities,
+        [
+            r#"activated!(cost!("{1}"), &[Effect::AddGlobalTempModifier { filter: &Filter::Any, modifier: Modifier::NextDrawReplace(NextDrawReplacement::GainLife(5)), duration: Duration::UntilEndOfTurn }])"#
+        ]
+    );
+
+    let bear_tokens = TokenLookup::held(&[(
+        "g_2_2_bear",
+        "Name:Bear\nTypes:Creature Bear\nColors:green\nPT:2/2",
+    )]);
+    let mut bear_cats = cats();
+    bear_cats.creature.push("Bear".into());
+    bear_cats.normalize();
+    let wilding = transcode(
+        &parse(
+            "Name:Words of Wilding\nManaCost:2 G\nTypes:Enchantment\n\
+             A:AB$ Effect | Cost$ 1 | ReplacementEffects$ DrawReplace\n\
+             SVar:DrawReplace:Event$ Draw | ValidPlayer$ You | ReplaceWith$ WildToken\n\
+             SVar:WildToken:DB$ Token | TokenOwner$ You | TokenScript$ g_2_2_bear | SubAbility$ ExileEffect\n\
+             SVar:ExileEffect:DB$ ChangeZone | Defined$ Self | Origin$ Command | Destination$ Exile",
+        ),
+        &bear_cats,
+        Some(&bear_tokens),
+    )
+    .expect("Words of Wilding should transcode");
+    assert_eq!(
+        wilding.abilities,
+        [
+            r#"activated!(cost!("{1}"), &[Effect::AddGlobalTempModifier { filter: &Filter::Any, modifier: Modifier::NextDrawReplace(NextDrawReplacement::CreateToken(&generated_tokens::BEAR_2_2_GREEN)), duration: Duration::UntilEndOfTurn }])"#
+        ]
+    );
+
+    let stunning = read(
+        "Name:Stunning Reversal\nManaCost:3 B\nTypes:Instant\n\
+         A:SP$ Effect | ReplacementEffects$ LoseReplace | SubAbility$ DBExile\n\
+         SVar:LoseReplace:Event$ GameLoss | ActiveZones$ Command | ValidPlayer$ You | ReplaceWith$ DrawSeven\n\
+         SVar:DrawSeven:DB$ Draw | NumCards$ 7 | SubAbility$ DBSetLife\n\
+         SVar:DBSetLife:DB$ SetLife | Defined$ You | LifeAmount$ 1 | SubAbility$ ExileEffect\n\
+         SVar:ExileEffect:DB$ ChangeZone | Defined$ Self | Origin$ Command | Destination$ Exile\n\
+         SVar:DBExile:DB$ ChangeZone | Defined$ Self | Origin$ Stack | Destination$ Exile",
+    );
+    assert_eq!(
+        stunning.abilities,
+        [
+            "spell!(&[Effect::AddGlobalTempModifier { filter: &Filter::Any, modifier: Modifier::ReplaceNextGameLoss { draw: 7, set_life: 1 }, duration: Duration::UntilEndOfTurn }, Effect::ExileSource])"
+        ]
+    );
+
+    let cutpurse = read(
+        "Name:Crafty Cutpurse\nManaCost:3 U\nTypes:Creature Human Pirate\nPT:2/2\n\
+         T:Mode$ ChangesZone | Origin$ Any | Destination$ Battlefield | ValidCard$ Card.Self | Execute$ TrigEffect\n\
+         SVar:TrigEffect:DB$ Effect | ReplacementEffects$ OppCreatEnters\n\
+         SVar:OppCreatEnters:Event$ CreateToken | ActiveZones$ Command | ValidToken$ Card.OppCtrl | ReplaceWith$ ETBYourCtrl | Layer$ Control\n\
+         SVar:ETBYourCtrl:DB$ ReplaceToken | Type$ ReplaceController | NewController$ You",
+    );
+    assert_eq!(
+        cutpurse.abilities,
+        [
+            "triggered!(Trigger::ETB, &[Effect::AddGlobalTempModifier { filter: &Filter::Any, modifier: Modifier::StealOpponentTokens, duration: Duration::UntilEndOfTurn }])"
+        ]
+    );
+
+    let kaya_minus = read(
+        "Name:Kaya Ability\nManaCost:1 W B\nTypes:Legendary Planeswalker Kaya\nLoyalty:3\n\
+         A:AB$ Effect | Cost$ SubCounter<2/LOYALTY> | Planeswalker$ True | ReplacementEffects$ TokenReplace\n\
+         SVar:TokenReplace:Event$ CreateToken | ActiveZones$ Battlefield | ValidToken$ Card.YouCtrl | ReplaceWith$ DoubleToken\n\
+         SVar:DoubleToken:DB$ ReplaceToken | Type$ Amount",
+    );
+    assert_eq!(
+        kaya_minus.abilities,
+        [
+            "loyalty!(-2, &[Effect::AddGlobalTempModifier { filter: &Filter::Any, modifier: Modifier::MultiplyTokensCreated { who: PlayerRel::You, factor: 2 }, duration: Duration::UntilEndOfTurn }])"
+        ]
+    );
+}
+
+#[test]
+fn effect_moved_entry_and_graveyard_replacements_and_refusals() {
+    let gather = read(
+        "Name:Gather Specimens\nManaCost:3 U U U\nTypes:Instant\n\
+         A:SP$ Effect | ReplacementEffects$ OppCreatEnters\n\
+         SVar:OppCreatEnters:Event$ Moved | Destination$ Battlefield | ValidCard$ Creature.OppCtrl | ReplaceWith$ ETBYourCtrl | Layer$ Control\n\
+         SVar:ETBYourCtrl:DB$ ChangeZone | Origin$ All | Destination$ Battlefield | Defined$ ReplacedCard | GainControl$ True",
+    );
+    assert_eq!(
+        gather.abilities,
+        [
+            "spell!(&[Effect::AddGlobalTempModifier { filter: &Filter::Any, modifier: Modifier::EnterUnderYourControl(&Filter::CREATURE), duration: Duration::UntilEndOfTurn }])"
+        ]
+    );
+
+    let moonlight = read(
+        "Name:Hallowed Moonlight\nManaCost:1 W\nTypes:Instant\n\
+         A:SP$ Effect | ReplacementEffects$ ReplaceExile | SubAbility$ DBDraw\n\
+         SVar:ReplaceExile:Event$ Moved | ActiveZones$ Command | Destination$ Battlefield | ValidCard$ Creature.!wasCast | ReplaceWith$ DBExile\n\
+         SVar:DBExile:DB$ ChangeZone | Hidden$ True | Origin$ All | Destination$ Exile | Defined$ ReplacedCard\n\
+         SVar:DBDraw:DB$ Draw",
+    );
+    assert_eq!(
+        moonlight.abilities,
+        [
+            "spell!(&[Effect::AddGlobalTempModifier { filter: &Filter::Any, modifier: Modifier::ReplaceBattlefieldEntry { filter: &Filter::CREATURE, predicate: EntryPredicate::NotCast, destination: EntryInsteadZone::Exile }, duration: Duration::UntilEndOfTurn }, Effect::draw(1)])"
+        ]
+    );
+
+    let mistcaller = read(
+        "Name:Mistcaller\nManaCost:U\nTypes:Creature Merfolk Wizard\nPT:1/1\n\
+         A:AB$ Effect | Cost$ Sac<1/CARDNAME> | ReplacementEffects$ EffRMoved\n\
+         SVar:EffRMoved:Event$ Moved | ActiveZones$ Command | Destination$ Battlefield | ValidCard$ Creature.!token+!wasCast | ReplaceWith$ EffDBChangeZone\n\
+         SVar:EffDBChangeZone:DB$ ChangeZone | Defined$ ReplacedCard | Hidden$ True | Origin$ All | Destination$ Exile",
+    );
+    assert_eq!(
+        mistcaller.abilities,
+        [
+            "activated!(cost!(SacrificeSelf), &[Effect::AddGlobalTempModifier { filter: &Filter::Any, modifier: Modifier::ReplaceBattlefieldEntry { filter: &Filter::NONTOKEN_CREATURE, predicate: EntryPredicate::NotCast, destination: EntryInsteadZone::Exile }, duration: Duration::UntilEndOfTurn }])"
+        ]
+    );
+
+    let blink = read(
+        "Name:Don't Blink\nManaCost:1 U\nTypes:Instant\n\
+         A:SP$ Effect | ReplacementEffects$ ReplaceETB\n\
+         SVar:ReplaceETB:Event$ Moved | Destination$ Battlefield | Origin$ Stack,Exile | ValidCard$ Creature.wasCastFromExile,Creature.!wasCast | ReplaceWith$ DBShuffle\n\
+         SVar:DBShuffle:DB$ ChangeZone | Hidden$ True | Origin$ All | Destination$ Library | Defined$ ReplacedCard | Shuffle$ True",
+    );
+    assert_eq!(
+        blink.abilities,
+        [
+            "spell!(&[Effect::AddGlobalTempModifier { filter: &Filter::Any, modifier: Modifier::ReplaceBattlefieldEntry { filter: &Filter::CREATURE, predicate: EntryPredicate::FromExileOrCastFromExile, destination: EntryInsteadZone::ShuffleIntoOwnersLibrary }, duration: Duration::UntilEndOfTurn }])"
+        ]
+    );
+
+    let eclipse = read(
+        "Name:Malicious Eclipse\nManaCost:1 B B\nTypes:Sorcery\n\
+         A:SP$ Effect | ReplacementEffects$ DeathRep\n\
+         SVar:DeathRep:Event$ Moved | ValidLKI$ Creature.OppCtrl | Origin$ Battlefield | Destination$ Graveyard | ReplaceWith$ Exile\n\
+         SVar:Exile:DB$ ChangeZone | Defined$ ReplacedCard | Origin$ Battlefield | Destination$ Exile",
+    );
+    assert_eq!(
+        eclipse.abilities,
+        [
+            "spell!(&[Effect::AddGlobalTempModifier { filter: &Filter::Any, modifier: Modifier::ExileMatchingInsteadOfGraveyard { filter: &Filter::CREATURE, origin: Some(ZoneRef::Battlefield), controller_lki: Some(PlayerRel::EachOpponent), rider: None }, duration: Duration::UntilEndOfTurn }])"
+        ]
+    );
+
+    let cosmic = read(
+        "Name:Cosmic Intervention\nManaCost:3 W\nTypes:Instant\n\
+         A:SP$ Effect | ReplacementEffects$ ReplaceGrave\n\
+         SVar:ReplaceGrave:Event$ Moved | ValidCard$ Permanent.YouCtrl | Origin$ Battlefield | Destination$ Graveyard | ReplaceWith$ Exile\n\
+         SVar:Exile:DB$ ChangeZone | Defined$ ReplacedCard | Origin$ All | Destination$ Exile | SubAbility$ DBDelayTrigger\n\
+         SVar:DBDelayTrigger:DB$ DelayedTrigger | RememberObjects$ ReplacedCard | Mode$ Phase | Phase$ End of Turn | Execute$ TrigReturn\n\
+         SVar:TrigReturn:DB$ ChangeZone | Defined$ DelayTriggerRemembered | Destination$ Battlefield",
+    );
+    assert_eq!(
+        cosmic.abilities,
+        [
+            "spell!(&[Effect::AddGlobalTempModifier { filter: &Filter::Any, modifier: Modifier::ExileMatchingInsteadOfGraveyard { filter: &Filter::Any, origin: Some(ZoneRef::Battlefield), controller_lki: Some(PlayerRel::You), rider: Some(GraveyardExileRider::ReturnAtNextEndStep) }, duration: Duration::UntilEndOfTurn }])"
+        ]
+    );
+
+    for bad in [
+        // Plagiarize targets any player and replaces all draws (no DSL target/skip-all match).
+        "Name:Plagiarize\nManaCost:3 U\nTypes:Instant\n\
+         A:SP$ Effect | ValidTgts$ Player | ReplacementEffects$ ReplaceDraw\n\
+         SVar:ReplaceDraw:Event$ Draw | ValidPlayer$ Targeted | ReplaceWith$ DrawSteal\n\
+         SVar:DrawSteal:DB$ Draw | Defined$ You",
+        // Unsupported NextDrawReplace variants stay refused (Words of Wind/Waste/War).
+        "Name:Words of War\nManaCost:2 R\nTypes:Enchantment\n\
+         A:AB$ Effect | Cost$ 1 | ReplacementEffects$ DrawReplace\n\
+         SVar:DrawReplace:Event$ Draw | ValidPlayer$ You | ReplaceWith$ WarDmg\n\
+         SVar:WarDmg:DB$ DealDamage | NumDmg$ 2 | SubAbility$ ExileEffect\n\
+         SVar:ExileEffect:DB$ ChangeZone | Defined$ Self | Origin$ Command | Destination$ Exile",
+        // StealOpponentTokens must refuse Card.YouCtrl.
+        "Name:BadStealOwn\nManaCost:3 U\nTypes:Instant\n\
+         A:SP$ Effect | ReplacementEffects$ Rep\n\
+         SVar:Rep:Event$ CreateToken | ActiveZones$ Command | ValidToken$ Card.YouCtrl | ReplaceWith$ ETB | Layer$ Control\n\
+         SVar:ETB:DB$ ReplaceToken | Type$ ReplaceController | NewController$ You",
+    ] {
+        assert!(refused(bad), "must refuse:\n{bad}");
+    }
+}

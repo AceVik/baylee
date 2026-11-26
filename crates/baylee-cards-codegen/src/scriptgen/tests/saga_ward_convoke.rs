@@ -5037,3 +5037,173 @@ fn draw_dig_replacement_supports_change_valid_card_and_no_reveal_exile() {
         assert!(refused(bad), "must refuse:\n{bad}");
     }
 }
+
+#[test]
+fn multi_draw_and_extended_draw_replacements_lower_cleanly() {
+    let alms = read(
+        "Name:Alms Collector\nManaCost:3 W\nTypes:Creature Cat Cleric\nPT:3/4\nK:Flash\n\
+         R:Event$ DrawCards | ActiveZones$ Battlefield | ValidPlayer$ Player.Opponent | Number$ GE2 | ReplaceWith$ DrawEach\n\
+         SVar:DrawEach:DB$ Draw | Defined$ You & ReplacedPlayer",
+    );
+    assert_eq!(
+        alms.abilities,
+        [
+            "AbilityDef::Replacement(ReplacementRule::ReplaceMultiDraw { who: PlayerRel::EachOpponent, min_cards: 2, condition: None, kind: MultiDrawReplacementKind::EachDrawsOne })"
+        ]
+    );
+
+    let riddler = read(
+        "Name:Quantum Riddler\nManaCost:3 U U\nTypes:Creature Sphinx\nPT:4/6\n\
+         R:Event$ DrawCards | ActiveZones$ Battlefield | ValidPlayer$ You | CheckSVar$ X | SVarCompare$ LE1 | ReplaceWith$ DrawPlusOne\n\
+         SVar:DrawPlusOne:DB$ Draw | NumCards$ ReplaceCount$Number/Plus.1\n\
+         SVar:X:Count$ValidHand Card.YouOwn",
+    );
+    assert_eq!(
+        riddler.abilities,
+        [
+            "AbilityDef::Replacement(ReplacementRule::ReplaceMultiDraw { who: PlayerRel::You, min_cards: 1, condition: Some(Condition::HandSizeAtMost(1)), kind: MultiDrawReplacementKind::AddCards(1) })"
+        ]
+    );
+
+    let eruth = read(
+        "Name:Eruth, Tormented Prophet\nManaCost:1 U R\nTypes:Legendary Creature Human Wizard\nPT:2/4\n\
+         R:Event$ Draw | ActiveZones$ Battlefield | ValidPlayer$ You | ReplaceWith$ ExileTwo\n\
+         SVar:ExileTwo:DB$ Dig | Defined$ You | DigNum$ 2 | ChangeNum$ All | DestinationZone$ Exile | RememberChanged$ True | SubAbility$ DBEffect\n\
+         SVar:DBEffect:DB$ Effect | RememberObjects$ RememberedCard | StaticAbilities$ Play | SubAbility$ DBCleanup | ForgetOnMoved$ Exile\n\
+         SVar:Play:Mode$ Continuous | MayPlay$ True | Affected$ Card.IsRemembered | AffectedZone$ Exile\n\
+         SVar:DBCleanup:DB$ Cleanup | ClearRemembered$ True",
+    );
+    assert_eq!(
+        eruth.abilities,
+        [
+            "AbilityDef::Replacement(ReplacementRule::ReplaceDrawExileTopN { who: PlayerRel::You, count: 2, face_down: false, may_play_this_turn: true })"
+        ]
+    );
+
+    let sages = read(
+        "Name:Sages of the Anima\nManaCost:3 G U\nTypes:Creature Elf Wizard\nPT:3/4\n\
+         R:Event$ Draw | ActiveZones$ Battlefield | ValidPlayer$ You | ReplaceWith$ Dig\n\
+         SVar:Dig:DB$ Dig | DigNum$ 3 | Reveal$ True | ChangeNum$ All | ChangeValid$ Creature",
+    );
+    assert_eq!(
+        sages.abilities,
+        [
+            "AbilityDef::Replacement(ReplacementRule::ReplaceDrawRevealAllMatching { count: 3, filter: &Filter::CREATURE })"
+        ]
+    );
+}
+
+#[test]
+fn draw_with_draws_then_empty_library_and_ascension_replacements() {
+    let reed = read(
+        "Name:Reed Richards, Smartest Man\nManaCost:3 U\nTypes:Legendary Creature Human Scientist Hero\nPT:1/3\n\
+         R:Event$ Draw | ActiveZones$ Battlefield | ValidPlayer$ You | FirstExtraCardDrawnThisTurn$ True | ReplaceWith$ DrawFour\n\
+         SVar:DrawFour:DB$ Draw | Defined$ You | NumCards$ 4",
+    );
+    assert_eq!(
+        reed.abilities,
+        [
+            "AbilityDef::Replacement(ReplacementRule::ReplaceDrawWithDrawsThen { who: PlayerRel::You, skip_first_in_draw_step: true, first_extra_this_turn: true, condition: None, count: 4, lose_life: 0 })"
+        ]
+    );
+
+    let scrivener = read(
+        "Name:Blood Scrivener\nManaCost:1 B\nTypes:Creature Zombie Wizard\nPT:2/1\n\
+         R:Event$ Draw | ActiveZones$ Battlefield | ValidPlayer$ You | Hellbent$ True | ReplaceWith$ DrawTwo\n\
+         SVar:DrawTwo:DB$ Draw | NumCards$ 2 | SubAbility$ DBLoseLife\n\
+         SVar:DBLoseLife:DB$ LoseLife | Defined$ You | LifeAmount$ 1",
+    );
+    assert_eq!(
+        scrivener.abilities,
+        [
+            "AbilityDef::Replacement(ReplacementRule::ReplaceDrawWithDrawsThen { who: PlayerRel::You, skip_first_in_draw_step: false, first_extra_this_turn: false, condition: Some(Condition::HandSizeAtMost(0)), count: 2, lose_life: 1 })"
+        ]
+    );
+
+    let ormos_rule = read(
+        "Name:Ormos Rule\nManaCost:4 U U\nTypes:Legendary Creature Sphinx\nPT:5/5\n\
+         R:Event$ Draw | ActiveZones$ Battlefield | ValidPlayer$ You | IsPresent$ Card.YouOwn | PresentZone$ Library | PresentCompare$ EQ0 | ReplaceWith$ AddCounters\n\
+         SVar:AddCounters:DB$ PutCounter | CounterType$ P1P1 | CounterNum$ 5 | Defined$ Self",
+    );
+    assert_eq!(
+        ormos_rule.abilities,
+        [
+            "AbilityDef::Replacement(ReplacementRule::ReplaceDrawEmptyLibraryWithCounters { kind: CounterKind::P1P1, count: 5 })"
+        ]
+    );
+
+    let tombs = read(
+        "Name:Out of the Tombs\nManaCost:2 B\nTypes:Enchantment\n\
+         R:Event$ Draw | ActiveZones$ Battlefield | ValidPlayer$ You | IsPresent$ Card.YouOwn | PresentZone$ Library | PresentCompare$ EQ0 | ReplaceWith$ Reanimate\n\
+         SVar:Reanimate:DB$ ChangeZone | Origin$ Graveyard | Destination$ Battlefield | ChangeType$ Creature.YouOwn | ChangeNum$ 1 | Mandatory$ True | Hidden$ True | RememberChanged$ True | SubAbility$ DBLoseGame\n\
+         SVar:DBLoseGame:DB$ LosesGame | Defined$ You | ConditionDefined$ Remembered | ConditionPresent$ Card | ConditionCompare$ EQ0 | SubAbility$ DBCleanup\n\
+         SVar:DBCleanup:DB$ Cleanup | ClearRemembered$ True",
+    );
+    assert_eq!(
+        tombs.abilities,
+        [
+            "AbilityDef::Replacement(ReplacementRule::ReplaceDrawEmptyLibraryReanimateOrLose { filter: &Filter::CREATURE })"
+        ]
+    );
+
+    let ascension = read(
+        "Name:Archmage Ascension\nManaCost:2 U\nTypes:Enchantment\n\
+         R:Event$ Draw | ActiveZones$ Battlefield | ValidPlayer$ You | ReplaceWith$ Tutor | IsPresent$ Card.Self+counters_GE6_QUEST | Optional$ True\n\
+         SVar:Tutor:DB$ ChangeZone | Origin$ Library | Destination$ Hand",
+    );
+    assert_eq!(
+        ascension.abilities,
+        [
+            "AbilityDef::Replacement(ReplacementRule::ReplaceDrawMaySearchToHand { condition: Some(Condition::CountersOnSelf(counters::QUEST, 6)) })"
+        ]
+    );
+}
+
+#[test]
+fn static_entry_replacement_and_draw_refusal_boundaries() {
+    let priest = read(
+        "Name:Containment Priest\nManaCost:1 W\nTypes:Creature Human Cleric\nPT:2/2\n\
+         R:Event$ Moved | ActiveZones$ Battlefield | Destination$ Battlefield | ValidCard$ Creature.!token+!wasCast | ReplaceWith$ Exile\n\
+         SVar:Exile:DB$ ChangeZone | Hidden$ True | Origin$ All | Destination$ Exile | Defined$ ReplacedCard",
+    );
+    assert_eq!(
+        priest.abilities,
+        [
+            "static_ability!(Filter::This, Modifier::ReplaceBattlefieldEntry { filter: &Filter::NONTOKEN_CREATURE, predicate: EntryPredicate::NotCast, destination: EntryInsteadZone::Exile })"
+        ]
+    );
+
+    let primeval_rule = read(
+        "Name:Primeval Spawn Rule\nManaCost:5 W U B R G\nTypes:Creature Avatar\nPT:10/10\n\
+         R:Event$ Moved | ActiveZones$ Battlefield | Destination$ Battlefield | ValidCard$ Card.Self+!wasCast,Card.Self+CastSa Spell.ManaSpent EQ0 | ReplaceWith$ Exile\n\
+         SVar:Exile:DB$ ChangeZone | Hidden$ True | Origin$ All | Destination$ Exile | Defined$ ReplacedCard",
+    );
+    assert_eq!(
+        primeval_rule.abilities,
+        [
+            "static_ability!(Filter::This, Modifier::ReplaceBattlefieldEntry { filter: &Filter::This, predicate: EntryPredicate::NotCastOrNoManaSpent, destination: EntryInsteadZone::Exile })"
+        ]
+    );
+
+    for bad in [
+        // Abundance two-way DigUntil replacement stays refused.
+        "Name:Abundance\nManaCost:2 G G\nTypes:Enchantment\n\
+         R:Event$ Draw | ActiveZones$ Battlefield | ValidPlayer$ You | Optional$ True | ReplaceWith$ Choose\n\
+         SVar:Choose:DB$ GenericChoice | Choices$ FindLand,FindNonLand",
+        // Full Ormos with unsupported WithDifferentNames cost filter stays refused.
+        "Name:Ormos, Archive Keeper\nManaCost:4 U U\nTypes:Legendary Creature Sphinx\nPT:5/5\n\
+         R:Event$ Draw | ActiveZones$ Battlefield | ValidPlayer$ You | IsPresent$ Card.YouOwn | PresentZone$ Library | PresentCompare$ EQ0 | ReplaceWith$ AddCounters\n\
+         SVar:AddCounters:DB$ PutCounter | CounterType$ P1P1 | CounterNum$ 5 | Defined$ Self\n\
+         A:AB$ Draw | Cost$ 1 U U Discard<3/Card+WithDifferentNames> | NumCards$ 5",
+        // Unknown DrawCards comparison must stay refused.
+        "Name:BadMultiDraw\nManaCost:3 W\nTypes:Creature\nPT:2/2\n\
+         R:Event$ DrawCards | ActiveZones$ Battlefield | ValidPlayer$ Player.Opponent | Number$ EQ2 | ReplaceWith$ DrawEach\n\
+         SVar:DrawEach:DB$ Draw | Defined$ You & ReplacedPlayer",
+        // Wrong ReplaceBattlefieldEntry destination (Hand) stays refused.
+        "Name:BadEntryDest\nManaCost:1 W\nTypes:Creature\nPT:2/2\n\
+         R:Event$ Moved | ActiveZones$ Battlefield | Destination$ Battlefield | ValidCard$ Creature.!wasCast | ReplaceWith$ Bounce\n\
+         SVar:Bounce:DB$ ChangeZone | Origin$ All | Destination$ Hand | Defined$ ReplacedCard",
+    ] {
+        assert!(refused(bad), "must refuse:\n{bad}");
+    }
+}

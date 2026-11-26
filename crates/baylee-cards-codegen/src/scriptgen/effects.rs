@@ -2940,6 +2940,9 @@ impl Tx<'_> {
         }
         match event {
             "GameLoss" => {
+                if r.peek("ReplaceWith").is_some() {
+                    return self.replace_next_game_loss(r, duration);
+                }
                 if r.take("Layer").as_deref() != Some("CantHappen") {
                     return None;
                 }
@@ -3030,8 +3033,328 @@ impl Tx<'_> {
                      duration: {duration} }}"
                 )])
             }
+            "Draw" => self.next_draw_replace(r, duration),
+            "CreateToken" => self.effect_create_token_replacement(r, duration),
+            "Moved" => self.effect_moved_replacement(r, duration),
             _ => None,
         }
+    }
+
+    fn consume_exile_self_effect_sub(&self, sub_name: &str) -> bool {
+        let Some((api, mut ex)) = self
+            .svars
+            .get(sub_name.trim())
+            .and_then(|s| Params::parse(s))
+        else {
+            return false;
+        };
+        ex.drop_prose();
+        api == "ChangeZone"
+            && ex.take("Defined").as_deref() == Some("Self")
+            && ex.take("Origin").as_deref() == Some("Command")
+            && ex.take("Destination").as_deref() == Some("Exile")
+            && ex.exhausted()
+    }
+
+    fn replace_next_game_loss(&self, r: &mut Params, duration: &str) -> Option<Vec<String>> {
+        if r.take("ActiveZones").as_deref() != Some("Command")
+            || r.take("ValidPlayer").as_deref() != Some("You")
+        {
+            return None;
+        }
+        let rep_name = r.take("ReplaceWith")?;
+        if !r.exhausted() {
+            return None;
+        }
+        let (api1, mut p1) = Params::parse(self.svars.get(rep_name.trim())?)?;
+        p1.drop_prose();
+        if api1 != "Draw"
+            || !matches!(
+                p1.take("Defined").as_deref(),
+                None | Some("You" | "ReplacedPlayer")
+            )
+        {
+            return None;
+        }
+        let draw: u8 = p1.take("NumCards")?.parse().ok()?;
+        let sub1 = p1.take("SubAbility")?;
+        if !p1.exhausted() {
+            return None;
+        }
+        let (api2, mut p2) = Params::parse(self.svars.get(sub1.trim())?)?;
+        p2.drop_prose();
+        if api2 != "SetLife" || p2.take("Defined").as_deref() != Some("You") {
+            return None;
+        }
+        let set_life: i32 = p2.take("LifeAmount")?.parse().ok()?;
+        let sub2 = p2.take("SubAbility")?;
+        if !p2.exhausted() || !self.consume_exile_self_effect_sub(&sub2) {
+            return None;
+        }
+        Some(vec![format!(
+            "Effect::AddGlobalTempModifier {{ filter: &Filter::Any, \
+             modifier: Modifier::ReplaceNextGameLoss {{ draw: {draw}, set_life: {set_life} }}, \
+             duration: {duration} }}"
+        )])
+    }
+
+    fn next_draw_replace(&mut self, r: &mut Params, duration: &str) -> Option<Vec<String>> {
+        if !matches!(r.take("ActiveZones").as_deref(), None | Some("Command"))
+            || r.take("ValidPlayer").as_deref() != Some("You")
+        {
+            return None;
+        }
+        let rep_name = r.take("ReplaceWith")?;
+        if !r.exhausted() {
+            return None;
+        }
+        let (api, mut rep) = Params::parse(self.svars.get(rep_name.trim())?)?;
+        rep.drop_prose();
+        let sub_name = rep.take("SubAbility")?;
+        if !self.consume_exile_self_effect_sub(&sub_name) {
+            return None;
+        }
+        let replacement = match api.as_str() {
+            "GainLife" => {
+                if !matches!(
+                    rep.take("Defined").as_deref(),
+                    None | Some("You" | "ReplacedPlayer")
+                ) {
+                    return None;
+                }
+                let amt: u16 = rep.take("LifeAmount")?.parse().ok()?;
+                if amt == 0 || !rep.exhausted() {
+                    return None;
+                }
+                format!("NextDrawReplacement::GainLife({amt})")
+            }
+            "Token" => {
+                if !matches!(rep.take("TokenOwner").as_deref(), None | Some("You"))
+                    || !matches!(rep.take("TokenAmount").as_deref(), None | Some("1"))
+                {
+                    return None;
+                }
+                let script = rep.take("TokenScript")?;
+                if !rep.exhausted() {
+                    return None;
+                }
+                let tok = self.tokens?.body_fixed(script.trim(), self.cats)?;
+                format!(
+                    "NextDrawReplacement::CreateToken(&generated_tokens::{})",
+                    tok.constant
+                )
+            }
+            _ => return None,
+        };
+        Some(vec![format!(
+            "Effect::AddGlobalTempModifier {{ filter: &Filter::Any, \
+             modifier: Modifier::NextDrawReplace({replacement}), \
+             duration: {duration} }}"
+        )])
+    }
+
+    fn effect_create_token_replacement(
+        &self,
+        r: &mut Params,
+        duration: &str,
+    ) -> Option<Vec<String>> {
+        if !matches!(
+            r.take("ActiveZones").as_deref(),
+            None | Some("Command" | "Battlefield")
+        ) {
+            return None;
+        }
+        let layer = r.take("Layer");
+        let valid_token = r.take("ValidToken")?;
+        let rep_name = r.take("ReplaceWith")?;
+        if !r.exhausted() {
+            return None;
+        }
+        let (api, mut rep) = Params::parse(self.svars.get(rep_name.trim())?)?;
+        rep.drop_prose();
+        if api != "ReplaceToken" {
+            return None;
+        }
+        let modifier = match rep.take("Type").as_deref() {
+            Some("ReplaceController") => {
+                if layer.as_deref() != Some("Control")
+                    || valid_token != "Card.OppCtrl"
+                    || rep.take("NewController").as_deref() != Some("You")
+                    || !rep.exhausted()
+                {
+                    return None;
+                }
+                "Modifier::StealOpponentTokens".to_string()
+            }
+            Some("Amount") if layer.is_none() => {
+                let who = match valid_token.as_str() {
+                    "Card.YouCtrl" => "PlayerRel::You",
+                    "Card.OppCtrl" => "PlayerRel::EachOpponent",
+                    "Card" => "PlayerRel::EachPlayer",
+                    _ => return None,
+                };
+                let factor: u32 = match rep.take("Amount").as_deref() {
+                    None | Some("Twice" | "2") => 2,
+                    Some("Thrice" | "3") => 3,
+                    Some(other) => other.parse().ok().filter(|&n| n >= 2)?,
+                };
+                if !rep.exhausted() {
+                    return None;
+                }
+                format!("Modifier::MultiplyTokensCreated {{ who: {who}, factor: {factor} }}")
+            }
+            _ => return None,
+        };
+        Some(vec![format!(
+            "Effect::AddGlobalTempModifier {{ filter: &Filter::Any, modifier: {modifier}, duration: {duration} }}"
+        )])
+    }
+
+    fn effect_moved_replacement(&mut self, r: &mut Params, duration: &str) -> Option<Vec<String>> {
+        if !matches!(
+            r.take("ActiveZones").as_deref(),
+            None | Some("Command" | "Battlefield")
+        ) {
+            return None;
+        }
+        let dest = r.take("Destination")?;
+        match dest.as_str() {
+            "Battlefield" => self.effect_moved_battlefield(r, duration),
+            "Graveyard" => self.effect_moved_graveyard(r, duration),
+            _ => None,
+        }
+    }
+
+    fn effect_moved_battlefield(&mut self, r: &mut Params, duration: &str) -> Option<Vec<String>> {
+        let origin = r.take("Origin");
+        let layer = r.take("Layer");
+        let valid = r.take("ValidCard")?;
+        let rep_name = r.take("ReplaceWith")?;
+        if !r.exhausted() {
+            return None;
+        }
+        let (api, mut rep) = Params::parse(self.svars.get(rep_name.trim())?)?;
+        rep.drop_prose();
+        if layer.as_deref() == Some("Control") && origin.is_none() {
+            if api != "ChangeZone"
+                || !matches!(rep.take("Origin").as_deref(), None | Some("All"))
+                || rep.take("Destination").as_deref() != Some("Battlefield")
+                || rep.take("Defined").as_deref() != Some("ReplacedCard")
+                || rep.take("GainControl").as_deref() != Some("True")
+                || !rep.exhausted()
+            {
+                return None;
+            }
+            let base = valid.strip_suffix(".OppCtrl")?;
+            let expr = self.filter_expr(base)?;
+            let filter_ref = format!("&{}", self.body.filter_static("EFFECT", &expr));
+            return Some(vec![format!(
+                "Effect::AddGlobalTempModifier {{ filter: &Filter::Any, \
+                 modifier: Modifier::EnterUnderYourControl({filter_ref}), \
+                 duration: {duration} }}"
+            )]);
+        }
+        if layer.is_some() {
+            return None;
+        }
+        let (filter_ref, predicate) =
+            self.parse_battlefield_entry_rule(&valid, origin.as_deref())?;
+        let destination = Self::parse_battlefield_entry_dest(&api, &mut rep)?;
+        if !rep.exhausted() {
+            return None;
+        }
+        Some(vec![format!(
+            "Effect::AddGlobalTempModifier {{ filter: &Filter::Any, \
+             modifier: Modifier::ReplaceBattlefieldEntry {{ \
+             filter: {filter_ref}, predicate: {predicate}, destination: {destination} }}, \
+             duration: {duration} }}"
+        )])
+    }
+
+    fn effect_moved_graveyard(&mut self, r: &mut Params, duration: &str) -> Option<Vec<String>> {
+        let origin = match r.take("Origin").as_deref() {
+            None => "None",
+            Some("Battlefield") => "Some(ZoneRef::Battlefield)",
+            _ => return None,
+        };
+        let ((Some(valid), None) | (None, Some(valid))) = (r.take("ValidLKI"), r.take("ValidCard"))
+        else {
+            return None;
+        };
+        let rep_name = r.take("ReplaceWith")?;
+        if !r.exhausted() {
+            return None;
+        }
+        let (base_valid, controller_lki) = if let Some(b) = valid.strip_suffix(".YouCtrl") {
+            (b, "Some(PlayerRel::You)")
+        } else if let Some(b) = valid.strip_suffix(".OppCtrl") {
+            (b, "Some(PlayerRel::EachOpponent)")
+        } else {
+            (valid.as_str(), "None")
+        };
+        let expr = self.filter_expr(base_valid)?;
+        let filter_ref = format!("&{}", self.body.filter_static("EFFECT", &expr));
+        let (api, mut rep) = Params::parse(self.svars.get(rep_name.trim())?)?;
+        rep.drop_prose();
+        if api != "ChangeZone"
+            || rep.take("Defined").as_deref() != Some("ReplacedCard")
+            || !matches!(rep.take("Origin").as_deref(), Some("All" | "Battlefield"))
+            || rep.take("Destination").as_deref() != Some("Exile")
+        {
+            return None;
+        }
+        let rider = match rep.take("SubAbility") {
+            None => "None",
+            Some(sub_name) if self.return_at_next_end_step_rider(&sub_name) => {
+                "Some(GraveyardExileRider::ReturnAtNextEndStep)"
+            }
+            Some(_) => return None,
+        };
+        if !rep.exhausted() {
+            return None;
+        }
+        Some(vec![format!(
+            "Effect::AddGlobalTempModifier {{ filter: &Filter::Any, \
+             modifier: Modifier::ExileMatchingInsteadOfGraveyard {{ \
+             filter: {filter_ref}, origin: {origin}, controller_lki: {controller_lki}, rider: {rider} }}, \
+             duration: {duration} }}"
+        )])
+    }
+
+    fn return_at_next_end_step_rider(&self, sub_name: &str) -> bool {
+        let Some((api, mut dt)) = self
+            .svars
+            .get(sub_name.trim())
+            .and_then(|s| Params::parse(s))
+        else {
+            return false;
+        };
+        dt.drop_prose();
+        if api != "DelayedTrigger"
+            || dt.take("RememberObjects").as_deref() != Some("ReplacedCard")
+            || dt.take("Mode").as_deref() != Some("Phase")
+            || dt.take("Phase").as_deref() != Some("End of Turn")
+        {
+            return false;
+        }
+        let Some(exec_name) = dt.take("Execute") else {
+            return false;
+        };
+        if !dt.exhausted() {
+            return false;
+        }
+        let Some((r_api, mut ret)) = self
+            .svars
+            .get(exec_name.trim())
+            .and_then(|s| Params::parse(s))
+        else {
+            return false;
+        };
+        ret.drop_prose();
+        r_api == "ChangeZone"
+            && ret.take("Defined").as_deref() == Some("DelayTriggerRemembered")
+            && ret.take("Destination").as_deref() == Some("Battlefield")
+            && ret.exhausted()
     }
 
     fn parse_cant_be_countered_valid_sa(&mut self, raw: &str) -> Option<(&'static str, String)> {
