@@ -27,7 +27,6 @@ license = "AGPL-3.0-only"
 # every binary and the client draws it.
 authors = ["Viktor Machnik"]
 repository = "https://github.com/AceVik/baylee"
-description = "An unofficial, non-commercial fan implementation of a trading card game"
 
 # Dependency policy: newest stable, pinned here once for the whole workspace.
 # Refresh with `cargo upgrade` (cargo-edit) + full CI run.

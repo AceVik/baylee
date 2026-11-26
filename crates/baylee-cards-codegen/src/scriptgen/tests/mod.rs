@@ -9,6 +9,7 @@ mod costs_and_refusals;
 mod counters;
 mod creature_type;
 mod cycling;
+mod delve;
 mod dig;
 mod divided_damage;
 mod dredge;

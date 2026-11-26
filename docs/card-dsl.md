@@ -1495,12 +1495,27 @@ actually entering its owner's graveyard. Both histories reset at turn start;
 neither inspects the current graveyard to reconstruct past events.
 
 
-`EntersBattlefield(filter)`, `LeavesBattlefield(filter)`, `Dies(filter)`,
+`EntersBattlefield(filter)`, `LeavesBattlefield(filter)`, `LeavesGraveyard(filter)`, `Dies(filter)`,
 `SpellCast(filter)`, `Draws(rel)`, `DrawsExceptFirst(rel)`,
 `FirstNoncreatureSpellCast(rel)`, `Attacks(filter)`, `BecomesTarget`,
 `EntersBattlefieldEvoked`, `StepBegin { step, whose }`,
 `CountersReach { kind, n }`, `PlaysLand(rel)`, `TappedForMana { by, filter }`,
 `State(&condition)` (a state trigger, CR 603.8; see the Alpha pieces).
+
+`LeavesGraveyard(filter)` is "Whenever a [filter] card leaves your graveyard"
+(*Murktide Regent*), once per card, wherever it goes; "your" is
+`Filter::OwnedByYou` in the filter (CR 400.3). Collected from the battlefield,
+so a spell whose delve exiles the cards does not see them. The codegen reader
+lowers `T:Mode$ ChangesZone | Origin$ Graveyard | Destination$ Any` on a card
+valid-string (`Card.Self` leaving the graveyard is refused).
+
+Delve and "exiled with it" (CR 607.2q): the cards delve exiles to pay a spell's
+cost are marked `Rider::ExiledWith` the spell on the stack and carried by
+`Rider::DelvedCard` onto the resolving permanent's incarnation (excluding any
+card that left exile in response), so `Amount::CountOf { filter, zone:
+ZoneSel::LinkedExile }` in an `EnterModifier::WithCounters` counts them on
+entry (*Murktide Regent*) while any later cast of the same card counts none
+(CR 400.7).
 
 `TappedForMana { by, filter }` is "whenever [a player] taps [a permanent]
 for mana": a player `by` names activated a mana ability of a permanent
