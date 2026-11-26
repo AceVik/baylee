@@ -191,8 +191,16 @@ pub(crate) fn run_with_context(
             losers.push((p, reason));
         }
     }
-    let leaving: Vec<PlayerId> = losers.iter().map(|&(p, _)| p).collect();
+    let mut actual_losers: Vec<(PlayerId, LossReason)> = Vec::new();
     for (p, reason) in losers {
+        if try_replace_game_loss(state, p) {
+            outcome.changed = true;
+        } else {
+            actual_losers.push((p, reason));
+        }
+    }
+    let leaving: Vec<PlayerId> = actual_losers.iter().map(|&(p, _)| p).collect();
+    for (p, reason) in actual_losers {
         leave(state, p, reason, &leaving);
         outcome.changed = true;
     }
@@ -1253,8 +1261,47 @@ pub fn player_cant_win(state: &GameState, player: PlayerId) -> bool {
 ///
 /// Returns whether the player lost. Not for a concession, which "can't lose
 /// the game" does not stop (CR 104.3a); that calls [`eliminate_player`].
+/// Attempts to apply a one-shot `Modifier::ReplaceNextGameLoss` replacement
+/// effect (*Stunning Reversal*, CR 614.1a, CR 104.3) for `player`. Consumes
+/// the replacement effect, draws the specified cards, sets their life total,
+/// and clears any pending empty-library draw loss flag so SBA does not
+/// immediately re-fire for that replaced draw.
+pub(crate) fn try_replace_game_loss(state: &mut GameState, player: PlayerId) -> bool {
+    if !state.effects.may_change_player_or_sba_rules() {
+        return false;
+    }
+    let found = state.effects.iter().find_map(|fx| {
+        let baylee_cards_dsl::Modifier::ReplaceNextGameLoss { draw, set_life } = fx.modifier else {
+            return None;
+        };
+        (fx.controller == player).then_some((fx.id, draw, set_life))
+    });
+    let Some((fx_id, draw, set_life)) = found else {
+        return false;
+    };
+    state.effects.remove_where(|fx| fx.id == fx_id);
+    if let Some(p) = state.players.get_mut(usize::from(player.get())) {
+        p.tried_empty_draw = false;
+    }
+    if draw > 0 {
+        let _ = state.draw_cards(player, usize::from(draw));
+    }
+    if let Some(current) = state.players.get(usize::from(player.get())).map(|p| p.life) {
+        let delta = set_life.saturating_sub(current);
+        if delta != 0 {
+            state.change_life(player, delta, crate::event::Cause::Effect);
+        }
+    }
+    true
+}
+
+/// Cause `player` to lose the game due to an effect (CR 104.3a), honoring
+/// "can't lose the game" locks and one-shot game-loss replacements.
 pub fn lose_by_effect(state: &mut GameState, player: PlayerId) -> bool {
     if player_cant_lose(state, player) {
+        return false;
+    }
+    if try_replace_game_loss(state, player) {
         return false;
     }
     eliminate_player(state, player, LossReason::Effect);

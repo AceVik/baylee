@@ -31,38 +31,71 @@ pub use play::*;
 pub use search::*;
 pub use targets::*;
 
-/// A damage prevention or replacement instruction that commits one immediate
-/// effect (CR 615.5). Choices introduced by other replacement effects belong
-/// to the game's ordinary counter, life, entry or graveyard-order queues.
+/// A damage prevention or replacement instruction sequence that commits
+/// immediate effects without suspending (CR 615.5). Choices introduced by
+/// other replacement effects belong to the game's ordinary counter, life,
+/// draw, entry or graveyard-order queues.
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Hash)]
-pub struct DamageRider(&'static [Effect; 1]);
+pub struct DamageRider(&'static [Effect]);
 
 impl DamageRider {
-    /// Build a printed rider. Card definitions check this at compile time.
+    const fn is_valid_op(op: &Effect) -> bool {
+        matches!(
+            op,
+            Effect::GainLife { .. }
+                | Effect::AddCounterSource { .. }
+                | Effect::AddCounterFilter { .. }
+                | Effect::AddCounterDamagedObject { .. }
+                | Effect::RemoveCounterSelf { .. }
+                | Effect::ExileTop { .. }
+                | Effect::Mill { .. }
+                | Effect::CreateTokenN { .. }
+                | Effect::Rad { .. }
+                | Effect::DrawCardsFor { .. }
+                | Effect::ShuffleDamagedObjectIntoLibrary
+                | Effect::DealDamageToEventSourceOrController { .. }
+        )
+    }
+
+    /// Build a printed single-instruction rider. Card definitions check this
+    /// at compile time.
     ///
     /// # Panics
     /// If the operation needs its own resolution continuation.
     #[must_use]
     pub const fn new(op: &'static [Effect; 1]) -> Self {
         assert!(
-            matches!(
-                op[0],
-                Effect::GainLife { .. }
-                    | Effect::AddCounterSource { .. }
-                    | Effect::AddCounterFilter { .. }
-                    | Effect::ExileTop { .. }
-                    | Effect::Mill { .. }
-                    | Effect::CreateTokenN { .. }
-                    | Effect::Rad { .. }
-            ),
-            "a damage rider must commit a single immediate instruction"
+            Self::is_valid_op(&op[0]),
+            "a damage rider must commit an immediate instruction"
         );
-        Self(op)
+        Self(op.as_slice())
     }
 
-    /// The printed instruction for execution and DSL traversal.
+    /// Build a multi-instruction damage rider (*Szadek*, *Sekki*, *New Way
+    /// Forward*). Card definitions check every instruction at compile time.
+    ///
+    /// # Panics
+    /// If `ops` is empty or any operation needs its own resolution continuation.
     #[must_use]
-    pub const fn instruction(self) -> &'static [Effect; 1] {
+    pub const fn sequence(ops: &'static [Effect]) -> Self {
+        assert!(
+            !ops.is_empty(),
+            "a damage rider must contain at least one op"
+        );
+        let mut i = 0;
+        while i < ops.len() {
+            assert!(
+                Self::is_valid_op(&ops[i]),
+                "every damage rider operation must commit immediately"
+            );
+            i += 1;
+        }
+        Self(ops)
+    }
+
+    /// The printed instructions for execution and DSL traversal.
+    #[must_use]
+    pub const fn instruction(self) -> &'static [Effect] {
         self.0
     }
 }
@@ -6361,6 +6394,61 @@ pub enum Effect {
         filter: &'static Filter,
         /// Whether the player may fail to find / decline.
         optional: bool,
+    },
+    /// Immediate damage-rider op: put `amount` counters of `kind` on the
+    /// object that would have been dealt damage (*Vigor*, *Soul-Scar Mage*).
+    /// Appended to preserve replay identities.
+    AddCounterDamagedObject {
+        /// Counter kind placed on the damaged object.
+        kind: CounterKind,
+        /// Number of counters (typically `Amount::ThisWay(ThisWay::DamagePrevented)`).
+        amount: Amount,
+    },
+    /// Immediate damage-rider op: the owner of the creature that would have
+    /// been dealt damage shuffles it into their library (*Weeping Angel*).
+    /// Appended to preserve replay identities.
+    ShuffleDamagedObjectIntoLibrary,
+    /// Immediate damage-rider op: deal `amount` damage from the prevention
+    /// source to the damaging creature (`creature_source_takes_damage: true`,
+    /// *Comeuppance*) or otherwise to the damaging source's controller
+    /// (*Deflecting Palm*, *New Way Forward*, *Comeuppance* noncreature branch).
+    /// Appended to preserve replay identities.
+    DealDamageToEventSourceOrController {
+        /// Damage dealt (typically `Amount::ThisWay(ThisWay::DamagePrevented)`).
+        amount: Amount,
+        /// When `true` and the damaging source is a creature on the
+        /// battlefield, deal the damage to that creature instead of its controller.
+        creature_source_takes_damage: bool,
+    },
+    /// Redirect the next `amount` damage that would be dealt to `from` this
+    /// turn [from a chosen source matching `choose_source`] to `to` instead
+    /// (*Outrider en-Kor*, *Carom*, *Ward of Piety*, *Razia, Boros Archangel*,
+    /// *Harm's Way*; `CR 614.9`, `CR 615.7`). Appended to preserve replay
+    /// identities.
+    RedirectNextDamageTo {
+        /// Recipient(s) whose damage is redirected.
+        from: TargetSpec,
+        /// Optional source filter chosen on resolution (*Harm's Way*).
+        choose_source: Option<&'static Filter>,
+        /// Finite amount of damage redirected before the shield expires.
+        amount: Amount,
+        /// Destination permanent or player (`TargetSpec::AnyTarget`, etc.).
+        to: TargetSpec,
+    },
+    /// "The next time a source of your choice matching `sources` would deal
+    /// [combat] damage to `target` this turn, prevent that damage" and
+    /// immediately run `then` with `ThisWay::DamagePrevented` bound
+    /// (*Deflecting Palm*, *New Way Forward*; `CR 609.7`, `CR 615.5`, `CR 615.8`).
+    /// Appended to preserve replay identities.
+    PreventNextFromChosenSourceWithThen {
+        /// Protected recipient(s).
+        target: TargetSpec,
+        /// Source filter offered to the controller on resolution.
+        sources: &'static Filter,
+        /// Restrict to combat damage only.
+        combat_only: bool,
+        /// Immediate follow-up rider(s) executed when damage is prevented.
+        then: DamageRider,
     },
 }
 

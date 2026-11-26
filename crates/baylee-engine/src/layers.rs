@@ -1626,7 +1626,22 @@ fn apply(
         // A replacement, read where a card would reach a graveyard
         // (`replacement::graveyard_destination`).
         | Modifier::ExileInsteadOfYourGraveyard
-        | Modifier::ExileInsteadOfLeavingBattlefield => {}
+        | Modifier::ExileInsteadOfLeavingBattlefield
+        | Modifier::NextDrawReplace(_)
+        | Modifier::ReplaceNextGameLoss { .. }
+        | Modifier::EnterUnderYourControl(_)
+        | Modifier::ReplaceBattlefieldEntry { .. }
+        | Modifier::ExileMatchingInsteadOfGraveyard { .. }
+        | Modifier::PermanentsEnterTapped(_)
+        | Modifier::MultiplyTokensCreated { .. }
+        | Modifier::StealOpponentTokens
+        | Modifier::AddDamageDynamic { .. }
+        | Modifier::PreventDamageRemovingOneCounter { .. }
+        | Modifier::RedirectDamageToAffected { .. }
+        | Modifier::RedirectDamageToAffectedController
+        | Modifier::PreventAllButOneDamage { .. }
+        | Modifier::ReplaceOrPreventDamageScopedWithThen { .. }
+        | Modifier::HealOtherDamageWhenDealtDamage => {}
         Modifier::HoneEquipment => {
             *read_board = true;
             if let Some(equipment) = fx.source.and_then(|id| state.object(id))

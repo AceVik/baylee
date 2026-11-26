@@ -904,7 +904,10 @@ impl Effect {
             | Effect::MayPayEnergyEqualToTargetCmcThen { then }
             | Effect::CaptureMatching { filter: _, then }
             | Effect::RememberTargetsThen { then } => (then, NONE),
-            Effect::PreventNextDamageWithThen { then, .. } => (then.instruction(), NONE),
+            Effect::PreventNextDamageWithThen { then, .. }
+            | Effect::PreventNextFromChosenSourceWithThen { then, .. } => {
+                (then.instruction(), NONE)
+            }
             Effect::PlayerMayPayThenElse { player: _, mana: _, paid: then, unpaid: otherwise }
             | Effect::PlayerMayPayManaAndLifeEachThenElse { paid: then, unpaid: otherwise, .. }
             | Effect::PlayerMayPayManaEachThenElse {
@@ -1572,7 +1575,11 @@ impl Effect {
             | Effect::Ripple(_)
             | Effect::ReturnDelayedObjectsToBattlefield { .. }
             | Effect::GrantActivatedAbilitiesWhenTargetCast { .. }
-            | Effect::PlayersChooseMode(_) => (NONE, NONE),
+            | Effect::PlayersChooseMode(_)
+            | Effect::AddCounterDamagedObject { .. }
+            | Effect::ShuffleDamagedObjectIntoLibrary
+            | Effect::DealDamageToEventSourceOrController { .. }
+            | Effect::RedirectNextDamageTo { .. } => (NONE, NONE),
             Effect::AnyPlayerMayPayManaAmount {
                 on_payment: false,
                 effects,

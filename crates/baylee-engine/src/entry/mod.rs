@@ -80,6 +80,7 @@ pub(super) enum TributeState {
 }
 
 #[derive(Clone, Debug)]
+#[allow(clippy::struct_excessive_bools)]
 struct Attempt {
     object: ObjectId,
     version: u32,
@@ -114,9 +115,27 @@ struct Attempt {
     next_counter: usize,
     copy: CopyStatus,
     preview_effects: Vec<baylee_core::ids::EffectId>,
+    controller_override: Option<PlayerId>,
+    instead_destination: Option<baylee_cards_dsl::EntryInsteadZone>,
+    entry_type_pt: Vec<(
+        baylee_core::types::TypeSet,
+        &'static [baylee_core::ids::SubtypeId],
+        i16,
+        i16,
+    )>,
+    applied_effects: Vec<baylee_core::ids::EffectId>,
+    applied_self_replace: bool,
+    applied_own_control: bool,
+}
+
+impl Attempt {
+    const fn is_cancelled(&self) -> bool {
+        self.refusal.is_some() || self.instead_destination.is_some()
+    }
 }
 
 impl Hash for Attempt {
+    #[allow(clippy::too_many_lines)]
     fn hash<H: Hasher>(&self, h: &mut H) {
         let Self {
             object,
@@ -149,6 +168,12 @@ impl Hash for Attempt {
             next_counter,
             copy,
             preview_effects,
+            controller_override,
+            instead_destination,
+            entry_type_pt,
+            applied_effects,
+            applied_self_replace,
+            applied_own_control,
         } = self;
         object.hash(h);
         version.hash(h);
@@ -204,6 +229,24 @@ impl Hash for Attempt {
         next_counter.hash(h);
         copy.hash(h);
         preview_effects.hash(h);
+        if controller_override.is_some()
+            || instead_destination.is_some()
+            || !entry_type_pt.is_empty()
+            || !applied_effects.is_empty()
+            || *applied_self_replace
+            || *applied_own_control
+        {
+            (
+                583_u16,
+                controller_override,
+                instead_destination,
+                entry_type_pt,
+                applied_effects,
+                applied_self_replace,
+                applied_own_control,
+            )
+                .hash(h);
+        }
     }
 }
 
@@ -304,6 +347,8 @@ enum Question {
     EntrySubtype,
     /// Pre-counter entry player/opponent choice (`CR 614.12`, *Canker Abomination*).
     EntryPlayer,
+    /// Choosing an opponent under whose control this permanent enters (*Xantcha*, *Captive Audience*).
+    EntryControllerOpponent,
 }
 
 impl Hash for Entries {
@@ -471,6 +516,7 @@ fn needs_before_entry(modifier: &EnterModifier) -> bool {
                 | EnterModifier::Amplify(_)
                 | EnterModifier::Suspected
                 | EnterModifier::Tribute(_)
+                | EnterModifier::EntersUnderChosenOpponentControl
         )
 }
 
@@ -507,7 +553,7 @@ pub(crate) fn defer(
     state.entries.event_objects.insert(id);
     let mut modifiers = modifiers(state, id);
     let copy = copy_clause(state, id);
-    let external = equilibrium::exists(state);
+    let external = equilibrium::exists_for(state, id);
     let aura = auras::needs_choice(state, id);
     let mut counter_entry = counters::needs_entry(state, id)
         || battles::needs_entry(state, id)
@@ -581,6 +627,12 @@ pub(crate) fn defer(
             CopyStatus::Pending
         },
         preview_effects: Vec::new(),
+        controller_override: None,
+        instead_destination: None,
+        entry_type_pt: Vec::new(),
+        applied_effects: Vec::new(),
+        applied_self_replace: false,
+        applied_own_control: false,
     };
     state.entries.counter_transaction |= kw_entry;
     state.entries.pending_objects.insert(id);

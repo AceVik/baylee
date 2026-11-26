@@ -162,8 +162,10 @@ pub use baylee_core::mana::{ManaColor, ManaCost};
 pub use baylee_core::types::{SupertypeSet, TypeSet};
 pub use static_ability::{
     AbilityDonorZone, AltCastPrice, AltCastZones, CounterReplaceOp, DamageAmountReplacement,
-    DamageRecipients, DamagedByScope, Duration, GraveyardAltKind, LAYERS, Layer, LifeGainOp,
-    Modifier, PtCount, ReplacementRule, SpellCastMetric, StaticAbility, TriggerCause,
+    DamageRecipients, DamageRiderScope, DamagedByScope, Duration, EntryInsteadZone, EntryPredicate,
+    GraveyardAltKind, GraveyardExileRider, GraveyardRedirectDest, LAYERS, Layer, LifeGainOp,
+    Modifier, MultiDrawReplacementKind, NextDrawReplacement, PtCount, ReplacementRule,
+    SpellCastMetric, StaticAbility, TriggerCause,
 };
 
 /// A compiled card definition: zero-cost, `'static`, registry-resident.
@@ -1353,6 +1355,10 @@ pub enum EnterModifier {
     /// "As this enters, each player chooses [mode0] or [mode1]..." (`CR 614.12`:
     /// *Archangel of Strife*). Appended to preserve replay identities.
     EachPlayerChooseMode(&'static [&'static str]),
+    /// "This permanent enters under the control of an opponent of your choice"
+    /// (`CR 614.1c`, `CR 614.12`: *Xantcha, Sleeper Agent*, *Captive Audience*,
+    /// *Pendant of Prosperity*). Appended to preserve replay identities.
+    EntersUnderChosenOpponentControl,
 }
 
 impl EnterModifier {

@@ -110,6 +110,45 @@ impl Hash for PerTurnModalMasks {
     }
 }
 
+/// Seats that have already performed or replaced a non-(first-in-draw-step)
+/// draw this turn (`ReplacementRule::ReplaceDrawWithDrawsThen { first_extra_this_turn: true }`;
+/// *Reed Richards, Smartest Man*). Emits reserved hash tag `581` only when
+/// tracked and non-empty so unrelated games keep identical replay hashes.
+#[derive(Clone, Default, PartialEq, Eq, Debug)]
+pub struct PerTurnExtraDraws {
+    /// Whether any card in this game reads first-extra-draw history.
+    pub tracked: bool,
+    /// Seats that already had an extra draw this turn.
+    pub seats: Vec<PlayerId>,
+}
+
+impl PerTurnExtraDraws {
+    /// Record an extra draw for `player` (idempotent, canonical sorted order).
+    pub fn mark(&mut self, player: PlayerId) {
+        if let Err(pos) = self.seats.binary_search(&player) {
+            self.seats.insert(pos, player);
+        }
+    }
+
+    /// Whether `player` already had an extra draw this turn.
+    #[must_use]
+    pub fn has(&self, player: PlayerId) -> bool {
+        self.seats.contains(&player)
+    }
+}
+
+impl Hash for PerTurnExtraDraws {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        if self.tracked && !self.seats.is_empty() {
+            let mut seats = self.seats.clone();
+            seats.sort_unstable();
+            255_u8.hash(state);
+            581_u16.hash(state);
+            seats.as_slice().hash(state);
+        }
+    }
+}
+
 /// Pair-specific blocking requirement ("`blocker` blocks `attacker` this
 /// combat / this turn if able", CR 509.1c, CR 702.39a).
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
@@ -347,6 +386,8 @@ pub struct PerTurn {
     /// Chronological log of cards discarded this turn (with pre-discard hand
     /// snapshots) for `Trigger::OneOrMoreCardsDiscarded { first_this_turn: true, .. }`.
     pub discard_history: PerTurnTracked<DiscardHistoryRecord>,
+    /// Seats that already had a non-(first-in-draw-step) draw this turn.
+    pub extra_draw_occurred: PerTurnExtraDraws,
 }
 
 /// One discarded card recorded this turn ([`PerTurn::discard_history`]).
@@ -799,6 +840,7 @@ impl PerTurn {
             surveilled_cards: PerTurnTracked::default(),
             cards_foretold: PerTurnTracked::default(),
             discard_history: PerTurnTracked::default(),
+            extra_draw_occurred: PerTurnExtraDraws::default(),
         }
     }
 
@@ -972,6 +1014,7 @@ impl PerTurn {
         self.surveilled_cards.items.clear();
         self.cards_foretold.items.clear();
         self.discard_history.items.clear();
+        self.extra_draw_occurred.seats.clear();
     }
 
     /// Resets all counters (called at every turn start).
@@ -1051,6 +1094,7 @@ impl PerTurn {
             surveilled_cards: _,
             cards_foretold: _,
             discard_history: _,
+            extra_draw_occurred: _,
         } = self;
         *untapped_lands_at_start = 0;
         *hand_size_at_start = 0;

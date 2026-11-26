@@ -41,6 +41,7 @@ use baylee_core::ids::{ObjectId, PlayerId};
 
 /// Outcome of checking graveyard-arrival replacement rules (`CR 614.6`).
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
+#[allow(clippy::struct_excessive_bools)]
 pub(crate) struct GraveyardReplacement {
     /// Final destination zone (unchanged if no replacement applied).
     pub destination: crate::zone::ZoneLocation,
@@ -56,6 +57,18 @@ pub(crate) struct GraveyardReplacement {
     /// Optional replacement source `(id, version, acquisition)` to link the exiled
     /// card to (`Rider::Linked` / `Rider::ExiledWith` / `Rider::LinkedExile`).
     pub link_source: Option<(ObjectId, u32, u64)>,
+    /// Optional zone insertion position (top or bottom of library).
+    pub position: Option<crate::zone::ZonePosition>,
+    /// Reveal the redirected card as part of the replacement.
+    pub reveal: bool,
+    /// Optional immediate or delayed follow-up rider executed when exiled
+    /// `(controller, source, source_version, rider)`.
+    pub exile_rider: Option<(
+        PlayerId,
+        ObjectId,
+        Option<u32>,
+        baylee_cards_dsl::GraveyardExileRider,
+    )>,
 }
 
 impl GraveyardReplacement {
@@ -67,6 +80,90 @@ impl GraveyardReplacement {
             shuffle_into_library: false,
             reveal_on_shuffle: false,
             link_source: None,
+            position: None,
+            reveal: false,
+            exile_rider: None,
+        }
+    }
+}
+
+fn graveyard_redirect_outcome(
+    owner: PlayerId,
+    destination: baylee_cards_dsl::GraveyardRedirectDest,
+    reveal: bool,
+) -> GraveyardReplacement {
+    use crate::zone::{ZoneLocation, ZonePosition};
+    match destination {
+        baylee_cards_dsl::GraveyardRedirectDest::Hand => GraveyardReplacement {
+            destination: ZoneLocation::Hand(owner),
+            reveal,
+            ..GraveyardReplacement::unchanged(ZoneLocation::Hand(owner))
+        },
+        baylee_cards_dsl::GraveyardRedirectDest::TopOfLibrary => GraveyardReplacement {
+            destination: ZoneLocation::Library(owner),
+            position: Some(ZonePosition::Top),
+            reveal,
+            ..GraveyardReplacement::unchanged(ZoneLocation::Library(owner))
+        },
+        baylee_cards_dsl::GraveyardRedirectDest::BottomOfLibrary => GraveyardReplacement {
+            destination: ZoneLocation::Library(owner),
+            position: Some(ZonePosition::Bottom),
+            reveal,
+            ..GraveyardReplacement::unchanged(ZoneLocation::Library(owner))
+        },
+        baylee_cards_dsl::GraveyardRedirectDest::ShuffleIntoLibrary => GraveyardReplacement {
+            destination: ZoneLocation::Library(owner),
+            shuffle_into_library: true,
+            reveal_on_shuffle: reveal,
+            reveal,
+            ..GraveyardReplacement::unchanged(ZoneLocation::Library(owner))
+        },
+    }
+}
+
+fn graveyard_filter_matches(
+    state: &GameState,
+    card: &crate::object::GameObject,
+    filter: &'static baylee_cards_dsl::Filter,
+    controller: PlayerId,
+    source: ObjectId,
+) -> bool {
+    use crate::zone::Zone;
+    if !matches!(card.zone, Zone::Battlefield | Zone::Stack) && card.controller != card.owner {
+        let mut normalized = card.clone();
+        normalized.controller = card.owner;
+        eval::matches(filter, state, &normalized, controller, source)
+    } else {
+        eval::matches(filter, state, card, controller, source)
+    }
+}
+
+fn graveyard_damaged_by_holds(
+    state: &GameState,
+    id: ObjectId,
+    card_version: u32,
+    entry: &crate::state::ReplacementEntry,
+    damaged_by: baylee_cards_dsl::DamagedByScope,
+) -> bool {
+    match damaged_by {
+        baylee_cards_dsl::DamagedByScope::Any => true,
+        baylee_cards_dsl::DamagedByScope::SourceThisTurn => {
+            let Some(source_version) = replacement_source_version(state, entry.source) else {
+                return false;
+            };
+            state.was_damaged_by_source_this_turn(id, card_version, entry.source, source_version)
+        }
+        baylee_cards_dsl::DamagedByScope::SourceControllerThisTurn => {
+            state.was_damaged_by_controller_this_turn(id, card_version, entry.controller)
+        }
+        baylee_cards_dsl::DamagedByScope::AttachedCreatureThisTurn => {
+            let Some(host) = state.object(entry.source).and_then(|o| o.attached_to) else {
+                return false;
+            };
+            let Some(host_version) = replacement_source_version(state, host) else {
+                return false;
+            };
+            state.was_damaged_by_source_this_turn(id, card_version, host, host_version)
         }
     }
 }
@@ -129,12 +226,8 @@ pub(crate) fn graveyard_destination(
             crate::ability_log::replaced(entry);
         }
         return GraveyardReplacement {
-            destination: ZoneLocation::Hand(card.owner),
-            exile_counter: None,
             revealed_in_hand: true,
-            shuffle_into_library: false,
-            reveal_on_shuffle: false,
-            link_source: None,
+            ..GraveyardReplacement::unchanged(ZoneLocation::Hand(card.owner))
         };
     }
     // "If that creature would die this turn, exile it instead" (Mawloc),
@@ -173,6 +266,47 @@ pub(crate) fn graveyard_destination(
             return GraveyardReplacement::unchanged(ZoneLocation::Exile(card.owner));
         }
     }
+    if !card.riders.contains(&Rider::SpellCopy) && card.kind != ObjectKind::AbilityOnStack {
+        let effective_controller = if matches!(card.zone, Zone::Battlefield | Zone::Stack) {
+            card.controller
+        } else {
+            card.owner
+        };
+        for fx in state.effects.iter() {
+            let baylee_cards_dsl::Modifier::ExileMatchingInsteadOfGraveyard {
+                filter,
+                origin,
+                controller_lki,
+                rider,
+            } = fx.modifier
+            else {
+                continue;
+            };
+            if let Some(req_origin) = origin
+                && !card.zone.matches_ref(req_origin)
+            {
+                continue;
+            }
+            if let Some(req_controller) = controller_lki
+                && !eval::players_for_source(req_controller, state, fx.controller, fx.source)
+                    .is_some_and(|seats| seats.contains(&effective_controller))
+            {
+                continue;
+            }
+            let fx_source = fx.source.unwrap_or(id);
+            if !graveyard_filter_matches(state, card, filter, fx.controller, fx_source) {
+                continue;
+            }
+            let exile_rider = rider.map(|r| {
+                let ver = fx.source.and_then(|s| replacement_source_version(state, s));
+                (fx.controller, fx_source, ver, r)
+            });
+            return GraveyardReplacement {
+                exile_rider,
+                ..GraveyardReplacement::unchanged(ZoneLocation::Exile(card.owner))
+            };
+        }
+    }
     // "If [this] would be put into a graveyard from anywhere, [reveal it and]
     // shuffle it into its owner's library instead" (Blightsteel Colossus,
     // Darksteel Colossus, Progenitus; CR 113.6, CR 614.6). Read off the
@@ -204,13 +338,34 @@ pub(crate) fn graveyard_destination(
             },
         );
         return GraveyardReplacement {
-            destination: ZoneLocation::Library(card.owner),
-            exile_counter: None,
-            revealed_in_hand: false,
             shuffle_into_library: true,
             reveal_on_shuffle: reveal,
-            link_source: None,
+            ..GraveyardReplacement::unchanged(ZoneLocation::Library(card.owner))
         };
+    }
+    if !card.riders.contains(&Rider::SpellCopy)
+        && card.kind != ObjectKind::AbilityOnStack
+        && let Some((destination, reveal)) =
+            card.abilities(state.bases.as_ref())
+                .iter()
+                .find_map(|a| match a {
+                    baylee_cards_dsl::AbilityDef::Replacement(
+                        baylee_cards_dsl::ReplacementRule::RedirectGraveyard {
+                            filter,
+                            origin,
+                            destination,
+                            reveal,
+                            ..
+                        },
+                    ) if **filter == baylee_cards_dsl::Filter::This
+                        && origin.is_none_or(|req| card.zone.matches_ref(req)) =>
+                    {
+                        Some((*destination, *reveal))
+                    }
+                    _ => None,
+                })
+    {
+        return graveyard_redirect_outcome(card.owner, destination, reveal);
     }
     for entry in &state.replacement_rules {
         match entry.rule {
@@ -224,12 +379,8 @@ pub(crate) fn graveyard_destination(
                 #[cfg(any(test, feature = "test-support"))]
                 crate::ability_log::replaced(entry);
                 return GraveyardReplacement {
-                    destination: ZoneLocation::Exile(card.owner),
                     exile_counter: counter,
-                    revealed_in_hand: false,
-                    shuffle_into_library: false,
-                    reveal_on_shuffle: false,
-                    link_source: None,
+                    ..GraveyardReplacement::unchanged(ZoneLocation::Exile(card.owner))
                 };
             }
             baylee_cards_dsl::ReplacementRule::ExileInsteadOfGraveyard {
@@ -291,42 +442,10 @@ pub(crate) fn graveyard_destination(
                 {
                     continue;
                 }
-                match damaged_by {
-                    baylee_cards_dsl::DamagedByScope::Any => {}
-                    baylee_cards_dsl::DamagedByScope::SourceThisTurn => {
-                        let Some(source_version) = replacement_source_version(state, entry.source)
-                        else {
-                            continue;
-                        };
-                        if !state.was_damaged_by_source_this_turn(
-                            id,
-                            card.version,
-                            entry.source,
-                            source_version,
-                        ) {
-                            continue;
-                        }
-                    }
-                    baylee_cards_dsl::DamagedByScope::SourceControllerThisTurn => {
-                        if !state.was_damaged_by_controller_this_turn(
-                            id,
-                            card.version,
-                            entry.controller,
-                        ) {
-                            continue;
-                        }
-                    }
+                if !graveyard_damaged_by_holds(state, id, card.version, entry, damaged_by) {
+                    continue;
                 }
-                let filter_ok = if !matches!(card.zone, Zone::Battlefield | Zone::Stack)
-                    && card.controller != card.owner
-                {
-                    let mut normalized = card.clone();
-                    normalized.controller = card.owner;
-                    eval::matches(filter, state, &normalized, entry.controller, entry.source)
-                } else {
-                    eval::matches(filter, state, card, entry.controller, entry.source)
-                };
-                if !filter_ok {
+                if !graveyard_filter_matches(state, card, filter, entry.controller, entry.source) {
                     continue;
                 }
                 #[cfg(any(test, feature = "test-support"))]
@@ -351,12 +470,9 @@ pub(crate) fn graveyard_destination(
                     })
                     .flatten();
                 return GraveyardReplacement {
-                    destination: ZoneLocation::Exile(card.owner),
                     exile_counter: counter,
-                    revealed_in_hand: false,
-                    shuffle_into_library: false,
-                    reveal_on_shuffle: false,
                     link_source,
+                    ..GraveyardReplacement::unchanged(ZoneLocation::Exile(card.owner))
                 };
             }
             baylee_cards_dsl::ReplacementRule::ShuffleIntoLibraryInsteadOfGraveyard {
@@ -391,12 +507,157 @@ pub(crate) fn graveyard_destination(
                 #[cfg(any(test, feature = "test-support"))]
                 crate::ability_log::replaced(entry);
                 return GraveyardReplacement {
-                    destination: ZoneLocation::Library(card.owner),
-                    exile_counter: None,
-                    revealed_in_hand: false,
                     shuffle_into_library: true,
                     reveal_on_shuffle: reveal,
-                    link_source: None,
+                    ..GraveyardReplacement::unchanged(ZoneLocation::Library(card.owner))
+                };
+            }
+            baylee_cards_dsl::ReplacementRule::RedirectGraveyard {
+                filter,
+                origin,
+                owner,
+                controller_lki,
+                destination,
+                reveal,
+            } => {
+                if card.riders.contains(&Rider::SpellCopy)
+                    || card.kind == ObjectKind::AbilityOnStack
+                {
+                    continue;
+                }
+                if state.object(entry.source).is_some_and(|o| {
+                    o.zone == Zone::Battlefield
+                        && (o.status.contains(Status::PHASED_OUT)
+                            || o.characteristics().abilities_lost.is_some()
+                            || o.characteristics().rules_text_lost)
+                }) {
+                    continue;
+                }
+                if let Some(req_origin) = origin
+                    && !card.zone.matches_ref(req_origin)
+                {
+                    continue;
+                }
+                if let Some(req_owner) = owner
+                    && !eval::players_for_source(
+                        req_owner,
+                        state,
+                        entry.controller,
+                        Some(entry.source),
+                    )
+                    .is_some_and(|seats| seats.contains(&player))
+                {
+                    continue;
+                }
+                let effective_controller = if matches!(card.zone, Zone::Battlefield | Zone::Stack) {
+                    card.controller
+                } else {
+                    card.owner
+                };
+                if let Some(req_controller) = controller_lki
+                    && !eval::players_for_source(
+                        req_controller,
+                        state,
+                        entry.controller,
+                        Some(entry.source),
+                    )
+                    .is_some_and(|seats| seats.contains(&effective_controller))
+                {
+                    continue;
+                }
+                if !graveyard_filter_matches(state, card, filter, entry.controller, entry.source) {
+                    continue;
+                }
+                #[cfg(any(test, feature = "test-support"))]
+                crate::ability_log::replaced(entry);
+                return graveyard_redirect_outcome(card.owner, destination, reveal);
+            }
+            baylee_cards_dsl::ReplacementRule::ExileInsteadOfGraveyardWithRider {
+                filter,
+                origin,
+                owner,
+                controller_lki,
+                damaged_by,
+                link_to_source,
+                rider,
+            } => {
+                if card.riders.contains(&Rider::SpellCopy)
+                    || card.kind == ObjectKind::AbilityOnStack
+                {
+                    continue;
+                }
+                if state.object(entry.source).is_some_and(|o| {
+                    o.zone == Zone::Battlefield
+                        && (o.status.contains(Status::PHASED_OUT)
+                            || o.characteristics().abilities_lost.is_some()
+                            || o.characteristics().rules_text_lost)
+                }) {
+                    continue;
+                }
+                if let Some(req_origin) = origin
+                    && !card.zone.matches_ref(req_origin)
+                {
+                    continue;
+                }
+                if let Some(req_owner) = owner
+                    && !eval::players_for_source(
+                        req_owner,
+                        state,
+                        entry.controller,
+                        Some(entry.source),
+                    )
+                    .is_some_and(|seats| seats.contains(&player))
+                {
+                    continue;
+                }
+                let effective_controller = if matches!(card.zone, Zone::Battlefield | Zone::Stack) {
+                    card.controller
+                } else {
+                    card.owner
+                };
+                if let Some(req_controller) = controller_lki
+                    && !eval::players_for_source(
+                        req_controller,
+                        state,
+                        entry.controller,
+                        Some(entry.source),
+                    )
+                    .is_some_and(|seats| seats.contains(&effective_controller))
+                {
+                    continue;
+                }
+                if !graveyard_damaged_by_holds(state, id, card.version, entry, damaged_by) {
+                    continue;
+                }
+                if !graveyard_filter_matches(state, card, filter, entry.controller, entry.source) {
+                    continue;
+                }
+                #[cfg(any(test, feature = "test-support"))]
+                crate::ability_log::replaced(entry);
+                let src_ver = replacement_source_version(state, entry.source);
+                let link_source = link_to_source
+                    .then(|| {
+                        let version = src_ver?;
+                        let acquisition = state
+                            .source_object(baylee_core::ids::DamageSourceRef {
+                                object: entry.source,
+                                version,
+                            })
+                            .map_or_else(
+                                || {
+                                    state
+                                        .object(entry.source)
+                                        .map_or(0, crate::object::GameObject::rules_acquisition)
+                                },
+                                crate::object::GameObject::rules_acquisition,
+                            );
+                        Some((entry.source, version, acquisition))
+                    })
+                    .flatten();
+                return GraveyardReplacement {
+                    link_source,
+                    exile_rider: Some((entry.controller, entry.source, src_ver, rider)),
+                    ..GraveyardReplacement::unchanged(ZoneLocation::Exile(card.owner))
                 };
             }
             _ => {}

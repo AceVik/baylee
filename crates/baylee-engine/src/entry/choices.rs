@@ -86,7 +86,7 @@ pub fn advance(state: &mut GameState) -> Option<Pending> {
                 },
             ));
         }
-        if entry.refusal.is_none() {
+        if !entry.is_cancelled() {
             while let Some(&modifier) = entry.modifiers.get(entry.next) {
                 entry.next += 1;
                 let player = entry.controller;
@@ -435,6 +435,16 @@ pub fn advance(state: &mut GameState) -> Option<Pending> {
                             Pending::ChoosePlayer { player, options },
                         ));
                     }
+                    EnterModifier::EntersUnderChosenOpponentControl => {
+                        if entry.applied_own_control {
+                            continue;
+                        }
+                        if let Some((question, pending)) =
+                            equilibrium::apply_own_control(state, &mut entry)
+                        {
+                            return Some(ask(state, entry, question, pending));
+                        }
+                    }
                     _ => {}
                 }
                 state.entries.pending.push_front(entry);
@@ -717,6 +727,10 @@ pub fn answer(state: &mut GameState, action: &PlayerAction) {
                 obj.set_chosen_opponent(Some(*chosen));
             }
         }
+        (Question::EntryControllerOpponent, PlayerAction::ChoosePlayer(opp)) => {
+            entry.controller_override = Some(*opp);
+            entry.controller = *opp;
+        }
         _ => unreachable!("entry answer shape was validated"),
     }
     state.entries.pending.push_front(entry);
@@ -890,10 +904,10 @@ fn completed(state: &mut GameState) -> bool {
 
 fn initial_question(state: &mut GameState, entry: &mut Attempt) -> Option<(Question, Pending)> {
     copy_question(state, entry).or_else(|| {
-        if entry.refusal.is_some() {
+        if entry.is_cancelled() {
             return None;
         }
-        equilibrium::replacement_order(state, entry).map(|pending| (Question::Replacement, pending))
+        equilibrium::replacement_order(state, entry)
     })
 }
 
@@ -901,7 +915,7 @@ fn keyword_entry_question(
     state: &mut GameState,
     entry: &mut Attempt,
 ) -> Option<(Question, Pending)> {
-    if entry.refusal.is_some() {
+    if entry.is_cancelled() {
         return None;
     }
     if !entry.kw_choices.initialized {

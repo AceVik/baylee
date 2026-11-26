@@ -817,7 +817,7 @@ fn create_tokens_entering_pt(
         entry,
         count,
     }];
-    let Some(batch) = apply_token_replacements(state, controller, batch) else {
+    let Some((controller, batch)) = apply_token_replacements(state, controller, batch) else {
         state.numeric_failure = Some("token creation exceeds u32 objects");
         return Vec::new();
     };
@@ -894,7 +894,7 @@ fn create_token_copies_from(
         face,
         count,
     }];
-    let Some(batch) = apply_token_replacements(state, controller, batch) else {
+    let Some((controller, batch)) = apply_token_replacements(state, controller, batch) else {
         state.numeric_failure = Some("token creation exceeds u32 objects");
         return Vec::new();
     };
@@ -1176,10 +1176,41 @@ fn token_rule_controller_matches(
 
 fn apply_token_replacements(
     state: &mut GameState,
-    controller: PlayerId,
+    mut controller: PlayerId,
     mut batch: Vec<ProspectiveToken>,
-) -> Option<Vec<ProspectiveToken>> {
+) -> Option<(PlayerId, Vec<ProspectiveToken>)> {
+    let mut applied_steals: smallvec::SmallVec<[baylee_core::ids::EffectId; 2]> =
+        smallvec::SmallVec::new();
+    // Apply token-controller replacement effects (*Crafty Cutpurse*, CR 614.1a,
+    // CR 614.5) in APNAP order from the active player so each effect applies at
+    // most once before multipliers evaluate against the final controller.
+    loop {
+        let next_steal = state
+            .effects
+            .iter()
+            .filter(|fx| {
+                fx.modifier == baylee_cards_dsl::Modifier::StealOpponentTokens
+                    && !applied_steals.contains(&fx.id)
+                    && state.is_opponent(controller, fx.controller)
+                    && !state.has_left(fx.controller)
+            })
+            .min_by_key(|fx| {
+                (
+                    crate::battle::sba::apnap_distance(state, fx.controller),
+                    fx.timestamp,
+                )
+            })
+            .map(|fx| (fx.id, fx.controller));
+        let Some((fx_id, new_controller)) = next_steal else {
+            break;
+        };
+        applied_steals.push(fx_id);
+        controller = new_controller;
+    }
+
     let mut applied: smallvec::SmallVec<[(ObjectId, usize); 4]> = smallvec::SmallVec::new();
+    let mut applied_fx: smallvec::SmallVec<[baylee_core::ids::EffectId; 4]> =
+        smallvec::SmallVec::new();
     loop {
         let rules: Vec<crate::state::ReplacementEntry> = state.replacement_rules.clone();
         let mut progressed = false;
@@ -1195,11 +1226,37 @@ fn apply_token_replacements(
                 progressed = true;
             }
         }
+        let fx_multipliers: Vec<(baylee_core::ids::EffectId, u32)> = state
+            .effects
+            .iter()
+            .filter_map(|fx| {
+                if applied_fx.contains(&fx.id) {
+                    return None;
+                }
+                let baylee_cards_dsl::Modifier::MultiplyTokensCreated { who, factor } = fx.modifier
+                else {
+                    return None;
+                };
+                if factor <= 1 {
+                    return None;
+                }
+                let affects = eval::players_for_source(who, state, fx.controller, fx.source)
+                    .is_some_and(|ps| ps.contains(&controller));
+                affects.then_some((fx.id, factor))
+            })
+            .collect();
+        for (fx_id, factor) in fx_multipliers {
+            for item in &mut batch {
+                *item.count_mut() = item.count().checked_mul(factor)?;
+            }
+            applied_fx.push(fx_id);
+            progressed = true;
+        }
         if !progressed {
             break;
         }
     }
-    Some(batch)
+    Some((controller, batch))
 }
 
 fn apply_single_token_rule(

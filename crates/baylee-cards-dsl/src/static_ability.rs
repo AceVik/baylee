@@ -77,6 +77,126 @@ pub enum DamageAmountReplacement {
     /// and applied once to each source's damage to each recipient. Not a
     /// prevention effect. Appended to preserve replay identities.
     Subtract(u32),
+    /// Replace any positive damage event (`amount >= 1`) with exactly this
+    /// amount (*Equal Treatment*: "If any source would deal 1 or more damage
+    /// to a permanent or player this turn, it deals 2 damage instead";
+    /// CR 614.1a). Not a prevention effect. Appended to preserve replay
+    /// identities.
+    SetTo(u32),
+}
+
+/// How [`ReplacementRule::ReplaceMultiDraw`] transforms a multi-card draw
+/// instruction before it breaks into individual card draws (`CR 121.2`,
+/// `CR 614.11`).
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
+pub enum MultiDrawReplacementKind {
+    /// "Instead you and that player each draw a card" (*Alms Collector*;
+    /// draws are queued in APNAP order per `CR 121.2c`).
+    EachDrawsOne,
+    /// "You draw that many cards plus `add` instead" (*Quantum Riddler*).
+    AddCards(u8),
+}
+
+/// One-shot next-draw replacement created by a resolving spell or ability
+/// (`CR 614.1a`, `CR 616.1`; *Words of Worship*, *Words of Wilding*).
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
+pub enum NextDrawReplacement {
+    /// "You gain `N` life instead" (*Words of Worship*).
+    GainLife(u16),
+    /// "Create a token instead" (*Words of Wilding*).
+    CreateToken(&'static crate::effect::TokenDef),
+}
+
+/// Alternate destination when [`Modifier::ReplaceBattlefieldEntry`] replaces an
+/// object entering the battlefield (`CR 614.1c`, `CR 614.6`).
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
+pub enum EntryInsteadZone {
+    /// Exile the object instead of putting it onto the battlefield
+    /// (*Containment Priest*, *Primeval Spawn*, *Hallowed Moonlight*, *Mistcaller*).
+    Exile,
+    /// Shuffle the object into its owner's library instead (*Don't Blink*).
+    ShuffleIntoOwnersLibrary,
+}
+
+/// Provenance condition tested by [`Modifier::ReplaceBattlefieldEntry`] before
+/// an object reaches the battlefield.
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
+pub enum EntryPredicate {
+    /// The entering permanent was not cast (*Containment Priest*, *Hallowed
+    /// Moonlight*, *Mistcaller*).
+    NotCast,
+    /// The entering permanent was not cast or zero mana was spent to cast it
+    /// (*Primeval Spawn*).
+    NotCastOrNoManaSpent,
+    /// Entering directly from exile or resolving after being cast from exile
+    /// (*Don't Blink*).
+    FromExileOrCastFromExile,
+}
+
+/// Non-exile destination for [`ReplacementRule::RedirectGraveyard`]
+/// (`CR 614.1a`, `CR 614.6`).
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
+pub enum GraveyardRedirectDest {
+    /// Return to its owner's hand instead (*Necromancer's Magemark*).
+    Hand,
+    /// Put on top of its owner's library instead (*Gravebane Zombie*).
+    TopOfLibrary,
+    /// Put on the bottom of its owner's library instead (*Nissa's Chosen*,
+    /// *Wheel of Sun and Moon*).
+    BottomOfLibrary,
+    /// Shuffle into its owner's library instead.
+    ShuffleIntoLibrary,
+}
+
+/// Additional immediate action performed when a graveyard-exile replacement
+/// exiles a card or creature (`CR 614.6`).
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
+pub enum GraveyardExileRider {
+    /// Put `count` counters of `kind` on the exiled card (*Darigaaz
+    /// Reincarnated*: 3 egg counters; *Ravenloft Adventurer*: 1 hit counter).
+    CountersOnExiled {
+        /// Counter kind placed on the exiled card.
+        kind: crate::CounterKind,
+        /// Number of counters placed.
+        count: u16,
+    },
+    /// Replacement controller creates `count` tokens (*Kalitas, Traitor of
+    /// Ghet*, *Nemata, Primeval Warden*, *Head of the Hunt*).
+    CreateToken {
+        /// Token blueprint created.
+        token: &'static crate::effect::TokenDef,
+        /// Number of tokens created per exiled permanent.
+        count: u8,
+    },
+    /// Replacement controller gains `amount` life (*The Darkness Crystal*).
+    GainLife(u16),
+    /// Put counters on the replacement source equal to the departing
+    /// creature's last-known power (*Ravenous Slime*).
+    PowerCountersOnSource(crate::CounterKind),
+    /// Replacement controller takes an extra turn after this one
+    /// (*Ugin's Nexus*).
+    ExtraTurn,
+    /// Return the exiled card to the battlefield under its owner's control at
+    /// the beginning of the next end step (*Cosmic Intervention*).
+    ReturnAtNextEndStep,
+}
+
+/// Granularity at which [`Modifier::ReplaceOrPreventDamageScopedWithThen`]
+/// groups simultaneous damage parts into prevention/replacement candidates and
+/// rider executions (`CR 615.5`, `CR 616.1`).
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
+pub enum DamageRiderScope {
+    /// One application per recipient across the damage batch (same as
+    /// [`Modifier::ReplaceOrPreventDamageWithThen`]).
+    PerBatch,
+    /// One application per `(source, recipient)` pair (*Nine Lives*,
+    /// *Ironscale Hydra*, *Swans of Bryn Argoll*, *Comeuppance*).
+    PerSource,
+    /// One application per recipient with the damaged object bound for
+    /// [`crate::Effect::AddCounterDamagedObject`] /
+    /// [`crate::Effect::ShuffleDamagedObjectIntoLibrary`] (*Vigor*,
+    /// *Soul-Scar Mage*, *Szadek*, *Undead Alchemist*, *Weeping Angel*).
+    PerTarget,
 }
 
 /// How a [`Modifier::ModifyLifeGain`] changes the amount of a life gain
@@ -1910,6 +2030,155 @@ pub enum Modifier {
         /// Generic mana tax added if no chosen target matches `filter`.
         generic: u8,
     },
+    /// One-shot next-draw replacement for this effect's controller (*Words of
+    /// Worship*, *Words of Wilding*; `CR 614.1a`, `CR 616.1`). Appended to
+    /// preserve replay identities.
+    NextDrawReplace(NextDrawReplacement),
+    /// One-shot replacement for the next time this effect's controller would
+    /// lose the game this turn: instead draw `draw` cards and set their life
+    /// total to `set_life` (*Stunning Reversal*; `CR 614.1a`, `CR 104.3`).
+    /// Appended to preserve replay identities.
+    ReplaceNextGameLoss {
+        /// Cards drawn as part of the replacement.
+        draw: u8,
+        /// New life total set as part of the replacement.
+        set_life: i32,
+    },
+    /// If a permanent matching `filter` would enter the battlefield under an
+    /// opponent's control, it enters under this effect's controller's control
+    /// instead (*Gather Specimens*; `CR 614.1c`, `CR 616.1`). Appended to
+    /// preserve replay identities.
+    EnterUnderYourControl(&'static Filter),
+    /// If an object matching `filter` and `predicate` would enter the
+    /// battlefield, send it to `destination` instead (*Containment Priest*,
+    /// *Primeval Spawn*, *Hallowed Moonlight*, *Mistcaller*, *Don't Blink*;
+    /// `CR 614.1c`, `CR 616.1`). Appended to preserve replay identities.
+    ReplaceBattlefieldEntry {
+        /// Prospective permanent filter (or `&Filter::This` for self-replacement).
+        filter: &'static Filter,
+        /// Entry provenance check.
+        predicate: EntryPredicate,
+        /// Zone it goes to instead of the battlefield.
+        destination: EntryInsteadZone,
+    },
+    /// Continuous-effect graveyard-to-exile replacement matching `filter` and
+    /// optional `origin` / `controller_lki` / `rider` (*Flaying Tendrils*,
+    /// *Malicious Eclipse*, *Malicious Malfunction*, *Cosmic Intervention*;
+    /// `CR 614.6`). Appended to preserve replay identities.
+    ExileMatchingInsteadOfGraveyard {
+        /// Characteristic filter evaluated against pre-move LKI.
+        filter: &'static Filter,
+        /// Required origin zone (`Some(ZoneRef::Battlefield)` for "would die").
+        origin: Option<crate::filter::ZoneRef>,
+        /// Optional last-known controller relation relative to effect controller.
+        controller_lki: Option<crate::effect::PlayerRel>,
+        /// Optional immediate or delayed follow-up rider.
+        rider: Option<GraveyardExileRider>,
+    },
+    /// Continuous-effect entry-tapping replacement ("Permanents enter tapped
+    /// this turn", *Due Respect*; `CR 614.1c`, `CR 616.1`). Appended to
+    /// preserve replay identities.
+    PermanentsEnterTapped(&'static Filter),
+    /// Continuous-effect token creation multiplier ("Until end of turn, if one
+    /// or more tokens would be created under your control, twice that many are
+    /// created instead", *Kaya, Geist Hunter*; `CR 614.1a`). Appended to
+    /// preserve replay identities.
+    MultiplyTokensCreated {
+        /// Whose token creations are multiplied.
+        who: crate::effect::PlayerRel,
+        /// Positive multiplication factor.
+        factor: u32,
+    },
+    /// Each token that would be created under an opponent's control is created
+    /// under this effect's controller's control instead (*Crafty Cutpurse*;
+    /// `CR 614.1a`, `CR 616.1`). Appended to preserve replay identities.
+    StealOpponentTokens,
+    /// Dynamic additive damage replacement ("deals that much damage plus X
+    /// instead", *Fated Firepower*, *Hawkeye, Young Avenger*, *Taii Wakeen*;
+    /// `CR 614.1a`). Appended to preserve replay identities.
+    AddDamageDynamic {
+        /// Sources whose damage is increased.
+        sources: &'static Filter,
+        /// Dynamic bonus evaluated against the effect's source and controller.
+        extra: crate::Amount,
+        /// Only combat damage.
+        combat_only: bool,
+        /// Only noncombat damage.
+        noncombat_only: bool,
+        /// Players and/or permanents receiving that damage.
+        recipients: DamageRecipients,
+    },
+    /// "If damage would be dealt to [the affected permanent] [while it has a
+    /// `kind` counter on it], prevent that damage and remove a `kind` counter
+    /// from it" (*Oathsworn Knight*, *Undergrowth Champion*, *Phantom Centaur*,
+    /// *Phantom Wurm*, *Unbreathing Horde*; `CR 615.1`, `CR 615.12`). Unlike
+    /// [`Self::PreventDamageRemovingCounters`], removes at most **one** counter
+    /// per prevented damage event. Appended to preserve replay identities.
+    PreventDamageRemovingOneCounter {
+        /// Counter kind removed (typically `+1/+1`).
+        kind: crate::CounterKind,
+        /// When `true`, only applies while at least one `kind` counter is on it.
+        require_counter: bool,
+    },
+    /// Redirect all matching damage that would be dealt to `recipients` to the
+    /// affected permanent instead while it remains a damageable battlefield
+    /// permanent (*Palisade Giant*, *Ancient Adamantoise*, *Weathered
+    /// Bodyguards*, *Heroic Sacrifice*, *Gideon's Sacrifice*, *Ascent of the
+    /// Worthy*; `CR 614.9`). Appended to preserve replay identities.
+    RedirectDamageToAffected {
+        /// Sources whose damage is redirected.
+        sources: &'static Filter,
+        /// Recipients whose damage is redirected to the affected permanent.
+        recipients: DamageRecipients,
+        /// Restrict to combat (`Some(true)`), noncombat (`Some(false)`), or any.
+        combat: Option<bool>,
+    },
+    /// All damage that would be dealt to the affected permanent is dealt to
+    /// its controller instead (*Treacherous Link*; `CR 614.9`). Appended to
+    /// preserve replay identities.
+    RedirectDamageToAffectedController,
+    /// "If a source would deal damage to [recipients], prevent all but 1 of
+    /// that damage" (*Temple Altisaur*, *Hyperion, Supreme Hero*, *Ajani
+    /// Steadfast* emblem; `CR 615.1`, `CR 615.12`). Prevention effect, so
+    /// unpreventable damage bypasses it. Appended to preserve replay identities.
+    PreventAllButOneDamage {
+        /// Sources whose damage is reduced to 1.
+        sources: &'static Filter,
+        /// Recipients protected.
+        recipients: DamageRecipients,
+        /// Restrict to combat (`Some(true)`), noncombat (`Some(false)`), or any.
+        combat: Option<bool>,
+    },
+    /// Scoped damage prevention or non-prevention replacement with an
+    /// immediate rider (*Vigor*, *Soul-Scar Mage*, *Swans of Bryn Argoll*,
+    /// *Nine Lives*, *Ironscale Hydra*, *Szadek*, *Undead Alchemist*, *Sekki*,
+    /// *Weeping Angel*, *Comeuppance*, *Brace for Impact*; `CR 614.1a`,
+    /// `CR 615.5`). Appended to preserve replay identities.
+    ReplaceOrPreventDamageScopedWithThen {
+        /// Sources whose damage is prevented or replaced.
+        sources: &'static Filter,
+        /// Players and/or permanents receiving that damage.
+        recipients: DamageRecipients,
+        /// Restrict to combat (`Some(true)`), noncombat (`Some(false)`), or any.
+        combat: Option<bool>,
+        /// `false` for prevention; `true` for non-prevention replacement.
+        is_replacement: bool,
+        /// When `is_replacement` is `false`: `true` gates the rider on
+        /// `prevented > 0` (*Vigor*, *Swans of Bryn Argoll*, *Comeuppance*,
+        /// *Brace for Impact*), while `false` fires on `attempted > 0` even
+        /// for unpreventable damage (`CR 615.12`; *Nine Lives*, *Ironscale
+        /// Hydra*). Ignored when `is_replacement` is `true`.
+        only_if_prevented: bool,
+        /// Candidate/rider grouping granularity.
+        scope: DamageRiderScope,
+        /// Immediate rider effect(s) executed after damage commits.
+        then: crate::DamageRider,
+    },
+    /// "If damage would be dealt to [the affected creature], instead that
+    /// damage is dealt, but all other damage already dealt to it is healed"
+    /// (*Wolverine, Fierce Fighter*; `CR 614.1a`). Appended to preserve replay
+    /// identities.
+    HealOtherDamageWhenDealtDamage,
 }
 
 /// Keyword alternative-cost modes opened from a graveyard by
@@ -2470,7 +2739,22 @@ impl Modifier {
             | Self::CantBeAttackedBy(_)
             | Self::MayActivateLoyaltyAsInstant { .. }
             | Self::MayCastFromGraveyardTargeted { .. }
-            | Self::CastCostIncreaseUnlessTargets { .. } => Layer::Text,
+            | Self::CastCostIncreaseUnlessTargets { .. }
+            | Self::NextDrawReplace(_)
+            | Self::ReplaceNextGameLoss { .. }
+            | Self::EnterUnderYourControl(_)
+            | Self::ReplaceBattlefieldEntry { .. }
+            | Self::ExileMatchingInsteadOfGraveyard { .. }
+            | Self::PermanentsEnterTapped(_)
+            | Self::MultiplyTokensCreated { .. }
+            | Self::StealOpponentTokens
+            | Self::AddDamageDynamic { .. }
+            | Self::PreventDamageRemovingOneCounter { .. }
+            | Self::RedirectDamageToAffected { .. }
+            | Self::RedirectDamageToAffectedController
+            | Self::PreventAllButOneDamage { .. }
+            | Self::ReplaceOrPreventDamageScopedWithThen { .. }
+            | Self::HealOtherDamageWhenDealtDamage => Layer::Text,
         }
     }
 }
@@ -2994,6 +3278,156 @@ pub enum ReplacementRule {
         /// Optional board condition required for the multiplier to apply.
         condition: Option<crate::ability::Condition>,
     },
+    /// "If `who` would draw a card, exile the top `count` cards of their
+    /// library [face down] instead [and they may play them this turn]"
+    /// (*Eruth, Tormented Prophet*; `CR 614.1a`, `CR 614.11b`). Appended to
+    /// preserve replay identities.
+    ReplaceDrawExileTopN {
+        /// Whose draws are replaced.
+        who: crate::effect::PlayerRel,
+        /// Number of top cards exiled per replaced draw.
+        count: u8,
+        /// Whether exiled face down.
+        face_down: bool,
+        /// Whether the drawing player may play those exiled cards this turn.
+        may_play_this_turn: bool,
+    },
+    /// "If you would draw a card, instead reveal the top `count` cards of your
+    /// library. Put all cards matching `filter` into your hand and the rest on
+    /// the bottom of your library in any order" (*Sages of the Anima*;
+    /// `CR 614.1a`, `CR 614.11b`). Appended to preserve replay identities.
+    ReplaceDrawRevealAllMatching {
+        /// Number of top cards revealed.
+        count: u8,
+        /// Filter selecting cards put into hand.
+        filter: &'static Filter,
+    },
+    /// Extended draw-replacement multiplying draws with optional first-extra
+    /// gating and life loss (*Blood Scrivener*, *Reed Richards, Smartest Man*;
+    /// `CR 121.2`, `CR 614.1a`, `CR 614.5`). Appended to preserve replay
+    /// identities.
+    ReplaceDrawWithDrawsThen {
+        /// Whose draws are replaced.
+        who: crate::effect::PlayerRel,
+        /// Ignore the player's first card drawn in each of their draw steps.
+        skip_first_in_draw_step: bool,
+        /// Apply only to the first non-(first-in-draw-step) draw each turn
+        /// (*Reed Richards, Smartest Man*).
+        first_extra_this_turn: bool,
+        /// Optional condition checked as the draw would occur.
+        condition: Option<crate::ability::Condition>,
+        /// Number of cards drawn instead.
+        count: u8,
+        /// Life lost by the drawing player when this replacement applies
+        /// (*Blood Scrivener*: `1`).
+        lose_life: u16,
+    },
+    /// "If you would draw a card while your library has no cards in it,
+    /// instead put `count` `kind` counters on this permanent" (*Ormos, Archive
+    /// Keeper*; `CR 614.1a`, `CR 614.11`). Appended to preserve replay
+    /// identities.
+    ReplaceDrawEmptyLibraryWithCounters {
+        /// Counter kind placed on the source permanent.
+        kind: crate::CounterKind,
+        /// Number of counters placed.
+        count: u16,
+    },
+    /// "If you would draw a card while your library has no cards in it,
+    /// instead return a card matching `filter` from your graveyard to the
+    /// battlefield. If you can't, you lose the game" (*Out of the Tombs*;
+    /// `CR 614.1a`, `CR 614.11`). Appended to preserve replay identities.
+    ReplaceDrawEmptyLibraryReanimateOrLose {
+        /// Graveyard card filter eligible to return.
+        filter: &'static Filter,
+    },
+    /// "If you would draw a card [while `condition` holds], you may instead
+    /// search your library for a card, put it into your hand, then shuffle"
+    /// (*Archmage Ascension*; `CR 614.1a`, `CR 701.19`). Appended to preserve
+    /// replay identities.
+    ReplaceDrawMaySearchToHand {
+        /// Optional board condition checked on the replacement source.
+        condition: Option<crate::ability::Condition>,
+    },
+    /// Multi-card draw instruction replacement (`Event$ DrawCards`; *Alms
+    /// Collector*, *Quantum Riddler*; `CR 121.2`, `CR 614.11`, `CR 616.1`).
+    /// Appended to preserve replay identities.
+    ReplaceMultiDraw {
+        /// Whose multi-card draw instructions are replaced.
+        who: crate::effect::PlayerRel,
+        /// Minimum number of cards in the draw instruction (`2` for Alms
+        /// Collector, `1` for Quantum Riddler).
+        min_cards: u32,
+        /// Optional board condition checked as the draw would occur.
+        condition: Option<crate::ability::Condition>,
+        /// Replacement transformation.
+        kind: MultiDrawReplacementKind,
+    },
+    /// "If a spell or ability an opponent controls causes you to discard this
+    /// card, put it onto the battlefield [with counters] instead of putting it
+    /// into your graveyard" (*Obstinate Baloth*, *Loxodon Smiter*, *Wilt-Leaf
+    /// Liege*, *Nullhide Ferox*, *Dodecapod*; `CR 614.1a`, `CR 701.9`).
+    /// Functions in hand. Appended to preserve replay identities.
+    PutOntoBattlefieldOnOpponentDiscard {
+        /// Optional counter kind placed on entry (*Dodecapod*: `+1/+1`).
+        counter_kind: Option<crate::CounterKind>,
+        /// Number of counters placed on entry (*Dodecapod*: `2`).
+        counter_count: u16,
+    },
+    /// Non-exile graveyard-arrival replacement (*Nissa's Chosen*, *Gravebane
+    /// Zombie*, *Wheel of Sun and Moon*, *Necromancer's Magemark*; `CR 614.1a`,
+    /// `CR 614.6`). Appended to preserve replay identities.
+    RedirectGraveyard {
+        /// Characteristic filter evaluated against pre-move LKI (or `&Filter::This`).
+        filter: &'static Filter,
+        /// Required origin zone (`Some(ZoneRef::Battlefield)` for "would die"),
+        /// or `None` for "from anywhere".
+        origin: Option<crate::filter::ZoneRef>,
+        /// Optional graveyard owner relation relative to replacement controller.
+        owner: Option<crate::effect::PlayerRel>,
+        /// Optional last-known controller relation.
+        controller_lki: Option<crate::effect::PlayerRel>,
+        /// Replacement destination zone.
+        destination: GraveyardRedirectDest,
+        /// Whether to reveal the card as part of the replacement.
+        reveal: bool,
+    },
+    /// Graveyard-to-exile replacement with an immediate or delayed rider
+    /// (*Kalitas, Traitor of Ghet*, *Nemata*, *Head of the Hunt*, *Darigaaz
+    /// Reincarnated*, *The Darkness Crystal*, *Ravenloft Adventurer*,
+    /// *Ravenous Slime*, *Ugin's Nexus*; `CR 603.10a`, `CR 614.6`). Appended
+    /// to preserve replay identities.
+    ExileInsteadOfGraveyardWithRider {
+        /// Characteristic filter evaluated against pre-move LKI.
+        filter: &'static Filter,
+        /// Required origin zone, or `None` for "from anywhere".
+        origin: Option<crate::filter::ZoneRef>,
+        /// Optional graveyard owner relation.
+        owner: Option<crate::effect::PlayerRel>,
+        /// Optional last-known controller relation.
+        controller_lki: Option<crate::effect::PlayerRel>,
+        /// Damage-history requirement against the departing permanent.
+        damaged_by: DamagedByScope,
+        /// Whether to link the exiled card to the replacement source.
+        link_to_source: bool,
+        /// Follow-up action executed when the card/permanent is exiled this way.
+        rider: GraveyardExileRider,
+    },
+    /// "As a permanent matching `filter` enters, it becomes a `power`/`toughness`
+    /// with `add_types` and `add_subtypes` in addition to its other types"
+    /// (*Displaced Dinosaurs*; `CR 614.1c`, `CR 707.9`). Appended to preserve
+    /// replay identities.
+    EnterAsAdditionalTypesAndPt {
+        /// Prospective permanents affected.
+        filter: &'static Filter,
+        /// Additional card types added.
+        add_types: TypeSet,
+        /// Additional subtypes added.
+        add_subtypes: &'static [baylee_core::ids::SubtypeId],
+        /// New base power.
+        power: i16,
+        /// New base toughness.
+        toughness: i16,
+    },
 }
 
 /// Event-cause predicate for [`ReplacementRule::TriggerMultiplierMatching`]
@@ -3062,6 +3496,9 @@ pub enum DamagedByScope {
     /// Dealt damage this turn by any source controlled by the replacement's
     /// controller at the time damage was dealt (*Etching of Kumano*).
     SourceControllerThisTurn,
+    /// Dealt damage this turn by the creature the replacement source is
+    /// attached to (*Kumano's Blessing*). Appended to preserve replay identities.
+    AttachedCreatureThisTurn,
 }
 
 #[cfg(test)]
@@ -3696,6 +4133,61 @@ mod tests {
                 filter: &Filter::YOUR_CREATURE,
                 generic: 8,
             },
+            Modifier::NextDrawReplace(NextDrawReplacement::GainLife(5)),
+            Modifier::ReplaceNextGameLoss {
+                draw: 7,
+                set_life: 1,
+            },
+            Modifier::EnterUnderYourControl(&Filter::CREATURE),
+            Modifier::ReplaceBattlefieldEntry {
+                filter: &Filter::CREATURE,
+                predicate: EntryPredicate::NotCast,
+                destination: EntryInsteadZone::Exile,
+            },
+            Modifier::ExileMatchingInsteadOfGraveyard {
+                filter: &Filter::CREATURE,
+                origin: Some(crate::ZoneRef::Battlefield),
+                controller_lki: None,
+                rider: None,
+            },
+            Modifier::PermanentsEnterTapped(&Filter::Any),
+            Modifier::MultiplyTokensCreated {
+                who: crate::PlayerRel::You,
+                factor: 2,
+            },
+            Modifier::StealOpponentTokens,
+            Modifier::AddDamageDynamic {
+                sources: &Filter::ControlledByYou,
+                extra: crate::Amount::Fixed(1),
+                combat_only: false,
+                noncombat_only: true,
+                recipients: DamageRecipients::Any,
+            },
+            Modifier::PreventDamageRemovingOneCounter {
+                kind: crate::CounterKind::P1P1,
+                require_counter: true,
+            },
+            Modifier::RedirectDamageToAffected {
+                sources: &Filter::Any,
+                recipients: DamageRecipients::PlayersOrTheirPermanents(crate::PlayerRel::You),
+                combat: None,
+            },
+            Modifier::RedirectDamageToAffectedController,
+            Modifier::PreventAllButOneDamage {
+                sources: &Filter::Any,
+                recipients: DamageRecipients::Players(crate::PlayerRel::You),
+                combat: None,
+            },
+            Modifier::ReplaceOrPreventDamageScopedWithThen {
+                sources: &Filter::Any,
+                recipients: DamageRecipients::Permanents(&Filter::YOUR_CREATURE),
+                combat: None,
+                is_replacement: false,
+                only_if_prevented: true,
+                scope: DamageRiderScope::PerTarget,
+                then: RIDER,
+            },
+            Modifier::HealOtherDamageWhenDealtDamage,
         ] {
             assert_eq!(
                 modifier.layer(),

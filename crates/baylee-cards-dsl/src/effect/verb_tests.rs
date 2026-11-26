@@ -1414,3 +1414,33 @@ fn may_pay_energy_equal_to_target_cmc_then_body_is_visited() {
     assert_eq!(seen, 2);
     assert!(returned);
 }
+
+#[test]
+fn prevent_next_from_chosen_source_with_then_body_is_visited() {
+    static RIDER_OPS: &[Effect] = &[
+        Effect::DealDamageToEventSourceOrController {
+            amount: Amount::ThisWay(crate::ThisWay::DamagePrevented),
+            creature_source_takes_damage: false,
+        },
+        Effect::DrawCardsFor {
+            who: crate::PlayerRel::You,
+            amount: Amount::ThisWay(crate::ThisWay::DamagePrevented),
+        },
+    ];
+    static EFFECTS: &[Effect] = &[Effect::PreventNextFromChosenSourceWithThen {
+        target: TargetSpec::Player(crate::PlayerRel::You),
+        sources: &Filter::Any,
+        combat_only: false,
+        then: DamageRider::sequence(RIDER_OPS),
+    }];
+    let mut seen = 0;
+    let mut dealt = false;
+    let mut drew = false;
+    Effect::walk(EFFECTS, &mut seen, &mut |effect| {
+        dealt |= matches!(effect, Effect::DealDamageToEventSourceOrController { .. });
+        drew |= matches!(effect, Effect::DrawCardsFor { .. });
+    });
+    assert_eq!(seen, 3);
+    assert!(dealt);
+    assert!(drew);
+}
