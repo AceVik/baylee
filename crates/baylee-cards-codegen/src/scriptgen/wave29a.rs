@@ -1222,7 +1222,7 @@ impl Tx<'_> {
             && self.has_linked_exile_reader()
             && matches!(
                 self.trigger_mode.as_deref(),
-                Some("ChangesZone" | "Sacrificed")
+                Some("ChangesZone" | "Sacrificed" | "Discarded")
             )
             && matches!(
                 defined,

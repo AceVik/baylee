@@ -1462,10 +1462,17 @@ impl Tx<'_> {
                 if probe.has("ValidCards") || probe.has("PumpZone") {
                     return None;
                 }
+                let at_eot = probe.take("AtEOT");
                 probe
                     .entries
                     .push(("ValidCards".to_string(), "Card.IsRemembered".to_string()));
-                let effs = self.pump_all_effect(&mut probe, None, false, false, true)?;
+                let mut effs = self.pump_all_effect(&mut probe, None, false, false, true)?;
+                if let Some(at_eot) = at_eot {
+                    let trig = Self::wave28a_at_eot_delayed_trigger(&at_eot)?;
+                    effs.push(format!(
+                        "Effect::ForEachRemembered {{ filter: &Filter::Any, effects: &[{trig}] }}"
+                    ));
+                }
                 if !Self::only_condition_keys_left(&probe) {
                     return None;
                 }

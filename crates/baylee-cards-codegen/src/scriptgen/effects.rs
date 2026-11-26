@@ -5972,6 +5972,9 @@ impl Tx<'_> {
         {
             return Some(fx);
         }
+        if let Some(fx) = self.put_targeted_into_library_beneath_top(p, target, targets_here) {
+            return Some(fx);
+        }
         let origin = p.take("Origin")?;
         let destination = p.take("Destination")?;
         if destination == "Battlefield" && (p.has("AttachedTo") || p.has("AttachedToPlayer")) {
@@ -6310,6 +6313,11 @@ impl Tx<'_> {
                                 && !lower.contains("may exile")
                                 && lower.contains("exile a ")
                                 && lower.contains("from your graveyard"))
+                            || Self::parse_mandatory_graveyard_return_from_oracle(
+                                self.oracle,
+                                &destination,
+                            )
+                            .is_some()
                     })))
         {
             return self.choose_from_your_graveyard(p, &destination, target);
@@ -7826,6 +7834,9 @@ impl Tx<'_> {
             {
                 Some(false)
             }
+            (None, None) if !prompt_opt => {
+                Self::parse_mandatory_graveyard_return_from_oracle(self.oracle, destination)
+            }
             _ => None,
         }
     }
@@ -8680,39 +8691,19 @@ impl Tx<'_> {
                 raw_num.as_deref(),
             );
         }
-        if is_own_library
-            && let Some(var) = raw_num.as_deref()
-            && let Some(pair) = self
-                .svars
-                .get(var.trim())
-                .and_then(|s| s.trim().strip_prefix("Count$Threshold."))
-            && let Some((hi_raw, lo_raw)) = pair.split_once('.')
-            && let (Ok(hi), Ok(lo)) = (hi_raw.parse::<usize>(), lo_raw.parse::<usize>())
-            && (1..=4).contains(&hi)
-            && (1..=4).contains(&lo)
-            && !any_number
-        {
-            let filter = self.filter_expr_in_zone(&p.take("ChangeType")?, true)?;
-            if reveal_requested
-                && filter == "Filter::Any"
-                && !matches!(destination, "Battlefield" | "Exile" | "Graveyard")
-            {
-                return self.deny("`ChangeZone` revealing an unrestricted hidden search".into());
-            }
-            let optional_hi =
-                self.resolve_search_optional(hi, &filter, optional, mandatory, up_to)?;
-            let optional_lo =
-                self.resolve_search_optional(lo, &filter, optional, mandatory, up_to)?;
-            let name = self.body.filter_static("SEARCH", &filter);
-            let finds_hi = vec![find.as_str(); hi].join(", ");
-            let finds_lo = vec![find.as_str(); lo].join(", ");
-            return Some(vec![format!(
-                "Effect::IfCondition {{ condition: Condition::GraveyardCountAtLeast(7), \
-                 then: &[Effect::SearchLibrary {{ filter: &{name}, finds: &[{finds_hi}], \
-                 optional: {optional_hi} }}], \
-                 otherwise: &[Effect::SearchLibrary {{ filter: &{name}, finds: &[{finds_lo}], \
-                 optional: {optional_lo} }}] }}"
-            )]);
+        if let Some(effs) = self.emit_conditional_search_library(
+            p,
+            raw_num.as_deref(),
+            destination,
+            is_own_library,
+            optional,
+            mandatory,
+            up_to,
+            reveal_requested,
+            any_number,
+            &find,
+        ) {
+            return Some(effs);
         }
         let plain_count = self
             .plain_num(raw_num.as_deref().unwrap_or("1"))
@@ -8780,7 +8771,7 @@ impl Tx<'_> {
         None
     }
 
-    fn beneath_top_library_position(&mut self, raw: &str) -> Option<String> {
+    pub(super) fn beneath_top_library_position(&mut self, raw: &str) -> Option<String> {
         let trimmed = raw.trim();
         if trimmed.starts_with('-') {
             return None;
@@ -9154,7 +9145,7 @@ impl Tx<'_> {
 
     /// Resolve whether a `SearchLibrary` branch of `count` cards may settle for
     /// fewer than `count` (CR 701.23b vs CR 701.23d).
-    fn resolve_search_optional(
+    pub(super) fn resolve_search_optional(
         &mut self,
         count: usize,
         filter: &str,
@@ -9559,7 +9550,10 @@ impl Tx<'_> {
             }
             ("Graveyard", "Exile")
                 if !self.in_delayed
-                    && self.trigger_mode.as_deref() == Some("ChangesZone")
+                    && matches!(
+                        self.trigger_mode.as_deref(),
+                        Some("ChangesZone" | "Discarded")
+                    )
                     && p.has("WithCountersType")
                     && matches!(
                         defined,

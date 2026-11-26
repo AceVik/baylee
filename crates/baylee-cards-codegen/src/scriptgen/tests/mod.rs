@@ -62,6 +62,7 @@ mod wave30a;
 mod wave30b;
 mod wave30c;
 mod wave30d;
+mod zones_and_remembered;
 
 fn cats() -> SubtypeCatalogs {
     let mut c = SubtypeCatalogs {
