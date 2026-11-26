@@ -80,6 +80,9 @@ fn refusal_reason_face(
     if tx.block_halves_paired().is_none() {
         return tx.unclaimed.into_inner();
     }
+    if tx.commander_tax_pair_complete().is_none() {
+        return tx.unclaimed.into_inner();
+    }
     // [`transcode`]'s last refusal, mirrored. A script that is read in full
     // and yields nothing is a card whose rules text this transcoder has no
     // rule for at all — usually a vanilla body, and never a defect — but it

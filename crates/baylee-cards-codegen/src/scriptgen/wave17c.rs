@@ -39,7 +39,7 @@ use super::{
     statics::{StaticEffectZone, simple_const_filter},
 };
 
-fn activator_player_rel(raw: Option<&str>) -> Option<&'static str> {
+pub(super) fn activator_player_rel(raw: Option<&str>) -> Option<&'static str> {
     Some(match raw {
         None | Some("Player") => "PlayerRel::EachPlayer",
         Some("You") => "PlayerRel::You",
@@ -679,7 +679,13 @@ impl Tx<'_> {
             };
             ("Filter::Any", who, inner)
         };
-        let target_filter = self.parse_target_cost_filter(&raw_target, is_self_zone)?;
+        let you_or_perm =
+            !abilities && !is_self_zone && raw_target.split(',').any(|alt| alt.trim() == "You");
+        let target_filter = if you_or_perm {
+            String::new()
+        } else {
+            self.parse_target_cost_filter(&raw_target, is_self_zone)?
+        };
         let (extra_mana, extra_life) = match (p.take("Amount"), p.take("Cost")) {
             (Some(amt_raw), None) => {
                 let Some(n) = amt_raw.trim().parse::<u32>().ok().filter(|&n| n > 0) else {
@@ -709,6 +715,16 @@ impl Tx<'_> {
         let cond = self.reduce_cost_condition(&mut p)?;
         if !p.exhausted() {
             return self.deny("static ability `S: Mode$ RaiseCost`".into());
+        }
+        if you_or_perm {
+            return self.try_raise_cost_you_or_permanent(
+                &raw_target,
+                who,
+                &spell_filter,
+                (&extra_mana, extra_life),
+                zone,
+                &cond,
+            );
         }
         self.body.abilities.push(Self::format_static_expr(
             outer_filter,

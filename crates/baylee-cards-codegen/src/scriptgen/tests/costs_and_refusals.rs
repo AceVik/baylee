@@ -4837,7 +4837,7 @@ fn wave17a_retrace_monstrosity_cost_plumbing_and_refusals() {
         "Name:TwoBlockBeast\nManaCost:3 G\nTypes:Creature Beast\nPT:4/4\nK:CARDNAME must be blocked by two or more creatures if able.",
         "Name:FlashExtra\nManaCost:1 U\nTypes:Creature Bird\nPT:2/2\nK:MayFlashSac:2",
         "Name:SelPartner\nManaCost:2 W\nTypes:Legendary Creature Human\nPT:2/2\nK:Partner:Character select",
-        "Name:HexBlack\nManaCost:1 U\nTypes:Creature Drake\nPT:2/2\nK:Hexproof:Black",
+        "Name:SoloHexActivated\nManaCost:1 U\nTypes:Creature Drake\nPT:2/2\nK:Hexproof:Activated:activated abilities",
         "Name:UncomparedCount\nManaCost:2 G\nTypes:Creature Beast\nPT:2/2\n\
          K:etbCounter:P1P1:1:CheckSVar$ L\nSVar:L:Count$Valid Creature.YouCtrl",
         "Name:UnknownCounterKind\nManaCost:2 U\nTypes:Artifact\nK:etbCounter:OMEN:1",

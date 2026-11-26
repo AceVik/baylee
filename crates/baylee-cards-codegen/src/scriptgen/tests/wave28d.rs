@@ -1258,10 +1258,6 @@ fn wave28d_p2_refusals() {
         // Rivals' Duel: TargetsWithoutSameCreatureType$ -> MUST refuse!
         "Name:RivalsDuel\nManaCost:3 R\nTypes:Sorcery\n\
          A:SP$ Fight | ValidTgts$ Creature | TargetMin$ 2 | TargetMax$ 2 | TargetsWithoutSameCreatureType$ True",
-        // RemoveCounter fixed-N on target (no kind-scoped RemoveUpToCountersTarget) -> MUST refuse!
-        "Name:ShedWeaknessLike\nManaCost:G\nTypes:Instant\n\
-         A:SP$ Pump | ValidTgts$ Creature | NumAtt$ +2 | NumDef$ +2 | SubAbility$ DBRem\n\
-         SVar:DBRem:DB$ RemoveCounter | Defined$ Targeted | CounterType$ M1M1 | CounterNum$ 1",
         // GainControl with unsupported LoseControl$ Never -> MUST refuse!
         "Name:TreasureNabberLike\nManaCost:2 R\nTypes:Sorcery\n\
          A:SP$ GainControl | ValidTgts$ Artifact | LoseControl$ Never",

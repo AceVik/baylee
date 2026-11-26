@@ -892,9 +892,18 @@ impl Tx<'_> {
             };
         }
         if !second
-            && p.peek("KW").map(str::trim) == Some("Hexproof")
+            && !p.has("DefinedKW")
             && !p.has("NumAtt")
             && !p.has("NumDef")
+            && p.peek("KW").is_some_and(|kw| {
+                let t = kw.trim();
+                t == "Hexproof"
+                    || (!t.is_empty()
+                        && t.split(" & ").all(|part| {
+                            let part = part.trim();
+                            part.starts_with("Hexproof:") && self.hexproof_filter(part).is_some()
+                        }))
+            })
             && p.peek("Defined")
                 .is_some_and(|d| matches!(d, "You" | "Player") || d.starts_with("You & Valid "))
         {
@@ -905,32 +914,61 @@ impl Tx<'_> {
                 Some(_) => return None,
             };
             let def = p.take("Defined")?;
-            p.take("KW");
+            let kw = p.take("KW")?;
             p.take("IsCurse");
-            return if def == "You" {
-                Some(vec![format!(
-                    "Effect::continuous(&Filter::Any, Modifier::PlayerHexproof {{ who: PlayerRel::You }}, {duration})"
-                )])
-            } else if def == "Player" {
-                Some(vec![format!(
-                    "Effect::continuous(&Filter::Any, Modifier::PlayerHexproof {{ who: PlayerRel::EachPlayer }}, {duration})"
-                )])
-            } else if let Some(valid) = def.strip_prefix("You & Valid ") {
+            if kw.trim() == "Hexproof" {
+                return if def == "You" {
+                    Some(vec![format!(
+                        "Effect::continuous(&Filter::Any, Modifier::PlayerHexproof {{ who: PlayerRel::You }}, {duration})"
+                    )])
+                } else if def == "Player" {
+                    Some(vec![format!(
+                        "Effect::continuous(&Filter::Any, Modifier::PlayerHexproof {{ who: PlayerRel::EachPlayer }}, {duration})"
+                    )])
+                } else if let Some(valid) = def.strip_prefix("You & Valid ") {
+                    let expr = self.filter_expr(valid.trim())?;
+                    let filter = self.body.filter_static("PUMP", &expr);
+                    Some(vec![
+                        format!(
+                            "Effect::continuous(&Filter::Any, Modifier::PlayerHexproof {{ who: PlayerRel::You }}, {duration})"
+                        ),
+                        format!(
+                            "Effect::PumpFilter {{ filter: &{filter}, controlled_by: None, \
+                             power: Amount::Fixed(0), toughness: Amount::Fixed(0), \
+                             keywords: KeywordSet::HEXPROOF, duration: {duration} }}"
+                        ),
+                    ])
+                } else {
+                    None
+                };
+            }
+            let mut from_statics = Vec::new();
+            for part in kw.split(" & ").map(str::trim) {
+                let expr = self.hexproof_filter(part)?;
+                from_statics.push(self.body.filter_static("HEXPROOF", &expr));
+            }
+            let who = match def.as_str() {
+                "You" => "PlayerRel::You",
+                "Player" => "PlayerRel::EachPlayer",
+                _ if def.starts_with("You & Valid ") => "PlayerRel::You",
+                _ => return None,
+            };
+            let mut out = Vec::new();
+            for from in &from_statics {
+                out.push(format!(
+                    "Effect::continuous(&Filter::Any, Modifier::PlayerHexproofFrom {{ who: {who}, from: &{from} }}, {duration})"
+                ));
+            }
+            if let Some(valid) = def.strip_prefix("You & Valid ") {
                 let expr = self.filter_expr(valid.trim())?;
                 let filter = self.body.filter_static("PUMP", &expr);
-                Some(vec![
-                    format!(
-                        "Effect::continuous(&Filter::Any, Modifier::PlayerHexproof {{ who: PlayerRel::You }}, {duration})"
-                    ),
-                    format!(
-                        "Effect::PumpFilter {{ filter: &{filter}, controlled_by: None, \
-                         power: Amount::Fixed(0), toughness: Amount::Fixed(0), \
-                         keywords: KeywordSet::HEXPROOF, duration: {duration} }}"
-                    ),
-                ])
-            } else {
-                None
-            };
+                for from in &from_statics {
+                    out.push(format!(
+                        "Effect::continuous(&{filter}, Modifier::HexproofFrom(&{from}), {duration})"
+                    ));
+                }
+            }
+            return Some(out);
         }
         if !second
             && p.peek("PumpZone") == Some("Graveyard")
@@ -1420,6 +1458,11 @@ impl Tx<'_> {
                 other if other.starts_with("Protection:") => {
                     let from = self.pump_protection_spec(other)?;
                     prevent.push(format!("Modifier::ProtectionFrom(&{from})"));
+                }
+                other if other.starts_with("Hexproof:") => {
+                    let expr = self.hexproof_filter(other)?;
+                    let from = self.body.filter_static("HEXPROOF", &expr);
+                    prevent.push(format!("Modifier::HexproofFrom(&{from})"));
                 }
                 other if other.starts_with("Protection from ") => {
                     let expr = self.protection_filter(other)?;
@@ -17618,95 +17661,6 @@ impl Tx<'_> {
             }
         };
         Some((vec![eff], trailing))
-    }
-
-    /// `AB$/SP$/DB$ MoveCounter` moving one counter (CR 122.5) ->
-    /// `Effect::MoveCounter { from, to, kind }` or
-    /// `Effect::MoveCounterToEvent { kind }`.
-    pub(super) fn move_counter_effect(
-        &mut self,
-        p: &mut Params,
-        target: Option<&str>,
-        targets_here: bool,
-        second_target_here: bool,
-    ) -> Option<Vec<String>> {
-        if !matches!(p.take("CounterNum").as_deref(), None | Some("1")) {
-            return None;
-        }
-        let optional = match p.take("Optional").as_deref() {
-            None | Some("False") => false,
-            Some("True") => true,
-            Some(_) => return None,
-        };
-        let wrap = |eff: String| {
-            if optional {
-                format!("Effect::MayDo {{ effects: &[{eff}] }}")
-            } else {
-                eff
-            }
-        };
-        p.take("IsCurse");
-        let raw_kind = p.take("CounterType")?;
-        let kind_opt = if raw_kind.eq_ignore_ascii_case("Any") {
-            None
-        } else {
-            Some(super::counter_kind(&raw_kind)?)
-        };
-        let source = p.take("Source");
-        let defined = p.take("Defined");
-        if second_target_here {
-            if source.as_deref() != Some("ParentTarget")
-                || !matches!(defined.as_deref(), None | Some("Targeted"))
-                || !target.is_some_and(|t| t.starts_with("TargetSpec::Object("))
-            {
-                return None;
-            }
-            let kind_expr = kind_opt.map_or_else(|| "None".to_string(), |k| format!("Some({k})"));
-            return Some(vec![wrap(format!(
-                "Effect::MoveCounter {{ from: TargetSlot::First, to: TargetSlot::Second, kind: {kind_expr} }}"
-            ))]);
-        }
-        if source.as_deref() == Some("Self")
-            && !self.on_a_spell
-            && !targets_here
-            && target.is_none()
-            && defined
-                .as_deref()
-                .is_some_and(|d| self.is_event_object_defined(d))
-        {
-            let kind = kind_opt?;
-            return Some(vec![wrap(format!(
-                "Effect::MoveCounterToEvent {{ kind: {kind} }}"
-            ))]);
-        }
-        let is_obj_target = target.is_some_and(|t| t.starts_with("TargetSpec::Object("));
-        let (from, to) = match (source.as_deref(), defined.as_deref()) {
-            (Some("Self"), None | Some("Targeted"))
-                if !self.on_a_spell && targets_here && is_obj_target =>
-            {
-                ("TargetSlot::This", "TargetSlot::First")
-            }
-            (Some("Self"), Some("Targeted" | "ParentTarget"))
-                if !self.on_a_spell && !targets_here && is_obj_target =>
-            {
-                ("TargetSlot::This", "TargetSlot::First")
-            }
-            (None | Some("Targeted"), Some("Self"))
-                if !self.on_a_spell && targets_here && is_obj_target =>
-            {
-                ("TargetSlot::First", "TargetSlot::This")
-            }
-            (Some("Targeted" | "ParentTarget"), Some("Self"))
-                if !self.on_a_spell && !targets_here && is_obj_target =>
-            {
-                ("TargetSlot::First", "TargetSlot::This")
-            }
-            _ => return None,
-        };
-        let kind_expr = kind_opt.map_or_else(|| "None".to_string(), |k| format!("Some({k})"));
-        Some(vec![wrap(format!(
-            "Effect::MoveCounter {{ from: {from}, to: {to}, kind: {kind_expr} }}"
-        ))])
     }
 
     /// Two-target blocking-creature swap (*Sorrow's Path*):

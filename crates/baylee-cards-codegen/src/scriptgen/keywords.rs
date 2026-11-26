@@ -498,6 +498,30 @@ impl Tx<'_> {
             ));
             return Some(());
         }
+        if line.trim().starts_with("Hexproof:Activated") && self.has_hexproof_from_abilities_pair {
+            let rest = line.trim().strip_prefix("Hexproof:Activated")?;
+            if rest.is_empty() || rest.starts_with(':') && rest[1..].find(':').is_none() {
+                self.body.abilities.push(Self::static_expr(
+                    "Filter::This",
+                    "Modifier::HexproofFromAbilities",
+                ));
+                return Some(());
+            }
+        }
+        if line.trim().starts_with("Hexproof:Triggered") && self.has_hexproof_from_abilities_pair {
+            let rest = line.trim().strip_prefix("Hexproof:Triggered")?;
+            if rest.is_empty() || rest.starts_with(':') && rest[1..].find(':').is_none() {
+                return Some(());
+            }
+        }
+        if let Some(expr) = self.hexproof_filter(line) {
+            let from = self.body.filter_static("HEXPROOF", &expr);
+            self.body.abilities.push(Self::static_expr(
+                "Filter::This",
+                &format!("Modifier::HexproofFrom(&{from})"),
+            ));
+            return Some(());
+        }
         if let Some(land) = self.landwalk_filter(line) {
             let name = self.body.filter_static("LANDWALK", &land);
             self.body.abilities.push(Self::static_expr(
@@ -509,6 +533,30 @@ impl Tx<'_> {
         let head = line.split(':').next().unwrap_or(line);
         let head = head.split(' ').next().unwrap_or(head);
         self.deny(format!("keyword `{head}`"))
+    }
+
+    /// What a conditional hexproof keyword protects from (`CR 702.11d`), as the
+    /// `Filter` matched against the targeting spell or ability's source.
+    pub(super) fn hexproof_filter(&self, word: &str) -> Option<String> {
+        let rest = word.trim().strip_prefix("Hexproof:")?;
+        let mut fields = rest.split(':');
+        let spec = fields.next()?.trim();
+        let _prose = fields.next();
+        if fields.next().is_some()
+            || spec.is_empty()
+            || spec.contains('&')
+            || spec.contains("Player")
+            || spec.contains("Chosen")
+            || spec.contains("Remembered")
+            || spec.contains("EffectSource")
+            || spec.contains("Triggered")
+            || spec.contains("Activated")
+            || spec.contains("Spell")
+            || spec.contains("Card.Self")
+        {
+            return None;
+        }
+        self.filter_expr(spec)
     }
 
     /// What a protection keyword protects from, as the `Filter` asked of a
@@ -1164,6 +1212,9 @@ impl Tx<'_> {
     }
 
     fn equip_cost_reduction(&mut self, raw: &str) -> Option<String> {
+        if self.try_equip_target_metric(raw).is_some() {
+            return Some(String::new());
+        }
         let def = if raw.starts_with("Count$") || raw.starts_with("PlayerCount") {
             raw.to_string()
         } else if let Some(resolved) = self.svars.get(raw).cloned() {

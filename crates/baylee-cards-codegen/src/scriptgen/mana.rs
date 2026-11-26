@@ -775,6 +775,9 @@ impl Tx<'_> {
         static_only: bool,
     ) -> Option<String> {
         let def = def.trim();
+        if !self.on_a_spell && matches!(def, "Equipped$CardPower" | "Enchanted$CardPower") {
+            return Some("Amount::AttachedPower".to_string());
+        }
         if let Some(n_str) = def.strip_prefix("Number$")
             && let Ok(n) = n_str.trim().parse::<u32>()
         {
@@ -2303,6 +2306,14 @@ impl Tx<'_> {
         if def.trim() == "Count$RememberedNumber" && self.remembered_cmc {
             return Some("Amount::TargetCmc".to_string());
         }
+        if let Some(expr) = self.chain_remembered_amount_expr
+            && matches!(
+                def.trim(),
+                "Remembered$Amount" | "Count$RememberedSize" | "Count$RememberedNumber"
+            )
+        {
+            return Some(expr.to_string());
+        }
         if matches!(def.trim(), "Remembered$Amount" | "Count$RememberedSize") {
             if self.countered_this_way {
                 return Some("Amount::ThisWay(ThisWay::Countered)".to_string());
@@ -2392,6 +2403,10 @@ impl Tx<'_> {
         for alt in trimmed.split(',').map(str::trim) {
             if alt == "Spell" {
                 spell_any = true;
+            } else if alt == "Spell.Flashback" {
+                spell_parts.push("Card.wasCastForFlashback".to_string());
+            } else if alt == "Spell.Dash" {
+                spell_parts.push("Card.wasCastForDash".to_string());
             } else if let Some(rest) = alt.strip_prefix("Spell.") {
                 spell_parts.push(normalize_spend_valid(rest));
             } else if alt == "Activated" {

@@ -706,7 +706,12 @@ impl Tx<'_> {
         if !is_activated {
             return self.deny("`ReduceCost$` on a spell".to_string());
         }
-        if probe.has("ReduceAmount") {
+        let reduce_amount = probe.take("ReduceAmount");
+        if let Some(clause) = self.try_activated_if_mana_or_targets(&raw, reduce_amount.as_deref())
+        {
+            return Some(clause);
+        }
+        if reduce_amount.is_some() {
             return self.deny("a `ReduceCost$` with `ReduceAmount$`".to_string());
         }
         self.activation_cost_reduction(&raw, activation_zone)
@@ -843,6 +848,10 @@ impl Tx<'_> {
             (alternate_cost.is_some(), "AlternateCost$"),
             (x_min_param > 0, "XMin$"),
             (!cost_reduction.is_empty(), "ReduceCost$"),
+            (
+                cost_reduction.contains("CostReduction::IfMana"),
+                "ReduceAmount$",
+            ),
             (activator != ActivatorRestriction::Default, "Activator$"),
             (zone_handled, "ActivationZone$"),
             (sorcery_speed, "SorcerySpeed$"),

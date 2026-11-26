@@ -5407,13 +5407,31 @@ fn wave16c_multiply_counter_and_earthbend() {
         "{}",
         dbl_tgt.abilities[0]
     );
+    let triple = read(
+        "Name:TripleGood\nManaCost:2 G\nTypes:Sorcery\n\
+         A:SP$ MultiplyCounter | ValidTgts$ Creature | CounterType$ P1P1 | Multiplier$ 3",
+    );
+    assert!(
+        triple.abilities[0].contains(
+            "Effect::MultiplyCounters { subject: CounterSubject::Targets, kind: Some(CounterKind::P1P1), factor: 3 }"
+        ),
+        "{}",
+        triple.abilities[0]
+    );
+    let all_kinds = read(
+        "Name:AllKindsGood\nManaCost:2 G\nTypes:Sorcery\n\
+         A:SP$ MultiplyCounter | ValidTgts$ Creature | Multiplier$ 2",
+    );
+    assert!(
+        all_kinds.abilities[0].contains(
+            "Effect::MultiplyCounters { subject: CounterSubject::Targets, kind: None, factor: 2 }"
+        ),
+        "{}",
+        all_kinds.abilities[0]
+    );
     assert!(refused(
-        "Name:TripleBad\nManaCost:2 G\nTypes:Sorcery\n\
-         A:SP$ MultiplyCounter | ValidTgts$ Creature | CounterType$ P1P1 | Multiplier$ 3"
-    ));
-    assert!(refused(
-        "Name:AllKindsBad\nManaCost:2 G\nTypes:Sorcery\n\
-         A:SP$ MultiplyCounter | ValidTgts$ Creature | Multiplier$ 2"
+        "Name:BadMultOne\nManaCost:2 G\nTypes:Sorcery\n\
+         A:SP$ MultiplyCounter | ValidTgts$ Creature | CounterType$ P1P1 | Multiplier$ 1"
     ));
     let dbl_multi = read(
         "Name:MultiTargetDouble\nManaCost:2 G\nTypes:Sorcery\n\
@@ -7023,7 +7041,7 @@ fn wave20c_alt_and_reduced_equip() {
         "Name:BadTapEquip\nTypes:Artifact Equipment\nK:Equip:T",
         "Name:BadAltTap\nTypes:Artifact Equipment\nK:Equip:2:::AlternateCost$ T",
         "Name:BadPwEquip\nTypes:Artifact Equipment\nK:Equip:1:Planeswalker.YouCtrl:planeswalker",
-        "Name:BadTgtRed\nTypes:Artifact Equipment\nK:Equip:4:::ReduceCost$ X:This ability costs {X} less\nSVar:X:Targeted$CardPower",
+        "Name:BadTgtRed\nTypes:Artifact Equipment\nK:Equip:4:::ReduceCost$ X:This ability costs {X} less\nSVar:X:Targeted$CardManaCost",
         "Name:BadUnknownProse\nTypes:Artifact Equipment\nK:Equip:2:::Only while tapped",
     ] {
         assert!(refused(bad), "must refuse: {bad}");

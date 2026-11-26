@@ -1147,8 +1147,11 @@ impl Tx<'_> {
         Some(())
     }
 
-    /// `S: Mode$ IgnoreHexproof | ValidEntity$ <permanent_filter>` (all-player
-    /// permanent-scoped `Modifier::CanBeTargetedAsThoughNoHexproof`).
+    /// `S: Mode$ IgnoreHexproof | ValidEntity$ ...`:
+    /// - Without `Activator$`, all-player permanent-scoped
+    ///   `Modifier::CanBeTargetedAsThoughNoHexproof` (*Nowhere to Run*).
+    /// - With `Activator$ You`, `Modifier::IgnoreOpponentsHexproofMatching`
+    ///   (*Glaring Spotlight*, *Kaya, Bane of the Dead*).
     pub(super) fn ignore_hexproof_static(&mut self, mut p: Params) -> Option<()> {
         p.drop_prose();
         if !matches!(p.take("Secondary").as_deref(), None | Some("True"))
@@ -1156,16 +1159,77 @@ impl Tx<'_> {
         {
             return self.deny("static ability `S: Mode$ IgnoreHexproof`".into());
         }
+        let activator = p.take("Activator");
         let Some(entity) = p.take("ValidEntity") else {
             return self.deny("static ability `S: Mode$ IgnoreHexproof`".into());
         };
         let cond = self.condition_any(&mut p)?;
-        if !p.exhausted() || entity.contains("Opponent") || entity.contains("Player") {
+        if !p.exhausted() {
             return self.deny("static ability `S: Mode$ IgnoreHexproof`".into());
         }
-        let filter = self.filter_expr(&entity)?;
-        self.push_static_with_cond(&filter, "Modifier::CanBeTargetedAsThoughNoHexproof", &cond);
-        Some(())
+        match activator.as_deref() {
+            None => {
+                if entity.contains("Opponent") || entity.contains("Player") {
+                    return self.deny("static ability `S: Mode$ IgnoreHexproof`".into());
+                }
+                let filter = self.filter_expr(&entity)?;
+                self.push_static_with_cond(
+                    &filter,
+                    "Modifier::CanBeTargetedAsThoughNoHexproof",
+                    &cond,
+                );
+                Some(())
+            }
+            Some("You") => {
+                let mut players = false;
+                let mut perm_parts = Vec::new();
+                for part in entity.split(',').map(str::trim).filter(|s| !s.is_empty()) {
+                    if part == "Opponent" {
+                        if players {
+                            return self.deny("static ability `S: Mode$ IgnoreHexproof`".into());
+                        }
+                        players = true;
+                        continue;
+                    }
+                    if part.contains("Player") || part.contains("Opponent") {
+                        return self.deny("static ability `S: Mode$ IgnoreHexproof`".into());
+                    }
+                    let stripped = part
+                        .strip_suffix(".OppCtrl")
+                        .map(str::to_string)
+                        .or_else(|| part.strip_suffix("+OppCtrl").map(str::to_string))
+                        .or_else(|| {
+                            part.contains(".OppCtrl+")
+                                .then(|| part.replacen(".OppCtrl+", ".", 1))
+                        });
+                    let Some(perm_spec) = stripped else {
+                        return self.deny("static ability `S: Mode$ IgnoreHexproof`".into());
+                    };
+                    perm_parts.push(perm_spec);
+                }
+                if perm_parts.is_empty() {
+                    return self.deny("static ability `S: Mode$ IgnoreHexproof`".into());
+                }
+                let joined = perm_parts.join(",");
+                let perm_expr = self.filter_expr(&joined)?;
+                let perm_ref = if perm_expr == "Filter::Any" {
+                    "&Filter::Any".to_string()
+                } else if perm_expr == "Filter::CREATURE" {
+                    "&Filter::CREATURE".to_string()
+                } else {
+                    format!("&{}", self.body.filter_static("IGNORE_HEX", &perm_expr))
+                };
+                self.push_static_with_cond(
+                    "Filter::Any",
+                    &format!(
+                        "Modifier::IgnoreOpponentsHexproofMatching {{ permanent_filter: {perm_ref}, players: {players} }}"
+                    ),
+                    &cond,
+                );
+                Some(())
+            }
+            Some(_) => self.deny("static ability `S: Mode$ IgnoreHexproof`".into()),
+        }
     }
 
     /// `S: Mode$ ManaConvert` (`ManaIsAnyColor`, `SpendManaAs`,

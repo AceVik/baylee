@@ -1904,8 +1904,12 @@ impl Tx<'_> {
             }
             if special_effects.is_none()
                 && !second_target_here
-                && api == "RemoveCounter"
-                && p.peek("RememberRemoved") == Some("True")
+                && ((api == "RemoveCounter"
+                    && (p.peek("RememberRemoved") == Some("True")
+                        || p.peek("RememberAmount") == Some("True")))
+                    || (api == "MoveCounter"
+                        && (p.peek("RememberPut") == Some("True")
+                            || p.peek("RememberAmount") == Some("True"))))
                 && sub.is_some()
                 && !self.sub_is_api(sub.as_deref(), "ImmediateTrigger")
                 && !self.sub_is_api(sub.as_deref(), "DelayedTrigger")
@@ -1928,13 +1932,60 @@ impl Tx<'_> {
                 let saved_constraint = chain.target_constraint;
                 let saved_unclaimed = self.unclaimed.borrow().clone();
                 let saved_statics_len = self.body.statics.len();
-                if let Some(effects) = self.remove_counter_remembered_chain(
-                    &mut p,
-                    &mut sub,
-                    target.as_deref(),
+                let flags = LineFlags {
                     targets_here,
-                    chain,
-                ) {
+                    targets_a_player,
+                    single_target: chain.target_exact.is_none()
+                        && chain.target_range.is_none()
+                        && !chain.target_is_x
+                        && chain.target_constraint.is_none()
+                        && chain.target_up_to.is_none_or(|n| n == 1),
+                    prior_target_used: !targets_here && !chain.effects.is_empty(),
+                };
+                let exact_two = chain.target_exact == Some(2);
+                let rem_effs = if api == "RemoveCounter" {
+                    self.remove_counter_remembered_chain(
+                        &mut p,
+                        &mut sub,
+                        target.as_deref(),
+                        targets_here,
+                        chain,
+                    )
+                    .or_else(|| {
+                        p = saved_p.clone();
+                        sub.clone_from(&saved_sub);
+                        chain.target.clone_from(&saved_target);
+                        chain.target_up_to = saved_up_to;
+                        chain.target_exact = saved_exact;
+                        chain.target_is_x = saved_is_x;
+                        chain.target_up_to_x = saved_up_to_x;
+                        chain.target_constraint = saved_constraint;
+                        (*self.unclaimed.borrow_mut()).clone_from(&saved_unclaimed);
+                        self.body.statics.truncate(saved_statics_len);
+                        self.counter_remembered_amount_chain(
+                            &api,
+                            &mut p,
+                            &mut sub,
+                            target.as_deref(),
+                            flags,
+                            false,
+                            exact_two,
+                            chain,
+                        )
+                    })
+                } else {
+                    self.counter_remembered_amount_chain(
+                        &api,
+                        &mut p,
+                        &mut sub,
+                        target.as_deref(),
+                        flags,
+                        false,
+                        exact_two,
+                        chain,
+                    )
+                };
+                if let Some(effects) = rem_effs {
                     special_effects = Some(effects);
                 } else {
                     p = saved_p;
@@ -2342,8 +2393,34 @@ impl Tx<'_> {
                             }
                         }
                         "EachDamage" => self.wave29b_each_damage_effect(&mut p, target.as_deref()),
+                        "MoveCounter"
+                            if (p.peek("RememberPut") == Some("True")
+                                || p.peek("RememberAmount") == Some("True"))
+                                && sub.is_some()
+                                && no_line_riders
+                                && !p.has("Condition")
+                                && !p.has("ConditionPresent")
+                                && !p.has("ConditionCheckSVar")
+                                && !p.has("ConditionDefined") =>
+                        {
+                            self.counter_remembered_amount_chain(
+                                "MoveCounter",
+                                &mut p,
+                                &mut sub,
+                                target.as_deref(),
+                                LineFlags {
+                                    targets_here: true,
+                                    targets_a_player: false,
+                                    single_target: second_single,
+                                    prior_target_used: true,
+                                },
+                                true,
+                                false,
+                                chain,
+                            )
+                        }
                         "MoveCounter" => {
-                            self.move_counter_effect(&mut p, target.as_deref(), true, true)
+                            self.move_counter_effect(&mut p, target.as_deref(), true, true, false)
                         }
                         "Tap"
                             if second_single
@@ -3886,8 +3963,10 @@ impl Tx<'_> {
                         | "Detain"
                         | "Animate"
                         | "SwitchBlock"
-                ) || (api == "MultiplyCounter"
-                    && p.peek("CounterType").is_some())
+                ) || api == "MultiplyCounter"
+                    || (api == "MoveCounter"
+                        && p.peek("TargetMin") == Some("2")
+                        && p.peek("TargetMax") == Some("2"))
                     || target_only_multi_safe
                     || (api == "GainControl"
                         && p.peek("NewController").is_none_or(|v| v == "You")
@@ -4640,7 +4719,11 @@ impl Tx<'_> {
                 }
                 vec!["Effect::LoseGame".to_string()]
             }
-            "MoveCounter" => self.move_counter_effect(p, target, targets_here, false)?,
+            "MoveCounter" => {
+                let exact_two = !self.single_object_target
+                    && target.is_some_and(|t| t.starts_with("TargetSpec::Object("));
+                self.move_counter_effect(p, target, targets_here, false, exact_two)?
+            }
             "AlterAttribute" => {
                 self.alter_attribute_effect(p, target, targets_here, single_target)?
             }
@@ -5708,19 +5791,23 @@ impl Tx<'_> {
                 vec!["Effect::ManifestDread".to_string(); times]
             }
             "RemoveCounterAll" => {
-                if targets_here
-                    || (target.is_some() && !prior_target_used)
-                    || p.take("AllCounters").as_deref() != Some("True")
+                if !targets_here
+                    && (target.is_none() || prior_target_used)
+                    && p.peek("AllCounters") == Some("True")
+                    && !p.has("ValidZone")
+                    && !p.has("AllCounterTypes")
                 {
-                    return None;
+                    p.take("AllCounters");
+                    let kind = counter_kind(&p.take("CounterType")?)?;
+                    let valid = p.take("ValidCards")?;
+                    let expr = self.filter_expr(&valid)?;
+                    let filter = self.body.filter_static("COUNTERS", &expr);
+                    vec![format!(
+                        "Effect::RemoveAllCountersFilter {{ filter: &{filter}, kind: {kind} }}"
+                    )]
+                } else {
+                    self.remove_counter_all_effect(p, target, targets_here, prior_target_used)?
                 }
-                let kind = counter_kind(&p.take("CounterType")?)?;
-                let valid = p.take("ValidCards")?;
-                let expr = self.filter_expr(&valid)?;
-                let filter = self.body.filter_static("COUNTERS", &expr);
-                vec![format!(
-                    "Effect::RemoveAllCountersFilter {{ filter: &{filter}, kind: {kind} }}"
-                )]
             }
             "Cleanup" => {
                 let rem = p.take("ClearRemembered");
