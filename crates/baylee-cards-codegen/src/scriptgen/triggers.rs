@@ -45,19 +45,36 @@ impl Tx<'_> {
         // cast this spell", which fires on the stack via
         // `cast_this_spell_triggers` for `Trigger::SpellCast(&Filter::This)`
         // (CR 113.6k). Any other zoneless `SpellCast` stays refused.
-        if !zoned {
-            if p.peek("ValidCard") == Some("Card.Self")
+        let granted_zoned = !zoned
+            && self.in_granted_trigger
+            && !p
+                .peek("ValidCard")
+                .is_some_and(|v| v.split(['.', '+', ',']).any(|a| a.trim() == "Self"));
+        if !zoned && !granted_zoned {
+            if !self.in_granted_trigger
                 && matches!(p.peek("ValidActivatingPlayer"), None | Some("You"))
                 && !p.has("ActivatorThisTurnCast")
                 && !p.has("TargetsValid")
                 && !p.has("ValidSA")
                 && !p.has("Static")
+                && let Some(valid) = p.peek("ValidCard")
+                && self.match_self_spell_cast(valid).is_some()
             {
                 p.take("ValidCard");
                 p.take("ValidActivatingPlayer");
                 return Some("Trigger::SpellCast(&Filter::This)".to_string());
             }
             return self.deny("a `SpellCast` trigger with no `TriggerZones$`".to_string());
+        }
+        if let Some(sa_raw) = p.peek("ValidSA").map(str::to_string)
+            && sa_raw != "Spell.Warp"
+            && matches!(p.peek("ValidCard"), None | Some("Card"))
+            && !p.has("TargetsValid")
+            && !p.has("ActivatorThisTurnCast")
+            && !p.has("Static")
+            && let Some(trigger) = self.spell_cast_valid_sa_trigger(p, &sa_raw)
+        {
+            return Some(trigger);
         }
         let valid = match p.take("ValidCard") {
             Some(valid) => valid,
@@ -197,7 +214,12 @@ impl Tx<'_> {
     /// `T:Mode$ SpellCastOrCopy` — magecraft ("whenever a player casts or
     /// copies a matching spell", CR 707.10).
     fn spell_cast_or_copy_trigger(&mut self, p: &mut Params, zoned: bool) -> Option<String> {
-        if !zoned {
+        let granted_zoned = !zoned
+            && self.in_granted_trigger
+            && !p
+                .peek("ValidCard")
+                .is_some_and(|v| v.split(['.', '+', ',']).any(|a| a.trim() == "Self"));
+        if !zoned && !granted_zoned {
             return self.deny("a `SpellCastOrCopy` trigger with no `TriggerZones$`".to_string());
         }
         let valid = match p.take("ValidCard") {
@@ -234,6 +256,122 @@ impl Tx<'_> {
         let expr = self.filter_expr_in_zone(&valid, true)?;
         let filter = self.body.filter_static("TRIGGER", &expr);
         Some(format!("Trigger::SpellCastOrCopied(&{filter})"))
+    }
+
+    fn match_self_spell_cast(&mut self, valid: &str) -> Option<()> {
+        match valid.trim() {
+            "Card.Self" => Some(()),
+            "Card.Self+kicked" => {
+                if self.has_x_kicker {
+                    self.trigger_self_etb_kicked_with = Some(0);
+                    Some(())
+                } else if self.has_single_kicker {
+                    self.trigger_self_spell_cond =
+                        Some("Condition::SourceMatches(&Filter::Kicked)".to_string());
+                    Some(())
+                } else {
+                    None
+                }
+            }
+            "Card.Self+wasCastFromYourHandByYou" | "Card.wasCastFromYourHandByYou+Self" => {
+                self.trigger_self_spell_cond = Some(
+                    "Condition::All(&[Condition::SourceWasCastByYou, Condition::SourceCastFromZone(ZoneRef::Hand)])"
+                        .to_string(),
+                );
+                Some(())
+            }
+            "Card.Self+!wasCastFromExile" | "Card.!wasCastFromExile+Self" => {
+                self.trigger_self_spell_cond = Some(
+                    "Condition::Not(&Condition::SourceCastFromZone(ZoneRef::Exile))".to_string(),
+                );
+                Some(())
+            }
+            other => {
+                let slot = other.strip_prefix("Card.Self+kicked ")?;
+                let idx = self.dual_kicker_index(slot)?;
+                self.trigger_self_etb_kicked_with = Some(idx);
+                Some(())
+            }
+        }
+    }
+
+    fn spell_cast_valid_sa_trigger(&mut self, p: &mut Params, sa_raw: &str) -> Option<String> {
+        let player_filter = match p.peek("ValidActivatingPlayer") {
+            None | Some("Player") => None,
+            Some("You") => Some("Filter::ControlledByYou"),
+            Some("Opponent" | "Player.Opponent") => Some("Filter::ControlledByOpponent"),
+            Some("Player.Other") => Some("Filter::Not(&Filter::ControlledByYou)"),
+            Some("Player.Chosen" | "ChosenPlayer") if self.has_chosen_source_player() => {
+                Some("Filter::ControlledByChooser")
+            }
+            Some(_) => return None,
+        };
+        let saved_statics_len = self.body.statics.len();
+        let saved_unclaimed = self.unclaimed.borrow().clone();
+        let mut alts = Vec::new();
+        for alt in sa_raw.split(',').map(str::trim) {
+            if alt.is_empty() {
+                self.body.statics.truncate(saved_statics_len);
+                *self.unclaimed.borrow_mut() = saved_unclaimed;
+                return None;
+            }
+            let parsed = if let Some(target_tv) = alt.strip_prefix("Spell.IsTargeting Valid ") {
+                self.targets_you_control_filter(target_tv)
+            } else if let Some(base_raw) = alt.strip_suffix(".singleTarget") {
+                if base_raw == "Spell" || base_raw == "Card" {
+                    Some("Filter::WithSingleTarget".to_string())
+                } else if !base_raw.contains(['.', '+', ' ', '$'])
+                    && !base_raw.contains("Ctrl")
+                    && !base_raw.contains("Own")
+                {
+                    self.filter_expr_in_zone(base_raw, true)
+                        .map(|base| format!("Filter::And(&[{base}, Filter::WithSingleTarget])"))
+                } else {
+                    None
+                }
+            } else if let Some(rest) = alt.strip_prefix("Spell.") {
+                if rest.is_empty()
+                    || rest.contains("ManaSpent")
+                    || rest.contains("ManaFrom")
+                    || rest.contains("MayPlay")
+                    || rest.contains("IsTargeting")
+                    || rest.contains("Ctrl")
+                    || rest.contains("Own")
+                    || rest.contains([' ', '$'])
+                {
+                    None
+                } else if rest == "Card" {
+                    Some("Filter::Any".to_string())
+                } else {
+                    self.filter_expr_in_zone(rest, true)
+                }
+            } else {
+                None
+            };
+            let Some(expr) = parsed else {
+                self.body.statics.truncate(saved_statics_len);
+                *self.unclaimed.borrow_mut() = saved_unclaimed;
+                return None;
+            };
+            alts.push(expr);
+        }
+        if alts.is_empty() {
+            return None;
+        }
+        let base_expr = match alts.as_slice() {
+            [only] => only.clone(),
+            many => format!("Filter::Or(&[{}])", many.join(", ")),
+        };
+        let full_expr = match player_filter {
+            None => base_expr,
+            Some(who) if base_expr == "Filter::Any" => who.to_string(),
+            Some(who) => format!("Filter::And(&[{base_expr}, {who}])"),
+        };
+        p.take("ValidCard");
+        p.take("ValidSA");
+        p.take("ValidActivatingPlayer");
+        let filter = self.body.filter_static("TRIGGER", &full_expr);
+        Some(format!("Trigger::SpellCast(&{filter})"))
     }
 
     #[allow(clippy::too_many_lines)]
@@ -2644,6 +2782,7 @@ impl Tx<'_> {
         let zone = Self::take_trigger_zone(&mode, &mut p);
         self.trigger_self_etb_kicked = false;
         self.trigger_self_etb_kicked_with = None;
+        self.trigger_self_spell_cond = None;
         let self_etb_extra_cond = if mode == "ChangesZone"
             && p.peek("Origin") == Some("Any")
             && p.peek("Destination") == Some("Battlefield")
@@ -2713,6 +2852,9 @@ impl Tx<'_> {
             }
             trigger
         };
+        if let Some(clause) = self.trigger_self_spell_cond.take() {
+            tagged_clauses.push((false, clause));
+        }
         if let Some(clause) = self_etb_extra_cond {
             tagged_clauses.push((false, clause.to_string()));
         }

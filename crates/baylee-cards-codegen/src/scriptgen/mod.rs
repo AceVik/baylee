@@ -601,6 +601,13 @@ struct Tx<'a> {
     /// `Card.Self+kicked <1|2>` on a dual-kicker permanent, carrying the
     /// remapped 0-based Oracle kicker index for `Condition::KickedWith`.
     trigger_self_etb_kicked_with: Option<u8>,
+    /// Set by `spell_cast_trigger` when a zoneless self-cast trigger carries an
+    /// inline cast predicate (`+kicked`, `+wasCastFromYourHandByYou`,
+    /// `+!wasCastFromExile`) alongside `Trigger::SpellCast(&Filter::This)`.
+    trigger_self_spell_cond: Option<String>,
+    /// True while lowering a granted trigger inside `S:Mode$ Continuous | AddTrigger$`,
+    /// whose battlefield zone is inherited from the granting static.
+    in_granted_trigger: bool,
     /// While splitting a line whose numeric parameter references a
     /// `Count$Kicked.<A>.<B>` `SVar` into `Effect::IfKicked { then, otherwise }`,
     /// holds `Some(true)` for the kicked arm and `Some(false)` for the
@@ -772,6 +779,8 @@ impl<'a> Tx<'a> {
             trigger_blocks_creature: false,
             trigger_self_etb_kicked: false,
             trigger_self_etb_kicked_with: None,
+            trigger_self_spell_cond: None,
+            in_granted_trigger: false,
             kicked_branch: None,
             kicked_branch_used: std::cell::Cell::new(false),
             counter_on_source: false,

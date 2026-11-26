@@ -526,15 +526,26 @@ fn wave28c_refusal_guards() {
          S:Mode$ CantAttackUnless | ValidCard$ Creature | Cost$ 2 | Target$ You"
     ));
 
-    // Serra Paragon shared-limit mixed play, OppOwn exile stay refused.
+    // `Count$ValidExile Card.OppOwn` lowers via 2HG-exact `Filter::OwnedBy(PlayerRel::EachOpponent)`.
+    let umbris = read_w28c(
+        "Name:Opp Exile Approximator\nManaCost:3 U B\nTypes:Creature Nightmare\nPT:1/1\n\
+         S:Mode$ Continuous | AffectedDefined$ Self | AddPower$ X | AddToughness$ X\n\
+         SVar:X:Count$ValidExile Card.OppOwn",
+    );
+    assert!(
+        umbris
+            .statics
+            .contains("Filter::OwnedBy(PlayerRel::EachOpponent)")
+            && umbris.abilities[0].contains("zone: ZoneSel::ExileAll"),
+        "{} / {:?}",
+        umbris.statics,
+        umbris.abilities
+    );
+
+    // Serra Paragon shared-limit mixed play stays refused.
     assert!(refused_w28c(
         "Name:Serra Paragon\nManaCost:2 W W\nTypes:Creature Angel\nPT:3/4\n\
          S:Mode$ Continuous | Affected$ Permanent.YouOwn+cmcLE3,Land.YouOwn | ValidAfterStack$ Spell.cmcLE3 | Condition$ PlayerTurn | MayPlay$ True | MayPlayLimit$ 1 | EffectZone$ Battlefield | AffectedZone$ Graveyard"
-    ));
-    assert!(refused_w28c(
-        "Name:Opp Exile Approximator\nManaCost:3 U B\nTypes:Creature Nightmare\nPT:1/1\n\
-         S:Mode$ Continuous | AffectedDefined$ Self | AddPower$ X | AddToughness$ X\n\
-         SVar:X:Count$ValidExile Card.OppOwn"
     ));
 
     // Unmodeled Mana.RestrictValid forms stay refused.
