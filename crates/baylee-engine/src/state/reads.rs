@@ -140,9 +140,8 @@ fn amount_reads_reference_at(amount: &baylee_cards_dsl::Amount, depth: u8) -> bo
         | Amount::DistinctPowersAmong(f)
         | Amount::HighestControlledCount { filter: f, .. }
         | Amount::TotalManaValueInZone { filter: f, .. }
-        | Amount::DistinctExactManaCostsInZone { filter: f, .. } => {
-            filter_reads_reference_at(f, depth)
-        }
+        | Amount::DistinctExactManaCostsInZone { filter: f, .. }
+        | Amount::DistinctCardTypesInZone { filter: f, .. } => filter_reads_reference_at(f, depth),
         Amount::Half { base: a, .. }
         | Amount::Divided { base: a, .. }
         | Amount::Times { base: a, .. }
@@ -342,7 +341,10 @@ pub(crate) fn ability_reads_crime(ability: &baylee_cards_dsl::AbilityDef) -> boo
 fn cost_reduction_reads_crime(cr: Option<&baylee_cards_dsl::CostReduction>) -> bool {
     matches!(
         cr,
-        Some(baylee_cards_dsl::CostReduction::If { condition, .. })
+        Some(
+            baylee_cards_dsl::CostReduction::If { condition, .. }
+            | baylee_cards_dsl::CostReduction::IfMana { condition, .. }
+        )
             if condition_reads_crime(condition)
     )
 }
@@ -460,9 +462,8 @@ fn amount_reads_crime_at(amount: &baylee_cards_dsl::Amount, depth: u8) -> bool {
         | Amount::DistinctPowersAmong(f)
         | Amount::HighestControlledCount { filter: f, .. }
         | Amount::TotalManaValueInZone { filter: f, .. }
-        | Amount::DistinctExactManaCostsInZone { filter: f, .. } => {
-            filter_reads_crime(f, depth + 1)
-        }
+        | Amount::DistinctExactManaCostsInZone { filter: f, .. }
+        | Amount::DistinctCardTypesInZone { filter: f, .. } => filter_reads_crime(f, depth + 1),
         Amount::Negated(a)
         | Amount::Plus { base: a, .. }
         | Amount::SaturatingSub { base: a, .. }
@@ -491,15 +492,19 @@ fn modifier_reads_crime(modifier: &baylee_cards_dsl::Modifier) -> bool {
         Modifier::GrantFlash { filter, .. }
         | Modifier::FirstSpellEachTurnCostAdjust { filter, .. } => filter_reads_crime(filter, 0),
         Modifier::MayCastWithAltCost {
-            max_mana_value: Some(amt),
+            max_mana_value: Some(amount),
             ..
-        } => amount_reads_crime_at(amt, 0),
-        Modifier::SpellsCostLessByAmount(amount) => amount_reads_crime_at(amount, 0),
+        }
+        | Modifier::SpellsCostLessByAmount(amount)
+        | Modifier::ActivatedAbilitiesWithKeywordCostLess { amount, .. } => {
+            amount_reads_crime_at(amount, 0)
+        }
+        Modifier::AdjustSpellCostByAmount { amount, .. } => amount_reads_crime_at(amount, 0),
         Modifier::SpellsCostLessManaByAmount { filter, amount, .. } => {
             filter_reads_crime(filter, 0) || amount_reads_crime_at(amount, 0)
         }
-        Modifier::AdjustSpellCostByAmount { amount, .. } => amount_reads_crime_at(amount, 0),
-        Modifier::ActivatedAbilitiesCostLess { filter, amount, .. } => {
+        Modifier::ActivatedAbilitiesCostLess { filter, amount, .. }
+        | Modifier::FirstSpellEachTurnCostAdjustByAmount { filter, amount, .. } => {
             filter_reads_crime(filter, 0) || amount_reads_crime_at(amount, 0)
         }
         Modifier::PreventDamageRemovingCounters {
@@ -738,9 +743,8 @@ fn amount_reads_expend_at(amount: &baylee_cards_dsl::Amount, depth: u8) -> bool 
         | Amount::DistinctPowersAmong(f)
         | Amount::HighestControlledCount { filter: f, .. }
         | Amount::TotalManaValueInZone { filter: f, .. }
-        | Amount::DistinctExactManaCostsInZone { filter: f, .. } => {
-            filter_reads_expend(f, depth + 1)
-        }
+        | Amount::DistinctExactManaCostsInZone { filter: f, .. }
+        | Amount::DistinctCardTypesInZone { filter: f, .. } => filter_reads_expend(f, depth + 1),
         Amount::Negated(a)
         | Amount::Plus { base: a, .. }
         | Amount::SaturatingSub { base: a, .. }
@@ -772,15 +776,19 @@ fn modifier_reads_expend(modifier: &baylee_cards_dsl::Modifier) -> bool {
         Modifier::GrantFlash { filter, .. }
         | Modifier::FirstSpellEachTurnCostAdjust { filter, .. } => filter_reads_expend(filter, 0),
         Modifier::MayCastWithAltCost {
-            max_mana_value: Some(amt),
+            max_mana_value: Some(amount),
             ..
-        } => amount_reads_expend_at(amt, 0),
-        Modifier::SpellsCostLessByAmount(amount) => amount_reads_expend_at(amount, 0),
+        }
+        | Modifier::SpellsCostLessByAmount(amount)
+        | Modifier::ActivatedAbilitiesWithKeywordCostLess { amount, .. } => {
+            amount_reads_expend_at(amount, 0)
+        }
+        Modifier::AdjustSpellCostByAmount { amount, .. } => amount_reads_expend_at(amount, 0),
         Modifier::SpellsCostLessManaByAmount { filter, amount, .. } => {
             filter_reads_expend(filter, 0) || amount_reads_expend_at(amount, 0)
         }
-        Modifier::AdjustSpellCostByAmount { amount, .. } => amount_reads_expend_at(amount, 0),
-        Modifier::ActivatedAbilitiesCostLess { filter, amount, .. } => {
+        Modifier::ActivatedAbilitiesCostLess { filter, amount, .. }
+        | Modifier::FirstSpellEachTurnCostAdjustByAmount { filter, amount, .. } => {
             filter_reads_expend(filter, 0) || amount_reads_expend_at(amount, 0)
         }
         Modifier::PreventDamageRemovingCounters {
@@ -906,8 +914,90 @@ pub(crate) fn card_reads_sacrificed_permanents(def: &CardDef) -> bool {
         matches!(
             amt,
             baylee_cards_dsl::Amount::PermanentsSacrificedThisTurn { .. }
+                | baylee_cards_dsl::Amount::DistinctSacrificedCardTypesThisTurn(_)
         )
     })
+}
+
+pub(crate) fn card_reads_energy_removed(def: &CardDef) -> bool {
+    card_reads_pred(def, &|_| false, &|amt| {
+        matches!(amt, baylee_cards_dsl::Amount::EnergyRemovedThisTurn(_))
+    })
+}
+
+pub(crate) fn card_reads_opponents_attacked(def: &CardDef) -> bool {
+    card_reads_pred(def, &|_| false, &|amt| {
+        matches!(amt, baylee_cards_dsl::Amount::OpponentsAttackedThisTurn)
+    })
+}
+
+pub(crate) fn card_reads_last_turn_attacked(def: &CardDef) -> bool {
+    card_reads_pred(
+        def,
+        &|cond| matches!(cond, baylee_cards_dsl::Condition::PlayerAttackedYouLastTurn),
+        &|_| false,
+    )
+}
+
+pub(crate) fn card_reads_first_activated_each_turn(def: &CardDef) -> bool {
+    (0..def.faces.len().max(1)).any(|face| {
+        def.abilities_for_face(face)
+            .iter()
+            .any(ability_reads_first_activated_each_turn)
+    })
+}
+
+fn ability_reads_first_activated_each_turn(ability: &baylee_cards_dsl::AbilityDef) -> bool {
+    use baylee_cards_dsl::{AbilityDef, Modifier};
+    match ability {
+        AbilityDef::Static(sa) => matches!(
+            sa.modifier,
+            Modifier::FirstActivatedAbilityEachTurnCostLess { .. }
+        ),
+        AbilityDef::Spell { effects, .. }
+        | AbilityDef::Triggered { effects, .. }
+        | AbilityDef::Activated { effects, .. }
+        | AbilityDef::ActivatedConditional { effects, .. }
+        | AbilityDef::SagaChapter { effects, .. }
+        | AbilityDef::Loyalty { effects, .. } => effects_read_first_activated_each_turn(effects),
+        AbilityDef::ModalSpell { modes, .. }
+        | AbilityDef::Modal { modes, .. }
+        | AbilityDef::ModalActivated { modes, .. }
+        | AbilityDef::ModalTriggered { modes, .. } => modes
+            .iter()
+            .any(|m| effects_read_first_activated_each_turn(m.effects)),
+        _ => false,
+    }
+}
+
+fn effects_read_first_activated_each_turn(effects: &'static [baylee_cards_dsl::Effect]) -> bool {
+    let mut seen = 0;
+    let mut found = false;
+    baylee_cards_dsl::Effect::walk(effects, &mut seen, &mut |effect| {
+        use baylee_cards_dsl::{Effect, Modifier};
+        found |= match effect {
+            Effect::CreateContinuousEffect {
+                modifier: Modifier::FirstActivatedAbilityEachTurnCostLess { .. },
+                ..
+            }
+            | Effect::AddTempModifier {
+                modifier: Modifier::FirstActivatedAbilityEachTurnCostLess { .. },
+                ..
+            }
+            | Effect::AddGlobalTempModifier {
+                modifier: Modifier::FirstActivatedAbilityEachTurnCostLess { .. },
+                ..
+            } => true,
+            Effect::MoveAndModify { modifiers, .. } => modifiers
+                .iter()
+                .any(|m| matches!(m, Modifier::FirstActivatedAbilityEachTurnCostLess { .. })),
+            Effect::CreateEmblem { abilities } => abilities
+                .iter()
+                .any(ability_reads_first_activated_each_turn),
+            _ => false,
+        };
+    });
+    found
 }
 
 fn card_has_spell_cast_metric(
@@ -1045,7 +1135,8 @@ fn card_reads_pred(
 ) -> bool {
     let face_reads = def.faces.iter().any(|face| {
         let cr = face.cost_reduction.as_ref().is_some_and(|c| match c {
-            baylee_cards_dsl::CostReduction::If { condition, .. } => {
+            baylee_cards_dsl::CostReduction::If { condition, .. }
+            | baylee_cards_dsl::CostReduction::IfMana { condition, .. } => {
                 cond_matches(condition, cond_pred, amt_pred, 0)
             }
             baylee_cards_dsl::CostReduction::PerCount { amount, .. } => {
@@ -1095,7 +1186,9 @@ fn ability_matches(
     use baylee_cards_dsl::{AbilityDef, ActivationLimit, ActivationX, CostReduction};
     let cr_hit = |cr: Option<&CostReduction>| {
         cr.is_some_and(|c| match c {
-            CostReduction::If { condition, .. } => cond_matches(condition, cond_pred, amt_pred, 0),
+            CostReduction::If { condition, .. } | CostReduction::IfMana { condition, .. } => {
+                cond_matches(condition, cond_pred, amt_pred, 0)
+            }
             CostReduction::PerCount { amount, .. } => amt_matches(amount, cond_pred, amt_pred, 0),
             _ => false,
         })
@@ -1329,7 +1422,8 @@ fn amt_matches(
         | Amount::DistinctPowersAmong(f)
         | Amount::HighestControlledCount { filter: f, .. }
         | Amount::TotalManaValueInZone { filter: f, .. }
-        | Amount::DistinctExactManaCostsInZone { filter: f, .. } => {
+        | Amount::DistinctExactManaCostsInZone { filter: f, .. }
+        | Amount::DistinctCardTypesInZone { filter: f, .. } => {
             filter_matches(f, cond_pred, amt_pred, depth + 1)
         }
         Amount::Negated(a)
@@ -1364,25 +1458,55 @@ fn modifier_matches(
             amt_matches(power, cond_pred, amt_pred, 0)
                 || amt_matches(toughness, cond_pred, amt_pred, 0)
         }
-        Modifier::GrantFlash { filter, .. } => filter_matches(filter, cond_pred, amt_pred, 0),
+        Modifier::GrantFlash { filter, .. }
+        | Modifier::FirstSpellEachTurnCostAdjust { filter, .. }
+        | Modifier::ActivatedAbilitiesCostAdditional { filter, .. }
+        | Modifier::HexproofFrom(filter)
+        | Modifier::PlayerHexproofFrom { from: filter, .. }
+        | Modifier::IgnoreOpponentsHexproofMatching {
+            permanent_filter: filter,
+            ..
+        }
+        | Modifier::AdjustSpellCostBeyondFirstTarget {
+            spell_filter: filter,
+            ..
+        }
+        | Modifier::ReduceCostIfTargetsCheck {
+            spell_filter: filter,
+            ..
+        } => filter_matches(filter, cond_pred, amt_pred, 0),
+        Modifier::RaiseCostIfTargetsYouOrPermanent {
+            spell_filter: filter_a,
+            permanent_filter: filter_b,
+            ..
+        }
+        | Modifier::FirstActivatedAbilityEachTurnCostLess {
+            source_filter: filter_a,
+            target_filter: filter_b,
+            ..
+        } => {
+            filter_matches(filter_a, cond_pred, amt_pred, 0)
+                || filter_matches(filter_b, cond_pred, amt_pred, 0)
+        }
         Modifier::MayCastWithAltCost {
             max_mana_value: Some(amt),
             ..
         }
-        | Modifier::SpellsCostLessByAmount(amt) => amt_matches(amt, cond_pred, amt_pred, 0),
-        Modifier::SpellsCostLessManaByAmount { filter, amount, .. } => {
-            filter_matches(filter, cond_pred, amt_pred, 0)
-                || amt_matches(amount, cond_pred, amt_pred, 0)
+        | Modifier::SpellsCostLessByAmount(amt)
+        | Modifier::ActivatedAbilitiesWithKeywordCostLess { amount: amt, .. } => {
+            amt_matches(amt, cond_pred, amt_pred, 0)
         }
         Modifier::AdjustSpellCostByAmount { amount, .. } => {
             amt_matches(amount, cond_pred, amt_pred, 0)
         }
-        Modifier::ActivatedAbilitiesCostLess { filter, amount, .. } => {
+        Modifier::SpellsCostLessManaByAmount { filter, amount, .. } => {
             filter_matches(filter, cond_pred, amt_pred, 0)
                 || amt_matches(amount, cond_pred, amt_pred, 0)
         }
-        Modifier::FirstSpellEachTurnCostAdjust { filter, .. } => {
+        Modifier::ActivatedAbilitiesCostLess { filter, amount, .. }
+        | Modifier::FirstSpellEachTurnCostAdjustByAmount { filter, amount, .. } => {
             filter_matches(filter, cond_pred, amt_pred, 0)
+                || amt_matches(amount, cond_pred, amt_pred, 0)
         }
         Modifier::PreventDamageRemovingCounters {
             then: Some(rider), ..
@@ -1583,8 +1707,11 @@ fn ability_reads_first_spell_each_turn(ability: &baylee_cards_dsl::AbilityDef) -
     use baylee_cards_dsl::{AbilityDef, Modifier};
     match ability {
         AbilityDef::Static(sa) => {
-            matches!(sa.modifier, Modifier::FirstSpellEachTurnCostAdjust { .. })
-                || filter_reads_first_spell_each_turn(&sa.filter, 0)
+            matches!(
+                sa.modifier,
+                Modifier::FirstSpellEachTurnCostAdjust { .. }
+                    | Modifier::FirstSpellEachTurnCostAdjustByAmount { .. }
+            ) || filter_reads_first_spell_each_turn(&sa.filter, 0)
                 || sa.condition.as_ref().is_some_and(|c| {
                     matches!(
                         c,
@@ -1615,20 +1742,30 @@ fn effects_read_first_spell_each_turn(effects: &'static [baylee_cards_dsl::Effec
         use baylee_cards_dsl::{Effect, Modifier};
         found |= match effect {
             Effect::CreateContinuousEffect {
-                modifier: Modifier::FirstSpellEachTurnCostAdjust { .. },
+                modifier:
+                    Modifier::FirstSpellEachTurnCostAdjust { .. }
+                    | Modifier::FirstSpellEachTurnCostAdjustByAmount { .. },
                 ..
             }
             | Effect::AddTempModifier {
-                modifier: Modifier::FirstSpellEachTurnCostAdjust { .. },
+                modifier:
+                    Modifier::FirstSpellEachTurnCostAdjust { .. }
+                    | Modifier::FirstSpellEachTurnCostAdjustByAmount { .. },
                 ..
             }
             | Effect::AddGlobalTempModifier {
-                modifier: Modifier::FirstSpellEachTurnCostAdjust { .. },
+                modifier:
+                    Modifier::FirstSpellEachTurnCostAdjust { .. }
+                    | Modifier::FirstSpellEachTurnCostAdjustByAmount { .. },
                 ..
             } => true,
-            Effect::MoveAndModify { modifiers, .. } => modifiers
-                .iter()
-                .any(|m| matches!(m, Modifier::FirstSpellEachTurnCostAdjust { .. })),
+            Effect::MoveAndModify { modifiers, .. } => modifiers.iter().any(|m| {
+                matches!(
+                    m,
+                    Modifier::FirstSpellEachTurnCostAdjust { .. }
+                        | Modifier::FirstSpellEachTurnCostAdjustByAmount { .. }
+                )
+            }),
             Effect::CreateEmblem { abilities } => {
                 abilities.iter().any(ability_reads_first_spell_each_turn)
             }
@@ -1773,7 +1910,8 @@ fn amt_reads_cast_origin_zone(amount: &baylee_cards_dsl::Amount, depth: u8) -> b
         | Amount::PermanentsSacrificedThisTurn { filter: f, .. }
         | Amount::SpellsCastMatchingThisTurn { filter: f, .. }
         | Amount::CreaturesAttackedThisTurn { filter: f, .. }
-        | Amount::DistinctManaValuesInZone { filter: f, .. } => {
+        | Amount::DistinctManaValuesInZone { filter: f, .. }
+        | Amount::DistinctCardTypesInZone { filter: f, .. } => {
             filter_reads_cast_origin_zone(f, depth + 1)
         }
         Amount::Negated(a)
@@ -1850,7 +1988,21 @@ fn modifier_reads_cast_origin_zone(modifier: &baylee_cards_dsl::Modifier) -> boo
         Modifier::GrantActivated { effects, .. } => effects_read_cast_origin_zone(effects),
         Modifier::GrantFlash { filter, .. }
         | Modifier::FirstSpellEachTurnCostAdjust { filter, .. }
+        | Modifier::FirstSpellEachTurnCostAdjustByAmount { filter, .. }
         | Modifier::ActivatedAbilitiesCostLess { filter, .. }
+        | Modifier::ActivatedAbilitiesCostAdditional { filter, .. }
+        | Modifier::RaiseCostIfTargetsYouOrPermanent {
+            spell_filter: filter,
+            ..
+        }
+        | Modifier::AdjustSpellCostBeyondFirstTarget {
+            spell_filter: filter,
+            ..
+        }
+        | Modifier::ReduceCostIfTargetsCheck {
+            spell_filter: filter,
+            ..
+        }
         | Modifier::CantBeTargetedBy(filter) => filter_reads_cast_origin_zone(filter, 0),
         _ => false,
     }

@@ -216,6 +216,22 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
         // Reuse the seat's buffer rather than allocate one tree node per attacker.
         history.sort_unstable();
         history.dedup();
+        if self.state.last_turn_attacked_players.tracked {
+            self.state
+                .last_turn_attacked_players
+                .items
+                .retain(|rec| rec.attacker != active);
+            for rec in &self.state.per_turn.opponents_attacked.items {
+                if rec.attacker == active {
+                    self.state.last_turn_attacked_players.items.push(
+                        crate::state::per_turn::LastTurnAttackedRecord {
+                            attacker: active,
+                            defender: rec.defender,
+                        },
+                    );
+                }
+            }
+        }
     }
 
     /// The player whose turn the normal order goes on from: the current

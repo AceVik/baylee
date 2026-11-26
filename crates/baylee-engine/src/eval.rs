@@ -29,6 +29,7 @@ pub(crate) use amounts::{
     beheld_or_revealed_mana_value, beheld_or_revealed_power, cards_discarded_for_seats,
     colors_among, colors_in_zone, colors_of_mana_spent_on, convoked_count_on, count_controlled_by,
     creatures_attacked_for_seats, devotion_for_players, distinct_card_types_cast_for_seats,
+    distinct_sacrificed_card_types_for_seats, energy_removed_for_seats,
     entered_this_turn_for_seats, entry_sacrifices_on, highest_life_lost_for_seats,
     highest_opponent_hand_size, left_zone_this_turn_for_seats, life_lost_for_seats,
     linked_exile_cards, mana_color_spent_on, mana_spent_on, object_colors_of_mana_spent,
@@ -767,6 +768,8 @@ pub(crate) fn matches_projected_with_choices(
             .and_then(|reference| state.object(reference))
             .is_some_and(|reference| chars.types.intersects(reference.characteristics().types)),
         Filter::CastForBlitz => obj.riders.contains(&crate::object::Rider::Blitzed),
+        Filter::CastForFlashback => obj.riders.contains(&crate::object::Rider::Flashback),
+        Filter::CastForDash => obj.riders.contains(&crate::object::Rider::Dashed),
         Filter::FirstMatchingSpellThisTurn(inner) => {
             let items = &state.per_turn.cast_spells_this_turn.items;
             let limit = items

@@ -648,6 +648,9 @@ pub(super) fn exec_immediate(
         | Effect::AddCounterFilter { .. }
         | Effect::AddCounterCreatedTokens { .. }
         | Effect::DoubleCountersFilter { .. }
+        | Effect::MultiplyCounters { .. }
+        | Effect::MoveCounters { .. }
+        | Effect::RemoveCounters { .. }
         | Effect::DrainAllCountersIntoSelf
         | Effect::SetPTFilter { .. }
         | Effect::SetPTByCountFilter { .. }

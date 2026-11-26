@@ -91,6 +91,7 @@ impl GameState {
             game_end,
             day_night,
             previous_turn,
+            last_turn_attacked_players,
             starting_player,
             ability_fires,
             modal_modes_used,
@@ -185,6 +186,7 @@ impl GameState {
         turn.hash(&mut h);
         day_night.hash(&mut h);
         previous_turn.hash(&mut h);
+        last_turn_attacked_players.hash(&mut h);
         monarch.hash(&mut h);
         if let Some(initiative) = initiative {
             h.u8(251);
@@ -855,6 +857,56 @@ impl GameState {
                     record.object.version,
                 ));
                 hash_object_situation(h, &record.snapshot, self, position);
+            }
+        }
+        if self.per_turn.energy_removed.tracked && !self.per_turn.energy_removed.items.is_empty() {
+            let records = &self.per_turn.energy_removed.items;
+            h.u16(601);
+            h.usize(records.len());
+            for record in records {
+                h.u8(record.player.get());
+                h.u32(record.amount);
+            }
+        }
+        if self.per_turn.opponents_attacked.tracked
+            && !self.per_turn.opponents_attacked.items.is_empty()
+        {
+            let records = &self.per_turn.opponents_attacked.items;
+            h.u16(602);
+            h.usize(records.len());
+            for record in records {
+                h.u8(record.attacker.get());
+                h.u8(record.defender.get());
+            }
+        }
+        if self.per_turn.activated_abilities_this_turn.tracked
+            && !self.per_turn.activated_abilities_this_turn.items.is_empty()
+        {
+            let records = &self.per_turn.activated_abilities_this_turn.items;
+            h.u16(603);
+            h.usize(records.len());
+            for record in records {
+                h.u8(record.activator.get());
+                h.u32(position(record.source.object));
+                h.u8(moves_since(
+                    self.object_or_departed(record.source.object),
+                    record.source.version,
+                ));
+                h.usize(record.targets.len());
+                for &target in &record.targets {
+                    h.u32(position(target));
+                }
+            }
+        }
+        if self.last_turn_attacked_players.tracked
+            && !self.last_turn_attacked_players.items.is_empty()
+        {
+            let records = &self.last_turn_attacked_players.items;
+            h.u16(604);
+            h.usize(records.len());
+            for record in records {
+                h.u8(record.attacker.get());
+                h.u8(record.defender.get());
             }
         }
     }
@@ -3493,6 +3545,14 @@ fn filter_hash(h: &mut Hasher, f: &baylee_cards_dsl::Filter) {
             h.u16(512);
             rel.hash(h);
         }
+        F::CastForFlashback => {
+            h.u8(255);
+            h.u16(595);
+        }
+        F::CastForDash => {
+            h.u8(255);
+            h.u16(596);
+        }
     }
 }
 
@@ -3558,9 +3618,8 @@ fn amount_filter_depth_exceeds(amt: &baylee_cards_dsl::Amount, depth: u8) -> boo
         | A::DistinctPowersAmong(f)
         | A::HighestControlledCount { filter: f, .. }
         | A::TotalManaValueInZone { filter: f, .. }
-        | A::DistinctExactManaCostsInZone { filter: f, .. } => {
-            filter_amount_depth_exceeds(f, depth)
-        }
+        | A::DistinctExactManaCostsInZone { filter: f, .. }
+        | A::DistinctCardTypesInZone { filter: f, .. } => filter_amount_depth_exceeds(f, depth),
         A::ThisWay(tw) | A::ThisWayBy { what: tw, .. } => match tw {
             TW::Died(f)
             | TW::Destroyed(f)

@@ -86,6 +86,8 @@ fn reads_amount(value: Amount) -> bool {
         | Amount::HighestLifeLostThisTurn(who)
         | Amount::CardsDiscardedThisTurn(who)
         | Amount::DistinctCardTypesCastThisTurn(who)
+        | Amount::DistinctSacrificedCardTypesThisTurn(who)
+        | Amount::EnergyRemovedThisTurn(who)
         | Amount::CountOf {
             zone:
                 baylee_cards_dsl::ZoneSel::GraveyardOf(who)
@@ -124,7 +126,8 @@ fn reads_amount(value: Amount) -> bool {
         Amount::DistinctPowersAmong(filter) => reads_filter(filter),
         Amount::DistinctManaValuesInZone { zone, filter }
         | Amount::TotalManaValueInZone { zone, filter }
-        | Amount::DistinctExactManaCostsInZone { zone, filter } => {
+        | Amount::DistinctExactManaCostsInZone { zone, filter }
+        | Amount::DistinctCardTypesInZone { zone, filter } => {
             reads_filter(filter)
                 || matches!(
                     zone,
@@ -532,6 +535,30 @@ fn reads_event(effect: &Effect) -> bool {
         Effect::SoulbondPair { with_event_object } => *with_event_object,
         Effect::ReduceNextSpellCost { who, generic, .. } => {
             reads_player(*who) || reads_amount(*generic)
+        }
+        Effect::MultiplyCounters { subject, .. } => match subject {
+            baylee_cards_dsl::CounterSubject::EventObject => true,
+            baylee_cards_dsl::CounterSubject::Player(who) => reads_player(*who),
+            _ => false,
+        },
+        Effect::MoveCounters { from, to, .. } => {
+            matches!(from, baylee_cards_dsl::MoveCounterSource::Filter(f) if reads_filter(f))
+                || matches!(to, baylee_cards_dsl::MoveCounterDest::EventObject)
+                || matches!(to, baylee_cards_dsl::MoveCounterDest::DistributeAmong(f) if reads_filter(f))
+        }
+        Effect::RemoveCounters { subject, count, .. } => {
+            let s_reads = match subject {
+                baylee_cards_dsl::RemoveCounterSubject::Player(who) => reads_player(*who),
+                baylee_cards_dsl::RemoveCounterSubject::Choice(f)
+                | baylee_cards_dsl::RemoveCounterSubject::Filter(f) => reads_filter(f),
+                _ => false,
+            };
+            let c_reads = match count {
+                baylee_cards_dsl::RemoveCounterCount::Exact(a)
+                | baylee_cards_dsl::RemoveCounterCount::UpTo(a) => reads_amount(*a),
+                _ => false,
+            };
+            s_reads || c_reads
         }
         Effect::Play {
             source, controller, ..

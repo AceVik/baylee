@@ -216,7 +216,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
             && wizard.reduction.is_none()
             && (wizard.option != Some(CastModeKind::Emerge) || wizard.emerge_sacrifice.is_some())
         {
-            wizard.reduction = Some(self.frozen_spell_reduction(&wizard));
+            self.sync_wizard_reduction(&mut wizard);
             self.cast_wizard = Some(wizard.clone());
         }
         if let Some(CastModeKind::PlayLandFace(face)) = wizard.option {

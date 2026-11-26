@@ -36,7 +36,7 @@ mod extensions;
 mod merged;
 mod moves;
 mod objects;
-mod per_turn;
+pub(crate) mod per_turn;
 mod player_counters;
 mod players;
 mod projection;
@@ -832,6 +832,10 @@ pub struct GameState {
     /// reset as the next turn begins, before its untap step. So the pair is
     /// snapshotted at that turn boundary instead of counted twice.
     pub previous_turn: Option<PreviousTurn>,
+    /// `(attacker_player, defender_player)` pairs from each player's most
+    /// recently completed turn (`Condition::PlayerAttackedYouLastTurn`), gated
+    /// by `PerTurnTracked`.
+    pub last_turn_attacked_players: per_turn::PerTurnTracked<per_turn::LastTurnAttackedRecord>,
     /// The player who took the first turn (Surgical Metamorph & co.).
     pub starting_player: PlayerId,
     /// How often an ability of an object has been used this turn, cleared as
@@ -1034,6 +1038,7 @@ impl GameState {
             game_end,
             day_night,
             previous_turn,
+            last_turn_attacked_players,
             starting_player,
             ability_fires,
             modal_modes_used,
@@ -1166,6 +1171,10 @@ impl GameState {
             ("state.game_end", format!("{game_end:?}")),
             ("state.day_night", format!("{day_night:?}")),
             ("state.previous_turn", format!("{previous_turn:?}")),
+            (
+                "state.last_turn_attacked_players",
+                format!("{last_turn_attacked_players:?}"),
+            ),
             ("state.starting_player", format!("{starting_player:?}")),
             ("state.ability_fires", format!("{fires:?}")),
             ("state.modal_modes_used", format!("{modal_modes_used:?}")),

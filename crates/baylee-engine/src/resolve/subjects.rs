@@ -157,6 +157,8 @@ pub struct SubjectContext {
     /// Damage prevented or replaced by an enclosing prevention/replacement-with-rider
     /// shield or static modifier (`ThisWay::DamagePrevented`, CR 615.5).
     pub(crate) damage_prevented: u32,
+    /// Counters moved during this resolution (`ThisWay::CountersMoved`, CR 122.5).
+    pub(crate) counters_moved: u32,
     /// Stashed opponent copy target during `Effect::Demonstrate` (`CR 702.148a`).
     pub(crate) demonstrate_opp: Option<(DamageSourceRef, baylee_core::ids::PlayerId)>,
 }
@@ -322,6 +324,7 @@ impl SubjectContext {
             remembered_objects: None,
             capture_frames: Vec::new(),
             damage_prevented: 0,
+            counters_moved: 0,
             demonstrate_opp: None,
         }
     }
@@ -468,6 +471,7 @@ impl SubjectContext {
         h.wrapping_mul(31).wrapping_add(links)
     }
 
+    #[allow(clippy::too_many_lines)]
     fn fingerprint_tail(&self, mut h: u64) -> u64 {
         if let Some(inspected) = &self.inspected_library {
             let digest = crate::state::structural_fingerprint(&("inspected-library", inspected));
@@ -521,6 +525,15 @@ impl SubjectContext {
                     255_u8,
                     351_u16,
                     self.damage_prevented,
+                )));
+        }
+        if self.counters_moved > 0 {
+            h = h
+                .wrapping_mul(31)
+                .wrapping_add(crate::state::structural_fingerprint(&(
+                    255_u8,
+                    598_u16,
+                    self.counters_moved,
                 )));
         }
         if let Some(vq) = &self.vote_queue {

@@ -208,6 +208,10 @@ pub enum AwaitingOp {
         /// Kinds that could legally be moved when asked.
         kinds: Vec<baylee_cards_dsl::CounterKind>,
     },
+    /// Multi-step or filtered counter move (`Effect::MoveCounters`, CR 122.5).
+    MoveCounters(Box<super::counter_move::MoveCountersPlan>),
+    /// Generalized counter removal choice (`Effect::RemoveCounters`, CR 122).
+    RemoveCountersChoice(Box<super::counter_removal::RemoveCountersPlan>),
     /// Recipients waiting for the controller to pick one counter kind
     /// (`Effect::PutCounterChoice`, CR 122.1).
     PutCounterChoice {
@@ -2379,6 +2383,12 @@ impl AwaitingOp {
             } => {
                 crate::state::structural_fingerprint(&(255_u8, 505_u16, 9_u8, player, mana, effect))
                     .max(1)
+            }
+            Self::MoveCounters(plan) => {
+                crate::state::structural_fingerprint(&(255_u8, 599_u16, plan)).max(1)
+            }
+            Self::RemoveCountersChoice(plan) => {
+                crate::state::structural_fingerprint(&(255_u8, 600_u16, plan)).max(1)
             }
             _ => 0,
         }

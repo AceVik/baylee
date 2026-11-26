@@ -187,7 +187,29 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
                 object: res.event_object?,
                 version: event_object_identity(state, res)?.0,
             };
-            crate::replacement::move_counter(state, res.controller, source, target, kind);
+            let moved =
+                crate::replacement::move_counters(state, res.controller, source, target, kind, 1);
+            res.subject.counters_moved =
+                res.subject.counters_moved.saturating_add(u32::from(moved));
+            None
+        }
+        Effect::MoveCounters {
+            from,
+            to,
+            kind,
+            count,
+        } => super::counter_move::start_multi(state, res, from, to, kind, count),
+        Effect::RemoveCounters {
+            subject,
+            kind,
+            count,
+        } => super::counter_removal::start_generic(state, res, subject, kind, count),
+        Effect::MultiplyCounters {
+            subject,
+            kind,
+            factor,
+        } => {
+            multiply_counters(state, res, subject, kind, factor);
             None
         }
         Effect::AddCounterSource { kind, amount } => {
@@ -1188,6 +1210,136 @@ fn enqueue_counter_plans(
         .collect();
     if !plans.is_empty() {
         crate::replacement::counter_order::enqueue_batch(state, plans, Vec::new());
+    }
+}
+
+/// Multiplies counters of `kind` (or all counter kinds when `kind` is `None`)
+/// on `subject` by `factor` (`CR 701.9e`), reading all counts before placing
+/// any counters and routing placements through replacement effects.
+#[allow(clippy::too_many_lines)]
+fn multiply_counters(
+    state: &mut GameState,
+    res: &Resolution,
+    subject: baylee_cards_dsl::CounterSubject,
+    kind: Option<baylee_cards_dsl::CounterKind>,
+    factor: u16,
+) {
+    let extra_mult = factor.saturating_sub(1);
+    if extra_mult == 0 {
+        return;
+    }
+    let you = res.controller;
+    let mut objects: Vec<ObjectId> = Vec::new();
+    let mut players: Vec<PlayerId> = Vec::new();
+    match subject {
+        baylee_cards_dsl::CounterSubject::Targets => {
+            for &id in &res.targets {
+                if let Some(r) =
+                    subjects::target(state, res, id).filter(|r| subjects::on_battlefield(state, *r))
+                {
+                    objects.push(r.object);
+                }
+            }
+            for p in res.target_players.iter() {
+                if !state.has_left(p) {
+                    players.push(p);
+                }
+            }
+            if objects.is_empty()
+                && players.is_empty()
+                && let Some(p) = res.chosen_player
+                && !state.has_left(p)
+            {
+                players.push(p);
+            }
+        }
+        baylee_cards_dsl::CounterSubject::Source => {
+            if let Some(r) =
+                subjects::source(state, res).filter(|r| subjects::on_battlefield(state, *r))
+            {
+                objects.push(r.object);
+            }
+        }
+        baylee_cards_dsl::CounterSubject::Attached => {
+            if let Some(host) = eval::attached_for_ability(
+                state,
+                res.source,
+                source_version(state, res),
+                source_attachment_lki(state, res.on_stack),
+            ) {
+                let r = baylee_core::ids::DamageSourceRef {
+                    object: host.id,
+                    version: host.version,
+                };
+                if subjects::on_battlefield(state, r) {
+                    objects.push(r.object);
+                }
+            }
+        }
+        baylee_cards_dsl::CounterSubject::EventObject => {
+            if let Some(object) = res.event_object
+                && let Some((version, _)) = event_object_identity(state, res)
+            {
+                let r = baylee_core::ids::DamageSourceRef { object, version };
+                if subjects::on_battlefield(state, r) {
+                    objects.push(r.object);
+                }
+            }
+        }
+        baylee_cards_dsl::CounterSubject::Player(who) => {
+            for p in players_of(who, state, you, res) {
+                if !state.has_left(p) {
+                    players.push(p);
+                }
+            }
+        }
+    }
+    let object_batches: Vec<(ObjectId, Vec<(baylee_cards_dsl::CounterKind, u16)>)> = objects
+        .into_iter()
+        .filter_map(|id| {
+            let obj = state.object(id)?;
+            let additions: Vec<(baylee_cards_dsl::CounterKind, u16)> = obj
+                .counters
+                .iter()
+                .filter(|&(k, n)| n > 0 && kind.is_none_or(|w| w == k))
+                .map(|(k, n)| (k, n.saturating_mul(extra_mult)))
+                .filter(|&(_, add)| add > 0)
+                .collect();
+            (!additions.is_empty()).then_some((id, additions))
+        })
+        .collect();
+    let player_batches: Vec<(PlayerId, Vec<(baylee_cards_dsl::CounterKind, u16)>)> = players
+        .into_iter()
+        .filter_map(|p| {
+            let additions: Vec<(baylee_cards_dsl::CounterKind, u16)> = state.players
+                [usize::from(p.get())]
+            .counters()
+            .into_iter()
+            .filter(|&(k, n)| n > 0 && kind.is_none_or(|w| w == k))
+            .map(|(k, n)| (k, n.saturating_mul(extra_mult)))
+            .filter(|&(_, add)| add > 0)
+            .collect();
+            (!additions.is_empty()).then_some((p, additions))
+        })
+        .collect();
+    let plans = object_batches
+        .into_iter()
+        .filter_map(|(id, additions)| {
+            crate::replacement::counter_order::plan(
+                state,
+                res.controller,
+                id,
+                additions,
+                true,
+                None,
+            )
+        })
+        .collect();
+    crate::replacement::counter_order::enqueue_batch(state, plans, Vec::new());
+    for (p, additions) in player_batches {
+        for (k, add) in additions {
+            state.put_player_counters_by(res.controller, p, k, u32::from(add));
+        }
     }
 }
 

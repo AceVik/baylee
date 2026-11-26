@@ -1775,6 +1775,38 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
         self.activation_target_choice = super::super::targeting::ActivationTargetChoice::default();
     }
 
+    pub(super) fn record_activated_ability_this_turn(
+        &mut self,
+        player: PlayerId,
+        source: ObjectId,
+        version: u32,
+        targets: Vec<ObjectId>,
+    ) {
+        if !self.state.per_turn.activated_abilities_this_turn.tracked {
+            return;
+        }
+        let Some(src_obj) = self.state.object(source) else {
+            return;
+        };
+        let mut snap = src_obj.clone();
+        snap.base = std::sync::Arc::new(src_obj.characteristics().clone());
+        snap.cache.clear();
+        let rec = crate::state::per_turn::ActivatedAbilityRecord {
+            activator: player,
+            source: baylee_core::ids::DamageSourceRef {
+                object: source,
+                version,
+            },
+            snapshot: std::sync::Arc::new(snap),
+            targets,
+        };
+        self.state
+            .per_turn
+            .activated_abilities_this_turn
+            .items
+            .push(rec);
+    }
+
     pub(super) fn record_activation(
         &mut self,
         player: PlayerId,
@@ -1783,6 +1815,11 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
         cost: &ActivationPrice,
         ability: Option<ObjectId>,
     ) {
+        let ver = version.expect("activated source identity");
+        let ab_targets = ability
+            .and_then(|id| self.state.object(id))
+            .map_or_default(|o| o.targets.to_vec());
+        self.record_activated_ability_this_turn(player, source, ver, ab_targets);
         self.state.journal.record(GameEvent::AbilityActivated {
             source: baylee_core::ids::DamageSourceRef {
                 object: source,

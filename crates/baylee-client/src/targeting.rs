@@ -710,6 +710,8 @@ fn matches_at(
         | Filter::WasCast
         | Filter::WasCastByYou
         | Filter::CastFromZone(_)
+        | Filter::CastForFlashback
+        | Filter::CastForDash
         // Relative to a resolution's reference object, this turn's blocks
         // and damage, or a colour chosen or compared across
         // the board: nothing a target probe from the view can close.

@@ -2475,7 +2475,43 @@ pub(crate) fn can_cast_form_paying(
             )
             .is_some()
         });
-        if parts_payable && probe(&cost.with_x(0)) {
+        let fb_form = SpellForm::Flashback(cost);
+        let fb_ok = printed.map_or_else(
+            || probe(&cost.with_x(0)),
+            |def| {
+                let fb_adj = face_adjustment(state, player, card, def, 0, Some(fb_form));
+                let fb_preview = fb_adj.for_preview(preview_cast_metric_bounds_for(
+                    state,
+                    player,
+                    card,
+                    def,
+                    0,
+                    Some(fb_form),
+                    PreviewCastKind::Face,
+                    &fb_adj,
+                ));
+                let fb_printed = printed_reduction(state, &def.faces[0], player, card);
+                let fb_kw = keyword_reduction(state, &def.faces[0], player, card);
+                let fb_cost = keyword_priced_for(
+                    state,
+                    card,
+                    0,
+                    &def.faces[0],
+                    player,
+                    &fb_preview.price(cost.with_x(0), fb_printed),
+                    fb_kw,
+                );
+                let fb_what = SpendFor::SpellAs(card, fb_form);
+                let fb_pool = planning_pool(state, player, fb_what, 0);
+                let fb_pool_ref = fb_pool
+                    .as_ref()
+                    .unwrap_or(&state.players[usize::from(player.get())].mana_pool);
+                let fb_allow =
+                    fb_preview.allowance(state, fb_what, fb_printed.saturating_add(fb_kw));
+                affordable(state, player, fb_pool_ref, &fb_cost, fb_what, fb_allow)
+            },
+        );
+        if parts_payable && fb_ok {
             return Ok(());
         }
         if !flashback_granted(state, card) && !graveyard_ok && !jump_start_ok && !retrace_ok {
@@ -2923,7 +2959,46 @@ pub(crate) fn can_cast_form_paying(
             && front_target_ok
             && !flashback_only
             && !gy_alt_only
-            && face.dash.is_some_and(|dash| probe(&dash));
+            && face.dash.is_some_and(|dash| {
+                let dash_form = SpellForm::Dash(dash);
+                let dash_adj = face_adjustment(state, player, card, def, 0, Some(dash_form));
+                let dash_preview = dash_adj.for_preview(preview_cast_metric_bounds_for(
+                    state,
+                    player,
+                    card,
+                    def,
+                    0,
+                    Some(dash_form),
+                    PreviewCastKind::Face,
+                    &dash_adj,
+                ));
+                let dash_printed = printed_reduction(state, face, player, card);
+                let dash_kw = keyword_reduction(state, face, player, card);
+                let dash_cost = keyword_priced_for(
+                    state,
+                    card,
+                    0,
+                    face,
+                    player,
+                    &dash_preview.price(dash.with_x(0), dash_printed),
+                    dash_kw,
+                );
+                let dash_what = SpendFor::SpellAs(card, dash_form);
+                let dash_pool = planning_pool(state, player, dash_what, 0);
+                let dash_pool_ref = dash_pool
+                    .as_ref()
+                    .unwrap_or(&state.players[usize::from(player.get())].mana_pool);
+                let dash_allow =
+                    dash_preview.allowance(state, dash_what, dash_printed.saturating_add(dash_kw));
+                affordable(
+                    state,
+                    player,
+                    dash_pool_ref,
+                    &dash_cost,
+                    dash_what,
+                    dash_allow,
+                )
+            });
         // Blitz (CR 702.152a), the offer's `CastModeKind::Blitz`.
         let any_blitz = front_now
             && front_target_ok

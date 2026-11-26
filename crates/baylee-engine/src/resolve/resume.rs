@@ -1909,6 +1909,13 @@ pub(super) fn resume_inner(
                 return next_choice(state, res, since, pending);
             }
         }
+        AwaitingOp::RemoveCountersChoice(plan) => {
+            if let Some(pending) =
+                counter_removal::resume_chosen_permanent(state, res, &plan, chosen)
+            {
+                return next_choice(state, res, since, pending);
+            }
+        }
         AwaitingOp::DamageShieldSource { .. }
         | AwaitingOp::ShieldFromChosenSource { .. }
         | AwaitingOp::ShieldFromChosenSourceWithLifeCondition { .. }
@@ -1968,6 +1975,7 @@ pub(super) fn resume_inner(
         | AwaitingOp::ChooseBasicLandType
         | AwaitingOp::Colors { .. }
         | AwaitingOp::MoveCounter { .. }
+        | AwaitingOp::MoveCounters(_)
         | AwaitingOp::PutCounterChoice { .. }
         | AwaitingOp::AttachSlot { .. }
         | AwaitingOp::Counters { .. }

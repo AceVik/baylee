@@ -619,6 +619,14 @@ pub enum Filter {
     /// Controlled by `you` or a teammate (`CR 810.5`; same as [`Self::ControlledByYou`] in 1v1).
     /// Appended to preserve replay identities.
     ControlledByYourTeam,
+    /// Spell currently being cast (or cast-spell snapshot) whose flashback
+    /// alternative cost was chosen (`CR 702.34a`; *Catalyst Stone*).
+    /// Appended to preserve replay identities.
+    CastForFlashback,
+    /// Spell currently being cast (or cast-spell snapshot) whose dash
+    /// alternative cost was chosen (`CR 702.109a`; *Warbringer*).
+    /// Appended to preserve replay identities.
+    CastForDash,
 }
 
 /// Zone references for filters (engine zones, DSL view).

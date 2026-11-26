@@ -136,6 +136,7 @@ impl GameState {
             game_end: None,
             day_night: None,
             previous_turn: None,
+            last_turn_attacked_players: super::per_turn::PerTurnTracked::default(),
             starting_player,
             ability_fires: rustc_hash::FxHashMap::default(),
             modal_modes_used: std::collections::BTreeMap::new(),
@@ -468,6 +469,12 @@ impl GameState {
             super::reads::card_reads_surveilled_this_turn(def);
         self.per_turn.cards_foretold.tracked |= super::reads::card_reads_foretold_count(def);
         self.per_turn.discard_history.tracked |= super::reads::card_reads_first_discard_batch(def);
+        self.per_turn.energy_removed.tracked |= super::reads::card_reads_energy_removed(def);
+        self.per_turn.opponents_attacked.tracked |=
+            super::reads::card_reads_opponents_attacked(def);
+        self.per_turn.activated_abilities_this_turn.tracked |=
+            super::reads::card_reads_first_activated_each_turn(def);
+        self.last_turn_attacked_players.tracked |= super::reads::card_reads_last_turn_attacked(def);
         let base = self.card_base(def, entry.card);
         let card = CardRef {
             index: entry.card,
@@ -595,6 +602,12 @@ impl GameState {
             super::reads::card_reads_surveilled_this_turn(def);
         self.per_turn.cards_foretold.tracked |= super::reads::card_reads_foretold_count(def);
         self.per_turn.discard_history.tracked |= super::reads::card_reads_first_discard_batch(def);
+        self.per_turn.energy_removed.tracked |= super::reads::card_reads_energy_removed(def);
+        self.per_turn.opponents_attacked.tracked |=
+            super::reads::card_reads_opponents_attacked(def);
+        self.per_turn.activated_abilities_this_turn.tracked |=
+            super::reads::card_reads_first_activated_each_turn(def);
+        self.last_turn_attacked_players.tracked |= super::reads::card_reads_last_turn_attacked(def);
         Ok(PrintedCard {
             base: self.card_base(def, index),
             cda: printed_pt_cda(def),

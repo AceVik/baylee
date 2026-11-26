@@ -257,23 +257,60 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                     });
                 }
             }
-            if let Some(flashback) = face.flashback
-                && afford(&flashback.with_x(0))
-                && casting::additional_payment_capacity_for(
+            if let Some(flashback) = face.flashback {
+                let fb_form = Some(casting::SpellForm::Flashback(flashback));
+                let fb_adj = casting::face_adjustment(&self.state, player, card, def, 0, fb_form);
+                let fb_preview_adj = fb_adj.for_preview(casting::preview_cast_metric_bounds_for(
                     &self.state,
                     player,
                     card,
+                    def,
+                    0,
+                    fb_form,
+                    casting::PreviewCastKind::Face,
+                    &fb_adj,
+                ));
+                let fb_allow = fb_preview_adj.allowance(
+                    &self.state,
+                    casting::SpendFor::SpellAs(card, casting::SpellForm::Flashback(flashback)),
+                    printed_reduction.saturating_add(reduction),
+                );
+                let fb_preview_mana = casting::keyword_priced_for(
+                    &self.state,
+                    card,
+                    0,
                     face,
-                    Some(CastModeKind::Flashback),
-                    &[],
-                )
-                .is_some()
-            {
-                options.push(CastModeDesc {
-                    index: 0,
-                    kind: CastModeKind::Flashback,
-                    cost: price(flashback),
-                });
+                    player,
+                    &fb_preview_adj.price(flashback.with_x(0), printed_reduction),
+                    reduction,
+                );
+                let fb_afford = defer_mana
+                    || casting::source_affordable(
+                        &self.state,
+                        player,
+                        casting::SpendFor::SpellAs(card, casting::SpellForm::Flashback(flashback)),
+                        pool,
+                        &fb_preview_mana,
+                        &[],
+                        Some(fb_allow),
+                    );
+                if fb_afford
+                    && casting::additional_payment_capacity_for(
+                        &self.state,
+                        player,
+                        card,
+                        face,
+                        Some(CastModeKind::Flashback),
+                        &[],
+                    )
+                    .is_some()
+                {
+                    options.push(CastModeDesc {
+                        index: 0,
+                        kind: CastModeKind::Flashback,
+                        cost: fb_adj.price(flashback, printed_reduction),
+                    });
+                }
             }
             if let Some(beam) = face.beam_me_up
                 && afford(&beam.with_x(0))
@@ -822,19 +859,36 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
         // an alternative cost (CR 118.9) paid by the rules for one (601.2b,
         // 601.2f–h) — asked of the pool the way the alternatives above are.
         if front_timing_ok && let Some(dash) = face.dash {
+            let dash_form = Some(casting::SpellForm::Dash(dash));
+            let dash_adj = casting::face_adjustment(&self.state, player, card, def, 0, dash_form);
+            let dash_preview_adj = dash_adj.for_preview(casting::preview_cast_metric_bounds_for(
+                &self.state,
+                player,
+                card,
+                def,
+                0,
+                dash_form,
+                casting::PreviewCastKind::Face,
+                &dash_adj,
+            ));
             let taxed = baylee_cards_dsl::Cost {
                 mana: if defer_mana {
                     ManaCost::ZERO
                 } else {
-                    preview_price(dash)
+                    dash_preview_adj.price(dash, printed_reduction)
                 },
                 parts: &[],
             };
-            if self.can_afford(player, card, &taxed, casting::SpendFor::Spell(card)) {
+            if self.can_afford(
+                player,
+                card,
+                &taxed,
+                casting::SpendFor::SpellAs(card, casting::SpellForm::Dash(dash)),
+            ) {
                 options.push(CastModeDesc {
                     index: (options.len()) as u32,
                     kind: CastModeKind::Dash,
-                    cost: price(dash),
+                    cost: dash_adj.price(dash, printed_reduction),
                 });
             }
         }

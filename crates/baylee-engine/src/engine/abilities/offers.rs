@@ -108,6 +108,12 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                             increase: true,
                             ..
                         }
+                        | baylee_cards_dsl::Modifier::FirstSpellEachTurnCostAdjustByAmount {
+                            increase: true,
+                            ..
+                        }
+                        | baylee_cards_dsl::Modifier::RaiseCostIfTargetsYouOrPermanent { .. }
+                        | baylee_cards_dsl::Modifier::AdjustSpellCostBeyondFirstTarget { .. }
                 )
             });
         let next = self
@@ -121,33 +127,40 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
             || (effects
                 && self.state.effects.iter().any(|fx| {
                     matches!(
-                        fx.modifier,
-                        baylee_cards_dsl::Modifier::SpellsCostLess(_)
-                            | baylee_cards_dsl::Modifier::SpellsCostLessMana { .. }
-                            | baylee_cards_dsl::Modifier::SpellsCostLessManaByAmount { .. }
-                            | baylee_cards_dsl::Modifier::SpellsCostLessByAmount(_)
-                            | baylee_cards_dsl::Modifier::SpellsCostLessPerCounter(_)
-                            | baylee_cards_dsl::Modifier::AdjustSpellCostByCast {
-                                delta_per_unit: i8::MIN..=-1,
-                                ..
-                            }
-                            | baylee_cards_dsl::Modifier::ReduceCostIfTargets {
-                                abilities: false,
-                                ..
-                            }
-                            | baylee_cards_dsl::Modifier::AdjustSpellCostByAmount {
-                                increase: false,
-                                ..
-                            }
-                            | baylee_cards_dsl::Modifier::FirstSpellEachTurnCostAdjust {
-                                increase: false,
-                                ..
-                            }
-                    )
+                fx.modifier,
+                baylee_cards_dsl::Modifier::SpellsCostLess(_)
+                    | baylee_cards_dsl::Modifier::SpellsCostLessMana { .. }
+                    | baylee_cards_dsl::Modifier::SpellsCostLessManaByAmount { .. }
+                    | baylee_cards_dsl::Modifier::SpellsCostLessByAmount(_)
+                    | baylee_cards_dsl::Modifier::SpellsCostLessPerCounter(_)
+                    | baylee_cards_dsl::Modifier::AdjustSpellCostByCast {
+                        delta_per_unit: i8::MIN..=-1,
+                        ..
+                    }
+                    | baylee_cards_dsl::Modifier::ReduceCostIfTargets {
+                        abilities: false,
+                        ..
+                    }
+                    | baylee_cards_dsl::Modifier::AdjustSpellCostByAmount {
+                        increase: false,
+                        ..
+                    }
+                    | baylee_cards_dsl::Modifier::FirstSpellEachTurnCostAdjust {
+                        increase: false,
+                        ..
+                    }
+                    | baylee_cards_dsl::Modifier::FirstSpellEachTurnCostAdjustByAmount {
+                        increase: false,
+                        ..
+                    }
+                    | baylee_cards_dsl::Modifier::SpellsCostLessPerSharedCardTypeWithExiled { .. }
+                    | baylee_cards_dsl::Modifier::ReduceCostIfTargetsCheck { .. }
+            )
                 }));
         (increases, reductions, next)
     }
 
+    #[allow(clippy::too_many_lines)]
     pub(super) fn spell_adjustments(&self, player: PlayerId) -> SpellAdjustments {
         use crate::choice::CastModeKind;
         let (increases, reductions, next) = self.board_spell_cost_flags(player);
@@ -239,6 +252,18 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                     adjust(0, Some(casting::SpellForm::OptionalCost(opt_cost.mana))),
                 );
             }
+            if let Some(fb) = def.faces[0].flashback {
+                publish(
+                    CastModeKind::Flashback,
+                    adjust(0, Some(casting::SpellForm::Flashback(fb))),
+                );
+            }
+            if let Some(dash) = def.faces[0].dash {
+                publish(
+                    CastModeKind::Dash,
+                    adjust(0, Some(casting::SpellForm::Dash(dash))),
+                );
+            }
         }
         out
     }
@@ -276,7 +301,10 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
             casting::SpellForm::Prototype(p) => p.cost,
             casting::SpellForm::Disguise => const { baylee_core::mana::ManaCost::parse("{3}") },
             casting::SpellForm::Bestow(c) => c.mana,
-            casting::SpellForm::Foretell(c) | casting::SpellForm::Impending(c) => c,
+            casting::SpellForm::Foretell(c)
+            | casting::SpellForm::Impending(c)
+            | casting::SpellForm::Flashback(c)
+            | casting::SpellForm::Dash(c) => c,
             casting::SpellForm::OptionalCost(c) => def.faces[face].mana_cost.combine(&c),
             casting::SpellForm::Plot => baylee_core::mana::ManaCost::ZERO,
             casting::SpellForm::Blitz => {
@@ -317,7 +345,11 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 .increase
                 .saturating_add(preview.min_increase)
                 .saturating_add(adjustment.mana_increase.cmc())
-                .saturating_sub(commander),
+                .saturating_sub(if adjustment.commander_tax_replaced {
+                    0
+                } else {
+                    commander
+                }),
             adjustment
                 .reduction
                 .saturating_add(preview.min_reduction)

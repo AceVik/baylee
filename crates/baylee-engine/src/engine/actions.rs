@@ -418,6 +418,8 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                                 | resolve::AwaitingOp::PlayersChooseMode { .. }
                                 | resolve::AwaitingOp::Colors { .. }
                                 | resolve::AwaitingOp::MoveCounter { .. }
+                                | resolve::AwaitingOp::MoveCounters(_)
+                                | resolve::AwaitingOp::RemoveCountersChoice(_)
                                 | resolve::AwaitingOp::OptionVote(_)
                         )
                     )
@@ -657,6 +659,8 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                                 | resolve::AwaitingOp::TapEnergy(_)
                                 | resolve::AwaitingOp::Counters { .. }
                                 | resolve::AwaitingOp::RemoveUpToCountersTarget { .. }
+                                | resolve::AwaitingOp::MoveCounters(_)
+                                | resolve::AwaitingOp::RemoveCountersChoice(_)
                                 | resolve::AwaitingOp::DamagePayment { .. }
                                 | resolve::AwaitingOp::TextReplacement { .. }
                                 | resolve::AwaitingOp::RemoveCountersSelfCreateTokens { .. }
@@ -2812,7 +2816,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                             opt.cost = priced;
                         }
                     }
-                    wizard.reduction = Some(self.frozen_spell_reduction(&wizard));
+                    self.sync_wizard_reduction(&mut wizard);
                     wizard.stage = cast_wizard::WizardStage::XValue;
                     self.cast_wizard = Some(wizard);
                     self.continue_cast_wizard();

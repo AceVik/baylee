@@ -721,6 +721,45 @@ pub(crate) fn amount_with_version(
         Amount::DistinctExactManaCostsInZone { zone, filter } => {
             distinct_exact_mana_costs_in_zone(filter, *zone, state, you, context)
         }
+        Amount::DistinctCardTypesInZone { zone, filter } => {
+            distinct_card_types_in_zone(filter, *zone, state, you, context)
+        }
+        Amount::DistinctSacrificedCardTypesThisTurn(who) => {
+            super::players_for_source(*who, state, you, Some(context.source))
+                .map_or(0, |seats| distinct_sacrificed_card_types_for_seats(state, &seats))
+        }
+        Amount::OpponentsAttackedThisTurn => opponents_attacked_this_turn(state, you),
+        Amount::OpponentsDealtDamageThisTurn => u32::try_from(
+            state
+                .players
+                .iter()
+                .filter(|p| {
+                    !state.has_left(p.id)
+                        && state.is_opponent(p.id, you)
+                        && state
+                            .per_turn
+                            .damage_dealt_to
+                            .get(usize::from(p.id.get()))
+                            .copied()
+                            .unwrap_or(0)
+                            > 0
+                })
+                .count(),
+        )
+        .unwrap_or(u32::MAX),
+        Amount::NonCombatDamageDealtToOpponentsThisTurn => {
+            noncombat_damage_dealt_to_opponents_this_turn(state, you)
+        }
+        Amount::EnergyRemovedThisTurn(who) => {
+            super::players_for_source(*who, state, you, Some(context.source))
+                .map_or(0, |seats| energy_removed_for_seats(state, &seats))
+        }
+        Amount::AttachedPower => state
+            .object(this)
+            .and_then(|o| o.attached_to)
+            .and_then(|host| state.object(host))
+            .and_then(|host| host.characteristics().power)
+            .map_or(0, |p| u32::try_from(p.max(0)).unwrap_or(0)),
     }
 }
 
@@ -826,6 +865,78 @@ fn greatest_commander_mana_value(state: &GameState, you: PlayerId) -> u32 {
         .map(|object| object.characteristics().mana_value())
         .max()
         .unwrap_or(0)
+}
+
+pub(crate) fn distinct_card_types_in_zone(
+    filter: &Filter,
+    zone: ZoneSel,
+    state: &GameState,
+    you: PlayerId,
+    context: RuleContext,
+) -> u32 {
+    let require_card = !matches!(zone, ZoneSel::Battlefield);
+    let mut seen = baylee_core::types::TypeSet::EMPTY;
+    visit_zone(zone, state, you, context, |id| {
+        if let Some(obj) = state.object(id)
+            && (!require_card || obj.is_card())
+            && matches_with_context(filter, state, obj, you, context)
+        {
+            seen = seen.union(obj.characteristics().types);
+        }
+    });
+    seen.intersection(crate::resolve::remembered::PAPER_CARD_TYPES)
+        .bits()
+        .count_ones()
+}
+
+pub(crate) fn distinct_sacrificed_card_types_for_seats(
+    state: &GameState,
+    seats: &[PlayerId],
+) -> u32 {
+    let mut seen = baylee_core::types::TypeSet::EMPTY;
+    for rec in &state.per_turn.sacrificed_permanents.items {
+        if seats.contains(&rec.controller) {
+            seen = seen.union(rec.snapshot.characteristics().types);
+        }
+    }
+    seen.intersection(crate::resolve::remembered::PAPER_CARD_TYPES)
+        .bits()
+        .count_ones()
+}
+
+pub(crate) fn energy_removed_for_seats(state: &GameState, seats: &[PlayerId]) -> u32 {
+    state
+        .per_turn
+        .energy_removed
+        .items
+        .iter()
+        .filter(|rec| seats.contains(&rec.player))
+        .fold(0_u32, |acc, rec| acc.saturating_add(rec.amount))
+}
+
+fn opponents_attacked_this_turn(state: &GameState, you: PlayerId) -> u32 {
+    let mut defenders = baylee_core::ids::SeatSet::new();
+    for rec in &state.per_turn.opponents_attacked.items {
+        if rec.attacker == you && state.is_opponent(rec.defender, you) {
+            defenders.insert(rec.defender);
+        }
+    }
+    u32::try_from(defenders.len()).unwrap_or(u32::MAX)
+}
+
+fn noncombat_damage_dealt_to_opponents_this_turn(state: &GameState, you: PlayerId) -> u32 {
+    state
+        .per_turn
+        .damage_log
+        .iter()
+        .filter(|entry| {
+            !entry.combat
+                && matches!(
+                    entry.to,
+                    crate::event::DamageTarget::Player(p) if state.is_opponent(p, you)
+                )
+        })
+        .fold(0_u32, |acc, entry| acc.saturating_add(entry.amount))
 }
 
 fn opponents_life_lost(state: &GameState, you: PlayerId) -> u32 {
