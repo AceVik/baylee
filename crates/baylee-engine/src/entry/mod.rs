@@ -430,9 +430,7 @@ fn projected_modifiers(state: &GameState, id: ObjectId) -> &'static [EnterModifi
     let Some(object) = state.object(id) else {
         return &[];
     };
-    let mut prospective = object.clone();
-    prospective.zone = Zone::Battlefield;
-    prospective.version = prospective.version.wrapping_add(1);
+    let prospective = prospective_battlefield(object);
     let plan = crate::layers::LayerPlan::before_entries(&state.effects, unavailable(state));
     let projection = crate::layers::recompute_with(state, &prospective, &plan);
     if projection.characteristics.rules_text_lost
@@ -580,9 +578,7 @@ pub(crate) fn defer(
     let Some(object) = state.object(id) else {
         return false;
     };
-    let mut prospective = object.clone();
-    prospective.zone = Zone::Battlefield;
-    prospective.version = prospective.version.wrapping_add(1);
+    let prospective = prospective_battlefield(object);
     let plan = crate::layers::LayerPlan::before_entries(&state.effects, unavailable(state));
     let projected = crate::layers::recompute_with(state, &prospective, &plan);
     let kw_entry = (projected.characteristics.keywords.bits() & ENTRY_CHOICE_KEYWORDS.bits()) != 0;
@@ -700,6 +696,22 @@ pub(crate) fn put_counters(
     {
         crate::replacement::put_counters_by(state, by, id, kind, n);
     }
+}
+
+/// Clone `object` as a prospective battlefield permanent for pre-entry layer
+/// projection. Preserves the stack version when entering from the stack so
+/// CR 400.7b resolution effects (`EffectFilter::ObjectIs(id, stack_ver)`)
+/// apply before `EffectTable::follow_into_permanent` runs inside `move_object`.
+pub(super) fn prospective_battlefield(
+    object: &crate::object::GameObject,
+) -> crate::object::GameObject {
+    let mut prospective = object.clone();
+    let from_stack = prospective.zone == Zone::Stack;
+    prospective.zone = Zone::Battlefield;
+    if !from_stack {
+        prospective.version = prospective.version.wrapping_add(1);
+    }
+    prospective
 }
 
 pub(crate) fn unavailable(state: &GameState) -> &BTreeSet<ObjectId> {

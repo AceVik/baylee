@@ -905,6 +905,8 @@ pub struct GameState {
     pub shields: crate::prevention::ShieldStore,
     /// Temporary special actions created by resolving effects.
     pub granted_actions: Vec<crate::granted::GrantedAction>,
+    /// Continuous-effect groups that can be ended by a linked special action (CR 116.2a).
+    pub endable_effect_groups: Vec<crate::granted::EndableEffectGroup>,
     pub(crate) next_granted_action: u64,
     /// Identity for the next simultaneous damage event.
     pub(crate) next_damage_batch: u64,
@@ -1064,6 +1066,7 @@ impl GameState {
             replacement_rules,
             shields,
             granted_actions,
+            endable_effect_groups,
             next_granted_action,
             next_damage_batch,
             damage_sources,
@@ -1212,6 +1215,10 @@ impl GameState {
             ("state.replacement_rules", format!("{replacement_rules:?}")),
             ("state.shields", format!("{shields:?}")),
             ("state.granted_actions", format!("{granted_actions:?}")),
+            (
+                "state.endable_effect_groups",
+                format!("{endable_effect_groups:?}"),
+            ),
             (
                 "state.next_granted_action",
                 format!("{next_granted_action:?}"),

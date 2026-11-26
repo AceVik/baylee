@@ -2222,6 +2222,24 @@ pub enum Modifier {
     /// color washing and cast/land-play riders (`CR 118.9`, `CR 601.3e`).
     /// Appended to preserve replay identities.
     ZonePlayGrant(ZonePlayGrant),
+    /// Grants `Enchant <quality>` as a Layer 6 static ability (`CR 702.5a`,
+    /// `CR 613.1f`; Licids, animate-into-Aura effects). Appended to preserve
+    /// replay identities.
+    GrantEnchant(crate::effect::TargetSpec),
+    /// Removes only the printed ability at `index` in Layer 6 (`CR 113.10`,
+    /// `CR 613.1f`; Licids: "loses this ability" while retaining their other
+    /// static/activated/triggered abilities). Appended to preserve replay identities.
+    LoseAbility(u32),
+    /// Grants Bloodthirst N in Layer 6 (`CR 702.54a-b`, `CR 400.7b`;
+    /// *Bloodlord of Vaasgoth*). Appended to preserve replay identities.
+    GrantBloodthirst(u8),
+    /// Grants Sunburst in Layer 6 (`CR 702.44a-d`, `CR 400.7b`;
+    /// *Lux Artillery*). Appended to preserve replay identities.
+    GrantSunburst,
+    /// Sets the affected permanent's name in Layer 3 (`CR 613.1c`, `CR 612`,
+    /// non-copiable per `CR 707.2`; *Princess Yue* -> "Moon", *Awakening of
+    /// Vitu-Ghazi*). Appended to preserve replay identities.
+    SetName(&'static str),
 }
 
 /// Keyword alternative-cost modes opened from a graveyard by
@@ -2657,7 +2675,11 @@ impl Modifier {
             | Self::ProtectionFromExiledWithSourceTypes
             | Self::GrantTriggered { .. }
             | Self::GrantTriggeredUpToOne { .. }
-            | Self::GrantTriggeredDefinition(_) => Layer::Ability,
+            | Self::GrantTriggeredDefinition(_)
+            | Self::GrantEnchant(_)
+            | Self::LoseAbility(_)
+            | Self::GrantBloodthirst(_)
+            | Self::GrantSunburst => Layer::Ability,
             // Layer 7a/7b/7c/7e: power and toughness.
             Self::CharacteristicPT { .. } | Self::CharacteristicPTSeparate { .. } => Layer::PtCda,
             Self::SetPT(..)
@@ -2676,8 +2698,10 @@ impl Modifier {
             | Self::ReducePTByCount { .. }
             | Self::ModifyPTPerGraveyardCard { .. } => Layer::PtModify,
             Self::SwitchPT => Layer::PtSwitch,
-            // No layer: rules-modifying effects.
-            Self::SpellsCostLess(_)
+            // Layer 3: text-changing effects (CR 613.1c, CR 612: name changes)
+            // plus rules-modifying effects that park in `Layer::Text`.
+            Self::SetName(_)
+            | Self::SpellsCostLess(_)
             | Self::SpellsCostLessMana { .. }
             | Self::SpellsCostLessByAmount(_)
             | Self::SpellsCostLessPerCounter(_)
@@ -3861,6 +3885,13 @@ mod tests {
                 },
                 Layer::Ability,
             ),
+                Modifier::GrantEnchant(crate::TargetSpec::Object(&Filter::CREATURE)),
+                Layer::Ability,
+            ),
+            (Modifier::LoseAbility(0), Layer::Ability),
+            (Modifier::GrantBloodthirst(3), Layer::Ability),
+            (Modifier::GrantSunburst, Layer::Ability),
+            (Modifier::SetName("Moon"), Layer::Text),
             (
                 Modifier::CharacteristicPT {
                     count: PtCount::CardTypesInAllGraveyards,

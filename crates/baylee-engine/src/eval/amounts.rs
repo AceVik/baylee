@@ -443,6 +443,26 @@ pub(crate) fn amount_with_version(
             u32::try_from(state.combat.blocker_count(this).saturating_sub(1)).unwrap_or(u32::MAX)
         }
         Amount::SourcePower => super::source_power(state, this).map_or(0, |p| p.max(0) as u32),
+        Amount::SourceToughness => {
+            super::source_toughness(state, this).map_or(0, |t| t.max(0) as u32)
+        }
+        Amount::DiscardedManaValue => state
+            .zones
+            .list(crate::zone::ZoneLocation::Stack)
+            .last()
+            .and_then(|&top| state.object(top))
+            .filter(|stack_obj| {
+                stack_obj.id == this || stack_obj.ability.is_some_and(|loc| loc.source == this)
+            })
+            .and_then(|stack_obj| stack_obj.paid.as_ref())
+            .map_or(0, |paid| {
+                paid.discarded
+                    .iter()
+                    .filter_map(|&card| state.source_object(card))
+                    .fold(0u32, |acc, obj| {
+                        acc.saturating_add(obj.characteristics().mana_value())
+                    })
+            }),
         Amount::CountersOnYou(kind) => state.players[usize::from(you.get())]
             .counters()
             .into_iter()

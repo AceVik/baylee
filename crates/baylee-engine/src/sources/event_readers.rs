@@ -308,6 +308,8 @@ fn reads_event(effect: &Effect) -> bool {
             };
             subj_reads || trans_reads || if_cant.iter().any(reads_event)
         }
+        | Effect::SacrificeObject { target, .. }
+        | Effect::Unattach { target } => reads_target(*target),
         Effect::PutAllCountersFrom { donor, target } => {
             matches!(donor, baylee_cards_dsl::CounterDonor::Event) || reads_target(*target)
         }
@@ -385,7 +387,43 @@ fn reads_event(effect: &Effect) -> bool {
         }
         Effect::AttachChosen {
             filter, to, max, ..
+        }
+        | Effect::AttachChosenThen {
+            filter, to, max, ..
         } => reads_filter(filter) || reads_target(*to) || reads_amount(*max),
+        Effect::BecomeAura {
+            target, enchant, ..
+        } => reads_target(*target) || reads_target(*enchant),
+        Effect::SetDynamicPT {
+            subject,
+            power,
+            toughness,
+            ..
+        } => {
+            reads_target(*subject)
+                || power.is_some_and(reads_amount)
+                || toughness.is_some_and(reads_amount)
+        }
+        Effect::AttachObject { object, to, .. } => reads_target(*object) || reads_target(*to),
+        Effect::MoveAllAttachments {
+            attachments,
+            from,
+            recipient_filter,
+            ..
+        } => reads_filter(attachments) || reads_target(*from) || reads_filter(recipient_filter),
+        Effect::AttachLtbAttachments { of, filter, to, .. } => {
+            reads_target(*of) || reads_filter(filter) || reads_target(*to)
+        }
+        Effect::RelocateAttachment {
+            attachment,
+            chooser,
+            recipient_filter,
+            ..
+        } => {
+            matches!(attachment, baylee_cards_dsl::AttachmentSource::Spec(t) if reads_target(*t))
+                || reads_player(*chooser)
+                || reads_filter(recipient_filter)
+        }
         Effect::SeparateIntoTwoPiles {
             separator,
             pile_chooser,

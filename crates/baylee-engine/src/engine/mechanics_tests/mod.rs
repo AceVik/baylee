@@ -18,6 +18,7 @@
 mod alone_attack;
 mod alternate_casting_wave3;
 mod amplify;
+mod animate_and_attach;
 mod assignment_restrictions;
 mod attacking_tokens;
 mod battle_sba;

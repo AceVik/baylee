@@ -1687,6 +1687,27 @@ pub enum AwaitingOp {
         /// Recipient permanent or player to attach chosen permanents to.
         host: baylee_core::ids::TargetRef,
     },
+    /// Recipient selection for `Effect::MoveAllAttachments` (Glamer Spinners).
+    MoveAllAttachments {
+        /// Permanent whose matching attachments are moving.
+        from: baylee_core::ids::DamageSourceRef,
+        /// Filter selecting which attachments on `from` move.
+        attachments: &'static baylee_cards_dsl::Filter,
+    },
+    /// Attachment selection for `Effect::AttachChosenThen` (CR 701.3b).
+    AttachChosenThen {
+        /// Recipient permanent or player to attach chosen permanents to.
+        host: baylee_core::ids::TargetRef,
+        /// Follow-up effects spliced if at least one attachment changed host.
+        then_if_attached: &'static [Effect],
+    },
+    /// Recipient selection for `Effect::RelocateAttachment` (Steam Vines / Nettlevine Blight).
+    RelocateAttachment {
+        /// Exact attachment incarnation being relocated.
+        attachment: baylee_core::ids::DamageSourceRef,
+        /// Follow-up effects spliced if the attachment changed host.
+        then_if_moved: &'static [Effect],
+    },
     /// After `PreventFromChosenSourceWithLifeCondition`: the turn-long shield
     /// waits for the chosen source and its conditional life-gain filter.
     ShieldFromChosenSourceWithLifeCondition {
@@ -2300,6 +2321,21 @@ impl AwaitingOp {
                 crate::state::structural_fingerprint(&(255_u8, 1_u16, spec))
             }
             Self::AttachChosen { host } => crate::state::structural_fingerprint(&(252_u8, host)),
+            Self::MoveAllAttachments { from, attachments } => {
+                crate::state::structural_fingerprint(&((255_u8, 537_u16), from, attachments))
+            }
+            Self::AttachChosenThen {
+                host,
+                then_if_attached,
+            } => crate::state::structural_fingerprint(&((255_u8, 538_u16), host, then_if_attached)),
+            Self::RelocateAttachment {
+                attachment,
+                then_if_moved,
+            } => crate::state::structural_fingerprint(&(
+                (255_u8, 539_u16),
+                attachment,
+                then_if_moved,
+            )),
             Self::ShieldFromChosenSourceWithLifeCondition {
                 protects,
                 sources,

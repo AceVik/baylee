@@ -745,9 +745,7 @@ fn amplify_options(state: &GameState, entry: &Attempt) -> Vec<ObjectId> {
         return Vec::new();
     };
     let excluded = unavailable(state);
-    let mut prospective = object.clone();
-    prospective.zone = Zone::Battlefield;
-    prospective.version = prospective.version.wrapping_add(1);
+    let prospective = super::prospective_battlefield(object);
     let plan = crate::layers::LayerPlan::before_entries(&state.effects, excluded);
     let projection = crate::layers::recompute_with(state, &prospective, &plan);
     let entering_types = projection
@@ -923,9 +921,7 @@ fn keyword_entry_question(
         if super::may_have_keyword_entry(state, entry.object)
             && let Some(object) = state.object(entry.object)
         {
-            let mut prospective = object.clone();
-            prospective.zone = Zone::Battlefield;
-            prospective.version = prospective.version.wrapping_add(1);
+            let prospective = super::prospective_battlefield(object);
             let plan = crate::layers::LayerPlan::before_entries(&state.effects, unavailable(state));
             let riot = crate::layers::keyword_instances_with_plan(
                 state,

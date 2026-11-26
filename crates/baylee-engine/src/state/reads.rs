@@ -858,7 +858,14 @@ fn effects_read_expend(effects: &'static [baylee_cards_dsl::Effect]) -> bool {
             | Effect::CreateTokenAttached { amount, .. }
             | Effect::ChooseCardConstrained { max: amount, .. }
             | Effect::SearchLibraryDistinctNames { count: amount, .. }
-            | Effect::AttachChosen { max: amount, .. } => amount_reads_expend(amount),
+            | Effect::AttachChosen { max: amount, .. }
+            | Effect::AttachChosenThen { max: amount, .. } => amount_reads_expend(amount),
+            Effect::SetDynamicPT {
+                power, toughness, ..
+            } => {
+                power.as_ref().is_some_and(amount_reads_expend)
+                    || toughness.as_ref().is_some_and(amount_reads_expend)
+            }
             Effect::CreateTokenSized {
                 amount,
                 power,
@@ -1589,10 +1596,34 @@ fn effects_match(
                     if filter_matches(filter, cond_pred, amt_pred, 0)
             ),
             Effect::ChooseCardConstrained { filter, max, .. }
-            | Effect::AttachChosen { filter, max, .. } => {
+            | Effect::AttachChosen { filter, max, .. }
+            | Effect::AttachChosenThen { filter, max, .. } => {
                 filter_matches(filter, cond_pred, amt_pred, 0)
                     || amt_matches(max, cond_pred, amt_pred, 0)
             }
+            Effect::SetDynamicPT {
+                power, toughness, ..
+            } => {
+                power
+                    .as_ref()
+                    .is_some_and(|a| amt_matches(a, cond_pred, amt_pred, 0))
+                    || toughness
+                        .as_ref()
+                        .is_some_and(|a| amt_matches(a, cond_pred, amt_pred, 0))
+            }
+            Effect::MoveAllAttachments {
+                attachments,
+                recipient_filter,
+                ..
+            } => {
+                filter_matches(attachments, cond_pred, amt_pred, 0)
+                    || filter_matches(recipient_filter, cond_pred, amt_pred, 0)
+            }
+            Effect::AttachLtbAttachments { filter, .. }
+            | Effect::RelocateAttachment {
+                recipient_filter: filter,
+                ..
+            } => filter_matches(filter, cond_pred, amt_pred, 0),
             Effect::SearchLibraryDistinctNames { filter, count, .. } => {
                 filter_matches(filter, cond_pred, amt_pred, 0)
                     || amt_matches(count, cond_pred, amt_pred, 0)

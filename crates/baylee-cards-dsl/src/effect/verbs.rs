@@ -882,6 +882,21 @@ impl Effect {
                 optional: _,
                 then_if_moved: then,
             }
+            | Effect::AttachChosenThen {
+                filter: _,
+                to: _,
+                max: _,
+                optional: _,
+                then_if_attached: then,
+            }
+            | Effect::RelocateAttachment {
+                attachment: _,
+                chooser: _,
+                recipient_filter: _,
+                must_change_recipient: _,
+                optional: _,
+                then_if_moved: then,
+            }
             | Effect::ChooseCardConstrained {
                 chooser: _,
                 zone: _,
@@ -1581,7 +1596,13 @@ impl Effect {
             | Effect::DealDamageToEventSourceOrController { .. }
             | Effect::RedirectNextDamageTo { .. }
             | Effect::MeldPair { .. }
-            | Effect::PlayersChooseMode(_) => (NONE, NONE),
+            | Effect::PlayersChooseMode(_)
+            | Effect::BecomeAura { .. }
+            | Effect::SetDynamicPT { .. }
+            | Effect::Unattach { .. }
+            | Effect::AttachObject { .. }
+            | Effect::MoveAllAttachments { .. }
+            | Effect::AttachLtbAttachments { .. } => (NONE, NONE),
             Effect::AnyPlayerMayPayManaAmount {
                 on_payment: false,
                 effects,

@@ -149,6 +149,7 @@ impl GameState {
             replacement_rules: _,
             shields: _,
             granted_actions: _,
+            endable_effect_groups: _,
             next_granted_action: _,
             next_damage_batch: _,
             // Rewritten: copies taken in a hidden zone are dropped.

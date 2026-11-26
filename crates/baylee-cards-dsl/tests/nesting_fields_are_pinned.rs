@@ -122,7 +122,8 @@
 // PlayerMayWaterbendOr (`effect`) and RememberTargetsThen (`then`) + 3 Wave 18b effects add 5 bodies.
 // PreventNextFromChosenSourceWithThen (`then: DamageRider`) adds one walker-tested body.
 // SetState (`if_cant`) adds one walker-tested body.
-const NESTING_FIELDS: usize = 136;
+// AttachChosenThen (`then_if_attached`) and RelocateAttachment (`then_if_moved`) add 2 bodies.
+const NESTING_FIELDS: usize = 138;
 
 /// How many variants contain those fields.
 ///
@@ -219,7 +220,8 @@ const NESTING_FIELDS: usize = 136;
 /// `PlayerMayWaterbendOr` through `RememberTargetsThen` bring total carrying variants to 118.
 // PreventNextFromChosenSourceWithThen brings carrying variants to 119.
 /// `SetState` (`if_cant`) brings total carrying variants to 119.
-const CARRYING_VARIANTS: usize = 120;
+/// `AttachChosenThen` + `RelocateAttachment` bring total carrying variants to 120.
+const CARRYING_VARIANTS: usize = 122;
 
 /// The floor under the reader itself.
 ///

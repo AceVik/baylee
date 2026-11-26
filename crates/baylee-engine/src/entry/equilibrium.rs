@@ -225,9 +225,7 @@ fn applicable(state: &GameState, entry: &mut Attempt) -> Vec<EntryCandidate> {
     let Some(object) = state.object(entry.object) else {
         return Vec::new();
     };
-    let mut prospective = object.clone();
-    prospective.zone = Zone::Battlefield;
-    prospective.version = prospective.version.wrapping_add(1);
+    let mut prospective = super::prospective_battlefield(object);
     if let Some(ctrl) = entry.controller_override {
         prospective.set_controller(ctrl);
     }

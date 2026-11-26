@@ -815,7 +815,7 @@ fn could_change_match(modifier: &Modifier, filter: &Filter, layer: Layer) -> boo
         | Filter::NameOriginallyPrintedIn(_)
         | Filter::SameNameAsLinkedExile
         | Filter::SharesNameWithRemembered => {
-            matches!(modifier, Modifier::BecomeCopyOf(_))
+            matches!(modifier, Modifier::BecomeCopyOf(_) | Modifier::SetName(_))
         }
         Filter::LowestManaValueOnBattlefield(f) => {
             could_change_match(modifier, f, layer) || matches!(modifier, Modifier::BecomeCopyOf(_))
@@ -1398,8 +1398,18 @@ fn apply(
             c.keywords = KeywordSet::EMPTY;
             c.abilities_lost = Some(Characteristics::lost_at(fx.timestamp));
         }
-        // Handled by SBAs/legality checks, not by characteristics.
-        Modifier::SpellsCostLess(_)
+        Modifier::SetName(name) => {
+            if let Some(interned) = state.names.find(name) {
+                c.name = interned;
+            }
+        }
+        // Read by aura bindings, ability offers/activation, entry counters, or
+        // handled by SBAs/legality checks rather than projected characteristics.
+        Modifier::GrantEnchant(_)
+        | Modifier::LoseAbility(_)
+        | Modifier::GrantBloodthirst(_)
+        | Modifier::GrantSunburst
+        | Modifier::SpellsCostLess(_)
         | Modifier::SpellsCostLessMana { .. }
         | Modifier::SpellsCostLessManaByAmount { .. }
         | Modifier::SpellsCostLessByAmount(_)
@@ -1808,6 +1818,19 @@ fn prohibited_keywords(modifier: &Modifier) -> KeywordSet {
         Modifier::CantHaveKeywords(bits) => *bits,
         _ => KeywordSet::EMPTY,
     }
+}
+
+/// Whether a Layer 6 continuous effect has removed printed ability `index`
+/// from `obj` (e.g. a Licid losing its transformation ability while an Aura).
+#[must_use]
+pub(crate) fn ability_is_lost(state: &GameState, obj: &GameObject, index: u32) -> bool {
+    if !state.effects.may_lose_specific_ability() {
+        return false;
+    }
+    state.effects.iter().any(|fx| {
+        matches!(fx.modifier, Modifier::LoseAbility(lost) if lost == index)
+            && crate::effects::applies_to(state, fx, obj)
+    })
 }
 
 #[cfg(test)]

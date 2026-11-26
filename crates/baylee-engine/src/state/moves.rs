@@ -1110,6 +1110,22 @@ impl GameState {
             self.play_permissions
                 .retain(|p| !p.window.depends_on_departed_source(id));
         }
+        if from_zone == Zone::Battlefield && !self.endable_effect_groups.is_empty() {
+            let mut removed_actions =
+                smallvec::SmallVec::<[baylee_core::ids::GrantedActionId; 2]>::new();
+            self.endable_effect_groups.retain(|group| {
+                if group.target.object == id {
+                    removed_actions.push(group.action);
+                    false
+                } else {
+                    true
+                }
+            });
+            if !removed_actions.is_empty() {
+                self.granted_actions
+                    .retain(|grant| !removed_actions.contains(&grant.offer.id));
+            }
+        }
         // Off the stack and the battlefield a card is its front face again,
         // and a split card both of its halves (CR 709.4): Fire // Ice cast as
         // Fire was Fire alone on the stack (CR 709.3b) at face 0, so the

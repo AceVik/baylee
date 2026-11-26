@@ -1459,4 +1459,32 @@ fn set_state_if_cant_body_is_visited() {
     });
     assert_eq!(seen, 2);
     assert!(exiled);
+fn attach_chosen_then_and_relocate_attachment_bodies_are_visited() {
+    static EFFECTS: &[Effect] = &[
+        Effect::AttachChosenThen {
+            filter: &Filter::ARTIFACT,
+            to: TargetSpec::Object(&Filter::CREATURE),
+            max: Amount::Fixed(1),
+            optional: true,
+            then_if_attached: &[Effect::Unattach {
+                target: TargetSpec::EventObject,
+            }],
+        },
+        Effect::RelocateAttachment {
+            attachment: crate::AttachmentSource::GrantedSource,
+            chooser: crate::PlayerRel::You,
+            recipient_filter: &Filter::CREATURE,
+            must_change_recipient: true,
+            optional: false,
+            then_if_moved: &[Effect::draw(1)],
+        },
+    ];
+    let mut seen = 0;
+    let (mut unattached, mut drew) = (false, false);
+    Effect::walk(EFFECTS, &mut seen, &mut |effect| {
+        unattached |= matches!(effect, Effect::Unattach { .. });
+        drew |= matches!(effect, Effect::DrawCards { .. });
+    });
+    assert_eq!(seen, 4);
+    assert!(unattached && drew);
 }

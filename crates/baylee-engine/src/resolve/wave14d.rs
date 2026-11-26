@@ -310,7 +310,9 @@ fn register_temp_effects(
         if matches!(modifier, Modifier::GrantStatic { .. }) {
             state.refresh_characteristics();
             crate::effects::sync_granted_statics(state);
-        } else if matches!(modifier, Modifier::GainControl) || layer != Layer::Text {
+        } else if matches!(modifier, Modifier::GainControl | Modifier::SetName(_))
+            || layer != Layer::Text
+        {
             state.refresh_characteristics();
         }
     }

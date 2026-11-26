@@ -660,6 +660,13 @@ pub enum Amount {
         /// Filter matched against each object in `zone`.
         filter: &'static Filter,
     },
+    /// Toughness of this ability's source (or its LKI toughness if departed;
+    /// *Exuberant Wolfbear*, *Galion*, *Woodcaller Automaton*). Appended to
+    /// preserve replay identities.
+    SourceToughness,
+    /// Mana value of the card discarded to pay this spell or ability's cost
+    /// (`CR 608.2h`; *Slumbering Tora*). Appended to preserve replay identities.
+    DiscardedManaValue,
 }
 
 /// The recipient [`Amount::DamageThisTurn`] counts.

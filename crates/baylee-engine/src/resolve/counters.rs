@@ -19,6 +19,10 @@ use super::*;
 /// exactly one — this one; the other seventeen are counting cards to draw,
 /// tokens to make or life to gain, where a negative number has no meaning to
 /// give.
+pub(super) fn signed_amount(a: &Amount, state: &GameState, you: PlayerId, res: &Resolution) -> i16 {
+    signed(a, state, you, res)
+}
+
 fn signed(a: &Amount, state: &GameState, you: PlayerId, res: &Resolution) -> i16 {
     if let Amount::IfCondition {
         condition,
@@ -39,6 +43,18 @@ fn signed(a: &Amount, state: &GameState, you: PlayerId, res: &Resolution) -> i16
     if matches!(a, Amount::TargetToughness) {
         return target_chars(res, state)
             .and_then(|c| c.toughness)
+            .unwrap_or(0);
+    }
+    if matches!(a, Amount::SourcePower) {
+        return state
+            .damage_source(res.source, source_version(state, res))
+            .and_then(|s| s.characteristics().power)
+            .unwrap_or(0);
+    }
+    if matches!(a, Amount::SourceToughness) {
+        return state
+            .damage_source(res.source, source_version(state, res))
+            .and_then(|s| s.characteristics().toughness)
             .unwrap_or(0);
     }
     let v = i16::try_from(amount2(a, state, you, res)).unwrap_or(i16::MAX);

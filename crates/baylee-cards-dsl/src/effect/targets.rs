@@ -546,6 +546,17 @@ pub enum TargetSlot {
     Third,
 }
 
+/// Which battlefield attachment [`crate::Effect::RelocateAttachment`] moves.
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
+pub enum AttachmentSource {
+    /// Attachment resolved through a [`TargetSpec`] (`ThisObject`, `EventObject`,
+    /// targeted permanent, etc.).
+    Spec(TargetSpec),
+    /// The permanent that granted the currently resolving triggered/activated
+    /// ability (`Rider::GrantedSource`, e.g. *Nettlevine Blight*).
+    GrantedSource,
+}
+
 /// Which permanent(s) [`crate::Effect::DoublePT`] doubles (`CR 701.10b–c`).
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 pub enum DoublePtSubject {

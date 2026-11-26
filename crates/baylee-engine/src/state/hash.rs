@@ -119,6 +119,7 @@ impl GameState {
             replacement_rules,
             shields,
             granted_actions,
+            endable_effect_groups,
             next_granted_action,
             next_damage_batch,
             damage_sources,
@@ -172,6 +173,11 @@ impl GameState {
         replacement_rules.hash(&mut h);
         shields.hash(&mut h);
         granted_actions.hash(&mut h);
+        if !endable_effect_groups.is_empty() {
+            h.u8(255);
+            h.u16(536);
+            endable_effect_groups.hash(&mut h);
+        }
         next_granted_action.hash(&mut h);
         next_damage_batch.hash(&mut h);
         source_memory.hash(&mut h);
@@ -1596,8 +1602,45 @@ fn hash_granted_actions(h: &mut Hasher, state: &GameState, position: &impl Fn(Ob
                     }
                 }
             }
+            crate::choice::GrantedActionKind::EndContinuousEffects { target } => {
+                h.u8(255);
+                h.u16(535);
+                h.u32(position(target.object));
+                h.u32(target.version);
+            }
         }
     }
+    hash_endable_effect_groups(h, state, position);
+}
+
+fn hash_endable_effect_groups(
+    h: &mut Hasher,
+    state: &GameState,
+    position: &impl Fn(ObjectId) -> u32,
+) {
+    if state.endable_effect_groups.is_empty() {
+        return;
+    }
+    h.u8(255);
+    h.u16(536);
+    let mut groups: Vec<_> = state
+        .endable_effect_groups
+        .iter()
+        .map(|group| {
+            let live_effects: Vec<usize> = group
+                .effects
+                .iter()
+                .filter_map(|&eid| state.effects.as_slice().iter().position(|fx| fx.id == eid))
+                .collect();
+            (
+                position(group.target.object),
+                moves_since(state.object(group.target.object), group.target.version),
+                live_effects,
+            )
+        })
+        .collect();
+    groups.sort_unstable();
+    groups.hash(h);
 }
 
 fn moves_since(obj: Option<&GameObject>, version: u32) -> u8 {

@@ -67,6 +67,19 @@ pub(super) fn refers_to_subject(effects: &'static [Effect], implicit_source: boo
                 attachment: target, ..
             }
             | Effect::AttachChosen { to: target, .. }
+            | Effect::AttachChosenThen { to: target, .. }
+            | Effect::BecomeAura { target, .. }
+            | Effect::SetDynamicPT {
+                subject: target, ..
+            }
+            | Effect::Unattach { target }
+            | Effect::AttachObject { object: target, .. }
+            | Effect::MoveAllAttachments { from: target, .. }
+            | Effect::AttachLtbAttachments { of: target, .. }
+            | Effect::RelocateAttachment {
+                attachment: baylee_cards_dsl::AttachmentSource::Spec(target),
+                ..
+            }
             | Effect::PutOntoBattlefieldAttacking {
                 subject: baylee_cards_dsl::DefinedObjects::Spec(target),
                 ..

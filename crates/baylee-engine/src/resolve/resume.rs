@@ -892,6 +892,33 @@ pub(super) fn resume_inner(
         AwaitingOp::AttachChosen { host } => {
             super::wave15b::resume_attach_chosen(state, host, chosen);
         }
+        AwaitingOp::MoveAllAttachments { from, attachments } => {
+            super::attachments::resume_move_all_attachments(state, res, from, attachments, chosen);
+        }
+        AwaitingOp::AttachChosenThen {
+            host,
+            then_if_attached,
+        } => {
+            super::attachments::resume_attach_chosen_then(
+                state,
+                res,
+                host,
+                then_if_attached,
+                chosen,
+            );
+        }
+        AwaitingOp::RelocateAttachment {
+            attachment,
+            then_if_moved,
+        } => {
+            super::attachments::resume_relocate_attachment(
+                state,
+                res,
+                attachment,
+                then_if_moved,
+                chosen,
+            );
+        }
         AwaitingOp::UntapPayingEach { player, each } => {
             let chosen: Vec<(ObjectId, u32)> = chosen
                 .iter()

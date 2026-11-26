@@ -278,6 +278,53 @@ pub(super) fn exec_choice(
             max,
             optional,
         } => super::wave15b::attach_chosen(state, res, filter, to, max, optional),
+        Effect::MoveAllAttachments {
+            attachments,
+            from,
+            recipient_filter,
+            must_change_recipient,
+            optional,
+        } => super::attachments::move_all_attachments(
+            state,
+            res,
+            attachments,
+            from,
+            recipient_filter,
+            must_change_recipient,
+            optional,
+        ),
+        Effect::AttachChosenThen {
+            filter,
+            to,
+            max,
+            optional,
+            then_if_attached,
+        } => super::attachments::attach_chosen_then(
+            state,
+            res,
+            filter,
+            to,
+            max,
+            optional,
+            then_if_attached,
+        ),
+        Effect::RelocateAttachment {
+            attachment,
+            chooser,
+            recipient_filter,
+            must_change_recipient,
+            optional,
+            then_if_moved,
+        } => super::attachments::relocate_attachment(
+            state,
+            res,
+            attachment,
+            chooser,
+            recipient_filter,
+            must_change_recipient,
+            optional,
+            then_if_moved,
+        ),
         Effect::DestroyWeakest { filter, no_regen } => {
             super::weakest::start(state, res, filter, no_regen)
         }

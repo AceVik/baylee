@@ -1463,6 +1463,28 @@ fn source_power(state: &GameState, this: ObjectId) -> Option<i16> {
     state.object(this).and_then(|o| o.characteristics().power)
 }
 
+/// Projected toughness of `this` on the battlefield, or as it last existed there
+/// if it has left (CR 608.2h).
+fn source_toughness(state: &GameState, this: ObjectId) -> Option<i16> {
+    if let Some(obj) = state
+        .object(this)
+        .filter(|o| o.zone == crate::zone::Zone::Battlefield)
+    {
+        return obj.characteristics().toughness;
+    }
+    if let Some(version) = last_battlefield_version(state, this)
+        && let Some(departed) = state.source_object(baylee_core::ids::DamageSourceRef {
+            object: this,
+            version,
+        })
+    {
+        return departed.characteristics().toughness;
+    }
+    state
+        .object(this)
+        .and_then(|o| o.characteristics().toughness)
+}
+
 /// Whether `stat` is less than the source's projected power (using last-known
 /// battlefield power if the source left, CR 608.2h).
 fn below_source_power(stat: Option<i16>, state: &GameState, this: ObjectId) -> bool {

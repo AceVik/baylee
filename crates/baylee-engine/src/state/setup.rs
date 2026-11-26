@@ -156,6 +156,7 @@ impl GameState {
             replacement_rules: Vec::new(),
             shields: crate::prevention::ShieldStore::default(),
             granted_actions: Vec::new(),
+            endable_effect_groups: Vec::new(),
             next_granted_action: 0,
             next_damage_batch: 0,
             damage_sources: Vec::new(),
