@@ -259,6 +259,20 @@ fn build_timeout() -> Duration {
     Duration::from_secs(if interactive { 900 } else { 300 })
 }
 
+/// Which scenarios `integration` runs.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Only {
+    /// Every scenario (or the one a special environment selects).
+    Everything,
+    /// Challenge generation, play, recovery and evaluation.
+    Challenges,
+    /// The cross-gateway ranked queue, game and settlement, the ranked
+    /// runners included.
+    Ranked,
+    /// The ranked runners: two AI accounts play each other.
+    AiPlayers,
+}
+
 /// `integration`: builds first, so the bounded handoff to a UI run is spent
 /// on the test and not the compile; then bootstraps Central's roles and runs
 /// the selected end-to-end scenarios. `cancel` ends it early when it exists.
@@ -266,9 +280,10 @@ pub fn integration(
     config: Option<&Path>,
     cancel: Option<&Path>,
     failure: bool,
-    challenges_only: bool,
-    ranked_only: bool,
+    only: Only,
 ) -> Result<i32> {
+    let challenges_only = only == Only::Challenges;
+    let ranked_only = matches!(only, Only::Ranked | Only::AiPlayers);
     let options = cargo_options(config)?;
     let publisher = integration_publisher()?;
     let special = challenges_only
@@ -306,15 +321,17 @@ pub fn integration(
             "Testing real PostgreSQL {} with isolated migration and runtime roles.",
             pg.version()?
         );
-        let (selector, expected) = if ranked_only {
-            ("e2e_central::ranked::", 2)
+        let (selector, expected) = if only == Only::AiPlayers {
+            ("e2e_central::ranked::runners::", 1)
+        } else if ranked_only {
+            ("e2e_central::ranked::", 3)
         } else if special {
             (
                 "e2e_central::central_login_migrates_then_restores_and_admits_without_the_legacy_password",
                 1,
             )
         } else {
-            ("e2e_central::", 3)
+            ("e2e_central::", 4)
         };
         let mut test = test_command(
             &options,
@@ -385,6 +402,7 @@ fn bootstrap(migrator: &str, runtime: &str, legacy: &str) -> String {
         "central_native_test",
         "central_ranked_test",
         "central_replica_test",
+        "central_runners_test",
     ]));
     sql
 }
@@ -498,6 +516,7 @@ mod tests {
             "central_native_test",
             "central_ranked_test",
             "central_replica_test",
+            "central_runners_test",
         ] {
             assert!(sql.contains(&format!("CREATE DATABASE {db} OWNER central_migrator;")));
             assert!(sql.contains(&format!(

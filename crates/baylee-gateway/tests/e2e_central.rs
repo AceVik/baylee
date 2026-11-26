@@ -271,6 +271,7 @@ enum Scenario {
     Migration,
     Ranked,
     Replicated,
+    Runners,
 }
 
 fn integration(scenario: Scenario) {
@@ -279,6 +280,7 @@ fn integration(scenario: Scenario) {
         Scenario::Migration => "central_native_test",
         Scenario::Ranked => "central_ranked_test",
         Scenario::Replicated => "central_replica_test",
+        Scenario::Runners => "central_runners_test",
     };
     let (operator, store, legacy) = runtime.block_on(integration_stores(name));
     let served = serve(&runtime, &store, &legacy, "central", None);
@@ -287,6 +289,9 @@ fn integration(scenario: Scenario) {
             Scenario::Ranked => return ranked::run(&runtime, &served, &store, &operator),
             Scenario::Replicated => {
                 return ranked::replication::run(&runtime, &served, &store, &operator);
+            }
+            Scenario::Runners => {
+                return ranked::runners::run(&runtime, &served, &store, &operator);
             }
             Scenario::Migration => {}
         }

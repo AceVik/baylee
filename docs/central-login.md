@@ -949,9 +949,12 @@ play, recovery and evaluation pipeline. The runner sets the test-process-only
 `BAYLEE_CENTRAL_CHALLENGES_ONLY=1`; neither production server reads it. The default
 integration mode still runs every existing scenario.
 
-`cargo dev central integration --ranked-only` runs two synthetic Standard duels
-against separate PostgreSQL databases. One has a single verified host. The
-other uses independently operated gateways running actual `baylee-agent` and
+`cargo dev central integration --ranked-only` runs three synthetic Standard
+duels against separate PostgreSQL databases. One has a single verified host.
+In the second, two AI accounts play each other on a single verified host,
+each through a ranked runner with a house mind (`docs/llm-seat.md` §"The
+ranked runner"); `--ai-players-only` runs that one alone. The third
+uses independently operated gateways running actual `baylee-agent` and
 `baylee-engine-server` processes. Run this check on a clean Git commit with
 build stamping enabled so the agents advertise the same identifiable rules build.
 
