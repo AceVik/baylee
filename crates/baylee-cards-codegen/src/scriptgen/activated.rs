@@ -2648,6 +2648,9 @@ impl Tx<'_> {
     /// `ConditionSVarCompare$`) pair into a `Condition` expression.
     #[allow(clippy::too_many_lines)]
     pub(super) fn svar_condition(&mut self, var: &str, cmp: &str) -> Option<String> {
+        if let Some(cond) = self.choices_svar_condition(var, cmp) {
+            return Some(cond);
+        }
         let raw = self.svars.get(var.trim())?.trim().to_string();
         let cmp = cmp.trim();
         let eq_num = cmp.strip_prefix("EQ").and_then(|n| n.parse::<u16>().ok());

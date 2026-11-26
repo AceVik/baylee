@@ -2155,8 +2155,8 @@ fn continuous_check_svar_turn_and_linked_exile_unlocks() {
         "Name:BadSacSelf\nTypes:Creature\nPT:1/1\n\
          S:Mode$ Continuous | AffectedDefined$ Self | AddKeyword$ Flying | CheckSVar$ S\n\
          SVar:S:PlayerCountPropertyYou$SacrificedThisTurn Permanent.Self",
-        "Name:BadOppLowestLife\nTypes:Creature\nPT:2/1\n\
-         S:Mode$ Continuous | AffectedDefined$ Self | AddKeyword$ Haste | CheckSVar$ X | SVarCompare$ LE10\n\
+        "Name:BadOppLowestLifeEq\nTypes:Creature\nPT:2/1\n\
+         S:Mode$ Continuous | AffectedDefined$ Self | AddKeyword$ Haste | CheckSVar$ X | SVarCompare$ EQ10\n\
          SVar:X:PlayerCountOpponents$LowestLifeTotal",
     ] {
         assert!(refused(bad), "must refuse:\n{bad}");

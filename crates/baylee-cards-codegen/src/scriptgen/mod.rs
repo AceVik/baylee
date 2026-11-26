@@ -43,6 +43,7 @@ mod animation;
 mod archon_kismet;
 mod atoms;
 mod chains;
+mod choices_players;
 mod constants;
 mod counters;
 
@@ -733,6 +734,16 @@ struct Tx<'a> {
     /// True while parsing an activated ability's `Cost$` whose `{X}` is
     /// defined by `SVar:X:Imprinted$CardManaCost` on `ChooseZone::LinkedExile`.
     pub(super) allow_defined_cost_x: bool,
+    /// True while lowering sub-abilities inside `ChoosePlayerEx::then` (`ChosenPlayer` scope).
+    in_chosen_player: bool,
+    /// True while lowering follow-up arms after `SecretChooseNumbers` (`RememberHighest$ True`).
+    in_secret_remembered_player: bool,
+    /// True while lowering `SecretNumberGuess` arms (`RememberedPlayer` -> `PlayerRel::Chosen`).
+    in_secret_guesser_ctx: bool,
+    /// Active Join forces accumulator `SVar` name while lowering post-`RepeatEach` steps.
+    join_forces_acc_var: Option<String>,
+    /// Active `(min, max)` bounds while lowering `ChooseNumberAtRandom::then` (`Count$Random.<lo>.<hi>`).
+    random_number_range: Option<(String, String)>,
     /// Named `SetChosenMode$ True` ETB choices in prompt order (`0..n`).
     etb_chosen_modes: Vec<String>,
     /// Named `NotedFor<Name>` tags for `ETBReplacement:Other` `EachPlayerChooseMode` (`0..n`).
@@ -753,11 +764,14 @@ impl<'a> Tx<'a> {
     /// the resolving effect chain (`Effect::ChooseCreatureType`).
     pub(super) fn has_chosen_creature_type(&self) -> bool {
         self.in_chosen_creature_type
-            || self
-                .body
-                .enter_modifiers
-                .iter()
-                .any(|m| m == "EnterModifier::ChooseSubtype")
+            || self.body.enter_modifiers.iter().any(|m| {
+                matches!(
+                    m.as_str(),
+                    "EnterModifier::ChooseSubtype"
+                        | "EnterModifier::OpponentChoosesCreatureType"
+                        | "EnterModifier::NoteMostPrevalentCreatureTypeInOpponentLibrary"
+                )
+            })
     }
 
     pub(super) fn has_chosen_basic_land_type(&self) -> bool {
@@ -872,6 +886,11 @@ impl<'a> Tx<'a> {
             wave30a_allow_clear_imprinted: false,
             is_dies_self_trigger: false,
             allow_defined_cost_x: false,
+            in_chosen_player: false,
+            in_secret_remembered_player: false,
+            in_secret_guesser_ctx: false,
+            join_forces_acc_var: None,
+            random_number_range: None,
             etb_chosen_modes: Vec::new(),
             etb_player_chosen_modes: Vec::new(),
             melded_face: None,
@@ -964,7 +983,9 @@ impl<'a> Tx<'a> {
                 return Some(format!("Amount::Fixed({value})"));
             }
         }
-        amount(raw, self.svars, self.has_x).or_else(|| self.wave16a_amount_num(raw))
+        amount(raw, self.svars, self.has_x)
+            .or_else(|| self.choices_amount_num(raw))
+            .or_else(|| self.wave16a_amount_num(raw))
     }
 
     /// [`plain_number`], resolving a non-zero `Count$Kicked.<A>.<B>` `SVar` when

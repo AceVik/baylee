@@ -3138,6 +3138,9 @@ impl Tx<'_> {
         if let Some(fx) = Self::wave29a_static_effect_line(mode, st, subject, duration) {
             return Some(fx);
         }
+        if let Some(fx) = self.choices_static_effect_line(mode, st, subject, duration) {
+            return Some(fx);
+        }
         match mode {
             "CantBlockBy" => self.effect_cant_block_by(st, subject, duration),
             "MustAttack" => self.wave27d_effect_must_attack(st, subject, target, duration),

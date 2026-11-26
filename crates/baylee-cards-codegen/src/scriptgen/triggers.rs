@@ -2780,7 +2780,9 @@ impl Tx<'_> {
         };
         p.drop_prose();
         self.trigger_mode = Some(mode.clone());
-        if self.is_link_cleanup_trigger(&mode, &p) {
+        if self.is_link_cleanup_trigger(&mode, &p)
+            || self.is_hellkite_combat_memory_trigger(&mode, &p)
+        {
             return Some(());
         }
         if self.is_imprison_clause(&mode, &p) {

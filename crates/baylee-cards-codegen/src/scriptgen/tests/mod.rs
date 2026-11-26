@@ -5,6 +5,7 @@ mod alternative_costs;
 mod animation_rules;
 mod archon_kismet;
 mod blocks_and_conditions;
+mod choices_players;
 mod costs_and_refusals;
 mod counters;
 mod creature_type;

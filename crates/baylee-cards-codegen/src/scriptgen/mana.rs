@@ -21,12 +21,24 @@ impl ManaSpendRider {
 
 impl Tx<'_> {
     /// `Produced$ Combo W U | Amount$ 2` and friends.
-    pub(super) fn mana_effect(&mut self, p: &mut Params) -> Option<Vec<String>> {
+    pub(super) fn mana_effect(
+        &mut self,
+        p: &mut Params,
+        target: Option<&str>,
+    ) -> Option<Vec<String>> {
         // "Its controller adds an additional {R}" (Gauntlet of Might): mana
         // in another player's pool.
         let defined = p.take("Defined");
         if let Some(who) = defined.as_deref().filter(|d| *d != "You") {
-            let who = self.player_rel(Some(who))?;
+            let who = if self.in_chosen_player
+                && (matches!(who, "ChosenPlayer" | "Player.Chosen")
+                    || (who == "Targeted"
+                        && target == Some("TargetSpec::Player(PlayerRel::Chosen)")))
+            {
+                "PlayerRel::Chosen"
+            } else {
+                self.player_rel(Some(who))?
+            };
             return self.mana_for(p, who);
         }
         let Some(produced) = p.take("Produced") else {
@@ -413,6 +425,18 @@ impl Tx<'_> {
             "C" => Some("ManaColor::Colorless"),
             _ => None,
         };
+        if produced.trim() == "Any" {
+            let amount = if let Some(n) =
+                plain_number(&raw, self.svars).and_then(|n| u32::try_from(n).ok())
+            {
+                format!("Amount::Fixed({n})")
+            } else {
+                self.counted_amount(&raw)?
+            };
+            return Some(vec![format!(
+                "Effect::AddManaChoiceFor {{ who: {who}, source: ManaSource::Choice(&[ManaColor::White, ManaColor::Blue, ManaColor::Black, ManaColor::Red, ManaColor::Green]), amount: {amount}, distribution: ManaDistribution::OneColor, restriction: None }}"
+            )]);
+        }
         if let Some(amount) = plain_number(&raw, self.svars).and_then(|n| u16::try_from(n).ok()) {
             let mut out = Vec::new();
             for symbol in produced.split_whitespace() {
@@ -2495,6 +2519,8 @@ impl Tx<'_> {
                 && !self.in_alternative_cost
             {
                 parts.push("ExertSelf".to_string());
+            } else if self.is_reveal_chosen_player_cost(token) {
+                parts.push("RevealChosenPlayer".to_string());
             } else if token == "Discard<1/Hand>"
                 || token == "Discard<0/Hand>"
                 || token.starts_with("Discard<1/Hand/")

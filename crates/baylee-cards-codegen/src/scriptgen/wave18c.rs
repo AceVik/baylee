@@ -279,7 +279,9 @@ impl Tx<'_> {
             self.remembered_cmc = true;
         }
 
-        if let Some(def) = defined.as_deref() {
+        if let Some(def) = defined.as_deref().filter(|d| {
+            !(matches!(*d, "Targeted" | "ParentTarget") && !targets_here && target.is_some())
+        }) {
             if matches!(def, "TriggeredSpellAbility" | "TriggeredSourceSA") {
                 if target.is_some()
                     || targets_here

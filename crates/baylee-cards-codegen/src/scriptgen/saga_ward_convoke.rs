@@ -186,6 +186,9 @@ impl Tx<'_> {
             if let ExtraOutcome::Handled(res) = self.wave18b_etb_other(svar.trim()) {
                 return ExtraOutcome::Handled(res);
             }
+            if let ExtraOutcome::Handled(res) = self.choices_etb_other(svar.trim()) {
+                return ExtraOutcome::Handled(res);
+            }
             if let ExtraOutcome::Handled(res) = self.wave16c_etb_other(svar.trim()) {
                 return ExtraOutcome::Handled(res);
             }

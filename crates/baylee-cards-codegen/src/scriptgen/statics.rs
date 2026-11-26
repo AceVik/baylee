@@ -28,7 +28,7 @@ impl StaticEffectZone {
         }
     }
 
-    const fn is_battlefield(self) -> bool {
+    pub(super) const fn is_battlefield(self) -> bool {
         matches!(self, Self::Battlefield)
     }
 }
@@ -260,6 +260,7 @@ impl Tx<'_> {
             "OptionalAttackCost" => return self.optional_attack_cost(p),
             "IgnoreLandWalk" => return self.ignore_landwalk(p),
             "ForetellAnyTurn" => return self.wave17c_foretell_any_turn(p),
+            "UntapOtherPlayer" => return self.statics_untap_other_player(p),
             _ => {}
         }
         if p.peek("EffectZone") == Some("Graveyard") && p.peek("Affected") == Some("Land.YouCtrl") {
@@ -3264,8 +3265,19 @@ impl Tx<'_> {
     /// `Mode$ CantRegenerate` so `regeneration.rs` keeps its narrow contract.
     pub(super) fn grant_static_modifiers_for_animate(&mut self, name: &str) -> Option<Vec<String>> {
         let trimmed = name.trim();
-        if trimmed.is_empty() || trimmed.contains([',', '&']) {
+        if trimmed.is_empty() || trimmed.contains('&') {
             return None;
+        }
+        if trimmed.contains(',') {
+            let mut all = Vec::new();
+            for part in trimmed.split(',') {
+                let p = part.trim();
+                if p.is_empty() {
+                    return None;
+                }
+                all.extend(self.grant_static_modifiers_for_animate(p)?);
+            }
+            return Some(all);
         }
         let line = self.svars.get(trimmed)?.clone();
         let trimmed_line = line.trim_start();
