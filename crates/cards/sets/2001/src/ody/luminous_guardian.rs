@@ -2,7 +2,7 @@
 //! Oracle: {W}: This creature gets +0/+1 until end of turn.
 //! Oracle: {2}: This creature can block an additional creature this turn.
 //! Set: ODY #31 — Odyssey | Scryfall ID: a5becc51-4df8-4f67-a029-42a3da598a26 | Oracle ID: 0d9a31f5-20d0-4266-95ec-38b4fa96b8aa
-// GENERATED STUB — implement abilities + tests, see docs/card-dsl.md.
+// IMPLEMENTED — {W} toughness pump and {2} additional blocker activation.
 
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes;
@@ -12,6 +12,7 @@ card!(
     oracle_id = "0d9a31f5-20d0-4266-95ec-38b4fa96b8aa",
     scryfall_id = "a5becc51-4df8-4f67-a029-42a3da598a26",
     color_identity = ColorSet::from_slice(&[Color::White]),
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Luminous Guardian",
         mana_cost = mana!("{3}{W}"),
@@ -20,6 +21,25 @@ card!(
         power = Some(1),
         toughness = Some(4),
     ),],
+    abilities = &[
+        activated!(
+            cost!("{W}"),
+            &[Effect::PumpFilter {
+                filter: &Filter::This,
+                controlled_by: None,
+                power: Amount::Fixed(0),
+                toughness: Amount::Fixed(1),
+                keywords: KeywordSet::EMPTY,
+                duration: Duration::UntilEndOfTurn,
+            }],
+        ),
+        activated!(
+            cost!("{2}"),
+            &[Effect::continuous(
+                &Filter::This,
+                Modifier::CanBlockAdditional(1),
+                Duration::UntilEndOfTurn,
+            )],
+        ),
+    ],
 );
-
-// TODO(card): implement abilities, see docs/card-dsl.md.

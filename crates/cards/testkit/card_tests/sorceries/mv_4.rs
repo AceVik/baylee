@@ -33,6 +33,7 @@ mod dematerialize;
 mod demolish;
 mod diabolic_tutor;
 mod dread_charge;
+mod dwarven_landslide;
 mod earth_rift;
 mod eradicate;
 mod eternal_flame;

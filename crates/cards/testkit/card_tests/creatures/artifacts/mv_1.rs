@@ -15,6 +15,7 @@ mod gene_pollinator;
 mod goldhound;
 mod haywire_mite;
 mod hullcarver;
+mod icehide_golem;
 mod jawbone_skulkin;
 mod lightning_core_excavator;
 mod locthwain_gargoyle;

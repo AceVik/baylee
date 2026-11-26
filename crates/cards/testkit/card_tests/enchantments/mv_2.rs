@@ -76,6 +76,7 @@ mod night_soil;
 mod nowhere_to_run;
 mod oath_of_druids;
 mod opal_gargoyle;
+mod oversold_cemetery;
 mod parapet;
 mod path_of_mettle;
 mod peace_of_mind;
