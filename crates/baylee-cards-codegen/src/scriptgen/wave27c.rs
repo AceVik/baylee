@@ -405,6 +405,9 @@ impl Tx<'_> {
                     None | Some("You")
                 )
             }
+            "ChangeZone" if p.peek("AtRandom") == Some("True") => {
+                matches!(p.peek("ChangeNum"), None | Some("1"))
+            }
             "ChangeZone" => {
                 p.peek("Origin") == Some("Library")
                     && !flags.targets_a_player
@@ -524,14 +527,7 @@ impl Tx<'_> {
             None
         } else {
             match api {
-                "Dig"
-                    if p.peek("DestinationZone") == Some("Exile")
-                        && !p.has("DestinationZone2")
-                        && !p.has("ExileFaceDown")
-                        && (p.peek("ChangeNum") == Some("All")
-                            || (p.peek("DigNum") == Some("1")
-                                && matches!(p.peek("ChangeNum"), None | Some("1")))) =>
-                {
+                "Dig" if p.peek("DestinationZone") == Some("Exile") && !p.has("ExileFaceDown") => {
                     Some("ZoneSel::ExileAll")
                 }
                 "ChangeZone" | "ChangeZoneAll"
@@ -905,6 +901,18 @@ impl Tx<'_> {
                 return Some(effs);
             }
         }
+        // `ChangeZone | Origin$ Graveyard | Destination$ Exile | AtRandom$ True`
+        // (*Storm of Memories*, *Wondrous Crucible*, *Capricious Hellraiser*).
+        if api == "ChangeZone" && p.peek("AtRandom") == Some("True") {
+            let mut probe = p.clone();
+            if let Some(effs) = self.capture_change_zone_at_random(&mut probe, flags.targets_here)
+                && probe.exhausted()
+            {
+                *p = probe;
+                return Some(effs);
+            }
+            return None;
+        }
         // `ChangeZone | Optional$ True | Origin$ Library | ShuffleNonMandatory$ True` (Courier of Comestibles)
         if api == "ChangeZone" && p.peek("Origin") == Some("Library") {
             let mut probe = p.clone();
@@ -984,8 +992,8 @@ impl Tx<'_> {
             let filter_name = self.body.filter_static("SAC", &filter_expr);
             return Some(vec![format!(
                 "Effect::RepeatEach {{ domain: RepeatDomain::EachOpponent, \
-                 effects: &[Effect::MayDoFor {{ player: PlayerRel::EventPlayer, \
-                 effects: &[Effect::SacrificeFilter {{ who: PlayerRel::EventPlayer, \
+ effects: &[Effect::MayDoFor {{ player: PlayerRel::EventPlayer, \
+ effects: &[Effect::SacrificeFilter {{ who: PlayerRel::EventPlayer, \
                  filter: &{filter_name} }}] }}] }}"
             )]);
         }
@@ -1053,6 +1061,16 @@ impl Tx<'_> {
         {
             let mut probe = p.clone();
             if let Some(effs) = self.effect_of_inner("Dig", &mut probe, target, flags)
+                && probe.exhausted()
+            {
+                *p = probe;
+                return Some(effs);
+            }
+        }
+        {
+            let mut probe = p.clone();
+            if !flags.targets_here
+                && let Some(effs) = self.dig_peek_exile_bottom_step(&mut probe)
                 && probe.exhausted()
             {
                 *p = probe;
@@ -1154,6 +1172,18 @@ impl Tx<'_> {
             if api == "Token"
                 && sp.peek("RememberTokens") == Some("True")
                 && let Some(tail) = self.wave29c_capture_token_pump_all_tail(&body, then_chain)
+            {
+                return Some(tail);
+            }
+            if api == "ChooseCard"
+                && sp.peek("ChoiceZone") == Some("Exile")
+                && let Some(tail) = self.capture_choose_play_tail(&body, then_chain)
+            {
+                return Some(tail);
+            }
+            if api == "Clash"
+                && !sp.has("SubAbility")
+                && let Some(tail) = self.capture_clash_tail(&body, then_chain, visited)
             {
                 return Some(tail);
             }
@@ -1468,6 +1498,58 @@ impl Tx<'_> {
             return Some(effs);
         }
 
+        if api == "DealDamage"
+            && !flags.targets_here
+            && p.peek("DamageSource") == Some("Remembered")
+        {
+            let mut probe = p.clone();
+            probe.take("DamageSource");
+            let who = self.wave11_player_of_line(
+                probe.take("Defined").as_deref(),
+                target,
+                flags.targets_a_player,
+            )?;
+            let raw_dmg = probe.take("NumDmg")?;
+            let amount = self.amount_or_count_ext(&raw_dmg)?;
+            if !Self::only_condition_keys_left(&probe) {
+                return None;
+            }
+            *p = probe;
+            return Some(vec![format!(
+                "Effect::ForEachRemembered {{ filter: &Filter::Any, effects: &[Effect::EventObjectDealsDamage {{ amount: {amount}, target: TargetSpec::Player({who}) }}] }}"
+            )]);
+        }
+        if api == "PumpAll"
+            && !flags.targets_here
+            && p.peek("ValidCards")
+                .is_some_and(|v| v.contains("IsRemembered") && !v.contains("!IsRemembered"))
+        {
+            let mut probe = p.clone();
+            let valid = probe.take("ValidCards")?;
+            let stripped = Self::strip_is_remembered_all_alts(&valid)?;
+            let orig_expr = self.filter_expr(&stripped)?;
+            probe
+                .entries
+                .push(("ValidCards".to_string(), "Artifact".to_string()));
+            let effs = self.pump_all_effect(&mut probe, None, false, false, true)?;
+            if !Self::only_condition_keys_left(&probe) {
+                return None;
+            }
+            let combined = format!("Filter::And(&[Filter::IsRemembered, {orig_expr}])");
+            let filter_name = self.body.filter_static("PUMP", &combined);
+            let updated: Vec<String> = effs
+                .into_iter()
+                .map(|e| {
+                    e.replace(
+                        "filter: &Filter::ARTIFACT",
+                        &format!("filter: &{filter_name}"),
+                    )
+                })
+                .collect();
+            *p = probe;
+            return Some(updated);
+        }
+
         // Case 2: `Defined$ Remembered` on standard battlefield/zone operations.
         if p.peek("Defined") != Some("Remembered") {
             return None;
@@ -1506,7 +1588,7 @@ impl Tx<'_> {
                 let at_eot = probe.take("AtEOT");
                 probe
                     .entries
-                    .push(("ValidCards".to_string(), "Card.IsRemembered".to_string()));
+                    .push(("ValidCards".to_string(), "Artifact".to_string()));
                 let mut effs = self.pump_all_effect(&mut probe, None, false, false, true)?;
                 if let Some(at_eot) = at_eot {
                     let trig = Self::wave28a_at_eot_delayed_trigger(&at_eot)?;
@@ -1518,7 +1600,13 @@ impl Tx<'_> {
                     return None;
                 }
                 *p = probe;
-                Some(effs)
+                Some(
+                    effs.into_iter()
+                        .map(|e| {
+                            e.replace("filter: &Filter::ARTIFACT", "filter: &Filter::IsRemembered")
+                        })
+                        .collect(),
+                )
             }
             "PutCounter" => {
                 let mut probe = p.clone();
@@ -1642,7 +1730,7 @@ impl Tx<'_> {
                 *p = probe;
                 Some(vec![
                     "Effect::ForEachRemembered { filter: &Filter::Any, \
-                     effects: &[Effect::Goad { target: TargetSpec::EventObject }] }"
+     effects: &[Effect::Goad { target: TargetSpec::EventObject }] }"
                         .to_string(),
                 ])
             }
@@ -1655,7 +1743,7 @@ impl Tx<'_> {
                 *p = probe;
                 Some(vec![
                     "Effect::ForEachRemembered { filter: &Filter::Any, \
-                     effects: &[Effect::Detain { target: TargetSpec::EventObject }] }"
+     effects: &[Effect::Detain { target: TargetSpec::EventObject }] }"
                         .to_string(),
                 ])
             }
@@ -1668,7 +1756,7 @@ impl Tx<'_> {
                 *p = probe;
                 Some(vec![
                     "Effect::ForEachRemembered { filter: &Filter::Any, \
-                     effects: &[Effect::PhaseOut { target: Some(TargetSpec::EventObject) }] }"
+     effects: &[Effect::PhaseOut { target: Some(TargetSpec::EventObject) }] }"
                         .to_string(),
                 ])
             }
@@ -1687,7 +1775,7 @@ impl Tx<'_> {
                 *p = probe;
                 Some(vec![format!(
                     "Effect::ForEachRemembered {{ filter: &Filter::Any, \
-                     effects: &[Effect::GainControlEx {{ target: TargetSpec::EventObject, \
+     effects: &[Effect::GainControlEx {{ target: TargetSpec::EventObject, \
                      to: {to}, duration: {duration}, untap: {untap}, \
                      haste_until_eot: {haste_until_eot} }}] }}"
                 )])
@@ -2553,5 +2641,164 @@ impl Tx<'_> {
             return false;
         };
         api == "TargetOnly" && sp.has("ValidTgts")
+    }
+
+    fn capture_change_zone_at_random(
+        &mut self,
+        p: &mut Params,
+        targets_here: bool,
+    ) -> Option<Vec<String>> {
+        if targets_here
+            || p.has("Defined")
+            || p.has("ValidTgts")
+            || p.take("AtRandom").as_deref() != Some("True")
+            || p.take("Origin").as_deref() != Some("Graveyard")
+            || p.take("Destination").as_deref() != Some("Exile")
+            || !matches!(p.take("Hidden").as_deref(), None | Some("True"))
+            || !matches!(p.take("Mandatory").as_deref(), None | Some("True"))
+        {
+            return None;
+        }
+        p.claim_label("ChangeTypeDesc", "ChangeType");
+        p.claim_label("ChangeNumDesc", "ChangeNum");
+        let defined_player = p.take("DefinedPlayer");
+        if !matches!(defined_player.as_deref(), None | Some("You")) {
+            return None;
+        }
+        let change_type = p.take("ChangeType")?;
+        let (owner_rel, stripped) = Self::wave27b_strip_zone_owner(&change_type)?;
+        let is_you = owner_rel == Some("PlayerRel::You")
+            || (owner_rel.is_none() && defined_player.as_deref() == Some("You"));
+        if !is_you {
+            return None;
+        }
+        let filter_expr = self.filter_expr_in_zone(&stripped, true)?;
+        let filter_name = self.body.filter_static("CHOOSE_CONSTRAINED", &filter_expr);
+        let max_expr = match p.take("ChangeNum").as_deref() {
+            None => "Amount::Fixed(1)".to_string(),
+            Some(raw) => self.amount_or_count_ext(raw)?,
+        };
+        if max_expr == "Amount::Fixed(0)" || !p.exhausted() {
+            return None;
+        }
+        Some(vec![format!(
+            "Effect::ChooseCardConstrained {{ chooser: PlayerRel::You, zone: ChooseZone::Graveyard(PlayerRel::You), filter: &{filter_name}, min: 1, max: {max_expr}, at_random: true, distinct_names: false, reveal_chosen: false, movement: ChooseMove::Exile, then: &[] }}"
+        )])
+    }
+
+    fn capture_choose_play_tail(
+        &mut self,
+        choose_body: &str,
+        then_chain: &mut Chain,
+    ) -> Option<(bool, Option<String>)> {
+        let (c_api, mut cp) = Params::parse(choose_body)?;
+        cp.drop_prose();
+        if c_api != "ChooseCard"
+            || cp.take("ChoiceZone").as_deref() != Some("Exile")
+            || !matches!(cp.take("Defined").as_deref(), None | Some("You"))
+            || !matches!(cp.take("Mandatory").as_deref(), None | Some("True"))
+            || !matches!(cp.take("Amount").as_deref(), None | Some("1"))
+        {
+            return None;
+        }
+        cp.take("ChoiceTitle");
+        let choices = cp.take("Choices")?;
+        let stripped = Self::strip_is_remembered_all_alts(&choices)?;
+        let sub_name = cp.take("SubAbility")?;
+        if !cp.exhausted() {
+            return None;
+        }
+        let play_body = self.svars.get(sub_name.trim())?.clone();
+        let (p_api, mut pp) = Params::parse(&play_body)?;
+        pp.drop_prose();
+        if p_api != "Play" || pp.take("Defined").as_deref() != Some("ChosenCard") {
+            return None;
+        }
+        let play_next = pp.take("SubAbility");
+        pp.entries
+            .push(("Defined".to_string(), "DelayTriggerRemembered".to_string()));
+        let saved_in_delayed = std::mem::replace(&mut self.in_delayed, true);
+        let play_effs = self.play_effect(&mut pp, None, false, false);
+        self.in_delayed = saved_in_delayed;
+        let play_effs = play_effs?;
+        if play_effs.is_empty()
+            || !play_effs
+                .iter()
+                .all(|e| e.contains("PlaySource::Subject(TargetSpec::EventObject)"))
+            || !pp.exhausted()
+        {
+            return None;
+        }
+        let clean_name = play_next?;
+        let clean_body = self.svars.get(clean_name.trim())?.clone();
+        let (cl_api, mut clp) = Params::parse(&clean_body)?;
+        clp.drop_prose();
+        if cl_api != "Cleanup" || clp.take("ClearRemembered").as_deref() != Some("True") {
+            return None;
+        }
+        let after = clp.take("SubAbility");
+        if !clp.exhausted() {
+            return None;
+        }
+        let filter_expr = self.filter_expr_in_zone(&stripped, true)?;
+        let filter_name = self.body.filter_static("CHOOSE", &filter_expr);
+        then_chain.effects.push(format!(
+            "Effect::ChooseCardEx {{ chooser: PlayerRel::You, zone: ChooseZone::Remembered, filter: &{filter_name}, min: 1, max: Amount::Fixed(1), reveal_chosen: false, movement: ChooseMove::None, not_chosen_movement: ChooseMove::None, then: &[{}], for_unchosen: &[] }}",
+            play_effs.join(", ")
+        ));
+        Some((true, after))
+    }
+
+    fn capture_clash_tail(
+        &mut self,
+        clash_body: &str,
+        then_chain: &mut Chain,
+        visited: &mut BTreeSet<String>,
+    ) -> Option<(bool, Option<String>)> {
+        let (api, mut cp) = Params::parse(clash_body)?;
+        cp.drop_prose();
+        if api != "Clash" || cp.has("Defined") || cp.has("RememberClasher") || cp.has("SubAbility")
+        {
+            return None;
+        }
+        let win_name = cp.take("WinSubAbility");
+        let loss_name = cp.take("OtherwiseSubAbility");
+        if (win_name.is_none() && loss_name.is_none()) || !cp.exhausted() {
+            return None;
+        }
+        let mut closed = false;
+        let mut walk_branch = |name: Option<String>| -> Option<Vec<String>> {
+            let Some(start) = name else {
+                return Some(Vec::new());
+            };
+            let mut branch_chain = Chain {
+                target: then_chain.target.clone(),
+                ..Chain::default()
+            };
+            let (br_closed, after) =
+                self.wave27c_walk_capture_then(&start, &mut branch_chain, visited)?;
+            if after.is_some()
+                || branch_chain.target != then_chain.target
+                || branch_chain.second_target.is_some()
+            {
+                return None;
+            }
+            closed |= br_closed;
+            then_chain.could_add_mana |= branch_chain.could_add_mana;
+            then_chain.moves_library |= branch_chain.moves_library;
+            Some(branch_chain.effects)
+        };
+        let on_win = walk_branch(win_name)?;
+        let on_loss = walk_branch(loss_name)?;
+        if !closed && (!self.on_a_spell || self.wave27c_has_unvisited_remembered(visited)) {
+            return None;
+        }
+        then_chain.moves_library = true;
+        then_chain.effects.push(format!(
+            "Effect::Clash {{ on_win: &[{}], on_loss: &[{}] }}",
+            on_win.join(", "),
+            on_loss.join(", ")
+        ));
+        Some((true, None))
     }
 }

@@ -1606,7 +1606,7 @@ impl Tx<'_> {
             .join(",")
     }
 
-    fn wave27b_strip_zone_owner(valid: &str) -> Option<(Option<&'static str>, String)> {
+    pub(super) fn wave27b_strip_zone_owner(valid: &str) -> Option<(Option<&'static str>, String)> {
         let mut owner: Option<&'static str> = None;
         let mut out = Vec::new();
         for alt in valid.split(',').map(str::trim) {
