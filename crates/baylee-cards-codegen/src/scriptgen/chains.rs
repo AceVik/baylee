@@ -504,6 +504,10 @@ impl Tx<'_> {
                 chain.moves_library = true;
                 return Some(());
             }
+            if let Some(effects) = self.try_fiery_gambit_repeat(&p, sub.as_deref(), chain) {
+                chain.effects.extend(effects);
+                return Some(());
+            }
             return self.repeat_process_chain(p, sub.as_deref(), chain);
         }
         if api == "Vote" {
@@ -3097,6 +3101,13 @@ impl Tx<'_> {
                         self.counter_or_stack_target(valid, p.peek("TargetType"), false)
                     } else if api == "ChangeTargets" {
                         self.change_targets_target(valid, p.peek("TargetType"))
+                    } else if api == "ExchangeControl"
+                        && chain.target.is_some()
+                        && p.peek("TargetsWithSharedCardType") == Some("ParentTarget")
+                        && p.has("TargetsWithSharedTypes")
+                        && p.peek("TargetUnique") == Some("True")
+                    {
+                        self.exchange_shared_type_target(valid, p)
                     } else if chain.target.is_some()
                         && (chain.target_unique
                             || matches!(api, "Fight" | "DealDamage" | "Clone" | "Tap" | "Untap"))
@@ -3292,8 +3303,17 @@ impl Tx<'_> {
                         && no_riders(p)
                 }
                 "Clone" => {
+                    let clone_first_ok = chain
+                        .target
+                        .as_deref()
+                        .is_some_and(|t| t.starts_with("TargetSpec::Object("))
+                        && chain.target_exact.is_none()
+                        && chain.target_range.is_none()
+                        && !chain.target_is_x
+                        && chain.target_constraint.is_none()
+                        && chain.target_up_to.is_none_or(|n| n == 1);
                     is_obj_spec
-                        && single_object_first
+                        && clone_first_ok
                         && p.peek("CloneTarget") == Some("ParentTarget")
                         && no_riders(p)
                 }
@@ -3302,7 +3322,7 @@ impl Tx<'_> {
                         && single_object_first
                         && chain.effects.is_empty()
                         && p.peek("Defined") == Some("ParentTarget")
-                        && !has_target_unique
+                        && !p.has("TargetUnique")
                         && no_riders(p)
                 }
                 "Destroy" => {
@@ -5216,17 +5236,39 @@ impl Tx<'_> {
                 emit_target()
             }
             "PutCounterAll" => {
-                if targets_here || (target.is_some() && !prior_target_used) {
+                let target_player_ctrl = targets_here
+                    && matches!(
+                        target,
+                        Some(
+                            "TargetSpec::AnyPlayer"
+                                | "TargetSpec::AnyOpponent"
+                                | "TargetSpec::Player(PlayerRel::Chosen)"
+                        )
+                    );
+                if !target_player_ctrl && (targets_here || (target.is_some() && !prior_target_used))
+                {
                     return None;
                 }
                 let valid = p.take("ValidCards")?;
+                if target_player_ctrl
+                    && (valid.contains("Ctrl")
+                        || valid.contains("Own")
+                        || valid.contains("Remembered"))
+                {
+                    return None;
+                }
                 let code = p.take("CounterType")?;
                 let Some(kind) = counter_kind(&code) else {
                     return self.deny(format!("counter `{code}`"));
                 };
                 let n = self.amount_or_count_ext(p.take("CounterNum").as_deref().unwrap_or("1"))?;
                 p.take("IsCurse");
-                let expr = self.filter_expr(&valid)?;
+                let base_expr = self.filter_expr(&valid)?;
+                let expr = if target_player_ctrl {
+                    format!("Filter::And(&[{base_expr}, Filter::ControlledBy(PlayerRel::Chosen)])")
+                } else {
+                    base_expr
+                };
                 let filter = self.body.filter_static("COUNTERS", &expr);
                 vec![format!(
                     "Effect::AddCounterFilter {{ filter: &{filter}, kind: {kind}, amount: {n} }}"
@@ -10687,6 +10729,8 @@ impl Tx<'_> {
             }
             "Phases" => !p.has("WontPhaseInNormal"),
             "DealDamage" => !p.has("DividedAsYouChoose") && !p.has("ExcessSVar"),
+            "PutCounterAll" => Self::slot_put_counter_all_ok(second_spec, p),
+            "Effect" => Self::slot_remembered_effect_ok(second_spec, p),
             "Destroy" | "Pump" | "RemoveCounter" | "Tap" | "Untap" | "TapOrUntap" | "Detain"
             | "Goad" | "Animate" | "Regenerate" | "SetState" | "MustBlock" | "Connive"
             | "Explore" | "Suspect" | "CopyPermanent" | "Counter" | "PreventDamage" | "Draw"
