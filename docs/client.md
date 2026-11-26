@@ -11025,6 +11025,63 @@ doing (Central's `docs/push-socket.md` §"Status"; types in
 - **Without a Central session** the three choices go to the gateway alone, as
   its `online`, `away` and `invisible`.
 
+### Inviting friends
+
+The owner, 26.11.2026: Baylee Central's friend invites in the client, "schön
+und sauber umgesetzt", deep links allowed. A single-use link a player hands
+to someone, who becomes their friend by opening it, also while Central's
+registration is closed (its wire is `central_api::social`'s `FriendInvites`,
+`CreateFriendInvite`, `RevokeFriendInvite`, `RedeemFriendInvite` and the
+public `FriendInviteInfo`). The account's calls are `baylee-account`'s
+(`account/invites.rs`); the sheet's words and decisions are
+`client-core::social::invites`; the sheet is `lobby::invites`.
+
+- **The door.** The contacts drawer's foot carries "Invite a friend…" beside
+  New group, sharing that row, in the lobby and only while Baylee Central
+  is signed in: the invites are Central's, and their sheet is the lobby's.
+- **The sheet** (`SheetWidth::Small`, a fixed height whose body scrolls, so
+  nothing in it moves as rows arrive). The head names it and says what an
+  invite is. The form: how long the link holds (1, 3, 7 or 14 days, 7 to
+  begin with), a name only the player sees, a greeting for the invite's
+  page and, where Central says it can mail (`mail_available`), an address
+  Central mails the invite to; where it cannot, a quiet line stands in the
+  address's place, the same height. Create stays held while every invite
+  the account may have open is open (`active_limit`, "All 10 invites are
+  open…"), and a refusal is said in the line under it, which is always
+  there. The fields are the kit's (`ShellField`), capped at Central's own
+  bounds, and the first takes the keys when the sheet opens; Enter in a
+  field makes the link.
+- **The link, once.** Central keeps only a digest of the code, so the link
+  is shown once: over the form it came from (the form is hidden, not
+  removed, so the list under it never shifts), with its QR code
+  (`shellkit::qr`), the address in full, Copy link, Make another, until
+  when it holds and that it is shown only this once; with an address, that
+  the mail went out (or did not). It pops in on the kit's curve; "Copied"
+  fades in under Copy and out again in its own line. The link is the
+  website's invite page in the player's language
+  (`invites::share_url`: `{website}/{lang}/invite/{code}`), which anyone can
+  open with or without an account or the client. It lives only while the
+  sheet shows it and is wiped when it goes (`Zeroizing`).
+- **The list** under the form: the account's invites, newest first (Central
+  lists at most 100), filtered Open, Accepted or All, with how many are
+  open of how many may be. An open one shows its name (or the day it was
+  made), how long it still holds and Withdraw; an accepted one wears the
+  disc of who took it up and says who and when; a withdrawn or expired one
+  is quiet. Withdraw asks first ("Withdraw this invite?", Cancel and
+  Withdraw; `Esc` and a press beside it are Cancel) and holds Withdraw while
+  Central withdraws it. A skeleton stands until the first list came, a line
+  with Retry if it could not be read, and an empty state otherwise; a list
+  read before stands while it is read again.
+- **Requests.** One at a time on the account worker (`central::Handle`),
+  never through the chat's bridge: the list when the sheet opens and after
+  every change. A worker that stopped is an answer (unreachable). Signing
+  out or another account closes the sheet and forgets the list.
+- **Keys.** The sheet's focus order is `invites` (close, validity, the
+  three fields, Create, Copy, Make another, the filter, each Withdraw), the
+  question's `invites-withdraw`; while the sheet stands it holds the keys
+  (`KitHolds`). `Esc` closes the question, then clears a field with text,
+  then closes the sheet. Entering a game closes it.
+
 ## Embedding (the open-world plan)
 
 `DuelPlugin` creates no window and no schedule of its own. An application adds
@@ -11417,11 +11474,13 @@ nobody is signed in. `baylee://gateway/add?origin=<origin>` proposes a
 gateway: the origin percent-encoded, `https` and a DNS name with an
 optional port, nothing else (a `dev-control` build also takes a numeric
 loopback `http` origin, for tests). `baylee://pair?h=<handle>&s=<S>` signs
-in from baylee.app (below). `client-core::deeplink::read` reads a link
-strictly: anything that is not exactly one of these, a link over 2 KiB, a
-second or unknown parameter, is dropped without a word to the player. A
-link carries no text the client shows, and only the pairing link carries
-a secret; the website puts nothing else into one. The log names a link's
+in from baylee.app (below). `baylee://invite/<code>` takes up a friend
+invite (§"Taking up an invite from a link"). `client-core::deeplink::read`
+reads a link strictly: anything that is not exactly one of these, a link
+over 2 KiB, a second or unknown parameter, is dropped without a word to
+the player. A link carries no text the client shows, and only the pairing
+link and the invite link carry a secret; the website puts nothing else
+into one. The log names a link's
 kind, never its text.
 
 **How a link arrives** (`src/links.rs`). Windows and Linux start the
@@ -11552,6 +11611,45 @@ links wait. dev-control's `/state` names its stage (`pairing-waiting`,
 `pairing-question`, …), never the code or the name. A unit test's Central
 is a loopback port nobody answers on (`central::endpoint`), so no test
 reaches the live one.
+
+### Taking up an invite from a link
+
+Someone signed in at Baylee Central opens a friend's invite (§"Inviting
+friends") and takes it up in the client (owner, 26.11.2026). The invite's
+page on baylee.app offers "Open in Baylee" beside its own actions, signed in
+or out (baylee-central `islands/invite.rs`).
+
+**The link.** `baylee://invite/<code>`: the code exactly as Central writes
+it, 22 characters of canonical URL-safe base64
+(`central_api::social::valid_friend_invite_code`), read as written and
+never percent-decoded; no query, no other path. Whoever holds the code can
+take the invite up, so it is the second link that carries a secret:
+`deeplink::InviteLink` wipes it when dropped and prints `[REDACTED]`, it goes
+to Central and nowhere else, and neither the log nor `/state` names it.
+
+**What the client does** (`lobby/invites/link.rs`), never on arrival:
+
+- Signed in at Central, at rest: it reads the invite's public preview from
+  its own Central (`Account::friend_invite_preview`, the answer the
+  invite's page reads; a link names no address, so nothing else is asked).
+  An open invite of someone else who is not a friend yet brings the
+  question (`confirm::Destructive::FriendInvite`): "Mara#002a wants to be
+  friends with you", their disc, until when the invite holds, what being
+  friends means, and their greeting in quotes as plain text; "Not now" and
+  Accept. `Esc` and a tap beside the panel say no, no key says yes, and
+  Accept is held while Central takes it up. The question waits, as a link
+  does, while anything else is open.
+- Used, withdrawn, expired (by Central's word or past its end), the
+  player's own, or a friend's already: one sentence, nothing asked and
+  nothing spent. A code Central does not know: "This invite link does not
+  work."
+- Accepted: Central makes the two friends (`RedeemFriendInvite`, never
+  linking an address), and "You and Mara#002a are friends now." The
+  contacts follow from Central's push as any new friend does.
+- Signed out: Central's sign-in comes first (with `‹` back), as for a
+  challenge's link, and the question after it. A guest, a gateway's own
+  account or offline play: "Sign in with your Baylee account to accept a
+  friend invite", and the link is dropped.
 
 ## Where a packaged desktop build finds its fonts
 
