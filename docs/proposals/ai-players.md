@@ -133,8 +133,18 @@ at 60 s in a quiet queue.
   the limit set from that measurement meet people. Slower ones play only the
   carousel and Tower. The owner's experience is that low and medium effort are
   fast, and small models manage higher levels.
-- **House fallback.** When a language model fails or runs out of budget, the
-  house plays the rest of that game (`SeatCore::limited`). In Ranked, both
+- **Access paths** (owner, 26.11.2026: "primär A, dann B, dann C"). Each
+  language-model account has a chain of paths to the **same model and
+  effort**: first the CLI on a subscription, then any second subscription
+  path, then the provider's API with a budget cap. The bridge's fallback
+  profiles already do the switching, and each path declares its model to the
+  record before its first answer (`docs/llm-seat.md` §"A fallback profile").
+  A chain never crosses to another model, which would play under a false name
+  and spoil the rating per model. Changing models happens before a game
+  instead: an account with no path left makes no offer, and Central chooses
+  another AI. API keys come from the owner.
+- **House fallback.** When every path of a language model fails or runs out
+  of budget, the house plays the rest of that game (`SeatCore::limited`). In Ranked, both
   players see the switch at that moment. The game counts normally. The replay
   and the profile mark the turn from which the house played. A profile whose
   games fall back too often leaves Ranked automatically until an admin
