@@ -1570,6 +1570,36 @@ pub fn search(
     hint: &str,
     action: impl Bundle,
 ) -> Entity {
+    let face = field(commands, kit, '\u{f002}', text, hint, action);
+    if text.is_empty() {
+        if let Some(cap) = key_cap(commands, kit, "/") {
+            commands.entity(face).add_child(cap);
+        }
+    } else {
+        let clear = commands
+            .spawn((
+                Text::new("\u{f00d}"),
+                icon_tf(kit.fonts, kit.m.small),
+                TextColor(tokens::MUTED),
+                Pickable::IGNORE,
+            ))
+            .id();
+        commands.entity(face).add_child(clear);
+    }
+    face
+}
+
+/// A one-line field's look: `glyph` saying what goes in it, then the text,
+/// or its hint while it is empty. With a [`super::focus::ShellField`] in
+/// `action` the kit edits it ([`super::focus`]), and its words follow.
+pub fn field(
+    commands: &mut Commands,
+    kit: Kit,
+    glyph: char,
+    text: &str,
+    hint: &str,
+    action: impl Bundle,
+) -> Entity {
     let face = commands
         .spawn((
             Role::Field,
@@ -1590,9 +1620,9 @@ pub fn search(
             action,
         ))
         .id();
-    let glass = commands
+    let mark = commands
         .spawn((
-            Text::new("\u{f002}"),
+            Text::new(glyph.to_string()),
             icon_tf(kit.fonts, kit.m.small),
             TextColor(tokens::MUTED),
             Pickable::IGNORE,
@@ -1612,22 +1642,7 @@ pub fn search(
             ..default()
         },
     ));
-    commands.entity(face).add_children(&[glass, words]);
-    if text.is_empty() {
-        if let Some(cap) = key_cap(commands, kit, "/") {
-            commands.entity(face).add_child(cap);
-        }
-    } else {
-        let clear = commands
-            .spawn((
-                Text::new("\u{f00d}"),
-                icon_tf(kit.fonts, kit.m.small),
-                TextColor(tokens::MUTED),
-                Pickable::IGNORE,
-            ))
-            .id();
-        commands.entity(face).add_child(clear);
-    }
+    commands.entity(face).add_children(&[mark, words]);
     face
 }
 

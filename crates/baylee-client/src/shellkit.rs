@@ -41,6 +41,7 @@ pub mod lint;
 pub mod metrics;
 pub mod overlay;
 pub mod pointer;
+pub mod qr;
 pub mod retain;
 pub mod role;
 pub mod sheen;
