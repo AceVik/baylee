@@ -1225,10 +1225,12 @@ to weigh, not conclusions.
    `/auth/confirm?token=` always does; whatever access log sits in front of
    the gateway sees those.
 4. **Retention of stdout logs** is set on the server, not in the
-   repository. The journal keeps 14 days (`MaxRetentionSec=14day`;
-   `MaxFileSec=1day` is still to be set, since journald deletes only whole
-   files), and the files rsyslog, fail2ban and ufw write from it rotate
-   daily with `maxage 14` (since 25.11.2026). Backups have their own
+   repository. The system journal keeps 14 days (`MaxRetentionSec=14day`;
+   journald deletes whole files once their first entry is that old), and
+   the files rsyslog, fail2ban and ufw write from it rotate daily with
+   `maxage 14` (since 25.11.2026). The owner's own user journal (deploy
+   output, sudo sessions) keeps longer, by his choice (26.11.2026); it
+   holds no player data as far as checked. Backups have their own
    (§"Backups"), set in the separate `baylee-backup` repository.
 5. **Game records** (#315) are kept without a time limit. The record names
    no account; who sat in a seat is `game_record_seat.account_id` (and

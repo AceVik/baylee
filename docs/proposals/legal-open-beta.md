@@ -90,12 +90,15 @@ feedback service. `main` has moved all of that to Central.
   monthly with `rotate 1`); the old configurations are in
   `/root/logrotate-backup-20261125/`, and the 12 archives older than 14
   days are deleted. Entries older than 14 days stay inside the last weekly
-  archives until about 08.12.2026. **One gap remains:** the journal still
-  held entries from 06.11. despite `MaxRetentionSec=14day`, because journald
-  deletes only whole files; `MaxFileSec=1day` closes that, and two journal
-  files of a former machine ID (26.09.) need deleting. The terms carry an
-  `[OFFEN]` for it until then. `wtmp` holds only the owner's own SSH
-  sign-ins and is left as it is.
+  archives until about 08.12.2026; the terms carry an `[OFFEN]` until
+  then. The system journal already keeps 14 days (its oldest file began
+  on 13.11.); the two journal files of a former machine ID (23.–26.09.)
+  are deleted. The entries from 06.11. sat in the owner's own user journal
+  (`user-1000.journal`: deploy output, sudo sessions, a build), which
+  journald drops only as a whole; the owner chose to leave it (26.11.2026),
+  since it holds no player data as far as checked. Before publishing,
+  check once that the deploy output names no player. `wtmp` holds only
+  the owner's own SSH sign-ins and is left as it is.
 
 ## Open points for the owner
 
