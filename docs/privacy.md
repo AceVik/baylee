@@ -675,6 +675,50 @@ own.
   (`baylee-agent/src/lib.rs`), which the agent's comment notes is visible in
   that machine's process list.
 
+## Backups
+
+The production server is backed up by `baylee-backup`, a separate private
+program (repository `AceVik/baylee-backup`; its `docs/backup.md` is the
+full account). Nothing in this repository writes a backup; `baylee-reboot`
+only waits while one runs (`/run/baylee-backup/run.lock`).
+
+- **What:** every hour (`voll`) and every night (`archiv`), a dump of the
+  gateway's, Central's and the feedback service's databases, the deck
+  images, the challenge and seat-agent state directories, and copies of the
+  host's configuration. The secrets (the services' settings files and keys,
+  the database's TLS key and superuser password, the roles' password hashes)
+  go into a bundle encrypted separately to the owner's recovery key, which
+  the server does not hold.
+- **Never saved:** the rows of sessions and confirmation links
+  (`session_token`, `confirmation`; Central's `sessions`, pairings, pending
+  e-mail codes, push subscriptions and the like), the feedback service's
+  admin sessions, the card catalogs, and any log.
+- **Encrypted before upload:** restic encrypts everything on the server;
+  only ciphertext leaves it, for the owner's Google Drive (Google Ireland
+  Limited), which holds no key. The app may touch only files it created
+  itself (OAuth scope `drive.file`).
+- **How long, on Google Drive itself:** data in the hourly snapshots
+  (which also hold short-lived data: undelivered chat messages and their
+  deliveries, contact messages) **höchstens 14 Tage** (at most 14 days);
+  the nightly archive, which leaves those tables' rows out, **höchstens 12
+  Monate** (at most 12 months). The program forgets every hourly snapshot
+  older than 13 days and every archive snapshot older than 51 weeks,
+  counted from now whether backups run or not, and prunes every night at
+  01:30 with nothing left in partly used packs (`--max-unused 0`) and
+  without Drive's trash. So a deleted record is gone from Drive within 14
+  days at most; in normal running the hourly set's last snapshot holding it
+  is dropped about 13 days after the deletion and the next night's prune
+  removes its data. The worked example is in that repository's
+  `src/set.rs`.
+- **Deleted accounts:** each run records the ids (UUIDs only) of gateway
+  and Central accounts deleted since the run before, in a list that is part
+  of every snapshot. After a restore of an older snapshot those accounts are
+  deleted again: on the gateway through its own deletion
+  (`DELETE /admin/accounts/{id}`); for Central, which has no operator
+  deletion, the program names the ids and the step for a person. Until a
+  restore, a deleted account stays in older backups as long as they are
+  kept (above).
+
 ## Logs
 
 - **Where:** every binary logs through `tracing_subscriber::fmt` to stdout,
@@ -1180,14 +1224,12 @@ to weigh, not conclusions.
    client still sends its session or seat token in a socket's address, and
    `/auth/confirm?token=` always does; whatever access log sits in front of
    the gateway sees those.
-4. **Retention of stdout logs and of backups** is set on the server, not in
-   the repository. The journal keeps 14 days (`MaxRetentionSec=14day`;
+4. **Retention of stdout logs** is set on the server, not in the
+   repository. The journal keeps 14 days (`MaxRetentionSec=14day`;
    `MaxFileSec=1day` is still to be set, since journald deletes only whole
    files), and the files rsyslog, fail2ban and ufw write from it rotate
-   daily with `maxage 14` (since 25.11.2026). Backups, planned and not yet
-   running, are encrypted on the server and kept on Google Drive: at most
-   14 days for undelivered messages, 12 months for the rest
-   (`docs/proposals/legal-open-beta.md`, point 8).
+   daily with `maxage 14` (since 25.11.2026). Backups have their own
+   (§"Backups"), set in the separate `baylee-backup` repository.
 5. **Game records** (#315) are kept without a time limit. The record names
    no account; who sat in a seat is `game_record_seat.account_id` (and
    `delegated_by` for a host's seat bridge), both `ON DELETE SET NULL`

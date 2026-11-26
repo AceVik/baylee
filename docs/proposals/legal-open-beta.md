@@ -107,7 +107,7 @@ Each one is marked where it sits in the draft.
    upload and Google never receives the key. 16.3, 9a.4, 16.6 (a new item
    for where backups are kept, naming Google Ireland Limited) and 16.8 now
    say so: undelivered messages at most 14 days in backups, everything
-   else at most 12 months, deletions repeated after a restore, on Art.
+   else at most 12 months, deleted accounts deleted again after a restore, on Art.
    6(1)(f) with Art. 32(1)(c) GDPR. Two markers remain. The `[OFFEN]`
    says to publish only once the backup runs that way, and to name a
    second encrypted copy on the owner's own drive if one is added. The
