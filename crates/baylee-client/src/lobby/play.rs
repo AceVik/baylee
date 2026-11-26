@@ -180,11 +180,13 @@ pub(super) fn draw(
         .id();
     commands.entity(root).add_child(body);
     let lane = activity_lane(commands, body, metrics, kit, scrolled);
+    let activities = state.can_play_online() && !state.lobby.guest();
+    // A guest at a gateway has the ranked tile alone; an account has it in
+    // the modes' rows (`activities::draw`).
     #[cfg(not(target_arch = "wasm32"))]
-    if !state.lobby.offline() {
+    if !state.lobby.offline() && !activities {
         activities::ranked(commands, lane, kit);
     }
-    let activities = state.can_play_online() && !state.lobby.guest();
     let hero_more = if activities {
         activities::draw(commands, lane, state, kit);
         HeroAnchors::default()
@@ -259,11 +261,11 @@ fn activity_lane(
                     280
                 })
             } else if wide {
-                percent(30)
+                percent(34)
             } else {
                 percent(100)
             };
-            n.max_width = if wide { kit.m.px(460.0) } else { Val::Auto };
+            n.max_width = if wide { kit.m.px(560.0) } else { Val::Auto };
             n.max_height = if phone || wide {
                 percent(100)
             } else {

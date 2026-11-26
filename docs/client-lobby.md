@@ -3,19 +3,19 @@
 ## Ranked play
 
 The illustrated Ranked activity sits beside the table list, with Tower, Daily
-and Weekly. Its tile unfolds nothing in place: it opens the Ranked page, and
-its line under the title says how the queue stands (searching, a host found,
-the last result) or, idle, the account's rank and Elo in the queue's format.
-The page stands a Central account's desk beside the public ladder on a wide
-window (above it on a narrow one, the whole page scrolling; a guest reading
-the ladder from the front door sees the ladder alone): the standing (rank
-badge, Elo, the season's record, a bar of the ten placement games while
-unranked), the format, the deck selector, the search and its result card. A
-Central account can queue for a duel, check its status and cancel there; the
-desk keeps one width whatever it says, so the ladder beside it never moves.
-Opening or leaving the page never enters or leaves the queue. Without a legal
-deck in the format, the desk shows an empty state that leads to the deck
-library.
+and Weekly (two rows of two equal tiles). Its tile unfolds nothing in place: it
+opens the Ranked page, and its line under the title says how the queue stands
+(searching, a host found, the last result) or, idle, the account's rank and Elo
+in the queue's format. The page stands a Central account's desk beside the
+public ladder on a wide window (above it on a narrow one, the whole page
+scrolling; a guest reading the ladder from the front door sees the ladder
+alone): the standing (rank badge, Elo, the season's record, a bar of the ten
+placement games while unranked), the deck selector, the search and
+its result card. A Central account can queue for a duel, check its status and
+cancel there; the desk keeps one width whatever it says, so the ladder beside
+it never moves. Opening or leaving the page never enters or leaves the queue.
+Without a legal deck in the format, the desk shows an empty state that leads to
+the deck library.
 
 The ladder is the same public seasonal ladder the front door opens; its first
 three places wear gold, silver and bronze medals, an empty group shows the
@@ -104,14 +104,17 @@ If technical recovery has replaced the game identity, the old game's seat cannot
 be reclaimed; the saved expedition's explicit Resume follows its fresh authority
 location instead.
 
-After gateway selection, the authenticated Lobby places Ranked, Tower, Daily and Weekly
-tiles beside the table list. There is no Tasks navigation tab. Each new Echoes
-run chooses one of five 39+1 Commander starters and enters its own shop. The
-current shop displays six equipment slots, private supplies, a duplicate-capable
-icon shelf and paginated reserves. A purchase automatically combines three
-identical items across equipment and reserves, preserving the first equipped
-slot. The shelf can be frozen across rerolls and round transitions; purchased
-positions refill. Run-owned card claims precede each return to the shop.
+After gateway selection, the authenticated Lobby places Ranked, Tower, Daily
+and Weekly beside the table list as two rows of two equal tiles (Ranked beside
+the Tower, the Daily beside the Weekly; one column on a phone), the Daily and
+the Weekly counting down what is left of their task under its name. There is no
+Tasks navigation tab. Each new Echoes run chooses one of five 39+1 Commander
+starters and enters its own shop. The current shop displays six equipment
+slots, private supplies, a duplicate-capable icon shelf and paginated reserves.
+A purchase automatically combines three identical items across equipment and
+reserves, preserving the first equipped slot. The shelf can be frozen across
+rerolls and round transitions; purchased positions refill. Run-owned card
+claims precede each return to the shop.
 
 Purchases, equipment changes, rerolls and ordinary automatic fusion execute
 their explicit control directly; enrollment, Mythic upgrades, retirement and

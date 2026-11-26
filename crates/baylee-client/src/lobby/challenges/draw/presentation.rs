@@ -119,7 +119,7 @@ pub(in crate::lobby) struct Countdown {
 
 /// What is left of a task's time, behind a stopwatch, in the accent ink
 /// that says it is live.
-pub(super) fn countdown(
+pub(in crate::lobby) fn countdown(
     commands: &mut Commands,
     parent: Entity,
     kit: Kit,
