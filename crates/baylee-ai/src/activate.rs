@@ -110,6 +110,11 @@ fn best(
             if on_the_stack(view, source, index) {
                 return None;
             }
+            if let Some(slot) = baylee_engine::choice::granted_slot(index)
+                && let Some(worth) = graveyard_grant_worth(view, source, slot, None)
+            {
+                return (worth > THRESHOLD.max(minimum)).then_some((worth, (source, index)));
+            }
             let def = printed(view, source, index)?;
             if !payment::reachable(view, legal, source, def) {
                 return None;
@@ -398,14 +403,20 @@ fn consumes(cost: &Cost) -> bool {
             | CostPart::ExileFromSingleGraveyard { .. }
             | CostPart::Forage
             | CostPart::CollectEvidence(_)
+            | CostPart::BeholdAndExile(_)
             | CostPart::CraftMaterials { .. }
             | CostPart::PutCounterOnOther { .. } => true,
             CostPart::ExileTopOfLibrary(n) => *n > 0,
+            CostPart::Waterbend(n) => *n > 0,
             CostPart::TapN { count, .. } => *count > 0,
             CostPart::Either(a, b) => consumes(a) && consumes(b),
             // Exerting again is legal and adds no further untap penalty.
             CostPart::ExertSelf
+            | CostPart::WaterbendX
             | CostPart::Behold(_)
+            | CostPart::RevealFromHand(_)
+            | CostPart::RevealFromHandX(_)
+            | CostPart::RevealSelfFromHand
             | CostPart::PayLifeX
             | CostPart::PayCommanderColors
             | CostPart::PayAttachedManaCost
@@ -551,6 +562,74 @@ fn loyalty(view: &PlayerView, legal: &LegalActions) -> Option<(ObjectId, u32)> {
         }
     }
     best.map(|(handle, _)| handle)
+}
+
+/// Evaluates a granted Encore or Embalm ability on a card in the seat's graveyard.
+pub(super) fn graveyard_grant_worth(
+    view: &PlayerView,
+    source: ObjectId,
+    slot: u32,
+    mana_override: Option<ManaCost>,
+) -> Option<i64> {
+    let grave = view.graveyards.get(usize::from(view.seat.get()))?;
+    let obj = grave.iter().find(|o| o.id == source)?;
+    let grant = obj.grant(slot)?;
+    let is_encore = grant
+        .rules
+        .and_then(|rules| {
+            let def = baylee_cards::by_index(rules.card)?;
+            let ab = def
+                .abilities_for_face(usize::from(rules.face))
+                .get(usize::try_from(grant.ability?).ok()?)?;
+            Some(ability_grants_encore(ab))
+        })
+        .unwrap_or(false);
+    let cost_mana = mana_override.or_else(|| {
+        let card = obj.card?;
+        baylee_cards::by_index(card.index)?
+            .faces
+            .get(usize::from(card.face))
+            .map(|f| f.mana_cost)
+    })?;
+    let mana_cost_worth = i64::from(cost_mana.cmc()) * 40 + 50;
+    let p = i64::from(obj.power.unwrap_or(0).max(0));
+    let t = i64::from(obj.toughness.unwrap_or(0).max(0));
+    if is_encore {
+        let opponents = view
+            .seats
+            .iter()
+            .filter(|s| s.player != view.seat && !s.has_lost())
+            .count() as i64;
+        if opponents == 0 {
+            return None;
+        }
+        Some(opponents * (p * 120 + 80) - mana_cost_worth)
+    } else {
+        Some(p * 120 + t * 60 + 100 - mana_cost_worth)
+    }
+}
+
+fn ability_grants_encore(ab: &AbilityDef) -> bool {
+    use baylee_cards_dsl::Modifier;
+    match ab {
+        AbilityDef::Static(sa) => matches!(sa.modifier, Modifier::GrantsEncoreManaCost),
+        AbilityDef::Spell { effects, .. }
+        | AbilityDef::Activated { effects, .. }
+        | AbilityDef::ActivatedConditional { effects, .. }
+        | AbilityDef::Triggered { effects, .. }
+        | AbilityDef::Loyalty { effects, .. } => {
+            let mut found = false;
+            Effect::walk(effects, &mut 0, &mut |eff| {
+                if let Effect::CreateContinuousEffect { modifier, .. }
+                | Effect::ModifyTargets { modifier, .. } = eff
+                {
+                    found |= matches!(modifier, Modifier::GrantsEncoreManaCost);
+                }
+            });
+            found
+        }
+        _ => false,
+    }
 }
 
 #[cfg(test)]

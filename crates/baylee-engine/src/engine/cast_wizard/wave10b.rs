@@ -125,11 +125,31 @@ fn push_base_clauses(
 }
 
 impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
-    fn prospective_wizard_spell(&self, wizard: &CastWizard) -> Option<GameObject> {
+    pub(super) fn prospective_wizard_spell(&self, wizard: &CastWizard) -> Option<GameObject> {
         let obj = self.state.object(wizard.card)?;
         let def = obj.card.and_then(|c| self.lookup.card(c.index))?;
         let face_idx = wizard.face_index().min(def.faces.len().saturating_sub(1));
         let mut spell = obj.clone();
+        if spell.zone != crate::zone::Zone::Stack {
+            spell
+                .cast_history
+                .set_from_hand(spell.zone == crate::zone::Zone::Hand);
+            spell
+                .cast_history
+                .set_from_graveyard(spell.zone == crate::zone::Zone::Graveyard);
+            spell.cast_history.set_caster(Some(wizard.player));
+            spell
+                .riders
+                .retain(|r| !matches!(r, crate::object::Rider::CastOriginZone(_)));
+            if matches!(
+                spell.zone,
+                crate::zone::Zone::Exile | crate::zone::Zone::Library | crate::zone::Zone::Command
+            ) {
+                spell
+                    .riders
+                    .push(crate::object::Rider::CastOriginZone(spell.zone));
+            }
+        }
         if wizard.option != Some(CastModeKind::Fused) {
             spell.base =
                 std::sync::Arc::new(Characteristics::from_face(def, face_idx, obj.base.name));

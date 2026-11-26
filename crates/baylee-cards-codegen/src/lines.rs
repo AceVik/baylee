@@ -38,7 +38,7 @@ use baylee_core::types::TypeSet;
 pub use baylee_core::oracle::sentences;
 
 mod grants;
-use grants::granted_cost;
+use grants::{granted_cost, grants_keyword};
 
 mod modes;
 pub use modes::map_modes;
@@ -299,7 +299,9 @@ pub fn ability_shape(ability: &baylee_cards_dsl::AbilityDef) -> LineShape {
                 LineShape::Activated
             }
         }
-        _ if granted_cost(ability).is_some() => LineShape::Grant,
+        _ if granted_cost(ability).is_some() || grants_keyword(ability).is_some() => {
+            LineShape::Grant
+        }
         _ => LineShape::Other,
     }
 }
@@ -422,12 +424,18 @@ fn cost_branch_fits(
     if taps != has_part(&CostPart::TapSelf) || untaps != has_part(&CostPart::UntapSelf) {
         return false;
     }
-    // Exert has no symbol, but must distinguish otherwise identical
-    // activations so the client preserves this additional payment.
+    // Exert has no symbol, and Waterbend prints a braced generic count without
+    // setting `cost.mana`; both must distinguish otherwise identical headers.
     if head.to_lowercase().contains("exert") != has_part(&CostPart::ExertSelf) {
         return false;
     }
     let parts = outer_parts.iter().chain(branch_parts);
+    let has_waterbend = parts
+        .clone()
+        .any(|part| matches!(part, CostPart::Waterbend(_) | CostPart::WaterbendX));
+    if head.to_ascii_lowercase().contains("waterbend") != has_waterbend {
+        return false;
+    }
     let energy: usize = parts
         .clone()
         .filter_map(|part| match part {
@@ -436,9 +444,17 @@ fn cost_branch_fits(
         })
         .sum();
     let energy_x = parts
+        .clone()
         .filter(|part| matches!(part, CostPart::PayEnergyX))
         .count();
     let mut want = braced(&mana.to_string());
+    for part in parts {
+        match part {
+            CostPart::Waterbend(n) if *n > 0 => want.push(n.to_string()),
+            CostPart::WaterbendX => want.push("X".to_string()),
+            _ => {}
+        }
+    }
     want.retain(|s| s != "0");
     want.sort();
     for alt_head in head.split(" or ") {
@@ -616,7 +632,9 @@ pub fn trigger_words(trigger: &baylee_cards_dsl::Trigger) -> &'static [&'static 
         T::EntersBattlefieldEvoked => &["evoke"],
         T::CycledThis | T::Cycled { .. } => &["cycle"],
         T::EnteredThisFrom(_) => &["enters"],
-        T::Discarded { .. } | T::DiscardedThisByOpponent => &["discard"],
+        T::Discarded { .. } | T::DiscardedThisByOpponent | T::OneOrMoreCardsDiscarded { .. } => {
+            &["discard"]
+        }
         T::LeavesBattlefield(_) | T::LinkedCreatureLeaves => &["leave"],
         T::PhasesIn(_) => &["phases in", "phase in"],
         T::PhasesOut(_) | T::PhasesOutOrLeavesBattlefield(_) => &["phases out", "phase out"],
@@ -638,7 +656,7 @@ pub fn trigger_words(trigger: &baylee_cards_dsl::Trigger) -> &'static [&'static 
         T::BecomesTarget | T::EnchantedBecomesTarget | T::TargetedByOpponent { .. } => {
             &["becomes the target"]
         }
-        T::TurnedFaceUp => &["turned face up"],
+        T::TurnedFaceUp | T::TurnedFaceUpMatching(_) => &["turned face up"],
         T::TransformsIntoThis => &["transforms into"],
         T::Mutates => &["mutates"],
         T::UnlockThisDoor(_) => &["unlock this door"],
@@ -679,7 +697,8 @@ pub fn trigger_words(trigger: &baylee_cards_dsl::Trigger) -> &'static [&'static 
         | T::OneOrMoreAttack(_)
         | T::AttackWithAtLeast(_)
         | T::AttackWithAtLeastMatching { .. }
-        | T::AttackersDeclaredAtTarget { .. } => &["attack"],
+        | T::AttackersDeclaredAtTarget { .. }
+        | T::AttackersDeclaredAgainst { .. } => &["attack"],
         T::AttacksAlone(_) => &["exalted", "attacks alone"],
         // Cockatrice, "Whenever this creature blocks or becomes blocked by
         // a non-Wall creature". Its filter is the *other* creature, so it
@@ -737,6 +756,8 @@ pub fn trigger_words(trigger: &baylee_cards_dsl::Trigger) -> &'static [&'static 
         T::CommittedCrime { .. } => &["crime", "commit"],
         T::Expended { .. } => &["expend"],
         T::Clashed { .. } => &["clash"],
+        T::DayNightChanges => &["day", "night"],
+        T::LoyaltyAbilityActivated { .. } => &["activate", "loyalty ability"],
     }
 }
 
@@ -802,6 +823,7 @@ fn whose_trigger_fits(trigger: &Trigger, line: &str) -> bool {
         | Trigger::FirstNoncreatureSpellCast(rel)
         | Trigger::PlayerDealtDamage(rel)
         | Trigger::Cycled { by: rel, .. }
+        | Trigger::OneOrMoreCardsDiscarded { who: rel, .. }
         | Trigger::SpellCastTargeting { who: rel, .. }
         | Trigger::Plotted { who: rel, .. }
         | Trigger::GaveGift(rel)
@@ -966,7 +988,8 @@ pub fn content_fits(ability: &baylee_cards_dsl::AbilityDef, line: &str) -> bool 
                                 && cost.parts == [CostPart::Crew(n)]
                         })
                 }
-                None => true,
+                None => grants_keyword(ability)
+                    .is_none_or(|phrase| line.to_lowercase().contains(phrase)),
             }
         }
         // A modal trigger's text is its modes; it carries no handle the
@@ -1000,6 +1023,7 @@ fn effect_words(effect: &Effect) -> &'static [&'static str] {
         Effect::ShuffleGraveyardMatchingIntoLibrary { .. } => &["shuffle"],
         Effect::DeliverGift(_) => &["gift"],
         Effect::Incubate { .. } => &["incubate"],
+        Effect::Empower { .. } | Effect::EmpowerJace { .. } => &["empower"],
         Effect::Exploit => &["exploit", "sacrifice"],
         Effect::ReturnCraftedTransformed => &["craft", "return"],
         Effect::Monstrosity(_) => &["monstrosity"],
@@ -1402,6 +1426,8 @@ fn part_named(part: &CostPart, lower: &str) -> Option<bool> {
         CostPart::ExileFromGraveyard(_) | CostPart::ExileFromGraveyardX(_) => {
             lower.contains("exile") && lower.contains("from your graveyard")
         }
+        CostPart::Waterbend(n) => lower.contains(&format!("waterbend {{{n}}}")),
+        CostPart::WaterbendX => lower.contains("waterbend {x}"),
         CostPart::Either(a, b) => {
             (a.parts.is_empty() || a.parts.iter().any(|p| part_named(p, lower).unwrap_or(true)))
                 || (b.parts.is_empty()

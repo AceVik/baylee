@@ -43,11 +43,10 @@ use events::{
     event_amount_for, event_found_for, event_identity_for, event_object_for, event_player_for,
     event_subject_for, object_moves, source_at_event, source_at_event_with_moves, targeting,
 };
-pub(crate) use matching::times_triggered;
-use matching::{
-    departure_hit, hits_with_context, times_triggered_with_source, trigger_count,
-    trigger_looks_back,
-};
+#[cfg(test)]
+use matching::trigger_count;
+use matching::{departure_hit, hits_with_context, times_triggered_with_source, trigger_looks_back};
+pub(crate) use matching::{times_triggered_at, times_triggered_for_dying_victim};
 pub(crate) use watches::on_event_watch_consumed;
 pub use watches::state_triggers;
 use watches::{
@@ -714,6 +713,28 @@ static WARD_PAY_OR_COUNTER: [[baylee_cards_dsl::Effect; 1]; 11] = [
     ward_pay_or_counter(10),
 ];
 
+const fn ward_waterbend_pay_or_counter(n: u32) -> [baylee_cards_dsl::Effect; 1] {
+    [baylee_cards_dsl::Effect::PlayerMayWaterbendOr {
+        player: baylee_cards_dsl::PlayerRel::ControllerOfTarget,
+        mana: baylee_cards_dsl::Amount::Fixed(n),
+        effect: &WARD_COUNTER,
+    }]
+}
+
+static WARD_WATERBEND_PAY_OR_COUNTER: [[baylee_cards_dsl::Effect; 1]; 11] = [
+    ward_waterbend_pay_or_counter(0),
+    ward_waterbend_pay_or_counter(1),
+    ward_waterbend_pay_or_counter(2),
+    ward_waterbend_pay_or_counter(3),
+    ward_waterbend_pay_or_counter(4),
+    ward_waterbend_pay_or_counter(5),
+    ward_waterbend_pay_or_counter(6),
+    ward_waterbend_pay_or_counter(7),
+    ward_waterbend_pay_or_counter(8),
+    ward_waterbend_pay_or_counter(9),
+    ward_waterbend_pay_or_counter(10),
+];
+
 fn begins_step(
     state: &GameState,
     began: crate::turn::Step,
@@ -1057,10 +1078,11 @@ fn collect_for_objects(
                     })
                 {
                     let source = source_at_event_with_moves(state, obj, &moves, entry.seq, false);
-                    for _ in 0..times_triggered(
+                    for _ in 0..matching::times_triggered_for_entry(
                         state,
                         baylee_cards_dsl::TriggerEventKind::Any,
-                        permanent,
+                        source,
+                        Some(entry),
                     ) {
                         triggers.push(PendingTrigger {
                             text: TextChangeMap::IDENTITY,
@@ -1124,10 +1146,11 @@ fn collect_for_objects(
                     source,
                     baylee_cards_dsl::KeywordSet::EXTORT,
                 )
-                .saturating_mul(times_triggered(
+                .saturating_mul(matching::times_triggered_for_entry(
                     state,
                     baylee_cards_dsl::TriggerEventKind::Any,
-                    permanent,
+                    source,
+                    Some(entry),
                 ));
                 for _ in 0..count {
                     triggers.push(PendingTrigger {
@@ -1367,9 +1390,15 @@ fn collect_for_objects(
                 if hit > 0 {
                     let event_object = event_object_for(trigger, &entry.event, permanent, state);
                     let times = if observes_tap {
-                        matching::tap_trigger_count(state, source, controller)
+                        matching::tap_trigger_count(state, source, controller, Some(entry))
                     } else {
-                        matching::trigger_count_for_source(state, trigger, source, controller)
+                        matching::trigger_count_for_source_at(
+                            state,
+                            trigger,
+                            source,
+                            controller,
+                            Some(entry),
+                        )
                     } * hit;
                     let event_subject = event_subject_for(trigger, &entry.event, permanent, state);
                     let event_ability = activated_stack_ability(&entry.event);
@@ -1452,7 +1481,9 @@ fn collect_for_objects(
             && !obj.abilities(lookup).iter().any(|ability| {
                 matches!(
                     ability,
-                    AbilityDef::Ward { .. } | AbilityDef::Champion { .. }
+                    AbilityDef::Ward { .. }
+                        | AbilityDef::WardWaterbend { .. }
+                        | AbilityDef::Champion { .. }
                 ) || triggered_parts(ability)
                     .is_some_and(|firing| firing.zone.functions_on_battlefield())
             })
@@ -1532,11 +1563,12 @@ fn collect_for_objects(
                     )
                 });
                 if hit > 0 {
-                    let times = matching::trigger_count_for_source(
+                    let times = matching::trigger_count_for_source_at(
                         state,
                         &blitz_trigger,
                         departed,
                         departed.controller,
+                        Some(entry),
                     ) * hit;
                     for _ in 0..times {
                         triggers.push(PendingTrigger {
@@ -1593,16 +1625,17 @@ fn collect_for_objects(
             if phased_out_only {
                 break;
             }
-            let AbilityDef::Ward { mana } = ability else {
-                continue;
+            let synthetic_table = match ability {
+                AbilityDef::Ward { mana } => WARD_PAY_OR_COUNTER.get(usize::from(*mana)),
+                AbilityDef::WardWaterbend { mana } => {
+                    WARD_WATERBEND_PAY_OR_COUNTER.get(usize::from(*mana))
+                }
+                _ => continue,
             };
             if matching::ward_suppressed(state, obj) {
                 continue;
             }
-            let Some(synthetic) = WARD_PAY_OR_COUNTER
-                .get(usize::from(*mana))
-                .map(|effects| &effects[..])
-            else {
+            let Some(synthetic) = synthetic_table.map(|effects| &effects[..]) else {
                 continue; // a ward cost past the table's ceiling
             };
             for entry in events {
@@ -1616,10 +1649,11 @@ fn collect_for_objects(
                 };
                 if state.is_opponent(caster, obj.controller) {
                     let source = source_at_event_with_moves(state, obj, &moves, entry.seq, false);
-                    for _ in 0..times_triggered(
+                    for _ in 0..matching::times_triggered_for_entry(
                         state,
                         baylee_cards_dsl::TriggerEventKind::Any,
-                        permanent,
+                        source,
+                        Some(entry),
                     ) {
                         triggers.push(PendingTrigger {
                             text: TextChangeMap::IDENTITY,
@@ -1783,9 +1817,15 @@ fn collect_for_objects(
                     });
                 if hit > 0 {
                     let times = if observes_tap {
-                        matching::tap_trigger_count(state, source, controller)
+                        matching::tap_trigger_count(state, source, controller, Some(entry))
                     } else {
-                        matching::trigger_count_for_source(state, trigger, source, obj.controller)
+                        matching::trigger_count_for_source_at(
+                            state,
+                            trigger,
+                            source,
+                            obj.controller,
+                            Some(entry),
+                        )
                     } * hit;
                     let event_object = event_object_for(trigger, &entry.event, permanent, state);
                     let event_damage =

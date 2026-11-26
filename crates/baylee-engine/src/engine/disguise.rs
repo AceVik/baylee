@@ -144,6 +144,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
             | CostPart::SacrificeAll(_)
             | CostPart::DealDamageToYou(_)
             | CostPart::DiscardX(_)
+            | CostPart::RevealFromHandX(_)
             | CostPart::ExileFromGraveyardX(_) => true,
             CostPart::DiscardRandom => {
                 !self.state.zones.list(ZoneLocation::Hand(player)).is_empty()

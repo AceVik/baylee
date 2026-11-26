@@ -45,7 +45,8 @@ mod m20261113_000031_challenges;
 mod m20261119_000032_drop_account_password;
 mod m20261122_000033_ranked;
 mod m20261123_000034_ranked_replication;
-mod m20261126_000035_running_games;
+mod m20261125_000035_drop_old_friends;
+mod m20261126_000036_running_games;
 
 /// The migrator the gateway runs on connect.
 pub struct Migrator;
@@ -93,7 +94,8 @@ impl MigratorTrait for Migrator {
             Box::new(m20261119_000032_drop_account_password::Migration),
             Box::new(m20261122_000033_ranked::Migration),
             Box::new(m20261123_000034_ranked_replication::Migration),
-            Box::new(m20261126_000035_running_games::Migration),
+            Box::new(m20261125_000035_drop_old_friends::Migration),
+            Box::new(m20261126_000036_running_games::Migration),
         ]
     }
 }

@@ -49,6 +49,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 CostPart::SacrificeX(filter)
                 | CostPart::TapX(filter)
                 | CostPart::DiscardX(filter)
+                | CostPart::RevealFromHandX(filter)
                 | CostPart::ExileFromGraveyardX(filter) => (
                     u32::try_from(
                         cost_wizard::menu(&self.state, player, source, &price.parts, part).len(),
@@ -61,6 +62,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                             (CostPart::SacrificeX(_), CostPart::Sacrifice(other))
                             | (CostPart::TapX(_), CostPart::TapOther(other))
                             | (CostPart::DiscardX(_), CostPart::Discard(other))
+                            | (CostPart::RevealFromHandX(_), CostPart::RevealFromHand(other))
                             | (
                                 CostPart::ExileFromGraveyardX(_),
                                 CostPart::ExileFromGraveyard(other),
@@ -172,7 +174,12 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
     ) -> Result<bool, EngineError> {
         let resource_max = self.activation_resource_x_max(player, source, cost);
         let rule = self.activation_x_rule(source, index);
-        if !cost.mana.has_variable() && resource_max.is_none() && rule == ActivationX::Any {
+        let has_waterbend_x = cost.parts.iter().any(|p| matches!(p, CostPart::WaterbendX));
+        if !cost.mana.has_variable()
+            && !has_waterbend_x
+            && resource_max.is_none()
+            && rule == ActivationX::Any
+        {
             return Ok(false);
         }
         if self.activation_x.is_some() {
@@ -188,7 +195,9 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
             return Ok(false);
         }
         let mut max = resource_max.unwrap_or(u32::MAX);
-        if cost.mana.has_variable() && !self.can_make_more_mana(player, source, index) {
+        if (cost.mana.has_variable() || has_waterbend_x)
+            && !self.can_make_more_mana(player, source, index)
+        {
             let Some(
                 AbilityDef::Activated {
                     cost: printed,
@@ -210,19 +219,25 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 return Err(EngineError::IllegalAction("not an activated ability"));
             };
             let credit = self.activation_x_reduction_credit(player, source, index, reduction);
+            let wb_cap = if super::costs::waterbend_mana(printed.parts, 1) > 0 {
+                super::costs::waterbend_tap_capacity(&self.state, player, source, printed.parts)
+            } else {
+                0
+            };
             let upper =
                 casting::spendable_units(&self.state, player, casting::SpendFor::Ability(source))
                     .saturating_add(self.state.granted_colorless_capacity(player))
-                    .saturating_add(credit);
+                    .saturating_add(credit)
+                    .saturating_add(wb_cap);
             let additional_life =
                 i32::try_from(self.mana_activation_life(source, index)).map_err(|_| {
                     EngineError::IllegalAction("activation life exceeds available life")
                 })?;
             max = max.min(casting::greatest_affordable(upper, |x| {
-                self.can_plan_activation(
+                self.can_plan_activation_with_x(
                     player,
                     source,
-                    &self.activation_price(
+                    &self.activation_price_with_x(
                         player,
                         source,
                         index,
@@ -230,9 +245,11 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                             mana: printed.mana.with_x(x),
                             parts: printed.parts,
                         },
+                        x,
                         reduction,
                     ),
                     additional_life,
+                    x,
                 )
             }));
         }

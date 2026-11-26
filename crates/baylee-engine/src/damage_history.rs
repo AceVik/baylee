@@ -331,11 +331,7 @@ impl GameState {
                         object: object.id,
                         version: object.version,
                     }),
-                    times: crate::trigger::times_triggered(
-                        self,
-                        baylee_cards_dsl::TriggerEventKind::Any,
-                        object.id,
-                    ),
+                    times: crate::trigger::times_triggered_for_dying_victim(self, object, victim),
                 })
             })
             .collect();

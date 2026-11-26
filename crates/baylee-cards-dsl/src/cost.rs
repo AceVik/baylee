@@ -352,6 +352,33 @@ pub enum CostPart {
     /// graveyard with total mana value N or greater. Appended to preserve
     /// replay identities.
     CollectEvidence(u8),
+    /// Reveal one matching card from your hand (`CR 118.3`, `CR 701.20a`).
+    /// Multiple reveal/discard/exile-from-hand parts in the same cost require
+    /// distinct cards, excluding the spell being cast. Appended to preserve
+    /// replay identities.
+    RevealFromHand(&'static Filter),
+    /// Announce X and reveal that many distinct matching cards from your hand,
+    /// binding X for [`crate::Amount::X`] (`CR 107.3a`, `CR 701.20a`; *Martyr*
+    /// cycle). Appended to preserve replay identities.
+    RevealFromHandX(&'static Filter),
+    /// Reveal this card from your hand (`CR 702.57b`; Forecast). Leaves the
+    /// card in hand revealed until it leaves the hand or the upkeep step ends.
+    /// Appended to preserve replay identities.
+    RevealSelfFromHand,
+    /// Behold a [quality] and exile it (`CR 701.4a`, `CR 607.2a`; Lorwyn
+    /// Eclipsed *Champion of the Clachan* cycle): choose a matching permanent
+    /// you control or a matching card from your hand (other than the spell or
+    /// source itself), exile it, and link it to the resolving permanent via
+    /// `Rider::SpellCostExile`. Appended to preserve replay identities.
+    BeholdAndExile(&'static Filter),
+    /// Waterbend {N} (`CR 701.67a`): pay `{N}` generic mana, and for each
+    /// generic mana in that cost you may tap an untapped artifact or creature
+    /// you control rather than pay that mana. Appended to preserve replay
+    /// identities.
+    Waterbend(u16),
+    /// Waterbend {X} (`CR 701.67a`, `CR 107.3`): pay `{X}` generic mana using
+    /// Waterbend. Appended to preserve replay identities.
+    WaterbendX,
 }
 
 /// A cost reduction printed on a card (Surgical Metamorph) or on one of its

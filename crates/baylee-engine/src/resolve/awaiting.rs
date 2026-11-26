@@ -261,6 +261,8 @@ pub enum AwaitingOp {
         /// One forbidden creature subtype (such as `Wall`), if any.
         exclude: Option<baylee_core::ids::SubtypeId>,
     },
+    /// A resolution-time basic land type choice (`Effect::ChooseBasicLandType`).
+    ChooseBasicLandType,
     /// Optional selection of this permanent for fabricate's counters.
     Fabricate {
         /// Exact source before the choice.
@@ -334,6 +336,66 @@ pub enum AwaitingOp {
     ChooseEffect {
         /// The still-available branches, in displayed order.
         choices: Vec<&'static Effect>,
+    },
+    /// Choose one of several candidate costs to pay or decline to pay any
+    /// ([`Effect::PlayerMayPayOneOfCostsOr`]).
+    ChoosePayCostOrDecline {
+        /// The player deciding.
+        player: PlayerId,
+        /// Payable non-mana cost options in presented order (`0..costs.len()`);
+        /// `index >= costs.len()` means decline.
+        costs: Vec<&'static CostPart>,
+        /// Fallback effects run if the player declines or fails to pay.
+        otherwise: &'static [Effect],
+    },
+    /// Selected single-part cost from [`Effect::PlayerMayPayOneOfCostsOr`]
+    /// waiting on `Pending::ChooseCards` (`min: 0, max: 1`).
+    PlayerMayPayChosenCost {
+        /// The player paying.
+        player: PlayerId,
+        /// The chosen non-mana cost part.
+        cost: &'static CostPart,
+        /// Fallback effects run if no card/permanent is chosen or payment fails.
+        otherwise: &'static [Effect],
+    },
+    /// Sequential per-player modal choice (`Effect::PlayersChooseMode`).
+    PlayersChooseMode {
+        /// Specification of players, labels, branches, secret flag, and aggregate.
+        spec: baylee_cards_dsl::MultiPlayerChoice,
+        /// Player currently answering.
+        current: PlayerId,
+        /// Remaining players in reverse APNAP order (`pop()` yields next).
+        remaining: Vec<PlayerId>,
+        /// Choices collected so far in APNAP order `(player, mode_index)`.
+        chosen: Vec<(PlayerId, u8)>,
+    },
+    /// Sequential discard for `Effect::CreepingDread`.
+    CreepingDread {
+        /// Remaining players in reverse APNAP order (`pop()` yields next).
+        remaining_players: Vec<PlayerId>,
+        /// Card types discarded so far by each player.
+        discarded: Vec<(PlayerId, baylee_core::types::TypeSet)>,
+        /// Life lost by each qualifying opponent.
+        damage: u16,
+    },
+    /// Target opponent choosing one of the top two cards of your graveyard (`Effect::PhyrexianGrimoire`).
+    PhyrexianGrimoire {
+        /// Candidate graveyard card IDs.
+        cards: Vec<ObjectId>,
+    },
+    /// Exiled card from `Effect::TaintedPact` waiting for player decision to keep in hand or continue.
+    TaintedPact {
+        /// Just-exiled card.
+        card: ObjectId,
+        /// Names exiled so far during this resolution.
+        seen_names: Vec<baylee_core::ids::NameRef>,
+    },
+    /// Searching library for an Aura/attachment that can attach to `host`.
+    SearchLibraryAttachedToEvent {
+        /// Target permanent incarnation to attach to.
+        host: baylee_core::ids::DamageSourceRef,
+        /// Library owner whose deck is shuffled on finish.
+        library: PlayerId,
     },
     /// Each controller selects a tied maximum before one atomic exchange.
     ExchangeGreatest(Box<super::greatest_exchange::Selection>),
@@ -850,6 +912,10 @@ pub enum AwaitingOp {
     NewTargets(Box<retarget::Retarget>),
     /// After `WishToHand`: the chosen card, if any, goes to its owner's hand.
     WishToHand,
+    /// First branch of `Effect::Learn` (`CR 701.46a–b`): if a Lesson card was
+    /// chosen from outside the game, reveal it and put it into hand; otherwise
+    /// offer the optional rummage ("discard a card to draw a card").
+    LearnWish,
     /// After `DigRest`: the unpicked cards go to the bottom in the
     /// player's chosen order.
     DigBottom,
@@ -935,6 +1001,23 @@ pub enum AwaitingOp {
         asked: PlayerId,
         /// What may be sacrificed.
         filter: &'static baylee_cards_dsl::Filter,
+        /// Players still to choose, in APNAP order.
+        remaining: Vec<PlayerId>,
+        /// Choices already made and held until every player has answered.
+        chosen: Vec<(PlayerId, baylee_core::ids::DamageSourceRef)>,
+    },
+    /// After `PutCountersOnChosenControlled` (`DB$ Blight`): record the chosen
+    /// permanent, ask the next remaining player in APNAP order, and place the
+    /// counters once all have answered (`CR 101.4`, `CR 701.68`).
+    PutCountersOnChosenControlled {
+        /// Player answering the open choice.
+        asked: PlayerId,
+        /// Matching permanent filter.
+        filter: &'static baylee_cards_dsl::Filter,
+        /// Counter kind placed on each chosen permanent.
+        kind: baylee_cards_dsl::CounterKind,
+        /// Number of counters placed on each chosen permanent.
+        count: u16,
         /// Players still to choose, in APNAP order.
         remaining: Vec<PlayerId>,
         /// Choices already made and held until every player has answered.
@@ -1246,6 +1329,21 @@ pub enum AwaitingOp {
         /// Damage to take as the alternative.
         damage: u16,
         /// Effects to run if a player does either.
+        effects: &'static [Effect],
+    },
+    /// APNAP non-mana unless-cost loop (`Effect::AnyPlayerMayPayCost`).
+    AnyPlayerPayCost {
+        /// Player currently answering.
+        asked: PlayerId,
+        /// Remaining players in APNAP order.
+        remaining: Vec<PlayerId>,
+        /// `0` = `YesNo` question, `1` = choosing object(s) to pay `cost`.
+        step: u8,
+        /// Cost part offered to each player in turn.
+        cost: baylee_cards_dsl::effect::AnyPlayerCost,
+        /// Run `effects` when paid (`true`) or when no player pays (`false`).
+        on_payment: bool,
+        /// Conditional branch.
         effects: &'static [Effect],
     },
     /// Player may mill `count` cards; otherwise `effect` runs (`Effect::PlayerMayMillOr`).
@@ -1573,6 +1671,8 @@ pub enum AwaitingOp {
     },
     /// Card selection for `Effect::ChooseCardConstrained` (distinct-name or single-step).
     ChooseCardConstrained(Box<super::wave15b::ChooseConstrainedState>),
+    /// Permanent selection for `Effect::ChooseDistinctPowersOnBattlefield`.
+    ChooseDistinctPowers(Box<super::wave15b::ChooseDistinctPowersState>),
     /// Attachment selection for `Effect::AttachChosen` (CR 701.3a–b).
     AttachChosen {
         /// Recipient permanent or player to attach chosen permanents to.
@@ -1587,6 +1687,45 @@ pub enum AwaitingOp {
         sources: &'static baylee_cards_dsl::Filter,
         /// Additional source criterion for gaining the prevented amount as life.
         gain_life_sources: &'static baylee_cards_dsl::Filter,
+    },
+    /// Optional "you may copy this spell" decision for `Effect::Demonstrate` (`CR 702.148a`).
+    DemonstrateConfirm,
+    /// Choosing an opponent to copy the spell during `Effect::Demonstrate` (`CR 702.148a`).
+    DemonstrateOpponent,
+    /// Optional "you may reveal top N cards" decision for `Effect::Ripple` (`CR 702.63a`).
+    RippleReveal {
+        /// Number of top cards revealed when confirmed.
+        n: u8,
+    },
+    /// Putting uncast cards revealed by `Effect::Ripple` on the bottom in any order.
+    RippleBottom {
+        /// Remaining cards in the controller's library to place on the bottom.
+        rest: Vec<ObjectId>,
+    },
+    /// Optional energy payment equal to target card's mana value (`Effect::MayPayEnergyEqualToTargetCmcThen`).
+    MayPayEnergyThen {
+        /// Energy required (`{E}`).
+        amount: u16,
+        /// Follow-up effects run when the energy is paid.
+        then: &'static [Effect],
+    },
+    /// Confirming whether `player` attempts to pay a resolving Waterbend tax (`CR 701.67a`).
+    PlayerMayWaterbendConfirm {
+        /// Player deciding.
+        player: PlayerId,
+        /// Generic waterbend mana owed.
+        mana: u16,
+        /// Fallback effect run if declined or unpaid.
+        effect: &'static Effect,
+    },
+    /// Choosing 0..=`mana` untapped artifacts/creatures to tap for Waterbend (`CR 701.67a`).
+    PlayerMayWaterbendTaps {
+        /// Player tapping.
+        player: PlayerId,
+        /// Total generic waterbend mana owed before taps.
+        mana: u16,
+        /// Fallback effect run if unpaid.
+        effect: &'static Effect,
     },
 }
 
@@ -1657,6 +1796,23 @@ pub enum ManaPaymentOutcome {
         card: baylee_core::ids::DamageSourceRef,
         /// Library's owner and receiver of the permanent.
         player: PlayerId,
+    },
+    /// Any player may pay a dynamic mana amount (`Effect::AnyPlayerMayPayManaAmount`).
+    AnyPlayerAmount {
+        /// Run `effects` if paid (`true`) or if no player pays (`false`).
+        on_payment: bool,
+        /// Conditional branch.
+        effects: &'static [Effect],
+        /// Next seat index in APNAP order.
+        next: usize,
+    },
+    /// Waterbend payment (`CR 701.67a`): tap `taps` atomically with paying remaining mana,
+    /// or run `effect` if declined or unpaid.
+    WaterbendEffects {
+        /// Unpaid consequence.
+        effect: &'static Effect,
+        /// Permanents chosen to tap for `{1}` each.
+        taps: Vec<ObjectId>,
     },
 }
 
@@ -1883,6 +2039,7 @@ impl AwaitingOp {
             Self::ChooseCreatureType { exclude } => {
                 crate::state::structural_fingerprint(&(92_u8, exclude))
             }
+            Self::ChooseBasicLandType => crate::state::structural_fingerprint(&(255_u8, 515_u16)),
             Self::ChooseColor => crate::state::structural_fingerprint(&93_u8),
             Self::ChooseTokenCopy { count, spec } => {
                 crate::state::structural_fingerprint(&(96_u8, count, spec))
@@ -2099,6 +2256,9 @@ impl AwaitingOp {
             Self::ChooseCardConstrained(spec) => {
                 crate::state::structural_fingerprint(&(251_u8, spec))
             }
+            Self::ChooseDistinctPowers(spec) => {
+                crate::state::structural_fingerprint(&(255_u8, 1_u16, spec))
+            }
             Self::AttachChosen { host } => crate::state::structural_fingerprint(&(252_u8, host)),
             Self::ShieldFromChosenSourceWithLifeCondition {
                 protects,
@@ -2110,6 +2270,116 @@ impl AwaitingOp {
                 sources,
                 gain_life_sources,
             )),
+            Self::PutCountersOnChosenControlled {
+                asked,
+                filter,
+                kind,
+                count,
+                remaining,
+                chosen,
+            } if !chosen.is_empty() => crate::state::structural_fingerprint(&(
+                254_u8, asked, filter, kind, count, remaining, chosen,
+            ))
+            .max(1),
+            Self::AnyPlayerPayCost {
+                asked,
+                remaining,
+                step,
+                cost,
+                on_payment,
+                effects,
+            } => crate::state::structural_fingerprint(&(
+                (255_u8, 516_u16),
+                asked,
+                remaining,
+                step,
+                cost,
+                on_payment,
+                effects,
+            )),
+            Self::DemonstrateConfirm => {
+                crate::state::structural_fingerprint(&(255_u8, 495_u16)).max(1)
+            }
+            Self::DemonstrateOpponent => {
+                crate::state::structural_fingerprint(&(255_u8, 496_u16)).max(1)
+            }
+            Self::RippleReveal { n } => {
+                crate::state::structural_fingerprint(&(255_u8, 497_u16, n)).max(1)
+            }
+            Self::RippleBottom { rest } => {
+                crate::state::structural_fingerprint(&(255_u8, 498_u16, rest)).max(1)
+            }
+            Self::MayPayEnergyThen { amount, then } => {
+                crate::state::structural_fingerprint(&(255_u8, 499_u16, amount, then)).max(1)
+            }
+            Self::ChoosePayCostOrDecline {
+                player,
+                costs,
+                otherwise,
+            } => crate::state::structural_fingerprint(&(
+                255_u8, 505_u16, 1_u8, player, costs, otherwise,
+            ))
+            .max(1),
+            Self::PlayerMayPayChosenCost {
+                player,
+                cost,
+                otherwise,
+            } => crate::state::structural_fingerprint(&(
+                255_u8, 505_u16, 2_u8, player, cost, otherwise,
+            ))
+            .max(1),
+            Self::PlayersChooseMode {
+                spec,
+                current,
+                remaining,
+                chosen,
+            } => crate::state::structural_fingerprint(&(
+                255_u8, 505_u16, 3_u8, spec, current, remaining, chosen,
+            ))
+            .max(1),
+            Self::CreepingDread {
+                remaining_players,
+                discarded,
+                damage,
+            } => {
+                let bits: Vec<(PlayerId, u16)> =
+                    discarded.iter().map(|(p, t)| (*p, t.bits())).collect();
+                crate::state::structural_fingerprint(&(
+                    255_u8,
+                    505_u16,
+                    4_u8,
+                    remaining_players,
+                    bits,
+                    damage,
+                ))
+                .max(1)
+            }
+            Self::PhyrexianGrimoire { cards } => {
+                crate::state::structural_fingerprint(&(255_u8, 505_u16, 5_u8, cards)).max(1)
+            }
+            Self::TaintedPact { card, seen_names } => {
+                crate::state::structural_fingerprint(&(255_u8, 505_u16, 6_u8, card, seen_names))
+                    .max(1)
+            }
+            Self::SearchLibraryAttachedToEvent { host, library } => {
+                crate::state::structural_fingerprint(&(255_u8, 505_u16, 7_u8, host, library)).max(1)
+            }
+            Self::PlayerMayWaterbendConfirm {
+                player,
+                mana,
+                effect,
+            } => {
+                crate::state::structural_fingerprint(&(255_u8, 505_u16, 8_u8, player, mana, effect))
+                    .max(1)
+            }
+            Self::PlayerMayWaterbendTaps {
+                player,
+                mana,
+                effect,
+            } => {
+                crate::state::structural_fingerprint(&(255_u8, 505_u16, 9_u8, player, mana, effect))
+                    .max(1)
+            }
             _ => 0,
         }
     }
@@ -2121,6 +2391,7 @@ impl AwaitingOp {
         match self {
             Self::DestroyChosen { chosen, .. }
             | Self::SacrificeFilter { chosen, .. }
+            | Self::PutCountersOnChosenControlled { chosen, .. }
             | Self::SacrificeAnyNumber { chosen, .. }
             | Self::ReturnChosen { chosen, .. } => chosen,
             _ => &[],

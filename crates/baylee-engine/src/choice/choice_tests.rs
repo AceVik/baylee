@@ -141,6 +141,8 @@ fn a_timed_out_seat_does_nothing_wherever_the_question_allows_it() {
             no.clone(),
         ),
         (yes_no(YesNoPrompt::PayTax { mana: 1 }), no.clone()),
+        (yes_no(YesNoPrompt::PayWaterbend { mana: 2 }), no.clone()),
+        (yes_no(YesNoPrompt::Assist), no.clone()),
         (
             yes_no(YesNoPrompt::PayMana {
                 cost: baylee_core::mana!("{U}"),
@@ -501,7 +503,7 @@ fn a_timed_out_seat_does_nothing_wherever_the_question_allows_it() {
 }
 
 /// How many kinds [`kind_of`] tells apart.
-const KINDS: usize = 74;
+const KINDS: usize = 76;
 
 /// Which kind of question this is, numbered without gaps. No wildcard
 /// arm: a new `Pending` variant or yes/no prompt does not compile here
@@ -546,6 +548,8 @@ fn kind_of(pending: &Pending) -> usize {
                 YesNoPrompt::UseDamageClearingReplacement { .. } => 30,
                 YesNoPrompt::ApplyAdditionalCountersNext { .. } => 29,
                 YesNoPrompt::PayTax { .. } => 2,
+                YesNoPrompt::PayWaterbend { .. } => 50,
+                YesNoPrompt::Assist => 51,
                 YesNoPrompt::PayLife { .. } => 9,
                 YesNoPrompt::PayPact { .. } => 10,
                 YesNoPrompt::Miracle { .. } => 3,
@@ -816,6 +820,8 @@ fn expected_automatable(prompt: YesNoPrompt) -> bool {
         | YesNoPrompt::Buyback { .. }
         | YesNoPrompt::ManaAnyType
         | YesNoPrompt::PayTax { .. }
+        | YesNoPrompt::PayWaterbend { .. }
+        | YesNoPrompt::Assist
         | YesNoPrompt::RemoveCountersInsteadOfUntapping { .. }
         | YesNoPrompt::PayMana { .. }
         | YesNoPrompt::PayManaAndLife { .. }
@@ -914,6 +920,8 @@ fn only_the_questions_whose_answer_cannot_go_stale_are_automatable() {
         },
         YesNoPrompt::PayLifeOrEnterTapped { amount: 1 },
         YesNoPrompt::PayTax { mana: 2 },
+        YesNoPrompt::PayWaterbend { mana: 2 },
+        YesNoPrompt::Assist,
         YesNoPrompt::PayMana {
             cost: baylee_core::mana!("{G}{G}"),
         },

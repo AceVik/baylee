@@ -347,6 +347,9 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                             .route_extra_parts
                             .iter()
                             .any(part_scales_with_x));
+                let scales_waterbend = !disguised
+                    && wizard_mandatory_parts(face, wizard.cost_choice())
+                        .any(|p| matches!(p, CostPart::WaterbendX));
                 // A spell cast without paying its mana cost has exactly one
                 // legal X, which is 0 (CR 107.3b), so a free cast is not
                 // asked for it; a non-mana payment that scales with X still is.
@@ -355,18 +358,12 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                     || wizard.alternative_cost == Some(CastModeKind::Plot);
                 let needs_x = (cost.has_variable() && !waives_mana_cost) || scales_mandatory;
                 if needs_x {
-                    // The mana for X may still be made during the cast (CR
-                    // 601.2g): a cast whose mana comes after its choices, and
-                    // a cast off the pool by a seat with a source left to
-                    // tap, both open a payment window when the total needs
-                    // it, so X is bounded only by the number type, as an
-                    // activation's is (`abilities/x_value.rs`). An answer
-                    // the window then cannot pay is reversed there and says
-                    // so (`GameEvent::CastCancelled`, CR 601.2h, 734.1).
-                    // Life payments still cannot exceed payable life.
                     let more_mana = !wizard.makes_mana_after_choices()
                         && self.can_make_mana_for_cast(wizard.player);
-                    let mut max = if cost.has_variable() && !waives_mana_cost && !more_mana {
+                    let mut max = if (cost.has_variable() || scales_waterbend)
+                        && !waives_mana_cost
+                        && !more_mana
+                    {
                         self.x_resource_bound(&wizard)
                     } else {
                         u32::MAX
@@ -402,6 +399,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                                 CostPart::SacrificeX(_)
                                     | CostPart::TapX(_)
                                     | CostPart::DiscardX(_)
+                                    | CostPart::RevealFromHandX(_)
                                     | CostPart::ExileFromGraveyardX(_)
                                     | CostPart::RemoveAnyCounterX { .. }
                             )
@@ -1182,7 +1180,8 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
             }
             WizardStage::Replicate => {
                 let face = self.wizard_face(&wizard);
-                let (cost, max) = face.replicate.map_or((ManaCost::ZERO, 0), |cost| {
+                let effective = self.wizard_effective_replicate(&wizard);
+                let (cost, max) = effective.map_or((ManaCost::ZERO, 0), |cost| {
                     (cost, self.replicate_bound(&wizard, face, &cost))
                 });
                 if max == 0 {
@@ -1193,8 +1192,11 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                     self.cast_wizard = Some(wizard);
                     return WizardStep::Continue;
                 }
+                let mut wizard = wizard;
+                wizard.granted_replicate = effective;
+                self.cast_wizard = Some(wizard);
                 self.pending = Pending::ChooseNumber {
-                    player: wizard.player,
+                    player: self.cast_wizard.as_ref().expect("wizard").player,
                     min: 0,
                     max,
                     reason: NumberPrompt::Replicate { cost },
@@ -1422,7 +1424,14 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 let generic = usize::try_from(wizard_total_cost(face, &wizard).generic_total())
                     .unwrap_or(usize::MAX);
                 let room = graveyard.len().min(generic);
-                if !face.delve || room == 0 {
+                if !crate::casting::has_delve(
+                    &self.state,
+                    wizard.card,
+                    face,
+                    wizard.player,
+                    wizard.face_index(),
+                ) || room == 0
+                {
                     let mut wizard = wizard;
                     wizard.stage = WizardStage::Convoke;
                     self.cast_wizard = Some(wizard);
@@ -1455,40 +1464,74 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 // tap spent for nothing, as in the delve stage above.
                 let generic =
                     |cost: &ManaCost| usize::try_from(cost.generic_total()).unwrap_or(usize::MAX);
-                let (sources, room) = if face.waterbend && wizard.kicked {
-                    let waterbend = face
-                        .additional_costs
-                        .iter()
-                        .fold(ManaCost::ZERO, |total, add| total.combine(&add.mana));
-                    (
-                        crate::casting::waterbend_sources(&self.state, wizard.player),
-                        generic(&waterbend),
-                    )
-                } else if face.convoke
-                    || crate::casting::has_improvise(&self.state, face, wizard.player)
+                let mandatory_wb = super::wizard_mandatory_waterbend_generic(face, &wizard);
+                let (sources, room) = if (face.waterbend
+                    && (wizard.kicked || wizard.optional_cost_paid))
+                    || mandatory_wb > 0
                 {
-                    // Convoke's creatures and improvise's artifacts
-                    // (CR 702.126a), each permanent once.
-                    let sources =
-                        crate::casting::tap_to_pay_sources(&self.state, face, wizard.player);
+                    let mut waterbend = if face.waterbend && wizard.kicked {
+                        face.additional_costs
+                            .iter()
+                            .fold(ManaCost::ZERO, |total, add| total.combine(&add.mana))
+                    } else {
+                        ManaCost::ZERO
+                    };
+                    if face.waterbend
+                        && wizard.optional_cost_paid
+                        && let Some(opt) = face.optional_cost
+                    {
+                        waterbend = waterbend.combine(&opt.mana);
+                    }
+                    waterbend = waterbend.with_more_generic(mandatory_wb);
                     let left = wizard_total_cost(face, &wizard).with_less_generic(
                         u32::try_from(wizard.delve_exiles.len()).unwrap_or(u32::MAX),
                     );
-                    let (rest, colored) = left.convoked_colored(&crate::casting::tap_colors(
-                        &self.state,
-                        face,
-                        &sources,
-                    ));
-                    let room = usize::try_from(colored)
-                        .unwrap_or(usize::MAX)
-                        .saturating_add(generic(&rest));
-                    (sources, room)
+                    (
+                        crate::casting::waterbend_sources(&self.state, wizard.player),
+                        generic(&waterbend).min(generic(&left)),
+                    )
                 } else {
-                    (Vec::new(), 0)
+                    let face_idx = wizard.face_index();
+                    let convoke = crate::casting::has_convoke(
+                        &self.state,
+                        wizard.card,
+                        face,
+                        wizard.player,
+                        face_idx,
+                    );
+                    let improvise = crate::casting::has_improvise_for(
+                        &self.state,
+                        wizard.card,
+                        face,
+                        wizard.player,
+                        face_idx,
+                    );
+                    if convoke || improvise {
+                        // Convoke's creatures and improvise's artifacts
+                        // (CR 702.126a), each permanent once.
+                        let sources = crate::casting::tap_to_pay_sources_for(
+                            &self.state,
+                            convoke,
+                            improvise,
+                            wizard.player,
+                        );
+                        let left = wizard_total_cost(face, &wizard).with_less_generic(
+                            u32::try_from(wizard.delve_exiles.len()).unwrap_or(u32::MAX),
+                        );
+                        let (rest, colored) = left.convoked_colored(
+                            &crate::casting::tap_colors_for(&self.state, convoke, &sources),
+                        );
+                        let room = usize::try_from(colored)
+                            .unwrap_or(usize::MAX)
+                            .saturating_add(generic(&rest));
+                        (sources, room)
+                    } else {
+                        (Vec::new(), 0)
+                    }
                 };
                 if sources.is_empty() || room == 0 {
                     let mut wizard = wizard;
-                    wizard.stage = WizardStage::Sacrifice;
+                    wizard.stage = WizardStage::Harmonize;
                     self.cast_wizard = Some(wizard);
                     return WizardStep::Continue;
                 }
@@ -1504,6 +1547,46 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                     player_options: Vec::new(),
                     min: 0,
                     max,
+                    reason: TargetPrompt::Convoke,
+                };
+                self.awaiting_answer = true;
+                WizardStep::Yield(Ok(()))
+            }
+            WizardStage::Harmonize => {
+                let face = self.wizard_face(&wizard);
+                let paid_so_far =
+                    wizard_paid_total(face, &wizard, &self.convoke_tap_colors(&wizard));
+                let generic_left =
+                    usize::try_from(paid_so_far.generic_total()).unwrap_or(usize::MAX);
+                let options: Vec<ObjectId> = if wizard.is_harmonize() && generic_left > 0 {
+                    self.state
+                        .battlefield_seen()
+                        .filter(|id| {
+                            self.state.object(*id).is_some_and(|o| {
+                                o.controller == wizard.player
+                                    && o.characteristics()
+                                        .types
+                                        .contains(baylee_core::types::TypeSet::CREATURE)
+                                    && !o.status.contains(crate::object::Status::TAPPED)
+                                    && o.characteristics().power.unwrap_or(0) > 0
+                            })
+                        })
+                        .collect()
+                } else {
+                    Vec::new()
+                };
+                if options.is_empty() {
+                    let mut wizard = wizard;
+                    wizard.stage = WizardStage::Sacrifice;
+                    self.cast_wizard = Some(wizard);
+                    return WizardStep::Continue;
+                }
+                self.pending = Pending::ChooseTargets {
+                    player: wizard.player,
+                    options,
+                    player_options: Vec::new(),
+                    min: 0,
+                    max: 1,
                     reason: TargetPrompt::Convoke,
                 };
                 self.awaiting_answer = true;
@@ -1807,9 +1890,89 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                     self.awaiting_answer = true;
                     return WizardStep::Yield(Ok(()));
                 }
-                wizard.stage = WizardStage::Done;
+                wizard.stage = WizardStage::Assist;
                 self.cast_wizard = Some(wizard);
                 WizardStep::Continue
+            }
+            WizardStage::Assist => {
+                let generic_owed = self.wizard_paid(&wizard).generic_total();
+                let assistants: Vec<PlayerId> = self
+                    .state
+                    .players
+                    .iter()
+                    .filter(|p| p.loss.is_none() && p.id != wizard.player)
+                    .map(|p| p.id)
+                    .collect();
+                if !self.wizard_has_assist(&wizard) || generic_owed == 0 || assistants.is_empty() {
+                    let mut wizard = wizard;
+                    wizard.stage = WizardStage::Done;
+                    self.cast_wizard = Some(wizard);
+                    return WizardStep::Continue;
+                }
+                let mut wizard = wizard;
+                let mut assist = wizard.assist.take().unwrap_or_default();
+                if !assist.asked_use {
+                    assist.asked_use = true;
+                    let player = wizard.player;
+                    wizard.assist = Some(assist);
+                    self.cast_wizard = Some(wizard);
+                    self.pending = Pending::YesNo {
+                        player,
+                        prompt: YesNoPrompt::Assist,
+                        source: None,
+                    };
+                    self.awaiting_answer = true;
+                    return WizardStep::Yield(Ok(()));
+                }
+                if assist.assistant.is_none() {
+                    if assistants.len() == 1 {
+                        assist.assistant = Some(assistants[0]);
+                    } else {
+                        wizard.assist = Some(assist);
+                        let player = wizard.player;
+                        self.cast_wizard = Some(wizard);
+                        self.pending = Pending::ChoosePlayer {
+                            player,
+                            options: assistants,
+                        };
+                        self.awaiting_answer = true;
+                        return WizardStep::Yield(Ok(()));
+                    }
+                }
+                let helper = assist.assistant.expect("assistant chosen");
+                if !assist.window_done {
+                    assist.window_done = true;
+                    assist.helper_start = Some(Box::new(self.window_start(helper)));
+                    wizard.assist = Some(assist);
+                    if let Some(legal) = self.mana_window_legal(helper) {
+                        self.cast_wizard = None;
+                        self.mana_window = Some(super::super::PaymentWindow {
+                            player: helper,
+                            suspended: super::super::PaymentContinuation::AssistMana(wizard),
+                        });
+                        self.pending = self.window_priority(helper, legal);
+                        self.awaiting_answer = true;
+                        return WizardStep::Yield(Ok(()));
+                    }
+                    assist = wizard.assist.take().unwrap_or_default();
+                }
+                let max_pay = self.assist_max_generic(&wizard, helper, generic_owed);
+                if max_pay == 0 {
+                    wizard.assist = Some(assist);
+                    wizard.stage = WizardStage::Done;
+                    self.cast_wizard = Some(wizard);
+                    return WizardStep::Continue;
+                }
+                wizard.assist = Some(assist);
+                self.cast_wizard = Some(wizard);
+                self.pending = Pending::ChooseNumber {
+                    player: helper,
+                    min: 0,
+                    max: max_pay,
+                    reason: NumberPrompt::Assist,
+                };
+                self.awaiting_answer = true;
+                WizardStep::Yield(Ok(()))
             }
             WizardStage::Done => WizardStep::Yield(self.cast_or_make_miracle_mana(wizard)),
         }

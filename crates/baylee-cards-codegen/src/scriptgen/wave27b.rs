@@ -617,41 +617,49 @@ impl Tx<'_> {
             Some(_) => return None,
         };
         let raw_valid = p.take("ChangeType").unwrap_or_else(|| "Card".to_string());
-        if raw_valid.contains("ExiledWith") || raw_valid.contains("IsRemembered") {
+        if raw_valid.contains("IsRemembered") {
             return None;
         }
-        let (zone_expr, is_own_zone, filter_expr) = match origin {
-            "Graveyard" => {
-                let (owner_rel, stripped) = Self::wave27b_strip_zone_owner(&raw_valid)?;
-                let rel = owner_rel?;
-                let expr = self.filter_expr_in_zone(&stripped, true)?;
-                (
-                    format!("ChooseZone::Graveyard({rel})"),
-                    rel == "PlayerRel::You",
-                    expr,
-                )
-            }
-            "Hand" => {
-                let stripped = Self::wave27b_strip_you_owner(&raw_valid);
-                let expr = self.filter_expr_in_zone(&stripped, true)?;
-                ("ChooseZone::Hand(PlayerRel::You)".to_string(), true, expr)
-            }
-            "Exile" => {
-                let (owner_rel, stripped) = Self::wave27b_strip_zone_owner(&raw_valid)?;
-                let rel = owner_rel?;
-                let expr = self.filter_expr_in_zone(&stripped, true)?;
-                (
-                    format!("ChooseZone::Exile({rel})"),
-                    rel == "PlayerRel::You",
-                    expr,
-                )
-            }
-            "Battlefield" => {
-                let expr = self.filter_expr(&raw_valid)?;
-                ("ChooseZone::Battlefield".to_string(), true, expr)
-            }
-            _ => return None,
-        };
+        let (zone_expr, is_own_zone, filter_expr) =
+            if let Some(linked) = self.wave29a_linked_exile_constrained_zone(origin, &raw_valid) {
+                linked
+            } else {
+                if raw_valid.contains("ExiledWith") {
+                    return None;
+                }
+                match origin {
+                    "Graveyard" => {
+                        let (owner_rel, stripped) = Self::wave27b_strip_zone_owner(&raw_valid)?;
+                        let rel = owner_rel?;
+                        let expr = self.filter_expr_in_zone(&stripped, true)?;
+                        (
+                            format!("ChooseZone::Graveyard({rel})"),
+                            rel == "PlayerRel::You",
+                            expr,
+                        )
+                    }
+                    "Hand" => {
+                        let stripped = Self::wave27b_strip_you_owner(&raw_valid);
+                        let expr = self.filter_expr_in_zone(&stripped, true)?;
+                        ("ChooseZone::Hand(PlayerRel::You)".to_string(), true, expr)
+                    }
+                    "Exile" => {
+                        let (owner_rel, stripped) = Self::wave27b_strip_zone_owner(&raw_valid)?;
+                        let rel = owner_rel?;
+                        let expr = self.filter_expr_in_zone(&stripped, true)?;
+                        (
+                            format!("ChooseZone::Exile({rel})"),
+                            rel == "PlayerRel::You",
+                            expr,
+                        )
+                    }
+                    "Battlefield" => {
+                        let expr = self.filter_expr(&raw_valid)?;
+                        ("ChooseZone::Battlefield".to_string(), true, expr)
+                    }
+                    _ => return None,
+                }
+            };
         if destination == "Battlefield" && !is_own_zone && !gain_control {
             return None;
         }
@@ -1284,8 +1292,13 @@ impl Tx<'_> {
         let att_expr = self.filter_expr(&att_raw)?;
         let att_name = self.body.filter_static("ATTACH_CHOSEN", &att_expr);
 
-        // 3. Host (`Defined$`).
-        let def_raw = p.take("Defined")?;
+        // 3. Host (`Defined$`). Omitted `Defined$` on a permanent's untargeted
+        //    ability (*Heavenly Blademaster*) attaches to `Self`.
+        let def_raw = match p.take("Defined") {
+            Some(d) => d,
+            None if !self.on_a_spell && target.is_none() => "Self".to_string(),
+            None => return None,
+        };
         if def_raw == "Self" {
             return Some(vec![format!(
                 "Effect::AttachChosen {{ filter: &{att_name}, to: TargetSpec::ThisObject, \

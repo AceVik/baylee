@@ -311,6 +311,9 @@ fn reads_source(filter: &Filter) -> bool {
         Filter::Not(part) => reads_source(part),
         Filter::Kicked
         | Filter::CastFromHand
+        | Filter::WasCast
+        | Filter::WasCastByYou
+        | Filter::CastFromZone(_)
         | Filter::IsCommander
         | Filter::HasAdventure
         | Filter::Any
@@ -330,12 +333,17 @@ fn reads_source(filter: &Filter) -> bool {
         | Filter::HasManaAbility
         | Filter::HasNonManaActivatedAbility
         | Filter::ControlledByYou
+        | Filter::ControlledByYourTeam
         | Filter::ControlledByOpponent
         | Filter::ControlledByActivePlayer
         | Filter::OwnedByYou
+        | Filter::OwnedBy(_)
+        | Filter::CreatedBySource
+        | Filter::AttachedHostOfRemembered
         | Filter::Tapped
         | Filter::Untapped
         | Filter::EnteredThisTurn
+        | Filter::SurveilledByYouThisTurn
         | Filter::HasCounter(_)
         | Filter::HasAnyCounter
         | Filter::CountersAtLeast(..)

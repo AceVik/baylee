@@ -11,7 +11,28 @@ pub(super) enum OptionalTriggerPrice {
     Printed(String),
     Life(String),
     CostPart(String),
-    SacrificeN { filter: String, count: u8 },
+    SacrificeN {
+        filter: String,
+        count: u8,
+    },
+    DiscardHand,
+    RemoveCounterSelf {
+        kind: String,
+        n: u32,
+    },
+    ExileFromGraveyardN {
+        count: u8,
+        filter: String,
+    },
+    ManaAndLife {
+        mana: String,
+        life: u32,
+    },
+    ChooseNumberPay {
+        pay_kind: &'static str,
+        prompt: &'static str,
+        max: String,
+    },
 }
 
 enum Wave14aCost {
@@ -28,6 +49,7 @@ pub(super) struct ParsedActivated {
     pub cost: String,
     pub effects: String,
     pub mana_ability: bool,
+    pub is_loyalty: bool,
     pub extras: String,
     pub ability_expr: String,
     pub alternate_ability_expr: Option<String>,
@@ -77,6 +99,7 @@ struct ExtractedAbilitySpec {
     activator: ActivatorRestriction,
     sorcery_speed: bool,
     instant_speed: bool,
+    is_forecast: bool,
     kind: ActivationKind,
     condition: String,
     cost_reduction: String,
@@ -477,7 +500,7 @@ impl Tx<'_> {
         token.starts_with("Sac<1/") && !Self::is_sac_self_token(token)
     }
 
-    fn cost_has_variable_x(cost: &str) -> bool {
+    pub(super) fn cost_has_variable_x(cost: &str) -> bool {
         cost.contains("{X}")
             || cost.contains("SacrificeX(")
             || cost.contains("TapX(")
@@ -522,6 +545,13 @@ impl Tx<'_> {
                 return self.deny("reflected Gate mana as a spell".into());
             }
             return self.activated_mana_reflected(p);
+        }
+        if !is_activated
+            && Params::parse(spec).is_some_and(|(api, _)| {
+                matches!(api.as_str(), "PermanentCreature" | "PermanentNoncreature")
+            })
+        {
+            return self.wave16b_permanent_spell(spec);
         }
         if Params::parse(spec).is_some_and(|(api, _)| api == "Charm") {
             return if is_activated {
@@ -593,9 +623,7 @@ impl Tx<'_> {
                 if !is_activated {
                     return self.deny("`Planeswalker$` on a spell".to_string());
                 }
-                if !allow_oracle_tap {
-                    return self.deny("a granted loyalty ability".to_string());
-                }
+                let _ = allow_oracle_tap;
                 ActivationKind::Loyalty
             }
             Some(other) => return self.deny(format!("`Planeswalker$ {other}`")),
@@ -668,13 +696,39 @@ impl Tx<'_> {
         if !is_activated && alternate_cost.is_some() {
             return self.deny("an `AlternateCost` on a spell".to_string());
         }
-        let (limit, limit_keys) = self.take_activation_limit(&mut probe, is_activated)?;
+        let (mut limit, mut limit_keys) = self.take_activation_limit(&mut probe, is_activated)?;
         let x_min_param = self.take_x_min_param(&mut probe, is_activated, is_planeswalker)?;
         let activator = self.parse_activator(probe.take("Activator").as_deref(), is_activated)?;
-        let activation_zone = probe.take("ActivationZone");
+        let mut activation_zone = probe.take("ActivationZone");
         if !is_activated && let Some(zone) = activation_zone.as_deref() {
             return self.deny(format!("a spell in `ActivationZone$ {zone}`"));
         }
+        let is_forecast = match probe.take("Forecast").as_deref() {
+            None => false,
+            Some("True") if is_activated => {
+                if !matches!(activation_zone.as_deref(), None | Some("Hand"))
+                    || limit != ParsedLimit::Unlimited
+                    || activator != ActivatorRestriction::Default
+                    || is_planeswalker
+                    || alternate_cost.is_some()
+                    || !cost.as_deref().is_some_and(|c| {
+                        cost_parts(c).iter().any(|t| {
+                            t == "Reveal<1/CARDNAME>"
+                                || t.starts_with("Reveal<1/CARDNAME/")
+                                || t == "Reveal<1/NICKNAME>"
+                                || t.starts_with("Reveal<1/NICKNAME/")
+                        })
+                    })
+                {
+                    return self.deny("an unsupported `Forecast$ True` ability".to_string());
+                }
+                activation_zone = Some("Hand".to_string());
+                limit = ParsedLimit::PerTurnRaw("1".to_string());
+                limit_keys.push("Forecast$");
+                true
+            }
+            Some(other) => return self.deny(format!("`Forecast$ {other}`")),
+        };
         let cost_reduction = self.take_reduce_cost(
             &mut probe,
             is_activated,
@@ -692,6 +746,9 @@ impl Tx<'_> {
         if instant_speed {
             probe.take("InstantSpeed");
         }
+        if is_forecast && (sorcery_speed || instant_speed) {
+            return self.deny("`Forecast$ True` with timing override".to_string());
+        }
         let had_life_total = probe.has("LifeTotal");
         let had_present_player = probe.has("PresentPlayer");
         let had_defined_player = probe.has("CheckDefinedPlayer");
@@ -704,9 +761,23 @@ impl Tx<'_> {
         let present_player_read = had_present_player && !probe.has("PresentPlayer");
         let defined_player_read = had_defined_player && !probe.has("CheckDefinedPlayer");
         let restrictions = self.activation_restriction(&mut probe, is_activated, &mut condition)?;
+        if is_forecast {
+            let forecast_cond =
+                "Condition::All(&[Condition::YourTurn, Condition::DuringStep(StepKind::Upkeep)])";
+            condition = if let Some(inner) = condition
+                .strip_prefix(", condition = Some(")
+                .and_then(|s| s.strip_suffix(')'))
+            {
+                format!(", condition = Some(Condition::All(&[{inner}, {forecast_cond}]))")
+            } else {
+                format!(", condition = Some({forecast_cond})")
+            };
+        }
         let is_divided_counters = api == "PutCounter" && probe.has("DividedAsYouChoose");
+        let is_divided_damage =
+            is_activated && api == "DealDamage" && probe.has("DividedAsYouChoose");
         let is_excess_damage = api == "DealDamage" && probe.has("ExcessSVar");
-        let same_controller_targets = if is_divided_counters {
+        let same_controller_targets = if is_divided_counters || is_divided_damage {
             match probe.take("TargetsWithSameController").as_deref() {
                 None | Some("False") => false,
                 Some("True") => {
@@ -780,6 +851,36 @@ impl Tx<'_> {
                 ..Chain::default()
             };
             (chain, Some(req_expr))
+        } else if is_divided_damage {
+            let stripped: Vec<&str> = spec
+                .split(" | ")
+                .filter(|part| {
+                    let p = part.trim_start();
+                    !drop_keys.iter().any(|key| p.starts_with(key))
+                })
+                .collect();
+            let (_, dp) = Params::parse(&stripped.join(" | "))?;
+            self.cost_sacrifices_self = is_activated
+                && cost
+                    .as_deref()
+                    .is_some_and(|c| cost_parts(c).iter().any(|t| Self::is_sac_self_token(t)));
+            self.cost_sacrifices_other = cost
+                .as_deref()
+                .is_some_and(|c| cost_parts(c).iter().any(|t| Self::is_sac_other_token(t)));
+            let parsed = self.wave28a_read_divided_damage(dp, false);
+            self.cost_sacrifices_self = false;
+            self.cost_sacrifices_other = false;
+            let (effects, target_spec, req_expr, second_req) = parsed?;
+            if second_req.is_some() {
+                return self
+                    .deny("an activated divided damage ability with a second target".to_string());
+            }
+            let chain = Chain {
+                effects,
+                target: Some(target_spec),
+                ..Chain::default()
+            };
+            (chain, Some(req_expr))
         } else if is_excess_damage {
             let stripped: Vec<&str> = spec
                 .split(" | ")
@@ -818,6 +919,7 @@ impl Tx<'_> {
             activator,
             sorcery_speed,
             instant_speed,
+            is_forecast,
             kind,
             condition,
             cost_reduction,
@@ -846,9 +948,21 @@ impl Tx<'_> {
             && cost.is_some_and(|c| cost_parts(c).iter().any(|t| Self::is_sac_self_token(t)));
         self.cost_sacrifices_other =
             cost.is_some_and(|c| cost_parts(c).iter().any(|t| Self::is_sac_other_token(t)));
+        self.cost_discards_single_for_cost = cost.is_some_and(Self::wave28b_cost_discards_single);
+        self.cost_beholds_or_reveals = !is_activated && Self::cost_raw_beholds_or_reveals(cost);
+        (
+            self.cost_sacrifices_all,
+            self.cost_sacrifices_x,
+            self.cost_returns_self,
+        ) = Self::wave29b_cost_flags(cost);
         let chain_ok = self.chain(&stripped.join(" | "), &mut chain);
         self.cost_sacrifices_self = false;
         self.cost_sacrifices_other = false;
+        self.cost_discards_single_for_cost = false;
+        self.cost_beholds_or_reveals = false;
+        self.cost_sacrifices_all = false;
+        self.cost_sacrifices_x = false;
+        self.cost_returns_self = false;
         if chain_ok.is_none() {
             if self.unclaimed.borrow().is_none() {
                 let api = Params::parse(spec).map_or_else(|| "ability".to_string(), |(a, _)| a);
@@ -922,6 +1036,15 @@ impl Tx<'_> {
                 }
             } else if let Some(n) = chain.target_exact {
                 format!(", targets = Some(TargetReq::exactly({t}, {n}))")
+            } else if let Some((min, max)) = chain.target_range {
+                format!(
+                    ", targets = Some({})",
+                    Self::wave28a_format_range_req(t, min, max)
+                )
+            } else if chain.target_up_to_x {
+                format!(", targets = Some(TargetReq::up_to_x({t}))")
+            } else if chain.target_is_x {
+                format!(", targets = Some(TargetReq::x_targets({t}))")
             } else {
                 format!(", target = Some({t})")
             }
@@ -979,6 +1102,10 @@ impl Tx<'_> {
         }
     }
 
+    #[allow(
+        clippy::too_many_lines,
+        reason = "dispatches all activated ability parts and X/min rules"
+    )]
     fn build_activated_parts(&mut self, spec: &ExtractedAbilitySpec) -> Option<ParsedActivated> {
         if spec.kind == ActivationKind::Loyalty {
             return self.build_loyalty_parts(spec);
@@ -988,8 +1115,13 @@ impl Tx<'_> {
         };
         let stripped_xmin = self.strip_activation_x_min(cost_raw)?;
         let x_min = self.merge_x_min(&stripped_xmin, spec.x_min_param)?;
-        let cost =
-            self.parse_activated_cost(&stripped_xmin.cost, spec.activation_zone.as_deref())?;
+        self.in_forecast_activation = spec.is_forecast;
+        self.allow_defined_cost_x =
+            self.wave30c_allows_defined_cost_x(&spec.chain.effects, spec.non_battlefield_zone);
+        let cost = self.parse_activated_cost(&stripped_xmin.cost, spec.activation_zone.as_deref());
+        self.in_forecast_activation = false;
+        self.allow_defined_cost_x = false;
+        let cost = cost?;
         if x_min > 0 && !Self::cost_has_variable_x(&cost) {
             return self.deny("unused `XMin` in activation cost".to_string());
         }
@@ -1005,7 +1137,7 @@ impl Tx<'_> {
             spec.chain.could_add_mana && !spec.chain.moves_library && spec.chain.target.is_none();
         self.reject_non_mana_counter_x(&cost, mana_ability, has_targets)?;
         let timing = self.activated_timing_suffix(spec, mana_ability)?;
-        if spec.chain.target_is_x {
+        if spec.chain.target_is_x && !Self::cost_has_variable_x(&cost) {
             return self.deny("`TargetMin$/TargetMax$ X` on an activated ability".to_string());
         }
         let target = if spec.target_req_override.is_some()
@@ -1017,11 +1149,12 @@ impl Tx<'_> {
             Self::activated_target_suffix(&spec.chain)
         };
         let limit_str = self.activation_limit(&spec.limit)?;
-        let x_value = if x_min > 0 {
-            format!(", x_value = ActivationX::AtLeast({x_min})")
-        } else {
-            String::new()
-        };
+        let x_value = self.wave30c_activated_x_or_at_least(
+            x_min,
+            &cost,
+            &spec.chain.effects,
+            spec.non_battlefield_zone,
+        );
         let condition = &spec.condition;
         let cost_reduction = spec.cost_reduction.as_str();
         let extras = format!(
@@ -1048,6 +1181,7 @@ impl Tx<'_> {
             && !spec.instant_speed
             && limit_str.is_empty()
             && x_min == 0
+            && x_value.is_empty()
             && condition.is_empty()
             && spec.cost_reduction.is_empty()
             && spec.target_req_override.is_none()
@@ -1056,6 +1190,8 @@ impl Tx<'_> {
             && spec.chain.second_target.is_none()
             && spec.chain.target_up_to.is_none()
             && spec.chain.target_exact.is_none()
+            && spec.chain.target_range.is_none()
+            && !spec.chain.target_is_x
         {
             spec.chain.target.clone()
         } else {
@@ -1065,6 +1201,7 @@ impl Tx<'_> {
             cost,
             effects,
             mana_ability,
+            is_loyalty: false,
             extras,
             ability_expr,
             alternate_ability_expr,
@@ -1138,6 +1275,7 @@ impl Tx<'_> {
             cost: delta.to_string(),
             effects,
             mana_ability: false,
+            is_loyalty: true,
             extras,
             ability_expr,
             alternate_ability_expr: None,
@@ -1281,7 +1419,7 @@ impl Tx<'_> {
     /// Validate the spell's cost tokens and record any non-mana mandatory
     /// additional costs (`FaceDef::mandatory_additional_costs`) that
     /// `cast_wizard::paid_as_a_mandatory_additional_cost` pays.
-    fn spell_mana_cost(&mut self, raw: &str) -> Option<()> {
+    pub(super) fn spell_mana_cost(&mut self, raw: &str) -> Option<()> {
         let mut extra = Vec::new();
         for token in cost_parts(raw) {
             let is_mana = token.chars().all(|c| c.is_ascii_digit())
@@ -1361,7 +1499,11 @@ impl Tx<'_> {
                 || part.starts_with("RemoveAnyCounter {")
                 || part.starts_with("RemoveAnyCounterX {")
                 || part.starts_with("Behold(")
+                || part.starts_with("BeholdAndExile(")
                 || part.starts_with("CollectEvidence(")
+                || part.starts_with("RevealFromHand(")
+                || part.starts_with("RevealFromHandX(")
+                || part.starts_with("PutCounterOnOther {")
         });
         if !all_supported {
             let head = extra[0].split('<').next().unwrap_or(&extra[0]);
@@ -1388,6 +1530,10 @@ impl Tx<'_> {
             }
         } else if let Some(n) = chain.target_exact {
             format!("TargetReq::exactly({t}, {n})")
+        } else if let Some((min, max)) = chain.target_range {
+            Self::wave28a_format_range_req(t, min, max)
+        } else if chain.target_up_to_x {
+            format!("TargetReq::up_to_x({t})")
         } else if chain.target_is_x {
             format!("TargetReq::x_targets({t})")
         } else {
@@ -1495,6 +1641,33 @@ impl Tx<'_> {
                 ));
                 continue;
             }
+            if allow_divided_counters
+                && let Some((api, dp)) = Params::parse(&stripped)
+                && api == "DealDamage"
+                && dp.has("DividedAsYouChoose")
+            {
+                let (effects, target_spec, mut req_expr, second_req) =
+                    self.wave28a_read_divided_damage(dp, false)?;
+                if mode_same_controller {
+                    let multi = !req_expr.starts_with("TargetReq::one(")
+                        && !req_expr.starts_with("TargetReq::up_to_one(");
+                    req_expr =
+                        self.apply_same_controller_target_req(&req_expr, &target_spec, multi)?;
+                }
+                let has_second = second_req.is_some();
+                let second =
+                    second_req.map_or_default(|req| format!(", second_targets = Some({req})"));
+                modes.push((
+                    format!(
+                        "mode!(&[{}], targets = Some({req_expr}){second}{additional_cost})",
+                        effects.join(", ")
+                    ),
+                    Some(target_spec),
+                    false,
+                    has_second,
+                ));
+                continue;
+            }
             let mut chain = Chain::default();
             if self.chain(&stripped, &mut chain).is_none() {
                 if self.unclaimed.borrow().is_none() {
@@ -1577,8 +1750,14 @@ impl Tx<'_> {
             Some("True") => true,
             Some(other) => return self.deny(format!("a charm with `CanRepeatModes$ {other}`")),
         };
+        let mut optional_cost_entwine = false;
         let max: u8 = match p.take("CharmNum").as_deref() {
             None => 1,
+            Some(raw) if !can_repeat_modes && self.wave16b_is_optional_cost_entwine_charm(raw) => {
+                optional_cost_entwine = true;
+                Self::wave16b_claim_entwine_charm_desc(&mut p);
+                1
+            }
             Some(raw) => match raw.trim().parse::<u8>() {
                 Ok(n) if n > 0 => n,
                 _ => return self.deny(format!("a charm choosing `{raw}`")),
@@ -1659,6 +1838,24 @@ impl Tx<'_> {
             _ => format!("ModeCount {{ min: {min}, max: {max} }}"),
         };
         let modes: Vec<String> = parsed.into_iter().map(|(m, _, _, _)| m).collect();
+        if optional_cost_entwine {
+            let has_spree = self.body.keywords.iter().any(|k| k == "KeywordSet::SPREE");
+            if modes.len() != 2
+                || min != 1
+                || max != 1
+                || has_spree
+                || self.body.optional_cost_grants_flash
+                || self
+                    .body
+                    .abilities
+                    .iter()
+                    .any(|a| a.contains("OptionalCostPaid"))
+                || modes.iter().any(|m| m.contains("OptionalCostPaid"))
+            {
+                return self.deny("an unsupported optional-cost modal count".to_string());
+            }
+            self.body.entwine = self.body.optional_cost.take();
+        }
         if can_repeat_modes {
             self.body.abilities.push(format!(
                 "AbilityDef::Modal {{ modes: &[{}], choose: {choose}, can_repeat_modes: true }}",
@@ -1915,6 +2112,7 @@ impl Tx<'_> {
         if token == "Forage"
             || token.starts_with("DamageYou<")
             || token.starts_with("Behold<")
+            || token.starts_with("BeholdExile<")
             || token.starts_with("CollectEvidence<")
         {
             return true;
@@ -1991,6 +2189,12 @@ impl Tx<'_> {
         }
         if token.starts_with("Behold<") {
             return match self.parse_behold_cost_token(token) {
+                Some(part) => Wave14aCost::Matched(part),
+                None => Wave14aCost::Denied,
+            };
+        }
+        if token.starts_with("BeholdExile<") {
+            return match self.wave17c_parse_behold_exile_cost_token(token) {
                 Some(part) => Wave14aCost::Matched(part),
                 None => Wave14aCost::Denied,
             };
@@ -2271,6 +2475,9 @@ impl Tx<'_> {
     fn optional_cost_svar_condition(&self, def: &str, cmp: &str) -> Option<String> {
         if self.in_delayed {
             return None;
+        }
+        if let Some(cond) = self.wave16b_presence_condition(def, cmp) {
+            return Some(cond);
         }
         if self.body.optional_cost.is_some()
             && matches!(
@@ -3498,11 +3705,11 @@ impl Tx<'_> {
         };
         let Some((mana, cost_parts)) = parsed else {
             *self.unclaimed.borrow_mut() = saved_unclaimed;
-            return None;
+            return self.wave28b_optional_trigger_price(body);
         };
         if !mana.is_empty() {
             *self.unclaimed.borrow_mut() = saved_unclaimed;
-            return None;
+            return self.wave28b_optional_trigger_price(body);
         }
         let result = match cost_parts.as_slice() {
             [one] => {
@@ -3539,10 +3746,11 @@ impl Tx<'_> {
             }
             _ => None,
         };
-        if result.is_none() {
-            *self.unclaimed.borrow_mut() = saved_unclaimed;
+        if let Some(price) = result {
+            return Some((rest, price));
         }
-        result.map(|price| (rest, price))
+        *self.unclaimed.borrow_mut() = saved_unclaimed;
+        self.wave28b_optional_trigger_price(body)
     }
 }
 

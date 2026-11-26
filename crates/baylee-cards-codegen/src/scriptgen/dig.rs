@@ -288,14 +288,10 @@ impl Tx<'_> {
                 {
                     return self.deny("a `Dig` with `ExileFaceDown$ True`".to_string());
                 }
-                let Some(n) = self
-                    .plain_num(&count_raw)
-                    .and_then(|n| usize::try_from(n).ok())
-                    .filter(|&n| (1..=4).contains(&n))
-                else {
+                let Some(effs) = self.wave29c_exile_face_down_linked(&count_raw) else {
                     return self.deny("a `Dig` with `ExileFaceDown$ True`".to_string());
                 };
-                return Some(vec!["Effect::ExileTopFaceDownLinked".to_string(); n]);
+                return Some(effs);
             }
             if valid.is_some()
                 || reveal
@@ -1306,6 +1302,9 @@ impl Tx<'_> {
         target: Option<&str>,
         targets_a_player: bool,
     ) -> Option<Vec<String>> {
+        if let Some(effs) = self.wave29c_dig_until_special(p, target, targets_a_player) {
+            return Some(effs);
+        }
         let parsed = self.parse_dig_until_core(p, target, targets_a_player, false)?;
         if !p.entries.iter().all(|(k, _)| k.starts_with("Condition")) {
             return None;
@@ -1364,10 +1363,32 @@ impl Tx<'_> {
         chain: &mut Chain,
     ) -> Option<Vec<String>> {
         let mut parsed = self.parse_dig_until_core(p, target, targets_a_player, true)?;
-        if parsed.multi_seat_domain.is_some()
-            || parsed.optional_found_move
-            || (!parsed.remember_found && !parsed.imprint_found)
-        {
+        if let Some(domain) = parsed.multi_seat_domain {
+            if !parsed.optional_found_move
+                && !parsed.optional_whole
+                && !parsed.trailing_shuffle
+                && parsed.count_is_one
+                && parsed.exile_while_revealing
+                && parsed.remember_found
+                && !parsed.remember_revealed
+                && !parsed.imprint_found
+                && !parsed.imprint_revealed
+                && p.entries.iter().all(|(k, _)| k.starts_with("Condition"))
+                && let Some(sub_name) = sub.clone()
+                && let Some((effs, trailing)) = self.wave28d_dig_until_multi_seat_exile_play(
+                    &sub_name,
+                    domain,
+                    &parsed.filter_ref,
+                    &parsed.count,
+                    parsed.max_revealed.as_deref(),
+                )
+            {
+                *sub = trailing;
+                return Some(effs);
+            }
+            return None;
+        }
+        if parsed.optional_found_move || (!parsed.remember_found && !parsed.imprint_found) {
             return None;
         }
         if !p.entries.iter().all(|(k, _)| k.starts_with("Condition")) {
@@ -1411,26 +1432,89 @@ impl Tx<'_> {
             *sub = trailing;
             return Some(Self::finish_reveal_until_effects(&parsed, &[]));
         }
+        if parsed.count_is_one
+            && let Some((new_found, then_effs, new_rest, trailing)) = self
+                .wave29c_dig_until_bf_or_hand_followup(
+                    &sub_name,
+                    &parsed.found,
+                    &parsed.rest,
+                    parsed.exile_while_revealing,
+                    parsed.no_move_revealed,
+                    parsed.remember_found,
+                    parsed.imprint_revealed,
+                )
+        {
+            if let Some(f) = new_found {
+                parsed.found = f;
+            }
+            if let Some(r) = new_rest {
+                parsed.rest = r;
+            }
+            *sub = trailing;
+            return Some(Self::finish_reveal_until_effects(&parsed, &then_effs));
+        }
 
         // Case 3: Single-hit `DigUntil` -> `DB$ Play` (optionally followed by
         // Exile->Hand fallback, non-found Exile->Library bottom via
         // `parse_exile_rest_to_bottom`, or post-cast `Shuffle`).
-        if parsed.count_is_one
-            && self.sub_is_api(Some(&sub_name), "Play")
-            && let Some(followup) =
+        if parsed.count_is_one && self.sub_is_api(Some(&sub_name), "Play") {
+            if let Some(followup) =
                 self.try_dig_until_play_followup(&sub_name, &parsed, target, targets_a_player)
-        {
-            if followup.add_shuffle {
-                parsed.trailing_shuffle = true;
+            {
+                if followup.add_shuffle {
+                    parsed.trailing_shuffle = true;
+                }
+                if let Some(r) = followup.new_rest {
+                    parsed.rest = r;
+                }
+                *sub = followup.trailing;
+                return Some(Self::finish_reveal_until_effects(
+                    &parsed,
+                    &followup.then_effs,
+                ));
             }
-            if let Some(r) = followup.new_rest {
-                parsed.rest = r;
+            if (parsed.remember_found || parsed.imprint_found)
+                && (parsed.remember_revealed || parsed.imprint_revealed)
+                && !parsed.optional_whole
+                && !parsed.optional_found_move
+                && parsed.multi_seat_domain.is_none()
+                && !parsed.trailing_shuffle
+            {
+                if parsed.exile_while_revealing
+                    && let Some((effs, trailing)) = self.wave28d_dig_until_exile_play_bottom(
+                        &sub_name,
+                        parsed.library,
+                        &parsed.filter_ref,
+                        &parsed.count,
+                        parsed.max_revealed.as_deref(),
+                        parsed.remember_found,
+                        parsed.imprint_found,
+                        parsed.remember_revealed,
+                        parsed.imprint_revealed,
+                    )
+                {
+                    *sub = trailing;
+                    return Some(effs);
+                }
+                if !parsed.exile_while_revealing
+                    && parsed.found == "RevealUntilFound::StayInLibrary"
+                    && parsed.rest == "RevealUntilRest::StayInLibrary"
+                    && let Some((effs, trailing)) = self.wave28d_dig_until_reveal_play_bottom(
+                        &sub_name,
+                        parsed.library,
+                        &parsed.filter_ref,
+                        &parsed.count,
+                        parsed.max_revealed.as_deref(),
+                        parsed.remember_found,
+                        parsed.imprint_found,
+                        parsed.remember_revealed,
+                        parsed.imprint_revealed,
+                    )
+                {
+                    *sub = trailing;
+                    return Some(effs);
+                }
             }
-            *sub = followup.trailing;
-            return Some(Self::finish_reveal_until_effects(
-                &parsed,
-                &followup.then_effs,
-            ));
         }
 
         // Case 4: `FoundDestination$ Exile` -> `DB$ Effect` granting `MayPlay`
@@ -1501,6 +1585,11 @@ impl Tx<'_> {
                 .all(|e| e.starts_with("Effect::ChooseCardName {"))
             && let Some(out) =
                 self.try_named_reveal_exile_count_chain(p, sub, target, targets_a_player)
+        {
+            return Some(out);
+        }
+        if let Some(out) =
+            self.wave30c_dig_until_remember_revealed(p, sub, target, targets_a_player, chain)
         {
             return Some(out);
         }
@@ -1676,7 +1765,7 @@ impl Tx<'_> {
     }
 
     #[allow(clippy::too_many_lines)]
-    fn parse_dig_until_core(
+    pub(super) fn parse_dig_until_core(
         &mut self,
         p: &mut Params,
         target: Option<&str>,
@@ -1703,7 +1792,9 @@ impl Tx<'_> {
             None => ("Amount::Fixed(1)".to_string(), true),
             Some(ref raw) if raw.trim() == "1" => ("Amount::Fixed(1)".to_string(), true),
             Some(raw) => {
-                let amt = self.amount_or_count_ext(&raw)?;
+                let amt = self
+                    .wave29c_self_cast_x_paid(&raw)
+                    .or_else(|| self.amount_or_count_ext(&raw))?;
                 if amt == "Amount::Fixed(0)" {
                     return None;
                 }
@@ -1714,7 +1805,9 @@ impl Tx<'_> {
         let max_revealed = match p.take("MaxRevealed") {
             None => None,
             Some(raw) => {
-                let amt = self.amount_or_count_ext(&raw)?;
+                let amt = self
+                    .wave29c_self_cast_x_paid(&raw)
+                    .or_else(|| self.amount_or_count_ext(&raw))?;
                 if amt == "Amount::Fixed(0)" {
                     return None;
                 }
@@ -1796,7 +1889,15 @@ impl Tx<'_> {
                 Some("Library") => {
                     if shuffle && matches!(rest_pos.as_deref(), None | Some("-1" | "0")) {
                         "RevealUntilRest::ShuffleIntoLibrary".to_string()
-                    } else if !shuffle && rest_pos.as_deref() == Some("-1") && random_order {
+                    } else if !shuffle
+                        && (rest_pos.as_deref() == Some("-1")
+                            || (rest_pos.is_none()
+                                && self
+                                    .oracle
+                                    .to_ascii_lowercase()
+                                    .contains("bottom of your library in a random order")))
+                        && random_order
+                    {
                         "RevealUntilRest::BottomRandom".to_string()
                     } else if !shuffle && rest_pos.as_deref() == Some("-1") && !random_order {
                         "RevealUntilRest::BottomChosenOrder".to_string()
@@ -1893,7 +1994,7 @@ impl Tx<'_> {
         })
     }
 
-    fn format_reveal_until_then(
+    pub(super) fn format_reveal_until_then(
         parsed: &ParsedDigUntil,
         found: &str,
         rest: &str,
@@ -2204,7 +2305,7 @@ impl Tx<'_> {
         Some((rest, after))
     }
 
-    fn consume_dig_cleanup_tail(
+    pub(super) fn consume_dig_cleanup_tail(
         &self,
         next: Option<String>,
         allow_imprinted: bool,
@@ -2961,6 +3062,9 @@ impl Tx<'_> {
                     owner_tag,
                     "CopyCleanup::None",
                 )?]
+            }
+            "Token" if sp.peek("AttachedTo") == Some(obj_tag) => {
+                vec![self.wave28d_repeat_token_attached(sp)?]
             }
             "Play" => {
                 let eff = self.compile_event_object_play(sp, use_imprinted, None, None, false)?;
@@ -5273,7 +5377,7 @@ enum ExilePlayRef {
 }
 
 /// Result of consuming a trailing `DB$ Cleanup` step.
-enum CleanupTail {
+pub(super) enum CleanupTail {
     End,
     Next(String),
 }
@@ -5294,7 +5398,7 @@ impl CleanupTail {
         }
     }
 
-    fn into_option(self) -> Option<String> {
+    pub(super) fn into_option(self) -> Option<String> {
         match self {
             Self::End => None,
             Self::Next(s) => Some(s),
@@ -5310,26 +5414,26 @@ enum DigPlaySaFilter {
 
 /// Parsed fields of a `DigUntil` line for `Effect::RevealUntilThen`.
 #[allow(clippy::struct_excessive_bools)]
-struct ParsedDigUntil {
+pub(super) struct ParsedDigUntil {
     library: &'static str,
-    multi_seat_domain: Option<&'static str>,
+    pub(super) multi_seat_domain: Option<&'static str>,
     valid_raw: String,
     filter_ref: String,
     count: String,
     count_is_one: bool,
     max_revealed: Option<String>,
-    exile_while_revealing: bool,
-    found: String,
+    pub(super) exile_while_revealing: bool,
+    pub(super) found: String,
     found_dest_raw: Option<String>,
     tapped: bool,
-    rest: String,
-    trailing_shuffle: bool,
-    optional_whole: bool,
-    optional_found_move: bool,
+    pub(super) rest: String,
+    pub(super) trailing_shuffle: bool,
+    pub(super) optional_whole: bool,
+    pub(super) optional_found_move: bool,
     optional_no_dest: Option<String>,
     no_move_revealed: bool,
-    remember_found: bool,
-    imprint_found: bool,
-    remember_revealed: bool,
-    imprint_revealed: bool,
+    pub(super) remember_found: bool,
+    pub(super) imprint_found: bool,
+    pub(super) remember_revealed: bool,
+    pub(super) imprint_revealed: bool,
 }

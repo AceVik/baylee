@@ -206,7 +206,10 @@ On 2026-11-02 the owner authorized discarding the existing live messages and con
 links at cutover instead of importing them. Their preservation is no longer a
 cutover prerequisite. Existing account keys and encrypted archive documents remain
 outside that live-data reset. No production deletion was executed by the local PWA
-work; startup does not automatically purge legacy records.
+work; startup does not automatically purge legacy records. Migration 35
+(`m20261125_000035_drop_old_friends`, owner 25.11.2026) deletes the old
+gateway friendships, friend requests and groups with their undelivered group
+messages; blocks, devices and table and team messages stay.
 
 Central currently retains at most 5000 sent messages per account and 5000 deliveries
 per device, without automatic deletion; full quotas reject new sends. An owner-approved

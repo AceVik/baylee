@@ -293,6 +293,7 @@ fn countable(amount: Amount) -> bool {
         | Amount::LifeTotal(_)
         | Amount::GreatestPowerAmong(_)
         | Amount::GreatestManaValueAmong(_)
+        | Amount::DistinctPowersAmong(_)
         | Amount::DistinctCounterKindsOnSource
         | Amount::HighestOpponentHandSize => true,
         Amount::CountOf { zone, .. } => matches!(zone, ZoneSel::Battlefield),
@@ -916,7 +917,7 @@ impl HeuristicAgent {
         self.count_with_chosen(view, origin, amount, aim, x, None, 0)
     }
 
-    #[allow(clippy::too_many_arguments)]
+    #[allow(clippy::too_many_arguments, clippy::too_many_lines)]
     fn count_with_chosen(
         &self,
         view: &PlayerView,
@@ -1006,10 +1007,27 @@ impl HeuristicAgent {
             Amount::DistinctManaValuesInZone { zone, filter } => {
                 self.distinct_mana_values_in_zone(view, origin, filter, zone, aim)?
             }
+            Amount::DistinctPowersAmong(filter) => {
+                let mut powers = std::collections::BTreeSet::<i64>::new();
+                for o in &view.battlefield {
+                    if self.filter_matches(
+                        filter,
+                        view,
+                        o,
+                        ZoneRef::Battlefield,
+                        Some(origin.id),
+                    )? && let Some(p) = o.power
+                    {
+                        powers.insert(i64::from(p));
+                    }
+                }
+                i64::try_from(powers.len()).unwrap_or(0)
+            }
             Amount::SourcePower => i64::from(origin.object?.power?),
             Amount::TargetPower => i64::from(target?.power?),
             Amount::TargetToughness => i64::from(target?.toughness?),
             Amount::TargetCmc => i64::from(target?.mana_value),
+            Amount::TotalTargetsManaValue => i64::from(target.map_or(0, |t| t.mana_value)),
             Amount::IfCondition { otherwise, .. } => {
                 return rec(*otherwise);
             }
@@ -2584,6 +2602,8 @@ impl HeuristicAgent {
                 0
             }
             Effect::Amass { amount, .. } => 150 + count(*amount)? * 110,
+            Effect::Empower { amount, .. } => 160 + count(*amount)? * 110,
+            Effect::EmpowerJace { amount, .. } => 160 + i64::from(*amount) * 110,
             Effect::Bolster(amount) => {
                 if view.battlefield_of(me).any(creature) {
                     count(*amount)?.max(0) * 100
@@ -2676,6 +2696,7 @@ impl HeuristicAgent {
             | Effect::SearchLibrary { .. }
             | Effect::SearchLibraryUpTo { .. }
             | Effect::WishToHand { .. }
+            | Effect::Learn
             | Effect::LookAtTopPick { .. }
             | Effect::LookAtTopPickThenReorder { .. }
             | Effect::RevealTopAndSort { .. }
@@ -3207,6 +3228,22 @@ impl HeuristicAgent {
                     .sum(),
                 _ => 0,
             },
+            Effect::PutAllCountersFrom { .. } => match (subject, origin.object) {
+                (Some(target), Some(src)) => src
+                    .counters
+                    .iter()
+                    .filter(|entry| entry.count > 0)
+                    .filter_map(|entry| {
+                        self.counters(
+                            view,
+                            target,
+                            counter_from_view(entry.kind)?,
+                            i64::from(entry.count),
+                        )
+                    })
+                    .sum(),
+                _ => 0,
+            },
             Effect::SetClassLevel(level) => self.class_upgrade_worth(view, origin, *level)?,
             Effect::AddCountersUpTo {
                 kind,
@@ -3681,6 +3718,7 @@ impl HeuristicAgent {
             | Modifier::ReplaceOrPreventDamageWithThen { .. }
             | Modifier::PreventDamageRemovingCounters { .. }
             | Modifier::PreventDamageToAffectedIfAtMost(_)
+            | Modifier::DamageCantBePrevented
             | Modifier::AddType(_)
             | Modifier::RemoveType(_)
             | Modifier::AddSubtype(_)
@@ -3858,8 +3896,23 @@ impl HeuristicAgent {
                 | CostPart::TapX(_)
                 | CostPart::SacrificeX(_)
                 | CostPart::DiscardX(_)
+                | CostPart::RevealFromHandX(_)
                 | CostPart::ExileFromGraveyardX(_)
-                | CostPart::Behold(_) => 0,
+                | CostPart::Behold(_)
+                | CostPart::BeholdAndExile(_)
+                | CostPart::RevealSelfFromHand
+                | CostPart::WaterbendX => 0,
+                CostPart::RevealFromHand(filter) => {
+                    if view
+                        .hand
+                        .iter()
+                        .any(|h| h.id != origin.id && hand_matches(filter, h) == Some(true))
+                    {
+                        0
+                    } else {
+                        return None;
+                    }
+                }
                 CostPart::PayCommanderColors => {
                     if !crate::activate::life_ok(view, cost) {
                         return None;
@@ -3950,8 +4003,23 @@ impl HeuristicAgent {
                         40
                     }
                 }
+                CostPart::PutCounterOnOther { filter, kind, n } => {
+                    own(filter, &|o| o.id != origin.id)
+                        .into_iter()
+                        .map(|o| {
+                            if *kind == baylee_cards_dsl::CounterKind::M1M1 {
+                                if i32::from(o.toughness.unwrap_or(0)) <= i32::from(*n) {
+                                    self.given_up(view, o)
+                                } else {
+                                    i64::from(*n) * 40
+                                }
+                            } else {
+                                20
+                            }
+                        })
+                        .min()?
+                }
                 CostPart::PutCounterSelf { .. }
-                | CostPart::PutCounterOnOther { .. }
                 | CostPart::ExileFromGraveyard(_)
                 | CostPart::ExileFromSingleGraveyard { .. }
                 | CostPart::PayAttachedManaCost => 20,
@@ -3972,6 +4040,7 @@ impl HeuristicAgent {
                 .min()?,
                 CostPart::TapN { .. } => return None,
                 CostPart::Crew(_) | CostPart::Saddle(_) => 80,
+                CostPart::Waterbend(n) => i64::from(*n) * 15,
                 CostPart::CraftMaterials { min, .. } => i64::from(*min) * 80,
                 CostPart::CollectEvidence(mv) => i64::from(*mv) * 5,
                 CostPart::ReturnToHand(filter) => own(filter, &|_| true)
@@ -4685,7 +4754,7 @@ fn token_worth(token: &baylee_cards_dsl::TokenDef) -> i64 {
 
 /// Whether a card in hand matches a cost's filter, for the filters a hand
 /// card can answer from its types alone; `None` for anything else.
-fn hand_matches(filter: &Filter, h: &baylee_view::HandObject) -> Option<bool> {
+pub(crate) fn hand_matches(filter: &Filter, h: &baylee_view::HandObject) -> Option<bool> {
     Some(match filter {
         Filter::Any => true,
         Filter::HasType(t) => h.types.intersects(*t),

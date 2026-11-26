@@ -129,6 +129,7 @@ pub(super) fn counter_kind(code: &str) -> Option<String> {
             "SHIELD" | "Shield" => "CounterKind::Shield",
             "FINALITY" | "Finality" => "CounterKind::Finality",
             "BORE" => "CounterKind::Bore",
+            "REPR" => "counters::REPRIEVE",
             _ => return assigned_counter(code),
         }
         .to_string(),
@@ -311,6 +312,7 @@ pub(super) fn keyword_const(line: &str) -> Option<&'static str> {
         "Riot" => "KeywordSet::RIOT",
         "Unleash" => "KeywordSet::UNLEASH",
         "Umbra armor" | "Umbra Armor" => "KeywordSet::UMBRA_ARMOR",
+        "Assist" => "KeywordSet::ASSIST",
         _ => return None,
     })
 }

@@ -21,6 +21,10 @@ pub(super) fn sacrifice(state: &mut GameState, chosen: &[ObjectId]) {
     crate::graveyard_order::capture(state, since);
 }
 
+#[allow(
+    clippy::too_many_lines,
+    reason = "commits permanent entry, counters, and triggers atomically"
+)]
 pub(super) fn finish(state: &mut GameState, entry: Attempt) {
     state.entries.pending_objects.remove(&entry.object);
     let Some(object) = state.object(entry.object) else {
@@ -58,6 +62,22 @@ pub(super) fn finish(state: &mut GameState, entry: Attempt) {
             .object(entry.object)
             .map_or(0, crate::object::GameObject::rules_acquisition);
         super::set_chosen_number(state, entry.object, number, acquisition);
+    }
+    if entry.refusal.is_none() {
+        if let Some(mode) = entry.chosen_mode {
+            state
+                .object_mut(entry.object)
+                .expect("current entry")
+                .riders
+                .push(crate::object::Rider::ChosenMode(mode));
+        }
+        for &(chooser, mode) in &entry.player_chosen_modes {
+            state
+                .object_mut(entry.object)
+                .expect("current entry")
+                .riders
+                .push(crate::object::Rider::PlayerChosenMode(chooser, mode));
+        }
     }
     if entry.refusal.is_none() {
         state.restore_tapped(entry.object, entry.tapped);
@@ -147,6 +167,7 @@ fn clean_refused_entry(state: &mut GameState, entry: &Attempt) -> bool {
 }
 
 fn apply_entry_designations(state: &mut GameState, entry: &Attempt) -> bool {
+    let mut designated = false;
     if entry.modifiers.contains(&EnterModifier::Suspected)
         && state.object(entry.object).is_some_and(|o| {
             o.characteristics()
@@ -160,7 +181,21 @@ fn apply_entry_designations(state: &mut GameState, entry: &Attempt) -> bool {
             .expect("entered object")
             .riders
             .push(crate::object::Rider::Suspected);
-        return true;
+        designated = true;
     }
-    false
+    if let Some(sub) = entry.chosen_subtype {
+        state
+            .object_mut(entry.object)
+            .expect("entered object")
+            .chosen_subtype = Some(sub);
+        designated = true;
+    }
+    if let Some(chosen) = entry.chosen_player {
+        state
+            .object_mut(entry.object)
+            .expect("entered object")
+            .set_chosen_opponent(Some(chosen));
+        designated = true;
+    }
+    designated
 }

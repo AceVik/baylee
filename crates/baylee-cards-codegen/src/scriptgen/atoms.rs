@@ -177,6 +177,14 @@ fn apply_wave14_suffix(base: &str, suffix: Option<&str>) -> Option<String> {
                 return Some(format!("Amount::divided(&{base}, {n}, false)"));
             }
             if let Some(n) = rest
+                .strip_prefix("NMinus.")
+                .and_then(|s| s.trim().parse::<u32>().ok())
+            {
+                return Some(format!(
+                    "Amount::ConstantMinus {{ constant: {n}, subtract: &{base} }}"
+                ));
+            }
+            if let Some(n) = rest
                 .strip_prefix("DivideEvenlyUp.")
                 .and_then(|s| s.trim().parse::<u32>().ok())
                 .filter(|&n| n >= 2)
@@ -322,6 +330,7 @@ fn total_power_filter(valid: &str) -> Option<&'static str> {
     })
 }
 
+#[allow(clippy::too_many_lines)]
 fn static_wave14_base(head: &str) -> Option<String> {
     match head {
         "Count$Party" | "Count$PartySize" => {
@@ -354,17 +363,22 @@ fn static_wave14_base(head: &str) -> Option<String> {
                     .to_string(),
             );
         }
-        "Count$ValidGraveyard Card.YouOwn$GreatestCardManaCost" => {
+        "Count$ValidGraveyard Card.YouOwn$GreatestCardManaCost"
+        | "Count$ValidGraveyard Card.YouCtrl$GreatestCardManaCost" => {
             return Some(
                 "Amount::GreatestManaValueAmong(&Filter::And(&[Filter::OwnedByYou, Filter::InZone(ZoneRef::Graveyard)]))"
                     .to_string(),
             );
         }
-        "Count$ValidGraveyard Creature.YouOwn$GreatestCardManaCost" => {
+        "Count$ValidGraveyard Creature.YouOwn$GreatestCardManaCost"
+        | "Count$ValidGraveyard Creature.YouCtrl$GreatestCardManaCost" => {
             return Some(
                 "Amount::GreatestManaValueAmong(&Filter::And(&[Filter::CREATURE, Filter::OwnedByYou, Filter::InZone(ZoneRef::Graveyard)]))"
                     .to_string(),
             );
+        }
+        "Count$DifferentCounterKinds_Card.Self" => {
+            return Some("Amount::DistinctCounterKindsOnSource".to_string());
         }
         "Count$ValidBattlefield,Command Card.IsCommander+YouOwn$GreatestCardManaCost"
         | "Count$ValidBattlefield,Command Card.YouOwn+IsCommander$GreatestCardManaCost" => {
@@ -395,6 +409,24 @@ fn static_wave14_base(head: &str) -> Option<String> {
     if let Some(valid) = head.strip_prefix("Count$TotalPower ") {
         let filter = total_power_filter(valid)?;
         return Some(format!("Amount::TotalPowerAmong(&{filter})"));
+    }
+    if let Some((prefix, cond)) = [
+        (
+            "Count$Morbid.",
+            "Condition::AmountAtLeast(Amount::CreaturesDiedThisTurn, 1)",
+        ),
+        ("Count$Hellbent.", "Condition::HandSizeAtMost(0)"),
+        ("Count$Threshold.", "Condition::GraveyardCountAtLeast(7)"),
+    ]
+    .into_iter()
+    .find(|(p, _)| head.starts_with(p))
+    {
+        let (a_raw, b_raw) = head[prefix.len()..].split_once('.')?;
+        let a: u32 = a_raw.trim().parse().ok()?;
+        let b: u32 = b_raw.trim().parse().ok()?;
+        return Some(format!(
+            "Amount::IfCondition {{ condition: &{cond}, then: &Amount::Fixed({a}), otherwise: &Amount::Fixed({b}) }}"
+        ));
     }
     None
 }
@@ -450,6 +482,25 @@ fn wave14_svar_amount_depth(
         match head {
             "TargetedPlayer$CardsDrawn" | "ThisTargetedPlayer$CardsDrawn" => {
                 "Amount::CardsDrawnThisTurn(PlayerRel::Chosen)".to_string()
+            }
+            "TriggeredDefendingPlayer$CardsInLibrary" => {
+                "Amount::LibrarySize(PlayerRel::DefendingPlayer)".to_string()
+            }
+            "Count$ThisTurnEntered_Graveyard_from_Library_Card.OwnedBy Targeted" => {
+                "Amount::EnteredThisTurn { filter: &Filter::Any, from: Some(ZoneRef::Library), \
+                 to: ZoneRef::Graveyard, owner_or_ctrl: PlayerRel::Chosen, exclude_source: false }"
+                    .to_string()
+            }
+            _ if head.starts_with("Count$IfCastInOwnMainPhase.") => {
+                let (a_raw, b_raw) = head["Count$IfCastInOwnMainPhase.".len()..].split_once('.')?;
+                let a: u32 = a_raw.trim().parse().ok()?;
+                let b: u32 = b_raw.trim().parse().ok()?;
+                format!(
+                    "Amount::IfCondition {{ condition: &Condition::All(&[Condition::SourceWasCastByYou, \
+                     Condition::YourTurn, Condition::Any(&[Condition::DuringStep(StepKind::FirstMain), \
+                     Condition::DuringStep(StepKind::PostcombatMain)])]), \
+                     then: &Amount::Fixed({a}), otherwise: &Amount::Fixed({b}) }}"
+                )
             }
             "Sacrificed$TotalCardPower" => "Amount::SacrificedTotalPower".to_string(),
             "Sacrificed$TotalCardToughness" => "Amount::SacrificedTotalToughness".to_string(),
@@ -649,6 +700,7 @@ const PRINTED_KEYWORDS: &[&str] = &[
     "Riot",
     "Unleash",
     "Umbra Armor",
+    "Assist",
 ];
 
 /// `withFlying` / `hasKeywordFlying` as `Filter::HasKeyword(KeywordSet::FLYING)`,
@@ -717,6 +769,7 @@ pub(super) fn keyword_atom(atom: &str) -> Option<String> {
         "Cipher" => Some("KeywordSet::CIPHER"),
         "Champion" => Some("KeywordSet::CHAMPION"),
         "Tribute" => Some("KeywordSet::TRIBUTE"),
+        "Assist" => Some("KeywordSet::ASSIST"),
         "Plainswalk" | "Landwalk:Plains" => Some("KeywordSet::PLAINSWALK"),
         "Islandwalk" | "Landwalk:Island" => Some("KeywordSet::ISLANDWALK"),
         "Swampwalk" | "Landwalk:Swamp" => Some("KeywordSet::SWAMPWALK"),

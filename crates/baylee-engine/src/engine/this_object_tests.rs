@@ -330,6 +330,18 @@ fn must_block_attackers_read(text: &str, attacker: &str) -> usize {
         .count()
 }
 
+/// `RedirectCombatDamageToYouThisTurn` reads `to` through `subjects::source` for
+/// `DamageRedirectTo::ThisObject` (`resolve::life::ice_combat`); `by` precedes `to`.
+fn redirect_combat_to_self_read(text: &str) -> usize {
+    text.split("RedirectCombatDamageToYouThisTurn {")
+        .skip(1)
+        .filter(|tail| {
+            tail.split_once(" }")
+                .is_some_and(|(effect, _)| effect.contains("to: ThisObject"))
+        })
+        .count()
+}
+
 const THIS_OBJECT_READ: &[&str] = &[
     "ReturnToHand { target: ThisObject }",
     "ReturnToBattlefieldTapped { target: ThisObject }",
@@ -359,6 +371,7 @@ const THIS_OBJECT_READ: &[&str] = &[
     "CopySpellOrAbility { target: ThisObject,",
     "Suspect { target: ThisObject }",
     "BecomeCopy { subject: First, subject_filter: None, original: ThisObject, original_is_second_target: true,",
+    "DealDamage { amount: Fixed(1), target: ThisObject }",
     "DealDamage { amount: Fixed(2), target: ThisObject }",
     "DealDamage { amount: Fixed(3), target: ThisObject }",
     "ObjectMatches { what: ThisObject, filter:",
@@ -368,7 +381,11 @@ const THIS_OBJECT_READ: &[&str] = &[
     // `resolve::zones::moving_objects` -> `subjects::moving_source`.
     "MoveAndModify { subject: Target(ThisObject),",
     "PutEachCounterKindFromSource { target: ThisObject }",
+    "PutAllCountersFrom { donor: Event, target: ThisObject }",
+    "PutAllCountersFrom { donor: Source, target: ThisObject }",
     "GainControlEx { target: ThisObject,",
+    "MoveAttachment { attachment: ThisObject,",
+    "AddTempModifier { target: ThisObject,",
     "subject: Spec(ThisObject),",
     "host: Spec(ThisObject)",
     "to: ThisObject,",
@@ -428,7 +445,8 @@ fn every_this_object_in_the_pool_is_one_the_resolver_reads() {
             + text.matches(&redirect_to_self).count()
             + text.matches(&sunflare_self).count()
             + landwalk_targets_read(&text, "ThisObject")
-            + must_block_attackers_read(&text, "ThisObject");
+            + must_block_attackers_read(&text, "ThisObject")
+            + redirect_combat_to_self_read(&text);
         seen += total;
         if read < total {
             unread.push(format!(
@@ -476,6 +494,7 @@ const EVENT_OBJECT_READ: &[&str] = &[
     "AtEndOfCombat { about: EventObject",
     "CreateDelayedObserver { watch: ThisObject, when: YouLoseControl, about: EventObject",
     "EventObjectDealsDamage {",
+    "EventObjectDealsDamageEach {",
     "EventObjectDealsDamageEqualToPower",
     "DamagePermanentAndController { target: EventObject,",
     "DealDamage { amount: Fixed(1), target: EventObject",
@@ -496,12 +515,19 @@ const EVENT_OBJECT_READ: &[&str] = &[
     "Suspect { target: EventObject }",
     "MoveAndModify { subject: Target(EventObject),",
     "GainControlEx { target: EventObject,",
+    "AddTempModifier { target: EventObject,",
     "ExileIfDiesThisTurn { target: EventObject }",
     "MoveAttachment { attachment: EventObject,",
     "PutEachCounterKindFromSource { target: EventObject }",
+    "PutAllCountersFrom { donor: Source, target: EventObject }",
+    "PutAllCountersFrom { donor: Event, target: EventObject }",
     "host: Spec(EventObject)",
     "to: EventObject,",
     "DealDamage { amount: Fixed(7), target: EventObject }",
+    "DoublePT { subject: EventObject,",
+    "ExileLinked { target: EventObject,",
+    "EventPower }, target: EventObject",
+    "OwnerPutsOnTopOrBottom { target: EventObject",
 ];
 
 /// The same census for `EventObject`, which is the **second** implicit spec

@@ -132,6 +132,9 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
 
     fn expire_until_next_turn_effects(&mut self, new_active: PlayerId) {
         crate::combat::goad::expire_for_turn(&mut self.state, new_active);
+        // "Until the end of your next turn" transitions to "until end of turn"
+        // when the controller's next turn starts, expiring in its cleanup step.
+        self.state.effects.begin_turn(new_active);
         // "Until your next turn" effects end as their controller's turn
         // begins (Elspeth's flying, Teferi's sorcery-flash).
         self.state.effects.remove_where(|fx| {
@@ -515,13 +518,14 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
     /// so a Drain resolved in its controller's first main phase pays in that
     /// turn's second (the card's ruling of 2020-11-10). It used to wait for
     /// the next first main phase, a turn late.
-    pub(crate) fn queue_main_phase_delayed(&mut self) {
+    pub(crate) fn queue_main_phase_delayed(&mut self, first_main: bool) {
         let active = self.state.turn.active;
         let mut i = 0;
         while i < self.state.delayed.len() {
             let fire = matches!(
-                self.state.delayed[i].when,
-                crate::state::DelayedWhen::NextMain
+                (self.state.delayed[i].when, first_main),
+                (crate::state::DelayedWhen::NextMain, _)
+                    | (crate::state::DelayedWhen::NextFirstMain, true)
             ) && self.state.delayed[i].controller == active;
             if fire {
                 let trigger = self.state.delayed.remove(i);

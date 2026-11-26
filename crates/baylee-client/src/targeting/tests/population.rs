@@ -81,27 +81,29 @@ fn the_census_tells_a_filter_it_can_read_from_one_it_cannot() {
 }
 
 /// Exact unread spell-target membership (`min >= 1`) that genuinely requires
-/// turn history, unannounced X, stack ability source/kind, wire-untranslated
-/// counter kind, or `Enchanted` absent from [`PlayerView`].
-const EXPECTED_BLIND: [&str; 31] = [
+/// turn history (`DealtDamageThisTurn`, `EnteredThisTurn`, `PutIntoGraveyardThisTurn`,
+/// `BlockedThisTurn`, `BlockedThisTurnBy`, `PlayerWhoAttackedThisTurn`,
+/// `CastFromZone`), unannounced X (`CmcAtMostX`, `CmcExactlyX`,
+/// `PowerAtMostAmount(X)`), stack ability source/kind (`ActivatedAbilityFrom`),
+/// or wire-untranslated counters (`CountersAtLeast`).
+const EXPECTED_BLIND: [&str; 28] = [
+    "Avenging Arrow",
     "Bind",
-    "Blazing Hope",
     "Blue Sun's Twilight",
-    "Brainspoil",
     "Cradle to Grave",
     "Crushing Pain",
-    "Cut the Earthly Bond",
     "Detonate",
     "Dominate",
     "Entrancing Melody",
+    "Executioner's Swing",
     "Fatal Blow",
-    "Feast of Dreams",
     "Fire and Brimstone",
+    "Gang Up",
     "Glyph of Delusion",
     "Interdict",
     "Kaervek's Purge",
     "Killing Glare",
-    "Lay Down Arms",
+    "Laquatus's Disdain",
     "Mirrodin Avenged",
     "Mutant's Prey",
     "Postmortem Lunge",
@@ -111,9 +113,7 @@ const EXPECTED_BLIND: [&str; 31] = [
     "Spell Blast",
     "Spell Burst",
     "Squelch",
-    "Squirming Emergence",
     "Stir the Grave",
-    "Venomous Vines",
     "You Are Already Dead",
 ];
 

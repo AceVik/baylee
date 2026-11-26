@@ -170,6 +170,8 @@ enum PaymentContinuation {
         /// What closing without the cast gives back (CR 734.1).
         opened: Box<WindowStart>,
     },
+    /// Assisting player's mana ability opportunity (`CR 702.132a`).
+    AssistMana(Box<cast_wizard::CastWizard>),
     /// "You may cast that card" said yes to (CR 608.2g): the mana is made
     /// here, and passing casts the card out of the pool.
     Cast {
@@ -325,6 +327,10 @@ impl PaymentContinuation {
                 .wrapping_add(crate::state::mana_cost_fingerprint(cost))
                 .wrapping_mul(31)
                 .wrapping_add(opened.fingerprint()),
+            Self::AssistMana(wizard) => wizard
+                .miracle_payment_fingerprint()
+                .wrapping_mul(31)
+                .wrapping_add(506),
             Self::Cast {
                 card,
                 version,
@@ -876,6 +882,11 @@ enum PlanKind {
         /// The entering permanent.
         object: ObjectId,
     },
+    /// Choosing an opponent whose hand to look at as a permanent enters
+    /// (*Anointed Peacekeeper*, *Sorcerous Spyglass*).
+    EntryLookAtOpponentHand,
+    /// Confirming private inspection of an opponent's hand as a permanent enters.
+    EntryFinishLookAtHand,
     /// Choosing a card name as a permanent enters (Pithing Needle).
     ChooseCardName {
         /// The entering permanent.
@@ -1467,6 +1478,13 @@ impl<L: CardLookup, D: LoopDetection> Engine<L, D> {
             PaymentContinuation::Activation(payment) => {
                 Some((window.player, ManaPayment::Fixed(payment.cost.mana)))
             }
+            PaymentContinuation::AssistMana(wizard) => Some((
+                window.player,
+                ManaPayment::Variable {
+                    min: 0,
+                    max: self.wizard_paid(wizard).generic_total(),
+                },
+            )),
             PaymentContinuation::Tax(resolution) => match resolution.awaiting {
                 Some(crate::resolve::AwaitingOp::PlayerMayPay { player, cost, .. })
                     if player == window.player =>
@@ -2373,6 +2391,8 @@ impl<L: CardLookup, D: LoopDetection> Engine<L, D> {
                         | PlanKind::ChooseCardName { .. }
                         | PlanKind::ChooseColor { .. }
                         | PlanKind::ChooseOpponent { .. }
+                        | PlanKind::EntryLookAtOpponentHand
+                        | PlanKind::EntryFinishLookAtHand
                         | PlanKind::IntrinsicMana { .. }
                         | PlanKind::PlayLandFace { .. }
                 )

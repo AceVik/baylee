@@ -24,9 +24,13 @@ pub(crate) fn filter_reads_board_state(filter: &baylee_cards_dsl::Filter) -> boo
     use baylee_cards_dsl::Filter;
     match filter {
         Filter::EnteredThisTurn
+        | Filter::SurveilledByYouThisTurn
         | Filter::Tapped
         | Filter::Untapped
         | Filter::Attacking
+        | Filter::AttackingYouOrYourPlaneswalker
+        | Filter::DefendingPlayerIsYou
+        | Filter::FirstMatchingSpellThisTurn(_)
         | Filter::Blocking
         | Filter::Blocked
         | Filter::BlockingSource
@@ -49,10 +53,16 @@ pub(crate) fn filter_reads_board_state(filter: &baylee_cards_dsl::Filter) -> boo
         | Filter::CmcEqualsAmount(_)
         | Filter::PowerAtMostAmount(_)
         | Filter::PowerAtLeastAmount(_)
+        | Filter::PowerEqualsAmount(_)
+        | Filter::ToughnessEqualsAmount(_)
+        | Filter::CmcEqualsChosenNumber
+        | Filter::PowerEqualsChosenNumber
+        | Filter::ToughnessEqualsChosenNumber
         | Filter::IsRemembered
         | Filter::NotRemembered
         | Filter::SharesCardTypeWithRemembered
         | Filter::SharesNameWithRemembered
+        | Filter::AttachedHostOfRemembered
         | Filter::SharesNameWithAnotherPermanent => true,
         Filter::And(parts) | Filter::Or(parts) => parts.iter().any(filter_reads_board_state),
         Filter::Not(f) | Filter::ControllerControls(f) | Filter::TargetsYouControl(f) => {
@@ -82,11 +92,14 @@ fn filter_reads_reference_at(filter: &baylee_cards_dsl::Filter, depth: u8) -> bo
         | Filter::BlockedReferenceThisTurn
         | Filter::NotControlledByReferenceController
         | Filter::SharesCreatureTypeWithOtherTarget
-        | Filter::SharesTypeWithReference(_) => true,
+        | Filter::SharesTypeWithReference(_)
+        | Filter::SharesCardTypeWithReference => true,
         Filter::CmcAtMostAmount(amt)
         | Filter::CmcEqualsAmount(amt)
         | Filter::PowerAtMostAmount(amt)
-        | Filter::PowerAtLeastAmount(amt) => amount_reads_reference_at(amt, depth + 1),
+        | Filter::PowerAtLeastAmount(amt)
+        | Filter::PowerEqualsAmount(amt)
+        | Filter::ToughnessEqualsAmount(amt) => amount_reads_reference_at(amt, depth + 1),
         Filter::And(parts) | Filter::Or(parts) => {
             parts.iter().any(|f| filter_reads_reference_at(f, depth))
         }
@@ -118,9 +131,18 @@ fn amount_reads_reference_at(amount: &baylee_cards_dsl::Amount, depth: u8) -> bo
         | Amount::GreatestManaValueAmong(f)
         | Amount::TotalPowerAmong(f)
         | Amount::EnteredThisTurn { filter: f, .. }
+        | Amount::TokensCreatedThisTurn { filter: f, .. }
+        | Amount::LeftZoneThisTurn { filter: f, .. }
+        | Amount::PermanentsSacrificedThisTurn { filter: f, .. }
         | Amount::SpellsCastMatchingThisTurn { filter: f, .. }
         | Amount::CreaturesAttackedThisTurn { filter: f, .. }
-        | Amount::DistinctManaValuesInZone { filter: f, .. } => filter_reads_reference_at(f, depth),
+        | Amount::DistinctManaValuesInZone { filter: f, .. }
+        | Amount::DistinctPowersAmong(f)
+        | Amount::HighestControlledCount { filter: f, .. }
+        | Amount::TotalManaValueInZone { filter: f, .. }
+        | Amount::DistinctExactManaCostsInZone { filter: f, .. } => {
+            filter_reads_reference_at(f, depth)
+        }
         Amount::Half { base: a, .. }
         | Amount::Divided { base: a, .. }
         | Amount::Times { base: a, .. }
@@ -308,6 +330,9 @@ pub(crate) fn ability_reads_crime(ability: &baylee_cards_dsl::AbilityDef) -> boo
             }
             | baylee_cards_dsl::ReplacementRule::ReplaceDrawWithDraws {
                 condition: Some(c), ..
+            }
+            | baylee_cards_dsl::ReplacementRule::TriggerMultiplierMatching {
+                condition: Some(c), ..
             },
         ) => condition_reads_crime(c),
         _ => false,
@@ -383,7 +408,9 @@ fn filter_reads_crime(filter: &baylee_cards_dsl::Filter, depth: u8) -> bool {
         Filter::CmcAtMostAmount(a)
         | Filter::CmcEqualsAmount(a)
         | Filter::PowerAtMostAmount(a)
-        | Filter::PowerAtLeastAmount(a) => amount_reads_crime_at(a, depth + 1),
+        | Filter::PowerAtLeastAmount(a)
+        | Filter::PowerEqualsAmount(a)
+        | Filter::ToughnessEqualsAmount(a) => amount_reads_crime_at(a, depth + 1),
         Filter::And(parts) | Filter::Or(parts) => {
             parts.iter().any(|f| filter_reads_crime(f, depth))
         }
@@ -424,9 +451,18 @@ fn amount_reads_crime_at(amount: &baylee_cards_dsl::Amount, depth: u8) -> bool {
         | Amount::GreatestManaValueAmong(f)
         | Amount::TotalPowerAmong(f)
         | Amount::EnteredThisTurn { filter: f, .. }
+        | Amount::TokensCreatedThisTurn { filter: f, .. }
+        | Amount::LeftZoneThisTurn { filter: f, .. }
+        | Amount::PermanentsSacrificedThisTurn { filter: f, .. }
         | Amount::SpellsCastMatchingThisTurn { filter: f, .. }
         | Amount::CreaturesAttackedThisTurn { filter: f, .. }
-        | Amount::DistinctManaValuesInZone { filter: f, .. } => filter_reads_crime(f, depth + 1),
+        | Amount::DistinctManaValuesInZone { filter: f, .. }
+        | Amount::DistinctPowersAmong(f)
+        | Amount::HighestControlledCount { filter: f, .. }
+        | Amount::TotalManaValueInZone { filter: f, .. }
+        | Amount::DistinctExactManaCostsInZone { filter: f, .. } => {
+            filter_reads_crime(f, depth + 1)
+        }
         Amount::Negated(a)
         | Amount::Plus { base: a, .. }
         | Amount::SaturatingSub { base: a, .. }
@@ -459,6 +495,9 @@ fn modifier_reads_crime(modifier: &baylee_cards_dsl::Modifier) -> bool {
             ..
         } => amount_reads_crime_at(amt, 0),
         Modifier::SpellsCostLessByAmount(amount) => amount_reads_crime_at(amount, 0),
+        Modifier::SpellsCostLessManaByAmount { filter, amount, .. } => {
+            filter_reads_crime(filter, 0) || amount_reads_crime_at(amount, 0)
+        }
         Modifier::AdjustSpellCostByAmount { amount, .. } => amount_reads_crime_at(amount, 0),
         Modifier::ActivatedAbilitiesCostLess { filter, amount, .. } => {
             filter_reads_crime(filter, 0) || amount_reads_crime_at(amount, 0)
@@ -572,6 +611,9 @@ pub(crate) fn ability_reads_expend(ability: &baylee_cards_dsl::AbilityDef) -> bo
             }
             | baylee_cards_dsl::ReplacementRule::ReplaceDrawWithDraws {
                 condition: Some(c), ..
+            }
+            | baylee_cards_dsl::ReplacementRule::TriggerMultiplierMatching {
+                condition: Some(c), ..
             },
         ) => condition_reads_expend(c),
         _ => false,
@@ -639,7 +681,9 @@ fn filter_reads_expend(filter: &baylee_cards_dsl::Filter, depth: u8) -> bool {
         Filter::CmcAtMostAmount(a)
         | Filter::CmcEqualsAmount(a)
         | Filter::PowerAtMostAmount(a)
-        | Filter::PowerAtLeastAmount(a) => amount_reads_expend_at(a, depth + 1),
+        | Filter::PowerAtLeastAmount(a)
+        | Filter::PowerEqualsAmount(a)
+        | Filter::ToughnessEqualsAmount(a) => amount_reads_expend_at(a, depth + 1),
         Filter::And(parts) | Filter::Or(parts) => {
             parts.iter().any(|f| filter_reads_expend(f, depth))
         }
@@ -685,9 +729,18 @@ fn amount_reads_expend_at(amount: &baylee_cards_dsl::Amount, depth: u8) -> bool 
         | Amount::GreatestManaValueAmong(f)
         | Amount::TotalPowerAmong(f)
         | Amount::EnteredThisTurn { filter: f, .. }
+        | Amount::TokensCreatedThisTurn { filter: f, .. }
+        | Amount::LeftZoneThisTurn { filter: f, .. }
+        | Amount::PermanentsSacrificedThisTurn { filter: f, .. }
         | Amount::SpellsCastMatchingThisTurn { filter: f, .. }
         | Amount::CreaturesAttackedThisTurn { filter: f, .. }
-        | Amount::DistinctManaValuesInZone { filter: f, .. } => filter_reads_expend(f, depth + 1),
+        | Amount::DistinctManaValuesInZone { filter: f, .. }
+        | Amount::DistinctPowersAmong(f)
+        | Amount::HighestControlledCount { filter: f, .. }
+        | Amount::TotalManaValueInZone { filter: f, .. }
+        | Amount::DistinctExactManaCostsInZone { filter: f, .. } => {
+            filter_reads_expend(f, depth + 1)
+        }
         Amount::Negated(a)
         | Amount::Plus { base: a, .. }
         | Amount::SaturatingSub { base: a, .. }
@@ -723,6 +776,9 @@ fn modifier_reads_expend(modifier: &baylee_cards_dsl::Modifier) -> bool {
             ..
         } => amount_reads_expend_at(amt, 0),
         Modifier::SpellsCostLessByAmount(amount) => amount_reads_expend_at(amount, 0),
+        Modifier::SpellsCostLessManaByAmount { filter, amount, .. } => {
+            filter_reads_expend(filter, 0) || amount_reads_expend_at(amount, 0)
+        }
         Modifier::AdjustSpellCostByAmount { amount, .. } => amount_reads_expend_at(amount, 0),
         Modifier::ActivatedAbilitiesCostLess { filter, amount, .. } => {
             filter_reads_expend(filter, 0) || amount_reads_expend_at(amount, 0)
@@ -835,6 +891,8 @@ pub(crate) fn card_reads_discard_count(def: &CardDef) -> bool {
             metric,
             baylee_cards_dsl::SpellCastMetric::CardsDiscardedThisTurn
         )
+    }) || card_reads_pred(def, &|_| false, &|amt| {
+        matches!(amt, baylee_cards_dsl::Amount::CardsDiscardedThisTurn(_))
     })
 }
 
@@ -843,6 +901,11 @@ pub(crate) fn card_reads_sacrificed_permanents(def: &CardDef) -> bool {
         matches!(
             metric,
             baylee_cards_dsl::SpellCastMetric::PermanentsSacrificedThisTurn(_)
+        )
+    }) || card_reads_pred(def, &|_| false, &|amt| {
+        matches!(
+            amt,
+            baylee_cards_dsl::Amount::PermanentsSacrificedThisTurn { .. }
         )
     })
 }
@@ -920,10 +983,17 @@ fn effects_have_spell_cast_metric(
     found
 }
 
-/// Whether `def` reads per-turn frozen zone-change snapshots (`Amount::EnteredThisTurn`).
+/// Whether `def` reads per-turn frozen zone-change snapshots
+/// (`Amount::EnteredThisTurn`, `Amount::TokensCreatedThisTurn`, or
+/// `Amount::LeftZoneThisTurn`).
 pub(crate) fn card_reads_zone_changes(def: &CardDef) -> bool {
     card_reads_pred(def, &|_| false, &|amt| {
-        matches!(amt, baylee_cards_dsl::Amount::EnteredThisTurn { .. })
+        matches!(
+            amt,
+            baylee_cards_dsl::Amount::EnteredThisTurn { .. }
+                | baylee_cards_dsl::Amount::TokensCreatedThisTurn { .. }
+                | baylee_cards_dsl::Amount::LeftZoneThisTurn { .. }
+        )
     })
 }
 
@@ -939,7 +1009,7 @@ pub(crate) fn card_reads_spells_cast_log(def: &CardDef) -> bool {
     })
 }
 
-/// Whether `def` reads who placed counters on a permanent this turn
+/// Whether `def` reads per-turn who placed counters on a permanent
 /// (`Condition::CountersPlacedOnSourceThisTurn { by_you: true, .. }`).
 pub(crate) fn card_reads_counter_placers(def: &CardDef) -> bool {
     card_reads_pred(
@@ -952,6 +1022,20 @@ pub(crate) fn card_reads_counter_placers(def: &CardDef) -> bool {
         },
         &|_| false,
     )
+}
+
+/// Whether `def` reads the exact mana colors, color count, or triggering spell
+/// mana spent (`ManaColorSpentToCast`, `ColorsOfManaSpentToCast`, or
+/// `EventManaSpentToCast`).
+pub(crate) fn card_reads_mana_types_spent(def: &CardDef) -> bool {
+    card_reads_pred(def, &|_| false, &|amt| {
+        matches!(
+            amt,
+            baylee_cards_dsl::Amount::ManaColorSpentToCast(_)
+                | baylee_cards_dsl::Amount::ColorsOfManaSpentToCast
+                | baylee_cards_dsl::Amount::EventManaSpentToCast
+        )
+    })
 }
 
 fn card_reads_pred(
@@ -1002,6 +1086,7 @@ fn card_reads_pred(
         })
 }
 
+#[allow(clippy::too_many_lines)]
 fn ability_matches(
     ability: &baylee_cards_dsl::AbilityDef,
     cond_pred: &impl Fn(&baylee_cards_dsl::Condition) -> bool,
@@ -1102,6 +1187,9 @@ fn ability_matches(
             }
             | baylee_cards_dsl::ReplacementRule::ReplaceDrawWithDraws {
                 condition: Some(c), ..
+            }
+            | baylee_cards_dsl::ReplacementRule::TriggerMultiplierMatching {
+                condition: Some(c), ..
             },
         ) => cond_matches(c, cond_pred, amt_pred, 0),
         _ => false,
@@ -1181,7 +1269,9 @@ fn filter_matches(
         Filter::CmcAtMostAmount(a)
         | Filter::CmcEqualsAmount(a)
         | Filter::PowerAtMostAmount(a)
-        | Filter::PowerAtLeastAmount(a) => amt_matches(a, cond_pred, amt_pred, depth + 1),
+        | Filter::PowerAtLeastAmount(a)
+        | Filter::PowerEqualsAmount(a)
+        | Filter::ToughnessEqualsAmount(a) => amt_matches(a, cond_pred, amt_pred, depth + 1),
         Filter::And(parts) | Filter::Or(parts) => parts
             .iter()
             .any(|f| filter_matches(f, cond_pred, amt_pred, depth)),
@@ -1230,9 +1320,16 @@ fn amt_matches(
         | Amount::GreatestManaValueAmong(f)
         | Amount::TotalPowerAmong(f)
         | Amount::EnteredThisTurn { filter: f, .. }
+        | Amount::TokensCreatedThisTurn { filter: f, .. }
+        | Amount::LeftZoneThisTurn { filter: f, .. }
+        | Amount::PermanentsSacrificedThisTurn { filter: f, .. }
         | Amount::SpellsCastMatchingThisTurn { filter: f, .. }
         | Amount::CreaturesAttackedThisTurn { filter: f, .. }
-        | Amount::DistinctManaValuesInZone { filter: f, .. } => {
+        | Amount::DistinctManaValuesInZone { filter: f, .. }
+        | Amount::DistinctPowersAmong(f)
+        | Amount::HighestControlledCount { filter: f, .. }
+        | Amount::TotalManaValueInZone { filter: f, .. }
+        | Amount::DistinctExactManaCostsInZone { filter: f, .. } => {
             filter_matches(f, cond_pred, amt_pred, depth + 1)
         }
         Amount::Negated(a)
@@ -1273,6 +1370,10 @@ fn modifier_matches(
             ..
         }
         | Modifier::SpellsCostLessByAmount(amt) => amt_matches(amt, cond_pred, amt_pred, 0),
+        Modifier::SpellsCostLessManaByAmount { filter, amount, .. } => {
+            filter_matches(filter, cond_pred, amt_pred, 0)
+                || amt_matches(amount, cond_pred, amt_pred, 0)
+        }
         Modifier::AdjustSpellCostByAmount { amount, .. } => {
             amt_matches(amount, cond_pred, amt_pred, 0)
         }
@@ -1461,11 +1562,35 @@ pub(crate) fn card_reads_first_spell_each_turn(def: &CardDef) -> bool {
     })
 }
 
+fn filter_reads_first_spell_each_turn(filter: &baylee_cards_dsl::Filter, depth: u8) -> bool {
+    use baylee_cards_dsl::Filter;
+    if depth >= 8 {
+        return false;
+    }
+    match filter {
+        Filter::FirstMatchingSpellThisTurn(_) => true,
+        Filter::And(parts) | Filter::Or(parts) => parts
+            .iter()
+            .any(|p| filter_reads_first_spell_each_turn(p, depth + 1)),
+        Filter::Not(f) | Filter::ControllerControls(f) | Filter::TargetsYouControl(f) => {
+            filter_reads_first_spell_each_turn(f, depth + 1)
+        }
+        _ => false,
+    }
+}
+
 fn ability_reads_first_spell_each_turn(ability: &baylee_cards_dsl::AbilityDef) -> bool {
     use baylee_cards_dsl::{AbilityDef, Modifier};
     match ability {
         AbilityDef::Static(sa) => {
             matches!(sa.modifier, Modifier::FirstSpellEachTurnCostAdjust { .. })
+                || filter_reads_first_spell_each_turn(&sa.filter, 0)
+                || sa.condition.as_ref().is_some_and(|c| {
+                    matches!(
+                        c,
+                        baylee_cards_dsl::Condition::FirstMatchingSpellThisTurn(_)
+                    )
+                })
         }
         AbilityDef::Spell { effects, .. }
         | AbilityDef::Triggered { effects, .. }
@@ -1507,6 +1632,731 @@ fn effects_read_first_spell_each_turn(effects: &'static [baylee_cards_dsl::Effec
             Effect::CreateEmblem { abilities } => {
                 abilities.iter().any(ability_reads_first_spell_each_turn)
             }
+            _ => false,
+        };
+    });
+    found
+}
+
+/// Whether `def` reads non-hand, non-graveyard cast origin provenance
+/// (`Filter::CastFromZone` / `Condition::SourceCastFromZone` for `Exile`,
+/// `Library`, or `Command`).
+pub(crate) fn card_reads_cast_origin_zone(def: &CardDef) -> bool {
+    let zone_needs_rider = |z: baylee_cards_dsl::ZoneRef| {
+        matches!(
+            z,
+            baylee_cards_dsl::ZoneRef::Exile
+                | baylee_cards_dsl::ZoneRef::Library
+                | baylee_cards_dsl::ZoneRef::Command
+        )
+    };
+    if card_reads_pred(
+        def,
+        &|cond| matches!(cond, baylee_cards_dsl::Condition::SourceCastFromZone(z) if zone_needs_rider(*z)),
+        &|_| false,
+    ) {
+        return true;
+    }
+    (0..def.faces.len().max(1)).any(|face| {
+        def.abilities_for_face(face)
+            .iter()
+            .any(ability_reads_cast_origin_zone)
+    })
+}
+
+fn filter_reads_cast_origin_zone(filter: &baylee_cards_dsl::Filter, depth: u8) -> bool {
+    use baylee_cards_dsl::{Filter, ZoneRef};
+    if depth >= 8 {
+        return false;
+    }
+    match filter {
+        Filter::CastFromZone(ZoneRef::Exile | ZoneRef::Library | ZoneRef::Command) => true,
+        Filter::And(parts) | Filter::Or(parts) => parts
+            .iter()
+            .any(|f| filter_reads_cast_origin_zone(f, depth + 1)),
+        Filter::Not(f)
+        | Filter::AttachedTo(f)
+        | Filter::BlockedThisTurnBy(f)
+        | Filter::LowestManaValueOnBattlefield(f)
+        | Filter::SharesAColorWith(f)
+        | Filter::SharesColorWithMostCommon(f)
+        | Filter::SharesCreatureTypeWith(f)
+        | Filter::ControllerControls(f)
+        | Filter::TargetsYouControl(f)
+        | Filter::ActivatedAbilityFrom(f) => filter_reads_cast_origin_zone(f, depth + 1),
+        Filter::CmcAtMostAmount(a)
+        | Filter::CmcEqualsAmount(a)
+        | Filter::PowerAtMostAmount(a)
+        | Filter::PowerAtLeastAmount(a)
+        | Filter::PowerEqualsAmount(a)
+        | Filter::ToughnessEqualsAmount(a) => amt_reads_cast_origin_zone(a, depth + 1),
+        _ => false,
+    }
+}
+
+fn cond_reads_cast_origin_zone(cond: &baylee_cards_dsl::Condition, depth: u8) -> bool {
+    use baylee_cards_dsl::{Condition, ZoneRef};
+    if depth >= 8 {
+        return false;
+    }
+    match cond {
+        Condition::SourceCastFromZone(ZoneRef::Exile | ZoneRef::Library | ZoneRef::Command) => true,
+        Condition::AmountAtLeast(a, _) | Condition::AmountIsEven(a) => {
+            amt_reads_cast_origin_zone(a, depth + 1)
+        }
+        Condition::AmountCompare { left, right, .. } => {
+            amt_reads_cast_origin_zone(left, depth + 1)
+                || amt_reads_cast_origin_zone(right, depth + 1)
+        }
+        Condition::ControlCount(f, _)
+        | Condition::ControlCountExceptEvent(f, _)
+        | Condition::ControlCountAtMost(f, _)
+        | Condition::BattlefieldCount(f, _)
+        | Condition::BattlefieldCountAtMost(f, _)
+        | Condition::ControlDistinctNames(f, _)
+        | Condition::OpponentControlCount(f, _)
+        | Condition::OpponentControlCountAtMost(f, _)
+        | Condition::OpponentControlsMore(f)
+        | Condition::OpponentControlsMoreBy(f, _)
+        | Condition::ControlMoreThanEachOtherPlayer(f)
+        | Condition::SomeDefendingPlayerControlsNone(f)
+        | Condition::ChosenOpponentControls(f)
+        | Condition::ChosenColorIsUniqueMostCommon(f)
+        | Condition::TargetSpellWouldDestroy(f)
+        | Condition::GraveyardCardsAbove(f, _)
+        | Condition::SourceMatches(f)
+        | Condition::AttachedMatches(f)
+        | Condition::CanSacrifice(f)
+        | Condition::SacrificedForCost(f)
+        | Condition::DiscardedForCost(f)
+        | Condition::ObjectMatches { filter: f, .. } => filter_reads_cast_origin_zone(f, depth + 1),
+        Condition::EventBlockedByOthers { some, none } => {
+            filter_reads_cast_origin_zone(some, depth + 1)
+                || filter_reads_cast_origin_zone(none, depth + 1)
+        }
+        Condition::Not(inner) | Condition::TriggerOnly(inner) => {
+            cond_reads_cast_origin_zone(inner, depth + 1)
+        }
+        Condition::All(parts) | Condition::Any(parts) => parts
+            .iter()
+            .any(|p| cond_reads_cast_origin_zone(p, depth + 1)),
+        _ => false,
+    }
+}
+
+fn amt_reads_cast_origin_zone(amount: &baylee_cards_dsl::Amount, depth: u8) -> bool {
+    use baylee_cards_dsl::Amount;
+    if depth >= 8 {
+        return false;
+    }
+    match amount {
+        Amount::IfCondition {
+            condition,
+            then,
+            otherwise,
+        } => {
+            cond_reads_cast_origin_zone(condition, depth + 1)
+                || amt_reads_cast_origin_zone(then, depth + 1)
+                || amt_reads_cast_origin_zone(otherwise, depth + 1)
+        }
+        Amount::DistinctColorsAmong(f)
+        | Amount::BasicLandTypesAmong(f)
+        | Amount::CountOf { filter: f, .. }
+        | Amount::ControlledCount { filter: f, .. }
+        | Amount::DamageThisTurn { by: f, .. }
+        | Amount::GreatestPowerAmong(f)
+        | Amount::GreatestManaValueAmong(f)
+        | Amount::TotalPowerAmong(f)
+        | Amount::EnteredThisTurn { filter: f, .. }
+        | Amount::TokensCreatedThisTurn { filter: f, .. }
+        | Amount::LeftZoneThisTurn { filter: f, .. }
+        | Amount::PermanentsSacrificedThisTurn { filter: f, .. }
+        | Amount::SpellsCastMatchingThisTurn { filter: f, .. }
+        | Amount::CreaturesAttackedThisTurn { filter: f, .. }
+        | Amount::DistinctManaValuesInZone { filter: f, .. } => {
+            filter_reads_cast_origin_zone(f, depth + 1)
+        }
+        Amount::Negated(a)
+        | Amount::Plus { base: a, .. }
+        | Amount::SaturatingSub { base: a, .. }
+        | Amount::ConstantMinus { subtract: a, .. }
+        | Amount::Half { base: a, .. }
+        | Amount::Divided { base: a, .. }
+        | Amount::Times { base: a, .. } => amt_reads_cast_origin_zone(a, depth + 1),
+        Amount::Sum { left: a, right: b } | Amount::Difference { left: a, right: b } => {
+            amt_reads_cast_origin_zone(a, depth + 1) || amt_reads_cast_origin_zone(b, depth + 1)
+        }
+        _ => false,
+    }
+}
+
+fn target_spec_reads_cast_origin_zone(spec: &baylee_cards_dsl::TargetSpec) -> bool {
+    use baylee_cards_dsl::TargetSpec;
+    match spec {
+        TargetSpec::Object(f)
+        | TargetSpec::ObjectOfEachOpponent(f)
+        | TargetSpec::OpponentOrObject(f)
+        | TargetSpec::ObjectOfFirstTargetsPlayer(f)
+        | TargetSpec::ObjectControlledBy(f, _)
+        | TargetSpec::ObjectOfEventPlayer(f)
+        | TargetSpec::Spell(f)
+        | TargetSpec::StackOrBattlefield(f)
+        | TargetSpec::ObjectOrCardInAnyGraveyard(f)
+        | TargetSpec::CardInGraveyard(f, _)
+        | TargetSpec::CardInFirstTargetsGraveyard(f)
+        | TargetSpec::CardInPlayersGraveyard(f, _)
+        | TargetSpec::CardInGraveyardBelowEvent(f, _)
+        | TargetSpec::CardInGraveyardBelowValue(f, _, _)
+        | TargetSpec::AbilityOnStack(f)
+        | TargetSpec::SpellOrAbility(f)
+        | TargetSpec::OpponentWithMoreThanActivePlayer(f)
+        | TargetSpec::OpponentWithMoreThanPlayer(f, _)
+        | TargetSpec::PlayerOrObject(f) => filter_reads_cast_origin_zone(f, 0),
+        _ => false,
+    }
+}
+
+fn trigger_reads_cast_origin_zone(trigger: &baylee_cards_dsl::Trigger) -> bool {
+    use baylee_cards_dsl::Trigger;
+    match trigger {
+        Trigger::EntersBattlefield(f)
+        | Trigger::EntersBattlefieldFromGraveyardOrCast(f)
+        | Trigger::LeavesBattlefield(f)
+        | Trigger::Dies(f)
+        | Trigger::DiesNotSacrificed(f)
+        | Trigger::SpellCast(f)
+        | Trigger::SpellCastUsingSourceMana(f)
+        | Trigger::SpellCastOrCopied(f)
+        | Trigger::NthSpellCast { filter: f, .. }
+        | Trigger::ChangesZoneAll { filter: f, .. } => filter_reads_cast_origin_zone(f, 0),
+        Trigger::SpellCastTargeting { spell, target, .. } => {
+            filter_reads_cast_origin_zone(spell, 0)
+                || target.is_some_and(|tf| filter_reads_cast_origin_zone(tf, 0))
+        }
+        _ => false,
+    }
+}
+
+fn modifier_reads_cast_origin_zone(modifier: &baylee_cards_dsl::Modifier) -> bool {
+    use baylee_cards_dsl::Modifier;
+    match modifier {
+        Modifier::GrantTriggered {
+            trigger, effects, ..
+        }
+        | Modifier::GrantTriggeredUpToOne {
+            trigger, effects, ..
+        } => trigger_reads_cast_origin_zone(trigger) || effects_read_cast_origin_zone(effects),
+        Modifier::GrantTriggeredDefinition(ability) => ability_reads_cast_origin_zone(ability),
+        Modifier::GrantActivated { effects, .. } => effects_read_cast_origin_zone(effects),
+        Modifier::GrantFlash { filter, .. }
+        | Modifier::FirstSpellEachTurnCostAdjust { filter, .. }
+        | Modifier::ActivatedAbilitiesCostLess { filter, .. }
+        | Modifier::CantBeTargetedBy(filter) => filter_reads_cast_origin_zone(filter, 0),
+        _ => false,
+    }
+}
+
+fn replacement_reads_cast_origin_zone(rule: &baylee_cards_dsl::ReplacementRule) -> bool {
+    use baylee_cards_dsl::{ReplacementRule, TriggerCause};
+    match rule {
+        ReplacementRule::EnterTapped(f)
+        | ReplacementRule::EnterUntapped(f)
+        | ReplacementRule::EnterWithCountersFromSource { filter: f } => {
+            filter_reads_cast_origin_zone(f, 0)
+        }
+        ReplacementRule::EnterTappedIf { filter, condition }
+        | ReplacementRule::EnterUntappedIf { filter, condition } => {
+            filter_reads_cast_origin_zone(filter, 0) || cond_reads_cast_origin_zone(condition, 0)
+        }
+        ReplacementRule::TriggerMultiplier { source_filter, .. }
+        | ReplacementRule::TriggerSuppress { source_filter, .. } => {
+            filter_reads_cast_origin_zone(source_filter, 0)
+        }
+        ReplacementRule::TriggerMultiplierMatching {
+            source_filter,
+            cause,
+            condition,
+        } => {
+            filter_reads_cast_origin_zone(source_filter, 0)
+                || condition.is_some_and(|c| cond_reads_cast_origin_zone(&c, 0))
+                || match cause {
+                    TriggerCause::EntersBattlefield(f)
+                    | TriggerCause::Dies(f)
+                    | TriggerCause::LeavesBattlefield(f)
+                    | TriggerCause::Sacrificed { filter: f, .. }
+                    | TriggerCause::Attack(f)
+                    | TriggerCause::SpellCastOrCopy { filter: f, .. }
+                    | TriggerCause::DealsCombatDamageToPlayer(f)
+                    | TriggerCause::DealtDamage(f)
+                    | TriggerCause::TurnedFaceUp(f)
+                    | TriggerCause::BecomesTarget(f) => filter_reads_cast_origin_zone(f, 0),
+                    TriggerCause::Any
+                    | TriggerCause::LifeGained(_)
+                    | TriggerCause::CardDrawn(_) => false,
+                }
+        }
+        _ => false,
+    }
+}
+
+#[allow(clippy::too_many_lines)]
+fn ability_reads_cast_origin_zone(ability: &baylee_cards_dsl::AbilityDef) -> bool {
+    use baylee_cards_dsl::AbilityDef;
+    let req_hit = |req: Option<baylee_cards_dsl::TargetReq>| {
+        req.is_some_and(|r| target_spec_reads_cast_origin_zone(&r.spec))
+    };
+    match ability {
+        AbilityDef::Triggered {
+            trigger,
+            effects,
+            targets,
+            second_targets,
+            third_targets,
+            condition,
+            ..
+        } => {
+            trigger_reads_cast_origin_zone(trigger)
+                || req_hit(*targets)
+                || req_hit(*second_targets)
+                || req_hit(*third_targets)
+                || condition.is_some_and(|c| cond_reads_cast_origin_zone(&c, 0))
+                || effects_read_cast_origin_zone(effects)
+        }
+        AbilityDef::ModalTriggered {
+            trigger,
+            modes,
+            condition,
+            ..
+        } => {
+            trigger_reads_cast_origin_zone(trigger)
+                || condition.is_some_and(|c| cond_reads_cast_origin_zone(&c, 0))
+                || modes.iter().any(|m| {
+                    req_hit(m.targets)
+                        || req_hit(m.second_targets)
+                        || effects_read_cast_origin_zone(m.effects)
+                })
+        }
+        AbilityDef::Spell {
+            effects,
+            targets,
+            second_targets,
+            third_targets,
+            condition,
+            ..
+        } => {
+            req_hit(*targets)
+                || req_hit(*second_targets)
+                || req_hit(*third_targets)
+                || condition.is_some_and(|c| cond_reads_cast_origin_zone(&c, 0))
+                || effects_read_cast_origin_zone(effects)
+        }
+        AbilityDef::Activated {
+            effects,
+            targets,
+            second_targets,
+            third_targets,
+            ..
+        }
+        | AbilityDef::Loyalty {
+            effects,
+            targets,
+            second_targets,
+            third_targets,
+            ..
+        } => {
+            req_hit(*targets)
+                || req_hit(*second_targets)
+                || req_hit(*third_targets)
+                || effects_read_cast_origin_zone(effects)
+        }
+        AbilityDef::ActivatedConditional {
+            effects,
+            targets,
+            second_targets,
+            third_targets,
+            condition,
+            ..
+        } => {
+            req_hit(*targets)
+                || req_hit(*second_targets)
+                || req_hit(*third_targets)
+                || cond_reads_cast_origin_zone(condition, 0)
+                || effects_read_cast_origin_zone(effects)
+        }
+        AbilityDef::ModalActivated {
+            modes, condition, ..
+        } => {
+            condition.is_some_and(|c| cond_reads_cast_origin_zone(&c, 0))
+                || modes.iter().any(|m| {
+                    req_hit(m.targets)
+                        || req_hit(m.second_targets)
+                        || effects_read_cast_origin_zone(m.effects)
+                })
+        }
+        AbilityDef::ModalSpell { modes, .. } | AbilityDef::Modal { modes, .. } => {
+            modes.iter().any(|m| {
+                req_hit(m.targets)
+                    || req_hit(m.second_targets)
+                    || effects_read_cast_origin_zone(m.effects)
+            })
+        }
+        AbilityDef::SagaChapter {
+            effects, targets, ..
+        } => req_hit(*targets) || effects_read_cast_origin_zone(effects),
+        AbilityDef::Static(sa) => {
+            filter_reads_cast_origin_zone(&sa.filter, 0)
+                || sa
+                    .condition
+                    .is_some_and(|c| cond_reads_cast_origin_zone(&c, 0))
+                || modifier_reads_cast_origin_zone(&sa.modifier)
+        }
+        AbilityDef::Replacement(rule) => replacement_reads_cast_origin_zone(rule),
+        _ => false,
+    }
+}
+
+fn mana_restriction_reads_cast_origin_zone(
+    restriction: Option<baylee_cards_dsl::ManaRestriction>,
+) -> bool {
+    restriction.is_some_and(|r| {
+        filter_reads_cast_origin_zone(r.filter, 0)
+            || r.ability_filter
+                .is_some_and(|af| filter_reads_cast_origin_zone(af, 0))
+    })
+}
+
+fn effects_read_cast_origin_zone(effects: &'static [baylee_cards_dsl::Effect]) -> bool {
+    let mut seen = 0;
+    let mut found = false;
+    baylee_cards_dsl::Effect::walk(effects, &mut seen, &mut |effect| {
+        use baylee_cards_dsl::Effect;
+        found |= match effect {
+            Effect::AddMana { restriction, .. } => {
+                mana_restriction_reads_cast_origin_zone(*restriction)
+            }
+            Effect::IfCondition { condition, .. } | Effect::RepeatWhile { condition, .. } => {
+                cond_reads_cast_origin_zone(condition, 0)
+            }
+            Effect::CreateContinuousEffect {
+                filter, modifier, ..
+            } => {
+                filter_reads_cast_origin_zone(filter, 0)
+                    || modifier_reads_cast_origin_zone(modifier)
+            }
+            Effect::AddTempModifier { modifier, .. }
+            | Effect::AddGlobalTempModifier { modifier, .. } => {
+                modifier_reads_cast_origin_zone(modifier)
+            }
+            Effect::ModifyTargets { modifier, .. } => modifier_reads_cast_origin_zone(modifier),
+            Effect::CreateEmblem { abilities } => {
+                abilities.iter().any(ability_reads_cast_origin_zone)
+            }
+            Effect::RegisterDelayedTrigger {
+                when, condition, ..
+            } => {
+                condition.is_some_and(|c| cond_reads_cast_origin_zone(c, 0))
+                    || matches!(
+                        when,
+                        baylee_cards_dsl::DelayedTriggerWhen::OnTrigger { trigger, .. }
+                            if trigger_reads_cast_origin_zone(trigger)
+                    )
+            }
+            _ => false,
+        };
+    });
+    found
+}
+
+pub(crate) fn card_reads_surveilled_this_turn(def: &CardDef) -> bool {
+    (0..def.faces.len().max(1)).any(|face| {
+        def.abilities_for_face(face)
+            .iter()
+            .any(ability_reads_surveilled_this_turn)
+    })
+}
+
+fn filter_has_surveilled(filter: &baylee_cards_dsl::Filter, depth: u8) -> bool {
+    use baylee_cards_dsl::Filter;
+    if depth >= 8 {
+        return false;
+    }
+    match filter {
+        Filter::SurveilledByYouThisTurn => true,
+        Filter::And(parts) | Filter::Or(parts) => {
+            parts.iter().any(|f| filter_has_surveilled(f, depth + 1))
+        }
+        Filter::Not(f)
+        | Filter::AttachedTo(f)
+        | Filter::BlockedThisTurnBy(f)
+        | Filter::LowestManaValueOnBattlefield(f)
+        | Filter::SharesAColorWith(f)
+        | Filter::SharesColorWithMostCommon(f)
+        | Filter::SharesCreatureTypeWith(f)
+        | Filter::ControllerControls(f)
+        | Filter::TargetsYouControl(f) => filter_has_surveilled(f, depth + 1),
+        _ => false,
+    }
+}
+
+fn ability_reads_surveilled_this_turn(ability: &baylee_cards_dsl::AbilityDef) -> bool {
+    use baylee_cards_dsl::{AbilityDef, Modifier};
+    match ability {
+        AbilityDef::Static(sa) => {
+            filter_has_surveilled(&sa.filter, 0)
+                || matches!(
+                    sa.modifier,
+                    Modifier::GrantFlash { filter, .. } if filter_has_surveilled(filter, 0)
+                )
+        }
+        AbilityDef::Spell { effects, .. }
+        | AbilityDef::Triggered { effects, .. }
+        | AbilityDef::Activated { effects, .. }
+        | AbilityDef::ActivatedConditional { effects, .. }
+        | AbilityDef::SagaChapter { effects, .. }
+        | AbilityDef::Loyalty { effects, .. } => effects_read_surveilled_this_turn(effects),
+        AbilityDef::ModalSpell { modes, .. }
+        | AbilityDef::Modal { modes, .. }
+        | AbilityDef::ModalActivated { modes, .. }
+        | AbilityDef::ModalTriggered { modes, .. } => modes
+            .iter()
+            .any(|m| effects_read_surveilled_this_turn(m.effects)),
+        _ => false,
+    }
+}
+
+fn effects_read_surveilled_this_turn(effects: &'static [baylee_cards_dsl::Effect]) -> bool {
+    let mut seen = 0;
+    let mut found = false;
+    baylee_cards_dsl::Effect::walk(effects, &mut seen, &mut |effect| {
+        use baylee_cards_dsl::{Effect, Modifier};
+        found |= match effect {
+            Effect::CreateContinuousEffect {
+                filter, modifier, ..
+            }
+            | Effect::AddGlobalTempModifier {
+                filter, modifier, ..
+            } => {
+                filter_has_surveilled(filter, 0)
+                    || matches!(
+                        modifier,
+                        Modifier::GrantFlash { filter: f, .. } if filter_has_surveilled(f, 0)
+                    )
+            }
+            Effect::AddTempModifier { modifier, .. } => matches!(
+                modifier,
+                Modifier::GrantFlash { filter: f, .. } if filter_has_surveilled(f, 0)
+            ),
+            Effect::CreateEmblem { abilities } => {
+                abilities.iter().any(ability_reads_surveilled_this_turn)
+            }
+            _ => false,
+        };
+    });
+    found
+}
+
+pub(crate) fn card_reads_foretold_count(def: &CardDef) -> bool {
+    (0..def.faces.len().max(1)).any(|face| {
+        def.abilities_for_face(face)
+            .iter()
+            .any(ability_reads_foretold_count)
+    })
+}
+
+fn ability_reads_foretold_count(ability: &baylee_cards_dsl::AbilityDef) -> bool {
+    use baylee_cards_dsl::{AbilityDef, Modifier};
+    match ability {
+        AbilityDef::Static(sa) => matches!(
+            sa.modifier,
+            Modifier::ForetellActionCostsLess {
+                first_each_turn_only: true,
+                ..
+            }
+        ),
+        AbilityDef::Spell { effects, .. }
+        | AbilityDef::Triggered { effects, .. }
+        | AbilityDef::Activated { effects, .. }
+        | AbilityDef::ActivatedConditional { effects, .. }
+        | AbilityDef::SagaChapter { effects, .. }
+        | AbilityDef::Loyalty { effects, .. } => effects_read_foretold_count(effects),
+        AbilityDef::ModalSpell { modes, .. }
+        | AbilityDef::Modal { modes, .. }
+        | AbilityDef::ModalActivated { modes, .. }
+        | AbilityDef::ModalTriggered { modes, .. } => {
+            modes.iter().any(|m| effects_read_foretold_count(m.effects))
+        }
+        _ => false,
+    }
+}
+
+fn effects_read_foretold_count(effects: &'static [baylee_cards_dsl::Effect]) -> bool {
+    let mut seen = 0;
+    let mut found = false;
+    baylee_cards_dsl::Effect::walk(effects, &mut seen, &mut |effect| {
+        use baylee_cards_dsl::{Effect, Modifier};
+        found |= match effect {
+            Effect::CreateContinuousEffect {
+                modifier:
+                    Modifier::ForetellActionCostsLess {
+                        first_each_turn_only: true,
+                        ..
+                    },
+                ..
+            }
+            | Effect::AddTempModifier {
+                modifier:
+                    Modifier::ForetellActionCostsLess {
+                        first_each_turn_only: true,
+                        ..
+                    },
+                ..
+            }
+            | Effect::AddGlobalTempModifier {
+                modifier:
+                    Modifier::ForetellActionCostsLess {
+                        first_each_turn_only: true,
+                        ..
+                    },
+                ..
+            } => true,
+            Effect::CreateEmblem { abilities } => {
+                abilities.iter().any(ability_reads_foretold_count)
+            }
+            _ => false,
+        };
+    });
+    found
+}
+
+pub(crate) fn card_reads_first_discard_batch(def: &CardDef) -> bool {
+    (0..def.faces.len().max(1)).any(|face| {
+        def.abilities_for_face(face)
+            .iter()
+            .any(ability_reads_first_discard_batch)
+    })
+}
+
+fn ability_reads_first_discard_batch(ability: &baylee_cards_dsl::AbilityDef) -> bool {
+    use baylee_cards_dsl::{AbilityDef, Modifier, Trigger};
+    match ability {
+        AbilityDef::Triggered {
+            trigger:
+                Trigger::OneOrMoreCardsDiscarded {
+                    first_this_turn: true,
+                    ..
+                },
+            ..
+        }
+        | AbilityDef::ModalTriggered {
+            trigger:
+                Trigger::OneOrMoreCardsDiscarded {
+                    first_this_turn: true,
+                    ..
+                },
+            ..
+        } => true,
+        AbilityDef::Static(sa) => match sa.modifier {
+            Modifier::GrantTriggered {
+                trigger:
+                    Trigger::OneOrMoreCardsDiscarded {
+                        first_this_turn: true,
+                        ..
+                    },
+                ..
+            } => true,
+            Modifier::GrantTriggeredDefinition(inner) => ability_reads_first_discard_batch(inner),
+            _ => false,
+        },
+        AbilityDef::Spell { effects, .. }
+        | AbilityDef::Triggered { effects, .. }
+        | AbilityDef::Activated { effects, .. }
+        | AbilityDef::ActivatedConditional { effects, .. }
+        | AbilityDef::SagaChapter { effects, .. }
+        | AbilityDef::Loyalty { effects, .. } => effects_read_first_discard_batch(effects),
+        AbilityDef::ModalSpell { modes, .. }
+        | AbilityDef::Modal { modes, .. }
+        | AbilityDef::ModalActivated { modes, .. }
+        | AbilityDef::ModalTriggered { modes, .. } => modes
+            .iter()
+            .any(|m| effects_read_first_discard_batch(m.effects)),
+        _ => false,
+    }
+}
+
+fn effects_read_first_discard_batch(effects: &'static [baylee_cards_dsl::Effect]) -> bool {
+    let mut seen = 0;
+    let mut found = false;
+    baylee_cards_dsl::Effect::walk(effects, &mut seen, &mut |effect| {
+        use baylee_cards_dsl::{DelayedTriggerWhen, Effect, Modifier, Trigger};
+        found |= match effect {
+            Effect::RegisterDelayedTrigger {
+                when:
+                    DelayedTriggerWhen::OnTrigger {
+                        trigger:
+                            Trigger::OneOrMoreCardsDiscarded {
+                                first_this_turn: true,
+                                ..
+                            },
+                        ..
+                    },
+                ..
+            }
+            | Effect::CreateContinuousEffect {
+                modifier:
+                    Modifier::GrantTriggered {
+                        trigger:
+                            Trigger::OneOrMoreCardsDiscarded {
+                                first_this_turn: true,
+                                ..
+                            },
+                        ..
+                    },
+                ..
+            }
+            | Effect::AddTempModifier {
+                modifier:
+                    Modifier::GrantTriggered {
+                        trigger:
+                            Trigger::OneOrMoreCardsDiscarded {
+                                first_this_turn: true,
+                                ..
+                            },
+                        ..
+                    },
+                ..
+            }
+            | Effect::AddGlobalTempModifier {
+                modifier:
+                    Modifier::GrantTriggered {
+                        trigger:
+                            Trigger::OneOrMoreCardsDiscarded {
+                                first_this_turn: true,
+                                ..
+                            },
+                        ..
+                    },
+                ..
+            } => true,
+            Effect::CreateContinuousEffect {
+                modifier: Modifier::GrantTriggeredDefinition(inner),
+                ..
+            }
+            | Effect::AddTempModifier {
+                modifier: Modifier::GrantTriggeredDefinition(inner),
+                ..
+            }
+            | Effect::AddGlobalTempModifier {
+                modifier: Modifier::GrantTriggeredDefinition(inner),
+                ..
+            } => ability_reads_first_discard_batch(inner),
+            Effect::CreateEmblem { abilities } => {
+                abilities.iter().any(ability_reads_first_discard_batch)
+            }
+            Effect::Backup {
+                grant_abilities, ..
+            } => grant_abilities
+                .iter()
+                .any(ability_reads_first_discard_batch),
             _ => false,
         };
     });

@@ -272,7 +272,16 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                             EnterModifier::WithCounters { .. }
                                 | EnterModifier::WithCountersIf { .. }
                                 | EnterModifier::Bloodthirst(_)
-                        ))
+                        )
+                        || (crate::entry::has_pre_counter_choice(face.enter_modifiers)
+                            && matches!(
+                                modifier,
+                                EnterModifier::ChooseSubtype
+                                    | EnterModifier::ChooseSubtypeFrom(_)
+                                    | EnterModifier::ChooseBasicLandType
+                                    | EnterModifier::ChooseOpponent
+                                    | EnterModifier::ChooseAnyPlayer
+                            )))
                 {
                     continue;
                 }
@@ -289,7 +298,9 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                     | EnterModifier::Amplify(_)
                     | EnterModifier::Devour { .. }
                     | EnterModifier::Sunburst
-                    | EnterModifier::Tribute(_) => {}
+                    | EnterModifier::Tribute(_)
+                    | EnterModifier::ChooseMode(_)
+                    | EnterModifier::EachPlayerChooseMode(_) => {}
                     EnterModifier::TappedUnlessCondition(condition) => {
                         if !eval::condition_holds(&self.state, controller, id, *condition) {
                             self.state.set_tapped(id, true);
@@ -480,12 +491,20 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                     | EnterModifier::ChooseCardType
                     | EnterModifier::ChooseColor
                     | EnterModifier::ChooseOpponent
+                    | EnterModifier::ChooseAnyPlayer
+                    | EnterModifier::LookAtOpponentHand
                     | EnterModifier::ChooseColorExcept(_)
                     | EnterModifier::TappedForPlayerCounters { .. }
                     | EnterModifier::TappedOrPayLife(_)
                     | EnterModifier::TappedUnlessReveal(_)
                     | EnterModifier::TappedUnlessRevealOrControl(_) => {
                         asks.push((id, controller, EntryAsk::Modifier(modifier)));
+                    }
+                    EnterModifier::BecomeDayIfNeither => {
+                        if self.state.day_night.is_none() {
+                            self.state.become_day();
+                            changed = true;
+                        }
                     }
                     EnterModifier::Suspected => {
                         if !orientation_applied
@@ -635,6 +654,54 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
         true
     }
 
+    /// Asks for any player as a permanent enters (`EnterModifier::ChooseAnyPlayer`).
+    fn ask_enter_any_player(&mut self, id: ObjectId, controller: PlayerId) -> bool {
+        let options =
+            eval::players(PlayerRel::EachPlayer, &self.state, controller).unwrap_or_default();
+        if options.is_empty() {
+            return false;
+        }
+        self.pending_plan = Some(PlanKind::ChooseOpponent { object: id });
+        self.pending = Pending::ChoosePlayer {
+            player: controller,
+            options,
+        };
+        self.awaiting_answer = true;
+        true
+    }
+
+    /// Asks to choose an opponent (when several exist) and privately inspect their hand.
+    fn ask_enter_look_at_opponent_hand(&mut self, controller: PlayerId) -> bool {
+        let options =
+            eval::players(PlayerRel::Opponent, &self.state, controller).unwrap_or_default();
+        match options.as_slice() {
+            [] => false,
+            [only] => {
+                let hand = self.state.zones.list(ZoneLocation::Hand(*only)).clone();
+                self.pending_plan = Some(PlanKind::EntryFinishLookAtHand);
+                self.pending = Pending::ChooseCards {
+                    player: controller,
+                    options: hand,
+                    min: 0,
+                    max: 0,
+                    prompt: ChoicePrompt::LookAtHand,
+                    total: None,
+                };
+                self.awaiting_answer = true;
+                true
+            }
+            _ => {
+                self.pending_plan = Some(PlanKind::EntryLookAtOpponentHand);
+                self.pending = Pending::ChoosePlayer {
+                    player: controller,
+                    options,
+                };
+                self.awaiting_answer = true;
+                true
+            }
+        }
+    }
+
     /// Asks for the subtype a permanent chooses as it enters.
     fn ask_entry_subtype(
         &mut self,
@@ -674,6 +741,8 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
         use baylee_cards_dsl::EnterModifier;
         match modifier {
             EnterModifier::ChooseOpponent => self.ask_enter_opponent(id, controller),
+            EnterModifier::ChooseAnyPlayer => self.ask_enter_any_player(id, controller),
+            EnterModifier::LookAtOpponentHand => self.ask_enter_look_at_opponent_hand(controller),
             EnterModifier::ChooseTwoBasicLandTypes => self.ask_two_land_types(id, controller),
             EnterModifier::ChooseSubtype
             | EnterModifier::ChooseSubtypeFrom(_)

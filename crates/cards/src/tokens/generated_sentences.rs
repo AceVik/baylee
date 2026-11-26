@@ -570,4 +570,40 @@ pub(super) static ROWS: &[(&TokenDef, &[&str])] = &[
             "This token gets +2/+2 as long as an artifact entered the battlefield under your control this turn.",
         ],
     ),
+    // The Raven Man.
+    (
+        &token::BIRD_1_1_BLACK_FLYING_AA6F088A4,
+        &["This token can't block."],
+    ),
+    // Nettling Nuisance.
+    (
+        &token::PIRATE_4_2_RED_AA6F088A4,
+        &["This token can't block."],
+    ),
+    // Mole Man, Moloid Master and Return of the Mole Man.
+    (
+        &token::MOLOID_1_1_GREEN_A84604C62,
+        &["Whenever this token attacks, you may mill a card."],
+    ),
+    // Questing Beast Role / Questing Role.
+    (
+        &token::QUESTING_ENCHANT_CREATURE_AF17BF9C3,
+        &[
+            "Enchant creature",
+            "Enchanted creature has vigilance, deathtouch, and haste.",
+            "Enchanted creature has \"Whenever this creature deals combat damage to an opponent, it deals that much damage to target planeswalker that player controls.\"",
+            "Enchanted creature has \"This creature can't be blocked by creatures with power 2 or less.\"",
+            "Enchanted creature has \"Combat damage that would be dealt by creatures you control can't be prevented.\"",
+        ],
+    ),
+    // Winged Words / Blue Bird (can block only creatures with flying).
+    (
+        &token::BIRD_1_1_BLUE_FLYING_A92C7E842,
+        &["This token can block only creatures with flying."],
+    ),
+    // Chandra's Regulator / Lightning Rager (sacrificed at end step).
+    (
+        &token::LIGHTNING_RAGER_5_1_RED_HASTE_TRAMPLE_A730DA31D,
+        &["At the beginning of the end step, sacrifice this token."],
+    ),
 ];

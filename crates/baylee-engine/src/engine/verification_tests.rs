@@ -266,6 +266,7 @@ const fn variant(ability: &AbilityDef) -> &'static str {
         AbilityDef::Activated { .. } => "Activated",
         AbilityDef::Triggered { .. } => "Triggered",
         AbilityDef::Ward { .. } => "Ward",
+        AbilityDef::WardWaterbend { .. } => "WardWaterbend",
         AbilityDef::Toxic { .. } => "Toxic",
         AbilityDef::ActivatedConditional { .. } => "ActivatedConditional",
         AbilityDef::SagaChapter { .. } => "SagaChapter",

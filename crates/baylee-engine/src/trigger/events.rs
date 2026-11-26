@@ -114,6 +114,37 @@ pub(super) fn event_amount_for(
         )
         .map(|matched| u32::try_from(matched.len()).unwrap_or(u32::MAX));
     }
+    if let Trigger::OneOrMoreCardsDiscarded {
+        who,
+        filter,
+        first_this_turn,
+        per_player,
+    } = trigger
+    {
+        return super::event_groups::discard_batch_group(
+            event,
+            batch,
+            state,
+            you,
+            context,
+            *who,
+            filter,
+            *first_this_turn,
+            *per_player,
+        )
+        .map(|(count, _)| count);
+    }
+    if let Trigger::OneOrMoreAttack(filter) = trigger {
+        let count = batch
+            .iter()
+            .filter(|entry| {
+                matches!(entry.event, GameEvent::BecameAttacker { object, .. } if state
+                    .object(object)
+                    .is_some_and(|o| crate::eval::matches_with_context(filter, state, o, you, context)))
+            })
+            .count();
+        return (count > 0).then(|| u32::try_from(count).unwrap_or(u32::MAX));
+    }
     event_damage_of(trigger, event, batch)
 }
 
@@ -127,6 +158,27 @@ pub(super) fn event_found_for(
     you: PlayerId,
     context: crate::text_changes::RuleContext,
 ) -> Option<std::sync::Arc<Vec<baylee_core::ids::DamageSourceRef>>> {
+    if let Trigger::OneOrMoreCardsDiscarded {
+        who,
+        filter,
+        first_this_turn,
+        per_player,
+    } = trigger
+    {
+        return super::event_groups::discard_batch_group(
+            event,
+            batch,
+            state,
+            you,
+            context,
+            *who,
+            filter,
+            *first_this_turn,
+            *per_player,
+        )
+        .filter(|(_, found)| !found.is_empty())
+        .map(|(_, found)| std::sync::Arc::new(found.into_vec()));
+    }
     let Trigger::AttackersDeclaredAtTarget {
         attackers,
         attacked,
@@ -217,8 +269,10 @@ pub(super) fn event_player_for(
             .filter(|d| d.sacrificed)
             .map(|d| d.controller);
     }
-    if let (Trigger::PlayerAttacked(_), GameEvent::BecameAttacker { object, .. }) =
-        (trigger, &entry.event)
+    if let (
+        Trigger::PlayerAttacked(_) | Trigger::AttackersDeclaredAgainst { .. },
+        GameEvent::BecameAttacker { object, .. },
+    ) = (trigger, &entry.event)
     {
         return state
             .object_or_departed(*object)
@@ -419,6 +473,8 @@ pub(super) fn event_object_for(
         (
             Trigger::DealsDamageToPlayer { .. }
             | Trigger::DealsCombatDamageToPlayer(_)
+            | Trigger::DealsCombatDamageToOpponent(_)
+            | Trigger::DealsDamageToOpponent(_)
             | Trigger::OneOrMoreDealCombatDamageToPlayer(_)
             | Trigger::DealsCombatDamageToYou(_)
             | Trigger::DealsCombatDamage(_)

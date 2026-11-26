@@ -528,7 +528,7 @@ fn remembered_animate_delayed_zones_and_nested_optional_hand_choice() {
 #[test]
 fn wave27c_honest_refusals_and_pure_paper_guardrails() {
     for bad in [
-        // Alchemy / Digital: Perpetual, MakeCard/Conjure, Seek, Empower must stay refused.
+        // Alchemy / Digital: Perpetual, MakeCard/Conjure, Seek must stay refused.
         "Name:BadPerpetualRem\nManaCost:1 W\nTypes:Instant\n\
          A:SP$ ChangeZone | ValidTgts$ Creature.YouCtrl | Origin$ Battlefield | Destination$ Hand | RememberChanged$ True | SubAbility$ DBPump\n\
          SVar:DBPump:DB$ Pump | PumpZone$ Hand | Defined$ Remembered | NumAtt$ +1 | Duration$ Perpetual | SubAbility$ DBCleanup\n\
@@ -538,9 +538,9 @@ fn wave27c_honest_refusals_and_pure_paper_guardrails() {
          SVar:TrigExile:DB$ ChangeZone | Defined$ TriggeredNewCardLKICopy | Origin$ Graveyard | Destination$ Exile | RememberChanged$ True | SubAbility$ DBConjure\n\
          SVar:DBConjure:DB$ MakeCard | Conjure$ True | ConditionDefined$ Remembered | ConditionPresent$ Card | Name$ Skeleton | Zone$ Graveyard | Amount$ 3 | SubAbility$ DBCleanup\n\
          SVar:DBCleanup:DB$ Cleanup | ClearRemembered$ True",
-        "Name:BadEmpowerRem\nManaCost:4 B B\nTypes:Sorcery\n\
-         A:SP$ ChangeZoneAll | ChangeType$ Creature | Origin$ Battlefield | Destination$ Exile | RememberChanged$ True | SubAbility$ DBEmpower\n\
-         SVar:DBEmpower:DB$ Empower | Type$ Jace | Num$ X | SubAbility$ DBCleanup\n\
+        "Name:BadSeekRem\nManaCost:4 B B\nTypes:Sorcery\n\
+         A:SP$ ChangeZoneAll | ChangeType$ Creature | Origin$ Battlefield | Destination$ Exile | RememberChanged$ True | SubAbility$ DBSeek\n\
+         SVar:DBSeek:DB$ Seek | Type$ Card.nonLand | Num$ X | SubAbility$ DBCleanup\n\
          SVar:DBCleanup:DB$ Cleanup | ClearRemembered$ True\n\
          SVar:X:Remembered$Amount",
         // Cross-ability persistent memory (no SubAbility$ / ForgetOnMoved$ / DB$ Effect).
@@ -565,13 +565,10 @@ fn wave27c_honest_refusals_and_pure_paper_guardrails() {
          SVar:DBDraw:DB$ Draw | NumCards$ X | SubAbility$ DBCleanup\n\
          SVar:DBCleanup:DB$ Cleanup | ClearRemembered$ True\n\
          SVar:X:Remembered$Amount",
-        // RememberControlled$ (not captured by CaptureAffected).
+        // RememberControlled$ without a SubAbility$ must stay refused.
         "Name:BadRememberControlled\nManaCost:2 U\nTypes:Sorcery\n\
          A:SP$ TargetOnly | ValidTgts$ Opponent | SubAbility$ DBGain\n\
-         SVar:DBGain:DB$ GainControl | ValidTgts$ Permanent.YouCtrl | NewController$ ParentTarget | RememberControlled$ True | SubAbility$ DBDraw\n\
-         SVar:DBDraw:DB$ Draw | NumCards$ X | SubAbility$ DBCleanup\n\
-         SVar:DBCleanup:DB$ Cleanup | ClearRemembered$ True\n\
-         SVar:X:Remembered$Amount",
+         SVar:DBGain:DB$ GainControl | ValidTgts$ Permanent.YouCtrl | NewController$ ParentTarget | RememberControlled$ True",
         // RememberedOwner (not a PlayerRel variant).
         "Name:BadRememberedOwner\nManaCost:2 W\nTypes:Sorcery\n\
          A:SP$ Destroy | ValidTgts$ Creature | RememberDestroyed$ True | SubAbility$ DBDraw\n\

@@ -50,6 +50,16 @@ fn refusal_reason_face(
             return tx.unclaimed.into_inner();
         }
     }
+    for (kind, spec) in &script.rules {
+        if *kind == 'S'
+            && super::is_optional_cost_static(spec)
+            && tx
+                .lower_optional_cost_static(spec, script.is_land)
+                .is_none()
+        {
+            return tx.unclaimed.into_inner();
+        }
+    }
     for line in script
         .keywords
         .iter()
@@ -60,6 +70,9 @@ fn refusal_reason_face(
         }
     }
     for (kind, spec) in &script.rules {
+        if *kind == 'S' && super::is_optional_cost_static(spec) {
+            continue;
+        }
         if tx.rule(*kind, spec).is_none() {
             return tx.unclaimed.into_inner();
         }
@@ -248,6 +261,7 @@ pub const SUPPORTED_APIS: &[&str] = &[
     "BecomeMonarch",
     "GainControl",
     "ChooseColor",
+    "BecomesBlocked",
     "ProtectionAll",
     "RepeatEach",
     "ChooseCard",
@@ -266,6 +280,11 @@ pub const SUPPORTED_APIS: &[&str] = &[
     "LosesGame",
     "SkipPhase",
     "TwoPiles",
+    "PermanentCreature",
+    "PermanentNoncreature",
+    "Blight",
+    "Learn",
+    "Empower",
 ];
 
 /// A cost token that names an object, split into its kind and its body.
@@ -309,6 +328,8 @@ pub(super) fn asks_for_an_object(part: &str) -> bool {
         "ExileFromHand(",
         "ExileFromGraveyard(",
         "ExilePermanent(",
+        "PutCounterOnOther {",
+        "RevealFromHand(",
     ]
     .iter()
     .any(|kind| part.starts_with(kind))

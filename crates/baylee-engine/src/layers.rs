@@ -835,7 +835,9 @@ fn could_change_match(modifier: &Modifier, filter: &Filter, layer: Layer) -> boo
         | Filter::CmcAtMostAmount(_)
         | Filter::CmcEqualsAmount(_)
         | Filter::PowerAtMostAmount(_)
-        | Filter::PowerAtLeastAmount(_) => true,
+        | Filter::PowerAtLeastAmount(_)
+        | Filter::PowerEqualsAmount(_)
+        | Filter::ToughnessEqualsAmount(_) => true,
         Filter::OfSourceChosenColor | Filter::ChosenColor => matches!(
             modifier,
             Modifier::AddColor(_) | Modifier::SetColor(_) | Modifier::BecomeCopyOf(_)
@@ -848,6 +850,7 @@ fn could_change_match(modifier: &Modifier, filter: &Filter, layer: Layer) -> boo
         | Filter::SharesCreatureTypeWithOtherTarget
         | Filter::SharesTypeWithReference(_)
         | Filter::SharesCardTypeWithRemembered
+        | Filter::SharesCardTypeWithReference
         | Filter::SharesSubtypeWithCommander => {
             matches!(
                 modifier,
@@ -880,7 +883,9 @@ fn could_change_match(modifier: &Modifier, filter: &Filter, layer: Layer) -> boo
         | Filter::PowerAtMost(_)
         | Filter::PowerAtMostSourcePower
         | Filter::PowerLessThanSourcePower
-        | Filter::ToughnessLessThanSourcePower => {
+        | Filter::ToughnessLessThanSourcePower
+        | Filter::PowerEqualsChosenNumber
+        | Filter::ToughnessEqualsChosenNumber => {
             matches!(
                 modifier,
                 Modifier::HoneEquipment
@@ -909,12 +914,15 @@ fn could_change_match(modifier: &Modifier, filter: &Filter, layer: Layer) -> boo
         // other, which is the whole of what these read: a change of
         // control also restarts how long it has been controlled (CR 302.6).
         Filter::ControlledByYou
+        | Filter::ControlledByYourTeam
         | Filter::ControlledByOpponent
         | Filter::ControlledByActivePlayer
         | Filter::ControlledByDefendingPlayer
         | Filter::ControlledByEnchantedPlayer
         | Filter::ControlledBy(_)
+        | Filter::OwnedBy(_)
         | Filter::ControlledByChooser
+        | Filter::ControlledByPlayerWhoChoseMode(_)
         | Filter::NotControlledByReferenceController
         | Filter::ControlledSinceTurnBegan => matches!(modifier, Modifier::GainControl),
         Filter::Historic => {
@@ -979,6 +987,8 @@ fn could_change_match(modifier: &Modifier, filter: &Filter, layer: Layer) -> boo
         | Filter::Tapped
         | Filter::Untapped
         | Filter::AttackingYou
+        | Filter::AttackingYouOrYourPlaneswalker
+        | Filter::DefendingPlayerIsYou
         | Filter::Attacking
         | Filter::BandedWithSource
         | Filter::NotTargetedByAnotherNamed(_)
@@ -987,6 +997,7 @@ fn could_change_match(modifier: &Modifier, filter: &Filter, layer: Layer) -> boo
         | Filter::Unblocked
         | Filter::EnteredThisTurn
         | Filter::PutIntoGraveyardThisTurn
+        | Filter::SurveilledByYouThisTurn
         | Filter::AttackedThisTurn
         | Filter::CountersAtLeast(_, _)
         | Filter::AnyCountersAtLeast(_)
@@ -995,6 +1006,7 @@ fn could_change_match(modifier: &Modifier, filter: &Filter, layer: Layer) -> boo
         | Filter::Enchanted
         | Filter::Equipped
         | Filter::CmcEqualsCountersOnSource(_)
+        | Filter::CmcEqualsChosenNumber
         | Filter::CmcEqualsYourUnspentMana
         | Filter::FaceDown
         | Filter::BlockingSource
@@ -1003,6 +1015,8 @@ fn could_change_match(modifier: &Modifier, filter: &Filter, layer: Layer) -> boo
         | Filter::Reference
         | Filter::IsRemembered
         | Filter::NotRemembered
+        | Filter::CastForBlitz
+        | Filter::FirstMatchingSpellThisTurn(_)
         | Filter::BlockingReference
         | Filter::BlockedByReferenceThisTurn
         | Filter::BlockedReferenceThisTurn
@@ -1011,6 +1025,8 @@ fn could_change_match(modifier: &Modifier, filter: &Filter, layer: Layer) -> boo
         | Filter::HasCounter(_)
         | Filter::AttachedToBySource
         | Filter::AttachedToSource
+        | Filter::CreatedBySource
+        | Filter::AttachedHostOfRemembered
         | Filter::IsAttached
         | Filter::CmcAtMost(_)
         | Filter::CmcAtMostX
@@ -1023,6 +1039,9 @@ fn could_change_match(modifier: &Modifier, filter: &Filter, layer: Layer) -> boo
         | Filter::InZone(_)
         | Filter::Kicked
         | Filter::CastFromHand
+        | Filter::WasCast
+        | Filter::WasCastByYou
+        | Filter::CastFromZone(_)
         | Filter::HasWatermark
         | Filter::SharesWatermarkWithSource
         | Filter::BlockedByReference
@@ -1375,10 +1394,32 @@ fn apply(
         // Handled by SBAs/legality checks, not by characteristics.
         Modifier::SpellsCostLess(_)
         | Modifier::SpellsCostLessMana { .. }
+        | Modifier::SpellsCostLessManaByAmount { .. }
         | Modifier::SpellsCostLessByAmount(_)
         | Modifier::SpellsCostLessPerCounter(_)
         | Modifier::BuybackCostsLess(_)
         | Modifier::CyclingCostsLess(_)
+        | Modifier::RaiseCostIfTargets { .. }
+        | Modifier::NonManaAbilitiesCostMore { .. }
+        | Modifier::LoyaltyAbilitiesCostMore { .. }
+        | Modifier::AdjustLoyaltyCost { .. }
+        | Modifier::EquipCostsLessIfTargets { .. }
+        | Modifier::ForetellActionCostsLess { .. }
+        | Modifier::MayForetellAnyTurn { .. }
+        | Modifier::UnlockCostsLess { .. }
+        | Modifier::MayCastFromGraveyardUsingAlt(_)
+        | Modifier::GrantsUnearth(_)
+        | Modifier::GrantsScavengeManaCost
+        | Modifier::GrantsDredge(_)
+        | Modifier::GrantsHarmonizeManaCost
+        | Modifier::GrantAffinity(_)
+        | Modifier::GrantCascade(_)
+        | Modifier::GrantCasualty(_)
+        | Modifier::GrantReplicateCardManaCost
+        | Modifier::GrantRipple(_)
+        | Modifier::GrantBlitzCardManaCost
+        | Modifier::GrantProwl(_)
+        | Modifier::GrantFreerunning(_)
         | Modifier::LoseAllBandsWithOther
         | Modifier::BandsWithOther(_)
         | Modifier::SpellsCostMore(_)
@@ -1486,7 +1527,11 @@ fn apply(
         | Modifier::ProtectionFrom(_)
         | Modifier::ProtectionFromExiledWithSourceTypes
         | Modifier::GrantsFlashback
+        | Modifier::GrantsFlashbackCost(_)
         | Modifier::GrantsEscape(_)
+        | Modifier::GrantsJumpStart
+        | Modifier::GrantsEncoreManaCost
+        | Modifier::GrantsEmbalmManaCost
         | Modifier::Sneak(_)
         | Modifier::GraveyardInstantSorceryOnce
         | Modifier::GraveyardVampireOnce
@@ -1510,6 +1555,11 @@ fn apply(
         | Modifier::PlayerProtectionFromOpponents { .. }
         | Modifier::DoubleCountersPlacedByYou
         | Modifier::CantAttackYou
+        | Modifier::CantAttackYouOrYourPlaneswalkers
+        | Modifier::CantBeAttackedBy(_)
+        | Modifier::MayActivateLoyaltyAsInstant { .. }
+        | Modifier::MayCastFromGraveyardTargeted { .. }
+        | Modifier::CastCostIncreaseUnlessTargets { .. }
         | Modifier::AttackTaxLife { .. }
         | Modifier::AttackTaxMana { .. }
         | Modifier::SpellCastLimitPerTurn { .. }
@@ -1537,6 +1587,7 @@ fn apply(
         | Modifier::ModifyLifeGain { .. }
         | Modifier::PreventDamageRemovingCounters { .. }
         | Modifier::PreventDamageToAffectedIfAtMost(_)
+        | Modifier::DamageCantBePrevented
         | Modifier::GrantStatic { .. }
         | Modifier::SpellsHaveFlash(_)
         | Modifier::SorceriesHaveFlash

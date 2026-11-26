@@ -660,7 +660,12 @@ impl Effect {
     pub fn branches(&self) -> (&'static [Effect], &'static [Effect]) {
         const NONE: &[Effect] = &[];
         match self {
-            Effect::SacrificeNOrElse { filter: _, count: _, otherwise } => (NONE, otherwise),
+            Effect::SacrificeNOrElse { filter: _, count: _, otherwise }
+            | Effect::PlayerMayPayOneOfCostsOr {
+                player: _,
+                costs: _,
+                otherwise,
+            } => (NONE, otherwise),
             // **Every carrier below binds every one of its fields**, with
             // no `..` in any of these ten arms. That is the second half of
             // the guarantee, and it is deliberate: an exhaustive match over
@@ -758,7 +763,18 @@ impl Effect {
             | Effect::WithSecondTarget(effects)
             | Effect::WithThirdTarget(effects)
             | Effect::WithAllTargets(effects)
-            | Effect::ForEachRemembered { filter: _, effects } => (effects, NONE),
+            | Effect::ForEachRemembered { filter: _, effects }
+            | Effect::AnyPlayerMayPayManaAmount {
+                on_payment: true,
+                effects,
+                ..
+            }
+            | Effect::AnyPlayerMayPayCost {
+                on_payment: true,
+                effects,
+                ..
+            }
+            | Effect::ForEachPlayer { players: _, effects } => (effects, NONE),
             Effect::RevealTopByNameThen { otherwise_effects: then, .. }
             | Effect::IfCreaturesDiedAtLeast { n: _, then }
             | Effect::MayExileFromYourGraveyardThen {
@@ -877,7 +893,17 @@ impl Effect {
                 reveal_chosen: _,
                 movement: _,
                 then,
-            } => (then, NONE),
+            }
+            | Effect::ChooseDistinctPowersOnBattlefield {
+                chooser: _,
+                filter: _,
+                min: _,
+                max: _,
+                then,
+            }
+            | Effect::MayPayEnergyEqualToTargetCmcThen { then }
+            | Effect::CaptureMatching { filter: _, then }
+            | Effect::RememberTargetsThen { then } => (then, NONE),
             Effect::PreventNextDamageWithThen { then, .. } => (then.instruction(), NONE),
             Effect::PlayerMayPayThenElse { player: _, mana: _, paid: then, unpaid: otherwise }
             | Effect::PlayerMayPayManaAndLifeEachThenElse { paid: then, unpaid: otherwise, .. }
@@ -959,6 +985,11 @@ impl Effect {
             // declines the price. `from_ref` is what makes it one shape with
             // the rest rather than a second kind of caller.
             Effect::PlayerMayPayOr {
+                player: _,
+                mana: _,
+                effect,
+            }
+            | Effect::PlayerMayWaterbendOr {
                 player: _,
                 mana: _,
                 effect,
@@ -1077,6 +1108,7 @@ impl Effect {
             | Effect::DamageEqualToPower { .. }
             | Effect::EventObjectDealsDamageEqualToPower { .. }
             | Effect::EventObjectDealsDamage { .. }
+            | Effect::EventObjectDealsDamageEach { .. }
             | Effect::SacrificeEventDealDamageToEachBlocker { .. }
             | Effect::TargetDealsDamageToController { .. }
             | Effect::DealDamageToTargetController { .. }
@@ -1104,6 +1136,7 @@ impl Effect {
             | Effect::PreventAllDamageFromMatchingThisTurn { .. }
             | Effect::RedirectNextFromChosenSource { .. }
             | Effect::WishToHand { .. }
+            | Effect::Learn
             | Effect::Destroy { .. }
             | Effect::DestroyTargetSlots { .. }
             | Effect::DestroyEventThenMayReattach { .. }
@@ -1169,6 +1202,14 @@ impl Effect {
             | Effect::ExileAndReturnAtEndStep
             | Effect::ExileAndReturnTappedAtEndStep
             | Effect::ReturnExiledGroupToOwners { .. }
+            | Effect::Flickerform
+            | Effect::FlickerformReturnFromRelated
+            | Effect::GrantRememberedExilePermission { .. }
+            | Effect::PhyrexianGrimoire { .. }
+            | Effect::SearchLibraryAttachedToEvent { .. }
+            | Effect::CreepingDread { .. }
+            | Effect::TaintedPact
+            | Effect::ExileHand { .. }
             | Effect::ReturnSelfDuringNextUntap
             | Effect::OwnerPutsOnTopOrBottom { .. }
             | Effect::ExileIfDiesThisTurn { .. }
@@ -1191,6 +1232,7 @@ impl Effect {
             | Effect::DestroyRandom { .. }
             | Effect::RevealTopPutOntoBattlefield { .. }
             | Effect::ChoosePlayerFrom { .. }
+            | Effect::ChoosePlayerAtRandom { .. }
             | Effect::CantBeBlockedByPlayerThisTurn { .. }
             | Effect::ReturnAllOwnedToHand { .. }
             | Effect::DestroyAllExceptChosen { .. }
@@ -1509,7 +1551,38 @@ impl Effect {
             | Effect::PutOntoBattlefieldAttacking { .. }
             | Effect::SearchLibraryDistinctNames { .. }
             | Effect::AttachChosen { .. }
-            | Effect::DiscardDefined { .. } => (NONE, NONE),
+            | Effect::DiscardDefined { .. }
+            | Effect::PutCountersOnChosenControlled { .. }
+            | Effect::Empower { .. }
+            | Effect::PutAllCountersFrom { .. }
+            | Effect::PutAllCountersFromIntoFound { .. }
+            | Effect::DoublePT { .. }
+            | Effect::ChooseBasicLandType
+            | Effect::BecomeChosenBasicLandType { .. }
+            | Effect::CounterEventSpellOrAbility
+            | Effect::CounterTargetSpellTo(_)
+            | Effect::CounterAll { .. }
+            | Effect::DelayedManaAnyColorAtNextMain
+            | Effect::PutSourceOnBottomOfLibrary
+            | Effect::DestroyTargetAndSameName { .. }
+            | Effect::DestroyAllAttachedToTarget { .. }
+            | Effect::GainControlLtbAttached { .. }
+            | Effect::BecomesBlocked(_)
+            | Effect::Demonstrate
+            | Effect::Ripple(_)
+            | Effect::ReturnDelayedObjectsToBattlefield { .. }
+            | Effect::GrantActivatedAbilitiesWhenTargetCast { .. }
+            | Effect::PlayersChooseMode(_) => (NONE, NONE),
+            Effect::AnyPlayerMayPayManaAmount {
+                on_payment: false,
+                effects,
+                ..
+            }
+            | Effect::AnyPlayerMayPayCost {
+                on_payment: false,
+                effects,
+                ..
+            } => (NONE, effects),
             Effect::VoteObjects { if_no_votes, .. } => (NONE, if_no_votes),
         }
     }
@@ -1530,6 +1603,10 @@ impl Effect {
             if let Effect::Vote { options, .. } = effect {
                 for opt in *options {
                     Self::walk(opt.effects, seen, visit);
+                }
+            } else if let Effect::PlayersChooseMode(choice) = effect {
+                for branch in choice.branches {
+                    Self::walk(branch, seen, visit);
                 }
             }
             let (then, otherwise) = effect.branches();

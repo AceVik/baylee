@@ -541,21 +541,16 @@ fn wave27a_counters_placed_on_source_if_condition_and_landwalk_preservation() {
 #[test]
 fn wave27a_honest_refusals_and_non_paper_guards() {
     for bad in [
-        // Hidden destination zone (`Hand`) is not tracked by `PerTurn::zone_changes`.
-        "Name:Barrin Shape\nManaCost:1 U U\nTypes:Creature\nPT:2/2\n\
+        // Hidden-to-hidden zone move (`Library -> Hand`, CR 400.2) is never tracked by `PerTurn::zone_changes`.
+        "Name:Hidden Library To Hand\nManaCost:1 U U\nTypes:Creature\nPT:2/2\n\
          T:Mode$ Phase | Phase$ End of Turn | ValidPlayer$ You | TriggerZones$ Battlefield | CheckSVar$ X | Execute$ TrigDraw\n\
          SVar:TrigDraw:DB$ Draw | NumCards$ 1\n\
-         SVar:X:Count$ThisTurnEntered_Hand_from_Battlefield_Permanent.YouOwn",
-        // Hidden destination zone (`Library`).
-        "Name:Library Enter\nManaCost:1 U\nTypes:Enchantment\n\
-         T:Mode$ Phase | Phase$ End of Turn | TriggerZones$ Battlefield | CheckSVar$ X | Execute$ D\n\
-         SVar:D:DB$ Draw | NumCards$ 1\n\
-         SVar:X:Count$ThisTurnEntered_Library_from_Battlefield_Permanent.YouOwn",
-        // `tokenCreated` atom is unmodelled (`Bennie Bracks`).
-        "Name:Bennie Shape\nManaCost:3 W\nTypes:Creature\nPT:3/2\n\
+         SVar:X:Count$ThisTurnEntered_Hand_from_Library_Card.YouOwn",
+        // Unmodelled `RememberedPlayerCtrl` scope on `tokenCreated`.
+        "Name:Remembered Token Creator\nManaCost:3 W\nTypes:Creature\nPT:3/2\n\
          T:Mode$ Phase | Phase$ End of Turn | TriggerZones$ Battlefield | CheckSVar$ X | Execute$ D\n\
          SVar:D:DB$ Draw\n\
-         SVar:X:Count$ThisTurnEntered_Battlefield_Card.tokenCreated+YouOwn",
+         SVar:X:Count$ThisTurnEntered_Battlefield_Card.tokenCreated+RememberedPlayerCtrl",
         // `CountersAddedThisTurn` with `Any` counter kind (`Wakka`, `Fractal Tender`).
         "Name:Wakka Shape\nManaCost:2 G W\nTypes:Creature\nPT:4/4\n\
          T:Mode$ Phase | Phase$ End of Turn | ValidPlayer$ You | TriggerZones$ Battlefield | CheckSVar$ X | Execute$ D\n\

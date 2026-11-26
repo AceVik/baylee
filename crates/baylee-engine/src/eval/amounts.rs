@@ -93,6 +93,91 @@ pub(crate) fn mana_spent_on(state: &GameState, source: ObjectId) -> u32 {
         .map_or(0, |p| p.mana_spent)
 }
 
+/// Units of `color` mana spent to cast `object` (`CR 601.2h`, `CR 400.7d`).
+#[must_use]
+pub(crate) fn object_mana_color_spent(
+    object: &crate::object::GameObject,
+    color: baylee_core::mana::ManaColor,
+) -> u32 {
+    if let Some(paid) = &object.paid {
+        return paid.mana_types_spent[color.index()];
+    }
+    object
+        .riders
+        .iter()
+        .find_map(|r| match r {
+            crate::object::Rider::ManaTypesSpent(types) => Some(u32::from(types[color.index()])),
+            _ => None,
+        })
+        .unwrap_or(0)
+}
+
+/// Units of `color` mana spent to cast `source` (`CR 601.2h`, `CR 400.7d`, `CR 608.2h`).
+#[must_use]
+pub(crate) fn mana_color_spent_on(
+    state: &GameState,
+    source: ObjectId,
+    color: baylee_core::mana::ManaColor,
+) -> u32 {
+    state
+        .object_or_departed(source)
+        .map_or(0, |o| object_mana_color_spent(o, color))
+}
+
+/// Distinct colors of mana (`0..=5`; colorless is not a color, `CR 105.4`) spent
+/// to cast `object` (`CR 207.2c` converge, `CR 601.2h`, `CR 400.7d`).
+#[must_use]
+pub(crate) fn object_colors_of_mana_spent(object: &crate::object::GameObject) -> u32 {
+    if let Some(paid) = &object.paid {
+        return u32::from(paid.colors_spent.len());
+    }
+    object
+        .riders
+        .iter()
+        .find_map(|r| match r {
+            crate::object::Rider::ManaTypesSpent(types) => Some(
+                u32::try_from(
+                    baylee_cards_dsl::ALL_MANA_COLORS
+                        .iter()
+                        .filter(|c| types[c.index()] > 0)
+                        .count(),
+                )
+                .unwrap_or(0),
+            ),
+            _ => None,
+        })
+        .unwrap_or(0)
+}
+
+/// Distinct colors of mana (`0..=5`) spent to cast `source`.
+#[must_use]
+pub(crate) fn colors_of_mana_spent_on(state: &GameState, source: ObjectId) -> u32 {
+    state
+        .object_or_departed(source)
+        .map_or(0, object_colors_of_mana_spent)
+}
+
+/// Number of creatures tapped via convoke to cast `object` (`CR 702.51a`, `CR 400.7d`).
+#[must_use]
+pub(crate) fn object_convoked_count(object: &crate::object::GameObject) -> u32 {
+    object
+        .riders
+        .iter()
+        .find_map(|r| match r {
+            crate::object::Rider::ConvokedCount(n) => Some(u32::from(*n)),
+            _ => None,
+        })
+        .unwrap_or(0)
+}
+
+/// Number of creatures tapped via convoke to cast `source`.
+#[must_use]
+pub(crate) fn convoked_count_on(state: &GameState, source: ObjectId) -> u32 {
+    state
+        .object_or_departed(source)
+        .map_or(0, object_convoked_count)
+}
+
 /// Number of permanents sacrificed as `source` entered the battlefield
 /// (`EnterModifier::Devour` / `SacrificeForPowerToughness`, `CR 702.82b`).
 #[must_use]
@@ -107,6 +192,86 @@ pub(crate) fn entry_sacrifices_on(state: &GameState, source: ObjectId) -> u32 {
             })
             .unwrap_or(0)
     })
+}
+
+/// Power of the permanent beheld or card revealed from hand to pay `source`'s
+/// cost (`Amount::BeheldOrRevealedPower`, `CR 608.2h`, *Dragon's Fire*): if a
+/// battlefield permanent was beheld and is still that exact incarnation on the
+/// battlefield, reads its current projected power; if it left the battlefield,
+/// reads its battlefield LKI power; otherwise reads the power snapshot recorded
+/// when the cost was paid. Negative power clamps to `0` (`CR 107.1b`).
+#[must_use]
+pub fn beheld_or_revealed_power(
+    state: &GameState,
+    source: ObjectId,
+    source_version: Option<u32>,
+) -> u32 {
+    let Some((bf_ref, saved)) = state
+        .damage_source(source, source_version)
+        .or_else(|| state.object_or_departed(source))
+        .and_then(|obj| {
+            obj.riders.iter().find_map(|r| match *r {
+                crate::object::Rider::BeheldCostPower(src, power, _) => Some((src, power)),
+                _ => None,
+            })
+        })
+    else {
+        return 0;
+    };
+    let power = if let Some(bf) = bf_ref {
+        state
+            .object(bf.object)
+            .filter(|o| o.zone == crate::zone::Zone::Battlefield && o.version == bf.version)
+            .map(|o| i32::from(o.characteristics().power.unwrap_or(0)))
+            .or_else(|| {
+                state
+                    .ltb_versions
+                    .iter()
+                    .any(|&(lid, lver)| lid == bf.object && lver == bf.version)
+                    .then(|| {
+                        state
+                            .ltb_powers
+                            .iter()
+                            .find(|(id, _)| *id == bf.object)
+                            .map(|(_, p)| i32::from(*p))
+                    })
+                    .flatten()
+            })
+            .unwrap_or(saved)
+    } else {
+        saved
+    };
+    u32::try_from(power.max(0)).unwrap_or(0)
+}
+
+/// Mana value of the permanent beheld or card revealed from hand to pay
+/// `source`'s cost (`Amount::BeheldOrRevealedManaValue`, `CR 608.2h`, `CR 202.3`).
+#[must_use]
+pub fn beheld_or_revealed_mana_value(
+    state: &GameState,
+    source: ObjectId,
+    source_version: Option<u32>,
+) -> u32 {
+    let Some((bf_ref, saved)) = state
+        .damage_source(source, source_version)
+        .or_else(|| state.object_or_departed(source))
+        .and_then(|obj| {
+            obj.riders.iter().find_map(|r| match *r {
+                crate::object::Rider::BeheldCostPower(src, _, mv) => Some((src, mv)),
+                _ => None,
+            })
+        })
+    else {
+        return 0;
+    };
+    if let Some(bf) = bf_ref
+        && let Some(o) = state
+            .object(bf.object)
+            .filter(|o| o.zone == crate::zone::Zone::Battlefield && o.version == bf.version)
+    {
+        return o.characteristics().mana_value();
+    }
+    saved
 }
 
 const MAX_AMOUNT_EVAL_DEPTH: u8 = 16;
@@ -335,9 +500,12 @@ pub(crate) fn amount_with_version(
         | Amount::TargetPower
         | Amount::TargetToughness
         | Amount::TargetCmc
+        | Amount::TotalTargetsManaValue
+        | Amount::TargetManaSpentToCast
         | Amount::EventLastToughness
         | Amount::EventPower
         | Amount::EventManaValue
+        | Amount::EventManaSpentToCast
         | Amount::EventAmount
         | Amount::LastDieRoll
         | Amount::CoinsWonThisResolution
@@ -396,6 +564,40 @@ pub(crate) fn amount_with_version(
         Amount::OpponentsYouAreAttacking => state.combat.opponents_being_attacked_by(state, you),
         Amount::DamageDealtToOpponentsThisTurn => damage_dealt_to_opponents_this_turn(state, you),
         Amount::SnowManaSpentToCast => snow_mana_spent_on(state, this),
+        Amount::ManaColorSpentToCast(color) => mana_color_spent_on(state, this, *color),
+        Amount::ColorsOfManaSpentToCast => colors_of_mana_spent_on(state, this),
+        Amount::ConvokedCount => convoked_count_on(state, this),
+        Amount::TokensCreatedThisTurn { filter, creator } => {
+            super::players_for_source(*creator, state, you, Some(context.source))
+                .map_or(0, |seats| {
+                    tokens_created_this_turn_for_seats(state, you, context, filter, &seats)
+                })
+        }
+        Amount::LeftZoneThisTurn {
+            filter,
+            from,
+            owner_or_ctrl,
+        } => super::players_for_source(*owner_or_ctrl, state, you, Some(context.source))
+            .map_or(0, |seats| {
+                left_zone_this_turn_for_seats(state, you, context, filter, *from, &seats)
+            }),
+        Amount::LifeLostThisTurn(who) => {
+            turn_history_seats(*who, state, you, Some(context.source))
+                .map_or(0, |seats| life_lost_for_seats(state, &seats))
+        }
+        Amount::HighestLifeLostThisTurn(who) => {
+            turn_history_seats(*who, state, you, Some(context.source))
+                .map_or(0, |seats| highest_life_lost_for_seats(state, &seats))
+        }
+        Amount::CardsDiscardedThisTurn(who) => {
+            turn_history_seats(*who, state, you, Some(context.source))
+                .map_or(0, |seats| cards_discarded_for_seats(state, &seats))
+        }
+        Amount::PermanentsSacrificedThisTurn { who, filter } => {
+            turn_history_seats(*who, state, you, Some(context.source)).map_or(0, |seats| {
+                permanents_sacrificed_for_seats(state, you, context, filter, &seats)
+            })
+        }
         Amount::EntrySacrifices => entry_sacrifices_on(state, this),
         Amount::SpellsWarpedThisTurn(who) => {
             super::players_for_source(*who, state, you, Some(context.source)).map_or(0, |seats| {
@@ -469,6 +671,56 @@ pub(crate) fn amount_with_version(
             })
         }
         Amount::TotalPowerAmong(filter) => total_power_among(state, you, filter, context),
+        Amount::BeheldOrRevealedPower => beheld_or_revealed_power(state, this, source_version),
+        Amount::BeheldOrRevealedManaValue => {
+            beheld_or_revealed_mana_value(state, this, source_version)
+        }
+        Amount::DistinctPowersAmong(filter) => distinct_powers_among(state, you, filter, context),
+        Amount::CommanderCasts(who) => {
+            super::players_for_source(*who, state, you, Some(context.source)).map_or(0, |seats| {
+                seats.into_iter().fold(0_u32, |acc, p| {
+                    acc.saturating_add(
+                        state
+                            .commander_casts
+                            .get(usize::from(p.get()))
+                            .copied()
+                            .unwrap_or(0),
+                    )
+                })
+            })
+        }
+        Amount::HighestControlledCount { among, filter } => {
+            super::players_for_source(*among, state, you, Some(context.source)).map_or(0, |seats| {
+                seats
+                    .into_iter()
+                    .filter(|p| !state.players[usize::from(p.get())].has_lost())
+                    .map(|p| count_controlled_by(state, p, you, filter, context))
+                    .max()
+                    .unwrap_or(0)
+            })
+        }
+        Amount::HighestCardsDrawnThisTurn(who) => {
+            turn_history_seats(*who, state, you, Some(context.source)).map_or(0, |seats| {
+                seats
+                    .iter()
+                    .map(|&p| {
+                        state
+                            .per_turn
+                            .draws
+                            .get(usize::from(p.get()))
+                            .copied()
+                            .unwrap_or(0)
+                    })
+                    .max()
+                    .unwrap_or(0)
+            })
+        }
+        Amount::TotalManaValueInZone { zone, filter } => {
+            total_mana_value_in_zone(filter, *zone, state, you, context)
+        }
+        Amount::DistinctExactManaCostsInZone { zone, filter } => {
+            distinct_exact_mana_costs_in_zone(filter, *zone, state, you, context)
+        }
     }
 }
 
@@ -662,7 +914,7 @@ pub(crate) fn linked_exile_cards(
         for &id in state.zones.list(ZoneLocation::Exile(player.id)) {
             if let Some(obj) = state.object(id)
                 && obj.is_card()
-                && obj.riders.iter().any(|r| match *r {
+                && (obj.riders.iter().any(|r| match *r {
                     crate::object::Rider::Linked { host, .. } => {
                         host == source
                             && source_ref.is_none_or(|s| {
@@ -683,7 +935,18 @@ pub(crate) fn linked_exile_cards(
                             })
                     }
                     _ => false,
-                })
+                }) || state
+                    .damage_source(source, source_version)
+                    .is_some_and(|src_obj| {
+                        src_obj
+                            .riders
+                            .contains(&crate::object::Rider::SpellCostExile(
+                                baylee_core::ids::DamageSourceRef {
+                                    object: obj.id,
+                                    version: obj.version,
+                                },
+                            ))
+                    }))
                 && matches_with_context(filter, state, obj, you, context)
             {
                 out.push(id);
@@ -720,7 +983,7 @@ pub fn public_linked_exile_cards(state: &GameState, source: ObjectId) -> Vec<Obj
             if let Some(obj) = state.object(id)
                 && obj.is_card()
                 && !obj.status.contains(crate::object::Status::FACE_DOWN)
-                && obj.riders.iter().any(|r| match *r {
+                && (obj.riders.iter().any(|r| match *r {
                     crate::object::Rider::Linked { host, .. } => {
                         host == source
                             && state
@@ -741,7 +1004,14 @@ pub fn public_linked_exile_cards(state: &GameState, source: ObjectId) -> Vec<Obj
                         acquisition: linked_acquisition,
                     } => linked_source == source_ref && linked_acquisition == acquisition,
                     _ => false,
-                })
+                }) || src_obj
+                    .riders
+                    .contains(&crate::object::Rider::SpellCostExile(
+                        baylee_core::ids::DamageSourceRef {
+                            object: obj.id,
+                            version: obj.version,
+                        },
+                    )))
             {
                 out.push(id);
             }
@@ -1077,4 +1347,248 @@ fn distinct_mana_values_in_zone(
         }
     });
     u32::try_from(values.len()).unwrap_or(u32::MAX)
+}
+
+/// Number of distinct projected powers (`CR 208.3`) among matching battlefield permanents.
+pub(crate) fn distinct_powers_among(
+    state: &GameState,
+    you: PlayerId,
+    filter: &Filter,
+    context: RuleContext,
+) -> u32 {
+    let mut powers = std::collections::BTreeSet::<i32>::new();
+    for id in state.battlefield_seen() {
+        if let Some(object) = state.object(id)
+            && matches_with_context(filter, state, object, you, context)
+            && let Some(power) = object.characteristics().power
+        {
+            powers.insert(i32::from(power));
+        }
+    }
+    u32::try_from(powers.len()).unwrap_or(u32::MAX)
+}
+
+/// Sum of mana values (`CR 202.3`) of matching objects in `zone`.
+fn total_mana_value_in_zone(
+    filter: &Filter,
+    zone: ZoneSel,
+    state: &GameState,
+    you: PlayerId,
+    context: RuleContext,
+) -> u32 {
+    let require_card = !matches!(zone, ZoneSel::Battlefield);
+    let mut sum = 0_u32;
+    visit_zone(zone, state, you, context, |id| {
+        if let Some(object) = state.object(id)
+            && (!require_card || object.is_card())
+            && matches_with_context(filter, state, object, you, context)
+        {
+            sum = sum.saturating_add(object.characteristics().mana_value());
+        }
+    });
+    sum
+}
+
+/// Number of distinct printed mana costs (`CR 202.1`; cards without a mana cost
+/// have no mana cost to count) among matching cards in `zone`.
+fn distinct_exact_mana_costs_in_zone(
+    filter: &Filter,
+    zone: ZoneSel,
+    state: &GameState,
+    you: PlayerId,
+    context: RuleContext,
+) -> u32 {
+    let require_card = !matches!(zone, ZoneSel::Battlefield);
+    let mut seen: Vec<baylee_core::mana::ManaCost> = Vec::new();
+    visit_zone(zone, state, you, context, |id| {
+        if let Some(object) = state.object(id)
+            && (!require_card || object.is_card())
+            && matches_with_context(filter, state, object, you, context)
+        {
+            let cost = object.characteristics().mana_cost;
+            if crate::casting::has_a_printed_cost(&cost) && !seen.contains(&cost) {
+                seen.push(cost);
+            }
+        }
+    });
+    u32::try_from(seen.len()).unwrap_or(u32::MAX)
+}
+
+/// Seats matching `who` for cumulative per-turn history tallies (`CR 800.4a`:
+/// earlier life loss, discards, or sacrifices by an opponent who subsequently
+/// lost the game still happened this turn, matching [`opponents_life_lost`]).
+pub(crate) fn turn_history_seats(
+    who: baylee_cards_dsl::PlayerRel,
+    state: &GameState,
+    you: PlayerId,
+    source: Option<ObjectId>,
+) -> Option<smallvec::SmallVec<[PlayerId; 4]>> {
+    use baylee_cards_dsl::PlayerRel;
+    match who {
+        PlayerRel::EachOpponent => Some(
+            state
+                .players
+                .iter()
+                .filter(|p| state.is_opponent(p.id, you))
+                .map(|p| p.id)
+                .collect(),
+        ),
+        PlayerRel::EachPlayer => Some(state.players.iter().map(|p| p.id).collect()),
+        PlayerRel::EachOtherPlayer => Some(
+            state
+                .players
+                .iter()
+                .filter(|p| p.id != you)
+                .map(|p| p.id)
+                .collect(),
+        ),
+        _ => super::players_for_source(who, state, you, source).map(smallvec::SmallVec::from_vec),
+    }
+}
+
+/// Count of tokens created this turn (`CR 111.1`, `CR 111.2`; `from == None` on
+/// arrival to `Battlefield`, excluding resolving copies of permanent spells per
+/// `CR 111.13`) by players in `seats` matching `filter`.
+pub(crate) fn tokens_created_this_turn_for_seats(
+    state: &GameState,
+    you: PlayerId,
+    context: RuleContext,
+    filter: &Filter,
+    seats: &[PlayerId],
+) -> u32 {
+    if seats.is_empty() {
+        return 0;
+    }
+    let mut count = 0_u32;
+    for record in &state.per_turn.zone_changes.items {
+        if record.from.is_some()
+            || record.to != crate::zone::Zone::Battlefield
+            || !seats.contains(&record.owner)
+        {
+            continue;
+        }
+        let Some(obj) = record.snapshot.as_deref().or_else(|| {
+            state
+                .object(record.object.object)
+                .filter(|o| o.version == record.object.version)
+        }) else {
+            continue;
+        };
+        if obj.token.is_some() && matches_with_context(filter, state, obj, you, context) {
+            count = count.saturating_add(1);
+        }
+    }
+    count
+}
+
+/// Count of objects that left public zone `from` this turn (`CR 603.6c`,
+/// `CR 603.10a`), matched against `filter` as each last existed in `from`.
+pub(crate) fn left_zone_this_turn_for_seats(
+    state: &GameState,
+    you: PlayerId,
+    context: RuleContext,
+    filter: &Filter,
+    from: baylee_cards_dsl::ZoneRef,
+    seats: &[PlayerId],
+) -> u32 {
+    if seats.is_empty() {
+        return 0;
+    }
+    let mut count = 0_u32;
+    for record in &state.per_turn.zone_changes.items {
+        let Some(from_zone) = record.from.filter(|fz| fz.matches_ref(from)) else {
+            continue;
+        };
+        // For arrivals onto `Battlefield` (`note_entry_history`), `record.snapshot`
+        // describes the post-arrival permanent; the pre-departure incarnation in
+        // `from_zone` was saved at `version - 1` in `damage_sources`.
+        let departing = if record.to == crate::zone::Zone::Battlefield {
+            record
+                .object
+                .version
+                .checked_sub(1)
+                .and_then(|prev_v| state.damage_source(record.object.object, Some(prev_v)))
+                .filter(|prev| prev.zone == from_zone)
+        } else {
+            record.snapshot.as_deref()
+        };
+        let Some(obj) = departing else {
+            continue;
+        };
+        let seat = if from_zone.is_shared() {
+            if record.to == crate::zone::Zone::Battlefield {
+                obj.controller
+            } else {
+                record.controller
+            }
+        } else {
+            record.owner
+        };
+        if !seats.contains(&seat) {
+            continue;
+        }
+        if matches_with_context(filter, state, obj, you, context) {
+            count = count.saturating_add(1);
+        }
+    }
+    count
+}
+
+/// Total life lost this turn summed across `seats`.
+pub(crate) fn life_lost_for_seats(state: &GameState, seats: &[PlayerId]) -> u32 {
+    seats.iter().fold(0_u32, |acc, &seat| {
+        acc.saturating_add(
+            state
+                .per_turn
+                .life_lost_amount
+                .get(usize::from(seat.get()))
+                .copied()
+                .unwrap_or(0),
+        )
+    })
+}
+
+/// Greatest life lost this turn by any single seat in `seats`.
+pub(crate) fn highest_life_lost_for_seats(state: &GameState, seats: &[PlayerId]) -> u32 {
+    seats
+        .iter()
+        .map(|&seat| {
+            state
+                .per_turn
+                .life_lost_amount
+                .get(usize::from(seat.get()))
+                .copied()
+                .unwrap_or(0)
+        })
+        .max()
+        .unwrap_or(0)
+}
+
+/// Total cards discarded this turn summed across `seats`.
+pub(crate) fn cards_discarded_for_seats(state: &GameState, seats: &[PlayerId]) -> u32 {
+    seats.iter().fold(0_u32, |acc, &seat| {
+        acc.saturating_add(state.per_turn.cards_discarded_by(seat))
+    })
+}
+
+/// Count of permanents sacrificed this turn by players in `seats` matching `filter`.
+pub(crate) fn permanents_sacrificed_for_seats(
+    state: &GameState,
+    you: PlayerId,
+    context: RuleContext,
+    filter: &Filter,
+    seats: &[PlayerId],
+) -> u32 {
+    if seats.is_empty() {
+        return 0;
+    }
+    let mut count = 0_u32;
+    for record in &state.per_turn.sacrificed_permanents.items {
+        if seats.contains(&record.controller)
+            && matches_with_context(filter, state, &record.snapshot, you, context)
+        {
+            count = count.saturating_add(1);
+        }
+    }
+    count
 }

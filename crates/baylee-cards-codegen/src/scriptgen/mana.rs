@@ -37,6 +37,11 @@ impl Tx<'_> {
             Some("True") => true,
             Some(other) => return self.deny(format!("`Mana.PersistentMana$ {other}`")),
         };
+        let combat_mana = match p.take("CombatMana").as_deref() {
+            None => false,
+            Some("True") => true,
+            Some(other) => return self.deny(format!("`Mana.CombatMana$ {other}`")),
+        };
         let restrict = match p.take("RestrictValid") {
             None => None,
             Some(valid) => Some(self.spend_restriction(&valid)?),
@@ -45,6 +50,9 @@ impl Tx<'_> {
         let raw = p.take("Amount").unwrap_or_else(|| "1".to_string());
         let fixed = plain_number(&raw, self.svars).and_then(|n| u32::try_from(n).ok());
         let has_modifier = restrict.is_some() || spend_rider.is_some();
+        if combat_mana {
+            return self.wave28c_combat_mana_effects(&produced, fixed, has_modifier, persistent);
+        }
         let effects = if let Some(valid) = produced.strip_prefix("Special EachColorAmong_Valid ") {
             if fixed != Some(1) || has_modifier || persistent {
                 return self.deny("mana source `Special`".to_string());
@@ -696,11 +704,23 @@ impl Tx<'_> {
         if let Some(n) = self.amount_num(raw) {
             return Some(n);
         }
-        let def = match self.svars.get(raw.trim()) {
+        let trimmed = raw.trim();
+        let def = match self.svars.get(trimmed) {
             Some(def) => def.clone(),
-            None if raw.trim().contains('$') => raw.trim().to_string(),
-            None => return self.deny(format!("mana amount `{}`", raw.trim())),
+            None if trimmed.contains('$') => trimmed.to_string(),
+            None => return self.deny(format!("mana amount `{trimmed}`")),
         };
+        // Forge runtime feedback SVars (`AFLifeLost`, etc.) are stubbed as
+        // `Number$0` and overwritten dynamically at resolution; never read them
+        // as a literal zero.
+        if trimmed.starts_with("AF") && trimmed.len() > 2 && def.trim() == "Number$0" {
+            return self.deny(format!("mana amount `{trimmed}`"));
+        }
+        // Same-color mana devotion is lowered earlier via `mono_devotion_mana_amount`
+        // onto `Amount::DevotionToManaColor`; cross-color mana devotion stays refused.
+        if def.trim().starts_with("Count$Devotion") {
+            return self.deny(format!("count `{}`", def.trim()));
+        }
         match self.count_expr(&def) {
             Some(expr) => Some(expr),
             // Named by what it resolves *through* and never by its own
@@ -897,8 +917,11 @@ impl Tx<'_> {
             if self.in_delayed {
                 match def {
                     "Spawner>Sacrificed$CardPower"
+                    | "TriggerRemembered$CardPower"
                     | "DelayTriggerRemembered$CardPower"
-                    | "DelayTriggerRememberedLKI$CardPower" => {
+                    | "DelayTriggerRememberedLKI$CardPower"
+                    | "Spawner>TriggeredCard$CardPower"
+                    | "Spawner>TriggeredCardLKICopy$CardPower" => {
                         return Some("Amount::EventPower".to_string());
                     }
                     "Spawner>Sacrificed$CardToughness"
@@ -933,6 +956,9 @@ impl Tx<'_> {
             {
                 return Some("Amount::EventAmount".to_string());
             }
+            if def == "TriggerCount$ScryNum" && self.trigger_mode.as_deref() == Some("Scry") {
+                return Some("Amount::EventAmount".to_string());
+            }
             if def == "Count$LastDieRoll" {
                 return Some("Amount::LastDieRoll".to_string());
             }
@@ -950,7 +976,12 @@ impl Tx<'_> {
             if def == "TriggerCount$Amount"
                 && matches!(
                     self.trigger_mode.as_deref(),
-                    Some("ChangesZoneAll" | "AttackersDeclared" | "AttackersDeclaredOneTarget")
+                    Some(
+                        "ChangesZoneAll"
+                            | "DiscardedAll"
+                            | "AttackersDeclared"
+                            | "AttackersDeclaredOneTarget",
+                    )
                 )
             {
                 return Some("Amount::EventAmount".to_string());
@@ -1233,6 +1264,9 @@ impl Tx<'_> {
         if def == "Count$LifeOppsLostThisTurn" {
             return Some("Amount::OpponentsLifeLostThisTurn".to_string());
         }
+        if def == "Count$TotalCommanderCastFromCommandZone" {
+            return Some("Amount::CommanderCasts(PlayerRel::You)".to_string());
+        }
         if matches!(def, "Count$YourPoisonCounters" | "Count$YourCountersPoison") {
             return Some("Amount::CountersOnYou(CounterKind::Poison)".to_string());
         }
@@ -1271,9 +1305,25 @@ impl Tx<'_> {
         }
         if let Some(kind) = def.strip_prefix("Count$CardCounters.") {
             return super::counter_kind(kind)
+                .or_else(|| super::counter_kind(&kind.to_ascii_uppercase()))
                 .map(|kind| format!("Amount::CountersOnSource({kind})"));
         }
         if let Some(expr) = self.wave27a_count_expr(def, depth, static_only) {
+            return Some(expr);
+        }
+        if let Some(expr) = self.wave28b_count_expr(def, depth, static_only) {
+            return Some(expr);
+        }
+        if let Some(expr) = self.wave28c_count_expr(def, depth, static_only) {
+            return Some(expr);
+        }
+        if let Some(expr) = self.wave17a_count_expr(def, depth, static_only) {
+            return Some(expr);
+        }
+        if let Some(expr) = self.wave17b_count_expr(def, depth, static_only) {
+            return Some(expr);
+        }
+        if let Some(expr) = self.wave29b_count_expr(def, depth, static_only) {
             return Some(expr);
         }
         if let Some(valid) = def
@@ -1938,6 +1988,9 @@ impl Tx<'_> {
         if def == "Count$xPaid" && can_read_x {
             return Some("Amount::X".to_string());
         }
+        if def == "Count$RememberedNumber" && self.remembered_cmc {
+            return Some("Amount::TargetCmc".to_string());
+        }
         if (matches!(def, "Count$TotalManaSpent" | "Count$CastTotalManaSpent")
             && (self.on_a_spell || self.is_etb_self_trigger))
             || (def == "TriggeredCard$CastTotalManaSpent" && self.is_etb_self_trigger)
@@ -1981,7 +2034,12 @@ impl Tx<'_> {
             || (def == "TriggerCount$Amount"
                 && matches!(
                     self.trigger_mode.as_deref(),
-                    Some("ChangesZoneAll" | "AttackersDeclared" | "AttackersDeclaredOneTarget")
+                    Some(
+                        "ChangesZoneAll"
+                            | "DiscardedAll"
+                            | "AttackersDeclared"
+                            | "AttackersDeclaredOneTarget",
+                    )
                 ))
         {
             return Some("Amount::EventAmount".to_string());
@@ -2234,7 +2292,19 @@ impl Tx<'_> {
             None if trimmed.contains('$') => trimmed.to_string(),
             None => return None,
         };
+        // Forge runtime feedback SVars (`AFLifeLost`, etc.) are stubbed as
+        // `Number$0` and overwritten dynamically at resolution; never degrade
+        // them into `Amount::Fixed(0)`.
+        if trimmed.starts_with("AF") && trimmed.len() > 2 && def.trim() == "Number$0" {
+            return None;
+        }
+        if def.trim() == "Count$RememberedNumber" && self.remembered_cmc {
+            return Some("Amount::TargetCmc".to_string());
+        }
         if matches!(def.trim(), "Remembered$Amount" | "Count$RememberedSize") {
+            if self.countered_this_way {
+                return Some("Amount::ThisWay(ThisWay::Countered)".to_string());
+            }
             if self.capture_scope.is_some() {
                 return Some("Amount::RememberedCount".to_string());
             }
@@ -2283,6 +2353,9 @@ impl Tx<'_> {
     ) -> Option<(String, Option<&'static str>, Option<String>)> {
         let trimmed = valid.trim();
         match trimmed {
+            "CantCastSpellFromHand" => {
+                return Some(Self::wave28c_cant_cast_spell_from_hand_restriction());
+            }
             "CantCastNonArtifactSpells" => {
                 return Some((
                     "Filter::ARTIFACT".to_string(),
@@ -2449,8 +2522,14 @@ impl Tx<'_> {
                 parts.push(self.sub_counter_cost(n, kind, token)?);
             } else if let Some((kind, body)) = object_cost(token) {
                 parts.extend(self.object_cost_part(kind, body, token)?);
+            } else if token.starts_with("Blight<") {
+                parts.push(self.parse_blight_cost_token(token)?);
+            } else if token.starts_with("Reveal<") {
+                parts.extend(self.parse_reveal_cost_token(token, true)?);
             } else if token == "Forage" {
                 parts.push("Forage".to_string());
+            } else if token.starts_with("Waterbend<") {
+                parts.push(self.wave18b_waterbend_cost_token(token)?);
             } else if token.starts_with("PayLife<")
                 || token.starts_with("PayEnergy<")
                 || token.starts_with("ExileFromTop<")
@@ -2460,9 +2539,10 @@ impl Tx<'_> {
             } else if token.chars().all(|c| c.is_ascii_digit())
                 || matches!(token, "W" | "U" | "B" | "R" | "G" | "C" | "S")
                 || (token == "X"
-                    && self.has_x
-                    && self.svars.get("X").map(String::as_str) == Some("Count$xPaid")
-                    && !self.oracle.to_ascii_lowercase().contains("x is "))
+                    && (self.allow_defined_cost_x
+                        || (self.has_x
+                            && self.svars.get("X").map(String::as_str) == Some("Count$xPaid")
+                            && !self.oracle.to_ascii_lowercase().contains("x is "))))
             {
                 mana.push('{');
                 mana.push_str(token);
@@ -2503,7 +2583,7 @@ impl Tx<'_> {
                 Some(format!("PutCounterSelf {{ kind: {kind}, n: {n} }}"))
             }
             Some(valid) => {
-                if self.on_a_spell || self.in_alternative_cost || n == 0 {
+                if n == 0 {
                     return self.deny(format!("cost `{token}`"));
                 }
                 let controlled_by_you = valid.split([',', ';']).all(|alt| {
@@ -2866,7 +2946,8 @@ impl Tx<'_> {
             kind,
             "Sac" | "Discard" | "ExileFromGrave" | "Return" | "Exile"
         ) || (self.in_alternative_cost && kind == "ExileFromHand"))
-            && matches!(n, "2" | "3")
+            && n.parse::<usize>()
+                .is_ok_and(|count| (2..=15).contains(&count))
             && !is_self_name;
         let special = sac_x || sac_all || tap_x || discard_x || exile_grave_x || tap_n.is_some();
         if n != "1" && !special && !multi_parts {
@@ -2996,6 +3077,7 @@ fn dynamic_filter_scalar_atom(def: &str) -> Option<String> {
         match def {
             "Count$LifeYouGainedThisTurn" => "Amount::LifeGainedThisTurn(PlayerRel::You)",
             "Count$LifeOppsLostThisTurn" => "Amount::OpponentsLifeLostThisTurn",
+            "Count$TotalCommanderCastFromCommandZone" => "Amount::CommanderCasts(PlayerRel::You)",
             "Count$YourLifeTotal" => "Amount::LifeTotal(PlayerRel::You)",
             "Count$CardsInYourHand" | "Count$ValidHand Card.YouOwn" => {
                 "Amount::HandSize(PlayerRel::You)"
@@ -3043,6 +3125,9 @@ fn dynamic_filter_scalar_atom(def: &str) -> Option<String> {
 
 fn normalize_spend_valid(raw: &str) -> String {
     let s = raw.trim();
+    if s.starts_with("wasCast") || s.starts_with("!wasCast") {
+        return format!("Card.{s}");
+    }
     let s = if s == "Kicked" { "Card.kicked" } else { s };
     if let Some(plus) = s.find('+')
         && !s[..plus].contains('.')

@@ -353,9 +353,6 @@ fn conditional_self_flash_split_second_and_stack_cascade_and_refusals() {
          S:Mode$ Continuous | IsPresent$ Card.Self+kicked | PresentZone$ Stack | \
          CharacteristicDefining$ True | AddKeyword$ Split second\n\
          A:SP$ Draw | NumCards$ 1",
-        // Non-self battlefield Cascade grant (Wildsear / Zhulodok: Cascade reads source MV).
-        "Name:Wildsear\nManaCost:3 R G\nTypes:Creature\nPT:6/6\n\
-         S:Mode$ Continuous | AffectedZone$ Stack | Affected$ Creature.YouCtrl | AddKeyword$ Cascade",
         // Unconditional self-stack Cascade.
         "Name:BadUncondCascade\nManaCost:2 R\nTypes:Creature\nPT:2/2\n\
          S:Mode$ Continuous | EffectZone$ Stack | AffectedZone$ Stack | Affected$ Card.Self | \
@@ -683,7 +680,7 @@ fn wave24b_refuses_engine_gaps_and_non_paper_scripts() {
         // `AffectedZone$ Library` / `Graveyard` `MayPlay$ True` (engine/DSL gaps).
         "Name:Graveyard Mutate\nManaCost:3 B G\nTypes:Creature\nPT:4/4\n\
          S:Mode$ Continuous | Affected$ Creature.YouOwn | AffectedZone$ Graveyard | \
-         ValidSA$ Spell.Mutate | MayPlay$ True",
+         ValidSA$ Spell.Dash | MayPlay$ True",
         // Alchemy / Un-set / Planechase strictly refused.
         "Name:Alchemy MakeCard\nManaCost:1 U\nTypes:Sorcery\n\
          A:SP$ MakeCard | Name$ Lightning Bolt",

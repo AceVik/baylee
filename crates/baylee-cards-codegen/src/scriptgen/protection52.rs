@@ -44,20 +44,11 @@ impl Tx<'_> {
         if mode != "ChangesZone" || p.take("Destination").as_deref() != Some("Battlefield") {
             return self.deny("unsupported cast-self entry trigger".into());
         }
-        let from_hand = match p.take("ValidCard").as_deref() {
-            Some(
-                "Card.wasCastByYou+Self"
-                | "Card.Self+wasCastByYou"
-                | "Creature.wasCastByYou+Self"
-                | "Creature.Self+wasCastByYou",
-            ) => false,
-            Some(
-                "Card.wasCastFromYourHandByYou+Self"
-                | "Card.Self+wasCastFromYourHandByYou"
-                | "Creature.wasCastFromYourHandByYou+Self"
-                | "Creature.Self+wasCastFromYourHandByYou",
-            ) => true,
-            _ => return self.deny("unsupported cast-self entry trigger".into()),
+        let Some(valid_card) = p.take("ValidCard") else {
+            return self.deny("unsupported cast-self entry trigger".into());
+        };
+        let Some(mut cond_parts) = self.wave17a_cast_self_etb_clauses(&valid_card) else {
+            return self.deny("unsupported cast-self entry trigger".into());
         };
         if let Some(origin) = p.take("Origin")
             && origin != "Any"
@@ -87,10 +78,6 @@ impl Tx<'_> {
         let name = p.take("Execute")?;
         if !p.exhausted() {
             return self.deny("unclaimed cast-self entry parameter".into());
-        }
-        let mut cond_parts = vec!["Condition::SourceWasCastByYou".to_string()];
-        if from_hand {
-            cond_parts.push("Condition::SourceMatches(&Filter::CastFromHand)".to_string());
         }
         if let Some(inner) = extra_cond
             .strip_prefix(", condition = Some(")
@@ -736,22 +723,9 @@ impl Tx<'_> {
         let Some(kw) = p.take("AddKeyword") else {
             return self.deny("static ability reaching `AffectedZone$ Graveyard`".into());
         };
-        let (modifier, needs_graveyard_zone) = if kw.trim() == "Flashback" {
-            ("Modifier::GrantsFlashback".to_string(), false)
-        } else if kw.trim() == "Retrace" {
-            (
-                "Modifier::AddKeyword(KeywordSet::RETRACE)".to_string(),
-                true,
-            )
-        } else if let Some(n_str) = kw
-            .trim()
-            .strip_prefix("Escape:CardManaCost ExileFromGrave<")
-            .and_then(|s| s.strip_suffix("/Card.Other/other>"))
-            && let Ok(n) = n_str.parse::<u8>()
-            && n > 0
-        {
-            (format!("Modifier::GrantsEscape({n})"), false)
-        } else {
+        let Some((modifier, needs_graveyard_zone)) =
+            Self::wave16b_graveyard_grant_modifier(&kw, true)
+        else {
             return self.deny("static ability reaching `AffectedZone$ Graveyard`".into());
         };
         let cond = self.condition_any(&mut p)?;
@@ -1689,7 +1663,7 @@ impl Tx<'_> {
                 Some(if zones.len() == 1 {
                     zones[0].to_string()
                 } else {
-                    format!("Filter::AnyOf(&[{}])", zones.join(", "))
+                    format!("Filter::Or(&[{}])", zones.join(", "))
                 })
             }
         };

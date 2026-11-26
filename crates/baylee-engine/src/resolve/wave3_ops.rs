@@ -32,6 +32,13 @@ pub(crate) enum RepeatStep {
     },
     /// A remembered object from `Effect::CaptureAffected` (`Effect::ForEachRemembered`).
     Remembered(super::remembered::RememberedObject),
+    /// A player paired with a branch index (`Effect::PlayersChooseMode`).
+    PlayerBranch {
+        /// Player bound as [`PlayerRel::EventPlayer`] for this step.
+        player: PlayerId,
+        /// Index into `MultiPlayerChoice::branches`.
+        branch_index: u8,
+    },
 }
 
 /// Remaining iteration state of an active [`RepeatFrame`].
@@ -247,12 +254,13 @@ pub(super) fn advance_repeat_frame(
                 }
             }
         };
-        match next_step {
+        let step_effects: &'static [Effect] = match next_step {
             Some(Ok(RepeatStep::Player(player))) => {
                 if state.has_left(player) {
                     continue;
                 }
                 res.subject.set_event_player(Some(player));
+                effects
             }
             Some(Ok(RepeatStep::Permanent {
                 identity,
@@ -273,6 +281,7 @@ pub(super) fn advance_repeat_frame(
                     bind_remembered_object(state, res, identity.object);
                     res.subject.set_event_player(Some(controller));
                 }
+                effects
             }
             Some(Ok(RepeatStep::ObjectInZone {
                 identity,
@@ -292,14 +301,33 @@ pub(super) fn advance_repeat_frame(
                 };
                 bind_remembered_object(state, res, identity.object);
                 res.subject.set_event_player(Some(player));
+                effects
             }
             Some(Ok(RepeatStep::Remembered(rem))) => {
                 let power = rem.lki.power.unwrap_or(0);
                 res.event_object = Some(rem.reference.object);
                 res.subject.set_event_identity(Some((rem.reference, power)));
                 res.subject.set_event_player(Some(rem.lki.controller));
+                effects
             }
-            Some(Err(())) => {}
+            Some(Ok(RepeatStep::PlayerBranch {
+                player,
+                branch_index,
+            })) => {
+                if state.has_left(player) {
+                    continue;
+                }
+                res.subject.set_event_player(Some(player));
+                if let Effect::PlayersChooseMode(spec) = op {
+                    spec.branches
+                        .get(usize::from(branch_index))
+                        .copied()
+                        .unwrap_or(&[])
+                } else {
+                    effects
+                }
+            }
+            Some(Err(())) => effects,
             None => {
                 let frame = res.subject.repeat_frames.pop()?;
                 res.event_object = frame.saved_event_object;
@@ -307,13 +335,80 @@ pub(super) fn advance_repeat_frame(
                 res.subject.set_event_player(frame.saved_event_player);
                 return None;
             }
-        }
-        let mut pass = flatten(effects);
+        };
+        let mut pass = flatten(step_effects);
         pass.push(op);
         let at = res.pc + 1;
         res.effects.splice(at..at, pass);
         return None;
     }
+}
+
+/// Entry and step-advance handler for [`Effect::ForEachPlayer`].
+pub(super) fn exec_for_each_player(
+    state: &mut GameState,
+    res: &mut Resolution,
+    players: PlayerRel,
+    effects: &'static [Effect],
+    op: Effect,
+) -> Option<Pending> {
+    let after_len = res.effects.len().saturating_sub(res.pc + 1);
+    let resuming = res
+        .subject
+        .repeat_frames
+        .last()
+        .is_some_and(|frame| frame.tail_from_end == after_len);
+    if !resuming {
+        if effects.is_empty() {
+            return None;
+        }
+        let cap = super::immediate::REPEAT_CAP as usize;
+        let mut seats = eval::players(players, state, res.controller).unwrap_or_default();
+        seats.sort_by_key(|p| crate::battle::sba::apnap_distance(state, *p));
+        seats.truncate(cap);
+        seats.reverse();
+        if seats.is_empty() {
+            return None;
+        }
+        res.subject.repeat_frames.push(RepeatFrame {
+            tail_from_end: after_len,
+            steps: RepeatSteps::Items(seats.into_iter().map(RepeatStep::Player).collect()),
+            saved_event_object: res.event_object,
+            saved_event_identity: res.subject.event_identity(),
+            saved_event_player: res.subject.event_player(),
+        });
+    }
+    advance_repeat_frame(state, res, effects, op)
+}
+
+/// Start executing ordered `(player, branch_index)` steps for [`Effect::PlayersChooseMode`].
+pub(super) fn exec_players_choose_branches(
+    state: &mut GameState,
+    res: &mut Resolution,
+    op: Effect,
+    mut steps: Vec<(PlayerId, u8)>,
+) -> Option<Pending> {
+    if steps.is_empty() {
+        return None;
+    }
+    let after_len = res.effects.len().saturating_sub(res.pc + 1);
+    steps.reverse();
+    res.subject.repeat_frames.push(RepeatFrame {
+        tail_from_end: after_len,
+        steps: RepeatSteps::Items(
+            steps
+                .into_iter()
+                .map(|(player, branch_index)| RepeatStep::PlayerBranch {
+                    player,
+                    branch_index,
+                })
+                .collect(),
+        ),
+        saved_event_object: res.event_object,
+        saved_event_identity: res.subject.event_identity(),
+        saved_event_player: res.subject.event_player(),
+    });
+    advance_repeat_frame(state, res, &[], op)
 }
 
 /// Start [`Effect::ChooseCard`].

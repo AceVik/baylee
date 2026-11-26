@@ -887,6 +887,13 @@ pub(super) fn resume_inner(
                 return next_choice(state, res, since, pending);
             }
         }
+        AwaitingOp::ChooseDistinctPowers(spec) => {
+            if let Some(pending) =
+                super::wave15b::resume_choose_distinct_powers(state, res, *spec, chosen)
+            {
+                return next_choice(state, res, since, pending);
+            }
+        }
         AwaitingOp::AttachChosen { host } => {
             super::wave15b::resume_attach_chosen(state, host, chosen);
         }
@@ -1009,6 +1016,41 @@ pub(super) fn resume_inner(
             }
             // One card left is the bottom card: the sentence puts one there
             // before it exiles any, so a library of two exiles nothing.
+            for card in rest {
+                let _ = state.move_object(
+                    card,
+                    ZoneLocation::Library(res.controller),
+                    ZonePosition::Bottom,
+                    Cause::Effect,
+                );
+            }
+        }
+        AwaitingOp::RippleBottom { mut rest } => {
+            for &card in chosen {
+                rest.retain(|&id| id != card);
+                let _ = state.move_object(
+                    card,
+                    ZoneLocation::Library(res.controller),
+                    ZonePosition::Bottom,
+                    Cause::Effect,
+                );
+            }
+            if rest.len() > 1 {
+                res.awaiting = Some(AwaitingOp::RippleBottom { rest: rest.clone() });
+                return next_choice(
+                    state,
+                    res,
+                    since,
+                    Pending::ChooseCards {
+                        player: res.controller,
+                        options: rest,
+                        min: 1,
+                        max: 1,
+                        prompt: ChoicePrompt::PutOnBottom,
+                        total: None,
+                    },
+                );
+            }
             for card in rest {
                 let _ = state.move_object(
                     card,
@@ -1211,6 +1253,46 @@ pub(super) fn resume_inner(
                 );
             }
         }
+        AwaitingOp::LearnWish => {
+            if let Some(&card) = chosen.first() {
+                if state
+                    .object(card)
+                    .is_some_and(|o| o.zone == crate::zone::Zone::OutsideGame)
+                {
+                    state.journal.record(GameEvent::Revealed {
+                        player: res.controller,
+                        cards: vec![card],
+                    });
+                    let _ = state.move_object(
+                        card,
+                        ZoneLocation::Hand(res.controller),
+                        ZonePosition::Top,
+                        Cause::Effect,
+                    );
+                }
+            } else {
+                // CR 701.46b: declining to reveal a Lesson offers discarding a
+                // card to draw a card.
+                let hand: Vec<ObjectId> =
+                    state.zones.list(ZoneLocation::Hand(res.controller)).clone();
+                if !hand.is_empty() {
+                    res.awaiting = Some(AwaitingOp::DiscardThenDraw);
+                    return next_choice(
+                        state,
+                        res,
+                        since,
+                        Pending::ChooseCards {
+                            player: res.controller,
+                            options: hand,
+                            min: 0,
+                            max: 1,
+                            prompt: ChoicePrompt::Discard,
+                            total: None,
+                        },
+                    );
+                }
+            }
+        }
         AwaitingOp::OnePerType { revealed, next } => {
             if let Some(&card) = chosen.first() {
                 let _ = state.move_object(
@@ -1251,6 +1333,37 @@ pub(super) fn resume_inner(
             if let Some(pending) = keep_one_of_each::resume(state, res, *selection, chosen) {
                 return next_choice(state, res, since, pending);
             }
+        }
+        AwaitingOp::CreepingDread {
+            remaining_players,
+            discarded,
+            damage,
+        } => {
+            if let Some(pending) = super::wave18b::resume_creeping_dread(
+                state,
+                res,
+                remaining_players,
+                discarded,
+                damage,
+                chosen,
+            ) {
+                return next_choice(state, res, since, pending);
+            }
+        }
+        AwaitingOp::PhyrexianGrimoire { cards } => {
+            super::wave18b::resume_phyrexian_grimoire(state, cards, chosen);
+        }
+        AwaitingOp::TaintedPact { card, seen_names } => {
+            if let Some(pending) =
+                super::wave18b::resume_tainted_pact(state, res, card, seen_names, chosen)
+            {
+                return next_choice(state, res, since, pending);
+            }
+        }
+        AwaitingOp::SearchLibraryAttachedToEvent { host, library } => {
+            super::wave18b::resume_search_library_attached_to_event(
+                state, res, host, library, chosen,
+            );
         }
         AwaitingOp::ExileTokensCreatedWithThisForCounters { source, kind } => {
             let mut exiled = 0_u32;
@@ -1420,6 +1533,62 @@ pub(super) fn resume_inner(
                 );
             }
             chosen::sacrifice_held(state, res, &held, res.controller);
+        }
+        AwaitingOp::PutCountersOnChosenControlled {
+            asked,
+            filter,
+            kind,
+            count,
+            mut remaining,
+            chosen: mut held,
+        } => {
+            let _ = chosen::record_choice(state, asked, chosen, &mut held);
+            if let Some((player, options)) =
+                chosen::next_asked(state, &mut remaining, filter, res.controller, res.source)
+            {
+                res.awaiting = Some(AwaitingOp::PutCountersOnChosenControlled {
+                    asked: player,
+                    filter,
+                    kind,
+                    count,
+                    remaining,
+                    chosen: held,
+                });
+                return next_choice(
+                    state,
+                    res,
+                    since,
+                    Pending::ChooseCards {
+                        player,
+                        options,
+                        min: 1,
+                        max: 1,
+                        prompt: ChoicePrompt::Generic,
+                        total: None,
+                    },
+                );
+            }
+            let plans: Vec<_> = held
+                .into_iter()
+                .filter_map(|(by_player, target_ref)| {
+                    state.object(target_ref.object).filter(|o| {
+                        o.zone == crate::zone::Zone::Battlefield
+                            && o.version == target_ref.version
+                            && !o.status.contains(crate::object::Status::PHASED_OUT)
+                    })?;
+                    crate::replacement::counter_order::plan(
+                        state,
+                        by_player,
+                        target_ref.object,
+                        vec![(kind, count)],
+                        true,
+                        None,
+                    )
+                })
+                .collect();
+            if !plans.is_empty() {
+                crate::replacement::counter_order::enqueue_batch(state, plans, Vec::new());
+            }
         }
         AwaitingOp::SacrificeAnyNumber {
             asked,
@@ -1648,6 +1817,18 @@ pub(super) fn resume_inner(
                 return next_choice(state, res, since, pending);
             }
         }
+        AwaitingOp::AnyPlayerPayCost {
+            asked,
+            remaining,
+            step,
+            cost,
+            on_payment,
+            effects,
+        } => {
+            return super::wave18c::any_player_pay_cost_cards(
+                state, res, asked, remaining, step, cost, on_payment, effects, chosen, since,
+            );
+        }
         AwaitingOp::RaidingParty {
             asked,
             remaining,
@@ -1756,6 +1937,8 @@ pub(super) fn resume_inner(
         | AwaitingOp::MutatePosition
         | AwaitingOp::ChooseEffect { .. }
         | AwaitingOp::ChooseEffectRestricted { .. }
+        | AwaitingOp::ChoosePayCostOrDecline { .. }
+        | AwaitingOp::PlayersChooseMode { .. }
         | AwaitingOp::OptionVote(_)
         | AwaitingOp::LinkedPlay { .. }
         | AwaitingOp::MaskedCast
@@ -1782,6 +1965,7 @@ pub(super) fn resume_inner(
         | AwaitingOp::ProtectionColor { .. }
         | AwaitingOp::LandwalkChoice { .. }
         | AwaitingOp::ChooseCreatureType { .. }
+        | AwaitingOp::ChooseBasicLandType
         | AwaitingOp::Colors { .. }
         | AwaitingOp::MoveCounter { .. }
         | AwaitingOp::PutCounterChoice { .. }
@@ -1825,6 +2009,10 @@ pub(super) fn resume_inner(
         | AwaitingOp::PlayerMayPayDamageToYou { .. }
         | AwaitingOp::ConfirmCountedCost { .. }
         | AwaitingOp::Endure { .. }
+        | AwaitingOp::DemonstrateConfirm
+        | AwaitingOp::DemonstrateOpponent
+        | AwaitingOp::RippleReveal { .. }
+        | AwaitingOp::MayPayEnergyThen { .. }
         | AwaitingOp::CommanderReplace { .. } => {
             unreachable!("color/yes-no choices resume via their own functions")
         }
@@ -1843,8 +2031,11 @@ pub(super) fn resume_inner(
                 );
             }
         }
-        AwaitingOp::PlayerMayPay { .. } => {
+        AwaitingOp::PlayerMayPay { .. } | AwaitingOp::PlayerMayWaterbendConfirm { .. } => {
             unreachable!("tax choices resume via resume_tax_choice")
+        }
+        AwaitingOp::PlayerMayWaterbendTaps { effect, .. } => {
+            return super::answers::run_fallback(state, res, std::slice::from_ref(effect));
         }
         AwaitingOp::ForageRemainingGraveyard {
             on_payment,
@@ -2005,47 +2196,18 @@ pub(super) fn resume_inner(
             // same reading as `resume_tax_choice`: the answer was legal
             // when it was offered, so a refusal here is a rules outcome
             // and never a reason to abandon the resolution.
-            let is_sacrifice_cost = matches!(
-                cost,
-                baylee_cards_dsl::CostPart::Sacrifice(_)
-                    | baylee_cards_dsl::CostPart::SacrificeSelf
-                    | baylee_cards_dsl::CostPart::SacrificeGrantor
-            );
-            let receipt = chosen
-                .first()
-                .and_then(|id| state.object(*id))
-                .filter(|_| is_sacrifice_cost)
-                .map(|object| {
-                    (
-                        (object.id, object.version),
-                        crate::object::SacrificedLki::of(object),
-                        object.characteristics().colors,
-                    )
-                });
-            let paid = chosen.first().is_some_and(|&chosen| {
-                !(choices::cost_part_names_this(cost)
-                    && chosen == res.source
-                    && !subjects::source(state, res)
-                        .is_some_and(|source| subjects::is_current(state, source)))
-                    && cost_wizard::pay(state, player, cost, chosen).is_ok()
-            });
-            if is_sacrifice_cost {
-                res.subject.found.clear();
-            }
-            if paid && let Some((sacrificed, lki, colors)) = receipt {
-                res.subject.sacrificed = Some(lki);
-                res.subject.sacrifice_stats.record(lki, colors);
-                if let Some(identity) = state.source_identity(sacrificed.0) {
-                    res.subject.found.push(identity);
-                }
-                if let Some(stack) = state.object_mut(res.on_stack) {
-                    let record = stack.paid.get_or_insert_with(Default::default);
-                    record.sacrificed = Some(sacrificed);
-                    record.sacrificed_lki = Some(lki);
-                }
-            }
+            let paid = pay_single_resolution_cost(state, res, player, cost, chosen);
             if paid == on_payment {
                 return run_fallback(state, res, std::slice::from_ref(effect));
+            }
+        }
+        AwaitingOp::PlayerMayPayChosenCost {
+            player,
+            cost,
+            otherwise,
+        } => {
+            if !pay_single_resolution_cost(state, res, player, cost, chosen) {
+                return run_fallback(state, res, otherwise);
             }
         }
         AwaitingOp::CipherEncode => super::wave10b::resume_cipher_encode(state, res, chosen),
@@ -2184,4 +2346,53 @@ pub(super) fn resume_source_inner(
         _ => unreachable!("not a source decision"),
     }
     finish_choice(state, res, since)
+}
+
+fn pay_single_resolution_cost(
+    state: &mut GameState,
+    res: &mut Resolution,
+    player: PlayerId,
+    cost: &baylee_cards_dsl::CostPart,
+    chosen: &[ObjectId],
+) -> bool {
+    let is_sacrifice_cost = matches!(
+        cost,
+        baylee_cards_dsl::CostPart::Sacrifice(_)
+            | baylee_cards_dsl::CostPart::SacrificeSelf
+            | baylee_cards_dsl::CostPart::SacrificeGrantor
+    );
+    let receipt = chosen
+        .first()
+        .and_then(|id| state.object(*id))
+        .filter(|_| is_sacrifice_cost)
+        .map(|object| {
+            (
+                (object.id, object.version),
+                crate::object::SacrificedLki::of(object),
+                object.characteristics().colors,
+            )
+        });
+    let paid = chosen.first().is_some_and(|&chosen| {
+        !(choices::cost_part_names_this(cost)
+            && chosen == res.source
+            && !subjects::source(state, res)
+                .is_some_and(|source| subjects::is_current(state, source)))
+            && cost_wizard::pay(state, player, cost, chosen).is_ok()
+    });
+    if is_sacrifice_cost {
+        res.subject.found.clear();
+    }
+    if paid && let Some((sacrificed, lki, colors)) = receipt {
+        res.subject.sacrificed = Some(lki);
+        res.subject.sacrifice_stats.record(lki, colors);
+        if let Some(identity) = state.source_identity(sacrificed.0) {
+            res.subject.found.push(identity);
+        }
+        if let Some(stack) = state.object_mut(res.on_stack) {
+            let record = stack.paid.get_or_insert_with(Default::default);
+            record.sacrificed = Some(sacrificed);
+            record.sacrificed_lki = Some(lki);
+        }
+    }
+    paid
 }

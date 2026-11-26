@@ -218,7 +218,8 @@ pub(crate) fn replaced_cost_options(
                 let mut add = |modes, raw: ManaCost| {
                     let cost = adjustment.price(raw, printed);
                     let affordable = preview_adjustment.price(raw, printed).with_x(0);
-                    let affordable = keyword_priced(state, face, player, &affordable, keywords);
+                    let affordable =
+                        keyword_priced_for(state, card, index, face, player, &affordable, keywords);
                     let mana_ready = paying == Paying::DuringTheCast
                         || source_affordable(
                             state,

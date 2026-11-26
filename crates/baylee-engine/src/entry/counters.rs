@@ -7,28 +7,31 @@ pub(super) fn needs_entry(state: &GameState, id: ObjectId) -> bool {
     // External instructions attach counters after requesting the move. Keep that
     // move open whenever replacement ordering could need a decision. Intrinsic
     // counters alone keep their synchronous path when arithmetic is unambiguous.
-    super::modifiers(state, id).iter().any(|m| {
-        matches!(
-            m,
-            EnterModifier::ChooseCounterPerEntryCount(_)
-                | EnterModifier::Amplify(_)
-                | EnterModifier::Devour { .. }
-                | EnterModifier::Sunburst
-                | EnterModifier::Tribute(_)
-        )
-    }) || state.effects.iter().any(|effect| {
-        matches!(
-            effect.modifier,
-            baylee_cards_dsl::Modifier::AdditionalCounterPlacement { n: 1.. }
-                | baylee_cards_dsl::Modifier::AdditionalCounterOnEntryByCount { .. }
-                | baylee_cards_dsl::Modifier::DoubleCountersPlacedByYou
-        )
-    }) || state.replacement_rules.iter().any(|entry| {
-        matches!(
-            entry.rule,
-            baylee_cards_dsl::ReplacementRule::EnterWithCountersFromSource { .. }
-        )
-    })
+    super::has_pre_counter_choice(super::modifiers(state, id))
+        || super::modifiers(state, id).iter().any(|m| {
+            matches!(
+                m,
+                EnterModifier::ChooseCounterPerEntryCount(_)
+                    | EnterModifier::Amplify(_)
+                    | EnterModifier::Devour { .. }
+                    | EnterModifier::Sunburst
+                    | EnterModifier::Tribute(_)
+            )
+        })
+        || state.effects.iter().any(|effect| {
+            matches!(
+                effect.modifier,
+                baylee_cards_dsl::Modifier::AdditionalCounterPlacement { n: 1.. }
+                    | baylee_cards_dsl::Modifier::AdditionalCounterOnEntryByCount { .. }
+                    | baylee_cards_dsl::Modifier::DoubleCountersPlacedByYou
+            )
+        })
+        || state.replacement_rules.iter().any(|entry| {
+            matches!(
+                entry.rule,
+                baylee_cards_dsl::ReplacementRule::EnterWithCountersFromSource { .. }
+            )
+        })
 }
 
 pub(super) fn question(state: &mut GameState, entry: &mut Attempt) -> Option<Pending> {

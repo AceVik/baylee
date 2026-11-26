@@ -741,8 +741,21 @@ express at all yet.
   binding `Amount::X`),
   `Behold(filter)` (CR 701.4a: choose a permanent you control matching `filter`
   or reveal a card matching `filter` from your hand via `ChoicePrompt::Behold`),
+  `BeholdAndExile(filter)` (CR 701.4a, CR 607.2a: choose a permanent you control
+  matching `filter` or a card matching `filter` from your hand, exile it, and
+  link it to the resolving permanent via `Rider::SpellCostExile`),
   `CollectEvidence(n)` (CR 701.59a: exile cards with total mana value `n` or
-  greater from your graveyard via `ChoicePrompt::CollectEvidence`).
+  greater from your graveyard via `ChoicePrompt::CollectEvidence`),
+  `Waterbend(n)` / `WaterbendX` (CR 701.67a: pay `{n}` or `{X}` where tapping
+  each untapped artifact or creature you control pays `{1}` of the generic
+  waterbend cost),
+  `RevealFromHand(filter)` (CR 701.20a: reveal a card matching `filter` from
+  your hand other than the spell or source card itself),
+  `RevealFromHandX(filter)` (CR 107.3a, CR 701.20a: announce X and reveal X
+  distinct cards matching `filter` from your hand, binding `Amount::X`),
+  `RevealSelfFromHand` (CR 702.57b: reveal this card from your hand as an
+  `ActivationZone::Hand` cost such as Forecast, keeping it revealed until the
+  current step or phase ends).
 
   `CostPart::ExertSelf` exerts the source as an activation cost. It does not
   tap the permanent, require it to be untapped, or impose summoning sickness;

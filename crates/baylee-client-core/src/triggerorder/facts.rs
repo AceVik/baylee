@@ -322,6 +322,9 @@ const fn counted(amount: Amount) -> Stuff {
         | Amount::BasicLandTypesAmong(..)
         | Amount::DevotionToManaColor
         | Amount::EnteredThisTurn { .. }
+        | Amount::TokensCreatedThisTurn { .. }
+        | Amount::LeftZoneThisTurn { .. }
+        | Amount::PermanentsSacrificedThisTurn { .. }
         | Amount::CreaturesAttackedThisTurn { .. } => Stuff::BOARD,
         Amount::DistinctManaValuesInZone { zone, .. } => match zone {
             baylee_cards_dsl::ZoneSel::GraveyardYou
@@ -334,8 +337,12 @@ const fn counted(amount: Amount) -> Stuff {
             | baylee_cards_dsl::ZoneSel::HandChosen => Stuff::HAND,
             _ => Stuff::BOARD,
         },
-        Amount::HandSize(..) | Amount::HighestOpponentHandSize => Stuff::HAND,
-        Amount::LifeTotal(..) => Stuff::LIFE,
+        Amount::HandSize(..)
+        | Amount::HighestOpponentHandSize
+        | Amount::CardsDiscardedThisTurn(..) => Stuff::HAND,
+        Amount::LifeTotal(..)
+        | Amount::LifeLostThisTurn(..)
+        | Amount::HighestLifeLostThisTurn(..) => Stuff::LIFE,
         Amount::SourcePower | Amount::TargetPower | Amount::EventPower => Stuff::POWER,
         Amount::IfCondition {
             then, otherwise, ..

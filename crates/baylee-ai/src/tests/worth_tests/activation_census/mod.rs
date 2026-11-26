@@ -632,7 +632,13 @@ fn the_table_reads_most_of_what_the_pool_activates() {
     // and 119 total non-mana activations.
     // Invasion mechanics (Phyrexian Infiltrator's ExchangeControlOfSourceAndTarget)
     // adds 1 contextual non-mana activation (0 read, +1 total).
-    assert_eq!((read, of), (5853, 7593), "activated/loyalty reader census");
+    // Wave 16 + Wave 28 (+942 generated cards, +92 promoted stubs) adds 122 read
+    // and 214 total non-mana activations across newly harvested cards.
+    // Wave 17 + Wave 29 (+465 generated cards, +35 promoted stubs) adds 71 read
+    // and 117 total non-mana activations across newly harvested cards.
+    // Wave 18 + Wave 30 (+282 generated cards, +29 promoted stubs) adds 44 read
+    // and 81 total non-mana activations across newly harvested cards.
+    assert_eq!((read, of), (6142, 8058), "activated/loyalty reader census");
 
     // Pin the new readable rows to their cards rather than only to the census.
     for (name, label) in [

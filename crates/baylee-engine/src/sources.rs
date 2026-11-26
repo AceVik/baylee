@@ -894,6 +894,31 @@ impl GameState {
                 copied.prototyped = true;
             }
         }
+        let extra_cast_riders: Vec<crate::object::Rider> = self
+            .source_object(original)
+            .map_or_else(Vec::new, |object| {
+                object
+                    .riders
+                    .iter()
+                    .copied()
+                    .filter(|r| {
+                        matches!(
+                            r,
+                            crate::object::Rider::ControlledSubtypeOnCast(_)
+                                | crate::object::Rider::BeheldCostPower(_, _, _)
+                        )
+                    })
+                    .collect()
+            });
+        if !extra_cast_riders.is_empty()
+            && let Some(copied) = self.object_mut(copy)
+        {
+            for r in extra_cast_riders {
+                if !copied.riders.contains(&r) {
+                    copied.riders.push(r);
+                }
+            }
+        }
     }
 
     pub(crate) fn capture_target_group(&self, objects: &[ObjectId]) -> Vec<DamageSourceRef> {
@@ -1305,6 +1330,7 @@ fn general_trigger_references(
 
 /// Every incarnation a delayed action names; also what a forked simulation
 /// checks for hidden cards (`GameState::audit_fork`).
+#[allow(clippy::too_many_lines)]
 pub(crate) fn delayed_references(action: &DelayedAction, out: &mut BTreeSet<DamageSourceRef>) {
     match *action {
         DelayedAction::RestrictAttacksForTurn { source, affected } => {
@@ -1322,6 +1348,15 @@ pub(crate) fn delayed_references(action: &DelayedAction, out: &mut BTreeSet<Dama
         } => {
             out.insert(source);
             out.extend(objects.iter().copied());
+        }
+        DelayedAction::FlickerformReturn {
+            source,
+            host,
+            ref auras,
+        } => {
+            out.insert(source);
+            out.insert(host);
+            out.extend(auras.iter().copied());
         }
         DelayedAction::Trigger {
             source,
@@ -1393,6 +1428,11 @@ pub(crate) fn delayed_references(action: &DelayedAction, out: &mut BTreeSet<Dama
             out.insert(DamageSourceRef { object, version });
         }
         DelayedAction::AddMana {
+            source,
+            source_version,
+            ..
+        }
+        | DelayedAction::AddManaAnyColor {
             source,
             source_version,
             ..

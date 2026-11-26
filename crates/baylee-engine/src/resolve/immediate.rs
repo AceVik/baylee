@@ -2,6 +2,7 @@
 
 #[allow(clippy::wildcard_imports)] // the parent's vocabulary
 use super::*;
+use crate::state::CardLookup;
 
 /// Operations that complete immediately. This is only the dispatcher:
 /// effect families live in their own modules (life/damage, zones, mana,
@@ -454,6 +455,7 @@ pub(super) fn exec_immediate(
         | Effect::DamageEqualToPower { .. }
         | Effect::EventObjectDealsDamageEqualToPower { .. }
         | Effect::EventObjectDealsDamage { .. }
+        | Effect::EventObjectDealsDamageEach { .. }
         | Effect::DealDamageEvenlyToFilter { .. }
         | Effect::TargetDealsDamageToController { .. }
         | Effect::DealDamageToTargetController { .. }
@@ -578,6 +580,47 @@ pub(super) fn exec_immediate(
         | Effect::CounterTargetSpellOrAbility
         | Effect::CounterTargetSpellToExile
         | Effect::CounterTargetSpell => zones::exec(state, res, op),
+        Effect::BecomeChosenBasicLandType { target, duration } => {
+            super::wave18c::become_chosen_land(state, res, target, duration);
+            None
+        }
+        Effect::CounterEventSpellOrAbility => {
+            super::wave18c::counter_event_spell_or_ability(state, res);
+            None
+        }
+        Effect::CounterTargetSpellTo(dest) => {
+            super::wave18c::counter_target_spell_to(state, res, dest)
+        }
+        Effect::CounterAll { scope, filter } => {
+            super::wave18c::counter_all(state, res, scope, filter);
+            None
+        }
+        Effect::PutSourceOnBottomOfLibrary => {
+            super::wave18c::put_source_on_bottom_of_library(state, res)
+        }
+        Effect::DestroyTargetAndSameName { filter } => {
+            super::wave18c::destroy_target_and_same_name(state, res, filter);
+            None
+        }
+        Effect::DestroyAllAttachedToTarget {
+            filter,
+            destroy_target,
+        } => {
+            super::wave18c::destroy_all_attached_to_target(state, res, filter, destroy_target);
+            None
+        }
+        Effect::GainControlLtbAttached { filter, duration } => {
+            super::wave18c::gain_control_ltb_attached(state, res, filter, duration);
+            None
+        }
+        Effect::BecomesBlocked(target) => {
+            super::wave18c::becomes_blocked(state, res, target);
+            None
+        }
+        Effect::DelayedManaAnyColorAtNextMain => {
+            super::wave18c::delayed_mana_any_color_at_next_main(state, res);
+            None
+        }
         Effect::DelayedManaAtNextMain { .. }
         | Effect::NoteActivationMana
         | Effect::AddManaFor { .. }
@@ -592,6 +635,8 @@ pub(super) fn exec_immediate(
         | Effect::AddCounterSource { .. }
         | Effect::AddCounter { .. }
         | Effect::PutEachCounterKindFromSource { .. }
+        | Effect::PutAllCountersFrom { .. }
+        | Effect::PutAllCountersFromIntoFound { .. }
         | Effect::AddCountersUpTo { .. }
         | Effect::RemoveCounterSelf { .. }
         | Effect::RemoveAllCountersSelf { .. }
@@ -612,6 +657,8 @@ pub(super) fn exec_immediate(
         | Effect::PumpTarget { .. }
         | Effect::PumpEventObject { .. }
         | Effect::PumpTargetSlot { .. }
+        | Effect::DoublePT { .. }
+        | Effect::PutCountersOnChosenControlled { .. }
         | Effect::PutCountersDivided { .. } => counters::exec(state, res, op),
         Effect::MarkLandWithCounter { .. }
         | Effect::ScheduleLinkedCounterCleanup { .. }
@@ -1757,6 +1804,18 @@ pub(super) fn exec_immediate(
                 }
             }
         }
+        Effect::ChoosePlayerAtRandom { among } => {
+            let options = players_of(among, state, you, res);
+            res.chosen_player = match options.as_slice() {
+                [] => None,
+                [only] => Some(*only),
+                many => {
+                    let idx = state.rng.below(many.len() as u64) as usize;
+                    Some(many[idx])
+                }
+            };
+            None
+        }
         // The player as this resolves; each target, until end of turn.
         Effect::CantBeBlockedByPlayerThisTurn { by } => {
             let player = players_of(by, state, you, res).first().copied()?;
@@ -2305,6 +2364,13 @@ pub(super) fn exec_immediate(
             haste_until_eot,
         ),
         Effect::EmpowerJace { token, amount } => super::empower::start(state, res, token, amount),
+        Effect::Empower { token, amount } => {
+            let Ok(n) = u16::try_from(super::amount2(&amount, state, res.controller, res)) else {
+                state.numeric_failure = Some("empower counter instruction exceeds u16");
+                return None;
+            };
+            super::empower::start(state, res, token, n)
+        }
         Effect::ModifyEvent { modifier, duration } => {
             let subject =
                 subjects::event(state, res).filter(|r| subjects::is_current(state, *r))?;
@@ -3045,6 +3111,56 @@ pub(super) fn exec_immediate(
                 min: 0,
                 max: 1,
                 prompt: ChoicePrompt::Wish,
+                total: None,
+            })
+        }
+        Effect::Learn => {
+            // CR 701.46a–b & CR 903.11: first offer revealing a Lesson card owned
+            // outside the game (outside Commander); if none exist (or declined in
+            // resume), offer discarding a card to draw a card.
+            let lessons: Vec<ObjectId> = if state.format == baylee_core::preset::FormatId::Commander
+            {
+                Vec::new()
+            } else {
+                state
+                    .zones
+                    .list(ZoneLocation::OutsideGame(you))
+                    .iter()
+                    .copied()
+                    .filter(|id| {
+                        state.object(*id).is_some_and(|o| {
+                            o.owner == you
+                                && o.is_card()
+                                && !o.status.contains(crate::object::Status::FACE_DOWN)
+                                && o.characteristics()
+                                    .subtypes
+                                    .contains(baylee_core::generated::subtypes::spell::LESSON)
+                        })
+                    })
+                    .collect()
+            };
+            if !lessons.is_empty() {
+                res.awaiting = Some(AwaitingOp::LearnWish);
+                return Some(Pending::ChooseCards {
+                    player: you,
+                    options: lessons,
+                    min: 0,
+                    max: 1,
+                    prompt: ChoicePrompt::Wish,
+                    total: None,
+                });
+            }
+            let hand: Vec<ObjectId> = state.zones.list(ZoneLocation::Hand(you)).clone();
+            if hand.is_empty() {
+                return None;
+            }
+            res.awaiting = Some(AwaitingOp::DiscardThenDraw);
+            Some(Pending::ChooseCards {
+                player: you,
+                options: hand,
+                min: 0,
+                max: 1,
+                prompt: ChoicePrompt::Discard,
                 total: None,
             })
         }
@@ -4171,6 +4287,7 @@ pub(super) fn exec_immediate(
         | Effect::SearchLibraryDistinctNames { .. }
         | Effect::SearchOpponentSplits { .. }
         | Effect::PlayerMayPayOr { .. }
+        | Effect::PlayerMayWaterbendOr { .. }
         | Effect::PlayerMayPayThen { .. }
         | Effect::PlayerMayPayThenElse { .. }
         | Effect::PlayerMayPayManaEachThenElse { .. }
@@ -4186,6 +4303,12 @@ pub(super) fn exec_immediate(
         | Effect::MayPayEnergyOr { .. }
         | Effect::ChooseOne { .. }
         | Effect::ChooseOneRestricted { .. }
+        | Effect::PlayerMayPayOneOfCostsOr { .. }
+        | Effect::PlayersChooseMode(_)
+        | Effect::CreepingDread { .. }
+        | Effect::PhyrexianGrimoire { .. }
+        | Effect::TaintedPact
+        | Effect::SearchLibraryAttachedToEvent { .. }
         | Effect::MayBehold { .. }
         | Effect::ChooseCardName { .. }
         | Effect::ChooseCreatureType { .. }
@@ -4222,6 +4345,9 @@ pub(super) fn exec_immediate(
         | Effect::ChoosePhaseToSkipThisTurn
         | Effect::SoulbondPair { .. }
         | Effect::Clash { .. }
+        | Effect::ChooseBasicLandType
+        | Effect::AnyPlayerMayPayManaAmount { .. }
+        | Effect::AnyPlayerMayPayCost { .. }
         | Effect::PayLifeOrEnterTapped { .. } => {
             unreachable!("choice ops dispatch to exec_choice")
         }
@@ -4409,6 +4535,35 @@ pub(super) fn exec_immediate(
         Effect::ForEachRemembered { filter, effects } => {
             super::remembered::exec_for_each_remembered(state, res, filter, effects, op)
         }
+        Effect::ForEachPlayer { players, effects } => {
+            super::wave3_ops::exec_for_each_player(state, res, players, effects, op)
+        }
+        Effect::CaptureMatching { filter, then } => {
+            super::remembered::exec_capture_matching(state, res, filter, then, op)
+        }
+        Effect::RememberTargetsThen { then } => {
+            super::remembered::exec_remember_targets_then(state, res, then, op)
+        }
+        Effect::ExileHand { who } => {
+            for player in players_of(who, state, you, res) {
+                let hand: Vec<ObjectId> = state.zones.list(ZoneLocation::Hand(player)).clone();
+                for card in hand {
+                    let owner = state.object(card).map_or(player, |o| o.owner);
+                    let _ = state.move_object(
+                        card,
+                        ZoneLocation::Exile(owner),
+                        ZonePosition::Top,
+                        Cause::Effect,
+                    );
+                }
+            }
+            None
+        }
+        Effect::GrantRememberedExilePermission { filter, permission } => {
+            super::permissions::grant_remembered_exile_permission(state, res, filter, permission)
+        }
+        Effect::Flickerform => super::wave18b::exec_flickerform(state, res),
+        Effect::FlickerformReturnFromRelated => super::wave18b::exec_flickerform_return(state, res),
         Effect::AttachSlot {
             object,
             to,
@@ -4469,8 +4624,297 @@ pub(super) fn exec_immediate(
             then,
             op,
         ),
+        Effect::ChooseDistinctPowersOnBattlefield {
+            chooser,
+            filter,
+            min,
+            max,
+            then,
+        } => super::wave15b::choose_distinct_powers_on_battlefield(
+            state, res, chooser, filter, min, max, then, op,
+        ),
         Effect::DiscardDefined { cards } => super::wave15b::discard_defined(state, res, cards),
+        Effect::Demonstrate => demonstrate_start(state, res),
+        Effect::Ripple(n) => ripple_start(state, res, n),
+        Effect::MayPayEnergyEqualToTargetCmcThen { then } => {
+            let &target = res.targets.first()?;
+            let cmc = target_chars_of(res, state, target)
+                .map_or(0, crate::object::Characteristics::mana_value);
+            let amount = u16::try_from(cmc).unwrap_or(u16::MAX);
+            if u32::from(state.players[usize::from(you.get())].energy) < cmc {
+                return None;
+            }
+            res.awaiting = Some(AwaitingOp::MayPayEnergyThen { amount, then });
+            Some(Pending::YesNo {
+                player: you,
+                prompt: YesNoPrompt::PayEnergy { amount },
+                source: resolving_ability(state, res),
+            })
+        }
+        Effect::ReturnDelayedObjectsToBattlefield { owner_control } => {
+            let objects: Vec<_> = state
+                .object(res.on_stack)
+                .into_iter()
+                .flat_map(|o| o.riders.iter())
+                .filter_map(|r| match *r {
+                    crate::object::Rider::DelayedReturnObject(reference) => Some(reference),
+                    _ => None,
+                })
+                .collect();
+            for reference in objects {
+                if state.object(reference.object).is_some_and(|o| {
+                    o.zone == crate::zone::Zone::Graveyard && o.version == reference.version
+                }) {
+                    super::reanimation::return_card(
+                        state,
+                        reference.object,
+                        you,
+                        owner_control,
+                        None,
+                    );
+                }
+            }
+            None
+        }
+        Effect::GrantActivatedAbilitiesWhenTargetCast { duration } => {
+            static TRIGGER_SPEC: baylee_cards_dsl::Trigger =
+                baylee_cards_dsl::Trigger::SpellCast(&baylee_cards_dsl::Filter::ControlledByYou);
+            static APPLY_EOT: &[Effect] = &[Effect::GrantActivatedAbilitiesWhenTargetCast {
+                duration: baylee_cards_dsl::Duration::UntilEndOfTurn,
+            }];
+            static APPLY_PERM: &[Effect] = &[Effect::GrantActivatedAbilitiesWhenTargetCast {
+                duration: baylee_cards_dsl::Duration::Indefinitely,
+            }];
+            if let Some(&target) = res.targets.first() {
+                let target_ref = super::continuous_subjects::target(state, res, target)?;
+                let lich = subjects::source(state, res)?;
+                let effects = match duration {
+                    baylee_cards_dsl::Duration::Indefinitely => APPLY_PERM,
+                    _ => APPLY_EOT,
+                };
+                let after = state.journal.last_seq();
+                state.delayed.push(crate::state::DelayedTrigger {
+                    controller: you,
+                    when: crate::state::DelayedWhen::OnEvent {
+                        trigger: &TRIGGER_SPEC,
+                        watch: Some(target_ref),
+                        watch_battlefield: false,
+                        duration: baylee_cards_dsl::DelayedDuration::OneShotThisTurn,
+                        context: res.rule_context(),
+                        after,
+                    },
+                    action: crate::state::DelayedAction::GeneralTrigger(Box::new(
+                        crate::state::DelayedTriggerSpec {
+                            source: lich.object,
+                            source_version: lich.version,
+                            effects,
+                            text: res.text,
+                            condition: None,
+                            targets: None,
+                            remembered: None,
+                            related_objects: Vec::new(),
+                        },
+                    )),
+                });
+            } else if let Some(card_id) = res.event_object {
+                let lich = subjects::source(state, res)
+                    .filter(|source| subjects::on_battlefield(state, *source))?;
+                let card_obj = state.object(card_id)?;
+                let face_idx = usize::from(card_obj.face_index);
+                let def = card_obj.card.and_then(|c| state.bases.card(c.index))?;
+                let timestamp = state.next_timestamp();
+                let filter = crate::effects::EffectFilter::ObjectIs(lich.object, lich.version);
+                for ability_def in def.abilities_for_face(face_idx) {
+                    if ability_def.is_intrinsic_mana_ability() {
+                        continue;
+                    }
+                    let is_activated = matches!(
+                        ability_def,
+                        baylee_cards_dsl::AbilityDef::Activated { .. }
+                            | baylee_cards_dsl::AbilityDef::ActivatedConditional { .. }
+                            | baylee_cards_dsl::AbilityDef::Loyalty { .. }
+                            | baylee_cards_dsl::AbilityDef::ModalActivated { .. }
+                            | baylee_cards_dsl::AbilityDef::Encore { .. }
+                            | baylee_cards_dsl::AbilityDef::Unearth { .. }
+                    );
+                    if !is_activated {
+                        continue;
+                    }
+                    state.effects.register(crate::effects::ContinuousEffect {
+                        id: baylee_core::ids::EffectId::new(0),
+                        source: Some(res.source),
+                        controller: you,
+                        origin: crate::effects::EffectOrigin::Resolution,
+                        layer: baylee_cards_dsl::Layer::Ability,
+                        timestamp,
+                        duration,
+                        filter,
+                        modifier: baylee_cards_dsl::Modifier::GrantActivatedDefinition(ability_def),
+                    });
+                }
+            }
+            None
+        }
     }
+}
+
+fn demonstrate_start(state: &mut GameState, res: &mut Resolution) -> Option<Pending> {
+    let you = res.controller;
+    if let Some((original, opp)) = res.subject.demonstrate_opp.take() {
+        let copy = copy_spell(state, original, opp, &[], res.text)?;
+        return retarget::start_copy(state, res, copy);
+    }
+    res.awaiting = Some(AwaitingOp::DemonstrateConfirm);
+    Some(Pending::YesNo {
+        player: you,
+        prompt: YesNoPrompt::MayDo,
+        source: resolving_ability(state, res),
+    })
+}
+
+pub(super) fn resume_demonstrate_confirm(state: &mut GameState, res: &mut Resolution) -> Flow {
+    let you = res.controller;
+    let opponents = eval::players(PlayerRel::Opponent, state, you).unwrap_or_default();
+    if opponents.len() > 1 {
+        res.awaiting = Some(AwaitingOp::DemonstrateOpponent);
+        return Flow::Wait(Pending::ChoosePlayer {
+            player: you,
+            options: opponents,
+        });
+    }
+    demonstrate_begin_copies(state, res, opponents.first().copied())
+}
+
+pub(super) fn resume_demonstrate_opponent(
+    state: &mut GameState,
+    res: &mut Resolution,
+    opp: PlayerId,
+) -> Flow {
+    demonstrate_begin_copies(state, res, Some(opp))
+}
+
+fn demonstrate_begin_copies(
+    state: &mut GameState,
+    res: &mut Resolution,
+    opp: Option<PlayerId>,
+) -> Flow {
+    let you = res.controller;
+    let Some(original) = subjects::source(state, res) else {
+        res.pc += 1;
+        return run(state, res);
+    };
+    let Some(your_copy) = copy_spell(state, original, you, &[], res.text) else {
+        res.pc += 1;
+        return run(state, res);
+    };
+    if let Some(opp) = opp {
+        res.subject.demonstrate_opp = Some((original, opp));
+        res.effects.insert(res.pc + 1, Effect::Demonstrate);
+    }
+    if let Some(pending) = retarget::start_copy(state, res, your_copy) {
+        return Flow::Wait(pending);
+    }
+    res.pc += 1;
+    run(state, res)
+}
+
+fn ripple_start(state: &mut GameState, res: &mut Resolution, n: u8) -> Option<Pending> {
+    let you = res.controller;
+    if n == 0 {
+        let rest: Vec<ObjectId> = std::mem::take(&mut res.subject.found)
+            .into_iter()
+            .filter_map(|r| {
+                state
+                    .object(r.object)
+                    .filter(|o| o.zone == crate::zone::Zone::Library && o.version == r.version)
+                    .map(|_| r.object)
+            })
+            .collect();
+        if rest.len() > 1 {
+            res.awaiting = Some(AwaitingOp::RippleBottom { rest: rest.clone() });
+            return Some(Pending::ChooseCards {
+                player: you,
+                options: rest,
+                min: 1,
+                max: 1,
+                prompt: ChoicePrompt::PutOnBottom,
+                total: None,
+            });
+        }
+        for card in rest {
+            let _ = state.move_object(
+                card,
+                ZoneLocation::Library(you),
+                ZonePosition::Bottom,
+                Cause::Effect,
+            );
+        }
+        return None;
+    }
+    if state.zones.list(ZoneLocation::Library(you)).is_empty() {
+        return None;
+    }
+    res.awaiting = Some(AwaitingOp::RippleReveal { n });
+    Some(Pending::YesNo {
+        player: you,
+        prompt: YesNoPrompt::MayDo,
+        source: resolving_ability(state, res),
+    })
+}
+
+pub(super) fn resume_ripple_reveal(state: &mut GameState, res: &mut Resolution, n: u8) -> Flow {
+    let you = res.controller;
+    let spell_name = subjects::source(state, res)
+        .and_then(|r| state.source_object(r))
+        .map(|o| o.characteristics().name);
+    let top_ids: Vec<ObjectId> = state
+        .zones
+        .list(ZoneLocation::Library(you))
+        .iter()
+        .rev()
+        .take(usize::from(n))
+        .copied()
+        .collect();
+    let mut revealed = Vec::with_capacity(top_ids.len());
+    let mut matches = Vec::new();
+    for id in top_ids {
+        if let Some(obj) = state.object(id) {
+            let r = baylee_core::ids::DamageSourceRef {
+                object: id,
+                version: obj.version,
+            };
+            revealed.push(r);
+            if spell_name.is_some_and(|name| obj.characteristics().name == name)
+                && !obj
+                    .characteristics()
+                    .types
+                    .contains(baylee_core::types::TypeSet::LAND)
+            {
+                matches.push(r);
+            }
+        }
+    }
+    res.subject.found = revealed;
+    res.effects.insert(res.pc + 1, Effect::Ripple(0));
+    if !matches.is_empty() {
+        let offer = super::play_cards::PlayOffer {
+            player: you,
+            cards: matches,
+            remaining_plays: None,
+            cost: baylee_cards_dsl::PlayCostMode::WithoutPayingManaCost,
+            flags: super::play_cards::PlayFlags {
+                cast_only: true,
+                copy: false,
+                exile_instead_of_graveyard: false,
+            },
+            optional: true,
+        };
+        if let Some(pending) = super::play_cards::continue_play(state, res, offer) {
+            return Flow::Wait(pending);
+        }
+    }
+    res.pc += 1;
+    run(state, res)
 }
 
 fn with_target_group(
@@ -4778,6 +5222,38 @@ pub(super) fn resolution_condition(
                     .riders
                     .contains(&crate::object::Rider::OptionalCostPaid)
             }),
+        Condition::ControlledSubtypeOnCast(sub) => state
+            .object(res.on_stack)
+            .filter(|object| object.kind == crate::object::ObjectKind::Spell)
+            .or_else(|| state.damage_source(res.source, source_version(state, res)))
+            .or_else(|| state.object(res.on_stack))
+            .is_some_and(|object| {
+                object
+                    .riders
+                    .contains(&crate::object::Rider::ControlledSubtypeOnCast(sub))
+            }),
+        Condition::SourceWasCastByYou => state
+            .object(res.on_stack)
+            .filter(|object| object.kind == crate::object::ObjectKind::Spell)
+            .or_else(|| state.damage_source(res.source, source_version(state, res)))
+            .is_some_and(|object| object.cast_history.caster() == Some(res.controller)),
+        Condition::SourceWasCast => state
+            .object(res.on_stack)
+            .filter(|object| object.kind == crate::object::ObjectKind::Spell)
+            .or_else(|| state.damage_source(res.source, source_version(state, res)))
+            .is_some_and(|object| object.cast_history.caster().is_some()),
+        Condition::CastFromOtherThanHand => state
+            .object(res.on_stack)
+            .filter(|object| object.kind == crate::object::ObjectKind::Spell)
+            .or_else(|| state.damage_source(res.source, source_version(state, res)))
+            .is_some_and(|object| {
+                object.cast_history.caster().is_some() && !object.cast_history.was_from_hand()
+            }),
+        Condition::SourceCastFromZone(zone) => state
+            .object(res.on_stack)
+            .filter(|object| object.kind == crate::object::ObjectKind::Spell)
+            .or_else(|| state.damage_source(res.source, source_version(state, res)))
+            .is_some_and(|object| eval::object_was_cast_from_zone(object, zone)),
         Condition::IsRenowned => state
             .damage_source(res.source, source_version(state, res))
             .is_some_and(|object| object.riders.contains(&crate::object::Rider::Renowned)),
@@ -4797,6 +5273,13 @@ pub(super) fn resolution_condition(
         Condition::IsSuspected => state
             .damage_source(res.source, source_version(state, res))
             .is_some_and(|object| object.riders.contains(&crate::object::Rider::Suspected)),
+        Condition::ChosenMode(mode) => state
+            .damage_source(res.source, source_version(state, res))
+            .is_some_and(|object| {
+                object
+                    .riders
+                    .contains(&crate::object::Rider::ChosenMode(mode))
+            }),
         Condition::CountersOnSelf(kind, min) => state
             .damage_source(res.source, source_version(state, res))
             .is_some_and(|object| object.counters.get(kind) >= u16::from(min)),

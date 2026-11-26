@@ -175,6 +175,7 @@ pub(super) fn resolving_lists(ability: &AbilityDef) -> Vec<(&'static [Effect], b
         AbilityDef::Unimplemented
         | AbilityDef::StartYourEngines
         | AbilityDef::Ward { .. }
+        | AbilityDef::WardWaterbend { .. }
         | AbilityDef::Toxic { .. }
         | AbilityDef::Prepared { .. }
         | AbilityDef::Echo { .. }

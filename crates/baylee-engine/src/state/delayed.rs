@@ -93,6 +93,8 @@ pub enum DelayedWhen {
     /// At the beginning of the controller's next main phase, first or
     /// second, that begins after the watch was made (Mana Drain).
     NextMain,
+    /// At the beginning of the controller's next first main phase (Plasm Capture).
+    NextFirstMain,
     /// At the beginning of the next end step (Venser +2).
     NextEndStep,
     /// At the controller's next end step.
@@ -344,6 +346,8 @@ pub struct DelayedTriggerSpec {
     pub targets: Option<baylee_cards_dsl::TargetReq>,
     /// Optional remembered object/LKI context from the creating resolution.
     pub remembered: Option<RememberedContext>,
+    /// Exact object incarnations remembered together (`TriggerRemember::TargetAndSacrificed`).
+    pub related_objects: Vec<baylee_core::ids::DamageSourceRef>,
 }
 
 /// What a delayed trigger does.
@@ -542,4 +546,23 @@ pub enum DelayedAction {
     },
     /// Generalized delayed triggered ability (`Effect::RegisterDelayedTrigger`, CR 603.7).
     GeneralTrigger(Box<DelayedTriggerSpec>),
+    /// Add X mana in any combination of colors at next first main phase (`Plasm Capture`).
+    AddManaAnyColor {
+        /// The spell or ability that created this delayed triggered ability.
+        source: ObjectId,
+        /// Exact incarnation of `source` when created.
+        source_version: u32,
+        /// Mana amount equal to the countered spell's mana value.
+        amount: u16,
+    },
+    /// *Flickerform*: return `host` at the next end step; if it returns,
+    /// return each Aura in `auras` attached to it.
+    FlickerformReturn {
+        /// Original source incarnation.
+        source: baylee_core::ids::DamageSourceRef,
+        /// Exact exiled creature incarnation.
+        host: baylee_core::ids::DamageSourceRef,
+        /// Exact exiled Aura incarnations.
+        auras: Vec<baylee_core::ids::DamageSourceRef>,
+    },
 }

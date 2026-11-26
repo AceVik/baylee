@@ -1,7 +1,7 @@
 //! Provoke's synthetic attack trigger (CR 702.39a–b).
 
 use super::events::ObjectMove;
-use super::{PendingTrigger, source_at_event_with_moves, times_triggered};
+use super::{PendingTrigger, source_at_event_with_moves};
 use crate::{
     event::{GameEvent, JournalEntry},
     object::GameObject,
@@ -51,10 +51,11 @@ pub(super) fn collect(
             continue;
         }
         let instances = crate::layers::keyword_instances(state, source, KeywordSet::PROVOKE);
-        for _ in 0..instances.saturating_mul(times_triggered(
+        for _ in 0..instances.saturating_mul(super::matching::times_triggered_for_entry(
             state,
             baylee_cards_dsl::TriggerEventKind::Attack,
-            permanent,
+            source,
+            Some(entry),
         )) {
             triggers.push(PendingTrigger {
                 text: TextChangeMap::IDENTITY,

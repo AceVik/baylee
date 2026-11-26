@@ -203,8 +203,6 @@ fn has_unmodelled_turn_atom(valid: &str) -> bool {
                             | "CastSaSource"
                             | "!CastSaSource"
                             | "hasXCost"
-                            | "wasCastFromExile"
-                            | "wasCastFromGraveyard"
                             | "RememberedPlayerCtrl"
                             | "ChosenType"
                             | "ChosenColor"
@@ -654,7 +652,7 @@ impl Tx<'_> {
                 _ => None,
             };
         }
-        None
+        self.wave28b_compare_condition(var, cmp)
     }
 
     fn wave27a_compare_arm(&mut self, raw: &str, depth: u8) -> Option<String> {

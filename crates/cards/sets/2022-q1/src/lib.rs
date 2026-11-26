@@ -13,6 +13,8 @@
 // What a card file names as `crate::…`.
 pub use baylee_cards_base::{filters, generated_tokens, tokens};
 
+#[path = "nec/access_denied.rs"]
+pub mod access_denied;
 #[path = "neo/acquisition_octopus.rs"]
 pub mod acquisition_octopus;
 #[path = "nec/aerial_surveyor.rs"]
@@ -29,6 +31,8 @@ pub mod akki_war_paint;
 pub mod ambitious_assault;
 #[path = "neo/ancestral_katana.rs"]
 pub mod ancestral_katana;
+#[path = "neo/anchor_to_reality.rs"]
+pub mod anchor_to_reality;
 #[path = "neo/armguard_familiar.rs"]
 pub mod armguard_familiar;
 #[path = "neo/asari_captain.rs"]
@@ -89,6 +93,8 @@ pub mod containment_construct;
 pub mod covert_technician;
 #[path = "nec/cyberdrive_awakener.rs"]
 pub mod cyberdrive_awakener;
+#[path = "neo/debt_to_the_kami.rs"]
+pub mod debt_to_the_kami;
 #[path = "neo/disruption_protocol.rs"]
 pub mod disruption_protocol;
 #[path = "neo/dockside_chef.rs"]
@@ -105,6 +111,8 @@ pub mod ecologist_s_terrarium;
 pub mod eiganjo_exemplar;
 #[path = "neo/eiganjo_seat_of_the_empire.rs"]
 pub mod eiganjo_seat_of_the_empire;
+#[path = "neo/eiganjo_uprising.rs"]
+pub mod eiganjo_uprising;
 #[path = "neo/enthusiastic_mechanaut.rs"]
 pub mod enthusiastic_mechanaut;
 #[path = "neo/era_of_enlightenment.rs"]
@@ -127,6 +135,8 @@ pub mod forceful_cultivator;
 pub mod futurist_sentinel;
 #[path = "neo/generous_visitor.rs"]
 pub mod generous_visitor;
+#[path = "neo/geothermal_kami.rs"]
+pub mod geothermal_kami;
 #[path = "neo/gift_of_wrath.rs"]
 pub mod gift_of_wrath;
 #[path = "neo/gloomshrieker.rs"]
@@ -153,6 +163,8 @@ pub mod gravelighter;
 pub mod greater_tanuki;
 #[path = "neo/guardians_of_oboro.rs"]
 pub mod guardians_of_oboro;
+#[path = "neo/heiko_yamazaki_the_general.rs"]
+pub mod heiko_yamazaki_the_general;
 #[path = "neo/heir_of_the_ancient_fang.rs"]
 pub mod heir_of_the_ancient_fang;
 #[path = "neo/high_speed_hoverbike.rs"]
@@ -173,10 +185,14 @@ pub mod invigorating_hot_spring;
 pub mod invoke_despair;
 #[path = "neo/invoke_the_winds.rs"]
 pub mod invoke_the_winds;
+#[path = "neo/iron_apprentice.rs"]
+pub mod iron_apprentice;
 #[path = "neo/ironhoof_boar.rs"]
 pub mod ironhoof_boar;
 #[path = "nec/ironsoul_enforcer.rs"]
 pub mod ironsoul_enforcer;
+#[path = "neo/isshin_two_heavens_as_one.rs"]
+pub mod isshin_two_heavens_as_one;
 #[path = "neo/jin_gitaxias_progress_tyrant.rs"]
 pub mod jin_gitaxias_progress_tyrant;
 #[path = "neo/jukai_naturalist.rs"]
@@ -191,6 +207,8 @@ pub mod junji_the_midnight_sky;
 pub mod kaito_s_pursuit;
 #[path = "neo/kaito_shizuki.rs"]
 pub mod kaito_shizuki;
+#[path = "nec/kami_of_celebration.rs"]
+pub mod kami_of_celebration;
 #[path = "neo/kami_of_industry.rs"]
 pub mod kami_of_industry;
 #[path = "neo/kami_of_restless_shadows.rs"]
@@ -211,6 +229,8 @@ pub mod kitsune_ace;
 pub mod kodama_of_the_west_tree;
 #[path = "nec/komainu_battle_armor.rs"]
 pub mod komainu_battle_armor;
+#[path = "nec/kosei_penitent_warlord.rs"]
+pub mod kosei_penitent_warlord;
 #[path = "nec/kotori_pilot_prodigy.rs"]
 pub mod kotori_pilot_prodigy;
 #[path = "neo/kura_the_boundless_sky.rs"]
@@ -233,8 +253,12 @@ pub mod master_s_rebuke;
 pub mod mech_hangar;
 #[path = "neo/michiko_s_reign_of_truth.rs"]
 pub mod michiko_s_reign_of_truth;
+#[path = "neo/mirrorshell_crab.rs"]
+pub mod mirrorshell_crab;
 #[path = "neo/mnemonic_sphere.rs"]
 pub mod mnemonic_sphere;
+#[path = "neo/moon_circuit_hacker.rs"]
+pub mod moon_circuit_hacker;
 #[path = "neo/moonfolk_puzzlemaker.rs"]
 pub mod moonfolk_puzzlemaker;
 #[path = "neo/moonsnare_prototype.rs"]
@@ -267,6 +291,8 @@ pub mod nezumi_bladeblesser;
 pub mod nezumi_prowler;
 #[path = "neo/ninja_s_kunai.rs"]
 pub mod ninja_s_kunai;
+#[path = "neo/norika_yamazaki_the_poet.rs"]
+pub mod norika_yamazaki_the_poet;
 #[path = "neo/okiba_reckoner_raid.rs"]
 pub mod okiba_reckoner_raid;
 #[path = "nec/one_with_the_kami.rs"]
@@ -333,10 +359,14 @@ pub mod searchlight_companion;
 pub mod season_of_renewal;
 #[path = "neo/secluded_courtyard.rs"]
 pub mod secluded_courtyard;
+#[path = "neo/seismic_wave.rs"]
+pub mod seismic_wave;
 #[path = "neo/selfless_samurai.rs"]
 pub mod selfless_samurai;
 #[path = "neo/seven_tail_mentor.rs"]
 pub mod seven_tail_mentor;
+#[path = "neo/shigeki_jukai_visionary.rs"]
+pub mod shigeki_jukai_visionary;
 #[path = "neo/short_circuit.rs"]
 pub mod short_circuit;
 #[path = "neo/shrine_steward.rs"]
@@ -349,6 +379,10 @@ pub mod sky_blessed_samurai;
 pub mod skyswimmer_koi;
 #[path = "neo/sokenzan_crucible_of_defiance.rs"]
 pub mod sokenzan_crucible_of_defiance;
+#[path = "neo/spinning_wheel_kick.rs"]
+pub mod spinning_wheel_kick;
+#[path = "neo/spirit_sister_s_call.rs"]
+pub mod spirit_sister_s_call;
 #[path = "neo/spirited_companion.rs"]
 pub mod spirited_companion;
 #[path = "neo/spring_leaf_avenger.rs"]
@@ -383,6 +417,8 @@ pub mod the_reality_chip;
 pub mod the_restoration_of_eiganjo;
 #[path = "neo/the_shattered_states_era.rs"]
 pub mod the_shattered_states_era;
+#[path = "neo/the_wandering_emperor.rs"]
+pub mod the_wandering_emperor;
 #[path = "neo/thundering_raiju.rs"]
 pub mod thundering_raiju;
 #[path = "neo/thundersteel_colossus.rs"]

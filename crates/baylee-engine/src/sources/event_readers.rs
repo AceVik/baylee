@@ -73,7 +73,7 @@ fn reads_attach_host(value: baylee_cards_dsl::AttachHost) -> bool {
 }
 fn reads_amount(value: Amount) -> bool {
     match value {
-        Amount::EventLastToughness | Amount::EventPower => true,
+        Amount::EventLastToughness | Amount::EventPower | Amount::EventManaSpentToCast => true,
         Amount::Sum { left, right } | Amount::Difference { left, right } => {
             reads_amount(*left) || reads_amount(*right)
         }
@@ -82,6 +82,9 @@ fn reads_amount(value: Amount) -> bool {
         | Amount::LifeTotal(who)
         | Amount::StartingLifeTotal(who)
         | Amount::LifeGainedThisTurn(who)
+        | Amount::LifeLostThisTurn(who)
+        | Amount::HighestLifeLostThisTurn(who)
+        | Amount::CardsDiscardedThisTurn(who)
         | Amount::DistinctCardTypesCastThisTurn(who)
         | Amount::CountOf {
             zone:
@@ -89,12 +92,24 @@ fn reads_amount(value: Amount) -> bool {
                 | baylee_cards_dsl::ZoneSel::HandOf(who)
                 | baylee_cards_dsl::ZoneSel::LibraryOf(who),
             ..
-        } => reads_player(who),
+        }
+        | Amount::CommanderCasts(who)
+        | Amount::HighestCardsDrawnThisTurn(who) => reads_player(who),
         Amount::EnteredThisTurn {
             filter,
             owner_or_ctrl: who,
             ..
         }
+        | Amount::TokensCreatedThisTurn {
+            filter,
+            creator: who,
+        }
+        | Amount::LeftZoneThisTurn {
+            filter,
+            owner_or_ctrl: who,
+            ..
+        }
+        | Amount::PermanentsSacrificedThisTurn { filter, who }
         | Amount::SpellsCastMatchingThisTurn {
             filter,
             caster: who,
@@ -102,8 +117,14 @@ fn reads_amount(value: Amount) -> bool {
         | Amount::CreaturesAttackedThisTurn {
             filter,
             controller: who,
-        } => reads_player(who) || reads_filter(filter),
-        Amount::DistinctManaValuesInZone { zone, filter } => {
+        }
+        | Amount::HighestControlledCount { filter, among: who } => {
+            reads_player(who) || reads_filter(filter)
+        }
+        Amount::DistinctPowersAmong(filter) => reads_filter(filter),
+        Amount::DistinctManaValuesInZone { zone, filter }
+        | Amount::TotalManaValueInZone { zone, filter }
+        | Amount::DistinctExactManaCostsInZone { zone, filter } => {
             reads_filter(filter)
                 || matches!(
                     zone,
@@ -138,6 +159,7 @@ fn reads_event(effect: &Effect) -> bool {
         | Effect::PumpEventObject { .. }
         | Effect::EventObjectDealsDamageEqualToPower { .. }
         | Effect::EventObjectDealsDamage { .. }
+        | Effect::EventObjectDealsDamageEach { .. }
         | Effect::SacrificeEventDealDamageToEachBlocker { .. }
         | Effect::CopyEventSpellOrAbility
         | Effect::TargetsCopyEventSpellUntilEndOfTurn
@@ -210,7 +232,8 @@ fn reads_event(effect: &Effect) -> bool {
         | Effect::CreateTokenThenCounters { amount, .. }
         | Effect::CreateTokenN { amount, .. }
         | Effect::Monstrosity(amount)
-        | Effect::ChooseAndCreateTokenCopy { amount, .. } => reads_amount(*amount),
+        | Effect::ChooseAndCreateTokenCopy { amount, .. }
+        | Effect::Empower { amount, .. } => reads_amount(*amount),
         Effect::CreateTokenSized {
             amount,
             power,
@@ -262,8 +285,22 @@ fn reads_event(effect: &Effect) -> bool {
         | Effect::Suspect { target }
         | Effect::Unsuspect { target }
         | Effect::AddTempModifier { target, .. }
+        | Effect::BecomeChosenBasicLandType { target, .. }
         | Effect::PutEachCounterKindFromSource { target }
+        | Effect::BecomesBlocked(target)
         | Effect::SacrificeObject { target, .. } => reads_target(*target),
+        Effect::PutAllCountersFrom { donor, target } => {
+            matches!(donor, baylee_cards_dsl::CounterDonor::Event) || reads_target(*target)
+        }
+        Effect::PutAllCountersFromIntoFound { donor } => {
+            matches!(donor, baylee_cards_dsl::CounterDonor::Event)
+        }
+        Effect::ChooseDistinctPowersOnBattlefield {
+            chooser,
+            filter,
+            max,
+            ..
+        } => reads_player(*chooser) || reads_filter(filter) || reads_amount(*max),
         Effect::AddGlobalTempModifier { filter, .. } => reads_filter(filter),
         Effect::PreventNextDamageWithThen {
             sources,

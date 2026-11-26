@@ -112,6 +112,8 @@ pub(crate) enum WizardStage {
     /// The tap question of convoke (creatures) or of a paid waterbend
     /// (artifacts and creatures), {1} each.
     Convoke,
+    /// Optional single creature tap for harmonize (`CR 702.183a`).
+    Harmonize,
     /// The additional cost's "sacrifice a creature" (CR 601.2h): which
     /// permanent pays each `Sacrifice` part of
     /// `FaceDef::mandatory_additional_costs`, one question per part.
@@ -138,6 +140,21 @@ pub(crate) enum WizardStage {
     OptionalCost,
     /// Choosing graveyard cards to exile for `CostPart::CollectEvidence` (`CR 701.59a`).
     CollectEvidence,
+    /// Optional generic mana paid by another player for `Assist` (`CR 702.132a`).
+    Assist,
+}
+
+/// In-flight state for `WizardStage::Assist` (`CR 702.132a`).
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub(super) struct AssistWizardState {
+    /// Caster has been asked whether another player may assist.
+    pub(super) asked_use: bool,
+    /// The other player chosen to assist, once selected.
+    pub(super) assistant: Option<PlayerId>,
+    /// The assistant has finished their `CR 605.3a` mana window.
+    pub(super) window_done: bool,
+    /// Assistant's window baseline for effect-cast fallback reversal.
+    pub(super) helper_start: Option<Box<super::WindowStart>>,
 }
 
 /// A spell being cast step by step.
@@ -167,6 +184,8 @@ pub struct CastWizard {
     pub reduction: Option<FrozenReduction>,
     /// Target-dependent cost increases determined once targets are chosen (CR 601.2f).
     pub target_increase: ManaCost,
+    /// Target-dependent life cost increases (`Modifier::RaiseCostIfTargets`).
+    pub target_life_increase: u32,
     /// Exact announced identities, preserved across all later cost payments.
     pub target_references: crate::sources::TargetReferences,
     /// Shares in canonical target order (objects, then players).
@@ -218,6 +237,10 @@ pub struct CastWizard {
     pub offspring: bool,
     /// Whether the spell's casualty additional cost was announced (`CR 702.153a`).
     pub casualty: bool,
+    /// Minimum power threshold for casualty (printed or stack-granted).
+    pub casualty_power: Option<u8>,
+    /// Granted replicate mana cost from a stack-reaching continuous effect.
+    pub granted_replicate: Option<ManaCost>,
     /// Whether the spell's gift additional cost was promised (`CR 702.174a`).
     pub gift_promised: bool,
     /// The opponent chosen to receive the promised gift (`CR 702.174a`).
@@ -267,6 +290,8 @@ pub struct CastWizard {
     pub escape_exiles: SmallVec<[ObjectId; 8]>,
     /// Permanents chosen to tap for convoke or a waterbend ({1} each).
     pub convoke_taps: SmallVec<[ObjectId; 8]>,
+    /// Creature tapped to reduce generic cost for Harmonize (`CR 702.183a`).
+    pub harmonize_tap: Option<ObjectId>,
     /// Objects chosen for asking cost parts, one answer per object in cost
     /// order. A `TapN` part consumes N distinct answers.
     pub cost_objects: SmallVec<[ObjectId; 4]>,
@@ -289,6 +314,10 @@ pub struct CastWizard {
     /// is paid (CR 601.2h). Asked at the head of the `XValue` stage, so
     /// the X bound reads the settled cost.
     pub phyrexian: SmallVec<[bool; 4]>,
+    /// Generic mana already paid by an assisting player (`CR 702.132a`).
+    pub assist_paid: u32,
+    /// In-flight assist prompt/window state (`CR 702.132a`).
+    pub(super) assist: Option<Box<AssistWizardState>>,
     /// Current stage.
     pub stage: WizardStage,
     /// Options computed at start (kept for the Done stage).
@@ -403,7 +432,7 @@ impl CastWizard {
     /// `options` to choose from: paid out of the pool at its full price by
     /// nobody's effect. Each way of starting a cast says what it changes
     /// beside this, so a new answer the wizard keeps is written once.
-    fn new(
+    pub(in crate::engine) fn new(
         card: ObjectId,
         player: PlayerId,
         stage: WizardStage,
@@ -421,6 +450,7 @@ impl CastWizard {
             permissions: Vec::new(),
             reduction: None,
             target_increase: ManaCost::ZERO,
+            target_life_increase: 0,
             target_references: crate::sources::TargetReferences::default(),
             division: Vec::new(),
             targets: SmallVec::new(),
@@ -444,6 +474,8 @@ impl CastWizard {
             evidence_exiles: Vec::new(),
             offspring: false,
             casualty: false,
+            casualty_power: None,
+            granted_replicate: None,
             gift_promised: false,
             gift_recipient: None,
             squad: 0,
@@ -464,6 +496,7 @@ impl CastWizard {
             delve_exiles: SmallVec::new(),
             escape_exiles: SmallVec::new(),
             convoke_taps: SmallVec::new(),
+            harmonize_tap: None,
             cost_objects: SmallVec::new(),
             counter_removals: SmallVec::new(),
             pending_counter_object: None,
@@ -472,6 +505,8 @@ impl CastWizard {
             alt_cast: None,
             exile_instead_of_graveyard: false,
             phyrexian: SmallVec::new(),
+            assist_paid: 0,
+            assist: None,
             stage,
             options,
             free: false,
@@ -713,6 +748,35 @@ impl CastWizard {
                     &self.evidence_exiles,
                 )));
         }
+        if self.harmonize_tap.is_some()
+            || self.casualty_power.is_some()
+            || self.granted_replicate.is_some()
+        {
+            hash = hash
+                .wrapping_mul(31)
+                .wrapping_add(crate::state::structural_fingerprint(&(
+                    501_u16,
+                    self.harmonize_tap,
+                    self.casualty_power,
+                    self.granted_replicate,
+                )));
+        }
+        if self.assist_paid > 0 || self.assist.is_some() {
+            hash = hash
+                .wrapping_mul(31)
+                .wrapping_add(crate::state::structural_fingerprint(&(
+                    506u16,
+                    self.assist_paid,
+                    self.assist.as_ref().map(|a| {
+                        (
+                            a.asked_use,
+                            a.assistant,
+                            a.window_done,
+                            a.helper_start.as_ref().map(|s| s.fingerprint()),
+                        )
+                    }),
+                )));
+        }
         hash = hash
             .wrapping_mul(2)
             .wrapping_add(u64::from(self.reduction.is_some()));
@@ -811,9 +875,13 @@ pub(crate) fn paid_as_an_alternative_cost(part: &CostPart) -> bool {
         | CostPart::ReturnToHand(_)
         | CostPart::TapN { .. }
         | CostPart::RemoveAnyCounter { .. }
+        | CostPart::PutCounterOnOther { .. }
         | CostPart::Forage
         | CostPart::Behold(_)
-        | CostPart::CollectEvidence(_) => true,
+        | CostPart::BeholdAndExile(_)
+        | CostPart::RevealFromHand(_)
+        | CostPart::CollectEvidence(_)
+        | CostPart::Waterbend(_) => true,
         CostPart::Either(a, b) => {
             a.parts.iter().all(paid_as_an_alternative_cost)
                 && b.parts.iter().all(paid_as_an_alternative_cost)
@@ -849,9 +917,15 @@ pub(crate) fn paid_as_a_mandatory_additional_cost(part: &CostPart) -> bool {
         | CostPart::TapN { .. }
         | CostPart::RemoveAnyCounter { .. }
         | CostPart::RemoveAnyCounterX { .. }
+        | CostPart::PutCounterOnOther { .. }
         | CostPart::Forage
         | CostPart::Behold(_)
-        | CostPart::CollectEvidence(_) => true,
+        | CostPart::BeholdAndExile(_)
+        | CostPart::RevealFromHand(_)
+        | CostPart::RevealFromHandX(_)
+        | CostPart::CollectEvidence(_)
+        | CostPart::Waterbend(_)
+        | CostPart::WaterbendX => true,
         CostPart::Either(a, b) => {
             a.parts.iter().all(paid_as_a_mandatory_additional_cost)
                 && b.parts.iter().all(paid_as_a_mandatory_additional_cost)
@@ -870,6 +944,10 @@ pub(crate) fn paid_as_a_buyback_cost(part: &CostPart) -> bool {
         | CostPart::Discard(_)
         | CostPart::DiscardRandom
         | CostPart::RemoveAnyCounter { .. }
+        | CostPart::PutCounterOnOther { .. }
+        | CostPart::Behold(_)
+        | CostPart::BeholdAndExile(_)
+        | CostPart::RevealFromHand(_)
         | CostPart::Forage => true,
         CostPart::Either(a, b) => {
             a.parts.iter().all(paid_as_a_buyback_cost) && b.parts.iter().all(paid_as_a_buyback_cost)
@@ -1498,16 +1576,26 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
         cost: &ManaCost,
     ) -> u32 {
         let player = wizard.player;
+        let face_idx = wizard.face_index();
+        let delve = casting::has_delve(&self.state, wizard.card, face, player, face_idx);
+        let convoke = casting::has_convoke(&self.state, wizard.card, face, player, face_idx);
+        let improvise =
+            casting::has_improvise_for(&self.state, wizard.card, face, player, face_idx);
         let graveyard = self.state.zones.list(ZoneLocation::Graveyard(player)).len();
         let help = [
-            (face.delve, graveyard),
+            (delve, graveyard),
             (
-                face.convoke || casting::has_improvise(&self.state, face, player),
-                casting::tap_to_pay_sources(&self.state, face, player).len(),
+                convoke || improvise,
+                casting::tap_to_pay_sources_for(&self.state, convoke, improvise, player).len(),
             ),
             (
-                face.waterbend && wizard.kicked,
+                face.waterbend && (wizard.kicked || wizard.optional_cost_paid),
                 casting::waterbend_sources(&self.state, player).len(),
+            ),
+            (
+                wizard.is_harmonize(),
+                usize::try_from(casting::harmonize_max_power(&self.state, player))
+                    .unwrap_or(usize::MAX),
             ),
         ]
         .iter()
@@ -1539,11 +1627,27 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
         let result = self.advance_cast_wizard_inner();
         if result.is_err()
             && let Some(wizard) = self.cast_wizard.take()
-            && wizard.revealed_exile
         {
-            self.state.conceal_exiled_card(wizard.card);
+            if wizard.revealed_exile {
+                self.state.conceal_exiled_card(wizard.card);
+            }
+            self.unwind_failed_wizard(&wizard);
         }
         result
+    }
+
+    fn unwind_failed_wizard(&mut self, wizard: &CastWizard) {
+        if !self.rewind_cast(wizard)
+            && let Some(assist) = wizard.assist.as_deref()
+            && let (Some(helper), Some(start)) = (assist.assistant, assist.helper_start.as_deref())
+        {
+            self.give_back_window(helper, start);
+        }
+        if let Some(obj) = self.state.object_mut(wizard.card)
+            && obj.zone != crate::zone::Zone::Stack
+        {
+            obj.x_value = 0;
+        }
     }
 
     /// Carries a cast on after its caster answered one of its questions.
@@ -1844,7 +1948,14 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 return Ok(());
             }
         }
-        self.finish_cast(&wizard)
+        if let Err(err) = self.finish_cast(&wizard) {
+            if wizard.revealed_exile {
+                self.state.conceal_exiled_card(wizard.card);
+            }
+            self.unwind_failed_wizard(&wizard);
+            return Err(err);
+        }
+        Ok(())
     }
 
     /// Closing the mana opportunity tries the chosen cast once. A short
@@ -1890,6 +2001,12 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
             // Both kinds were begun casts, so both record their cancellation.
             if !self.rewind_cast(wizard) {
                 self.give_back_window(wizard.player, opened);
+                if let Some(assist) = wizard.assist.as_deref()
+                    && let (Some(helper), Some(start)) =
+                        (assist.assistant, assist.helper_start.as_deref())
+                {
+                    self.give_back_window(helper, start);
+                }
             }
             self.state.journal.record(GameEvent::CastCancelled {
                 player: wizard.player,
@@ -1965,7 +2082,56 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
         &self,
         wizard: &CastWizard,
     ) -> Vec<baylee_core::color::ColorSet> {
-        casting::tap_colors(&self.state, self.wizard_face(wizard), &wizard.convoke_taps)
+        let face = self.wizard_face(wizard);
+        let convoke = casting::has_convoke(
+            &self.state,
+            wizard.card,
+            face,
+            wizard.player,
+            wizard.face_index(),
+        );
+        casting::tap_colors_for(&self.state, convoke, &wizard.convoke_taps)
+    }
+
+    pub(super) fn wizard_effective_casualty(&self, wizard: &CastWizard) -> Option<u8> {
+        let face = self.wizard_face(wizard);
+        if let Some(n) = face.casualty {
+            return Some(n);
+        }
+        casting::collect_stack_modifiers(
+            &self.state,
+            wizard.player,
+            wizard.card,
+            wizard.face_index(),
+            |fx| match fx.modifier {
+                baylee_cards_dsl::Modifier::GrantCasualty(n) => Some(n),
+                _ => None,
+            },
+        )
+        .into_iter()
+        .max()
+    }
+
+    pub(super) fn wizard_effective_replicate(&self, wizard: &CastWizard) -> Option<ManaCost> {
+        let face = self.wizard_face(wizard);
+        if let Some(cost) = face.replicate {
+            return Some(cost);
+        }
+        let has_grant = !casting::collect_stack_modifiers(
+            &self.state,
+            wizard.player,
+            wizard.card,
+            wizard.face_index(),
+            |fx| {
+                matches!(
+                    fx.modifier,
+                    baylee_cards_dsl::Modifier::GrantReplicateCardManaCost
+                )
+                .then_some(())
+            },
+        )
+        .is_empty();
+        has_grant.then_some(face.mana_cost)
     }
 
     /// What the pool pays for the cast at its payment ([`wizard_paid_total`]).
@@ -1975,6 +2141,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
             wizard,
             &self.convoke_tap_colors(wizard),
         )
+        .with_less_generic(wizard.harmonize_reduction(&self.state))
     }
 
     pub(super) fn wizard_face(&self, wizard: &CastWizard) -> &'static baylee_cards_dsl::FaceDef {
@@ -2342,7 +2509,14 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
         if !pays_mana(&probe) {
             return true;
         }
-        let graveyard = if face.delve {
+        let probe_face_idx = probe.face_index();
+        let probe_delve =
+            casting::has_delve(&self.state, probe.card, face, probe.player, probe_face_idx);
+        let probe_convoke =
+            casting::has_convoke(&self.state, probe.card, face, probe.player, probe_face_idx);
+        let probe_improvise =
+            casting::has_improvise_for(&self.state, probe.card, face, probe.player, probe_face_idx);
+        let graveyard = if probe_delve {
             self.state
                 .zones
                 .list(ZoneLocation::Graveyard(probe.player))
@@ -2350,12 +2524,25 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
         } else {
             0
         };
-        let taps = if face.convoke || casting::has_improvise(&self.state, face, probe.player) {
-            casting::tap_to_pay_sources(&self.state, face, probe.player).len()
+        let taps = if probe_convoke || probe_improvise {
+            casting::tap_to_pay_sources_for(
+                &self.state,
+                probe_convoke,
+                probe_improvise,
+                probe.player,
+            )
+            .len()
         } else {
             0
         };
-        let help = u32::try_from(graveyard.saturating_add(taps)).unwrap_or(u32::MAX);
+        let harmonize = if probe.is_harmonize() {
+            usize::try_from(casting::harmonize_max_power(&self.state, probe.player))
+                .unwrap_or(usize::MAX)
+        } else {
+            0
+        };
+        let help = u32::try_from(graveyard.saturating_add(taps).saturating_add(harmonize))
+            .unwrap_or(u32::MAX);
         let cost = wizard_total_cost(face, &probe).with_less_generic(help);
         self.wizard_pool_can_pay(&probe, cost)
     }
@@ -2442,20 +2629,34 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
             );
             adj.per_distinct_target_delta != 0 || adj.per_x_paid_delta != 0
         });
+        let face_idx = wizard.face_index();
+        let delve = casting::has_delve(&self.state, wizard.card, face, wizard.player, face_idx);
+        let convoke = casting::has_convoke(&self.state, wizard.card, face, wizard.player, face_idx);
+        let improvise =
+            casting::has_improvise_for(&self.state, wizard.card, face, wizard.player, face_idx);
+        let has_wb = face.waterbend
+            || (!(wizard.option == Some(CastModeKind::Disguise) || wizard.masked)
+                && face
+                    .mandatory_additional_costs
+                    .iter()
+                    .any(|p| matches!(p, CostPart::Waterbend(_) | CostPart::WaterbendX)));
         !wizard.makes_mana_after_choices()
-            && !face.delve
-            && !face.convoke
-            && !casting::has_improvise(&self.state, face, wizard.player)
-            && !face.waterbend
+            && !delve
+            && !convoke
+            && !improvise
+            && !wizard.is_harmonize()
+            && !has_wb
             && face.extra_target_cost == 0
             && !has_strive
             && !has_dynamic_cast_cost
+            && !self.wizard_has_assist(wizard)
             && self.state.granted_colorless_capacity(wizard.player) == 0
     }
 
     /// A finite upper bound for a mana X, including ways of paying generic
     /// mana without spending units from the pool. The final payment still
     /// validates fixed colored costs and choices made after the X question.
+    #[allow(clippy::too_many_lines)]
     fn x_resource_bound(&self, wizard: &CastWizard) -> u32 {
         // Mana abilities may sacrifice permanents, ask choices, or produce
         // a dynamic amount. Counting untapped lands would still exclude
@@ -2509,7 +2710,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 let per = adj.per_x_paid_delta.unsigned_abs();
                 bound = bound.saturating_add(per.saturating_mul(max_x));
             }
-            if adj.has_target_conditional_reduction {
+            if adj.has_target_conditional_reduction || adj.has_target_conditional_tax {
                 let kind = match wizard.option {
                     Some(CastModeKind::Kicked) => casting::PreviewCastKind::Kicked,
                     Some(CastModeKind::Bestow) => casting::PreviewCastKind::Bestow,
@@ -2527,31 +2728,105 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                     kind,
                     &adj,
                 );
-                bound = bound.saturating_add(preview.max_mana_reduction.cmc());
+                bound = bound
+                    .saturating_add(preview.max_mana_reduction.cmc())
+                    .saturating_add(preview.max_reduction);
             }
         }
+        let face_idx = wizard.face_index();
+        let delve = casting::has_delve(&self.state, wizard.card, face, wizard.player, face_idx);
+        let convoke = casting::has_convoke(&self.state, wizard.card, face, wizard.player, face_idx);
+        let improvise =
+            casting::has_improvise_for(&self.state, wizard.card, face, wizard.player, face_idx);
         for (enabled, count) in [
             (
-                face.delve,
+                delve,
                 self.state
                     .zones
                     .list(ZoneLocation::Graveyard(wizard.player))
                     .len(),
             ),
             (
-                face.convoke || casting::has_improvise(&self.state, face, wizard.player),
-                casting::tap_to_pay_sources(&self.state, face, wizard.player).len(),
+                convoke || improvise,
+                casting::tap_to_pay_sources_for(&self.state, convoke, improvise, wizard.player)
+                    .len(),
             ),
             (
-                face.waterbend,
+                face.waterbend
+                    || (!(wizard.option == Some(CastModeKind::Disguise) || wizard.masked)
+                        && face
+                            .mandatory_additional_costs
+                            .iter()
+                            .any(|p| matches!(p, CostPart::Waterbend(_) | CostPart::WaterbendX))),
                 casting::waterbend_sources(&self.state, wizard.player).len(),
+            ),
+            (
+                wizard.is_harmonize(),
+                usize::try_from(casting::harmonize_max_power(&self.state, wizard.player))
+                    .unwrap_or(usize::MAX),
             ),
         ] {
             if enabled {
                 bound = bound.saturating_add(u32::try_from(count).unwrap_or(u32::MAX));
             }
         }
+        if self.wizard_has_assist(wizard) {
+            for p in &self.state.players {
+                if p.loss.is_none() && p.id != wizard.player {
+                    if self.mana_window_legal(p.id).is_some() {
+                        return u32::MAX;
+                    }
+                    bound = bound.saturating_add(casting::spendable_units(
+                        &self.state,
+                        p.id,
+                        spend_for(wizard, face),
+                    ));
+                }
+            }
+        }
         bound
+    }
+
+    pub(super) fn wizard_has_assist(&self, wizard: &CastWizard) -> bool {
+        !wizard.masked
+            && wizard.option != Some(CastModeKind::Disguise)
+            && self
+                .wizard_face(wizard)
+                .keywords
+                .contains(baylee_cards_dsl::KeywordSet::ASSIST)
+    }
+
+    pub(super) fn assist_max_generic(
+        &self,
+        wizard: &CastWizard,
+        helper: PlayerId,
+        generic_owed: u32,
+    ) -> u32 {
+        let face = self.wizard_face(wizard);
+        let spend = spend_for(wizard, face);
+        let allowance = self.wizard_source_allowance(wizard);
+        let pool_total = u32::try_from(self.state.players[helper.get() as usize].mana_pool.total())
+            .unwrap_or(u32::MAX);
+        let mut lo = 0_u32;
+        let mut hi = generic_owed.min(pool_total);
+        while lo < hi {
+            let mid = lo + (hi - lo).div_ceil(2);
+            if casting::plan_mana_scoped(
+                &self.state,
+                helper,
+                spend,
+                &ManaCost::from_symbol_generic(mid),
+                None,
+                allowance,
+            )
+            .is_some()
+            {
+                lo = mid;
+            } else {
+                hi = mid - 1;
+            }
+        }
+        lo
     }
 
     /// Resolves an actual-mana restriction after cost reduction. A reduction
@@ -2731,11 +3006,41 @@ pub(super) fn wizard_paid_total(
     let (cost, colored) = wizard_total_cost(face, wizard).convoked_colored(tap_colors);
     let generic = u32::try_from(wizard.delve_exiles.len() + wizard.convoke_taps.len())
         .unwrap_or(u32::MAX)
-        .saturating_sub(colored);
+        .saturating_sub(colored)
+        .saturating_add(wizard.assist_paid);
     cost.with_less_generic(generic)
 }
 
+pub(super) fn wizard_mandatory_waterbend_generic(
+    face: &baylee_cards_dsl::FaceDef,
+    wizard: &CastWizard,
+) -> u32 {
+    if wizard.option == Some(CastModeKind::Disguise) || wizard.masked {
+        return 0;
+    }
+    cost_parts::wizard_cost_parts(face, wizard.cost_choice())
+        .filter_map(|part| match part {
+            CostPart::Waterbend(n) => Some(u32::from(*n)),
+            CostPart::WaterbendX => Some(wizard.x),
+            _ => None,
+        })
+        .fold(0_u32, u32::saturating_add)
+}
+
 impl CastWizard {
+    /// Whether this cast is using a stack/graveyard `GrantsHarmonizeManaCost` route.
+    pub(crate) fn is_harmonize(&self) -> bool {
+        self.selected_alt_grant().is_some_and(|r| r.harmonize)
+    }
+
+    /// Generic mana reduction paid by the single creature tapped for Harmonize.
+    pub(crate) fn harmonize_reduction(&self, state: &crate::state::GameState) -> u32 {
+        self.harmonize_tap
+            .and_then(|id| state.object(id))
+            .and_then(|o| o.characteristics().power)
+            .map_or(0, |p| u32::try_from(p.max(0)).unwrap_or(0))
+    }
+
     /// Targets chosen beyond the first across all target clauses (`CR 207.2c` Strive).
     pub(super) fn extra_target_count(&self) -> u32 {
         let players = self.target_players.len()
@@ -2763,6 +3068,10 @@ fn wizard_total_before_reduction(
     wizard: &CastWizard,
 ) -> ManaCost {
     let mut total = wizard_cost(wizard).combine(&wizard.target_increase);
+    let wb = wizard_mandatory_waterbend_generic(face, wizard);
+    if wb > 0 {
+        total = total.with_more_generic(wb);
+    }
     let extra = wizard.extra_target_count();
     total = total.with_more_generic(face.extra_target_cost.saturating_mul(extra));
     if wizard.kicked
@@ -2788,7 +3097,7 @@ fn wizard_total_before_reduction(
     if let (Some(less), Some(buyback)) = (wizard.buyback, face.buyback) {
         total = total.combine(&buyback.mana.with_less_generic(less));
     }
-    if let Some(replicate) = face.replicate {
+    if let Some(replicate) = wizard.granted_replicate.or(face.replicate) {
         total = total.combine_n(&replicate, u32::from(wizard.replicated));
     }
     if wizard.offspring
@@ -2857,6 +3166,7 @@ pub(super) fn spend_for(
             Some(CastModeKind::Prototype) => face.prototype.map(casting::SpellForm::Prototype),
             Some(CastModeKind::Disguise) => Some(casting::SpellForm::Disguise),
             Some(CastModeKind::Bestow) => face.bestow.map(casting::SpellForm::Bestow),
+            Some(CastModeKind::Blitz) => Some(casting::SpellForm::Blitz),
             Some(CastModeKind::Plot) => Some(casting::SpellForm::Plot),
             Some(CastModeKind::Impending) => face
                 .impending
@@ -2885,6 +3195,9 @@ pub(super) fn spend_for(
             wizard.card,
             casting::SpellForm::Bestow(face.bestow.expect("bestow option")),
         ),
+        Some(CastModeKind::Blitz) => {
+            casting::SpendFor::SpellAs(wizard.card, casting::SpellForm::Blitz)
+        }
         Some(CastModeKind::Foretell) => casting::SpendFor::SpellAs(
             wizard.card,
             casting::SpellForm::Foretell(face.foretell.expect("foretell option")),

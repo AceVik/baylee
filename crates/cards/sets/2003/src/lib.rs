@@ -869,6 +869,8 @@ pub mod somber_hoverguard;
 pub mod sootfeather_flock;
 #[path = "pscg/soul_collector.rs"]
 pub mod soul_collector;
+#[path = "mrd/soul_foundry.rs"]
+pub mod soul_foundry;
 #[path = "scg/spark_spray.rs"]
 pub mod spark_spray;
 #[path = "lgn/spectral_sliver.rs"]
@@ -895,6 +897,8 @@ pub mod stoic_champion;
 pub mod stonewood_invoker;
 #[path = "scg/sulfuric_vortex.rs"]
 pub mod sulfuric_vortex;
+#[path = "mrd/sun_droplet.rs"]
+pub mod sun_droplet;
 #[path = "mrd/sunbeam_spellbomb.rs"]
 pub mod sunbeam_spellbomb;
 #[path = "lgn/sunstrike_legionnaire.rs"]
@@ -949,6 +953,8 @@ pub mod timberwatch_elf;
 pub mod titanic_bulvox;
 #[path = "mrd/titanium_golem.rs"]
 pub mod titanium_golem;
+#[path = "mrd/tooth_and_nail.rs"]
+pub mod tooth_and_nail;
 #[path = "mrd/tooth_of_chiss_goria.rs"]
 pub mod tooth_of_chiss_goria;
 #[path = "scg/torrent_of_fire.rs"]

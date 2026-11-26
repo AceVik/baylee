@@ -774,6 +774,48 @@ pub enum Condition {
         /// Only placements made by "you" (the ability's controller) count.
         by_you: bool,
     },
+    /// Whether the caster controlled a permanent with `SubtypeId` as this spell
+    /// (or the spell that became this permanent, `CR 400.7d`, or a copy of it,
+    /// `CR 707.10`) finished being cast (`CR 601.2i`; Tarkir Dragon-reveal
+    /// cycle). Appended to preserve replay identities.
+    ControlledSubtypeOnCast(baylee_core::ids::SubtypeId),
+    /// This source incarnation (spell on the stack or the permanent it became on
+    /// resolving, `CR 400.7d`, `CR 603.4`, `CR 608.2h`) was cast by any player
+    /// (*Anti-Venom, Horrifying Healer*, *Doomsday Excruciator*, *Wedding Ring*).
+    /// False for spell copies (`CR 707.10`) and uncast permanents. Appended to
+    /// preserve replay identities.
+    SourceWasCast,
+    /// This source incarnation (spell on the stack or the permanent it became on
+    /// resolving, `CR 400.7d`, `CR 603.4`, `CR 608.2h`) was cast from anywhere
+    /// other than a hand (*Antiquities on the Loose*, *Otterball Antics*). False
+    /// for spell copies (`CR 707.10`) and uncast objects. Appended to preserve
+    /// replay identities.
+    CastFromOtherThanHand,
+    /// This source incarnation (spell on the stack or the permanent it became on
+    /// resolving, `CR 400.7d`, `CR 603.4`, `CR 608.2h`) was cast from `ZoneRef`
+    /// (*Increasing Devotion*, *Delayed Blast Fireball*, *Fblthp, the Lost*,
+    /// *Retrieve the Esper*). False for spell copies (`CR 707.10`) and uncast
+    /// objects. Appended to preserve replay identities.
+    SourceCastFromZone(crate::ZoneRef),
+    /// "If this spell's mayhem cost was paid" (`CR 702.187b`; *Sandman's
+    /// Quicksand*), asked of the source spell or the permanent it became on
+    /// resolving from the stack while it remains on the battlefield. Appended
+    /// to preserve replay identities.
+    MayhemCostPaid,
+    /// No earlier spell matching `filter` was cast by `you` earlier this turn
+    /// (`Count$ThisTurnCast_<Filter> == 0`), excluding `this` spell itself
+    /// when evaluated for a stack static ability (*Anhelo, the Painter*,
+    /// *Ashad, the Lone Cyberman*, *Maelstrom Nexus*, *Peri Brown*, *The
+    /// Fifteenth Doctor*, *The Twelfth Doctor*, *Wild-Magic Sorcerer*).
+    /// Appended to preserve replay identities.
+    FirstMatchingSpellThisTurn(&'static Filter),
+    /// Mode `u8` was chosen as this permanent entered (`EnterModifier::ChooseMode`).
+    ChosenMode(u8),
+    /// The innermost enclosing [`crate::Effect::CaptureAffected`] / [`crate::Effect::CaptureMatching`]
+    /// remembered at least `u32` objects.
+    CapturedCountAtLeast(u32),
+    /// At least one object remembered by the innermost enclosing capture satisfies `filter`.
+    CapturedMatches(&'static Filter),
 }
 
 /// Trigger conditions for triggered abilities.
@@ -1385,6 +1427,62 @@ pub enum Trigger {
         /// Optional exact total attacker count declared attacking that defender.
         exact_count: Option<u8>,
     },
+    /// Day becomes night or night becomes day (`CR 730.2`, `CR 732.1a`;
+    /// *Brimstone Vandal*, *The Celestus*, *Celestus Sanctifier*, *Firmament
+    /// Sage*, *Gavony Dawnguard*, *Vadrik, Astral Archmage*). Does not fire
+    /// when the game first becomes day or night from neither designation.
+    /// Appended to preserve replay identities.
+    DayNightChanges,
+    /// One or more cards matching `filter` are discarded (`CR 603.2c`,
+    /// `CR 701.9a`; Forge `T: Mode$ DiscardedAll`: *Captain Howler*, *Rielle,
+    /// the Everwise*, *Toluz, Clever Conductor*, *Tinybones, Pocket Nuisance*,
+    /// *Hostile Investigator*, *Veronica, Dissident Scribe*).
+    ///
+    /// - When `per_player` is `true`, fires once per discarding player matching
+    ///   `who` in a simultaneous discard batch; when `false` ("Whenever one or
+    ///   more players discard one or more cards"), fires once for the whole
+    ///   batch across all matching players.
+    /// - When `first_this_turn` is `true`, fires only if no earlier discard run
+    ///   this turn already included a matching discard by that player (or by any
+    ///   matching player when `!per_player`).
+    /// - Binds `EventPlayer` to the discarding player, `EventAmount` to the
+    ///   count of matching cards discarded in that batch, and
+    ///   `SubjectContext::found` to the post-discard graveyard incarnations of
+    ///   those cards. Appended to preserve replay identities.
+    OneOrMoreCardsDiscarded {
+        /// Which discarding player(s) qualify.
+        who: crate::effect::PlayerRel,
+        /// Card filter evaluated on the discarded card (must be known when not `Filter::Any`).
+        filter: &'static Filter,
+        /// Restrict to the first matching discard batch this turn.
+        first_this_turn: bool,
+        /// `true` for per-player ("Whenever you / a player discards one or more…"),
+        /// `false` for whole-table ("Whenever one or more players discard one or more…").
+        per_player: bool,
+    },
+    /// "Whenever a [filter] is turned face up" (CR 701.34 / CR 708.8).
+    TurnedFaceUpMatching(&'static Filter),
+    /// Once per combat when `attacker` declares one or more attackers
+    /// attacking `attacked` (*Cunning Rhetoric*, *Ever-Watching Threshold*;
+    /// CR 508.1m, CR 508.3c). Binds `EventPlayer` to the attacking player.
+    /// Appended to preserve replay identities.
+    AttackersDeclaredAgainst {
+        /// Which attacking player(s) qualify.
+        attacker: crate::effect::PlayerRel,
+        /// What defender kind must be attacked by at least one declared attacker.
+        attacked: AttackedTargetKind,
+    },
+    /// A player matching `who` activates a loyalty ability (`CR 606.2`) of a
+    /// permanent matching `filter` (*Elspeth's Talent*, *Rowan's Talent*).
+    /// Binds `EventObject` to the planeswalker, `EventPlayer` to the activator,
+    /// and `EventAbility` to the activated loyalty ability on the stack.
+    /// Appended to preserve replay identities.
+    LoyaltyAbilityActivated {
+        /// Filter matched against the source permanent of the loyalty ability.
+        filter: &'static Filter,
+        /// Which activating player(s) qualify.
+        who: crate::effect::PlayerRel,
+    },
 }
 
 impl Trigger {
@@ -1794,6 +1892,13 @@ pub enum AbilityDef {
         /// Whether the same mode may be chosen more than once (CR 700.2d).
         can_repeat_modes: bool,
     },
+    /// Ward—Waterbend {N} (`CR 702.21a`, `CR 701.67a`; *The Unagi of Kyoshi
+    /// Island*). Engine-level keyword trigger. Appended to preserve replay
+    /// identities.
+    WardWaterbend {
+        /// Generic waterbend mana to pay.
+        mana: u16,
+    },
 }
 
 impl core::hash::Hash for AbilityDef {
@@ -1872,6 +1977,7 @@ impl core::hash::Hash for AbilityDef {
                 }
             }
             Self::Ward { mana } => mana.hash(state),
+            Self::WardWaterbend { mana } => (255_u8, 505_u16, mana).hash(state),
             Self::Toxic { poison } => poison.hash(state),
             Self::ActivatedConditional {
                 cost,

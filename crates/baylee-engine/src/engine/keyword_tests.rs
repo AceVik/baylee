@@ -199,6 +199,11 @@ const ENFORCED: &[(&str, baylee_cards_dsl::KeywordSet)] = {
         ("cipher", K::CIPHER), // progress::stack + Effect::Cipher + trigger::watches (CR 702.99a)
         ("champion", K::CHAMPION), // trigger::collect_for_objects + Effect::Champion (CR 702.72a)
         ("tribute", K::TRIBUTE), // entry::choices + Condition::TributeWasNotPaid (CR 702.104a)
+        ("convoke", K::CONVOKE), // casting::has_convoke + stack Modifier::AddKeyword (CR 702.51a)
+        ("improvise", K::IMPROVISE), // casting::has_improvise_for + stack Modifier::AddKeyword (CR 702.126a)
+        ("delve", K::DELVE),         // casting::has_delve + stack Modifier::AddKeyword (CR 702.66a)
+        ("demonstrate", K::DEMONSTRATE), // casting / stack Modifier::AddKeyword (CR 702.148a)
+        ("assist", K::ASSIST),       // cast_wizard + AssistWizardState (CR 702.132a)
     ]
 };
 

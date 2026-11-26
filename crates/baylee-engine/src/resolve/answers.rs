@@ -680,6 +680,30 @@ pub(super) fn resume_yes_no_inner(
         }
         return run_fallback(state, res, std::slice::from_ref(effect));
     }
+    if let Some(AwaitingOp::MayPayEnergyThen { amount, then }) = res.awaiting {
+        res.awaiting = None;
+        if answer && state.pay_energy(res.controller, u32::from(amount)) {
+            return run_fallback(state, res, then);
+        }
+        res.pc += 1;
+        return run(state, res);
+    }
+    if matches!(res.awaiting, Some(AwaitingOp::DemonstrateConfirm)) {
+        res.awaiting = None;
+        if answer {
+            return super::immediate::resume_demonstrate_confirm(state, res);
+        }
+        res.pc += 1;
+        return run(state, res);
+    }
+    if let Some(AwaitingOp::RippleReveal { n }) = res.awaiting {
+        res.awaiting = None;
+        if answer {
+            return super::immediate::resume_ripple_reveal(state, res, n);
+        }
+        res.pc += 1;
+        return run(state, res);
+    }
     if let Some(AwaitingOp::PlayerMayPayLife {
         player,
         amount,
@@ -886,6 +910,9 @@ pub(super) fn resume_yes_no_inner(
         }
         res.pc += 1;
         return run(state, res);
+    }
+    if matches!(res.awaiting, Some(AwaitingOp::AnyPlayerPayCost { .. })) {
+        return super::wave18c::any_player_pay_cost_yesno(state, res, answer);
     }
     if let Some(AwaitingOp::RevealTopPlayerMayPut { player, card }) = res.awaiting {
         res.awaiting = None;
@@ -1096,6 +1123,38 @@ pub(super) fn resume_yes_no_inner(
             unreachable!()
         };
         return super::vote::resume_option_extra_vote(state, res, vote, answer);
+    }
+    if let Some(AwaitingOp::PlayerMayWaterbendConfirm {
+        player,
+        mana,
+        effect,
+    }) = res.awaiting
+    {
+        res.awaiting = None;
+        if answer && mana > 0 {
+            let sources = crate::casting::waterbend_sources(state, player);
+            if !sources.is_empty() {
+                res.awaiting = Some(AwaitingOp::PlayerMayWaterbendTaps {
+                    player,
+                    mana,
+                    effect,
+                });
+                let max = u8::try_from(sources.len().min(usize::from(mana))).unwrap_or(u8::MAX);
+                return Flow::Wait(Pending::ChooseCards {
+                    player,
+                    options: sources,
+                    min: 0,
+                    max,
+                    prompt: crate::choice::ChoicePrompt::Waterbend,
+                    total: None,
+                });
+            }
+        }
+        if !answer {
+            return run_fallback(state, res, std::slice::from_ref(effect));
+        }
+        res.pc += 1;
+        return run(state, res);
     }
     let AwaitingOp::PayLifeOrTapSelf { amount } =
         res.awaiting.take().expect("resume without awaiting op")
@@ -1368,6 +1427,28 @@ pub(super) fn resume_arranged_inner(
                     ZonePosition::Top,
                     Cause::Effect,
                 );
+                if state.per_turn.surveilled_cards.tracked
+                    && let Some(obj) = state
+                        .object(card)
+                        .filter(|o| o.zone == crate::zone::Zone::Graveyard)
+                {
+                    let reference = baylee_core::ids::DamageSourceRef {
+                        object: card,
+                        version: obj.version,
+                    };
+                    if !state
+                        .per_turn
+                        .surveilled_cards
+                        .items
+                        .contains(&(reference, res.controller))
+                    {
+                        state
+                            .per_turn
+                            .surveilled_cards
+                            .items
+                            .push((reference, res.controller));
+                    }
+                }
             }
             for &card in top.iter().rev() {
                 let _ = state.move_object(card, library, ZonePosition::Top, Cause::Effect);
@@ -1391,6 +1472,7 @@ pub fn resume_tax_choice(state: &mut GameState, res: &mut Resolution, paid: bool
     flow
 }
 
+#[allow(clippy::too_many_lines)]
 pub(super) fn resume_tax_choice_inner(
     state: &mut GameState,
     res: &mut Resolution,
@@ -1413,7 +1495,15 @@ pub(super) fn resume_tax_choice_inner(
         | ManaPaymentOutcome::AnyPlayer { life, .. } => *life,
         _ => 0,
     };
+    let wb_taps_ok = match &outcome {
+        ManaPaymentOutcome::WaterbendEffects { taps, .. } if paid && !taps.is_empty() => {
+            let wb = crate::casting::waterbend_sources(state, player);
+            taps.iter().all(|id| wb.contains(id))
+        }
+        _ => true,
+    };
     let actually_paid = paid
+        && wb_taps_ok
         && super::mana_life_payment::life_payable(state, player, life)
         && crate::casting::pay_mana_for(state, player, what, &cost).is_some();
     if actually_paid && life != 0 {
@@ -1431,6 +1521,26 @@ pub(super) fn resume_tax_choice_inner(
                 if let Some(pending) =
                     super::any_player_payment::offer(state, res, cost, life, unpaid, next)
                 {
+                    return next_choice(state, res, since, pending);
+                }
+            }
+            res.pc += 1;
+            return run(state, res);
+        }
+        ManaPaymentOutcome::AnyPlayerAmount {
+            on_payment,
+            effects,
+            next,
+        } => {
+            if actually_paid {
+                if on_payment {
+                    return run_fallback(state, res, effects);
+                }
+            } else {
+                let since = state.journal.last_seq();
+                if let Some(pending) = super::wave18c::any_player_pay_mana_amount_offer(
+                    state, res, cost, on_payment, effects, next,
+                ) {
                     return next_choice(state, res, since, pending);
                 }
             }
@@ -1485,6 +1595,16 @@ pub(super) fn resume_tax_choice_inner(
             let since = state.journal.last_seq();
             upgrade::place(state, res, card, player, actually_paid);
             return finish_choice(state, res, since);
+        }
+        ManaPaymentOutcome::WaterbendEffects { effect, taps } => {
+            if actually_paid {
+                for id in taps {
+                    if state.set_tapped(id, true) {
+                        state.record_tap_event(id, true, Cause::Cost);
+                    }
+                }
+            }
+            (std::slice::from_ref(effect), false)
         }
     };
     // A tax runs its effect on a refusal and a price on a payment; the
@@ -1556,6 +1676,10 @@ pub(super) fn resume_targets_inner(
 ///
 /// # Panics
 /// The engine must validate the chosen option against the pending question.
+#[allow(
+    clippy::too_many_lines,
+    reason = "dispatches all non-modal resolution AwaitingOp variants"
+)]
 pub fn resume_effect_choice(state: &mut GameState, res: &mut Resolution, index: usize) -> Flow {
     subjects::begin_resume(state, res);
     if matches!(res.awaiting, Some(AwaitingOp::Dungeon { .. })) {
@@ -1619,6 +1743,128 @@ pub fn resume_effect_choice(state: &mut GameState, res: &mut Resolution, index: 
             }
         }
         let flow = run_fallback(state, res, std::slice::from_ref(selected));
+        subjects::flush(state, res);
+        return flow;
+    }
+    if matches!(
+        res.awaiting,
+        Some(AwaitingOp::ChoosePayCostOrDecline { .. })
+    ) {
+        let Some(AwaitingOp::ChoosePayCostOrDecline {
+            player,
+            costs,
+            otherwise,
+        }) = res.awaiting.take()
+        else {
+            unreachable!()
+        };
+        let flow = if let Some(&cost) = costs.get(index) {
+            if let baylee_cards_dsl::CostPart::PayLife(amount) = cost {
+                let amount = i32::from(*amount);
+                if state.can_pay_life(player, amount) {
+                    state.change_life(player, -amount, Cause::Cost);
+                    res.pc += 1;
+                    run(state, res)
+                } else {
+                    run_fallback(state, res, otherwise)
+                }
+            } else {
+                let options = choices::resolution_cost_options(state, res, player, cost);
+                if options.is_empty() {
+                    run_fallback(state, res, otherwise)
+                } else {
+                    res.awaiting = Some(AwaitingOp::PlayerMayPayChosenCost {
+                        player,
+                        cost,
+                        otherwise,
+                    });
+                    Flow::Wait(Pending::ChooseCards {
+                        player,
+                        options,
+                        min: 0,
+                        max: 1,
+                        prompt: cost_wizard::prompt(cost),
+                        total: None,
+                    })
+                }
+            }
+        } else {
+            run_fallback(state, res, otherwise)
+        };
+        subjects::flush(state, res);
+        return flow;
+    }
+    if matches!(res.awaiting, Some(AwaitingOp::PlayersChooseMode { .. })) {
+        let Some(AwaitingOp::PlayersChooseMode {
+            spec,
+            current,
+            mut remaining,
+            mut chosen,
+        }) = res.awaiting.take()
+        else {
+            unreachable!()
+        };
+        let mode_idx = u8::try_from(index).expect("mode index fits u8");
+        assert!(
+            usize::from(mode_idx) < spec.labels.len(),
+            "offered mode index out of bounds"
+        );
+        chosen.push((current, mode_idx));
+        while let Some(next) = remaining.pop() {
+            if state.has_left(next) {
+                continue;
+            }
+            let options = (0..spec.labels.len())
+                .map(|i| crate::choice::CastModeDesc {
+                    index: u32::try_from(i).expect("mode choices fit u32"),
+                    kind: crate::choice::CastModeKind::Mode(i),
+                    cost: baylee_core::mana::ManaCost::ZERO,
+                })
+                .collect();
+            res.awaiting = Some(AwaitingOp::PlayersChooseMode {
+                spec,
+                current: next,
+                remaining,
+                chosen,
+            });
+            let flow = Flow::Wait(Pending::ChooseCastMode {
+                player: next,
+                object: res.source,
+                options,
+            });
+            subjects::flush(state, res);
+            return flow;
+        }
+        let steps: Vec<(PlayerId, u8)> = match spec.aggregate {
+            baylee_cards_dsl::MultiPlayerChoiceAggregate::PerModeChooser => {
+                chosen.sort_by_key(|&(_, mode)| mode);
+                chosen
+            }
+            baylee_cards_dsl::MultiPlayerChoiceAggregate::PrisonersDilemma => {
+                let all_silence = chosen.iter().all(|&(_, mode)| mode == 0);
+                let all_snitch = chosen.iter().all(|&(_, mode)| mode == 1);
+                if all_silence {
+                    chosen.into_iter().map(|(p, _)| (p, 0)).collect()
+                } else if all_snitch {
+                    chosen.into_iter().map(|(p, _)| (p, 1)).collect()
+                } else {
+                    chosen
+                        .into_iter()
+                        .filter(|&(_, mode)| mode == 0)
+                        .map(|(p, _)| (p, 2))
+                        .collect()
+                }
+            }
+        };
+        let flow = if steps.is_empty() {
+            res.pc += 1;
+            run(state, res)
+        } else {
+            let op = res.effects[res.pc];
+            let _ = wave3_ops::exec_players_choose_branches(state, res, op, steps);
+            res.pc += 1;
+            run(state, res)
+        };
         subjects::flush(state, res);
         return flow;
     }

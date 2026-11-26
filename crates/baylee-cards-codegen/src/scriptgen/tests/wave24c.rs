@@ -558,12 +558,9 @@ fn strict_refusals_for_ambiguous_atoms_and_non_paper_scripts() {
         "Name:BadGreatest\nManaCost:2 G\nTypes:Sorcery\n\
          A:SP$ Draw | Defined$ You | NumCards$ X\n\
          SVar:X:Count$Valid Creature.YouCtrl$GreatestCardToughness\n",
-        // `wasCast` on stack static or ETB trigger has no `Filter::WasCast`.
+        // `AddKeyword$ Flash` on stack static stays refused (not a stack-live keyword).
         "Name:BadWasCastStatic\nManaCost:3 U\nTypes:Creature\nPT:2/2\n\
          S:Mode$ Continuous | Affected$ Instant.wasCast | AffectedZone$ Stack | AddKeyword$ Flash\n",
-        "Name:BadWasCastEtb\nManaCost:3 G\nTypes:Creature\nPT:3/3\n\
-         T:Mode$ ChangesZone | Origin$ Any | Destination$ Battlefield | ValidCard$ Card.Self+wasCast | Execute$ E\n\
-         SVar:E:DB$ Draw\n",
         // Drannith Magistrate: `CantBeCast` evaluates pre-cast where `CastHistory` is default.
         "Name:BadDrannith\nManaCost:1 W\nTypes:Creature\nPT:1/3\n\
          S:Mode$ CantBeCast | ValidCard$ Card.!wasCastFromTheirHand | Caster$ Opponent\n",

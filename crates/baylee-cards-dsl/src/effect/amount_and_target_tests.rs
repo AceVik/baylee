@@ -126,6 +126,10 @@ fn bounds_read_x_only_where_the_count_is_x() {
         (300, 300),
         "X target counts retain the full announced value"
     );
+    let up_to_x = TargetReq::up_to_x(WHAT);
+    assert!(up_to_x.is_up_to_x());
+    assert_eq!(up_to_x.bounds(0), (0, 0));
+    assert_eq!(up_to_x.bounds(3), (0, 3));
 }
 
 /// Wave 15a's turn-history counts and distinct-value counts are magnitudes:

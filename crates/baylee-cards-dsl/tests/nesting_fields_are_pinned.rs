@@ -116,7 +116,11 @@
 // CaptureAffected (`first`, `then`) adds two walker-tested bodies;
 // ForEachRemembered (`effects`) and WithAllTargets add one walker-tested body
 // each. AnyPlayerMayPayLifeOr (`effects`) adds one walker-tested body.
-const NESTING_FIELDS: usize = 125;
+// ChooseDistinctPowersOnBattlefield (`then`) adds one walker-tested body.
+// AnyPlayerMayPayManaAmount (`effects`) and AnyPlayerMayPayCost (`effects`) add two.
+// MayPayEnergyEqualToTargetCmcThen (`then`) adds one walker-tested body.
+// PlayerMayWaterbendOr (`effect`) and RememberTargetsThen (`then`) + 3 Wave 18b effects add 5 bodies.
+const NESTING_FIELDS: usize = 134;
 
 /// How many variants contain those fields.
 ///
@@ -207,7 +211,11 @@ const NESTING_FIELDS: usize = 125;
 /// (`capture_affected_for_each_remembered_and_with_all_targets_are_visited`).
 /// `AnyPlayerMayPayLifeOr` is the hundred-ninth; its fallback walk is tested in
 /// `verb_tests::any_player_life_payment_fallback_is_visited`.
-const CARRYING_VARIANTS: usize = 109;
+/// `ChooseDistinctPowersOnBattlefield` is the hundred-tenth; its body walk is
+/// tested in `verb_tests::choose_distinct_powers_body_is_visited`.
+/// `MayPayEnergyEqualToTargetCmcThen` + `AnyPlayerMayPayManaAmount` + `AnyPlayerMayPayCost` +
+/// `PlayerMayWaterbendOr` through `RememberTargetsThen` bring total carrying variants to 118.
+const CARRYING_VARIANTS: usize = 118;
 
 /// The floor under the reader itself.
 ///

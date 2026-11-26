@@ -379,15 +379,15 @@ fn every_other_permanent_in_the_pool_makes_the_mana_its_card_prints() {
 /// 450 non-summoning-sick creatures (210 costly lines, 82 triggered, 97
 /// granted, 155 unparsed).
 const FULL_CORPUS_OTHER_PERMANENTS: Bounds = Bounds {
-    colors: 778,
-    routes: 314,
-    promises: 307..=307,
+    colors: 788,
+    routes: 316,
+    promises: 309..=309,
     creature_promises: 136..=136,
-    unparsed: 155..=155,
-    fully_read: 635,
-    costly_lines: 210..=210,
-    triggered_lines: 82..=82,
-    granted_lines: 97..=97,
+    unparsed: 164..=164,
+    fully_read: 651,
+    costly_lines: 218..=218,
+    triggered_lines: 87..=87,
+    granted_lines: 99..=99,
     self_granted: 11..=11,
     busy: 0,
     not_implemented: 0,
@@ -423,17 +423,17 @@ fn check_other_permanent_population(tally: &Tally) {
     );
     assert_eq!(
         eligible,
-        [460, 328, 13],
+        [460, 353, 13],
         "the coverage-tier population changed"
     );
     assert_eq!(
         readable,
-        [398, 237, 0],
+        [398, 253, 0],
         "the readable coverage tiers changed"
     );
     let expected: usize = readable.iter().sum();
     assert_eq!(
-        expected, 635,
+        expected, 651,
         "the independently enumerated full-corpus population changed; review additions/removals before updating its pin"
     );
     assert_eq!(
@@ -449,10 +449,10 @@ fn check_other_permanent_population(tally: &Tally) {
             tally.promises,
             tally.opponents_lands
         ),
-        (778, 314, 307, 3)
+        (788, 316, 309, 3)
     );
-    assert_eq!((tally.creatures, tally.creature_promises), (450, 136));
-    assert_eq!((tally.triggered_lines, tally.unparsed.len()), (82, 155));
+    assert_eq!((tally.creatures, tally.creature_promises), (470, 136));
+    assert_eq!((tally.triggered_lines, tally.unparsed.len()), (87, 164));
     assert_eq!(
         (
             tally.conditional,
@@ -461,7 +461,7 @@ fn check_other_permanent_population(tally: &Tally) {
             tally.dual_typed,
             tally.self_typed
         ),
-        (13, 162, 160, 0, 0),
+        (14, 166, 169, 0, 0),
         "the measured skip categories changed"
     );
 }

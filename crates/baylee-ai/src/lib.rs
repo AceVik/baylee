@@ -902,6 +902,7 @@ impl HeuristicAgent {
                 | baylee_engine::choice::NumberPrompt::VariableLifePayment => self
                     .choose_number_ex_answer(view, min, max, context)
                     .unwrap_or(min),
+                baylee_engine::choice::NumberPrompt::Assist => min,
                 // Every payment the engine offers: it bounded the count by
                 // what the floating pool pays beside the rest of the cast,
                 // and each payment is the spell once more (CR 702.56a).
@@ -1042,11 +1043,13 @@ impl HeuristicAgent {
                 // What refusing a tax costs is not the same question for
                 // every tax, so it is asked of the effect rather than of the
                 // prompt: ward counters the spell this seat has just cast.
-                YesNoPrompt::PayTax { mana } => PlayerAction::YesNo(self.pays_optional_price(
-                    view,
-                    baylee_core::mana::ManaCost::ZERO.with_more_generic(u32::from(mana)),
-                    context,
-                )),
+                YesNoPrompt::PayTax { mana } | YesNoPrompt::PayWaterbend { mana } => {
+                    PlayerAction::YesNo(self.pays_optional_price(
+                        view,
+                        baylee_core::mana::ManaCost::ZERO.with_more_generic(u32::from(mana)),
+                        context,
+                    ))
+                }
                 YesNoPrompt::PayMana { cost } => {
                     PlayerAction::YesNo(self.pays_optional_price(view, cost, context))
                 }
@@ -1181,7 +1184,8 @@ impl HeuristicAgent {
                 // this seat's own ability offered to cast (Conduit of
                 // Worlds): the activation was the choice, and a window it
                 // cannot fill casts nothing and costs nothing.
-                YesNoPrompt::UseRegenerationShield { .. }
+                YesNoPrompt::Assist
+                | YesNoPrompt::UseRegenerationShield { .. }
                 | YesNoPrompt::UseShieldCounter { .. } => PlayerAction::YesNo(false),
                 YesNoPrompt::MayDo => PlayerAction::YesNo(self.may_do(view, source, context)),
                 YesNoPrompt::ClashBottom { card } => {

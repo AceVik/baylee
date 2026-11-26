@@ -33,6 +33,8 @@ pub mod armored_scrapgorger;
 pub mod atmosphere_surgeon;
 #[path = "one/atraxa_grand_unifier.rs"]
 pub mod atraxa_grand_unifier;
+#[path = "one/atraxa_s_skitterfang.rs"]
+pub mod atraxa_s_skitterfang;
 #[path = "one/axiom_engraver.rs"]
 pub mod axiom_engraver;
 #[path = "one/barbed_batterfist.rs"]
@@ -101,6 +103,8 @@ pub mod cutthroat_centurion;
 pub mod distorted_curiosity;
 #[path = "one/dragonwing_glider.rs"]
 pub mod dragonwing_glider;
+#[path = "one/drivnod_carnage_dominus.rs"]
+pub mod drivnod_carnage_dominus;
 #[path = "one/dross_skullbomb.rs"]
 pub mod dross_skullbomb;
 #[path = "one/drown_in_ichor.rs"]
@@ -115,6 +119,8 @@ pub mod encroaching_mycosynth;
 pub mod escaped_experiment;
 #[path = "one/evolved_spinoderm.rs"]
 pub mod evolved_spinoderm;
+#[path = "one/expand_the_sphere.rs"]
+pub mod expand_the_sphere;
 #[path = "one/experimental_augury.rs"]
 pub mod experimental_augury;
 #[path = "one/exuberant_fuseling.rs"]
@@ -125,6 +131,8 @@ pub mod eye_of_malcator;
 pub mod fleshless_gladiator;
 #[path = "one/font_of_progress.rs"]
 pub mod font_of_progress;
+#[path = "one/forgehammer_centurion.rs"]
+pub mod forgehammer_centurion;
 #[path = "one/free_from_flesh.rs"]
 pub mod free_from_flesh;
 #[path = "one/furnace_punisher.rs"]
@@ -159,6 +167,8 @@ pub mod hazardous_blast;
 pub mod hexgold_halberd;
 #[path = "one/hexgold_hoverwings.rs"]
 pub mod hexgold_hoverwings;
+#[path = "pw23/ice_out.rs"]
+pub mod ice_out;
 #[path = "one/ichor_synthesizer.rs"]
 pub mod ichor_synthesizer;
 #[path = "one/ichorplate_golem.rs"]
@@ -183,8 +193,12 @@ pub mod jawbone_duelist;
 pub mod jor_kadeen_first_goldwarden;
 #[path = "onc/kemba_s_banner.rs"]
 pub mod kemba_s_banner;
+#[path = "one/kethek_crucible_goliath.rs"]
+pub mod kethek_crucible_goliath;
 #[path = "one/kuldotha_cackler.rs"]
 pub mod kuldotha_cackler;
+#[path = "one/lattice_blade_mantis.rs"]
+pub mod lattice_blade_mantis;
 #[path = "one/leonin_lightbringer.rs"]
 pub mod leonin_lightbringer;
 #[path = "one/malcator_purity_overseer.rs"]
@@ -199,6 +213,8 @@ pub mod maze_skullbomb;
 pub mod meldweb_curator;
 #[path = "one/meldweb_strider.rs"]
 pub mod meldweb_strider;
+#[path = "one/mercurial_spelldancer.rs"]
+pub mod mercurial_spelldancer;
 #[path = "one/mesmerizing_dose.rs"]
 pub mod mesmerizing_dose;
 #[path = "one/migloz_maze_crusher.rs"]
@@ -291,6 +307,8 @@ pub mod skyscythe_engulfer;
 pub mod slobad_iron_goblin;
 #[path = "one/solphim_mayhem_dominus.rs"]
 pub mod solphim_mayhem_dominus;
+#[path = "one/soulless_jailer.rs"]
+pub mod soulless_jailer;
 #[path = "one/staff_of_compleation.rs"]
 pub mod staff_of_compleation;
 #[path = "one/stinging_hivemaster.rs"]
@@ -359,6 +377,8 @@ pub mod urabrask_s_anointer;
 pub mod urabrask_s_forge;
 #[path = "onc/urtet_remnant_of_memnarch.rs"]
 pub mod urtet_remnant_of_memnarch;
+#[path = "one/vanish_into_eternity.rs"]
+pub mod vanish_into_eternity;
 #[path = "one/vat_emergence.rs"]
 pub mod vat_emergence;
 #[path = "one/vat_of_rebirth.rs"]
@@ -389,3 +409,5 @@ pub mod whisper_of_the_dross;
 pub mod white_sun_s_twilight;
 #[path = "one/zealot_s_conviction.rs"]
 pub mod zealot_s_conviction;
+#[path = "one/zopandrel_hunger_dominus.rs"]
+pub mod zopandrel_hunger_dominus;

@@ -99,6 +99,10 @@ struct Attempt {
     refusal: Option<Refusal>,
     sacrifices: Option<u32>,
     chosen_number: Option<u8>,
+    chosen_mode: Option<u8>,
+    player_chosen_modes: Vec<(PlayerId, u8)>,
+    chosen_subtype: Option<baylee_core::ids::SubtypeId>,
+    chosen_player: Option<PlayerId>,
     battle_protector: Option<PlayerId>,
     saga_chapter: Option<u8>,
     kw_choices: EntryKeywordState,
@@ -130,6 +134,10 @@ impl Hash for Attempt {
             refusal,
             sacrifices,
             chosen_number,
+            chosen_mode,
+            player_chosen_modes,
+            chosen_subtype,
+            chosen_player,
             battle_protector,
             saga_chapter,
             kw_choices,
@@ -157,11 +165,23 @@ impl Hash for Attempt {
         refusal.hash(h);
         sacrifices.hash(h);
         chosen_number.hash(h);
+        if let Some(sub) = chosen_subtype {
+            sub.hash(h);
+        }
+        if let Some(player) = chosen_player {
+            player.hash(h);
+        }
         battle_protector.hash(h);
         // Folded in only when set (Read-Ahead Sagas, CR 702.155b), preserving
         // recorded hashes on entries that never choose a starting chapter.
         if let Some(chapter) = saga_chapter {
             chapter.hash(h);
+        }
+        if let Some(mode) = chosen_mode {
+            (514_u16, 1_u8, mode).hash(h);
+        }
+        if !player_chosen_modes.is_empty() {
+            (514_u16, 2_u8, player_chosen_modes).hash(h);
         }
         if kw_choices.riot_remaining > 0
             || kw_choices.unleash_remaining > 0
@@ -214,6 +234,14 @@ enum Question {
         satisfied: bool,
     },
     Number,
+    ChooseMode {
+        count: u8,
+    },
+    EachPlayerChooseMode {
+        player: PlayerId,
+        remaining: Vec<PlayerId>,
+        count: u8,
+    },
     Shape {
         choices: &'static [&'static [CopyMod]],
     },
@@ -272,6 +300,10 @@ enum Question {
     Tribute {
         counters: u16,
     },
+    /// Pre-counter entry subtype choice (`CR 614.12`, *Banner of Kinship*).
+    EntrySubtype,
+    /// Pre-counter entry player/opponent choice (`CR 614.12`, *Canker Abomination*).
+    EntryPlayer,
 }
 
 impl Hash for Entries {
@@ -401,11 +433,33 @@ pub(super) fn may_have_keyword_entry(state: &GameState, id: ObjectId) -> bool {
         })
 }
 
+pub(crate) fn has_pre_counter_choice(modifiers: &[EnterModifier]) -> bool {
+    let has_counters = modifiers.iter().any(|m| {
+        matches!(
+            m,
+            EnterModifier::WithCounters { .. } | EnterModifier::WithCountersIf { .. }
+        )
+    });
+    has_counters
+        && modifiers.iter().any(|m| {
+            matches!(
+                m,
+                EnterModifier::ChooseSubtype
+                    | EnterModifier::ChooseSubtypeFrom(_)
+                    | EnterModifier::ChooseBasicLandType
+                    | EnterModifier::ChooseOpponent
+                    | EnterModifier::ChooseAnyPlayer
+            )
+        })
+}
+
 fn needs_before_entry(modifier: &EnterModifier) -> bool {
     tapping::handles(modifier)
         || matches!(
             modifier,
             EnterModifier::ChooseNumber { .. }
+                | EnterModifier::ChooseMode(_)
+                | EnterModifier::EachPlayerChooseMode(_)
                 | EnterModifier::ChooseShape(_)
                 | EnterModifier::SacrificeOrGraveyard { .. }
                 | EnterModifier::DiscardOrGraveyard(_)
@@ -508,6 +562,10 @@ pub(crate) fn defer(
         refusal: None,
         sacrifices: None,
         chosen_number: None,
+        chosen_mode: None,
+        player_chosen_modes: Vec::new(),
+        chosen_subtype: None,
+        chosen_player: None,
         battle_protector: None,
         saga_chapter: None,
         kw_choices: EntryKeywordState::default(),

@@ -53,6 +53,8 @@ pub mod amok;
 pub mod anarchist;
 #[path = "p02/ancient_craving.rs"]
 pub mod ancient_craving;
+#[path = "p02/angel_of_fury.rs"]
+pub mod angel_of_fury;
 #[path = "p02/angel_of_mercy.rs"]
 pub mod angel_of_mercy;
 #[path = "usg/angelic_chorus.rs"]
@@ -853,6 +855,8 @@ pub mod rabid_rats;
 pub mod rabid_wolverines;
 #[path = "p02/raiding_nightstalker.rs"]
 pub mod raiding_nightstalker;
+#[path = "p02/rain_of_daggers.rs"]
+pub mod rain_of_daggers;
 #[path = "usg/rain_of_filth.rs"]
 pub mod rain_of_filth;
 #[path = "sth/ransack.rs"]
@@ -1349,6 +1353,8 @@ pub mod wild_griffin;
 pub mod wild_ox;
 #[path = "p02/wildfire.rs"]
 pub mod wildfire;
+#[path = "p02/wind_sail.rs"]
+pub mod wind_sail;
 #[path = "usg/windfall.rs"]
 pub mod windfall;
 #[path = "usg/winding_wurm.rs"]

@@ -164,16 +164,37 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
     /// candidates the sweep collected) those that may be cast and paid for
     /// while casting (CR 601.2g): only while the seat has a mana ability on
     /// offer, and only a card with something to point at, as `castable`.
-    pub(super) fn settle_payable(&self, player: PlayerId, legal: &mut LegalActions) {
+    pub(super) fn settle_payable(
+        &self,
+        player: PlayerId,
+        legal: &mut LegalActions,
+        check_assist: bool,
+    ) {
         if legal.payable.is_empty() {
             return;
         }
-        if !self.offers_mana(legal) {
+        let own_mana = self.offers_mana(legal);
+        let card_has_assist = |card: ObjectId| {
+            self.state
+                .object(card)
+                .and_then(|o| o.card)
+                .and_then(|c| self.lookup.card(c.index))
+                .and_then(|d| d.faces.first())
+                .is_some_and(|f| f.keywords.contains(baylee_cards_dsl::KeywordSet::ASSIST))
+        };
+        let assist_mana = check_assist
+            && !own_mana
+            && legal.payable.iter().copied().any(card_has_assist)
+            && self.state.players.iter().any(|p| {
+                p.loss.is_none() && p.id != player && self.mana_window_legal(p.id).is_some()
+            });
+        if !own_mana && !assist_mana {
             legal.payable.clear();
             return;
         }
         legal.payable.retain(|&card| {
-            casting::can_cast_paying_later(&self.state, &self.lookup, player, card).is_ok()
+            (own_mana || (assist_mana && card_has_assist(card)))
+                && casting::can_cast_paying_later(&self.state, &self.lookup, player, card).is_ok()
                 && self.has_a_legal_target(player, card)
         });
     }
@@ -428,7 +449,9 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
     ) -> eval::DistinctGroupPool {
         let distinct_from_prior = req.constraint()
             == Some(baylee_cards_dsl::TargetConstraint::DistinctFromPriorTargetGroups);
-        let min = if req.count_is_x {
+        let min = if req.is_up_to_x() {
+            0
+        } else if req.count_is_x {
             x.unwrap_or(0)
         } else {
             u32::from(req.min)

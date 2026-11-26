@@ -109,6 +109,8 @@ pub mod bog_smugglers;
 pub mod bog_witch;
 #[path = "ulg/bone_shredder.rs"]
 pub mod bone_shredder;
+#[path = "ptk/borrowing_100_000_arrows.rs"]
+pub mod borrowing_100_000_arrows;
 #[path = "ptk/borrowing_the_east_wind.rs"]
 pub mod borrowing_the_east_wind;
 #[path = "ulg/bouncing_beebles.rs"]
@@ -131,6 +133,8 @@ pub mod brilliant_plan;
 pub mod brine_seer;
 #[path = "ulg/brink_of_madness.rs"]
 pub mod brink_of_madness;
+#[path = "ptk/broken_dam.rs"]
+pub mod broken_dam;
 #[path = "uds/bubbling_beebles.rs"]
 pub mod bubbling_beebles;
 #[path = "uds/bubbling_muck.rs"]
@@ -249,6 +253,8 @@ pub mod corrupt_eunuchs;
 pub mod corrupt_official;
 #[path = "ptk/council_of_advisors.rs"]
 pub mod council_of_advisors;
+#[path = "ptk/counterintelligence.rs"]
+pub mod counterintelligence;
 #[path = "uds/covetous_dragon.rs"]
 pub mod covetous_dragon;
 #[path = "mmq/cowardice.rs"]
@@ -343,6 +349,8 @@ pub mod disease_carriers;
 pub mod distorting_lens;
 #[path = "uds/donate.rs"]
 pub mod donate;
+#[path = "ptk/dong_zhou_the_tyrant.rs"]
+pub mod dong_zhou_the_tyrant;
 #[path = "mmq/drake_hatchling.rs"]
 pub mod drake_hatchling;
 #[path = "mmq/dust_bowl.rs"]
@@ -509,6 +517,8 @@ pub mod grim_tutor;
 pub mod groundskeeper;
 #[path = "ptk/guan_yu_s_1_000_li_march.rs"]
 pub mod guan_yu_s_1_000_li_march;
+#[path = "ptk/guan_yu_sainted_warrior.rs"]
+pub mod guan_yu_sainted_warrior;
 #[path = "mmq/gush.rs"]
 pub mod gush;
 #[path = "mmq/hammer_mage.rs"]
@@ -747,6 +757,8 @@ pub mod might_of_oaks;
 pub mod miscalculation;
 #[path = "mmq/misdirection.rs"]
 pub mod misdirection;
+#[path = "ptk/misfortune_s_gain.rs"]
+pub mod misfortune_s_gain;
 #[path = "mmq/misshapen_fiend.rs"]
 pub mod misshapen_fiend;
 #[path = "mmq/misstep.rs"]
@@ -807,6 +819,8 @@ pub mod orim_s_cure;
 pub mod ostracize;
 #[path = "pmmq/overtaker.rs"]
 pub mod overtaker;
+#[path = "ptk/overwhelming_forces.rs"]
+pub mod overwhelming_forces;
 #[path = "ulg/palinchron.rs"]
 pub mod palinchron;
 #[path = "mmq/panacea.rs"]
@@ -961,6 +975,8 @@ pub mod reverent_mantra;
 pub mod revive;
 #[path = "ptk/riding_red_hare.rs"]
 pub mod riding_red_hare;
+#[path = "ptk/riding_the_dilu_horse.rs"]
+pub mod riding_the_dilu_horse;
 #[path = "mmq/righteous_indignation.rs"]
 pub mod righteous_indignation;
 #[path = "ulg/ring_of_gix.rs"]

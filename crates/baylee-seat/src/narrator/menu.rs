@@ -1324,6 +1324,16 @@ fn yes_no_words(table: &Table<'_>, prompt: &YesNoPrompt) -> (String, String, Str
             format!("pay {{{mana}}}"),
             "don't pay".into(),
         ),
+        YesNoPrompt::PayWaterbend { mana } => (
+            format!("Waterbend {{{mana}}}?"),
+            format!("waterbend {{{mana}}}"),
+            "don't pay".into(),
+        ),
+        YesNoPrompt::Assist => (
+            "Help pay mana toward this spell with assist?".into(),
+            "assist".into(),
+            "don't assist".into(),
+        ),
         YesNoPrompt::PayMana { cost } => (
             format!("Pay {cost}?"),
             format!("pay {cost}"),
@@ -2018,6 +2028,7 @@ fn cast_mode_label(card: Option<baylee_view::CardIdentity>, option: &CastModeDes
         CastModeKind::BeamMeUp => {
             format!("Cast it with beam me up for {cost}, returning a creature you control")
         }
+        CastModeKind::Mayhem => format!("Cast it with mayhem for {cost}"),
         CastModeKind::Dash => format!("Cast it with dash for {cost}"),
         CastModeKind::Blitz => format!("Cast it with blitz for {cost}"),
         CastModeKind::Warp => format!("Cast it from hand with warp for {cost}"),

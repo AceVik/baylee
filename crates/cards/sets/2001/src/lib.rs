@@ -847,6 +847,8 @@ pub mod putrid_warrior;
 pub mod pygmy_kavu;
 #[path = "apc/quagmire_druid.rs"]
 pub mod quagmire_druid;
+#[path = "ppls/questing_phelddagrif.rs"]
+pub mod questing_phelddagrif;
 #[path = "apc/quicksilver_dagger.rs"]
 pub mod quicksilver_dagger;
 #[path = "pls/quirion_dryad.rs"]

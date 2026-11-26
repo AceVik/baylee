@@ -133,7 +133,7 @@ memory. Central owns the leagues, deck histories, seasons and rankings.
 
 ## Running games
 
-`running_game` (migration 35) keeps each running casual game across a
+`running_game` (migration 36) keeps each running casual game across a
 restart of the gateway: one row a game, the gateway's JSON at a version of
 its own (`keep::row::VERSION`, held by `the_row_keeps_its_shape`), written
 only while the game's record is started and not complete. The record's last

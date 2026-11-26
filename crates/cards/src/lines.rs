@@ -349,7 +349,14 @@ pub fn grants_in(
     ability: &'static AbilityDef,
     seen: &mut usize,
 ) -> Vec<(GrantDoor, &'static Modifier)> {
-    let is_grant = |m: &Modifier| matches!(m, Modifier::GrantActivated { .. });
+    let is_grant = |m: &Modifier| {
+        matches!(
+            m,
+            Modifier::GrantActivated { .. }
+                | Modifier::GrantsEncoreManaCost
+                | Modifier::GrantsEmbalmManaCost
+        )
+    };
     let mut found = Vec::new();
     let lists: Vec<&'static [Effect]> = match ability {
         AbilityDef::Static(rule) => {
@@ -384,6 +391,7 @@ pub fn grants_in(
         AbilityDef::Unimplemented
         | AbilityDef::StartYourEngines
         | AbilityDef::Ward { .. }
+        | AbilityDef::WardWaterbend { .. }
         | AbilityDef::Toxic { .. }
         | AbilityDef::Prepared { .. }
         | AbilityDef::Echo { .. }
@@ -923,6 +931,7 @@ mod tests {
         "Lambholt Elder",
         "Scorned Villager",
         "Wolfbitten Captive",
+        "Jace, Vryn's Prodigy",
         "Nissa, Vastwood Seer",
         "Archangel Avacyn",
         "Arlinn Kord",
@@ -970,11 +979,13 @@ mod tests {
         "Birgi, God of Storytelling",
         "Esika, God of the Tree",
         "Halvar, God of Battle",
+        "Reidane, God of the Worthy",
         "Rowan, Scholar of Sparks",
         "Baneblade Scoundrel",
         "Bereaved Survivor",
         "Brutal Cathar",
         "Burly Breaker",
+        "Deathbonnet Sprout",
         "Dennick, Pious Apprentice",
         "Fangblade Brigand",
         "Graveyard Trespasser",
@@ -993,6 +1004,7 @@ mod tests {
         "Havengul Laboratory",
         "Avabruck Caretaker",
         "Biolume Egg",
+        "Bloodsworn Squire",
         "Henrika Domnathi",
         "Howlpack Piper",
         "Ill-Tempered Loner",
@@ -1000,6 +1012,7 @@ mod tests {
         "Lambholt Raconteur",
         "Mirrorhall Mimic",
         "Panicked Bystander",
+        "Ragged Recluse",
         "Restless Bloodseeker",
         "Volatile Arsonist",
         "Wolfkin Outcast",
@@ -1011,17 +1024,21 @@ mod tests {
         "Ayara, Widow of the Realm",
         "Blightreaper Thallid",
         "Captive Weird",
+        "Etali, Primal Conqueror",
         "Gnottvold Hermit",
         "Herbology Instructor",
         "Invasion of Azgol",
         "Invasion of Eldraine",
         "Invasion of Ergamon",
+        "Invasion of Innistrad",
         "Invasion of Ixalan",
         "Invasion of Kaladesh",
+        "Invasion of Kaldheim",
         "Invasion of Karsus",
         "Invasion of Mercadia",
         "Invasion of Moag",
         "Invasion of Muraganda",
+        "Invasion of Segovia",
         "Invasion of Shandalar",
         "Invasion of Theros",
         "Invasion of Tolvada",
@@ -1040,6 +1057,7 @@ mod tests {
         "Grasping Shadows",
         "Huatli, Poet of Unity",
         "Idol of the Deep King",
+        "Inverted Iceberg",
         "Lodestone Needle",
         "Ojer Axonil, Deepest Might",
         "Ojer Kaslem, Deepest Growth",
@@ -1052,6 +1070,8 @@ mod tests {
         "Thousand Moons Smithy",
         "Tithing Blade",
         "Twists and Turns",
+        "Visage of Dread",
+        "Waterlogged Hulk",
         "Grist, Voracious Larva",
         "Tamiyo, Inquisitive Student",
         "Bottomless Pool",
@@ -1071,6 +1091,7 @@ mod tests {
         "Walk-In Closet",
         "Balamb Garden, SeeD Academy",
         "Cecil, Dark Knight",
+        "Clive, Ifrit's Dominant",
         "Crystal Fragments",
         "Garland, Knight of Cornelia",
         "Jecht, Reluctant Guardian",
@@ -1081,8 +1102,10 @@ mod tests {
         "Venat, Heart of Hydaelyn",
         "Vincent Valentine",
         "Eddie Brock",
+        "The Legend of Kuruk",
         "The Legend of Roku",
         "Ashling, Rekindled",
+        "Eirdu, Carrier of Dawn",
         "Oko, Lorwyn Liege",
         "Sygg, Wanderwine Wisdom",
         "Trystan, Callous Cultivator",

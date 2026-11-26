@@ -76,7 +76,12 @@ pub(crate) const fn needs_an_answer(part: &CostPart) -> bool {
             | CostPart::PutCounterOnOther { .. }
             | CostPart::Forage
             | CostPart::Behold(_)
+            | CostPart::BeholdAndExile(_)
+            | CostPart::RevealFromHand(_)
+            | CostPart::RevealFromHandX(_)
             | CostPart::CollectEvidence(_)
+            | CostPart::Waterbend(_)
+            | CostPart::WaterbendX
     )
 }
 
@@ -282,7 +287,7 @@ pub(crate) fn options_with_context(
         CostPart::CraftMaterials { filter, .. } => {
             return craft_material_options(state, player, context, filter);
         }
-        CostPart::Behold(filter) => {
+        CostPart::Behold(filter) | CostPart::BeholdAndExile(filter) => {
             let mut out: Vec<ObjectId> = state
                 .battlefield_view()
                 .into_iter()
@@ -308,6 +313,20 @@ pub(crate) fn options_with_context(
             );
             return out;
         }
+        CostPart::RevealFromHand(filter) | CostPart::RevealFromHandX(filter) => {
+            return state
+                .zones
+                .list(ZoneLocation::Hand(player))
+                .iter()
+                .copied()
+                .filter(|&id| {
+                    id != source
+                        && state.object(id).is_some_and(|o| {
+                            eval::matches_with_context(filter, state, o, player, context)
+                        })
+                })
+                .collect();
+        }
         CostPart::CollectEvidence(_) => {
             return state
                 .zones
@@ -321,6 +340,9 @@ pub(crate) fn options_with_context(
                             .is_some_and(crate::object::GameObject::is_card)
                 })
                 .collect();
+        }
+        CostPart::Waterbend(_) | CostPart::WaterbendX => {
+            return crate::casting::waterbend_sources(state, player);
         }
         CostPart::RemoveAnyCounter {
             count,
@@ -472,7 +494,11 @@ const fn spends_the_source_as(own: &CostPart, part: &CostPart) -> bool {
         (own, part),
         (
             CostPart::TapSelf,
-            CostPart::TapN { .. } | CostPart::TapOther(_) | CostPart::TapX(_)
+            CostPart::TapN { .. }
+                | CostPart::TapOther(_)
+                | CostPart::TapX(_)
+                | CostPart::Waterbend(_)
+                | CostPart::WaterbendX
         ) | (
             CostPart::SacrificeSelf,
             CostPart::Sacrifice(_)
@@ -484,7 +510,10 @@ const fn spends_the_source_as(own: &CostPart, part: &CostPart) -> bool {
             CostPart::ReturnToHand(_) | CostPart::ReturnUnblockedAttacker
         ) | (
             CostPart::DiscardSelf,
-            CostPart::Discard(_) | CostPart::DiscardX(_)
+            CostPart::Discard(_)
+                | CostPart::DiscardX(_)
+                | CostPart::RevealFromHand(_)
+                | CostPart::RevealFromHandX(_)
         ) | (
             CostPart::ExileSelf,
             CostPart::ExileFromGraveyard(_)
@@ -493,6 +522,7 @@ const fn spends_the_source_as(own: &CostPart, part: &CostPart) -> bool {
                 | CostPart::Forage
                 | CostPart::CraftMaterials { .. }
                 | CostPart::CollectEvidence(_)
+                | CostPart::BeholdAndExile(_)
         )
     )
 }
@@ -502,6 +532,7 @@ pub(crate) const fn prompt(part: &CostPart) -> ChoicePrompt {
     match part {
         CostPart::Discard(_) | CostPart::DiscardX(_) => ChoicePrompt::CostDiscard,
         CostPart::TapN { .. } | CostPart::TapOther(_) | CostPart::TapX(_) => ChoicePrompt::CostTap,
+        CostPart::Waterbend(_) | CostPart::WaterbendX => ChoicePrompt::Waterbend,
         CostPart::Crew(power) => ChoicePrompt::CostCrew { power: *power },
         CostPart::Saddle(power) => ChoicePrompt::CostSaddle { power: *power },
         CostPart::ReturnToHand(_) | CostPart::ReturnUnblockedAttacker => ChoicePrompt::CostReturn,
@@ -514,11 +545,13 @@ pub(crate) const fn prompt(part: &CostPart) -> ChoicePrompt {
         CostPart::RemoveAnyCounter { .. } | CostPart::RemoveAnyCounterX { .. } => {
             ChoicePrompt::CostRemoveCounter
         }
-        CostPart::Behold(_) => ChoicePrompt::Behold,
+        CostPart::Behold(_) | CostPart::BeholdAndExile(_) => ChoicePrompt::Behold,
         CostPart::CollectEvidence(mana_value) => ChoicePrompt::CollectEvidence {
             mana_value: *mana_value,
         },
-        CostPart::PutCounterOnOther { .. } => ChoicePrompt::Generic,
+        CostPart::PutCounterOnOther { .. }
+        | CostPart::RevealFromHand(_)
+        | CostPart::RevealFromHandX(_) => ChoicePrompt::Generic,
         _ => ChoicePrompt::CostSacrifice,
     }
 }
@@ -552,6 +585,7 @@ pub(crate) use power::PowerPayment;
 /// The legality of the answer is checked by `apply` against the very list
 /// [`options`] produced, before this is ever reached. This re-reads the owner
 /// and nothing else.
+#[allow(clippy::too_many_lines)]
 pub(crate) fn pay(
     state: &mut GameState,
     player: PlayerId,
@@ -599,6 +633,8 @@ pub(crate) fn pay(
             | CostPart::TapX(_)
             | CostPart::Crew(_)
             | CostPart::Saddle(_)
+            | CostPart::Waterbend(_)
+            | CostPart::WaterbendX
     ) {
         state.set_tapped(chosen, true);
         state.record_tap_event(chosen, true, Cause::Cost);
@@ -611,7 +647,29 @@ pub(crate) fn pay(
         state.sacrifice_object(chosen, Cause::Cost)?;
         return Ok(());
     }
-    if matches!(part, CostPart::Behold(_)) {
+    if matches!(part, CostPart::BeholdAndExile(_)) {
+        if state
+            .object(chosen)
+            .is_some_and(|o| o.zone == crate::zone::Zone::Hand)
+        {
+            state.journal.record(crate::event::GameEvent::Revealed {
+                player,
+                cards: vec![chosen],
+            });
+        }
+        let owner = state.object(chosen).map_or(player, |o| o.owner);
+        state.move_object(
+            chosen,
+            ZoneLocation::Exile(owner),
+            ZonePosition::Top,
+            Cause::Cost,
+        )?;
+        return Ok(());
+    }
+    if matches!(
+        part,
+        CostPart::Behold(_) | CostPart::RevealFromHand(_) | CostPart::RevealFromHandX(_)
+    ) {
         if state
             .object(chosen)
             .is_some_and(|o| o.zone == crate::zone::Zone::Hand)

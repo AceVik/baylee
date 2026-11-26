@@ -223,6 +223,21 @@ impl GameState {
         let object = self.object(card)?;
         let version = object.version;
         let types = known.then_some(object.characteristics().types);
+        if self.per_turn.discard_history.tracked {
+            let snapshot = std::sync::Arc::new(object.clone());
+            self.per_turn
+                .discard_history
+                .items
+                .push(super::per_turn::DiscardHistoryRecord {
+                    player,
+                    known,
+                    object: baylee_core::ids::DamageSourceRef {
+                        object: card,
+                        version,
+                    },
+                    snapshot,
+                });
+        }
         self.per_turn.note_discard(player);
         self.journal.record(GameEvent::Discarded {
             object: card,

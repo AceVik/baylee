@@ -35,6 +35,8 @@ pub mod aftershock;
 pub mod agonizing_memories;
 #[path = "vis/aku_djinn.rs"]
 pub mod aku_djinn;
+#[path = "por/alabaster_dragon.rs"]
+pub mod alabaster_dragon;
 #[path = "por/alluring_scent.rs"]
 pub mod alluring_scent;
 #[path = "wth/alms.rs"]
@@ -95,6 +97,8 @@ pub mod avenging_angel;
 pub mod avizoa;
 #[path = "por/balance_of_power.rs"]
 pub mod balance_of_power;
+#[path = "por/baleful_stare.rs"]
+pub mod baleful_stare;
 #[path = "tmp/barbed_sliver.rs"]
 pub mod barbed_sliver;
 #[path = "wth/barishi.rs"]
@@ -499,6 +503,8 @@ pub mod flowstone_salamander;
 pub mod flowstone_sculpture;
 #[path = "tmp/flowstone_wyvern.rs"]
 pub mod flowstone_wyvern;
+#[path = "por/flux.rs"]
+pub mod flux;
 #[path = "wth/fog_elemental.rs"]
 pub mod fog_elemental;
 #[path = "tmp/fool_s_tome.rs"]
@@ -511,6 +517,8 @@ pub mod forbidden_ritual;
 pub mod foreshadow;
 #[path = "wth/foriysian_brigade.rs"]
 pub mod foriysian_brigade;
+#[path = "por/forked_lightning.rs"]
+pub mod forked_lightning;
 #[path = "vis/freewind_falcon.rs"]
 pub mod freewind_falcon;
 #[path = "tmp/frog_tongue.rs"]
@@ -931,6 +939,8 @@ pub mod paradigm_shift;
 pub mod parapet;
 #[path = "tmp/patchwork_gnomes.rs"]
 pub mod patchwork_gnomes;
+#[path = "por/path_of_peace.rs"]
+pub mod path_of_peace;
 #[path = "wth/peacekeeper.rs"]
 pub mod peacekeeper;
 #[path = "tmp/pearl_medallion.rs"]
@@ -1039,6 +1049,8 @@ pub mod relic_ward;
 pub mod remedy;
 #[path = "tmp/renegade_warlord.rs"]
 pub mod renegade_warlord;
+#[path = "por/renewing_dawn.rs"]
+pub mod renewing_dawn;
 #[path = "tmp/repentance.rs"]
 pub mod repentance;
 #[path = "vis/resistance_fighter.rs"]
@@ -1253,6 +1265,8 @@ pub mod stalking_stones;
 pub mod stampeding_wildebeests;
 #[path = "tmp/starke_of_rath.rs"]
 pub mod starke_of_rath;
+#[path = "por/starlight.rs"]
+pub mod starlight;
 #[path = "por/starlit_angel.rs"]
 pub mod starlit_angel;
 #[path = "tmp/static_orb.rs"]
@@ -1331,6 +1345,8 @@ pub mod thalakos_mistfolk;
 pub mod thalakos_seer;
 #[path = "tmp/thalakos_sentry.rs"]
 pub mod thalakos_sentry;
+#[path = "por/theft_of_dreams.rs"]
+pub mod theft_of_dreams;
 #[path = "por/thing_from_the_deep.rs"]
 pub mod thing_from_the_deep;
 #[path = "wth/thran_forge.rs"]

@@ -1,5 +1,5 @@
 //! The running games a gateway keeps across its restart (`running_game`,
-//! migration 35): kept only while their record is started and not complete,
+//! migration 36): kept only while their record is started and not complete,
 //! gone with the record's last piece, and read back whole.
 use super::{Account, EntityTrait, Sandbox, Set, Uuid, an_account};
 use baylee_db::{records, running};

@@ -232,6 +232,137 @@ pub(super) fn zone_batch_count(
     if first_idx == Some(idx) { count } else { 0 }
 }
 
+/// Group matching `GameEvent::Discarded` entries in the contiguous action run
+/// containing `event` (`CR 603.2c`, `CR 701.9a`), returning `(count, graveyard_found)`
+/// ONLY on the first matching entry of that run (per player when `per_player` is
+/// `true`, or across all qualifying `who` players when `per_player` is `false`).
+#[allow(clippy::too_many_arguments, clippy::too_many_lines)]
+pub(super) fn discard_batch_group(
+    event: &GameEvent,
+    batch: &[JournalEntry],
+    state: &GameState,
+    you: PlayerId,
+    context: RuleContext,
+    who: baylee_cards_dsl::PlayerRel,
+    filter: &Filter,
+    first_this_turn: bool,
+    per_player: bool,
+) -> Option<(
+    u32,
+    smallvec::SmallVec<[baylee_core::ids::DamageSourceRef; 4]>,
+)> {
+    let GameEvent::Discarded {
+        player: event_player,
+        ..
+    } = *event
+    else {
+        return None;
+    };
+    let players = crate::eval::players_for_source(who, state, you, Some(context.source))?;
+    if !players.contains(&event_player) {
+        return None;
+    }
+    let idx = index_of_event(event, batch)?;
+    let start = batch[..idx]
+        .iter()
+        .rposition(|e| breaks_zone_run(&e.event))
+        .map_or(0, |pos| pos + 1);
+    let end = batch[idx + 1..]
+        .iter()
+        .position(|e| breaks_zone_run(&e.event))
+        .map_or(batch.len(), |pos| idx + 1 + pos);
+    let run = &batch[start..end];
+
+    let card_matches = |object: baylee_core::ids::ObjectId, version: u32, known: bool| -> bool {
+        matches!(filter, Filter::Any)
+            || (known
+                && state
+                    .source_object(baylee_core::ids::DamageSourceRef { object, version })
+                    .is_some_and(|card| {
+                        crate::eval::matches_with_context(filter, state, card, you, context)
+                    }))
+    };
+
+    let mut first_idx = None;
+    let mut count = 0_u32;
+    let mut found = smallvec::SmallVec::<[baylee_core::ids::DamageSourceRef; 4]>::new();
+    for (offset, candidate) in run.iter().enumerate() {
+        let GameEvent::Discarded {
+            object,
+            version,
+            player,
+            known,
+            ..
+        } = candidate.event
+        else {
+            continue;
+        };
+        let player_ok = if per_player {
+            player == event_player
+        } else {
+            players.contains(&player)
+        };
+        if !player_ok || !card_matches(object, version, known) {
+            continue;
+        }
+        if first_idx.is_none() {
+            first_idx = Some(start + offset);
+        }
+        count = count.saturating_add(1);
+        if let Some(next_version) = version.checked_add(1) {
+            let gy_ref = baylee_core::ids::DamageSourceRef {
+                object,
+                version: next_version,
+            };
+            if state
+                .per_turn
+                .discarded_to_graveyard
+                .contains(&(gy_ref, player))
+                && !found.contains(&gy_ref)
+            {
+                found.push(gy_ref);
+            }
+        }
+    }
+    if first_idx != Some(idx) || count == 0 {
+        return None;
+    }
+    if first_this_turn {
+        let tail_discards = batch[start..]
+            .iter()
+            .filter(|e| matches!(e.event, GameEvent::Discarded { .. }))
+            .count();
+        let prior_len = state
+            .per_turn
+            .discard_history
+            .items
+            .len()
+            .saturating_sub(tail_discards);
+        let prior = &state.per_turn.discard_history.items[..prior_len];
+        let had_earlier = prior.iter().any(|rec| {
+            let player_ok = if per_player {
+                rec.player == event_player
+            } else {
+                players.contains(&rec.player)
+            };
+            player_ok
+                && (matches!(filter, Filter::Any)
+                    || (rec.known
+                        && crate::eval::matches_with_context(
+                            filter,
+                            state,
+                            &rec.snapshot,
+                            you,
+                            context,
+                        )))
+        });
+        if had_earlier {
+            return None;
+        }
+    }
+    Some((count, found))
+}
+
 /// Count creatures declared attacking `attacked` in `batch` (`CR 508.3b`),
 /// returning the count only on the first `BecameAttacker` targeting `attacked`.
 pub(super) fn player_attacked_count(
@@ -366,6 +497,52 @@ pub(super) fn attackers_at_target(
         return None;
     }
     Some(matched)
+}
+
+/// Fires ONCE per combat batch on the first `BecameAttacker` declared by a
+/// qualifying `attacker` targeting a defender satisfying `attacked`
+/// (*Cunning Rhetoric*, *Ever-Watching Threshold*; `CR 508.1m`, `CR 508.3c`).
+#[allow(clippy::too_many_arguments)]
+pub(super) fn attackers_declared_against(
+    event: &GameEvent,
+    batch: &[JournalEntry],
+    state: &GameState,
+    you: PlayerId,
+    source: baylee_core::ids::ObjectId,
+    attacker_rel: baylee_cards_dsl::PlayerRel,
+    attacked: baylee_cards_dsl::AttackedTargetKind,
+) -> Option<PlayerId> {
+    let GameEvent::BecameAttacker { defending, .. } = *event else {
+        return None;
+    };
+    if !defender_matches(attacked, defending, state, you, source) {
+        return None;
+    }
+    let idx = index_of_event(event, batch)?;
+    let attackers = crate::eval::players_for_source(attacker_rel, state, you, Some(source))?;
+    let mut first_idx = None;
+    let mut attacking_player = None;
+    for (i, entry) in batch.iter().enumerate() {
+        let GameEvent::BecameAttacker {
+            object,
+            defending: entry_def,
+        } = entry.event
+        else {
+            continue;
+        };
+        if !defender_matches(attacked, entry_def, state, you, source) {
+            continue;
+        }
+        let owner = state
+            .object_or_departed(object)
+            .map_or(state.turn.active, |o| o.controller);
+        if attackers.contains(&owner) {
+            first_idx = Some(i);
+            attacking_player = Some(owner);
+            break;
+        }
+    }
+    (first_idx == Some(idx)).then_some(attacking_player?)
 }
 
 #[cfg(test)]

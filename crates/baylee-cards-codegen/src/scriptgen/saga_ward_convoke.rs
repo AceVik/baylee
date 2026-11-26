@@ -183,6 +183,12 @@ impl Tx<'_> {
             if trimmed.starts_with("DB$ NameCard") {
                 return ExtraOutcome::Handled(self.etb_name_card(svar.trim()));
             }
+            if let ExtraOutcome::Handled(res) = self.wave18b_etb_other(svar.trim()) {
+                return ExtraOutcome::Handled(res);
+            }
+            if let ExtraOutcome::Handled(res) = self.wave16c_etb_other(svar.trim()) {
+                return ExtraOutcome::Handled(res);
+            }
             if trimmed.starts_with("DB$ ChoosePlayer") {
                 return ExtraOutcome::Handled(self.etb_choose_opponent(svar.trim()));
             }
@@ -278,7 +284,7 @@ impl Tx<'_> {
     /// handles generic `AbilityDef::Ward { mana }` (`1..=10`).
     pub(super) fn try_extra_ward(&mut self, rest: &str) -> ExtraOutcome {
         let trimmed = rest.trim();
-        if trimmed.parse::<u16>().is_ok() {
+        if trimmed.parse::<u16>().is_ok() || trimmed.starts_with("Waterbend<") {
             return ExtraOutcome::Pass;
         }
         ExtraOutcome::Handled(self.ward_extra(trimmed))
@@ -606,7 +612,7 @@ impl Tx<'_> {
             };
             p.drop_prose();
             if api != "PutCounter"
-                || p.take("Defined").as_deref() != Some("Self")
+                || !matches!(p.take("Defined").as_deref(), None | Some("Self"))
                 || p.take("ETB").as_deref() != Some("True")
             {
                 return self.deny(format!("replacement `Moved` chaining `{api}`"));
@@ -880,7 +886,11 @@ impl Tx<'_> {
         Some(())
     }
 
+    #[allow(clippy::too_many_lines)]
     fn cast_with_flash(&mut self, mut p: Params) -> Option<()> {
+        if Self::is_wave28c_cast_with_flash(&p) {
+            return self.wave28c_cast_with_flash(p);
+        }
         p.drop_prose();
         let who = match p.take("Caster").as_deref() {
             Some("You") => "PlayerRel::You",
@@ -888,6 +898,43 @@ impl Tx<'_> {
             Some("Opponent" | "Player.Opponent") => "PlayerRel::EachOpponent",
             _ => return self.deny("static ability `S: Mode$ CastWithFlash`".to_string()),
         };
+        if p.peek("ValidSA") == Some("Activated.Loyalty")
+            && p.peek("ValidCard").is_some_and(|vc| vc != "Card.Self")
+        {
+            p.take("ValidSA");
+            let zone_arg = match p.take("EffectZone").as_deref() {
+                None | Some("Battlefield") => None,
+                Some("Command") => Some(", zone = ZoneRef::Command"),
+                Some("Battlefield,Command" | "Command,Battlefield") => {
+                    Some(", zone = ZoneRef::BattlefieldOrCommand")
+                }
+                Some(_) => return self.deny("static ability `S: Mode$ CastWithFlash`".to_string()),
+            };
+            if let Some(sec) = p.take("Secondary")
+                && sec != "True"
+            {
+                return self.deny("static ability `S: Mode$ CastWithFlash`".to_string());
+            }
+            let Some(valid_card) = p.take("ValidCard") else {
+                return self.deny("static ability `S: Mode$ CastWithFlash`".to_string());
+            };
+            let cond = self.static_conditions(&mut p, "static ability `S: Mode$ CastWithFlash`")?;
+            if !p.exhausted() {
+                return self.deny("static ability `S: Mode$ CastWithFlash`".to_string());
+            }
+            let filter = self.filter_expr(&valid_card)?;
+            let mut expr = Self::static_expr(
+                &filter,
+                &format!("Modifier::MayActivateLoyaltyAsInstant {{ who: {who} }}"),
+            );
+            if (zone_arg.is_some() || !cond.is_empty())
+                && let Some(open) = expr.strip_suffix(')')
+            {
+                expr = format!("{open}{}{cond})", zone_arg.unwrap_or_default());
+            }
+            self.body.abilities.push(expr);
+            return Some(());
+        }
         if !matches!(p.take("ValidSA").as_deref(), None | Some("Spell")) {
             return self.deny("static ability `S: Mode$ CastWithFlash`".to_string());
         }
@@ -1003,38 +1050,8 @@ impl Tx<'_> {
         })
     }
 
-    fn panharmonicon_static(&mut self, mut p: Params) -> Option<()> {
-        p.drop_prose();
-        if let Some(sec) = p.take("Secondary")
-            && sec != "True"
-        {
-            return self.deny("static ability `S: Mode$ Panharmonicon`".to_string());
-        }
-        let Some(valid_card) = p.take("ValidCard") else {
-            return self.deny("static ability `S: Mode$ Panharmonicon`".to_string());
-        };
-        let event = match p.take("ValidMode").as_deref() {
-            None => "TriggerEventKind::Any",
-            Some("ChangesZone" | "ChangesZoneAll" | "ChangesZone,ChangesZoneAll") => {
-                if p.take("Destination").as_deref() != Some("Battlefield")
-                    || p.take("ValidCause").as_deref() != Some("Permanent")
-                {
-                    return self.deny("static ability `S: Mode$ Panharmonicon`".to_string());
-                }
-                "TriggerEventKind::EntersBattlefield"
-            }
-            Some(_) => return self.deny("static ability `S: Mode$ Panharmonicon`".to_string()),
-        };
-        if !p.exhausted() {
-            return self.deny("static ability `S: Mode$ Panharmonicon`".to_string());
-        }
-        let expr = self.filter_expr(&valid_card)?;
-        let filter = self.body.filter_static("TRIGGER_MULT", &expr);
-        self.body.abilities.push(format!(
-            "AbilityDef::Replacement(ReplacementRule::TriggerMultiplier {{ \
-             source_filter: &{filter}, event: {event} }})"
-        ));
-        Some(())
+    fn panharmonicon_static(&mut self, p: Params) -> Option<()> {
+        self.wave17a_panharmonicon_static(p)
     }
 
     fn disable_triggers_static(&mut self, mut p: Params) -> Option<()> {
@@ -1093,9 +1110,14 @@ impl Tx<'_> {
 
     fn cant_prevent_combat_damage(&mut self, mut p: Params) -> Option<()> {
         p.drop_prose();
-        if p.take("IsCombat").as_deref() != Some("True") {
-            return self.deny("static ability `S: Mode$ CantPreventDamage`".to_string());
-        }
+        let combat_only = match (
+            p.take("IsCombat").as_deref(),
+            p.take("CombatDamage").as_deref(),
+        ) {
+            (Some("True"), None) | (None, Some("True")) => true,
+            (None, None) => false,
+            _ => return self.deny("static ability `S: Mode$ CantPreventDamage`".to_string()),
+        };
         if let Some(sec) = p.take("Secondary")
             && sec != "True"
         {
@@ -1113,9 +1135,17 @@ impl Tx<'_> {
         }
         let filter = match valid_source {
             None => "Filter::Any".to_string(),
+            Some(_) if !combat_only => {
+                return self.deny("static ability `S: Mode$ CantPreventDamage`".to_string());
+            }
             Some(valid) => self.filter_expr(&valid)?,
         };
-        let mut expr = Self::static_expr(&filter, "Modifier::CombatDamageCantBePrevented");
+        let mod_str = if combat_only {
+            "Modifier::CombatDamageCantBePrevented"
+        } else {
+            "Modifier::DamageCantBePrevented"
+        };
+        let mut expr = Self::static_expr(&filter, mod_str);
         if !condition.is_empty()
             && let Some(open) = expr.strip_suffix(')')
         {
@@ -1473,8 +1503,21 @@ impl Tx<'_> {
             return ZoneContinuousOutcome::Handled(self.continuous_library_top_dispatch(p));
         }
         if p.peek("AffectedZone") == Some("Graveyard")
+            && p.peek("MayPlay") == Some("True")
+            && p.has("ValidSA")
+        {
+            return ZoneContinuousOutcome::Handled(self.wave17c_graveyard_alt_play(p));
+        }
+        if p.peek("AffectedZone") == Some("Graveyard")
+            && p.peek("RemoveAllAbilities") == Some("True")
+        {
+            return ZoneContinuousOutcome::Handled(self.wave17c_graveyard_lose_all_abilities(p));
+        }
+        if p.peek("AffectedZone") == Some("Graveyard")
             && matches!(p.peek("EffectZone"), None | Some("Battlefield"))
             && p.peek("MayPlay") == Some("True")
+            && !p.has("MayPlayAltManaCost")
+            && !p.has("MayPlayWithoutManaCost")
         {
             return ZoneContinuousOutcome::Handled(self.continuous_graveyard_play_dispatch(p));
         }
@@ -1492,10 +1535,8 @@ impl Tx<'_> {
                     "Battlefield" | "Command" | "Battlefield,Command" | "Command,Battlefield"
                 )
             )
-            && p.peek("AddKeyword").is_some_and(|k| {
-                k.trim() == "Flashback"
-                    || k.trim().starts_with("Escape:CardManaCost ExileFromGrave<")
-            })
+            && p.peek("AddKeyword")
+                .is_some_and(|k| Self::wave16b_graveyard_grant_modifier(k, true).is_some())
         {
             return ZoneContinuousOutcome::Handled(self.continuous_graveyard_keyword(p));
         }
@@ -1525,7 +1566,11 @@ impl Tx<'_> {
     /// and extra `CheckSVar$` conditions not yet in `activated::svar_condition`.
     fn try_extra_continuous(&mut self, spec: &str, p: Params) -> ExtraOutcome {
         if p.peek("AffectedDefined") == Some("Self") {
-            if let Some(min) = p.peek("Affected").and_then(parse_station_threshold) {
+            if let Some(min) = p
+                .peek("Affected")
+                .and_then(parse_station_threshold)
+                .or_else(|| p.peek("Station").and_then(parse_station_param))
+            {
                 return ExtraOutcome::Handled(self.station_threshold_continuous(p, min));
             }
             if let Some(cond) = p.peek("IsPresent").and_then(parse_level_band) {
@@ -1590,7 +1635,12 @@ impl Tx<'_> {
         {
             return ExtraOutcome::Handled(self.continuous_wave5_characteristic(p));
         }
-        if let Some(var) = p.peek("CheckSVar") {
+        if let Some(var) = p.peek("CheckSVar")
+            && !matches!(
+                p.peek("AffectedZone"),
+                Some("Stack" | "Battlefield,Stack" | "Stack,Battlefield")
+            )
+        {
             let cmp = p.peek("SVarCompare").unwrap_or("GE1");
             if let Some(first) = self
                 .svar_condition_clause(var, cmp)
@@ -1618,6 +1668,7 @@ impl Tx<'_> {
         p.drop_prose();
         p.take("AffectedDefined");
         p.take("Affected");
+        p.take("Station");
         let cond = format!("Condition::Station({min})");
         self.threshold_continuous_body(p, Some(min), None, &cond)
     }
@@ -1675,8 +1726,10 @@ impl Tx<'_> {
         level_present: Option<&str>,
         cond: &str,
     ) -> Option<()> {
+        let mut added_creature_type = false;
         if let Some(types_raw) = p.take("AddType") {
             let types = join_card_types(&types_raw)?;
+            added_creature_type = types.contains("TypeSet::CREATURE");
             if let Some(at_least) = station_min {
                 self.body.abilities.push(Self::static_expr(
                     "Filter::This",
@@ -1695,10 +1748,14 @@ impl Tx<'_> {
         if p.has("SetPower") || p.has("SetToughness") {
             let pow: i16 = p.take("SetPower")?.trim().parse().ok()?;
             let tou: i16 = p.take("SetToughness")?.trim().parse().ok()?;
-            self.body.abilities.push(format!(
-                "static_ability!(Filter::This, Modifier::SetPT({pow}, {tou}), \
-                 condition = Some({cond}))"
-            ));
+            // Upstream Forge (#12900) encodes Spacecraft P/T on the Station
+            // `AddType$ Creature` static line alongside Scryfall printed P/T.
+            if !(station_min.is_some() && added_creature_type) {
+                self.body.abilities.push(format!(
+                    "static_ability!(Filter::This, Modifier::SetPT({pow}, {tou}), \
+                     condition = Some({cond}))"
+                ));
+            }
         }
         if p.has("AddPower") || p.has("AddToughness") {
             let pow: i16 = p
@@ -1828,7 +1885,7 @@ impl Tx<'_> {
         Some(())
     }
 
-    fn continuous_library_top_dispatch(&mut self, p: Params) -> Option<()> {
+    pub(super) fn continuous_library_top_dispatch(&mut self, p: Params) -> Option<()> {
         let legacy_look_only = p.has("MayLookAt") && !p.has("MayPlay");
         let legacy_land_only = !p.has("MayLookAt")
             && p.peek("MayPlay") == Some("True")
@@ -1867,6 +1924,9 @@ impl Tx<'_> {
     }
 
     fn continuous_library_top_wave14a(&mut self, mut p: Params) -> Option<()> {
+        if p.has("ValidAfterStack") {
+            return self.wave28c_mixed_land_and_spell_play(p, true);
+        }
         let deny = |tx: &Self| tx.deny("static ability reaching `AffectedZone$ Library`".into());
         p.drop_prose();
         if p.take("AffectedZone").as_deref() != Some("Library")
@@ -1969,6 +2029,12 @@ impl Tx<'_> {
     }
 
     fn continuous_graveyard_play_wave14a(&mut self, mut p: Params) -> Option<()> {
+        if let (Some(vas), Some(aff)) = (p.peek("ValidAfterStack"), p.peek("Affected"))
+            && aff.contains(',')
+            && !valid_after_stack_is_redundant(vas, aff)
+        {
+            return self.wave28c_mixed_land_and_spell_play(p, false);
+        }
         let deny = |tx: &Self| tx.deny("static ability reaching `AffectedZone$ Graveyard`".into());
         let desc_has_unmodeled_rider = p.peek("Description").is_some_and(|d| {
             let lower = d.to_ascii_lowercase();
@@ -3413,6 +3479,9 @@ impl Tx<'_> {
     }
 
     fn moved_cant_enter(&mut self, mut p: Params) -> Option<()> {
+        if let Some(()) = self.wave29d_moved_cant_enter_from_zone(&p) {
+            return Some(());
+        }
         p.drop_prose();
         if p.take("ActiveZones").as_deref() != Some("Battlefield")
             || p.take("Destination").as_deref() != Some("Battlefield")
@@ -4854,6 +4923,10 @@ fn parse_station_threshold(raw: &str) -> Option<u8> {
     let rest = raw.trim().strip_prefix("Card.counters_GE")?;
     let n: u8 = rest.strip_suffix("_CHARGE")?.parse().ok()?;
     (n >= 1).then_some(n)
+}
+
+fn parse_station_param(raw: &str) -> Option<u8> {
+    raw.trim().parse::<u8>().ok().filter(|&n| n >= 1)
 }
 
 fn parse_level_band(raw: &str) -> Option<String> {

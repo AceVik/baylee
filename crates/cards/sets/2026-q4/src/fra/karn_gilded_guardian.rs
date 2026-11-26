@@ -7,7 +7,7 @@
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes;
 
-static COUNT1: Filter = Filter::And(&[Filter::ARTIFACT, Filter::Another, Filter::ControlledByYou]);
+static COND1: Filter = Filter::And(&[Filter::ARTIFACT, Filter::Another, Filter::ControlledByYou]);
 
 card!(
     index = index::KARN_GILDED_GUARDIAN,
@@ -35,7 +35,7 @@ card!(
     abilities = &[triggered!(
         Trigger::ETB,
         &[Effect::DrawCards {
-            amount: Amount::DistinctColorsAmong(&COUNT1)
+            amount: Amount::DistinctColorsAmong(&COND1)
         }]
     ),],
 );

@@ -1373,3 +1373,44 @@ fn capture_affected_for_each_remembered_and_with_all_targets_are_visited() {
     assert_eq!(seen, 6);
     assert!(sac && gained && untapped);
 }
+
+#[test]
+fn learn_is_a_leaf_effect() {
+    static EFFECTS: &[Effect] = &[Effect::Learn];
+    let mut seen = 0;
+    Effect::walk(EFFECTS, &mut seen, &mut |_| {});
+    assert_eq!(seen, 1);
+    assert_eq!(Effect::Learn.branches(), (&[][..], &[][..]));
+}
+
+#[test]
+fn choose_distinct_powers_body_is_visited() {
+    static EFFECTS: &[Effect] = &[Effect::ChooseDistinctPowersOnBattlefield {
+        chooser: crate::PlayerRel::You,
+        filter: &Filter::YOUR_CREATURE,
+        min: 0,
+        max: Amount::Fixed(5),
+        then: &[Effect::draw(1)],
+    }];
+    let mut seen = 0;
+    let mut drew = false;
+    Effect::walk(EFFECTS, &mut seen, &mut |effect| {
+        drew |= matches!(effect, Effect::DrawCards { .. });
+    });
+    assert_eq!(seen, 2);
+    assert!(drew);
+}
+
+#[test]
+fn may_pay_energy_equal_to_target_cmc_then_body_is_visited() {
+    static EFFECTS: &[Effect] = &[Effect::MayPayEnergyEqualToTargetCmcThen {
+        then: &[Effect::reanimate(TargetSpec::ThisObject)],
+    }];
+    let mut seen = 0;
+    let mut returned = false;
+    Effect::walk(EFFECTS, &mut seen, &mut |effect| {
+        returned |= matches!(effect, Effect::GraveyardToBattlefield { .. });
+    });
+    assert_eq!(seen, 2);
+    assert!(returned);
+}

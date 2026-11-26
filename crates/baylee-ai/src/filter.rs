@@ -457,20 +457,14 @@ impl HeuristicAgent {
                 let source = view.object(this?)?;
                 Some(source.attached_player() == Some(object.controller))
             }
-            Filter::ControlledBy(rel) => match rel {
-                PlayerRel::You => Some(object.controller == view.seat),
-                PlayerRel::Opponent | PlayerRel::EachOpponent => {
-                    Some(self.hostile(object.controller, view.seat))
-                }
-                PlayerRel::ActivePlayer => Some(object.controller == view.active),
-                PlayerRel::EachPlayer => Some(true),
-                PlayerRel::EachOtherPlayer => Some(object.controller != view.seat),
-                PlayerRel::EnchantedPlayer => {
-                    let source = view.object(this?)?;
-                    Some(source.attached_player() == Some(object.controller))
-                }
-                _ => None,
-            },
+            Filter::ControlledBy(rel) => player_rel_for_seat(self, view, object.controller, *rel, this),
+            Filter::OwnedBy(rel) => player_rel_for_seat(self, view, object.owner, *rel, this),
+            Filter::AttackingYouOrYourPlaneswalker => {
+                attacking_you_or_planeswalker(view, object.id, you, false)
+            }
+            Filter::DefendingPlayerIsYou => {
+                attacking_you_or_planeswalker(view, object.id, you, true)
+            }
             Filter::PairedWithSource => {
                 let source = view.object(this?)?;
                 Some(source.paired_with() == Some(object.id))
@@ -498,6 +492,31 @@ impl HeuristicAgent {
             Filter::WithSingleTarget => {
                 Some(zone == ZoneRef::Stack && object.targets.len() == 1)
             }
+            Filter::HasAnyCounter => Some(object.counters.iter().any(|entry| entry.count > 0)),
+            Filter::Enchanted => {
+                use baylee_core::generated::subtypes::enchantment::AURA;
+                Some(
+                    zone == ZoneRef::Battlefield
+                        && !object.status.contains(ObjectStatus::PHASED_OUT)
+                        && view.battlefield.iter().any(|att| {
+                            !att.status.contains(ObjectStatus::PHASED_OUT)
+                                && att.attached_to == Some(object.id)
+                                && att.subtypes.contains(AURA)
+                        }),
+                )
+            }
+            Filter::Equipped => {
+                use baylee_core::generated::subtypes::artifact::EQUIPMENT;
+                Some(
+                    zone == ZoneRef::Battlefield
+                        && !object.status.contains(ObjectStatus::PHASED_OUT)
+                        && view.battlefield.iter().any(|att| {
+                            !att.status.contains(ObjectStatus::PHASED_OUT)
+                                && att.attached_to == Some(object.id)
+                                && att.subtypes.contains(EQUIPMENT)
+                        }),
+                )
+            }
             // The ones the view cannot answer. Named in this module's own
             // documentation with the reason each one is a refusal and not an
             // omission; a caller gets `None` and falls back.
@@ -510,6 +529,9 @@ impl HeuristicAgent {
             | Filter::UnCard
             | Filter::Kicked
             | Filter::CastFromHand
+            | Filter::WasCast
+            | Filter::WasCastByYou
+            | Filter::CastFromZone(_)
             | Filter::HasManaAbility
             | Filter::HasNonManaActivatedAbility
             | Filter::AttachedToBySource
@@ -525,6 +547,11 @@ impl HeuristicAgent {
             | Filter::ToughnessLessThanSourcePower
             | Filter::EnteredThisTurn
             | Filter::PutIntoGraveyardThisTurn
+            | Filter::SurveilledByYouThisTurn
+            | Filter::ControlledByYourTeam
+            | Filter::ControlledByPlayerWhoChoseMode(_)
+            | Filter::CreatedBySource
+            | Filter::AttachedHostOfRemembered
             | Filter::AttackedThisTurn
             | Filter::ControlledSinceTurnBegan
             | Filter::SharesSubtypeWithCommander
@@ -539,8 +566,6 @@ impl HeuristicAgent {
         | Filter::TargetsYouControl(_)
         | Filter::HasRampage
         | Filter::HasCumulativeUpkeep
-        | Filter::HasAnyCounter
-        | Filter::Enchanted
         | Filter::BlockingSource
         | Filter::SpellTargetingAffected
         | Filter::BlockedBySource
@@ -569,7 +594,6 @@ impl HeuristicAgent {
         // family.
         | Filter::SharesAColorWith(_)
         | Filter::SharesCreatureTypeWith(_)
-        | Filter::Equipped
         | Filter::CmcEqualsCountersOnSource(_)
         | Filter::NotControlledByReferenceController
         | Filter::LowestManaValueOnBattlefield(_)
@@ -580,10 +604,18 @@ impl HeuristicAgent {
         | Filter::CmcEqualsAmount(_)
         | Filter::PowerAtMostAmount(_)
         | Filter::PowerAtLeastAmount(_)
+        | Filter::PowerEqualsAmount(_)
+        | Filter::ToughnessEqualsAmount(_)
+        | Filter::CmcEqualsChosenNumber
+        | Filter::PowerEqualsChosenNumber
+        | Filter::ToughnessEqualsChosenNumber
         | Filter::IsRemembered
         | Filter::NotRemembered
         | Filter::SharesCardTypeWithRemembered
-        | Filter::SharesNameWithRemembered => None,
+        | Filter::SharesNameWithRemembered
+        | Filter::SharesCardTypeWithReference
+        | Filter::CastForBlitz
+        | Filter::FirstMatchingSpellThisTurn(_) => None,
         }
     }
 
@@ -1059,8 +1091,13 @@ impl HeuristicAgent {
             .map(|c| c.card)
             .or_else(|| view.object(object).and_then(|o| o.card))
             .and_then(crate::policy::face)
-            .and_then(|face| face.alternative_costs.get(index))
-            .is_some_and(|alt| alt.cost.parts.is_empty())
+            .is_some_and(|face| {
+                face.alternative_costs
+                    .get(index)
+                    .map_or(index >= face.alternative_costs.len(), |alt| {
+                        alt.cost.parts.is_empty()
+                    })
+            })
     }
 
     /// Whether alternative cost `index` is a pure-upside mana-only conditional
@@ -1072,18 +1109,21 @@ impl HeuristicAgent {
             .map(|c| c.card)
             .or_else(|| view.object(object).and_then(|o| o.card))
             .and_then(crate::policy::face)
-            .and_then(|face| face.alternative_costs.get(index))
-            .is_some_and(|alt| {
-                alt.cost.parts.is_empty()
-                    && matches!(
-                        alt.condition,
-                        baylee_cards_dsl::AltCondition::If(
-                            baylee_cards_dsl::Condition::OpponentLostLifeThisTurn
-                                | baylee_cards_dsl::Condition::Surge
-                                | baylee_cards_dsl::Condition::Prowl
-                                | baylee_cards_dsl::Condition::DealtCombatDamageToPlayerByAssassinOrCommanderThisTurn
-                        )
-                    )
+            .is_some_and(|face| {
+                face.alternative_costs
+                    .get(index)
+                    .map_or(index >= face.alternative_costs.len(), |alt| {
+                        alt.cost.parts.is_empty()
+                            && matches!(
+                                alt.condition,
+                                baylee_cards_dsl::AltCondition::If(
+                                    baylee_cards_dsl::Condition::OpponentLostLifeThisTurn
+                                        | baylee_cards_dsl::Condition::Surge
+                                        | baylee_cards_dsl::Condition::Prowl
+                                        | baylee_cards_dsl::Condition::DealtCombatDamageToPlayerByAssassinOrCommanderThisTurn
+                                )
+                            )
+                    })
             })
     }
 
@@ -1468,7 +1508,10 @@ impl HeuristicAgent {
             | PlayerRel::EventPlayer
             | PlayerRel::OwnerOfSource
             | PlayerRel::ControllerOfAttached
-            | PlayerRel::EnchantedPlayer => {
+            | PlayerRel::EnchantedPlayer
+            | PlayerRel::OtherOpponents
+            | PlayerRel::ChosenBySource
+            | PlayerRel::PlayerToYourRight => {
                 return None;
             }
         })
@@ -1543,6 +1586,56 @@ pub(crate) fn public_token_identity(object: &PublicObject) -> Option<bool> {
         (None, Some(_)) => Some(false),
         (None, None) => None,
     }
+}
+
+fn player_rel_for_seat(
+    agent: &HeuristicAgent,
+    view: &PlayerView,
+    seat: baylee_core::ids::PlayerId,
+    rel: PlayerRel,
+    this: Option<ObjectId>,
+) -> Option<bool> {
+    match rel {
+        PlayerRel::You => Some(seat == view.seat),
+        PlayerRel::Opponent | PlayerRel::EachOpponent => Some(agent.hostile(seat, view.seat)),
+        PlayerRel::ActivePlayer => Some(seat == view.active),
+        PlayerRel::EachPlayer => Some(true),
+        PlayerRel::EachOtherPlayer => Some(seat != view.seat),
+        PlayerRel::EnchantedPlayer => {
+            let source = view.object(this?)?;
+            Some(source.attached_player() == Some(seat))
+        }
+        _ => None,
+    }
+}
+
+fn attacking_you_or_planeswalker(
+    view: &PlayerView,
+    creature: ObjectId,
+    you: baylee_core::ids::PlayerId,
+    allow_battle_unknown: bool,
+) -> Option<bool> {
+    let mut unknown = false;
+    for attacker in view
+        .combat
+        .attackers
+        .iter()
+        .filter(|a| a.creature == creature)
+    {
+        match attacker.defending {
+            baylee_core::ids::Defender::Player(p) if p == you => return Some(true),
+            baylee_core::ids::Defender::Planeswalker(pw) => {
+                match view.battlefield.iter().find(|o| o.id == pw) {
+                    Some(o) if o.controller == you => return Some(true),
+                    Some(_) => {}
+                    None => unknown = true,
+                }
+            }
+            baylee_core::ids::Defender::Battle(_) if allow_battle_unknown => unknown = true,
+            _ => {}
+        }
+    }
+    (!unknown).then_some(false)
 }
 
 #[cfg(test)]

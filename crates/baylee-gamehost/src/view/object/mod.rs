@@ -404,9 +404,8 @@ pub(super) fn public_object(
         && !obj
             .status
             .contains(baylee_engine::object::Status::FACE_DOWN);
-    // Permanents only: the engine offers a granted ability on a permanent and
-    // nowhere else, and each entry here is one of those offers.
-    let grants = if obj.kind == ObjectKind::Permanent {
+    // Permanents and graveyard cards (e.g. granted Encore/Embalm).
+    let grants = if obj.kind == ObjectKind::Permanent || obj.zone == Zone::Graveyard {
         grants(board, id, seat)
     } else {
         Vec::new()
@@ -637,23 +636,30 @@ fn grants(board: &ViewBoard<'_>, id: ObjectId, seat: PlayerId) -> Vec<baylee_vie
                     effects: granted.effects,
                     mana_ability: granted.mana_ability,
                 };
-                grant_home(grantor, &grant).or_else(|| {
-                    grant_home(
-                        grantor,
-                        &baylee_cards_dsl::Modifier::GrantActivatedDefinition(
-                            // Full static definitions retain their canonical reference in the effect.
-                            state
-                                .effects
-                                .iter()
-                                .find_map(|effect| match effect.modifier {
-                                    baylee_cards_dsl::Modifier::GrantActivatedDefinition(
-                                        definition,
-                                    ) if *definition == granted.definition => Some(definition),
-                                    _ => None,
-                                })?,
-                        ),
-                    )
-                })
+                grant_home(grantor, &grant)
+                    .or_else(|| {
+                        grant_home(
+                            grantor,
+                            &baylee_cards_dsl::Modifier::GrantActivatedDefinition(
+                                // Full static definitions retain their canonical reference in the effect.
+                                state
+                                    .effects
+                                    .iter()
+                                    .find_map(|effect| match effect.modifier {
+                                        baylee_cards_dsl::Modifier::GrantActivatedDefinition(
+                                            definition,
+                                        ) if *definition == granted.definition => Some(definition),
+                                        _ => None,
+                                    })?,
+                            ),
+                        )
+                    })
+                    .or_else(|| {
+                        grant_home(grantor, &baylee_cards_dsl::Modifier::GrantsEncoreManaCost)
+                    })
+                    .or_else(|| {
+                        grant_home(grantor, &baylee_cards_dsl::Modifier::GrantsEmbalmManaCost)
+                    })
             };
             out.rules = home.map(|(face, _)| rules_face(face));
             out.text = home.and_then(|(face, index)| stack_text(face, index));

@@ -143,6 +143,8 @@ pub struct AttackRules<'a> {
     alone: Vec<&'a crate::effects::ContinuousEffect>,
     idle_defenders: Vec<&'a crate::effects::ContinuousEffect>,
     cant_attack_you: Vec<&'a crate::effects::ContinuousEffect>,
+    cant_attack_you_or_pws: Vec<&'a crate::effects::ContinuousEffect>,
+    cant_be_attacked_by: Vec<&'a crate::effects::ContinuousEffect>,
     attack_tax_life: Vec<&'a crate::effects::ContinuousEffect>,
     attack_tax_mana: Vec<&'a crate::effects::ContinuousEffect>,
     unless_pay_mana: Vec<&'a crate::effects::ContinuousEffect>,
@@ -168,6 +170,8 @@ impl<'a> AttackRules<'a> {
         let mut alone = Vec::new();
         let mut idle_defenders = Vec::new();
         let mut cant_attack_you = Vec::new();
+        let mut cant_attack_you_or_pws = Vec::new();
+        let mut cant_be_attacked_by = Vec::new();
         let mut attack_tax_life = Vec::new();
         let mut attack_tax_mana = Vec::new();
         let mut unless_pay_mana = Vec::new();
@@ -186,6 +190,8 @@ impl<'a> AttackRules<'a> {
                 Modifier::MustAttackPlayer(_) => must_attack_player.push(fx),
                 Modifier::AttacksAloneOnly => alone.push(fx),
                 Modifier::CantAttackYou => cant_attack_you.push(fx),
+                Modifier::CantAttackYouOrYourPlaneswalkers => cant_attack_you_or_pws.push(fx),
+                Modifier::CantBeAttackedBy(_) => cant_be_attacked_by.push(fx),
                 Modifier::AttackTaxLife { .. } => attack_tax_life.push(fx),
                 Modifier::AttackTaxMana { .. } => attack_tax_mana.push(fx),
                 Modifier::CantAttackUnlessPayMana(_)
@@ -213,6 +219,8 @@ impl<'a> AttackRules<'a> {
             alone,
             idle_defenders,
             cant_attack_you,
+            cant_attack_you_or_pws,
+            cant_be_attacked_by,
             attack_tax_life,
             attack_tax_mana,
             unless_pay_mana,
@@ -268,7 +276,8 @@ impl<'a> AttackRules<'a> {
             }
         }
         for rider in &obj.riders {
-            if let crate::object::Rider::MustAttackPlayerThisTurn(opp) = rider
+            if let crate::object::Rider::MustAttackPlayerThisTurn(opp)
+            | crate::object::Rider::MustAttackPlayerThisCombat(opp) = rider
                 && defender == Defender::Player(*opp)
             {
                 score = score.saturating_add(1);
@@ -557,6 +566,8 @@ impl<'a> AttackRules<'a> {
             && self.except_by.is_empty()
             && self.idle_defenders.is_empty()
             && self.cant_attack_you.is_empty()
+            && self.cant_attack_you_or_pws.is_empty()
+            && self.cant_be_attacked_by.is_empty()
             && self.attack_tax_life.is_empty()
             && self.attack_tax_mana.is_empty()
             && self.unless_pay_mana.is_empty()
@@ -614,6 +625,41 @@ impl<'a> AttackRules<'a> {
                 .cant_attack_you
                 .iter()
                 .any(|fx| fx.controller == attacked && crate::effects::applies_to(state, fx, obj))
+        {
+            return false;
+        }
+        // "can't attack you or planeswalkers you control" (Assault Suit,
+        // Vow cycle, Eriette, Sandwurm Convergence, etc.).
+        if !self.cant_attack_you_or_pws.is_empty()
+            && let Some(protected_player) = match defender {
+                Defender::Player(p) => Some(p),
+                Defender::Planeswalker(id) => state.object(id).map(|o| o.controller),
+                Defender::Battle(_) => None,
+            }
+            && self.cant_attack_you_or_pws.iter().any(|fx| {
+                fx.controller == protected_player && crate::effects::applies_to(state, fx, obj)
+            })
+        {
+            return false;
+        }
+        // "<Defender> can't be attacked [by <filter>]" (The Aetherspark).
+        if !self.cant_be_attacked_by.is_empty()
+            && let Defender::Planeswalker(id) | Defender::Battle(id) = defender
+            && let Some(def_obj) = state.object(id)
+            && self.cant_be_attacked_by.iter().any(|fx| {
+                let baylee_cards_dsl::Modifier::CantBeAttackedBy(attacker_filter) = fx.modifier
+                else {
+                    return false;
+                };
+                crate::effects::applies_to(state, fx, def_obj)
+                    && crate::eval::matches(
+                        attacker_filter,
+                        state,
+                        obj,
+                        fx.controller,
+                        fx.source.unwrap_or(creature),
+                    )
+            })
         {
             return false;
         }

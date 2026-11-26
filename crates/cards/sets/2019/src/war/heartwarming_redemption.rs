@@ -16,18 +16,20 @@ card!(
         mana_cost = mana!("{2}{R}{W}"),
         types = TypeSet::INSTANT,
     ),],
-    abilities = &[spell!(&[
-        Effect::DiscardHand {
+    abilities = &[spell!(&[Effect::CaptureAffected {
+        first: &[Effect::DiscardHand {
             who: PlayerRel::You
-        },
-        Effect::DrawCards {
-            amount: Amount::Plus {
-                base: &Amount::ThisWay(ThisWay::Discarded),
-                offset: 1
+        }],
+        then: &[
+            Effect::DrawCards {
+                amount: Amount::Plus {
+                    base: &Amount::RememberedCount,
+                    offset: 1
+                }
+            },
+            Effect::GainLife {
+                amount: Amount::HandSize(PlayerRel::You)
             }
-        },
-        Effect::GainLife {
-            amount: Amount::HandSize(PlayerRel::You)
-        }
-    ]),],
+        ]
+    }]),],
 );

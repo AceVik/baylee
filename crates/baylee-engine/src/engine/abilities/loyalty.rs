@@ -3,6 +3,27 @@
 use super::*;
 
 impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
+    /// Whether `player` may activate loyalty abilities of `source` at instant
+    /// speed on any player's turn (`CR 606.3`, *Teferi's Talent* emblem).
+    pub(crate) fn may_activate_loyalty_as_instant(
+        &self,
+        player: PlayerId,
+        source: ObjectId,
+    ) -> bool {
+        let Some(obj) = self.state.object(source) else {
+            return false;
+        };
+        self.state.effects.iter().any(|fx| {
+            let baylee_cards_dsl::Modifier::MayActivateLoyaltyAsInstant { who } = fx.modifier
+            else {
+                return false;
+            };
+            crate::eval::players_for_source(who, &self.state, fx.controller, fx.source)
+                .is_some_and(|players| players.contains(&player))
+                && crate::effects::applies_to(&self.state, fx, obj)
+        })
+    }
+
     /// Whether this incarnation of `source` already activated a loyalty
     /// ability this turn. A permanent that left and came back is a new
     /// object (CR 400.7) and starts over (CR 606.3).
@@ -107,6 +128,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
             player,
             tap_cost: false,
             mana_ability: false,
+            loyalty: true,
         });
         self.note_crime_if_any(player, id);
         self.after_action(player);
@@ -125,10 +147,53 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
     /// second activation, which refused it, and the target question was
     /// left with nothing to answer it.
     pub(crate) fn loyalty_cost(&self, source: ObjectId, ability_index: u32) -> Option<i8> {
-        match self.activation_definition(source, ability_index)? {
-            AbilityDef::Loyalty { cost, .. } => Some(cost),
-            _ => None,
+        let AbilityDef::Loyalty { cost, .. } = self.activation_definition(source, ability_index)?
+        else {
+            return None;
+        };
+        if !self.state.effects.may_change_or_forbid_abilities() {
+            return Some(cost);
         }
+        let Some(object) = self.state.object(source) else {
+            return Some(cost);
+        };
+        let mut adjusted = i16::from(cost);
+        for effect in self.state.effects.iter() {
+            let baylee_cards_dsl::Modifier::AdjustLoyaltyCost { who, filter, delta } =
+                effect.modifier
+            else {
+                continue;
+            };
+            if delta == 0 {
+                continue;
+            }
+            let player_ok =
+                eval::players_for_source(who, &self.state, effect.controller, effect.source)
+                    .is_some_and(|players| players.contains(&object.controller));
+            if !player_ok {
+                continue;
+            }
+            let outer_ok = matches!(
+                effect.filter,
+                crate::effects::EffectFilter::Dsl(
+                    baylee_cards_dsl::Filter::Any | baylee_cards_dsl::Filter::This
+                ) | crate::effects::EffectFilter::DslControlledBy(_, _)
+            ) || crate::effects::applies_to(&self.state, effect, object);
+            if !outer_ok {
+                continue;
+            }
+            let context = crate::text_changes::RuleContext {
+                source: effect.source.unwrap_or(source),
+                text: self.state.effect_text(effect),
+                resolved_name: None,
+                resolved_subtype: effect.filter.chosen_subtype(),
+                reference: None,
+            };
+            if eval::matches_with_context(filter, &self.state, object, effect.controller, context) {
+                adjusted = adjusted.saturating_add(i16::from(delta));
+            }
+        }
+        Some(i8::try_from(adjusted.clamp(i16::from(i8::MIN), i16::from(i8::MAX))).unwrap_or(cost))
     }
 
     /// The second instance of "target" on a loyalty ability, if it prints
@@ -559,6 +624,17 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
     ) -> Result<(), EngineError> {
         if self.loyalty_used(source) {
             return Err(EngineError::IllegalAction("loyalty already used this turn"));
+        }
+        let main_phase = matches!(
+            self.state.turn.phase,
+            crate::turn::Phase::FirstMain | crate::turn::Phase::SecondMain
+        );
+        let sorcery_timing =
+            main_phase && self.state.turn.active == player && self.state.zones.stack_is_empty();
+        if !sorcery_timing && !self.may_activate_loyalty_as_instant(player, source) {
+            return Err(EngineError::IllegalAction(
+                "loyalty abilities can only be activated as a sorcery",
+            ));
         }
         let Some(AbilityDef::Loyalty {
             targets: wanted, ..

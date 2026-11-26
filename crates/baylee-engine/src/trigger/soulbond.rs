@@ -1,9 +1,7 @@
 //! Soulbond's two synthetic ETB triggered abilities (CR 702.95a–b).
 
 use super::events::ObjectMove;
-use super::{
-    PendingTrigger, source_at_event_with_moves, times_triggered_with_source, was_phased_out_at,
-};
+use super::{PendingTrigger, source_at_event_with_moves, was_phased_out_at};
 use crate::{
     event::{GameEvent, JournalEntry},
     object::{GameObject, Status},
@@ -28,16 +26,25 @@ static SOULBOND_OTHER_ETB: &[Effect] = &[Effect::SoulbondPair {
 fn push_soulbond_triggers(
     state: &GameState,
     source: &GameObject,
-    entering: baylee_core::ids::ObjectId,
+    entry: &JournalEntry,
     event_object_identity: Option<(u32, i16)>,
     effects: &'static [Effect],
     condition: &'static Condition,
     triggers: &mut Vec<PendingTrigger>,
 ) {
-    let count =
-        crate::layers::keyword_instances(state, source, KeywordSet::SOULBOND).saturating_mul(
-            times_triggered_with_source(state, TriggerEventKind::EntersBattlefield, source),
-        );
+    let GameEvent::ZoneChanged {
+        object: entering, ..
+    } = entry.event
+    else {
+        return;
+    };
+    let count = crate::layers::keyword_instances(state, source, KeywordSet::SOULBOND)
+        .saturating_mul(super::matching::times_triggered_for_entry(
+            state,
+            TriggerEventKind::EntersBattlefield,
+            source,
+            Some(entry),
+        ));
     for _ in 0..count {
         triggers.push(PendingTrigger {
             text: TextChangeMap::IDENTITY,
@@ -127,7 +134,7 @@ pub(super) fn collect(
             push_soulbond_triggers(
                 state,
                 source,
-                permanent,
+                entry,
                 None,
                 SOULBOND_SELF_ETB,
                 &SOULBOND_SELF_CONDITION,
@@ -155,7 +162,7 @@ pub(super) fn collect(
             push_soulbond_triggers(
                 state,
                 source,
-                entering,
+                entry,
                 Some((entering_version, entering_power)),
                 SOULBOND_OTHER_ETB,
                 &SOULBOND_EVENT_CONDITION,

@@ -79,10 +79,12 @@ fn a_continuous_player_relation_is_one_the_state_can_answer() {
                     | PlayerRel::EachOtherPlayer
                     | PlayerRel::MostLifeOrTied
                     | PlayerRel::LeastLifeOrTied
-                    | PlayerRel::MostLife => true,
+                    | PlayerRel::MostLife
+                    | PlayerRel::PlayerToYourRight => true,
                     PlayerRel::OwnerOfSource
                     | PlayerRel::ControllerOfAttached
-                    | PlayerRel::EnchantedPlayer => {
+                    | PlayerRel::EnchantedPlayer
+                    | PlayerRel::ChosenBySource => {
                         !matches!(modifier, Modifier::CantBeAttackedExceptBy { .. })
                     }
                     PlayerRel::Chosen
@@ -111,7 +113,8 @@ fn a_continuous_player_relation_is_one_the_state_can_answer() {
                     PlayerRel::Recipient
                     | PlayerRel::GiftRecipient
                     | PlayerRel::OwnerOfEvent
-                    | PlayerRel::OwnerOfTarget => false,
+                    | PlayerRel::OwnerOfTarget
+                    | PlayerRel::OtherOpponents => false,
                 };
                 if !answerable {
                     wrong.push(format!("{}: {modifier:?}", def.name()));

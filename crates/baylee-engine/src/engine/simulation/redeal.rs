@@ -574,13 +574,22 @@ fn plain(object: &GameObject) -> Result<(), &'static str> {
 /// that source's last known information, and a fork that has dealt the
 /// card again cannot say which hidden card that was.
 fn references(object: &GameObject) -> SmallVec<[ObjectId; 4]> {
-    let mut named: SmallVec<[ObjectId; 4]> = object.targets.iter().copied().collect();
-    named.extend(object.event_object);
+    let mut named: SmallVec<[ObjectId; 4]> = SmallVec::new();
+    // Targets and trigger event objects belong to the spell or ability while
+    // it is on the stack; once it has resolved and moved on, any residue on
+    // the card or permanent is unread (`plain` above).
+    if object.zone == Zone::Stack {
+        named.extend(object.targets.iter().copied());
+        named.extend(object.event_object);
+        if let Some(second) = &object.second {
+            named.extend(second.targets.iter().copied());
+            for extra in &second.extra {
+                named.extend(extra.targets.iter().copied());
+            }
+        }
+    }
     named.extend(object.attached_to);
     named.extend(object.ability.as_ref().map(|ability| ability.source));
-    if let Some(second) = &object.second {
-        named.extend(second.targets.iter().copied());
-    }
     if let Some(paid) = &object.paid {
         named.extend(paid.discarded.iter().map(|card| card.object));
         named.extend(paid.source_after_cost.map(|source| source.object));
@@ -607,6 +616,8 @@ const fn rider_object(rider: &Rider) -> Option<ObjectId> {
         }
         | Rider::GrantedSource(source)
         | Rider::CraftMaterial(source)
+        | Rider::SpellCostExile(source)
+        | Rider::BeheldCostPower(Some(source), _, _)
         | Rider::LinkedExile { source, .. } => Some(source.object),
         Rider::ActivationManaNote {
             last_exile: Some(exile),
@@ -674,6 +685,7 @@ const fn rider_object(rider: &Rider) -> Option<ObjectId> {
         | Rider::KickedMask(_)
         | Rider::Bestowed
         | Rider::MustAttackPlayerThisTurn(_)
+        | Rider::MustAttackPlayerThisCombat(_)
         | Rider::SuspendHaste(_)
         | Rider::Blitzed
         | Rider::Bargained
@@ -705,6 +717,9 @@ const fn rider_object(rider: &Rider) -> Option<ObjectId> {
         | Rider::WarpedSpell
         | Rider::WarpedInExile(_)
         | Rider::SnowManaSpent(_)
+        | Rider::ManaTypesSpent(_)
+        | Rider::ConvokedCount(_)
+        | Rider::EventManaSpent(_)
         | Rider::Sneaked
         | Rider::Spliced { .. }
         | Rider::Awakened(_)
@@ -712,6 +727,14 @@ const fn rider_object(rider: &Rider) -> Option<ObjectId> {
         | Rider::TributePaid
         | Rider::RepeatedModes(_)
         | Rider::OptionalCostPaid
-        | Rider::OncePerPermanentUsedMask { .. } => None,
+        | Rider::OncePerPermanentUsedMask { .. }
+        | Rider::ControlledSubtypeOnCast(_)
+        | Rider::BeheldCostPower(None, _, _)
+        | Rider::EncoreAbility
+        | Rider::CastOriginZone(_)
+        | Rider::MayhemPaid
+        | Rider::UnearthAbility
+        | Rider::ChosenMode(_)
+        | Rider::PlayerChosenMode(_, _) => None,
     }
 }

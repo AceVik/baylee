@@ -525,7 +525,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
         false
     }
 
-    fn clear_opening_hand_reveals(&mut self) {
+    pub(crate) fn clear_opening_hand_reveals(&mut self) {
         let seats = self.state.players.len();
         for seat in 0..seats {
             let p = PlayerId::new(seat as u8);

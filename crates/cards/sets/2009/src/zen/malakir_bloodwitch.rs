@@ -42,7 +42,9 @@ card!(
                     },
                     target: PlayerRel::Opponent
                 },
-                Effect::gain_life(0)
+                Effect::GainLife {
+                    amount: Amount::ThisWay(ThisWay::LifeLost)
+                }
             ]
         ),
     ],

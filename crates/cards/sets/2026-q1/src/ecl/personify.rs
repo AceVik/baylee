@@ -18,15 +18,15 @@ card!(
         types = TypeSet::INSTANT,
     ),],
     abilities = &[spell!(
-        &[
-            Effect::Blink {
+        &[Effect::CaptureAffected {
+            first: &[Effect::Blink {
                 target: TargetSpec::Object(&Filter::YOUR_CREATURE),
                 owner_control: true
-            },
-            Effect::CreateToken {
+            }],
+            then: &[Effect::CreateToken {
                 token: &generated_tokens::SHAPESHIFTER_1_1_CHANGELING
-            }
-        ],
+            }]
+        }],
         targets = Some(TargetReq::one(TargetSpec::Object(&Filter::YOUR_CREATURE)))
     ),],
 );

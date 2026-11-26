@@ -124,7 +124,13 @@ fn cost_moves_library(part: &CostPart) -> bool {
         | CostPart::RemoveAnyCounter { .. }
         | CostPart::RemoveAnyCounterX { .. }
         | CostPart::Behold(_)
-        | CostPart::CollectEvidence(_) => false,
+        | CostPart::CollectEvidence(_)
+        | CostPart::RevealFromHand(_)
+        | CostPart::RevealFromHandX(_)
+        | CostPart::RevealSelfFromHand
+        | CostPart::BeholdAndExile(_)
+        | CostPart::Waterbend(_)
+        | CostPart::WaterbendX => false,
         CostPart::Either(a, b) => {
             a.parts.iter().any(cost_moves_library) || b.parts.iter().any(cost_moves_library)
         }
@@ -180,6 +186,7 @@ const fn always_moves_library(effect: &Effect) -> bool {
             | Effect::DrawCardsFor { .. }
             | Effect::DrawRevealDiscardUnless { .. }
             | Effect::DiscardUpToThenDraw { .. }
+            | Effect::Learn
             | Effect::Connive { .. }
             | Effect::Recruit { .. }
             | Effect::LookAtTopPick { .. }
@@ -195,6 +202,10 @@ const fn always_moves_library(effect: &Effect) -> bool {
             | Effect::ExileTopWithPermission { .. }
             | Effect::ExileWithPermission { .. }
             | Effect::GrantLinkedExilePermission { .. }
+            | Effect::GrantRememberedExilePermission { .. }
+            | Effect::SearchLibraryAttachedToEvent { .. }
+            | Effect::TaintedPact
+            | Effect::PhyrexianGrimoire { .. }
             | Effect::ManifestTop { .. }
             | Effect::ManifestDread
             | Effect::TurnFaceUp { .. }
@@ -223,6 +234,7 @@ const fn always_moves_library(effect: &Effect) -> bool {
             | Effect::PlayerMayMillOr { .. }
             | Effect::GraveyardToTop { .. }
             | Effect::PutSourceOnTopOfLibrary
+            | Effect::PutSourceOnBottomOfLibrary
             | Effect::BottomCardFromHand { .. }
             | Effect::OptionalBasicLandSearchFor { .. }
             | Effect::SearchOpponentSplits { .. }
@@ -289,6 +301,7 @@ fn moves_library(effect: &Effect) -> bool {
             then,
             ..
         } => choose_move_touches_library(*zone, *movement) || then.iter().any(moves_library),
+        Effect::ChooseDistinctPowersOnBattlefield { then, .. } => then.iter().any(moves_library),
         Effect::PutOntoBattlefieldAttached { subject, .. }
         | Effect::PutOntoBattlefieldAttacking { subject, .. } => matches!(
             subject,
