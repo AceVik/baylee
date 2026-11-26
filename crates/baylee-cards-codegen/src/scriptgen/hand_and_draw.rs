@@ -223,11 +223,9 @@ impl Tx<'_> {
         if !remembered && !imprinted {
             return None;
         }
-        let _remember_targets = match reveal.take("RememberTargets").as_deref() {
-            None => false,
-            Some("True") => true,
-            Some(_) => return None,
-        };
+        if reveal.has("RememberTargets") {
+            return None;
+        }
         let lower = self.oracle.to_ascii_lowercase();
         if !(lower.contains("reveals their hand")
             || lower.contains("reveal your hand")
@@ -1057,9 +1055,9 @@ impl Tx<'_> {
             }
             then_effs.push(
                 "Effect::ChooseCardEx { chooser: PlayerRel::You, zone: ChooseZone::Remembered, \
-                 filter: &Filter::Any, min: u8::MAX, max: Amount::Fixed(u8::MAX as u32), \
-                 reveal_chosen: false, movement: ChooseMove::BottomOfLibraryRandom, \
-                 not_chosen_movement: ChooseMove::None, then: &[], for_unchosen: &[] }"
+                 filter: &Filter::Any, min: 0, max: Amount::Fixed(0), \
+                 reveal_chosen: false, movement: ChooseMove::None, \
+                 not_chosen_movement: ChooseMove::BottomOfLibraryRandom, then: &[], for_unchosen: &[] }"
                     .to_string(),
             );
             return Some(TrailingSub::from_opt(

@@ -337,7 +337,9 @@ fn hand_and_draw_peek_and_reveal_unlocks_and_refusals() {
         barrel.abilities[0].contains("Effect::ChooseCardConstrained")
             && barrel.abilities[0].contains("at_random: true")
             && barrel.abilities[0].contains("movement: ChooseMove::Battlefield { tapped: false }")
-            && barrel.abilities[0].contains("movement: ChooseMove::BottomOfLibraryRandom"),
+            && barrel.abilities[0].contains("min: 0, max: Amount::Fixed(0)")
+            && barrel.abilities[0]
+                .contains("not_chosen_movement: ChooseMove::BottomOfLibraryRandom"),
         "{:?}",
         barrel.abilities
     );
