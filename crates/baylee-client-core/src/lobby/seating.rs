@@ -649,6 +649,6 @@ impl Lobby {
         self.refreshing = false;
         self.awaiting = None;
         self.asked_for = None;
-        self.write(why, tone);
+        self.write(why, tone, None);
     }
 }

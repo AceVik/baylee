@@ -918,6 +918,33 @@ fn a_status_toast_starts_with_a_capital_and_the_lobby_keeps_its_words() {
     assert_eq!(toast_lanes(&mut app), toasts, "and it is not stood again");
 }
 
+/// The owner, 25.11.2026: no notification for what the player knows already,
+/// such as having signed in or playing offline. The client's own lines in
+/// `client_core::lobby::QUIET` stand no toast; a refusal still does, and so
+/// does news.
+#[test]
+fn what_the_player_just_did_raises_no_toast() {
+    let mut app = seated();
+    let toasts = toast_lanes(&mut app);
+    for quiet in [Phrase::SignedIn, Phrase::PlayingOffline, Phrase::ArrangingTable] {
+        app.world_mut()
+            .resource_mut::<LobbyState>()
+            .lobby
+            .tell(quiet, &[]);
+        app.update();
+        app.update();
+        assert!(app.world().resource::<LobbyState>().lobby.status_quiet());
+        assert_eq!(toast_lanes(&mut app), toasts, "{quiet:?} stood a toast");
+    }
+    app.world_mut()
+        .resource_mut::<LobbyState>()
+        .lobby
+        .tell_refusal(Phrase::ChallengeLeaveTable, &[]);
+    app.update();
+    app.update();
+    assert_eq!(toast_lanes(&mut app), 1, "a refusal is still said");
+}
+
 /// A toast's cross takes that toast away, and only that one; a status it
 /// took away does not come back while the lobby still says it.
 #[test]

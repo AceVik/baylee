@@ -167,6 +167,39 @@ pub enum Tone {
     Refusal,
 }
 
+/// The client's own status lines that are no news (owner, 25.11.2026: no
+/// notification for having signed in or for playing offline): progress a
+/// screen shows by itself, and outcomes the player just caused and can see.
+/// A refusal is never quiet, and neither is anything a gateway says.
+pub const QUIET: &[Phrase] = &[
+    Phrase::SigningIn,
+    Phrase::SignedIn,
+    Phrase::SignedOut,
+    Phrase::PlayingOffline,
+    Phrase::PlayingAsGuest,
+    Phrase::JoiningAsGuest,
+    Phrase::CreatingAccount,
+    Phrase::SettingPassword,
+    Phrase::OpeningTable,
+    Phrase::ArrangingTable,
+    Phrase::TakingTheSeat,
+    Phrase::SittingDown,
+    Phrase::YouAreSeated,
+    Phrase::Starting,
+    Phrase::PlayingAgain,
+    Phrase::LeavingTable,
+    Phrase::HandingOver,
+    Phrase::OpeningDeck,
+    Phrase::LoadingPool,
+    Phrase::SavingDeck,
+    Phrase::DeckSaved,
+    Phrase::DeletingDeck,
+    Phrase::GatewayChecking,
+    Phrase::GatewayConnecting,
+    Phrase::GatewaySaved,
+    Phrase::CentralSigningIn,
+];
+
 /// Which way the Tab key moves the caret between fields.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub enum Tab {
@@ -1197,6 +1230,9 @@ pub struct Lobby {
     /// How that line reads. Written with it and never apart from it, which
     /// is what [`Lobby::write`] is for.
     tone: Tone,
+    /// The client's own sentence the line says, if it is one; `None` for
+    /// a gateway's words. [`Lobby::status_quiet`] reads it.
+    status_phrase: Option<Phrase>,
     busy: bool,
     /// Whether what is in flight only re-reads lists already on screen
     /// (refresh, search, a page, the watch). See [`Lobby::refreshing`].
@@ -1601,6 +1637,14 @@ impl Lobby {
         &self.status
     }
 
+    /// Whether the line is no news to the player: progress the screen
+    /// already shows, or the plain outcome of what they just did ([`QUIET`]).
+    /// It still stands on the front door's status line; it is never a toast.
+    #[must_use]
+    pub fn status_quiet(&self) -> bool {
+        self.status_phrase.is_some_and(|phrase| QUIET.contains(&phrase))
+    }
+
     /// How that line should read — see [`Tone`].
     #[must_use]
     pub fn tone(&self) -> Tone {
@@ -1927,51 +1971,52 @@ impl Lobby {
     /// code beside the prose, which is a protocol change and not this. A
     /// refusal, because that is what a gateway sends prose for.
     pub fn say(&mut self, message: impl Into<String>) {
-        self.write(message.into(), Tone::Refusal);
+        self.write(message.into(), Tone::Refusal, None);
     }
 
     /// Writes a sentence of this client's own that is news, not a refusal
     /// (a replay archived), already in the player's language.
     pub fn note_said(&mut self, message: impl Into<String>) {
-        self.write(message.into(), Tone::Note);
+        self.write(message.into(), Tone::Note, None);
     }
 
     /// Says one of the client's own sentences, in the language it is set to.
     pub(crate) fn note(&mut self, phrase: Phrase) {
         let said = phrase.text(self.lang).to_string();
-        self.write(said, Tone::Note);
+        self.write(said, Tone::Note, Some(phrase));
     }
 
     /// The same, for a sentence that is a *no* — see [`Tone`].
     pub(crate) fn refuse(&mut self, phrase: Phrase) {
         let said = phrase.text(self.lang).to_string();
-        self.write(said, Tone::Refusal);
+        self.write(said, Tone::Refusal, Some(phrase));
     }
 
     /// The same, for the shell — which has its own sentences to say and no
     /// business knowing which language this lobby is in.
     pub fn tell(&mut self, phrase: Phrase, args: &[&str]) {
         let said = phrase.fill(self.lang, args);
-        self.write(said, Tone::Note);
+        self.write(said, Tone::Note, Some(phrase));
     }
 
     /// The shell's own refusals: a change it will not throw away unasked, a
     /// deck with no room left in it.
     pub fn tell_refusal(&mut self, phrase: Phrase, args: &[&str]) {
         let said = phrase.fill(self.lang, args);
-        self.write(said, Tone::Refusal);
+        self.write(said, Tone::Refusal, Some(phrase));
     }
 
     /// The one door the status line is written through, so that a line and
     /// its tone can never be set apart from each other.
-    fn write(&mut self, said: String, tone: Tone) {
+    fn write(&mut self, said: String, tone: Tone, phrase: Option<Phrase>) {
         self.status = said;
         self.tone = tone;
+        self.status_phrase = phrase;
     }
 
     /// Takes the line away. A blank line has no tone to read.
     pub fn clear_status(&mut self) {
-        self.write(String::new(), Tone::Note);
+        self.write(String::new(), Tone::Note, None);
     }
 
     /// The language this lobby speaks.

@@ -4797,6 +4797,12 @@ is when a table fills, stood over the whole game with a cross that did
 nothing (owner, 22.10.2026). A `401` lands on the front door with "Signed out
 — your session ended · Sign in again", and the builder's draft and pool are
 kept for the next sign-in.
+A notice that is no news stands no toast (owner, 25.11.2026: "ich weiß, dass
+ich mich eingeloggt habe"): the client's own lines in `client_core::lobby::QUIET`
+(signing in, playing offline, a table being arranged or opened, a seat taken,
+a deck saved, a gateway checked) stand where they are said, on the front
+door's status line, and leave the lane as it was (`Lobby::status_quiet`). A
+refusal and anything a gateway says always stand one.
 
 ### A wait is not a veil
 
@@ -4985,6 +4991,25 @@ sheet (every colophon sentence in full, the licence, the source as text,
 link and code, the third-party licences). `docs/legal.md` §"The front
 door's notices". Caps Lock is inferred from a letter's case against
 Shift and said under the password being typed.
+
+**Donations at the front door** (`front::donate`; owner, 18.11.2026 and
+25.11.2026; `docs/legal.md` §"Donations"): at the top left of the sign-in
+screen, mirroring the corner cluster at the top right (where the public
+ladder's trophy now stands, out of the community's row), a button in the
+cluster's style with a rose heart. It draws the eye by light and colour only:
+the kit's sheen on its face and the heart's colour breathing every 2.4 s
+(`donate::beat`, a colour write only, still under `reduce_motion`); it never
+changes its size or place. Once Central has said a figure (`PublicFunding`,
+read without an account by `baylee_account::funding_read` when the door
+stands and every ten minutes, on a thread of its own), a mist plate under it
+holds the month's bar and "184 € of 800 € a month"; before that there is no
+bar of nothing. Its press opens a glass sheet (`door::glass_head`, the
+community dialog's head): the goal and how much of it is covered as one bar
+with a part per platform, who is counted and which platform is not yet, what
+the money pays for, the three places to give side by side with their codes
+and buttons (`client_core::funding::Platform`, the addresses of
+`.github/FUNDING.yml`), and that a donation buys nothing and is not
+tax-deductible. No donor is named; the Fan Content notice is not part of it.
 
 **The kit answers the pointer** (owner, 09.10.2026). Every control the
 kit draws lightens and lifts under a hover and gives and darkens under a
