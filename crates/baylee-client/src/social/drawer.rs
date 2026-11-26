@@ -2771,9 +2771,14 @@ fn nothing_listed(
             tokens::MUTED,
             false,
         );
-        commands.entity(words).insert(TextLayout::new(
-            Justify::Center,
-            bevy::text::LineBreak::WordBoundary,
+        commands.entity(words).insert((
+            TextLayout::new(Justify::Center, bevy::text::LineBreak::WordBoundary),
+            // The empty state's whole width: a centred column measures a
+            // sentence of its own at no width at all.
+            Node {
+                width: Val::Percent(100.0),
+                ..default()
+            },
         ));
         commands.entity(empty).add_child(words);
     }
