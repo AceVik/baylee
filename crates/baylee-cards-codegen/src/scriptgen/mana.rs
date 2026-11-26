@@ -925,11 +925,13 @@ impl Tx<'_> {
                         return Some("Amount::EventPower".to_string());
                     }
                     "Spawner>Sacrificed$CardToughness"
+                    | "TriggerRemembered$CardToughness"
                     | "DelayTriggerRemembered$CardToughness"
                     | "DelayTriggerRememberedLKI$CardToughness" => {
                         return Some("Amount::EventLastToughness".to_string());
                     }
                     "Spawner>Sacrificed$CardManaCost"
+                    | "TriggerRemembered$CardManaCost"
                     | "DelayTriggerRemembered$CardManaCost"
                     | "DelayTriggerRememberedLKI$CardManaCost" => {
                         return Some("Amount::EventManaValue".to_string());

@@ -3469,7 +3469,7 @@ fn bargain_and_your_turn_conditions() {
         "Name:BadDupBargain\nManaCost:1 U\nTypes:Creature\nPT:2/1\nK:Bargain\nK:Bargain",
         "Name:BadExtraBargain\nManaCost:1 U\nTypes:Creature\nPT:2/1\nK:Bargain:Extra",
     ] {
-        assert!(refused(bad), "must refuse: {bad}");
+        assert!(refused_with_extra_subtypes(bad), "must refuse: {bad}");
     }
 }
 
@@ -5850,7 +5850,7 @@ fn wave23b_targets_with_same_controller() {
     );
 
     // Charm mode with TargetsWithSameController$ True.
-    let charm = read(
+    let charm = read_with_extra_subtypes(
         "Name:DarkCharm\nManaCost:B\nTypes:Instant\n\
          A:SP$ Charm | Choices$ MDrain,MExile\n\
          SVar:MDrain:DB$ LoseLife | ValidTgts$ Opponent | LifeAmount$ 1\n\
@@ -6054,4 +6054,116 @@ fn destroy_with_a_name_twin_condition_is_checked_only_on_resolution() {
         "Count$Valid Permanent.sharesNameWith Targeted",
         "Count$Valid Creature.sharesNameWith Targeted"
     )));
+}
+
+fn read_with_extra_subtypes(text: &str) -> CardBody {
+    let mut c = cats();
+    c.creature.push("Symbiote".into());
+    c.enchantment.push("Aura".into());
+    c.normalize();
+    let parsed = parse(text);
+    transcode(&parsed, &c, None)
+        .unwrap_or_else(|| panic!("refused: {:?}", refusal_reason(&parsed, &c, None)))
+}
+
+fn refused_with_extra_subtypes(text: &str) -> bool {
+    let mut c = cats();
+    c.creature.push("Symbiote".into());
+    c.enchantment.push("Aura".into());
+    c.normalize();
+    transcode(&parse(text), &c, None).is_none()
+}
+
+#[test]
+fn venom_exile_graveyard_immediate_trigger_remembered_lki() {
+    let venom = read_with_extra_subtypes(
+        "Name:Venom, Deadly Devourer\nManaCost:2 G B\nTypes:Legendary Creature Symbiote Villain\nPT:4/4\n\
+         A:AB$ ChangeZone | Cost$ 3 | Origin$ Graveyard | Destination$ Exile | ValidTgts$ Creature | RememberChanged$ True | SubAbility$ DBImmediateTrigger\n\
+         SVar:DBImmediateTrigger:DB$ ImmediateTrigger | ConditionDefined$ RememberedLKI | ConditionPresent$ Card | RememberObjects$ RememberedLKI | Execute$ TrigPutCounter | SubAbility$ DBCleanup\n\
+         SVar:TrigPutCounter:DB$ PutCounter | ValidTgts$ Symbiote | CounterType$ P1P1 | CounterNum$ X\n\
+         SVar:DBCleanup:DB$ Cleanup | ClearRemembered$ True\n\
+         SVar:X:TriggerRemembered$CardToughness",
+    );
+    let a = &venom.abilities[0];
+    assert!(
+        a.contains(
+            "Effect::exile(TargetSpec::CardInGraveyard(&Filter::CREATURE, PlayerRel::EachPlayer))"
+        ) && a.contains("ReflexiveWhen::ThisWay(ThisWay::ExiledFromGraveyard(&Filter::Any))")
+            && a.contains("Amount::EventLastToughness"),
+        "{a}"
+    );
+    assert!(refused(
+        "Name:BadTriggerRemToughnessDirect\nManaCost:2 G\nTypes:Sorcery\n\
+         A:SP$ Draw | NumCards$ X\n\
+         SVar:X:TriggerRemembered$CardToughness"
+    ));
+}
+
+#[test]
+fn remembered_bounce_attached_auras_and_ride_down() {
+    let word = read_with_extra_subtypes(
+        "Name:Word of Undoing\nManaCost:U\nTypes:Instant\n\
+         A:SP$ ChangeZone | ValidTgts$ Creature | Origin$ Battlefield | Destination$ Hand | SubAbility$ DBChangeZoneAll | RememberTargets$ True\n\
+         SVar:DBChangeZoneAll:DB$ ChangeZoneAll | ChangeType$ Remembered.Aura+White+Attached+YouOwn | Origin$ Battlefield | Destination$ Hand | SubAbility$ DBCleanup\n\
+         SVar:DBCleanup:DB$ Cleanup | ClearRemembered$ True",
+    );
+    let wa = &word.abilities[0];
+    assert!(
+        wa.contains("Effect::ReturnAllToHand")
+            && word
+                .statics
+                .contains("Filter::AttachedTo(&Filter::Reference)")
+            && wa.contains("Effect::bounce(TargetSpec::Object(&Filter::CREATURE))")
+            && wa.find("Effect::ReturnAllToHand") < wa.find("Effect::bounce"),
+        "{wa}"
+    );
+
+    let charm = read_with_extra_subtypes(
+        "Name:Orzhov Charm\nManaCost:W B\nTypes:Instant\n\
+         A:SP$ Charm | Choices$ ReturnAll,DBDestroy\n\
+         SVar:ReturnAll:DB$ TargetOnly | ValidTgts$ Creature.YouCtrl | SubAbility$ DBChangeZoneAll | RememberObjects$ Targeted\n\
+         SVar:DBChangeZoneAll:DB$ ChangeZoneAll | ChangeType$ Creature.IsRemembered,Aura.AttachedTo Creature.IsRemembered+YouCtrl | Origin$ Battlefield | Destination$ Hand | SubAbility$ DBCleanup\n\
+         SVar:DBCleanup:DB$ Cleanup | ClearRemembered$ True\n\
+         SVar:DBDestroy:DB$ Destroy | ValidTgts$ Creature",
+    );
+    assert!(
+        charm.abilities[0].contains("Effect::ReturnAllToHand")
+            && charm
+                .statics
+                .contains("Filter::AttachedTo(&Filter::Reference)")
+            && charm.abilities[0]
+                .contains("Effect::bounce(TargetSpec::Object(&Filter::YOUR_CREATURE))"),
+        "{}",
+        charm.abilities[0]
+    );
+
+    let ride = read(
+        "Name:Ride Down\nManaCost:R W\nTypes:Instant\n\
+         A:SP$ TargetOnly | ValidTgts$ Creature.blocking | RememberObjects$ Targeted | SubAbility$ DBDestroy\n\
+         SVar:DBDestroy:DB$ Destroy | Defined$ Remembered | SubAbility$ DBPump\n\
+         SVar:DBPump:DB$ PumpAll | ValidCards$ Creature.blockedByRemembered | KW$ Trample | SubAbility$ DBCleanup\n\
+         SVar:DBCleanup:DB$ Cleanup | ClearRemembered$ True",
+    );
+    assert!(
+        ride.abilities[0].contains("Effect::destroy(TargetSpec::Object(")
+            && ride.statics.contains("Filter::BlockedByReferenceThisTurn")
+            && ride.abilities[0].contains("KeywordSet::TRAMPLE"),
+        "{}",
+        ride.abilities[0]
+    );
+
+    for bad in [
+        // Missing ClearRemembered cleanup must stay refused.
+        "Name:BadWordNoCleanup\nManaCost:U\nTypes:Instant\n\
+         A:SP$ ChangeZone | ValidTgts$ Creature | Origin$ Battlefield | Destination$ Hand | SubAbility$ DBChangeZoneAll | RememberTargets$ True\n\
+         SVar:DBChangeZoneAll:DB$ ChangeZoneAll | ChangeType$ Remembered.Aura+Attached | Origin$ Battlefield | Destination$ Hand",
+        // Ride Down shape with non-zero P/T modifier must stay refused.
+        "Name:BadRidePump\nManaCost:R W\nTypes:Instant\n\
+         A:SP$ TargetOnly | ValidTgts$ Creature.blocking | RememberObjects$ Targeted | SubAbility$ DBDestroy\n\
+         SVar:DBDestroy:DB$ Destroy | Defined$ Remembered | SubAbility$ DBPump\n\
+         SVar:DBPump:DB$ PumpAll | ValidCards$ Creature.blockedByRemembered | NumAtt$ +2 | KW$ Trample | SubAbility$ DBCleanup\n\
+         SVar:DBCleanup:DB$ Cleanup | ClearRemembered$ True",
+    ] {
+        assert!(refused(bad), "must refuse: {bad}");
+    }
 }

@@ -1171,7 +1171,10 @@ impl Tx<'_> {
         let (t_api, mut tp) = Params::parse(&trig_body)?;
         tp.drop_prose();
         if t_api != "ImmediateTrigger"
-            || tp.take("ConditionDefined").as_deref() != Some("Remembered")
+            || !matches!(
+                tp.take("ConditionDefined").as_deref(),
+                Some("Remembered" | "RememberedLKI")
+            )
             || !matches!(tp.take("ConditionCompare").as_deref(), None | Some("GE1"))
         {
             return None;

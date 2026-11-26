@@ -367,6 +367,7 @@ impl Tx<'_> {
         p.entries.iter().any(|(k, _)| {
             k.as_str() != allowed_key
                 && k.as_str() != "ForgetOtherRemembered"
+                && !(allowed_key == "RememberTargets" && k.as_str() == "ForgetOtherTargets")
                 && (k.starts_with("Remember") || k.starts_with("Forget"))
         })
     }
@@ -719,6 +720,12 @@ impl Tx<'_> {
         probe_p.take(flag_key);
         if has_forget_other {
             probe_p.take("ForgetOtherRemembered");
+        }
+        if api == "ChangeZone"
+            && flag_key == "RememberTargets"
+            && probe_p.peek("ForgetOtherTargets") == Some("True")
+        {
+            probe_p.take("ForgetOtherTargets");
         }
         let scope =
             Self::compute_capture_scope(api, &probe_p, target, flags, chain, self.in_delayed);
@@ -1293,6 +1300,40 @@ impl Tx<'_> {
             && let Some(effs) = self.wave29c_capture_change_zone_step(api, p, target, flags)
         {
             return Some(effs);
+        }
+
+        // Case 1b: `ChangeZone | Origin$ Library | Destination$ Hand | ChangeType$ Remembered.sameName`
+        // (*Secret Salvage*): up-to count of matching-name cards in your library -> `SearchLibraryUpTo`.
+        if api == "ChangeZone"
+            && !p.has("Defined")
+            && !p.has("ValidTgts")
+            && p.peek("Origin") == Some("Library")
+            && p.peek("Destination") == Some("Hand")
+            && p.peek("ChangeType") == Some("Remembered.sameName")
+            && matches!(p.peek("Shuffle"), None | Some("True"))
+        {
+            let mut probe = p.clone();
+            probe.take("Origin");
+            probe.take("Destination");
+            probe.take("ChangeType");
+            probe.take("Shuffle");
+            probe.claim_label("ChangeTypeDesc", "ChangeType");
+            if let Some(count_var) = probe.take("ChangeNum")
+                && matches!(probe.take("DefinedPlayer").as_deref(), None | Some("You"))
+                && matches!(probe.take("Optional").as_deref(), None | Some("False"))
+                && matches!(probe.take("Mandatory").as_deref(), None | Some("False"))
+                && matches!(
+                    self.svars.get(count_var.trim()).map(String::as_str),
+                    Some("Count$ValidLibrary Card.YouOwn+sharesNameWith Remembered")
+                )
+                && Self::only_condition_keys_left(&probe)
+            {
+                *p = probe;
+                return Some(vec![
+                    "Effect::SearchLibraryUpTo { filter: &Filter::SharesNameWithRemembered,                      count: Amount::CountOf { filter: &Filter::SharesNameWithRemembered,                      zone: ZoneSel::LibraryYou }, find: &Find::HAND }"
+                        .to_string(),
+                ]);
+            }
         }
 
         // Case 1: `ChangeZone | Hidden$ True | ChangeType$ <F>.IsRemembered` -> ChooseCard over Remembered!

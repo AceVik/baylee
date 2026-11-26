@@ -997,6 +997,25 @@ impl Tx<'_> {
             )?
         } else if !second_target_here
             && api == "ChangeZone"
+            && targets_here
+            && p.peek("Origin") == Some("Battlefield")
+            && p.peek("Destination") == Some("Hand")
+            && p.peek("RememberTargets") == Some("True")
+            && sub.is_some()
+            && unless.is_none()
+            && dying.is_none()
+            && at_end.is_none()
+            && !optional_counter
+            && let Some(effects) = self.remember_bounce_with_attached_auras_chain(
+                &mut p,
+                &mut sub,
+                target.as_deref(),
+                chain,
+            )
+        {
+            effects
+        } else if !second_target_here
+            && api == "ChangeZone"
             && p.peek("Destination") == Some("Exile")
             && p.peek("RememberChanged") == Some("True")
             && self.sub_is_api(sub.as_deref(), "AlterAttribute")
@@ -1209,7 +1228,30 @@ impl Tx<'_> {
                 {
                     p.take("RememberTargets");
                 }
-                if sub.is_some() {
+                if sub.is_some()
+                    && p.peek("RememberObjects") == Some("Targeted")
+                    && unless.is_none()
+                    && dying.is_none()
+                    && at_end.is_none()
+                    && !optional_counter
+                    && let Some(effs) = self
+                        .target_only_bounce_with_attached_auras_chain(
+                            &mut p,
+                            &mut sub,
+                            target.as_deref(),
+                            chain,
+                        )
+                        .or_else(|| {
+                            self.target_only_destroy_pump_blocked_by_chain(
+                                &mut p,
+                                &mut sub,
+                                target.as_deref(),
+                                chain,
+                            )
+                        })
+                {
+                    effs
+                } else if sub.is_some() {
                     if unless.is_some() || dying.is_some() || at_end.is_some() || optional_counter {
                         return self.deny("`TargetOnly` modifier with `SubAbility$`".to_string());
                     }
@@ -7415,6 +7457,270 @@ impl Tx<'_> {
             "Phases" => both_obj && !sp.has("WontPhaseInNormal"),
             _ => false,
         }
+    }
+
+    /// Lower `ChangeZone | Origin$ Battlefield | Destination$ Hand | RememberTargets$ True`
+    /// followed by `ChangeZoneAll | ChangeType$ Remembered.<Filter+Attached>`
+    /// (*Word of Undoing*): returns all matching attached Auras to owners' hands,
+    /// then bounces the target permanent.
+    fn remember_bounce_with_attached_auras_chain(
+        &mut self,
+        p: &mut Params,
+        sub: &mut Option<String>,
+        target: Option<&str>,
+        chain: &mut Chain,
+    ) -> Option<Vec<String>> {
+        let single_target = chain.target_exact.is_none()
+            && chain.target_range.is_none()
+            && !chain.target_is_x
+            && chain.target_constraint.is_none()
+            && chain.target_up_to.is_none_or(|n| n <= 1);
+        let tgt = target?;
+        if !single_target || !tgt.starts_with("TargetSpec::Object(") {
+            return None;
+        }
+        let mut probe = p.clone();
+        probe.take("Origin");
+        probe.take("Destination");
+        probe.take("RememberTargets");
+        probe.take("IsCurse");
+        if !probe.exhausted() {
+            return None;
+        }
+        let s1 = sub.as_deref()?.trim().to_string();
+        let s1_body = self.svars.get(&s1)?.clone();
+        let (a1, mut p1) = Params::parse(&s1_body)?;
+        p1.drop_prose();
+        if a1 != "ChangeZoneAll"
+            || p1.take("Origin").as_deref() != Some("Battlefield")
+            || p1.take("Destination").as_deref() != Some("Hand")
+        {
+            return None;
+        }
+        let change_type = p1.take("ChangeType")?;
+        let s1_sub = p1.take("SubAbility");
+        if !p1.exhausted() {
+            return None;
+        }
+        let rest = change_type.strip_prefix("Remembered.")?;
+        let atoms: Vec<&str> = rest
+            .split('+')
+            .map(str::trim)
+            .filter(|a| !a.is_empty())
+            .collect();
+        if !atoms.contains(&"Attached") {
+            return None;
+        }
+        let base_atoms: Vec<&str> = atoms.into_iter().filter(|a| *a != "Attached").collect();
+        if base_atoms.is_empty() {
+            return None;
+        }
+        let aura_valid = Self::join_valid_atoms(&base_atoms);
+        let aura_filter = self.filter_attached_to_reference(&aura_valid)?;
+        let mut trailing = s1_sub;
+        if !self.take_clear_remembered_cleanup(&mut trailing) {
+            return None;
+        }
+        *p = probe;
+        *sub = trailing;
+        Some(vec![
+            format!("Effect::ReturnAllToHand {{ filter: &{aura_filter}, opponents_only: false }}"),
+            format!("Effect::bounce({tgt})"),
+        ])
+    }
+
+    /// Lower `TargetOnly | RememberObjects$ Targeted` followed by
+    /// `ChangeZoneAll | ChangeType$ <Base>.IsRemembered,<Rest>.AttachedTo <Base>.IsRemembered[+<Extra>]`
+    /// (*Orzhov Charm* mode 1): returns matching attached Auras, then bounces the target.
+    fn target_only_bounce_with_attached_auras_chain(
+        &mut self,
+        p: &mut Params,
+        sub: &mut Option<String>,
+        target: Option<&str>,
+        _chain: &mut Chain,
+    ) -> Option<Vec<String>> {
+        let tgt = target?;
+        if !tgt.starts_with("TargetSpec::Object(") {
+            return None;
+        }
+        let mut probe = p.clone();
+        probe.take("RememberObjects");
+        if !probe.exhausted() {
+            return None;
+        }
+        let s1 = sub.as_deref()?.trim().to_string();
+        let s1_body = self.svars.get(&s1)?.clone();
+        let (a1, mut p1) = Params::parse(&s1_body)?;
+        p1.drop_prose();
+        if a1 != "ChangeZoneAll"
+            || p1.take("Origin").as_deref() != Some("Battlefield")
+            || p1.take("Destination").as_deref() != Some("Hand")
+        {
+            return None;
+        }
+        let change_type = p1.take("ChangeType")?;
+        let s1_sub = p1.take("SubAbility");
+        if !p1.exhausted() {
+            return None;
+        }
+        let (first_alt, second_alt) = change_type.split_once(',')?;
+        let base = first_alt.trim().strip_suffix(".IsRemembered")?;
+        if !matches!(base, "Creature" | "Permanent") {
+            return None;
+        }
+        let marker = format!(".AttachedTo {base}.IsRemembered");
+        let (prefix, extra) = second_alt.trim().split_once(&marker)?;
+        if prefix.is_empty() {
+            return None;
+        }
+        let extra = extra.trim().strip_prefix('+').unwrap_or(extra.trim());
+        let combined_valid = if extra.is_empty() {
+            prefix.to_string()
+        } else {
+            format!("{prefix}.{extra}")
+        };
+        let aura_filter = self.filter_attached_to_reference(&combined_valid)?;
+        let mut trailing = s1_sub;
+        if !self.take_clear_remembered_cleanup(&mut trailing) {
+            return None;
+        }
+        *p = probe;
+        *sub = trailing;
+        Some(vec![
+            format!("Effect::ReturnAllToHand {{ filter: &{aura_filter}, opponents_only: false }}"),
+            format!("Effect::bounce({tgt})"),
+        ])
+    }
+
+    /// Join type + modifier atoms with Forge's `<base>.<mod1>+<mod2>` syntax.
+    fn join_valid_atoms(atoms: &[&str]) -> String {
+        match atoms {
+            [] => String::new(),
+            [only] => (*only).to_string(),
+            [first, rest @ ..] => format!("{first}.{}", rest.join("+")),
+        }
+    }
+
+    /// Build a static `Filter::And(&[base, Filter::AttachedTo(&Filter::Reference)])`.
+    fn filter_attached_to_reference(&mut self, valid: &str) -> Option<String> {
+        let saved_unclaimed = self.unclaimed.borrow().clone();
+        let saved_statics = self.body.statics.len();
+        let Some(base) = self.filter_expr(valid) else {
+            *self.unclaimed.borrow_mut() = saved_unclaimed;
+            self.body.statics.truncate(saved_statics);
+            return None;
+        };
+        let expr = if base == "Filter::Any" {
+            "Filter::AttachedTo(&Filter::Reference)".to_string()
+        } else {
+            format!("Filter::And(&[{base}, Filter::AttachedTo(&Filter::Reference)])")
+        };
+        Some(self.body.filter_static("AURA", &expr))
+    }
+
+    /// Lower `TargetOnly | RememberObjects$ Targeted` -> `Destroy | Defined$ Remembered`
+    /// -> `PumpAll | ValidCards$ Creature.blockedByRemembered` (*Ride Down*).
+    fn target_only_destroy_pump_blocked_by_chain(
+        &mut self,
+        p: &mut Params,
+        sub: &mut Option<String>,
+        target: Option<&str>,
+        _chain: &mut Chain,
+    ) -> Option<Vec<String>> {
+        let tgt = target?;
+        if !tgt.starts_with("TargetSpec::Object(") {
+            return None;
+        }
+        let mut probe = p.clone();
+        probe.take("RememberObjects");
+        if !probe.exhausted() {
+            return None;
+        }
+        let s1 = sub.as_deref()?.trim().to_string();
+        let s1_body = self.svars.get(&s1)?.clone();
+        let (a1, mut p1) = Params::parse(&s1_body)?;
+        p1.drop_prose();
+        if a1 != "Destroy" || p1.take("Defined").as_deref() != Some("Remembered") {
+            return None;
+        }
+        p1.take("IsCurse");
+        let no_regen = match p1.take("NoRegen").as_deref() {
+            None | Some("False") => false,
+            Some("True") => true,
+            Some(_) => return None,
+        };
+        let s2 = p1.take("SubAbility")?;
+        if !p1.exhausted() {
+            return None;
+        }
+        let s2_body = self.svars.get(s2.trim())?.clone();
+        let (a2, mut p2) = Params::parse(&s2_body)?;
+        p2.drop_prose();
+        if a2 != "PumpAll"
+            || p2.take("ValidCards").as_deref() != Some("Creature.blockedByRemembered")
+        {
+            return None;
+        }
+        let kw = p2.take("KW")?;
+        let kw_bits = Self::pump_keyword_bits(&kw)?;
+        if !matches!(p2.take("NumAtt").as_deref(), None | Some("0" | "+0"))
+            || !matches!(p2.take("NumDef").as_deref(), None | Some("0" | "+0"))
+        {
+            return None;
+        }
+        let duration = match p2.take("Duration").as_deref() {
+            None | Some("UntilEndOfTurn") => "Duration::UntilEndOfTurn",
+            Some("UntilEndOfCombat") => "Duration::UntilEndOfCombat",
+            Some(_) => return None,
+        };
+        let s2_sub = p2.take("SubAbility");
+        if !p2.exhausted() {
+            return None;
+        }
+        let mut trailing = s2_sub;
+        if !self.take_clear_remembered_cleanup(&mut trailing) {
+            return None;
+        }
+        let filter_name = self.body.filter_static(
+            "PUMP_ALL",
+            "Filter::And(&[Filter::CREATURE, Filter::BlockedByReferenceThisTurn])",
+        );
+        let destroy = if no_regen {
+            format!("Effect::destroy_no_regen({tgt})")
+        } else {
+            format!("Effect::destroy({tgt})")
+        };
+        *p = probe;
+        *sub = trailing;
+        Some(vec![
+            destroy,
+            format!(
+                "Effect::PumpFilter {{ filter: &{filter_name}, controlled_by: None,                  power: Amount::Fixed(0), toughness: Amount::Fixed(0), keywords: {kw_bits},                  duration: {duration} }}"
+            ),
+        ])
+    }
+
+    /// Consumes a mandatory `Cleanup | ClearRemembered$ True` node from `next`
+    /// and updates `next` to any trailing `SubAbility$`.
+    fn take_clear_remembered_cleanup(&self, next: &mut Option<String>) -> bool {
+        let Some(name) = next.take() else {
+            return false;
+        };
+        let Some(body) = self.svars.get(name.trim()) else {
+            return false;
+        };
+        let Some((api, mut cp)) = Params::parse(body) else {
+            return false;
+        };
+        cp.drop_prose();
+        if api == "Cleanup" && cp.take("ClearRemembered").as_deref() == Some("True") {
+            let after = cp.take("SubAbility");
+            if cp.exhausted() {
+                *next = after;
+                return true;
+            }
+        }
+        false
     }
 
     #[allow(clippy::too_many_lines)]
