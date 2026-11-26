@@ -3582,12 +3582,9 @@ impl Tx<'_> {
                     && (p.has("AddAbility") || p.has("AddTrigger") || p.has("Goad")))
                     || (cmd_zone
                         && !p.has("AffectedZone")
-                        && !matches!(
-                            p.peek("Affected"),
-                            Some(
-                                "You" | "Player" | "Opponent" | "Player.Opponent" | "Player.Chosen"
-                            )
-                        ))
+                        && !p
+                            .peek("Affected")
+                            .is_some_and(super::saga_ward_convoke::is_player_continuous_affected))
             }
             "CantAttack"
             | "CantAttack,CantBlock"
@@ -5066,7 +5063,10 @@ impl Tx<'_> {
         let before_kw = self.body.keywords.len();
         let prev_x = std::mem::replace(&mut self.has_x, false);
         let prev_spell = std::mem::replace(&mut self.on_a_spell, false);
-        let ok = self.static_ability(&svar);
+        let ok = match self.try_extra_static(&svar) {
+            super::saga_ward_convoke::ExtraOutcome::Handled(res) => res,
+            super::saga_ward_convoke::ExtraOutcome::Pass => self.static_ability(&svar),
+        };
         self.has_x = prev_x;
         self.on_a_spell = prev_spell;
         ok?;

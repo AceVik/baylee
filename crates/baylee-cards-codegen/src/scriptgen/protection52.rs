@@ -2,6 +2,7 @@
 //! extensions, retaining strict unknown-key refusal.
 
 use super::saga_ward_convoke::ExtraOutcome;
+use super::statics::StaticEffectZone;
 use super::{Chain, Params, Tx, card_type_const};
 
 impl Tx<'_> {
@@ -235,12 +236,10 @@ impl Tx<'_> {
     /// `OpponentsCantSearch`, and `SearchTakeover`.
     pub(super) fn continuous_player_rule(&mut self, mut p: Params) -> Option<()> {
         p.drop_prose();
-        if !matches!(p.take("EffectZone").as_deref(), None | Some("Battlefield"))
-            || p.has("AffectedZone")
-            || !matches!(p.take("Secondary").as_deref(), None | Some("True"))
-        {
+        if p.has("AffectedZone") || !matches!(p.take("Secondary").as_deref(), None | Some("True")) {
             return self.deny("player-targeted `Continuous` outside battlefield".into());
         }
+        let zone = self.take_static_effect_zone(&mut p, "Continuous")?;
         let Some(affected) = p.take("Affected") else {
             return self.deny("a continuous static with no `Affected$`".into());
         };
@@ -250,7 +249,7 @@ impl Tx<'_> {
             .filter(|s| !s.is_empty())
             .collect();
         if parts.len() > 1 {
-            return self.continuous_mixed_you_and_permanents(&parts, p);
+            return self.continuous_mixed_you_and_permanents(&parts, zone, p);
         }
         let mut mods: Vec<(&str, String)> = Vec::new();
         if let Some(max_hand) = p.take("SetMaxHandSize") {
@@ -302,7 +301,9 @@ impl Tx<'_> {
             return self.deny("unsupported player-targeted `Continuous` static".into());
         }
         for (filter, modifier) in mods {
-            self.push_static_with_cond(filter, &modifier, &cond);
+            self.body
+                .abilities
+                .push(Self::format_static_expr(filter, &modifier, zone, &cond));
         }
         Some(())
     }
@@ -366,7 +367,12 @@ impl Tx<'_> {
         self.deny(format!("player static keyword `{kw}`"))
     }
 
-    fn continuous_mixed_you_and_permanents(&mut self, parts: &[&str], mut p: Params) -> Option<()> {
+    fn continuous_mixed_you_and_permanents(
+        &mut self,
+        parts: &[&str],
+        zone: StaticEffectZone,
+        mut p: Params,
+    ) -> Option<()> {
         let mut saw_you = false;
         let mut perm_parts = Vec::new();
         for &part in parts {
@@ -393,31 +399,35 @@ impl Tx<'_> {
         }
         let perm_filter = self.filter_expr(&perm_parts.join(","))?;
         if kw == "Hexproof" {
-            self.push_static_with_cond(
+            self.body.abilities.push(Self::format_static_expr(
                 "Filter::Any",
                 "Modifier::PlayerHexproof { who: PlayerRel::You }",
+                zone,
                 &cond,
-            );
-            self.push_static_with_cond(
+            ));
+            self.body.abilities.push(Self::format_static_expr(
                 &perm_filter,
                 "Modifier::AddKeyword(KeywordSet::HEXPROOF)",
+                zone,
                 &cond,
-            );
+            ));
             return Some(());
         }
         if let Some(from_ref) = self.resolve_player_protection_filter(&kw) {
-            self.push_static_with_cond(
+            self.body.abilities.push(Self::format_static_expr(
                 "Filter::This",
                 &format!(
                     "Modifier::PlayerProtectionFrom {{ who: PlayerRel::You, from: &{from_ref} }}"
                 ),
+                zone,
                 &cond,
-            );
-            self.push_static_with_cond(
+            ));
+            self.body.abilities.push(Self::format_static_expr(
                 &perm_filter,
                 &format!("Modifier::ProtectionFrom(&{from_ref})"),
+                zone,
                 &cond,
-            );
+            ));
             return Some(());
         }
         self.deny(format!("player static keyword `{kw}`"))

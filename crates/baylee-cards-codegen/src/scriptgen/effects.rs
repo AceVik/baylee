@@ -321,6 +321,9 @@ impl Tx<'_> {
         {
             return Some(effs);
         }
+        if p.peek("LockTokenScript") == Some("True") && p.has("TokenScript") {
+            p.take("LockTokenScript");
+        }
         let Some(stem) = p.take("TokenScript") else {
             return self.deny("a `Token` effect naming no `TokenScript$`".to_string());
         };
@@ -12476,6 +12479,212 @@ impl Tx<'_> {
         )])
     }
 
+    fn consume_cleanup_remembered(
+        &self,
+        next: Option<String>,
+        out: &mut Option<String>,
+    ) -> Option<()> {
+        let Some(name) = next else {
+            *out = None;
+            return Some(());
+        };
+        let body = self.svars.get(name.trim())?;
+        let (api, mut cp) = Params::parse(body)?;
+        cp.drop_prose();
+        if api == "Cleanup" && cp.take("ClearRemembered").as_deref() == Some("True") {
+            *out = cp.take("SubAbility");
+            return cp.exhausted().then_some(());
+        }
+        *out = Some(name);
+        Some(())
+    }
+
+    /// Lower additional `Sacrifice | RememberSacrificed$ True` follow-up patterns
+    /// into `CaptureAffected` (`Garruk, Veiled Butcher` [-2], `Tevesh Szat, Doom of Fools` [+1]).
+    #[allow(clippy::too_many_lines)]
+    pub(super) fn sac_remember_sacrificed_followup(
+        &mut self,
+        p: &mut Params,
+        sub: &mut Option<String>,
+        targets_here: bool,
+    ) -> Option<Vec<String>> {
+        if targets_here || p.peek("RememberSacrificed") != Some("True") {
+            return None;
+        }
+        let saved_unclaimed = self.unclaimed.borrow().clone();
+        let saved_statics = self.body.statics.len();
+        let restore_statics = |this: &mut Self| {
+            (*this.unclaimed.borrow_mut()).clone_from(&saved_unclaimed);
+            this.body.statics.truncate(saved_statics);
+        };
+        let sub_name = sub.as_deref()?.trim().to_string();
+        let sub_body = self.svars.get(&sub_name)?.clone();
+        let (s1_api, mut sp1) = Params::parse(&sub_body)?;
+        sp1.drop_prose();
+
+        // Pattern E (*Garruk, Veiled Butcher* [-2]): each player sacrifices a creature;
+        // if you sacrificed one this way, create a token.
+        if !p.has("Optional")
+            && p.peek("Defined") == Some("Player")
+            && matches!(p.peek("Amount"), None | Some("1"))
+            && s1_api == "Token"
+            && sp1.peek("ConditionDefined") == Some("Remembered")
+            && matches!(sp1.peek("ConditionCompare"), None | Some("GE1" | "EQ1"))
+            && matches!(sp1.peek("TokenAmount"), None | Some("1"))
+            && matches!(sp1.peek("TokenOwner"), None | Some("You"))
+        {
+            let mut probe = p.clone();
+            probe.take("RememberSacrificed");
+            probe.take("Defined");
+            probe.take("Amount");
+            probe.claim_label("SacMessage", "SacValid");
+            let sac_valid = probe.take("SacValid")?;
+            let cond_present = sp1.take("ConditionPresent")?;
+            sp1.take("ConditionDefined");
+            sp1.take("ConditionCompare");
+            sp1.take("TokenAmount");
+            sp1.take("TokenOwner");
+            let stem = sp1.take("TokenScript")?;
+            let after_tok = sp1.take("SubAbility");
+            if !probe.exhausted()
+                || !sp1.exhausted()
+                || sac_valid == "Self"
+                || sac_valid.contains("YouCtrl")
+                || sac_valid.contains("OppCtrl")
+                || sac_valid.contains("Other")
+                || !(cond_present == format!("{sac_valid}.YouCtrl")
+                    || matches!(cond_present.as_str(), "Card.YouCtrl" | "Permanent.YouCtrl"))
+            {
+                restore_statics(self);
+                return None;
+            }
+            let mut trailing = None;
+            if self
+                .consume_cleanup_remembered(after_tok, &mut trailing)
+                .is_none()
+            {
+                restore_statics(self);
+                return None;
+            }
+            let Some(sac_expr) = self.filter_expr(&sac_valid) else {
+                restore_statics(self);
+                return None;
+            };
+            let Some(tokens) = self.tokens else {
+                restore_statics(self);
+                return None;
+            };
+            let Some(tok_body) = tokens.body_fixed(&stem, self.cats) else {
+                restore_statics(self);
+                return None;
+            };
+            let sac_name = self.body.filter_static("SAC", &sac_expr);
+            *p = probe;
+            *sub = trailing;
+            return Some(vec![format!(
+                "Effect::CaptureAffected {{                  first: &[Effect::RepeatEach {{ domain: RepeatDomain::EachPlayer,                  effects: &[Effect::SacrificeFilter {{ who: PlayerRel::EventPlayer,                  filter: &{sac_name} }}] }}],                  then: &[Effect::IfCondition {{ condition: Condition::AmountCompare {{                  left: &Amount::ThisWayBy {{ what: ThisWay::SacrificedCount, who: PlayerRel::You }},                  op: AmountCmp::AtLeast, right: &Amount::Fixed(1) }},                  then: &[Effect::create_token(&generated_tokens::{}, 1)],                  otherwise: &[] }}] }}",
+                tok_body.constant
+            )]);
+        }
+
+        // Pattern F (*Tevesh Szat, Doom of Fools* [+1]): optional sacrifice -> draw N1,
+        // then draw N2 if sacrificed permanent matched an extra filter (e.g. `Card.IsCommander`).
+        if p.peek("Optional") == Some("True")
+            && matches!(p.peek("Defined"), None | Some("You"))
+            && matches!(p.peek("Amount"), None | Some("1"))
+            && s1_api == "Draw"
+            && sp1.peek("ConditionDefined") == Some("Remembered")
+            && sp1.peek("ConditionPresent") == Some("Card")
+            && matches!(sp1.peek("ConditionCompare"), None | Some("GE1" | "EQ1"))
+            && matches!(sp1.peek("Defined"), None | Some("You"))
+        {
+            let mut probe = p.clone();
+            probe.take("Optional");
+            probe.take("Defined");
+            probe.take("Amount");
+            probe.take("RememberSacrificed");
+            probe.claim_label("SacMessage", "SacValid");
+            let sac_valid = probe.take("SacValid")?;
+            sp1.take("ConditionDefined");
+            sp1.take("ConditionPresent");
+            sp1.take("ConditionCompare");
+            sp1.take("Defined");
+            let raw_n1 = sp1.take("NumCards")?;
+            let Some(n1) = raw_n1.trim().parse::<u32>().ok() else {
+                restore_statics(self);
+                return None;
+            };
+            let Some(s2_name) = sp1.take("SubAbility") else {
+                restore_statics(self);
+                return None;
+            };
+            if !probe.exhausted()
+                || !sp1.exhausted()
+                || sac_valid == "Self"
+                || sac_valid.contains("OppCtrl")
+            {
+                restore_statics(self);
+                return None;
+            }
+            let Some(s2_body) = self.svars.get(s2_name.trim()).cloned() else {
+                restore_statics(self);
+                return None;
+            };
+            let Some((s2_api, mut sp2)) = Params::parse(&s2_body) else {
+                restore_statics(self);
+                return None;
+            };
+            sp2.drop_prose();
+            if s2_api != "Draw"
+                || sp2.take("ConditionDefined").as_deref() != Some("Remembered")
+                || !matches!(
+                    sp2.take("ConditionCompare").as_deref(),
+                    None | Some("GE1" | "EQ1")
+                )
+                || !matches!(sp2.take("Defined").as_deref(), None | Some("You"))
+            {
+                restore_statics(self);
+                return None;
+            }
+            let cond_present = sp2.take("ConditionPresent")?;
+            let raw_n2 = sp2.take("NumCards")?;
+            let Some(n2) = raw_n2.trim().parse::<u32>().ok() else {
+                restore_statics(self);
+                return None;
+            };
+            let after_d2 = sp2.take("SubAbility");
+            if !sp2.exhausted() {
+                restore_statics(self);
+                return None;
+            }
+            let mut trailing = None;
+            if self
+                .consume_cleanup_remembered(after_d2, &mut trailing)
+                .is_none()
+            {
+                restore_statics(self);
+                return None;
+            }
+            let Some(sac_expr) = self.filter_expr(&sac_valid) else {
+                restore_statics(self);
+                return None;
+            };
+            let Some(cond_expr) = self.filter_expr(&cond_present) else {
+                restore_statics(self);
+                return None;
+            };
+            let sac_name = self.body.filter_static("SAC", &sac_expr);
+            let cond_name = self.body.filter_static("SAC_CHECK", &cond_expr);
+            *p = probe;
+            *sub = trailing;
+            return Some(vec![format!(
+                "Effect::IfCondition {{ condition: Condition::CanSacrifice(&{sac_name}),                  then: &[Effect::MayDo {{ effects: &[Effect::CaptureAffected {{                  first: &[Effect::SacrificeFilter {{ who: PlayerRel::You, filter: &{sac_name} }}],                  then: &[Effect::IfCondition {{ condition: Condition::AmountCompare {{                  left: &Amount::RememberedCount, op: AmountCmp::AtLeast, right: &Amount::Fixed(1) }},                  then: &[Effect::draw({n1}), Effect::IfCondition {{                  condition: Condition::CapturedMatches(&{cond_name}),                  then: &[Effect::draw({n2})], otherwise: &[] }}],                  otherwise: &[] }}] }}] }}], otherwise: &[] }}"
+            )]);
+        }
+
+        None
+    }
+
     /// `PlayerMaySacrificeNThen`, `PlayerMaySacrificeNOr`, `SacrificeAndIf`,
     /// `SacrificeNOrElse`, `SacrificeOneThen`, or `SacrificeSelfThen`).
     #[allow(clippy::too_many_lines)]
@@ -12688,6 +12897,28 @@ impl Tx<'_> {
             );
         }
         if who != "PlayerRel::You" {
+            if count == 1
+                && check_valid.is_none()
+                && matches!(
+                    who,
+                    "PlayerRel::DefendingPlayer"
+                        | "PlayerRel::Opponent"
+                        | "PlayerRel::Chosen"
+                        | "PlayerRel::ActivePlayer"
+                        | "PlayerRel::ControllerOfTarget"
+                        | "PlayerRel::TargetPlayerOrController"
+                )
+            {
+                let cmp = if on_sac {
+                    "AmountCmp::AtLeast, right: &Amount::Fixed(1)"
+                } else {
+                    "AmountCmp::Equal, right: &Amount::Fixed(0)"
+                };
+                return Some(vec![format!(
+                    "Effect::CaptureAffected {{                      first: &[Effect::SacrificeFilter {{ who: {who}, filter: {sac_filter} }}],                      then: &[Effect::IfCondition {{ condition: Condition::AmountCompare {{                      left: &Amount::RememberedCount, op: {cmp} }},                      then: &[{}], otherwise: &[] }}] }}",
+                    body_effects.join(", ")
+                )]);
+            }
             return None;
         }
         if count == 1 && on_sac {
@@ -13413,9 +13644,73 @@ impl Tx<'_> {
             chain.effects.extend(effects);
             return Some(());
         }
+        (*self.unclaimed.borrow_mut()).clone_from(&saved_unclaimed);
+        self.body.statics.truncate(saved_statics_len);
+        if self.repeat_targeted_tokens(&p, sub, chain).is_some() {
+            return Some(());
+        }
         *self.unclaimed.borrow_mut() = saved_unclaimed;
         self.body.statics.truncate(saved_statics_len);
         self.wave8_repeat_each(p, sub, chain)
+    }
+
+    /// Lower `RepeatEach | DefinedCards$ Targeted | RepeatSubAbility$ <Token>`
+    /// (with inline `ValidTgts$` for *Smoke Spirits' Aid* or chained after an object
+    /// target for *Become Brutes*) into `Effect::ForEachTarget`.
+    fn repeat_targeted_tokens(
+        &mut self,
+        raw_p: &Params,
+        sub: Option<&str>,
+        chain: &mut super::Chain,
+    ) -> Option<()> {
+        if raw_p.peek("DefinedCards") != Some("Targeted") || chain.second_target.is_some() {
+            return None;
+        }
+        let mut probe = raw_p.clone();
+        probe.drop_prose();
+        probe.take("DefinedCards");
+        if let Some(czt) = probe.take("ChangeZoneTable")
+            && czt != "True"
+        {
+            return None;
+        }
+        if let Some(z) = probe.take("Zone")
+            && z != "Battlefield"
+        {
+            return None;
+        }
+        let repeat_sub = probe.take("RepeatSubAbility")?;
+        if probe.has("ValidTgts") {
+            if !self.on_a_spell || chain.target.is_some() {
+                return None;
+            }
+            probe.claim_label("ValidTgtsDesc", "ValidTgts");
+            let valid = probe.take("ValidTgts")?;
+            self.chain_target("RepeatEach", &mut probe, &valid, chain, None)?;
+        }
+        if !chain
+            .target
+            .as_deref()
+            .is_some_and(|t| t.starts_with("TargetSpec::Object("))
+            || chain.second_target.is_some()
+            || !probe.exhausted()
+        {
+            return None;
+        }
+        let rep_body = self.svars.get(repeat_sub.trim())?.clone();
+        let (r_api, mut rp) = Params::parse(&rep_body)?;
+        rp.drop_prose();
+        if r_api != "Token" || rp.peek("AttachedTo") != Some("Remembered") {
+            return None;
+        }
+        let tok_eff = self.wave28d_repeat_token_attached(&mut rp)?;
+        if !rp.exhausted() {
+            return None;
+        }
+        chain
+            .effects
+            .push(format!("Effect::ForEachTarget {{ effects: &[{tok_eff}] }}"));
+        self.chain_sub_ability(sub.map(str::to_string), chain)
     }
 
     #[allow(clippy::too_many_lines)]
