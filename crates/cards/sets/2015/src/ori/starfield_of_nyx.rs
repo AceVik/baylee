@@ -45,7 +45,7 @@ card!(
                 Filter::Not(&Filter::HasSubtype(subtypes::enchantment::AURA)),
                 Filter::Another
             ]),
-            Modifier::AnimateNoncreatureArtifact,
+            Modifier::CreatureWithManaValuePT,
             condition = Some(Condition::ControlCount(&CHECK1, 5))
         ),
     ],

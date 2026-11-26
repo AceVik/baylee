@@ -35,8 +35,8 @@ card!(
             then: &[Effect::IfCondition {
                 condition: Condition::AmountCompare {
                     left: &Amount::RememberedCount,
-                    op: AmountCmp::LessThan,
-                    right: &Amount::Fixed(1)
+                    op: AmountCmp::Equal,
+                    right: &Amount::Fixed(0)
                 },
                 then: &[Effect::SacrificeSelf],
                 otherwise: &[]

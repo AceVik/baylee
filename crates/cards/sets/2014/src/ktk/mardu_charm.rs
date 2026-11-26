@@ -9,7 +9,7 @@
 use crate::generated_tokens;
 use baylee_cards_dsl::prelude::*;
 
-static PUMP_ALL1: Filter = Filter::And(&[Filter::CREATURE, Filter::IsRemembered]);
+static PUMP1: Filter = Filter::And(&[Filter::IsRemembered, Filter::CREATURE]);
 
 card!(
     index = index::MARDU_CHARM,
@@ -38,7 +38,7 @@ card!(
                     amount: Amount::Fixed(2)
                 }],
                 then: &[Effect::PumpFilter {
-                    filter: &PUMP_ALL1,
+                    filter: &PUMP1,
                     controlled_by: None,
                     power: Amount::Fixed(0),
                     toughness: Amount::Fixed(0),

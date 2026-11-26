@@ -520,6 +520,18 @@ struct BlockHalf {
 }
 
 #[allow(clippy::struct_excessive_bools)]
+struct ScriptFlags {
+    has_single_kicker: bool,
+    has_hexproof_from_abilities_pair: bool,
+    has_x_kicker: bool,
+    has_flash: bool,
+    has_delve: bool,
+    has_named_card_static: bool,
+    is_split_front: bool,
+    is_double_faced_front: bool,
+}
+
+#[allow(clippy::struct_excessive_bools)]
 struct Tx<'a> {
     svars: &'a BTreeMap<String, String>,
     script_name: &'a str,
@@ -796,7 +808,7 @@ impl<'a> Tx<'a> {
         })
     }
 
-    fn scan_script_flags(script: &CardScript) -> (bool, bool, bool, bool, bool, bool, bool, bool) {
+    fn scan_script_flags(script: &CardScript) -> ScriptFlags {
         let (mut single_kickers, mut multi_or_dual, mut hex_act, mut hex_trig) =
             (0usize, false, 0usize, 0usize);
         for kw in &script.keywords {
@@ -815,19 +827,19 @@ impl<'a> Tx<'a> {
                 multi_or_dual = true;
             }
         }
-        (
-            !multi_or_dual && single_kickers == 1,
-            hex_act == 1 && hex_trig == 1,
-            Self::wave29b_script_has_x_kicker(script),
-            script.keywords.iter().any(|k| k.trim() == "Flash"),
-            script.keywords.iter().any(|kw| kw == "Delve"),
-            script
+        ScriptFlags {
+            has_single_kicker: !multi_or_dual && single_kickers == 1,
+            has_hexproof_from_abilities_pair: hex_act == 1 && hex_trig == 1,
+            has_x_kicker: Self::wave29b_script_has_x_kicker(script),
+            has_flash: script.keywords.iter().any(|k| k.trim() == "Flash"),
+            has_delve: script.keywords.iter().any(|kw| kw == "Delve"),
+            has_named_card_static: script
                 .rules
                 .iter()
                 .any(|(k, s)| *k == 'S' && s.contains("NamedCard")),
-            script.alternate_mode.as_deref() == Some("Split"),
-            script.alternate_mode.as_deref() == Some("DoubleFaced"),
-        )
+            is_split_front: script.alternate_mode.as_deref() == Some("Split"),
+            is_double_faced_front: script.alternate_mode.as_deref() == Some("DoubleFaced"),
+        }
     }
 
     pub(super) fn new(
@@ -835,16 +847,7 @@ impl<'a> Tx<'a> {
         cats: &'a SubtypeCatalogs,
         tokens: Option<&'a TokenLookup>,
     ) -> Self {
-        let (
-            has_single_kicker,
-            has_hexproof_from_abilities_pair,
-            has_x_kicker,
-            has_flash,
-            has_delve,
-            has_named_card_static,
-            is_split_front,
-            is_double_faced_front,
-        ) = Self::scan_script_flags(script);
+        let f = Self::scan_script_flags(script);
         Self {
             svars: &script.svars,
             script_name: &script.script_name,
@@ -865,7 +868,7 @@ impl<'a> Tx<'a> {
             has_resolution_chosen_number: false,
             has_resolution_chosen_color: false,
             has_resolution_chosen_name: false,
-            has_named_card_static,
+            has_named_card_static: f.has_named_card_static,
             cost_sacrifices_self: false,
             cost_sacrifices_other: false,
             cost_discards_single_for_cost: false,
@@ -886,12 +889,12 @@ impl<'a> Tx<'a> {
             cost_sacrifices_all: false,
             cost_sacrifices_x: false,
             cost_returns_self: false,
-            has_x_kicker,
+            has_x_kicker: f.has_x_kicker,
             in_chain_resolution: false,
             has_x_mana_cost: script.has_x_mana_cost,
-            has_flash,
-            has_single_kicker,
-            has_delve,
+            has_flash: f.has_flash,
+            has_single_kicker: f.has_single_kicker,
+            has_delve: f.has_delve,
             dual_kicker_remap: None,
             trigger_is_self: false,
             trigger_changes_zone_to_graveyard: false,
@@ -910,9 +913,9 @@ impl<'a> Tx<'a> {
             in_graveyard_activation: false,
             in_hand_activation: false,
             in_forecast_activation: false,
-            is_split_front,
+            is_split_front: f.is_split_front,
             room_door: None,
-            is_double_faced_front,
+            is_double_faced_front: f.is_double_faced_front,
             pt: script.pt.as_deref(),
             backup_grants: BTreeMap::new(),
             class_next_level: 2,
@@ -935,7 +938,7 @@ impl<'a> Tx<'a> {
             random_number_range: None,
             etb_chosen_modes: Vec::new(),
             etb_player_chosen_modes: Vec::new(),
-            has_hexproof_from_abilities_pair,
+            has_hexproof_from_abilities_pair: f.has_hexproof_from_abilities_pair,
             commander_tax_pair: cost_modifiers::CommanderTaxLifePair::default(),
             melded_face: None,
             body: CardBody::default(),

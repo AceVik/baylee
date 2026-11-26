@@ -39,19 +39,17 @@ card!(
                 step: StepKind::Upkeep,
                 whose: PlayerRel::You
             },
-            &[Effect::MayDo {
-                effects: &[Effect::ChooseCardEx {
-                    chooser: PlayerRel::You,
-                    zone: ChooseZone::LinkedExile,
-                    filter: &Filter::OwnedByYou,
-                    min: 0,
-                    max: Amount::Fixed(1),
-                    reveal_chosen: false,
-                    movement: ChooseMove::Hand,
-                    not_chosen_movement: ChooseMove::None,
-                    then: &[],
-                    for_unchosen: &[]
-                }]
+            &[Effect::ChooseCardEx {
+                chooser: PlayerRel::You,
+                zone: ChooseZone::LinkedExile,
+                filter: &Filter::OwnedByYou,
+                min: 0,
+                max: Amount::Fixed(1),
+                reveal_chosen: false,
+                movement: ChooseMove::Hand,
+                not_chosen_movement: ChooseMove::None,
+                then: &[],
+                for_unchosen: &[]
             }]
         ),
     ],

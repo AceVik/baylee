@@ -46,7 +46,11 @@ card!(
                     cost!("{7}", TapSelf),
                     &[
                         Effect::exile(TargetSpec::Object(&Filter::NONLAND)),
-                        Effect::TransformSource
+                        Effect::SetState {
+                            subject: StateSubject::Source,
+                            transition: StateTransition::Transform,
+                            if_cant: &[]
+                        }
                     ],
                     timing = ActivationTiming::SorcerySpeed,
                     target = Some(TargetSpec::Object(&Filter::NONLAND))

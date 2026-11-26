@@ -27,7 +27,9 @@ card!(
                 targets = Some(TargetReq::one(TargetSpec::Spell(&Filter::Any)))
             ),
             mode!(
-                &[Effect::ChooseNewTargets],
+                &[Effect::MayDo {
+                    effects: &[Effect::ChooseNewTargets]
+                }],
                 targets = Some(TargetReq::one(TargetSpec::Spell(&Filter::Any)))
             ),
             mode!(

@@ -18,7 +18,9 @@ card!(
     ),],
     abilities = &[spell!(
         &[
-            Effect::ChooseNewTargets,
+            Effect::MayDo {
+                effects: &[Effect::ChooseNewTargets]
+            },
             Effect::CopySpellOrAbility {
                 target: TargetSpec::Spell(&Filter::INSTANT_OR_SORCERY),
                 controller: PlayerRel::You,

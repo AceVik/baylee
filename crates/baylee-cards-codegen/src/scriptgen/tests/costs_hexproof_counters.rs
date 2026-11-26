@@ -295,7 +295,10 @@ fn post_engine_cost_modifiers_and_refusals() {
         "{:?}",
         tezzeret.abilities
     );
+}
 
+#[test]
+fn post_engine_boast_equip_liesa_cost_modifiers() {
     let berserker = read_custom(
         "Name:Dragonkin Berserker\nManaCost:1 R\nTypes:Creature Human Berserker\nPT:2/2\n\
          S:Mode$ ReduceCost | ValidCard$ Card | ValidSpell$ Activated.Boast | Activator$ You | Amount$ X | EffectZone$ Battlefield\n\
@@ -384,7 +387,10 @@ fn post_engine_target_cost_modifiers_and_refusals() {
         "{:?}",
         lullmage.abilities
     );
+}
 
+#[test]
+fn post_engine_not_of_this_world_and_target_refusals() {
     let not_of_this_world = read_custom(
         "Name:Not of This World\nManaCost:7\nTypes:Kindred Instant\n\
          S:Mode$ ReduceCost | ValidCard$ Card.Self | Type$ Spell | Amount$ CostReduction | Relative$ True | EffectZone$ All\n\
