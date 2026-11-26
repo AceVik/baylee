@@ -29,6 +29,30 @@ use zeroize::Zeroizing;
 /// (baylee-central `docs/ai-players.md` §6: `KI-Haus-Expert`).
 pub const AI_NAME_PREFIX: &str = "KI-";
 
+/// How the runner opens an AI account's Central session: the one seam
+/// between the runner and the account's credential. Today's is the
+/// account's password ([`Credentials`]); Central's design replaces it with
+/// an AI runner token an administrator issues per runner machine, which
+/// Central exchanges for an ordinary native session of each account it may
+/// play. After the sign-in, everything runs as for a native client.
+pub trait SignIn: Send + Sync + 'static {
+    /// A fresh native session for the account (blocking).
+    ///
+    /// # Errors
+    /// A refused or failed sign-in.
+    fn sign_in(&self) -> anyhow::Result<Account>;
+
+    /// How long one session may serve before the runner opens a new one at
+    /// a moment the account plays no match; `None` where a new session does
+    /// not end the old one's matches and the keep-alive is enough.
+    fn session_age(&self) -> Option<Duration>;
+}
+
+/// A password session's age before the runner signs in again: Central ends
+/// it twelve hours after the sign-in, and a new sign-in ends the old one's
+/// seats, so it is opened anew while no match runs, well before.
+pub const PASSWORD_SESSION_AGE: Duration = Duration::from_hours(8);
+
 /// Where the password comes from: asked each time the account signs in.
 type PasswordSource = dyn Fn() -> anyhow::Result<Zeroizing<String>> + Send + Sync;
 
@@ -107,7 +131,7 @@ impl Credentials {
         &self.endpoint
     }
 
-    fn sign_in(&self) -> anyhow::Result<Account> {
+    fn password_sign_in(&self) -> anyhow::Result<Account> {
         let password = (self.password)()?;
         Account::login(
             self.endpoint.clone(),
@@ -119,6 +143,16 @@ impl Credentials {
     }
 }
 
+impl SignIn for Credentials {
+    fn sign_in(&self) -> anyhow::Result<Account> {
+        self.password_sign_in()
+    }
+
+    fn session_age(&self) -> Option<Duration> {
+        Some(PASSWORD_SESSION_AGE)
+    }
+}
+
 /// A signed-in AI account, shared by every match it plays: one Central
 /// session, its calls one at a time (they block, so each runs on the
 /// blocking pool).
@@ -126,7 +160,7 @@ impl Credentials {
 pub struct Player(Arc<Inner>);
 
 struct Inner {
-    credentials: Credentials,
+    credentials: Box<dyn SignIn>,
     account: Mutex<(Account, Instant)>,
     name: String,
 }
@@ -158,7 +192,8 @@ impl Player {
     ///
     /// # Errors
     /// A failed sign-in, an unreadable profile, or a name without the label.
-    pub async fn sign_in(credentials: Credentials, disclosure: Disclosure) -> anyhow::Result<Self> {
+    pub async fn sign_in(credentials: impl SignIn, disclosure: Disclosure) -> anyhow::Result<Self> {
+        let credentials: Box<dyn SignIn> = Box::new(credentials);
         let (credentials, account, name) = tokio::task::spawn_blocking(move || {
             let account = credentials.sign_in()?;
             let handle = account
@@ -187,6 +222,16 @@ impl Player {
     #[must_use]
     pub fn name(&self) -> &str {
         &self.0.name
+    }
+
+    /// Whether the session is old enough to be opened anew while the
+    /// account plays no match ([`SignIn::session_age`]).
+    #[must_use]
+    pub fn session_is_old(&self) -> bool {
+        self.0
+            .credentials
+            .session_age()
+            .is_some_and(|age| self.age() >= age)
     }
 
     /// How long ago the account's session was opened.

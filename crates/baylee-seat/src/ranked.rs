@@ -36,7 +36,7 @@ mod tests;
 pub use deck::Frozen;
 pub use game::{Match, MatchOptions, MatchReport, Receipt, play_match};
 pub use link::{LinkOptions, RankedLink, socket_url};
-pub use player::{AI_NAME_PREFIX, Credentials, Player, labelled};
+pub use player::{AI_NAME_PREFIX, Credentials, PASSWORD_SESSION_AGE, Player, SignIn, labelled};
 pub use source::{Assignments, Queue};
 
 use crate::mind::Mind;
@@ -108,10 +108,6 @@ pub struct Settings {
     pub games: Option<u32>,
     /// How often the source is asked for the account's live matches.
     pub poll: Duration,
-    /// How long one Central session may serve before the runner signs in
-    /// again at the next moment it plays no match (Central ends a session
-    /// twelve hours after its sign-in).
-    pub session_age: Duration,
     /// How each match is played.
     pub play: MatchOptions,
 }
@@ -121,7 +117,6 @@ impl Default for Settings {
         Self {
             games: None,
             poll: Duration::from_secs(2),
-            session_age: Duration::from_hours(8),
             play: MatchOptions::default(),
         }
     }
@@ -152,7 +147,7 @@ pub async fn run(
         })
     };
     while settings.games.is_none_or(|games| done < games) {
-        if playing.is_empty() && player.age() >= settings.session_age {
+        if playing.is_empty() && player.session_is_old() {
             player.sign_in_again().await?;
         }
         if wanted(done, playing.len()) {

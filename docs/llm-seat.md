@@ -1441,9 +1441,15 @@ baylee-seat ranked --username <AI account> --deck <its deck id>
 - **One session per account.** A second native sign-in ends the first and
   the account's seats at their hosts, so one session serves every match.
   The runner renews it every ten minutes (it lasts thirty after a renewal),
-  signs in again at a moment it plays no match once the session is eight
-  hours old (Central ends it at twelve), and signs in again at once when
-  Central will not renew it.
+  signs in again at a moment it plays no match once a password session is
+  eight hours old (Central ends it at twelve), and signs in again at once
+  when Central will not renew it.
+- **The sign-in is one seam** (`ranked::SignIn`): the password above is
+  today's, kept for the end-to-end test of today's Central. Central's AI
+  accounts will sign in with an AI runner token an administrator issues
+  per runner machine, exchanged at Central for an ordinary native session
+  of each AI account it may play; that is one more `SignIn`, and the queue,
+  the admission, the relay and the renewal stay as they are.
 - **The deck** is one of the account's own private decks (`--deck <id>`),
   frozen once as the native client freezes it: notes dropped, the rows the
   commitment binds, the mind told the same deck.
